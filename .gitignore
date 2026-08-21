@@ -1,0 +1,22 @@
+# Build output
+/bin/
+/dist/
+*.app
+*.dmg
+
+# Go tooling
+*.test
+coverage.out
+
+# IDE and OS files
+.DS_Store
+.idea/
+.vscode/
+
+# Local data and secrets
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+!.env.example
