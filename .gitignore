@@ -1,6 +1,7 @@
 # Build output
 /bin/
 /dist/
+/nestworth
 *.app
 *.dmg
 
@@ -20,3 +21,4 @@ coverage.out
 .env
 .env.*
 !.env.example
+.codegraph
