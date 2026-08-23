@@ -6,17 +6,15 @@ a Go + Fyne application.
 
 ## Status
 
-The repository is completing the `v0.1.2` Multi-Currency and Portfolio
-milestone. Phases 0–9 are implemented and verified: the Go + Fyne shell now
-supports local multi-currency Accounts, Instruments, Holdings, exact
-valuation, manual and provider quote evidence, explicit Yahoo instrument
-refresh, and Settings-routed Yahoo Finance or Frankfurter FX refresh. The
-release remains unpublished pending the remaining Phase 10 accessibility,
-signing, and distribution checks; its unsigned arm64 `.app` and DMG have been
-built and verified locally.
+The repository implements the `v0.1.3` Family Timeline and History milestone.
+Phases 0–10 are implemented and verified: the Go + Fyne shell supports local
+multi-currency portfolios, immutable change effects, History Origin, replay,
+historical snapshots, a History timeline, and net-worth trends. The unsigned
+arm64 `.app` and DMG build is verified locally. Public distribution remains
+pending manual accessibility review, Developer ID signing, and notarization.
 
-Activity, History, Analytics, Backup/Restore, Import/Export, synchronization,
-and background refresh remain deferred to later releases.
+Backup/Restore, Import/Export, synchronization, and background refresh remain
+deferred to later releases.
 
 ## Run
 

@@ -3,12 +3,12 @@
 ## Current status
 
 The repository is a Go 1.26 module with a Fyne v2.8 desktop shell and the
-v0.1.2 Multi-Currency and Portfolio implementation through Phase 9. The
+v0.1.3 Family Timeline and History implementation through Phase 10. The
 quality gate covers exact domain values, SQLite bootstrap and compatibility,
-onboarding, reference entities, Account transactions, authoritative valuation,
-media normalization, localization, Settings-routed providers, refresh
-partiality, and live Fyne page transitions. Activity, history, analytics,
-recovery, and release packaging remain later work.
+onboarding, portfolio valuation, immutable change effects, replay, historical
+snapshots, localization, live Fyne page transitions, and net-worth trends.
+Recovery remains a later release; public distribution still needs manual
+accessibility, signing, and notarization checks.
 
 ## Prerequisites
 
@@ -51,7 +51,7 @@ On Apple Silicon macOS, build the `.app` and `.dmg` together:
 ./scripts/package-macos.sh
 ```
 The script builds `darwin/arm64`, invokes the Fyne 2.8 packager, stamps the
-Bundle ID `com.nestworth.app`, name `Nestworth`, version `0.1.2`, and build `1`,
+Bundle ID `com.nestworth.app`, name `Nestworth`, version `0.1.3`, and build `1`,
 then creates an unsigned UDZO DMG with an Applications shortcut. Override the
 release metadata for a local release build with `NESTWORTH_VERSION` and
 `NESTWORTH_BUILD`.
@@ -170,9 +170,9 @@ git diff --check
 ```
 
 The current repository includes an unsigned arm64 macOS packaging workflow.
-The checked-in release metadata is v0.1.2/build 1. Signing, notarization,
-isolated-data launch verification, and durable business data remain separate
-Phase 10 release gates.
+The checked-in release metadata is v0.1.3/build 1. The package workflow
+verifies the app and DMG in an isolated build output. Signing, notarization,
+and manual accessibility review remain separate distribution gates.
 
 For an isolated desktop smoke, set `NESTWORTH_DATABASE_PATH` and
 `NESTWORTH_SETTINGS_PATH` to files under a temporary task directory. The app

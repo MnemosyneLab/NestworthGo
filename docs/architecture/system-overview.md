@@ -3,13 +3,13 @@
 ## Current baseline
 
 Nestworth is a local-first desktop application written in Go with Fyne. The
-repository now contains the v0.1.1 backend foundation plus the implemented
-v0.1.2 portfolio line through Phase 9: typed domain contracts, SQLite bootstrap
-and migrations through schema `3`, onboarding, reference management,
-multi-currency Accounts, Instruments, Holdings, quotes, exact Ownership,
-append-only values, media normalization, authoritative valuation, Investments,
-and explicit Yahoo/Frankfurter refresh routing. Fyne renders application
-results; it does not open SQLite, call HTTP, or recalculate financial totals.
+repository contains the v0.1.1 backend foundation, the v0.1.2 portfolio line,
+and the implemented v0.1.3 history milestone through Phase 10: typed domain
+contracts, SQLite bootstrap and migrations through schema `4`, onboarding,
+multi-currency Accounts, Instruments, Holdings, immutable Activities, replay,
+historical snapshots, History, Analytics, exact valuation, and explicit
+Yahoo/Frankfurter refresh routing. Fyne renders application results; it does
+not open SQLite, call HTTP, or recalculate financial totals.
 
 The initial platform targets macOS on Apple Silicon. Fyne keeps the option of
 supporting other desktop platforms later without introducing a second UI stack.

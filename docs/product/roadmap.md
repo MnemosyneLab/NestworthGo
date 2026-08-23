@@ -47,7 +47,7 @@ See the active [v0.1.1 release contract](../releases/v0.1.1.md).
 
 **Theme:** Know what everything is worth.
 
-**Status:** Phases 0–9 implemented; release closeout in progress.
+**Status:** Compatibility baseline complete; public-release closeout pending.
 
 This release adds multi-currency Accounts, Instruments, Holdings, investment
 cash, manual quotes, centralized current valuation, and explicit current Instrument/FX
@@ -68,7 +68,7 @@ See the active [release contract](../releases/v0.1.2.md),
 
 **Theme:** Remember what changed.
 
-**Status:** Designed; implementation follows v0.1.2 release closeout.
+**Status:** Phases 0–10 implemented; public distribution checks pending.
 
 Add a family-facing Starting point, Record change, Undo/Fix, Timeline, and
 net-worth history. The UI asks what happened in ordinary language. Go keeps the
@@ -76,8 +76,9 @@ immutable Activity effects, current projections, replay, historical valuation,
 and daily cache revisions internally without fabricating trades or cash flows
 from existing v0.1.2 state.
 
-Implementation begins only after Phase 10 freezes the actual completed v0.1.2
-schema, interfaces, fixtures, query bounds, provider routing, and UI ownership.
+The implementation is recorded in the [phase evidence](../releases/v0.1.3-implementation-evidence.md).
+The product remains local-first and does not claim public release until manual
+accessibility, signing, and notarization checks are complete.
 
 See the active [release contract](../releases/v0.1.3.md),
 [compatibility baseline](../releases/v0.1.3-baseline.md),

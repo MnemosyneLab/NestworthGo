@@ -56,11 +56,12 @@ type MoneyView struct {
 }
 
 type QuoteEvidenceView struct {
-	Source    QuoteSourceKind
-	SourceKey string
-	QuotedAt  time.Time
-	Freshness Freshness
-	Delayed   bool
+	ObservationID string
+	Source        QuoteSourceKind
+	SourceKey     string
+	QuotedAt      time.Time
+	Freshness     Freshness
+	Delayed       bool
 }
 
 type MissingInputKind string
@@ -85,17 +86,21 @@ type MissingInputView struct {
 // returned Money view. The application owns the authoritative calculation;
 // UI layers consume this vocabulary only.
 type ValuationComponent struct {
-	AccountID        AccountID
-	InstrumentID     *InstrumentID
-	InstrumentName   string
-	InstrumentSymbol string
-	NativeAmount     string
-	NativeCurrency   CurrencyCode
-	BaseAmount       *MoneyView
-	BaseAmountExact  string
-	PriceEvidence    *QuoteEvidenceView
-	FXEvidence       *QuoteEvidenceView
-	Available        bool
+	AccountID                 AccountID
+	HoldingID                 *HoldingID
+	InstrumentID              *InstrumentID
+	StateObservationID        *AccountStateObservationID
+	FXPreferenceObservationID *FXPreferenceObservationID
+	InstrumentName            string
+	InstrumentSymbol          string
+	NativeAmount              string
+	NativeCurrency            CurrencyCode
+	BaseAmount                *MoneyView
+	BaseAmountExact           string
+	PriceEvidence             *QuoteEvidenceView
+	FXEvidence                *QuoteEvidenceView
+	PreferenceObservationID   *InstrumentPreferenceObservationID
+	Available                 bool
 }
 
 type ValuationResult struct {

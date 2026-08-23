@@ -48,6 +48,17 @@ func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (
 			return domain.Instrument{}, err
 		}
 	}
+	origin, err := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
+	if err != nil {
+		return domain.Instrument{}, err
+	}
+	if origin != nil {
+		observation := domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: instrument.ID, SourceKind: instrument.QuoteSource, EffectiveAt: instrument.CreatedAt, CreatedAt: instrument.CreatedAt}
+		if err := s.repository.CreateInstrumentWithObservation(ctx, instrument, observation); err != nil {
+			return domain.Instrument{}, safePortfolioError(err)
+		}
+		return instrument, nil
+	}
 	if err := s.repository.CreateInstrument(ctx, instrument); err != nil {
 		return domain.Instrument{}, safePortfolioError(err)
 	}
@@ -92,7 +103,15 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 			return domain.Instrument{}, err
 		}
 	}
-	if err := s.repository.UpdateInstrument(ctx, updated); err != nil {
+	preferenceObservation, observationErr := s.instrumentPreferenceObservation(ctx, updated)
+	if observationErr != nil {
+		return domain.Instrument{}, observationErr
+	}
+	if preferenceObservation.ID != "" && updated.QuoteSource != current.QuoteSource {
+		if err := s.repository.UpdateInstrumentWithObservation(ctx, updated, preferenceObservation); err != nil {
+			return domain.Instrument{}, safePortfolioError(err)
+		}
+	} else if err := s.repository.UpdateInstrument(ctx, updated); err != nil {
 		return domain.Instrument{}, safePortfolioError(err)
 	}
 	return updated, nil
@@ -134,6 +153,20 @@ func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.Instru
 	parsed, err := domain.ParseQuoteSourceKind(source)
 	if err != nil {
 		return err
+	}
+	if origin, originErr := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID); originErr != nil {
+		return originErr
+	} else if origin != nil {
+		instrument, instrumentErr := s.repository.Instrument(ctx, bootstrap.Household.ID, id)
+		if instrumentErr != nil {
+			return safePortfolioError(instrumentErr)
+		}
+		instrument.QuoteSource = parsed
+		observation, observationErr := s.instrumentPreferenceObservation(ctx, instrument)
+		if observationErr != nil {
+			return observationErr
+		}
+		return safePortfolioError(s.repository.SetInstrumentQuoteSourceWithObservation(ctx, bootstrap.Household.ID, id, parsed, observation))
 	}
 	return safePortfolioError(s.repository.SetInstrumentQuoteSource(ctx, bootstrap.Household.ID, id, parsed))
 }
@@ -193,6 +226,27 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 	if household == nil {
 		return domain.Holding{}, onboardingRequired()
 	}
+	origin, originErr := s.repository.HistoryOrigin(ctx, household.ID)
+	if originErr != nil {
+		return domain.Holding{}, originErr
+	}
+	if origin != nil && !quantity.IsZero() {
+		zero, zeroErr := domain.ParseQuantity("0")
+		if zeroErr != nil {
+			return domain.Holding{}, zeroErr
+		}
+		created := holding
+		created.Quantity = zero
+		state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.now(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: map[domain.HoldingID]domain.ChangeHoldingState{holding.ID: {ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero}}}
+		preview, previewErr := domain.PreviewChange(state, domain.PositionAdjustmentInput{HouseholdID: origin.HouseholdID, HoldingID: holding.ID, Quantity: quantity, Added: true, EffectiveAt: s.now()})
+		if previewErr != nil {
+			return domain.Holding{}, previewErr
+		}
+		if err := s.repository.CreateHoldingWithActivity(ctx, created, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}, s.now()); err != nil {
+			return domain.Holding{}, safePortfolioError(err)
+		}
+		return holding, nil
+	}
 	if err := s.repository.CreateHolding(ctx, holding); err != nil {
 		return domain.Holding{}, safePortfolioError(err)
 	}
@@ -230,6 +284,11 @@ func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input 
 		return domain.Holding{}, &domain.Error{Code: domain.ErrValidation, Field: "holdingId", Message: "holding is archived"}
 	}
 	if input.QuantitySet || input.Quantity != "" {
+		if origin, originErr := s.repository.HistoryOrigin(ctx, household.ID); originErr != nil {
+			return domain.Holding{}, originErr
+		} else if origin != nil {
+			return domain.Holding{}, &domain.Error{Code: domain.ErrConflict, Message: "Holding quantity changes must be recorded as a change"}
+		}
 		quantity, parseErr := domain.ParseQuantity(input.Quantity)
 		if parseErr != nil {
 			return domain.Holding{}, parseErr
@@ -251,12 +310,25 @@ func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input 
 }
 
 func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archived bool) error {
-	_, household, err := s.portfolioSnapshot(ctx)
+	snapshot, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return err
 	}
 	if household == nil {
 		return onboardingRequired()
+	}
+	origin, originErr := s.repository.HistoryOrigin(ctx, household.ID)
+	if originErr != nil {
+		return originErr
+	}
+	if archived && origin != nil {
+		current, found := holdingFromSnapshot(snapshot, id)
+		if !found {
+			return &domain.Error{Code: domain.ErrNotFound, Message: "holding was not found"}
+		}
+		if !current.Quantity.IsZero() {
+			return &domain.Error{Code: domain.ErrConflict, Message: "a Holding must have zero quantity before it is archived"}
+		}
 	}
 	return safePortfolioError(s.repository.SetHoldingArchive(ctx, household.ID, id, archived, s.now()))
 }
@@ -291,6 +363,40 @@ func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.A
 	value, err := domain.NewAccountCashValue(record.Account, money, when, s.now())
 	if err != nil {
 		return domain.AccountCashValue{}, err
+	}
+	if origin, originErr := s.repository.HistoryOrigin(ctx, household.ID); originErr != nil {
+		return domain.AccountCashValue{}, originErr
+	} else if origin != nil {
+		state, stateErr := s.changeState(ctx)
+		if stateErr != nil {
+			return domain.AccountCashValue{}, stateErr
+		}
+		current, currentErr := currentCashAmount(state, accountID, parsedCurrency)
+		if currentErr != nil {
+			return domain.AccountCashValue{}, currentErr
+		}
+		delta, added, differenceErr := differenceMoney(money, current)
+		if differenceErr != nil {
+			return domain.AccountCashValue{}, differenceErr
+		}
+		if delta.IsZero() {
+			return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrNoChange, Message: "the new cash value is unchanged"}
+		}
+		var command any
+		if added {
+			command = domain.MoneyAddedInput{HouseholdID: household.ID, AccountID: accountID, Amount: delta, Reason: domain.ReasonReconciliation, EffectiveAt: when}
+		} else {
+			command = domain.MoneyRemovedInput{HouseholdID: household.ID, AccountID: accountID, Amount: delta, Reason: domain.ReasonReconciliation, EffectiveAt: when}
+		}
+		preview, commitErr := s.RecordChange(ctx, command)
+		if commitErr != nil {
+			return domain.AccountCashValue{}, commitErr
+		}
+		resultMoney, parseErr := domain.ParseMoney(preview.Resulting[0].Amount, preview.Resulting[0].Currency)
+		if parseErr != nil {
+			return domain.AccountCashValue{}, parseErr
+		}
+		return domain.NewAccountCashValue(record.Account, resultMoney, preview.Activity.EffectiveAt, preview.Activity.CreatedAt)
 	}
 	if err := s.repository.AppendAccountCashValue(ctx, value); err != nil {
 		return domain.AccountCashValue{}, safePortfolioError(err)
@@ -373,8 +479,18 @@ func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, sou
 	if err != nil {
 		return domain.FXPreference{}, err
 	}
-	if err := s.repository.SetFXPreference(ctx, preference); err != nil {
-		return domain.FXPreference{}, safePortfolioError(err)
+	observation, observationErr := s.fxPreferenceObservation(ctx, preference)
+	if observationErr != nil {
+		return domain.FXPreference{}, observationErr
+	}
+	var saveErr error
+	if observation.ID != "" {
+		saveErr = s.repository.SetFXPreferenceWithObservation(ctx, preference, observation)
+	} else {
+		saveErr = s.repository.SetFXPreference(ctx, preference)
+	}
+	if saveErr != nil {
+		return domain.FXPreference{}, safePortfolioError(saveErr)
 	}
 	return preference, nil
 }

@@ -372,7 +372,9 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMoneyView(t, afterArchive.ValuedSubtotal, "0.0001", "CNY")
+	// Archiving an Instrument stops new writes but retains an active Holding's
+	// valuation evidence until the Holding itself is archived or reaches zero.
+	assertMoneyView(t, afterArchive.ValuedSubtotal, "999.0001", "CNY")
 }
 
 func TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX(t *testing.T) {

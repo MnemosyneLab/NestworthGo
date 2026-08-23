@@ -19,61 +19,63 @@ func (r *Repository) ReadPortfolioSnapshot(ctx context.Context, filter domain.Ac
 	if err != nil {
 		return domain.PortfolioSnapshot{}, err
 	}
-	fail := func(cause error) (domain.PortfolioSnapshot, error) {
+	snapshot, err := readPortfolioSnapshotQuery(ctx, tx, filter)
+	if err != nil {
 		_ = tx.Rollback()
-		return domain.PortfolioSnapshot{}, cause
-	}
-	household, err := scanHousehold(tx.QueryRowContext(ctx, `SELECT id, name, base_currency, created_at, updated_at FROM households WHERE singleton_key = 1`))
-	if err != nil {
-		return fail(err)
-	}
-	if household == nil {
-		if err := tx.Commit(); err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-		return domain.PortfolioSnapshot{}, nil
-	}
-	members, err := listMembersQuery(ctx, tx, true)
-	if err != nil {
-		return fail(err)
-	}
-	institutions, err := listInstitutionsQuery(ctx, tx, true)
-	if err != nil {
-		return fail(err)
-	}
-	groups, err := listGroupsQuery(ctx, tx, true)
-	if err != nil {
-		return fail(err)
-	}
-	accounts, err := listAccountRecords(ctx, tx, household.ID, filter)
-	if err != nil {
-		return fail(err)
-	}
-	instruments, err := listInstrumentsQuery(ctx, tx, household.ID, true)
-	if err != nil {
-		return fail(err)
-	}
-	holdings, err := listHoldingsQuery(ctx, tx, household.ID, true)
-	if err != nil {
-		return fail(err)
-	}
-	cashValues, err := listCashValuesQuery(ctx, tx, household.ID)
-	if err != nil {
-		return fail(err)
-	}
-	instrumentQuotes, err := listInstrumentQuotesQuery(ctx, tx, household.ID)
-	if err != nil {
-		return fail(err)
-	}
-	fxQuotes, err := listLatestFXQuotesQuery(ctx, tx, household.ID)
-	if err != nil {
-		return fail(err)
-	}
-	fxPreferences, err := listFXPreferencesQuery(ctx, tx, household.ID)
-	if err != nil {
-		return fail(err)
+		return domain.PortfolioSnapshot{}, err
 	}
 	if err := tx.Commit(); err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	return snapshot, nil
+}
+
+func readPortfolioSnapshotQuery(ctx context.Context, query queryer, filter domain.AccountFilter) (domain.PortfolioSnapshot, error) {
+	household, err := scanHousehold(query.QueryRowContext(ctx, `SELECT id, name, base_currency, created_at, updated_at FROM households WHERE singleton_key = 1`))
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	if household == nil {
+		return domain.PortfolioSnapshot{}, nil
+	}
+	members, err := listMembersQuery(ctx, query, true)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	institutions, err := listInstitutionsQuery(ctx, query, true)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	groups, err := listGroupsQuery(ctx, query, true)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	accounts, err := listAccountRecords(ctx, query, household.ID, filter)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	instruments, err := listInstrumentsQuery(ctx, query, household.ID, true)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	holdings, err := listHoldingsQuery(ctx, query, household.ID, true)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	cashValues, err := listCashValuesQuery(ctx, query, household.ID)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	instrumentQuotes, err := listInstrumentQuotesQuery(ctx, query, household.ID)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	fxQuotes, err := listLatestFXQuotesQuery(ctx, query, household.ID)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
+	fxPreferences, err := listFXPreferencesQuery(ctx, query, household.ID)
+	if err != nil {
 		return domain.PortfolioSnapshot{}, err
 	}
 	return domain.PortfolioSnapshot{
@@ -96,6 +98,24 @@ func (r *Repository) CreateInstrument(ctx context.Context, instrument domain.Ins
 	})
 }
 
+func (r *Repository) CreateInstrumentWithObservation(ctx context.Context, instrument domain.Instrument, observation domain.InstrumentPreferenceObservation) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		if err := ensureHousehold(ctx, tx, instrument.HouseholdID); err != nil {
+			return err
+		}
+		if err := validateInstrumentBinding(instrument); err != nil {
+			return err
+		}
+		if observation.InstrumentID != instrument.ID || observation.SourceKind != instrument.QuoteSource || observation.ID == "" || observation.EffectiveAt.IsZero() || observation.CreatedAt.IsZero() {
+			return &domain.Error{Code: domain.ErrIntegrity, Message: "instrument creation observation does not match the Instrument"}
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, logo_asset_id, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableID(instrument.LogoAssetID), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt)); err != nil {
+			return mapPortfolioWriteError(err, "instrument")
+		}
+		return appendInstrumentPreferenceObservationTx(ctx, tx, observation)
+	})
+}
+
 func (r *Repository) UpdateInstrument(ctx context.Context, instrument domain.Instrument) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		if err := validateInstrumentBinding(instrument); err != nil {
@@ -105,7 +125,29 @@ func (r *Repository) UpdateInstrument(ctx context.Context, instrument domain.Ins
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
-		return requireAffected(result, "instrument")
+		if err := requireAffected(result, "instrument"); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *Repository) UpdateInstrumentWithObservation(ctx context.Context, instrument domain.Instrument, observation domain.InstrumentPreferenceObservation) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		if err := validateInstrumentBinding(instrument); err != nil {
+			return err
+		}
+		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, logo_asset_id = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableID(instrument.LogoAssetID), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
+		if err != nil {
+			return mapPortfolioWriteError(err, "instrument")
+		}
+		if err := requireAffected(result, "instrument"); err != nil {
+			return err
+		}
+		if observation.InstrumentID != instrument.ID || observation.SourceKind != instrument.QuoteSource {
+			return &domain.Error{Code: domain.ErrIntegrity, Message: "instrument preference observation does not match the updated Instrument"}
+		}
+		return appendInstrumentPreferenceObservationTx(ctx, tx, observation)
 	})
 }
 
@@ -144,7 +186,25 @@ func (r *Repository) SetInstrumentArchive(ctx context.Context, householdID domai
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
-		return requireAffected(result, "instrument")
+		if err := requireAffected(result, "instrument"); err != nil {
+			return err
+		}
+		var timezone string
+		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&timezone); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return err
+		}
+		var archivedAt *time.Time
+		if archived {
+			value := now.UTC()
+			archivedAt = &value
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO instrument_state_observations(id, instrument_id, effective_at, archived_at, activity_id, created_at) VALUES(?, ?, ?, ?, ?, ?)`, domain.NewInstrumentStateObservationID().String(), id.String(), formatTimestamp(now), nullableTime(archivedAt), nil, formatTimestamp(now)); err != nil {
+			return err
+		}
+		return markHistoryDirtyTx(ctx, tx, householdID, observationEffectiveDate(now, timezone), timezone, now)
 	})
 }
 
@@ -176,7 +236,40 @@ func (r *Repository) SetInstrumentQuoteSource(ctx context.Context, householdID d
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
-		return requireAffected(result, "instrument")
+		if err := requireAffected(result, "instrument"); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *Repository) SetInstrumentQuoteSourceWithObservation(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID, source domain.QuoteSourceKind, observation domain.InstrumentPreferenceObservation) error {
+	parsedSource, err := domain.ParseQuoteSourceKind(string(source))
+	if err != nil {
+		return err
+	}
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		var providerKey, providerSymbol sql.NullString
+		if err := tx.QueryRowContext(ctx, `SELECT provider_key, provider_symbol FROM instruments WHERE id = ? AND household_id = ? AND archived_at IS NULL`, id.String(), householdID.String()).Scan(&providerKey, &providerSymbol); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return &domain.Error{Code: domain.ErrNotFound, Message: "instrument was not found"}
+			}
+			return err
+		}
+		if parsedSource == domain.QuoteSourceProvider && (!providerKey.Valid || strings.TrimSpace(providerKey.String) == "" || !providerSymbol.Valid || strings.TrimSpace(providerSymbol.String) == "") {
+			return &domain.Error{Code: domain.ErrValidation, Field: "provider", Message: "provider key and symbol are required when Provider is selected"}
+		}
+		result, err := tx.ExecContext(ctx, `UPDATE instruments SET quote_source = ?, updated_at = ? WHERE id = ? AND household_id = ? AND archived_at IS NULL`, string(parsedSource), formatTimestamp(observation.CreatedAt), id.String(), householdID.String())
+		if err != nil {
+			return mapPortfolioWriteError(err, "instrument")
+		}
+		if err := requireAffected(result, "instrument"); err != nil {
+			return err
+		}
+		if observation.InstrumentID != id || observation.SourceKind != parsedSource {
+			return &domain.Error{Code: domain.ErrIntegrity, Message: "instrument preference observation does not match the updated Instrument"}
+		}
+		return appendInstrumentPreferenceObservationTx(ctx, tx, observation)
 	})
 }
 
@@ -185,8 +278,35 @@ func (r *Repository) CreateHolding(ctx context.Context, holding domain.Holding) 
 		if err := validateHoldingReferences(ctx, tx, holding.AccountID, holding.InstrumentID, nil); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO holdings(id, account_id, instrument_id, quantity, note, sort_order, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, holding.ID.String(), holding.AccountID.String(), holding.InstrumentID.String(), holding.Quantity.Canonical(), nullableString(holding.Note), holding.SortOrder, formatTimestamp(holding.CreatedAt), formatTimestamp(holding.UpdatedAt), nullableTime(holding.ArchivedAt))
-		return mapPortfolioWriteError(err, "holding")
+		return insertHolding(ctx, tx, holding)
+	})
+}
+
+func (r *Repository) CreateHoldingWithActivity(ctx context.Context, holding domain.Holding, commit domain.ActivityCommit, asOf time.Time) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		if err := validateHoldingReferences(ctx, tx, holding.AccountID, holding.InstrumentID, nil); err != nil {
+			return err
+		}
+		if commit.Activity.HouseholdID == "" {
+			return &domain.Error{Code: domain.ErrInvalidChange, Field: "householdId", Message: "activity Household is required"}
+		}
+		var householdID, timezone string
+		if err := tx.QueryRowContext(ctx, `SELECT a.household_id, o.timezone FROM accounts a JOIN history_origins o ON o.household_id = a.household_id WHERE a.id = ?`, holding.AccountID.String()).Scan(&householdID, &timezone); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+			}
+			return err
+		}
+		if householdID != commit.Activity.HouseholdID.String() {
+			return &domain.Error{Code: domain.ErrInvalidChange, Field: "householdId", Message: "activity Household does not match the Holding"}
+		}
+		if err := insertHolding(ctx, tx, holding); err != nil {
+			return err
+		}
+		if err := commitActivityTx(ctx, tx, commit, asOf); err != nil {
+			return err
+		}
+		return markHistoryDirtyTx(ctx, tx, commit.Activity.HouseholdID, commit.Activity.EffectiveLocalDate, timezone, asOf)
 	})
 }
 
@@ -254,7 +374,25 @@ func (r *Repository) SetHoldingArchive(ctx context.Context, householdID domain.H
 		if err != nil {
 			return mapPortfolioWriteError(err, "holding")
 		}
-		return requireAffected(result, "holding")
+		if err := requireAffected(result, "holding"); err != nil {
+			return err
+		}
+		var timezone string
+		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&timezone); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return err
+		}
+		var archivedAt *time.Time
+		if archived {
+			value := now.UTC()
+			archivedAt = &value
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO holding_state_observations(id, holding_id, effective_at, archived_at, activity_id, created_at) VALUES(?, ?, ?, ?, ?, ?)`, domain.NewHoldingStateObservationID().String(), id.String(), formatTimestamp(now), nullableTime(archivedAt), nil, formatTimestamp(now)); err != nil {
+			return err
+		}
+		return markHistoryDirtyTx(ctx, tx, householdID, observationEffectiveDate(now, timezone), timezone, now)
 	})
 }
 
@@ -290,7 +428,10 @@ func (r *Repository) ListAccountCashValues(ctx context.Context, accountID domain
 
 func (r *Repository) AppendInstrumentQuote(ctx context.Context, quote domain.InstrumentQuote) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		return appendInstrumentQuoteTx(ctx, tx, quote)
+		if err := appendInstrumentQuoteTx(ctx, tx, quote); err != nil {
+			return err
+		}
+		return markQuoteHistoryDirtyTx(ctx, tx, quote.InstrumentID, quote.QuotedAt, quote.CreatedAt)
 	})
 }
 
@@ -327,6 +468,11 @@ func (r *Repository) AppendProviderInstrumentQuoteIfChanged(ctx context.Context,
 			return err
 		}
 		inserted = count == 1
+		if inserted {
+			if err := markQuoteHistoryDirtyTx(ctx, tx, quote.InstrumentID, quote.QuotedAt, quote.CreatedAt); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	return inserted, err
@@ -337,11 +483,26 @@ func (r *Repository) AppendInstrumentQuoteAndSelectManual(ctx context.Context, q
 		if err := appendInstrumentQuoteTx(ctx, tx, quote); err != nil {
 			return err
 		}
+		if err := markQuoteHistoryDirtyTx(ctx, tx, quote.InstrumentID, quote.QuotedAt, quote.CreatedAt); err != nil {
+			return err
+		}
 		result, err := tx.ExecContext(ctx, `UPDATE instruments SET quote_source = 'manual', updated_at = ? WHERE id = ? AND archived_at IS NULL`, formatTimestamp(quote.CreatedAt), quote.InstrumentID.String())
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
-		return requireAffected(result, "instrument")
+		if err := requireAffected(result, "instrument"); err != nil {
+			return err
+		}
+		if exists, err := historyOriginExistsTx(ctx, tx, quote.InstrumentID); err != nil {
+			return err
+		} else if exists {
+			effectiveAt, err := clampHistoryEffectiveAtTx(ctx, tx, quote.InstrumentID, quote.QuotedAt)
+			if err != nil {
+				return err
+			}
+			return appendInstrumentPreferenceObservationTx(ctx, tx, domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: quote.InstrumentID, SourceKind: domain.QuoteSourceManual, EffectiveAt: effectiveAt, CreatedAt: quote.CreatedAt})
+		}
+		return nil
 	})
 }
 
@@ -356,7 +517,10 @@ func (r *Repository) ListInstrumentQuotes(ctx context.Context, instrumentID doma
 
 func (r *Repository) AppendFXQuote(ctx context.Context, quote domain.FXQuote) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		return appendFXQuoteTx(ctx, tx, quote)
+		if err := appendFXQuoteTx(ctx, tx, quote); err != nil {
+			return err
+		}
+		return markFXQuoteHistoryDirtyTx(ctx, tx, quote.HouseholdID, quote.QuotedAt, quote.CreatedAt)
 	})
 }
 
@@ -385,6 +549,11 @@ func (r *Repository) AppendProviderFXQuoteIfChanged(ctx context.Context, quote d
 			return err
 		}
 		inserted = count == 1
+		if inserted {
+			if err := markFXQuoteHistoryDirtyTx(ctx, tx, quote.HouseholdID, quote.QuotedAt, quote.CreatedAt); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 	return inserted, err
@@ -395,12 +564,27 @@ func (r *Repository) AppendFXQuoteAndSelectManual(ctx context.Context, quote dom
 		if err := appendFXQuoteTx(ctx, tx, quote); err != nil {
 			return err
 		}
+		if err := markFXQuoteHistoryDirtyTx(ctx, tx, quote.HouseholdID, quote.QuotedAt, quote.CreatedAt); err != nil {
+			return err
+		}
 		a, b, err := domain.NormalizeFXPair(quote.BaseCurrency, quote.QuoteCurrency)
 		if err != nil {
 			return err
 		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO fx_preferences(household_id, currency_a, currency_b, source_kind, created_at, updated_at) VALUES(?, ?, ?, 'manual', ?, ?) ON CONFLICT(household_id, currency_a, currency_b) DO UPDATE SET source_kind = 'manual', updated_at = excluded.updated_at`, quote.HouseholdID.String(), a.String(), b.String(), formatTimestamp(quote.CreatedAt), formatTimestamp(quote.CreatedAt))
-		return mapPortfolioWriteError(err, "FX preference")
+		if err := mapPortfolioWriteError(err, "FX preference"); err != nil {
+			return err
+		}
+		if exists, err := historyOriginExistsForHouseholdTx(ctx, tx, quote.HouseholdID); err != nil {
+			return err
+		} else if exists {
+			effectiveAt, err := clampFXHistoryEffectiveAtTx(ctx, tx, quote.HouseholdID, quote.QuotedAt)
+			if err != nil {
+				return err
+			}
+			return appendFXPreferenceObservationTx(ctx, tx, domain.FXPreferenceObservation{ID: domain.NewFXPreferenceObservationID(), HouseholdID: quote.HouseholdID, CurrencyA: a, CurrencyB: b, SourceKind: domain.QuoteSourceManual, EffectiveAt: effectiveAt, CreatedAt: quote.CreatedAt})
+		}
+		return nil
 	})
 }
 
@@ -420,6 +604,22 @@ func (r *Repository) SetFXPreference(ctx context.Context, preference domain.FXPr
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO fx_preferences(household_id, currency_a, currency_b, source_kind, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(household_id, currency_a, currency_b) DO UPDATE SET source_kind = excluded.source_kind, updated_at = excluded.updated_at`, preference.HouseholdID.String(), preference.CurrencyA.String(), preference.CurrencyB.String(), string(preference.SourceKind), formatTimestamp(preference.CreatedAt), formatTimestamp(preference.UpdatedAt))
 		return mapPortfolioWriteError(err, "FX preference")
+	})
+}
+
+func (r *Repository) SetFXPreferenceWithObservation(ctx context.Context, preference domain.FXPreference, observation domain.FXPreferenceObservation) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		if err := ensureHousehold(ctx, tx, preference.HouseholdID); err != nil {
+			return err
+		}
+		if observation.HouseholdID != preference.HouseholdID || observation.CurrencyA != preference.CurrencyA || observation.CurrencyB != preference.CurrencyB || observation.SourceKind != preference.SourceKind {
+			return &domain.Error{Code: domain.ErrIntegrity, Message: "FX preference observation does not match the updated preference"}
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO fx_preferences(household_id, currency_a, currency_b, source_kind, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?) ON CONFLICT(household_id, currency_a, currency_b) DO UPDATE SET source_kind = excluded.source_kind, updated_at = excluded.updated_at`, preference.HouseholdID.String(), preference.CurrencyA.String(), preference.CurrencyB.String(), string(preference.SourceKind), formatTimestamp(preference.CreatedAt), formatTimestamp(preference.UpdatedAt))
+		if err != nil {
+			return mapPortfolioWriteError(err, "FX preference")
+		}
+		return appendFXPreferenceObservationTx(ctx, tx, observation)
 	})
 }
 
@@ -452,6 +652,11 @@ func validateInstrumentBinding(instrument domain.Instrument) error {
 		return &domain.Error{Code: domain.ErrValidation, Field: "provider", Message: "provider key and symbol are required when Provider is selected"}
 	}
 	return nil
+}
+
+func insertHolding(ctx context.Context, tx *sql.Tx, holding domain.Holding) error {
+	_, err := tx.ExecContext(ctx, `INSERT INTO holdings(id, account_id, instrument_id, quantity, note, sort_order, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, holding.ID.String(), holding.AccountID.String(), holding.InstrumentID.String(), holding.Quantity.Canonical(), nullableString(holding.Note), holding.SortOrder, formatTimestamp(holding.CreatedAt), formatTimestamp(holding.UpdatedAt), nullableTime(holding.ArchivedAt))
+	return mapPortfolioWriteError(err, "holding")
 }
 
 func validateHoldingReferences(ctx context.Context, tx *sql.Tx, accountID domain.AccountID, instrumentID domain.InstrumentID, retainedHolding *domain.HoldingID) error {
@@ -595,6 +800,15 @@ func listInstrumentQuotesQuery(ctx context.Context, query queryer, householdID d
 	return scanInstrumentQuotes(rows)
 }
 
+func listAllInstrumentQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) ([]domain.InstrumentQuote, error) {
+	rows, err := query.QueryContext(ctx, `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? AND q.quoted_at <= ? ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`, householdID.String(), formatTimestamp(cutoff))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanInstrumentQuotes(rows)
+}
+
 func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.FXQuote, error) {
 	rows, err := query.QueryContext(ctx, `WITH candidates AS (
 			SELECT q.*,
@@ -613,6 +827,15 @@ func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID dom
 				OR (newer.quoted_at = q.quoted_at AND newer.created_at = q.created_at AND newer.id > q.id))
 		)
 		ORDER BY q.currency_a ASC, q.currency_b ASC, q.source_kind ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`, householdID.String())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanFXQuotes(rows)
+}
+
+func listAllFXQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) ([]domain.FXQuote, error) {
+	rows, err := query.QueryContext(ctx, `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? AND quoted_at <= ? ORDER BY base_currency, quote_currency, quoted_at, created_at, id`, householdID.String(), formatTimestamp(cutoff))
 	if err != nil {
 		return nil, err
 	}
@@ -968,4 +1191,82 @@ func appendFXQuoteTx(ctx context.Context, tx *sql.Tx, quote domain.FXQuote) erro
 	}
 	_, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, quote.ID.String(), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed))
 	return mapPortfolioWriteError(err, "FX quote")
+}
+
+func markQuoteHistoryDirtyTx(ctx context.Context, tx *sql.Tx, instrumentID domain.InstrumentID, quotedAt, createdAt time.Time) error {
+	var householdID string
+	var timezone sql.NullString
+	if err := tx.QueryRowContext(ctx, `SELECT i.household_id, o.timezone FROM instruments i LEFT JOIN history_origins o ON o.household_id = i.household_id WHERE i.id = ?`, instrumentID.String()).Scan(&householdID, &timezone); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &domain.Error{Code: domain.ErrNotFound, Message: "instrument was not found"}
+		}
+		return err
+	}
+	if !timezone.Valid || timezone.String == "" {
+		return nil
+	}
+	household, err := domain.ParseHouseholdID(householdID)
+	if err != nil {
+		return err
+	}
+	return markHistoryDirtyTx(ctx, tx, household, observationEffectiveDate(quotedAt, timezone.String), timezone.String, createdAt)
+}
+
+func markFXQuoteHistoryDirtyTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, quotedAt, createdAt time.Time) error {
+	var timezone string
+	if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&timezone); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	return markHistoryDirtyTx(ctx, tx, householdID, observationEffectiveDate(quotedAt, timezone), timezone, createdAt)
+}
+
+func historyOriginExistsTx(ctx context.Context, tx *sql.Tx, instrumentID domain.InstrumentID) (bool, error) {
+	var count int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM history_origins o JOIN instruments i ON i.household_id = o.household_id WHERE i.id = ?`, instrumentID.String()).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func historyOriginExistsForHouseholdTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID) (bool, error) {
+	var count int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&count); err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func clampHistoryEffectiveAtTx(ctx context.Context, tx *sql.Tx, instrumentID domain.InstrumentID, requested time.Time) (time.Time, error) {
+	var startedAt string
+	if err := tx.QueryRowContext(ctx, `SELECT o.started_at FROM history_origins o JOIN instruments i ON i.household_id = o.household_id WHERE i.id = ?`, instrumentID.String()).Scan(&startedAt); err != nil {
+		return time.Time{}, err
+	}
+	origin, err := time.Parse(time.RFC3339Nano, startedAt)
+	if err != nil {
+		return time.Time{}, &domain.Error{Code: domain.ErrIntegrity, Message: "stored history Starting point is invalid"}
+	}
+	requested = requested.UTC()
+	if requested.Before(origin.UTC()) {
+		return origin.UTC(), nil
+	}
+	return requested, nil
+}
+
+func clampFXHistoryEffectiveAtTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, requested time.Time) (time.Time, error) {
+	var startedAt string
+	if err := tx.QueryRowContext(ctx, `SELECT started_at FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&startedAt); err != nil {
+		return time.Time{}, err
+	}
+	origin, err := time.Parse(time.RFC3339Nano, startedAt)
+	if err != nil {
+		return time.Time{}, &domain.Error{Code: domain.ErrIntegrity, Message: "stored history Starting point is invalid"}
+	}
+	requested = requested.UTC()
+	if requested.Before(origin.UTC()) {
+		return origin.UTC(), nil
+	}
+	return requested, nil
 }

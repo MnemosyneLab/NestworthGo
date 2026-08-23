@@ -198,6 +198,7 @@ func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, recor
 	baseTotal := decimal.Zero
 	hasBase := false
 	add := func(component domain.ValuationComponent, missing []domain.MissingInputView) {
+		component.StateObservationID = record.StateObservationID
 		model.Components = append(model.Components, component)
 		model.MissingInputs = append(model.MissingInputs, missing...)
 		if !component.Available {
@@ -218,8 +219,13 @@ func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, recor
 			return holdings[i].ID.String() < holdings[j].ID.String()
 		})
 		for _, holding := range holdings {
+			if holding.ArchivedAt != nil {
+				continue
+			}
 			instrument, ok := instruments[holding.InstrumentID]
-			if !ok || instrument.ArchivedAt != nil {
+			// Archiving an Instrument stops new holdings and quote writes, but
+			// does not erase an active retained Holding from valuation/history.
+			if !ok {
 				continue
 			}
 			component, missing, err := v.valueHolding(snapshot, record.Account.ID, holding, instrument)
@@ -243,6 +249,7 @@ func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, recor
 		if err != nil {
 			return valuedAccount{}, err
 		}
+		component.StateObservationID = record.StateObservationID
 		add(component, missing)
 	}
 	sortMissing(model.MissingInputs)
@@ -272,26 +279,30 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 			return domain.ValuationComponent{}, nil, err
 		}
 		return domain.ValuationComponent{
-			AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol,
+			AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol,
 			NativeAmount: "0", NativeCurrency: instrument.QuoteCurrency, BaseAmount: &baseView,
-			BaseAmountExact: "0", Available: true,
+			PreferenceObservationID: instrument.PreferenceObservationID,
+			BaseAmountExact:         "0", Available: true,
 		}, nil, nil
 	}
 	quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
 	if quote == nil {
-		return domain.ValuationComponent{AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteCurrency: instrument.QuoteCurrency}}, nil
+		return domain.ValuationComponent{AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, PreferenceObservationID: instrument.PreferenceObservationID, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteCurrency: instrument.QuoteCurrency}}, nil
 	}
 	native, err := holding.Quantity.Multiply(quote.UnitPrice)
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
 	}
-	evidence := quoteEvidence(quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now())
+	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now())
 	component, missing, err := v.valueNative(snapshot, accountID, &holding.InstrumentID, native, instrument.QuoteCurrency, &evidence)
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
 	}
 	component.InstrumentName = name
 	component.InstrumentSymbol = symbol
+	holdingID := holding.ID
+	component.HoldingID = &holdingID
+	component.PreferenceObservationID = instrument.PreferenceObservationID
 	return component, missing, nil
 }
 
@@ -309,6 +320,9 @@ func (v *ValuationService) valueCash(snapshot domain.PortfolioSnapshot, accountI
 
 func (v *ValuationService) valueNative(snapshot domain.PortfolioSnapshot, accountID domain.AccountID, instrumentID *domain.InstrumentID, native decimal.Decimal, currency domain.CurrencyCode, priceEvidence *domain.QuoteEvidenceView) (domain.ValuationComponent, []domain.MissingInputView, error) {
 	component := domain.ValuationComponent{AccountID: accountID, InstrumentID: cloneInstrumentID(instrumentID), NativeAmount: native.String(), NativeCurrency: currency, PriceEvidence: priceEvidence, Available: true}
+	if preference := findFXPreference(snapshot.FXPreferences, currency, snapshot.Household.BaseCurrency); preference != nil {
+		component.FXPreferenceObservationID = preference.ObservationID
+	}
 	base, fxEvidence, missing, err := v.convert(snapshot, accountID, native, currency)
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
@@ -350,7 +364,7 @@ func (v *ValuationService) convert(snapshot domain.PortfolioSnapshot, accountID 
 	if err != nil {
 		return decimal.Zero, nil, nil, err
 	}
-	evidence := quoteEvidence(quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now())
+	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now())
 	return converted, &evidence, nil, nil
 }
 
@@ -408,8 +422,8 @@ func quoteLater(quotedAt, createdAt time.Time, id string, otherQuotedAt, otherCr
 	return id > otherID
 }
 
-func quoteEvidence(source domain.QuoteSourceKind, key string, quotedAt time.Time, delayed bool, now time.Time) domain.QuoteEvidenceView {
-	return domain.QuoteEvidenceView{Source: source, SourceKey: key, QuotedAt: quotedAt, Freshness: domain.QuoteFreshness(source, delayed, quotedAt, now), Delayed: delayed}
+func quoteEvidence(id string, source domain.QuoteSourceKind, key string, quotedAt time.Time, delayed bool, now time.Time) domain.QuoteEvidenceView {
+	return domain.QuoteEvidenceView{ObservationID: id, Source: source, SourceKey: key, QuotedAt: quotedAt, Freshness: domain.QuoteFreshness(source, delayed, quotedAt, now), Delayed: delayed}
 }
 
 func latestCashValues(values []domain.AccountCashValue) []domain.AccountCashValue {

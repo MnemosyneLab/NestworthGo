@@ -29,6 +29,18 @@ const (
 	ErrUnsupportedProviderSymbol  ErrorCode = "unsupported_provider_symbol"
 	ErrMalformedProviderResponse  ErrorCode = "malformed_provider_response"
 	ErrMarketDataResponseTooLarge ErrorCode = "market_data_response_too_large"
+	ErrHistoryNotStarted          ErrorCode = "history_not_started"
+	ErrHistoryTimezoneRequired    ErrorCode = "history_timezone_required"
+	ErrInvalidChange              ErrorCode = "invalid_change"
+	ErrInvalidChangeTime          ErrorCode = "invalid_change_time"
+	ErrNoChange                   ErrorCode = "no_change"
+	ErrInsufficientBalance        ErrorCode = "insufficient_balance"
+	ErrInsufficientQuantity       ErrorCode = "insufficient_quantity"
+	ErrAlreadyUndone              ErrorCode = "already_undone"
+	ErrCannotFixChange            ErrorCode = "cannot_fix_change"
+	ErrTransferMismatch           ErrorCode = "transfer_mismatch"
+	ErrInvalidTrade               ErrorCode = "invalid_trade"
+	ErrHistoryUpdateFailed        ErrorCode = "history_update_failed"
 )
 
 // Error is safe to expose to the UI; database details stay below this boundary.
@@ -742,11 +754,12 @@ func (a Account) ValidateValue(value Money) error {
 // AccountRecord combines an Account with the immutable ownership and latest
 // current-value observation needed by application read models.
 type AccountRecord struct {
-	Account         Account
-	Ownership       Ownership
-	LatestValue     *AccountValue
-	InstitutionName string
-	GroupName       string
+	Account            Account
+	Ownership          Ownership
+	LatestValue        *AccountValue
+	StateObservationID *AccountStateObservationID
+	InstitutionName    string
+	GroupName          string
 }
 
 type BreakdownItem struct {

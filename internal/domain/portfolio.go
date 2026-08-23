@@ -53,24 +53,25 @@ func ParseQuoteSourceKind(value string) (QuoteSourceKind, error) {
 // Instrument is a household-scoped quoted asset. Provider metadata is kept as
 // opaque application data; the domain never knows a Yahoo response shape.
 type Instrument struct {
-	ID             InstrumentID
-	HouseholdID    HouseholdID
-	Name           string
-	Type           InstrumentType
-	QuoteCurrency  CurrencyCode
-	Symbol         *string
-	MarketCode     *string
-	CountryCode    *string
-	ISIN           *string
-	Note           *string
-	LogoAssetID    *MediaAssetID
-	SortOrder      int
-	QuoteSource    QuoteSourceKind
-	ProviderKey    *string
-	ProviderSymbol *string
-	CreatedAt      time.Time
-	UpdatedAt      time.Time
-	ArchivedAt     *time.Time
+	ID                      InstrumentID
+	HouseholdID             HouseholdID
+	Name                    string
+	Type                    InstrumentType
+	QuoteCurrency           CurrencyCode
+	Symbol                  *string
+	MarketCode              *string
+	CountryCode             *string
+	ISIN                    *string
+	Note                    *string
+	LogoAssetID             *MediaAssetID
+	SortOrder               int
+	QuoteSource             QuoteSourceKind
+	ProviderKey             *string
+	ProviderSymbol          *string
+	PreferenceObservationID *InstrumentPreferenceObservationID
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
+	ArchivedAt              *time.Time
 }
 
 type InstrumentInput struct {
@@ -333,12 +334,13 @@ func NewFXQuote(input FXQuoteInput, createdAt time.Time) (FXQuote, error) {
 // FXPreference is Household-scoped and keyed by a canonical unordered pair.
 // It intentionally stores no rate or orientation.
 type FXPreference struct {
-	HouseholdID HouseholdID
-	CurrencyA   CurrencyCode
-	CurrencyB   CurrencyCode
-	SourceKind  QuoteSourceKind
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	HouseholdID   HouseholdID
+	CurrencyA     CurrencyCode
+	CurrencyB     CurrencyCode
+	SourceKind    QuoteSourceKind
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	ObservationID *FXPreferenceObservationID
 }
 
 func NewFXPreference(householdID HouseholdID, currencyA, currencyB CurrencyCode, source QuoteSourceKind, now time.Time) (FXPreference, error) {

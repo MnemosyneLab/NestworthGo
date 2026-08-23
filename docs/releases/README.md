@@ -7,8 +7,10 @@ reviewed for the current Go + Fyne Nestworth-go implementation line.
 
 - [v0.1.1 release contract](v0.1.1.md) — implemented Household balance-sheet
   core; public-release closeout remains.
-- [v0.1.2 release contract](v0.1.2.md) — Phases 0–9 implemented; release
-  closeout is in progress.
+- [v0.1.2 release contract](v0.1.2.md) — the compatibility baseline preserved
+  by v0.1.3.
+- [v0.1.3 release contract](v0.1.3.md) — Phases 0–10 implemented; public
+  distribution checks remain explicitly pending.
 
 ## v0.1.2 Documents
 
@@ -20,18 +22,17 @@ replaceable Yahoo and Frankfurter market-data boundaries. The release contract
 and implementation plan remain the authority for the still-pending Phase 10
 desktop, accessibility, signing, and distribution checks.
 
-## Designed Releases
+## v0.1.3 Documents
 
-- [v0.1.3 release contract](v0.1.3.md)
 - [v0.1.3 compatibility baseline](v0.1.3-baseline.md)
 - [v0.1.3 technical design](v0.1.3-technical-design.md)
 - [v0.1.3 implementation plan](v0.1.3-implementation-plan.md)
+- [v0.1.3 implementation evidence](v0.1.3-implementation-evidence.md)
 
-v0.1.3 is a family-first timeline and historical net-worth design. It keeps
-immutable financial effects, replay, and snapshot revision details inside Go
-while exposing simple Record change, Undo, Fix entry, Timeline, and Net worth
-workflows. Implementation follows the completed and frozen v0.1.2 release
-closeout.
+v0.1.3 is implemented as a family-first timeline and historical net-worth
+workflow. It keeps immutable financial effects, replay, and snapshot revision
+details inside Go while exposing simple Record change, Undo, Fix entry,
+Timeline, and Net worth workflows.
 
 ## Unreviewed Inherited Archive
 

@@ -9,14 +9,13 @@ domain results, and infrastructure ports.
 
 The domain defines business invariants. Application use cases define commands
 and query results. The v0.1.1 SQLite migration remains the compatibility base;
-the implemented v0.1.2 Phase 2 migration extends it to schema `3` with the
-portfolio persistence boundary. UI code consumes view models and must not
-reconstruct authoritative financial values.
+the implemented v0.1.2 Phase 2 migration extends it to schema `3`, and v0.1.3
+extends that boundary through schema `4` with history persistence. UI code
+consumes view models and must not reconstruct authoritative financial values.
 
-The repository contains the Go implementation of the Household balance-sheet
-contracts plus the v0.1.2 domain, schema-3 portfolio foundation, manual
-portfolio workflows, authoritative valuation reads, and explicit provider
-refresh. Activity, history, analytics, and recovery remain ordered later work.
+The repository contains the Go implementation of the Household balance-sheet,
+portfolio, Activity, history, snapshot, and trend contracts. Provider refresh
+remains explicit and ordinary history/snapshot workflows are local-only.
 
 ## SQLite runtime
 
@@ -47,8 +46,8 @@ Compatibility is rechecked on the writable connection before migration or schema
 
 The ordered migrations implement Household, Member, Institution, Group,
 Account, Ownership, Account Value, Media Asset, Instrument, Holding, Account
-Cash Value, Instrument Quote, FX Quote, and FX Preference persistence. Activity,
-history, analytics, and recovery entities remain ordered future extensions.
+Cash Value, Instrument Quote, FX Quote, FX Preference, History Origin, Activity,
+snapshot, and dirty-state persistence. Recovery remains a future extension.
 
 Manual Instrument, Holding, cash, quote, preference, archive, and
 foreign-currency Account commands are application-owned and have no provider
@@ -74,8 +73,9 @@ or network dependency.
 
 Physical table names and indexes are defined by the ordered migrations and
 documented here without duplicating migration SQL. The current supported
-schema is `3`; schema `2` receives the v0.1.2 portfolio migration and future
-schema versions are blocked before business or settings writes.
+schema is `4`; schema `2` receives the v0.1.2 portfolio migration, schema `3`
+receives the v0.1.3 history migration, and future schema versions are blocked
+before business or settings writes.
 
 ## Transaction guarantees
 

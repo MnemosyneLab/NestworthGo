@@ -1,0 +1,263 @@
+package application
+
+import (
+	"context"
+	"time"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
+)
+
+func (s *Service) ListActivities(ctx context.Context, limit int) ([]domain.Activity, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if bootstrap.Household == nil {
+		return []domain.Activity{}, nil
+	}
+	return s.repository.ListActivities(ctx, bootstrap.Household.ID, limit)
+}
+
+func (s *Service) ListActivityPage(ctx context.Context, query domain.ActivityQuery) (domain.ActivityPage, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return domain.ActivityPage{}, err
+	}
+	if bootstrap.Household == nil {
+		return domain.ActivityPage{Activities: []domain.Activity{}}, nil
+	}
+	for field, value := range map[string]string{"fromDate": query.FromLocalDate, "toDate": query.ToLocalDate} {
+		if value == "" {
+			continue
+		}
+		if _, err := time.Parse("2006-01-02", value); err != nil {
+			return domain.ActivityPage{}, &domain.Error{Code: domain.ErrValidation, Field: field, Message: "date must use YYYY-MM-DD"}
+		}
+	}
+	if query.FromLocalDate != "" && query.ToLocalDate != "" && query.FromLocalDate > query.ToLocalDate {
+		return domain.ActivityPage{}, &domain.Error{Code: domain.ErrValidation, Field: "dateRange", Message: "from date cannot be later than to date"}
+	}
+	return s.repository.ListActivityPage(ctx, bootstrap.Household.ID, query)
+}
+
+func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) (domain.ChangePreview, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if bootstrap.Household == nil {
+		return domain.ChangePreview{}, onboardingRequired()
+	}
+	activity, err := s.repository.Activity(ctx, bootstrap.Household.ID, activityID)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if activity.ReversesActivityID != nil {
+		return domain.ChangePreview{}, &domain.Error{Code: domain.ErrAlreadyUndone, Message: "a reversal cannot be undone again"}
+	}
+	hasReversal, err := s.repository.ActivityHasReversal(ctx, bootstrap.Household.ID, activityID)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if hasReversal {
+		return domain.ChangePreview{}, &domain.Error{Code: domain.ErrAlreadyUndone, Message: "the change has already been undone"}
+	}
+	effects, err := s.repository.ActivityEffects(ctx, activityID)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	state, err := s.changeState(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	preview, err := domain.InverseChange(state, activity, effects)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.now()); err != nil {
+		return domain.ChangePreview{}, err
+	}
+	return preview, nil
+}
+
+func (s *Service) FixChange(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (domain.ChangePreview, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if bootstrap.Household == nil {
+		return domain.ChangePreview{}, onboardingRequired()
+	}
+	activity, err := s.repository.Activity(ctx, bootstrap.Household.ID, activityID)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if activity.ReversesActivityID != nil {
+		return domain.ChangePreview{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "a reversal cannot be fixed directly"}
+	}
+	hasReversal, err := s.repository.ActivityHasReversal(ctx, bootstrap.Household.ID, activityID)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if hasReversal {
+		return domain.ChangePreview{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "an already corrected change cannot be fixed again"}
+	}
+	effects, err := s.repository.ActivityEffects(ctx, activityID)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	state, err := s.changeState(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	inverse, err := domain.InverseChange(state, activity, effects)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	stateAfterInverse, _, err := domain.ApplyEffects(state, inverse.Effects)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	replacement, err := domain.PreviewChange(stateAfterInverse, replacementCommand)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	groupID := domain.NewActivityCorrectionGroupID()
+	inverse.Activity.CorrectionGroupID = &groupID
+	replacement.Activity.CorrectionGroupID = &groupID
+	asOf := s.now()
+	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{{Activity: inverse.Activity, Effects: inverse.Effects, Resulting: inverse.Resulting}, {Activity: replacement.Activity, Effects: replacement.Effects, Resulting: replacement.Resulting}}, asOf); err != nil {
+		return domain.ChangePreview{}, err
+	}
+	return replacement, nil
+}
+
+func (s *Service) appendObservationTime(origin *domain.HistoryOrigin, effectiveAt, createdAt time.Time) (time.Time, time.Time, error) {
+	if origin == nil {
+		return time.Time{}, time.Time{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording an observation"}
+	}
+	if effectiveAt.IsZero() {
+		effectiveAt = s.now()
+	}
+	effectiveAt = effectiveAt.UTC()
+	createdAt = createdAt.UTC()
+	if createdAt.IsZero() {
+		createdAt = s.now().UTC()
+	}
+	if effectiveAt.Before(origin.StartedAt) || effectiveAt.After(s.now().UTC()) {
+		return time.Time{}, time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveAt", Message: "observation time must be within the history interval"}
+	}
+	return effectiveAt, createdAt, nil
+}
+
+func (s *Service) AppendAccountStateObservation(ctx context.Context, observation domain.AccountStateObservation) error {
+	origin, err := s.HistoryOrigin(ctx)
+	if err != nil {
+		return err
+	}
+	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
+	if err != nil {
+		return err
+	}
+	if observation.ID == "" {
+		observation.ID = domain.NewAccountStateObservationID()
+	}
+	if _, err := domain.ParseOwnership(observation.Ownership); err != nil {
+		return err
+	}
+	return s.repository.AppendAccountStateObservation(ctx, observation)
+}
+
+func (s *Service) AppendInstrumentPreferenceObservation(ctx context.Context, observation domain.InstrumentPreferenceObservation) error {
+	origin, err := s.HistoryOrigin(ctx)
+	if err != nil {
+		return err
+	}
+	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
+	if err != nil {
+		return err
+	}
+	if observation.ID == "" {
+		observation.ID = domain.NewInstrumentPreferenceObservationID()
+	}
+	if _, err := domain.ParseQuoteSourceKind(string(observation.SourceKind)); err != nil {
+		return err
+	}
+	return s.repository.AppendInstrumentPreferenceObservation(ctx, observation)
+}
+
+func (s *Service) AppendFXPreferenceObservation(ctx context.Context, observation domain.FXPreferenceObservation) error {
+	origin, err := s.HistoryOrigin(ctx)
+	if err != nil {
+		return err
+	}
+	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
+	if err != nil {
+		return err
+	}
+	if observation.ID == "" {
+		observation.ID = domain.NewFXPreferenceObservationID()
+	}
+	if observation.CurrencyA == observation.CurrencyB {
+		return &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "FX preference currencies must differ"}
+	}
+	if observation.CurrencyA > observation.CurrencyB {
+		observation.CurrencyA, observation.CurrencyB = observation.CurrencyB, observation.CurrencyA
+	}
+	if _, err := domain.ParseQuoteSourceKind(string(observation.SourceKind)); err != nil {
+		return err
+	}
+	return s.repository.AppendFXPreferenceObservation(ctx, observation)
+}
+
+func (s *Service) accountStateObservation(ctx context.Context, account domain.Account, ownership domain.Ownership) (domain.AccountStateObservation, error) {
+	origin, err := s.HistoryOrigin(ctx)
+	if err != nil {
+		return domain.AccountStateObservation{}, err
+	}
+	if origin == nil {
+		return domain.AccountStateObservation{}, nil
+	}
+	now := s.now().UTC()
+	observation := domain.AccountStateObservation{ID: domain.NewAccountStateObservationID(), AccountID: account.ID, EffectiveAt: now, ArchivedAt: account.ArchivedAt, IncludeInNetWorth: account.IncludeInNetWorth, IncludeInInvestment: account.IncludeInInvestment, IncludeInLiquidAssets: account.IncludeInLiquidAssets, CreatedAt: now, Ownership: ownership.Shares()}
+	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
+	if err != nil {
+		return domain.AccountStateObservation{}, err
+	}
+	if _, err := domain.ParseOwnership(observation.Ownership); err != nil {
+		return domain.AccountStateObservation{}, err
+	}
+	return observation, nil
+}
+
+func (s *Service) instrumentPreferenceObservation(ctx context.Context, instrument domain.Instrument) (domain.InstrumentPreferenceObservation, error) {
+	origin, err := s.HistoryOrigin(ctx)
+	if err != nil {
+		return domain.InstrumentPreferenceObservation{}, err
+	}
+	if origin == nil {
+		return domain.InstrumentPreferenceObservation{}, nil
+	}
+	now := s.now().UTC()
+	observation := domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: instrument.ID, SourceKind: instrument.QuoteSource, EffectiveAt: now, CreatedAt: now}
+	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
+	return observation, err
+}
+
+func (s *Service) fxPreferenceObservation(ctx context.Context, preference domain.FXPreference) (domain.FXPreferenceObservation, error) {
+	origin, err := s.HistoryOrigin(ctx)
+	if err != nil {
+		return domain.FXPreferenceObservation{}, err
+	}
+	if origin == nil {
+		return domain.FXPreferenceObservation{}, nil
+	}
+	now := s.now().UTC()
+	observation := domain.FXPreferenceObservation{ID: domain.NewFXPreferenceObservationID(), HouseholdID: preference.HouseholdID, CurrencyA: preference.CurrencyA, CurrencyB: preference.CurrencyB, SourceKind: preference.SourceKind, EffectiveAt: now, CreatedAt: now}
+	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
+	return observation, err
+}

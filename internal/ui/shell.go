@@ -11,6 +11,7 @@ import (
 	fyneTheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/format"
 	"github.com/waltwang/nestworth-go/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -26,9 +27,11 @@ const (
 	PageMembers      = Page("members")
 	PageInstitutions = Page("institutions")
 	PageGroups       = Page("groups")
-	PageActivity     = Page("activity")
-	PageAnalytics    = Page("analytics")
-	PageSettings     = Page("settings")
+	PageHistory      = Page("history")
+	// PageActivity is kept as a source-compatible alias for existing callers.
+	PageActivity  = PageHistory
+	PageAnalytics = Page("analytics")
+	PageSettings  = Page("settings")
 )
 
 // Controller owns presentation state and delegates all business mutations and
@@ -65,6 +68,23 @@ type Controller struct {
 	retryRefresh          func()
 	refreshRebuild        bool
 	refreshObserver       func(application.RefreshResult, error)
+	snapshotCancel        context.CancelFunc
+	snapshotGeneration    uint64
+	snapshotPending       bool
+	snapshotProgress      string
+	snapshotError         error
+	snapshotCompleted     int
+	trendRange            string
+	historyActivityLimit  int
+	historyAccountFilter  string
+	historyKindFilter     string
+	historyRecordKind     string
+	historyFromDate       string
+	historyToDate         string
+	historyTimeline       []domain.Activity
+	historyTimelineNext   *domain.ActivityCursor
+	historyTimelineLoaded bool
+	historyTimelineFetch  bool
 }
 
 // NewController preserves the presentation-only constructor used by UI tests.
@@ -81,7 +101,7 @@ func newController(fyneApplication fyne.App, window fyne.Window, icon fyne.Resou
 	if preference.Validate() != nil {
 		preference = settings.Default()
 	}
-	controller := &Controller{application: fyneApplication, window: window, icon: icon, store: store, service: service, bootstrap: bootstrap, backendError: backendError, preference: preference, translator: i18n.New(preference.Language), page: PageOverview}
+	controller := &Controller{application: fyneApplication, window: window, icon: icon, store: store, service: service, bootstrap: bootstrap, backendError: backendError, preference: preference, translator: i18n.New(preference.Language), page: PageOverview, trendRange: "30d"}
 	ApplyTheme(fyneApplication, preference)
 	return controller
 }
@@ -116,8 +136,14 @@ func (c *Controller) navigate(page Page) {
 	if c.page != page && c.refreshPending {
 		c.cancelRefresh()
 	}
+	if c.page != page && c.snapshotPending && page != PageHistory && page != PageAnalytics {
+		c.cancelSnapshotWorker()
+	}
 	c.page = page
 	c.validationError = ""
+	if page == PageHistory || page == PageAnalytics {
+		c.startSnapshotWorker()
+	}
 	c.Refresh()
 }
 
@@ -235,7 +261,7 @@ func (c *Controller) sidebar() fyne.CanvasObject {
 		c.navButton(PageMembers, t.T("nav.members"), fyneTheme.IconNameAccount),
 		c.navButton(PageInstitutions, t.T("nav.institutions"), fyneTheme.IconNameDocument),
 		c.navButton(PageGroups, t.T("nav.groups"), fyneTheme.IconNameFolder),
-		c.navButton(PageActivity, t.T("nav.activity"), fyneTheme.IconNameHistory),
+		c.navButton(PageHistory, t.T("nav.history"), fyneTheme.IconNameHistory),
 		c.navButton(PageAnalytics, t.T("nav.analytics"), fyneTheme.IconNameStorage),
 	)
 	navigation := container.NewBorder(nil, c.navButton(PageSettings, t.T("nav.settings"), fyneTheme.IconNameSettings), nil, nil, primaryNavigation)
@@ -297,10 +323,10 @@ func (c *Controller) mainArea() fyne.CanvasObject {
 			} else {
 				page = NewComingSoonPage(c, "page.groupsTitle", "page.groupsDescription", fyneTheme.IconNameFolder)
 			}
-		case PageActivity:
-			page = NewComingSoonPage(c, "page.activityTitle", "page.activityDescription", fyneTheme.IconNameHistory)
+		case PageHistory:
+			page = NewHistoryPage(c)
 		case PageAnalytics:
-			page = NewComingSoonPage(c, "page.analyticsTitle", "page.analyticsDescription", fyneTheme.IconNameStorage)
+			page = NewAnalyticsPage(c)
 		default:
 			if c.service != nil {
 				page = NewLiveOverview(c)
@@ -329,8 +355,8 @@ func (c *Controller) pageHeader() fyne.CanvasObject {
 		title, subtitle = t.T("page.institutionsTitle"), t.T("page.institutionsDescription")
 	case PageGroups:
 		title, subtitle = t.T("page.groupsTitle"), t.T("page.groupsDescription")
-	case PageActivity:
-		title, subtitle = t.T("page.activityTitle"), t.T("page.activityDescription")
+	case PageHistory:
+		title, subtitle = t.T("page.historyTitle"), t.T("page.historyDescription")
 	case PageAnalytics:
 		title, subtitle = t.T("page.analyticsTitle"), t.T("page.analyticsDescription")
 	}

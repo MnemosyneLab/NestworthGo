@@ -16,6 +16,7 @@ import (
 type Repository interface {
 	Household(context.Context) (*domain.Household, error)
 	CreateOnboarding(context.Context, domain.Household, []domain.Member) error
+	CreateOnboardingWithHistory(context.Context, domain.Household, []domain.Member, domain.HistoryOriginData) error
 	ListMembers(context.Context, bool) ([]domain.Member, error)
 	CreateMember(context.Context, domain.Member) error
 	UpdateMember(context.Context, domain.Member) error
@@ -38,20 +39,28 @@ type Repository interface {
 	SetGroupIcon(context.Context, domain.HouseholdID, domain.GroupID, string) error
 	SetAccountIcon(context.Context, domain.HouseholdID, domain.AccountID, string) error
 	CreateAccount(context.Context, domain.Account, domain.Ownership, *domain.AccountValue) error
+	CreateAccountWithActivity(context.Context, domain.Account, domain.Ownership, *domain.AccountValue, domain.ActivityCommit, time.Time) error
+	CreateAccountWithHistory(context.Context, domain.Account, domain.Ownership, *domain.AccountValue, domain.AccountStateObservation, *domain.ActivityCommit, time.Time) error
 	UpdateAccount(context.Context, domain.Account, domain.Ownership) error
+	UpdateAccountWithObservation(context.Context, domain.Account, domain.Ownership, domain.AccountStateObservation) error
 	AppendAccountValue(context.Context, domain.AccountValue) error
 	SetAccountArchive(context.Context, domain.HouseholdID, domain.AccountID, bool, time.Time) error
+	SetAccountArchiveWithObservation(context.Context, domain.HouseholdID, domain.AccountID, bool, time.Time, domain.AccountStateObservation) error
 	ListAccountRecords(context.Context, domain.HouseholdID, domain.AccountFilter) ([]domain.AccountRecord, error)
 	ReadSnapshot(context.Context, domain.AccountFilter) (domain.ReadSnapshot, error)
 	ReadPortfolioSnapshot(context.Context, domain.AccountFilter) (domain.PortfolioSnapshot, error)
 	CreateInstrument(context.Context, domain.Instrument) error
+	CreateInstrumentWithObservation(context.Context, domain.Instrument, domain.InstrumentPreferenceObservation) error
 	UpdateInstrument(context.Context, domain.Instrument) error
+	UpdateInstrumentWithObservation(context.Context, domain.Instrument, domain.InstrumentPreferenceObservation) error
 	Instrument(context.Context, domain.HouseholdID, domain.InstrumentID) (domain.Instrument, error)
 	ListInstruments(context.Context, domain.HouseholdID, bool) ([]domain.Instrument, error)
 	SetInstrumentArchive(context.Context, domain.HouseholdID, domain.InstrumentID, bool, time.Time) error
 	SetInstrumentLogo(context.Context, domain.HouseholdID, domain.InstrumentID, domain.MediaAssetID) error
 	SetInstrumentQuoteSource(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind) error
+	SetInstrumentQuoteSourceWithObservation(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, domain.InstrumentPreferenceObservation) error
 	CreateHolding(context.Context, domain.Holding) error
+	CreateHoldingWithActivity(context.Context, domain.Holding, domain.ActivityCommit, time.Time) error
 	UpdateHolding(context.Context, domain.Holding) error
 	Holding(context.Context, domain.HoldingID) (domain.Holding, error)
 	ListHoldings(context.Context, domain.AccountID, bool) ([]domain.Holding, error)
@@ -67,8 +76,35 @@ type Repository interface {
 	AppendFXQuoteAndSelectManual(context.Context, domain.FXQuote) error
 	ListFXQuotes(context.Context, domain.HouseholdID) ([]domain.FXQuote, error)
 	SetFXPreference(context.Context, domain.FXPreference) error
+	SetFXPreferenceWithObservation(context.Context, domain.FXPreference, domain.FXPreferenceObservation) error
 	FXPreference(context.Context, domain.HouseholdID, domain.CurrencyCode, domain.CurrencyCode) (domain.FXPreference, error)
 	ListFXPreferences(context.Context, domain.HouseholdID) ([]domain.FXPreference, error)
+	HistoryOrigin(context.Context, domain.HouseholdID) (*domain.HistoryOrigin, error)
+	ListHistoryOriginComponents(context.Context, domain.HistoryOriginID) ([]domain.HistoryOriginComponent, error)
+	HistoryOriginData(context.Context, domain.HistoryOriginID) (domain.HistoryOriginData, error)
+	ListAccountStateObservations(context.Context, domain.HouseholdID) ([]domain.AccountStateObservation, error)
+	ListInstrumentStateObservations(context.Context, domain.HouseholdID) ([]domain.InstrumentStateObservation, error)
+	ListHoldingStateObservations(context.Context, domain.HouseholdID) ([]domain.HoldingStateObservation, error)
+	ListInstrumentPreferenceObservations(context.Context, domain.HouseholdID) ([]domain.InstrumentPreferenceObservation, error)
+	ListFXPreferenceObservations(context.Context, domain.HouseholdID) ([]domain.FXPreferenceObservation, error)
+	LoadHistoricalSnapshotBatch(context.Context, domain.HouseholdID, time.Time) (domain.HistoricalSnapshotBatch, error)
+	StartHistory(context.Context, domain.HistoryOriginData) (domain.HistoryOrigin, error)
+	CommitActivity(context.Context, domain.Activity, []domain.ActivityEffect, []domain.EndpointView, time.Time) error
+	CommitActivityBatch(context.Context, []domain.ActivityCommit, time.Time) error
+	Activity(context.Context, domain.HouseholdID, domain.ActivityID) (domain.Activity, error)
+	ActivityEffects(context.Context, domain.ActivityID) ([]domain.ActivityEffect, error)
+	ActivityHasReversal(context.Context, domain.HouseholdID, domain.ActivityID) (bool, error)
+	ListActivities(context.Context, domain.HouseholdID, int) ([]domain.Activity, error)
+	ListActivityPage(context.Context, domain.HouseholdID, domain.ActivityQuery) (domain.ActivityPage, error)
+	ListActivitiesUntil(context.Context, domain.HouseholdID, time.Time) ([]domain.Activity, error)
+	AppendAccountStateObservation(context.Context, domain.AccountStateObservation) error
+	AppendInstrumentPreferenceObservation(context.Context, domain.InstrumentPreferenceObservation) error
+	AppendFXPreferenceObservation(context.Context, domain.FXPreferenceObservation) error
+	SaveDailyValuationSnapshot(context.Context, domain.DailyValuationSnapshot) (bool, error)
+	MarkDailySnapshotCompleted(context.Context, domain.HouseholdID, string, time.Time) error
+	CompleteDailySnapshotRange(context.Context, domain.HouseholdID, string, time.Time) error
+	DailySnapshotState(context.Context, domain.HouseholdID) (domain.DailySnapshotState, error)
+	ListDailyValuationSnapshots(context.Context, domain.HouseholdID, time.Time) ([]domain.DailyValuationSnapshot, error)
 }
 
 type Service struct {
@@ -77,6 +113,7 @@ type Service struct {
 	marketData    MarketDataRegistryPort
 	fxProviderMu  sync.RWMutex
 	fxProviderKey string
+	changeMu      sync.Mutex
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
@@ -167,6 +204,7 @@ type OnboardingInput struct {
 	HouseholdName string
 	BaseCurrency  string
 	MemberNames   []string
+	Timezone      string
 }
 
 func (s *Service) ListMembers(ctx context.Context, includeArchived bool) ([]domain.Member, error) {
@@ -205,7 +243,14 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 		member.SortOrder = index
 		members = append(members, member)
 	}
-	return s.repository.CreateOnboarding(ctx, household, members)
+	if strings.TrimSpace(input.Timezone) == "" {
+		return s.repository.CreateOnboarding(ctx, household, members)
+	}
+	origin, err := domain.NewHistoryOrigin(household.ID, input.Timezone, s.now(), s.now())
+	if err != nil {
+		return err
+	}
+	return s.repository.CreateOnboardingWithHistory(ctx, household, members, domain.HistoryOriginData{Origin: origin})
 }
 
 func (s *Service) CreateMember(ctx context.Context, name string) (domain.Member, error) {
@@ -516,6 +561,10 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if bootstrap.Household == nil {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
+	origin, err := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
 	primary, err := domain.ParsePrimaryCategory(input.PrimaryCategory)
 	if err != nil {
 		return domain.AccountRecord{}, err
@@ -545,6 +594,17 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 		return domain.AccountRecord{}, err
 	}
 	accountInput := domain.AccountInput{HouseholdID: bootstrap.Household.ID, Name: input.Name, PrimaryCategory: primary, SecondaryCategory: secondary, TrackingMode: mode, DefaultCurrency: currency, Note: input.Note, IconKey: iconKey, IncludeInNetWorth: input.IncludeInNetWorth, IncludeInInvestment: input.IncludeInInvestment, IncludeInLiquidAssets: input.IncludeInLiquidAssets, OpenedOn: input.OpenedOn, ClosedOn: input.ClosedOn, Ownership: ownershipShares, InitialAmount: input.InitialAmount}
+	var historyInitial *domain.Money
+	if origin != nil && strings.TrimSpace(input.InitialAmount) != "" && mode != domain.TrackingHoldings {
+		parsedInitial, parseErr := domain.ParseMoney(input.InitialAmount, currency)
+		if parseErr != nil {
+			return domain.AccountRecord{}, parseErr
+		}
+		if !parsedInitial.IsZero() {
+			historyInitial = &parsedInitial
+			accountInput.InitialAmount = "0"
+		}
+	}
 	if input.InstitutionID != "" {
 		id, parseErr := domain.ParseInstitutionID(input.InstitutionID)
 		if parseErr != nil {
@@ -580,10 +640,51 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 		}
 		value = &created
 	}
-	if err := s.repository.CreateAccount(ctx, account, ownership, value); err != nil {
+	if origin == nil {
+		if err := s.repository.CreateAccount(ctx, account, ownership, value); err != nil {
+			return domain.AccountRecord{}, err
+		}
+		return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: value}, nil
+	}
+	creationObservation := domain.AccountStateObservation{
+		ID:                    domain.NewAccountStateObservationID(),
+		AccountID:             account.ID,
+		EffectiveAt:           account.CreatedAt,
+		ArchivedAt:            account.ArchivedAt,
+		IncludeInNetWorth:     account.IncludeInNetWorth,
+		IncludeInInvestment:   account.IncludeInInvestment,
+		IncludeInLiquidAssets: account.IncludeInLiquidAssets,
+		CreatedAt:             account.CreatedAt,
+		Ownership:             ownership.Shares(),
+	}
+	if historyInitial == nil {
+		if err := s.repository.CreateAccountWithHistory(ctx, account, ownership, value, creationObservation, nil, s.now()); err != nil {
+			return domain.AccountRecord{}, err
+		}
+		return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: value}, nil
+	}
+	zero, zeroErr := domain.ParseMoney("0", account.DefaultCurrency)
+	if zeroErr != nil {
+		return domain.AccountRecord{}, zeroErr
+	}
+	state := domain.ChangeState{HouseholdID: account.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.now(), Accounts: map[domain.AccountID]domain.ChangeAccountState{account.ID: {ID: account.ID, Name: account.Name, Currency: account.DefaultCurrency, Mode: account.TrackingMode, Liability: account.PrimaryCategory.IsLiability(), Current: zero}}, Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState)}
+	preview, previewErr := domain.PreviewChange(state, domain.MoneyAddedInput{HouseholdID: account.HouseholdID, AccountID: account.ID, Amount: *historyInitial, Reason: domain.ReasonContribution, EffectiveAt: account.CreatedAt})
+	if previewErr != nil {
+		return domain.AccountRecord{}, previewErr
+	}
+	commit := domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}
+	if err := s.repository.CreateAccountWithHistory(ctx, account, ownership, value, creationObservation, &commit, s.now()); err != nil {
 		return domain.AccountRecord{}, err
 	}
-	return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: value}, nil
+	resultMoney, parseErr := domain.ParseMoney(preview.Resulting[0].Amount, preview.Resulting[0].Currency)
+	if parseErr != nil {
+		return domain.AccountRecord{}, parseErr
+	}
+	resultValue, valueErr := domain.NewAccountValue(account, resultMoney, preview.Activity.EffectiveAt, preview.Activity.CreatedAt)
+	if valueErr != nil {
+		return domain.AccountRecord{}, valueErr
+	}
+	return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: &resultValue}, nil
 }
 
 // UpdateAccount changes metadata and ownership without rewriting AccountValue history.
@@ -732,7 +833,15 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if err := validateOwnershipMembersForUpdate(allMembers, ownership.Shares(), current.Ownership.Shares()); err != nil {
 		return domain.AccountRecord{}, err
 	}
-	if err := s.repository.UpdateAccount(ctx, account, ownership); err != nil {
+	observation, observationErr := s.accountStateObservation(ctx, account, ownership)
+	if observationErr != nil {
+		return domain.AccountRecord{}, observationErr
+	}
+	if observation.ID != "" {
+		if err := s.repository.UpdateAccountWithObservation(ctx, account, ownership, observation); err != nil {
+			return domain.AccountRecord{}, err
+		}
+	} else if err := s.repository.UpdateAccount(ctx, account, ownership); err != nil {
 		return domain.AccountRecord{}, err
 	}
 	current.Account, current.Ownership = account, ownership
@@ -777,6 +886,21 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 		}
 		when = parsed.UTC()
 	}
+	origin, originErr := s.repository.HistoryOrigin(ctx, record.Account.HouseholdID)
+	if originErr != nil {
+		return domain.AccountValue{}, originErr
+	}
+	if origin != nil {
+		preview, commitErr := s.RecordChange(ctx, domain.ValueUpdateInput{HouseholdID: record.Account.HouseholdID, AccountID: accountID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when})
+		if commitErr != nil {
+			return domain.AccountValue{}, commitErr
+		}
+		resultMoney, parseErr := domain.ParseMoney(preview.Resulting[0].Amount, preview.Resulting[0].Currency)
+		if parseErr != nil {
+			return domain.AccountValue{}, parseErr
+		}
+		return domain.NewAccountValue(record.Account, resultMoney, preview.Activity.EffectiveAt, preview.Activity.CreatedAt)
+	}
 	value, err := domain.NewAccountValue(record.Account, money, when, s.now())
 	if err != nil {
 		return domain.AccountValue{}, err
@@ -795,7 +919,34 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 	if bootstrap.Household == nil {
 		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	return s.repository.SetAccountArchive(ctx, bootstrap.Household.ID, id, archived, s.now())
+	records, err := s.repository.ListAccountRecords(ctx, bootstrap.Household.ID, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return err
+	}
+	var current *domain.AccountRecord
+	for index := range records {
+		if records[index].Account.ID == id {
+			current = &records[index]
+			break
+		}
+	}
+	if current == nil {
+		return &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
+	}
+	now := s.now()
+	if archived {
+		current.Account.ArchivedAt = &now
+	} else {
+		current.Account.ArchivedAt = nil
+	}
+	observation, observationErr := s.accountStateObservation(ctx, current.Account, current.Ownership)
+	if observationErr != nil {
+		return observationErr
+	}
+	if observation.ID != "" {
+		return s.repository.SetAccountArchiveWithObservation(ctx, bootstrap.Household.ID, id, archived, now, observation)
+	}
+	return s.repository.SetAccountArchive(ctx, bootstrap.Household.ID, id, archived, now)
 }
 
 func (s *Service) AccountValuation(ctx context.Context, id domain.AccountID) (domain.AccountValuation, error) {

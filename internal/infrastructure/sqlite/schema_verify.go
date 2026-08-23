@@ -88,6 +88,9 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 			return err
 		}
 	}
+	if err := verifyHistorySchema(ctx, query); err != nil {
+		return err
+	}
 	rows, err := query.QueryContext(ctx, "PRAGMA foreign_key_check")
 	if err != nil {
 		return err
@@ -334,7 +337,7 @@ func expectedSchemaTables() map[string][]schemaColumn {
 		},
 		"account_values": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("value_kind", "TEXT", 1, 0), expectedColumn("amount", "TEXT", 1, 0),
-			expectedColumn("currency", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+			expectedColumn("currency", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'legacy'"),
 		},
 		"instruments": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("name", "TEXT", 1, 0), expectedColumn("instrument_type", "TEXT", 1, 0),
@@ -348,7 +351,7 @@ func expectedSchemaTables() map[string][]schemaColumn {
 			expectedColumn("note", "TEXT", 0, 0), expectedColumn("sort_order", "INTEGER", 1, 0, "0"), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0),
 		},
 		"account_cash_values": {
-			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("amount", "TEXT", 1, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("amount", "TEXT", 1, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'legacy'"),
 		},
 		"instrument_quotes": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("unit_price", "TEXT", 1, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("source_key", "TEXT", 1, 0), expectedColumn("quoted_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("delayed", "INTEGER", 1, 0, "0"),
@@ -360,6 +363,94 @@ func expectedSchemaTables() map[string][]schemaColumn {
 			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("currency_a", "TEXT", 1, 2), expectedColumn("currency_b", "TEXT", 1, 3), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0),
 		},
 	}
+}
+
+func historySchemaColumns() map[string][]schemaColumn {
+	return map[string][]schemaColumn{
+		"history_origins": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("timezone", "TEXT", 1, 0), expectedColumn("started_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"history_origin_components": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("origin_id", "TEXT", 1, 0), expectedColumn("component_kind", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 0, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("instrument_id", "TEXT", 0, 0), expectedColumn("amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("quantity", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"history_origin_account_states": {
+			expectedColumn("origin_id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 2), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("include_in_net_worth", "INTEGER", 1, 0), expectedColumn("include_in_investment", "INTEGER", 1, 0), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"history_origin_ownership": {
+			expectedColumn("origin_id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 2), expectedColumn("member_id", "TEXT", 1, 3), expectedColumn("share_bps", "INTEGER", 1, 0),
+		},
+		"history_origin_instrument_preferences": {
+			expectedColumn("origin_id", "TEXT", 1, 1), expectedColumn("instrument_id", "TEXT", 1, 2), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"history_origin_fx_preferences": {
+			expectedColumn("origin_id", "TEXT", 1, 1), expectedColumn("currency_a", "TEXT", 1, 2), expectedColumn("currency_b", "TEXT", 1, 3), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"activities": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("kind", "TEXT", 1, 0), expectedColumn("reason", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("effective_local_date", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("note", "TEXT", 0, 0), expectedColumn("reverses_activity_id", "TEXT", 0, 0), expectedColumn("correction_group_id", "TEXT", 0, 0), expectedColumn("transaction_fx_rate", "TEXT", 0, 0),
+		},
+		"activity_effects": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("activity_id", "TEXT", 1, 0), expectedColumn("sequence", "INTEGER", 1, 0), expectedColumn("role", "TEXT", 1, 0), expectedColumn("direction", "TEXT", 1, 0), expectedColumn("target", "TEXT", 1, 0), expectedColumn("classification", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 0, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("instrument_id", "TEXT", 0, 0), expectedColumn("amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("quantity", "TEXT", 0, 0),
+		},
+		"activity_trade_details": {
+			expectedColumn("activity_id", "TEXT", 1, 1), expectedColumn("side", "TEXT", 1, 0), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("quantity", "TEXT", 1, 0), expectedColumn("gross_amount", "TEXT", 1, 0), expectedColumn("gross_currency", "TEXT", 1, 0), expectedColumn("unit_price", "TEXT", 1, 0), expectedColumn("fee_amount", "TEXT", 0, 0), expectedColumn("fee_currency", "TEXT", 0, 0),
+		},
+		"activity_correction_groups": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("original_activity_id", "TEXT", 1, 0), expectedColumn("replacement_activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"holding_quantity_values": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("quantity", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'legacy'"),
+		},
+		"account_state_observations": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("include_in_net_worth", "INTEGER", 1, 0), expectedColumn("include_in_investment", "INTEGER", 1, 0), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0), expectedColumn("activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"account_state_ownership": {
+			expectedColumn("observation_id", "TEXT", 1, 1), expectedColumn("member_id", "TEXT", 1, 2), expectedColumn("share_bps", "INTEGER", 1, 0),
+		},
+		"instrument_preference_observations": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"fx_preference_observations": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("currency_a", "TEXT", 1, 0), expectedColumn("currency_b", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"instrument_state_observations": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"holding_state_observations": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"daily_valuation_snapshots": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("local_date", "TEXT", 1, 0), expectedColumn("cutoff_at", "TEXT", 1, 0), expectedColumn("revision", "INTEGER", 1, 0), expectedColumn("supersedes_id", "TEXT", 0, 0), expectedColumn("content_hash", "TEXT", 1, 0), expectedColumn("assets_amount", "TEXT", 0, 0), expectedColumn("liabilities_amount", "TEXT", 0, 0), expectedColumn("net_worth_amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("complete", "INTEGER", 1, 0), expectedColumn("component_count", "INTEGER", 1, 0), expectedColumn("missing_count", "INTEGER", 1, 0), expectedColumn("generation_reason", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"daily_valuation_snapshot_items": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("snapshot_id", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("instrument_id", "TEXT", 0, 0), expectedColumn("native_amount", "TEXT", 0, 0), expectedColumn("native_currency", "TEXT", 0, 0), expectedColumn("base_amount", "TEXT", 0, 0), expectedColumn("base_currency", "TEXT", 1, 0), expectedColumn("quote_id", "TEXT", 0, 0), expectedColumn("fx_quote_id", "TEXT", 0, 0), expectedColumn("state_observation_id", "TEXT", 0, 0), expectedColumn("preference_observation_id", "TEXT", 0, 0), expectedColumn("complete", "INTEGER", 1, 0), expectedColumn("missing_reason", "TEXT", 0, 0), expectedColumn("fx_preference_observation_id", "TEXT", 0, 0),
+		},
+		"history_snapshot_state": {
+			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("dirty_from", "TEXT", 0, 0), expectedColumn("last_completed_closed_on", "TEXT", 0, 0), expectedColumn("updated_at", "TEXT", 1, 0),
+		},
+	}
+}
+
+func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
+	for table, columns := range historySchemaColumns() {
+		if err := verifyTable(ctx, query, table, columns); err != nil {
+			return err
+		}
+	}
+	for _, name := range []string{
+		"idx_history_origins_household", "idx_history_origin_components_origin", "idx_history_origin_components_account",
+		"idx_activities_timeline", "idx_activities_local_date", "idx_activity_effects_activity", "idx_activity_effects_account", "idx_activity_effects_holding",
+		"idx_holding_quantity_latest", "idx_account_state_observations_effective", "idx_instrument_preference_observations_effective", "idx_fx_preference_observations_effective", "idx_instrument_state_observations_effective", "idx_holding_state_observations_effective",
+		"idx_daily_valuation_latest", "idx_daily_valuation_items_snapshot", "idx_daily_valuation_items_fx_preference",
+	} {
+		var count int
+		if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'index' AND name = ?`, name).Scan(&count); err != nil {
+			return err
+		}
+		if count != 1 {
+			return fmt.Errorf("required history index %s is missing", name)
+		}
+	}
+	return nil
 }
 
 func expectedSchemaChecks() map[string][]string {
@@ -425,11 +516,16 @@ func expectedSchemaForeignKeys() []expectedForeignKey {
 		{table: "account_values", refTable: "accounts", from: "account_id", to: "id", onDelete: "CASCADE"},
 		{table: "instruments", refTable: "households", from: "household_id", to: "id", onDelete: "CASCADE"},
 		{table: "instruments", refTable: "media_assets", from: "logo_asset_id", to: "id", onDelete: "SET NULL"},
+		{table: "instrument_state_observations", refTable: "instruments", from: "instrument_id", to: "id", onDelete: "RESTRICT"},
+		{table: "instrument_state_observations", refTable: "activities", from: "activity_id", to: "id", onDelete: "RESTRICT"},
 		{table: "holdings", refTable: "accounts", from: "account_id", to: "id", onDelete: "CASCADE"},
 		{table: "holdings", refTable: "instruments", from: "instrument_id", to: "id", onDelete: "RESTRICT"},
+		{table: "holding_state_observations", refTable: "holdings", from: "holding_id", to: "id", onDelete: "RESTRICT"},
+		{table: "holding_state_observations", refTable: "activities", from: "activity_id", to: "id", onDelete: "RESTRICT"},
 		{table: "account_cash_values", refTable: "accounts", from: "account_id", to: "id", onDelete: "CASCADE"},
 		{table: "instrument_quotes", refTable: "instruments", from: "instrument_id", to: "id", onDelete: "CASCADE"},
 		{table: "fx_quotes", refTable: "households", from: "household_id", to: "id", onDelete: "CASCADE"},
 		{table: "fx_preferences", refTable: "households", from: "household_id", to: "id", onDelete: "CASCADE"},
+		{table: "daily_valuation_snapshot_items", refTable: "fx_preference_observations", from: "fx_preference_observation_id", to: "id", onDelete: "RESTRICT"},
 	}
 }

@@ -402,9 +402,6 @@ func (r *Repository) CreateAccount(ctx context.Context, account domain.Account, 
 		if account.TrackingMode == domain.TrackingHoldings && initial != nil {
 			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "Holdings accounts cannot have an initial Account Value"}
 		}
-		if account.TrackingMode != domain.TrackingHoldings && initial == nil {
-			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "an initial Account Value is required"}
-		}
 		if initial != nil && (initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency) {
 			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "initial value does not match the account"}
 		}
@@ -418,6 +415,103 @@ func (r *Repository) CreateAccount(ctx context.Context, account domain.Account, 
 			return nil
 		}
 		return insertAccountValue(ctx, tx, *initial)
+	})
+}
+
+func (r *Repository) CreateAccountWithActivity(ctx context.Context, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue, commit domain.ActivityCommit, asOf time.Time) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		if err := validateAccountReferences(ctx, tx, account, nil, nil); err != nil {
+			return err
+		}
+		if account.TrackingMode == domain.TrackingHoldings && initial != nil {
+			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "Holdings accounts cannot have an initial Account Value"}
+		}
+		if account.TrackingMode != domain.TrackingHoldings && initial == nil {
+			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "an initial Account Value is required"}
+		}
+		if initial != nil && (initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency) {
+			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "initial value does not match the account"}
+		}
+		if commit.Activity.HouseholdID != account.HouseholdID {
+			return &domain.Error{Code: domain.ErrInvalidChange, Field: "householdId", Message: "activity Household does not match the Account"}
+		}
+		if err := insertAccount(ctx, tx, account); err != nil {
+			return err
+		}
+		if err := replaceOwnership(ctx, tx, account.ID, ownership, false); err != nil {
+			return err
+		}
+		if initial != nil {
+			if err := insertAccountValue(ctx, tx, *initial); err != nil {
+				return err
+			}
+		}
+		var timezone string
+		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, account.HouseholdID.String()).Scan(&timezone); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+			}
+			return err
+		}
+		if err := commitActivityTx(ctx, tx, commit, asOf); err != nil {
+			return err
+		}
+		return markHistoryDirtyTx(ctx, tx, account.HouseholdID, commit.Activity.EffectiveLocalDate, timezone, asOf)
+	})
+}
+
+// CreateAccountWithHistory is the post-Starting-point creation boundary. The
+// account, its creation-time state/ownership baseline, optional initial
+// activity, projections, and dirty marker share one transaction so historical
+// reconstruction never has to infer the initial metadata from today's row.
+func (r *Repository) CreateAccountWithHistory(ctx context.Context, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue, observation domain.AccountStateObservation, commit *domain.ActivityCommit, asOf time.Time) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		if err := validateAccountReferences(ctx, tx, account, nil, nil); err != nil {
+			return err
+		}
+		if account.TrackingMode == domain.TrackingHoldings && initial != nil {
+			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "Holdings accounts cannot have an initial Account Value"}
+		}
+		if account.TrackingMode != domain.TrackingHoldings && initial == nil {
+			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "an initial Account Value is required"}
+		}
+		if initial != nil && (initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency) {
+			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "initial value does not match the account"}
+		}
+		if observation.AccountID != account.ID || observation.ID == "" || observation.EffectiveAt.IsZero() || observation.CreatedAt.IsZero() {
+			return &domain.Error{Code: domain.ErrIntegrity, Message: "account creation observation does not match the Account"}
+		}
+		if _, err := domain.ParseOwnership(observation.Ownership); err != nil {
+			return err
+		}
+		if commit != nil && commit.Activity.HouseholdID != account.HouseholdID {
+			return &domain.Error{Code: domain.ErrInvalidChange, Field: "householdId", Message: "activity Household does not match the Account"}
+		}
+		if err := insertAccount(ctx, tx, account); err != nil {
+			return err
+		}
+		if err := replaceOwnership(ctx, tx, account.ID, ownership, false); err != nil {
+			return err
+		}
+		if initial != nil {
+			if err := insertAccountValue(ctx, tx, *initial); err != nil {
+				return err
+			}
+		}
+		if err := appendAccountStateObservationTx(ctx, tx, observation); err != nil {
+			return err
+		}
+		if commit == nil {
+			return nil
+		}
+		if err := commitActivityTx(ctx, tx, *commit, asOf); err != nil {
+			return err
+		}
+		var timezone string
+		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, account.HouseholdID.String()).Scan(&timezone); err != nil {
+			return err
+		}
+		return markHistoryDirtyTx(ctx, tx, account.HouseholdID, commit.Activity.EffectiveLocalDate, timezone, asOf)
 	})
 }
 
@@ -444,6 +538,35 @@ func (r *Repository) UpdateAccount(ctx context.Context, account domain.Account, 
 	})
 }
 
+func (r *Repository) UpdateAccountWithObservation(ctx context.Context, account domain.Account, ownership domain.Ownership, observation domain.AccountStateObservation) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		var currentInstitution, currentGroup sql.NullString
+		if err := tx.QueryRowContext(ctx, `SELECT institution_id, group_id FROM accounts WHERE id = ? AND household_id = ?`, account.ID.String(), account.HouseholdID.String()).Scan(&currentInstitution, &currentGroup); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
+			}
+			return err
+		}
+		if err := validateAccountReferences(ctx, tx, account, nullableStringValue(currentInstitution), nullableStringValue(currentGroup)); err != nil {
+			return err
+		}
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, primary_category = ?, secondary_category = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, logo_asset_id = ?, include_in_net_worth = ?, include_in_investment = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.PrimaryCategory.String(), string(account.SecondaryCategory), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInInvestment), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
+		if err != nil {
+			return err
+		}
+		if err := requireAffected(result, "account"); err != nil {
+			return err
+		}
+		if observation.AccountID != account.ID {
+			return &domain.Error{Code: domain.ErrIntegrity, Message: "account observation does not match the updated Account"}
+		}
+		if err := replaceOwnership(ctx, tx, account.ID, ownership, true); err != nil {
+			return err
+		}
+		return appendAccountStateObservationTx(ctx, tx, observation)
+	})
+}
+
 func (r *Repository) AppendAccountValue(ctx context.Context, value domain.AccountValue) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error { return insertAccountValue(ctx, tx, value) })
 }
@@ -454,6 +577,22 @@ func (r *Repository) SetAccountArchive(ctx context.Context, householdID domain.H
 		return err
 	}
 	return requireAffected(result, "account")
+}
+
+func (r *Repository) SetAccountArchiveWithObservation(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID, archived bool, now time.Time, observation domain.AccountStateObservation) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET archived_at = ?, updated_at = ? WHERE id = ? AND household_id = ?`, archiveValue(archived, now), formatTimestamp(now), id.String(), householdID.String())
+		if err != nil {
+			return err
+		}
+		if err := requireAffected(result, "account"); err != nil {
+			return err
+		}
+		if observation.AccountID != id {
+			return &domain.Error{Code: domain.ErrIntegrity, Message: "account observation does not match the archived Account"}
+		}
+		return appendAccountStateObservationTx(ctx, tx, observation)
+	})
 }
 
 func (r *Repository) ListAccountRecords(ctx context.Context, householdID domain.HouseholdID, filter domain.AccountFilter) ([]domain.AccountRecord, error) {

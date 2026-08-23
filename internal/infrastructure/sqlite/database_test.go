@@ -95,7 +95,7 @@ func TestOpenMigratesSanitizedSchema2FixtureAndReopensIdempotently(t *testing.T)
 		t.Fatalf("migration status = %q, want migrated", database.Status)
 	}
 	var version int
-	if err := database.SQL.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 3 {
+	if err := database.SQL.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != CurrentSchemaVersion {
 		t.Fatalf("schema version = %d, err = %v", version, err)
 	}
 	var accountCount, valueCount int
@@ -127,7 +127,16 @@ func TestOpenMigratesSanitizedSchema2FixtureAndReopensIdempotently(t *testing.T)
 		t.Fatal(err)
 	}
 	if triggerCount != 0 {
-		t.Fatalf("schema3 migration created %d triggers", triggerCount)
+		t.Fatalf("history migration created %d triggers", triggerCount)
+	}
+	for _, table := range []string{"history_origins", "history_origin_components", "activities", "activity_effects", "daily_valuation_snapshots", "history_snapshot_state"} {
+		var count int
+		if err := reopened.SQL.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 1 {
+			t.Fatalf("schema4 table %s count = %d, want 1", table, count)
+		}
 	}
 	if err := reopened.Verify(context.Background()); err != nil {
 		t.Fatalf("reopened database verification: %v", err)

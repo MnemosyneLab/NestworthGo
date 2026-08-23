@@ -1,0 +1,444 @@
+package application
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+)
+
+func TestRecordChangeWritesActivityEffectsProjectionAndClosedDayDirtyState(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/change.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repository := sqlite.NewRepository(database)
+	service := NewService(repository)
+	originNow := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	clock := originNow
+	service.setClock(func() time.Time { return clock })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Changes", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "10000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	clock = originNow.Add(48 * time.Hour)
+	amount, _ := domain.ParseMoney("500", "CNY")
+	preview, err := service.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: account.Account.ID, Amount: amount, Reason: domain.ReasonIncome, EffectiveAt: originNow.Add(24 * time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Activity.Kind != domain.ActivityCashIn || preview.Resulting[0].Amount != "10500" {
+		t.Fatalf("recorded preview = %+v", preview)
+	}
+	var activities, effects, projections, replays int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&activities); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activity_effects").Scan(&effects); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM account_values WHERE projection_kind = 'event'").Scan(&projections); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM account_values WHERE projection_kind = 'replay'").Scan(&replays); err != nil {
+		t.Fatal(err)
+	}
+	if activities != 1 || effects != 1 || projections != 1 || replays != 1 {
+		t.Fatalf("persisted activity=%d effects=%d projections=%d replays=%d", activities, effects, projections, replays)
+	}
+	var dirty string
+	if err := database.SQL.QueryRow("SELECT dirty_from FROM history_snapshot_state WHERE household_id = ?", bootstrap.Household.ID.String()).Scan(&dirty); err != nil {
+		t.Fatal(err)
+	}
+	if dirty != "2026-01-02" {
+		t.Fatalf("dirty_from = %q, want 2026-01-02", dirty)
+	}
+	if _, err := service.AppendAccountValue(ctx, account.Account.ID, "10500", "2026-01-04"); err == nil || err.(*domain.Error).Code != domain.ErrInvalidChangeTime {
+		t.Fatalf("future/pre-origin append error = %v", err)
+	}
+}
+
+func TestRecordChangeRequiresStartingPointAndDoesNotCallProviders(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/change-gate.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Gate", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	household, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	amount, _ := domain.ParseMoney("1", "CNY")
+	_, err = service.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: household.Household.ID, AccountID: domain.AccountID("00000000-0000-4000-8000-000000000001"), Amount: amount})
+	if err == nil || err.(*domain.Error).Code != domain.ErrHistoryNotStarted {
+		t.Fatalf("pre-history record error = %v", err)
+	}
+	var activities int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&activities); err != nil {
+		t.Fatal(err)
+	}
+	if activities != 0 {
+		t.Fatalf("pre-history record wrote %d activities", activities)
+	}
+}
+
+func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/trade.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Trading", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInInvestment: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-01-01"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	gross, _ := domain.ParseMoney("200", "USD")
+	fee, _ := domain.ParseMoney("5", "USD")
+	preview, err := service.RecordChange(ctx, domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: account.Account.ID, HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "2"), Gross: gross, Fee: &fee, EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Resulting[0].Amount != "795" || preview.Resulting[1].Quantity != "5" {
+		t.Fatalf("buy result = %+v", preview.Resulting)
+	}
+	var side, unitPrice, feeAmount string
+	if err := database.SQL.QueryRow("SELECT side, unit_price, fee_amount FROM activity_trade_details WHERE activity_id = ?", preview.Activity.ID.String()).Scan(&side, &unitPrice, &feeAmount); err != nil {
+		t.Fatal(err)
+	}
+	if side != "buy" || unitPrice != "100" || feeAmount != "5" {
+		t.Fatalf("trade detail = %s %s %s", side, unitPrice, feeAmount)
+	}
+	var cash, quantity string
+	if err := database.SQL.QueryRow("SELECT amount FROM account_cash_values WHERE account_id = ? AND projection_kind = 'event' ORDER BY created_at DESC LIMIT 1", account.Account.ID.String()).Scan(&cash); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT quantity FROM holding_quantity_values WHERE holding_id = ? AND projection_kind = 'event' ORDER BY created_at DESC LIMIT 1", holding.ID.String()).Scan(&quantity); err != nil {
+		t.Fatal(err)
+	}
+	if cash != "795" || quantity != "5" {
+		t.Fatalf("persisted buy cash=%s quantity=%s", cash, quantity)
+	}
+
+	sellGross, _ := domain.ParseMoney("120", "USD")
+	sellFee, _ := domain.ParseMoney("2", "USD")
+	clock = clock.Add(time.Hour)
+	sell, err := service.RecordChange(ctx, domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: domain.TradeSell, SettlementAccountID: account.Account.ID, HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "1"), Gross: sellGross, Fee: &sellFee, EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sell.Resulting[0].Amount != "913" || sell.Resulting[1].Quantity != "4" {
+		t.Fatalf("sell result = %+v", sell.Resulting)
+	}
+}
+
+func TestRecordTransfersUseNativeEndpointsAndCommitAtomically(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/transfer.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Transfers", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerIDs := []domain.MemberID{bootstrap.Members[0].ID}
+	fromAccount, err := service.CreateAccount(ctx, AccountInput{Name: "From", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", OwnerIDs: ownerIDs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	toAccount, err := service.CreateAccount(ctx, AccountInput{Name: "To", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: ownerIDs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromBroker, err := service.CreateAccount(ctx, AccountInput{Name: "From Broker", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: ownerIDs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	toBroker, err := service.CreateAccount(ctx, AccountInput{Name: "To Broker", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: ownerIDs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: fromBroker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	toHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: toBroker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	cny, _ := domain.ParseMoney("125", "CNY")
+	cashTransfer, err := service.RecordChange(ctx, domain.CashTransferInput{HouseholdID: bootstrap.Household.ID, FromAccountID: fromAccount.Account.ID, ToAccountID: toAccount.Account.ID, Sent: cny, Received: cny, EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cashTransfer.Effects[0].Target != domain.EffectTargetAccountValue || cashTransfer.Resulting[0].Amount != "875" || cashTransfer.Resulting[1].Amount != "225" {
+		t.Fatalf("cash transfer = %+v", cashTransfer)
+	}
+	positionTransfer, err := service.RecordChange(ctx, domain.PositionTransferInput{HouseholdID: bootstrap.Household.ID, FromHoldingID: fromHolding.ID, ToHoldingID: toHolding.ID, Quantity: mustQuantity(t, "2"), EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if positionTransfer.Resulting[0].Quantity != "1" || positionTransfer.Resulting[1].Quantity != "3" {
+		t.Fatalf("position transfer = %+v", positionTransfer.Resulting)
+	}
+	var activities, effects int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&activities); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activity_effects").Scan(&effects); err != nil {
+		t.Fatal(err)
+	}
+	if activities != 2 || effects != 4 {
+		t.Fatalf("transfer evidence activities=%d effects=%d", activities, effects)
+	}
+}
+
+func TestUndoAndFixKeepEvidenceAppendOnly(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/correction.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Corrections", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	amount, _ := domain.ParseMoney("100", "CNY")
+	original, err := service.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: account.Account.ID, Amount: amount, Reason: domain.ReasonIncome, EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	undo, err := service.UndoChange(ctx, original.Activity.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if undo.Activity.Kind != domain.ActivityReversal || undo.Resulting[0].Amount != "1000" {
+		t.Fatalf("undo = %+v", undo)
+	}
+	if _, err := service.UndoChange(ctx, original.Activity.ID); err == nil || err.(*domain.Error).Code != domain.ErrAlreadyUndone {
+		t.Fatalf("second undo error = %v", err)
+	}
+
+	second, err := service.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: account.Account.ID, Amount: amount, Reason: domain.ReasonIncome, EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacementAmount, _ := domain.ParseMoney("80", "CNY")
+	replacement, err := service.FixChange(ctx, second.Activity.ID, domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: account.Account.ID, Amount: replacementAmount, Reason: domain.ReasonIncome, EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replacement.Resulting[0].Amount != "1080" {
+		t.Fatalf("replacement = %+v", replacement)
+	}
+	var activities, groups, reversals int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&activities); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activity_correction_groups").Scan(&groups); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activities WHERE reverses_activity_id IS NOT NULL").Scan(&reversals); err != nil {
+		t.Fatal(err)
+	}
+	if activities != 5 || groups != 1 || reversals != 2 {
+		t.Fatalf("correction evidence activities=%d groups=%d reversals=%d", activities, groups, reversals)
+	}
+}
+
+func TestAppendEffectiveStateAndPreferenceObservations(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/observations.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 4, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Observations", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AppendAccountStateObservation(ctx, domain.AccountStateObservation{AccountID: account.Account.ID, EffectiveAt: clock, IncludeInNetWorth: true, IncludeInLiquidAssets: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AppendInstrumentPreferenceObservation(ctx, domain.InstrumentPreferenceObservation{InstrumentID: instrument.ID, SourceKind: domain.QuoteSourceManual, EffectiveAt: clock}); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.AppendFXPreferenceObservation(ctx, domain.FXPreferenceObservation{HouseholdID: bootstrap.Household.ID, CurrencyA: domain.CurrencyCode("USD"), CurrencyB: domain.CurrencyCode("CNY"), SourceKind: domain.QuoteSourceManual, EffectiveAt: clock}); err != nil {
+		t.Fatal(err)
+	}
+	var accountStates, ownership, instrumentPreferences, fxPreferences int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM account_state_observations").Scan(&accountStates); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM account_state_ownership").Scan(&ownership); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM instrument_preference_observations").Scan(&instrumentPreferences); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM fx_preference_observations").Scan(&fxPreferences); err != nil {
+		t.Fatal(err)
+	}
+	if accountStates != 1 || ownership != 1 || instrumentPreferences != 1 || fxPreferences != 1 {
+		t.Fatalf("observation counts = account=%d ownership=%d instrument=%d fx=%d", accountStates, ownership, instrumentPreferences, fxPreferences)
+	}
+}
+
+func TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/snapshots.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Snapshots", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock = time.Date(2026, 5, 1, 12, 0, 0, 0, time.UTC)
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	clock = time.Date(2026, 5, 3, 12, 0, 0, 0, time.UTC)
+	first, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-05-01")
+	if err != nil || !appended || first.NetWorthAmount == nil || first.NetWorthAmount.CanonicalAmount() != "1000" {
+		t.Fatalf("first snapshot=%+v appended=%v err=%v", first, appended, err)
+	}
+	_, appended, err = service.BuildDailyValuationSnapshot(ctx, "2026-05-01")
+	if err != nil || appended {
+		t.Fatalf("unchanged snapshot appended=%v err=%v", appended, err)
+	}
+	amount, _ := domain.ParseMoney("500", "CNY")
+	if _, err := service.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: account.Account.ID, Amount: amount, Reason: domain.ReasonIncome, EffectiveAt: time.Date(2026, 5, 2, 12, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatal(err)
+	}
+	second, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-05-02")
+	if err != nil || !appended || second.NetWorthAmount == nil || second.NetWorthAmount.CanonicalAmount() != "1500" {
+		t.Fatalf("second snapshot=%+v appended=%v err=%v", second, appended, err)
+	}
+	var mayOne, mayTwo, revisions int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM daily_valuation_snapshots WHERE local_date = '2026-05-01'").Scan(&mayOne); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM daily_valuation_snapshots WHERE local_date = '2026-05-02'").Scan(&mayTwo); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM daily_valuation_snapshots WHERE local_date = '2026-05-02' AND revision = 1").Scan(&revisions); err != nil {
+		t.Fatal(err)
+	}
+	if mayOne != 1 || mayTwo != 1 || revisions != 1 {
+		t.Fatalf("snapshot revisions may1=%d may2=%d revision1=%d", mayOne, mayTwo, revisions)
+	}
+	trend, err := service.NetWorthTrend(ctx, domain.TrendAllTime)
+	if err != nil || len(trend.Points) != 3 || trend.Points[0].Value == nil || trend.Points[0].Value.CanonicalAmount() != "1000" || trend.Points[1].Value == nil || trend.Points[1].Value.CanonicalAmount() != "1500" {
+		t.Fatalf("trend = %+v err=%v", trend, err)
+	}
+}
+
+func mustQuantity(t *testing.T, value string) domain.Quantity {
+	t.Helper()
+	quantity, err := domain.ParseQuantity(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return quantity
+}
