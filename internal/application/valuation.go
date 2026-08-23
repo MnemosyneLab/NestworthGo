@@ -264,17 +264,43 @@ func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, recor
 }
 
 func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accountID domain.AccountID, holding domain.Holding, instrument domain.Instrument) (domain.ValuationComponent, []domain.MissingInputView, error) {
+	id := instrument.ID
+	name, symbol := instrumentIdentity(instrument)
+	if holding.Quantity.IsZero() {
+		baseView, err := moneyView(decimal.Zero, snapshot.Household.BaseCurrency)
+		if err != nil {
+			return domain.ValuationComponent{}, nil, err
+		}
+		return domain.ValuationComponent{
+			AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol,
+			NativeAmount: "0", NativeCurrency: instrument.QuoteCurrency, BaseAmount: &baseView,
+			BaseAmountExact: "0", Available: true,
+		}, nil, nil
+	}
 	quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
 	if quote == nil {
-		id := instrument.ID
-		return domain.ValuationComponent{AccountID: accountID, InstrumentID: &id, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, QuoteCurrency: instrument.QuoteCurrency}}, nil
+		return domain.ValuationComponent{AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteCurrency: instrument.QuoteCurrency}}, nil
 	}
 	native, err := holding.Quantity.Multiply(quote.UnitPrice)
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
 	}
 	evidence := quoteEvidence(quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now())
-	return v.valueNative(snapshot, accountID, &holding.InstrumentID, native, instrument.QuoteCurrency, &evidence)
+	component, missing, err := v.valueNative(snapshot, accountID, &holding.InstrumentID, native, instrument.QuoteCurrency, &evidence)
+	if err != nil {
+		return domain.ValuationComponent{}, nil, err
+	}
+	component.InstrumentName = name
+	component.InstrumentSymbol = symbol
+	return component, missing, nil
+}
+
+func instrumentIdentity(instrument domain.Instrument) (string, string) {
+	symbol := ""
+	if instrument.Symbol != nil {
+		symbol = strings.TrimSpace(*instrument.Symbol)
+	}
+	return strings.TrimSpace(instrument.Name), symbol
 }
 
 func (v *ValuationService) valueCash(snapshot domain.PortfolioSnapshot, accountID domain.AccountID, cash domain.AccountCashValue) (domain.ValuationComponent, []domain.MissingInputView, error) {

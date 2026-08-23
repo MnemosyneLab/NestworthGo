@@ -15,14 +15,32 @@ const (
 	FreshnessUnavailable Freshness = "unavailable"
 )
 
+const (
+	// QuoteClockSkewTolerance is the amount of provider clock skew that can be
+	// tolerated without treating an observation as unusable. Provider adapters
+	// and the application boundary both use the same limit before a quote can
+	// be persisted.
+	QuoteClockSkewTolerance = 5 * time.Minute
+)
+
+// ProviderObservationEarliest is the lower bound for externally supplied
+// provider observations. Manual observations are not subject to this
+// provider-only bound.
+func ProviderObservationEarliest() time.Time {
+	return time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
+}
+
 func QuoteFreshness(source QuoteSourceKind, delayed bool, quotedAt, now time.Time) Freshness {
 	if source == QuoteSourceManual {
 		return FreshnessManual
 	}
-	if quotedAt.IsZero() {
+	if quotedAt.IsZero() || now.IsZero() || quotedAt.Before(ProviderObservationEarliest()) {
 		return FreshnessUnavailable
 	}
 	age := now.Sub(quotedAt)
+	if quotedAt.After(now.Add(QuoteClockSkewTolerance)) {
+		return FreshnessUnavailable
+	}
 	if age > 24*time.Hour {
 		return FreshnessStale
 	}
@@ -54,26 +72,30 @@ const (
 )
 
 type MissingInputView struct {
-	Kind          MissingInputKind
-	AccountID     AccountID
-	InstrumentID  *InstrumentID
-	BaseCurrency  CurrencyCode
-	QuoteCurrency CurrencyCode
+	Kind             MissingInputKind
+	AccountID        AccountID
+	InstrumentID     *InstrumentID
+	InstrumentName   string
+	InstrumentSymbol string
+	BaseCurrency     CurrencyCode
+	QuoteCurrency    CurrencyCode
 }
 
 // ValuationComponent keeps full-precision arithmetic separate from the
 // returned Money view. The application owns the authoritative calculation;
 // UI layers consume this vocabulary only.
 type ValuationComponent struct {
-	AccountID       AccountID
-	InstrumentID    *InstrumentID
-	NativeAmount    string
-	NativeCurrency  CurrencyCode
-	BaseAmount      *MoneyView
-	BaseAmountExact string
-	PriceEvidence   *QuoteEvidenceView
-	FXEvidence      *QuoteEvidenceView
-	Available       bool
+	AccountID        AccountID
+	InstrumentID     *InstrumentID
+	InstrumentName   string
+	InstrumentSymbol string
+	NativeAmount     string
+	NativeCurrency   CurrencyCode
+	BaseAmount       *MoneyView
+	BaseAmountExact  string
+	PriceEvidence    *QuoteEvidenceView
+	FXEvidence       *QuoteEvidenceView
+	Available        bool
 }
 
 type ValuationResult struct {

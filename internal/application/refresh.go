@@ -97,7 +97,7 @@ func (s *Service) RefreshFX(ctx context.Context, currencyA, currencyB string) (R
 
 // RefreshAll derives a deterministic set from the one local snapshot. It
 // never contacts a provider while reading or writing SQLite, and stops
-// starting later targets after the first provider rate limit.
+// starting later targets for the provider that returned a rate limit.
 func (s *Service) RefreshAll(ctx context.Context) (RefreshResult, error) {
 	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
@@ -126,20 +126,35 @@ func (s *Service) RefreshRequiredFX(ctx context.Context) (RefreshResult, error) 
 
 func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) RefreshResult {
 	result := RefreshResult{Items: make([]RefreshTargetResult, 0, len(targets))}
-	rateLimited := false
+	rateLimited := make(map[string]bool)
 	for _, target := range targets {
-		if rateLimited {
+		if target.skip {
+			item, _ := s.refreshTarget(ctx, target)
+			result.Items = append(result.Items, item)
+			continue
+		}
+		providerKey := s.refreshProviderKey(target)
+		if providerKey != "" && rateLimited[providerKey] {
 			result.Items = append(result.Items, RefreshTargetResult{TargetKey: target.key, Kind: target.kind, Status: RefreshSkipped, ErrorCode: domain.ErrProviderRateLimit})
 			continue
 		}
 		item, hitRateLimit := s.refreshTarget(ctx, target)
 		result.Items = append(result.Items, item)
 		if hitRateLimit {
-			rateLimited = true
+			if providerKey != "" {
+				rateLimited[providerKey] = true
+			}
 			result.RateLimited = true
 		}
 	}
 	return result
+}
+
+func (s *Service) refreshProviderKey(target refreshTarget) string {
+	if target.kind == RefreshFXTarget {
+		return strings.ToLower(strings.TrimSpace(s.FXProviderKey()))
+	}
+	return strings.ToLower(strings.TrimSpace(target.providerKey))
 }
 
 func (s *Service) refreshTarget(ctx context.Context, target refreshTarget) (RefreshTargetResult, bool) {
@@ -174,10 +189,11 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget) (Refr
 		if providerErr != nil {
 			return providerRefreshFailure(target, providerErr)
 		}
-		if quote.QuotedAt.IsZero() || quote.Currency != target.instrument.QuoteCurrency || quote.SourceKey == "" {
+		quotedAt, timeErr := NormalizeProviderObservationTime(quote.QuotedAt, s.now())
+		if timeErr != nil || quote.Currency != target.instrument.QuoteCurrency || quote.SourceKey == "" {
 			return failedRefresh(target, malformedProviderError()), false
 		}
-		stored, createErr := domain.NewInstrumentQuote(target.instrument, domain.InstrumentQuoteInput{UnitPrice: quote.Price, Currency: quote.Currency, SourceKind: domain.QuoteSourceProvider, SourceKey: quote.SourceKey, QuotedAt: quote.QuotedAt, Delayed: quote.Delayed}, s.now())
+		stored, createErr := domain.NewInstrumentQuote(target.instrument, domain.InstrumentQuoteInput{UnitPrice: quote.Price, Currency: quote.Currency, SourceKind: domain.QuoteSourceProvider, SourceKey: quote.SourceKey, QuotedAt: quotedAt, Delayed: quote.Delayed}, s.now())
 		if createErr != nil {
 			return failedRefresh(target, malformedProviderError()), false
 		}
@@ -195,13 +211,14 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget) (Refr
 	if providerErr != nil {
 		return providerRefreshFailure(target, providerErr)
 	}
-	if quote.QuotedAt.IsZero() || quote.BaseCurrency != target.baseCurrency || quote.QuoteCurrency != target.quoteCurrency || quote.SourceKey == "" {
+	quotedAt, timeErr := NormalizeProviderObservationTime(quote.QuotedAt, s.now())
+	if timeErr != nil || quote.BaseCurrency != target.baseCurrency || quote.QuoteCurrency != target.quoteCurrency || quote.SourceKey == "" {
 		return failedRefresh(target, malformedProviderError()), false
 	}
 	if target.householdID == "" {
 		return failedRefresh(target, &domain.Error{Code: domain.ErrUnavailable, Message: "household was not found"}), false
 	}
-	stored, createErr := domain.NewFXQuote(domain.FXQuoteInput{HouseholdID: target.householdID, BaseCurrency: quote.BaseCurrency, QuoteCurrency: quote.QuoteCurrency, Rate: quote.Rate, SourceKind: domain.QuoteSourceProvider, SourceKey: quote.SourceKey, QuotedAt: quote.QuotedAt, Delayed: quote.Delayed}, s.now())
+	stored, createErr := domain.NewFXQuote(domain.FXQuoteInput{HouseholdID: target.householdID, BaseCurrency: quote.BaseCurrency, QuoteCurrency: quote.QuoteCurrency, Rate: quote.Rate, SourceKind: domain.QuoteSourceProvider, SourceKey: quote.SourceKey, QuotedAt: quotedAt, Delayed: quote.Delayed}, s.now())
 	if createErr != nil {
 		return failedRefresh(target, malformedProviderError()), false
 	}

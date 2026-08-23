@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -165,6 +166,30 @@ func TestPartialRefreshIsRetryableAndDisclaimerIsLocalized(t *testing.T) {
 	controller.translator.SetLanguage(settings.LanguageZhCN)
 	if !canvasContainsText(providerDisclaimer(controller), "Yahoo Finance 是非官方且无关联关系的数据来源，数据可能变化或变得不可用。") {
 		t.Fatal("Simplified Chinese Yahoo disclaimer is not visible")
+	}
+}
+
+func TestInvestmentIdentityAndSingleRefreshFailuresStayUserFacing(t *testing.T) {
+	fyneApplication := test.NewTempApp(t)
+	defer fyneApplication.Quit()
+	controller := &Controller{translator: i18n.New(settings.LanguageEnglish)}
+	if got := instrumentIdentityLabel(controller, "Vanguard ETF", "VOO"); got != "Vanguard ETF (VOO)" {
+		t.Fatalf("instrument identity label = %q", got)
+	}
+	id := domain.InstrumentID("00000000-0000-7000-8000-000000000000")
+	missing := missingInputText(controller, domain.MissingInputView{Kind: domain.MissingInstrumentPrice, InstrumentID: &id, InstrumentName: "Vanguard ETF", InstrumentSymbol: "VOO"}, nil)
+	if missing == "" || missing == id.String() || !strings.Contains(missing, "Vanguard ETF (VOO)") {
+		t.Fatalf("missing input text = %q", missing)
+	}
+	for _, status := range []application.RefreshStatus{application.RefreshSkipped, application.RefreshFailed, application.RefreshRateLimited} {
+		if !refreshSingleTargetNeedsAttention(application.RefreshResult{Items: []application.RefreshTargetResult{{Status: status}}}) {
+			t.Fatalf("single-target status %q was treated as success", status)
+		}
+	}
+	for _, status := range []application.RefreshStatus{application.RefreshFetched, application.RefreshCached} {
+		if refreshSingleTargetNeedsAttention(application.RefreshResult{Items: []application.RefreshTargetResult{{Status: status}}}) {
+			t.Fatalf("single-target status %q was treated as failure", status)
+		}
 	}
 }
 

@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"sync"
@@ -165,6 +166,90 @@ func TestPortfolioRepositoriesEnforceModesUniquenessAndSnapshotBoundary(t *testi
 	}
 }
 
+func TestPortfolioSnapshotLoadsOnlyLatestCashAndQuoteCandidates(t *testing.T) {
+	_, repository, household, account, instrument := seedPortfolioRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	for index, effective := range []time.Time{now.Add(-3 * time.Hour), now.Add(-2 * time.Hour), now.Add(-time.Hour)} {
+		amount, err := domain.ParseMoney(fmt.Sprintf("%d", index+1), domain.CurrencyCode("CNY"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		value, err := domain.NewAccountCashValue(account, amount, effective, effective.Add(time.Minute))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := repository.AppendAccountCashValue(ctx, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for index, quotedAt := range []time.Time{now.Add(-3 * time.Hour), now.Add(-2 * time.Hour), now.Add(-time.Hour)} {
+		price, err := domain.ParseUnitPrice(fmt.Sprintf("%d", 10+index))
+		if err != nil {
+			t.Fatal(err)
+		}
+		quote, err := domain.NewInstrumentQuote(instrument, domain.InstrumentQuoteInput{UnitPrice: price, SourceKind: domain.QuoteSourceManual, QuotedAt: quotedAt}, quotedAt.Add(time.Minute))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := repository.AppendInstrumentQuote(ctx, quote); err != nil {
+			t.Fatal(err)
+		}
+	}
+	providerPrice, _ := domain.ParseUnitPrice("20")
+	providerQuote, err := domain.NewInstrumentQuote(instrument, domain.InstrumentQuoteInput{UnitPrice: providerPrice, SourceKind: domain.QuoteSourceProvider, SourceKey: "fake", QuotedAt: now}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.AppendInstrumentQuote(ctx, providerQuote); err != nil {
+		t.Fatal(err)
+	}
+	manualRate, _ := domain.ParseFxRate("6.8")
+	providerRate, _ := domain.ParseFxRate("6.9")
+	fxQuotes := []domain.FXQuote{
+		newTestFXQuote(t, household.ID, "USD", "CNY", manualRate, domain.QuoteSourceManual, "manual", now.Add(-2*time.Hour)),
+		newTestFXQuote(t, household.ID, "CNY", "USD", manualRate, domain.QuoteSourceManual, "manual", now.Add(-time.Hour)),
+		newTestFXQuote(t, household.ID, "USD", "CNY", providerRate, domain.QuoteSourceProvider, "fake", now.Add(2*time.Minute)),
+	}
+	for _, quote := range fxQuotes {
+		if err := repository.AppendFXQuote(ctx, quote); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	snapshot, err := repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(snapshot.CashValues) != 1 || len(snapshot.InstrumentQuotes) != 2 || len(snapshot.FXQuotes) != 2 {
+		t.Fatalf("bounded snapshot history counts = cash %d, instrument quotes %d, FX quotes %d", len(snapshot.CashValues), len(snapshot.InstrumentQuotes), len(snapshot.FXQuotes))
+	}
+	history, err := repository.ListFXQuotes(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 3 {
+		t.Fatalf("FX history API returned %d rows, want all 3", len(history))
+	}
+}
+
+func newTestFXQuote(t *testing.T, householdID domain.HouseholdID, base, quote string, rate domain.FxRate, source domain.QuoteSourceKind, sourceKey string, quotedAt time.Time) domain.FXQuote {
+	t.Helper()
+	baseCurrency, err := domain.ParseCurrency(base)
+	if err != nil {
+		t.Fatal(err)
+	}
+	quoteCurrency, err := domain.ParseCurrency(quote)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := domain.NewFXQuote(domain.FXQuoteInput{HouseholdID: householdID, BaseCurrency: baseCurrency, QuoteCurrency: quoteCurrency, Rate: rate, SourceKind: source, SourceKey: sourceKey, QuotedAt: quotedAt}, quotedAt.Add(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
 func TestPortfolioRepositoriesRejectHoldingsOnNonHoldingsAccount(t *testing.T) {
 	database, repository, household, _, _ := seedPortfolioRepository(t)
 	ctx := context.Background()
@@ -205,6 +290,48 @@ func TestPortfolioRepositoriesRejectHoldingsOnNonHoldingsAccount(t *testing.T) {
 		t.Fatal("holding on a Balance account succeeded")
 	}
 	database.Close()
+}
+
+func TestArchivedHoldingAndAccountRejectFinalWrites(t *testing.T) {
+	_, repository, household, account, instrument := seedPortfolioRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	quantity, err := domain.ParseQuantity("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := domain.NewHoldingForAccount(account, instrument, quantity, nil, 0, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.CreateHolding(ctx, holding); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.SetHoldingArchive(ctx, household.ID, holding.ID, true, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.UpdateHolding(ctx, holding.ReplaceQuantity(quantity, now)); !hasDomainErrorCode(err, domain.ErrConflict) {
+		t.Fatalf("archived holding update error = %v, want conflict", err)
+	}
+	if err := repository.SetAccountArchive(ctx, household.ID, account.ID, true, now); err != nil {
+		t.Fatal(err)
+	}
+	money, err := domain.ParseMoney("1", domain.CurrencyCode("CNY"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cash, err := domain.NewAccountCashValue(account, money, now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.AppendAccountCashValue(ctx, cash); !hasDomainErrorCode(err, domain.ErrConflict) {
+		t.Fatalf("archived account cash error = %v, want conflict", err)
+	}
+}
+
+func hasDomainErrorCode(err error, want domain.ErrorCode) bool {
+	var domainErr *domain.Error
+	return errors.As(err, &domainErr) && domainErr.Code == want
 }
 
 func seedPortfolioRepository(t *testing.T) (*DB, *Repository, domain.Household, domain.Account, domain.Instrument) {

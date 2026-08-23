@@ -375,6 +375,68 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 	assertMoneyView(t, afterArchive.ValuedSubtotal, "0.0001", "CNY")
 }
 
+func TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/zero-holding.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	now := time.Date(2026, time.August, 23, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Zero", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true,
+		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeroInstrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Closed Position", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", Symbol: "CLOSED"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: zeroInstrument.ID.String(), Quantity: "0"}); err != nil {
+		t.Fatal(err)
+	}
+	nonZero, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Needs Price", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: nonZero.ID.String(), Quantity: "1"}); err != nil {
+		t.Fatal(err)
+	}
+
+	portfolio, err := service.Portfolio(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if portfolio.Complete {
+		t.Fatal("non-zero holding without a price unexpectedly completed the portfolio")
+	}
+	if len(portfolio.MissingInputs) != 1 || portfolio.MissingInputs[0].InstrumentID == nil || *portfolio.MissingInputs[0].InstrumentID != nonZero.ID {
+		t.Fatalf("missing inputs = %+v, want only the non-zero holding", portfolio.MissingInputs)
+	}
+	if portfolio.MissingInputs[0].InstrumentName != "Needs Price" {
+		t.Fatalf("missing instrument identity = %+v", portfolio.MissingInputs[0])
+	}
+	accountValue, err := service.AccountValuation(ctx, account.Account.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeroComponent := valuationComponentFor(t, accountValue, zeroInstrument.ID)
+	if !zeroComponent.Available || zeroComponent.BaseAmount == nil || zeroComponent.BaseAmount.Amount != "0" || zeroComponent.BaseAmountExact != "0" || zeroComponent.NativeAmount != "0" || zeroComponent.InstrumentName != "Closed Position" || zeroComponent.InstrumentSymbol != "CLOSED" {
+		t.Fatalf("zero holding component = %+v", zeroComponent)
+	}
+}
+
 func valuationComponentFor(t *testing.T, account domain.AccountValuation, instrumentID domain.InstrumentID) domain.ValuationComponent {
 	t.Helper()
 	for _, component := range account.Components {

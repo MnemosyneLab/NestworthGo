@@ -231,13 +231,11 @@ func quoteEvidenceText(c *Controller, evidence *domain.QuoteEvidenceView) string
 func missingInputText(c *Controller, missing domain.MissingInputView, instruments []domain.Instrument) string {
 	switch missing.Kind {
 	case domain.MissingInstrumentPrice:
-		name := c.translator.T("portfolio.unknownInstrument")
-		if missing.InstrumentID != nil {
-			name = missing.InstrumentID.String()
-		}
+		name := instrumentIdentityLabel(c, missing.InstrumentName, missing.InstrumentSymbol)
 		for _, instrument := range instruments {
 			if missing.InstrumentID != nil && instrument.ID == *missing.InstrumentID {
-				name = instrument.Name
+				instrumentName, instrumentSymbol := instrumentIdentityForUI(instrument)
+				name = instrumentIdentityLabel(c, instrumentName, instrumentSymbol)
 				break
 			}
 		}
@@ -249,6 +247,26 @@ func missingInputText(c *Controller, missing domain.MissingInputView, instrument
 	default:
 		return string(missing.Kind)
 	}
+}
+
+func instrumentIdentityLabel(c *Controller, name, symbol string) string {
+	name = strings.TrimSpace(name)
+	symbol = strings.TrimSpace(symbol)
+	if name == "" {
+		return c.translator.T("portfolio.unknownInstrument")
+	}
+	if symbol == "" {
+		return name
+	}
+	return fmt.Sprintf("%s (%s)", name, symbol)
+}
+
+func instrumentIdentityForUI(instrument domain.Instrument) (string, string) {
+	symbol := ""
+	if instrument.Symbol != nil {
+		symbol = strings.TrimSpace(*instrument.Symbol)
+	}
+	return strings.TrimSpace(instrument.Name), symbol
 }
 
 func latestCashValuesForUI(values []domain.AccountCashValue) []domain.AccountCashValue {
@@ -403,7 +421,7 @@ func showInstrumentManagementDialog(c *Controller) {
 							refreshStatus.Refresh()
 							return
 						}
-						if refreshResultNeedsAttention(result) {
+						if refreshSingleTargetNeedsAttention(result) {
 							refreshStatus.SetText(refreshResultTextFor(c, result))
 							refreshStatus.Importance = widget.WarningImportance
 							refreshStatus.Refresh()
@@ -511,6 +529,11 @@ func showInstrumentFormDialog(c *Controller, current *domain.Instrument, changed
 		if current == nil {
 			_, err := c.service.CreateInstrument(context.Background(), input)
 			return err
+		}
+		input.Replace = true
+		input.SortOrder = current.SortOrder
+		if current.LogoAssetID != nil {
+			input.LogoAssetID = current.LogoAssetID.String()
 		}
 		_, err := c.service.UpdateInstrument(context.Background(), current.ID, input)
 		return err
@@ -649,7 +672,7 @@ func showFXManagementDialog(c *Controller) {
 			refreshStatus.SetText(c.translator.T("portfolio.refreshing"))
 			refreshStatus.Importance = widget.WarningImportance
 			refreshStatus.Refresh()
-			c.startRefreshInDialog(refreshRequest{operation: refreshFXOperation, currencyA: native.String(), currencyB: base.String()}, func(result application.RefreshResult, err error) {
+			c.startRefreshInDialog(refreshRequest{operation: refreshFXOperation, currencyA: native.String(), currencyB: base.String(), persistFXProvider: true}, func(result application.RefreshResult, err error) {
 				if err != nil {
 					refresh.Enable()
 					refreshStatus.SetText(c.translator.TranslateError(err))
@@ -657,7 +680,7 @@ func showFXManagementDialog(c *Controller) {
 					refreshStatus.Refresh()
 					return
 				}
-				if refreshResultNeedsAttention(result) {
+				if refreshSingleTargetNeedsAttention(result) {
 					refresh.Enable()
 					refreshStatus.SetText(refreshResultTextFor(c, result))
 					refreshStatus.Importance = widget.WarningImportance

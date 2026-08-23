@@ -65,7 +65,7 @@ func (r *Repository) ReadPortfolioSnapshot(ctx context.Context, filter domain.Ac
 	if err != nil {
 		return fail(err)
 	}
-	fxQuotes, err := listFXQuotesQuery(ctx, tx, household.ID)
+	fxQuotes, err := listLatestFXQuotesQuery(ctx, tx, household.ID)
 	if err != nil {
 		return fail(err)
 	}
@@ -191,11 +191,27 @@ func (r *Repository) CreateHolding(ctx context.Context, holding domain.Holding) 
 }
 
 func (r *Repository) UpdateHolding(ctx context.Context, holding domain.Holding) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE holdings SET quantity = ?, note = ?, sort_order = ?, updated_at = ? WHERE id = ?`, holding.Quantity.Canonical(), nullableString(holding.Note), holding.SortOrder, formatTimestamp(holding.UpdatedAt), holding.ID.String())
-	if err != nil {
-		return mapPortfolioWriteError(err, "holding")
-	}
-	return requireAffected(result, "holding")
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		var accountArchived sql.NullString
+		var archived sql.NullString
+		if err := tx.QueryRowContext(ctx, `SELECT h.archived_at, a.archived_at FROM holdings h JOIN accounts a ON a.id = h.account_id WHERE h.id = ? AND h.account_id = ?`, holding.ID.String(), holding.AccountID.String()).Scan(&archived, &accountArchived); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return &domain.Error{Code: domain.ErrNotFound, Message: "holding was not found"}
+			}
+			return err
+		}
+		if archived.Valid || accountArchived.Valid {
+			return &domain.Error{Code: domain.ErrConflict, Message: "holding is no longer active"}
+		}
+		result, err := tx.ExecContext(ctx, `UPDATE holdings SET quantity = ?, note = ?, sort_order = ?, updated_at = ? WHERE id = ? AND account_id = ? AND archived_at IS NULL`, holding.Quantity.Canonical(), nullableString(holding.Note), holding.SortOrder, formatTimestamp(holding.UpdatedAt), holding.ID.String(), holding.AccountID.String())
+		if err != nil {
+			return mapPortfolioWriteError(err, "holding")
+		}
+		if err := requireAffected(result, "holding"); err != nil {
+			return &domain.Error{Code: domain.ErrConflict, Message: "holding is no longer active"}
+		}
+		return nil
+	})
 }
 
 func (r *Repository) Holding(ctx context.Context, id domain.HoldingID) (domain.Holding, error) {
@@ -245,11 +261,15 @@ func (r *Repository) SetHoldingArchive(ctx context.Context, householdID domain.H
 func (r *Repository) AppendAccountCashValue(ctx context.Context, value domain.AccountCashValue) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		var mode string
-		if err := tx.QueryRowContext(ctx, `SELECT tracking_mode FROM accounts WHERE id = ?`, value.AccountID.String()).Scan(&mode); err != nil {
+		var archived sql.NullString
+		if err := tx.QueryRowContext(ctx, `SELECT tracking_mode, archived_at FROM accounts WHERE id = ?`, value.AccountID.String()).Scan(&mode, &archived); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
 			}
 			return err
+		}
+		if archived.Valid {
+			return &domain.Error{Code: domain.ErrConflict, Message: "account is no longer active"}
 		}
 		if mode != string(domain.TrackingHoldings) {
 			return &domain.Error{Code: domain.ErrValidation, Field: "trackingMode", Message: "cash observations require a Holdings account"}
@@ -385,7 +405,12 @@ func (r *Repository) AppendFXQuoteAndSelectManual(ctx context.Context, quote dom
 }
 
 func (r *Repository) ListFXQuotes(ctx context.Context, householdID domain.HouseholdID) ([]domain.FXQuote, error) {
-	return listFXQuotesQuery(ctx, r.database.SQL, householdID)
+	rows, err := r.database.SQL.QueryContext(ctx, `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`, householdID.String())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanFXQuotes(rows)
 }
 
 func (r *Repository) SetFXPreference(ctx context.Context, preference domain.FXPreference) error {
@@ -531,7 +556,18 @@ func listHoldingsQuery(ctx context.Context, query queryer, householdID domain.Ho
 }
 
 func listCashValuesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.AccountCashValue, error) {
-	rows, err := query.QueryContext(ctx, `SELECT c.id, c.account_id, c.amount, c.currency, c.effective_at, c.created_at FROM account_cash_values c JOIN accounts a ON a.id = c.account_id WHERE a.household_id = ? ORDER BY c.account_id ASC, c.currency ASC, c.effective_at DESC, c.created_at DESC, c.id DESC`, householdID.String())
+	rows, err := query.QueryContext(ctx, `SELECT c.id, c.account_id, c.amount, c.currency, c.effective_at, c.created_at
+		FROM account_cash_values c
+		JOIN accounts a ON a.id = c.account_id
+		WHERE a.household_id = ?
+		AND NOT EXISTS (
+			SELECT 1 FROM account_cash_values newer
+			WHERE newer.account_id = c.account_id AND newer.currency = c.currency
+			AND (newer.effective_at > c.effective_at
+				OR (newer.effective_at = c.effective_at AND newer.created_at > c.created_at)
+				OR (newer.effective_at = c.effective_at AND newer.created_at = c.created_at AND newer.id > c.id))
+		)
+		ORDER BY c.account_id ASC, c.currency ASC, c.effective_at DESC, c.created_at DESC, c.id DESC`, householdID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -540,7 +576,18 @@ func listCashValuesQuery(ctx context.Context, query queryer, householdID domain.
 }
 
 func listInstrumentQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.InstrumentQuote, error) {
-	rows, err := query.QueryContext(ctx, `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? ORDER BY q.instrument_id ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`, householdID.String())
+	rows, err := query.QueryContext(ctx, `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed
+		FROM instrument_quotes q
+		JOIN instruments i ON i.id = q.instrument_id
+		WHERE i.household_id = ?
+		AND NOT EXISTS (
+			SELECT 1 FROM instrument_quotes newer
+			WHERE newer.instrument_id = q.instrument_id AND newer.source_kind = q.source_kind AND newer.currency = q.currency
+			AND (newer.quoted_at > q.quoted_at
+				OR (newer.quoted_at = q.quoted_at AND newer.created_at > q.created_at)
+				OR (newer.quoted_at = q.quoted_at AND newer.created_at = q.created_at AND newer.id > q.id))
+		)
+		ORDER BY q.instrument_id ASC, q.source_kind ASC, q.currency ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`, householdID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -548,8 +595,24 @@ func listInstrumentQuotesQuery(ctx context.Context, query queryer, householdID d
 	return scanInstrumentQuotes(rows)
 }
 
-func listFXQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.FXQuote, error) {
-	rows, err := query.QueryContext(ctx, `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`, householdID.String())
+func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.FXQuote, error) {
+	rows, err := query.QueryContext(ctx, `WITH candidates AS (
+			SELECT q.*,
+				CASE WHEN q.base_currency < q.quote_currency THEN q.base_currency ELSE q.quote_currency END AS currency_a,
+				CASE WHEN q.base_currency < q.quote_currency THEN q.quote_currency ELSE q.base_currency END AS currency_b
+			FROM fx_quotes q
+			WHERE q.household_id = ?
+		)
+		SELECT q.id, q.household_id, q.base_currency, q.quote_currency, q.rate, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed
+		FROM candidates q
+		WHERE NOT EXISTS (
+			SELECT 1 FROM candidates newer
+			WHERE newer.household_id = q.household_id AND newer.currency_a = q.currency_a AND newer.currency_b = q.currency_b AND newer.source_kind = q.source_kind
+			AND (newer.quoted_at > q.quoted_at
+				OR (newer.quoted_at = q.quoted_at AND newer.created_at > q.created_at)
+				OR (newer.quoted_at = q.quoted_at AND newer.created_at = q.created_at AND newer.id > q.id))
+		)
+		ORDER BY q.currency_a ASC, q.currency_b ASC, q.source_kind ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`, householdID.String())
 	if err != nil {
 		return nil, err
 	}

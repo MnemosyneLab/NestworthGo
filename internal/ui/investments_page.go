@@ -93,7 +93,7 @@ func investmentPositionsCard(c *Controller, portfolio domain.PortfolioValuation)
 		for _, component := range account.Components {
 			label := t.T("portfolio.cash")
 			if component.InstrumentID != nil {
-				label = component.InstrumentID.String()
+				label = instrumentIdentityLabel(c, component.InstrumentName, component.InstrumentSymbol)
 			}
 			rows = append(rows, valueEvidenceRow(c, label, component.NativeAmount, component.NativeCurrency, component, mutedLabel(account.Account.Name)))
 		}

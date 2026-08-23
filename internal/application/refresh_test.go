@@ -11,6 +11,7 @@ import (
 )
 
 type refreshFakeProvider struct {
+	key         string
 	mu          sync.Mutex
 	instruments map[string]struct {
 		quote LatestInstrumentQuote
@@ -24,7 +25,7 @@ type refreshFakeProvider struct {
 }
 
 func newRefreshFakeProvider() *refreshFakeProvider {
-	return &refreshFakeProvider{instruments: make(map[string]struct {
+	return &refreshFakeProvider{key: "fake", instruments: make(map[string]struct {
 		quote LatestInstrumentQuote
 		err   error
 	}), fx: make(map[string]struct {
@@ -33,7 +34,7 @@ func newRefreshFakeProvider() *refreshFakeProvider {
 	})}
 }
 
-func (p *refreshFakeProvider) Key() string { return "fake" }
+func (p *refreshFakeProvider) Key() string { return p.key }
 
 func (p *refreshFakeProvider) Capabilities() MarketDataCapabilities {
 	return MarketDataCapabilities{LatestInstrument: true, LatestFX: true}
@@ -309,6 +310,76 @@ func TestRefreshSkipsManualTargetsAndStopsAfterRateLimit(t *testing.T) {
 	}
 	assertRefreshStatus(t, result, instrumentTargetKey(rateID), RefreshRateLimited)
 	assertRefreshStatus(t, result, instrumentTargetKey(successID), RefreshSkipped)
+}
+
+func TestRefreshRateLimitStopsOnlyTargetsOwnedByThatProvider(t *testing.T) {
+	_, service, fake, _, instrument := newRefreshFixture(t)
+	other := newRefreshFakeProvider()
+	other.key = "other"
+	other.fx["USD/CNY"] = struct {
+		quote LatestFXQuote
+		err   error
+	}{err: &domain.Error{Code: domain.ErrProviderRateLimit, Message: "provider rate limit reached"}}
+	service.SetMarketDataRegistry(NewMarketDataRegistry(fake, other))
+	if err := service.SetFXProvider(other.Key()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetFXPreference(context.Background(), "USD", "CNY", "provider"); err != nil {
+		t.Fatal(err)
+	}
+
+	result, err := service.RefreshAll(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRefreshStatus(t, result, "fx:CNY/USD", RefreshRateLimited)
+	assertRefreshStatus(t, result, instrumentTargetKey(instrument.ID), RefreshFetched)
+	if got := other.callNames(); len(got) != 1 || got[0] != "fx:USD/CNY" {
+		t.Fatalf("rate-limited provider calls = %v", got)
+	}
+	if got := fake.callNames(); len(got) != 1 || got[0] != "instrument:QQQ" {
+		t.Fatalf("independent provider calls = %v", got)
+	}
+}
+
+func TestRefreshRejectsProviderTimesBeforeWritingQuotes(t *testing.T) {
+	_, service, fake, _, instrument := newRefreshFixture(t)
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	for _, testCase := range []struct {
+		name string
+		when time.Time
+	}{
+		{name: "future", when: now.Add(domain.QuoteClockSkewTolerance + time.Second)},
+		{name: "largest unix value", when: time.Unix(1<<63-1, 0)},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			fake.instruments["QQQ"] = struct {
+				quote LatestInstrumentQuote
+				err   error
+			}{quote: LatestInstrumentQuote{Price: mustUnitPrice(t, "700"), Currency: "USD", SourceKey: fake.Key(), QuotedAt: testCase.when}}
+			result, err := service.RefreshInstrument(context.Background(), instrument.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			assertRefreshStatus(t, result, instrumentTargetKey(instrument.ID), RefreshFailed)
+			quotes, listErr := service.repository.ListInstrumentQuotes(context.Background(), instrument.ID)
+			if listErr != nil {
+				t.Fatal(listErr)
+			}
+			if len(quotes) != 0 {
+				t.Fatalf("invalid provider time wrote %d quote(s)", len(quotes))
+			}
+		})
+	}
+}
+
+func mustUnitPrice(t *testing.T, value string) domain.UnitPrice {
+	t.Helper()
+	price, err := domain.ParseUnitPrice(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return price
 }
 
 func TestRefreshForeignInstrumentIsSkippedWithoutProviderCall(t *testing.T) {

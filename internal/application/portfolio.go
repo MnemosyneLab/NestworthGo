@@ -12,6 +12,10 @@ import (
 // management. Provider refresh remains an explicit Service action; this
 // command only persists the validated binding metadata.
 type InstrumentInput struct {
+	// Replace makes UpdateInstrument interpret this as the complete form
+	// state. When false, zero values retain the existing field for callers that
+	// intentionally perform a partial programmatic update.
+	Replace        bool
 	Name           string
 	Type           string
 	QuoteCurrency  string
@@ -73,7 +77,9 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	if err != nil {
 		return domain.Instrument{}, safePortfolioError(err)
 	}
-	mergeInstrumentInput(&input, current)
+	if !input.Replace {
+		mergeInstrumentInput(&input, current)
+	}
 	updated, err := newInstrumentFromInput(current.HouseholdID, input, s.now())
 	if err != nil {
 		return domain.Instrument{}, err

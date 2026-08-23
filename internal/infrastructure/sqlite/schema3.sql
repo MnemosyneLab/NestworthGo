@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS instruments (
+CREATE TABLE instruments (
     id TEXT PRIMARY KEY NOT NULL,
     household_id TEXT NOT NULL,
     name TEXT NOT NULL,
@@ -21,11 +21,11 @@ CREATE TABLE IF NOT EXISTS instruments (
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE,
     FOREIGN KEY(logo_asset_id) REFERENCES media_assets(id) ON DELETE SET NULL
 );
-CREATE INDEX IF NOT EXISTS idx_instruments_household ON instruments(household_id);
-CREATE INDEX IF NOT EXISTS idx_instruments_quote_source ON instruments(household_id, quote_source, archived_at);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_instruments_active_provider_binding ON instruments(household_id, provider_key, provider_symbol) WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL;
+CREATE INDEX idx_instruments_household ON instruments(household_id);
+CREATE INDEX idx_instruments_quote_source ON instruments(household_id, quote_source, archived_at);
+CREATE UNIQUE INDEX ux_instruments_active_provider_binding ON instruments(household_id, provider_key, provider_symbol) WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL;
 
-CREATE TABLE IF NOT EXISTS holdings (
+CREATE TABLE holdings (
     id TEXT PRIMARY KEY NOT NULL,
     account_id TEXT NOT NULL,
     instrument_id TEXT NOT NULL,
@@ -38,11 +38,11 @@ CREATE TABLE IF NOT EXISTS holdings (
     FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE,
     FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT
 );
-CREATE INDEX IF NOT EXISTS idx_holdings_account ON holdings(account_id, archived_at, sort_order, id);
-CREATE INDEX IF NOT EXISTS idx_holdings_instrument ON holdings(instrument_id, archived_at);
-CREATE UNIQUE INDEX IF NOT EXISTS ux_holdings_active_account_instrument ON holdings(account_id, instrument_id) WHERE archived_at IS NULL;
+CREATE INDEX idx_holdings_account ON holdings(account_id, archived_at, sort_order, id);
+CREATE INDEX idx_holdings_instrument ON holdings(instrument_id, archived_at);
+CREATE UNIQUE INDEX ux_holdings_active_account_instrument ON holdings(account_id, instrument_id) WHERE archived_at IS NULL;
 
-CREATE TABLE IF NOT EXISTS account_cash_values (
+CREATE TABLE account_cash_values (
     id TEXT PRIMARY KEY NOT NULL,
     account_id TEXT NOT NULL,
     amount TEXT NOT NULL,
@@ -51,9 +51,9 @@ CREATE TABLE IF NOT EXISTS account_cash_values (
     created_at TEXT NOT NULL,
     FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_account_cash_latest ON account_cash_values(account_id, currency, effective_at DESC, created_at DESC, id DESC);
+CREATE INDEX idx_account_cash_latest ON account_cash_values(account_id, currency, effective_at DESC, created_at DESC, id DESC);
 
-CREATE TABLE IF NOT EXISTS instrument_quotes (
+CREATE TABLE instrument_quotes (
     id TEXT PRIMARY KEY NOT NULL,
     instrument_id TEXT NOT NULL,
     unit_price TEXT NOT NULL,
@@ -65,9 +65,9 @@ CREATE TABLE IF NOT EXISTS instrument_quotes (
     delayed INTEGER NOT NULL DEFAULT 0 CHECK(delayed IN (0,1)),
     FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_instrument_quotes_latest ON instrument_quotes(instrument_id, source_kind, currency, quoted_at DESC, created_at DESC, id DESC);
+CREATE INDEX idx_instrument_quotes_latest ON instrument_quotes(instrument_id, source_kind, currency, quoted_at DESC, created_at DESC, id DESC);
 
-CREATE TABLE IF NOT EXISTS fx_quotes (
+CREATE TABLE fx_quotes (
     id TEXT PRIMARY KEY NOT NULL,
     household_id TEXT NOT NULL,
     base_currency TEXT NOT NULL CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]'),
@@ -81,9 +81,9 @@ CREATE TABLE IF NOT EXISTS fx_quotes (
     CHECK(base_currency <> quote_currency),
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_fx_quotes_latest ON fx_quotes(household_id, base_currency, quote_currency, source_kind, quoted_at DESC, created_at DESC, id DESC);
+CREATE INDEX idx_fx_quotes_latest ON fx_quotes(household_id, base_currency, quote_currency, source_kind, quoted_at DESC, created_at DESC, id DESC);
 
-CREATE TABLE IF NOT EXISTS fx_preferences (
+CREATE TABLE fx_preferences (
     household_id TEXT NOT NULL,
     currency_a TEXT NOT NULL CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]'),
     currency_b TEXT NOT NULL CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]'),
@@ -94,4 +94,4 @@ CREATE TABLE IF NOT EXISTS fx_preferences (
     CHECK(currency_a < currency_b),
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_fx_preferences_household ON fx_preferences(household_id, currency_a, currency_b);
+CREATE INDEX idx_fx_preferences_household ON fx_preferences(household_id, currency_a, currency_b);

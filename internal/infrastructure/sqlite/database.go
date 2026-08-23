@@ -159,6 +159,10 @@ func Open(path string) (*DB, error) {
 		_ = tx.Rollback()
 		return closeOnError(StatusMigrationFailed, lockedVersion, err)
 	}
+	if err := verifySchema(context.Background(), tx); err != nil {
+		_ = tx.Rollback()
+		return closeOnError(StatusIntegrityFailed, lockedVersion, err)
+	}
 	if err := tx.Commit(); err != nil {
 		return closeOnError(StatusMigrationFailed, lockedVersion, err)
 	}
@@ -170,10 +174,6 @@ func Open(path string) (*DB, error) {
 	result := &DB{SQL: database, Path: path, Status: StatusReady}
 	if migrated {
 		result.Status = StatusMigrated
-	}
-	if err := result.Verify(context.Background()); err != nil {
-		_ = database.Close()
-		return nil, &BootstrapError{Status: StatusIntegrityFailed, Found: lockedVersion, Supported: CurrentSchemaVersion, Err: err}
 	}
 	return result, nil
 }
@@ -189,115 +189,7 @@ func (db *DB) Verify(ctx context.Context) error {
 	if db == nil || db.SQL == nil {
 		return errors.New("database is not open")
 	}
-	var version int
-	if err := db.SQL.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
-		return err
-	}
-	if version != CurrentSchemaVersion {
-		return fmt.Errorf("database schema version is %d, want %d", version, CurrentSchemaVersion)
-	}
-	var foreignKeys int
-	if err := db.SQL.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&foreignKeys); err != nil {
-		return err
-	}
-	if foreignKeys != 1 {
-		return errors.New("foreign keys are disabled")
-	}
-	var integrity string
-	if err := db.SQL.QueryRowContext(ctx, "PRAGMA integrity_check").Scan(&integrity); err != nil {
-		return err
-	}
-	if integrity != "ok" {
-		return fmt.Errorf("integrity check returned %q", integrity)
-	}
-	required := map[string][]string{
-		"households":          {"id", "singleton_key", "name", "base_currency", "created_at", "updated_at"},
-		"members":             {"id", "household_id", "name", "archived_at"},
-		"institutions":        {"id", "household_id", "name", "icon_key", "archived_at"},
-		"account_groups":      {"id", "household_id", "name", "archived_at"},
-		"accounts":            {"id", "household_id", "icon_key", "primary_category", "secondary_category", "tracking_mode", "default_currency", "include_in_net_worth", "archived_at"},
-		"account_ownership":   {"account_id", "member_id", "share_bps"},
-		"account_values":      {"id", "account_id", "value_kind", "amount", "currency", "effective_at", "created_at"},
-		"media_assets":        {"id", "household_id", "mime_type", "data", "created_at"},
-		"instruments":         {"id", "household_id", "name", "instrument_type", "quote_currency", "quote_source", "provider_key", "provider_symbol", "archived_at"},
-		"holdings":            {"id", "account_id", "instrument_id", "quantity", "created_at", "updated_at", "archived_at"},
-		"account_cash_values": {"id", "account_id", "amount", "currency", "effective_at", "created_at"},
-		"instrument_quotes":   {"id", "instrument_id", "unit_price", "currency", "source_kind", "source_key", "quoted_at", "created_at", "delayed"},
-		"fx_quotes":           {"id", "household_id", "base_currency", "quote_currency", "rate", "source_kind", "source_key", "quoted_at", "created_at", "delayed"},
-		"fx_preferences":      {"household_id", "currency_a", "currency_b", "source_kind", "created_at", "updated_at"},
-	}
-	for table, columns := range required {
-		rows, err := db.SQL.QueryContext(ctx, fmt.Sprintf(`PRAGMA table_info("%s")`, table))
-		if err != nil {
-			return err
-		}
-		present := make(map[string]bool)
-		for rows.Next() {
-			var cid, notNull, pk int
-			var name, columnType string
-			var defaultValue any
-			if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
-				_ = rows.Close()
-				return err
-			}
-			present[name] = true
-		}
-		rowErr := rows.Err()
-		_ = rows.Close()
-		if rowErr != nil {
-			return rowErr
-		}
-		for _, column := range columns {
-			if !present[column] {
-				return fmt.Errorf("required column %s.%s is missing", table, column)
-			}
-		}
-	}
-	requiredIndexes := map[string][]string{
-		"instruments":         {"idx_instruments_household", "ux_instruments_active_provider_binding"},
-		"holdings":            {"idx_holdings_account", "ux_holdings_active_account_instrument"},
-		"account_cash_values": {"idx_account_cash_latest"},
-		"instrument_quotes":   {"idx_instrument_quotes_latest"},
-		"fx_quotes":           {"idx_fx_quotes_latest"},
-		"fx_preferences":      {"idx_fx_preferences_household"},
-		"account_values":      {"idx_account_values_latest"},
-	}
-	for table, indexes := range requiredIndexes {
-		rows, err := db.SQL.QueryContext(ctx, fmt.Sprintf(`PRAGMA index_list("%s")`, table))
-		if err != nil {
-			return err
-		}
-		present := make(map[string]bool)
-		for rows.Next() {
-			var seq, unique, partial int
-			var origin string
-			var name string
-			if err := rows.Scan(&seq, &name, &unique, &origin, &partial); err != nil {
-				_ = rows.Close()
-				return err
-			}
-			present[name] = true
-		}
-		rowErr := rows.Err()
-		_ = rows.Close()
-		if rowErr != nil {
-			return rowErr
-		}
-		for _, index := range indexes {
-			if !present[index] {
-				return fmt.Errorf("required index %s is missing from %s", index, table)
-			}
-		}
-	}
-	rows, err := db.SQL.QueryContext(ctx, "PRAGMA foreign_key_check")
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	if rows.Next() {
-		return errors.New("foreign key check returned violations")
-	}
-	return rows.Err()
+	return verifySchema(ctx, db.SQL)
 }
 
 func (db *DB) WithTx(ctx context.Context, fn func(*sql.Tx) error) error {
@@ -354,8 +246,13 @@ func PreMigrationSnapshotPath(path string, found int) string {
 
 func createPreMigrationSnapshot(database *sql.DB, path string, found int) error {
 	snapshot := PreMigrationSnapshotPath(path, found)
-	if _, err := os.Stat(snapshot); err == nil {
-		return errors.New("pre-migration snapshot already exists")
+	if info, err := os.Stat(snapshot); err == nil {
+		if info.IsDir() {
+			return errors.New("pre-migration snapshot path is a directory")
+		}
+		// A previous failed attempt may already have created the immutable
+		// recovery sibling. Never overwrite it; reuse it for a retry.
+		return nil
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}

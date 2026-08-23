@@ -278,6 +278,10 @@ type normalizedChartQuote struct {
 }
 
 func normalizeChart(body []byte, expectedCurrency domain.CurrencyCode, fx bool) (normalizedChartQuote, error) {
+	return normalizeChartAt(body, expectedCurrency, fx, time.Now().UTC())
+}
+
+func normalizeChartAt(body []byte, expectedCurrency domain.CurrencyCode, fx bool, now time.Time) (normalizedChartQuote, error) {
 	var envelope chartEnvelope
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.UseNumber()
@@ -309,16 +313,21 @@ func normalizeChart(body []byte, expectedCurrency domain.CurrencyCode, fx bool) 
 			return normalizedChartQuote{}, malformedProvider()
 		}
 		if result.Meta.RegularMarketTime != nil {
-			quotedAt, timeErr := unixTimestamp(*result.Meta.RegularMarketTime)
-			if timeErr == nil {
-				return normalizedChartQuote{Value: price, QuotedAt: quotedAt}, nil
+			quotedAt, timeErr := unixTimestampAt(*result.Meta.RegularMarketTime, now)
+			if timeErr != nil {
+				return normalizedChartQuote{}, malformedProvider()
 			}
+			return normalizedChartQuote{Value: price, QuotedAt: quotedAt}, nil
 		}
 	}
-	return fallbackClose(result, fx)
+	return fallbackCloseAt(result, fx, now)
 }
 
 func fallbackClose(result chartResult, fx bool) (normalizedChartQuote, error) {
+	return fallbackCloseAt(result, fx, time.Now().UTC())
+}
+
+func fallbackCloseAt(result chartResult, fx bool, now time.Time) (normalizedChartQuote, error) {
 	if len(result.Indicators.Quote) != 1 || len(result.Timestamp) == 0 || len(result.Timestamp) != len(result.Indicators.Quote[0].Close) {
 		return normalizedChartQuote{}, malformedProvider()
 	}
@@ -337,7 +346,7 @@ func fallbackClose(result chartResult, fx bool) (normalizedChartQuote, error) {
 		if err != nil {
 			return normalizedChartQuote{}, malformedProvider()
 		}
-		quotedAt, err := unixTimestamp(result.Timestamp[index])
+		quotedAt, err := unixTimestampAt(result.Timestamp[index], now)
 		if err != nil {
 			return normalizedChartQuote{}, malformedProvider()
 		}
@@ -383,10 +392,14 @@ func jsonNumberLexeme(raw json.RawMessage) (string, error) {
 }
 
 func unixTimestamp(value int64) (time.Time, error) {
+	return unixTimestampAt(value, time.Now().UTC())
+}
+
+func unixTimestampAt(value int64, now time.Time) (time.Time, error) {
 	if value <= 0 {
 		return time.Time{}, errors.New("timestamp is invalid")
 	}
-	return time.Unix(value, 0).UTC(), nil
+	return application.NormalizeProviderObservationTime(time.Unix(value, 0).UTC(), now)
 }
 
 func isJSONNull(raw json.RawMessage) bool { return strings.TrimSpace(string(raw)) == "null" }

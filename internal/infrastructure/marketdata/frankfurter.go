@@ -217,6 +217,10 @@ func normalizeFrankfurterRate(body []byte, expectedBase, expectedQuote domain.Cu
 	if err != nil {
 		return normalizedFrankfurterRate{}, malformedProvider()
 	}
+	date, err = application.NormalizeProviderObservationTime(date.UTC(), time.Now().UTC())
+	if err != nil {
+		return normalizedFrankfurterRate{}, malformedProvider()
+	}
 	rate, err := jsonNumberLexeme(response.Rate)
 	if err != nil {
 		return normalizedFrankfurterRate{}, malformedProvider()
@@ -224,7 +228,7 @@ func normalizeFrankfurterRate(body []byte, expectedBase, expectedQuote domain.Cu
 	if _, err := domain.ParseFxRate(rate); err != nil {
 		return normalizedFrankfurterRate{}, malformedProvider()
 	}
-	return normalizedFrankfurterRate{Date: date.UTC(), Rate: rate}, nil
+	return normalizedFrankfurterRate{Date: date, Rate: rate}, nil
 }
 
 var _ application.MarketDataProvider = (*FrankfurterProvider)(nil)

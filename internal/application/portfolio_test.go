@@ -135,6 +135,46 @@ func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
 	}
 }
 
+func TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/instrument-edit.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	note := "keep me"
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{
+		Name: "Bound", Type: "stock", QuoteCurrency: "USD", Symbol: "QQQ", MarketCode: "nasdaq",
+		CountryCode: "us", ISIN: "us0000000001", Note: &note, SortOrder: 7,
+		QuoteSource: "provider", ProviderKey: "yahoo_finance", ProviderSymbol: "QQQ",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	partial, err := service.UpdateInstrument(ctx, instrument.ID, InstrumentInput{Name: "Renamed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if partial.Symbol == nil || *partial.Symbol != "QQQ" || partial.Note == nil || *partial.Note != note || partial.SortOrder != 7 || partial.QuoteSource != domain.QuoteSourceProvider {
+		t.Fatalf("partial update did not preserve omitted fields: %+v", partial)
+	}
+	cleared, err := service.UpdateInstrument(ctx, instrument.ID, InstrumentInput{
+		Replace: true, Name: "Manual", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", SortOrder: 0,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleared.Symbol != nil || cleared.MarketCode != nil || cleared.CountryCode != nil || cleared.ISIN != nil || cleared.Note != nil || cleared.ProviderKey != nil || cleared.ProviderSymbol != nil || cleared.SortOrder != 0 || cleared.QuoteSource != domain.QuoteSourceManual {
+		t.Fatalf("full replacement did not clear optional fields: %+v", cleared)
+	}
+}
+
 func domainError(code domain.ErrorCode, field, message string) error {
 	return &domain.Error{Code: code, Field: field, Message: message}
 }

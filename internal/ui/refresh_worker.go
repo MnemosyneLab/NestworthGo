@@ -21,10 +21,11 @@ const (
 )
 
 type refreshRequest struct {
-	operation  refreshOperation
-	instrument domain.InstrumentID
-	currencyA  string
-	currencyB  string
+	operation         refreshOperation
+	instrument        domain.InstrumentID
+	currencyA         string
+	currencyB         string
+	persistFXProvider bool
 }
 
 func (r refreshRequest) run(ctx context.Context, service *application.Service) (application.RefreshResult, error) {
@@ -36,6 +37,11 @@ func (r refreshRequest) run(ctx context.Context, service *application.Service) (
 	case refreshInstrumentOperation:
 		return service.RefreshInstrument(ctx, r.instrument)
 	case refreshFXOperation:
+		if r.persistFXProvider {
+			if _, err := service.SetFXPreference(ctx, r.currencyA, r.currencyB, string(domain.QuoteSourceProvider)); err != nil {
+				return application.RefreshResult{}, err
+			}
+		}
 		return service.RefreshFX(ctx, r.currencyA, r.currencyB)
 	default:
 		return application.RefreshResult{}, fmt.Errorf("unsupported refresh operation %q", r.operation)
@@ -169,6 +175,14 @@ func refreshResultNeedsAttention(result application.RefreshResult) bool {
 		}
 	}
 	return false
+}
+
+func refreshSingleTargetNeedsAttention(result application.RefreshResult) bool {
+	if len(result.Items) != 1 {
+		return true
+	}
+	status := result.Items[0].Status
+	return status != application.RefreshFetched && status != application.RefreshCached
 }
 
 func refreshResultText(c *Controller) string {

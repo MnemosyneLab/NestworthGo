@@ -203,3 +203,104 @@ func TestOpenRejectsCurrentVersionWithoutRequiredSchema(t *testing.T) {
 		t.Fatalf("Open error = %v, want integrity failure", err)
 	}
 }
+
+func TestFailedSchema3MigrationRollsBackCollidingObjectsAndCanBeRetried(t *testing.T) {
+	cases := []struct {
+		name      string
+		collision string
+		object    string
+	}{
+		{name: "table", collision: `CREATE TABLE instruments (sentinel TEXT NOT NULL);`, object: "instruments"},
+		{name: "index", collision: `CREATE TABLE legacy_collision (id TEXT); CREATE INDEX idx_instruments_household ON legacy_collision(id);`, object: "idx_instruments_household"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "schema2-collision.db")
+			seedSchema2MigrationFixture(t, path, testCase.collision)
+			before, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			assertMigrationCollision(t, path, testCase.object)
+			after, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) != string(before) {
+				t.Fatal("failed migration changed the primary database")
+			}
+			assertSchema2MigrationState(t, path, testCase.object)
+
+			// The immutable sibling snapshot is reused on a retry; it must not
+			// mask the original migration error or cause a partial schema 3.
+			assertMigrationCollision(t, path, testCase.object)
+			assertSchema2MigrationState(t, path, testCase.object)
+		})
+	}
+}
+
+func seedSchema2MigrationFixture(t *testing.T, path, collision string) {
+	t.Helper()
+	database, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixturePath := filepath.Join("..", "..", "..", "testdata", "v0.1.2", "schema2-v0.1.1.sql")
+	fixture, err := os.ReadFile(fixturePath)
+	if err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(string(fixture)); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(collision); err != nil {
+		database.Close()
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func assertMigrationCollision(t *testing.T, path, object string) {
+	t.Helper()
+	_, err := Open(path)
+	var bootstrapErr *BootstrapError
+	if !errors.As(err, &bootstrapErr) || bootstrapErr.Status != StatusMigrationFailed {
+		t.Fatalf("Open collision error = %v, want migration failure for %s", err, object)
+	}
+}
+
+func assertSchema2MigrationState(t *testing.T, path, object string) {
+	t.Helper()
+	database, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	var version int
+	if err := database.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != 2 {
+		t.Fatalf("schema version after failed migration = %d, want 2", version)
+	}
+	var count int
+	if err := database.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE name = ?", object).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("collision object %q count = %d, want 1", object, count)
+	}
+	for _, table := range []string{"holdings", "account_cash_values", "instrument_quotes", "fx_quotes", "fx_preferences"} {
+		if err := database.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		if count != 0 {
+			t.Fatalf("partial migration left table %q", table)
+		}
+	}
+}
