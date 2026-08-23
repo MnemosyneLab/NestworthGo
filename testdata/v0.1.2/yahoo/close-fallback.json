@@ -1,0 +1,10 @@
+{
+  "chart": {
+    "result": [{
+      "meta": {"currency": "USD", "symbol": "ES3", "regularMarketPrice": null},
+      "timestamp": [1767222000, 1767225600],
+      "indicators": {"quote": [{"close": [4.01, 4.05]}]}
+    }],
+    "error": null
+  }
+}

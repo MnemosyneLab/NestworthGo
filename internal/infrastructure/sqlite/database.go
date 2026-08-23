@@ -15,10 +15,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql
+//go:embed schema.sql schema3.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 2
+const CurrentSchemaVersion = 3
 
 type BootstrapStatus string
 
@@ -138,6 +138,18 @@ func Open(path string) (*DB, error) {
 			}
 			lockedVersion = 2
 			migrated = true
+		case 2:
+			schema, readErr := schemaFS.ReadFile("schema3.sql")
+			if readErr != nil {
+				_ = tx.Rollback()
+				return closeOnError(StatusMigrationFailed, lockedVersion, readErr)
+			}
+			if _, execErr := tx.ExecContext(context.Background(), string(schema)); execErr != nil {
+				_ = tx.Rollback()
+				return closeOnError(StatusMigrationFailed, lockedVersion, execErr)
+			}
+			lockedVersion = 3
+			migrated = true
 		default:
 			_ = tx.Rollback()
 			return closeOnError(StatusMigrationFailed, lockedVersion, fmt.Errorf("no migration from schema %d", lockedVersion))
@@ -199,14 +211,20 @@ func (db *DB) Verify(ctx context.Context) error {
 		return fmt.Errorf("integrity check returned %q", integrity)
 	}
 	required := map[string][]string{
-		"households":        {"id", "singleton_key", "name", "base_currency", "created_at", "updated_at"},
-		"members":           {"id", "household_id", "name", "archived_at"},
-		"institutions":      {"id", "household_id", "name", "icon_key", "archived_at"},
-		"account_groups":    {"id", "household_id", "name", "archived_at"},
-		"accounts":          {"id", "household_id", "icon_key", "primary_category", "secondary_category", "tracking_mode", "default_currency", "include_in_net_worth", "archived_at"},
-		"account_ownership": {"account_id", "member_id", "share_bps"},
-		"account_values":    {"id", "account_id", "value_kind", "amount", "currency", "effective_at", "created_at"},
-		"media_assets":      {"id", "household_id", "mime_type", "data", "created_at"},
+		"households":          {"id", "singleton_key", "name", "base_currency", "created_at", "updated_at"},
+		"members":             {"id", "household_id", "name", "archived_at"},
+		"institutions":        {"id", "household_id", "name", "icon_key", "archived_at"},
+		"account_groups":      {"id", "household_id", "name", "archived_at"},
+		"accounts":            {"id", "household_id", "icon_key", "primary_category", "secondary_category", "tracking_mode", "default_currency", "include_in_net_worth", "archived_at"},
+		"account_ownership":   {"account_id", "member_id", "share_bps"},
+		"account_values":      {"id", "account_id", "value_kind", "amount", "currency", "effective_at", "created_at"},
+		"media_assets":        {"id", "household_id", "mime_type", "data", "created_at"},
+		"instruments":         {"id", "household_id", "name", "instrument_type", "quote_currency", "quote_source", "provider_key", "provider_symbol", "archived_at"},
+		"holdings":            {"id", "account_id", "instrument_id", "quantity", "created_at", "updated_at", "archived_at"},
+		"account_cash_values": {"id", "account_id", "amount", "currency", "effective_at", "created_at"},
+		"instrument_quotes":   {"id", "instrument_id", "unit_price", "currency", "source_kind", "source_key", "quoted_at", "created_at", "delayed"},
+		"fx_quotes":           {"id", "household_id", "base_currency", "quote_currency", "rate", "source_kind", "source_key", "quoted_at", "created_at", "delayed"},
+		"fx_preferences":      {"household_id", "currency_a", "currency_b", "source_kind", "created_at", "updated_at"},
 	}
 	for table, columns := range required {
 		rows, err := db.SQL.QueryContext(ctx, fmt.Sprintf(`PRAGMA table_info("%s")`, table))
@@ -232,6 +250,42 @@ func (db *DB) Verify(ctx context.Context) error {
 		for _, column := range columns {
 			if !present[column] {
 				return fmt.Errorf("required column %s.%s is missing", table, column)
+			}
+		}
+	}
+	requiredIndexes := map[string][]string{
+		"instruments":         {"idx_instruments_household", "ux_instruments_active_provider_binding"},
+		"holdings":            {"idx_holdings_account", "ux_holdings_active_account_instrument"},
+		"account_cash_values": {"idx_account_cash_latest"},
+		"instrument_quotes":   {"idx_instrument_quotes_latest"},
+		"fx_quotes":           {"idx_fx_quotes_latest"},
+		"fx_preferences":      {"idx_fx_preferences_household"},
+		"account_values":      {"idx_account_values_latest"},
+	}
+	for table, indexes := range requiredIndexes {
+		rows, err := db.SQL.QueryContext(ctx, fmt.Sprintf(`PRAGMA index_list("%s")`, table))
+		if err != nil {
+			return err
+		}
+		present := make(map[string]bool)
+		for rows.Next() {
+			var seq, unique, partial int
+			var origin string
+			var name string
+			if err := rows.Scan(&seq, &name, &unique, &origin, &partial); err != nil {
+				_ = rows.Close()
+				return err
+			}
+			present[name] = true
+		}
+		rowErr := rows.Err()
+		_ = rows.Close()
+		if rowErr != nil {
+			return rowErr
+		}
+		for _, index := range indexes {
+			if !present[index] {
+				return fmt.Errorf("required index %s is missing from %s", index, table)
 			}
 		}
 	}

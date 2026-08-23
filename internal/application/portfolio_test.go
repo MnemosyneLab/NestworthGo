@@ -1,0 +1,140 @@
+package application
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/i18n"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/settings"
+)
+
+func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/portfolio.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := bootstrap.Members[0].ID
+	foreign, err := service.CreateAccount(ctx, AccountInput{Name: "USD balance", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100"})
+	if err != nil {
+		t.Fatalf("foreign-currency Balance account: %v", err)
+	}
+	if foreign.Account.DefaultCurrency != domain.CurrencyCode("USD") || foreign.LatestValue == nil || foreign.LatestValue.Amount.Currency() != domain.CurrencyCode("USD") {
+		t.Fatalf("foreign account = %+v", foreign)
+	}
+	holdingsAccount, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}})
+	if err != nil {
+		t.Fatalf("Holdings account: %v", err)
+	}
+	if holdingsAccount.LatestValue != nil {
+		t.Fatal("Holdings account received a fake initial value")
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatalf("instrument: %v", err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: holdingsAccount.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"})
+	if err != nil {
+		t.Fatalf("holding: %v", err)
+	}
+	updatedHolding, err := service.UpdateHoldingQuantity(ctx, holding.ID, "3.5")
+	if err != nil || updatedHolding.Quantity.Canonical() != "3.5" {
+		t.Fatalf("updated holding = %+v, err = %v", updatedHolding, err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, holdingsAccount.Account.ID, "5000", "SGD", "2026-08-23"); err != nil {
+		t.Fatalf("cash: %v", err)
+	}
+	quote, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "700", "2026-08-23", false)
+	if err != nil {
+		t.Fatalf("manual price: %v", err)
+	}
+	if quote.SourceKind != domain.QuoteSourceManual || quote.SourceKey != string(domain.QuoteSourceManual) {
+		t.Fatalf("manual quote = %+v", quote)
+	}
+	quotes, err := service.repository.ListInstrumentQuotes(ctx, instrument.ID)
+	if err != nil || len(quotes) != 1 {
+		t.Fatalf("manual quote history = %d, err = %v", len(quotes), err)
+	}
+	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+		t.Fatalf("standalone manual source change: %v", err)
+	}
+	quotes, err = service.repository.ListInstrumentQuotes(ctx, instrument.ID)
+	if err != nil || len(quotes) != 1 {
+		t.Fatalf("standalone source change appended quote: %d, err = %v", len(quotes), err)
+	}
+	fx, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "6.9", "2026-08-23")
+	if err != nil {
+		t.Fatalf("manual FX: %v", err)
+	}
+	if fx.BaseCurrency != domain.CurrencyCode("USD") || fx.QuoteCurrency != domain.CurrencyCode("CNY") {
+		t.Fatalf("manual FX orientation = %+v", fx)
+	}
+	pref, err := service.repository.FXPreference(ctx, bootstrap.Household.ID, domain.CurrencyCode("USD"), domain.CurrencyCode("CNY"))
+	if err != nil || pref.SourceKind != domain.QuoteSourceManual {
+		t.Fatalf("FX preference = %+v, err = %v", pref, err)
+	}
+	if err := service.ArchiveHolding(ctx, holding.ID, true); err != nil {
+		t.Fatalf("archive holding: %v", err)
+	}
+	if err := service.ArchiveHolding(ctx, holding.ID, false); err != nil {
+		t.Fatalf("restore holding: %v", err)
+	}
+	if err := service.ArchiveInstrument(ctx, instrument.ID, true); err != nil {
+		t.Fatalf("archive instrument: %v", err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: holdingsAccount.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err == nil {
+		t.Fatal("new holding selected an archived instrument")
+	}
+	if err := service.ArchiveInstrument(ctx, instrument.ID, false); err != nil {
+		t.Fatalf("restore instrument: %v", err)
+	}
+	if _, err := service.UpdateAccount(ctx, holdingsAccount.Account.ID, AccountInput{Name: "Brokerage updated"}); err != nil {
+		t.Fatalf("Holdings Account metadata update: %v", err)
+	}
+	translated := i18n.New(settings.LanguageZhCN).TranslateError(domainError(domain.ErrValidation, "quantity", "must be a canonical non-negative decimal with up to eight fractional digits"))
+	if translated == "must be a canonical non-negative decimal with up to eight fractional digits" {
+		t.Fatal("new portfolio validation error fell back to English")
+	}
+}
+
+func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/provider-binding.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Portfolio", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Bound", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual", ProviderKey: "yahoo_finance", ProviderSymbol: "QQQ"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "provider"); err != nil {
+		t.Fatalf("select provider: %v", err)
+	}
+	items, err := service.ListInstruments(ctx, false)
+	if err != nil || len(items) != 1 || items[0].QuoteSource != domain.QuoteSourceProvider {
+		t.Fatalf("provider selection = %+v, err = %v", items, err)
+	}
+}
+
+func domainError(code domain.ErrorCode, field, message string) error {
+	return &domain.Error{Code: code, Field: field, Message: message}
+}

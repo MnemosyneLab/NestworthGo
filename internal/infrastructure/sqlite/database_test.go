@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -66,6 +67,70 @@ func TestOpenMigratesSchemaV1IconColumns(t *testing.T) {
 		if count != 1 {
 			t.Fatalf("%s.icon_key count = %d, want 1", table, count)
 		}
+	}
+}
+
+func TestOpenMigratesSanitizedSchema2FixtureAndReopensIdempotently(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schema2.db")
+	legacy, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatalf("open schema2 fixture: %v", err)
+	}
+	fixturePath := filepath.Join("..", "..", "..", "testdata", "v0.1.2", "schema2-v0.1.1.sql")
+	fixture, err := os.ReadFile(fixturePath)
+	if err != nil {
+		t.Fatalf("read schema2 fixture %s: %v", fixturePath, err)
+	}
+	if _, err := legacy.Exec(string(fixture)); err != nil {
+		t.Fatalf("seed schema2 fixture: %v", err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatalf("close schema2 fixture: %v", err)
+	}
+	database, err := Open(path)
+	if err != nil {
+		t.Fatalf("migrate schema2 fixture: %v", err)
+	}
+	if database.Status != StatusMigrated {
+		t.Fatalf("migration status = %q, want migrated", database.Status)
+	}
+	var version int
+	if err := database.SQL.QueryRow("PRAGMA user_version").Scan(&version); err != nil || version != 3 {
+		t.Fatalf("schema version = %d, err = %v", version, err)
+	}
+	var accountCount, valueCount int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM accounts").Scan(&accountCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM account_values").Scan(&valueCount); err != nil {
+		t.Fatal(err)
+	}
+	if accountCount != 3 || valueCount != 3 {
+		t.Fatalf("legacy rows changed during migration: accounts=%d values=%d", accountCount, valueCount)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(PreMigrationSnapshotPath(path, 2)); err != nil {
+		t.Fatalf("schema2 pre-migration snapshot missing: %v", err)
+	}
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatalf("reopen migrated schema2 fixture: %v", err)
+	}
+	defer reopened.Close()
+	if reopened.Status != StatusReady {
+		t.Fatalf("reopen status = %q, want ready", reopened.Status)
+	}
+	var triggerCount int
+	if err := reopened.SQL.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger'").Scan(&triggerCount); err != nil {
+		t.Fatal(err)
+	}
+	if triggerCount != 0 {
+		t.Fatalf("schema3 migration created %d triggers", triggerCount)
+	}
+	if err := reopened.Verify(context.Background()); err != nil {
+		t.Fatalf("reopened database verification: %v", err)
 	}
 }
 

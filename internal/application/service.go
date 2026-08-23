@@ -4,6 +4,7 @@ import (
 	"context"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -36,21 +37,98 @@ type Repository interface {
 	SetInstitutionIcon(context.Context, domain.HouseholdID, domain.InstitutionID, string) error
 	SetGroupIcon(context.Context, domain.HouseholdID, domain.GroupID, string) error
 	SetAccountIcon(context.Context, domain.HouseholdID, domain.AccountID, string) error
-	CreateAccount(context.Context, domain.Account, domain.Ownership, domain.AccountValue) error
+	CreateAccount(context.Context, domain.Account, domain.Ownership, *domain.AccountValue) error
 	UpdateAccount(context.Context, domain.Account, domain.Ownership) error
 	AppendAccountValue(context.Context, domain.AccountValue) error
 	SetAccountArchive(context.Context, domain.HouseholdID, domain.AccountID, bool, time.Time) error
 	ListAccountRecords(context.Context, domain.HouseholdID, domain.AccountFilter) ([]domain.AccountRecord, error)
 	ReadSnapshot(context.Context, domain.AccountFilter) (domain.ReadSnapshot, error)
+	ReadPortfolioSnapshot(context.Context, domain.AccountFilter) (domain.PortfolioSnapshot, error)
+	CreateInstrument(context.Context, domain.Instrument) error
+	UpdateInstrument(context.Context, domain.Instrument) error
+	Instrument(context.Context, domain.HouseholdID, domain.InstrumentID) (domain.Instrument, error)
+	ListInstruments(context.Context, domain.HouseholdID, bool) ([]domain.Instrument, error)
+	SetInstrumentArchive(context.Context, domain.HouseholdID, domain.InstrumentID, bool, time.Time) error
+	SetInstrumentLogo(context.Context, domain.HouseholdID, domain.InstrumentID, domain.MediaAssetID) error
+	SetInstrumentQuoteSource(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind) error
+	CreateHolding(context.Context, domain.Holding) error
+	UpdateHolding(context.Context, domain.Holding) error
+	Holding(context.Context, domain.HoldingID) (domain.Holding, error)
+	ListHoldings(context.Context, domain.AccountID, bool) ([]domain.Holding, error)
+	SetHoldingArchive(context.Context, domain.HouseholdID, domain.HoldingID, bool, time.Time) error
+	AppendAccountCashValue(context.Context, domain.AccountCashValue) error
+	ListAccountCashValues(context.Context, domain.AccountID) ([]domain.AccountCashValue, error)
+	AppendInstrumentQuote(context.Context, domain.InstrumentQuote) error
+	AppendProviderInstrumentQuoteIfChanged(context.Context, domain.InstrumentQuote) (bool, error)
+	AppendInstrumentQuoteAndSelectManual(context.Context, domain.InstrumentQuote) error
+	ListInstrumentQuotes(context.Context, domain.InstrumentID) ([]domain.InstrumentQuote, error)
+	AppendFXQuote(context.Context, domain.FXQuote) error
+	AppendProviderFXQuoteIfChanged(context.Context, domain.FXQuote) (bool, error)
+	AppendFXQuoteAndSelectManual(context.Context, domain.FXQuote) error
+	ListFXQuotes(context.Context, domain.HouseholdID) ([]domain.FXQuote, error)
+	SetFXPreference(context.Context, domain.FXPreference) error
+	FXPreference(context.Context, domain.HouseholdID, domain.CurrencyCode, domain.CurrencyCode) (domain.FXPreference, error)
+	ListFXPreferences(context.Context, domain.HouseholdID) ([]domain.FXPreference, error)
 }
 
 type Service struct {
-	repository Repository
-	now        func() time.Time
+	repository    Repository
+	now           func() time.Time
+	marketData    MarketDataRegistryPort
+	fxProviderMu  sync.RWMutex
+	fxProviderKey string
 }
 
-func NewService(repository Repository) *Service {
-	return &Service{repository: repository, now: time.Now}
+func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
+	service := &Service{repository: repository, now: time.Now}
+	if len(registries) > 0 {
+		service.marketData = registries[0]
+	}
+	return service
+}
+
+func (s *Service) MarketDataRegistry() MarketDataRegistryPort { return s.marketData }
+
+func (s *Service) SetMarketDataRegistry(registry MarketDataRegistryPort) { s.marketData = registry }
+
+// SetFXProvider selects the registered provider used by explicit FX refresh.
+// Instrument refresh continues to use each Instrument's own binding.
+func (s *Service) SetFXProvider(key string) error {
+	key = strings.ToLower(strings.TrimSpace(key))
+	if key == "" {
+		key = YahooFinanceProviderKey
+	}
+	if s.marketData == nil {
+		return &domain.Error{Code: domain.ErrUnavailable, Field: "fxProvider", Message: "provider is not configured"}
+	}
+	provider, err := s.marketData.Resolve(key)
+	if err != nil {
+		return err
+	}
+	if !provider.Capabilities().LatestFX {
+		return &domain.Error{Code: domain.ErrUnavailable, Field: "fxProvider", Message: "provider does not support FX refresh"}
+	}
+	s.fxProviderMu.Lock()
+	s.fxProviderKey = key
+	s.fxProviderMu.Unlock()
+	return nil
+}
+
+// FXProviderKey returns the explicit selection, or the registry default for
+// deterministic test registries that have not configured one.
+func (s *Service) FXProviderKey() string {
+	s.fxProviderMu.RLock()
+	key := s.fxProviderKey
+	s.fxProviderMu.RUnlock()
+	if key != "" {
+		return key
+	}
+	if s.marketData != nil {
+		if provider, err := s.marketData.Default(); err == nil {
+			return strings.ToLower(strings.TrimSpace(provider.Key()))
+		}
+	}
+	return ""
 }
 
 func (s *Service) setClock(now func() time.Time) { s.now = now }
@@ -454,9 +532,6 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	if currency != bootstrap.Household.BaseCurrency {
-		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Field: "defaultCurrency", Message: "v0.1.1 accounts must use the Household base currency"}
-	}
 	var iconKey *string
 	if strings.TrimSpace(input.IconKey) != "" {
 		normalized, iconErr := normalizeIconKey(input.IconKey)
@@ -497,14 +572,18 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	value, err := domain.NewAccountValue(account, *initial, s.now(), s.now())
-	if err != nil {
-		return domain.AccountRecord{}, err
+	var value *domain.AccountValue
+	if initial != nil {
+		created, valueErr := domain.NewAccountValue(account, *initial, s.now(), s.now())
+		if valueErr != nil {
+			return domain.AccountRecord{}, valueErr
+		}
+		value = &created
 	}
 	if err := s.repository.CreateAccount(ctx, account, ownership, value); err != nil {
 		return domain.AccountRecord{}, err
 	}
-	return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: &value}, nil
+	return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: value}, nil
 }
 
 // UpdateAccount changes metadata and ownership without rewriting AccountValue history.
@@ -523,7 +602,7 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if current == nil {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
 	}
-	if current.LatestValue == nil {
+	if current.LatestValue == nil && current.Account.TrackingMode != domain.TrackingHoldings {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Message: "account has no current value"}
 	}
 	if input.PrimaryCategory == "" {
@@ -541,7 +620,7 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if input.Name == "" {
 		input.Name = current.Account.Name
 	}
-	if input.InitialAmount == "" {
+	if input.InitialAmount == "" && current.LatestValue != nil {
 		input.InitialAmount = current.LatestValue.Amount.CanonicalAmount()
 	}
 	if len(input.Ownership) == 0 && len(input.OwnerIDs) == 0 {
@@ -612,8 +691,8 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	if currency != current.Account.DefaultCurrency || currency != bootstrap.Household.BaseCurrency {
-		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Field: "defaultCurrency", Message: "account currency is immutable and must match the Household base currency"}
+	if currency != current.Account.DefaultCurrency {
+		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Field: "defaultCurrency", Message: "account currency is immutable after creation"}
 	}
 	var institutionID *domain.InstitutionID
 	if input.InstitutionID != "" {
@@ -719,16 +798,38 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 	return s.repository.SetAccountArchive(ctx, bootstrap.Household.ID, id, archived, s.now())
 }
 
+func (s *Service) AccountValuation(ctx context.Context, id domain.AccountID) (domain.AccountValuation, error) {
+	return NewValuationService(s.repository, s.now).Account(ctx, id)
+}
+
+func (s *Service) AccountValuations(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountValuation, error) {
+	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	valuations, _, err := NewValuationService(s.repository, s.now).ValueAccounts(snapshot)
+	return valuations, err
+}
+
+func (s *Service) Portfolio(ctx context.Context, filter domain.AccountFilter) (domain.PortfolioValuation, error) {
+	filter.IncludeArchived = false
+	return NewValuationService(s.repository, s.now).Portfolio(ctx, filter)
+}
+
 func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (domain.OverviewResult, error) {
 	filter.IncludeArchived = false
-	snapshot, err := s.repository.ReadSnapshot(ctx, filter)
+	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, filter)
 	if err != nil {
 		return domain.OverviewResult{}, err
 	}
 	if snapshot.Household == nil {
 		return domain.OverviewResult{}, nil
 	}
-	result := domain.OverviewResult{Currency: snapshot.Household.BaseCurrency, AccountCount: len(snapshot.Accounts)}
+	valuations, _, err := NewValuationService(s.repository, s.now).ValueAccounts(snapshot)
+	if err != nil {
+		return domain.OverviewResult{}, err
+	}
+	result := domain.OverviewResult{Currency: snapshot.Household.BaseCurrency, AccountCount: len(snapshot.Accounts), Complete: true}
 	category := map[string]decimal.Decimal{}
 	member := map[string]decimal.Decimal{}
 	institution := map[string]decimal.Decimal{}
@@ -745,38 +846,47 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	for _, current := range snapshot.Groups {
 		groupLabels[current.ID.String()] = current.Name
 	}
-	for _, record := range snapshot.Accounts {
-		if !record.Account.IncludeInNetWorth || record.LatestValue == nil || record.Account.DefaultCurrency != snapshot.Household.BaseCurrency {
+	for _, valuation := range valuations {
+		if !valuation.Account.IncludeInNetWorth {
 			continue
 		}
-		value := record.LatestValue.Amount.Amount()
-		if record.Account.PrimaryCategory.IsLiability() {
+		value, err := exactBaseAmount(valuation)
+		if err != nil {
+			return domain.OverviewResult{}, err
+		}
+		if !valuation.Complete {
+			result.Complete = false
+			result.MissingInputs = append(result.MissingInputs, valuation.MissingInputs...)
+		}
+		if valuation.Account.PrimaryCategory.IsLiability() {
 			result.Liabilities = result.Liabilities.Add(value)
 			continue
 		}
 		result.Assets = result.Assets.Add(value)
-		categoryKey := record.Account.PrimaryCategory.String()
+		categoryKey := valuation.Account.PrimaryCategory.String()
 		category[categoryKey] = category[categoryKey].Add(value)
-		for _, share := range record.Ownership.Shares() {
+		for _, share := range valuation.Ownership.Shares() {
 			member[share.MemberID.String()] = member[share.MemberID.String()].Add(value.Mul(decimal.NewFromInt(int64(share.ShareBPS))).Div(decimal.NewFromInt(domain.TotalOwnershipBPS)))
 		}
 		institutionKey := "unassigned"
-		if record.Account.InstitutionID != nil {
-			institutionKey = record.Account.InstitutionID.String()
-			if record.InstitutionName != "" {
-				institutionLabels[institutionKey] = record.InstitutionName
+		if valuation.Account.InstitutionID != nil {
+			institutionKey = valuation.Account.InstitutionID.String()
+			if valuation.InstitutionName != "" {
+				institutionLabels[institutionKey] = valuation.InstitutionName
 			}
 		}
 		institution[institutionKey] = institution[institutionKey].Add(value)
 		groupKey := "unassigned"
-		if record.Account.GroupID != nil {
-			groupKey = record.Account.GroupID.String()
-			if record.GroupName != "" {
-				groupLabels[groupKey] = record.GroupName
+		if valuation.Account.GroupID != nil {
+			groupKey = valuation.Account.GroupID.String()
+			if valuation.GroupName != "" {
+				groupLabels[groupKey] = valuation.GroupName
 			}
 		}
 		group[groupKey] = group[groupKey].Add(value)
 	}
+	sortMissing(result.MissingInputs)
+	result.MissingInputs = deduplicateMissing(result.MissingInputs)
 	result.NetWorth = result.Assets.Sub(result.Liabilities)
 	result.ByCategory = makeBreakdown(category, result.Assets)
 	result.ByMember = makeBreakdownWithLabels(member, result.Assets, memberLabels)

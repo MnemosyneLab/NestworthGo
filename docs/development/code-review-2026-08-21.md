@@ -24,7 +24,7 @@ Status values: `Open`, `Fixed`, `Deferred`, `Won't fix`.
 | BUG-8 | Low | Dead code: `resultInstitution`/`resultGroup` (unused, identity functions) and `Money.SignedAmount()` (duplicate of `Money.Amount()`, easily confused with the real `Account.SignedAmount()`). | `internal/application/service.go`, `internal/domain/model.go` | **Fixed** — removed. |
 | BUG-9 | Low | The Settings "primary display currency" preference only affects the tiny formatting preview sample; it has no effect on any real Account/Overview amount (which always render in the Household base currency, correctly). The label did not make this clear, which could mislead users into thinking it converts their net worth. | `internal/i18n` catalogs (`settings.numbers.currency`) | **Fixed** — relabeled to "Sample display currency (preview only)" / "示例展示货币（仅用于下方预览）" / "示例展示貨幣（僅用於下方預覽）". |
 | BUG-10 | Low | The onboarding base-currency field was hardcoded to `"CNY"` regardless of the user's existing display-currency preference. | `internal/ui/live_pages.go` | **Fixed** — now pre-fills from `controller.preference.Currency`. |
-| DOC-1 | Low | Suspected: `docs/releases/v0.1.2.md` … `v0.1.5*.md` describe the legacy Tauri/Rust/React implementation with no per-file warning. | `docs/releases/v0.1.2*.md`, `v0.1.3*.md`, `v0.1.4*.md`, `v0.1.5*.md` | **Won't fix — not actually a gap.** Re-checked all 15 files: every one already opens with a `> **Migration status:** ...` callout explicitly stating it is historical and must be revalidated against the current Go/Fyne repository. No change needed; the original review note was too pessimistic. |
+| DOC-1 | Low | Legacy Rust/Tauri/React release documents could be mistaken for current Go plans even when each carried a warning. | Former `docs/releases/v0.1.1.md`, `v0.1.3*.md`, `v0.1.4*.md`, `v0.1.5*.md` | **Fixed** — v0.1.1 was replaced by a current-only Go contract, v0.1.2 was fully redesigned for Go/Fyne, and all uncorrected inherited documents were moved to `docs/legacy/rust-tauri-inherited-unreviewed/` with an archive notice and non-authoritative index. |
 
 ## Gaps against the v0.1.1 release contract
 
@@ -32,7 +32,7 @@ Status values: `Open`, `Fixed`, `Deferred`, `Won't fix`.
 | --- | --- | --- |
 | GAP-1 | Household name/base currency not shown anywhere in the running app | Fixed — same change as BUG-4 |
 | GAP-2 | Window-state restoration not implemented | Fixed — same change as BUG-5 |
-| GAP-3 | Stale, non-Go release docs (`v0.1.2`–`v0.1.5`) risk being read as the current roadmap | Won't fix — same finding as DOC-1; already adequately labeled |
+| GAP-3 | Stale, non-Go release docs risk being read as the current roadmap | Fixed — same relocation and active-index cleanup as DOC-1 |
 
 ## UI observations
 

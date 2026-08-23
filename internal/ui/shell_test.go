@@ -50,7 +50,7 @@ func TestControllerContentIsAFyneObjectForEachPage(t *testing.T) {
 	application := test.NewTempApp(t)
 	window := test.NewTempWindow(t, container.NewVBox())
 	controller := NewController(application, window, nil, nil, settings.Default(), nil)
-	for _, page := range []Page{PageOverview, PageAccounts, PageActivity, PageAnalytics, PageSettings} {
+	for _, page := range []Page{PageOverview, PageAccounts, PageInvestments, PageActivity, PageAnalytics, PageSettings} {
 		controller.navigate(page)
 		if content := controller.Content(); content == nil {
 			t.Fatalf("Content() for %q is nil", page)

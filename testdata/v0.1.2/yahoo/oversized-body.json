@@ -1,0 +1,6 @@
+{
+  "fixture": "oversized-body",
+  "repeat": "regular-price.json",
+  "minimum_bytes": 2097153,
+  "generation": "repeat the referenced sanitized JSON until the minimum byte count is reached"
+}

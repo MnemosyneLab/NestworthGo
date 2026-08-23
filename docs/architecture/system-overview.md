@@ -3,11 +3,13 @@
 ## Current baseline
 
 Nestworth is a local-first desktop application written in Go with Fyne. The
-repository now contains the v0.1.1 backend foundation: typed domain contracts,
-SQLite bootstrap and migrations, onboarding, reference management, Accounts,
-exact Ownership, append-only values, media normalization, and backend-owned
-Overview calculations. Fyne renders those application results; it does not
-open SQLite or recalculate financial totals.
+repository now contains the v0.1.1 backend foundation plus the implemented
+v0.1.2 portfolio line through Phase 9: typed domain contracts, SQLite bootstrap
+and migrations through schema `3`, onboarding, reference management,
+multi-currency Accounts, Instruments, Holdings, quotes, exact Ownership,
+append-only values, media normalization, authoritative valuation, Investments,
+and explicit Yahoo/Frankfurter refresh routing. Fyne renders application
+results; it does not open SQLite, call HTTP, or recalculate financial totals.
 
 The initial platform targets macOS on Apple Silicon. Fyne keeps the option of
 supporting other desktop platforms later without introducing a second UI stack.
@@ -43,7 +45,8 @@ because they combine several repositories under one consistent snapshot.
 
 The application layer is the only place allowed to coordinate a multi-entity
 mutation. Provider calls remain behind interfaces and are never required for
-startup, onboarding, ordinary reads, or analytics.
+startup, onboarding, ordinary reads, or valuation reads. Only explicit user
+refresh actions may invoke a configured provider.
 
 ### Domain
 
@@ -98,7 +101,7 @@ The compatibility inspection, migration, schema verification, and blocked-startu
 | Financial calculations | Go domain/application services |
 | Navigation and filters | Fyne view state |
 | Form input | Feature-owned Fyne widgets and validation models |
-| Language and appearance | Local JSON presentation settings plus UI theme adapter |
+| Language, appearance, and FX route | Local JSON settings plus UI theme adapter and application provider selection |
 | Chart geometry | UI-only rendering model derived from authoritative results |
 
 The UI must not optimistically invent financial totals. After a mutation it
@@ -120,8 +123,9 @@ Dependency versions are owned by `go.mod` and `go.sum`, not duplicated here.
 
 - No account registration or required internet connection for core operation.
 - Business data remains local and is not sent to Fyne or external providers.
-- Provider integrations, if added, are explicit adapters with safe failure
-  behavior and no startup dependency.
+- Provider integrations are explicit adapters with safe failure behavior and
+  no startup dependency. v0.1.2 ships Yahoo current quotes and an FX-only
+  Frankfurter adapter.
 - Logs must not include balances, notes, quantities, account names, instrument
   symbols, quote values, raw legs, credentials, image bytes, or database rows.
 - User-facing errors expose stable safe codes; detailed diagnostics stay local.

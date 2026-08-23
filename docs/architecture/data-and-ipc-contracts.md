@@ -8,13 +8,15 @@ domain results, and infrastructure ports.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. The v0.1.1 SQLite migration defines the physical schema;
-UI code consumes view models and must not reconstruct authoritative financial
-values.
+and query results. The v0.1.1 SQLite migration remains the compatibility base;
+the implemented v0.1.2 Phase 2 migration extends it to schema `3` with the
+portfolio persistence boundary. UI code consumes view models and must not
+reconstruct authoritative financial values.
 
-At `v0.1.1`, the repository contains the first Go implementation of the
-Household balance-sheet contracts and their SQLite persistence. Portfolio,
-Activity, history, analytics, and recovery contracts remain planned extensions.
+The repository contains the Go implementation of the Household balance-sheet
+contracts plus the v0.1.2 domain, schema-3 portfolio foundation, manual
+portfolio workflows, authoritative valuation reads, and explicit provider
+refresh. Activity, history, analytics, and recovery remain ordered later work.
 
 ## SQLite runtime
 
@@ -43,10 +45,14 @@ Compatibility is rechecked on the writable connection before migration or schema
 
 ## Persistence responsibilities
 
-The v0.1.1 migration implements Household, Member, Institution, Group, Account,
-Ownership, Account Value, and Media Asset persistence. Portfolio, quote,
-Activity, history, analytics, and recovery entities remain ordered future
-extensions.
+The ordered migrations implement Household, Member, Institution, Group,
+Account, Ownership, Account Value, Media Asset, Instrument, Holding, Account
+Cash Value, Instrument Quote, FX Quote, and FX Preference persistence. Activity,
+history, analytics, and recovery entities remain ordered future extensions.
+
+Manual Instrument, Holding, cash, quote, preference, archive, and
+foreign-currency Account commands are application-owned and have no provider
+or network dependency.
 
 | Concept | Responsibility |
 | --- | --- |
@@ -64,9 +70,12 @@ extensions.
 | Daily Snapshot | Append-only closed-day valuation revision |
 | Cost Basis Declaration | Append-only user-supplied basis for unknown lots |
 | Media Asset | Household-scoped normalized image bytes |
-| Application Settings | Singleton language, appearance, and active workspace pointer |
+| Application Settings | Singleton presentation preferences and selected FX provider |
 
-Physical table names and indexes are defined by the v0.1.1 migration and documented here without duplicating migration SQL.
+Physical table names and indexes are defined by the ordered migrations and
+documented here without duplicating migration SQL. The current supported
+schema is `3`; schema `2` receives the v0.1.2 portfolio migration and future
+schema versions are blocked before business or settings writes.
 
 ## Transaction guarantees
 
@@ -78,6 +87,24 @@ Physical table names and indexes are defined by the v0.1.1 migration and documen
 - Unknown targets return a stable not-found error and write nothing.
 - Append-only observations never overwrite prior financial evidence.
 - Posted Activities are immutable; reversal and correction append linked records.
+
+## Current valuation and provider refresh
+
+`ValuationService` is the sole authority for current Account and Portfolio
+values. It consumes one `PortfolioSnapshot` of persisted Accounts, Holdings,
+cash, Instruments, quote preferences, and quote observations. It never opens a
+network connection. Missing selected quotes exclude only the affected
+component, preserve the remaining subtotal, and mark the parent incomplete.
+Exact decimal precision is retained until the application Money boundary.
+
+`MarketDataRegistry` is the application provider port. Production registers
+Yahoo Finance for Instrument and FX current quotes and Frankfurter for FX-only
+daily rates. Settings persists the FX provider choice, defaulting to Yahoo for
+legacy settings; explicit FX refresh resolves that choice, while Instrument
+refresh resolves each Instrument's saved provider key and symbol. Manual and
+passive read paths make zero provider calls. Refresh results expose only stable
+target/status/error-code values, and the Fyne worker owns cancellation,
+generation checks, retry state, and UI-thread completion.
 
 ## Serialization and view models
 

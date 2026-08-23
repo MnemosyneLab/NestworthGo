@@ -1,6 +1,7 @@
 package settings
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -21,6 +22,7 @@ func TestStoreRoundTripUsesPrivateAtomicFile(t *testing.T) {
 	want.DecimalSeparator = DecimalComma
 	want.GroupingSeparator = GroupingDot
 	want.DecimalPlaces = 4
+	want.FXProvider = FXProviderFrankfurter
 
 	if err := store.Save(want); err != nil {
 		t.Fatalf("Save() error = %v", err)
@@ -41,6 +43,14 @@ func TestStoreRoundTripUsesPrivateAtomicFile(t *testing.T) {
 	}
 }
 
+func TestDefaultStoreHonorsIsolatedSettingsPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "isolated", "settings.json")
+	t.Setenv("NESTWORTH_SETTINGS_PATH", path)
+	if got := DefaultStore().Path; got != path {
+		t.Fatalf("DefaultStore().Path = %q, want %q", got, path)
+	}
+}
+
 func TestStoreCorruptFileFallsBackToDefaults(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	if err := os.WriteFile(path, []byte(`{"appearance":`), 0o600); err != nil {
@@ -53,6 +63,34 @@ func TestStoreCorruptFileFallsBackToDefaults(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, Default()) {
 		t.Fatalf("Load() = %#v, want defaults %#v", got, Default())
+	}
+}
+
+func TestStoreLegacyFileWithoutFXProviderUsesYahooDefault(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	fields := make(map[string]json.RawMessage)
+	data, err := json.Marshal(Default())
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := json.Unmarshal(data, &fields); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	delete(fields, "fx_provider")
+	data, err = json.Marshal(fields)
+	if err != nil {
+		t.Fatalf("Marshal(legacy) error = %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	got, err := NewStore(path).Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got.FXProvider != DefaultFXProvider {
+		t.Fatalf("Load() FXProvider = %q, want %q", got.FXProvider, DefaultFXProvider)
 	}
 }
 
@@ -73,6 +111,12 @@ func TestValidateRejectsUnsupportedCurrencyAndSeparatorCollision(t *testing.T) {
 	value.DecimalPlaces = 1
 	if err := value.Validate(); err == nil {
 		t.Fatal("Validate() error = nil for unsupported decimal places")
+	}
+
+	value = Default()
+	value.FXProvider = " yahoo_finance"
+	if err := value.Validate(); err == nil {
+		t.Fatal("Validate() error = nil for whitespace-padded FX provider")
 	}
 }
 

@@ -1,110 +1,128 @@
 # Product Roadmap
 
-> **Migration status:** This roadmap was copied from the prior implementation line. The product outcomes remain active input, while the current Go + Fyne repository is implementing v0.1.1 incrementally.
+## Status and Authority
+
+This roadmap is reviewed for the current Go + Fyne repository. It describes
+product dependency order and outcomes, not implementation evidence. Current
+code, migrations, tests, and active release contracts remain authoritative.
+
+Detailed v0.1.3–v0.1.5 documents inherited from the Rust/Tauri repository are
+kept in the
+[unreviewed archive](../legacy/rust-tauri-inherited-unreviewed/README.md). Their
+old phase status and technical design are not current plans.
 
 ## Strategy
 
-The v0.1 line develops Nestworth in dependency order:
+The v0.1 line advances in dependency order:
 
-1. Establish a trustworthy household balance sheet.
-2. Value positions across currencies and instruments.
-3. Explain changes through an activity ledger and history.
-4. Calculate performance and attribution from that history.
-5. Reduce maintenance cost through automation, import, backup, and productivity tools.
+1. Establish a trustworthy Household balance sheet.
+2. Value positions across currencies and Instruments.
+3. Explain changes through an Activity ledger and history.
+4. Calculate performance and attribution from trustworthy history.
+5. Reduce maintenance cost through preparation, recovery, exchange, and search.
 
-Each release must preserve local-first operation and manual fallback. A later capability may extend earlier entities, but it must not reinterpret historical money, ownership, or liability data.
+Every release preserves local-first operation, exact decimal authority, manual
+fallback, append-only financial evidence, and safe database compatibility. A
+later release may extend an earlier entity but must not reinterpret existing
+Money, Ownership, values, quotes, or archive state.
 
 ## Release Sequence
 
 ### v0.1.1 — Household Balance Sheet
 
-**Theme:** Build the household balance sheet.
+**Theme:** Build the Household balance sheet.
 
-**Status:** In progress in the Go + Fyne repository.
+**Status:** Core implementation complete; public-release closeout pending.
 
-Implement the local Household balance sheet with Members, Institutions, Groups, Accounts, exact Ownership, manually maintained balances or valuations, backend-computed Overview, local persistence, onboarding, archive and restore, account filtering, bilingual UI, appearance selection, media-backed avatars and logos, and release hardening. The current implementation must be verified against each acceptance item before public release.
+The current Go implementation provides onboarding, Members, Institutions,
+Groups, Accounts, exact Ownership, append-only current values, archive/restore,
+filters, local persistence, media, settings, and backend-owned Overview totals.
 
-**Exit outcome:** A user can answer what the Household owns, owes, and is worth in one base currency.
+**Exit outcome:** A Household can answer what it owns, owes, and has as current
+net worth in one base currency.
 
-The detailed implementation contract is [v0.1.1](../releases/v0.1.1.md).
+See the active [v0.1.1 release contract](../releases/v0.1.1.md).
 
 ### v0.1.2 — Multi-Currency and Portfolio
 
 **Theme:** Know what everything is worth.
 
-**Status:** Development complete; release candidate.
+**Status:** Phases 0–9 implemented; release closeout in progress.
 
-Add account and instrument currencies, FX quotes, instruments, holdings, investment-account cash, market and manual quotes, data freshness, batch refresh, and a centralized valuation service. Provider failures must never prevent startup or manual valuation. v0.1.2 ships without a live market-data vendor; manual quotes are the complete offline path.
+This release adds multi-currency Accounts, Instruments, Holdings, investment
+cash, manual quotes, centralized current valuation, and explicit current Instrument/FX
+refresh through replaceable Yahoo Finance and Frankfurter adapters. Settings
+routes only explicit FX refresh; Instrument bindings remain provider-specific.
+Provider failure never blocks startup or complete manual valuation. Historical
+market-data backfill is not part of this release.
 
-**Exit outcome:** A Household can value cash and investment positions in the base currency while retaining native amounts and quote provenance.
+**Exit outcome:** A Household can value current cash and investment positions in
+its base currency while retaining native amounts, provenance, freshness, and
+explicit incomplete diagnostics.
 
-The detailed scope, design, and delivery phases are defined by the [v0.1.2 release contract](../releases/v0.1.2.md), [technical design](../releases/v0.1.2-technical-design.md), and [implementation plan](../releases/v0.1.2-implementation-plan.md). The live-provider preparation gate is closed for this release with no vendor selected.
+See the active [release contract](../releases/v0.1.2.md),
+[technical design](../releases/v0.1.2-technical-design.md), and
+[implementation plan](../releases/v0.1.2-implementation-plan.md).
 
 ### v0.1.3 — Activity and History
 
 **Theme:** Understand how wealth changes.
 
-**Status:** Development complete; release candidate.
+**Status:** Direction only; Go/Fyne design not started.
 
-Add an activity ledger for adjustments, deposits, withdrawals, transfers, trades, income, fees, debt changes, and manual valuations. Add History Origin, historical quotes, daily valuation snapshots, net-worth trends, the `/activity` route, and account timelines. Isolated-data launch, keyboard/VoiceOver, arm64 packaging, and signing remain named Phase 10 macOS release checks.
+Intended outcome: add an immutable Activity explanation layer, a trustworthy
+history boundary, current-state projection rules, and historical valuation
+without fabricating trades or cash flows from v0.1.2 state.
 
-**Exit outcome:** Internal transfers do not create false wealth changes, and the user can inspect what changed over time.
-
-The detailed scope, design, and delivery phases are defined by the [v0.1.3 release contract](../releases/v0.1.3.md), [technical design](../releases/v0.1.3-technical-design.md), and [implementation plan](../releases/v0.1.3-implementation-plan.md). Migrated v0.1.2 current state is an explicit History Origin; the release does not fabricate earlier Activities. v0.1.4 must treat origin and adjustment quantities as unknown-basis and must not manufacture lots from v0.1.2 Holding Quantity.
+The inherited Rust/Tauri contract is reference material only. Scope, schema,
+Go service ownership, Fyne workflows, migration numbering, and acceptance must
+be redesigned after v0.1.2 implementation evidence exists.
 
 ### v0.1.4 — Analytics and Performance
 
 **Theme:** Know why wealth changed.
 
-**Status:** Development complete; release candidate.
+**Status:** Direction only; Go/Fyne design not started.
 
-Add FIFO cost basis and lots, realized and unrealized gain, investment income and fee totals, currency decomposition of gain, scope-relative cash-flow classification, daily-linked time-weighted return, money-weighted return as XIRR, a net-worth attribution bridge, and the `/analytics` route. Lots are derived from the v0.1.3 ledger rather than entered, and the only new persisted fact is an explicit cost-basis declaration for an unknown-basis position. Isolated-data launch, keyboard/VoiceOver, arm64 packaging, and signing remain named macOS release checks.
+Intended outcome: derive cost basis, gain, income/fees, currency effects,
+time-weighted return, money-weighted return, and attribution from trustworthy
+Activity/history evidence. Unavailable inputs remain unavailable rather than
+becoming estimates.
 
-**Exit outcome:** Contributions, internal movement, market return, currency effects, income, and fees are separated instead of being inferred from ending value alone.
-
-The detailed scope, design, and delivery phases are defined by the [v0.1.4 release contract](../releases/v0.1.4.md), [technical design](../releases/v0.1.4-technical-design.md), [implementation plan](../releases/v0.1.4-implementation-plan.md), and [compatibility baseline](../releases/v0.1.4-baseline.md). Benchmarks moved to v0.1.5 because no market-data vendor is selected and a manually maintained index series is a data-entry problem rather than an analytics problem. v0.1.4 remains provider-free and read-only over the ledger.
+Detailed design is intentionally deferred until the Go v0.1.3 ledger and
+history contracts exist and are verified.
 
 ### v0.1.5 — Sustainable Long-Term Use
 
-**Theme:** Make Nestworth easy to maintain for years.
+**Theme:** Keep Nestworth current and recoverable.
 
-**Status:** Planned; design complete, implementation not started.
+**Status:** Direction only; Go/Fyne design not started.
 
-Add review-before-post pending and recurring Activities, configurable valuation-review reminders, full-fidelity local Backup/Restore, canonical JSON export, strict atomic CSV import/export, manually maintained Benchmark series and relative return, bounded global search, a command palette, and keyboard-focused workflows. Automation never posts automatically, Restore is staged and recoverable, and every workflow remains offline-capable.
+Intended outcome: reduce maintenance cost with review-before-post preparation,
+freshness reminders, recoverable backup/restore, controlled import/export,
+comparison data, and keyboard-focused search/navigation.
 
-**Exit outcome:** Routine maintenance requires less repeated input, stale facts are visible, the complete database is recoverable, controlled bulk input cannot bypass the ledger, and Benchmark comparison does not alter financial truth.
-
-The detailed scope, design, and delivery phases are defined by the [v0.1.5 release contract](../releases/v0.1.5.md), [technical design](../releases/v0.1.5-technical-design.md), [implementation plan](../releases/v0.1.5-implementation-plan.md), and [compatibility baseline](../releases/v0.1.5-baseline.md). Automatic posting, arbitrary institution importers, encrypted/cloud Backup, provider-backed Benchmarks, background agents, and OS notifications remain deferred.
-
-## Capability Matrix
-
-| Capability | 0.1.1 | 0.1.2 | 0.1.3 | 0.1.4 | 0.1.5 |
-| --- | --- | --- | --- | --- | --- |
-| Household, members, and exact ownership | Yes | Preserve | Preserve | Preserve | Preserve |
-| Institutions, groups, accounts, and current value | Yes | Extend | Preserve | Preserve | Preserve |
-| Net worth and basic allocation | Yes | Multi-currency | Historical | Attributed | Automated upkeep |
-| Multi-currency and FX | No | Yes | Historical | Attribution | Preserve |
-| Instruments and holdings | No | Yes | Activity-aware | Performance-aware | Importable |
-| Activity ledger and transfers | No | No | Yes | Analytics input | Automatable |
-| Historical trend | No | No | Yes | Explainable | Preserve |
-| Investment performance | No | No | No | Yes | Preserve |
-| Cost basis and lots | No | No | No | FIFO | Importable |
-| Benchmarks and relative return | No | No | No | No | Yes |
-| Backup, import, export, and automation | No | No | No | No | Yes |
-
-`Yes` describes a release outcome, not the current implementation status. Status for the active release belongs in its release contract.
+Detailed design is intentionally deferred until the Go persistence, Activity,
+history, and analytics boundaries it depends on exist.
 
 ## Dependency Rules
 
-- Multi-currency valuation requires explicit quote provenance and manual fallback before portfolio totals use it.
-- Holdings require Instruments and a valuation service; an Account must not impersonate an Instrument.
-- Performance requires Activity and historical valuation data; it must not be estimated from initial and current values.
-- Cost basis is derived from posted trades; a position with no recorded acquisition stays unknown until the user declares its cost.
-- Automation produces reviewable pending financial events when real execution price, date, FX, or fee may differ.
-- Backup and export include every durable component required to reconstruct the user's data.
+- Activity depends on the implemented v0.1.2 current-state and quote contracts.
+- History depends on immutable Activities plus a migration-safe origin boundary.
+- Performance depends on trustworthy Activity/history evidence and cannot be
+  estimated from only initial and current values.
+- Automation prepares or proposes facts; it does not silently post them.
+- Backup/restore preserves exact database facts and never becomes cloud sync by
+  implication.
+- Import validates and previews before one atomic commit.
+- Optional providers remain infrastructure; normal reads consume persisted
+  normalized observations only.
 
 ## Deferred Beyond v0.1
 
-Possible v0.2 directions include planning and target allocation, richer portfolio analysis, optional sync, and carefully scoped external integrations. Bank sync, broker APIs, crypto-wallet sync, statement parsing, AI-assisted import, household collaboration, plugin systems, tax reporting, and advanced risk modeling remain deferred until the local data and recovery model is mature.
-
-Detailed behavior for v0.2 and later remains intentionally undecided. Create a new release contract when a later release becomes active, using the implemented v0.1.5 result rather than its plan as the baseline.
+- Cloud and multi-device sync
+- Direct bank, broker, wallet, or exchange integrations
+- Background agents and closed-application refresh
+- Tax filing and jurisdiction-specific reports
+- Budgeting and expense categorization
+- Multi-user accounts, permissions, and remote collaboration

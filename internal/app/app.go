@@ -11,6 +11,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/ui"
@@ -45,7 +46,16 @@ func New() *App {
 	var bootstrap application.Bootstrap
 	backendErr := databaseErr
 	if databaseErr == nil {
-		service = application.NewService(sqlite.NewRepository(database))
+		registry := application.NewMarketDataRegistry(
+			marketdata.NewYahooChartProvider(nil),
+			marketdata.NewFrankfurterProvider(nil),
+		)
+		service = application.NewService(sqlite.NewRepository(database), registry)
+		if err := service.SetFXProvider(preference.FXProvider); err != nil {
+			preference.FXProvider = settings.DefaultFXProvider
+			_ = service.SetFXProvider(preference.FXProvider)
+			_ = store.Save(preference)
+		}
 		bootstrap, backendErr = service.Bootstrap(context.Background())
 	}
 	controller := ui.NewControllerWithBackend(fyneApp, window, icon, store, preference, service, bootstrap, backendErr)
@@ -60,6 +70,9 @@ func New() *App {
 }
 
 func defaultDatabasePath() string {
+	if explicitPath := strings.TrimSpace(os.Getenv("NESTWORTH_DATABASE_PATH")); explicitPath != "" {
+		return explicitPath
+	}
 	configDir, err := os.UserConfigDir()
 	if err == nil && configDir != "" {
 		return filepath.Join(configDir, "Nestworth", "nestworth.db")

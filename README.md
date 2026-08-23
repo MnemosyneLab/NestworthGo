@@ -6,16 +6,17 @@ a Go + Fyne application.
 
 ## Status
 
-The repository is advancing through the `v0.1.1` Household Balance Sheet
-milestone. The Go + Fyne shell now boots a local SQLite business database,
-supports atomic Household onboarding, Members, Institutions, Groups, Accounts,
-exact Ownership, append-only current values, backend-authoritative Overview
-totals, and bounded local image attachments. The current release remains
-unpublished and requires final cross-platform UI review and packaging checks.
+The repository is completing the `v0.1.2` Multi-Currency and Portfolio
+milestone. Phases 0–9 are implemented and verified: the Go + Fyne shell now
+supports local multi-currency Accounts, Instruments, Holdings, exact
+valuation, manual and provider quote evidence, explicit Yahoo instrument
+refresh, and Settings-routed Yahoo Finance or Frankfurter FX refresh. The
+release remains unpublished pending the remaining Phase 10 accessibility,
+signing, and distribution checks; its unsigned arm64 `.app` and DMG have been
+built and verified locally.
 
-Portfolio valuation, multi-currency, Activity, History, Analytics,
-Backup/Restore, Import/Export, and provider integrations remain deferred to
-later releases.
+Activity, History, Analytics, Backup/Restore, Import/Export, synchronization,
+and background refresh remain deferred to later releases.
 
 ## Run
 
@@ -87,9 +88,11 @@ Start with the [documentation index](docs/README.md), especially:
 - [Engineering guide](docs/development/engineering-guide.md)
 - [Release documents](docs/releases/README.md)
 
-The copied release documents are historical product and domain specifications.
-Their old Tauri/Rust/React implementation paths must be revalidated before
-being treated as Go + Fyne implementation plans.
+Active Go release contracts live in [`docs/releases`](docs/releases/README.md).
+Uncorrected documents inherited from the Rust/Tauri/React repository are
+isolated in the
+[`unreviewed archive`](docs/legacy/rust-tauri-inherited-unreviewed/README.md)
+and must not be treated as Nestworth-go implementation evidence or plans.
 
 ## License
 

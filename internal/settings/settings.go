@@ -44,6 +44,12 @@ const (
 )
 
 const (
+	FXProviderYahoo       = "yahoo_finance"
+	FXProviderFrankfurter = "frankfurter"
+	DefaultFXProvider     = FXProviderYahoo
+)
+
+const (
 	TimezoneSystem = "system"
 
 	WeekStartMonday = "monday"
@@ -67,9 +73,9 @@ const (
 	GroupingNone  = "none"
 )
 
-// Settings contains presentation preferences only. Currency is the primary
-// display currency in this MVP; it does not change a future Household base
-// currency or perform an FX conversion.
+// Settings contains presentation preferences and explicit market-data
+// routing choices. Currency is the display currency; FXProvider selects the
+// provider used only for user-initiated FX refresh.
 type Settings struct {
 	SchemaVersion     int        `json:"schema_version"`
 	Appearance        Appearance `json:"appearance"`
@@ -85,6 +91,7 @@ type Settings struct {
 	DecimalPlaces     int        `json:"decimal_places"`
 	WindowWidth       float32    `json:"window_width"`
 	WindowHeight      float32    `json:"window_height"`
+	FXProvider        string     `json:"fx_provider"`
 }
 
 // Minimum and maximum window dimensions accepted from a persisted settings
@@ -117,6 +124,7 @@ func Default() Settings {
 		DecimalPlaces:     2,
 		WindowWidth:       DefaultWindowWidth,
 		WindowHeight:      DefaultWindowHeight,
+		FXProvider:        DefaultFXProvider,
 	}
 }
 
@@ -171,6 +179,9 @@ func (s Settings) Validate() error {
 	if s.WindowHeight < MinWindowHeight || s.WindowHeight > MaxWindowHeight {
 		return fmt.Errorf("window height must be between %d and %d, got %v", MinWindowHeight, MaxWindowHeight, s.WindowHeight)
 	}
+	if strings.TrimSpace(s.FXProvider) != "" && strings.TrimSpace(s.FXProvider) != s.FXProvider {
+		return errors.New("FX provider cannot have leading or trailing whitespace")
+	}
 	return nil
 }
 
@@ -208,6 +219,9 @@ func NewStore(path string) *Store {
 }
 
 func DefaultStore() *Store {
+	if explicitPath := strings.TrimSpace(os.Getenv("NESTWORTH_SETTINGS_PATH")); explicitPath != "" {
+		return NewStore(explicitPath)
+	}
 	configDir, err := os.UserConfigDir()
 	if err != nil || configDir == "" {
 		configDir = os.TempDir()
@@ -235,6 +249,9 @@ func (s *Store) Load() (Settings, error) {
 	}
 	if err := loaded.Validate(); err != nil {
 		return defaults, err
+	}
+	if loaded.FXProvider == "" {
+		loaded.FXProvider = defaults.FXProvider
 	}
 	return loaded, nil
 }

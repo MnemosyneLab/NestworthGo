@@ -17,6 +17,7 @@ func NewRepository(database *DB) *Repository { return &Repository{database: data
 
 type queryer interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
 func (r *Repository) DB() *DB { return r.database }
@@ -393,12 +394,18 @@ func (r *Repository) setArchive(ctx context.Context, table, householdID, id stri
 	return requireAffected(result, table)
 }
 
-func (r *Repository) CreateAccount(ctx context.Context, account domain.Account, ownership domain.Ownership, initial domain.AccountValue) error {
+func (r *Repository) CreateAccount(ctx context.Context, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		if err := validateAccountReferences(ctx, tx, account, nil, nil); err != nil {
 			return err
 		}
-		if initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency {
+		if account.TrackingMode == domain.TrackingHoldings && initial != nil {
+			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "Holdings accounts cannot have an initial Account Value"}
+		}
+		if account.TrackingMode != domain.TrackingHoldings && initial == nil {
+			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "an initial Account Value is required"}
+		}
+		if initial != nil && (initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency) {
 			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "initial value does not match the account"}
 		}
 		if err := insertAccount(ctx, tx, account); err != nil {
@@ -407,7 +414,10 @@ func (r *Repository) CreateAccount(ctx context.Context, account domain.Account, 
 		if err := replaceOwnership(ctx, tx, account.ID, ownership, false); err != nil {
 			return err
 		}
-		return insertAccountValue(ctx, tx, initial)
+		if initial == nil {
+			return nil
+		}
+		return insertAccountValue(ctx, tx, *initial)
 	})
 }
 

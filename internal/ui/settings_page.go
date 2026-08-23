@@ -9,6 +9,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	fyneTheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/format"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
@@ -18,8 +19,8 @@ type selectOption struct {
 	label string
 }
 
-// NewSettingsPage builds the presentation preferences page. Every control is
-// display-only configuration for this MVP and is persisted to local JSON.
+// NewSettingsPage builds the presentation preferences and market-data routing
+// page. Explicit provider selection is persisted to local JSON.
 func NewSettingsPage(controller *Controller) fyne.CanvasObject {
 	t := controller.translator
 	pref := controller.preference
@@ -146,6 +147,19 @@ func NewSettingsPage(controller *Controller) fyne.CanvasObject {
 		),
 	)
 
+	var providers fyne.CanvasObject
+	if options := fxProviderOptions(controller); len(options) > 0 {
+		providers = sectionCard(
+			t.T("settings.providers.title"),
+			t.T("settings.providers.description"),
+			settingsRows(
+				settingsRow(t.T("settings.providers.fxProvider"), preferenceSelect(controller, options, pref.FXProvider, func(value string) {
+					controller.updatePreference(func(next *settings.Settings) { next.FXProvider = value })
+				})),
+			),
+		)
+	}
+
 	reset := widget.NewButtonWithIcon(t.T("common.reset"), fyneTheme.Current().Icon(fyneTheme.IconNameViewRefresh), func() {
 		showResponsiveConfirm(controller.window, t.T("settings.reset.title"), t.T("settings.reset.body"), func(confirmed bool) {
 			if confirmed {
@@ -164,11 +178,15 @@ func NewSettingsPage(controller *Controller) fyne.CanvasObject {
 	status.Wrapping = fyne.TextWrapWord
 	footer := container.NewBorder(nil, nil, status, reset)
 
-	sections := make([]fyne.CanvasObject, 0, 6)
+	sections := make([]fyne.CanvasObject, 0, 7)
 	if household != nil {
 		sections = append(sections, household)
 	}
-	sections = append(sections, appearance, languageRegion, numbers, layout.NewSpacer(), footer)
+	sections = append(sections, appearance, languageRegion, numbers)
+	if providers != nil {
+		sections = append(sections, providers)
+	}
+	sections = append(sections, layout.NewSpacer(), footer)
 	return container.NewVBox(sections...)
 }
 
@@ -209,6 +227,35 @@ func preferenceSelect(controller *Controller, options []selectOption, current st
 		}
 	}
 	return control
+}
+
+func fxProviderOptions(controller *Controller) []selectOption {
+	if controller == nil || controller.service == nil || controller.service.MarketDataRegistry() == nil {
+		return nil
+	}
+	options := make([]selectOption, 0)
+	for _, provider := range controller.service.MarketDataRegistry().Providers() {
+		if provider == nil || !provider.Capabilities().LatestFX {
+			continue
+		}
+		key := strings.ToLower(strings.TrimSpace(provider.Key()))
+		if key == "" {
+			continue
+		}
+		options = append(options, selectOption{value: key, label: fxProviderLabel(controller, key)})
+	}
+	return options
+}
+
+func fxProviderLabel(controller *Controller, key string) string {
+	switch key {
+	case application.YahooFinanceProviderKey:
+		return controller.translator.T("settings.provider.yahoo")
+	case settings.FXProviderFrankfurter:
+		return controller.translator.T("settings.provider.frankfurter")
+	default:
+		return key
+	}
 }
 
 func timezoneEntry(controller *Controller) fyne.CanvasObject {

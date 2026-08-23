@@ -1,0 +1,10 @@
+{
+  "chart": {
+    "result": [{
+      "meta": {"currency": "EUR", "symbol": "QQQ", "regularMarketPrice": 700.25, "regularMarketTime": 1767225600},
+      "timestamp": [1767222000],
+      "indicators": {"quote": [{"close": [700.25]}]}
+    }],
+    "error": null
+  }
+}

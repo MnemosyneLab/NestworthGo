@@ -65,6 +65,21 @@ func Money(value, currency string, preference settings.Settings) string {
 	return result
 }
 
+// ShareBPS formats a basis-point share without converting it through a
+// binary float. The application owns the share value; this helper only turns
+// it into a fixed two-decimal percentage for presentation.
+func ShareBPS(value int) string {
+	negative := value < 0
+	if negative {
+		value = -value
+	}
+	result := fmt.Sprintf("%d.%02d%%", value/100, value%100)
+	if negative {
+		return "-" + result
+	}
+	return result
+}
+
 func decimalString(value string) bool {
 	seenDecimal := false
 	seenDigit := false

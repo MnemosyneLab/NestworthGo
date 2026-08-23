@@ -31,7 +31,9 @@ The storage model and navigation do not have to share the same hierarchy. An acc
 
 The local SQLite database is the source of truth. Core browsing and editing must work without registration or network access. Users retain control of their data, and future integrations must degrade safely when unavailable.
 
-Cloud sync, remote market data, and provider integrations are optional future capabilities. They must not become prerequisites for opening or maintaining local data.
+Cloud sync remains an optional future capability. Remote market data is an
+explicit, replaceable v0.1.2 integration for user-triggered quote refresh and
+must not become a prerequisite for opening or maintaining local data.
 
 ### Financial Correctness Before Convenience
 
@@ -101,7 +103,8 @@ Nestworth is designed to provide:
 - A household balance sheet and net-worth view
 - Flexible ownership, institution, group, and category organization
 - Manual values that remain useful when providers are unavailable
-- Multi-currency valuation and investment tracking in later releases
+- Multi-currency valuation and investment tracking with manual and explicit
+  provider quote refresh
 - Explainable history and performance rather than opaque estimates
 - Export, backup, and recovery paths that avoid lock-in
 

@@ -15,14 +15,20 @@ import (
 type ErrorCode string
 
 const (
-	ErrValidation      ErrorCode = "validation"
-	ErrNotFound        ErrorCode = "not_found"
-	ErrConflict        ErrorCode = "conflict"
-	ErrUnsupportedDB   ErrorCode = "unsupported_database"
-	ErrMigration       ErrorCode = "migration_failed"
-	ErrIntegrity       ErrorCode = "integrity_failed"
-	ErrUnavailable     ErrorCode = "unavailable"
-	ErrDecimalOverflow ErrorCode = "decimal_overflow"
+	ErrValidation                 ErrorCode = "validation"
+	ErrNotFound                   ErrorCode = "not_found"
+	ErrConflict                   ErrorCode = "conflict"
+	ErrUnsupportedDB              ErrorCode = "unsupported_database"
+	ErrMigration                  ErrorCode = "migration_failed"
+	ErrIntegrity                  ErrorCode = "integrity_failed"
+	ErrUnavailable                ErrorCode = "unavailable"
+	ErrDecimalOverflow            ErrorCode = "decimal_overflow"
+	ErrProviderUnavailable        ErrorCode = "provider_unavailable"
+	ErrProviderAuthentication     ErrorCode = "provider_authentication"
+	ErrProviderRateLimit          ErrorCode = "provider_rate_limit"
+	ErrUnsupportedProviderSymbol  ErrorCode = "unsupported_provider_symbol"
+	ErrMalformedProviderResponse  ErrorCode = "malformed_provider_response"
+	ErrMarketDataResponseTooLarge ErrorCode = "market_data_response_too_large"
 )
 
 // Error is safe to expose to the UI; database details stay below this boundary.
@@ -76,6 +82,11 @@ type GroupID string
 type AccountID string
 type AccountValueID string
 type MediaAssetID string
+type InstrumentID string
+type HoldingID string
+type AccountCashValueID string
+type InstrumentQuoteID string
+type FXQuoteID string
 
 func NewHouseholdID() HouseholdID       { return HouseholdID(newID()) }
 func NewMemberID() MemberID             { return MemberID(newID()) }
@@ -84,14 +95,26 @@ func NewGroupID() GroupID               { return GroupID(newID()) }
 func NewAccountID() AccountID           { return AccountID(newID()) }
 func NewAccountValueID() AccountValueID { return AccountValueID(newID()) }
 func NewMediaAssetID() MediaAssetID     { return MediaAssetID(newID()) }
+func NewInstrumentID() InstrumentID     { return InstrumentID(newID()) }
+func NewHoldingID() HoldingID           { return HoldingID(newID()) }
+func NewAccountCashValueID() AccountCashValueID {
+	return AccountCashValueID(newID())
+}
+func NewInstrumentQuoteID() InstrumentQuoteID { return InstrumentQuoteID(newID()) }
+func NewFXQuoteID() FXQuoteID                 { return FXQuoteID(newID()) }
 
-func (id HouseholdID) String() string    { return string(id) }
-func (id MemberID) String() string       { return string(id) }
-func (id InstitutionID) String() string  { return string(id) }
-func (id GroupID) String() string        { return string(id) }
-func (id AccountID) String() string      { return string(id) }
-func (id AccountValueID) String() string { return string(id) }
-func (id MediaAssetID) String() string   { return string(id) }
+func (id HouseholdID) String() string        { return string(id) }
+func (id MemberID) String() string           { return string(id) }
+func (id InstitutionID) String() string      { return string(id) }
+func (id GroupID) String() string            { return string(id) }
+func (id AccountID) String() string          { return string(id) }
+func (id AccountValueID) String() string     { return string(id) }
+func (id MediaAssetID) String() string       { return string(id) }
+func (id InstrumentID) String() string       { return string(id) }
+func (id HoldingID) String() string          { return string(id) }
+func (id AccountCashValueID) String() string { return string(id) }
+func (id InstrumentQuoteID) String() string  { return string(id) }
+func (id FXQuoteID) String() string          { return string(id) }
 
 func ParseHouseholdID(value string) (HouseholdID, error) {
 	return parseID[HouseholdID](value, "householdId")
@@ -107,6 +130,19 @@ func ParseAccountValueID(value string) (AccountValueID, error) {
 }
 func ParseMediaAssetID(value string) (MediaAssetID, error) {
 	return parseID[MediaAssetID](value, "mediaAssetId")
+}
+func ParseInstrumentID(value string) (InstrumentID, error) {
+	return parseID[InstrumentID](value, "instrumentId")
+}
+func ParseHoldingID(value string) (HoldingID, error) { return parseID[HoldingID](value, "holdingId") }
+func ParseAccountCashValueID(value string) (AccountCashValueID, error) {
+	return parseID[AccountCashValueID](value, "accountCashValueId")
+}
+func ParseInstrumentQuoteID(value string) (InstrumentQuoteID, error) {
+	return parseID[InstrumentQuoteID](value, "instrumentQuoteId")
+}
+func ParseFXQuoteID(value string) (FXQuoteID, error) {
+	return parseID[FXQuoteID](value, "fxQuoteId")
 }
 
 func parseID[T ~string](value, field string) (T, error) {
@@ -567,9 +603,6 @@ func NewAccount(input AccountInput, now time.Time) (Account, Ownership, *Money, 
 	if !input.TrackingMode.AllowedFor(input.PrimaryCategory) {
 		return Account{}, Ownership{}, nil, validation("trackingMode", "is not allowed for this category")
 	}
-	if input.TrackingMode == TrackingHoldings {
-		return Account{}, Ownership{}, nil, validation("trackingMode", "holdings accounts are planned for v0.1.2")
-	}
 	canonicalCurrency, err := ParseCurrency(input.DefaultCurrency.String())
 	if err != nil {
 		return Account{}, Ownership{}, nil, err
@@ -594,14 +627,17 @@ func NewAccount(input AccountInput, now time.Time) (Account, Ownership, *Money, 
 		return Account{}, Ownership{}, nil, err
 	}
 	var initial *Money
-	if input.InitialAmount != "" {
+	if input.TrackingMode == TrackingHoldings {
+		if input.InitialAmount != "" {
+			return Account{}, Ownership{}, nil, validation("initialAmount", "must be empty for Holdings accounts")
+		}
+	} else if input.InitialAmount != "" {
 		value, parseErr := ParseMoney(input.InitialAmount, canonicalCurrency)
 		if parseErr != nil {
 			return Account{}, Ownership{}, nil, parseErr
 		}
 		initial = &value
-	}
-	if initial == nil {
+	} else {
 		return Account{}, Ownership{}, nil, validation("initialAmount", "is required for Balance and Manual Value accounts")
 	}
 	now = normalizeTime(now)
@@ -694,6 +730,9 @@ type OverviewTotals struct {
 }
 
 func (a Account) ValidateValue(value Money) error {
+	if a.TrackingMode == TrackingHoldings {
+		return validation("trackingMode", "account values are not valid for Holdings accounts")
+	}
 	if value.Currency() != a.DefaultCurrency {
 		return validation("amount", "currency must match account currency")
 	}
@@ -720,6 +759,8 @@ type BreakdownItem struct {
 type OverviewResult struct {
 	Currency      CurrencyCode
 	AccountCount  int
+	Complete      bool
+	MissingInputs []MissingInputView
 	Assets        decimal.Decimal
 	Liabilities   decimal.Decimal
 	NetWorth      decimal.Decimal

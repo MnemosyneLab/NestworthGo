@@ -22,6 +22,7 @@ type Page string
 const (
 	PageOverview     = Page("overview")
 	PageAccounts     = Page("accounts")
+	PageInvestments  = Page("investments")
 	PageMembers      = Page("members")
 	PageInstitutions = Page("institutions")
 	PageGroups       = Page("groups")
@@ -41,6 +42,8 @@ type Controller struct {
 	service               *application.Service
 	bootstrap             application.Bootstrap
 	backendError          error
+	backendPending        bool
+	retryBackend          func()
 	preference            settings.Settings
 	translator            *i18n.Translator
 	page                  Page
@@ -53,6 +56,15 @@ type Controller struct {
 	saveError             error
 	validationError       string
 	regions               map[Page]*region
+	refreshCancel         context.CancelFunc
+	refreshGeneration     uint64
+	refreshPending        bool
+	refreshProgress       string
+	refreshResult         *application.RefreshResult
+	refreshError          error
+	retryRefresh          func()
+	refreshRebuild        bool
+	refreshObserver       func(application.RefreshResult, error)
 }
 
 // NewController preserves the presentation-only constructor used by UI tests.
@@ -60,7 +72,7 @@ func NewController(fyneApplication fyne.App, window fyne.Window, icon fyne.Resou
 	return newController(fyneApplication, window, icon, store, preference, nil, application.Bootstrap{}, nil)
 }
 
-// NewControllerWithBackend creates the live v0.1.1 shell.
+// NewControllerWithBackend creates the live v0.1.2 shell.
 func NewControllerWithBackend(fyneApplication fyne.App, window fyne.Window, icon fyne.Resource, store *settings.Store, preference settings.Settings, service *application.Service, bootstrap application.Bootstrap, backendError error) *Controller {
 	return newController(fyneApplication, window, icon, store, preference, service, bootstrap, backendError)
 }
@@ -101,6 +113,9 @@ func (c *Controller) navigate(page Page) {
 	if c.page == PageAccounts && page != PageAccounts {
 		c.invalidateRegion(PageAccounts)
 	}
+	if c.page != page && c.refreshPending {
+		c.cancelRefresh()
+	}
 	c.page = page
 	c.validationError = ""
 	c.Refresh()
@@ -113,6 +128,13 @@ func (c *Controller) updatePreference(update func(*settings.Settings)) {
 		c.validationError = c.translator.TranslateError(err)
 		c.Refresh()
 		return
+	}
+	if c.service != nil && next.FXProvider != c.preference.FXProvider {
+		if err := c.service.SetFXProvider(next.FXProvider); err != nil {
+			c.validationError = c.translator.TranslateError(err)
+			c.Refresh()
+			return
+		}
 	}
 
 	c.preference = next
@@ -127,7 +149,15 @@ func (c *Controller) updatePreference(update func(*settings.Settings)) {
 }
 
 func (c *Controller) resetPreference() {
-	c.preference = settings.Default()
+	next := settings.Default()
+	if c.service != nil {
+		if err := c.service.SetFXProvider(next.FXProvider); err != nil {
+			c.validationError = c.translator.TranslateError(err)
+			c.Refresh()
+			return
+		}
+	}
+	c.preference = next
 	c.translator.SetLanguage(c.preference.Language)
 	ApplyTheme(c.application, c.preference)
 	c.validationError = ""
@@ -201,6 +231,7 @@ func (c *Controller) sidebar() fyne.CanvasObject {
 	primaryNavigation := container.NewVBox(
 		c.navButton(PageOverview, t.T("nav.overview"), fyneTheme.IconNameHome),
 		c.navButton(PageAccounts, t.T("nav.accounts"), fyneTheme.IconNameAccount),
+		c.navButton(PageInvestments, t.T("nav.investments"), fyneTheme.IconNameStorage),
 		c.navButton(PageMembers, t.T("nav.members"), fyneTheme.IconNameAccount),
 		c.navButton(PageInstitutions, t.T("nav.institutions"), fyneTheme.IconNameDocument),
 		c.navButton(PageGroups, t.T("nav.groups"), fyneTheme.IconNameFolder),
@@ -241,6 +272,12 @@ func (c *Controller) mainArea() fyne.CanvasObject {
 				page = NewAccountsPage(c)
 			} else {
 				page = NewComingSoonPage(c, "page.accountsTitle", "page.accountsDescription", fyneTheme.IconNameAccount)
+			}
+		case PageInvestments:
+			if c.service != nil {
+				page = NewInvestmentsPage(c)
+			} else {
+				page = NewComingSoonPage(c, "page.investmentsTitle", "page.investmentsDescription", fyneTheme.IconNameStorage)
 			}
 		case PageMembers:
 			if c.service != nil {
@@ -284,6 +321,8 @@ func (c *Controller) pageHeader() fyne.CanvasObject {
 		title, subtitle = t.T("settings.title"), t.T("settings.subtitle")
 	case PageAccounts:
 		title, subtitle = t.T("page.accountsTitle"), t.T("page.accountsDescription")
+	case PageInvestments:
+		title, subtitle = t.T("page.investmentsTitle"), t.T("page.investmentsDescription")
 	case PageMembers:
 		title, subtitle = t.T("page.membersTitle"), t.T("page.membersDescription")
 	case PageInstitutions:

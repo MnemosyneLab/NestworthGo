@@ -1,0 +1,6 @@
+{
+  "chart": {
+    "result": null,
+    "error": {"code": "Bad Request", "description": "Invalid symbol"}
+  }
+}

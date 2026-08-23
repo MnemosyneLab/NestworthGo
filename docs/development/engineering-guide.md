@@ -3,11 +3,12 @@
 ## Current status
 
 The repository is a Go 1.26 module with a Fyne v2.8 desktop shell and the
-v0.1.1 Household Balance Sheet implementation. The quality gate covers exact
-domain values, SQLite bootstrap and compatibility, onboarding, reference
-entities, Account transactions, Overview calculations, media normalization,
-localization, settings, and live Fyne page transitions. Later financial
-features add focused checks as they land.
+v0.1.2 Multi-Currency and Portfolio implementation through Phase 9. The
+quality gate covers exact domain values, SQLite bootstrap and compatibility,
+onboarding, reference entities, Account transactions, authoritative valuation,
+media normalization, localization, Settings-routed providers, refresh
+partiality, and live Fyne page transitions. Activity, history, analytics,
+recovery, and release packaging remain later work.
 
 ## Prerequisites
 
@@ -50,7 +51,7 @@ On Apple Silicon macOS, build the `.app` and `.dmg` together:
 ./scripts/package-macos.sh
 ```
 The script builds `darwin/arm64`, invokes the Fyne 2.8 packager, stamps the
-Bundle ID `com.nestworth.app`, name `Nestworth`, version `0.1.1`, and build `1`,
+Bundle ID `com.nestworth.app`, name `Nestworth`, version `0.1.2`, and build `1`,
 then creates an unsigned UDZO DMG with an Applications shortcut. Override the
 release metadata for a local release build with `NESTWORTH_VERSION` and
 `NESTWORTH_BUILD`.
@@ -113,15 +114,18 @@ business semantics.
 The current MVP stores presentation preferences at
 `<os.UserConfigDir>/Nestworth/settings.json`. The file is schema-versioned,
 written with a same-directory temporary file followed by sync and atomic rename,
-and created with mode `0600`. Invalid or unsupported settings fall back to
-defaults without opening a future business database.
+and created with mode `0600`. Invalid settings fall back to defaults without
+opening a future business database. A syntactically valid but unavailable FX
+provider is rejected by the application registry and reset to Yahoo at startup.
 
 The supported choices are System/Light/Dark appearance, Nestworth/Ocean/
 Forest/Amber/Rose accents, System/English/简体中文/正體中文 language, IANA
 timezone, Monday/Sunday week start, ISO/day-first/month-first/localized dates,
 24-hour/12-hour time, CNY/USD/SGD/EUR/JPY/HKD/TWD/GBP/AUD display currency,
-dot/comma decimal separators, comma/dot/space/apostrophe/no grouping, and
-0/2/4 decimal places. These preferences affect presentation only.
+dot/comma decimal separators, comma/dot/space/apostrophe/no grouping,
+0/2/4 decimal places, and the registered `yahoo_finance` or `frankfurter`
+FX provider. Presentation preferences affect display; the FX provider affects
+only explicit user-triggered FX refresh.
 
 ## Persistence and migrations
 
@@ -166,5 +170,11 @@ git diff --check
 ```
 
 The current repository includes an unsigned arm64 macOS packaging workflow.
-Signing, notarization, isolated-data launch verification, and durable business
-data remain separate release gates.
+The checked-in release metadata is v0.1.2/build 1. Signing, notarization,
+isolated-data launch verification, and durable business data remain separate
+Phase 10 release gates.
+
+For an isolated desktop smoke, set `NESTWORTH_DATABASE_PATH` and
+`NESTWORTH_SETTINGS_PATH` to files under a temporary task directory. The app
+uses those paths only when explicitly provided; normal launches continue to
+use the platform application-data locations.

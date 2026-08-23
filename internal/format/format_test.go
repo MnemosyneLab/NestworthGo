@@ -35,6 +35,14 @@ func TestMoneyRoundsHalfEvenAtZeroPlaces(t *testing.T) {
 	}
 }
 
+func TestShareBPSFormatsWithoutBinaryFloat(t *testing.T) {
+	for value, want := range map[int]string{0: "0.00%", 1250: "12.50%", 10000: "100.00%", -25: "-0.25%"} {
+		if got := ShareBPS(value); got != want {
+			t.Fatalf("ShareBPS(%d) = %q, want %q", value, got, want)
+		}
+	}
+}
+
 func TestDateTimeConvertsTimezoneAndUsesSelectedLayouts(t *testing.T) {
 	pref := settings.Default()
 	pref.Timezone = "Asia/Shanghai"

@@ -218,15 +218,26 @@ func NewAccountsPage(c *Controller) fyne.CanvasObject {
 	if err != nil {
 		return errorPanel(c, t.T("accounts.loadError"), err)
 	}
+	valuations, err := c.service.AccountValuations(context.Background(), filterResult)
+	if err != nil {
+		return errorPanel(c, t.T("accounts.loadError"), err)
+	}
+	valuationByID := make(map[domain.AccountID]domain.AccountValuation, len(valuations))
+	for _, valuation := range valuations {
+		valuationByID[valuation.Account.ID] = valuation
+	}
 	addAccount := widget.NewButtonWithIcon(t.T("accounts.create"), fyneTheme.Current().Icon(fyneTheme.IconNameContentAdd), func() {
 		showAccountCreateDialog(c)
 	})
-	rows := []fyne.CanvasObject{liveFeedback(c), container.NewBorder(nil, nil, nil, addAccount, filterRow), widget.NewSeparator()}
+	instruments := widget.NewButton(t.T("portfolio.instruments"), func() { showInstrumentManagementDialog(c) })
+	fx := widget.NewButton(t.T("portfolio.fxRates"), func() { showFXManagementDialog(c) })
+	actions := container.NewHBox(addAccount, instruments, fx)
+	rows := []fyne.CanvasObject{liveFeedback(c), container.NewBorder(nil, nil, nil, actions, filterRow), widget.NewSeparator()}
 	if len(records) == 0 {
 		rows = append(rows, emptyPanel(t.T("accounts.emptyTitle"), t.T("accounts.emptyDescription")))
 	} else {
 		for _, record := range records {
-			rows = append(rows, accountRow(c, record))
+			rows = append(rows, accountRow(c, record, valuationByID[record.Account.ID]))
 		}
 	}
 	return container.NewVBox(rows...)
@@ -239,6 +250,8 @@ func showAccountCreateDialog(c *Controller) {
 	iconButton := newIconPickerButton(c, selectedIcon, func(key string) { selectedIcon = key })
 	amount := widget.NewEntry()
 	amount.SetPlaceHolder("0.00")
+	currency := widget.NewEntry()
+	currency.SetText(c.bootstrap.Household.BaseCurrency.String())
 	categoryValues := []string{string(domain.CategoryCashEquivalent), string(domain.CategoryInvestment), string(domain.CategoryProperty), string(domain.CategoryReceivable), string(domain.CategoryLiability)}
 	category := widget.NewSelect(enumOptions(c, categoryValues), nil)
 	category.SetSelected(enumLabel(c, string(domain.CategoryCashEquivalent)))
@@ -264,6 +277,19 @@ func showAccountCreateDialog(c *Controller) {
 	group.SetSelected(none)
 	opened := newDateEntry(t.T("accounts.datePlaceholder"))
 	closed := newDateEntry(t.T("accounts.datePlaceholder"))
+	setAmountMode := func() {
+		if enumValue(c, tracking.Selected, trackingValues) == string(domain.TrackingHoldings) {
+			amount.SetText("")
+			amount.Disable()
+			amount.SetPlaceHolder(t.T("accounts.amountNotUsed"))
+			return
+		}
+		amount.Enable()
+		amount.SetPlaceHolder("0.00")
+	}
+	tracking.OnChanged = func(value string) {
+		setAmountMode()
+	}
 	category.OnChanged = func(value string) {
 		parsed, err := domain.ParsePrimaryCategory(enumValue(c, value, categoryValues))
 		if err != nil {
@@ -275,11 +301,14 @@ func showAccountCreateDialog(c *Controller) {
 			secondary.SetSelected(enumLabel(c, options[0]))
 		}
 		modes := trackingOptionsForCategory(parsed)
+		trackingValues = modes
 		tracking.SetOptions(enumOptions(c, modes))
 		if len(modes) > 0 {
 			tracking.SetSelected(enumLabel(c, modes[0]))
 		}
+		setAmountMode()
 	}
+	setAmountMode()
 	ownershipHint := mutedLabel(t.T("accounts.ownershipHint"))
 	ownershipHint.Wrapping = fyne.TextWrapWord
 	ownershipBox := container.NewVBox(ownershipFieldsView(ownershipFields), ownershipHint)
@@ -287,6 +316,7 @@ func showAccountCreateDialog(c *Controller) {
 		widget.NewFormItem(t.T("accounts.name"), name),
 		widget.NewFormItem(t.T("common.icon"), iconButton),
 		widget.NewFormItem(t.T("accounts.amount"), amount),
+		widget.NewFormItem(t.T("accounts.currency"), currency),
 		widget.NewFormItem(t.T("accounts.category"), category),
 		widget.NewFormItem(t.T("accounts.secondaryCategory"), secondary),
 		widget.NewFormItem(t.T("accounts.trackingMode"), tracking),
@@ -299,30 +329,25 @@ func showAccountCreateDialog(c *Controller) {
 		widget.NewFormItem(t.T("accounts.includeInInvestment"), includeInvestment),
 		widget.NewFormItem(t.T("accounts.includeInLiquidAssets"), includeLiquid),
 	}
-	showResponsiveForm(c.window, t.T("accounts.createTitle"), t.T("common.save"), t.T("common.cancel"), items, fyne.NewSize(760, 720), fyne.NewSize(560, 400), func(confirm bool) {
-		if !confirm {
-			return
-		}
+	showResponsiveBackendForm(c, t.T("accounts.createTitle"), t.T("common.save"), t.T("common.cancel"), items, fyne.NewSize(760, 720), fyne.NewSize(560, 400), func() error {
 		memberIDs, percentages := collectOwnership(ownershipFields)
-		input := application.AccountInput{Name: name.Text, IconKey: selectedIcon, IconKeySet: true, PrimaryCategory: enumValue(c, category.Selected, categoryValues), SecondaryCategory: enumValue(c, secondary.Selected, secondaryOptionsForSelectedCategory(c, category.Selected, categoryValues)), TrackingMode: enumValue(c, tracking.Selected, trackingOptionsForSelectedCategory(c, category.Selected, categoryValues)), DefaultCurrency: c.bootstrap.Household.BaseCurrency.String(), IncludeInNetWorth: includeNetWorth.Checked, IncludeInNetWorthSet: true, IncludeInInvestment: includeInvestment.Checked, IncludeInInvestmentSet: true, IncludeInLiquidAssets: includeLiquid.Checked, IncludeInLiquidAssetsSet: true, OpenedOn: stringPointer(dateEntryValue(opened)), OpenedOnSet: true, ClosedOn: stringPointer(dateEntryValue(closed)), ClosedOnSet: true, OwnerIDs: memberIDs, OwnershipPercentages: percentages, InitialAmount: amount.Text}
+		trackingMode := enumValue(c, tracking.Selected, trackingValues)
+		input := application.AccountInput{Name: name.Text, IconKey: selectedIcon, IconKeySet: true, PrimaryCategory: enumValue(c, category.Selected, categoryValues), SecondaryCategory: enumValue(c, secondary.Selected, secondaryOptionsForSelectedCategory(c, category.Selected, categoryValues)), TrackingMode: trackingMode, DefaultCurrency: strings.ToUpper(strings.TrimSpace(currency.Text)), IncludeInNetWorth: includeNetWorth.Checked, IncludeInNetWorthSet: true, IncludeInInvestment: includeInvestment.Checked, IncludeInInvestmentSet: true, IncludeInLiquidAssets: includeLiquid.Checked, IncludeInLiquidAssetsSet: true, OpenedOn: stringPointer(dateEntryValue(opened)), OpenedOnSet: true, ClosedOn: stringPointer(dateEntryValue(closed)), ClosedOnSet: true, OwnerIDs: memberIDs, OwnershipPercentages: percentages, InitialAmount: amount.Text}
+		if trackingMode == string(domain.TrackingHoldings) {
+			input.InitialAmount = ""
+		}
 		if institution.Selected != none {
 			input.InstitutionID = institutionIDForName(c.bootstrap.Institutions, institution.Selected)
 		}
 		if group.Selected != none {
 			input.GroupID = groupIDForName(c.bootstrap.Groups, group.Selected)
 		}
-		runBackend(c, func() error {
-			_, err := c.service.CreateAccount(context.Background(), input)
-			return err
-		}, func(err error) {
-			if err != nil {
-				c.setValidationError(c.translator.TranslateError(err))
-				return
-			}
-			c.validationError = ""
-			c.reloadBackend()
-			c.RefreshContent()
-		})
+		_, err := c.service.CreateAccount(context.Background(), input)
+		return err
+	}, func() {
+		c.validationError = ""
+		c.reloadBackend()
+		c.RefreshContent()
 	})
 }
 
@@ -448,11 +473,18 @@ func mediaPreview(c *Controller, assetID *domain.MediaAssetID) fyne.CanvasObject
 const rowActionButtonHeight = 32
 
 func rowActionButton(label string, tapped func()) fyne.CanvasObject {
+	return rowActionButtonState(label, tapped, false)
+}
+
+func rowActionButtonState(label string, tapped func(), disabled bool) fyne.CanvasObject {
 	button := widget.NewButton(label, tapped)
 	// Keep row actions visually discoverable even when they are not hovered.
 	// LowImportance intentionally removes the button background until hover;
 	// the default importance uses the theme's subtle button surface instead.
 	button.Importance = widget.MediumImportance
+	if disabled {
+		button.Disable()
+	}
 	return container.NewGridWrap(fyne.NewSize(button.MinSize().Width, rowActionButtonHeight), button)
 }
 
@@ -462,12 +494,11 @@ func rowActionBar(buttons ...fyne.CanvasObject) fyne.CanvasObject {
 	return container.NewCenter(padded)
 }
 
-func accountRow(c *Controller, record domain.AccountRecord) fyne.CanvasObject {
-	value := c.translator.T("accounts.noValue")
+func accountRow(c *Controller, record domain.AccountRecord, valuation domain.AccountValuation) fyne.CanvasObject {
+	value := accountValuationSummary(c, valuation)
 	currentAmount := ""
 	if record.LatestValue != nil {
 		currentAmount = record.LatestValue.Amount.CanonicalAmount()
-		value = format.Money(record.LatestValue.Amount.CanonicalAmount(), record.LatestValue.Amount.Currency().String(), c.preference)
 	}
 	archived := record.Account.ArchivedAt != nil
 	actionLabel := c.translator.T("accounts.archive")
@@ -488,29 +519,26 @@ func accountRow(c *Controller, record domain.AccountRecord) fyne.CanvasObject {
 		})
 	})
 	editButton := rowActionButton(c.translator.T("common.edit"), func() { showAccountEditDialog(c, record) })
+	detailsButton := rowActionButton(c.translator.T("accounts.details"), func() { showAccountDetailDialog(c, record.Account.ID) })
 	updateButton := rowActionButton(c.translator.T("accounts.updateValue"), func() {
 		amount := widget.NewEntry()
 		amount.SetText(currentAmount)
 		date := newDateEntry(c.translator.T("accounts.datePlaceholder"))
-		showResponsiveForm(c.window, c.translator.T("accounts.updateValue"), c.translator.T("common.save"), c.translator.T("common.cancel"), []*widget.FormItem{widget.NewFormItem(c.translator.T("accounts.amount"), amount), widget.NewFormItem(c.translator.T("accounts.effectiveDate"), dateFormField(date))}, fyne.NewSize(560, 300), fyne.NewSize(460, 250), func(confirm bool) {
-			if !confirm {
-				return
-			}
-			runBackend(c, func() error {
-				_, err := c.service.AppendAccountValue(context.Background(), record.Account.ID, amount.Text, dateEntryValue(date))
-				return err
-			}, func(err error) {
-				if err != nil {
-					c.setValidationError(c.translator.TranslateError(err))
-					return
-				}
-				c.validationError = ""
-				c.reloadBackend()
-				c.RefreshContent()
-			})
+		showResponsiveBackendForm(c, c.translator.T("accounts.updateValue"), c.translator.T("common.save"), c.translator.T("common.cancel"), []*widget.FormItem{widget.NewFormItem(c.translator.T("accounts.amount"), amount), widget.NewFormItem(c.translator.T("accounts.effectiveDate"), dateFormField(date))}, fyne.NewSize(560, 300), fyne.NewSize(460, 250), func() error {
+			_, err := c.service.AppendAccountValue(context.Background(), record.Account.ID, amount.Text, dateEntryValue(date))
+			return err
+		}, func() {
+			c.validationError = ""
+			c.reloadBackend()
+			c.RefreshContent()
 		})
 	})
-	actions := rowActionBar(editButton, updateButton, archive)
+	buttons := []fyne.CanvasObject{detailsButton, editButton}
+	if record.Account.TrackingMode != domain.TrackingHoldings {
+		buttons = append(buttons, updateButton)
+	}
+	buttons = append(buttons, archive)
+	actions := rowActionBar(buttons...)
 	nameParts := []fyne.CanvasObject{widget.NewLabelWithStyle(record.Account.Name, fyne.TextAlignLeading, fyne.TextStyle{Bold: true})}
 	nameParts = append([]fyne.CanvasObject{iconPreview(record.Account.IconKey)}, nameParts...)
 	nameView := fyne.CanvasObject(container.NewHBox(nameParts...))
@@ -518,7 +546,7 @@ func accountRow(c *Controller, record domain.AccountRecord) fyne.CanvasObject {
 }
 func showAccountEditDialog(c *Controller, record domain.AccountRecord) {
 	t := c.translator
-	if record.LatestValue == nil {
+	if record.LatestValue == nil && record.Account.TrackingMode != domain.TrackingHoldings {
 		c.setValidationError(t.T("accounts.noValue"))
 		return
 	}
@@ -526,6 +554,19 @@ func showAccountEditDialog(c *Controller, record domain.AccountRecord) {
 	name.SetText(record.Account.Name)
 	selectedIcon := iconKeyValue(record.Account.IconKey, domain.DefaultAccountIcon)
 	iconButton := newIconPickerButton(c, selectedIcon, func(key string) { selectedIcon = key })
+	amount := widget.NewEntry()
+	initialAmount := ""
+	if record.LatestValue != nil {
+		initialAmount = record.LatestValue.Amount.CanonicalAmount()
+	}
+	amount.SetText(initialAmount)
+	currency := widget.NewEntry()
+	currency.SetText(record.Account.DefaultCurrency.String())
+	currency.Disable()
+	if record.Account.TrackingMode == domain.TrackingHoldings {
+		amount.SetPlaceHolder(t.T("accounts.amountNotUsed"))
+		amount.Disable()
+	}
 	note := widget.NewEntry()
 	if record.Account.Note != nil {
 		note.SetText(*record.Account.Note)
@@ -582,31 +623,22 @@ func showAccountEditDialog(c *Controller, record domain.AccountRecord) {
 	ownershipHint := mutedLabel(t.T("accounts.ownershipHint"))
 	ownershipHint.Wrapping = fyne.TextWrapWord
 	ownershipBox := container.NewVBox(ownershipFieldsView(ownershipFields), ownershipHint)
-	items := []*widget.FormItem{widget.NewFormItem(t.T("accounts.name"), name), widget.NewFormItem(t.T("common.icon"), iconButton), widget.NewFormItem(t.T("accounts.category"), category), widget.NewFormItem(t.T("accounts.secondaryCategory"), secondary), widget.NewFormItem(t.T("accounts.trackingMode"), tracking), widget.NewFormItem(t.T("accounts.owner"), ownershipBox), widget.NewFormItem(t.T("accounts.note"), note), widget.NewFormItem(t.T("nav.institutions"), institution), widget.NewFormItem(t.T("nav.groups"), group), widget.NewFormItem(t.T("accounts.openedOn"), dateFormField(opened)), widget.NewFormItem(t.T("accounts.closedOn"), dateFormField(closed)), widget.NewFormItem(t.T("accounts.includeInNetWorth"), includeNetWorth), widget.NewFormItem(t.T("accounts.includeInInvestment"), includeInvestment), widget.NewFormItem(t.T("accounts.includeInLiquidAssets"), includeLiquid)}
-	showResponsiveForm(c.window, t.T("accounts.edit"), t.T("common.save"), t.T("common.cancel"), items, fyne.NewSize(720, 680), fyne.NewSize(560, 360), func(confirm bool) {
-		if !confirm {
-			return
-		}
+	items := []*widget.FormItem{widget.NewFormItem(t.T("accounts.name"), name), widget.NewFormItem(t.T("common.icon"), iconButton), widget.NewFormItem(t.T("accounts.amount"), amount), widget.NewFormItem(t.T("accounts.currency"), currency), widget.NewFormItem(t.T("accounts.category"), category), widget.NewFormItem(t.T("accounts.secondaryCategory"), secondary), widget.NewFormItem(t.T("accounts.trackingMode"), tracking), widget.NewFormItem(t.T("accounts.owner"), ownershipBox), widget.NewFormItem(t.T("accounts.note"), note), widget.NewFormItem(t.T("nav.institutions"), institution), widget.NewFormItem(t.T("nav.groups"), group), widget.NewFormItem(t.T("accounts.openedOn"), dateFormField(opened)), widget.NewFormItem(t.T("accounts.closedOn"), dateFormField(closed)), widget.NewFormItem(t.T("accounts.includeInNetWorth"), includeNetWorth), widget.NewFormItem(t.T("accounts.includeInInvestment"), includeInvestment), widget.NewFormItem(t.T("accounts.includeInLiquidAssets"), includeLiquid)}
+	showResponsiveBackendForm(c, t.T("accounts.edit"), t.T("common.save"), t.T("common.cancel"), items, fyne.NewSize(720, 680), fyne.NewSize(560, 360), func() error {
 		memberIDs, percentages := collectOwnership(ownershipFields)
-		input := application.AccountInput{Name: name.Text, IconKey: selectedIcon, IconKeySet: true, PrimaryCategory: enumValue(c, category.Selected, categoryValues), SecondaryCategory: enumValue(c, secondary.Selected, secondaryOptionsForSelectedCategory(c, category.Selected, categoryValues)), TrackingMode: string(record.Account.TrackingMode), DefaultCurrency: record.Account.DefaultCurrency.String(), InstitutionIDSet: true, GroupIDSet: true, Note: stringPointer(note.Text), NoteSet: true, IncludeInNetWorth: includeNetWorth.Checked, IncludeInInvestment: includeInvestment.Checked, IncludeInLiquidAssets: includeLiquid.Checked, OpenedOn: stringPointer(dateEntryValue(opened)), OpenedOnSet: true, ClosedOn: stringPointer(dateEntryValue(closed)), ClosedOnSet: true, OwnerIDs: memberIDs, OwnershipPercentages: percentages, InitialAmount: record.LatestValue.Amount.CanonicalAmount()}
+		input := application.AccountInput{Name: name.Text, IconKey: selectedIcon, IconKeySet: true, PrimaryCategory: enumValue(c, category.Selected, categoryValues), SecondaryCategory: enumValue(c, secondary.Selected, secondaryOptionsForSelectedCategory(c, category.Selected, categoryValues)), TrackingMode: string(record.Account.TrackingMode), DefaultCurrency: record.Account.DefaultCurrency.String(), InstitutionIDSet: true, GroupIDSet: true, Note: stringPointer(note.Text), NoteSet: true, IncludeInNetWorth: includeNetWorth.Checked, IncludeInInvestment: includeInvestment.Checked, IncludeInLiquidAssets: includeLiquid.Checked, OpenedOn: stringPointer(dateEntryValue(opened)), OpenedOnSet: true, ClosedOn: stringPointer(dateEntryValue(closed)), ClosedOnSet: true, OwnerIDs: memberIDs, OwnershipPercentages: percentages, InitialAmount: initialAmount}
 		if institution.Selected != t.T("accounts.none") {
 			input.InstitutionID = institutionIDForName(c.bootstrap.Institutions, institution.Selected)
 		}
 		if group.Selected != t.T("accounts.none") {
 			input.GroupID = groupIDForName(c.bootstrap.Groups, group.Selected)
 		}
-		runBackend(c, func() error {
-			_, err := c.service.UpdateAccount(context.Background(), record.Account.ID, input)
-			return err
-		}, func(err error) {
-			if err != nil {
-				c.setValidationError(c.translator.TranslateError(err))
-				return
-			}
-			c.validationError = ""
-			c.reloadBackend()
-			c.RefreshContent()
-		})
+		_, err := c.service.UpdateAccount(context.Background(), record.Account.ID, input)
+		return err
+	}, func() {
+		c.validationError = ""
+		c.reloadBackend()
+		c.RefreshContent()
 	})
 }
 
@@ -867,17 +899,40 @@ func errorPanel(c *Controller, title string, err error) fyne.CanvasObject {
 }
 
 func liveFeedback(c *Controller) fyne.CanvasObject {
+	if c.backendPending {
+		label := widget.NewLabel(c.translator.T("common.pending"))
+		label.Importance = widget.WarningImportance
+		return label
+	}
 	if c.validationError == "" {
 		return container.NewWithoutLayout()
 	}
 	label := widget.NewLabel(c.validationError)
 	label.Importance = widget.DangerImportance
-	return label
+	if c.retryBackend == nil {
+		return label
+	}
+	retry := widget.NewButton(c.translator.T("common.retry"), c.retryBackend)
+	retry.Importance = widget.LowImportance
+	return container.NewBorder(nil, nil, nil, retry, label)
 }
 func runBackend(c *Controller, work func() error, done func(error)) {
+	c.backendPending = true
+	c.retryBackend = nil
+	c.validationError = ""
+	c.RefreshContent()
 	go func() {
 		err := work()
-		fyne.Do(func() { done(err) })
+		fyne.Do(func() {
+			c.backendPending = false
+			if err != nil {
+				retryWork := work
+				c.retryBackend = func() { runBackend(c, retryWork, done) }
+			} else {
+				c.retryBackend = nil
+			}
+			done(err)
+		})
 	}()
 }
 
@@ -1068,7 +1123,7 @@ func splitNames(value string) []string {
 
 func trackingOptionsForCategory(category domain.PrimaryCategory) []string {
 	if category == domain.CategoryInvestment {
-		return []string{string(domain.TrackingManualValue)}
+		return []string{string(domain.TrackingHoldings), string(domain.TrackingManualValue)}
 	}
 	if category == domain.CategoryProperty || category == domain.CategoryReceivable {
 		return []string{string(domain.TrackingManualValue)}

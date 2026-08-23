@@ -1,0 +1,10 @@
+{
+  "chart": {
+    "result": [{
+      "meta": {"currency": "CNY", "symbol": "USDCNY=X", "regularMarketPrice": 6.9, "regularMarketTime": 1767225600},
+      "timestamp": [1767222000],
+      "indicators": {"quote": [{"close": [6.9]}]}
+    }],
+    "error": null
+  }
+}

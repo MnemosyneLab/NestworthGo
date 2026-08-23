@@ -87,7 +87,14 @@ Cash inside a Holdings Account is an append-only observation per Account and cur
 
 ### Instrument Quote and FX Quote
 
-Instrument Quotes and FX Quotes are append-only observations with source kind, source key, delayed flag, quote time, and creation time. Refresh appends a new observation and never rewrites history. Quote preference is stored per Instrument and per unordered FX pair.
+Instrument Quotes and FX Quotes are append-only observations with source kind,
+source key, delayed flag, quote time, and creation time. Refresh appends a new
+observation and never rewrites history. Quote preference is stored per
+Instrument and per unordered FX pair. Instrument refresh uses the Instrument's
+saved provider binding; explicit FX refresh uses the provider selected in
+Settings. Yahoo supports both current Instrument and FX quotes. Frankfurter is
+FX-only, returns daily observations marked delayed, and supplies no Instrument
+binding.
 
 ### Media Asset
 
@@ -243,6 +250,11 @@ Foreign keys protect structural references, while application transactions enfor
 
 These concepts are planned but are not current behavior:
 
-- v0.1.5: Pending and recurring Activity preparation, freshness policies, maintenance reminders, Backup/Restore, versioned export and strict CSV import, Benchmarks, global search, and command-palette workflows are defined by the [release contract](../releases/v0.1.5.md) and [technical design](../releases/v0.1.5-technical-design.md).
+- A later sustainable-use release may add pending/recurring Activity
+  preparation, freshness reminders, Backup/Restore, controlled data exchange,
+  comparison data, search, and command-palette workflows. The inherited
+  Rust/Tauri v0.1.5 documents are retained in the
+  [unreviewed archive](../legacy/rust-tauri-inherited-unreviewed/README.md) and
+  are not the Go implementation contract.
 
 The planned models extend the current identity, Money, Ownership, lifecycle, quote, Activity, origin, lot, declaration, and sign semantics. A pending item is not a financial fact before posting. Origin and adjustment quantities remain unknown-basis until explicitly declared. v0.1.4 lots remain a derived interpretation of the Activity ledger, and a declared basis never becomes an imported transaction.

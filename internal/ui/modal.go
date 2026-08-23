@@ -83,6 +83,66 @@ func showResponsiveForm(parent fyne.Window, title, confirm, dismiss string, item
 	newResponsiveFormDialog(parent, title, confirm, dismiss, items, preferred, minimum, callback).Show()
 }
 
+// showResponsiveBackendForm keeps decimal input visible until the application
+// mutation succeeds. This is important for manual portfolio forms: a server
+// or persistence error should not force the user to re-enter an exact value.
+func showResponsiveBackendForm(c *Controller, title, confirm, dismiss string, items []*widget.FormItem, preferred, minimum fyne.Size, work func() error, success func()) {
+	form := widget.NewForm(items...)
+	save := widget.NewButtonWithIcon(confirm, fyneTheme.Current().Icon(fyneTheme.IconNameConfirm), nil)
+	cancel := widget.NewButtonWithIcon(dismiss, fyneTheme.Current().Icon(fyneTheme.IconNameCancel), nil)
+	errorLabel := widget.NewLabel("")
+	errorLabel.Importance = widget.DangerImportance
+	errorLabel.Wrapping = fyne.TextWrapWord
+	errorLabel.Hide()
+	if form.Validate() != nil {
+		save.Disable()
+	}
+
+	var formDialog *dialog.CustomDialog
+	showError := func(err error) {
+		if err == nil {
+			errorLabel.SetText("")
+			errorLabel.Hide()
+			return
+		}
+		errorLabel.SetText(c.translator.TranslateError(err))
+		errorLabel.Show()
+		errorLabel.Refresh()
+	}
+	cancel.OnTapped = func() { formDialog.Hide() }
+	save.OnTapped = func() {
+		if form.Validate() != nil {
+			return
+		}
+		save.Disable()
+		showError(nil)
+		runBackend(c, work, func(err error) {
+			if err != nil {
+				showError(err)
+				save.Enable()
+				return
+			}
+			formDialog.Hide()
+			if success != nil {
+				success()
+			}
+		})
+	}
+	form.SetOnValidationChanged(func(err error) {
+		if err != nil {
+			save.Disable()
+			return
+		}
+		save.Enable()
+	})
+
+	content := container.NewBorder(errorLabel, nil, nil, nil, modalFormContent(form, minimum.Height))
+	formDialog = dialog.NewCustom(title, dismiss, content, c.window)
+	formDialog.SetButtons([]fyne.CanvasObject{cancel, save})
+	formDialog.Resize(fittedModalSize(c.window, preferred, minimum))
+	formDialog.Show()
+}
+
 func showResponsiveConfirm(parent fyne.Window, title, message string, callback func(bool)) {
 	confirmDialog := dialog.NewConfirm(title, message, callback, parent)
 	confirmDialog.Resize(fittedModalSize(parent, fyne.NewSize(520, 220), fyne.NewSize(400, 180)))
