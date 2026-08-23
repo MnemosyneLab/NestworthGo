@@ -20,6 +20,19 @@ replaceable Yahoo and Frankfurter market-data boundaries. The release contract
 and implementation plan remain the authority for the still-pending Phase 10
 desktop, accessibility, signing, and distribution checks.
 
+## Designed Releases
+
+- [v0.1.3 release contract](v0.1.3.md)
+- [v0.1.3 compatibility baseline](v0.1.3-baseline.md)
+- [v0.1.3 technical design](v0.1.3-technical-design.md)
+- [v0.1.3 implementation plan](v0.1.3-implementation-plan.md)
+
+v0.1.3 is a family-first timeline and historical net-worth design. It keeps
+immutable financial effects, replay, and snapshot revision details inside Go
+while exposing simple Record change, Undo, Fix entry, Timeline, and Net worth
+workflows. Implementation follows the completed and frozen v0.1.2 release
+closeout.
+
 ## Unreviewed Inherited Archive
 
 The former Rust/Tauri v0.1.1 evidence and v0.1.3–v0.1.5 document sets were

@@ -33,6 +33,12 @@ approved v0.1.2 design, and unreviewed future direction.
 v0.1.2 is not archived here because it has been rewritten and revalidated as
 the active Go + Fyne design for the next release.
 
+The active Go + Fyne [v0.1.3 release contract](../../releases/v0.1.3.md) and its
+companion baseline, technical design, and implementation plan are also now
+separate reviewed documents. The archived v0.1.3 files remain here unchanged as
+historical input; the shared version number does not make their Rust/Tauri
+schema, APIs, status, or evidence current.
+
 ## Revalidation Rule
 
 Reusing an archived product decision requires checking it against the current

@@ -17,7 +17,7 @@ The v0.1 line advances in dependency order:
 
 1. Establish a trustworthy Household balance sheet.
 2. Value positions across currencies and Instruments.
-3. Explain changes through an Activity ledger and history.
+3. Remember changes through a simple family timeline and history.
 4. Calculate performance and attribution from trustworthy history.
 5. Reduce maintenance cost through preparation, recovery, exchange, and search.
 
@@ -64,19 +64,25 @@ See the active [release contract](../releases/v0.1.2.md),
 [technical design](../releases/v0.1.2-technical-design.md), and
 [implementation plan](../releases/v0.1.2-implementation-plan.md).
 
-### v0.1.3 — Activity and History
+### v0.1.3 — Family Timeline and History
 
-**Theme:** Understand how wealth changes.
+**Theme:** Remember what changed.
 
-**Status:** Direction only; Go/Fyne design not started.
+**Status:** Designed; implementation follows v0.1.2 release closeout.
 
-Intended outcome: add an immutable Activity explanation layer, a trustworthy
-history boundary, current-state projection rules, and historical valuation
-without fabricating trades or cash flows from v0.1.2 state.
+Add a family-facing Starting point, Record change, Undo/Fix, Timeline, and
+net-worth history. The UI asks what happened in ordinary language. Go keeps the
+immutable Activity effects, current projections, replay, historical valuation,
+and daily cache revisions internally without fabricating trades or cash flows
+from existing v0.1.2 state.
 
-The inherited Rust/Tauri contract is reference material only. Scope, schema,
-Go service ownership, Fyne workflows, migration numbering, and acceptance must
-be redesigned after v0.1.2 implementation evidence exists.
+Implementation begins only after Phase 10 freezes the actual completed v0.1.2
+schema, interfaces, fixtures, query bounds, provider routing, and UI ownership.
+
+See the active [release contract](../releases/v0.1.3.md),
+[compatibility baseline](../releases/v0.1.3-baseline.md),
+[technical design](../releases/v0.1.3-technical-design.md), and
+[implementation plan](../releases/v0.1.3-implementation-plan.md).
 
 ### v0.1.4 — Analytics and Performance
 
@@ -89,8 +95,8 @@ time-weighted return, money-weighted return, and attribution from trustworthy
 Activity/history evidence. Unavailable inputs remain unavailable rather than
 becoming estimates.
 
-Detailed design is intentionally deferred until the Go v0.1.3 ledger and
-history contracts exist and are verified.
+Detailed design is intentionally deferred until the Go v0.1.3 change and
+history contracts are implemented and verified.
 
 ### v0.1.5 — Sustainable Long-Term Use
 
@@ -107,7 +113,8 @@ history, and analytics boundaries it depends on exist.
 
 ## Dependency Rules
 
-- Activity depends on the implemented v0.1.2 current-state and quote contracts.
+- Family change history depends on the implemented v0.1.2 current-state and
+  quote contracts.
 - History depends on immutable Activities plus a migration-safe origin boundary.
 - Performance depends on trustworthy Activity/history evidence and cannot be
   estimated from only initial and current values.
