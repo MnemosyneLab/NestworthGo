@@ -116,17 +116,32 @@ History Origin is a cutover boundary, not an Activity. It states that Nestworth 
 
 A daily snapshot is an append-only valuation revision for one closed local calendar day in the History Origin timezone. It records how reconstructed state was valued at that cutoff, including quote provenance and incomplete diagnostics. Missing components are excluded from totals and never treated as zero. The current local day is a live ValuationService point, not a persisted final snapshot.
 
-### Cost-Basis Declaration
+### Average Cost Evidence
 
-A cost-basis declaration is an append-only user-supplied cost for one unknown-basis lot. It is keyed to an origin Holding or an Activity leg (`LotRef = OriginHolding(HoldingId) | Acquisition(ActivityLegId)`). `history_origin_holdings` has no item UUID, so origin lots use `HoldingId`. A declaration creates no Activity, changes no Quantity, Account Value, net worth, or snapshot, and is revoked by appending a revocation rather than editing. Lots themselves are not persisted.
+Starting Point capture records a per-unit cost for every positive Holding, and
+an already-existed increase records the same input when it establishes a
+Holding's first positive quantity. Buys, sells, transfers, corrections, and
+reversals remain immutable Activities. These inputs are evidence for replay;
+they do not create a synthetic trade or a mutable cost column on the Holding.
 
-### Derived FIFO Lots
+### Derived Average Cost and Gain
 
-Lots are a deterministic FIFO interpretation of posted Activities, History Origin baseline holdings, and effective declarations. A Buy opens a known-basis lot from the persisted gross settlement amount. Origin, Opening Adjustment, and Position Adjustment increases open unknown-basis lots until declared. A Sell consumes lots in acquisition order. A position Transfer relocates lots without changing cost, acquisition time, or basis status. Lots are recomputed on each analytics read and are never a stored financial fact.
+`ReplayCostBasis` blends cost-bearing increases by quantity, keeps the average
+cost of remaining quantity across reductions, and emits signed realized gain
+events for sells. Transfers resolve the sending Holding's average cost at the
+transfer time. `GainService` derives native and base-currency cost/value/gain
+views plus the exact two-part Instrument/currency decomposition. These results
+are recomputed on reads and are never stored as financial facts. FIFO lots,
+unknown-basis declarations, and return calculations remain deferred.
 
 ### Gain, Return, and Attribution
 
-Gain, income, fee totals, currency decomposition, time-weighted and money-weighted return, and the net-worth attribution bridge are derived analytics results. They are output-only: they never become valuation inputs, ledger facts, or current-state projections. Unavailable inputs produce an explicit unavailable or incomplete result rather than zero, one, or an estimate.
+Native/base gain, realized-gain periods, and the two-part currency
+decomposition are implemented output-only analytics: they never become
+valuation inputs, ledger facts, or current-state projections. Time-weighted
+and money-weighted return, benchmarks, and a full net-worth attribution bridge
+remain deferred. Unavailable inputs produce an explicit unavailable or
+incomplete result rather than zero, one, or an estimate.
 
 ## Identity, Money, and Time
 
@@ -257,4 +272,8 @@ These concepts are planned but are not current behavior:
   [unreviewed archive](../legacy/rust-tauri-inherited-unreviewed/README.md) and
   are not the Go implementation contract.
 
-The planned models extend the current identity, Money, Ownership, lifecycle, quote, Activity, origin, lot, declaration, and sign semantics. A pending item is not a financial fact before posting. Origin and adjustment quantities remain unknown-basis until explicitly declared. v0.1.4 lots remain a derived interpretation of the Activity ledger, and a declared basis never becomes an imported transaction.
+Future models may extend the current identity, Money, Ownership, lifecycle,
+quote, Activity, origin, and sign semantics. A pending item is not a financial
+fact before posting. v0.1.4 average-cost results remain derived
+interpretations of immutable Activity and Starting Point evidence; they never
+become imported transactions or mutable Holding state.

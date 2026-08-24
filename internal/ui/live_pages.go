@@ -193,8 +193,15 @@ func NewAccountsPage(c *Controller) fyne.CanvasObject {
 		c.RefreshContent()
 	}
 	filterGrid := container.NewGridWithColumns(5, container.NewVBox(widget.NewLabel(t.T("accounts.category")), categoryFilter), container.NewVBox(widget.NewLabel(t.T("accounts.owner")), memberFilter), container.NewVBox(widget.NewLabel(t.T("nav.institutions")), institutionFilter), container.NewVBox(widget.NewLabel(t.T("nav.groups")), groupFilter), container.NewVBox(widget.NewLabel(t.T("accounts.ownershipScope")), scopeFilter))
-	archivedToggle := widget.NewCheck(t.T("accounts.showArchived"), func(checked bool) { c.showArchived = checked; c.RefreshContent() })
+	archivedToggle := widget.NewCheck(t.T("accounts.showArchived"), nil)
 	archivedToggle.SetChecked(c.showArchived)
+	archivedToggle.OnChanged = func(checked bool) {
+		if c.showArchived == checked {
+			return
+		}
+		c.showArchived = checked
+		c.RefreshContent()
+	}
 	filterRow := container.NewBorder(nil, nil, nil, archivedToggle, filterGrid)
 	filterResult := domain.AccountFilter{IncludeArchived: c.showArchived}
 	if c.accountCategory != "" {

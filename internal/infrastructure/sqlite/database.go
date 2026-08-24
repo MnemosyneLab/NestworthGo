@@ -15,10 +15,10 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql schema3.sql schema4.sql schema5.sql
+//go:embed schema.sql schema3.sql schema4.sql schema5.sql schema6.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 5
+const CurrentSchemaVersion = 6
 
 type BootstrapStatus string
 
@@ -173,6 +173,22 @@ func Open(path string) (*DB, error) {
 				return closeOnError(StatusMigrationFailed, lockedVersion, execErr)
 			}
 			lockedVersion = 5
+			migrated = true
+		case 5:
+			schema, readErr := schemaFS.ReadFile("schema6.sql")
+			if readErr != nil {
+				_ = tx.Rollback()
+				return closeOnError(StatusMigrationFailed, lockedVersion, readErr)
+			}
+			if _, execErr := tx.ExecContext(context.Background(), string(schema)); execErr != nil {
+				_ = tx.Rollback()
+				return closeOnError(StatusMigrationFailed, lockedVersion, execErr)
+			}
+			if err := backfillSchema6CostBasis(context.Background(), tx); err != nil {
+				_ = tx.Rollback()
+				return closeOnError(StatusMigrationFailed, lockedVersion, err)
+			}
+			lockedVersion = 6
 			migrated = true
 		default:
 			_ = tx.Rollback()

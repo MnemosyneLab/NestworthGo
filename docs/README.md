@@ -1,11 +1,12 @@
 # Nestworth Documentation
 
 This directory contains the product, architecture, engineering, and release
-documentation for Nestworth. The current repository implements the
-`v0.1.3` history milestone: Go/Fyne views sit above a local SQLite business
-database with append-only Activities, historical valuation snapshots, a History
-timeline, and net-worth trends. Provider refresh remains explicit; ordinary
-history writes and snapshot rebuilds use only local data.
+documentation for Nestworth. The current repository implements the v0.1.4
+Cost Basis and Gain milestone: Go/Fyne views sit above a local SQLite schema-6
+business database with append-only Activities, historical valuation snapshots,
+average-cost replay, realized/unrealized gain, currency decomposition,
+Investments, and Analytics. Provider refresh remains explicit; ordinary
+history and gain reads use only local data.
 
 ## Documentation map
 
@@ -19,7 +20,7 @@ history writes and snapshot rebuilds use only local data.
 | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | Implemented SQLite schema, transactions, serialization, errors, provider refresh, and media rules |
 | [Engineering Guide](development/engineering-guide.md) | Go workflow, repository conventions, tests, and release checks |
 | [Release documents](releases/README.md) | Active Go release contracts plus the separately labeled inherited archive |
-| [v0.1.3 implementation evidence](releases/v0.1.3-implementation-evidence.md) | Phase commits, shipped scope, and verification evidence |
+| [v0.1.4 implementation plan](releases/v0.1.4-implementation-plan.md) | Phase commits, shipped scope, and verification evidence |
 
 The filename `data-and-ipc-contracts.md` is retained for link stability from
 the source documentation. The Go + Fyne application has no Tauri IPC layer;
@@ -39,8 +40,9 @@ When sources disagree, use this order:
 The documentation does not replace executable validation. The current
 repository checks are `go test ./...`, `go test -race ./...`, `go vet ./...`,
 `go build ./cmd/nestworth`, formatting drift, `git diff --check`, and the
-isolated unsigned arm64 packaging smoke. Manual accessibility, signing, and
-notarization remain named release follow-ups.
+isolated unsigned arm64 packaging smoke. Manual keyboard/VoiceOver review,
+signing, notarization, and artifact retention remain named distribution
+follow-ups.
 
 ## Status vocabulary
 

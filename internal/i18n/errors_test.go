@@ -26,6 +26,21 @@ func TestErrorCatalogsAreCompleteInEveryLanguage(t *testing.T) {
 			}
 		}
 	}
+	for code, key := range errorCodeKeys {
+		english := New(settings.LanguageEnglish).T(key)
+		if english == "" {
+			t.Errorf("error code %q maps to %q without an English translation", code, key)
+		}
+		for _, language := range languages {
+			got := New(language).T(key)
+			if got == "" {
+				t.Errorf("error code %q key %q is empty for %q", code, key, language)
+			}
+			if language != settings.LanguageEnglish && got == english {
+				t.Errorf("error code %q key %q falls back to English for %q", code, key, language)
+			}
+		}
+	}
 }
 
 func TestDomainEnumsHaveLocalizedCatalogEntries(t *testing.T) {

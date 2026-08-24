@@ -41,6 +41,7 @@ const (
 	ErrTransferMismatch           ErrorCode = "transfer_mismatch"
 	ErrInvalidTrade               ErrorCode = "invalid_trade"
 	ErrHistoryUpdateFailed        ErrorCode = "history_update_failed"
+	ErrCostBasisRequired          ErrorCode = "cost_basis_required"
 )
 
 // Error is safe to expose to the UI; database details stay below this boundary.
@@ -243,6 +244,47 @@ type Money struct {
 	amount   decimal.Decimal
 	currency CurrencyCode
 }
+
+// SignedMoney is a local exact amount used by gain/loss read models. The
+// existing Money type intentionally remains non-negative because it models
+// balances and persisted cash/value facts; realized gains can be losses and
+// therefore need this separate signed representation.
+type SignedMoney struct {
+	amount   decimal.Decimal
+	currency CurrencyCode
+}
+
+func ParseSignedMoney(amount string, currency CurrencyCode) (SignedMoney, error) {
+	canonicalCurrency, err := ParseCurrency(currency.String())
+	if err != nil {
+		return SignedMoney{}, err
+	}
+	if !signedMoneySyntax.MatchString(amount) {
+		return SignedMoney{}, validation("amount", "must be a canonical signed decimal with up to four fractional digits")
+	}
+	value, err := decimal.NewFromString(amount)
+	if err != nil || value.Abs().GreaterThan(maxMoney) {
+		return SignedMoney{}, validation("amount", "is outside the supported range")
+	}
+	return SignedMoney{amount: value, currency: canonicalCurrency}, nil
+}
+
+func NewSignedMoney(value decimal.Decimal, currency CurrencyCode) (SignedMoney, error) {
+	canonicalCurrency, err := ParseCurrency(currency.String())
+	if err != nil {
+		return SignedMoney{}, err
+	}
+	if value.Abs().GreaterThan(maxMoney) {
+		return SignedMoney{}, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "amount is outside the supported range"}
+	}
+	value = value.RoundBank(4)
+	return SignedMoney{amount: value, currency: canonicalCurrency}, nil
+}
+
+func (m SignedMoney) Amount() decimal.Decimal { return m.amount }
+func (m SignedMoney) Currency() CurrencyCode  { return m.currency }
+func (m SignedMoney) CanonicalAmount() string { return m.amount.String() }
+func (m SignedMoney) IsZero() bool            { return m.amount.IsZero() }
 
 func ParseMoney(amount string, currency CurrencyCode) (Money, error) {
 	canonicalCurrency, err := ParseCurrency(currency.String())

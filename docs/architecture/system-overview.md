@@ -4,10 +4,11 @@
 
 Nestworth is a local-first desktop application written in Go with Fyne. The
 repository contains the v0.1.1 backend foundation, the v0.1.2 portfolio line,
-and the implemented v0.1.3 history milestone through Phase 10: typed domain
-contracts, SQLite bootstrap and migrations through schema `4`, onboarding,
-multi-currency Accounts, Instruments, Holdings, immutable Activities, replay,
-historical snapshots, History, Analytics, exact valuation, and explicit
+the v0.1.3 history milestone, and the implemented v0.1.4 cost/gain line:
+typed domain contracts, SQLite bootstrap and migrations through schema `6`,
+onboarding, multi-currency Accounts, Instruments, Holdings, immutable
+Activities, replay, historical snapshots, History, average-cost gain replay,
+currency decomposition, Analytics, exact valuation, and explicit
 Yahoo/Frankfurter refresh routing. Fyne renders application results; it does
 not open SQLite, call HTTP, or recalculate financial totals.
 
@@ -52,8 +53,8 @@ refresh actions may invoke a configured provider.
 
 The domain owns identifiers, money, quantities, currencies, ownership,
 timestamps, account lifecycle, instruments, holdings, quotes, Activities,
-History Origin, lots, and financial sign rules. It must not import Fyne, SQL
-drivers, or operating-system APIs.
+History Origin, average-cost replay, signed gain values, and financial sign
+rules. It must not import Fyne, SQL drivers, or operating-system APIs.
 
 ### Infrastructure
 
@@ -91,7 +92,7 @@ flowchart TD
     Blocked --> Error["Keep business writes unavailable"]
 ```
 
-The compatibility inspection, migration, schema verification, and blocked-startup paths are implemented in `internal/infrastructure/sqlite`. Supported older databases receive a consistent pre-migration snapshot; unsupported future versions are rejected before schema writes. The application then bootstraps the active Household, opens onboarding when needed, and renders the live Overview.
+The compatibility inspection, migration, schema verification, and blocked-startup paths are implemented in `internal/infrastructure/sqlite`. Supported older databases receive a consistent pre-migration snapshot; unsupported future versions are rejected before schema writes. The application then bootstraps the active Household, opens onboarding when needed, and renders the live Overview or the GainService-backed Investments and Analytics views.
 
 ## State ownership
 

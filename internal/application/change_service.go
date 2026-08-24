@@ -61,7 +61,7 @@ func (s *Service) changeStateFrom(origin *domain.HistoryOrigin, snapshot domain.
 	}
 	for _, holding := range snapshot.Holdings {
 		instrument := instruments[holding.InstrumentID]
-		state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Archived: holding.ArchivedAt != nil || instrument.ArchivedAt != nil || state.Accounts[holding.AccountID].Archived, Current: holding.Quantity}
+		state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Archived: holding.ArchivedAt != nil || instrument.ArchivedAt != nil || state.Accounts[holding.AccountID].Archived, Current: holding.Quantity, CostBasisAvailable: false}
 	}
 	return state, nil
 }

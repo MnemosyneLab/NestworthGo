@@ -313,13 +313,40 @@ func showHoldingCreateDialog(c *Controller, accountID domain.AccountID, changed 
 	instrumentSelect.SetSelected(options[0])
 	quantity := widget.NewEntry()
 	quantity.SetPlaceHolder("0.00000000")
+	historyStarted, err := c.service.HistoryStarted(context.Background())
+	if err != nil {
+		c.setValidationError(c.translator.TranslateError(err))
+		return
+	}
+	unitCost := widget.NewEntry()
+	unitCost.SetPlaceHolder("0.00")
+	setDefaultUnitCost := func() {
+		selected := instrumentIDForOption(instruments, instrumentSelect.Selected)
+		quote, quoteErr := c.service.CurrentInstrumentQuote(context.Background(), selected)
+		if quoteErr == nil && quote != nil {
+			unitCost.SetText(quote.UnitPrice.Canonical())
+			return
+		}
+		unitCost.SetText("")
+	}
+	if historyStarted {
+		setDefaultUnitCost()
+		instrumentSelect.OnChanged = func(string) { setDefaultUnitCost() }
+	}
 	items := []*widget.FormItem{
 		widget.NewFormItem(c.translator.T("portfolio.instrument"), instrumentSelect),
 		widget.NewFormItem(c.translator.T("portfolio.quantity"), quantity),
 	}
+	if historyStarted {
+		items = append(items, widget.NewFormItem(c.translator.T("portfolio.averageCost"), unitCost))
+	}
 	showResponsiveBackendForm(c, c.translator.T("portfolio.addHolding"), c.translator.T("common.save"), c.translator.T("common.cancel"), items, fyne.NewSize(560, 300), fyne.NewSize(460, 240), func() error {
 		selected := instrumentIDForOption(instruments, instrumentSelect.Selected)
-		_, err := c.service.CreateHolding(context.Background(), application.HoldingInput{AccountID: accountID.String(), InstrumentID: selected.String(), Quantity: quantity.Text})
+		input := application.HoldingInput{AccountID: accountID.String(), InstrumentID: selected.String(), Quantity: quantity.Text}
+		if historyStarted {
+			input.UnitCost = strings.TrimSpace(unitCost.Text)
+		}
+		_, err := c.service.CreateHolding(context.Background(), input)
 		return err
 	}, changed)
 }

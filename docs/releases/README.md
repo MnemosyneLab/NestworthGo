@@ -11,6 +11,8 @@ reviewed for the current Go + Fyne Nestworth-go implementation line.
   by v0.1.3.
 - [v0.1.3 release contract](v0.1.3.md) — Phases 0–10 implemented; public
   distribution checks remain explicitly pending.
+- [v0.1.4 release contract](v0.1.4.md) — Phases 0–9 implemented; public
+  distribution checks remain explicitly pending.
 
 ## v0.1.2 Documents
 
@@ -33,6 +35,21 @@ v0.1.3 is implemented as a family-first timeline and historical net-worth
 workflow. It keeps immutable financial effects, replay, and snapshot revision
 details inside Go while exposing simple Record change, Undo, Fix entry,
 Timeline, and Net worth workflows.
+
+## v0.1.4 Documents
+
+- [v0.1.4 compatibility baseline](v0.1.4-baseline.md)
+- [v0.1.4 technical design](v0.1.4-technical-design.md)
+- [v0.1.4 implementation plan](v0.1.4-implementation-plan.md)
+
+v0.1.4 is implemented as an average-cost basis and gain release: it derives
+average cost, realized/unrealized gain, and a two-way currency decomposition
+(Instrument movement vs. currency movement) for investment Holdings, entirely
+from the existing v0.1.3 Activity and Starting Point evidence. It
+deliberately excludes FIFO lots, an unknown-basis declaration workflow,
+TWR/XIRR return, benchmarks, and a full net-worth attribution bridge; those
+remain open for a later release. Phases 0–9 are implemented and verified;
+manual distribution gates remain pending.
 
 ## Unreviewed Inherited Archive
 

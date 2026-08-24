@@ -6,12 +6,14 @@ a Go + Fyne application.
 
 ## Status
 
-The repository implements the `v0.1.3` Family Timeline and History milestone.
-Phases 0–10 are implemented and verified: the Go + Fyne shell supports local
+The repository implements the v0.1.4 Cost Basis and Gain milestone. Phases
+0–9 are implemented and verified: the Go + Fyne shell supports local
 multi-currency portfolios, immutable change effects, History Origin, replay,
-historical snapshots, a History timeline, and net-worth trends. The unsigned
-arm64 `.app` and DMG build is verified locally. Public distribution remains
-pending manual accessibility review, Developer ID signing, and notarization.
+historical snapshots, average-cost capture and replay, realized/unrealized
+gain, currency decomposition, Investments and Analytics views, and the
+associated integrity/privacy regression suites. The arm64 `.app` and UDZO DMG
+package successfully; public distribution remains pending manual accessibility
+review, Developer ID signing, notarization, and artifact retention.
 
 Backup/Restore, Import/Export, synchronization, and background refresh remain
 deferred to later releases.

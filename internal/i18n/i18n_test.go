@@ -39,12 +39,11 @@ func TestSystemLanguageMapping(t *testing.T) {
 	}
 }
 
-// The catalog is assembled from two source tables (translations and
-// errorTranslations); this guards the assembly-time contract that no key may
-// be written twice — the failure mode the removed v011/v012 patch files
-// relied on.
+// The catalog is assembled from the main, release-feature, and error source
+// tables; this guards the assembly-time contract that no key may be written
+// twice — the failure mode the removed v011/v012 patch files relied on.
 func TestCatalogAssemblyRejectsDuplicateWrites(t *testing.T) {
-	_, conflicts := buildCatalogs(translations, errorTranslations)
+	_, conflicts := buildCatalogs(translations, phase7Translations, errorTranslations)
 	if len(conflicts) != 0 {
 		t.Fatalf("buildCatalogs reported duplicate key writes: %v", conflicts)
 	}
@@ -53,6 +52,21 @@ func TestCatalogAssemblyRejectsDuplicateWrites(t *testing.T) {
 	_, conflicts = buildCatalogs(translations, extra)
 	if len(conflicts) != 1 || conflicts[0] != "common.add" {
 		t.Fatalf("buildCatalogs(extra) conflicts = %v, want [common.add]", conflicts)
+	}
+}
+
+func TestPhase7GainViewKeysAreLocalized(t *testing.T) {
+	for key := range phase7Translations {
+		english := New(settings.LanguageEnglish).T(key)
+		if english == "" {
+			t.Fatalf("Phase 7 key %q has no English value", key)
+		}
+		for _, language := range []settings.Language{settings.LanguageZhCN, settings.LanguageZhTW} {
+			translated := New(language).T(key)
+			if translated == "" || translated == english {
+				t.Errorf("Phase 7 key %q is not localized for %q: %q", key, language, translated)
+			}
+		}
 	}
 }
 

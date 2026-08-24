@@ -9,8 +9,8 @@ domain results, and infrastructure ports.
 
 The domain defines business invariants. Application use cases define commands
 and query results. The v0.1.1 SQLite migration remains the compatibility base;
-the implemented v0.1.2 Phase 2 migration extends it to schema `3`, and v0.1.3
-extends that boundary through schema `4` with history persistence. UI code
+the implemented v0.1.2 portfolio migration, v0.1.3 history migration, and
+v0.1.4 cost-basis migration extend that boundary through schema `6`. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
 The repository contains the Go implementation of the Household balance-sheet,
@@ -67,15 +67,17 @@ or network dependency.
 | History Origin | Cutover boundary for trustworthy reconstructed history |
 | Activity and Activity Leg | Immutable explanations for post-origin changes |
 | Daily Snapshot | Append-only closed-day valuation revision |
-| Cost Basis Declaration | Append-only user-supplied basis for unknown lots |
+| Average Cost Evidence | Starting Point and cost-bearing Activity inputs replayed into derived cost/gain views |
+| Gain Read Models | Derived Holding, Account, and realized-period results with explicit unavailable state |
 | Media Asset | Household-scoped normalized image bytes |
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the ordered migrations and
 documented here without duplicating migration SQL. The current supported
-schema is `4`; schema `2` receives the v0.1.2 portfolio migration, schema `3`
-receives the v0.1.3 history migration, and future schema versions are blocked
-before business or settings writes.
+schema is `6`; schema `2` receives the v0.1.2 portfolio migration, schema `3`
+receives the v0.1.3 history migration, schemas `4` and `5` receive the
+remaining compatibility migrations, and schema `6` adds persisted cost inputs.
+Future schema versions are blocked before business or settings writes.
 
 ## Transaction guarantees
 

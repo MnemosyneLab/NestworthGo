@@ -91,6 +91,9 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 	if err := verifyHistorySchema(ctx, query); err != nil {
 		return err
 	}
+	if err := verifyCostBasisInvariant(ctx, query); err != nil {
+		return err
+	}
 	rows, err := query.QueryContext(ctx, "PRAGMA foreign_key_check")
 	if err != nil {
 		return err
@@ -100,6 +103,55 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 		return fmt.Errorf("foreign key check returned violations")
 	}
 	return rows.Err()
+}
+
+func verifyCostBasisInvariant(ctx context.Context, query schemaQuery) error {
+	var missing int
+	err := query.QueryRowContext(ctx, `
+		SELECT COUNT(*)
+		FROM holdings h
+		JOIN accounts a ON a.id = h.account_id
+		JOIN history_origins o ON o.household_id = a.household_id
+		WHERE CAST(h.quantity AS REAL) > 0
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM history_origin_components c
+			WHERE c.origin_id = o.id
+			  AND c.holding_id = h.id
+			  AND c.instrument_id = h.instrument_id
+			  AND c.component_kind = 'holding_quantity'
+			  AND CAST(c.quantity AS REAL) > 0
+			  AND c.unit_cost IS NOT NULL
+		  )
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM activity_trade_details td
+			JOIN activities trade ON trade.id = td.activity_id
+			WHERE td.holding_id = h.id
+			  AND trade.reverses_activity_id IS NULL
+			  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = trade.id)
+		  )
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM activity_effects effect
+			JOIN activities transfer ON transfer.id = effect.activity_id
+			WHERE effect.holding_id = h.id
+			  AND effect.direction = 'added'
+			  AND transfer.kind = 'position_transfer'
+		  )
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM activity_effects effect
+			WHERE effect.holding_id = h.id
+			  AND effect.cost_unit_price IS NOT NULL
+		  )`).Scan(&missing)
+	if err != nil {
+		return err
+	}
+	if missing != 0 {
+		return fmt.Errorf("%d positive Holding rows have no resolvable cost basis", missing)
+	}
+	return nil
 }
 
 func verifyTable(ctx context.Context, query schemaQuery, table string, expected []schemaColumn) error {
@@ -371,7 +423,7 @@ func historySchemaColumns() map[string][]schemaColumn {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("timezone", "TEXT", 1, 0), expectedColumn("started_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
 		},
 		"history_origin_components": {
-			expectedColumn("id", "TEXT", 1, 1), expectedColumn("origin_id", "TEXT", 1, 0), expectedColumn("component_kind", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 0, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("instrument_id", "TEXT", 0, 0), expectedColumn("amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("quantity", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("origin_id", "TEXT", 1, 0), expectedColumn("component_kind", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 0, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("instrument_id", "TEXT", 0, 0), expectedColumn("amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("quantity", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("unit_cost", "TEXT", 0, 0),
 		},
 		"history_origin_account_states": {
 			expectedColumn("origin_id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 2), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("include_in_net_worth", "INTEGER", 1, 0), expectedColumn("include_in_investment", "INTEGER", 1, 0), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
@@ -389,7 +441,7 @@ func historySchemaColumns() map[string][]schemaColumn {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("kind", "TEXT", 1, 0), expectedColumn("reason", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("effective_local_date", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("note", "TEXT", 0, 0), expectedColumn("reverses_activity_id", "TEXT", 0, 0), expectedColumn("correction_group_id", "TEXT", 0, 0), expectedColumn("transaction_fx_rate", "TEXT", 0, 0),
 		},
 		"activity_effects": {
-			expectedColumn("id", "TEXT", 1, 1), expectedColumn("activity_id", "TEXT", 1, 0), expectedColumn("sequence", "INTEGER", 1, 0), expectedColumn("role", "TEXT", 1, 0), expectedColumn("direction", "TEXT", 1, 0), expectedColumn("target", "TEXT", 1, 0), expectedColumn("classification", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 0, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("instrument_id", "TEXT", 0, 0), expectedColumn("amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("quantity", "TEXT", 0, 0),
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("activity_id", "TEXT", 1, 0), expectedColumn("sequence", "INTEGER", 1, 0), expectedColumn("role", "TEXT", 1, 0), expectedColumn("direction", "TEXT", 1, 0), expectedColumn("target", "TEXT", 1, 0), expectedColumn("classification", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 0, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("instrument_id", "TEXT", 0, 0), expectedColumn("amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("quantity", "TEXT", 0, 0), expectedColumn("cost_unit_price", "TEXT", 0, 0),
 		},
 		"activity_trade_details": {
 			expectedColumn("activity_id", "TEXT", 1, 1), expectedColumn("side", "TEXT", 1, 0), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("quantity", "TEXT", 1, 0), expectedColumn("gross_amount", "TEXT", 1, 0), expectedColumn("gross_currency", "TEXT", 1, 0), expectedColumn("unit_price", "TEXT", 1, 0), expectedColumn("fee_amount", "TEXT", 0, 0), expectedColumn("fee_currency", "TEXT", 0, 0),

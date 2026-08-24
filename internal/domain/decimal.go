@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	quantitySyntax  = regexp.MustCompile(`^(0|[1-9][0-9]{0,17})(\.[0-9]{1,8})?$`)
-	unitPriceSyntax = regexp.MustCompile(`^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$`)
-	fxRateSyntax    = regexp.MustCompile(`^(0|[1-9][0-9]{0,7})(\.[0-9]{1,12})?$`)
+	quantitySyntax    = regexp.MustCompile(`^(0|[1-9][0-9]{0,17})(\.[0-9]{1,8})?$`)
+	unitPriceSyntax   = regexp.MustCompile(`^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$`)
+	fxRateSyntax      = regexp.MustCompile(`^(0|[1-9][0-9]{0,7})(\.[0-9]{1,12})?$`)
+	signedMoneySyntax = regexp.MustCompile(`^-?(0|[1-9][0-9]{0,11})(\.[0-9]{1,4})?$`)
 
 	maxQuantity  = decimal.RequireFromString("999999999999999999.99999999")
 	maxUnitPrice = decimal.RequireFromString("999999999999.99999999")

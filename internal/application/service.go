@@ -84,6 +84,8 @@ type Repository interface {
 	HistoryOrigin(context.Context, domain.HouseholdID) (*domain.HistoryOrigin, error)
 	ListHistoryOriginComponents(context.Context, domain.HistoryOriginID) ([]domain.HistoryOriginComponent, error)
 	HistoryOriginData(context.Context, domain.HistoryOriginID) (domain.HistoryOriginData, error)
+	ListCostBasisEvents(context.Context, domain.HoldingID) ([]domain.CostBasisEvent, error)
+	StartingPointCost(context.Context, domain.HoldingID) (*domain.UnitPrice, error)
 	ListAccountStateObservations(context.Context, domain.HouseholdID) ([]domain.AccountStateObservation, error)
 	ListInstrumentStateObservations(context.Context, domain.HouseholdID) ([]domain.InstrumentStateObservation, error)
 	ListHoldingStateObservations(context.Context, domain.HouseholdID) ([]domain.HoldingStateObservation, error)
@@ -996,6 +998,28 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 
 func (s *Service) AccountValuation(ctx context.Context, id domain.AccountID) (domain.AccountValuation, error) {
 	return NewValuationService(s.repository, s.clock).Account(ctx, id)
+}
+
+// HoldingGain returns the derived cost and gain view for one Holding.
+func (s *Service) HoldingGain(ctx context.Context, id domain.HoldingID) (domain.HoldingGainView, error) {
+	return NewGainService(s.repository, s.clock).HoldingGain(ctx, id)
+}
+
+// AccountGain returns the derived cost and gain views for all active Holdings
+// in one account.
+func (s *Service) AccountGain(ctx context.Context, id domain.AccountID) (domain.AccountGainView, error) {
+	return NewGainService(s.repository, s.clock).AccountGain(ctx, id)
+}
+
+// RealizedGainInRange returns realized gains grouped by Instrument and
+// Account for an inclusive local-date range.
+func (s *Service) RealizedGainInRange(ctx context.Context, scope domain.GainScope, from, to domain.LocalDate) (domain.RealizedGainView, error) {
+	return NewGainService(s.repository, s.clock).RealizedGainInRange(ctx, scope, from, to)
+}
+
+// RealizedGain resolves an Analytics trend range through GainService.
+func (s *Service) RealizedGain(ctx context.Context, scope domain.GainScope, trendRange domain.TrendRange) (domain.RealizedGainView, error) {
+	return NewGainService(s.repository, s.clock).RealizedGain(ctx, scope, trendRange)
 }
 
 func (s *Service) AccountValuations(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountValuation, error) {

@@ -3,7 +3,35 @@
 All notable changes to the Go + Fyne Nestworth application are recorded here.
 The project has not published a public release yet.
 
-## [Unreleased] — v0.1.2
+## [Unreleased] — v0.1.4
+
+### Added
+
+- Added average-cost inputs for Starting Point and already-existed Holding
+  capture, with deterministic cost-basis replay across trades, transfers,
+  corrections, and reversals.
+- Added realized and unrealized gain read models, acquisition/current FX
+  decomposition, and period-scoped Analytics groups by Instrument and Account.
+- Added Investments cost and gain tables, Analytics tables, localized
+  unavailable states, and provider-free offline rendering.
+- Added Phase 8 integrity coverage for migrated fixtures, read-only gain paths,
+  concurrent reads, bounded cost-event queries, and localization contracts.
+- Finalized v0.1.4 metadata as `v0.1.4`/build `1` and produced the isolated
+  unsigned Apple Silicon `.app` and UDZO DMG artifacts.
+
+### Verification
+
+- `go test ./...`, `go test -race ./...`, `go vet ./...`, `gofmt -l`, and
+  `git diff --check` pass on macOS arm64.
+
+### Deferred
+
+- Manual keyboard/VoiceOver review, Developer ID signing, notarization, and
+  artifact retention remain explicit public-distribution gates.
+- Before any public release that can encounter a real pre-v0.1.4 database,
+  revisit the schema `5 -> 6` development-fixture backfill policy.
+
+## Historical Go portfolio milestone
 
 ### Added
 

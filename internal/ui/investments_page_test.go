@@ -14,6 +14,7 @@ import (
 	"fyne.io/fyne/v2/widget"
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/format"
 	"github.com/waltwang/nestworth-go/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -71,6 +72,13 @@ func TestInvestmentsPageConstructionIsLocalAndProviderFree(t *testing.T) {
 	}
 	if canvasContainsText(page, "Search") {
 		t.Fatal("Investments page unexpectedly exposes provider symbol search")
+	}
+	analytics := NewAnalyticsPage(controller)
+	if analytics == nil {
+		t.Fatal("Analytics page is nil")
+	}
+	if provider.calls.Load() != 0 {
+		t.Fatalf("Analytics page construction contacted provider %d time(s)", provider.calls.Load())
 	}
 }
 
@@ -189,6 +197,57 @@ func TestInvestmentIdentityAndSingleRefreshFailuresStayUserFacing(t *testing.T) 
 		if refreshSingleTargetNeedsAttention(application.RefreshResult{Items: []application.RefreshTargetResult{{Status: status}}}) {
 			t.Fatalf("single-target status %q was treated as failure", status)
 		}
+	}
+}
+
+func TestGainTablesRenderReadModelValuesAndLocalizedUnavailableState(t *testing.T) {
+	controller := &Controller{translator: i18n.New(settings.LanguageEnglish), preference: settings.Default()}
+	gain := domain.HoldingGainView{
+		InstrumentName:   "Fixture ETF",
+		InstrumentSymbol: "FIX",
+		Quantity:         "2",
+		AverageCost:      domain.MoneyView{Amount: "80", Currency: "USD"},
+		TotalCost:        domain.MoneyView{Amount: "160", Currency: "USD"},
+		CurrentValue:     &domain.MoneyView{Amount: "172.34", Currency: "USD"},
+		UnrealizedGain:   &domain.SignedMoneyView{Amount: "12.34", Currency: "USD"},
+		Available:        true,
+	}
+	position := investmentHoldingGainRow(controller, gain)
+	for _, want := range []string{
+		controller.translator.T("portfolio.averageCost"),
+		controller.translator.T("portfolio.totalCost"),
+		controller.translator.T("portfolio.unrealizedGain"),
+		format.Money(gain.AverageCost.Amount, gain.AverageCost.Currency.String(), controller.preference),
+		format.Money(gain.TotalCost.Amount, gain.TotalCost.Currency.String(), controller.preference),
+		format.Money(gain.UnrealizedGain.Amount, gain.UnrealizedGain.Currency.String(), controller.preference),
+	} {
+		if !canvasContainsText(position, want) {
+			t.Fatalf("gain table is missing %q", want)
+		}
+	}
+
+	gain.Available = false
+	gain.CurrentValue = nil
+	gain.UnrealizedGain = nil
+	gain.MissingReason = "current instrument price is unavailable"
+	position = investmentHoldingGainRow(controller, gain)
+	if !canvasContainsText(position, controller.translator.T("portfolio.unavailable")) {
+		t.Fatal("unavailable gain did not use the localized unavailable state")
+	}
+	if canvasContainsText(position, gain.MissingReason) {
+		t.Fatal("internal missing reason leaked into the gain table")
+	}
+
+	realized := realizedGainRows(controller, domain.RealizedGainView{
+		From: "2026-08-01", To: "2026-08-30", ByInstrument: []domain.GainGroupView{{Label: "Fixture ETF", Gain: domain.SignedMoneyView{Amount: "9.87", Currency: "CNY"}, Available: true}},
+	})
+	if !canvasContainsText(container.NewVBox(realized...), format.Money("9.87", "CNY", controller.preference)) {
+		t.Fatal("realized gain table did not render the service value")
+	}
+
+	controller.translator.SetLanguage(settings.LanguageZhCN)
+	if !canvasContainsText(investmentHoldingGainRow(controller, gain), controller.translator.T("portfolio.unavailable")) {
+		t.Fatal("Simplified Chinese unavailable state was not localized")
 	}
 }
 

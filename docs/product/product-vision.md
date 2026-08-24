@@ -56,8 +56,8 @@ A simple bank account should take little effort to add. Advanced concepts such a
 | Account Value | A dated observation of an account balance or manual valuation |
 | Holding | A position in an investment account, such as shares of an instrument |
 | Activity | An explanation of a financial change, transfer, trade, income, or fee |
-| Lot | A derived FIFO acquisition batch that records what a portion of a holding cost; lots are computed, not entered |
-| Cost Basis | What a position cost, either recorded by a posted trade or declared by the user for an unknown-basis lot |
+| Average Cost | A quantity-weighted per-unit cost derived from Starting Point evidence and cost-bearing trades/adjustments |
+| Gain | Derived realized/unrealized value and Instrument-versus-currency movement; unavailable inputs remain unavailable |
 
 Canonical business rules for these concepts live in the [domain model](../architecture/domain-model.md).
 

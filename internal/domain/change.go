@@ -244,6 +244,7 @@ type ActivityEffect struct {
 	InstrumentID   *InstrumentID
 	Money          *Money
 	Quantity       *Quantity
+	CostUnitPrice  *UnitPrice
 }
 
 func (e ActivityEffect) Magnitude() string {
@@ -272,6 +273,9 @@ func (e ActivityEffect) Validate() error {
 	if (e.Money != nil && e.Money.IsZero()) || (e.Quantity != nil && e.Quantity.IsZero()) {
 		return changeError(ErrInvalidChange, "effect", "effect magnitude must be greater than zero")
 	}
+	if e.CostUnitPrice != nil && e.Target != EffectTargetHoldingQuantity {
+		return changeError(ErrInvalidChange, "effect", "cost unit price is only valid for Holding effects")
+	}
 	switch e.Target {
 	case EffectTargetAccountValue, EffectTargetAccountCash:
 		if e.AccountID == nil || e.HoldingID != nil || e.InstrumentID != nil || e.Quantity != nil || e.Money == nil {
@@ -298,13 +302,14 @@ type ChangeAccountState struct {
 }
 
 type ChangeHoldingState struct {
-	ID             HoldingID
-	AccountID      AccountID
-	InstrumentID   InstrumentID
-	InstrumentName string
-	Currency       CurrencyCode
-	Archived       bool
-	Current        Quantity
+	ID                 HoldingID
+	AccountID          AccountID
+	InstrumentID       InstrumentID
+	InstrumentName     string
+	Currency           CurrencyCode
+	Archived           bool
+	Current            Quantity
+	CostBasisAvailable bool
 }
 
 // ChangeState is the injected, read-only state used by PreviewChange. It is
@@ -392,6 +397,7 @@ type PositionAdjustmentInput struct {
 	HoldingID   HoldingID
 	Quantity    Quantity
 	Added       bool
+	UnitCost    *UnitPrice
 	EffectiveAt time.Time
 	Note        *string
 }
@@ -909,6 +915,9 @@ func buildPositionAdjustment(state ChangeState, input PositionAdjustmentInput) (
 	if input.Quantity.IsZero() {
 		return ChangePreview{}, changeError(ErrInvalidChange, "quantity", "quantity must be greater than zero")
 	}
+	if input.Added && input.UnitCost == nil && !holding.CostBasisAvailable {
+		return ChangePreview{}, &Error{Code: ErrCostBasisRequired, Field: "unitCost", Message: "a per-unit cost is required when added quantity has no existing cost"}
+	}
 	direction := EffectAdded
 	current := holding.Current.Decimal()
 	if !input.Added {
@@ -929,9 +938,16 @@ func buildPositionAdjustment(state ChangeState, input PositionAdjustmentInput) (
 		return ChangePreview{}, err
 	}
 	effect := holdingEffect(activity.ID, 1, EffectRoleQuantity, direction, ClassificationRemeasurement, holding, input.Quantity)
+	if input.Added && input.UnitCost != nil {
+		effect.CostUnitPrice = input.UnitCost
+	}
 	activity.Effects = []ActivityEffect{effect}
 	holdingID := holding.ID
-	return ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: quantity.Canonical()}}}, nil
+	preview := ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: quantity.Canonical()}}}
+	if input.Added && input.UnitCost != nil {
+		preview.DerivedUnitPrice = input.UnitCost
+	}
+	return preview, nil
 }
 
 func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {

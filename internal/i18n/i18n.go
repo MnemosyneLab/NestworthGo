@@ -329,7 +329,10 @@ var translations = map[string]translation{
 	"history.side.payment":                      {"Payment", "还款", "還款"},
 	"history.side.sell":                         {"Sell", "卖出", "賣出"},
 	"history.start":                             {"Start history", "开始历史记录", "開始歷史記錄"},
-	"history.startDescription":                  {"Confirm the household timezone to begin the append-only history.", "确认家庭时区后，才能开始追加式历史记录。", "確認家庭時區後，才能開始追加式歷史記錄。"},
+	"history.startDescription":                  {"Confirm the household timezone and review each average cost before history begins.", "确认家庭时区，并在开始记录前检查每项平均成本。", "確認家庭時區，並在開始記錄前檢查每項平均成本。"},
+	"history.startCostDescription":              {"Average cost", "平均成本", "平均成本"},
+	"history.startCostHelp":                     {"What this was worth when you started tracking it", "开始记录时它的价值", "開始記錄時它的價值"},
+	"history.startCostTitle":                    {"Starting point values", "起始点价值", "起始點價值"},
 	"history.startingPoint":                     {"Starting point", "起始点", "起始點"},
 	"history.timeline":                          {"Timeline", "时间线", "時間線"},
 	"history.toDate":                            {"To", "结束", "結束"},
@@ -498,6 +501,7 @@ var translations = map[string]translation{
 	"portfolio.accountsDescription":             {"Investment accounts and their current valued totals.", "投资账户及其当前估值总额。", "投資帳戶及其目前估值總額。"},
 	"portfolio.addCash":                         {"Add cash", "添加现金", "新增現金"},
 	"portfolio.addHolding":                      {"Add holding", "添加持仓", "新增持倉"},
+	"portfolio.averageCost":                     {"Average cost", "平均成本", "平均成本"},
 	"portfolio.addInstrument":                   {"Add instrument", "添加投资标的", "新增投資標的"},
 	"portfolio.allocations":                     {"Allocations", "配置", "配置"},
 	"portfolio.allocationsDescription":          {"Current value by currency, country, and instrument type.", "按货币、国家和标的类型查看当前价值。", "按貨幣、國家和標的類型查看目前價值。"},
@@ -639,10 +643,29 @@ var translations = map[string]translation{
 	"startup.readOnly":                          {"Business data is read-only", "业务数据只读", "業務資料唯讀"},
 }
 
+var phase7Translations = map[string]translation{
+	"analytics.byAccount":                        {"By Account", "按账户", "按帳戶"},
+	"analytics.byInstrument":                     {"By Instrument", "按投资标的", "按投資標的"},
+	"analytics.currencyDecomposition":            {"Currency decomposition", "币种分解", "幣種分解"},
+	"analytics.currencyDecompositionDescription": {"Instrument movement and currency movement for current positions.", "当前持仓的投资标的变动和币种变动。", "目前持倉的投資標的變動和幣種變動。"},
+	"analytics.currencyMovement":                 {"Currency movement", "币种变动", "幣種變動"},
+	"analytics.instrumentMovement":               {"Instrument movement", "投资标的变动", "投資標的變動"},
+	"analytics.noGains":                          {"No realized gains in this period.", "此期间没有已实现收益。", "此期間沒有已實現收益。"},
+	"analytics.noPositions":                      {"No current positions are available.", "没有可用的当前持仓。", "沒有可用的目前持倉。"},
+	"analytics.realizedByInstrument":             {"Realized gain", "已实现收益", "已實現收益"},
+	"analytics.realizedGain":                     {"Realized gain", "已实现收益", "已實現收益"},
+	"analytics.realizedGainDescription":          {"Realized gains for the selected period, grouped by Instrument and Account.", "所选期间按投资标的和账户分组的已实现收益。", "所選期間按投資標的和帳戶分組的已實現收益。"},
+	"analytics.totalGain":                        {"Total gain", "总收益", "總收益"},
+	"portfolio.gainTableDescription":             {"Average cost, total cost, and unrealized gain.", "平均成本、总成本和未实现收益。", "平均成本、總成本和未實現收益。"},
+	"portfolio.position":                         {"Position", "持仓", "持倉"},
+	"portfolio.totalCost":                        {"Total cost", "总成本", "總成本"},
+	"portfolio.unrealizedGain":                   {"Unrealized gain", "未实现收益", "未實現收益"},
+}
+
 // errorTranslations lives in errors.go and is folded in here so the whole
 // catalog is assembled at a single point, independent of file order.
 func init() {
-	built, conflicts := buildCatalogs(translations, errorTranslations)
+	built, conflicts := buildCatalogs(translations, phase7Translations, errorTranslations)
 	if len(conflicts) > 0 {
 		panic("i18n: duplicate catalog keys written by multiple tables: " + strings.Join(conflicts, ", "))
 	}

@@ -71,7 +71,7 @@ func commitActivityTx(ctx context.Context, tx *sql.Tx, commit domain.ActivityCom
 		return err
 	}
 	for _, effect := range effects {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO activity_effects(id, activity_id, sequence, role, direction, target, classification, account_id, holding_id, instrument_id, amount, currency, quantity) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, effect.ID.String(), activity.ID.String(), effect.Sequence, string(effect.Role), string(effect.Direction), string(effect.Target), string(effect.Classification), nullableID(effect.AccountID), nullableID(effect.HoldingID), nullableID(effect.InstrumentID), nullableMoney(effect.Money), nullableMoneyCurrency(effect.Money), nullableQuantity(effect.Quantity)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO activity_effects(id, activity_id, sequence, role, direction, target, classification, account_id, holding_id, instrument_id, amount, currency, quantity, cost_unit_price) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, effect.ID.String(), activity.ID.String(), effect.Sequence, string(effect.Role), string(effect.Direction), string(effect.Target), string(effect.Classification), nullableID(effect.AccountID), nullableID(effect.HoldingID), nullableID(effect.InstrumentID), nullableMoney(effect.Money), nullableMoneyCurrency(effect.Money), nullableQuantity(effect.Quantity), nullableUnitPrice(effect.CostUnitPrice)); err != nil {
 			return err
 		}
 		view, err := endpointForEffect(effect, resulting)

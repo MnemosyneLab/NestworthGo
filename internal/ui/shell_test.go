@@ -131,6 +131,94 @@ func TestLiveAccountsPageBuildsWithoutRecursiveRefresh(t *testing.T) {
 	}
 }
 
+func TestLiveAccountsArchivedFilterRefreshesOnceAndShowsArchivedAccount(t *testing.T) {
+	fyneApplication := test.NewTempApp(t)
+	defer fyneApplication.Quit()
+	window := &countingWindow{Window: test.NewTempWindow(t, container.NewVBox())}
+	database, err := sqlite.Open(filepath.Join(t.TempDir(), "archived-account.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer database.Close()
+	service := application.NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Alice"}}); err != nil {
+		t.Fatalf("onboarding: %v", err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatalf("bootstrap: %v", err)
+	}
+	account, err := service.CreateAccount(ctx, application.AccountInput{
+		Name:              "Archived Cash",
+		PrimaryCategory:   "cash_equivalent",
+		SecondaryCategory: "bank_account",
+		TrackingMode:      "balance",
+		DefaultCurrency:   "CNY",
+		InitialAmount:     "100",
+		OwnerIDs:          []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+	if err := service.ArchiveAccount(ctx, account.Account.ID, true); err != nil {
+		t.Fatalf("archive account: %v", err)
+	}
+
+	controller := NewControllerWithBackend(fyneApplication, window, nil, nil, settings.Default(), service, bootstrap, nil)
+	controller.page = PageAccounts
+	page := NewAccountsPage(controller)
+	window.SetContent(page)
+	if canvasContainsText(page, "Archived Cash") {
+		t.Fatal("archived account was rendered while the filter was disabled")
+	}
+
+	archivedToggle := findCheck(page, controller.translator.T("accounts.showArchived"))
+	if archivedToggle == nil {
+		t.Fatal("show archived checkbox was not rendered")
+	}
+	archivedToggle.SetChecked(true)
+	if !controller.showArchived {
+		t.Fatal("show archived filter did not persist after activation")
+	}
+	if window.setContentCalls != 2 {
+		t.Fatalf("window content set count = %d, want exactly one refresh after initial content", window.setContentCalls)
+	}
+	filteredPage := NewAccountsPage(controller)
+	if !canvasContainsText(filteredPage, "Archived Cash") {
+		t.Fatal("archived account was not rendered with the filter enabled")
+	}
+
+	controller.showArchived = true
+	if page := NewAccountsPage(controller); page == nil || !canvasContainsText(page, "Archived Cash") {
+		t.Fatal("rebuilding the page with the archived filter enabled did not remain stable")
+	}
+}
+
+type countingWindow struct {
+	fyne.Window
+	setContentCalls int
+}
+
+func (w *countingWindow) SetContent(content fyne.CanvasObject) {
+	w.setContentCalls++
+	w.Window.SetContent(content)
+}
+
+func findCheck(object fyne.CanvasObject, label string) *widget.Check {
+	if check, ok := object.(*widget.Check); ok && check.Text == label {
+		return check
+	}
+	if nested, ok := object.(*fyne.Container); ok {
+		for _, child := range nested.Objects {
+			if check := findCheck(child, label); check != nil {
+				return check
+			}
+		}
+	}
+	return nil
+}
+
 func TestReloadBackendQueuesOneReloadForLatestSave(t *testing.T) {
 	fyneApplication := test.NewTempApp(t)
 	defer fyneApplication.Quit()

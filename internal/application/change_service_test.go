@@ -126,6 +126,9 @@ func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-01-01", false); err != nil {
+		t.Fatal(err)
+	}
 	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"})
 	if err != nil {
 		t.Fatal(err)
@@ -135,6 +138,13 @@ func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
 	}
 	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
+	}
+	var startingCost string
+	if err := database.SQL.QueryRow("SELECT COALESCE(unit_cost, '') FROM history_origin_components WHERE holding_id = ?", holding.ID.String()).Scan(&startingCost); err != nil {
+		t.Fatal(err)
+	}
+	if startingCost != "100" {
+		t.Fatalf("persisted Starting Point unit cost = %q, want 100", startingCost)
 	}
 	gross, _ := domain.ParseMoney("200", "USD")
 	fee, _ := domain.ParseMoney("5", "USD")
@@ -203,6 +213,9 @@ func TestRecordTransfersUseNativeEndpointsAndCommitAtomically(t *testing.T) {
 	}
 	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-02-01", false); err != nil {
 		t.Fatal(err)
 	}
 	fromBroker, err := service.CreateAccount(ctx, AccountInput{Name: "From Broker", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: ownerIDs})

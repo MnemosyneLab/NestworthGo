@@ -139,6 +139,7 @@ var errorCodeKeys = map[domain.ErrorCode]string{
 	domain.ErrUnsupportedProviderSymbol:  "error.provider.unsupportedSymbol",
 	domain.ErrMalformedProviderResponse:  "error.provider.malformedResponse",
 	domain.ErrMarketDataResponseTooLarge: "error.provider.responseTooLarge",
+	domain.ErrCostBasisRequired:          "error.costBasis.required",
 }
 
 // fieldLabelKeys translates the field prefix added by domain.Error.Error.
@@ -177,6 +178,7 @@ var fieldLabelKeys = map[string]string{
 	"instrumentType":    "error.field.instrumentType",
 	"quoteCurrency":     "error.field.quoteCurrency",
 	"unitPrice":         "error.field.unitPrice",
+	"unitCost":          "error.field.unitCost",
 	"fxRate":            "error.field.fxRate",
 	"currencyPair":      "error.field.currencyPair",
 	"sourceKind":        "error.field.sourceKind",
@@ -277,6 +279,7 @@ var errorTranslations = map[string]translation{
 	"error.field.providerSymbol":                   {"Provider symbol", "Provider symbol", "Provider symbol"},
 	"error.field.logoAssetID":                      {"Logo asset ID", "Logo 资源 ID", "Logo 資源 ID"},
 	"error.field.quotedAt":                         {"Quote time", "报价时间", "報價時間"},
+	"error.field.unitCost":                         {"Unit cost", "单位成本", "單位成本"},
 	"error.provider.notConfigured":                 {"This provider is not configured", "此 Provider 尚未配置", "此 Provider 尚未設定"},
 	"error.provider.unavailable":                   {"The provider is currently unavailable", "Provider 当前不可用", "Provider 目前無法使用"},
 	"error.provider.authentication":                {"The provider rejected authentication", "Provider 拒绝了认证", "Provider 拒絕了驗證"},
@@ -286,6 +289,7 @@ var errorTranslations = map[string]translation{
 	"error.provider.responseTooLarge":              {"The provider response is too large", "Provider 响应过大", "Provider 回應過大"},
 	"error.history.invalidTimezone":                {"The saved history timezone is invalid", "保存的历史时区无效", "儲存的歷史時區無效"},
 	"error.history.unavailable":                    {"History snapshots could not be prepared", "无法准备历史快照", "無法準備歷史快照"},
+	"error.costBasis.required":                     {"A per-unit cost is required for this positive Holding quantity", "这笔正持仓数量需要填写单位成本", "這筆正持倉數量需要填寫單位成本"},
 	"error.validation.portfolioDecimalFormat":      {"must be a canonical non-negative decimal with up to eight fractional digits", "必须是规范的非负小数，且最多包含八位小数", "必須是規範的非負小數，且最多包含八位小數"},
 	"error.validation.fxRateFormat":                {"must be a canonical positive decimal with up to twelve fractional digits", "必须是规范的正小数，且最多包含十二位小数", "必須是規範的正小數，且最多包含十二位小數"},
 	"error.validation.decimalInvalid":              {"is not a valid decimal", "不是有效的小数", "不是有效的小數"},

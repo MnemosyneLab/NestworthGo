@@ -26,7 +26,7 @@ func (r *Repository) ListHistoryOriginComponents(ctx context.Context, originID d
 }
 
 func listHistoryOriginComponentsQuery(ctx context.Context, query queryer, originID domain.HistoryOriginID) ([]domain.HistoryOriginComponent, error) {
-	rows, err := query.QueryContext(ctx, `SELECT id, origin_id, component_kind, account_id, holding_id, instrument_id, amount, currency, quantity, created_at FROM history_origin_components WHERE origin_id = ? ORDER BY component_kind ASC, account_id ASC, holding_id ASC, id ASC`, originID.String())
+	rows, err := query.QueryContext(ctx, `SELECT id, origin_id, component_kind, account_id, holding_id, instrument_id, amount, currency, quantity, unit_cost, created_at FROM history_origin_components WHERE origin_id = ? ORDER BY component_kind ASC, account_id ASC, holding_id ASC, id ASC`, originID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -34,8 +34,8 @@ func listHistoryOriginComponentsQuery(ctx context.Context, query queryer, origin
 	result := make([]domain.HistoryOriginComponent, 0)
 	for rows.Next() {
 		var id, origin, kind, createdAt string
-		var accountID, holdingID, instrumentID, amount, currency, quantity sql.NullString
-		if err := rows.Scan(&id, &origin, &kind, &accountID, &holdingID, &instrumentID, &amount, &currency, &quantity, &createdAt); err != nil {
+		var accountID, holdingID, instrumentID, amount, currency, quantity, unitCost sql.NullString
+		if err := rows.Scan(&id, &origin, &kind, &accountID, &holdingID, &instrumentID, &amount, &currency, &quantity, &unitCost, &createdAt); err != nil {
 			return nil, err
 		}
 		parsedID, err := domain.ParseHistoryOriginComponentID(id)
@@ -90,12 +90,35 @@ func listHistoryOriginComponentsQuery(ctx context.Context, query queryer, origin
 			}
 			component.Quantity = &parsedQuantity
 		}
-		if err := component.Validate(); err != nil {
+		if unitCost.Valid {
+			parsedUnitCost, parseErr := domain.ParseUnitPrice(unitCost.String)
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			component.UnitCost = &parsedUnitCost
+		}
+		if err := validateStoredHistoryOriginComponent(component); err != nil {
 			return nil, err
 		}
 		result = append(result, component)
 	}
 	return result, rows.Err()
+}
+
+// schema5 predates persisted UnitCost. Keep loading those immutable starting
+// points possible until the schema6 backfill writes the cost basis. New writes
+// still go through validateHistoryOriginData and therefore require UnitCost
+// for every positive holding component.
+func validateStoredHistoryOriginComponent(component domain.HistoryOriginComponent) error {
+	err := component.Validate()
+	if err == nil {
+		return nil
+	}
+	validationErr, ok := err.(*domain.Error)
+	if ok && validationErr.Code == domain.ErrCostBasisRequired && component.Kind == domain.HistoryOriginHoldingQuantity && component.Quantity != nil && !component.Quantity.IsZero() && component.UnitCost == nil {
+		return nil
+	}
+	return err
 }
 
 // HistoryOriginData loads the immutable baseline together with all baseline
@@ -287,7 +310,7 @@ func (r *Repository) StartHistory(ctx context.Context, data domain.HistoryOrigin
 			return err
 		}
 		for _, component := range data.Components {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_components(id, origin_id, component_kind, account_id, holding_id, instrument_id, amount, currency, quantity, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, component.ID.String(), data.Origin.ID.String(), string(component.Kind), nullableID(component.AccountID), nullableID(component.HoldingID), nullableID(component.InstrumentID), nullableMoney(component.Amount), nullableMoneyCurrency(component.Amount), nullableQuantity(component.Quantity), formatTimestamp(component.CreatedAt)); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_components(id, origin_id, component_kind, account_id, holding_id, instrument_id, amount, currency, quantity, unit_cost, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, component.ID.String(), data.Origin.ID.String(), string(component.Kind), nullableID(component.AccountID), nullableID(component.HoldingID), nullableID(component.InstrumentID), nullableMoney(component.Amount), nullableMoneyCurrency(component.Amount), nullableQuantity(component.Quantity), nullableUnitPrice(component.UnitCost), formatTimestamp(component.CreatedAt)); err != nil {
 				return err
 			}
 		}
@@ -352,7 +375,7 @@ func insertHistoryOriginTx(ctx context.Context, tx *sql.Tx, data domain.HistoryO
 		return err
 	}
 	for _, component := range data.Components {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_components(id, origin_id, component_kind, account_id, holding_id, instrument_id, amount, currency, quantity, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, component.ID.String(), data.Origin.ID.String(), string(component.Kind), nullableID(component.AccountID), nullableID(component.HoldingID), nullableID(component.InstrumentID), nullableMoney(component.Amount), nullableMoneyCurrency(component.Amount), nullableQuantity(component.Quantity), formatTimestamp(component.CreatedAt)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_components(id, origin_id, component_kind, account_id, holding_id, instrument_id, amount, currency, quantity, unit_cost, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, component.ID.String(), data.Origin.ID.String(), string(component.Kind), nullableID(component.AccountID), nullableID(component.HoldingID), nullableID(component.InstrumentID), nullableMoney(component.Amount), nullableMoneyCurrency(component.Amount), nullableQuantity(component.Quantity), nullableUnitPrice(component.UnitCost), formatTimestamp(component.CreatedAt)); err != nil {
 			return err
 		}
 	}
@@ -431,6 +454,13 @@ func nullableMoney(value *domain.Money) any {
 		return nil
 	}
 	return value.CanonicalAmount()
+}
+
+func nullableUnitPrice(value *domain.UnitPrice) any {
+	if value == nil {
+		return nil
+	}
+	return value.Canonical()
 }
 
 func nullableMoneyCurrency(value *domain.Money) any {

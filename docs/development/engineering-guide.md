@@ -3,11 +3,11 @@
 ## Current status
 
 The repository is a Go 1.26 module with a Fyne v2.8 desktop shell and the
-v0.1.3 Family Timeline and History implementation through Phase 10. The
-quality gate covers exact domain values, SQLite bootstrap and compatibility,
-onboarding, portfolio valuation, immutable change effects, replay, historical
-snapshots, localization, live Fyne page transitions, and net-worth trends.
-Recovery remains a later release; public distribution still needs manual
+v0.1.4 Cost Basis and Gain implementation through Phase 9. The quality gate
+covers exact domain values, SQLite bootstrap and compatibility, onboarding,
+portfolio valuation, immutable change effects, replay, historical snapshots,
+average-cost gain/decomposition reads, localization, live Fyne page
+transitions, and net-worth trends. Public distribution still needs manual
 accessibility, signing, and notarization checks.
 
 ## Prerequisites
@@ -51,7 +51,7 @@ On Apple Silicon macOS, build the `.app` and `.dmg` together:
 ./scripts/package-macos.sh
 ```
 The script builds `darwin/arm64`, invokes the Fyne 2.8 packager, stamps the
-Bundle ID `com.nestworth.app`, name `Nestworth`, version `0.1.3`, and build `1`,
+Bundle ID `com.nestworth.app`, name `Nestworth`, version `0.1.4`, and build `1`,
 then creates an unsigned UDZO DMG with an Applications shortcut. Override the
 release metadata for a local release build with `NESTWORTH_VERSION` and
 `NESTWORTH_BUILD`.
@@ -170,7 +170,7 @@ git diff --check
 ```
 
 The current repository includes an unsigned arm64 macOS packaging workflow.
-The checked-in release metadata is v0.1.3/build 1. The package workflow
+The checked-in release metadata is v0.1.4/build 1. The package workflow
 verifies the app and DMG in an isolated build output. Signing, notarization,
 and manual accessibility review remain separate distribution gates.
 

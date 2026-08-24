@@ -238,6 +238,9 @@ func TestV013BackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-07-20", false); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
 		t.Fatal(err)
 	}
@@ -306,6 +309,9 @@ func TestV013ArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
 	}
 	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-07-30", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {

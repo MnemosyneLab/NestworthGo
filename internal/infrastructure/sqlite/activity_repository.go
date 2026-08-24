@@ -90,7 +90,7 @@ func (r *Repository) activityEffects(ctx context.Context, activityID domain.Acti
 }
 
 func activityEffectsQuery(ctx context.Context, query queryer, activityID domain.ActivityID) ([]domain.ActivityEffect, error) {
-	rows, err := query.QueryContext(ctx, `SELECT id, activity_id, sequence, role, direction, target, classification, account_id, holding_id, instrument_id, amount, currency, quantity FROM activity_effects WHERE activity_id = ? ORDER BY sequence ASC`, activityID.String())
+	rows, err := query.QueryContext(ctx, `SELECT id, activity_id, sequence, role, direction, target, classification, account_id, holding_id, instrument_id, amount, currency, quantity, cost_unit_price FROM activity_effects WHERE activity_id = ? ORDER BY sequence ASC`, activityID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -99,11 +99,11 @@ func activityEffectsQuery(ctx context.Context, query queryer, activityID domain.
 	for rows.Next() {
 		var id, activityValue, role, direction, target, classification string
 		var sequence int
-		var accountID, holdingID, instrumentID, amount, currency, quantity sql.NullString
-		if err := rows.Scan(&id, &activityValue, &sequence, &role, &direction, &target, &classification, &accountID, &holdingID, &instrumentID, &amount, &currency, &quantity); err != nil {
+		var accountID, holdingID, instrumentID, amount, currency, quantity, costUnitPrice sql.NullString
+		if err := rows.Scan(&id, &activityValue, &sequence, &role, &direction, &target, &classification, &accountID, &holdingID, &instrumentID, &amount, &currency, &quantity, &costUnitPrice); err != nil {
 			return nil, err
 		}
-		effect, parseErr := scanActivityEffectWithSequence(id, activityValue, sequence, role, direction, target, classification, accountID, holdingID, instrumentID, amount, currency, quantity)
+		effect, parseErr := scanActivityEffectWithSequence(id, activityValue, sequence, role, direction, target, classification, accountID, holdingID, instrumentID, amount, currency, quantity, costUnitPrice)
 		if parseErr != nil {
 			return nil, parseErr
 		}
@@ -112,7 +112,7 @@ func activityEffectsQuery(ctx context.Context, query queryer, activityID domain.
 	return effects, rows.Err()
 }
 
-func scanActivityEffectWithSequence(id, activityID string, sequence int, role, direction, target, classification string, accountID, holdingID, instrumentID, amount, currency, quantity sql.NullString) (domain.ActivityEffect, error) {
+func scanActivityEffectWithSequence(id, activityID string, sequence int, role, direction, target, classification string, accountID, holdingID, instrumentID, amount, currency, quantity, costUnitPrice sql.NullString) (domain.ActivityEffect, error) {
 	effectID, err := domain.ParseActivityEffectID(id)
 	if err != nil {
 		return domain.ActivityEffect{}, err
@@ -156,6 +156,13 @@ func scanActivityEffectWithSequence(id, activityID string, sequence int, role, d
 			return domain.ActivityEffect{}, parseErr
 		}
 		effect.Quantity = &value
+	}
+	if costUnitPrice.Valid {
+		value, parseErr := domain.ParseUnitPrice(costUnitPrice.String)
+		if parseErr != nil {
+			return domain.ActivityEffect{}, parseErr
+		}
+		effect.CostUnitPrice = &value
 	}
 	return effect, nil
 }

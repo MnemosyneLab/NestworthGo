@@ -20,6 +20,10 @@ func NewInvestmentsPage(c *Controller) fyne.CanvasObject {
 	if err != nil {
 		return errorPanel(c, t.T("portfolio.loadError"), err)
 	}
+	gains, err := loadPortfolioGainViews(c, portfolio)
+	if err != nil {
+		return errorPanel(c, t.T("portfolio.loadError"), err)
+	}
 
 	refreshAll := widget.NewButton(t.T("portfolio.refreshAll"), func() {
 		c.startRefresh(refreshRequest{operation: refreshAllOperation})
@@ -58,11 +62,27 @@ func NewInvestmentsPage(c *Controller) fyne.CanvasObject {
 		metrics,
 		fxProviderDisclaimer(c),
 		investmentsStatusCard(c, portfolio),
-		investmentPositionsCard(c, portfolio),
+		investmentPositionsCard(c, portfolio, gains),
 		investmentAccountsCard(c, portfolio),
 		investmentAllocationsCard(c, portfolio),
 	}
 	return container.New(layout.NewCustomPaddedVBoxLayout(12), rows...)
+}
+
+// loadPortfolioGainViews only transports application read-model values to the
+// UI. It intentionally performs no arithmetic or quote selection here.
+func loadPortfolioGainViews(c *Controller, portfolio domain.PortfolioValuation) (map[domain.HoldingID]domain.HoldingGainView, error) {
+	gains := make(map[domain.HoldingID]domain.HoldingGainView)
+	for _, account := range portfolio.Accounts {
+		accountGain, err := c.service.AccountGain(context.Background(), account.Account.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, holding := range accountGain.Holdings {
+			gains[holding.HoldingID] = holding
+		}
+	}
+	return gains, nil
 }
 
 func investmentsStatusCard(c *Controller, portfolio domain.PortfolioValuation) fyne.CanvasObject {
@@ -86,11 +106,17 @@ func investmentsStatusCard(c *Controller, portfolio domain.PortfolioValuation) f
 	return sectionCard(t.T("portfolio.completeness"), t.T("portfolio.completenessDescription"), container.NewVBox(rows...))
 }
 
-func investmentPositionsCard(c *Controller, portfolio domain.PortfolioValuation) fyne.CanvasObject {
+func investmentPositionsCard(c *Controller, portfolio domain.PortfolioValuation, gains map[domain.HoldingID]domain.HoldingGainView) fyne.CanvasObject {
 	t := c.translator
 	rows := make([]fyne.CanvasObject, 0)
 	for _, account := range portfolio.Accounts {
 		for _, component := range account.Components {
+			if component.HoldingID != nil {
+				if gain, ok := gains[*component.HoldingID]; ok {
+					rows = append(rows, investmentHoldingGainRow(c, gain))
+					continue
+				}
+			}
 			label := t.T("portfolio.cash")
 			if component.InstrumentID != nil {
 				label = instrumentIdentityLabel(c, component.InstrumentName, component.InstrumentSymbol)
@@ -102,6 +128,35 @@ func investmentPositionsCard(c *Controller, portfolio domain.PortfolioValuation)
 		rows = append(rows, emptyPanel(t.T("portfolio.noPositions"), t.T("portfolio.noPositionsDescription")))
 	}
 	return sectionCard(t.T("portfolio.positions"), t.T("portfolio.positionsDescription"), container.NewVBox(rows...))
+}
+
+func investmentHoldingGainRow(c *Controller, gain domain.HoldingGainView) fyne.CanvasObject {
+	t := c.translator
+	average := format.Money(gain.AverageCost.Amount, gain.AverageCost.Currency.String(), c.preference)
+	total := format.Money(gain.TotalCost.Amount, gain.TotalCost.Currency.String(), c.preference)
+	unrealized := t.T("portfolio.unavailable")
+	if gain.UnrealizedGain != nil {
+		unrealized = format.Money(gain.UnrealizedGain.Amount, gain.UnrealizedGain.Currency.String(), c.preference)
+		if gain.UnrealizedGainBase != nil {
+			unrealized += " → " + format.Money(gain.UnrealizedGainBase.Amount, gain.UnrealizedGainBase.Currency.String(), c.preference)
+		}
+	}
+	if gain.CurrentValue == nil || !gain.Available && gain.UnrealizedGain == nil {
+		unrealized = t.T("portfolio.unavailable")
+	}
+	headers := container.NewGridWithColumns(4,
+		widget.NewLabelWithStyle(t.T("portfolio.position"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(t.T("portfolio.averageCost"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(t.T("portfolio.totalCost"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		widget.NewLabelWithStyle(t.T("portfolio.unrealizedGain"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	)
+	row := container.NewGridWithColumns(4,
+		container.NewVBox(widget.NewLabelWithStyle(instrumentIdentityLabel(c, gain.InstrumentName, gain.InstrumentSymbol), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), mutedLabel(fmt.Sprintf("%s · %s", t.T("portfolio.quantity"), gain.Quantity))),
+		widget.NewLabel(average),
+		widget.NewLabel(total),
+		widget.NewLabel(unrealized),
+	)
+	return sectionCard(instrumentIdentityLabel(c, gain.InstrumentName, gain.InstrumentSymbol), t.T("portfolio.gainTableDescription"), container.NewVBox(headers, row))
 }
 
 func investmentAccountsCard(c *Controller, portfolio domain.PortfolioValuation) fyne.CanvasObject {

@@ -378,11 +378,11 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 	formBox := container.NewVBox(widget.NewLabelWithStyle(t.T("history.recordTitle"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), form, container.NewHBox(previewButton, saveButton), feedback)
 	if !started {
 		startButton := widget.NewButton(t.T("history.start"), func() {
-			if _, startHistoryErr := c.service.StartHistory(ctx, c.preference.Timezone); startHistoryErr != nil {
-				feedback.SetText(t.TranslateError(startHistoryErr))
-				return
-			}
-			c.RefreshContent()
+			showStartingPointDialog(c, func() { c.RefreshContent() }, func(err error) {
+				if err != nil {
+					feedback.SetText(t.TranslateError(err))
+				}
+			})
 		})
 		formBox.Objects = append([]fyne.CanvasObject{widget.NewLabel(t.T("history.startDescription")), startButton}, formBox.Objects...)
 		form.Refresh()
@@ -478,6 +478,46 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		}
 	}
 	return surface(container.NewVBox(formBox, widget.NewSeparator(), container.NewVBox(rows...)), fyne.NewSize(680, 640))
+}
+
+func showStartingPointDialog(c *Controller, success func(), failure func(error)) {
+	ctx := context.Background()
+	draft, err := c.service.StartingPointDraft(ctx)
+	if err != nil {
+		failure(err)
+		return
+	}
+	if len(draft) == 0 {
+		runBackend(c, func() error {
+			_, startErr := c.service.StartHistory(ctx, c.preference.Timezone)
+			return startErr
+		}, func(startErr error) {
+			if startErr != nil {
+				failure(startErr)
+				return
+			}
+			success()
+		})
+		return
+	}
+	entries := make(map[domain.HoldingID]*widget.Entry, len(draft))
+	items := make([]*widget.FormItem, 0, len(draft)+1)
+	items = append(items, widget.NewFormItem(c.translator.T("history.startCostDescription"), widget.NewLabel(c.translator.T("history.startCostHelp"))))
+	for _, item := range draft {
+		entry := widget.NewEntry()
+		entry.SetText(item.UnitCost)
+		entry.SetPlaceHolder("0.00")
+		entries[item.HoldingID] = entry
+		items = append(items, widget.NewFormItem(fmt.Sprintf("%s · %s", item.InstrumentName, item.Currency), entry))
+	}
+	showResponsiveBackendForm(c, c.translator.T("history.startCostTitle"), c.translator.T("common.save"), c.translator.T("common.cancel"), items, fyne.NewSize(620, 480), fyne.NewSize(480, 280), func() error {
+		costs := make(map[domain.HoldingID]string, len(entries))
+		for holdingID, entry := range entries {
+			costs[holdingID] = strings.TrimSpace(entry.Text)
+		}
+		_, startErr := c.service.StartHistoryWithCosts(ctx, c.preference.Timezone, costs)
+		return startErr
+	}, success)
 }
 
 func historyTimelineKinds(filter string) []domain.ActivityKind {

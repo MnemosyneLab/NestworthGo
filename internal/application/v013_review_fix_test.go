@@ -133,7 +133,8 @@ func TestV013PostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	repository := sqlite.NewRepository(database)
+	service := NewService(repository)
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
@@ -157,6 +158,9 @@ func TestV013PostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-01", false); err != nil {
+		t.Fatal(err)
+	}
 	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: holdingsAccount.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"})
 	if err != nil || holding.Quantity.Canonical() != "3" {
 		t.Fatalf("post-history holding = %+v, err=%v", holding, err)
@@ -167,6 +171,20 @@ func TestV013PostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
 	}
 	if activities != 2 {
 		t.Fatalf("reconciliation activities = %d, want 2", activities)
+	}
+	var adjustmentCost string
+	if err := database.SQL.QueryRow("SELECT COALESCE(cost_unit_price, '') FROM activity_effects WHERE holding_id = ? AND cost_unit_price IS NOT NULL", holding.ID.String()).Scan(&adjustmentCost); err != nil {
+		t.Fatal(err)
+	}
+	if adjustmentCost != "10" {
+		t.Fatalf("persisted reconciliation unit cost = %q, want 10", adjustmentCost)
+	}
+	events, err := repository.ListCostBasisEvents(ctx, holding.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(events) != 1 || events[0].Kind != domain.CostBasisAdjustmentIn || events[0].UnitCost == nil || events[0].UnitCost.Canonical() != "10" {
+		t.Fatalf("reconciliation cost-basis events = %+v", events)
 	}
 }
 
@@ -241,6 +259,9 @@ func TestV013ArchivedChangeTargetsAreRejectedAtPreviewAndCommit(t *testing.T) {
 	}
 	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Fund", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-01", false); err != nil {
 		t.Fatal(err)
 	}
 	from, err := service.CreateHolding(ctx, HoldingInput{AccountID: broker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "0"})

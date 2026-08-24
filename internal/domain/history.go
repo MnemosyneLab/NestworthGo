@@ -50,6 +50,7 @@ type HistoryOriginComponent struct {
 	InstrumentID *InstrumentID
 	Amount       *Money
 	Quantity     *Quantity
+	UnitCost     *UnitPrice
 	CreatedAt    time.Time
 }
 
@@ -59,12 +60,18 @@ func (c HistoryOriginComponent) Validate() error {
 	}
 	switch c.Kind {
 	case HistoryOriginAccountValue, HistoryOriginAccountCash:
-		if c.AccountID == nil || c.Amount == nil || c.HoldingID != nil || c.InstrumentID != nil || c.Quantity != nil {
+		if c.AccountID == nil || c.Amount == nil || c.HoldingID != nil || c.InstrumentID != nil || c.Quantity != nil || c.UnitCost != nil {
 			return &Error{Code: ErrValidation, Field: "component", Message: "Account component requires Account and Money"}
 		}
 	case HistoryOriginHoldingQuantity:
 		if c.AccountID == nil || c.HoldingID == nil || c.InstrumentID == nil || c.Quantity == nil || c.Amount != nil {
 			return &Error{Code: ErrValidation, Field: "component", Message: "Holding component requires Account, Holding, Instrument, and Quantity"}
+		}
+		if c.Quantity.IsZero() {
+			return nil
+		}
+		if c.UnitCost == nil {
+			return &Error{Code: ErrCostBasisRequired, Field: "unitCost", Message: "a per-unit cost is required when a Holding starts with a positive quantity"}
 		}
 	default:
 		return &Error{Code: ErrValidation, Field: "componentKind", Message: "component kind is not supported"}

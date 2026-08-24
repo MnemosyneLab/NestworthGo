@@ -78,6 +78,28 @@ func (s *Service) ListInstruments(ctx context.Context, includeArchived bool) ([]
 	return s.repository.ListInstruments(ctx, bootstrap.Household.ID, includeArchived)
 }
 
+// CurrentInstrumentQuote returns the quote selected by the Instrument's
+// current source preference. It is used to prefill local capture forms; the
+// mutation boundary parses and validates the submitted value again.
+func (s *Service) CurrentInstrumentQuote(ctx context.Context, id domain.InstrumentID) (*domain.InstrumentQuote, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if bootstrap.Household == nil {
+		return nil, onboardingRequired()
+	}
+	instrument, err := s.repository.Instrument(ctx, bootstrap.Household.ID, id)
+	if err != nil {
+		return nil, safePortfolioError(err)
+	}
+	quotes, err := s.repository.ListInstrumentQuotes(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return selectInstrumentQuote(instrument, quotes), nil
+}
+
 func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, input InstrumentInput) (domain.Instrument, error) {
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {
@@ -183,6 +205,7 @@ type HoldingInput struct {
 	AccountID    string
 	InstrumentID string
 	Quantity     string
+	UnitCost     string
 	Note         *string
 	SortOrder    int
 }
@@ -247,8 +270,20 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 		}
 		created := holding
 		created.Quantity = zero
-		state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: map[domain.HoldingID]domain.ChangeHoldingState{holding.ID: {ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero}}}
-		preview, previewErr := domain.PreviewChange(state, domain.PositionAdjustmentInput{HouseholdID: origin.HouseholdID, HoldingID: holding.ID, Quantity: quantity, Added: true, EffectiveAt: s.clock()})
+		var unitCost *domain.UnitPrice
+		if quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes); quote != nil {
+			cost := quote.UnitPrice
+			unitCost = &cost
+		}
+		if strings.TrimSpace(input.UnitCost) != "" {
+			cost, costErr := domain.ParseUnitPrice(input.UnitCost)
+			if costErr != nil {
+				return domain.Holding{}, costErr
+			}
+			unitCost = &cost
+		}
+		state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: map[domain.HoldingID]domain.ChangeHoldingState{holding.ID: {ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}}}
+		preview, previewErr := domain.PreviewChange(state, domain.PositionAdjustmentInput{HouseholdID: origin.HouseholdID, HoldingID: holding.ID, Quantity: quantity, Added: true, UnitCost: unitCost, EffectiveAt: s.clock()})
 		if previewErr != nil {
 			return domain.Holding{}, previewErr
 		}

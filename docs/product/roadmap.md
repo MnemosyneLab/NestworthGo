@@ -85,19 +85,35 @@ See the active [release contract](../releases/v0.1.3.md),
 [technical design](../releases/v0.1.3-technical-design.md), and
 [implementation plan](../releases/v0.1.3-implementation-plan.md).
 
-### v0.1.4 — Analytics and Performance
+### v0.1.4 — Cost Basis and Gain
 
-**Theme:** Know why wealth changed.
+**Theme:** Know what a position cost and what it is worth now.
 
-**Status:** Direction only; Go/Fyne design not started.
+**Status:** Phases 0–9 implemented; public-release closeout pending.
 
-Intended outcome: derive cost basis, gain, income/fees, currency effects,
-time-weighted return, money-weighted return, and attribution from trustworthy
-Activity/history evidence. Unavailable inputs remain unavailable rather than
-becoming estimates.
+Intended outcome: an average cost basis for investment Holdings, plus
+realized/unrealized gain and a two-way currency decomposition (Instrument
+movement vs. currency movement), derived entirely from the trustworthy
+Activity and Starting Point evidence v0.1.3 already records. Unavailable
+inputs remain unavailable rather than becoming estimates.
 
-Detailed design is intentionally deferred until the Go v0.1.3 change and
-history contracts are implemented and verified.
+This narrows the release originally sketched as "Analytics and Performance."
+Time-weighted return, money-weighted return, benchmarks, a full net-worth
+attribution bridge, and any per-lot (FIFO) accounting are explicitly deferred
+past v0.1.4; only average cost and the gain it enables are in scope. Because
+no public release exists yet, v0.1.4 does not need an unknown-basis
+declaration workflow: every Holding is required to resolve a cost at the
+moment it first enters recorded history.
+
+See the [release contract](../releases/v0.1.4.md),
+[compatibility baseline](../releases/v0.1.4-baseline.md),
+[technical design](../releases/v0.1.4-technical-design.md), and
+[implementation plan](../releases/v0.1.4-implementation-plan.md).
+
+The arm64 `.app` and UDZO DMG packaging smoke passed. Keyboard/VoiceOver
+manual review, signing, notarization, artifact retention, and a revisit of the
+schema `5 -> 6` development-fixture backfill policy remain public-release
+gates.
 
 ### v0.1.5 — Sustainable Long-Term Use
 
