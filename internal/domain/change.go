@@ -331,12 +331,10 @@ type EndpointView struct {
 
 type ChangePreview struct {
 	Activity         Activity
-	Sentence         string
 	Effects          []ActivityEffect
 	Resulting        []EndpointView
 	DerivedRate      *FxRate
 	DerivedUnitPrice *UnitPrice
-	NoChange         bool
 }
 
 // ActivityCommit is the unit used by the repository's atomic write path. A
@@ -484,33 +482,6 @@ func PreviewChange(state ChangeState, command any) (ChangePreview, error) {
 	}
 }
 
-// The named builders make the command boundary explicit for application
-// callers and tests while keeping one implementation path for PreviewChange.
-func BuildMoneyAdded(state ChangeState, input MoneyAddedInput) (ChangePreview, error) {
-	return PreviewChange(state, input)
-}
-func BuildMoneyRemoved(state ChangeState, input MoneyRemovedInput) (ChangePreview, error) {
-	return PreviewChange(state, input)
-}
-func BuildCashTransfer(state ChangeState, input CashTransferInput) (ChangePreview, error) {
-	return PreviewChange(state, input)
-}
-func BuildPositionTransfer(state ChangeState, input PositionTransferInput) (ChangePreview, error) {
-	return PreviewChange(state, input)
-}
-func BuildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
-	return PreviewChange(state, input)
-}
-func BuildValueUpdate(state ChangeState, input ValueUpdateInput) (ChangePreview, error) {
-	return PreviewChange(state, input)
-}
-func BuildDebtDraw(state ChangeState, input DebtDrawInput) (ChangePreview, error) {
-	return PreviewChange(state, input)
-}
-func BuildDebtPayment(state ChangeState, input DebtPaymentInput) (ChangePreview, error) {
-	return PreviewChange(state, input)
-}
-
 // ApplyEffects applies already validated effects to an in-memory state and
 // returns the resulting endpoint views. It is shared by undo/fix so those
 // paths use the same exact decimal and negative-state rules as normal change
@@ -637,7 +608,7 @@ func InverseChange(state ChangeState, original Activity, effects []ActivityEffec
 		return ChangePreview{}, err
 	}
 	activity.Effects = inverse
-	return ChangePreview{Activity: activity, Sentence: "undid a recorded change", Effects: inverse, Resulting: resulting}, nil
+	return ChangePreview{Activity: activity, Effects: inverse, Resulting: resulting}, nil
 }
 
 func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, error) {
@@ -690,7 +661,7 @@ func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, 
 		return ChangePreview{}, err
 	}
 	activity.Effects = []ActivityEffect{effect}
-	return ChangePreview{Activity: activity, Sentence: moneySentence(added, amount, account.Name), Effects: activity.Effects, Resulting: []EndpointView{result}}, nil
+	return ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{result}}, nil
 }
 
 func activityKind(added bool) ActivityKind {
@@ -752,14 +723,23 @@ func (state ChangeState) newActivity(household HouseholdID, kind ActivityKind, r
 		return Activity{}, changeError(ErrInvalidChange, "householdId", "Household does not match")
 	}
 	now := state.Now
+	// Every production constructor sets Now explicitly (Service.now defaults to
+	// time.Now), so a zero clock is a programming error rather than a case for
+	// an implicit fallback.
 	if now.IsZero() {
-		now = time.Now().UTC()
+		return Activity{}, changeError(ErrInvalidChange, "now", "change state requires an explicit current time")
 	}
 	if effectiveAt.IsZero() {
 		effectiveAt = now
 	}
-	zone, err := time.LoadLocation(strings.TrimSpace(state.Timezone))
-	if err != nil || state.Timezone == "" {
+	timezone := strings.TrimSpace(state.Timezone)
+	// Whitespace-only and empty timezones are treated identically so UI input
+	// cannot slip past the requirement by containing spaces.
+	if timezone == "" {
+		return Activity{}, &Error{Code: ErrHistoryTimezoneRequired, Field: "timezone", Message: "confirm a Household timezone before recording a change"}
+	}
+	zone, err := time.LoadLocation(timezone)
+	if err != nil {
 		return Activity{}, &Error{Code: ErrHistoryTimezoneRequired, Field: "timezone", Message: "confirm a Household timezone before recording a change"}
 	}
 	effectiveAt = normalizeTime(effectiveAt)
@@ -825,14 +805,6 @@ func holdingEffect(activityID ActivityID, sequence int, role EffectRole, directi
 	return ActivityEffect{ID: NewActivityEffectID(), ActivityID: activityID, Sequence: sequence, Role: role, Direction: direction, Target: EffectTargetHoldingQuantity, Classification: classification, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity}
 }
 
-func moneySentence(added bool, amount Money, name string) string {
-	verb := "removed from"
-	if added {
-		verb = "added to"
-	}
-	return fmt.Sprintf("%s %s %s %s", amount.CanonicalAmount(), amount.Currency(), verb, name)
-}
-
 func (state ChangeState) cash(accountID AccountID, amount Money, direction EffectDirection) (EndpointView, error) {
 	account, ok := state.Accounts[accountID]
 	if !ok {
@@ -896,7 +868,7 @@ func buildCashTransfer(state ChangeState, input CashTransferInput) (ChangePrevie
 	effects := []ActivityEffect{accountEffect(activity.ID, 1, EffectRoleTransferFrom, EffectRemoved, accountTarget(from), ClassificationInternalTransfer, from.ID, input.Sent, nil), accountEffect(activity.ID, 2, EffectRoleTransferTo, EffectAdded, accountTarget(to), ClassificationInternalTransfer, to.ID, input.Received, nil)}
 	activity.TransactionFXRate = &rate
 	activity.Effects = effects
-	return ChangePreview{Activity: activity, Sentence: fmt.Sprintf("moved %s from %s to %s", input.Sent.CanonicalAmount()+" "+input.Sent.Currency().String(), from.Name, to.Name), Effects: effects, Resulting: []EndpointView{fromView, toView}, DerivedRate: &rate}, nil
+	return ChangePreview{Activity: activity, Effects: effects, Resulting: []EndpointView{fromView, toView}, DerivedRate: &rate}, nil
 }
 
 func buildPositionTransfer(state ChangeState, input PositionTransferInput) (ChangePreview, error) {
@@ -926,7 +898,7 @@ func buildPositionTransfer(state ChangeState, input PositionTransferInput) (Chan
 	effects := []ActivityEffect{holdingEffect(activity.ID, 1, EffectRoleTransferFrom, EffectRemoved, ClassificationInternalTransfer, from, input.Quantity), holdingEffect(activity.ID, 2, EffectRoleTransferTo, EffectAdded, ClassificationInternalTransfer, to, input.Quantity)}
 	activity.Effects = effects
 	fromID, toID := from.ID, to.ID
-	return ChangePreview{Activity: activity, Sentence: fmt.Sprintf("moved %s units from %s to %s", input.Quantity.Canonical(), from.InstrumentName, to.InstrumentName), Effects: effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &fromID, Name: from.InstrumentName, Quantity: fromQty.Canonical()}, {Target: EffectTargetHoldingQuantity, HoldingID: &toID, Name: to.InstrumentName, Quantity: toQty.Canonical()}}}, nil
+	return ChangePreview{Activity: activity, Effects: effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &fromID, Name: from.InstrumentName, Quantity: fromQty.Canonical()}, {Target: EffectTargetHoldingQuantity, HoldingID: &toID, Name: to.InstrumentName, Quantity: toQty.Canonical()}}}, nil
 }
 
 func buildPositionAdjustment(state ChangeState, input PositionAdjustmentInput) (ChangePreview, error) {
@@ -959,7 +931,7 @@ func buildPositionAdjustment(state ChangeState, input PositionAdjustmentInput) (
 	effect := holdingEffect(activity.ID, 1, EffectRoleQuantity, direction, ClassificationRemeasurement, holding, input.Quantity)
 	activity.Effects = []ActivityEffect{effect}
 	holdingID := holding.ID
-	return ChangePreview{Activity: activity, Sentence: fmt.Sprintf("reconciled %s units of %s", input.Quantity.Canonical(), holding.InstrumentName), Effects: activity.Effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: quantity.Canonical()}}}, nil
+	return ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{{Target: EffectTargetHoldingQuantity, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: quantity.Canonical()}}}, nil
 }
 
 func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
@@ -1007,13 +979,6 @@ func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
 			return ChangePreview{}, &Error{Code: ErrInsufficientQuantity, Field: "quantity", Message: "Holding does not have enough quantity"}
 		}
 	}
-	if input.Side == TradeBuy {
-		cash, cashErr := state.cash(account.ID, input.Gross, EffectRemoved)
-		if cashErr != nil {
-			return ChangePreview{}, cashErr
-		}
-		_ = cash
-	}
 	quantity := input.Quantity
 	currentQuantity := holding.Current.Decimal()
 	if quantityDirection == EffectAdded {
@@ -1044,11 +1009,7 @@ func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
 	tradeDetail := &TradeDetail{Side: input.Side, InstrumentID: input.InstrumentID, HoldingID: input.HoldingID, Quantity: input.Quantity, Gross: input.Gross, UnitPrice: unitPrice, Fee: input.Fee}
 	activity.TradeDetail = tradeDetail
 	activity.Effects = effects
-	side := "bought"
-	if input.Side == TradeSell {
-		side = "sold"
-	}
-	return ChangePreview{Activity: activity, Sentence: fmt.Sprintf("%s %s units of %s at %s %s", side, input.Quantity.Canonical(), holding.InstrumentName, unitPrice.Canonical(), input.Gross.Currency()), Effects: effects, Resulting: views, DerivedUnitPrice: &unitPrice}, nil
+	return ChangePreview{Activity: activity, Effects: effects, Resulting: views, DerivedUnitPrice: &unitPrice}, nil
 }
 
 func (state ChangeState) cashAfter(accountID AccountID, amount Money, direction EffectDirection, first Money, firstDirection EffectDirection) (EndpointView, error) {
@@ -1096,7 +1057,7 @@ func buildValueUpdate(state ChangeState, input ValueUpdateInput) (ChangePreview,
 	}
 	delta := input.NewValue.Amount().Sub(account.Current.Amount())
 	if delta.IsZero() {
-		return ChangePreview{NoChange: true, Sentence: "No change was recorded"}, &Error{Code: ErrNoChange, Message: "the new value is unchanged"}
+		return ChangePreview{}, &Error{Code: ErrNoChange, Message: "the new value is unchanged"}
 	}
 	amount, err := NewMoney(delta.Abs(), account.Currency)
 	if err != nil {
@@ -1112,7 +1073,7 @@ func buildValueUpdate(state ChangeState, input ValueUpdateInput) (ChangePreview,
 		return ChangePreview{}, err
 	}
 	activity.Effects = []ActivityEffect{effect}
-	return ChangePreview{Activity: activity, Sentence: fmt.Sprintf("updated %s to %s %s", account.Name, input.NewValue.CanonicalAmount(), input.NewValue.Currency()), Effects: activity.Effects, Resulting: []EndpointView{result}}, nil
+	return ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{result}}, nil
 }
 
 func buildDebtDraw(state ChangeState, input DebtDrawInput) (ChangePreview, error) {
@@ -1134,7 +1095,7 @@ func buildDebtDraw(state ChangeState, input DebtDrawInput) (ChangePreview, error
 	}
 	effects := []ActivityEffect{accountEffect(activity.ID, 1, EffectRoleDebt, EffectAdded, EffectTargetAccountValue, ClassificationDebtPrincipal, debt.ID, input.Principal, nil), accountEffect(activity.ID, 2, EffectRolePrincipal, EffectAdded, accountTarget(cash), ClassificationDebtPrincipal, cash.ID, input.Principal, nil)}
 	activity.Effects = effects
-	return ChangePreview{Activity: activity, Sentence: fmt.Sprintf("borrowed %s %s", input.Principal.CanonicalAmount(), input.Principal.Currency()), Effects: effects, Resulting: []EndpointView{debtView, cashView}}, nil
+	return ChangePreview{Activity: activity, Effects: effects, Resulting: []EndpointView{debtView, cashView}}, nil
 }
 
 func buildDebtPayment(state ChangeState, input DebtPaymentInput) (ChangePreview, error) {
@@ -1172,7 +1133,7 @@ func buildDebtPayment(state ChangeState, input DebtPaymentInput) (ChangePreview,
 		effects = append(effects, accountEffect(activity.ID, 3, EffectRoleFee, EffectRemoved, accountTarget(cash), ClassificationFee, cash.ID, *input.InterestOrFee, nil))
 	}
 	activity.Effects = effects
-	return ChangePreview{Activity: activity, Sentence: fmt.Sprintf("repaid %s %s", input.Principal.CanonicalAmount(), input.Principal.Currency()), Effects: effects, Resulting: []EndpointView{debtView, cashView}}, nil
+	return ChangePreview{Activity: activity, Effects: effects, Resulting: []EndpointView{debtView, cashView}}, nil
 }
 
 // validateDebtEndpoints is shared by draw and payment so both directions use
@@ -1235,10 +1196,11 @@ func changeError(code ErrorCode, field, message string) error {
 // UTC. It refuses both DST gaps and repeated wall times instead of silently
 // choosing Go's normalization.
 func ResolveLocalDateTime(date, clock, timezone string) (time.Time, error) {
-	if strings.TrimSpace(timezone) == "" {
+	timezoneName := strings.TrimSpace(timezone)
+	if timezoneName == "" {
 		return time.Time{}, &Error{Code: ErrHistoryTimezoneRequired, Field: "timezone", Message: "confirm a Household timezone before recording a change"}
 	}
-	location, err := time.LoadLocation(timezone)
+	location, err := time.LoadLocation(timezoneName)
 	if err != nil {
 		return time.Time{}, changeError(ErrInvalidChangeTime, "timezone", "timezone must be a valid IANA timezone")
 	}
@@ -1252,7 +1214,7 @@ func ResolveLocalDateTime(date, clock, timezone string) (time.Time, error) {
 	}
 	wall := time.Date(parsedDate.Year(), parsedDate.Month(), parsedDate.Day(), parsedClock.Hour(), parsedClock.Minute(), 0, 0, location)
 	wallParts := func(value time.Time) string { return value.In(location).Format("2006-01-02 15:04") }
-	wallText := date + " " + clock
+	wallText := strings.TrimSpace(date) + " " + strings.TrimSpace(clock)
 	offsets := map[int]struct{}{}
 	for delta := -36 * time.Hour; delta <= 36*time.Hour; delta += 15 * time.Minute {
 		candidate := wall.Add(delta)

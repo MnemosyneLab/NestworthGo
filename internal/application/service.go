@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -64,6 +65,7 @@ type Repository interface {
 	UpdateHolding(context.Context, domain.Holding) error
 	Holding(context.Context, domain.HoldingID) (domain.Holding, error)
 	ListHoldings(context.Context, domain.AccountID, bool) ([]domain.Holding, error)
+	ListHoldingsByAccounts(context.Context, []domain.AccountID) ([]domain.Holding, error)
 	SetHoldingArchive(context.Context, domain.HouseholdID, domain.HoldingID, bool, time.Time) error
 	AppendAccountCashValue(context.Context, domain.AccountCashValue) error
 	ListAccountCashValues(context.Context, domain.AccountID) ([]domain.AccountCashValue, error)
@@ -100,20 +102,24 @@ type Repository interface {
 	AppendAccountStateObservation(context.Context, domain.AccountStateObservation) error
 	AppendInstrumentPreferenceObservation(context.Context, domain.InstrumentPreferenceObservation) error
 	AppendFXPreferenceObservation(context.Context, domain.FXPreferenceObservation) error
-	SaveDailyValuationSnapshot(context.Context, domain.DailyValuationSnapshot) (bool, error)
 	MarkDailySnapshotCompleted(context.Context, domain.HouseholdID, string, time.Time) error
+	SaveDailyValuationSnapshotAndMarkCompleted(context.Context, domain.DailyValuationSnapshot, time.Time) (bool, error)
 	CompleteDailySnapshotRange(context.Context, domain.HouseholdID, string, time.Time) error
 	DailySnapshotState(context.Context, domain.HouseholdID) (domain.DailySnapshotState, error)
 	ListDailyValuationSnapshots(context.Context, domain.HouseholdID, time.Time) ([]domain.DailyValuationSnapshot, error)
 }
 
 type Service struct {
-	repository    Repository
+	repository Repository
+
+	// stateMu guards the mutable service configuration below so a refresh
+	// worker reading it never races a concurrent setter.
+	stateMu       sync.RWMutex
 	now           func() time.Time
 	marketData    MarketDataRegistryPort
-	fxProviderMu  sync.RWMutex
 	fxProviderKey string
-	changeMu      sync.Mutex
+
+	changeMu sync.Mutex
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
@@ -124,9 +130,17 @@ func NewService(repository Repository, registries ...MarketDataRegistryPort) *Se
 	return service
 }
 
-func (s *Service) MarketDataRegistry() MarketDataRegistryPort { return s.marketData }
+func (s *Service) MarketDataRegistry() MarketDataRegistryPort {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+	return s.marketData
+}
 
-func (s *Service) SetMarketDataRegistry(registry MarketDataRegistryPort) { s.marketData = registry }
+func (s *Service) SetMarketDataRegistry(registry MarketDataRegistryPort) {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	s.marketData = registry
+}
 
 // SetFXProvider selects the registered provider used by explicit FX refresh.
 // Instrument refresh continues to use each Instrument's own binding.
@@ -135,40 +149,54 @@ func (s *Service) SetFXProvider(key string) error {
 	if key == "" {
 		key = YahooFinanceProviderKey
 	}
-	if s.marketData == nil {
+	registry := s.MarketDataRegistry()
+	if registry == nil {
 		return &domain.Error{Code: domain.ErrUnavailable, Field: "fxProvider", Message: "provider is not configured"}
 	}
-	provider, err := s.marketData.Resolve(key)
+	provider, err := registry.Resolve(key)
 	if err != nil {
 		return err
 	}
 	if !provider.Capabilities().LatestFX {
 		return &domain.Error{Code: domain.ErrUnavailable, Field: "fxProvider", Message: "provider does not support FX refresh"}
 	}
-	s.fxProviderMu.Lock()
+	s.stateMu.Lock()
 	s.fxProviderKey = key
-	s.fxProviderMu.Unlock()
+	s.stateMu.Unlock()
 	return nil
 }
 
 // FXProviderKey returns the explicit selection, or the registry default for
 // deterministic test registries that have not configured one.
 func (s *Service) FXProviderKey() string {
-	s.fxProviderMu.RLock()
+	s.stateMu.RLock()
 	key := s.fxProviderKey
-	s.fxProviderMu.RUnlock()
+	registry := s.marketData
+	s.stateMu.RUnlock()
 	if key != "" {
 		return key
 	}
-	if s.marketData != nil {
-		if provider, err := s.marketData.Default(); err == nil {
+	if registry != nil {
+		if provider, err := registry.Default(); err == nil {
 			return strings.ToLower(strings.TrimSpace(provider.Key()))
 		}
 	}
 	return ""
 }
 
-func (s *Service) setClock(now func() time.Time) { s.now = now }
+func (s *Service) setClock(now func() time.Time) {
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	s.now = now
+}
+
+// clock reads the configured clock through stateMu. It doubles as the
+// injectable clock value for services that take a func() time.Time.
+func (s *Service) clock() time.Time {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+	return s.now()
+}
 
 type Bootstrap struct {
 	Household    *domain.Household
@@ -227,7 +255,7 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 	if err != nil {
 		return err
 	}
-	household, err := domain.NewHousehold(input.HouseholdName, currency, s.now())
+	household, err := domain.NewHousehold(input.HouseholdName, currency, s.clock())
 	if err != nil {
 		return err
 	}
@@ -236,7 +264,7 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 	}
 	members := make([]domain.Member, 0, len(input.MemberNames))
 	for index, name := range input.MemberNames {
-		member, err := domain.NewMember(household.ID, name, s.now())
+		member, err := domain.NewMember(household.ID, name, s.clock())
 		if err != nil {
 			return err
 		}
@@ -246,7 +274,7 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 	if strings.TrimSpace(input.Timezone) == "" {
 		return s.repository.CreateOnboarding(ctx, household, members)
 	}
-	origin, err := domain.NewHistoryOrigin(household.ID, input.Timezone, s.now(), s.now())
+	origin, err := domain.NewHistoryOrigin(household.ID, input.Timezone, s.clock(), s.clock())
 	if err != nil {
 		return err
 	}
@@ -261,7 +289,7 @@ func (s *Service) CreateMember(ctx context.Context, name string) (domain.Member,
 	if bootstrap.Household == nil {
 		return domain.Member{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	member, err := domain.NewMember(bootstrap.Household.ID, name, s.now())
+	member, err := domain.NewMember(bootstrap.Household.ID, name, s.clock())
 	if err != nil {
 		return domain.Member{}, err
 	}
@@ -279,7 +307,7 @@ func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name str
 		if current.ID != id {
 			continue
 		}
-		updated, err := domain.NewMember(current.HouseholdID, name, s.now())
+		updated, err := domain.NewMember(current.HouseholdID, name, s.clock())
 		if err != nil {
 			return domain.Member{}, err
 		}
@@ -300,7 +328,7 @@ func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archive
 		}
 		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	return s.repository.SetMemberArchive(ctx, bootstrap.Household.ID, id, archived, s.now())
+	return s.repository.SetMemberArchive(ctx, bootstrap.Household.ID, id, archived, s.clock())
 }
 
 func (s *Service) CreateInstitution(ctx context.Context, name string, iconKeys ...string) (domain.Institution, error) {
@@ -311,7 +339,7 @@ func (s *Service) CreateInstitution(ctx context.Context, name string, iconKeys .
 	if bootstrap.Household == nil {
 		return domain.Institution{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	institution, err := domain.NewInstitution(bootstrap.Household.ID, name, s.now())
+	institution, err := domain.NewInstitution(bootstrap.Household.ID, name, s.clock())
 	if err != nil {
 		return domain.Institution{}, err
 	}
@@ -336,7 +364,7 @@ func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID
 		if current.ID != id {
 			continue
 		}
-		updated, err := domain.NewInstitution(current.HouseholdID, name, s.now())
+		updated, err := domain.NewInstitution(current.HouseholdID, name, s.clock())
 		if err != nil {
 			return domain.Institution{}, err
 		}
@@ -357,7 +385,7 @@ func (s *Service) ArchiveInstitution(ctx context.Context, id domain.InstitutionI
 		}
 		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	return s.repository.SetInstitutionArchive(ctx, bootstrap.Household.ID, id, archived, s.now())
+	return s.repository.SetInstitutionArchive(ctx, bootstrap.Household.ID, id, archived, s.clock())
 }
 
 func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...string) (domain.Group, error) {
@@ -368,7 +396,7 @@ func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...stri
 	if bootstrap.Household == nil {
 		return domain.Group{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	group, err := domain.NewGroup(bootstrap.Household.ID, name, s.now())
+	group, err := domain.NewGroup(bootstrap.Household.ID, name, s.clock())
 	if err != nil {
 		return domain.Group{}, err
 	}
@@ -393,7 +421,7 @@ func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name strin
 		if current.ID != id {
 			continue
 		}
-		updated, err := domain.NewGroup(current.HouseholdID, name, s.now())
+		updated, err := domain.NewGroup(current.HouseholdID, name, s.clock())
 		if err != nil {
 			return domain.Group{}, err
 		}
@@ -414,7 +442,7 @@ func (s *Service) ArchiveGroup(ctx context.Context, id domain.GroupID, archived 
 	if bootstrap.Household == nil {
 		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	return s.repository.SetGroupArchive(ctx, bootstrap.Household.ID, id, archived, s.now())
+	return s.repository.SetGroupArchive(ctx, bootstrap.Household.ID, id, archived, s.clock())
 }
 
 func (s *Service) CreateMediaAsset(ctx context.Context, mimeType string, data []byte) (domain.MediaAsset, error) {
@@ -432,11 +460,18 @@ func (s *Service) CreateMediaAsset(ctx context.Context, mimeType string, data []
 	if normalizeErr != nil {
 		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrValidation, Field: "data", Message: "image is invalid or exceeds the local size limit"}
 	}
-	asset := domain.MediaAsset{ID: domain.NewMediaAssetID(), HouseholdID: bootstrap.Household.ID, MimeType: "image/png", Data: normalized, CreatedAt: s.now()}
+	asset := domain.MediaAsset{ID: domain.NewMediaAssetID(), HouseholdID: bootstrap.Household.ID, MimeType: "image/png", Data: normalized, CreatedAt: s.clock()}
 	if err := s.repository.CreateMediaAsset(ctx, asset); err != nil {
 		return domain.MediaAsset{}, err
 	}
 	return asset, nil
+}
+
+// NormalizeImage reads an uploaded image and normalizes it to PNG without
+// persisting anything. The UI calls this at pick time; persistence happens
+// via CreateMediaAsset when the user confirms the surrounding form.
+func (s *Service) NormalizeImage(reader io.Reader) ([]byte, error) {
+	return media.ReadAndNormalize(reader)
 }
 
 func (s *Service) MediaAsset(ctx context.Context, id domain.MediaAssetID) (domain.MediaAsset, error) {
@@ -561,6 +596,10 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if bootstrap.Household == nil {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
+	// The Starting-point read and the history-chain commit below must be
+	// atomic against other change writers.
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	origin, err := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
 	if err != nil {
 		return domain.AccountRecord{}, err
@@ -628,13 +667,13 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if err := validateOwnershipMembers(bootstrap.Members, accountInput.Ownership); err != nil {
 		return domain.AccountRecord{}, err
 	}
-	account, ownership, initial, err := domain.NewAccount(accountInput, s.now())
+	account, ownership, initial, err := domain.NewAccount(accountInput, s.clock())
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
 	var value *domain.AccountValue
 	if initial != nil {
-		created, valueErr := domain.NewAccountValue(account, *initial, s.now(), s.now())
+		created, valueErr := domain.NewAccountValue(account, *initial, s.clock(), s.clock())
 		if valueErr != nil {
 			return domain.AccountRecord{}, valueErr
 		}
@@ -658,7 +697,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 		Ownership:             ownership.Shares(),
 	}
 	if historyInitial == nil {
-		if err := s.repository.CreateAccountWithHistory(ctx, account, ownership, value, creationObservation, nil, s.now()); err != nil {
+		if err := s.repository.CreateAccountWithHistory(ctx, account, ownership, value, creationObservation, nil, s.clock()); err != nil {
 			return domain.AccountRecord{}, err
 		}
 		return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: value}, nil
@@ -667,13 +706,13 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if zeroErr != nil {
 		return domain.AccountRecord{}, zeroErr
 	}
-	state := domain.ChangeState{HouseholdID: account.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.now(), Accounts: map[domain.AccountID]domain.ChangeAccountState{account.ID: {ID: account.ID, Name: account.Name, Currency: account.DefaultCurrency, Mode: account.TrackingMode, Liability: account.PrimaryCategory.IsLiability(), Current: zero}}, Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState)}
+	state := domain.ChangeState{HouseholdID: account.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: map[domain.AccountID]domain.ChangeAccountState{account.ID: {ID: account.ID, Name: account.Name, Currency: account.DefaultCurrency, Mode: account.TrackingMode, Liability: account.PrimaryCategory.IsLiability(), Current: zero}}, Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState)}
 	preview, previewErr := domain.PreviewChange(state, domain.MoneyAddedInput{HouseholdID: account.HouseholdID, AccountID: account.ID, Amount: *historyInitial, Reason: domain.ReasonContribution, EffectiveAt: account.CreatedAt})
 	if previewErr != nil {
 		return domain.AccountRecord{}, previewErr
 	}
 	commit := domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}
-	if err := s.repository.CreateAccountWithHistory(ctx, account, ownership, value, creationObservation, &commit, s.now()); err != nil {
+	if err := s.repository.CreateAccountWithHistory(ctx, account, ownership, value, creationObservation, &commit, s.clock()); err != nil {
 		return domain.AccountRecord{}, err
 	}
 	resultMoney, parseErr := domain.ParseMoney(preview.Resulting[0].Amount, preview.Resulting[0].Currency)
@@ -689,6 +728,8 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 
 // UpdateAccount changes metadata and ownership without rewriting AccountValue history.
 func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input AccountInput) (domain.AccountRecord, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	records, err := s.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return domain.AccountRecord{}, err
@@ -821,7 +862,7 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	account, ownership, _, err := domain.NewAccount(domain.AccountInput{HouseholdID: current.Account.HouseholdID, InstitutionID: institutionID, GroupID: groupID, Name: input.Name, PrimaryCategory: primary, SecondaryCategory: secondary, TrackingMode: mode, DefaultCurrency: currency, Note: input.Note, IconKey: iconKey, IncludeInNetWorth: input.IncludeInNetWorth, IncludeInInvestment: input.IncludeInInvestment, IncludeInLiquidAssets: input.IncludeInLiquidAssets, OpenedOn: input.OpenedOn, ClosedOn: input.ClosedOn, SortOrder: current.Account.SortOrder, Ownership: ownershipShares, InitialAmount: input.InitialAmount}, s.now())
+	account, ownership, _, err := domain.NewAccount(domain.AccountInput{HouseholdID: current.Account.HouseholdID, InstitutionID: institutionID, GroupID: groupID, Name: input.Name, PrimaryCategory: primary, SecondaryCategory: secondary, TrackingMode: mode, DefaultCurrency: currency, Note: input.Note, IconKey: iconKey, IncludeInNetWorth: input.IncludeInNetWorth, IncludeInInvestment: input.IncludeInInvestment, IncludeInLiquidAssets: input.IncludeInLiquidAssets, OpenedOn: input.OpenedOn, ClosedOn: input.ClosedOn, SortOrder: current.Account.SortOrder, Ownership: ownershipShares, InitialAmount: input.InitialAmount}, s.clock())
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
@@ -860,6 +901,8 @@ func (s *Service) ListAccounts(ctx context.Context, filter domain.AccountFilter)
 }
 
 func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.AccountID, amount, effectiveAt string) (domain.AccountValue, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	records, err := s.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return domain.AccountValue{}, err
@@ -878,7 +921,7 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 	if err != nil {
 		return domain.AccountValue{}, err
 	}
-	when := s.now()
+	when := s.clock()
 	if strings.TrimSpace(effectiveAt) != "" {
 		parsed, parseErr := time.Parse("2006-01-02", effectiveAt)
 		if parseErr != nil {
@@ -891,7 +934,7 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 		return domain.AccountValue{}, originErr
 	}
 	if origin != nil {
-		preview, commitErr := s.RecordChange(ctx, domain.ValueUpdateInput{HouseholdID: record.Account.HouseholdID, AccountID: accountID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when})
+		preview, commitErr := s.recordChangeLocked(ctx, domain.ValueUpdateInput{HouseholdID: record.Account.HouseholdID, AccountID: accountID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when})
 		if commitErr != nil {
 			return domain.AccountValue{}, commitErr
 		}
@@ -901,7 +944,7 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 		}
 		return domain.NewAccountValue(record.Account, resultMoney, preview.Activity.EffectiveAt, preview.Activity.CreatedAt)
 	}
-	value, err := domain.NewAccountValue(record.Account, money, when, s.now())
+	value, err := domain.NewAccountValue(record.Account, money, when, s.clock())
 	if err != nil {
 		return domain.AccountValue{}, err
 	}
@@ -919,6 +962,8 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 	if bootstrap.Household == nil {
 		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	records, err := s.repository.ListAccountRecords(ctx, bootstrap.Household.ID, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return err
@@ -933,7 +978,7 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 	if current == nil {
 		return &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
 	}
-	now := s.now()
+	now := s.clock()
 	if archived {
 		current.Account.ArchivedAt = &now
 	} else {
@@ -950,7 +995,7 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 }
 
 func (s *Service) AccountValuation(ctx context.Context, id domain.AccountID) (domain.AccountValuation, error) {
-	return NewValuationService(s.repository, s.now).Account(ctx, id)
+	return NewValuationService(s.repository, s.clock).Account(ctx, id)
 }
 
 func (s *Service) AccountValuations(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountValuation, error) {
@@ -958,13 +1003,13 @@ func (s *Service) AccountValuations(ctx context.Context, filter domain.AccountFi
 	if err != nil {
 		return nil, err
 	}
-	valuations, _, err := NewValuationService(s.repository, s.now).ValueAccounts(snapshot)
+	valuations, _, err := NewValuationService(s.repository, s.clock).ValueAccounts(snapshot)
 	return valuations, err
 }
 
 func (s *Service) Portfolio(ctx context.Context, filter domain.AccountFilter) (domain.PortfolioValuation, error) {
 	filter.IncludeArchived = false
-	return NewValuationService(s.repository, s.now).Portfolio(ctx, filter)
+	return NewValuationService(s.repository, s.clock).Portfolio(ctx, filter)
 }
 
 func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (domain.OverviewResult, error) {
@@ -976,7 +1021,7 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	if snapshot.Household == nil {
 		return domain.OverviewResult{}, nil
 	}
-	valuations, _, err := NewValuationService(s.repository, s.now).ValueAccounts(snapshot)
+	valuations, _, err := NewValuationService(s.repository, s.clock).ValueAccounts(snapshot)
 	if err != nil {
 		return domain.OverviewResult{}, err
 	}

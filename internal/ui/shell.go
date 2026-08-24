@@ -42,49 +42,45 @@ type Controller struct {
 	icon        fyne.Resource
 	store       *settings.Store
 
-	service               *application.Service
-	bootstrap             application.Bootstrap
-	backendError          error
-	backendPending        bool
-	retryBackend          func()
-	preference            settings.Settings
-	translator            *i18n.Translator
-	page                  Page
-	accountCategory       string
-	accountMemberID       string
-	accountInstitutionID  string
-	accountGroupID        string
-	accountOwnershipScope string
-	showArchived          bool
-	saveError             error
-	validationError       string
-	regions               map[Page]*region
-	refreshCancel         context.CancelFunc
-	refreshGeneration     uint64
-	refreshPending        bool
-	refreshProgress       string
-	refreshResult         *application.RefreshResult
-	refreshError          error
-	retryRefresh          func()
-	refreshRebuild        bool
-	refreshObserver       func(application.RefreshResult, error)
-	snapshotCancel        context.CancelFunc
-	snapshotGeneration    uint64
-	snapshotPending       bool
-	snapshotProgress      string
-	snapshotError         error
-	snapshotCompleted     int
-	trendRange            string
-	historyActivityLimit  int
-	historyAccountFilter  string
-	historyKindFilter     string
-	historyRecordKind     string
-	historyFromDate       string
-	historyToDate         string
-	historyTimeline       []domain.Activity
-	historyTimelineNext   *domain.ActivityCursor
-	historyTimelineLoaded bool
-	historyTimelineFetch  bool
+	service                 *application.Service
+	bootstrap               application.Bootstrap
+	backendError            error
+	backendPending          bool
+	retryBackend            func()
+	backendLoader           func(context.Context) (application.Bootstrap, error)
+	backendReloadObserver   func()
+	backendReloadGeneration uint64
+	backendReloadQueued     bool
+	preference              settings.Settings
+	translator              *i18n.Translator
+	page                    Page
+	accountCategory         string
+	accountMemberID         string
+	accountInstitutionID    string
+	accountGroupID          string
+	accountOwnershipScope   string
+	showArchived            bool
+	saveError               error
+	validationError         string
+	refreshTask             asyncTask[application.RefreshResult]
+	retryRefresh            func()
+	refreshRebuild          bool
+	refreshObserver         func(application.RefreshResult, error)
+	snapshotTask            asyncTask[snapshotWorkerResult]
+	snapshotRunner          snapshotService
+	snapshotObserver        func()
+	backendReloadPending    bool
+	trendRange              string
+	historyActivityLimit    int
+	historyAccountFilter    string
+	historyKindFilter       string
+	historyRecordKind       string
+	historyFromDate         string
+	historyToDate           string
+	historyTimeline         []domain.Activity
+	historyTimelineNext     *domain.ActivityCursor
+	historyTimelineLoaded   bool
+	historyTimelineFetch    bool
 }
 
 // NewController preserves the presentation-only constructor used by UI tests.
@@ -101,7 +97,15 @@ func newController(fyneApplication fyne.App, window fyne.Window, icon fyne.Resou
 	if preference.Validate() != nil {
 		preference = settings.Default()
 	}
-	controller := &Controller{application: fyneApplication, window: window, icon: icon, store: store, service: service, bootstrap: bootstrap, backendError: backendError, preference: preference, translator: i18n.New(preference.Language), page: PageOverview, trendRange: "30d"}
+	var backendLoader func(context.Context) (application.Bootstrap, error)
+	if service != nil {
+		backendLoader = service.Bootstrap
+	}
+	var snapshotRunner snapshotService
+	if service != nil {
+		snapshotRunner = service
+	}
+	controller := &Controller{application: fyneApplication, window: window, icon: icon, store: store, service: service, bootstrap: bootstrap, backendError: backendError, backendLoader: backendLoader, snapshotRunner: snapshotRunner, preference: preference, translator: i18n.New(preference.Language), page: PageOverview, trendRange: "30d"}
 	ApplyTheme(fyneApplication, preference)
 	return controller
 }
@@ -130,17 +134,13 @@ func (c *Controller) navigate(page Page) {
 	if c.backendError != nil || (c.service != nil && c.bootstrap.Household == nil) {
 		return
 	}
-	if c.page == PageAccounts && page != PageAccounts {
-		c.invalidateRegion(PageAccounts)
-	}
-	if c.page != page && c.refreshPending {
+	if c.page != page && c.refreshTask.pending {
 		c.cancelRefresh()
 	}
-	if c.page != page && c.snapshotPending && page != PageHistory && page != PageAnalytics {
+	if c.page != page && c.snapshotTask.pending && page != PageHistory && page != PageAnalytics {
 		c.cancelSnapshotWorker()
 	}
 	c.page = page
-	c.validationError = ""
 	if page == PageHistory || page == PageAnalytics {
 		c.startSnapshotWorker()
 	}
@@ -226,8 +226,7 @@ func (c *Controller) Refresh() {
 }
 
 // RefreshContent rebuilds the current page while leaving the window menu
-// untouched. In-page data changes use this path so opt-in regions can retain
-// their widget identity and unsaved input.
+// untouched. In-page data changes use this path.
 func (c *Controller) RefreshContent() {
 	if c.window == nil {
 		return
@@ -235,17 +234,71 @@ func (c *Controller) RefreshContent() {
 	c.window.SetContent(container.NewBorder(nil, nil, c.sidebar(), nil, c.mainArea()))
 }
 
+// reloadBackend refreshes cached bootstrap data off the UI thread. Repeated
+// saves collapse into one in-flight Bootstrap and leave one queued reload for
+// the latest save. Results are accepted only on the UI thread and only for
+// their current generation.
 func (c *Controller) reloadBackend() {
-	if c.service == nil {
+	if c.backendLoader == nil {
 		return
 	}
-	bootstrap, err := c.service.Bootstrap(context.Background())
+	if c.backendReloadPending {
+		c.backendReloadQueued = true
+		return
+	}
+	c.backendReloadPending = true
+	c.backendReloadGeneration++
+	generation := c.backendReloadGeneration
+	loader := c.backendLoader
+	go func() {
+		bootstrap, err := loader(context.Background())
+		fyne.Do(func() {
+			c.finishBackendReload(generation, bootstrap, err)
+		})
+	}()
+}
+
+// finishBackendReload runs on the Fyne UI thread. A queued reload is started
+// before exposing an intermediate failure so an older result cannot block the
+// newer request behind the startup-error page.
+func (c *Controller) finishBackendReload(generation uint64, bootstrap application.Bootstrap, err error) bool {
+	if generation != c.backendReloadGeneration {
+		return false
+	}
+	c.backendReloadPending = false
+	queued := c.backendReloadQueued
+	c.backendReloadQueued = false
+	if queued {
+		c.backendError = nil
+		c.retryBackend = nil
+		if err == nil {
+			c.bootstrap = bootstrap
+		}
+		c.reloadBackend()
+		c.RefreshContent()
+		if c.backendReloadObserver != nil {
+			c.backendReloadObserver()
+		}
+		return true
+	}
 	if err != nil {
 		c.backendError = err
-		return
+		c.retryBackend = func() {
+			c.backendError = nil
+			c.retryBackend = nil
+			c.reloadBackend()
+			c.RefreshContent()
+		}
+	} else {
+		c.bootstrap = bootstrap
+		c.backendError = nil
+		c.retryBackend = nil
 	}
-	c.bootstrap = bootstrap
-	c.backendError = nil
+	c.RefreshContent()
+	if c.backendReloadObserver != nil {
+		c.backendReloadObserver()
+	}
+	return true
 }
 
 func (c *Controller) sidebar() fyne.CanvasObject {

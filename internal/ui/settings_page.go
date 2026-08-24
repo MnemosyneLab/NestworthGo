@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -17,6 +18,52 @@ import (
 type selectOption struct {
 	value string
 	label string
+}
+
+// valueSelect pairs a translated-label Select with stable, non-translated
+// values so business logic reads domain enums or IDs instead of display text.
+type valueSelect struct {
+	widget *widget.Select
+	values map[string]string // label -> stable value
+}
+
+func newValueSelect(options []selectOption) *valueSelect {
+	vs := &valueSelect{widget: widget.NewSelect(nil, nil)}
+	vs.SetOptions(options)
+	return vs
+}
+
+// SetOptions replaces the option set; a selection that is no longer offered is
+// cleared so Value() never reports a stale choice.
+func (v *valueSelect) SetOptions(options []selectOption) {
+	labels := make([]string, 0, len(options))
+	v.values = make(map[string]string, len(options))
+	for _, option := range options {
+		labels = append(labels, option.label)
+		v.values[option.label] = option.value
+	}
+	if _, ok := v.values[v.widget.Selected]; !ok {
+		v.widget.Selected = ""
+	}
+	v.widget.Options = labels
+	v.widget.Refresh()
+}
+
+// Value returns the stable value behind the visible selection, or "" when the
+// selection is empty. An unknown label maps to "" as well; callers decide
+// their own fallback rather than silently treating a label as a domain value.
+func (v *valueSelect) Value() string {
+	return v.values[v.widget.Selected]
+}
+
+// Select chooses an option by stable value, ignoring unknown values.
+func (v *valueSelect) Select(value string) {
+	for label, candidate := range v.values {
+		if candidate == value {
+			v.widget.SetSelected(label)
+			return
+		}
+	}
 }
 
 // NewSettingsPage builds the presentation preferences and market-data routing
@@ -95,16 +142,12 @@ func NewSettingsPage(controller *Controller) fyne.CanvasObject {
 		),
 	)
 
-	currencyOptions := []selectOption{
-		{value: "CNY", label: "CNY · ¥"},
-		{value: "USD", label: "USD · $"},
-		{value: "SGD", label: "SGD · S$"},
-		{value: "EUR", label: "EUR · €"},
-		{value: "JPY", label: "JPY · ¥"},
-		{value: "HKD", label: "HKD · HK$"},
-		{value: "TWD", label: "TWD · NT$"},
-		{value: "GBP", label: "GBP · £"},
-		{value: "AUD", label: "AUD · A$"},
+	currencyOptions := make([]selectOption, 0)
+	for _, currency := range settings.SupportedCurrencies() {
+		currencyOptions = append(currencyOptions, selectOption{
+			value: currency,
+			label: fmt.Sprintf("%s · %s", currency, format.CurrencySymbol(currency)),
+		})
 	}
 	numbers := sectionCard(
 		t.T("settings.numbers.title"),
@@ -207,26 +250,14 @@ func householdSummaryCard(controller *Controller) fyne.CanvasObject {
 }
 
 func preferenceSelect(controller *Controller, options []selectOption, current string, changed func(string)) fyne.CanvasObject {
-	labels := make([]string, 0, len(options))
-	valuesByLabel := make(map[string]string, len(options))
-	selected := ""
-	for _, option := range options {
-		labels = append(labels, option.label)
-		valuesByLabel[option.label] = option.value
-		if option.value == current {
-			selected = option.label
+	control := newValueSelect(options)
+	control.Select(current)
+	control.widget.OnChanged = func(string) {
+		if changed != nil {
+			changed(control.Value())
 		}
 	}
-	control := widget.NewSelect(labels, nil)
-	if selected != "" {
-		control.Selected = selected
-	}
-	control.OnChanged = func(label string) {
-		if value, ok := valuesByLabel[label]; ok {
-			changed(value)
-		}
-	}
-	return control
+	return control.widget
 }
 
 func fxProviderOptions(controller *Controller) []selectOption {

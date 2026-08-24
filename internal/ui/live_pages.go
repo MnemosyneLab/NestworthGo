@@ -20,17 +20,21 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/format"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 )
 
 func NewBlockedStartupPage(c *Controller, _ error) fyne.CanvasObject {
 	t := c.translator
-	content := container.NewVBox(
+	content := []fyne.CanvasObject{
 		widget.NewLabelWithStyle(t.T("startup.blockedTitle"), fyne.TextAlignCenter, fyne.TextStyle{Bold: true}),
 		widget.NewLabel(t.T("startup.blockedDescription")),
 		badge(t.T("startup.readOnly"), PaletteFor(c.preference.Accent).Soft, PaletteFor(c.preference.Accent).Primary),
-	)
-	return container.NewCenter(surface(content, fyne.NewSize(540, 230)))
+	}
+	if c.retryBackend != nil {
+		retry := widget.NewButton(t.T("common.retry"), c.retryBackend)
+		retry.Importance = widget.LowImportance
+		content = append(content, container.NewCenter(retry))
+	}
+	return container.NewCenter(surface(container.NewVBox(content...), fyne.NewSize(540, 260)))
 }
 
 func NewOnboardingPage(c *Controller) fyne.CanvasObject {
@@ -271,10 +275,12 @@ func showAccountCreateDialog(c *Controller) {
 	includeInvestment := widget.NewCheck(t.T("accounts.includeInInvestment"), nil)
 	includeLiquid := widget.NewCheck(t.T("accounts.includeInLiquidAssets"), nil)
 	none := t.T("accounts.none")
-	institution := widget.NewSelect(append([]string{none}, institutionOptions(c.bootstrap.Institutions)...), nil)
-	institution.SetSelected(none)
-	group := widget.NewSelect(append([]string{none}, groupOptions(c.bootstrap.Groups)...), nil)
-	group.SetSelected(none)
+	institution := newValueSelect(referenceSelectOptions(c.bootstrap.Institutions, none,
+		func(item domain.Institution) string { return item.ID.String() },
+		func(item domain.Institution) string { return item.Name }))
+	group := newValueSelect(referenceSelectOptions(c.bootstrap.Groups, none,
+		func(item domain.Group) string { return item.ID.String() },
+		func(item domain.Group) string { return item.Name }))
 	opened := newDateEntry(t.T("accounts.datePlaceholder"))
 	closed := newDateEntry(t.T("accounts.datePlaceholder"))
 	setAmountMode := func() {
@@ -321,8 +327,8 @@ func showAccountCreateDialog(c *Controller) {
 		widget.NewFormItem(t.T("accounts.secondaryCategory"), secondary),
 		widget.NewFormItem(t.T("accounts.trackingMode"), tracking),
 		widget.NewFormItem(t.T("accounts.owner"), ownershipBox),
-		widget.NewFormItem(t.T("nav.institutions"), institution),
-		widget.NewFormItem(t.T("nav.groups"), group),
+		widget.NewFormItem(t.T("nav.institutions"), institution.widget),
+		widget.NewFormItem(t.T("nav.groups"), group.widget),
 		widget.NewFormItem(t.T("accounts.openedOn"), dateFormField(opened)),
 		widget.NewFormItem(t.T("accounts.closedOn"), dateFormField(closed)),
 		widget.NewFormItem(t.T("accounts.includeInNetWorth"), includeNetWorth),
@@ -336,12 +342,8 @@ func showAccountCreateDialog(c *Controller) {
 		if trackingMode == string(domain.TrackingHoldings) {
 			input.InitialAmount = ""
 		}
-		if institution.Selected != none {
-			input.InstitutionID = institutionIDForName(c.bootstrap.Institutions, institution.Selected)
-		}
-		if group.Selected != none {
-			input.GroupID = groupIDForName(c.bootstrap.Groups, group.Selected)
-		}
+		input.InstitutionID = institution.Value()
+		input.GroupID = group.Value()
 		_, err := c.service.CreateAccount(context.Background(), input)
 		return err
 	}, func() {
@@ -585,17 +587,21 @@ func showAccountEditDialog(c *Controller, record domain.AccountRecord) {
 	tracking := widget.NewSelect(enumOptions(c, []string{string(record.Account.TrackingMode)}), nil)
 	tracking.SetSelected(enumLabel(c, string(record.Account.TrackingMode)))
 	tracking.Disable()
-	institution := widget.NewSelect(append([]string{t.T("accounts.none")}, institutionOptions(c.bootstrap.Institutions)...), nil)
+	institution := newValueSelect(referenceSelectOptions(c.bootstrap.Institutions, t.T("accounts.none"),
+		func(item domain.Institution) string { return item.ID.String() },
+		func(item domain.Institution) string { return item.Name }))
 	if record.Account.InstitutionID == nil {
-		institution.SetSelected(t.T("accounts.none"))
+		institution.Select("")
 	} else {
-		institution.SetSelected(institutionLabelForID(c.bootstrap.Institutions, record.Account.InstitutionID.String()))
+		institution.Select(record.Account.InstitutionID.String())
 	}
-	group := widget.NewSelect(append([]string{t.T("accounts.none")}, groupOptions(c.bootstrap.Groups)...), nil)
+	group := newValueSelect(referenceSelectOptions(c.bootstrap.Groups, t.T("accounts.none"),
+		func(item domain.Group) string { return item.ID.String() },
+		func(item domain.Group) string { return item.Name }))
 	if record.Account.GroupID == nil {
-		group.SetSelected(t.T("accounts.none"))
+		group.Select("")
 	} else {
-		group.SetSelected(groupLabelForID(c.bootstrap.Groups, record.Account.GroupID.String()))
+		group.Select(record.Account.GroupID.String())
 	}
 	opened := newDateEntry(t.T("accounts.datePlaceholder"))
 	if record.Account.OpenedOn != nil {
@@ -623,16 +629,12 @@ func showAccountEditDialog(c *Controller, record domain.AccountRecord) {
 	ownershipHint := mutedLabel(t.T("accounts.ownershipHint"))
 	ownershipHint.Wrapping = fyne.TextWrapWord
 	ownershipBox := container.NewVBox(ownershipFieldsView(ownershipFields), ownershipHint)
-	items := []*widget.FormItem{widget.NewFormItem(t.T("accounts.name"), name), widget.NewFormItem(t.T("common.icon"), iconButton), widget.NewFormItem(t.T("accounts.amount"), amount), widget.NewFormItem(t.T("accounts.currency"), currency), widget.NewFormItem(t.T("accounts.category"), category), widget.NewFormItem(t.T("accounts.secondaryCategory"), secondary), widget.NewFormItem(t.T("accounts.trackingMode"), tracking), widget.NewFormItem(t.T("accounts.owner"), ownershipBox), widget.NewFormItem(t.T("accounts.note"), note), widget.NewFormItem(t.T("nav.institutions"), institution), widget.NewFormItem(t.T("nav.groups"), group), widget.NewFormItem(t.T("accounts.openedOn"), dateFormField(opened)), widget.NewFormItem(t.T("accounts.closedOn"), dateFormField(closed)), widget.NewFormItem(t.T("accounts.includeInNetWorth"), includeNetWorth), widget.NewFormItem(t.T("accounts.includeInInvestment"), includeInvestment), widget.NewFormItem(t.T("accounts.includeInLiquidAssets"), includeLiquid)}
+	items := []*widget.FormItem{widget.NewFormItem(t.T("accounts.name"), name), widget.NewFormItem(t.T("common.icon"), iconButton), widget.NewFormItem(t.T("accounts.amount"), amount), widget.NewFormItem(t.T("accounts.currency"), currency), widget.NewFormItem(t.T("accounts.category"), category), widget.NewFormItem(t.T("accounts.secondaryCategory"), secondary), widget.NewFormItem(t.T("accounts.trackingMode"), tracking), widget.NewFormItem(t.T("accounts.owner"), ownershipBox), widget.NewFormItem(t.T("accounts.note"), note), widget.NewFormItem(t.T("nav.institutions"), institution.widget), widget.NewFormItem(t.T("nav.groups"), group.widget), widget.NewFormItem(t.T("accounts.openedOn"), dateFormField(opened)), widget.NewFormItem(t.T("accounts.closedOn"), dateFormField(closed)), widget.NewFormItem(t.T("accounts.includeInNetWorth"), includeNetWorth), widget.NewFormItem(t.T("accounts.includeInInvestment"), includeInvestment), widget.NewFormItem(t.T("accounts.includeInLiquidAssets"), includeLiquid)}
 	showResponsiveBackendForm(c, t.T("accounts.edit"), t.T("common.save"), t.T("common.cancel"), items, fyne.NewSize(720, 680), fyne.NewSize(560, 360), func() error {
 		memberIDs, percentages := collectOwnership(ownershipFields)
 		input := application.AccountInput{Name: name.Text, IconKey: selectedIcon, IconKeySet: true, PrimaryCategory: enumValue(c, category.Selected, categoryValues), SecondaryCategory: enumValue(c, secondary.Selected, secondaryOptionsForSelectedCategory(c, category.Selected, categoryValues)), TrackingMode: string(record.Account.TrackingMode), DefaultCurrency: record.Account.DefaultCurrency.String(), InstitutionIDSet: true, GroupIDSet: true, Note: stringPointer(note.Text), NoteSet: true, IncludeInNetWorth: includeNetWorth.Checked, IncludeInInvestment: includeInvestment.Checked, IncludeInLiquidAssets: includeLiquid.Checked, OpenedOn: stringPointer(dateEntryValue(opened)), OpenedOnSet: true, ClosedOn: stringPointer(dateEntryValue(closed)), ClosedOnSet: true, OwnerIDs: memberIDs, OwnershipPercentages: percentages, InitialAmount: initialAmount}
-		if institution.Selected != t.T("accounts.none") {
-			input.InstitutionID = institutionIDForName(c.bootstrap.Institutions, institution.Selected)
-		}
-		if group.Selected != t.T("accounts.none") {
-			input.GroupID = groupIDForName(c.bootstrap.Groups, group.Selected)
-		}
+		input.InstitutionID = institution.Value()
+		input.GroupID = group.Value()
 		_, err := c.service.UpdateAccount(context.Background(), record.Account.ID, input)
 		return err
 	}, func() {
@@ -880,7 +882,7 @@ func newImagePickerButton(c *Controller, changed func([]byte)) *widget.Button {
 			}
 			go func() {
 				defer reader.Close()
-				data, normalizeErr := media.ReadAndNormalize(reader)
+				data, normalizeErr := c.service.NormalizeImage(reader)
 				fyne.Do(func() {
 					if normalizeErr != nil {
 						c.setValidationError(c.translator.TranslateError(normalizeErr))
@@ -957,13 +959,16 @@ func enumOptions(c *Controller, values []string) []string {
 	return result
 }
 
+// enumValue maps a translated label back to its stable domain value. An
+// unknown label yields "" instead of leaking display text into domain space;
+// callers surface the mismatch through normal validation or an empty filter.
 func enumValue(c *Controller, label string, values []string) string {
 	for _, value := range values {
 		if enumLabel(c, value) == label {
 			return value
 		}
 	}
-	return label
+	return ""
 }
 
 func secondaryOptionsForSelectedCategory(c *Controller, selected string, categories []string) []string {
@@ -993,6 +998,23 @@ func referenceLabel(name, id string, duplicate bool) string {
 		id = id[:8]
 	}
 	return fmt.Sprintf("%s (%s)", name, id)
+}
+
+// referenceSelectOptions builds value/label pairs for an optional reference
+// selector: "" is the none choice, otherwise the entity ID paired with a
+// duplicate-aware display label.
+func referenceSelectOptions[T any](items []T, noneLabel string, id func(T) string, name func(T) string) []selectOption {
+	counts := make(map[string]int)
+	for _, item := range items {
+		counts[name(item)]++
+	}
+	options := make([]selectOption, 0, len(items)+1)
+	options = append(options, selectOption{value: "", label: noneLabel})
+	for _, item := range items {
+		idValue := id(item)
+		options = append(options, selectOption{value: idValue, label: referenceLabel(name(item), idValue, counts[name(item)] > 1)})
+	}
+	return options
 }
 
 func memberOptions(items []domain.Member) []string {

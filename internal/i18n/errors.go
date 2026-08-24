@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 // errorMessageKeys maps the stable English message text emitted by the
@@ -123,6 +122,23 @@ var errorMessageKeys = map[string]string{
 	"provider symbol is unsupported":                                "error.provider.unsupportedSymbol",
 	"provider response is malformed":                                "error.provider.malformedResponse",
 	"provider response is too large":                                "error.provider.responseTooLarge",
+	"saved history timezone is invalid":                             "error.history.invalidTimezone",
+	"history snapshots could not be prepared":                       "error.history.unavailable",
+}
+
+// errorCodeKeys resolves translations from the stable domain.ErrorCode for
+// categories whose wording does not depend on the free-form Message text.
+// Coarse codes (validation, not_found, conflict) are intentionally absent:
+// their specific phrasing only exists in Message and is resolved through the
+// prose table below as a fallback, before giving up and showing the
+// original text.
+var errorCodeKeys = map[domain.ErrorCode]string{
+	domain.ErrProviderUnavailable:        "error.provider.unavailable",
+	domain.ErrProviderAuthentication:     "error.provider.authentication",
+	domain.ErrProviderRateLimit:          "error.provider.rateLimit",
+	domain.ErrUnsupportedProviderSymbol:  "error.provider.unsupportedSymbol",
+	domain.ErrMalformedProviderResponse:  "error.provider.malformedResponse",
+	domain.ErrMarketDataResponseTooLarge: "error.provider.responseTooLarge",
 }
 
 // fieldLabelKeys translates the field prefix added by domain.Error.Error.
@@ -170,15 +186,12 @@ var fieldLabelKeys = map[string]string{
 	"providerSymbol":    "error.field.providerSymbol",
 	"logoAssetId":       "error.field.logoAssetID",
 	"quotedAt":          "error.field.quotedAt",
+	"timezone":          "settings.language.timezone",
 }
 
-type errorTranslation struct {
-	english     string
-	simplified  string
-	traditional string
-}
-
-var errorTranslations = map[string]errorTranslation{
+// errorTranslations keys double as catalog keys; they are folded into the
+// catalog by the single assembly point in i18n.go instead of a local init().
+var errorTranslations = map[string]translation{
 	"error.id.lowercaseUUID":                       {"must be a lowercase UUID", "必须是小写 UUID", "必須是小寫 UUID"},
 	"error.timestamp.rfc3339":                      {"must be an RFC 3339 timestamp", "必须是 RFC 3339 时间戳", "必須是 RFC 3339 時間戳"},
 	"error.validation.notEmpty":                    {"must not be empty", "不能为空", "不能為空"},
@@ -271,6 +284,8 @@ var errorTranslations = map[string]errorTranslation{
 	"error.provider.unsupportedSymbol":             {"This provider symbol is unsupported", "此 Provider 标的不受支持", "此 Provider 標的不受支援"},
 	"error.provider.malformedResponse":             {"The provider returned an invalid response", "Provider 返回了无效响应", "Provider 回傳了無效回應"},
 	"error.provider.responseTooLarge":              {"The provider response is too large", "Provider 响应过大", "Provider 回應過大"},
+	"error.history.invalidTimezone":                {"The saved history timezone is invalid", "保存的历史时区无效", "儲存的歷史時區無效"},
+	"error.history.unavailable":                    {"History snapshots could not be prepared", "无法准备历史快照", "無法準備歷史快照"},
 	"error.validation.portfolioDecimalFormat":      {"must be a canonical non-negative decimal with up to eight fractional digits", "必须是规范的非负小数，且最多包含八位小数", "必須是規範的非負小數，且最多包含八位小數"},
 	"error.validation.fxRateFormat":                {"must be a canonical positive decimal with up to twelve fractional digits", "必须是规范的正小数，且最多包含十二位小数", "必須是規範的正小數，且最多包含十二位小數"},
 	"error.validation.decimalInvalid":              {"is not a valid decimal", "不是有效的小数", "不是有效的小數"},
@@ -312,28 +327,29 @@ var errorTranslations = map[string]errorTranslation{
 	"error.notFound.fxPreference":                  {"FX preference was not found", "未找到 FX 来源偏好", "找不到 FX 來源偏好"},
 }
 
-func init() {
-	for key, translation := range errorTranslations {
-		catalogs[settings.LanguageEnglish][key] = translation.english
-		catalogs[settings.LanguageZhCN][key] = translation.simplified
-		catalogs[settings.LanguageZhTW][key] = translation.traditional
-	}
-}
-
-// TranslateError renders an error for the translator's active language. A
-// missing table entry deliberately returns the original error text so a new
-// error remains visible until its localization is added.
+// TranslateError renders an error for the translator's active language. The
+// stable domain.ErrorCode is preferred; when it has no dedicated wording the
+// English message text is matched against errorMessageKeys, and a missing
+// entry deliberately returns the original error text so a new error remains
+// visible until its localization is added.
 func (t *Translator) TranslateError(err error) string {
 	if err == nil {
 		return ""
 	}
-	key, ok := errorMessageKeys[baseMessage(err)]
-	if !ok {
-		return err.Error()
+	var domainErr *domain.Error
+	key := ""
+	if errors.As(err, &domainErr) && domainErr != nil && domainErr.Code != "" {
+		key = errorCodeKeys[domainErr.Code]
+	}
+	if key == "" {
+		if proseKey, ok := errorMessageKeys[baseMessage(err)]; ok {
+			key = proseKey
+		} else {
+			return err.Error()
+		}
 	}
 	message := t.T(key)
-	var domainErr *domain.Error
-	if errors.As(err, &domainErr) && domainErr != nil && domainErr.Field != "" {
+	if domainErr != nil && domainErr.Field != "" {
 		if labelKey, ok := fieldLabelKeys[domainErr.Field]; ok {
 			return fmt.Sprintf("%s: %s", t.T(labelKey), message)
 		}

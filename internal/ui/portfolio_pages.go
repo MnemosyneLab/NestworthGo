@@ -430,7 +430,7 @@ func showInstrumentManagementDialog(c *Controller) {
 						closeAndRefresh()
 
 					})
-				}, c.refreshPending))
+				}, c.refreshTask.pending))
 			}
 		}
 		actions = append(actions, rowActionButton(action, func() {
@@ -636,7 +636,7 @@ func showFXManagementDialog(c *Controller) {
 			closeAndRefresh()
 		})
 	})
-	if !fxProviderCapabilityAvailable(c) || c.refreshPending {
+	if !fxProviderCapabilityAvailable(c) || c.refreshTask.pending {
 		refreshRequiredFX.Disable()
 	}
 	rows = append(rows, container.NewHBox(refreshRequiredFX), refreshStatus)
@@ -690,11 +690,11 @@ func showFXManagementDialog(c *Controller) {
 				closeAndRefresh()
 			})
 		})
-		if !fxProviderCapabilityAvailable(c) || c.refreshPending || source.Selected != c.translator.T("portfolio.source.provider") {
+		if !fxProviderCapabilityAvailable(c) || c.refreshTask.pending || source.Selected != c.translator.T("portfolio.source.provider") {
 			refresh.Disable()
 		}
 		source.OnChanged = func(value string) {
-			if fxProviderCapabilityAvailable(c) && !c.refreshPending && value == c.translator.T("portfolio.source.provider") {
+			if fxProviderCapabilityAvailable(c) && !c.refreshTask.pending && value == c.translator.T("portfolio.source.provider") {
 				refresh.Enable()
 				return
 			}

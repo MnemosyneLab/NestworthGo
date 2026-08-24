@@ -134,6 +134,41 @@ func TestValidateRejectsOutOfRangeWindowSize(t *testing.T) {
 	}
 }
 
+// One hand-edited invalid value must not discard the rest of the stored
+// preferences: only the offending field resets to its default.
+func TestLoadSalvagesValidFieldsWhenOneFieldIsInvalid(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "Nestworth", "settings.json")
+	store := NewStore(path)
+	stored := Default()
+	stored.Appearance = AppearanceDark
+	stored.Language = LanguageZhTW
+	stored.WindowWidth = 1440
+	stored.DecimalPlaces = 4
+	stored.Currency = "XXX" // the single invalid field
+
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+	data, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	got, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got.Appearance != AppearanceDark || got.Language != LanguageZhTW || got.WindowWidth != 1440 || got.DecimalPlaces != 4 {
+		t.Fatalf("Load() discarded valid fields: %#v", got)
+	}
+	if got.Currency != "CNY" {
+		t.Fatalf("Load() kept invalid currency %q, want default CNY", got.Currency)
+	}
+}
+
 func TestStoreRoundTripPersistsWindowSize(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	store := NewStore(path)

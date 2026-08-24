@@ -39,7 +39,9 @@ func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (
 	if bootstrap.Household == nil {
 		return domain.Instrument{}, onboardingRequired()
 	}
-	instrument, err := newInstrumentFromInput(bootstrap.Household.ID, input, s.now())
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
+	instrument, err := newInstrumentFromInput(bootstrap.Household.ID, input, s.clock())
 	if err != nil {
 		return domain.Instrument{}, err
 	}
@@ -84,6 +86,8 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	if bootstrap.Household == nil {
 		return domain.Instrument{}, onboardingRequired()
 	}
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	current, err := s.repository.Instrument(ctx, bootstrap.Household.ID, id)
 	if err != nil {
 		return domain.Instrument{}, safePortfolioError(err)
@@ -91,7 +95,7 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	if !input.Replace {
 		mergeInstrumentInput(&input, current)
 	}
-	updated, err := newInstrumentFromInput(current.HouseholdID, input, s.now())
+	updated, err := newInstrumentFromInput(current.HouseholdID, input, s.clock())
 	if err != nil {
 		return domain.Instrument{}, err
 	}
@@ -125,7 +129,9 @@ func (s *Service) ArchiveInstrument(ctx context.Context, id domain.InstrumentID,
 	if bootstrap.Household == nil {
 		return onboardingRequired()
 	}
-	return safePortfolioError(s.repository.SetInstrumentArchive(ctx, bootstrap.Household.ID, id, archived, s.now()))
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
+	return safePortfolioError(s.repository.SetInstrumentArchive(ctx, bootstrap.Household.ID, id, archived, s.clock()))
 }
 
 func (s *Service) SetInstrumentLogo(ctx context.Context, id domain.InstrumentID, assetID domain.MediaAssetID) error {
@@ -150,6 +156,8 @@ func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.Instru
 	if bootstrap.Household == nil {
 		return onboardingRequired()
 	}
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	parsed, err := domain.ParseQuoteSourceKind(source)
 	if err != nil {
 		return err
@@ -189,6 +197,8 @@ type HoldingUpdateInput struct {
 }
 
 func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain.Holding, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	accountID, err := domain.ParseAccountID(input.AccountID)
 	if err != nil {
 		return domain.Holding{}, err
@@ -219,7 +229,7 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 	if instrument.ArchivedAt != nil {
 		return domain.Holding{}, &domain.Error{Code: domain.ErrValidation, Field: "instrumentId", Message: "instrument is archived"}
 	}
-	holding, err := domain.NewHoldingForAccount(account.Account, instrument, quantity, input.Note, input.SortOrder, s.now())
+	holding, err := domain.NewHoldingForAccount(account.Account, instrument, quantity, input.Note, input.SortOrder, s.clock())
 	if err != nil {
 		return domain.Holding{}, err
 	}
@@ -237,12 +247,12 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 		}
 		created := holding
 		created.Quantity = zero
-		state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.now(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: map[domain.HoldingID]domain.ChangeHoldingState{holding.ID: {ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero}}}
-		preview, previewErr := domain.PreviewChange(state, domain.PositionAdjustmentInput{HouseholdID: origin.HouseholdID, HoldingID: holding.ID, Quantity: quantity, Added: true, EffectiveAt: s.now()})
+		state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: map[domain.HoldingID]domain.ChangeHoldingState{holding.ID: {ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero}}}
+		preview, previewErr := domain.PreviewChange(state, domain.PositionAdjustmentInput{HouseholdID: origin.HouseholdID, HoldingID: holding.ID, Quantity: quantity, Added: true, EffectiveAt: s.clock()})
 		if previewErr != nil {
 			return domain.Holding{}, previewErr
 		}
-		if err := s.repository.CreateHoldingWithActivity(ctx, created, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}, s.now()); err != nil {
+		if err := s.repository.CreateHoldingWithActivity(ctx, created, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}, s.clock()); err != nil {
 			return domain.Holding{}, safePortfolioError(err)
 		}
 		return holding, nil
@@ -264,11 +274,31 @@ func (s *Service) ListHoldings(ctx context.Context, accountID domain.AccountID, 
 	return s.repository.ListHoldings(ctx, accountID, includeArchived)
 }
 
+// HoldingsByAccounts loads the holdings of several accounts in one repository
+// round trip and groups them by account, replacing per-account ListHoldings
+// loops in presentation code. Archived holdings are included.
+func (s *Service) HoldingsByAccounts(ctx context.Context, accountIDs []domain.AccountID) (map[domain.AccountID][]domain.Holding, error) {
+	grouped := make(map[domain.AccountID][]domain.Holding, len(accountIDs))
+	if len(accountIDs) == 0 {
+		return grouped, nil
+	}
+	holdings, err := s.repository.ListHoldingsByAccounts(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
+	for _, holding := range holdings {
+		grouped[holding.AccountID] = append(grouped[holding.AccountID], holding)
+	}
+	return grouped, nil
+}
+
 func (s *Service) UpdateHoldingQuantity(ctx context.Context, id domain.HoldingID, quantity string) (domain.Holding, error) {
 	return s.UpdateHolding(ctx, id, HoldingUpdateInput{Quantity: quantity, QuantitySet: true})
 }
 
 func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input HoldingUpdateInput) (domain.Holding, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	snapshot, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.Holding{}, err
@@ -293,9 +323,9 @@ func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input 
 		if parseErr != nil {
 			return domain.Holding{}, parseErr
 		}
-		current = current.ReplaceQuantity(quantity, s.now())
+		current = current.ReplaceQuantity(quantity, s.clock())
 	} else {
-		current.UpdatedAt = normalizeNow(s.now())
+		current.UpdatedAt = normalizeNow(s.clock())
 	}
 	if input.NoteSet {
 		current.Note = input.Note
@@ -310,6 +340,8 @@ func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input 
 }
 
 func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archived bool) error {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	snapshot, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return err
@@ -330,10 +362,12 @@ func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archi
 			return &domain.Error{Code: domain.ErrConflict, Message: "a Holding must have zero quantity before it is archived"}
 		}
 	}
-	return safePortfolioError(s.repository.SetHoldingArchive(ctx, household.ID, id, archived, s.now()))
+	return safePortfolioError(s.repository.SetHoldingArchive(ctx, household.ID, id, archived, s.clock()))
 }
 
 func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.AccountID, amount, currency, effectiveAt string) (domain.AccountCashValue, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	snapshot, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.AccountCashValue{}, err
@@ -356,18 +390,18 @@ func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.A
 	if err != nil {
 		return domain.AccountCashValue{}, err
 	}
-	when, err := parsePortfolioTimestamp(effectiveAt, s.now())
+	when, err := parsePortfolioTimestamp(effectiveAt, s.clock())
 	if err != nil {
 		return domain.AccountCashValue{}, err
 	}
-	value, err := domain.NewAccountCashValue(record.Account, money, when, s.now())
+	value, err := domain.NewAccountCashValue(record.Account, money, when, s.clock())
 	if err != nil {
 		return domain.AccountCashValue{}, err
 	}
 	if origin, originErr := s.repository.HistoryOrigin(ctx, household.ID); originErr != nil {
 		return domain.AccountCashValue{}, originErr
 	} else if origin != nil {
-		state, stateErr := s.changeState(ctx)
+		state, stateErr := s.changeStateFrom(origin, snapshot)
 		if stateErr != nil {
 			return domain.AccountCashValue{}, stateErr
 		}
@@ -388,7 +422,7 @@ func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.A
 		} else {
 			command = domain.MoneyRemovedInput{HouseholdID: household.ID, AccountID: accountID, Amount: delta, Reason: domain.ReasonReconciliation, EffectiveAt: when}
 		}
-		preview, commitErr := s.RecordChange(ctx, command)
+		preview, commitErr := s.commitChangeLocked(ctx, state, command)
 		if commitErr != nil {
 			return domain.AccountCashValue{}, commitErr
 		}
@@ -416,6 +450,8 @@ func (s *Service) ListAccountCashValues(ctx context.Context, accountID domain.Ac
 }
 
 func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID domain.InstrumentID, unitPrice, quotedAt string, delayed bool) (domain.InstrumentQuote, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	snapshot, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.InstrumentQuote{}, err
@@ -434,11 +470,11 @@ func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID 
 	if err != nil {
 		return domain.InstrumentQuote{}, err
 	}
-	when, err := parsePortfolioTimestamp(quotedAt, s.now())
+	when, err := parsePortfolioTimestamp(quotedAt, s.clock())
 	if err != nil {
 		return domain.InstrumentQuote{}, err
 	}
-	quote, err := domain.NewInstrumentQuote(instrument, domain.InstrumentQuoteInput{UnitPrice: price, SourceKind: domain.QuoteSourceManual, QuotedAt: when, Delayed: delayed}, s.now())
+	quote, err := domain.NewInstrumentQuote(instrument, domain.InstrumentQuoteInput{UnitPrice: price, SourceKind: domain.QuoteSourceManual, QuotedAt: when, Delayed: delayed}, s.clock())
 	if err != nil {
 		return domain.InstrumentQuote{}, err
 	}
@@ -453,6 +489,8 @@ func (s *Service) SaveManualInstrumentQuote(ctx context.Context, instrumentID do
 }
 
 func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, source string) (domain.FXPreference, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	_, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.FXPreference{}, err
@@ -475,7 +513,7 @@ func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, sou
 	if err != nil {
 		return domain.FXPreference{}, err
 	}
-	preference, err := domain.NewFXPreference(household.ID, a, b, parsedSource, s.now())
+	preference, err := domain.NewFXPreference(household.ID, a, b, parsedSource, s.clock())
 	if err != nil {
 		return domain.FXPreference{}, err
 	}
@@ -507,6 +545,8 @@ func (s *Service) ListFXPreferences(ctx context.Context) ([]domain.FXPreference,
 }
 
 func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCurrency, rate, quotedAt string) (domain.FXQuote, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	_, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.FXQuote{}, err
@@ -529,11 +569,11 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 	if err != nil {
 		return domain.FXQuote{}, err
 	}
-	when, err := parsePortfolioTimestamp(quotedAt, s.now())
+	when, err := parsePortfolioTimestamp(quotedAt, s.clock())
 	if err != nil {
 		return domain.FXQuote{}, err
 	}
-	fxQuote, err := domain.NewFXQuote(domain.FXQuoteInput{HouseholdID: household.ID, BaseCurrency: base, QuoteCurrency: quoteCurrencyCode, Rate: parsedRate, SourceKind: domain.QuoteSourceManual, QuotedAt: when}, s.now())
+	fxQuote, err := domain.NewFXQuote(domain.FXQuoteInput{HouseholdID: household.ID, BaseCurrency: base, QuoteCurrency: quoteCurrencyCode, Rate: parsedRate, SourceKind: domain.QuoteSourceManual, QuotedAt: when}, s.clock())
 	if err != nil {
 		return domain.FXQuote{}, err
 	}

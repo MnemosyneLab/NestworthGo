@@ -80,6 +80,27 @@ type refreshAliasProvider struct {
 	target *refreshFakeProvider
 }
 
+type blockingMarketDataRegistry struct {
+	delegate MarketDataRegistryPort
+	entered  chan struct{}
+	release  chan struct{}
+	once     sync.Once
+}
+
+func (r *blockingMarketDataRegistry) Resolve(key string) (MarketDataProvider, error) {
+	r.once.Do(func() { close(r.entered) })
+	<-r.release
+	return r.delegate.Resolve(key)
+}
+
+func (r *blockingMarketDataRegistry) Default() (MarketDataProvider, error) {
+	return r.delegate.Default()
+}
+
+func (r *blockingMarketDataRegistry) Providers() []MarketDataProvider {
+	return r.delegate.Providers()
+}
+
 func (p *refreshAliasProvider) Key() string { return p.key }
 
 func (p *refreshAliasProvider) Capabilities() MarketDataCapabilities {
@@ -194,6 +215,52 @@ func TestSetFXProviderRejectsMissingOrFXIncapableProvider(t *testing.T) {
 	service.SetMarketDataRegistry(NewMarketDataRegistry(instrumentOnly))
 	if err := service.SetFXProvider(instrumentOnly.Key()); err == nil {
 		t.Fatal("SetFXProvider(instrument-only) error = nil")
+	}
+}
+
+func TestRefreshUsesOneRegistrySnapshotDuringRegistrySwap(t *testing.T) {
+	_, service, fake, _, instrument := newRefreshFixture(t)
+	oldRegistry := service.MarketDataRegistry()
+	registry := &blockingMarketDataRegistry{delegate: oldRegistry, entered: make(chan struct{}), release: make(chan struct{})}
+	service.SetMarketDataRegistry(registry)
+
+	done := make(chan RefreshResult, 1)
+	go func() {
+		result, err := service.RefreshInstrument(context.Background(), instrument.ID)
+		if err != nil {
+			done <- RefreshResult{Items: []RefreshTargetResult{{Status: RefreshFailed, ErrorCode: domain.ErrUnavailable}}}
+			return
+		}
+		done <- result
+	}()
+	select {
+	case <-registry.entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("refresh did not reach the registry resolve barrier")
+	}
+
+	// The in-flight refresh must keep using the registry it copied before this
+	// swap. The replacement does not contain the instrument's provider key.
+	service.SetMarketDataRegistry(NewMarketDataRegistry())
+	close(registry.release)
+	select {
+	case result := <-done:
+		assertRefreshStatus(t, result, "instrument:"+instrument.ID.String(), RefreshFetched)
+	case <-time.After(2 * time.Second):
+		t.Fatal("refresh did not finish after releasing the registry")
+	}
+	if calls := fake.callNames(); len(calls) == 0 {
+		t.Fatal("the refresh did not call the provider from its registry snapshot")
+	}
+
+	service.SetMarketDataRegistry(nil)
+	result, err := service.RefreshInstrument(context.Background(), instrument.ID)
+	if err != nil {
+		t.Fatalf("refresh with nil registry returned transport error: %v", err)
+	}
+	assertRefreshStatus(t, result, "instrument:"+instrument.ID.String(), RefreshFailed)
+	if got := result.Items[0].ErrorCode; got != domain.ErrUnavailable {
+		t.Fatalf("nil registry error code = %q, want %q", got, domain.ErrUnavailable)
 	}
 }
 

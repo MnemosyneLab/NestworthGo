@@ -26,7 +26,7 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 	if err != nil {
 		return domain.NetWorthTrend{}, err
 	}
-	nowLocal := s.now().In(location)
+	nowLocal := s.clock().In(location)
 	year, month, day := nowLocal.Date()
 	today := time.Date(year, month, day, 0, 0, 0, 0, location)
 	since := time.Time{}
@@ -56,7 +56,7 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 	if err != nil {
 		return domain.NetWorthTrend{}, err
 	}
-	todayKey := s.now().In(location).Format("2006-01-02")
+	todayKey := s.clock().In(location).Format("2006-01-02")
 	points = append(points, domain.NetWorthTrendPoint{LocalDate: todayKey, Value: &currentMoney, Complete: current.Complete})
 	return domain.NetWorthTrend{Range: trendRange, Currency: bootstrap.Household.BaseCurrency, Points: points}, nil
 }

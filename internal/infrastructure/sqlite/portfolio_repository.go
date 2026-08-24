@@ -353,6 +353,25 @@ func (r *Repository) ListHoldings(ctx context.Context, accountID domain.AccountI
 	return scanHoldings(rows)
 }
 
+// ListHoldingsByAccounts loads the holdings of several accounts in one query.
+// Results are ordered by account so callers can group them without sorting.
+func (r *Repository) ListHoldingsByAccounts(ctx context.Context, accountIDs []domain.AccountID) ([]domain.Holding, error) {
+	if len(accountIDs) == 0 {
+		return nil, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(accountIDs)), ",")
+	args := make([]any, len(accountIDs))
+	for index, id := range accountIDs {
+		args[index] = id.String()
+	}
+	rows, err := r.database.SQL.QueryContext(ctx, `SELECT id, account_id, instrument_id, quantity, note, sort_order, created_at, updated_at, archived_at FROM holdings WHERE account_id IN (`+placeholders+`) ORDER BY account_id ASC, sort_order ASC, instrument_id ASC, id ASC`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanHoldings(rows)
+}
+
 func (r *Repository) SetHoldingArchive(ctx context.Context, householdID domain.HouseholdID, id domain.HoldingID, archived bool, now time.Time) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		var accountID, instrumentID string

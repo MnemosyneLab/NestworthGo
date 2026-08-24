@@ -91,3 +91,41 @@ func TestSettingsPageExposesCapabilityAwareFXProviderSelection(t *testing.T) {
 		t.Fatalf("unsupported FX provider was persisted as %q", saved.FXProvider)
 	}
 }
+
+// Regression test for docs/development/code-review-2026-08-24.md §4: selects
+// must expose stable non-translated values so business logic never compares
+// translated labels (a language switch or missing key must not flip a sell
+// into a buy).
+func TestValueSelectMapsStableValuesBehindTranslatedLabels(t *testing.T) {
+	fyneApplication := test.NewTempApp(t)
+	defer fyneApplication.Quit()
+	options := []selectOption{
+		{value: historySideBuy, label: "买入"},
+		{value: historySideSell, label: "卖出"},
+	}
+	vs := newValueSelect(options)
+	vs.Select(historySideSell)
+	if got := vs.Value(); got != historySideSell {
+		t.Fatalf("Value() after Select(sell) = %q, want %q", got, historySideSell)
+	}
+
+	changed := ""
+	vs.widget.OnChanged = func(string) { changed = vs.Value() }
+	vs.widget.SetSelected("买入")
+	if changed != historySideBuy {
+		t.Fatalf("OnChanged reported %q, want %q", changed, historySideBuy)
+	}
+
+	// Replacing the option set clears a no-longer-valid selection instead of
+	// letting its label masquerade as a domain value.
+	vs.SetOptions([]selectOption{{value: historySideDraw, label: "取出"}})
+	if got := vs.Value(); got != "" {
+		t.Fatalf("Value() after option set swap = %q, want empty", got)
+	}
+
+	// An unknown label never leaks into domain space.
+	vs.widget.SetSelected("未知")
+	if got := vs.Value(); got == "未知" {
+		t.Fatal("unknown label was returned as a domain value")
+	}
+}

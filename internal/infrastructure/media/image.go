@@ -28,14 +28,14 @@ func Normalize(data []byte) ([]byte, error) {
 	}
 	reader := bytes.NewReader(data)
 	config, format, err := image.DecodeConfig(reader)
-	if err != nil || (format != "png" && format != "jpeg" && format != "webp") || config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > MaxDecodedPixels {
+	if err != nil || !supportedFormat(format) || config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > MaxDecodedPixels {
 		return nil, ErrInvalidImage
 	}
 	if _, err := reader.Seek(0, io.SeekStart); err != nil {
 		return nil, ErrInvalidImage
 	}
 	imageData, format, err := image.Decode(reader)
-	if err != nil || (format != "png" && format != "jpeg" && format != "webp") {
+	if err != nil || !supportedFormat(format) {
 		return nil, ErrInvalidImage
 	}
 	imageData = fit(imageData, MaxDimension)
@@ -60,17 +60,22 @@ func ReadAndNormalize(reader io.Reader) ([]byte, error) {
 	return Normalize(data)
 }
 
+func supportedFormat(format string) bool {
+	return format == "png" || format == "jpeg" || format == "webp"
+}
+
 func fit(source image.Image, maxDimension int) image.Image {
 	bounds := source.Bounds()
 	width, height := bounds.Dx(), bounds.Dy()
 	if width <= maxDimension && height <= maxDimension {
 		return source
 	}
-	scale := float64(maxDimension) / float64(width)
-	if height > width {
-		scale = float64(maxDimension) / float64(height)
+	newWidth, newHeight := maxDimension, maxDimension
+	if width >= height {
+		newHeight = scaleDimension(height, width, maxDimension)
+	} else {
+		newWidth = scaleDimension(width, height, maxDimension)
 	}
-	newWidth, newHeight := int(float64(width)*scale), int(float64(height)*scale)
 	if newWidth < 1 {
 		newWidth = 1
 	}
@@ -80,4 +85,12 @@ func fit(source image.Image, maxDimension int) image.Image {
 	destination := image.NewRGBA(image.Rect(0, 0, newWidth, newHeight))
 	draw.ApproxBiLinear.Scale(destination, destination.Bounds(), source, bounds, draw.Over, nil)
 	return destination
+}
+
+// scaleDimension rounds the minor edge to the scaled size instead of
+// truncating, so floating-point drift cannot shave a pixel off the result.
+// major*max cannot overflow: MaxDecodedPixels keeps both edges well below
+// int32 range.
+func scaleDimension(minor, major, maxDimension int) int {
+	return (minor*maxDimension + major/2) / major
 }

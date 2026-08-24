@@ -12,6 +12,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
+// currencySymbols maps display symbols onto the currencies accepted by
+// settings.SupportedCurrencies (the single whitelist); unknown codes fall
+// back to the code itself.
 var currencySymbols = map[string]string{
 	"AUD": "A$",
 	"CNY": "¥",
@@ -59,7 +62,7 @@ func Money(value, currency string, preference settings.Settings) string {
 	if preference.DecimalPlaces > 0 {
 		result += preference.DecimalSeparator + fraction
 	}
-	if negative && result != "—" {
+	if negative {
 		return "-" + result
 	}
 	return result

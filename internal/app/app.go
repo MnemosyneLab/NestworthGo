@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	_ "embed"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -37,8 +38,9 @@ func New() *App {
 	window := fyneApp.NewWindow(version.Name)
 	store := settings.DefaultStore()
 	preference, loadErr := store.Load()
-	_ = loadErr
-	window.Resize(fyne.NewSize(preference.WindowWidth, preference.WindowHeight))
+	if loadErr != nil {
+		slog.Warn("could not load saved settings; using defaults", "error", loadErr)
+	}
 
 	databasePath := defaultDatabasePath()
 	database, databaseErr := sqlite.Open(databasePath)
@@ -52,9 +54,17 @@ func New() *App {
 		)
 		service = application.NewService(sqlite.NewRepository(database), registry)
 		if err := service.SetFXProvider(preference.FXProvider); err != nil {
+			// Fall back for this session only: the persisted choice stays on
+			// disk so a transient provider failure cannot rewrite the user's
+			// configuration silently.
+			slog.Warn("configured FX provider is not available; falling back to the default for this session",
+				"provider", preference.FXProvider,
+				"fallback", settings.DefaultFXProvider,
+				"error", err)
 			preference.FXProvider = settings.DefaultFXProvider
-			_ = service.SetFXProvider(preference.FXProvider)
-			_ = store.Save(preference)
+			if fallbackErr := service.SetFXProvider(preference.FXProvider); fallbackErr != nil {
+				slog.Error("default FX provider rejected at startup", "error", fallbackErr)
+			}
 		}
 		bootstrap, backendErr = service.Bootstrap(context.Background())
 	}

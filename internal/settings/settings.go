@@ -8,8 +8,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -194,13 +196,16 @@ func oneOf(value string, options ...string) bool {
 	return false
 }
 
+// SupportedCurrencies is the single source of truth for the currencies the
+// app accepts as a display currency. Validation here and the settings-page
+// currency selector must both derive from this list; display symbols live in
+// format.CurrencySymbol.
+func SupportedCurrencies() []string {
+	return []string{"AUD", "CNY", "EUR", "GBP", "HKD", "JPY", "SGD", "TWD", "USD"}
+}
+
 func validCurrency(value string) bool {
-	switch value {
-	case "AUD", "CNY", "EUR", "GBP", "HKD", "JPY", "SGD", "TWD", "USD":
-		return true
-	default:
-		return false
-	}
+	return slices.Contains(SupportedCurrencies(), value)
 }
 
 func separatorValue(value string) string {
@@ -247,13 +252,114 @@ func (s *Store) Load() (Settings, error) {
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		return defaults, fmt.Errorf("decode settings: %w", err)
 	}
-	if err := loaded.Validate(); err != nil {
-		return defaults, err
+	if loaded.SchemaVersion != CurrentSchemaVersion {
+		// A different schema version changes what the fields mean, so no
+		// individual field can be trusted; fall back to full defaults.
+		return defaults, fmt.Errorf("unsupported settings schema version %d", loaded.SchemaVersion)
 	}
-	if loaded.FXProvider == "" {
-		loaded.FXProvider = defaults.FXProvider
+	repaired := salvage(loaded, defaults)
+	if err := repaired.Validate(); err != nil {
+		slog.Error("settings salvage still produced invalid settings; using defaults", "path", s.Path, "error", err)
+		return defaults, nil
 	}
-	return loaded, nil
+	if repaired != loaded {
+		slog.Warn("settings file contained invalid values; reset individual fields to defaults",
+			"path", s.Path,
+			"reset", strings.Join(changedFieldNames(loaded, repaired), ", "))
+	}
+	return repaired, nil
+}
+
+// salvage keeps every field that still validates and resets only the
+// individually invalid ones to their defaults, so one hand-edited value can
+// no longer discard the whole preference set.
+func salvage(loaded, defaults Settings) Settings {
+	fixed := loaded
+	fixed.Appearance = salvageValue(fixed.Appearance, defaults.Appearance, func(v Appearance) bool {
+		return oneOf(string(v), string(AppearanceSystem), string(AppearanceLight), string(AppearanceDark))
+	})
+	fixed.Accent = salvageValue(fixed.Accent, defaults.Accent, func(v Accent) bool {
+		return oneOf(string(v), string(AccentNestworth), string(AccentOcean), string(AccentForest), string(AccentAmber), string(AccentRose))
+	})
+	fixed.Language = salvageValue(fixed.Language, defaults.Language, func(v Language) bool {
+		return oneOf(string(v), string(LanguageSystem), string(LanguageEnglish), string(LanguageZhCN), string(LanguageZhTW))
+	})
+	fixed.Timezone = salvageValue(fixed.Timezone, defaults.Timezone, func(v string) bool {
+		return strings.TrimSpace(v) != "" && (v == TimezoneSystem || func() bool { _, err := time.LoadLocation(v); return err == nil }())
+	})
+	fixed.WeekStart = salvageValue(fixed.WeekStart, defaults.WeekStart, func(v string) bool {
+		return oneOf(v, WeekStartMonday, WeekStartSunday)
+	})
+	fixed.DateFormat = salvageValue(fixed.DateFormat, defaults.DateFormat, func(v string) bool {
+		return oneOf(v, DateFormatISO, DateFormatDayFirst, DateFormatMonthFirst, DateFormatLocalized)
+	})
+	fixed.TimeFormat = salvageValue(fixed.TimeFormat, defaults.TimeFormat, func(v string) bool {
+		return oneOf(v, TimeFormat24, TimeFormat12)
+	})
+	fixed.Currency = salvageValue(fixed.Currency, defaults.Currency, validCurrency)
+	fixed.DecimalSeparator = salvageValue(fixed.DecimalSeparator, defaults.DecimalSeparator, func(v string) bool {
+		return oneOf(v, DecimalDot, DecimalComma)
+	})
+	fixed.GroupingSeparator = salvageValue(fixed.GroupingSeparator, defaults.GroupingSeparator, func(v string) bool {
+		return oneOf(v, GroupingComma, GroupingDot, GroupingSpace, GroupingApost, GroupingNone)
+	})
+	if fixed.GroupingSeparator != GroupingNone && separatorValue(fixed.GroupingSeparator) == fixed.DecimalSeparator {
+		if fixed.DecimalSeparator == DecimalComma {
+			fixed.GroupingSeparator = GroupingDot
+		} else {
+			fixed.GroupingSeparator = GroupingComma
+		}
+	}
+	fixed.DecimalPlaces = salvageValue(fixed.DecimalPlaces, defaults.DecimalPlaces, func(v int) bool {
+		return v == 0 || v == 2 || v == 4
+	})
+	fixed.WindowWidth = salvageValue(fixed.WindowWidth, defaults.WindowWidth, func(v float32) bool {
+		return v >= MinWindowWidth && v <= MaxWindowWidth
+	})
+	fixed.WindowHeight = salvageValue(fixed.WindowHeight, defaults.WindowHeight, func(v float32) bool {
+		return v >= MinWindowHeight && v <= MaxWindowHeight
+	})
+	fixed.FXProvider = strings.TrimSpace(fixed.FXProvider)
+	if fixed.FXProvider == "" {
+		fixed.FXProvider = defaults.FXProvider
+	}
+	return fixed
+}
+
+func salvageValue[T comparable](value, fallback T, valid func(T) bool) T {
+	if valid(value) {
+		return value
+	}
+	return fallback
+}
+
+func changedFieldNames(from, to Settings) []string {
+	fields := []struct {
+		name     string
+		from, to any
+	}{
+		{"appearance", from.Appearance, to.Appearance},
+		{"accent", from.Accent, to.Accent},
+		{"language", from.Language, to.Language},
+		{"timezone", from.Timezone, to.Timezone},
+		{"week_start", from.WeekStart, to.WeekStart},
+		{"date_format", from.DateFormat, to.DateFormat},
+		{"time_format", from.TimeFormat, to.TimeFormat},
+		{"currency", from.Currency, to.Currency},
+		{"decimal_separator", from.DecimalSeparator, to.DecimalSeparator},
+		{"grouping_separator", from.GroupingSeparator, to.GroupingSeparator},
+		{"decimal_places", from.DecimalPlaces, to.DecimalPlaces},
+		{"window_width", from.WindowWidth, to.WindowWidth},
+		{"window_height", from.WindowHeight, to.WindowHeight},
+		{"fx_provider", from.FXProvider, to.FXProvider},
+	}
+	var changed []string
+	for _, field := range fields {
+		if field.from != field.to {
+			changed = append(changed, field.name)
+		}
+	}
+	return changed
 }
 
 func (s *Store) Save(value Settings) error {

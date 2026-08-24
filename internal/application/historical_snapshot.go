@@ -45,7 +45,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	if err != nil || parsedDate.Format("2006-01-02") != localDate {
 		return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrValidation, Field: "localDate", Message: "local date must use YYYY-MM-DD"}
 	}
-	if localDate >= s.now().In(location).Format("2006-01-02") {
+	if localDate >= s.clock().In(location).Format("2006-01-02") {
 		return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "localDate", Message: "today is not a closed day"}
 	}
 	originDate := origin.StartedAt.In(location).Format("2006-01-02")
@@ -59,10 +59,6 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	}
 	cutoff := nextMidnight.Add(-time.Millisecond)
 	portfolio, err := s.historicalPortfolioSnapshot(ctx, origin, cutoff)
-	if err != nil {
-		return domain.DailyValuationSnapshot{}, false, err
-	}
-	valuation, err := NewValuationService(s.repository, func() time.Time { return cutoff }).PortfolioSnapshot(portfolio)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}
@@ -126,13 +122,9 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}
-	_ = valuation // portfolio evaluation above keeps the v0.1.2 semantics in one place.
 	hash := snapshotContentHash(localDate, cutoff, assetsMoney, liabilitiesMoney, netWorthMoney, items)
-	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: portfolio.Household.BaseCurrency, Complete: complete && len(missing) == 0, ComponentCount: len(items), MissingCount: len(missing), GenerationReason: "manual", CreatedAt: s.now(), Items: items}
-	appended, err := s.repository.SaveDailyValuationSnapshot(ctx, snapshot)
-	if err == nil {
-		err = s.repository.MarkDailySnapshotCompleted(ctx, snapshot.HouseholdID, snapshot.LocalDate, s.now())
-	}
+	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: portfolio.Household.BaseCurrency, Complete: complete && len(missing) == 0, ComponentCount: len(items), MissingCount: len(missing), GenerationReason: "manual", CreatedAt: s.clock(), Items: items}
+	appended, err := s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
 	return snapshot, appended, err
 }
 
@@ -775,7 +767,7 @@ func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, end
 }
 
 func (s *Service) CompleteDailySnapshotRange(ctx context.Context, householdID domain.HouseholdID, targetDate string) error {
-	return s.repository.CompleteDailySnapshotRange(ctx, householdID, targetDate, s.now())
+	return s.repository.CompleteDailySnapshotRange(ctx, householdID, targetDate, s.clock())
 }
 
 func (s *Service) DailySnapshotState(ctx context.Context, householdID domain.HouseholdID) (domain.DailySnapshotState, error) {

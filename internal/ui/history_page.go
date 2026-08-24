@@ -23,6 +23,15 @@ const (
 	historyDebt             = "debt"
 )
 
+// Stable side values for the trade/debt side select; never compare its
+// translated labels.
+const (
+	historySideBuy     = "buy"
+	historySideSell    = "sell"
+	historySideDraw    = "draw"
+	historySidePayment = "payment"
+)
+
 type historyHoldingOption struct {
 	holding    domain.Holding
 	instrument domain.Instrument
@@ -60,15 +69,25 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		accountLabels = append(accountLabels, label)
 		accountsByLabel[label] = account
 	}
-	holdings := make([]historyHoldingOption, 0)
-	holdingByLabel := make(map[string]historyHoldingOption)
+	trackingIDs := make([]domain.AccountID, 0, len(accounts))
+	trackingByID := make(map[domain.AccountID]domain.AccountRecord, len(accounts))
 	for _, account := range accounts {
 		if account.Account.TrackingMode != domain.TrackingHoldings {
 			continue
 		}
-		list, listErr := c.service.ListHoldings(ctx, account.Account.ID, false)
-		if listErr != nil {
-			return surface(widget.NewLabel(t.TranslateError(listErr)), fyne.NewSize(520, 220))
+		trackingIDs = append(trackingIDs, account.Account.ID)
+		trackingByID[account.Account.ID] = account
+	}
+	holdingsByAccount, holdingsErr := c.service.HoldingsByAccounts(ctx, trackingIDs)
+	if holdingsErr != nil {
+		return surface(widget.NewLabel(t.TranslateError(holdingsErr)), fyne.NewSize(520, 220))
+	}
+	holdings := make([]historyHoldingOption, 0)
+	holdingByLabel := make(map[string]historyHoldingOption)
+	for accountID, list := range holdingsByAccount {
+		account, ok := trackingByID[accountID]
+		if !ok {
+			continue
 		}
 		for _, holding := range list {
 			instrument, ok := instrumentByID[holding.InstrumentID]
@@ -123,10 +142,9 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		fromHoldingSelect.SetSelected(holdingLabels[0])
 		toHoldingSelect.SetSelected(holdingLabels[0])
 	}
-	sideSelect := widget.NewSelect([]string{t.T("history.side.buy"), t.T("history.side.sell"), t.T("history.side.draw"), t.T("history.side.payment")}, nil)
-	sideSelect.SetSelected(t.T("history.side.buy"))
-	reasonSelect := widget.NewSelect([]string{t.T("history.reason.income"), t.T("history.reason.contribution"), t.T("history.reason.expense"), t.T("history.reason.reconciliation"), t.T("history.reason.other")}, nil)
-	reasonSelect.SetSelected(t.T("history.reason.income"))
+	side := newValueSelect(nil)
+	reason := newValueSelect(historyReasonOptions(t))
+	reason.Select(string(domain.ReasonIncome))
 	amount := widget.NewEntry()
 	amount.SetPlaceHolder("0.00")
 	secondaryAmount := widget.NewEntry()
@@ -170,12 +188,12 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 			if moneyErr != nil {
 				return nil, moneyErr
 			}
-			reason := historyReason(reasonSelect.Selected, t)
+			reasonValue := historySelectedReason(reason)
 			if kind == historyMoneyAdded {
-				return domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: from.Account.ID, Amount: money, Reason: reason, EffectiveAt: when, Note: noteValue}, nil
+				return domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: from.Account.ID, Amount: money, Reason: reasonValue, EffectiveAt: when, Note: noteValue}, nil
 			}
 			if kind == historyMoneyRemoved {
-				return domain.MoneyRemovedInput{HouseholdID: bootstrap.Household.ID, AccountID: from.Account.ID, Amount: money, Reason: reason, EffectiveAt: when, Note: noteValue}, nil
+				return domain.MoneyRemovedInput{HouseholdID: bootstrap.Household.ID, AccountID: from.Account.ID, Amount: money, Reason: reasonValue, EffectiveAt: when, Note: noteValue}, nil
 			}
 			return domain.ValueUpdateInput{HouseholdID: bootstrap.Household.ID, AccountID: from.Account.ID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when, Note: noteValue}, nil
 		case historyCashTransfer:
@@ -227,7 +245,7 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 				fee = &parsedFee
 			}
 			tradeSide := domain.TradeBuy
-			if sideSelect.Selected == t.T("history.side.sell") {
+			if side.Value() == historySideSell {
 				tradeSide = domain.TradeSell
 			}
 			return domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: tradeSide, SettlementAccountID: from.Account.ID, HoldingID: holding.holding.ID, InstrumentID: holding.holding.InstrumentID, Quantity: parsedQuantity, Gross: gross, Fee: fee, EffectiveAt: when, Note: noteValue}, nil
@@ -239,7 +257,7 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 			if principalErr != nil {
 				return nil, principalErr
 			}
-			if sideSelect.Selected == t.T("history.side.draw") {
+			if side.Value() == historySideDraw {
 				return domain.DebtDrawInput{HouseholdID: bootstrap.Household.ID, DebtAccountID: from.Account.ID, CashAccountID: to.Account.ID, Principal: principal, EffectiveAt: when, Note: noteValue}, nil
 			}
 			var fee *domain.Money
@@ -291,7 +309,7 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		case historyMoneyAdded, historyMoneyRemoved:
 			form.Append(t.T("history.account"), accountSelect)
 			form.Append(t.T("history.amount"), amount)
-			form.Append(t.T("history.reason"), reasonSelect)
+			form.Append(t.T("history.reason"), reason.widget)
 		case historyValueUpdate:
 			form.Append(t.T("history.account"), accountSelect)
 			form.Append(t.T("history.amount"), amount)
@@ -309,34 +327,40 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 			form.Append(t.T("history.destinationHolding"), toHoldingSelect)
 			form.Append(t.T("history.quantity"), quantity)
 		case historyTrade:
-			sideSelect.Options = []string{t.T("history.side.buy"), t.T("history.side.sell")}
-			if sideSelect.Selected != t.T("history.side.buy") && sideSelect.Selected != t.T("history.side.sell") {
-				sideSelect.Selected = t.T("history.side.buy")
+			side.SetOptions([]selectOption{
+				{value: historySideBuy, label: t.T("history.side.buy")},
+				{value: historySideSell, label: t.T("history.side.sell")},
+			})
+			switch side.Value() {
+			case historySideBuy, historySideSell:
+			default:
+				side.Select(historySideBuy)
 			}
-			sideSelect.Refresh()
 			form.Append(t.T("history.account"), accountSelect)
 			form.Append(t.T("history.holding"), fromHoldingSelect)
-			form.Append(t.T("history.side"), sideSelect)
+			form.Append(t.T("history.side"), side.widget)
 			form.Append(t.T("history.amount"), amount)
 			form.Append(t.T("history.fee"), secondaryAmount)
 			form.Append(t.T("history.quantity"), quantity)
 		case historyDebt:
-			sideSelect.Options = []string{t.T("history.side.draw"), t.T("history.side.payment")}
-			if sideSelect.Selected != t.T("history.side.draw") && sideSelect.Selected != t.T("history.side.payment") {
-				sideSelect.Selected = t.T("history.side.draw")
+			side.SetOptions([]selectOption{
+				{value: historySideDraw, label: t.T("history.side.draw")},
+				{value: historySidePayment, label: t.T("history.side.payment")},
+			})
+			switch side.Value() {
+			case historySideDraw, historySidePayment:
+			default:
+				side.Select(historySideDraw)
 			}
-			sideSelect.Refresh()
 			form.Append(t.T("history.account"), accountSelect)
 			form.Append(t.T("history.destination"), destinationSelect)
-			form.Append(t.T("history.side"), sideSelect)
+			form.Append(t.T("history.side"), side.widget)
 			form.Append(t.T("history.amount"), amount)
-			if sideSelect.Selected == t.T("history.side.payment") {
+			if side.Value() == historySidePayment {
 				form.Append(t.T("history.fee"), secondaryAmount)
 			}
 		default:
-			sideSelect.Options = nil
-			sideSelect.Selected = ""
-			sideSelect.Refresh()
+			side.SetOptions(nil)
 		}
 		form.Append(t.T("history.effectiveDate"), effectiveDate)
 		form.Append(t.T("history.effectiveTime"), effectiveTime)
@@ -349,7 +373,7 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 	}
 	accountSelect.OnChanged = func(string) { rebuildForm() }
 	destinationSelect.OnChanged = func(string) { rebuildForm() }
-	sideSelect.OnChanged = func(string) { rebuildForm() }
+	side.widget.OnChanged = func(string) { rebuildForm() }
 	rebuildForm()
 	formBox := container.NewVBox(widget.NewLabelWithStyle(t.T("history.recordTitle"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), form, container.NewHBox(previewButton, saveButton), feedback)
 	if !started {
@@ -584,8 +608,8 @@ func showHistoryFixDialog(c *Controller, activity domain.Activity) {
 	}
 	amount := widget.NewEntry()
 	amount.SetText(originalAmount.CanonicalAmount())
-	reasonSelect := widget.NewSelect([]string{t.T("history.reason.income"), t.T("history.reason.contribution"), t.T("history.reason.expense"), t.T("history.reason.reconciliation"), t.T("history.reason.other")}, nil)
-	reasonSelect.SetSelected(historyReasonLabel(t, activity.Reason))
+	reason := newValueSelect(historyReasonOptions(t))
+	reason.Select(string(activity.Reason))
 	location, locationErr := time.LoadLocation(c.preference.Timezone)
 	if locationErr != nil || c.preference.Timezone == "" {
 		location = time.UTC
@@ -602,7 +626,7 @@ func showHistoryFixDialog(c *Controller, activity domain.Activity) {
 	items := []*widget.FormItem{
 		widget.NewFormItem(t.T("history.account"), accountSelect),
 		widget.NewFormItem(t.T("history.amount"), amount),
-		widget.NewFormItem(t.T("history.reason"), reasonSelect),
+		widget.NewFormItem(t.T("history.reason"), reason.widget),
 		widget.NewFormItem(t.T("history.effectiveDate"), date),
 		widget.NewFormItem(t.T("history.effectiveTime"), clock),
 		widget.NewFormItem(t.T("history.note"), note),
@@ -625,15 +649,15 @@ func showHistoryFixDialog(c *Controller, activity domain.Activity) {
 			value := strings.TrimSpace(note.Text)
 			noteValue = &value
 		}
-		if !historyFixChanged(activity, account.Account.ID, money, historyReason(reasonSelect.Selected, t), when, noteValue) {
+		if !historyFixChanged(activity, account.Account.ID, money, historySelectedReason(reason), when, noteValue) {
 			return historyValidation("fix", t.T("history.fixNoChange"))
 		}
 		if activity.Kind == domain.ActivityCashIn {
-			command := domain.MoneyAddedInput{HouseholdID: activity.HouseholdID, AccountID: account.Account.ID, Amount: money, Reason: historyReason(reasonSelect.Selected, t), EffectiveAt: when, Note: noteValue}
+			command := domain.MoneyAddedInput{HouseholdID: activity.HouseholdID, AccountID: account.Account.ID, Amount: money, Reason: historySelectedReason(reason), EffectiveAt: when, Note: noteValue}
 			_, fixErr := c.service.FixChange(context.Background(), activity.ID, command)
 			return fixErr
 		} else {
-			command := domain.MoneyRemovedInput{HouseholdID: activity.HouseholdID, AccountID: account.Account.ID, Amount: money, Reason: historyReason(reasonSelect.Selected, t), EffectiveAt: when, Note: noteValue}
+			command := domain.MoneyRemovedInput{HouseholdID: activity.HouseholdID, AccountID: account.Account.ID, Amount: money, Reason: historySelectedReason(reason), EffectiveAt: when, Note: noteValue}
 			_, fixErr := c.service.FixChange(context.Background(), activity.ID, command)
 			return fixErr
 		}
@@ -685,19 +709,25 @@ func historyEffectiveAtWithTime(c *Controller, date, clock string) (time.Time, e
 	return domain.ResolveLocalDateTime(date, clock, timezone)
 }
 
-func historyReason(value string, t interface{ T(string) string }) domain.ActivityReason {
-	switch value {
-	case t.T("history.reason.contribution"):
-		return domain.ReasonContribution
-	case t.T("history.reason.expense"):
-		return domain.ReasonExpense
-	case t.T("history.reason.reconciliation"):
-		return domain.ReasonReconciliation
-	case t.T("history.reason.other"):
-		return domain.ReasonOther
-	default:
-		return domain.ReasonIncome
+// historyReasonOptions pairs each activity reason enum with its translated
+// label; the enum string is the stable value handed to business logic.
+func historyReasonOptions(t interface{ T(string) string }) []selectOption {
+	return []selectOption{
+		{value: string(domain.ReasonIncome), label: t.T("history.reason.income")},
+		{value: string(domain.ReasonContribution), label: t.T("history.reason.contribution")},
+		{value: string(domain.ReasonExpense), label: t.T("history.reason.expense")},
+		{value: string(domain.ReasonReconciliation), label: t.T("history.reason.reconciliation")},
+		{value: string(domain.ReasonOther), label: t.T("history.reason.other")},
 	}
+}
+
+// historySelectedReason returns the chosen reason, falling back to income when
+// nothing valid is selected (e.g. a fix dialog opened on an unusual activity).
+func historySelectedReason(reason *valueSelect) domain.ActivityReason {
+	if value := reason.Value(); value != "" {
+		return domain.ActivityReason(value)
+	}
+	return domain.ReasonIncome
 }
 
 func historyKindLabel(t interface{ T(string) string }, kind domain.ActivityKind) string {

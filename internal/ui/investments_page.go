@@ -27,7 +27,7 @@ func NewInvestmentsPage(c *Controller) fyne.CanvasObject {
 	refreshFX := widget.NewButton(t.T("portfolio.refreshFX"), func() {
 		c.startRefresh(refreshRequest{operation: refreshRequiredFXOperation})
 	})
-	if c.refreshPending {
+	if c.refreshTask.pending {
 		refreshAll.Disable()
 		refreshFX.Disable()
 	}

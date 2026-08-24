@@ -53,9 +53,7 @@ type YahooChartProviderOptions struct {
 }
 
 type YahooChartProvider struct {
-	client      *http.Client
-	maxBodySize int64
-	semaphore   chan struct{}
+	conn *providerHTTPClient
 }
 
 func NewYahooChartProvider(transport http.RoundTripper) *YahooChartProvider {
@@ -63,32 +61,8 @@ func NewYahooChartProvider(transport http.RoundTripper) *YahooChartProvider {
 }
 
 func NewYahooChartProviderWithOptions(options YahooChartProviderOptions) *YahooChartProvider {
-	transport := options.Transport
-	if transport == nil {
-		transport = http.DefaultTransport
-	}
-	timeout := options.Timeout
-	if timeout <= 0 {
-		timeout = yahooRequestTimeout
-	}
-	maxBodySize := options.MaxBodySize
-	if maxBodySize <= 0 {
-		maxBodySize = yahooMaxBodyBytes
-	}
-	semaphore := options.Semaphore
-	if semaphore == nil {
-		semaphore = sharedYahooSemaphore
-	}
 	return &YahooChartProvider{
-		client: &http.Client{
-			Transport: transport,
-			Timeout:   timeout,
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		},
-		maxBodySize: maxBodySize,
-		semaphore:   semaphore,
+		conn: newProviderHTTPClient(providerHTTPOptions(options), yahooRequestTimeout, yahooMaxBodyBytes, sharedYahooSemaphore),
 	}
 }
 
@@ -149,64 +123,32 @@ func (p *YahooChartProvider) LatestFX(ctx context.Context, identity application.
 }
 
 func (p *YahooChartProvider) fetch(ctx context.Context, symbol string) ([]byte, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	select {
-	case p.semaphore <- struct{}{}:
-		defer func() { <-p.semaphore }()
-	case <-ctx.Done():
-		return nil, providerUnavailable("provider request was cancelled")
-	}
+	return p.conn.doFetch(ctx, yahooChartURL(symbol), func(request *http.Request) {
+		request.Header = yahooBrowserHeaders()
+	}, classifyYahooResponse)
+}
 
-	requestURL := yahooChartURL(symbol)
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL.String(), nil)
-	if err != nil {
-		return nil, providerUnavailable("provider is unavailable")
-	}
-	request.Header = yahooBrowserHeaders()
-	response, err := p.client.Do(request)
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUnavailable("provider request was cancelled")
-		}
-		return nil, providerUnavailable("provider is unavailable")
-	}
-	if response == nil || response.Body == nil {
-		return nil, malformedProvider()
-	}
-	defer response.Body.Close()
+func classifyYahooResponse(response *http.Response) error {
 	switch response.StatusCode {
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return nil, providerError(domain.ErrProviderAuthentication, "provider authentication failed")
+		return providerError(domain.ErrProviderAuthentication, "provider authentication failed")
 	case http.StatusTooManyRequests:
-		return nil, providerError(domain.ErrProviderRateLimit, "provider rate limit reached")
+		return providerError(domain.ErrProviderRateLimit, "provider rate limit reached")
 	case http.StatusNotFound:
-		return nil, providerError(domain.ErrUnsupportedProviderSymbol, "provider symbol is unsupported")
+		return unsupportedProviderSymbol()
 	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
-		return nil, providerError(domain.ErrMalformedProviderResponse, "provider response is malformed")
-	default:
-		if response.StatusCode >= 500 {
-			return nil, providerUnavailable("provider is unavailable")
-		}
-		if response.StatusCode != http.StatusOK {
-			return nil, providerError(domain.ErrMalformedProviderResponse, "provider response is malformed")
-		}
+		return malformedProvider()
 	}
-	if response.ContentLength > p.maxBodySize {
-		return nil, providerError(domain.ErrMarketDataResponseTooLarge, "provider response is too large")
+	if response.StatusCode >= 500 {
+		return providerUnavailable("provider is unavailable")
+	}
+	if response.StatusCode != http.StatusOK {
+		return malformedProvider()
 	}
 	if encoding := strings.ToLower(strings.TrimSpace(response.Header.Get("Content-Encoding"))); encoding != "" && encoding != "identity" {
-		return nil, malformedProvider()
+		return malformedProvider()
 	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, p.maxBodySize+1))
-	if err != nil {
-		return nil, providerUnavailable("provider is unavailable")
-	}
-	if int64(len(body)) > p.maxBodySize {
-		return nil, providerError(domain.ErrMarketDataResponseTooLarge, "provider response is too large")
-	}
-	return body, nil
+	return nil
 }
 
 func yahooBrowserHeaders() http.Header {
@@ -323,10 +265,6 @@ func normalizeChartAt(body []byte, expectedCurrency domain.CurrencyCode, fx bool
 	return fallbackCloseAt(result, fx, now)
 }
 
-func fallbackClose(result chartResult, fx bool) (normalizedChartQuote, error) {
-	return fallbackCloseAt(result, fx, time.Now().UTC())
-}
-
 func fallbackCloseAt(result chartResult, fx bool, now time.Time) (normalizedChartQuote, error) {
 	if len(result.Indicators.Quote) != 1 || len(result.Timestamp) == 0 || len(result.Timestamp) != len(result.Indicators.Quote[0].Close) {
 		return normalizedChartQuote{}, malformedProvider()
@@ -389,10 +327,6 @@ func jsonNumberLexeme(raw json.RawMessage) (string, error) {
 		return "", errors.New("financial value contains trailing data")
 	}
 	return number.String(), nil
-}
-
-func unixTimestamp(value int64) (time.Time, error) {
-	return unixTimestampAt(value, time.Now().UTC())
 }
 
 func unixTimestampAt(value int64, now time.Time) (time.Time, error) {

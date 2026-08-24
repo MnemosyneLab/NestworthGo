@@ -137,26 +137,25 @@ func (*uiCapabilityProvider) LatestFX(context.Context, application.FXMarketIdent
 }
 
 func TestRefreshGenerationCancelsOnNavigationAndIgnoresLateResults(t *testing.T) {
-	controller := &Controller{page: PageInvestments, refreshPending: true, refreshGeneration: 7}
 	ctx, cancel := context.WithCancel(context.Background())
-	controller.refreshCancel = cancel
+	controller := &Controller{page: PageInvestments, refreshTask: asyncTask[application.RefreshResult]{cancel: cancel, generation: 7, pending: true}}
 	if controller.finishRefresh(6, refreshRequest{}, application.RefreshResult{}, nil) {
 		t.Fatal("stale refresh completion was accepted")
 	}
-	if !controller.refreshPending {
+	if !controller.refreshTask.pending {
 		t.Fatal("stale completion changed pending state")
 	}
 	controller.navigate(PageAccounts)
 	if ctx.Err() != context.Canceled {
 		t.Fatal("leaving Investments did not cancel refresh context")
 	}
-	if controller.refreshPending {
+	if controller.refreshTask.pending {
 		t.Fatal("navigation left refresh pending")
 	}
 }
 
 func TestPartialRefreshIsRetryableAndDisclaimerIsLocalized(t *testing.T) {
-	controller := &Controller{translator: i18n.New(settings.LanguageEnglish), refreshResult: &application.RefreshResult{Items: []application.RefreshTargetResult{{Status: application.RefreshFailed}}}, retryRefresh: func() {}}
+	controller := &Controller{translator: i18n.New(settings.LanguageEnglish), refreshTask: asyncTask[application.RefreshResult]{payload: &application.RefreshResult{Items: []application.RefreshTargetResult{{Status: application.RefreshFailed}}}}, retryRefresh: func() {}}
 	if !canvasContainsText(refreshFeedback(controller), controller.translator.T("common.retry")) {
 		t.Fatal("partial refresh did not expose retry action")
 	}

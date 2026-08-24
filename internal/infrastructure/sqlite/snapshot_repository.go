@@ -9,10 +9,26 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (r *Repository) SaveDailyValuationSnapshot(ctx context.Context, snapshot domain.DailyValuationSnapshot) (bool, error) {
+// SaveDailyValuationSnapshotAndMarkCompleted persists the snapshot and
+// advances the completion marker in one transaction so a crash or failure can
+// never leave the snapshot stored while the state stays stale.
+func (r *Repository) SaveDailyValuationSnapshotAndMarkCompleted(ctx context.Context, snapshot domain.DailyValuationSnapshot, updatedAt time.Time) (bool, error) {
+	var appended bool
+	err := r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		var err error
+		appended, err = saveDailyValuationSnapshotTx(ctx, tx, snapshot)
+		if err != nil {
+			return err
+		}
+		return markDailySnapshotCompletedTx(ctx, tx, snapshot.HouseholdID, snapshot.LocalDate, updatedAt)
+	})
+	return appended, err
+}
+
+func saveDailyValuationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot domain.DailyValuationSnapshot) (bool, error) {
 	var existingID, existingHash string
 	var existingRevision int
-	err := r.database.SQL.QueryRowContext(ctx, `SELECT id, revision, content_hash FROM daily_valuation_snapshots WHERE household_id = ? AND local_date = ? ORDER BY revision DESC LIMIT 1`, snapshot.HouseholdID.String(), snapshot.LocalDate).Scan(&existingID, &existingRevision, &existingHash)
+	err := tx.QueryRowContext(ctx, `SELECT id, revision, content_hash FROM daily_valuation_snapshots WHERE household_id = ? AND local_date = ? ORDER BY revision DESC LIMIT 1`, snapshot.HouseholdID.String(), snapshot.LocalDate).Scan(&existingID, &existingRevision, &existingHash)
 	if err == nil && existingHash == snapshot.ContentHash {
 		return false, nil
 	}
@@ -35,28 +51,32 @@ func (r *Repository) SaveDailyValuationSnapshot(ctx context.Context, snapshot do
 		}
 		snapshot.SupersedesID = &previous
 	}
-	return true, r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, snapshot.ID.String(), snapshot.HouseholdID.String(), snapshot.LocalDate, formatTimestamp(snapshot.CutoffAt), snapshot.Revision, nullableSnapshotID(snapshot.SupersedesID), snapshot.ContentHash, nullableMoneyAmount(snapshot.AssetsAmount), nullableMoneyAmount(snapshot.LiabilitiesAmount), nullableMoneyAmount(snapshot.NetWorthAmount), snapshot.Currency.String(), boolValue(snapshot.Complete), snapshot.ComponentCount, snapshot.MissingCount, snapshot.GenerationReason, formatTimestamp(snapshot.CreatedAt)); err != nil {
-			return err
+	if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, snapshot.ID.String(), snapshot.HouseholdID.String(), snapshot.LocalDate, formatTimestamp(snapshot.CutoffAt), snapshot.Revision, nullableSnapshotID(snapshot.SupersedesID), snapshot.ContentHash, nullableMoneyAmount(snapshot.AssetsAmount), nullableMoneyAmount(snapshot.LiabilitiesAmount), nullableMoneyAmount(snapshot.NetWorthAmount), snapshot.Currency.String(), boolValue(snapshot.Complete), snapshot.ComponentCount, snapshot.MissingCount, snapshot.GenerationReason, formatTimestamp(snapshot.CreatedAt)); err != nil {
+		return false, err
+	}
+	for _, item := range snapshot.Items {
+		if item.ID == "" {
+			item.ID = domain.NewDailyValuationSnapshotItemID()
 		}
-		for _, item := range snapshot.Items {
-			if item.ID == "" {
-				item.ID = domain.NewDailyValuationSnapshotItemID()
-			}
-			if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshot_items(id, snapshot_id, account_id, holding_id, instrument_id, native_amount, native_currency, base_amount, base_currency, quote_id, fx_quote_id, state_observation_id, preference_observation_id, complete, missing_reason, fx_preference_observation_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.ID.String(), snapshot.ID.String(), item.AccountID.String(), nullableSnapshotHoldingID(item.HoldingID), nullableSnapshotInstrumentID(item.InstrumentID), nullableSnapshotString(item.NativeAmount), nullableSnapshotCurrency(item.NativeCurrency), nullableMoneyAmount(item.BaseAmount), snapshot.Currency.String(), nullableSnapshotStringPtr(item.QuoteID), nullableSnapshotStringPtr(item.FXQuoteID), nullableSnapshotAccountObservationID(item.StateObservationID), nullableSnapshotPreferenceObservationID(item.PreferenceObservationID), boolValue(item.Complete), nullableSnapshotStringPtr(item.MissingReason), nullableSnapshotFXPreferenceObservationID(item.FXPreferenceObservationID)); err != nil {
-				return err
-			}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshot_items(id, snapshot_id, account_id, holding_id, instrument_id, native_amount, native_currency, base_amount, base_currency, quote_id, fx_quote_id, state_observation_id, preference_observation_id, complete, missing_reason, fx_preference_observation_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.ID.String(), snapshot.ID.String(), item.AccountID.String(), nullableSnapshotHoldingID(item.HoldingID), nullableSnapshotInstrumentID(item.InstrumentID), nullableSnapshotString(item.NativeAmount), nullableSnapshotCurrency(item.NativeCurrency), nullableMoneyAmount(item.BaseAmount), snapshot.Currency.String(), nullableSnapshotStringPtr(item.QuoteID), nullableSnapshotStringPtr(item.FXQuoteID), nullableSnapshotAccountObservationID(item.StateObservationID), nullableSnapshotPreferenceObservationID(item.PreferenceObservationID), boolValue(item.Complete), nullableSnapshotStringPtr(item.MissingReason), nullableSnapshotFXPreferenceObservationID(item.FXPreferenceObservationID)); err != nil {
+			return false, err
 		}
-		return nil
-	})
+	}
+	return true, nil
 }
 
 func (r *Repository) MarkDailySnapshotCompleted(ctx context.Context, householdID domain.HouseholdID, localDate string, updatedAt time.Time) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		return markDailySnapshotCompletedTx(ctx, tx, householdID, localDate, updatedAt)
+	})
+}
+
+func markDailySnapshotCompletedTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, localDate string, updatedAt time.Time) error {
 	nextDate, err := nextSnapshotDate(localDate)
 	if err != nil {
 		return err
 	}
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from = ? THEN ? ELSE dirty_from END, last_completed_closed_on = CASE WHEN last_completed_closed_on IS NULL OR last_completed_closed_on < ? THEN ? ELSE last_completed_closed_on END, updated_at = ? WHERE household_id = ?`, localDate, nextDate, localDate, localDate, formatTimestamp(updatedAt), householdID.String())
+	result, err := tx.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from = ? THEN ? ELSE dirty_from END, last_completed_closed_on = CASE WHEN last_completed_closed_on IS NULL OR last_completed_closed_on < ? THEN ? ELSE last_completed_closed_on END, updated_at = ? WHERE household_id = ?`, localDate, nextDate, localDate, localDate, formatTimestamp(updatedAt), householdID.String())
 	if err != nil {
 		return err
 	}

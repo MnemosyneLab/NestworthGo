@@ -6,19 +6,38 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (s *Service) changeState(ctx context.Context) (domain.ChangeState, error) {
+// loadChangeContext fetches the immutable Starting point plus one full
+// portfolio snapshot so a request never reads the snapshot twice.
+func (s *Service) loadChangeContext(ctx context.Context) (*domain.HistoryOrigin, domain.PortfolioSnapshot, error) {
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
-		return domain.ChangeState{}, err
+		return nil, domain.PortfolioSnapshot{}, err
 	}
 	if origin == nil {
-		return domain.ChangeState{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+		return nil, domain.PortfolioSnapshot{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
 	}
 	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
+		return nil, domain.PortfolioSnapshot{}, err
+	}
+	return origin, snapshot, nil
+}
+
+func (s *Service) changeState(ctx context.Context) (domain.ChangeState, error) {
+	origin, snapshot, err := s.loadChangeContext(ctx)
+	if err != nil {
 		return domain.ChangeState{}, err
 	}
-	state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.now(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState)}
+	return s.changeStateFrom(origin, snapshot)
+}
+
+// changeStateFrom builds ChangeState from an already-loaded Starting point and
+// portfolio snapshot.
+func (s *Service) changeStateFrom(origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot) (domain.ChangeState, error) {
+	if origin == nil {
+		return domain.ChangeState{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+	}
+	state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState)}
 	for _, record := range snapshot.Accounts {
 		account := record.Account
 		current, parseErr := domain.ParseMoney("0", account.DefaultCurrency)
@@ -60,15 +79,28 @@ func (s *Service) PreviewChange(ctx context.Context, command any) (domain.Change
 func (s *Service) RecordChange(ctx context.Context, command any) (domain.ChangePreview, error) {
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
+	return s.recordChangeLocked(ctx, command)
+}
+
+// recordChangeLocked re-loads the current state before building and committing
+// the effects; the caller must hold s.changeMu. A previous preview is never
+// accepted as write authorization.
+func (s *Service) recordChangeLocked(ctx context.Context, command any) (domain.ChangePreview, error) {
 	state, err := s.changeState(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
+	return s.commitChangeLocked(ctx, state, command)
+}
+
+// commitChangeLocked previews the command against the given state and commits
+// it; the caller must hold s.changeMu.
+func (s *Service) commitChangeLocked(ctx context.Context, state domain.ChangeState, command any) (domain.ChangePreview, error) {
 	preview, err := domain.PreviewChange(state, command)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.now()); err != nil {
+	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.clock()); err != nil {
 		return domain.ChangePreview{}, err
 	}
 	return preview, nil

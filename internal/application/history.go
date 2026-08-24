@@ -35,7 +35,9 @@ func (s *Service) StartHistory(ctx context.Context, timezone string) (domain.His
 	if bootstrap.Household == nil {
 		return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	now := s.now()
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
+	now := s.clock()
 	origin, err := domain.NewHistoryOrigin(bootstrap.Household.ID, timezone, now, now)
 	if err != nil {
 		return domain.HistoryOrigin{}, err

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -32,9 +31,7 @@ type FrankfurterProviderOptions struct {
 }
 
 type FrankfurterProvider struct {
-	client      *http.Client
-	maxBodySize int64
-	semaphore   chan struct{}
+	conn *providerHTTPClient
 }
 
 func NewFrankfurterProvider(transport http.RoundTripper) *FrankfurterProvider {
@@ -42,32 +39,8 @@ func NewFrankfurterProvider(transport http.RoundTripper) *FrankfurterProvider {
 }
 
 func NewFrankfurterProviderWithOptions(options FrankfurterProviderOptions) *FrankfurterProvider {
-	transport := options.Transport
-	if transport == nil {
-		transport = http.DefaultTransport
-	}
-	timeout := options.Timeout
-	if timeout <= 0 {
-		timeout = frankfurterRequestTimeout
-	}
-	maxBodySize := options.MaxBodySize
-	if maxBodySize <= 0 {
-		maxBodySize = frankfurterMaxBodyBytes
-	}
-	semaphore := options.Semaphore
-	if semaphore == nil {
-		semaphore = sharedFrankfurterSemaphore
-	}
 	return &FrankfurterProvider{
-		client: &http.Client{
-			Transport: transport,
-			Timeout:   timeout,
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		},
-		maxBodySize: maxBodySize,
-		semaphore:   semaphore,
+		conn: newProviderHTTPClient(providerHTTPOptions(options), frankfurterRequestTimeout, frankfurterMaxBodyBytes, sharedFrankfurterSemaphore),
 	}
 }
 
@@ -116,62 +89,32 @@ func (p *FrankfurterProvider) LatestFX(ctx context.Context, identity application
 }
 
 func (p *FrankfurterProvider) fetch(ctx context.Context, base, quote domain.CurrencyCode) ([]byte, error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	select {
-	case p.semaphore <- struct{}{}:
-		defer func() { <-p.semaphore }()
-	case <-ctx.Done():
-		return nil, providerUnavailable("provider request was cancelled")
-	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, frankfurterRateURL(base, quote).String(), nil)
-	if err != nil {
-		return nil, providerUnavailable("provider is unavailable")
-	}
-	request.Header.Set("Accept", "application/json")
-	response, err := p.client.Do(request)
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return nil, providerUnavailable("provider request was cancelled")
-		}
-		return nil, providerUnavailable("provider is unavailable")
-	}
-	if response == nil || response.Body == nil {
-		return nil, malformedProvider()
-	}
-	defer response.Body.Close()
+	return p.conn.doFetch(ctx, frankfurterRateURL(base, quote), func(request *http.Request) {
+		request.Header.Set("Accept", "application/json")
+	}, classifyFrankfurterResponse)
+}
+
+func classifyFrankfurterResponse(response *http.Response) error {
 	switch response.StatusCode {
 	case http.StatusUnauthorized, http.StatusForbidden:
-		return nil, providerError(domain.ErrProviderAuthentication, "provider authentication failed")
+		return providerError(domain.ErrProviderAuthentication, "provider authentication failed")
 	case http.StatusTooManyRequests:
-		return nil, providerError(domain.ErrProviderRateLimit, "provider rate limit reached")
+		return providerError(domain.ErrProviderRateLimit, "provider rate limit reached")
 	case http.StatusNotFound:
-		return nil, providerError(domain.ErrUnsupportedProviderSymbol, "provider currency pair is unsupported")
+		return providerError(domain.ErrUnsupportedProviderSymbol, "provider currency pair is unsupported")
 	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
-		return nil, malformedProvider()
-	default:
-		if response.StatusCode >= 500 {
-			return nil, providerUnavailable("provider is unavailable")
-		}
-		if response.StatusCode == http.StatusBadRequest || response.StatusCode == http.StatusUnprocessableEntity {
-			return nil, providerError(domain.ErrUnsupportedProviderSymbol, "provider currency pair is unsupported")
-		}
-		if response.StatusCode != http.StatusOK {
-			return nil, malformedProvider()
-		}
+		return malformedProvider()
 	}
-	if response.ContentLength > p.maxBodySize {
-		return nil, providerError(domain.ErrMarketDataResponseTooLarge, "provider response is too large")
+	if response.StatusCode >= 500 {
+		return providerUnavailable("provider is unavailable")
 	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, p.maxBodySize+1))
-	if err != nil {
-		return nil, providerUnavailable("provider is unavailable")
+	if response.StatusCode == http.StatusBadRequest || response.StatusCode == http.StatusUnprocessableEntity {
+		return providerError(domain.ErrUnsupportedProviderSymbol, "provider currency pair is unsupported")
 	}
-	if int64(len(body)) > p.maxBodySize {
-		return nil, providerError(domain.ErrMarketDataResponseTooLarge, "provider response is too large")
+	if response.StatusCode != http.StatusOK {
+		return malformedProvider()
 	}
-	return body, nil
+	return nil
 }
 
 func frankfurterRateURL(base, quote domain.CurrencyCode) *url.URL {

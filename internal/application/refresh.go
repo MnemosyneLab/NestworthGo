@@ -129,16 +129,17 @@ func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) R
 	rateLimited := make(map[string]bool)
 	for _, target := range targets {
 		if target.skip {
-			item, _ := s.refreshTarget(ctx, target)
+			item, _ := s.refreshTarget(ctx, target, marketDataSnapshot{})
 			result.Items = append(result.Items, item)
 			continue
 		}
-		providerKey := s.refreshProviderKey(target)
+		marketData := s.marketDataSnapshot(target)
+		providerKey := refreshProviderKey(target, marketData)
 		if providerKey != "" && rateLimited[providerKey] {
 			result.Items = append(result.Items, RefreshTargetResult{TargetKey: target.key, Kind: target.kind, Status: RefreshSkipped, ErrorCode: domain.ErrProviderRateLimit})
 			continue
 		}
-		item, hitRateLimit := s.refreshTarget(ctx, target)
+		item, hitRateLimit := s.refreshTarget(ctx, target, marketData)
 		result.Items = append(result.Items, item)
 		if hitRateLimit {
 			if providerKey != "" {
@@ -150,14 +151,39 @@ func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) R
 	return result
 }
 
-func (s *Service) refreshProviderKey(target refreshTarget) string {
+type marketDataSnapshot struct {
+	registry      MarketDataRegistryPort
+	fxProviderKey string
+	defaultErr    error
+}
+
+// marketDataSnapshot copies the service routing state once. Registry methods
+// run after the state lock is released because a registry may perform work of
+// its own; the refresh then consistently uses this copied registry and key.
+func (s *Service) marketDataSnapshot(target refreshTarget) marketDataSnapshot {
+	s.stateMu.RLock()
+	registry, key := s.marketData, s.fxProviderKey
+	s.stateMu.RUnlock()
+
+	key = strings.ToLower(strings.TrimSpace(key))
+	if target.kind == RefreshFXTarget && key == "" && registry != nil {
+		provider, err := registry.Default()
+		if err != nil {
+			return marketDataSnapshot{registry: registry, defaultErr: err}
+		}
+		key = strings.ToLower(strings.TrimSpace(provider.Key()))
+	}
+	return marketDataSnapshot{registry: registry, fxProviderKey: key}
+}
+
+func refreshProviderKey(target refreshTarget, marketData marketDataSnapshot) string {
 	if target.kind == RefreshFXTarget {
-		return strings.ToLower(strings.TrimSpace(s.FXProviderKey()))
+		return marketData.fxProviderKey
 	}
 	return strings.ToLower(strings.TrimSpace(target.providerKey))
 }
 
-func (s *Service) refreshTarget(ctx context.Context, target refreshTarget) (RefreshTargetResult, bool) {
+func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marketData marketDataSnapshot) (RefreshTargetResult, bool) {
 	if target.skip {
 		return RefreshTargetResult{TargetKey: target.key, Kind: target.kind, Status: RefreshSkipped, ErrorCode: target.skipCode}, false
 	}
@@ -166,12 +192,20 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget) (Refr
 	}
 	var provider MarketDataProvider
 	var err error
-	if s.marketData == nil {
+	if marketData.registry == nil {
 		err = &domain.Error{Code: domain.ErrUnavailable, Field: "provider", Message: "provider is not configured"}
 	} else if target.kind == RefreshFXTarget {
-		provider, err = s.marketData.Resolve(s.FXProviderKey())
+		if marketData.fxProviderKey == "" {
+			if marketData.defaultErr != nil {
+				err = marketData.defaultErr
+			} else {
+				err = &domain.Error{Code: domain.ErrUnavailable, Field: "provider", Message: "provider is not configured"}
+			}
+		} else {
+			provider, err = marketData.registry.Resolve(marketData.fxProviderKey)
+		}
 	} else {
-		provider, err = s.marketData.Resolve(target.providerKey)
+		provider, err = marketData.registry.Resolve(target.providerKey)
 	}
 	if err != nil {
 		return failedRefresh(target, err), false
@@ -189,11 +223,11 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget) (Refr
 		if providerErr != nil {
 			return providerRefreshFailure(target, providerErr)
 		}
-		quotedAt, timeErr := NormalizeProviderObservationTime(quote.QuotedAt, s.now())
+		quotedAt, timeErr := NormalizeProviderObservationTime(quote.QuotedAt, s.clock())
 		if timeErr != nil || quote.Currency != target.instrument.QuoteCurrency || quote.SourceKey == "" {
 			return failedRefresh(target, malformedProviderError()), false
 		}
-		stored, createErr := domain.NewInstrumentQuote(target.instrument, domain.InstrumentQuoteInput{UnitPrice: quote.Price, Currency: quote.Currency, SourceKind: domain.QuoteSourceProvider, SourceKey: quote.SourceKey, QuotedAt: quotedAt, Delayed: quote.Delayed}, s.now())
+		stored, createErr := domain.NewInstrumentQuote(target.instrument, domain.InstrumentQuoteInput{UnitPrice: quote.Price, Currency: quote.Currency, SourceKind: domain.QuoteSourceProvider, SourceKey: quote.SourceKey, QuotedAt: quotedAt, Delayed: quote.Delayed}, s.clock())
 		if createErr != nil {
 			return failedRefresh(target, malformedProviderError()), false
 		}
@@ -211,14 +245,14 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget) (Refr
 	if providerErr != nil {
 		return providerRefreshFailure(target, providerErr)
 	}
-	quotedAt, timeErr := NormalizeProviderObservationTime(quote.QuotedAt, s.now())
+	quotedAt, timeErr := NormalizeProviderObservationTime(quote.QuotedAt, s.clock())
 	if timeErr != nil || quote.BaseCurrency != target.baseCurrency || quote.QuoteCurrency != target.quoteCurrency || quote.SourceKey == "" {
 		return failedRefresh(target, malformedProviderError()), false
 	}
 	if target.householdID == "" {
 		return failedRefresh(target, &domain.Error{Code: domain.ErrUnavailable, Message: "household was not found"}), false
 	}
-	stored, createErr := domain.NewFXQuote(domain.FXQuoteInput{HouseholdID: target.householdID, BaseCurrency: quote.BaseCurrency, QuoteCurrency: quote.QuoteCurrency, Rate: quote.Rate, SourceKind: domain.QuoteSourceProvider, SourceKey: quote.SourceKey, QuotedAt: quotedAt, Delayed: quote.Delayed}, s.now())
+	stored, createErr := domain.NewFXQuote(domain.FXQuoteInput{HouseholdID: target.householdID, BaseCurrency: quote.BaseCurrency, QuoteCurrency: quote.QuoteCurrency, Rate: quote.Rate, SourceKind: domain.QuoteSourceProvider, SourceKey: quote.SourceKey, QuotedAt: quotedAt, Delayed: quote.Delayed}, s.clock())
 	if createErr != nil {
 		return failedRefresh(target, malformedProviderError()), false
 	}

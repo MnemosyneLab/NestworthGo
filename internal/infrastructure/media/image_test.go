@@ -37,3 +37,35 @@ func TestNormalizeRejectsOversizedInput(t *testing.T) {
 		t.Fatal("oversized input succeeded")
 	}
 }
+
+func TestFitRoundsScaledEdgeInsteadOfTruncating(t *testing.T) {
+	// 49*MaxDimension/513 = 48.90…; truncation yields 48 and skews the
+	// aspect ratio by a full pixel.
+	fitted := fit(image.NewRGBA(image.Rect(0, 0, 513, 49)), MaxDimension)
+	if width := fitted.Bounds().Dx(); width != MaxDimension {
+		t.Fatalf("width = %d, want %d", width, MaxDimension)
+	}
+	if height := fitted.Bounds().Dy(); height != 49 {
+		t.Fatalf("height = %d, want 49", height)
+	}
+}
+
+func TestFitRoundsPortraitScaledEdgeInsteadOfTruncating(t *testing.T) {
+	fitted := fit(image.NewRGBA(image.Rect(0, 0, 49, 513)), MaxDimension)
+	if width := fitted.Bounds().Dx(); width != 49 {
+		t.Fatalf("width = %d, want 49", width)
+	}
+	if height := fitted.Bounds().Dy(); height != MaxDimension {
+		t.Fatalf("height = %d, want %d", height, MaxDimension)
+	}
+}
+
+func TestFitKeepsAspectRatioOnRoundedEdges(t *testing.T) {
+	fitted := fit(image.NewRGBA(image.Rect(0, 0, 1000, 333)), MaxDimension)
+	if got := fitted.Bounds().Dx(); got != MaxDimension {
+		t.Fatalf("width = %d, want %d", got, MaxDimension)
+	}
+	if got := fitted.Bounds().Dy(); got != 170 {
+		t.Fatalf("height = %d, want 170 (rounded from 170.496)", got)
+	}
+}

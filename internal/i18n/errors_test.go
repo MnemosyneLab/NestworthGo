@@ -80,6 +80,23 @@ func TestTranslateErrorHandlesWrappedAndUnknownErrors(t *testing.T) {
 	}
 }
 
+// The ErrorCode table must resolve translations even when the free-form
+// message text matches no prose entry — that independence is the whole point
+// of keying on the stable code.
+func TestTranslateErrorPrefersErrorCodeOverProse(t *testing.T) {
+	err := &domain.Error{Code: domain.ErrProviderAuthentication, Message: "wording no catalog has ever seen"}
+	want := map[settings.Language]string{
+		settings.LanguageEnglish: "The provider rejected authentication",
+		settings.LanguageZhCN:    "Provider 拒绝了认证",
+		settings.LanguageZhTW:    "Provider 拒絕了驗證",
+	}
+	for language, expected := range want {
+		if got := New(language).TranslateError(err); got != expected {
+			t.Errorf("TranslateError(%q) = %q, want %q", language, got, expected)
+		}
+	}
+}
+
 func requireError(t *testing.T, err error) {
 	t.Helper()
 	if err == nil {

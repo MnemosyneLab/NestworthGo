@@ -76,7 +76,7 @@ func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) 
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.now()); err != nil {
+	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.clock()); err != nil {
 		return domain.ChangePreview{}, err
 	}
 	return preview, nil
@@ -129,7 +129,7 @@ func (s *Service) FixChange(ctx context.Context, activityID domain.ActivityID, r
 	groupID := domain.NewActivityCorrectionGroupID()
 	inverse.Activity.CorrectionGroupID = &groupID
 	replacement.Activity.CorrectionGroupID = &groupID
-	asOf := s.now()
+	asOf := s.clock()
 	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{{Activity: inverse.Activity, Effects: inverse.Effects, Resulting: inverse.Resulting}, {Activity: replacement.Activity, Effects: replacement.Effects, Resulting: replacement.Resulting}}, asOf); err != nil {
 		return domain.ChangePreview{}, err
 	}
@@ -141,20 +141,22 @@ func (s *Service) appendObservationTime(origin *domain.HistoryOrigin, effectiveA
 		return time.Time{}, time.Time{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording an observation"}
 	}
 	if effectiveAt.IsZero() {
-		effectiveAt = s.now()
+		effectiveAt = s.clock()
 	}
 	effectiveAt = effectiveAt.UTC()
 	createdAt = createdAt.UTC()
 	if createdAt.IsZero() {
-		createdAt = s.now().UTC()
+		createdAt = s.clock().UTC()
 	}
-	if effectiveAt.Before(origin.StartedAt) || effectiveAt.After(s.now().UTC()) {
+	if effectiveAt.Before(origin.StartedAt) || effectiveAt.After(s.clock().UTC()) {
 		return time.Time{}, time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveAt", Message: "observation time must be within the history interval"}
 	}
 	return effectiveAt, createdAt, nil
 }
 
 func (s *Service) AppendAccountStateObservation(ctx context.Context, observation domain.AccountStateObservation) error {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
 		return err
@@ -173,6 +175,8 @@ func (s *Service) AppendAccountStateObservation(ctx context.Context, observation
 }
 
 func (s *Service) AppendInstrumentPreferenceObservation(ctx context.Context, observation domain.InstrumentPreferenceObservation) error {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
 		return err
@@ -191,6 +195,8 @@ func (s *Service) AppendInstrumentPreferenceObservation(ctx context.Context, obs
 }
 
 func (s *Service) AppendFXPreferenceObservation(ctx context.Context, observation domain.FXPreferenceObservation) error {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
 		return err
@@ -222,7 +228,7 @@ func (s *Service) accountStateObservation(ctx context.Context, account domain.Ac
 	if origin == nil {
 		return domain.AccountStateObservation{}, nil
 	}
-	now := s.now().UTC()
+	now := s.clock().UTC()
 	observation := domain.AccountStateObservation{ID: domain.NewAccountStateObservationID(), AccountID: account.ID, EffectiveAt: now, ArchivedAt: account.ArchivedAt, IncludeInNetWorth: account.IncludeInNetWorth, IncludeInInvestment: account.IncludeInInvestment, IncludeInLiquidAssets: account.IncludeInLiquidAssets, CreatedAt: now, Ownership: ownership.Shares()}
 	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
 	if err != nil {
@@ -242,7 +248,7 @@ func (s *Service) instrumentPreferenceObservation(ctx context.Context, instrumen
 	if origin == nil {
 		return domain.InstrumentPreferenceObservation{}, nil
 	}
-	now := s.now().UTC()
+	now := s.clock().UTC()
 	observation := domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: instrument.ID, SourceKind: instrument.QuoteSource, EffectiveAt: now, CreatedAt: now}
 	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
 	return observation, err
@@ -256,7 +262,7 @@ func (s *Service) fxPreferenceObservation(ctx context.Context, preference domain
 	if origin == nil {
 		return domain.FXPreferenceObservation{}, nil
 	}
-	now := s.now().UTC()
+	now := s.clock().UTC()
 	observation := domain.FXPreferenceObservation{ID: domain.NewFXPreferenceObservationID(), HouseholdID: preference.HouseholdID, CurrencyA: preference.CurrencyA, CurrencyB: preference.CurrencyB, SourceKind: preference.SourceKind, EffectiveAt: now, CreatedAt: now}
 	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
 	return observation, err
