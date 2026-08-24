@@ -2,7 +2,6 @@ package sqlite
 
 import (
 	"database/sql"
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -14,31 +13,6 @@ func TestFreshDatabasePassesSQLiteIntegrityAndForeignKeyChecks(t *testing.T) {
 	}
 	defer database.Close()
 	assertSQLiteHealth(t, database.SQL)
-}
-
-func TestMigratedV013FixturePassesSQLiteIntegrityAndForeignKeyChecks(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "fixture.db")
-	fixture := filepath.Join("..", "..", "..", "testdata", "v0.1.3", "schema3-fixture.sql")
-	script, err := os.ReadFile(fixture)
-	if err != nil {
-		t.Fatal(err)
-	}
-	seed, err := sql.Open("sqlite", path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := seed.Exec(string(script)); err != nil {
-		t.Fatal(err)
-	}
-	if err := seed.Close(); err != nil {
-		t.Fatal(err)
-	}
-	migrated, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer migrated.Close()
-	assertSQLiteHealth(t, migrated.SQL)
 }
 
 func assertSQLiteHealth(t *testing.T, database *sql.DB) {

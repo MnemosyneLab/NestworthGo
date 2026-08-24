@@ -17,6 +17,7 @@ const (
 	historyMoneyAdded       = "money_added"
 	historyMoneyRemoved     = "money_removed"
 	historyCashTransfer     = "cash_transfer"
+	historyFXConversion     = "fx_conversion"
 	historyPositionTransfer = "position_transfer"
 	historyTrade            = "trade"
 	historyValueUpdate      = "value_update"
@@ -99,8 +100,15 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 			holdingByLabel[option.label] = option
 		}
 	}
+	instrumentLabels := make([]string, 0, len(instruments))
+	instrumentByLabel := make(map[string]domain.Instrument, len(instruments))
+	for _, instrument := range instruments {
+		label := fmt.Sprintf("%s · %s", instrument.Name, instrument.QuoteCurrency)
+		instrumentLabels = append(instrumentLabels, label)
+		instrumentByLabel[label] = instrument
+	}
 
-	kindKeys := []string{historyMoneyAdded, historyMoneyRemoved, historyCashTransfer, historyPositionTransfer, historyTrade, historyValueUpdate, historyDebt}
+	kindKeys := []string{historyMoneyAdded, historyMoneyRemoved, historyCashTransfer, historyFXConversion, historyPositionTransfer, historyTrade, historyValueUpdate, historyDebt}
 	kindLabels := make([]string, 0, len(kindKeys))
 	kindByLabel := make(map[string]string, len(kindKeys))
 	for _, key := range kindKeys {
@@ -123,25 +131,14 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		c.historyRecordKind = kindByLabel[kindSelect.Selected]
 	}
 	accountSelect := widget.NewSelect(accountLabels, nil)
-	if len(accountLabels) > 0 {
-		accountSelect.SetSelected(accountLabels[0])
-	}
 	destinationSelect := widget.NewSelect(accountLabels, nil)
-	if len(accountLabels) > 1 {
-		destinationSelect.SetSelected(accountLabels[1])
-	} else if len(accountLabels) > 0 {
-		destinationSelect.SetSelected(accountLabels[0])
-	}
 	holdingLabels := make([]string, 0, len(holdings))
 	for _, holding := range holdings {
 		holdingLabels = append(holdingLabels, holding.label)
 	}
 	fromHoldingSelect := widget.NewSelect(holdingLabels, nil)
 	toHoldingSelect := widget.NewSelect(holdingLabels, nil)
-	if len(holdingLabels) > 0 {
-		fromHoldingSelect.SetSelected(holdingLabels[0])
-		toHoldingSelect.SetSelected(holdingLabels[0])
-	}
+	tradeInstrumentSelect := widget.NewSelect(instrumentLabels, nil)
 	side := newValueSelect(nil)
 	reason := newValueSelect(historyReasonOptions(t))
 	reason.Select(string(domain.ReasonIncome))
@@ -149,12 +146,26 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 	amount.SetPlaceHolder("0.00")
 	secondaryAmount := widget.NewEntry()
 	secondaryAmount.SetPlaceHolder("0.00")
+	fxFeeAmount := widget.NewEntry()
+	fxFeeAmount.SetPlaceHolder("0.00")
+	cashCurrency := newCurrencySelect()
+	soldCurrency := newCurrencySelect()
+	boughtCurrency := newCurrencySelect()
+	sentCurrency := newCurrencySelect()
+	receivedCurrency := newCurrencySelect()
 	quantity := widget.NewEntry()
 	quantity.SetPlaceHolder("0")
-	effectiveDate := widget.NewEntry()
-	effectiveDate.SetPlaceHolder("YYYY-MM-DD")
+	effectiveDate := newDateEntry(t.T("history.effectiveDate"), c.preference)
+	effectiveDate.SetPlaceHolder(datePlaceholder(c.preference))
 	effectiveTime := widget.NewEntry()
-	effectiveTime.SetPlaceHolder("HH:MM")
+	effectiveTime.SetPlaceHolder(timePlaceholder(c.preference))
+	defaultLocation := time.Local
+	if location, locationErr := time.LoadLocation(c.preference.Timezone); locationErr == nil {
+		defaultLocation = location
+	}
+	defaultNow := time.Now().In(defaultLocation)
+	effectiveDate.SetDate(&defaultNow)
+	effectiveTime.SetText(displayClock(defaultNow, c.preference))
 	note := widget.NewEntry()
 	note.SetPlaceHolder(t.T("history.notePlaceholder"))
 	feedback := widget.NewLabel("")
@@ -167,7 +178,7 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		if bootstrap.Household == nil {
 			return nil, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 		}
-		when, whenErr := historyEffectiveAtWithTime(c, effectiveDate.Text, effectiveTime.Text)
+		when, whenErr := historyEffectiveAtWithTime(c, dateEntryValue(effectiveDate), effectiveTime.Text)
 		if whenErr != nil {
 			return nil, whenErr
 		}
@@ -184,7 +195,18 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 			if !fromOK {
 				return nil, historyValidation("account", t.T("history.selectAccount"))
 			}
-			money, moneyErr := domain.ParseMoney(amount.Text, from.Account.DefaultCurrency)
+			if kind != historyValueUpdate && from.Account.TrackingMode == domain.TrackingHoldings && cashCurrency.Selected == "" {
+				return nil, historyValidation("currency", t.T("accounts.selectCurrency"))
+			}
+			moneyCode := from.Account.DefaultCurrency
+			if cashCurrency.Selected != "" {
+				parsedCurrency, currencyErr := domain.ParseCurrency(cashCurrency.Selected)
+				if currencyErr != nil {
+					return nil, currencyErr
+				}
+				moneyCode = parsedCurrency
+			}
+			money, moneyErr := domain.ParseMoney(amount.Text, moneyCode)
 			if moneyErr != nil {
 				return nil, moneyErr
 			}
@@ -200,18 +222,55 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 			if !fromOK || !toOK {
 				return nil, historyValidation("account", t.T("history.selectAccount"))
 			}
-			sent, moneyErr := domain.ParseMoney(amount.Text, from.Account.DefaultCurrency)
+			sentCode, currencyErr := domain.ParseCurrency(sentCurrency.Selected)
+			if currencyErr != nil {
+				return nil, currencyErr
+			}
+			receivedCode, currencyErr := domain.ParseCurrency(receivedCurrency.Selected)
+			if currencyErr != nil {
+				return nil, currencyErr
+			}
+			sent, moneyErr := domain.ParseMoney(amount.Text, sentCode)
 			if moneyErr != nil {
 				return nil, moneyErr
 			}
-			if from.Account.DefaultCurrency == to.Account.DefaultCurrency {
+			if sentCode == receivedCode {
 				return domain.CashTransferInput{HouseholdID: bootstrap.Household.ID, FromAccountID: from.Account.ID, ToAccountID: to.Account.ID, Sent: sent, Received: sent, EffectiveAt: when, Note: noteValue}, nil
 			}
-			received, receivedErr := domain.ParseMoney(secondaryAmount.Text, to.Account.DefaultCurrency)
+			received, receivedErr := domain.ParseMoney(secondaryAmount.Text, receivedCode)
 			if receivedErr != nil {
 				return nil, receivedErr
 			}
 			return domain.CashTransferInput{HouseholdID: bootstrap.Household.ID, FromAccountID: from.Account.ID, ToAccountID: to.Account.ID, Sent: sent, Received: received, EffectiveAt: when, Note: noteValue}, nil
+		case historyFXConversion:
+			if !fromOK {
+				return nil, historyValidation("account", t.T("history.selectAccount"))
+			}
+			soldCode, soldErr := domain.ParseCurrency(soldCurrency.Selected)
+			if soldErr != nil {
+				return nil, soldErr
+			}
+			boughtCode, boughtErr := domain.ParseCurrency(boughtCurrency.Selected)
+			if boughtErr != nil {
+				return nil, boughtErr
+			}
+			sold, soldErr := domain.ParseMoney(amount.Text, soldCode)
+			if soldErr != nil {
+				return nil, soldErr
+			}
+			bought, boughtErr := domain.ParseMoney(secondaryAmount.Text, boughtCode)
+			if boughtErr != nil {
+				return nil, boughtErr
+			}
+			var fee *domain.Money
+			if strings.TrimSpace(fxFeeAmount.Text) != "" {
+				parsedFee, feeErr := domain.ParseMoney(fxFeeAmount.Text, soldCode)
+				if feeErr != nil {
+					return nil, feeErr
+				}
+				fee = &parsedFee
+			}
+			return domain.FXConversionInput{HouseholdID: bootstrap.Household.ID, AccountID: from.Account.ID, Sold: sold, Bought: bought, Fee: fee, EffectiveAt: when, Note: noteValue}, nil
 		case historyPositionTransfer:
 			fromHolding, fromHoldingOK := holdingByLabel[fromHoldingSelect.Selected]
 			toHolding, toHoldingOK := holdingByLabel[toHoldingSelect.Selected]
@@ -224,15 +283,39 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 			}
 			return domain.PositionTransferInput{HouseholdID: bootstrap.Household.ID, FromHoldingID: fromHolding.holding.ID, ToHoldingID: toHolding.holding.ID, Quantity: parsedQuantity, EffectiveAt: when, Note: noteValue}, nil
 		case historyTrade:
+			if side.Value() == "" {
+				return nil, historyValidation("side", t.T("history.selectAction"))
+			}
+			if !fromOK {
+				return nil, historyValidation("account", t.T("history.selectAccount"))
+			}
 			holding, holdingOK := holdingByLabel[fromHoldingSelect.Selected]
-			if !fromOK || !holdingOK {
+			tradeSide := domain.TradeBuy
+			if side.Value() == historySideSell {
+				tradeSide = domain.TradeSell
+			}
+			instrumentID := domain.InstrumentID("")
+			quoteCurrency := domain.CurrencyCode("")
+			holdingID := domain.HoldingID("")
+			if holdingOK {
+				instrumentID = holding.holding.InstrumentID
+				quoteCurrency = holding.instrument.QuoteCurrency
+				holdingID = holding.holding.ID
+			} else if tradeSide == domain.TradeBuy {
+				instrument, instrumentOK := instrumentByLabel[tradeInstrumentSelect.Selected]
+				if !instrumentOK {
+					return nil, historyValidation("instrument", t.T("history.selectInstrument"))
+				}
+				instrumentID = instrument.ID
+				quoteCurrency = instrument.QuoteCurrency
+			} else {
 				return nil, historyValidation("holding", t.T("history.selectHolding"))
 			}
 			parsedQuantity, quantityErr := domain.ParseQuantity(quantity.Text)
 			if quantityErr != nil {
 				return nil, quantityErr
 			}
-			gross, grossErr := domain.ParseMoney(amount.Text, holding.instrument.QuoteCurrency)
+			gross, grossErr := domain.ParseMoney(amount.Text, quoteCurrency)
 			if grossErr != nil {
 				return nil, grossErr
 			}
@@ -244,12 +327,11 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 				}
 				fee = &parsedFee
 			}
-			tradeSide := domain.TradeBuy
-			if side.Value() == historySideSell {
-				tradeSide = domain.TradeSell
-			}
-			return domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: tradeSide, SettlementAccountID: from.Account.ID, HoldingID: holding.holding.ID, InstrumentID: holding.holding.InstrumentID, Quantity: parsedQuantity, Gross: gross, Fee: fee, EffectiveAt: when, Note: noteValue}, nil
+			return domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: tradeSide, SettlementAccountID: from.Account.ID, HoldingID: holdingID, InstrumentID: instrumentID, Quantity: parsedQuantity, Gross: gross, Fee: fee, EffectiveAt: when, Note: noteValue}, nil
 		case historyDebt:
+			if side.Value() == "" {
+				return nil, historyValidation("side", t.T("history.selectAction"))
+			}
 			if !fromOK || !toOK {
 				return nil, historyValidation("account", t.T("history.selectAccount"))
 			}
@@ -308,6 +390,7 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		switch kind {
 		case historyMoneyAdded, historyMoneyRemoved:
 			form.Append(t.T("history.account"), accountSelect)
+			form.Append(t.T("accounts.currency"), cashCurrency)
 			form.Append(t.T("history.amount"), amount)
 			form.Append(t.T("history.reason"), reason.widget)
 		case historyValueUpdate:
@@ -316,12 +399,17 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		case historyCashTransfer:
 			form.Append(t.T("history.account"), accountSelect)
 			form.Append(t.T("history.destination"), destinationSelect)
+			form.Append(t.T("history.sentCurrency"), sentCurrency)
 			form.Append(t.T("history.amount"), amount)
-			from, fromOK := accountsByLabel[accountSelect.Selected]
-			to, toOK := accountsByLabel[destinationSelect.Selected]
-			if !fromOK || !toOK || from.Account.DefaultCurrency != to.Account.DefaultCurrency {
-				form.Append(t.T("history.receivedAmount"), secondaryAmount)
-			}
+			form.Append(t.T("history.receivedCurrency"), receivedCurrency)
+			form.Append(t.T("history.receivedAmount"), secondaryAmount)
+		case historyFXConversion:
+			form.Append(t.T("history.account"), accountSelect)
+			form.Append(t.T("history.soldCurrency"), soldCurrency)
+			form.Append(t.T("history.boughtCurrency"), boughtCurrency)
+			form.Append(t.T("history.amount"), amount)
+			form.Append(t.T("history.receivedAmount"), secondaryAmount)
+			form.Append(t.T("history.fxFee"), fxFeeAmount)
 		case historyPositionTransfer:
 			form.Append(t.T("history.holding"), fromHoldingSelect)
 			form.Append(t.T("history.destinationHolding"), toHoldingSelect)
@@ -331,13 +419,9 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 				{value: historySideBuy, label: t.T("history.side.buy")},
 				{value: historySideSell, label: t.T("history.side.sell")},
 			})
-			switch side.Value() {
-			case historySideBuy, historySideSell:
-			default:
-				side.Select(historySideBuy)
-			}
 			form.Append(t.T("history.account"), accountSelect)
 			form.Append(t.T("history.holding"), fromHoldingSelect)
+			form.Append(t.T("portfolio.instrument"), tradeInstrumentSelect)
 			form.Append(t.T("history.side"), side.widget)
 			form.Append(t.T("history.amount"), amount)
 			form.Append(t.T("history.fee"), secondaryAmount)
@@ -347,11 +431,6 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 				{value: historySideDraw, label: t.T("history.side.draw")},
 				{value: historySidePayment, label: t.T("history.side.payment")},
 			})
-			switch side.Value() {
-			case historySideDraw, historySidePayment:
-			default:
-				side.Select(historySideDraw)
-			}
 			form.Append(t.T("history.account"), accountSelect)
 			form.Append(t.T("history.destination"), destinationSelect)
 			form.Append(t.T("history.side"), side.widget)
@@ -404,12 +483,12 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 			break
 		}
 	}
-	fromDate := widget.NewEntry()
-	fromDate.SetPlaceHolder("YYYY-MM-DD")
-	fromDate.SetText(c.historyFromDate)
-	toDate := widget.NewEntry()
-	toDate.SetPlaceHolder("YYYY-MM-DD")
-	toDate.SetText(c.historyToDate)
+	fromDate := newDateEntry(t.T("history.fromDate"), c.preference)
+	fromDate.SetPlaceHolder(datePlaceholder(c.preference))
+	setDateEntryISO(fromDate, c.historyFromDate)
+	toDate := newDateEntry(t.T("history.toDate"), c.preference)
+	toDate.SetPlaceHolder(datePlaceholder(c.preference))
+	setDateEntryISO(toDate, c.historyToDate)
 	resetTimeline := func() {
 		c.historyTimeline = nil
 		c.historyTimelineNext = nil
@@ -427,8 +506,8 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		c.RefreshContent()
 	}
 	applyDateFilter := func() {
-		c.historyFromDate = strings.TrimSpace(fromDate.Text)
-		c.historyToDate = strings.TrimSpace(toDate.Text)
+		c.historyFromDate = dateEntryValue(fromDate)
+		c.historyToDate = dateEntryValue(toDate)
 		resetTimeline()
 		c.RefreshContent()
 	}
@@ -456,7 +535,16 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 	}
 	activities := c.historyTimeline
 	activityErr := err
-	rows := []fyne.CanvasObject{widget.NewLabelWithStyle(t.T("history.timeline"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), container.NewHBox(widget.NewLabel(t.T("history.filterAccount")), filterAccount, widget.NewLabel(t.T("history.filterType")), filterKind), container.NewHBox(widget.NewLabel(t.T("history.fromDate")), fromDate, widget.NewLabel(t.T("history.toDate")), toDate, applyDateButton)}
+	rows := []fyne.CanvasObject{
+		widget.NewLabelWithStyle(t.T("history.timeline"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		container.NewGridWrap(fyne.NewSize(220, 72),
+			container.NewVBox(widget.NewLabel(t.T("history.filterAccount")), filterAccount),
+			container.NewVBox(widget.NewLabel(t.T("history.filterType")), filterKind),
+			container.NewVBox(widget.NewLabel(t.T("history.fromDate")), fromDate),
+			container.NewVBox(widget.NewLabel(t.T("history.toDate")), toDate),
+			applyDateButton,
+		),
+	}
 	if origin, originErr := c.service.HistoryOrigin(ctx); originErr == nil && origin != nil {
 		location, locationErr := time.LoadLocation(origin.Timezone)
 		if locationErr != nil {
@@ -741,12 +829,24 @@ func historyEffectiveAtWithTime(c *Controller, date, clock string) (time.Time, e
 	}
 	if clock == "" {
 		clock = "12:00"
+		if c.preference.TimeFormat == "12h" {
+			clock = "12:00 PM"
+		}
+	}
+	var dateErr error
+	date, dateErr = normalizeDateInput(date, c.preference)
+	if dateErr != nil {
+		return time.Time{}, historyValidation("effectiveDate", "date format is invalid")
+	}
+	normalizedClock, clockErr := normalizeClockInput(clock, c.preference)
+	if clockErr != nil {
+		return time.Time{}, historyValidation("effectiveTime", "time format is invalid")
 	}
 	timezone := c.preference.Timezone
 	if timezone == "" {
 		timezone = "UTC"
 	}
-	return domain.ResolveLocalDateTime(date, clock, timezone)
+	return domain.ResolveLocalDateTime(date, normalizedClock, timezone)
 }
 
 // historyReasonOptions pairs each activity reason enum with its translated

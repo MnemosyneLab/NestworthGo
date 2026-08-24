@@ -48,9 +48,9 @@ func New() *App {
 	var bootstrap application.Bootstrap
 	backendErr := databaseErr
 	if databaseErr == nil {
-		registry := application.NewMarketDataRegistry(
-			marketdata.NewYahooChartProvider(nil),
+		registry := application.NewMarketDataRegistryWithDefault(application.FrankfurterProviderKey,
 			marketdata.NewFrankfurterProvider(nil),
+			marketdata.NewYahooChartProvider(nil),
 		)
 		service = application.NewService(sqlite.NewRepository(database), registry)
 		if err := service.SetFXProvider(preference.FXProvider); err != nil {
@@ -69,6 +69,9 @@ func New() *App {
 		bootstrap, backendErr = service.Bootstrap(context.Background())
 	}
 	controller := ui.NewControllerWithBackend(fyneApp, window, icon, store, preference, service, bootstrap, backendErr)
+	if preference.Validate() == nil {
+		window.Resize(fyne.NewSize(preference.WindowWidth, preference.WindowHeight))
+	}
 	window.SetMainMenu(ui.NewMainMenu(fyneApp, window, icon, controller.Translator()))
 	window.SetContent(controller.Content())
 	window.SetCloseIntercept(func() {

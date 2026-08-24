@@ -91,7 +91,7 @@ func accountDetailContent(c *Controller, valuation domain.AccountValuation, hold
 			widget.NewButtonWithIcon(t.T("portfolio.addHolding"), fyneTheme.Current().Icon(fyneTheme.IconNameContentAdd), func() {
 				showHoldingCreateDialog(c, valuation.Account.ID, changed)
 			}),
-			widget.NewButton(t.T("portfolio.addCash"), func() { showCashCreateDialog(c, valuation.Account.ID, changed) }),
+			widget.NewButton(t.T("portfolio.addCash"), func() { showCashCreateDialog(c, valuation.Account.ID, valuation.Account.DefaultCurrency, changed) }),
 		)
 		holdingRows := make([]fyne.CanvasObject, 0, len(holdings))
 		instrumentByID := make(map[domain.InstrumentID]domain.Instrument, len(instruments))
@@ -310,7 +310,6 @@ func showHoldingCreateDialog(c *Controller, accountID domain.AccountID, changed 
 		options = append(options, instrumentOptionLabel(instrument))
 	}
 	instrumentSelect := widget.NewSelect(options, nil)
-	instrumentSelect.SetSelected(options[0])
 	quantity := widget.NewEntry()
 	quantity.SetPlaceHolder("0.00000000")
 	historyStarted, err := c.service.HistoryStarted(context.Background())
@@ -320,25 +319,25 @@ func showHoldingCreateDialog(c *Controller, accountID domain.AccountID, changed 
 	}
 	unitCost := widget.NewEntry()
 	unitCost.SetPlaceHolder("0.00")
-	setDefaultUnitCost := func() {
-		selected := instrumentIDForOption(instruments, instrumentSelect.Selected)
-		quote, quoteErr := c.service.CurrentInstrumentQuote(context.Background(), selected)
-		if quoteErr == nil && quote != nil {
-			unitCost.SetText(quote.UnitPrice.Canonical())
-			return
-		}
-		unitCost.SetText("")
-	}
-	if historyStarted {
-		setDefaultUnitCost()
-		instrumentSelect.OnChanged = func(string) { setDefaultUnitCost() }
-	}
 	items := []*widget.FormItem{
 		widget.NewFormItem(c.translator.T("portfolio.instrument"), instrumentSelect),
 		widget.NewFormItem(c.translator.T("portfolio.quantity"), quantity),
 	}
 	if historyStarted {
-		items = append(items, widget.NewFormItem(c.translator.T("portfolio.averageCost"), unitCost))
+		useCurrentPrice := widget.NewButton(c.translator.T("portfolio.useCurrentPrice"), func() {
+			selected := instrumentIDForOption(instruments, instrumentSelect.Selected)
+			quote, quoteErr := c.service.CurrentInstrumentQuote(context.Background(), selected)
+			if quoteErr != nil {
+				c.setValidationError(c.translator.TranslateError(quoteErr))
+				return
+			}
+			if quote == nil {
+				c.setValidationError(c.translator.T("portfolio.noEvidence"))
+				return
+			}
+			unitCost.SetText(quote.UnitPrice.Canonical())
+		})
+		items = append(items, widget.NewFormItem(c.translator.T("portfolio.averageCost"), container.NewBorder(nil, nil, nil, useCurrentPrice, unitCost)))
 	}
 	showResponsiveBackendForm(c, c.translator.T("portfolio.addHolding"), c.translator.T("common.save"), c.translator.T("common.cancel"), items, fyne.NewSize(560, 300), fyne.NewSize(460, 240), func() error {
 		selected := instrumentIDForOption(instruments, instrumentSelect.Selected)
@@ -360,25 +359,24 @@ func showHoldingEditDialog(c *Controller, holding domain.Holding, changed func()
 	}, changed)
 }
 
-func showCashCreateDialog(c *Controller, accountID domain.AccountID, changed func()) {
+func showCashCreateDialog(c *Controller, accountID domain.AccountID, accountCurrency domain.CurrencyCode, changed func()) {
 	amount := widget.NewEntry()
-	currency := widget.NewEntry()
-	currency.SetText(c.bootstrap.Household.BaseCurrency.String())
-	effective := newDateEntry(c.translator.T("accounts.datePlaceholder"))
+	currency := newCurrencySelect(accountCurrency)
+	effective := newDateEntry(c.translator.T("accounts.datePlaceholder"), c.preference)
 	items := []*widget.FormItem{
 		widget.NewFormItem(c.translator.T("portfolio.amount"), amount),
 		widget.NewFormItem(c.translator.T("accounts.currency"), currency),
 		widget.NewFormItem(c.translator.T("accounts.effectiveDate"), dateFormField(effective)),
 	}
 	showResponsiveBackendForm(c, c.translator.T("portfolio.addCash"), c.translator.T("common.save"), c.translator.T("common.cancel"), items, fyne.NewSize(560, 320), fyne.NewSize(460, 250), func() error {
-		_, err := c.service.AppendAccountCashValue(context.Background(), accountID, amount.Text, strings.ToUpper(strings.TrimSpace(currency.Text)), dateEntryValue(effective))
+		_, err := c.service.AppendAccountCashValue(context.Background(), accountID, amount.Text, currency.Selected, dateEntryValue(effective))
 		return err
 	}, changed)
 }
 
 func showManualInstrumentQuoteDialog(c *Controller, instrument domain.Instrument, changed func()) {
 	price := widget.NewEntry()
-	quotedAt := newDateEntry(c.translator.T("accounts.datePlaceholder"))
+	quotedAt := newDateEntry(c.translator.T("accounts.datePlaceholder"), c.preference)
 	delayed := widget.NewCheck(c.translator.T("portfolio.delayed"), nil)
 	items := []*widget.FormItem{
 		widget.NewFormItem(c.translator.T("portfolio.price"), price),
@@ -481,7 +479,7 @@ func showInstrumentFormDialog(c *Controller, current *domain.Instrument, changed
 	name := widget.NewEntry()
 	typeValues := []string{string(domain.InstrumentStock), string(domain.InstrumentETF), string(domain.InstrumentMutualFund), string(domain.InstrumentCrypto), string(domain.InstrumentBond), string(domain.InstrumentPreciousMetal), string(domain.InstrumentBankInvestmentProduct), string(domain.InstrumentOther)}
 	instrumentType := widget.NewSelect(enumOptions(c, typeValues), nil)
-	quoteCurrency := widget.NewEntry()
+	quoteCurrency := newCurrencySelect()
 	symbol := widget.NewEntry()
 	marketCode := widget.NewEntry()
 	countryCode := widget.NewEntry()
@@ -492,12 +490,10 @@ func showInstrumentFormDialog(c *Controller, current *domain.Instrument, changed
 	providerSymbol := widget.NewEntry()
 	providerSymbol.SetPlaceHolder(t.T("portfolio.providerSymbolPlaceholder"))
 	if current == nil {
-		instrumentType.SetSelected(enumLabel(c, string(domain.InstrumentETF)))
-		quoteCurrency.SetText(c.bootstrap.Household.BaseCurrency.String())
 	} else {
 		name.SetText(current.Name)
 		instrumentType.SetSelected(enumLabel(c, string(current.Type)))
-		quoteCurrency.SetText(current.QuoteCurrency.String())
+		quoteCurrency = newCurrencySelect(current.QuoteCurrency)
 		setOptionalEntry(symbol, current.Symbol)
 		setOptionalEntry(marketCode, current.MarketCode)
 		setOptionalEntry(countryCode, current.CountryCode)
@@ -552,7 +548,7 @@ func showInstrumentFormDialog(c *Controller, current *domain.Instrument, changed
 			providerKey = application.YahooFinanceProviderKey
 			providerBinding = providerSymbol.Text
 		}
-		input := application.InstrumentInput{Name: name.Text, Type: enumValue(c, instrumentType.Selected, typeValues), QuoteCurrency: strings.ToUpper(strings.TrimSpace(quoteCurrency.Text)), Symbol: symbol.Text, MarketCode: marketCode.Text, CountryCode: countryCode.Text, ISIN: isin.Text, Note: stringPointer(note.Text), QuoteSource: quoteSource, ProviderKey: providerKey, ProviderSymbol: providerBinding}
+		input := application.InstrumentInput{Name: name.Text, Type: enumValue(c, instrumentType.Selected, typeValues), QuoteCurrency: quoteCurrency.Selected, Symbol: symbol.Text, MarketCode: marketCode.Text, CountryCode: countryCode.Text, ISIN: isin.Text, Note: stringPointer(note.Text), QuoteSource: quoteSource, ProviderKey: providerKey, ProviderSymbol: providerBinding}
 		if current == nil {
 			_, err := c.service.CreateInstrument(context.Background(), input)
 			return err
@@ -619,6 +615,10 @@ func showFXManagementDialog(c *Controller) {
 	preferenceByPair := make(map[string]domain.FXPreference, len(preferences))
 	for _, preference := range preferences {
 		preferenceByPair[fxPairKey(preference.CurrencyA, preference.CurrencyB)] = preference
+		key := fxPairKey(preference.CurrencyA, preference.CurrencyB)
+		if _, exists := required[key]; !exists {
+			required[key] = domain.MissingInputView{BaseCurrency: preference.CurrencyB, QuoteCurrency: preference.CurrencyA}
+		}
 	}
 	keys := make([]string, 0, len(required))
 	for key := range required {
@@ -690,7 +690,7 @@ func showFXManagementDialog(c *Controller) {
 		direction := widget.NewSelect([]string{fmt.Sprintf("%s → %s", native, base), fmt.Sprintf("%s → %s", base, native)}, nil)
 		direction.SetSelected(direction.Options[0])
 		rate := widget.NewEntry()
-		quotedAt := newDateEntry(c.translator.T("accounts.datePlaceholder"))
+		quotedAt := newDateEntry(c.translator.T("accounts.datePlaceholder"), c.preference)
 		save := widget.NewButton(c.translator.T("portfolio.saveRate"), nil)
 		refreshStatus := widget.NewLabel("")
 		var refresh *widget.Button

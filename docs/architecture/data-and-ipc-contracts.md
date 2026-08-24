@@ -8,9 +8,8 @@ domain results, and infrastructure ports.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. The v0.1.1 SQLite migration remains the compatibility base;
-the implemented v0.1.2 portfolio migration, v0.1.3 history migration, and
-v0.1.4 cost-basis migration extend that boundary through schema `6`. UI code
+and query results. The current v0.1.4 generation owns one complete SQLite
+schema `6`; older database generations are rejected without migration. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
 The repository contains the Go implementation of the Household balance-sheet,
@@ -32,19 +31,18 @@ recreate a user's database after an open or migration failure.
 
 | Condition | Required behavior |
 | --- | --- |
-| Database absent | Create it, run migrations, verify it, then initialize settings |
+| Database absent | Create the current schema, verify it, then initialize settings |
 | Supported and current | Open and verify it |
-| Supported and older | Create a recoverable sibling snapshot before migration |
+| Older generation | Block startup without writes; offer a recoverable reset/backup path |
 | Newer than supported | Block business writes with a safe error |
-| Migration failure | Block startup; preserve the original database |
 | Integrity failure | Block startup; preserve the original database |
 | Path/open failure | Show an unavailable-database state |
 
-Compatibility is rechecked on the writable connection before migration or schema writes. An unsupported future database receives zero persistent application writes.
+Compatibility is rechecked on the writable connection before schema or business writes. Older and unsupported future databases receive zero persistent application writes.
 
 ## Persistence responsibilities
 
-The ordered migrations implement Household, Member, Institution, Group,
+The current schema implements Household, Member, Institution, Group,
 Account, Ownership, Account Value, Media Asset, Instrument, Holding, Account
 Cash Value, Instrument Quote, FX Quote, FX Preference, History Origin, Activity,
 snapshot, and dirty-state persistence. Recovery remains a future extension.
@@ -72,12 +70,10 @@ or network dependency.
 | Media Asset | Household-scoped normalized image bytes |
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
-Physical table names and indexes are defined by the ordered migrations and
-documented here without duplicating migration SQL. The current supported
-schema is `6`; schema `2` receives the v0.1.2 portfolio migration, schema `3`
-receives the v0.1.3 history migration, schemas `4` and `5` receive the
-remaining compatibility migrations, and schema `6` adds persisted cost inputs.
-Future schema versions are blocked before business or settings writes.
+Physical table names and indexes are defined by the current `schema.sql` and
+documented here without duplicating SQL. The current supported schema is `6`.
+Future and older schema generations are blocked before business or settings
+writes.
 
 ## Transaction guarantees
 
@@ -100,9 +96,8 @@ component, preserve the remaining subtotal, and mark the parent incomplete.
 Exact decimal precision is retained until the application Money boundary.
 
 `MarketDataRegistry` is the application provider port. Production registers
-Yahoo Finance for Instrument and FX current quotes and Frankfurter for FX-only
-daily rates. Settings persists the FX provider choice, defaulting to Yahoo for
-legacy settings; explicit FX refresh resolves that choice, while Instrument
+Yahoo Finance for Instrument quotes and Frankfurter as the explicit FX default.
+Settings persists the FX provider choice; explicit FX refresh resolves that choice, while Instrument
 refresh resolves each Instrument's saved provider key and symbol. Manual and
 passive read paths make zero provider calls. Refresh results expose only stable
 target/status/error-code values, and the Fyne worker owns cancellation,
@@ -151,7 +146,7 @@ The implemented media contract:
 - Replace references atomically while preserving shared assets; clear behavior remains a future extension.
 ## Compatibility evidence
 
-Every migration must have sanitized fixtures and tests for upgrade, reopen,
-integrity, representative business rows, and unsupported future versions.
+The current schema must have sanitized fixtures and tests for create, reopen,
+integrity, representative business rows, and unsupported older/future versions.
 The first Go implementation must not claim compatibility with the copied
 Tauri/Rust database until an explicit importer or migration proves it.

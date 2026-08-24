@@ -185,6 +185,71 @@ func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
 	}
 }
 
+func TestRecordFirstBuyCreatesHoldingAndCommitsAtomically(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/first-buy.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 1, 2, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "First Buy", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInInvestment: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "First ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-01-02"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	gross, _ := domain.ParseMoney("200", "USD")
+	preview, err := service.RecordChange(ctx, domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: account.Account.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "2"), Gross: gross, EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holdings, err := service.ListHoldings(ctx, account.Account.ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(holdings) != 1 || holdings[0].Quantity.Canonical() != "2" {
+		t.Fatalf("first buy holdings = %+v", holdings)
+	}
+	if preview.Activity.TradeDetail == nil || preview.Activity.TradeDetail.HoldingID != holdings[0].ID {
+		t.Fatalf("first buy trade detail = %+v, holding = %s", preview.Activity.TradeDetail, holdings[0].ID)
+	}
+	var cash string
+	if err := database.SQL.QueryRow("SELECT amount FROM account_cash_values WHERE account_id = ? AND projection_kind = 'event' ORDER BY created_at DESC LIMIT 1", account.Account.ID.String()).Scan(&cash); err != nil {
+		t.Fatal(err)
+	}
+	if cash != "800" {
+		t.Fatalf("first buy cash = %s, want 800", cash)
+	}
+	var activityCount, effectCount int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&activityCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activity_effects").Scan(&effectCount); err != nil {
+		t.Fatal(err)
+	}
+	if activityCount != 1 || effectCount != 2 {
+		t.Fatalf("first buy evidence activities=%d effects=%d", activityCount, effectCount)
+	}
+}
+
 func TestRecordTransfersUseNativeEndpointsAndCommitAtomically(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/transfer.db")
 	if err != nil {

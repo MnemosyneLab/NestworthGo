@@ -48,7 +48,7 @@ const (
 const (
 	FXProviderYahoo       = "yahoo_finance"
 	FXProviderFrankfurter = "frankfurter"
-	DefaultFXProvider     = FXProviderYahoo
+	DefaultFXProvider     = FXProviderFrankfurter
 )
 
 const (

@@ -389,7 +389,7 @@ func expectedSchemaTables() map[string][]schemaColumn {
 		},
 		"account_values": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("value_kind", "TEXT", 1, 0), expectedColumn("amount", "TEXT", 1, 0),
-			expectedColumn("currency", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'legacy'"),
+			expectedColumn("currency", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'baseline'"),
 		},
 		"instruments": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("name", "TEXT", 1, 0), expectedColumn("instrument_type", "TEXT", 1, 0),
@@ -403,7 +403,7 @@ func expectedSchemaTables() map[string][]schemaColumn {
 			expectedColumn("note", "TEXT", 0, 0), expectedColumn("sort_order", "INTEGER", 1, 0, "0"), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0),
 		},
 		"account_cash_values": {
-			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("amount", "TEXT", 1, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'legacy'"),
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("amount", "TEXT", 1, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'baseline'"),
 		},
 		"instrument_quotes": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("unit_price", "TEXT", 1, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("source_key", "TEXT", 1, 0), expectedColumn("quoted_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("delayed", "INTEGER", 1, 0, "0"),
@@ -450,7 +450,7 @@ func historySchemaColumns() map[string][]schemaColumn {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("original_activity_id", "TEXT", 1, 0), expectedColumn("replacement_activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
 		},
 		"holding_quantity_values": {
-			expectedColumn("id", "TEXT", 1, 1), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("quantity", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'legacy'"),
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("quantity", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'baseline'"),
 		},
 		"account_state_observations": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("include_in_net_worth", "INTEGER", 1, 0), expectedColumn("include_in_investment", "INTEGER", 1, 0), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0), expectedColumn("activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),

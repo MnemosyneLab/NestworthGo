@@ -14,6 +14,8 @@ import (
 // avoids making UI code depend on the infrastructure adapter.
 const YahooFinanceProviderKey = "yahoo_finance"
 
+const FrankfurterProviderKey = "frankfurter"
+
 // MarketDataCapabilities describes the deliberately small v0.1.2 provider
 // surface. Providers cannot imply search or historical-data support.
 type MarketDataCapabilities struct {
@@ -84,6 +86,20 @@ func NewMarketDataRegistry(providers ...MarketDataProvider) *MarketDataRegistry 
 	registry := &MarketDataRegistry{providers: make(map[string]MarketDataProvider)}
 	for _, provider := range providers {
 		_ = registry.Register(provider)
+	}
+	return registry
+}
+
+// NewMarketDataRegistryWithDefault makes the production default explicit;
+// registration order remains relevant only to the legacy test-friendly
+// constructor above.
+func NewMarketDataRegistryWithDefault(defaultKey string, providers ...MarketDataProvider) *MarketDataRegistry {
+	registry := NewMarketDataRegistry(providers...)
+	key := strings.ToLower(strings.TrimSpace(defaultKey))
+	if _, ok := registry.providers[key]; ok {
+		registry.defaultKey = key
+	} else {
+		registry.defaultKey = ""
 	}
 	return registry
 }

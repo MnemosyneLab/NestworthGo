@@ -58,7 +58,7 @@ release metadata for a local release build with `NESTWORTH_VERSION` and
 source and preserves `assets/icons/icon.icns` in both the app bundle and DMG
 volume.
 
-Do not launch future database migrations or destructive reset flows against the
+Do not launch destructive reset flows against the
 only copy of real financial data. Tests and smoke checks must use temporary or
 explicitly isolated application-data directories.
 
@@ -127,17 +127,17 @@ dot/comma decimal separators, comma/dot/space/apostrophe/no grouping,
 FX provider. Presentation preferences affect display; the FX provider affects
 only explicit user-triggered FX refresh.
 
-## Persistence and migrations
+## Persistence and schema generations
 
-The v0.1.1 SQLite runtime is implemented in `internal/infrastructure/sqlite`:
+The current SQLite runtime is implemented in `internal/infrastructure/sqlite`:
 
 1. Inspect schema compatibility before application writes.
-2. Snapshot supported older databases with a SQLite-consistent view before migration.
+2. Reject non-empty older databases without migration or partial writes.
 3. Block unsupported future versions without persistent writes.
 4. Enable foreign keys and a bounded busy timeout on every connection.
 5. Verify schema shape, integrity, and foreign-key consistency on startup.
-6. Keep migration SQL structural; enforce cross-row business rules in Go transactions.
-7. Test migration, reopen, integrity, and zero-write failure behavior.
+6. Keep the current schema structural; enforce cross-row business rules in Go transactions.
+7. Test create, reopen, integrity, and zero-write failure behavior.
 
 Current persistence and serialization contracts live in [data and application contracts](../architecture/data-and-ipc-contracts.md).
 

@@ -37,7 +37,7 @@ func (s *Service) changeStateFrom(origin *domain.HistoryOrigin, snapshot domain.
 	if origin == nil {
 		return domain.ChangeState{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
 	}
-	state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState)}
+	state := domain.ChangeState{HouseholdID: origin.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: make(map[domain.AccountID]domain.ChangeAccountState), Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState), Instruments: make(map[domain.InstrumentID]domain.Instrument)}
 	for _, record := range snapshot.Accounts {
 		account := record.Account
 		current, parseErr := domain.ParseMoney("0", account.DefaultCurrency)
@@ -59,6 +59,7 @@ func (s *Service) changeStateFrom(origin *domain.HistoryOrigin, snapshot domain.
 	for _, instrument := range snapshot.Instruments {
 		instruments[instrument.ID] = instrument
 	}
+	state.Instruments = instruments
 	for _, holding := range snapshot.Holdings {
 		instrument := instruments[holding.InstrumentID]
 		state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Archived: holding.ArchivedAt != nil || instrument.ArchivedAt != nil || state.Accounts[holding.AccountID].Archived, Current: holding.Quantity, CostBasisAvailable: false}
@@ -86,9 +87,44 @@ func (s *Service) RecordChange(ctx context.Context, command any) (domain.ChangeP
 // the effects; the caller must hold s.changeMu. A previous preview is never
 // accepted as write authorization.
 func (s *Service) recordChangeLocked(ctx context.Context, command any) (domain.ChangePreview, error) {
-	state, err := s.changeState(ctx)
+	origin, snapshot, err := s.loadChangeContext(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
+	}
+	state, err := s.changeStateFrom(origin, snapshot)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if trade, ok := command.(domain.TradeInput); ok && trade.HoldingID == "" {
+		if trade.Side != domain.TradeBuy {
+			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrInvalidTrade, Field: "holdingId", Message: "a Holding is required when selling"}
+		}
+		accountRecord, accountOK := accountFromSnapshot(snapshot, trade.SettlementAccountID)
+		if !accountOK {
+			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrNotFound, Field: "settlementAccountId", Message: "Account was not found"}
+		}
+		instrument, instrumentOK := instrumentFromSnapshot(snapshot, trade.InstrumentID)
+		if !instrumentOK {
+			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrNotFound, Field: "instrumentId", Message: "Instrument was not found"}
+		}
+		zero, zeroErr := domain.ParseQuantity("0")
+		if zeroErr != nil {
+			return domain.ChangePreview{}, zeroErr
+		}
+		holding, holdingErr := domain.NewHoldingForAccount(accountRecord.Account, instrument, zero, nil, 0, s.clock())
+		if holdingErr != nil {
+			return domain.ChangePreview{}, holdingErr
+		}
+		state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}
+		trade.HoldingID = holding.ID
+		preview, previewErr := domain.PreviewChange(state, trade)
+		if previewErr != nil {
+			return domain.ChangePreview{}, previewErr
+		}
+		if commitErr := s.repository.CreateHoldingWithActivity(ctx, holding, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}, s.clock()); commitErr != nil {
+			return domain.ChangePreview{}, commitErr
+		}
+		return preview, nil
 	}
 	return s.commitChangeLocked(ctx, state, command)
 }

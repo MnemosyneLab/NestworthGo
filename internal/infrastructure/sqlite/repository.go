@@ -843,7 +843,7 @@ func replaceOwnership(ctx context.Context, tx *sql.Tx, accountID domain.AccountI
 }
 
 func insertAccountValue(ctx context.Context, tx *sql.Tx, value domain.AccountValue) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO account_values(id, account_id, value_kind, amount, currency, effective_at, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)`, value.ID.String(), value.AccountID.String(), string(value.ValueKind), value.Amount.CanonicalAmount(), value.Amount.Currency().String(), formatTimestamp(value.EffectiveAt), formatTimestamp(value.CreatedAt))
+	_, err := tx.ExecContext(ctx, `INSERT INTO account_values(id, account_id, value_kind, amount, currency, effective_at, created_at, activity_effect_id, projection_kind) VALUES(?, ?, ?, ?, ?, ?, ?, NULL, 'baseline')`, value.ID.String(), value.AccountID.String(), string(value.ValueKind), value.Amount.CanonicalAmount(), value.Amount.Currency().String(), formatTimestamp(value.EffectiveAt), formatTimestamp(value.CreatedAt))
 	return err
 }
 

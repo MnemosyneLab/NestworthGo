@@ -43,6 +43,12 @@ func TestStoreRoundTripUsesPrivateAtomicFile(t *testing.T) {
 	}
 }
 
+func TestDefaultUsesFrankfurterForFX(t *testing.T) {
+	if DefaultFXProvider != FXProviderFrankfurter {
+		t.Fatalf("DefaultFXProvider = %q, want %q", DefaultFXProvider, FXProviderFrankfurter)
+	}
+}
+
 func TestDefaultStoreHonorsIsolatedSettingsPath(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "isolated", "settings.json")
 	t.Setenv("NESTWORTH_SETTINGS_PATH", path)

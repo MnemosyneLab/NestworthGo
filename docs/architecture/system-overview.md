@@ -5,7 +5,7 @@
 Nestworth is a local-first desktop application written in Go with Fyne. The
 repository contains the v0.1.1 backend foundation, the v0.1.2 portfolio line,
 the v0.1.3 history milestone, and the implemented v0.1.4 cost/gain line:
-typed domain contracts, SQLite bootstrap and migrations through schema `6`,
+typed domain contracts, SQLite bootstrap with one current schema `6`,
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
 currency decomposition, Analytics, exact valuation, and explicit
@@ -58,7 +58,7 @@ rules. It must not import Fyne, SQL drivers, or operating-system APIs.
 
 ### Infrastructure
 
-Infrastructure owns the database path, connection options, migrations,
+Infrastructure owns the database path, connection options, current-schema
 integrity checks, media normalization, and platform integration. It implements
 interfaces defined toward the application/domain layers and does not decide
 product-level validation or presentation.
@@ -84,7 +84,7 @@ flowchart TD
     Launch["Launch Fyne application"] --> Create["Create app and main window"]
     Create --> Init["Initialize application state"]
     Init --> Inspect["Inspect local database compatibility"]
-    Inspect -->|"New or supported"| Open["Open, migrate, and verify SQLite"]
+    Inspect -->|"New or current"| Open["Create/open and verify SQLite"]
     Inspect -->|"Unsupported or corrupt"| Blocked["Show safe startup error"]
     Open --> Bootstrap["Load settings and active Household"]
     Bootstrap -->|"No Household"| Onboarding["Show onboarding"]
@@ -92,7 +92,7 @@ flowchart TD
     Blocked --> Error["Keep business writes unavailable"]
 ```
 
-The compatibility inspection, migration, schema verification, and blocked-startup paths are implemented in `internal/infrastructure/sqlite`. Supported older databases receive a consistent pre-migration snapshot; unsupported future versions are rejected before schema writes. The application then bootstraps the active Household, opens onboarding when needed, and renders the live Overview or the GainService-backed Investments and Analytics views.
+The compatibility inspection, schema verification, and blocked-startup paths are implemented in `internal/infrastructure/sqlite`. Non-empty older databases are rejected without writes, and unsupported future versions are rejected before schema writes. The application then bootstraps the active Household, opens onboarding when needed, and renders the live Overview or the GainService-backed Investments and Analytics views.
 
 ## State ownership
 
@@ -144,4 +144,4 @@ boundaries:
   History Origin and ordered Activities.
 - Analytics remain a read-only interpretation of the ledger.
 - Historical facts are appended or explicitly corrected, never silently edited.
-- Compatibility checks occur before migration or business writes.
+- Compatibility checks occur before business writes; this generation does not migrate older databases.

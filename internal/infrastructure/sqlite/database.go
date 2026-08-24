@@ -15,7 +15,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-//go:embed schema.sql schema3.sql schema4.sql schema5.sql schema6.sql
+//go:embed schema.sql
 var schemaFS embed.FS
 
 const CurrentSchemaVersion = 6
@@ -24,9 +24,8 @@ type BootstrapStatus string
 
 const (
 	StatusReady             BootstrapStatus = "ready"
-	StatusMigrated          BootstrapStatus = "migrated"
+	StatusLegacyDatabase    BootstrapStatus = "legacy_database"
 	StatusUnsupportedFuture BootstrapStatus = "unsupported_future_database"
-	StatusMigrationFailed   BootstrapStatus = "migration_failed"
 	StatusIntegrityFailed   BootstrapStatus = "integrity_failed"
 	StatusUnavailable       BootstrapStatus = "unavailable"
 )
@@ -44,6 +43,9 @@ func (e *BootstrapError) Error() string {
 	}
 	if e.Status == StatusUnsupportedFuture {
 		return fmt.Sprintf("database schema %d is newer than supported schema %d", e.Found, e.Supported)
+	}
+	if e.Status == StatusLegacyDatabase {
+		return fmt.Sprintf("database schema %d is no longer supported; create a new database or reset this one", e.Found)
 	}
 	if e.Err == nil {
 		return string(e.Status)
@@ -93,129 +95,39 @@ func Open(path string) (*DB, error) {
 	if found > CurrentSchemaVersion {
 		return closeOnError(StatusUnsupportedFuture, found, nil)
 	}
-	migrated := false
-	if found < CurrentSchemaVersion && existed && (found > 0 || fileSize(path) > 0) {
-		if err := createPreMigrationSnapshot(database, path, found); err != nil {
-			return closeOnError(StatusMigrationFailed, found, err)
+	if existed && fileSize(path) > 0 && found < CurrentSchemaVersion {
+		return closeOnError(StatusLegacyDatabase, found, nil)
+	}
+	if found == 0 {
+		tx, err := database.BeginTx(context.Background(), nil)
+		if err != nil {
+			return closeOnError(StatusUnavailable, found, err)
 		}
-	}
-	tx, err := database.BeginTx(context.Background(), nil)
-	if err != nil {
-		return closeOnError(StatusUnavailable, found, err)
-	}
-	var lockedVersion int
-	if err := tx.QueryRowContext(context.Background(), "PRAGMA user_version").Scan(&lockedVersion); err != nil {
-		_ = tx.Rollback()
-		return closeOnError(StatusUnavailable, found, err)
-	}
-	if lockedVersion > CurrentSchemaVersion {
-		_ = tx.Rollback()
-		return closeOnError(StatusUnsupportedFuture, lockedVersion, nil)
-	}
-	if lockedVersion == 0 {
 		schema, readErr := schemaFS.ReadFile("schema.sql")
 		if readErr != nil {
 			_ = tx.Rollback()
-			return closeOnError(StatusMigrationFailed, lockedVersion, readErr)
+			return closeOnError(StatusUnavailable, found, readErr)
 		}
 		if _, execErr := tx.ExecContext(context.Background(), string(schema)); execErr != nil {
 			_ = tx.Rollback()
-			return closeOnError(StatusMigrationFailed, lockedVersion, execErr)
+			return closeOnError(StatusUnavailable, found, execErr)
 		}
-		lockedVersion = 1
-		migrated = true
-	}
-	for lockedVersion < CurrentSchemaVersion {
-		switch lockedVersion {
-		case 1:
-			if _, err := tx.ExecContext(context.Background(), "ALTER TABLE institutions ADD COLUMN icon_key TEXT"); err != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, err)
-			}
-			if _, err := tx.ExecContext(context.Background(), "ALTER TABLE accounts ADD COLUMN icon_key TEXT"); err != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, err)
-			}
-			lockedVersion = 2
-			migrated = true
-		case 2:
-			schema, readErr := schemaFS.ReadFile("schema3.sql")
-			if readErr != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, readErr)
-			}
-			if _, execErr := tx.ExecContext(context.Background(), string(schema)); execErr != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, execErr)
-			}
-			lockedVersion = 3
-			migrated = true
-		case 3:
-			schema, readErr := schemaFS.ReadFile("schema4.sql")
-			if readErr != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, readErr)
-			}
-			if _, execErr := tx.ExecContext(context.Background(), string(schema)); execErr != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, execErr)
-			}
-			lockedVersion = 4
-			migrated = true
-		case 4:
-			schema, readErr := schemaFS.ReadFile("schema5.sql")
-			if readErr != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, readErr)
-			}
-			if _, execErr := tx.ExecContext(context.Background(), string(schema)); execErr != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, execErr)
-			}
-			lockedVersion = 5
-			migrated = true
-		case 5:
-			schema, readErr := schemaFS.ReadFile("schema6.sql")
-			if readErr != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, readErr)
-			}
-			if _, execErr := tx.ExecContext(context.Background(), string(schema)); execErr != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, execErr)
-			}
-			if err := backfillSchema6CostBasis(context.Background(), tx); err != nil {
-				_ = tx.Rollback()
-				return closeOnError(StatusMigrationFailed, lockedVersion, err)
-			}
-			lockedVersion = 6
-			migrated = true
-		default:
+		if err := verifySchema(context.Background(), tx); err != nil {
 			_ = tx.Rollback()
-			return closeOnError(StatusMigrationFailed, lockedVersion, fmt.Errorf("no migration from schema %d", lockedVersion))
+			return closeOnError(StatusIntegrityFailed, CurrentSchemaVersion, err)
 		}
-	}
-	if _, err := tx.ExecContext(context.Background(), fmt.Sprintf("PRAGMA user_version = %d", lockedVersion)); err != nil {
-		_ = tx.Rollback()
-		return closeOnError(StatusMigrationFailed, lockedVersion, err)
-	}
-	if err := verifySchema(context.Background(), tx); err != nil {
-		_ = tx.Rollback()
-		return closeOnError(StatusIntegrityFailed, lockedVersion, err)
-	}
-	if err := tx.Commit(); err != nil {
-		return closeOnError(StatusMigrationFailed, lockedVersion, err)
+		if err := tx.Commit(); err != nil {
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+		}
+	} else if err := verifySchema(context.Background(), database); err != nil {
+		return closeOnError(StatusIntegrityFailed, found, err)
 	}
 	if path != ":memory:" {
 		if _, err := database.ExecContext(context.Background(), "PRAGMA journal_mode = WAL"); err != nil {
-			return closeOnError(StatusUnavailable, lockedVersion, err)
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
 	}
-	result := &DB{SQL: database, Path: path, Status: StatusReady}
-	if migrated {
-		result.Status = StatusMigrated
-	}
-	return result, nil
+	return &DB{SQL: database, Path: path, Status: StatusReady}, nil
 }
 
 func (db *DB) Close() error {
@@ -278,25 +190,4 @@ func fileSize(path string) int64 {
 		return 0
 	}
 	return info.Size()
-}
-
-func PreMigrationSnapshotPath(path string, found int) string {
-	return fmt.Sprintf("%s.pre-migrate-%d", path, found)
-}
-
-func createPreMigrationSnapshot(database *sql.DB, path string, found int) error {
-	snapshot := PreMigrationSnapshotPath(path, found)
-	if info, err := os.Stat(snapshot); err == nil {
-		if info.IsDir() {
-			return errors.New("pre-migration snapshot path is a directory")
-		}
-		// A previous failed attempt may already have created the immutable
-		// recovery sibling. Never overwrite it; reuse it for a retry.
-		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return err
-	}
-	statement := fmt.Sprintf("VACUUM INTO '%s'", strings.ReplaceAll(snapshot, "'", "''"))
-	_, err := database.Exec(statement)
-	return err
 }

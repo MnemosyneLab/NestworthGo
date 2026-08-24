@@ -130,7 +130,7 @@ func TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain(t *testing.T) {
 }
 
 func TestGainServiceTransferUsesSendingCostAtTransferTime(t *testing.T) {
-	database := seedGainSchema5Fixture(t)
+	database := seedGainSchema6Fixture(t)
 	defer database.Close()
 	repository := sqlite.NewRepository(database)
 	service := NewGainService(repository, func() time.Time { return time.Date(2026, time.January, 8, 0, 0, 0, 0, time.UTC) })
@@ -208,9 +208,9 @@ func TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX(t *testing.
 	}
 }
 
-func seedGainSchema5Fixture(t *testing.T) *sqlite.DB {
+func seedGainSchema6Fixture(t *testing.T) *sqlite.DB {
 	t.Helper()
-	scriptPath := filepath.Join("..", "..", "testdata", "v0.1.4", "schema5-fixture.sql")
+	scriptPath := filepath.Join("..", "..", "testdata", "v0.1.4", "schema6-fixture.sql")
 	script, err := os.ReadFile(scriptPath)
 	if err != nil {
 		t.Fatal(err)

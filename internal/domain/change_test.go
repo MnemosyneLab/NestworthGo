@@ -85,6 +85,40 @@ func TestPreviewCrossCurrencyTransferDerivesExactRateAndRejectsInsufficientCash(
 	}
 }
 
+func TestPreviewFXConversionUpdatesTwoCurrenciesAtomically(t *testing.T) {
+	state, _, broker, _, _ := changeTestState(t)
+	usd, _ := ParseCurrency("USD")
+	sgd, _ := ParseCurrency("SGD")
+	sold, _ := ParseMoney("100", usd)
+	bought, _ := ParseMoney("135", sgd)
+	fee, _ := ParseMoney("1", usd)
+	preview, err := PreviewChange(state, FXConversionInput{HouseholdID: state.HouseholdID, AccountID: broker, Sold: sold, Bought: bought, Fee: &fee, EffectiveAt: state.Now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Activity.Kind != ActivityFXConversion || preview.DerivedRate == nil || preview.DerivedRate.Canonical() != "1.35" {
+		t.Fatalf("conversion preview = %+v", preview)
+	}
+	if len(preview.Effects) != 3 || preview.Effects[0].Direction != EffectRemoved || preview.Effects[1].Direction != EffectAdded || preview.Effects[2].Role != EffectRoleFee {
+		t.Fatalf("conversion effects = %+v", preview.Effects)
+	}
+	if preview.Resulting[0].Currency != usd || preview.Resulting[0].Amount != "899" || preview.Resulting[1].Currency != sgd || preview.Resulting[1].Amount != "135" {
+		t.Fatalf("conversion result = %+v", preview.Resulting)
+	}
+}
+
+func TestPreviewFXConversionRejectsMissingSoldCash(t *testing.T) {
+	state, _, broker, _, _ := changeTestState(t)
+	usd, _ := ParseCurrency("USD")
+	sgd, _ := ParseCurrency("SGD")
+	sold, _ := ParseMoney("1001", usd)
+	bought, _ := ParseMoney("1351.35", sgd)
+	_, err := PreviewChange(state, FXConversionInput{HouseholdID: state.HouseholdID, AccountID: broker, Sold: sold, Bought: bought, EffectiveAt: state.Now})
+	if err == nil || err.(*Error).Code != ErrInsufficientBalance {
+		t.Fatalf("missing sold cash error = %v", err)
+	}
+}
+
 func TestPreviewSameCurrencyTransferSupportsBalanceAccounts(t *testing.T) {
 	state, owner, _, _, _ := changeTestState(t)
 	destination := AccountID(newID())

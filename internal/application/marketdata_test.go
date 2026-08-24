@@ -65,3 +65,11 @@ func TestMarketDataRegistryMissingDefaultIsSafe(t *testing.T) {
 		t.Fatalf("empty registry error = %#v", err)
 	}
 }
+
+func TestMarketDataRegistrySupportsExplicitDefault(t *testing.T) {
+	registry := NewMarketDataRegistryWithDefault("second", deterministicProvider{key: "first"}, deterministicProvider{key: "second"})
+	provider, err := registry.Default()
+	if err != nil || provider.Key() != "second" {
+		t.Fatalf("explicit Default() = %v, %v", provider, err)
+	}
+}

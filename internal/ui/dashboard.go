@@ -84,8 +84,7 @@ func NewDashboard(controller *Controller) fyne.CanvasObject {
 	)
 	netWorthCard := surface(container.NewBorder(nil, nil, nil, change, netWorthCopy), fyne.NewSize(1, 154))
 
-	metrics := container.NewGridWithColumns(
-		3,
+	metrics := container.NewGridWrap(fyne.NewSize(250, 112),
 		metricCard(t.T("dashboard.assets"), format.Money(demo.assets, preference.Currency, preference), fmt.Sprintf(t.T("dashboard.accountCount"), 5), palette.Primary),
 		metricCard(t.T("dashboard.liabilities"), format.Money(demo.liabilities, preference.Currency, preference), fmt.Sprintf(t.T("dashboard.accountCount"), 2), color.NRGBA{R: 184, G: 66, B: 99, A: 255}),
 		metricCard(t.T("dashboard.liquidAssets"), format.Money(demo.liquidAssets, preference.Currency, preference), demo.accounts+" "+t.T("dashboard.accountsTracked"), palette.Primary),
@@ -108,7 +107,7 @@ func NewDashboard(controller *Controller) fyne.CanvasObject {
 		allocationRows[2],
 	), fyne.NewSize(1, 280))
 
-	secondary := container.NewGridWithColumns(2, trend, allocation)
+	secondary := container.NewGridWrap(fyne.NewSize(360, 280), trend, allocation)
 
 	recent := surface(container.NewVBox(
 		sectionTitle(t.T("dashboard.recentActivity"), t.T("dashboard.activityDescription")),
@@ -123,7 +122,7 @@ func NewDashboard(controller *Controller) fyne.CanvasObject {
 		keyValueRow("•", t.T("dashboard.reviewItemTwo")),
 	), fyne.NewSize(1, 132))
 
-	footer := container.NewGridWithColumns(2, recent, accountsReview)
+	footer := container.NewGridWrap(fyne.NewSize(360, 132), recent, accountsReview)
 
 	return container.NewVBox(hero, netWorthCard, metrics, secondary, footer)
 }

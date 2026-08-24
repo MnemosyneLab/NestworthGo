@@ -125,6 +125,7 @@ const (
 	ActivityCashIn           ActivityKind = "cash_in"
 	ActivityCashOut          ActivityKind = "cash_out"
 	ActivityCashTransfer     ActivityKind = "cash_transfer"
+	ActivityFXConversion     ActivityKind = "fx_conversion"
 	ActivityPositionTransfer ActivityKind = "position_transfer"
 	ActivityBuy              ActivityKind = "buy"
 	ActivitySell             ActivityKind = "sell"
@@ -322,6 +323,9 @@ type ChangeState struct {
 	Accounts    map[AccountID]ChangeAccountState
 	Cash        map[AccountID]map[CurrencyCode]Money
 	Holdings    map[HoldingID]ChangeHoldingState
+	// Instruments is needed for the first-buy workflow, where the user has
+	// selected an Instrument but no Holding exists yet.
+	Instruments map[InstrumentID]Instrument
 }
 
 type EndpointView struct {
@@ -377,6 +381,19 @@ type CashTransferInput struct {
 	Received      Money
 	EffectiveAt   time.Time
 	Note          *string
+}
+
+// FXConversionInput records an in-account currency exchange as one atomic
+// activity. Sold and bought amounts are facts from the broker confirmation;
+// the derived rate is evidence for analysis only.
+type FXConversionInput struct {
+	HouseholdID HouseholdID
+	AccountID   AccountID
+	Sold        Money
+	Bought      Money
+	Fee         *Money
+	EffectiveAt time.Time
+	Note        *string
 }
 
 type PositionTransferInput struct {
@@ -471,6 +488,8 @@ func PreviewChange(state ChangeState, command any) (ChangePreview, error) {
 		return buildMoneyChange(state, input, false)
 	case CashTransferInput:
 		return buildCashTransfer(state, input)
+	case FXConversionInput:
+		return buildFXConversion(state, input)
 	case PositionTransferInput:
 		return buildPositionTransfer(state, input)
 	case PositionAdjustmentInput:
@@ -576,6 +595,10 @@ func cloneChangeState(state ChangeState) ChangeState {
 	clone.Holdings = make(map[HoldingID]ChangeHoldingState, len(state.Holdings))
 	for id, value := range state.Holdings {
 		clone.Holdings[id] = value
+	}
+	clone.Instruments = make(map[InstrumentID]Instrument, len(state.Instruments))
+	for id, value := range state.Instruments {
+		clone.Instruments[id] = value
 	}
 	return clone
 }
@@ -877,6 +900,63 @@ func buildCashTransfer(state ChangeState, input CashTransferInput) (ChangePrevie
 	return ChangePreview{Activity: activity, Effects: effects, Resulting: []EndpointView{fromView, toView}, DerivedRate: &rate}, nil
 }
 
+func buildFXConversion(state ChangeState, input FXConversionInput) (ChangePreview, error) {
+	account, err := state.account(input.AccountID, input.HouseholdID)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	if account.Mode != TrackingHoldings {
+		return ChangePreview{}, changeError(ErrInvalidChange, "accountId", "FX conversion requires a multi-currency cash account")
+	}
+	if input.Sold.IsZero() || input.Bought.IsZero() {
+		return ChangePreview{}, changeError(ErrInvalidChange, "amount", "sold and bought amounts must be greater than zero")
+	}
+	if input.Sold.Currency() == input.Bought.Currency() {
+		return ChangePreview{}, changeError(ErrInvalidChange, "currency", "sold and bought currencies must differ")
+	}
+	if input.Fee != nil {
+		if input.Fee.IsZero() {
+			return ChangePreview{}, changeError(ErrInvalidChange, "fee", "fee must be greater than zero")
+		}
+		if input.Fee.Currency() != input.Sold.Currency() {
+			return ChangePreview{}, changeError(ErrInvalidChange, "fee", "fee currency must match sold currency")
+		}
+	}
+	totalSold := input.Sold
+	if input.Fee != nil {
+		totalSold, err = totalSold.Add(*input.Fee)
+		if err != nil {
+			return ChangePreview{}, err
+		}
+	}
+	fromView, err := state.accountAmount(account, totalSold, EffectRemoved)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	toView, err := state.accountAmount(account, input.Bought, EffectAdded)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	rate, err := NewFxRate(input.Bought.Amount().Div(input.Sold.Amount()).Round(12))
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	activity, err := state.newActivity(input.HouseholdID, ActivityFXConversion, ReasonOther, input.EffectiveAt, input.Note)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	effects := []ActivityEffect{
+		cashEffect(activity.ID, 1, EffectRoleTransferFrom, EffectRemoved, ClassificationInternalTransfer, account.ID, input.Sold),
+		cashEffect(activity.ID, 2, EffectRoleTransferTo, EffectAdded, ClassificationInternalTransfer, account.ID, input.Bought),
+	}
+	if input.Fee != nil {
+		effects = append(effects, cashEffect(activity.ID, 3, EffectRoleFee, EffectRemoved, ClassificationFee, account.ID, *input.Fee))
+	}
+	activity.TransactionFXRate = &rate
+	activity.Effects = effects
+	return ChangePreview{Activity: activity, Effects: effects, Resulting: []EndpointView{fromView, toView}, DerivedRate: &rate}, nil
+}
+
 func buildPositionTransfer(state ChangeState, input PositionTransferInput) (ChangePreview, error) {
 	from, err := state.holding(input.FromHoldingID, input.HouseholdID)
 	if err != nil {
@@ -960,7 +1040,24 @@ func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
 	}
 	holding, err := state.holding(input.HoldingID, input.HouseholdID)
 	if err != nil {
-		return ChangePreview{}, err
+		if input.HoldingID != "" || input.Side != TradeBuy {
+			return ChangePreview{}, err
+		}
+		instrument, instrumentOK := state.Instruments[input.InstrumentID]
+		if !instrumentOK {
+			return ChangePreview{}, &Error{Code: ErrNotFound, Field: "instrumentId", Message: "Instrument was not found"}
+		}
+		if instrument.HouseholdID != state.HouseholdID {
+			return ChangePreview{}, changeError(ErrInvalidChange, "instrumentId", "Instrument does not belong to the Household")
+		}
+		if instrument.ArchivedAt != nil {
+			return ChangePreview{}, &Error{Code: ErrConflict, Field: "instrumentId", Message: "Instrument is archived"}
+		}
+		zero, zeroErr := NewQuantity(decimal.Zero)
+		if zeroErr != nil {
+			return ChangePreview{}, zeroErr
+		}
+		holding = ChangeHoldingState{ID: NewHoldingID(), AccountID: account.ID, InstrumentID: instrument.ID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}
 	}
 	if holding.AccountID != account.ID || holding.InstrumentID != input.InstrumentID || input.Quantity.IsZero() || input.Gross.IsZero() {
 		return ChangePreview{}, &Error{Code: ErrInvalidTrade, Field: "trade", Message: "Holding, Instrument, quantity, and gross total must match"}
@@ -1022,7 +1119,7 @@ func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
 		effects = append(effects, cashEffect(activity.ID, 3, EffectRoleFee, EffectRemoved, ClassificationFee, account.ID, *input.Fee))
 		views[0] = feeView
 	}
-	tradeDetail := &TradeDetail{Side: input.Side, InstrumentID: input.InstrumentID, HoldingID: input.HoldingID, Quantity: input.Quantity, Gross: input.Gross, UnitPrice: unitPrice, Fee: input.Fee}
+	tradeDetail := &TradeDetail{Side: input.Side, InstrumentID: input.InstrumentID, HoldingID: holding.ID, Quantity: input.Quantity, Gross: input.Gross, UnitPrice: unitPrice, Fee: input.Fee}
 	activity.TradeDetail = tradeDetail
 	activity.Effects = effects
 	return ChangePreview{Activity: activity, Effects: effects, Resulting: views, DerivedUnitPrice: &unitPrice}, nil

@@ -60,6 +60,7 @@ func mutedLabel(value string) *widget.Label {
 	// faint for explanatory copy on the light surface. Keep secondary text
 	// readable and let the surrounding hierarchy provide the visual weight.
 	label.Importance = widget.MediumImportance
+	label.Wrapping = fyne.TextWrapWord
 	return label
 }
 
@@ -82,9 +83,11 @@ func badge(value string, fill, foreground color.Color) fyne.CanvasObject {
 }
 
 func keyValueRow(label, value string) fyne.CanvasObject {
-	return container.NewBorder(nil, nil, widget.NewLabel(label), nil,
-		widget.NewLabelWithStyle(value, fyne.TextAlignTrailing, fyne.TextStyle{Bold: true}),
-	)
+	labelView := widget.NewLabel(label)
+	labelView.Wrapping = fyne.TextWrapWord
+	valueView := widget.NewLabelWithStyle(value, fyne.TextAlignTrailing, fyne.TextStyle{Bold: true})
+	valueView.Wrapping = fyne.TextWrapWord
+	return container.NewBorder(nil, nil, labelView, nil, valueView)
 }
 
 func settingsRows(objects ...fyne.CanvasObject) fyne.CanvasObject {

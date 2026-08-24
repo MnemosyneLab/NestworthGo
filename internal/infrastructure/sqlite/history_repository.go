@@ -97,28 +97,12 @@ func listHistoryOriginComponentsQuery(ctx context.Context, query queryer, origin
 			}
 			component.UnitCost = &parsedUnitCost
 		}
-		if err := validateStoredHistoryOriginComponent(component); err != nil {
+		if err := component.Validate(); err != nil {
 			return nil, err
 		}
 		result = append(result, component)
 	}
 	return result, rows.Err()
-}
-
-// schema5 predates persisted UnitCost. Keep loading those immutable starting
-// points possible until the schema6 backfill writes the cost basis. New writes
-// still go through validateHistoryOriginData and therefore require UnitCost
-// for every positive holding component.
-func validateStoredHistoryOriginComponent(component domain.HistoryOriginComponent) error {
-	err := component.Validate()
-	if err == nil {
-		return nil
-	}
-	validationErr, ok := err.(*domain.Error)
-	if ok && validationErr.Code == domain.ErrCostBasisRequired && component.Kind == domain.HistoryOriginHoldingQuantity && component.Quantity != nil && !component.Quantity.IsZero() && component.UnitCost == nil {
-		return nil
-	}
-	return err
 }
 
 // HistoryOriginData loads the immutable baseline together with all baseline

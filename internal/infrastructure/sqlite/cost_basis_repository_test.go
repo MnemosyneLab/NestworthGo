@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -14,6 +15,26 @@ type countingQueryer struct {
 	queries int
 }
 
+func seedSchema6Fixture(t *testing.T, path string) {
+	t.Helper()
+	scriptPath := filepath.Join("..", "..", "..", "testdata", "v0.1.4", "schema6-fixture.sql")
+	script, err := os.ReadFile(scriptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seed.Exec(string(script)); err != nil {
+		_ = seed.Close()
+		t.Fatal(err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (q *countingQueryer) QueryContext(ctx context.Context, statement string, args ...any) (*sql.Rows, error) {
 	q.queries++
 	return q.queryer.QueryContext(ctx, statement, args...)
@@ -21,7 +42,7 @@ func (q *countingQueryer) QueryContext(ctx context.Context, statement string, ar
 
 func TestCostBasisEventsUseOneBoundedQueryForAllEvents(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bounded-cost-basis.db")
-	seedSchema5Fixture(t, path)
+	seedSchema6Fixture(t, path)
 	database, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +63,7 @@ func TestCostBasisEventsUseOneBoundedQueryForAllEvents(t *testing.T) {
 
 func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cost-basis.db")
-	seedSchema5Fixture(t, path)
+	seedSchema6Fixture(t, path)
 	database, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +132,7 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 
 func TestCostBasisRepositoryExcludesArchivedHolding(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "archived-cost-basis.db")
-	seedSchema5Fixture(t, path)
+	seedSchema6Fixture(t, path)
 	database, err := Open(path)
 	if err != nil {
 		t.Fatal(err)

@@ -110,7 +110,7 @@ Classification is derived in Go from kind and leg role. Internal transfers and t
 
 ### History Origin
 
-History Origin is a cutover boundary, not an Activity. It states that Nestworth knows this Household state existed at this time but does not know how it was acquired. Each Household has exactly one origin with an IANA timezone. Migrated v0.1.2 state is captured as baseline items. Fresh onboarding creates an empty origin. Trustworthy reconstructed daily history starts at the origin; older observations may appear as labeled legacy observations but do not create a pre-origin trend.
+History Origin is a cutover boundary, not an Activity. It states that Nestworth knows this Household state existed at this time but does not know how it was acquired. Each Household has exactly one origin with an IANA timezone. The current generation captures the initial state as baseline items; it does not migrate legacy database generations or accept `legacy` projection semantics. Fresh onboarding creates an empty origin. Trustworthy reconstructed daily history starts at the origin.
 
 ### Daily Snapshot
 

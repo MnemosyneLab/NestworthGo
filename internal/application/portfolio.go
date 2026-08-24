@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"time"
 
@@ -29,6 +30,18 @@ type InstrumentInput struct {
 	QuoteSource    string
 	ProviderKey    string
 	ProviderSymbol string
+}
+
+// QuoteHistoryQuery keeps local quote-history reads bounded and deterministic
+// without exposing repository SQL details to the UI.
+type QuoteHistoryQuery struct {
+	From       *time.Time
+	To         *time.Time
+	SourceKind *domain.QuoteSourceKind
+	CurrencyA  domain.CurrencyCode
+	CurrencyB  domain.CurrencyCode
+	Limit      int
+	Ascending  bool
 }
 
 func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (domain.Instrument, error) {
@@ -98,6 +111,156 @@ func (s *Service) CurrentInstrumentQuote(ctx context.Context, id domain.Instrume
 		return nil, err
 	}
 	return selectInstrumentQuote(instrument, quotes), nil
+}
+
+// InstrumentQuoteHistory returns the locally persisted quote facts for one
+// Instrument. It never refreshes a provider or performs network I/O.
+func (s *Service) InstrumentQuoteHistory(ctx context.Context, id domain.InstrumentID, queries ...QuoteHistoryQuery) ([]domain.InstrumentQuote, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if bootstrap.Household == nil {
+		return []domain.InstrumentQuote{}, nil
+	}
+	if _, err := s.repository.Instrument(ctx, bootstrap.Household.ID, id); err != nil {
+		return nil, safePortfolioError(err)
+	}
+	quotes, err := s.repository.ListInstrumentQuotes(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if len(queries) == 0 {
+		return quotes, nil
+	}
+	return filterInstrumentQuoteHistory(quotes, queries[0]), nil
+}
+
+// FXQuoteHistory returns all locally persisted FX quote facts for the current
+// Household. It never refreshes a provider or performs network I/O.
+func (s *Service) FXQuoteHistory(ctx context.Context, queries ...QuoteHistoryQuery) ([]domain.FXQuote, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if bootstrap.Household == nil {
+		return []domain.FXQuote{}, nil
+	}
+	quotes, err := s.repository.ListFXQuotes(ctx, bootstrap.Household.ID)
+	if err != nil {
+		return nil, err
+	}
+	if len(queries) == 0 {
+		return quotes, nil
+	}
+	return filterFXQuoteHistory(quotes, queries[0]), nil
+}
+
+func filterInstrumentQuoteHistory(quotes []domain.InstrumentQuote, query QuoteHistoryQuery) []domain.InstrumentQuote {
+	filtered := make([]domain.InstrumentQuote, 0, len(quotes))
+	for _, quote := range quotes {
+		if query.SourceKind != nil && quote.SourceKind != *query.SourceKind {
+			continue
+		}
+		if query.From != nil && quote.QuotedAt.Before(*query.From) {
+			continue
+		}
+		if query.To != nil && quote.QuotedAt.After(*query.To) {
+			continue
+		}
+		filtered = append(filtered, quote)
+	}
+	sort.SliceStable(filtered, func(i, j int) bool {
+		return quoteLater(filtered[i].QuotedAt, filtered[i].CreatedAt, filtered[i].ID.String(), filtered[j].QuotedAt, filtered[j].CreatedAt, filtered[j].ID.String()) != query.Ascending
+	})
+	if query.Limit > 0 && len(filtered) > query.Limit {
+		filtered = filtered[:query.Limit]
+	}
+	return filtered
+}
+
+func filterFXQuoteHistory(quotes []domain.FXQuote, query QuoteHistoryQuery) []domain.FXQuote {
+	filtered := make([]domain.FXQuote, 0, len(quotes))
+	var pairA, pairB domain.CurrencyCode
+	if query.CurrencyA != "" || query.CurrencyB != "" {
+		var err error
+		pairA, pairB, err = domain.NormalizeFXPair(query.CurrencyA, query.CurrencyB)
+		if err != nil {
+			return filtered
+		}
+	}
+	for _, quote := range quotes {
+		if pairA != "" {
+			quoteA, quoteB, err := domain.NormalizeFXPair(quote.BaseCurrency, quote.QuoteCurrency)
+			if err != nil || quoteA != pairA || quoteB != pairB {
+				continue
+			}
+		}
+		if query.SourceKind != nil && quote.SourceKind != *query.SourceKind {
+			continue
+		}
+		if query.From != nil && quote.QuotedAt.Before(*query.From) {
+			continue
+		}
+		if query.To != nil && quote.QuotedAt.After(*query.To) {
+			continue
+		}
+		filtered = append(filtered, quote)
+	}
+	sort.SliceStable(filtered, func(i, j int) bool {
+		return quoteLater(filtered[i].QuotedAt, filtered[i].CreatedAt, filtered[i].ID.String(), filtered[j].QuotedAt, filtered[j].CreatedAt, filtered[j].ID.String()) != query.Ascending
+	})
+	if query.Limit > 0 && len(filtered) > query.Limit {
+		filtered = filtered[:query.Limit]
+	}
+	return filtered
+}
+
+// CurrentFXQuote selects the latest local quote for the configured source of
+// one currency pair. The returned quote keeps its stored orientation; callers
+// must display the BaseCurrency -> QuoteCurrency direction alongside Rate.
+func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domain.CurrencyCode) (*domain.FXQuote, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if bootstrap.Household == nil {
+		return nil, onboardingRequired()
+	}
+	a, b, pairErr := domain.NormalizeFXPair(currencyA, currencyB)
+	if pairErr != nil {
+		return nil, pairErr
+	}
+	preferences, err := s.repository.ListFXPreferences(ctx, bootstrap.Household.ID)
+	if err != nil {
+		return nil, err
+	}
+	var preference *domain.FXPreference
+	for index := range preferences {
+		if preferences[index].CurrencyA == a && preferences[index].CurrencyB == b {
+			preference = &preferences[index]
+			break
+		}
+	}
+	if preference == nil {
+		return nil, nil
+	}
+	quotes, err := s.repository.ListFXQuotes(ctx, bootstrap.Household.ID)
+	if err != nil {
+		return nil, err
+	}
+	var selected *domain.FXQuote
+	for index := range quotes {
+		quote := &quotes[index]
+		quoteA, quoteB, normalizeErr := domain.NormalizeFXPair(quote.BaseCurrency, quote.QuoteCurrency)
+		if normalizeErr != nil || quote.SourceKind != preference.SourceKind || quoteA != a || quoteB != b {
+			continue
+		}
+		if selected == nil || quoteLater(quote.QuotedAt, quote.CreatedAt, quote.ID.String(), selected.QuotedAt, selected.CreatedAt, selected.ID.String()) {
+			selected = quote
+		}
+	}
+	return selected, nil
 }
 
 func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, input InstrumentInput) (domain.Instrument, error) {

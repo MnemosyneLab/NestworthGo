@@ -69,6 +69,10 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 	if err != nil || len(quotes) != 1 {
 		t.Fatalf("manual quote history = %d, err = %v", len(quotes), err)
 	}
+	quoteHistory, err := service.InstrumentQuoteHistory(ctx, instrument.ID)
+	if err != nil || len(quoteHistory) != 1 || quoteHistory[0].ID != quote.ID {
+		t.Fatalf("application quote history = %d, err = %v", len(quoteHistory), err)
+	}
 	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
 		t.Fatalf("standalone manual source change: %v", err)
 	}
@@ -82,6 +86,14 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 	}
 	if fx.BaseCurrency != domain.CurrencyCode("USD") || fx.QuoteCurrency != domain.CurrencyCode("CNY") {
 		t.Fatalf("manual FX orientation = %+v", fx)
+	}
+	fxHistory, err := service.FXQuoteHistory(ctx)
+	if err != nil || len(fxHistory) != 1 || fxHistory[0].ID != fx.ID {
+		t.Fatalf("application FX history = %d, err = %v", len(fxHistory), err)
+	}
+	currentFX, err := service.CurrentFXQuote(ctx, "USD", "CNY")
+	if err != nil || currentFX == nil || currentFX.ID != fx.ID {
+		t.Fatalf("application current FX = %+v, err = %v", currentFX, err)
 	}
 	pref, err := service.repository.FXPreference(ctx, bootstrap.Household.ID, domain.CurrencyCode("USD"), domain.CurrencyCode("CNY"))
 	if err != nil || pref.SourceKind != domain.QuoteSourceManual {

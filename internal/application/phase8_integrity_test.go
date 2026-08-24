@@ -54,7 +54,7 @@ func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
 }
 
 func TestMigratedV014FixtureSupportsGainReads(t *testing.T) {
-	database := seedGainSchema5Fixture(t)
+	database := seedGainSchema6Fixture(t)
 	defer database.Close()
 	repository := sqlite.NewRepository(database)
 	ctx := context.Background()

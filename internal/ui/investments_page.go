@@ -35,7 +35,7 @@ func NewInvestmentsPage(c *Controller) fyne.CanvasObject {
 		refreshAll.Disable()
 		refreshFX.Disable()
 	}
-	actions := container.NewHBox(refreshAll, refreshFX)
+	actions := container.NewGridWrap(fyne.NewSize(180, 40), refreshAll, refreshFX)
 
 	subtotal := t.T("portfolio.unavailable")
 	if portfolio.ValuedSubtotal != nil {
@@ -44,13 +44,13 @@ func NewInvestmentsPage(c *Controller) fyne.CanvasObject {
 	positionCount := 0
 	for _, account := range portfolio.Accounts {
 		for _, component := range account.Components {
-			if component.InstrumentID != nil {
+			if component.HoldingID != nil && component.NativeAmount != "0" {
 				positionCount++
 			}
 		}
 	}
 	palette := PaletteFor(c.preference.Accent)
-	metrics := container.NewGridWithColumns(3,
+	metrics := container.NewGridWrap(fyne.NewSize(250, 112),
 		metricCard(t.T("portfolio.valuedSubtotal"), subtotal, t.T("portfolio.valuedSubtotalDescription"), palette.Primary),
 		metricCard(t.T("portfolio.positions"), fmt.Sprintf("%d", positionCount), t.T("portfolio.positionsDescription"), palette.Primary),
 		metricCard(t.T("portfolio.accounts"), fmt.Sprintf("%d", len(portfolio.Accounts)), t.T("portfolio.accountsDescription"), palette.Primary),
@@ -111,8 +111,14 @@ func investmentPositionsCard(c *Controller, portfolio domain.PortfolioValuation,
 	rows := make([]fyne.CanvasObject, 0)
 	for _, account := range portfolio.Accounts {
 		for _, component := range account.Components {
+			if component.HoldingID != nil && component.NativeAmount == "0" {
+				continue
+			}
 			if component.HoldingID != nil {
 				if gain, ok := gains[*component.HoldingID]; ok {
+					if gain.Quantity == "0" {
+						continue
+					}
 					rows = append(rows, investmentHoldingGainRow(c, gain))
 					continue
 				}
@@ -144,19 +150,13 @@ func investmentHoldingGainRow(c *Controller, gain domain.HoldingGainView) fyne.C
 	if gain.CurrentValue == nil || !gain.Available && gain.UnrealizedGain == nil {
 		unrealized = t.T("portfolio.unavailable")
 	}
-	headers := container.NewGridWithColumns(4,
-		widget.NewLabelWithStyle(t.T("portfolio.position"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle(t.T("portfolio.averageCost"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle(t.T("portfolio.totalCost"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		widget.NewLabelWithStyle(t.T("portfolio.unrealizedGain"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	row := container.NewVBox(
+		keyValueRow(t.T("portfolio.position"), fmt.Sprintf("%s · %s", instrumentIdentityLabel(c, gain.InstrumentName, gain.InstrumentSymbol), gain.Quantity)),
+		keyValueRow(t.T("portfolio.averageCost"), average),
+		keyValueRow(t.T("portfolio.totalCost"), total),
+		keyValueRow(t.T("portfolio.unrealizedGain"), unrealized),
 	)
-	row := container.NewGridWithColumns(4,
-		container.NewVBox(widget.NewLabelWithStyle(instrumentIdentityLabel(c, gain.InstrumentName, gain.InstrumentSymbol), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), mutedLabel(fmt.Sprintf("%s · %s", t.T("portfolio.quantity"), gain.Quantity))),
-		widget.NewLabel(average),
-		widget.NewLabel(total),
-		widget.NewLabel(unrealized),
-	)
-	return sectionCard(instrumentIdentityLabel(c, gain.InstrumentName, gain.InstrumentSymbol), t.T("portfolio.gainTableDescription"), container.NewVBox(headers, row))
+	return sectionCard(instrumentIdentityLabel(c, gain.InstrumentName, gain.InstrumentSymbol), t.T("portfolio.gainTableDescription"), row)
 }
 
 func investmentAccountsCard(c *Controller, portfolio domain.PortfolioValuation) fyne.CanvasObject {
@@ -183,7 +183,7 @@ func investmentAllocationsCard(c *Controller, portfolio domain.PortfolioValuatio
 	if len(portfolio.ByCurrency) == 0 && len(portfolio.ByCountry) == 0 && len(portfolio.ByInstrumentType) == 0 {
 		return sectionCard(t.T("portfolio.allocations"), t.T("portfolio.allocationsDescription"), emptyPanel(t.T("portfolio.noAllocations"), t.T("portfolio.noAllocationsDescription")))
 	}
-	return sectionCard(t.T("portfolio.allocations"), t.T("portfolio.allocationsDescription"), container.NewGridWithColumns(3,
+	return sectionCard(t.T("portfolio.allocations"), t.T("portfolio.allocationsDescription"), container.NewGridWrap(fyne.NewSize(260, 120),
 		allocationGroup(c, t.T("portfolio.byCurrency"), portfolio.ByCurrency),
 		allocationGroup(c, t.T("portfolio.byCountry"), portfolio.ByCountry),
 		allocationGroup(c, t.T("portfolio.byInstrumentType"), portfolio.ByInstrumentType),

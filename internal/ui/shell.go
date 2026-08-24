@@ -24,6 +24,7 @@ const (
 	PageOverview     = Page("overview")
 	PageAccounts     = Page("accounts")
 	PageInvestments  = Page("investments")
+	PageMarketData   = Page("market_data")
 	PageMembers      = Page("members")
 	PageInstitutions = Page("institutions")
 	PageGroups       = Page("groups")
@@ -311,6 +312,7 @@ func (c *Controller) sidebar() fyne.CanvasObject {
 		c.navButton(PageOverview, t.T("nav.overview"), fyneTheme.IconNameHome),
 		c.navButton(PageAccounts, t.T("nav.accounts"), fyneTheme.IconNameAccount),
 		c.navButton(PageInvestments, t.T("nav.investments"), fyneTheme.IconNameStorage),
+		c.navButton(PageMarketData, t.T("nav.marketData"), fyneTheme.IconNameStorage),
 		c.navButton(PageMembers, t.T("nav.members"), fyneTheme.IconNameAccount),
 		c.navButton(PageInstitutions, t.T("nav.institutions"), fyneTheme.IconNameDocument),
 		c.navButton(PageGroups, t.T("nav.groups"), fyneTheme.IconNameFolder),
@@ -358,6 +360,12 @@ func (c *Controller) mainArea() fyne.CanvasObject {
 			} else {
 				page = NewComingSoonPage(c, "page.investmentsTitle", "page.investmentsDescription", fyneTheme.IconNameStorage)
 			}
+		case PageMarketData:
+			if c.service != nil {
+				page = NewMarketDataPage(c)
+			} else {
+				page = NewComingSoonPage(c, "page.marketDataTitle", "page.marketDataDescription", fyneTheme.IconNameStorage)
+			}
 		case PageMembers:
 			if c.service != nil {
 				page = NewMembersPage(c)
@@ -402,6 +410,8 @@ func (c *Controller) pageHeader() fyne.CanvasObject {
 		title, subtitle = t.T("page.accountsTitle"), t.T("page.accountsDescription")
 	case PageInvestments:
 		title, subtitle = t.T("page.investmentsTitle"), t.T("page.investmentsDescription")
+	case PageMarketData:
+		title, subtitle = t.T("page.marketDataTitle"), t.T("page.marketDataDescription")
 	case PageMembers:
 		title, subtitle = t.T("page.membersTitle"), t.T("page.membersDescription")
 	case PageInstitutions:

@@ -149,7 +149,7 @@ func (s *Service) SetMarketDataRegistry(registry MarketDataRegistryPort) {
 func (s *Service) SetFXProvider(key string) error {
 	key = strings.ToLower(strings.TrimSpace(key))
 	if key == "" {
-		key = YahooFinanceProviderKey
+		key = FrankfurterProviderKey
 	}
 	registry := s.MarketDataRegistry()
 	if registry == nil {

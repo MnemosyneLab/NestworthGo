@@ -431,7 +431,7 @@ func (r *Repository) AppendAccountCashValue(ctx context.Context, value domain.Ac
 		if mode != string(domain.TrackingHoldings) {
 			return &domain.Error{Code: domain.ErrValidation, Field: "trackingMode", Message: "cash observations require a Holdings account"}
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO account_cash_values(id, account_id, amount, currency, effective_at, created_at) VALUES(?, ?, ?, ?, ?, ?)`, value.ID.String(), value.AccountID.String(), value.Amount.CanonicalAmount(), value.Amount.Currency().String(), formatTimestamp(value.EffectiveAt), formatTimestamp(value.CreatedAt))
+		_, err := tx.ExecContext(ctx, `INSERT INTO account_cash_values(id, account_id, amount, currency, effective_at, created_at, activity_effect_id, projection_kind) VALUES(?, ?, ?, ?, ?, ?, NULL, 'baseline')`, value.ID.String(), value.AccountID.String(), value.Amount.CanonicalAmount(), value.Amount.Currency().String(), formatTimestamp(value.EffectiveAt), formatTimestamp(value.CreatedAt))
 		return mapPortfolioWriteError(err, "cash value")
 	})
 }
