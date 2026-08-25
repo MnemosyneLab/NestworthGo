@@ -6,6 +6,7 @@ import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OverviewPage } from "@/features/overview/OverviewPage";
 import { AccountsPage } from "@/features/accounts/AccountsPage";
 import { DirectoryPage } from "@/features/directory/DirectoryPage";
+import { InvestmentsPage } from "@/features/investments/InvestmentsPage";
 import { useBootstrap } from "@/queries/household";
 
 /**
@@ -27,13 +28,14 @@ function App() {
     return <OnboardingPage />;
   }
 
-  const implementedPageIds = ["overview", "accounts", "directory"];
+  const implementedPageIds = ["overview", "accounts", "directory", "investments"];
 
   return (
     <AppShell activePageId={activePageId} onNavigate={setActivePageId}>
       {activePageId === "overview" && <OverviewPage />}
       {activePageId === "accounts" && <AccountsPage />}
       {activePageId === "directory" && <DirectoryPage />}
+      {activePageId === "investments" && <InvestmentsPage />}
       {!implementedPageIds.includes(activePageId) && <ComingSoonPage titleKey={activeItem.translationKey} />}
     </AppShell>
   );
