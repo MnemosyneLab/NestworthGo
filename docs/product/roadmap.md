@@ -128,6 +128,19 @@ comparison data, and keyboard-focused search/navigation.
 Detailed design is intentionally deferred until the Go persistence, Activity,
 history, and analytics boundaries it depends on exist.
 
+## Related Technical Initiative: Wails v3 Frontend Migration
+
+A `Planned` migration replaces the Fyne desktop shell (`internal/ui`,
+`internal/app`) with a Wails v3 application backed by a React + TypeScript
+frontend, reusing `internal/domain`, `internal/application`, and
+`internal/infrastructure` without behavior change. This is a runtime/UI
+framework change, not new product scope: it does not reorder or reopen any
+release above, and it is a prerequisite for the UI expressiveness the
+[frontend stack decision](../../prototype/nestworth-wails-frontend-stack.md)
+identifies as needed for future releases' denser tables and charts. See the
+[Wails v3 migration documents](../migration/README.md) for scope, technical
+design, and the phased delivery plan.
+
 ## Dependency Rules
 
 - Family change history depends on the implemented v0.1.2 current-state and

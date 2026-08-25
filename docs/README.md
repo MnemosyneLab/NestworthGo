@@ -21,6 +21,7 @@ history and gain reads use only local data.
 | [Engineering Guide](development/engineering-guide.md) | Go workflow, repository conventions, tests, and release checks |
 | [Release documents](releases/README.md) | Active Go release contracts plus the separately labeled inherited archive |
 | [v0.1.4 implementation plan](releases/v0.1.4-implementation-plan.md) | Phase commits, shipped scope, and verification evidence |
+| [Wails v3 migration documents](migration/README.md) | `Planned` frontend/runtime migration from Fyne to Wails v3 + React; scope, technical design, and phased delivery plan |
 
 The filename `data-and-ipc-contracts.md` is retained for link stability from
 the source documentation. The Go + Fyne application has no Tauri IPC layer;
