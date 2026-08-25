@@ -552,7 +552,112 @@ validation authority).
 
 ## Phase 5 — Frontend Feature Parity
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`, with one documented gap (icon/logo
+pickers) carried forward. Every page in the "Suggested order" deliverables
+list below exists and works end to end against the real backend:
+`features/directory/{DirectoryPage,DirectoryEntityList}.tsx` (Members/
+Institutions/Groups), `features/investments/{InvestmentsPage,
+InstrumentForm}.tsx` (Instruments, Holdings, and — added in this pass —
+per-Holding cost/current-value/gain columns sourced from
+`AnalyticsService.AccountGain` via a new `useHoldingGainsByAccounts`
+hook), `features/marketdata/MarketDataPage.tsx` (Refresh all/Refresh
+required FX), `features/history/{HistoryPage,RecordChangeForm}.tsx`
+(Starting Point, Record change for all ten change kinds, Timeline, Undo,
+and — added in this pass — Fix), `features/analytics/AnalyticsPage.tsx`
+(realized gain by instrument/account, net worth trend), and
+`features/settings/SettingsPage.tsx`.
+
+### Fix, added in this pass
+
+`history.ChangeCommandRequest`'s per-kind fields let
+`activityToCommand.ts`'s `activityToInitialCommand` reconstruct a
+best-effort initial form state from a previously recorded
+`ActivityDTO`'s `effects` (documented in that file as intentionally
+best-effort, not a byte-for-byte inverse of `ToCommand`, since
+`domain.Activity` only stores effects, not the original command); the
+Fix Sheet in `HistoryPage.tsx` pre-fills `RecordChangeForm` from this and
+submits to `HistoryService.FixChange` instead of `RecordChange`. Both
+Undo and Fix are hidden for a reversal Activity or one that already has
+a reversal, mirroring the server-side `ErrAlreadyUndone`/
+`ErrCannotFixChange` checks.
+
+Manual verification (screenshots below) surfaced a real bug the
+automated jsdom-based test suite could not: the Fix form's "Preview"
+step called plain `PreviewChange`, which ignores the original Activity
+being replaced and previews the replacement command against the state
+*after* the original effect already applied — double-counting it, since
+Confirm (`FixChange`) correctly inverts the original effect first. Fixed
+by adding `application.Service.PreviewFixChange`/
+`history.Service.PreviewFixChange` (a read-only counterpart sharing
+`FixChange`'s new `fixChangePreview` helper) and wiring
+`RecordChangeForm`'s Preview button to call it instead of `PreviewChange`
+whenever a Fix is in progress. Regression tests:
+`TestPreviewFixChangeMatchesFixChangeWithoutCommitting` (`internal/
+application/change_service_test.go`), `TestPreviewFixChangeMatchesFixChange`
+(`internal/wailsapi/history/history_test.go`), and the updated "fixes a
+change" test in `HistoryPage.test.tsx` (which now asserts
+`PreviewFixChange` is called and plain `PreviewChange` is not).
+
+### Required Tests — evidence
+
+- Per-page fixture-driven value checks and unavailable/incomplete states:
+  **met** for every page above (see each page's own `*.test.tsx`,
+  e.g. `InvestmentsPage.test.tsx`'s "shows an unavailable badge when a
+  Holding's gain cannot be computed" test).
+- Locale-coverage test: **met** —
+  `frontend/src/i18n/localeCoverage.test.ts` asserts the ported
+  translation catalog, `additions.ts`, and the `errorCode` namespace have
+  byte-identical key sets across `en`/`zh-CN`/`zh-TW` (failing the build
+  if any locale silently drops or adds a key), plus an empty-string check
+  and a `fieldLabelKeys` target-key check.
+- Keyboard-only completion test: **met** —
+  `frontend/src/test/keyboardOnly.test.tsx` drives Onboarding, Account
+  creation, Record change (Preview then Confirm), and Settings using only
+  `Tab`/`Enter`/typed characters/`selectOptions` (never `userEvent.click`
+  or a `.focus()` call standing in for user input, documented exceptions
+  noted in the file's header comment).
+
+### Exit Checks
+
+- Every acceptance item in the
+  [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+  concerning a page implemented in this phase: **met**, with icon/logo
+  selection for Accounts/Members/Institutions/Groups carried forward as
+  an explicit, tracked gap (the native picker flow —
+  `media.Service.PickImage` — is implemented and unit-tested at the Go
+  layer since Phase 1/2; wiring it into a page's UI did not fit this
+  pass and is not required for the acceptance items these pages already
+  satisfy without it).
+- The Fyne application (`cmd/nestworth`) still builds and runs unmodified:
+  **met** (`go build ./...` builds both `cmd/nestworth` and
+  `cmd/nestworth-desktop`).
+
+### Verification
+
+```bash
+go build ./... && go vet ./... && gofmt -l cmd internal
+go test ./... && go test -race ./...
+cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build
+```
+
+All pass (56 Vitest tests across 15 files, 0 ESLint errors, 0 TypeScript
+errors, a production build, and every Go package's tests including the
+two new `PreviewFixChange` regression tests).
+
+Manual verification, against a real `cmd/nestworth-desktop` build running
+under Xvfb on this Linux dev environment with a seeded SQLite database
+(Household, two Accounts, one Instrument/Holding with a manual quote,
+Starting Point, and a `money_added` Activity): the Investments → Holdings
+tab shows the new cost/current value/gain columns with correct values
+(<img alt="Investments Holdings tab showing cost/current value/gain columns" src="/opt/cursor/artifacts/investments-holdings-cost-gain-columns.png" />),
+Fix pre-fills the form from the original Activity
+(<img alt="History Fix panel pre-filled from the original Activity" src="/opt/cursor/artifacts/history-fix-panel-prefilled.png" />),
+Preview now shows the corrected inverted-then-replaced balance after the
+bug fix above
+(<img alt="History Fix Preview showing the corrected balance" src="/opt/cursor/artifacts/history-fix-preview-corrected.png" />),
+and Confirm commits successfully, closing the panel and leaving the
+Timeline intact
+(<img alt="History page after confirming a Fix" src="/opt/cursor/artifacts/history-fix-confirmed.png" />).
 
 ### Deliverables
 
