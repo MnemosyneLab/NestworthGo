@@ -1,7 +1,8 @@
 # Cloud Agent base image for the Nestworth Go + Fyne desktop app.
 # Stable system dependencies (Go toolchain, Fyne/OpenGL/X11/Wayland build deps,
-# and a headless X stack for running the GUI) live here. Repository-specific
-# work (module download, build) lives in the `install` command instead.
+# a headless X stack for running the GUI, and the Node + CodeGraph tooling) live
+# here. Repository-specific work (module download, build, and building the
+# CodeGraph index) lives in the `install` command instead.
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -20,6 +21,7 @@ RUN apt-get update \
       ca-certificates \
       curl \
       git \
+      xz-utils \
       build-essential \
       pkg-config \
       libgl1-mesa-dev \
@@ -45,5 +47,24 @@ RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -o /tmp/go
 
 ENV PATH=/usr/local/go/bin:/usr/local/bin:$PATH
 ENV GOTOOLCHAIN=local
+
+# Node.js runtime (>= 22.5 required by CodeGraph's built-in node:sqlite) plus the
+# CodeGraph CLI, which indexes the codebase into a queryable graph under
+# .codegraph/ (built per project by `codegraph init` in the install command).
+ARG NODE_VERSION=22.14.0
+RUN curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz \
+ && mkdir -p /usr/local/node \
+ && tar -xJf /tmp/node.tar.xz -C /usr/local/node --strip-components=1 \
+ && rm /tmp/node.tar.xz \
+ && ln -sf /usr/local/node/bin/node /usr/local/bin/node \
+ && ln -sf /usr/local/node/bin/npm /usr/local/bin/npm \
+ && ln -sf /usr/local/node/bin/npx /usr/local/bin/npx
+
+ARG CODEGRAPH_VERSION=1.5.0
+RUN npm install -g "@colbymchenry/codegraph@${CODEGRAPH_VERSION}" \
+ && ln -sf /usr/local/node/bin/codegraph /usr/local/bin/codegraph
+
+# Disable CodeGraph's anonymous telemetry so setup makes no outbound calls.
+ENV CODEGRAPH_TELEMETRY=0
 
 USER ubuntu
