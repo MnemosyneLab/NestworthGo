@@ -54,11 +54,11 @@ export function OverviewPage() {
 
   return (
     <div className="flex flex-col gap-6" data-testid="overview-page">
-      {!data.complete && data.missingInputs.length > 0 && (
+      {!data.complete && (data.missingInputs?.length ?? 0) > 0 && (
         <div role="alert" className="rounded-md border border-warning bg-warning/10 p-4 text-sm text-warning-foreground">
           <p className="font-medium">{t("overview.incomplete", { defaultValue: "Some values are incomplete" })}</p>
           <ul className="mt-1 list-inside list-disc">
-            {data.missingInputs.map((missing, index) => (
+            {(data.missingInputs ?? []).map((missing, index) => (
               <li key={`${missing.kind}-${missing.accountId}-${index}`}>
                 {missing.instrumentName || missing.kind} — {missing.accountId}
               </li>
@@ -101,14 +101,14 @@ export function OverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <BreakdownList title={t("overview.byCategory", { defaultValue: "By category" })} items={data.byCategory} currency={currency} />
-        <BreakdownList title={t("overview.byMember", { defaultValue: "By member" })} items={data.byMember} currency={currency} />
+        <BreakdownList title={t("overview.byCategory", { defaultValue: "By category" })} items={data.byCategory ?? []} currency={currency} />
+        <BreakdownList title={t("overview.byMember", { defaultValue: "By member" })} items={data.byMember ?? []} currency={currency} />
         <BreakdownList
           title={t("overview.byInstitution", { defaultValue: "By institution" })}
-          items={data.byInstitution}
+          items={data.byInstitution ?? []}
           currency={currency}
         />
-        <BreakdownList title={t("overview.byGroup", { defaultValue: "By group" })} items={data.byGroup} currency={currency} />
+        <BreakdownList title={t("overview.byGroup", { defaultValue: "By group" })} items={data.byGroup ?? []} currency={currency} />
       </div>
     </div>
   );

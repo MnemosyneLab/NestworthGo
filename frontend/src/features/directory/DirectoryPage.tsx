@@ -43,7 +43,7 @@ export function DirectoryPage() {
       </TabsList>
       <TabsContent value="members">
         <DirectoryEntityList
-          entities={members.data}
+          entities={members.data ?? undefined}
           isLoading={members.isLoading}
           isError={members.isError}
           onCreate={(name) => createMember.mutate(name)}
@@ -54,7 +54,7 @@ export function DirectoryPage() {
       </TabsContent>
       <TabsContent value="institutions">
         <DirectoryEntityList
-          entities={institutions.data}
+          entities={institutions.data ?? undefined}
           isLoading={institutions.isLoading}
           isError={institutions.isError}
           onCreate={(name) => createInstitution.mutate({ name, iconKey: "" })}
@@ -65,7 +65,7 @@ export function DirectoryPage() {
       </TabsContent>
       <TabsContent value="groups">
         <DirectoryEntityList
-          entities={groups.data}
+          entities={groups.data ?? undefined}
           isLoading={groups.isLoading}
           isError={groups.isError}
           onCreate={(name) => createGroup.mutate({ name, iconKey: "" })}

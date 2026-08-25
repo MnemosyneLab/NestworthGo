@@ -61,7 +61,7 @@ export function AnalyticsPage() {
           <CardTitle>{t("analytics.trend")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {netWorthTrend.data && netWorthTrend.data.points.length > 0 ? (
+          {netWorthTrend.data && (netWorthTrend.data.points?.length ?? 0) > 0 ? (
             <div style={{ height: 280 }}>
               <EChart option={trendOption} />
             </div>

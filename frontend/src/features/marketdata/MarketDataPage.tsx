@@ -43,8 +43,8 @@ export function MarketDataPage() {
 
       {refreshAll.data && (
         <ul className="flex flex-col gap-2" data-testid="refresh-results">
-          {refreshAll.data.items.length === 0 && <li className="text-sm text-muted-foreground">No refresh targets found.</li>}
-          {refreshAll.data.items.map((item) => (
+          {(refreshAll.data.items ?? []).length === 0 && <li className="text-sm text-muted-foreground">No refresh targets found.</li>}
+          {(refreshAll.data.items ?? []).map((item) => (
             <li key={item.targetKey} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
               <span>{item.targetKey}</span>
               <Badge variant={STATUS_VARIANT[item.status] ?? "secondary"}>{item.status}</Badge>
