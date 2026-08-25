@@ -35,7 +35,7 @@ func NewInvestmentsPage(c *Controller) fyne.CanvasObject {
 		refreshAll.Disable()
 		refreshFX.Disable()
 	}
-	actions := container.NewGridWrap(fyne.NewSize(180, 40), refreshAll, refreshFX)
+	actions := container.NewHBox(refreshAll, refreshFX)
 
 	subtotal := t.T("portfolio.unavailable")
 	if portfolio.ValuedSubtotal != nil {
@@ -50,21 +50,23 @@ func NewInvestmentsPage(c *Controller) fyne.CanvasObject {
 		}
 	}
 	palette := PaletteFor(c.preference.Accent)
-	metrics := container.NewGridWrap(fyne.NewSize(250, 112),
+	metrics := container.NewGridWithColumns(3,
 		metricCard(t.T("portfolio.valuedSubtotal"), subtotal, t.T("portfolio.valuedSubtotalDescription"), palette.Primary),
 		metricCard(t.T("portfolio.positions"), fmt.Sprintf("%d", positionCount), t.T("portfolio.positionsDescription"), palette.Primary),
 		metricCard(t.T("portfolio.accounts"), fmt.Sprintf("%d", len(portfolio.Accounts)), t.T("portfolio.accountsDescription"), palette.Primary),
 	)
+	statusAndAllocations := container.NewGridWithColumns(2,
+		investmentsStatusCard(c, portfolio),
+		investmentAllocationsCard(c, portfolio),
+	)
 
 	rows := []fyne.CanvasObject{
-		refreshFeedback(c),
-		container.NewBorder(nil, nil, nil, actions, nil),
+		container.NewBorder(nil, nil, refreshFeedback(c), actions, nil),
 		metrics,
 		fxProviderDisclaimer(c),
-		investmentsStatusCard(c, portfolio),
+		statusAndAllocations,
 		investmentPositionsCard(c, portfolio, gains),
 		investmentAccountsCard(c, portfolio),
-		investmentAllocationsCard(c, portfolio),
 	}
 	return container.New(layout.NewCustomPaddedVBoxLayout(12), rows...)
 }
@@ -144,7 +146,7 @@ func investmentHoldingGainRow(c *Controller, gain domain.HoldingGainView) fyne.C
 	if gain.UnrealizedGain != nil {
 		unrealized = format.Money(gain.UnrealizedGain.Amount, gain.UnrealizedGain.Currency.String(), c.preference)
 		if gain.UnrealizedGainBase != nil {
-			unrealized += " → " + format.Money(gain.UnrealizedGainBase.Amount, gain.UnrealizedGainBase.Currency.String(), c.preference)
+			unrealized += " " + t.T("common.to") + " " + format.Money(gain.UnrealizedGainBase.Amount, gain.UnrealizedGainBase.Currency.String(), c.preference)
 		}
 	}
 	if gain.CurrentValue == nil || !gain.Available && gain.UnrealizedGain == nil {
@@ -183,7 +185,7 @@ func investmentAllocationsCard(c *Controller, portfolio domain.PortfolioValuatio
 	if len(portfolio.ByCurrency) == 0 && len(portfolio.ByCountry) == 0 && len(portfolio.ByInstrumentType) == 0 {
 		return sectionCard(t.T("portfolio.allocations"), t.T("portfolio.allocationsDescription"), emptyPanel(t.T("portfolio.noAllocations"), t.T("portfolio.noAllocationsDescription")))
 	}
-	return sectionCard(t.T("portfolio.allocations"), t.T("portfolio.allocationsDescription"), container.NewGridWrap(fyne.NewSize(260, 120),
+	return sectionCard(t.T("portfolio.allocations"), t.T("portfolio.allocationsDescription"), container.NewGridWithColumns(3,
 		allocationGroup(c, t.T("portfolio.byCurrency"), portfolio.ByCurrency),
 		allocationGroup(c, t.T("portfolio.byCountry"), portfolio.ByCountry),
 		allocationGroup(c, t.T("portfolio.byInstrumentType"), portfolio.ByInstrumentType),

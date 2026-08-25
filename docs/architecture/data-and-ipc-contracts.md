@@ -96,9 +96,9 @@ component, preserve the remaining subtotal, and mark the parent incomplete.
 Exact decimal precision is retained until the application Money boundary.
 
 `MarketDataRegistry` is the application provider port. Production registers
-Yahoo Finance for Instrument quotes and Frankfurter as the explicit FX default.
-Settings persists the FX provider choice; explicit FX refresh resolves that choice, while Instrument
-refresh resolves each Instrument's saved provider key and symbol. Manual and
+Yahoo Finance for Instrument quotes and Frankfurter as the only production FX
+provider. Settings persists the FX provider choice for compatibility; explicit
+FX refresh resolves Frankfurter, while Instrument refresh resolves each Instrument's saved provider key and symbol. Manual and
 passive read paths make zero provider calls. Refresh results expose only stable
 target/status/error-code values, and the Fyne worker owns cancellation,
 generation checks, retry state, and UI-thread completion.

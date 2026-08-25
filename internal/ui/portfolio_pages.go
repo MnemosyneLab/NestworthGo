@@ -159,7 +159,7 @@ func holdingDetailRow(c *Controller, holding domain.Holding, instrument domain.I
 	native := format.Money(component.NativeAmount, component.NativeCurrency.String(), c.preference)
 	value := native
 	if component.BaseAmount != nil {
-		value += " → " + format.Money(component.BaseAmount.Amount, component.BaseAmount.Currency.String(), c.preference)
+		value += " " + t.T("common.to") + " " + format.Money(component.BaseAmount.Amount, component.BaseAmount.Currency.String(), c.preference)
 	}
 	if !component.Available {
 		value = t.T("portfolio.unavailable")
@@ -187,7 +187,7 @@ func holdingDetailRow(c *Controller, holding domain.Holding, instrument domain.I
 func valueEvidenceRow(c *Controller, label, nativeAmount string, nativeCurrency domain.CurrencyCode, component domain.ValuationComponent, extra fyne.CanvasObject) fyne.CanvasObject {
 	value := format.Money(nativeAmount, nativeCurrency.String(), c.preference)
 	if component.BaseAmount != nil {
-		value += " → " + format.Money(component.BaseAmount.Amount, component.BaseAmount.Currency.String(), c.preference)
+		value += " " + c.translator.T("common.to") + " " + format.Money(component.BaseAmount.Amount, component.BaseAmount.Currency.String(), c.preference)
 	}
 	if !component.Available {
 		value = c.translator.T("portfolio.unavailable")
@@ -241,7 +241,7 @@ func missingInputText(c *Controller, missing domain.MissingInputView, instrument
 		}
 		return fmt.Sprintf("%s: %s", c.translator.T("portfolio.missingInstrumentPrice"), name)
 	case domain.MissingFXRate:
-		return fmt.Sprintf("%s: %s → %s", c.translator.T("portfolio.missingFXRate"), missing.QuoteCurrency, missing.BaseCurrency)
+		return fmt.Sprintf("%s: %s %s %s", c.translator.T("portfolio.missingFXRate"), missing.QuoteCurrency, c.translator.T("common.to"), missing.BaseCurrency)
 	case domain.MissingAccountValue:
 		return c.translator.T("portfolio.missingAccountValue")
 	default:
@@ -687,7 +687,7 @@ func showFXManagementDialog(c *Controller) {
 		} else {
 			source.SetSelected(c.translator.T("portfolio.source.manual"))
 		}
-		direction := widget.NewSelect([]string{fmt.Sprintf("%s → %s", native, base), fmt.Sprintf("%s → %s", base, native)}, nil)
+		direction := widget.NewSelect([]string{fmt.Sprintf("%s %s %s", native, c.translator.T("common.to"), base), fmt.Sprintf("%s %s %s", base, c.translator.T("common.to"), native)}, nil)
 		direction.SetSelected(direction.Options[0])
 		rate := widget.NewEntry()
 		quotedAt := newDateEntry(c.translator.T("accounts.datePlaceholder"), c.preference)
@@ -780,7 +780,7 @@ func providerDisclaimer(c *Controller) fyne.CanvasObject {
 }
 
 func fxProviderDisclaimer(c *Controller) fyne.CanvasObject {
-	key := application.YahooFinanceProviderKey
+	key := settings.FXProviderFrankfurter
 	if provider := selectedFXProvider(c); provider != nil {
 		key = strings.ToLower(strings.TrimSpace(provider.Key()))
 	}

@@ -42,12 +42,52 @@ func NewOnboardingPage(c *Controller) fyne.CanvasObject {
 	householdName := widget.NewEntry()
 	householdName.SetPlaceHolder(t.T("onboarding.householdNamePlaceholder"))
 	currency := newCurrencySelect()
-	memberNames := widget.NewEntry()
-	memberNames.SetPlaceHolder(t.T("onboarding.memberNamesPlaceholder"))
+	memberEntries := make([]*widget.Entry, 0, 2)
+	memberRows := container.NewVBox()
+	memberList := container.NewVScroll(memberRows)
+	memberList.SetMinSize(fyne.NewSize(0, 120))
+	memberCount := widget.NewLabel("")
 	errorLabel := widget.NewLabel("")
 	errorLabel.Importance = widget.DangerImportance
+
+	updateMemberCount := func() {
+		memberCount.SetText(fmt.Sprintf(t.T("onboarding.memberCount"), len(collectOnboardingMemberNames(memberEntries))))
+		memberCount.Refresh()
+	}
+	var refreshMemberRows func()
+	var removeMember func(int)
+	removeMember = func(index int) {
+		if len(memberEntries) <= 1 || index < 0 || index >= len(memberEntries) {
+			return
+		}
+		memberEntries = append(memberEntries[:index], memberEntries[index+1:]...)
+		refreshMemberRows()
+	}
+	refreshMemberRows = func() {
+		memberRows.RemoveAll()
+		for index, entry := range memberEntries {
+			currentIndex := index
+			remove := widget.NewButton(t.T("onboarding.removeMember"), func() { removeMember(currentIndex) })
+			if len(memberEntries) == 1 {
+				remove.Disable()
+			}
+			memberRows.Add(container.NewBorder(nil, nil, nil, remove, entry))
+		}
+		memberRows.Refresh()
+		memberList.Refresh()
+		updateMemberCount()
+	}
+	addMember := func() {
+		entry := widget.NewEntry()
+		entry.SetPlaceHolder(t.T("onboarding.memberNamePlaceholder"))
+		entry.OnChanged = func(string) { updateMemberCount() }
+		memberEntries = append(memberEntries, entry)
+		refreshMemberRows()
+	}
+	addMemberButton := widget.NewButtonWithIcon(t.T("onboarding.addMember"), fyneTheme.Current().Icon(fyneTheme.IconNameContentAdd), addMember)
+	addMember()
 	complete := widget.NewButtonWithIcon(t.T("onboarding.create"), fyneTheme.Current().Icon(fyneTheme.IconNameConfirm), func() {
-		members := splitNames(memberNames.Text)
+		members := collectOnboardingMemberNames(memberEntries)
 		err := c.service.CompleteOnboarding(context.Background(), application.OnboardingInput{HouseholdName: householdName.Text, BaseCurrency: currency.Selected, MemberNames: members})
 		if err != nil {
 			errorLabel.SetText(c.translator.TranslateError(err))
@@ -62,7 +102,7 @@ func NewOnboardingPage(c *Controller) fyne.CanvasObject {
 	form := widget.NewForm(
 		widget.NewFormItem(t.T("onboarding.householdName"), householdName),
 		widget.NewFormItem(t.T("onboarding.baseCurrency"), currency),
-		widget.NewFormItem(t.T("onboarding.members"), memberNames),
+		widget.NewFormItem(t.T("onboarding.members"), container.NewVBox(memberList, addMemberButton, widget.NewLabel(t.T("onboarding.memberHint")), memberCount)),
 	)
 	content := container.NewVBox(
 		widget.NewLabelWithStyle(t.T("onboarding.title"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
@@ -71,7 +111,7 @@ func NewOnboardingPage(c *Controller) fyne.CanvasObject {
 		errorLabel,
 		complete,
 	)
-	return container.NewCenter(surface(content, fyne.NewSize(620, 380)))
+	return container.NewCenter(surface(content, fyne.NewSize(620, 500)))
 }
 
 func NewLiveOverview(c *Controller) fyne.CanvasObject {
@@ -1139,12 +1179,10 @@ func groupLabelForID(items []domain.Group, id string) string {
 	return ""
 }
 
-func splitNames(value string) []string {
-	value = strings.ReplaceAll(value, "，", ",")
-	parts := strings.Split(value, ",")
-	result := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if name := strings.TrimSpace(part); name != "" {
+func collectOnboardingMemberNames(entries []*widget.Entry) []string {
+	result := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if name := strings.TrimSpace(entry.Text); name != "" {
 			result = append(result, name)
 		}
 	}

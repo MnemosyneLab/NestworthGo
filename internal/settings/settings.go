@@ -46,7 +46,6 @@ const (
 )
 
 const (
-	FXProviderYahoo       = "yahoo_finance"
 	FXProviderFrankfurter = "frankfurter"
 	DefaultFXProvider     = FXProviderFrankfurter
 )
@@ -184,6 +183,9 @@ func (s Settings) Validate() error {
 	if strings.TrimSpace(s.FXProvider) != "" && strings.TrimSpace(s.FXProvider) != s.FXProvider {
 		return errors.New("FX provider cannot have leading or trailing whitespace")
 	}
+	if s.FXProvider != FXProviderFrankfurter {
+		return fmt.Errorf("unsupported FX provider %q", s.FXProvider)
+	}
 	return nil
 }
 
@@ -319,10 +321,9 @@ func salvage(loaded, defaults Settings) Settings {
 	fixed.WindowHeight = salvageValue(fixed.WindowHeight, defaults.WindowHeight, func(v float32) bool {
 		return v >= MinWindowHeight && v <= MaxWindowHeight
 	})
-	fixed.FXProvider = strings.TrimSpace(fixed.FXProvider)
-	if fixed.FXProvider == "" {
-		fixed.FXProvider = defaults.FXProvider
-	}
+	fixed.FXProvider = salvageValue(strings.TrimSpace(fixed.FXProvider), defaults.FXProvider, func(v string) bool {
+		return v == FXProviderFrankfurter
+	})
 	return fixed
 }
 

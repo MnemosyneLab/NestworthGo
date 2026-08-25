@@ -244,6 +244,12 @@ func TestGainTablesRenderReadModelValuesAndLocalizedUnavailableState(t *testing.
 	if !canvasContainsText(container.NewVBox(realized...), format.Money("9.87", "CNY", controller.preference)) {
 		t.Fatal("realized gain table did not render the service value")
 	}
+	if !canvasContainsText(container.NewVBox(realized...), "Realized gain: 2026-08-01 to 2026-08-30") {
+		t.Fatal("realized gain range did not use the supported text separator")
+	}
+	if canvasContainsText(container.NewVBox(realized...), "→") {
+		t.Fatal("realized gain range still contains the unsupported arrow glyph")
+	}
 
 	controller.translator.SetLanguage(settings.LanguageZhCN)
 	if !canvasContainsText(investmentHoldingGainRow(controller, gain), controller.translator.T("portfolio.unavailable")) {

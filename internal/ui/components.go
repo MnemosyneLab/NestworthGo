@@ -51,7 +51,9 @@ func metricCard(title, value, detail string, accent color.Color) fyne.CanvasObje
 		valueLabel,
 		mutedLabel(detail),
 	)
-	return surface(content, fyne.NewSize(1, 112))
+	// The detail copy is intentionally allowed to wrap. A 112px card clipped
+	// the second line on the Investments page at the default desktop width.
+	return surface(content, fyne.NewSize(1, 136))
 }
 
 func mutedLabel(value string) *widget.Label {

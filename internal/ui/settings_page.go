@@ -10,7 +10,6 @@ import (
 	"fyne.io/fyne/v2/layout"
 	fyneTheme "fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/format"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
@@ -280,8 +279,6 @@ func fxProviderOptions(controller *Controller) []selectOption {
 
 func fxProviderLabel(controller *Controller, key string) string {
 	switch key {
-	case application.YahooFinanceProviderKey:
-		return controller.translator.T("settings.provider.yahoo")
 	case settings.FXProviderFrankfurter:
 		return controller.translator.T("settings.provider.frankfurter")
 	default:

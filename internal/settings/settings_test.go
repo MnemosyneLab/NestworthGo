@@ -72,7 +72,7 @@ func TestStoreCorruptFileFallsBackToDefaults(t *testing.T) {
 	}
 }
 
-func TestStoreLegacyFileWithoutFXProviderUsesYahooDefault(t *testing.T) {
+func TestStoreLegacyFileWithoutFXProviderUsesFrankfurterDefault(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	fields := make(map[string]json.RawMessage)
 	data, err := json.Marshal(Default())
@@ -123,6 +123,33 @@ func TestValidateRejectsUnsupportedCurrencyAndSeparatorCollision(t *testing.T) {
 	value.FXProvider = " yahoo_finance"
 	if err := value.Validate(); err == nil {
 		t.Fatal("Validate() error = nil for whitespace-padded FX provider")
+	}
+
+	value = Default()
+	value.FXProvider = "yahoo_finance"
+	if err := value.Validate(); err == nil {
+		t.Fatal("Validate() error = nil for removed Yahoo FX provider")
+	}
+}
+
+func TestLoadSalvagesYahooFXProviderToFrankfurter(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	stored := Default()
+	stored.FXProvider = "yahoo_finance"
+	data, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	got, err := NewStore(path).Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+	if got.FXProvider != FXProviderFrankfurter {
+		t.Fatalf("Load() FXProvider = %q, want %q", got.FXProvider, FXProviderFrankfurter)
 	}
 }
 

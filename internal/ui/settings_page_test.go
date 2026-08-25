@@ -13,13 +13,14 @@ import (
 )
 
 type settingsProvider struct {
-	key string
+	key      string
+	latestFX bool
 }
 
 func (p settingsProvider) Key() string { return p.key }
 
-func (settingsProvider) Capabilities() application.MarketDataCapabilities {
-	return application.MarketDataCapabilities{LatestFX: true}
+func (p settingsProvider) Capabilities() application.MarketDataCapabilities {
+	return application.MarketDataCapabilities{LatestFX: p.latestFX}
 }
 
 func (settingsProvider) LatestInstrument(context.Context, application.InstrumentMarketIdentity) (application.LatestInstrumentQuote, error) {
@@ -39,9 +40,9 @@ func TestSettingsPageExposesCapabilityAwareFXProviderSelection(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	service := application.NewService(sqlite.NewRepository(database), application.NewMarketDataRegistry(
-		settingsProvider{key: settings.FXProviderYahoo},
-		settingsProvider{key: settings.FXProviderFrankfurter},
+	service := application.NewService(sqlite.NewRepository(database), application.NewMarketDataRegistryWithDefault(settings.FXProviderFrankfurter,
+		settingsProvider{key: application.YahooFinanceProviderKey},
+		settingsProvider{key: settings.FXProviderFrankfurter, latestFX: true},
 	))
 	ctx := context.Background()
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Settings", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
@@ -59,6 +60,10 @@ func TestSettingsPageExposesCapabilityAwareFXProviderSelection(t *testing.T) {
 	}
 	if !canvasContainsText(page, controller.translator.T("settings.provider.frankfurter")) {
 		t.Fatal("settings page omitted Frankfurter option")
+	}
+	options := fxProviderOptions(controller)
+	if len(options) != 1 || options[0].value != settings.FXProviderFrankfurter {
+		t.Fatalf("FX provider options = %#v, want only Frankfurter", options)
 	}
 
 	controller.updatePreference(func(next *settings.Settings) {

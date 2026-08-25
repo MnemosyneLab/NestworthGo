@@ -123,9 +123,9 @@ Forest/Amber/Rose accents, System/English/简体中文/正體中文 language, IA
 timezone, Monday/Sunday week start, ISO/day-first/month-first/localized dates,
 24-hour/12-hour time, CNY/USD/SGD/EUR/JPY/HKD/TWD/GBP/AUD display currency,
 dot/comma decimal separators, comma/dot/space/apostrophe/no grouping,
-0/2/4 decimal places, and the registered `yahoo_finance` or `frankfurter`
-FX provider. Presentation preferences affect display; the FX provider affects
-only explicit user-triggered FX refresh.
+0/2/4 decimal places, and the production `frankfurter` FX provider.
+Presentation preferences affect display; Frankfurter affects only explicit
+user-triggered FX refresh.
 
 ## Persistence and schema generations
 

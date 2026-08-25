@@ -92,9 +92,9 @@ source key, delayed flag, quote time, and creation time. Refresh appends a new
 observation and never rewrites history. Quote preference is stored per
 Instrument and per unordered FX pair. Instrument refresh uses the Instrument's
 saved provider binding; explicit FX refresh uses the provider selected in
-Settings. Yahoo supports both current Instrument and FX quotes. Frankfurter is
-FX-only, returns daily observations marked delayed, and supplies no Instrument
-binding.
+Settings. Yahoo supports current Instrument quotes only. Frankfurter is the
+sole production FX provider, returns daily observations marked delayed, and
+supplies no Instrument binding.
 
 ### Media Asset
 

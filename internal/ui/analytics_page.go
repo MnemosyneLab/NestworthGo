@@ -109,7 +109,7 @@ func analyticsTrendRows(c *Controller, trend domain.NetWorthTrend) []fyne.Canvas
 func realizedGainRows(c *Controller, realized domain.RealizedGainView) []fyne.CanvasObject {
 	t := c.translator
 	rows := []fyne.CanvasObject{
-		widget.NewLabel(fmt.Sprintf("%s: %s → %s", t.T("analytics.realizedByInstrument"), realized.From, realized.To)),
+		widget.NewLabel(fmt.Sprintf("%s: %s %s %s", t.T("analytics.realizedByInstrument"), realized.From, t.T("common.to"), realized.To)),
 		gainGroupTable(c, t.T("analytics.byInstrument"), realized.ByInstrument),
 		gainGroupTable(c, t.T("analytics.byAccount"), realized.ByAccount),
 	}

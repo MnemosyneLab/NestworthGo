@@ -117,7 +117,7 @@ func marketDataFXSummary(c *Controller) fyne.CanvasObject {
 		}
 		currentText := c.translator.T("portfolio.noEvidence")
 		if current != nil {
-			currentText = fmt.Sprintf("1 %s → %s %s · %s · %s", current.BaseCurrency, current.Rate.Canonical(), current.QuoteCurrency, current.SourceKind, current.QuotedAt.Format("2006-01-02"))
+			currentText = fmt.Sprintf("1 %s %s %s %s · %s · %s", current.BaseCurrency, c.translator.T("common.to"), current.Rate.Canonical(), current.QuoteCurrency, current.SourceKind, current.QuotedAt.Format("2006-01-02"))
 		}
 		historyValues := make([]string, 0, 5)
 		for _, quote := range quotes {

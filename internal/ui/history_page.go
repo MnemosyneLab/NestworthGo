@@ -8,6 +8,7 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -169,6 +170,16 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 	note := widget.NewEntry()
 	note.SetPlaceHolder(t.T("history.notePlaceholder"))
 	feedback := widget.NewLabel("")
+	feedback.Hide()
+	setFeedback := func(message string) {
+		feedback.SetText(message)
+		if message == "" {
+			feedback.Hide()
+		} else {
+			feedback.Show()
+		}
+		feedback.Refresh()
+	}
 
 	command := func() (any, error) {
 		bootstrap, bootstrapErr := c.service.Bootstrap(ctx)
@@ -356,30 +367,34 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 		}
 	}
 
+	var recordDialog *dialog.CustomDialog
 	previewButton := widget.NewButton(t.T("history.preview"), func() {
 		input, commandErr := command()
 		if commandErr != nil {
-			feedback.SetText(t.TranslateError(commandErr))
+			setFeedback(t.TranslateError(commandErr))
 			return
 		}
 		preview, previewErr := c.service.PreviewChange(ctx, input)
 		if previewErr != nil {
-			feedback.SetText(t.TranslateError(previewErr))
+			setFeedback(t.TranslateError(previewErr))
 			return
 		}
-		feedback.SetText(historyPreviewText(t, preview))
+		setFeedback(historyPreviewText(t, preview))
 	})
 	saveButton := widget.NewButton(t.T("common.save"), func() {
 		input, commandErr := command()
 		if commandErr != nil {
-			feedback.SetText(t.TranslateError(commandErr))
+			setFeedback(t.TranslateError(commandErr))
 			return
 		}
 		if _, saveErr := c.service.RecordChange(ctx, input); saveErr != nil {
-			feedback.SetText(t.TranslateError(saveErr))
+			setFeedback(t.TranslateError(saveErr))
 			return
 		}
-		feedback.SetText(t.T("common.saved"))
+		setFeedback(t.T("common.saved"))
+		if recordDialog != nil {
+			recordDialog.Hide()
+		}
 		c.RefreshContent()
 	})
 	form := widget.NewForm()
@@ -454,17 +469,33 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 	destinationSelect.OnChanged = func(string) { rebuildForm() }
 	side.widget.OnChanged = func(string) { rebuildForm() }
 	rebuildForm()
-	formBox := container.NewVBox(widget.NewLabelWithStyle(t.T("history.recordTitle"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}), form, container.NewHBox(previewButton, saveButton), feedback)
+	showRecordDialog := func() {
+		setFeedback("")
+		recordContent := container.NewBorder(
+			feedback,
+			container.NewHBox(previewButton, saveButton),
+			nil,
+			nil,
+			modalFormContent(form, 460),
+		)
+		recordDialog = dialog.NewCustom(t.T("history.recordTitle"), t.T("common.close"), recordContent, c.window)
+		recordDialog.SetOnClosed(func() { recordDialog = nil })
+		recordDialog.Resize(fittedModalSize(c.window, fyne.NewSize(700, 680), fyne.NewSize(500, 320)))
+		recordDialog.Show()
+	}
+	var top fyne.CanvasObject
 	if !started {
 		startButton := widget.NewButton(t.T("history.start"), func() {
 			showStartingPointDialog(c, func() { c.RefreshContent() }, func(err error) {
 				if err != nil {
-					feedback.SetText(t.TranslateError(err))
+					setFeedback(t.TranslateError(err))
 				}
 			})
 		})
-		formBox.Objects = append([]fyne.CanvasObject{widget.NewLabel(t.T("history.startDescription")), startButton}, formBox.Objects...)
-		form.Refresh()
+		top = settingsSurface(container.NewVBox(widget.NewLabel(t.T("history.startDescription")), startButton, feedback), fyne.NewSize(1, 110))
+	} else {
+		recordButton := widget.NewButtonWithIcon(t.T("history.recordTitle"), theme.Current().Icon(theme.IconNameContentAdd), showRecordDialog)
+		top = container.NewBorder(nil, nil, nil, recordButton, widget.NewLabelWithStyle(t.T("history.timeline"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}))
 	}
 
 	filterAccountLabels := append([]string{t.T("history.filterAll")}, accountLabels...)
@@ -536,7 +567,6 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 	activities := c.historyTimeline
 	activityErr := err
 	rows := []fyne.CanvasObject{
-		widget.NewLabelWithStyle(t.T("history.timeline"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		container.NewGridWrap(fyne.NewSize(220, 72),
 			container.NewVBox(widget.NewLabel(t.T("history.filterAccount")), filterAccount),
 			container.NewVBox(widget.NewLabel(t.T("history.filterType")), filterKind),
@@ -565,7 +595,10 @@ func NewHistoryPage(c *Controller) fyne.CanvasObject {
 			rows = append(rows, widget.NewButton(t.T("history.loadMore"), func() { c.historyTimelineFetch = true; c.RefreshContent() }))
 		}
 	}
-	return surface(container.NewVBox(formBox, widget.NewSeparator(), container.NewVBox(rows...)), fyne.NewSize(680, 640))
+	if !started {
+		rows = append([]fyne.CanvasObject{widget.NewLabelWithStyle(t.T("history.timeline"), fyne.TextAlignLeading, fyne.TextStyle{Bold: true})}, rows...)
+	}
+	return surface(container.NewVBox(top, widget.NewSeparator(), container.NewVBox(rows...)), fyne.NewSize(680, 640))
 }
 
 func showStartingPointDialog(c *Controller, success func(), failure func(error)) {
