@@ -105,7 +105,14 @@ and the `InvestmentService` split decision recorded in
 
 ## Phase 1 — Go Service Adapter Layer (`wailsapi`)
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. `internal/wailsapi` exists with 14
+sub-packages (`apierror`, `wire`, `household`, `directory`, `account`,
+`portfolio`, `instrument`, `holding`, `quote`, `analytics`, `history`,
+`marketdata`, `media`, `settings`, `app`) plus a test-only `wailstest`
+fixture helper. Every method in the Phase 0-verified
+[technical design §6](wails-v3-technical-design.md#6-go-service-inventory)
+inventory (as split into `instrument`/`holding`/`quote`) is bound. See
+Required Tests below for evidence.
 
 ### Deliverables
 
@@ -161,10 +168,35 @@ and the `InvestmentService` split decision recorded in
 - `internal/wailsapi` compiles and is fully unit-testable **without** the
   Wails runtime, `wails3`, or any generated bindings existing yet — it only
   depends on `internal/application`, `internal/domain`, `internal/settings`,
-  and `internal/version`.
-- No `internal/wailsapi` file imports `fyne.io/*`.
+  and `internal/version`. **Met**: no non-test file in `internal/wailsapi`
+  imports `github.com/wailsapp/wails/v3` or `internal/infrastructure`; only
+  the test-only `wailstest` helper (and each service's own `_test.go`
+  files) import `internal/infrastructure/sqlite`, mirroring the exact
+  pattern `internal/application`'s own tests already use
+  (`service_test.go`).
+- No `internal/wailsapi` file imports `fyne.io/*`. **Met** (verified with
+  `grep -rn '"fyne.io' internal/wailsapi`; the only textual matches are doc
+  comments describing this very rule).
 - `go test ./internal/wailsapi/...` passes; `go test ./...` (the whole
-  repository) still passes unchanged.
+  repository) still passes unchanged. **Met**: `go test ./...` and
+  `go test -race ./...` both pass for every package, `go vet ./...` and
+  `gofmt -l cmd internal` are clean. Each `internal/wailsapi` sub-package
+  has round-trip DTO serialization tests (including a permanent regression
+  test in `wire/wire_test.go` for the §4 empty-object problem), adapter
+  tests exercising the full DTO-in → `application.Service` → DTO-out path
+  against a real temp-file SQLite-backed `application.Service`, and
+  error-mapping tests asserting `apierror.WireError.Code`/`Field` for a
+  representative set of `domain.ErrorCode` values per service (every code
+  is covered at least once in `apierror/apierror_test.go`). The
+  `history.ChangeCommandRequest` union (the flagged hardest mapping) has a
+  dedicated test recording all ten `domain.PreviewChange` command kinds
+  through `history.Service.RecordChange`, including `Undo`/`Fix`.
+- Additional, beyond the plan's original checklist: the `marketdata`
+  service's cancellable event-streamed design (§6, "Long-running/streaming
+  operations") is implemented in Phase 1 itself, one phase earlier than
+  strictly required, using a local `EventEmitter` interface so it needs no
+  Wails runtime dependency; `StartRefreshAll`/`CancelRefresh` and their
+  event payload are unit-tested with a fake emitter.
 
 ## Phase 2 — Wails App Shell Scaffolding
 
