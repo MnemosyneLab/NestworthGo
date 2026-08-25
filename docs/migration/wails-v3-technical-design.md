@@ -155,6 +155,15 @@ scripts/                 # package-macos.sh retired at cutover once the
                          # Wails Taskfile packaging replaces it (§9)
 ```
 
+**Phase 2 deviation, recorded in place:** Go's `//go:embed` directive
+cannot reference a path outside its own source file's directory, so
+`cmd/nestworth-desktop/main.go` cannot directly embed the sibling
+`frontend/dist`. A tiny root-level package (`webassets.go`, `package
+webassets`) holds the `//go:embed all:frontend/dist` directive and is
+imported by `cmd/nestworth-desktop`; this is the only place the literal
+layout above differs from what was implemented, and it is additive (a new
+file), not a restructuring of `frontend/`'s location.
+
 `internal/wailsapi` is a new package boundary, not a rename of `internal/ui`.
 It must depend only on `internal/application`, `internal/domain` (for typed
 IDs/enums used in method signatures), `internal/settings`, and

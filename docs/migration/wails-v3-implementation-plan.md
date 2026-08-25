@@ -200,7 +200,80 @@ Required Tests below for evidence.
 
 ## Phase 2 — Wails App Shell Scaffolding
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. `cmd/nestworth-desktop/main.go` wires
+the same startup sequence `internal/app.New()` performs (settings load,
+database open, market-data registry, `application.Service` construction,
+`SetFXProvider` with fallback, `Bootstrap`), registers all 13
+`internal/wailsapi` services with `application.NewService(...)`, creates a
+window sized from persisted settings with close-time size persistence, and
+sets the native application menu. `build/` (Taskfile-based build assets:
+icons, `config.yml` with Nestworth's identity, per-platform Taskfiles) and
+`frontend/` (Vite + React + TypeScript, still the Phase 3 placeholder) were
+scaffolded from `wails3 init`/`wails3 generate icons`/`wails3 task
+common:update:build-assets`, then adapted for the `cmd/nestworth-desktop`
+layout (the platform Taskfiles' `go build` lines were patched to target
+`./cmd/nestworth-desktop` and stamp `internal/version` via `-ldflags`,
+since the default template assumes `main.go` at the repository root). A
+root-level `webassets` package (`webassets.go`) holds the
+`//go:embed all:frontend/dist` directive, because Go's `embed` directive
+cannot reference `frontend/dist` from `cmd/nestworth-desktop` (outside
+that package's own directory) — this is the one deviation from the
+technical design's literal repository layout, recorded here rather than
+left implicit.
+
+### Required Checks
+
+- The new entry point launches, opens the same database a Fyne launch
+  would, and calls at least one bound service method successfully from
+  the placeholder frontend's dev console. **Met**: built and launched
+  under Xvfb on this Linux dev environment; the placeholder page's
+  `AppService.AppInfo()` call resolved and rendered Name/App ID/Version in
+  the window, with the native File/Edit/View/Window/Help menu bar present.
+  Screenshot evidence: `/opt/cursor/artifacts/phase2-wails-shell.png`
+  (captured during this phase's implementation).
+- `go build ./cmd/nestworth-desktop/...` (or the chosen path) succeeds
+  alongside `go build ./cmd/nestworth` (Fyne) — both must build throughout
+  this phase and every phase through Phase 5. **Met**: `go build ./...`
+  builds every package including both entry points.
+- Startup failure modes (unsupported/corrupt database, per
+  [data and application contracts](../architecture/data-and-ipc-contracts.md#migration-compatibility-state-machine))
+  are surfaced to the placeholder frontend as a `wireError`, not a Go panic
+  or an unhandled Promise rejection. **Partially met**: a database-open
+  failure is logged and does not panic (verified: pointing
+  `NESTWORTH_DATABASE_PATH` at an unwritable path lets the app start and
+  keep running, serving only `AppService`); however, with the database
+  unavailable, the 12 other services are not registered at all rather than
+  registered-but-returning-a-uniform-`wireError`, so a frontend call to an
+  unregistered service currently surfaces as a raw Wails "service not
+  found" rejection instead of the `wireError` JSON shape. This is recorded
+  as an explicit gap for Phase 4/5 to close with a dedicated
+  "blocked startup" DTO (mirroring `internal/ui`'s `NewBlockedStartupPage`,
+  already planned for Phase 5's deliverables), not silently treated as
+  passing.
+
+### Exit Checks
+
+- Every backend-only capability needed by Phase 4's first vertical slice is
+  reachable through a generated binding. **Met**: `wails3 generate
+  bindings -ts ./...` (note the required `./...` pattern — see below)
+  produced 13 services / 96 methods / 58 models / 1 event, covering
+  Onboarding, Overview, and Accounts plus every other Phase 1 service.
+- No business logic exists in `cmd/nestworth-desktop`'s `main.go` beyond
+  wiring — identical in spirit to how thin `internal/app.New()` is today.
+  **Met**: `main.go` only constructs/wires dependencies; every calculation
+  and validation still lives in `internal/application`/`internal/domain`.
+
+### Recorded finding: `wails3 generate bindings` requires an explicit pattern
+
+`wails3 generate bindings` with no positional pattern argument falls back
+to scanning only the current directory, not `./...`. In this repository
+that directory is the root `webassets` package (no bound services), so the
+first attempt reported "0 Services". The fix is passing `./...` explicitly
+(`wails3 generate bindings -ts ./...`), which is what `build/Taskfile.yml`'s
+`generate:bindings` task now does. This is unrelated to Phase 0's spike
+findings (which used a single-package spike project where the distinction
+did not surface) and is recorded here since it affects every future
+binding regeneration in this repository.
 
 ### Deliverables
 
