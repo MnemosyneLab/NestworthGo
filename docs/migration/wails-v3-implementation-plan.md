@@ -1,0 +1,500 @@
+# Wails v3 Implementation Plan
+
+## Execution Contract
+
+**Status:** `Planned`. No phase below has started. This plan implements the
+[migration plan](wails-v3-migration-plan.md) and the
+[technical design](wails-v3-technical-design.md). Execute phases in order;
+Phases 4 and 5 may overlap per-feature once Phase 3's foundation exists, but
+no phase after 3 starts before Phases 0–3 pass their exit checks. A phase is
+complete only when its deliverables, required checks, and exit checks all
+pass.
+
+Do not delete or weaken any `internal/domain`, `internal/application`, or
+`internal/infrastructure` test to make a phase pass. Do not remove
+`internal/ui`, `internal/app`, or `fyne.io/*` dependencies before Phase 6;
+the Fyne application must remain buildable and runnable through Phase 5 so
+the [migration plan's rollback design](wails-v3-migration-plan.md#9-rollback)
+stays cheap.
+
+## Dependency Flow
+
+```mermaid
+flowchart LR
+    P0["0. Spike and freeze baseline"] --> P1["1. Go service adapter layer (wailsapi)"]
+    P1 --> P2["2. Wails app shell scaffolding"]
+    P2 --> P3["3. Frontend foundation"]
+    P3 --> P4["4. First vertical slice: Onboarding + Overview + Accounts"]
+    P4 --> P5["5. Frontend feature parity: remaining pages"]
+    P5 --> P6["6. Cutover: retire Fyne"]
+    P6 --> P7["7. Packaging and distribution parity"]
+    P7 --> P8["8. Release closeout and documentation"]
+```
+
+## Phase 0 — Spike and Freeze Baseline
+
+**Status:** `Planned`.
+
+### Deliverables
+
+- Record the exact pre-migration commit, the full `internal/application.Service`
+  public method list (the inventory in
+  [technical design §6](wails-v3-technical-design.md#6-go-service-inventory)
+  is the starting point; re-verify it against the actual code at the frozen
+  commit, since method signatures can drift).
+- Install the Wails v3 CLI (`go install github.com/wailsapp/wails/v3/cmd/wails3@latest`)
+  and run `wails3 doctor`/`wails3 setup` in the target build environment;
+  record the exact Wails v3 version pinned in `go.mod`.
+- Build one throwaway `wails3 init -n spike -t react-ts` project outside the
+  repository to confirm, on the actual target OS/architecture, that:
+  - `wails3 dev` hot-reloads both Go and React changes.
+  - `wails3 generate bindings -ts` produces the expected TypeScript shape for
+    a struct containing a `string`, a `*string`, and a nested struct (a
+    stand-in for a DTO).
+  - The empty-object JSON problem from
+    [technical design §4](wails-v3-technical-design.md#4-a-required-domain-side-fix-json-marshaling-for-value-types)
+    reproduces with a spike type shaped like `domain.Quantity`, confirming
+    the DTO-based fix is necessary before writing real services.
+  - `wails3 build` produces a launchable macOS arm64 `.app` in the target
+    build environment.
+- Decide the final `internal/wailsapi` sub-package boundaries (one service
+  vs. several for `InvestmentService`, per the technical design's note) and
+  record the decision in the technical design document (update it in place;
+  this plan does not duplicate that decision).
+
+### Required Checks
+
+- The spike project's `wails3 build` output actually launches on the primary
+  target (macOS Apple Silicon).
+- `go test ./...`, `go vet ./...`, `gofmt -l cmd internal` still pass at the
+  frozen commit before any Wails code is added to this repository.
+
+### Exit Checks
+
+- No open question about Wails v3 CLI availability, hot reload, or binding
+  generation remains before Phase 1 starts.
+- The spike code is not merged into the main tree; only its findings are
+  (as updates to the technical design document, if any assumption in it
+  turned out wrong).
+
+## Phase 1 — Go Service Adapter Layer (`wailsapi`)
+
+**Status:** `Planned`.
+
+### Deliverables
+
+- Create `internal/wailsapi` with one sub-package per service from
+  [technical design §6](wails-v3-technical-design.md#6-go-service-inventory):
+  `household`, `directory`, `account`, `portfolio`, `investment`
+  (or its split), `analytics`, `history`, `marketdata`, `media`, `settings`,
+  `app`.
+- For each service, implement:
+  - Request/response DTOs with exported string/pointer fields only (no
+    `domain.Money`/`Quantity`/`UnitPrice`/`FxRate` field types).
+  - A constructor taking `*application.Service` (and `*settings.Store`,
+    `*application.App`/Wails `*application.App` where needed) and storing it
+    as an unexported field — no package-level global state.
+  - Methods that: parse/validate DTO input into domain calls, call the
+    existing `internal/application.Service` method unchanged, map the
+    result to a response DTO, and map any error through `wrap()` (technical
+    design §5).
+  - The `wrap()`/`wireError` helper itself, shared across all sub-packages
+    (a single `internal/wailsapi/apierror` package).
+- Resolve the `HistoryService` change-command union (technical design §6's
+  flagged hardest mapping): define one tagged TypeScript-friendly Go input
+  type per change kind already in `internal/domain` (`TradeInput`,
+  `ValueUpdateInput`, `TransferInput`, `PositionAdjustmentInput`, etc.), a
+  discriminator field, and a Go-side switch that reconstructs the correct
+  concrete type before calling `PreviewChange`/`RecordChange`/`CommitChange`.
+- Audit every `internal/domain` value type crossing a DTO boundary; add an
+  exported accessor only where one does not already exist (for example, if
+  a field is only reachable via an unexported struct field with no existing
+  exported getter). Record every such addition explicitly; it must be
+  additive and behavior-preserving, never a signature change to an existing
+  exported method.
+
+### Required Tests
+
+- A round-trip serialization test per DTO: construct it from a representative
+  domain result, `json.Marshal`, `json.Unmarshal` into a fresh instance,
+  assert equality — this is the permanent regression test for the §4
+  empty-object problem.
+- An error-mapping test per `domain.ErrorCode` actually reachable through
+  each service's methods: force the underlying `application.Service` call
+  to return that error (via its existing fake-repository test doubles) and
+  assert the returned `wireError`'s `Code`/`Field` match.
+- At least one adapter-level test per service method that exercises the full
+  path DTO-in → `application.Service` call → DTO-out, using the same fake
+  repositories `internal/application`'s own tests already define (import
+  them; do not duplicate fixture setup).
+- A dedicated test proving the `HistoryService` change-command union
+  round-trips every change kind currently supported by `domain.PreviewChange`.
+
+### Exit Checks
+
+- `internal/wailsapi` compiles and is fully unit-testable **without** the
+  Wails runtime, `wails3`, or any generated bindings existing yet — it only
+  depends on `internal/application`, `internal/domain`, `internal/settings`,
+  and `internal/version`.
+- No `internal/wailsapi` file imports `fyne.io/*`.
+- `go test ./internal/wailsapi/...` passes; `go test ./...` (the whole
+  repository) still passes unchanged.
+
+## Phase 2 — Wails App Shell Scaffolding
+
+**Status:** `Planned`.
+
+### Deliverables
+
+- Scaffold the new entry point (`cmd/nestworth-desktop` or equivalent name
+  per [technical design §3](wails-v3-technical-design.md#3-target-repository-layout))
+  with `application.New(...)`, registering every `internal/wailsapi` service
+  via `application.NewService(...)`.
+- Wire the same startup sequence `internal/app.New()` performs today:
+  resolve the database path (`NESTWORTH_DATABASE_PATH` override honored),
+  open `sqlite.DB`, construct the market-data registry
+  (Yahoo/Frankfurter), construct `application.Service`, call
+  `SetFXProvider` with the persisted preference and the same fallback
+  behavior on failure, and run `Bootstrap`.
+- Implement window creation (`app.Window.NewWithOptions(...)`) sized from
+  persisted `settings.Settings`, close-time size persistence
+  (`OnWindowEvent`/`WindowClosing`), the application icon
+  (`assets/icons/icon.png` or equivalent embedded asset), and a minimal
+  native menu (`app.NewMenu()`) with at least Quit/About, per
+  [technical design §9](wails-v3-technical-design.md#9-window-menu-theme-and-settings-wiring).
+- Point the Wails app's assets at a placeholder frontend (the default
+  `wails3 init` template content) so the shell can be built and launched
+  before any real page exists — this phase proves the backend wiring, not
+  the UI.
+- Run `wails3 generate bindings -ts` against the Phase 1 services and
+  confirm the generated TypeScript compiles (even with no consumer yet).
+
+### Required Checks
+
+- The new entry point launches, opens the same database a Fyne launch
+  would, and calls at least one bound service method successfully from the
+  placeholder frontend's dev console.
+- `go build ./cmd/nestworth-desktop/...` (or the chosen path) succeeds
+  alongside `go build ./cmd/nestworth` (Fyne) — both must build throughout
+  this phase and every phase through Phase 5.
+- Startup failure modes (unsupported/corrupt database, per
+  [data and application contracts](../architecture/data-and-ipc-contracts.md#migration-compatibility-state-machine))
+  are surfaced to the placeholder frontend as a `wireError`, not a Go panic
+  or an unhandled Promise rejection.
+
+### Exit Checks
+
+- Every backend-only capability needed by Phase 4's first vertical slice is
+  reachable through a generated binding.
+- No business logic exists in `cmd/nestworth-desktop`'s `main.go` beyond
+  wiring — identical in spirit to how thin `internal/app.New()` is today.
+
+## Phase 3 — Frontend Foundation
+
+**Status:** `Planned`.
+
+### Deliverables
+
+- Scaffold `frontend/` per
+  [technical design §3](wails-v3-technical-design.md#3-target-repository-layout)
+  and the
+  [frontend stack decision §13](../../prototype/nestworth-wails-frontend-stack.md#13-推荐目录结构):
+  Vite + React + TypeScript, Tailwind CSS, shadcn/ui initialized with base
+  components (Button, Input, Dialog, Sheet, Tabs, ...), TanStack Query
+  provider, Zustand store scaffold, React Hook Form + Zod wired for one
+  sample form, Apache ECharts wrapper component, i18next with the three
+  locales bootstrapped from the ported `internal/i18n` catalog (technical
+  design §8), and the shared `callService`/error-unwrapping helper
+  (technical design §5).
+- Build the app shell: sidebar/navigation, page header, light/dark/system
+  theme toggling driven by persisted settings, and the routing approach
+  chosen from the
+  [frontend stack decision §9](../../prototype/nestworth-wails-frontend-stack.md#9-路由)
+  (simple page state first; `MemoryRouter` only if navigation complexity
+  requires it).
+- Resolve the information-architecture open questions from the
+  [interaction design brief §13](../../prototype/功能现状与交互设计说明.md#13-交给设计师前需要确认的问题)
+  that affect navigation structure (at minimum: default landing page,
+  whether Activity is a separate entry from History, whether
+  Members/Institutions/Groups stay top-level or become Accounts filters)
+  and record the decisions in a short design note referenced from this plan.
+- Establish the semantic design tokens named in the
+  [frontend stack decision §4.2](../../prototype/nestworth-wails-frontend-stack.md#42-tailwind-css)
+  (`background`, `foreground`, `primary`, `success`, `warning`,
+  `destructive`, `gain-positive`, `gain-negative`, `data-current`,
+  `data-manual`, `data-remote`, `data-stale`, `data-unavailable`) as Tailwind
+  theme values, for both light and dark.
+
+### Required Tests
+
+- A component/unit test for the theme toggle (system/light/dark) and for
+  the error-unwrapping helper (valid JSON, malformed JSON, and a plain
+  non-JSON error message all resolve to a safe, non-crashing result).
+- A smoke test that the app shell renders with zero pages implemented yet
+  (a "coming soon" placeholder per page, mirroring
+  `internal/ui`'s existing `NewComingSoonPage` pattern) without runtime
+  errors in any of the three locales.
+
+### Exit Checks
+
+- The frontend foundation has no page-specific business logic yet — this
+  phase is infrastructure only.
+- Switching language, switching theme, and resizing the window all work
+  against the Phase 2 backend shell.
+
+## Phase 4 — First Vertical Slice: Onboarding, Overview, Accounts
+
+**Status:** `Planned`.
+
+### Deliverables
+
+- Implement Onboarding (Household creation, base currency, first Members)
+  end to end through `HouseholdService`/`DirectoryService`.
+- Implement Overview end to end through `PortfolioService`, including the
+  net worth, assets/liabilities, and breakdown-by-category/member/
+  institution/group views, and every "incomplete"/"missing input" state
+  `domain.OverviewResult` can produce.
+- Implement Accounts end to end through `AccountService`: list with
+  filters, create (minimal required fields first, then progressive
+  disclosure of institution/group/ownership/icon per the
+  [interaction brief §8.2](../../prototype/功能现状与交互设计说明.md#82-创建第一个-account)),
+  update, archive/restore, and append a current value.
+- This slice is deliberately chosen because it exercises the full pipeline
+  (DTO in, `application.Service` call, DTO out, TanStack Query cache,
+  React Hook Form + Zod validation, i18next, theme, native dialogs for
+  icon/logo pick) before the remaining, larger pages are built, so pipeline
+  problems are found once instead of once per page.
+
+### Required Tests
+
+- Frontend component/integration tests for onboarding validation, account
+  creation (minimal and full field sets), ownership entry (equal split and
+  explicit percentages, matching `resolveOwnership`'s existing behavior in
+  `internal/application/service.go`), and archive/restore.
+- A fixture-driven check that Overview's displayed net worth, assets, and
+  liabilities exactly match the same fixture's Go-computed
+  `OverviewResult`, for at least one multi-currency, multi-owner fixture
+  already used by `internal/application`'s existing tests.
+
+### Exit Checks
+
+- A user can go from a fresh database to a populated Overview with at
+  least one multi-owner Account entirely through the new frontend, with no
+  Fyne window involved.
+- Every acceptance item in the
+  [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+  that concerns Onboarding, Overview, or Accounts is verifiably met for
+  this slice (the remaining items are deferred to Phase 5's pages).
+
+## Phase 5 — Frontend Feature Parity
+
+**Status:** `Planned`.
+
+### Deliverables
+
+Implement the remaining pages, each following the same DTO/service pattern
+Phase 4 established. Suggested order (dependency-driven, not arbitrary):
+
+1. Members, Institutions, Groups (`DirectoryService`) — small, low-risk,
+   shares patterns with Accounts.
+2. Instruments, Holdings, manual quotes (`InvestmentService`) — needed
+   before Investments/Analytics can show anything.
+3. Market Data refresh (`MarketDataService`), including the cancellable
+   event-streamed design from
+   [technical design §6](wails-v3-technical-design.md#long-running-streaming-operations).
+4. History: Starting Point, Record change (all change-command kinds),
+   Timeline, Undo, Fix (`HistoryService`) — the highest-risk page given the
+   change-command union from Phase 1; budget explicit time for the
+   preview-before-confirm UX the
+   [interaction brief §8.4](../../prototype/功能现状与交互设计说明.md#84-记录一次财务变化)
+   requires.
+5. Investments (cost/gain columns) and Analytics (realized gain by period,
+   currency decomposition) (`AnalyticsService`), reusing the range selector
+   pattern from History.
+6. Settings (`SettingsService`), including FX provider selection routed
+   through `MarketDataService.SetFXProvider` exactly as
+   `Controller.updatePreference` does today.
+7. Startup-error / blocked-database state (mirroring
+   `internal/ui`'s `NewBlockedStartupPage`) and the About page
+   (`AppService`).
+
+### Required Tests
+
+- Per page: the same fixture-driven "displayed value matches Go-computed
+  value" discipline Phase 4 established, plus every unavailable/incomplete
+  state the corresponding `internal/application` type can produce
+  (`domain.OverviewResult.Complete`, `HoldingGainView`'s unavailable gain,
+  `RefreshResult`'s failed/rate-limited targets, etc.).
+- A locale-coverage test across all pages: no missing i18next key falls
+  back to a raw key or English text in the `zh-CN`/`zh-TW` bundles.
+- A keyboard-only completion test for onboarding, account creation, record
+  change, and settings, matching the
+  [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+  acceptance bar.
+
+### Exit Checks
+
+- Every acceptance item in the
+  [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+  passes against the new frontend.
+- The Fyne application (`cmd/nestworth`) still builds and runs unmodified;
+  this phase only adds to the tree.
+
+## Phase 6 — Cutover: Retire Fyne
+
+**Status:** `Planned`.
+
+### Deliverables
+
+- Point the canonical `cmd/nestworth` entry point at the Wails application
+  (rename/replace, preserving the binary name users may already invoke).
+- Remove `internal/ui`, `internal/app`'s Fyne-specific code, and
+  `internal/i18n` (the Go package; its content already lives in i18next
+  per Phase 3/8), `internal/ui/image_picker_*.go`, and `scripts/package-macos.sh`.
+- Remove `fyne.io/*` and its transitive-only dependencies from `go.mod`/`go.sum`.
+- Update every document that currently describes the Fyne shell as current:
+  [README.md](../../README.md),
+  [system overview](../architecture/system-overview.md),
+  [engineering guide](../development/engineering-guide.md),
+  [data and application contracts](../architecture/data-and-ipc-contracts.md)
+  (which explicitly notes it is "retained for compatibility with the source
+  documentation" — the Wails boundary is a real IPC boundary now, so this
+  document's framing should be revisited, not just left as-is), and this
+  migration directory's own [README](README.md) (mark the migration
+  `Implemented` and point future readers at the now-current architecture
+  docs instead).
+- Update [`CHANGELOG.md`](../../CHANGELOG.md) with the cutover.
+
+### Required Checks
+
+- `go test ./...`, `go test -race ./...`, `go vet ./...`, `gofmt -l`, and
+  `git diff --check` pass with `internal/ui`/`internal/app`'s Fyne code and
+  `fyne.io/*` fully removed.
+- `go build ./cmd/nestworth` builds the Wails application (no Fyne build
+  target remains).
+- A full clean-database and a full existing-database (sanitized fixture)
+  smoke pass through the Wails application only.
+
+### Exit Checks
+
+- No source file in the repository imports `fyne.io/*`.
+- No active (non-legacy-archive) document describes Fyne as the current UI.
+- Rollback (per the [migration plan §9](wails-v3-migration-plan.md#9-rollback))
+  is now "revert the cutover commit(s)," not "resume a parallel Fyne build,"
+  and this is explicitly stated in the updated
+  [migration README](README.md).
+
+## Phase 7 — Packaging and Distribution Parity
+
+**Status:** `Planned`.
+
+### Deliverables
+
+- Configure `build/config.yml` and the `darwin` Taskfile per
+  [technical design §11](wails-v3-technical-design.md#11-build-and-packaging)
+  to reproduce the current release metadata contract (Bundle ID, name,
+  version/build from `internal/version`).
+- Produce an isolated unsigned macOS Apple Silicon `.app` and DMG via
+  `wails3 build`/the Taskfile `package` task, verified the same way
+  `scripts/package-macos.sh`'s output is verified today (bundle ID,
+  version, build, architecture, icon, DMG metadata).
+- Explicitly re-record the still-pending distribution gates (Developer ID
+  signing, notarization, artifact retention, manual accessibility review)
+  as unchanged open items — this migration does not close them, and must
+  not be read as having closed them.
+- Optionally spike a Windows and/or Linux build using the same Wails
+  Taskfile system, per the migration plan's "keep the door open" goal; this
+  is explicitly not required for migration completion.
+
+### Required Checks
+
+- The packaged `.app` launches on a clean macOS Apple Silicon machine/VM
+  with no prior Nestworth installation.
+- The packaged `.app` opens an existing (sanitized fixture) database
+  correctly.
+
+### Exit Checks
+
+- Packaging output is verifiably equivalent to the pre-migration Fyne
+  package's guarantees (same bundle ID, same icon, same isolated/unsigned
+  status, same architecture).
+
+## Phase 8 — Release Closeout and Documentation
+
+**Status:** `Planned`.
+
+### Deliverables
+
+- Final pass over every document touched by Phases 1–7 for consistency;
+  confirm the [documentation map](../README.md) accurately reflects the new
+  architecture.
+- Record final verification evidence (exact commands and results, matching
+  the evidentiary style of
+  [`docs/releases/v0.1.4-implementation-plan.md`](../releases/v0.1.4-implementation-plan.md)'s
+  Phase 9) in this plan or a linked evidence document.
+- Confirm the [migration plan's acceptance checklist](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+  is fully satisfied with recorded evidence per item.
+
+### Required Checks
+
+- `go test ./...`, `go test -race ./...`, `go vet ./...`, `gofmt -l`,
+  `git diff --check`, and the frontend's lint/typecheck/test commands all
+  pass on the final commit.
+- The packaged application from Phase 7 passes a full manual walkthrough of
+  the [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+  checklist.
+
+### Exit Checks
+
+- The migration is complete per the
+  [migration plan's definition](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist).
+- This implementation plan's own status line, and every phase's status
+  line, is updated from `Planned` to `Implemented on <date>` only once its
+  checks have actually run and passed — do not mark a phase implemented in
+  advance of evidence, matching this repository's existing
+  [status vocabulary](../README.md#status-vocabulary) discipline.
+
+## Risk Register
+
+| Risk | Impact | Mitigation |
+| --- | --- | --- |
+| Wails v3 is beta software; a breaking CLI/runtime change lands mid-migration | Rework of scaffolding, bindings, or packaging config | Pin an exact `github.com/wailsapp/wails/v3` version in `go.mod`; do not float `@latest` in CI; re-run Phase 0's spike checks before upgrading |
+| The `Money`/`Quantity`/`UnitPrice`/`FxRate` empty-object serialization problem (technical design §4) is missed for one field in one DTO | A financial value silently displays as blank/zero instead of erroring loudly | Every DTO ships with the round-trip serialization test from Phase 1; treat a DTO without one as incomplete, not optional |
+| The `HistoryService` change-command union (technical design §6) is more complex in practice than the current inventory suggests | Record-change UX blocked or shipped with an incomrect mapping for one change kind | Give this its own explicit design spike inside Phase 1 before any frontend form is built against it; do not let Phase 5's schedule pressure skip its dedicated tests |
+| Cross-platform webview differences (macOS WKWebView vs. Windows WebView2 vs. Linux WebKitGTK) surface a rendering or API gap | Inconsistent behavior if/when Windows/Linux builds are attempted | Out of scope for migration completion (migration plan §7: macOS first); if Phase 7's optional spike finds a gap, record it as a follow-up, not a blocker |
+| Keyboard/accessibility parity regresses versus the current Fyne shell, which already has per-page keyboard tests | A public-distribution gate (manual accessibility review) becomes harder to pass, not easier | Treat "keyboard-only completion" as a per-page exit check in Phase 5, not a Phase 8 afterthought |
+| i18next key coverage drifts from the ported `internal/i18n` catalog during Phase 3/5 | Missing or English-only strings ship in `zh-CN`/`zh-TW` | Automate a "key set parity across locales" check in the frontend test suite, mirroring the discipline `internal/ui`'s tests already apply to English/Simplified Chinese key sets |
+| Provider refresh cancellation (technical design §6) is subtly different from Fyne's generation-check semantics, causing a stale refresh result to apply after the user navigated away | A displayed quote/FX value could reflect an abandoned request | Port the "ignore a completion for an old request ID" rule explicitly, with a test that starts, abandons, and restarts a refresh and asserts only the latest result is applied |
+| Scope creep: using this migration as cover to also redesign product scope beyond what the [interaction design brief](../../prototype/功能现状与交互设计说明.md) already invites for navigation/IA | Delays cutover; blurs accountability for financial-correctness parity | The [migration plan §3](wails-v3-migration-plan.md#3-non-goals) is the standing guard; any new product idea surfaced during this work becomes a separate roadmap item, not an in-flight scope change |
+
+## Verification Commands
+
+Existing checks (unchanged in meaning throughout every phase):
+
+```bash
+go test ./...
+go test -race ./...
+go vet ./...
+gofmt -l cmd internal
+git diff --check
+```
+
+New checks, introduced progressively by phase:
+
+```bash
+# Phase 1+
+go test ./internal/wailsapi/...
+
+# Phase 2+
+wails3 generate bindings -ts
+go build ./cmd/nestworth-desktop/...   # or the chosen new entry-point path
+
+# Phase 3+
+cd frontend && npm run lint && npm run typecheck && npm run test
+
+# Phase 6+ (after Fyne removal)
+go build ./cmd/nestworth               # now the Wails application
+
+# Phase 7+
+wails3 build                            # or: task darwin:package
+```
