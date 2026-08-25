@@ -32,6 +32,23 @@ export function usePreviewChange() {
   });
 }
 
+/**
+ * usePreviewFixChange backs the Fix form's "Preview" step. It must call
+ * PreviewFixChange, not PreviewChange: a plain PreviewChange ignores the
+ * original Activity being replaced and previews the replacement command
+ * against the state *after* that original effect already applied,
+ * double-counting it, since Confirm (FixChange) correctly inverts the
+ * original effect first (see internal/application/history_changes.go's
+ * fixChangePreview doc comment for the full explanation, and
+ * HistoryPage.test.tsx's "fixes a change" test for the regression).
+ */
+export function usePreviewFixChange() {
+  return useMutation({
+    mutationFn: ({ activityId, replacement }: { activityId: string; replacement: ChangeCommandRequest }) =>
+      callService(() => HistoryService.PreviewFixChange(activityId, replacement)),
+  });
+}
+
 function invalidateHistoryData(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: ["history"] });
   void queryClient.invalidateQueries({ queryKey: overviewQueryKey });

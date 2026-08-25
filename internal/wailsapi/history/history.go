@@ -173,6 +173,32 @@ func (s *Service) UndoChange(ctx context.Context, activityID string) (wire.Chang
 	return wire.FromChangePreview(preview), nil
 }
 
+// PreviewFixChange is FixChange's read-only counterpart, giving the Fix
+// form the same "preview, then confirm" UX every other change kind gets
+// (technical design Sec6): it returns the replacement ChangePreview
+// FixChange would commit, computed by inverting the original Activity's
+// effects first, so the previewed number is not double-counted against
+// the original Activity that Confirm will actually remove.
+func (s *Service) PreviewFixChange(ctx context.Context, activityID string, replacement ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
+	id, err := domain.ParseActivityID(activityID)
+	if err != nil {
+		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
+	}
+	householdID, err := s.resolveHouseholdID(ctx)
+	if err != nil {
+		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
+	}
+	command, err := replacement.ToCommand(householdID)
+	if err != nil {
+		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
+	}
+	preview, err := s.app.PreviewFixChange(ctx, id, command)
+	if err != nil {
+		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
+	}
+	return wire.FromChangePreview(preview), nil
+}
+
 func (s *Service) FixChange(ctx context.Context, activityID string, replacement ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
 	id, err := domain.ParseActivityID(activityID)
 	if err != nil {

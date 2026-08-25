@@ -19,6 +19,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useHistoryOrigin, useStartHistory, useListActivities, useUndoChange } from "@/queries/history";
 import { RecordChangeForm } from "@/features/history/RecordChangeForm";
+import { activityToInitialCommand } from "@/features/history/activityToCommand";
+import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 function StartHistoryPrompt() {
   const startHistory = useStartHistory();
@@ -57,6 +59,13 @@ function Timeline() {
   const activities = useListActivities();
   const undoChange = useUndoChange();
   const [open, setOpen] = useState(false);
+  const [fixTarget, setFixTarget] = useState<ActivityDTO | null>(null);
+
+  // An Activity that already has a reversal cannot be undone or fixed
+  // again (HistoryService.UndoChange/FixChange both enforce this
+  // server-side with domain.ErrAlreadyUndone/ErrCannotFixChange); mirror
+  // it client-side so the buttons are not offered in the first place.
+  const reversedActivityIds = new Set((activities.data ?? []).map((activity) => activity.reversesActivityId).filter((id): id is string => Boolean(id)));
 
   return (
     <div className="flex flex-col gap-4">
@@ -82,54 +91,85 @@ function Timeline() {
       {activities.data && activities.data.length === 0 && <p className="text-sm text-muted-foreground">No activity yet.</p>}
 
       <ul className="flex flex-col gap-2" data-testid="activity-list">
-        {(activities.data ?? []).map((activity) => (
-          <li key={activity.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
-            <span className="flex items-center gap-2">
-              <Badge variant="outline">{activity.kind}</Badge>
-              {activity.effectiveLocalDate}
-              {activity.reversesActivityId && <Badge variant="secondary">Reversal</Badge>}
-            </span>
-            {!activity.reversesActivityId && (
-              <AlertDialog>
-                <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Undo</AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Undo this change?</AlertDialogTitle>
-                    <AlertDialogDescription>This reverses the change with a new offsetting activity. It cannot be undone twice.</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() =>
-                        undoChange.mutate(activity.id, {
-                          onSuccess: () => toast.success("Change undone"),
-                          onError: (error) => toast.error((error as Error).message),
-                        })
-                      }
-                    >
-                      Undo
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            )}
-          </li>
-        ))}
+        {(activities.data ?? []).map((activity) => {
+          const canModify = !activity.reversesActivityId && !reversedActivityIds.has(activity.id);
+          return (
+            <li key={activity.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
+              <span className="flex items-center gap-2">
+                <Badge variant="outline">{activity.kind}</Badge>
+                {activity.effectiveLocalDate}
+                {activity.reversesActivityId && <Badge variant="secondary">Reversal</Badge>}
+                {activity.correctionGroupId && !activity.reversesActivityId && <Badge variant="secondary">Fixed</Badge>}
+              </span>
+              {canModify && (
+                <span className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setFixTarget(activity)}>
+                    Fix
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>Undo</AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Undo this change?</AlertDialogTitle>
+                        <AlertDialogDescription>This reverses the change with a new offsetting activity. It cannot be undone twice.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() =>
+                            undoChange.mutate(activity.id, {
+                              onSuccess: () => toast.success("Change undone"),
+                              onError: (error) => toast.error((error as Error).message),
+                            })
+                          }
+                        >
+                          Undo
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </span>
+              )}
+            </li>
+          );
+        })}
       </ul>
+
+      <Sheet open={fixTarget !== null} onOpenChange={(next) => !next && setFixTarget(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Fix change</SheetTitle>
+          </SheetHeader>
+          <div className="overflow-y-auto">
+            {fixTarget && (
+              <RecordChangeForm
+                key={fixTarget.id}
+                fixActivityId={fixTarget.id}
+                initial={activityToInitialCommand(fixTarget)}
+                onRecorded={() => {
+                  toast.success("Change fixed");
+                  setFixTarget(null);
+                }}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
 
 /**
  * HistoryPage implements Starting Point, Record change (all ten
- * domain.PreviewChange kinds), Timeline, and Undo end to end through
+ * domain.PreviewChange kinds), Timeline, Undo, and Fix end to end through
  * HistoryService (implementation plan Phase 5), per the navigation
  * decision that Activity lives inside History rather than as a separate
- * nav entry. Fix (replacing a change with a corrected one) is a
- * documented gap for a following pass: it needs the same dynamic form as
- * Record change pre-filled from the original activity's effects, which
- * is additional UI work beyond what this pass's time allowed; the Go
- * binding (HistoryService.FixChange) is already implemented and tested.
+ * nav entry. Fix reuses RecordChangeForm pre-filled from the original
+ * activity's effects (activityToCommand.ts's best-effort reconstruction)
+ * and calls HistoryService.FixChange instead of RecordChange; both Undo
+ * and Fix are hidden for a reversal activity or one that already has a
+ * reversal, mirroring the server-side ErrAlreadyUndone/ErrCannotFixChange
+ * checks.
  */
 export function HistoryPage() {
   const origin = useHistoryOrigin();

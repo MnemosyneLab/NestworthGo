@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments, useAllHoldingsFlat } from "@/queries/investments";
-import { usePreviewChange, useRecordChange } from "@/queries/history";
+import { usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
 import type { ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { formatAmount } from "@/lib/money";
@@ -55,6 +55,12 @@ function MoneyFields({ prefix, label, amount, currency, onAmount, onCurrency }: 
   );
 }
 
+export interface RecordChangeFormInitial {
+  kind: string;
+  fields: Record<string, string>;
+  added: boolean;
+}
+
 /**
  * RecordChangeForm implements the "record a change with ordinary
  * language" flow (interaction brief Sec8.4) for every one of the ten
@@ -64,18 +70,33 @@ function MoneyFields({ prefix, label, amount, currency, onAmount, onCurrency }: 
  * calls PreviewChange (no side effect) and shows the resulting
  * balances/quantities; Confirm re-submits the identical request to
  * RecordChange, which re-validates and commits.
+ *
+ * When `fixActivityId` is set, the form instead drives HistoryService's
+ * Fix flow: it starts pre-filled from `initial` (see
+ * activityToInitialCommand.ts) and Confirm calls FixChange instead of
+ * RecordChange, replacing the original activity with the edited one.
  */
-export function RecordChangeForm({ onRecorded }: { onRecorded: () => void }) {
+export function RecordChangeForm({
+  onRecorded,
+  initial,
+  fixActivityId,
+}: {
+  onRecorded: () => void;
+  initial?: RecordChangeFormInitial;
+  fixActivityId?: string;
+}) {
   const accounts = useAccounts({});
   const instruments = useInstruments();
   const allAccountIds = (accounts.data ?? []).map((record) => record.account.id);
   const holdings = useAllHoldingsFlat(allAccountIds);
   const preview = usePreviewChange();
+  const previewFix = usePreviewFixChange();
   const record = useRecordChange();
+  const fix = useFixChange();
 
-  const [kind, setKind] = useState<string>("money_added");
-  const [fields, setFields] = useState<Record<string, string>>({ currency: "USD" });
-  const [added, setAdded] = useState(true);
+  const [kind, setKind] = useState<string>(initial?.kind ?? "money_added");
+  const [fields, setFields] = useState<Record<string, string>>(initial?.fields ?? { currency: "USD" });
+  const [added, setAdded] = useState(initial?.added ?? true);
   const [previewResult, setPreviewResult] = useState<EndpointViewDTO[] | null>(null);
 
   const set = (key: string, value: string) => {
@@ -95,10 +116,29 @@ export function RecordChangeForm({ onRecorded }: { onRecorded: () => void }) {
   });
 
   const runPreview = () => {
+    if (fixActivityId) {
+      previewFix.mutate(
+        { activityId: fixActivityId, replacement: buildRequest() },
+        { onSuccess: (result) => setPreviewResult(result.resulting) },
+      );
+      return;
+    }
     preview.mutate(buildRequest(), { onSuccess: (result) => setPreviewResult(result.resulting) });
   };
 
   const runConfirm = () => {
+    if (fixActivityId) {
+      fix.mutate(
+        { activityId: fixActivityId, replacement: buildRequest() },
+        {
+          onSuccess: () => {
+            setPreviewResult(null);
+            onRecorded();
+          },
+        },
+      );
+      return;
+    }
     record.mutate(buildRequest(), {
       onSuccess: () => {
         setPreviewResult(null);
@@ -108,7 +148,9 @@ export function RecordChangeForm({ onRecorded }: { onRecorded: () => void }) {
     });
   };
 
-  const error = preview.error ?? record.error;
+  const error = preview.error ?? previewFix.error ?? record.error ?? fix.error;
+  const previewPending = fixActivityId ? previewFix.isPending : preview.isPending;
+  const confirmPending = fixActivityId ? fix.isPending : record.isPending;
 
   return (
     <div className="flex flex-col gap-4" role="form" aria-label="Record change">
@@ -290,11 +332,11 @@ export function RecordChangeForm({ onRecorded }: { onRecorded: () => void }) {
 
       <div className="flex gap-2">
         {!previewResult ? (
-          <Button type="button" onClick={runPreview} disabled={preview.isPending}>
+          <Button type="button" onClick={runPreview} disabled={previewPending}>
             Preview
           </Button>
         ) : (
-          <Button type="button" onClick={runConfirm} disabled={record.isPending}>
+          <Button type="button" onClick={runConfirm} disabled={confirmPending}>
             Confirm
           </Button>
         )}

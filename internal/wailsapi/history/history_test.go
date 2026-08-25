@@ -255,6 +255,52 @@ func TestFixChangeReplacesWithCorrectionGroup(t *testing.T) {
 	}
 }
 
+// TestPreviewFixChangeMatchesFixChange is a regression test for the Fix
+// form's "Preview" step: it must call PreviewFixChange, not plain
+// PreviewChange (which double-counts the original Activity's effect,
+// since it does not know a Fix is in progress), and PreviewFixChange
+// must not commit anything.
+func TestPreviewFixChangeMatchesFixChange(t *testing.T) {
+	fx := newFixture(t)
+	ctx := context.Background()
+	recorded, err := fx.service.RecordChange(ctx, history.ChangeCommandRequest{
+		Kind: history.ChangeMoneyAdded, AccountID: fx.checkingID, Amount: "1000", Currency: "USD", Reason: "contribution",
+	})
+	if err != nil {
+		t.Fatalf("RecordChange: %v", err)
+	}
+	replacement := history.ChangeCommandRequest{
+		Kind: history.ChangeMoneyAdded, AccountID: fx.checkingID, Amount: "1200", Currency: "USD", Reason: "contribution",
+	}
+
+	before, err := fx.service.ListActivities(ctx, 100)
+	if err != nil {
+		t.Fatalf("ListActivities before preview: %v", err)
+	}
+	preview, err := fx.service.PreviewFixChange(ctx, recorded.Activity.ID, replacement)
+	if err != nil {
+		t.Fatalf("PreviewFixChange: %v", err)
+	}
+	if len(preview.Resulting) != 1 || preview.Resulting[0].Amount != "1200" {
+		t.Fatalf("PreviewFixChange.Resulting = %+v, want 1200 (checking started at 0)", preview.Resulting)
+	}
+	after, err := fx.service.ListActivities(ctx, 100)
+	if err != nil {
+		t.Fatalf("ListActivities after preview: %v", err)
+	}
+	if len(after) != len(before) {
+		t.Fatalf("PreviewFixChange must not commit anything; activity count went from %d to %d", len(before), len(after))
+	}
+
+	fixed, err := fx.service.FixChange(ctx, recorded.Activity.ID, replacement)
+	if err != nil {
+		t.Fatalf("FixChange: %v", err)
+	}
+	if fixed.Resulting[0].Amount != preview.Resulting[0].Amount {
+		t.Fatalf("FixChange.Resulting = %+v, want it to match PreviewFixChange's %+v", fixed.Resulting, preview.Resulting)
+	}
+}
+
 func TestChangeCommandUnsupportedKind(t *testing.T) {
 	fx := newFixture(t)
 	_, err := fx.service.RecordChange(context.Background(), history.ChangeCommandRequest{Kind: "not_a_kind"})

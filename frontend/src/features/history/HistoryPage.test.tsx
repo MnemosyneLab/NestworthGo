@@ -8,8 +8,10 @@ const historyOrigin = vi.fn();
 const startHistory = vi.fn();
 const listActivities = vi.fn();
 const previewChange = vi.fn();
+const previewFixChange = vi.fn();
 const recordChange = vi.fn();
 const undoChange = vi.fn();
+const fixChange = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
@@ -17,9 +19,10 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     StartHistory: (...args: unknown[]) => startHistory(...args),
     ListActivities: () => listActivities(),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
+    PreviewFixChange: (...args: unknown[]) => previewFixChange(...args),
     RecordChange: (...args: unknown[]) => recordChange(...args),
     UndoChange: (...args: unknown[]) => undoChange(...args),
-    FixChange: vi.fn(),
+    FixChange: (...args: unknown[]) => fixChange(...args),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
@@ -53,6 +56,8 @@ beforeEach(() => {
   previewChange.mockReset();
   recordChange.mockReset();
   undoChange.mockReset();
+  fixChange.mockReset();
+  previewFixChange.mockReset();
 });
 
 describe("HistoryPage", () => {
@@ -109,5 +114,58 @@ describe("HistoryPage", () => {
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Undo" }));
     expect(undoChange).toHaveBeenCalledWith("a1");
+  });
+
+  it("fixes a change, pre-filling the form from the original activity's effects", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listActivities.mockResolvedValue([
+      {
+        id: "a1",
+        kind: "cash_in",
+        effectiveLocalDate: "2026-01-01",
+        reason: "contribution",
+        effects: [{ role: "amount", direction: "added", target: "account_value", accountId: "acc-1", money: { amount: "1000", currency: "USD" } }],
+      },
+    ]);
+    previewFixChange.mockResolvedValue({ activity: { id: "a1", kind: "cash_in" }, effects: [], resulting: [{ target: "account_value", name: "Checking", amount: "1200", currency: "USD" }] });
+    fixChange.mockResolvedValue({ activity: { id: "a1", kind: "cash_in", correctionGroupId: "g1" }, effects: [], resulting: [] });
+
+    renderPage();
+    const list = await screen.findByTestId("activity-list");
+    await userEvent.click(await within(list).findByRole("button", { name: "Fix" }));
+
+    const form = await screen.findByRole("form", { name: "Record change" });
+    expect(within(form).getByLabelText("Account")).toHaveValue("acc-1");
+    expect(within(form).getByLabelText("Amount")).toHaveValue("1000");
+
+    await userEvent.clear(within(form).getByLabelText("Amount"));
+    await userEvent.type(within(form).getByLabelText("Amount"), "1200");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+
+    // Regression: the Fix form's Preview step must call PreviewFixChange
+    // (which inverts the original Activity first), never plain
+    // PreviewChange (which would double-count it).
+    expect(previewFixChange).toHaveBeenCalledWith("a1", expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1200" }));
+    expect(previewChange).not.toHaveBeenCalled();
+
+    await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
+
+    expect(fixChange).toHaveBeenCalledWith("a1", expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1200" }));
+  });
+
+  it("hides Fix/Undo for a reversal and for an already-fixed change", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listActivities.mockResolvedValue([
+      { id: "a1", kind: "cash_in", effectiveLocalDate: "2026-01-01", effects: [] },
+      { id: "a2", kind: "reversal", effectiveLocalDate: "2026-01-02", reversesActivityId: "a1", effects: [] },
+    ]);
+
+    renderPage();
+    const list = await screen.findByTestId("activity-list");
+    const items = await within(list).findAllByRole("listitem");
+    expect(items).toHaveLength(2);
+    expect(within(items[0]).queryByRole("button", { name: "Fix" })).not.toBeInTheDocument();
+    expect(within(items[0]).queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+    expect(within(items[1]).queryByRole("button", { name: "Fix" })).not.toBeInTheDocument();
   });
 });
