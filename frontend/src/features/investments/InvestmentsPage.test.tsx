@@ -9,6 +9,7 @@ const createInstrument = vi.fn();
 const listAccounts = vi.fn();
 const createHolding = vi.fn();
 const holdingsByAccounts = vi.fn();
+const accountGain = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
   Service: {
@@ -23,6 +24,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
     CreateHolding: (...args: unknown[]) => createHolding(...args),
     ArchiveHolding: vi.fn(),
   },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
+  Service: { AccountGain: (...args: unknown[]) => accountGain(...args), RealizedGain: vi.fn(), HoldingGain: vi.fn() },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({ Service: {} }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
@@ -47,6 +51,7 @@ beforeEach(() => {
   listAccounts.mockReset();
   createHolding.mockReset();
   holdingsByAccounts.mockReset();
+  accountGain.mockReset();
 
   listInstruments.mockResolvedValue([]);
   createInstrument.mockResolvedValue({ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" });
@@ -54,6 +59,7 @@ beforeEach(() => {
     { account: { id: "acc-1", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null },
   ]);
   holdingsByAccounts.mockResolvedValue({ "acc-1": [] });
+  accountGain.mockResolvedValue({ accountId: "acc-1", holdings: [], available: true });
   createHolding.mockResolvedValue({ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" });
 });
 
@@ -83,5 +89,63 @@ describe("InvestmentsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
 
     expect(createHolding).toHaveBeenCalledWith({ accountId: "acc-1", instrumentId: "i1", quantity: "10" });
+  });
+
+  it("shows per-Holding cost/gain columns from AnalyticsService.HoldingGain data", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    holdingsByAccounts.mockResolvedValue({ "acc-1": [{ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" }] });
+    accountGain.mockResolvedValue({
+      accountId: "acc-1",
+      available: true,
+      holdings: [
+        {
+          holdingId: "h1",
+          accountId: "acc-1",
+          instrumentId: "i1",
+          instrumentName: "NVIDIA",
+          quantity: "10",
+          averageCost: { amount: "100", currency: "USD" },
+          totalCost: { amount: "1000", currency: "USD" },
+          currentValue: { amount: "1500", currency: "USD" },
+          realizedGain: { amount: "0", currency: "USD" },
+          unrealizedGain: { amount: "500", currency: "USD" },
+          available: true,
+        },
+      ],
+    });
+
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
+
+    expect(await screen.findByTitle("Cost")).toHaveTextContent("$1,000.00");
+    expect(screen.getByTitle("Current value")).toHaveTextContent("$1,500.00");
+    expect(screen.getByTitle("Unrealized gain")).toHaveTextContent("$500.00");
+  });
+
+  it("shows an unavailable badge when a Holding's gain cannot be computed", async () => {
+    holdingsByAccounts.mockResolvedValue({ "acc-1": [{ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" }] });
+    accountGain.mockResolvedValue({
+      accountId: "acc-1",
+      available: false,
+      holdings: [
+        {
+          holdingId: "h1",
+          accountId: "acc-1",
+          instrumentId: "i1",
+          instrumentName: "NVIDIA",
+          quantity: "10",
+          averageCost: { amount: "100", currency: "USD" },
+          totalCost: { amount: "1000", currency: "USD" },
+          realizedGain: { amount: "0", currency: "USD" },
+          available: false,
+          missingReason: "no current price",
+        },
+      ],
+    });
+
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
+
+    expect(await screen.findByText("no current price")).toBeInTheDocument();
   });
 });

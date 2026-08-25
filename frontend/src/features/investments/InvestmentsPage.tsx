@@ -16,6 +16,7 @@ import {
   useHoldingsByAccounts,
   useCreateHolding,
 } from "@/queries/investments";
+import { useHoldingGainsByAccounts } from "@/queries/analytics";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { formatAmount } from "@/lib/money";
 
@@ -90,6 +91,7 @@ function HoldingsTab() {
   const holdingsAccounts = (accounts.data ?? []).filter((record) => record.account.trackingMode === "holdings" && !record.account.archivedAt);
   const accountIds = holdingsAccounts.map((record) => record.account.id);
   const holdingsByAccount = useHoldingsByAccounts(accountIds);
+  const holdingGains = useHoldingGainsByAccounts(accountIds);
 
   const accountNameById = new Map(holdingsAccounts.map((record) => [record.account.id, record.account.name]));
   const instrumentNameById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument]));
@@ -171,14 +173,37 @@ function HoldingsTab() {
       {allHoldings.length === 0 && <p className="text-sm text-muted-foreground">No holdings yet</p>}
 
       <ul className="flex flex-col gap-2">
-        {allHoldings.map((holding) => (
-          <li key={holding.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
-            <span>
-              {instrumentNameById.get(holding.instrumentId)?.name ?? holding.instrumentId} — {accountNameById.get(holding.accountId)}
-            </span>
-            <span className="text-muted-foreground">{formatAmount(holding.quantity)}</span>
-          </li>
-        ))}
+        {allHoldings.map((holding) => {
+          const gain = holdingGains.byHoldingId.get(holding.id);
+          return (
+            <li key={holding.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md border border-border px-3 py-2 text-sm">
+              <span>
+                {instrumentNameById.get(holding.instrumentId)?.name ?? holding.instrumentId} — {accountNameById.get(holding.accountId)}
+              </span>
+              <span className="text-muted-foreground">{formatAmount(holding.quantity)}</span>
+              {gain ? (
+                gain.available ? (
+                  <>
+                    <span className="text-muted-foreground" title="Cost">
+                      {formatAmount(gain.totalCost.amount, gain.totalCost.currency)}
+                    </span>
+                    <span title="Current value">{gain.currentValue ? formatAmount(gain.currentValue.amount, gain.currentValue.currency) : "—"}</span>
+                    <span
+                      title="Unrealized gain"
+                      className={gain.unrealizedGain && Number(gain.unrealizedGain.amount) < 0 ? "text-gain-negative" : "text-gain-positive"}
+                    >
+                      {gain.unrealizedGain ? formatAmount(gain.unrealizedGain.amount, gain.unrealizedGain.currency) : "—"}
+                    </span>
+                  </>
+                ) : (
+                  <Badge variant="secondary">{gain.missingReason || "Gain unavailable"}</Badge>
+                )
+              ) : (
+                <span className="text-muted-foreground">…</span>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
