@@ -5,6 +5,7 @@ import { NAV_ITEMS } from "@/app/navigation";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OverviewPage } from "@/features/overview/OverviewPage";
 import { AccountsPage } from "@/features/accounts/AccountsPage";
+import { DirectoryPage } from "@/features/directory/DirectoryPage";
 import { useBootstrap } from "@/queries/household";
 
 /**
@@ -26,11 +27,14 @@ function App() {
     return <OnboardingPage />;
   }
 
+  const implementedPageIds = ["overview", "accounts", "directory"];
+
   return (
     <AppShell activePageId={activePageId} onNavigate={setActivePageId}>
       {activePageId === "overview" && <OverviewPage />}
       {activePageId === "accounts" && <AccountsPage />}
-      {activePageId !== "overview" && activePageId !== "accounts" && <ComingSoonPage titleKey={activeItem.translationKey} />}
+      {activePageId === "directory" && <DirectoryPage />}
+      {!implementedPageIds.includes(activePageId) && <ComingSoonPage titleKey={activeItem.translationKey} />}
     </AppShell>
   );
 }
