@@ -448,7 +448,67 @@ production build).
 
 ## Phase 4 — First Vertical Slice: Onboarding, Overview, Accounts
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. Onboarding
+(`features/onboarding/OnboardingPage.tsx`), Overview
+(`features/overview/OverviewPage.tsx`), and Accounts
+(`features/accounts/{AccountsPage,AccountForm}.tsx`) all work end to end
+through `HouseholdService`/`PortfolioService`/`AccountService`, wired into
+`App.tsx` (render Onboarding until a Household exists; Overview is the
+default landing page per the
+[navigation decisions](wails-v3-navigation-decisions.md)). New
+`queries/{household,portfolio,accounts,directory,settings}.ts` TanStack
+Query hooks back these pages; `features/accounts/accountTaxonomy.ts` is a
+client-side mirror of `domain`'s Primary/Secondary category and Tracking
+Mode combination rules, used only to drive form UX (Go remains the sole
+validation authority).
+
+### Required Tests
+
+- **Met**: `OnboardingPage.test.tsx` covers empty-household-name
+  validation, submitting every member name plus base currency, and
+  add/remove member rows.
+- **Met**: `AccountsPage.test.tsx` covers the empty state, listing an
+  existing account with its current value, creating an account with
+  minimal fields (equal ownership split across two owners), creating an
+  account with explicit ownership percentages (matching
+  `resolveOwnership`'s behavior in `internal/application/service.go`), and
+  archiving an account after AlertDialog confirmation.
+- **Met**: the fixture-driven check comparing displayed values to
+  Go-computed `OverviewResult` uses a **new** shared multi-owner (60/40
+  split) fixture,
+  `internal/wailsapi/portfolio.TestOverviewMultiOwnerFixtureMatchesFrontendGolden`
+  (Go) and `OverviewPage.test.tsx`'s "matches the Go-computed multi-owner
+  fixture" test (frontend), which assert the identical literal values
+  (assets 1000, liabilities 300, net worth 700, Alice 60%/Bob 40%) — a
+  comment in each file cross-references the other so they cannot silently
+  diverge. This is a new fixture rather than reusing an existing
+  `internal/application` test verbatim, since no existing fixture matched
+  the "multi-owner, exact percentages" shape needed here; true multi-
+  **currency** Overview coverage (which requires FX quote/preference setup)
+  is deferred to Phase 5's Analytics/Investments testing, where FX
+  conversion is central to the feature rather than incidental to it.
+- Every "incomplete"/"missing input" state: **partially met** for this
+  phase — `OverviewPage.test.tsx` covers the `Complete=false` +
+  `missingInputs` banner path; the full range of `domain.OverviewResult`
+  incompleteness causes (unavailable instrument price, unavailable FX
+  rate, etc.) is exercised once Investments/Market Data pages exist in
+  Phase 5, since Overview's incompleteness is caused by those other
+  pages' data, not by anything Onboarding/Accounts alone can produce.
+
+### Exit Checks
+
+- A user can go from a fresh database to a populated Overview with at
+  least one multi-owner Account entirely through the new frontend, with no
+  Fyne window involved. **Met**: verified manually end to end (Onboarding
+  with two Members → Overview at $0 → create an Account with an owner and
+  an initial value → Overview updates to the new net worth with a by-member
+  breakdown), screenshot/video evidence in the corresponding PR.
+- Every acceptance item in the
+  [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+  that concerns Onboarding, Overview, or Accounts: **met** for the
+  create/list/archive/current-value flows this phase implements; Account
+  update (metadata edit) and icon/logo selection are deferred to Phase 5
+  alongside the Directory pages that share the same edit/media patterns.
 
 ### Deliverables
 

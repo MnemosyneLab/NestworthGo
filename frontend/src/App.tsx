@@ -2,21 +2,35 @@ import { useState } from "react";
 import { AppShell, DEFAULT_PAGE_ID } from "@/app/AppShell";
 import { ComingSoonPage } from "@/components/layout/ComingSoon";
 import { NAV_ITEMS } from "@/app/navigation";
+import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
+import { OverviewPage } from "@/features/overview/OverviewPage";
+import { AccountsPage } from "@/features/accounts/AccountsPage";
+import { useBootstrap } from "@/queries/household";
 
 /**
- * App renders the persistent AppShell with a "coming soon" placeholder
- * for every nav destination (implementation plan Phase 3). Phase 4/5
- * replace each placeholder with its real feature page one at a time;
- * this file's job through Phase 3 is only to prove the shell, theme,
- * language switching, and simple page-state navigation work together.
+ * App renders Onboarding until a Household exists, then the persistent
+ * AppShell with a real page for Overview/Accounts (implementation plan
+ * Phase 4's vertical slice) and a "coming soon" placeholder for every
+ * other nav destination (Phase 5's remaining work).
  */
 function App() {
   const [activePageId, setActivePageId] = useState(DEFAULT_PAGE_ID);
   const activeItem = NAV_ITEMS.find((item) => item.id === activePageId) ?? NAV_ITEMS[0];
+  const bootstrap = useBootstrap();
+
+  if (bootstrap.isLoading) {
+    return null;
+  }
+
+  if (!bootstrap.isError && bootstrap.data && !bootstrap.data.household) {
+    return <OnboardingPage />;
+  }
 
   return (
     <AppShell activePageId={activePageId} onNavigate={setActivePageId}>
-      <ComingSoonPage titleKey={activeItem.translationKey} />
+      {activePageId === "overview" && <OverviewPage />}
+      {activePageId === "accounts" && <AccountsPage />}
+      {activePageId !== "overview" && activePageId !== "accounts" && <ComingSoonPage titleKey={activeItem.translationKey} />}
     </AppShell>
   );
 }

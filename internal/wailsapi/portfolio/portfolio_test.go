@@ -118,6 +118,65 @@ func TestNetWorthTrendPassesThroughRangeBeforeHistoryStarts(t *testing.T) {
 	}
 }
 
+// TestOverviewMultiOwnerFixtureMatchesFrontendGolden is the shared fixture
+// the implementation plan's Phase 4 requires ("a fixture-driven check that
+// Overview's displayed net worth, assets, and liabilities exactly match
+// the same fixture's Go-computed OverviewResult, for at least one ...
+// multi-owner fixture"). The exact literal values asserted here
+// (1000/40%/60% ownership split, 300 liability, 700 net worth) are
+// duplicated verbatim as the mocked binding response in
+// frontend/src/features/overview/OverviewPage.test.tsx's
+// "matches the Go-computed multi-owner fixture" test; if either side
+// changes, the other must change with it.
+func TestOverviewMultiOwnerFixtureMatchesFrontendGolden(t *testing.T) {
+	app := wailstest.NewService(t)
+	ctx := context.Background()
+	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
+		HouseholdName: "The Tans", BaseCurrency: "USD", MemberNames: []string{"Alice", "Bob"},
+	}); err != nil {
+		t.Fatalf("CompleteOnboarding: %v", err)
+	}
+	bootstrap, err := household.NewService(app).Bootstrap(ctx)
+	if err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	alice, bob := bootstrap.Members[0].ID, bootstrap.Members[1].ID
+	accountService := account.NewService(app)
+	if _, err := accountService.CreateAccount(ctx, account.CreateAccountRequest{
+		Name: "Joint Savings", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
+		OwnerIDs: []string{alice, bob}, OwnershipPercentages: []string{"60", "40"}, InitialAmount: "1000",
+	}); err != nil {
+		t.Fatalf("CreateAccount (joint savings): %v", err)
+	}
+	if _, err := accountService.CreateAccount(ctx, account.CreateAccountRequest{
+		Name: "Credit Card", PrimaryCategory: "liability", SecondaryCategory: "credit_card",
+		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
+		OwnerIDs: []string{alice}, InitialAmount: "300",
+	}); err != nil {
+		t.Fatalf("CreateAccount (credit card): %v", err)
+	}
+
+	service := portfolio.NewService(app)
+	result, err := service.Overview(ctx, account.AccountFilterRequest{})
+	if err != nil {
+		t.Fatalf("Overview: %v", err)
+	}
+	if result.Assets != "1000" || result.Liabilities != "300" || result.NetWorth != "700" {
+		t.Fatalf("Overview = %+v, want assets=1000 liabilities=300 netWorth=700", result)
+	}
+	if !result.Complete {
+		t.Fatalf("Complete = false, want true")
+	}
+	byMember := map[string]string{}
+	for _, item := range result.ByMember {
+		byMember[item.Label] = item.Amount
+	}
+	if byMember["Alice"] != "600" || byMember["Bob"] != "400" {
+		t.Fatalf("ByMember = %+v, want Alice=600 Bob=400 (60/40 split of the 1000 asset)", result.ByMember)
+	}
+}
+
 func TestOverviewDTORoundTripsAsJSON(t *testing.T) {
 	app, _ := setup(t)
 	service := portfolio.NewService(app)
