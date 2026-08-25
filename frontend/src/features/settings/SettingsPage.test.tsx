@@ -1,0 +1,72 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SettingsPage } from "./SettingsPage";
+
+const load = vi.fn();
+const save = vi.fn().mockResolvedValue(undefined);
+const reset = vi.fn();
+
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
+  Service: {
+    Load: () => load(),
+    Save: (...args: unknown[]) => save(...args),
+    Reset: () => reset(),
+    SupportedCurrencies: () => Promise.resolve(["USD", "SGD"]),
+  },
+}));
+
+function renderPage() {
+  const queryClient = new QueryClient();
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <SettingsPage />
+    </QueryClientProvider>,
+  );
+}
+
+const defaultSettings = {
+  schema_version: 1,
+  appearance: "system",
+  accent: "nestworth",
+  language: "en",
+  timezone: "system",
+  week_start: "monday",
+  date_format: "iso",
+  time_format: "24h",
+  currency: "USD",
+  decimal_separator: ".",
+  grouping_separator: ",",
+  decimal_places: 2,
+  window_width: 1100,
+  window_height: 720,
+  fx_provider: "frankfurter",
+};
+
+beforeEach(() => {
+  load.mockReset();
+  save.mockClear();
+  reset.mockReset();
+  load.mockResolvedValue(defaultSettings);
+});
+
+describe("SettingsPage", () => {
+  it("saves the edited appearance and language", async () => {
+    renderPage();
+    await screen.findByRole("form", { name: "Settings" });
+    await userEvent.selectOptions(screen.getByLabelText("Appearance"), "dark");
+    await userEvent.selectOptions(screen.getByLabelText("Language"), "zh-CN");
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ appearance: "dark", language: "zh-CN" }));
+  });
+
+  it("restores defaults when Reset is clicked", async () => {
+    reset.mockResolvedValue({ ...defaultSettings, appearance: "system" });
+    renderPage();
+    await screen.findByRole("form", { name: "Settings" });
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(reset).toHaveBeenCalled();
+  });
+});
