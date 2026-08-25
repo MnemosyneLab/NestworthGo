@@ -1,0 +1,9 @@
+{
+  "name": "Nestworth (Go + Fyne)",
+  "user": "ubuntu",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "install": "go mod download && go build -o bin/nestworth ./cmd/nestworth",
+  "start": "bash .cursor/start.sh"
+}
