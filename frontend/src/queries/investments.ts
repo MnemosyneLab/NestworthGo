@@ -59,6 +59,26 @@ export function useArchiveHolding() {
   });
 }
 
+/**
+ * useAllHoldingsFlat denormalizes every Holding across every Holdings-mode
+ * Account into one flat list with instrument/account names attached, for
+ * simple <select> pickers (Record change's position_transfer/
+ * position_adjustment/trade forms). It composes useAccounts +
+ * useHoldingsByAccounts + useInstruments rather than adding a new Go
+ * binding, since all three are already loaded elsewhere in the app.
+ */
+export function useAllHoldingsFlat(accountIds: string[]) {
+  const holdingsByAccount = useHoldingsByAccounts(accountIds);
+  const instruments = useInstruments();
+  const instrumentNameById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const flat = Object.entries(holdingsByAccount.data ?? {}).flatMap(([accId, holdings]) =>
+    (holdings ?? [])
+      .filter((holding) => !holding.archivedAt)
+      .map((holding) => ({ ...holding, accountId: accId, instrumentName: instrumentNameById.get(holding.instrumentId) ?? holding.instrumentId })),
+  );
+  return { data: flat, isLoading: holdingsByAccount.isLoading || instruments.isLoading };
+}
+
 export function useCurrentInstrumentQuote(instrumentId: string) {
   return useQuery({
     queryKey: ["quote", "instrument", instrumentId],
