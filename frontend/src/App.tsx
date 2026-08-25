@@ -10,6 +10,7 @@ import { InvestmentsPage } from "@/features/investments/InvestmentsPage";
 import { MarketDataPage } from "@/features/marketdata/MarketDataPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
+import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { useBootstrap } from "@/queries/household";
 
 /**
@@ -31,7 +32,7 @@ function App() {
     return <OnboardingPage />;
   }
 
-  const implementedPageIds = ["overview", "accounts", "directory", "investments", "market-data", "settings", "history"];
+  const implementedPageIds = ["overview", "accounts", "directory", "investments", "market-data", "settings", "history", "analytics"];
 
   return (
     <AppShell activePageId={activePageId} onNavigate={setActivePageId}>
@@ -42,6 +43,7 @@ function App() {
       {activePageId === "market-data" && <MarketDataPage />}
       {activePageId === "settings" && <SettingsPage />}
       {activePageId === "history" && <HistoryPage />}
+      {activePageId === "analytics" && <AnalyticsPage />}
       {!implementedPageIds.includes(activePageId) && <ComingSoonPage titleKey={activeItem.translationKey} />}
     </AppShell>
   );

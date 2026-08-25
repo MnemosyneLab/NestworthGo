@@ -1,6 +1,22 @@
 import * as React from "react";
-import * as echarts from "echarts";
-import type { EChartsOption } from "echarts";
+import * as echarts from "echarts/core";
+import { LineChart, BarChart, PieChart } from "echarts/charts";
+import { GridComponent, TooltipComponent, LegendComponent, DataZoomComponent } from "echarts/components";
+import { CanvasRenderer } from "echarts/renderers";
+import type { ComposeOption } from "echarts/core";
+import type { LineSeriesOption, BarSeriesOption, PieSeriesOption } from "echarts/charts";
+import type { GridComponentOption, TooltipComponentOption, LegendComponentOption, DataZoomComponentOption } from "echarts/components";
+
+// Only the chart/component types Nestworth actually uses are registered,
+// per the frontend stack decision Sec7's "轻量 React wrapper" goal: the
+// full `echarts` package pulls in every chart type and is multiple
+// megabytes; this tree-shaken subset covers every chart this application
+// currently needs (Net Worth Trend, Asset/Liability, Investment Gain).
+echarts.use([LineChart, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, CanvasRenderer]);
+
+export type EChartsOption = ComposeOption<
+  LineSeriesOption | BarSeriesOption | PieSeriesOption | GridComponentOption | TooltipComponentOption | LegendComponentOption | DataZoomComponentOption
+>;
 
 export interface EChartProps {
   option: EChartsOption;
