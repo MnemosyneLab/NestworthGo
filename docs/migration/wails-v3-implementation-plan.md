@@ -33,7 +33,11 @@ flowchart LR
 
 ## Phase 0 — Spike and Freeze Baseline
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. Frozen baseline commit:
+`8d5a6b8e3fad929d46006e2df6f105b873e108d1`. Findings recorded in
+[technical design, Phase 0 spike findings](wails-v3-technical-design.md#phase-0-spike-findings-recorded-not-duplicated-elsewhere)
+and the `InvestmentService` split decision recorded in
+[technical design §6](wails-v3-technical-design.md#6-go-service-inventory).
 
 ### Deliverables
 
@@ -45,7 +49,7 @@ flowchart LR
 - Install the Wails v3 CLI (`go install github.com/wailsapp/wails/v3/cmd/wails3@latest`)
   and run `wails3 doctor`/`wails3 setup` in the target build environment;
   record the exact Wails v3 version pinned in `go.mod`.
-- Build one throwaway `wails3 init -n spike -t react-ts` project outside the
+- Build one throwaway `wails3 init -n spike -t react` project outside the
   repository to confirm, on the actual target OS/architecture, that:
   - `wails3 dev` hot-reloads both Go and React changes.
   - `wails3 generate bindings -ts` produces the expected TypeScript shape for
@@ -56,7 +60,14 @@ flowchart LR
     reproduces with a spike type shaped like `domain.Quantity`, confirming
     the DTO-based fix is necessary before writing real services.
   - `wails3 build` produces a launchable macOS arm64 `.app` in the target
-    build environment.
+    build environment. **Recorded exception (this repository's Cloud Agent
+    development environment is Linux-only):** this specific check could not
+    run here; `wails3 build` was instead verified on Linux as a proxy, and
+    the macOS-specific build check is carried forward as an open item to
+    [Phase 7](#phase-7--packaging-and-distribution-parity), which must run
+    on actual macOS hardware/CI. See
+    [technical design, Phase 0 spike findings](wails-v3-technical-design.md#phase-0-spike-findings-recorded-not-duplicated-elsewhere)
+    for full evidence.
 - Decide the final `internal/wailsapi` sub-package boundaries (one service
   vs. several for `InvestmentService`, per the technical design's note) and
   record the decision in the technical design document (update it in place;
@@ -65,17 +76,32 @@ flowchart LR
 ### Required Checks
 
 - The spike project's `wails3 build` output actually launches on the primary
-  target (macOS Apple Silicon).
+  target (macOS Apple Silicon). **Not run** in this Linux-only environment;
+  the Linux build was verified instead (`wails3 build` produced a launchable
+  ELF binary from the spike project). Carried forward to Phase 7 as an open
+  macOS-specific check — see the risk register entry below.
 - `go test ./...`, `go vet ./...`, `gofmt -l cmd internal` still pass at the
-  frozen commit before any Wails code is added to this repository.
+  frozen commit before any Wails code is added to this repository. **Passed**
+  (`go test ./...`: all packages `ok`; `go vet ./...`: clean; `gofmt -l cmd
+  internal`: no output).
 
 ### Exit Checks
 
 - No open question about Wails v3 CLI availability, hot reload, or binding
-  generation remains before Phase 1 starts.
+  generation remains before Phase 1 starts. **Met**: CLI installs and runs
+  (`v3.0.0-beta.12`), `wails3 generate bindings -ts` produces correct
+  TypeScript for string/pointer/nested-struct fields, and the empty-object
+  problem reproduces exactly as technical design §4 predicted. Hot reload
+  (`wails3 dev`) was not exercised interactively in this headless
+  environment, since it requires a live display session; this is a lower-risk
+  gap than the build/bindings checks already covered and is re-verified
+  naturally in Phase 2/3 once the real frontend exists and can be smoke-tested
+  by other means (see those phases' required checks).
 - The spike code is not merged into the main tree; only its findings are
   (as updates to the technical design document, if any assumption in it
-  turned out wrong).
+  turned out wrong). **Met**: the spike lived under `/tmp` and was discarded;
+  only doc updates (this plan and the technical design) landed in the
+  repository.
 
 ## Phase 1 — Go Service Adapter Layer (`wailsapi`)
 
@@ -462,6 +488,7 @@ Phase 4 established. Suggested order (dependency-driven, not arbitrary):
 | The `Money`/`Quantity`/`UnitPrice`/`FxRate` empty-object serialization problem (technical design §4) is missed for one field in one DTO | A financial value silently displays as blank/zero instead of erroring loudly | Every DTO ships with the round-trip serialization test from Phase 1; treat a DTO without one as incomplete, not optional |
 | The `HistoryService` change-command union (technical design §6) is more complex in practice than the current inventory suggests | Record-change UX blocked or shipped with an incomrect mapping for one change kind | Give this its own explicit design spike inside Phase 1 before any frontend form is built against it; do not let Phase 5's schedule pressure skip its dedicated tests |
 | Cross-platform webview differences (macOS WKWebView vs. Windows WebView2 vs. Linux WebKitGTK) surface a rendering or API gap | Inconsistent behavior if/when Windows/Linux builds are attempted | Out of scope for migration completion (migration plan §7: macOS first); if Phase 7's optional spike finds a gap, record it as a follow-up, not a blocker |
+| This migration's day-to-day development/CI environment (this repository's Cloud Agent sandbox) is Linux-only; the primary target (macOS Apple Silicon) build has not been verified here (Phase 0 finding) | A macOS-specific packaging or webview defect could go undetected until very late | Every phase's macOS-specific required check that cannot run here is called out explicitly as "not run" rather than assumed to pass; Phase 7's packaging/distribution parity work and Phase 8's final walkthrough must run on actual macOS hardware or a macOS CI runner before the migration is declared complete |
 | Keyboard/accessibility parity regresses versus the current Fyne shell, which already has per-page keyboard tests | A public-distribution gate (manual accessibility review) becomes harder to pass, not easier | Treat "keyboard-only completion" as a per-page exit check in Phase 5, not a Phase 8 afterthought |
 | i18next key coverage drifts from the ported `internal/i18n` catalog during Phase 3/5 | Missing or English-only strings ship in `zh-CN`/`zh-TW` | Automate a "key set parity across locales" check in the frontend test suite, mirroring the discipline `internal/ui`'s tests already apply to English/Simplified Chinese key sets |
 | Provider refresh cancellation (technical design §6) is subtly different from Fyne's generation-check semantics, causing a stale refresh result to apply after the user navigated away | A displayed quote/FX value could reflect an abandoned request | Port the "ignore a completion for an old request ID" rule explicitly, with a test that starts, abandons, and restarts a refresh and asserts only the latest result is applied |

@@ -62,8 +62,12 @@ Wails
 Wails 项目可以从 React + TypeScript 模板开始：
 
 ```bash
-wails init -n nestworth -t react-ts
+wails3 init -n nestworth -t react
 ```
+
+(Verified against Wails v3.0.0-beta.12: the template name is `react`, not
+`react-ts`; TypeScript is that template's default language. See
+[technical design, Phase 0 spike findings](../docs/migration/wails-v3-technical-design.md#phase-0-spike-findings-recorded-not-duplicated-elsewhere).)
 
 前端不需要额外建立 REST API。
 
