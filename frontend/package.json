@@ -7,18 +7,53 @@
     "dev": "vite",
     "build:dev": "tsc && vite build --minify false --mode development",
     "build": "tsc && vite build --mode production",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint ."
   },
   "dependencies": {
+    "@base-ui/react": "^1.7.0",
+    "@hookform/resolvers": "^5.9.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-query": "^5.101.4",
+    "@tanstack/react-table": "^9.1.2",
     "@wailsio/runtime": "3.0.0-beta.9",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "echarts": "^6.1.0",
+    "i18next": "^26.3.6",
+    "i18next-browser-languagedetector": "^8.2.1",
+    "lucide-react": "^1.32.0",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-hook-form": "^7.85.0",
+    "react-i18next": "^17.0.11",
+    "sonner": "^2.0.8",
+    "tailwind-merge": "^3.6.0",
+    "tailwindcss": "^4.3.3",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.5",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^6.0.0",
+    "@vitest/ui": "^4.1.11",
+    "eslint": "^10.8.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.4",
+    "globals": "^17.11.0",
+    "jsdom": "^30.0.1",
     "typescript": "^5.2.2",
-    "vite": "^8.0.5"
+    "typescript-eslint": "^8.67.0",
+    "vite": "^8.0.5",
+    "vitest": "^4.1.11"
   }
 }

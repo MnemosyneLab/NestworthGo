@@ -322,7 +322,80 @@ binding regeneration in this repository.
 
 ## Phase 3 — Frontend Foundation
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. `frontend/` now has: Vite + React +
+TypeScript + Tailwind CSS v4 (CSS-first `@theme` tokens) + shadcn/ui-style
+components built on `@base-ui/react` primitives (Button, Input, Label,
+Dialog, Sheet, Tabs, Card, Badge, AlertDialog) + TanStack Query (with a
+first real query, `queries/app.ts`) + Zustand (`stores/ui.ts`, UI-only
+state) + React Hook Form + Zod (`components/forms/SampleForm.tsx`) +
+Apache ECharts wrapper (`components/charts/EChart.tsx`) + i18next with all
+three locales, bootstrapped from the ported `internal/i18n` catalog + the
+shared `callService`/error-unwrapping helper (`lib/wails.ts`). The app
+shell (`app/AppShell.tsx`) renders a sidebar/header with simple page-state
+navigation (per the frontend stack decision's Sec9), a language switcher,
+and a theme toggle wired to `hooks/useTheme.ts`.
+
+### Catalog porting note
+
+`internal/i18n`'s catalog content (679 keys across `translations` and
+`errorTranslations`, plus the `fieldLabelKeys` field-name-to-key map) was
+ported programmatically, not by hand, via a new
+`scripts/port-i18n-catalog` Go tool that parses `internal/i18n/*.go`'s AST
+and emits `frontend/src/i18n/locales/{en,zh-CN,zh-TW,fieldLabelKeys}.json`.
+This is re-runnable if `internal/i18n` gains keys before Phase 6 retires
+it. Two catalogs were deliberately **not** ported 1:1:
+
+- A new `errorCode` i18next namespace (`frontend/src/i18n/errorCodes.ts`)
+  replaces the old prose-matched `error.*` granularity with one message
+  per `domain.ErrorCode` (27 codes + `internal`), per technical design
+  Sec5's "key directly off `domain.ErrorCode`" requirement — the ported
+  ErrorCode-granularity content could not be reused because it was keyed
+  by exact English message text, the exact pattern this migration
+  removes.
+- A small `frontend/src/i18n/additions.ts` carries the one net-new key the
+  frontend needs that has no Go counterpart (`nav.directory`, per the
+  [navigation decisions note](wails-v3-navigation-decisions.md)), merged
+  into the ported catalog at i18next init time so re-running the port
+  script never drops it.
+
+### Required Tests
+
+- **Met**: `src/hooks/useTheme.test.tsx` covers explicit dark/light,
+  system-mode following the OS preference, and reacting to a live
+  `prefers-color-scheme` change. `src/lib/wails.test.ts` covers
+  `parseWailsError`/`translateWailsError` for valid JSON, malformed JSON,
+  a plain non-JSON message, a non-Error rejection value, and an
+  unrecognized error code — all resolve to a safe, non-crashing result.
+- **Met**: `src/App.test.tsx` renders the full app shell with zero real
+  pages (every nav destination shows `ComingSoonPage`) in all three
+  locales (`SUPPORTED_LANGUAGES`), asserting on real translated nav labels
+  rather than fallback key text.
+- Additional, beyond the plan's original checklist: `SampleForm.test.tsx`
+  exercises the React Hook Form + Zod wiring (submit with valid input,
+  validation error blocks submit).
+
+### Exit Checks
+
+- The frontend foundation has no page-specific business logic yet.
+  **Met**: every nav destination renders the same generic
+  `ComingSoonPage`; no page/feature code exists under `features/` yet.
+- Switching language, switching theme, and resizing the window all work
+  against the Phase 2 backend shell. **Met** for language/theme (verified
+  by the Vitest suite above and by a manual screenshot showing the shell
+  launched, themed, and reading live `AppService.AppInfo()` data through
+  the real backend under Xvfb on this Linux dev environment — see Phase 2
+  and Phase 3 screenshots referenced in the corresponding PR); window
+  resizing itself was already exercised in Phase 2 (size persistence) and
+  is unchanged by this phase.
+
+### Verification
+
+```
+cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build
+```
+
+All pass (17 Vitest tests, 0 ESLint errors, 0 TypeScript errors, and a
+production build).
 
 ### Deliverables
 
@@ -621,8 +694,8 @@ go test ./internal/wailsapi/...
 wails3 generate bindings -ts
 go build ./cmd/nestworth-desktop/...   # or the chosen new entry-point path
 
-# Phase 3+
-cd frontend && npm run lint && npm run typecheck && npm run test
+# Phase 3+ (pnpm per the frontend stack decision; see Phase 3 notes)
+cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
 
 # Phase 6+ (after Fyne removal)
 go build ./cmd/nestworth               # now the Wails application
