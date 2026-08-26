@@ -64,7 +64,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfoli
     Overview: () =>
       Promise.resolve({
         currency: "USD",
-        accountCount: 0,
+        accountCount: 1,
         complete: true,
         missingInputs: [],
         assets: "0",
@@ -76,6 +76,29 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfoli
         byGroup: [],
       }),
   },
+}));
+
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
+  Service: {
+    HistoryOrigin: () => Promise.resolve({ id: "origin-1", timezone: "UTC" }),
+    ListActivities: () => Promise.resolve([]),
+  },
+}));
+
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
+  Service: { ListAccounts: () => Promise.resolve([]) },
+}));
+
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
+  Service: { ListInstruments: () => Promise.resolve([]) },
+}));
+
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
+  Service: {},
+}));
+
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
+  Service: {},
 }));
 
 beforeEach(() => {
@@ -108,14 +131,13 @@ describe("App shell smoke test", () => {
     // Every nav item's label is a real, non-fallback translation (a
     // missing i18next key falls back to the raw key text, which would
     // never match a real nav item's rendered label).
-    const nav = screen.getByRole("navigation", { name: "Main navigation" });
-    expect(within(nav).getByText(i18n.t("nav.overview"))).toBeInTheDocument();
-    expect(within(nav).getByText(i18n.t("nav.directory"))).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    expect(within(nav).getByRole("button", { name: i18n.t("nav.overview") })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: i18n.t("nav.directory") })).toBeInTheDocument();
 
-    // Any destination without an implemented surface still renders its
-    // "coming soon" placeholder without throwing.
-    await userEvent.click(within(nav).getByText(i18n.t("nav.settings")));
-    expect(await screen.findByRole("form", { name: "Settings" })).toBeInTheDocument();
+    // Settings is a real surface and remains reachable from the grouped nav.
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.settings") }));
+    expect(await screen.findByRole("form", { name: i18n.t("settings.formLabel") })).toBeInTheDocument();
     expect(screen.getByLabelText(i18n.t("about.title"))).toBeInTheDocument();
   });
 

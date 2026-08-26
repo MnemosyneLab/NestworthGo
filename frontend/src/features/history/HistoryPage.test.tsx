@@ -64,7 +64,7 @@ describe("HistoryPage", () => {
   it("prompts to Start History when none exists yet", async () => {
     historyOrigin.mockResolvedValue(null);
     renderPage();
-    expect(await screen.findByRole("heading", { name: "Start History" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Start history" })).toBeInTheDocument();
   });
 
   it("starts history with the given timezone", async () => {
@@ -74,7 +74,7 @@ describe("HistoryPage", () => {
     const timezoneInput = await screen.findByLabelText("Timezone");
     await userEvent.clear(timezoneInput);
     await userEvent.type(timezoneInput, "UTC");
-    await userEvent.click(screen.getByRole("button", { name: "Start History" }));
+    await userEvent.click(screen.getByRole("button", { name: "Start history" }));
     expect(startHistory).toHaveBeenCalledWith("UTC");
   });
 
@@ -103,13 +103,23 @@ describe("HistoryPage", () => {
     expect(recordChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000" }));
   });
 
-  it("lists activities and undoes one after confirmation", async () => {
+  it("lists activities as a plain-language sentence and undoes one after confirmation", async () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-    listActivities.mockResolvedValue([{ id: "a1", kind: "cash_in", effectiveLocalDate: "2026-01-01" }]);
+    listActivities.mockResolvedValue([
+      {
+        id: "a1",
+        kind: "cash_in",
+        reason: "contribution",
+        effectiveLocalDate: "2026-01-01",
+        effects: [{ accountId: "acc-1", money: { amount: "1000", currency: "USD" } }],
+      },
+    ]);
     undoChange.mockResolvedValue({ activity: { id: "a2", kind: "reversal" }, effects: [], resulting: [] });
 
     renderPage();
     const list = await screen.findByTestId("activity-list");
+    expect(list).toHaveTextContent("Added $1,000.00 to Checking (Contribution)");
+    expect(list).not.toHaveTextContent("cash_in");
     await userEvent.click(await within(list).findByRole("button", { name: "Undo" }));
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Undo" }));

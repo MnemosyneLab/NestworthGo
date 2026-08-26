@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { flexRender, getCoreRowModel, useReactTable, createColumnHelper } from "@tanstack/react-table";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -27,7 +27,11 @@ import {
 } from "@/queries/accounts";
 import { persistPickedImage } from "@/queries/media";
 import { AccountForm } from "@/features/accounts/AccountForm";
+import { ImagePicker } from "@/components/forms/ImagePicker";
 import { formatAmount } from "@/lib/money";
+import { displayEnum, displayError } from "@/lib/display";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { toast } from "sonner";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
@@ -61,36 +65,80 @@ export function AccountsPage() {
   const setAccountLogo = useSetAccountLogo();
   const [createOpen, setCreateOpen] = useState(false);
   const [editing, setEditing] = useState<AccountRecordDTO | null>(null);
+  const [operation, setOperation] = useState<"create" | "edit" | null>(null);
+  const [createError, setCreateError] = useState<string | undefined>();
+  const [editError, setEditError] = useState<string | undefined>();
+  const [imageTargetId, setImageTargetId] = useState<string | null>(null);
+  const [rowPendingImage, setRowPendingImage] = useState<string | undefined>(undefined);
+  const [imageError, setImageError] = useState<{ id: string; message: string } | undefined>();
+  const [imageSavingId, setImageSavingId] = useState<string | null>(null);
 
-  const saveCreate = (request: CreateAccountRequest, extras: AccountFormExtras) => {
-    createAccount.mutate(request, {
-      onSuccess: (record) => {
-        void attachAccountLogo(record.account?.id ?? "", extras.pendingImage, (args) =>
-          setAccountLogo.mutateAsync(args),
-        ).then(() => {
-          toast.success(t("accounts.create"));
-          setCreateOpen(false);
-        });
-      },
-    });
+  const saveCreate = async (request: CreateAccountRequest, extras: AccountFormExtras) => {
+    setCreateError(undefined);
+    setOperation("create");
+    try {
+      const record = await createAccount.mutateAsync(request);
+      try {
+        await attachAccountLogo(record.account.id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args));
+        toast.success(t("accounts.created"));
+      } catch (error) {
+        const message = displayError(error, t("accounts.mediaSaveError"));
+        toast.error(`${message} ${t("accounts.mediaRetryHint")}`);
+        setImageError({ id: record.account.id, message });
+        setImageTargetId(record.account.id);
+        setRowPendingImage(undefined);
+      }
+      setCreateOpen(false);
+    } catch (error) {
+      setCreateError(displayError(error, t("accounts.saveError")));
+    } finally {
+      setOperation(null);
+    }
   };
 
-  const saveEdit = (request: CreateAccountRequest, extras: AccountFormExtras) => {
+  const saveEdit = async (request: CreateAccountRequest, extras: AccountFormExtras) => {
     if (!editing) {
       return;
     }
     const id = editing.account.id;
-    updateAccount.mutate(
-      { id, request: toUpdateAccountRequest(request) },
-      {
-        onSuccess: () => {
-          void attachAccountLogo(id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args)).then(() => {
-            toast.success(t("common.saved"));
-            setEditing(null);
-          });
-        },
-      },
-    );
+    setEditError(undefined);
+    setOperation("edit");
+    try {
+      await updateAccount.mutateAsync({ id, request: toUpdateAccountRequest(request) });
+      try {
+        await attachAccountLogo(id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args));
+        toast.success(t("common.saved"));
+      } catch (error) {
+        const message = displayError(error, t("accounts.mediaSaveError"));
+        toast.error(`${message} ${t("accounts.mediaRetryHint")}`);
+        setImageError({ id, message });
+        setImageTargetId(id);
+        setRowPendingImage(undefined);
+      }
+      setEditing(null);
+    } catch (error) {
+      setEditError(displayError(error, t("accounts.saveError")));
+    } finally {
+      setOperation(null);
+    }
+  };
+
+  const saveRowImage = async (id: string) => {
+    if (!rowPendingImage) {
+      return;
+    }
+    setImageError(undefined);
+    setImageSavingId(id);
+    try {
+      await attachAccountLogo(id, rowPendingImage, (args) => setAccountLogo.mutateAsync(args));
+      setImageTargetId(null);
+      setRowPendingImage(undefined);
+      toast.success(t("common.saved"));
+    } catch (error) {
+      setImageError({ id, message: displayError(error, t("accounts.imageSaveError")) });
+    } finally {
+      setImageSavingId(null);
+    }
   };
 
   const columns = [
@@ -104,11 +152,15 @@ export function AccountsPage() {
         </span>
       ),
     }),
-    columnHelper.accessor((row) => row.account.primaryCategory, { id: "category", header: t("accounts.category") }),
+    columnHelper.accessor((row) => row.account.primaryCategory, {
+      id: "category",
+      header: t("accounts.category"),
+      cell: (info) => displayEnum(t, "enum", info.getValue()),
+    }),
     columnHelper.accessor((row) => row.account.defaultCurrency, { id: "currency", header: t("accounts.currency") }),
     columnHelper.accessor((row) => row.latestValue?.amount.amount, {
       id: "value",
-      header: t("overview.netWorth", { defaultValue: "Value" }),
+      header: t("accounts.currentValue"),
       cell: (info) => {
         const value = info.row.original.latestValue;
         return value ? formatAmount(value.amount.amount, value.amount.currency) : t("accounts.noValue");
@@ -129,6 +181,17 @@ export function AccountsPage() {
             >
               {t("common.edit")}
             </button>
+            <button
+              type="button"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              onClick={() => {
+                setImageTargetId(record.account.id);
+                setRowPendingImage(undefined);
+                setImageError(undefined);
+              }}
+            >
+              {t("accounts.setImage")}
+            </button>
             <AlertDialog>
               <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
                 {archived ? t("common.active") : t("accounts.archive")}
@@ -144,7 +207,10 @@ export function AccountsPage() {
                     onClick={() =>
                       archiveAccount.mutate(
                         { id: record.account.id, archived: !archived },
-                        { onSuccess: () => toast.success(archived ? t("common.active") : t("accounts.archive")) },
+                        {
+                          onSuccess: () => toast.success(archived ? t("common.active") : t("accounts.archive")),
+                          onError: (error) => toast.error(displayError(error, t("accounts.saveError"))),
+                        },
                       )
                     }
                   >
@@ -165,33 +231,55 @@ export function AccountsPage() {
     getCoreRowModel: getCoreRowModel(),
   });
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
-          {t("accounts.showArchived")}
-        </label>
-        <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-          <SheetTrigger className={cn(buttonVariants(), "gap-2")}>
-            <Plus className="size-4" /> {t("accounts.create")}
-          </SheetTrigger>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>{t("accounts.createTitle")}</SheetTitle>
-            </SheetHeader>
-            <div className="overflow-y-auto">
-              <AccountForm
-                submitLabel={t("accounts.create")}
-                isSubmitting={createAccount.isPending}
-                onSubmit={saveCreate}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
-      </div>
+  const createSubmitting = createAccount.isPending || operation === "create";
+  const editSubmitting = updateAccount.isPending || operation === "edit";
 
-      <Sheet open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title={t("nav.accounts")}
+        description={t("accounts.description")}
+        actions={
+          <>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+              {t("accounts.showArchived")}
+            </label>
+            <Sheet
+              open={createOpen}
+              onOpenChange={(open) => {
+                setCreateOpen(open);
+                if (open) setCreateError(undefined);
+              }}
+            >
+              <SheetTrigger className={cn(buttonVariants(), "gap-2")}>
+                <Plus className="size-4" aria-hidden="true" /> {t("accounts.create")}
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>{t("accounts.createTitle")}</SheetTitle>
+                </SheetHeader>
+                <div className="overflow-y-auto">
+                  <AccountForm
+                    submitLabel={t("accounts.create")}
+                    isSubmitting={createSubmitting}
+                    submissionError={createError}
+                    onSubmit={saveCreate}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          </>
+        }
+      />
+
+      <Sheet
+        open={Boolean(editing)}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+          if (open) setEditError(undefined);
+        }}
+      >
         <SheetContent>
           <SheetHeader>
             <SheetTitle>{t("accounts.edit")}</SheetTitle>
@@ -202,7 +290,8 @@ export function AccountsPage() {
                 key={editing.account.id}
                 record={editing}
                 submitLabel={t("common.save")}
-                isSubmitting={updateAccount.isPending}
+                isSubmitting={editSubmitting}
+                submissionError={editError}
                 onSubmit={saveEdit}
               />
             )}
@@ -210,45 +299,84 @@ export function AccountsPage() {
         </SheetContent>
       </Sheet>
 
-      {accounts.isLoading && <p className="text-sm text-muted-foreground">{t("common.comingSoon")}</p>}
+      {accounts.isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
       {accounts.isError && (
-        <p role="alert" className="text-sm text-destructive">
-          {t("accounts.loadError")}
-        </p>
+        <ErrorState
+          title={t("accounts.loadError")}
+          description={t("ui.state.errorDescription")}
+          onRetry={() => accounts.refetch()}
+          retryLabel={t("common.retryAction")}
+        />
       )}
 
-      {accounts.data && accounts.data.length === 0 && (
-        <div className="flex flex-col items-center gap-1 py-12 text-center">
-          <p className="font-medium text-foreground">{t("accounts.emptyTitle")}</p>
-          <p className="text-sm text-muted-foreground">{t("accounts.emptyDescription")}</p>
+      {!accounts.isLoading && !accounts.isError && accounts.data && accounts.data.length === 0 && (
+        <EmptyState
+          title={t("accounts.emptyTitle")}
+          description={t("accounts.emptyDescription")}
+        />
+      )}
+
+      {!accounts.isLoading && !accounts.isError && accounts.data && accounts.data.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[44rem] text-left text-sm" data-testid="accounts-table">
+            <caption className="sr-only">{t("accounts.tableLabel")}</caption>
+            <thead>
+              {table.getHeaderGroups().map((headerGroup) => (
+                <tr key={headerGroup.id} className="border-b border-border bg-muted/40">
+                  {headerGroup.headers.map((header) => (
+                    <th key={header.id} className="px-3 py-2 font-medium text-muted-foreground">
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                    </th>
+                  ))}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map((row) => {
+                const record = row.original;
+                const imageOpen = imageTargetId === record.account.id;
+                return (
+                  <Fragment key={row.id}>
+                    <tr className="border-b border-border last:border-0">
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-3 py-3 align-top">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                    {imageOpen && (
+                      <tr className="border-b border-border bg-muted/40 last:border-0">
+                        <td colSpan={row.getVisibleCells().length} className="px-3 py-3">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                            <ImagePicker
+                              label={t("accounts.setImage")}
+                              value={rowPendingImage}
+                              existingAssetId={record.account.logoAssetId}
+                              onChange={setRowPendingImage}
+                            />
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={!rowPendingImage || imageSavingId === record.account.id}
+                              onClick={() => void saveRowImage(record.account.id)}
+                            >
+                              {imageSavingId === record.account.id ? t("common.pending") : t("common.save")}
+                            </Button>
+                          </div>
+                          {imageError?.id === record.account.id && (
+                            <p role="alert" className="mt-2 text-sm text-destructive">
+                              {imageError.message} {t("accounts.imageRetry")}
+                            </p>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
-
-      {accounts.data && accounts.data.length > 0 && (
-        <table className="w-full text-left text-sm" data-testid="accounts-table">
-          <thead>
-            {table.getHeaderGroups().map((headerGroup) => (
-              <tr key={headerGroup.id} className="border-b border-border">
-                {headerGroup.headers.map((header) => (
-                  <th key={header.id} className="py-2 font-medium text-muted-foreground">
-                    {flexRender(header.column.columnDef.header, header.getContext())}
-                  </th>
-                ))}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="border-b border-border">
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className="py-2">
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
       )}
     </div>
   );

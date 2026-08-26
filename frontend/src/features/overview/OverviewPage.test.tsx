@@ -3,6 +3,33 @@ import { render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { OverviewPage as OverviewPageComponent } from "./OverviewPage";
 
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
+  Service: {
+    HistoryOrigin: () => Promise.resolve({ id: "origin-1", timezone: "UTC" }),
+    ListActivities: () =>
+      Promise.resolve([
+        {
+          id: "a1",
+          kind: "cash_in",
+          reason: "contribution",
+          effectiveLocalDate: "2026-01-01",
+          effects: [{ accountId: "acc-1", money: { amount: "1000", currency: "USD" } }],
+        },
+      ]),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
+  Service: {
+    ListAccounts: () =>
+      Promise.resolve([{ account: { id: "acc-1", name: "Checking" }, ownership: [], latestValue: null }]),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
+  Service: { ListInstruments: () => Promise.resolve([]) },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({ Service: {} }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({ Service: {} }));
+
 // Each test needs a different mocked Overview() response, so the binding
 // is re-mocked per test with vi.doMock + a fresh dynamic import, rather
 // than one hoisted vi.mock factory shared by the whole file.
@@ -53,6 +80,9 @@ describe("OverviewPage", () => {
     expect(screen.getByText("60.0%")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
     expect(screen.getByText("40.0%")).toBeInTheDocument();
+    expect(screen.getByText("Complete")).toBeInTheDocument();
+    expect(screen.getByText(/Updated /)).toBeInTheDocument();
+    expect(await screen.findByText("Added $1,000.00 to Checking (Contribution)")).toBeInTheDocument();
   });
 
   it("shows an incomplete-data banner listing missing inputs, never a fabricated zero", async () => {
@@ -71,5 +101,6 @@ describe("OverviewPage", () => {
     });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("NVIDIA");
+    expect(screen.getByText("1 instrument prices need a refresh.")).toBeInTheDocument();
   });
 });

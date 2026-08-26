@@ -47,5 +47,10 @@ export function useHoldingGainsByAccounts(accountIds: string[]) {
       byHoldingId.set(holding.holdingId, holding);
     }
   }
-  return { byHoldingId, isLoading: results.some((result) => result.isLoading) };
+  return {
+    byHoldingId,
+    isLoading: results.some((result) => result.isLoading),
+    isError: results.some((result) => result.isError),
+    refetch: () => Promise.all(results.map((result) => result.refetch())),
+  };
 }

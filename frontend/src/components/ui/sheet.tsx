@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 // Sheet is a side panel built on the same Dialog primitive as
@@ -26,6 +27,8 @@ function SheetContent({
   side = "right",
   ...props
 }: React.ComponentProps<typeof BaseDialog.Popup> & { side?: Side }) {
+  const { t } = useTranslation();
+
   return (
     <BaseDialog.Portal>
       <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-black/40 transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
@@ -40,7 +43,7 @@ function SheetContent({
         {children}
         <BaseDialog.Close className="absolute right-4 top-4 rounded-sm text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
           <X className="size-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t("common.close")}</span>
         </BaseDialog.Close>
       </BaseDialog.Popup>
     </BaseDialog.Portal>

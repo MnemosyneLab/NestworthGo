@@ -162,7 +162,7 @@
       "holdingsPlanned": "持仓账户可用于投资组合跟踪",
       "householdCurrency": "账户必须使用家庭基础货币",
       "initialValueMismatch": "初始值与账户不匹配",
-      "initialValueRequired": "Balance 和 Manual Value 账户必须填写",
+      "initialValueRequired": "余额和手工估值账户必须填写",
       "noCurrentValue": "账户没有当前值",
       "secondaryCategory": "不属于主类别",
       "trackingCategory": "不允许用于此类别",
@@ -173,7 +173,7 @@
       "unsupportedTable": "不支持的归档表"
     },
     "cash": {
-      "accountMode": "现金记录需要 Holdings 账户",
+      "accountMode": "现金记录需要持仓账户",
       "nonNegative": "现金不能为负数"
     },
     "costBasis": {
@@ -185,23 +185,23 @@
       "currency": "货币",
       "currencyPair": "货币对",
       "data": "数据",
-      "fxRate": "FX 汇率",
+      "fxRate": "汇率",
       "holdingID": "持仓 ID",
       "householdID": "家庭 ID",
       "iconKey": "图标",
       "initialValue": "初始值",
-      "instrumentID": "Instrument ID",
-      "instrumentType": "Instrument 类型",
-      "logoAssetID": "Logo 资源 ID",
+      "instrumentID": "投资标的 ID",
+      "instrumentType": "投资标的类型",
+      "logoAssetID": "标志资源 ID",
       "mediaAssetID": "媒体资源 ID",
       "memberID": "成员 ID",
       "mimeType": "图片类型",
-      "provider": "Provider",
-      "providerKey": "Provider key",
-      "providerSymbol": "Provider symbol",
+      "provider": "数据提供方",
+      "providerKey": "提供方标识",
+      "providerSymbol": "提供方代码",
       "quoteCurrency": "报价货币",
       "quotedAt": "报价时间",
-      "sourceKey": "来源 key",
+      "sourceKey": "来源标识",
       "sourceKind": "来源",
       "timestamp": "时间戳",
       "unitCost": "单位成本",
@@ -213,10 +213,10 @@
     },
     "holding": {
       "accountIDInvalid": "必须是有效的账户 ID",
-      "accountMode": "持仓必须属于 Holdings 账户",
-      "duplicate": "该账户已有此 Instrument 的活动持仓",
-      "instrumentIDInvalid": "必须是有效的 Instrument ID",
-      "sameHousehold": "账户和 Instrument 必须属于同一个家庭"
+      "accountMode": "持仓必须属于持仓账户",
+      "duplicate": "该账户已有此投资标的的活动持仓",
+      "instrumentIDInvalid": "必须是有效的投资标的 ID",
+      "sameHousehold": "账户和投资标的必须属于同一个家庭"
     },
     "icon": {
       "required": "图标不能为空",
@@ -226,8 +226,8 @@
       "lowercaseUUID": "必须是小写 UUID"
     },
     "instrument": {
-      "providerBindingConflict": "已有活动 Instrument 使用此 Provider 绑定",
-      "providerBindingRequired": "选择 Provider 时必须填写 Provider key 和 symbol"
+      "providerBindingConflict": "已有活动投资标的使用此数据提供方绑定",
+      "providerBindingRequired": "选择数据提供方时必须填写提供方标识和代码"
     },
     "media": {
       "invalidOrTooLarge": "图片无效或超过本地大小限制",
@@ -241,16 +241,16 @@
     "notFound": {
       "account": "未找到账户",
       "cashValue": "未找到现金记录",
-      "fxPreference": "未找到 FX 来源偏好",
-      "fxQuote": "未找到 FX 报价",
+      "fxPreference": "未找到汇率来源偏好",
+      "fxQuote": "未找到汇率报价",
       "group": "未找到分组",
       "groupReference": "未找到分组引用",
       "holding": "未找到持仓",
       "household": "未找到家庭",
       "institution": "未找到机构",
       "institutionReference": "未找到机构引用",
-      "instrument": "未找到 Instrument",
-      "instrumentQuote": "未找到 Instrument 报价",
+      "instrument": "未找到投资标的",
+      "instrumentQuote": "未找到投资标的报价",
       "mediaAsset": "未找到媒体资源",
       "member": "未找到成员"
     },
@@ -274,22 +274,22 @@
       "total": "所有比例总和必须恰好为 10000 个基点"
     },
     "provider": {
-      "authentication": "Provider 拒绝了认证",
-      "malformedResponse": "Provider 返回了无效响应",
-      "notConfigured": "此 Provider 尚未配置",
-      "rateLimit": "已达到 Provider 速率限制",
-      "responseTooLarge": "Provider 响应过大",
-      "unavailable": "Provider 当前不可用",
-      "unsupportedSymbol": "此 Provider 标的不受支持"
+      "authentication": "数据提供方拒绝了认证",
+      "malformedResponse": "数据提供方返回了无效响应",
+      "notConfigured": "此数据提供方尚未配置",
+      "rateLimit": "已达到数据提供方速率限制",
+      "responseTooLarge": "数据提供方响应过大",
+      "unavailable": "数据提供方当前不可用",
+      "unsupportedSymbol": "此数据提供方不支持此标的代码"
     },
     "quote": {
       "baseCurrencyRequired": "货币对必须包含家庭基础货币",
       "currencyPairDifferent": "基础货币和报价货币必须不同",
       "firstCurrencyInvalid": "第一种货币无效",
-      "instrumentCurrency": "必须与 Instrument 报价货币一致",
+      "instrumentCurrency": "必须与投资标的报价货币一致",
       "secondCurrencyInvalid": "第二种货币无效",
       "sourceKeyLength": "不能超过 64 个字符",
-      "sourceKeyRequired": "Provider 记录必须填写 source key"
+      "sourceKeyRequired": "数据提供方记录必须填写来源标识"
     },
     "reference": {
       "accountArchived": "账户已归档",
@@ -297,7 +297,7 @@
       "groupInactive": "分组不是有效的活动引用",
       "holdingArchived": "持仓已归档",
       "institutionInactive": "机构不是有效的活动引用",
-      "instrumentArchived": "Instrument 已归档",
+      "instrumentArchived": "投资标的已归档",
       "invalid": "引用对象无效",
       "otherHousehold": "引用属于其他家庭"
     },
@@ -591,7 +591,7 @@
       "en": "English",
       "system": "系统",
       "zhCN": "简体中文",
-      "zhTW": "正體中文"
+      "zhTW": "繁體中文"
     },
     "time": {
       "12h": "12 小时制",

@@ -259,7 +259,7 @@ describe("keyboard-only completion", () => {
 
     await userEvent.tab(); // -> Currency select (left at default)
     await userEvent.tab(); // -> Save button
-    expect(within(form).getByRole("button", { name: "Add" })).toHaveFocus();
+    expect(within(form).getByRole("button", { name: "Save changes" })).toHaveFocus();
     await userEvent.keyboard("{Enter}");
 
     expect(settingsSave).toHaveBeenCalledWith(expect.objectContaining({ appearance: "light", language: "en" }));

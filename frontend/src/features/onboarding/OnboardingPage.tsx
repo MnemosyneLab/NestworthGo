@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompleteOnboarding } from "@/queries/household";
 import { useSupportedCurrencies } from "@/queries/settings";
 import { translateWailsError, type WireError } from "@/lib/wails";
@@ -26,7 +27,7 @@ type OnboardingFormValues = z.infer<typeof onboardingSchema>;
  * not ask for a timezone here: leaving `CompleteOnboardingRequest.timezone`
  * empty means history has not started yet; Starting Point is a separate flow.
  */
-export function OnboardingPage() {
+export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {}) {
   const { t } = useTranslation();
   const currencies = useSupportedCurrencies();
   const completeOnboarding = useCompleteOnboarding();
@@ -43,80 +44,120 @@ export function OnboardingPage() {
   const { fields, append, remove } = useFieldArray({ control, name: "memberNames" });
 
   const onSubmit = (values: OnboardingFormValues) => {
-    completeOnboarding.mutate({
-      householdName: values.householdName,
-      baseCurrency: values.baseCurrency,
-      memberNames: values.memberNames.map((member) => member.name),
-    });
+    completeOnboarding.mutate(
+      {
+        householdName: values.householdName,
+        baseCurrency: values.baseCurrency,
+        memberNames: values.memberNames.map((member) => member.name),
+      },
+      { onSuccess: onCompleted },
+    );
   };
 
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-6 py-12">
-      <div className="flex flex-col gap-1 text-center">
-        <h1 className="text-xl font-semibold text-foreground">{t("onboarding.title", { defaultValue: t("app.name") })}</h1>
-      </div>
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" aria-label="Onboarding">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="householdName">{t("onboarding.householdName", { defaultValue: "Household name" })}</Label>
-          <Input id="householdName" {...register("householdName")} autoFocus />
-          {errors.householdName && (
-            <p role="alert" className="text-xs text-destructive">
-              {t("error.validation.notEmpty")}
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="baseCurrency">{t("settings.household.baseCurrency", { defaultValue: "Base currency" })}</Label>
-          <select
-            id="baseCurrency"
-            {...register("baseCurrency")}
-            className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground"
-          >
-            {(currencies.data ?? ["USD"]).map((currency) => (
-              <option key={currency} value={currency}>
-                {currency}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex flex-col gap-2">
-          <Label>{t("onboarding.members", { defaultValue: "Members" })}</Label>
-          {fields.map((field, index) => (
-            <div key={field.id} className="flex items-center gap-2">
-              <Input
-                aria-label={`Member ${index + 1} name`}
-                {...register(`memberNames.${index}.name` as const)}
-                placeholder={t("onboarding.memberNamePlaceholder", { defaultValue: "Name" })}
-              />
-              {fields.length > 1 && (
-                <Button type="button" variant="ghost" size="icon" onClick={() => remove(index)} aria-label="Remove member">
-                  <Trash2 className="size-4" />
-                </Button>
-              )}
+    <main className="min-h-[100dvh] bg-background px-6 py-10 text-foreground sm:px-10 sm:py-16">
+      <div className="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(360px,1fr)] lg:items-start">
+        <section className="flex flex-col gap-5 pt-2 lg:pt-12">
+          <div className="flex items-center gap-3">
+            <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-lg font-semibold text-primary-foreground" aria-hidden="true">
+              N
             </div>
-          ))}
-          {errors.memberNames && (
-            <p role="alert" className="text-xs text-destructive">
-              {t("error.onboarding.memberRequired")}
-            </p>
-          )}
-          <Button type="button" variant="outline" size="sm" onClick={() => append({ name: "" })} className="self-start">
-            <Plus className="size-4" /> {t("common.add")}
-          </Button>
-        </div>
+            <span className="text-sm font-semibold">{t("app.name")}</span>
+          </div>
+          <div className="flex flex-col gap-3">
+            <p className="text-sm font-medium text-primary">{t("onboarding.duration")}</p>
+            <h1 className="max-w-lg text-3xl font-semibold tracking-tight sm:text-4xl">{t("onboarding.title")}</h1>
+            <p className="max-w-xl text-base leading-7 text-muted-foreground">{t("onboarding.valueProposition")}</p>
+          </div>
+          <div className="flex max-w-xl flex-col gap-3 rounded-lg border border-border bg-card/70 p-4 text-sm leading-6 text-muted-foreground">
+            <p>{t("onboarding.privacyNote")}</p>
+            <p>{t("onboarding.nextStep")}</p>
+          </div>
+        </section>
 
-        {completeOnboarding.isError && (
-          <p role="alert" className="text-sm text-destructive">
-            {translateWailsError((completeOnboarding.error as Error & { wireError?: WireError }).wireError ?? { code: "internal", message: "" })}
-          </p>
-        )}
+        <Card className="w-full shadow-md">
+          <CardHeader>
+            <CardTitle>{t("onboarding.title")}</CardTitle>
+            <CardDescription>{t("onboarding.description")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5" aria-label={t("onboarding.formLabel")}>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="householdName">{t("onboarding.householdName")}</Label>
+                <Input id="householdName" {...register("householdName")} autoFocus />
+                <p className="text-xs leading-5 text-muted-foreground">{t("onboarding.householdHint")}</p>
+                {errors.householdName && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {t("error.validation.notEmpty")}
+                  </p>
+                )}
+              </div>
 
-        <Button type="submit" disabled={completeOnboarding.isPending}>
-          {t("onboarding.complete", { defaultValue: "Get started" })}
-        </Button>
-      </form>
-    </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="baseCurrency">{t("settings.household.baseCurrency")}</Label>
+                <select
+                  id="baseCurrency"
+                  {...register("baseCurrency")}
+                  className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground"
+                >
+                  {(currencies.data ?? ["USD"]).map((currency) => (
+                    <option key={currency} value={currency}>
+                      {currency}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs leading-5 text-muted-foreground">{t("onboarding.baseCurrencyHint")}</p>
+              </div>
+
+              <fieldset className="flex flex-col gap-2">
+                <legend className="text-sm font-medium">{t("onboarding.members")}</legend>
+                {fields.map((field, index) => (
+                  <div key={field.id} className="flex items-center gap-2">
+                    <Input
+                      aria-label={t("onboarding.memberNameLabel", { index: index + 1 })}
+                      {...register(`memberNames.${index}.name` as const)}
+                      placeholder={t("onboarding.memberNamePlaceholder")}
+                    />
+                    {fields.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => remove(index)}
+                        aria-label={t("onboarding.removeMember", { index: index + 1 })}
+                        title={t("onboarding.removeMember", { index: index + 1 })}
+                      >
+                        <Trash2 className="size-4" aria-hidden="true" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <p className="text-xs leading-5 text-muted-foreground">{t("onboarding.memberHint")}</p>
+                {errors.memberNames && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {t("error.onboarding.memberRequired")}
+                  </p>
+                )}
+                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: "" })} className="self-start">
+                  <Plus className="size-4" aria-hidden="true" /> {t("onboarding.addMember")}
+                </Button>
+              </fieldset>
+
+              {currencies.isError && <p className="text-xs text-warning-foreground">{t("onboarding.currencyLoadError")}</p>}
+
+              {completeOnboarding.isError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {translateWailsError((completeOnboarding.error as Error & { wireError?: WireError }).wireError ?? { code: "internal", message: "" })}
+                </p>
+              )}
+
+              <Button type="submit" disabled={completeOnboarding.isPending}>
+                {completeOnboarding.isPending ? t("common.pending") : t("onboarding.complete")}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </main>
   );
 }

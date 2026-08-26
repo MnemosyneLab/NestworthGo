@@ -20,6 +20,11 @@ export interface EChartProps {
   option: EChartsOption;
   className?: string;
   style?: React.CSSProperties;
+  ariaLabel: string;
+  summary?: string;
+  dataTableLabel?: string;
+  dataTableColumns?: [string, string];
+  dataTableRows?: Array<[string, string]>;
 }
 
 /**
@@ -27,9 +32,10 @@ export interface EChartProps {
  * Investment Gain, ...) so chart instance lifecycle handling (init,
  * resize, dispose, option updates) lives in exactly one place.
  */
-export function EChart({ option, className, style }: EChartProps) {
+export function EChart({ option, className, style, ariaLabel, summary, dataTableLabel, dataTableColumns, dataTableRows }: EChartProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const chartRef = React.useRef<echarts.ECharts | null>(null);
+  const summaryId = React.useId();
 
   React.useEffect(() => {
     if (!containerRef.current) {
@@ -54,5 +60,42 @@ export function EChart({ option, className, style }: EChartProps) {
     chartRef.current?.setOption(option, true);
   }, [option]);
 
-  return <div ref={containerRef} className={className} style={{ width: "100%", height: "100%", ...style }} />;
+  return (
+    <figure className="flex h-full flex-col gap-3">
+      <div
+        ref={containerRef}
+        className={className}
+        style={{ width: "100%", height: "100%", ...style }}
+        role="img"
+        aria-label={ariaLabel}
+        aria-describedby={summary ? summaryId : undefined}
+      />
+      {summary && <figcaption id={summaryId} className="sr-only">{summary}</figcaption>}
+      {dataTableLabel && dataTableColumns && dataTableRows && (
+        <details>
+          <summary className="cursor-pointer text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+            {dataTableLabel}
+          </summary>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-2 py-1 font-medium">{dataTableColumns[0]}</th>
+                  <th className="px-2 py-1 font-medium">{dataTableColumns[1]}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dataTableRows.map(([label, value]) => (
+                  <tr key={`${label}-${value}`} className="border-b border-border last:border-0">
+                    <td className="px-2 py-1">{label}</td>
+                    <td className="px-2 py-1">{value}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      )}
+    </figure>
+  );
 }

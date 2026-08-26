@@ -66,10 +66,10 @@ beforeEach(() => {
 describe("InvestmentsPage", () => {
   it("creates an Instrument with manual quote source", async () => {
     renderPage();
-    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.type(within(form).getByLabelText("Name"), "NVIDIA");
-    await userEvent.click(within(form).getByRole("button", { name: "Add" }));
+    await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
 
     expect(createInstrument).toHaveBeenCalledWith(
       expect.objectContaining({ name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }),
@@ -80,7 +80,7 @@ describe("InvestmentsPage", () => {
     renderPage();
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
     await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
-    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
 
     await screen.findByLabelText("Account");
     await userEvent.selectOptions(screen.getByLabelText("Account"), "acc-1");
@@ -117,9 +117,13 @@ describe("InvestmentsPage", () => {
     renderPage();
     await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
 
-    expect(await screen.findByTitle("Cost")).toHaveTextContent("$1,000.00");
-    expect(screen.getByTitle("Current value")).toHaveTextContent("$1,500.00");
-    expect(screen.getByTitle("Unrealized gain")).toHaveTextContent("$500.00");
+    expect(await screen.findByRole("columnheader", { name: "Cost" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Current value" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Unrealized gain" })).toBeInTheDocument();
+    const table = screen.getByTestId("holdings-table");
+    expect(table).toHaveTextContent("$1,000.00");
+    expect(table).toHaveTextContent("$1,500.00");
+    expect(table).toHaveTextContent("$500.00");
   });
 
   it("shows an unavailable badge when a Holding's gain cannot be computed", async () => {
@@ -146,6 +150,6 @@ describe("InvestmentsPage", () => {
     renderPage();
     await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
 
-    expect(await screen.findByText("no current price")).toBeInTheDocument();
+    expect(await screen.findByText("No current price")).toBeInTheDocument();
   });
 });

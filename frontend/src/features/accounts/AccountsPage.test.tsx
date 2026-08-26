@@ -163,4 +163,33 @@ describe("AccountsPage", () => {
       expect(setAccountLogo).toHaveBeenCalledWith("acc-1", "media-1");
     });
   });
+
+  it("keeps the account creation successful when logo persistence partially fails", async () => {
+    pickImage.mockResolvedValue("cGlj");
+    createMediaAsset.mockRejectedValueOnce(new Error("image storage unavailable")).mockResolvedValue({ id: "media-1" });
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Account form" });
+    await userEvent.click(within(form).getByRole("button", { name: /details/i }));
+    await userEvent.click(within(form).getByRole("button", { name: "Set image" }));
+    await userEvent.type(within(form).getByLabelText("Name"), "With Logo Failure");
+    await userEvent.click(within(form).getByLabelText("Alice"));
+    await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
+
+    await waitFor(() => expect(createMediaAsset).toHaveBeenCalledWith("image/png", "cGlj"));
+    expect(createAccount).toHaveBeenCalled();
+    expect(setAccountLogo).not.toHaveBeenCalled();
+    expect(createAccount).toHaveBeenCalledTimes(1);
+
+    const table = await screen.findByTestId("accounts-table");
+    expect(within(table).getByRole("alert")).toHaveTextContent(/try the image again/i);
+    pickImage.mockResolvedValue("cGlj");
+    const pickerButtons = within(table).getAllByRole("button", { name: "Set image" });
+    await userEvent.click(pickerButtons[pickerButtons.length - 1]);
+    await userEvent.click(within(table).getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(setAccountLogo).toHaveBeenCalledWith("acc-1", "media-1"));
+    expect(createAccount).toHaveBeenCalledTimes(1);
+  });
 });

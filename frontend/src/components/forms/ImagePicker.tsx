@@ -33,29 +33,29 @@ export function ImagePicker({
         onChange(picked);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("accounts.loadError"));
+      setError(err instanceof Error ? err.message : t("media.pickError"));
     }
   };
 
   return (
     <div className="flex flex-col gap-2">
-      <Label>{t("common.media")}</Label>
+      <Label>{label}</Label>
       <div className="flex items-center gap-3">
         {(value || existingAssetId) && (
-          <div className="size-12 overflow-hidden rounded-md border border-border bg-muted">
+          <div className="size-12 overflow-hidden rounded-md border border-border bg-muted" aria-label={value ? t("common.selectedImage") : t("common.currentImage")}>
             {value ? (
-              <img src={`data:image/png;base64,${value}`} alt="" className="size-full object-cover" />
+              <img src={`data:image/png;base64,${value}`} alt={t("common.selectedImage")} className="size-full object-cover" />
             ) : (
               <div className="size-full bg-muted" aria-hidden />
             )}
           </div>
         )}
         <Button type="button" variant="outline" size="sm" onClick={() => void choose()} disabled={pickImage.isPending}>
-          {t("common.media")}
+          {label}
         </Button>
         {value && (
-          <Button type="button" variant="ghost" size="sm" onClick={() => onChange(undefined)}>
-            {t("common.cancel")}
+          <Button type="button" variant="ghost" size="sm" onClick={() => onChange(undefined)} aria-label={t("common.removeImage")}>
+            {t("common.removeImage")}
           </Button>
         )}
       </div>

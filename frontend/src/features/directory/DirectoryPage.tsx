@@ -19,7 +19,8 @@ import {
   useSetGroupLogo,
 } from "@/queries/directory";
 import { persistPickedImage } from "@/queries/media";
-import type { DirectoryCreatePayload } from "@/features/directory/DirectoryEntityList";
+import type { DirectoryCreatePayload, DirectoryCreateResult } from "@/features/directory/DirectoryEntityList";
+import { PageHeader } from "@/components/layout/PageHeader";
 
 async function attachImage(
   id: string,
@@ -57,90 +58,93 @@ export function DirectoryPage() {
   const archiveGroup = useArchiveGroup();
   const setGroupLogo = useSetGroupLogo();
 
-  const saveMember = (payload: DirectoryCreatePayload) => {
-    createMember.mutate(payload.name, {
-      onSuccess: (created) => {
-        void attachImage(created.id, payload.pendingImage, (args) => setMemberAvatar.mutateAsync(args));
-      },
-    });
+  const saveMember = async (payload: DirectoryCreatePayload): Promise<DirectoryCreateResult> => {
+    const created = await createMember.mutateAsync(payload.name);
+    try {
+      await attachImage(created.id, payload.pendingImage, (args) => setMemberAvatar.mutateAsync(args));
+      return { mediaSaved: true };
+    } catch {
+      return { mediaSaved: false };
+    }
   };
 
-  const saveInstitution = (payload: DirectoryCreatePayload) => {
-    createInstitution.mutate(
-      { name: payload.name, iconKey: payload.iconKey ?? "" },
-      {
-        onSuccess: (created) => {
-          void attachImage(created.id, payload.pendingImage, (args) => setInstitutionLogo.mutateAsync(args));
-        },
-      },
-    );
+  const saveInstitution = async (payload: DirectoryCreatePayload): Promise<DirectoryCreateResult> => {
+    const created = await createInstitution.mutateAsync({ name: payload.name, iconKey: payload.iconKey ?? "" });
+    try {
+      await attachImage(created.id, payload.pendingImage, (args) => setInstitutionLogo.mutateAsync(args));
+      return { mediaSaved: true };
+    } catch {
+      return { mediaSaved: false };
+    }
   };
 
-  const saveGroup = (payload: DirectoryCreatePayload) => {
-    createGroup.mutate(
-      { name: payload.name, iconKey: payload.iconKey ?? "" },
-      {
-        onSuccess: (created) => {
-          void attachImage(created.id, payload.pendingImage, (args) => setGroupLogo.mutateAsync(args));
-        },
-      },
-    );
+  const saveGroup = async (payload: DirectoryCreatePayload): Promise<DirectoryCreateResult> => {
+    const created = await createGroup.mutateAsync({ name: payload.name, iconKey: payload.iconKey ?? "" });
+    try {
+      await attachImage(created.id, payload.pendingImage, (args) => setGroupLogo.mutateAsync(args));
+      return { mediaSaved: true };
+    } catch {
+      return { mediaSaved: false };
+    }
   };
 
   return (
-    <Tabs defaultValue="members">
-      <TabsList>
-        <TabsTrigger value="members">{t("nav.members")}</TabsTrigger>
-        <TabsTrigger value="institutions">{t("nav.institutions")}</TabsTrigger>
-        <TabsTrigger value="groups">{t("nav.groups")}</TabsTrigger>
-      </TabsList>
-      <TabsContent value="members">
-        <DirectoryEntityList
+    <div className="flex flex-col gap-6">
+      <PageHeader title={t("nav.directory")} description={t("directory.description")} />
+      <Tabs defaultValue="members">
+        <TabsList>
+          <TabsTrigger value="members">{t("nav.members")}</TabsTrigger>
+          <TabsTrigger value="institutions">{t("nav.institutions")}</TabsTrigger>
+          <TabsTrigger value="groups">{t("nav.groups")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="members">
+          <DirectoryEntityList
           entities={members.data ?? undefined}
           isLoading={members.isLoading}
           isError={members.isError}
           onCreate={saveMember}
-          onUpdate={(id, name) => updateMember.mutate({ id, name })}
-          onArchive={(id, archived) => archiveMember.mutate({ id, archived })}
-          onSetImage={(id, pendingImage) => {
-            void attachImage(id, pendingImage, (args) => setMemberAvatar.mutateAsync(args));
-          }}
-          createLabel={t("onboarding.memberNamePlaceholder", { defaultValue: "Member name" })}
+          onUpdate={(id, name) => updateMember.mutateAsync({ id, name }).then(() => undefined)}
+          onArchive={(id, archived) => archiveMember.mutateAsync({ id, archived }).then(() => undefined)}
+          onSetImage={(id, pendingImage) => attachImage(id, pendingImage, (args) => setMemberAvatar.mutateAsync(args))}
+          onRetry={() => members.refetch()}
+          entityLabel={t("nav.members")}
+          createLabel={t("onboarding.memberNamePlaceholder")}
           emptyLabel={t("members.createDescription")}
-        />
-      </TabsContent>
-      <TabsContent value="institutions">
-        <DirectoryEntityList
+          />
+        </TabsContent>
+        <TabsContent value="institutions">
+          <DirectoryEntityList
           entities={institutions.data ?? undefined}
           isLoading={institutions.isLoading}
           isError={institutions.isError}
           onCreate={saveInstitution}
-          onUpdate={(id, name) => updateInstitution.mutate({ id, name })}
-          onArchive={(id, archived) => archiveInstitution.mutate({ id, archived })}
-          onSetImage={(id, pendingImage) => {
-            void attachImage(id, pendingImage, (args) => setInstitutionLogo.mutateAsync(args));
-          }}
+          onUpdate={(id, name) => updateInstitution.mutateAsync({ id, name }).then(() => undefined)}
+          onArchive={(id, archived) => archiveInstitution.mutateAsync({ id, archived }).then(() => undefined)}
+          onSetImage={(id, pendingImage) => attachImage(id, pendingImage, (args) => setInstitutionLogo.mutateAsync(args))}
+          onRetry={() => institutions.refetch()}
+          entityLabel={t("nav.institutions")}
           createLabel={t("institutions.createTitle")}
           emptyLabel={t("institutions.createDescription")}
           supportsIcon
-        />
-      </TabsContent>
-      <TabsContent value="groups">
-        <DirectoryEntityList
+          />
+        </TabsContent>
+        <TabsContent value="groups">
+          <DirectoryEntityList
           entities={groups.data ?? undefined}
           isLoading={groups.isLoading}
           isError={groups.isError}
           onCreate={saveGroup}
-          onUpdate={(id, name) => updateGroup.mutate({ id, name })}
-          onArchive={(id, archived) => archiveGroup.mutate({ id, archived })}
-          onSetImage={(id, pendingImage) => {
-            void attachImage(id, pendingImage, (args) => setGroupLogo.mutateAsync(args));
-          }}
+          onUpdate={(id, name) => updateGroup.mutateAsync({ id, name }).then(() => undefined)}
+          onArchive={(id, archived) => archiveGroup.mutateAsync({ id, archived }).then(() => undefined)}
+          onSetImage={(id, pendingImage) => attachImage(id, pendingImage, (args) => setGroupLogo.mutateAsync(args))}
+          onRetry={() => groups.refetch()}
+          entityLabel={t("nav.groups")}
           createLabel={t("groups.createTitle")}
           emptyLabel={t("groups.createDescription")}
           supportsIcon
-        />
-      </TabsContent>
-    </Tabs>
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   );
 }

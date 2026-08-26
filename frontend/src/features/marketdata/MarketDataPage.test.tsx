@@ -31,15 +31,15 @@ describe("MarketDataPage", () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: /market data/i }));
     const results = await screen.findByTestId("refresh-results");
-    expect(results).toHaveTextContent("instrument:i1");
-    expect(results).toHaveTextContent("fetched");
-    expect(results).toHaveTextContent("fx:SGD/USD");
+    expect(results).toHaveTextContent("Instrument quote");
+    expect(results).toHaveTextContent("Updated");
+    expect(results).toHaveTextContent("FX rate");
   });
 
   it("shows an empty state when there are no refresh targets", async () => {
     refreshAll.mockResolvedValue({ items: [], rateLimited: false });
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: /market data/i }));
-    expect(await screen.findByText("No refresh targets found.")).toBeInTheDocument();
+    expect(await screen.findByText("No saved market data needs refreshing.")).toBeInTheDocument();
   });
 });

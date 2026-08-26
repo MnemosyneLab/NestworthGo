@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 const Dialog = BaseDialog.Root;
@@ -17,6 +18,8 @@ function DialogPortal({ children, ...props }: React.ComponentProps<typeof BaseDi
 }
 
 function DialogContent({ className, children, ...props }: React.ComponentProps<typeof BaseDialog.Popup>) {
+  const { t } = useTranslation();
+
   return (
     <DialogPortal>
       <BaseDialog.Popup
@@ -29,7 +32,7 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
         {children}
         <BaseDialog.Close className="absolute right-4 top-4 rounded-sm text-muted-foreground opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
           <X className="size-4" />
-          <span className="sr-only">Close</span>
+          <span className="sr-only">{t("common.close")}</span>
         </BaseDialog.Close>
       </BaseDialog.Popup>
     </DialogPortal>

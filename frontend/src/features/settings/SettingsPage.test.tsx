@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { SettingsPage } from "./SettingsPage";
@@ -63,7 +63,7 @@ describe("SettingsPage", () => {
     await screen.findByRole("form", { name: "Settings" });
     await userEvent.selectOptions(screen.getByLabelText("Appearance"), "dark");
     await userEvent.selectOptions(screen.getByLabelText("Language"), "zh-CN");
-    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ appearance: "dark", language: "zh-CN" }));
   });
@@ -72,8 +72,19 @@ describe("SettingsPage", () => {
     reset.mockResolvedValue({ ...defaultSettings, appearance: "system" });
     renderPage();
     await screen.findByRole("form", { name: "Settings" });
-    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    await userEvent.click(screen.getByRole("button", { name: "Restore defaults" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Restore defaults" }));
     expect(reset).toHaveBeenCalled();
+  });
+
+  it("does not reset when the confirmation is canceled", async () => {
+    renderPage();
+    await screen.findByRole("form", { name: "Settings" });
+    await userEvent.click(screen.getByRole("button", { name: "Restore defaults" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(reset).not.toHaveBeenCalled();
   });
 
   it("renders the About section from AppService.AppInfo", async () => {

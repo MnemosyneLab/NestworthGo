@@ -74,9 +74,14 @@ export function useAllHoldingsFlat(accountIds: string[]) {
   const flat = Object.entries(holdingsByAccount.data ?? {}).flatMap(([accId, holdings]) =>
     (holdings ?? [])
       .filter((holding) => !holding.archivedAt)
-      .map((holding) => ({ ...holding, accountId: accId, instrumentName: instrumentNameById.get(holding.instrumentId) ?? holding.instrumentId })),
+      .map((holding) => ({ ...holding, accountId: accId, instrumentName: instrumentNameById.get(holding.instrumentId) })),
   );
-  return { data: flat, isLoading: holdingsByAccount.isLoading || instruments.isLoading };
+  return {
+    data: flat,
+    isLoading: holdingsByAccount.isLoading || instruments.isLoading,
+    isError: holdingsByAccount.isError || instruments.isError,
+    refetch: () => Promise.all([holdingsByAccount.refetch(), instruments.refetch()]),
+  };
 }
 
 export function useCurrentInstrumentQuote(instrumentId: string) {

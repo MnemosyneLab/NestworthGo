@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor } from "lucide-react";
-import { NAV_ITEMS, DEFAULT_PAGE_ID } from "@/app/navigation";
+import { NAV_GROUPS, DEFAULT_PAGE_ID } from "@/app/navigation";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ const APPEARANCE_ICONS: Record<Appearance, React.ComponentType<{ className?: str
 };
 
 function AppearanceToggle() {
+  const { t } = useTranslation();
   const appearance = useUiStore((state) => state.appearance);
   const setAppearance = useUiStore((state) => state.setAppearance);
   const order: Appearance[] = ["system", "light", "dark"];
@@ -27,24 +28,30 @@ function AppearanceToggle() {
 
   const Icon = APPEARANCE_ICONS[appearance];
   return (
-    <Button variant="ghost" size="icon" onClick={cycle} aria-label="Toggle appearance" title={appearance}>
+    <Button
+      variant="ghost"
+      size="icon"
+      onClick={cycle}
+      aria-label={t("ui.appearance.toggle")}
+      title={t(`option.appearance.${appearance}`)}
+    >
       <Icon className="size-4" />
     </Button>
   );
 }
 
 function LanguageSwitcher() {
-  const { i18n: i18nInstance } = useTranslation();
+  const { t, i18n: i18nInstance } = useTranslation();
   return (
     <select
-      aria-label="Language"
+      aria-label={t("settings.language.language")}
       className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
       value={i18nInstance.language}
       onChange={(event) => setLanguage(event.target.value)}
     >
       {SUPPORTED_LANGUAGES.map((language) => (
         <option key={language} value={language}>
-          {language}
+          {t(`option.language.${language === "zh-CN" ? "zhCN" : language === "zh-TW" ? "zhTW" : "en"}`)}
         </option>
       ))}
     </select>
@@ -72,7 +79,7 @@ export function AppShell({ activePageId, onNavigate, children }: AppShellProps) 
   const appInfo = useAppInfo();
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+    <div className="flex h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
           "flex flex-col border-r border-border bg-card transition-all duration-150",
@@ -81,34 +88,53 @@ export function AppShell({ activePageId, onNavigate, children }: AppShellProps) 
       >
         <div className="flex h-12 items-center justify-between px-3">
           {!collapsed && <span className="text-sm font-semibold">{t("app.name")}</span>}
-          <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="Toggle sidebar">
+          <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label={t("ui.navigation.toggleSidebar")}>
             {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </Button>
         </div>
-        <nav className="flex flex-1 flex-col gap-1 px-2" aria-label="Main navigation">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const active = item.id === activePageId;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onNavigate(item.id)}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition-colors",
-                  active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted",
-                )}
-              >
-                <Icon className="size-4 shrink-0" />
-                {!collapsed && <span>{t(item.translationKey)}</span>}
-              </button>
-            );
-          })}
+        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2" aria-label={t("ui.navigation.main")}>
+          {NAV_GROUPS.map((group) => (
+            <div key={group.id} className="flex flex-col gap-1">
+              {!collapsed && group.translationKey && (
+                <p className="px-2 pb-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {t(group.translationKey)}
+                </p>
+              )}
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const active = item.id === activePageId;
+                const label = t(item.translationKey);
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => onNavigate(item.id)}
+                    aria-label={label}
+                    title={collapsed ? label : undefined}
+                    aria-current={active ? "page" : undefined}
+                    className={cn(
+                      "flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition-colors",
+                      active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted",
+                      collapsed && "justify-center",
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0" aria-hidden="true" />
+                    {!collapsed && <span>{label}</span>}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
         {!collapsed && (
           <div className="px-3 py-2 text-xs text-muted-foreground">
-            {appInfo.data ? `v${appInfo.data.version}` : appInfo.isError ? "—" : "…"}
+            {appInfo.data
+              ? appInfo.data.version.startsWith("v")
+                ? appInfo.data.version
+                : `v${appInfo.data.version}`
+              : appInfo.isError
+                ? ""
+                : "..."}
           </div>
         )}
       </aside>
@@ -117,7 +143,9 @@ export function AppShell({ activePageId, onNavigate, children }: AppShellProps) 
           <LanguageSwitcher />
           <AppearanceToggle />
         </header>
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main id="main-content" className="flex-1 overflow-auto p-6 sm:p-8">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
       </div>
     </div>
   );

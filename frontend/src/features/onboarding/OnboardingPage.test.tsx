@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { OnboardingPage } from "./OnboardingPage";
@@ -31,7 +31,12 @@ describe("OnboardingPage", () => {
   });
 
   it("submits householdName, baseCurrency, and every member name on success", async () => {
-    renderPage();
+    const onCompleted = vi.fn();
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <OnboardingPage onCompleted={onCompleted} />
+      </QueryClientProvider>,
+    );
     const form = screen.getByRole("form", { name: "Onboarding" });
     await userEvent.type(within(form).getByLabelText(/household name/i), "The Tans");
     await userEvent.type(within(form).getByLabelText("Member 1 name"), "Alice");
@@ -42,6 +47,7 @@ describe("OnboardingPage", () => {
     expect(completeOnboarding).toHaveBeenCalledWith(
       expect.objectContaining({ householdName: "The Tans", memberNames: ["Alice", "Bob"] }),
     );
+    await waitFor(() => expect(onCompleted).toHaveBeenCalledTimes(1));
   });
 
   it("allows removing a member row once more than one exists", async () => {

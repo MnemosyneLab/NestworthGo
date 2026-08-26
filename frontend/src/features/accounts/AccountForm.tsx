@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
@@ -20,6 +20,7 @@ import {
 } from "@/features/accounts/accountTaxonomy";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import { displayEnum } from "@/lib/display";
 
 const accountFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -92,11 +93,13 @@ export function AccountForm({
   onSubmit,
   submitLabel,
   isSubmitting,
+  submissionError,
 }: {
   record?: AccountRecordDTO;
-  onSubmit: (request: CreateAccountRequest, extras: AccountFormExtras) => void;
+  onSubmit: (request: CreateAccountRequest, extras: AccountFormExtras) => void | Promise<void>;
   submitLabel: string;
   isSubmitting: boolean;
+  submissionError?: string;
 }) {
   const { t } = useTranslation();
   const members = useMembers();
@@ -114,16 +117,16 @@ export function AccountForm({
 
   const {
     register,
-    watch,
+    control,
     setValue,
     handleSubmit,
     formState: { errors },
   } = useForm<AccountFormValues>({ resolver: zodResolver(accountFormSchema), defaultValues: initialValues });
 
-  const primaryCategory = watch("primaryCategory") as PrimaryCategory;
-  const trackingMode = watch("trackingMode");
-  const ownerIds = watch("ownerIds");
-  const ownershipPercentages = watch("ownershipPercentages") ?? [];
+  const primaryCategory = useWatch({ control, name: "primaryCategory" }) as PrimaryCategory;
+  const trackingMode = useWatch({ control, name: "trackingMode" });
+  const ownerIds = useWatch({ control, name: "ownerIds" });
+  const ownershipPercentages = useWatch({ control, name: "ownershipPercentages" }) ?? [];
 
   const secondaryOptions = useMemo(() => SECONDARY_CATEGORIES_BY_PRIMARY[primaryCategory] ?? [], [primaryCategory]);
   const trackingModeOptions = useMemo(() => TRACKING_MODES_BY_PRIMARY[primaryCategory] ?? [], [primaryCategory]);
@@ -160,7 +163,7 @@ export function AccountForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" aria-label="Account form">
+    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" aria-label={t("accounts.formLabel")}>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-name">{t("accounts.name")}</Label>
         <Input id="account-name" {...register("name")} />
@@ -181,7 +184,7 @@ export function AccountForm({
         >
           {PRIMARY_CATEGORIES.map((category) => (
             <option key={category} value={category}>
-              {category}
+              {displayEnum(t, "enum", category)}
             </option>
           ))}
         </select>
@@ -192,7 +195,7 @@ export function AccountForm({
         <select id="account-secondary-category" {...register("secondaryCategory")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
           {secondaryOptions.map((category) => (
             <option key={category} value={category}>
-              {category}
+              {displayEnum(t, "enum", category)}
             </option>
           ))}
         </select>
@@ -204,7 +207,7 @@ export function AccountForm({
           <select id="account-tracking-mode" {...register("trackingMode")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
             {trackingModeOptions.map((mode) => (
               <option key={mode} value={mode}>
-                {mode}
+                {displayEnum(t, "enum", mode)}
               </option>
             ))}
           </select>
@@ -229,8 +232,8 @@ export function AccountForm({
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
-        <Label>{t("accounts.owner")}</Label>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium">{t("accounts.owner")}</legend>
         <p className="text-xs text-muted-foreground">{t("accounts.ownershipHint")}</p>
         {(members.data ?? []).map((member) => {
           const index = ownerIds.indexOf(member.id);
@@ -249,7 +252,7 @@ export function AccountForm({
               </Label>
               {useCustomPercentages && checked && (
                 <Input
-                  aria-label={`${member.name} ownership percentage`}
+                  aria-label={t("accounts.ownershipPercentageFor", { name: member.name })}
                   className="w-20"
                   value={ownershipPercentages[index] ?? ""}
                   onChange={(event) => {
@@ -278,7 +281,7 @@ export function AccountForm({
             {t("error.ownership.atLeastOneOwner")}
           </p>
         )}
-      </div>
+      </fieldset>
 
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2 text-sm">
@@ -292,12 +295,20 @@ export function AccountForm({
         </label>
       </div>
 
-      <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setShowMoreOptions((value) => !value)}>
-        {showMoreOptions ? "− " : "+ "}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="self-start"
+        onClick={() => setShowMoreOptions((value) => !value)}
+        aria-expanded={showMoreOptions}
+        aria-controls="account-more-options"
+      >
+        <span aria-hidden="true">{showMoreOptions ? "−" : "+"}</span>
         {t("common.details")}
       </Button>
       {showMoreOptions && (
-        <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+        <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="account-institution">{t("nav.institutions")}</Label>
             <select id="account-institution" {...register("institutionId")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
@@ -328,6 +339,12 @@ export function AccountForm({
             onChange={setPendingImage}
           />
         </div>
+      )}
+
+      {submissionError && (
+        <p role="alert" className="text-sm text-destructive">
+          {submissionError}
+        </p>
       )}
 
       <Button type="submit" disabled={isSubmitting}>
