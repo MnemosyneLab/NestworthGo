@@ -142,10 +142,6 @@ func (s *Service) commitChangeLocked(ctx context.Context, state domain.ChangeSta
 	return preview, nil
 }
 
-func (s *Service) CommitChange(ctx context.Context, command any) (domain.ChangePreview, error) {
-	return s.RecordChange(ctx, command)
-}
-
 func (s *Service) HistoryMutationAllowed(ctx context.Context) error {
 	started, err := s.HistoryStarted(ctx)
 	if err != nil {

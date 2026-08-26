@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/select";
 import { iconChoicesByCategory } from "@/lib/iconCatalog";
 
 export function IconPicker({
@@ -15,11 +16,10 @@ export function IconPicker({
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{t("common.icon")}</Label>
-      <select
+      <NativeSelect
         id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground"
         aria-label={t("common.chooseIcon")}
       >
         <option value="">{t("accounts.none")}</option>
@@ -32,7 +32,7 @@ export function IconPicker({
             ))}
           </optgroup>
         ))}
-      </select>
+      </NativeSelect>
     </div>
   );
 }

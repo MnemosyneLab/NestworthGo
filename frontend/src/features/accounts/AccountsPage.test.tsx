@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test/queryClient";
 import { AccountsPage } from "./AccountsPage";
 
 const listAccounts = vi.fn();
@@ -39,7 +40,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
 }));
 
 function renderPage() {
-  const queryClient = new QueryClient();
+  const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
       <AccountsPage />
@@ -95,8 +96,7 @@ describe("AccountsPage", () => {
     expect(createAccount).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "New Savings",
-        ownerIds: ["alice", "bob"],
-        ownershipPercentages: undefined,
+        ownership: [{ memberId: "alice", shareBps: 5000 }, { memberId: "bob", shareBps: 5000 }],
         initialAmount: "500",
       }),
     );
@@ -117,7 +117,12 @@ describe("AccountsPage", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
 
     expect(createAccount).toHaveBeenCalledWith(
-      expect.objectContaining({ ownerIds: ["alice", "bob"], ownershipPercentages: ["70", "30"] }),
+      expect.objectContaining({
+        ownership: [
+          { memberId: "alice", shareBps: 7000 },
+          { memberId: "bob", shareBps: 3000 },
+        ],
+      }),
     );
   });
 

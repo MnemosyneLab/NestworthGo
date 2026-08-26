@@ -4,11 +4,10 @@ import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
-// Sheet is a side panel built on the same Dialog primitive as
-// components/ui/dialog.tsx (Base UI does not ship a lightweight desktop
-// side-panel primitive separate from its gesture-driven mobile Drawer), so
-// it shares Root/Trigger/Close and only changes the popup's position and
-// enter/exit animation.
+// Sheet is a side panel built on Base UI's Dialog primitive (Base UI does
+// not ship a lightweight desktop side-panel primitive separate from its
+// gesture-driven mobile Drawer). It shares Root/Trigger/Close and only
+// changes the popup's position and enter/exit animation.
 const Sheet = BaseDialog.Root;
 const SheetTrigger = BaseDialog.Trigger;
 const SheetClose = BaseDialog.Close;

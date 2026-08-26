@@ -18,20 +18,9 @@ import {
   useArchiveGroup,
   useSetGroupLogo,
 } from "@/queries/directory";
-import { persistPickedImage } from "@/queries/media";
+import { attachPendingImage } from "@/queries/media";
 import type { DirectoryCreatePayload, DirectoryCreateResult } from "@/features/directory/DirectoryEntityList";
 import { PageHeader } from "@/components/layout/PageHeader";
-
-async function attachImage(
-  id: string,
-  pendingImage: string | undefined,
-  setLogo: (args: { id: string; mediaAssetId: string }) => Promise<unknown>,
-) {
-  if (!pendingImage) {
-    return;
-  }
-  await persistPickedImage(pendingImage, (mediaAssetId) => setLogo({ id, mediaAssetId }));
-}
 
 /**
  * DirectoryPage groups Members, Institutions, and Groups under one nav entry
@@ -61,7 +50,7 @@ export function DirectoryPage() {
   const saveMember = async (payload: DirectoryCreatePayload): Promise<DirectoryCreateResult> => {
     const created = await createMember.mutateAsync(payload.name);
     try {
-      await attachImage(created.id, payload.pendingImage, (args) => setMemberAvatar.mutateAsync(args));
+      await attachPendingImage(created.id, payload.pendingImage, (args) => setMemberAvatar.mutateAsync(args));
       return { mediaSaved: true };
     } catch {
       return { mediaSaved: false };
@@ -71,7 +60,7 @@ export function DirectoryPage() {
   const saveInstitution = async (payload: DirectoryCreatePayload): Promise<DirectoryCreateResult> => {
     const created = await createInstitution.mutateAsync({ name: payload.name, iconKey: payload.iconKey ?? "" });
     try {
-      await attachImage(created.id, payload.pendingImage, (args) => setInstitutionLogo.mutateAsync(args));
+      await attachPendingImage(created.id, payload.pendingImage, (args) => setInstitutionLogo.mutateAsync(args));
       return { mediaSaved: true };
     } catch {
       return { mediaSaved: false };
@@ -81,7 +70,7 @@ export function DirectoryPage() {
   const saveGroup = async (payload: DirectoryCreatePayload): Promise<DirectoryCreateResult> => {
     const created = await createGroup.mutateAsync({ name: payload.name, iconKey: payload.iconKey ?? "" });
     try {
-      await attachImage(created.id, payload.pendingImage, (args) => setGroupLogo.mutateAsync(args));
+      await attachPendingImage(created.id, payload.pendingImage, (args) => setGroupLogo.mutateAsync(args));
       return { mediaSaved: true };
     } catch {
       return { mediaSaved: false };
@@ -105,7 +94,7 @@ export function DirectoryPage() {
           onCreate={saveMember}
           onUpdate={(id, name) => updateMember.mutateAsync({ id, name }).then(() => undefined)}
           onArchive={(id, archived) => archiveMember.mutateAsync({ id, archived }).then(() => undefined)}
-          onSetImage={(id, pendingImage) => attachImage(id, pendingImage, (args) => setMemberAvatar.mutateAsync(args))}
+          onSetImage={(id, pendingImage) => attachPendingImage(id, pendingImage, (args) => setMemberAvatar.mutateAsync(args))}
           onRetry={() => members.refetch()}
           entityLabel={t("nav.members")}
           createLabel={t("onboarding.memberNamePlaceholder")}
@@ -120,7 +109,7 @@ export function DirectoryPage() {
           onCreate={saveInstitution}
           onUpdate={(id, name) => updateInstitution.mutateAsync({ id, name }).then(() => undefined)}
           onArchive={(id, archived) => archiveInstitution.mutateAsync({ id, archived }).then(() => undefined)}
-          onSetImage={(id, pendingImage) => attachImage(id, pendingImage, (args) => setInstitutionLogo.mutateAsync(args))}
+          onSetImage={(id, pendingImage) => attachPendingImage(id, pendingImage, (args) => setInstitutionLogo.mutateAsync(args))}
           onRetry={() => institutions.refetch()}
           entityLabel={t("nav.institutions")}
           createLabel={t("institutions.createTitle")}
@@ -136,7 +125,7 @@ export function DirectoryPage() {
           onCreate={saveGroup}
           onUpdate={(id, name) => updateGroup.mutateAsync({ id, name }).then(() => undefined)}
           onArchive={(id, archived) => archiveGroup.mutateAsync({ id, archived }).then(() => undefined)}
-          onSetImage={(id, pendingImage) => attachImage(id, pendingImage, (args) => setGroupLogo.mutateAsync(args))}
+          onSetImage={(id, pendingImage) => attachPendingImage(id, pendingImage, (args) => setGroupLogo.mutateAsync(args))}
           onRetry={() => groups.refetch()}
           entityLabel={t("nav.groups")}
           createLabel={t("groups.createTitle")}

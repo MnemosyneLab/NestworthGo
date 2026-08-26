@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test/queryClient";
 import { OnboardingPage } from "./OnboardingPage";
 
 const completeOnboarding = vi.fn().mockResolvedValue({});
@@ -14,7 +15,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
 }));
 
 function renderPage() {
-  const queryClient = new QueryClient();
+  const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
       <OnboardingPage />
@@ -33,7 +34,7 @@ describe("OnboardingPage", () => {
   it("submits householdName, baseCurrency, and every member name on success", async () => {
     const onCompleted = vi.fn();
     render(
-      <QueryClientProvider client={new QueryClient()}>
+      <QueryClientProvider client={createTestQueryClient()}>
         <OnboardingPage onCompleted={onCompleted} />
       </QueryClientProvider>,
     );

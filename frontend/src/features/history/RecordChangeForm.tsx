@@ -3,45 +3,107 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/select";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments, useAllHoldingsFlat } from "@/queries/investments";
 import { usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
-import type { ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
+import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { formatAmount } from "@/lib/money";
 import { displayError } from "@/lib/display";
+import { emptyChangeRequest } from "@/features/history/activityToCommand";
 
-const KINDS = [
-  "money_added",
-  "money_removed",
-  "cash_transfer",
-  "fx_conversion",
-  "position_transfer",
-  "position_adjustment",
-  "trade",
-  "value_update",
-  "debt_draw",
-  "debt_payment",
+const KINDS: ChangeCommandKind[] = [
+  ChangeCommandKind.ChangeMoneyAdded,
+  ChangeCommandKind.ChangeMoneyRemoved,
+  ChangeCommandKind.ChangeCashTransfer,
+  ChangeCommandKind.ChangeFXConversion,
+  ChangeCommandKind.ChangePositionTransfer,
+  ChangeCommandKind.ChangePositionAdjustment,
+  ChangeCommandKind.ChangeTrade,
+  ChangeCommandKind.ChangeValueUpdate,
+  ChangeCommandKind.ChangeDebtDraw,
+  ChangeCommandKind.ChangeDebtPayment,
 ];
 
-function AccountSelect({ id, label, value, onChange, accounts }: { id: string; label: string; value: string; onChange: (value: string) => void; accounts: { id: string; name: string }[] }) {
+const MONEY_IN_REASONS = ["income", "contribution", "gift", "other", "reconciliation"] as const;
+const MONEY_OUT_REASONS = ["expense", "fee", "tax", "other", "reconciliation"] as const;
+const VALUE_UPDATE_REASONS = ["reconciliation", "other"] as const;
+
+function AccountSelect({
+  id,
+  label,
+  value,
+  onChange,
+  accounts,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  accounts: { id: string; name: string }[];
+}) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <select id={id} value={value} onChange={(event) => onChange(event.target.value)} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+      <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
         <option value="">{t("history.accountSelectEmpty")}</option>
         {accounts.map((account) => (
           <option key={account.id} value={account.id}>
             {account.name}
           </option>
         ))}
-      </select>
+      </NativeSelect>
     </div>
   );
 }
 
-function MoneyFields({ prefix, label, amount, currency, onAmount, onCurrency }: { prefix: string; label: string; amount: string; currency: string; onAmount: (v: string) => void; onCurrency: (v: string) => void }) {
+function OptionSelect({
+  id,
+  label,
+  value,
+  emptyLabel,
+  options,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  emptyLabel: string;
+  options: { id: string; name: string }[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+        <option value="">{emptyLabel}</option>
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.name}
+          </option>
+        ))}
+      </NativeSelect>
+    </div>
+  );
+}
+
+function MoneyFields({
+  prefix,
+  label,
+  amount,
+  currency,
+  onAmount,
+  onCurrency,
+}: {
+  prefix: string;
+  label: string;
+  amount: string;
+  currency: string;
+  onAmount: (value: string) => void;
+  onCurrency: (value: string) => void;
+}) {
   const { t } = useTranslation();
   return (
     <div className="flex gap-2">
@@ -57,25 +119,18 @@ function MoneyFields({ prefix, label, amount, currency, onAmount, onCurrency }: 
   );
 }
 
-export interface RecordChangeFormInitial {
-  kind: string;
-  fields: Record<string, string>;
-  added: boolean;
-}
-
 /**
  * RecordChangeForm implements the "record a change with ordinary
  * language" flow for every one of the ten domain.PreviewChange kinds via
  * history.ChangeCommandRequest's tagged union. It always previews before
- * committing: Preview
- * calls PreviewChange (no side effect) and shows the resulting
- * balances/quantities; Confirm re-submits the identical request to
- * RecordChange, which re-validates and commits.
+ * committing: Preview calls PreviewChange (no side effect) and shows the
+ * resulting balances/quantities; Confirm re-submits the identical request
+ * to RecordChange, which re-validates and commits.
  *
  * When `fixActivityId` is set, the form instead drives HistoryService's
- * Fix flow: it starts pre-filled from `initial` (see
- * activityToInitialCommand.ts) and Confirm calls FixChange instead of
- * RecordChange, replacing the original activity with the edited one.
+ * Fix flow: it starts pre-filled from `initial` and Confirm calls
+ * FixChange instead of RecordChange. Reason and note are visible fields
+ * so a Fix cannot resubmit hidden values the user did not see.
  */
 export function RecordChangeForm({
   onRecorded,
@@ -83,7 +138,7 @@ export function RecordChangeForm({
   fixActivityId,
 }: {
   onRecorded: () => void;
-  initial?: RecordChangeFormInitial;
+  initial?: ChangeCommandRequest;
   fixActivityId?: string;
 }) {
   const { t } = useTranslation();
@@ -96,13 +151,11 @@ export function RecordChangeForm({
   const record = useRecordChange();
   const fix = useFixChange();
 
-  const [kind, setKind] = useState<string>(initial?.kind ?? "money_added");
-  const [fields, setFields] = useState<Record<string, string>>(initial?.fields ?? { currency: "USD" });
-  const [added, setAdded] = useState(initial?.added ?? true);
+  const [request, setRequest] = useState<ChangeCommandRequest>(initial ?? emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded));
   const [previewResult, setPreviewResult] = useState<EndpointViewDTO[] | null>(null);
 
-  const set = (key: string, value: string) => {
-    setFields((prev) => ({ ...prev, [key]: value }));
+  const patch = (next: Partial<ChangeCommandRequest>) => {
+    setRequest((current) => ({ ...current, ...next }));
     setPreviewResult(null);
   };
 
@@ -110,28 +163,29 @@ export function RecordChangeForm({
   const holdingsAccountOptions = (accounts.data ?? [])
     .filter((record) => record.account.trackingMode === "holdings")
     .map((record) => ({ id: record.account.id, name: record.account.name }));
+  const holdingOptions = holdings.data.map((holding) => ({
+    id: holding.id,
+    name: holding.instrumentName ?? t("portfolio.unknownInstrument"),
+  }));
+  const instrumentOptions = (instruments.data ?? []).map((instrument) => ({ id: instrument.id, name: instrument.name }));
 
-  const buildRequest = (): ChangeCommandRequest => ({
-    kind: kind as ChangeCommandRequest["kind"],
-    added,
-    ...fields,
-  });
+  const kind = request.kind;
+  const showReason = kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved || kind === ChangeCommandKind.ChangeValueUpdate;
+  const reasonOptions =
+    kind === ChangeCommandKind.ChangeMoneyRemoved ? MONEY_OUT_REASONS : kind === ChangeCommandKind.ChangeValueUpdate ? VALUE_UPDATE_REASONS : MONEY_IN_REASONS;
 
   const runPreview = () => {
     if (fixActivityId) {
-      previewFix.mutate(
-        { activityId: fixActivityId, replacement: buildRequest() },
-        { onSuccess: (result) => setPreviewResult(result.resulting) },
-      );
+      previewFix.mutate({ activityId: fixActivityId, replacement: request }, { onSuccess: (result) => setPreviewResult(result.resulting) });
       return;
     }
-    preview.mutate(buildRequest(), { onSuccess: (result) => setPreviewResult(result.resulting) });
+    preview.mutate(request, { onSuccess: (result) => setPreviewResult(result.resulting) });
   };
 
   const runConfirm = () => {
     if (fixActivityId) {
       fix.mutate(
-        { activityId: fixActivityId, replacement: buildRequest() },
+        { activityId: fixActivityId, replacement: request },
         {
           onSuccess: () => {
             setPreviewResult(null);
@@ -141,10 +195,10 @@ export function RecordChangeForm({
       );
       return;
     }
-    record.mutate(buildRequest(), {
+    record.mutate(request, {
       onSuccess: () => {
         setPreviewResult(null);
-        setFields({ currency: "USD" });
+        setRequest(emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded));
         onRecorded();
       },
     });
@@ -158,162 +212,131 @@ export function RecordChangeForm({
     <div className="flex flex-col gap-4" role="form" aria-label={t("history.formLabel")}>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="change-kind">{t("history.changeType")}</Label>
-        <select
+        <NativeSelect
           id="change-kind"
           value={kind}
           onChange={(event) => {
-            setKind(event.target.value);
-            setFields({ currency: "USD" });
+            setRequest(emptyChangeRequest(event.target.value as ChangeCommandKind));
             setPreviewResult(null);
           }}
-          className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground"
         >
           {KINDS.map((value) => (
             <option key={value} value={value}>
               {t(`history.kind.${value}`)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
-      {kind === "money_added" && (
+      {(kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved) && (
         <>
-          <AccountSelect id="change-account" label={t("history.accountSelect")} value={fields.accountId ?? ""} onChange={(v) => set("accountId", v)} accounts={accountOptions} />
-          <MoneyFields prefix="change" label={t("history.amount")} amount={fields.amount ?? ""} currency={fields.currency ?? "USD"} onAmount={(v) => set("amount", v)} onCurrency={(v) => set("currency", v)} />
+          <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => patch({ accountId })} accounts={accountOptions} />
+          <MoneyFields prefix="change" label={t("history.amount")} amount={request.amount ?? ""} currency={request.currency ?? "USD"} onAmount={(amount) => patch({ amount })} onCurrency={(currency) => patch({ currency })} />
         </>
       )}
 
-      {kind === "money_removed" && (
+      {kind === ChangeCommandKind.ChangeValueUpdate && (
         <>
-          <AccountSelect id="change-account" label={t("history.accountSelect")} value={fields.accountId ?? ""} onChange={(v) => set("accountId", v)} accounts={accountOptions} />
-          <MoneyFields prefix="change" label={t("history.amount")} amount={fields.amount ?? ""} currency={fields.currency ?? "USD"} onAmount={(v) => set("amount", v)} onCurrency={(v) => set("currency", v)} />
+          <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => patch({ accountId })} accounts={accountOptions} />
+          <MoneyFields prefix="change" label={t("history.newValue")} amount={request.newValue ?? ""} currency={request.newValueCurrency ?? "USD"} onAmount={(newValue) => patch({ newValue })} onCurrency={(newValueCurrency) => patch({ newValueCurrency })} />
         </>
       )}
 
-      {kind === "value_update" && (
+      {kind === ChangeCommandKind.ChangeCashTransfer && (
         <>
-          <AccountSelect id="change-account" label={t("history.accountSelect")} value={fields.accountId ?? ""} onChange={(v) => set("accountId", v)} accounts={accountOptions} />
-          <MoneyFields prefix="change" label={t("history.newValue")} amount={fields.newValue ?? ""} currency={fields.newValueCurrency ?? "USD"} onAmount={(v) => set("newValue", v)} onCurrency={(v) => set("newValueCurrency", v)} />
+          <AccountSelect id="change-from-account" label={t("history.fromAccount")} value={request.fromAccountId ?? ""} onChange={(fromAccountId) => patch({ fromAccountId })} accounts={accountOptions} />
+          <AccountSelect id="change-to-account" label={t("history.toAccount")} value={request.toAccountId ?? ""} onChange={(toAccountId) => patch({ toAccountId })} accounts={accountOptions} />
+          <MoneyFields prefix="change-sent" label={t("history.sent")} amount={request.sent ?? ""} currency={request.sentCurrency ?? "USD"} onAmount={(sent) => patch({ sent })} onCurrency={(sentCurrency) => patch({ sentCurrency })} />
+          <MoneyFields prefix="change-received" label={t("history.received")} amount={request.received ?? ""} currency={request.receivedCurrency ?? "USD"} onAmount={(received) => patch({ received })} onCurrency={(receivedCurrency) => patch({ receivedCurrency })} />
         </>
       )}
 
-      {kind === "cash_transfer" && (
+      {kind === ChangeCommandKind.ChangeFXConversion && (
         <>
-          <AccountSelect id="change-from-account" label={t("history.fromAccount")} value={fields.fromAccountId ?? ""} onChange={(v) => set("fromAccountId", v)} accounts={accountOptions} />
-          <AccountSelect id="change-to-account" label={t("history.toAccount")} value={fields.toAccountId ?? ""} onChange={(v) => set("toAccountId", v)} accounts={accountOptions} />
-          <MoneyFields prefix="change-sent" label={t("history.sent")} amount={fields.sent ?? ""} currency={fields.sentCurrency ?? "USD"} onAmount={(v) => set("sent", v)} onCurrency={(v) => set("sentCurrency", v)} />
-          <MoneyFields prefix="change-received" label={t("history.received")} amount={fields.received ?? ""} currency={fields.receivedCurrency ?? "USD"} onAmount={(v) => set("received", v)} onCurrency={(v) => set("receivedCurrency", v)} />
+          <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => patch({ accountId })} accounts={holdingsAccountOptions} />
+          <MoneyFields prefix="change-sold" label={t("history.sold")} amount={request.sold ?? ""} currency={request.soldCurrency ?? "USD"} onAmount={(sold) => patch({ sold })} onCurrency={(soldCurrency) => patch({ soldCurrency })} />
+          <MoneyFields prefix="change-bought" label={t("history.bought")} amount={request.bought ?? ""} currency={request.boughtCurrency ?? "USD"} onAmount={(bought) => patch({ bought })} onCurrency={(boughtCurrency) => patch({ boughtCurrency })} />
         </>
       )}
 
-      {kind === "fx_conversion" && (
+      {kind === ChangeCommandKind.ChangePositionTransfer && (
         <>
-          <AccountSelect id="change-account" label={t("history.accountSelect")} value={fields.accountId ?? ""} onChange={(v) => set("accountId", v)} accounts={holdingsAccountOptions} />
-          <MoneyFields prefix="change-sold" label={t("history.sold")} amount={fields.sold ?? ""} currency={fields.soldCurrency ?? "USD"} onAmount={(v) => set("sold", v)} onCurrency={(v) => set("soldCurrency", v)} />
-          <MoneyFields prefix="change-bought" label={t("history.bought")} amount={fields.bought ?? ""} currency={fields.boughtCurrency ?? "USD"} onAmount={(v) => set("bought", v)} onCurrency={(v) => set("boughtCurrency", v)} />
-        </>
-      )}
-
-      {kind === "position_transfer" && (
-        <>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="change-from-holding">{t("history.fromHolding")}</Label>
-            <select id="change-from-holding" value={fields.fromHoldingId ?? ""} onChange={(event) => set("fromHoldingId", event.target.value)} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
-              <option value="">{t("history.selectEmpty")}</option>
-              {holdings.data.map((holding) => (
-                <option key={holding.id} value={holding.id}>
-                  {holding.instrumentName ?? t("portfolio.unknownInstrument")}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="change-to-holding">{t("history.toHolding")}</Label>
-            <select id="change-to-holding" value={fields.toHoldingId ?? ""} onChange={(event) => set("toHoldingId", event.target.value)} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
-              <option value="">{t("history.selectEmpty")}</option>
-              {holdings.data.map((holding) => (
-                <option key={holding.id} value={holding.id}>
-                  {holding.instrumentName ?? t("portfolio.unknownInstrument")}
-                </option>
-              ))}
-            </select>
-          </div>
+          <OptionSelect id="change-from-holding" label={t("history.fromHolding")} value={request.fromHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(fromHoldingId) => patch({ fromHoldingId })} />
+          <OptionSelect id="change-to-holding" label={t("history.toHolding")} value={request.toHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(toHoldingId) => patch({ toHoldingId })} />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="change-quantity">{t("history.quantity")}</Label>
-            <Input id="change-quantity" inputMode="decimal" value={fields.quantity ?? ""} onChange={(event) => set("quantity", event.target.value)} />
+            <Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} />
           </div>
         </>
       )}
 
-      {kind === "position_adjustment" && (
+      {kind === ChangeCommandKind.ChangePositionAdjustment && (
         <>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="change-holding">{t("history.holding")}</Label>
-            <select id="change-holding" value={fields.holdingId ?? ""} onChange={(event) => set("holdingId", event.target.value)} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
-              <option value="">{t("history.selectEmpty")}</option>
-              {holdings.data.map((holding) => (
-                <option key={holding.id} value={holding.id}>
-                  {holding.instrumentName ?? t("portfolio.unknownInstrument")}
-                </option>
-              ))}
-            </select>
-          </div>
+          <OptionSelect id="change-holding" label={t("history.holding")} value={request.holdingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(holdingId) => patch({ holdingId })} />
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={added} onChange={(event) => setAdded(event.target.checked)} /> {added ? t("history.added") : t("history.removed")}
+            <input type="checkbox" checked={request.added ?? true} onChange={(event) => patch({ added: event.target.checked })} /> {request.added ? t("history.added") : t("history.removed")}
           </label>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="change-quantity">{t("history.quantity")}</Label>
-            <Input id="change-quantity" inputMode="decimal" value={fields.quantity ?? ""} onChange={(event) => set("quantity", event.target.value)} />
+            <Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} />
           </div>
-          {added && (
+          {request.added && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="change-unit-cost">{t("history.unitCostOptional")}</Label>
-              <Input id="change-unit-cost" inputMode="decimal" value={fields.unitCost ?? ""} onChange={(event) => set("unitCost", event.target.value)} />
+              <Input id="change-unit-cost" inputMode="decimal" value={request.unitCost ?? ""} onChange={(event) => patch({ unitCost: event.target.value })} />
             </div>
           )}
         </>
       )}
 
-      {kind === "trade" && (
+      {kind === ChangeCommandKind.ChangeTrade && (
         <>
-          <AccountSelect id="change-settlement-account" label={t("history.settlementAccount")} value={fields.settlementAccountId ?? ""} onChange={(v) => set("settlementAccountId", v)} accounts={holdingsAccountOptions} />
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="change-instrument">{t("history.instrument")}</Label>
-            <select id="change-instrument" value={fields.instrumentId ?? ""} onChange={(event) => set("instrumentId", event.target.value)} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
-              <option value="">{t("history.selectEmpty")}</option>
-              {(instruments.data ?? []).map((instrument) => (
-                <option key={instrument.id} value={instrument.id}>
-                  {instrument.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <AccountSelect id="change-settlement-account" label={t("history.settlementAccount")} value={request.settlementAccountId ?? ""} onChange={(settlementAccountId) => patch({ settlementAccountId })} accounts={holdingsAccountOptions} />
+          <OptionSelect id="change-instrument" label={t("history.instrument")} value={request.instrumentId ?? ""} emptyLabel={t("history.selectEmpty")} options={instrumentOptions} onChange={(instrumentId) => patch({ instrumentId })} />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="change-side">{t("history.side")}</Label>
-            <select id="change-side" value={fields.side ?? "buy"} onChange={(event) => set("side", event.target.value)} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+            <NativeSelect id="change-side" value={request.side ?? "buy"} onChange={(event) => patch({ side: event.target.value })}>
               <option value="buy">{t("history.buy")}</option>
               <option value="sell">{t("history.sell")}</option>
-            </select>
+            </NativeSelect>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="change-quantity">{t("history.quantity")}</Label>
-            <Input id="change-quantity" inputMode="decimal" value={fields.quantity ?? ""} onChange={(event) => set("quantity", event.target.value)} />
+            <Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} />
           </div>
-          <MoneyFields prefix="change-gross" label={t("history.grossTotal")} amount={fields.gross ?? ""} currency={fields.grossCurrency ?? "USD"} onAmount={(v) => set("gross", v)} onCurrency={(v) => set("grossCurrency", v)} />
-          <MoneyFields prefix="change-fee" label={t("history.feeOptional")} amount={fields.fee ?? ""} currency={fields.feeCurrency ?? fields.grossCurrency ?? "USD"} onAmount={(v) => set("fee", v)} onCurrency={(v) => set("feeCurrency", v)} />
+          <MoneyFields prefix="change-gross" label={t("history.grossTotal")} amount={request.gross ?? ""} currency={request.grossCurrency ?? "USD"} onAmount={(gross) => patch({ gross })} onCurrency={(grossCurrency) => patch({ grossCurrency })} />
+          <MoneyFields prefix="change-fee" label={t("history.feeOptional")} amount={request.fee ?? ""} currency={request.feeCurrency ?? request.grossCurrency ?? "USD"} onAmount={(fee) => patch({ fee })} onCurrency={(feeCurrency) => patch({ feeCurrency })} />
         </>
       )}
 
-      {(kind === "debt_draw" || kind === "debt_payment") && (
+      {(kind === ChangeCommandKind.ChangeDebtDraw || kind === ChangeCommandKind.ChangeDebtPayment) && (
         <>
-          <AccountSelect id="change-debt-account" label={t("history.debtAccount")} value={fields.debtAccountId ?? ""} onChange={(v) => set("debtAccountId", v)} accounts={accountOptions} />
-          <AccountSelect id="change-cash-account" label={t("history.cashAccount")} value={fields.cashAccountId ?? ""} onChange={(v) => set("cashAccountId", v)} accounts={accountOptions} />
-          <MoneyFields prefix="change-principal" label={t("history.principal")} amount={fields.principal ?? ""} currency={fields.principalCurrency ?? "USD"} onAmount={(v) => set("principal", v)} onCurrency={(v) => set("principalCurrency", v)} />
-          {kind === "debt_payment" && (
-            <MoneyFields prefix="change-interest" label={t("history.interestOptional")} amount={fields.interestOrFee ?? ""} currency={fields.interestOrFeeCurrency ?? fields.principalCurrency ?? "USD"} onAmount={(v) => set("interestOrFee", v)} onCurrency={(v) => set("interestOrFeeCurrency", v)} />
+          <AccountSelect id="change-debt-account" label={t("history.debtAccount")} value={request.debtAccountId ?? ""} onChange={(debtAccountId) => patch({ debtAccountId })} accounts={accountOptions} />
+          <AccountSelect id="change-cash-account" label={t("history.cashAccount")} value={request.cashAccountId ?? ""} onChange={(cashAccountId) => patch({ cashAccountId })} accounts={accountOptions} />
+          <MoneyFields prefix="change-principal" label={t("history.principal")} amount={request.principal ?? ""} currency={request.principalCurrency ?? "USD"} onAmount={(principal) => patch({ principal })} onCurrency={(principalCurrency) => patch({ principalCurrency })} />
+          {kind === ChangeCommandKind.ChangeDebtPayment && (
+            <MoneyFields prefix="change-interest" label={t("history.interestOptional")} amount={request.interestOrFee ?? ""} currency={request.interestOrFeeCurrency ?? request.principalCurrency ?? "USD"} onAmount={(interestOrFee) => patch({ interestOrFee })} onCurrency={(interestOrFeeCurrency) => patch({ interestOrFeeCurrency })} />
           )}
         </>
       )}
+
+      {showReason && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="change-reason">{t("history.reasonLabel")}</Label>
+          <NativeSelect id="change-reason" value={request.reason ?? "other"} onChange={(event) => patch({ reason: event.target.value })}>
+            {reasonOptions.map((reason) => (
+              <option key={reason} value={reason}>
+                {t(`history.reason.${reason}`)}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="change-note">{t("history.note")}</Label>
+        <Input id="change-note" value={request.note ?? ""} onChange={(event) => patch({ note: event.target.value || null })} placeholder={t("history.notePlaceholder")} />
+      </div>
 
       {(accounts.isError || instruments.isError || holdings.isError) && (
         <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive">

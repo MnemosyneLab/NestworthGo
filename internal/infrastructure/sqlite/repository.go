@@ -20,8 +20,6 @@ type queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
-func (r *Repository) DB() *DB { return r.database }
-
 func (r *Repository) ReadSnapshot(ctx context.Context, filter domain.AccountFilter) (domain.ReadSnapshot, error) {
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -64,8 +62,7 @@ func (r *Repository) ReadSnapshot(ctx context.Context, filter domain.AccountFilt
 	return domain.ReadSnapshot{Household: household, Members: members, Institutions: institutions, Groups: groups, Accounts: accounts}, nil
 }
 
-func listMembersQuery(ctx context.Context, query queryer, includeArchived bool) ([]domain.Member, error) {
-	statement := `SELECT id, household_id, name, avatar_asset_id, note, sort_order, created_at, updated_at, archived_at FROM members`
+func listArchivedOrdered[T any](ctx context.Context, query queryer, statement string, includeArchived bool, scan func(interface{ Scan(...any) error }) (T, error)) ([]T, error) {
 	if !includeArchived {
 		statement += ` WHERE archived_at IS NULL`
 	}
@@ -75,59 +72,27 @@ func listMembersQuery(ctx context.Context, query queryer, includeArchived bool) 
 		return nil, err
 	}
 	defer rows.Close()
-	var result []domain.Member
+	var result []T
 	for rows.Next() {
-		member, err := scanMember(rows)
+		item, err := scan(rows)
 		if err != nil {
 			return nil, err
 		}
-		result = append(result, member)
+		result = append(result, item)
 	}
 	return result, rows.Err()
+}
+
+func listMembersQuery(ctx context.Context, query queryer, includeArchived bool) ([]domain.Member, error) {
+	return listArchivedOrdered(ctx, query, `SELECT id, household_id, name, avatar_asset_id, note, sort_order, created_at, updated_at, archived_at FROM members`, includeArchived, scanMember)
 }
 
 func listInstitutionsQuery(ctx context.Context, query queryer, includeArchived bool) ([]domain.Institution, error) {
-	statement := `SELECT id, household_id, name, icon_key, institution_type, country_code, website, note, logo_asset_id, sort_order, created_at, updated_at, archived_at FROM institutions`
-	if !includeArchived {
-		statement += ` WHERE archived_at IS NULL`
-	}
-	statement += ` ORDER BY sort_order ASC, name COLLATE NOCASE ASC, id ASC`
-	rows, err := query.QueryContext(ctx, statement)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var result []domain.Institution
-	for rows.Next() {
-		item, err := scanInstitution(rows)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, item)
-	}
-	return result, rows.Err()
+	return listArchivedOrdered(ctx, query, `SELECT id, household_id, name, icon_key, institution_type, country_code, website, note, logo_asset_id, sort_order, created_at, updated_at, archived_at FROM institutions`, includeArchived, scanInstitution)
 }
 
 func listGroupsQuery(ctx context.Context, query queryer, includeArchived bool) ([]domain.Group, error) {
-	statement := `SELECT id, household_id, name, icon_key, color, logo_asset_id, description, sort_order, created_at, updated_at, archived_at FROM account_groups`
-	if !includeArchived {
-		statement += ` WHERE archived_at IS NULL`
-	}
-	statement += ` ORDER BY sort_order ASC, name COLLATE NOCASE ASC, id ASC`
-	rows, err := query.QueryContext(ctx, statement)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var result []domain.Group
-	for rows.Next() {
-		item, err := scanGroup(rows)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, item)
-	}
-	return result, rows.Err()
+	return listArchivedOrdered(ctx, query, `SELECT id, household_id, name, icon_key, color, logo_asset_id, description, sort_order, created_at, updated_at, archived_at FROM account_groups`, includeArchived, scanGroup)
 }
 func (r *Repository) Household(ctx context.Context) (*domain.Household, error) {
 	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, name, base_currency, created_at, updated_at FROM households WHERE singleton_key = 1`)
@@ -159,25 +124,12 @@ func (r *Repository) CreateOnboarding(ctx context.Context, household domain.Hous
 }
 
 func (r *Repository) ListMembers(ctx context.Context, includeArchived bool) ([]domain.Member, error) {
-	query := `SELECT id, household_id, name, avatar_asset_id, note, sort_order, created_at, updated_at, archived_at FROM members`
-	if !includeArchived {
-		query += ` WHERE archived_at IS NULL`
-	}
-	query += ` ORDER BY sort_order ASC, name COLLATE NOCASE ASC, id ASC`
-	rows, err := r.database.SQL.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var result []domain.Member
-	for rows.Next() {
-		member, err := scanMember(rows)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, member)
-	}
-	return result, rows.Err()
+	return listMembersQuery(ctx, r.database.SQL, includeArchived)
+}
+
+func (r *Repository) Member(ctx context.Context, householdID domain.HouseholdID, id domain.MemberID) (domain.Member, error) {
+	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, avatar_asset_id, note, sort_order, created_at, updated_at, archived_at FROM members WHERE household_id = ? AND id = ?`, householdID.String(), id.String())
+	return lookupRow(row, scanMember, "member was not found")
 }
 
 // CreateMember assigns sort_order with a MAX(sort_order)+1 subquery evaluated
@@ -235,25 +187,12 @@ func (r *Repository) UpdateInstitution(ctx context.Context, institution domain.I
 }
 
 func (r *Repository) ListInstitutions(ctx context.Context, includeArchived bool) ([]domain.Institution, error) {
-	query := `SELECT id, household_id, name, icon_key, institution_type, country_code, website, note, logo_asset_id, sort_order, created_at, updated_at, archived_at FROM institutions`
-	if !includeArchived {
-		query += ` WHERE archived_at IS NULL`
-	}
-	query += ` ORDER BY sort_order ASC, name COLLATE NOCASE ASC, id ASC`
-	rows, err := r.database.SQL.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var result []domain.Institution
-	for rows.Next() {
-		institution, err := scanInstitution(rows)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, institution)
-	}
-	return result, rows.Err()
+	return listInstitutionsQuery(ctx, r.database.SQL, includeArchived)
+}
+
+func (r *Repository) Institution(ctx context.Context, householdID domain.HouseholdID, id domain.InstitutionID) (domain.Institution, error) {
+	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, icon_key, institution_type, country_code, website, note, logo_asset_id, sort_order, created_at, updated_at, archived_at FROM institutions WHERE household_id = ? AND id = ?`, householdID.String(), id.String())
+	return lookupRow(row, scanInstitution, "institution was not found")
 }
 
 func (r *Repository) SetInstitutionArchive(ctx context.Context, householdID domain.HouseholdID, id domain.InstitutionID, archived bool, now time.Time) error {
@@ -277,25 +216,12 @@ func (r *Repository) UpdateGroup(ctx context.Context, group domain.Group) error 
 }
 
 func (r *Repository) ListGroups(ctx context.Context, includeArchived bool) ([]domain.Group, error) {
-	query := `SELECT id, household_id, name, icon_key, color, logo_asset_id, description, sort_order, created_at, updated_at, archived_at FROM account_groups`
-	if !includeArchived {
-		query += ` WHERE archived_at IS NULL`
-	}
-	query += ` ORDER BY sort_order ASC, name COLLATE NOCASE ASC, id ASC`
-	rows, err := r.database.SQL.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var result []domain.Group
-	for rows.Next() {
-		group, err := scanGroup(rows)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, group)
-	}
-	return result, rows.Err()
+	return listGroupsQuery(ctx, r.database.SQL, includeArchived)
+}
+
+func (r *Repository) Group(ctx context.Context, householdID domain.HouseholdID, id domain.GroupID) (domain.Group, error) {
+	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, icon_key, color, logo_asset_id, description, sort_order, created_at, updated_at, archived_at FROM account_groups WHERE household_id = ? AND id = ?`, householdID.String(), id.String())
+	return lookupRow(row, scanGroup, "group was not found")
 }
 
 func (r *Repository) CreateMediaAsset(ctx context.Context, asset domain.MediaAsset) error {
@@ -396,68 +322,33 @@ func (r *Repository) setArchive(ctx context.Context, table, householdID, id stri
 
 func (r *Repository) CreateAccount(ctx context.Context, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		if err := validateAccountReferences(ctx, tx, account, nil, nil); err != nil {
-			return err
-		}
-		if account.TrackingMode == domain.TrackingHoldings && initial != nil {
-			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "Holdings accounts cannot have an initial Account Value"}
-		}
-		if initial != nil && (initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency) {
-			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "initial value does not match the account"}
-		}
-		if err := insertAccount(ctx, tx, account); err != nil {
-			return err
-		}
-		if err := replaceOwnership(ctx, tx, account.ID, ownership, false); err != nil {
-			return err
-		}
-		if initial == nil {
-			return nil
-		}
-		return insertAccountValue(ctx, tx, *initial)
+		return insertAccountCore(ctx, tx, account, ownership, initial, false)
 	})
 }
 
-func (r *Repository) CreateAccountWithActivity(ctx context.Context, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue, commit domain.ActivityCommit, asOf time.Time) error {
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		if err := validateAccountReferences(ctx, tx, account, nil, nil); err != nil {
-			return err
-		}
-		if account.TrackingMode == domain.TrackingHoldings && initial != nil {
-			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "Holdings accounts cannot have an initial Account Value"}
-		}
-		if account.TrackingMode != domain.TrackingHoldings && initial == nil {
-			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "an initial Account Value is required"}
-		}
-		if initial != nil && (initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency) {
-			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "initial value does not match the account"}
-		}
-		if commit.Activity.HouseholdID != account.HouseholdID {
-			return &domain.Error{Code: domain.ErrInvalidChange, Field: "householdId", Message: "activity Household does not match the Account"}
-		}
-		if err := insertAccount(ctx, tx, account); err != nil {
-			return err
-		}
-		if err := replaceOwnership(ctx, tx, account.ID, ownership, false); err != nil {
-			return err
-		}
-		if initial != nil {
-			if err := insertAccountValue(ctx, tx, *initial); err != nil {
-				return err
-			}
-		}
-		var timezone string
-		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, account.HouseholdID.String()).Scan(&timezone); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
-			}
-			return err
-		}
-		if err := commitActivityTx(ctx, tx, commit, asOf); err != nil {
-			return err
-		}
-		return markHistoryDirtyTx(ctx, tx, account.HouseholdID, commit.Activity.EffectiveLocalDate, timezone, asOf)
-	})
+func insertAccountCore(ctx context.Context, tx *sql.Tx, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue, requireInitial bool) error {
+	if err := validateAccountReferences(ctx, tx, account, nil, nil); err != nil {
+		return err
+	}
+	if account.TrackingMode == domain.TrackingHoldings && initial != nil {
+		return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "Holdings accounts cannot have an initial Account Value"}
+	}
+	if requireInitial && account.TrackingMode != domain.TrackingHoldings && initial == nil {
+		return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "an initial Account Value is required"}
+	}
+	if initial != nil && (initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency) {
+		return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "initial value does not match the account"}
+	}
+	if err := insertAccount(ctx, tx, account); err != nil {
+		return err
+	}
+	if err := replaceOwnership(ctx, tx, account.ID, ownership, false); err != nil {
+		return err
+	}
+	if initial == nil {
+		return nil
+	}
+	return insertAccountValue(ctx, tx, *initial)
 }
 
 // CreateAccountWithHistory is the post-Starting-point creation boundary. The
@@ -466,17 +357,8 @@ func (r *Repository) CreateAccountWithActivity(ctx context.Context, account doma
 // reconstruction never has to infer the initial metadata from today's row.
 func (r *Repository) CreateAccountWithHistory(ctx context.Context, account domain.Account, ownership domain.Ownership, initial *domain.AccountValue, observation domain.AccountStateObservation, commit *domain.ActivityCommit, asOf time.Time) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		if err := validateAccountReferences(ctx, tx, account, nil, nil); err != nil {
+		if err := insertAccountCore(ctx, tx, account, ownership, initial, true); err != nil {
 			return err
-		}
-		if account.TrackingMode == domain.TrackingHoldings && initial != nil {
-			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "Holdings accounts cannot have an initial Account Value"}
-		}
-		if account.TrackingMode != domain.TrackingHoldings && initial == nil {
-			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "an initial Account Value is required"}
-		}
-		if initial != nil && (initial.AccountID != account.ID || initial.ValueKind != account.TrackingMode || initial.Amount.Currency() != account.DefaultCurrency) {
-			return &domain.Error{Code: domain.ErrValidation, Field: "initialValue", Message: "initial value does not match the account"}
 		}
 		if observation.AccountID != account.ID || observation.ID == "" || observation.EffectiveAt.IsZero() || observation.CreatedAt.IsZero() {
 			return &domain.Error{Code: domain.ErrIntegrity, Message: "account creation observation does not match the Account"}
@@ -486,17 +368,6 @@ func (r *Repository) CreateAccountWithHistory(ctx context.Context, account domai
 		}
 		if commit != nil && commit.Activity.HouseholdID != account.HouseholdID {
 			return &domain.Error{Code: domain.ErrInvalidChange, Field: "householdId", Message: "activity Household does not match the Account"}
-		}
-		if err := insertAccount(ctx, tx, account); err != nil {
-			return err
-		}
-		if err := replaceOwnership(ctx, tx, account.ID, ownership, false); err != nil {
-			return err
-		}
-		if initial != nil {
-			if err := insertAccountValue(ctx, tx, *initial); err != nil {
-				return err
-			}
 		}
 		if err := appendAccountStateObservationTx(ctx, tx, observation); err != nil {
 			return err
@@ -611,6 +482,35 @@ func (r *Repository) ListAccountRecords(ctx context.Context, householdID domain.
 	return records, nil
 }
 
+const accountRecordSelect = `SELECT a.id, a.household_id, a.institution_id, a.group_id, a.name, a.primary_category, a.secondary_category, a.tracking_mode, a.default_currency, a.note, a.icon_key, a.logo_asset_id, a.include_in_net_worth, a.include_in_investment, a.include_in_liquid_assets, a.opened_on, a.closed_on, a.sort_order, a.created_at, a.updated_at, a.archived_at, COALESCE(i.name, ''), COALESCE(g.name, '') FROM accounts a LEFT JOIN institutions i ON i.id = a.institution_id LEFT JOIN account_groups g ON g.id = a.group_id`
+
+func (r *Repository) AccountRecord(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID) (domain.AccountRecord, error) {
+	row := r.database.SQL.QueryRowContext(ctx, accountRecordSelect+` WHERE a.household_id = ? AND a.id = ?`, householdID.String(), id.String())
+	record, err := lookupRow(row, scanAccountRecord, "account was not found")
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	owners, err := loadOwnership(ctx, r.database.SQL, householdID)
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	if shares, ok := owners[record.Account.ID]; ok {
+		parsed, parseErr := domain.ParseOwnership(shares)
+		if parseErr != nil {
+			return domain.AccountRecord{}, parseErr
+		}
+		record.Ownership = parsed
+	}
+	values, err := loadLatestValues(ctx, r.database.SQL, householdID)
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	if value, ok := values[record.Account.ID]; ok {
+		record.LatestValue = value
+	}
+	return record, nil
+}
+
 func listAccountRecords(ctx context.Context, query queryer, householdID domain.HouseholdID, filter domain.AccountFilter) ([]domain.AccountRecord, error) {
 	where := []string{"a.household_id = ?"}
 	args := []any{householdID.String()}
@@ -639,7 +539,7 @@ func listAccountRecords(ctx context.Context, query queryer, householdID domain.H
 	case domain.OwnershipShared:
 		where = append(where, "(SELECT COUNT(*) FROM account_ownership scope_ao WHERE scope_ao.account_id = a.id) > 1")
 	}
-	queryText := `SELECT a.id, a.household_id, a.institution_id, a.group_id, a.name, a.primary_category, a.secondary_category, a.tracking_mode, a.default_currency, a.note, a.icon_key, a.logo_asset_id, a.include_in_net_worth, a.include_in_investment, a.include_in_liquid_assets, a.opened_on, a.closed_on, a.sort_order, a.created_at, a.updated_at, a.archived_at, COALESCE(i.name, ''), COALESCE(g.name, '') FROM accounts a LEFT JOIN institutions i ON i.id = a.institution_id LEFT JOIN account_groups g ON g.id = a.group_id WHERE ` + strings.Join(where, " AND ") + ` ORDER BY a.sort_order ASC, a.name COLLATE NOCASE ASC, a.id ASC`
+	queryText := accountRecordSelect + ` WHERE ` + strings.Join(where, " AND ") + ` ORDER BY a.sort_order ASC, a.name COLLATE NOCASE ASC, a.id ASC`
 	rows, err := query.QueryContext(ctx, queryText, args...)
 	if err != nil {
 		return nil, err
@@ -1059,6 +959,18 @@ func requireAffected(result sql.Result, entity string) error {
 		return &domain.Error{Code: domain.ErrNotFound, Message: entity + " was not found"}
 	}
 	return nil
+}
+
+func lookupRow[T any](row *sql.Row, scan func(interface{ Scan(...any) error }) (T, error), notFound string) (T, error) {
+	value, err := scan(row)
+	if err != nil {
+		var zero T
+		if errors.Is(err, sql.ErrNoRows) {
+			return zero, &domain.Error{Code: domain.ErrNotFound, Message: notFound}
+		}
+		return zero, err
+	}
+	return value, nil
 }
 
 func parseNullable(value string) *string {

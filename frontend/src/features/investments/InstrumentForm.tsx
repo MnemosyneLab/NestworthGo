@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/select";
 import { useSupportedCurrencies } from "@/queries/settings";
 import type { InstrumentRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument/models";
 import { displayEnum } from "@/lib/display";
@@ -64,30 +65,30 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-type">{t("portfolio.type")}</Label>
-        <select id="instrument-type" {...register("type")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+        <NativeSelect id="instrument-type" {...register("type")}>
           {INSTRUMENT_TYPES.map((type) => (
             <option key={type} value={type}>
               {displayEnum(t, "enum", type)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-currency">{t("accounts.currency")}</Label>
-        <select id="instrument-currency" {...register("quoteCurrency")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+        <NativeSelect id="instrument-currency" {...register("quoteCurrency")}>
           {(currencies.data ?? ["USD"]).map((currency) => (
             <option key={currency} value={currency}>
               {currency}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-quote-source">{t("portfolio.quoteSource")}</Label>
-        <select id="instrument-quote-source" {...register("quoteSource")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+        <NativeSelect id="instrument-quote-source" {...register("quoteSource")}>
           <option value="manual">{t("portfolio.manual")}</option>
           <option value="provider">{t("portfolio.provider")}</option>
-        </select>
+        </NativeSelect>
       </div>
       {quoteSource === "provider" && (
         <>

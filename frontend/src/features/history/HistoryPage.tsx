@@ -80,7 +80,7 @@ function Timeline() {
   const [open, setOpen] = useState(false);
   const [fixTarget, setFixTarget] = useState<ActivityDTO | null>(null);
 
-  if (activities.isLoading) {
+  if (activities.isLoading || accounts.isLoading || instruments.isLoading) {
     return <LoadingState label={t("history.loading")} />;
   }
 

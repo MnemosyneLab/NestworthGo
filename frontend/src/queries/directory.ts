@@ -117,29 +117,11 @@ export function useSetInstitutionLogo() {
   });
 }
 
-export function useSetInstitutionIcon() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
-      callService(() => DirectoryService.SetInstitutionIcon(id, iconKey)),
-    onSuccess: () => invalidateDirectoryChange(queryClient, "institutions"),
-  });
-}
-
 export function useSetGroupLogo() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
       callService(() => DirectoryService.SetGroupLogo(id, mediaAssetId)),
-    onSuccess: () => invalidateDirectoryChange(queryClient, "groups"),
-  });
-}
-
-export function useSetGroupIcon() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
-      callService(() => DirectoryService.SetGroupIcon(id, iconKey)),
     onSuccess: () => invalidateDirectoryChange(queryClient, "groups"),
   });
 }

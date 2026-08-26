@@ -45,29 +45,11 @@ export function useArchiveAccount() {
   });
 }
 
-export function useAppendAccountValue() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, amount, effectiveAt }: { id: string; amount: string; effectiveAt: string }) =>
-      callService(() => AccountService.AppendAccountValue(id, amount, effectiveAt)),
-    onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
-  });
-}
-
 export function useSetAccountLogo() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
       callService(() => AccountService.SetAccountLogo(id, mediaAssetId)),
-    onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
-  });
-}
-
-export function useSetAccountIcon() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
-      callService(() => AccountService.SetAccountIcon(id, iconKey)),
     onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
   });
 }
@@ -94,5 +76,6 @@ export function toUpdateAccountRequest(request: CreateAccountRequest): UpdateAcc
     includeInLiquidAssets: request.includeInLiquidAssets,
     ownerIds: request.ownerIds,
     ownershipPercentages: request.ownershipPercentages,
+    ownership: request.ownership,
   };
 }

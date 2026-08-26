@@ -16,7 +16,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test/queryClient";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { AccountsPage } from "@/features/accounts/AccountsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
@@ -91,7 +92,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app",
 }));
 
 function renderWithQueryClient(element: React.ReactElement) {
-  const queryClient = new QueryClient();
+  const queryClient = createTestQueryClient();
   return render(<QueryClientProvider client={queryClient}>{element}</QueryClientProvider>);
 }
 
@@ -188,7 +189,11 @@ describe("keyboard-only completion", () => {
     await userEvent.keyboard("{Enter}");
 
     expect(createAccount).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "New Savings", ownerIds: ["alice"], initialAmount: "500" }),
+      expect.objectContaining({
+        name: "New Savings",
+        ownership: [{ memberId: "alice", shareBps: 10000 }],
+        initialAmount: "500",
+      }),
     );
   });
 
@@ -223,6 +228,8 @@ describe("keyboard-only completion", () => {
     await userEvent.keyboard("1000");
 
     await userEvent.tab(); // -> currency input (left at its default: USD)
+    await userEvent.tab(); // -> reason select (default: Other)
+    await userEvent.tab(); // -> note input
     await userEvent.tab(); // -> Preview button
     const previewOrConfirm = within(form).getByRole("button", { name: "Preview" });
     expect(previewOrConfirm).toHaveFocus();

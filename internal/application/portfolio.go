@@ -67,12 +67,12 @@ func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (
 	if origin != nil {
 		observation := domain.InstrumentPreferenceObservation{ID: domain.NewInstrumentPreferenceObservationID(), InstrumentID: instrument.ID, SourceKind: instrument.QuoteSource, EffectiveAt: instrument.CreatedAt, CreatedAt: instrument.CreatedAt}
 		if err := s.repository.CreateInstrumentWithObservation(ctx, instrument, observation); err != nil {
-			return domain.Instrument{}, safePortfolioError(err)
+			return domain.Instrument{}, err
 		}
 		return instrument, nil
 	}
 	if err := s.repository.CreateInstrument(ctx, instrument); err != nil {
-		return domain.Instrument{}, safePortfolioError(err)
+		return domain.Instrument{}, err
 	}
 	return instrument, nil
 }
@@ -98,7 +98,7 @@ func (s *Service) CurrentInstrumentQuote(ctx context.Context, id domain.Instrume
 	}
 	instrument, err := s.repository.Instrument(ctx, household.ID, id)
 	if err != nil {
-		return nil, safePortfolioError(err)
+		return nil, err
 	}
 	quotes, err := s.repository.ListInstrumentQuotes(ctx, id)
 	if err != nil {
@@ -118,7 +118,7 @@ func (s *Service) InstrumentQuoteHistory(ctx context.Context, id domain.Instrume
 		return []domain.InstrumentQuote{}, nil
 	}
 	if _, err := s.repository.Instrument(ctx, bootstrap.Household.ID, id); err != nil {
-		return nil, safePortfolioError(err)
+		return nil, err
 	}
 	quotes, err := s.repository.ListInstrumentQuotes(ctx, id)
 	if err != nil {
@@ -263,7 +263,7 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	defer s.changeMu.Unlock()
 	current, err := s.repository.Instrument(ctx, household.ID, id)
 	if err != nil {
-		return domain.Instrument{}, safePortfolioError(err)
+		return domain.Instrument{}, err
 	}
 	if !input.Replace {
 		mergeInstrumentInput(&input, current)
@@ -286,10 +286,10 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	}
 	if preferenceObservation.ID != "" && updated.QuoteSource != current.QuoteSource {
 		if err := s.repository.UpdateInstrumentWithObservation(ctx, updated, preferenceObservation); err != nil {
-			return domain.Instrument{}, safePortfolioError(err)
+			return domain.Instrument{}, err
 		}
 	} else if err := s.repository.UpdateInstrument(ctx, updated); err != nil {
-		return domain.Instrument{}, safePortfolioError(err)
+		return domain.Instrument{}, err
 	}
 	return updated, nil
 }
@@ -301,7 +301,7 @@ func (s *Service) ArchiveInstrument(ctx context.Context, id domain.InstrumentID,
 	}
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
-	return safePortfolioError(s.repository.SetInstrumentArchive(ctx, household.ID, id, archived, s.clock()))
+	return s.repository.SetInstrumentArchive(ctx, household.ID, id, archived, s.clock())
 }
 
 func (s *Service) SetInstrumentLogo(ctx context.Context, id domain.InstrumentID, assetID domain.MediaAssetID) error {
@@ -312,7 +312,7 @@ func (s *Service) SetInstrumentLogo(ctx context.Context, id domain.InstrumentID,
 	if err := s.requireAssetHousehold(ctx, household.ID, assetID); err != nil {
 		return err
 	}
-	return safePortfolioError(s.repository.SetInstrumentLogo(ctx, household.ID, id, assetID, s.clock()))
+	return s.repository.SetInstrumentLogo(ctx, household.ID, id, assetID, s.clock())
 }
 
 func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.InstrumentID, source string) error {
@@ -331,16 +331,16 @@ func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.Instru
 	} else if origin != nil {
 		instrument, instrumentErr := s.repository.Instrument(ctx, household.ID, id)
 		if instrumentErr != nil {
-			return safePortfolioError(instrumentErr)
+			return instrumentErr
 		}
 		instrument.QuoteSource = parsed
 		observation, observationErr := s.instrumentPreferenceObservation(ctx, instrument)
 		if observationErr != nil {
 			return observationErr
 		}
-		return safePortfolioError(s.repository.SetInstrumentQuoteSourceWithObservation(ctx, household.ID, id, parsed, observation))
+		return s.repository.SetInstrumentQuoteSourceWithObservation(ctx, household.ID, id, parsed, observation)
 	}
-	return safePortfolioError(s.repository.SetInstrumentQuoteSource(ctx, household.ID, id, parsed, s.clock()))
+	return s.repository.SetInstrumentQuoteSource(ctx, household.ID, id, parsed, s.clock())
 }
 
 type HoldingInput struct {
@@ -430,12 +430,12 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 			return domain.Holding{}, previewErr
 		}
 		if err := s.repository.CreateHoldingWithActivity(ctx, created, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}, s.clock()); err != nil {
-			return domain.Holding{}, safePortfolioError(err)
+			return domain.Holding{}, err
 		}
 		return holding, nil
 	}
 	if err := s.repository.CreateHolding(ctx, holding); err != nil {
-		return domain.Holding{}, safePortfolioError(err)
+		return domain.Holding{}, err
 	}
 	return holding, nil
 }
@@ -511,7 +511,7 @@ func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input 
 		current.SortOrder = input.SortOrder
 	}
 	if err := s.repository.UpdateHolding(ctx, current); err != nil {
-		return domain.Holding{}, safePortfolioError(err)
+		return domain.Holding{}, err
 	}
 	return current, nil
 }
@@ -539,7 +539,7 @@ func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archi
 			return &domain.Error{Code: domain.ErrConflict, Message: "a Holding must have zero quantity before it is archived"}
 		}
 	}
-	return safePortfolioError(s.repository.SetHoldingArchive(ctx, household.ID, id, archived, s.clock()))
+	return s.repository.SetHoldingArchive(ctx, household.ID, id, archived, s.clock())
 }
 
 func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.AccountID, amount, currency, effectiveAt string) (domain.AccountCashValue, error) {
@@ -610,7 +610,7 @@ func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.A
 		return domain.NewAccountCashValue(record.Account, resultMoney, preview.Activity.EffectiveAt, preview.Activity.CreatedAt)
 	}
 	if err := s.repository.AppendAccountCashValue(ctx, value); err != nil {
-		return domain.AccountCashValue{}, safePortfolioError(err)
+		return domain.AccountCashValue{}, err
 	}
 	return value, nil
 }
@@ -656,7 +656,7 @@ func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID 
 		return domain.InstrumentQuote{}, err
 	}
 	if err := s.repository.AppendInstrumentQuoteAndSelectManual(ctx, quote); err != nil {
-		return domain.InstrumentQuote{}, safePortfolioError(err)
+		return domain.InstrumentQuote{}, err
 	}
 	return quote, nil
 }
@@ -705,7 +705,7 @@ func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, sou
 		saveErr = s.repository.SetFXPreference(ctx, preference)
 	}
 	if saveErr != nil {
-		return domain.FXPreference{}, safePortfolioError(saveErr)
+		return domain.FXPreference{}, saveErr
 	}
 	return preference, nil
 }
@@ -755,7 +755,7 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 		return domain.FXQuote{}, err
 	}
 	if err := s.repository.AppendFXQuoteAndSelectManual(ctx, fxQuote); err != nil {
-		return domain.FXQuote{}, safePortfolioError(err)
+		return domain.FXQuote{}, err
 	}
 	return fxQuote, nil
 }
@@ -911,7 +911,7 @@ func pointerMediaID(value *domain.MediaAssetID) string {
 func (s *Service) requireAssetHousehold(ctx context.Context, householdID domain.HouseholdID, assetID domain.MediaAssetID) error {
 	asset, err := s.repository.MediaAsset(ctx, householdID, assetID)
 	if err != nil {
-		return safePortfolioError(err)
+		return err
 	}
 	if asset.HouseholdID != householdID {
 		return &domain.Error{Code: domain.ErrValidation, Field: "logoAssetId", Message: "media asset belongs to another Household"}
@@ -926,12 +926,4 @@ func onboardingRequired() error {
 func notFound(entity string) error {
 	return &domain.Error{Code: domain.ErrNotFound, Message: entity + " was not found"}
 }
-
-func safePortfolioError(err error) error {
-	if err == nil {
-		return nil
-	}
-	return err
-}
-
 func normalizeNow(value time.Time) time.Time { return value.UTC().Truncate(time.Millisecond) }

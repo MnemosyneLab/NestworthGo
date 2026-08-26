@@ -12,24 +12,8 @@ import (
 )
 
 func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
-	database, err := sqlite.Open(filepath.Join(t.TempDir(), "nestworth.db"))
-	if err != nil {
-		t.Fatalf("open database: %v", err)
-	}
-	defer database.Close()
-	repository := sqlite.NewRepository(database)
-	service := NewService(repository)
-	clock := time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC)
-	service.setClock(func() time.Time { return clock })
-	ctx := context.Background()
-
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Wang Household", BaseCurrency: "CNY", MemberNames: []string{"Alice", "Bob"}}); err != nil {
-		t.Fatalf("complete onboarding: %v", err)
-	}
-	bootstrap, err := service.Bootstrap(ctx)
-	if err != nil {
-		t.Fatalf("bootstrap: %v", err)
-	}
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "nestworth", []string{"Alice", "Bob"})
+	setClock(time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC))
 	if bootstrap.Household == nil || len(bootstrap.Members) != 2 {
 		t.Fatalf("bootstrap = %#v", bootstrap)
 	}

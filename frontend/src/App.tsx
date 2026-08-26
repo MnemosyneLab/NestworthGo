@@ -1,7 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AppShell, DEFAULT_PAGE_ID } from "@/app/AppShell";
-import { ComingSoonPage } from "@/components/layout/ComingSoon";
-import { NAV_ITEMS } from "@/app/navigation";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OverviewPage } from "@/features/overview/OverviewPage";
 import { AccountsPage } from "@/features/accounts/AccountsPage";
@@ -27,11 +25,11 @@ import { setLanguage } from "@/i18n";
 function App() {
   const { t } = useTranslation();
   const [activePageId, setActivePageId] = useState(DEFAULT_PAGE_ID);
-  const activeItem = NAV_ITEMS.find((item) => item.id === activePageId) ?? NAV_ITEMS[0];
   const startup = useStartup();
   const settings = useSettings({ enabled: startup.data?.available === true });
   const setAppearance = useUiStore((state) => state.setAppearance);
   const [settingsHydrated, setSettingsHydrated] = useState(false);
+  const visitedPages = useRef(new Set<string>([DEFAULT_PAGE_ID]));
 
   useEffect(() => {
     if (!settings.data) {
@@ -68,28 +66,62 @@ function App() {
     return <OnboardingPage onCompleted={() => setActivePageId("accounts")} />;
   }
 
-  const implementedPageIds = ["overview", "accounts", "directory", "investments", "market-data", "settings", "history", "analytics"];
+  visitedPages.current.add(activePageId);
+  const visited = (id: string) => visitedPages.current.has(id);
 
   return (
     <AppShell activePageId={activePageId} onNavigate={setActivePageId} settings={settings.data}>
-      {activePageId === "overview" && (
-        <OverviewPage
-          onAddAccount={() => setActivePageId("accounts")}
-          onOpenAccounts={() => setActivePageId("accounts")}
-          onOpenHistory={() => setActivePageId("history")}
-          onOpenMarketData={() => setActivePageId("market-data")}
-        />
+      {visited("overview") && (
+        <WorkspaceSurface id="overview" activePageId={activePageId}>
+          <OverviewPage
+            onAddAccount={() => setActivePageId("accounts")}
+            onOpenAccounts={() => setActivePageId("accounts")}
+            onOpenHistory={() => setActivePageId("history")}
+            onOpenMarketData={() => setActivePageId("market-data")}
+          />
+        </WorkspaceSurface>
       )}
-      {activePageId === "accounts" && <AccountsPage />}
-      {activePageId === "directory" && <DirectoryPage />}
-      {activePageId === "investments" && <InvestmentsPage />}
-      {activePageId === "market-data" && <MarketDataPage />}
-      {activePageId === "settings" && <SettingsPage />}
-      {activePageId === "history" && <HistoryPage />}
-      {activePageId === "analytics" && <AnalyticsPage />}
-      {!implementedPageIds.includes(activePageId) && <ComingSoonPage titleKey={activeItem.translationKey} />}
+      {visited("accounts") && (
+        <WorkspaceSurface id="accounts" activePageId={activePageId}>
+          <AccountsPage />
+        </WorkspaceSurface>
+      )}
+      {visited("directory") && (
+        <WorkspaceSurface id="directory" activePageId={activePageId}>
+          <DirectoryPage />
+        </WorkspaceSurface>
+      )}
+      {visited("investments") && (
+        <WorkspaceSurface id="investments" activePageId={activePageId}>
+          <InvestmentsPage />
+        </WorkspaceSurface>
+      )}
+      {visited("market-data") && (
+        <WorkspaceSurface id="market-data" activePageId={activePageId}>
+          <MarketDataPage />
+        </WorkspaceSurface>
+      )}
+      {visited("settings") && (
+        <WorkspaceSurface id="settings" activePageId={activePageId}>
+          <SettingsPage />
+        </WorkspaceSurface>
+      )}
+      {visited("history") && (
+        <WorkspaceSurface id="history" activePageId={activePageId}>
+          <HistoryPage />
+        </WorkspaceSurface>
+      )}
+      {visited("analytics") && (
+        <WorkspaceSurface id="analytics" activePageId={activePageId}>
+          <AnalyticsPage />
+        </WorkspaceSurface>
+      )}
     </AppShell>
   );
+}
+
+function WorkspaceSurface({ id, activePageId, children }: { id: string; activePageId: string; children: ReactNode }) {
+  return <div hidden={id !== activePageId}>{children}</div>;
 }
 
 export default App;

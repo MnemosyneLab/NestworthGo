@@ -15,3 +15,14 @@ export async function persistPickedImage(
   const asset = await callService(() => MediaService.CreateMediaAsset("image/png", dataBase64));
   await attach(asset.id);
 }
+
+export async function attachPendingImage(
+  id: string,
+  pendingImage: string | undefined,
+  setLogo: (args: { id: string; mediaAssetId: string }) => Promise<unknown>,
+): Promise<void> {
+  if (!pendingImage) {
+    return;
+  }
+  await persistPickedImage(pendingImage, (mediaAssetId) => setLogo({ id, mediaAssetId }));
+}

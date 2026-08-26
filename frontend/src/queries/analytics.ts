@@ -12,14 +12,6 @@ export function useRealizedGain(trendRange: string) {
   });
 }
 
-export function useAccountGain(accountId: string) {
-  return useQuery({
-    queryKey: queryKeys.analytics.accountGain.current(accountId),
-    queryFn: () => callService(() => AnalyticsService.AccountGain(accountId)),
-    enabled: Boolean(accountId),
-  });
-}
-
 export function useNetWorthTrend(trendRange: string) {
   return useQuery({
     queryKey: queryKeys.analytics.netWorthTrend(trendRange),
@@ -32,8 +24,8 @@ export function useNetWorthTrend(trendRange: string) {
  * given Account and flattens the result into a per-Holding lookup, so a
  * flat Holdings list (Investments page) can show cost/current
  * value/gain columns per row without re-deriving them client-side. Go remains
- * the sole calculation authority. Reuses the same query key as useAccountGain, so the two
- * hooks share one cache entry per Account.
+ * the sole calculation authority. Each account-gain query uses the shared
+ * account-gain key so later reads of the same account reuse this cache.
  */
 export function useHoldingGainsByAccounts(accountIds: string[]) {
   const results = useQueries({

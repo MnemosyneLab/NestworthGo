@@ -5,12 +5,6 @@
  * not silently drop them.
  */
 export const additionsEn = {
-  sample: {
-    formLabel: "Sample form",
-    name: "Name",
-    nameRequired: "Name is required.",
-    submit: "Submit",
-  },
   nav: { directory: "Directory" },
   navGroups: {
     portfolio: "Portfolio",
@@ -54,6 +48,7 @@ export const additionsEn = {
     incompleteDescription: "Some values need attention before the balance sheet is complete.",
     missingInput: "{{label}} needs attention",
     unknownAccount: "An account",
+    unknownInstrument: "An instrument",
     missingKind: {
       instrument_price: "instrument price",
       account_value: "account value",
@@ -117,12 +112,10 @@ export const additionsEn = {
     reversal: "Reversal",
     corrected: "Corrected",
     activityKind: "Activity",
-    activityAccount: "account",
-    activityInstrument: "instrument",
-    activityValue: "{{label}}: {{value}}",
-    quantityValue: "Quantity {{value}}",
     unknownAccount: "an account",
     unknownInstrument: "an instrument",
+    quantityValue: "Quantity {{value}}",
+    reasonLabel: "Reason",
     sentence: {
       added: "Added {{amount}} to {{account}}",
       removed: "Removed {{amount}} from {{account}}",
@@ -336,12 +329,6 @@ export const additionsEn = {
 };
 
 export const additionsZhCN = {
-  sample: {
-    formLabel: "示例表单",
-    name: "名称",
-    nameRequired: "请输入名称。",
-    submit: "提交",
-  },
   nav: { directory: "名录" },
   navGroups: {
     portfolio: "投资组合",
@@ -380,6 +367,7 @@ export const additionsZhCN = {
     incompleteDescription: "部分数值需要处理，资产负债表才能完整。",
     missingInput: "{{label}} 需要处理",
     unknownAccount: "某个账户",
+    unknownInstrument: "某个投资标的",
     missingKind: {
       instrument_price: "投资标的价格",
       account_value: "账户价值",
@@ -443,11 +431,9 @@ export const additionsZhCN = {
     reversal: "冲销",
     corrected: "已修正",
     activityKind: "活动",
-    activityAccount: "账户",
-    activityInstrument: "投资标的",
-    activityValue: "{{label}}：{{value}}",
     unknownAccount: "某个账户",
     unknownInstrument: "某个投资标的",
+    reasonLabel: "原因",
     sentence: {
       added: "向 {{account}} 增加了 {{amount}}",
       removed: "从 {{account}} 减少了 {{amount}}",
@@ -652,12 +638,6 @@ export const additionsZhCN = {
 };
 
 export const additionsZhTW = {
-  sample: {
-    formLabel: "範例表單",
-    name: "名稱",
-    nameRequired: "請輸入名稱。",
-    submit: "提交",
-  },
   nav: { directory: "名錄" },
   navGroups: {
     portfolio: "投資組合",
@@ -696,6 +676,7 @@ export const additionsZhTW = {
     incompleteDescription: "部分數值需要處理，資產負債表才能完整。",
     missingInput: "{{label}} 需要處理",
     unknownAccount: "某個帳戶",
+    unknownInstrument: "某個投資標的",
     missingKind: {
       instrument_price: "投資標的價格",
       account_value: "帳戶價值",
@@ -759,12 +740,10 @@ export const additionsZhTW = {
     reversal: "沖銷",
     corrected: "已修正",
     activityKind: "活動",
-    activityAccount: "帳戶",
-    activityInstrument: "投資標的",
-    activityValue: "{{label}}：{{value}}",
-    quantityValue: "數量 {{value}}",
     unknownAccount: "某個帳戶",
     unknownInstrument: "某個投資標的",
+    quantityValue: "數量 {{value}}",
+    reasonLabel: "原因",
     sentence: {
       added: "向 {{account}} 增加了 {{amount}}",
       removed: "從 {{account}} 減少了 {{amount}}",

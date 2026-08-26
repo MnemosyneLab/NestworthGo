@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompleteOnboarding } from "@/queries/household";
 import { useSupportedCurrencies } from "@/queries/settings";
@@ -95,17 +96,16 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="baseCurrency">{t("settings.household.baseCurrency")}</Label>
-                <select
+                <NativeSelect
                   id="baseCurrency"
                   {...register("baseCurrency")}
-                  className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground"
                 >
                   {(currencies.data ?? ["USD"]).map((currency) => (
                     <option key={currency} value={currency}>
                       {currency}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
                 <p className="text-xs leading-5 text-muted-foreground">{t("onboarding.baseCurrencyHint")}</p>
               </div>
 

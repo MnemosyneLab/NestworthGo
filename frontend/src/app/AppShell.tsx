@@ -5,6 +5,7 @@ import { NAV_GROUPS, DEFAULT_PAGE_ID } from "@/app/navigation";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { SUPPORTED_LANGUAGES, setLanguage } from "@/i18n";
 import { useAppInfo } from "@/queries/app";
@@ -46,9 +47,9 @@ function AppearanceToggle({ appearance, disabled, onChange }: { appearance: Appe
 function LanguageSwitcher({ language, disabled, onChange }: { language: string; disabled: boolean; onChange: (language: string) => void }) {
   const { t, i18n: i18nInstance } = useTranslation();
   return (
-    <select
+    <NativeSelect
       aria-label={t("settings.language.language")}
-      className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
+      className="h-8 px-2 text-xs"
       value={language === "system" ? i18nInstance.language : language}
       onChange={(event) => onChange(event.target.value)}
       disabled={disabled}
@@ -58,7 +59,7 @@ function LanguageSwitcher({ language, disabled, onChange }: { language: string; 
           {t(`option.language.${language === "zh-CN" ? "zhCN" : language === "zh-TW" ? "zhTW" : "en"}`)}
         </option>
       ))}
-    </select>
+    </NativeSelect>
   );
 }
 
@@ -95,6 +96,8 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
     }
     saveSettings.mutate(next, {
       onError: (error) => {
+        setAppearance(settings.appearance as Appearance);
+        setLanguage(settings.language);
         toast.error(displayError(error, t("settings.saveError")));
       },
     });

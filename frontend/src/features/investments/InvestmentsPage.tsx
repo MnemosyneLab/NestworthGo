@@ -7,6 +7,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -15,13 +16,25 @@ import {
   useInstruments,
   useCreateInstrument,
   useArchiveInstrument,
-  useHoldingsByAccounts,
   useCreateHolding,
+  useAllHoldingsFlat,
 } from "@/queries/investments";
 import { useHoldingGainsByAccounts } from "@/queries/analytics";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
+import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 function InstrumentsTab() {
   const { t } = useTranslation();
@@ -84,22 +97,33 @@ function InstrumentsTab() {
                 </Badge>
                 {instrument.archivedAt && <Badge variant="secondary">{t("common.archived")}</Badge>}
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  archiveInstrument.mutate(
-                    { id: instrument.id, archived: !instrument.archivedAt },
-                    {
-                      onSuccess: () => toast.success(instrument.archivedAt ? t("common.active") : t("common.archived")),
-                      onError: (error) => toast.error(displayError(error, t("portfolio.updateError"))),
-                    },
-                  )
-                }
-                disabled={archiveInstrument.isPending}
-              >
-                {instrument.archivedAt ? t("common.active") : t("common.archive")}
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                  {instrument.archivedAt ? t("common.active") : t("common.archive")}
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{instrument.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogTitle>
+                    <AlertDialogDescription>{instrument.name}</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() =>
+                        archiveInstrument.mutate(
+                          { id: instrument.id, archived: !instrument.archivedAt },
+                          {
+                            onSuccess: () => toast.success(instrument.archivedAt ? t("common.active") : t("common.archived")),
+                            onError: (error) => toast.error(displayError(error, t("portfolio.updateError"))),
+                          },
+                        )
+                      }
+                    >
+                      {instrument.archivedAt ? t("common.active") : t("common.archive")}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </li>
           ))}
         </ul>
@@ -120,14 +144,14 @@ function HoldingsTab() {
 
   const holdingsAccounts = (accounts.data ?? []).filter((record) => record.account.trackingMode === "holdings" && !record.account.archivedAt);
   const accountIds = holdingsAccounts.map((record) => record.account.id);
-  const holdingsByAccount = useHoldingsByAccounts(accountIds);
+  const holdings = useAllHoldingsFlat(accountIds);
   const holdingGains = useHoldingGainsByAccounts(accountIds);
 
-  if (accounts.isLoading || instruments.isLoading || holdingsByAccount.isLoading || holdingGains.isLoading) {
+  if (accounts.isLoading || instruments.isLoading || holdings.isLoading || holdingGains.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
   }
 
-  if (accounts.isError || instruments.isError || holdingsByAccount.isError || holdingGains.isError) {
+  if (accounts.isError || instruments.isError || holdings.isError || holdingGains.isError) {
     return (
       <ErrorState
         title={t("portfolio.loadError")}
@@ -135,7 +159,7 @@ function HoldingsTab() {
         onRetry={() => {
           void accounts.refetch();
           void instruments.refetch();
-          void holdingsByAccount.refetch();
+          void holdings.refetch();
           void holdingGains.refetch();
         }}
         retryLabel={t("common.retryAction")}
@@ -144,10 +168,7 @@ function HoldingsTab() {
   }
 
   const accountNameById = new Map(holdingsAccounts.map((record) => [record.account.id, record.account.name]));
-  const instrumentNameById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument]));
-  const allHoldings = Object.entries(holdingsByAccount.data ?? {}).flatMap(([accId, holdings]) =>
-    (holdings ?? []).filter((holding) => !holding.archivedAt).map((holding) => ({ ...holding, accountId: accId })),
-  );
+  const allHoldings = holdings.data;
 
   if (holdingsAccounts.length === 0) {
     return <EmptyState title={t("portfolio.noHoldingsAccount")} description={t("portfolio.noHoldingsDescription")} />;
@@ -184,25 +205,25 @@ function HoldingsTab() {
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="holding-account">{t("history.accountSelect")}</Label>
-              <select id="holding-account" value={accountId} onChange={(event) => setAccountId(event.target.value)} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+              <NativeSelect id="holding-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
                 <option value="">{t("accounts.none")}</option>
                 {holdingsAccounts.map((record) => (
                   <option key={record.account.id} value={record.account.id}>
                     {record.account.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="holding-instrument">{t("history.instrument")}</Label>
-              <select id="holding-instrument" value={instrumentId} onChange={(event) => setInstrumentId(event.target.value)} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+              <NativeSelect id="holding-instrument" value={instrumentId} onChange={(event) => setInstrumentId(event.target.value)}>
                 <option value="">{t("accounts.none")}</option>
                 {(instruments.data ?? []).map((instrument) => (
                   <option key={instrument.id} value={instrument.id}>
                     {instrument.name}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="holding-quantity">{t("history.quantity")}</Label>
@@ -239,12 +260,11 @@ function HoldingsTab() {
             <tbody>
               {allHoldings.map((holding) => {
                 const gain = holdingGains.byHoldingId.get(holding.id);
-                const instrument = instrumentNameById.get(holding.instrumentId);
                 const gainClass =
-                  gain?.unrealizedGain && Number(gain.unrealizedGain.amount) < 0 ? "text-gain-negative" : "text-gain-positive";
+                  gain?.unrealizedGain && gain.unrealizedGain.amount.startsWith("-") ? "text-gain-negative" : "text-gain-positive";
                 return (
                   <tr key={holding.id} className="border-b border-border last:border-0">
-                    <td className="px-3 py-3 font-medium">{instrument?.name ?? t("portfolio.unknownInstrument")}</td>
+                    <td className="px-3 py-3 font-medium">{holding.instrumentName ?? t("portfolio.unknownInstrument")}</td>
                     <td className="px-3 py-3 text-muted-foreground">{accountNameById.get(holding.accountId) ?? t("accounts.none")}</td>
                     <td className="px-3 py-3">{formatAmount(holding.quantity)}</td>
                     {gain ? (

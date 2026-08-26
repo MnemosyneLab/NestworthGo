@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test/queryClient";
 import { SettingsPage } from "./SettingsPage";
 
 const load = vi.fn();
@@ -24,7 +25,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ap
 }));
 
 function renderPage() {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const queryClient = createTestQueryClient({ retry: false });
   return render(
     <QueryClientProvider client={queryClient}>
       <SettingsPage />

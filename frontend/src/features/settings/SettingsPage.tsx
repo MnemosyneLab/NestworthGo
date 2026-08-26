@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -67,7 +68,10 @@ export function SettingsPage() {
     return <LoadingState label={t("ui.state.loadingPage")} />;
   }
 
-  const isDirty = JSON.stringify(draft) !== JSON.stringify(settings.data);
+  const isDirty =
+    draft.appearance !== settings.data.appearance ||
+    draft.language !== settings.data.language ||
+    draft.currency !== settings.data.currency;
   const update = (patch: Partial<Settings>) => setDraft((current) => (current ? { ...current, ...patch } : current));
 
   const applyLivePreferences = (value: Settings) => {
@@ -79,6 +83,7 @@ export function SettingsPage() {
     event.preventDefault();
     saveSettings.mutate(draft, {
       onSuccess: () => {
+        setSyncedFrom(draft);
         toast.success(t("settings.changesSaved"));
         applyLivePreferences(draft);
       },
@@ -93,47 +98,44 @@ export function SettingsPage() {
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-appearance">{t("settings.appearance.mode")}</Label>
-            <select
+            <NativeSelect
               id="settings-appearance"
               value={draft.appearance}
               onChange={(event) => update({ appearance: event.target.value as Settings["appearance"] })}
-              className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground"
             >
               <option value="system">{t("option.appearance.system")}</option>
               <option value="light">{t("option.appearance.light")}</option>
               <option value="dark">{t("option.appearance.dark")}</option>
-            </select>
+            </NativeSelect>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-language">{t("settings.language.language")}</Label>
-            <select
+            <NativeSelect
               id="settings-language"
               value={draft.language}
               onChange={(event) => update({ language: event.target.value as Settings["language"] })}
-              className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground"
             >
               <option value="system">{t("option.language.system")}</option>
               <option value="en">{t("option.language.en")}</option>
               <option value="zh-CN">{t("option.language.zhCN")}</option>
               <option value="zh-TW">{t("option.language.zhTW")}</option>
-            </select>
+            </NativeSelect>
           </div>
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-currency">{t("accounts.currency")}</Label>
-            <select
+            <NativeSelect
               id="settings-currency"
               value={draft.currency}
               onChange={(event) => update({ currency: event.target.value })}
-              className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground"
             >
               {(currencies.data ?? [draft.currency]).map((currency) => (
                 <option key={currency} value={currency}>
                   {currency}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         </div>
 

@@ -53,14 +53,6 @@ export function useCreateHolding() {
   });
 }
 
-export function useArchiveHolding() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, archived }: { id: string; archived: boolean }) => callService(() => HoldingService.ArchiveHolding(id, archived)),
-    onSuccess: () => invalidateHoldingChange(queryClient),
-  });
-}
-
 /**
  * useAllHoldingsFlat denormalizes every Holding across every Holdings-mode
  * Account into one flat list with instrument/account names attached, for

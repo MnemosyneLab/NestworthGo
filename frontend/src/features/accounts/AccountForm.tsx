@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { NativeSelect } from "@/components/ui/select";
 import { IconPicker } from "@/components/forms/IconPicker";
 import { ImagePicker } from "@/components/forms/ImagePicker";
 import { useMembers, useInstitutions, useGroups } from "@/queries/directory";
@@ -39,6 +40,23 @@ const accountFormSchema = z.object({
 });
 
 export type AccountFormValues = z.infer<typeof accountFormSchema>;
+
+const TOTAL_OWNERSHIP_BPS = 10000;
+
+function ownershipShares(ownerIds: string[], percentages: string[] | undefined, useCustom: boolean): { memberId: string; shareBps: number }[] {
+  if (useCustom && percentages && percentages.length === ownerIds.length) {
+    return ownerIds.map((memberId, index) => ({
+      memberId,
+      shareBps: Math.round(Number(percentages[index]) * 100),
+    }));
+  }
+  const base = Math.floor(TOTAL_OWNERSHIP_BPS / ownerIds.length);
+  const remainder = TOTAL_OWNERSHIP_BPS % ownerIds.length;
+  return ownerIds.map((memberId, index) => ({
+    memberId,
+    shareBps: index < remainder ? base + 1 : base,
+  }));
+}
 
 export type AccountFormExtras = {
   pendingImage?: string;
@@ -152,8 +170,7 @@ export function AccountForm({
       includeInNetWorth: values.includeInNetWorth,
       includeInInvestment: values.includeInInvestment,
       includeInLiquidAssets: values.includeInLiquidAssets,
-      ownerIds: values.ownerIds,
-      ownershipPercentages: useCustomPercentages ? values.ownershipPercentages : undefined,
+      ownership: ownershipShares(values.ownerIds, values.ownershipPercentages, useCustomPercentages),
       institutionId: values.institutionId || undefined,
       groupId: values.groupId || undefined,
       iconKey: iconKey || undefined,
@@ -176,53 +193,52 @@ export function AccountForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-primary-category">{t("accounts.category")}</Label>
-        <select
+        <NativeSelect
           id="account-primary-category"
           value={primaryCategory}
           onChange={(event) => handlePrimaryCategoryChange(event.target.value as PrimaryCategory)}
-          className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground"
         >
           {PRIMARY_CATEGORIES.map((category) => (
             <option key={category} value={category}>
               {displayEnum(t, "enum", category)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-secondary-category">{t("accounts.secondaryCategory")}</Label>
-        <select id="account-secondary-category" {...register("secondaryCategory")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+        <NativeSelect id="account-secondary-category" {...register("secondaryCategory")}>
           {secondaryOptions.map((category) => (
             <option key={category} value={category}>
               {displayEnum(t, "enum", category)}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       {trackingModeOptions.length > 1 && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="account-tracking-mode">{t("accounts.trackingMode")}</Label>
-          <select id="account-tracking-mode" {...register("trackingMode")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+          <NativeSelect id="account-tracking-mode" {...register("trackingMode")}>
             {trackingModeOptions.map((mode) => (
               <option key={mode} value={mode}>
                 {displayEnum(t, "enum", mode)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       )}
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-currency">{t("accounts.currency")}</Label>
-        <select id="account-currency" {...register("defaultCurrency")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+        <NativeSelect id="account-currency" {...register("defaultCurrency")}>
           {(currencies.data ?? ["USD"]).map((currency) => (
             <option key={currency} value={currency}>
               {currency}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       {!isEdit && trackingMode !== "holdings" && (
@@ -311,25 +327,25 @@ export function AccountForm({
         <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="account-institution">{t("nav.institutions")}</Label>
-            <select id="account-institution" {...register("institutionId")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+            <NativeSelect id="account-institution" {...register("institutionId")}>
               <option value="">{t("accounts.none")}</option>
               {(institutions.data ?? []).map((institution) => (
                 <option key={institution.id} value={institution.id}>
                   {institution.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="account-group">{t("nav.groups")}</Label>
-            <select id="account-group" {...register("groupId")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
+            <NativeSelect id="account-group" {...register("groupId")}>
               <option value="">{t("accounts.none")}</option>
               {(groups.data ?? []).map((group) => (
                 <option key={group.id} value={group.id}>
                   {group.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <IconPicker id="account-icon" value={iconKey} onChange={setIconKey} />
           <ImagePicker

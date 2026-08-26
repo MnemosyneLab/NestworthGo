@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { createTestQueryClient } from "@/test/queryClient";
 import { InvestmentsPage } from "./InvestmentsPage";
 
 const listInstruments = vi.fn();
 const createInstrument = vi.fn();
+const archiveInstrument = vi.fn().mockResolvedValue(undefined);
 const listAccounts = vi.fn();
 const createHolding = vi.fn();
 const holdingsByAccounts = vi.fn();
@@ -15,7 +17,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/in
   Service: {
     ListInstruments: (...args: unknown[]) => listInstruments(...args),
     CreateInstrument: (...args: unknown[]) => createInstrument(...args),
-    ArchiveInstrument: vi.fn(),
+    ArchiveInstrument: (...args: unknown[]) => archiveInstrument(...args),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
@@ -37,7 +39,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
 }));
 
 function renderPage() {
-  const queryClient = new QueryClient();
+  const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
       <InvestmentsPage />
@@ -48,6 +50,7 @@ function renderPage() {
 beforeEach(() => {
   listInstruments.mockReset();
   createInstrument.mockReset();
+  archiveInstrument.mockClear();
   listAccounts.mockReset();
   createHolding.mockReset();
   holdingsByAccounts.mockReset();
@@ -151,5 +154,15 @@ describe("InvestmentsPage", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
 
     expect(await screen.findByText("No current price")).toBeInTheDocument();
+  });
+
+  it("archives an Instrument after confirming the AlertDialog", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    renderPage();
+    await screen.findByText("NVIDIA");
+    await userEvent.click(screen.getByRole("button", { name: "Archive" }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Archive" }));
+    expect(archiveInstrument).toHaveBeenCalledWith("i1", true);
   });
 });

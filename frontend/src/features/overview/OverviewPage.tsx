@@ -41,6 +41,20 @@ function countMissing(items: MissingInputDTO[], kind: string): number {
   return items.filter((item) => item.kind === kind).length;
 }
 
+function missingItemLabel(
+  t: (key: string) => string,
+  item: MissingInputDTO,
+  accountNames: Map<string, string>,
+): string {
+  if (item.kind === "instrument_price") {
+    return item.instrumentName || item.instrumentSymbol || t("overview.unknownInstrument");
+  }
+  if (item.kind === "fx_rate" && (item.baseCurrency || item.quoteCurrency)) {
+    return `${item.baseCurrency}/${item.quoteCurrency}`;
+  }
+  return accountNames.get(item.accountId) || t("overview.unknownAccount");
+}
+
 function formatUpdatedAt(timestamp: number, language: string): string {
   return new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp));
 }
@@ -169,7 +183,7 @@ export function OverviewPage({
                       {missing.map((item, index) => (
                         <li key={`${item.kind}-${item.accountId}-${index}`}>
                           {t("overview.missingInput", {
-                            label: `${item.instrumentName || item.instrumentSymbol || t("overview.unknownAccount")} (${displayEnum(t, "overview.missingKind", item.kind)})`,
+                            label: `${missingItemLabel(t, item, accountNames)} (${displayEnum(t, "overview.missingKind", item.kind)})`,
                           })}
                         </li>
                       ))}
@@ -267,7 +281,7 @@ export function OverviewPage({
               onRetry={() => activities.refetch()}
               retryLabel={t("common.retryAction")}
             />
-          ) : activities.isLoading ? (
+          ) : activities.isLoading || accounts.isLoading || instruments.isLoading ? (
             <LoadingState label={t("history.loading")} />
           ) : recent.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("overview.noRecentActivity")}</p>

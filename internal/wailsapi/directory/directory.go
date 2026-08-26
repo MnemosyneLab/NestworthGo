@@ -40,35 +40,25 @@ func (s *Service) CreateMember(ctx context.Context, name string) (wire.MemberDTO
 }
 
 func (s *Service) UpdateMember(ctx context.Context, id, name string) (wire.MemberDTO, error) {
-	memberID, err := domain.ParseMemberID(id)
-	if err != nil {
-		return wire.MemberDTO{}, apierror.Wrap(err)
-	}
-	member, err := s.app.UpdateMember(ctx, memberID, name)
-	if err != nil {
-		return wire.MemberDTO{}, apierror.Wrap(err)
-	}
-	return wire.FromMember(member), nil
+	return updateEntity(id, domain.ParseMemberID, func(memberID domain.MemberID) (domain.Member, error) {
+		return s.app.UpdateMember(ctx, memberID, name)
+	}, wire.FromMember)
 }
 
 func (s *Service) ArchiveMember(ctx context.Context, id string, archived bool) error {
-	memberID, err := domain.ParseMemberID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.ArchiveMember(ctx, memberID, archived))
+	return withParsedID(id, domain.ParseMemberID, func(memberID domain.MemberID) error {
+		return s.app.ArchiveMember(ctx, memberID, archived)
+	})
 }
 
 func (s *Service) SetMemberAvatar(ctx context.Context, id, mediaAssetID string) error {
-	memberID, err := domain.ParseMemberID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	assetID, err := domain.ParseMediaAssetID(mediaAssetID)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetMemberAvatar(ctx, memberID, assetID))
+	return withParsedID(id, domain.ParseMemberID, func(memberID domain.MemberID) error {
+		assetID, err := domain.ParseMediaAssetID(mediaAssetID)
+		if err != nil {
+			return err
+		}
+		return s.app.SetMemberAvatar(ctx, memberID, assetID)
+	})
 }
 
 // --- Institutions ---
@@ -96,43 +86,31 @@ func (s *Service) CreateInstitution(ctx context.Context, name, iconKey string) (
 }
 
 func (s *Service) UpdateInstitution(ctx context.Context, id, name string) (wire.InstitutionDTO, error) {
-	institutionID, err := domain.ParseInstitutionID(id)
-	if err != nil {
-		return wire.InstitutionDTO{}, apierror.Wrap(err)
-	}
-	institution, err := s.app.UpdateInstitution(ctx, institutionID, name)
-	if err != nil {
-		return wire.InstitutionDTO{}, apierror.Wrap(err)
-	}
-	return wire.FromInstitution(institution), nil
+	return updateEntity(id, domain.ParseInstitutionID, func(institutionID domain.InstitutionID) (domain.Institution, error) {
+		return s.app.UpdateInstitution(ctx, institutionID, name)
+	}, wire.FromInstitution)
 }
 
 func (s *Service) ArchiveInstitution(ctx context.Context, id string, archived bool) error {
-	institutionID, err := domain.ParseInstitutionID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.ArchiveInstitution(ctx, institutionID, archived))
+	return withParsedID(id, domain.ParseInstitutionID, func(institutionID domain.InstitutionID) error {
+		return s.app.ArchiveInstitution(ctx, institutionID, archived)
+	})
 }
 
 func (s *Service) SetInstitutionIcon(ctx context.Context, id, iconKey string) error {
-	institutionID, err := domain.ParseInstitutionID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetInstitutionIcon(ctx, institutionID, iconKey))
+	return withParsedID(id, domain.ParseInstitutionID, func(institutionID domain.InstitutionID) error {
+		return s.app.SetInstitutionIcon(ctx, institutionID, iconKey)
+	})
 }
 
 func (s *Service) SetInstitutionLogo(ctx context.Context, id, mediaAssetID string) error {
-	institutionID, err := domain.ParseInstitutionID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	assetID, err := domain.ParseMediaAssetID(mediaAssetID)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetInstitutionLogo(ctx, institutionID, assetID))
+	return withParsedID(id, domain.ParseInstitutionID, func(institutionID domain.InstitutionID) error {
+		assetID, err := domain.ParseMediaAssetID(mediaAssetID)
+		if err != nil {
+			return err
+		}
+		return s.app.SetInstitutionLogo(ctx, institutionID, assetID)
+	})
 }
 
 // --- Groups ---
@@ -160,41 +138,55 @@ func (s *Service) CreateGroup(ctx context.Context, name, iconKey string) (wire.G
 }
 
 func (s *Service) UpdateGroup(ctx context.Context, id, name string) (wire.GroupDTO, error) {
-	groupID, err := domain.ParseGroupID(id)
-	if err != nil {
-		return wire.GroupDTO{}, apierror.Wrap(err)
-	}
-	group, err := s.app.UpdateGroup(ctx, groupID, name)
-	if err != nil {
-		return wire.GroupDTO{}, apierror.Wrap(err)
-	}
-	return wire.FromGroup(group), nil
+	return updateEntity(id, domain.ParseGroupID, func(groupID domain.GroupID) (domain.Group, error) {
+		return s.app.UpdateGroup(ctx, groupID, name)
+	}, wire.FromGroup)
 }
 
 func (s *Service) ArchiveGroup(ctx context.Context, id string, archived bool) error {
-	groupID, err := domain.ParseGroupID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.ArchiveGroup(ctx, groupID, archived))
+	return withParsedID(id, domain.ParseGroupID, func(groupID domain.GroupID) error {
+		return s.app.ArchiveGroup(ctx, groupID, archived)
+	})
 }
 
 func (s *Service) SetGroupIcon(ctx context.Context, id, iconKey string) error {
-	groupID, err := domain.ParseGroupID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetGroupIcon(ctx, groupID, iconKey))
+	return withParsedID(id, domain.ParseGroupID, func(groupID domain.GroupID) error {
+		return s.app.SetGroupIcon(ctx, groupID, iconKey)
+	})
 }
 
 func (s *Service) SetGroupLogo(ctx context.Context, id, mediaAssetID string) error {
-	groupID, err := domain.ParseGroupID(id)
+	return withParsedID(id, domain.ParseGroupID, func(groupID domain.GroupID) error {
+		assetID, err := domain.ParseMediaAssetID(mediaAssetID)
+		if err != nil {
+			return err
+		}
+		return s.app.SetGroupLogo(ctx, groupID, assetID)
+	})
+}
+
+func updateEntity[ID ~string, Domain any, DTO any](
+	id string,
+	parse func(string) (ID, error),
+	update func(ID) (Domain, error),
+	from func(Domain) DTO,
+) (DTO, error) {
+	var zero DTO
+	parsed, err := parse(id)
+	if err != nil {
+		return zero, apierror.Wrap(err)
+	}
+	value, err := update(parsed)
+	if err != nil {
+		return zero, apierror.Wrap(err)
+	}
+	return from(value), nil
+}
+
+func withParsedID[ID ~string](id string, parse func(string) (ID, error), fn func(ID) error) error {
+	parsed, err := parse(id)
 	if err != nil {
 		return apierror.Wrap(err)
 	}
-	assetID, err := domain.ParseMediaAssetID(mediaAssetID)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetGroupLogo(ctx, groupID, assetID))
+	return apierror.Wrap(fn(parsed))
 }

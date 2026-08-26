@@ -25,7 +25,7 @@ import {
   useUpdateAccount,
   toUpdateAccountRequest,
 } from "@/queries/accounts";
-import { persistPickedImage } from "@/queries/media";
+import { attachPendingImage } from "@/queries/media";
 import { AccountForm } from "@/features/accounts/AccountForm";
 import { ImagePicker } from "@/components/forms/ImagePicker";
 import { formatAmount } from "@/lib/money";
@@ -38,17 +38,6 @@ import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
 
 const columnHelper = createColumnHelper<AccountRecordDTO>();
-
-async function attachAccountLogo(
-  id: string,
-  pendingImage: string | undefined,
-  setLogo: (args: { id: string; mediaAssetId: string }) => Promise<unknown>,
-) {
-  if (!pendingImage) {
-    return;
-  }
-  await persistPickedImage(pendingImage, (mediaAssetId) => setLogo({ id, mediaAssetId }));
-}
 
 /**
  * AccountsPage implements list/filter/create/update/archive/restore end
@@ -79,7 +68,7 @@ export function AccountsPage() {
     try {
       const record = await createAccount.mutateAsync(request);
       try {
-        await attachAccountLogo(record.account.id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args));
+        await attachPendingImage(record.account.id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args));
         toast.success(t("accounts.created"));
       } catch (error) {
         const message = displayError(error, t("accounts.mediaSaveError"));
@@ -106,7 +95,7 @@ export function AccountsPage() {
     try {
       await updateAccount.mutateAsync({ id, request: toUpdateAccountRequest(request) });
       try {
-        await attachAccountLogo(id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args));
+        await attachPendingImage(id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args));
         toast.success(t("common.saved"));
       } catch (error) {
         const message = displayError(error, t("accounts.mediaSaveError"));
@@ -130,7 +119,7 @@ export function AccountsPage() {
     setImageError(undefined);
     setImageSavingId(id);
     try {
-      await attachAccountLogo(id, rowPendingImage, (args) => setAccountLogo.mutateAsync(args));
+      await attachPendingImage(id, rowPendingImage, (args) => setAccountLogo.mutateAsync(args));
       setImageTargetId(null);
       setRowPendingImage(undefined);
       toast.success(t("common.saved"));

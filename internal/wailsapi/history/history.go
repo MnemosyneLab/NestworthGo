@@ -93,19 +93,16 @@ func (s *Service) HistoryMutationAllowed(ctx context.Context) error {
 	return apierror.Wrap(s.app.HistoryMutationAllowed(ctx))
 }
 
-// resolveHouseholdID re-derives the current Household ID from Bootstrap
-// rather than trusting a client-submitted value, matching the rule that a
+// resolveHouseholdID re-derives the current Household ID from the identity-only
+// gate rather than trusting a client-submitted value, matching the rule that a
 // change command's HouseholdID always comes from server-side context
 // (command.go's ToCommand doc comment).
 func (s *Service) resolveHouseholdID(ctx context.Context) (domain.HouseholdID, error) {
-	bootstrap, err := s.app.Bootstrap(ctx)
+	household, err := s.app.Household(ctx)
 	if err != nil {
 		return "", err
 	}
-	if bootstrap.Household == nil {
-		return "", &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return bootstrap.Household.ID, nil
+	return household.ID, nil
 }
 
 func (s *Service) PreviewChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
@@ -140,11 +137,9 @@ func (s *Service) RecordChange(ctx context.Context, request ChangeCommandRequest
 	return wire.FromChangePreview(preview), nil
 }
 
-// CommitChange is kept distinct from RecordChange at the wire boundary even
-// though application.Service.CommitChange is currently a thin alias for
-// RecordChange, so the frontend's "preview, then confirm" UX has a stable
-// name to call regardless of how the Go layer
-// evolves.
+// CommitChange is kept as a wire alias of RecordChange so the frontend's
+// "preview, then confirm" UX has a stable name to call. Application code
+// has a single RecordChange write path.
 func (s *Service) CommitChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
 	householdID, err := s.resolveHouseholdID(ctx)
 	if err != nil {
@@ -154,7 +149,7 @@ func (s *Service) CommitChange(ctx context.Context, request ChangeCommandRequest
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	preview, err := s.app.CommitChange(ctx, command)
+	preview, err := s.app.RecordChange(ctx, command)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
@@ -288,8 +283,8 @@ type DailySnapshotStateDTO struct {
 	LastCompletedClosedOn *string `json:"lastCompletedClosedOn,omitempty"`
 }
 
-func (s *Service) DailySnapshotState(ctx context.Context, householdID string) (DailySnapshotStateDTO, error) {
-	id, err := domain.ParseHouseholdID(householdID)
+func (s *Service) DailySnapshotState(ctx context.Context, _ string) (DailySnapshotStateDTO, error) {
+	id, err := s.resolveHouseholdID(ctx)
 	if err != nil {
 		return DailySnapshotStateDTO{}, apierror.Wrap(err)
 	}
@@ -300,8 +295,8 @@ func (s *Service) DailySnapshotState(ctx context.Context, householdID string) (D
 	return DailySnapshotStateDTO{HouseholdID: state.HouseholdID.String(), DirtyFrom: state.DirtyFrom, LastCompletedClosedOn: state.LastCompletedClosedOn}, nil
 }
 
-func (s *Service) CompleteDailySnapshotRange(ctx context.Context, householdID, targetDate string) error {
-	id, err := domain.ParseHouseholdID(householdID)
+func (s *Service) CompleteDailySnapshotRange(ctx context.Context, _, targetDate string) error {
+	id, err := s.resolveHouseholdID(ctx)
 	if err != nil {
 		return apierror.Wrap(err)
 	}
