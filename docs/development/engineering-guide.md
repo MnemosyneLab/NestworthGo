@@ -20,13 +20,20 @@ Dependency versions are defined by `go.mod`, `go.sum`,
 
 ## Setup and daily commands
 
+For the complete copy/paste workflow, see the [Local Development and Packaging
+guide](local-workflow.md). The short form is:
+
 From the repository root:
 
 ```bash
-go mod download
-cd frontend && pnpm install && cd ..
-wails3 dev
+wails3 task setup
+wails3 task dev
 ```
+
+`frontend/bindings/` is gitignored. After a clean checkout, generate it
+with `wails3 task setup` or `wails3 task generate:bindings`; direct frontend
+`dev`, `build`, `typecheck`, and `test` scripts also generate it when the
+expected binding file is missing.
 
 Run the normal automated checks with a writable cache:
 
@@ -42,16 +49,16 @@ cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
 Generate Wails bindings after changing a bound Go service:
 
 ```bash
-go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.12 generate bindings -ts ./...
+wails3 task generate:bindings
 ```
 
 Bindings and frontend bundles are generated artifacts. Do not hand-edit them
 or commit them.
 
-Build the unsigned primary-target package:
+Build and verify the primary-target package:
 
 ```bash
-wails3 task darwin:package:release
+wails3 task package:release
 ```
 
 The expected output is `dist/macos/Nestworth.app` and

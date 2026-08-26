@@ -16,6 +16,7 @@ bundles.
 | Architecture | [Domain Model](architecture/domain-model.md) | Financial entities, validation, and calculation semantics |
 | Architecture | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | SQLite, transactions, serialization, errors, media, and providers |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |
+| Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
 | Release | [v0.2.0 Contract](releases/v0.2.0.md) | Scope, acceptance, and release gates for the current line |
 

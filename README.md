@@ -28,22 +28,25 @@ Requirements: Go 1.26 or newer, Node.js with pnpm, and a desktop platform
 supported by Wails v3. The primary target is macOS on Apple Silicon.
 
 ```bash
-go mod download
-cd frontend && pnpm install && pnpm run build && cd ..
-wails3 dev
+wails3 task setup
+wails3 task dev
 ```
+
+`wails3 task setup` installs dependencies and regenerates the ignored Wails
+TypeScript bindings. `wails3 task dev` starts the Go rebuild loop, Vite, and
+the desktop shell. For the complete local development, validation, `.app`, and
+DMG workflow, see the [local development and packaging guide](docs/development/local-workflow.md).
 
 Build the canonical desktop binary:
 
 ```bash
-mkdir -p bin
-go build -o bin/nestworth ./cmd/nestworth
+wails3 task build
 ```
 
-Build the unsigned macOS application and arm64 DMG:
+Build and verify the local macOS application and arm64 DMG:
 
 ```bash
-wails3 task darwin:package:release
+wails3 task package:release
 ```
 
 The release output is `dist/macos/Nestworth.app` and

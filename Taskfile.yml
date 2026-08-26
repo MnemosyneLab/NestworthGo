@@ -18,6 +18,43 @@ includes:
   linux: ./build/linux/Taskfile.yml
 
 tasks:
+  setup:
+    summary: Sets up Go and frontend dependencies and generates Wails bindings
+    desc: |
+      Run this once after cloning or switching to a clean checkout. Generated
+      TypeScript bindings remain ignored and are recreated when needed.
+    cmds:
+      - go mod download
+      - task: common:install:frontend:deps
+      - task: common:generate:bindings
+
+  generate:bindings:
+    summary: Regenerates the ignored Wails TypeScript bindings
+    cmds:
+      - task: common:generate:bindings
+
+  check:
+    summary: Runs the Go and frontend validation suite
+    desc: |
+      The frontend build dependency also regenerates bindings and produces the
+      embedded frontend bundle before Go compilation.
+    deps:
+      - task: common:build:frontend
+    cmds:
+      - test -z "$(gofmt -l cmd internal)"
+      - go test ./...
+      - go vet ./...
+      - go build ./cmd/nestworth
+      - task: common:frontend:run
+        vars:
+          SCRIPT: lint
+      - task: common:frontend:run
+        vars:
+          SCRIPT: typecheck
+      - task: common:frontend:run
+        vars:
+          SCRIPT: test
+
   build:
     summary: Builds the application
     cmds:
@@ -28,13 +65,28 @@ tasks:
     cmds:
       - task: "{{.GOOS}}:package"
 
+  package:dmg:
+    summary: Packages the macOS application as a DMG
+    platforms: [darwin]
+    cmds:
+      - task: darwin:package:dmg
+
+  package:release:
+    summary: Builds and verifies the local macOS app and arm64 DMG artifacts
+    platforms: [darwin]
+    cmds:
+      - task: darwin:package:release
+
   run:
     summary: Runs the application
     cmds:
       - task: "{{.GOOS}}:run"
 
   dev:
-    summary: Runs the application in development mode
+    summary: Runs the application in Wails development mode
+    desc: |
+      Starts the Wails shell, Vite dev server, and Go rebuild loop using
+      build/config.yml. Override the port with WAILS_VITE_PORT=...
     cmds:
       - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
 

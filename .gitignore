@@ -8,7 +8,7 @@
 *.syso
 
 # Frontend (Wails v3): dist/ and bindings/ are build artifacts regenerated
-# by `npm run build` / `wails3 generate bindings`; node_modules is npm's
+# by `pnpm run build` / `wails3 generate bindings`; node_modules is pnpm's
 # install cache. None are hand-edited (docs/migration/wails-v3-technical-design.md Sec3).
 /frontend/node_modules/
 /frontend/dist/

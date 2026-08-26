@@ -1,8 +1,11 @@
 # Development Documentation
 
-The [Engineering Guide](engineering-guide.md) is the entry point for local
-setup, package boundaries, financial implementation rules, test commands, and
-release validation.
+The [Engineering Guide](engineering-guide.md) is the entry point for package
+boundaries, financial implementation rules, and validation strategy. The
+[Local Development and Packaging guide](local-workflow.md) contains the
+copy/paste commands for clean-checkout setup, Wails development, generated
+bindings, frontend checks, `.app` builds, DMG creation, and release smoke
+validation.
 
 Development documents should describe reproducible work against the current
 tree. Temporary investigations belong in the issue or pull request that owns

@@ -4,13 +4,14 @@
   "version": "0.2.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build:dev": "tsc && vite build --minify false --mode development",
-    "build": "tsc && vite build --mode production",
+    "dev": "node ./scripts/ensure-bindings.mjs && vite",
+    "generate:bindings": "node ./scripts/ensure-bindings.mjs --force",
+    "build:dev": "node ./scripts/ensure-bindings.mjs && tsc && vite build --minify false --mode development",
+    "build": "node ./scripts/ensure-bindings.mjs && tsc && vite build --mode production",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "typecheck": "tsc --noEmit",
+    "test": "node ./scripts/ensure-bindings.mjs && vitest run",
+    "test:watch": "node ./scripts/ensure-bindings.mjs && vitest",
+    "typecheck": "node ./scripts/ensure-bindings.mjs && tsc --noEmit",
     "lint": "eslint ."
   },
   "dependencies": {
