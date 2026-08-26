@@ -24,14 +24,14 @@ func (s *Service) HistoryStarted(ctx context.Context) (bool, error) {
 	return origin != nil, err
 }
 
-// StartHistory captures the selected v0.1.2 state as one immutable Starting
+// StartHistory captures the selected current state as one immutable Starting
 // point. The repository owns one transaction and returns an existing origin
 // on an idempotent retry.
 func (s *Service) StartHistory(ctx context.Context, timezone string) (domain.HistoryOrigin, error) {
 	return s.StartHistoryWithCosts(ctx, timezone, nil)
 }
 
-// StartHistoryWithCosts captures the selected v0.1.2 state with optional
+// StartHistoryWithCosts captures the selected current state with optional
 // per-Holding cost overrides. A missing override keeps the selected current
 // quote as the default, preserving the original StartHistory contract.
 func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, costOverrides map[domain.HoldingID]string) (domain.HistoryOrigin, error) {

@@ -1,6 +1,6 @@
 // Package marketdata contains the native provider adapters. Yahoo-specific
 // URLs and response fields stop in this package and never cross into domain,
-// application, SQLite, or Fyne code.
+// application, SQLite, or UI code.
 package marketdata
 
 import (
@@ -24,11 +24,11 @@ const (
 	yahooRequestTimeout = 8 * time.Second
 	yahooMaxBodyBytes   = int64(2 * 1024 * 1024)
 
-	// Keep this profile in lockstep with the Rust client's browser_headers.
+	// Keep this profile stable so provider behavior is reproducible across
+	// instrument and FX request tests.
 	yahooAcceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-	// The Rust client advertises browser compression codecs. The Go client
-	// deliberately requests identity so it can keep the same browser profile
-	// without adding Brotli/Zstandard decoder dependencies.
+	// Request identity so the adapter does not need Brotli/Zstandard decoder
+	// dependencies and can enforce its bounded response contract.
 	yahooAcceptEncodingHeader          = "identity"
 	yahooAcceptLanguageHeader          = "en-US,en;q=0.9"
 	yahooPriorityHeader                = "u=0, i"
@@ -69,7 +69,7 @@ func NewYahooChartProviderWithOptions(options YahooChartProviderOptions) *YahooC
 func (p *YahooChartProvider) Key() string { return yahooProviderKey }
 
 func (p *YahooChartProvider) Capabilities() application.MarketDataCapabilities {
-	return application.MarketDataCapabilities{LatestInstrument: true, LatestFX: true}
+	return application.MarketDataCapabilities{LatestInstrument: true}
 }
 
 func (p *YahooChartProvider) LatestInstrument(ctx context.Context, identity application.InstrumentMarketIdentity) (application.LatestInstrumentQuote, error) {
@@ -95,31 +95,8 @@ func (p *YahooChartProvider) LatestInstrument(ctx context.Context, identity appl
 	return application.LatestInstrumentQuote{Price: price, Currency: currency, SourceKey: p.Key(), QuotedAt: normalized.QuotedAt, Delayed: normalized.Delayed}, nil
 }
 
-func (p *YahooChartProvider) LatestFX(ctx context.Context, identity application.FXMarketIdentity) (application.LatestFXQuote, error) {
-	base, err := domain.ParseCurrency(identity.BaseCurrency.String())
-	if err != nil {
-		return application.LatestFXQuote{}, providerValidation("baseCurrency", "base currency is invalid")
-	}
-	quote, err := domain.ParseCurrency(identity.QuoteCurrency.String())
-	if err != nil {
-		return application.LatestFXQuote{}, providerValidation("quoteCurrency", "quote currency is invalid")
-	}
-	if base == quote {
-		return application.LatestFXQuote{}, providerValidation("currencyPair", "base and quote currencies must differ")
-	}
-	body, err := p.fetch(ctx, base.String()+quote.String()+"=X")
-	if err != nil {
-		return application.LatestFXQuote{}, err
-	}
-	normalized, err := normalizeChart(body, quote, true)
-	if err != nil {
-		return application.LatestFXQuote{}, err
-	}
-	rate, err := domain.ParseFxRate(normalized.Value)
-	if err != nil {
-		return application.LatestFXQuote{}, malformedProvider()
-	}
-	return application.LatestFXQuote{Rate: rate, BaseCurrency: base, QuoteCurrency: quote, SourceKey: p.Key(), QuotedAt: normalized.QuotedAt, Delayed: normalized.Delayed}, nil
+func (p *YahooChartProvider) LatestFX(context.Context, application.FXMarketIdentity) (application.LatestFXQuote, error) {
+	return application.LatestFXQuote{}, &domain.Error{Code: domain.ErrUnavailable, Message: "provider does not support FX refresh"}
 }
 
 func (p *YahooChartProvider) fetch(ctx context.Context, symbol string) ([]byte, error) {

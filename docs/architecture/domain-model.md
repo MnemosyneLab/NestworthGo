@@ -92,9 +92,9 @@ source key, delayed flag, quote time, and creation time. Refresh appends a new
 observation and never rewrites history. Quote preference is stored per
 Instrument and per unordered FX pair. Instrument refresh uses the Instrument's
 saved provider binding; explicit FX refresh uses the provider selected in
-Settings. Yahoo supports both current Instrument and FX quotes. Frankfurter is
-FX-only, returns daily observations marked delayed, and supplies no Instrument
-binding.
+Settings. Yahoo supports current Instrument quotes only. Frankfurter is the
+sole production FX provider, returns daily observations marked delayed, and
+supplies no Instrument binding.
 
 ### Media Asset
 
@@ -191,7 +191,7 @@ Authoritative timestamps are UTC RFC 3339 strings with millisecond precision and
 | Receivable | Loan Receivable, Other Receivable | Manual Value |
 | Liability | Credit Card, Mortgage, Auto Loan, Consumer Loan, Personal Debt, Other Liability | Balance |
 
-New Holdings Accounts are Investment only and do not require an initial Account Value. New Balance and Manual Value Accounts still require an initial amount. TrackingMode is immutable after creation; an update may repeat the existing value but cannot change it. Existing v0.1.1 Accounts retain their mode, currency, and Account Value history.
+New Holdings Accounts are Investment only and do not require an initial Account Value. New Balance and Manual Value Accounts still require an initial amount. TrackingMode is immutable after creation; an update may repeat the existing value but cannot change it. Existing Accounts retain their mode, currency, and Account Value history.
 
 ## Ownership Rules
 
@@ -267,13 +267,11 @@ These concepts are planned but are not current behavior:
 
 - A later sustainable-use release may add pending/recurring Activity
   preparation, freshness reminders, Backup/Restore, controlled data exchange,
-  comparison data, search, and command-palette workflows. The inherited
-  Rust/Tauri v0.1.5 documents are retained in the
-  [unreviewed archive](../legacy/rust-tauri-inherited-unreviewed/README.md) and
-  are not the Go implementation contract.
+  comparison data, search, and command-palette workflows. Each capability
+  needs a new product and technical contract before implementation.
 
 Future models may extend the current identity, Money, Ownership, lifecycle,
 quote, Activity, origin, and sign semantics. A pending item is not a financial
-fact before posting. v0.1.4 average-cost results remain derived
-interpretations of immutable Activity and Starting Point evidence; they never
-become imported transactions or mutable Holding state.
+fact before posting. Average-cost results remain derived interpretations of
+immutable Activity and Starting Point evidence; they never become imported
+transactions or mutable Holding state.

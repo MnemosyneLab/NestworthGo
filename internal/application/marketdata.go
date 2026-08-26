@@ -10,14 +10,14 @@ import (
 )
 
 // YahooFinanceProviderKey is the compiled-in provider binding used by the
-// v0.1.2 desktop experience. Keeping the key at the application boundary
+// desktop experience. Keeping the key at the application boundary
 // avoids making UI code depend on the infrastructure adapter.
 const YahooFinanceProviderKey = "yahoo_finance"
 
 const FrankfurterProviderKey = "frankfurter"
 
-// MarketDataCapabilities describes the deliberately small v0.1.2 provider
-// surface. Providers cannot imply search or historical-data support.
+// MarketDataCapabilities describes the deliberately small provider surface.
+// Providers cannot imply search or historical-data support.
 type MarketDataCapabilities struct {
 	LatestInstrument bool
 	LatestFX         bool

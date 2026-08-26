@@ -1,7 +1,6 @@
-// Package settings contains the user-facing preferences for the v0.1.0 UI
-// MVP. These preferences are deliberately kept outside the future financial
-// database so the presentation layer can evolve without defining business
-// persistence prematurely.
+// Package settings contains user-facing preferences. These preferences are
+// deliberately kept outside the financial database so the presentation layer
+// can evolve without changing business persistence.
 package settings
 
 import (
@@ -46,7 +45,6 @@ const (
 )
 
 const (
-	FXProviderYahoo       = "yahoo_finance"
 	FXProviderFrankfurter = "frankfurter"
 	DefaultFXProvider     = FXProviderFrankfurter
 )
@@ -97,9 +95,8 @@ type Settings struct {
 }
 
 // Minimum and maximum window dimensions accepted from a persisted settings
-// file. These bound the v0.1.1 window-state restoration (see
-// docs/development/code-review-2026-08-21.md BUG-5/GAP-2) so a corrupted or
-// hand-edited settings file can never restore a degenerate or absurd window.
+// file. A corrupted or hand-edited settings file can never restore a
+// degenerate or absurd window.
 const (
 	MinWindowWidth  = 640
 	MinWindowHeight = 480
@@ -183,6 +180,9 @@ func (s Settings) Validate() error {
 	}
 	if strings.TrimSpace(s.FXProvider) != "" && strings.TrimSpace(s.FXProvider) != s.FXProvider {
 		return errors.New("FX provider cannot have leading or trailing whitespace")
+	}
+	if s.FXProvider != FXProviderFrankfurter {
+		return fmt.Errorf("unsupported FX provider %q", s.FXProvider)
 	}
 	return nil
 }
@@ -319,10 +319,9 @@ func salvage(loaded, defaults Settings) Settings {
 	fixed.WindowHeight = salvageValue(fixed.WindowHeight, defaults.WindowHeight, func(v float32) bool {
 		return v >= MinWindowHeight && v <= MaxWindowHeight
 	})
-	fixed.FXProvider = strings.TrimSpace(fixed.FXProvider)
-	if fixed.FXProvider == "" {
-		fixed.FXProvider = defaults.FXProvider
-	}
+	fixed.FXProvider = salvageValue(strings.TrimSpace(fixed.FXProvider), defaults.FXProvider, func(v string) bool {
+		return v == FXProviderFrankfurter
+	})
 	return fixed
 }
 

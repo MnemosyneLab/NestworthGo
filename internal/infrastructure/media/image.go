@@ -10,6 +10,7 @@ import (
 	"image/png"
 	"io"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"golang.org/x/image/draw"
 	_ "golang.org/x/image/webp"
 )
@@ -21,6 +22,31 @@ const (
 )
 
 var ErrInvalidImage = errors.New("image must be a bounded PNG, JPEG, or WebP")
+
+// Normalizer adapts this package's codec errors to the application port. The
+// expected user-input failure remains a domain validation error at the
+// application boundary; unexpected implementation errors are preserved.
+type Normalizer struct{}
+
+func (Normalizer) Normalize(data []byte) ([]byte, error) {
+	value, err := Normalize(data)
+	if errors.Is(err, ErrInvalidImage) {
+		return nil, invalidImageError()
+	}
+	return value, err
+}
+
+func (Normalizer) ReadAndNormalize(reader io.Reader) ([]byte, error) {
+	value, err := ReadAndNormalize(reader)
+	if errors.Is(err, ErrInvalidImage) {
+		return nil, invalidImageError()
+	}
+	return value, err
+}
+
+func invalidImageError() error {
+	return &domain.Error{Code: domain.ErrValidation, Field: "data", Message: "image is invalid or exceeds the local size limit"}
+}
 
 func Normalize(data []byte) ([]byte, error) {
 	if len(data) == 0 || len(data) > MaxInputBytes {

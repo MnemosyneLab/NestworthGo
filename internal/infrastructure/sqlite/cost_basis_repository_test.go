@@ -17,7 +17,7 @@ type countingQueryer struct {
 
 func seedSchema6Fixture(t *testing.T, path string) {
 	t.Helper()
-	scriptPath := filepath.Join("..", "..", "..", "testdata", "v0.1.4", "schema6-fixture.sql")
+	scriptPath := filepath.Join("..", "..", "..", "testdata", "schema6", "schema6-fixture.sql")
 	script, err := os.ReadFile(scriptPath)
 	if err != nil {
 		t.Fatal(err)

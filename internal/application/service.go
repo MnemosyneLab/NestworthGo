@@ -10,109 +10,21 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 )
 
-// Repository is the application boundary implemented by infrastructure.
-type Repository interface {
-	Household(context.Context) (*domain.Household, error)
-	CreateOnboarding(context.Context, domain.Household, []domain.Member) error
-	CreateOnboardingWithHistory(context.Context, domain.Household, []domain.Member, domain.HistoryOriginData) error
-	ListMembers(context.Context, bool) ([]domain.Member, error)
-	CreateMember(context.Context, domain.Member) error
-	UpdateMember(context.Context, domain.Member) error
-	SetMemberArchive(context.Context, domain.HouseholdID, domain.MemberID, bool, time.Time) error
-	CreateInstitution(context.Context, domain.Institution) error
-	ListInstitutions(context.Context, bool) ([]domain.Institution, error)
-	UpdateInstitution(context.Context, domain.Institution) error
-	SetInstitutionArchive(context.Context, domain.HouseholdID, domain.InstitutionID, bool, time.Time) error
-	CreateGroup(context.Context, domain.Group) error
-	ListGroups(context.Context, bool) ([]domain.Group, error)
-	UpdateGroup(context.Context, domain.Group) error
-	SetGroupArchive(context.Context, domain.HouseholdID, domain.GroupID, bool, time.Time) error
-	CreateMediaAsset(context.Context, domain.MediaAsset) error
-	MediaAsset(context.Context, domain.HouseholdID, domain.MediaAssetID) (domain.MediaAsset, error)
-	SetMemberAvatar(context.Context, domain.HouseholdID, domain.MemberID, domain.MediaAssetID) error
-	SetInstitutionLogo(context.Context, domain.HouseholdID, domain.InstitutionID, domain.MediaAssetID) error
-	SetGroupLogo(context.Context, domain.HouseholdID, domain.GroupID, domain.MediaAssetID) error
-	SetAccountLogo(context.Context, domain.HouseholdID, domain.AccountID, domain.MediaAssetID) error
-	SetInstitutionIcon(context.Context, domain.HouseholdID, domain.InstitutionID, string) error
-	SetGroupIcon(context.Context, domain.HouseholdID, domain.GroupID, string) error
-	SetAccountIcon(context.Context, domain.HouseholdID, domain.AccountID, string) error
-	CreateAccount(context.Context, domain.Account, domain.Ownership, *domain.AccountValue) error
-	CreateAccountWithActivity(context.Context, domain.Account, domain.Ownership, *domain.AccountValue, domain.ActivityCommit, time.Time) error
-	CreateAccountWithHistory(context.Context, domain.Account, domain.Ownership, *domain.AccountValue, domain.AccountStateObservation, *domain.ActivityCommit, time.Time) error
-	UpdateAccount(context.Context, domain.Account, domain.Ownership) error
-	UpdateAccountWithObservation(context.Context, domain.Account, domain.Ownership, domain.AccountStateObservation) error
-	AppendAccountValue(context.Context, domain.AccountValue) error
-	SetAccountArchive(context.Context, domain.HouseholdID, domain.AccountID, bool, time.Time) error
-	SetAccountArchiveWithObservation(context.Context, domain.HouseholdID, domain.AccountID, bool, time.Time, domain.AccountStateObservation) error
-	ListAccountRecords(context.Context, domain.HouseholdID, domain.AccountFilter) ([]domain.AccountRecord, error)
-	ReadSnapshot(context.Context, domain.AccountFilter) (domain.ReadSnapshot, error)
-	ReadPortfolioSnapshot(context.Context, domain.AccountFilter) (domain.PortfolioSnapshot, error)
-	CreateInstrument(context.Context, domain.Instrument) error
-	CreateInstrumentWithObservation(context.Context, domain.Instrument, domain.InstrumentPreferenceObservation) error
-	UpdateInstrument(context.Context, domain.Instrument) error
-	UpdateInstrumentWithObservation(context.Context, domain.Instrument, domain.InstrumentPreferenceObservation) error
-	Instrument(context.Context, domain.HouseholdID, domain.InstrumentID) (domain.Instrument, error)
-	ListInstruments(context.Context, domain.HouseholdID, bool) ([]domain.Instrument, error)
-	SetInstrumentArchive(context.Context, domain.HouseholdID, domain.InstrumentID, bool, time.Time) error
-	SetInstrumentLogo(context.Context, domain.HouseholdID, domain.InstrumentID, domain.MediaAssetID) error
-	SetInstrumentQuoteSource(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind) error
-	SetInstrumentQuoteSourceWithObservation(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, domain.InstrumentPreferenceObservation) error
-	CreateHolding(context.Context, domain.Holding) error
-	CreateHoldingWithActivity(context.Context, domain.Holding, domain.ActivityCommit, time.Time) error
-	UpdateHolding(context.Context, domain.Holding) error
-	Holding(context.Context, domain.HoldingID) (domain.Holding, error)
-	ListHoldings(context.Context, domain.AccountID, bool) ([]domain.Holding, error)
-	ListHoldingsByAccounts(context.Context, []domain.AccountID) ([]domain.Holding, error)
-	SetHoldingArchive(context.Context, domain.HouseholdID, domain.HoldingID, bool, time.Time) error
-	AppendAccountCashValue(context.Context, domain.AccountCashValue) error
-	ListAccountCashValues(context.Context, domain.AccountID) ([]domain.AccountCashValue, error)
-	AppendInstrumentQuote(context.Context, domain.InstrumentQuote) error
-	AppendProviderInstrumentQuoteIfChanged(context.Context, domain.InstrumentQuote) (bool, error)
-	AppendInstrumentQuoteAndSelectManual(context.Context, domain.InstrumentQuote) error
-	ListInstrumentQuotes(context.Context, domain.InstrumentID) ([]domain.InstrumentQuote, error)
-	AppendFXQuote(context.Context, domain.FXQuote) error
-	AppendProviderFXQuoteIfChanged(context.Context, domain.FXQuote) (bool, error)
-	AppendFXQuoteAndSelectManual(context.Context, domain.FXQuote) error
-	ListFXQuotes(context.Context, domain.HouseholdID) ([]domain.FXQuote, error)
-	SetFXPreference(context.Context, domain.FXPreference) error
-	SetFXPreferenceWithObservation(context.Context, domain.FXPreference, domain.FXPreferenceObservation) error
-	FXPreference(context.Context, domain.HouseholdID, domain.CurrencyCode, domain.CurrencyCode) (domain.FXPreference, error)
-	ListFXPreferences(context.Context, domain.HouseholdID) ([]domain.FXPreference, error)
-	HistoryOrigin(context.Context, domain.HouseholdID) (*domain.HistoryOrigin, error)
-	ListHistoryOriginComponents(context.Context, domain.HistoryOriginID) ([]domain.HistoryOriginComponent, error)
-	HistoryOriginData(context.Context, domain.HistoryOriginID) (domain.HistoryOriginData, error)
-	ListCostBasisEvents(context.Context, domain.HoldingID) ([]domain.CostBasisEvent, error)
-	StartingPointCost(context.Context, domain.HoldingID) (*domain.UnitPrice, error)
-	ListAccountStateObservations(context.Context, domain.HouseholdID) ([]domain.AccountStateObservation, error)
-	ListInstrumentStateObservations(context.Context, domain.HouseholdID) ([]domain.InstrumentStateObservation, error)
-	ListHoldingStateObservations(context.Context, domain.HouseholdID) ([]domain.HoldingStateObservation, error)
-	ListInstrumentPreferenceObservations(context.Context, domain.HouseholdID) ([]domain.InstrumentPreferenceObservation, error)
-	ListFXPreferenceObservations(context.Context, domain.HouseholdID) ([]domain.FXPreferenceObservation, error)
-	LoadHistoricalSnapshotBatch(context.Context, domain.HouseholdID, time.Time) (domain.HistoricalSnapshotBatch, error)
-	StartHistory(context.Context, domain.HistoryOriginData) (domain.HistoryOrigin, error)
-	CommitActivity(context.Context, domain.Activity, []domain.ActivityEffect, []domain.EndpointView, time.Time) error
-	CommitActivityBatch(context.Context, []domain.ActivityCommit, time.Time) error
-	Activity(context.Context, domain.HouseholdID, domain.ActivityID) (domain.Activity, error)
-	ActivityEffects(context.Context, domain.ActivityID) ([]domain.ActivityEffect, error)
-	ActivityHasReversal(context.Context, domain.HouseholdID, domain.ActivityID) (bool, error)
-	ListActivities(context.Context, domain.HouseholdID, int) ([]domain.Activity, error)
-	ListActivityPage(context.Context, domain.HouseholdID, domain.ActivityQuery) (domain.ActivityPage, error)
-	ListActivitiesUntil(context.Context, domain.HouseholdID, time.Time) ([]domain.Activity, error)
-	AppendAccountStateObservation(context.Context, domain.AccountStateObservation) error
-	AppendInstrumentPreferenceObservation(context.Context, domain.InstrumentPreferenceObservation) error
-	AppendFXPreferenceObservation(context.Context, domain.FXPreferenceObservation) error
-	MarkDailySnapshotCompleted(context.Context, domain.HouseholdID, string, time.Time) error
-	SaveDailyValuationSnapshotAndMarkCompleted(context.Context, domain.DailyValuationSnapshot, time.Time) (bool, error)
-	CompleteDailySnapshotRange(context.Context, domain.HouseholdID, string, time.Time) error
-	DailySnapshotState(context.Context, domain.HouseholdID) (domain.DailySnapshotState, error)
-	ListDailyValuationSnapshots(context.Context, domain.HouseholdID, time.Time) ([]domain.DailyValuationSnapshot, error)
+// ImageNormalizer is the application port for bounded image decoding and
+// PNG normalization. Infrastructure owns the concrete implementation so the
+// application layer does not depend on a storage or codec package.
+type ImageNormalizer interface {
+	Normalize([]byte) ([]byte, error)
+	ReadAndNormalize(io.Reader) ([]byte, error)
 }
 
 type Service struct {
-	repository Repository
+	repository      Repository
+	imageNormalizer ImageNormalizer
+	valuation       *ValuationService
+	gain            *GainService
 
 	// stateMu guards the mutable service configuration below so a refresh
 	// worker reading it never races a concurrent setter.
@@ -126,9 +38,20 @@ type Service struct {
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
 	service := &Service{repository: repository, now: time.Now}
+	service.valuation = NewValuationService(repository, service.clock)
+	service.gain = NewGainService(repository, service.clock)
 	if len(registries) > 0 {
 		service.marketData = registries[0]
 	}
+	return service
+}
+
+// NewServiceWithImageNormalizer wires the concrete image boundary without
+// making application depend on infrastructure/media. NewService remains
+// available for callers that do not use image operations.
+func NewServiceWithImageNormalizer(repository Repository, normalizer ImageNormalizer, registries ...MarketDataRegistryPort) *Service {
+	service := NewService(repository, registries...)
+	service.imageNormalizer = normalizer
 	return service
 }
 
@@ -230,6 +153,28 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 	return Bootstrap{Household: household, Members: members, Institutions: institutions, Groups: groups}, nil
 }
 
+// requireHousehold is the identity-only gate for mutations and media reads
+// that need the current Household ID but do not validate directory references.
+// Keep Bootstrap for callers that genuinely need active Members, Institutions,
+// or Groups.
+func (s *Service) requireHousehold(ctx context.Context) (domain.Household, error) {
+	household, err := s.repository.Household(ctx)
+	if err != nil {
+		return domain.Household{}, err
+	}
+	if household == nil {
+		return domain.Household{}, onboardingRequired()
+	}
+	return *household, nil
+}
+
+// Household is the identity-only read used by Wails adapters that must
+// inject the current Household ID instead of trusting a client-submitted
+// value.
+func (s *Service) Household(ctx context.Context) (domain.Household, error) {
+	return s.requireHousehold(ctx)
+}
+
 type OnboardingInput struct {
 	HouseholdName string
 	BaseCurrency  string
@@ -284,14 +229,11 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 }
 
 func (s *Service) CreateMember(ctx context.Context, name string) (domain.Member, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Member{}, err
 	}
-	if bootstrap.Household == nil {
-		return domain.Member{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	member, err := domain.NewMember(bootstrap.Household.ID, name, s.clock())
+	member, err := domain.NewMember(household.ID, name, s.clock())
 	if err != nil {
 		return domain.Member{}, err
 	}
@@ -301,56 +243,44 @@ func (s *Service) CreateMember(ctx context.Context, name string) (domain.Member,
 	return member, nil
 }
 func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name string) (domain.Member, error) {
-	items, err := s.repository.ListMembers(ctx, true)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Member{}, err
 	}
-	for _, current := range items {
-		if current.ID != id {
-			continue
-		}
-		updated, err := domain.NewMember(current.HouseholdID, name, s.clock())
-		if err != nil {
-			return domain.Member{}, err
-		}
-		updated.ID, updated.AvatarAssetID, updated.Note, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.AvatarAssetID, current.Note, current.SortOrder, current.CreatedAt, current.ArchivedAt
-		if err := s.repository.UpdateMember(ctx, updated); err != nil {
-			return domain.Member{}, err
-		}
-		return updated, nil
+	current, err := s.repository.Member(ctx, household.ID, id)
+	if err != nil {
+		return domain.Member{}, err
 	}
-	return domain.Member{}, &domain.Error{Code: domain.ErrNotFound, Message: "member was not found"}
+	updated, err := domain.NewMember(current.HouseholdID, name, s.clock())
+	if err != nil {
+		return domain.Member{}, err
+	}
+	updated.ID, updated.AvatarAssetID, updated.Note, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.AvatarAssetID, current.Note, current.SortOrder, current.CreatedAt, current.ArchivedAt
+	if err := s.repository.UpdateMember(ctx, updated); err != nil {
+		return domain.Member{}, err
+	}
+	return updated, nil
 }
 
 func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archived bool) error {
-	bootstrap, err := s.Bootstrap(ctx)
-	if err != nil || bootstrap.Household == nil {
-		if err != nil {
-			return err
-		}
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return err
 	}
-	return s.repository.SetMemberArchive(ctx, bootstrap.Household.ID, id, archived, s.clock())
+	return s.repository.SetMemberArchive(ctx, household.ID, id, archived, s.clock())
 }
 
 func (s *Service) CreateInstitution(ctx context.Context, name string, iconKeys ...string) (domain.Institution, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Institution{}, err
 	}
-	if bootstrap.Household == nil {
-		return domain.Institution{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	institution, err := domain.NewInstitution(bootstrap.Household.ID, name, s.clock())
+	institution, err := domain.NewInstitution(household.ID, name, s.clock())
 	if err != nil {
 		return domain.Institution{}, err
 	}
-	if len(iconKeys) > 0 && strings.TrimSpace(iconKeys[0]) != "" {
-		iconKey, iconErr := normalizeIconKey(iconKeys[0])
-		if iconErr != nil {
-			return domain.Institution{}, iconErr
-		}
-		institution.IconKey = &iconKey
+	if err := applyOptionalIcon(&institution.IconKey, iconKeys); err != nil {
+		return domain.Institution{}, err
 	}
 	if err := s.repository.CreateInstitution(ctx, institution); err != nil {
 		return domain.Institution{}, err
@@ -358,56 +288,44 @@ func (s *Service) CreateInstitution(ctx context.Context, name string, iconKeys .
 	return institution, nil
 }
 func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID, name string) (domain.Institution, error) {
-	items, err := s.repository.ListInstitutions(ctx, true)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Institution{}, err
 	}
-	for _, current := range items {
-		if current.ID != id {
-			continue
-		}
-		updated, err := domain.NewInstitution(current.HouseholdID, name, s.clock())
-		if err != nil {
-			return domain.Institution{}, err
-		}
-		updated.ID, updated.IconKey, updated.InstitutionType, updated.CountryCode, updated.Website, updated.Note, updated.LogoAssetID, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.InstitutionType, current.CountryCode, current.Website, current.Note, current.LogoAssetID, current.SortOrder, current.CreatedAt, current.ArchivedAt
-		if err := s.repository.UpdateInstitution(ctx, updated); err != nil {
-			return domain.Institution{}, err
-		}
-		return updated, nil
+	current, err := s.repository.Institution(ctx, household.ID, id)
+	if err != nil {
+		return domain.Institution{}, err
 	}
-	return domain.Institution{}, &domain.Error{Code: domain.ErrNotFound, Message: "institution was not found"}
+	updated, err := domain.NewInstitution(current.HouseholdID, name, s.clock())
+	if err != nil {
+		return domain.Institution{}, err
+	}
+	updated.ID, updated.IconKey, updated.InstitutionType, updated.CountryCode, updated.Website, updated.Note, updated.LogoAssetID, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.InstitutionType, current.CountryCode, current.Website, current.Note, current.LogoAssetID, current.SortOrder, current.CreatedAt, current.ArchivedAt
+	if err := s.repository.UpdateInstitution(ctx, updated); err != nil {
+		return domain.Institution{}, err
+	}
+	return updated, nil
 }
 
 func (s *Service) ArchiveInstitution(ctx context.Context, id domain.InstitutionID, archived bool) error {
-	bootstrap, err := s.Bootstrap(ctx)
-	if err != nil || bootstrap.Household == nil {
-		if err != nil {
-			return err
-		}
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return err
 	}
-	return s.repository.SetInstitutionArchive(ctx, bootstrap.Household.ID, id, archived, s.clock())
+	return s.repository.SetInstitutionArchive(ctx, household.ID, id, archived, s.clock())
 }
 
 func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...string) (domain.Group, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Group{}, err
 	}
-	if bootstrap.Household == nil {
-		return domain.Group{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	group, err := domain.NewGroup(bootstrap.Household.ID, name, s.clock())
+	group, err := domain.NewGroup(household.ID, name, s.clock())
 	if err != nil {
 		return domain.Group{}, err
 	}
-	if len(iconKeys) > 0 && strings.TrimSpace(iconKeys[0]) != "" {
-		iconKey, iconErr := normalizeIconKey(iconKeys[0])
-		if iconErr != nil {
-			return domain.Group{}, iconErr
-		}
-		group.IconKey = &iconKey
+	if err := applyOptionalIcon(&group.IconKey, iconKeys); err != nil {
+		return domain.Group{}, err
 	}
 	if err := s.repository.CreateGroup(ctx, group); err != nil {
 		return domain.Group{}, err
@@ -415,54 +333,49 @@ func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...stri
 	return group, nil
 }
 func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name string) (domain.Group, error) {
-	items, err := s.repository.ListGroups(ctx, true)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Group{}, err
 	}
-	for _, current := range items {
-		if current.ID != id {
-			continue
-		}
-		updated, err := domain.NewGroup(current.HouseholdID, name, s.clock())
-		if err != nil {
-			return domain.Group{}, err
-		}
-		updated.ID, updated.IconKey, updated.Color, updated.LogoAssetID, updated.Description, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.Color, current.LogoAssetID, current.Description, current.SortOrder, current.CreatedAt, current.ArchivedAt
-		if err := s.repository.UpdateGroup(ctx, updated); err != nil {
-			return domain.Group{}, err
-		}
-		return updated, nil
+	current, err := s.repository.Group(ctx, household.ID, id)
+	if err != nil {
+		return domain.Group{}, err
 	}
-	return domain.Group{}, &domain.Error{Code: domain.ErrNotFound, Message: "group was not found"}
+	updated, err := domain.NewGroup(current.HouseholdID, name, s.clock())
+	if err != nil {
+		return domain.Group{}, err
+	}
+	updated.ID, updated.IconKey, updated.Color, updated.LogoAssetID, updated.Description, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.Color, current.LogoAssetID, current.Description, current.SortOrder, current.CreatedAt, current.ArchivedAt
+	if err := s.repository.UpdateGroup(ctx, updated); err != nil {
+		return domain.Group{}, err
+	}
+	return updated, nil
 }
 
 func (s *Service) ArchiveGroup(ctx context.Context, id domain.GroupID, archived bool) error {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if bootstrap.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetGroupArchive(ctx, bootstrap.Household.ID, id, archived, s.clock())
+	return s.repository.SetGroupArchive(ctx, household.ID, id, archived, s.clock())
 }
 
 func (s *Service) CreateMediaAsset(ctx context.Context, mimeType string, data []byte) (domain.MediaAsset, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.MediaAsset{}, err
-	}
-	if bootstrap.Household == nil {
-		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
 	if mimeType != "image/png" && mimeType != "image/jpeg" && mimeType != "image/webp" {
 		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrValidation, Field: "mimeType", Message: "unsupported image type"}
 	}
-	normalized, normalizeErr := media.Normalize(data)
-	if normalizeErr != nil {
-		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrValidation, Field: "data", Message: "image is invalid or exceeds the local size limit"}
+	if s.imageNormalizer == nil {
+		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrUnavailable, Field: "image", Message: "image normalization is not configured"}
 	}
-	asset := domain.MediaAsset{ID: domain.NewMediaAssetID(), HouseholdID: bootstrap.Household.ID, MimeType: "image/png", Data: normalized, CreatedAt: s.clock()}
+	normalized, normalizeErr := s.imageNormalizer.Normalize(data)
+	if normalizeErr != nil {
+		return domain.MediaAsset{}, normalizeErr
+	}
+	asset := domain.MediaAsset{ID: domain.NewMediaAssetID(), HouseholdID: household.ID, MimeType: "image/png", Data: normalized, CreatedAt: s.clock()}
 	if err := s.repository.CreateMediaAsset(ctx, asset); err != nil {
 		return domain.MediaAsset{}, err
 	}
@@ -473,91 +386,76 @@ func (s *Service) CreateMediaAsset(ctx context.Context, mimeType string, data []
 // persisting anything. The UI calls this at pick time; persistence happens
 // via CreateMediaAsset when the user confirms the surrounding form.
 func (s *Service) NormalizeImage(reader io.Reader) ([]byte, error) {
-	return media.ReadAndNormalize(reader)
+	if s.imageNormalizer == nil {
+		return nil, &domain.Error{Code: domain.ErrUnavailable, Field: "image", Message: "image normalization is not configured"}
+	}
+	return s.imageNormalizer.ReadAndNormalize(reader)
 }
 
 func (s *Service) MediaAsset(ctx context.Context, id domain.MediaAssetID) (domain.MediaAsset, error) {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.MediaAsset{}, err
 	}
-	if b.Household == nil {
-		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.MediaAsset(ctx, b.Household.ID, id)
+	return s.repository.MediaAsset(ctx, household.ID, id)
 }
 func (s *Service) SetMemberAvatar(ctx context.Context, id domain.MemberID, asset domain.MediaAssetID) error {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetMemberAvatar(ctx, b.Household.ID, id, asset)
+	return s.repository.SetMemberAvatar(ctx, household.ID, id, asset, s.clock())
 }
 func (s *Service) SetInstitutionLogo(ctx context.Context, id domain.InstitutionID, asset domain.MediaAssetID) error {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetInstitutionLogo(ctx, b.Household.ID, id, asset)
+	return s.repository.SetInstitutionLogo(ctx, household.ID, id, asset, s.clock())
 }
 func (s *Service) SetGroupLogo(ctx context.Context, id domain.GroupID, asset domain.MediaAssetID) error {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetGroupLogo(ctx, b.Household.ID, id, asset)
+	return s.repository.SetGroupLogo(ctx, household.ID, id, asset, s.clock())
 }
 func (s *Service) SetAccountLogo(ctx context.Context, id domain.AccountID, asset domain.MediaAssetID) error {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetAccountLogo(ctx, b.Household.ID, id, asset)
+	return s.repository.SetAccountLogo(ctx, household.ID, id, asset, s.clock())
 }
 
 func (s *Service) SetInstitutionIcon(ctx context.Context, id domain.InstitutionID, iconKey string) error {
-	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string) error {
-		return s.repository.SetInstitutionIcon(ctx, householdID, id, normalized)
+	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
+		return s.repository.SetInstitutionIcon(ctx, householdID, id, normalized, now)
 	})
 }
 
 func (s *Service) SetGroupIcon(ctx context.Context, id domain.GroupID, iconKey string) error {
-	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string) error {
-		return s.repository.SetGroupIcon(ctx, householdID, id, normalized)
+	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
+		return s.repository.SetGroupIcon(ctx, householdID, id, normalized, now)
 	})
 }
 
 func (s *Service) SetAccountIcon(ctx context.Context, id domain.AccountID, iconKey string) error {
-	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string) error {
-		return s.repository.SetAccountIcon(ctx, householdID, id, normalized)
+	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
+		return s.repository.SetAccountIcon(ctx, householdID, id, normalized, now)
 	})
 }
 
-func (s *Service) setIcon(ctx context.Context, iconKey string, save func(domain.HouseholdID, string) error) error {
+func (s *Service) setIcon(ctx context.Context, iconKey string, save func(domain.HouseholdID, string, time.Time) error) error {
 	normalized, err := normalizeIconKey(iconKey)
 	if err != nil {
 		return err
 	}
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return save(b.Household.ID, normalized)
+	return save(household.ID, normalized, s.clock())
 }
 
 type AccountInput struct {
@@ -732,20 +630,11 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input AccountInput) (domain.AccountRecord, error) {
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
-	records, err := s.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
+	currentRecord, err := s.accountRecord(ctx, id)
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	var current *domain.AccountRecord
-	for index := range records {
-		if records[index].Account.ID == id {
-			current = &records[index]
-			break
-		}
-	}
-	if current == nil {
-		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
-	}
+	current := &currentRecord
 	if current.LatestValue == nil && current.Account.TrackingMode != domain.TrackingHoldings {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Message: "account has no current value"}
 	}
@@ -892,33 +781,32 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 }
 
 func (s *Service) ListAccounts(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountRecord, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.repository.Household(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if bootstrap.Household == nil {
+	if household == nil {
 		return []domain.AccountRecord{}, nil
 	}
-	return s.repository.ListAccountRecords(ctx, bootstrap.Household.ID, filter)
+	return s.repository.ListAccountRecords(ctx, household.ID, filter)
+}
+
+func (s *Service) accountRecord(ctx context.Context, id domain.AccountID) (domain.AccountRecord, error) {
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	return s.repository.AccountRecord(ctx, household.ID, id)
 }
 
 func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.AccountID, amount, effectiveAt string) (domain.AccountValue, error) {
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
-	records, err := s.ListAccounts(ctx, domain.AccountFilter{IncludeArchived: true})
+	loaded, err := s.accountRecord(ctx, accountID)
 	if err != nil {
 		return domain.AccountValue{}, err
 	}
-	var record *domain.AccountRecord
-	for index := range records {
-		if records[index].Account.ID == accountID {
-			record = &records[index]
-			break
-		}
-	}
-	if record == nil {
-		return domain.AccountValue{}, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
-	}
+	record := &loaded
 	money, err := domain.ParseMoney(amount, record.Account.DefaultCurrency)
 	if err != nil {
 		return domain.AccountValue{}, err
@@ -957,16 +845,13 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 }
 
 func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archived bool) error {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if bootstrap.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
-	records, err := s.repository.ListAccountRecords(ctx, bootstrap.Household.ID, domain.AccountFilter{IncludeArchived: true})
+	records, err := s.repository.ListAccountRecords(ctx, household.ID, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return err
 	}
@@ -991,35 +876,35 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 		return observationErr
 	}
 	if observation.ID != "" {
-		return s.repository.SetAccountArchiveWithObservation(ctx, bootstrap.Household.ID, id, archived, now, observation)
+		return s.repository.SetAccountArchiveWithObservation(ctx, household.ID, id, archived, now, observation)
 	}
-	return s.repository.SetAccountArchive(ctx, bootstrap.Household.ID, id, archived, now)
+	return s.repository.SetAccountArchive(ctx, household.ID, id, archived, now)
 }
 
 func (s *Service) AccountValuation(ctx context.Context, id domain.AccountID) (domain.AccountValuation, error) {
-	return NewValuationService(s.repository, s.clock).Account(ctx, id)
+	return s.valuation.Account(ctx, id)
 }
 
 // HoldingGain returns the derived cost and gain view for one Holding.
 func (s *Service) HoldingGain(ctx context.Context, id domain.HoldingID) (domain.HoldingGainView, error) {
-	return NewGainService(s.repository, s.clock).HoldingGain(ctx, id)
+	return s.gain.HoldingGain(ctx, id)
 }
 
 // AccountGain returns the derived cost and gain views for all active Holdings
 // in one account.
 func (s *Service) AccountGain(ctx context.Context, id domain.AccountID) (domain.AccountGainView, error) {
-	return NewGainService(s.repository, s.clock).AccountGain(ctx, id)
+	return s.gain.AccountGain(ctx, id)
 }
 
 // RealizedGainInRange returns realized gains grouped by Instrument and
 // Account for an inclusive local-date range.
 func (s *Service) RealizedGainInRange(ctx context.Context, scope domain.GainScope, from, to domain.LocalDate) (domain.RealizedGainView, error) {
-	return NewGainService(s.repository, s.clock).RealizedGainInRange(ctx, scope, from, to)
+	return s.gain.RealizedGainInRange(ctx, scope, from, to)
 }
 
 // RealizedGain resolves an Analytics trend range through GainService.
 func (s *Service) RealizedGain(ctx context.Context, scope domain.GainScope, trendRange domain.TrendRange) (domain.RealizedGainView, error) {
-	return NewGainService(s.repository, s.clock).RealizedGain(ctx, scope, trendRange)
+	return s.gain.RealizedGain(ctx, scope, trendRange)
 }
 
 func (s *Service) AccountValuations(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountValuation, error) {
@@ -1027,13 +912,13 @@ func (s *Service) AccountValuations(ctx context.Context, filter domain.AccountFi
 	if err != nil {
 		return nil, err
 	}
-	valuations, _, err := NewValuationService(s.repository, s.clock).ValueAccounts(snapshot)
+	valuations, _, err := s.valuation.ValueAccounts(snapshot)
 	return valuations, err
 }
 
 func (s *Service) Portfolio(ctx context.Context, filter domain.AccountFilter) (domain.PortfolioValuation, error) {
 	filter.IncludeArchived = false
-	return NewValuationService(s.repository, s.clock).Portfolio(ctx, filter)
+	return s.valuation.Portfolio(ctx, filter)
 }
 
 func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (domain.OverviewResult, error) {
@@ -1045,7 +930,7 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	if snapshot.Household == nil {
 		return domain.OverviewResult{}, nil
 	}
-	valuations, _, err := NewValuationService(s.repository, s.clock).ValueAccounts(snapshot)
+	valuations, _, err := s.valuation.ValueAccounts(snapshot)
 	if err != nil {
 		return domain.OverviewResult{}, err
 	}
@@ -1256,4 +1141,16 @@ func normalizeIconKey(value string) (string, error) {
 		return "", &domain.Error{Code: domain.ErrValidation, Field: "iconKey", Message: "icon is required"}
 	}
 	return value, nil
+}
+
+func applyOptionalIcon(target **string, keys []string) error {
+	if len(keys) == 0 || strings.TrimSpace(keys[0]) == "" {
+		return nil
+	}
+	key, err := normalizeIconKey(keys[0])
+	if err != nil {
+		return err
+	}
+	*target = &key
+	return nil
 }

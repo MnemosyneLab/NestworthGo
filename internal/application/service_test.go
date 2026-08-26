@@ -12,24 +12,8 @@ import (
 )
 
 func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
-	database, err := sqlite.Open(filepath.Join(t.TempDir(), "nestworth.db"))
-	if err != nil {
-		t.Fatalf("open database: %v", err)
-	}
-	defer database.Close()
-	repository := sqlite.NewRepository(database)
-	service := NewService(repository)
-	clock := time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC)
-	service.setClock(func() time.Time { return clock })
-	ctx := context.Background()
-
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Wang Household", BaseCurrency: "CNY", MemberNames: []string{"Alice", "Bob"}}); err != nil {
-		t.Fatalf("complete onboarding: %v", err)
-	}
-	bootstrap, err := service.Bootstrap(ctx)
-	if err != nil {
-		t.Fatalf("bootstrap: %v", err)
-	}
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "nestworth", []string{"Alice", "Bob"})
+	setClock(time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC))
 	if bootstrap.Household == nil || len(bootstrap.Members) != 2 {
 		t.Fatalf("bootstrap = %#v", bootstrap)
 	}
@@ -65,5 +49,60 @@ func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
 	}
 	if len(result.ByMember) != 2 {
 		t.Fatalf("member breakdown length = %d", len(result.ByMember))
+	}
+}
+
+type directoryCountingRepository struct {
+	Repository
+	members      int
+	institutions int
+	groups       int
+}
+
+func (r *directoryCountingRepository) ListMembers(ctx context.Context, includeArchived bool) ([]domain.Member, error) {
+	r.members++
+	return r.Repository.ListMembers(ctx, includeArchived)
+}
+
+func (r *directoryCountingRepository) ListInstitutions(ctx context.Context, includeArchived bool) ([]domain.Institution, error) {
+	r.institutions++
+	return r.Repository.ListInstitutions(ctx, includeArchived)
+}
+
+func (r *directoryCountingRepository) ListGroups(ctx context.Context, includeArchived bool) ([]domain.Group, error) {
+	r.groups++
+	return r.Repository.ListGroups(ctx, includeArchived)
+}
+
+func TestIdentityOnlyMutationsDoNotLoadBootstrapDirectories(t *testing.T) {
+	database, err := sqlite.Open(filepath.Join(t.TempDir(), "nestworth.db"))
+	if err != nil {
+		t.Fatalf("open database: %v", err)
+	}
+	defer database.Close()
+	base := sqlite.NewRepository(database)
+	ctx := context.Background()
+	service := NewService(base)
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Alice"}}); err != nil {
+		t.Fatalf("onboarding: %v", err)
+	}
+
+	counting := &directoryCountingRepository{Repository: base}
+	service = NewService(counting)
+	if _, err := service.CreateMember(ctx, "Bob"); err != nil {
+		t.Fatalf("CreateMember: %v", err)
+	}
+	if _, err := service.CreateInstitution(ctx, "Bank"); err != nil {
+		t.Fatalf("CreateInstitution: %v", err)
+	}
+	if _, err := service.CreateGroup(ctx, "Emergency"); err != nil {
+		t.Fatalf("CreateGroup: %v", err)
+	}
+	if _, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"}); err != nil {
+		t.Fatalf("CreateInstrument: %v", err)
+	}
+
+	if counting.members != 0 || counting.institutions != 0 || counting.groups != 0 {
+		t.Fatalf("identity-only mutations loaded Bootstrap directories: members=%d institutions=%d groups=%d", counting.members, counting.institutions, counting.groups)
 	}
 }

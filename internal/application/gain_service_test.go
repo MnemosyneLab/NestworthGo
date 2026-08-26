@@ -114,7 +114,7 @@ func TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain(t *testing.T) {
 	if _, err := fixture.service.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.repository.SetInstrumentQuoteSource(ctx, fixture.qqq.HouseholdID, fixture.qqq.ID, domain.QuoteSourceProvider); err != nil {
+	if err := fixture.repository.SetInstrumentQuoteSource(ctx, fixture.qqq.HouseholdID, fixture.qqq.ID, domain.QuoteSourceProvider, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	view, err := fixture.service.HoldingGain(ctx, findHoldingForInstrument(t, fixture.repository, fixture.account.Account.ID, fixture.qqq.ID))
@@ -210,7 +210,7 @@ func TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX(t *testing.
 
 func seedGainSchema6Fixture(t *testing.T) *sqlite.DB {
 	t.Helper()
-	scriptPath := filepath.Join("..", "..", "testdata", "v0.1.4", "schema6-fixture.sql")
+	scriptPath := filepath.Join("..", "..", "testdata", "schema6", "schema6-fixture.sql")
 	script, err := os.ReadFile(scriptPath)
 	if err != nil {
 		t.Fatal(err)

@@ -1,8 +1,9 @@
 # Nestworth Assets
 
-These assets were migrated from the original Nestworth application and are
-kept separately from Go packages so they can be reused by Fyne windows,
-release packaging, documentation, and future installers.
+This directory contains the brand artwork and native icon resources used by
+the Wails desktop application, release packaging, documentation, and future
+installers. Assets are kept outside Go packages so the same source artwork can
+be reused by each target platform.
 
 ## Formal brand assets
 
@@ -13,28 +14,22 @@ release packaging, documentation, and future installers.
 | `brand/app-icon.png` | Application and launcher icon source | 1024 × 1024 |
 | `brand/favicon.png` | Small documentation/web icon | 256 × 256 |
 
-## Draft artwork
+## Design explorations
 
-`brand/drafts/` contains the original design explorations: `AppIcon.png`,
-`AppIcon2.png`, `LogoMark.png`, `NestRings.png`, and `Wordmark.png`. These are
-reference material and are not current application assets.
+`brand/drafts/` contains named artwork explorations. They are reference
+material and are not copied into the application without an explicit asset
+decision.
 
 ## Native icon package
 
-`icons/` contains the migrated platform icon set, including PNG sizes,
-`icon.icns`, and `icon.ico`. The macOS packaging workflow uses `icon.icns` for
-the `.app` bundle and the DMG volume icon. The Go/Fyne packaging workflow
-regenerates platform metadata from the canonical brand PNG and then preserves
-this native ICNS resource.
-
-The runtime embeds a byte-identical copy of `brand/app-icon.png` at
-`internal/app/resources/app-icon.png`, so the application and About dialog keep
-their icon when launched outside the repository directory.
+`icons/` contains the platform PNG sizes, `icon.icns`, and `icon.ico` used by
+Wails packaging. The generated `build/appicon.png` is the packaging input
+produced from `brand/app-icon.png`.
 
 ## Usage rules
 
 - Treat the formal brand files as the canonical visual identity.
-- Do not edit or overwrite the originals in place; add a new named variant when
-  a design change is intentional.
+- Do not overwrite originals in place; add a named variant for an intentional
+  design change.
 - Keep user-imported media outside this directory.
-- Do not include build output, generated bundles, `.DS_Store`, or personal data.
+- Do not commit build output, generated bundles, `.DS_Store`, or personal data.

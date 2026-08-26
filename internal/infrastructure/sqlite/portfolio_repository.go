@@ -208,15 +208,15 @@ func (r *Repository) SetInstrumentArchive(ctx context.Context, householdID domai
 	})
 }
 
-func (r *Repository) SetInstrumentLogo(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID, assetID domain.MediaAssetID) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE instruments SET logo_asset_id = ?, updated_at = ? WHERE id = ? AND household_id = ?`, assetID.String(), formatTimestamp(time.Now()), id.String(), householdID.String())
+func (r *Repository) SetInstrumentLogo(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID, assetID domain.MediaAssetID, now time.Time) error {
+	result, err := r.database.SQL.ExecContext(ctx, `UPDATE instruments SET logo_asset_id = ?, updated_at = ? WHERE id = ? AND household_id = ?`, assetID.String(), formatTimestamp(now), id.String(), householdID.String())
 	if err != nil {
 		return err
 	}
 	return requireAffected(result, "instrument")
 }
 
-func (r *Repository) SetInstrumentQuoteSource(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID, source domain.QuoteSourceKind) error {
+func (r *Repository) SetInstrumentQuoteSource(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID, source domain.QuoteSourceKind, now time.Time) error {
 	parsedSource, err := domain.ParseQuoteSourceKind(string(source))
 	if err != nil {
 		return err
@@ -232,7 +232,7 @@ func (r *Repository) SetInstrumentQuoteSource(ctx context.Context, householdID d
 		if parsedSource == domain.QuoteSourceProvider && (!providerKey.Valid || strings.TrimSpace(providerKey.String) == "" || !providerSymbol.Valid || strings.TrimSpace(providerSymbol.String) == "") {
 			return &domain.Error{Code: domain.ErrValidation, Field: "provider", Message: "provider key and symbol are required when Provider is selected"}
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE instruments SET quote_source = ?, updated_at = ? WHERE id = ? AND household_id = ? AND archived_at IS NULL`, string(parsedSource), formatTimestamp(time.Now()), id.String(), householdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE instruments SET quote_source = ?, updated_at = ? WHERE id = ? AND household_id = ? AND archived_at IS NULL`, string(parsedSource), formatTimestamp(now), id.String(), householdID.String())
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}

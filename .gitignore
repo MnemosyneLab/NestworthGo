@@ -2,12 +2,25 @@
 /bin/
 /dist/
 /nestworth
+/nestworth-desktop
 *.app
 *.dmg
+*.syso
+
+# Frontend (Wails v3): dist/ and bindings/ are build artifacts regenerated
+# by `npm run build` / `wails3 generate bindings`; node_modules is npm's
+# install cache. None are hand-edited (docs/migration/wails-v3-technical-design.md Sec3).
+/frontend/node_modules/
+/frontend/dist/
+/frontend/bindings/
+/frontend/.bindings-tmp*
 
 # Go tooling
 *.test
 coverage.out
+
+# Taskfile / Wails checksum cache
+.task/
 
 # IDE and OS files
 .DS_Store

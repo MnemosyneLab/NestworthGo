@@ -17,7 +17,7 @@ import (
 
 func frankfurterFixtureResponse(t *testing.T, name string, status int) *http.Response {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join("../../../testdata/v0.1.2/frankfurter", name))
+	data, err := os.ReadFile(filepath.Join("../../../testdata/provider-fixtures/frankfurter", name))
 	if err != nil {
 		t.Fatal(err)
 	}

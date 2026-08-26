@@ -32,8 +32,8 @@ The storage model and navigation do not have to share the same hierarchy. An acc
 The local SQLite database is the source of truth. Core browsing and editing must work without registration or network access. Users retain control of their data, and future integrations must degrade safely when unavailable.
 
 Cloud sync remains an optional future capability. Remote market data is an
-explicit, replaceable v0.1.2 integration for user-triggered quote refresh and
-must not become a prerequisite for opening or maintaining local data.
+explicit, replaceable integration for user-triggered quote refresh and must
+not become a prerequisite for opening or maintaining local data.
 
 ### Financial Correctness Before Convenience
 
@@ -113,7 +113,7 @@ Nestworth is not intended to become:
 - A receipt-level expense tracker or envelope-budgeting system
 - A bank whose balances are authoritative over the user's records
 - A trading terminal or order-execution system
-- A tax filing or tax-lot optimization product in the v0.1 line
+- A tax filing or tax-lot optimization product
 - A cloud-only service that prevents offline access
 - A system that silently invents ownership, exchange rates, transaction meaning, or investment performance
 

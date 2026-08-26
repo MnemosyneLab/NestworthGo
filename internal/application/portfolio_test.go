@@ -6,9 +6,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/i18n"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
-	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
 func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *testing.T) {
@@ -117,10 +115,6 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 	if _, err := service.UpdateAccount(ctx, holdingsAccount.Account.ID, AccountInput{Name: "Brokerage updated"}); err != nil {
 		t.Fatalf("Holdings Account metadata update: %v", err)
 	}
-	translated := i18n.New(settings.LanguageZhCN).TranslateError(domainError(domain.ErrValidation, "quantity", "must be a canonical non-negative decimal with up to eight fractional digits"))
-	if translated == "must be a canonical non-negative decimal with up to eight fractional digits" {
-		t.Fatal("new portfolio validation error fell back to English")
-	}
 }
 
 func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
@@ -185,8 +179,4 @@ func TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem(
 	if cleared.Symbol != nil || cleared.MarketCode != nil || cleared.CountryCode != nil || cleared.ISIN != nil || cleared.Note != nil || cleared.ProviderKey != nil || cleared.ProviderSymbol != nil || cleared.SortOrder != 0 || cleared.QuoteSource != domain.QuoteSourceManual {
 		t.Fatalf("full replacement did not clear optional fields: %+v", cleared)
 	}
-}
-
-func domainError(code domain.ErrorCode, field, message string) error {
-	return &domain.Error{Code: code, Field: field, Message: message}
 }

@@ -12,29 +12,38 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
-func newRefactorTestService(t *testing.T, name string) (*Service, context.Context, domain.Household, func(time.Time)) {
+func newOnboardedService(t *testing.T, name string, members []string) (*Service, context.Context, Bootstrap, func(time.Time)) {
 	t.Helper()
+	if len(members) == 0 {
+		members = []string{"Owner"}
+	}
 	database, err := sqlite.Open(filepath.Join(t.TempDir(), name+".db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
 	repository := sqlite.NewRepository(database)
-	service := NewService(repository)
+	service := NewServiceWithImageNormalizer(repository, media.Normalizer{})
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
-	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Refactor", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: members}); err != nil {
 		t.Fatal(err)
 	}
 	bootstrap, err := service.Bootstrap(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return service, ctx, *bootstrap.Household, func(next time.Time) { clock = next }
+	return service, ctx, bootstrap, func(next time.Time) { clock = next }
+}
+
+func newRefactorTestService(t *testing.T, name string) (*Service, context.Context, domain.Household, func(time.Time)) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, name, []string{"Owner"})
+	return service, ctx, *bootstrap.Household, setClock
 }
 
 func createHoldingsAccount(t *testing.T, service *Service, ctx context.Context, owner domain.MemberID, name string) domain.AccountRecord {

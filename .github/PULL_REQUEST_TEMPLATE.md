@@ -15,6 +15,7 @@ Describe the most important implementation changes.
 - [ ] `go test ./...`
 - [ ] `go vet ./...`
 - [ ] `go build ./cmd/nestworth`, when application or packaging behavior changed
+- [ ] `cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test`, when frontend behavior changed
 - [ ] `gofmt -l cmd internal` is empty
 - [ ] Manual application check with an isolated application-data environment, when UI or data behavior changed
 

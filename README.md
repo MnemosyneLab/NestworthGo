@@ -1,99 +1,83 @@
 # Nestworth
 
 Nestworth is a local-first personal finance desktop application for building
-and maintaining a personal or household balance sheet. It is being rebuilt as
-a Go + Fyne application.
+and maintaining a personal or household balance sheet. The current release
+line is `0.2.0`: a Wails v3 desktop shell with a Go backend and a React +
+TypeScript frontend.
 
-## Status
+## Current scope
 
-The repository implements the v0.1.4 Cost Basis and Gain milestone. Phases
-0–9 are implemented and verified: the Go + Fyne shell supports local
-multi-currency portfolios, immutable change effects, History Origin, replay,
-historical snapshots, average-cost capture and replay, realized/unrealized
-gain, currency decomposition, Investments and Analytics views, and the
-associated integrity/privacy regression suites. The arm64 `.app` and UDZO DMG
-package successfully; public distribution remains pending manual accessibility
-review, Developer ID signing, notarization, and artifact retention.
+The application currently provides:
 
-Backup/Restore, Import/Export, synchronization, and background refresh remain
-deferred to later releases.
+- Household onboarding and a local SQLite business database;
+- Accounts, Members, Institutions, Groups, Instruments, and Holdings;
+- Multi-currency valuation with explicit user-triggered market-data refresh;
+- Immutable financial changes, History Origin, replay, snapshots, and History;
+- Average-cost basis, realized/unrealized gain, currency decomposition, and
+  Analytics;
+- Settings for language, appearance, display formats, window state, and FX
+  provider selection.
 
-## Run
+Core browsing and editing are local and do not require registration or a
+network connection. Backup/Restore, Import/Export, synchronization, direct
+financial integrations, and background refresh are deferred capabilities.
 
-Requirements: Go 1.26 or newer and a desktop platform supported by Fyne.
+## Run locally
+
+Requirements: Go 1.26 or newer, Node.js with pnpm, and a desktop platform
+supported by Wails v3. The primary target is macOS on Apple Silicon.
 
 ```bash
-cd /Users/waltwang/Developer/walt/Nestworth-go
-go run ./cmd/nestworth
+go mod download
+cd frontend && pnpm install && pnpm run build && cd ..
+wails3 dev
 ```
 
-Build a local binary:
+Build the canonical desktop binary:
 
 ```bash
 mkdir -p bin
 go build -o bin/nestworth ./cmd/nestworth
-./bin/nestworth
 ```
 
-Create an Apple Silicon macOS application and DMG:
+Build the unsigned macOS application and arm64 DMG:
 
 ```bash
-./scripts/package-macos.sh
+wails3 task darwin:package:release
 ```
 
-The artifacts are written to `dist/macos/` as `Nestworth.app` and
-`Nestworth-<version>-arm64.dmg`. They use the migrated app and volume icons.
-The current artifacts are unsigned; Developer ID signing and notarization are
-separate release steps.
+The release output is `dist/macos/Nestworth.app` and
+`dist/macos/Nestworth-0.2.0-arm64.dmg`. Signing, notarization, artifact
+retention, and manual accessibility review remain distribution gates.
 
 ## Technology
 
-- Go 1.26
-- Fyne v2.8
-- SQLite as the local durable business data source, with versioned bootstrap and integrity checks
-- Fyne canvas/custom widgets for current balance-sheet summaries and future financial charts
-- Go modules and standard Go tooling
+- Go 1.26 and Go modules;
+- Wails v3 `v3.0.0-beta.12`;
+- React, TypeScript, Vite, Tailwind CSS, TanStack Query/Table, Zustand,
+  React Hook Form, Zod, i18next, and Apache ECharts;
+- SQLite as the local durable source of financial truth;
+- `shopspring/decimal` for exact financial arithmetic;
+- Yahoo for instrument quotes and Frankfurter for FX refresh.
 
-The UI renders authoritative application results and must not open SQLite,
-construct SQL, or recalculate financial totals. Financial calculations remain
-in the Go domain/application layers.
+The frontend renders authoritative DTOs returned by `internal/wailsapi`. It
+does not open SQLite, construct SQL, call providers, or recalculate financial
+totals.
 
-## Project structure
+## Repository map
 
 ```text
-cmd/nestworth/          Application entry point
-internal/app/           Application lifecycle and window setup
-internal/ui/            Fyne views, widgets, and chart rendering
-internal/domain/        Financial entities and invariants
+cmd/nestworth/          Wails application entry point
+internal/wailsapi/      Bound Go services and wire DTOs
 internal/application/   Use cases and orchestration
-internal/infrastructure/Repositories, migrations, media, and providers
-scripts/                 Build and packaging workflows
+internal/domain/        Financial entities and invariants
+internal/infrastructure/SQLite, media, and provider adapters
+frontend/               React + TypeScript application
+build/                  Wails build and packaging assets
 assets/                 Brand artwork and native icon resources
-docs/                   Product, architecture, and release documentation
+docs/                   Product, design, architecture, development, and release docs
+testdata/               Sanitized deterministic compatibility fixtures
 ```
 
-## Brand and icon resources
-
-The migrated brand resources are catalogued in [assets/README.md](assets/README.md).
-The formal brand files are available under `assets/brand/`; native packaging
-icons are under `assets/icons/`. Draft artwork is retained under
-`assets/brand/drafts/` and is not used by the application yet.
-
-## Documentation
-
-Start with the [documentation index](docs/README.md), especially:
-
-- [System overview](docs/architecture/system-overview.md)
-- [Domain model](docs/architecture/domain-model.md)
-- [Engineering guide](docs/development/engineering-guide.md)
-- [Release documents](docs/releases/README.md)
-
-Active Go release contracts live in [`docs/releases`](docs/releases/README.md).
-Uncorrected documents inherited from the Rust/Tauri/React repository are
-isolated in the
-[`unreviewed archive`](docs/legacy/rust-tauri-inherited-unreviewed/README.md)
-and must not be treated as Nestworth-go implementation evidence or plans.
-
-## License
-
-Nestworth is available under the [MIT License](LICENSE).
+Read the [documentation index](docs/README.md) for the maintained project
+contracts.

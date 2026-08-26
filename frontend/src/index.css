@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+/* Nestworth semantic design tokens. These are the only color/spacing
+   vocabulary business components should reference; never hard-code a raw
+   color in a feature component. */
+@theme {
+  --font-sans: "Inter", "PingFang SC", "Microsoft YaHei", ui-sans-serif, system-ui, sans-serif;
+
+  /* Base surface + text tokens (light) */
+  --color-background: oklch(99% 0.001 106);
+  --color-foreground: oklch(20% 0.01 260);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(20% 0.01 260);
+  --color-border: oklch(90% 0.005 260);
+  --color-muted: oklch(96% 0.003 260);
+  --color-muted-foreground: oklch(45% 0.01 260);
+
+  /* Brand / action tokens */
+  --color-primary: oklch(48% 0.15 262);
+  --color-primary-foreground: oklch(98% 0.005 262);
+  --color-success: oklch(55% 0.14 150);
+  --color-success-foreground: oklch(98% 0.01 150);
+  --color-warning: oklch(70% 0.15 80);
+  --color-warning-foreground: oklch(20% 0.02 80);
+  --color-destructive: oklch(55% 0.2 25);
+  --color-destructive-foreground: oklch(98% 0.01 25);
+
+  /* Financial-state tokens keep gain/loss and data provenance visually
+     distinguishable, never just numeric. */
+  --color-gain-positive: oklch(55% 0.14 150);
+  --color-gain-negative: oklch(55% 0.2 25);
+  --color-data-current: oklch(55% 0.14 150);
+  --color-data-manual: oklch(55% 0.12 250);
+  --color-data-remote: oklch(60% 0.1 220);
+  --color-data-stale: oklch(70% 0.15 80);
+  --color-data-unavailable: oklch(60% 0.01 260);
+}
+
+/* Dark theme overrides, toggled by the `dark` class on <html> and driven by
+   the persisted appearance preference plus the system color-scheme listener. */
+.dark {
+  --color-background: oklch(16% 0.01 260);
+  --color-foreground: oklch(95% 0.003 260);
+  --color-card: oklch(20% 0.012 260);
+  --color-card-foreground: oklch(95% 0.003 260);
+  --color-border: oklch(28% 0.01 260);
+  --color-muted: oklch(24% 0.01 260);
+  --color-muted-foreground: oklch(65% 0.01 260);
+
+  --color-primary: oklch(70% 0.13 262);
+  --color-primary-foreground: oklch(15% 0.01 262);
+  --color-success: oklch(70% 0.14 150);
+  --color-success-foreground: oklch(15% 0.02 150);
+  --color-warning: oklch(75% 0.15 80);
+  --color-warning-foreground: oklch(15% 0.02 80);
+  --color-destructive: oklch(70% 0.18 25);
+  --color-destructive-foreground: oklch(15% 0.02 25);
+
+  --color-gain-positive: oklch(70% 0.14 150);
+  --color-gain-negative: oklch(70% 0.18 25);
+  --color-data-current: oklch(70% 0.14 150);
+  --color-data-manual: oklch(70% 0.1 250);
+  --color-data-remote: oklch(70% 0.08 220);
+  --color-data-stale: oklch(75% 0.15 80);
+  --color-data-unavailable: oklch(65% 0.01 260);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
