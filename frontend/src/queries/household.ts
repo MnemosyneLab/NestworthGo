@@ -10,10 +10,11 @@ export const bootstrapQueryKey = ["household", "bootstrap"] as const;
  * completed yet." App.tsx uses `data.household === null` to decide
  * whether to render the Onboarding flow or the main app shell.
  */
-export function useBootstrap() {
+export function useBootstrap(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: bootstrapQueryKey,
     queryFn: () => callService(() => HouseholdService.Bootstrap()),
+    enabled: options.enabled ?? true,
   });
 }
 

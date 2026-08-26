@@ -62,3 +62,46 @@ export function useAppendAccountValue() {
     onSuccess: () => invalidateAccountData(queryClient),
   });
 }
+
+export function useSetAccountLogo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
+      callService(() => AccountService.SetAccountLogo(id, mediaAssetId)),
+    onSuccess: () => invalidateAccountData(queryClient),
+  });
+}
+
+export function useSetAccountIcon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
+      callService(() => AccountService.SetAccountIcon(id, iconKey)),
+    onSuccess: () => invalidateAccountData(queryClient),
+  });
+}
+
+/** toUpdateAccountRequest maps the create-form's complete state onto the
+ * Set-flags UpdateAccountRequest so an edit sheet can reuse AccountForm. */
+export function toUpdateAccountRequest(request: CreateAccountRequest): UpdateAccountRequest {
+  return {
+    name: request.name,
+    primaryCategory: request.primaryCategory,
+    secondaryCategory: request.secondaryCategory,
+    trackingMode: request.trackingMode,
+    defaultCurrency: request.defaultCurrency,
+    institutionId: request.institutionId ?? "",
+    institutionIdSet: true,
+    groupId: request.groupId ?? "",
+    groupIdSet: true,
+    note: request.note,
+    noteSet: request.note !== undefined,
+    iconKey: request.iconKey ?? "",
+    iconKeySet: Boolean(request.iconKey),
+    includeInNetWorth: request.includeInNetWorth,
+    includeInInvestment: request.includeInInvestment,
+    includeInLiquidAssets: request.includeInLiquidAssets,
+    ownerIds: request.ownerIds,
+    ownershipPercentages: request.ownershipPercentages,
+  };
+}

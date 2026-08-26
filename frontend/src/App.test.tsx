@@ -5,13 +5,42 @@ import App from "./App";
 import { AppProviders } from "./app/providers";
 import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
 
+const { startup } = vi.hoisted(() => ({
+  startup: vi.fn().mockResolvedValue({ available: true }),
+}));
+
 // The generated Wails binding calls Call.ByID under the hood, which tries
-// to reach the Wails runtime bridge that does not exist in jsdom. Mock the
-// service so the smoke test exercises real app-shell rendering without a
-// real backend, matching this phase's "zero real pages yet" scope.
+// to reach the Wails runtime bridge that does not exist in jsdom.
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", () => ({
   Service: {
     AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.1.4", build: "1" }),
+    Startup: () => startup(),
+  },
+}));
+
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
+  Service: {
+    Load: () =>
+      Promise.resolve({
+        schema_version: 1,
+        appearance: "system",
+        accent: "nestworth",
+        language: "en",
+        timezone: "system",
+        week_start: "monday",
+        date_format: "iso",
+        time_format: "24h",
+        currency: "USD",
+        decimal_separator: ".",
+        grouping_separator: ",",
+        decimal_places: 2,
+        window_width: 1100,
+        window_height: 720,
+        fx_provider: "frankfurter",
+      }),
+    Save: vi.fn(),
+    Reset: vi.fn(),
+    SupportedCurrencies: () => Promise.resolve(["USD"]),
   },
 }));
 
@@ -50,6 +79,8 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfoli
 }));
 
 beforeEach(() => {
+  startup.mockReset();
+  startup.mockResolvedValue({ available: true });
   window.matchMedia =
     window.matchMedia ||
     (vi.fn().mockImplementation((query: string) => ({
@@ -86,6 +117,19 @@ describe("App shell smoke test", () => {
     // Every other nav destination (Phase 5's remaining work) still
     // renders its "coming soon" placeholder without throwing.
     await userEvent.click(within(nav).getByText(i18n.t("nav.settings")));
-    expect(await screen.findByText(i18n.t("common.comingSoon"))).toBeInTheDocument();
+    expect(await screen.findByRole("form", { name: "Settings" })).toBeInTheDocument();
+    expect(screen.getByLabelText(i18n.t("about.title"))).toBeInTheDocument();
+  });
+
+  it("renders the blocked-startup page when the database is unavailable", async () => {
+    await i18n.changeLanguage("en");
+    startup.mockResolvedValue({ available: false, code: "unavailable", field: "database" });
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.blockedTitle"));
+    expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
   });
 });

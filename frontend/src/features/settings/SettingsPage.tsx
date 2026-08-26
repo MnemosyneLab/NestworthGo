@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useSettings, useSaveSettings, useResetSettings } from "@/queries/settings";
 import { useSupportedCurrencies } from "@/queries/settings";
+import { AboutPage } from "@/features/about/AboutPage";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
 import type { Settings } from "../../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
@@ -54,6 +55,7 @@ export function SettingsPage() {
   };
 
   return (
+    <>
     <form onSubmit={submit} className="flex max-w-md flex-col gap-4" aria-label="Settings">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="settings-appearance">{t("settings.appearance.mode")}</Label>
@@ -127,5 +129,9 @@ export function SettingsPage() {
         </Button>
       </div>
     </form>
+    <div className="mt-8 max-w-md">
+      <AboutPage />
+    </div>
+    </>
   );
 }

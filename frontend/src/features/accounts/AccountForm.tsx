@@ -6,6 +6,8 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { IconPicker } from "@/components/forms/IconPicker";
+import { ImagePicker } from "@/components/forms/ImagePicker";
 import { useMembers, useInstitutions, useGroups } from "@/queries/directory";
 import { useSupportedCurrencies } from "@/queries/settings";
 import {
@@ -17,6 +19,7 @@ import {
   type PrimaryCategory,
 } from "@/features/accounts/accountTaxonomy";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
+import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 const accountFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -36,7 +39,11 @@ const accountFormSchema = z.object({
 
 export type AccountFormValues = z.infer<typeof accountFormSchema>;
 
-const defaultValues: AccountFormValues = {
+export type AccountFormExtras = {
+  pendingImage?: string;
+};
+
+const emptyValues: AccountFormValues = {
   name: "",
   primaryCategory: "cash_equivalent",
   secondaryCategory: defaultSecondaryCategory("cash_equivalent"),
@@ -52,21 +59,42 @@ const defaultValues: AccountFormValues = {
   includeInLiquidAssets: false,
 };
 
+function valuesFromRecord(record: AccountRecordDTO): AccountFormValues {
+  const ownerIds = (record.ownership ?? []).map((share) => share.memberId);
+  const percentages = (record.ownership ?? []).map((share) => String(share.shareBps / 100));
+  const equal = percentages.length <= 1 || percentages.every((value) => value === percentages[0]);
+  return {
+    name: record.account.name,
+    primaryCategory: record.account.primaryCategory,
+    secondaryCategory: record.account.secondaryCategory,
+    trackingMode: record.account.trackingMode,
+    defaultCurrency: record.account.defaultCurrency,
+    initialAmount: "",
+    ownerIds,
+    ownershipPercentages: equal ? [] : percentages,
+    institutionId: record.account.institutionId ?? "",
+    groupId: record.account.groupId ?? "",
+    includeInNetWorth: record.account.includeInNetWorth,
+    includeInInvestment: record.account.includeInInvestment,
+    includeInLiquidAssets: record.account.includeInLiquidAssets,
+  };
+}
+
 /**
- * AccountForm implements Account creation "with minimal required fields
- * first, then progressive disclosure of institution/group/ownership"
- * (implementation plan Phase 4, citing interaction brief Sec8.2). Icon/
- * logo selection is deferred: it needs the native file-picker flow
- * (media.Service.PickImage, wired in Phase 2) integrated into a page,
- * which is Phase 5 scope alongside the other Directory pages that share
- * the same picker.
+ * AccountForm implements Account creation and metadata edit. Minimal
+ * required fields come first; institution/group/icon/logo sit behind
+ * progressive disclosure (interaction brief Sec8.2). The native image
+ * picker lives in that disclosure so the keyboard-only create path
+ * (Tab through required fields to submit) is unchanged.
  */
 export function AccountForm({
+  record,
   onSubmit,
   submitLabel,
   isSubmitting,
 }: {
-  onSubmit: (request: CreateAccountRequest) => void;
+  record?: AccountRecordDTO;
+  onSubmit: (request: CreateAccountRequest, extras: AccountFormExtras) => void;
   submitLabel: string;
   isSubmitting: boolean;
 }) {
@@ -75,8 +103,14 @@ export function AccountForm({
   const institutions = useInstitutions();
   const groups = useGroups();
   const currencies = useSupportedCurrencies();
-  const [showMoreOptions, setShowMoreOptions] = useState(false);
-  const [useCustomPercentages, setUseCustomPercentages] = useState(false);
+  const isEdit = Boolean(record);
+  const [showMoreOptions, setShowMoreOptions] = useState(isEdit);
+  const [iconKey, setIconKey] = useState(record?.account.iconKey ?? "");
+  const [pendingImage, setPendingImage] = useState<string | undefined>(undefined);
+  const initialValues = record ? valuesFromRecord(record) : emptyValues;
+  const [useCustomPercentages, setUseCustomPercentages] = useState(
+    (initialValues.ownershipPercentages ?? []).length > 0,
+  );
 
   const {
     register,
@@ -84,7 +118,7 @@ export function AccountForm({
     setValue,
     handleSubmit,
     formState: { errors },
-  } = useForm<AccountFormValues>({ resolver: zodResolver(accountFormSchema), defaultValues });
+  } = useForm<AccountFormValues>({ resolver: zodResolver(accountFormSchema), defaultValues: initialValues });
 
   const primaryCategory = watch("primaryCategory") as PrimaryCategory;
   const trackingMode = watch("trackingMode");
@@ -119,9 +153,10 @@ export function AccountForm({
       ownershipPercentages: useCustomPercentages ? values.ownershipPercentages : undefined,
       institutionId: values.institutionId || undefined,
       groupId: values.groupId || undefined,
-      initialAmount: values.trackingMode === "holdings" ? "" : values.initialAmount || "0",
+      iconKey: iconKey || undefined,
+      initialAmount: isEdit || values.trackingMode === "holdings" ? "" : values.initialAmount || "0",
     };
-    onSubmit(request);
+    onSubmit(request, { pendingImage });
   };
 
   return (
@@ -187,7 +222,7 @@ export function AccountForm({
         </select>
       </div>
 
-      {trackingMode !== "holdings" && (
+      {!isEdit && trackingMode !== "holdings" && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="account-initial-amount">{t("accounts.amount")}</Label>
           <Input id="account-initial-amount" inputMode="decimal" {...register("initialAmount")} placeholder="0" />
@@ -264,7 +299,7 @@ export function AccountForm({
       {showMoreOptions && (
         <div className="flex flex-col gap-3 rounded-md border border-border p-3">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="account-institution">Institution</Label>
+            <Label htmlFor="account-institution">{t("nav.institutions")}</Label>
             <select id="account-institution" {...register("institutionId")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
               <option value="">{t("accounts.none")}</option>
               {(institutions.data ?? []).map((institution) => (
@@ -275,7 +310,7 @@ export function AccountForm({
             </select>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="account-group">Group</Label>
+            <Label htmlFor="account-group">{t("nav.groups")}</Label>
             <select id="account-group" {...register("groupId")} className="h-9 rounded-md border border-border bg-card px-3 text-sm text-foreground">
               <option value="">{t("accounts.none")}</option>
               {(groups.data ?? []).map((group) => (
@@ -285,6 +320,13 @@ export function AccountForm({
               ))}
             </select>
           </div>
+          <IconPicker id="account-icon" value={iconKey} onChange={setIconKey} />
+          <ImagePicker
+            label={t("common.media")}
+            value={pendingImage}
+            existingAssetId={record?.account.logoAssetId}
+            onChange={setPendingImage}
+          />
         </div>
       )}
 

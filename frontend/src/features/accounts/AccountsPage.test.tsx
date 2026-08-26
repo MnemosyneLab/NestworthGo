@@ -1,18 +1,30 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AccountsPage } from "./AccountsPage";
 
 const listAccounts = vi.fn();
 const createAccount = vi.fn();
+const updateAccount = vi.fn();
 const archiveAccount = vi.fn().mockResolvedValue(undefined);
+const setAccountLogo = vi.fn().mockResolvedValue(undefined);
+const pickImage = vi.fn();
+const createMediaAsset = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
     ListAccounts: (...args: unknown[]) => listAccounts(...args),
     CreateAccount: (...args: unknown[]) => createAccount(...args),
+    UpdateAccount: (...args: unknown[]) => updateAccount(...args),
     ArchiveAccount: (...args: unknown[]) => archiveAccount(...args),
+    SetAccountLogo: (...args: unknown[]) => setAccountLogo(...args),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/media", () => ({
+  Service: {
+    PickImage: (...args: unknown[]) => pickImage(...args),
+    CreateMediaAsset: (...args: unknown[]) => createMediaAsset(...args),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/directory", () => ({
@@ -36,7 +48,7 @@ function renderPage() {
 }
 
 const emptyAccount = {
-  account: { id: "acc-1", name: "Checking", primaryCategory: "cash_equivalent", defaultCurrency: "USD", sortOrder: 0, includeInNetWorth: true, includeInInvestment: false, includeInLiquidAssets: false, createdAt: "", updatedAt: "" },
+  account: { id: "acc-1", name: "Checking", primaryCategory: "cash_equivalent", secondaryCategory: "bank_account", trackingMode: "balance", defaultCurrency: "USD", sortOrder: 0, includeInNetWorth: true, includeInInvestment: false, includeInLiquidAssets: false, createdAt: "", updatedAt: "" },
   ownership: [{ memberId: "alice", shareBps: 10000 }],
   latestValue: { id: "v1", accountId: "acc-1", valueKind: "balance", amount: { amount: "1000", currency: "USD" }, effectiveAt: "", createdAt: "" },
 };
@@ -44,9 +56,16 @@ const emptyAccount = {
 beforeEach(() => {
   listAccounts.mockReset();
   createAccount.mockReset();
+  updateAccount.mockReset();
   archiveAccount.mockClear();
+  setAccountLogo.mockClear();
+  pickImage.mockReset();
+  createMediaAsset.mockReset();
   listAccounts.mockResolvedValue([emptyAccount]);
   createAccount.mockResolvedValue(emptyAccount);
+  updateAccount.mockResolvedValue(emptyAccount);
+  pickImage.mockResolvedValue("");
+  createMediaAsset.mockResolvedValue({ id: "media-1" });
 });
 
 describe("AccountsPage", () => {
@@ -109,5 +128,39 @@ describe("AccountsPage", () => {
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Archive" }));
     expect(archiveAccount).toHaveBeenCalledWith("acc-1", true);
+  });
+
+  it("edits an existing account's name through UpdateAccount", async () => {
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const form = await screen.findByRole("form", { name: "Account form" });
+    const nameInput = within(form).getByLabelText("Name");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Renamed");
+    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
+    expect(updateAccount).toHaveBeenCalledWith(
+      "acc-1",
+      expect.objectContaining({ name: "Renamed" }),
+    );
+  });
+
+  it("persists a picked logo after creating an account", async () => {
+    pickImage.mockResolvedValue("cGlj");
+    createMediaAsset.mockResolvedValue({ id: "media-1" });
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Account form" });
+    await userEvent.click(within(form).getByRole("button", { name: /details/i }));
+    await userEvent.click(within(form).getByRole("button", { name: "Set image" }));
+    await userEvent.type(within(form).getByLabelText("Name"), "With Logo");
+    await userEvent.click(within(form).getByLabelText("Alice"));
+    await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
+    expect(createAccount).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(createMediaAsset).toHaveBeenCalledWith("image/png", "cGlj");
+      expect(setAccountLogo).toHaveBeenCalledWith("acc-1", "media-1");
+    });
   });
 });

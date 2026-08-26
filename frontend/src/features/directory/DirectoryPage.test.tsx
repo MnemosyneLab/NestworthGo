@@ -6,19 +6,35 @@ import { DirectoryPage } from "./DirectoryPage";
 
 const listMembers = vi.fn();
 const createMember = vi.fn();
+const updateMember = vi.fn();
 const archiveMember = vi.fn().mockResolvedValue(undefined);
+const setMemberAvatar = vi.fn().mockResolvedValue(undefined);
+const pickImage = vi.fn().mockResolvedValue("");
+const createMediaAsset = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/directory", () => ({
   Service: {
     ListMembers: (...args: unknown[]) => listMembers(...args),
     CreateMember: (...args: unknown[]) => createMember(...args),
+    UpdateMember: (...args: unknown[]) => updateMember(...args),
     ArchiveMember: (...args: unknown[]) => archiveMember(...args),
+    SetMemberAvatar: (...args: unknown[]) => setMemberAvatar(...args),
     ListInstitutions: () => Promise.resolve([]),
     ListGroups: () => Promise.resolve([]),
     CreateInstitution: vi.fn(),
     CreateGroup: vi.fn(),
     ArchiveInstitution: vi.fn(),
     ArchiveGroup: vi.fn(),
+    UpdateInstitution: vi.fn(),
+    UpdateGroup: vi.fn(),
+    SetInstitutionLogo: vi.fn(),
+    SetGroupLogo: vi.fn(),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/media", () => ({
+  Service: {
+    PickImage: (...args: unknown[]) => pickImage(...args),
+    CreateMediaAsset: (...args: unknown[]) => createMediaAsset(...args),
   },
 }));
 
@@ -34,7 +50,9 @@ function renderPage() {
 beforeEach(() => {
   listMembers.mockReset();
   createMember.mockReset();
+  updateMember.mockReset();
   archiveMember.mockClear();
+  setMemberAvatar.mockClear();
   listMembers.mockResolvedValue([{ id: "m1", name: "Alice" }]);
   createMember.mockResolvedValue({ id: "m2", name: "Bob" });
 });
@@ -68,5 +86,16 @@ describe("DirectoryPage", () => {
     await screen.findByText("Alice");
     await userEvent.click(screen.getByRole("tab", { name: "Institutions" }));
     expect(screen.getByRole("tabpanel", { name: "Institutions" })).toBeInTheDocument();
+  });
+
+  it("renames a Member through UpdateMember", async () => {
+    renderPage();
+    await screen.findByText("Alice");
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const nameInput = screen.getByDisplayValue("Alice");
+    await userEvent.clear(nameInput);
+    await userEvent.type(nameInput, "Alicia");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(updateMember).toHaveBeenCalledWith("m1", "Alicia");
   });
 });

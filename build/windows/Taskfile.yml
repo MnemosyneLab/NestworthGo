@@ -51,7 +51,7 @@ tasks:
       - task: generate:syso
         vars:
           ARCH: '{{.ARCH}}'
-      - '{{if eq .OBFUSCATED "true"}}garble {{.GARBLE_ARGS}} build{{else}}go build{{end}} {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe" ./cmd/nestworth-desktop'
+      - '{{if eq .OBFUSCATED "true"}}garble {{.GARBLE_ARGS}} build{{else}}go build{{end}} {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}.exe" ./cmd/nestworth'
       - cmd: powershell Remove-item *.syso
         platforms: [windows]
       - cmd: rm -f *.syso

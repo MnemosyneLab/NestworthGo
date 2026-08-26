@@ -1,9 +1,9 @@
 # Data and Application Contracts
 
-This filename is retained for compatibility with the source documentation. The
-Go + Fyne application has no Tauri IPC boundary. Its equivalent public
-boundary is the typed contract between Fyne views, application use cases,
-domain results, and infrastructure ports.
+This filename is retained for compatibility with the source documentation.
+The Wails v3 application has a real IPC boundary: `internal/wailsapi` DTOs
+crossing into the React frontend. Domain, application, and SQLite contracts
+below that boundary are unchanged.
 
 ## Ownership of contracts
 
@@ -100,12 +100,13 @@ Yahoo Finance for Instrument quotes and Frankfurter as the only production FX
 provider. Settings persists the FX provider choice for compatibility; explicit
 FX refresh resolves Frankfurter, while Instrument refresh resolves each Instrument's saved provider key and symbol. Manual and
 passive read paths make zero provider calls. Refresh results expose only stable
-target/status/error-code values, and the Fyne worker owns cancellation,
-generation checks, retry state, and UI-thread completion.
+target/status/error-code values. Cancellation, generation checks, retry
+state, and completion belong to `MarketDataService` events plus the
+frontend: an event for an abandoned request ID is ignored.
 
 ## Serialization and view models
 
-Application results crossing into Fyne should use explicit structs rather than
+Application results crossing the Wails boundary use explicit DTOs rather than
 passing database rows or driver-specific errors. Recommended rules:
 
 - IDs are typed in Go and serialized as lowercase hyphenated UUID strings.
@@ -133,7 +134,7 @@ Application errors should be grouped into stable categories such as:
 - invalid media and internal error
 
 Detailed database/driver errors stay in local diagnostics. They must not be
-shown by default in the Fyne UI.
+shown by default in the UI.
 
 ## Media contract
 
@@ -142,8 +143,9 @@ The implemented media contract:
 - Accept PNG, JPEG, and WebP within a bounded input size.
 - Decode safely, reject oversized pixel dimensions, resize to a bounded dimension, and normalize to PNG.
 - Store only Household-scoped normalized PNG bytes and MIME metadata.
-- Return display-safe state to Fyne without exposing arbitrary filesystem paths.
+- Return display-safe state to the UI without exposing arbitrary filesystem paths.
 - Replace references atomically while preserving shared assets; clear behavior remains a future extension.
+
 ## Compatibility evidence
 
 The current schema must have sanitized fixtures and tests for create, reopen,

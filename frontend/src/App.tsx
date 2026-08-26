@@ -11,24 +11,35 @@ import { MarketDataPage } from "@/features/marketdata/MarketDataPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
 import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
+import { BlockedStartupPage } from "@/features/startup/BlockedStartupPage";
 import { useBootstrap } from "@/queries/household";
+import { useStartup } from "@/queries/app";
 
 /**
- * App renders Onboarding until a Household exists, then the persistent
- * AppShell with a real page for Overview/Accounts (implementation plan
- * Phase 4's vertical slice) and a "coming soon" placeholder for every
- * other nav destination (Phase 5's remaining work).
+ * App gates on AppService.Startup() before any other bound service so a
+ * failed database open renders BlockedStartupPage instead of a raw Wails
+ * "service not found" rejection. Onboarding runs until a Household exists.
  */
 function App() {
   const [activePageId, setActivePageId] = useState(DEFAULT_PAGE_ID);
   const activeItem = NAV_ITEMS.find((item) => item.id === activePageId) ?? NAV_ITEMS[0];
-  const bootstrap = useBootstrap();
+  const startup = useStartup();
+  const bootstrap = useBootstrap({ enabled: startup.data?.available === true });
 
+  if (startup.isLoading) {
+    return null;
+  }
+  if (startup.isError || (startup.data && !startup.data.available)) {
+    return <BlockedStartupPage />;
+  }
   if (bootstrap.isLoading) {
     return null;
   }
+  if (bootstrap.isError) {
+    return <BlockedStartupPage />;
+  }
 
-  if (!bootstrap.isError && bootstrap.data && !bootstrap.data.household) {
+  if (bootstrap.data && !bootstrap.data.household) {
     return <OnboardingPage />;
   }
 

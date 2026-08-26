@@ -104,3 +104,48 @@ export function useArchiveGroup() {
     onSuccess: () => invalidateDirectory(queryClient, "groups"),
   });
 }
+
+export function useSetMemberAvatar() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
+      callService(() => DirectoryService.SetMemberAvatar(id, mediaAssetId)),
+    onSuccess: () => invalidateDirectory(queryClient, "members"),
+  });
+}
+
+export function useSetInstitutionLogo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
+      callService(() => DirectoryService.SetInstitutionLogo(id, mediaAssetId)),
+    onSuccess: () => invalidateDirectory(queryClient, "institutions"),
+  });
+}
+
+export function useSetInstitutionIcon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
+      callService(() => DirectoryService.SetInstitutionIcon(id, iconKey)),
+    onSuccess: () => invalidateDirectory(queryClient, "institutions"),
+  });
+}
+
+export function useSetGroupLogo() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
+      callService(() => DirectoryService.SetGroupLogo(id, mediaAssetId)),
+    onSuccess: () => invalidateDirectory(queryClient, "groups"),
+  });
+}
+
+export function useSetGroupIcon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
+      callService(() => DirectoryService.SetGroupIcon(id, iconKey)),
+    onSuccess: () => invalidateDirectory(queryClient, "groups"),
+  });
+}

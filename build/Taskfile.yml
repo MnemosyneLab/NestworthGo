@@ -190,7 +190,7 @@ tasks:
     cmds:
       # ./... is required: with no pattern, wails3 falls back to the
       # current directory only, which is the repo root's tiny webassets
-      # package, not cmd/nestworth-desktop where the bound services are
+      # package, not cmd/nestworth where the bound services are
       # registered (technical design Sec3's cmd/ layout).
       - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true{{if eq .OBFUSCATED "true"}} -obfuscated{{end}} -ts -i ./...
 

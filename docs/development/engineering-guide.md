@@ -2,22 +2,22 @@
 
 ## Current status
 
-The repository is a Go 1.26 module with a Fyne v2.8 desktop shell and the
-v0.1.4 Cost Basis and Gain implementation through Phase 9. The quality gate
-covers exact domain values, SQLite bootstrap and compatibility, onboarding,
-portfolio valuation, immutable change effects, replay, historical snapshots,
-average-cost gain/decomposition reads, localization, live Fyne page
-transitions, and net-worth trends. Public distribution still needs manual
+The repository is a Go 1.26 module with a Wails v3 desktop shell (React +
+TypeScript frontend) and the v0.1.4 Cost Basis and Gain implementation. The
+quality gate covers exact domain values, SQLite bootstrap and compatibility,
+onboarding, portfolio valuation, immutable change effects, replay, historical
+snapshots, average-cost gain/decomposition reads, localization, frontend page
+tests, and net-worth trends. Public distribution still needs manual
 accessibility, signing, and notarization checks.
 
 ## Prerequisites
 
 - Go 1.26 or newer
+- Node.js with pnpm
 - macOS on Apple Silicon for the primary desktop target
-- Fyne platform prerequisites documented by the target operating system
+- Wails v3 CLI (`go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.12`)
 
-Dependency versions are defined by `go.mod`. Do not add a second package
-manager or a frontend build system without updating the architecture decision.
+Dependency versions are defined by `go.mod` and `frontend/package.json`.
 
 ## Setup and daily commands
 
@@ -25,7 +25,8 @@ From the repository root:
 
 ```bash
 go mod download
-go run ./cmd/nestworth
+cd frontend && pnpm install && cd ..
+wails3 dev
 ```
 
 Run the available checks:
@@ -35,28 +36,24 @@ go test ./...
 go vet ./...
 gofmt -w cmd internal
 go build ./cmd/nestworth
+cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
 ```
 
 For a distributable local binary:
 
 ```bash
+cd frontend && pnpm run build && cd ..
 mkdir -p bin
 go build -o bin/nestworth ./cmd/nestworth
 ./bin/nestworth
 ```
 
-On Apple Silicon macOS, build the `.app` and `.dmg` together:
+On Apple Silicon macOS, build the `.app` via the Wails Taskfile (Phase 7
+owns packaging parity; output is unsigned):
 
 ```bash
-./scripts/package-macos.sh
+wails3 build
 ```
-The script builds `darwin/arm64`, invokes the Fyne 2.8 packager, stamps the
-Bundle ID `com.nestworth.app`, name `Nestworth`, version `0.1.4`, and build `1`,
-then creates an unsigned UDZO DMG with an Applications shortcut. Override the
-release metadata for a local release build with `NESTWORTH_VERSION` and
-`NESTWORTH_BUILD`.
-source and preserves `assets/icons/icon.icns` in both the app bundle and DMG
-volume.
 
 Do not launch destructive reset flows against the
 only copy of real financial data. Tests and smoke checks must use temporary or
@@ -65,14 +62,14 @@ explicitly isolated application-data directories.
 ## Repository layout
 
 ```text
-cmd/nestworth/          Process entry point
-internal/app/           Application lifecycle and window setup
-internal/ui/            Fyne views, widgets, and chart rendering
+cmd/nestworth/          Wails v3 process entry point
+internal/wailsapi/      Bound services and DTOs for the Wails IPC boundary
 internal/domain/        Financial entities and invariants
 internal/application/   Use cases and orchestration
 internal/infrastructure/Repositories, migrations, media, and providers
+frontend/               React + TypeScript UI
+build/                  Wails Taskfile packaging assets
 docs/                   Product, architecture, and release contracts
-scripts/                Build and macOS packaging workflows
 ```
 
 Keep packages behind narrow interfaces. The UI should depend on application
@@ -95,19 +92,13 @@ infrastructure should implement ports rather than becoming the business layer.
 The [domain model](../architecture/domain-model.md) is the canonical home for
 business semantics.
 
-## Fyne UI rules
+## Frontend UI rules
 
-- Views render application results and do not open SQLite or construct SQL.
-- Long-running reads and provider calls must not block the Fyne event loop.
-- UI callbacks should hand work to an application use case and marshal the
-  result back to the UI safely.
-- Chart widgets own scales, axes, hit testing, and tooltips, but never compute
-  a financial result.
-- Keep reusable visual primitives in `internal/ui`; keep financial decisions
-  out of renderers.
+- Pages render `internal/wailsapi` DTOs and do not open SQLite or construct SQL.
+- Long-running reads and provider calls run in Go; the UI consumes Promises and events.
+- Chart components own scales, axes, and tooltips, but never compute a financial result.
+- Keep reusable visual primitives in `frontend/src/components`; keep financial decisions in Go.
 - Add keyboard and accessibility behavior with each interactive feature.
-- Keep the v0.1.0 Preview values visibly labelled and never promote them to
-  authoritative application results.
 
 ## UI preferences
 
@@ -148,9 +139,9 @@ Current persistence and serialization contracts live in [data and application co
 | Domain | Table-driven validation and calculation tests, including decimal edges |
 | Application | Use-case tests with fake repositories and transaction outcomes |
 | Infrastructure | Migration, query ordering, integrity, and repository tests |
-| UI | Widget/model tests for state transitions and chart geometry |
+| UI | Component tests for page state, keyboard-only flows, and locale coverage |
 | Integration | Isolated SQLite database plus application-level flows |
-| Release | `go test`, `go vet`, format check, build, and isolated launch smoke test |
+| Release | `go test`, `go vet`, format check, frontend lint/typecheck/test, build, and isolated launch smoke test |
 
 Every bug fix should add a regression test at the lowest layer that captures
 the violated contract. Tests must use sanitized deterministic data and must not
@@ -166,13 +157,14 @@ gofmt -l cmd internal
 go test ./...
 go vet ./...
 go build ./cmd/nestworth
+cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
 git diff --check
 ```
 
-The current repository includes an unsigned arm64 macOS packaging workflow.
-The checked-in release metadata is v0.1.4/build 1. The package workflow
-verifies the app and DMG in an isolated build output. Signing, notarization,
-and manual accessibility review remain separate distribution gates.
+Unsigned arm64 macOS `.app`/DMG packaging is the Wails Taskfile path
+(`wails3 build`). Phase 7 still owns parity verification. The checked-in
+release metadata is v0.1.4/build 1. Signing, notarization, and manual
+accessibility review remain separate distribution gates.
 
 For an isolated desktop smoke, set `NESTWORTH_DATABASE_PATH` and
 `NESTWORTH_SETTINGS_PATH` to files under a temporary task directory. The app

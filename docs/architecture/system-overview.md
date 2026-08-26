@@ -2,17 +2,18 @@
 
 ## Current baseline
 
-Nestworth is a local-first desktop application written in Go with Fyne. The
-repository contains the v0.1.1 backend foundation, the v0.1.2 portfolio line,
-the v0.1.3 history milestone, and the implemented v0.1.4 cost/gain line:
-typed domain contracts, SQLite bootstrap with one current schema `6`,
-onboarding, multi-currency Accounts, Instruments, Holdings, immutable
-Activities, replay, historical snapshots, History, average-cost gain replay,
-currency decomposition, Analytics, exact valuation, and explicit
-Yahoo/Frankfurter refresh routing. Fyne renders application results; it does
-not open SQLite, call HTTP, or recalculate financial totals.
+Nestworth is a local-first desktop application with a Wails v3 shell (Go
+backend plus a React TypeScript frontend). The repository contains the
+v0.1.1 backend foundation, the v0.1.2 portfolio line, the v0.1.3 history
+milestone, and the implemented v0.1.4 cost/gain line: typed domain contracts,
+SQLite bootstrap with one current schema `6`, onboarding, multi-currency
+Accounts, Instruments, Holdings, immutable Activities, replay, historical
+snapshots, History, average-cost gain replay, currency decomposition,
+Analytics, exact valuation, and explicit Yahoo/Frankfurter refresh routing.
+The React UI renders application results through `internal/wailsapi` DTOs; it
+does not open SQLite, call HTTP, or recalculate financial totals.
 
-The initial platform targets macOS on Apple Silicon. Fyne keeps the option of
+The initial platform targets macOS on Apple Silicon. Wails keeps the option of
 supporting other desktop platforms later without introducing a second UI stack.
 Core browsing and editing must remain usable without registration or a network
 connection.
@@ -21,21 +22,22 @@ connection.
 
 ```mermaid
 flowchart LR
-    UI["Fyne views and widgets"] --> App["Application use cases"]
+    UI["React frontend via Wails IPC"] --> API["internal/wailsapi adapters"]
+    API --> App["Application use cases"]
     App --> Domain["Domain model and invariants"]
     App --> Ports["Repository and provider ports"]
     Ports --> Infra["SQLite and platform infrastructure"]
     Infra --> DB[("Local SQLite database")]
 ```
 
-### Fyne UI
+### Frontend UI
 
-Fyne owns presentation, interaction state, layout, accessibility affordances,
-and chart rendering. Views call application use cases and render returned view
-models once those layers exist. They must not open SQLite, construct SQL, or
-recalculate authoritative financial totals. Chart code maps returned values to
-pixels; it does not derive gain, return, allocation, FX, or net-worth totals.
-The current Overview is a live application result; the former visual Preview dashboard is retained only for presentation-only controller tests.
+The React frontend owns presentation, interaction state, layout, accessibility
+affordances, and chart rendering. Pages call bound `internal/wailsapi`
+services and render returned DTOs. They must not open SQLite, construct SQL,
+or recalculate authoritative financial totals. Chart code maps returned values
+to pixels; it does not derive gain, return, allocation, FX, or net-worth
+totals.
 
 ### Application layer
 
@@ -54,7 +56,7 @@ refresh actions may invoke a configured provider.
 The domain owns identifiers, money, quantities, currencies, ownership,
 timestamps, account lifecycle, instruments, holdings, quotes, Activities,
 History Origin, average-cost replay, signed gain values, and financial sign
-rules. It must not import Fyne, SQL drivers, or operating-system APIs.
+rules. It must not import Wails, React, SQL drivers, or operating-system APIs.
 
 ### Infrastructure
 
@@ -66,7 +68,7 @@ product-level validation or presentation.
 ## Dependency rules
 
 - Dependencies point inward toward the domain.
-- Fyne views call application interfaces, never repositories directly.
+- The React UI calls `internal/wailsapi` services, never repositories directly.
 - Only infrastructure opens or mutates business data.
 - Financial formulas execute in Go application/domain code and cross into UI as
   results.
@@ -81,7 +83,7 @@ Stable business semantics are defined in the [domain model](domain-model.md). Cu
 
 ```mermaid
 flowchart TD
-    Launch["Launch Fyne application"] --> Create["Create app and main window"]
+    Launch["Launch Wails application"] --> Create["Create app and main window"]
     Create --> Init["Initialize application state"]
     Init --> Inspect["Inspect local database compatibility"]
     Inspect -->|"New or current"| Open["Create/open and verify SQLite"]
@@ -100,9 +102,9 @@ The compatibility inspection, schema verification, and blocked-startup paths are
 | --- | --- |
 | Durable business data | SQLite through infrastructure repositories |
 | Financial calculations | Go domain/application services |
-| Navigation and filters | Fyne view state |
-| Form input | Feature-owned Fyne widgets and validation models |
-| Language, appearance, and FX route | Local JSON settings plus UI theme adapter and application provider selection |
+| Navigation and filters | React page state |
+| Form input | Feature-owned React forms and Zod validation |
+| Language, appearance, and FX route | Local JSON settings plus i18next/theme store and application provider selection |
 | Chart geometry | UI-only rendering model derived from authoritative results |
 
 The UI must not optimistically invent financial totals. After a mutation it
@@ -115,15 +117,16 @@ reloads the authoritative application result.
 | Language | Go 1.26 | Application, domain, and infrastructure code |
 | Persistence | SQLite v1 | Local durable source of truth |
 | Decimal arithmetic | shopspring/decimal-backed domain Money | No binary floating point for financial values |
-| Charts | Fyne canvas/custom widgets | Rendering only; no financial calculations |
-| Module/build | Go modules and standard Go tooling | `go run`, `go test`, `go vet`, `go build` |
+| Charts | Apache ECharts | Rendering only; no financial calculations |
+| Desktop shell | Wails v3 | Bound Go services + embedded React frontend |
+| Module/build | Go modules, pnpm, Wails Taskfile | `go test`, `pnpm test`, `wails3 build` |
 
 Dependency versions are owned by `go.mod` and `go.sum`, not duplicated here.
 
 ## Privacy and security boundaries
 
 - No account registration or required internet connection for core operation.
-- Business data remains local and is not sent to Fyne or external providers.
+- Business data remains local and is not sent to the webview or external providers.
 - Provider integrations are explicit adapters with safe failure behavior and
   no startup dependency. v0.1.2 ships Yahoo current quotes and an FX-only
   Frankfurter adapter.

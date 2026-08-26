@@ -17,29 +17,81 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useAccounts, useArchiveAccount, useCreateAccount } from "@/queries/accounts";
+import {
+  useAccounts,
+  useArchiveAccount,
+  useCreateAccount,
+  useSetAccountLogo,
+  useUpdateAccount,
+  toUpdateAccountRequest,
+} from "@/queries/accounts";
+import { persistPickedImage } from "@/queries/media";
 import { AccountForm } from "@/features/accounts/AccountForm";
 import { formatAmount } from "@/lib/money";
 import { toast } from "sonner";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
+import type { AccountFormExtras } from "@/features/accounts/AccountForm";
 
 const columnHelper = createColumnHelper<AccountRecordDTO>();
 
+async function attachAccountLogo(
+  id: string,
+  pendingImage: string | undefined,
+  setLogo: (args: { id: string; mediaAssetId: string }) => Promise<unknown>,
+) {
+  if (!pendingImage) {
+    return;
+  }
+  await persistPickedImage(pendingImage, (mediaAssetId) => setLogo({ id, mediaAssetId }));
+}
+
 /**
- * AccountsPage implements list/filter/create/archive/restore end to end
- * through AccountService (implementation plan Phase 4). Appending a
- * current value re-uses AccountService.AppendAccountValue via the same
- * form pattern once History (Phase 5) exists; for this phase, archive is
- * the one high-risk action, guarded by an AlertDialog + Toast per the
- * frontend stack decision Sec11.
+ * AccountsPage implements list/filter/create/update/archive/restore end
+ * to end through AccountService. Icon/logo pick happens on the create
+ * and edit sheets via MediaService.PickImage, persisted after confirm.
  */
 export function AccountsPage() {
   const { t } = useTranslation();
   const [showArchived, setShowArchived] = useState(false);
   const accounts = useAccounts({ includeArchived: showArchived });
   const createAccount = useCreateAccount();
+  const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
+  const setAccountLogo = useSetAccountLogo();
   const [createOpen, setCreateOpen] = useState(false);
+  const [editing, setEditing] = useState<AccountRecordDTO | null>(null);
+
+  const saveCreate = (request: CreateAccountRequest, extras: AccountFormExtras) => {
+    createAccount.mutate(request, {
+      onSuccess: (record) => {
+        void attachAccountLogo(record.account?.id ?? "", extras.pendingImage, (args) =>
+          setAccountLogo.mutateAsync(args),
+        ).then(() => {
+          toast.success(t("accounts.create"));
+          setCreateOpen(false);
+        });
+      },
+    });
+  };
+
+  const saveEdit = (request: CreateAccountRequest, extras: AccountFormExtras) => {
+    if (!editing) {
+      return;
+    }
+    const id = editing.account.id;
+    updateAccount.mutate(
+      { id, request: toUpdateAccountRequest(request) },
+      {
+        onSuccess: () => {
+          void attachAccountLogo(id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args)).then(() => {
+            toast.success(t("common.saved"));
+            setEditing(null);
+          });
+        },
+      },
+    );
+  };
 
   const columns = [
     columnHelper.accessor((row) => row.account.name, {
@@ -69,30 +121,39 @@ export function AccountsPage() {
         const record = info.row.original;
         const archived = Boolean(record.account.archivedAt);
         return (
-          <AlertDialog>
-            <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-              {archived ? t("common.active") : t("accounts.archive")}
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>{archived ? t("common.active") : t("accounts.archive")}</AlertDialogTitle>
-                <AlertDialogDescription>{record.account.name}</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() =>
-                    archiveAccount.mutate(
-                      { id: record.account.id, archived: !archived },
-                      { onSuccess: () => toast.success(archived ? t("common.active") : t("accounts.archive")) },
-                    )
-                  }
-                >
-                  {archived ? t("common.active") : t("accounts.archive")}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+          <div className="flex items-center justify-end gap-2">
+            <button
+              type="button"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+              onClick={() => setEditing(record)}
+            >
+              {t("common.edit")}
+            </button>
+            <AlertDialog>
+              <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                {archived ? t("common.active") : t("accounts.archive")}
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>{archived ? t("common.active") : t("accounts.archive")}</AlertDialogTitle>
+                  <AlertDialogDescription>{record.account.name}</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() =>
+                      archiveAccount.mutate(
+                        { id: record.account.id, archived: !archived },
+                        { onSuccess: () => toast.success(archived ? t("common.active") : t("accounts.archive")) },
+                      )
+                    }
+                  >
+                    {archived ? t("common.active") : t("accounts.archive")}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         );
       },
     }),
@@ -123,22 +184,38 @@ export function AccountsPage() {
               <AccountForm
                 submitLabel={t("accounts.create")}
                 isSubmitting={createAccount.isPending}
-                onSubmit={(request) =>
-                  createAccount.mutate(request, {
-                    onSuccess: () => {
-                      toast.success(t("accounts.create"));
-                      setCreateOpen(false);
-                    },
-                  })
-                }
+                onSubmit={saveCreate}
               />
             </div>
           </SheetContent>
         </Sheet>
       </div>
 
+      <Sheet open={Boolean(editing)} onOpenChange={(open) => !open && setEditing(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{t("accounts.edit")}</SheetTitle>
+          </SheetHeader>
+          <div className="overflow-y-auto">
+            {editing && (
+              <AccountForm
+                key={editing.account.id}
+                record={editing}
+                submitLabel={t("common.save")}
+                isSubmitting={updateAccount.isPending}
+                onSubmit={saveEdit}
+              />
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
       {accounts.isLoading && <p className="text-sm text-muted-foreground">{t("common.comingSoon")}</p>}
-      {accounts.isError && <p role="alert" className="text-sm text-destructive">{t("accounts.loadError")}</p>}
+      {accounts.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {t("accounts.loadError")}
+        </p>
+      )}
 
       {accounts.data && accounts.data.length === 0 && (
         <div className="flex flex-col items-center gap-1 py-12 text-center">

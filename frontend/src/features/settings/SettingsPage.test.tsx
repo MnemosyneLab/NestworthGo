@@ -16,9 +16,15 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
     SupportedCurrencies: () => Promise.resolve(["USD", "SGD"]),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", () => ({
+  Service: {
+    AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.1.4", build: "1" }),
+    Startup: () => Promise.resolve({ available: true }),
+  },
+}));
 
 function renderPage() {
-  const queryClient = new QueryClient();
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
       <SettingsPage />
@@ -68,5 +74,12 @@ describe("SettingsPage", () => {
     await screen.findByRole("form", { name: "Settings" });
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(reset).toHaveBeenCalled();
+  });
+
+  it("renders the About section from AppService.AppInfo", async () => {
+    renderPage();
+    expect(await screen.findByLabelText("About Nestworth")).toBeInTheDocument();
+    expect(await screen.findByText(/Version v0\.1\.4/)).toBeInTheDocument();
+    expect(screen.getByText(/Build 1/)).toBeInTheDocument();
   });
 });

@@ -41,7 +41,15 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/accou
   Service: {
     ListAccounts: (...args: unknown[]) => listAccounts(...args),
     CreateAccount: (...args: unknown[]) => createAccount(...args),
+    UpdateAccount: vi.fn(),
     ArchiveAccount: vi.fn(),
+    SetAccountLogo: vi.fn(),
+  },
+}));
+vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/media", () => ({
+  Service: {
+    PickImage: vi.fn().mockResolvedValue(""),
+    CreateMediaAsset: vi.fn(),
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/directory", () => ({
@@ -75,6 +83,12 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/setti
     Save: (...args: unknown[]) => settingsSave(...args),
     Reset: vi.fn(),
     SupportedCurrencies: () => Promise.resolve(["USD", "SGD"]),
+  },
+}));
+vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", () => ({
+  Service: {
+    AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.1.4", build: "1" }),
+    Startup: () => Promise.resolve({ available: true }),
   },
 }));
 
@@ -142,7 +156,7 @@ describe("keyboard-only completion", () => {
 
   it("completes Account creation using only Tab, Space (checkboxes), typed characters, and Enter", async () => {
     listAccounts.mockResolvedValue([]);
-    createAccount.mockResolvedValue({ id: "acc-1" });
+    createAccount.mockResolvedValue({ account: { id: "acc-1" } });
     renderWithQueryClient(<AccountsPage />);
 
     await screen.findByText("No accounts yet");
