@@ -3,10 +3,8 @@ import { AlertDialog as BaseAlertDialog } from "@base-ui/react/alert-dialog";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
-// AlertDialog is the required confirmation pattern for high-risk actions
-// (Undo, Fix, Archive, Restore) per the frontend stack decision Sec11:
-// "Alert Dialog + explicit impact + a Toast after execution," not a Toast
-// alone.
+// AlertDialog is the confirmation pattern for high-risk actions (Undo, Fix,
+// Archive, Restore): show explicit impact and a toast after execution.
 const AlertDialog = BaseAlertDialog.Root;
 const AlertDialogTrigger = BaseAlertDialog.Trigger;
 

@@ -5,14 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-/**
- * SampleForm exists only to prove the React Hook Form + Zod wiring works
- * end to end (implementation plan Phase 3: "React Hook Form + Zod wired
- * for one sample form"). It is intentionally generic, not account- or
- * member-specific, since Phase 3 has no page-specific business logic yet;
- * Phase 4's real Account creation form follows this same pattern with a
- * domain-specific schema instead of this one.
- */
+/** SampleForm keeps the shared React Hook Form + Zod example available for
+ * component-level form tests. Feature forms use domain-specific schemas. */
 const sampleSchema = z.object({
   name: z.string().trim().min(1, "sample.nameRequired"),
 });

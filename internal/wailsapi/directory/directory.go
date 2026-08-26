@@ -1,8 +1,7 @@
 // Package directory adapts internal/application.Service's Member,
 // Institution, and Group CRUD/archive/icon/logo surface for the Wails IPC
 // boundary. These three entities share the same CRUD/archive/icon shape in
-// the product UI and the release contracts, so one service covers all three
-// (technical design Sec6).
+// the product UI and the release contracts, so one service covers all three.
 package directory
 
 import (

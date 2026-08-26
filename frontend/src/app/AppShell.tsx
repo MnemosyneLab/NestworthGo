@@ -59,10 +59,8 @@ export interface AppShellProps {
 
 /**
  * AppShell is the persistent sidebar/header layout every page renders
- * inside (implementation plan Phase 3). Navigation uses simple page-state
- * (frontend stack decision Sec9) rather than a router; DEFAULT_PAGE_ID
- * ("overview") matches
- * docs/migration/wails-v3-navigation-decisions.md's decision.
+ * inside. Navigation uses simple page-state rather than a router;
+ * DEFAULT_PAGE_ID ("overview") is the product's default landing page.
  */
 export function AppShell({ activePageId, onNavigate, children }: AppShellProps) {
   const { t } = useTranslation();
@@ -70,9 +68,7 @@ export function AppShell({ activePageId, onNavigate, children }: AppShellProps) 
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
   // Exercises the queries/ -> lib/wails.callService -> generated-binding
-  // pipeline end to end inside the real app shell, rather than a
-  // throwaway demo screen (Phase 2's placeholder App.tsx did this call
-  // directly; Phase 3 moves it into the shell it actually belongs in).
+  // pipeline end to end inside the real app shell.
   const appInfo = useAppInfo();
 
   return (

@@ -1,6 +1,6 @@
 // Package apierror implements the stable error contract every
 // internal/wailsapi service uses to cross the Wails IPC boundary. See
-// docs/migration/wails-v3-technical-design.md (Sec5, "Error contract").
+// docs/architecture/data-and-ipc-contracts.md for the wire contract.
 package apierror
 
 import (
@@ -60,7 +60,7 @@ func Wrap(err error) error {
 // Parse recovers a WireError from its own Error() JSON encoding. It is used
 // by internal/wailsapi tests to assert on the Code/Field a service method
 // returned; the frontend performs the equivalent parse of a rejected
-// Promise's message in TypeScript (technical design Sec5).
+// Promise's message in TypeScript.
 func Parse(message string) (*WireError, bool) {
 	var parsed WireError
 	if err := json.Unmarshal([]byte(message), &parsed); err != nil {

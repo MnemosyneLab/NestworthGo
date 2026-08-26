@@ -1,8 +1,6 @@
 // Package quote adapts internal/application.Service's manual/current
 // Instrument-quote and FX-quote/preference surface for the Wails IPC
-// boundary. It is one of three services (with instrument and holding) that
-// the technical design's single proposed InvestmentService was split into
-// during Phase 0. Provider-driven refresh lives in the marketdata service;
+// boundary. Provider-driven refresh lives in the marketdata service;
 // this service only reads and manually appends quotes.
 package quote
 

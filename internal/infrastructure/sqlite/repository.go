@@ -184,7 +184,7 @@ func (r *Repository) ListMembers(ctx context.Context, includeArchived bool) ([]d
 // inside the same write transaction as the INSERT. Because the database is
 // opened with a single connection and _txlock=immediate, write transactions
 // are fully serialized, so two concurrent CreateMember calls can never
-// compute and insert the same sort_order (see docs/development/code-review-2026-08-21.md BUG-6).
+// compute and insert the same sort_order.
 func (r *Repository) CreateMember(ctx context.Context, member domain.Member) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(ctx, `INSERT INTO members(id, household_id, name, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM members WHERE household_id = ?), ?, ?)`, member.ID.String(), member.HouseholdID.String(), member.Name, nullableString(member.Note), member.HouseholdID.String(), formatTimestamp(member.CreatedAt), formatTimestamp(member.UpdatedAt))

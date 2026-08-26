@@ -1,15 +1,14 @@
 # Data and Application Contracts
 
-This filename is retained for compatibility with the source documentation.
 The Wails v3 application has a real IPC boundary: `internal/wailsapi` DTOs
-crossing into the React frontend. Domain, application, and SQLite contracts
-below that boundary are unchanged.
+cross into the React frontend. Domain, application, and SQLite contracts below
+that boundary remain backend-owned.
 
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. The current v0.1.4 generation owns one complete SQLite
-schema `6`; older database generations are rejected without migration. UI code
+and query results. The current `0.2.0` line owns one complete SQLite schema
+`6`; older database generations are rejected without migration. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
 The repository contains the Go implementation of the Household balance-sheet,
@@ -150,5 +149,5 @@ The implemented media contract:
 
 The current schema must have sanitized fixtures and tests for create, reopen,
 integrity, representative business rows, and unsupported older/future versions.
-The first Go implementation must not claim compatibility with the copied
-Tauri/Rust database until an explicit importer or migration proves it.
+Compatibility is claimed only where the current repository has an explicit
+fixture, verification path, or migration test.

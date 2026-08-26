@@ -22,12 +22,9 @@ type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 
 /**
  * OnboardingPage implements the "Household creation, base currency, first
- * Members" flow end to end through HouseholdService (implementation plan
- * Phase 4). It intentionally does not ask for a timezone here: leaving
- * `CompleteOnboardingRequest.timezone` empty matches the current Fyne
- * onboarding page's behavior ("history not started yet"); Starting Point
- * is a separate, later flow (interaction brief Sec8.4), not part of this
- * page's minimal-required-fields scope.
+ * Members" flow end to end through HouseholdService. It intentionally does
+ * not ask for a timezone here: leaving `CompleteOnboardingRequest.timezone`
+ * empty means history has not started yet; Starting Point is a separate flow.
  */
 export function OnboardingPage() {
   const { t } = useTranslation();

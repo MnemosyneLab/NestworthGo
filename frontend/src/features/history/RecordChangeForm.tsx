@@ -63,10 +63,9 @@ export interface RecordChangeFormInitial {
 
 /**
  * RecordChangeForm implements the "record a change with ordinary
- * language" flow (interaction brief Sec8.4) for every one of the ten
- * domain.PreviewChange kinds via history.ChangeCommandRequest's tagged
- * union (technical design Sec6 — "the single trickiest mapping"). It
- * always previews before committing (Sec8.4's "预览后确认保存"): Preview
+ * language" flow for every one of the ten domain.PreviewChange kinds via
+ * history.ChangeCommandRequest's tagged union. It always previews before
+ * committing: Preview
  * calls PreviewChange (no side effect) and shows the resulting
  * balances/quantities; Confirm re-submits the identical request to
  * RecordChange, which re-validates and commits.

@@ -3,10 +3,8 @@
  * TrackingMode's allowed combinations (internal/domain/model.go), used
  * only to drive form UX (disable invalid choices, pick sane defaults).
  * The Go backend remains the sole authority: every combination is
- * re-validated there regardless of what this module allows through
- * (frontend stack decision Sec14 — "前端不得复制核心财务计算逻辑",
- * and this is validation, not calculation, but the same "Go is
- * authoritative" rule applies to any rule that could silently drift).
+ * re-validated there regardless of what this module allows through. This
+ * mirror is validation guidance only; the Go backend remains authoritative.
  */
 export type PrimaryCategory = "cash_equivalent" | "investment" | "property" | "receivable" | "liability";
 export type TrackingMode = "balance" | "manual_value" | "holdings";

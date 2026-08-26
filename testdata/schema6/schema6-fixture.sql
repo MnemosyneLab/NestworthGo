@@ -1,4 +1,4 @@
--- Sanitized current v0.1.4 schema-6 fixture for product-quality regression tests.
+-- Sanitized schema-6 fixture for product-quality regression tests.
 -- All identifiers are deterministic test UUIDs; no live data is present.
 PRAGMA foreign_keys = ON;
 

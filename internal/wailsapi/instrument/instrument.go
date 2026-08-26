@@ -1,7 +1,5 @@
 // Package instrument adapts internal/application.Service's Instrument
 // identity CRUD, logo, and quote-source surface for the Wails IPC boundary.
-// It is one of three services (with holding and quote) that the technical
-// design's single proposed InvestmentService was split into during Phase 0.
 package instrument
 
 import (

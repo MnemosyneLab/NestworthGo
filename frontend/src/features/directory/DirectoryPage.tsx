@@ -33,9 +33,8 @@ async function attachImage(
 }
 
 /**
- * DirectoryPage groups Members/Institutions/Groups under one nav entry
- * with three tabs, per docs/migration/wails-v3-navigation-decisions.md's
- * decision 4.
+ * DirectoryPage groups Members, Institutions, and Groups under one nav entry
+ * with three tabs.
  */
 export function DirectoryPage() {
   const { t } = useTranslation();

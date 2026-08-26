@@ -4,9 +4,7 @@ import { callService } from "@/lib/wails";
 import { overviewQueryKey } from "@/queries/portfolio";
 
 /** useMembers loads active Members for ownership selection in the Account
- * form. Members/Institutions/Groups management pages themselves are
- * Phase 5 work (see the "Directory" nav grouping decision); this hook
- * only supports Phase 4's Account form. */
+ * form. Directory management pages use the same service boundary. */
 export function useMembers(includeArchived = false) {
   return useQuery({
     queryKey: ["directory", "members", includeArchived],

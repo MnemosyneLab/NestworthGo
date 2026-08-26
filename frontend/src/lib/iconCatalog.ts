@@ -1,7 +1,6 @@
 /**
- * ICON_CATALOG is the same personal-finance icon set Fyne's
- * internal/ui/icon_catalog.go offered, keyed by the stored icon_key
- * values so existing Household data keeps rendering after cutover.
+ * ICON_CATALOG is the personal-finance icon set keyed by the stored icon_key
+ * values so existing Household data keeps rendering consistently.
  * labelKey looks up the already-ported `icons.*` i18next catalog.
  */
 export interface IconChoice {

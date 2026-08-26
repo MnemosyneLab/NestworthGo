@@ -210,7 +210,7 @@ func TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX(t *testing.
 
 func seedGainSchema6Fixture(t *testing.T) *sqlite.DB {
 	t.Helper()
-	scriptPath := filepath.Join("..", "..", "testdata", "v0.1.4", "schema6-fixture.sql")
+	scriptPath := filepath.Join("..", "..", "testdata", "schema6", "schema6-fixture.sql")
 	script, err := os.ReadFile(scriptPath)
 	if err != nil {
 		t.Fatal(err)

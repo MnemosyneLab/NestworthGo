@@ -1,7 +1,7 @@
 // Package history adapts internal/application.Service's History/Timeline,
 // Starting Point, Record change, Undo/Fix, and daily-snapshot surface for
 // the Wails IPC boundary. The change-command union (command.go) is the
-// hardest single mapping in this migration (technical design Sec6).
+// typed boundary between frontend requests and domain commands.
 package history
 
 import (
@@ -142,8 +142,8 @@ func (s *Service) RecordChange(ctx context.Context, request ChangeCommandRequest
 
 // CommitChange is kept distinct from RecordChange at the wire boundary even
 // though application.Service.CommitChange is currently a thin alias for
-// RecordChange, so the frontend's "preview, then confirm" UX (interaction
-// brief Sec8.4) has a stable name to call regardless of how the Go layer
+// RecordChange, so the frontend's "preview, then confirm" UX has a stable
+// name to call regardless of how the Go layer
 // evolves.
 func (s *Service) CommitChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
 	householdID, err := s.resolveHouseholdID(ctx)
@@ -174,8 +174,8 @@ func (s *Service) UndoChange(ctx context.Context, activityID string) (wire.Chang
 }
 
 // PreviewFixChange is FixChange's read-only counterpart, giving the Fix
-// form the same "preview, then confirm" UX every other change kind gets
-// (technical design Sec6): it returns the replacement ChangePreview
+// form the same "preview, then confirm" UX every other change kind gets:
+// it returns the replacement ChangePreview
 // FixChange would commit, computed by inverting the original Activity's
 // effects first, so the previewed number is not double-counted against
 // the original Activity that Confirm will actually remove.
@@ -311,7 +311,7 @@ func (s *Service) CompleteDailySnapshotRange(ctx context.Context, householdID, t
 // DailyValuationSnapshotDTO mirrors domain.DailyValuationSnapshot, minus its
 // per-item list, which the frontend fetches separately if it needs
 // component-level detail (list endpoints exist on internal/application but
-// are not yet bound; add them here if a Phase 5 page needs them).
+// are not yet bound; add them when a frontend surface needs them).
 type DailyValuationSnapshotDTO struct {
 	ID                string          `json:"id"`
 	HouseholdID       string          `json:"householdId"`

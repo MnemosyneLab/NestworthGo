@@ -1,9 +1,9 @@
 /**
  * formatAmount renders a canonical decimal string (already computed by
- * Go — see docs/migration/wails-v3-technical-design.md Sec4) as a
+ * Go — see docs/architecture/data-and-ipc-contracts.md) as a
  * locale-formatted display string. This is presentation only, never a
  * recomputation: the frontend must not re-derive a financial value from
- * this formatted output (frontend stack decision Sec14).
+ * this formatted output.
  *
  * Values are converted through `Number` for formatting, which is exact
  * for every amount within this application's documented decimal bounds

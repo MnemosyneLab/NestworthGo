@@ -22,9 +22,8 @@ async function renderWithMockedOverview(response: unknown) {
 }
 
 describe("OverviewPage", () => {
-  // This is the required "fixture-driven check that Overview's displayed
-  // net worth, assets, and liabilities exactly match the same fixture's
-  // Go-computed OverviewResult" (implementation plan Phase 4). The mocked
+  // This fixture-driven check ensures Overview's displayed net worth, assets,
+  // and liabilities exactly match the same fixture's Go-computed result. The mocked
   // response below is the exact JSON
   // internal/wailsapi/portfolio.TestOverviewMultiOwnerFixtureMatchesFrontendGolden
   // asserts Go computes for its multi-owner (60/40 split) fixture; if

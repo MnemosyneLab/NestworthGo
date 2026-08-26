@@ -8,9 +8,8 @@ import { errorCodesEn, errorCodesZhCN, errorCodesZhTW } from "./errorCodes";
 import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
 import { deepMerge } from "./deepMerge";
 
-// The three locales required by the migration plan Sec8 acceptance
-// criteria ("English, Simplified Chinese, and Traditional Chinese are all
-// available ... with complete key coverage").
+// The supported locales are English, Simplified Chinese, and Traditional
+// Chinese, with complete key coverage enforced by localeCoverage.test.ts.
 export const SUPPORTED_LANGUAGES = ["en", "zh-CN", "zh-TW"] as const;
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
@@ -33,8 +32,8 @@ void i18n.use(initReactI18next).init({
 /**
  * Maps `internal/settings.Language` ("system" | "en" | "zh-CN" | "zh-TW")
  * to one of the three loaded i18next languages, resolving "system" against
- * the browser/webview's own locale. SettingsService (Phase 5) is the
- * source of truth for the persisted preference; this function only
+ * the browser/webview's own locale. SettingsService is the source of truth
+ * for the persisted preference; this function only
  * implements the "system" resolution rule client-side, mirroring
  * internal/i18n.ResolveSystemLanguage's zh-Hant/zh-Hans script-tag logic.
  */

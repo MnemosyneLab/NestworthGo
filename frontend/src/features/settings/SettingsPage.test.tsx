@@ -18,7 +18,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", () => ({
   Service: {
-    AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.1.4", build: "1" }),
+    AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.2.0", build: "1" }),
     Startup: () => Promise.resolve({ available: true }),
   },
 }));
@@ -79,7 +79,7 @@ describe("SettingsPage", () => {
   it("renders the About section from AppService.AppInfo", async () => {
     renderPage();
     expect(await screen.findByLabelText("About Nestworth")).toBeInTheDocument();
-    expect(await screen.findByText(/Version v0\.1\.4/)).toBeInTheDocument();
+    expect(await screen.findByText(/Version v0\.2\.0/)).toBeInTheDocument();
     expect(screen.getByText(/Build 1/)).toBeInTheDocument();
   });
 });

@@ -8,15 +8,15 @@
   IgnorableNamespaces="uap3">
   
   <Identity 
-    Name="com.example.nestworthdesktop"
-    Publisher="CN=My Company"
-    Version="0.1.0.0" 
+    Name="com.nestworth.app"
+    Publisher="CN=Nestworth"
+    Version="0.2.0.0"
     ProcessorArchitecture="x64" />
   
   <Properties>
-    <DisplayName>My Product</DisplayName>
-    <PublisherDisplayName>My Company</PublisherDisplayName>
-    <Description>A nestworth-desktop application</Description>
+    <DisplayName>Nestworth</DisplayName>
+    <PublisherDisplayName>Nestworth</PublisherDisplayName>
+    <Description>A local-first personal finance desktop application</Description>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
   
@@ -29,10 +29,10 @@
   </Resources>
   
   <Applications>
-    <Application Id="com.example.nestworthdesktop" Executable="nestworth" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="Nestworth" Executable="nestworth" EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="My Product"
-        Description="A nestworth-desktop application"
+        DisplayName="Nestworth"
+        Description="A local-first personal finance desktop application"
         BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">

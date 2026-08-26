@@ -12,7 +12,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// Regression test for docs/development/code-review-2026-08-21.md BUG-6:
 // sort_order must be assigned atomically inside the INSERT transaction, so
 // concurrent CreateMember calls never race on a stale read-then-write value.
 func TestCreateMemberAssignsUniqueSortOrderUnderConcurrency(t *testing.T) {

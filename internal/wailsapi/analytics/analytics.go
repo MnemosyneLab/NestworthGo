@@ -83,7 +83,7 @@ func (s *Service) RealizedGainInRange(ctx context.Context, scope GainScopeReques
 }
 
 // RealizedGain resolves a named trend range ("30d", "1y", "all") the same
-// way the Analytics range selector already does in the interaction brief.
+// way the Analytics range selector is implemented in the frontend.
 func (s *Service) RealizedGain(ctx context.Context, scope GainScopeRequest, trendRange string) (wire.RealizedGainDTO, error) {
 	domainScope, err := scope.toDomain()
 	if err != nil {

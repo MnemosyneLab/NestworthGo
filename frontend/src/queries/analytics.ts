@@ -30,9 +30,8 @@ export function useNetWorthTrend(trendRange: string) {
  * useHoldingGainsByAccounts fetches AnalyticsService.AccountGain for every
  * given Account and flattens the result into a per-Holding lookup, so a
  * flat Holdings list (Investments page) can show cost/current
- * value/gain columns per row without re-deriving them client-side
- * (frontend stack decision Sec14: Go remains the sole calculation
- * authority). Reuses the same query key as useAccountGain, so the two
+ * value/gain columns per row without re-deriving them client-side. Go remains
+ * the sole calculation authority. Reuses the same query key as useAccountGain, so the two
  * hooks share one cache entry per Account.
  */
 export function useHoldingGainsByAccounts(accountIds: string[]) {

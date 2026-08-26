@@ -15,11 +15,8 @@ const RANGES = [
 
 /**
  * AnalyticsPage implements realized gain by period and a net worth trend
- * chart (implementation plan Phase 5) through AnalyticsService/
- * PortfolioService, reusing the range selector pattern from
- * domain.TrendRange ("30d"/"1y"/"all"), the same values History's
- * eventual date-range filter and the current Fyne Analytics page already
- * use.
+ * chart through AnalyticsService/PortfolioService, reusing the range
+ * selector pattern from domain.TrendRange ("30d"/"1y"/"all").
  */
 export function AnalyticsPage() {
   const { t } = useTranslation();

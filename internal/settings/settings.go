@@ -1,7 +1,6 @@
-// Package settings contains the user-facing preferences for the v0.1.0 UI
-// MVP. These preferences are deliberately kept outside the future financial
-// database so the presentation layer can evolve without defining business
-// persistence prematurely.
+// Package settings contains user-facing preferences. These preferences are
+// deliberately kept outside the financial database so the presentation layer
+// can evolve without changing business persistence.
 package settings
 
 import (
@@ -96,9 +95,8 @@ type Settings struct {
 }
 
 // Minimum and maximum window dimensions accepted from a persisted settings
-// file. These bound the v0.1.1 window-state restoration (see
-// docs/development/code-review-2026-08-21.md BUG-5/GAP-2) so a corrupted or
-// hand-edited settings file can never restore a degenerate or absurd window.
+// file. A corrupted or hand-edited settings file can never restore a
+// degenerate or absurd window.
 const (
 	MinWindowWidth  = 640
 	MinWindowHeight = 480

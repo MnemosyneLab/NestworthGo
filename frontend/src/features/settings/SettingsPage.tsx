@@ -11,11 +11,9 @@ import { setLanguage } from "@/i18n";
 import type { Settings } from "../../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
 
 /**
- * SettingsPage implements the persisted-preferences page
- * (implementation plan Phase 5) through SettingsService, which already
- * delegates FX-provider changes to MarketDataService.SetFXProvider
- * exactly as Controller.updatePreference does today (technical design
- * Sec6). Changing appearance/language here also updates the live
+ * SettingsPage implements the persisted-preferences page through
+ * SettingsService, which delegates FX-provider changes to
+ * MarketDataService.SetFXProvider. Changing appearance/language here also updates the live
  * stores/ui.ts value and i18next instance so the effect is immediate,
  * not only after a reload.
  */

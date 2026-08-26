@@ -10,24 +10,24 @@
     <Installer
         Path="nestworth"
         Arguments=""
-        InstallLocation="C:\Program Files\My Company\My Product">
+        InstallLocation="C:\Program Files\Nestworth\Nestworth">
     </Installer>
     <PackageInformation
-        PackageName="My Product"
-        PackageDisplayName="My Product"
-        PublisherName="CN=My Company"
-        PublisherDisplayName="My Company"
-        Version="0.1.0.0"
-        PackageDescription="A nestworth-desktop application">
+        PackageName="Nestworth"
+        PackageDisplayName="Nestworth"
+        PublisherName="CN=Nestworth"
+        PublisherDisplayName="Nestworth"
+        Version="0.2.0.0"
+        PackageDescription="A local-first personal finance desktop application">
         <Capabilities>
             <Capability Name="runFullTrust" />
             
         </Capabilities>
         <Applications>
             <Application
-                Id="com.example.nestworthdesktop"
-                Description="A nestworth-desktop application"
-                DisplayName="My Product"
+                Id="Nestworth"
+                Description="A local-first personal finance desktop application"
+                DisplayName="Nestworth"
                 ExecutableName="nestworth"
                 EntryPoint="Windows.FullTrustApplication">
                 
@@ -41,9 +41,9 @@
         </Dependencies>
         <Properties>
             <Framework>false</Framework>
-            <DisplayName>My Product</DisplayName>
-            <PublisherDisplayName>My Company</PublisherDisplayName>
-            <Description>A nestworth-desktop application</Description>
+            <DisplayName>Nestworth</DisplayName>
+            <PublisherDisplayName>Nestworth</PublisherDisplayName>
+            <Description>A local-first personal finance desktop application</Description>
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>

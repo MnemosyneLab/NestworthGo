@@ -59,7 +59,7 @@ tasks:
     cmds:
       - '{{if eq .OBFUSCATED "true"}}garble {{.GARBLE_ARGS}} build{{else}}go build{{end}} {{.BUILD_FLAGS}} -o {{.OUTPUT}} ./cmd/nestworth'
     vars:
-      NESTWORTH_VERSION_LDFLAGS: '-X github.com/waltwang/nestworth-go/internal/version.Version={{.NESTWORTH_VERSION | default "v0.1.4"}} -X github.com/waltwang/nestworth-go/internal/version.Build={{.NESTWORTH_BUILD | default "1"}}'
+      NESTWORTH_VERSION_LDFLAGS: '-X github.com/waltwang/nestworth-go/internal/version.Version={{.NESTWORTH_VERSION | default "v0.2.0"}} -X github.com/waltwang/nestworth-go/internal/version.Build={{.NESTWORTH_BUILD | default "1"}}'
       BUILD_FLAGS: '{{if eq .DEV "true"}}{{if or .EXTRA_TAGS (eq .OBFUSCATED "true")}}-tags {{if eq .OBFUSCATED "true"}}wails_obfuscated{{if .EXTRA_TAGS}},{{end}}{{end}}{{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l" -ldflags="{{.NESTWORTH_VERSION_LDFLAGS}}"{{else}}-tags production{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s {{.NESTWORTH_VERSION_LDFLAGS}}"{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'

@@ -162,8 +162,7 @@ function Timeline() {
 /**
  * HistoryPage implements Starting Point, Record change (all ten
  * domain.PreviewChange kinds), Timeline, Undo, and Fix end to end through
- * HistoryService (implementation plan Phase 5), per the navigation
- * decision that Activity lives inside History rather than as a separate
+ * HistoryService. Activity lives inside History rather than as a separate
  * nav entry. Fix reuses RecordChangeForm pre-filled from the original
  * activity's effects (activityToCommand.ts's best-effort reconstruction)
  * and calls HistoryService.FixChange instead of RecordChange; both Undo

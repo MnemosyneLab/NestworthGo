@@ -30,13 +30,10 @@ function BreakdownList({ title, items, currency }: { title: string; items: Break
 }
 
 /**
- * OverviewPage implements the net worth / assets / liabilities /
- * breakdown views end to end through PortfolioService (implementation
- * plan Phase 4), including the "incomplete" state
- * domain.OverviewResult.Complete=false can produce: the frontend never
- * invents, hides, or zeroes a value the backend marked unavailable
- * (migration plan Sec8's acceptance criterion) — it shows an explicit
- * banner naming which inputs are missing instead.
+ * OverviewPage implements the net worth / assets / liabilities / breakdown
+ * views through PortfolioService, including the incomplete state. The
+ * frontend never invents, hides, or zeroes a value the backend marked
+ * unavailable; it shows an explicit banner naming the missing inputs.
  */
 export function OverviewPage() {
   const { t } = useTranslation();

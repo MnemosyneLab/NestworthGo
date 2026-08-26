@@ -8,13 +8,9 @@ import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
 import { deepMerge } from "./deepMerge";
 
 /**
- * Locale-coverage test (implementation plan Phase 5's Required Tests):
- * every i18next key that exists in one locale bundle must exist in every
- * other supported locale, so no `zh-CN`/`zh-TW` render falls back to a
- * raw key or to English text. This is a permanent regression test for
- * the discipline `internal/ui`'s own tests already applied to English/
- * Simplified Chinese key sets (risk register: "i18next key coverage
- * drifts from the ported internal/i18n catalog during Phase 3/5").
+ * Every i18next key that exists in one locale bundle must exist in every
+ * other supported locale, so no `zh-CN`/`zh-TW` render falls back to a raw
+ * key or to English text.
  */
 
 type Tree = Record<string, unknown>;

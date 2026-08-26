@@ -9,7 +9,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
-func TestV013DebtPaymentAppliesPrincipalAndFeeCumulatively(t *testing.T) {
+func TestDebtPaymentAppliesPrincipalAndFeeCumulatively(t *testing.T) {
 	for _, mode := range []string{"balance", "holdings"} {
 		t.Run(mode, func(t *testing.T) {
 			database, err := sqlite.Open(t.TempDir() + "/debt.db")
@@ -87,7 +87,7 @@ func TestV013DebtPaymentAppliesPrincipalAndFeeCumulatively(t *testing.T) {
 	}
 }
 
-func TestV013DebtPaymentRejectsInsufficientCombinedCashWithoutWrites(t *testing.T) {
+func TestDebtPaymentRejectsInsufficientCombinedCashWithoutWrites(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/debt-insufficient.db")
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +127,7 @@ func TestV013DebtPaymentRejectsInsufficientCombinedCashWithoutWrites(t *testing.
 	}
 }
 
-func TestV013PostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
+func TestPostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/creation.db")
 	if err != nil {
 		t.Fatal(err)
@@ -188,7 +188,7 @@ func TestV013PostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
 	}
 }
 
-func TestV013SnapshotCursorPreservesEarlierDirtyDates(t *testing.T) {
+func TestSnapshotCursorPreservesEarlierDirtyDates(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/cursor.db")
 	if err != nil {
 		t.Fatal(err)
@@ -230,7 +230,7 @@ func TestV013SnapshotCursorPreservesEarlierDirtyDates(t *testing.T) {
 	}
 }
 
-func TestV013ArchivedChangeTargetsAreRejectedAtPreviewAndCommit(t *testing.T) {
+func TestArchivedChangeTargetsAreRejectedAtPreviewAndCommit(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/archived-change.db")
 	if err != nil {
 		t.Fatal(err)
@@ -313,7 +313,7 @@ func TestV013ArchivedChangeTargetsAreRejectedAtPreviewAndCommit(t *testing.T) {
 	}
 }
 
-func TestV013NormalMetadataAndBackdatedQuotesAppendEvidenceAndDirtyHistory(t *testing.T) {
+func TestNormalMetadataAndBackdatedQuotesAppendEvidenceAndDirtyHistory(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/observed-mutations.db")
 	if err != nil {
 		t.Fatal(err)

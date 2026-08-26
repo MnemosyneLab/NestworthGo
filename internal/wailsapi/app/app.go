@@ -1,7 +1,6 @@
-// Package app is the small "About" / app-identity service (technical
-// design Sec6: "Keep intentionally tiny"). Window-size persistence is
-// wired directly in the Wails main.go via app.Window.OnWindowEvent
-// (technical design Sec9); it needs no frontend-callable method.
+// Package app is the small "About" / app-identity service. Window-size
+// persistence is wired directly in the Wails main.go via
+// app.Window.OnWindowEvent and needs no frontend-callable method.
 package app
 
 import (
@@ -34,7 +33,7 @@ func (s *Service) AppInfo() AppInfoDTO {
 	return AppInfoDTO{Name: version.Name, AppID: version.AppID, Description: version.Description, Version: version.Version, Build: version.Build}
 }
 
-// StartupDTO is the blocked-startup contract (implementation plan Phase 5).
+// StartupDTO is the blocked-startup contract.
 // Available is a successful DTO either way so the frontend can render the
 // blocked page without calling any other service — those stay unregistered
 // when the database could not be opened.

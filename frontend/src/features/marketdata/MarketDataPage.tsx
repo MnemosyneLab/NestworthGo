@@ -13,11 +13,9 @@ const STATUS_VARIANT: Record<string, "success" | "secondary" | "destructive" | "
 };
 
 /**
- * MarketDataPage implements explicit, user-triggered provider refresh
- * (implementation plan Phase 5) through MarketDataService. Refresh is
- * never automatic and never required for startup or any read (migration
- * plan Sec4's privacy/local-first boundary), matching the current Fyne
- * page's behavior exactly.
+ * MarketDataPage implements explicit, user-triggered provider refresh through
+ * MarketDataService. Refresh is never automatic and never required for
+ * startup or any local read.
  */
 export function MarketDataPage() {
   const { t } = useTranslation();

@@ -6,7 +6,7 @@ import { overviewQueryKey } from "@/queries/portfolio";
 /**
  * useRefreshAll calls the synchronous RefreshAll() binding. The Go
  * service also exposes a cancellable, event-streamed
- * StartRefreshAll/CancelRefresh pair (technical design Sec6) for a future
+ * StartRefreshAll/CancelRefresh pair for a future
  * "cancel a long-running refresh" UX; this page uses the simpler
  * synchronous call, which TanStack Query's useMutation already treats as
  * async (a real Wails call is a Promise regardless of which Go-side

@@ -90,10 +90,9 @@ func TestHistoryOriginStartedByOnboarding(t *testing.T) {
 	}
 }
 
-// TestChangeCommandUnionRoundTripsEveryKind is the required test from the
-// implementation plan's Phase 1 ("A dedicated test proving the
+// TestChangeCommandUnionRoundTripsEveryKind verifies that the
 // HistoryService change-command union round-trips every change kind
-// currently supported by domain.PreviewChange"). It exercises all ten
+// currently supported by domain.PreviewChange. It exercises all ten
 // domain.PreviewChange input kinds through history.Service.RecordChange.
 func TestChangeCommandUnionRoundTripsEveryKind(t *testing.T) {
 	fx := newFixture(t)

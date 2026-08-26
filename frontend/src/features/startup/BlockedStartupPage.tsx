@@ -2,8 +2,8 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
- * BlockedStartupPage mirrors internal/ui.NewBlockedStartupPage: the local
- * database could not be opened, so business writes stay disabled. Retry
+ * BlockedStartupPage is shown when the local database could not be opened,
+ * so business writes stay disabled. Retry
  * is "quit and relaunch" rather than an in-process reopen — Wails
  * services are constructed once at process start.
  */

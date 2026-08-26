@@ -397,7 +397,7 @@ func TestUndoAndFixKeepEvidenceAppendOnly(t *testing.T) {
 }
 
 // TestPreviewFixChangeMatchesFixChangeWithoutCommitting is a regression
-// test for a bug found during Phase 5 manual verification: the Fix
+// test for a bug found during manual verification: the Fix
 // form's "Preview" step called plain PreviewChange, which ignores the
 // original Activity being replaced and previews the replacement command
 // against the state *after* that original effect already applied —

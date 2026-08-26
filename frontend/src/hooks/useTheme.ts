@@ -13,10 +13,8 @@ function applyThemeClass(appearance: Appearance) {
 /**
  * useTheme applies the Tailwind `dark` class to <html> based on the
  * current appearance preference, and — only in "system" mode — reacts to
- * the OS-level prefers-color-scheme change, matching Fyne's
- * ApplyTheme(fyneApplication, preference) behavior (technical design
- * Sec9). SettingsService (Phase 5) is the source of truth for the
- * persisted preference; this hook only applies whatever the current
+ * the OS-level prefers-color-scheme change. SettingsService is the source of
+ * truth for the persisted preference; this hook only applies whatever the current
  * value is.
  */
 export function useTheme() {

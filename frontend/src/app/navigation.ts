@@ -2,10 +2,8 @@ import type { LucideIcon } from "lucide-react";
 import { House, Wallet, ChartNoAxesCombined, RefreshCw, Users, History, ChartLine, Settings } from "lucide-react";
 
 /**
- * NavItem is the top-level navigation model resolved by
- * docs/migration/wails-v3-navigation-decisions.md. `translationKey` looks
- * up the label in the ported i18n `nav.*` namespace (internal/i18n's
- * existing `nav.overview`, `nav.accounts`, etc. keys).
+ * NavItem is the top-level navigation model. `translationKey` looks up the
+ * label in the i18n `nav.*` namespace.
  */
 export interface NavItem {
   id: string;

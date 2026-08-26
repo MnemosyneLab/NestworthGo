@@ -19,7 +19,7 @@ func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	holdingID := findHoldingForInstrument(t, fixture.repository, fixture.account.Account.ID, fixture.qqq.ID)
-	before := phase8FinancialFactCounts(t, fixture.database.SQL)
+	before := financialFactCounts(t, fixture.database.SQL)
 
 	var group sync.WaitGroup
 	errs := make(chan error, 12)
@@ -47,13 +47,13 @@ func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
 		}
 	}
 
-	after := phase8FinancialFactCounts(t, fixture.database.SQL)
+	after := financialFactCounts(t, fixture.database.SQL)
 	if !reflect.DeepEqual(before, after) {
 		t.Fatalf("gain read paths changed financial facts: before=%v after=%v", before, after)
 	}
 }
 
-func TestMigratedV014FixtureSupportsGainReads(t *testing.T) {
+func TestSchema6FixtureSupportsGainReads(t *testing.T) {
 	database := seedGainSchema6Fixture(t)
 	defer database.Close()
 	repository := sqlite.NewRepository(database)
@@ -81,7 +81,7 @@ func TestMigratedV014FixtureSupportsGainReads(t *testing.T) {
 	}
 }
 
-func phase8FinancialFactCounts(t *testing.T, database *sql.DB) map[string]int {
+func financialFactCounts(t *testing.T, database *sql.DB) map[string]int {
 	t.Helper()
 	counts := make(map[string]int)
 	for _, table := range []string{

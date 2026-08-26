@@ -83,9 +83,9 @@ function valuesFromRecord(record: AccountRecordDTO): AccountFormValues {
 /**
  * AccountForm implements Account creation and metadata edit. Minimal
  * required fields come first; institution/group/icon/logo sit behind
- * progressive disclosure (interaction brief Sec8.2). The native image
- * picker lives in that disclosure so the keyboard-only create path
- * (Tab through required fields to submit) is unchanged.
+ * progressive disclosure. The native image picker lives in that disclosure
+ * so the keyboard-only create path (Tab through required fields to submit)
+ * is unchanged.
  */
 export function AccountForm({
   record,

@@ -119,8 +119,7 @@ func TestNetWorthTrendPassesThroughRangeBeforeHistoryStarts(t *testing.T) {
 }
 
 // TestOverviewMultiOwnerFixtureMatchesFrontendGolden is the shared fixture
-// the implementation plan's Phase 4 requires ("a fixture-driven check that
-// Overview's displayed net worth, assets, and liabilities exactly match
+// that verifies Overview's displayed net worth, assets, and liabilities exactly match
 // the same fixture's Go-computed OverviewResult, for at least one ...
 // multi-owner fixture"). The exact literal values asserted here
 // (1000/40%/60% ownership split, 300 liability, 700 net worth) are

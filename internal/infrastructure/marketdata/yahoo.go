@@ -24,11 +24,11 @@ const (
 	yahooRequestTimeout = 8 * time.Second
 	yahooMaxBodyBytes   = int64(2 * 1024 * 1024)
 
-	// Keep this profile in lockstep with the Rust client's browser_headers.
+	// Keep this profile stable so provider behavior is reproducible across
+	// instrument and FX request tests.
 	yahooAcceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-	// The Rust client advertises browser compression codecs. The Go client
-	// deliberately requests identity so it can keep the same browser profile
-	// without adding Brotli/Zstandard decoder dependencies.
+	// Request identity so the adapter does not need Brotli/Zstandard decoder
+	// dependencies and can enforce its bounded response contract.
 	yahooAcceptEncodingHeader          = "identity"
 	yahooAcceptLanguageHeader          = "en-US,en;q=0.9"
 	yahooPriorityHeader                = "u=0, i"

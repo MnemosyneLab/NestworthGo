@@ -2,10 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAppInfo } from "@/queries/app";
 
-/**
- * AboutPage is the dedicated About surface (implementation plan Phase 5)
- * backed by AppService.AppInfo(). It is also embedded on Settings.
- */
+/** AboutPage is the dedicated About surface backed by AppService.AppInfo(). */
 export function AboutPage() {
   const { t } = useTranslation();
   const appInfo = useAppInfo();

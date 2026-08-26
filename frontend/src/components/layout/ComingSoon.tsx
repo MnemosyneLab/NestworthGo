@@ -1,12 +1,9 @@
 import { useTranslation } from "react-i18next";
 
 /**
- * ComingSoonPage is the Phase 3 placeholder for every nav destination
- * that does not have a real page yet, mirroring internal/ui's existing
- * NewComingSoonPage pattern (implementation plan Phase 3's smoke-test
- * requirement: the app shell must render with zero real pages, in all
- * three locales, without runtime errors). Phase 4/5 replace each of
- * these one at a time.
+ * ComingSoonPage is used for destinations whose product surface is not yet
+ * implemented. It keeps the shell and localization usable while work is
+ * deferred.
  */
 export function ComingSoonPage({ titleKey }: { titleKey: string }) {
   const { t } = useTranslation();

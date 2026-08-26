@@ -19,11 +19,11 @@ Unicode true
 ####
 ## The following information is taken from the wails_tools.nsh file, but they can be overwritten here.
 ####
-## !define INFO_PROJECTNAME    "my-project" # Default "nestworth"
-## !define INFO_COMPANYNAME    "My Company" # Default "My Company"
-## !define INFO_PRODUCTNAME    "My Product Name" # Default "My Product"
-## !define INFO_PRODUCTVERSION "1.0.0"     # Default "0.1.0"
-## !define INFO_COPYRIGHT      "(c) Now, My Company" # Default "© 2026, My Company"
+## !define INFO_PROJECTNAME    "nestworth" # Default "nestworth"
+## !define INFO_COMPANYNAME    "Nestworth" # Default "Nestworth"
+## !define INFO_PRODUCTNAME    "Nestworth" # Default "Nestworth"
+## !define INFO_PRODUCTVERSION "0.2.0"     # Default "0.2.0"
+## !define INFO_COPYRIGHT      "(c) 2026, Nestworth" # Default "(c) 2026, Nestworth"
 ###
 ## !define PRODUCT_EXECUTABLE  "Application.exe"      # Default "${INFO_PROJECTNAME}.exe"
 ## !define UNINST_KEY_NAME     "UninstKeyInRegistry"  # Default "${INFO_COMPANYNAME}${INFO_PRODUCTNAME}"

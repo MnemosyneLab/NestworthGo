@@ -21,7 +21,7 @@ const instrumentFormSchema = z.object({
 
 type InstrumentFormValues = z.infer<typeof instrumentFormSchema>;
 
-/** InstrumentForm creates an Instrument (implementation plan Phase 5).
+/** InstrumentForm creates an Instrument.
  * Provider-bound instruments require a provider key/symbol per
  * domain.NewInstrument's validation; this form only collects them when
  * quoteSource is "provider," matching the backend's rule. */

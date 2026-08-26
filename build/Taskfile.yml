@@ -191,7 +191,7 @@ tasks:
       # ./... is required: with no pattern, wails3 falls back to the
       # current directory only, which is the repo root's tiny webassets
       # package, not cmd/nestworth where the bound services are
-      # registered (technical design Sec3's cmd/ layout).
+      # registered in cmd/nestworth.
       # Do not pass the production -ldflags string here: nested quotes break
       # the wails3 -f parser. Bindings only need the production build tag.
       - wails3 generate bindings -f '{{if eq .DEV "true"}}{{else}}-tags production{{end}}' -clean=true{{if eq .OBFUSCATED "true"}} -obfuscated{{end}} -ts -i ./...

@@ -82,7 +82,7 @@ func TestParseMalformedOrNonJSONMessage(t *testing.T) {
 }
 
 // Every domain.ErrorCode must reach the frontend with its exact code
-// preserved, per the migration plan's error-contract acceptance criterion.
+// preserved across the Wails error contract.
 func TestWrapPreservesEveryDomainErrorCode(t *testing.T) {
 	codes := []domain.ErrorCode{
 		domain.ErrValidation, domain.ErrNotFound, domain.ErrConflict, domain.ErrUnsupportedDB,

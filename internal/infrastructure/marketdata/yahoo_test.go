@@ -23,7 +23,7 @@ func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) 
 
 func fixtureResponse(t *testing.T, name string, status int) *http.Response {
 	t.Helper()
-	data, err := osReadFile(filepath.Join("../../../testdata/v0.1.2/yahoo", name))
+	data, err := osReadFile(filepath.Join("../../../testdata/provider-fixtures/yahoo", name))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,7 +68,7 @@ func TestYahooChartProviderNormalizesSanitizedFixtures(t *testing.T) {
 	}
 }
 
-func TestYahooChartProviderUsesRustBrowserHeaders(t *testing.T) {
+func TestYahooChartProviderUsesStableBrowserHeaders(t *testing.T) {
 	var captured []*http.Request
 	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
 		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {

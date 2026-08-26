@@ -18,10 +18,8 @@ export function useAccounts(filter: AccountFilterRequest = {}) {
   });
 }
 
-/** invalidateAccountData is shared by every Account mutation below: an
- * Account change can move Overview's net worth (frontend stack decision
- * Sec5.1's "UpdateAccountValue() -> invalidate accounts/overview/history"
- * pattern). */
+/** invalidateAccountData is shared by every Account mutation below because an
+ * Account change can move Overview's net worth and related history data. */
 function invalidateAccountData(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: ["accounts"] });
   void queryClient.invalidateQueries({ queryKey: overviewQueryKey });

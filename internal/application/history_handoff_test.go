@@ -9,7 +9,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
-func TestV013PostOriginEntitiesUseCreationBaselinesBeforeLaterEdits(t *testing.T) {
+func TestPostOriginEntitiesUseCreationBaselinesBeforeLaterEdits(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/creation-baselines.db")
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +98,7 @@ func TestV013PostOriginEntitiesUseCreationBaselinesBeforeLaterEdits(t *testing.T
 	}
 }
 
-func TestV013RebuildLoadsOneImmutableBatchAndResumesCursor(t *testing.T) {
+func TestRebuildLoadsOneImmutableBatchAndResumesCursor(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/batch-rebuild.db")
 	if err != nil {
 		t.Fatal(err)
@@ -142,7 +142,7 @@ func TestV013RebuildLoadsOneImmutableBatchAndResumesCursor(t *testing.T) {
 	}
 }
 
-func TestV013ActivityPageComposesFiltersAndKeysetCursor(t *testing.T) {
+func TestActivityPageComposesFiltersAndKeysetCursor(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/activity-page.db")
 	if err != nil {
 		t.Fatal(err)
@@ -216,7 +216,7 @@ func TestV013ActivityPageComposesFiltersAndKeysetCursor(t *testing.T) {
 	}
 }
 
-func TestV013BackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
+func TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/backdated-quotes.db")
 	if err != nil {
 		t.Fatal(err)
@@ -286,7 +286,7 @@ func TestV013BackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) 
 	}
 }
 
-func TestV013ArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
+func TestArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/archive-intervals.db")
 	if err != nil {
 		t.Fatal(err)
@@ -402,7 +402,7 @@ func TestV013ArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
 	}
 }
 
-func TestV013SnapshotHashIncludesFXPreferenceEvidence(t *testing.T) {
+func TestSnapshotHashIncludesFXPreferenceEvidence(t *testing.T) {
 	amount, err := domain.ParseMoney("10", "CNY")
 	if err != nil {
 		t.Fatal(err)

@@ -10,8 +10,8 @@ import (
 )
 
 // TestMoneyDoesNotProduceEmptyObject is the permanent regression test for
-// the technical design's Sec4 finding: domain.Money/Quantity/UnitPrice/
-// FxRate wrap an unexported decimal.Decimal, so json.Marshal on the bare
+// domain.Money/Quantity/UnitPrice/FxRate wrap an unexported decimal.Decimal,
+// so json.Marshal on the bare
 // domain type silently produces "{}". Every wailsapi DTO must instead carry
 // the canonical string produced here, never the bare domain value type.
 func TestMoneyDoesNotProduceEmptyObjectBaseline(t *testing.T) {

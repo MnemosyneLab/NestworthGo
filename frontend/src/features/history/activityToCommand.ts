@@ -4,7 +4,7 @@ import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestwort
  * activityToInitialCommand reconstructs a best-effort ChangeCommandRequest
  * ("kind" + field map + "added" flag) from a previously recorded
  * ActivityDTO, for the Fix flow's "pre-fill the Record change form with
- * the original change" UX (interaction brief Sec8.4).
+ * the original change" UX.
  *
  * This is intentionally best-effort, not a lossless inverse of
  * history.ChangeCommandRequest.ToCommand: domain.Activity only stores the

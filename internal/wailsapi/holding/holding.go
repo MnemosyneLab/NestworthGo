@@ -1,7 +1,5 @@
 // Package holding adapts internal/application.Service's Holding position
-// CRUD and Account cash-value surface for the Wails IPC boundary. It is one
-// of three services (with instrument and quote) that the technical design's
-// single proposed InvestmentService was split into during Phase 0.
+// CRUD and Account cash-value surface for the Wails IPC boundary.
 package holding
 
 import (
@@ -74,7 +72,7 @@ func (s *Service) UpdateHolding(ctx context.Context, id string, request UpdateHo
 // of History" path application.Service exposes for pre-history use; once
 // history has started, the application layer rejects it with
 // domain.ErrConflict and the frontend must use the history service's
-// RecordChange instead (technical design Sec6).
+// RecordChange instead.
 func (s *Service) UpdateHoldingQuantity(ctx context.Context, id, quantity string) (wire.HoldingDTO, error) {
 	holdingID, err := domain.ParseHoldingID(id)
 	if err != nil {

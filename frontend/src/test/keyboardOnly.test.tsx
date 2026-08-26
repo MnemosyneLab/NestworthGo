@@ -1,8 +1,6 @@
 /**
- * Keyboard-only completion tests (implementation plan Phase 5's Required
- * Tests: "A keyboard-only completion test for onboarding, account
- * creation, record change, and settings, matching the migration plan
- * Sec8 acceptance bar"). Every interaction below uses only
+ * Keyboard-only completion tests for onboarding, account creation, record
+ * change, and settings. Every interaction below uses only
  * `userEvent.tab()`/`userEvent.keyboard()` (Tab, Space, Enter, and typed
  * characters) — never `userEvent.click()` or a programmatic `.focus()`
  * call for a step that represents user input, so these tests fail if a
@@ -87,7 +85,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/setti
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", () => ({
   Service: {
-    AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.1.4", build: "1" }),
+    AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.2.0", build: "1" }),
     Startup: () => Promise.resolve({ available: true }),
   },
 }));

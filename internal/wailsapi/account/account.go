@@ -69,8 +69,8 @@ func (r CreateAccountRequest) toApplicationInput() (application.AccountInput, er
 	}, nil
 }
 
-// UpdateAccountRequest follows the "Set flags" pattern the technical design
-// (Sec6) requires application.AccountInput to preserve: a nil pointer means
+// UpdateAccountRequest follows the "Set flags" pattern required by
+// application.AccountInput: a nil pointer means
 // "leave unchanged," a non-nil pointer to an empty string means "clear."
 // Boolean fields use *bool for the same reason.
 type UpdateAccountRequest struct {

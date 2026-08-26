@@ -1,6 +1,6 @@
 // Package media adapts internal/application.Service's image normalization
 // and MediaAsset persistence for the Wails IPC boundary, and implements the
-// native file-picker flow (technical design Sec10).
+// native file-picker flow.
 package media
 
 import (
@@ -19,7 +19,7 @@ import (
 // file-open dialog. It is a local interface (not github.com/wailsapp/
 // wails/v3) so this package stays importable and unit-testable without the
 // Wails runtime; the real application.App.Dialog.OpenFile()-based adapter
-// is wired in cmd/nestworth's main.go (Phase 2).
+// is wired in cmd/nestworth's main.go.
 type Dialog interface {
 	// OpenFile prompts for a single image file and returns its path, or an
 	// empty string if the user cancelled (not an error).
@@ -37,7 +37,7 @@ func NewService(app *application.Service, dialog Dialog) *Service {
 
 // MediaAssetDTO mirrors domain.MediaAsset. Data crosses the wire as a
 // base64 string because Go's encoding/json already base64-encodes a []byte
-// field by default; unlike domain.Money/Quantity (technical design Sec4),
+// field by default; unlike domain.Money/Quantity,
 // no additional fix is needed for this type.
 type MediaAssetDTO struct {
 	ID          string `json:"id"`
@@ -97,7 +97,7 @@ func (s *Service) NormalizeImage(dataBase64 string) (string, error) {
 // selected file, and returns the normalized PNG bytes as base64 — ready
 // for the caller to pass to CreateMediaAsset once the surrounding form is
 // confirmed. A nil, nil result (no error, empty string) means the user
-// cancelled; this is not an error condition (technical design Sec10).
+// cancelled; this is not an error condition.
 func (s *Service) PickImage(title string) (string, error) {
 	path, err := s.dialog.OpenFile(title)
 	if err != nil {

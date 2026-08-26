@@ -7,11 +7,9 @@ import type { ComposeOption } from "echarts/core";
 import type { LineSeriesOption, BarSeriesOption, PieSeriesOption } from "echarts/charts";
 import type { GridComponentOption, TooltipComponentOption, LegendComponentOption, DataZoomComponentOption } from "echarts/components";
 
-// Only the chart/component types Nestworth actually uses are registered,
-// per the frontend stack decision Sec7's "轻量 React wrapper" goal: the
-// full `echarts` package pulls in every chart type and is multiple
-// megabytes; this tree-shaken subset covers every chart this application
-// currently needs (Net Worth Trend, Asset/Liability, Investment Gain).
+// Only the chart/component types Nestworth actually uses are registered. The
+// tree-shaken subset keeps the bundle focused on Net Worth Trend,
+// Asset/Liability, and Investment Gain.
 echarts.use([LineChart, BarChart, PieChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, CanvasRenderer]);
 
 export type EChartsOption = ComposeOption<
@@ -25,9 +23,7 @@ export interface EChartProps {
 }
 
 /**
- * EChart is the lightweight React wrapper the frontend stack decision
- * Sec7 calls for ("建议自己封装一个轻量 React wrapper: <EChart option={option} />"),
- * used by every Nestworth chart (Net Worth Trend, Asset/Liability,
+ * EChart is the shared React wrapper used by every Nestworth chart (Net Worth Trend, Asset/Liability,
  * Investment Gain, ...) so chart instance lifecycle handling (init,
  * resize, dispose, option updates) lives in exactly one place.
  */

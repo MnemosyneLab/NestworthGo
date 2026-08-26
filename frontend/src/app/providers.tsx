@@ -5,8 +5,7 @@ import "@/i18n";
 
 /**
  * A single shared QueryClient. Backend data always flows through
- * TanStack Query (frontend stack decision Sec5.1); this is the one
- * instance every queries/ hook attaches to.
+ * TanStack Query; this is the one instance every queries/ hook attaches to.
  */
 export const queryClient = new QueryClient({
   defaultOptions: {

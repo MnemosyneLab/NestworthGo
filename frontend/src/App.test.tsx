@@ -13,7 +13,7 @@ const { startup } = vi.hoisted(() => ({
 // to reach the Wails runtime bridge that does not exist in jsdom.
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", () => ({
   Service: {
-    AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.1.4", build: "1" }),
+    AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.2.0", build: "1" }),
     Startup: () => startup(),
   },
 }));
@@ -102,10 +102,8 @@ describe("App shell smoke test", () => {
         <App />
       </AppProviders>,
     );
-    // The default landing page (decision #2 in
-    // docs/migration/wails-v3-navigation-decisions.md) is Overview,
-    // implemented in Phase 4; it renders its net worth figure without
-    // throwing.
+    // Overview is the default landing page and renders its net worth figure
+    // without throwing.
     expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
     // Every nav item's label is a real, non-fallback translation (a
     // missing i18next key falls back to the raw key text, which would
@@ -114,8 +112,8 @@ describe("App shell smoke test", () => {
     expect(within(nav).getByText(i18n.t("nav.overview"))).toBeInTheDocument();
     expect(within(nav).getByText(i18n.t("nav.directory"))).toBeInTheDocument();
 
-    // Every other nav destination (Phase 5's remaining work) still
-    // renders its "coming soon" placeholder without throwing.
+    // Any destination without an implemented surface still renders its
+    // "coming soon" placeholder without throwing.
     await userEvent.click(within(nav).getByText(i18n.t("nav.settings")));
     expect(await screen.findByRole("form", { name: "Settings" })).toBeInTheDocument();
     expect(screen.getByLabelText(i18n.t("about.title"))).toBeInTheDocument();

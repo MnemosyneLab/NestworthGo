@@ -3,7 +3,7 @@ import fieldLabelKeys from "@/i18n/locales/fieldLabelKeys.json";
 
 /**
  * WireError mirrors internal/wailsapi/apierror.WireError, the JSON shape
- * every internal/wailsapi method rejects with (technical design Sec5).
+ * every internal/wailsapi method rejects with.
  */
 export interface WireError {
   code: string;
@@ -28,7 +28,7 @@ function isWireError(value: unknown): value is WireError {
  * function is defensive: malformed JSON, a plain string, or a future
  * Wails runtime error that never went through our wrap() must resolve to
  * a safe generic "internal" WireError instead of throwing again or
- * crashing the caller (technical design Sec5).
+ * crashing the caller.
  */
 export function parseWailsError(error: unknown): WireError {
   const raw = extractMessage(error);
@@ -65,9 +65,7 @@ function extractMessage(error: unknown): string {
 /**
  * translateWailsError resolves a WireError's user-facing message by its
  * stable `code` (never by matching English text), optionally prefixed by
- * a localized field label reused from the ported `error.field.*` catalog
- * namespace, mirroring internal/i18n.Translator.TranslateError's
- * code-first / field-prefixed shape.
+ * a localized field label reused from the `error.field.*` catalog namespace.
  */
 export function translateWailsError(error: WireError): string {
   const message = i18next.t(error.code, { ns: "errorCode", defaultValue: i18next.t("internal", { ns: "errorCode" }) });

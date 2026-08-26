@@ -2,9 +2,9 @@ package version
 
 import "testing"
 
-func TestReleaseMetadataIsV014(t *testing.T) {
-	if Version != "v0.1.4" {
-		t.Fatalf("Version = %q, want v0.1.4", Version)
+func TestReleaseMetadataIsV020(t *testing.T) {
+	if Version != "v0.2.0" {
+		t.Fatalf("Version = %q, want v0.2.0", Version)
 	}
 	if Build != "1" {
 		t.Fatalf("Build = %q, want 1", Build)

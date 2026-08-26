@@ -159,10 +159,8 @@ function HoldingsTab() {
               <Label htmlFor="holding-quantity">Quantity</Label>
               <Input id="holding-quantity" value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" />
             </div>
-            {/* "Add holding" has no dedicated i18n catalog key yet (Holdings
-                predates this migration's UI); hardcoded English pending a
-                Phase 5 catalog addition, consistent with this page's other
-                not-yet-translated micro-copy ("Account", "Quantity"). */}
+            {/* "Add holding" has no dedicated i18n catalog key yet; keep this
+                small action label alongside the form's other short labels. */}
             <Button onClick={submit} disabled={createHolding.isPending}>
               Add holding
             </Button>
@@ -209,10 +207,9 @@ function HoldingsTab() {
   );
 }
 
-/** InvestmentsPage implements Instruments + Holdings end to end
- * (implementation plan Phase 5). Manual/current quotes are surfaced on
- * Analytics/History pages that already need them; this page owns
- * identity (Instrument) and position (Holding) management only. */
+/** InvestmentsPage implements Instruments + Holdings end to end. Manual and
+ * current quotes are surfaced on Analytics and History pages; this page owns
+ * identity (Instrument) and position (Holding) management. */
 export function InvestmentsPage() {
   const { t } = useTranslation();
   return (

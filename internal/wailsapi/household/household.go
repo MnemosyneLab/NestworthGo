@@ -12,7 +12,7 @@ import (
 
 // Service is registered with application.NewService in the Wails main.go.
 // It depends only on internal/application, never on internal/infrastructure
-// or the Wails runtime, per the technical design's dependency rule (Sec3).
+// or the Wails runtime.
 type Service struct {
 	app *application.Service
 }

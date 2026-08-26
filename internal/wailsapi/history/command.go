@@ -7,8 +7,7 @@ import (
 )
 
 // ChangeCommandKind discriminates ChangeCommandRequest, mirroring the ten
-// concrete domain.PreviewChange input types (technical design Sec6, "the
-// single trickiest mapping in the whole inventory"). Wails v3's binding
+// concrete domain.PreviewChange input types. Wails v3's binding
 // generator produces TypeScript models from Go struct declarations, not
 // from a runtime union, so this is one Go struct with every variant's
 // fields optional plus a discriminator, not a Go-level sum type.
@@ -30,8 +29,8 @@ const (
 // ChangeCommandRequest is the tagged union the frontend submits for every
 // change kind (Record change, Preview, Fix's replacement command). Money
 // fields are always split into a canonical decimal string amount plus its
-// own currency field, per the serialization contract (technical design
-// Sec5); a field irrelevant to the current Kind is simply left empty.
+// own currency field; a field irrelevant to the current Kind is simply left
+// empty.
 type ChangeCommandRequest struct {
 	Kind ChangeCommandKind `json:"kind"`
 

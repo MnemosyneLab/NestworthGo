@@ -1,8 +1,7 @@
 // Package settings adapts internal/settings.Store for the Wails IPC
 // boundary. Unlike every other internal/wailsapi service, it is not a
 // wrapper of internal/application.Service; it depends on
-// internal/application only to delegate FX-provider changes (technical
-// design Sec6).
+// internal/application only to delegate FX-provider changes.
 package settings
 
 import (
@@ -36,7 +35,7 @@ func (s *Service) Load() (settings.Settings, error) {
 // Save validates the submitted preferences, applies an FX provider change
 // through application.Service.SetFXProvider first (so a rejected provider
 // choice never gets persisted), and only then writes the file — the same
-// order Controller.updatePreference already uses.
+// same ordering used by the application service.
 func (s *Service) Save(value settings.Settings) error {
 	if err := value.Validate(); err != nil {
 		return apierror.Wrap(&domain.Error{Code: domain.ErrValidation, Message: err.Error()})
@@ -57,7 +56,7 @@ func (s *Service) Save(value settings.Settings) error {
 }
 
 // Reset restores settings.Default(), applying the same FX-provider
-// delegation Save does, mirroring Controller.resetPreference.
+// delegation performed by Save.
 func (s *Service) Reset() (settings.Settings, error) {
 	defaults := settings.Default()
 	if err := s.Save(defaults); err != nil {

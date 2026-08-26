@@ -7,19 +7,17 @@ interface UiState {
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
 
-  /** Local UI-only view of the appearance preference; SettingsService
-   * (Phase 5) owns the persisted value. Kept here per the frontend stack
-   * decision Sec5.2's rule that Zustand owns frontend-only UI state, never
-   * a copy of backend data. */
+  /** Local UI-only view of the appearance preference; SettingsService owns
+   * the persisted value. Zustand contains frontend-only UI state, never a
+   * copy of backend data. */
   appearance: Appearance;
   setAppearance: (appearance: Appearance) => void;
 }
 
 /**
  * useUiStore holds only frontend-only UI state (sidebar, appearance
- * toggle, temporary selections) per the frontend stack decision Sec5.2:
- * "不建议把 Accounts、Holdings、History 等后端数据复制进 Zustand." Backend
- * data always flows through TanStack Query (queries/), never through this
+ * toggle, temporary selections). Backend data always flows through TanStack
+ * Query (queries/), never through this
  * store.
  */
 export const useUiStore = create<UiState>((set) => ({

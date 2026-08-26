@@ -6,8 +6,7 @@
 // frontend's TanStack Query useMutation already treats any bound method as
 // async, since every Wails call already returns a Promise). The
 // StartXxx/CancelRefresh pair additionally implements the cancellable,
-// event-streamed design from the technical design (Sec6, "Long-running /
-// streaming operations"): an event for an abandoned request ID is ignored
+// event-streamed design: an event for an abandoned request ID is ignored
 // by the frontend so a stale completion cannot corrupt current UI state.
 package marketdata
 
@@ -23,15 +22,14 @@ import (
 // EventEmitter is the minimal surface this service needs from a Wails
 // application object. It is a local interface (not github.com/wailsapp/
 // wails/v3) so this package stays importable and unit-testable without the
-// Wails runtime, per the technical design's Sec3 dependency rule; the real
-// *application.App.Event satisfies it structurally in cmd/nestworth's
-// main.go wiring (Phase 2).
+// Wails runtime; the real *application.App.Event satisfies it structurally
+// in cmd/nestworth's main.go wiring.
 type EventEmitter interface {
 	Emit(name string, data any)
 }
 
-// noopEmitter is used when no emitter is supplied (e.g. Phase 1 unit
-// tests), so a nil check is not required on every emit call.
+// noopEmitter is used when no emitter is supplied in unit tests, so a nil
+// check is not required on every emit call.
 type noopEmitter struct{}
 
 func (noopEmitter) Emit(string, any) {}

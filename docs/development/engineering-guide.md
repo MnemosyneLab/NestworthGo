@@ -1,23 +1,22 @@
 # Engineering Guide
 
-## Current status
+## Current baseline
 
-The repository is a Go 1.26 module with a Wails v3 desktop shell (React +
-TypeScript frontend) and the v0.1.4 Cost Basis and Gain implementation. The
-quality gate covers exact domain values, SQLite bootstrap and compatibility,
-onboarding, portfolio valuation, immutable change effects, replay, historical
-snapshots, average-cost gain/decomposition reads, localization, frontend page
-tests, and net-worth trends. Public distribution still needs manual
-accessibility, signing, and notarization checks.
+Nestworth `0.2.0` is a Go 1.26 module with a Wails v3 desktop shell and a
+React + TypeScript frontend. The Go domain and application layers own
+financial validation, persistence, valuation, replay, cost basis, gains, and
+provider routing. The frontend owns presentation, interaction state,
+localization, accessibility, and chart rendering.
 
 ## Prerequisites
 
-- Go 1.26 or newer
-- Node.js with pnpm
-- macOS on Apple Silicon for the primary desktop target
-- Wails v3 CLI (`go install github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.12`)
+- Go 1.26 or newer;
+- Node.js with pnpm;
+- Wails CLI `v3.0.0-beta.12`;
+- macOS on Apple Silicon for the primary desktop and packaging target.
 
-Dependency versions are defined by `go.mod` and `frontend/package.json`.
+Dependency versions are defined by `go.mod`, `go.sum`,
+`frontend/package.json`, and `frontend/pnpm-lock.yaml`.
 
 ## Setup and daily commands
 
@@ -29,146 +28,114 @@ cd frontend && pnpm install && cd ..
 wails3 dev
 ```
 
-Run the available checks:
+Run the normal automated checks with a writable cache:
 
 ```bash
-go test ./...
-go vet ./...
-gofmt -w cmd internal
+GOCACHE=/tmp/nestworth-go-0.2.0 go test ./...
+GOCACHE=/tmp/nestworth-go-0.2.0 go test -race ./...
+GOCACHE=/tmp/nestworth-go-0.2.0 go vet ./...
+gofmt -l cmd internal
 go build ./cmd/nestworth
 cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
 ```
 
-For a distributable local binary:
+Generate Wails bindings after changing a bound Go service:
 
 ```bash
-cd frontend && pnpm run build && cd ..
-mkdir -p bin
-go build -o bin/nestworth ./cmd/nestworth
-./bin/nestworth
+go run github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.12 generate bindings -ts ./...
 ```
 
-On Apple Silicon macOS, build the unsigned `.app` and UDZO DMG:
+Bindings and frontend bundles are generated artifacts. Do not hand-edit them
+or commit them.
+
+Build the unsigned primary-target package:
 
 ```bash
 wails3 task darwin:package:release
 ```
 
-Output is `dist/macos/Nestworth.app` and
-`dist/macos/Nestworth-0.1.4-arm64.dmg`. Developer ID signing, notarization,
-and manual accessibility review remain separate distribution gates.
-
-Do not launch destructive reset flows against the
-only copy of real financial data. Tests and smoke checks must use temporary or
-explicitly isolated application-data directories.
+The expected output is `dist/macos/Nestworth.app` and
+`dist/macos/Nestworth-0.2.0-arm64.dmg`. Use isolated database and settings
+paths for a launch smoke; never point tests at real financial data.
 
 ## Repository layout
 
 ```text
-cmd/nestworth/          Wails v3 process entry point
-internal/wailsapi/      Bound services and DTOs for the Wails IPC boundary
-internal/domain/        Financial entities and invariants
-internal/application/   Use cases and orchestration
-internal/infrastructure/Repositories, migrations, media, and providers
-frontend/               React + TypeScript UI
-build/                  Wails Taskfile packaging assets
-docs/                   Product, architecture, and release contracts
+cmd/nestworth/          Wails process entry point
+internal/wailsapi/      Bound services and wire DTOs
+internal/application/   Use cases, transactions, and read models
+internal/domain/        Entities, value types, invariants, and calculations
+internal/infrastructure/SQLite repositories, media, and providers
+internal/settings/      Presentation preferences and provider selection
+frontend/               React application and generated binding consumer
+build/                  Wails Taskfiles and platform packaging metadata
+assets/                 Brand and native icon sources
+docs/                   Maintained product and engineering contracts
+testdata/               Sanitized deterministic compatibility fixtures
 ```
 
-Keep packages behind narrow interfaces. The UI should depend on application
-view models, the application layer should depend on domain and ports, and
-infrastructure should implement ports rather than becoming the business layer.
+Keep dependencies pointed inward. The application layer defines orchestration
+and ports; infrastructure implements them. Bound services adapt application
+results to stable wire DTOs without embedding business rules.
 
 ## Financial implementation rules
 
-- Never use `float32` or `float64` for persisted values or financial formulas.
-- Keep money, quantity, FX, ownership, and return values as exact decimals.
-- Persist canonical decimal strings or an equivalent lossless representation.
-- Keep current valuation, Activity posting, historical valuation, and analytics
+- Never use binary floating point for persisted values or financial formulas.
+- Preserve exact decimal money, quantities, rates, and percentages.
+- Missing quotes yield incomplete or unavailable results; never substitute
+  zero.
+- Multi-row mutations validate and commit atomically.
+- Posted financial changes are immutable; correction and reversal operations
+  append linked records.
+- Derived gain and analytics values are recomputed from authoritative facts.
+- Keep current valuation, historical valuation, provider refresh, and replay
   as distinct authorities with explicit tests.
-- Missing quotes produce incomplete/unavailable results; never substitute zero.
-- Multi-row writes validate and commit atomically.
-- Posted Activities are immutable; correction and reversal append linked records.
-- Recompute derived lots and analytics from authoritative facts rather than
-  storing duplicate financial truth.
 
-The [domain model](../architecture/domain-model.md) is the canonical home for
-business semantics.
+## Frontend rules
 
-## Frontend UI rules
+- Pages call generated Wails services through the query/mutation helpers.
+- Pages do not open SQLite, construct SQL, call providers, or recalculate
+  financial totals.
+- Query states must distinguish loading, empty, error, unavailable, and stale
+  data where applicable.
+- Charts map authoritative values to pixels; they do not derive those values.
+- Every interactive feature adds keyboard and localized-label coverage.
+- After a mutation, invalidate or reload the authoritative query.
 
-- Pages render `internal/wailsapi` DTOs and do not open SQLite or construct SQL.
-- Long-running reads and provider calls run in Go; the UI consumes Promises and events.
-- Chart components own scales, axes, and tooltips, but never compute a financial result.
-- Keep reusable visual primitives in `frontend/src/components`; keep financial decisions in Go.
-- Add keyboard and accessibility behavior with each interactive feature.
+## Persistence and settings
 
-## UI preferences
+The current SQLite schema is verified before business writes. Startup enables
+foreign keys, checks structural integrity, and blocks unsupported future or
+invalid databases without partial writes. Settings live separately in a
+schema-versioned JSON file and contain presentation preferences plus explicit
+FX-provider routing.
 
-The current MVP stores presentation preferences at
-`<os.UserConfigDir>/Nestworth/settings.json`. The file is schema-versioned,
-written with a same-directory temporary file followed by sync and atomic rename,
-and created with mode `0600`. Invalid settings fall back to defaults without
-opening a future business database. A syntactically valid but unavailable FX
-provider is rejected by the application registry and reset to Yahoo at startup.
-
-The supported choices are System/Light/Dark appearance, Nestworth/Ocean/
-Forest/Amber/Rose accents, System/English/简体中文/正體中文 language, IANA
-timezone, Monday/Sunday week start, ISO/day-first/month-first/localized dates,
-24-hour/12-hour time, CNY/USD/SGD/EUR/JPY/HKD/TWD/GBP/AUD display currency,
-dot/comma decimal separators, comma/dot/space/apostrophe/no grouping,
-0/2/4 decimal places, and the production `frankfurter` FX provider.
-Presentation preferences affect display; Frankfurter affects only explicit
-user-triggered FX refresh.
-
-## Persistence and schema generations
-
-The current SQLite runtime is implemented in `internal/infrastructure/sqlite`:
-
-1. Inspect schema compatibility before application writes.
-2. Reject non-empty older databases without migration or partial writes.
-3. Block unsupported future versions without persistent writes.
-4. Enable foreign keys and a bounded busy timeout on every connection.
-5. Verify schema shape, integrity, and foreign-key consistency on startup.
-6. Keep the current schema structural; enforce cross-row business rules in Go transactions.
-7. Test create, reopen, integrity, and zero-write failure behavior.
-
-Current persistence and serialization contracts live in [data and application contracts](../architecture/data-and-ipc-contracts.md).
-
-## Testing strategy
+## Validation strategy
 
 | Layer | Required evidence |
 | --- | --- |
-| Domain | Table-driven validation and calculation tests, including decimal edges |
-| Application | Use-case tests with fake repositories and transaction outcomes |
-| Infrastructure | Migration, query ordering, integrity, and repository tests |
-| UI | Component tests for page state, keyboard-only flows, and locale coverage |
-| Integration | Isolated SQLite database plus application-level flows |
-| Release | `go test`, `go vet`, format check, frontend lint/typecheck/test, build, and isolated launch smoke test |
+| Domain | Decimal edges, invariants, and deterministic calculations |
+| Application | Use-case validation, transaction outcomes, and read models |
+| Infrastructure | Schema, repository ordering, integrity, and provider bounds |
+| Frontend | Page state, localization, error handling, and keyboard flows |
+| Integration | Isolated SQLite data plus application-level workflows |
+| Release | Build metadata, package smoke, and named manual gates |
 
-Every bug fix should add a regression test at the lowest layer that captures
-the violated contract. Tests must use sanitized deterministic data and must not
-depend on live market providers.
+Use sanitized deterministic fixtures. Provider tests use fakes and must not
+depend on live network responses.
 
-## Documentation and commit gate
+## Documentation and change gate
 
-Update architecture/domain docs in the same change as a stable contract. Before
-committing documentation or code:
+Update the owning architecture or product document when a stable contract
+changes. Before committing:
 
 ```bash
 gofmt -l cmd internal
-go test ./...
-go vet ./...
+GOCACHE=/tmp/nestworth-go-0.2.0 go test ./...
+GOCACHE=/tmp/nestworth-go-0.2.0 go vet ./...
 go build ./cmd/nestworth
-cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
 git diff --check
 ```
 
-Unsigned arm64 macOS `.app`/DMG packaging is `wails3 task darwin:package:release`.
-The checked-in release metadata is v0.1.4/build 1. Signing, notarization,
-and manual accessibility review remain separate distribution gates.
-
-For an isolated desktop smoke, set `NESTWORTH_DATABASE_PATH` and
-`NESTWORTH_SETTINGS_PATH` to files under a temporary task directory. The app
-uses those paths only when explicitly provided; normal launches continue to
-use the platform application-data locations.
+Record unexecuted manual accessibility, signing, notarization, or publication
+checks explicitly; passing unit tests does not prove those gates.

@@ -1,6 +1,6 @@
 // Package wire holds serialization helpers shared by every
 // internal/wailsapi service: canonical string conversions for the domain's
-// decimal-wrapping value types (the technical design's Sec4 fix), a
+// decimal-wrapping value types, a
 // shared timestamp format, and the read-model view DTOs
 // (MoneyView/SignedMoneyView) that recur across services. Per-service DTOs
 // still live in each service's own dto.go; this package exists so those
@@ -55,8 +55,7 @@ func ParseTime(value string) (time.Time, error) {
 // string amount plus its three-letter currency code. Every monetary DTO
 // field in internal/wailsapi is either this shape, a plain string produced
 // by a value type's Canonical()/CanonicalAmount() method, or a pointer to
-// one of these when the value can be legitimately absent (technical design
-// Sec4, Sec5).
+// one of these when the value can be legitimately absent.
 type MoneyView struct {
 	Amount   string `json:"amount"`
 	Currency string `json:"currency"`
@@ -101,7 +100,7 @@ func FromSignedMoney(value domain.SignedMoney) SignedMoneyView {
 
 // StringPtr returns nil for an empty string and a pointer to the value
 // otherwise, matching the "explicit optional pointer" rule (technical
-// design Sec5) for DTO fields sourced from an optional domain string.
+// for DTO fields sourced from an optional domain string.
 func StringPtr(value string) *string {
 	if value == "" {
 		return nil
