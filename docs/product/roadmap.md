@@ -2,7 +2,7 @@
 
 ## Status and Authority
 
-This roadmap is reviewed for the current Go + Fyne repository. It describes
+This roadmap is reviewed for the current Go + Wails repository. It describes
 product dependency order and outcomes, not implementation evidence. Current
 code, migrations, tests, and active release contracts remain authoritative.
 
@@ -119,7 +119,7 @@ gates.
 
 **Theme:** Keep Nestworth current and recoverable.
 
-**Status:** Direction only; Go/Fyne design not started.
+**Status:** Direction only; Go/Wails design not started.
 
 Intended outcome: reduce maintenance cost with review-before-post preparation,
 freshness reminders, recoverable backup/restore, controlled import/export,
@@ -130,16 +130,12 @@ history, and analytics boundaries it depends on exist.
 
 ## Related Technical Initiative: Wails v3 Frontend Migration
 
-A `Planned` migration replaces the Fyne desktop shell (`internal/ui`,
-`internal/app`) with a Wails v3 application backed by a React + TypeScript
-frontend, reusing `internal/domain`, `internal/application`, and
-`internal/infrastructure` without behavior change. This is a runtime/UI
-framework change, not new product scope: it does not reorder or reopen any
-release above, and it is a prerequisite for the UI expressiveness the
-[frontend stack decision](../../prototype/nestworth-wails-frontend-stack.md)
-identifies as needed for future releases' denser tables and charts. See the
-[Wails v3 migration documents](../migration/README.md) for scope, technical
-design, and the phased delivery plan.
+Phases 0–6 are `Implemented on 2026-08-26`: the canonical `cmd/nestworth`
+entry point is the Wails v3 application, and the Fyne shell is retired.
+Phases 7–8 (packaging/distribution parity and release closeout) remain
+`Planned`. This is a runtime/UI framework change, not new product scope: it
+does not reorder or reopen any release above. See the
+[Wails v3 migration documents](../migration/README.md) for remaining work.
 
 ## Dependency Rules
 

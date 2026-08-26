@@ -1,7 +1,8 @@
 # Release Documents
 
 This directory contains only release contracts and plans that have been
-reviewed for the current Go + Fyne Nestworth-go implementation line.
+reviewed for the Nestworth-go implementation line (Go backend; the desktop
+shell was Fyne through v0.1.4 and is Wails v3 after cutover).
 
 ## Active Releases
 
@@ -19,7 +20,7 @@ reviewed for the current Go + Fyne Nestworth-go implementation line.
 - [v0.1.2 technical design](v0.1.2-technical-design.md)
 - [v0.1.2 implementation plan](v0.1.2-implementation-plan.md)
 
-v0.1.2 has been implemented for Go, Fyne, the current SQLite schema line, and
+v0.1.2 has been implemented for Go, the current SQLite schema line, and
 replaceable Yahoo and Frankfurter market-data boundaries. The release contract
 and implementation plan remain the authority for the still-pending Phase 10
 desktop, accessibility, signing, and distribution checks.

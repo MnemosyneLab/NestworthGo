@@ -2,13 +2,10 @@
 
 ## Execution Contract
 
-**Status:** `Planned`. No phase below has started. This plan implements the
+**Status:** Phases 0–6 `Implemented on 2026-08-26`. Phases 7–8 remain
+`Planned`. This plan implements the
 [migration plan](wails-v3-migration-plan.md) and the
-[technical design](wails-v3-technical-design.md). Execute phases in order;
-Phases 4 and 5 may overlap per-feature once Phase 3's foundation exists, but
-no phase after 3 starts before Phases 0–3 pass their exit checks. A phase is
-complete only when its deliverables, required checks, and exit checks all
-pass.
+[technical design](wails-v3-technical-design.md).
 
 Do not delete or weaken any `internal/domain`, `internal/application`, or
 `internal/infrastructure` test to make a phase pass. Do not remove
@@ -552,9 +549,10 @@ validation authority).
 
 ## Phase 5 — Frontend Feature Parity
 
-**Status:** `Implemented on 2026-08-25`, with one documented gap (icon/logo
-pickers) carried forward. Every page in the "Suggested order" deliverables
-list below exists and works end to end against the real backend:
+**Status:** `Implemented on 2026-08-26`. The Phase 5 documented gaps (icon/logo
+pickers, Account metadata edit, blocked-startup page, About) were closed on
+this date. Every page in the "Suggested order" deliverables list below exists
+and works end to end against the real backend.
 `features/directory/{DirectoryPage,DirectoryEntityList}.tsx` (Members/
 Institutions/Groups), `features/investments/{InvestmentsPage,
 InstrumentForm}.tsx` (Instruments, Holdings, and — added in this pass —
@@ -621,13 +619,11 @@ change" test in `HistoryPage.test.tsx` (which now asserts
 
 - Every acceptance item in the
   [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
-  concerning a page implemented in this phase: **met**, with icon/logo
-  selection for Accounts/Members/Institutions/Groups carried forward as
-  an explicit, tracked gap (the native picker flow —
-  `media.Service.PickImage` — is implemented and unit-tested at the Go
-  layer since Phase 1/2; wiring it into a page's UI did not fit this
-  pass and is not required for the acceptance items these pages already
-  satisfy without it).
+  concerning a page implemented in this phase: **met**, including icon/logo
+  selection for Accounts/Members/Institutions/Groups (`media.Service.PickImage`
+  wired into AccountForm and DirectoryEntityList) and Account metadata edit
+  (`UpdateAccount`). Blocked startup is a dedicated page driven by
+  `AppService.Startup()`; About is rendered from `AppService.AppInfo()`.
 - The Fyne application (`cmd/nestworth`) still builds and runs unmodified:
   **met** (`go build ./...` builds both `cmd/nestworth` and
   `cmd/nestworth-desktop`).
@@ -711,7 +707,10 @@ Phase 4 established. Suggested order (dependency-driven, not arbitrary):
 
 ## Phase 6 — Cutover: Retire Fyne
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-26`. Canonical `cmd/nestworth` is the
+Wails application. `internal/ui`, `internal/app`, `internal/i18n`,
+`cmd/nestworth-desktop`, `scripts/package-macos.sh`, and `fyne.io/*` are
+removed. Rollback is now reverting the cutover commit(s).
 
 ### Deliverables
 
@@ -752,6 +751,30 @@ Phase 4 established. Suggested order (dependency-driven, not arbitrary):
   is now "revert the cutover commit(s)," not "resume a parallel Fyne build,"
   and this is explicitly stated in the updated
   [migration README](README.md).
+
+### Evidence (2026-08-26)
+
+- Canonical entry point is `cmd/nestworth` (Wails). `cmd/nestworth-desktop`,
+  `internal/ui`, `internal/app`, `internal/i18n`, `scripts/package-macos.sh`,
+  and `scripts/port-i18n-catalog` are removed.
+- `go.mod` / `go.sum` contain no `fyne.io/*` after `go mod tidy`.
+  `rg -n '"fyne.io' --glob '*.go'` is empty.
+- `gofmt -l cmd internal` is empty.
+- `go test ./...`, `go test -race ./...`, `go vet ./...`, and
+  `go build ./cmd/nestworth` pass (`GOCACHE=/tmp/nestworth-go-wails-phase6`).
+- Frontend: `pnpm run typecheck` and `pnpm run test` pass (61 tests).
+  `pnpm run lint` reports 0 errors (3 existing React Compiler warnings on
+  `watch()` / `useReactTable`).
+- `git diff --check` is clean.
+- Active docs (README, system overview, engineering guide, data/IPC
+  contracts, product roadmap, assets README, CHANGELOG, this directory)
+  describe Wails as the current shell. Rollback is documented as reverting
+  the cutover commit(s).
+- Packaging metadata under `build/` still names the Phase 2 scaffold
+  `nestworth-desktop`; that rename/parity work is Phase 7.
+- Isolated GUI smoke (clean database + existing-database fixture) was not
+  run in this pass; launch with `NESTWORTH_DATABASE_PATH` /
+  `NESTWORTH_SETTINGS_PATH` remains a manual check before Phase 7.
 
 ## Phase 7 — Packaging and Distribution Parity
 

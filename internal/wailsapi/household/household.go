@@ -1,6 +1,5 @@
 // Package household adapts internal/application.Service's Household
-// bootstrap and onboarding surface for the Wails IPC boundary. It replaces
-// the Fyne Onboarding page and the app-startup Bootstrap call.
+// bootstrap and onboarding surface for the Wails IPC boundary.
 package household
 
 import (
@@ -13,7 +12,7 @@ import (
 
 // Service is registered with application.NewService in the Wails main.go.
 // It depends only on internal/application, never on internal/infrastructure
-// or fyne.io/*, per the technical design's dependency rule (Sec3).
+// or the Wails runtime, per the technical design's dependency rule (Sec3).
 type Service struct {
 	app *application.Service
 }
@@ -46,8 +45,7 @@ func fromBootstrap(value application.Bootstrap) BootstrapResult {
 }
 
 // Bootstrap loads the current Household plus its active Members,
-// Institutions, and Groups in one call, exactly as internal/app.New() and
-// Fyne's Controller.Refresh() already do today.
+// Institutions, and Groups in one call.
 func (s *Service) Bootstrap(ctx context.Context) (BootstrapResult, error) {
 	bootstrap, err := s.app.Bootstrap(ctx)
 	if err != nil {
@@ -57,8 +55,7 @@ func (s *Service) Bootstrap(ctx context.Context) (BootstrapResult, error) {
 }
 
 // CompleteOnboardingRequest is the Onboarding form's submitted shape. An
-// empty Timezone means "history not started yet" (application.Service
-// interprets it the same way Fyne's onboarding page already does).
+// empty Timezone means "history not started yet".
 type CompleteOnboardingRequest struct {
 	HouseholdName string   `json:"householdName"`
 	BaseCurrency  string   `json:"baseCurrency"`

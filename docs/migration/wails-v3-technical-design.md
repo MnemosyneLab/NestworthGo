@@ -1,6 +1,7 @@
 # Wails v3 Technical Design
 
-**Status:** `Planned`. This document implements the
+**Status:** Phases 0–6 `Implemented on 2026-08-26`. Remaining work is Phase 7–8
+(packaging/distribution parity). This document implements the
 [migration plan](wails-v3-migration-plan.md). It owns architecture, project
 layout, the Go service/binding design, the serialization and error contract,
 frontend architecture, build/packaging, and the testing strategy. It does

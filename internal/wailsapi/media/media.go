@@ -1,7 +1,6 @@
 // Package media adapts internal/application.Service's image normalization
 // and MediaAsset persistence for the Wails IPC boundary, and implements the
-// native file-picker flow that replaces internal/ui/image_picker_darwin.go
-// / image_picker_other.go (technical design Sec10).
+// native file-picker flow (technical design Sec10).
 package media
 
 import (

@@ -2,10 +2,13 @@
 
 ## 1. Purpose and Status
 
-**Status:** `Planned`. This document defines the contract for replacing the
-Fyne desktop shell (`internal/ui`, `internal/app`) with a
+**Status:** Phases 0–6 `Implemented on 2026-08-26`. This document is the
+migration contract: it defined replacing the Fyne desktop shell
+(`internal/ui`, `internal/app`) with a
 [Wails v3](https://v3.wails.io/) application built from a React + TypeScript
-frontend and the existing Go backend. It does not describe shipped behavior.
+frontend and the existing Go backend. Remaining work is Phase 7–8
+(packaging/distribution parity and release closeout). It does not replace
+the now-current architecture docs.
 
 Wails v3 is the framework selected by
 [`prototype/nestworth-wails-frontend-stack.md`](../../prototype/nestworth-wails-frontend-stack.md):

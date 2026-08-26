@@ -18,6 +18,9 @@
 *.test
 coverage.out
 
+# Taskfile / Wails checksum cache
+.task/
+
 # IDE and OS files
 .DS_Store
 .idea/

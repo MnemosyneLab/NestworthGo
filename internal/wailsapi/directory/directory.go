@@ -1,8 +1,8 @@
 // Package directory adapts internal/application.Service's Member,
 // Institution, and Group CRUD/archive/icon/logo surface for the Wails IPC
-// boundary. These three entities share the same shape in both the Fyne UI
-// and the release contracts, so one service covers all three (technical
-// design Sec6).
+// boundary. These three entities share the same CRUD/archive/icon shape in
+// the product UI and the release contracts, so one service covers all three
+// (technical design Sec6).
 package directory
 
 import (

@@ -1,9 +1,8 @@
 // Package settings adapts internal/settings.Store for the Wails IPC
 // boundary. Unlike every other internal/wailsapi service, it is not a
 // wrapper of internal/application.Service; it depends on
-// internal/application only to delegate FX-provider changes exactly as
-// internal/ui's Controller.updatePreference does today (technical design
-// Sec6).
+// internal/application only to delegate FX-provider changes (technical
+// design Sec6).
 package settings
 
 import (

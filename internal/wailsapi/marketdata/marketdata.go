@@ -7,10 +7,8 @@
 // async, since every Wails call already returns a Promise). The
 // StartXxx/CancelRefresh pair additionally implements the cancellable,
 // event-streamed design from the technical design (Sec6, "Long-running /
-// streaming operations"), replacing internal/ui/refresh_worker.go's
-// Fyne-thread generation-check pattern: "an event for an abandoned request
-// ID is ignored by the frontend" plays the role "a stale completion cannot
-// corrupt current UI state" played there.
+// streaming operations"): an event for an abandoned request ID is ignored
+// by the frontend so a stale completion cannot corrupt current UI state.
 package marketdata
 
 import (
@@ -123,8 +121,8 @@ func (s *Service) FXProviderKey() string {
 
 // RefreshCompletedPayload is the event payload for RefreshCompletedEvent.
 // RequestID lets the frontend ignore a completion for an abandoned request
-// (the "stale completion" rule this design replaces from Fyne's
-// asyncTask[T]); Error is the same apierror.WireError JSON shape a
+// (the "stale completion" rule: ignore a completion for an abandoned
+// request); Error is the same apierror.WireError JSON shape a
 // synchronous method would have returned, or empty on success. Exported so
 // main.go can register it with application.RegisterEvent for a typed
 // TypeScript event payload.

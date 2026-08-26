@@ -1,23 +1,24 @@
 # Wails v3 Frontend Navigation Decisions
 
-**Status:** `Planned`. This is the short design note the
+**Status:** `Implemented on 2026-08-26` (decisions shipped with the Wails
+frontend). This is the short design note the
 [implementation plan Phase 3](wails-v3-implementation-plan.md#phase-3--frontend-foundation)
-requires before frontend feature work begins: it resolves the navigation-affecting
+required before frontend feature work began: it resolved the navigation-affecting
 open questions from the
 [interaction design brief §13](../../prototype/功能现状与交互设计说明.md#13-交给设计师前需要确认的问题)
-so they are not left implicit in component code. This note does not
+so they were not left implicit in component code. This note does not
 reopen product scope (per the
 [migration plan's non-goals](wails-v3-migration-plan.md#3-non-goals)); it
 only fixes the information architecture for the pages the migration
-already commits to shipping.
+already committed to shipping.
 
 ## Decisions
 
 | # | Question (brief §13) | Decision | Rationale |
 | --- | --- | --- | --- |
 | 1 | macOS-only first, or Windows/Linux too? | macOS Apple Silicon first; Windows/Linux remain optional/deferred. | Already locked by the [migration plan §7](wails-v3-migration-plan.md#7-locked-decisions); restated here for completeness, not re-decided. |
-| 2 | Default landing page: Overview or Accounts? | **Overview.** | Matches the current Fyne shell's default (`internal/ui/shell.go`'s `Controller` starts at `PageOverview`); this migration is a runtime swap, not a product change, and nothing in the interaction brief argues for changing the entry point. |
-| 3 | Is Activity a separate entry from History? | **No — Activity is a view within History**, not a separate top-level nav item. | The current Fyne shell already treats them as one concept (`PageActivity` is a source-compatible alias for `PageHistory`); the new frontend keeps the Timeline/Activity feed, Starting Point, Record change, Undo, and Fix flows together under one "History" nav entry. |
+| 2 | Default landing page: Overview or Accounts? | **Overview.** | Matches the then-current Fyne shell's default (`internal/ui/shell.go`'s `Controller` started at `PageOverview`); this migration is a runtime swap, not a product change, and nothing in the interaction brief argues for changing the entry point. |
+| 3 | Is Activity a separate entry from History? | **No — Activity is a view within History**, not a separate top-level nav item. | The then-current Fyne shell already treated them as one concept (`PageActivity` was a source-compatible alias for `PageHistory`); the new frontend keeps the Timeline/Activity feed, Starting Point, Record change, Undo, and Fix flows together under one "History" nav entry. |
 | 4 | Do Members/Institutions/Groups stay top-level, or become Accounts filters? | **Stay reachable as dedicated management screens, grouped under one "Directory" section in the sidebar** (three tabs/routes under a shared parent, not three separate top-level nav rows, and not collapsed into Accounts' filter UI). | `DirectoryService` (Phase 1) already treats Members/Institutions/Groups as one API surface with the same CRUD/archive/icon shape; grouping them in the nav mirrors that without removing any of the three as independently manageable entities the release contracts require. |
 
 ## Resulting top-level navigation
@@ -33,8 +34,8 @@ Analytics
 Settings
 ```
 
-This is the same set of reachable capabilities the current Fyne shell
-exposes (`PageOverview`, `PageAccounts`, `PageInvestments`,
+This is the same set of reachable capabilities the then-current Fyne shell
+exposed (`PageOverview`, `PageAccounts`, `PageInvestments`,
 `PageMarketData`, `PageMembers`/`PageInstitutions`/`PageGroups`,
 `PageHistory`, `PageAnalytics`, `PageSettings`); only the Directory
 grouping changes the navigation shape, and no capability listed in the

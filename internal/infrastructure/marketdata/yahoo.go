@@ -1,6 +1,6 @@
 // Package marketdata contains the native provider adapters. Yahoo-specific
 // URLs and response fields stop in this package and never cross into domain,
-// application, SQLite, or Fyne code.
+// application, SQLite, or UI code.
 package marketdata
 
 import (

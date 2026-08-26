@@ -1,8 +1,8 @@
 # Nestworth Assets
 
 These assets were migrated from the original Nestworth application and are
-kept separately from Go packages so they can be reused by Fyne windows,
-release packaging, documentation, and future installers.
+kept separately from Go packages so they can be reused by the Wails desktop
+shell, release packaging, documentation, and future installers.
 
 ## Formal brand assets
 
@@ -22,14 +22,10 @@ reference material and are not current application assets.
 ## Native icon package
 
 `icons/` contains the migrated platform icon set, including PNG sizes,
-`icon.icns`, and `icon.ico`. The macOS packaging workflow uses `icon.icns` for
-the `.app` bundle and the DMG volume icon. The Go/Fyne packaging workflow
-regenerates platform metadata from the canonical brand PNG and then preserves
-this native ICNS resource.
-
-The runtime embeds a byte-identical copy of `brand/app-icon.png` at
-`internal/app/resources/app-icon.png`, so the application and About dialog keep
-their icon when launched outside the repository directory.
+`icon.icns`, and `icon.ico`. Wails packaging uses `build/appicon.png` (copied
+from the canonical brand PNG) and `wails3 generate icons` for platform
+`.icns`/`.ico` output. Phase 7 still owns verifying unsigned macOS `.app`/DMG
+parity against this native set.
 
 ## Usage rules
 

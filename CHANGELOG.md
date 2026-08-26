@@ -1,7 +1,24 @@
 # Changelog
 
-All notable changes to the Go + Fyne Nestworth application are recorded here.
+All notable changes to the Nestworth desktop application are recorded here.
 The project has not published a public release yet.
+
+## [Unreleased] — Wails v3 cutover
+
+### Changed
+
+- Replaced the Fyne desktop shell with a Wails v3 application (`cmd/nestworth`)
+  and a React + TypeScript frontend. Domain, application, and SQLite behavior
+  is unchanged.
+- Wired Account/Member/Institution/Group icon and logo pickers, Account
+  metadata edit, a blocked-startup page when the local database cannot open,
+  and an About section backed by `AppService.AppInfo()`.
+
+### Removed
+
+- `internal/ui`, `internal/app`, `internal/i18n`, the Fyne entry point, and
+  `scripts/package-macos.sh`. Packaging now goes through the Wails Taskfile
+  (Phase 7 still owns macOS `.app`/DMG parity verification).
 
 ## [Unreleased] — v0.1.4
 
