@@ -82,47 +82,81 @@ func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) 
 	return preview, nil
 }
 
-func (s *Service) FixChange(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (domain.ChangePreview, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+// fixChangePreview computes the inverse-then-replace ChangePreview a Fix
+// produces, without committing anything: it inverts the original
+// Activity's effects against the *current* ChangeState (mirroring
+// FixChange's own state derivation) and previews the replacement command
+// against that inverted state. Both FixChange (which commits the result)
+// and PreviewFixChange (which is read-only, for the Fix form's "preview
+// before confirm" step) share this so the two never compute different
+// numbers for the same input — the bug this fixes is that a plain
+// PreviewChange call (ignoring the original Activity entirely) previews
+// against the state *after* the original effect already applied, double
+// counting it once Confirm actually inverts and replaces.
+func (s *Service) fixChangePreview(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (inverse, replacement domain.ChangePreview, err error) {
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ChangePreview{}, err
 	}
 	if bootstrap.Household == nil {
-		return domain.ChangePreview{}, onboardingRequired()
+		return domain.ChangePreview{}, domain.ChangePreview{}, onboardingRequired()
 	}
 	activity, err := s.repository.Activity(ctx, bootstrap.Household.ID, activityID)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ChangePreview{}, err
 	}
 	if activity.ReversesActivityID != nil {
-		return domain.ChangePreview{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "a reversal cannot be fixed directly"}
+		return domain.ChangePreview{}, domain.ChangePreview{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "a reversal cannot be fixed directly"}
 	}
 	hasReversal, err := s.repository.ActivityHasReversal(ctx, bootstrap.Household.ID, activityID)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ChangePreview{}, err
 	}
 	if hasReversal {
-		return domain.ChangePreview{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "an already corrected change cannot be fixed again"}
+		return domain.ChangePreview{}, domain.ChangePreview{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "an already corrected change cannot be fixed again"}
 	}
 	effects, err := s.repository.ActivityEffects(ctx, activityID)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ChangePreview{}, err
 	}
 	state, err := s.changeState(ctx)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ChangePreview{}, err
 	}
-	inverse, err := domain.InverseChange(state, activity, effects)
+	inverse, err = domain.InverseChange(state, activity, effects)
 	if err != nil {
-		return domain.ChangePreview{}, err
+		return domain.ChangePreview{}, domain.ChangePreview{}, err
 	}
 	stateAfterInverse, _, err := domain.ApplyEffects(state, inverse.Effects)
 	if err != nil {
+		return domain.ChangePreview{}, domain.ChangePreview{}, err
+	}
+	replacement, err = domain.PreviewChange(stateAfterInverse, replacementCommand)
+	if err != nil {
+		return domain.ChangePreview{}, domain.ChangePreview{}, err
+	}
+	return inverse, replacement, nil
+}
+
+// PreviewFixChange is FixChange's read-only counterpart: it returns the
+// same replacement ChangePreview FixChange would commit, so the Fix
+// form's "preview, then confirm" step (matching every other change
+// kind's UX) shows the actually-correct resulting balance/quantity
+// instead of one that ignores the original Activity being replaced.
+func (s *Service) PreviewFixChange(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (domain.ChangePreview, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
+	_, replacement, err := s.fixChangePreview(ctx, activityID, replacementCommand)
+	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	replacement, err := domain.PreviewChange(stateAfterInverse, replacementCommand)
+	return replacement, nil
+}
+
+func (s *Service) FixChange(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (domain.ChangePreview, error) {
+	s.changeMu.Lock()
+	defer s.changeMu.Unlock()
+	inverse, replacement, err := s.fixChangePreview(ctx, activityID, replacementCommand)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}

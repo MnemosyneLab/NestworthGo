@@ -33,7 +33,11 @@ flowchart LR
 
 ## Phase 0 — Spike and Freeze Baseline
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. Frozen baseline commit:
+`8d5a6b8e3fad929d46006e2df6f105b873e108d1`. Findings recorded in
+[technical design, Phase 0 spike findings](wails-v3-technical-design.md#phase-0-spike-findings-recorded-not-duplicated-elsewhere)
+and the `InvestmentService` split decision recorded in
+[technical design §6](wails-v3-technical-design.md#6-go-service-inventory).
 
 ### Deliverables
 
@@ -45,7 +49,7 @@ flowchart LR
 - Install the Wails v3 CLI (`go install github.com/wailsapp/wails/v3/cmd/wails3@latest`)
   and run `wails3 doctor`/`wails3 setup` in the target build environment;
   record the exact Wails v3 version pinned in `go.mod`.
-- Build one throwaway `wails3 init -n spike -t react-ts` project outside the
+- Build one throwaway `wails3 init -n spike -t react` project outside the
   repository to confirm, on the actual target OS/architecture, that:
   - `wails3 dev` hot-reloads both Go and React changes.
   - `wails3 generate bindings -ts` produces the expected TypeScript shape for
@@ -56,7 +60,14 @@ flowchart LR
     reproduces with a spike type shaped like `domain.Quantity`, confirming
     the DTO-based fix is necessary before writing real services.
   - `wails3 build` produces a launchable macOS arm64 `.app` in the target
-    build environment.
+    build environment. **Recorded exception (this repository's Cloud Agent
+    development environment is Linux-only):** this specific check could not
+    run here; `wails3 build` was instead verified on Linux as a proxy, and
+    the macOS-specific build check is carried forward as an open item to
+    [Phase 7](#phase-7--packaging-and-distribution-parity), which must run
+    on actual macOS hardware/CI. See
+    [technical design, Phase 0 spike findings](wails-v3-technical-design.md#phase-0-spike-findings-recorded-not-duplicated-elsewhere)
+    for full evidence.
 - Decide the final `internal/wailsapi` sub-package boundaries (one service
   vs. several for `InvestmentService`, per the technical design's note) and
   record the decision in the technical design document (update it in place;
@@ -65,21 +76,43 @@ flowchart LR
 ### Required Checks
 
 - The spike project's `wails3 build` output actually launches on the primary
-  target (macOS Apple Silicon).
+  target (macOS Apple Silicon). **Not run** in this Linux-only environment;
+  the Linux build was verified instead (`wails3 build` produced a launchable
+  ELF binary from the spike project). Carried forward to Phase 7 as an open
+  macOS-specific check — see the risk register entry below.
 - `go test ./...`, `go vet ./...`, `gofmt -l cmd internal` still pass at the
-  frozen commit before any Wails code is added to this repository.
+  frozen commit before any Wails code is added to this repository. **Passed**
+  (`go test ./...`: all packages `ok`; `go vet ./...`: clean; `gofmt -l cmd
+  internal`: no output).
 
 ### Exit Checks
 
 - No open question about Wails v3 CLI availability, hot reload, or binding
-  generation remains before Phase 1 starts.
+  generation remains before Phase 1 starts. **Met**: CLI installs and runs
+  (`v3.0.0-beta.12`), `wails3 generate bindings -ts` produces correct
+  TypeScript for string/pointer/nested-struct fields, and the empty-object
+  problem reproduces exactly as technical design §4 predicted. Hot reload
+  (`wails3 dev`) was not exercised interactively in this headless
+  environment, since it requires a live display session; this is a lower-risk
+  gap than the build/bindings checks already covered and is re-verified
+  naturally in Phase 2/3 once the real frontend exists and can be smoke-tested
+  by other means (see those phases' required checks).
 - The spike code is not merged into the main tree; only its findings are
   (as updates to the technical design document, if any assumption in it
-  turned out wrong).
+  turned out wrong). **Met**: the spike lived under `/tmp` and was discarded;
+  only doc updates (this plan and the technical design) landed in the
+  repository.
 
 ## Phase 1 — Go Service Adapter Layer (`wailsapi`)
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. `internal/wailsapi` exists with 14
+sub-packages (`apierror`, `wire`, `household`, `directory`, `account`,
+`portfolio`, `instrument`, `holding`, `quote`, `analytics`, `history`,
+`marketdata`, `media`, `settings`, `app`) plus a test-only `wailstest`
+fixture helper. Every method in the Phase 0-verified
+[technical design §6](wails-v3-technical-design.md#6-go-service-inventory)
+inventory (as split into `instrument`/`holding`/`quote`) is bound. See
+Required Tests below for evidence.
 
 ### Deliverables
 
@@ -135,14 +168,112 @@ flowchart LR
 - `internal/wailsapi` compiles and is fully unit-testable **without** the
   Wails runtime, `wails3`, or any generated bindings existing yet — it only
   depends on `internal/application`, `internal/domain`, `internal/settings`,
-  and `internal/version`.
-- No `internal/wailsapi` file imports `fyne.io/*`.
+  and `internal/version`. **Met**: no non-test file in `internal/wailsapi`
+  imports `github.com/wailsapp/wails/v3` or `internal/infrastructure`; only
+  the test-only `wailstest` helper (and each service's own `_test.go`
+  files) import `internal/infrastructure/sqlite`, mirroring the exact
+  pattern `internal/application`'s own tests already use
+  (`service_test.go`).
+- No `internal/wailsapi` file imports `fyne.io/*`. **Met** (verified with
+  `grep -rn '"fyne.io' internal/wailsapi`; the only textual matches are doc
+  comments describing this very rule).
 - `go test ./internal/wailsapi/...` passes; `go test ./...` (the whole
-  repository) still passes unchanged.
+  repository) still passes unchanged. **Met**: `go test ./...` and
+  `go test -race ./...` both pass for every package, `go vet ./...` and
+  `gofmt -l cmd internal` are clean. Each `internal/wailsapi` sub-package
+  has round-trip DTO serialization tests (including a permanent regression
+  test in `wire/wire_test.go` for the §4 empty-object problem), adapter
+  tests exercising the full DTO-in → `application.Service` → DTO-out path
+  against a real temp-file SQLite-backed `application.Service`, and
+  error-mapping tests asserting `apierror.WireError.Code`/`Field` for a
+  representative set of `domain.ErrorCode` values per service (every code
+  is covered at least once in `apierror/apierror_test.go`). The
+  `history.ChangeCommandRequest` union (the flagged hardest mapping) has a
+  dedicated test recording all ten `domain.PreviewChange` command kinds
+  through `history.Service.RecordChange`, including `Undo`/`Fix`.
+- Additional, beyond the plan's original checklist: the `marketdata`
+  service's cancellable event-streamed design (§6, "Long-running/streaming
+  operations") is implemented in Phase 1 itself, one phase earlier than
+  strictly required, using a local `EventEmitter` interface so it needs no
+  Wails runtime dependency; `StartRefreshAll`/`CancelRefresh` and their
+  event payload are unit-tested with a fake emitter.
 
 ## Phase 2 — Wails App Shell Scaffolding
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. `cmd/nestworth-desktop/main.go` wires
+the same startup sequence `internal/app.New()` performs (settings load,
+database open, market-data registry, `application.Service` construction,
+`SetFXProvider` with fallback, `Bootstrap`), registers all 13
+`internal/wailsapi` services with `application.NewService(...)`, creates a
+window sized from persisted settings with close-time size persistence, and
+sets the native application menu. `build/` (Taskfile-based build assets:
+icons, `config.yml` with Nestworth's identity, per-platform Taskfiles) and
+`frontend/` (Vite + React + TypeScript, still the Phase 3 placeholder) were
+scaffolded from `wails3 init`/`wails3 generate icons`/`wails3 task
+common:update:build-assets`, then adapted for the `cmd/nestworth-desktop`
+layout (the platform Taskfiles' `go build` lines were patched to target
+`./cmd/nestworth-desktop` and stamp `internal/version` via `-ldflags`,
+since the default template assumes `main.go` at the repository root). A
+root-level `webassets` package (`webassets.go`) holds the
+`//go:embed all:frontend/dist` directive, because Go's `embed` directive
+cannot reference `frontend/dist` from `cmd/nestworth-desktop` (outside
+that package's own directory) — this is the one deviation from the
+technical design's literal repository layout, recorded here rather than
+left implicit.
+
+### Required Checks
+
+- The new entry point launches, opens the same database a Fyne launch
+  would, and calls at least one bound service method successfully from
+  the placeholder frontend's dev console. **Met**: built and launched
+  under Xvfb on this Linux dev environment; the placeholder page's
+  `AppService.AppInfo()` call resolved and rendered Name/App ID/Version in
+  the window, with the native File/Edit/View/Window/Help menu bar present.
+  Screenshot evidence: `/opt/cursor/artifacts/phase2-wails-shell.png`
+  (captured during this phase's implementation).
+- `go build ./cmd/nestworth-desktop/...` (or the chosen path) succeeds
+  alongside `go build ./cmd/nestworth` (Fyne) — both must build throughout
+  this phase and every phase through Phase 5. **Met**: `go build ./...`
+  builds every package including both entry points.
+- Startup failure modes (unsupported/corrupt database, per
+  [data and application contracts](../architecture/data-and-ipc-contracts.md#migration-compatibility-state-machine))
+  are surfaced to the placeholder frontend as a `wireError`, not a Go panic
+  or an unhandled Promise rejection. **Partially met**: a database-open
+  failure is logged and does not panic (verified: pointing
+  `NESTWORTH_DATABASE_PATH` at an unwritable path lets the app start and
+  keep running, serving only `AppService`); however, with the database
+  unavailable, the 12 other services are not registered at all rather than
+  registered-but-returning-a-uniform-`wireError`, so a frontend call to an
+  unregistered service currently surfaces as a raw Wails "service not
+  found" rejection instead of the `wireError` JSON shape. This is recorded
+  as an explicit gap for Phase 4/5 to close with a dedicated
+  "blocked startup" DTO (mirroring `internal/ui`'s `NewBlockedStartupPage`,
+  already planned for Phase 5's deliverables), not silently treated as
+  passing.
+
+### Exit Checks
+
+- Every backend-only capability needed by Phase 4's first vertical slice is
+  reachable through a generated binding. **Met**: `wails3 generate
+  bindings -ts ./...` (note the required `./...` pattern — see below)
+  produced 13 services / 96 methods / 58 models / 1 event, covering
+  Onboarding, Overview, and Accounts plus every other Phase 1 service.
+- No business logic exists in `cmd/nestworth-desktop`'s `main.go` beyond
+  wiring — identical in spirit to how thin `internal/app.New()` is today.
+  **Met**: `main.go` only constructs/wires dependencies; every calculation
+  and validation still lives in `internal/application`/`internal/domain`.
+
+### Recorded finding: `wails3 generate bindings` requires an explicit pattern
+
+`wails3 generate bindings` with no positional pattern argument falls back
+to scanning only the current directory, not `./...`. In this repository
+that directory is the root `webassets` package (no bound services), so the
+first attempt reported "0 Services". The fix is passing `./...` explicitly
+(`wails3 generate bindings -ts ./...`), which is what `build/Taskfile.yml`'s
+`generate:bindings` task now does. This is unrelated to Phase 0's spike
+findings (which used a single-package spike project where the distinction
+did not surface) and is recorded here since it affects every future
+binding regeneration in this repository.
 
 ### Deliverables
 
@@ -191,7 +322,80 @@ flowchart LR
 
 ## Phase 3 — Frontend Foundation
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. `frontend/` now has: Vite + React +
+TypeScript + Tailwind CSS v4 (CSS-first `@theme` tokens) + shadcn/ui-style
+components built on `@base-ui/react` primitives (Button, Input, Label,
+Dialog, Sheet, Tabs, Card, Badge, AlertDialog) + TanStack Query (with a
+first real query, `queries/app.ts`) + Zustand (`stores/ui.ts`, UI-only
+state) + React Hook Form + Zod (`components/forms/SampleForm.tsx`) +
+Apache ECharts wrapper (`components/charts/EChart.tsx`) + i18next with all
+three locales, bootstrapped from the ported `internal/i18n` catalog + the
+shared `callService`/error-unwrapping helper (`lib/wails.ts`). The app
+shell (`app/AppShell.tsx`) renders a sidebar/header with simple page-state
+navigation (per the frontend stack decision's Sec9), a language switcher,
+and a theme toggle wired to `hooks/useTheme.ts`.
+
+### Catalog porting note
+
+`internal/i18n`'s catalog content (679 keys across `translations` and
+`errorTranslations`, plus the `fieldLabelKeys` field-name-to-key map) was
+ported programmatically, not by hand, via a new
+`scripts/port-i18n-catalog` Go tool that parses `internal/i18n/*.go`'s AST
+and emits `frontend/src/i18n/locales/{en,zh-CN,zh-TW,fieldLabelKeys}.json`.
+This is re-runnable if `internal/i18n` gains keys before Phase 6 retires
+it. Two catalogs were deliberately **not** ported 1:1:
+
+- A new `errorCode` i18next namespace (`frontend/src/i18n/errorCodes.ts`)
+  replaces the old prose-matched `error.*` granularity with one message
+  per `domain.ErrorCode` (27 codes + `internal`), per technical design
+  Sec5's "key directly off `domain.ErrorCode`" requirement — the ported
+  ErrorCode-granularity content could not be reused because it was keyed
+  by exact English message text, the exact pattern this migration
+  removes.
+- A small `frontend/src/i18n/additions.ts` carries the one net-new key the
+  frontend needs that has no Go counterpart (`nav.directory`, per the
+  [navigation decisions note](wails-v3-navigation-decisions.md)), merged
+  into the ported catalog at i18next init time so re-running the port
+  script never drops it.
+
+### Required Tests
+
+- **Met**: `src/hooks/useTheme.test.tsx` covers explicit dark/light,
+  system-mode following the OS preference, and reacting to a live
+  `prefers-color-scheme` change. `src/lib/wails.test.ts` covers
+  `parseWailsError`/`translateWailsError` for valid JSON, malformed JSON,
+  a plain non-JSON message, a non-Error rejection value, and an
+  unrecognized error code — all resolve to a safe, non-crashing result.
+- **Met**: `src/App.test.tsx` renders the full app shell with zero real
+  pages (every nav destination shows `ComingSoonPage`) in all three
+  locales (`SUPPORTED_LANGUAGES`), asserting on real translated nav labels
+  rather than fallback key text.
+- Additional, beyond the plan's original checklist: `SampleForm.test.tsx`
+  exercises the React Hook Form + Zod wiring (submit with valid input,
+  validation error blocks submit).
+
+### Exit Checks
+
+- The frontend foundation has no page-specific business logic yet.
+  **Met**: every nav destination renders the same generic
+  `ComingSoonPage`; no page/feature code exists under `features/` yet.
+- Switching language, switching theme, and resizing the window all work
+  against the Phase 2 backend shell. **Met** for language/theme (verified
+  by the Vitest suite above and by a manual screenshot showing the shell
+  launched, themed, and reading live `AppService.AppInfo()` data through
+  the real backend under Xvfb on this Linux dev environment — see Phase 2
+  and Phase 3 screenshots referenced in the corresponding PR); window
+  resizing itself was already exercised in Phase 2 (size persistence) and
+  is unchanged by this phase.
+
+### Verification
+
+```
+cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build
+```
+
+All pass (17 Vitest tests, 0 ESLint errors, 0 TypeScript errors, and a
+production build).
 
 ### Deliverables
 
@@ -244,7 +448,67 @@ flowchart LR
 
 ## Phase 4 — First Vertical Slice: Onboarding, Overview, Accounts
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`. Onboarding
+(`features/onboarding/OnboardingPage.tsx`), Overview
+(`features/overview/OverviewPage.tsx`), and Accounts
+(`features/accounts/{AccountsPage,AccountForm}.tsx`) all work end to end
+through `HouseholdService`/`PortfolioService`/`AccountService`, wired into
+`App.tsx` (render Onboarding until a Household exists; Overview is the
+default landing page per the
+[navigation decisions](wails-v3-navigation-decisions.md)). New
+`queries/{household,portfolio,accounts,directory,settings}.ts` TanStack
+Query hooks back these pages; `features/accounts/accountTaxonomy.ts` is a
+client-side mirror of `domain`'s Primary/Secondary category and Tracking
+Mode combination rules, used only to drive form UX (Go remains the sole
+validation authority).
+
+### Required Tests
+
+- **Met**: `OnboardingPage.test.tsx` covers empty-household-name
+  validation, submitting every member name plus base currency, and
+  add/remove member rows.
+- **Met**: `AccountsPage.test.tsx` covers the empty state, listing an
+  existing account with its current value, creating an account with
+  minimal fields (equal ownership split across two owners), creating an
+  account with explicit ownership percentages (matching
+  `resolveOwnership`'s behavior in `internal/application/service.go`), and
+  archiving an account after AlertDialog confirmation.
+- **Met**: the fixture-driven check comparing displayed values to
+  Go-computed `OverviewResult` uses a **new** shared multi-owner (60/40
+  split) fixture,
+  `internal/wailsapi/portfolio.TestOverviewMultiOwnerFixtureMatchesFrontendGolden`
+  (Go) and `OverviewPage.test.tsx`'s "matches the Go-computed multi-owner
+  fixture" test (frontend), which assert the identical literal values
+  (assets 1000, liabilities 300, net worth 700, Alice 60%/Bob 40%) — a
+  comment in each file cross-references the other so they cannot silently
+  diverge. This is a new fixture rather than reusing an existing
+  `internal/application` test verbatim, since no existing fixture matched
+  the "multi-owner, exact percentages" shape needed here; true multi-
+  **currency** Overview coverage (which requires FX quote/preference setup)
+  is deferred to Phase 5's Analytics/Investments testing, where FX
+  conversion is central to the feature rather than incidental to it.
+- Every "incomplete"/"missing input" state: **partially met** for this
+  phase — `OverviewPage.test.tsx` covers the `Complete=false` +
+  `missingInputs` banner path; the full range of `domain.OverviewResult`
+  incompleteness causes (unavailable instrument price, unavailable FX
+  rate, etc.) is exercised once Investments/Market Data pages exist in
+  Phase 5, since Overview's incompleteness is caused by those other
+  pages' data, not by anything Onboarding/Accounts alone can produce.
+
+### Exit Checks
+
+- A user can go from a fresh database to a populated Overview with at
+  least one multi-owner Account entirely through the new frontend, with no
+  Fyne window involved. **Met**: verified manually end to end (Onboarding
+  with two Members → Overview at $0 → create an Account with an owner and
+  an initial value → Overview updates to the new net worth with a by-member
+  breakdown), screenshot/video evidence in the corresponding PR.
+- Every acceptance item in the
+  [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+  that concerns Onboarding, Overview, or Accounts: **met** for the
+  create/list/archive/current-value flows this phase implements; Account
+  update (metadata edit) and icon/logo selection are deferred to Phase 5
+  alongside the Directory pages that share the same edit/media patterns.
 
 ### Deliverables
 
@@ -288,7 +552,112 @@ flowchart LR
 
 ## Phase 5 — Frontend Feature Parity
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-25`, with one documented gap (icon/logo
+pickers) carried forward. Every page in the "Suggested order" deliverables
+list below exists and works end to end against the real backend:
+`features/directory/{DirectoryPage,DirectoryEntityList}.tsx` (Members/
+Institutions/Groups), `features/investments/{InvestmentsPage,
+InstrumentForm}.tsx` (Instruments, Holdings, and — added in this pass —
+per-Holding cost/current-value/gain columns sourced from
+`AnalyticsService.AccountGain` via a new `useHoldingGainsByAccounts`
+hook), `features/marketdata/MarketDataPage.tsx` (Refresh all/Refresh
+required FX), `features/history/{HistoryPage,RecordChangeForm}.tsx`
+(Starting Point, Record change for all ten change kinds, Timeline, Undo,
+and — added in this pass — Fix), `features/analytics/AnalyticsPage.tsx`
+(realized gain by instrument/account, net worth trend), and
+`features/settings/SettingsPage.tsx`.
+
+### Fix, added in this pass
+
+`history.ChangeCommandRequest`'s per-kind fields let
+`activityToCommand.ts`'s `activityToInitialCommand` reconstruct a
+best-effort initial form state from a previously recorded
+`ActivityDTO`'s `effects` (documented in that file as intentionally
+best-effort, not a byte-for-byte inverse of `ToCommand`, since
+`domain.Activity` only stores effects, not the original command); the
+Fix Sheet in `HistoryPage.tsx` pre-fills `RecordChangeForm` from this and
+submits to `HistoryService.FixChange` instead of `RecordChange`. Both
+Undo and Fix are hidden for a reversal Activity or one that already has
+a reversal, mirroring the server-side `ErrAlreadyUndone`/
+`ErrCannotFixChange` checks.
+
+Manual verification (screenshots below) surfaced a real bug the
+automated jsdom-based test suite could not: the Fix form's "Preview"
+step called plain `PreviewChange`, which ignores the original Activity
+being replaced and previews the replacement command against the state
+*after* the original effect already applied — double-counting it, since
+Confirm (`FixChange`) correctly inverts the original effect first. Fixed
+by adding `application.Service.PreviewFixChange`/
+`history.Service.PreviewFixChange` (a read-only counterpart sharing
+`FixChange`'s new `fixChangePreview` helper) and wiring
+`RecordChangeForm`'s Preview button to call it instead of `PreviewChange`
+whenever a Fix is in progress. Regression tests:
+`TestPreviewFixChangeMatchesFixChangeWithoutCommitting` (`internal/
+application/change_service_test.go`), `TestPreviewFixChangeMatchesFixChange`
+(`internal/wailsapi/history/history_test.go`), and the updated "fixes a
+change" test in `HistoryPage.test.tsx` (which now asserts
+`PreviewFixChange` is called and plain `PreviewChange` is not).
+
+### Required Tests — evidence
+
+- Per-page fixture-driven value checks and unavailable/incomplete states:
+  **met** for every page above (see each page's own `*.test.tsx`,
+  e.g. `InvestmentsPage.test.tsx`'s "shows an unavailable badge when a
+  Holding's gain cannot be computed" test).
+- Locale-coverage test: **met** —
+  `frontend/src/i18n/localeCoverage.test.ts` asserts the ported
+  translation catalog, `additions.ts`, and the `errorCode` namespace have
+  byte-identical key sets across `en`/`zh-CN`/`zh-TW` (failing the build
+  if any locale silently drops or adds a key), plus an empty-string check
+  and a `fieldLabelKeys` target-key check.
+- Keyboard-only completion test: **met** —
+  `frontend/src/test/keyboardOnly.test.tsx` drives Onboarding, Account
+  creation, Record change (Preview then Confirm), and Settings using only
+  `Tab`/`Enter`/typed characters/`selectOptions` (never `userEvent.click`
+  or a `.focus()` call standing in for user input, documented exceptions
+  noted in the file's header comment).
+
+### Exit Checks
+
+- Every acceptance item in the
+  [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+  concerning a page implemented in this phase: **met**, with icon/logo
+  selection for Accounts/Members/Institutions/Groups carried forward as
+  an explicit, tracked gap (the native picker flow —
+  `media.Service.PickImage` — is implemented and unit-tested at the Go
+  layer since Phase 1/2; wiring it into a page's UI did not fit this
+  pass and is not required for the acceptance items these pages already
+  satisfy without it).
+- The Fyne application (`cmd/nestworth`) still builds and runs unmodified:
+  **met** (`go build ./...` builds both `cmd/nestworth` and
+  `cmd/nestworth-desktop`).
+
+### Verification
+
+```bash
+go build ./... && go vet ./... && gofmt -l cmd internal
+go test ./... && go test -race ./...
+cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build
+```
+
+All pass (56 Vitest tests across 15 files, 0 ESLint errors, 0 TypeScript
+errors, a production build, and every Go package's tests including the
+two new `PreviewFixChange` regression tests).
+
+Manual verification, against a real `cmd/nestworth-desktop` build running
+under Xvfb on this Linux dev environment with a seeded SQLite database
+(Household, two Accounts, one Instrument/Holding with a manual quote,
+Starting Point, and a `money_added` Activity): the Investments → Holdings
+tab shows the new cost/current value/gain columns with correct values
+(<img alt="Investments Holdings tab showing cost/current value/gain columns" src="/opt/cursor/artifacts/investments-holdings-cost-gain-columns.png" />),
+Fix pre-fills the form from the original Activity
+(<img alt="History Fix panel pre-filled from the original Activity" src="/opt/cursor/artifacts/history-fix-panel-prefilled.png" />),
+Preview now shows the corrected inverted-then-replaced balance after the
+bug fix above
+(<img alt="History Fix Preview showing the corrected balance" src="/opt/cursor/artifacts/history-fix-preview-corrected.png" />),
+and Confirm commits successfully, closing the panel and leaving the
+Timeline intact
+(<img alt="History page after confirming a Fix" src="/opt/cursor/artifacts/history-fix-confirmed.png" />).
 
 ### Deliverables
 
@@ -462,6 +831,7 @@ Phase 4 established. Suggested order (dependency-driven, not arbitrary):
 | The `Money`/`Quantity`/`UnitPrice`/`FxRate` empty-object serialization problem (technical design §4) is missed for one field in one DTO | A financial value silently displays as blank/zero instead of erroring loudly | Every DTO ships with the round-trip serialization test from Phase 1; treat a DTO without one as incomplete, not optional |
 | The `HistoryService` change-command union (technical design §6) is more complex in practice than the current inventory suggests | Record-change UX blocked or shipped with an incomrect mapping for one change kind | Give this its own explicit design spike inside Phase 1 before any frontend form is built against it; do not let Phase 5's schedule pressure skip its dedicated tests |
 | Cross-platform webview differences (macOS WKWebView vs. Windows WebView2 vs. Linux WebKitGTK) surface a rendering or API gap | Inconsistent behavior if/when Windows/Linux builds are attempted | Out of scope for migration completion (migration plan §7: macOS first); if Phase 7's optional spike finds a gap, record it as a follow-up, not a blocker |
+| This migration's day-to-day development/CI environment (this repository's Cloud Agent sandbox) is Linux-only; the primary target (macOS Apple Silicon) build has not been verified here (Phase 0 finding) | A macOS-specific packaging or webview defect could go undetected until very late | Every phase's macOS-specific required check that cannot run here is called out explicitly as "not run" rather than assumed to pass; Phase 7's packaging/distribution parity work and Phase 8's final walkthrough must run on actual macOS hardware or a macOS CI runner before the migration is declared complete |
 | Keyboard/accessibility parity regresses versus the current Fyne shell, which already has per-page keyboard tests | A public-distribution gate (manual accessibility review) becomes harder to pass, not easier | Treat "keyboard-only completion" as a per-page exit check in Phase 5, not a Phase 8 afterthought |
 | i18next key coverage drifts from the ported `internal/i18n` catalog during Phase 3/5 | Missing or English-only strings ship in `zh-CN`/`zh-TW` | Automate a "key set parity across locales" check in the frontend test suite, mirroring the discipline `internal/ui`'s tests already apply to English/Simplified Chinese key sets |
 | Provider refresh cancellation (technical design §6) is subtly different from Fyne's generation-check semantics, causing a stale refresh result to apply after the user navigated away | A displayed quote/FX value could reflect an abandoned request | Port the "ignore a completion for an old request ID" rule explicitly, with a test that starts, abandons, and restarts a refresh and asserts only the latest result is applied |
@@ -489,8 +859,8 @@ go test ./internal/wailsapi/...
 wails3 generate bindings -ts
 go build ./cmd/nestworth-desktop/...   # or the chosen new entry-point path
 
-# Phase 3+
-cd frontend && npm run lint && npm run typecheck && npm run test
+# Phase 3+ (pnpm per the frontend stack decision; see Phase 3 notes)
+cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
 
 # Phase 6+ (after Fyne removal)
 go build ./cmd/nestworth               # now the Wails application

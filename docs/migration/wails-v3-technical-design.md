@@ -57,6 +57,48 @@ tracks v3's beta status as an explicit, monitored risk (API churn, packaging
 bugs, platform-specific webview issues) rather than treating it as a solved
 problem.
 
+### Phase 0 spike findings (recorded, not duplicated elsewhere)
+
+Verified directly against `github.com/wailsapp/wails/v3/cmd/wails3@latest`,
+which resolved to `v3.0.0-beta.12` at spike time:
+
+- The scaffold template name is **`react`**, not `react-ts`. Every
+  reference to `wails3 init -t react-ts` / `wails init -t react-ts` in this
+  migration's source documents (the
+  [frontend stack decision](../../prototype/nestworth-wails-frontend-stack.md#31-react--typescript)
+  and the [implementation plan Phase 0](wails-v3-implementation-plan.md#phase-0--spike-and-freeze-baseline))
+  is corrected to `-t react` (TypeScript is that template's default
+  language; a separate `react-js` template exists for JavaScript). This is
+  a documentation correction only; it does not change any locked decision.
+- `wails3 doctor` succeeds on Linux (the development/CI environment used by
+  this migration) once `libgtk-4-dev` and `libwebkitgtk-6.0-dev` are
+  installed; `wails3 generate bindings -ts` and `wails3 build` both work
+  end-to-end on Linux against a throwaway spike project, confirming the CLI
+  itself is usable in this repository's build environment.
+- The §4 empty-object problem reproduces exactly as described: marshaling a
+  struct shaped like `quantityLike{ value string }` (unexported field, no
+  `MarshalJSON`) with `encoding/json` produces `{}`; a type with **no**
+  exported field also produces no usable field in the generated TypeScript
+  model. This confirms the DTO-based fix (§4) is required, not optional.
+- The generated bindings correctly render a `*string` Go field as
+  `field?: string | null` in TypeScript, confirming the "optional pointer
+  fields" rule in [§5](#5-serialization-and-error-contract-across-the-wails-boundary)
+  produces the expected shape without further configuration.
+- **macOS Apple Silicon build verification (a Required Check for this
+  phase) could not be performed from this Linux-only development
+  environment** — Wails v3's macOS target requires the macOS SDK/Xcode
+  toolchain, which is unavailable here. The Linux build (`webkitgtk-6.0`
+  backend) was built and launched successfully as the closest available
+  proxy for "the CLI and generated bindings produce a working native
+  build." The macOS Apple Silicon `.app` build called for by
+  [Phase 7](wails-v3-implementation-plan.md#phase-7--packaging-and-distribution-parity)
+  remains an open check that must run on actual macOS hardware or a macOS
+  CI runner before that phase can close; it is tracked as a carried-forward
+  risk below, not silently assumed to pass.
+- The spike project was built outside this repository (`/tmp`, not
+  committed) and discarded after these findings were recorded, per this
+  phase's exit checks.
+
 ## 3. Target Repository Layout
 
 ```text
@@ -74,7 +116,18 @@ internal/
   i18n/                 # Retired at cutover; catalog content ported to
                          # frontend/src/i18n (§8) before removal
   wailsapi/             # New: one Go package per bound service (§6), each a
-                         # thin adapter with its own unit tests
+                         # thin adapter with its own unit tests. Phase 0
+                         # decided the final sub-package list (superseding
+                         # "investment (or its split)" below):
+                         # apierror, household, directory, account,
+                         # portfolio, instrument, holding, quote, analytics,
+                         # history, marketdata, media, settings, app.
+                         # `InvestmentService` from §6's inventory is split
+                         # three ways (`instrument`, `holding`, `quote`)
+                         # because its combined method count (24) is the
+                         # largest in the inventory and the three concerns
+                         # (instrument identity, holding positions, and
+                         # quote/FX values) already have distinct DTOs.
   ui/                   # Fyne UI; retired at cutover (Phase 6)
   app/                  # Fyne app/window wiring; retired at cutover
 build/                  # New: Wails build assets (icons, platform Taskfiles,
@@ -101,6 +154,15 @@ docs/
 scripts/                 # package-macos.sh retired at cutover once the
                          # Wails Taskfile packaging replaces it (§9)
 ```
+
+**Phase 2 deviation, recorded in place:** Go's `//go:embed` directive
+cannot reference a path outside its own source file's directory, so
+`cmd/nestworth-desktop/main.go` cannot directly embed the sibling
+`frontend/dist`. A tiny root-level package (`webassets.go`, `package
+webassets`) holds the `//go:embed all:frontend/dist` directive and is
+imported by `cmd/nestworth-desktop`; this is the only place the literal
+layout above differs from what was implemented, and it is additive (a new
+file), not a restructuring of `frontend/`'s location.
 
 `internal/wailsapi` is a new package boundary, not a rename of `internal/ui`.
 It must depend only on `internal/application`, `internal/domain` (for typed
@@ -272,7 +334,9 @@ to refine, not a promise that method names are final.
 | `DirectoryService` | Members, Institutions, Groups | `ListMembers`/`CreateMember`/`UpdateMember`/`ArchiveMember`/`SetMemberAvatar`; `ListInstitutions`/`CreateInstitution`/`UpdateInstitution`/`ArchiveInstitution`/`SetInstitutionIcon`/`SetInstitutionLogo`; `ListGroups`/`CreateGroup`/`UpdateGroup`/`ArchiveGroup`/`SetGroupIcon`/`SetGroupLogo` | One service; these three entities share the same CRUD/archive/icon shape today in both Fyne and the release contracts |
 | `AccountService` | Accounts | `CreateAccount`, `UpdateAccount`, `ListAccounts`, `ArchiveAccount`, `AppendAccountValue`, `AccountValuation`, `AccountValuations`, `SetAccountIcon`, `SetAccountLogo` | `AccountInput` (currently an `internal/application` struct with many optional/`*Set` fields) becomes an explicit request DTO; see the "Set flags" note below |
 | `PortfolioService` | Overview | `Overview`, `Portfolio`, `NetWorthTrend` | Read-only; no mutation methods |
-| `InvestmentService` | Investments, Market Data (instrument/holding/quote parts) | `CreateInstrument`/`UpdateInstrument`/`ArchiveInstrument`/`ListInstruments`/`SetInstrumentLogo`/`SetInstrumentQuoteSource`; `CreateHolding`/`UpdateHolding`/`UpdateHoldingQuantity`/`ArchiveHolding`/`ListHoldings`/`HoldingsByAccounts`; `AppendAccountCashValue`/`ListAccountCashValues`; `CurrentInstrumentQuote`/`InstrumentQuoteHistory`/`SaveManualInstrumentQuote`/`AppendManualInstrumentQuote`; `CurrentFXQuote`/`FXQuoteHistory`/`SaveManualFXQuote`/`AppendManualFXQuote`/`SetFXPreference`/`ListFXPreferences` | The largest surface; consider splitting into `InstrumentService`/`HoldingService`/`QuoteService` during Phase 1 if the single service grows unwieldy — a code-organization decision, not a product one |
+| `InstrumentService` | Investments, Market Data (instrument identity part) | `CreateInstrument`/`UpdateInstrument`/`ArchiveInstrument`/`ListInstruments`/`SetInstrumentLogo`/`SetInstrumentQuoteSource` | **Decided in Phase 0** (superseding the earlier "single `InvestmentService`" proposal): split three ways because the combined 24-method surface was the largest in this inventory and instrument identity, holding positions, and quote/FX values already have distinct DTOs — see [target repository layout](#3-target-repository-layout) |
+| `HoldingService` | Investments, Market Data (holding/position part) | `CreateHolding`/`UpdateHolding`/`UpdateHoldingQuantity`/`ArchiveHolding`/`ListHoldings`/`HoldingsByAccounts`; `AppendAccountCashValue`/`ListAccountCashValues` | Same Phase 0 split as `InstrumentService` |
+| `QuoteService` | Market Data (quote/FX part), Settings (FX preference) | `CurrentInstrumentQuote`/`InstrumentQuoteHistory`/`SaveManualInstrumentQuote`/`AppendManualInstrumentQuote`; `CurrentFXQuote`/`FXQuoteHistory`/`SaveManualFXQuote`/`AppendManualFXQuote`/`SetFXPreference`/`ListFXPreferences` | Same Phase 0 split as `InstrumentService` |
 | `AnalyticsService` | Investments (gain columns), Analytics | `HoldingGain`, `AccountGain`, `RealizedGain`, `RealizedGainInRange` | Read-only; depends on `InvestmentService` data already being loaded by the frontend |
 | `HistoryService` | History/Timeline, Starting Point, Record change, Undo/Fix | `HistoryOrigin`, `HistoryStarted`, `StartHistory`, `StartHistoryWithCosts`, `StartingPointDraft`, `PreviewChange`, `RecordChange`, `CommitChange`, `UndoChange`, `FixChange`, `HistoryMutationAllowed`, `ListActivities`, `ListActivityPage`, `BuildDailyValuationSnapshot`, `RebuildHistoricalSnapshots`, `CompleteDailySnapshotRange`, `DailySnapshotState` | `PreviewChange`/`RecordChange`/`CommitChange`/`UndoChange`/`FixChange` take `command any` in Go today (a discriminated union by Go type, e.g. `domain.TradeInput`, `domain.ValueUpdateInput`); the DTO layer must define one exported, tagged "change command" TypeScript union and a Go-side `switch` that reconstructs the correct concrete `domain` input type — this is the single trickiest mapping in the whole inventory and needs its own design note and tests in Phase 1 |
 | `MarketDataService` | Market Data refresh, Settings' FX provider control | `RefreshAll`, `RefreshRequiredFX`, `RefreshInstrument`, `RefreshFX`, `SetFXProvider`, `FXProviderKey` | Long-running/cancellable; see §7 for the event-based design replacing `internal/ui/refresh_worker.go`'s Fyne-thread pattern |

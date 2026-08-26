@@ -396,6 +396,71 @@ func TestUndoAndFixKeepEvidenceAppendOnly(t *testing.T) {
 	}
 }
 
+// TestPreviewFixChangeMatchesFixChangeWithoutCommitting is a regression
+// test for a bug found during Phase 5 manual verification: the Fix
+// form's "Preview" step called plain PreviewChange, which ignores the
+// original Activity being replaced and previews the replacement command
+// against the state *after* that original effect already applied —
+// double-counting it, since Confirm (FixChange) correctly inverts the
+// original effect first. PreviewFixChange must return the exact number
+// FixChange will actually commit, and must not write anything.
+func TestPreviewFixChangeMatchesFixChangeWithoutCommitting(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/preview-fix.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "PreviewFix", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Checking", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "5000", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	amount, _ := domain.ParseMoney("1000", "USD")
+	original, err := service.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: account.Account.ID, Amount: amount, Reason: domain.ReasonIncome, EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacementAmount, _ := domain.ParseMoney("1200", "USD")
+	replacementCommand := domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: account.Account.ID, Amount: replacementAmount, Reason: domain.ReasonIncome, EffectiveAt: clock}
+
+	preview, err := service.PreviewFixChange(ctx, original.Activity.ID, replacementCommand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Resulting[0].Amount != "6200" {
+		t.Fatalf("PreviewFixChange resulting = %+v, want 6200 (5000 initial - 1000 inverted + 1200 replacement)", preview.Resulting)
+	}
+
+	var activitiesAfterPreview int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&activitiesAfterPreview); err != nil {
+		t.Fatal(err)
+	}
+	if activitiesAfterPreview != 1 {
+		t.Fatalf("PreviewFixChange must not commit anything; activities = %d, want 1 (only the original)", activitiesAfterPreview)
+	}
+
+	committed, err := service.FixChange(ctx, original.Activity.ID, replacementCommand)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if committed.Resulting[0].Amount != preview.Resulting[0].Amount {
+		t.Fatalf("FixChange resulting = %+v, want it to match PreviewFixChange's %+v", committed.Resulting, preview.Resulting)
+	}
+}
+
 func TestAppendEffectiveStateAndPreferenceObservations(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/observations.db")
 	if err != nil {
