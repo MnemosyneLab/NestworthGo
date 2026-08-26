@@ -19,6 +19,7 @@ bundles.
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
 | Release | [v0.2.0 Contract](releases/v0.2.0.md) | Scope, acceptance, and release gates for the current line |
+| Quality | [Linux v0.2.0 manual test](qa/linux-v0.2.0/report.md) | Ubuntu packaging smoke and first-run GUI evidence |
 
 ## Source of truth
 

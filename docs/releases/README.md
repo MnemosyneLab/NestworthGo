@@ -7,6 +7,9 @@ maintained scope and acceptance document for this line.
 
 - [v0.2.0 release contract](v0.2.0.md) — runtime, product scope, validation,
   packaging, and public-distribution gates.
+- [Linux v0.2.0 manual test](../qa/linux-v0.2.0/report.md) — Ubuntu 24.04
+  production build and first-run GUI evidence (members, institutions,
+  accounts, investments, history).
 
 ## Release documentation rules
 
