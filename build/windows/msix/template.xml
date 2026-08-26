@@ -8,7 +8,7 @@
         AllowPromptForPassword="false">
     </Settings>
     <Installer
-        Path="nestworth-desktop"
+        Path="nestworth"
         Arguments=""
         InstallLocation="C:\Program Files\My Company\My Product">
     </Installer>
@@ -28,7 +28,7 @@
                 Id="com.example.nestworthdesktop"
                 Description="A nestworth-desktop application"
                 DisplayName="My Product"
-                ExecutableName="nestworth-desktop"
+                ExecutableName="nestworth"
                 EntryPoint="Windows.FullTrustApplication">
                 
             </Application>
@@ -47,7 +47,7 @@
             <Logo>Assets\AppIcon.png</Logo>
         </Properties>
     </PackageInformation>
-    <SaveLocation PackagePath="nestworth-desktop.msix" />
+    <SaveLocation PackagePath="nestworth.msix" />
     <PackageIntegrity>
         <CertificatePath></CertificatePath>
     </PackageIntegrity>

@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  APP_NAME: "nestworth-desktop"
+  APP_NAME: "nestworth"
   BIN_DIR: "bin"
   # pnpm per the frontend stack decision
   # (prototype/nestworth-wails-frontend-stack.md Sec2: "建议使用 pnpm 管理前端依赖").

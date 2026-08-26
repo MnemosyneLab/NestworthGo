@@ -6,6 +6,12 @@ includes:
 vars:
   # Docker image for cross-compilation (used when building on non-macOS)
   CROSS_IMAGE: wails-cross
+  # Finder/bundle name matches the retired Fyne packager (Nestworth.app).
+  # The Go binary in BIN_DIR stays APP_NAME (nestworth) from the root Taskfile.
+  BUNDLE_NAME: '{{.BUNDLE_NAME | default "Nestworth"}}'
+  APP_VERSION: '{{.NESTWORTH_VERSION | default "0.1.4"}}'
+  APP_BUILD: '{{.NESTWORTH_BUILD | default "1"}}'
+  NATIVE_ICNS: '{{.NATIVE_ICNS | default "assets/icons/icon.icns"}}'
 
 tasks:
   build:
@@ -138,46 +144,78 @@ tasks:
     cmds:
       - task: create:dmg
 
+  package:release:
+    summary: Copies the unsigned .app and DMG into dist/macos and verifies metadata
+    deps:
+      - task: package:dmg
+    cmds:
+      - mkdir -p dist/macos
+      - rm -rf "dist/macos/{{.BUNDLE_NAME}}.app" "dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.dmg"
+      - cp -R "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" "dist/macos/{{.BUNDLE_NAME}}.app"
+      - |
+        for candidate in "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dmg" "{{.BIN_DIR}}/{{.APP_NAME}}.dmg"; do
+          if [ -f "$candidate" ]; then
+            cp "$candidate" "dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.dmg"
+            break
+          fi
+        done
+      - task: verify:package
+
+  verify:package:
+    summary: Checks bundle ID, version, build, architecture, native icon, and DMG readability
+    cmds:
+      - |
+        set -euo pipefail
+        APP="dist/macos/{{.BUNDLE_NAME}}.app"
+        DMG="dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.dmg"
+        PLIST="$APP/Contents/Info.plist"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")" = "com.nestworth.app"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" = "{{.BUNDLE_NAME}}"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST")" = "{{.APP_VERSION}}"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" = "{{.APP_BUILD}}"
+        cmp -s "{{.NATIVE_ICNS}}" "$APP/Contents/Resources/icon.icns"
+        test "$(lipo -archs "$APP/Contents/MacOS/{{.BUNDLE_NAME}}")" = "arm64"
+        test -f "$DMG"
+        hdiutil imageinfo "$DMG" >/dev/null
+        echo "Verified $APP and $DMG (ad-hoc signed for local launch; Developer ID/notarization remain open)."
+
   create:dmg:
-    summary: Creates a configurable `.dmg` from the `.app` bundle
+    summary: Creates a UDZO DMG with an Applications shortcut (same layout as the retired Fyne packager)
     platforms: [darwin]
     cmds:
-      - >-
-        wails3 tool package --format dmg --name "{{.APP_NAME}}" --out "{{.BIN_DIR}}"
-        --background "{{.DMG_BACKGROUND}}"
-        --volume-icon "{{.DMG_VOLUME_ICON}}"
-        --file-icon "{{.DMG_FILE_ICON}}"
-        --window-width "{{.DMG_WINDOW_WIDTH}}"
-        --window-height "{{.DMG_WINDOW_HEIGHT}}"
-        {{if .DMG_FILES}}--files "{{.DMG_FILES}}"{{end}}
-    vars:
-      DMG_BACKGROUND: '{{.DMG_BACKGROUND | default "build/darwin/dmg-background.png"}}'
-      DMG_VOLUME_ICON: '{{.DMG_VOLUME_ICON | default "build/darwin/icons.icns"}}'
-      DMG_FILE_ICON: '{{.DMG_FILE_ICON | default "build/darwin/dmg-file-icon.icns"}}'
-      DMG_WINDOW_WIDTH: '{{.DMG_WINDOW_WIDTH | default "540"}}'
-      DMG_WINDOW_HEIGHT: '{{.DMG_WINDOW_HEIGHT | default "380"}}'
-      DMG_FILES: '{{.DMG_FILES | default ""}}'
-
+      - |
+        set -euo pipefail
+        STAGING="{{.BIN_DIR}}/dmg-root"
+        rm -rf "$STAGING"
+        mkdir -p "$STAGING"
+        cp -R "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" "$STAGING/{{.BUNDLE_NAME}}.app"
+        ln -s /Applications "$STAGING/Applications"
+        cp "{{.NATIVE_ICNS}}" "$STAGING/.VolumeIcon.icns"
+        if command -v SetFile >/dev/null 2>&1; then
+          SetFile -a C "$STAGING" || true
+        fi
+        hdiutil create -volname "{{.BUNDLE_NAME}}" -srcfolder "$STAGING" -ov -format UDZO "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dmg"
+        rm -rf "$STAGING"
 
   create:app:bundle:
     summary: Creates an `.app` bundle
     cmds:
-      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
-      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
-      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
+      - mkdir -p "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/MacOS"
+      - mkdir -p "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources"
+      - cp "{{.NATIVE_ICNS}}" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources/icon.icns"
       - |
         if [ -f build/darwin/Assets.car ]; then
-          cp build/darwin/Assets.car "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/Resources"
+          cp build/darwin/Assets.car "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources"
         fi
-      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents/MacOS"
-      - cp build/darwin/Info.plist "{{.BIN_DIR}}/{{.APP_NAME}}.app/Contents"
+      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/MacOS/{{.BUNDLE_NAME}}"
+      - cp build/darwin/Info.plist "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents"
       - task: '{{if eq OS "darwin"}}codesign:adhoc{{else}}codesign:skip{{end}}'
 
   codesign:adhoc:
     summary: Ad-hoc signs the app bundle (macOS only)
     internal: true
     cmds:
-      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.app"
+      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app"
 
   codesign:skip:
     summary: Skips codesigning when cross-compiling
@@ -187,17 +225,17 @@ tasks:
 
   run:
     cmds:
-      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
-      - mkdir -p "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
-      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
+      - mkdir -p "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dev.app/Contents/MacOS"
+      - mkdir -p "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dev.app/Contents/Resources"
+      - cp "{{.NATIVE_ICNS}}" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dev.app/Contents/Resources/icon.icns"
       - |
         if [ -f build/darwin/Assets.car ]; then
-          cp build/darwin/Assets.car "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Resources"
+          cp build/darwin/Assets.car "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dev.app/Contents/Resources"
         fi
-      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS"
-      - cp "build/darwin/Info.dev.plist" "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/Info.plist"
-      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.APP_NAME}}.dev.app"
-      - '"{{.BIN_DIR}}/{{.APP_NAME}}.dev.app/Contents/MacOS/{{.APP_NAME}}"'
+      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dev.app/Contents/MacOS/{{.BUNDLE_NAME}}"
+      - cp "build/darwin/Info.dev.plist" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dev.app/Contents/Info.plist"
+      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dev.app"
+      - '"{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dev.app/Contents/MacOS/{{.BUNDLE_NAME}}"'
 
   sign:
     summary: Signs the application bundle with Developer ID
@@ -208,7 +246,7 @@ tasks:
     deps:
       - task: package
     cmds:
-      - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.app" {{.CLI_ARGS}}
+      - wails3 tool sign --input "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" {{.CLI_ARGS}}
 
   sign:notarize:
     summary: Signs and notarizes the application bundle
@@ -221,4 +259,4 @@ tasks:
     deps:
       - task: package
     cmds:
-      - wails3 tool sign --input "{{.BIN_DIR}}/{{.APP_NAME}}.app" --notarize {{.CLI_ARGS}}
+      - wails3 tool sign --input "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" --notarize {{.CLI_ARGS}}

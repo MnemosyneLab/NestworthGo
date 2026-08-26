@@ -5,7 +5,7 @@
 !include "FileFunc.nsh"
 
 !ifndef INFO_PROJECTNAME
-    !define INFO_PROJECTNAME "nestworth-desktop"
+    !define INFO_PROJECTNAME "nestworth"
 !endif
 !ifndef INFO_COMPANYNAME
     !define INFO_COMPANYNAME "Nestworth"

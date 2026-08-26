@@ -2,12 +2,12 @@
 
 ## 1. Purpose and Status
 
-**Status:** Phases 0–6 `Implemented on 2026-08-26`. This document is the
+**Status:** Phases 0–8 `Implemented on 2026-08-26`. This document is the
 migration contract: it defined replacing the Fyne desktop shell
 (`internal/ui`, `internal/app`) with a
 [Wails v3](https://v3.wails.io/) application built from a React + TypeScript
-frontend and the existing Go backend. Remaining work is Phase 7–8
-(packaging/distribution parity and release closeout). It does not replace
+frontend and the existing Go backend. Public-distribution gates (signing,
+notarization, artifact retention, VoiceOver) remain open. It does not replace
 the now-current architecture docs.
 
 Wails v3 is the framework selected by
@@ -117,7 +117,7 @@ This migration explicitly does **not**:
 | `internal/app` | **Replaced** | Fyne app/window lifecycle wiring is replaced by a Wails `main.go` that wires the same `application.Service`, `settings.Store`, and `sqlite.DB` construction. |
 | `internal/version` | **Reused, unmodified** | Same version/build metadata; exposed to the frontend through a small `AppService` (technical design §6). |
 | `internal/ui/image_picker_darwin.go` / `image_picker_other.go` | **Replaced** | Native Cocoa `NSOpenPanel` code is replaced by Wails's cross-platform `app.Dialog.OpenFile()`, removing macOS-only cgo from this concern. |
-| `scripts/package-macos.sh` | **Replaced** | Fyne's packager is replaced by the Wails v3 Taskfile-based build (`wails3 build` / `task darwin:package`); see [technical design §11](wails-v3-technical-design.md#11-build-and-packaging). |
+| `scripts/package-macos.sh` | **Replaced** | Fyne's packager is replaced by `wails3 task darwin:package:release`; see [technical design §11](wails-v3-technical-design.md#11-build-and-packaging). |
 | Application data (SQLite file, settings JSON) | **Unaffected** | Existing user data opens exactly as before; no migration of user data is part of this plan. |
 
 ## 6. Product/UX Continuity Requirement

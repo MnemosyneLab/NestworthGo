@@ -12,10 +12,10 @@ v3 shell. Local multi-currency portfolios, immutable change effects, History
 Origin, replay, historical snapshots, average-cost capture and replay,
 realized/unrealized gain, currency decomposition, Investments and Analytics
 views, and the associated integrity/privacy regression suites remain in Go.
-The Fyne UI was retired at Wails cutover. Public distribution remains pending
-manual accessibility review, Developer ID signing, notarization, and artifact
-retention. Packaging parity (unsigned macOS `.app` / DMG via the Wails
-Taskfile) is the next migration phase.
+The Fyne UI was retired at Wails cutover. Unsigned macOS `.app`/DMG packaging
+matches the former metadata contract (`wails3 task darwin:package:release`).
+Public distribution remains pending manual accessibility review, Developer ID
+signing, notarization, and artifact retention.
 
 Backup/Restore, Import/Export, synchronization, and background refresh remain
 deferred to later releases.
@@ -39,11 +39,11 @@ go build -o bin/nestworth ./cmd/nestworth
 ./bin/nestworth
 ```
 
-Create an Apple Silicon macOS application via the Wails Taskfile (Phase 7
-packaging parity; unsigned, same as the former Fyne packager):
+Create an Apple Silicon macOS application (unsigned `.app` + UDZO DMG in
+`dist/macos/`, same metadata as the former Fyne packager):
 
 ```bash
-wails3 build
+wails3 task darwin:package:release
 ```
 
 ## Technology

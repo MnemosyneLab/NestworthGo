@@ -2,9 +2,10 @@
 
 ## Execution Contract
 
-**Status:** Phases 0–6 `Implemented on 2026-08-26`. Phases 7–8 remain
-`Planned`. This plan implements the
-[migration plan](wails-v3-migration-plan.md) and the
+**Status:** Phases 0–8 `Implemented on 2026-08-26`. Public-distribution
+gates (Developer ID signing, notarization, artifact retention, manual
+accessibility/VoiceOver review) remain open, as they were under Fyne. This
+plan implements the [migration plan](wails-v3-migration-plan.md) and the
 [technical design](wails-v3-technical-design.md).
 
 Do not delete or weaken any `internal/domain`, `internal/application`, or
@@ -778,7 +779,10 @@ removed. Rollback is now reverting the cutover commit(s).
 
 ## Phase 7 — Packaging and Distribution Parity
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-26`. Unsigned Apple Silicon `.app` + UDZO
+DMG reproduce the former Fyne packager's metadata contract. Developer ID
+signing, notarization, artifact retention, and manual accessibility review
+remain open distribution gates.
 
 ### Deliverables
 
@@ -811,9 +815,40 @@ removed. Rollback is now reverting the cutover commit(s).
   package's guarantees (same bundle ID, same icon, same isolated/unsigned
   status, same architecture).
 
+### Evidence (2026-08-26)
+
+- Packaging identity: `APP_NAME=nestworth`, bundle `Nestworth.app`,
+  `CFBundleIdentifier=com.nestworth.app`, `CFBundleName=Nestworth`,
+  `CFBundleShortVersionString=0.1.4`, `CFBundleVersion=1` (build), native
+  `assets/icons/icon.icns` copied into `Contents/Resources/icon.icns`.
+  `internal/version` is stamped with `-ldflags` (`v0.1.4` / `1`).
+- Command: `PATH="$HOME/go/bin:$PATH" GOCACHE=/tmp/nestworth-go-wails-phase7
+  wails3 task darwin:package:release` (Wails `v3.0.0-beta.12`) — passed in
+  58s on darwin/arm64.
+- Output: `dist/macos/Nestworth.app` and
+  `dist/macos/Nestworth-0.1.4-arm64.dmg`.
+- `verify:package` checks passed: bundle ID, name, version, build, `cmp`
+  of native ICNS, `lipo -archs` = `arm64`, `hdiutil imageinfo`.
+- `codesign -dv`: `Identifier=com.nestworth.app`,
+  `Format=app bundle with Mach-O thin (arm64)`, `Signature=adhoc`,
+  `TeamIdentifier=not set`. Ad-hoc signing is for local launch only; it is
+  not Developer ID and does not close notarization.
+- DMG: `Format Description: UDIF read-only compressed (zlib)` (UDZO),
+  volume name Nestworth, Applications symlink (same layout as
+  `scripts/package-macos.sh`).
+- Isolated launch, 8s each, no stderr:
+  - Clean DB: `NESTWORTH_DATABASE_PATH` /
+    `NESTWORTH_SETTINGS_PATH` under `/tmp/nestworth-phase7-smoke/clean`;
+    process stayed up; `PRAGMA user_version=6`; 0 households (onboarding).
+  - Fixture DB: `sqlite3` loaded `testdata/v0.1.4/schema6-fixture.sql`;
+    process stayed up; household name `Sample Household`.
+- Windows/Linux package spike: **not run** (optional; not required).
+- Still open, unchanged from v0.1.4: Developer ID signing, notarization,
+  artifact retention, VoiceOver/manual accessibility review.
+
 ## Phase 8 — Release Closeout and Documentation
 
-**Status:** `Planned`.
+**Status:** `Implemented on 2026-08-26; public-distribution gates pending`.
 
 ### Deliverables
 
@@ -845,6 +880,42 @@ removed. Rollback is now reverting the cutover commit(s).
   checks have actually run and passed — do not mark a phase implemented in
   advance of evidence, matching this repository's existing
   [status vocabulary](../README.md#status-vocabulary) discipline.
+
+### Evidence (2026-08-26)
+
+`GOCACHE=/tmp/nestworth-go-wails-phase7`:
+
+- `gofmt -l cmd internal` — empty.
+- `go test ./...` — passed.
+- `go test -race ./...` — passed.
+- `go vet ./...` — passed.
+- `git diff --check` — passed (on the packaging/docs change set).
+- `cd frontend && pnpm run typecheck && pnpm run lint && pnpm run test` —
+  typecheck passed; lint 0 errors (3 existing React Compiler warnings);
+  Vitest 61/61 passed, including locale key-set coverage and keyboard-only
+  flows for onboarding, account create, record-change, and settings.
+
+[Migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist)
+mapping:
+
+| Item | Evidence |
+| --- | --- |
+| Release-contract capabilities reachable; same Go-computed values | Unchanged `internal/domain`/`application`/`infrastructure` tests; Phase 5 page tests; wailsapi DTO round-trips |
+| Pages end-to-end | Phase 5 frontend tests + Phase 7 isolated `.app` launch (onboarding on empty DB; fixture household `Sample Household`) |
+| Unavailable/incomplete states | Application/wailsapi tests; frontend page tests for unavailable gain |
+| Provider refresh explicit/cancellable | `internal/wailsapi/marketdata` tests; not required at startup (clean launch created schema 6 with no network log) |
+| en / zh-CN / zh-TW key coverage | `frontend/src/i18n/localeCoverage.test.ts` |
+| Light/Dark/System appearance | Settings page tests; not re-walked visually in the packaged `.app` |
+| Window size, icon, native menu | Icon verified in the bundle; window persistence is wired in `cmd/nestworth`; menu is `DefaultApplicationMenu()` |
+| Keyboard-only onboarding/account/record-change/settings | `frontend/src/test/keyboardOnly.test.tsx` |
+| Domain/application/infrastructure tests unmodified in meaning | `go test ./...` and `-race` passed after Fyne removal |
+| wailsapi serialization and error mapping | Phase 1 tests still pass |
+| Launchable unsigned Apple Silicon `.app` | Phase 7 `dist/macos/Nestworth.app` |
+| Active docs no longer describe Fyne as current | Phase 6 + this closeout |
+
+Not claimed: VoiceOver review, Developer ID, notarization, artifact
+retention, or a full click-through of every page inside the packaged
+`.app`. Those remain public-distribution gates, matching v0.1.4 Phase 9.
 
 ## Risk Register
 
@@ -879,15 +950,15 @@ New checks, introduced progressively by phase:
 go test ./internal/wailsapi/...
 
 # Phase 2+
-wails3 generate bindings -ts
-go build ./cmd/nestworth-desktop/...   # or the chosen new entry-point path
+wails3 generate bindings -ts -i ./...
+go build ./cmd/nestworth
 
 # Phase 3+ (pnpm per the frontend stack decision; see Phase 3 notes)
 cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
 
 # Phase 6+ (after Fyne removal)
-go build ./cmd/nestworth               # now the Wails application
+go build ./cmd/nestworth               # the Wails application
 
 # Phase 7+
-wails3 build                            # or: task darwin:package
+wails3 task darwin:package:release
 ```

@@ -22,10 +22,10 @@ reference material and are not current application assets.
 ## Native icon package
 
 `icons/` contains the migrated platform icon set, including PNG sizes,
-`icon.icns`, and `icon.ico`. Wails packaging uses `build/appicon.png` (copied
-from the canonical brand PNG) and `wails3 generate icons` for platform
-`.icns`/`.ico` output. Phase 7 still owns verifying unsigned macOS `.app`/DMG
-parity against this native set.
+`icon.icns`, and `icon.ico`. Wails packaging copies `assets/brand/app-icon.png`
+to `build/appicon.png` for `wails3 generate icons`, and embeds
+`assets/icons/icon.icns` as `Nestworth.app/Contents/Resources/icon.icns`
+so the unsigned `.app` matches the former Fyne packager's native ICNS.
 
 ## Usage rules
 

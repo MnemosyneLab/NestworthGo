@@ -130,12 +130,12 @@ history, and analytics boundaries it depends on exist.
 
 ## Related Technical Initiative: Wails v3 Frontend Migration
 
-Phases 0–6 are `Implemented on 2026-08-26`: the canonical `cmd/nestworth`
-entry point is the Wails v3 application, and the Fyne shell is retired.
-Phases 7–8 (packaging/distribution parity and release closeout) remain
-`Planned`. This is a runtime/UI framework change, not new product scope: it
-does not reorder or reopen any release above. See the
-[Wails v3 migration documents](../migration/README.md) for remaining work.
+Phases 0–8 are `Implemented on 2026-08-26`: the canonical `cmd/nestworth`
+entry point is the Wails v3 application, Fyne is retired, and unsigned
+macOS `.app`/DMG packaging matches the former metadata contract. Public
+distribution (Developer ID signing, notarization, artifact retention,
+VoiceOver) remains open. See the
+[Wails v3 migration documents](../migration/README.md).
 
 ## Dependency Rules
 

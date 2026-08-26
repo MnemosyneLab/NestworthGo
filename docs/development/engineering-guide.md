@@ -48,12 +48,15 @@ go build -o bin/nestworth ./cmd/nestworth
 ./bin/nestworth
 ```
 
-On Apple Silicon macOS, build the `.app` via the Wails Taskfile (Phase 7
-owns packaging parity; output is unsigned):
+On Apple Silicon macOS, build the unsigned `.app` and UDZO DMG:
 
 ```bash
-wails3 build
+wails3 task darwin:package:release
 ```
+
+Output is `dist/macos/Nestworth.app` and
+`dist/macos/Nestworth-0.1.4-arm64.dmg`. Developer ID signing, notarization,
+and manual accessibility review remain separate distribution gates.
 
 Do not launch destructive reset flows against the
 only copy of real financial data. Tests and smoke checks must use temporary or
@@ -161,10 +164,9 @@ cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
 git diff --check
 ```
 
-Unsigned arm64 macOS `.app`/DMG packaging is the Wails Taskfile path
-(`wails3 build`). Phase 7 still owns parity verification. The checked-in
-release metadata is v0.1.4/build 1. Signing, notarization, and manual
-accessibility review remain separate distribution gates.
+Unsigned arm64 macOS `.app`/DMG packaging is `wails3 task darwin:package:release`.
+The checked-in release metadata is v0.1.4/build 1. Signing, notarization,
+and manual accessibility review remain separate distribution gates.
 
 For an isolated desktop smoke, set `NESTWORTH_DATABASE_PATH` and
 `NESTWORTH_SETTINGS_PATH` to files under a temporary task directory. The app

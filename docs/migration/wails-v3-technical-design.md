@@ -1,7 +1,8 @@
 # Wails v3 Technical Design
 
-**Status:** Phases 0–6 `Implemented on 2026-08-26`. Remaining work is Phase 7–8
-(packaging/distribution parity). This document implements the
+**Status:** Phases 0–8 `Implemented on 2026-08-26`. Remaining work is
+public-distribution gates (signing, notarization, accessibility), not
+migration packaging. This document implements the
 [migration plan](wails-v3-migration-plan.md). It owns architecture, project
 layout, the Go service/binding design, the serialization and error contract,
 frontend architecture, build/packaging, and the testing strategy. It does
@@ -523,7 +524,7 @@ the current release metadata contract:
 | Frontend unit/component | New: Vitest + React Testing Library for components, hooks, and query wrappers, per standard practice for this stack | — |
 | Frontend integration | New: exercise generated bindings against a real `wails3 dev` backend pointed at an isolated `NESTWORTH_DATABASE_PATH`/`NESTWORTH_SETTINGS_PATH`, mirroring how Fyne UI tests today avoid touching a real user database | — |
 | End-to-end / manual | New: a `computerUse`-style walkthrough of the acceptance checklist in the [migration plan §8](wails-v3-migration-plan.md#8-acceptance-criteria-release-parity-checklist) before cutover, plus keyboard-only and locale-switch passes matching the bar `internal/ui`'s existing tests already set per page | Manual accessibility review remains a named distribution gate exactly as it is today for Fyne |
-| Release gate | `wails3 build` / the Taskfile `package` task replaces `./scripts/package-macos.sh` in the [engineering guide](../development/engineering-guide.md#setup-and-daily-commands)'s command list once cutover happens | `go test ./...`, `go test -race ./...`, `go vet ./...`, `gofmt -l`, `git diff --check` remain required and unchanged in meaning |
+| Release gate | `wails3 task darwin:package:release` replaces `./scripts/package-macos.sh` in the [engineering guide](../development/engineering-guide.md#setup-and-daily-commands) | `go test ./...`, `go test -race ./...`, `go vet ./...`, `gofmt -l`, `git diff --check` remain required and unchanged in meaning |
 
 No test in `internal/domain`, `internal/application`, or
 `internal/infrastructure` may be deleted, skipped, or weakened to make this

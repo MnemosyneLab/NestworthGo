@@ -3,7 +3,7 @@
 #
 # The lines below are called `modelines`. See `:help modeline`
 
-name: "nestworth-desktop"
+name: "nestworth"
 arch: ${GOARCH}
 platform: "linux"
 version: "0.1.4"
@@ -17,12 +17,12 @@ license: "MIT"
 release: "1"
 
 contents:
-  - src: "./bin/nestworth-desktop"
-    dst: "/usr/local/bin/nestworth-desktop"
+  - src: "./bin/nestworth"
+    dst: "/usr/local/bin/nestworth"
   - src: "./build/appicon.png"
-    dst: "/usr/share/icons/hicolor/128x128/apps/nestworth-desktop.png"
-  - src: "./build/linux/nestworth-desktop.desktop"
-    dst: "/usr/share/applications/nestworth-desktop.desktop"
+    dst: "/usr/share/icons/hicolor/128x128/apps/nestworth.png"
+  - src: "./build/linux/desktop"
+    dst: "/usr/share/applications/nestworth.desktop"
 
 # Default dependencies for the GTK4 + WebKitGTK 6.0 stack (Ubuntu 24.04+ / Debian 13+)
 depends:

@@ -119,7 +119,7 @@ reloads the authoritative application result.
 | Decimal arithmetic | shopspring/decimal-backed domain Money | No binary floating point for financial values |
 | Charts | Apache ECharts | Rendering only; no financial calculations |
 | Desktop shell | Wails v3 | Bound Go services + embedded React frontend |
-| Module/build | Go modules, pnpm, Wails Taskfile | `go test`, `pnpm test`, `wails3 build` |
+| Module/build | Go modules, pnpm, Wails Taskfile | `go test`, `pnpm test`, `wails3 task darwin:package:release` |
 
 Dependency versions are owned by `go.mod` and `go.sum`, not duplicated here.
 

@@ -21,7 +21,7 @@ explicit; ordinary history and gain reads use only local data.
 | [Engineering Guide](development/engineering-guide.md) | Go workflow, repository conventions, tests, and release checks |
 | [Release documents](releases/README.md) | Active Go release contracts plus the separately labeled inherited archive |
 | [v0.1.4 implementation plan](releases/v0.1.4-implementation-plan.md) | Phase commits, shipped scope, and verification evidence |
-| [Wails v3 migration documents](migration/README.md) | Frontend/runtime migration from Fyne to Wails v3 + React; Phases 0–6 implemented, packaging/closeout remaining |
+| [Wails v3 migration documents](migration/README.md) | Frontend/runtime migration from Fyne to Wails v3 + React; Phases 0–8 implemented; public-distribution gates remain |
 
 The filename `data-and-ipc-contracts.md` is retained for link stability from
 the source documentation. The Wails v3 application has a real IPC boundary

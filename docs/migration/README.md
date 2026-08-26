@@ -7,11 +7,12 @@ backend (reusing `internal/domain`, `internal/application`, and
 in [`prototype/nestworth-wails-frontend-stack.md`](../../prototype/nestworth-wails-frontend-stack.md)
 and informed by [`prototype/功能现状与交互设计说明.md`](../../prototype/功能现状与交互设计说明.md).
 
-**Status:** Phases 0–6 `Implemented on 2026-08-26`. The canonical
+**Status:** Phases 0–8 `Implemented on 2026-08-26`. The canonical
 `cmd/nestworth` entry point is the Wails application; Fyne has been
-removed. Phases 7–8 (packaging/distribution parity and release closeout)
-remain `Planned`. Rollback is now "revert the cutover commit(s)," not
-"resume a parallel Fyne build."
+removed. Unsigned macOS `.app`/DMG packaging matches the former metadata
+contract. Public-distribution gates (signing, notarization, artifact
+retention, VoiceOver) remain open. Rollback is "revert the cutover
+commit(s)," not "resume a parallel Fyne build."
 
 ## Documents
 
@@ -28,7 +29,7 @@ remain `Planned`. Rollback is now "revert the cutover commit(s)," not
 2. Read the [technical design](wails-v3-technical-design.md) for *how* the
    Go/Wails/React boundary is built.
 3. Read the [implementation plan](wails-v3-implementation-plan.md) for
-   *delivery order* and remaining Phase 7–8 work.
+   *delivery order* and remaining public-distribution gates.
 
 ## Relationship to existing documents
 

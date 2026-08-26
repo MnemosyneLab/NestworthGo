@@ -17,8 +17,10 @@ The project has not published a public release yet.
 ### Removed
 
 - `internal/ui`, `internal/app`, `internal/i18n`, the Fyne entry point, and
-  `scripts/package-macos.sh`. Packaging now goes through the Wails Taskfile
-  (Phase 7 still owns macOS `.app`/DMG parity verification).
+  `scripts/package-macos.sh`. Packaging is `wails3 task darwin:package:release`
+  (`dist/macos/Nestworth.app` and `Nestworth-0.1.4-arm64.dmg`). Developer ID
+  signing, notarization, artifact retention, and VoiceOver review remain
+  open public-distribution gates.
 
 ## [Unreleased] — v0.1.4
 
