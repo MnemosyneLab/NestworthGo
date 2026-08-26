@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Service as MarketDataService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata";
 import { callService } from "@/lib/wails";
-import { overviewQueryKey } from "@/queries/portfolio";
+import { invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
 
 /**
  * useRefreshAll calls the synchronous RefreshAll() binding. The Go
@@ -16,11 +16,7 @@ export function useRefreshAll() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => callService(() => MarketDataService.RefreshAll()),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: overviewQueryKey });
-      void queryClient.invalidateQueries({ queryKey: ["quote"] });
-      void queryClient.invalidateQueries({ queryKey: ["holdings"] });
-    },
+    onSuccess: () => invalidateRefreshAll(queryClient),
   });
 }
 
@@ -28,6 +24,6 @@ export function useRefreshRequiredFX() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => callService(() => MarketDataService.RefreshRequiredFX()),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: overviewQueryKey }),
+    onSuccess: () => invalidateRequiredFX(queryClient),
   });
 }

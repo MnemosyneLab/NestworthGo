@@ -45,25 +45,22 @@ type QuoteHistoryQuery struct {
 }
 
 func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (domain.Instrument, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	if bootstrap.Household == nil {
-		return domain.Instrument{}, onboardingRequired()
-	}
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
-	instrument, err := newInstrumentFromInput(bootstrap.Household.ID, input, s.clock())
+	instrument, err := newInstrumentFromInput(household.ID, input, s.clock())
 	if err != nil {
 		return domain.Instrument{}, err
 	}
 	if instrument.LogoAssetID != nil {
-		if err := s.requireAssetHousehold(ctx, bootstrap.Household.ID, *instrument.LogoAssetID); err != nil {
+		if err := s.requireAssetHousehold(ctx, household.ID, *instrument.LogoAssetID); err != nil {
 			return domain.Instrument{}, err
 		}
 	}
-	origin, err := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
+	origin, err := s.repository.HistoryOrigin(ctx, household.ID)
 	if err != nil {
 		return domain.Instrument{}, err
 	}
@@ -95,14 +92,11 @@ func (s *Service) ListInstruments(ctx context.Context, includeArchived bool) ([]
 // current source preference. It is used to prefill local capture forms; the
 // mutation boundary parses and validates the submitted value again.
 func (s *Service) CurrentInstrumentQuote(ctx context.Context, id domain.InstrumentID) (*domain.InstrumentQuote, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if bootstrap.Household == nil {
-		return nil, onboardingRequired()
-	}
-	instrument, err := s.repository.Instrument(ctx, bootstrap.Household.ID, id)
+	instrument, err := s.repository.Instrument(ctx, household.ID, id)
 	if err != nil {
 		return nil, safePortfolioError(err)
 	}
@@ -220,18 +214,15 @@ func filterFXQuoteHistory(quotes []domain.FXQuote, query QuoteHistoryQuery) []do
 // one currency pair. The returned quote keeps its stored orientation; callers
 // must display the BaseCurrency -> QuoteCurrency direction alongside Rate.
 func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domain.CurrencyCode) (*domain.FXQuote, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return nil, err
-	}
-	if bootstrap.Household == nil {
-		return nil, onboardingRequired()
 	}
 	a, b, pairErr := domain.NormalizeFXPair(currencyA, currencyB)
 	if pairErr != nil {
 		return nil, pairErr
 	}
-	preferences, err := s.repository.ListFXPreferences(ctx, bootstrap.Household.ID)
+	preferences, err := s.repository.ListFXPreferences(ctx, household.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +236,7 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domai
 	if preference == nil {
 		return nil, nil
 	}
-	quotes, err := s.repository.ListFXQuotes(ctx, bootstrap.Household.ID)
+	quotes, err := s.repository.ListFXQuotes(ctx, household.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -264,16 +255,13 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domai
 }
 
 func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, input InstrumentInput) (domain.Instrument, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	if bootstrap.Household == nil {
-		return domain.Instrument{}, onboardingRequired()
-	}
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
-	current, err := s.repository.Instrument(ctx, bootstrap.Household.ID, id)
+	current, err := s.repository.Instrument(ctx, household.ID, id)
 	if err != nil {
 		return domain.Instrument{}, safePortfolioError(err)
 	}
@@ -307,39 +295,30 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 }
 
 func (s *Service) ArchiveInstrument(ctx context.Context, id domain.InstrumentID, archived bool) error {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
-	}
-	if bootstrap.Household == nil {
-		return onboardingRequired()
 	}
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
-	return safePortfolioError(s.repository.SetInstrumentArchive(ctx, bootstrap.Household.ID, id, archived, s.clock()))
+	return safePortfolioError(s.repository.SetInstrumentArchive(ctx, household.ID, id, archived, s.clock()))
 }
 
 func (s *Service) SetInstrumentLogo(ctx context.Context, id domain.InstrumentID, assetID domain.MediaAssetID) error {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if bootstrap.Household == nil {
-		return onboardingRequired()
-	}
-	if err := s.requireAssetHousehold(ctx, bootstrap.Household.ID, assetID); err != nil {
+	if err := s.requireAssetHousehold(ctx, household.ID, assetID); err != nil {
 		return err
 	}
-	return safePortfolioError(s.repository.SetInstrumentLogo(ctx, bootstrap.Household.ID, id, assetID))
+	return safePortfolioError(s.repository.SetInstrumentLogo(ctx, household.ID, id, assetID, s.clock()))
 }
 
 func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.InstrumentID, source string) error {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
-	}
-	if bootstrap.Household == nil {
-		return onboardingRequired()
 	}
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
@@ -347,10 +326,10 @@ func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.Instru
 	if err != nil {
 		return err
 	}
-	if origin, originErr := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID); originErr != nil {
+	if origin, originErr := s.repository.HistoryOrigin(ctx, household.ID); originErr != nil {
 		return originErr
 	} else if origin != nil {
-		instrument, instrumentErr := s.repository.Instrument(ctx, bootstrap.Household.ID, id)
+		instrument, instrumentErr := s.repository.Instrument(ctx, household.ID, id)
 		if instrumentErr != nil {
 			return safePortfolioError(instrumentErr)
 		}
@@ -359,9 +338,9 @@ func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.Instru
 		if observationErr != nil {
 			return observationErr
 		}
-		return safePortfolioError(s.repository.SetInstrumentQuoteSourceWithObservation(ctx, bootstrap.Household.ID, id, parsed, observation))
+		return safePortfolioError(s.repository.SetInstrumentQuoteSourceWithObservation(ctx, household.ID, id, parsed, observation))
 	}
-	return safePortfolioError(s.repository.SetInstrumentQuoteSource(ctx, bootstrap.Household.ID, id, parsed))
+	return safePortfolioError(s.repository.SetInstrumentQuoteSource(ctx, household.ID, id, parsed, s.clock()))
 }
 
 type HoldingInput struct {

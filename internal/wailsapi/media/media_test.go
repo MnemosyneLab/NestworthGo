@@ -10,6 +10,8 @@ import (
 	"os"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/media"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
@@ -58,6 +60,19 @@ func TestNormalizeImageInvalidBase64(t *testing.T) {
 	_, err := service.NormalizeImage("not-base64!!!")
 	if err == nil {
 		t.Fatal("want a validation error for invalid base64")
+	}
+}
+
+func TestNormalizeImageInvalidImageUsesValidationWireError(t *testing.T) {
+	service := media.NewService(wailstest.NewService(t), fakeDialog{})
+	invalid := base64.StdEncoding.EncodeToString([]byte("not an image"))
+	_, err := service.NormalizeImage(invalid)
+	if err == nil {
+		t.Fatal("want a validation error for invalid image data")
+	}
+	wireErr, ok := apierror.Parse(err.Error())
+	if !ok || wireErr.Code != string(domain.ErrValidation) || wireErr.Field != "data" {
+		t.Fatalf("err = %v, want validation/data wire error", err)
 	}
 }
 

@@ -3,17 +3,18 @@ import { Service as AnalyticsService } from "../../bindings/github.com/waltwang/
 import { Service as PortfolioService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio";
 import type { HoldingGainDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { callService } from "@/lib/wails";
+import { queryKeys } from "@/queries/keys";
 
 export function useRealizedGain(trendRange: string) {
   return useQuery({
-    queryKey: ["analytics", "realizedGain", trendRange],
+    queryKey: queryKeys.analytics.realizedGain(trendRange),
     queryFn: () => callService(() => AnalyticsService.RealizedGain({}, trendRange)),
   });
 }
 
 export function useAccountGain(accountId: string) {
   return useQuery({
-    queryKey: ["analytics", "accountGain", accountId],
+    queryKey: queryKeys.analytics.accountGain.current(accountId),
     queryFn: () => callService(() => AnalyticsService.AccountGain(accountId)),
     enabled: Boolean(accountId),
   });
@@ -21,7 +22,7 @@ export function useAccountGain(accountId: string) {
 
 export function useNetWorthTrend(trendRange: string) {
   return useQuery({
-    queryKey: ["analytics", "netWorthTrend", trendRange],
+    queryKey: queryKeys.analytics.netWorthTrend(trendRange),
     queryFn: () => callService(() => PortfolioService.NetWorthTrend(trendRange)),
   });
 }
@@ -37,7 +38,7 @@ export function useNetWorthTrend(trendRange: string) {
 export function useHoldingGainsByAccounts(accountIds: string[]) {
   const results = useQueries({
     queries: accountIds.map((accountId) => ({
-      queryKey: ["analytics", "accountGain", accountId],
+      queryKey: queryKeys.analytics.accountGain.current(accountId),
       queryFn: () => callService(() => AnalyticsService.AccountGain(accountId)),
     })),
   });

@@ -712,7 +712,7 @@ func snapshotItemBaseAmountString(item domain.DailyValuationSnapshotItem) string
 func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, endDate string) (int, error) {
 	start, err := time.Parse("2006-01-02", startDate)
 	if err != nil {
-		return 0, err
+		return 0, &domain.Error{Code: domain.ErrValidation, Field: "dateRange", Message: "snapshot date range is invalid"}
 	}
 	end, err := time.Parse("2006-01-02", endDate)
 	if err != nil || end.Before(start) {

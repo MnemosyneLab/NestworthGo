@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -26,5 +27,5 @@ func NewService(t *testing.T, registries ...application.MarketDataRegistryPort) 
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	repository := sqlite.NewRepository(database)
-	return application.NewService(repository, registries...)
+	return application.NewServiceWithImageNormalizer(repository, media.Normalizer{}, registries...)
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -23,7 +24,7 @@ func newRefactorTestService(t *testing.T, name string) (*Service, context.Contex
 	}
 	t.Cleanup(func() { database.Close() })
 	repository := sqlite.NewRepository(database)
-	service := NewService(repository)
+	service := NewServiceWithImageNormalizer(repository, media.Normalizer{})
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()

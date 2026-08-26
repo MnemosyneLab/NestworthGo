@@ -136,12 +136,12 @@ func (r *Repository) Household(ctx context.Context) (*domain.Household, error) {
 
 func (r *Repository) CreateOnboarding(ctx context.Context, household domain.Household, members []domain.Member) error {
 	if len(members) == 0 {
-		return errors.New("at least one member is required")
+		return &domain.Error{Code: domain.ErrValidation, Field: "members", Message: "at least one member is required"}
 	}
 	operation := func(tx *sql.Tx) error {
 		var existing string
 		if err := tx.QueryRowContext(ctx, `SELECT id FROM households WHERE singleton_key = 1`).Scan(&existing); err == nil {
-			return errors.New("household already exists")
+			return &domain.Error{Code: domain.ErrConflict, Message: "a Household already exists"}
 		} else if !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
@@ -328,50 +328,50 @@ func (r *Repository) MediaAsset(ctx context.Context, householdID domain.Househol
 	return domain.MediaAsset{ID: parsedID, HouseholdID: parsedHousehold, MimeType: mimeType, Data: append([]byte(nil), data...), CreatedAt: created.UTC()}, nil
 }
 
-func (r *Repository) SetMemberAvatar(ctx context.Context, householdID domain.HouseholdID, memberID domain.MemberID, assetID domain.MediaAssetID) error {
-	return r.setMediaReference(ctx, "members", "avatar_asset_id", householdID.String(), memberID.String(), assetID.String())
+func (r *Repository) SetMemberAvatar(ctx context.Context, householdID domain.HouseholdID, memberID domain.MemberID, assetID domain.MediaAssetID, now time.Time) error {
+	return r.setMediaReference(ctx, "members", "avatar_asset_id", householdID.String(), memberID.String(), assetID.String(), now)
 }
-func (r *Repository) SetInstitutionLogo(ctx context.Context, householdID domain.HouseholdID, id domain.InstitutionID, assetID domain.MediaAssetID) error {
-	return r.setMediaReference(ctx, "institutions", "logo_asset_id", householdID.String(), id.String(), assetID.String())
+func (r *Repository) SetInstitutionLogo(ctx context.Context, householdID domain.HouseholdID, id domain.InstitutionID, assetID domain.MediaAssetID, now time.Time) error {
+	return r.setMediaReference(ctx, "institutions", "logo_asset_id", householdID.String(), id.String(), assetID.String(), now)
 }
-func (r *Repository) SetGroupLogo(ctx context.Context, householdID domain.HouseholdID, id domain.GroupID, assetID domain.MediaAssetID) error {
-	return r.setMediaReference(ctx, "account_groups", "logo_asset_id", householdID.String(), id.String(), assetID.String())
+func (r *Repository) SetGroupLogo(ctx context.Context, householdID domain.HouseholdID, id domain.GroupID, assetID domain.MediaAssetID, now time.Time) error {
+	return r.setMediaReference(ctx, "account_groups", "logo_asset_id", householdID.String(), id.String(), assetID.String(), now)
 }
-func (r *Repository) SetAccountLogo(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID, assetID domain.MediaAssetID) error {
-	return r.setMediaReference(ctx, "accounts", "logo_asset_id", householdID.String(), id.String(), assetID.String())
-}
-
-func (r *Repository) SetInstitutionIcon(ctx context.Context, householdID domain.HouseholdID, id domain.InstitutionID, iconKey string) error {
-	return r.setIconReference(ctx, "institutions", householdID.String(), id.String(), iconKey)
+func (r *Repository) SetAccountLogo(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID, assetID domain.MediaAssetID, now time.Time) error {
+	return r.setMediaReference(ctx, "accounts", "logo_asset_id", householdID.String(), id.String(), assetID.String(), now)
 }
 
-func (r *Repository) SetGroupIcon(ctx context.Context, householdID domain.HouseholdID, id domain.GroupID, iconKey string) error {
-	return r.setIconReference(ctx, "account_groups", householdID.String(), id.String(), iconKey)
+func (r *Repository) SetInstitutionIcon(ctx context.Context, householdID domain.HouseholdID, id domain.InstitutionID, iconKey string, now time.Time) error {
+	return r.setIconReference(ctx, "institutions", householdID.String(), id.String(), iconKey, now)
 }
 
-func (r *Repository) SetAccountIcon(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID, iconKey string) error {
-	return r.setIconReference(ctx, "accounts", householdID.String(), id.String(), iconKey)
+func (r *Repository) SetGroupIcon(ctx context.Context, householdID domain.HouseholdID, id domain.GroupID, iconKey string, now time.Time) error {
+	return r.setIconReference(ctx, "account_groups", householdID.String(), id.String(), iconKey, now)
 }
 
-func (r *Repository) setMediaReference(ctx context.Context, table, column, householdID, id, assetID string) error {
+func (r *Repository) SetAccountIcon(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID, iconKey string, now time.Time) error {
+	return r.setIconReference(ctx, "accounts", householdID.String(), id.String(), iconKey, now)
+}
+
+func (r *Repository) setMediaReference(ctx context.Context, table, column, householdID, id, assetID string, now time.Time) error {
 	allowed := (table == "members" && column == "avatar_asset_id") || (table == "institutions" && column == "logo_asset_id") || (table == "account_groups" && column == "logo_asset_id") || (table == "accounts" && column == "logo_asset_id")
 	if !allowed {
 		return errors.New("unsupported media reference")
 	}
 	query := fmt.Sprintf(`UPDATE %s SET %s = ?, updated_at = ? WHERE id = ? AND household_id = ?`, table, column)
-	result, err := r.database.SQL.ExecContext(ctx, query, assetID, formatTimestamp(time.Now()), id, householdID)
+	result, err := r.database.SQL.ExecContext(ctx, query, assetID, formatTimestamp(now), id, householdID)
 	if err != nil {
 		return err
 	}
 	return requireAffected(result, table)
 }
 
-func (r *Repository) setIconReference(ctx context.Context, table, householdID, id, iconKey string) error {
+func (r *Repository) setIconReference(ctx context.Context, table, householdID, id, iconKey string, now time.Time) error {
 	if table != "institutions" && table != "account_groups" && table != "accounts" {
 		return errors.New("unsupported icon reference")
 	}
 	query := fmt.Sprintf(`UPDATE %s SET icon_key = ?, updated_at = ? WHERE id = ? AND household_id = ?`, table)
-	result, err := r.database.SQL.ExecContext(ctx, query, iconKey, formatTimestamp(time.Now()), id, householdID)
+	result, err := r.database.SQL.ExecContext(ctx, query, iconKey, formatTimestamp(now), id, householdID)
 	if err != nil {
 		return err
 	}

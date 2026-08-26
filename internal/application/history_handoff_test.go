@@ -2,12 +2,27 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
+
+func TestRebuildHistoricalSnapshotsInvalidStartIsValidationError(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/invalid-snapshot-range.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+
+	_, err = NewService(sqlite.NewRepository(database)).RebuildHistoricalSnapshots(context.Background(), "not-a-date", "2026-08-01")
+	var domainErr *domain.Error
+	if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrValidation || domainErr.Field != "dateRange" {
+		t.Fatalf("err = %v, want validation/dateRange domain error", err)
+	}
+}
 
 func TestPostOriginEntitiesUseCreationBaselinesBeforeLaterEdits(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/creation-baselines.db")

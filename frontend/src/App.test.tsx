@@ -1,13 +1,34 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
-import { AppProviders } from "./app/providers";
+import { AppProviders, queryClient } from "./app/providers";
 import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
+import { useUiStore } from "./stores/ui";
 
-const { startup } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave } = vi.hoisted(() => ({
   startup: vi.fn().mockResolvedValue({ available: true }),
+  settingsLoad: vi.fn(),
+  settingsSave: vi.fn(),
 }));
+
+const defaultSettings = {
+  schema_version: 1,
+  appearance: "system",
+  accent: "nestworth",
+  language: "en",
+  timezone: "system",
+  week_start: "monday",
+  date_format: "iso",
+  time_format: "24h",
+  currency: "USD",
+  decimal_separator: ".",
+  grouping_separator: ",",
+  decimal_places: 2,
+  window_width: 1100,
+  window_height: 720,
+  fx_provider: "frankfurter",
+};
 
 // The generated Wails binding calls Call.ByID under the hood, which tries
 // to reach the Wails runtime bridge that does not exist in jsdom.
@@ -20,25 +41,8 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", ()
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: {
-    Load: () =>
-      Promise.resolve({
-        schema_version: 1,
-        appearance: "system",
-        accent: "nestworth",
-        language: "en",
-        timezone: "system",
-        week_start: "monday",
-        date_format: "iso",
-        time_format: "24h",
-        currency: "USD",
-        decimal_separator: ".",
-        grouping_separator: ",",
-        decimal_places: 2,
-        window_width: 1100,
-        window_height: 720,
-        fx_provider: "frankfurter",
-      }),
-    Save: vi.fn(),
+    Load: () => settingsLoad(),
+    Save: (...args: unknown[]) => settingsSave(...args),
     Reset: vi.fn(),
     SupportedCurrencies: () => Promise.resolve(["USD"]),
   },
@@ -102,8 +106,14 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", 
 }));
 
 beforeEach(() => {
+  queryClient.clear();
   startup.mockReset();
   startup.mockResolvedValue({ available: true });
+  settingsLoad.mockReset();
+  settingsLoad.mockResolvedValue({ ...defaultSettings });
+  settingsSave.mockReset();
+  settingsSave.mockResolvedValue(undefined);
+  useUiStore.setState({ appearance: "system" });
   window.matchMedia =
     window.matchMedia ||
     (vi.fn().mockImplementation((query: string) => ({
@@ -118,6 +128,50 @@ beforeEach(() => {
 });
 
 describe("App shell smoke test", () => {
+  it("hydrates saved appearance and language before rendering the workspace", async () => {
+    settingsLoad.mockResolvedValue({ ...defaultSettings, appearance: "dark", language: "zh-CN" });
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    );
+
+    expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+    await waitFor(() => expect(document.documentElement.classList.contains("dark")).toBe(true));
+    expect(i18n.language).toBe("zh-CN");
+  });
+
+  it("persists a header language change with the complete settings value", async () => {
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    );
+    await screen.findByTestId("overview-net-worth");
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Language" }), "zh-CN");
+    await waitFor(() =>
+      expect(settingsSave).toHaveBeenCalledWith({
+        ...defaultSettings,
+        language: "zh-CN",
+      }),
+    );
+  });
+
+  it("rolls back a failed header save", async () => {
+    settingsSave.mockRejectedValue(new Error("save failed"));
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    );
+    await screen.findByTestId("overview-net-worth");
+
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Language" }), "zh-CN");
+    await waitFor(() => expect(i18n.language).toBe("en"));
+    expect(screen.getByRole("combobox", { name: "Language" })).toHaveValue("en");
+  });
+
   it.each(SUPPORTED_LANGUAGES)("renders the app shell in %s without runtime errors", async (language) => {
     await i18n.changeLanguage(language);
     render(

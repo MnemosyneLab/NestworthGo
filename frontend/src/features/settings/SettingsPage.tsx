@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -40,10 +40,13 @@ export function SettingsPage() {
 
   // Keep the form in sync after a successful save/reset without replacing
   // draft values on every render while the user is typing.
-  if (settings.data && settings.data !== syncedFrom) {
+  useEffect(() => {
+    if (!settings.data || syncedFrom || draft) {
+      return;
+    }
     setSyncedFrom(settings.data);
     setDraft(settings.data);
-  }
+  }, [draft, settings.data, syncedFrom]);
 
   if (settings.isLoading) {
     return <LoadingState label={t("ui.state.loadingPage")} />;

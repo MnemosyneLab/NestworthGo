@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Service as AppService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app";
 import { callService } from "@/lib/wails";
+import { queryKeys } from "@/queries/keys";
 
 /**
  * useAppInfo exercises the queries/ -> lib/wails.callService -> generated
@@ -8,7 +9,7 @@ import { callService } from "@/lib/wails";
  */
 export function useAppInfo() {
   return useQuery({
-    queryKey: ["app", "info"],
+    queryKey: queryKeys.app.info,
     queryFn: () => callService(() => AppService.AppInfo()),
   });
 }
@@ -21,7 +22,7 @@ export function useAppInfo() {
  */
 export function useStartup() {
   return useQuery({
-    queryKey: ["app", "startup"],
+    queryKey: queryKeys.app.startup,
     queryFn: () => callService(() => AppService.Startup()),
   });
 }

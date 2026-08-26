@@ -2,11 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service as HistoryService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history";
 import type { ChangeCommandRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { callService } from "@/lib/wails";
-import { overviewQueryKey } from "@/queries/portfolio";
+import { queryKeys } from "@/queries/keys";
+import { invalidateActivityChange, invalidateHistoryReads } from "@/queries/invalidation";
 
 export function useHistoryOrigin() {
   return useQuery({
-    queryKey: ["history", "origin"],
+    queryKey: queryKeys.history.origin,
     queryFn: () => callService(() => HistoryService.HistoryOrigin()),
   });
 }
@@ -15,13 +16,13 @@ export function useStartHistory() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (timezone: string) => callService(() => HistoryService.StartHistory(timezone)),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["history"] }),
+    onSuccess: () => invalidateHistoryReads(queryClient),
   });
 }
 
 export function useListActivities(limit = 50) {
   return useQuery({
-    queryKey: ["history", "activities", limit],
+    queryKey: queryKeys.history.activities(limit),
     queryFn: () => callService(() => HistoryService.ListActivities(limit)),
   });
 }
@@ -49,18 +50,22 @@ export function usePreviewFixChange() {
   });
 }
 
-function invalidateHistoryData(queryClient: ReturnType<typeof useQueryClient>) {
-  void queryClient.invalidateQueries({ queryKey: ["history"] });
-  void queryClient.invalidateQueries({ queryKey: overviewQueryKey });
-  void queryClient.invalidateQueries({ queryKey: ["accounts"] });
-  void queryClient.invalidateQueries({ queryKey: ["holdings"] });
+function affectedAccountIds(request: ChangeCommandRequest): string[] {
+  return [...new Set([
+    request.accountId,
+    request.fromAccountId,
+    request.toAccountId,
+    request.settlementAccountId,
+    request.debtAccountId,
+    request.cashAccountId,
+  ].filter((id): id is string => Boolean(id)))];
 }
 
 export function useRecordChange() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: ChangeCommandRequest) => callService(() => HistoryService.RecordChange(request)),
-    onSuccess: () => invalidateHistoryData(queryClient),
+    onSuccess: (_data, variables) => invalidateActivityChange(queryClient, affectedAccountIds(variables)),
   });
 }
 
@@ -68,7 +73,7 @@ export function useUndoChange() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (activityId: string) => callService(() => HistoryService.UndoChange(activityId)),
-    onSuccess: () => invalidateHistoryData(queryClient),
+    onSuccess: () => invalidateActivityChange(queryClient),
   });
 }
 
@@ -77,6 +82,6 @@ export function useFixChange() {
   return useMutation({
     mutationFn: ({ activityId, replacement }: { activityId: string; replacement: ChangeCommandRequest }) =>
       callService(() => HistoryService.FixChange(activityId, replacement)),
-    onSuccess: () => invalidateHistoryData(queryClient),
+    onSuccess: (_data, variables) => invalidateActivityChange(queryClient, affectedAccountIds(variables.replacement)),
   });
 }

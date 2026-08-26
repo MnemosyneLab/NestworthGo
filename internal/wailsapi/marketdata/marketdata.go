@@ -40,15 +40,21 @@ type Service struct {
 	app    *application.Service
 	events EventEmitter
 
-	mu      sync.Mutex
-	cancels map[string]context.CancelFunc
+	mu        sync.Mutex
+	nextToken uint64
+	cancels   map[string]refreshRegistration
+}
+
+type refreshRegistration struct {
+	cancel context.CancelFunc
+	token  uint64
 }
 
 func NewService(app *application.Service, events EventEmitter) *Service {
 	if events == nil {
 		events = noopEmitter{}
 	}
-	return &Service{app: app, events: events, cancels: make(map[string]context.CancelFunc)}
+	return &Service{app: app, events: events, cancels: make(map[string]refreshRegistration)}
 }
 
 // RefreshTargetResultDTO mirrors application.RefreshTargetResult.
@@ -130,16 +136,34 @@ type RefreshCompletedPayload struct {
 	Error     string            `json:"error,omitempty"`
 }
 
-func (s *Service) registerCancel(requestID string, cancel context.CancelFunc) {
+// registerCancel atomically replaces the active request for an ID. The old
+// context is cancelled after the new registration is visible, so an old
+// worker cannot later remove or complete the replacement request.
+func (s *Service) registerCancel(requestID string, cancel context.CancelFunc) uint64 {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.cancels[requestID] = cancel
+	previous := s.cancels[requestID]
+	s.nextToken++
+	token := s.nextToken
+	s.cancels[requestID] = refreshRegistration{cancel: cancel, token: token}
+	s.mu.Unlock()
+	if previous.cancel != nil {
+		previous.cancel()
+	}
+	return token
 }
 
-func (s *Service) clearCancel(requestID string) {
+// emitIfCurrent drops stale completions and clears only the registration that
+// produced this completion. Emitting while holding the small lifecycle lock
+// also keeps completion ordering deterministic against a replacement.
+func (s *Service) emitIfCurrent(requestID string, token uint64, payload RefreshCompletedPayload) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	current, ok := s.cancels[requestID]
+	if !ok || current.token != token {
+		return
+	}
 	delete(s.cancels, requestID)
+	s.events.Emit(RefreshCompletedEvent, payload)
 }
 
 // CancelRefresh cancels the in-flight refresh started under requestID, if
@@ -148,20 +172,19 @@ func (s *Service) clearCancel(requestID string) {
 // event to decide whether cancellation is still meaningful.
 func (s *Service) CancelRefresh(requestID string) {
 	s.mu.Lock()
-	cancel, ok := s.cancels[requestID]
+	registration, ok := s.cancels[requestID]
 	delete(s.cancels, requestID)
 	s.mu.Unlock()
 	if ok {
-		cancel()
+		registration.cancel()
 	}
 }
 
 func (s *Service) runAsync(requestID string, run func(context.Context) (application.RefreshResult, error)) {
 	ctx, cancel := context.WithCancel(context.Background())
-	s.registerCancel(requestID, cancel)
+	token := s.registerCancel(requestID, cancel)
 	go func() {
 		defer cancel()
-		defer s.clearCancel(requestID)
 		result, err := run(ctx)
 		payload := RefreshCompletedPayload{RequestID: requestID}
 		if err != nil {
@@ -170,8 +193,13 @@ func (s *Service) runAsync(requestID string, run func(context.Context) (applicat
 			dto := fromRefreshResult(result)
 			payload.Result = &dto
 		}
-		s.events.Emit(RefreshCompletedEvent, payload)
+		s.emitIfCurrent(requestID, token, payload)
 	}()
+}
+
+func (s *Service) emitImmediate(requestID string, err error) {
+	token := s.registerCancel(requestID, func() {})
+	s.emitIfCurrent(requestID, token, RefreshCompletedPayload{RequestID: requestID, Error: apierror.Wrap(err).Error()})
 }
 
 // StartRefreshAll launches RefreshAll in a goroutine and returns
@@ -187,7 +215,7 @@ func (s *Service) StartRefreshRequiredFX(requestID string) {
 func (s *Service) StartRefreshInstrument(requestID, instrumentID string) {
 	id, err := domain.ParseInstrumentID(instrumentID)
 	if err != nil {
-		s.events.Emit(RefreshCompletedEvent, RefreshCompletedPayload{RequestID: requestID, Error: apierror.Wrap(err).Error()})
+		s.emitImmediate(requestID, err)
 		return
 	}
 	s.runAsync(requestID, func(ctx context.Context) (application.RefreshResult, error) {

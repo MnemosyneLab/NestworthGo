@@ -20,7 +20,7 @@ func TestAccountFiltersLatestValueAndMediaAttachment(t *testing.T) {
 		t.Fatalf("open database: %v", err)
 	}
 	defer database.Close()
-	service := NewService(sqlite.NewRepository(database))
+	service := NewServiceWithImageNormalizer(sqlite.NewRepository(database), media.Normalizer{})
 	clock := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
@@ -62,6 +62,9 @@ func TestAccountFiltersLatestValueAndMediaAttachment(t *testing.T) {
 	if err != nil || len(institutions) != 1 || institutions[0].IconKey == nil || *institutions[0].IconKey != "home" {
 		t.Fatalf("reloaded institution icon = %#v, err = %v", institutions, err)
 	}
+	if !institutions[0].UpdatedAt.Equal(clock) {
+		t.Fatalf("institution UpdatedAt = %s, want injected clock %s", institutions[0].UpdatedAt, clock)
+	}
 	groups, err := service.ListGroups(ctx, true)
 	if err != nil || len(groups) != 1 || groups[0].IconKey == nil || *groups[0].IconKey != "folder" {
 		t.Fatalf("reloaded group icon = %#v, err = %v", groups, err)
@@ -73,6 +76,9 @@ func TestAccountFiltersLatestValueAndMediaAttachment(t *testing.T) {
 	for _, account := range accountsWithIcons {
 		if account.Account.ID == withRefs.Account.ID && (account.Account.IconKey == nil || *account.Account.IconKey != "wallet") {
 			t.Fatalf("reloaded account icon = %#v", account.Account.IconKey)
+		}
+		if account.Account.ID == withRefs.Account.ID && !account.Account.UpdatedAt.Equal(clock) {
+			t.Fatalf("account UpdatedAt = %s, want injected clock %s", account.Account.UpdatedAt, clock)
 		}
 	}
 	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Other", PrimaryCategory: "cash_equivalent", SecondaryCategory: "cash", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "5"}); err != nil {

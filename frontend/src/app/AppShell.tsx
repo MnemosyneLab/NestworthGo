@@ -8,6 +8,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { SUPPORTED_LANGUAGES, setLanguage } from "@/i18n";
 import { useAppInfo } from "@/queries/app";
+import { useSaveSettings } from "@/queries/settings";
+import { displayError } from "@/lib/display";
+import { toast } from "sonner";
+import type { Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
 
 const APPEARANCE_ICONS: Record<Appearance, React.ComponentType<{ className?: string }>> = {
   system: Monitor,
@@ -15,15 +19,13 @@ const APPEARANCE_ICONS: Record<Appearance, React.ComponentType<{ className?: str
   dark: Moon,
 };
 
-function AppearanceToggle() {
+function AppearanceToggle({ appearance, disabled, onChange }: { appearance: Appearance; disabled: boolean; onChange: (appearance: Appearance) => void }) {
   const { t } = useTranslation();
-  const appearance = useUiStore((state) => state.appearance);
-  const setAppearance = useUiStore((state) => state.setAppearance);
   const order: Appearance[] = ["system", "light", "dark"];
 
   const cycle = () => {
     const next = order[(order.indexOf(appearance) + 1) % order.length];
-    setAppearance(next);
+    onChange(next);
   };
 
   const Icon = APPEARANCE_ICONS[appearance];
@@ -32,6 +34,7 @@ function AppearanceToggle() {
       variant="ghost"
       size="icon"
       onClick={cycle}
+      disabled={disabled}
       aria-label={t("ui.appearance.toggle")}
       title={t(`option.appearance.${appearance}`)}
     >
@@ -40,14 +43,15 @@ function AppearanceToggle() {
   );
 }
 
-function LanguageSwitcher() {
+function LanguageSwitcher({ language, disabled, onChange }: { language: string; disabled: boolean; onChange: (language: string) => void }) {
   const { t, i18n: i18nInstance } = useTranslation();
   return (
     <select
       aria-label={t("settings.language.language")}
       className="h-8 rounded-md border border-border bg-card px-2 text-xs text-foreground"
-      value={i18nInstance.language}
-      onChange={(event) => setLanguage(event.target.value)}
+      value={language === "system" ? i18nInstance.language : language}
+      onChange={(event) => onChange(event.target.value)}
+      disabled={disabled}
     >
       {SUPPORTED_LANGUAGES.map((language) => (
         <option key={language} value={language}>
@@ -61,6 +65,7 @@ function LanguageSwitcher() {
 export interface AppShellProps {
   activePageId: string;
   onNavigate: (pageId: string) => void;
+  settings: Settings;
   children: React.ReactNode;
 }
 
@@ -69,7 +74,7 @@ export interface AppShellProps {
  * inside. Navigation uses simple page-state rather than a router;
  * DEFAULT_PAGE_ID ("overview") is the product's default landing page.
  */
-export function AppShell({ activePageId, onNavigate, children }: AppShellProps) {
+export function AppShell({ activePageId, onNavigate, settings, children }: AppShellProps) {
   const { t } = useTranslation();
   useTheme();
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
@@ -77,6 +82,23 @@ export function AppShell({ activePageId, onNavigate, children }: AppShellProps) 
   // Exercises the queries/ -> lib/wails.callService -> generated-binding
   // pipeline end to end inside the real app shell.
   const appInfo = useAppInfo();
+  const saveSettings = useSaveSettings();
+  const setAppearance = useUiStore((state) => state.setAppearance);
+
+  const persistHeaderSetting = (patch: Partial<Settings>) => {
+    const next = { ...settings, ...patch };
+    if (patch.appearance) {
+      setAppearance(patch.appearance as Appearance);
+    }
+    if (patch.language) {
+      setLanguage(patch.language);
+    }
+    saveSettings.mutate(next, {
+      onError: (error) => {
+        toast.error(displayError(error, t("settings.saveError")));
+      },
+    });
+  };
 
   return (
     <div className="flex h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
@@ -140,8 +162,16 @@ export function AppShell({ activePageId, onNavigate, children }: AppShellProps) 
       </aside>
       <div className="flex flex-1 flex-col overflow-hidden">
         <header className="flex h-12 items-center justify-end gap-2 border-b border-border px-4">
-          <LanguageSwitcher />
-          <AppearanceToggle />
+          <LanguageSwitcher
+            language={settings.language}
+            disabled={saveSettings.isPending}
+            onChange={(language) => persistHeaderSetting({ language: language as Settings["language"] })}
+          />
+          <AppearanceToggle
+            appearance={settings.appearance as Appearance}
+            disabled={saveSettings.isPending}
+            onChange={(appearance) => persistHeaderSetting({ appearance: appearance as Settings["appearance"] })}
+          />
         </header>
         <main id="main-content" className="flex-1 overflow-auto p-6 sm:p-8">
           <div className="mx-auto w-full max-w-7xl">{children}</div>

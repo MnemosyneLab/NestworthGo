@@ -114,7 +114,7 @@ func TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain(t *testing.T) {
 	if _, err := fixture.service.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	if err := fixture.repository.SetInstrumentQuoteSource(ctx, fixture.qqq.HouseholdID, fixture.qqq.ID, domain.QuoteSourceProvider); err != nil {
+	if err := fixture.repository.SetInstrumentQuoteSource(ctx, fixture.qqq.HouseholdID, fixture.qqq.ID, domain.QuoteSourceProvider, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	view, err := fixture.service.HoldingGain(ctx, findHoldingForInstrument(t, fixture.repository, fixture.account.Account.ID, fixture.qqq.ID))

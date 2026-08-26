@@ -6,31 +6,24 @@ import type {
   UpdateAccountRequest,
 } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import { callService } from "@/lib/wails";
-import { overviewQueryKey } from "@/queries/portfolio";
-import { bootstrapQueryKey } from "@/queries/household";
+import { queryKeys, normalizeAccountFilter } from "@/queries/keys";
+import { invalidateAccountChange } from "@/queries/invalidation";
 
-export const accountsQueryKey = (filter: AccountFilterRequest) => ["accounts", filter] as const;
+export const accountsQueryKey = queryKeys.accounts.list;
 
 export function useAccounts(filter: AccountFilterRequest = {}) {
+  const normalizedFilter = normalizeAccountFilter(filter);
   return useQuery({
-    queryKey: accountsQueryKey(filter),
-    queryFn: () => callService(() => AccountService.ListAccounts(filter)),
+    queryKey: accountsQueryKey(normalizedFilter),
+    queryFn: () => callService(() => AccountService.ListAccounts(normalizedFilter)),
   });
-}
-
-/** invalidateAccountData is shared by every Account mutation below because an
- * Account change can move Overview's net worth and related history data. */
-function invalidateAccountData(queryClient: ReturnType<typeof useQueryClient>) {
-  void queryClient.invalidateQueries({ queryKey: ["accounts"] });
-  void queryClient.invalidateQueries({ queryKey: overviewQueryKey });
-  void queryClient.invalidateQueries({ queryKey: bootstrapQueryKey });
 }
 
 export function useCreateAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: CreateAccountRequest) => callService(() => AccountService.CreateAccount(request)),
-    onSuccess: () => invalidateAccountData(queryClient),
+    onSuccess: () => invalidateAccountChange(queryClient),
   });
 }
 
@@ -39,7 +32,7 @@ export function useUpdateAccount() {
   return useMutation({
     mutationFn: ({ id, request }: { id: string; request: UpdateAccountRequest }) =>
       callService(() => AccountService.UpdateAccount(id, request)),
-    onSuccess: () => invalidateAccountData(queryClient),
+    onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
   });
 }
 
@@ -48,7 +41,7 @@ export function useArchiveAccount() {
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) =>
       callService(() => AccountService.ArchiveAccount(id, archived)),
-    onSuccess: () => invalidateAccountData(queryClient),
+    onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
   });
 }
 
@@ -57,7 +50,7 @@ export function useAppendAccountValue() {
   return useMutation({
     mutationFn: ({ id, amount, effectiveAt }: { id: string; amount: string; effectiveAt: string }) =>
       callService(() => AccountService.AppendAccountValue(id, amount, effectiveAt)),
-    onSuccess: () => invalidateAccountData(queryClient),
+    onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
   });
 }
 
@@ -66,7 +59,7 @@ export function useSetAccountLogo() {
   return useMutation({
     mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
       callService(() => AccountService.SetAccountLogo(id, mediaAssetId)),
-    onSuccess: () => invalidateAccountData(queryClient),
+    onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
   });
 }
 
@@ -75,7 +68,7 @@ export function useSetAccountIcon() {
   return useMutation({
     mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
       callService(() => AccountService.SetAccountIcon(id, iconKey)),
-    onSuccess: () => invalidateAccountData(queryClient),
+    onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
   });
 }
 

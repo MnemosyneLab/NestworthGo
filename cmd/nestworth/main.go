@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -17,6 +18,7 @@ import (
 	nestworthapp "github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/version"
@@ -88,7 +90,7 @@ func main() {
 			marketdata.NewFrankfurterProvider(nil),
 			marketdata.NewYahooChartProvider(nil),
 		)
-		service = nestworthapp.NewService(sqlite.NewRepository(database), registry)
+		service = nestworthapp.NewServiceWithImageNormalizer(sqlite.NewRepository(database), media.Normalizer{}, registry)
 		if err := service.SetFXProvider(preference.FXProvider); err != nil {
 			// Fall back for this session only: the persisted choice stays on
 			// disk so a transient provider failure cannot rewrite the user's
@@ -139,7 +141,7 @@ func main() {
 		URL: "/",
 	})
 	window.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
-		persistWindowSize(store, preference, window)
+		persistWindowSize(store, window)
 	})
 
 	if err := app.Run(); err != nil {
@@ -177,20 +179,28 @@ func services(service *nestworthapp.Service, store *settings.Store, emitter wail
 	)
 }
 
-func persistWindowSize(store *settings.Store, preference settings.Settings, window *application.WebviewWindow) {
+func persistWindowSize(store *settings.Store, window *application.WebviewWindow) {
 	width, height := window.Size()
 	if width <= 0 || height <= 0 {
 		return
+	}
+	if err := persistWindowSizeValue(store, width, height); err != nil {
+		slog.Warn("could not persist window size", "error", err)
+	}
+}
+
+func persistWindowSizeValue(store *settings.Store, width, height int) error {
+	preference, err := store.Load()
+	if err != nil {
+		return fmt.Errorf("load settings before persisting window size: %w", err)
 	}
 	preference.WindowWidth = float32(width)
 	preference.WindowHeight = float32(height)
 	if err := preference.Validate(); err != nil {
 		slog.Warn("window size out of persisted bounds; not saving", "error", err, "width", width, "height", height)
-		return
+		return err
 	}
-	if err := store.Save(preference); err != nil {
-		slog.Warn("could not persist window size", "error", err)
-	}
+	return store.Save(preference)
 }
 
 func defaultDatabasePath() string {

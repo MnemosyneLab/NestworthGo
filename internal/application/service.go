@@ -10,8 +10,15 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 )
+
+// ImageNormalizer is the application port for bounded image decoding and
+// PNG normalization. Infrastructure owns the concrete implementation so the
+// application layer does not depend on a storage or codec package.
+type ImageNormalizer interface {
+	Normalize([]byte) ([]byte, error)
+	ReadAndNormalize(io.Reader) ([]byte, error)
+}
 
 // Repository is the application boundary implemented by infrastructure.
 type Repository interface {
@@ -32,13 +39,13 @@ type Repository interface {
 	SetGroupArchive(context.Context, domain.HouseholdID, domain.GroupID, bool, time.Time) error
 	CreateMediaAsset(context.Context, domain.MediaAsset) error
 	MediaAsset(context.Context, domain.HouseholdID, domain.MediaAssetID) (domain.MediaAsset, error)
-	SetMemberAvatar(context.Context, domain.HouseholdID, domain.MemberID, domain.MediaAssetID) error
-	SetInstitutionLogo(context.Context, domain.HouseholdID, domain.InstitutionID, domain.MediaAssetID) error
-	SetGroupLogo(context.Context, domain.HouseholdID, domain.GroupID, domain.MediaAssetID) error
-	SetAccountLogo(context.Context, domain.HouseholdID, domain.AccountID, domain.MediaAssetID) error
-	SetInstitutionIcon(context.Context, domain.HouseholdID, domain.InstitutionID, string) error
-	SetGroupIcon(context.Context, domain.HouseholdID, domain.GroupID, string) error
-	SetAccountIcon(context.Context, domain.HouseholdID, domain.AccountID, string) error
+	SetMemberAvatar(context.Context, domain.HouseholdID, domain.MemberID, domain.MediaAssetID, time.Time) error
+	SetInstitutionLogo(context.Context, domain.HouseholdID, domain.InstitutionID, domain.MediaAssetID, time.Time) error
+	SetGroupLogo(context.Context, domain.HouseholdID, domain.GroupID, domain.MediaAssetID, time.Time) error
+	SetAccountLogo(context.Context, domain.HouseholdID, domain.AccountID, domain.MediaAssetID, time.Time) error
+	SetInstitutionIcon(context.Context, domain.HouseholdID, domain.InstitutionID, string, time.Time) error
+	SetGroupIcon(context.Context, domain.HouseholdID, domain.GroupID, string, time.Time) error
+	SetAccountIcon(context.Context, domain.HouseholdID, domain.AccountID, string, time.Time) error
 	CreateAccount(context.Context, domain.Account, domain.Ownership, *domain.AccountValue) error
 	CreateAccountWithActivity(context.Context, domain.Account, domain.Ownership, *domain.AccountValue, domain.ActivityCommit, time.Time) error
 	CreateAccountWithHistory(context.Context, domain.Account, domain.Ownership, *domain.AccountValue, domain.AccountStateObservation, *domain.ActivityCommit, time.Time) error
@@ -57,8 +64,8 @@ type Repository interface {
 	Instrument(context.Context, domain.HouseholdID, domain.InstrumentID) (domain.Instrument, error)
 	ListInstruments(context.Context, domain.HouseholdID, bool) ([]domain.Instrument, error)
 	SetInstrumentArchive(context.Context, domain.HouseholdID, domain.InstrumentID, bool, time.Time) error
-	SetInstrumentLogo(context.Context, domain.HouseholdID, domain.InstrumentID, domain.MediaAssetID) error
-	SetInstrumentQuoteSource(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind) error
+	SetInstrumentLogo(context.Context, domain.HouseholdID, domain.InstrumentID, domain.MediaAssetID, time.Time) error
+	SetInstrumentQuoteSource(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, time.Time) error
 	SetInstrumentQuoteSourceWithObservation(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, domain.InstrumentPreferenceObservation) error
 	CreateHolding(context.Context, domain.Holding) error
 	CreateHoldingWithActivity(context.Context, domain.Holding, domain.ActivityCommit, time.Time) error
@@ -112,7 +119,8 @@ type Repository interface {
 }
 
 type Service struct {
-	repository Repository
+	repository      Repository
+	imageNormalizer ImageNormalizer
 
 	// stateMu guards the mutable service configuration below so a refresh
 	// worker reading it never races a concurrent setter.
@@ -129,6 +137,15 @@ func NewService(repository Repository, registries ...MarketDataRegistryPort) *Se
 	if len(registries) > 0 {
 		service.marketData = registries[0]
 	}
+	return service
+}
+
+// NewServiceWithImageNormalizer wires the concrete image boundary without
+// making application depend on infrastructure/media. NewService remains
+// available for callers that do not use image operations.
+func NewServiceWithImageNormalizer(repository Repository, normalizer ImageNormalizer, registries ...MarketDataRegistryPort) *Service {
+	service := NewService(repository, registries...)
+	service.imageNormalizer = normalizer
 	return service
 }
 
@@ -230,6 +247,21 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 	return Bootstrap{Household: household, Members: members, Institutions: institutions, Groups: groups}, nil
 }
 
+// requireHousehold is the identity-only gate for mutations and media reads
+// that need the current Household ID but do not validate directory references.
+// Keep Bootstrap for callers that genuinely need active Members, Institutions,
+// or Groups.
+func (s *Service) requireHousehold(ctx context.Context) (domain.Household, error) {
+	household, err := s.repository.Household(ctx)
+	if err != nil {
+		return domain.Household{}, err
+	}
+	if household == nil {
+		return domain.Household{}, onboardingRequired()
+	}
+	return *household, nil
+}
+
 type OnboardingInput struct {
 	HouseholdName string
 	BaseCurrency  string
@@ -284,14 +316,11 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 }
 
 func (s *Service) CreateMember(ctx context.Context, name string) (domain.Member, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Member{}, err
 	}
-	if bootstrap.Household == nil {
-		return domain.Member{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	member, err := domain.NewMember(bootstrap.Household.ID, name, s.clock())
+	member, err := domain.NewMember(household.ID, name, s.clock())
 	if err != nil {
 		return domain.Member{}, err
 	}
@@ -323,25 +352,19 @@ func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name str
 }
 
 func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archived bool) error {
-	bootstrap, err := s.Bootstrap(ctx)
-	if err != nil || bootstrap.Household == nil {
-		if err != nil {
-			return err
-		}
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return err
 	}
-	return s.repository.SetMemberArchive(ctx, bootstrap.Household.ID, id, archived, s.clock())
+	return s.repository.SetMemberArchive(ctx, household.ID, id, archived, s.clock())
 }
 
 func (s *Service) CreateInstitution(ctx context.Context, name string, iconKeys ...string) (domain.Institution, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Institution{}, err
 	}
-	if bootstrap.Household == nil {
-		return domain.Institution{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	institution, err := domain.NewInstitution(bootstrap.Household.ID, name, s.clock())
+	institution, err := domain.NewInstitution(household.ID, name, s.clock())
 	if err != nil {
 		return domain.Institution{}, err
 	}
@@ -380,25 +403,19 @@ func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID
 }
 
 func (s *Service) ArchiveInstitution(ctx context.Context, id domain.InstitutionID, archived bool) error {
-	bootstrap, err := s.Bootstrap(ctx)
-	if err != nil || bootstrap.Household == nil {
-		if err != nil {
-			return err
-		}
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return err
 	}
-	return s.repository.SetInstitutionArchive(ctx, bootstrap.Household.ID, id, archived, s.clock())
+	return s.repository.SetInstitutionArchive(ctx, household.ID, id, archived, s.clock())
 }
 
 func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...string) (domain.Group, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Group{}, err
 	}
-	if bootstrap.Household == nil {
-		return domain.Group{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	group, err := domain.NewGroup(bootstrap.Household.ID, name, s.clock())
+	group, err := domain.NewGroup(household.ID, name, s.clock())
 	if err != nil {
 		return domain.Group{}, err
 	}
@@ -437,32 +454,29 @@ func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name strin
 }
 
 func (s *Service) ArchiveGroup(ctx context.Context, id domain.GroupID, archived bool) error {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if bootstrap.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetGroupArchive(ctx, bootstrap.Household.ID, id, archived, s.clock())
+	return s.repository.SetGroupArchive(ctx, household.ID, id, archived, s.clock())
 }
 
 func (s *Service) CreateMediaAsset(ctx context.Context, mimeType string, data []byte) (domain.MediaAsset, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.MediaAsset{}, err
-	}
-	if bootstrap.Household == nil {
-		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
 	if mimeType != "image/png" && mimeType != "image/jpeg" && mimeType != "image/webp" {
 		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrValidation, Field: "mimeType", Message: "unsupported image type"}
 	}
-	normalized, normalizeErr := media.Normalize(data)
-	if normalizeErr != nil {
-		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrValidation, Field: "data", Message: "image is invalid or exceeds the local size limit"}
+	if s.imageNormalizer == nil {
+		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrUnavailable, Field: "image", Message: "image normalization is not configured"}
 	}
-	asset := domain.MediaAsset{ID: domain.NewMediaAssetID(), HouseholdID: bootstrap.Household.ID, MimeType: "image/png", Data: normalized, CreatedAt: s.clock()}
+	normalized, normalizeErr := s.imageNormalizer.Normalize(data)
+	if normalizeErr != nil {
+		return domain.MediaAsset{}, normalizeErr
+	}
+	asset := domain.MediaAsset{ID: domain.NewMediaAssetID(), HouseholdID: household.ID, MimeType: "image/png", Data: normalized, CreatedAt: s.clock()}
 	if err := s.repository.CreateMediaAsset(ctx, asset); err != nil {
 		return domain.MediaAsset{}, err
 	}
@@ -473,91 +487,76 @@ func (s *Service) CreateMediaAsset(ctx context.Context, mimeType string, data []
 // persisting anything. The UI calls this at pick time; persistence happens
 // via CreateMediaAsset when the user confirms the surrounding form.
 func (s *Service) NormalizeImage(reader io.Reader) ([]byte, error) {
-	return media.ReadAndNormalize(reader)
+	if s.imageNormalizer == nil {
+		return nil, &domain.Error{Code: domain.ErrUnavailable, Field: "image", Message: "image normalization is not configured"}
+	}
+	return s.imageNormalizer.ReadAndNormalize(reader)
 }
 
 func (s *Service) MediaAsset(ctx context.Context, id domain.MediaAssetID) (domain.MediaAsset, error) {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.MediaAsset{}, err
 	}
-	if b.Household == nil {
-		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.MediaAsset(ctx, b.Household.ID, id)
+	return s.repository.MediaAsset(ctx, household.ID, id)
 }
 func (s *Service) SetMemberAvatar(ctx context.Context, id domain.MemberID, asset domain.MediaAssetID) error {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetMemberAvatar(ctx, b.Household.ID, id, asset)
+	return s.repository.SetMemberAvatar(ctx, household.ID, id, asset, s.clock())
 }
 func (s *Service) SetInstitutionLogo(ctx context.Context, id domain.InstitutionID, asset domain.MediaAssetID) error {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetInstitutionLogo(ctx, b.Household.ID, id, asset)
+	return s.repository.SetInstitutionLogo(ctx, household.ID, id, asset, s.clock())
 }
 func (s *Service) SetGroupLogo(ctx context.Context, id domain.GroupID, asset domain.MediaAssetID) error {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetGroupLogo(ctx, b.Household.ID, id, asset)
+	return s.repository.SetGroupLogo(ctx, household.ID, id, asset, s.clock())
 }
 func (s *Service) SetAccountLogo(ctx context.Context, id domain.AccountID, asset domain.MediaAssetID) error {
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return s.repository.SetAccountLogo(ctx, b.Household.ID, id, asset)
+	return s.repository.SetAccountLogo(ctx, household.ID, id, asset, s.clock())
 }
 
 func (s *Service) SetInstitutionIcon(ctx context.Context, id domain.InstitutionID, iconKey string) error {
-	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string) error {
-		return s.repository.SetInstitutionIcon(ctx, householdID, id, normalized)
+	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
+		return s.repository.SetInstitutionIcon(ctx, householdID, id, normalized, now)
 	})
 }
 
 func (s *Service) SetGroupIcon(ctx context.Context, id domain.GroupID, iconKey string) error {
-	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string) error {
-		return s.repository.SetGroupIcon(ctx, householdID, id, normalized)
+	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
+		return s.repository.SetGroupIcon(ctx, householdID, id, normalized, now)
 	})
 }
 
 func (s *Service) SetAccountIcon(ctx context.Context, id domain.AccountID, iconKey string) error {
-	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string) error {
-		return s.repository.SetAccountIcon(ctx, householdID, id, normalized)
+	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
+		return s.repository.SetAccountIcon(ctx, householdID, id, normalized, now)
 	})
 }
 
-func (s *Service) setIcon(ctx context.Context, iconKey string, save func(domain.HouseholdID, string) error) error {
+func (s *Service) setIcon(ctx context.Context, iconKey string, save func(domain.HouseholdID, string, time.Time) error) error {
 	normalized, err := normalizeIconKey(iconKey)
 	if err != nil {
 		return err
 	}
-	b, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if b.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
-	return save(b.Household.ID, normalized)
+	return save(household.ID, normalized, s.clock())
 }
 
 type AccountInput struct {
@@ -957,16 +956,13 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 }
 
 func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archived bool) error {
-	bootstrap, err := s.Bootstrap(ctx)
+	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	if bootstrap.Household == nil {
-		return &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
-	}
 	s.changeMu.Lock()
 	defer s.changeMu.Unlock()
-	records, err := s.repository.ListAccountRecords(ctx, bootstrap.Household.ID, domain.AccountFilter{IncludeArchived: true})
+	records, err := s.repository.ListAccountRecords(ctx, household.ID, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return err
 	}
@@ -991,9 +987,9 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 		return observationErr
 	}
 	if observation.ID != "" {
-		return s.repository.SetAccountArchiveWithObservation(ctx, bootstrap.Household.ID, id, archived, now, observation)
+		return s.repository.SetAccountArchiveWithObservation(ctx, household.ID, id, archived, now, observation)
 	}
-	return s.repository.SetAccountArchive(ctx, bootstrap.Household.ID, id, archived, now)
+	return s.repository.SetAccountArchive(ctx, household.ID, id, archived, now)
 }
 
 func (s *Service) AccountValuation(ctx context.Context, id domain.AccountID) (domain.AccountValuation, error) {

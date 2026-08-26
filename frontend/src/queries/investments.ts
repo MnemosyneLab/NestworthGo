@@ -5,12 +5,18 @@ import { Service as HoldingService } from "../../bindings/github.com/waltwang/ne
 import type { CreateHoldingRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding/models";
 import { Service as QuoteService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote";
 import { callService } from "@/lib/wails";
-import { overviewQueryKey } from "@/queries/portfolio";
+import { normalizeAccountIds, queryKeys } from "@/queries/keys";
+import {
+  invalidateHoldingChange,
+  invalidateInstrumentQuoteChange,
+  invalidateInstrumentReads,
+} from "@/queries/invalidation";
 
 export function useInstruments(includeArchived = false) {
+  const normalizedIncludeArchived = Boolean(includeArchived);
   return useQuery({
-    queryKey: ["instruments", includeArchived],
-    queryFn: () => callService(() => InstrumentService.ListInstruments(includeArchived)),
+    queryKey: queryKeys.instruments.list(normalizedIncludeArchived),
+    queryFn: () => callService(() => InstrumentService.ListInstruments(normalizedIncludeArchived)),
   });
 }
 
@@ -18,7 +24,7 @@ export function useCreateInstrument() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: InstrumentRequest) => callService(() => InstrumentService.CreateInstrument(request)),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["instruments"] }),
+    onSuccess: () => invalidateInstrumentReads(queryClient),
   });
 }
 
@@ -26,28 +32,24 @@ export function useArchiveInstrument() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) => callService(() => InstrumentService.ArchiveInstrument(id, archived)),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["instruments"] }),
+    onSuccess: () => invalidateInstrumentReads(queryClient),
   });
 }
 
 export function useHoldingsByAccounts(accountIds: string[]) {
+  const normalizedAccountIds = normalizeAccountIds(accountIds);
   return useQuery({
-    queryKey: ["holdings", "byAccounts", accountIds],
-    queryFn: () => callService(() => HoldingService.HoldingsByAccounts(accountIds)),
-    enabled: accountIds.length > 0,
+    queryKey: queryKeys.holdings.byAccounts(normalizedAccountIds),
+    queryFn: () => callService(() => HoldingService.HoldingsByAccounts(normalizedAccountIds)),
+    enabled: normalizedAccountIds.length > 0,
   });
-}
-
-function invalidateHoldingData(queryClient: ReturnType<typeof useQueryClient>) {
-  void queryClient.invalidateQueries({ queryKey: ["holdings"] });
-  void queryClient.invalidateQueries({ queryKey: overviewQueryKey });
 }
 
 export function useCreateHolding() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (request: CreateHoldingRequest) => callService(() => HoldingService.CreateHolding(request)),
-    onSuccess: () => invalidateHoldingData(queryClient),
+    onSuccess: (_data, variables) => invalidateHoldingChange(queryClient, variables.accountId),
   });
 }
 
@@ -55,7 +57,7 @@ export function useArchiveHolding() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) => callService(() => HoldingService.ArchiveHolding(id, archived)),
-    onSuccess: () => invalidateHoldingData(queryClient),
+    onSuccess: () => invalidateHoldingChange(queryClient),
   });
 }
 
@@ -86,7 +88,7 @@ export function useAllHoldingsFlat(accountIds: string[]) {
 
 export function useCurrentInstrumentQuote(instrumentId: string) {
   return useQuery({
-    queryKey: ["quote", "instrument", instrumentId],
+    queryKey: queryKeys.quote.instrument.current(instrumentId),
     queryFn: () => callService(() => QuoteService.CurrentInstrumentQuote(instrumentId)),
     enabled: Boolean(instrumentId),
   });
@@ -97,9 +99,8 @@ export function useSaveManualInstrumentQuote() {
   return useMutation({
     mutationFn: ({ instrumentId, unitPrice, quotedAt }: { instrumentId: string; unitPrice: string; quotedAt: string }) =>
       callService(() => QuoteService.SaveManualInstrumentQuote(instrumentId, unitPrice, quotedAt)),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["quote"] });
-      invalidateHoldingData(queryClient);
+    onSuccess: (_data, variables) => {
+      invalidateInstrumentQuoteChange(queryClient, variables.instrumentId);
     },
   });
 }
