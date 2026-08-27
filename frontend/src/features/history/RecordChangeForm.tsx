@@ -169,6 +169,9 @@ export function RecordChangeForm({
   }));
   const instrumentOptions = (instruments.data ?? []).map((instrument) => ({ id: instrument.id, name: instrument.name }));
 
+  const matchingHoldingId = (accountId: string, instrumentId: string) =>
+    holdings.data.find((holding) => holding.accountId === accountId && holding.instrumentId === instrumentId)?.id ?? "";
+
   const kind = request.kind;
   const showReason = kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved || kind === ChangeCommandKind.ChangeValueUpdate;
   const reasonOptions =
@@ -291,8 +294,34 @@ export function RecordChangeForm({
 
       {kind === ChangeCommandKind.ChangeTrade && (
         <>
-          <AccountSelect id="change-settlement-account" label={t("history.settlementAccount")} value={request.settlementAccountId ?? ""} onChange={(settlementAccountId) => patch({ settlementAccountId })} accounts={holdingsAccountOptions} />
-          <OptionSelect id="change-instrument" label={t("history.instrument")} value={request.instrumentId ?? ""} emptyLabel={t("history.selectEmpty")} options={instrumentOptions} onChange={(instrumentId) => patch({ instrumentId })} />
+          <AccountSelect
+            id="change-settlement-account"
+            label={t("history.settlementAccount")}
+            value={request.settlementAccountId ?? ""}
+            onChange={(settlementAccountId) =>
+              patch({
+                settlementAccountId,
+                holdingId: matchingHoldingId(settlementAccountId, request.instrumentId ?? ""),
+              })
+            }
+            accounts={holdingsAccountOptions}
+          />
+          <OptionSelect
+            id="change-instrument"
+            label={t("history.instrument")}
+            value={request.instrumentId ?? ""}
+            emptyLabel={t("history.selectEmpty")}
+            options={instrumentOptions}
+            onChange={(instrumentId) => {
+              const currency = (instruments.data ?? []).find((instrument) => instrument.id === instrumentId)?.quoteCurrency ?? "USD";
+              patch({
+                instrumentId,
+                holdingId: matchingHoldingId(request.settlementAccountId ?? "", instrumentId),
+                grossCurrency: currency,
+                feeCurrency: currency,
+              });
+            }}
+          />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="change-side">{t("history.side")}</Label>
             <NativeSelect id="change-side" value={request.side ?? "buy"} onChange={(event) => patch({ side: event.target.value })}>

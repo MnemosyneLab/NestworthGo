@@ -169,7 +169,7 @@ func TestPreviewTradeValueUpdateAndNoChange(t *testing.T) {
 	quantity, _ := ParseQuantity("2")
 	gross, _ := ParseMoney("200", state.Accounts[broker].Currency)
 	fee, _ := ParseMoney("5", state.Accounts[broker].Currency)
-	preview, err := PreviewChange(state, TradeInput{HouseholdID: state.HouseholdID, Side: TradeBuy, SettlementAccountID: broker, HoldingID: qqq, InstrumentID: state.Holdings[qqq].InstrumentID, Quantity: quantity, Gross: gross, Fee: &fee})
+	preview, err := PreviewChange(state, TradeInput{HouseholdID: state.HouseholdID, Side: TradeBuy, SettlementAccountID: broker, InstrumentID: state.Holdings[qqq].InstrumentID, Quantity: quantity, Gross: gross, Fee: &fee})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -178,6 +178,9 @@ func TestPreviewTradeValueUpdateAndNoChange(t *testing.T) {
 	}
 	if preview.Activity.TradeDetail == nil || preview.Activity.TradeDetail.UnitPrice.Canonical() != "100" || preview.Activity.TradeDetail.Fee == nil {
 		t.Fatalf("trade detail = %+v", preview.Activity.TradeDetail)
+	}
+	if preview.Activity.TradeDetail.HoldingID != qqq {
+		t.Fatalf("trade resolved holding = %s, want %s", preview.Activity.TradeDetail.HoldingID, qqq)
 	}
 	updated, _ := ParseMoney("1000", state.Accounts[broker].Currency)
 	_, err = PreviewChange(state, ValueUpdateInput{HouseholdID: state.HouseholdID, AccountID: broker, NewValue: updated})

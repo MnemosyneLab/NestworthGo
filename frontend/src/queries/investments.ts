@@ -10,6 +10,7 @@ import {
   invalidateHoldingChange,
   invalidateInstrumentQuoteChange,
   invalidateInstrumentReads,
+  invalidateRequiredFX,
 } from "@/queries/invalidation";
 
 export function useInstruments(includeArchived = false) {
@@ -91,6 +92,24 @@ export function useCurrentFXQuote(currencyA: string, currencyB: string) {
     queryKey: queryKeys.quote.fx.current(currencyA, currencyB),
     queryFn: () => callService(() => QuoteService.CurrentFXQuote(currencyA, currencyB)),
     enabled: Boolean(currencyA) && Boolean(currencyB),
+  });
+}
+
+export function useFXPreferences() {
+  return useQuery({
+    queryKey: queryKeys.quote.fx.preferences,
+    queryFn: () => callService(() => QuoteService.ListFXPreferences()),
+  });
+}
+
+export function useSetFXPreference() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ currencyA, currencyB, source }: { currencyA: string; currencyB: string; source: string }) =>
+      callService(() => QuoteService.SetFXPreference(currencyA, currencyB, source)),
+    onSuccess: () => {
+      invalidateRequiredFX(queryClient);
+    },
   });
 }
 

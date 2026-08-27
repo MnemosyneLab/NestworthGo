@@ -148,7 +148,10 @@ func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
 	}
 	gross, _ := domain.ParseMoney("200", "USD")
 	fee, _ := domain.ParseMoney("5", "USD")
-	preview, err := service.RecordChange(ctx, domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: account.Account.ID, HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "2"), Gross: gross, Fee: &fee, EffectiveAt: clock})
+	// A client may identify the trade by its Account + Instrument pair. The
+	// existing active Holding must be reused instead of attempting to create a
+	// duplicate Holding during RecordChange.
+	preview, err := service.RecordChange(ctx, domain.TradeInput{HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: account.Account.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "2"), Gross: gross, Fee: &fee, EffectiveAt: clock})
 	if err != nil {
 		t.Fatal(err)
 	}

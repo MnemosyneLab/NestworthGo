@@ -12,6 +12,7 @@ const listAccounts = vi.fn();
 const createHolding = vi.fn();
 const holdingsByAccounts = vi.fn();
 const accountGain = vi.fn();
+const currentInstrumentQuote = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
   Service: {
@@ -33,7 +34,10 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/an
 const saveManualQuote = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
-  Service: { SaveManualInstrumentQuote: (...args: unknown[]) => saveManualQuote(...args) },
+  Service: {
+    SaveManualInstrumentQuote: (...args: unknown[]) => saveManualQuote(...args),
+    CurrentInstrumentQuote: (...args: unknown[]) => currentInstrumentQuote(...args),
+  },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: { ListAccounts: (...args: unknown[]) => listAccounts(...args) },
@@ -60,7 +64,9 @@ beforeEach(() => {
   holdingsByAccounts.mockReset();
   accountGain.mockReset();
   saveManualQuote.mockReset();
+  currentInstrumentQuote.mockReset();
   saveManualQuote.mockResolvedValue({ id: "q1", instrumentId: "i1", unitPrice: "131.70" });
+  currentInstrumentQuote.mockResolvedValue(null);
 
   listInstruments.mockResolvedValue([]);
   createInstrument.mockResolvedValue({ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" });
@@ -73,6 +79,25 @@ beforeEach(() => {
 });
 
 describe("InvestmentsPage", () => {
+  it("shows the latest saved instrument price in the instrument list", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "provider" }]);
+    currentInstrumentQuote.mockResolvedValue({
+      id: "q1",
+      instrumentId: "i1",
+      unitPrice: "131.70",
+      currency: "USD",
+      sourceKind: "provider",
+      sourceKey: "yahoo_finance",
+      quotedAt: "2024-01-01T00:00:00Z",
+      createdAt: "2024-01-01T00:00:00Z",
+      delayed: true,
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("Latest: $131.70")).toBeInTheDocument();
+  });
+
   it("creates an Instrument with manual quote source", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));

@@ -114,6 +114,7 @@ export function activityToInitialCommand(activity: ActivityDTO): ChangeCommandRe
       return {
         kind: ChangeCommandKind.ChangeTrade,
         settlementAccountId: principal?.accountId ?? "",
+        holdingId: detail?.holdingId ?? "",
         instrumentId: detail?.instrumentId ?? "",
         side: detail?.side ?? (activity.kind === "buy" ? "buy" : "sell"),
         quantity: detail?.quantity ?? "",
@@ -150,11 +151,29 @@ export function activityToInitialCommand(activity: ActivityDTO): ChangeCommandRe
 }
 
 export function emptyChangeRequest(kind: ChangeCommandKind): ChangeCommandRequest {
-  return {
+  const request: ChangeCommandRequest = {
     kind,
-    currency: "USD",
     added: true,
     note: null,
     reason: kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved || kind === ChangeCommandKind.ChangeValueUpdate ? "other" : "",
   };
+
+  switch (kind) {
+    case ChangeCommandKind.ChangeMoneyAdded:
+    case ChangeCommandKind.ChangeMoneyRemoved:
+      return { ...request, currency: "USD" };
+    case ChangeCommandKind.ChangeValueUpdate:
+      return { ...request, newValueCurrency: "USD" };
+    case ChangeCommandKind.ChangeCashTransfer:
+      return { ...request, sentCurrency: "USD", receivedCurrency: "USD" };
+    case ChangeCommandKind.ChangeFXConversion:
+      return { ...request, soldCurrency: "USD", boughtCurrency: "USD", feeCurrency: "USD" };
+    case ChangeCommandKind.ChangeTrade:
+      return { ...request, side: "buy", grossCurrency: "USD", feeCurrency: "USD" };
+    case ChangeCommandKind.ChangeDebtDraw:
+    case ChangeCommandKind.ChangeDebtPayment:
+      return { ...request, principalCurrency: "USD", interestOrFeeCurrency: "USD" };
+    default:
+      return request;
+  }
 }

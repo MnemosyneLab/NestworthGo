@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { HistoryPage } from "./HistoryPage";
+import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 
 const historyOrigin = vi.fn();
 const startHistory = vi.fn();
@@ -15,6 +16,9 @@ const previewFixChange = vi.fn();
 const recordChange = vi.fn();
 const undoChange = vi.fn();
 const fixChange = vi.fn();
+const listAccounts = vi.fn();
+const listInstruments = vi.fn();
+const holdingsByAccounts = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
@@ -32,17 +36,14 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
-    ListAccounts: () =>
-      Promise.resolve([
-        { account: { id: "acc-1", name: "Checking", trackingMode: "balance" }, ownership: [], latestValue: null },
-      ]),
+    ListAccounts: (...args: unknown[]) => listAccounts(...args),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
-  Service: { ListInstruments: () => Promise.resolve([]) },
+  Service: { ListInstruments: (...args: unknown[]) => listInstruments(...args) },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
-  Service: { HoldingsByAccounts: () => Promise.resolve({}) },
+  Service: { HoldingsByAccounts: (...args: unknown[]) => holdingsByAccounts(...args) },
 }));
 
 function renderPage() {
@@ -65,7 +66,15 @@ beforeEach(() => {
   undoChange.mockReset();
   fixChange.mockReset();
   previewFixChange.mockReset();
+  listAccounts.mockReset();
+  listInstruments.mockReset();
+  holdingsByAccounts.mockReset();
   startingPointDraft.mockResolvedValue([]);
+  listAccounts.mockResolvedValue([
+    { account: { id: "acc-1", name: "Checking", trackingMode: "balance" }, ownership: [], latestValue: null },
+  ]);
+  listInstruments.mockResolvedValue([]);
+  holdingsByAccounts.mockResolvedValue({});
 });
 
 describe("HistoryPage", () => {
@@ -127,6 +136,48 @@ describe("HistoryPage", () => {
 
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     expect(recordChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000" }));
+  });
+
+  it("previews a trade with visible currencies and the existing matching holding", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listActivities.mockResolvedValue([]);
+    listAccounts.mockResolvedValue([
+      { account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null },
+    ]);
+    listInstruments.mockResolvedValue([
+      { id: "instrument-1", name: "NVIDIA", quoteCurrency: "EUR", quoteSource: "manual" },
+    ]);
+    holdingsByAccounts.mockResolvedValue({
+      "brokerage-1": [{ id: "holding-1", accountId: "brokerage-1", instrumentId: "instrument-1", quantity: "0" }],
+    });
+    previewChange.mockResolvedValue({
+      activity: { id: "trade-1", kind: "buy", effects: [] },
+      effects: [],
+      resulting: [{ target: "holding_quantity", name: "NVIDIA", quantity: "10" }],
+    });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await within(form).findByRole("option", { name: "NVIDIA" });
+    await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
+    await userEvent.selectOptions(within(form).getByLabelText("Instrument"), "instrument-1");
+    await userEvent.type(within(form).getByLabelText("Quantity"), "10");
+    await userEvent.type(within(form).getByLabelText("Gross total"), "1000");
+    await userEvent.type(within(form).getByLabelText("Fee (optional)"), "5");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+
+    expect(previewChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "trade",
+        settlementAccountId: "brokerage-1",
+        instrumentId: "instrument-1",
+        holdingId: "holding-1",
+        grossCurrency: "EUR",
+        feeCurrency: "EUR",
+      }),
+    );
   });
 
   it("lists activities as a plain-language sentence and undoes one after confirmation", async () => {

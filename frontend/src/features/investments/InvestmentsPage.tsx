@@ -18,6 +18,7 @@ import {
   useArchiveInstrument,
   useCreateHolding,
   useAllHoldingsFlat,
+  useCurrentInstrumentQuote,
   useSaveManualInstrumentQuote,
 } from "@/queries/investments";
 import { useHoldingGainsByAccounts } from "@/queries/analytics";
@@ -94,6 +95,79 @@ function ManualQuoteForm({
   );
 }
 
+function InstrumentRow({
+  instrument,
+  onSetPrice,
+  onArchive,
+}: {
+  instrument: {
+    id: string;
+    name: string;
+    quoteCurrency: string;
+    quoteSource: string;
+    archivedAt?: string | null;
+  };
+  onSetPrice: () => void;
+  onArchive: () => void;
+}) {
+  const { t, i18n } = useTranslation();
+  const quote = useCurrentInstrumentQuote(instrument.id);
+  const quoteTime = quote.data?.quotedAt ?? quote.data?.createdAt;
+
+  return (
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-3 text-sm">
+      <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <span className="font-medium">{instrument.name}</span>
+        <Badge variant="secondary">{instrument.quoteCurrency}</Badge>
+        <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>
+          {displayEnum(t, "portfolio", instrument.quoteSource)}
+        </Badge>
+        {instrument.archivedAt && <Badge variant="secondary">{t("common.archived")}</Badge>}
+      </span>
+      <span className="flex min-w-[15rem] flex-1 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-right">
+        {quote.isLoading ? (
+          <span className="text-muted-foreground">{t("portfolio.priceLoading")}</span>
+        ) : quote.data ? (
+          <span>
+            <span className="font-medium">{t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) })}</span>
+            {quoteTime && (
+              <span className="ml-2 text-xs text-muted-foreground">
+                {t("portfolio.quotedAsOf", {
+                  time: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(quoteTime)),
+                })}
+              </span>
+            )}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">{t("portfolio.noCurrentPrice")}</span>
+        )}
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
+        {instrument.quoteSource === "manual" && !instrument.archivedAt && (
+          <Button type="button" variant="outline" size="sm" onClick={onSetPrice}>
+            {t("portfolio.setPrice")}
+          </Button>
+        )}
+        <AlertDialog>
+          <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+            {instrument.archivedAt ? t("common.active") : t("common.archive")}
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{instrument.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogTitle>
+              <AlertDialogDescription>{instrument.name}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={onArchive}>{instrument.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </span>
+    </li>
+  );
+}
+
 function InstrumentsTab() {
   const { t } = useTranslation();
   const instruments = useInstruments();
@@ -147,50 +221,20 @@ function InstrumentsTab() {
       ) : (
         <ul className="flex flex-col gap-2">
           {(instruments.data ?? []).map((instrument) => (
-            <li key={instrument.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-3 text-sm">
-              <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                <span className="font-medium">{instrument.name}</span>
-                <Badge variant="secondary">{instrument.quoteCurrency}</Badge>
-                <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>
-                  {displayEnum(t, "portfolio", instrument.quoteSource)}
-                </Badge>
-                {instrument.archivedAt && <Badge variant="secondary">{t("common.archived")}</Badge>}
-              </span>
-              <span className="flex shrink-0 items-center gap-2">
-                {instrument.quoteSource === "manual" && !instrument.archivedAt && (
-                  <Button type="button" variant="outline" size="sm" onClick={() => setQuoteTarget({ id: instrument.id, name: instrument.name, currency: instrument.quoteCurrency })}>
-                    {t("portfolio.setPrice")}
-                  </Button>
-                )}
-                <AlertDialog>
-                <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                  {instrument.archivedAt ? t("common.active") : t("common.archive")}
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{instrument.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogTitle>
-                    <AlertDialogDescription>{instrument.name}</AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={() =>
-                        archiveInstrument.mutate(
-                          { id: instrument.id, archived: !instrument.archivedAt },
-                          {
-                            onSuccess: () => toast.success(instrument.archivedAt ? t("common.active") : t("common.archived")),
-                            onError: (error) => toast.error(displayError(error, t("portfolio.updateError"))),
-                          },
-                        )
-                      }
-                    >
-                      {instrument.archivedAt ? t("common.active") : t("common.archive")}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              </span>
-            </li>
+            <InstrumentRow
+              key={instrument.id}
+              instrument={instrument}
+              onSetPrice={() => setQuoteTarget({ id: instrument.id, name: instrument.name, currency: instrument.quoteCurrency })}
+              onArchive={() =>
+                archiveInstrument.mutate(
+                  { id: instrument.id, archived: !instrument.archivedAt },
+                  {
+                    onSuccess: () => toast.success(instrument.archivedAt ? t("common.active") : t("common.archived")),
+                    onError: (error) => toast.error(displayError(error, t("portfolio.updateError"))),
+                  },
+                )
+              }
+            />
           ))}
         </ul>
       )}

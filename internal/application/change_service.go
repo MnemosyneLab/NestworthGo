@@ -96,6 +96,12 @@ func (s *Service) recordChangeLocked(ctx context.Context, command any) (domain.C
 		return domain.ChangePreview{}, err
 	}
 	if trade, ok := command.(domain.TradeInput); ok && trade.HoldingID == "" {
+		for _, existing := range snapshot.Holdings {
+			if existing.ArchivedAt == nil && existing.AccountID == trade.SettlementAccountID && existing.InstrumentID == trade.InstrumentID {
+				trade.HoldingID = existing.ID
+				return s.commitChangeLocked(ctx, state, trade)
+			}
+		}
 		if trade.Side != domain.TradeBuy {
 			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrInvalidTrade, Field: "holdingId", Message: "a Holding is required when selling"}
 		}

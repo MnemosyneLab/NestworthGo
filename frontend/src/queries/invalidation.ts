@@ -75,5 +75,6 @@ export function invalidateRefreshAll(queryClient: QueryClient) {
 
 export function invalidateRequiredFX(queryClient: QueryClient) {
   invalidate(queryClient, queryKeys.quote.fx.all);
+  invalidate(queryClient, queryKeys.quote.fx.preferences);
   invalidateCurrentValuation(queryClient);
 }

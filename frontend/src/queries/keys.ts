@@ -55,6 +55,7 @@ export const queryKeys = {
     },
     fx: {
       all: ["quote", "fx"] as const,
+      preferences: ["quote", "fx", "preferences"] as const,
       current: (currencyA: string, currencyB: string) => ["quote", "fx", ...[currencyA, currencyB].sort()] as const,
     },
   },

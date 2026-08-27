@@ -1039,6 +1039,15 @@ func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
 		return ChangePreview{}, err
 	}
 	holding, err := state.holding(input.HoldingID, input.HouseholdID)
+	if err != nil && input.HoldingID == "" && input.HouseholdID == state.HouseholdID {
+		for _, candidate := range state.Holdings {
+			if !candidate.Archived && candidate.AccountID == account.ID && candidate.InstrumentID == input.InstrumentID {
+				holding = candidate
+				err = nil
+				break
+			}
+		}
+	}
 	if err != nil {
 		if input.HoldingID != "" || input.Side != TradeBuy {
 			return ChangePreview{}, err

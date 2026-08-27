@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
-import { activityToInitialCommand } from "@/features/history/activityToCommand";
+import { activityToInitialCommand, emptyChangeRequest } from "@/features/history/activityToCommand";
 
 /**
  * ACTIVITY_TO_COMMAND is the inverse of history.ChangeCommandRequest.ToCommand.
@@ -32,10 +32,13 @@ describe("activityToInitialCommand kind mapping", () => {
         { role: "debt", accountId: "debt-1", money: { amount: "1", currency: "USD" } },
         { role: "quantity", holdingId: "h1", quantity: "1" },
       ],
-      tradeDetail: { instrumentId: "i1", side: activityKind === "sell" ? "sell" : "buy", quantity: "1", gross: { amount: "1", currency: "USD" } },
+      tradeDetail: { holdingId: "h1", instrumentId: "i1", side: activityKind === "sell" ? "sell" : "buy", quantity: "1", gross: { amount: "1", currency: "USD" } },
     } as ActivityDTO;
 
     expect(activityToInitialCommand(activity).kind).toBe(commandKind);
+    if (commandKind === ChangeCommandKind.ChangeTrade) {
+      expect(activityToInitialCommand(activity).holdingId).toBe("h1");
+    }
   });
 
   it("maps a two-sided position_transfer activity to ChangePositionTransfer", () => {
@@ -57,5 +60,13 @@ describe("activityToInitialCommand kind mapping", () => {
       effects: [{ role: "quantity", holdingId: "h1", quantity: "2", direction: "removed" }],
     } as ActivityDTO;
     expect(activityToInitialCommand(activity).kind).toBe(ChangeCommandKind.ChangePositionAdjustment);
+  });
+});
+
+describe("emptyChangeRequest", () => {
+  it("stores the trade currencies that the form displays by default", () => {
+    expect(emptyChangeRequest(ChangeCommandKind.ChangeTrade)).toEqual(
+      expect.objectContaining({ side: "buy", grossCurrency: "USD", feeCurrency: "USD" }),
+    );
   });
 });

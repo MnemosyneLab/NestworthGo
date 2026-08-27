@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -9,9 +9,13 @@ const refreshAll = vi.fn();
 const listInstruments = vi.fn();
 const currentInstrumentQuote = vi.fn();
 const currentFXQuote = vi.fn();
+const listFXPreferences = vi.fn();
+const setFXPreference = vi.fn();
+const refreshRequiredFX = vi.fn();
+const overview = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
-  Service: { RefreshAll: () => refreshAll(), RefreshRequiredFX: vi.fn() },
+  Service: { RefreshAll: () => refreshAll(), RefreshRequiredFX: () => refreshRequiredFX() },
 }));
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
@@ -22,7 +26,13 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/qu
   Service: {
     CurrentInstrumentQuote: (id: string) => currentInstrumentQuote(id),
     CurrentFXQuote: (a: string, b: string) => currentFXQuote(a, b),
+    ListFXPreferences: () => listFXPreferences(),
+    SetFXPreference: (a: string, b: string, source: string) => setFXPreference(a, b, source),
   },
+}));
+
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
+  Service: { Overview: () => overview() },
 }));
 
 function renderPage() {
@@ -35,6 +45,90 @@ function renderPage() {
 }
 
 describe("MarketDataPage", () => {
+  beforeEach(() => {
+    refreshAll.mockReset();
+    refreshRequiredFX.mockReset();
+    listInstruments.mockReset();
+    currentInstrumentQuote.mockReset();
+    currentFXQuote.mockReset();
+    listFXPreferences.mockReset();
+    setFXPreference.mockReset();
+    overview.mockReset();
+    listInstruments.mockResolvedValue([]);
+    currentInstrumentQuote.mockResolvedValue(null);
+    currentFXQuote.mockResolvedValue(null);
+    listFXPreferences.mockResolvedValue([]);
+    overview.mockResolvedValue({ missingInputs: [] });
+  });
+
+  it("shows saved instrument prices and FX rates before a refresh", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "Global Equity Fund", quoteCurrency: "USD", quoteSource: "provider" }]);
+    currentInstrumentQuote.mockResolvedValue({
+      id: "q1",
+      instrumentId: "i1",
+      unitPrice: "12.5",
+      currency: "USD",
+      sourceKind: "provider",
+      sourceKey: "yahoo_finance",
+      quotedAt: "2024-01-01T00:00:00Z",
+      createdAt: "2024-01-01T00:00:00Z",
+      delayed: false,
+    });
+    listFXPreferences.mockResolvedValue([
+      {
+        householdId: "h1",
+        currencyA: "CNY",
+        currencyB: "SGD",
+        sourceKind: "provider",
+        createdAt: "2024-01-01T00:00:00Z",
+        updatedAt: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    currentFXQuote.mockResolvedValue({
+      id: "fx1",
+      householdId: "h1",
+      baseCurrency: "CNY",
+      quoteCurrency: "SGD",
+      rate: "0.19",
+      sourceKind: "provider",
+      sourceKey: "frankfurter",
+      quotedAt: "2024-01-01T00:00:00Z",
+      createdAt: "2024-01-01T00:00:00Z",
+      delayed: false,
+    });
+
+    renderPage();
+
+    await screen.findByText("Global Equity Fund");
+    await screen.findByText("Latest: $12.50");
+    await screen.findByText("1 CNY = 0.19 SGD");
+    const savedData = screen.getByTestId("saved-market-data");
+    expect(savedData).toHaveTextContent("Global Equity Fund");
+    expect(savedData).toHaveTextContent("Latest: $12.50");
+    expect(savedData).toHaveTextContent("CNY/SGD");
+    expect(savedData).toHaveTextContent("1 CNY = 0.19 SGD");
+  });
+
+  it("configures Frankfurter for an FX pair without a source and refreshes it", async () => {
+    overview.mockResolvedValue({ missingInputs: [{ kind: "fx_rate", baseCurrency: "CNY", quoteCurrency: "SGD" }] });
+    setFXPreference.mockResolvedValue({
+      householdId: "h1",
+      currencyA: "CNY",
+      currencyB: "SGD",
+      sourceKind: "provider",
+      createdAt: "2024-01-01T00:00:00Z",
+      updatedAt: "2024-01-01T00:00:00Z",
+    });
+    refreshRequiredFX.mockResolvedValue({ items: [{ targetKey: "fx:CNY/SGD", kind: "fx", status: "fetched" }], rateLimited: false });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Use Frankfurter" }));
+
+    expect(setFXPreference).toHaveBeenCalledWith("CNY", "SGD", "provider");
+    expect(await screen.findByTestId("refresh-results")).toHaveTextContent("CNY/SGD");
+    expect(refreshRequiredFX).toHaveBeenCalledTimes(1);
+  });
+
   it("triggers RefreshAll and renders the per-target results", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "Global Equity Fund" }]);
     currentInstrumentQuote.mockResolvedValue({
