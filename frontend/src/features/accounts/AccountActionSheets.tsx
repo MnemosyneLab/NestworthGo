@@ -52,8 +52,10 @@ export function AccountActionSheet({
 }) {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
+  const [startedInSheet, setStartedInSheet] = useState(false);
   const needsHistory = actionNeedsHistory(action);
-  const waitingForHistory = needsHistory && !historyStarted && !origin.data;
+  const historyReady = historyStarted || Boolean(origin.data) || startedInSheet;
+  const waitingForHistory = needsHistory && !historyReady;
   const title =
     action === "cash"
       ? historyStarted
@@ -84,9 +86,9 @@ export function AccountActionSheet({
         </SheetHeader>
         <div className="overflow-y-auto">
           {waitingForHistory ? (
-            <StartHistoryForm compact onCancel={onClose} />
+            <StartHistoryForm compact onCancel={onClose} onStarted={() => setStartedInSheet(true)} />
           ) : action === "cash" ? (
-            <CashBalanceForm record={record} historyStarted={historyStarted || Boolean(origin.data)} onDone={onRecorded} />
+            <CashBalanceForm record={record} historyStarted={historyReady} onDone={onRecorded} />
           ) : action === "position" ? (
             <ExistingPositionForm record={record} onDone={onRecorded} />
           ) : action === "simple" ? (

@@ -146,11 +146,11 @@ export function activityToInitialCommand(activity: ActivityDTO): ChangeCommandRe
     }
 
     default:
-      return emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded);
+      return emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, "");
   }
 }
 
-export function emptyChangeRequest(kind: ChangeCommandKind, defaultCurrency = "CNY"): ChangeCommandRequest {
+export function emptyChangeRequest(kind: ChangeCommandKind, currency: string): ChangeCommandRequest {
   const request: ChangeCommandRequest = {
     kind,
     added: true,
@@ -161,18 +161,18 @@ export function emptyChangeRequest(kind: ChangeCommandKind, defaultCurrency = "C
   switch (kind) {
     case ChangeCommandKind.ChangeMoneyAdded:
     case ChangeCommandKind.ChangeMoneyRemoved:
-      return { ...request, currency: defaultCurrency };
+      return { ...request, currency };
     case ChangeCommandKind.ChangeValueUpdate:
-      return { ...request, newValueCurrency: defaultCurrency };
+      return { ...request, newValueCurrency: currency };
     case ChangeCommandKind.ChangeCashTransfer:
-      return { ...request, sentCurrency: defaultCurrency, receivedCurrency: defaultCurrency };
+      return { ...request, sentCurrency: currency, receivedCurrency: currency };
     case ChangeCommandKind.ChangeFXConversion:
-      return { ...request, soldCurrency: defaultCurrency, boughtCurrency: defaultCurrency, feeCurrency: defaultCurrency };
+      return { ...request, soldCurrency: currency, boughtCurrency: currency, feeCurrency: currency };
     case ChangeCommandKind.ChangeTrade:
-      return { ...request, side: "buy", grossCurrency: defaultCurrency, feeCurrency: defaultCurrency };
+      return { ...request, side: "buy", grossCurrency: currency, feeCurrency: currency };
     case ChangeCommandKind.ChangeDebtDraw:
     case ChangeCommandKind.ChangeDebtPayment:
-      return { ...request, principalCurrency: defaultCurrency, interestOrFeeCurrency: defaultCurrency };
+      return { ...request, principalCurrency: currency, interestOrFeeCurrency: currency };
     default:
       return request;
   }

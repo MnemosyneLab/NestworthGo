@@ -69,4 +69,12 @@ describe("emptyChangeRequest", () => {
       expect.objectContaining({ side: "buy", grossCurrency: "USD", feeCurrency: "USD" }),
     );
   });
+
+  it("uses the provided household or account currency instead of CNY", () => {
+    expect(emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, "SGD").currency).toBe("SGD");
+    expect(emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, "USD").currency).toBe("USD");
+    expect(emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, "")).not.toEqual(
+      expect.objectContaining({ currency: "CNY" }),
+    );
+  });
 });

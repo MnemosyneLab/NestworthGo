@@ -4,8 +4,10 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { HistoryPage } from "./HistoryPage";
+import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 
+const { bootstrap } = vi.hoisted(() => ({ bootstrap: vi.fn() }));
 const historyOrigin = vi.fn();
 const startHistory = vi.fn();
 const startHistoryWithCosts = vi.fn();
@@ -50,13 +52,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/household", () => ({
   Service: {
-    Bootstrap: () =>
-      Promise.resolve({
-        household: { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
-        members: [],
-        institutions: [],
-        groups: [],
-      }),
+    Bootstrap: () => bootstrap(),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
@@ -87,6 +83,13 @@ beforeEach(() => {
   listAccounts.mockReset();
   listInstruments.mockReset();
   holdingsByAccounts.mockReset();
+  bootstrap.mockReset();
+  bootstrap.mockResolvedValue({
+    household: { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
+    members: [],
+    institutions: [],
+    groups: [],
+  });
   startingPointDraft.mockResolvedValue([]);
   listAccounts.mockResolvedValue([
     { account: { id: "acc-1", name: "Checking", trackingMode: "balance" }, ownership: [], latestValue: null },
@@ -100,6 +103,7 @@ describe("HistoryPage", () => {
     historyOrigin.mockResolvedValue(null);
     renderPage();
     expect(await screen.findByRole("heading", { name: "Start history" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
   });
 
   it("starts history with the given timezone", async () => {
@@ -109,6 +113,7 @@ describe("HistoryPage", () => {
     const timezoneInput = await screen.findByLabelText("Timezone");
     await userEvent.clear(timezoneInput);
     await userEvent.type(timezoneInput, "UTC");
+    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone("UTC") ?? "");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
     expect(startHistory).toHaveBeenCalledWith("UTC");
     expect(startHistoryWithCosts).not.toHaveBeenCalled();
@@ -149,11 +154,37 @@ describe("HistoryPage", () => {
     await userEvent.type(within(form).getByLabelText("Amount"), "1000");
     await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
 
-    expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000" }));
+    expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000", currency: "USD" }));
     expect(await within(form).findByRole("status")).toHaveTextContent("Checking");
 
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     expect(recordChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1000" }));
+  });
+
+  it("previews money_added in the household base currency after hydrate, not CNY", async () => {
+    bootstrap.mockResolvedValue({
+      household: { id: "h1", name: "Test", baseCurrency: "SGD", createdAt: "", updatedAt: "" },
+      members: [],
+      institutions: [],
+      groups: [],
+    });
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listActivities.mockResolvedValue([]);
+    previewChange.mockResolvedValue({
+      activity: { id: "a1", kind: "cash_in", effects: [] },
+      effects: [],
+      resulting: [{ target: "account_value", name: "Checking", amount: "1000", currency: "SGD" }],
+    });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+    await userEvent.type(within(form).getByLabelText("Amount"), "1000");
+    expect(within(form).getByLabelText("Currency")).toHaveValue("SGD");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", currency: "SGD" }));
+    expect(previewChange.mock.calls[0][0].currency).not.toBe("CNY");
   });
 
   it("previews a trade with visible currencies and the existing matching holding", async () => {

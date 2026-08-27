@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
+import { LoadingState } from "@/components/layout/PageState";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments, useAllHoldingsFlat, useCreateInstrument } from "@/queries/investments";
 import { usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
@@ -128,21 +129,19 @@ function MoneyFields({
   );
 }
 
-function applyHouseholdCurrency(request: ChangeCommandRequest, currency: string): ChangeCommandRequest {
-  const replace = (value: string | undefined) => (value === "" || value === "CNY" ? currency : value);
-  return {
-    ...request,
-    currency: replace(request.currency),
-    newValueCurrency: replace(request.newValueCurrency),
-    sentCurrency: replace(request.sentCurrency),
-    receivedCurrency: replace(request.receivedCurrency),
-    soldCurrency: replace(request.soldCurrency),
-    boughtCurrency: replace(request.boughtCurrency),
-    feeCurrency: replace(request.feeCurrency),
-    grossCurrency: replace(request.grossCurrency),
-    principalCurrency: replace(request.principalCurrency),
-    interestOrFeeCurrency: replace(request.interestOrFeeCurrency),
-  };
+function currencyFromRequest(request: ChangeCommandRequest | undefined): string | undefined {
+  if (!request) {
+    return undefined;
+  }
+  return (
+    request.currency ||
+    request.grossCurrency ||
+    request.newValueCurrency ||
+    request.sentCurrency ||
+    request.soldCurrency ||
+    request.principalCurrency ||
+    undefined
+  );
 }
 
 export type RecordChangeLock = {
@@ -180,11 +179,46 @@ export function RecordChangeForm({
   lock?: RecordChangeLock;
 }) {
   const { t } = useTranslation();
+  const bootstrap = useBootstrap();
+  const currencies = useSupportedCurrencies();
+  const fromInitial = currencyFromRequest(initial);
+  if (!fromInitial && !bootstrap.isFetched) {
+    return <LoadingState label={t("history.loading")} />;
+  }
+  const resolvedCurrency = fromInitial || bootstrap.data?.household?.baseCurrency || currencies.data?.[0];
+  if (!resolvedCurrency) {
+    return <LoadingState label={t("history.loading")} />;
+  }
+  return (
+    <RecordChangeFormReady
+      key={resolvedCurrency}
+      onRecorded={onRecorded}
+      initial={initial}
+      fixActivityId={fixActivityId}
+      lock={lock}
+      defaultCurrency={resolvedCurrency}
+    />
+  );
+}
+
+function RecordChangeFormReady({
+  onRecorded,
+  initial,
+  fixActivityId,
+  lock,
+  defaultCurrency,
+}: {
+  onRecorded: () => void;
+  initial?: ChangeCommandRequest;
+  fixActivityId?: string;
+  lock?: RecordChangeLock;
+  defaultCurrency: string;
+}) {
+  const { t } = useTranslation();
   const accounts = useAccounts({});
   const instruments = useInstruments();
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
-  const bootstrap = useBootstrap();
   const allAccountIds = (accounts.data ?? []).map((record) => record.account.id);
   const holdings = useAllHoldingsFlat(allAccountIds);
   const preview = usePreviewChange();
@@ -193,7 +227,6 @@ export function RecordChangeForm({
   const fix = useFixChange();
   const createInstrument = useCreateInstrument();
   const [creatingInstrument, setCreatingInstrument] = useState(false);
-  const defaultCurrency = bootstrap.data?.household?.baseCurrency ?? currencies.data?.[0] ?? "CNY";
   const currencyOptions = currencies.data ?? [defaultCurrency];
 
   const [request, setRequest] = useState<ChangeCommandRequest>(() => {
@@ -209,13 +242,6 @@ export function RecordChangeForm({
     };
   });
   const [previewResult, setPreviewResult] = useState<EndpointViewDTO[] | null>(null);
-
-  useEffect(() => {
-    if (initial) {
-      return;
-    }
-    setRequest((current) => applyHouseholdCurrency(current, defaultCurrency));
-  }, [defaultCurrency, initial]);
 
   const patch = (next: Partial<ChangeCommandRequest>) => {
     setRequest((current) => ({ ...current, ...next }));

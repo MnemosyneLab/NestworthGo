@@ -665,6 +665,91 @@ func TestCompositeCashAcceptsForeignCurrencyBeforeAndAfterHistory(t *testing.T) 
 	}
 }
 
+func TestMixedBankFirstFundBuyDecreasesCashAndShowsHolding(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "cmb-mixed-first-buy", []string{"Owner"})
+	bank, err := service.CreateAccount(ctx, AccountInput{
+		Name: "招商银行综合账户", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bank.Account.TrackingMode != domain.TrackingHoldings {
+		t.Fatalf("tracking = %s, want holdings", bank.Account.TrackingMode)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, bank.Account.ID, "10000", "CNY", "2026-08-01"); err != nil {
+		t.Fatalf("opening CNY cash: %v", err)
+	}
+	fund, err := service.CreateInstrument(ctx, InstrumentInput{Name: "招银理财A", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	tradeAt := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	setClock(tradeAt)
+	gross, _ := domain.ParseMoney("2000", "CNY")
+	preview, err := service.RecordChange(ctx, domain.TradeInput{
+		HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: bank.Account.ID,
+		InstrumentID: fund.ID, Quantity: mustQuantity(t, "100"), Gross: gross, EffectiveAt: tradeAt,
+	})
+	if err != nil {
+		t.Fatalf("first fund buy: %v", err)
+	}
+	holdings, err := service.ListHoldings(ctx, bank.Account.ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(holdings) != 1 || holdings[0].InstrumentID != fund.ID || holdings[0].Quantity.Canonical() != "100" {
+		t.Fatalf("holdings after first buy = %+v", holdings)
+	}
+	if preview.Activity.TradeDetail == nil || preview.Activity.TradeDetail.HoldingID != holdings[0].ID {
+		t.Fatalf("trade detail = %+v, holding = %s", preview.Activity.TradeDetail, holdings[0].ID)
+	}
+
+	valuations, err := service.AccountValuations(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var valuation *domain.AccountValuation
+	for i := range valuations {
+		if valuations[i].Account.ID == bank.Account.ID {
+			valuation = &valuations[i]
+			break
+		}
+	}
+	if valuation == nil {
+		t.Fatal("mixed bank valuation missing")
+	}
+	var cashAmount string
+	var sawHolding bool
+	for _, component := range valuation.Components {
+		if component.InstrumentID == nil {
+			if component.NativeCurrency == "CNY" {
+				cashAmount = component.NativeAmount
+			}
+			continue
+		}
+		if *component.InstrumentID == fund.ID {
+			sawHolding = true
+			if component.Available {
+				t.Fatal("missing fund quote must not be treated as an available market value")
+			}
+		}
+	}
+	if cashAmount != "8000" {
+		t.Fatalf("CNY cash after first buy = %s, want 8000", cashAmount)
+	}
+	if !sawHolding {
+		t.Fatal("fund holding was not visible on the mixed bank valuation")
+	}
+	if valuation.Complete {
+		t.Fatal("valuation without a fund quote must stay incomplete")
+	}
+}
+
 func mustQuantity(t *testing.T, value string) domain.Quantity {
 	t.Helper()
 	quantity, err := domain.ParseQuantity(value)

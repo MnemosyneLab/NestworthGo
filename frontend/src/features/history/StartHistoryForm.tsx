@@ -8,6 +8,7 @@ import { LoadingState } from "@/components/layout/PageState";
 import { displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
 import { useStartHistory, useStartingPointDraft } from "@/queries/history";
+import { localDateInTimeZone } from "@/features/history/historyStartDate";
 
 /** StartHistoryForm is the existing Start History flow, reused from History
  * and from Account detail when an event action needs History first. Cancel
@@ -25,6 +26,7 @@ export function StartHistoryForm({
   const startHistory = useStartHistory();
   const draft = useStartingPointDraft();
   const [timezone, setTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const startDate = localDateInTimeZone(timezone);
   const holdings = draft.data ?? [];
   const [unitCosts, setUnitCosts] = useState<Record<string, string>>({});
 
@@ -68,6 +70,18 @@ export function StartHistoryForm({
           autoComplete="off"
           autoFocus={compact}
         />
+      </div>
+      <div className="flex flex-col gap-1.5 text-left">
+        <Label htmlFor="history-start-date">{t("history.startDate")}</Label>
+        <Input
+          id="history-start-date"
+          data-testid="history-start-date"
+          value={startDate ?? t("history.startDateUnknown")}
+          readOnly
+        />
+        <p id="history-start-date-help" className="text-xs leading-5 text-muted-foreground">
+          {t("history.startDateHelp")}
+        </p>
       </div>
       {draft.isLoading && <LoadingState label={t("history.startLoading")} />}
       {draft.isError && (

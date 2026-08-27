@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { AccountsPage } from "./AccountsPage";
+import { localDateInTimeZone } from "@/features/history/historyStartDate";
 
 const listAccounts = vi.fn();
 const accountValuations = vi.fn();
@@ -516,7 +517,7 @@ describe("AccountsPage", () => {
     expect(recordChange).not.toHaveBeenCalled();
   });
 
-  it("returns to Buy after Start History without writing a trade", async () => {
+  it("returns to Buy after Start History without waiting for origin refresh", async () => {
     listAccounts.mockResolvedValue([brokerageAccount]);
     accountValuations.mockResolvedValue([
       {
@@ -529,22 +530,21 @@ describe("AccountsPage", () => {
       },
     ]);
     listInstruments.mockResolvedValue([{ id: "fund-1", name: "XYZ Fund", type: "mutual_fund", quoteCurrency: "CNY" }]);
-    let historyExists = false;
-    historyOrigin.mockImplementation(() => Promise.resolve(historyExists ? { id: "origin-1", timezone: "UTC" } : null));
-    startHistory.mockImplementation(async () => {
-      historyExists = true;
-      return { id: "origin-1", timezone: "UTC" };
-    });
+    historyOrigin.mockResolvedValue(null);
+    startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Buy investment" }));
     expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
+    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
     const timezone = await screen.findByLabelText("Timezone");
     await userEvent.clear(timezone);
     await userEvent.type(timezone, "UTC");
+    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone("UTC") ?? "");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
     expect(await screen.findByLabelText("Instrument")).toBeInTheDocument();
     expect(startHistory).toHaveBeenCalledWith("UTC");
+    expect(historyOrigin).toHaveBeenCalled();
     expect(recordChange).not.toHaveBeenCalled();
   });
 
@@ -606,6 +606,140 @@ describe("AccountsPage", () => {
     expect(previewChange.mock.calls[0][0].holdingId ?? "").toBe("");
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(recordChange).toHaveBeenCalled());
+    expect(recordChange.mock.calls[0][0].holdingId ?? "").toBe("");
+    expect(createHolding).not.toHaveBeenCalled();
+  });
+
+  it("completes the CMB mixed-account first fund buy journey", async () => {
+    let accounts: unknown[] = [];
+    let valuations: unknown[] = [];
+    const holdings: Record<string, unknown[]> = {};
+    listAccounts.mockImplementation(async () => accounts);
+    accountValuations.mockImplementation(async () => valuations);
+    holdingsByAccounts.mockImplementation(async () => holdings);
+    historyOrigin.mockResolvedValue(null);
+    listInstruments.mockResolvedValue([{ id: "fund-1", name: "XYZ Fund", type: "mutual_fund", quoteCurrency: "CNY" }]);
+    createAccount.mockImplementation(async (request: { name: string; accountType: string; balanceSheetRole: string; trackingMode: string; defaultCurrency: string; includeInNetWorth: boolean; includeInPortfolio: boolean; includeInLiquidAssets: boolean; institutionId?: string; ownership: unknown[] }) => {
+      const record = {
+        account: {
+          id: "cmb-mixed",
+          name: request.name,
+          accountType: request.accountType,
+          balanceSheetRole: request.balanceSheetRole,
+          trackingMode: request.trackingMode,
+          defaultCurrency: request.defaultCurrency,
+          includeInNetWorth: request.includeInNetWorth,
+          includeInPortfolio: request.includeInPortfolio,
+          includeInLiquidAssets: request.includeInLiquidAssets,
+          institutionId: request.institutionId,
+          sortOrder: 0,
+          createdAt: "",
+          updatedAt: "",
+        },
+        ownership: request.ownership,
+        institutionName: "China Merchants Bank",
+      };
+      accounts = [record];
+      valuations = [
+        {
+          account: record.account,
+          ownership: record.ownership,
+          complete: true,
+          components: [],
+          missingInputs: [],
+          baseValue: { amount: "0", currency: "USD" },
+        },
+      ];
+      return record;
+    });
+    appendCash.mockImplementation(async (_id: string, amount: string, currency: string) => {
+      valuations = [
+        {
+          account: (accounts[0] as { account: unknown }).account,
+          ownership: (accounts[0] as { ownership: unknown }).ownership,
+          complete: true,
+          components: [{ nativeCurrency: currency, nativeAmount: amount, available: true }],
+          missingInputs: [],
+          baseValue: { amount, currency: "USD" },
+        },
+      ];
+    });
+    startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    previewChange.mockResolvedValue({
+      activity: { id: "a1", kind: "buy", effects: [] },
+      effects: [],
+      resulting: [
+        { target: "account_cash", name: "CMB Mixed", amount: "8000", currency: "CNY" },
+        { target: "holding_quantity", name: "XYZ Fund", quantity: "100" },
+      ],
+    });
+    recordChange.mockImplementation(async (request: { holdingId?: string }) => {
+      expect(request.holdingId ?? "").toBe("");
+      holdings["cmb-mixed"] = [{ id: "h-fund", accountId: "cmb-mixed", instrumentId: "fund-1", quantity: "100" }];
+      valuations = [
+        {
+          account: (accounts[0] as { account: unknown }).account,
+          ownership: (accounts[0] as { ownership: unknown }).ownership,
+          complete: false,
+          components: [
+            { nativeCurrency: "CNY", nativeAmount: "8000", available: true },
+            { holdingId: "h-fund", instrumentId: "fund-1", instrumentName: "XYZ Fund", available: false },
+          ],
+          missingInputs: [{ kind: "instrument_price", accountId: "cmb-mixed", instrumentName: "XYZ Fund" }],
+          baseValue: { amount: "8000", currency: "USD" },
+        },
+      ];
+      return { activity: { id: "a1", kind: "buy" }, effects: [], resulting: [] };
+    });
+
+    renderPage();
+    await screen.findByText("No accounts yet");
+    await userEvent.click(screen.getByText("Add account"));
+    const wizard = await screen.findByRole("form", { name: "Create account" });
+    await userEvent.click(within(wizard).getByRole("button", { name: "China Merchants Bank" }));
+    await continueWizard(wizard, 2);
+    await userEvent.click(within(wizard).getByRole("radio", { name: /Record cash and holdings separately/ }));
+    await continueWizard(wizard, 1);
+    await userEvent.type(within(wizard).getByLabelText("Name"), "CMB Mixed");
+    await userEvent.click(within(wizard).getByLabelText("Alice"));
+    await continueWizard(wizard, 1);
+    await userEvent.click(within(wizard).getByRole("button", { name: "Add account" }));
+    await waitFor(() =>
+      expect(createAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "CMB Mixed", accountType: "bank_account", trackingMode: "holdings" }),
+      ),
+    );
+
+    expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Add cash balance" }));
+    const cashForm = await screen.findByRole("form", { name: "Add cash balance" });
+    await userEvent.selectOptions(within(cashForm).getByLabelText("Currency"), "CNY");
+    await userEvent.type(within(cashForm).getByLabelText("Resulting balance"), "10000");
+    await userEvent.click(within(cashForm).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(appendCash).toHaveBeenCalledWith("cmb-mixed", "10000", "CNY", ""));
+    expect(await screen.findByText(/CN¥\s*10,000\.00/)).toBeInTheDocument();
+
+    await userEvent.click(await screen.findByRole("button", { name: "Buy investment" }));
+    expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
+    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
+    const timezone = screen.getByLabelText("Timezone");
+    await userEvent.clear(timezone);
+    await userEvent.type(timezone, "UTC");
+    await userEvent.click(screen.getByRole("button", { name: "Start history" }));
+
+    const tradeForm = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(tradeForm).getByLabelText("Instrument"), "fund-1");
+    await userEvent.type(within(tradeForm).getByLabelText("Quantity"), "100");
+    await userEvent.type(within(tradeForm).getByLabelText("Gross total"), "2000");
+    await userEvent.click(within(tradeForm).getByRole("button", { name: "Preview" }));
+    await userEvent.click(await within(tradeForm).findByRole("button", { name: "Confirm" }));
+
+    expect(await screen.findByText(/CN¥\s*8,000\.00/)).toBeInTheDocument();
+    expect(screen.queryByText(/CN¥\s*10,000\.00/)).not.toBeInTheDocument();
+    expect(screen.getByText("XYZ Fund")).toBeInTheDocument();
+    expect(screen.getByText("100")).toBeInTheDocument();
+    expect(screen.getByText("Missing current price")).toBeInTheDocument();
+    expect(screen.getByText("Partial valuation")).toBeInTheDocument();
     expect(recordChange.mock.calls[0][0].holdingId ?? "").toBe("");
     expect(createHolding).not.toHaveBeenCalled();
   });
