@@ -66,6 +66,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/direc
     ListMembers: () => Promise.resolve([{ id: "alice", name: "Alice" }]),
     ListInstitutions: () => Promise.resolve([]),
     ListGroups: () => Promise.resolve([]),
+    CreateInstitution: vi.fn(),
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
@@ -83,10 +84,10 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/histo
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
-  Service: { ListInstruments: () => Promise.resolve([]) },
+  Service: { ListInstruments: () => Promise.resolve([]), CreateInstrument: vi.fn() },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
-  Service: { HoldingsByAccounts: () => Promise.resolve({}) },
+  Service: { HoldingsByAccounts: () => Promise.resolve({}), CreateHolding: vi.fn(), AppendAccountCashValue: vi.fn() },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: {
@@ -181,13 +182,24 @@ describe("keyboard-only completion", () => {
     expect(screen.getByRole("button", { name: "Add account" })).toHaveFocus();
     await userEvent.keyboard("{Enter}"); // opens the Sheet
 
-    const form = await screen.findByRole("form", { name: "Account form" });
+    const form = await screen.findByRole("form", { name: "Create account" });
+    const continueButton = within(form).getByRole("button", { name: "Continue" });
+    continueButton.focus(); // stands in for the Sheet's own focus-trap (see file header)
+    await userEvent.keyboard("{Enter}"); // institution -> type (bank account default)
+
+    expect(await screen.findByTestId("account-wizard-type")).toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Continue" })).toHaveFocus();
+    await userEvent.keyboard("{Enter}"); // type -> tracking question for bank accounts
+
+    expect(await screen.findByTestId("account-wizard-tracking")).toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Continue" })).toHaveFocus();
+    await userEvent.keyboard("{Enter}"); // tracking default: account total -> details
+
     const nameInput = within(form).getByLabelText("Name");
-    nameInput.focus(); // stands in for the Sheet's own focus-trap (see file header)
+    expect(nameInput).toHaveFocus();
     await userEvent.keyboard("New Savings");
 
-    await userEvent.tab(); // -> account type select (left at default: cash_on_hand)
-    await userEvent.tab(); // -> currency select (role is read-only text; tracking is hidden when only one mode)
+    await userEvent.tab(); // -> currency select
     await userEvent.tab(); // -> initial value input
     expect(within(form).getByLabelText("Initial value")).toHaveFocus();
     await userEvent.keyboard("500");
@@ -196,17 +208,21 @@ describe("keyboard-only completion", () => {
     expect(within(form).getByLabelText("Alice")).toHaveFocus();
     await userEvent.keyboard(" "); // Space toggles a focused checkbox
 
-    await userEvent.tab(); // -> "Include in net worth" checkbox
-    await userEvent.tab(); // -> "Include in portfolio" checkbox
-    await userEvent.tab(); // -> "Include in liquid assets" checkbox
-    await userEvent.tab(); // -> "+ Details" toggle button (left unpressed)
-    await userEvent.tab(); // -> submit button
+    await userEvent.tab(); // -> "More settings" toggle (left unpressed)
+    await userEvent.tab(); // -> Back
+    await userEvent.tab(); // -> Continue
+    expect(within(form).getByRole("button", { name: "Continue" })).toHaveFocus();
+    await userEvent.keyboard("{Enter}"); // details -> review
+
+    expect(await screen.findByTestId("account-wizard-review")).toBeInTheDocument();
     expect(within(form).getByRole("button", { name: "Add account" })).toHaveFocus();
     await userEvent.keyboard("{Enter}");
 
     expect(createAccount).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "New Savings",
+        accountType: "bank_account",
+        trackingMode: "balance",
         ownership: [{ memberId: "alice", shareBps: 10000 }],
         initialAmount: "500",
       }),

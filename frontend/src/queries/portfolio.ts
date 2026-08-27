@@ -13,3 +13,12 @@ export function useOverview() {
     queryFn: () => callService(() => PortfolioService.Overview({})),
   });
 }
+
+/** usePortfolio loads the independent Portfolio page. The Go service already
+ * limits the result to include_in_portfolio asset accounts. */
+export function usePortfolio() {
+  return useQuery({
+    queryKey: queryKeys.portfolio.all,
+    queryFn: () => callService(() => PortfolioService.Portfolio({})),
+  });
+}

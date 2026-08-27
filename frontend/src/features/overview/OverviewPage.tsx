@@ -13,7 +13,17 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { activitySentence } from "@/features/history/activitySentence";
 import type { BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
-function BreakdownList({ title, items, currency }: { title: string; items: BreakdownDTO[]; currency: string }) {
+function BreakdownList({
+  title,
+  description,
+  items,
+  currency,
+}: {
+  title: string;
+  description?: string;
+  items: BreakdownDTO[];
+  currency: string;
+}) {
   if (items.length === 0) {
     return null;
   }
@@ -21,6 +31,7 @@ function BreakdownList({ title, items, currency }: { title: string; items: Break
     <Card>
       <CardHeader>
         <CardTitle>{title}</CardTitle>
+        {description && <p className="text-sm font-normal text-muted-foreground">{description}</p>}
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         {items.map((item) => (
@@ -329,12 +340,37 @@ export function OverviewPage({
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <BreakdownList title={t("overview.assetsByType")} items={(data.assetsByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))} currency={currency} />
-        <BreakdownList title={t("overview.liabilitiesByType")} items={(data.liabilitiesByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))} currency={currency} />
-        <BreakdownList title={t("overview.byMember")} items={data.byMember ?? []} currency={currency} />
-        <BreakdownList title={t("overview.byInstitution")} items={data.byInstitution ?? []} currency={currency} />
-        <BreakdownList title={t("overview.byGroup")} items={data.byGroup ?? []} currency={currency} />
+      <div className="grid grid-cols-1 gap-4">
+        <BreakdownList
+          title={t("overview.assetsByType")}
+          description={t("overview.assetsByTypeHint")}
+          items={(data.assetsByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
+          currency={currency}
+        />
+        <p className="text-sm text-muted-foreground">{t("overview.dimensionHint")}</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <BreakdownList
+            title={t("overview.byInstitution")}
+            items={(data.byInstitution ?? []).map((item) => ({
+              ...item,
+              label: item.label || t("overview.unassignedInstitution"),
+            }))}
+            currency={currency}
+          />
+          <BreakdownList
+            title={t("overview.byAccountType")}
+            description={t("overview.byAccountTypeHint")}
+            items={(data.byAccountType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
+            currency={currency}
+          />
+          <BreakdownList
+            title={t("overview.liabilitiesByType")}
+            items={(data.liabilitiesByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
+            currency={currency}
+          />
+          <BreakdownList title={t("overview.byMember")} items={data.byMember ?? []} currency={currency} />
+          <BreakdownList title={t("overview.byGroup")} items={data.byGroup ?? []} currency={currency} />
+        </div>
       </div>
     </div>
   );

@@ -40,7 +40,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ac
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
-  Service: { ListInstruments: (...args: unknown[]) => listInstruments(...args) },
+  Service: { ListInstruments: (...args: unknown[]) => listInstruments(...args), CreateInstrument: vi.fn() },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
   Service: { HoldingsByAccounts: (...args: unknown[]) => holdingsByAccounts(...args) },

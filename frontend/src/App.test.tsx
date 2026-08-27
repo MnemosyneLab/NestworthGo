@@ -84,6 +84,17 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfoli
         byMember: [],
         byInstitution: [],
         byGroup: [],
+        byAccountType: [],
+      }),
+    Portfolio: () =>
+      Promise.resolve({
+        currency: "USD",
+        complete: true,
+        accounts: [],
+        missingInputs: [],
+        byInstrumentType: [],
+        byCurrency: [],
+        byCountry: [],
       }),
   },
 }));
@@ -197,6 +208,8 @@ describe("App shell smoke test", () => {
     const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
     expect(within(nav).getByRole("button", { name: i18n.t("nav.overview") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.directory") })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: i18n.t("nav.instruments") })).toBeInTheDocument();
 
     // Settings is a real surface and remains reachable from the grouped nav.
     await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.settings") }));
