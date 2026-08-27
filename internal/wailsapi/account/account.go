@@ -188,7 +188,11 @@ func (r AccountFilterRequest) ToDomain() (domain.AccountFilter, error) {
 		filter.Category = &category
 	}
 	if r.OwnershipScope != "" {
-		filter.OwnershipScope = domain.OwnershipScope(r.OwnershipScope)
+		scope, err := domain.ParseOwnershipScope(r.OwnershipScope)
+		if err != nil {
+			return domain.AccountFilter{}, err
+		}
+		filter.OwnershipScope = scope
 	}
 	return filter, nil
 }

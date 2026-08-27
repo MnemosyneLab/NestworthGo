@@ -13,6 +13,10 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: { SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]) },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
 
 function renderPage() {
   const queryClient = createTestQueryClient();

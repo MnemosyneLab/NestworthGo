@@ -23,6 +23,9 @@ export const queryKeys = {
   household: {
     bootstrap: ["household", "bootstrap"] as const,
   },
+  catalog: {
+    all: ["catalog"] as const,
+  },
   settings: {
     all: ["settings"] as const,
     supportedCurrencies: ["settings", "supportedCurrencies"] as const,

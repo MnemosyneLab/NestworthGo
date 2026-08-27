@@ -25,6 +25,7 @@ import (
 	wailsaccount "github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	wailsanalytics "github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	wailsapp "github.com/waltwang/nestworth-go/internal/wailsapi/app"
+	wailscatalog "github.com/waltwang/nestworth-go/internal/wailsapi/catalog"
 	wailsdirectory "github.com/waltwang/nestworth-go/internal/wailsapi/directory"
 	wailshistory "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	wailsholding "github.com/waltwang/nestworth-go/internal/wailsapi/holding"
@@ -154,11 +155,13 @@ func main() {
 // local database could not be opened at all (a narrower failure than the
 // ordinary "onboarding not complete" case every application.Service method
 // already reports through the normal wireError contract); in that case
-// only AppService is registered so the frontend can render BlockedStartupPage
-// from Startup() without calling unregistered services.
+// only AppService and CatalogService are registered so the frontend can
+// render BlockedStartupPage from Startup() without calling unregistered
+// services. Catalog is always available because it is a static vocabulary.
 func services(service *nestworthapp.Service, store *settings.Store, emitter wailsmarketdata.EventEmitter, dialog wailsmedia.Dialog, startupErr error) []application.Service {
 	registered := []application.Service{
 		application.NewService(wailsapp.NewService(startupErr)),
+		application.NewService(wailscatalog.NewService()),
 	}
 	if service == nil {
 		return registered

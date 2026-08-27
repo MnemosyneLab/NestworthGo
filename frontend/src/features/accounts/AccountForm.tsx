@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -11,14 +11,8 @@ import { IconPicker } from "@/components/forms/IconPicker";
 import { ImagePicker } from "@/components/forms/ImagePicker";
 import { useMembers, useInstitutions, useGroups } from "@/queries/directory";
 import { useSupportedCurrencies } from "@/queries/settings";
-import {
-  PRIMARY_CATEGORIES,
-  SECONDARY_CATEGORIES_BY_PRIMARY,
-  TRACKING_MODES_BY_PRIMARY,
-  defaultSecondaryCategory,
-  defaultTrackingMode,
-  type PrimaryCategory,
-} from "@/features/accounts/accountTaxonomy";
+import { useCatalog } from "@/queries/catalog";
+import { useBootstrap } from "@/queries/household";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { displayEnum } from "@/lib/display";
@@ -65,9 +59,9 @@ export type AccountFormExtras = {
 const emptyValues: AccountFormValues = {
   name: "",
   primaryCategory: "cash_equivalent",
-  secondaryCategory: defaultSecondaryCategory("cash_equivalent"),
-  trackingMode: defaultTrackingMode("cash_equivalent"),
-  defaultCurrency: "USD",
+  secondaryCategory: "cash",
+  trackingMode: "balance",
+  defaultCurrency: "CNY",
   initialAmount: "",
   ownerIds: [],
   ownershipPercentages: [],
@@ -124,6 +118,8 @@ export function AccountForm({
   const institutions = useInstitutions();
   const groups = useGroups();
   const currencies = useSupportedCurrencies();
+  const catalog = useCatalog();
+  const bootstrap = useBootstrap();
   const isEdit = Boolean(record);
   const [showMoreOptions, setShowMoreOptions] = useState(isEdit);
   const [iconKey, setIconKey] = useState(record?.account.iconKey ?? "");
@@ -141,18 +137,37 @@ export function AccountForm({
     formState: { errors },
   } = useForm<AccountFormValues>({ resolver: zodResolver(accountFormSchema), defaultValues: initialValues });
 
-  const primaryCategory = useWatch({ control, name: "primaryCategory" }) as PrimaryCategory;
+  const primaryCategory = useWatch({ control, name: "primaryCategory" });
   const trackingMode = useWatch({ control, name: "trackingMode" });
   const ownerIds = useWatch({ control, name: "ownerIds" });
   const ownershipPercentages = useWatch({ control, name: "ownershipPercentages" }) ?? [];
 
-  const secondaryOptions = useMemo(() => SECONDARY_CATEGORIES_BY_PRIMARY[primaryCategory] ?? [], [primaryCategory]);
-  const trackingModeOptions = useMemo(() => TRACKING_MODES_BY_PRIMARY[primaryCategory] ?? [], [primaryCategory]);
+  const primaryOptions = catalog.data?.primaryCategories ?? [];
+  const secondaryOptions = useMemo(
+    () => catalog.data?.secondaryCategoriesByPrimary?.[primaryCategory] ?? [],
+    [catalog.data, primaryCategory],
+  );
+  const trackingModeOptions = useMemo(
+    () => catalog.data?.trackingModesByPrimary?.[primaryCategory] ?? [],
+    [catalog.data, primaryCategory],
+  );
+  const householdCurrency = bootstrap.data?.household?.baseCurrency;
+  const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
 
-  const handlePrimaryCategoryChange = (value: PrimaryCategory) => {
+  useEffect(() => {
+    if (isEdit) {
+      return;
+    }
+    const next = householdCurrency ?? currencies.data?.[0];
+    if (next) {
+      setValue("defaultCurrency", next);
+    }
+  }, [currencies.data, householdCurrency, isEdit, setValue]);
+
+  const handlePrimaryCategoryChange = (value: string) => {
     setValue("primaryCategory", value);
-    setValue("secondaryCategory", defaultSecondaryCategory(value));
-    setValue("trackingMode", defaultTrackingMode(value));
+    setValue("secondaryCategory", catalog.data?.secondaryCategoriesByPrimary?.[value]?.[0] ?? "");
+    setValue("trackingMode", catalog.data?.trackingModesByPrimary?.[value]?.[0] ?? "");
     if (!isEdit) {
       setValue("includeInInvestment", value === "investment", { shouldDirty: true, shouldTouch: true });
     }
@@ -199,9 +214,9 @@ export function AccountForm({
         <NativeSelect
           id="account-primary-category"
           value={primaryCategory}
-          onChange={(event) => handlePrimaryCategoryChange(event.target.value as PrimaryCategory)}
+          onChange={(event) => handlePrimaryCategoryChange(event.target.value)}
         >
-          {PRIMARY_CATEGORIES.map((category) => (
+          {primaryOptions.map((category) => (
             <option key={category} value={category}>
               {displayEnum(t, "enum", category)}
             </option>
@@ -236,7 +251,7 @@ export function AccountForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-currency">{t("accounts.currency")}</Label>
         <NativeSelect id="account-currency" {...register("defaultCurrency")}>
-          {(currencies.data ?? ["USD"]).map((currency) => (
+          {(currencyOptions).map((currency) => (
             <option key={currency} value={currency}>
               {currency}
             </option>

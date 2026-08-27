@@ -73,11 +73,11 @@ func (s *Service) RefreshInstrument(ctx context.Context, id domain.InstrumentID)
 // orientation. Either input orientation is accepted, but the provider always
 // receives the non-base currency first and the Household base second.
 func (s *Service) RefreshFX(ctx context.Context, currencyA, currencyB string) (RefreshResult, error) {
-	a, err := domain.ParseCurrency(currencyA)
+	a, err := domain.ParseSupportedCurrency(currencyA)
 	if err != nil {
 		return refreshInputFailure(fxTargetKeyFromStrings(currencyA, currencyB), RefreshFXTarget, err), nil
 	}
-	b, err := domain.ParseCurrency(currencyB)
+	b, err := domain.ParseSupportedCurrency(currencyB)
 	if err != nil {
 		return refreshInputFailure(fxTargetKeyFromStrings(currencyA, currencyB), RefreshFXTarget, err), nil
 	}

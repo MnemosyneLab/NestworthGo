@@ -18,6 +18,7 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies } from "@/queries/settings";
+import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
@@ -35,6 +36,7 @@ export function SettingsPage() {
   const saveSettings = useSaveSettings();
   const resetSettings = useResetSettings();
   const currencies = useSupportedCurrencies();
+  const catalog = useCatalog();
   const setAppearance = useUiStore((state) => state.setAppearance);
   const [draft, setDraft] = useState<Settings | null>(null);
   const [syncedFrom, setSyncedFrom] = useState<Settings | null>(null);
@@ -103,9 +105,11 @@ export function SettingsPage() {
               value={draft.appearance}
               onChange={(event) => update({ appearance: event.target.value as Settings["appearance"] })}
             >
-              <option value="system">{t("option.appearance.system")}</option>
-              <option value="light">{t("option.appearance.light")}</option>
-              <option value="dark">{t("option.appearance.dark")}</option>
+              {(catalog.data?.appearances ?? []).map((appearance) => (
+                <option key={appearance} value={appearance}>
+                  {t(`option.appearance.${appearance}`)}
+                </option>
+              ))}
             </NativeSelect>
           </div>
 
@@ -116,10 +120,11 @@ export function SettingsPage() {
               value={draft.language}
               onChange={(event) => update({ language: event.target.value as Settings["language"] })}
             >
-              <option value="system">{t("option.language.system")}</option>
-              <option value="en">{t("option.language.en")}</option>
-              <option value="zh-CN">{t("option.language.zhCN")}</option>
-              <option value="zh-TW">{t("option.language.zhTW")}</option>
+              {(catalog.data?.languages ?? []).map((language) => (
+                <option key={language} value={language}>
+                  {t(`option.language.${language === "zh-CN" ? "zhCN" : language === "zh-TW" ? "zhTW" : language}`)}
+                </option>
+              ))}
             </NativeSelect>
           </div>
 

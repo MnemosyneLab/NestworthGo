@@ -89,7 +89,11 @@ func (s *Service) RealizedGain(ctx context.Context, scope GainScopeRequest, tren
 	if err != nil {
 		return wire.RealizedGainDTO{}, apierror.Wrap(err)
 	}
-	view, err := s.app.RealizedGain(ctx, domainScope, domain.TrendRange(trendRange))
+	parsed, err := domain.ParseTrendRange(trendRange)
+	if err != nil {
+		return wire.RealizedGainDTO{}, apierror.Wrap(err)
+	}
+	view, err := s.app.RealizedGain(ctx, domainScope, parsed)
 	if err != nil {
 		return wire.RealizedGainDTO{}, apierror.Wrap(err)
 	}

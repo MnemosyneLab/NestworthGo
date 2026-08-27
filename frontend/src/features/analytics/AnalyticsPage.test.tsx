@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -14,6 +14,10 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/an
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
   Service: { NetWorthTrend: (...args: unknown[]) => netWorthTrend(...args), Overview: vi.fn(), Portfolio: vi.fn() },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
 
 function renderPage() {
   const queryClient = createTestQueryClient();
@@ -47,8 +51,18 @@ describe("AnalyticsPage", () => {
     netWorthTrend.mockResolvedValue({ range: "1y", currency: "USD", points: [] });
 
     renderPage();
-    await screen.findByText("Realized gain");
-    await userEvent.click(screen.getByRole("button", { name: "1 year" }));
+    await userEvent.click(await screen.findByRole("button", { name: "1 year" }));
     expect(realizedGain).toHaveBeenCalledWith({}, "1y");
+  });
+
+  it("renders trend range buttons from the catalog only", async () => {
+    realizedGain.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
+    netWorthTrend.mockResolvedValue({ range: "30d", currency: "USD", points: [] });
+    renderPage();
+    const group = await screen.findByRole("group", { name: "Range" });
+    await waitFor(() => {
+      expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["30 days", "1 year"]);
+    });
+    expect(within(group).queryByRole("button", { name: "All history" })).not.toBeInTheDocument();
   });
 });

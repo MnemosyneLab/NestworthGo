@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -237,6 +238,25 @@ func ParseCurrency(value string) (CurrencyCode, error) {
 
 func (c CurrencyCode) String() string { return string(c) }
 
+// SupportedCurrencies is the closed catalog of currencies the app accepts
+// on user-facing writes (onboarding, accounts, instruments, history, FX
+// preferences, and display settings). ParseCurrency stays syntax-only so
+// already-persisted codes can still be read.
+func SupportedCurrencies() []CurrencyCode {
+	return []CurrencyCode{"AUD", "CNY", "EUR", "GBP", "HKD", "JPY", "SGD", "TWD", "USD", "KRW", "CHF"}
+}
+
+func ParseSupportedCurrency(value string) (CurrencyCode, error) {
+	code, err := ParseCurrency(value)
+	if err != nil {
+		return "", err
+	}
+	if !slices.Contains(SupportedCurrencies(), code) {
+		return "", validation("currency", "is not supported")
+	}
+	return code, nil
+}
+
 var moneySyntax = regexp.MustCompile(`^(0|[1-9][0-9]{0,11})(\.[0-9]{1,4})?$`)
 
 // Money is a non-negative exact decimal amount in one currency.
@@ -345,6 +365,10 @@ func ParsePrimaryCategory(value string) (PrimaryCategory, error) {
 	}
 }
 
+func AllPrimaryCategories() []PrimaryCategory {
+	return []PrimaryCategory{CategoryCashEquivalent, CategoryInvestment, CategoryProperty, CategoryReceivable, CategoryLiability}
+}
+
 // SecondaryCategory is intentionally a string enum to keep SQLite and UI values stable.
 type SecondaryCategory string
 
@@ -394,6 +418,14 @@ func ParseSecondaryCategory(value string) (SecondaryCategory, error) {
 	return "", validation("secondaryCategory", "is not supported")
 }
 
+func SecondaryCategoriesByPrimary() map[PrimaryCategory][]SecondaryCategory {
+	copied := make(map[PrimaryCategory][]SecondaryCategory, len(secondaryByPrimary))
+	for primary, values := range secondaryByPrimary {
+		copied[primary] = slices.Clone(values)
+	}
+	return copied
+}
+
 func (c SecondaryCategory) BelongsTo(primary PrimaryCategory) bool {
 	for _, value := range secondaryByPrimary[primary] {
 		if c == value {
@@ -431,6 +463,25 @@ func ParseTrackingMode(value string) (TrackingMode, error) {
 	default:
 		return "", validation("trackingMode", "is not supported")
 	}
+}
+
+func AllTrackingModes() []TrackingMode {
+	return []TrackingMode{TrackingBalance, TrackingManualValue, TrackingHoldings}
+}
+
+func TrackingModesByPrimary() map[PrimaryCategory][]TrackingMode {
+	result := make(map[PrimaryCategory][]TrackingMode, len(AllPrimaryCategories()))
+	for _, primary := range AllPrimaryCategories() {
+		preferred := primary.DefaultTrackingMode()
+		modes := []TrackingMode{preferred}
+		for _, mode := range AllTrackingModes() {
+			if mode != preferred && mode.AllowedFor(primary) {
+				modes = append(modes, mode)
+			}
+		}
+		result[primary] = modes
+	}
+	return result
 }
 
 func (m TrackingMode) AllowedFor(primary PrimaryCategory) bool {
@@ -832,6 +883,23 @@ const (
 	OwnershipSole   OwnershipScope = "sole"
 	OwnershipShared OwnershipScope = "shared"
 )
+
+func ParseOwnershipScope(value string) (OwnershipScope, error) {
+	scope := OwnershipScope(strings.TrimSpace(value))
+	if scope == "" {
+		return OwnershipAny, nil
+	}
+	switch scope {
+	case OwnershipAny, OwnershipSole, OwnershipShared:
+		return scope, nil
+	default:
+		return "", validation("ownershipScope", "is not supported")
+	}
+}
+
+func AllOwnershipScopes() []OwnershipScope {
+	return []OwnershipScope{OwnershipAny, OwnershipSole, OwnershipShared}
+}
 
 type AccountFilter struct {
 	IncludeArchived bool

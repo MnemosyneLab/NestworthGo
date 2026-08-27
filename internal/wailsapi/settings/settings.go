@@ -65,8 +65,7 @@ func (s *Service) Reset() (settings.Settings, error) {
 	return defaults, nil
 }
 
-// SupportedCurrencies returns the fixed list of display currencies the
-// Settings page's currency selector may offer.
+// SupportedCurrencies returns the closed currency catalog from domain.
 func (s *Service) SupportedCurrencies() []string {
 	return settings.SupportedCurrencies()
 }

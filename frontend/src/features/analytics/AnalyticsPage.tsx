@@ -6,19 +6,22 @@ import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useRealizedGain, useNetWorthTrend } from "@/queries/analytics";
+import { useCatalog } from "@/queries/catalog";
 import { formatAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
-const RANGES = [
-  { id: "30d", labelKey: "analytics.range30" },
-  { id: "1y", labelKey: "analytics.range1year" },
-  { id: "all", labelKey: "analytics.rangeAll" },
-];
+const TREND_RANGE_LABELS: Record<string, string> = {
+  "30d": "analytics.range30",
+  "1y": "analytics.range1year",
+  all: "analytics.rangeAll",
+};
 
 /** Analytics separates trend context from realized-gain detail and exposes
  * the same chart data in an accessible table disclosure. */
 export function AnalyticsPage() {
   const { t } = useTranslation();
+  const catalog = useCatalog();
+  const ranges = catalog.data?.trendRanges ?? [];
   const [range, setRange] = useState("30d");
   const realizedGain = useRealizedGain(range);
   const netWorthTrend = useNetWorthTrend(range);
@@ -62,9 +65,9 @@ export function AnalyticsPage() {
       <PageHeader title={t("nav.analytics")} description={t("analytics.description")} />
 
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("analytics.range")}>
-        {RANGES.map((option) => (
-          <Button key={option.id} variant={range === option.id ? "default" : "outline"} size="sm" onClick={() => setRange(option.id)}>
-            {t(option.labelKey)}
+        {ranges.map((id) => (
+          <Button key={id} variant={range === id ? "default" : "outline"} size="sm" onClick={() => setRange(id)}>
+            {t(TREND_RANGE_LABELS[id] ?? id)}
           </Button>
         ))}
       </div>

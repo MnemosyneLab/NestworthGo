@@ -559,7 +559,7 @@ func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.A
 	if record.Account.ArchivedAt != nil {
 		return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrValidation, Field: "accountId", Message: "account is archived"}
 	}
-	parsedCurrency, err := domain.ParseCurrency(currency)
+	parsedCurrency, err := domain.ParseSupportedCurrency(currency)
 	if err != nil {
 		return domain.AccountCashValue{}, err
 	}
@@ -675,11 +675,11 @@ func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, sou
 	if household == nil {
 		return domain.FXPreference{}, onboardingRequired()
 	}
-	a, err := domain.ParseCurrency(currencyA)
+	a, err := domain.ParseSupportedCurrency(currencyA)
 	if err != nil {
 		return domain.FXPreference{}, err
 	}
-	b, err := domain.ParseCurrency(currencyB)
+	b, err := domain.ParseSupportedCurrency(currencyB)
 	if err != nil {
 		return domain.FXPreference{}, err
 	}
@@ -731,11 +731,11 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 	if household == nil {
 		return domain.FXQuote{}, onboardingRequired()
 	}
-	base, err := domain.ParseCurrency(baseCurrency)
+	base, err := domain.ParseSupportedCurrency(baseCurrency)
 	if err != nil {
 		return domain.FXQuote{}, err
 	}
-	quoteCurrencyCode, err := domain.ParseCurrency(quoteCurrency)
+	quoteCurrencyCode, err := domain.ParseSupportedCurrency(quoteCurrency)
 	if err != nil {
 		return domain.FXQuote{}, err
 	}
@@ -773,7 +773,7 @@ func (s *Service) portfolioSnapshot(ctx context.Context) (domain.PortfolioSnapsh
 }
 
 func newInstrumentFromInput(householdID domain.HouseholdID, input InstrumentInput, now time.Time) (domain.Instrument, error) {
-	quoteCurrency, err := domain.ParseCurrency(input.QuoteCurrency)
+	quoteCurrency, err := domain.ParseSupportedCurrency(input.QuoteCurrency)
 	if err != nil {
 		return domain.Instrument{}, err
 	}
@@ -785,10 +785,18 @@ func newInstrumentFromInput(householdID domain.HouseholdID, input InstrumentInpu
 	if err != nil {
 		return domain.Instrument{}, err
 	}
+	quoteSourceValue := input.QuoteSource
+	if quoteSourceValue == "" {
+		quoteSourceValue = string(domain.QuoteSourceManual)
+	}
+	quoteSource, err := domain.ParseQuoteSourceKind(quoteSourceValue)
+	if err != nil {
+		return domain.Instrument{}, err
+	}
 	return domain.NewInstrument(domain.InstrumentInput{
 		HouseholdID: householdID, Name: input.Name, Type: instrumentType, QuoteCurrency: quoteCurrency,
 		Symbol: optionalText(input.Symbol), MarketCode: optionalText(input.MarketCode), CountryCode: optionalText(input.CountryCode), ISIN: optionalText(input.ISIN), Note: input.Note,
-		LogoAssetID: logoAssetID, SortOrder: input.SortOrder, QuoteSource: domain.QuoteSourceKind(input.QuoteSource), ProviderKey: optionalText(input.ProviderKey), ProviderSymbol: optionalText(input.ProviderSymbol),
+		LogoAssetID: logoAssetID, SortOrder: input.SortOrder, QuoteSource: quoteSource, ProviderKey: optionalText(input.ProviderKey), ProviderSymbol: optionalText(input.ProviderSymbol),
 	}, now)
 }
 

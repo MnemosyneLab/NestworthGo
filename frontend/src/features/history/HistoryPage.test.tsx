@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -45,6 +45,24 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/in
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
   Service: { HoldingsByAccounts: (...args: unknown[]) => holdingsByAccounts(...args) },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
+  Service: { SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]) },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/household", () => ({
+  Service: {
+    Bootstrap: () =>
+      Promise.resolve({
+        household: { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
+        members: [],
+        institutions: [],
+        groups: [],
+      }),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
 
 function renderPage() {
   const queryClient = createTestQueryClient();
@@ -254,5 +272,19 @@ describe("HistoryPage", () => {
     expect(within(items[0]).queryByRole("button", { name: "Fix" })).not.toBeInTheDocument();
     expect(within(items[0]).queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
     expect(within(items[1]).queryByRole("button", { name: "Fix" })).not.toBeInTheDocument();
+  });
+
+  it("uses a currency select from the supported catalog instead of free text", async () => {
+    const { selectValues } = await import("@/test/catalog");
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listActivities.mockResolvedValue([]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    const currency = within(form).getByLabelText("Currency");
+    expect(currency.tagName).toBe("SELECT");
+    await waitFor(() => {
+      expect(selectValues(currency)).toEqual(["USD", "SGD", "CNY"]);
+    });
   });
 });

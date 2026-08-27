@@ -17,11 +17,13 @@ import (
 // back to the code itself.
 var currencySymbols = map[string]string{
 	"AUD": "A$",
+	"CHF": "CHF",
 	"CNY": "¥",
 	"EUR": "€",
 	"GBP": "£",
 	"HKD": "HK$",
 	"JPY": "¥",
+	"KRW": "₩",
 	"SGD": "S$",
 	"TWD": "NT$",
 	"USD": "$",

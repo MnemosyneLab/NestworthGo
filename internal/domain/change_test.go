@@ -169,7 +169,7 @@ func TestPreviewTradeValueUpdateAndNoChange(t *testing.T) {
 	quantity, _ := ParseQuantity("2")
 	gross, _ := ParseMoney("200", state.Accounts[broker].Currency)
 	fee, _ := ParseMoney("5", state.Accounts[broker].Currency)
-	preview, err := PreviewChange(state, TradeInput{HouseholdID: state.HouseholdID, Side: TradeBuy, SettlementAccountID: broker, InstrumentID: state.Holdings[qqq].InstrumentID, Quantity: quantity, Gross: gross, Fee: &fee})
+	preview, err := PreviewChange(state, TradeInput{HouseholdID: state.HouseholdID, Side: TradeBuy, SettlementAccountID: broker, HoldingID: qqq, InstrumentID: state.Holdings[qqq].InstrumentID, Quantity: quantity, Gross: gross, Fee: &fee})
 	if err != nil {
 		t.Fatal(err)
 	}

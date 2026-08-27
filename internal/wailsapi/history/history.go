@@ -244,7 +244,11 @@ func (r ActivityQueryRequest) toDomain() (domain.ActivityQuery, error) {
 		query.AccountID = &id
 	}
 	for _, kind := range r.Kinds {
-		query.Kinds = append(query.Kinds, domain.ActivityKind(kind))
+		parsed, err := domain.ParseActivityKind(kind)
+		if err != nil {
+			return domain.ActivityQuery{}, err
+		}
+		query.Kinds = append(query.Kinds, parsed)
 	}
 	if r.AfterID != "" {
 		id, err := domain.ParseActivityID(r.AfterID)

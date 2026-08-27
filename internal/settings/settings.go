@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 const CurrentSchemaVersion = 1
@@ -201,7 +203,24 @@ func oneOf(value string, options ...string) bool {
 // currency selector must both derive from this list; display symbols live in
 // format.CurrencySymbol.
 func SupportedCurrencies() []string {
-	return []string{"AUD", "CNY", "EUR", "GBP", "HKD", "JPY", "SGD", "TWD", "USD"}
+	codes := domain.SupportedCurrencies()
+	values := make([]string, len(codes))
+	for i, code := range codes {
+		values[i] = code.String()
+	}
+	return values
+}
+
+func AllAppearances() []Appearance {
+	return []Appearance{AppearanceSystem, AppearanceLight, AppearanceDark}
+}
+
+func AllLanguages() []Language {
+	return []Language{LanguageSystem, LanguageEnglish, LanguageZhCN, LanguageZhTW}
+}
+
+func AllAccents() []Accent {
+	return []Accent{AccentNestworth, AccentOcean, AccentForest, AccentAmber, AccentRose}
 }
 
 func validCurrency(value string) bool {

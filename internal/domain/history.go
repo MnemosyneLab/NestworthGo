@@ -245,6 +245,20 @@ const (
 	TrendAllTime TrendRange = "all"
 )
 
+func ParseTrendRange(value string) (TrendRange, error) {
+	trendRange := TrendRange(strings.TrimSpace(value))
+	switch trendRange {
+	case Trend30Days, TrendOneYear, TrendAllTime:
+		return trendRange, nil
+	default:
+		return "", validation("range", "trend range is not supported")
+	}
+}
+
+func AllTrendRanges() []TrendRange {
+	return []TrendRange{Trend30Days, TrendOneYear, TrendAllTime}
+}
+
 type NetWorthTrendPoint struct {
 	LocalDate string
 	Value     *Money

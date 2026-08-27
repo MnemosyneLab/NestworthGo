@@ -116,7 +116,11 @@ type NetWorthTrendDTO struct {
 }
 
 func (s *Service) NetWorthTrend(ctx context.Context, trendRange string) (NetWorthTrendDTO, error) {
-	result, err := s.app.NetWorthTrend(ctx, domain.TrendRange(trendRange))
+	parsed, err := domain.ParseTrendRange(trendRange)
+	if err != nil {
+		return NetWorthTrendDTO{}, apierror.Wrap(err)
+	}
+	result, err := s.app.NetWorthTrend(ctx, parsed)
 	if err != nil {
 		return NetWorthTrendDTO{}, apierror.Wrap(err)
 	}

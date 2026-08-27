@@ -17,6 +17,10 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
     SupportedCurrencies: () => Promise.resolve(["USD", "SGD"]),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", () => ({
   Service: {
     AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.2.0", build: "1" }),
@@ -93,5 +97,13 @@ describe("SettingsPage", () => {
     expect(await screen.findByLabelText("About Nestworth")).toBeInTheDocument();
     expect(await screen.findByText(/Version v0\.2\.0/)).toBeInTheDocument();
     expect(screen.getByText(/Build 1/)).toBeInTheDocument();
+  });
+
+  it("renders appearance and language options from the catalog only", async () => {
+    const { TEST_CATALOG, selectValues } = await import("@/test/catalog");
+    renderPage();
+    await screen.findByRole("form", { name: "Settings" });
+    expect(selectValues(screen.getByLabelText("Appearance"))).toEqual(TEST_CATALOG.appearances);
+    expect(selectValues(screen.getByLabelText("Language"))).toEqual(TEST_CATALOG.languages);
   });
 });

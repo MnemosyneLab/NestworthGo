@@ -7,6 +7,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
@@ -101,20 +102,23 @@ func TestNetWorthTrendWithoutHistory(t *testing.T) {
 	}
 }
 
-// Before history starts, NetWorthTrend intentionally short-circuits without
-// validating the range (application.Service.NetWorthTrend); an unsupported
-// range only becomes an error once daily snapshots are actually queried.
-// This test documents that pass-through behavior rather than asserting an
-// error that would not actually occur pre-history.
-func TestNetWorthTrendPassesThroughRangeBeforeHistoryStarts(t *testing.T) {
+// Unknown trend ranges fail at ParseTrendRange on the Wails boundary, even
+// before history has started. The frontend catalog is the only source of
+// range buttons, so an unknown value is a client bug rather than a
+// pass-through.
+func TestNetWorthTrendRejectsUnknownRangeBeforeHistoryStarts(t *testing.T) {
 	app, _ := setup(t)
 	service := portfolio.NewService(app)
-	result, err := service.NetWorthTrend(context.Background(), "not-a-range")
-	if err != nil {
-		t.Fatalf("NetWorthTrend before history starts should not validate the range yet: %v", err)
+	_, err := service.NetWorthTrend(context.Background(), "not-a-range")
+	if err == nil {
+		t.Fatal("NetWorthTrend accepted an unknown range")
 	}
-	if result.Range != "not-a-range" {
-		t.Fatalf("Range = %q, want the input echoed back before history starts", result.Range)
+	wireErr, ok := apierror.Parse(err.Error())
+	if !ok {
+		t.Fatalf("error is not a parseable WireError: %v", err)
+	}
+	if wireErr.Code != "validation" || wireErr.Field != "range" {
+		t.Fatalf("error = %+v, want validation/range", wireErr)
 	}
 }
 

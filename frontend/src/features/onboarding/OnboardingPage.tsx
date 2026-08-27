@@ -46,7 +46,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
     formState: { errors },
   } = useForm<OnboardingFormValues>({
     resolver: zodResolver(onboardingSchema),
-    defaultValues: { householdName: "", baseCurrency: "USD", memberNames: [{ name: "" }] },
+    defaultValues: { householdName: "", baseCurrency: "CNY", memberNames: [{ name: "" }] },
   });
   const { fields, append, remove } = useFieldArray({ control, name: "memberNames" });
 
@@ -101,7 +101,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
                   id="baseCurrency"
                   {...register("baseCurrency")}
                 >
-                  {(currencies.data ?? ["USD"]).map((currency) => (
+                  {(currencies.data ?? []).map((currency) => (
                     <option key={currency} value={currency}>
                       {currency}
                     </option>

@@ -48,6 +48,11 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings
   },
 }));
 
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
+
 // This smoke test only exercises the shell + placeholder pages, so
 // Bootstrap resolves with an existing Household (skipping Onboarding);
 // OnboardingPage has its own dedicated tests.

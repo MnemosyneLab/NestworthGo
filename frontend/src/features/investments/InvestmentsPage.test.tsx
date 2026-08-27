@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -42,9 +42,24 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/qu
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: { ListAccounts: (...args: unknown[]) => listAccounts(...args) },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/household", () => ({
+  Service: {
+    Bootstrap: () =>
+      Promise.resolve({
+        household: { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
+        members: [],
+        institutions: [],
+        groups: [],
+      }),
+  },
+}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: { SupportedCurrencies: () => Promise.resolve(["USD"]) },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
 
 function renderPage() {
   const queryClient = createTestQueryClient();
@@ -218,5 +233,15 @@ describe("InvestmentsPage", () => {
     await userEvent.click(submitButtons[submitButtons.length - 1]);
     expect(await screen.findByRole("alert")).toHaveTextContent("Choose an account, instrument, and quantity.");
     expect(createHolding).not.toHaveBeenCalled();
+  });
+
+  it("renders instrument type options from the catalog only", async () => {
+    const { TEST_CATALOG, selectValues } = await import("@/test/catalog");
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await waitFor(() => {
+      expect(selectValues(within(form).getByLabelText("Type"))).toEqual(TEST_CATALOG.instrumentTypes);
+    });
   });
 });

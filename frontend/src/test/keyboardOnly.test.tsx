@@ -34,7 +34,16 @@ const settingsLoad = vi.fn();
 const settingsSave = vi.fn().mockResolvedValue(undefined);
 
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/household", () => ({
-  Service: { CompleteOnboarding: (request: unknown) => completeOnboarding(request) },
+  Service: {
+    CompleteOnboarding: (request: unknown) => completeOnboarding(request),
+    Bootstrap: () =>
+      Promise.resolve({
+        household: { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
+        members: [{ id: "alice", name: "Alice" }],
+        institutions: [],
+        groups: [],
+      }),
+  },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
@@ -87,6 +96,10 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/setti
     SupportedCurrencies: () => Promise.resolve(["USD", "SGD"]),
   },
 }));
+vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", () => ({
   Service: {
     AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.2.0", build: "1" }),
@@ -230,7 +243,7 @@ describe("keyboard-only completion", () => {
     expect(within(form).getByLabelText("Amount")).toHaveFocus();
     await userEvent.keyboard("1000");
 
-    await userEvent.tab(); // -> currency input (left at its default: USD)
+    await userEvent.tab(); // -> currency select (left at its default: USD)
     await userEvent.tab(); // -> reason select (default: Other)
     await userEvent.tab(); // -> note input
     await userEvent.tab(); // -> Preview button

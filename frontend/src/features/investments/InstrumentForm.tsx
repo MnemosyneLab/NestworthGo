@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -7,16 +8,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { useSupportedCurrencies } from "@/queries/settings";
+import { useCatalog } from "@/queries/catalog";
+import { useBootstrap } from "@/queries/household";
 import type { InstrumentRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument/models";
 import { displayEnum } from "@/lib/display";
-
-const INSTRUMENT_TYPES = ["stock", "etf", "mutual_fund", "crypto", "bond", "precious_metal", "bank_investment_product", "other"];
 
 const instrumentFormSchema = z.object({
   name: z.string().trim().min(1),
   type: z.string(),
   quoteCurrency: z.string().length(3),
-  quoteSource: z.enum(["manual", "provider"]),
+  quoteSource: z.string(),
   providerKey: z.string().optional(),
   providerSymbol: z.string().optional(),
 });
@@ -30,16 +31,30 @@ type InstrumentFormValues = z.infer<typeof instrumentFormSchema>;
 export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { onSubmit: (request: InstrumentRequest) => void; isSubmitting: boolean; submissionError?: string }) {
   const { t } = useTranslation();
   const currencies = useSupportedCurrencies();
+  const catalog = useCatalog();
+  const bootstrap = useBootstrap();
   const {
     register,
     control,
+    setValue,
     handleSubmit,
     formState: { errors },
   } = useForm<InstrumentFormValues>({
     resolver: zodResolver(instrumentFormSchema),
-    defaultValues: { name: "", type: "stock", quoteCurrency: "USD", quoteSource: "manual" },
+    defaultValues: { name: "", type: "stock", quoteCurrency: "CNY", quoteSource: "manual" },
   });
   const quoteSource = useWatch({ control, name: "quoteSource" });
+  const householdCurrency = bootstrap.data?.household?.baseCurrency;
+  const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
+  const instrumentTypes = catalog.data?.instrumentTypes ?? [];
+  const quoteSources = catalog.data?.quoteSources ?? [];
+
+  useEffect(() => {
+    const next = householdCurrency ?? currencies.data?.[0];
+    if (next) {
+      setValue("quoteCurrency", next);
+    }
+  }, [currencies.data, householdCurrency, setValue]);
 
   const submit = (values: InstrumentFormValues) => {
     onSubmit({
@@ -66,7 +81,7 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-type">{t("portfolio.type")}</Label>
         <NativeSelect id="instrument-type" {...register("type")}>
-          {INSTRUMENT_TYPES.map((type) => (
+          {instrumentTypes.map((type) => (
             <option key={type} value={type}>
               {displayEnum(t, "enum", type)}
             </option>
@@ -76,7 +91,7 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-currency">{t("accounts.currency")}</Label>
         <NativeSelect id="instrument-currency" {...register("quoteCurrency")}>
-          {(currencies.data ?? ["USD"]).map((currency) => (
+          {currencyOptions.map((currency) => (
             <option key={currency} value={currency}>
               {currency}
             </option>
@@ -86,8 +101,11 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-quote-source">{t("portfolio.quoteSource")}</Label>
         <NativeSelect id="instrument-quote-source" {...register("quoteSource")}>
-          <option value="manual">{t("portfolio.manual")}</option>
-          <option value="provider">{t("portfolio.provider")}</option>
+          {quoteSources.map((source) => (
+            <option key={source} value={source}>
+              {displayEnum(t, "portfolio", source)}
+            </option>
+          ))}
         </NativeSelect>
       </div>
       {quoteSource === "provider" && (

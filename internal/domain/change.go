@@ -137,6 +137,26 @@ const (
 
 func (k ActivityKind) String() string { return string(k) }
 
+func ParseActivityKind(value string) (ActivityKind, error) {
+	kind := ActivityKind(strings.TrimSpace(value))
+	switch kind {
+	case ActivityCashIn, ActivityCashOut, ActivityCashTransfer, ActivityFXConversion,
+		ActivityPositionTransfer, ActivityBuy, ActivitySell, ActivityValueUpdate,
+		ActivityDebtDraw, ActivityDebtPayment, ActivityReversal:
+		return kind, nil
+	default:
+		return "", validation("kind", "is not supported")
+	}
+}
+
+func AllActivityKinds() []ActivityKind {
+	return []ActivityKind{
+		ActivityCashIn, ActivityCashOut, ActivityCashTransfer, ActivityFXConversion,
+		ActivityPositionTransfer, ActivityBuy, ActivitySell, ActivityValueUpdate,
+		ActivityDebtDraw, ActivityDebtPayment, ActivityReversal,
+	}
+}
+
 type ActivityReason string
 
 const (
@@ -151,6 +171,32 @@ const (
 	ReasonPrincipal      ActivityReason = "principal"
 	ReasonInterest       ActivityReason = "interest"
 )
+
+func ParseActivityReason(value string) (ActivityReason, error) {
+	reason := ActivityReason(strings.TrimSpace(value))
+	if reason == "" {
+		return "", nil
+	}
+	switch reason {
+	case ReasonIncome, ReasonContribution, ReasonGift, ReasonOther, ReasonExpense,
+		ReasonFee, ReasonTax, ReasonReconciliation, ReasonPrincipal, ReasonInterest:
+		return reason, nil
+	default:
+		return "", validation("reason", "is not supported")
+	}
+}
+
+func MoneyInReasons() []ActivityReason {
+	return []ActivityReason{ReasonIncome, ReasonContribution, ReasonGift, ReasonOther, ReasonReconciliation}
+}
+
+func MoneyOutReasons() []ActivityReason {
+	return []ActivityReason{ReasonExpense, ReasonFee, ReasonTax, ReasonOther, ReasonReconciliation}
+}
+
+func ValueUpdateReasons() []ActivityReason {
+	return []ActivityReason{ReasonReconciliation, ReasonOther}
+}
 
 type ActivityClassification string
 
@@ -425,6 +471,20 @@ const (
 	TradeBuy  TradeSide = "buy"
 	TradeSell TradeSide = "sell"
 )
+
+func ParseTradeSide(value string) (TradeSide, error) {
+	side := TradeSide(strings.TrimSpace(value))
+	switch side {
+	case TradeBuy, TradeSell:
+		return side, nil
+	default:
+		return "", validation("side", "is not supported")
+	}
+}
+
+func AllTradeSides() []TradeSide {
+	return []TradeSide{TradeBuy, TradeSell}
+}
 
 type TradeInput struct {
 	HouseholdID         HouseholdID

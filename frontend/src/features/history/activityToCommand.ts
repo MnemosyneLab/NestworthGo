@@ -150,7 +150,7 @@ export function activityToInitialCommand(activity: ActivityDTO): ChangeCommandRe
   }
 }
 
-export function emptyChangeRequest(kind: ChangeCommandKind): ChangeCommandRequest {
+export function emptyChangeRequest(kind: ChangeCommandKind, defaultCurrency = "CNY"): ChangeCommandRequest {
   const request: ChangeCommandRequest = {
     kind,
     added: true,
@@ -161,18 +161,18 @@ export function emptyChangeRequest(kind: ChangeCommandKind): ChangeCommandReques
   switch (kind) {
     case ChangeCommandKind.ChangeMoneyAdded:
     case ChangeCommandKind.ChangeMoneyRemoved:
-      return { ...request, currency: "USD" };
+      return { ...request, currency: defaultCurrency };
     case ChangeCommandKind.ChangeValueUpdate:
-      return { ...request, newValueCurrency: "USD" };
+      return { ...request, newValueCurrency: defaultCurrency };
     case ChangeCommandKind.ChangeCashTransfer:
-      return { ...request, sentCurrency: "USD", receivedCurrency: "USD" };
+      return { ...request, sentCurrency: defaultCurrency, receivedCurrency: defaultCurrency };
     case ChangeCommandKind.ChangeFXConversion:
-      return { ...request, soldCurrency: "USD", boughtCurrency: "USD", feeCurrency: "USD" };
+      return { ...request, soldCurrency: defaultCurrency, boughtCurrency: defaultCurrency, feeCurrency: defaultCurrency };
     case ChangeCommandKind.ChangeTrade:
-      return { ...request, side: "buy", grossCurrency: "USD", feeCurrency: "USD" };
+      return { ...request, side: "buy", grossCurrency: defaultCurrency, feeCurrency: defaultCurrency };
     case ChangeCommandKind.ChangeDebtDraw:
     case ChangeCommandKind.ChangeDebtPayment:
-      return { ...request, principalCurrency: "USD", interestOrFeeCurrency: "USD" };
+      return { ...request, principalCurrency: defaultCurrency, interestOrFeeCurrency: defaultCurrency };
     default:
       return request;
   }

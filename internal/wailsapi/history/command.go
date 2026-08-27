@@ -95,7 +95,7 @@ func parseTimeOrZero(value string) (time.Time, error) {
 }
 
 func parseMoneyField(amount, currency string) (domain.Money, error) {
-	code, err := domain.ParseCurrency(currency)
+	code, err := domain.ParseSupportedCurrency(currency)
 	if err != nil {
 		return domain.Money{}, err
 	}
@@ -132,7 +132,11 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID) (any, er
 		if err != nil {
 			return nil, err
 		}
-		return domain.MoneyAddedInput{HouseholdID: householdID, AccountID: accountID, Amount: amount, Reason: domain.ActivityReason(r.Reason), EffectiveAt: effectiveAt, Note: r.Note}, nil
+		reason, err := domain.ParseActivityReason(r.Reason)
+		if err != nil {
+			return nil, err
+		}
+		return domain.MoneyAddedInput{HouseholdID: householdID, AccountID: accountID, Amount: amount, Reason: reason, EffectiveAt: effectiveAt, Note: r.Note}, nil
 
 	case ChangeMoneyRemoved:
 		accountID, err := domain.ParseAccountID(r.AccountID)
@@ -143,7 +147,11 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID) (any, er
 		if err != nil {
 			return nil, err
 		}
-		return domain.MoneyRemovedInput{HouseholdID: householdID, AccountID: accountID, Amount: amount, Reason: domain.ActivityReason(r.Reason), EffectiveAt: effectiveAt, Note: r.Note}, nil
+		reason, err := domain.ParseActivityReason(r.Reason)
+		if err != nil {
+			return nil, err
+		}
+		return domain.MoneyRemovedInput{HouseholdID: householdID, AccountID: accountID, Amount: amount, Reason: reason, EffectiveAt: effectiveAt, Note: r.Note}, nil
 
 	case ChangeCashTransfer:
 		fromID, err := domain.ParseAccountID(r.FromAccountID)
@@ -245,7 +253,11 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID) (any, er
 		if err != nil {
 			return nil, err
 		}
-		return domain.TradeInput{HouseholdID: householdID, Side: domain.TradeSide(r.Side), SettlementAccountID: settlementAccountID, HoldingID: holdingID, InstrumentID: instrumentID, Quantity: quantity, Gross: gross, Fee: fee, EffectiveAt: effectiveAt, Note: r.Note}, nil
+		side, err := domain.ParseTradeSide(r.Side)
+		if err != nil {
+			return nil, err
+		}
+		return domain.TradeInput{HouseholdID: householdID, Side: side, SettlementAccountID: settlementAccountID, HoldingID: holdingID, InstrumentID: instrumentID, Quantity: quantity, Gross: gross, Fee: fee, EffectiveAt: effectiveAt, Note: r.Note}, nil
 
 	case ChangeValueUpdate:
 		accountID, err := domain.ParseAccountID(r.AccountID)
@@ -256,7 +268,11 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID) (any, er
 		if err != nil {
 			return nil, err
 		}
-		return domain.ValueUpdateInput{HouseholdID: householdID, AccountID: accountID, NewValue: newValue, Reason: domain.ActivityReason(r.Reason), EffectiveAt: effectiveAt, Note: r.Note}, nil
+		reason, err := domain.ParseActivityReason(r.Reason)
+		if err != nil {
+			return nil, err
+		}
+		return domain.ValueUpdateInput{HouseholdID: householdID, AccountID: accountID, NewValue: newValue, Reason: reason, EffectiveAt: effectiveAt, Note: r.Note}, nil
 
 	case ChangeDebtDraw:
 		debtID, err := domain.ParseAccountID(r.DebtAccountID)

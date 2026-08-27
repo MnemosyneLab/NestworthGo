@@ -65,7 +65,7 @@ describe("activityToInitialCommand kind mapping", () => {
 
 describe("emptyChangeRequest", () => {
   it("stores the trade currencies that the form displays by default", () => {
-    expect(emptyChangeRequest(ChangeCommandKind.ChangeTrade)).toEqual(
+    expect(emptyChangeRequest(ChangeCommandKind.ChangeTrade, "USD")).toEqual(
       expect.objectContaining({ side: "buy", grossCurrency: "USD", feeCurrency: "USD" }),
     );
   });

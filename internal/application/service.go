@@ -198,7 +198,7 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 	} else if household != nil {
 		return &domain.Error{Code: domain.ErrConflict, Message: "a Household already exists"}
 	}
-	currency, err := domain.ParseCurrency(strings.ToUpper(strings.TrimSpace(input.BaseCurrency)))
+	currency, err := domain.ParseSupportedCurrency(strings.ToUpper(strings.TrimSpace(input.BaseCurrency)))
 	if err != nil {
 		return err
 	}
@@ -516,7 +516,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	currency, err := domain.ParseCurrency(strings.ToUpper(strings.TrimSpace(input.DefaultCurrency)))
+	currency, err := domain.ParseSupportedCurrency(strings.ToUpper(strings.TrimSpace(input.DefaultCurrency)))
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}

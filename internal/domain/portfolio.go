@@ -31,6 +31,13 @@ func ParseInstrumentType(value string) (InstrumentType, error) {
 	}
 }
 
+func AllInstrumentTypes() []InstrumentType {
+	return []InstrumentType{
+		InstrumentStock, InstrumentETF, InstrumentMutualFund, InstrumentCrypto,
+		InstrumentBond, InstrumentPreciousMetal, InstrumentBankInvestmentProduct, InstrumentOther,
+	}
+}
+
 // QuoteSourceKind is explicit. There is no implicit fallback between Manual
 // and Provider observations.
 type QuoteSourceKind string
@@ -48,6 +55,10 @@ func ParseQuoteSourceKind(value string) (QuoteSourceKind, error) {
 	default:
 		return "", validation("sourceKind", "is not supported")
 	}
+}
+
+func AllQuoteSourceKinds() []QuoteSourceKind {
+	return []QuoteSourceKind{QuoteSourceManual, QuoteSourceProvider}
 }
 
 // Instrument is a household-scoped quoted asset. Provider metadata is kept as

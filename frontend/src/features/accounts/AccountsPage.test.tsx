@@ -37,9 +37,24 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/di
     ListGroups: () => Promise.resolve([]),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/household", () => ({
+  Service: {
+    Bootstrap: () =>
+      Promise.resolve({
+        household: { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
+        members: [],
+        institutions: [],
+        groups: [],
+      }),
+  },
+}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: { SupportedCurrencies: () => Promise.resolve(["USD"]) },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
 
 function renderPage() {
   const queryClient = createTestQueryClient();
@@ -242,5 +257,16 @@ describe("AccountsPage", () => {
 
     await waitFor(() => expect(setAccountLogo).toHaveBeenCalledWith("acc-1", "media-1"));
     expect(createAccount).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders category options from the catalog only", async () => {
+    const { TEST_CATALOG, selectValues } = await import("@/test/catalog");
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Account form" });
+    await waitFor(() => {
+      expect(selectValues(within(form).getByLabelText("Category"))).toEqual(TEST_CATALOG.primaryCategories);
+    });
   });
 });
