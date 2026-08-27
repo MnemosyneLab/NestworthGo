@@ -12,10 +12,21 @@ export function useHistoryOrigin() {
   });
 }
 
+export function useStartingPointDraft(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.history.startingPointDraft,
+    queryFn: () => callService(() => HistoryService.StartingPointDraft()),
+    enabled,
+  });
+}
+
 export function useStartHistory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (timezone: string) => callService(() => HistoryService.StartHistory(timezone)),
+    mutationFn: ({ timezone, costOverrides }: { timezone: string; costOverrides?: Record<string, string> }) =>
+      costOverrides
+        ? callService(() => HistoryService.StartHistoryWithCosts(timezone, costOverrides))
+        : callService(() => HistoryService.StartHistory(timezone)),
     onSuccess: () => invalidateHistoryReads(queryClient),
   });
 }

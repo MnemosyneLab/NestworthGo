@@ -18,6 +18,7 @@ import {
   useArchiveInstrument,
   useCreateHolding,
   useAllHoldingsFlat,
+  useSaveManualInstrumentQuote,
 } from "@/queries/investments";
 import { useHoldingGainsByAccounts } from "@/queries/analytics";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
@@ -36,12 +37,70 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+function ManualQuoteForm({
+  instrumentId,
+  currency,
+  onSaved,
+}: {
+  instrumentId: string;
+  currency: string;
+  onSaved: () => void;
+}) {
+  const { t } = useTranslation();
+  const saveQuote = useSaveManualInstrumentQuote();
+  const [unitPrice, setUnitPrice] = useState("");
+  const [quotedAt, setQuotedAt] = useState("");
+
+  const submit = () => {
+    if (!unitPrice.trim()) {
+      return;
+    }
+    saveQuote.mutate(
+      { instrumentId, unitPrice: unitPrice.trim(), quotedAt: quotedAt ? new Date(`${quotedAt}T00:00:00`).toISOString() : "" },
+      {
+        onSuccess: () => {
+          toast.success(t("portfolio.priceSaved"));
+          onSaved();
+        },
+      },
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`quote-price-${instrumentId}`}>{t("portfolio.unitPrice")}</Label>
+        <Input
+          id={`quote-price-${instrumentId}`}
+          value={unitPrice}
+          onChange={(event) => setUnitPrice(event.target.value)}
+          inputMode="decimal"
+          placeholder={currency}
+        />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`quote-date-${instrumentId}`}>{t("portfolio.quotedAt")}</Label>
+        <Input id={`quote-date-${instrumentId}`} type="date" value={quotedAt} onChange={(event) => setQuotedAt(event.target.value)} />
+      </div>
+      {saveQuote.isError && (
+        <p role="alert" className="text-sm text-destructive">
+          {displayError(saveQuote.error, t("portfolio.updateError"))}
+        </p>
+      )}
+      <Button onClick={submit} disabled={saveQuote.isPending || !unitPrice.trim()}>
+        {saveQuote.isPending ? t("common.pending") : t("portfolio.setPrice")}
+      </Button>
+    </div>
+  );
+}
+
 function InstrumentsTab() {
   const { t } = useTranslation();
   const instruments = useInstruments();
   const createInstrument = useCreateInstrument();
   const archiveInstrument = useArchiveInstrument();
   const [open, setOpen] = useState(false);
+  const [quoteTarget, setQuoteTarget] = useState<{ id: string; name: string; currency: string } | null>(null);
 
   if (instruments.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
@@ -97,7 +156,13 @@ function InstrumentsTab() {
                 </Badge>
                 {instrument.archivedAt && <Badge variant="secondary">{t("common.archived")}</Badge>}
               </span>
-              <AlertDialog>
+              <span className="flex shrink-0 items-center gap-2">
+                {instrument.quoteSource === "manual" && !instrument.archivedAt && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setQuoteTarget({ id: instrument.id, name: instrument.name, currency: instrument.quoteCurrency })}>
+                    {t("portfolio.setPrice")}
+                  </Button>
+                )}
+                <AlertDialog>
                 <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
                   {instrument.archivedAt ? t("common.active") : t("common.archive")}
                 </AlertDialogTrigger>
@@ -124,10 +189,26 @@ function InstrumentsTab() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+              </span>
             </li>
           ))}
         </ul>
       )}
+      <Sheet open={Boolean(quoteTarget)} onOpenChange={(open) => !open && setQuoteTarget(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{quoteTarget ? `${t("portfolio.setPrice")} · ${quoteTarget.name}` : t("portfolio.setPrice")}</SheetTitle>
+          </SheetHeader>
+          {quoteTarget && (
+            <ManualQuoteForm
+              key={quoteTarget.id}
+              instrumentId={quoteTarget.id}
+              currency={quoteTarget.currency}
+              onSaved={() => setQuoteTarget(null)}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
@@ -141,6 +222,7 @@ function HoldingsTab() {
   const [accountId, setAccountId] = useState("");
   const [instrumentId, setInstrumentId] = useState("");
   const [quantity, setQuantity] = useState("");
+  const [formError, setFormError] = useState<string | undefined>();
 
   const holdingsAccounts = (accounts.data ?? []).filter((record) => record.account.trackingMode === "holdings" && !record.account.archivedAt);
   const accountIds = holdingsAccounts.map((record) => record.account.id);
@@ -175,11 +257,13 @@ function HoldingsTab() {
   }
 
   const submit = () => {
-    if (!accountId || !instrumentId || !quantity) {
+    if (!accountId || !instrumentId || !quantity.trim()) {
+      setFormError(t("portfolio.holdingRequired"));
       return;
     }
+    setFormError(undefined);
     createHolding.mutate(
-      { accountId, instrumentId, quantity },
+      { accountId, instrumentId, quantity: quantity.trim() },
       {
         onSuccess: () => {
           toast.success(t("portfolio.holdingCreated"));
@@ -206,7 +290,7 @@ function HoldingsTab() {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="holding-account">{t("history.accountSelect")}</Label>
               <NativeSelect id="holding-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-                <option value="">{t("accounts.none")}</option>
+                <option value="">{t("history.accountSelectEmpty")}</option>
                 {holdingsAccounts.map((record) => (
                   <option key={record.account.id} value={record.account.id}>
                     {record.account.name}
@@ -217,7 +301,7 @@ function HoldingsTab() {
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="holding-instrument">{t("history.instrument")}</Label>
               <NativeSelect id="holding-instrument" value={instrumentId} onChange={(event) => setInstrumentId(event.target.value)}>
-                <option value="">{t("accounts.none")}</option>
+                <option value="">{t("history.selectInstrument")}</option>
                 {(instruments.data ?? []).map((instrument) => (
                   <option key={instrument.id} value={instrument.id}>
                     {instrument.name}
@@ -229,9 +313,9 @@ function HoldingsTab() {
               <Label htmlFor="holding-quantity">{t("history.quantity")}</Label>
               <Input id="holding-quantity" value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" />
             </div>
-            {createHolding.isError && (
+            {(formError || createHolding.isError) && (
               <p role="alert" className="text-sm text-destructive">
-                {displayError(createHolding.error, t("portfolio.createError"))}
+                {formError ?? displayError(createHolding.error, t("portfolio.createError"))}
               </p>
             )}
             <Button onClick={submit} disabled={createHolding.isPending}>
@@ -279,11 +363,17 @@ function HoldingsTab() {
                           </td>
                         </>
                       ) : (
-                        <td className="px-3 py-3" colSpan={3}>
-                          <Badge variant="secondary">
-                            {gain.missingReason ? displayEnum(t, "portfolio.missingReason", gain.missingReason) : t("portfolio.unavailable")}
-                          </Badge>
-                        </td>
+                        <>
+                          <td className="px-3 py-3">
+                            {gain.totalCost ? formatAmount(gain.totalCost.amount, gain.totalCost.currency) : t("accounts.noValue")}
+                          </td>
+                          <td className="px-3 py-3 text-muted-foreground">{t("accounts.noValue")}</td>
+                          <td className="px-3 py-3">
+                            <Badge variant="secondary">
+                              {gain.missingReason ? displayEnum(t, "portfolio.missingReason", gain.missingReason) : t("portfolio.unavailable")}
+                            </Badge>
+                          </td>
+                        </>
                       )
                     ) : (
                       <td className="px-3 py-3 text-muted-foreground" colSpan={3} aria-label={t("portfolio.loading")}>

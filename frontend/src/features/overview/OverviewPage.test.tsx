@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -25,8 +25,10 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ac
       Promise.resolve([{ account: { id: "acc-1", name: "Checking" }, ownership: [], latestValue: null }]),
   },
 }));
+const listInstruments = vi.fn();
+
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
-  Service: { ListInstruments: () => Promise.resolve([]) },
+  Service: { ListInstruments: () => listInstruments() },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({ Service: {} }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({ Service: {} }));
@@ -48,6 +50,11 @@ async function renderWithMockedOverview(response: unknown) {
     </QueryClientProvider>,
   );
 }
+
+beforeEach(() => {
+  listInstruments.mockReset();
+  listInstruments.mockResolvedValue([]);
+});
 
 describe("OverviewPage", () => {
   // This fixture-driven check ensures Overview's displayed net worth, assets,
@@ -102,6 +109,28 @@ describe("OverviewPage", () => {
     });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("NVIDIA");
-    expect(screen.getByText("1 instrument prices need a refresh.")).toBeInTheDocument();
+    expect(screen.getByText(/excludes values that still need a price/i)).toBeInTheDocument();
+    expect(screen.getByText("1 instrument needs a manual price.")).toBeInTheDocument();
+    expect(screen.queryByText("1 instrument prices need a refresh.")).not.toBeInTheDocument();
+  });
+
+  it("asks to refresh provider-sourced prices on Market Data", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteSource: "provider" }]);
+    await renderWithMockedOverview({
+      currency: "USD",
+      accountCount: 1,
+      complete: false,
+      missingInputs: [{ kind: "instrument_price", accountId: "acc-1", instrumentId: "i1", instrumentName: "NVIDIA" }],
+      assets: "0",
+      liabilities: "0",
+      netWorth: "0",
+      byCategory: [],
+      byMember: [],
+      byInstitution: [],
+      byGroup: [],
+    });
+
+    expect(await screen.findByText("1 instrument price needs a refresh.")).toBeInTheDocument();
+    expect(screen.queryByText("1 instrument needs a manual price.")).not.toBeInTheDocument();
   });
 });

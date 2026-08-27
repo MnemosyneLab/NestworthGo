@@ -37,6 +37,7 @@ export const queryKeys = {
   accounts: {
     all: ["accounts"] as const,
     list: (filter: AccountFilterRequest = {}) => ["accounts", "list", normalizeAccountFilter(filter)] as const,
+    valuations: (filter: AccountFilterRequest = {}) => ["accounts", "valuations", normalizeAccountFilter(filter)] as const,
   },
   instruments: {
     all: ["instruments"] as const,
@@ -51,6 +52,10 @@ export const queryKeys = {
     instrument: {
       all: ["quote", "instrument"] as const,
       current: (instrumentId: string) => ["quote", "instrument", instrumentId] as const,
+    },
+    fx: {
+      all: ["quote", "fx"] as const,
+      current: (currencyA: string, currencyB: string) => ["quote", "fx", ...[currencyA, currencyB].sort()] as const,
     },
   },
   overview: {
@@ -68,6 +73,7 @@ export const queryKeys = {
   history: {
     all: ["history"] as const,
     origin: ["history", "origin"] as const,
+    startingPointDraft: ["history", "startingPointDraft"] as const,
     activities: (limit: number) => ["history", "activities", limit] as const,
   },
 } as const;

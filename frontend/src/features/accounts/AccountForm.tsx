@@ -153,6 +153,9 @@ export function AccountForm({
     setValue("primaryCategory", value);
     setValue("secondaryCategory", defaultSecondaryCategory(value));
     setValue("trackingMode", defaultTrackingMode(value));
+    if (!isEdit) {
+      setValue("includeInInvestment", value === "investment", { shouldDirty: true, shouldTouch: true });
+    }
   };
 
   const toggleOwner = (memberId: string) => {
@@ -321,7 +324,7 @@ export function AccountForm({
         aria-controls="account-more-options"
       >
         <span aria-hidden="true">{showMoreOptions ? "−" : "+"}</span>
-        {t("common.details")}
+        {t("accounts.details")}
       </Button>
       {showMoreOptions && (
         <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">

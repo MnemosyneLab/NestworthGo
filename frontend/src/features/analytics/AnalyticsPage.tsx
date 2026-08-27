@@ -75,19 +75,18 @@ export function AnalyticsPage() {
         </CardHeader>
         <CardContent>
           {points.length > 0 ? (
-            <div style={{ height: 320 }}>
-              <EChart
-                option={trendOption}
-                ariaLabel={t("analytics.trend")}
-                summary={t("analytics.chartSummary")}
-                dataTableLabel={t("analytics.dataTable")}
-                dataTableColumns={[t("analytics.dataTableDate"), t("analytics.dataTableValue")]}
-                dataTableRows={points.map((point) => [
-                  point.localDate,
-                  point.value ? formatAmount(point.value.amount, point.value.currency) : t("accounts.noValue"),
-                ])}
-              />
-            </div>
+            <EChart
+              option={trendOption}
+              style={{ height: 320 }}
+              ariaLabel={t("analytics.trend")}
+              summary={t("analytics.chartSummary")}
+              dataTableLabel={t("analytics.dataTable")}
+              dataTableColumns={[t("analytics.dataTableDate"), t("analytics.dataTableValue")]}
+              dataTableRows={points.map((point) => [
+                point.localDate,
+                point.value ? formatAmount(point.value.amount, point.value.currency) : t("accounts.noValue"),
+              ])}
+            />
           ) : (
             <EmptyState title={t("analytics.empty")} description={t("analytics.chartSummary")} />
           )}

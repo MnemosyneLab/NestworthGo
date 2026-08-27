@@ -19,6 +19,14 @@ export function useAccounts(filter: AccountFilterRequest = {}) {
   });
 }
 
+export function useAccountValuations(filter: AccountFilterRequest = {}) {
+  const normalizedFilter = normalizeAccountFilter(filter);
+  return useQuery({
+    queryKey: queryKeys.accounts.valuations(normalizedFilter),
+    queryFn: () => callService(() => AccountService.AccountValuations(normalizedFilter)),
+  });
+}
+
 export function useCreateAccount() {
   const queryClient = useQueryClient();
   return useMutation({

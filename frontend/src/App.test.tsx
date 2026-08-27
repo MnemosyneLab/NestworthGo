@@ -90,7 +90,10 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history"
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
-  Service: { ListAccounts: () => Promise.resolve([]) },
+  Service: {
+    ListAccounts: () => Promise.resolve([]),
+    AccountValuations: () => Promise.resolve([]),
+  },
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({

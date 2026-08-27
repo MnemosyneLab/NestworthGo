@@ -86,6 +86,14 @@ export function useCurrentInstrumentQuote(instrumentId: string) {
   });
 }
 
+export function useCurrentFXQuote(currencyA: string, currencyB: string) {
+  return useQuery({
+    queryKey: queryKeys.quote.fx.current(currencyA, currencyB),
+    queryFn: () => callService(() => QuoteService.CurrentFXQuote(currencyA, currencyB)),
+    enabled: Boolean(currencyA) && Boolean(currencyB),
+  });
+}
+
 export function useSaveManualInstrumentQuote() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -78,6 +78,7 @@ function App() {
             onOpenAccounts={() => setActivePageId("accounts")}
             onOpenHistory={() => setActivePageId("history")}
             onOpenMarketData={() => setActivePageId("market-data")}
+            onOpenInvestments={() => setActivePageId("investments")}
           />
         </WorkspaceSurface>
       )}

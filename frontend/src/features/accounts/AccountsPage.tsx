@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   useAccounts,
+  useAccountValuations,
   useArchiveAccount,
   useCreateAccount,
   useSetAccountLogo,
@@ -48,6 +49,7 @@ export function AccountsPage() {
   const { t } = useTranslation();
   const [showArchived, setShowArchived] = useState(false);
   const accounts = useAccounts({ includeArchived: showArchived });
+  const valuations = useAccountValuations({ includeArchived: showArchived });
   const createAccount = useCreateAccount();
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
@@ -129,6 +131,7 @@ export function AccountsPage() {
       setImageSavingId(null);
     }
   };
+  const valuationByAccountId = new Map((valuations.data ?? []).map((valuation) => [valuation.account.id, valuation]));
 
   const columns = [
     columnHelper.accessor((row) => row.account.name, {
@@ -147,12 +150,12 @@ export function AccountsPage() {
       cell: (info) => displayEnum(t, "enum", info.getValue()),
     }),
     columnHelper.accessor((row) => row.account.defaultCurrency, { id: "currency", header: t("accounts.currency") }),
-    columnHelper.accessor((row) => row.latestValue?.amount.amount, {
+    columnHelper.accessor((row) => valuationByAccountId.get(row.account.id)?.baseValue?.amount, {
       id: "value",
       header: t("accounts.currentValue"),
       cell: (info) => {
-        const value = info.row.original.latestValue;
-        return value ? formatAmount(value.amount.amount, value.amount.currency) : t("accounts.noValue");
+        const baseValue = valuationByAccountId.get(info.row.original.account.id)?.baseValue;
+        return baseValue ? formatAmount(baseValue.amount, baseValue.currency) : t("accounts.noValue");
       },
     }),
     columnHelper.display({

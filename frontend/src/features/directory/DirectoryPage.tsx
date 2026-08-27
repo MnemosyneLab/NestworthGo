@@ -98,6 +98,7 @@ export function DirectoryPage() {
           onRetry={() => members.refetch()}
           entityLabel={t("nav.members")}
           createLabel={t("onboarding.memberNamePlaceholder")}
+          addLabel={t("members.createTitle")}
           emptyLabel={t("members.createDescription")}
           />
         </TabsContent>
@@ -113,6 +114,7 @@ export function DirectoryPage() {
           onRetry={() => institutions.refetch()}
           entityLabel={t("nav.institutions")}
           createLabel={t("institutions.createTitle")}
+          addLabel={t("institutions.createTitle")}
           emptyLabel={t("institutions.createDescription")}
           supportsIcon
           />
@@ -129,6 +131,7 @@ export function DirectoryPage() {
           onRetry={() => groups.refetch()}
           entityLabel={t("nav.groups")}
           createLabel={t("groups.createTitle")}
+          addLabel={t("groups.createTitle")}
           emptyLabel={t("groups.createDescription")}
           supportsIcon
           />
