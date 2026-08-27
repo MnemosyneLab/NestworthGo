@@ -257,6 +257,40 @@ describe("AccountsPage", () => {
     );
   });
 
+  it("disables Continue and does not submit when no owner is checked", async () => {
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Create account" });
+    await continueWizard(form, 3);
+    await userEvent.type(within(form).getByLabelText("Name"), "No Owner");
+    await userEvent.type(within(form).getByLabelText("Initial value"), "100");
+    const continueButton = within(form).getByRole("button", { name: "Continue" });
+    expect(continueButton).toBeDisabled();
+    await userEvent.click(continueButton);
+    expect(within(form).queryByText("Review and create")).not.toBeInTheDocument();
+    expect(createAccount).not.toHaveBeenCalled();
+  });
+
+  it("assigns 100% when a single owner is checked", async () => {
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Create account" });
+    await continueWizard(form, 3);
+    await userEvent.type(within(form).getByLabelText("Name"), "Alice Only");
+    await userEvent.click(within(form).getByLabelText("Alice"));
+    await userEvent.type(within(form).getByLabelText("Initial value"), "100");
+    await continueWizard(form, 1);
+    await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
+    expect(createAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Alice Only",
+        ownership: [{ memberId: "alice", shareBps: 10000 }],
+      }),
+    );
+  });
+
   it("creates an account with explicit ownership percentages", async () => {
     renderPage();
     await screen.findByText("Checking");
@@ -266,7 +300,7 @@ describe("AccountsPage", () => {
     await userEvent.type(within(form).getByLabelText("Name"), "Joint");
     await userEvent.click(within(form).getByLabelText("Alice"));
     await userEvent.click(within(form).getByLabelText("Bob"));
-    await userEvent.click(within(form).getByText(/split evenly if blank/i));
+    await userEvent.click(within(form).getByText(/optionally enter a percentage for each selected owner/i));
     await userEvent.type(within(form).getByLabelText("Alice ownership percentage"), "70");
     await userEvent.type(within(form).getByLabelText("Bob ownership percentage"), "30");
     await userEvent.type(within(form).getByLabelText("Initial value"), "100");
@@ -768,6 +802,18 @@ describe("AccountsPage", () => {
       "acc-1",
       expect.objectContaining({ name: "Renamed" }),
     );
+  });
+
+  it("disables Save and does not update when every owner is unchecked", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+    const form = await screen.findByRole("form", { name: "Account form" });
+    await userEvent.click(within(form).getByLabelText("Alice"));
+    const saveButton = within(form).getByRole("button", { name: "Save" });
+    expect(saveButton).toBeDisabled();
+    await userEvent.click(saveButton);
+    expect(updateAccount).not.toHaveBeenCalled();
   });
 
   it("edits brokerage holdings type without applying a new default combination", async () => {

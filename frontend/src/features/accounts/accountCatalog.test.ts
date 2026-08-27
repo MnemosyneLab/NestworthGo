@@ -3,6 +3,7 @@ import { TEST_CATALOG } from "@/test/catalog";
 import {
   compatibleAccountTypes,
   defaultRole,
+  ownershipShares,
   roleLocked,
   splitAccountTypes,
   trackingPrompt,
@@ -39,5 +40,27 @@ describe("accountCatalog", () => {
     expect(
       compatibleAccountTypes(TEST_CATALOG.accountCombinations, TEST_CATALOG.accountTypes, "asset", "holdings", "brokerage"),
     ).toEqual(["bank_account", "brokerage"]);
+  });
+
+  it("does not invent household-wide shares from an empty owner list", () => {
+    expect(ownershipShares([], undefined, false)).toEqual([]);
+  });
+
+  it("assigns 100% to a single checked owner", () => {
+    expect(ownershipShares(["alice"], undefined, false)).toEqual([{ memberId: "alice", shareBps: 10000 }]);
+  });
+
+  it("even-splits among checked owners when percentages are blank", () => {
+    expect(ownershipShares(["alice", "bob"], undefined, false)).toEqual([
+      { memberId: "alice", shareBps: 5000 },
+      { memberId: "bob", shareBps: 5000 },
+    ]);
+  });
+
+  it("keeps explicit custom percentages among checked owners", () => {
+    expect(ownershipShares(["alice", "bob"], ["70", "30"], true)).toEqual([
+      { memberId: "alice", shareBps: 7000 },
+      { memberId: "bob", shareBps: 3000 },
+    ]);
   });
 });

@@ -194,6 +194,8 @@ Settings
 
 主要字段：名称、默认币种、所有人。Institution 回显且可返回修改。分组、图标、图片及三个 include 放在「更多设置」。
 
+所有人必须由用户明确勾选，至少一名；默认不预选任何人。未勾选时 Continue / 添加账户为 disabled，不可点击。创建提交路径也必须拒绝空所有权；仅禁用按钮不够。不得把空列表默认成「全体家庭成员、平均分配」。已勾选的多名所有人，比例留空仍可在已勾选的人之间平均分配；也可填写明确百分比（例如 70/30），总和必须为 100%。空所有人集合是禁用主按钮，不是 §14 的原位错误、也不是无响应的 Continue。
+
 Inclusion 初始值使用 `SuggestedInclusion`。Composite Account 勾选投资组合时必须显示整户说明：
 
 ```text
@@ -357,6 +359,7 @@ Deposit、Withdraw、Buy、Sell、Convert、Transfer 等事件型动作需要 Hi
 - 只读：Role；`other` 的 Role 也不允许创建后修改；
 - Account type 更新不重算 inclusion、不产生 Activity、不改变金额；
 - holdings Account 的 Portfolio inclusion 旁始终显示整户提示。
+- 所有人与创建向导同一闸门：必须至少勾选一名；Save 在未勾选时 disabled，更新提交路径同样拒绝空所有权。不得把空列表默认成全体家庭成员。已勾选多人时，比例留空仍可在已勾选者之间平分，或填写明确比例。
 
 ## 10. Overview
 
@@ -523,6 +526,7 @@ IBKR                                  140,000 CNY
 - 信用卡自动创建为负债；Other 显式选择资产或负债。
 - 主路径不出现内部枚举或 SubAccount。
 - 编辑不能修改 Role / Tracking；兼容 type 更新不产生 Activity、不改变金额、不重算 inclusion；非法 type 更新被拒。
+- 未勾选所有人时不能 Continue / 添加账户 / Save；创建和更新的提交路径拒绝空所有权。不得把空所有人列表默认成全体家庭成员平分。已勾选多人且比例留空时，在已勾选者之间平均分配仍被允许。
 
 ### 16.2 Composite Account
 
@@ -576,6 +580,7 @@ IBKR                                  140,000 CNY
 不能以「领域字段已落库」或「AccountForm 能选择 holdings」作为完成标准。只有以下闭环同时成立，Account 容器交互才算完成：
 
 - 用户能用现实语言创建正确的 Simple 或 Composite Account；
+- 用户创建或保存 Account 时必须明确勾选至少一名所有人；未勾选时 Continue / 添加账户 / Save 不可用，创建与更新提交都被拒绝，且不会把空列表默认成全体家庭成员平分；
 - 用户能从 Account 进入并理解内部现金和持仓；
 - 用户能区分期初状态、余额校准和真实交易；
 - 综合银行账户能从现金完成首次基金买入；

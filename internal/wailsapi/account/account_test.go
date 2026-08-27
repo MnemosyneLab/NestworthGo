@@ -75,6 +75,61 @@ func TestCreateAccountWithExplicitOwnershipPercentages(t *testing.T) {
 	}
 }
 
+func TestCreateAccountRejectsEmptyOwnership(t *testing.T) {
+	app, _ := onboardedApp(t)
+	service := account.NewService(app)
+	_, err := service.CreateAccount(context.Background(), account.CreateAccountRequest{
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset",
+		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
+		InitialAmount: "1000",
+	})
+	assertWireCode(t, err, "validation")
+}
+
+func TestCreateAccountEvenSplitsCheckedOwnersWhenPercentagesBlank(t *testing.T) {
+	app, members := onboardedApp(t)
+	service := account.NewService(app)
+	record, err := service.CreateAccount(context.Background(), account.CreateAccountRequest{
+		Name: "Joint", AccountType: "bank_account", BalanceSheetRole: "asset",
+		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
+		OwnerIDs: []string{members[0].ID, members[1].ID}, InitialAmount: "500",
+	})
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	if len(record.Ownership) != 2 {
+		t.Fatalf("Ownership = %+v, want two checked owners", record.Ownership)
+	}
+	byMember := map[string]int{}
+	for _, share := range record.Ownership {
+		byMember[share.MemberID] = share.ShareBPS
+	}
+	if byMember[members[0].ID] != 5000 || byMember[members[1].ID] != 5000 {
+		t.Fatalf("Ownership = %+v, want even split among checked owners", record.Ownership)
+	}
+}
+
+func TestCreateAccountWithSeventyThirtyOwnership(t *testing.T) {
+	app, members := onboardedApp(t)
+	service := account.NewService(app)
+	record, err := service.CreateAccount(context.Background(), account.CreateAccountRequest{
+		Name: "Joint", AccountType: "bank_account", BalanceSheetRole: "asset",
+		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
+		OwnerIDs: []string{members[0].ID, members[1].ID}, OwnershipPercentages: []string{"70", "30"},
+		InitialAmount: "500",
+	})
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	byMember := map[string]int{}
+	for _, share := range record.Ownership {
+		byMember[share.MemberID] = share.ShareBPS
+	}
+	if byMember[members[0].ID] != 7000 || byMember[members[1].ID] != 3000 {
+		t.Fatalf("Ownership = %+v, want 70/30", record.Ownership)
+	}
+}
+
 func TestCreateAccountValidationError(t *testing.T) {
 	app, _ := onboardedApp(t)
 	service := account.NewService(app)
@@ -119,6 +174,22 @@ func TestUpdateAccountSetFlagsPattern(t *testing.T) {
 	if cleared.Account.Note != nil {
 		t.Fatalf("Note = %v, want nil after explicit clear", cleared.Account.Note)
 	}
+}
+
+func TestUpdateAccountRejectsEmptyOwnership(t *testing.T) {
+	app, members := onboardedApp(t)
+	service := account.NewService(app)
+	ctx := context.Background()
+	record, err := service.CreateAccount(ctx, account.CreateAccountRequest{
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset",
+		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
+		OwnerIDs: []string{members[0].ID}, InitialAmount: "1000",
+	})
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	_, err = service.UpdateAccount(ctx, record.Account.ID, account.UpdateAccountRequest{Ownership: []wire.OwnershipShareDTO{}})
+	assertWireCode(t, err, "validation")
 }
 
 func TestUpdateAccountRejectsTrackingModeChange(t *testing.T) {

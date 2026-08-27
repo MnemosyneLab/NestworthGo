@@ -656,7 +656,10 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if input.InitialAmount == "" && current.LatestValue != nil {
 		input.InitialAmount = current.LatestValue.Amount.CanonicalAmount()
 	}
-	if len(input.Ownership) == 0 && len(input.OwnerIDs) == 0 {
+	// Omitted ownership (nil shares and no owner IDs) keeps the current
+	// allocation. An explicit empty share list is not "leave unchanged"
+	// and is not a household-wide even split; resolveOwnership rejects it.
+	if input.Ownership == nil && len(input.OwnerIDs) == 0 {
 		input.Ownership = current.Ownership.Shares()
 	}
 	if !input.InstitutionIDSet {
@@ -1045,6 +1048,9 @@ func resolveOwnership(input AccountInput) ([]domain.OwnershipShare, error) {
 	if len(input.Ownership) > 0 {
 		return input.Ownership, nil
 	}
+	// An empty owner list is invalid. It is not defaulted to every household
+	// member. Checked owners with blank percentages still even-split among
+	// those checked owners.
 	if len(input.OwnerIDs) == 0 {
 		return nil, &domain.Error{Code: domain.ErrValidation, Field: "ownership", Message: "at least one owner is required"}
 	}

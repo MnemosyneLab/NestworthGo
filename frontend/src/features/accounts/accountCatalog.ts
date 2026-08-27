@@ -119,11 +119,17 @@ export function compatibleAccountTypes(
   return catalogTypes.filter((type) => compatible.has(type));
 }
 
+/** ownershipShares maps checked owners to basis-point shares. An empty owner
+ * list stays empty (it is not the whole household). One or more checked
+ * owners with no custom percentages even-split among those checked owners. */
 export function ownershipShares(
   ownerIds: string[],
   percentages: string[] | undefined,
   useCustom: boolean,
 ): { memberId: string; shareBps: number }[] {
+  if (ownerIds.length === 0) {
+    return [];
+  }
   if (useCustom && percentages && percentages.length === ownerIds.length) {
     return ownerIds.map((memberId, index) => ({
       memberId,

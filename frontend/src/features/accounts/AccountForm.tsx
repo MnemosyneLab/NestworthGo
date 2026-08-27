@@ -202,6 +202,9 @@ export function AccountForm({
   };
 
   const submit = (values: AccountFormValues) => {
+    if (values.ownerIds.length === 0) {
+      return;
+    }
     const request: CreateAccountRequest = {
       name: values.name,
       accountType: values.accountType,
@@ -416,7 +419,7 @@ export function AccountForm({
         </p>
       )}
 
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" disabled={isSubmitting || ownerIds.length === 0}>
         {submitLabel}
       </Button>
     </form>
