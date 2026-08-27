@@ -35,6 +35,7 @@ type OverviewDTO struct {
 	ByMember          []wire.BreakdownDTO    `json:"byMember"`
 	ByInstitution     []wire.BreakdownDTO    `json:"byInstitution"`
 	ByGroup           []wire.BreakdownDTO    `json:"byGroup"`
+	ByAccountType     []wire.BreakdownDTO    `json:"byAccountType"`
 }
 
 func fromOverview(value domain.OverviewResult) OverviewDTO {
@@ -54,6 +55,7 @@ func fromOverview(value domain.OverviewResult) OverviewDTO {
 		Assets:        assets, Liabilities: liabilities, NetWorth: netWorth,
 		AssetsByType: wire.FromBreakdowns(value.AssetsByType), LiabilitiesByType: wire.FromBreakdowns(value.LiabilitiesByType), ByMember: wire.FromBreakdowns(value.ByMember),
 		ByInstitution: wire.FromBreakdowns(value.ByInstitution), ByGroup: wire.FromBreakdowns(value.ByGroup),
+		ByAccountType: wire.FromBreakdowns(value.ByAccountType),
 	}
 }
 

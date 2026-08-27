@@ -580,6 +580,91 @@ func TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision(t *t
 	}
 }
 
+func TestCompositeCashAcceptsForeignCurrencyBeforeAndAfterHistory(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/composite-cash.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "MooMoo", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	brokerage, err := service.CreateAccount(ctx, AccountInput{
+		Name: "MooMoo SG", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "SGD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	simple, err := service.CreateAccount(ctx, AccountInput{
+		Name: "DBS Savings", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "SGD", InitialAmount: "100",
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "12000", "SGD", "2026-08-01"); err != nil {
+		t.Fatalf("history-before SGD cash: %v", err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "8500", "USD", "2026-08-01"); err != nil {
+		t.Fatalf("history-before USD cash: %v", err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "3000", "CNY", "2026-08-01"); err != nil {
+		t.Fatalf("history-before CNY cash: %v", err)
+	}
+	cashBefore, err := service.ListAccountCashValues(ctx, brokerage.Account.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cashBefore) != 3 {
+		t.Fatalf("history-before cash observations = %d, want 3", len(cashBefore))
+	}
+	clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	clock = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
+	reconciled, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "9000", "USD", "2026-08-03")
+	if err != nil {
+		t.Fatalf("history-after USD reconcile: %v", err)
+	}
+	if reconciled.Amount.CanonicalAmount() != "9000" || reconciled.Amount.Currency() != "USD" {
+		t.Fatalf("reconciled cash = %+v", reconciled)
+	}
+	added, _ := domain.ParseMoney("200", "CNY")
+	preview, err := service.RecordChange(ctx, domain.MoneyAddedInput{
+		HouseholdID: bootstrap.Household.ID, AccountID: brokerage.Account.ID, Amount: added,
+		Reason: domain.ReasonContribution, EffectiveAt: clock,
+	})
+	if err != nil {
+		t.Fatalf("history-after CNY deposit: %v", err)
+	}
+	if preview.Activity.Kind != domain.ActivityCashIn || preview.Resulting[0].Currency != "CNY" || preview.Resulting[0].Amount != "3200" {
+		t.Fatalf("CNY deposit preview = %+v", preview)
+	}
+	foreign, _ := domain.ParseMoney("10", "USD")
+	_, err = service.RecordChange(ctx, domain.MoneyAddedInput{
+		HouseholdID: bootstrap.Household.ID, AccountID: simple.Account.ID, Amount: foreign,
+		Reason: domain.ReasonIncome, EffectiveAt: clock,
+	})
+	if err == nil {
+		t.Fatal("simple account accepted a foreign-currency deposit")
+	}
+	if domainErr, ok := err.(*domain.Error); !ok || domainErr.Code != domain.ErrInvalidChange {
+		t.Fatalf("simple foreign deposit error = %v, want invalid change", err)
+	}
+}
+
 func mustQuantity(t *testing.T, value string) domain.Quantity {
 	t.Helper()
 	quantity, err := domain.ParseQuantity(value)

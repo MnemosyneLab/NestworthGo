@@ -107,6 +107,36 @@ func TestPreviewFXConversionUpdatesTwoCurrenciesAtomically(t *testing.T) {
 	}
 }
 
+func TestPreviewMoneyAddedAllowsForeignCurrencyOnHoldingsAndRejectsOnSimple(t *testing.T) {
+	state, _, broker, _, _ := changeTestState(t)
+	cny, _ := ParseCurrency("CNY")
+	usd, _ := ParseCurrency("USD")
+	foreign, _ := ParseMoney("250", cny)
+	preview, err := PreviewChange(state, MoneyAddedInput{HouseholdID: state.HouseholdID, AccountID: broker, Amount: foreign, Reason: ReasonContribution})
+	if err != nil {
+		t.Fatalf("holdings foreign cash: %v", err)
+	}
+	if preview.Activity.Kind != ActivityCashIn || preview.Effects[0].Target != EffectTargetAccountCash {
+		t.Fatalf("holdings preview = %+v", preview)
+	}
+	if preview.Resulting[0].Currency != cny || preview.Resulting[0].Amount != "250" {
+		t.Fatalf("holdings resulting = %+v", preview.Resulting)
+	}
+
+	simple := findAccount(state, "Family Cash")
+	foreignUSD, _ := ParseMoney("50", usd)
+	_, err = PreviewChange(state, MoneyAddedInput{HouseholdID: state.HouseholdID, AccountID: simple, Amount: foreignUSD, Reason: ReasonIncome})
+	if err == nil || err.(*Error).Code != ErrInvalidChange {
+		t.Fatalf("simple foreign cash error = %v, want invalid change", err)
+	}
+
+	removed, _ := ParseMoney("100", cny)
+	_, err = PreviewChange(state, MoneyRemovedInput{HouseholdID: state.HouseholdID, AccountID: broker, Amount: removed, Reason: ReasonExpense})
+	if err == nil || err.(*Error).Code != ErrInsufficientBalance {
+		t.Fatalf("removing missing CNY cash error = %v, want insufficient balance", err)
+	}
+}
+
 func TestPreviewFXConversionRejectsMissingSoldCash(t *testing.T) {
 	state, _, broker, _, _ := changeTestState(t)
 	usd, _ := ParseCurrency("USD")

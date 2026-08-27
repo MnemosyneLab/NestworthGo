@@ -229,4 +229,71 @@ func TestOverviewClassifiesCompositeAndSimpleBuckets(t *testing.T) {
 	if len(result.LiabilitiesByType) != 1 || result.LiabilitiesByType[0].Key != domain.BucketCreditCard || result.LiabilitiesByType[0].Amount.String() != "150" {
 		t.Fatalf("liabilitiesByType = %+v", result.LiabilitiesByType)
 	}
+	byType := map[string]string{}
+	for _, item := range result.ByAccountType {
+		byType[item.Key] = item.Amount.String()
+	}
+	if byType["bank_account"] != "800" || byType["brokerage"] != "300" {
+		t.Fatalf("byAccountType = %+v, want bank_account=800 brokerage=300", result.ByAccountType)
+	}
+	if _, ok := byType["credit_card"]; ok {
+		t.Fatalf("byAccountType included a liability: %+v", result.ByAccountType)
+	}
+}
+
+func TestOverviewByAccountTypeKeepsMixedBankAccountWhole(t *testing.T) {
+	service, ctx, bootstrap, _ := newOnboardedService(t, "overview-by-account-type", []string{"Owner"})
+	owner := bootstrap.Members[0].ID
+	bank, err := service.CreateAccount(ctx, AccountInput{
+		Name: "招商银行综合账户", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
+	})
+	if err != nil {
+		t.Fatalf("bank: %v", err)
+	}
+	fund, err := service.CreateInstrument(ctx, InstrumentInput{Name: "招银理财A", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatalf("fund: %v", err)
+	}
+	gold, err := service.CreateInstrument(ctx, InstrumentInput{Name: "黄金", Type: "precious_metal", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatalf("gold: %v", err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: bank.Account.ID.String(), InstrumentID: fund.ID.String(), Quantity: "1"}); err != nil {
+		t.Fatalf("fund holding: %v", err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: bank.Account.ID.String(), InstrumentID: gold.ID.String(), Quantity: "2"}); err != nil {
+		t.Fatalf("gold holding: %v", err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, bank.Account.ID, "50000", "CNY", "2026-08-01"); err != nil {
+		t.Fatalf("cash: %v", err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, fund.ID, "200000", "2026-08-01", false); err != nil {
+		t.Fatalf("fund quote: %v", err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, gold.ID, "400", "2026-08-01", false); err != nil {
+		t.Fatalf("gold quote: %v", err)
+	}
+
+	result, err := service.Overview(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatalf("overview: %v", err)
+	}
+	if !result.Complete {
+		t.Fatalf("overview incomplete: %+v", result.MissingInputs)
+	}
+	if !result.Assets.Equal(decimal.RequireFromString("250800")) {
+		t.Fatalf("assets = %s, want 250800", result.Assets)
+	}
+	buckets := map[string]string{}
+	for _, item := range result.AssetsByType {
+		buckets[item.Key] = item.Amount.String()
+	}
+	if buckets[domain.BucketCash] != "50000" || buckets[domain.BucketMutualFund] != "200000" || buckets[domain.BucketPreciousMetal] != "800" {
+		t.Fatalf("assetsByType = %+v", result.AssetsByType)
+	}
+	if len(result.ByAccountType) != 1 || result.ByAccountType[0].Key != "bank_account" || result.ByAccountType[0].Amount.String() != "250800" {
+		t.Fatalf("byAccountType = %+v, want one bank_account row of 250800", result.ByAccountType)
+	}
 }
