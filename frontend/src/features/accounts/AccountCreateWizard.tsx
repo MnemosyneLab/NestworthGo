@@ -80,7 +80,6 @@ export function AccountCreateWizard({
   const [pendingImage, setPendingImage] = useState<string | undefined>(undefined);
   const [showMoreSettings, setShowMoreSettings] = useState(false);
   const [nameError, setNameError] = useState<string | undefined>();
-  const [ownerError, setOwnerError] = useState<string | undefined>();
   const [trackingError, setTrackingError] = useState<string | undefined>();
 
   const resolvedType = catalogTypes.includes(accountType) ? accountType : (primary[0] ?? catalogTypes[0] ?? "");
@@ -186,11 +185,9 @@ export function AccountCreateWizard({
       return;
     }
     if (ownerIds.length === 0) {
-      setOwnerError(t("error.ownership.atLeastOneOwner"));
       return;
     }
     setNameError(undefined);
-    setOwnerError(undefined);
     setStep("review");
   };
 
@@ -199,6 +196,9 @@ export function AccountCreateWizard({
   };
 
   const create = () => {
+    if (ownerIds.length === 0) {
+      return;
+    }
     const request: CreateAccountRequest = {
       name: name.trim(),
       accountType: resolvedType,
@@ -424,11 +424,6 @@ export function AccountCreateWizard({
                 {t("accounts.ownershipSharePlaceholder")}
               </label>
             )}
-            {ownerError && (
-              <p role="alert" className="text-xs text-destructive">
-                {ownerError}
-              </p>
-            )}
           </fieldset>
           <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setShowMoreSettings((value) => !value)} aria-expanded={showMoreSettings}>
             {t("accounts.moreSettings")}
@@ -518,7 +513,7 @@ export function AccountCreateWizard({
                     ? goNextFromTracking
                     : goNextFromDetails
           }
-          disabled={isSubmitting || createInstitution.isPending}
+          disabled={isSubmitting || createInstitution.isPending || ((step === "details" || step === "review") && ownerIds.length === 0)}
           autoFocus={step !== "details"}
         >
           {isSubmitting || createInstitution.isPending ? t("common.pending") : step === "review" ? t("accounts.create") : t("accounts.continue")}

@@ -297,3 +297,38 @@ func TestOverviewByAccountTypeKeepsMixedBankAccountWhole(t *testing.T) {
 		t.Fatalf("byAccountType = %+v, want one bank_account row of 250800", result.ByAccountType)
 	}
 }
+
+func TestCreateAccountRejectsEmptyOwnership(t *testing.T) {
+	service, ctx, _, _ := newOnboardedService(t, "empty-owners", []string{"Alice", "Bob"})
+	_, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, InitialAmount: "1000",
+	})
+	if err == nil {
+		t.Fatal("CreateAccount with no owners succeeded")
+	}
+	domainErr, ok := err.(*domain.Error)
+	if !ok || domainErr.Code != domain.ErrValidation || domainErr.Field != "ownership" {
+		t.Fatalf("error = %v, want ownership validation", err)
+	}
+}
+
+func TestUpdateAccountRejectsExplicitEmptyOwnership(t *testing.T) {
+	service, ctx, bootstrap, _ := newOnboardedService(t, "empty-owner-update", []string{"Alice"})
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, InitialAmount: "1000",
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	_, err = service.UpdateAccount(ctx, account.Account.ID, AccountInput{Ownership: []domain.OwnershipShare{}})
+	if err == nil {
+		t.Fatal("UpdateAccount with empty ownership succeeded")
+	}
+	domainErr, ok := err.(*domain.Error)
+	if !ok || domainErr.Code != domain.ErrValidation || domainErr.Field != "ownership" {
+		t.Fatalf("error = %v, want ownership validation", err)
+	}
+}

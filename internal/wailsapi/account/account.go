@@ -105,9 +105,13 @@ func boolValue(value *bool) bool {
 }
 
 func (r UpdateAccountRequest) toApplicationInput() (application.AccountInput, error) {
-	shares, err := wire.ToOwnershipShares(r.Ownership)
-	if err != nil {
-		return application.AccountInput{}, err
+	var shares []domain.OwnershipShare
+	if r.Ownership != nil {
+		converted, err := wire.ToOwnershipShares(r.Ownership)
+		if err != nil {
+			return application.AccountInput{}, err
+		}
+		shares = converted
 	}
 	ownerIDs, err := parseMemberIDs(r.OwnerIDs)
 	if err != nil {
