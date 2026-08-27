@@ -184,6 +184,9 @@ func TestOverviewMultiOwnerFixtureMatchesFrontendGolden(t *testing.T) {
 	if len(result.LiabilitiesByType) != 1 || result.LiabilitiesByType[0].Key != "credit_card" || result.LiabilitiesByType[0].Amount != "300" {
 		t.Fatalf("LiabilitiesByType = %+v, want credit_card=300", result.LiabilitiesByType)
 	}
+	if len(result.ByAccountType) != 1 || result.ByAccountType[0].Key != "bank_account" || result.ByAccountType[0].Amount != "1000" {
+		t.Fatalf("ByAccountType = %+v, want bank_account=1000", result.ByAccountType)
+	}
 }
 
 func TestOverviewDTORoundTripsAsJSON(t *testing.T) {

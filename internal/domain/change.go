@@ -732,7 +732,10 @@ func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, 
 	if amount.IsZero() {
 		return ChangePreview{}, changeError(ErrInvalidChange, "amount", "must be greater than zero")
 	}
-	if amount.Currency() != account.Currency {
+	// Simple accounts stay locked to the Account default currency. Composite
+	// (holdings) cash is a per-currency ledger: the default currency is only
+	// the input/display context, not a write restriction.
+	if account.Mode != TrackingHoldings && amount.Currency() != account.Currency {
 		return ChangePreview{}, changeError(ErrInvalidChange, "amount", "currency must match the Account")
 	}
 	activity, err := state.newActivity(household, activityKind(added), reason, effectiveAt, note)

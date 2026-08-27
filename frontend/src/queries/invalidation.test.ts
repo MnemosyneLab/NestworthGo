@@ -178,6 +178,7 @@ function seededClient() {
     queryKeys.accounts.list(),
     queryKeys.accounts.valuations(),
     queryKeys.overview.all,
+    queryKeys.portfolio.all,
     queryKeys.analytics.accountGain.current("account-1"),
     queryKeys.analytics.accountGain.current("account-2"),
     queryKeys.holdings.byAccounts(["account-1"]),
@@ -204,6 +205,7 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.accounts.list())).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.accounts.valuations())).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.portfolio.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(false);
 
     const updateClient = seededClient();
@@ -232,6 +234,7 @@ describe("mutation-hook invalidation", () => {
     });
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.portfolio.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(false);
   });

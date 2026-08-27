@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { House, Wallet, ChartNoAxesCombined, RefreshCw, Users, History, ChartLine, Settings } from "lucide-react";
+import { House, Wallet, ChartNoAxesCombined, PieChart, RefreshCw, Users, History, ChartLine, Settings } from "lucide-react";
 
 /**
  * NavItem is the top-level navigation model. `translationKey` looks up the
@@ -23,11 +23,11 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [{ id: "overview", translationKey: "nav.overview", icon: House }],
   },
   {
-    id: "portfolio",
-    translationKey: "navGroups.portfolio",
+    id: "workspace",
     items: [
       { id: "accounts", translationKey: "nav.accounts", icon: Wallet },
-      { id: "investments", translationKey: "nav.investments", icon: ChartNoAxesCombined },
+      { id: "portfolio", translationKey: "nav.portfolio", icon: PieChart },
+      { id: "investments", translationKey: "nav.instruments", icon: ChartNoAxesCombined },
     ],
   },
   {

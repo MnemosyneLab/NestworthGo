@@ -943,6 +943,7 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	member := map[string]decimal.Decimal{}
 	institution := map[string]decimal.Decimal{}
 	group := map[string]decimal.Decimal{}
+	accountType := map[string]decimal.Decimal{}
 	memberLabels := map[string]string{}
 	institutionLabels := map[string]string{}
 	groupLabels := map[string]string{}
@@ -1025,6 +1026,8 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 			}
 		}
 		group[groupKey] = group[groupKey].Add(value)
+		typeKey := valuation.Account.AccountType.String()
+		accountType[typeKey] = accountType[typeKey].Add(value)
 	}
 	sortMissing(result.MissingInputs)
 	result.MissingInputs = deduplicateMissing(result.MissingInputs)
@@ -1034,6 +1037,7 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	result.ByMember = makeBreakdownWithLabels(member, result.Assets, memberLabels)
 	result.ByInstitution = makeBreakdownWithLabels(institution, result.Assets, institutionLabels)
 	result.ByGroup = makeBreakdownWithLabels(group, result.Assets, groupLabels)
+	result.ByAccountType = makeBreakdown(accountType, result.Assets)
 	return result, nil
 }
 

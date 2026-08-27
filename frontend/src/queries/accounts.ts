@@ -5,9 +5,10 @@ import type {
   CreateAccountRequest,
   UpdateAccountRequest,
 } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
+import { Service as HoldingService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding";
 import { callService } from "@/lib/wails";
 import { queryKeys, normalizeAccountFilter } from "@/queries/keys";
-import { invalidateAccountChange } from "@/queries/invalidation";
+import { invalidateAccountChange, invalidateActivityChange } from "@/queries/invalidation";
 
 export const accountsQueryKey = queryKeys.accounts.list;
 
@@ -59,6 +60,33 @@ export function useSetAccountLogo() {
     mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
       callService(() => AccountService.SetAccountLogo(id, mediaAssetId)),
     onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
+  });
+}
+
+export function useAppendAccountValue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, amount, effectiveAt }: { id: string; amount: string; effectiveAt?: string }) =>
+      callService(() => AccountService.AppendAccountValue(id, amount, effectiveAt ?? "")),
+    onSuccess: (_data, variables) => invalidateActivityChange(queryClient, [variables.id]),
+  });
+}
+
+export function useAppendAccountCashValue() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      accountId,
+      amount,
+      currency,
+      effectiveAt,
+    }: {
+      accountId: string;
+      amount: string;
+      currency: string;
+      effectiveAt?: string;
+    }) => callService(() => HoldingService.AppendAccountCashValue(accountId, amount, currency, effectiveAt ?? "")),
+    onSuccess: (_data, variables) => invalidateActivityChange(queryClient, [variables.accountId]),
   });
 }
 

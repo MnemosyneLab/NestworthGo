@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AppShell, DEFAULT_PAGE_ID } from "@/app/AppShell";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OverviewPage } from "@/features/overview/OverviewPage";
 import { AccountsPage } from "@/features/accounts/AccountsPage";
+import { PortfolioPage } from "@/features/portfolio/PortfolioPage";
 import { DirectoryPage } from "@/features/directory/DirectoryPage";
 import { InvestmentsPage } from "@/features/investments/InvestmentsPage";
 import { MarketDataPage } from "@/features/marketdata/MarketDataPage";
@@ -25,11 +26,12 @@ import { setLanguage } from "@/i18n";
 function App() {
   const { t } = useTranslation();
   const [activePageId, setActivePageId] = useState(DEFAULT_PAGE_ID);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [visitedPageIds, setVisitedPageIds] = useState<string[]>([DEFAULT_PAGE_ID]);
   const startup = useStartup();
   const settings = useSettings({ enabled: startup.data?.available === true });
   const setAppearance = useUiStore((state) => state.setAppearance);
   const [settingsHydrated, setSettingsHydrated] = useState(false);
-  const visitedPages = useRef(new Set<string>([DEFAULT_PAGE_ID]));
 
   useEffect(() => {
     if (!settings.data) {
@@ -63,28 +65,50 @@ function App() {
   }
 
   if (bootstrap.data && !bootstrap.data.household) {
-    return <OnboardingPage onCompleted={() => setActivePageId("accounts")} />;
+    return <OnboardingPage onCompleted={() => {
+      setVisitedPageIds((current) => (current.includes("accounts") ? current : [...current, "accounts"]));
+      setActivePageId("accounts");
+    }} />;
   }
 
-  visitedPages.current.add(activePageId);
-  const visited = (id: string) => visitedPages.current.has(id);
+  const visited = (id: string) => id === activePageId || visitedPageIds.includes(id);
+  const markVisited = (id: string) => {
+    setVisitedPageIds((current) => (current.includes(id) ? current : [...current, id]));
+  };
+  const openAccount = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    markVisited("accounts");
+    setActivePageId("accounts");
+  };
+  const handleNavigate = (pageId: string) => {
+    if (pageId === "accounts" && activePageId === "accounts") {
+      setSelectedAccountId(null);
+    }
+    markVisited(pageId);
+    setActivePageId(pageId);
+  };
 
   return (
-    <AppShell activePageId={activePageId} onNavigate={setActivePageId} settings={settings.data}>
+    <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data}>
       {visited("overview") && (
         <WorkspaceSurface id="overview" activePageId={activePageId}>
           <OverviewPage
-            onAddAccount={() => setActivePageId("accounts")}
-            onOpenAccounts={() => setActivePageId("accounts")}
-            onOpenHistory={() => setActivePageId("history")}
-            onOpenMarketData={() => setActivePageId("market-data")}
-            onOpenInvestments={() => setActivePageId("investments")}
+            onAddAccount={() => handleNavigate("accounts")}
+            onOpenAccounts={() => handleNavigate("accounts")}
+            onOpenHistory={() => handleNavigate("history")}
+            onOpenMarketData={() => handleNavigate("market-data")}
+            onOpenInvestments={() => handleNavigate("investments")}
           />
         </WorkspaceSurface>
       )}
       {visited("accounts") && (
         <WorkspaceSurface id="accounts" activePageId={activePageId}>
-          <AccountsPage />
+          <AccountsPage selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} />
+        </WorkspaceSurface>
+      )}
+      {visited("portfolio") && (
+        <WorkspaceSurface id="portfolio" activePageId={activePageId}>
+          <PortfolioPage onOpenAccount={openAccount} />
         </WorkspaceSurface>
       )}
       {visited("directory") && (

@@ -16,6 +16,7 @@ import { useBootstrap } from "@/queries/household";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { displayEnum } from "@/lib/display";
+import { ownershipShares, trackingMethodKey } from "@/features/accounts/accountCatalog";
 
 const accountFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -34,23 +35,6 @@ const accountFormSchema = z.object({
 });
 
 export type AccountFormValues = z.infer<typeof accountFormSchema>;
-
-const TOTAL_OWNERSHIP_BPS = 10000;
-
-function ownershipShares(ownerIds: string[], percentages: string[] | undefined, useCustom: boolean): { memberId: string; shareBps: number }[] {
-  if (useCustom && percentages && percentages.length === ownerIds.length) {
-    return ownerIds.map((memberId, index) => ({
-      memberId,
-      shareBps: Math.round(Number(percentages[index]) * 100),
-    }));
-  }
-  const base = Math.floor(TOTAL_OWNERSHIP_BPS / ownerIds.length);
-  const remainder = TOTAL_OWNERSHIP_BPS % ownerIds.length;
-  return ownerIds.map((memberId, index) => ({
-    memberId,
-    shareBps: index < remainder ? base + 1 : base,
-  }));
-}
 
 export type AccountFormExtras = {
   pendingImage?: string;
@@ -139,6 +123,7 @@ export function AccountForm({
   const accountType = useWatch({ control, name: "accountType" });
   const balanceSheetRole = useWatch({ control, name: "balanceSheetRole" });
   const trackingMode = useWatch({ control, name: "trackingMode" });
+  const includeInPortfolio = useWatch({ control, name: "includeInPortfolio" });
   const ownerIds = useWatch({ control, name: "ownerIds" });
   const ownershipPercentages = useWatch({ control, name: "ownershipPercentages" }) ?? [];
 
@@ -146,12 +131,12 @@ export function AccountForm({
     () => catalog.data?.accountCombinations ?? [],
     [catalog.data?.accountCombinations],
   );
-  const primaryOptions = catalog.data?.accountTypes ?? [];
   const frozenRole = record?.account.balanceSheetRole ?? balanceSheetRole;
   const frozenTracking = record?.account.trackingMode ?? trackingMode;
   const typeOptions = useMemo(() => {
+    const catalogTypes = catalog.data?.accountTypes ?? [];
     if (!isEdit) {
-      return primaryOptions;
+      return catalogTypes;
     }
     const compatible = new Set(
       combinations
@@ -161,26 +146,18 @@ export function AccountForm({
     if (accountType) {
       compatible.add(accountType);
     }
-    return primaryOptions.filter((type) => compatible.has(type));
-  }, [isEdit, primaryOptions, combinations, frozenRole, frozenTracking, accountType]);
+    return catalogTypes.filter((type) => compatible.has(type));
+  }, [isEdit, catalog.data?.accountTypes, combinations, frozenRole, frozenTracking, accountType]);
   const matchingCombinations = useMemo(
     () => combinations.filter((item) => item.accountType === accountType),
     [combinations, accountType],
   );
-  const roleOptions = useMemo(
-    () => Array.from(new Set(matchingCombinations.map((item) => item.balanceSheetRole))),
-    [matchingCombinations],
-  );
-  const roleLocked = matchingCombinations.length > 0 && matchingCombinations.every((item) => item.roleLocked);
   const trackingModeOptions = useMemo(
     () =>
       matchingCombinations
         .filter((item) => item.balanceSheetRole === balanceSheetRole)
         .map((item) => item.trackingMode),
     [matchingCombinations, balanceSheetRole],
-  );
-  const selectedCombination = matchingCombinations.find(
-    (item) => item.balanceSheetRole === balanceSheetRole && item.trackingMode === trackingMode,
   );
   const householdCurrency = bootstrap.data?.household?.baseCurrency;
   const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
@@ -271,29 +248,16 @@ export function AccountForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="account-role">{t("accounts.balanceSheetRole")}</Label>
-        {roleLocked || isEdit ? (
-          <p id="account-role" className="text-sm text-muted-foreground">
-            {displayEnum(t, "enum", balanceSheetRole)}
-          </p>
-        ) : (
-          <NativeSelect
-            id="account-role"
-            value={balanceSheetRole}
-            onChange={(event) => applyCombinationDefaults(accountType, event.target.value)}
-          >
-            {roleOptions.map((role) => (
-              <option key={role} value={role}>
-                {displayEnum(t, "enum", role)}
-              </option>
-            ))}
-          </NativeSelect>
-        )}
+        <Label id="account-role-label">{t("accounts.balanceSheetRole")}</Label>
+        <p id="account-role" aria-labelledby="account-role-label" className="text-sm text-muted-foreground">
+          {balanceSheetRole === "liability" ? t("accounts.liability") : t("accounts.asset")}
+        </p>
+        {isEdit && <p className="text-xs text-muted-foreground">{t("accounts.roleImmutable")}</p>}
       </div>
 
       {trackingModeOptions.length > 1 && !isEdit && (
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="account-tracking-mode">{t("accounts.trackingMode")}</Label>
+          <Label htmlFor="account-tracking-mode">{t("accounts.trackingMethod")}</Label>
           <NativeSelect
             id="account-tracking-mode"
             value={trackingMode}
@@ -301,16 +265,19 @@ export function AccountForm({
           >
             {trackingModeOptions.map((mode) => (
               <option key={mode} value={mode}>
-                {displayEnum(t, "enum", mode)}
+                {t(trackingMethodKey(mode))}
               </option>
             ))}
           </NativeSelect>
         </div>
       )}
       {isEdit && (
-        <p className="text-sm text-muted-foreground">
-          {t("accounts.trackingMode")}: {displayEnum(t, "enum", trackingMode)}
-        </p>
+        <div className="flex flex-col gap-1">
+          <p className="text-sm text-muted-foreground">
+            {t("accounts.trackingMethod")}: {t(trackingMethodKey(trackingMode))}
+          </p>
+          <p className="text-xs text-muted-foreground">{t("accounts.trackingImmutable")}</p>
+        </div>
       )}
 
       <div className="flex flex-col gap-1.5">
@@ -392,8 +359,8 @@ export function AccountForm({
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" {...register("includeInLiquidAssets")} /> {t("accounts.includeInLiquidAssets")}
         </label>
-        {selectedCombination?.wholeAccountWarning && (
-          <p className="text-xs text-muted-foreground">{t("accounts.wholeAccountInclusionWarning")}</p>
+        {trackingMode === "holdings" && includeInPortfolio && (
+          <p className="text-xs text-muted-foreground">{t("accounts.wholeAccountPortfolio")}</p>
         )}
       </div>
 

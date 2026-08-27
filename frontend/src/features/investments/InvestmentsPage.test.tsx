@@ -128,7 +128,7 @@ describe("InvestmentsPage", () => {
   it("creates a Holding for a Holdings-mode Account", async () => {
     renderPage();
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
-    await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
+    await userEvent.click(screen.getByRole("tab", { name: "All holdings index" }));
     await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
 
     await screen.findByLabelText("Account");
@@ -164,7 +164,7 @@ describe("InvestmentsPage", () => {
     });
 
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
+    await userEvent.click(screen.getByRole("tab", { name: "All holdings index" }));
 
     expect(await screen.findByRole("columnheader", { name: "Cost" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Current value" })).toBeInTheDocument();
@@ -197,7 +197,7 @@ describe("InvestmentsPage", () => {
     });
 
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
+    await userEvent.click(screen.getByRole("tab", { name: "All holdings index" }));
 
     expect(await screen.findByText("No current price")).toBeInTheDocument();
   });
@@ -226,7 +226,7 @@ describe("InvestmentsPage", () => {
   it("shows a validation error when Add holding is submitted empty", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
     renderPage();
-    await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
+    await userEvent.click(screen.getByRole("tab", { name: "All holdings index" }));
     await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
     await screen.findByLabelText("Account");
     const submitButtons = screen.getAllByRole("button", { name: "Add holding" });

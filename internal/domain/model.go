@@ -770,6 +770,7 @@ type OverviewResult struct {
 	ByMember          []BreakdownItem
 	ByInstitution     []BreakdownItem
 	ByGroup           []BreakdownItem
+	ByAccountType     []BreakdownItem
 }
 
 type OwnershipScope string

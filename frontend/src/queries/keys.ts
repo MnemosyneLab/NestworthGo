@@ -65,6 +65,9 @@ export const queryKeys = {
   overview: {
     all: ["overview"] as const,
   },
+  portfolio: {
+    all: ["portfolio"] as const,
+  },
   analytics: {
     all: ["analytics"] as const,
     realizedGain: (trendRange: string) => ["analytics", "realizedGain", trendRange] as const,

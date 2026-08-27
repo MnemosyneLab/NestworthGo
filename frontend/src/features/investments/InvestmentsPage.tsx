@@ -322,6 +322,7 @@ function HoldingsTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">{t("portfolio.holdingsIndexDescription")}</p>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger className={buttonVariants({})}>
           <Plus className="size-4" aria-hidden="true" /> {t("portfolio.addHolding")}
@@ -442,7 +443,7 @@ export function InvestmentsPage() {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("nav.investments")} description={t("portfolio.description")} />
+      <PageHeader title={t("nav.instruments")} description={t("portfolio.description")} />
       <Tabs defaultValue="instruments">
         <TabsList>
           <TabsTrigger value="instruments">{t("portfolio.instrumentsTab")}</TabsTrigger>

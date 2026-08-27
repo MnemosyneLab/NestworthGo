@@ -80,6 +80,7 @@ describe("OverviewPage", () => {
       ],
       byInstitution: [],
       byGroup: [],
+      byAccountType: [{ key: "bank_account", label: "bank_account", amount: "1000", shareBps: 10000 }],
     });
 
     expect(await screen.findByTestId("overview-net-worth")).toHaveTextContent("$700.00");
@@ -92,6 +93,9 @@ describe("OverviewPage", () => {
     expect(screen.getByText("Complete")).toBeInTheDocument();
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getByText("Credit card")).toBeInTheDocument();
+    expect(screen.getByText("By account type")).toBeInTheDocument();
+    expect(screen.getByText("Bank account")).toBeInTheDocument();
+    expect(screen.getByText(/groups each real-world account as a whole/i)).toBeInTheDocument();
     expect(screen.getByText(/Updated /)).toBeInTheDocument();
     expect(await screen.findByText("Added $1,000.00 to Checking (Contribution)")).toBeInTheDocument();
   });

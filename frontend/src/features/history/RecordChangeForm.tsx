@@ -1,15 +1,17 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
+import { LoadingState } from "@/components/layout/PageState";
 import { useAccounts } from "@/queries/accounts";
-import { useInstruments, useAllHoldingsFlat } from "@/queries/investments";
+import { useInstruments, useAllHoldingsFlat, useCreateInstrument } from "@/queries/investments";
 import { usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
 import { useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { useBootstrap } from "@/queries/household";
+import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { formatAmount } from "@/lib/money";
@@ -127,22 +129,27 @@ function MoneyFields({
   );
 }
 
-function applyHouseholdCurrency(request: ChangeCommandRequest, currency: string): ChangeCommandRequest {
-  const replace = (value: string | undefined) => (value === "" || value === "CNY" ? currency : value);
-  return {
-    ...request,
-    currency: replace(request.currency),
-    newValueCurrency: replace(request.newValueCurrency),
-    sentCurrency: replace(request.sentCurrency),
-    receivedCurrency: replace(request.receivedCurrency),
-    soldCurrency: replace(request.soldCurrency),
-    boughtCurrency: replace(request.boughtCurrency),
-    feeCurrency: replace(request.feeCurrency),
-    grossCurrency: replace(request.grossCurrency),
-    principalCurrency: replace(request.principalCurrency),
-    interestOrFeeCurrency: replace(request.interestOrFeeCurrency),
-  };
+function currencyFromRequest(request: ChangeCommandRequest | undefined): string | undefined {
+  if (!request) {
+    return undefined;
+  }
+  return (
+    request.currency ||
+    request.grossCurrency ||
+    request.newValueCurrency ||
+    request.sentCurrency ||
+    request.soldCurrency ||
+    request.principalCurrency ||
+    undefined
+  );
 }
+
+export type RecordChangeLock = {
+  kind?: ChangeCommandKind;
+  hideKind?: boolean;
+  accountId?: string;
+  settlementAccountId?: string;
+};
 
 /**
  * RecordChangeForm implements the "record a change with ordinary
@@ -156,40 +163,85 @@ function applyHouseholdCurrency(request: ChangeCommandRequest, currency: string)
  * Fix flow: it starts pre-filled from `initial` and Confirm calls
  * FixChange instead of RecordChange. Reason and note are visible fields
  * so a Fix cannot resubmit hidden values the user did not see.
+ *
+ * `lock` pre-fills Account context from Account detail and hides fields
+ * the user already chose by entering that page.
  */
 export function RecordChangeForm({
   onRecorded,
   initial,
   fixActivityId,
+  lock,
 }: {
   onRecorded: () => void;
   initial?: ChangeCommandRequest;
   fixActivityId?: string;
+  lock?: RecordChangeLock;
+}) {
+  const { t } = useTranslation();
+  const bootstrap = useBootstrap();
+  const currencies = useSupportedCurrencies();
+  const fromInitial = currencyFromRequest(initial);
+  if (!fromInitial && !bootstrap.isFetched) {
+    return <LoadingState label={t("history.loading")} />;
+  }
+  const resolvedCurrency = fromInitial || bootstrap.data?.household?.baseCurrency || currencies.data?.[0];
+  if (!resolvedCurrency) {
+    return <LoadingState label={t("history.loading")} />;
+  }
+  return (
+    <RecordChangeFormReady
+      key={resolvedCurrency}
+      onRecorded={onRecorded}
+      initial={initial}
+      fixActivityId={fixActivityId}
+      lock={lock}
+      defaultCurrency={resolvedCurrency}
+    />
+  );
+}
+
+function RecordChangeFormReady({
+  onRecorded,
+  initial,
+  fixActivityId,
+  lock,
+  defaultCurrency,
+}: {
+  onRecorded: () => void;
+  initial?: ChangeCommandRequest;
+  fixActivityId?: string;
+  lock?: RecordChangeLock;
+  defaultCurrency: string;
 }) {
   const { t } = useTranslation();
   const accounts = useAccounts({});
   const instruments = useInstruments();
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
-  const bootstrap = useBootstrap();
   const allAccountIds = (accounts.data ?? []).map((record) => record.account.id);
   const holdings = useAllHoldingsFlat(allAccountIds);
   const preview = usePreviewChange();
   const previewFix = usePreviewFixChange();
   const record = useRecordChange();
   const fix = useFixChange();
-  const defaultCurrency = bootstrap.data?.household?.baseCurrency ?? currencies.data?.[0] ?? "CNY";
+  const createInstrument = useCreateInstrument();
+  const [creatingInstrument, setCreatingInstrument] = useState(false);
   const currencyOptions = currencies.data ?? [defaultCurrency];
 
-  const [request, setRequest] = useState<ChangeCommandRequest>(initial ?? emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, defaultCurrency));
+  const [request, setRequest] = useState<ChangeCommandRequest>(() => {
+    const base = initial ?? emptyChangeRequest(lock?.kind ?? ChangeCommandKind.ChangeMoneyAdded, defaultCurrency);
+    return {
+      ...base,
+      kind: lock?.kind ?? base.kind,
+      accountId: lock?.accountId ?? base.accountId,
+      settlementAccountId: lock?.settlementAccountId ?? base.settlementAccountId,
+      fromAccountId: lock?.accountId && (lock.kind === ChangeCommandKind.ChangeCashTransfer || base.kind === ChangeCommandKind.ChangeCashTransfer)
+        ? lock.accountId
+        : base.fromAccountId,
+    };
+  });
   const [previewResult, setPreviewResult] = useState<EndpointViewDTO[] | null>(null);
-
-  useEffect(() => {
-    if (initial) {
-      return;
-    }
-    setRequest((current) => applyHouseholdCurrency(current, defaultCurrency));
-  }, [defaultCurrency, initial]);
 
   const patch = (next: Partial<ChangeCommandRequest>) => {
     setRequest((current) => ({ ...current, ...next }));
@@ -255,34 +307,47 @@ export function RecordChangeForm({
 
   return (
     <div className="flex flex-col gap-4" role="form" aria-label={t("history.formLabel")}>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="change-kind">{t("history.changeType")}</Label>
-        <NativeSelect
-          id="change-kind"
-          value={kind}
-          onChange={(event) => {
-            setRequest(emptyChangeRequest(event.target.value as ChangeCommandKind, defaultCurrency));
-            setPreviewResult(null);
-          }}
-        >
-          {KINDS.map((value) => (
-            <option key={value} value={value}>
-              {t(`history.kind.${value}`)}
-            </option>
-          ))}
-        </NativeSelect>
-      </div>
+      {!lock?.hideKind && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="change-kind">{t("history.changeType")}</Label>
+          <NativeSelect
+            id="change-kind"
+            value={kind}
+            onChange={(event) => {
+              const nextKind = event.target.value as ChangeCommandKind;
+              const next = emptyChangeRequest(nextKind, defaultCurrency);
+              setRequest({
+                ...next,
+                accountId: lock?.accountId ?? next.accountId,
+                settlementAccountId: lock?.settlementAccountId ?? next.settlementAccountId,
+                fromAccountId: lock?.accountId && nextKind === ChangeCommandKind.ChangeCashTransfer ? lock.accountId : next.fromAccountId,
+              });
+              setPreviewResult(null);
+            }}
+          >
+            {KINDS.map((value) => (
+              <option key={value} value={value}>
+                {t(`history.kind.${value}`)}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+      )}
 
       {(kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved) && (
         <>
-          <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => patch({ accountId })} accounts={accountOptions} />
+          {!lock?.accountId && (
+            <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => patch({ accountId })} accounts={accountOptions} />
+          )}
           <MoneyFields prefix="change" label={t("history.amount")} amount={request.amount ?? ""} currency={request.currency ?? defaultCurrency} currencies={currencyOptions} onAmount={(amount) => patch({ amount })} onCurrency={(currency) => patch({ currency })} />
         </>
       )}
 
       {kind === ChangeCommandKind.ChangeValueUpdate && (
         <>
-          <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => patch({ accountId })} accounts={accountOptions} />
+          {!lock?.accountId && (
+            <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => patch({ accountId })} accounts={accountOptions} />
+          )}
           <MoneyFields prefix="change" label={t("history.newValue")} amount={request.newValue ?? ""} currency={request.newValueCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={(newValue) => patch({ newValue })} onCurrency={(newValueCurrency) => patch({ newValueCurrency })} />
         </>
       )}
@@ -298,7 +363,9 @@ export function RecordChangeForm({
 
       {kind === ChangeCommandKind.ChangeFXConversion && (
         <>
-          <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => patch({ accountId })} accounts={holdingsAccountOptions} />
+          {!lock?.accountId && (
+            <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => patch({ accountId })} accounts={holdingsAccountOptions} />
+          )}
           <MoneyFields prefix="change-sold" label={t("history.sold")} amount={request.sold ?? ""} currency={request.soldCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={(sold) => patch({ sold })} onCurrency={(soldCurrency) => patch({ soldCurrency })} />
           <MoneyFields prefix="change-bought" label={t("history.bought")} amount={request.bought ?? ""} currency={request.boughtCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={(bought) => patch({ bought })} onCurrency={(boughtCurrency) => patch({ boughtCurrency })} />
         </>
@@ -336,18 +403,20 @@ export function RecordChangeForm({
 
       {kind === ChangeCommandKind.ChangeTrade && (
         <>
-          <AccountSelect
-            id="change-settlement-account"
-            label={t("history.settlementAccount")}
-            value={request.settlementAccountId ?? ""}
-            onChange={(settlementAccountId) =>
-              patch({
-                settlementAccountId,
-                holdingId: matchingHoldingId(settlementAccountId, request.instrumentId ?? ""),
-              })
-            }
-            accounts={holdingsAccountOptions}
-          />
+          {!lock?.settlementAccountId && (
+            <AccountSelect
+              id="change-settlement-account"
+              label={t("history.settlementAccount")}
+              value={request.settlementAccountId ?? ""}
+              onChange={(settlementAccountId) =>
+                patch({
+                  settlementAccountId,
+                  holdingId: matchingHoldingId(settlementAccountId, request.instrumentId ?? ""),
+                })
+              }
+              accounts={holdingsAccountOptions}
+            />
+          )}
           <OptionSelect
             id="change-instrument"
             label={t("history.instrument")}
@@ -364,6 +433,30 @@ export function RecordChangeForm({
               });
             }}
           />
+          {creatingInstrument ? (
+            <InstrumentForm
+              isSubmitting={createInstrument.isPending}
+              submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
+              onSubmit={(instrumentRequest) => {
+                createInstrument.mutate(instrumentRequest, {
+                  onSuccess: (created) => {
+                    const currency = created.quoteCurrency ?? defaultCurrency;
+                    patch({
+                      instrumentId: created.id,
+                      holdingId: matchingHoldingId(request.settlementAccountId ?? "", created.id),
+                      grossCurrency: currency,
+                      feeCurrency: currency,
+                    });
+                    setCreatingInstrument(false);
+                  },
+                });
+              }}
+            />
+          ) : (
+            <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>
+              {t("accounts.createInstrument")}
+            </Button>
+          )}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="change-side">{t("history.side")}</Label>
             <NativeSelect id="change-side" value={request.side ?? "buy"} onChange={(event) => patch({ side: event.target.value })}>

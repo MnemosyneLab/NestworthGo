@@ -580,6 +580,176 @@ func TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision(t *t
 	}
 }
 
+func TestCompositeCashAcceptsForeignCurrencyBeforeAndAfterHistory(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/composite-cash.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "MooMoo", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	brokerage, err := service.CreateAccount(ctx, AccountInput{
+		Name: "MooMoo SG", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "SGD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	simple, err := service.CreateAccount(ctx, AccountInput{
+		Name: "DBS Savings", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "SGD", InitialAmount: "100",
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "12000", "SGD", "2026-08-01"); err != nil {
+		t.Fatalf("history-before SGD cash: %v", err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "8500", "USD", "2026-08-01"); err != nil {
+		t.Fatalf("history-before USD cash: %v", err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "3000", "CNY", "2026-08-01"); err != nil {
+		t.Fatalf("history-before CNY cash: %v", err)
+	}
+	cashBefore, err := service.ListAccountCashValues(ctx, brokerage.Account.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(cashBefore) != 3 {
+		t.Fatalf("history-before cash observations = %d, want 3", len(cashBefore))
+	}
+	clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	clock = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
+	reconciled, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "9000", "USD", "2026-08-03")
+	if err != nil {
+		t.Fatalf("history-after USD reconcile: %v", err)
+	}
+	if reconciled.Amount.CanonicalAmount() != "9000" || reconciled.Amount.Currency() != "USD" {
+		t.Fatalf("reconciled cash = %+v", reconciled)
+	}
+	added, _ := domain.ParseMoney("200", "CNY")
+	preview, err := service.RecordChange(ctx, domain.MoneyAddedInput{
+		HouseholdID: bootstrap.Household.ID, AccountID: brokerage.Account.ID, Amount: added,
+		Reason: domain.ReasonContribution, EffectiveAt: clock,
+	})
+	if err != nil {
+		t.Fatalf("history-after CNY deposit: %v", err)
+	}
+	if preview.Activity.Kind != domain.ActivityCashIn || preview.Resulting[0].Currency != "CNY" || preview.Resulting[0].Amount != "3200" {
+		t.Fatalf("CNY deposit preview = %+v", preview)
+	}
+	foreign, _ := domain.ParseMoney("10", "USD")
+	_, err = service.RecordChange(ctx, domain.MoneyAddedInput{
+		HouseholdID: bootstrap.Household.ID, AccountID: simple.Account.ID, Amount: foreign,
+		Reason: domain.ReasonIncome, EffectiveAt: clock,
+	})
+	if err == nil {
+		t.Fatal("simple account accepted a foreign-currency deposit")
+	}
+	if domainErr, ok := err.(*domain.Error); !ok || domainErr.Code != domain.ErrInvalidChange {
+		t.Fatalf("simple foreign deposit error = %v, want invalid change", err)
+	}
+}
+
+func TestMixedBankFirstFundBuyDecreasesCashAndShowsHolding(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "cmb-mixed-first-buy", []string{"Owner"})
+	bank, err := service.CreateAccount(ctx, AccountInput{
+		Name: "招商银行综合账户", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bank.Account.TrackingMode != domain.TrackingHoldings {
+		t.Fatalf("tracking = %s, want holdings", bank.Account.TrackingMode)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, bank.Account.ID, "10000", "CNY", "2026-08-01"); err != nil {
+		t.Fatalf("opening CNY cash: %v", err)
+	}
+	fund, err := service.CreateInstrument(ctx, InstrumentInput{Name: "招银理财A", Type: "mutual_fund", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	tradeAt := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	setClock(tradeAt)
+	gross, _ := domain.ParseMoney("2000", "CNY")
+	preview, err := service.RecordChange(ctx, domain.TradeInput{
+		HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: bank.Account.ID,
+		InstrumentID: fund.ID, Quantity: mustQuantity(t, "100"), Gross: gross, EffectiveAt: tradeAt,
+	})
+	if err != nil {
+		t.Fatalf("first fund buy: %v", err)
+	}
+	holdings, err := service.ListHoldings(ctx, bank.Account.ID, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(holdings) != 1 || holdings[0].InstrumentID != fund.ID || holdings[0].Quantity.Canonical() != "100" {
+		t.Fatalf("holdings after first buy = %+v", holdings)
+	}
+	if preview.Activity.TradeDetail == nil || preview.Activity.TradeDetail.HoldingID != holdings[0].ID {
+		t.Fatalf("trade detail = %+v, holding = %s", preview.Activity.TradeDetail, holdings[0].ID)
+	}
+
+	valuations, err := service.AccountValuations(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var valuation *domain.AccountValuation
+	for i := range valuations {
+		if valuations[i].Account.ID == bank.Account.ID {
+			valuation = &valuations[i]
+			break
+		}
+	}
+	if valuation == nil {
+		t.Fatal("mixed bank valuation missing")
+	}
+	var cashAmount string
+	var sawHolding bool
+	for _, component := range valuation.Components {
+		if component.InstrumentID == nil {
+			if component.NativeCurrency == "CNY" {
+				cashAmount = component.NativeAmount
+			}
+			continue
+		}
+		if *component.InstrumentID == fund.ID {
+			sawHolding = true
+			if component.Available {
+				t.Fatal("missing fund quote must not be treated as an available market value")
+			}
+		}
+	}
+	if cashAmount != "8000" {
+		t.Fatalf("CNY cash after first buy = %s, want 8000", cashAmount)
+	}
+	if !sawHolding {
+		t.Fatal("fund holding was not visible on the mixed bank valuation")
+	}
+	if valuation.Complete {
+		t.Fatal("valuation without a fund quote must stay incomplete")
+	}
+}
+
 func mustQuantity(t *testing.T, value string) domain.Quantity {
 	t.Helper()
 	quantity, err := domain.ParseQuantity(value)
