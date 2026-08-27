@@ -144,9 +144,9 @@ export function AccountsPage() {
         </span>
       ),
     }),
-    columnHelper.accessor((row) => row.account.primaryCategory, {
+    columnHelper.accessor((row) => row.account.accountType, {
       id: "category",
-      header: t("accounts.category"),
+      header: t("accounts.accountType"),
       cell: (info) => displayEnum(t, "enum", info.getValue()),
     }),
     columnHelper.accessor((row) => row.account.defaultCurrency, { id: "currency", header: t("accounts.currency") }),

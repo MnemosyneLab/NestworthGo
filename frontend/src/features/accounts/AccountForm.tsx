@@ -19,8 +19,8 @@ import { displayEnum } from "@/lib/display";
 
 const accountFormSchema = z.object({
   name: z.string().trim().min(1),
-  primaryCategory: z.string(),
-  secondaryCategory: z.string(),
+  accountType: z.string(),
+  balanceSheetRole: z.string(),
   trackingMode: z.string(),
   defaultCurrency: z.string().length(3),
   initialAmount: z.string().optional(),
@@ -29,7 +29,7 @@ const accountFormSchema = z.object({
   institutionId: z.string().optional(),
   groupId: z.string().optional(),
   includeInNetWorth: z.boolean(),
-  includeInInvestment: z.boolean(),
+  includeInPortfolio: z.boolean(),
   includeInLiquidAssets: z.boolean(),
 });
 
@@ -58,8 +58,7 @@ export type AccountFormExtras = {
 
 const emptyValues: AccountFormValues = {
   name: "",
-  primaryCategory: "cash_equivalent",
-  secondaryCategory: "cash",
+  accountType: "cash_on_hand", balanceSheetRole: "asset",
   trackingMode: "balance",
   defaultCurrency: "CNY",
   initialAmount: "",
@@ -68,7 +67,7 @@ const emptyValues: AccountFormValues = {
   institutionId: "",
   groupId: "",
   includeInNetWorth: true,
-  includeInInvestment: false,
+  includeInPortfolio: false,
   includeInLiquidAssets: false,
 };
 
@@ -78,8 +77,8 @@ function valuesFromRecord(record: AccountRecordDTO): AccountFormValues {
   const equal = percentages.length <= 1 || percentages.every((value) => value === percentages[0]);
   return {
     name: record.account.name,
-    primaryCategory: record.account.primaryCategory,
-    secondaryCategory: record.account.secondaryCategory,
+    accountType: record.account.accountType,
+    balanceSheetRole: record.account.balanceSheetRole,
     trackingMode: record.account.trackingMode,
     defaultCurrency: record.account.defaultCurrency,
     initialAmount: "",
@@ -88,7 +87,7 @@ function valuesFromRecord(record: AccountRecordDTO): AccountFormValues {
     institutionId: record.account.institutionId ?? "",
     groupId: record.account.groupId ?? "",
     includeInNetWorth: record.account.includeInNetWorth,
-    includeInInvestment: record.account.includeInInvestment,
+    includeInPortfolio: record.account.includeInPortfolio,
     includeInLiquidAssets: record.account.includeInLiquidAssets,
   };
 }
@@ -137,19 +136,51 @@ export function AccountForm({
     formState: { errors },
   } = useForm<AccountFormValues>({ resolver: zodResolver(accountFormSchema), defaultValues: initialValues });
 
-  const primaryCategory = useWatch({ control, name: "primaryCategory" });
+  const accountType = useWatch({ control, name: "accountType" });
+  const balanceSheetRole = useWatch({ control, name: "balanceSheetRole" });
   const trackingMode = useWatch({ control, name: "trackingMode" });
   const ownerIds = useWatch({ control, name: "ownerIds" });
   const ownershipPercentages = useWatch({ control, name: "ownershipPercentages" }) ?? [];
 
-  const primaryOptions = catalog.data?.primaryCategories ?? [];
-  const secondaryOptions = useMemo(
-    () => catalog.data?.secondaryCategoriesByPrimary?.[primaryCategory] ?? [],
-    [catalog.data, primaryCategory],
+  const combinations = useMemo(
+    () => catalog.data?.accountCombinations ?? [],
+    [catalog.data?.accountCombinations],
   );
+  const primaryOptions = catalog.data?.accountTypes ?? [];
+  const frozenRole = record?.account.balanceSheetRole ?? balanceSheetRole;
+  const frozenTracking = record?.account.trackingMode ?? trackingMode;
+  const typeOptions = useMemo(() => {
+    if (!isEdit) {
+      return primaryOptions;
+    }
+    const compatible = new Set(
+      combinations
+        .filter((item) => item.balanceSheetRole === frozenRole && item.trackingMode === frozenTracking)
+        .map((item) => item.accountType),
+    );
+    if (accountType) {
+      compatible.add(accountType);
+    }
+    return primaryOptions.filter((type) => compatible.has(type));
+  }, [isEdit, primaryOptions, combinations, frozenRole, frozenTracking, accountType]);
+  const matchingCombinations = useMemo(
+    () => combinations.filter((item) => item.accountType === accountType),
+    [combinations, accountType],
+  );
+  const roleOptions = useMemo(
+    () => Array.from(new Set(matchingCombinations.map((item) => item.balanceSheetRole))),
+    [matchingCombinations],
+  );
+  const roleLocked = matchingCombinations.length > 0 && matchingCombinations.every((item) => item.roleLocked);
   const trackingModeOptions = useMemo(
-    () => catalog.data?.trackingModesByPrimary?.[primaryCategory] ?? [],
-    [catalog.data, primaryCategory],
+    () =>
+      matchingCombinations
+        .filter((item) => item.balanceSheetRole === balanceSheetRole)
+        .map((item) => item.trackingMode),
+    [matchingCombinations, balanceSheetRole],
+  );
+  const selectedCombination = matchingCombinations.find(
+    (item) => item.balanceSheetRole === balanceSheetRole && item.trackingMode === trackingMode,
   );
   const householdCurrency = bootstrap.data?.household?.baseCurrency;
   const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
@@ -164,13 +195,28 @@ export function AccountForm({
     }
   }, [currencies.data, householdCurrency, isEdit, setValue]);
 
-  const handlePrimaryCategoryChange = (value: string) => {
-    setValue("primaryCategory", value);
-    setValue("secondaryCategory", catalog.data?.secondaryCategoriesByPrimary?.[value]?.[0] ?? "");
-    setValue("trackingMode", catalog.data?.trackingModesByPrimary?.[value]?.[0] ?? "");
-    if (!isEdit) {
-      setValue("includeInInvestment", value === "investment", { shouldDirty: true, shouldTouch: true });
+  const applyCombinationDefaults = (nextType: string, nextRole?: string, nextTracking?: string) => {
+    const forType = combinations.filter((item) => item.accountType === nextType);
+    const role = nextRole ?? forType[0]?.balanceSheetRole ?? "";
+    const forRole = forType.filter((item) => item.balanceSheetRole === role);
+    const tracking = nextTracking ?? forRole[0]?.trackingMode ?? "";
+    const match = forRole.find((item) => item.trackingMode === tracking) ?? forRole[0];
+    setValue("accountType", nextType);
+    setValue("balanceSheetRole", role);
+    setValue("trackingMode", tracking);
+    if (!isEdit && match) {
+      setValue("includeInNetWorth", match.includeInNetWorth, { shouldDirty: true, shouldTouch: true });
+      setValue("includeInPortfolio", match.includeInPortfolio, { shouldDirty: true, shouldTouch: true });
+      setValue("includeInLiquidAssets", match.includeInLiquidAssets, { shouldDirty: true, shouldTouch: true });
     }
+  };
+
+  const handleAccountTypeChange = (value: string) => {
+    if (isEdit) {
+      setValue("accountType", value);
+      return;
+    }
+    applyCombinationDefaults(value);
   };
 
   const toggleOwner = (memberId: string) => {
@@ -181,12 +227,12 @@ export function AccountForm({
   const submit = (values: AccountFormValues) => {
     const request: CreateAccountRequest = {
       name: values.name,
-      primaryCategory: values.primaryCategory,
-      secondaryCategory: values.secondaryCategory,
+      accountType: values.accountType,
+      balanceSheetRole: values.balanceSheetRole,
       trackingMode: values.trackingMode,
       defaultCurrency: values.defaultCurrency,
       includeInNetWorth: values.includeInNetWorth,
-      includeInInvestment: values.includeInInvestment,
+      includeInPortfolio: values.includeInPortfolio,
       includeInLiquidAssets: values.includeInLiquidAssets,
       ownership: ownershipShares(values.ownerIds, values.ownershipPercentages, useCustomPercentages),
       institutionId: values.institutionId || undefined,
@@ -210,35 +256,49 @@ export function AccountForm({
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="account-primary-category">{t("accounts.category")}</Label>
+        <Label htmlFor="account-type">{t("accounts.accountType")}</Label>
         <NativeSelect
-          id="account-primary-category"
-          value={primaryCategory}
-          onChange={(event) => handlePrimaryCategoryChange(event.target.value)}
+          id="account-type"
+          value={accountType}
+          onChange={(event) => handleAccountTypeChange(event.target.value)}
         >
-          {primaryOptions.map((category) => (
-            <option key={category} value={category}>
-              {displayEnum(t, "enum", category)}
+          {typeOptions.map((type) => (
+            <option key={type} value={type}>
+              {displayEnum(t, "enum", type)}
             </option>
           ))}
         </NativeSelect>
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="account-secondary-category">{t("accounts.secondaryCategory")}</Label>
-        <NativeSelect id="account-secondary-category" {...register("secondaryCategory")}>
-          {secondaryOptions.map((category) => (
-            <option key={category} value={category}>
-              {displayEnum(t, "enum", category)}
-            </option>
-          ))}
-        </NativeSelect>
+        <Label htmlFor="account-role">{t("accounts.balanceSheetRole")}</Label>
+        {roleLocked || isEdit ? (
+          <p id="account-role" className="text-sm text-muted-foreground">
+            {displayEnum(t, "enum", balanceSheetRole)}
+          </p>
+        ) : (
+          <NativeSelect
+            id="account-role"
+            value={balanceSheetRole}
+            onChange={(event) => applyCombinationDefaults(accountType, event.target.value)}
+          >
+            {roleOptions.map((role) => (
+              <option key={role} value={role}>
+                {displayEnum(t, "enum", role)}
+              </option>
+            ))}
+          </NativeSelect>
+        )}
       </div>
 
-      {trackingModeOptions.length > 1 && (
+      {trackingModeOptions.length > 1 && !isEdit && (
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="account-tracking-mode">{t("accounts.trackingMode")}</Label>
-          <NativeSelect id="account-tracking-mode" {...register("trackingMode")}>
+          <NativeSelect
+            id="account-tracking-mode"
+            value={trackingMode}
+            onChange={(event) => applyCombinationDefaults(accountType, balanceSheetRole, event.target.value)}
+          >
             {trackingModeOptions.map((mode) => (
               <option key={mode} value={mode}>
                 {displayEnum(t, "enum", mode)}
@@ -246,6 +306,11 @@ export function AccountForm({
             ))}
           </NativeSelect>
         </div>
+      )}
+      {isEdit && (
+        <p className="text-sm text-muted-foreground">
+          {t("accounts.trackingMode")}: {displayEnum(t, "enum", trackingMode)}
+        </p>
       )}
 
       <div className="flex flex-col gap-1.5">
@@ -322,11 +387,14 @@ export function AccountForm({
           <input type="checkbox" {...register("includeInNetWorth")} /> {t("accounts.includeInNetWorth")}
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" {...register("includeInInvestment")} /> {t("accounts.includeInInvestment")}
+          <input type="checkbox" {...register("includeInPortfolio")} /> {t("accounts.includeInPortfolio")}
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" {...register("includeInLiquidAssets")} /> {t("accounts.includeInLiquidAssets")}
         </label>
+        {selectedCombination?.wholeAccountWarning && (
+          <p className="text-xs text-muted-foreground">{t("accounts.wholeAccountInclusionWarning")}</p>
+        )}
       </div>
 
       <Button

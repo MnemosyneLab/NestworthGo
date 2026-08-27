@@ -246,6 +246,34 @@ func SupportedCurrencies() []CurrencyCode {
 	return []CurrencyCode{"AUD", "CNY", "EUR", "GBP", "HKD", "JPY", "SGD", "TWD", "USD", "KRW", "CHF"}
 }
 
+// currencyFractionDigits is the ISO 4217 minor-unit scale for every
+// supported currency. Display code must use this map rather than a global
+// decimal-places preference so JPY/KRW render as whole numbers and CNY/SGD
+// keep two fraction digits. Keep this in sync with frontend/src/lib/money.ts.
+var currencyFractionDigits = map[CurrencyCode]int{
+	"AUD": 2,
+	"CHF": 2,
+	"CNY": 2,
+	"EUR": 2,
+	"GBP": 2,
+	"HKD": 2,
+	"JPY": 0,
+	"KRW": 0,
+	"SGD": 2,
+	"TWD": 2,
+	"USD": 2,
+}
+
+// CurrencyFractionDigits returns the number of fraction digits used when
+// displaying an amount in this currency. Unknown codes default to 2 so a
+// legacy persisted value still has a readable presentation.
+func CurrencyFractionDigits(code CurrencyCode) int {
+	if places, ok := currencyFractionDigits[code]; ok {
+		return places
+	}
+	return 2
+}
+
 func ParseSupportedCurrency(value string) (CurrencyCode, error) {
 	code, err := ParseCurrency(value)
 	if err != nil {
@@ -341,111 +369,6 @@ func (m Money) Add(other Money) (Money, error) {
 	return NewMoney(m.amount.Add(other.amount), m.currency)
 }
 
-// PrimaryCategory controls the balance-sheet sign and allowed tracking mode.
-type PrimaryCategory string
-
-const (
-	CategoryCashEquivalent PrimaryCategory = "cash_equivalent"
-	CategoryInvestment     PrimaryCategory = "investment"
-	CategoryProperty       PrimaryCategory = "property"
-	CategoryReceivable     PrimaryCategory = "receivable"
-	CategoryLiability      PrimaryCategory = "liability"
-)
-
-func (c PrimaryCategory) IsLiability() bool { return c == CategoryLiability }
-func (c PrimaryCategory) String() string    { return string(c) }
-
-func ParsePrimaryCategory(value string) (PrimaryCategory, error) {
-	category := PrimaryCategory(strings.TrimSpace(value))
-	switch category {
-	case CategoryCashEquivalent, CategoryInvestment, CategoryProperty, CategoryReceivable, CategoryLiability:
-		return category, nil
-	default:
-		return "", validation("primaryCategory", "is not supported")
-	}
-}
-
-func AllPrimaryCategories() []PrimaryCategory {
-	return []PrimaryCategory{CategoryCashEquivalent, CategoryInvestment, CategoryProperty, CategoryReceivable, CategoryLiability}
-}
-
-// SecondaryCategory is intentionally a string enum to keep SQLite and UI values stable.
-type SecondaryCategory string
-
-const (
-	SecondaryCash                  SecondaryCategory = "cash"
-	SecondaryBankAccount           SecondaryCategory = "bank_account"
-	SecondaryDigitalWallet         SecondaryCategory = "digital_wallet"
-	SecondaryBrokerCash            SecondaryCategory = "broker_cash"
-	SecondaryOtherCashEquivalent   SecondaryCategory = "other_cash_equivalent"
-	SecondaryBrokerageAccount      SecondaryCategory = "brokerage_account"
-	SecondaryInvestmentFundAccount SecondaryCategory = "investment_fund_account"
-	SecondaryBankInvestmentProduct SecondaryCategory = "bank_investment_product"
-	SecondaryInsurance             SecondaryCategory = "insurance"
-	SecondaryManualInvestment      SecondaryCategory = "manual_investment"
-	SecondaryOtherInvestment       SecondaryCategory = "other_investment"
-	SecondaryRealEstate            SecondaryCategory = "real_estate"
-	SecondaryVehicle               SecondaryCategory = "vehicle"
-	SecondaryCollectible           SecondaryCategory = "collectible"
-	SecondaryOtherProperty         SecondaryCategory = "other_property"
-	SecondaryLoanReceivable        SecondaryCategory = "loan_receivable"
-	SecondaryOtherReceivable       SecondaryCategory = "other_receivable"
-	SecondaryCreditCard            SecondaryCategory = "credit_card"
-	SecondaryMortgage              SecondaryCategory = "mortgage"
-	SecondaryAutoLoan              SecondaryCategory = "auto_loan"
-	SecondaryConsumerLoan          SecondaryCategory = "consumer_loan"
-	SecondaryPersonalDebt          SecondaryCategory = "personal_debt"
-	SecondaryOtherLiability        SecondaryCategory = "other_liability"
-)
-
-var secondaryByPrimary = map[PrimaryCategory][]SecondaryCategory{
-	CategoryCashEquivalent: {SecondaryCash, SecondaryBankAccount, SecondaryDigitalWallet, SecondaryBrokerCash, SecondaryOtherCashEquivalent},
-	CategoryInvestment:     {SecondaryBrokerageAccount, SecondaryInvestmentFundAccount, SecondaryBankInvestmentProduct, SecondaryInsurance, SecondaryManualInvestment, SecondaryOtherInvestment},
-	CategoryProperty:       {SecondaryRealEstate, SecondaryVehicle, SecondaryCollectible, SecondaryOtherProperty},
-	CategoryReceivable:     {SecondaryLoanReceivable, SecondaryOtherReceivable},
-	CategoryLiability:      {SecondaryCreditCard, SecondaryMortgage, SecondaryAutoLoan, SecondaryConsumerLoan, SecondaryPersonalDebt, SecondaryOtherLiability},
-}
-
-func ParseSecondaryCategory(value string) (SecondaryCategory, error) {
-	candidate := SecondaryCategory(strings.TrimSpace(value))
-	for _, values := range secondaryByPrimary {
-		for _, value := range values {
-			if value == candidate {
-				return candidate, nil
-			}
-		}
-	}
-	return "", validation("secondaryCategory", "is not supported")
-}
-
-func SecondaryCategoriesByPrimary() map[PrimaryCategory][]SecondaryCategory {
-	copied := make(map[PrimaryCategory][]SecondaryCategory, len(secondaryByPrimary))
-	for primary, values := range secondaryByPrimary {
-		copied[primary] = slices.Clone(values)
-	}
-	return copied
-}
-
-func (c SecondaryCategory) BelongsTo(primary PrimaryCategory) bool {
-	for _, value := range secondaryByPrimary[primary] {
-		if c == value {
-			return true
-		}
-	}
-	return false
-}
-
-func (c PrimaryCategory) DefaultTrackingMode() TrackingMode {
-	switch c {
-	case CategoryInvestment:
-		return TrackingManualValue
-	case CategoryProperty, CategoryReceivable:
-		return TrackingManualValue
-	default:
-		return TrackingBalance
-	}
-}
-
 // TrackingMode is immutable after an Account is created.
 type TrackingMode string
 
@@ -467,34 +390,6 @@ func ParseTrackingMode(value string) (TrackingMode, error) {
 
 func AllTrackingModes() []TrackingMode {
 	return []TrackingMode{TrackingBalance, TrackingManualValue, TrackingHoldings}
-}
-
-func TrackingModesByPrimary() map[PrimaryCategory][]TrackingMode {
-	result := make(map[PrimaryCategory][]TrackingMode, len(AllPrimaryCategories()))
-	for _, primary := range AllPrimaryCategories() {
-		preferred := primary.DefaultTrackingMode()
-		modes := []TrackingMode{preferred}
-		for _, mode := range AllTrackingModes() {
-			if mode != preferred && mode.AllowedFor(primary) {
-				modes = append(modes, mode)
-			}
-		}
-		result[primary] = modes
-	}
-	return result
-}
-
-func (m TrackingMode) AllowedFor(primary PrimaryCategory) bool {
-	switch primary {
-	case CategoryCashEquivalent, CategoryLiability:
-		return m == TrackingBalance
-	case CategoryInvestment:
-		return m == TrackingHoldings || m == TrackingManualValue
-	case CategoryProperty, CategoryReceivable:
-		return m == TrackingManualValue
-	default:
-		return false
-	}
 }
 
 // OwnershipShare is an exact integer basis-point allocation.
@@ -675,15 +570,15 @@ type Account struct {
 	InstitutionID         *InstitutionID
 	GroupID               *GroupID
 	Name                  string
-	PrimaryCategory       PrimaryCategory
-	SecondaryCategory     SecondaryCategory
+	AccountType           AccountType
+	BalanceSheetRole      BalanceSheetRole
 	TrackingMode          TrackingMode
 	DefaultCurrency       CurrencyCode
 	Note                  *string
 	IconKey               *string
 	LogoAssetID           *MediaAssetID
 	IncludeInNetWorth     bool
-	IncludeInInvestment   bool
+	IncludeInPortfolio    bool
 	IncludeInLiquidAssets bool
 	OpenedOn              *string
 	ClosedOn              *string
@@ -692,6 +587,8 @@ type Account struct {
 	UpdatedAt             time.Time
 	ArchivedAt            *time.Time
 }
+
+func (a Account) IsLiability() bool { return a.BalanceSheetRole.IsLiability() }
 
 func NewAccount(input AccountInput, now time.Time) (Account, Ownership, *Money, error) {
 	name, err := validateName("name", input.Name)
@@ -702,11 +599,8 @@ func NewAccount(input AccountInput, now time.Time) (Account, Ownership, *Money, 
 	if err != nil {
 		return Account{}, Ownership{}, nil, err
 	}
-	if !input.SecondaryCategory.BelongsTo(input.PrimaryCategory) {
-		return Account{}, Ownership{}, nil, validation("secondaryCategory", "does not belong to primary category")
-	}
-	if !input.TrackingMode.AllowedFor(input.PrimaryCategory) {
-		return Account{}, Ownership{}, nil, validation("trackingMode", "is not allowed for this category")
+	if !IsValidAccountCombination(input.AccountType, input.BalanceSheetRole, input.TrackingMode) {
+		return Account{}, Ownership{}, nil, validation("accountType", "is not a valid account combination")
 	}
 	canonicalCurrency, err := ParseCurrency(input.DefaultCurrency.String())
 	if err != nil {
@@ -748,10 +642,10 @@ func NewAccount(input AccountInput, now time.Time) (Account, Ownership, *Money, 
 	now = normalizeTime(now)
 	return Account{
 		ID: NewAccountID(), HouseholdID: input.HouseholdID, InstitutionID: input.InstitutionID, GroupID: input.GroupID,
-		Name: name, PrimaryCategory: input.PrimaryCategory, SecondaryCategory: input.SecondaryCategory,
+		Name: name, AccountType: input.AccountType, BalanceSheetRole: input.BalanceSheetRole,
 		TrackingMode: input.TrackingMode, DefaultCurrency: canonicalCurrency, Note: note,
 		IconKey:           iconKey,
-		IncludeInNetWorth: input.IncludeInNetWorth, IncludeInInvestment: input.IncludeInInvestment,
+		IncludeInNetWorth: input.IncludeInNetWorth, IncludeInPortfolio: input.IncludeInPortfolio,
 		IncludeInLiquidAssets: input.IncludeInLiquidAssets, OpenedOn: openedOn, ClosedOn: closedOn,
 		SortOrder: input.SortOrder, CreatedAt: now, UpdatedAt: now,
 	}, ownership, initial, nil
@@ -764,8 +658,8 @@ type AccountInput struct {
 	GroupID                  *GroupID
 	GroupIDSet               bool
 	Name                     string
-	PrimaryCategory          PrimaryCategory
-	SecondaryCategory        SecondaryCategory
+	AccountType              AccountType
+	BalanceSheetRole         BalanceSheetRole
 	TrackingMode             TrackingMode
 	DefaultCurrency          CurrencyCode
 	Note                     *string
@@ -773,8 +667,8 @@ type AccountInput struct {
 	IconKey                  *string
 	IncludeInNetWorth        bool
 	IncludeInNetWorthSet     bool
-	IncludeInInvestment      bool
-	IncludeInInvestmentSet   bool
+	IncludeInPortfolio       bool
+	IncludeInPortfolioSet    bool
 	IncludeInLiquidAssets    bool
 	IncludeInLiquidAssetsSet bool
 	OpenedOn                 *string
@@ -814,7 +708,7 @@ func (a Account) SignedAmount(value Money) (decimal.Decimal, error) {
 	if !a.IncludeInNetWorth || a.ArchivedAt != nil {
 		return decimal.Zero, nil
 	}
-	if a.PrimaryCategory.IsLiability() {
+	if a.IsLiability() {
 		return value.Amount().Neg(), nil
 	}
 	return value.Amount(), nil
@@ -856,24 +750,26 @@ type AccountRecord struct {
 }
 
 type BreakdownItem struct {
-	Key      string
-	Label    string
-	Amount   decimal.Decimal
-	ShareBPS int
+	Key                 string
+	Label               string
+	Amount              decimal.Decimal
+	ShareBPS            int
+	ClassificationBasis ClassificationBasis
 }
 
 type OverviewResult struct {
-	Currency      CurrencyCode
-	AccountCount  int
-	Complete      bool
-	MissingInputs []MissingInputView
-	Assets        decimal.Decimal
-	Liabilities   decimal.Decimal
-	NetWorth      decimal.Decimal
-	ByCategory    []BreakdownItem
-	ByMember      []BreakdownItem
-	ByInstitution []BreakdownItem
-	ByGroup       []BreakdownItem
+	Currency          CurrencyCode
+	AccountCount      int
+	Complete          bool
+	MissingInputs     []MissingInputView
+	Assets            decimal.Decimal
+	Liabilities       decimal.Decimal
+	NetWorth          decimal.Decimal
+	AssetsByType      []BreakdownItem
+	LiabilitiesByType []BreakdownItem
+	ByMember          []BreakdownItem
+	ByInstitution     []BreakdownItem
+	ByGroup           []BreakdownItem
 }
 
 type OwnershipScope string
@@ -906,7 +802,7 @@ type AccountFilter struct {
 	MemberID        *MemberID
 	InstitutionID   *InstitutionID
 	GroupID         *GroupID
-	Category        *PrimaryCategory
+	AccountType     *AccountType
 	OwnershipScope  OwnershipScope
 }
 

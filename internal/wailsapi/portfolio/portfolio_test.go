@@ -29,14 +29,14 @@ func setup(t *testing.T) (*application.Service, string) {
 	memberID := bootstrap.Members[0].ID
 	accountService := account.NewService(app)
 	if _, err := accountService.CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Bank", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
-		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInInvestment: true,
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset",
+		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		OwnerIDs: []string{memberID}, InitialAmount: "1000",
 	}); err != nil {
 		t.Fatalf("CreateAccount: %v", err)
 	}
 	if _, err := accountService.CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Card", PrimaryCategory: "liability", SecondaryCategory: "credit_card",
+		Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{memberID}, InitialAmount: "200",
 	}); err != nil {
@@ -58,8 +58,8 @@ func TestOverviewComputesNetWorth(t *testing.T) {
 	if !result.Complete {
 		t.Fatalf("Complete = false, want true")
 	}
-	if len(result.ByCategory) == 0 {
-		t.Fatalf("ByCategory is empty, want at least one breakdown entry")
+	if len(result.AssetsByType) == 0 {
+		t.Fatalf("AssetsByType is empty, want at least one breakdown entry")
 	}
 }
 
@@ -146,14 +146,14 @@ func TestOverviewMultiOwnerFixtureMatchesFrontendGolden(t *testing.T) {
 	alice, bob := bootstrap.Members[0].ID, bootstrap.Members[1].ID
 	accountService := account.NewService(app)
 	if _, err := accountService.CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Joint Savings", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		Name: "Joint Savings", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{alice, bob}, OwnershipPercentages: []string{"60", "40"}, InitialAmount: "1000",
 	}); err != nil {
 		t.Fatalf("CreateAccount (joint savings): %v", err)
 	}
 	if _, err := accountService.CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Credit Card", PrimaryCategory: "liability", SecondaryCategory: "credit_card",
+		Name: "Credit Card", AccountType: "credit_card", BalanceSheetRole: "liability",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{alice}, InitialAmount: "300",
 	}); err != nil {
@@ -177,6 +177,12 @@ func TestOverviewMultiOwnerFixtureMatchesFrontendGolden(t *testing.T) {
 	}
 	if byMember["Alice"] != "600" || byMember["Bob"] != "400" {
 		t.Fatalf("ByMember = %+v, want Alice=600 Bob=400 (60/40 split of the 1000 asset)", result.ByMember)
+	}
+	if len(result.AssetsByType) != 1 || result.AssetsByType[0].Key != "cash" || result.AssetsByType[0].Amount != "1000" {
+		t.Fatalf("AssetsByType = %+v, want cash=1000", result.AssetsByType)
+	}
+	if len(result.LiabilitiesByType) != 1 || result.LiabilitiesByType[0].Key != "credit_card" || result.LiabilitiesByType[0].Amount != "300" {
+		t.Fatalf("LiabilitiesByType = %+v, want credit_card=300", result.LiabilitiesByType)
 	}
 }
 

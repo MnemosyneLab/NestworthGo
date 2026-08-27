@@ -261,7 +261,7 @@ func TestPortfolioRepositoriesRejectHoldingsOnNonHoldingsAccount(t *testing.T) {
 	if err := repository.CreateMember(ctx, member); err != nil {
 		t.Fatal(err)
 	}
-	accountInput := domain.AccountInput{HouseholdID: household.ID, Name: "Balance", PrimaryCategory: domain.CategoryCashEquivalent, SecondaryCategory: domain.SecondaryCash, TrackingMode: domain.TrackingBalance, DefaultCurrency: domain.CurrencyCode("CNY"), Ownership: []domain.OwnershipShare{{MemberID: member.ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "1"}
+	accountInput := domain.AccountInput{HouseholdID: household.ID, Name: "Balance", AccountType: domain.TypeCashOnHand, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingBalance, DefaultCurrency: domain.CurrencyCode("CNY"), Ownership: []domain.OwnershipShare{{MemberID: member.ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "1"}
 	balance, ownership, initial, err := domain.NewAccount(accountInput, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -355,7 +355,7 @@ func seedPortfolioRepository(t *testing.T) (*DB, *Repository, domain.Household, 
 		database.Close()
 		t.Fatalf("onboarding: %v", err)
 	}
-	account, ownership, _, err := domain.NewAccount(domain.AccountInput{HouseholdID: household.ID, Name: "Holdings", PrimaryCategory: domain.CategoryInvestment, SecondaryCategory: domain.SecondaryBrokerageAccount, TrackingMode: domain.TrackingHoldings, DefaultCurrency: domain.CurrencyCode("CNY"), Ownership: []domain.OwnershipShare{{MemberID: member.ID, ShareBPS: domain.TotalOwnershipBPS}}}, now)
+	account, ownership, _, err := domain.NewAccount(domain.AccountInput{HouseholdID: household.ID, Name: "Holdings", AccountType: domain.TypeBrokerage, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingHoldings, DefaultCurrency: domain.CurrencyCode("CNY"), Ownership: []domain.OwnershipShare{{MemberID: member.ID, ShareBPS: domain.TotalOwnershipBPS}}}, now)
 	if err != nil {
 		database.Close()
 		t.Fatal(err)

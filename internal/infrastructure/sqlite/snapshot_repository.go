@@ -193,17 +193,17 @@ func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdI
 }
 
 func (r *Repository) listDailyValuationSnapshotItems(ctx context.Context, snapshotID domain.DailyValuationSnapshotID, baseCurrency domain.CurrencyCode) ([]domain.DailyValuationSnapshotItem, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, `SELECT id, account_id, holding_id, instrument_id, native_amount, native_currency, base_amount, base_currency, quote_id, fx_quote_id, state_observation_id, preference_observation_id, complete, missing_reason, fx_preference_observation_id FROM daily_valuation_snapshot_items WHERE snapshot_id = ? ORDER BY account_id, id`, snapshotID.String())
+	rows, err := r.database.SQL.QueryContext(ctx, `SELECT i.id, i.account_id, i.holding_id, i.instrument_id, i.native_amount, i.native_currency, i.base_amount, i.base_currency, i.quote_id, i.fx_quote_id, i.state_observation_id, i.preference_observation_id, i.complete, i.missing_reason, i.fx_preference_observation_id, a.tracking_mode FROM daily_valuation_snapshot_items i JOIN accounts a ON a.id = i.account_id WHERE i.snapshot_id = ? ORDER BY i.account_id, i.id`, snapshotID.String())
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var items []domain.DailyValuationSnapshotItem
 	for rows.Next() {
-		var id, accountID string
+		var id, accountID, trackingMode string
 		var holdingID, instrumentID, nativeAmount, nativeCurrency, baseAmount, rowBaseCurrency, quoteID, fxQuoteID, stateObservationID, preferenceObservationID, missingReason, fxPreferenceObservationID sql.NullString
 		var complete int
-		if err := rows.Scan(&id, &accountID, &holdingID, &instrumentID, &nativeAmount, &nativeCurrency, &baseAmount, &rowBaseCurrency, &quoteID, &fxQuoteID, &stateObservationID, &preferenceObservationID, &complete, &missingReason, &fxPreferenceObservationID); err != nil {
+		if err := rows.Scan(&id, &accountID, &holdingID, &instrumentID, &nativeAmount, &nativeCurrency, &baseAmount, &rowBaseCurrency, &quoteID, &fxQuoteID, &stateObservationID, &preferenceObservationID, &complete, &missingReason, &fxPreferenceObservationID, &trackingMode); err != nil {
 			return nil, err
 		}
 		parsedID, err := domain.ParseDailyValuationSnapshotItemID(id)
@@ -282,6 +282,9 @@ func (r *Repository) listDailyValuationSnapshotItems(ctx context.Context, snapsh
 		}
 		if missingReason.Valid && missingReason.String != "" {
 			item.MissingReason = &missingReason.String
+		}
+		if trackingMode != string(domain.TrackingHoldings) {
+			item.ClassificationBasis = domain.ClassificationCurrentMetadataDerived
 		}
 		items = append(items, item)
 	}

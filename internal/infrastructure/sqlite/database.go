@@ -18,7 +18,7 @@ import (
 //go:embed schema.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 6
+const CurrentSchemaVersion = 7
 
 type BootstrapStatus string
 
@@ -34,6 +34,7 @@ type BootstrapError struct {
 	Status    BootstrapStatus
 	Found     int
 	Supported int
+	Path      string
 	Err       error
 }
 
@@ -41,16 +42,20 @@ func (e *BootstrapError) Error() string {
 	if e == nil {
 		return ""
 	}
+	path := e.Path
+	if path == "" {
+		path = "(unknown path)"
+	}
 	if e.Status == StatusUnsupportedFuture {
-		return fmt.Sprintf("database schema %d is newer than supported schema %d", e.Found, e.Supported)
+		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d, path %s; please create a new database", e.Found, e.Supported, path)
 	}
 	if e.Status == StatusLegacyDatabase {
-		return fmt.Sprintf("database schema %d is no longer supported; create a new database or reset this one", e.Found)
+		return fmt.Sprintf("incompatible-schema: found version %d, supported version %d, path %s; please create a new database", e.Found, e.Supported, path)
 	}
 	if e.Err == nil {
-		return string(e.Status)
+		return fmt.Sprintf("%s: found version %d, supported version %d, path %s; please create a new database", e.Status, e.Found, e.Supported, path)
 	}
-	return fmt.Sprintf("%s: %v", e.Status, e.Err)
+	return fmt.Sprintf("%s: found version %d, supported version %d, path %s: %v; please create a new database", e.Status, e.Found, e.Supported, path, e.Err)
 }
 
 func (e *BootstrapError) Unwrap() error { return e.Err }
@@ -86,7 +91,7 @@ func Open(path string) (*DB, error) {
 	database.SetConnMaxLifetime(0)
 	closeOnError := func(status BootstrapStatus, found int, cause error) (*DB, error) {
 		_ = database.Close()
-		return nil, &BootstrapError{Status: status, Found: found, Supported: CurrentSchemaVersion, Err: cause}
+		return nil, &BootstrapError{Status: status, Found: found, Supported: CurrentSchemaVersion, Path: path, Err: cause}
 	}
 	found, err := readVersion(database)
 	if err != nil {

@@ -73,3 +73,15 @@ func TestMarketDataRegistrySupportsExplicitDefault(t *testing.T) {
 		t.Fatalf("explicit Default() = %v, %v", provider, err)
 	}
 }
+
+func TestInstrumentProviderKeysExcludesFXOnlyProviders(t *testing.T) {
+	keys := InstrumentProviderKeys()
+	if len(keys) != 1 || keys[0] != YahooFinanceProviderKey {
+		t.Fatalf("InstrumentProviderKeys() = %v, want [%s]", keys, YahooFinanceProviderKey)
+	}
+	for _, key := range keys {
+		if key == FrankfurterProviderKey {
+			t.Fatal("InstrumentProviderKeys included FX-only frankfurter")
+		}
+	}
+}

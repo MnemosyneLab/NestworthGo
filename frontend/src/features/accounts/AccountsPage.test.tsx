@@ -66,7 +66,7 @@ function renderPage() {
 }
 
 const emptyAccount = {
-  account: { id: "acc-1", name: "Checking", primaryCategory: "cash_equivalent", secondaryCategory: "bank_account", trackingMode: "balance", defaultCurrency: "USD", sortOrder: 0, includeInNetWorth: true, includeInInvestment: false, includeInLiquidAssets: false, createdAt: "", updatedAt: "" },
+  account: { id: "acc-1", name: "Checking", accountType: "bank_account", balanceSheetRole: "asset", trackingMode: "balance", defaultCurrency: "USD", sortOrder: 0, includeInNetWorth: true, includeInPortfolio: false, includeInLiquidAssets: false, createdAt: "", updatedAt: "" },
   ownership: [{ memberId: "alice", shareBps: 10000 }],
   latestValue: { id: "v1", accountId: "acc-1", valueKind: "balance", amount: { amount: "1000", currency: "USD" }, effectiveAt: "", createdAt: "" },
 };
@@ -168,21 +168,21 @@ describe("AccountsPage", () => {
     );
   });
 
-  it("defaults includeInInvestment when the category is Investment", async () => {
+  it("defaults includeInPortfolio when the account type is Brokerage", async () => {
     renderPage();
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Account form" });
     await userEvent.type(within(form).getByLabelText("Name"), "Brokerage");
-    await userEvent.selectOptions(within(form).getByLabelText("Category"), "investment");
-    expect(within(form).getByLabelText("Include in investment")).toBeChecked();
+    await userEvent.selectOptions(within(form).getByLabelText("Account type"), "brokerage");
+    expect(within(form).getByLabelText("Include in portfolio")).toBeChecked();
     await userEvent.click(within(form).getByLabelText("Alice"));
     await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
     expect(createAccount).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "Brokerage",
-        primaryCategory: "investment",
-        includeInInvestment: true,
+        accountType: "brokerage",
+        includeInPortfolio: true,
       }),
     );
   });
@@ -266,7 +266,59 @@ describe("AccountsPage", () => {
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Account form" });
     await waitFor(() => {
-      expect(selectValues(within(form).getByLabelText("Category"))).toEqual(TEST_CATALOG.primaryCategories);
+      expect(selectValues(within(form).getByLabelText("Account type"))).toEqual(TEST_CATALOG.accountTypes);
     });
+  });
+
+  it("edits brokerage holdings type without applying a new default combination", async () => {
+    const { selectValues } = await import("@/test/catalog");
+    const brokerageAccount = {
+      account: {
+        ...emptyAccount.account,
+        id: "brk-1",
+        name: "MooMoo",
+        accountType: "brokerage",
+        balanceSheetRole: "asset",
+        trackingMode: "holdings",
+        includeInPortfolio: true,
+      },
+      ownership: emptyAccount.ownership,
+    };
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    accountValuations.mockResolvedValue([
+      {
+        account: brokerageAccount.account,
+        ownership: brokerageAccount.ownership,
+        complete: true,
+        components: [],
+        missingInputs: [],
+        baseValue: { amount: "2500", currency: "USD" },
+      },
+    ]);
+    updateAccount.mockResolvedValue(brokerageAccount);
+    renderPage();
+    await screen.findByText("MooMoo");
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    const form = await screen.findByRole("form", { name: "Account form" });
+    await waitFor(() => {
+      expect(selectValues(within(form).getByLabelText("Account type"))).toEqual(["bank_account", "brokerage"]);
+    });
+    expect(within(form).getByText("Asset")).toBeInTheDocument();
+    expect(within(form).getByText("Tracking mode: Holdings")).toBeInTheDocument();
+    expect(within(form).getByLabelText("Include in portfolio")).toBeChecked();
+    await userEvent.selectOptions(within(form).getByLabelText("Account type"), "bank_account");
+    expect(within(form).getByText("Asset")).toBeInTheDocument();
+    expect(within(form).getByText("Tracking mode: Holdings")).toBeInTheDocument();
+    expect(within(form).getByLabelText("Include in portfolio")).toBeChecked();
+    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
+    expect(updateAccount).toHaveBeenCalledWith(
+      "brk-1",
+      expect.objectContaining({
+        accountType: "bank_account",
+        balanceSheetRole: "asset",
+        trackingMode: "holdings",
+        includeInPortfolio: true,
+      }),
+    );
   });
 });

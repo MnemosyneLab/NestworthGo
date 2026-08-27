@@ -129,7 +129,7 @@ func historyOriginDataQuery(ctx context.Context, query queryer, originID domain.
 	}
 	data.Components = components
 
-	rows, err := query.QueryContext(ctx, `SELECT account_id, archived_at, include_in_net_worth, include_in_investment, include_in_liquid_assets, created_at FROM history_origin_account_states WHERE origin_id = ? ORDER BY account_id`, originID.String())
+	rows, err := query.QueryContext(ctx, `SELECT account_id, archived_at, include_in_net_worth, include_in_portfolio, include_in_liquid_assets, created_at FROM history_origin_account_states WHERE origin_id = ? ORDER BY account_id`, originID.String())
 	if err != nil {
 		return data, err
 	}
@@ -156,7 +156,7 @@ func historyOriginDataQuery(ctx context.Context, query queryer, originID domain.
 			rows.Close()
 			return data, err
 		}
-		data.AccountStates = append(data.AccountStates, domain.HistoryOriginAccountState{OriginID: originID, AccountID: parsedAccount, ArchivedAt: archived, IncludeInNetWorth: includeNetWorth != 0, IncludeInInvestment: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, CreatedAt: created.UTC()})
+		data.AccountStates = append(data.AccountStates, domain.HistoryOriginAccountState{OriginID: originID, AccountID: parsedAccount, ArchivedAt: archived, IncludeInNetWorth: includeNetWorth != 0, IncludeInPortfolio: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, CreatedAt: created.UTC()})
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
@@ -299,7 +299,7 @@ func (r *Repository) StartHistory(ctx context.Context, data domain.HistoryOrigin
 			}
 		}
 		for _, state := range data.AccountStates {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_account_states(origin_id, account_id, archived_at, include_in_net_worth, include_in_investment, include_in_liquid_assets, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)`, data.Origin.ID.String(), state.AccountID.String(), nullableTime(state.ArchivedAt), boolValue(state.IncludeInNetWorth), boolValue(state.IncludeInInvestment), boolValue(state.IncludeInLiquidAssets), formatTimestamp(state.CreatedAt)); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_account_states(origin_id, account_id, archived_at, include_in_net_worth, include_in_portfolio, include_in_liquid_assets, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)`, data.Origin.ID.String(), state.AccountID.String(), nullableTime(state.ArchivedAt), boolValue(state.IncludeInNetWorth), boolValue(state.IncludeInPortfolio), boolValue(state.IncludeInLiquidAssets), formatTimestamp(state.CreatedAt)); err != nil {
 				return err
 			}
 		}
@@ -364,7 +364,7 @@ func insertHistoryOriginTx(ctx context.Context, tx *sql.Tx, data domain.HistoryO
 		}
 	}
 	for _, state := range data.AccountStates {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_account_states(origin_id, account_id, archived_at, include_in_net_worth, include_in_investment, include_in_liquid_assets, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)`, data.Origin.ID.String(), state.AccountID.String(), nullableTime(state.ArchivedAt), boolValue(state.IncludeInNetWorth), boolValue(state.IncludeInInvestment), boolValue(state.IncludeInLiquidAssets), formatTimestamp(state.CreatedAt)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO history_origin_account_states(origin_id, account_id, archived_at, include_in_net_worth, include_in_portfolio, include_in_liquid_assets, created_at) VALUES(?, ?, ?, ?, ?, ?, ?)`, data.Origin.ID.String(), state.AccountID.String(), nullableTime(state.ArchivedAt), boolValue(state.IncludeInNetWorth), boolValue(state.IncludeInPortfolio), boolValue(state.IncludeInLiquidAssets), formatTimestamp(state.CreatedAt)); err != nil {
 			return err
 		}
 	}

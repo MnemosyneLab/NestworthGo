@@ -67,8 +67,8 @@ export function useSetAccountLogo() {
 export function toUpdateAccountRequest(request: CreateAccountRequest): UpdateAccountRequest {
   return {
     name: request.name,
-    primaryCategory: request.primaryCategory,
-    secondaryCategory: request.secondaryCategory,
+    accountType: request.accountType,
+    balanceSheetRole: request.balanceSheetRole,
     trackingMode: request.trackingMode,
     defaultCurrency: request.defaultCurrency,
     institutionId: request.institutionId ?? "",
@@ -80,7 +80,7 @@ export function toUpdateAccountRequest(request: CreateAccountRequest): UpdateAcc
     iconKey: request.iconKey ?? "",
     iconKeySet: Boolean(request.iconKey),
     includeInNetWorth: request.includeInNetWorth,
-    includeInInvestment: request.includeInInvestment,
+    includeInPortfolio: request.includeInPortfolio,
     includeInLiquidAssets: request.includeInLiquidAssets,
     ownerIds: request.ownerIds,
     ownershipPercentages: request.ownershipPercentages,

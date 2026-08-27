@@ -60,4 +60,18 @@ export function setLanguage(preference: string) {
   return resolved;
 }
 
+/** Maps a settings/catalog language code onto the option.language.* i18next key. */
+export function languageOptionKey(language: string): "en" | "zhCN" | "zhTW" | "system" {
+  if (language === "zh-CN") {
+    return "zhCN";
+  }
+  if (language === "zh-TW") {
+    return "zhTW";
+  }
+  if (language === "system") {
+    return "system";
+  }
+  return "en";
+}
+
 export default i18n;

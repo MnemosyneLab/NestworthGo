@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 type schemaQuery interface {
@@ -94,6 +96,9 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 	if err := verifyCostBasisInvariant(ctx, query); err != nil {
 		return err
 	}
+	if err := verifyAccountModelInvariants(ctx, query); err != nil {
+		return err
+	}
 	rows, err := query.QueryContext(ctx, "PRAGMA foreign_key_check")
 	if err != nil {
 		return err
@@ -152,6 +157,71 @@ func verifyCostBasisInvariant(ctx context.Context, query schemaQuery) error {
 		return fmt.Errorf("%d positive Holding rows have no resolvable cost basis", missing)
 	}
 	return nil
+}
+
+func verifyAccountModelInvariants(ctx context.Context, query schemaQuery) error {
+	var missingOwnership int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM accounts a WHERE NOT EXISTS (SELECT 1 FROM account_ownership o WHERE o.account_id = a.id)`).Scan(&missingOwnership); err != nil {
+		return err
+	}
+	if missingOwnership != 0 {
+		return fmt.Errorf("%d accounts have no ownership rows", missingOwnership)
+	}
+	var badOwnership int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM (SELECT account_id FROM account_ownership GROUP BY account_id HAVING SUM(share_bps) != 10000)`).Scan(&badOwnership); err != nil {
+		return err
+	}
+	if badOwnership != 0 {
+		return fmt.Errorf("%d accounts have ownership shares that do not total 10000 basis points", badOwnership)
+	}
+	var badHoldings int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM holdings h JOIN accounts a ON a.id = h.account_id WHERE a.tracking_mode != 'holdings'`).Scan(&badHoldings); err != nil {
+		return err
+	}
+	if badHoldings != 0 {
+		return fmt.Errorf("%d holdings belong to a non-holdings account", badHoldings)
+	}
+	var badCash int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM account_cash_values c JOIN accounts a ON a.id = c.account_id WHERE a.tracking_mode != 'holdings'`).Scan(&badCash); err != nil {
+		return err
+	}
+	if badCash != 0 {
+		return fmt.Errorf("%d cash observations belong to a non-holdings account", badCash)
+	}
+	var badValues int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM account_values v JOIN accounts a ON a.id = v.account_id WHERE a.tracking_mode = 'holdings'`).Scan(&badValues); err != nil {
+		return err
+	}
+	if badValues != 0 {
+		return fmt.Errorf("%d account values belong to a holdings account", badValues)
+	}
+	rows, err := query.QueryContext(ctx, `SELECT account_type, balance_sheet_role, tracking_mode FROM accounts`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var accountType, role, tracking string
+		if err := rows.Scan(&accountType, &role, &tracking); err != nil {
+			return err
+		}
+		parsedType, err := domain.ParseAccountType(accountType)
+		if err != nil {
+			return fmt.Errorf("stored account type %q is invalid", accountType)
+		}
+		parsedRole, err := domain.ParseBalanceSheetRole(role)
+		if err != nil {
+			return fmt.Errorf("stored balance sheet role %q is invalid", role)
+		}
+		parsedTracking, err := domain.ParseTrackingMode(tracking)
+		if err != nil {
+			return fmt.Errorf("stored tracking mode %q is invalid", tracking)
+		}
+		if !domain.IsValidAccountCombination(parsedType, parsedRole, parsedTracking) {
+			return fmt.Errorf("stored account combination %s/%s/%s is not legal", accountType, role, tracking)
+		}
+	}
+	return rows.Err()
 }
 
 func verifyTable(ctx context.Context, query schemaQuery, table string, expected []schemaColumn) error {
@@ -378,9 +448,9 @@ func expectedSchemaTables() map[string][]schemaColumn {
 		},
 		"accounts": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("institution_id", "TEXT", 0, 0), expectedColumn("group_id", "TEXT", 0, 0),
-			expectedColumn("name", "TEXT", 1, 0), expectedColumn("primary_category", "TEXT", 1, 0), expectedColumn("secondary_category", "TEXT", 1, 0), expectedColumn("tracking_mode", "TEXT", 1, 0),
+			expectedColumn("name", "TEXT", 1, 0), expectedColumn("account_type", "TEXT", 1, 0), expectedColumn("balance_sheet_role", "TEXT", 1, 0), expectedColumn("tracking_mode", "TEXT", 1, 0),
 			expectedColumn("default_currency", "TEXT", 1, 0), expectedColumn("note", "TEXT", 0, 0), expectedColumn("logo_asset_id", "TEXT", 0, 0),
-			expectedColumn("include_in_net_worth", "INTEGER", 1, 0, "1"), expectedColumn("include_in_investment", "INTEGER", 1, 0, "0"), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0, "0"),
+			expectedColumn("include_in_net_worth", "INTEGER", 1, 0, "1"), expectedColumn("include_in_portfolio", "INTEGER", 1, 0, "0"), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0, "0"),
 			expectedColumn("opened_on", "TEXT", 0, 0), expectedColumn("closed_on", "TEXT", 0, 0), expectedColumn("sort_order", "INTEGER", 1, 0, "0"),
 			expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("icon_key", "TEXT", 0, 0),
 		},
@@ -426,7 +496,7 @@ func historySchemaColumns() map[string][]schemaColumn {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("origin_id", "TEXT", 1, 0), expectedColumn("component_kind", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 0, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("instrument_id", "TEXT", 0, 0), expectedColumn("amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("quantity", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("unit_cost", "TEXT", 0, 0),
 		},
 		"history_origin_account_states": {
-			expectedColumn("origin_id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 2), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("include_in_net_worth", "INTEGER", 1, 0), expectedColumn("include_in_investment", "INTEGER", 1, 0), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+			expectedColumn("origin_id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 2), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("include_in_net_worth", "INTEGER", 1, 0), expectedColumn("include_in_portfolio", "INTEGER", 1, 0), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
 		},
 		"history_origin_ownership": {
 			expectedColumn("origin_id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 2), expectedColumn("member_id", "TEXT", 1, 3), expectedColumn("share_bps", "INTEGER", 1, 0),
@@ -453,7 +523,7 @@ func historySchemaColumns() map[string][]schemaColumn {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("quantity", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("activity_effect_id", "TEXT", 0, 0), expectedColumn("projection_kind", "TEXT", 1, 0, "'baseline'"),
 		},
 		"account_state_observations": {
-			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("include_in_net_worth", "INTEGER", 1, 0), expectedColumn("include_in_investment", "INTEGER", 1, 0), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0), expectedColumn("activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("include_in_net_worth", "INTEGER", 1, 0), expectedColumn("include_in_portfolio", "INTEGER", 1, 0), expectedColumn("include_in_liquid_assets", "INTEGER", 1, 0), expectedColumn("activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
 		},
 		"account_state_ownership": {
 			expectedColumn("observation_id", "TEXT", 1, 1), expectedColumn("member_id", "TEXT", 1, 2), expectedColumn("share_bps", "INTEGER", 1, 0),
@@ -508,7 +578,7 @@ func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 func expectedSchemaChecks() map[string][]string {
 	return map[string][]string{
 		"households":          {"CHECK(singleton_key = 1)", "CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')"},
-		"accounts":            {"CHECK(primary_category IN ('cash_equivalent','investment','property','receivable','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_investment IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
+		"accounts":            {"CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other'))", "CHECK(balance_sheet_role IN ('asset','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK((account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode = 'balance')", "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_portfolio IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
 		"account_ownership":   {"CHECK(share_bps > 0 AND share_bps <= 10000)"},
 		"account_values":      {"CHECK(value_kind IN ('balance','manual_value'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
 		"instruments":         {"CHECK(instrument_type IN ('stock','etf','mutual_fund','crypto','bond','precious_metal','bank_investment_product','other'))", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(country_code IS NULL OR country_code GLOB '[A-Z][A-Z]')", "CHECK(quote_source IN ('manual','provider'))", "CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL))"},
@@ -534,7 +604,7 @@ func expectedSchemaIndexes() []expectedIndex {
 		{table: "accounts", name: "idx_accounts_household", columns: asc("household_id")},
 		{table: "accounts", name: "idx_accounts_institution", columns: asc("institution_id")},
 		{table: "accounts", name: "idx_accounts_group", columns: asc("group_id")},
-		{table: "accounts", name: "idx_accounts_category", columns: asc("primary_category")},
+		{table: "accounts", name: "idx_accounts_type", columns: asc("account_type")},
 		{table: "account_ownership", name: "idx_ownership_member", columns: asc("member_id")},
 		{table: "account_values", name: "idx_account_values_latest", columns: []expectedIndexColumn{{name: "account_id"}, {name: "effective_at", desc: 1}, {name: "created_at", desc: 1}, {name: "id", desc: 1}}},
 		{table: "instruments", name: "idx_instruments_household", columns: asc("household_id")},

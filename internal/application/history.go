@@ -60,7 +60,7 @@ func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, co
 	}
 	for _, record := range snapshot.Accounts {
 		account := record.Account
-		data.AccountStates = append(data.AccountStates, domain.HistoryOriginAccountState{OriginID: origin.ID, AccountID: account.ID, ArchivedAt: account.ArchivedAt, IncludeInNetWorth: account.IncludeInNetWorth, IncludeInInvestment: account.IncludeInInvestment, IncludeInLiquidAssets: account.IncludeInLiquidAssets, CreatedAt: now})
+		data.AccountStates = append(data.AccountStates, domain.HistoryOriginAccountState{OriginID: origin.ID, AccountID: account.ID, ArchivedAt: account.ArchivedAt, IncludeInNetWorth: account.IncludeInNetWorth, IncludeInPortfolio: account.IncludeInPortfolio, IncludeInLiquidAssets: account.IncludeInLiquidAssets, CreatedAt: now})
 		for _, share := range record.Ownership.Shares() {
 			data.Ownership = append(data.Ownership, domain.HistoryOriginOwnership{OriginID: origin.ID, AccountID: account.ID, MemberID: share.MemberID, ShareBPS: share.ShareBPS})
 		}

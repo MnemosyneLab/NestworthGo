@@ -8,8 +8,9 @@
   "accounts": {
     "amount": "Initial value",
     "amountNotUsed": "Not used for Holdings",
+    "accountType": "Account type",
     "archive": "Archive",
-    "category": "Category",
+    "category": "Account type",
     "closedOn": "Closed on",
     "create": "Add account",
     "createDescription": "Record a current balance or manual value without losing exact ownership.",
@@ -25,7 +26,7 @@
     "filterAll": "All accounts",
     "filterShared": "Shared",
     "filterSole": "Sole-owned",
-    "includeInInvestment": "Include in investment",
+    "includeInPortfolio": "Include in portfolio",
     "includeInLiquidAssets": "Include in liquid assets",
     "includeInNetWorth": "Include in net worth",
     "loadError": "Accounts could not be loaded",
@@ -39,11 +40,12 @@
     "ownershipScope": "Ownership",
     "ownershipSharePlaceholder": "Optional — split evenly if blank",
     "ownershipShares": "Ownership shares",
-    "secondaryCategory": "Subcategory",
+    "balanceSheetRole": "Balance sheet role",
     "selectCurrency": "Select a currency",
     "showArchived": "Show archived",
     "trackingMode": "Tracking mode",
-    "updateValue": "Update current value"
+    "updateValue": "Update current value",
+    "wholeAccountInclusionWarning": "Portfolio and liquid-assets inclusion applies to all cash and holdings in this account."
   },
   "analytics": {
     "empty": "No closed-day snapshots are available yet.",
@@ -114,7 +116,16 @@
     "title": "Your financial picture, in one place."
   },
   "enum": {
-    "auto_loan": "Auto loan",
+    "asset": "Asset",
+    "brokerage": "Brokerage",
+    "cash_on_hand": "Cash on hand",
+    "crypto_exchange": "Crypto exchange",
+    "insurance_policy": "Insurance policy",
+    "investment_account": "Investment account",
+    "loan": "Loan",
+    "other_asset": "Other asset",
+    "pension": "Pension",
+    "unclassified_investment": "Unclassified investment",
     "balance": "Balance",
     "bank_account": "Bank account",
     "bank_investment_product": "Bank investment product",
@@ -164,8 +175,9 @@
       "initialValueMismatch": "initial value does not match the account",
       "initialValueRequired": "is required for Balance and Manual Value accounts",
       "noCurrentValue": "account has no current value",
-      "secondaryCategory": "does not belong to primary category",
-      "trackingCategory": "is not allowed for this category",
+      "invalidCombination": "is not a valid account combination",
+      "roleImmutable": "balance sheet role is immutable after account creation",
+      "balanceSheetRole": "is not supported",
       "trackingImmutable": "tracking mode is immutable after account creation",
       "valueTrackingMode": "account values are not valid for this tracking mode"
     },
@@ -609,7 +621,8 @@
     "accountCountDetail": "active accounts",
     "accounts": "Accounts",
     "assets": "Assets",
-    "byCategory": "By category",
+    "assetsByType": "Assets by type",
+    "liabilitiesByType": "Liabilities by type",
     "byGroup": "By group",
     "byInstitution": "By institution",
     "byMember": "By member",
@@ -783,7 +796,8 @@
     },
     "provider": {
       "frankfurter": "Frankfurter",
-      "yahoo": "Yahoo Finance"
+      "yahoo": "Yahoo Finance",
+      "yahoo_finance": "Yahoo Finance"
     },
     "providers": {
       "description": "Choose the provider used for explicit FX refreshes. Instrument refreshes keep their own saved provider binding.",

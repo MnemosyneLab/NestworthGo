@@ -8,8 +8,9 @@
   "accounts": {
     "amount": "初始金额",
     "amountNotUsed": "持仓模式不使用",
+    "accountType": "账户类型",
     "archive": "归档",
-    "category": "类别",
+    "category": "账户类型",
     "closedOn": "关闭日期",
     "create": "添加账户",
     "createDescription": "记录当前余额或手工估值，并保留精确所有权。",
@@ -25,7 +26,7 @@
     "filterAll": "全部账户",
     "filterShared": "共享",
     "filterSole": "单独所有",
-    "includeInInvestment": "计入投资",
+    "includeInPortfolio": "计入投资组合",
     "includeInLiquidAssets": "计入流动资产",
     "includeInNetWorth": "计入净资产",
     "loadError": "无法加载账户",
@@ -39,11 +40,12 @@
     "ownershipScope": "所有权",
     "ownershipSharePlaceholder": "可选，留空则自动平均分配",
     "ownershipShares": "所有权比例",
-    "secondaryCategory": "子类别",
+    "balanceSheetRole": "资产负债角色",
     "selectCurrency": "请选择币种",
     "showArchived": "显示已归档",
     "trackingMode": "跟踪模式",
-    "updateValue": "更新当前值"
+    "updateValue": "更新当前值",
+    "wholeAccountInclusionWarning": "投资组合与流动资产开关适用于此账户内的全部现金和持仓。"
   },
   "analytics": {
     "empty": "暂时没有可用的已收盘日快照。",
@@ -114,7 +116,6 @@
     "title": "一处看清你的财务全貌。"
   },
   "enum": {
-    "auto_loan": "车贷",
     "balance": "余额",
     "bank_account": "银行账户",
     "bank_investment_product": "银行理财产品",
@@ -151,7 +152,17 @@
     "real_estate": "房地产",
     "receivable": "应收款",
     "stock": "股票",
-    "vehicle": "车辆"
+    "vehicle": "车辆",
+    "asset": "资产",
+    "brokerage": "券商",
+    "cash_on_hand": "手头现金",
+    "crypto_exchange": "加密货币交易所",
+    "insurance_policy": "保单",
+    "investment_account": "投资账户",
+    "loan": "贷款",
+    "other_asset": "其他资产",
+    "pension": "养老金",
+    "unclassified_investment": "未分类投资"
   },
   "error": {
     "account": {
@@ -164,10 +175,11 @@
       "initialValueMismatch": "初始值与账户不匹配",
       "initialValueRequired": "余额和手工估值账户必须填写",
       "noCurrentValue": "账户没有当前值",
-      "secondaryCategory": "不属于主类别",
-      "trackingCategory": "不允许用于此类别",
+      "balanceSheetRole": "不支持",
       "trackingImmutable": "账户创建后不能修改跟踪模式",
-      "valueTrackingMode": "账户值不适用于此跟踪模式"
+      "valueTrackingMode": "账户值不适用于此跟踪模式",
+      "invalidCombination": "不是合法的账户组合",
+      "roleImmutable": "账户创建后不能修改资产负债角色"
     },
     "archive": {
       "unsupportedTable": "不支持的归档表"
@@ -609,7 +621,7 @@
     "accountCountDetail": "个活跃账户",
     "accounts": "账户",
     "assets": "资产",
-    "byCategory": "按类别",
+    "assetsByType": "按资产类型",
     "byGroup": "按分组",
     "byInstitution": "按机构",
     "byMember": "按成员",
@@ -617,7 +629,8 @@
     "emptyTitle": "资产负债表还是空的",
     "liabilities": "负债",
     "loadError": "无法加载概览",
-    "netWorth": "净资产"
+    "netWorth": "净资产",
+    "liabilitiesByType": "按负债类型"
   },
   "page": {
     "accountsDescription": "账户将成为管理余额、所有权、机构和分组的长期入口。",
@@ -783,7 +796,8 @@
     },
     "provider": {
       "frankfurter": "Frankfurter",
-      "yahoo": "Yahoo Finance"
+      "yahoo": "Yahoo Finance",
+      "yahoo_finance": "Yahoo Finance"
     },
     "providers": {
       "description": "选择手动刷新汇率时使用的提供方。投资标的刷新仍使用各自保存的提供方绑定。",

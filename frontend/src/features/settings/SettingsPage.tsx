@@ -21,7 +21,7 @@ import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies 
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
 import { useUiStore, type Appearance } from "@/stores/ui";
-import { setLanguage } from "@/i18n";
+import { setLanguage, languageOptionKey } from "@/i18n";
 import { displayError } from "@/lib/display";
 import type { Settings } from "../../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
 
@@ -122,7 +122,7 @@ export function SettingsPage() {
             >
               {(catalog.data?.languages ?? []).map((language) => (
                 <option key={language} value={language}>
-                  {t(`option.language.${language === "zh-CN" ? "zhCN" : language === "zh-TW" ? "zhTW" : language}`)}
+                  {t(`option.language.${languageOptionKey(language)}`)}
                 </option>
               ))}
             </NativeSelect>

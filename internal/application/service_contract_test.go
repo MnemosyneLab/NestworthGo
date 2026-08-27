@@ -36,7 +36,7 @@ func TestAccountFiltersLatestValueAndMediaAttachment(t *testing.T) {
 		t.Fatalf("group: %v", err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
-	withRefs, err := service.CreateAccount(ctx, AccountInput{Name: "Reserve", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InstitutionID: institution.ID.String(), GroupID: group.ID.String(), IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "10"})
+	withRefs, err := service.CreateAccount(ctx, AccountInput{Name: "Reserve", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InstitutionID: institution.ID.String(), GroupID: group.ID.String(), IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "10"})
 	if err != nil {
 		t.Fatalf("account with references: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestAccountFiltersLatestValueAndMediaAttachment(t *testing.T) {
 			t.Fatalf("account UpdatedAt = %s, want injected clock %s", account.Account.UpdatedAt, clock)
 		}
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Other", PrimaryCategory: "cash_equivalent", SecondaryCategory: "cash", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "5"}); err != nil {
+	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Other", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "5"}); err != nil {
 		t.Fatalf("other account: %v", err)
 	}
 	institutionID, _ := domain.ParseInstitutionID(institution.ID.String())

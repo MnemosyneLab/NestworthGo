@@ -23,17 +23,18 @@ func NewService(app *application.Service) *Service {
 
 // OverviewDTO mirrors domain.OverviewResult.
 type OverviewDTO struct {
-	Currency      string                 `json:"currency"`
-	AccountCount  int                    `json:"accountCount"`
-	Complete      bool                   `json:"complete"`
-	MissingInputs []wire.MissingInputDTO `json:"missingInputs"`
-	Assets        string                 `json:"assets"`
-	Liabilities   string                 `json:"liabilities"`
-	NetWorth      string                 `json:"netWorth"`
-	ByCategory    []wire.BreakdownDTO    `json:"byCategory"`
-	ByMember      []wire.BreakdownDTO    `json:"byMember"`
-	ByInstitution []wire.BreakdownDTO    `json:"byInstitution"`
-	ByGroup       []wire.BreakdownDTO    `json:"byGroup"`
+	Currency          string                 `json:"currency"`
+	AccountCount      int                    `json:"accountCount"`
+	Complete          bool                   `json:"complete"`
+	MissingInputs     []wire.MissingInputDTO `json:"missingInputs"`
+	Assets            string                 `json:"assets"`
+	Liabilities       string                 `json:"liabilities"`
+	NetWorth          string                 `json:"netWorth"`
+	AssetsByType      []wire.BreakdownDTO    `json:"assetsByType"`
+	LiabilitiesByType []wire.BreakdownDTO    `json:"liabilitiesByType"`
+	ByMember          []wire.BreakdownDTO    `json:"byMember"`
+	ByInstitution     []wire.BreakdownDTO    `json:"byInstitution"`
+	ByGroup           []wire.BreakdownDTO    `json:"byGroup"`
 }
 
 func fromOverview(value domain.OverviewResult) OverviewDTO {
@@ -51,7 +52,7 @@ func fromOverview(value domain.OverviewResult) OverviewDTO {
 		Currency: value.Currency.String(), AccountCount: value.AccountCount, Complete: value.Complete,
 		MissingInputs: wire.FromMissingInputs(value.MissingInputs),
 		Assets:        assets, Liabilities: liabilities, NetWorth: netWorth,
-		ByCategory: wire.FromBreakdowns(value.ByCategory), ByMember: wire.FromBreakdowns(value.ByMember),
+		AssetsByType: wire.FromBreakdowns(value.AssetsByType), LiabilitiesByType: wire.FromBreakdowns(value.LiabilitiesByType), ByMember: wire.FromBreakdowns(value.ByMember),
 		ByInstitution: wire.FromBreakdowns(value.ByInstitution), ByGroup: wire.FromBreakdowns(value.ByGroup),
 	}
 }

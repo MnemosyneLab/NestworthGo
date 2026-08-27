@@ -2,10 +2,10 @@
 
 ## 1. 文档状态与决策摘要
 
-- 状态：Final design（implementation pending）
-- 适用基线：Nestworth-go 当前 domain model 与 SQLite schema v6
+- 状态：Implemented in Nestworth-go `0.2.1` / SQLite schema v7
+- 适用基线：Nestworth-go current domain model and SQLite schema v7
 - 文档目的：为 Account 模型重构提供可直接交给实现 Agent 的领域、数据库、应用和发布契约
-- 本文不代表代码已经实现
+- 本文描述已落地的 breaking cutover；不提供 v6 迁移
 
 本设计保留当前整体架构，只修正职责边界和几个过窄的约束：
 
@@ -36,9 +36,11 @@ tracking_mode      = Nestworth 如何记录和估值它？
 - SQLite 的 `accounts`、`account_state_observations`、`history_origin_account_states` 直接使用物理列 `include_in_portfolio`；
 - Simple Account 的历史分类使用当前 metadata，并显式标记 `current-metadata-derived`。
 
-## 2. 当前仓库基线
+## 2. 重构前仓库基线
 
-当前仓库的 `docs/architecture/domain-model.md` 和 `internal/infrastructure/sqlite/schema.sql` 使用 schema v6。`accounts` 仍包含：
+本节记录 cutover 之前的 schema v6 状态，不是当前代码。当前仓库使用 schema v7 与下文冻结的 `account_type` / `balance_sheet_role` / `tracking_mode` 契约。
+
+当时 `docs/architecture/domain-model.md` 和 `internal/infrastructure/sqlite/schema.sql` 使用 schema v6。`accounts` 仍包含：
 
 - `primary_category`
 - `secondary_category`

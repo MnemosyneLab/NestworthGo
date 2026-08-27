@@ -163,13 +163,13 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		if hasOriginState || observation != nil {
 			if observation != nil {
 				record.Account.IncludeInNetWorth = observation.IncludeInNetWorth
-				record.Account.IncludeInInvestment = observation.IncludeInInvestment
+				record.Account.IncludeInPortfolio = observation.IncludeInPortfolio
 				record.Account.IncludeInLiquidAssets = observation.IncludeInLiquidAssets
 				record.Account.ArchivedAt = cloneTimePtr(observation.ArchivedAt)
 				record.StateObservationID = &observation.ID
 			} else {
 				record.Account.IncludeInNetWorth = state.IncludeInNetWorth
-				record.Account.IncludeInInvestment = state.IncludeInInvestment
+				record.Account.IncludeInPortfolio = state.IncludeInPortfolio
 				record.Account.IncludeInLiquidAssets = state.IncludeInLiquidAssets
 				record.Account.ArchivedAt = cloneTimePtr(state.ArchivedAt)
 			}

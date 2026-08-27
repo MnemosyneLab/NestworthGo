@@ -16,6 +16,13 @@ const YahooFinanceProviderKey = "yahoo_finance"
 
 const FrankfurterProviderKey = "frankfurter"
 
+// InstrumentProviderKeys is the closed catalog of provider keys that can
+// bind an Instrument's quote source. Frankfurter is FX-only and is not
+// included.
+func InstrumentProviderKeys() []string {
+	return []string{YahooFinanceProviderKey}
+}
+
 // MarketDataCapabilities describes the deliberately small provider surface.
 // Providers cannot imply search or historical-data support.
 type MarketDataCapabilities struct {

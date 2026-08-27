@@ -42,10 +42,10 @@ func newFixture(t *testing.T) fixture {
 	}
 	memberID := bootstrap.Members[0].ID
 	accountService := account.NewService(app)
-	create := func(name, primary, secondary, mode string, includeInInvestment bool, initial string) string {
+	create := func(name, primary, secondary, mode string, includeInPortfolio bool, initial string) string {
 		record, err := accountService.CreateAccount(ctx, account.CreateAccountRequest{
-			Name: name, PrimaryCategory: primary, SecondaryCategory: secondary, TrackingMode: mode,
-			DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInInvestment: includeInInvestment,
+			Name: name, AccountType: primary, BalanceSheetRole: secondary, TrackingMode: mode,
+			DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: includeInPortfolio,
 			OwnerIDs: []string{memberID}, InitialAmount: initial,
 		})
 		if err != nil {
@@ -53,11 +53,11 @@ func newFixture(t *testing.T) fixture {
 		}
 		return record.Account.ID
 	}
-	checkingID := create("Checking", "cash_equivalent", "bank_account", "balance", false, "0")
-	savingsID := create("Savings", "cash_equivalent", "bank_account", "balance", false, "0")
-	brokerageID := create("Brokerage", "investment", "brokerage_account", "holdings", true, "")
-	brokerage2ID := create("Brokerage2", "investment", "brokerage_account", "holdings", true, "")
-	cardID := create("Card", "liability", "credit_card", "balance", false, "0")
+	checkingID := create("Checking", "bank_account", "asset", "balance", false, "0")
+	savingsID := create("Savings", "bank_account", "asset", "balance", false, "0")
+	brokerageID := create("Brokerage", "brokerage", "asset", "holdings", true, "")
+	brokerage2ID := create("Brokerage2", "brokerage", "asset", "holdings", true, "")
+	cardID := create("Card", "credit_card", "liability", "balance", false, "0")
 
 	instrumentDTO, err := instrument.NewService(app).CreateInstrument(ctx, instrument.InstrumentRequest{
 		Name: "NVIDIA", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual",

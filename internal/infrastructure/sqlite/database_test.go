@@ -149,3 +149,49 @@ func TestOpenRejectsCurrentVersionWithoutRequiredSchema(t *testing.T) {
 		t.Fatalf("Open error = %v, want integrity failure", err)
 	}
 }
+
+func TestOpenRejectsSchema6FixtureWithoutWriting(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schema6.db")
+	script, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "schema6", "schema6-fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seed.Exec(string(script)); err != nil {
+		_ = seed.Close()
+		t.Fatal(err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, openErr := Open(path)
+	var bootstrapErr *BootstrapError
+	if !errors.As(openErr, &bootstrapErr) || bootstrapErr.Status != StatusLegacyDatabase {
+		t.Fatalf("Open error = %v, want legacy database rejection", openErr)
+	}
+	if bootstrapErr.Found != 6 || bootstrapErr.Supported != CurrentSchemaVersion {
+		t.Fatalf("versions found=%d supported=%d, want 6 and %d", bootstrapErr.Found, bootstrapErr.Supported, CurrentSchemaVersion)
+	}
+	if bootstrapErr.Path != path {
+		t.Fatalf("path = %q, want %q", bootstrapErr.Path, path)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("schema 6 database changed after rejected open")
+	}
+	message := openErr.Error()
+	if !strings.Contains(message, "found version 6") || !strings.Contains(message, "supported version 7") || !strings.Contains(message, "new database") {
+		t.Fatalf("legacy error = %v, want found/supported versions and new-database guidance", openErr)
+	}
+}

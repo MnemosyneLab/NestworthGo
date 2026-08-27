@@ -31,8 +31,8 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 		t.Fatal(err)
 	}
 	account, err := service.CreateAccount(ctx, AccountInput{
-		Name: "Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account",
-		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true,
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
 	})
 	if err != nil {
@@ -130,7 +130,7 @@ func TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain(t *testing.T) {
 }
 
 func TestGainServiceTransferUsesSendingCostAtTransferTime(t *testing.T) {
-	database := seedGainSchema6Fixture(t)
+	database := seedGainSchema7Fixture(t)
 	defer database.Close()
 	repository := sqlite.NewRepository(database)
 	service := NewGainService(repository, func() time.Time { return time.Date(2026, time.January, 8, 0, 0, 0, 0, time.UTC) })
@@ -167,7 +167,7 @@ func TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,9 +208,9 @@ func TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX(t *testing.
 	}
 }
 
-func seedGainSchema6Fixture(t *testing.T) *sqlite.DB {
+func seedGainSchema7Fixture(t *testing.T) *sqlite.DB {
 	t.Helper()
-	scriptPath := filepath.Join("..", "..", "testdata", "schema6", "schema6-fixture.sql")
+	scriptPath := filepath.Join("..", "..", "testdata", "schema7", "schema7-fixture.sql")
 	script, err := os.ReadFile(scriptPath)
 	if err != nil {
 		t.Fatal(err)

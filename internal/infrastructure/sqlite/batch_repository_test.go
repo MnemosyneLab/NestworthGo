@@ -31,7 +31,7 @@ func TestListHoldingsByAccountsReturnsHoldingsInOneQuery(t *testing.T) {
 	}
 	owner := members[0].ID
 
-	secondAccount, ownership, _, err := domain.NewAccount(domain.AccountInput{HouseholdID: first.HouseholdID, Name: "Second", PrimaryCategory: domain.CategoryInvestment, SecondaryCategory: domain.SecondaryBrokerageAccount, TrackingMode: domain.TrackingHoldings, DefaultCurrency: domain.CurrencyCode("CNY"), Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}}, now)
+	secondAccount, ownership, _, err := domain.NewAccount(domain.AccountInput{HouseholdID: first.HouseholdID, Name: "Second", AccountType: domain.TypeBrokerage, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingHoldings, DefaultCurrency: domain.CurrencyCode("CNY"), Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}}, now)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -42,8 +42,8 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 	}
 	owner := bootstrap.Members[0].ID
 	account, err := service.CreateAccount(ctx, AccountInput{
-		Name: "Golden Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account",
-		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true,
+		Name: "Golden Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
 	})
 	if err != nil {
@@ -87,8 +87,8 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 	}
 
 	identityAccount, err := service.CreateAccount(ctx, AccountInput{
-		Name: "Local Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account",
-		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: false, IncludeInInvestment: false,
+		Name: "Local Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: false, IncludeInPortfolio: false,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
 	})
 	if err != nil {
@@ -108,8 +108,8 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 	// This account proves that excluded balance-sheet data is still readable but
 	// cannot leak into Portfolio or Overview totals.
 	if _, err := service.CreateAccount(ctx, AccountInput{
-		Name: "Excluded Balance", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
-		TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: false, IncludeInInvestment: false,
+		Name: "Excluded Balance", AccountType: "bank_account", BalanceSheetRole: "asset",
+		TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: false, IncludeInPortfolio: false,
 		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "999999",
 	}); err != nil {
 		t.Fatal(err)
@@ -308,8 +308,8 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 		t.Fatal(err)
 	}
 	account, err := service.CreateAccount(ctx, AccountInput{
-		Name: "Precision Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account",
-		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true,
+		Name: "Precision Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
 	})
 	if err != nil {
@@ -395,7 +395,7 @@ func TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX(t *testing.T) {
 		t.Fatal(err)
 	}
 	account, err := service.CreateAccount(ctx, AccountInput{
-		Name: "Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true,
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
 	})
 	if err != nil {

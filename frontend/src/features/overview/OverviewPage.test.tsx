@@ -72,7 +72,8 @@ describe("OverviewPage", () => {
       assets: "1000",
       liabilities: "300",
       netWorth: "700",
-      byCategory: [{ key: "cash_equivalent", label: "cash_equivalent", amount: "1000", shareBps: 10000 }],
+      assetsByType: [{ key: "cash", label: "cash", amount: "1000", shareBps: 10000 }],
+      liabilitiesByType: [{ key: "credit_card", label: "credit_card", amount: "300", shareBps: 10000 }],
       byMember: [
         { key: "alice", label: "Alice", amount: "600", shareBps: 6000 },
         { key: "bob", label: "Bob", amount: "400", shareBps: 4000 },
@@ -89,6 +90,8 @@ describe("OverviewPage", () => {
     expect(screen.getByText("Bob")).toBeInTheDocument();
     expect(screen.getByText("40.0%")).toBeInTheDocument();
     expect(screen.getByText("Complete")).toBeInTheDocument();
+    expect(screen.getByText("Cash")).toBeInTheDocument();
+    expect(screen.getByText("Credit card")).toBeInTheDocument();
     expect(screen.getByText(/Updated /)).toBeInTheDocument();
     expect(await screen.findByText("Added $1,000.00 to Checking (Contribution)")).toBeInTheDocument();
   });
@@ -102,7 +105,8 @@ describe("OverviewPage", () => {
       assets: "0",
       liabilities: "0",
       netWorth: "0",
-      byCategory: [],
+      assetsByType: [],
+      liabilitiesByType: [],
       byMember: [],
       byInstitution: [],
       byGroup: [],
@@ -124,7 +128,8 @@ describe("OverviewPage", () => {
       assets: "0",
       liabilities: "0",
       netWorth: "0",
-      byCategory: [],
+      assetsByType: [],
+      liabilitiesByType: [],
       byMember: [],
       byInstitution: [],
       byGroup: [],

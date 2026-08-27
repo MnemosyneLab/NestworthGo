@@ -263,7 +263,7 @@ func (s *Service) accountStateObservation(ctx context.Context, account domain.Ac
 		return domain.AccountStateObservation{}, nil
 	}
 	now := s.clock().UTC()
-	observation := domain.AccountStateObservation{ID: domain.NewAccountStateObservationID(), AccountID: account.ID, EffectiveAt: now, ArchivedAt: account.ArchivedAt, IncludeInNetWorth: account.IncludeInNetWorth, IncludeInInvestment: account.IncludeInInvestment, IncludeInLiquidAssets: account.IncludeInLiquidAssets, CreatedAt: now, Ownership: ownership.Shares()}
+	observation := domain.AccountStateObservation{ID: domain.NewAccountStateObservationID(), AccountID: account.ID, EffectiveAt: now, ArchivedAt: account.ArchivedAt, IncludeInNetWorth: account.IncludeInNetWorth, IncludeInPortfolio: account.IncludeInPortfolio, IncludeInLiquidAssets: account.IncludeInLiquidAssets, CreatedAt: now, Ownership: ownership.Shares()}
 	observation.EffectiveAt, observation.CreatedAt, err = s.appendObservationTime(origin, observation.EffectiveAt, observation.CreatedAt)
 	if err != nil {
 		return domain.AccountStateObservation{}, err

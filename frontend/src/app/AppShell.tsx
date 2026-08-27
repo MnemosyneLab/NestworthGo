@@ -7,7 +7,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
-import { SUPPORTED_LANGUAGES, setLanguage } from "@/i18n";
+import { SUPPORTED_LANGUAGES, languageOptionKey, setLanguage } from "@/i18n";
 import { useAppInfo } from "@/queries/app";
 import { useSaveSettings } from "@/queries/settings";
 import { BrandLockup } from "@/components/brand/BrandLockup";
@@ -57,7 +57,7 @@ function LanguageSwitcher({ language, disabled, onChange }: { language: string; 
     >
       {SUPPORTED_LANGUAGES.map((language) => (
         <option key={language} value={language}>
-          {t(`option.language.${language === "zh-CN" ? "zhCN" : language === "zh-TW" ? "zhTW" : "en"}`)}
+          {t(`option.language.${languageOptionKey(language)}`)}
         </option>
       ))}
     </NativeSelect>

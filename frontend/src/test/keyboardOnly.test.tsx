@@ -140,6 +140,7 @@ beforeEach(() => {
   recordChange.mockReset();
   settingsLoad.mockReset();
   settingsSave.mockClear();
+  settingsLoad.mockResolvedValue(defaultSettings);
 });
 
 describe("keyboard-only completion", () => {
@@ -185,9 +186,8 @@ describe("keyboard-only completion", () => {
     nameInput.focus(); // stands in for the Sheet's own focus-trap (see file header)
     await userEvent.keyboard("New Savings");
 
-    await userEvent.tab(); // -> primary category select (left at default: cash_equivalent)
-    await userEvent.tab(); // -> secondary category select (left at default)
-    await userEvent.tab(); // -> currency select (left at default: USD)
+    await userEvent.tab(); // -> account type select (left at default: cash_on_hand)
+    await userEvent.tab(); // -> currency select (role is read-only text; tracking is hidden when only one mode)
     await userEvent.tab(); // -> initial value input
     expect(within(form).getByLabelText("Initial value")).toHaveFocus();
     await userEvent.keyboard("500");
@@ -197,7 +197,7 @@ describe("keyboard-only completion", () => {
     await userEvent.keyboard(" "); // Space toggles a focused checkbox
 
     await userEvent.tab(); // -> "Include in net worth" checkbox
-    await userEvent.tab(); // -> "Include in investment total" checkbox
+    await userEvent.tab(); // -> "Include in portfolio" checkbox
     await userEvent.tab(); // -> "Include in liquid assets" checkbox
     await userEvent.tab(); // -> "+ Details" toggle button (left unpressed)
     await userEvent.tab(); // -> submit button

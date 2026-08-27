@@ -27,14 +27,14 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 		t.Fatal(err)
 	}
 	owner := bootstrap.Members[0].ID
-	foreign, err := service.CreateAccount(ctx, AccountInput{Name: "USD balance", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100"})
+	foreign, err := service.CreateAccount(ctx, AccountInput{Name: "USD balance", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100"})
 	if err != nil {
 		t.Fatalf("foreign-currency Balance account: %v", err)
 	}
 	if foreign.Account.DefaultCurrency != domain.CurrencyCode("USD") || foreign.LatestValue == nil || foreign.LatestValue.Amount.Currency() != domain.CurrencyCode("USD") {
 		t.Fatalf("foreign account = %+v", foreign)
 	}
-	holdingsAccount, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}})
+	holdingsAccount, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}})
 	if err != nil {
 		t.Fatalf("Holdings account: %v", err)
 	}

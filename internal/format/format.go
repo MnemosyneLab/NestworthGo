@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
@@ -36,9 +37,10 @@ func CurrencySymbol(currency string) string {
 	return currency
 }
 
-// Money formats a canonical decimal string for display. Invalid or
-// unavailable values are returned unchanged so the UI never silently turns a
-// missing value into zero.
+// Money formats a canonical decimal string for display. Fraction digits follow
+// the currency's ISO 4217 scale (JPY/KRW have none; CNY/SGD have two), not
+// the leftover global DecimalPlaces preference. Invalid or unavailable values
+// are returned unchanged so the UI never silently turns a missing value into zero.
 func Money(value, currency string, preference settings.Settings) string {
 	value = strings.TrimSpace(value)
 	if value == "" || value == "—" {
@@ -57,11 +59,12 @@ func Money(value, currency string, preference settings.Settings) string {
 	}
 
 	integer, fraction := splitDecimal(value)
-	integer, fraction = roundDecimal(integer, fraction, preference.DecimalPlaces)
+	places := domain.CurrencyFractionDigits(domain.CurrencyCode(currency))
+	integer, fraction = roundDecimal(integer, fraction, places)
 	integer = groupInteger(integer, preference.GroupingSeparator)
 
 	result := CurrencySymbol(currency) + " " + integer
-	if preference.DecimalPlaces > 0 {
+	if places > 0 {
 		result += preference.DecimalSeparator + fraction
 	}
 	if negative {

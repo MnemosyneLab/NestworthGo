@@ -3,15 +3,40 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
+import { selectValues } from "@/test/catalog";
+import i18n from "@/i18n";
 import { OnboardingPage } from "./OnboardingPage";
 
 const completeOnboarding = vi.fn().mockResolvedValue({});
+const saveSettings = vi.fn().mockResolvedValue(undefined);
+
+const defaultSettings = {
+  schema_version: 1,
+  appearance: "system",
+  accent: "nestworth",
+  language: "en",
+  timezone: "system",
+  week_start: "monday",
+  date_format: "iso",
+  time_format: "24h",
+  currency: "USD",
+  decimal_separator: ".",
+  grouping_separator: ",",
+  decimal_places: 2,
+  window_width: 1100,
+  window_height: 720,
+  fx_provider: "frankfurter",
+};
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/household", () => ({
   Service: { CompleteOnboarding: (request: unknown) => completeOnboarding(request) },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
-  Service: { SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]) },
+  Service: {
+    Load: () => Promise.resolve(defaultSettings),
+    Save: (value: unknown) => saveSettings(value),
+    SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]),
+  },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
   const { TEST_CATALOG } = await import("@/test/catalog");
@@ -27,8 +52,10 @@ function renderPage() {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   completeOnboarding.mockClear();
+  saveSettings.mockClear();
+  await i18n.changeLanguage("en");
 });
 
 describe("OnboardingPage", () => {
@@ -82,5 +109,16 @@ describe("OnboardingPage", () => {
     expect(screen.getAllByRole("button", { name: /remove member/i })).toHaveLength(2);
     await userEvent.click(screen.getAllByRole("button", { name: /remove member/i })[0]);
     expect(screen.queryAllByRole("button", { name: /remove member/i })).toHaveLength(0);
+  });
+
+  it("lets the user switch language before creating a household", async () => {
+    const { TEST_CATALOG } = await import("@/test/catalog");
+    renderPage();
+    const languageSelect = await screen.findByLabelText("Language");
+    await waitFor(() => expect(selectValues(languageSelect)).toEqual(TEST_CATALOG.languages));
+
+    await userEvent.selectOptions(languageSelect, "zh-CN");
+    expect(await screen.findByRole("heading", { level: 1, name: "开始建立家庭账本" })).toBeInTheDocument();
+    await waitFor(() => expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ language: "zh-CN" })));
   });
 });

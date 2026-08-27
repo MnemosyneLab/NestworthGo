@@ -42,14 +42,14 @@ func TestPostOriginEntitiesUseCreationBaselinesBeforeLaterEdits(t *testing.T) {
 		t.Fatal(err)
 	}
 	ownerOne, ownerTwo := bootstrap.Members[0].ID, bootstrap.Members[1].ID
-	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Existing", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{ownerOne}}); err != nil {
+	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Existing", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{ownerOne}}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
-	created, err := service.CreateAccount(ctx, AccountInput{Name: "Created after start", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "50", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{ownerOne}})
+	created, err := service.CreateAccount(ctx, AccountInput{Name: "Created after start", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "50", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{ownerOne}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +127,7 @@ func TestRebuildLoadsOneImmutableBatchAndResumesCursor(t *testing.T) {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -174,7 +174,7 @@ func TestActivityPageComposesFiltersAndKeysetCursor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
 		t.Fatal(err)
 	}
 	bootstrap, _ := service.Bootstrap(ctx)
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +318,7 @@ func TestArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}

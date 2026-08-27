@@ -84,7 +84,7 @@ type HistoryOriginAccountState struct {
 	AccountID             AccountID
 	ArchivedAt            *time.Time
 	IncludeInNetWorth     bool
-	IncludeInInvestment   bool
+	IncludeInPortfolio    bool
 	IncludeInLiquidAssets bool
 	CreatedAt             time.Time
 }
@@ -129,7 +129,7 @@ type AccountStateObservation struct {
 	EffectiveAt           time.Time
 	ArchivedAt            *time.Time
 	IncludeInNetWorth     bool
-	IncludeInInvestment   bool
+	IncludeInPortfolio    bool
 	IncludeInLiquidAssets bool
 	ActivityID            *ActivityID
 	CreatedAt             time.Time
@@ -210,6 +210,7 @@ type DailyValuationSnapshotItem struct {
 	FXPreferenceObservationID *FXPreferenceObservationID
 	Complete                  bool
 	MissingReason             *string
+	ClassificationBasis       ClassificationBasis
 }
 
 // HistoricalSnapshotBatch is the immutable read input for one bounded

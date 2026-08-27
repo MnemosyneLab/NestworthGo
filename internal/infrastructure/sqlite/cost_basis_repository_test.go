@@ -15,9 +15,9 @@ type countingQueryer struct {
 	queries int
 }
 
-func seedSchema6Fixture(t *testing.T, path string) {
+func seedSchema7Fixture(t *testing.T, path string) {
 	t.Helper()
-	scriptPath := filepath.Join("..", "..", "..", "testdata", "schema6", "schema6-fixture.sql")
+	scriptPath := filepath.Join("..", "..", "..", "testdata", "schema7", "schema7-fixture.sql")
 	script, err := os.ReadFile(scriptPath)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func (q *countingQueryer) QueryContext(ctx context.Context, statement string, ar
 
 func TestCostBasisEventsUseOneBoundedQueryForAllEvents(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bounded-cost-basis.db")
-	seedSchema6Fixture(t, path)
+	seedSchema7Fixture(t, path)
 	database, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
@@ -63,7 +63,7 @@ func TestCostBasisEventsUseOneBoundedQueryForAllEvents(t *testing.T) {
 
 func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cost-basis.db")
-	seedSchema6Fixture(t, path)
+	seedSchema7Fixture(t, path)
 	database, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
@@ -132,7 +132,7 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 
 func TestCostBasisRepositoryExcludesArchivedHolding(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "archived-cost-basis.db")
-	seedSchema6Fixture(t, path)
+	seedSchema7Fixture(t, path)
 	database, err := Open(path)
 	if err != nil {
 		t.Fatal(err)

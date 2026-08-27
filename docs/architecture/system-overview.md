@@ -2,9 +2,9 @@
 
 ## Current baseline
 
-Nestworth `0.2.0` is a local-first desktop application with a Wails v3 shell
+Nestworth `0.2.1` is a local-first desktop application with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
-provides typed domain contracts, SQLite bootstrap with one current schema `6`,
+provides typed domain contracts, SQLite bootstrap with one current schema `7`,
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
 currency decomposition, Analytics, exact valuation, and explicit
@@ -114,7 +114,7 @@ reloads the authoritative application result.
 | Area | Choice | Boundary |
 | --- | --- | --- |
 | Language | Go 1.26 | Application, domain, and infrastructure code |
-| Persistence | SQLite, verified schema 6 | Local durable source of truth |
+| Persistence | SQLite, verified schema 7 | Local durable source of truth |
 | Decimal arithmetic | shopspring/decimal-backed domain Money | No binary floating point for financial values |
 | Charts | Apache ECharts | Rendering only; no financial calculations |
 | Desktop shell | Wails v3 | Bound Go services + embedded React frontend |

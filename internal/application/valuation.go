@@ -82,7 +82,7 @@ func (v *ValuationService) PortfolioSnapshot(snapshot domain.PortfolioSnapshot) 
 	hasValue := false
 	for _, item := range valued {
 		account := item.model.Account
-		if !account.IncludeInInvestment || account.PrimaryCategory.IsLiability() {
+		if !account.IncludeInPortfolio || account.IsLiability() {
 			continue
 		}
 		portfolio.Accounts = append(portfolio.Accounts, item.model)
@@ -106,15 +106,27 @@ func (v *ValuationService) PortfolioSnapshot(snapshot domain.PortfolioSnapshot) 
 			labelsByCurrency[currencyKey] = currencyKey
 			countryKey, countryLabel := "unknown", "Unknown"
 			typeKey, typeLabel := "manual", "Manual"
+			var instrument *domain.Instrument
 			if component.InstrumentID != nil {
-				if instrument, ok := instrumentByID(snapshot.Instruments, *component.InstrumentID); ok {
+				if found, ok := instrumentByID(snapshot.Instruments, *component.InstrumentID); ok {
+					copied := found
+					instrument = &copied
 					if instrument.CountryCode != nil {
 						countryKey, countryLabel = *instrument.CountryCode, *instrument.CountryCode
 					}
-					typeKey, typeLabel = string(instrument.Type), string(instrument.Type)
 				}
-			} else if account.TrackingMode == domain.TrackingHoldings {
-				typeKey, typeLabel = "cash", "Cash"
+			}
+			cash := account.TrackingMode == domain.TrackingHoldings && component.InstrumentID == nil
+			class, classErr := domain.ClassifyAccountComponent(account, instrument, cash)
+			if classErr != nil {
+				return domain.PortfolioValuation{}, classErr
+			}
+			if class.MissingInstrument {
+				portfolio.Complete = false
+				continue
+			}
+			if class.Bucket != "" {
+				typeKey, typeLabel = class.Bucket, class.Bucket
 			}
 			valuesByCountry[countryKey] = valuesByCountry[countryKey].Add(baseAmount)
 			labelsByCountry[countryKey] = countryLabel
@@ -226,6 +238,8 @@ func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, recor
 			// Archiving an Instrument stops new holdings and quote writes, but
 			// does not erase an active retained Holding from valuation/history.
 			if !ok {
+				missing := domain.MissingInputView{Kind: domain.MissingInstrument, AccountID: record.Account.ID, InstrumentID: &holding.InstrumentID}
+				add(domain.ValuationComponent{AccountID: record.Account.ID, HoldingID: &holding.ID, InstrumentID: &holding.InstrumentID, NativeCurrency: record.Account.DefaultCurrency, Available: false}, []domain.MissingInputView{missing})
 				continue
 			}
 			component, missing, err := v.valueHolding(snapshot, record.Account.ID, holding, instrument)

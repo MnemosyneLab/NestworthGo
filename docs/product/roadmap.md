@@ -6,19 +6,23 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
-## 0.2.0 — Coherent local-first desktop
+## 0.2.1 — Account container model
 
 Status: `In progress`.
 
-This line consolidates the current Wails v3 desktop shell, the React product
-surface, the local SQLite data model, and the financial correctness contracts
-into one maintainable release. Its closeout priorities are:
+This line keeps the Wails v3 local-first desktop and replaces Account
+categories with `account_type`, `balance_sheet_role`, and `tracking_mode` on
+schema `7`. Closeout priorities are:
 
-- stable onboarding, portfolio, history, analytics, and settings flows;
-- exact decimal calculations and backend-authoritative read models;
-- deterministic provider failure, offline, and incomplete-data states;
-- accessible keyboard paths and complete localized UI states;
-- reproducible build metadata and a documented release gate.
+- legal type/role/tracking combinations on create and update;
+- Overview `assetsByType` / `liabilitiesByType` at component granularity;
+- whole-account `include_in_portfolio`;
+- reject incompatible databases, including schema `6`, without rewriting them.
+
+## 0.2.0 — Coherent local-first desktop
+
+Status: `Superseded`. The unpublished `0.2.0` Wails v3 closeout is replaced by
+`0.2.1`.
 
 ## Next product increments
 

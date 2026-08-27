@@ -32,7 +32,7 @@ func (r *Repository) ListAccountStateObservations(ctx context.Context, household
 }
 
 func listAccountStateObservationsQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.AccountStateObservation, error) {
-	rows, err := query.QueryContext(ctx, `SELECT aso.id, aso.account_id, aso.effective_at, aso.archived_at, aso.include_in_net_worth, aso.include_in_investment, aso.include_in_liquid_assets, aso.activity_id, aso.created_at FROM account_state_observations aso JOIN accounts a ON a.id = aso.account_id WHERE a.household_id = ? ORDER BY aso.account_id, aso.effective_at, aso.created_at, aso.id`, householdID.String())
+	rows, err := query.QueryContext(ctx, `SELECT aso.id, aso.account_id, aso.effective_at, aso.archived_at, aso.include_in_net_worth, aso.include_in_portfolio, aso.include_in_liquid_assets, aso.activity_id, aso.created_at FROM account_state_observations aso JOIN accounts a ON a.id = aso.account_id WHERE a.household_id = ? ORDER BY aso.account_id, aso.effective_at, aso.created_at, aso.id`, householdID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +72,7 @@ func listAccountStateObservationsQuery(ctx context.Context, query queryer, house
 			}
 			parsedActivity = &value
 		}
-		observations = append(observations, domain.AccountStateObservation{ID: parsedID, AccountID: parsedAccount, EffectiveAt: effective.UTC(), ArchivedAt: archived, IncludeInNetWorth: includeNetWorth != 0, IncludeInInvestment: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, ActivityID: parsedActivity, CreatedAt: created.UTC()})
+		observations = append(observations, domain.AccountStateObservation{ID: parsedID, AccountID: parsedAccount, EffectiveAt: effective.UTC(), ArchivedAt: archived, IncludeInNetWorth: includeNetWorth != 0, IncludeInPortfolio: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, ActivityID: parsedActivity, CreatedAt: created.UTC()})
 	}
 	if err := rows.Err(); err != nil {
 		_ = rows.Close()
@@ -330,7 +330,7 @@ func appendAccountStateObservationTx(ctx context.Context, tx *sql.Tx, observatio
 	if err != nil {
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO account_state_observations(id, account_id, effective_at, archived_at, include_in_net_worth, include_in_investment, include_in_liquid_assets, activity_id, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, observation.ID.String(), observation.AccountID.String(), formatTimestamp(observation.EffectiveAt), nullableTime(observation.ArchivedAt), boolValue(observation.IncludeInNetWorth), boolValue(observation.IncludeInInvestment), boolValue(observation.IncludeInLiquidAssets), nullableActivityID(observation.ActivityID), formatTimestamp(observation.CreatedAt)); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO account_state_observations(id, account_id, effective_at, archived_at, include_in_net_worth, include_in_portfolio, include_in_liquid_assets, activity_id, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, observation.ID.String(), observation.AccountID.String(), formatTimestamp(observation.EffectiveAt), nullableTime(observation.ArchivedAt), boolValue(observation.IncludeInNetWorth), boolValue(observation.IncludeInPortfolio), boolValue(observation.IncludeInLiquidAssets), nullableActivityID(observation.ActivityID), formatTimestamp(observation.CreatedAt)); err != nil {
 		return err
 	}
 	for _, share := range observation.Ownership {

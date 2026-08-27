@@ -32,8 +32,8 @@ func onboardedFixture(t *testing.T) fixture {
 		t.Fatalf("Bootstrap: %v", err)
 	}
 	accountRecord, err := account.NewService(app).CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Brokerage", PrimaryCategory: "investment", SecondaryCategory: "brokerage_account",
-		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInInvestment: true,
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		OwnerIDs: []string{bootstrap.Members[0].ID},
 	})
 	if err != nil {

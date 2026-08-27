@@ -398,7 +398,7 @@ func (r *Repository) UpdateAccount(ctx context.Context, account domain.Account, 
 		if err := validateAccountReferences(ctx, tx, account, nullableStringValue(currentInstitution), nullableStringValue(currentGroup)); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, primary_category = ?, secondary_category = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, logo_asset_id = ?, include_in_net_worth = ?, include_in_investment = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.PrimaryCategory.String(), string(account.SecondaryCategory), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInInvestment), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, logo_asset_id = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
 		if err != nil {
 			return err
 		}
@@ -421,7 +421,7 @@ func (r *Repository) UpdateAccountWithObservation(ctx context.Context, account d
 		if err := validateAccountReferences(ctx, tx, account, nullableStringValue(currentInstitution), nullableStringValue(currentGroup)); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, primary_category = ?, secondary_category = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, logo_asset_id = ?, include_in_net_worth = ?, include_in_investment = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.PrimaryCategory.String(), string(account.SecondaryCategory), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInInvestment), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, logo_asset_id = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
 		if err != nil {
 			return err
 		}
@@ -482,7 +482,7 @@ func (r *Repository) ListAccountRecords(ctx context.Context, householdID domain.
 	return records, nil
 }
 
-const accountRecordSelect = `SELECT a.id, a.household_id, a.institution_id, a.group_id, a.name, a.primary_category, a.secondary_category, a.tracking_mode, a.default_currency, a.note, a.icon_key, a.logo_asset_id, a.include_in_net_worth, a.include_in_investment, a.include_in_liquid_assets, a.opened_on, a.closed_on, a.sort_order, a.created_at, a.updated_at, a.archived_at, COALESCE(i.name, ''), COALESCE(g.name, '') FROM accounts a LEFT JOIN institutions i ON i.id = a.institution_id LEFT JOIN account_groups g ON g.id = a.group_id`
+const accountRecordSelect = `SELECT a.id, a.household_id, a.institution_id, a.group_id, a.name, a.account_type, a.balance_sheet_role, a.tracking_mode, a.default_currency, a.note, a.icon_key, a.logo_asset_id, a.include_in_net_worth, a.include_in_portfolio, a.include_in_liquid_assets, a.opened_on, a.closed_on, a.sort_order, a.created_at, a.updated_at, a.archived_at, COALESCE(i.name, ''), COALESCE(g.name, '') FROM accounts a LEFT JOIN institutions i ON i.id = a.institution_id LEFT JOIN account_groups g ON g.id = a.group_id`
 
 func (r *Repository) AccountRecord(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID) (domain.AccountRecord, error) {
 	row := r.database.SQL.QueryRowContext(ctx, accountRecordSelect+` WHERE a.household_id = ? AND a.id = ?`, householdID.String(), id.String())
@@ -529,9 +529,9 @@ func listAccountRecords(ctx context.Context, query queryer, householdID domain.H
 		where = append(where, "a.group_id = ?")
 		args = append(args, filter.GroupID.String())
 	}
-	if filter.Category != nil {
-		where = append(where, "a.primary_category = ?")
-		args = append(args, filter.Category.String())
+	if filter.AccountType != nil {
+		where = append(where, "a.account_type = ?")
+		args = append(args, filter.AccountType.String())
 	}
 	switch filter.OwnershipScope {
 	case domain.OwnershipSole:
@@ -690,7 +690,7 @@ func validateAccountReferences(ctx context.Context, tx *sql.Tx, account domain.A
 }
 
 func insertAccount(ctx context.Context, tx *sql.Tx, account domain.Account) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO accounts(id, household_id, institution_id, group_id, name, primary_category, secondary_category, tracking_mode, default_currency, note, icon_key, logo_asset_id, include_in_net_worth, include_in_investment, include_in_liquid_assets, opened_on, closed_on, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, account.ID.String(), account.HouseholdID.String(), nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.PrimaryCategory.String(), string(account.SecondaryCategory), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInInvestment), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.CreatedAt), formatTimestamp(account.UpdatedAt))
+	_, err := tx.ExecContext(ctx, `INSERT INTO accounts(id, household_id, institution_id, group_id, name, account_type, balance_sheet_role, tracking_mode, default_currency, note, icon_key, logo_asset_id, include_in_net_worth, include_in_portfolio, include_in_liquid_assets, opened_on, closed_on, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, account.ID.String(), account.HouseholdID.String(), nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.CreatedAt), formatTimestamp(account.UpdatedAt))
 	return err
 }
 
@@ -879,11 +879,11 @@ func scanAccountRecord(row interface{ Scan(...any) error }) (domain.AccountRecor
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	category, err := domain.ParsePrimaryCategory(primary)
+	category, err := domain.ParseAccountType(primary)
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	secondaryCategory, err := domain.ParseSecondaryCategory(secondary)
+	balanceSheetRole, err := domain.ParseBalanceSheetRole(secondary)
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
@@ -907,7 +907,7 @@ func scanAccountRecord(row interface{ Scan(...any) error }) (domain.AccountRecor
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	return domain.AccountRecord{Account: domain.Account{ID: accountID, HouseholdID: hID, InstitutionID: parseInstitutionID(nullString(institution)), GroupID: parseGroupID(nullString(group)), Name: name, PrimaryCategory: category, SecondaryCategory: secondaryCategory, TrackingMode: mode, DefaultCurrency: currencyCode, Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), LogoAssetID: parseMediaID(nullString(logo)), IncludeInNetWorth: includeNetWorth != 0, IncludeInInvestment: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, OpenedOn: parseNullable(nullString(opened)), ClosedOn: parseNullable(nullString(closed)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, InstitutionName: institutionName, GroupName: groupName}, nil
+	return domain.AccountRecord{Account: domain.Account{ID: accountID, HouseholdID: hID, InstitutionID: parseInstitutionID(nullString(institution)), GroupID: parseGroupID(nullString(group)), Name: name, AccountType: category, BalanceSheetRole: balanceSheetRole, TrackingMode: mode, DefaultCurrency: currencyCode, Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), LogoAssetID: parseMediaID(nullString(logo)), IncludeInNetWorth: includeNetWorth != 0, IncludeInPortfolio: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, OpenedOn: parseNullable(nullString(opened)), ClosedOn: parseNullable(nullString(closed)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, InstitutionName: institutionName, GroupName: groupName}, nil
 }
 
 func nullString(value sql.NullString) string {

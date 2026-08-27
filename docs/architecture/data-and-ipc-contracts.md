@@ -7,8 +7,9 @@ that boundary remain backend-owned.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. The current `0.2.0` line owns one complete SQLite schema
-`6`; older database generations are rejected without migration. UI code
+and query results. The current `0.2.1` line owns one complete SQLite schema
+`7`; older database generations, including schema `6`, are rejected without
+migration. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
 The repository contains the Go implementation of the Household balance-sheet,
@@ -32,7 +33,7 @@ recreate a user's database after an open or migration failure.
 | --- | --- |
 | Database absent | Create the current schema, verify it, then initialize settings |
 | Supported and current | Open and verify it |
-| Older generation | Block startup without writes; offer a recoverable reset/backup path |
+| Older generation | Block startup without writes; tell the user to create a new database |
 | Newer than supported | Block business writes with a safe error |
 | Integrity failure | Block startup; preserve the original database |
 | Path/open failure | Show an unavailable-database state |
@@ -55,7 +56,7 @@ or network dependency.
 | Household | Singleton balance-sheet root and base currency |
 | Member | Household people used for ownership allocation |
 | Institution and Group | Optional account organization |
-| Account | Classification, tracking mode, currency, lifecycle, and inclusion |
+| Account | Type, balance-sheet role, tracking mode, currency, lifecycle, and inclusion |
 | Ownership | Exact member shares in basis points |
 | Account Value | Append-only balance/manual-value observations |
 | Instrument and Holding | Investment identity and quantity |
@@ -70,7 +71,7 @@ or network dependency.
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the current `schema.sql` and
-documented here without duplicating SQL. The current supported schema is `6`.
+documented here without duplicating SQL. The current supported schema is `7`.
 Future and older schema generations are blocked before business or settings
 writes.
 
@@ -125,7 +126,7 @@ rates, ownership percentages, gain, or return.
 Application errors should be grouped into stable categories such as:
 
 - validation, not found, conflict, and already-onboarded
-- invalid money, quantity, FX, ownership, or category
+- invalid money, quantity, FX, ownership, or account combination
 - unavailable or incomplete valuation
 - unsupported database, migration failure, and integrity failure
 - invalid Activity, insufficient balance/quantity, or correction conflict

@@ -47,7 +47,7 @@ func (s *Service) changeStateFrom(origin *domain.HistoryOrigin, snapshot domain.
 		if record.LatestValue != nil {
 			current = record.LatestValue.Amount
 		}
-		state.Accounts[account.ID] = domain.ChangeAccountState{ID: account.ID, Name: account.Name, Currency: account.DefaultCurrency, Mode: account.TrackingMode, Liability: account.PrimaryCategory.IsLiability(), Archived: account.ArchivedAt != nil, Current: current}
+		state.Accounts[account.ID] = domain.ChangeAccountState{ID: account.ID, Name: account.Name, Currency: account.DefaultCurrency, Mode: account.TrackingMode, Liability: account.IsLiability(), Archived: account.ArchivedAt != nil, Current: current}
 	}
 	for _, value := range snapshot.CashValues {
 		if state.Cash[value.AccountID] == nil {

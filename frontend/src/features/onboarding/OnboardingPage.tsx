@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -10,8 +11,12 @@ import { NativeSelect } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrandLockup } from "@/components/brand/BrandLockup";
 import { useCompleteOnboarding } from "@/queries/household";
-import { useSupportedCurrencies } from "@/queries/settings";
+import { useSaveSettings, useSettings, useSupportedCurrencies } from "@/queries/settings";
+import { useCatalog } from "@/queries/catalog";
+import { languageOptionKey, setLanguage } from "@/i18n";
+import { displayError } from "@/lib/display";
 import { translateWailsError, type WireError } from "@/lib/wails";
+import { Language } from "../../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
 
 const onboardingSchema = z.object({
   householdName: z.string().trim().min(1),
@@ -29,14 +34,43 @@ type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 
 /**
  * OnboardingPage implements the "Household creation, base currency, first
- * Members" flow end to end through HouseholdService. It intentionally does
- * not ask for a timezone here: leaving `CompleteOnboardingRequest.timezone`
- * empty means history has not started yet; Starting Point is a separate flow.
+ * Members" flow end to end through HouseholdService. Language is chosen here
+ * so the form can be completed before Settings exists. Timezone is left empty
+ * on CompleteOnboardingRequest: history has not started yet; Starting Point
+ * is a separate flow.
  */
 export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {}) {
   const { t } = useTranslation();
   const currencies = useSupportedCurrencies();
+  const catalog = useCatalog();
+  const settings = useSettings();
+  const saveSettings = useSaveSettings();
   const completeOnboarding = useCompleteOnboarding();
+  const [language, setLanguagePreference] = useState<Language>(settings.data?.language ?? Language.LanguageSystem);
+
+  useEffect(() => {
+    if (settings.data?.language) {
+      setLanguagePreference(settings.data.language);
+    }
+  }, [settings.data?.language]);
+
+  const applyLanguage = (next: Language) => {
+    setLanguagePreference(next);
+    setLanguage(next);
+    const current = settings.data;
+    if (!current) {
+      return;
+    }
+    saveSettings.mutate(
+      { ...current, language: next },
+      {
+        onError: () => {
+          setLanguagePreference(current.language);
+          setLanguage(current.language);
+        },
+      },
+    );
+  };
 
   const {
     register,
@@ -63,6 +97,22 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
 
   return (
     <main className="min-h-[100dvh] bg-background px-6 py-10 text-foreground sm:px-10 sm:py-16">
+      <div className="mx-auto mb-6 flex w-full max-w-5xl items-center justify-end gap-2">
+        <Label htmlFor="onboarding-language">{t("settings.language.language")}</Label>
+        <NativeSelect
+          id="onboarding-language"
+          className="h-8 min-w-36 px-2 text-sm"
+          value={language}
+          disabled={saveSettings.isPending}
+          onChange={(event) => applyLanguage(event.target.value as Language)}
+        >
+          {(catalog.data?.languages ?? []).map((option) => (
+            <option key={option} value={option}>
+              {t(`option.language.${languageOptionKey(option)}`)}
+            </option>
+          ))}
+        </NativeSelect>
+      </div>
       <div className="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(360px,1fr)] lg:items-start">
         <section className="flex flex-col gap-5 pt-2 lg:pt-12">
           <BrandLockup />
@@ -158,6 +208,12 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
               </fieldset>
 
               {currencies.isError && <p className="text-xs text-warning-foreground">{t("onboarding.currencyLoadError")}</p>}
+
+              {saveSettings.isError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {displayError(saveSettings.error, t("settings.saveError"))}
+                </p>
+              )}
 
               {completeOnboarding.isError && (
                 <p role="alert" className="text-sm text-destructive">

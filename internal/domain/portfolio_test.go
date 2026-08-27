@@ -18,7 +18,7 @@ func TestInstrumentProviderBindingAndPortfolioRelationships(t *testing.T) {
 	if instrument.ProviderSymbol == nil || *instrument.ProviderSymbol != "QQQ" || instrument.CountryCode == nil || *instrument.CountryCode != "US" {
 		t.Fatalf("instrument metadata was not normalized: %+v", instrument)
 	}
-	account, _, initial, err := NewAccount(AccountInput{HouseholdID: householdID, Name: "Brokerage", PrimaryCategory: CategoryInvestment, SecondaryCategory: SecondaryBrokerageAccount, TrackingMode: TrackingHoldings, DefaultCurrency: CurrencyCode("SGD"), Ownership: []OwnershipShare{{MemberID: MemberID(newID()), ShareBPS: TotalOwnershipBPS}}}, time.Now())
+	account, _, initial, err := NewAccount(AccountInput{HouseholdID: householdID, Name: "Brokerage", AccountType: TypeBrokerage, BalanceSheetRole: RoleAsset, TrackingMode: TrackingHoldings, DefaultCurrency: CurrencyCode("SGD"), Ownership: []OwnershipShare{{MemberID: MemberID(newID()), ShareBPS: TotalOwnershipBPS}}}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,11 +46,11 @@ func TestInstrumentProviderBindingAndPortfolioRelationships(t *testing.T) {
 func TestHoldingsAccountRejectsFakeInitialAmountAndCashUsesHoldingsMode(t *testing.T) {
 	householdID := HouseholdID(newID())
 	memberID := MemberID(newID())
-	_, _, _, err := NewAccount(AccountInput{HouseholdID: householdID, Name: "Brokerage", PrimaryCategory: CategoryInvestment, SecondaryCategory: SecondaryBrokerageAccount, TrackingMode: TrackingHoldings, DefaultCurrency: CurrencyCode("CNY"), Ownership: []OwnershipShare{{MemberID: memberID, ShareBPS: TotalOwnershipBPS}}, InitialAmount: "1"}, time.Now())
+	_, _, _, err := NewAccount(AccountInput{HouseholdID: householdID, Name: "Brokerage", AccountType: TypeBrokerage, BalanceSheetRole: RoleAsset, TrackingMode: TrackingHoldings, DefaultCurrency: CurrencyCode("CNY"), Ownership: []OwnershipShare{{MemberID: memberID, ShareBPS: TotalOwnershipBPS}}, InitialAmount: "1"}, time.Now())
 	if err == nil {
 		t.Fatal("Holdings Account accepted an initial amount")
 	}
-	account, _, _, err := NewAccount(AccountInput{HouseholdID: householdID, Name: "Brokerage", PrimaryCategory: CategoryInvestment, SecondaryCategory: SecondaryBrokerageAccount, TrackingMode: TrackingHoldings, DefaultCurrency: CurrencyCode("CNY"), Ownership: []OwnershipShare{{MemberID: memberID, ShareBPS: TotalOwnershipBPS}}}, time.Now())
+	account, _, _, err := NewAccount(AccountInput{HouseholdID: householdID, Name: "Brokerage", AccountType: TypeBrokerage, BalanceSheetRole: RoleAsset, TrackingMode: TrackingHoldings, DefaultCurrency: CurrencyCode("CNY"), Ownership: []OwnershipShare{{MemberID: memberID, ShareBPS: TotalOwnershipBPS}}}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}

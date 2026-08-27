@@ -68,6 +68,7 @@ type MissingInputKind string
 
 const (
 	MissingInstrumentPrice MissingInputKind = "instrument_price"
+	MissingInstrument      MissingInputKind = "missing_instrument"
 	MissingFXRate          MissingInputKind = "fx_rate"
 	MissingAccountValue    MissingInputKind = "account_value"
 )

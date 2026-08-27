@@ -6,7 +6,7 @@ export function normalizeAccountFilter(filter: AccountFilterRequest = {}): Accou
     ...(filter.memberId ? { memberId: filter.memberId } : {}),
     ...(filter.institutionId ? { institutionId: filter.institutionId } : {}),
     ...(filter.groupId ? { groupId: filter.groupId } : {}),
-    ...(filter.category ? { category: filter.category } : {}),
+    ...(filter.accountType ? { accountType: filter.accountType } : {}),
     ...(filter.ownershipScope ? { ownershipScope: filter.ownershipScope } : {}),
   };
 }

@@ -48,7 +48,7 @@ func newRefactorTestService(t *testing.T, name string) (*Service, context.Contex
 
 func createHoldingsAccount(t *testing.T, service *Service, ctx context.Context, owner domain.MemberID, name string) domain.AccountRecord {
 	t.Helper()
-	account, err := service.CreateAccount(ctx, AccountInput{Name: name, PrimaryCategory: "investment", SecondaryCategory: "brokerage_account", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInInvestment: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}})
+	account, err := service.CreateAccount(ctx, AccountInput{Name: name, AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}})
 	if err != nil {
 		t.Fatalf("%s account: %v", name, err)
 	}

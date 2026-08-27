@@ -31,6 +31,24 @@ describe("formatAmount", () => {
     expect(formatAmount("1234.56", "USD")).toBe(expected);
   });
 
+  it.each([
+    ["CNY", "1234", /1,234\.00/],
+    ["CNY", "1234.5", /1,234\.50/],
+    ["SGD", "1234.5", /1,234\.50/],
+    ["USD", "1234.567", /1,234\.57/],
+  ])("pads and rounds %s to two fraction digits", async (currency, amount, pattern) => {
+    await i18n.changeLanguage("en");
+    expect(formatAmount(amount, currency)).toMatch(pattern);
+  });
+
+  it.each(["JPY", "KRW"])("hides fraction digits for zero-scale %s", async (currency) => {
+    await i18n.changeLanguage("en");
+    const formatted = formatAmount("1234.56", currency);
+    expect(formatted).toMatch(/1,235/);
+    expect(formatted).not.toMatch(/\.56/);
+    expect(formatAmount("1234.00", currency)).not.toMatch(/\.00/);
+  });
+
   it("keeps zero and invalid values stable", () => {
     expect(formatAmount("0")).toBe("0");
     expect(formatAmount("not-a-decimal")).toBe("not-a-decimal");
@@ -42,9 +60,15 @@ describe("formatAmount", () => {
       await i18n.changeLanguage(language);
       for (const amount of amounts) {
         expect(canonicalDigits(formatAmount(amount), language)).toBe(amount);
-        expect(canonicalDigits(formatAmount(amount, "USD"), language)).toBe(amount);
       }
     }
+  });
+
+  it("round-trips currency amounts at the currency scale", async () => {
+    await i18n.changeLanguage("en");
+    expect(canonicalDigits(formatAmount("1234.56", "USD"), "en")).toBe("1234.56");
+    expect(canonicalDigits(formatAmount("1234.567", "USD"), "en")).toBe("1234.57");
+    expect(canonicalDigits(formatAmount("1234.56", "JPY"), "en")).toBe("1235");
   });
 });
 

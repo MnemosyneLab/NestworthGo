@@ -307,35 +307,75 @@ func (s *Service) CompleteDailySnapshotRange(ctx context.Context, _, targetDate 
 	return apierror.Wrap(s.app.CompleteDailySnapshotRange(ctx, id, targetDate))
 }
 
-// DailyValuationSnapshotDTO mirrors domain.DailyValuationSnapshot, minus its
-// per-item list, which the frontend fetches separately if it needs
-// component-level detail (list endpoints exist on internal/application but
-// are not yet bound; add them when a frontend surface needs them).
+// DailyValuationSnapshotItemDTO is one reconstructed component. Simple
+// Account items carry classificationBasis=current-metadata-derived because
+// the bucket name comes from current account_type, not a historical type
+// observation. Composite cash/instrument items omit that field.
+type DailyValuationSnapshotItemDTO struct {
+	ID                  string          `json:"id"`
+	AccountID           string          `json:"accountId"`
+	HoldingID           *string         `json:"holdingId,omitempty"`
+	InstrumentID        *string         `json:"instrumentId,omitempty"`
+	NativeAmount        string          `json:"nativeAmount,omitempty"`
+	NativeCurrency      string          `json:"nativeCurrency,omitempty"`
+	BaseAmount          *wire.MoneyView `json:"baseAmount,omitempty"`
+	Complete            bool            `json:"complete"`
+	MissingReason       *string         `json:"missingReason,omitempty"`
+	ClassificationBasis string          `json:"classificationBasis,omitempty"`
+}
+
+// DailyValuationSnapshotDTO mirrors domain.DailyValuationSnapshot totals
+// plus the per-item results that carry Simple classification provenance.
 type DailyValuationSnapshotDTO struct {
-	ID                string          `json:"id"`
-	HouseholdID       string          `json:"householdId"`
-	LocalDate         string          `json:"localDate"`
-	CutoffAt          string          `json:"cutoffAt"`
-	Revision          int             `json:"revision"`
-	AssetsAmount      *wire.MoneyView `json:"assetsAmount,omitempty"`
-	LiabilitiesAmount *wire.MoneyView `json:"liabilitiesAmount,omitempty"`
-	NetWorthAmount    *wire.MoneyView `json:"netWorthAmount,omitempty"`
-	Currency          string          `json:"currency"`
-	Complete          bool            `json:"complete"`
-	ComponentCount    int             `json:"componentCount"`
-	MissingCount      int             `json:"missingCount"`
-	GenerationReason  string          `json:"generationReason"`
-	CreatedAt         string          `json:"createdAt"`
+	ID                string                          `json:"id"`
+	HouseholdID       string                          `json:"householdId"`
+	LocalDate         string                          `json:"localDate"`
+	CutoffAt          string                          `json:"cutoffAt"`
+	Revision          int                             `json:"revision"`
+	AssetsAmount      *wire.MoneyView                 `json:"assetsAmount,omitempty"`
+	LiabilitiesAmount *wire.MoneyView                 `json:"liabilitiesAmount,omitempty"`
+	NetWorthAmount    *wire.MoneyView                 `json:"netWorthAmount,omitempty"`
+	Currency          string                          `json:"currency"`
+	Complete          bool                            `json:"complete"`
+	ComponentCount    int                             `json:"componentCount"`
+	MissingCount      int                             `json:"missingCount"`
+	GenerationReason  string                          `json:"generationReason"`
+	CreatedAt         string                          `json:"createdAt"`
+	Items             []DailyValuationSnapshotItemDTO `json:"items"`
+}
+
+func fromDailyValuationSnapshotItem(item domain.DailyValuationSnapshotItem) DailyValuationSnapshotItemDTO {
+	dto := DailyValuationSnapshotItemDTO{
+		ID: item.ID.String(), AccountID: item.AccountID.String(), NativeAmount: item.NativeAmount,
+		Complete: item.Complete, MissingReason: item.MissingReason, ClassificationBasis: item.ClassificationBasis.String(),
+		BaseAmount: wire.FromMoneyPtr(item.BaseAmount),
+	}
+	if item.NativeCurrency != "" {
+		dto.NativeCurrency = item.NativeCurrency.String()
+	}
+	if item.HoldingID != nil {
+		id := item.HoldingID.String()
+		dto.HoldingID = &id
+	}
+	if item.InstrumentID != nil {
+		id := item.InstrumentID.String()
+		dto.InstrumentID = &id
+	}
+	return dto
 }
 
 func fromDailyValuationSnapshot(value domain.DailyValuationSnapshot) DailyValuationSnapshotDTO {
+	items := make([]DailyValuationSnapshotItemDTO, 0, len(value.Items))
+	for _, item := range value.Items {
+		items = append(items, fromDailyValuationSnapshotItem(item))
+	}
 	return DailyValuationSnapshotDTO{
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), LocalDate: value.LocalDate,
 		CutoffAt: wire.FormatTime(value.CutoffAt), Revision: value.Revision,
 		AssetsAmount: wire.FromMoneyPtr(value.AssetsAmount), LiabilitiesAmount: wire.FromMoneyPtr(value.LiabilitiesAmount),
 		NetWorthAmount: wire.FromMoneyPtr(value.NetWorthAmount), Currency: value.Currency.String(), Complete: value.Complete,
 		ComponentCount: value.ComponentCount, MissingCount: value.MissingCount, GenerationReason: value.GenerationReason,
-		CreatedAt: wire.FormatTime(value.CreatedAt),
+		CreatedAt: wire.FormatTime(value.CreatedAt), Items: items,
 	}
 }
 

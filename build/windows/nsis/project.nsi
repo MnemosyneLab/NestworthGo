@@ -22,7 +22,7 @@ Unicode true
 ## !define INFO_PROJECTNAME    "nestworth" # Default "nestworth"
 ## !define INFO_COMPANYNAME    "Nestworth" # Default "Nestworth"
 ## !define INFO_PRODUCTNAME    "Nestworth" # Default "Nestworth"
-## !define INFO_PRODUCTVERSION "0.2.0"     # Default "0.2.0"
+## !define INFO_PRODUCTVERSION "0.2.1"     # Default "0.2.1"
 ## !define INFO_COPYRIGHT      "(c) 2026, Nestworth" # Default "(c) 2026, Nestworth"
 ###
 ## !define PRODUCT_EXECUTABLE  "Application.exe"      # Default "${INFO_PROJECTNAME}.exe"

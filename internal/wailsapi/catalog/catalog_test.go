@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/catalog"
@@ -24,14 +25,20 @@ func TestCatalogMatchesDomainAndSettings(t *testing.T) {
 	if !reflect.DeepEqual(got.QuoteSources, stringSlice(domain.AllQuoteSourceKinds())) {
 		t.Fatalf("quoteSources = %v", got.QuoteSources)
 	}
-	if !reflect.DeepEqual(got.PrimaryCategories, stringSlice(domain.AllPrimaryCategories())) {
-		t.Fatalf("primaryCategories = %v", got.PrimaryCategories)
+	if !reflect.DeepEqual(got.InstrumentProviders, application.InstrumentProviderKeys()) {
+		t.Fatalf("instrumentProviders = %v, want %v", got.InstrumentProviders, application.InstrumentProviderKeys())
 	}
-	if !reflect.DeepEqual(got.SecondaryCategoriesByPrimary, stringMapSlice(domain.SecondaryCategoriesByPrimary())) {
-		t.Fatalf("secondaryCategoriesByPrimary = %v", got.SecondaryCategoriesByPrimary)
+	if !reflect.DeepEqual(got.AccountTypes, stringSlice(domain.AllAccountTypes())) {
+		t.Fatalf("accountTypes = %v", got.AccountTypes)
 	}
-	if !reflect.DeepEqual(got.TrackingModesByPrimary, stringMapSlice(domain.TrackingModesByPrimary())) {
-		t.Fatalf("trackingModesByPrimary = %v", got.TrackingModesByPrimary)
+	if len(got.AccountCombinations) != len(domain.LegalAccountCombinations()) {
+		t.Fatalf("accountCombinations = %d, want %d", len(got.AccountCombinations), len(domain.LegalAccountCombinations()))
+	}
+	if got.AccountCombinations[0].AccountType != domain.TypeCashOnHand.String() {
+		t.Fatalf("first combination = %+v", got.AccountCombinations[0])
+	}
+	if !reflect.DeepEqual(got.BalanceSheetRoles, stringSlice(domain.AllBalanceSheetRoles())) {
+		t.Fatalf("balanceSheetRoles = %v", got.BalanceSheetRoles)
 	}
 	if !reflect.DeepEqual(got.TrendRanges, stringSlice(domain.AllTrendRanges())) {
 		t.Fatalf("trendRanges = %v", got.TrendRanges)
@@ -78,14 +85,6 @@ func stringSlice[T ~string](values []T) []string {
 	out := make([]string, len(values))
 	for i, value := range values {
 		out[i] = string(value)
-	}
-	return out
-}
-
-func stringMapSlice[K ~string, V ~string](values map[K][]V) map[string][]string {
-	out := make(map[string][]string, len(values))
-	for key, list := range values {
-		out[string(key)] = stringSlice(list)
 	}
 	return out
 }

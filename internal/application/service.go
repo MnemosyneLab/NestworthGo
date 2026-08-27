@@ -460,8 +460,8 @@ func (s *Service) setIcon(ctx context.Context, iconKey string, save func(domain.
 
 type AccountInput struct {
 	Name                     string
-	PrimaryCategory          string
-	SecondaryCategory        string
+	AccountType              string
+	BalanceSheetRole         string
 	TrackingMode             string
 	DefaultCurrency          string
 	InstitutionID            string
@@ -474,8 +474,8 @@ type AccountInput struct {
 	IconKeySet               bool
 	IncludeInNetWorth        bool
 	IncludeInNetWorthSet     bool
-	IncludeInInvestment      bool
-	IncludeInInvestmentSet   bool
+	IncludeInPortfolio       bool
+	IncludeInPortfolioSet    bool
 	IncludeInLiquidAssets    bool
 	IncludeInLiquidAssetsSet bool
 	OpenedOn                 *string
@@ -504,11 +504,11 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	primary, err := domain.ParsePrimaryCategory(input.PrimaryCategory)
+	primary, err := domain.ParseAccountType(input.AccountType)
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	secondary, err := domain.ParseSecondaryCategory(input.SecondaryCategory)
+	secondary, err := domain.ParseBalanceSheetRole(input.BalanceSheetRole)
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
@@ -532,7 +532,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	accountInput := domain.AccountInput{HouseholdID: bootstrap.Household.ID, Name: input.Name, PrimaryCategory: primary, SecondaryCategory: secondary, TrackingMode: mode, DefaultCurrency: currency, Note: input.Note, IconKey: iconKey, IncludeInNetWorth: input.IncludeInNetWorth, IncludeInInvestment: input.IncludeInInvestment, IncludeInLiquidAssets: input.IncludeInLiquidAssets, OpenedOn: input.OpenedOn, ClosedOn: input.ClosedOn, Ownership: ownershipShares, InitialAmount: input.InitialAmount}
+	accountInput := domain.AccountInput{HouseholdID: bootstrap.Household.ID, Name: input.Name, AccountType: primary, BalanceSheetRole: secondary, TrackingMode: mode, DefaultCurrency: currency, Note: input.Note, IconKey: iconKey, IncludeInNetWorth: input.IncludeInNetWorth, IncludeInPortfolio: input.IncludeInPortfolio, IncludeInLiquidAssets: input.IncludeInLiquidAssets, OpenedOn: input.OpenedOn, ClosedOn: input.ClosedOn, Ownership: ownershipShares, InitialAmount: input.InitialAmount}
 	var historyInitial *domain.Money
 	if origin != nil && strings.TrimSpace(input.InitialAmount) != "" && mode != domain.TrackingHoldings {
 		parsedInitial, parseErr := domain.ParseMoney(input.InitialAmount, currency)
@@ -591,7 +591,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 		EffectiveAt:           account.CreatedAt,
 		ArchivedAt:            account.ArchivedAt,
 		IncludeInNetWorth:     account.IncludeInNetWorth,
-		IncludeInInvestment:   account.IncludeInInvestment,
+		IncludeInPortfolio:    account.IncludeInPortfolio,
 		IncludeInLiquidAssets: account.IncludeInLiquidAssets,
 		CreatedAt:             account.CreatedAt,
 		Ownership:             ownership.Shares(),
@@ -606,7 +606,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if zeroErr != nil {
 		return domain.AccountRecord{}, zeroErr
 	}
-	state := domain.ChangeState{HouseholdID: account.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: map[domain.AccountID]domain.ChangeAccountState{account.ID: {ID: account.ID, Name: account.Name, Currency: account.DefaultCurrency, Mode: account.TrackingMode, Liability: account.PrimaryCategory.IsLiability(), Current: zero}}, Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState)}
+	state := domain.ChangeState{HouseholdID: account.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: map[domain.AccountID]domain.ChangeAccountState{account.ID: {ID: account.ID, Name: account.Name, Currency: account.DefaultCurrency, Mode: account.TrackingMode, Liability: account.IsLiability(), Current: zero}}, Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState)}
 	preview, previewErr := domain.PreviewChange(state, domain.MoneyAddedInput{HouseholdID: account.HouseholdID, AccountID: account.ID, Amount: *historyInitial, Reason: domain.ReasonContribution, EffectiveAt: account.CreatedAt})
 	if previewErr != nil {
 		return domain.AccountRecord{}, previewErr
@@ -638,11 +638,11 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if current.LatestValue == nil && current.Account.TrackingMode != domain.TrackingHoldings {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Message: "account has no current value"}
 	}
-	if input.PrimaryCategory == "" {
-		input.PrimaryCategory = current.Account.PrimaryCategory.String()
+	if input.AccountType == "" {
+		input.AccountType = current.Account.AccountType.String()
 	}
-	if input.SecondaryCategory == "" {
-		input.SecondaryCategory = string(current.Account.SecondaryCategory)
+	if input.BalanceSheetRole == "" {
+		input.BalanceSheetRole = string(current.Account.BalanceSheetRole)
 	}
 	if input.TrackingMode == "" {
 		input.TrackingMode = string(current.Account.TrackingMode)
@@ -684,8 +684,8 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if !input.IncludeInNetWorthSet {
 		input.IncludeInNetWorth = current.Account.IncludeInNetWorth
 	}
-	if !input.IncludeInInvestmentSet {
-		input.IncludeInInvestment = current.Account.IncludeInInvestment
+	if !input.IncludeInPortfolioSet {
+		input.IncludeInPortfolio = current.Account.IncludeInPortfolio
 	}
 	if !input.IncludeInLiquidAssetsSet {
 		input.IncludeInLiquidAssets = current.Account.IncludeInLiquidAssets
@@ -705,11 +705,11 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if bootstrap.Household == nil {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	primary, err := domain.ParsePrimaryCategory(input.PrimaryCategory)
+	primary, err := domain.ParseAccountType(input.AccountType)
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	secondary, err := domain.ParseSecondaryCategory(input.SecondaryCategory)
+	secondary, err := domain.ParseBalanceSheetRole(input.BalanceSheetRole)
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
@@ -719,6 +719,9 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	}
 	if mode != current.Account.TrackingMode {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Field: "trackingMode", Message: "tracking mode is immutable after account creation"}
+	}
+	if secondary != current.Account.BalanceSheetRole {
+		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Field: "balanceSheetRole", Message: "balance sheet role is immutable after account creation"}
 	}
 	currency, err := domain.ParseCurrency(input.DefaultCurrency)
 	if err != nil {
@@ -753,7 +756,7 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	account, ownership, _, err := domain.NewAccount(domain.AccountInput{HouseholdID: current.Account.HouseholdID, InstitutionID: institutionID, GroupID: groupID, Name: input.Name, PrimaryCategory: primary, SecondaryCategory: secondary, TrackingMode: mode, DefaultCurrency: currency, Note: input.Note, IconKey: iconKey, IncludeInNetWorth: input.IncludeInNetWorth, IncludeInInvestment: input.IncludeInInvestment, IncludeInLiquidAssets: input.IncludeInLiquidAssets, OpenedOn: input.OpenedOn, ClosedOn: input.ClosedOn, SortOrder: current.Account.SortOrder, Ownership: ownershipShares, InitialAmount: input.InitialAmount}, s.clock())
+	account, ownership, _, err := domain.NewAccount(domain.AccountInput{HouseholdID: current.Account.HouseholdID, InstitutionID: institutionID, GroupID: groupID, Name: input.Name, AccountType: primary, BalanceSheetRole: secondary, TrackingMode: mode, DefaultCurrency: currency, Note: input.Note, IconKey: iconKey, IncludeInNetWorth: input.IncludeInNetWorth, IncludeInPortfolio: input.IncludeInPortfolio, IncludeInLiquidAssets: input.IncludeInLiquidAssets, OpenedOn: input.OpenedOn, ClosedOn: input.ClosedOn, SortOrder: current.Account.SortOrder, Ownership: ownershipShares, InitialAmount: input.InitialAmount}, s.clock())
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
@@ -935,13 +938,18 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 		return domain.OverviewResult{}, err
 	}
 	result := domain.OverviewResult{Currency: snapshot.Household.BaseCurrency, AccountCount: len(snapshot.Accounts), Complete: true}
-	category := map[string]decimal.Decimal{}
+	assetsByType := map[string]decimal.Decimal{}
+	liabilitiesByType := map[string]decimal.Decimal{}
 	member := map[string]decimal.Decimal{}
 	institution := map[string]decimal.Decimal{}
 	group := map[string]decimal.Decimal{}
 	memberLabels := map[string]string{}
 	institutionLabels := map[string]string{}
 	groupLabels := map[string]string{}
+	instruments := map[domain.InstrumentID]domain.Instrument{}
+	for _, instrument := range snapshot.Instruments {
+		instruments[instrument.ID] = instrument
+	}
 	for _, current := range snapshot.Members {
 		memberLabels[current.ID.String()] = current.Name
 	}
@@ -963,13 +971,41 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 			result.Complete = false
 			result.MissingInputs = append(result.MissingInputs, valuation.MissingInputs...)
 		}
-		if valuation.Account.PrimaryCategory.IsLiability() {
+		for _, component := range valuation.Components {
+			if !component.Available || component.BaseAmountExact == "" {
+				continue
+			}
+			amount, parseErr := decimal.NewFromString(component.BaseAmountExact)
+			if parseErr != nil {
+				return domain.OverviewResult{}, &domain.Error{Code: domain.ErrIntegrity, Field: "amount", Message: "stored valuation amount is invalid"}
+			}
+			var instrument *domain.Instrument
+			if component.InstrumentID != nil {
+				if found, ok := instruments[*component.InstrumentID]; ok {
+					copied := found
+					instrument = &copied
+				}
+			}
+			cash := valuation.Account.TrackingMode == domain.TrackingHoldings && component.InstrumentID == nil
+			class, classErr := domain.ClassifyAccountComponent(valuation.Account, instrument, cash)
+			if classErr != nil {
+				return domain.OverviewResult{}, classErr
+			}
+			if class.MissingInstrument {
+				result.Complete = false
+				continue
+			}
+			if class.Role.IsLiability() {
+				liabilitiesByType[class.Bucket] = liabilitiesByType[class.Bucket].Add(amount)
+			} else {
+				assetsByType[class.Bucket] = assetsByType[class.Bucket].Add(amount)
+			}
+		}
+		if valuation.Account.IsLiability() {
 			result.Liabilities = result.Liabilities.Add(value)
 			continue
 		}
 		result.Assets = result.Assets.Add(value)
-		categoryKey := valuation.Account.PrimaryCategory.String()
-		category[categoryKey] = category[categoryKey].Add(value)
 		for _, share := range valuation.Ownership.Shares() {
 			member[share.MemberID.String()] = member[share.MemberID.String()].Add(value.Mul(decimal.NewFromInt(int64(share.ShareBPS))).Div(decimal.NewFromInt(domain.TotalOwnershipBPS)))
 		}
@@ -993,7 +1029,8 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	sortMissing(result.MissingInputs)
 	result.MissingInputs = deduplicateMissing(result.MissingInputs)
 	result.NetWorth = result.Assets.Sub(result.Liabilities)
-	result.ByCategory = makeBreakdown(category, result.Assets)
+	result.AssetsByType = makeBreakdown(assetsByType, result.Assets)
+	result.LiabilitiesByType = makeBreakdown(liabilitiesByType, result.Liabilities)
 	result.ByMember = makeBreakdownWithLabels(member, result.Assets, memberLabels)
 	result.ByInstitution = makeBreakdownWithLabels(institution, result.Assets, institutionLabels)
 	result.ByGroup = makeBreakdownWithLabels(group, result.Assets, groupLabels)

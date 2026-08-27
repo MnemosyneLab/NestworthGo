@@ -47,10 +47,9 @@ func TestAccountAndValueUseCategorySignSemantics(t *testing.T) {
 	householdID := HouseholdID(newID())
 	memberID := MemberID(newID())
 	account, _, initial, err := NewAccount(AccountInput{
-		HouseholdID:       householdID,
-		Name:              "Credit Card",
-		PrimaryCategory:   CategoryLiability,
-		SecondaryCategory: SecondaryCreditCard,
+		HouseholdID: householdID,
+		Name:        "Credit Card",
+		AccountType: TypeCreditCard, BalanceSheetRole: RoleLiability,
 		TrackingMode:      TrackingBalance,
 		DefaultCurrency:   CurrencyCode("CNY"),
 		IncludeInNetWorth: true,
@@ -85,7 +84,7 @@ func TestDomainCanonicalizesCurrenciesAndRejectsInvalidDates(t *testing.T) {
 		t.Fatalf("household currency = %q, err = %v", household.BaseCurrency, err)
 	}
 	memberID := MemberID(newID())
-	_, _, _, err = NewAccount(AccountInput{HouseholdID: HouseholdID(newID()), Name: "Asset", PrimaryCategory: CategoryProperty, SecondaryCategory: SecondaryRealEstate, TrackingMode: TrackingManualValue, DefaultCurrency: CurrencyCode("CNY"), Ownership: []OwnershipShare{{MemberID: memberID, ShareBPS: TotalOwnershipBPS}}, OpenedOn: stringPtr("2026-02-30"), InitialAmount: "1"}, time.Now())
+	_, _, _, err = NewAccount(AccountInput{HouseholdID: HouseholdID(newID()), Name: "Asset", AccountType: TypeProperty, BalanceSheetRole: RoleAsset, TrackingMode: TrackingManualValue, DefaultCurrency: CurrencyCode("CNY"), Ownership: []OwnershipShare{{MemberID: memberID, ShareBPS: TotalOwnershipBPS}}, OpenedOn: stringPtr("2026-02-30"), InitialAmount: "1"}, time.Now())
 	if err == nil {
 		t.Fatal("invalid lifecycle date was accepted")
 	}

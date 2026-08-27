@@ -235,6 +235,37 @@ describe("InvestmentsPage", () => {
     expect(createHolding).not.toHaveBeenCalled();
   });
 
+  it("renders provider key options from the catalog when quote source is provider", async () => {
+    const { TEST_CATALOG, selectValues } = await import("@/test/catalog");
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "provider");
+    await waitFor(() => {
+      expect(selectValues(within(form).getByLabelText("Provider key"))).toEqual(TEST_CATALOG.instrumentProviders);
+    });
+    expect(within(form).queryByPlaceholderText(/yahoo_finance/i)).not.toBeInTheDocument();
+  });
+
+  it("submits the catalog provider key when quote source is provider", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await userEvent.type(within(form).getByLabelText("Name"), "NVIDIA");
+    await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "provider");
+    await userEvent.type(within(form).getByLabelText("Provider symbol"), "NVDA");
+    await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
+
+    expect(createInstrument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "NVIDIA",
+        quoteSource: "provider",
+        providerKey: "yahoo_finance",
+        providerSymbol: "NVDA",
+      }),
+    );
+  });
+
   it("renders instrument type options from the catalog only", async () => {
     const { TEST_CATALOG, selectValues } = await import("@/test/catalog");
     renderPage();

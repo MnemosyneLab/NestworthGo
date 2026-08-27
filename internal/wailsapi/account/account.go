@@ -20,12 +20,12 @@ func NewService(app *application.Service) *Service {
 }
 
 // CreateAccountRequest mirrors application.AccountInput's create shape. All
-// fields except Name/PrimaryCategory/SecondaryCategory/TrackingMode/
+// fields except Name/AccountType/BalanceSheetRole/TrackingMode/
 // DefaultCurrency are optional.
 type CreateAccountRequest struct {
 	Name                  string                   `json:"name"`
-	PrimaryCategory       string                   `json:"primaryCategory"`
-	SecondaryCategory     string                   `json:"secondaryCategory"`
+	AccountType           string                   `json:"accountType"`
+	BalanceSheetRole      string                   `json:"balanceSheetRole"`
 	TrackingMode          string                   `json:"trackingMode"`
 	DefaultCurrency       string                   `json:"defaultCurrency"`
 	InstitutionID         *string                  `json:"institutionId,omitempty"`
@@ -33,7 +33,7 @@ type CreateAccountRequest struct {
 	Note                  *string                  `json:"note,omitempty"`
 	IconKey               *string                  `json:"iconKey,omitempty"`
 	IncludeInNetWorth     bool                     `json:"includeInNetWorth"`
-	IncludeInInvestment   bool                     `json:"includeInInvestment"`
+	IncludeInPortfolio    bool                     `json:"includeInPortfolio"`
 	IncludeInLiquidAssets bool                     `json:"includeInLiquidAssets"`
 	OpenedOn              *string                  `json:"openedOn,omitempty"`
 	ClosedOn              *string                  `json:"closedOn,omitempty"`
@@ -53,14 +53,14 @@ func (r CreateAccountRequest) toApplicationInput() (application.AccountInput, er
 		return application.AccountInput{}, err
 	}
 	return application.AccountInput{
-		Name: r.Name, PrimaryCategory: r.PrimaryCategory, SecondaryCategory: r.SecondaryCategory,
+		Name: r.Name, AccountType: r.AccountType, BalanceSheetRole: r.BalanceSheetRole,
 		TrackingMode: r.TrackingMode, DefaultCurrency: r.DefaultCurrency,
 		InstitutionID: wire.StringFromPtr(r.InstitutionID), InstitutionIDSet: r.InstitutionID != nil,
 		GroupID: wire.StringFromPtr(r.GroupID), GroupIDSet: r.GroupID != nil,
 		Note: r.Note, NoteSet: r.Note != nil,
 		IconKey: wire.StringFromPtr(r.IconKey), IconKeySet: r.IconKey != nil,
 		IncludeInNetWorth: r.IncludeInNetWorth, IncludeInNetWorthSet: true,
-		IncludeInInvestment: r.IncludeInInvestment, IncludeInInvestmentSet: true,
+		IncludeInPortfolio: r.IncludeInPortfolio, IncludeInPortfolioSet: true,
 		IncludeInLiquidAssets: r.IncludeInLiquidAssets, IncludeInLiquidAssetsSet: true,
 		OpenedOn: r.OpenedOn, OpenedOnSet: r.OpenedOn != nil,
 		ClosedOn: r.ClosedOn, ClosedOnSet: r.ClosedOn != nil,
@@ -75,8 +75,8 @@ func (r CreateAccountRequest) toApplicationInput() (application.AccountInput, er
 // Boolean fields use *bool for the same reason.
 type UpdateAccountRequest struct {
 	Name                  *string                  `json:"name,omitempty"`
-	PrimaryCategory       *string                  `json:"primaryCategory,omitempty"`
-	SecondaryCategory     *string                  `json:"secondaryCategory,omitempty"`
+	AccountType           *string                  `json:"accountType,omitempty"`
+	BalanceSheetRole      *string                  `json:"balanceSheetRole,omitempty"`
 	TrackingMode          *string                  `json:"trackingMode,omitempty"`
 	DefaultCurrency       *string                  `json:"defaultCurrency,omitempty"`
 	InstitutionID         *string                  `json:"institutionId,omitempty"`
@@ -88,7 +88,7 @@ type UpdateAccountRequest struct {
 	IconKey               *string                  `json:"iconKey,omitempty"`
 	IconKeySet            bool                     `json:"iconKeySet,omitempty"`
 	IncludeInNetWorth     *bool                    `json:"includeInNetWorth,omitempty"`
-	IncludeInInvestment   *bool                    `json:"includeInInvestment,omitempty"`
+	IncludeInPortfolio    *bool                    `json:"includeInPortfolio,omitempty"`
 	IncludeInLiquidAssets *bool                    `json:"includeInLiquidAssets,omitempty"`
 	OpenedOn              *string                  `json:"openedOn,omitempty"`
 	OpenedOnSet           bool                     `json:"openedOnSet,omitempty"`
@@ -114,15 +114,15 @@ func (r UpdateAccountRequest) toApplicationInput() (application.AccountInput, er
 		return application.AccountInput{}, err
 	}
 	input := application.AccountInput{
-		Name: wire.StringFromPtr(r.Name), PrimaryCategory: wire.StringFromPtr(r.PrimaryCategory),
-		SecondaryCategory: wire.StringFromPtr(r.SecondaryCategory), TrackingMode: wire.StringFromPtr(r.TrackingMode),
+		Name: wire.StringFromPtr(r.Name), AccountType: wire.StringFromPtr(r.AccountType),
+		BalanceSheetRole: wire.StringFromPtr(r.BalanceSheetRole), TrackingMode: wire.StringFromPtr(r.TrackingMode),
 		DefaultCurrency: wire.StringFromPtr(r.DefaultCurrency),
 		InstitutionID:   wire.StringFromPtr(r.InstitutionID), InstitutionIDSet: r.InstitutionIDSet,
 		GroupID: wire.StringFromPtr(r.GroupID), GroupIDSet: r.GroupIDSet,
 		Note: r.Note, NoteSet: r.NoteSet,
 		IconKey: wire.StringFromPtr(r.IconKey), IconKeySet: r.IconKeySet,
 		IncludeInNetWorth: boolValue(r.IncludeInNetWorth), IncludeInNetWorthSet: r.IncludeInNetWorth != nil,
-		IncludeInInvestment: boolValue(r.IncludeInInvestment), IncludeInInvestmentSet: r.IncludeInInvestment != nil,
+		IncludeInPortfolio: boolValue(r.IncludeInPortfolio), IncludeInPortfolioSet: r.IncludeInPortfolio != nil,
 		IncludeInLiquidAssets: boolValue(r.IncludeInLiquidAssets), IncludeInLiquidAssetsSet: r.IncludeInLiquidAssets != nil,
 		OpenedOn: r.OpenedOn, OpenedOnSet: r.OpenedOnSet,
 		ClosedOn: r.ClosedOn, ClosedOnSet: r.ClosedOnSet,
@@ -150,7 +150,7 @@ type AccountFilterRequest struct {
 	MemberID        *string `json:"memberId,omitempty"`
 	InstitutionID   *string `json:"institutionId,omitempty"`
 	GroupID         *string `json:"groupId,omitempty"`
-	Category        *string `json:"category,omitempty"`
+	AccountType     *string `json:"accountType,omitempty"`
 	OwnershipScope  string  `json:"ownershipScope,omitempty"`
 }
 
@@ -180,12 +180,12 @@ func (r AccountFilterRequest) ToDomain() (domain.AccountFilter, error) {
 		}
 		filter.GroupID = &id
 	}
-	if r.Category != nil {
-		category, err := domain.ParsePrimaryCategory(*r.Category)
+	if r.AccountType != nil {
+		accountType, err := domain.ParseAccountType(*r.AccountType)
 		if err != nil {
 			return domain.AccountFilter{}, err
 		}
-		filter.Category = &category
+		filter.AccountType = &accountType
 	}
 	if r.OwnershipScope != "" {
 		scope, err := domain.ParseOwnershipScope(r.OwnershipScope)

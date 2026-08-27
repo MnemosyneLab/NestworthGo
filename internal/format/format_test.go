@@ -26,12 +26,27 @@ func TestMoneyUsesExactDecimalRoundingAndSeparators(t *testing.T) {
 
 func TestMoneyRoundsHalfEvenAtZeroPlaces(t *testing.T) {
 	pref := settings.Default()
-	pref.DecimalPlaces = 0
-	if got := Money("8.5", "USD", pref); got != "$ 8" {
-		t.Fatalf("Money(8.5) = %q, want $ 8", got)
+	if got := Money("8.5", "JPY", pref); got != "¥ 8" {
+		t.Fatalf("Money(8.5 JPY) = %q, want ¥ 8", got)
 	}
-	if got := Money("9.5", "USD", pref); got != "$ 10" {
-		t.Fatalf("Money(9.5) = %q, want $ 10", got)
+	if got := Money("9.5", "JPY", pref); got != "¥ 10" {
+		t.Fatalf("Money(9.5 JPY) = %q, want ¥ 10", got)
+	}
+}
+
+func TestMoneyUsesCurrencyFractionDigits(t *testing.T) {
+	pref := settings.Default()
+	if got := Money("1234", "CNY", pref); got != "¥ 1,234.00" {
+		t.Fatalf("Money(CNY) = %q, want ¥ 1,234.00", got)
+	}
+	if got := Money("1234.5", "SGD", pref); got != "S$ 1,234.50" {
+		t.Fatalf("Money(SGD) = %q, want S$ 1,234.50", got)
+	}
+	if got := Money("1234.56", "JPY", pref); got != "¥ 1,235" {
+		t.Fatalf("Money(JPY) = %q, want ¥ 1,235", got)
+	}
+	if got := Money("1234.00", "KRW", pref); got != "₩ 1,234" {
+		t.Fatalf("Money(KRW) = %q, want ₩ 1,234", got)
 	}
 }
 

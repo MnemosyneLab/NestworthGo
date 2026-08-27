@@ -80,7 +80,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 			if parseErr != nil {
 				return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrIntegrity, Message: "historical base amount is invalid"}
 			}
-			if account.Account.PrimaryCategory.IsLiability() {
+			if account.Account.IsLiability() {
 				liabilities = liabilities.Add(amount)
 			} else {
 				assets = assets.Add(amount)
@@ -106,6 +106,9 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 			if !component.Available {
 				reason := missingReason(component, missing)
 				item.MissingReason = &reason
+			}
+			if account.Account.TrackingMode != domain.TrackingHoldings {
+				item.ClassificationBasis = domain.ClassificationCurrentMetadataDerived
 			}
 			items = append(items, item)
 		}

@@ -21,13 +21,13 @@ func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ownership: %v", err)
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Bank", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: ownership.Shares(), InitialAmount: "1000"}); err != nil {
+	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: ownership.Shares(), InitialAmount: "1000"}); err != nil {
 		t.Fatalf("create asset account: %v", err)
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Card", PrimaryCategory: "liability", SecondaryCategory: "credit_card", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "250"}); err != nil {
+	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "250"}); err != nil {
 		t.Fatalf("create liability account: %v", err)
 	}
-	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Excluded", PrimaryCategory: "cash_equivalent", SecondaryCategory: "cash", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: false, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "9000"}); err != nil {
+	if _, err := service.CreateAccount(ctx, AccountInput{Name: "Excluded", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", IncludeInNetWorth: false, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "9000"}); err != nil {
 		t.Fatalf("create excluded account: %v", err)
 	}
 	accounts, err := service.ListAccounts(ctx, domain.AccountFilter{})
@@ -37,7 +37,7 @@ func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
 	if len(accounts) < 1 {
 		t.Fatal("expected account for update")
 	}
-	if _, err := service.UpdateAccount(ctx, accounts[0].Account.ID, AccountInput{PrimaryCategory: "investment", SecondaryCategory: "manual_investment", TrackingMode: "manual_value"}); err == nil {
+	if _, err := service.UpdateAccount(ctx, accounts[0].Account.ID, AccountInput{AccountType: "investment_account", BalanceSheetRole: "asset", TrackingMode: "manual_value"}); err == nil {
 		t.Fatal("tracking mode change was accepted")
 	}
 	result, err := service.Overview(ctx, domain.AccountFilter{})
@@ -104,5 +104,129 @@ func TestIdentityOnlyMutationsDoNotLoadBootstrapDirectories(t *testing.T) {
 
 	if counting.members != 0 || counting.institutions != 0 || counting.groups != 0 {
 		t.Fatalf("identity-only mutations loaded Bootstrap directories: members=%d institutions=%d groups=%d", counting.members, counting.institutions, counting.groups)
+	}
+}
+
+func TestUpdateAccountAllowsCompatibleTypeChangeWithoutActivity(t *testing.T) {
+	service, ctx, bootstrap, _ := newOnboardedService(t, "type-edit", []string{"Owner"})
+	owner := bootstrap.Members[0].ID
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "MooMoo", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "2500", "CNY", "2026-08-01"); err != nil {
+		t.Fatalf("cash: %v", err)
+	}
+	before, err := service.ListActivities(ctx, 20)
+	if err != nil {
+		t.Fatalf("list activities: %v", err)
+	}
+	updated, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{AccountType: "investment_account"})
+	if err != nil {
+		t.Fatalf("compatible type edit: %v", err)
+	}
+	if updated.Account.AccountType != domain.TypeInvestmentAccount {
+		t.Fatalf("account type = %s, want investment_account", updated.Account.AccountType)
+	}
+	if updated.Account.BalanceSheetRole != domain.RoleAsset || updated.Account.TrackingMode != domain.TrackingHoldings {
+		t.Fatalf("frozen fields changed: %+v", updated.Account)
+	}
+	after, err := service.ListActivities(ctx, 20)
+	if err != nil {
+		t.Fatalf("list activities after edit: %v", err)
+	}
+	if len(after) != len(before) {
+		t.Fatalf("type edit created activities: before %d after %d", len(before), len(after))
+	}
+	cash, err := service.ListAccountCashValues(ctx, account.Account.ID)
+	if err != nil || len(cash) != 1 || cash[0].Amount.CanonicalAmount() != "2500" {
+		t.Fatalf("cash after type edit = %+v err=%v", cash, err)
+	}
+}
+
+func TestUpdateAccountRejectsIncompatibleTypeAndImmutableRole(t *testing.T) {
+	service, ctx, bootstrap, _ := newOnboardedService(t, "type-reject", []string{"Owner"})
+	owner := bootstrap.Members[0].ID
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "MooMoo", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{AccountType: "cash_on_hand"}); err == nil {
+		t.Fatal("incompatible type edit was accepted")
+	}
+	if _, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{BalanceSheetRole: "liability"}); err == nil {
+		t.Fatal("role edit was accepted")
+	}
+	if _, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{TrackingMode: "manual_value"}); err == nil {
+		t.Fatal("tracking edit was accepted")
+	}
+}
+
+func TestOverviewClassifiesCompositeAndSimpleBuckets(t *testing.T) {
+	service, ctx, bootstrap, _ := newOnboardedService(t, "overview-buckets", []string{"Owner"})
+	owner := bootstrap.Members[0].ID
+	if _, err := service.CreateAccount(ctx, AccountInput{
+		Name: "招行", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "800",
+	}); err != nil {
+		t.Fatalf("bank: %v", err)
+	}
+	brokerage, err := service.CreateAccount(ctx, AccountInput{
+		Name: "MooMoo", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
+	})
+	if err != nil {
+		t.Fatalf("brokerage: %v", err)
+	}
+	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatalf("instrument: %v", err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: brokerage.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "2"}); err != nil {
+		t.Fatalf("holding: %v", err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, brokerage.Account.ID, "200", "CNY", "2026-08-01"); err != nil {
+		t.Fatalf("cash: %v", err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "50", "2026-08-01", false); err != nil {
+		t.Fatalf("quote: %v", err)
+	}
+	if _, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "150",
+	}); err != nil {
+		t.Fatalf("card: %v", err)
+	}
+
+	result, err := service.Overview(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatalf("overview: %v", err)
+	}
+	if !result.Complete {
+		t.Fatalf("overview incomplete: %+v", result.MissingInputs)
+	}
+	if !result.Assets.Equal(decimal.RequireFromString("1100")) || !result.Liabilities.Equal(decimal.RequireFromString("150")) {
+		t.Fatalf("totals assets=%s liabilities=%s", result.Assets, result.Liabilities)
+	}
+	buckets := map[string]string{}
+	for _, item := range result.AssetsByType {
+		buckets[item.Key] = item.Amount.String()
+	}
+	if buckets[domain.BucketCash] != "1000" || buckets[domain.BucketStock] != "100" {
+		t.Fatalf("assetsByType = %+v, want cash=1000 stock=100", result.AssetsByType)
+	}
+	if len(result.LiabilitiesByType) != 1 || result.LiabilitiesByType[0].Key != domain.BucketCreditCard || result.LiabilitiesByType[0].Amount.String() != "150" {
+		t.Fatalf("liabilitiesByType = %+v", result.LiabilitiesByType)
 	}
 }

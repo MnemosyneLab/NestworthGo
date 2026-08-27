@@ -34,7 +34,7 @@ func TestCreateAccountMinimalFields(t *testing.T) {
 	ctx := context.Background()
 
 	record, err := service.CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Bank", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{members[0].ID}, InitialAmount: "1000",
 	})
@@ -58,7 +58,7 @@ func TestCreateAccountWithExplicitOwnershipPercentages(t *testing.T) {
 	app, members := onboardedApp(t)
 	service := account.NewService(app)
 	record, err := service.CreateAccount(context.Background(), account.CreateAccountRequest{
-		Name: "Joint", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		Name: "Joint", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{members[0].ID, members[1].ID}, OwnershipPercentages: []string{"60", "40"},
 		InitialAmount: "500",
@@ -79,7 +79,7 @@ func TestCreateAccountValidationError(t *testing.T) {
 	app, _ := onboardedApp(t)
 	service := account.NewService(app)
 	_, err := service.CreateAccount(context.Background(), account.CreateAccountRequest{
-		Name: "", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		Name: "", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD",
 	})
 	assertWireCode(t, err, "validation")
@@ -91,7 +91,7 @@ func TestUpdateAccountSetFlagsPattern(t *testing.T) {
 	ctx := context.Background()
 
 	record, err := service.CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Bank", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{members[0].ID}, InitialAmount: "1000", Note: strPtr("original note"),
 	})
@@ -126,7 +126,7 @@ func TestUpdateAccountRejectsTrackingModeChange(t *testing.T) {
 	service := account.NewService(app)
 	ctx := context.Background()
 	record, err := service.CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Bank", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{members[0].ID}, InitialAmount: "1000",
 	})
@@ -142,7 +142,7 @@ func TestArchiveAndRestoreAccount(t *testing.T) {
 	service := account.NewService(app)
 	ctx := context.Background()
 	record, err := service.CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Bank", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{members[0].ID}, InitialAmount: "1000",
 	})
@@ -176,7 +176,7 @@ func TestAppendAccountValueAndValuation(t *testing.T) {
 	service := account.NewService(app)
 	ctx := context.Background()
 	record, err := service.CreateAccount(ctx, account.CreateAccountRequest{
-		Name: "Bank", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{members[0].ID}, InitialAmount: "1000",
 	})
@@ -215,7 +215,7 @@ func TestAccountRecordDTORoundTripsAsJSON(t *testing.T) {
 	app, members := onboardedApp(t)
 	service := account.NewService(app)
 	record, err := service.CreateAccount(context.Background(), account.CreateAccountRequest{
-		Name: "Bank", PrimaryCategory: "cash_equivalent", SecondaryCategory: "bank_account",
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset",
 		TrackingMode: "balance", DefaultCurrency: "USD", IncludeInNetWorth: true,
 		OwnerIDs: []string{members[0].ID}, InitialAmount: "1000", Note: strPtr("hello"),
 	})

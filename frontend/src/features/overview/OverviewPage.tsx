@@ -330,7 +330,8 @@ export function OverviewPage({
       </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <BreakdownList title={t("overview.byCategory")} items={(data.byCategory ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))} currency={currency} />
+        <BreakdownList title={t("overview.assetsByType")} items={(data.assetsByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))} currency={currency} />
+        <BreakdownList title={t("overview.liabilitiesByType")} items={(data.liabilitiesByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))} currency={currency} />
         <BreakdownList title={t("overview.byMember")} items={data.byMember ?? []} currency={currency} />
         <BreakdownList title={t("overview.byInstitution")} items={data.byInstitution ?? []} currency={currency} />
         <BreakdownList title={t("overview.byGroup")} items={data.byGroup ?? []} currency={currency} />

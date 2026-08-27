@@ -3,13 +3,27 @@ import { Service as CatalogService } from "../../bindings/github.com/waltwang/ne
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 
+export type AccountCombinationDTO = {
+  accountType: string;
+  balanceSheetRole: string;
+  trackingMode: string;
+  roleLocked: boolean;
+  includeInNetWorth: boolean;
+  includeInPortfolio: boolean;
+  includeInLiquidAssets: boolean;
+  wholeAccountWarning: boolean;
+};
+
 export type CatalogDTO = {
   currencies: string[];
   instrumentTypes: string[];
   quoteSources: string[];
-  primaryCategories: string[];
-  secondaryCategoriesByPrimary: Record<string, string[]>;
-  trackingModesByPrimary: Record<string, string[]>;
+  instrumentProviders: string[];
+  accountTypes: string[];
+  balanceSheetRoles?: string[];
+  trackingModes?: string[];
+  accountCombinations: AccountCombinationDTO[];
+  trackingModesByAccountType: Record<string, string[]>;
   trendRanges: string[];
   appearances: string[];
   languages: string[];

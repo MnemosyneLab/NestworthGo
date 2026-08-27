@@ -55,13 +55,15 @@ An Institution identifies where an Account is held, such as a bank, broker, wall
 
 ### Group
 
-A Group is an optional Household-defined classification such as Emergency Fund, Retirement, or a geography. It is independent from Member, Institution, and financial Category. Groups support a built-in icon key, `#RRGGBB` color, and an optional custom logo.
+A Group is an optional Household-defined classification such as Emergency Fund, Retirement, or a geography. It is independent from Member, Institution, and Account type. Groups support a built-in icon key, `#RRGGBB` color, and an optional custom logo.
 
 ### Account
 
-An Account is the unit shown in the balance sheet. It has one primary and secondary Category, one immutable TrackingMode after creation, one default currency, exact Ownership, optional Institution and Group references, inclusion flags, lifecycle dates, and, for Balance and Manual Value modes, an append-only sequence of Account Values.
+An Account is the unit shown in the balance sheet. It has one `account_type`, one `balance_sheet_role`, one immutable `tracking_mode` after creation, one default currency, exact Ownership, optional Institution and Group references, inclusion flags, lifecycle dates, and, for Balance and Manual Value modes, an append-only sequence of Account Values.
 
-An Account can represent a bank balance, wallet, investment account valued manually, property, receivable, or liability. A Holdings-tracked Investment Account contains Holdings and cash-by-currency observations instead of an initial Account Value. An Account is not itself an Instrument.
+`account_type` names the real-world container. `balance_sheet_role` is the persistent asset or liability side and is immutable after create. `tracking_mode` is immutable after create. Type may be edited only when the new type remains legal with the frozen role and tracking. Create and update share one closed combination table.
+
+An Account can represent cash on hand, a bank or brokerage account, a wallet, a pension or insurance policy, property, a receivable, a credit card, a loan, or an other container. A Holdings-tracked Account contains Holdings and cash-by-currency observations instead of an initial Account Value. An Account is not itself an Instrument. Composite (holdings) classification comes from cash and Instrument components; Simple classification comes from `account_type` and role.
 
 ### Ownership
 
@@ -207,7 +209,7 @@ Ownership updates and Account updates are one atomic transaction.
 
 ## Value and Net-Worth Semantics
 
-Asset and liability values are both stored as non-negative Money. Sign is a property of Category, not persisted input. Overview, Account, and Portfolio totals come from one Go ValuationService. Historical closed-day totals come from HistoricalValuationService reconstructing origin plus ordered Activities at the cutoff. The live current Overview point must agree with ValuationService for the same read snapshot.
+Asset and liability values are both stored as non-negative Money. Sign is a property of `balance_sheet_role`, not persisted input. Overview, Account, and Portfolio totals come from one Go ValuationService. Historical closed-day totals come from HistoricalValuationService reconstructing origin plus ordered Activities at the cutoff. The live current Overview point must agree with ValuationService for the same read snapshot.
 
 ```text
 assets      = sum(included non-liability base values)
@@ -217,7 +219,7 @@ net worth   = assets - liabilities
 
 An Account contributes nothing when it is archived or `include_in_net_worth` is false. A missing required quote excludes only the affected component, marks parent aggregates incomplete, and never substitutes zero or one. Identity conversion (native currency equals base) needs no FX quote and carries no FX freshness; it must not override the Instrument Quote freshness. Direct and inverse FX against the Household base currency must produce the same rounded Money result. Multi-hop FX is not used.
 
-The Portfolio total is the sum of the authoritative base values of complete, active, non-liability Accounts with `include_in_investment`. An incomplete included Account is reported in `unvaluedItems`, excluded from the total, and lowers account-level coverage; missing values are never treated as zero. Existing Balance and Manual Value investment Accounts therefore remain visible and contribute when complete. Their allocation is represented by an explicit `manual` Instrument-type bucket, an unknown-country bucket, and their native-currency bucket. Holdings and cash allocations are added only for complete Holdings Accounts, so allocation amounts and percentages share the same complete-account denominator as the total.
+The Portfolio total is the sum of the authoritative base values of complete, active, non-liability Accounts with `include_in_portfolio`. An incomplete included Account is reported in `unvaluedItems`, excluded from the total, and lowers account-level coverage; missing values are never treated as zero. Simple investment Accounts valued by balance or manual value remain visible and contribute when complete; their Overview bucket comes from `account_type` (typically `unclassified_investment`). Holdings and cash allocations are added only for complete Holdings Accounts, so allocation amounts and percentages share the same complete-account denominator as the total.
 
 The Go service retains full checked decimal precision through quantity × price, FX conversion, and aggregation. Only application view-model construction rounds to four fractional digits with midpoint-nearest-even. Overview, Account detail, and Investments never reconstruct aggregate inputs from rounded strings.
 
@@ -239,12 +241,13 @@ Overview breakdowns follow these definitions:
 
 | Breakdown | Amount | Percentage denominator |
 | --- | --- | --- |
-| Category | Included asset amount; liabilities are excluded | Total assets |
+| Assets by type | Complete component or Simple Account amount on the asset side | Total assets |
+| Liabilities by type | Complete component or Simple Account amount on the liability side | Total liabilities |
 | Member | Ownership-weighted net contribution | Ownership-weighted total assets |
 | Institution | Net contribution for the bucket | Asset amount for the bucket |
 | Group | Net contribution for the bucket | Asset amount for the bucket |
 
-Portfolio allocation reports current value by native currency, country, and Instrument type. The Investments page reports current value, not return. Manual Balance and Manual Value investment Accounts use explicit unclassified/manual buckets because they cannot be attributed to an Instrument. Member allocation distributes rounding remainders deterministically and keeps each `shareBps` within `0..=10000`. Institution and Group include an unassigned bucket when applicable. The frontend formats these results but does not recalculate them.
+Portfolio allocation reports current value by native currency, country, and Instrument type. The Investments page reports current value, not return. Simple brokerage or investment Accounts without holdings use the unclassified-investment bucket because they cannot be attributed to an Instrument. Historical Simple buckets use the Account's current metadata and are marked `current-metadata-derived`. Member allocation distributes rounding remainders deterministically and keeps each `shareBps` within `0..=10000`. Institution and Group include an unassigned bucket when applicable. The frontend formats these results but does not recalculate them.
 
 ## Lifecycle and Reference Rules
 

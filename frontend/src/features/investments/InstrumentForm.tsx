@@ -41,13 +41,15 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
     formState: { errors },
   } = useForm<InstrumentFormValues>({
     resolver: zodResolver(instrumentFormSchema),
-    defaultValues: { name: "", type: "stock", quoteCurrency: "CNY", quoteSource: "manual" },
+    defaultValues: { name: "", type: "stock", quoteCurrency: "CNY", quoteSource: "manual", providerKey: "" },
   });
   const quoteSource = useWatch({ control, name: "quoteSource" });
   const householdCurrency = bootstrap.data?.household?.baseCurrency;
   const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
   const instrumentTypes = catalog.data?.instrumentTypes ?? [];
   const quoteSources = catalog.data?.quoteSources ?? [];
+  const instrumentProviders = catalog.data?.instrumentProviders ?? [];
+  const defaultProviderKey = catalog.data?.instrumentProviders?.[0];
 
   useEffect(() => {
     const next = householdCurrency ?? currencies.data?.[0];
@@ -55,6 +57,12 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
       setValue("quoteCurrency", next);
     }
   }, [currencies.data, householdCurrency, setValue]);
+
+  useEffect(() => {
+    if (quoteSource === "provider" && defaultProviderKey) {
+      setValue("providerKey", defaultProviderKey);
+    }
+  }, [defaultProviderKey, quoteSource, setValue]);
 
   const submit = (values: InstrumentFormValues) => {
     onSubmit({
@@ -112,7 +120,13 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
         <>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="instrument-provider-key">{t("portfolio.providerKey")}</Label>
-            <Input id="instrument-provider-key" {...register("providerKey")} placeholder={t("portfolio.providerKeyPlaceholder")} />
+            <NativeSelect id="instrument-provider-key" {...register("providerKey")}>
+              {instrumentProviders.map((provider) => (
+                <option key={provider} value={provider}>
+                  {displayEnum(t, "settings.provider", provider)}
+                </option>
+              ))}
+            </NativeSelect>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="instrument-provider-symbol">{t("portfolio.providerSymbol")}</Label>

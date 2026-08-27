@@ -9,7 +9,7 @@
     "amount": "初始金額",
     "amountNotUsed": "持倉模式不使用",
     "archive": "封存",
-    "category": "類別",
+    "category": "帳戶類型",
     "closedOn": "關閉日期",
     "create": "新增帳戶",
     "createDescription": "記錄目前餘額或手工估值，並保留精確所有權。",
@@ -25,7 +25,7 @@
     "filterAll": "全部帳戶",
     "filterShared": "共享",
     "filterSole": "單獨擁有",
-    "includeInInvestment": "計入投資",
+    "includeInPortfolio": "計入投資組合",
     "includeInLiquidAssets": "計入流動資產",
     "includeInNetWorth": "計入淨資產",
     "loadError": "無法載入帳戶",
@@ -39,11 +39,13 @@
     "ownershipScope": "所有權",
     "ownershipSharePlaceholder": "可選，留空則自動平均分配",
     "ownershipShares": "所有權比例",
-    "secondaryCategory": "子類別",
+    "balanceSheetRole": "資產負債角色",
     "selectCurrency": "請選擇幣種",
     "showArchived": "顯示已封存",
     "trackingMode": "追蹤模式",
-    "updateValue": "更新目前值"
+    "updateValue": "更新目前值",
+    "accountType": "帳戶類型",
+    "wholeAccountInclusionWarning": "投資組合與流動資產開關適用於此帳戶內的全部現金和持倉。"
   },
   "analytics": {
     "empty": "暫時沒有可用的已收盤日快照。",
@@ -114,7 +116,6 @@
     "title": "一處看清你的財務全貌。"
   },
   "enum": {
-    "auto_loan": "車貸",
     "balance": "餘額",
     "bank_account": "銀行帳戶",
     "bank_investment_product": "銀行投資產品",
@@ -151,7 +152,17 @@
     "real_estate": "房地產",
     "receivable": "應收款",
     "stock": "股票",
-    "vehicle": "車輛"
+    "vehicle": "車輛",
+    "asset": "資產",
+    "brokerage": "券商",
+    "cash_on_hand": "手頭現金",
+    "crypto_exchange": "加密貨幣交易所",
+    "insurance_policy": "保單",
+    "investment_account": "投資帳戶",
+    "loan": "貸款",
+    "other_asset": "其他資產",
+    "pension": "退休金",
+    "unclassified_investment": "未分類投資"
   },
   "error": {
     "account": {
@@ -164,10 +175,11 @@
       "initialValueMismatch": "初始值與帳戶不相符",
       "initialValueRequired": "餘額和手工估值帳戶必須填寫",
       "noCurrentValue": "帳戶沒有目前值",
-      "secondaryCategory": "不屬於主類別",
-      "trackingCategory": "不允許用於此類別",
+      "balanceSheetRole": "不支援",
       "trackingImmutable": "帳戶建立後不能修改追蹤模式",
-      "valueTrackingMode": "帳戶值不適用於此追蹤模式"
+      "valueTrackingMode": "帳戶值不適用於此追蹤模式",
+      "invalidCombination": "不是合法的帳戶組合",
+      "roleImmutable": "帳戶建立後不能修改資產負債角色"
     },
     "archive": {
       "unsupportedTable": "不支援的封存資料表"
@@ -609,7 +621,7 @@
     "accountCountDetail": "個活躍帳戶",
     "accounts": "帳戶",
     "assets": "資產",
-    "byCategory": "按類別",
+    "assetsByType": "按資產類型",
     "byGroup": "按分組",
     "byInstitution": "按機構",
     "byMember": "按成員",
@@ -617,7 +629,8 @@
     "emptyTitle": "資產負債表還是空的",
     "liabilities": "負債",
     "loadError": "無法載入概覽",
-    "netWorth": "淨資產"
+    "netWorth": "淨資產",
+    "liabilitiesByType": "按負債類型"
   },
   "page": {
     "accountsDescription": "帳戶將成為管理餘額、所有權、機構和分組的長期入口。",
@@ -783,7 +796,8 @@
     },
     "provider": {
       "frankfurter": "Frankfurter",
-      "yahoo": "Yahoo Finance"
+      "yahoo": "Yahoo Finance",
+      "yahoo_finance": "Yahoo Finance"
     },
     "providers": {
       "description": "選擇手動重新整理匯率時使用的提供方。投資標的重新整理仍使用各自儲存的提供方繫結。",

@@ -295,15 +295,15 @@ type AccountDTO struct {
 	InstitutionID         *string `json:"institutionId,omitempty"`
 	GroupID               *string `json:"groupId,omitempty"`
 	Name                  string  `json:"name"`
-	PrimaryCategory       string  `json:"primaryCategory"`
-	SecondaryCategory     string  `json:"secondaryCategory"`
+	AccountType           string  `json:"accountType"`
+	BalanceSheetRole      string  `json:"balanceSheetRole"`
 	TrackingMode          string  `json:"trackingMode"`
 	DefaultCurrency       string  `json:"defaultCurrency"`
 	Note                  *string `json:"note,omitempty"`
 	IconKey               *string `json:"iconKey,omitempty"`
 	LogoAssetID           *string `json:"logoAssetId,omitempty"`
 	IncludeInNetWorth     bool    `json:"includeInNetWorth"`
-	IncludeInInvestment   bool    `json:"includeInInvestment"`
+	IncludeInPortfolio    bool    `json:"includeInPortfolio"`
 	IncludeInLiquidAssets bool    `json:"includeInLiquidAssets"`
 	OpenedOn              *string `json:"openedOn,omitempty"`
 	ClosedOn              *string `json:"closedOn,omitempty"`
@@ -316,10 +316,10 @@ type AccountDTO struct {
 func FromAccount(value domain.Account) AccountDTO {
 	dto := AccountDTO{
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Name: value.Name,
-		PrimaryCategory: value.PrimaryCategory.String(), SecondaryCategory: string(value.SecondaryCategory),
+		AccountType: value.AccountType.String(), BalanceSheetRole: string(value.BalanceSheetRole),
 		TrackingMode: string(value.TrackingMode), DefaultCurrency: value.DefaultCurrency.String(),
 		Note: value.Note, IconKey: value.IconKey, IncludeInNetWorth: value.IncludeInNetWorth,
-		IncludeInInvestment: value.IncludeInInvestment, IncludeInLiquidAssets: value.IncludeInLiquidAssets,
+		IncludeInPortfolio: value.IncludeInPortfolio, IncludeInLiquidAssets: value.IncludeInLiquidAssets,
 		OpenedOn: value.OpenedOn, ClosedOn: value.ClosedOn, SortOrder: value.SortOrder,
 		CreatedAt: FormatTime(value.CreatedAt), UpdatedAt: FormatTime(value.UpdatedAt),
 		ArchivedAt: FormatTimePtr(value.ArchivedAt),
@@ -530,10 +530,11 @@ func FromAllocations(values []domain.AllocationView) []AllocationDTO {
 // BreakdownDTO mirrors domain.BreakdownItem (an exact decimal.Decimal
 // amount, canonicalized here to a string).
 type BreakdownDTO struct {
-	Key      string `json:"key"`
-	Label    string `json:"label"`
-	Amount   string `json:"amount"`
-	ShareBPS int    `json:"shareBps"`
+	Key                 string `json:"key"`
+	Label               string `json:"label"`
+	Amount              string `json:"amount"`
+	ShareBPS            int    `json:"shareBps"`
+	ClassificationBasis string `json:"classificationBasis,omitempty"`
 }
 
 func FromBreakdown(value domain.BreakdownItem) BreakdownDTO {
@@ -541,7 +542,7 @@ func FromBreakdown(value domain.BreakdownItem) BreakdownDTO {
 	if value.Amount.IsZero() {
 		amount = "0"
 	}
-	return BreakdownDTO{Key: value.Key, Label: value.Label, Amount: amount, ShareBPS: value.ShareBPS}
+	return BreakdownDTO{Key: value.Key, Label: value.Label, Amount: amount, ShareBPS: value.ShareBPS, ClassificationBasis: value.ClassificationBasis.String()}
 }
 
 func FromBreakdowns(values []domain.BreakdownItem) []BreakdownDTO {
