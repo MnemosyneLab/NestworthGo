@@ -64,11 +64,13 @@ export function OverviewPage({
   onOpenAccounts,
   onOpenHistory,
   onOpenMarketData,
+  onOpenInvestments,
 }: {
   onAddAccount?: () => void;
   onOpenAccounts?: () => void;
   onOpenHistory?: () => void;
   onOpenMarketData?: () => void;
+  onOpenInvestments?: () => void;
 } = {}) {
   const { t, i18n } = useTranslation();
   const overview = useOverview();
@@ -132,6 +134,15 @@ export function OverviewPage({
   const missingValues = countMissing(missing, "account_value");
   const missingFx = countMissing(missing, "fx_rate");
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
+  const instrumentById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument]));
+  const missingManualPrices = missing.filter((item) => {
+    if (item.kind !== "instrument_price") {
+      return false;
+    }
+    const instrument = item.instrumentId ? instrumentById.get(item.instrumentId) : undefined;
+    return !instrument || instrument.quoteSource === "manual";
+  }).length;
+  const missingProviderPrices = missingPrices - missingManualPrices;
   const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
   const recent = activities.data ?? [];
   const historyReady = !origin.isLoading && !origin.isError && Boolean(origin.data);
@@ -142,14 +153,21 @@ export function OverviewPage({
       <PageHeader title={t("nav.overview")} description={t("overview.description")} status={headerStatus} />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.9fr)]">
-        <Card>
+        <Card className="relative overflow-hidden">
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-from to-brand-to" aria-hidden="true" />
           <CardHeader>
             <CardTitle>{t("overview.netWorth")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-4xl font-semibold tracking-tight" data-testid="overview-net-worth">
+            <p
+              className="bg-gradient-to-r from-brand-from to-brand-to bg-clip-text text-4xl font-semibold tracking-tight text-transparent"
+              data-testid="overview-net-worth"
+            >
               {formatAmount(data.netWorth, currency)}
             </p>
+            {!data.complete && (
+              <p className="mt-2 text-sm text-warning-foreground">{t("overview.totalsExcludeMissing")}</p>
+            )}
             <div className="mt-5 grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground">{t("overview.assets")}</p>
@@ -199,7 +217,8 @@ export function OverviewPage({
               <CardTitle>{t("overview.nextStepsTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
-              {missingPrices === 0 &&
+              {missingManualPrices === 0 &&
+              missingProviderPrices === 0 &&
               missingValues === 0 &&
               missingFx === 0 &&
               !historyNotStarted &&
@@ -207,9 +226,19 @@ export function OverviewPage({
                 <p className="text-sm text-muted-foreground">{t("overview.noNextSteps")}</p>
               ) : (
                 <ul className="flex flex-col gap-3">
-                  {missingPrices > 0 && (
+                  {missingManualPrices > 0 && (
                     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-foreground">{t("overview.refreshPricesNext", { count: missingPrices })}</p>
+                      <p className="text-sm text-foreground">{t("overview.setManualPricesNext", { count: missingManualPrices })}</p>
+                      {onOpenInvestments && (
+                        <Button type="button" size="sm" variant="outline" onClick={onOpenInvestments}>
+                          {t("overview.openInvestments")}
+                        </Button>
+                      )}
+                    </li>
+                  )}
+                  {missingProviderPrices > 0 && (
+                    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="text-sm text-foreground">{t("overview.refreshPricesNext", { count: missingProviderPrices })}</p>
                       {onOpenMarketData && (
                         <Button type="button" size="sm" variant="outline" onClick={onOpenMarketData}>
                           {t("overview.openMarketData")}

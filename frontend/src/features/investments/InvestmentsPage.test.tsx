@@ -30,7 +30,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
   Service: { AccountGain: (...args: unknown[]) => accountGain(...args), RealizedGain: vi.fn(), HoldingGain: vi.fn() },
 }));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({ Service: {} }));
+const saveManualQuote = vi.fn();
+
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
+  Service: { SaveManualInstrumentQuote: (...args: unknown[]) => saveManualQuote(...args) },
+}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: { ListAccounts: (...args: unknown[]) => listAccounts(...args) },
 }));
@@ -55,6 +59,8 @@ beforeEach(() => {
   createHolding.mockReset();
   holdingsByAccounts.mockReset();
   accountGain.mockReset();
+  saveManualQuote.mockReset();
+  saveManualQuote.mockResolvedValue({ id: "q1", instrumentId: "i1", unitPrice: "131.70" });
 
   listInstruments.mockResolvedValue([]);
   createInstrument.mockResolvedValue({ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" });
@@ -145,7 +151,7 @@ describe("InvestmentsPage", () => {
           totalCost: { amount: "1000", currency: "USD" },
           realizedGain: { amount: "0", currency: "USD" },
           available: false,
-          missingReason: "no current price",
+          missingReason: "current instrument price is unavailable",
         },
       ],
     });
@@ -164,5 +170,28 @@ describe("InvestmentsPage", () => {
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Archive" }));
     expect(archiveInstrument).toHaveBeenCalledWith("i1", true);
+  });
+
+  it("saves a manual instrument quote from Set price", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    renderPage();
+    await screen.findByText("NVIDIA");
+    await userEvent.click(screen.getByRole("button", { name: "Set price" }));
+    await userEvent.type(await screen.findByLabelText("Unit price"), "131.70");
+    const priceButtons = screen.getAllByRole("button", { name: "Set price" });
+    await userEvent.click(priceButtons[priceButtons.length - 1]);
+    expect(saveManualQuote).toHaveBeenCalledWith("i1", "131.70", "");
+  });
+
+  it("shows a validation error when Add holding is submitted empty", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
+    await screen.findByLabelText("Account");
+    const submitButtons = screen.getAllByRole("button", { name: "Add holding" });
+    await userEvent.click(submitButtons[submitButtons.length - 1]);
+    expect(await screen.findByRole("alert")).toHaveTextContent("Choose an account, instrument, and quantity.");
+    expect(createHolding).not.toHaveBeenCalled();
   });
 });

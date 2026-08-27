@@ -35,3 +35,4 @@ coverage.out
 .env.*
 !.env.example
 .codegraph
+/tmp/

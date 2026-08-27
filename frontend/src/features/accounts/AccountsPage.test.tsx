@@ -6,6 +6,7 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { AccountsPage } from "./AccountsPage";
 
 const listAccounts = vi.fn();
+const accountValuations = vi.fn();
 const createAccount = vi.fn();
 const updateAccount = vi.fn();
 const archiveAccount = vi.fn().mockResolvedValue(undefined);
@@ -16,6 +17,7 @@ const createMediaAsset = vi.fn();
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
     ListAccounts: (...args: unknown[]) => listAccounts(...args),
+    AccountValuations: (...args: unknown[]) => accountValuations(...args),
     CreateAccount: (...args: unknown[]) => createAccount(...args),
     UpdateAccount: (...args: unknown[]) => updateAccount(...args),
     ArchiveAccount: (...args: unknown[]) => archiveAccount(...args),
@@ -56,6 +58,7 @@ const emptyAccount = {
 
 beforeEach(() => {
   listAccounts.mockReset();
+  accountValuations.mockReset();
   createAccount.mockReset();
   updateAccount.mockReset();
   archiveAccount.mockClear();
@@ -63,6 +66,9 @@ beforeEach(() => {
   pickImage.mockReset();
   createMediaAsset.mockReset();
   listAccounts.mockResolvedValue([emptyAccount]);
+  accountValuations.mockResolvedValue([
+    { account: emptyAccount.account, ownership: emptyAccount.ownership, complete: true, components: [], missingInputs: [], baseValue: { amount: "1000", currency: "USD" } },
+  ]);
   createAccount.mockResolvedValue(emptyAccount);
   updateAccount.mockResolvedValue(emptyAccount);
   pickImage.mockResolvedValue("");
@@ -80,6 +86,27 @@ describe("AccountsPage", () => {
     renderPage();
     expect(await screen.findByText("Checking")).toBeInTheDocument();
     expect(screen.getByText("$1,000.00")).toBeInTheDocument();
+  });
+
+  it("shows computed valuation for holdings accounts without a stored latestValue", async () => {
+    const holdingsAccount = {
+      account: { ...emptyAccount.account, id: "inv-1", name: "Brokerage", trackingMode: "holdings" },
+      ownership: emptyAccount.ownership,
+    };
+    listAccounts.mockResolvedValue([holdingsAccount]);
+    accountValuations.mockResolvedValue([
+      {
+        account: holdingsAccount.account,
+        ownership: holdingsAccount.ownership,
+        complete: true,
+        components: [],
+        missingInputs: [],
+        baseValue: { amount: "2500", currency: "USD" },
+      },
+    ]);
+    renderPage();
+    expect(await screen.findByText("Brokerage")).toBeInTheDocument();
+    expect(screen.getByText("$2,500.00")).toBeInTheDocument();
   });
 
   it("creates an account with minimal required fields (equal ownership split)", async () => {
@@ -122,6 +149,25 @@ describe("AccountsPage", () => {
           { memberId: "alice", shareBps: 7000 },
           { memberId: "bob", shareBps: 3000 },
         ],
+      }),
+    );
+  });
+
+  it("defaults includeInInvestment when the category is Investment", async () => {
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Account form" });
+    await userEvent.type(within(form).getByLabelText("Name"), "Brokerage");
+    await userEvent.selectOptions(within(form).getByLabelText("Category"), "investment");
+    expect(within(form).getByLabelText("Include in investment")).toBeChecked();
+    await userEvent.click(within(form).getByLabelText("Alice"));
+    await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
+    expect(createAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "Brokerage",
+        primaryCategory: "investment",
+        includeInInvestment: true,
       }),
     );
   });

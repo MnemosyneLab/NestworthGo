@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BrandLockup } from "@/components/brand/BrandLockup";
 import { useCompleteOnboarding } from "@/queries/household";
 import { useSupportedCurrencies } from "@/queries/settings";
 import { translateWailsError, type WireError } from "@/lib/wails";
@@ -16,8 +17,12 @@ const onboardingSchema = z.object({
   householdName: z.string().trim().min(1),
   baseCurrency: z.string().length(3),
   memberNames: z
-    .array(z.object({ name: z.string().trim().min(1) }))
-    .min(1),
+    .array(z.object({ name: z.string() }))
+    .superRefine((rows, ctx) => {
+      if (rows.every((row) => row.name.trim() === "")) {
+        ctx.addIssue({ code: "custom", path: [] });
+      }
+    }),
 });
 
 type OnboardingFormValues = z.infer<typeof onboardingSchema>;
@@ -36,6 +41,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
   const {
     register,
     control,
+    getValues,
     handleSubmit,
     formState: { errors },
   } = useForm<OnboardingFormValues>({
@@ -49,7 +55,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
       {
         householdName: values.householdName,
         baseCurrency: values.baseCurrency,
-        memberNames: values.memberNames.map((member) => member.name),
+        memberNames: values.memberNames.map((member) => member.name.trim()).filter(Boolean),
       },
       { onSuccess: onCompleted },
     );
@@ -59,12 +65,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
     <main className="min-h-[100dvh] bg-background px-6 py-10 text-foreground sm:px-10 sm:py-16">
       <div className="mx-auto grid w-full max-w-5xl gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(360px,1fr)] lg:items-start">
         <section className="flex flex-col gap-5 pt-2 lg:pt-12">
-          <div className="flex items-center gap-3">
-            <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-lg font-semibold text-primary-foreground" aria-hidden="true">
-              N
-            </div>
-            <span className="text-sm font-semibold">{t("app.name")}</span>
-          </div>
+          <BrandLockup />
           <div className="flex flex-col gap-3">
             <p className="text-sm font-medium text-primary">{t("onboarding.duration")}</p>
             <h1 className="max-w-lg text-3xl font-semibold tracking-tight sm:text-4xl">{t("onboarding.title")}</h1>
@@ -138,7 +139,20 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
                     {t("error.onboarding.memberRequired")}
                   </p>
                 )}
-                <Button type="button" variant="outline" size="sm" onClick={() => append({ name: "" })} className="self-start">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const names = getValues("memberNames");
+                    const last = names[names.length - 1];
+                    if (last && !last.name.trim()) {
+                      return;
+                    }
+                    append({ name: "" });
+                  }}
+                  className="self-start"
+                >
                   <Plus className="size-4" aria-hidden="true" /> {t("onboarding.addMember")}
                 </Button>
               </fieldset>

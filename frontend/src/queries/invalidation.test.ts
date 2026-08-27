@@ -43,6 +43,8 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
     StartHistory: vi.fn(async () => ({ id: "origin-1" })),
+    StartHistoryWithCosts: vi.fn(async () => ({ id: "origin-1" })),
+    StartingPointDraft: vi.fn(async () => []),
     RecordChange: vi.fn(async () => ({ activity: { id: "a1" }, effects: [], resulting: [] })),
     UndoChange: vi.fn(async () => ({ activity: { id: "a2" }, effects: [], resulting: [] })),
     FixChange: vi.fn(async () => ({ activity: { id: "a1" }, effects: [], resulting: [] })),
@@ -174,6 +176,7 @@ describe("query keys and dependency invalidation", () => {
 function seededClient() {
   return clientWith(
     queryKeys.accounts.list(),
+    queryKeys.accounts.valuations(),
     queryKeys.overview.all,
     queryKeys.analytics.accountGain.current("account-1"),
     queryKeys.analytics.accountGain.current("account-2"),
@@ -199,6 +202,7 @@ describe("mutation-hook invalidation", () => {
       await create.result.current.mutateAsync({ name: "Cash" } as never);
     });
     expect(isInvalidated(queryClient, queryKeys.accounts.list())).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.accounts.valuations())).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(false);
 
@@ -276,7 +280,7 @@ describe("mutation-hook invalidation", () => {
     const historyClient = seededClient();
     const start = renderMutation(historyClient, useStartHistory);
     await act(async () => {
-      await start.result.current.mutateAsync("UTC");
+      await start.result.current.mutateAsync({ timezone: "UTC" });
     });
     expect(isInvalidated(historyClient, queryKeys.history.origin)).toBe(true);
     expect(isInvalidated(historyClient, queryKeys.accounts.list())).toBe(false);

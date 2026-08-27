@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { SUPPORTED_LANGUAGES, setLanguage } from "@/i18n";
 import { useAppInfo } from "@/queries/app";
 import { useSaveSettings } from "@/queries/settings";
+import { BrandLockup } from "@/components/brand/BrandLockup";
 import { displayError } from "@/lib/display";
 import { toast } from "sonner";
 import type { Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
@@ -107,12 +108,12 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
     <div className="flex h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
-          "flex flex-col border-r border-border bg-card transition-all duration-150",
+          "flex flex-col border-r border-border bg-card/80 backdrop-blur-sm transition-[width] duration-150",
           collapsed ? "w-14" : "w-56",
         )}
       >
-        <div className="flex h-12 items-center justify-between px-3">
-          {!collapsed && <span className="text-sm font-semibold">{t("app.name")}</span>}
+        <div className={cn("flex px-3", collapsed ? "flex-col items-center gap-2 py-3" : "h-14 items-center justify-between")}>
+          <BrandLockup compact={collapsed} />
           <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label={t("ui.navigation.toggleSidebar")}>
             {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </Button>
@@ -138,8 +139,10 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
                     title={collapsed ? label : undefined}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-2 rounded-md px-2 py-2 text-sm font-medium transition-colors",
-                      active ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-muted",
+                      "flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                      active
+                        ? "bg-gradient-to-r from-primary to-primary/85 text-primary-foreground shadow-sm"
+                        : "text-foreground hover:bg-muted",
                       collapsed && "justify-center",
                     )}
                   >
@@ -159,12 +162,12 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
                 : `v${appInfo.data.version}`
               : appInfo.isError
                 ? ""
-                : "..."}
+                : "…"}
           </div>
         )}
       </aside>
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-12 items-center justify-end gap-2 border-b border-border px-4">
+        <header className="flex h-14 items-center justify-end gap-2 border-b border-border bg-card/60 px-4 backdrop-blur-sm">
           <LanguageSwitcher
             language={settings.language}
             disabled={saveSettings.isPending}

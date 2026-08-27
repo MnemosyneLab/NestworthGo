@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,9 +44,9 @@ export type DirectoryCreateResult = {
 
 /**
  * DirectoryEntityList is the shared create/edit/archive/image surface for
- * Members, Institutions, and Groups. Entity creation is awaited before the
- * inline form clears, while media is reported as a recoverable partial
- * failure instead of becoming an unhandled promise.
+ * Members, Institutions, and Groups. Creation happens in a side sheet;
+ * media is reported as a recoverable partial failure instead of becoming
+ * an unhandled promise.
  */
 export function DirectoryEntityList<T extends Entity>({
   entities,
@@ -58,6 +59,7 @@ export function DirectoryEntityList<T extends Entity>({
   onRetry,
   entityLabel,
   createLabel,
+  addLabel,
   emptyLabel,
   supportsIcon = false,
 }: {
@@ -71,10 +73,12 @@ export function DirectoryEntityList<T extends Entity>({
   onRetry: () => void | Promise<unknown>;
   entityLabel: string;
   createLabel: string;
+  addLabel: string;
   emptyLabel: string;
   supportsIcon?: boolean;
 }) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [iconKey, setIconKey] = useState("");
   const [pendingImage, setPendingImage] = useState<string | undefined>(undefined);
@@ -102,6 +106,7 @@ export function DirectoryEntityList<T extends Entity>({
       setName("");
       setIconKey("");
       setPendingImage(undefined);
+      setOpen(false);
       if (result.mediaSaved) {
         toast.success(t("directory.entityCreated", { name: trimmedName }));
       } else {
@@ -168,27 +173,37 @@ export function DirectoryEntityList<T extends Entity>({
 
   return (
     <div className="flex flex-col gap-4">
-      <form onSubmit={submitCreate} className="flex flex-col gap-3" aria-label={createLabel}>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            placeholder={createLabel}
-            aria-label={createLabel}
-            disabled={submitting}
-          />
-          <Button type="submit" disabled={submitting} className="shrink-0">
-            <Plus className="size-4" aria-hidden="true" /> {submitting ? t("common.pending") : t("common.add")}
-          </Button>
-        </div>
-        {supportsIcon && <IconPicker id={`${createLabel}-icon`} value={iconKey} onChange={setIconKey} />}
-        <ImagePicker label={t("common.media")} value={pendingImage} onChange={setPendingImage} />
-        {submitError && (
-          <p role="alert" className="text-sm text-destructive">
-            {submitError}
-          </p>
-        )}
-      </form>
+      <div>
+        <Sheet open={open} onOpenChange={setOpen}>
+          <SheetTrigger className={buttonVariants({})}>
+            <Plus className="size-4" aria-hidden="true" /> {addLabel}
+          </SheetTrigger>
+          <SheetContent>
+            <SheetHeader>
+              <SheetTitle>{addLabel}</SheetTitle>
+            </SheetHeader>
+            <form onSubmit={submitCreate} className="flex flex-col gap-4" aria-label={createLabel}>
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder={createLabel}
+                aria-label={createLabel}
+                disabled={submitting}
+              />
+              {supportsIcon && <IconPicker id={`${createLabel}-icon`} value={iconKey} onChange={setIconKey} />}
+              <ImagePicker label={t("common.media")} value={pendingImage} onChange={setPendingImage} />
+              {submitError && (
+                <p role="alert" className="text-sm text-destructive">
+                  {submitError}
+                </p>
+              )}
+              <Button type="submit" disabled={submitting}>
+                {submitting ? t("common.pending") : t("common.add")}
+              </Button>
+            </form>
+          </SheetContent>
+        </Sheet>
+      </div>
 
       {isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
       {isError && (

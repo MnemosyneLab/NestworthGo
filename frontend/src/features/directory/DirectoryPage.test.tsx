@@ -64,10 +64,11 @@ describe("DirectoryPage", () => {
     expect(await screen.findByText("Alice")).toBeInTheDocument();
   });
 
-  it("creates a new Member from the inline form", async () => {
+  it("creates a new Member from the add sheet", async () => {
     renderPage();
     await screen.findByText("Alice");
-    const form = screen.getByRole("form", { name: "Member name" });
+    await userEvent.click(screen.getByRole("button", { name: "Add a member" }));
+    const form = await screen.findByRole("form", { name: "Member name" });
     await userEvent.type(within(form).getByRole("textbox"), "Bob");
     await userEvent.click(within(form).getByRole("button", { name: /add/i }));
     expect(createMember).toHaveBeenCalledWith("Bob");
@@ -86,6 +87,8 @@ describe("DirectoryPage", () => {
     renderPage();
     await screen.findByText("Alice");
     await userEvent.click(screen.getByRole("tab", { name: "Institutions" }));
+    expect(screen.getByRole("tab", { name: "Institutions" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: "Members" })).toHaveAttribute("aria-selected", "false");
     expect(screen.getByRole("tabpanel", { name: "Institutions" })).toBeInTheDocument();
   });
 

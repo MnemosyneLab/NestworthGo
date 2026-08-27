@@ -61,18 +61,18 @@ export function EChart({ option, className, style, ariaLabel, summary, dataTable
   }, [option]);
 
   return (
-    <figure className="flex h-full flex-col gap-3">
+    <figure className="flex flex-col gap-3">
       <div
         ref={containerRef}
         className={className}
-        style={{ width: "100%", height: "100%", ...style }}
+        style={{ width: "100%", height: 320, ...style }}
         role="img"
         aria-label={ariaLabel}
         aria-describedby={summary ? summaryId : undefined}
       />
       {summary && <figcaption id={summaryId} className="sr-only">{summary}</figcaption>}
       {dataTableLabel && dataTableColumns && dataTableRows && (
-        <details>
+        <details className="relative z-10">
           <summary className="cursor-pointer text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
             {dataTableLabel}
           </summary>

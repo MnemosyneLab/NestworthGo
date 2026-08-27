@@ -7,6 +7,8 @@ import { HistoryPage } from "./HistoryPage";
 
 const historyOrigin = vi.fn();
 const startHistory = vi.fn();
+const startHistoryWithCosts = vi.fn();
+const startingPointDraft = vi.fn();
 const listActivities = vi.fn();
 const previewChange = vi.fn();
 const previewFixChange = vi.fn();
@@ -18,6 +20,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
   Service: {
     HistoryOrigin: () => historyOrigin(),
     StartHistory: (...args: unknown[]) => startHistory(...args),
+    StartHistoryWithCosts: (...args: unknown[]) => startHistoryWithCosts(...args),
+    StartingPointDraft: () => startingPointDraft(),
     ListActivities: () => listActivities(),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
     PreviewFixChange: (...args: unknown[]) => previewFixChange(...args),
@@ -53,12 +57,15 @@ function renderPage() {
 beforeEach(() => {
   historyOrigin.mockReset();
   startHistory.mockReset();
+  startHistoryWithCosts.mockReset();
+  startingPointDraft.mockReset();
   listActivities.mockReset();
   previewChange.mockReset();
   recordChange.mockReset();
   undoChange.mockReset();
   fixChange.mockReset();
   previewFixChange.mockReset();
+  startingPointDraft.mockResolvedValue([]);
 });
 
 describe("HistoryPage", () => {
@@ -77,6 +84,24 @@ describe("HistoryPage", () => {
     await userEvent.type(timezoneInput, "UTC");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
     expect(startHistory).toHaveBeenCalledWith("UTC");
+    expect(startHistoryWithCosts).not.toHaveBeenCalled();
+  });
+
+  it("starts history with unit costs when holdings already exist", async () => {
+    historyOrigin.mockResolvedValue(null);
+    startingPointDraft.mockResolvedValue([
+      { holdingId: "h1", instrumentId: "i1", instrumentName: "Vanguard S&P 500 ETF", currency: "USD", quantity: "100", unitCost: "" },
+    ]);
+    startHistoryWithCosts.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    renderPage();
+    const timezoneInput = await screen.findByLabelText("Timezone");
+    await userEvent.clear(timezoneInput);
+    await userEvent.type(timezoneInput, "UTC");
+    const costInput = await screen.findByLabelText(/Vanguard S&P 500 ETF/);
+    await userEvent.type(costInput, "430.25");
+    await userEvent.click(screen.getByRole("button", { name: "Start history" }));
+    expect(startHistoryWithCosts).toHaveBeenCalledWith("UTC", { h1: "430.25" });
+    expect(startHistory).not.toHaveBeenCalled();
   });
 
   it("previews then records a money_added change", async () => {

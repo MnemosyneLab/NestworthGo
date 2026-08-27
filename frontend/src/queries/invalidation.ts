@@ -33,6 +33,7 @@ export function invalidateQuoteReads(queryClient: QueryClient, instrumentId?: st
 
 export function invalidateCurrentValuation(queryClient: QueryClient, accountIds?: readonly string[]) {
   invalidate(queryClient, queryKeys.overview.all);
+  invalidateAccountReads(queryClient);
   if (accountIds && accountIds.length > 0) {
     for (const accountId of accountIds) {
       invalidate(queryClient, queryKeys.analytics.accountGain.current(accountId));
@@ -73,5 +74,6 @@ export function invalidateRefreshAll(queryClient: QueryClient) {
 }
 
 export function invalidateRequiredFX(queryClient: QueryClient) {
+  invalidate(queryClient, queryKeys.quote.fx.all);
   invalidateCurrentValuation(queryClient);
 }
