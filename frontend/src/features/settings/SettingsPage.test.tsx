@@ -8,6 +8,7 @@ import { SettingsPage } from "./SettingsPage";
 const load = vi.fn();
 const save = vi.fn().mockResolvedValue(undefined);
 const reset = vi.fn();
+const historyOrigin = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: {
@@ -26,6 +27,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ap
   Service: {
     AppInfo: () => Promise.resolve({ name: "Nestworth", appId: "com.nestworth.app", version: "v0.2.0", build: "1" }),
     Startup: () => Promise.resolve({ available: true }),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
+  Service: {
+    HistoryOrigin: () => historyOrigin(),
   },
 }));
 
@@ -60,7 +66,9 @@ beforeEach(() => {
   load.mockReset();
   save.mockClear();
   reset.mockReset();
+  historyOrigin.mockReset();
   load.mockResolvedValue(defaultSettings);
+  historyOrigin.mockResolvedValue(null);
 });
 
 describe("SettingsPage", () => {
@@ -118,5 +126,13 @@ describe("SettingsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Asia/Shanghai", fx_provider: "frankfurter" }));
+  });
+
+  it("notes when Settings presentation timezone differs from History Origin", async () => {
+    const presentation = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const origin = presentation === "UTC" ? "Asia/Tokyo" : "UTC";
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: origin });
+    renderPage();
+    expect(await screen.findByText(new RegExp(`History was started in ${origin}`))).toBeInTheDocument();
   });
 });

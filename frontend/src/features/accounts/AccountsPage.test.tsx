@@ -21,9 +21,11 @@ const createInstrument = vi.fn();
 const holdingsByAccounts = vi.fn();
 const createHolding = vi.fn();
 const appendCash = vi.fn();
+const appendValue = vi.fn();
 const previewChange = vi.fn();
 const recordChange = vi.fn();
 const settingsLoad = vi.fn();
+const currentInstrumentQuote = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
@@ -33,7 +35,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ac
     UpdateAccount: (...args: unknown[]) => updateAccount(...args),
     ArchiveAccount: (...args: unknown[]) => archiveAccount(...args),
     SetAccountLogo: (...args: unknown[]) => setAccountLogo(...args),
-    AppendAccountValue: vi.fn(),
+    AppendAccountValue: (...args: unknown[]) => appendValue(...args),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/media", () => ({
@@ -99,6 +101,20 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
     CreateHolding: (...args: unknown[]) => createHolding(...args),
     AppendAccountCashValue: (...args: unknown[]) => appendCash(...args),
     ArchiveHolding: vi.fn(),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
+  Service: {
+    CurrentInstrumentQuote: (...args: unknown[]) => currentInstrumentQuote(...args),
+    CurrentFXQuote: () => Promise.resolve(null),
+    ListFXPreferences: () => Promise.resolve([]),
+    SetFXPreference: vi.fn(),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
+  Service: {
+    RefreshInstrument: vi.fn(),
+    RefreshFX: vi.fn(),
   },
 }));
 
@@ -175,9 +191,11 @@ beforeEach(() => {
   holdingsByAccounts.mockReset();
   createHolding.mockReset();
   appendCash.mockReset();
+  appendValue.mockReset();
   previewChange.mockReset();
   recordChange.mockReset();
   settingsLoad.mockReset();
+  currentInstrumentQuote.mockReset();
   listAccounts.mockResolvedValue([emptyAccount]);
   accountValuations.mockResolvedValue([
     {
@@ -200,6 +218,8 @@ beforeEach(() => {
   holdingsByAccounts.mockResolvedValue({});
   createHolding.mockResolvedValue({ id: "h1", accountId: "brk-1", instrumentId: "i1", quantity: "1" });
   appendCash.mockResolvedValue(undefined);
+  appendValue.mockResolvedValue(undefined);
+  currentInstrumentQuote.mockResolvedValue(null);
 });
 
 describe("AccountsPage", () => {
@@ -898,5 +918,83 @@ describe("AccountsPage", () => {
     await waitFor(() => expect(createMediaAsset).toHaveBeenCalledWith("image/png", "cGlj"));
     expect(createAccount).toHaveBeenCalledTimes(1);
     expect(setAccountLogo).not.toHaveBeenCalled();
+  });
+
+  it("shows the current cash balance on reconcile and does not prefill the resulting amount", async () => {
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    accountValuations.mockResolvedValue([
+      {
+        account: brokerageAccount.account,
+        ownership: brokerageAccount.ownership,
+        complete: true,
+        components: [{ nativeCurrency: "USD", nativeAmount: "800", available: true }],
+        missingInputs: [],
+        baseValue: { amount: "800", currency: "USD" },
+      },
+    ]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
+    const form = await screen.findByRole("form", { name: "Add cash balance" });
+    expect(form).toHaveTextContent(/Current balance/);
+    expect(form).toHaveTextContent("$800.00");
+    expect(within(form).getByLabelText("Resulting balance")).toHaveValue("");
+  });
+
+  it("disables simple value Save while the amount is unchanged", async () => {
+    const simple = {
+      ...emptyAccount,
+      account: { ...emptyAccount.account, trackingMode: "manual_value", name: "House" },
+    };
+    listAccounts.mockResolvedValue([simple]);
+    accountValuations.mockResolvedValue([
+      {
+        account: simple.account,
+        ownership: simple.ownership,
+        complete: true,
+        components: [{ nativeCurrency: "USD", nativeAmount: "1000", available: true }],
+        missingInputs: [],
+        baseValue: { amount: "1000", currency: "USD" },
+      },
+    ]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /House/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Update value" }));
+    const form = await screen.findByRole("form", { name: "Update value" });
+    expect(within(form).getByLabelText("New value")).toHaveValue("1000");
+    expect(within(form).getByRole("button", { name: "Save" })).toBeDisabled();
+    await userEvent.clear(within(form).getByLabelText("New value"));
+    await userEvent.type(within(form).getByLabelText("New value"), "1100");
+    expect(within(form).getByRole("button", { name: "Save" })).toBeEnabled();
+    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(appendValue).toHaveBeenCalledWith("acc-1", "1100", ""));
+  });
+
+  it("defaults record-position unit cost from the latest price", async () => {
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    accountValuations.mockResolvedValue([
+      {
+        account: brokerageAccount.account,
+        ownership: brokerageAccount.ownership,
+        complete: true,
+        components: [],
+        missingInputs: [],
+        baseValue: { amount: "0", currency: "USD" },
+      },
+    ]);
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", type: "stock", quoteCurrency: "USD", quoteSource: "provider" }]);
+    currentInstrumentQuote.mockResolvedValue({
+      id: "q1",
+      instrumentId: "i1",
+      unitPrice: "12.50",
+      currency: "USD",
+      quotedAt: "2026-08-23T00:00:00Z",
+    });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    await userEvent.click(await screen.findByRole("button", { name: "Record existing position" }));
+    await userEvent.selectOptions(await screen.findByLabelText("Instrument"), "i1");
+    await waitFor(() => expect(screen.getByLabelText("Unit cost (optional)")).toHaveValue("12.50"));
   });
 });

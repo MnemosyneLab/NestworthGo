@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { MarketDataPage } from "./MarketDataPage";
+import { formatTimestamp } from "@/lib/time";
 
 const refreshAll = vi.fn();
 const listInstruments = vi.fn();
@@ -33,6 +34,13 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/qu
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
   Service: { Overview: () => overview() },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
+  Service: {
+    Load: () => Promise.resolve({ timezone: "Pacific/Auckland", fx_provider: "frankfurter" }),
+    SupportedCurrencies: () => Promise.resolve(["USD", "CNY", "SGD"]),
+    FXProviders: () => Promise.resolve(["frankfurter"]),
+  },
 }));
 
 function renderPage() {
@@ -107,6 +115,7 @@ describe("MarketDataPage", () => {
     expect(savedData).toHaveTextContent("Latest: $12.50");
     expect(savedData).toHaveTextContent("CNY/SGD");
     expect(savedData).toHaveTextContent("1 CNY = 0.19 SGD");
+    expect(savedData).toHaveTextContent(formatTimestamp("2024-01-01T00:00:00Z", "Pacific/Auckland", "en"));
   });
 
   it("configures a provider for an FX pair without a source and refreshes it", async () => {

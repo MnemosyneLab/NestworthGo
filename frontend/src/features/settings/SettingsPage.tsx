@@ -19,6 +19,7 @@ import {
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies, useFXProviders } from "@/queries/settings";
+import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
 import { useUiStore, type Appearance } from "@/stores/ui";
@@ -40,6 +41,7 @@ export function SettingsPage() {
   const currencies = useSupportedCurrencies();
   const fxProviders = useFXProviders();
   const catalog = useCatalog();
+  const origin = useHistoryOrigin();
   const setAppearance = useUiStore((state) => state.setAppearance);
   const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
 
@@ -155,6 +157,11 @@ export function SettingsPage() {
             <p className="text-xs text-muted-foreground">
               {t("settings.timezoneResolved", { timezone: resolvedTimeZone(draft.timezone) })}
             </p>
+            {origin.data && resolvedTimeZone(draft.timezone) !== origin.data.timezone && (
+              <p className="text-xs text-muted-foreground">
+                {t("history.settingsTimezoneDiff", { origin: origin.data.timezone, presentation: resolvedTimeZone(draft.timezone) })}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
