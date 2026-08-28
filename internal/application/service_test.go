@@ -332,3 +332,30 @@ func TestUpdateAccountRejectsExplicitEmptyOwnership(t *testing.T) {
 		t.Fatalf("error = %v, want ownership validation", err)
 	}
 }
+
+func TestUpdateAccountOmittingOwnershipPreservesCustomSplit(t *testing.T) {
+	service, ctx, bootstrap, _ := newOnboardedService(t, "preserve-split", []string{"Alice", "Bob"})
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Joint", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, InitialAmount: "1000",
+		OwnerIDs:             []domain.MemberID{bootstrap.Members[0].ID, bootstrap.Members[1].ID},
+		OwnershipPercentages: []string{"70", "30"},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	updated, err := service.UpdateAccount(ctx, account.Account.ID, AccountInput{Name: "Joint renamed"})
+	if err != nil {
+		t.Fatalf("name-only update: %v", err)
+	}
+	if updated.Account.Name != "Joint renamed" {
+		t.Fatalf("name = %q, want Joint renamed", updated.Account.Name)
+	}
+	byMember := map[domain.MemberID]int{}
+	for _, share := range updated.Ownership.Shares() {
+		byMember[share.MemberID] = share.ShareBPS
+	}
+	if byMember[bootstrap.Members[0].ID] != 7000 || byMember[bootstrap.Members[1].ID] != 3000 {
+		t.Fatalf("Ownership = %+v, want preserved 70/30", updated.Ownership.Shares())
+	}
+}

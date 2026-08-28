@@ -176,6 +176,13 @@ export function AccountsPage({
                   const value = valuation?.baseValue
                     ? formatAmount(valuation.baseValue.amount, valuation.baseValue.currency)
                     : t("accounts.noValue");
+                  const completeness = valuation
+                    ? valuation.complete
+                      ? t("accounts.completeValuation")
+                      : t("accounts.partialValuation")
+                    : valuations.isLoading
+                      ? t("common.loading")
+                      : t("accounts.noValue");
                   return (
                     <li key={record.account.id} className="border-b border-border last:border-0">
                       <button
@@ -192,9 +199,7 @@ export function AccountsPage({
                               <Badge variant="outline">{t("accounts.liability")}</Badge>
                             )}
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            {valuation?.complete === false ? t("accounts.partialValuation") : t("accounts.completeValuation")}
-                          </span>
+                          <span className="text-xs text-muted-foreground">{completeness}</span>
                         </span>
                         <span className="shrink-0 text-sm font-medium">{value}</span>
                       </button>

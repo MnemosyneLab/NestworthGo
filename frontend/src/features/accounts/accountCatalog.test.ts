@@ -57,6 +57,14 @@ describe("accountCatalog", () => {
     ]);
   });
 
+  it("distributes the remainder so three owners still sum to 10000 bps", () => {
+    expect(ownershipShares(["alice", "bob", "cara"], undefined, false)).toEqual([
+      { memberId: "alice", shareBps: 3334 },
+      { memberId: "bob", shareBps: 3333 },
+      { memberId: "cara", shareBps: 3333 },
+    ]);
+  });
+
   it("keeps explicit custom percentages among checked owners", () => {
     expect(ownershipShares(["alice", "bob"], ["70", "30"], true)).toEqual([
       { memberId: "alice", shareBps: 7000 },

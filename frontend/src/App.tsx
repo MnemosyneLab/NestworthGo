@@ -81,7 +81,9 @@ function App() {
     setActivePageId("accounts");
   };
   const handleNavigate = (pageId: string) => {
-    if (pageId === "accounts" && activePageId === "accounts") {
+    // Top-level Accounts navigation always returns to the list. Opening a
+    // specific account uses openAccount, which sets selectedAccountId first.
+    if (pageId === "accounts") {
       setSelectedAccountId(null);
     }
     markVisited(pageId);

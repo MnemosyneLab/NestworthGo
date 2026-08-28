@@ -282,6 +282,27 @@ func TestAccountValuationNotFound(t *testing.T) {
 	}
 }
 
+func TestUpdateAccountRequestJSONDistinguishesOmittedAndEmptyOwnership(t *testing.T) {
+	var omitted account.UpdateAccountRequest
+	if err := json.Unmarshal([]byte(`{"name":"x"}`), &omitted); err != nil {
+		t.Fatalf("omitted ownership: %v", err)
+	}
+	if omitted.Ownership != nil {
+		t.Fatalf("omitted ownership = %#v, want nil", omitted.Ownership)
+	}
+
+	var explicit account.UpdateAccountRequest
+	if err := json.Unmarshal([]byte(`{"ownership":[]}`), &explicit); err != nil {
+		t.Fatalf("explicit empty ownership: %v", err)
+	}
+	if explicit.Ownership == nil {
+		t.Fatal("explicit empty ownership decoded as nil")
+	}
+	if len(explicit.Ownership) != 0 {
+		t.Fatalf("explicit empty ownership = %#v, want empty slice", explicit.Ownership)
+	}
+}
+
 func TestAccountRecordDTORoundTripsAsJSON(t *testing.T) {
 	app, members := onboardedApp(t)
 	service := account.NewService(app)

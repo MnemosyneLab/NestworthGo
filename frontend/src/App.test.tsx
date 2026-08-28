@@ -6,11 +6,60 @@ import { AppProviders, queryClient } from "./app/providers";
 import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
 import { useUiStore } from "./stores/ui";
 
-const { startup, settingsLoad, settingsSave } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts } = vi.hoisted(() => ({
   startup: vi.fn().mockResolvedValue({ available: true }),
   settingsLoad: vi.fn(),
   settingsSave: vi.fn(),
+  listAccounts: vi.fn(),
+  accountValuations: vi.fn(),
+  portfolio: vi.fn(),
+  holdingsByAccounts: vi.fn(),
 }));
+
+const emptyPortfolio = {
+  currency: "USD",
+  complete: true,
+  accounts: [] as unknown[],
+  missingInputs: [] as unknown[],
+  byInstrumentType: [] as unknown[],
+  byCurrency: [] as unknown[],
+  byCountry: [] as unknown[],
+};
+
+const checkingAccount = {
+  account: {
+    id: "acc-1",
+    name: "Checking",
+    accountType: "bank_account",
+    balanceSheetRole: "asset",
+    trackingMode: "balance",
+    defaultCurrency: "USD",
+    sortOrder: 0,
+    includeInNetWorth: true,
+    includeInPortfolio: true,
+    includeInLiquidAssets: false,
+    createdAt: "",
+    updatedAt: "",
+  },
+  ownership: [{ memberId: "alice", shareBps: 10000 }],
+  latestValue: {
+    id: "v1",
+    accountId: "acc-1",
+    valueKind: "balance",
+    amount: { amount: "1000", currency: "USD" },
+    effectiveAt: "",
+    createdAt: "",
+  },
+};
+
+const checkingValuation = {
+  account: checkingAccount.account,
+  ownership: checkingAccount.ownership,
+  complete: true,
+  components: [],
+  missingInputs: [],
+  baseValue: { amount: "1000", currency: "USD" },
+};
 
 const defaultSettings = {
   schema_version: 1,
@@ -86,16 +135,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfoli
         byGroup: [],
         byAccountType: [],
       }),
-    Portfolio: () =>
-      Promise.resolve({
-        currency: "USD",
-        complete: true,
-        accounts: [],
-        missingInputs: [],
-        byInstrumentType: [],
-        byCurrency: [],
-        byCountry: [],
-      }),
+    Portfolio: () => portfolio(),
   },
 }));
 
@@ -108,8 +148,8 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history"
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
-    ListAccounts: () => Promise.resolve([]),
-    AccountValuations: () => Promise.resolve([]),
+    ListAccounts: (...args: unknown[]) => listAccounts(...args),
+    AccountValuations: (...args: unknown[]) => accountValuations(...args),
   },
 }));
 
@@ -118,7 +158,9 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrume
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
-  Service: {},
+  Service: {
+    HoldingsByAccounts: (...args: unknown[]) => holdingsByAccounts(...args),
+  },
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
@@ -133,6 +175,14 @@ beforeEach(() => {
   settingsLoad.mockResolvedValue({ ...defaultSettings });
   settingsSave.mockReset();
   settingsSave.mockResolvedValue(undefined);
+  listAccounts.mockReset();
+  listAccounts.mockResolvedValue([]);
+  accountValuations.mockReset();
+  accountValuations.mockResolvedValue([]);
+  portfolio.mockReset();
+  portfolio.mockResolvedValue({ ...emptyPortfolio });
+  holdingsByAccounts.mockReset();
+  holdingsByAccounts.mockResolvedValue({});
   useUiStore.setState({ appearance: "system" });
   window.matchMedia =
     window.matchMedia ||
@@ -227,5 +277,30 @@ describe("App shell smoke test", () => {
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.blockedTitle"));
     expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
+  });
+
+  it("returns to the accounts list after opening an account from Portfolio", async () => {
+    await i18n.changeLanguage("en");
+    listAccounts.mockResolvedValue([checkingAccount]);
+    accountValuations.mockResolvedValue([checkingValuation]);
+    portfolio.mockResolvedValue({ ...emptyPortfolio, accounts: [checkingValuation] });
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    );
+    await screen.findByTestId("overview-net-worth");
+
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") }));
+    await userEvent.click(await screen.findByRole("button", { name: "Checking" }));
+    expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
+
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.overview") }));
+    await screen.findByTestId("overview-net-worth");
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.accounts") }));
+
+    expect(await screen.findByTestId("accounts-table")).toBeInTheDocument();
+    expect(screen.queryByTestId("account-detail")).not.toBeInTheDocument();
   });
 });

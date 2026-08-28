@@ -208,6 +208,24 @@ describe("AccountsPage", () => {
     expect(screen.getByText("China Merchants Bank")).toBeInTheDocument();
     expect(screen.getByText("$1,000.00")).toBeInTheDocument();
     expect(screen.getByText("Bank account")).toBeInTheDocument();
+    expect(screen.getByText("Complete")).toBeInTheDocument();
+  });
+
+  it("does not label a still-loading valuation as complete", async () => {
+    accountValuations.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    expect(await screen.findByText("Checking")).toBeInTheDocument();
+    expect(screen.getByText("Loading")).toBeInTheDocument();
+    expect(screen.queryByText("Complete")).not.toBeInTheDocument();
+    expect(screen.getByText("No current value")).toBeInTheDocument();
+  });
+
+  it("does not label a missing valuation as complete", async () => {
+    accountValuations.mockResolvedValue([]);
+    renderPage();
+    expect(await screen.findByText("Checking")).toBeInTheDocument();
+    expect(screen.getAllByText("No current value").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Complete")).not.toBeInTheDocument();
   });
 
   it("shows computed valuation for holdings accounts without a stored latestValue", async () => {
