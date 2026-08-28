@@ -1,6 +1,6 @@
 # History and related-form defaults UX
 
-- Status: **Planned** (not implemented). Review corrections below are in the plan; do not start §8 until they are.
+- Status: **Implemented** (see also [gap review](history-and-form-defaults-ux-gap-review.md) for follow-up fixes after `e2687aa`).
 - Baseline: Nestworth-go `0.2.1` / schema v7 / current Wails frontend
 - Surfaces: History Record change, Account action sheets that reuse that form, Start History, Settings, cash reconcile, simple value, record existing position, timeline sentences
 - Companion: [Account Container Interaction](../architecture/account-container-interaction-design.md)

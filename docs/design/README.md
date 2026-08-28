@@ -10,10 +10,7 @@ the startup/onboarding gates are defined by
 
 - [Account Container Interaction](../architecture/account-container-interaction-design.md) — Account creation, detail views, actions, state handling, and accessibility behavior.
 - [Account Container Model](../architecture/account-container-and-position-model-design.md) — The domain and persistence contract used by the interaction design.
-
-## Planned
-
-- [History and related-form defaults](history-and-form-defaults-ux.md) — Record-change auto-fill, quote/FX preview, Settings timezone and FX provider, picker filters, and current-balance echo. Status: planned, not implemented.
+- [History and related-form defaults](history-and-form-defaults-ux.md) — Record-change auto-fill, quote/FX preview, Settings timezone and FX provider, picker filters, and current-balance echo.
 
 ## Current screen map
 
