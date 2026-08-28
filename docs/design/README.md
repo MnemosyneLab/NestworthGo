@@ -11,6 +11,7 @@ the startup/onboarding gates are defined by
 - [Account Container Interaction](../architecture/account-container-interaction-design.md) — Account creation, detail views, actions, state handling, and accessibility behavior.
 - [Account Container Model](../architecture/account-container-and-position-model-design.md) — The domain and persistence contract used by the interaction design.
 - [History and related-form defaults](history-and-form-defaults-ux.md) — Record-change auto-fill, quote/FX preview, Settings timezone and FX provider, picker filters, and current-balance echo.
+- [Trial UX optimization](trial-ux-optimization.md) — Planned follow-up from the 2026-08-28 trial: default institution/group, native amounts without FX, history sentences and detail, date/time pickers, calculate buttons, portfolio-by-holding, and market-data refresh TTL.
 
 ## Current screen map
 
