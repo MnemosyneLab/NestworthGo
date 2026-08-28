@@ -48,6 +48,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
     ListAccounts: (...args: unknown[]) => listAccounts(...args),
+    AccountValuations: () => Promise.resolve([]),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
@@ -436,5 +437,121 @@ describe("HistoryPage", () => {
     await waitFor(() => {
       expect(selectValues(currency)).toEqual(["USD", "SGD", "CNY"]);
     });
+  });
+
+  it("shows the History Origin timezone after history has started", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    renderPage();
+    expect(await screen.findByTestId("history-origin-timezone")).toHaveTextContent("UTC");
+  });
+
+  it("fills the other FX amount from a direct USD/SGD quote when household base is CNY", async () => {
+    bootstrap.mockResolvedValue({
+      household: { id: "h1", name: "Test", baseCurrency: "CNY", createdAt: "", updatedAt: "" },
+      members: [],
+      institutions: [],
+      groups: [],
+    });
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listAccounts.mockResolvedValue([{ account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings", defaultCurrency: "CNY" }, ownership: [], latestValue: null }]);
+    currentFXQuote.mockResolvedValue({
+      id: "fx-1",
+      baseCurrency: "USD",
+      quoteCurrency: "SGD",
+      rate: "0.92",
+      quotedAt: "2026-08-23T00:00:00Z",
+    });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeFXConversion);
+    await userEvent.selectOptions(within(form).getByLabelText("Account"), "brokerage-1");
+    const currencies = within(form).getAllByLabelText("Currency");
+    await userEvent.selectOptions(currencies[0], "USD");
+    await userEvent.selectOptions(currencies[1], "SGD");
+    await userEvent.type(within(form).getByLabelText("Sold"), "100");
+    await waitFor(() => expect(["92", "92.00"]).toContain((within(form).getByLabelText("Bought") as HTMLInputElement).value));
+  });
+
+  it("submits an FX fee and keeps Preview disabled until bought currency is chosen", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listAccounts.mockResolvedValue([{ account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings", defaultCurrency: "CNY" }, ownership: [], latestValue: null }]);
+    previewChange.mockResolvedValue({ activity: { id: "fx-1", kind: "fx_conversion", effects: [] }, effects: [], resulting: [] });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeFXConversion);
+    await userEvent.selectOptions(within(form).getByLabelText("Account"), "brokerage-1");
+    await userEvent.type(within(form).getByLabelText("Sold"), "100");
+    await userEvent.type(within(form).getByLabelText("Fee"), "1.50");
+    expect(within(form).getByRole("button", { name: "Preview" })).toBeDisabled();
+
+    const currencies = within(form).getAllByLabelText("Currency");
+    await userEvent.selectOptions(currencies[0], "USD");
+    await userEvent.selectOptions(currencies[1], "SGD");
+    await userEvent.type(within(form).getByLabelText("Bought"), "92");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(previewChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "fx_conversion",
+        sold: "100",
+        soldCurrency: "USD",
+        bought: "92",
+        boughtCurrency: "SGD",
+        fee: "1.50",
+        feeCurrency: "USD",
+      }),
+    );
+  });
+
+  it("limits sell to positive holdings of the settlement account and hides create instrument", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listAccounts.mockResolvedValue([{ account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings", defaultCurrency: "USD" }, ownership: [], latestValue: null }]);
+    listInstruments.mockResolvedValue([
+      { id: "instrument-1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" },
+      { id: "instrument-2", name: "Apple", quoteCurrency: "USD", quoteSource: "manual" },
+    ]);
+    holdingsByAccounts.mockResolvedValue({
+      "brokerage-1": [
+        { id: "holding-1", accountId: "brokerage-1", instrumentId: "instrument-1", quantity: "10" },
+        { id: "holding-2", accountId: "brokerage-1", instrumentId: "instrument-2", quantity: "0" },
+      ],
+    });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
+    await userEvent.selectOptions(within(form).getByLabelText("Side"), "sell");
+    expect(within(form).queryByRole("button", { name: "Create instrument" })).not.toBeInTheDocument();
+    const instrument = within(form).getByLabelText("Instrument");
+    expect(instrument).not.toBeDisabled();
+    expect(within(instrument).getByRole("option", { name: /NVIDIA/ })).toBeInTheDocument();
+    expect(within(instrument).queryByRole("option", { name: /Apple/ })).not.toBeInTheDocument();
+  });
+
+  it("disables value-update Preview while the new value equals the current amount", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listAccounts.mockResolvedValue([
+      {
+        account: { id: "acc-1", name: "Checking", trackingMode: "balance", defaultCurrency: "USD" },
+        ownership: [],
+        latestValue: { amount: { amount: "1000", currency: "USD" } },
+      },
+    ]);
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeValueUpdate);
+    await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+    expect(within(form).getByLabelText("New value")).toHaveValue("1000");
+    expect(within(form).getByRole("button", { name: "Preview" })).toBeDisabled();
+    await userEvent.clear(within(form).getByLabelText("New value"));
+    await userEvent.type(within(form).getByLabelText("New value"), "1100");
+    expect(within(form).getByRole("button", { name: "Preview" })).toBeEnabled();
   });
 });

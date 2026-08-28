@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { LoadingState } from "@/components/layout/PageState";
-import { useAccounts } from "@/queries/accounts";
+import { useAccountValuations, useAccounts } from "@/queries/accounts";
 import {
   useAllHoldingsFlat,
   useCreateInstrument,
@@ -85,6 +85,7 @@ function OptionSelect({
   emptyLabel,
   options,
   onChange,
+  disabled = false,
 }: {
   id: string;
   label: string;
@@ -92,12 +93,13 @@ function OptionSelect({
   emptyLabel: string;
   options: NamedOption[];
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{label}</Label>
-      <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+      <NativeSelect id={id} value={value} disabled={disabled} onChange={(event) => onChange(event.target.value)}>
         {options.length === 0 ? <option value="" disabled>{t("common.noMatches")}</option> : (
           <>
             <option value="">{emptyLabel}</option>
@@ -260,6 +262,7 @@ function RecordChangeFormReady({
 }) {
   const { t } = useTranslation();
   const accounts = useAccounts({});
+  const valuations = useAccountValuations({});
   const instruments = useInstruments();
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
@@ -296,7 +299,7 @@ function RecordChangeFormReady({
   })();
   const [request, setRequest] = useState<ChangeCommandRequest>(initialRequest);
   const autoValues = useRef<Record<string, string>>(
-    initial
+    initial && fixActivityId
       ? Object.fromEntries(
           Object.entries(initialRequest)
             .filter(([, value]) => String(value ?? "") !== "")
@@ -398,7 +401,22 @@ function RecordChangeFormReady({
         ? (catalog.data?.valueUpdateReasons ?? [])
         : (catalog.data?.moneyInReasons ?? []);
   const tradeSides = catalog.data?.tradeSides ?? [];
-  const currentValue = request.accountId ? accountById.get(request.accountId)?.latestValue : undefined;
+  const displayedCurrentValueFor = (accountId: string) => {
+    if (!accountId) {
+      return undefined;
+    }
+    const latest = accountById.get(accountId)?.latestValue?.amount;
+    if (latest?.amount) {
+      return latest;
+    }
+    const valuation = (valuations.data ?? []).find((entry) => entry.account.id === accountId);
+    const component = (valuation?.components ?? []).find((item) => !item.instrumentId && item.nativeAmount);
+    if (!component?.nativeAmount) {
+      return undefined;
+    }
+    return { amount: component.nativeAmount, currency: component.nativeCurrency || accountById.get(accountId)?.account.defaultCurrency || defaultCurrency };
+  };
+  const displayedCurrentValue = displayedCurrentValueFor(request.accountId ?? "");
   const fxPreference = (() => {
     const sold = request.soldCurrency ?? "";
     const bought = request.boughtCurrency ?? "";
@@ -453,6 +471,16 @@ function RecordChangeFormReady({
     }
     setAutomatic("received", request.sent.trim());
   }, [kind, request.receivedCurrency, request.sent, request.sentCurrency]);
+
+  useEffect(() => {
+    if (fixActivityId || kind !== ChangeCommandKind.ChangeValueUpdate || !displayedCurrentValue) {
+      return;
+    }
+    if ((request.newValue ?? "").trim()) {
+      return;
+    }
+    setAutomatic("newValue", displayedCurrentValue.amount);
+  }, [displayedCurrentValue, fixActivityId, kind, request.newValue]);
 
   useEffect(() => {
     if (kind === ChangeCommandKind.ChangeFXConversion && request.feeCurrency !== request.soldCurrency) {
@@ -513,10 +541,18 @@ function RecordChangeFormReady({
   const valueUnchanged = Boolean(
     !fixActivityId &&
       kind === ChangeCommandKind.ChangeValueUpdate &&
-      currentValue &&
+      displayedCurrentValue &&
       request.newValue?.trim() &&
-      sameCanonicalDecimal(request.newValue.trim(), currentValue.amount.amount) &&
-      (request.newValueCurrency ?? "") === currentValue.amount.currency,
+      sameCanonicalDecimal(request.newValue.trim(), displayedCurrentValue.amount) &&
+      (request.newValueCurrency ?? "") === displayedCurrentValue.currency,
+  );
+  const fixValueUnchanged = Boolean(
+    fixActivityId &&
+      kind === ChangeCommandKind.ChangeValueUpdate &&
+      initial &&
+      sameCanonicalDecimal(request.newValue ?? "", initial.newValue ?? "") &&
+      (request.reason ?? "") === (initial.reason ?? "") &&
+      (request.note ?? "") === (initial.note ?? ""),
   );
 
   const hasRequiredFields = (() => {
@@ -535,7 +571,7 @@ function RecordChangeFormReady({
       case ChangeCommandKind.ChangeTrade:
         return Boolean(request.settlementAccountId && request.instrumentId && request.side && request.quantity?.trim() && request.gross?.trim() && (request.side !== "sell" || request.holdingId));
       case ChangeCommandKind.ChangeValueUpdate:
-        return Boolean(request.accountId && request.newValue?.trim() && request.newValueCurrency && !valueUnchanged);
+        return Boolean(request.accountId && request.newValue?.trim() && request.newValueCurrency && !valueUnchanged && !fixValueUnchanged);
       case ChangeCommandKind.ChangeDebtDraw:
       case ChangeCommandKind.ChangeDebtPayment:
         return Boolean(request.debtAccountId && request.cashAccountId && request.debtAccountId !== request.cashAccountId && request.principal?.trim() && request.principalCurrency);
@@ -592,7 +628,7 @@ function RecordChangeFormReady({
   const error = preview.error ?? previewFix.error ?? record.error ?? fix.error;
   const previewPending = fixActivityId ? previewFix.isPending : preview.isPending;
   const confirmPending = fixActivityId ? fix.isPending : record.isPending;
-  const selectedValueCurrency = accountById.get(request.accountId ?? "")?.account.defaultCurrency ?? currentValue?.amount.currency ?? defaultCurrency;
+  const selectedValueCurrency = accountById.get(request.accountId ?? "")?.account.defaultCurrency ?? displayedCurrentValue?.currency ?? defaultCurrency;
   const selectedCashAccountCurrency = accountById.get(request.cashAccountId ?? "")?.account.defaultCurrency ?? defaultCurrency;
   const fxPairReady = Boolean(request.soldCurrency && request.boughtCurrency && request.soldCurrency !== request.boughtCurrency);
 
@@ -689,16 +725,16 @@ function RecordChangeFormReady({
               label={t("history.accountSelect")}
               value={request.accountId ?? ""}
               onChange={(accountId) => {
-                const latest = accountById.get(accountId)?.latestValue;
+                const latest = displayedCurrentValueFor(accountId);
                 const accountCurrency = accountById.get(accountId)?.account.defaultCurrency || defaultCurrency;
-                patch({ accountId, newValue: latest?.amount.amount ?? "", newValueCurrency: accountCurrency }, ["newValue"]);
+                patch({ accountId, newValue: latest?.amount ?? "", newValueCurrency: accountCurrency }, ["newValue"]);
               }}
               accounts={valueAccountOptions}
             />
           )}
           <MoneyFields prefix="change" label={t("history.newValue")} amount={request.newValue ?? ""} currency={request.newValueCurrency ?? selectedValueCurrency} currencies={currencyOptions} disabledCurrency onAmount={(newValue) => patch({ newValue })} />
-          {currentValue && <p className="text-xs text-muted-foreground">{t("history.currentValue", { value: formatAmount(currentValue.amount.amount, currentValue.amount.currency) })}</p>}
-          {valueUnchanged && <p className="text-xs text-muted-foreground">{t("history.differentValueRequired")}</p>}
+          {displayedCurrentValue && <p className="text-xs text-muted-foreground">{t("history.currentValue", { value: formatAmount(displayedCurrentValue.amount, displayedCurrentValue.currency) })}</p>}
+          {(valueUnchanged || fixValueUnchanged) && <p className="text-xs text-muted-foreground">{t("history.differentValueRequired")}</p>}
         </>
       )}
 
@@ -746,7 +782,7 @@ function RecordChangeFormReady({
             label={t("history.bought")}
             amount={request.bought ?? ""}
             currency={request.boughtCurrency ?? ""}
-            currencies={currencyOptions}
+            currencies={currencyOptions.filter((code) => code !== (request.soldCurrency ?? ""))}
             allowEmpty
             onAmount={(bought) => {
               if (bought.trim()) {
@@ -805,12 +841,26 @@ function RecordChangeFormReady({
       {kind === ChangeCommandKind.ChangeTrade && (
         <>
           {!lock?.settlementAccountId && <AccountSelect id="change-settlement-account" label={t("history.settlementAccount")} value={request.settlementAccountId ?? ""} onChange={(settlementAccountId) => patch({ settlementAccountId, holdingId: request.side === "sell" ? "" : matchingHoldingId(settlementAccountId, request.instrumentId ?? "") }, ["gross"])} accounts={holdingsAccountOptions} />}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="change-side">{t("history.side")}</Label>
+            <NativeSelect
+              id="change-side"
+              value={request.side ?? "buy"}
+              onChange={(event) => {
+                setCreatingInstrument(false);
+                patch({ side: event.target.value, holdingId: "", instrumentId: "", gross: "", grossCurrency: defaultCurrency, fee: "", feeCurrency: defaultCurrency }, ["gross"]);
+              }}
+            >
+              {tradeSides.map((side) => <option key={side} value={side}>{t(`history.${side}`)}</option>)}
+            </NativeSelect>
+          </div>
           <OptionSelect
             id="change-instrument"
             label={t("history.instrument")}
             value={tradeSelection}
             emptyLabel={t("history.selectEmpty")}
             options={tradeOptions}
+            disabled={request.side === "sell" && !selectedSettlement}
             onChange={(selection) => {
               if (request.side === "sell") {
                 const holding = holdings.data.find((candidate) => candidate.id === selection);
@@ -824,7 +874,7 @@ function RecordChangeFormReady({
             }}
           />
           {selectedInstrument && <QuoteHint quote={instrumentQuote.data} quoteLabel={instrumentQuote.data ? t("portfolio.latestPrice", { value: formatAmount(instrumentQuote.data.unitPrice, instrumentQuote.data.currency) }) : undefined} manual={selectedInstrument.quoteSource === "manual"} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={instrumentQuote.isLoading} error={refreshInstrument.error} />}
-          {creatingInstrument ? (
+          {request.side !== "sell" && (creatingInstrument ? (
             <InstrumentForm
               isSubmitting={createInstrument.isPending}
               submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
@@ -838,13 +888,7 @@ function RecordChangeFormReady({
                 });
               }}
             />
-          ) : <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>{t("accounts.createInstrument")}</Button>}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="change-side">{t("history.side")}</Label>
-            <NativeSelect id="change-side" value={request.side ?? "buy"} onChange={(event) => patch({ side: event.target.value, holdingId: "", instrumentId: "", gross: "", grossCurrency: defaultCurrency, fee: "", feeCurrency: defaultCurrency }, ["gross"])}>
-              {tradeSides.map((side) => <option key={side} value={side}>{t(`history.${side}`)}</option>)}
-            </NativeSelect>
-          </div>
+          ) : <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>{t("accounts.createInstrument")}</Button>)}
           <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value }, ["gross"])} /></div>
           <MoneyFields prefix="change-gross" label={t("history.grossTotal")} amount={request.gross ?? ""} currency={request.grossCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency={Boolean(selectedInstrument)} onAmount={(gross) => patch({ gross })} onCurrency={selectedInstrument ? undefined : (grossCurrency) => patch({ grossCurrency }, ["gross"])} />
           <MoneyFields prefix="change-fee" label={t("history.feeOptional")} amount={request.fee ?? ""} currency={request.feeCurrency ?? request.grossCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency onAmount={(fee) => patch({ fee })} />
