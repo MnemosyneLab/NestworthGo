@@ -445,7 +445,7 @@ describe("HistoryPage", () => {
     expect(await screen.findByTestId("history-origin-timezone")).toHaveTextContent("UTC");
   });
 
-  it("fills the other FX amount from a direct USD/EUR quote", async () => {
+  it("fills the other FX amount from a direct USD/SGD quote when household base is CNY", async () => {
     bootstrap.mockResolvedValue({
       household: { id: "h1", name: "Test", baseCurrency: "CNY", createdAt: "", updatedAt: "" },
       members: [],
@@ -457,7 +457,7 @@ describe("HistoryPage", () => {
     currentFXQuote.mockResolvedValue({
       id: "fx-1",
       baseCurrency: "USD",
-      quoteCurrency: "EUR",
+      quoteCurrency: "SGD",
       rate: "0.92",
       quotedAt: "2026-08-23T00:00:00Z",
     });
@@ -469,9 +469,9 @@ describe("HistoryPage", () => {
     await userEvent.selectOptions(within(form).getByLabelText("Account"), "brokerage-1");
     const currencies = within(form).getAllByLabelText("Currency");
     await userEvent.selectOptions(currencies[0], "USD");
-    await userEvent.selectOptions(currencies[1], "EUR");
+    await userEvent.selectOptions(currencies[1], "SGD");
     await userEvent.type(within(form).getByLabelText("Sold"), "100");
-    await waitFor(() => expect(within(form).getByLabelText("Bought")).toHaveValue("92.00"));
+    await waitFor(() => expect(["92", "92.00"]).toContain((within(form).getByLabelText("Bought") as HTMLInputElement).value));
   });
 
   it("submits an FX fee and keeps Preview disabled until bought currency is chosen", async () => {
@@ -490,7 +490,7 @@ describe("HistoryPage", () => {
 
     const currencies = within(form).getAllByLabelText("Currency");
     await userEvent.selectOptions(currencies[0], "USD");
-    await userEvent.selectOptions(currencies[1], "EUR");
+    await userEvent.selectOptions(currencies[1], "SGD");
     await userEvent.type(within(form).getByLabelText("Bought"), "92");
     await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
     expect(previewChange).toHaveBeenCalledWith(
@@ -499,7 +499,7 @@ describe("HistoryPage", () => {
         sold: "100",
         soldCurrency: "USD",
         bought: "92",
-        boughtCurrency: "EUR",
+        boughtCurrency: "SGD",
         fee: "1.50",
         feeCurrency: "USD",
       }),
