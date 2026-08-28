@@ -10,6 +10,12 @@ cross-compilation tasks for other platforms.
 - Node.js with pnpm;
 - Wails CLI `v3.0.0-beta.12` available as `wails3`;
 - macOS and Xcode command-line tools for native `.app` and `.dmg` packaging.
+- Linux additionally needs GCC, pkg-config, and Wails GTK/WebKit headers to
+  compile `./cmd/nestworth`:
+
+```bash
+sudo apt-get install -y gcc pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
+```
 
 Check the local toolchain before starting:
 
@@ -31,11 +37,14 @@ wails3 task setup
 This downloads Go modules, installs the locked frontend dependencies, and
 generates the Wails TypeScript bindings under `frontend/bindings/`.
 
-`frontend/bindings/` and `frontend/dist/` are generated and gitignored. They
-must not be hand-edited or committed. The direct frontend `dev`, `build`,
-`typecheck`, `test`, and `test:watch` scripts automatically generate bindings
-when the expected binding file is missing. The Wails build tasks regenerate
-them as part of their normal dependency graph.
+`frontend/bindings/` is generated and gitignored. `frontend/dist/` is also
+generated, except for a committed `.gitkeep` so `//go:embed all:frontend/dist`
+succeeds on a clean checkout before Vite has produced the production bundle.
+Do not hand-edit or commit other files in these directories. The direct
+frontend `dev`, `build`, `typecheck`, `test`, and `test:watch` scripts
+automatically generate bindings when the expected binding file is missing.
+The Wails build tasks regenerate them as part of their normal dependency
+graph.
 
 If a bound Go service or DTO changes, regenerate explicitly:
 
@@ -149,7 +158,7 @@ The important local outputs are:
 
 ```text
 frontend/bindings/   Wails-generated TypeScript bindings (ignored)
-frontend/dist/       Vite production bundle (ignored)
+frontend/dist/       Vite production bundle (ignored except .gitkeep)
 bin/nestworth        Production executable (ignored)
 bin/Nestworth.app    Local macOS app bundle (ignored)
 bin/Nestworth.dmg    Local UDZO disk image (ignored)

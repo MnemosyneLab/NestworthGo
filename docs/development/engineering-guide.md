@@ -14,6 +14,8 @@ localization, accessibility, and chart rendering.
 - Node.js with pnpm;
 - Wails CLI `v3.0.0-beta.12`;
 - macOS on Apple Silicon for the primary desktop and packaging target.
+- Linux compile of `./cmd/nestworth` also needs `gcc`, `pkg-config`,
+  `libgtk-4-dev`, `libwebkitgtk-6.0-dev`, and `libsoup-3.0-dev`.
 
 Dependency versions are defined by `go.mod`, `go.sum`,
 `frontend/package.json`, and `frontend/pnpm-lock.yaml`.

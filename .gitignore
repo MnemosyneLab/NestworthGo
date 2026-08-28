@@ -10,8 +10,11 @@
 # Frontend (Wails v3): dist/ and bindings/ are build artifacts regenerated
 # by `pnpm run build` / `wails3 generate bindings`; node_modules is pnpm's
 # install cache. None are hand-edited (docs/migration/wails-v3-technical-design.md Sec3).
+# Keep a committed frontend/dist/.gitkeep so //go:embed all:frontend/dist
+# succeeds on a clean checkout before Vite has produced the production bundle.
 /frontend/node_modules/
-/frontend/dist/
+/frontend/dist/*
+!/frontend/dist/.gitkeep
 /frontend/bindings/
 /frontend/.bindings-tmp*
 

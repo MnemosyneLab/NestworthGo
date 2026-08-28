@@ -10,8 +10,10 @@ import "embed"
 
 // Dist contains the production frontend build (frontend/dist/**),
 // produced by `pnpm run build` inside frontend/ or by the Taskfile's
-// build:frontend task. The Wails asset server auto-discovers index.html
-// inside this tree regardless of the embed path prefix.
+// build:frontend task. frontend/dist/.gitkeep is committed so this
+// embed succeeds on a clean checkout before Vite has produced the
+// bundle. The Wails asset server auto-discovers index.html inside this
+// tree regardless of the embed path prefix.
 //
 //go:embed all:frontend/dist
 var Dist embed.FS

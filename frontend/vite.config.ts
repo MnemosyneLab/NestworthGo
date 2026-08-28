@@ -1,8 +1,22 @@
+import fs from "node:fs";
 import path from "node:path";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import wails from "@wailsio/runtime/plugins/vite";
+
+// Vite empties dist/ on build. Restore the committed placeholder so
+// //go:embed all:frontend/dist still succeeds after a production bundle.
+function preserveDistGitkeep() {
+  return {
+    name: "preserve-dist-gitkeep",
+    closeBundle() {
+      const gitkeep = path.resolve(import.meta.dirname, "dist/.gitkeep");
+      fs.mkdirSync(path.dirname(gitkeep), { recursive: true });
+      fs.writeFileSync(gitkeep, "");
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -16,5 +30,5 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
-  plugins: [react(), tailwindcss(), wails("./bindings")],
+  plugins: [react(), tailwindcss(), wails("./bindings"), preserveDistGitkeep()],
 });
