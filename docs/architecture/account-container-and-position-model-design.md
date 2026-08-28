@@ -1,10 +1,10 @@
-# Account 容器与金融头寸模型设计方案
+# Account 容器与金融头寸模型
 
 ## 1. 文档状态与决策摘要
 
-- 状态：Implemented in Nestworth-go `0.2.1` / SQLite schema v7
+- 状态：Implemented / current contract in Nestworth-go `0.2.1` / SQLite schema v7
 - 适用基线：Nestworth-go current domain model and SQLite schema v7
-- 文档目的：为 Account 模型重构提供可直接交给实现 Agent 的领域、数据库、应用和发布契约
+- 文档目的：记录 Account 模型的领域、数据库、应用和发布事实
 - 本文描述已落地的 breaking cutover；不提供 v6 迁移
 
 本设计保留当前整体架构，只修正职责边界和几个过窄的约束：
@@ -36,22 +36,32 @@ tracking_mode      = Nestworth 如何记录和估值它？
 - SQLite 的 `accounts`、`account_state_observations`、`history_origin_account_states` 直接使用物理列 `include_in_portfolio`；
 - Simple Account 的历史分类使用当前 metadata，并显式标记 `current-metadata-derived`。
 
-## 2. 重构前仓库基线
+## 2. Cutover 前的历史基线
 
-本节记录 cutover 之前的 schema v6 状态，不是当前代码。当前仓库使用 schema v7 与下文冻结的 `account_type` / `balance_sheet_role` / `tracking_mode` 契约。
+本节只记录 cutover 之前的 schema v6 状态，不是当前行为。当前仓库使用
+schema v7 与本文定义的 `account_type` / `balance_sheet_role` /
+`tracking_mode` 契约。
 
-当时 `docs/architecture/domain-model.md` 和 `internal/infrastructure/sqlite/schema.sql` 使用 schema v6。`accounts` 仍包含：
+当时 `accounts` 包含：
 
 - `primary_category`
 - `secondary_category`
 - `tracking_mode`
 - `include_in_investment`
 
-当前 Go domain model、SQLite repository 和 schema verifier 仍围绕 `PrimaryCategory`/`SecondaryCategory` 校验账户，并通过 `PrimaryCategory.IsLiability()` 判断负债。
+切换前的 Go domain model、SQLite repository 和 schema verifier 围绕
+`PrimaryCategory` / `SecondaryCategory` 校验账户，并通过
+`PrimaryCategory.IsLiability()` 判断负债。
 
-当前估值实现已经有一部分目标行为：`internal/application/valuation.go` 会把有 Instrument 的 component 按 `Instrument.Type` 放入 instrument-type allocation，把 holdings Account 中没有 Instrument 的 component 放入 `cash`，把 Simple Account 放入 `manual`。因此本方案不要求重做估值骨架，而是要求把这部分行为正式化，并清除其他路径对旧 Account category 的不当依赖。
+当前估值实现按本文的 v7 规则分类：Holdings Account 中没有 Instrument
+的 component 归入 `cash`，有 Instrument 的 component 按
+`Instrument.Type` 分类，Simple Account 按 `account_type` 和 role 分类。
 
-当前 Activity 代码和 schema 仍保存稳定的内部 kind 值，例如 `cash_in`、`cash_out`、`cash_transfer`、`fx_conversion`、`position_transfer`、`buy`、`sell`、`value_update`、`debt_draw`、`debt_payment` 和 `reversal`。本设计使用领域/产品层的既有语义名称描述它们，不新增另一套 Activity taxonomy，也不改写既有历史事实。
+Activity 仍保存稳定的内部 kind 值，例如 `cash_in`、`cash_out`、
+`cash_transfer`、`fx_conversion`、`position_transfer`、`buy`、`sell`、
+`value_update`、`debt_draw`、`debt_payment` 和 `reversal`。本文使用既有
+领域/产品语义描述它们，不新增另一套 Activity taxonomy，也不改写既有
+历史事实。
 
 ## 3. 背景与问题
 
@@ -78,7 +88,7 @@ MooMoo SG Brokerage
 └── 黄金
 ```
 
-当前结构已经可以存储一部分上述内容，但语义不完整：
+v6 结构可以存储一部分上述内容，但语义不完整：
 
 1. `Account.primary_category`/`secondary_category` 同时试图描述账户身份和账户资产类别。
 2. `holdings` tracking 被限制为 Investment，银行或交易所无法自然地表示“现金 + 持仓”。
@@ -217,7 +227,7 @@ liability
 - `liability` Account 的估值进入负债侧，净值计算使用负号。
 - 数据库金额仍保存为非负精确 Money；符号是 role 的派生语义。
 - Cash、股票、基金或加密货币位于某个 Account 内，不会改变 Account 的 role。
-- `IsLiability()` 必须改为读取 `balance_sheet_role`，不能继续读取旧 `PrimaryCategory`。
+- `IsLiability()` 读取 `balance_sheet_role`，不读取旧 `PrimaryCategory`。
 - role 在 Account 创建后不可变，除非未来设计了显式 Account conversion workflow。
 
 推荐在领域层使用 `BalanceSheetRole` 类型和解析函数，而不是在各个调用点比较字符串。
@@ -712,7 +722,7 @@ external flow   = 0
 
 ## 14. Database / schema breaking cutover
 
-### 14.1 目标 Account 字段
+### 14.1 当前 Account 字段
 
 schema v7 的 `accounts` 目标字段包含：
 
@@ -723,7 +733,7 @@ tracking_mode       TEXT NOT NULL
 include_in_portfolio INTEGER NOT NULL DEFAULT 0
 ```
 
-`account_type`、role、tracking 的 CHECK 必须表达 §6.4 的闭合三元组，而不只是三个字段分别属于枚举。`portfolio_scope` 本次不加入。
+`account_type`、role、tracking 的 CHECK 表达 §6.4 的闭合三元组，而不只是三个字段分别属于枚举。`portfolio_scope` 不在 v7 schema 中。
 
 ### 14.2 全新 schema
 
@@ -753,7 +763,10 @@ data verifier 至少运行 `PRAGMA integrity_check`、`foreign_key_check`，并�
 
 ### 14.4 开发与测试数据
 
-所有旧 schema fixture、golden DB 和本地 seed 必须删除或按新模型重新生成，不能伪装成 migration test。保留一个最小 v6/incompatible fixture 只用于验证“拒绝启动且文件不变”。
+`testdata/schema7/schema7-fixture.sql` 是当前兼容 fixture；
+`testdata/schema6/schema6-fixture.sql` 只用于验证不兼容数据库被拒绝且文件
+保持不变，不代表支持 v6 迁移。Provider fixtures 与开发数据库使用 v7
+模型。
 
 ### 14.5 不新增 SubAccount 表
 
@@ -766,45 +779,30 @@ data verifier 至少运行 `PRAGMA integrity_check`、`foreign_key_check`，并�
 
 不新增 `sub_accounts`、`account_components` 或 generic position supertype。只有未来出现具有独立数量、价格、历史重放和生命周期语义的第三类 component 时，才重新评估公共抽象。
 
-## 15. Domain、Application、API 与 UI 改动面
+## 15. Current implementation map
 
 ### 15.1 Domain
 
-需要引入：
-
-```text
-AccountType
-BalanceSheetRole
-```
-
-需要调整：
-
-- `Account` 增加 `AccountType` 和 `BalanceSheetRole`；
-- 删除 `PrimaryCategory.IsLiability()`，新增基于 `BalanceSheetRole` 的判断；
-- 删除按 `PrimaryCategory` 限定 tracking 的 `AllowedFor`/`TrackingModesByPrimary`；
-- `NewAccount` 与 Update 共用 §6.4 闭合三元组校验；
-- `NewHolding`/`NewAccountCashValue` 只校验 `TrackingHoldings`；
-- 新增 Simple Account classification helper；
-- `TrackingMode` 当前仍不可变；
-- Account type 仅在仍兼容不可变 role/tracking 时可编辑，且不触发财务 Activity。
+`internal/domain/account_type.go` owns `AccountType`, `BalanceSheetRole`,
+the closed legal-combination catalog, inclusion defaults, and Simple/Composite
+classification. `internal/domain/model.go` stores the three Account
+dimensions and enforces ownership, initial-value, currency, and immutable
+tracking rules. Account type updates are allowed only when the existing role
+and tracking mode remain legal, and do not create financial Activities.
 
 ### 15.2 Application 与 SQLite
 
-需要审查和更新：
-
-- `internal/domain/model.go`：新增枚举、字段、role/ tracking validation；
-- `internal/domain/change.go`：effect target、debt endpoint 和 liability 判断；
-- `internal/application/service.go`：Create/Update Account DTO 和初始值规则；
-- `internal/application/valuation.go`：Simple/Composite classification、Portfolio inclusion 和 role 过滤；
-- `internal/application/historical_replay.go`/`historical_snapshot.go`：不重写历史 facts，明确 metadata 限制；
-- `internal/infrastructure/sqlite/repository.go`：只读写新字段；
-- `internal/infrastructure/sqlite/schema.sql`：新 schema version；
-- `internal/infrastructure/sqlite/schema_verify.go`：字段、CHECK、index 验证；
-- Account/portfolio repository：按新 field 过滤和返回。
+`internal/application/service.go` coordinates Account and ownership
+mutations. `internal/application/valuation.go` is the current valuation
+authority for Simple and Composite Accounts, whole-account Portfolio
+inclusion, and role filtering. SQLite schema v7 and
+`internal/infrastructure/sqlite/schema_verify.go` enforce the fields,
+closed-combination CHECK, indexes, and data invariants before business writes.
+History replay keeps Account metadata changes separate from financial facts.
 
 ### 15.3 DTO 与 Wails API
 
-schema/API v7 的 Create/Update Account request 包含：
+The schema/API v7 Create and Update Account requests contain:
 
 ```text
 name
@@ -820,61 +818,31 @@ includeInPortfolio
 includeInLiquidAssets
 ```
 
-Wails 是与桌面应用同版本发布的本地边界，v7 不接收或返回 `primaryCategory`、`secondaryCategory`、`includeInInvestment`，避免双字段 precedence 和双写真相。Catalog 直接暴露合法三元组、展示 label 与 §9.6 建议默认值。
+Wails is the versioned local boundary for the desktop application. v7 does
+not receive or return `primaryCategory`, `secondaryCategory`, or
+`includeInInvestment`; Catalog exposes the legal combinations, display labels,
+and suggested defaults.
 
 ### 15.4 UI
 
-Account 表单应分开显示：
+The current Account UI separates:
 
 - Account Type：银行、券商、交易所、房产等；
 - Balance Sheet Role：除 `other` 外由 type 确定并只读展示；`other` 创建时明确选择；
 - Tracking：Holdings/Balance/Manual Value；
 - Include in Portfolio：整个 Account 是否进入 Portfolio。
 
-UI 只能从合法三元组提供 tracking 选项，保存前展示最终 role 和 tracking。对于 `bank_account + holdings`，应提示“Portfolio/Liquid Assets inclusion applies to all cash and holdings in this account”。
+The create wizard and settings form take tracking options from the legal
+combination catalog. For `bank_account + holdings`, the UI explains that
+Portfolio and Liquid Assets inclusion applies to all cash and holdings in the
+Account.
 
-Account 卡片建议展示 Account type，而 Holding/Cash 行展示底层资产类型；两者不要共享同一 category label。
+Account cards show Account type, while Holding and Cash rows show their
+underlying asset type; the two views do not share a category label.
 
-## 16. Rollout 计划
+## 16. 验证矩阵
 
-### Phase 0：契约冻结
-
-- 本文 §6.4、§7、§9、§10、§12、§14 已是冻结契约；实现不得重新选择另一套矩阵或兼容策略。
-- 同步更新 `docs/architecture/domain-model.md`：Overview component 粒度、新三维字段和 inclusion 语义。
-- 先写三元组、type edit、classification 与 incompatible-schema 的 table-driven tests。
-
-### Phase 1：Domain 与全新 schema v7
-
-- 增加新 domain types 和 DTO 字段。
-- schema.sql 直接定义新字段、闭合三元组 CHECK 和 `include_in_portfolio`。
-- repository、schema verifier 和 fixture 只支持 v7。
-- 非 v7 数据库返回 incompatible-schema error，验证文件未被修改。
-
-### Phase 2：应用规则切换
-
-- 新写入只依赖新三维字段。
-- 放宽 holdings 对 bank/brokerage/crypto exchange/digital wallet 的支持。
-- 将 `IsLiability`、net worth filter 和 debt endpoint 切换到 role。
-- 将 Simple Account classification 接入 Overview/Portfolio。
-- 将 Portfolio inclusion 解释为 whole-account。
-
-### Phase 3：UI 与历史边界
-
-- 发布只含新字段的 Wails DTO、Account 表单和闭合 catalog。
-- 清理旧 category label 和误导性的 “Investment only” 文案。
-- 将 Overview 切换到 `assetsByType`/`liabilitiesByType`，移除旧 `ByCategory`。
-- 在历史 Simple breakdown UI/API 中标明 `current-metadata-derived`。
-- 增加 mixed bank account 的 whole-account warning。
-
-### Phase 4：收尾
-
-- 删除旧 category catalog、DTO、tests 和死代码。
-- 更新 schema、API contract 和用户文档，验证干净安装与 incompatible database 拒绝路径。
-- 记录未来 `portfolio_scope`、metadata versioning 与 tracking conversion 的独立设计任务。
-
-## 17. 验证矩阵
-
-### 17.1 Domain 与 storage
+### 16.1 Domain 与 storage
 
 | 场景 | 验证点 |
 | --- | --- |
@@ -897,7 +865,7 @@ Account 卡片建议展示 Account type，而 Holding/Cash 行展示底层资产
 | tracking edit | 当前版本拒绝修改 |
 | liability + holdings/manual | 所有 type 均拒绝 |
 
-### 17.2 Classification 与 Portfolio
+### 16.2 Classification 与 Portfolio
 
 | 场景 | 验证点 |
 | --- | --- |
@@ -913,7 +881,7 @@ Account 卡片建议展示 Account type，而 Holding/Cash 行展示底层资产
 | Overview liabilities | `liabilitiesByType` 使用 credit_card/loan/other_liability，分母为 liabilities |
 | liquid mixed account | whole-account 生效并展示警告 |
 
-### 17.3 Startup 与 History
+### 16.3 Startup 与 History
 
 - 空路径/空文件创建完整 v7，并通过 schema verifier。
 - v6、未来版本或结构不符的数据库均拒绝启动，错误包含 found/supported version 和路径。
@@ -922,21 +890,9 @@ Account 卡片建议展示 Account type，而 Holding/Cash 行展示底层资产
 - 不存在 migrator、旧字段 fallback、自动 reset 或旧数据 fixture 转换路径。
 - Account type 修改不会改变既有历史 facts。
 - 没有 account_type 历史版本时，历史 Simple breakdown 明确标记 `current-metadata-derived`。
-- balance -> holdings conversion 在未来测试中必须证明 net worth delta 和 external flow 都为零。
+- tracking-mode conversion is not supported by v7.
 
-## 18. 开放问题
-
-以下问题不阻塞 v7，不能在本次实现中临时扩展：
-
-1. 未来是否允许用户自定义 `account_type` 显示 label；底层枚举和统计 key 仍须稳定。
-2. 是否为历史 metadata versioning 建立单独 schema 版本。
-3. `portfolio_scope=investment_positions` 未来是只选 Holding，还是也支持部分 Cash Balance。
-4. 银行理财、结构性产品和货币基金是否需要更细的 `instrument_type`。
-5. Account representation migration 的历史投影采用追加迁移标记还是专用 event。
-
-Stablecoin 的处理不属于开放问题：法币使用 Cash Balance，stablecoin 使用 crypto Instrument Holding。
-
-## 19. 结论
+## 17. 结论
 
 Nestworth 当前不需要 `SubAccount`。稳定的模型是：
 

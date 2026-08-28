@@ -11,10 +11,12 @@ bundles.
 | --- | --- | --- |
 | Product | [Product Vision](product/product-vision.md) | Problem, audience, principles, and durable workflows |
 | Product | [Product Roadmap](product/roadmap.md) | Current release outcomes and deferred direction |
-| Design | [Design and UX](design/README.md) | Current screen map, interaction invariants, and design handoff rules |
+| Design | [Design and UX](design/README.md) | Current screen map, interaction invariants, and maintained design contracts |
 | Architecture | [System Overview](architecture/system-overview.md) | Runtime layers, startup, state ownership, and security boundaries |
 | Architecture | [Domain Model](architecture/domain-model.md) | Financial entities, validation, and calculation semantics |
+| Architecture | [Account Container Model](architecture/account-container-and-position-model-design.md) | Current Account, component, classification, and schema-v7 contract |
 | Architecture | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | SQLite, transactions, serialization, errors, media, and providers |
+| Design | [Account Container Interaction](architecture/account-container-interaction-design.md) | Current Account creation, detail, action, and accessibility behavior |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
@@ -44,3 +46,7 @@ When documents disagree, use this order:
 Every new document should identify its owner, scope, status, and validation
 boundary. Keep one canonical description for each financial rule and link to
 it from other documents.
+
+The Account model and interaction documents are maintained contracts. They are
+not task logs; short-lived reviews and implementation notes do not belong in
+this index.

@@ -1,8 +1,8 @@
-# Account 容器交互设计
+# Account 容器交互契约
 
 ## 1. 文档状态与权威边界
 
-- 状态：Final / implementation-ready
+- 状态：Implemented / current contract
 - 配套领域契约：[account-container-and-position-model-design.md](account-container-and-position-model-design.md)
 - 适用基线：Nestworth-go `0.2.1` / schema v7 / 当前 Wails 前端
 - 数据策略：这是未发布版本的 breaking cutover。只支持全新的 schema v7 数据库；不设计旧数据、旧交互或旧页面兼容层。
@@ -30,27 +30,23 @@ Asset Type 与 Account Type 是两套视图，不能混在一起。不引入 Sub
 11. 金额、市值、完整性和分类由后端 read model 提供。前端只组合和展示，不重算财务权威值。
 12. 全家持仓表可以保留为「所有持仓索引」，但不再承担 Account 详情或 Portfolio 的职责。
 
-## 3. 当前基线与必须先修的契约缺口
+## 3. 当前实现与边界
 
-当前领域与 schema 已能表示一个现实账户中的多币种现金和多种持仓，但交互尚未完整接入：
+当前 `0.2.1` 实现已经接入 Account 容器交互闭环：
 
-- `AccountForm` 直接暴露 `accountType` / `balanceSheetRole` / `trackingMode`。
-- `AccountsPage` 是扁平表；点账户打开元数据编辑，不展示账户内现金或持仓。
-- `AccountValuations.components` 已包含现金和持仓估值，前端主要只使用 `baseValue`。
-- 买入仍从 History 全局表单发起，银行默认创建为 Simple 后又不能修改 tracking，因此用户无法把综合银行账户作为交易结算账户。
-- Overview 已有 component 粒度的 `assetsByType` 和账户粒度的 `byInstitution`，但没有 `byAccountType`。
-- 导航里没有独立 Portfolio 页面；现有 Investments 同时混合标的目录与全家持仓索引。
+- `AccountsPage` 按 Institution 分组；点击账户进入同一 workspace 的详情页，创建使用 Institution-first wizard。
+- 创建向导从 Catalog 读取合法组合，以现实账户类型和记录方式提问；Role、Tracking 和 inclusion 使用后端 Catalog 结果，所有人必须至少选择一名。
+- `AccountDetail` 对 Holdings Account 展示按币种的 Cash 和按 Instrument 的 Investments；Balance / Manual Value Account 展示单一当前值。金额、完整性和缺失原因来自后端 valuation DTO。
+- 详情页提供期初现金、现金校准、存取款、换汇、转账、买入、卖出、记录已有持仓和 Simple value 更新入口；需要 History 的动作会先显示 Start History。
+- Overview 提供 component 粒度的 `assetsByType` / `liabilitiesByType`，并保留账户级 `byAccountType`、`byInstitution` 和 `byGroup`；Portfolio 是独立导航页面并按整户 inclusion 工作。
+- 归档账户可以查看但以只读方式展示；账户设置、归档和恢复位于详情页，而不是列表行的隐式编辑操作。
 
-### 3.1 P0：Composite Account 的多币种现金
+持续有效的边界如下：
 
-交互目标要求 SGD 为默认币种的券商账户可以直接记录 USD、CNY 等现金。最终规则是：
-
-- Simple Account（`balance` / `manual_value`）的值必须使用 Account 默认币种。
-- Composite Account（`holdings`）的 cash component 可以使用任意系统支持的币种。
-- Account 默认币种仅用于默认选择、账户标题合计的上下文，以及缺省输入；不得成为 Composite cash 的写入限制。
-- `AppendAccountCashValue` 以及其 History 已开始后的 reconciliation 路径必须遵守同一规则。
-
-当前通用金额校验会把所有 Account 的金额都锁定为 Account 默认币种，因此这是交互实现前必须修复并覆盖测试的领域/应用层缺口，而不是前端绕过项。
+- Simple Account（`balance` / `manual_value`）的值必须使用 Account 默认币种；Holdings Account 的 Cash component 可以使用系统支持的其他币种。
+- `tracking_mode` 创建后不可变；本版本不支持 tracking transition 或 component-level inclusion。
+- Holdings Account 的 Portfolio inclusion 仍是 whole-account 语义；现金和全部持仓一起进入或一起排除。
+- 历史 Simple Account 的 bucket 名称来自当前 metadata，并标记为 `current-metadata-derived`。
 
 ## 4. 目标与非目标
 
@@ -461,11 +457,11 @@ IBKR                                  140,000 CNY
 
 `ListAccountCashValues` 是观察历史，不应由前端自行挑一条「最新记录」作为当前现金权威值。当前状态使用与 Account valuation 同一 as-of 的 cash components，避免历史排序、币种缺口和刷新时序产生两套真相。
 
-### 13.2 允许的后端增量
+### 13.2 当前后端事实
 
-1. 修复 Composite cash 的多币种校验，并覆盖 History 前后路径。
-2. 新增 `OverviewResult.ByAccountType`，复用 Overview 的换算、as-of 与 incomplete 规则。
-3. 如果前端组合多个 read model 无法稳定得到同一 as-of，可增加只读 `AccountDetailDTO`；它只能封装现有领域真相，不引入新写入模型。
+- Composite cash 的多币种校验由应用层和领域层共同保证，并覆盖 History 开始前后的写入路径。
+- `OverviewResult.ByAccountType` 由后端生成，与 Overview 其余结果共用换算、as-of 和 incomplete 规则。
+- Account 详情使用现有 Account、Holding、Instrument 和 valuation read models 组合展示，不新增独立的财务写入模型。
 
 ### 13.3 前端禁止事项
 
@@ -500,26 +496,9 @@ IBKR                                  140,000 CNY
 - 金额同时显示币种代码或无歧义符号；
 - 删除、归档等破坏性操作不与 Buy / Update value 等主操作并排使用相同视觉权重。
 
-## 15. 实现切片
+## 15. 行为矩阵
 
-按用户闭环拆分：
-
-| 切片 | 用户结果 | 主要改动 |
-| --- | --- | --- |
-| 0 | Composite 能真实记录多币种现金 | 修复校验；覆盖 History 前后测试 |
-| A | 点开已有券商/综合账户能看到现金、持仓和完整性 | Accounts 导航与详情 read model 组合 |
-| B | 用现实语言新建招行综合账户、MooMoo、房产或信用卡 | 创建向导；自动 Role；记录方式提问 |
-| C | 在详情录入期初现金、已有持仓和 Simple 初始值 | 现有 observation/value API；明确语义 |
-| D | 从 Account 详情直接存取款、换汇、买卖 | 上下文化现有 Change flows；首次 Buy 创建 Holding；History 启动回路 |
-| E | Overview 分清 Asset type、Institution、Account type | 调整布局；新增后端 `byAccountType` |
-| F | 独立查看整户 Portfolio | 接现有 Portfolio API；导航与详情跳转 |
-| G | Instruments 与所有持仓索引各归其位 | 重命名/降级全家持仓入口，不强制删除 |
-
-切片 0+A 解决「券商看不到内部仓位和多币种现金」。只有 0+B+C+D 一起完成，才真正解决「银行综合账户可以买基金」；不能把 D 延后后仍宣称交互模型已适配完成。
-
-## 16. 验收矩阵
-
-### 16.1 创建与不可变规则
+### 15.1 创建与不可变规则
 
 - 银行账户默认询问记录方式，默认只记总额；选择详细记录后创建为合法 holdings 组合。
 - 券商不询问内部 tracking 术语，默认进入 Cash + Investments。
@@ -528,7 +507,7 @@ IBKR                                  140,000 CNY
 - 编辑不能修改 Role / Tracking；兼容 type 更新不产生 Activity、不改变金额、不重算 inclusion；非法 type 更新被拒。
 - 未勾选所有人时不能 Continue / 添加账户 / Save；创建和更新的提交路径拒绝空所有权。不得把空所有人列表默认成全体家庭成员平分。已勾选多人且比例留空时，在已勾选者之间平均分配仍被允许。
 
-### 16.2 Composite Account
+### 15.2 Composite Account
 
 - 默认币种 SGD 的 MooMoo Account 可同时录入 SGD、USD、CNY 现金。
 - MooMoo 和招行综合账户使用同一详情结构，并能显示 Instrument 类型不同的持仓。
@@ -537,20 +516,20 @@ IBKR                                  140,000 CNY
 - Record existing position 不扣现金，且不允许零数量占位。
 - 首次 Buy 未持有的基金时自动创建 Holding，现金与数量在同一成功操作后更新。
 
-### 16.3 History 边界
+### 15.3 History 边界
 
 - History 未开始时可记录期初现金、已有持仓和 Simple 初始值。
 - 从详情发起 Buy / Deposit 等动作会进入 Start History，完成后返回原动作；取消不写入。
 - History 已开始后的 cash reconciliation、Trade、FX 和 Transfer 产生现有 Activity kinds，不新增种类。
 
-### 16.4 Overview 与 Portfolio
+### 15.4 Overview 与 Portfolio
 
 - 招行综合账户整户出现在 By account type 的「银行账户」，其 cash / fund / gold components 同时进入 Asset allocation 对应行。
 - `byAccountType` 与顶层 Overview 使用相同 as-of、换算和 incomplete 语义。
 - Portfolio 不含未勾选 Account；勾选 Composite 时现金和持仓整户进入，并显示说明。
 - 所有持仓索引与 Portfolio 使用不同名称和目的，不再让用户误以为两者相同。
 
-### 16.5 端到端关键旅程
+### 15.5 端到端关键旅程
 
 ```text
 创建招商银行综合账户
@@ -564,7 +543,7 @@ IBKR                                  140,000 CNY
 → 若整户 included，Portfolio 同时包含该账户现金与基金
 ```
 
-## 17. 明确延期项
+## 16. 明确延期项
 
 以下内容可以以后单独设计，不阻塞本方案：
 
@@ -574,15 +553,3 @@ IBKR                                  140,000 CNY
 - tax lot、订单状态、费用拆分等更完整交易模型；
 - Account 详情永久 URL / 多窗口路由；第一版可在 Accounts workspace 内全幅切换；
 - 更复杂的 Account detail 聚合 DTO，除非现有 read models 无法保证一致 as-of。
-
-## 18. 完成定义
-
-不能以「领域字段已落库」或「AccountForm 能选择 holdings」作为完成标准。只有以下闭环同时成立，Account 容器交互才算完成：
-
-- 用户能用现实语言创建正确的 Simple 或 Composite Account；
-- 用户创建或保存 Account 时必须明确勾选至少一名所有人；未勾选时 Continue / 添加账户 / Save 不可用，创建与更新提交都被拒绝，且不会把空列表默认成全体家庭成员平分；
-- 用户能从 Account 进入并理解内部现金和持仓；
-- 用户能区分期初状态、余额校准和真实交易；
-- 综合银行账户能从现金完成首次基金买入；
-- Overview 与 Portfolio 分别按正确维度聚合；
-- 多币种、History 边界、不完整估值、错误与只读状态均有可验证行为。

@@ -183,17 +183,42 @@ Canonical output removes insignificant trailing zeros: `1.2300` becomes `1.23`, 
 
 Authoritative timestamps are UTC RFC 3339 strings with millisecond precision and a trailing `Z`. Calendar-only fields such as `opened_on` and `closed_on` use `YYYY-MM-DD`. A closed date cannot precede an opened date. Activity effective time is resolved in the History Origin IANA timezone from local date and time; the persisted local date is used for filters and snapshot invalidation.
 
-## Categories and Tracking Modes
+## Account Types and Tracking Modes
 
-| Primary category | Allowed secondary categories | Allowed tracking modes |
+`account_type` identifies the real-world Account or container. The persistent
+`balance_sheet_role` is either `asset` or `liability`, and `tracking_mode`
+defines whether the Account stores one value, one manual valuation, or
+component-level cash and Holdings. The legal combinations are closed:
+
+| Account type | Balance-sheet role | Allowed tracking modes |
 | --- | --- | --- |
-| Cash Equivalent | Cash, Bank Account, Digital Wallet, Broker Cash, Other Cash Equivalent | Balance |
-| Investment | Brokerage Account, Investment Fund Account, Bank Investment Product, Insurance, Manual Investment, Other Investment | Holdings or Manual Value |
-| Property | Real Estate, Vehicle, Collectible, Other Property | Manual Value |
-| Receivable | Loan Receivable, Other Receivable | Manual Value |
-| Liability | Credit Card, Mortgage, Auto Loan, Consumer Loan, Personal Debt, Other Liability | Balance |
+| `cash_on_hand` | asset | `balance` |
+| `bank_account` | asset | `balance`, `holdings` |
+| `brokerage` | asset | `holdings`, `manual_value` |
+| `investment_account` | asset | `holdings`, `manual_value` |
+| `crypto_exchange` | asset | `holdings` |
+| `digital_wallet` | asset | `balance`, `holdings` |
+| `pension` | asset | `holdings`, `manual_value` |
+| `insurance_policy` | asset | `manual_value` |
+| `property` | asset | `manual_value` |
+| `vehicle` | asset | `manual_value` |
+| `collectible` | asset | `manual_value` |
+| `receivable` | asset | `balance`, `manual_value` |
+| `credit_card` | liability | `balance` |
+| `loan` | liability | `balance` |
+| `other` | asset | `balance`, `manual_value`, `holdings` |
+| `other` | liability | `balance` |
 
-New Holdings Accounts are Investment only and do not require an initial Account Value. New Balance and Manual Value Accounts still require an initial amount. TrackingMode is immutable after creation; an update may repeat the existing value but cannot change it. Existing Accounts retain their mode, currency, and Account Value history.
+`balance_sheet_role` and `tracking_mode` are immutable after Account creation.
+`account_type` can change only when the new value remains legal with the
+existing role and tracking mode. Create and update use the same combination
+catalog. Balance and Manual Value Accounts require an initial Account Value;
+Holdings Accounts use Account Cash and Holding components instead.
+
+For a Holdings Account, cash is classified as `cash` and each Holding is
+classified from its Instrument type. A Balance or Manual Value Account is
+classified from its current `account_type` and role, with historical Simple
+Account buckets explicitly marked `current-metadata-derived`.
 
 ## Ownership Rules
 
