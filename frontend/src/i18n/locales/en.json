@@ -74,7 +74,6 @@
     "icon": "Icon",
     "invalid": "Invalid value",
     "light": "Light",
-    "media": "Set image",
     "openSettings": "Open settings",
     "pending": "Saving…",
     "preview": "Preview",
@@ -201,13 +200,11 @@
       "holdingID": "Holding ID",
       "householdID": "Household ID",
       "iconKey": "Icon",
+      "institutionType": "Institution type",
       "initialValue": "Initial value",
       "instrumentID": "Instrument ID",
       "instrumentType": "Instrument type",
-      "logoAssetID": "Logo asset ID",
-      "mediaAssetID": "Media asset ID",
       "memberID": "Member ID",
-      "mimeType": "Image type",
       "provider": "Provider",
       "providerKey": "Provider key",
       "providerSymbol": "Provider symbol",
@@ -241,12 +238,6 @@
       "providerBindingConflict": "an active instrument already uses this provider binding",
       "providerBindingRequired": "provider key and symbol are required when Provider is selected"
     },
-    "media": {
-      "invalidOrTooLarge": "image is invalid or exceeds the local size limit",
-      "otherHousehold": "media asset belongs to another Household",
-      "unsupportedReference": "unsupported media reference",
-      "unsupportedType": "unsupported image type"
-    },
     "member": {
       "lastActive": "household must retain at least one active member"
     },
@@ -263,7 +254,6 @@
       "institutionReference": "institutions reference was not found",
       "instrument": "instrument was not found",
       "instrumentQuote": "instrument quote was not found",
-      "mediaAsset": "media asset was not found",
       "member": "member was not found"
     },
     "onboarding": {
@@ -503,7 +493,6 @@
     "list": "List",
     "mail": "Mail",
     "market": "Market",
-    "media": "Image",
     "money": "Money",
     "pension": "Pension",
     "percent": "Percent",
@@ -526,7 +515,31 @@
     "wallet": "Wallet",
     "walletCards": "Wallet cards",
     "warning": "Warning",
-    "yen": "Japanese yen"
+    "yen": "Japanese yen",
+    "user": "Member",
+    "landmark": "Government building",
+    "car": "Vehicle",
+    "gem": "Collectible",
+    "pieChart": "Portfolio allocation"
+  },
+  "directory": {
+    "createError": "The item could not be created",
+    "description": "Manage the people and structures used throughout your household.",
+    "entityCreated": "{{name}} was added",
+    "institutionType": "Institution type",
+    "institutionTypeRequired": "Choose an institution type",
+    "loadError": "The directory could not be loaded",
+    "nameRequired": "Name is required",
+    "updateError": "The item could not be updated"
+  },
+  "institutionType": {
+    "bank": "Bank",
+    "brokerage": "Brokerage",
+    "insurer": "Insurance company",
+    "exchange": "Exchange",
+    "employer": "Employer",
+    "government": "Government",
+    "other": "Other"
   },
   "institutions": {
     "createDescription": "Keep track of where accounts are held.",

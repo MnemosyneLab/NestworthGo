@@ -12,12 +12,12 @@ Status: `In progress`.
 
 This line keeps the Wails v3 local-first desktop and replaces Account
 categories with `account_type`, `balance_sheet_role`, and `tracking_mode` on
-schema `7`. Closeout priorities are:
+schema `8`. Closeout priorities are:
 
 - legal type/role/tracking combinations on create and update;
 - Overview `assetsByType` / `liabilitiesByType` at component granularity;
 - whole-account `include_in_portfolio`;
-- reject incompatible databases, including schema `6`, without rewriting them.
+- reject incompatible databases, including schemas `6` and `7`, without rewriting them.
 
 ## 0.2.0 — Coherent local-first desktop
 

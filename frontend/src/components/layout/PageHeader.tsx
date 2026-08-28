@@ -7,7 +7,7 @@ export function PageHeader({
   actions,
   status,
 }: {
-  title: string;
+  title: ReactNode;
   description?: string;
   actions?: ReactNode;
   status?: ReactNode;

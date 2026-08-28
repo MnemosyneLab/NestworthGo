@@ -21,6 +21,7 @@ import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import type { FXPreferenceDTO, InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import { EntityIcon } from "@/components/icons/EntityIcon";
 
 const STATUS_VARIANT: Record<string, "success" | "secondary" | "destructive" | "warning"> = {
   fetched: "success",
@@ -123,10 +124,10 @@ function formatQuotedAt(value: string, language: string, timezone?: string): str
 
 function InstrumentRefreshRow({
   item,
-  name,
+  instrument,
 }: {
   item: RefreshTargetResultDTO;
-  name: string;
+  instrument?: InstrumentDTO;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
@@ -136,7 +137,10 @@ function InstrumentRefreshRow({
   return (
     <li className="flex flex-col gap-1 rounded-md border border-border px-3 py-3 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="font-medium text-foreground">{name}</span>
+        <span className="flex items-center gap-2 font-medium text-foreground">
+          <EntityIcon iconKey={instrument?.iconKey} kind="instrument" />
+          {instrument?.name ?? t("portfolio.unknownInstrument")}
+        </span>
         <Badge variant={STATUS_VARIANT[item.status] ?? "secondary"}>{displayEnum(t, "marketData.status", item.status)}</Badge>
       </div>
       <p className="text-muted-foreground">
@@ -202,7 +206,7 @@ function RefreshResults({
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
-  const instrumentNameById = new Map(instruments.map((instrument) => [instrument.id, instrument.name]));
+  const instrumentById = new Map(instruments.map((instrument) => [instrument.id, instrument]));
   const items = result.items ?? [];
   const updated = items.filter((item) => item.status === "fetched").length;
   const reused = items.filter((item) => item.status === "cached").length;
@@ -231,7 +235,7 @@ function RefreshResults({
               <InstrumentRefreshRow
                 key={`${item.kind}-${item.targetKey}`}
                 item={item}
-                name={instrumentNameById.get(item.targetKey.slice(INSTRUMENT_KEY_PREFIX.length)) ?? t("portfolio.unknownInstrument")}
+                instrument={instrumentById.get(item.targetKey.slice(INSTRUMENT_KEY_PREFIX.length))}
               />
             ) : item.kind === "fx" ? (
               <FxRefreshRow
@@ -269,6 +273,7 @@ function SavedInstrumentRow({ instrument }: { instrument: InstrumentDTO }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-3 text-sm" data-testid={`saved-instrument-${instrument.id}`}>
       <span className="flex items-center gap-2">
+        <EntityIcon iconKey={instrument.iconKey} kind="instrument" className="size-5 text-primary" />
         <span className="font-medium">{instrument.name}</span>
         <Badge variant="secondary">{instrument.quoteCurrency}</Badge>
         <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>{displayEnum(t, "portfolio", instrument.quoteSource)}</Badge>

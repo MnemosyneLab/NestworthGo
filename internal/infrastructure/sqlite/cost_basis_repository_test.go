@@ -15,7 +15,7 @@ type countingQueryer struct {
 	queries int
 }
 
-func seedSchema7Fixture(t *testing.T, path string) {
+func seedSchema7Fixture(t *testing.T, path string) *DB {
 	t.Helper()
 	scriptPath := filepath.Join("..", "..", "..", "testdata", "schema7", "schema7-fixture.sql")
 	script, err := os.ReadFile(scriptPath)
@@ -30,9 +30,7 @@ func seedSchema7Fixture(t *testing.T, path string) {
 		_ = seed.Close()
 		t.Fatal(err)
 	}
-	if err := seed.Close(); err != nil {
-		t.Fatal(err)
-	}
+	return &DB{SQL: seed, Path: path, Status: StatusReady}
 }
 
 func (q *countingQueryer) QueryContext(ctx context.Context, statement string, args ...any) (*sql.Rows, error) {
@@ -42,11 +40,7 @@ func (q *countingQueryer) QueryContext(ctx context.Context, statement string, ar
 
 func TestCostBasisEventsUseOneBoundedQueryForAllEvents(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bounded-cost-basis.db")
-	seedSchema7Fixture(t, path)
-	database, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := seedSchema7Fixture(t, path)
 	defer database.Close()
 	counter := &countingQueryer{queryer: database.SQL}
 	events, err := listCostBasisEventsQuery(context.Background(), counter, domain.HoldingID("00000000-0000-4000-8000-000000000050"))
@@ -63,11 +57,7 @@ func TestCostBasisEventsUseOneBoundedQueryForAllEvents(t *testing.T) {
 
 func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cost-basis.db")
-	seedSchema7Fixture(t, path)
-	database, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := seedSchema7Fixture(t, path)
 	defer database.Close()
 	repository := NewRepository(database)
 	ctx := context.Background()
@@ -132,11 +122,7 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 
 func TestCostBasisRepositoryExcludesArchivedHolding(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "archived-cost-basis.db")
-	seedSchema7Fixture(t, path)
-	database, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := seedSchema7Fixture(t, path)
 	defer database.Close()
 	if _, err := database.SQL.Exec(`UPDATE holdings SET archived_at = '2026-08-24T00:00:00.000Z' WHERE id = '00000000-0000-4000-8000-000000000050'`); err != nil {
 		t.Fatal(err)

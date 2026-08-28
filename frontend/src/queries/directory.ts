@@ -30,7 +30,7 @@ export function useGroups(includeArchived = false) {
 export function useCreateMember() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => callService(() => DirectoryService.CreateMember(name)),
+    mutationFn: ({ name, iconKey }: { name: string; iconKey: string }) => callService(() => DirectoryService.CreateMember(name, iconKey)),
     onSuccess: () => invalidateDirectoryChange(queryClient, "members"),
   });
 }
@@ -54,7 +54,7 @@ export function useArchiveMember() {
 export function useCreateInstitution() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, iconKey }: { name: string; iconKey: string }) => callService(() => DirectoryService.CreateInstitution(name, iconKey)),
+    mutationFn: ({ name, institutionType, iconKey }: { name: string; institutionType: string; iconKey: string }) => callService(() => DirectoryService.CreateInstitution(name, institutionType, iconKey)),
     onSuccess: () => invalidateDirectoryChange(queryClient, "institutions"),
   });
 }
@@ -99,29 +99,29 @@ export function useArchiveGroup() {
   });
 }
 
-export function useSetMemberAvatar() {
+export function useSetMemberIcon() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
-      callService(() => DirectoryService.SetMemberAvatar(id, mediaAssetId)),
+    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
+      callService(() => DirectoryService.SetMemberIcon(id, iconKey)),
     onSuccess: () => invalidateDirectoryChange(queryClient, "members"),
   });
 }
 
-export function useSetInstitutionLogo() {
+export function useSetInstitutionIcon() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
-      callService(() => DirectoryService.SetInstitutionLogo(id, mediaAssetId)),
+    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
+      callService(() => DirectoryService.SetInstitutionIcon(id, iconKey)),
     onSuccess: () => invalidateDirectoryChange(queryClient, "institutions"),
   });
 }
 
-export function useSetGroupLogo() {
+export function useSetGroupIcon() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
-      callService(() => DirectoryService.SetGroupLogo(id, mediaAssetId)),
+    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
+      callService(() => DirectoryService.SetGroupIcon(id, iconKey)),
     onSuccess: () => invalidateDirectoryChange(queryClient, "groups"),
   });
 }

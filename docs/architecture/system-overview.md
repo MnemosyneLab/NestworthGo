@@ -4,7 +4,7 @@
 
 Nestworth `0.2.1` is a local-first desktop application with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
-provides typed domain contracts, SQLite bootstrap with one current schema `7`,
+provides typed domain contracts, SQLite bootstrap with one current schema `8`,
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
 currency decomposition, Analytics, exact valuation, and explicit
@@ -60,7 +60,7 @@ rules. It must not import Wails, React, SQL drivers, or operating-system APIs.
 ### Infrastructure
 
 Infrastructure owns the database path, connection options, current-schema
-integrity checks, media normalization, and platform integration. It implements
+integrity checks and platform integration. It implements
 interfaces defined toward the application/domain layers and does not decide
 product-level validation or presentation.
 
@@ -114,7 +114,7 @@ reloads the authoritative application result.
 | Area | Choice | Boundary |
 | --- | --- | --- |
 | Language | Go 1.26 | Application, domain, and infrastructure code |
-| Persistence | SQLite, verified schema 7 | Local durable source of truth |
+| Persistence | SQLite, verified schema 8 | Local durable source of truth |
 | Decimal arithmetic | shopspring/decimal-backed domain Money | No binary floating point for financial values |
 | Charts | Apache ECharts | Rendering only; no financial calculations |
 | Desktop shell | Wails v3 | Bound Go services + embedded React frontend |
@@ -130,10 +130,8 @@ Dependency versions are owned by `go.mod` and `go.sum`, not duplicated here.
   no startup dependency. Yahoo supplies instrument quotes and Frankfurter
   supplies FX refresh.
 - Logs must not include balances, notes, quantities, account names, instrument
-  symbols, quote values, raw legs, credentials, image bytes, or database rows.
+  symbols, quote values, raw legs, credentials, or database rows.
 - User-facing errors expose stable safe codes; detailed diagnostics stay local.
-- Imported media is decoded, bounded, normalized, and stored as Household-scoped
-  data rather than exposing arbitrary filesystem paths.
 
 ## Evolution rules
 

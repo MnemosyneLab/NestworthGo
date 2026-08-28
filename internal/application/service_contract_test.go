@@ -1,33 +1,29 @@
 package application
 
 import (
-	"bytes"
 	"context"
-	"image"
-	"image/png"
 	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
-func TestAccountFiltersLatestValueAndMediaAttachment(t *testing.T) {
+func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
 	database, err := sqlite.Open(filepath.Join(t.TempDir(), "nestworth.db"))
 	if err != nil {
 		t.Fatalf("open database: %v", err)
 	}
 	defer database.Close()
-	service := NewServiceWithImageNormalizer(sqlite.NewRepository(database), media.Normalizer{})
+	service := NewService(sqlite.NewRepository(database))
 	clock := time.Date(2026, 8, 21, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
 	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Alice"}}); err != nil {
 		t.Fatalf("onboarding: %v", err)
 	}
-	institution, err := service.CreateInstitution(ctx, "Bank")
+	institution, err := service.CreateInstitution(ctx, "Bank", domain.InstitutionBank)
 	if err != nil {
 		t.Fatalf("institution: %v", err)
 	}
@@ -46,8 +42,8 @@ func TestAccountFiltersLatestValueAndMediaAttachment(t *testing.T) {
 	if group.IconKey == nil || *group.IconKey != domain.DefaultGroupIcon {
 		t.Fatalf("group icon = %#v, want %q", group.IconKey, domain.DefaultGroupIcon)
 	}
-	if withRefs.Account.IconKey == nil || *withRefs.Account.IconKey != domain.DefaultAccountIcon {
-		t.Fatalf("account icon = %#v, want %q", withRefs.Account.IconKey, domain.DefaultAccountIcon)
+	if withRefs.Account.IconKey == nil || *withRefs.Account.IconKey != domain.DefaultAccountIcon(domain.TypeBankAccount) {
+		t.Fatalf("account icon = %#v, want %q", withRefs.Account.IconKey, domain.DefaultAccountIcon(domain.TypeBankAccount))
 	}
 	if err := service.SetInstitutionIcon(ctx, institution.ID, "home"); err != nil {
 		t.Fatalf("institution icon: %v", err)
@@ -112,19 +108,5 @@ func TestAccountFiltersLatestValueAndMediaAttachment(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("updated account was omitted from reloaded list")
-	}
-	var imageBuffer bytes.Buffer
-	if err := png.Encode(&imageBuffer, image.NewRGBA(image.Rect(0, 0, 1, 1))); err != nil {
-		t.Fatalf("encode image fixture: %v", err)
-	}
-	asset, err := service.CreateMediaAsset(ctx, "image/png", imageBuffer.Bytes())
-	if err != nil {
-		t.Fatalf("media asset: %v", err)
-	}
-	if err := service.SetAccountLogo(ctx, withRefs.Account.ID, asset.ID); err != nil {
-		t.Fatalf("account logo: %v", err)
-	}
-	if _, err := media.Normalize([]byte("not an image")); err == nil {
-		t.Fatal("invalid image normalized")
 	}
 }

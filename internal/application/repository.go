@@ -19,7 +19,7 @@ type Repository interface {
 }
 
 // DirectoryRepository owns Household, Members, Institutions, Groups, and
-// the media/icon references those entities carry.
+// the icon references those entities carry.
 type DirectoryRepository interface {
 	Household(context.Context) (*domain.Household, error)
 	CreateOnboarding(context.Context, domain.Household, []domain.Member) error
@@ -39,12 +39,7 @@ type DirectoryRepository interface {
 	Group(context.Context, domain.HouseholdID, domain.GroupID) (domain.Group, error)
 	UpdateGroup(context.Context, domain.Group) error
 	SetGroupArchive(context.Context, domain.HouseholdID, domain.GroupID, bool, time.Time) error
-	CreateMediaAsset(context.Context, domain.MediaAsset) error
-	MediaAsset(context.Context, domain.HouseholdID, domain.MediaAssetID) (domain.MediaAsset, error)
-	SetMemberAvatar(context.Context, domain.HouseholdID, domain.MemberID, domain.MediaAssetID, time.Time) error
-	SetInstitutionLogo(context.Context, domain.HouseholdID, domain.InstitutionID, domain.MediaAssetID, time.Time) error
-	SetGroupLogo(context.Context, domain.HouseholdID, domain.GroupID, domain.MediaAssetID, time.Time) error
-	SetAccountLogo(context.Context, domain.HouseholdID, domain.AccountID, domain.MediaAssetID, time.Time) error
+	SetMemberIcon(context.Context, domain.HouseholdID, domain.MemberID, string, time.Time) error
 	SetInstitutionIcon(context.Context, domain.HouseholdID, domain.InstitutionID, string, time.Time) error
 	SetGroupIcon(context.Context, domain.HouseholdID, domain.GroupID, string, time.Time) error
 	SetAccountIcon(context.Context, domain.HouseholdID, domain.AccountID, string, time.Time) error
@@ -75,7 +70,7 @@ type PortfolioRepository interface {
 	Instrument(context.Context, domain.HouseholdID, domain.InstrumentID) (domain.Instrument, error)
 	ListInstruments(context.Context, domain.HouseholdID, bool) ([]domain.Instrument, error)
 	SetInstrumentArchive(context.Context, domain.HouseholdID, domain.InstrumentID, bool, time.Time) error
-	SetInstrumentLogo(context.Context, domain.HouseholdID, domain.InstrumentID, domain.MediaAssetID, time.Time) error
+	SetInstrumentIcon(context.Context, domain.HouseholdID, domain.InstrumentID, string, time.Time) error
 	SetInstrumentQuoteSource(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, time.Time) error
 	SetInstrumentQuoteSourceWithObservation(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, domain.InstrumentPreferenceObservation) error
 	CreateHolding(context.Context, domain.Holding) error

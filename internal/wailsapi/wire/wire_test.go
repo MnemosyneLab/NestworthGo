@@ -124,10 +124,7 @@ func TestHouseholdMemberInstitutionGroupRoundTrip(t *testing.T) {
 	}
 	archived := now.Add(time.Hour)
 	member.ArchivedAt = &archived
-	assetID := domain.NewMediaAssetID()
-	member.AvatarAssetID = &assetID
-
-	institution, err := domain.NewInstitution(household.ID, "DBS", now)
+	institution, err := domain.NewInstitution(household.ID, "DBS", domain.InstitutionBank, now)
 	if err != nil {
 		t.Fatalf("NewInstitution: %v", err)
 	}
@@ -156,7 +153,7 @@ func TestHouseholdMemberInstitutionGroupRoundTrip(t *testing.T) {
 	}
 
 	memberDTO := FromMember(member)
-	if memberDTO.ArchivedAt == nil || memberDTO.AvatarAssetID == nil {
+	if memberDTO.ArchivedAt == nil || memberDTO.IconKey == "" {
 		t.Fatalf("FromMember dropped an optional field: %+v", memberDTO)
 	}
 }

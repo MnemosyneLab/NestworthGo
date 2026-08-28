@@ -26,12 +26,15 @@ func TestMemberLifecycle(t *testing.T) {
 	service := newOnboardedServices(t)
 	ctx := context.Background()
 
-	member, err := service.CreateMember(ctx, "Bob")
+	member, err := service.CreateMember(ctx, "Bob", "")
 	if err != nil {
 		t.Fatalf("CreateMember: %v", err)
 	}
 	if member.Name != "Bob" {
 		t.Fatalf("Name = %q, want Bob", member.Name)
+	}
+	if member.IconKey != "user" {
+		t.Fatalf("IconKey = %q, want user", member.IconKey)
 	}
 
 	updated, err := service.UpdateMember(ctx, member.ID, "Bobby")
@@ -84,15 +87,15 @@ func TestUpdateMemberInvalidID(t *testing.T) {
 	assertWireCode(t, err, "validation")
 }
 
-func TestInstitutionLifecycleWithIconAndLogo(t *testing.T) {
+func TestInstitutionLifecycleWithIcon(t *testing.T) {
 	service := newOnboardedServices(t)
 	ctx := context.Background()
 
-	institution, err := service.CreateInstitution(ctx, "DBS", "bank")
+	institution, err := service.CreateInstitution(ctx, "DBS", "bank", "bank")
 	if err != nil {
 		t.Fatalf("CreateInstitution: %v", err)
 	}
-	if institution.IconKey == nil || *institution.IconKey != "bank" {
+	if institution.IconKey != "bank" {
 		t.Fatalf("IconKey = %v, want bank", institution.IconKey)
 	}
 
@@ -103,7 +106,7 @@ func TestInstitutionLifecycleWithIconAndLogo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListInstitutions: %v", err)
 	}
-	if len(list) != 1 || list[0].IconKey == nil || *list[0].IconKey != "bank-branch" {
+	if len(list) != 1 || list[0].IconKey != "bank-branch" {
 		t.Fatalf("ListInstitutions = %+v, want icon bank-branch", list)
 	}
 
@@ -145,23 +148,46 @@ func TestGroupLifecycle(t *testing.T) {
 	}
 }
 
-func TestSetMemberAvatarWithUnknownAsset(t *testing.T) {
+func TestCreateInstitutionRequiresTypeAndDefaultsIcon(t *testing.T) {
 	service := newOnboardedServices(t)
 	ctx := context.Background()
-	member, err := service.CreateMember(ctx, "Bob")
+
+	if _, err := service.CreateInstitution(ctx, "Ghost", "", ""); err == nil {
+		t.Fatal("want an error for a missing institution type")
+	}
+
+	institution, err := service.CreateInstitution(ctx, "AIA", "insurer", "")
+	if err != nil {
+		t.Fatalf("CreateInstitution: %v", err)
+	}
+	if institution.InstitutionType != "insurer" {
+		t.Fatalf("InstitutionType = %q, want insurer", institution.InstitutionType)
+	}
+	if institution.IconKey != "shield-plus" {
+		t.Fatalf("IconKey = %q, want shield-plus", institution.IconKey)
+	}
+}
+
+func TestSetMemberIconRejectsUnknownIcon(t *testing.T) {
+	service := newOnboardedServices(t)
+	ctx := context.Background()
+	member, err := service.CreateMember(ctx, "Bob", "")
 	if err != nil {
 		t.Fatalf("CreateMember: %v", err)
 	}
-	err = service.SetMemberAvatar(ctx, member.ID, "00000000-0000-7000-8000-000000000000")
+	err = service.SetMemberIcon(ctx, member.ID, "not-an-icon")
 	if err == nil {
-		t.Fatal("want an error for an unknown media asset")
+		t.Fatal("want an error for an unknown icon")
+	}
+	if err := service.SetMemberIcon(ctx, member.ID, ""); err == nil {
+		t.Fatal("want an error for an empty icon")
 	}
 }
 
 func TestDirectoryDTOsRoundTripAsJSON(t *testing.T) {
 	service := newOnboardedServices(t)
 	ctx := context.Background()
-	institution, err := service.CreateInstitution(ctx, "DBS", "bank")
+	institution, err := service.CreateInstitution(ctx, "DBS", "bank", "bank")
 	if err != nil {
 		t.Fatalf("CreateInstitution: %v", err)
 	}

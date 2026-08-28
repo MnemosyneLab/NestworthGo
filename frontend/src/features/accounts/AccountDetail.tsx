@@ -9,10 +9,9 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { AccountForm, type AccountFormExtras } from "@/features/accounts/AccountForm";
 import { AccountActionSheet, type AccountAction } from "@/features/accounts/AccountActionSheets";
-import { useArchiveAccount, useSetAccountLogo, useUpdateAccount, toUpdateAccountRequest } from "@/queries/accounts";
+import { useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/queries/accounts";
 import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
 import { useHistoryOrigin } from "@/queries/history";
-import { attachPendingImage } from "@/queries/media";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
 import { useSettings } from "@/queries/settings";
@@ -21,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { AccountRecordDTO, AccountValuationDTO, HoldingDTO, ValuationComponentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
+import { EntityIcon } from "@/components/icons/EntityIcon";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,7 +86,6 @@ export function AccountDetail({
   const instruments = useInstruments();
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
-  const setAccountLogo = useSetAccountLogo();
   const [action, setAction] = useState<AccountAction>(null);
   const [settingsError, setSettingsError] = useState<string | undefined>();
   const archived = Boolean(record.account.archivedAt);
@@ -115,12 +114,8 @@ export function AccountDetail({
     setSettingsError(undefined);
     try {
       await updateAccount.mutateAsync({ id: record.account.id, request: toUpdateAccountRequest(request) });
-      try {
-        await attachPendingImage(record.account.id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args));
-        toast.success(t("common.saved"));
-      } catch (error) {
-        toast.error(`${displayError(error, t("accounts.mediaSaveError"))} ${t("accounts.mediaRetryHint")}`);
-      }
+      void extras;
+      toast.success(t("common.saved"));
       setAction(null);
     } catch (error) {
       setSettingsError(displayError(error, t("accounts.saveError")));
@@ -134,7 +129,7 @@ export function AccountDetail({
   return (
     <div className="flex flex-col gap-6" data-testid="account-detail">
       <PageHeader
-        title={record.account.name}
+        title={<span className="flex items-center gap-2"><EntityIcon iconKey={record.account.iconKey} kind="account" className="size-6 text-primary" />{record.account.name}</span>}
         description={`${institutionLabel} · ${displayEnum(t, "enum", record.account.accountType)}`}
         status={
           <div className="flex flex-wrap items-center gap-2">

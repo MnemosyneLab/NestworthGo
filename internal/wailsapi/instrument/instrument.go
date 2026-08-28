@@ -1,5 +1,5 @@
 // Package instrument adapts internal/application.Service's Instrument
-// identity CRUD, logo, and quote-source surface for the Wails IPC boundary.
+// identity CRUD, icon, and quote-source surface for the Wails IPC boundary.
 package instrument
 
 import (
@@ -32,7 +32,7 @@ type InstrumentRequest struct {
 	CountryCode    *string `json:"countryCode,omitempty"`
 	ISIN           *string `json:"isin,omitempty"`
 	Note           *string `json:"note,omitempty"`
-	LogoAssetID    *string `json:"logoAssetId,omitempty"`
+	IconKey        *string `json:"iconKey,omitempty"`
 	SortOrder      int     `json:"sortOrder,omitempty"`
 	QuoteSource    string  `json:"quoteSource,omitempty"`
 	ProviderKey    *string `json:"providerKey,omitempty"`
@@ -44,7 +44,7 @@ func (r InstrumentRequest) toApplicationInput() application.InstrumentInput {
 		Replace: r.Replace, Name: r.Name, Type: r.Type, QuoteCurrency: r.QuoteCurrency,
 		Symbol: wire.StringFromPtr(r.Symbol), MarketCode: wire.StringFromPtr(r.MarketCode),
 		CountryCode: wire.StringFromPtr(r.CountryCode), ISIN: wire.StringFromPtr(r.ISIN),
-		Note: r.Note, LogoAssetID: wire.StringFromPtr(r.LogoAssetID), SortOrder: r.SortOrder,
+		Note: r.Note, IconKey: wire.StringFromPtr(r.IconKey), SortOrder: r.SortOrder,
 		QuoteSource: r.QuoteSource, ProviderKey: wire.StringFromPtr(r.ProviderKey), ProviderSymbol: wire.StringFromPtr(r.ProviderSymbol),
 	}
 }
@@ -85,16 +85,12 @@ func (s *Service) ArchiveInstrument(ctx context.Context, id string, archived boo
 	return apierror.Wrap(s.app.ArchiveInstrument(ctx, instrumentID, archived))
 }
 
-func (s *Service) SetInstrumentLogo(ctx context.Context, id, mediaAssetID string) error {
+func (s *Service) SetInstrumentIcon(ctx context.Context, id, iconKey string) error {
 	instrumentID, err := domain.ParseInstrumentID(id)
 	if err != nil {
 		return apierror.Wrap(err)
 	}
-	assetID, err := domain.ParseMediaAssetID(mediaAssetID)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetInstrumentLogo(ctx, instrumentID, assetID))
+	return apierror.Wrap(s.app.SetInstrumentIcon(ctx, instrumentID, iconKey))
 }
 
 func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id, source string) error {

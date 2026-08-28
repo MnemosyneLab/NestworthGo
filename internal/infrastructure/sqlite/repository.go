@@ -84,15 +84,15 @@ func listArchivedOrdered[T any](ctx context.Context, query queryer, statement st
 }
 
 func listMembersQuery(ctx context.Context, query queryer, includeArchived bool) ([]domain.Member, error) {
-	return listArchivedOrdered(ctx, query, `SELECT id, household_id, name, avatar_asset_id, note, sort_order, created_at, updated_at, archived_at FROM members`, includeArchived, scanMember)
+	return listArchivedOrdered(ctx, query, `SELECT id, household_id, name, icon_key, note, sort_order, created_at, updated_at, archived_at FROM members`, includeArchived, scanMember)
 }
 
 func listInstitutionsQuery(ctx context.Context, query queryer, includeArchived bool) ([]domain.Institution, error) {
-	return listArchivedOrdered(ctx, query, `SELECT id, household_id, name, icon_key, institution_type, country_code, website, note, logo_asset_id, sort_order, created_at, updated_at, archived_at FROM institutions`, includeArchived, scanInstitution)
+	return listArchivedOrdered(ctx, query, `SELECT id, household_id, name, icon_key, institution_type, country_code, website, note, sort_order, created_at, updated_at, archived_at FROM institutions`, includeArchived, scanInstitution)
 }
 
 func listGroupsQuery(ctx context.Context, query queryer, includeArchived bool) ([]domain.Group, error) {
-	return listArchivedOrdered(ctx, query, `SELECT id, household_id, name, icon_key, color, logo_asset_id, description, sort_order, created_at, updated_at, archived_at FROM account_groups`, includeArchived, scanGroup)
+	return listArchivedOrdered(ctx, query, `SELECT id, household_id, name, icon_key, color, description, sort_order, created_at, updated_at, archived_at FROM account_groups`, includeArchived, scanGroup)
 }
 func (r *Repository) Household(ctx context.Context) (*domain.Household, error) {
 	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, name, base_currency, created_at, updated_at FROM households WHERE singleton_key = 1`)
@@ -114,7 +114,7 @@ func (r *Repository) CreateOnboarding(ctx context.Context, household domain.Hous
 			return err
 		}
 		for index, member := range members {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO members(id, household_id, name, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?)`, member.ID.String(), household.ID.String(), member.Name, nullableString(member.Note), index, formatTimestamp(member.CreatedAt), formatTimestamp(member.UpdatedAt)); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO members(id, household_id, name, icon_key, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, member.ID.String(), household.ID.String(), member.Name, nullableString(member.IconKey), nullableString(member.Note), index, formatTimestamp(member.CreatedAt), formatTimestamp(member.UpdatedAt)); err != nil {
 				return err
 			}
 		}
@@ -128,7 +128,7 @@ func (r *Repository) ListMembers(ctx context.Context, includeArchived bool) ([]d
 }
 
 func (r *Repository) Member(ctx context.Context, householdID domain.HouseholdID, id domain.MemberID) (domain.Member, error) {
-	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, avatar_asset_id, note, sort_order, created_at, updated_at, archived_at FROM members WHERE household_id = ? AND id = ?`, householdID.String(), id.String())
+	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, icon_key, note, sort_order, created_at, updated_at, archived_at FROM members WHERE household_id = ? AND id = ?`, householdID.String(), id.String())
 	return lookupRow(row, scanMember, "member was not found")
 }
 
@@ -139,12 +139,12 @@ func (r *Repository) Member(ctx context.Context, householdID domain.HouseholdID,
 // compute and insert the same sort_order.
 func (r *Repository) CreateMember(ctx context.Context, member domain.Member) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO members(id, household_id, name, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM members WHERE household_id = ?), ?, ?)`, member.ID.String(), member.HouseholdID.String(), member.Name, nullableString(member.Note), member.HouseholdID.String(), formatTimestamp(member.CreatedAt), formatTimestamp(member.UpdatedAt))
+		_, err := tx.ExecContext(ctx, `INSERT INTO members(id, household_id, name, icon_key, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM members WHERE household_id = ?), ?, ?)`, member.ID.String(), member.HouseholdID.String(), member.Name, nullableString(member.IconKey), nullableString(member.Note), member.HouseholdID.String(), formatTimestamp(member.CreatedAt), formatTimestamp(member.UpdatedAt))
 		return err
 	})
 }
 func (r *Repository) UpdateMember(ctx context.Context, member domain.Member) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE members SET name = ?, note = ?, updated_at = ? WHERE id = ? AND household_id = ?`, member.Name, nullableString(member.Note), formatTimestamp(member.UpdatedAt), member.ID.String(), member.HouseholdID.String())
+	result, err := r.database.SQL.ExecContext(ctx, `UPDATE members SET name = ?, icon_key = ?, note = ?, updated_at = ? WHERE id = ? AND household_id = ?`, member.Name, nullableString(member.IconKey), nullableString(member.Note), formatTimestamp(member.UpdatedAt), member.ID.String(), member.HouseholdID.String())
 	if err != nil {
 		return err
 	}
@@ -174,12 +174,12 @@ func (r *Repository) SetMemberArchive(ctx context.Context, householdID domain.Ho
 // CreateMember; see the comment there.
 func (r *Repository) CreateInstitution(ctx context.Context, institution domain.Institution) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO institutions(id, household_id, name, icon_key, institution_type, country_code, website, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM institutions WHERE household_id = ?), ?, ?)`, institution.ID.String(), institution.HouseholdID.String(), institution.Name, nullableString(institution.IconKey), nullableString(institution.InstitutionType), nullableString(institution.CountryCode), nullableString(institution.Website), nullableString(institution.Note), institution.HouseholdID.String(), formatTimestamp(institution.CreatedAt), formatTimestamp(institution.UpdatedAt))
+		_, err := tx.ExecContext(ctx, `INSERT INTO institutions(id, household_id, name, icon_key, institution_type, country_code, website, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM institutions WHERE household_id = ?), ?, ?)`, institution.ID.String(), institution.HouseholdID.String(), institution.Name, nullableString(institution.IconKey), string(institution.InstitutionType), nullableString(institution.CountryCode), nullableString(institution.Website), nullableString(institution.Note), institution.HouseholdID.String(), formatTimestamp(institution.CreatedAt), formatTimestamp(institution.UpdatedAt))
 		return err
 	})
 }
 func (r *Repository) UpdateInstitution(ctx context.Context, institution domain.Institution) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE institutions SET name = ?, icon_key = ?, institution_type = ?, country_code = ?, website = ?, note = ?, updated_at = ? WHERE id = ? AND household_id = ?`, institution.Name, nullableString(institution.IconKey), nullableString(institution.InstitutionType), nullableString(institution.CountryCode), nullableString(institution.Website), nullableString(institution.Note), formatTimestamp(institution.UpdatedAt), institution.ID.String(), institution.HouseholdID.String())
+	result, err := r.database.SQL.ExecContext(ctx, `UPDATE institutions SET name = ?, icon_key = ?, institution_type = ?, country_code = ?, website = ?, note = ?, updated_at = ? WHERE id = ? AND household_id = ?`, institution.Name, nullableString(institution.IconKey), string(institution.InstitutionType), nullableString(institution.CountryCode), nullableString(institution.Website), nullableString(institution.Note), formatTimestamp(institution.UpdatedAt), institution.ID.String(), institution.HouseholdID.String())
 	if err != nil {
 		return err
 	}
@@ -191,7 +191,7 @@ func (r *Repository) ListInstitutions(ctx context.Context, includeArchived bool)
 }
 
 func (r *Repository) Institution(ctx context.Context, householdID domain.HouseholdID, id domain.InstitutionID) (domain.Institution, error) {
-	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, icon_key, institution_type, country_code, website, note, logo_asset_id, sort_order, created_at, updated_at, archived_at FROM institutions WHERE household_id = ? AND id = ?`, householdID.String(), id.String())
+	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, icon_key, institution_type, country_code, website, note, sort_order, created_at, updated_at, archived_at FROM institutions WHERE household_id = ? AND id = ?`, householdID.String(), id.String())
 	return lookupRow(row, scanInstitution, "institution was not found")
 }
 
@@ -220,51 +220,12 @@ func (r *Repository) ListGroups(ctx context.Context, includeArchived bool) ([]do
 }
 
 func (r *Repository) Group(ctx context.Context, householdID domain.HouseholdID, id domain.GroupID) (domain.Group, error) {
-	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, icon_key, color, logo_asset_id, description, sort_order, created_at, updated_at, archived_at FROM account_groups WHERE household_id = ? AND id = ?`, householdID.String(), id.String())
+	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, icon_key, color, description, sort_order, created_at, updated_at, archived_at FROM account_groups WHERE household_id = ? AND id = ?`, householdID.String(), id.String())
 	return lookupRow(row, scanGroup, "group was not found")
 }
 
-func (r *Repository) CreateMediaAsset(ctx context.Context, asset domain.MediaAsset) error {
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO media_assets(id, household_id, mime_type, data, created_at) VALUES(?, ?, ?, ?, ?)`, asset.ID.String(), asset.HouseholdID.String(), asset.MimeType, asset.Data, formatTimestamp(asset.CreatedAt))
-		return err
-	})
-}
-func (r *Repository) MediaAsset(ctx context.Context, householdID domain.HouseholdID, id domain.MediaAssetID) (domain.MediaAsset, error) {
-	var rawID, rawHousehold, mimeType, createdAt string
-	var data []byte
-	if err := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, mime_type, data, created_at FROM media_assets WHERE id = ? AND household_id = ?`, id.String(), householdID.String()).Scan(&rawID, &rawHousehold, &mimeType, &data, &createdAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return domain.MediaAsset{}, &domain.Error{Code: domain.ErrNotFound, Message: "media asset was not found"}
-		}
-		return domain.MediaAsset{}, err
-	}
-	parsedID, err := domain.ParseMediaAssetID(rawID)
-	if err != nil {
-		return domain.MediaAsset{}, err
-	}
-	parsedHousehold, err := domain.ParseHouseholdID(rawHousehold)
-	if err != nil {
-		return domain.MediaAsset{}, err
-	}
-	created, err := time.Parse(time.RFC3339Nano, createdAt)
-	if err != nil {
-		return domain.MediaAsset{}, err
-	}
-	return domain.MediaAsset{ID: parsedID, HouseholdID: parsedHousehold, MimeType: mimeType, Data: append([]byte(nil), data...), CreatedAt: created.UTC()}, nil
-}
-
-func (r *Repository) SetMemberAvatar(ctx context.Context, householdID domain.HouseholdID, memberID domain.MemberID, assetID domain.MediaAssetID, now time.Time) error {
-	return r.setMediaReference(ctx, "members", "avatar_asset_id", householdID.String(), memberID.String(), assetID.String(), now)
-}
-func (r *Repository) SetInstitutionLogo(ctx context.Context, householdID domain.HouseholdID, id domain.InstitutionID, assetID domain.MediaAssetID, now time.Time) error {
-	return r.setMediaReference(ctx, "institutions", "logo_asset_id", householdID.String(), id.String(), assetID.String(), now)
-}
-func (r *Repository) SetGroupLogo(ctx context.Context, householdID domain.HouseholdID, id domain.GroupID, assetID domain.MediaAssetID, now time.Time) error {
-	return r.setMediaReference(ctx, "account_groups", "logo_asset_id", householdID.String(), id.String(), assetID.String(), now)
-}
-func (r *Repository) SetAccountLogo(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID, assetID domain.MediaAssetID, now time.Time) error {
-	return r.setMediaReference(ctx, "accounts", "logo_asset_id", householdID.String(), id.String(), assetID.String(), now)
+func (r *Repository) SetMemberIcon(ctx context.Context, householdID domain.HouseholdID, id domain.MemberID, iconKey string, now time.Time) error {
+	return r.setIconReference(ctx, "members", householdID.String(), id.String(), iconKey, now)
 }
 
 func (r *Repository) SetInstitutionIcon(ctx context.Context, householdID domain.HouseholdID, id domain.InstitutionID, iconKey string, now time.Time) error {
@@ -279,21 +240,8 @@ func (r *Repository) SetAccountIcon(ctx context.Context, householdID domain.Hous
 	return r.setIconReference(ctx, "accounts", householdID.String(), id.String(), iconKey, now)
 }
 
-func (r *Repository) setMediaReference(ctx context.Context, table, column, householdID, id, assetID string, now time.Time) error {
-	allowed := (table == "members" && column == "avatar_asset_id") || (table == "institutions" && column == "logo_asset_id") || (table == "account_groups" && column == "logo_asset_id") || (table == "accounts" && column == "logo_asset_id")
-	if !allowed {
-		return errors.New("unsupported media reference")
-	}
-	query := fmt.Sprintf(`UPDATE %s SET %s = ?, updated_at = ? WHERE id = ? AND household_id = ?`, table, column)
-	result, err := r.database.SQL.ExecContext(ctx, query, assetID, formatTimestamp(now), id, householdID)
-	if err != nil {
-		return err
-	}
-	return requireAffected(result, table)
-}
-
 func (r *Repository) setIconReference(ctx context.Context, table, householdID, id, iconKey string, now time.Time) error {
-	if table != "institutions" && table != "account_groups" && table != "accounts" {
+	if table != "members" && table != "institutions" && table != "account_groups" && table != "accounts" && table != "instruments" {
 		return errors.New("unsupported icon reference")
 	}
 	query := fmt.Sprintf(`UPDATE %s SET icon_key = ?, updated_at = ? WHERE id = ? AND household_id = ?`, table)
@@ -398,7 +346,7 @@ func (r *Repository) UpdateAccount(ctx context.Context, account domain.Account, 
 		if err := validateAccountReferences(ctx, tx, account, nullableStringValue(currentInstitution), nullableStringValue(currentGroup)); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, logo_asset_id = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
 		if err != nil {
 			return err
 		}
@@ -421,7 +369,7 @@ func (r *Repository) UpdateAccountWithObservation(ctx context.Context, account d
 		if err := validateAccountReferences(ctx, tx, account, nullableStringValue(currentInstitution), nullableStringValue(currentGroup)); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, logo_asset_id = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
 		if err != nil {
 			return err
 		}
@@ -482,7 +430,7 @@ func (r *Repository) ListAccountRecords(ctx context.Context, householdID domain.
 	return records, nil
 }
 
-const accountRecordSelect = `SELECT a.id, a.household_id, a.institution_id, a.group_id, a.name, a.account_type, a.balance_sheet_role, a.tracking_mode, a.default_currency, a.note, a.icon_key, a.logo_asset_id, a.include_in_net_worth, a.include_in_portfolio, a.include_in_liquid_assets, a.opened_on, a.closed_on, a.sort_order, a.created_at, a.updated_at, a.archived_at, COALESCE(i.name, ''), COALESCE(g.name, '') FROM accounts a LEFT JOIN institutions i ON i.id = a.institution_id LEFT JOIN account_groups g ON g.id = a.group_id`
+const accountRecordSelect = `SELECT a.id, a.household_id, a.institution_id, a.group_id, a.name, a.account_type, a.balance_sheet_role, a.tracking_mode, a.default_currency, a.note, a.icon_key, a.include_in_net_worth, a.include_in_portfolio, a.include_in_liquid_assets, a.opened_on, a.closed_on, a.sort_order, a.created_at, a.updated_at, a.archived_at, COALESCE(i.name, ''), COALESCE(g.name, '') FROM accounts a LEFT JOIN institutions i ON i.id = a.institution_id LEFT JOIN account_groups g ON g.id = a.group_id`
 
 func (r *Repository) AccountRecord(ctx context.Context, householdID domain.HouseholdID, id domain.AccountID) (domain.AccountRecord, error) {
 	row := r.database.SQL.QueryRowContext(ctx, accountRecordSelect+` WHERE a.household_id = ? AND a.id = ?`, householdID.String(), id.String())
@@ -690,7 +638,7 @@ func validateAccountReferences(ctx context.Context, tx *sql.Tx, account domain.A
 }
 
 func insertAccount(ctx context.Context, tx *sql.Tx, account domain.Account) error {
-	_, err := tx.ExecContext(ctx, `INSERT INTO accounts(id, household_id, institution_id, group_id, name, account_type, balance_sheet_role, tracking_mode, default_currency, note, icon_key, logo_asset_id, include_in_net_worth, include_in_portfolio, include_in_liquid_assets, opened_on, closed_on, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, account.ID.String(), account.HouseholdID.String(), nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), nullableID(account.LogoAssetID), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.CreatedAt), formatTimestamp(account.UpdatedAt))
+	_, err := tx.ExecContext(ctx, `INSERT INTO accounts(id, household_id, institution_id, group_id, name, account_type, balance_sheet_role, tracking_mode, default_currency, note, icon_key, include_in_net_worth, include_in_portfolio, include_in_liquid_assets, opened_on, closed_on, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, account.ID.String(), account.HouseholdID.String(), nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.CreatedAt), formatTimestamp(account.UpdatedAt))
 	return err
 }
 
@@ -776,9 +724,9 @@ func scanHousehold(row interface{ Scan(...any) error }) (*domain.Household, erro
 
 func scanMember(row interface{ Scan(...any) error }) (domain.Member, error) {
 	var id, householdID, name, createdAt, updatedAt string
-	var avatar, note, archived sql.NullString
+	var icon, note, archived sql.NullString
 	var sortOrder int
-	if err := row.Scan(&id, &householdID, &name, &avatar, &note, &sortOrder, &createdAt, &updatedAt, &archived); err != nil {
+	if err := row.Scan(&id, &householdID, &name, &icon, &note, &sortOrder, &createdAt, &updatedAt, &archived); err != nil {
 		return domain.Member{}, err
 	}
 	memberID, err := domain.ParseMemberID(id)
@@ -801,14 +749,14 @@ func scanMember(row interface{ Scan(...any) error }) (domain.Member, error) {
 	if err != nil {
 		return domain.Member{}, err
 	}
-	return domain.Member{ID: memberID, HouseholdID: hID, Name: name, AvatarAssetID: parseMediaID(nullString(avatar)), Note: parseNullable(nullString(note)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, nil
+	return domain.Member{ID: memberID, HouseholdID: hID, Name: name, IconKey: parseNullable(nullString(icon)), Note: parseNullable(nullString(note)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, nil
 }
 
 func scanInstitution(row interface{ Scan(...any) error }) (domain.Institution, error) {
 	var id, householdID, name, createdAt, updatedAt string
-	var icon, institutionType, country, website, note, logo, archived sql.NullString
+	var icon, institutionType, country, website, note, archived sql.NullString
 	var sortOrder int
-	if err := row.Scan(&id, &householdID, &name, &icon, &institutionType, &country, &website, &note, &logo, &sortOrder, &createdAt, &updatedAt, &archived); err != nil {
+	if err := row.Scan(&id, &householdID, &name, &icon, &institutionType, &country, &website, &note, &sortOrder, &createdAt, &updatedAt, &archived); err != nil {
 		return domain.Institution{}, err
 	}
 	institutionID, err := domain.ParseInstitutionID(id)
@@ -831,14 +779,18 @@ func scanInstitution(row interface{ Scan(...any) error }) (domain.Institution, e
 	if err != nil {
 		return domain.Institution{}, err
 	}
-	return domain.Institution{ID: institutionID, HouseholdID: hID, Name: name, IconKey: parseNullable(nullString(icon)), InstitutionType: parseNullable(nullString(institutionType)), CountryCode: parseNullable(nullString(country)), Website: parseNullable(nullString(website)), Note: parseNullable(nullString(note)), LogoAssetID: parseMediaID(nullString(logo)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, nil
+	parsedType, err := domain.ParseInstitutionType(nullString(institutionType))
+	if err != nil {
+		return domain.Institution{}, err
+	}
+	return domain.Institution{ID: institutionID, HouseholdID: hID, Name: name, IconKey: parseNullable(nullString(icon)), InstitutionType: parsedType, CountryCode: parseNullable(nullString(country)), Website: parseNullable(nullString(website)), Note: parseNullable(nullString(note)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, nil
 }
 
 func scanGroup(row interface{ Scan(...any) error }) (domain.Group, error) {
 	var id, householdID, name, createdAt, updatedAt string
-	var icon, color, logo, description, archived sql.NullString
+	var icon, color, description, archived sql.NullString
 	var sortOrder int
-	if err := row.Scan(&id, &householdID, &name, &icon, &color, &logo, &description, &sortOrder, &createdAt, &updatedAt, &archived); err != nil {
+	if err := row.Scan(&id, &householdID, &name, &icon, &color, &description, &sortOrder, &createdAt, &updatedAt, &archived); err != nil {
 		return domain.Group{}, err
 	}
 	groupID, err := domain.ParseGroupID(id)
@@ -861,14 +813,14 @@ func scanGroup(row interface{ Scan(...any) error }) (domain.Group, error) {
 	if err != nil {
 		return domain.Group{}, err
 	}
-	return domain.Group{ID: groupID, HouseholdID: hID, Name: name, IconKey: parseNullable(nullString(icon)), Color: parseNullable(nullString(color)), LogoAssetID: parseMediaID(nullString(logo)), Description: parseNullable(nullString(description)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, nil
+	return domain.Group{ID: groupID, HouseholdID: hID, Name: name, IconKey: parseNullable(nullString(icon)), Color: parseNullable(nullString(color)), Description: parseNullable(nullString(description)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, nil
 }
 
 func scanAccountRecord(row interface{ Scan(...any) error }) (domain.AccountRecord, error) {
 	var id, householdID, name, primary, secondary, tracking, currency, createdAt, updatedAt, institutionName, groupName string
-	var institution, group, note, icon, logo, opened, closed, archived sql.NullString
+	var institution, group, note, icon, opened, closed, archived sql.NullString
 	var includeNetWorth, includeInvestment, includeLiquid, sortOrder int
-	if err := row.Scan(&id, &householdID, &institution, &group, &name, &primary, &secondary, &tracking, &currency, &note, &icon, &logo, &includeNetWorth, &includeInvestment, &includeLiquid, &opened, &closed, &sortOrder, &createdAt, &updatedAt, &archived, &institutionName, &groupName); err != nil {
+	if err := row.Scan(&id, &householdID, &institution, &group, &name, &primary, &secondary, &tracking, &currency, &note, &icon, &includeNetWorth, &includeInvestment, &includeLiquid, &opened, &closed, &sortOrder, &createdAt, &updatedAt, &archived, &institutionName, &groupName); err != nil {
 		return domain.AccountRecord{}, err
 	}
 	accountID, err := domain.ParseAccountID(id)
@@ -907,7 +859,7 @@ func scanAccountRecord(row interface{ Scan(...any) error }) (domain.AccountRecor
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	return domain.AccountRecord{Account: domain.Account{ID: accountID, HouseholdID: hID, InstitutionID: parseInstitutionID(nullString(institution)), GroupID: parseGroupID(nullString(group)), Name: name, AccountType: category, BalanceSheetRole: balanceSheetRole, TrackingMode: mode, DefaultCurrency: currencyCode, Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), LogoAssetID: parseMediaID(nullString(logo)), IncludeInNetWorth: includeNetWorth != 0, IncludeInPortfolio: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, OpenedOn: parseNullable(nullString(opened)), ClosedOn: parseNullable(nullString(closed)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, InstitutionName: institutionName, GroupName: groupName}, nil
+	return domain.AccountRecord{Account: domain.Account{ID: accountID, HouseholdID: hID, InstitutionID: parseInstitutionID(nullString(institution)), GroupID: parseGroupID(nullString(group)), Name: name, AccountType: category, BalanceSheetRole: balanceSheetRole, TrackingMode: mode, DefaultCurrency: currencyCode, Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), IncludeInNetWorth: includeNetWorth != 0, IncludeInPortfolio: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, OpenedOn: parseNullable(nullString(opened)), ClosedOn: parseNullable(nullString(closed)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, InstitutionName: institutionName, GroupName: groupName}, nil
 }
 
 func nullString(value sql.NullString) string {
@@ -989,16 +941,6 @@ func parseTimePtr(value sql.NullString) (*time.Time, error) {
 	}
 	parsed = parsed.UTC()
 	return &parsed, nil
-}
-func parseMediaID(value string) *domain.MediaAssetID {
-	if value == "" {
-		return nil
-	}
-	id, err := domain.ParseMediaAssetID(value)
-	if err != nil {
-		return nil
-	}
-	return &id
 }
 func parseInstitutionID(value string) *domain.InstitutionID {
 	if value == "" {

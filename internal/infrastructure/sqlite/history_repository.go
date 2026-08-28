@@ -346,7 +346,7 @@ func (r *Repository) CreateOnboardingWithHistory(ctx context.Context, household 
 			return err
 		}
 		for index, member := range members {
-			if _, err := tx.ExecContext(ctx, `INSERT INTO members(id, household_id, name, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?)`, member.ID.String(), household.ID.String(), member.Name, nullableString(member.Note), index, formatTimestamp(member.CreatedAt), formatTimestamp(member.UpdatedAt)); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO members(id, household_id, name, icon_key, note, sort_order, created_at, updated_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, member.ID.String(), household.ID.String(), member.Name, nullableString(member.IconKey), nullableString(member.Note), index, formatTimestamp(member.CreatedAt), formatTimestamp(member.UpdatedAt)); err != nil {
 				return err
 			}
 		}

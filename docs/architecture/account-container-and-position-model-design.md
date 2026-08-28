@@ -2,8 +2,8 @@
 
 ## 1. Document status and decision summary
 
-- Status: Implemented / current contract in Nestworth-go `0.2.1` / SQLite schema v7
-- Baseline: Nestworth-go current domain model and SQLite schema v7
+- Status: Implemented / current contract in Nestworth-go `0.2.1` / SQLite schema v8
+- Baseline: Nestworth-go current domain model and SQLite schema v8
 - Purpose: Record Account-model facts across domain, database, application, and release
 - This document describes the landed breaking cutover; it does not provide a v6 migration
 
@@ -40,9 +40,9 @@ This design also freezes these product decisions:
 
 - Overview replaces the old account-level `ByCategory` with component-grained
   `assetsByType` and adds `liabilitiesByType`;
-- schema v7 is a new breaking schema with no legacy-database migration,
-  compatibility reads, or automatic reset;
-- v7 Wails DTOs expose only the new fields and do not define dual-API
+- schema v8 is the current breaking schema with no legacy-database migration,
+  compatibility reads, or automatic reset; older generations including v7 are rejected;
+- current Wails DTOs expose only the new fields and do not define dual-API
   precedence;
 - SQLite `accounts`, `account_state_observations`, and
   `history_origin_account_states` use the physical column `include_in_portfolio`;
@@ -52,7 +52,7 @@ This design also freezes these product decisions:
 ## 2. Historical baseline before cutover
 
 This section records the schema v6 state before cutover. It is not current
-behavior. The current repository uses schema v7 and the
+behavior. The current repository uses schema v8 and the
 `account_type` / `balance_sheet_role` / `tracking_mode` contract defined here.
 
 At that time `accounts` contained:
@@ -755,7 +755,7 @@ mode, not from an old category.
 ### 11.3 FX conversion
 
 This design does not add a second FX Activity kind. Current code already has
-the persisted kind `fx_conversion`, and schema v7 continues to treat it as
+the persisted kind `fx_conversion`, and the current schema continues to treat it as
 the only representation.
 
 Whatever the underlying kind is named, FX conversion financial semantics stay:
@@ -898,7 +898,7 @@ immutability rules.
 
 ### 14.1 Current Account fields
 
-The schema v7 `accounts` target fields include:
+The current schema `accounts` target fields include:
 
 ```sql
 account_type        TEXT NOT NULL
@@ -909,11 +909,11 @@ include_in_portfolio INTEGER NOT NULL DEFAULT 0
 
 The CHECKs on `account_type`, role, and tracking express the closed §6.4
 combinations, not merely that each field belongs to an enum.
-`portfolio_scope` is not in the v7 schema.
+`portfolio_scope` is not in the current schema.
 
 ### 14.2 Fresh schema
 
-schema v7 does not contain these old fields or aliases:
+schema v8 does not contain these old fields or aliases:
 
 ```text
 primary_category
@@ -926,19 +926,19 @@ include_in_investment
 Repository, schema verifier, domain, Wails DTOs, and UI all use the new
 names only. There is no dual-read, dual-write, or deprecated field.
 
-The schema file describes complete v7. It does not write SQL that rebuilds
-tables from v6 or converts rows. Test fixtures, demo data, and development
-databases are created from empty v7.
+The schema file describes complete v8. It does not write SQL that rebuilds
+tables from v6 or v7 or converts rows. Test fixtures, demo data, and development
+databases are created from empty v8.
 
 ### 14.3 Startup and error policy
 
 Database open has only three outcomes:
 
-1. Path missing or file empty: create a fresh schema v7;
-2. `PRAGMA user_version == 7`: run the full schema and data verifier, then
+1. Path missing or file empty: create a fresh schema v8;
+2. `PRAGMA user_version == 8`: run the full schema and data verifier, then
    start if it passes;
 3. Any other version, missing column, leftover old column, or CHECK / index /
-   foreign key that does not match v7: close the database and return a clear
+   foreign key that does not match v8: close the database and return a clear
    incompatible-schema error.
 
 The data verifier at least runs `PRAGMA integrity_check`,
@@ -957,11 +957,11 @@ delete.
 
 ### 14.4 Development and test data
 
-`testdata/schema7/schema7-fixture.sql` is the current compatible fixture.
-`testdata/schema6/schema6-fixture.sql` only verifies that an incompatible
-database is rejected and the file is left unchanged; it does not mean v6
-migration is supported. Provider fixtures and development databases use the v7
-model.
+`testdata/schema6/schema6-fixture.sql` and
+`testdata/schema7/schema7-fixture.sql` only verify that incompatible older
+databases are rejected and the files are left unchanged; they do not mean
+migration is supported. The current schema is `8`, created from `schema.sql`.
+Provider fixtures and development databases use the current model.
 
 ### 14.5 No SubAccount table
 
@@ -992,14 +992,14 @@ and tracking mode remain legal, and do not create financial Activities.
 `internal/application/service.go` coordinates Account and ownership
 mutations. `internal/application/valuation.go` is the current valuation
 authority for Simple and Composite Accounts, whole-account Portfolio
-inclusion, and role filtering. SQLite schema v7 and
+inclusion, and role filtering. SQLite schema v8 and
 `internal/infrastructure/sqlite/schema_verify.go` enforce the fields,
 closed-combination CHECK, indexes, and data invariants before business writes.
 History replay keeps Account metadata changes separate from financial facts.
 
 ### 15.3 DTO and Wails API
 
-The schema/API v7 Create and Update Account requests contain:
+The current Create and Update Account requests contain:
 
 ```text
 name

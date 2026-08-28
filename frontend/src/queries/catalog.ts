@@ -17,6 +17,7 @@ export type AccountCombinationDTO = {
 export type CatalogDTO = {
   currencies: string[];
   instrumentTypes: string[];
+  institutionTypes: string[];
   quoteSources: string[];
   instrumentProviders: string[];
   accountTypes: string[];

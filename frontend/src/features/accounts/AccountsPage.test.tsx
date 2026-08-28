@@ -11,9 +11,6 @@ const accountValuations = vi.fn();
 const createAccount = vi.fn();
 const updateAccount = vi.fn();
 const archiveAccount = vi.fn().mockResolvedValue(undefined);
-const setAccountLogo = vi.fn().mockResolvedValue(undefined);
-const pickImage = vi.fn();
-const createMediaAsset = vi.fn();
 const historyOrigin = vi.fn();
 const startHistory = vi.fn();
 const listInstruments = vi.fn();
@@ -34,14 +31,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ac
     CreateAccount: (...args: unknown[]) => createAccount(...args),
     UpdateAccount: (...args: unknown[]) => updateAccount(...args),
     ArchiveAccount: (...args: unknown[]) => archiveAccount(...args),
-    SetAccountLogo: (...args: unknown[]) => setAccountLogo(...args),
+    SetAccountIcon: vi.fn(),
     AppendAccountValue: (...args: unknown[]) => appendValue(...args),
-  },
-}));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/media", () => ({
-  Service: {
-    PickImage: (...args: unknown[]) => pickImage(...args),
-    CreateMediaAsset: (...args: unknown[]) => createMediaAsset(...args),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/directory", () => ({
@@ -181,9 +172,6 @@ beforeEach(() => {
   createAccount.mockReset();
   updateAccount.mockReset();
   archiveAccount.mockClear();
-  setAccountLogo.mockClear();
-  pickImage.mockReset();
-  createMediaAsset.mockReset();
   historyOrigin.mockReset();
   startHistory.mockReset();
   listInstruments.mockReset();
@@ -209,8 +197,6 @@ beforeEach(() => {
   ]);
   createAccount.mockResolvedValue(emptyAccount);
   updateAccount.mockResolvedValue(emptyAccount);
-  pickImage.mockResolvedValue("");
-  createMediaAsset.mockResolvedValue({ id: "media-1" });
   historyOrigin.mockResolvedValue(null);
   startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
   settingsLoad.mockResolvedValue({ timezone: "system", fx_provider: "frankfurter" });
@@ -899,25 +885,6 @@ describe("AccountsPage", () => {
         includeInPortfolio: true,
       }),
     );
-  });
-
-  it("keeps account creation successful when logo persistence fails", async () => {
-    pickImage.mockResolvedValue("cGlj");
-    createMediaAsset.mockRejectedValueOnce(new Error("image storage unavailable"));
-    renderPage();
-    await screen.findByText("Checking");
-    await userEvent.click(screen.getByText("Add account"));
-    const form = await screen.findByRole("form", { name: "Create account" });
-    await continueWizard(form, 3);
-    await userEvent.click(within(form).getByRole("button", { name: "More settings" }));
-    await userEvent.click(within(form).getByRole("button", { name: "Set image" }));
-    await userEvent.type(within(form).getByLabelText("Name"), "With Logo Failure");
-    await userEvent.click(within(form).getByLabelText("Alice"));
-    await continueWizard(form, 1);
-    await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
-    await waitFor(() => expect(createMediaAsset).toHaveBeenCalledWith("image/png", "cGlj"));
-    expect(createAccount).toHaveBeenCalledTimes(1);
-    expect(setAccountLogo).not.toHaveBeenCalled();
   });
 
   it("shows the current cash balance on reconcile and does not prefill the resulting amount", async () => {

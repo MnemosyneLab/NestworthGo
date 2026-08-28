@@ -18,7 +18,7 @@ import (
 //go:embed schema.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 7
+const CurrentSchemaVersion = 8
 
 type BootstrapStatus string
 

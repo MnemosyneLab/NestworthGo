@@ -74,7 +74,7 @@ type Instrument struct {
 	CountryCode             *string
 	ISIN                    *string
 	Note                    *string
-	LogoAssetID             *MediaAssetID
+	IconKey                 *string
 	SortOrder               int
 	QuoteSource             QuoteSourceKind
 	ProviderKey             *string
@@ -95,7 +95,7 @@ type InstrumentInput struct {
 	CountryCode    *string
 	ISIN           *string
 	Note           *string
-	LogoAssetID    *MediaAssetID
+	IconKey        *string
 	SortOrder      int
 	QuoteSource    QuoteSourceKind
 	ProviderKey    *string
@@ -108,6 +108,10 @@ func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 		return Instrument{}, err
 	}
 	instrumentType, err := ParseInstrumentType(string(input.Type))
+	if err != nil {
+		return Instrument{}, err
+	}
+	iconKey, err := normalizedIconKey(input.IconKey, DefaultInstrumentIcon(instrumentType))
 	if err != nil {
 		return Instrument{}, err
 	}
@@ -174,7 +178,7 @@ func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 	return Instrument{
 		ID: NewInstrumentID(), HouseholdID: input.HouseholdID, Name: name, Type: instrumentType,
 		QuoteCurrency: currency, Symbol: symbol, MarketCode: marketCode, CountryCode: countryCode,
-		ISIN: isin, Note: note, LogoAssetID: input.LogoAssetID, SortOrder: input.SortOrder,
+		ISIN: isin, Note: note, IconKey: iconKey, SortOrder: input.SortOrder,
 		QuoteSource: quoteSource, ProviderKey: providerKey, ProviderSymbol: providerSymbol,
 		CreatedAt: now, UpdatedAt: now,
 	}, nil

@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { IconPicker } from "@/components/forms/IconPicker";
-import { ImagePicker } from "@/components/forms/ImagePicker";
+import { EntitySelect } from "@/components/forms/EntitySelect";
+import { EntityIcon } from "@/components/icons/EntityIcon";
 import { useMembers, useInstitutions, useGroups } from "@/queries/directory";
 import { useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
@@ -17,6 +18,7 @@ import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { displayEnum } from "@/lib/display";
 import { ownershipShares, trackingMethodKey } from "@/features/accounts/accountCatalog";
+import { ACCOUNT_TYPE_ICONS } from "@/lib/defaultIcons";
 
 const accountFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -36,9 +38,7 @@ const accountFormSchema = z.object({
 
 export type AccountFormValues = z.infer<typeof accountFormSchema>;
 
-export type AccountFormExtras = {
-  pendingImage?: string;
-};
+export type AccountFormExtras = Record<string, never>;
 
 const emptyValues: AccountFormValues = {
   name: "",
@@ -78,10 +78,8 @@ function valuesFromRecord(record: AccountRecordDTO): AccountFormValues {
 
 /**
  * AccountForm implements Account creation and metadata edit. Minimal
- * required fields come first; institution/group/icon/logo sit behind
- * progressive disclosure. The native image picker lives in that disclosure
- * so the keyboard-only create path (Tab through required fields to submit)
- * is unchanged.
+ * required fields come first; institution, group, and icon sit behind
+ * progressive disclosure so the keyboard-only create path remains compact.
  */
 export function AccountForm({
   record,
@@ -105,8 +103,8 @@ export function AccountForm({
   const bootstrap = useBootstrap();
   const isEdit = Boolean(record);
   const [showMoreOptions, setShowMoreOptions] = useState(isEdit);
-  const [iconKey, setIconKey] = useState(record?.account.iconKey ?? "");
-  const [pendingImage, setPendingImage] = useState<string | undefined>(undefined);
+  const [iconCustomized, setIconCustomized] = useState(Boolean(record?.account.iconKey));
+  const [iconKey, setIconKey] = useState(record?.account.iconKey ?? ACCOUNT_TYPE_ICONS.cash_on_hand);
   const initialValues = record ? valuesFromRecord(record) : emptyValues;
   const [useCustomPercentages, setUseCustomPercentages] = useState(
     (initialValues.ownershipPercentages ?? []).length > 0,
@@ -126,6 +124,8 @@ export function AccountForm({
   const includeInPortfolio = useWatch({ control, name: "includeInPortfolio" });
   const ownerIds = useWatch({ control, name: "ownerIds" });
   const ownershipPercentages = useWatch({ control, name: "ownershipPercentages" }) ?? [];
+  const institutionId = useWatch({ control, name: "institutionId" });
+  const groupId = useWatch({ control, name: "groupId" });
 
   const combinations = useMemo(
     () => catalog.data?.accountCombinations ?? [],
@@ -181,6 +181,9 @@ export function AccountForm({
     setValue("accountType", nextType);
     setValue("balanceSheetRole", role);
     setValue("trackingMode", tracking);
+    if (!isEdit && !iconCustomized) {
+      setIconKey(ACCOUNT_TYPE_ICONS[nextType] ?? "account");
+    }
     if (!isEdit && match) {
       setValue("includeInNetWorth", match.includeInNetWorth, { shouldDirty: true, shouldTouch: true });
       setValue("includeInPortfolio", match.includeInPortfolio, { shouldDirty: true, shouldTouch: true });
@@ -220,7 +223,7 @@ export function AccountForm({
       iconKey: iconKey || undefined,
       initialAmount: isEdit || values.trackingMode === "holdings" ? "" : values.initialAmount || "0",
     };
-    onSubmit(request, { pendingImage });
+    onSubmit(request, {});
   };
 
   return (
@@ -317,7 +320,7 @@ export function AccountForm({
                 className="size-4"
               />
               <Label htmlFor={`owner-${member.id}`} className="flex-1 font-normal">
-                {member.name}
+                <span className="flex items-center gap-2"><EntityIcon iconKey={member.iconKey} kind="member" />{member.name}</span>
               </Label>
               {useCustomPercentages && checked && (
                 <Input
@@ -381,35 +384,9 @@ export function AccountForm({
       </Button>
       {showMoreOptions && (
         <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="account-institution">{t("nav.institutions")}</Label>
-            <NativeSelect id="account-institution" {...register("institutionId")}>
-              <option value="">{t("accounts.none")}</option>
-              {(institutions.data ?? []).map((institution) => (
-                <option key={institution.id} value={institution.id}>
-                  {institution.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="account-group">{t("nav.groups")}</Label>
-            <NativeSelect id="account-group" {...register("groupId")}>
-              <option value="">{t("accounts.none")}</option>
-              {(groups.data ?? []).map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.name}
-                </option>
-              ))}
-            </NativeSelect>
-          </div>
-          <IconPicker id="account-icon" value={iconKey} onChange={setIconKey} />
-          <ImagePicker
-            label={t("common.media")}
-            value={pendingImage}
-            existingAssetId={record?.account.logoAssetId}
-            onChange={setPendingImage}
-          />
+          <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutions.data ?? []} emptyLabel={t("accounts.none")} kind="institution" onChange={(value) => setValue("institutionId", value)} />
+          <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => setValue("groupId", value)} />
+          <IconPicker id="account-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
         </div>
       )}
 

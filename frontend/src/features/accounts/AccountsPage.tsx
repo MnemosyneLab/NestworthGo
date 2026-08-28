@@ -5,8 +5,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { useAccounts, useAccountValuations, useCreateAccount, useSetAccountLogo } from "@/queries/accounts";
-import { attachPendingImage } from "@/queries/media";
+import { useAccounts, useAccountValuations, useCreateAccount } from "@/queries/accounts";
 import { AccountCreateWizard } from "@/features/accounts/AccountCreateWizard";
 import { AccountDetail } from "@/features/accounts/AccountDetail";
 import { formatAmount } from "@/lib/money";
@@ -17,6 +16,7 @@ import { toast } from "sonner";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
+import { EntityIcon } from "@/components/icons/EntityIcon";
 
 function groupAccounts(records: AccountRecordDTO[]): { key: string; label: string; records: AccountRecordDTO[] }[] {
   const groups = new Map<string, { label: string; records: AccountRecordDTO[] }>();
@@ -68,7 +68,6 @@ export function AccountsPage({
   const accounts = useAccounts({ includeArchived: showArchived });
   const valuations = useAccountValuations({ includeArchived: showArchived });
   const createAccount = useCreateAccount();
-  const setAccountLogo = useSetAccountLogo();
   const [createOpen, setCreateOpen] = useState(false);
   const [operation, setOperation] = useState<"create" | null>(null);
   const [createError, setCreateError] = useState<string | undefined>();
@@ -85,13 +84,8 @@ export function AccountsPage({
     setOperation("create");
     try {
       const record = await createAccount.mutateAsync(request);
-      try {
-        await attachPendingImage(record.account.id, extras.pendingImage, (args) => setAccountLogo.mutateAsync(args));
-        toast.success(t("accounts.created"));
-      } catch (error) {
-        const message = displayError(error, t("accounts.mediaSaveError"));
-        toast.error(`${message} ${t("accounts.mediaRetryHint")}`);
-      }
+      void extras;
+      toast.success(t("accounts.created"));
       setCreateOpen(false);
       setSelectedId(record.account.id);
     } catch (error) {
@@ -190,7 +184,8 @@ export function AccountsPage({
                         className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                         onClick={() => setSelectedId(record.account.id)}
                       >
-                        <span className="flex min-w-0 flex-col gap-1">
+                        <EntityIcon iconKey={record.account.iconKey} kind="account" className="mt-0.5 size-5 text-primary" />
+                        <span className="flex min-w-0 flex-1 flex-col gap-1">
                           <span className="flex flex-wrap items-center gap-2 font-medium">
                             {record.account.name}
                             <Badge variant="outline">{displayEnum(t, "enum", record.account.accountType)}</Badge>

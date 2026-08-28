@@ -5,319 +5,90 @@ import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { NativeSelect } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
-import { displayError } from "@/lib/display";
+import { displayEnum, displayError } from "@/lib/display";
 import { IconPicker } from "@/components/forms/IconPicker";
-import { ImagePicker } from "@/components/forms/ImagePicker";
+import { EntityIcon, type EntityIconKind } from "@/components/icons/EntityIcon";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
+import { DEFAULT_ICONS, INSTITUTION_TYPE_ICONS } from "@/lib/defaultIcons";
 
-interface Entity {
-  id: string;
-  name: string;
-  archivedAt?: string | null;
-  iconKey?: string | null;
-  logoAssetId?: string | null;
-  avatarAssetId?: string | null;
-}
+interface Entity { id: string; name: string; archivedAt?: string | null; iconKey: string; institutionType?: string; }
+export type DirectoryCreatePayload = { name: string; iconKey: string; institutionType?: string };
 
-export type DirectoryCreatePayload = {
-  name: string;
-  iconKey?: string;
-  pendingImage?: string;
-};
-
-export type DirectoryCreateResult = {
-  mediaSaved: boolean;
-};
-
-/**
- * DirectoryEntityList is the shared create/edit/archive/image surface for
- * Members, Institutions, and Groups. Creation happens in a side sheet;
- * media is reported as a recoverable partial failure instead of becoming
- * an unhandled promise.
- */
-export function DirectoryEntityList<T extends Entity>({
-  entities,
-  isLoading,
-  isError,
-  onCreate,
-  onUpdate,
-  onArchive,
-  onSetImage,
-  onRetry,
-  entityLabel,
-  createLabel,
-  addLabel,
-  emptyLabel,
-  supportsIcon = false,
-}: {
-  entities: T[] | undefined;
-  isLoading: boolean;
-  isError: boolean;
-  onCreate: (payload: DirectoryCreatePayload) => Promise<DirectoryCreateResult>;
-  onUpdate: (id: string, name: string) => Promise<unknown>;
-  onArchive: (id: string, archived: boolean) => Promise<unknown>;
-  onSetImage: (id: string, pendingImage: string) => Promise<unknown>;
-  onRetry: () => void | Promise<unknown>;
-  entityLabel: string;
-  createLabel: string;
-  addLabel: string;
-  emptyLabel: string;
-  supportsIcon?: boolean;
+export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isError, onCreate, onUpdate, onArchive, onSetIcon, onRetry, createLabel, addLabel, emptyLabel, kind, institutionTypes = [] }: {
+  entities: T[] | undefined; isLoading: boolean; isError: boolean; onCreate: (payload: DirectoryCreatePayload) => Promise<unknown>;
+  onUpdate: (id: string, name: string) => Promise<unknown>; onArchive: (id: string, archived: boolean) => Promise<unknown>;
+  onSetIcon: (id: string, iconKey: string) => Promise<unknown>; onRetry: () => void | Promise<unknown>;
+  createLabel: string; addLabel: string; emptyLabel: string; kind: EntityIconKind; institutionTypes?: string[];
 }) {
   const { t } = useTranslation();
+  const fallback = DEFAULT_ICONS[kind];
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [iconKey, setIconKey] = useState("");
-  const [pendingImage, setPendingImage] = useState<string | undefined>(undefined);
+  const [institutionType, setInstitutionType] = useState(institutionTypes[0] ?? "");
+  const [iconKey, setIconKey] = useState<string>(fallback);
+  const [iconCustomized, setIconCustomized] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
-  const [imageTargetId, setImageTargetId] = useState<string | null>(null);
-  const [rowPendingImage, setRowPendingImage] = useState<string | undefined>(undefined);
+  const [editingIcon, setEditingIcon] = useState<string>(fallback);
   const [submitting, setSubmitting] = useState(false);
-  const [pendingActionId, setPendingActionId] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<string | undefined>();
-  const [actionError, setActionError] = useState<string | undefined>();
-  const [imageError, setImageError] = useState<{ id: string; message: string } | undefined>();
+  const [error, setError] = useState<string>();
+  const selectedInstitutionType = institutionType || institutionTypes[0] || "";
+  const createIconKey = iconCustomized || kind !== "institution"
+    ? iconKey
+    : INSTITUTION_TYPE_ICONS[selectedInstitutionType] ?? fallback;
 
   const submitCreate = async (event: FormEvent) => {
-    event.preventDefault();
-    const trimmedName = name.trim();
-    setSubmitError(undefined);
-    if (!trimmedName) {
-      setSubmitError(t("directory.nameRequired"));
-      return;
-    }
-    setSubmitting(true);
+    event.preventDefault(); const trimmed = name.trim();
+    if (!trimmed) { setError(t("directory.nameRequired")); return; }
+    if (kind === "institution" && !selectedInstitutionType) { setError(t("directory.institutionTypeRequired")); return; }
+    setSubmitting(true); setError(undefined);
     try {
-      const result = await onCreate({ name: trimmedName, iconKey: iconKey || undefined, pendingImage });
-      setName("");
-      setIconKey("");
-      setPendingImage(undefined);
-      setOpen(false);
-      if (result.mediaSaved) {
-        toast.success(t("directory.entityCreated", { name: trimmedName }));
-      } else {
-        const message = t("directory.entityCreatedMediaError", { name: trimmedName });
-        setActionError(message);
-        toast.error(message);
-      }
-    } catch (error) {
-      setSubmitError(displayError(error, t("directory.createError")));
-    } finally {
-      setSubmitting(false);
-    }
+      await onCreate({ name: trimmed, iconKey: createIconKey, institutionType: selectedInstitutionType || undefined });
+      setName(""); setInstitutionType(""); setIconKey(fallback); setIconCustomized(false); setOpen(false);
+      toast.success(t("directory.entityCreated", { name: trimmed }));
+    } catch (cause) { setError(displayError(cause, t("directory.createError"))); }
+    finally { setSubmitting(false); }
   };
 
-  const saveRename = async (entity: T) => {
-    const trimmedName = editingName.trim();
-    if (!trimmedName) {
-      setActionError(t("directory.nameRequired"));
-      return;
-    }
-    setActionError(undefined);
-    setPendingActionId(entity.id);
+  const save = async (entity: T) => {
+    const trimmed = editingName.trim(); if (!trimmed) { setError(t("directory.nameRequired")); return; }
+    setSubmitting(true); setError(undefined);
     try {
-      await onUpdate(entity.id, trimmedName);
-      setEditingId(null);
-      toast.success(t("common.saved"));
-    } catch (error) {
-      setActionError(displayError(error, t("directory.updateError")));
-    } finally {
-      setPendingActionId(null);
-    }
+      await onUpdate(entity.id, trimmed);
+      if (editingIcon !== entity.iconKey) await onSetIcon(entity.id, editingIcon);
+      setEditingId(null); toast.success(t("common.saved"));
+    } catch (cause) { setError(displayError(cause, t("directory.updateError"))); }
+    finally { setSubmitting(false); }
   };
 
-  const saveImage = async (entity: T) => {
-    if (!rowPendingImage) {
-      return;
-    }
-    setImageError(undefined);
-    setPendingActionId(entity.id);
-    try {
-      await onSetImage(entity.id, rowPendingImage);
-      setImageTargetId(null);
-      setRowPendingImage(undefined);
-      toast.success(t("common.saved"));
-    } catch (error) {
-      setImageError({ id: entity.id, message: displayError(error, t("directory.imageSaveError", { entity: entityLabel })) });
-    } finally {
-      setPendingActionId(null);
-    }
-  };
-
-  const archive = async (entity: T, archived: boolean) => {
-    setActionError(undefined);
-    setPendingActionId(entity.id);
-    try {
-      await onArchive(entity.id, archived);
-      toast.success(archived ? t("common.archived") : t("common.active"));
-    } catch (error) {
-      setActionError(displayError(error, t("directory.updateError")));
-    } finally {
-      setPendingActionId(null);
-    }
-  };
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger className={buttonVariants({})}>
-            <Plus className="size-4" aria-hidden="true" /> {addLabel}
-          </SheetTrigger>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>{addLabel}</SheetTitle>
-            </SheetHeader>
-            <form onSubmit={submitCreate} className="flex flex-col gap-4" aria-label={createLabel}>
-              <Input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={createLabel}
-                aria-label={createLabel}
-                disabled={submitting}
-              />
-              {supportsIcon && <IconPicker id={`${createLabel}-icon`} value={iconKey} onChange={setIconKey} />}
-              <ImagePicker label={t("common.media")} value={pendingImage} onChange={setPendingImage} />
-              {submitError && (
-                <p role="alert" className="text-sm text-destructive">
-                  {submitError}
-                </p>
-              )}
-              <Button type="submit" disabled={submitting}>
-                {submitting ? t("common.pending") : t("common.add")}
-              </Button>
-            </form>
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      {isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
-      {isError && (
-        <ErrorState
-          title={t("directory.loadError")}
-          description={t("ui.state.errorDescription")}
-          onRetry={onRetry}
-          retryLabel={t("common.retryAction")}
-        />
-      )}
-      {actionError && (
-        <p role="alert" className="text-sm text-warning-foreground">
-          {actionError}
-        </p>
-      )}
-
-      {!isLoading && !isError && entities && entities.length === 0 && <EmptyState title={t("directory.emptyTitle")} description={emptyLabel} />}
-
-      {!isLoading && !isError && entities && entities.length > 0 && (
-        <ul className="flex flex-col gap-2">
-          {entities.map((entity) => {
-            const archived = Boolean(entity.archivedAt);
-            const isEditing = editingId === entity.id;
-            const isPending = pendingActionId === entity.id;
-            return (
-              <li key={entity.id} className="flex flex-col gap-2 rounded-md border border-border px-3 py-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="flex min-w-0 flex-1 items-center gap-2 text-sm text-foreground">
-                    {isEditing ? (
-                      <Input
-                        value={editingName}
-                        onChange={(event) => setEditingName(event.target.value)}
-                        aria-label={t("accounts.name")}
-                        disabled={isPending}
-                        className="max-w-xs"
-                      />
-                    ) : (
-                      entity.name
-                    )}
-                    {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {isEditing ? (
-                      <Button type="button" size="sm" onClick={() => void saveRename(entity)} disabled={isPending}>
-                        {t("common.save")}
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setEditingId(entity.id);
-                          setEditingName(entity.name);
-                          setActionError(undefined);
-                        }}
-                      >
-                        {t("common.edit")}
-                      </Button>
-                    )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setImageTargetId(entity.id);
-                        setRowPendingImage(undefined);
-                        setImageError(undefined);
-                      }}
-                    >
-                      {t("common.media")}
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                        {archived ? t("common.active") : t("common.archive")}
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>{archived ? t("common.active") : t("common.archive")}</AlertDialogTitle>
-                          <AlertDialogDescription>{entity.name}</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => void archive(entity, !archived)} disabled={isPending}>
-                            {archived ? t("common.active") : t("common.archive")}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-                {imageTargetId === entity.id && (
-                  <div className="flex flex-col gap-2 rounded-md bg-muted/40 p-3 sm:flex-row sm:items-end sm:justify-between">
-                    <ImagePicker
-                      label={t("common.media")}
-                      value={rowPendingImage}
-                      existingAssetId={entity.logoAssetId ?? entity.avatarAssetId}
-                      onChange={setRowPendingImage}
-                    />
-                    <Button type="button" size="sm" disabled={!rowPendingImage || isPending} onClick={() => void saveImage(entity)}>
-                      {isPending ? t("common.pending") : t("common.save")}
-                    </Button>
-                  </div>
-                )}
-                {imageError?.id === entity.id && (
-                  <p role="alert" className="text-sm text-destructive">
-                    {imageError.message} {t("directory.imageRetry")}
-                  </p>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
+  return <div className="flex flex-col gap-4">
+    <Sheet open={open} onOpenChange={setOpen}><SheetTrigger className={buttonVariants({})}><Plus className="size-4" aria-hidden="true" /> {addLabel}</SheetTrigger>
+      <SheetContent><SheetHeader><SheetTitle>{addLabel}</SheetTitle></SheetHeader><form onSubmit={submitCreate} className="flex flex-col gap-4" aria-label={createLabel}>
+        <Input value={name} onChange={(event) => setName(event.target.value)} placeholder={createLabel} aria-label={createLabel} disabled={submitting} />
+        {kind === "institution" && <NativeSelect value={selectedInstitutionType} aria-label={t("directory.institutionType")} onChange={(event) => { const next = event.target.value; setInstitutionType(next); if (!iconCustomized) setIconKey(INSTITUTION_TYPE_ICONS[next] ?? DEFAULT_ICONS.institution); }}>
+          {institutionTypes.map((type) => <option key={type} value={type}>{displayEnum(t, "institutionType", type)}</option>)}</NativeSelect>}
+        <IconPicker id={`${kind}-create-icon`} value={createIconKey} kind={kind} onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
+        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        <Button type="submit" disabled={submitting}>{submitting ? t("common.pending") : t("common.add")}</Button>
+      </form></SheetContent>
+    </Sheet>
+    {isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
+    {isError && <ErrorState title={t("directory.loadError")} description={t("ui.state.errorDescription")} onRetry={onRetry} retryLabel={t("common.retryAction")} />}
+    {!isLoading && !isError && entities?.length === 0 && <EmptyState title={t("directory.emptyTitle")} description={emptyLabel} />}
+    {!isLoading && !isError && entities && entities.length > 0 && <ul className="flex flex-col gap-2">{entities.map((entity) => {
+      const editing = editingId === entity.id; const archived = Boolean(entity.archivedAt);
+      return <li key={entity.id} className="rounded-md border border-border px-3 py-3"><div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-2 text-sm"><EntityIcon iconKey={entity.iconKey} kind={kind} className="size-5 text-primary" />
+          {editing ? <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} className="max-w-xs" /> : <><span>{entity.name}</span>{entity.institutionType && <Badge variant="outline">{displayEnum(t, "institutionType", entity.institutionType)}</Badge>}</>}
+          {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}</span>
+        <span className="flex gap-2">{editing ? <Button size="sm" onClick={() => void save(entity)} disabled={submitting}>{t("common.save")}</Button> : <Button variant="outline" size="sm" onClick={() => { setEditingId(entity.id); setEditingName(entity.name); setEditingIcon(entity.iconKey); }}>{t("common.edit")}</Button>}
+          <AlertDialog><AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>{archived ? t("common.active") : t("common.archive")}</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{archived ? t("common.active") : t("common.archive")}</AlertDialogTitle><AlertDialogDescription>{entity.name}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><AlertDialogAction onClick={() => void onArchive(entity.id, !archived)}>{archived ? t("common.active") : t("common.archive")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+        </span></div>{editing && <div className="mt-3"><IconPicker id={`${kind}-${entity.id}-icon`} value={editingIcon} kind={kind} onChange={setEditingIcon} /></div>}</li>;
+    })}</ul>}
+    {error && !open && <p role="alert" className="text-sm text-destructive">{error}</p>}
+  </div>;
 }

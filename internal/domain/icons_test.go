@@ -23,6 +23,47 @@ func TestSupportedIconKeysAreSortedAndValidate(t *testing.T) {
 	}
 }
 
+func TestAccountTypeDefaultIcons(t *testing.T) {
+	want := map[AccountType]string{
+		TypeCashOnHand: "cash", TypeBankAccount: "bank", TypeBrokerage: "brokerage",
+		TypeInvestmentAccount: "investment", TypeCryptoExchange: "bitcoin", TypeDigitalWallet: "wallet-cards",
+		TypePension: "pension", TypeInsurancePolicy: "shield-plus", TypeProperty: "home",
+		TypeVehicle: "car", TypeCollectible: "gem", TypeReceivable: "receivable",
+		TypeCreditCard: "credit-card", TypeLoan: "banknote-down", TypeOther: "account",
+	}
+	for accountType, icon := range want {
+		if got := DefaultAccountIcon(accountType); got != icon {
+			t.Errorf("DefaultAccountIcon(%q) = %q, want %q", accountType, got, icon)
+		}
+	}
+}
+
+func TestInstrumentTypeDefaultIcons(t *testing.T) {
+	want := map[InstrumentType]string{
+		InstrumentStock: "stock", InstrumentETF: "pie-chart", InstrumentMutualFund: "chart",
+		InstrumentCrypto: "bitcoin", InstrumentBond: "document", InstrumentPreciousMetal: "gem",
+		InstrumentBankInvestmentProduct: "bank", InstrumentOther: "investment",
+	}
+	for instrumentType, icon := range want {
+		if got := DefaultInstrumentIcon(instrumentType); got != icon {
+			t.Errorf("DefaultInstrumentIcon(%q) = %q, want %q", instrumentType, got, icon)
+		}
+	}
+}
+
+func TestInstitutionTypeDefaultIcons(t *testing.T) {
+	want := map[InstitutionType]string{
+		InstitutionBank: "bank", InstitutionBrokerage: "brokerage", InstitutionInsurer: "shield-plus",
+		InstitutionExchange: "market", InstitutionEmployer: "building", InstitutionGovernment: "landmark",
+		InstitutionOther: "building",
+	}
+	for institutionType, icon := range want {
+		if got := DefaultIconForInstitutionType(institutionType); got != icon {
+			t.Errorf("DefaultIconForInstitutionType(%q) = %q, want %q", institutionType, got, icon)
+		}
+	}
+}
+
 func sortedStrings(values []string) []string {
 	result := append([]string(nil), values...)
 	for i := 0; i < len(result); i++ {

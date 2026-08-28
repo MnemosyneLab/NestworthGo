@@ -25,7 +25,7 @@ type InstrumentInput struct {
 	CountryCode    string
 	ISIN           string
 	Note           *string
-	LogoAssetID    string
+	IconKey        string
 	SortOrder      int
 	QuoteSource    string
 	ProviderKey    string
@@ -54,11 +54,6 @@ func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (
 	instrument, err := newInstrumentFromInput(household.ID, input, s.clock())
 	if err != nil {
 		return domain.Instrument{}, err
-	}
-	if instrument.LogoAssetID != nil {
-		if err := s.requireAssetHousehold(ctx, household.ID, *instrument.LogoAssetID); err != nil {
-			return domain.Instrument{}, err
-		}
 	}
 	origin, err := s.repository.HistoryOrigin(ctx, household.ID)
 	if err != nil {
@@ -279,11 +274,6 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	updated.ID = current.ID
 	updated.CreatedAt = current.CreatedAt
 	updated.ArchivedAt = current.ArchivedAt
-	if updated.LogoAssetID != nil {
-		if err := s.requireAssetHousehold(ctx, current.HouseholdID, *updated.LogoAssetID); err != nil {
-			return domain.Instrument{}, err
-		}
-	}
 	preferenceObservation, observationErr := s.instrumentPreferenceObservation(ctx, updated)
 	if observationErr != nil {
 		return domain.Instrument{}, observationErr
@@ -308,15 +298,10 @@ func (s *Service) ArchiveInstrument(ctx context.Context, id domain.InstrumentID,
 	return s.repository.SetInstrumentArchive(ctx, household.ID, id, archived, s.clock())
 }
 
-func (s *Service) SetInstrumentLogo(ctx context.Context, id domain.InstrumentID, assetID domain.MediaAssetID) error {
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		return err
-	}
-	if err := s.requireAssetHousehold(ctx, household.ID, assetID); err != nil {
-		return err
-	}
-	return s.repository.SetInstrumentLogo(ctx, household.ID, id, assetID, s.clock())
+func (s *Service) SetInstrumentIcon(ctx context.Context, id domain.InstrumentID, iconKey string) error {
+	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
+		return s.repository.SetInstrumentIcon(ctx, householdID, id, normalized, now)
+	})
 }
 
 func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.InstrumentID, source string) error {
@@ -779,10 +764,6 @@ func newInstrumentFromInput(householdID domain.HouseholdID, input InstrumentInpu
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	logoAssetID, err := parseOptionalMediaID(input.LogoAssetID)
-	if err != nil {
-		return domain.Instrument{}, err
-	}
 	quoteSourceValue := input.QuoteSource
 	if quoteSourceValue == "" {
 		quoteSourceValue = string(domain.QuoteSourceManual)
@@ -794,7 +775,7 @@ func newInstrumentFromInput(householdID domain.HouseholdID, input InstrumentInpu
 	return domain.NewInstrument(domain.InstrumentInput{
 		HouseholdID: householdID, Name: input.Name, Type: instrumentType, QuoteCurrency: quoteCurrency,
 		Symbol: optionalText(input.Symbol), MarketCode: optionalText(input.MarketCode), CountryCode: optionalText(input.CountryCode), ISIN: optionalText(input.ISIN), Note: input.Note,
-		LogoAssetID: logoAssetID, SortOrder: input.SortOrder, QuoteSource: quoteSource, ProviderKey: optionalText(input.ProviderKey), ProviderSymbol: optionalText(input.ProviderSymbol),
+		IconKey: optionalText(input.IconKey), SortOrder: input.SortOrder, QuoteSource: quoteSource, ProviderKey: optionalText(input.ProviderKey), ProviderSymbol: optionalText(input.ProviderSymbol),
 	}, now)
 }
 
@@ -823,8 +804,8 @@ func mergeInstrumentInput(input *InstrumentInput, current domain.Instrument) {
 	if input.Note == nil {
 		input.Note = current.Note
 	}
-	if input.LogoAssetID == "" {
-		input.LogoAssetID = pointerMediaID(current.LogoAssetID)
+	if input.IconKey == "" {
+		input.IconKey = pointerText(current.IconKey)
 	}
 	if input.QuoteSource == "" {
 		input.QuoteSource = string(current.QuoteSource)
@@ -894,35 +875,6 @@ func pointerText(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func parseOptionalMediaID(value string) (*domain.MediaAssetID, error) {
-	if strings.TrimSpace(value) == "" {
-		return nil, nil
-	}
-	id, err := domain.ParseMediaAssetID(value)
-	if err != nil {
-		return nil, err
-	}
-	return &id, nil
-}
-
-func pointerMediaID(value *domain.MediaAssetID) string {
-	if value == nil {
-		return ""
-	}
-	return value.String()
-}
-
-func (s *Service) requireAssetHousehold(ctx context.Context, householdID domain.HouseholdID, assetID domain.MediaAssetID) error {
-	asset, err := s.repository.MediaAsset(ctx, householdID, assetID)
-	if err != nil {
-		return err
-	}
-	if asset.HouseholdID != householdID {
-		return &domain.Error{Code: domain.ErrValidation, Field: "logoAssetId", Message: "media asset belongs to another Household"}
-	}
-	return nil
 }
 
 func onboardingRequired() error {

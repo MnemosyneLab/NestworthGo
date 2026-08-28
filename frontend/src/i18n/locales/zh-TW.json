@@ -74,7 +74,6 @@
     "icon": "圖示",
     "invalid": "值無效",
     "light": "淺色",
-    "media": "設定圖片",
     "openSettings": "開啟設定",
     "pending": "儲存中…",
     "preview": "預覽",
@@ -201,13 +200,11 @@
       "holdingID": "持倉 ID",
       "householdID": "家庭 ID",
       "iconKey": "圖示",
+      "institutionType": "機構類型",
       "initialValue": "初始值",
       "instrumentID": "投資標的 ID",
       "instrumentType": "投資標的類型",
-      "logoAssetID": "標誌資源 ID",
-      "mediaAssetID": "媒體資源 ID",
       "memberID": "成員 ID",
-      "mimeType": "圖片類型",
       "provider": "資料提供方",
       "providerKey": "提供方識別碼",
       "providerSymbol": "提供方代碼",
@@ -241,12 +238,6 @@
       "providerBindingConflict": "已有活動投資標的使用此資料提供方綁定",
       "providerBindingRequired": "選擇資料提供方時必須填寫提供方識別碼和代碼"
     },
-    "media": {
-      "invalidOrTooLarge": "圖片無效或超過本機大小限制",
-      "otherHousehold": "媒體資源屬於其他家庭",
-      "unsupportedReference": "不支援的媒體參照",
-      "unsupportedType": "不支援的圖片類型"
-    },
     "member": {
       "lastActive": "家庭必須至少保留一名活動成員"
     },
@@ -263,7 +254,6 @@
       "institutionReference": "找不到機構參照",
       "instrument": "找不到投資標的",
       "instrumentQuote": "找不到投資標的報價",
-      "mediaAsset": "找不到媒體資源",
       "member": "找不到成員"
     },
     "onboarding": {
@@ -503,7 +493,6 @@
     "list": "清單",
     "mail": "郵件",
     "market": "市場",
-    "media": "圖片",
     "money": "金錢",
     "pension": "退休金",
     "percent": "百分比",
@@ -526,7 +515,31 @@
     "wallet": "錢包",
     "walletCards": "錢包卡片",
     "warning": "警告",
-    "yen": "日圓"
+    "yen": "日圓",
+    "user": "成員",
+    "landmark": "政府建築",
+    "car": "車輛",
+    "gem": "收藏品",
+    "pieChart": "資產配置"
+  },
+  "directory": {
+    "createError": "無法建立此項目",
+    "description": "管理家庭帳本中使用的成員、機構和分組。",
+    "entityCreated": "已新增 {{name}}",
+    "institutionType": "機構類型",
+    "institutionTypeRequired": "請選擇機構類型",
+    "loadError": "無法載入目錄",
+    "nameRequired": "名稱不能為空",
+    "updateError": "無法更新此項目"
+  },
+  "institutionType": {
+    "bank": "銀行",
+    "brokerage": "券商",
+    "insurer": "保險機構",
+    "exchange": "交易所",
+    "employer": "雇主",
+    "government": "政府機構",
+    "other": "其他"
   },
   "institutions": {
     "createDescription": "記錄帳戶所在的位置。",

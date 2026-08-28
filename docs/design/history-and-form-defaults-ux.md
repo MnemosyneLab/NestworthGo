@@ -1,7 +1,7 @@
 # History and related-form defaults UX
 
 - Status: **Implemented** (see also [gap review](history-and-form-defaults-ux-gap-review.md) for follow-up fixes after `e2687aa`).
-- Baseline: Nestworth-go `0.2.1` / schema v7 / current Wails frontend
+- Baseline: Nestworth-go `0.2.1` / schema v8 / current Wails frontend
 - Surfaces: History Record change, Account action sheets that reuse that form, Start History, Settings, cash reconcile, simple value, record existing position, timeline sentences
 - Companion: [Account Container Interaction](../architecture/account-container-interaction-design.md)
 - Superseded in part by [Trial UX optimization](trial-ux-optimization.md): FX, trade gross, and transfer amounts use a Calculate button instead of live auto-fill; native date/time inputs are replaced by shadcn Calendar (react-day-picker on Base UI Popover) plus a 24-hour hour/minute picker. Quote hints, locked currencies, and Fix time-as-read-only still apply.

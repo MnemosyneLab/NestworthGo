@@ -74,7 +74,6 @@
     "icon": "图标",
     "invalid": "值无效",
     "light": "浅色",
-    "media": "设置图片",
     "openSettings": "打开设置",
     "pending": "保存中…",
     "preview": "预览",
@@ -201,13 +200,11 @@
       "holdingID": "持仓 ID",
       "householdID": "家庭 ID",
       "iconKey": "图标",
+      "institutionType": "机构类型",
       "initialValue": "初始值",
       "instrumentID": "投资标的 ID",
       "instrumentType": "投资标的类型",
-      "logoAssetID": "标志资源 ID",
-      "mediaAssetID": "媒体资源 ID",
       "memberID": "成员 ID",
-      "mimeType": "图片类型",
       "provider": "数据提供方",
       "providerKey": "提供方标识",
       "providerSymbol": "提供方代码",
@@ -241,12 +238,6 @@
       "providerBindingConflict": "已有活动投资标的使用此数据提供方绑定",
       "providerBindingRequired": "选择数据提供方时必须填写提供方标识和代码"
     },
-    "media": {
-      "invalidOrTooLarge": "图片无效或超过本地大小限制",
-      "otherHousehold": "媒体资源属于其他家庭",
-      "unsupportedReference": "不支持的媒体引用",
-      "unsupportedType": "不支持的图片类型"
-    },
     "member": {
       "lastActive": "家庭必须至少保留一名活动成员"
     },
@@ -263,7 +254,6 @@
       "institutionReference": "未找到机构引用",
       "instrument": "未找到投资标的",
       "instrumentQuote": "未找到投资标的报价",
-      "mediaAsset": "未找到媒体资源",
       "member": "未找到成员"
     },
     "onboarding": {
@@ -503,7 +493,6 @@
     "list": "列表",
     "mail": "邮件",
     "market": "市场",
-    "media": "图片",
     "money": "金钱",
     "pension": "养老金",
     "percent": "百分比",
@@ -526,7 +515,31 @@
     "wallet": "钱包",
     "walletCards": "钱包卡片",
     "warning": "警告",
-    "yen": "日元"
+    "yen": "日元",
+    "user": "成员",
+    "landmark": "政府建筑",
+    "car": "车辆",
+    "gem": "收藏品",
+    "pieChart": "资产配置"
+  },
+  "directory": {
+    "createError": "无法创建此项目",
+    "description": "管理家庭账本中使用的成员、机构和分组。",
+    "entityCreated": "已添加 {{name}}",
+    "institutionType": "机构类型",
+    "institutionTypeRequired": "请选择机构类型",
+    "loadError": "无法加载目录",
+    "nameRequired": "名称不能为空",
+    "updateError": "无法更新此项目"
+  },
+  "institutionType": {
+    "bank": "银行",
+    "brokerage": "券商",
+    "insurer": "保险机构",
+    "exchange": "交易所",
+    "employer": "雇主",
+    "government": "政府机构",
+    "other": "其他"
   },
   "institutions": {
     "createDescription": "记录账户所在的位置。",

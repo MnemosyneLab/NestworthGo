@@ -26,6 +26,7 @@ type AccountCombinationDTO struct {
 type CatalogDTO struct {
 	Currencies                 []string                `json:"currencies"`
 	InstrumentTypes            []string                `json:"instrumentTypes"`
+	InstitutionTypes           []string                `json:"institutionTypes"`
 	QuoteSources               []string                `json:"quoteSources"`
 	InstrumentProviders        []string                `json:"instrumentProviders"`
 	AccountTypes               []string                `json:"accountTypes"`
@@ -75,6 +76,7 @@ func (s *Service) Catalog() CatalogDTO {
 	return CatalogDTO{
 		Currencies:                 settings.SupportedCurrencies(),
 		InstrumentTypes:            stringSlice(domain.AllInstrumentTypes()),
+		InstitutionTypes:           stringSlice(domain.AllInstitutionTypes()),
 		QuoteSources:               stringSlice(domain.AllQuoteSourceKinds()),
 		InstrumentProviders:        application.InstrumentProviderKeys(),
 		AccountTypes:               stringSlice(domain.AllAccountTypes()),

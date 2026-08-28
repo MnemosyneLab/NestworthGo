@@ -18,7 +18,6 @@ import (
 	nestworthapp "github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/version"
@@ -32,7 +31,6 @@ import (
 	wailshousehold "github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	wailsinstrument "github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
 	wailsmarketdata "github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
-	wailsmedia "github.com/waltwang/nestworth-go/internal/wailsapi/media"
 	wailsportfolio "github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	wailsquote "github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 	wailssettings "github.com/waltwang/nestworth-go/internal/wailsapi/settings"
@@ -58,19 +56,6 @@ func (e *lazyEventEmitter) Emit(name string, data any) {
 	}
 }
 
-// lazyDialog is lazyEventEmitter's counterpart for wailsapi/media.Dialog.
-type lazyDialog struct{ manager *application.DialogManager }
-
-func (d *lazyDialog) OpenFile(title string) (string, error) {
-	if d.manager == nil {
-		return "", nil
-	}
-	return d.manager.OpenFile().
-		SetTitle(title).
-		AddFilter("Images", "*.png;*.jpg;*.jpeg;*.webp").
-		PromptForSingleSelection()
-}
-
 func main() {
 	store := settings.DefaultStore()
 	preference, loadErr := store.Load()
@@ -91,7 +76,7 @@ func main() {
 			marketdata.NewFrankfurterProvider(nil),
 			marketdata.NewYahooChartProvider(nil),
 		)
-		service = nestworthapp.NewServiceWithImageNormalizer(sqlite.NewRepository(database), media.Normalizer{}, registry)
+		service = nestworthapp.NewService(sqlite.NewRepository(database), registry)
 		if err := service.SetFXProvider(preference.FXProvider); err != nil {
 			// Fall back for this session only: the persisted choice stays on
 			// disk so a transient provider failure cannot rewrite the user's
@@ -109,12 +94,10 @@ func main() {
 	}
 
 	emitter := &lazyEventEmitter{}
-	dialog := &lazyDialog{}
-
 	app := application.New(application.Options{
 		Name:        version.Name,
 		Description: version.Description,
-		Services:    services(service, store, emitter, dialog, startupErr),
+		Services:    services(service, store, emitter, startupErr),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(webassets.Dist),
 		},
@@ -123,7 +106,6 @@ func main() {
 		},
 	})
 	emitter.manager = app.Event
-	dialog.manager = app.Dialog
 
 	app.Menu.SetApplicationMenu(application.DefaultApplicationMenu())
 
@@ -158,7 +140,7 @@ func main() {
 // only AppService and CatalogService are registered so the frontend can
 // render BlockedStartupPage from Startup() without calling unregistered
 // services. Catalog is always available because it is a static vocabulary.
-func services(service *nestworthapp.Service, store *settings.Store, emitter wailsmarketdata.EventEmitter, dialog wailsmedia.Dialog, startupErr error) []application.Service {
+func services(service *nestworthapp.Service, store *settings.Store, emitter wailsmarketdata.EventEmitter, startupErr error) []application.Service {
 	registered := []application.Service{
 		application.NewService(wailsapp.NewService(startupErr)),
 		application.NewService(wailscatalog.NewService()),
@@ -177,7 +159,6 @@ func services(service *nestworthapp.Service, store *settings.Store, emitter wail
 		application.NewService(wailsanalytics.NewService(service)),
 		application.NewService(wailshistory.NewService(service)),
 		application.NewService(wailsmarketdata.NewService(service, emitter)),
-		application.NewService(wailsmedia.NewService(service, dialog)),
 		application.NewService(wailssettings.NewService(store, service)),
 	)
 }

@@ -292,15 +292,3 @@ func (s *Service) SetAccountIcon(ctx context.Context, id, iconKey string) error 
 	}
 	return apierror.Wrap(s.app.SetAccountIcon(ctx, accountID, iconKey))
 }
-
-func (s *Service) SetAccountLogo(ctx context.Context, id, mediaAssetID string) error {
-	accountID, err := domain.ParseAccountID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	assetID, err := domain.ParseMediaAssetID(mediaAssetID)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetAccountLogo(ctx, accountID, assetID))
-}

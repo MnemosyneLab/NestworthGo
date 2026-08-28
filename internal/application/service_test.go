@@ -92,7 +92,7 @@ func TestIdentityOnlyMutationsDoNotLoadBootstrapDirectories(t *testing.T) {
 	if _, err := service.CreateMember(ctx, "Bob"); err != nil {
 		t.Fatalf("CreateMember: %v", err)
 	}
-	if _, err := service.CreateInstitution(ctx, "Bank"); err != nil {
+	if _, err := service.CreateInstitution(ctx, "Bank", domain.InstitutionBank); err != nil {
 		t.Fatalf("CreateInstitution: %v", err)
 	}
 	if _, err := service.CreateGroup(ctx, "Emergency"); err != nil {

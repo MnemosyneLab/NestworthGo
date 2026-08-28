@@ -74,7 +74,7 @@ cmd/nestworth/          Wails application entry point
 internal/wailsapi/      Bound Go services and wire DTOs
 internal/application/   Use cases and orchestration
 internal/domain/        Financial entities and invariants
-internal/infrastructure/SQLite, media, and provider adapters
+internal/infrastructure/SQLite and provider adapters
 frontend/               React + TypeScript application
 build/                  Wails build and packaging assets
 assets/                 Brand artwork and native icon resources

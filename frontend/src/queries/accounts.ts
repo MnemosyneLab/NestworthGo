@@ -54,11 +54,11 @@ export function useArchiveAccount() {
   });
 }
 
-export function useSetAccountLogo() {
+export function useSetAccountIcon() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, mediaAssetId }: { id: string; mediaAssetId: string }) =>
-      callService(() => AccountService.SetAccountLogo(id, mediaAssetId)),
+    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
+      callService(() => AccountService.SetAccountIcon(id, iconKey)),
     onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
   });
 }

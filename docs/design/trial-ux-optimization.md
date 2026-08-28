@@ -2,7 +2,7 @@
 
 - Status: **Planned**
 - Date: 2026-08-28
-- Baseline: Nestworth-go `0.2.1` / schema v7 / current Wails frontend
+- Baseline: Nestworth-go `0.2.1` / schema v8 / current Wails frontend
 - Source: 试用反馈 16 条 + 同日拍板
 - Companion: [History and related-form defaults](history-and-form-defaults-ux.md), [Account Container Interaction](../architecture/account-container-interaction-design.md), [Account Container Model](../architecture/account-container-and-position-model-design.md)
 

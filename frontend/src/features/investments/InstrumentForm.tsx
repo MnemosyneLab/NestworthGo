@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -12,6 +12,8 @@ import { useCatalog } from "@/queries/catalog";
 import { useBootstrap } from "@/queries/household";
 import type { InstrumentRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument/models";
 import { displayEnum } from "@/lib/display";
+import { IconPicker } from "@/components/forms/IconPicker";
+import { INSTRUMENT_TYPE_ICONS } from "@/lib/defaultIcons";
 
 const instrumentFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -20,6 +22,7 @@ const instrumentFormSchema = z.object({
   quoteSource: z.string(),
   providerKey: z.string().optional(),
   providerSymbol: z.string().optional(),
+  iconKey: z.string(),
 });
 
 type InstrumentFormValues = z.infer<typeof instrumentFormSchema>;
@@ -41,9 +44,12 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
     formState: { errors },
   } = useForm<InstrumentFormValues>({
     resolver: zodResolver(instrumentFormSchema),
-    defaultValues: { name: "", type: "stock", quoteCurrency: "CNY", quoteSource: "manual", providerKey: "" },
+    defaultValues: { name: "", type: "stock", quoteCurrency: "CNY", quoteSource: "manual", providerKey: "", iconKey: "stock" },
   });
   const quoteSource = useWatch({ control, name: "quoteSource" });
+  const instrumentType = useWatch({ control, name: "type" });
+  const iconKey = useWatch({ control, name: "iconKey" });
+  const [iconCustomized, setIconCustomized] = useState(false);
   const householdCurrency = bootstrap.data?.household?.baseCurrency;
   const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
   const instrumentTypes = catalog.data?.instrumentTypes ?? [];
@@ -64,6 +70,10 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
     }
   }, [defaultProviderKey, quoteSource, setValue]);
 
+  useEffect(() => {
+    if (!iconCustomized) setValue("iconKey", INSTRUMENT_TYPE_ICONS[instrumentType] ?? "investment");
+  }, [iconCustomized, instrumentType, setValue]);
+
   const submit = (values: InstrumentFormValues) => {
     onSubmit({
       name: values.name,
@@ -72,6 +82,7 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
       quoteSource: values.quoteSource,
       providerKey: values.quoteSource === "provider" ? values.providerKey : undefined,
       providerSymbol: values.quoteSource === "provider" ? values.providerSymbol : undefined,
+      iconKey: values.iconKey,
     });
   };
 
@@ -86,6 +97,7 @@ export function InstrumentForm({ onSubmit, isSubmitting, submissionError }: { on
           </p>
         )}
       </div>
+      <IconPicker id="instrument-icon" value={iconKey} kind="instrument" onChange={(key) => { setValue("iconKey", key); setIconCustomized(true); }} />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-type">{t("portfolio.type")}</Label>
         <NativeSelect id="instrument-type" {...register("type")}>

@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { usePortfolio } from "@/queries/portfolio";
 import { formatAmount, formatPercent } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
+import { EntityIcon } from "@/components/icons/EntityIcon";
 
 /**
  * PortfolioPage is the independent household portfolio view. Totals,
@@ -92,7 +93,9 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
                   : t("accounts.noValue");
                 return (
                   <div key={valuation.account.id} className="flex items-center justify-between gap-3 text-sm">
-                    <div className="flex min-w-0 flex-col gap-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <EntityIcon iconKey={valuation.account.iconKey} kind="account" className="size-5 text-primary" />
+                      <div className="flex min-w-0 flex-col gap-1">
                       {onOpenAccount ? (
                         <Button
                           type="button"
@@ -109,6 +112,7 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
                         {displayEnum(t, "enum", valuation.account.accountType)}
                         {valuation.institutionName ? ` · ${valuation.institutionName}` : ""}
                       </span>
+                      </div>
                     </div>
                     <span className="flex items-center gap-2">
                       {!valuation.complete && <Badge variant="warning">{t("accounts.partialValuation")}</Badge>}

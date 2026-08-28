@@ -140,25 +140,21 @@ func FromHousehold(value domain.Household) HouseholdDTO {
 }
 
 type MemberDTO struct {
-	ID            string  `json:"id"`
-	Name          string  `json:"name"`
-	AvatarAssetID *string `json:"avatarAssetId,omitempty"`
-	Note          *string `json:"note,omitempty"`
-	SortOrder     int     `json:"sortOrder"`
-	CreatedAt     string  `json:"createdAt"`
-	UpdatedAt     string  `json:"updatedAt"`
-	ArchivedAt    *string `json:"archivedAt,omitempty"`
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	IconKey    string  `json:"iconKey"`
+	Note       *string `json:"note,omitempty"`
+	SortOrder  int     `json:"sortOrder"`
+	CreatedAt  string  `json:"createdAt"`
+	UpdatedAt  string  `json:"updatedAt"`
+	ArchivedAt *string `json:"archivedAt,omitempty"`
 }
 
 func FromMember(value domain.Member) MemberDTO {
 	dto := MemberDTO{
-		ID: value.ID.String(), Name: value.Name, Note: value.Note, SortOrder: value.SortOrder,
+		ID: value.ID.String(), Name: value.Name, IconKey: iconValue(value.IconKey, domain.DefaultMemberIcon), Note: value.Note, SortOrder: value.SortOrder,
 		CreatedAt: FormatTime(value.CreatedAt), UpdatedAt: FormatTime(value.UpdatedAt),
 		ArchivedAt: FormatTimePtr(value.ArchivedAt),
-	}
-	if value.AvatarAssetID != nil {
-		id := value.AvatarAssetID.String()
-		dto.AvatarAssetID = &id
 	}
 	return dto
 }
@@ -174,12 +170,11 @@ func FromMembers(values []domain.Member) []MemberDTO {
 type InstitutionDTO struct {
 	ID              string  `json:"id"`
 	Name            string  `json:"name"`
-	IconKey         *string `json:"iconKey,omitempty"`
-	InstitutionType *string `json:"institutionType,omitempty"`
+	IconKey         string  `json:"iconKey"`
+	InstitutionType string  `json:"institutionType"`
 	CountryCode     *string `json:"countryCode,omitempty"`
 	Website         *string `json:"website,omitempty"`
 	Note            *string `json:"note,omitempty"`
-	LogoAssetID     *string `json:"logoAssetId,omitempty"`
 	SortOrder       int     `json:"sortOrder"`
 	CreatedAt       string  `json:"createdAt"`
 	UpdatedAt       string  `json:"updatedAt"`
@@ -188,14 +183,10 @@ type InstitutionDTO struct {
 
 func FromInstitution(value domain.Institution) InstitutionDTO {
 	dto := InstitutionDTO{
-		ID: value.ID.String(), Name: value.Name, IconKey: value.IconKey, InstitutionType: value.InstitutionType,
+		ID: value.ID.String(), Name: value.Name, IconKey: iconValue(value.IconKey, domain.DefaultIconForInstitutionType(value.InstitutionType)), InstitutionType: string(value.InstitutionType),
 		CountryCode: value.CountryCode, Website: value.Website, Note: value.Note, SortOrder: value.SortOrder,
 		CreatedAt: FormatTime(value.CreatedAt), UpdatedAt: FormatTime(value.UpdatedAt),
 		ArchivedAt: FormatTimePtr(value.ArchivedAt),
-	}
-	if value.LogoAssetID != nil {
-		id := value.LogoAssetID.String()
-		dto.LogoAssetID = &id
 	}
 	return dto
 }
@@ -211,9 +202,8 @@ func FromInstitutions(values []domain.Institution) []InstitutionDTO {
 type GroupDTO struct {
 	ID          string  `json:"id"`
 	Name        string  `json:"name"`
-	IconKey     *string `json:"iconKey,omitempty"`
+	IconKey     string  `json:"iconKey"`
 	Color       *string `json:"color,omitempty"`
-	LogoAssetID *string `json:"logoAssetId,omitempty"`
 	Description *string `json:"description,omitempty"`
 	SortOrder   int     `json:"sortOrder"`
 	CreatedAt   string  `json:"createdAt"`
@@ -223,14 +213,10 @@ type GroupDTO struct {
 
 func FromGroup(value domain.Group) GroupDTO {
 	dto := GroupDTO{
-		ID: value.ID.String(), Name: value.Name, IconKey: value.IconKey, Color: value.Color,
+		ID: value.ID.String(), Name: value.Name, IconKey: iconValue(value.IconKey, domain.DefaultGroupIcon), Color: value.Color,
 		Description: value.Description, SortOrder: value.SortOrder,
 		CreatedAt: FormatTime(value.CreatedAt), UpdatedAt: FormatTime(value.UpdatedAt),
 		ArchivedAt: FormatTimePtr(value.ArchivedAt),
-	}
-	if value.LogoAssetID != nil {
-		id := value.LogoAssetID.String()
-		dto.LogoAssetID = &id
 	}
 	return dto
 }
@@ -300,8 +286,7 @@ type AccountDTO struct {
 	TrackingMode          string  `json:"trackingMode"`
 	DefaultCurrency       string  `json:"defaultCurrency"`
 	Note                  *string `json:"note,omitempty"`
-	IconKey               *string `json:"iconKey,omitempty"`
-	LogoAssetID           *string `json:"logoAssetId,omitempty"`
+	IconKey               string  `json:"iconKey"`
 	IncludeInNetWorth     bool    `json:"includeInNetWorth"`
 	IncludeInPortfolio    bool    `json:"includeInPortfolio"`
 	IncludeInLiquidAssets bool    `json:"includeInLiquidAssets"`
@@ -318,7 +303,7 @@ func FromAccount(value domain.Account) AccountDTO {
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Name: value.Name,
 		AccountType: value.AccountType.String(), BalanceSheetRole: string(value.BalanceSheetRole),
 		TrackingMode: string(value.TrackingMode), DefaultCurrency: value.DefaultCurrency.String(),
-		Note: value.Note, IconKey: value.IconKey, IncludeInNetWorth: value.IncludeInNetWorth,
+		Note: value.Note, IconKey: iconValue(value.IconKey, domain.DefaultAccountIcon(value.AccountType)), IncludeInNetWorth: value.IncludeInNetWorth,
 		IncludeInPortfolio: value.IncludeInPortfolio, IncludeInLiquidAssets: value.IncludeInLiquidAssets,
 		OpenedOn: value.OpenedOn, ClosedOn: value.ClosedOn, SortOrder: value.SortOrder,
 		CreatedAt: FormatTime(value.CreatedAt), UpdatedAt: FormatTime(value.UpdatedAt),
@@ -331,10 +316,6 @@ func FromAccount(value domain.Account) AccountDTO {
 	if value.GroupID != nil {
 		id := value.GroupID.String()
 		dto.GroupID = &id
-	}
-	if value.LogoAssetID != nil {
-		id := value.LogoAssetID.String()
-		dto.LogoAssetID = &id
 	}
 	return dto
 }
@@ -566,7 +547,7 @@ type InstrumentDTO struct {
 	CountryCode    *string `json:"countryCode,omitempty"`
 	ISIN           *string `json:"isin,omitempty"`
 	Note           *string `json:"note,omitempty"`
-	LogoAssetID    *string `json:"logoAssetId,omitempty"`
+	IconKey        string  `json:"iconKey"`
 	SortOrder      int     `json:"sortOrder"`
 	QuoteSource    string  `json:"quoteSource"`
 	ProviderKey    *string `json:"providerKey,omitempty"`
@@ -580,15 +561,18 @@ func FromInstrument(value domain.Instrument) InstrumentDTO {
 	dto := InstrumentDTO{
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Name: value.Name, Type: string(value.Type),
 		QuoteCurrency: value.QuoteCurrency.String(), Symbol: value.Symbol, MarketCode: value.MarketCode,
-		CountryCode: value.CountryCode, ISIN: value.ISIN, Note: value.Note, SortOrder: value.SortOrder,
+		CountryCode: value.CountryCode, ISIN: value.ISIN, Note: value.Note, IconKey: iconValue(value.IconKey, domain.DefaultInstrumentIcon(value.Type)), SortOrder: value.SortOrder,
 		QuoteSource: string(value.QuoteSource), ProviderKey: value.ProviderKey, ProviderSymbol: value.ProviderSymbol,
 		CreatedAt: FormatTime(value.CreatedAt), UpdatedAt: FormatTime(value.UpdatedAt), ArchivedAt: FormatTimePtr(value.ArchivedAt),
 	}
-	if value.LogoAssetID != nil {
-		id := value.LogoAssetID.String()
-		dto.LogoAssetID = &id
-	}
 	return dto
+}
+
+func iconValue(value *string, fallback string) string {
+	if value == nil || *value == "" {
+		return fallback
+	}
+	return *value
 }
 
 func FromInstruments(values []domain.Instrument) []InstrumentDTO {

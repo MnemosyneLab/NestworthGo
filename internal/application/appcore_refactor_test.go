@@ -1,10 +1,7 @@
 package application
 
 import (
-	"bytes"
 	"context"
-	"image"
-	"image/png"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -12,7 +9,6 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/media"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -27,7 +23,7 @@ func newOnboardedService(t *testing.T, name string, members []string) (*Service,
 	}
 	t.Cleanup(func() { database.Close() })
 	repository := sqlite.NewRepository(database)
-	service := NewServiceWithImageNormalizer(repository, media.Normalizer{})
+	service := NewService(repository)
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()
@@ -99,24 +95,6 @@ func TestHoldingsByAccountsGroupsHoldingsByAccount(t *testing.T) {
 	empty, err := service.HoldingsByAccounts(ctx, nil)
 	if err != nil || len(empty) != 0 {
 		t.Fatalf("empty batch = %+v, err=%v", empty, err)
-	}
-}
-
-func TestNormalizeImageReturnsPNGWithoutPersisting(t *testing.T) {
-	service, _, _, _ := newRefactorTestService(t, "normalize-image")
-	var source bytes.Buffer
-	if err := png.Encode(&source, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
-		t.Fatal(err)
-	}
-	data, err := service.NormalizeImage(bytes.NewReader(source.Bytes()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(data) == 0 {
-		t.Fatal("normalized image is empty")
-	}
-	if _, err := service.NormalizeImage(bytes.NewReader([]byte("not an image"))); err == nil {
-		t.Fatal("invalid image accepted")
 	}
 }
 

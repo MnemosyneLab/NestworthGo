@@ -53,7 +53,7 @@ func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
 	}
 }
 
-func TestSchema7FixtureSupportsGainReads(t *testing.T) {
+func TestLegacyFixtureSupportsRepositoryGainReads(t *testing.T) {
 	database := seedGainSchema7Fixture(t)
 	defer database.Close()
 	repository := sqlite.NewRepository(database)

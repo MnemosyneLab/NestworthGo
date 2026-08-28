@@ -6,6 +6,7 @@ import type { CatalogDTO } from "@/queries/catalog";
 export const TEST_CATALOG: CatalogDTO = {
   currencies: ["USD", "SGD", "CNY"],
   instrumentTypes: ["stock", "etf"],
+  institutionTypes: ["bank", "brokerage", "insurer", "exchange", "employer", "government", "other"],
   quoteSources: ["manual", "provider"],
   instrumentProviders: ["yahoo_finance"],
   accountTypes: ["cash_on_hand", "bank_account", "brokerage", "credit_card", "other"],

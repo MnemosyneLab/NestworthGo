@@ -11,7 +11,6 @@ erDiagram
     HOUSEHOLD ||--o{ GROUP : contains
     HOUSEHOLD ||--o{ ACCOUNT : contains
     HOUSEHOLD ||--o{ INSTRUMENT : contains
-    HOUSEHOLD ||--o{ MEDIA_ASSET : owns
     HOUSEHOLD ||--o{ FX_QUOTE : observes
     ACCOUNT }o--o| INSTITUTION : held_at
     ACCOUNT }o--o| GROUP : organized_by
@@ -22,11 +21,6 @@ erDiagram
     ACCOUNT ||--o{ ACCOUNT_CASH : cash_in
     INSTRUMENT ||--o{ HOLDING : represented_by
     INSTRUMENT ||--o{ INSTRUMENT_QUOTE : priced_as
-    MEDIA_ASSET o|--o{ MEMBER : decorates
-    MEDIA_ASSET o|--o{ INSTITUTION : decorates
-    MEDIA_ASSET o|--o{ GROUP : decorates
-    MEDIA_ASSET o|--o{ ACCOUNT : decorates
-    MEDIA_ASSET o|--o{ INSTRUMENT : decorates
     HOUSEHOLD ||--o| HISTORY_ORIGIN : starts_at
     HOUSEHOLD ||--o{ ACTIVITY : records
     ACTIVITY ||--|{ ACTIVITY_LEG : composed_of
@@ -47,19 +41,19 @@ The Household base currency is immutable after onboarding. Account default curre
 
 ### Member
 
-A Member represents a person used in Ownership and allocation views. A Household must retain at least one active Member. Archiving a Member does not remove or rewrite existing Ownership.
+A Member represents a person used in Ownership and allocation views. A Household must retain at least one active Member. Archiving a Member does not remove or rewrite existing Ownership. Every Member has a validated built-in icon key, defaulting to `user`.
 
 ### Institution
 
-An Institution identifies where an Account is held, such as a bank, broker, wallet provider, or lender. It is optional and organizational; it does not own the Account or determine its currency.
+An Institution identifies where an Account is held. Its required type is Bank, Brokerage, Insurer, Exchange, Employer, Government, or Other. It is optional and organizational; it does not own the Account or determine its currency. Its validated built-in icon defaults from that type.
 
 ### Group
 
-A Group is an optional Household-defined classification such as Emergency Fund, Retirement, or a geography. It is independent from Member, Institution, and Account type. Groups support a built-in icon key, `#RRGGBB` color, and an optional custom logo.
+A Group is an optional Household-defined classification such as Emergency Fund, Retirement, or a geography. It is independent from Member, Institution, and Account type. Every Group has a validated built-in icon key, defaulting to `folder`.
 
 ### Account
 
-An Account is the unit shown in the balance sheet. It has one `account_type`, one `balance_sheet_role`, one immutable `tracking_mode` after creation, one default currency, exact Ownership, optional Institution and Group references, inclusion flags, lifecycle dates, and, for Balance and Manual Value modes, an append-only sequence of Account Values.
+An Account is the unit shown in the balance sheet. It has one `account_type`, one `balance_sheet_role`, one immutable `tracking_mode` after creation, one default currency, exact Ownership, optional Institution and Group references, a validated built-in icon key that defaults from account type, inclusion flags, lifecycle dates, and, for Balance and Manual Value modes, an append-only sequence of Account Values.
 
 `account_type` names the real-world container. `balance_sheet_role` is the persistent asset or liability side and is immutable after create. `tracking_mode` is immutable after create. Type may be edited only when the new type remains legal with the frozen role and tracking. Create and update share one closed combination table.
 
@@ -75,7 +69,7 @@ An Account Value is an immutable observation, not a mutable balance column. Bala
 
 ### Instrument
 
-An Instrument describes what a Holding represents. It belongs to one Household and has a name, type, quote currency, quote preference (Manual or Provider), optional symbol, market code, country code, ISIN, provider identity, logo, and note.
+An Instrument describes what a Holding represents. It belongs to one Household and has a name, type, quote currency, quote preference (Manual or Provider), optional symbol, market code, country code, ISIN, provider identity, validated built-in icon key, and note. Its default icon is derived from Instrument type.
 
 Instrument reuse is Household-scoped. Symbol alone is not unique. When both provider key and provider symbol are present, that pair is unique among the Household's non-null provider identities. Manual Instruments need no symbol or provider metadata.
 
@@ -97,10 +91,6 @@ saved provider binding; explicit FX refresh uses the provider selected in
 Settings. Yahoo supports current Instrument quotes only. Frankfurter is the
 sole production FX provider, returns daily observations marked delayed, and
 supplies no Instrument binding.
-
-### Media Asset
-
-A MediaAsset is Household-scoped binary image data referenced by Members, Institutions, Groups, Accounts, or Instruments. Local PNG, JPEG, or WebP files are imported through a native dialog, normalized to a bounded PNG, and displayed as data URLs. Clearing an existing avatar or logo is not part of this release.
 
 ### Activity
 
@@ -149,7 +139,7 @@ incomplete result rather than zero, one, or an estimate.
 
 ### Identifiers
 
-HouseholdId, MemberId, InstitutionId, AccountGroupId, AccountId, AccountValueId, MediaAssetId, InstrumentId, HoldingId, AccountCashValueId, InstrumentQuoteId, FxQuoteId, ActivityId, ActivityLegId, HistoryOriginId, HistoryOriginItemId, AccountStateObservationId, HoldingQuantityValueId, QuotePreferenceObservationId, ValuationSnapshotId, ValuationSnapshotItemId, and CostBasisDeclarationId are distinct Go types backed by UUID v7. A derived `LotRef` is `OriginHolding(HoldingId)` or `Acquisition(ActivityLegId)`, not a generated UUID. IDs are lowercase hyphenated UUID strings at persistence and application boundaries. IDs from different entity types are not interchangeable. A provider symbol is metadata, never a Nestworth business ID. A reversal or correction link references an `ActivityId`; it is not encoded in notes.
+HouseholdId, MemberId, InstitutionId, AccountGroupId, AccountId, AccountValueId, InstrumentId, HoldingId, AccountCashValueId, InstrumentQuoteId, FxQuoteId, ActivityId, ActivityLegId, HistoryOriginId, HistoryOriginItemId, AccountStateObservationId, HoldingQuantityValueId, QuotePreferenceObservationId, ValuationSnapshotId, ValuationSnapshotItemId, and CostBasisDeclarationId are distinct Go types backed by UUID v7. A derived `LotRef` is `OriginHolding(HoldingId)` or `Acquisition(ActivityLegId)`, not a generated UUID. IDs are lowercase hyphenated UUID strings at persistence and application boundaries. IDs from different entity types are not interchangeable. A provider symbol is metadata, never a Nestworth business ID. A reversal or correction link references an `ActivityId`; it is not encoded in notes.
 
 ### Currency
 

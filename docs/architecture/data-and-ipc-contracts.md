@@ -8,7 +8,7 @@ that boundary remain backend-owned.
 
 The domain defines business invariants. Application use cases define commands
 and query results. The current `0.2.1` line owns one complete SQLite schema
-`7`; older database generations, including schema `6`, are rejected without
+`8`; older database generations, including schemas `6` and `7`, are rejected without
 migration. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
@@ -43,7 +43,7 @@ Compatibility is rechecked on the writable connection before schema or business 
 ## Persistence responsibilities
 
 The current schema implements Household, Member, Institution, Group,
-Account, Ownership, Account Value, Media Asset, Instrument, Holding, Account
+Account, Ownership, Account Value, Instrument, Holding, Account
 Cash Value, Instrument Quote, FX Quote, FX Preference, History Origin, Activity,
 snapshot, and dirty-state persistence. Recovery remains a future extension.
 
@@ -67,11 +67,10 @@ or network dependency.
 | Daily Snapshot | Append-only closed-day valuation revision |
 | Average Cost Evidence | Starting Point and cost-bearing Activity inputs replayed into derived cost/gain views |
 | Gain Read Models | Derived Holding, Account, and realized-period results with explicit unavailable state |
-| Media Asset | Household-scoped normalized image bytes |
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the current `schema.sql` and
-documented here without duplicating SQL. The current supported schema is `7`.
+documented here without duplicating SQL. The current supported schema is `8`.
 Future and older schema generations are blocked before business or settings
 writes.
 
@@ -131,20 +130,10 @@ Application errors should be grouped into stable categories such as:
 - unsupported database, migration failure, and integrity failure
 - invalid Activity, insufficient balance/quantity, or correction conflict
 - unavailable provider, rate limit, malformed provider response
-- invalid media and internal error
+- internal error
 
 Detailed database/driver errors stay in local diagnostics. They must not be
 shown by default in the UI.
-
-## Media contract
-
-The implemented media contract:
-
-- Accept PNG, JPEG, and WebP within a bounded input size.
-- Decode safely, reject oversized pixel dimensions, resize to a bounded dimension, and normalize to PNG.
-- Store only Household-scoped normalized PNG bytes and MIME metadata.
-- Return display-safe state to the UI without exposing arbitrary filesystem paths.
-- Replace references atomically while preserving shared assets; clear behavior remains a future extension.
 
 ## Compatibility evidence
 

@@ -74,7 +74,7 @@ cmd/nestworth/          Wails process entry point
 internal/wailsapi/      Bound services and wire DTOs
 internal/application/   Use cases, transactions, and read models
 internal/domain/        Entities, value types, invariants, and calculations
-internal/infrastructure/SQLite repositories, media, and providers
+internal/infrastructure/SQLite repositories and providers
 internal/settings/      Presentation preferences and provider selection
 frontend/               React application and generated binding consumer
 build/                  Wails Taskfiles and platform packaging metadata

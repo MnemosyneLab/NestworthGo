@@ -53,13 +53,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/accou
     CreateAccount: (...args: unknown[]) => createAccount(...args),
     UpdateAccount: vi.fn(),
     ArchiveAccount: vi.fn(),
-    SetAccountLogo: vi.fn(),
-  },
-}));
-vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/media", () => ({
-  Service: {
-    PickImage: vi.fn().mockResolvedValue(""),
-    CreateMediaAsset: vi.fn(),
+    SetAccountIcon: vi.fn(),
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/directory", () => ({

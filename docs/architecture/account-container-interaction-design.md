@@ -4,9 +4,9 @@
 
 - Status: Implemented / current contract
 - Companion domain contract: [account-container-and-position-model-design.md](account-container-and-position-model-design.md)
-- Baseline: Nestworth-go `0.2.1` / schema v7 / current Wails frontend
+- Baseline: Nestworth-go `0.2.1` / schema v8 / current Wails frontend
 - Data policy: this is a breaking cutover for an unreleased version. Only a
-  fresh schema v7 database is supported; there is no legacy-data, old
+  fresh schema v8 database is supported; there is no legacy-data, old
   interaction, or old-page compatibility layer.
 
 This document freezes how the Account container model is created, viewed, and
@@ -261,7 +261,7 @@ recording directly. Users are not required to understand tracking.
 ### 7.4 Details and Inclusion
 
 Primary fields: name, default currency, owners. Institution is echoed and can
-be changed by going back. Group, icon, image, and the three include switches
+be changed by going back. Group, icon, and the three include switches
 live under "More settings".
 
 Owners must be selected explicitly, at least one. Nobody is preselected.
@@ -297,7 +297,7 @@ The Accounts page is the real-world account entry, not a metadata-edit table.
   data-completeness status.
 - The Account type chip means account type only. It must not impersonate
   underlying asset types such as Cash / Stock.
-- Clicking opens detail. Edit, archive, and image actions live in Account
+- Clicking opens detail. Edit, archive, and icon actions live in Account
   settings on the detail page.
 - Archived Accounts are omitted from the active list by default. When an
   archived item is opened, detail is read-only until it is restored.
@@ -466,7 +466,7 @@ whole app adopts a consistent sign rule.
 In settings:
 
 - Editable: name, Account type (only still-legal compatible values),
-  Institution, group, owners, the three inclusion switches, icon/image;
+  Institution, group, owners, the three inclusion switches, and icon;
 - Read-only: Tracking method, with "This cannot currently be changed after
   account creation";
 - Read-only: Role; Role of `other` also cannot change after create;

@@ -17,6 +17,7 @@ import {
   useInstruments,
   useCreateInstrument,
   useArchiveInstrument,
+  useSetInstrumentIcon,
   useCreateHolding,
   useAllHoldingsFlat,
   useCurrentInstrumentQuote,
@@ -28,6 +29,8 @@ import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { EntityIcon } from "@/components/icons/EntityIcon";
+import { IconPicker } from "@/components/forms/IconPicker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -107,6 +110,7 @@ function InstrumentRow({
     name: string;
     quoteCurrency: string;
     quoteSource: string;
+    iconKey: string;
     archivedAt?: string | null;
   };
   onSetPrice: () => void;
@@ -115,11 +119,15 @@ function InstrumentRow({
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const quote = useCurrentInstrumentQuote(instrument.id);
+  const setIcon = useSetInstrumentIcon();
+  const [editingIcon, setEditingIcon] = useState(false);
+  const [iconKey, setIconKey] = useState(instrument.iconKey);
   const quoteTime = quote.data?.quotedAt ?? quote.data?.createdAt;
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-3 text-sm">
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <EntityIcon iconKey={instrument.iconKey} kind="instrument" className="size-5 text-primary" />
         <span className="font-medium">{instrument.name}</span>
         <Badge variant="secondary">{instrument.quoteCurrency}</Badge>
         <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>
@@ -146,6 +154,7 @@ function InstrumentRow({
         )}
       </span>
       <span className="flex shrink-0 items-center gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={() => setEditingIcon((value) => !value)}>{t("common.icon")}</Button>
         {instrument.quoteSource === "manual" && !instrument.archivedAt && (
           <Button type="button" variant="outline" size="sm" onClick={onSetPrice}>
             {t("portfolio.setPrice")}
@@ -167,6 +176,7 @@ function InstrumentRow({
           </AlertDialogContent>
         </AlertDialog>
       </span>
+      {editingIcon && <div className="w-full border-t border-border pt-3"><IconPicker id={`instrument-${instrument.id}-icon`} value={iconKey} kind="instrument" onChange={setIconKey} /><Button className="mt-2" size="sm" disabled={setIcon.isPending} onClick={() => setIcon.mutateAsync({ id: instrument.id, iconKey }).then(() => setEditingIcon(false))}>{t("common.save")}</Button></div>}
     </li>
   );
 }

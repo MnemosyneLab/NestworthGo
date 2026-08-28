@@ -14,8 +14,8 @@ bundles.
 | Design | [Design and UX](design/README.md) | Current screen map, interaction invariants, and maintained design contracts |
 | Architecture | [System Overview](architecture/system-overview.md) | Runtime layers, startup, state ownership, and security boundaries |
 | Architecture | [Domain Model](architecture/domain-model.md) | Financial entities, validation, and calculation semantics |
-| Architecture | [Account Container Model](architecture/account-container-and-position-model-design.md) | Current Account, component, classification, and schema-v7 contract |
-| Architecture | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | SQLite, transactions, serialization, errors, media, and providers |
+| Architecture | [Account Container Model](architecture/account-container-and-position-model-design.md) | Current Account, component, classification, and schema-v8 contract |
+| Architecture | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | SQLite, transactions, serialization, errors, and providers |
 | Design | [Account Container Interaction](architecture/account-container-interaction-design.md) | Current Account creation, detail, action, and accessibility behavior |
 | Design | [Trial UX optimization](design/trial-ux-optimization.md) | Planned trial follow-up: pickers, calculate buttons, portfolio-by-holding, market-data TTL |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |

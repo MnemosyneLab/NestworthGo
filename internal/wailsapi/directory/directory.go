@@ -1,5 +1,5 @@
 // Package directory adapts internal/application.Service's Member,
-// Institution, and Group CRUD/archive/icon/logo surface for the Wails IPC
+// Institution, and Group CRUD/archive/icon surface for the Wails IPC
 // boundary. These three entities share the same CRUD/archive/icon shape in
 // the product UI and the release contracts, so one service covers all three.
 package directory
@@ -31,8 +31,14 @@ func (s *Service) ListMembers(ctx context.Context, includeArchived bool) ([]wire
 	return wire.FromMembers(members), nil
 }
 
-func (s *Service) CreateMember(ctx context.Context, name string) (wire.MemberDTO, error) {
-	member, err := s.app.CreateMember(ctx, name)
+func (s *Service) CreateMember(ctx context.Context, name, iconKey string) (wire.MemberDTO, error) {
+	var member domain.Member
+	var err error
+	if iconKey == "" {
+		member, err = s.app.CreateMember(ctx, name)
+	} else {
+		member, err = s.app.CreateMember(ctx, name, iconKey)
+	}
 	if err != nil {
 		return wire.MemberDTO{}, apierror.Wrap(err)
 	}
@@ -51,13 +57,9 @@ func (s *Service) ArchiveMember(ctx context.Context, id string, archived bool) e
 	})
 }
 
-func (s *Service) SetMemberAvatar(ctx context.Context, id, mediaAssetID string) error {
+func (s *Service) SetMemberIcon(ctx context.Context, id, iconKey string) error {
 	return withParsedID(id, domain.ParseMemberID, func(memberID domain.MemberID) error {
-		assetID, err := domain.ParseMediaAssetID(mediaAssetID)
-		if err != nil {
-			return err
-		}
-		return s.app.SetMemberAvatar(ctx, memberID, assetID)
+		return s.app.SetMemberIcon(ctx, memberID, iconKey)
 	})
 }
 
@@ -71,13 +73,17 @@ func (s *Service) ListInstitutions(ctx context.Context, includeArchived bool) ([
 	return wire.FromInstitutions(institutions), nil
 }
 
-func (s *Service) CreateInstitution(ctx context.Context, name, iconKey string) (wire.InstitutionDTO, error) {
+func (s *Service) CreateInstitution(ctx context.Context, name, institutionType, iconKey string) (wire.InstitutionDTO, error) {
+	parsedType, parseErr := domain.ParseInstitutionType(institutionType)
+	if parseErr != nil {
+		return wire.InstitutionDTO{}, apierror.Wrap(parseErr)
+	}
 	var institution domain.Institution
 	var err error
 	if iconKey == "" {
-		institution, err = s.app.CreateInstitution(ctx, name)
+		institution, err = s.app.CreateInstitution(ctx, name, parsedType)
 	} else {
-		institution, err = s.app.CreateInstitution(ctx, name, iconKey)
+		institution, err = s.app.CreateInstitution(ctx, name, parsedType, iconKey)
 	}
 	if err != nil {
 		return wire.InstitutionDTO{}, apierror.Wrap(err)
@@ -100,16 +106,6 @@ func (s *Service) ArchiveInstitution(ctx context.Context, id string, archived bo
 func (s *Service) SetInstitutionIcon(ctx context.Context, id, iconKey string) error {
 	return withParsedID(id, domain.ParseInstitutionID, func(institutionID domain.InstitutionID) error {
 		return s.app.SetInstitutionIcon(ctx, institutionID, iconKey)
-	})
-}
-
-func (s *Service) SetInstitutionLogo(ctx context.Context, id, mediaAssetID string) error {
-	return withParsedID(id, domain.ParseInstitutionID, func(institutionID domain.InstitutionID) error {
-		assetID, err := domain.ParseMediaAssetID(mediaAssetID)
-		if err != nil {
-			return err
-		}
-		return s.app.SetInstitutionLogo(ctx, institutionID, assetID)
 	})
 }
 
@@ -152,16 +148,6 @@ func (s *Service) ArchiveGroup(ctx context.Context, id string, archived bool) er
 func (s *Service) SetGroupIcon(ctx context.Context, id, iconKey string) error {
 	return withParsedID(id, domain.ParseGroupID, func(groupID domain.GroupID) error {
 		return s.app.SetGroupIcon(ctx, groupID, iconKey)
-	})
-}
-
-func (s *Service) SetGroupLogo(ctx context.Context, id, mediaAssetID string) error {
-	return withParsedID(id, domain.ParseGroupID, func(groupID domain.GroupID) error {
-		assetID, err := domain.ParseMediaAssetID(mediaAssetID)
-		if err != nil {
-			return err
-		}
-		return s.app.SetGroupLogo(ctx, groupID, assetID)
 	})
 }
 

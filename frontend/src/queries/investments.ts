@@ -38,6 +38,14 @@ export function useArchiveInstrument() {
   });
 }
 
+export function useSetInstrumentIcon() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) => callService(() => InstrumentService.SetInstrumentIcon(id, iconKey)),
+    onSuccess: () => invalidateInstrumentReads(queryClient),
+  });
+}
+
 export function useHoldingsByAccounts(accountIds: string[]) {
   const normalizedAccountIds = normalizeAccountIds(accountIds);
   return useQuery({

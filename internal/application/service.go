@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -12,19 +11,10 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// ImageNormalizer is the application port for bounded image decoding and
-// PNG normalization. Infrastructure owns the concrete implementation so the
-// application layer does not depend on a storage or codec package.
-type ImageNormalizer interface {
-	Normalize([]byte) ([]byte, error)
-	ReadAndNormalize(io.Reader) ([]byte, error)
-}
-
 type Service struct {
-	repository      Repository
-	imageNormalizer ImageNormalizer
-	valuation       *ValuationService
-	gain            *GainService
+	repository Repository
+	valuation  *ValuationService
+	gain       *GainService
 
 	// stateMu guards the mutable service configuration below so a refresh
 	// worker reading it never races a concurrent setter.
@@ -45,15 +35,6 @@ func NewService(repository Repository, registries ...MarketDataRegistryPort) *Se
 	}
 	service.valuation.SetFXProviderKey(service.FXProviderKey)
 	service.gain.SetFXProviderKey(service.FXProviderKey)
-	return service
-}
-
-// NewServiceWithImageNormalizer wires the concrete image boundary without
-// making application depend on infrastructure/media. NewService remains
-// available for callers that do not use image operations.
-func NewServiceWithImageNormalizer(repository Repository, normalizer ImageNormalizer, registries ...MarketDataRegistryPort) *Service {
-	service := NewService(repository, registries...)
-	service.imageNormalizer = normalizer
 	return service
 }
 
@@ -155,7 +136,7 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 	return Bootstrap{Household: household, Members: members, Institutions: institutions, Groups: groups}, nil
 }
 
-// requireHousehold is the identity-only gate for mutations and media reads
+// requireHousehold is the identity-only gate for mutations
 // that need the current Household ID but do not validate directory references.
 // Keep Bootstrap for callers that genuinely need active Members, Institutions,
 // or Groups.
@@ -230,13 +211,16 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 	return s.repository.CreateOnboardingWithHistory(ctx, household, members, domain.HistoryOriginData{Origin: origin})
 }
 
-func (s *Service) CreateMember(ctx context.Context, name string) (domain.Member, error) {
+func (s *Service) CreateMember(ctx context.Context, name string, iconKeys ...string) (domain.Member, error) {
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Member{}, err
 	}
 	member, err := domain.NewMember(household.ID, name, s.clock())
 	if err != nil {
+		return domain.Member{}, err
+	}
+	if err := applyOptionalIcon(&member.IconKey, iconKeys); err != nil {
 		return domain.Member{}, err
 	}
 	if err := s.repository.CreateMember(ctx, member); err != nil {
@@ -257,7 +241,7 @@ func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name str
 	if err != nil {
 		return domain.Member{}, err
 	}
-	updated.ID, updated.AvatarAssetID, updated.Note, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.AvatarAssetID, current.Note, current.SortOrder, current.CreatedAt, current.ArchivedAt
+	updated.ID, updated.IconKey, updated.Note, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.Note, current.SortOrder, current.CreatedAt, current.ArchivedAt
 	if err := s.repository.UpdateMember(ctx, updated); err != nil {
 		return domain.Member{}, err
 	}
@@ -272,12 +256,12 @@ func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archive
 	return s.repository.SetMemberArchive(ctx, household.ID, id, archived, s.clock())
 }
 
-func (s *Service) CreateInstitution(ctx context.Context, name string, iconKeys ...string) (domain.Institution, error) {
+func (s *Service) CreateInstitution(ctx context.Context, name string, institutionType domain.InstitutionType, iconKeys ...string) (domain.Institution, error) {
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Institution{}, err
 	}
-	institution, err := domain.NewInstitution(household.ID, name, s.clock())
+	institution, err := domain.NewInstitution(household.ID, name, institutionType, s.clock())
 	if err != nil {
 		return domain.Institution{}, err
 	}
@@ -298,11 +282,11 @@ func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID
 	if err != nil {
 		return domain.Institution{}, err
 	}
-	updated, err := domain.NewInstitution(current.HouseholdID, name, s.clock())
+	updated, err := domain.NewInstitution(current.HouseholdID, name, current.InstitutionType, s.clock())
 	if err != nil {
 		return domain.Institution{}, err
 	}
-	updated.ID, updated.IconKey, updated.InstitutionType, updated.CountryCode, updated.Website, updated.Note, updated.LogoAssetID, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.InstitutionType, current.CountryCode, current.Website, current.Note, current.LogoAssetID, current.SortOrder, current.CreatedAt, current.ArchivedAt
+	updated.ID, updated.IconKey, updated.CountryCode, updated.Website, updated.Note, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.CountryCode, current.Website, current.Note, current.SortOrder, current.CreatedAt, current.ArchivedAt
 	if err := s.repository.UpdateInstitution(ctx, updated); err != nil {
 		return domain.Institution{}, err
 	}
@@ -347,7 +331,7 @@ func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name strin
 	if err != nil {
 		return domain.Group{}, err
 	}
-	updated.ID, updated.IconKey, updated.Color, updated.LogoAssetID, updated.Description, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.Color, current.LogoAssetID, current.Description, current.SortOrder, current.CreatedAt, current.ArchivedAt
+	updated.ID, updated.IconKey, updated.Color, updated.Description, updated.SortOrder, updated.CreatedAt, updated.ArchivedAt = current.ID, current.IconKey, current.Color, current.Description, current.SortOrder, current.CreatedAt, current.ArchivedAt
 	if err := s.repository.UpdateGroup(ctx, updated); err != nil {
 		return domain.Group{}, err
 	}
@@ -362,74 +346,11 @@ func (s *Service) ArchiveGroup(ctx context.Context, id domain.GroupID, archived 
 	return s.repository.SetGroupArchive(ctx, household.ID, id, archived, s.clock())
 }
 
-func (s *Service) CreateMediaAsset(ctx context.Context, mimeType string, data []byte) (domain.MediaAsset, error) {
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		return domain.MediaAsset{}, err
-	}
-	if mimeType != "image/png" && mimeType != "image/jpeg" && mimeType != "image/webp" {
-		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrValidation, Field: "mimeType", Message: "unsupported image type"}
-	}
-	if s.imageNormalizer == nil {
-		return domain.MediaAsset{}, &domain.Error{Code: domain.ErrUnavailable, Field: "image", Message: "image normalization is not configured"}
-	}
-	normalized, normalizeErr := s.imageNormalizer.Normalize(data)
-	if normalizeErr != nil {
-		return domain.MediaAsset{}, normalizeErr
-	}
-	asset := domain.MediaAsset{ID: domain.NewMediaAssetID(), HouseholdID: household.ID, MimeType: "image/png", Data: normalized, CreatedAt: s.clock()}
-	if err := s.repository.CreateMediaAsset(ctx, asset); err != nil {
-		return domain.MediaAsset{}, err
-	}
-	return asset, nil
+func (s *Service) SetMemberIcon(ctx context.Context, id domain.MemberID, iconKey string) error {
+	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
+		return s.repository.SetMemberIcon(ctx, householdID, id, normalized, now)
+	})
 }
-
-// NormalizeImage reads an uploaded image and normalizes it to PNG without
-// persisting anything. The UI calls this at pick time; persistence happens
-// via CreateMediaAsset when the user confirms the surrounding form.
-func (s *Service) NormalizeImage(reader io.Reader) ([]byte, error) {
-	if s.imageNormalizer == nil {
-		return nil, &domain.Error{Code: domain.ErrUnavailable, Field: "image", Message: "image normalization is not configured"}
-	}
-	return s.imageNormalizer.ReadAndNormalize(reader)
-}
-
-func (s *Service) MediaAsset(ctx context.Context, id domain.MediaAssetID) (domain.MediaAsset, error) {
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		return domain.MediaAsset{}, err
-	}
-	return s.repository.MediaAsset(ctx, household.ID, id)
-}
-func (s *Service) SetMemberAvatar(ctx context.Context, id domain.MemberID, asset domain.MediaAssetID) error {
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		return err
-	}
-	return s.repository.SetMemberAvatar(ctx, household.ID, id, asset, s.clock())
-}
-func (s *Service) SetInstitutionLogo(ctx context.Context, id domain.InstitutionID, asset domain.MediaAssetID) error {
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		return err
-	}
-	return s.repository.SetInstitutionLogo(ctx, household.ID, id, asset, s.clock())
-}
-func (s *Service) SetGroupLogo(ctx context.Context, id domain.GroupID, asset domain.MediaAssetID) error {
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		return err
-	}
-	return s.repository.SetGroupLogo(ctx, household.ID, id, asset, s.clock())
-}
-func (s *Service) SetAccountLogo(ctx context.Context, id domain.AccountID, asset domain.MediaAssetID) error {
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		return err
-	}
-	return s.repository.SetAccountLogo(ctx, household.ID, id, asset, s.clock())
-}
-
 func (s *Service) SetInstitutionIcon(ctx context.Context, id domain.InstitutionID, iconKey string) error {
 	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
 		return s.repository.SetInstitutionIcon(ctx, householdID, id, normalized, now)
@@ -765,7 +686,7 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	account.ID, account.CreatedAt, account.ArchivedAt, account.IconKey, account.LogoAssetID = current.Account.ID, current.Account.CreatedAt, current.Account.ArchivedAt, current.Account.IconKey, current.Account.LogoAssetID
+	account.ID, account.CreatedAt, account.ArchivedAt, account.IconKey = current.Account.ID, current.Account.CreatedAt, current.Account.ArchivedAt, current.Account.IconKey
 	allMembers, err := s.repository.ListMembers(ctx, true)
 	if err != nil {
 		return domain.AccountRecord{}, err

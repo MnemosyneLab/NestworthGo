@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { IconPicker } from "@/components/forms/IconPicker";
-import { ImagePicker } from "@/components/forms/ImagePicker";
 import { useMembers, useInstitutions, useGroups, useCreateInstitution } from "@/queries/directory";
 import { useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
@@ -22,6 +21,9 @@ import {
   trackingMethodKey,
   trackingPrompt,
 } from "@/features/accounts/accountCatalog";
+import { ACCOUNT_TYPE_ICONS } from "@/lib/defaultIcons";
+import { EntityIcon } from "@/components/icons/EntityIcon";
+import { EntitySelect } from "@/components/forms/EntitySelect";
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
 
 type WizardStep = "institution" | "type" | "tracking" | "details" | "review";
@@ -60,6 +62,7 @@ export function AccountCreateWizard({
   const [institutionId, setInstitutionId] = useState("");
   const [showNewInstitution, setShowNewInstitution] = useState(false);
   const [newInstitutionName, setNewInstitutionName] = useState("");
+  const [newInstitutionType, setNewInstitutionType] = useState("bank");
   const [institutionError, setInstitutionError] = useState<string | undefined>();
   const [accountType, setAccountType] = useState("");
   const [showMoreTypes, setShowMoreTypes] = useState(false);
@@ -76,8 +79,8 @@ export function AccountCreateWizard({
   const [includeInPortfolio, setIncludeInPortfolio] = useState(false);
   const [includeInLiquidAssets, setIncludeInLiquidAssets] = useState(false);
   const [groupId, setGroupId] = useState("");
-  const [iconKey, setIconKey] = useState("");
-  const [pendingImage, setPendingImage] = useState<string | undefined>(undefined);
+  const [iconKey, setIconKey] = useState("cash");
+  const [iconCustomized, setIconCustomized] = useState(false);
   const [showMoreSettings, setShowMoreSettings] = useState(false);
   const [nameError, setNameError] = useState<string | undefined>();
   const [trackingError, setTrackingError] = useState<string | undefined>();
@@ -96,6 +99,7 @@ export function AccountCreateWizard({
     const nextPrompt = trackingPrompt(combinations, nextType, nextRole);
     const match = matchingCombination(combinations, nextType, nextRole, nextPrompt.defaultMode) ?? combinations.find((item) => item.accountType === nextType);
     setAccountType(nextType);
+    if (!iconCustomized) setIconKey(ACCOUNT_TYPE_ICONS[nextType] ?? "account");
     setRole(nextRole);
     setTrackingMode(nextPrompt.defaultMode);
     setShowAdvancedTracking(false);
@@ -144,7 +148,7 @@ export function AccountCreateWizard({
       }
       setInstitutionError(undefined);
       try {
-        const created = await createInstitution.mutateAsync({ name: trimmed, iconKey: "" });
+        const created = await createInstitution.mutateAsync({ name: trimmed, institutionType: newInstitutionType, iconKey: "" });
         setInstitutionId(created.id);
         setShowNewInstitution(false);
         setNewInstitutionName("");
@@ -214,7 +218,7 @@ export function AccountCreateWizard({
       iconKey: iconKey || undefined,
       initialAmount: resolvedTracking === "holdings" ? "" : initialAmount || "0",
     };
-    void onSubmit(request, { pendingImage });
+    void onSubmit(request, {});
   };
 
   const typeButton = (type: string) => {
@@ -227,7 +231,7 @@ export function AccountCreateWizard({
         aria-pressed={selected}
         onClick={() => applyType(type)}
       >
-        {displayEnum(t, "enum", type)}
+        <span className="flex items-center gap-2"><EntityIcon iconKey={ACCOUNT_TYPE_ICONS[type]} kind="account" />{displayEnum(t, "enum", type)}</span>
       </button>
     );
   };
@@ -263,7 +267,7 @@ export function AccountCreateWizard({
                   setShowNewInstitution(false);
                 }}
               >
-                {institution.name}
+                <span className="flex items-center gap-2"><EntityIcon iconKey={institution.iconKey} kind="institution" />{institution.name}</span>
               </button>
             ))}
             <button
@@ -276,7 +280,8 @@ export function AccountCreateWizard({
             </button>
           </div>
           {showNewInstitution && (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
               <Label htmlFor="new-institution-name">{t("accounts.institutionName")}</Label>
               <Input
                 id="new-institution-name"
@@ -284,6 +289,13 @@ export function AccountCreateWizard({
                 onChange={(event) => setNewInstitutionName(event.target.value)}
                 autoFocus
               />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="new-institution-type">{t("directory.institutionType")}</Label>
+                <NativeSelect id="new-institution-type" value={newInstitutionType} onChange={(event) => setNewInstitutionType(event.target.value)}>
+                  {(catalog.data?.institutionTypes ?? []).map((type) => <option key={type} value={type}>{displayEnum(t, "institutionType", type)}</option>)}
+                </NativeSelect>
+              </div>
             </div>
           )}
           {institutionError && (
@@ -400,7 +412,7 @@ export function AccountCreateWizard({
                 <div key={member.id} className="flex items-center gap-2">
                   <input type="checkbox" id={`wizard-owner-${member.id}`} checked={checked} onChange={() => toggleOwner(member.id)} className="size-4" />
                   <Label htmlFor={`wizard-owner-${member.id}`} className="flex-1 font-normal">
-                    {member.name}
+                    <span className="flex items-center gap-2"><EntityIcon iconKey={member.iconKey} kind="member" />{member.name}</span>
                   </Label>
                   {useCustomPercentages && checked && (
                     <Input
@@ -447,19 +459,8 @@ export function AccountCreateWizard({
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={includeInLiquidAssets} onChange={(event) => setIncludeInLiquidAssets(event.target.checked)} /> {t("accounts.includeInLiquidAssets")}
               </label>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="wizard-group">{t("nav.groups")}</Label>
-                <NativeSelect id="wizard-group" value={groupId} onChange={(event) => setGroupId(event.target.value)}>
-                  <option value="">{t("accounts.none")}</option>
-                  {(groups.data ?? []).map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </div>
-              <IconPicker id="wizard-icon" value={iconKey} onChange={setIconKey} />
-              <ImagePicker label={t("common.media")} value={pendingImage} onChange={setPendingImage} />
+              <EntitySelect id="wizard-group" label={t("nav.groups")} value={groupId} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={setGroupId} />
+              <IconPicker id="wizard-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
             </div>
           )}
         </div>

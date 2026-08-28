@@ -34,6 +34,24 @@ func TestOpenCreatesAndVerifiesCurrentDatabase(t *testing.T) {
 	if err := database.SQL.QueryRow("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'accounts'").Scan(&table); err != nil {
 		t.Fatalf("accounts table missing: %v", err)
 	}
+	var mediaTables int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'media_assets'").Scan(&mediaTables); err != nil {
+		t.Fatalf("check media table: %v", err)
+	}
+	if mediaTables != 0 {
+		t.Fatal("schema v8 unexpectedly contains media_assets")
+	}
+	for _, entity := range []struct{ table, column string }{
+		{"members", "icon_key"}, {"institutions", "icon_key"}, {"account_groups", "icon_key"}, {"accounts", "icon_key"}, {"instruments", "icon_key"}, {"institutions", "institution_type"},
+	} {
+		var notNull int
+		if err := database.SQL.QueryRow("SELECT \"notnull\" FROM pragma_table_info(?) WHERE name = ?", entity.table, entity.column).Scan(&notNull); err != nil {
+			t.Fatalf("read %s.%s: %v", entity.table, entity.column, err)
+		}
+		if notNull != 1 {
+			t.Errorf("%s.%s notnull = %d, want 1", entity.table, entity.column, notNull)
+		}
+	}
 	var projectionDefault string
 	if err := database.SQL.QueryRow("SELECT dflt_value FROM pragma_table_info('account_values') WHERE name = 'projection_kind'").Scan(&projectionDefault); err != nil {
 		t.Fatalf("read projection default: %v", err)
@@ -191,7 +209,46 @@ func TestOpenRejectsSchema6FixtureWithoutWriting(t *testing.T) {
 		t.Fatal("schema 6 database changed after rejected open")
 	}
 	message := openErr.Error()
-	if !strings.Contains(message, "found version 6") || !strings.Contains(message, "supported version 7") || !strings.Contains(message, "new database") {
+	if !strings.Contains(message, "found version 6") || !strings.Contains(message, "supported version 8") || !strings.Contains(message, "new database") {
 		t.Fatalf("legacy error = %v, want found/supported versions and new-database guidance", openErr)
+	}
+}
+
+func TestOpenRejectsSchema7FixtureWithoutWriting(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schema7.db")
+	script, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "schema7", "schema7-fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seed.Exec(string(script)); err != nil {
+		_ = seed.Close()
+		t.Fatal(err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, openErr := Open(path)
+	var bootstrapErr *BootstrapError
+	if !errors.As(openErr, &bootstrapErr) || bootstrapErr.Status != StatusLegacyDatabase {
+		t.Fatalf("Open error = %v, want legacy database rejection", openErr)
+	}
+	if bootstrapErr.Found != 7 || bootstrapErr.Supported != CurrentSchemaVersion {
+		t.Fatalf("versions found=%d supported=%d, want 7 and %d", bootstrapErr.Found, bootstrapErr.Supported, CurrentSchemaVersion)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("schema 7 database changed after rejected open")
 	}
 }

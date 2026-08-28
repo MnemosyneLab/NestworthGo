@@ -6,60 +6,47 @@ CREATE TABLE households (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
-CREATE TABLE media_assets (
-    id TEXT PRIMARY KEY NOT NULL,
-    household_id TEXT NOT NULL,
-    mime_type TEXT NOT NULL,
-    data BLOB NOT NULL,
-    created_at TEXT NOT NULL,
-    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
-);
 CREATE TABLE members (
     id TEXT PRIMARY KEY NOT NULL,
     household_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    avatar_asset_id TEXT,
+    icon_key TEXT NOT NULL,
     note TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     archived_at TEXT,
-    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE,
-    FOREIGN KEY(avatar_asset_id) REFERENCES media_assets(id) ON DELETE SET NULL
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_members_household ON members(household_id);
 CREATE TABLE institutions (
     id TEXT PRIMARY KEY NOT NULL,
     household_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    institution_type TEXT,
+    institution_type TEXT NOT NULL CHECK(institution_type IN ('bank','brokerage','insurer','exchange','employer','government','other')),
     country_code TEXT,
     website TEXT,
     note TEXT,
-    logo_asset_id TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     archived_at TEXT,
-    icon_key TEXT,
-    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE,
-    FOREIGN KEY(logo_asset_id) REFERENCES media_assets(id) ON DELETE SET NULL
+    icon_key TEXT NOT NULL,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_institutions_household ON institutions(household_id);
 CREATE TABLE account_groups (
     id TEXT PRIMARY KEY NOT NULL,
     household_id TEXT NOT NULL,
     name TEXT NOT NULL,
-    icon_key TEXT,
+    icon_key TEXT NOT NULL,
     color TEXT,
-    logo_asset_id TEXT,
     description TEXT,
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     archived_at TEXT,
-    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE,
-    FOREIGN KEY(logo_asset_id) REFERENCES media_assets(id) ON DELETE SET NULL
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_groups_household ON account_groups(household_id);
 CREATE TABLE accounts (
@@ -73,7 +60,6 @@ CREATE TABLE accounts (
     tracking_mode TEXT NOT NULL CHECK(tracking_mode IN ('balance','manual_value','holdings')),
     default_currency TEXT NOT NULL CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]'),
     note TEXT,
-    logo_asset_id TEXT,
     include_in_net_worth INTEGER NOT NULL DEFAULT 1 CHECK(include_in_net_worth IN (0,1)),
     include_in_portfolio INTEGER NOT NULL DEFAULT 0 CHECK(include_in_portfolio IN (0,1)),
     include_in_liquid_assets INTEGER NOT NULL DEFAULT 0 CHECK(include_in_liquid_assets IN (0,1)),
@@ -83,7 +69,7 @@ CREATE TABLE accounts (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     archived_at TEXT,
-    icon_key TEXT,
+    icon_key TEXT NOT NULL,
     CHECK(
         (account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode = 'balance') OR
         (account_type = 'bank_account' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')) OR
@@ -104,8 +90,7 @@ CREATE TABLE accounts (
     ),
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE,
     FOREIGN KEY(institution_id) REFERENCES institutions(id) ON DELETE SET NULL,
-    FOREIGN KEY(group_id) REFERENCES account_groups(id) ON DELETE SET NULL,
-    FOREIGN KEY(logo_asset_id) REFERENCES media_assets(id) ON DELETE SET NULL
+    FOREIGN KEY(group_id) REFERENCES account_groups(id) ON DELETE SET NULL
 );
 CREATE INDEX idx_accounts_household ON accounts(household_id);
 CREATE INDEX idx_accounts_institution ON accounts(institution_id);
@@ -142,7 +127,7 @@ CREATE TABLE instruments (
     country_code TEXT CHECK(country_code IS NULL OR country_code GLOB '[A-Z][A-Z]'),
     isin TEXT,
     note TEXT,
-    logo_asset_id TEXT,
+    icon_key TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
     quote_source TEXT NOT NULL DEFAULT 'manual' CHECK(quote_source IN ('manual','provider')),
     provider_key TEXT,
@@ -151,8 +136,7 @@ CREATE TABLE instruments (
     updated_at TEXT NOT NULL,
     archived_at TEXT,
     CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL)),
-    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE,
-    FOREIGN KEY(logo_asset_id) REFERENCES media_assets(id) ON DELETE SET NULL
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_instruments_household ON instruments(household_id);
 CREATE INDEX idx_instruments_quote_source ON instruments(household_id, quote_source, archived_at);
@@ -493,4 +477,4 @@ CREATE TABLE holding_state_observations (
 );
 CREATE INDEX idx_holding_state_observations_effective ON holding_state_observations(holding_id, effective_at DESC, created_at DESC, id DESC);
 CREATE INDEX idx_daily_valuation_items_fx_preference ON daily_valuation_snapshot_items(fx_preference_observation_id);
-PRAGMA user_version = 7;
+PRAGMA user_version = 8;

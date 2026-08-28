@@ -6,10 +6,38 @@ import (
 )
 
 const (
-	DefaultAccountIcon     = "wallet"
+	DefaultMemberIcon      = "user"
 	DefaultInstitutionIcon = "bank"
 	DefaultGroupIcon       = "folder"
 )
+
+var accountTypeDefaultIcons = map[AccountType]string{
+	TypeCashOnHand: "cash", TypeBankAccount: "bank", TypeBrokerage: "brokerage",
+	TypeInvestmentAccount: "investment", TypeCryptoExchange: "bitcoin", TypeDigitalWallet: "wallet-cards",
+	TypePension: "pension", TypeInsurancePolicy: "shield-plus", TypeProperty: "home",
+	TypeVehicle: "car", TypeCollectible: "gem", TypeReceivable: "receivable",
+	TypeCreditCard: "credit-card", TypeLoan: "banknote-down", TypeOther: "account",
+}
+
+var instrumentTypeDefaultIcons = map[InstrumentType]string{
+	InstrumentStock: "stock", InstrumentETF: "pie-chart", InstrumentMutualFund: "chart",
+	InstrumentCrypto: "bitcoin", InstrumentBond: "document", InstrumentPreciousMetal: "gem",
+	InstrumentBankInvestmentProduct: "bank", InstrumentOther: "investment",
+}
+
+var institutionTypeDefaultIcons = map[InstitutionType]string{
+	InstitutionBank: "bank", InstitutionBrokerage: "brokerage", InstitutionInsurer: "shield-plus",
+	InstitutionExchange: "market", InstitutionEmployer: "building", InstitutionGovernment: "landmark",
+	InstitutionOther: "building",
+}
+
+func DefaultAccountIcon(accountType AccountType) string { return accountTypeDefaultIcons[accountType] }
+func DefaultInstrumentIcon(instrumentType InstrumentType) string {
+	return instrumentTypeDefaultIcons[instrumentType]
+}
+func DefaultIconForInstitutionType(institutionType InstitutionType) string {
+	return institutionTypeDefaultIcons[institutionType]
+}
 
 var supportedIconKeys = map[string]struct{}{
 	"account":        {},
@@ -32,6 +60,7 @@ var supportedIconKeys = map[string]struct{}{
 	"building":       {},
 	"calendar":       {},
 	"calendar-clock": {},
+	"car":            {},
 	"camera":         {},
 	"card":           {},
 	"cash":           {},
@@ -50,20 +79,22 @@ var supportedIconKeys = map[string]struct{}{
 	"file":           {},
 	"folder":         {},
 	"goal":           {},
+	"gem":            {},
 	"grid":           {},
 	"history":        {},
 	"home":           {},
 	"info":           {},
 	"insurance":      {},
 	"investment":     {},
+	"landmark":       {},
 	"liability":      {},
 	"list":           {},
 	"mail":           {},
 	"market":         {},
-	"media":          {},
 	"money":          {},
 	"percent":        {},
 	"pension":        {},
+	"pie-chart":      {},
 	"property":       {},
 	"receivable":     {},
 	"receipt":        {},
@@ -82,6 +113,7 @@ var supportedIconKeys = map[string]struct{}{
 	"wallet":         {},
 	"wallet-cards":   {},
 	"warning":        {},
+	"user":           {},
 	"yen":            {},
 }
 

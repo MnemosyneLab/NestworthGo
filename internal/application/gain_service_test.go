@@ -224,14 +224,11 @@ func seedGainSchema7Fixture(t *testing.T) *sqlite.DB {
 		_ = seed.Close()
 		t.Fatal(err)
 	}
-	if err := seed.Close(); err != nil {
+	if _, err := seed.Exec(`ALTER TABLE members ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'user'; ALTER TABLE instruments ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'investment';`); err != nil {
+		_ = seed.Close()
 		t.Fatal(err)
 	}
-	database, err := sqlite.Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return database
+	return &sqlite.DB{SQL: seed, Path: path, Status: sqlite.StatusReady}
 }
 
 func mustMoney(t *testing.T, amount, currency string) domain.Money {

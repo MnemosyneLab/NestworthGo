@@ -95,7 +95,6 @@ type InstitutionID string
 type GroupID string
 type AccountID string
 type AccountValueID string
-type MediaAssetID string
 type InstrumentID string
 type HoldingID string
 type AccountCashValueID string
@@ -108,7 +107,6 @@ func NewInstitutionID() InstitutionID   { return InstitutionID(newID()) }
 func NewGroupID() GroupID               { return GroupID(newID()) }
 func NewAccountID() AccountID           { return AccountID(newID()) }
 func NewAccountValueID() AccountValueID { return AccountValueID(newID()) }
-func NewMediaAssetID() MediaAssetID     { return MediaAssetID(newID()) }
 func NewInstrumentID() InstrumentID     { return InstrumentID(newID()) }
 func NewHoldingID() HoldingID           { return HoldingID(newID()) }
 func NewAccountCashValueID() AccountCashValueID {
@@ -123,7 +121,6 @@ func (id InstitutionID) String() string      { return string(id) }
 func (id GroupID) String() string            { return string(id) }
 func (id AccountID) String() string          { return string(id) }
 func (id AccountValueID) String() string     { return string(id) }
-func (id MediaAssetID) String() string       { return string(id) }
 func (id InstrumentID) String() string       { return string(id) }
 func (id HoldingID) String() string          { return string(id) }
 func (id AccountCashValueID) String() string { return string(id) }
@@ -141,9 +138,6 @@ func ParseGroupID(value string) (GroupID, error)     { return parseID[GroupID](v
 func ParseAccountID(value string) (AccountID, error) { return parseID[AccountID](value, "accountId") }
 func ParseAccountValueID(value string) (AccountValueID, error) {
 	return parseID[AccountValueID](value, "accountValueId")
-}
-func ParseMediaAssetID(value string) (MediaAssetID, error) {
-	return parseID[MediaAssetID](value, "mediaAssetId")
 }
 func ParseInstrumentID(value string) (InstrumentID, error) {
 	return parseID[InstrumentID](value, "instrumentId")
@@ -493,15 +487,15 @@ func NewHousehold(name string, baseCurrency CurrencyCode, now time.Time) (Househ
 
 // Member, Institution, and Group are archived references retained for history.
 type Member struct {
-	ID            MemberID
-	HouseholdID   HouseholdID
-	Name          string
-	AvatarAssetID *MediaAssetID
-	Note          *string
-	SortOrder     int
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	ArchivedAt    *time.Time
+	ID          MemberID
+	HouseholdID HouseholdID
+	Name        string
+	IconKey     *string
+	Note        *string
+	SortOrder   int
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	ArchivedAt  *time.Time
 }
 
 type Institution struct {
@@ -509,11 +503,10 @@ type Institution struct {
 	HouseholdID     HouseholdID
 	Name            string
 	IconKey         *string
-	InstitutionType *string
+	InstitutionType InstitutionType
 	CountryCode     *string
 	Website         *string
 	Note            *string
-	LogoAssetID     *MediaAssetID
 	SortOrder       int
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
@@ -526,7 +519,6 @@ type Group struct {
 	Name        string
 	IconKey     *string
 	Color       *string
-	LogoAssetID *MediaAssetID
 	Description *string
 	SortOrder   int
 	CreatedAt   time.Time
@@ -540,17 +532,22 @@ func NewMember(householdID HouseholdID, name string, now time.Time) (Member, err
 		return Member{}, err
 	}
 	now = normalizeTime(now)
-	return Member{ID: NewMemberID(), HouseholdID: householdID, Name: name, CreatedAt: now, UpdatedAt: now}, nil
+	iconKey := DefaultMemberIcon
+	return Member{ID: NewMemberID(), HouseholdID: householdID, Name: name, IconKey: &iconKey, CreatedAt: now, UpdatedAt: now}, nil
 }
 
-func NewInstitution(householdID HouseholdID, name string, now time.Time) (Institution, error) {
+func NewInstitution(householdID HouseholdID, name string, institutionType InstitutionType, now time.Time) (Institution, error) {
 	name, err := validateName("name", name)
 	if err != nil {
 		return Institution{}, err
 	}
+	institutionType, err = ParseInstitutionType(string(institutionType))
+	if err != nil {
+		return Institution{}, err
+	}
 	now = normalizeTime(now)
-	iconKey := DefaultInstitutionIcon
-	return Institution{ID: NewInstitutionID(), HouseholdID: householdID, Name: name, IconKey: &iconKey, CreatedAt: now, UpdatedAt: now}, nil
+	iconKey := DefaultIconForInstitutionType(institutionType)
+	return Institution{ID: NewInstitutionID(), HouseholdID: householdID, Name: name, IconKey: &iconKey, InstitutionType: institutionType, CreatedAt: now, UpdatedAt: now}, nil
 }
 
 func NewGroup(householdID HouseholdID, name string, now time.Time) (Group, error) {
@@ -576,7 +573,6 @@ type Account struct {
 	DefaultCurrency       CurrencyCode
 	Note                  *string
 	IconKey               *string
-	LogoAssetID           *MediaAssetID
 	IncludeInNetWorth     bool
 	IncludeInPortfolio    bool
 	IncludeInLiquidAssets bool
@@ -595,7 +591,7 @@ func NewAccount(input AccountInput, now time.Time) (Account, Ownership, *Money, 
 	if err != nil {
 		return Account{}, Ownership{}, nil, err
 	}
-	iconKey, err := normalizedIconKey(input.IconKey, DefaultAccountIcon)
+	iconKey, err := normalizedIconKey(input.IconKey, DefaultAccountIcon(input.AccountType))
 	if err != nil {
 		return Account{}, Ownership{}, nil, err
 	}
@@ -813,11 +809,4 @@ type ReadSnapshot struct {
 	Institutions []Institution
 	Groups       []Group
 	Accounts     []AccountRecord
-}
-type MediaAsset struct {
-	ID          MediaAssetID
-	HouseholdID HouseholdID
-	MimeType    string
-	Data        []byte
-	CreatedAt   time.Time
 }
