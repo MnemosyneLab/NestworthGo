@@ -15,6 +15,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
     Save: (...args: unknown[]) => save(...args),
     Reset: () => reset(),
     SupportedCurrencies: () => Promise.resolve(["USD", "SGD"]),
+    FXProviders: () => Promise.resolve(["frankfurter"]),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
@@ -105,5 +106,17 @@ describe("SettingsPage", () => {
     await screen.findByRole("form", { name: "Settings" });
     expect(selectValues(screen.getByLabelText("Appearance"))).toEqual(TEST_CATALOG.appearances);
     expect(selectValues(screen.getByLabelText("Language"))).toEqual(TEST_CATALOG.languages);
+  });
+
+  it("saves the Settings timezone and FX provider fields", async () => {
+    renderPage();
+    await screen.findByRole("form", { name: "Settings" });
+    const timezone = screen.getByRole("combobox", { name: "Timezone" });
+    await userEvent.clear(timezone);
+    await userEvent.type(timezone, "Asia/Shanghai");
+    await userEvent.keyboard("{Enter}");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Asia/Shanghai", fx_provider: "frankfurter" }));
   });
 });

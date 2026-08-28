@@ -93,10 +93,28 @@ func (s *Service) HistoryMutationAllowed(ctx context.Context) error {
 	return apierror.Wrap(s.app.HistoryMutationAllowed(ctx))
 }
 
-// resolveHouseholdID re-derives the current Household ID from the identity-only
-// gate rather than trusting a client-submitted value, matching the rule that a
-// change command's HouseholdID always comes from server-side context
-// (command.go's ToCommand doc comment).
+// resolveHistoryContext re-derives both the current Household ID and the
+// immutable Origin timezone from server-side state. The frontend may submit a
+// local wall-clock pair, but it never gets to choose the timezone used to turn
+// that pair into an instant.
+func (s *Service) resolveHistoryContext(ctx context.Context) (domain.HouseholdID, string, error) {
+	origin, err := s.app.HistoryOrigin(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	if origin == nil {
+		return "", "", &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+	}
+	household, err := s.app.Household(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	return household.ID, origin.Timezone, nil
+}
+
+// resolveHouseholdID is used by the daily-snapshot maintenance endpoints,
+// which do not accept local change timestamps and therefore do not need the
+// Origin timezone.
 func (s *Service) resolveHouseholdID(ctx context.Context) (domain.HouseholdID, error) {
 	household, err := s.app.Household(ctx)
 	if err != nil {
@@ -106,11 +124,11 @@ func (s *Service) resolveHouseholdID(ctx context.Context) (domain.HouseholdID, e
 }
 
 func (s *Service) PreviewChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
-	householdID, err := s.resolveHouseholdID(ctx)
+	householdID, originTimezone, err := s.resolveHistoryContext(ctx)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	command, err := request.ToCommand(householdID)
+	command, err := request.ToCommand(householdID, originTimezone)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
@@ -122,11 +140,11 @@ func (s *Service) PreviewChange(ctx context.Context, request ChangeCommandReques
 }
 
 func (s *Service) RecordChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
-	householdID, err := s.resolveHouseholdID(ctx)
+	householdID, originTimezone, err := s.resolveHistoryContext(ctx)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	command, err := request.ToCommand(householdID)
+	command, err := request.ToCommand(householdID, originTimezone)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
@@ -141,11 +159,11 @@ func (s *Service) RecordChange(ctx context.Context, request ChangeCommandRequest
 // "preview, then confirm" UX has a stable name to call. Application code
 // has a single RecordChange write path.
 func (s *Service) CommitChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
-	householdID, err := s.resolveHouseholdID(ctx)
+	householdID, originTimezone, err := s.resolveHistoryContext(ctx)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	command, err := request.ToCommand(householdID)
+	command, err := request.ToCommand(householdID, originTimezone)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
@@ -179,11 +197,11 @@ func (s *Service) PreviewFixChange(ctx context.Context, activityID string, repla
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	householdID, err := s.resolveHouseholdID(ctx)
+	householdID, originTimezone, err := s.resolveHistoryContext(ctx)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	command, err := replacement.ToCommand(householdID)
+	command, err := replacement.ToCommand(householdID, originTimezone)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
@@ -199,11 +217,11 @@ func (s *Service) FixChange(ctx context.Context, activityID string, replacement 
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	householdID, err := s.resolveHouseholdID(ctx)
+	householdID, originTimezone, err := s.resolveHistoryContext(ctx)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	command, err := replacement.ToCommand(householdID)
+	command, err := replacement.ToCommand(householdID, originTimezone)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}

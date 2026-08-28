@@ -29,6 +29,7 @@ export const queryKeys = {
   settings: {
     all: ["settings"] as const,
     supportedCurrencies: ["settings", "supportedCurrencies"] as const,
+    fxProviders: ["settings", "fxProviders"] as const,
   },
   directory: {
     all: ["directory"] as const,
@@ -82,5 +83,6 @@ export const queryKeys = {
     origin: ["history", "origin"] as const,
     startingPointDraft: ["history", "startingPointDraft"] as const,
     activities: (limit: number) => ["history", "activities", limit] as const,
+    activityPage: (request: unknown) => ["history", "activityPage", request] as const,
   },
 } as const;

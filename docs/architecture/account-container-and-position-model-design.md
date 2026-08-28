@@ -1,71 +1,85 @@
-# Account 容器与金融头寸模型
+# Account Container and Position Model
 
-## 1. 文档状态与决策摘要
+## 1. Document status and decision summary
 
-- 状态：Implemented / current contract in Nestworth-go `0.2.1` / SQLite schema v7
-- 适用基线：Nestworth-go current domain model and SQLite schema v7
-- 文档目的：记录 Account 模型的领域、数据库、应用和发布事实
-- 本文描述已落地的 breaking cutover；不提供 v6 迁移
+- Status: Implemented / current contract in Nestworth-go `0.2.1` / SQLite schema v7
+- Baseline: Nestworth-go current domain model and SQLite schema v7
+- Purpose: Record Account-model facts across domain, database, application, and release
+- This document describes the landed breaking cutover; it does not provide a v6 migration
 
-本设计保留当前整体架构，只修正职责边界和几个过窄的约束：
-
-```text
-Account      = 现实世界中的金融账户或资产容器
-Cash Balance = Account 内部以法定货币计价的现金头寸
-Holding      = Account 内部的 Instrument 头寸
-Instrument   = 被 Holding 引用的底层金融资产定义与分类
-```
-
-不引入通用 `SubAccount`。`holdings` tracking 不再限定为 Investment；是否可用由本文的合法三元组表唯一决定。
-
-Account 的三个正交维度正式定义为：
+This design keeps the current overall architecture and only corrects a few
+responsibility boundaries and overly narrow constraints:
 
 ```text
-account_type       = 这是什么类型的现实世界账户/容器？
-balance_sheet_role = 它位于资产负债表的哪一侧？
-tracking_mode      = Nestworth 如何记录和估值它？
+Account      = a real-world financial account or asset container
+Cash Balance = a fiat-currency cash position inside an Account
+Holding      = an Instrument position inside an Account
+Instrument   = the underlying financial-asset definition and classification referenced by a Holding
 ```
 
-`balance_sheet_role` 是正式持久化字段；`account_type` 只能在仍兼容当前 role/tracking 时编辑；`balance_sheet_role` 与 `tracking_mode` 在创建后保持不可变。资产分类按 Account 形态处理：Composite Account 由内部 component 决定，Simple Account 由 role 决定资产负债侧、由 `account_type` 决定 bucket。
+Do not introduce a generic `SubAccount`. `holdings` tracking is no longer
+limited to Investment; availability is decided only by the legal-combination
+table in this document.
 
-本方案同时冻结以下产品决策：
+The three orthogonal Account dimensions are:
 
-- Overview 以 component 粒度的 `assetsByType` 取代旧账户级 `ByCategory`，并增加 `liabilitiesByType`；
-- schema v7 是全新的 breaking schema，不提供旧数据库迁移、兼容读取或自动 reset；
-- v7 Wails DTO 只暴露新字段，不设计双 API 优先级；
-- SQLite 的 `accounts`、`account_state_observations`、`history_origin_account_states` 直接使用物理列 `include_in_portfolio`；
-- Simple Account 的历史分类使用当前 metadata，并显式标记 `current-metadata-derived`。
+```text
+account_type       = what kind of real-world account or container is this?
+balance_sheet_role = which side of the balance sheet does it sit on?
+tracking_mode      = how does Nestworth record and value it?
+```
 
-## 2. Cutover 前的历史基线
+`balance_sheet_role` is a formal persisted field. `account_type` may be edited
+only while it remains compatible with the current role and tracking.
+`balance_sheet_role` and `tracking_mode` stay immutable after create. Asset
+classification follows Account shape: a Composite Account is classified from
+its internal components; a Simple Account uses role for the asset/liability
+side and `account_type` for the bucket.
 
-本节只记录 cutover 之前的 schema v6 状态，不是当前行为。当前仓库使用
-schema v7 与本文定义的 `account_type` / `balance_sheet_role` /
-`tracking_mode` 契约。
+This design also freezes these product decisions:
 
-当时 `accounts` 包含：
+- Overview replaces the old account-level `ByCategory` with component-grained
+  `assetsByType` and adds `liabilitiesByType`;
+- schema v7 is a new breaking schema with no legacy-database migration,
+  compatibility reads, or automatic reset;
+- v7 Wails DTOs expose only the new fields and do not define dual-API
+  precedence;
+- SQLite `accounts`, `account_state_observations`, and
+  `history_origin_account_states` use the physical column `include_in_portfolio`;
+- Simple Account historical classification uses current metadata and is
+  explicitly marked `current-metadata-derived`.
+
+## 2. Historical baseline before cutover
+
+This section records the schema v6 state before cutover. It is not current
+behavior. The current repository uses schema v7 and the
+`account_type` / `balance_sheet_role` / `tracking_mode` contract defined here.
+
+At that time `accounts` contained:
 
 - `primary_category`
 - `secondary_category`
 - `tracking_mode`
 - `include_in_investment`
 
-切换前的 Go domain model、SQLite repository 和 schema verifier 围绕
-`PrimaryCategory` / `SecondaryCategory` 校验账户，并通过
-`PrimaryCategory.IsLiability()` 判断负债。
+The pre-cutover Go domain model, SQLite repository, and schema verifier
+validated accounts around `PrimaryCategory` / `SecondaryCategory` and treated
+liabilities through `PrimaryCategory.IsLiability()`.
 
-当前估值实现按本文的 v7 规则分类：Holdings Account 中没有 Instrument
-的 component 归入 `cash`，有 Instrument 的 component 按
-`Instrument.Type` 分类，Simple Account 按 `account_type` 和 role 分类。
+Current valuation classifies by the v7 rules in this document: a Holdings
+Account component with no Instrument is `cash`; a component with an
+Instrument is classified by `Instrument.Type`; a Simple Account is classified
+by `account_type` and role.
 
-Activity 仍保存稳定的内部 kind 值，例如 `cash_in`、`cash_out`、
-`cash_transfer`、`fx_conversion`、`position_transfer`、`buy`、`sell`、
-`value_update`、`debt_draw`、`debt_payment` 和 `reversal`。本文使用既有
-领域/产品语义描述它们，不新增另一套 Activity taxonomy，也不改写既有
-历史事实。
+Activity still stores stable internal kind values such as `cash_in`,
+`cash_out`, `cash_transfer`, `fx_conversion`, `position_transfer`, `buy`,
+`sell`, `value_update`, `debt_draw`, `debt_payment`, and `reversal`. This
+document describes those kinds with existing domain and product semantics. It
+does not add another Activity taxonomy or rewrite existing historical facts.
 
-## 3. 背景与问题
+## 3. Background and problems
 
-现实中的一个账户通常可以同时包含多种资产：
+A real-world account can hold several asset kinds at once:
 
 ```text
 MooMoo SG Brokerage
@@ -77,52 +91,67 @@ MooMoo SG Brokerage
 └── crypto assets
 ```
 
-招商银行的一段客户关系也可能包含：
+A China Merchants Bank (CMB) customer relationship can also contain:
 
 ```text
-招商银行综合账户
-├── CNY 活期存款
-├── USD 存款
-├── 银行理财
-├── 多个基金持仓
-└── 黄金
+China Merchants Bank mixed account
+├── CNY demand deposits
+├── USD deposits
+├── bank wealth-management products
+├── several fund holdings
+└── gold
 ```
 
-v6 结构可以存储一部分上述内容，但语义不完整：
+The v6 structure could store some of this, but the semantics were incomplete:
 
-1. `Account.primary_category`/`secondary_category` 同时试图描述账户身份和账户资产类别。
-2. `holdings` tracking 被限制为 Investment，银行或交易所无法自然地表示“现金 + 持仓”。
-3. 账户级的 `include_in_investment` 无法区分同一银行账户中的普通现金与投资头寸。
-4. Simple Account 没有清楚规定“Account 自身作为资产”时如何分类。
-5. 如果用通用 `SubAccount` 解决显示层级，会出现 USD Cash、基金账户和 Holding 的边界争议。
+1. `Account.primary_category` / `secondary_category` tried to describe both
+   account identity and the assets inside the account.
+2. `holdings` tracking was limited to Investment, so a bank or exchange could
+   not naturally represent "cash + holdings".
+3. Account-level `include_in_investment` could not distinguish ordinary cash
+   from investment positions in the same bank account.
+4. Simple Accounts had no clear rule for classifying "the Account itself as
+   the valued object".
+5. A generic `SubAccount` display layer would blur the boundaries among USD
+   cash, a fund account, and a Holding.
 
-这些问题应通过职责重划解决，而不是增加一层没有稳定现实边界的实体。
+These problems should be solved by reassigning responsibilities, not by
+adding an entity without a stable real-world boundary.
 
-## 4. 设计目标
+## 4. Design goals
 
-- 让 Account 代表真实账户边界或真实资产对象。
-- 让 Cash Balance 和 Holding 表达 Account 内部的可估值头寸。
-- 让 `account_type` 描述账户形态，而不是占用底层资产分类职责。
-- 让 `balance_sheet_role` 明确、持久、可审计地控制资产/负债语义。
-- 让合法三元组中的 Account type 使用 `holdings` tracking。
-- 保留 `balance` 和 `manual_value` 对 Simple Account 的支持。
-- 使 Overview、Portfolio、History、Activity 和估值对同一模型保持一致。
-- 在新 schema 内保持 Account、Holding、Activity、Origin、Snapshot 的身份和不可变事实。
+- Let Account represent a real account boundary or a real asset object.
+- Let Cash Balance and Holding express the valuable positions inside an
+  Account.
+- Let `account_type` describe account shape instead of owning underlying asset
+  classification.
+- Let `balance_sheet_role` control asset/liability semantics in an explicit,
+  persistent, auditable way.
+- Let Account types in the legal-combination table use `holdings` tracking.
+- Keep `balance` and `manual_value` support for Simple Accounts.
+- Keep Overview, Portfolio, History, Activity, and valuation consistent with
+  the same model.
+- Preserve Account, Holding, Activity, Origin, and Snapshot identity and
+  immutable facts inside the new schema.
 
-## 5. 非目标
+## 5. Non-goals
 
-- 不引入通用 `SubAccount` domain entity。
-- 不把每个币种、市场、证券类型或 UI 分组建成 Account。
-- 不把 stablecoin 作为 fiat Cash Balance。
-- 不实现 component-level Portfolio inclusion；该能力列为后续扩展。
-- 不在本次设计中实现 balance/manual_value 与 holdings 的在线转换 workflow。
-- 不实现银行/券商同步、交易导入、对账或外部 statement 解析。
-- 不改变 Activity 的 immutable、reversal、correction 语义。
-- 不提供旧 schema 数据迁移或兼容读取。
+- Do not introduce a generic `SubAccount` domain entity.
+- Do not turn every currency, market, security type, or UI grouping into an
+  Account.
+- Do not treat stablecoins as fiat Cash Balances.
+- Do not implement component-level Portfolio inclusion; that capability is
+  a later extension.
+- Do not implement an online conversion workflow among `balance`,
+  `manual_value`, and `holdings` in this design.
+- Do not implement bank/broker sync, trade import, reconciliation, or
+  external statement parsing.
+- Do not change Activity immutability, reversal, or correction semantics.
+- Do not provide a legacy-schema data migration or compatibility read path.
 
-## 6. 核心领域模型
+## 6. Core domain model
 
-### 6.1 关系图
+### 6.1 Relationship diagram
 
 ```mermaid
 erDiagram
@@ -136,36 +165,45 @@ erDiagram
     ACCOUNT ||--|{ OWNERSHIP : allocated_by
 ```
 
-### 6.2 Account 的现实边界
+### 6.2 Real-world Account boundary
 
-只有现实世界存在独立账户或独立资产边界时才创建 Account。判断依据包括：
+Create an Account only when the real world has an independent account or asset
+boundary. Clues include:
 
-- 是否有独立的 statement 或对账边界；
-- 是否有独立的外部账户号、合同或法律关系；
-- 是否需要单独设置 ownership、lifecycle 或 inclusion policy；
-- 是否能独立进行余额/持仓变更。
+- an independent statement or reconciliation boundary;
+- an independent external account number, contract, or legal relationship;
+- a need for independent ownership, lifecycle, or inclusion policy;
+- the ability to change balances or holdings independently.
 
-一个账户中的 SGD、USD、CNY 不是 Account；它们是该 Account 的 Cash Balance。一个账户中的 NVDA、QQQ 或 BTC 不是 Account；它们是 Holding。只有银行实际提供独立的基金账户或黄金账户时，才应另建 Account。
+SGD, USD, and CNY inside one account are not Accounts; they are Cash Balances
+of that Account. NVDA, QQQ, or BTC inside one account are not Accounts; they
+are Holdings. Create a separate Account only when the bank actually provides
+an independent fund account or gold account.
 
-### 6.3 三个正交维度
+### 6.3 Three orthogonal dimensions
 
-| 维度 | 正式问题 | 例子 | 初始写入 | 后续修改 |
+| Dimension | Formal question | Examples | Initial write | Later edit |
 | --- | --- | --- | --- | --- |
-| `account_type` | 现实世界中它是什么？ | `bank_account`、`brokerage`、`crypto_exchange` | 必填 | 可编辑，不产生财务 Activity |
-| `balance_sheet_role` | 它属于资产还是负债？ | `asset`、`liability` | 必填 | 当前版本创建后不可变 |
-| `tracking_mode` | 如何记录当前值？ | `holdings`、`balance`、`manual_value` | 必填 | 当前版本创建后不可变 |
+| `account_type` | What is it in the real world? | `bank_account`, `brokerage`, `crypto_exchange` | Required | Editable; does not create a financial Activity |
+| `balance_sheet_role` | Is it an asset or a liability? | `asset`, `liability` | Required | Immutable after create in the current version |
+| `tracking_mode` | How is the current value recorded? | `holdings`, `balance`, `manual_value` | Required | Immutable after create in the current version |
 
-这三个字段互不替代：
+These fields do not substitute for one another:
 
-- `account_type` 不表示账户内资产配置。
-- `balance_sheet_role` 不从账户内 Instrument 或 Cash Balance 动态推断。
-- `tracking_mode` 不表示资产类别，只表示数据形态和估值入口。
+- `account_type` does not describe the asset mix inside the account.
+- `balance_sheet_role` is not inferred dynamically from Instruments or Cash
+  Balances inside the account.
+- `tracking_mode` is not an asset class; it only describes data shape and the
+  valuation entry point.
 
-除 `other` 外，role 不是可自由组合的 UI 选项，而是由合法三元组确定；UI 应展示最终 role，但不得允许选反。`other` 在创建时要求用户明确选择 role。持久化后的 `balance_sheet_role` 才是权威值。
+Except for `other`, role is not a freely combinable UI option. It is decided
+by the legal-combination table. The UI should display the resulting role and
+must not allow the opposite choice. `other` requires an explicit role choice at
+create. The persisted `balance_sheet_role` is the authority.
 
 ### 6.4 Account Type
 
-闭合的 `AccountType` 集合为：
+The closed `AccountType` set is:
 
 ```text
 cash_on_hand
@@ -185,66 +223,83 @@ loan
 other
 ```
 
-`cash_on_hand`、`insurance_policy`、`collectible` 是新模型正式支持的现实资产类型，而不是迁移兼容项。枚举值必须在 Go、SQLite、Wails DTO 和前端 catalog 中一致。
+`cash_on_hand`, `insurance_policy`, and `collectible` are first-class
+real-world asset types in the new model, not migration compatibility values.
+Enum values must stay consistent across Go, SQLite, Wails DTOs, and the
+frontend catalog.
 
-以下是唯一合法的 `(account_type, balance_sheet_role, tracking_mode)` 集合；未列出的组合一律由 `NewAccount` 拒绝：
+The following table is the only legal
+`(account_type, balance_sheet_role, tracking_mode)` set. Combinations not
+listed are rejected by `NewAccount`:
 
-| `account_type` | 现实含义 | 合法 role | 合法 tracking |
+| `account_type` | Real-world meaning | Legal role | Legal tracking |
 | --- | --- | --- | --- |
-| `cash_on_hand` | 现金盒、保险箱等独立实物现金边界 | `asset` | `balance` |
-| `bank_account` | 银行存款或综合账户 | `asset` | `balance`, `holdings` |
-| `brokerage` | 券商账户 | `asset` | `holdings`, `manual_value` |
-| `investment_account` | 独立基金、贵金属或其他投资账户 | `asset` | `holdings`, `manual_value` |
-| `crypto_exchange` | 加密货币交易所或托管账户 | `asset` | `holdings` |
-| `digital_wallet` | 电子钱包 | `asset` | `balance`, `holdings` |
-| `pension` | 养老金或退休账户 | `asset` | `holdings`, `manual_value` |
-| `insurance_policy` | 有现金价值的保险保单 | `asset` | `manual_value` |
-| `property` | 房产等单一资产对象 | `asset` | `manual_value` |
-| `vehicle` | 车辆等单一资产对象 | `asset` | `manual_value` |
-| `collectible` | 收藏品等单一资产对象 | `asset` | `manual_value` |
-| `receivable` | 应收款或借出款 | `asset` | `balance`, `manual_value` |
-| `credit_card` | 信用卡负债 | `liability` | `balance` |
-| `loan` | 房贷、车贷或其他借款 | `liability` | `balance` |
-| `other` | 无法归入以上类型的现实账户/对象 | `asset` | `balance`, `manual_value`, `holdings` |
-| `other` | 无法归入以上类型的负债 | `liability` | `balance` |
+| `cash_on_hand` | An independent physical cash boundary such as a cash box or safe | `asset` | `balance` |
+| `bank_account` | A bank deposit or mixed bank account | `asset` | `balance`, `holdings` |
+| `brokerage` | A brokerage account | `asset` | `holdings`, `manual_value` |
+| `investment_account` | A standalone fund, precious-metal, or other investment account | `asset` | `holdings`, `manual_value` |
+| `crypto_exchange` | A crypto exchange or custodial account | `asset` | `holdings` |
+| `digital_wallet` | A digital wallet | `asset` | `balance`, `holdings` |
+| `pension` | A pension or retirement account | `asset` | `holdings`, `manual_value` |
+| `insurance_policy` | An insurance policy with cash value | `asset` | `manual_value` |
+| `property` | A single property object | `asset` | `manual_value` |
+| `vehicle` | A single vehicle object | `asset` | `manual_value` |
+| `collectible` | A single collectible object | `asset` | `manual_value` |
+| `receivable` | A receivable or money lent | `asset` | `balance`, `manual_value` |
+| `credit_card` | Credit-card liability | `liability` | `balance` |
+| `loan` | A mortgage, auto loan, or other borrowing | `liability` | `balance` |
+| `other` | A real-world account or object that does not fit the types above | `asset` | `balance`, `manual_value`, `holdings` |
+| `other` | A liability that does not fit the types above | `liability` | `balance` |
 
-特别禁止 `credit_card`/`loan + holdings` 和任何 `liability + holdings/manual_value`。当前版本不建模 margin liability composite；若未来需要，必须另做债务 component 与净额规则设计。
+`credit_card`/`loan + holdings` and any `liability + holdings/manual_value` are
+explicitly forbidden. The current version does not model a margin-liability
+composite. If that is needed later, it requires a separate debt-component and
+netting-rule design.
 
-`account_type` 可以修改，但新 type 与当前不可变的 role、tracking 组成的三元组必须仍在上表内，否则拒绝。修改 type 不产生 Activity，也不改变金额、数量、cost basis、role、tracking 或 inclusion flags。
+`account_type` may change, but the new type plus the frozen role and tracking
+must still appear in the table above or the update is rejected. Changing type
+does not create an Activity and does not change amounts, quantities, cost
+basis, role, tracking, or inclusion flags.
 
 ### 6.5 Balance Sheet Role
 
-`balance_sheet_role` 是 Account 的正式字段：
+`balance_sheet_role` is a formal Account field:
 
 ```text
 asset
 liability
 ```
 
-规则：
+Rules:
 
-- `asset` Account 的估值进入资产侧。
-- `liability` Account 的估值进入负债侧，净值计算使用负号。
-- 数据库金额仍保存为非负精确 Money；符号是 role 的派生语义。
-- Cash、股票、基金或加密货币位于某个 Account 内，不会改变 Account 的 role。
-- `IsLiability()` 读取 `balance_sheet_role`，不读取旧 `PrimaryCategory`。
-- role 在 Account 创建后不可变，除非未来设计了显式 Account conversion workflow。
+- An `asset` Account valuation enters the asset side.
+- A `liability` Account valuation enters the liability side, and net worth uses
+  a negative sign.
+- Database amounts remain non-negative exact Money; the sign is derived from
+  role.
+- Cash, stocks, funds, or crypto inside an Account do not change the Account's
+  role.
+- `IsLiability()` reads `balance_sheet_role`, not the old `PrimaryCategory`.
+- Role is immutable after Account create unless a future explicit Account
+  conversion workflow is designed.
 
-推荐在领域层使用 `BalanceSheetRole` 类型和解析函数，而不是在各个调用点比较字符串。
+Prefer a domain `BalanceSheetRole` type and parse helpers instead of comparing
+strings at each call site.
 
 ### 6.6 Tracking Mode
 
-保留三种 tracking mode，但重新定义 `holdings`：
+Keep the three tracking modes, but redefine `holdings`:
 
-| tracking mode | 账户形态 | 数据来源 | 典型用途 |
+| Tracking mode | Account shape | Data source | Typical use |
 | --- | --- | --- | --- |
-| `holdings` | Composite Account | `account_cash_values` + `holdings` + quotes | 银行综合账户、券商、交易所 |
-| `balance` | Simple Account | `account_values(value_kind=balance)` | 单一现金余额、信用卡、贷款、应收款 |
-| `manual_value` | Simple Account | `account_values(value_kind=manual_value)` | 房产、车辆、未拆分投资 |
+| `holdings` | Composite Account | `account_cash_values` + `holdings` + quotes | Mixed bank accounts, brokerages, exchanges |
+| `balance` | Simple Account | `account_values(value_kind=balance)` | A single cash balance, credit card, loan, or receivable |
+| `manual_value` | Simple Account | `account_values(value_kind=manual_value)` | Property, vehicles, unsplit investments |
 
-`holdings` 不再只属于 Investment。允许使用 holdings 的前提是 Account 的 tracking mode 为 `holdings`，而不是某个旧 category 值。
+`holdings` is no longer Investment-only. The precondition for using holdings
+is that the Account tracking mode is `holdings`, not an old category value.
 
-### 6.7 Account 内部 component
+### 6.7 Components inside an Account
 
 ```text
 Composite Account (holdings)
@@ -255,20 +310,22 @@ Simple Account (balance/manual_value)
 └── Account Value observation
 ```
 
-约束：
+Constraints:
 
-- `balance`/`manual_value` Account 不能创建 Holding 或 Cash Balance。
-- `holdings` Account 不写 Account Value 作为账户总值。
-- 一个 Account 可以拥有多个 Cash Balance currency。
-- 一个 Account 中同一 active Instrument 至多对应一个 Holding。
-- Holding 的 ownership 继承 Account ownership。
-- 不为 component 额外创建通用父表或 `SubAccount`。
+- A `balance` / `manual_value` Account cannot create a Holding or Cash
+  Balance.
+- A `holdings` Account does not write an Account Value as the account total.
+- One Account may have Cash Balances in several currencies.
+- One Account may have at most one Holding for the same active Instrument.
+- Holding ownership inherits Account ownership.
+- Do not add a generic parent table or `SubAccount` for components.
 
-## 7. 资产分类语义
+## 7. Asset-classification semantics
 
-### 7.1 总体规则
+### 7.1 Overall rule
 
-资产分类不是一个单一的 Account-level category，而是根据 Account 形态选择来源：
+Asset classification is not a single Account-level category. The source depends
+on Account shape:
 
 ```text
 Composite / holdings Account:
@@ -282,26 +339,34 @@ Simple / manual_value Account:
     Account itself               -> account_type-derived class
 ```
 
-这是本方案必须保持的核心不变量：
+This is the core invariant the design must keep:
 
-> Composite Account 的资产分类 MUST NOT 从 `account_type` 得出；必须从内部 component 得出。
+> Composite Account asset classification MUST NOT come from `account_type`; it
+> MUST come from internal components.
 >
-> Simple Account 的 Account 自身就是被估值的金融对象，因此其分类 MAY 从 `account_type` 得出。
+> A Simple Account is itself the valued financial object, so its
+> classification MAY come from `account_type`.
 
-### 7.2 Composite Account 分类
+### 7.2 Composite Account classification
 
-| component | 分类来源 | 例子 |
+| Component | Classification source | Examples |
 | --- | --- | --- |
-| `AccountCashValue` | 固定为 `cash` | SGD、USD、CNY |
-| `Holding` | `Holding.Instrument.instrument_type` | stock、etf、mutual_fund、crypto |
+| `AccountCashValue` | Always `cash` | SGD, USD, CNY |
+| `Holding` | `Holding.Instrument.instrument_type` | stock, etf, mutual_fund, crypto |
 
-一个 `bank_account + holdings` 可以有 cash、mutual fund、precious metal 和 bank investment product；它不会因为 Account type 是 bank account 而把全部金额归入 cash，也不会因为含有基金而把全部金额归入 investment。
+A `bank_account + holdings` Account can contain cash, a mutual fund, precious
+metal, and a bank investment product. It must not dump every amount into cash
+because the Account type is bank account, and it must not dump every amount
+into investment because it contains funds.
 
-### 7.3 Simple Account 分类
+### 7.3 Simple Account classification
 
-Simple Account 没有可拆分的 Cash Balance/Holding；分类函数返回 `(role, bucket)`。role 决定 Overview 哪一侧、净值符号和是否有资格进入资产 Portfolio，type 只决定该侧的 bucket 名称。
+A Simple Account has no split Cash Balance or Holding. The classification
+function returns `(role, bucket)`. Role decides which Overview side, the net
+worth sign, and eligibility for the asset Portfolio. Type only decides the
+bucket name on that side.
 
-| `account_type` | role | Simple tracking | bucket |
+| `account_type` | Role | Simple tracking | Bucket |
 | --- | --- | --- | --- |
 | `cash_on_hand` | `asset` | `balance` | `cash` |
 | `bank_account` | `asset` | `balance` | `cash` |
@@ -313,17 +378,21 @@ Simple Account 没有可拆分的 Cash Balance/Holding；分类函数返回 `(ro
 | `property` | `asset` | `manual_value` | `property` |
 | `vehicle` | `asset` | `manual_value` | `vehicle` |
 | `collectible` | `asset` | `manual_value` | `collectible` |
-| `receivable` | `asset` | `balance` 或 `manual_value` | `receivable` |
+| `receivable` | `asset` | `balance` or `manual_value` | `receivable` |
 | `credit_card` | `liability` | `balance` | `credit_card` |
 | `loan` | `liability` | `balance` | `loan` |
-| `other` | `asset` | `balance` 或 `manual_value` | `other_asset` |
+| `other` | `asset` | `balance` or `manual_value` | `other_asset` |
 | `other` | `liability` | `balance` | `other_liability` |
 
-`crypto_exchange` 没有 Simple 组合。`brokerage`/`investment_account` 的手工总值不能假定为 stock、ETF、fund 或 cash，因此统一使用稳定 key `unclassified_investment`。任何未命中合法表的输入都是 domain validation error，不得回退猜测。
+`crypto_exchange` has no Simple combination. A manual total for
+`brokerage` / `investment_account` cannot be assumed to be stock, ETF, fund, or
+cash, so it uses the stable key `unclassified_investment`. Any input that misses
+the legal table is a domain validation error and must not fall back to a
+guess.
 
-### 7.4 Fiat Cash 与 Stablecoin
+### 7.4 Fiat cash and stablecoins
 
-规则已经确定，不作为开放问题：
+The rule is already decided and is not an open question:
 
 ```text
 SGD -> Cash Balance(currency=SGD)
@@ -336,11 +405,15 @@ BTC  -> Instrument(type=crypto) -> Holding
 ETH  -> Instrument(type=crypto) -> Holding
 ```
 
-原因：Cash Balance 表示以 `CurrencyCode` 计价的法定货币现金；stablecoin 是 tokenized crypto instrument，可能脱锚，拥有数量和价格语义，不能被当作 USD/CNY 等法币现金。
+Reason: a Cash Balance is fiat cash priced in a `CurrencyCode`. A stablecoin
+is a tokenized crypto instrument that can depeg and has quantity and price
+semantics; it cannot be treated as USD/CNY fiat cash.
 
-Digital Wallet 和 Crypto Exchange 遵循同一规则。钱包中的 USDC 必须是 `Instrument(type=crypto)` 的 Holding，即使它的目标锚定货币是 USD。
+Digital wallets and crypto exchanges follow the same rule. USDC in a wallet
+must be a Holding of `Instrument(type=crypto)`, even if its intended peg is
+USD.
 
-## 8. MooMoo SG 与招商银行示例
+## 8. MooMoo SG and China Merchants Bank examples
 
 ### 8.1 MooMoo SG
 
@@ -364,15 +437,18 @@ Holdings:
 - BTC 0.2                 -> crypto
 ```
 
-仍然只有一个现实账户。不同币种现金和不同证券是内部头寸，不是 SubAccount。Portfolio 可以得到 Cash、Stock、ETF、Crypto 的拆分，而不是 Investment 100%。
+This is still one real-world account. Different cash currencies and securities
+are internal positions, not SubAccounts. Portfolio can split Cash, Stock,
+ETF, and Crypto instead of reporting Investment 100%.
 
-### 8.2 招商银行综合账户
+### 8.2 China Merchants Bank mixed account
 
-当存款、理财、基金和黄金共享同一现实账户/statement 边界时：
+When deposits, wealth-management products, funds, and gold share one
+real-world account or statement boundary:
 
 ```text
-Institution: 招商银行
-Account: 招商银行综合账户
+Institution: China Merchants Bank
+Account: CMB mixed account
 account_type: bank_account
 balance_sheet_role: asset
 tracking_mode: holdings
@@ -383,68 +459,84 @@ Cash Balances:
 - USD 5,000               -> cash
 
 Holdings:
-- 招银理财 A              -> bank_investment_product
-- 沪深 300 基金            -> mutual_fund
-- 纳斯达克基金              -> mutual_fund
-- 黄金                     -> precious_metal
+- CMB Wealth Management A  -> bank_investment_product
+- CSI 300 fund            -> mutual_fund
+- Nasdaq fund             -> mutual_fund
+- Gold                    -> precious_metal
 ```
 
-### 8.3 招商银行独立账户边界
+### 8.3 Independent China Merchants Bank account boundaries
 
-如果银行卡、基金账户和黄金账户拥有独立 statement 或外部账户号，则建多个 Account：
+If the bank card, fund account, and gold account have independent statements
+or external account numbers, create multiple Accounts:
 
 ```text
-Institution: 招商银行
-├── 一卡通
+Institution: China Merchants Bank
+├── All-in-one card
 │   └── bank_account + balance/holdings
-├── 基金账户
+├── Fund account
 │   └── investment_account + holdings
-└── 黄金账户
+└── Gold account
     └── investment_account + holdings
 ```
 
-这个拆分由现实账户边界决定，不由 Portfolio 分类或 UI 树形展示决定。
+This split is decided by the real-world account boundary, not by Portfolio
+classification or a UI tree.
 
-## 9. Portfolio Inclusion 语义
+## 9. Portfolio inclusion semantics
 
-### 9.1 当前版本的字段语义
+### 9.1 Current-version field semantics
 
-新 schema 直接使用：
+The new schema uses:
 
 ```text
 include_in_portfolio
 ```
 
-它表示“这个 Account 是否整体进入 Portfolio”，不表示“Account 内只有投资资产”。数据库、domain、API 和 UI 使用同一个名称，不保留 `include_in_investment` alias。
+This means "does this Account enter Portfolio as a whole", not "this Account
+contains only investment assets". Database, domain, API, and UI share one
+name and do not keep an `include_in_investment` alias.
 
 ### 9.2 Whole-account inclusion
 
-当前版本采用简单且一致的规则：
+The current version uses a simple, consistent rule:
 
-> 如果 Account 被纳入 Portfolio，则该 Account 的所有可估值 component 都参与 Portfolio valuation 和 allocation。
+> If an Account is included in Portfolio, every valuable component of that
+> Account participates in Portfolio valuation and allocation.
 
-因此一个 Brokerage 或 Bank composite Account 被纳入 Portfolio 时：
+Therefore, when a brokerage or mixed bank Composite Account is included in
+Portfolio:
 
-- 现金进入 Portfolio 的 cash allocation；
-- 股票、ETF、基金、黄金、crypto 等进入对应 Instrument type allocation；
-- Account 的所有 component 使用同一个 Account inclusion decision；
-- 未被纳入 Portfolio 的 Account，其所有 component 都不进入 Portfolio。
+- cash enters the Portfolio cash allocation;
+- stocks, ETFs, funds, gold, crypto, and similar holdings enter the matching
+  Instrument-type allocation;
+- every component of the Account uses the same Account inclusion decision;
+- if the Account is excluded from Portfolio, none of its components enter
+  Portfolio.
 
-这对券商账户很自然：settlement cash 通常就是投资组合的一部分。
+This is natural for a brokerage: settlement cash is usually part of the
+portfolio.
 
-### 9.3 混合银行账户的已知限制
+### 9.3 Known limitation for mixed bank accounts
 
-如果招商银行综合账户同时有大量日常存款和投资头寸，`include_in_portfolio=true` 会让两者一起进入 Portfolio。当前版本不提供“只纳入基金/黄金、不纳入普通存款”的 component-level policy。
+If a CMB mixed account has both large everyday deposits and investment
+positions, `include_in_portfolio=true` puts both into Portfolio. The current
+version does not provide a component-level policy such as "include funds and
+gold, exclude ordinary deposits".
 
-这是一个明确的产品限制，不应通过偷偷改变分类或让 Overview/Portfolio 使用不同分母来掩盖。用户有三个当前可用选择：
+This is an explicit product limit. Do not hide it by silently changing
+classification or by giving Overview and Portfolio different denominators.
+Users currently have three options:
 
-1. 把现实中有独立边界的投资账户拆成单独 Account；
-2. 接受整个综合账户进入 Portfolio；
-3. 将整个综合账户排除 Portfolio，但仍让它参与 net worth 和资产分类 Overview。
+1. Split real-world investment accounts that already have independent
+   boundaries into separate Accounts;
+2. Accept that the whole mixed account enters Portfolio;
+3. Exclude the whole mixed account from Portfolio while still letting it
+   participate in net worth and the asset-classification Overview.
 
 ### 9.4 Deferred portfolio scope
 
-未来可以引入更细粒度的字段或 policy：
+A later version may introduce a finer field or policy:
 
 ```text
 portfolio_scope:
@@ -453,39 +545,50 @@ portfolio_scope:
 - investment_positions
 ```
 
-其含义可以是：
+The meaning could be:
 
-- `none`：Account 不进入 Portfolio；
-- `whole_account`：Cash Balance 和 Holding 全部进入 Portfolio；
-- `investment_positions`：只纳入 Holding，或未来通过 component selection 明确选择部分 Cash。
+- `none`: the Account does not enter Portfolio;
+- `whole_account`: Cash Balances and Holdings all enter Portfolio;
+- `investment_positions`: only Holdings enter, or a later component
+  selection explicitly includes some cash.
 
-本次设计不实现 `portfolio_scope`，也不在 schema 中提前加入没有完整 API、历史、迁移和 UI 契约的字段。
+This design does not implement `portfolio_scope` and does not add a schema
+field without a complete API, history, migration, and UI contract.
 
-### 9.5 Liquid Assets Inclusion
+### 9.5 Liquid-assets inclusion
 
-`include_in_liquid_assets` 与 Portfolio inclusion 一样是 whole-account 开关。对 `holdings` Account 开启后，整户所有可估值 component 一起进入 liquid-assets 指标；系统不得只挑现金，也不得按 Instrument type 暗中排除基金或黄金。
+`include_in_liquid_assets` is a whole-account switch, like Portfolio inclusion.
+When it is on for a `holdings` Account, every valuable component enters the
+liquid-assets metric together. The system must not pick cash only, and it
+must not silently exclude funds or gold by Instrument type.
 
-因此 UI 对 `bank_account + holdings`、`digital_wallet + holdings` 和其他 mixed Account 开启该选项时必须提示“适用于整户现金与持仓”。component-level liquid policy 不在 v7 范围内。
+Therefore the UI must warn that the option "applies to all cash and holdings"
+when it is turned on for `bank_account + holdings`, `digital_wallet + holdings`,
+and other mixed Accounts. Component-level liquid policy is outside v7.
 
-### 9.6 创建默认值
+### 9.6 Create defaults
 
-Inclusion 默认值独立于资产分类规则；它们只是 UI 建议值，保存后的用户选择才是权威值，修改 `account_type` 时不得自动重算：
+Inclusion defaults are independent of asset-classification rules. They are
+UI suggestions only. The saved user choice is the authority, and changing
+`account_type` must not recompute them:
 
-| 条件 | `include_in_net_worth` | `include_in_portfolio` | `include_in_liquid_assets` |
+| Condition | `include_in_net_worth` | `include_in_portfolio` | `include_in_liquid_assets` |
 | --- | --- | --- | --- |
-| 所有合法账户 | `true` | 见下 | 见下 |
-| `brokerage`、`investment_account`、`crypto_exchange`、`pension` | — | `true` | — |
-| 其他 type | — | `false` | — |
-| `cash_on_hand + balance`、`bank_account + balance`、`digital_wallet + balance` | — | — | `true` |
-| 所有 `holdings` 及其他 Simple 组合 | — | — | `false` |
+| All legal accounts | `true` | See below | See below |
+| `brokerage`, `investment_account`, `crypto_exchange`, `pension` | — | `true` | — |
+| Other types | — | `false` | — |
+| `cash_on_hand + balance`, `bank_account + balance`, `digital_wallet + balance` | — | — | `true` |
+| All `holdings` and other Simple combinations | — | — | `false` |
 
-前端不得再用 `type == investment` 一类推断自动勾选；catalog 应直接返回建议值或使用与 domain 共源的显式矩阵。
+The frontend must not auto-check from inferences such as `type == investment`.
+The catalog should return suggested values directly or use an explicit matrix
+shared with the domain.
 
-## 10. 估值、Overview 与 Portfolio
+## 10. Valuation, Overview, and Portfolio
 
-### 10.1 估值输入
+### 10.1 Valuation inputs
 
-统一的 ValuationService 继续使用当前的三种入口：
+The unified ValuationService still uses the current three entry points:
 
 ```text
 holdings Account = Σ Cash Balance converted to base
@@ -495,19 +598,23 @@ balance Account = latest Account Value converted to base
 manual Account  = latest Account Value converted to base
 ```
 
-必须保持现有金融语义：
+Keep the existing financial semantics:
 
-- 使用精确十进制；
-- 同币种转换不需要 FX quote；
-- 缺 quote 只影响对应 component，不补零；
-- archived Account 或 `include_in_net_worth=false` 不参与净值；
-- `balance_sheet_role=liability` 的金额在净值中为负；
-- Portfolio 只选择 `include_in_portfolio=true` 且 role 为 asset 的 Account；
-- 前端不能从已四舍五入的 view model 重新计算总额。
+- use exact decimals;
+- same-currency conversion does not need an FX quote;
+- a missing quote affects only the matching component and is not filled with
+  zero;
+- archived Accounts or `include_in_net_worth=false` do not participate in net
+  worth;
+- `balance_sheet_role=liability` amounts are negative in net worth;
+- Portfolio selects only Accounts with `include_in_portfolio=true` and
+  role=asset;
+- the frontend must not recompute totals from already-rounded view models.
 
-### 10.2 统一分类函数
+### 10.2 Unified classification function
 
-应用层应有一个单一、可测试的分类决策，不要在 Overview、Portfolio 和 Account detail 中分别复制规则：
+The application layer should have one testable classification decision. Do not
+copy the rules separately in Overview, Portfolio, and Account detail:
 
 ```text
 classify(account, component):
@@ -525,13 +632,21 @@ classify(account, component):
                                  account.tracking_mode)
 ```
 
-`classify_simple_account` 必须完全实现 §7.3 表。Holding 缺 Instrument 时不得标成 cash、manual 或补零；只排除受影响 component，并把 Account/上层结果标为 incomplete。Overview、Portfolio、Account detail 与历史 breakdown 必须调用同一分类函数。
+`classify_simple_account` must implement the §7.3 table completely. A
+Holding with a missing Instrument must not be labeled cash or manual and must
+not be zero-filled. Exclude only the affected component and mark the
+Account/parent result incomplete. Overview, Portfolio, Account detail, and
+historical breakdowns must call the same classification function.
 
 ### 10.3 Overview
 
-v7 选择 component 粒度：旧 `Overview.ByCategory` 被 `assetsByType` 取代，并新增 `liabilitiesByType`。这不是字段改名，而是产品统计口径变化；`docs/architecture/domain-model.md`、Wails DTO、前端图表和测试必须在实现时同步更新。
+v7 chooses component grain: the old `Overview.ByCategory` is replaced by
+`assetsByType`, and `liabilitiesByType` is added. This is a product-statistics
+change, not a field rename. `docs/architecture/domain-model.md`, Wails
+DTOs, frontend charts, and tests must stay in sync at implementation time.
 
-`assetsByType` 按底层 component 或 Simple Account 自身聚合：
+`assetsByType` aggregates by underlying component or by the Simple Account
+itself:
 
 ```text
 cash                    = Composite Cash Balance + bank/digital Simple Account
@@ -551,61 +666,80 @@ collectible             = Simple collectible
 other_asset             = Simple other asset
 ```
 
-`liabilitiesByType` 使用 `credit_card`、`loan`、`other_liability` bucket，分母为 liabilities 总额。`assetsByType` 的分母为 assets 总额。缺失输入沿用 Overview 的 incomplete 语义，不以零值进入任何 bucket。
+`liabilitiesByType` uses `credit_card`, `loan`, and `other_liability` buckets,
+with liabilities total as the denominator. `assetsByType` uses assets total
+as the denominator. Missing inputs keep Overview incomplete semantics and do
+not enter any bucket as zero.
 
-Composite Account 的 `account_type` 只能作为 Account filter、label 或 grouping 维度，不能将整个 Bank Account 强制归为 cash，也不能将整个 Brokerage 强制归为 investment。Account 卡片展示 account type；Cash/Holding 行展示 component type，两者不能共用一枚 category chip。
+A Composite Account's `account_type` may be used as an Account filter, label,
+or grouping dimension. It must not force an entire bank account into cash, and
+it must not force an entire brokerage into investment. Account cards show
+account type; Cash/Holding rows show component type. The two views must not
+share one category chip.
 
 ### 10.4 Portfolio
 
-Portfolio 总额是所有 `include_in_portfolio=true`、active、complete、asset-role Account 的 complete base value 之和。对每个被纳入 Account：
+Portfolio total is the sum of complete base values of all
+`include_in_portfolio=true`, active, complete, asset-role Accounts. For each
+included Account:
 
-- 所有完整 component 参加 allocation；
-- Cash Balance 进入 `cash`；
-- Holding 进入其 Instrument type；
-- Simple Account 进入 account-type-derived 或 `manual` bucket；
-- 缺 quote 的 component 不补零，并将 Account/Portfolio 标记为 incomplete；
-- 同一总额和同一 complete-account denominator 用于 amount/percentage。
+- every complete component participates in allocation;
+- Cash Balance enters `cash`;
+- a Holding enters its Instrument type;
+- a Simple Account enters the account-type-derived or `manual` bucket;
+- a component with a missing quote is not zero-filled, and the
+  Account/Portfolio is marked incomplete;
+- the same total and the same complete-account denominator are used for amount
+  and percentage.
 
-Portfolio 可继续按 native currency、country、Instrument type 提供 allocation；`account_type` 作为补充筛选维度而非资产类别。
+Portfolio may still provide allocation by native currency, country, and
+Instrument type. `account_type` is a complementary filter, not an asset
+class.
 
-### 10.5 Liability 与 mixed component
+### 10.5 Liability and mixed components
 
-当前合法三元组禁止所有 `liability + holdings`，因此 v7 不存在 liability Composite Account。即使未来允许特殊托管/保证金模型，也必须保持：
+The current legal-combination table forbids every `liability + holdings`, so
+v7 has no liability Composite Account. Even if a later special custody or
+margin model is allowed, keep:
 
-- role 由 Account 决定；
-- component type 由 Cash/Instrument 决定；
-- role 不从 component 推断；
-- Portfolio 过滤和净值符号使用 role。
+- role decided by the Account;
+- component type decided by Cash/Instrument;
+- role not inferred from components;
+- Portfolio filtering and net-worth sign using role.
 
-## 11. Activity 与 History 影响
+## 11. Activity and History impact
 
-### 11.1 既有 Activity taxonomy
+### 11.1 Existing Activity taxonomy
 
-本设计不发明新的 Activity kind。以下是已有 Nestworth 领域语义及其作用目标：
+This design does not invent new Activity kinds. The existing Nestworth domain
+semantics and their targets are:
 
-| 领域语义 | 影响目标 |
+| Domain semantics | Effect target |
 | --- | --- |
-| Opening Adjustment | 起始/对账时对余额或头寸的调整 |
-| Balance Adjustment | `balance` Account 的 Account Value |
+| Opening Adjustment | Opening or reconciliation adjustment to a balance or position |
+| Balance Adjustment | Account Value of a `balance` Account |
 | Position Adjustment | Holding Quantity |
-| Deposit | Account Cash，适用于 holdings Account 的现金增加 |
-| Withdrawal | Account Cash，适用于 holdings Account 的现金减少 |
-| Transfer | Account Cash 的内部转移；按已有 transfer legs 表达 |
-| Buy | Holding Quantity 增加和按既有 trade semantics 生成的 trade cash leg |
-| Sell | Holding Quantity 减少和按既有 trade semantics 生成的 trade cash leg |
-| Income | 通过既有 cash effect/reason 产生的收入分类 |
-| Fee | 通过既有 fee effect 产生的费用分类 |
-| Debt Draw | 债务 Account Value 与 cash endpoint |
-| Debt Payment | 债务 Account Value 与 cash endpoint |
-| Debt Adjustment | 债务余额的调整 |
-| Manual Valuation | `manual_value` Account 的 Account Value |
-| Reversal | 对原 Activity 的精确逆向 Activity |
+| Deposit | Account Cash; cash increase on a holdings Account |
+| Withdrawal | Account Cash; cash decrease on a holdings Account |
+| Transfer | Internal Account Cash movement, expressed with existing transfer legs |
+| Buy | Holding Quantity increase plus the trade cash leg from existing trade semantics |
+| Sell | Holding Quantity decrease plus the trade cash leg from existing trade semantics |
+| Income | Income classification through existing cash effect/reason |
+| Fee | Fee classification through existing fee effect |
+| Debt Draw | Debt Account Value and cash endpoint |
+| Debt Payment | Debt Account Value and cash endpoint |
+| Debt Adjustment | Debt-balance adjustment |
+| Manual Valuation | Account Value of a `manual_value` Account |
+| Reversal | An exact reverse Activity of the original Activity |
 
-代码层使用稳定的 persisted kind 值（如 `cash_in`、`cash_out`、`value_update` 等）承载上述语义。产品 label、domain command 和 persisted kind 的映射保持单一，不因 Account 重构另造同义 kind。
+The code layer carries these semantics with stable persisted kind values such
+as `cash_in`, `cash_out`, and `value_update`. Product labels, domain commands,
+and persisted kinds keep one mapping. Do not invent synonym kinds because
+Accounts were restructured.
 
-### 11.2 Effect target 与 tracking mode
+### 11.2 Effect target and tracking mode
 
-Activity effect 的 target 继续决定写入哪种观察：
+The Activity effect target still decides which observation is written:
 
 ```text
 EffectTargetAccountValue    -> account_values
@@ -613,70 +747,105 @@ EffectTargetAccountCash     -> account_cash_values
 EffectTargetHoldingQuantity -> holding_quantity_values / holdings state
 ```
 
-Account 是 `holdings` 时，现金相关 Activity 必须使用 Account Cash target；Account 是 `balance` 或 `manual_value` 时，余额/估值相关 Activity 使用 Account Value target。这个判断来自 tracking mode，不来自旧 category。
+When the Account is `holdings`, cash-related Activities must use the Account Cash
+target. When the Account is `balance` or `manual_value`, balance/valuation
+Activities use the Account Value target. That decision comes from tracking
+mode, not from an old category.
 
 ### 11.3 FX conversion
 
-本设计不新增第二个 FX Activity kind。当前代码已有 `fx_conversion` persisted kind，schema v7 继续把它作为唯一表示。
+This design does not add a second FX Activity kind. Current code already has
+the persisted kind `fx_conversion`, and schema v7 continues to treat it as
+the only representation.
 
-无论底层 kind 如何命名，FX conversion 的财务语义必须保持：同一 holdings Account 内减少一种 Cash Balance、增加另一种 Cash Balance，保留既有 transaction FX rate、fee 和 internal-transfer classification。
+Whatever the underlying kind is named, FX conversion financial semantics stay:
+decrease one Cash Balance and increase another inside the same holdings
+Account, keeping the existing transaction FX rate, fee, and internal-transfer
+classification.
 
-### 11.4 不变性声明
+### 11.4 Immutability statement
 
-本设计：
+This design:
 
-- 不新增 Activity kinds；
-- 不改变 Activity immutable 规则；
-- 不改变 reversal/correction 语义；
-- 不把 account_type 修改记录为财务 Activity；
-- 不把账户 metadata 修改伪装成 Deposit、Transfer 或 Valuation；
-- 不重写历史 Activity 的 classification、effect target 或原始金额。
+- does not add Activity kinds;
+- does not change Activity immutability rules;
+- does not change reversal/correction semantics;
+- does not record `account_type` edits as financial Activities;
+- does not disguise Account metadata edits as Deposit, Transfer, or
+  Valuation;
+- does not rewrite historical Activity classification, effect targets, or
+  original amounts.
 
-## 12. Account Type 修改与历史分类
+## 12. Account type edits and historical classification
 
-### 12.1 当前行为
+### 12.1 Current behavior
 
-`account_type` 是可编辑的账户元数据。修改它：
+`account_type` is editable Account metadata. Changing it:
 
-- 新 type 与当前 role、tracking 必须仍是 §6.4 的合法三元组，否则拒绝；
-- 不生成 Activity；
-- 不改变 Account Value；
-- 不改变 Cash Balance；
-- 不改变 Holding Quantity；
-- 不改变 cost basis；
-- 不改变已有 Activity、History Origin component 或 financial snapshot facts；
-- 不自动改变 `balance_sheet_role`；
-- 影响当前状态下 Simple Account 的 label/classification；
-- 不影响 Composite Account 内 Cash/Instrument 的底层分类。
+- requires the new type plus the current role and tracking to remain a §6.4
+  legal combination, otherwise reject;
+- does not create an Activity;
+- does not change Account Value;
+- does not change Cash Balance;
+- does not change Holding Quantity;
+- does not change cost basis;
+- does not change existing Activities, History Origin components, or
+  financial snapshot facts;
+- does not automatically change `balance_sheet_role`;
+- affects Simple Account labels/classification in the current state;
+- does not affect underlying Cash/Instrument classification inside a
+  Composite Account.
 
-`balance_sheet_role` 继续保持创建后不可变。例如 `bank_account + asset + holdings` 可以改成 `brokerage`，但不能改成 `property` 或 `credit_card`；`bank_account + asset + balance` 也不能改成 `brokerage`。该规则应实现为唯一的 `IsValidAccountCombination(type, role, tracking)`，创建与更新共用。
+`balance_sheet_role` remains immutable after create. For example,
+`bank_account + asset + holdings` may become `brokerage`, but not `property`
+or `credit_card`. `bank_account + asset + balance` also cannot become
+`brokerage`. Implement this as one `IsValidAccountCombination(type, role,
+tracking)` used by both create and update.
 
-### 12.2 历史分类限制
+### 12.2 Historical classification limit
 
-当前 `account_state_observations` 不保存 `account_type` 的历史版本。因而历史 breakdown 若依赖 Simple Account 的 `account_type`，系统不能声称知道过去某一天的真实 account type。
+Current `account_state_observations` do not store historical versions of
+`account_type`. Therefore a historical breakdown that depends on a Simple
+Account's `account_type` cannot claim to know the true account type on a past
+day.
 
-v7 采用唯一行为：Composite Account 的历史分类从 snapshot item 的 `InstrumentID` 派生；没有 Instrument 的 Account Cash component 归为 cash。Simple Account 使用当前 `account_type` 和不可变 role/tracking 进行分类，API 在对应 breakdown/result 上返回 `classificationBasis=current-metadata-derived`，UI 必须以说明文案或 tooltip 展示该限制。
+v7 uses one behavior: Composite Account historical classification is derived
+from the snapshot item `InstrumentID`; Account Cash components with no
+Instrument are cash. Simple Accounts are classified from the current
+`account_type` and the immutable role/tracking. The API returns
+`classificationBasis=current-metadata-derived` on the matching
+breakdown/result, and the UI must show that limit in copy or a tooltip.
 
-该标记不是 incomplete：金额和当时的财务事实仍可完整，只是 bucket 名称来自当前 metadata。不得静默声称它是过去时点的真实 type。
+The marker is not incomplete: amounts and the financial facts at that time can
+still be complete. Only the bucket name comes from current metadata. Do not
+silently claim it is the true type at the past point in time.
 
-`account_type` 编辑不得批量重写既有 Daily Snapshot 内容、content hash、Activity classification 或 Origin facts。
+Editing `account_type` must not bulk-rewrite existing Daily Snapshot contents,
+content hashes, Activity classification, or Origin facts.
 
-未来若需要可靠的历史账户分类，应在 Account metadata observation 中增加 `account_type` 和必要的 `balance_sheet_role`/display metadata 版本，并定义其对 snapshot invalidation 的影响。
+If reliable historical account classification is needed later, add
+`account_type` and any required `balance_sheet_role` / display-metadata
+versions to Account metadata observations, and define their effect on
+snapshot invalidation.
 
-## 13. Tracking Mode 生命周期
+## 13. Tracking-mode lifecycle
 
-### 13.1 当前版本
+### 13.1 Current version
 
-当前实现继续将 `tracking_mode` 视为 Account 创建后不可变。用户在创建 Bank Account 时必须选择：
+The current implementation continues to treat `tracking_mode` as immutable
+after Account create. When creating a bank account, the user must choose:
 
-- `bank_account + balance`：只跟踪一个余额；或
-- `bank_account + holdings`：跟踪多个 Cash Balance 和 Holding。
+- `bank_account + balance`: track one balance; or
+- `bank_account + holdings`: track multiple Cash Balances and Holdings.
 
-这保持了现有 observation、Activity target 和历史重放的简单性，但用户以后想把银行账户从单一余额升级为多资产跟踪时，需要新建合适的 Account 或等待未来转换能力。
+This keeps existing observations, Activity targets, and historical replay
+simple. A later upgrade from a single bank balance to multi-asset tracking
+requires creating a suitable new Account or waiting for a future conversion
+capability.
 
-### 13.2 未来 balance -> holdings
+### 13.2 Future balance -> holdings
 
-未来可以支持显式的 representation migration：
+A later version may support an explicit representation migration:
 
 ```text
 Before:
@@ -688,43 +857,48 @@ After:
   CashBalance(CNY 100,000)
 ```
 
-这不是财富事件：
+This is not a wealth event:
 
 ```text
 net worth delta = 0
 external flow   = 0
 ```
 
-转换 workflow 必须保留：
+The conversion workflow must preserve:
 
-- Account identity；
-- Ownership；
-- Institution 与 Group；
-- lifecycle dates；
-- include flags；
-- History Origin boundary；
-- 已有财务价值和历史事实。
+- Account identity;
+- Ownership;
+- Institution and Group;
+- lifecycle dates;
+- include flags;
+- History Origin boundary;
+- existing financial values and historical facts.
 
-实现上可以由一个原子 migration command 将当前 Account Value 转换为 origin/event-compatible 的 Cash Balance observation，但不能通过 Deposit 或 Withdrawal 伪造外部流量，也不能删除原始历史证据。具体历史投影规则需要单独的技术设计。
+Implementation can use one atomic migration command that converts the current
+Account Value into an origin/event-compatible Cash Balance observation. It
+must not fake external flow through Deposit or Withdrawal, and it must not
+delete original historical evidence. The exact historical-projection rules need
+a separate technical design.
 
-### 13.3 其他转换方向
+### 13.3 Other conversion directions
 
-建议未来 policy：
+Suggested future policy:
 
-| 转换 | 建议 |
+| Conversion | Suggestion |
 | --- | --- |
-| `balance -> holdings` | 可能支持，但必须显式转换 workflow |
-| `manual_value -> holdings` | 在能明确拆出 Cash/Holding 时可能支持 |
-| `holdings -> balance` | 通常不安全，除非明确选择合并价值和损失 component identity |
-| `holdings -> manual_value` | 通常不安全，不能无损保留逐项数量、报价和 cost basis |
+| `balance -> holdings` | May be supported, but only through an explicit conversion workflow |
+| `manual_value -> holdings` | May be supported when Cash/Holding can be split clearly |
+| `holdings -> balance` | Usually unsafe unless combining values and losing component identity is an explicit choice |
+| `holdings -> manual_value` | Usually unsafe; cannot losslessly keep per-item quantities, quotes, and cost basis |
 
-本次不实现任何 tracking transition，也不修改 immutable 规则。
+This version implements no tracking transition and does not change
+immutability rules.
 
 ## 14. Database / schema breaking cutover
 
-### 14.1 当前 Account 字段
+### 14.1 Current Account fields
 
-schema v7 的 `accounts` 目标字段包含：
+The schema v7 `accounts` target fields include:
 
 ```sql
 account_type        TEXT NOT NULL
@@ -733,11 +907,13 @@ tracking_mode       TEXT NOT NULL
 include_in_portfolio INTEGER NOT NULL DEFAULT 0
 ```
 
-`account_type`、role、tracking 的 CHECK 表达 §6.4 的闭合三元组，而不只是三个字段分别属于枚举。`portfolio_scope` 不在 v7 schema 中。
+The CHECKs on `account_type`, role, and tracking express the closed §6.4
+combinations, not merely that each field belongs to an enum.
+`portfolio_scope` is not in the v7 schema.
 
-### 14.2 全新 schema
+### 14.2 Fresh schema
 
-schema v7 不包含以下旧字段或 alias：
+schema v7 does not contain these old fields or aliases:
 
 ```text
 primary_category
@@ -745,39 +921,60 @@ secondary_category
 include_in_investment
 ```
 
-`accounts`、`account_state_observations`、`history_origin_account_states` 三张表直接使用 `include_in_portfolio`。repository、schema verifier、domain、Wails DTO 和 UI 全部只使用新命名，不保留双读、双写或 deprecated 字段。
+`accounts`, `account_state_observations`, and
+`history_origin_account_states` use `include_in_portfolio` directly.
+Repository, schema verifier, domain, Wails DTOs, and UI all use the new
+names only. There is no dual-read, dual-write, or deprecated field.
 
-schema 文件直接描述完整 v7，不编写从 v6 重建表或转换 row 的 SQL。测试 fixture、demo data 和开发数据库都从空 v7 创建。
+The schema file describes complete v7. It does not write SQL that rebuilds
+tables from v6 or converts rows. Test fixtures, demo data, and development
+databases are created from empty v7.
 
-### 14.3 启动与错误策略
+### 14.3 Startup and error policy
 
-数据库打开规则只有三种：
+Database open has only three outcomes:
 
-1. 路径不存在或文件为空：创建全新 schema v7；
-2. `PRAGMA user_version == 7`：运行完整 schema 与 data verifier，通过后启动；
-3. 任何其他版本、缺列、多余旧列、CHECK/index/foreign key 不符合 v7：关闭数据库并返回明确的 incompatible-schema error。
+1. Path missing or file empty: create a fresh schema v7;
+2. `PRAGMA user_version == 7`: run the full schema and data verifier, then
+   start if it passes;
+3. Any other version, missing column, leftover old column, or CHECK / index /
+   foreign key that does not match v7: close the database and return a clear
+   incompatible-schema error.
 
-data verifier 至少运行 `PRAGMA integrity_check`、`foreign_key_check`，并验证无法完全由 SQLite CHECK 表达的领域不变量：ownership 合计 10,000 bps、Account 三元组合法、Holding/Account Cash 只属于 `holdings` Account、Account Value 只属于 Simple Account、同一 Account 不存在重复 active Instrument。任何失败都视为 incompatible database，不进入业务读写。
+The data verifier at least runs `PRAGMA integrity_check`,
+`foreign_key_check`, and domain invariants that SQLite CHECKs cannot fully
+express: ownership totals 10,000 bps, legal Account combinations, Holdings and
+Account Cash belonging only to `holdings` Accounts, Account Values belonging
+only to Simple Accounts, and no duplicate active Instrument in the same
+Account. Any failure is an incompatible database and must not enter business
+reads or writes.
 
-启动路径不得自动迁移、自动删除、自动 reset、静默修复或复制旧数据。错误必须至少包含 failure kind、found version、supported version、数据库路径和“请创建新的数据库”的行动说明。旧数据库文件保持原样，由用户自行决定保留或删除。
+The startup path must not auto-migrate, auto-delete, auto-reset, silently
+repair, or copy old data. The error must at least include failure kind, found
+version, supported version, database path, and an action that says to create
+a new database. The old database file stays as-is for the user to keep or
+delete.
 
-### 14.4 开发与测试数据
+### 14.4 Development and test data
 
-`testdata/schema7/schema7-fixture.sql` 是当前兼容 fixture；
-`testdata/schema6/schema6-fixture.sql` 只用于验证不兼容数据库被拒绝且文件
-保持不变，不代表支持 v6 迁移。Provider fixtures 与开发数据库使用 v7
-模型。
+`testdata/schema7/schema7-fixture.sql` is the current compatible fixture.
+`testdata/schema6/schema6-fixture.sql` only verifies that an incompatible
+database is rejected and the file is left unchanged; it does not mean v6
+migration is supported. Provider fixtures and development databases use the v7
+model.
 
-### 14.5 不新增 SubAccount 表
+### 14.5 No SubAccount table
 
-现有物理表足以表达目标模型：
+Existing physical tables already express the target model:
 
-- `account_cash_values` 表达 Cash Balance；
-- `holdings` 表达 Account -> Instrument position；
-- `instruments.instrument_type` 表达底层资产分类；
-- `account_values` 表达 Simple Account 的 value observation。
+- `account_cash_values` express Cash Balance;
+- `holdings` express an Account -> Instrument position;
+- `instruments.instrument_type` express underlying asset classification;
+- `account_values` express Simple Account value observations.
 
-不新增 `sub_accounts`、`account_components` 或 generic position supertype。只有未来出现具有独立数量、价格、历史重放和生命周期语义的第三类 component 时，才重新评估公共抽象。
+Do not add `sub_accounts`, `account_components`, or a generic position
+supertype. Revisit a shared abstraction only if a third component kind appears
+with independent quantity, price, historical replay, and lifecycle semantics.
 
 ## 15. Current implementation map
 
@@ -790,7 +987,7 @@ dimensions and enforces ownership, initial-value, currency, and immutable
 tracking rules. Account type updates are allowed only when the existing role
 and tracking mode remain legal, and do not create financial Activities.
 
-### 15.2 Application 与 SQLite
+### 15.2 Application and SQLite
 
 `internal/application/service.go` coordinates Account and ownership
 mutations. `internal/application/valuation.go` is the current valuation
@@ -800,7 +997,7 @@ inclusion, and role filtering. SQLite schema v7 and
 closed-combination CHECK, indexes, and data invariants before business writes.
 History replay keeps Account metadata changes separate from financial facts.
 
-### 15.3 DTO 与 Wails API
+### 15.3 DTO and Wails API
 
 The schema/API v7 Create and Update Account requests contain:
 
@@ -827,10 +1024,11 @@ and suggested defaults.
 
 The current Account UI separates:
 
-- Account Type：银行、券商、交易所、房产等；
-- Balance Sheet Role：除 `other` 外由 type 确定并只读展示；`other` 创建时明确选择；
-- Tracking：Holdings/Balance/Manual Value；
-- Include in Portfolio：整个 Account 是否进入 Portfolio。
+- Account Type: bank, brokerage, exchange, property, and similar product names;
+- Balance Sheet Role: determined by type and shown read-only except for
+  `other`, which is chosen explicitly at create;
+- Tracking: Holdings / Balance / Manual Value;
+- Include in Portfolio: whether the whole Account enters Portfolio.
 
 The create wizard and settings form take tracking options from the legal
 combination catalog. For `bank_account + holdings`, the UI explains that
@@ -840,61 +1038,67 @@ Account.
 Account cards show Account type, while Holding and Cash rows show their
 underlying asset type; the two views do not share a category label.
 
-## 16. 验证矩阵
+## 16. Validation matrix
 
-### 16.1 Domain 与 storage
+### 16.1 Domain and storage
 
-| 场景 | 验证点 |
+| Scenario | Check |
 | --- | --- |
-| cash on hand + balance | 合法；Simple 分类为 cash |
-| bank + balance | 合法；Simple 分类为 cash |
-| digital wallet + balance | 合法；Simple 分类为 cash |
-| bank + holdings | 合法；不再被 Investment-only 拒绝 |
-| brokerage + holdings | Cash/stock/ETF 按 component 分类 |
-| crypto exchange + holdings | crypto Holding 正常估值 |
-| insurance + manual_value | Simple 分类为 insurance |
-| property + manual_value | Simple 分类为 property |
-| vehicle + manual_value | Simple 分类为 vehicle |
-| collectible + manual_value | Simple 分类为 collectible |
-| receivable + balance/manual_value | 分类为 receivable，role 为 asset |
-| credit card + balance | role liability，净值为负 |
-| loan + balance | role liability，debt Activity endpoint 正常 |
-| Account type edit | 无 Activity，无金额/数量/cost basis 变化 |
-| incompatible type edit | type 与冻结 role/tracking 不在合法表时拒绝 |
-| role edit | 当前版本拒绝修改 |
-| tracking edit | 当前版本拒绝修改 |
-| liability + holdings/manual | 所有 type 均拒绝 |
+| cash on hand + balance | Legal; Simple classification is cash |
+| bank + balance | Legal; Simple classification is cash |
+| digital wallet + balance | Legal; Simple classification is cash |
+| bank + holdings | Legal; no longer rejected as Investment-only |
+| brokerage + holdings | Cash/stock/ETF classified by component |
+| crypto exchange + holdings | Crypto Holding values normally |
+| insurance + manual_value | Simple classification is insurance |
+| property + manual_value | Simple classification is property |
+| vehicle + manual_value | Simple classification is vehicle |
+| collectible + manual_value | Simple classification is collectible |
+| receivable + balance/manual_value | Classified as receivable with role asset |
+| credit card + balance | Role liability; net worth is negative |
+| loan + balance | Role liability; debt Activity endpoint works |
+| Account type edit | No Activity; no amount/quantity/cost-basis change |
+| Incompatible type edit | Rejected when type plus frozen role/tracking is not in the legal table |
+| Role edit | Rejected in the current version |
+| Tracking edit | Rejected in the current version |
+| Liability + holdings/manual | Rejected for every type |
 
-### 16.2 Classification 与 Portfolio
+### 16.2 Classification and Portfolio
 
-| 场景 | 验证点 |
+| Scenario | Check |
 | --- | --- |
-| MooMoo 多币种 cash + stocks | cash/stock/ETF/crypto buckets 正确 |
-| CMB cash + fund + gold + bank product | 全部按 component 分类 |
-| CMB include in portfolio | 所有完整 component 一起进入 Portfolio |
-| CMB excluded from portfolio | 所有 component 一起排除，但仍可进 net worth |
-| brokerage manual_value | `unclassified_investment`，不伪造 Instrument type |
-| stablecoin | USDC/USDT 是 crypto Holding，不是 Cash Balance |
-| missing quote | 只排除受影响 component，标 incomplete，不补零 |
-| liability Account | 不进入 asset Portfolio，净值符号正确 |
-| Overview assets | `assetsByType` 按 component 分类，不再按 account type 聚整户 |
-| Overview liabilities | `liabilitiesByType` 使用 credit_card/loan/other_liability，分母为 liabilities |
-| liquid mixed account | whole-account 生效并展示警告 |
+| MooMoo multi-currency cash + stocks | cash/stock/ETF/crypto buckets are correct |
+| CMB cash + fund + gold + bank product | All classified by component |
+| CMB included in portfolio | All complete components enter Portfolio together |
+| CMB excluded from portfolio | All components are excluded together, but may still enter net worth |
+| brokerage manual_value | `unclassified_investment`; do not invent an Instrument type |
+| stablecoin | USDC/USDT are crypto Holdings, not Cash Balances |
+| missing quote | Exclude only the affected component, mark incomplete, do not zero-fill |
+| liability Account | Does not enter the asset Portfolio; net-worth sign is correct |
+| Overview assets | `assetsByType` classifies by component, not by whole-account type |
+| Overview liabilities | `liabilitiesByType` uses credit_card/loan/other_liability with liabilities as denominator |
+| liquid mixed account | Whole-account inclusion applies and the warning is shown |
 
-### 16.3 Startup 与 History
+### 16.3 Startup and History
 
-- 空路径/空文件创建完整 v7，并通过 schema verifier。
-- v6、未来版本或结构不符的数据库均拒绝启动，错误包含 found/supported version 和路径。
-- v7 数据违反 ownership、tracking/component、唯一 active Instrument 或 SQLite integrity/foreign-key 约束时拒绝启动。
-- incompatible database 在失败前后 bytes、user_version 和文件时间不变。
-- 不存在 migrator、旧字段 fallback、自动 reset 或旧数据 fixture 转换路径。
-- Account type 修改不会改变既有历史 facts。
-- 没有 account_type 历史版本时，历史 Simple breakdown 明确标记 `current-metadata-derived`。
+- An empty path or empty file creates complete v7 and passes the schema
+  verifier.
+- v6, a future version, or a structurally mismatched database all refuse to
+  start; the error includes found/supported version and path.
+- v7 data that violates ownership, tracking/component, unique active
+  Instrument, or SQLite integrity/foreign-key constraints refuses to start.
+- An incompatible database has unchanged bytes, `user_version`, and file time
+  before and after the failure.
+- There is no migrator, old-field fallback, automatic reset, or legacy-data
+  fixture conversion path.
+- Account type edits do not change existing historical facts.
+- When there is no historical `account_type` version, historical Simple
+  breakdowns are explicitly marked `current-metadata-derived`.
 - tracking-mode conversion is not supported by v7.
 
-## 17. 结论
+## 17. Conclusion
 
-Nestworth 当前不需要 `SubAccount`。稳定的模型是：
+Nestworth currently does not need `SubAccount`. The stable model is:
 
 ```text
 Institution
@@ -903,14 +1107,21 @@ Institution
     └── Holding -> Instrument[asset type]
 ```
 
-Account 的新契约是：
+The new Account contract is:
 
 ```text
-account_type       = 现实账户/容器是什么
-balance_sheet_role = 它是资产还是负债
-tracking_mode      = 如何记录和估值
+account_type       = what the real-world account or container is
+balance_sheet_role = whether it is an asset or a liability
+tracking_mode      = how it is recorded and valued
 ```
 
-Composite Account 的资产分类必须来自 Cash Balance 和 Instrument；Simple Account 因为自身就是被估值对象，可以从 account_type 派生。Portfolio inclusion 当前按 whole-account 处理，并明确承认混合银行账户的限制。`balance_sheet_role` 作为正式、权威且当前不可变的字段，保证 account_type 编辑不会无意改变净值。
+Composite Account asset classification must come from Cash Balances and
+Instruments. A Simple Account may derive classification from `account_type`
+because the Account itself is the valued object. Portfolio inclusion is
+currently whole-account, with the mixed-bank-account limitation stated
+explicitly. `balance_sheet_role` is a formal, authoritative, currently
+immutable field, so editing `account_type` cannot silently change net worth.
 
-该方案最大限度复用现有 schema、Activity、History 和 Valuation 结构，同时为 MooMoo SG、招商银行、数字钱包和加密货币交易所提供一致的现实表达能力。
+The design reuses as much of the existing schema, Activity, History, and
+Valuation structure as possible, while giving MooMoo SG, China Merchants
+Bank, digital wallets, and crypto exchanges a consistent real-world expression.

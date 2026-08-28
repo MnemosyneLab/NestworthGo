@@ -14,8 +14,9 @@ import (
 // values. It consumes persisted observations from one PortfolioSnapshot and
 // never performs network I/O.
 type ValuationService struct {
-	repository Repository
-	now        func() time.Time
+	repository    Repository
+	now           func() time.Time
+	fxProviderKey func() string
 }
 
 func NewValuationService(repository Repository, clocks ...func() time.Time) *ValuationService {
@@ -24,6 +25,14 @@ func NewValuationService(repository Repository, clocks ...func() time.Time) *Val
 		now = clocks[0]
 	}
 	return &ValuationService{repository: repository, now: now}
+}
+
+// SetFXProviderKey wires the current application-level provider selection
+// into valuation without making valuation perform any provider or registry
+// work. A nil callback preserves the source-kind-only behavior useful for
+// historical and isolated domain callers.
+func (v *ValuationService) SetFXProviderKey(providerKey func() string) {
+	v.fxProviderKey = providerKey
 }
 
 func (v *ValuationService) ValueAccounts(snapshot domain.PortfolioSnapshot) ([]domain.AccountValuation, []domain.MissingInputView, error) {
@@ -364,7 +373,11 @@ func (v *ValuationService) convert(snapshot domain.PortfolioSnapshot, accountID 
 	if preference == nil {
 		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
 	}
-	quote := selectFXQuote(*preference, snapshot.FXQuotes, currency, baseCurrency)
+	providerKey := ""
+	if preference.SourceKind == domain.QuoteSourceProvider && v.fxProviderKey != nil {
+		providerKey = strings.ToLower(strings.TrimSpace(v.fxProviderKey()))
+	}
+	quote := selectFXQuote(*preference, snapshot.FXQuotes, currency, baseCurrency, providerKey)
 	if quote == nil {
 		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
 	}
@@ -396,11 +409,18 @@ func selectInstrumentQuote(instrument domain.Instrument, quotes []domain.Instrum
 	return selected
 }
 
-func selectFXQuote(preference domain.FXPreference, quotes []domain.FXQuote, native, householdBase domain.CurrencyCode) *domain.FXQuote {
+func selectFXQuote(preference domain.FXPreference, quotes []domain.FXQuote, native, householdBase domain.CurrencyCode, providerKeys ...string) *domain.FXQuote {
+	providerKey := ""
+	if len(providerKeys) > 0 {
+		providerKey = strings.ToLower(strings.TrimSpace(providerKeys[0]))
+	}
 	var selected *domain.FXQuote
 	for index := range quotes {
 		quote := &quotes[index]
 		if quote.HouseholdID != preference.HouseholdID || quote.SourceKind != preference.SourceKind {
+			continue
+		}
+		if preference.SourceKind == domain.QuoteSourceProvider && providerKey != "" && strings.ToLower(strings.TrimSpace(quote.SourceKey)) != providerKey {
 			continue
 		}
 		if !((quote.BaseCurrency == native && quote.QuoteCurrency == householdBase) || (quote.BaseCurrency == householdBase && quote.QuoteCurrency == native)) {

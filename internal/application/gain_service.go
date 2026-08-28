@@ -26,6 +26,10 @@ func NewGainService(repository Repository, clocks ...func() time.Time) *GainServ
 	return &GainService{repository: repository, valuation: NewValuationService(repository, now), now: now}
 }
 
+func (g *GainService) SetFXProviderKey(providerKey func() string) {
+	g.valuation.SetFXProviderKey(providerKey)
+}
+
 func (g *GainService) HoldingGain(ctx context.Context, holdingID domain.HoldingID) (domain.HoldingGainView, error) {
 	snapshot, err := g.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {

@@ -14,6 +14,8 @@ import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
 import { useHistoryOrigin } from "@/queries/history";
 import { attachPendingImage } from "@/queries/media";
 import { formatAmount } from "@/lib/money";
+import { formatTimestamp } from "@/lib/time";
+import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -79,6 +81,7 @@ export function AccountDetail({
 }) {
   const { t, i18n } = useTranslation();
   const origin = useHistoryOrigin();
+  const settings = useSettings();
   const holdingsQuery = useHoldingsByAccounts([record.account.id]);
   const instruments = useInstruments();
   const updateAccount = useUpdateAccount();
@@ -105,10 +108,7 @@ export function AccountDetail({
       ? t("accounts.completeValuation")
       : t("accounts.partialValuation")
     : t("accounts.noValue");
-  const asOf =
-    valuationUpdatedAt && valuationUpdatedAt > 0
-      ? t("accounts.asOf", { time: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(valuationUpdatedAt)) })
-      : undefined;
+  const asOf = valuationUpdatedAt && valuationUpdatedAt > 0 ? t("accounts.asOf", { time: formatTimestamp(valuationUpdatedAt, settings.data?.timezone, i18n.language) }) : undefined;
   const institutionLabel = record.account.institutionId ? record.institutionName || t("accounts.unassignedInstitution") : t("accounts.unassignedInstitution");
 
   const saveSettings = async (request: CreateAccountRequest, extras: AccountFormExtras) => {
@@ -300,6 +300,7 @@ export function AccountDetail({
         <AccountActionSheet
           action={action}
           record={record}
+          valuation={valuation}
           historyStarted={historyStarted}
           onClose={() => setAction(null)}
           onRecorded={() => setAction(null)}

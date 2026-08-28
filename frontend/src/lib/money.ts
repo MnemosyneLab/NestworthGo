@@ -85,6 +85,94 @@ function roundDecimal(integer: string, fraction: string, places: number): [strin
   return [integer, kept.padEnd(scale, "0")];
 }
 
+type DecimalParts = { negative: boolean; integer: string; fraction: string };
+
+function parseCanonicalParts(value: string): DecimalParts | undefined {
+  if (!CANONICAL_DECIMAL.test(value)) {
+    return undefined;
+  }
+  const negative = value.startsWith("-");
+  const unsigned = negative ? value.slice(1) : value;
+  const [integer, fraction = ""] = unsigned.split(".");
+  return { negative, integer, fraction };
+}
+
+function pow10(exponent: number): bigint {
+  return 10n ** BigInt(Math.max(0, exponent));
+}
+
+function roundedRational(numerator: bigint, denominator: bigint, places: number): string {
+  if (denominator === 0n) {
+    return "";
+  }
+  const negative = numerator < 0n;
+  const absoluteNumerator = negative ? -numerator : numerator;
+  const scale = Math.max(0, places);
+  const scaled = absoluteNumerator * pow10(scale);
+  let quotient = scaled / denominator;
+  const remainder = scaled % denominator;
+  const doubledRemainder = remainder * 2n;
+  if (doubledRemainder > denominator || (doubledRemainder === denominator && quotient % 2n === 1n)) {
+    quotient += 1n;
+  }
+  const digits = quotient.toString().padStart(scale + 1, "0");
+  const integer = scale === 0 ? digits : digits.slice(0, -scale);
+  const fraction = scale === 0 ? "" : digits.slice(-scale).replace(/0+$/, "");
+  const unsigned = fraction ? `${integer}.${fraction}` : integer;
+  return negative && quotient !== 0n ? `-${unsigned}` : unsigned;
+}
+
+/**
+ * Multiplies two canonical decimal strings using integer arithmetic only.
+ * The result is rounded to `places` with ties-to-even (banker's rounding).
+ */
+export function multiplyCanonical(left: string, right: string, places = 20): string {
+  const first = parseCanonicalParts(left);
+  const second = parseCanonicalParts(right);
+  if (!first || !second) {
+    return "";
+  }
+  const numerator = BigInt(`${first.integer}${first.fraction}`) * BigInt(`${second.integer}${second.fraction}`);
+  const signedNumerator = first.negative !== second.negative ? -numerator : numerator;
+  return roundedRational(signedNumerator, pow10(first.fraction.length + second.fraction.length), places);
+}
+
+/**
+ * Divides two canonical decimal strings using integer arithmetic only.
+ * The result is rounded to `places` with ties-to-even (banker's rounding).
+ */
+export function divideCanonical(left: string, right: string, places = 20): string {
+  const first = parseCanonicalParts(left);
+  const second = parseCanonicalParts(right);
+  if (!first || !second || BigInt(`${second.integer}${second.fraction}`) === 0n) {
+    return "";
+  }
+  const numerator = BigInt(`${first.integer}${first.fraction}`) * pow10(second.fraction.length);
+  const denominator = BigInt(`${second.integer}${second.fraction}`) * pow10(first.fraction.length);
+  const signedNumerator = first.negative !== second.negative ? -numerator : numerator;
+  return roundedRational(signedNumerator, denominator, places);
+}
+
+export function canonicalDecimal(value: string): string {
+  const parts = parseCanonicalParts(value);
+  if (!parts) {
+    return value;
+  }
+  const integer = parts.integer.replace(/^0+(?=\d)/, "");
+  const fraction = parts.fraction.replace(/0+$/, "");
+  const unsigned = fraction ? `${integer}.${fraction}` : integer;
+  return parts.negative && unsigned !== "0" ? `-${unsigned}` : unsigned;
+}
+
+export function sameCanonicalDecimal(left: string, right: string): boolean {
+  return canonicalDecimal(left) === canonicalDecimal(right);
+}
+
+export function isPositiveCanonical(value: string): boolean {
+  const normalized = canonicalDecimal(value.trim());
+  return normalized !== "" && normalized !== "0" && !normalized.startsWith("-");
+}
+
 export function currencyFractionDigits(currency: string, locale = i18n.language || "en"): number {
   if (currency in CURRENCY_FRACTION_DIGITS) {
     return CURRENCY_FRACTION_DIGITS[currency] ?? 2;

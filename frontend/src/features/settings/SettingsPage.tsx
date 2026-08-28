@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
+import { FilterableSelect } from "@/components/ui/filterable-select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,13 +18,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
-import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies } from "@/queries/settings";
+import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies, useFXProviders } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { setLanguage, languageOptionKey } from "@/i18n";
 import { displayError } from "@/lib/display";
 import type { Settings } from "../../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
+import { resolvedTimeZone, timeZoneOptions } from "@/lib/time";
 
 /**
  * SettingsPage keeps editing local until Save changes is pressed. Discard
@@ -36,20 +38,10 @@ export function SettingsPage() {
   const saveSettings = useSaveSettings();
   const resetSettings = useResetSettings();
   const currencies = useSupportedCurrencies();
+  const fxProviders = useFXProviders();
   const catalog = useCatalog();
   const setAppearance = useUiStore((state) => state.setAppearance);
-  const [draft, setDraft] = useState<Settings | null>(null);
-  const [syncedFrom, setSyncedFrom] = useState<Settings | null>(null);
-
-  // Keep the form in sync after a successful save/reset without replacing
-  // draft values on every render while the user is typing.
-  useEffect(() => {
-    if (!settings.data || syncedFrom || draft) {
-      return;
-    }
-    setSyncedFrom(settings.data);
-    setDraft(settings.data);
-  }, [draft, settings.data, syncedFrom]);
+  const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
 
   if (settings.isLoading) {
     return <LoadingState label={t("ui.state.loadingPage")} />;
@@ -66,6 +58,7 @@ export function SettingsPage() {
     );
   }
 
+  const draft = draftOverride ?? settings.data;
   if (!draft) {
     return <LoadingState label={t("ui.state.loadingPage")} />;
   }
@@ -73,8 +66,12 @@ export function SettingsPage() {
   const isDirty =
     draft.appearance !== settings.data.appearance ||
     draft.language !== settings.data.language ||
-    draft.currency !== settings.data.currency;
-  const update = (patch: Partial<Settings>) => setDraft((current) => (current ? { ...current, ...patch } : current));
+    draft.currency !== settings.data.currency ||
+    draft.timezone !== settings.data.timezone ||
+    draft.fx_provider !== settings.data.fx_provider;
+  const update = (patch: Partial<Settings>) => {
+    setDraftOverride((current) => ({ ...(current ?? settings.data), ...patch }));
+  };
 
   const applyLivePreferences = (value: Settings) => {
     setAppearance(value.appearance as Appearance);
@@ -85,7 +82,7 @@ export function SettingsPage() {
     event.preventDefault();
     saveSettings.mutate(draft, {
       onSuccess: () => {
-        setSyncedFrom(draft);
+        setDraftOverride(null);
         toast.success(t("settings.changesSaved"));
         applyLivePreferences(draft);
       },
@@ -142,6 +139,38 @@ export function SettingsPage() {
               ))}
             </NativeSelect>
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-timezone">{t("settings.language.timezone")}</Label>
+            <FilterableSelect
+              id="settings-timezone"
+              value={draft.timezone}
+              options={[
+                { value: "system", label: t("option.timezone.system") },
+                ...timeZoneOptions().map((timezone) => ({ value: timezone, label: timezone })),
+              ]}
+              noOptionsLabel={t("common.noMatches")}
+              onValueChange={(timezone) => update({ timezone })}
+            />
+            <p className="text-xs text-muted-foreground">
+              {t("settings.timezoneResolved", { timezone: resolvedTimeZone(draft.timezone) })}
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-fx-provider">{t("settings.providers.fxProvider")}</Label>
+            <NativeSelect
+              id="settings-fx-provider"
+              value={draft.fx_provider}
+              onChange={(event) => update({ fx_provider: event.target.value })}
+            >
+              {(fxProviders.data ?? [draft.fx_provider]).map((provider) => (
+                <option key={provider} value={provider}>
+                  {t(`settings.provider.${provider}`, { defaultValue: provider })}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
         </div>
 
         {currencies.isError && <p className="text-sm text-warning-foreground">{t("onboarding.currencyLoadError")}</p>}
@@ -163,7 +192,7 @@ export function SettingsPage() {
               type="button"
               variant="outline"
               onClick={() => {
-                setDraft(settings.data);
+                setDraftOverride(null);
                 toast.success(t("settings.changesDiscarded"));
               }}
             >
@@ -194,8 +223,7 @@ export function SettingsPage() {
                 onClick={() =>
                   resetSettings.mutate(undefined, {
                     onSuccess: (defaults) => {
-                      setDraft(defaults);
-                      setSyncedFrom(defaults);
+                      setDraftOverride(defaults);
                       applyLivePreferences(defaults);
                       toast.success(t("settings.resetDone"));
                     },

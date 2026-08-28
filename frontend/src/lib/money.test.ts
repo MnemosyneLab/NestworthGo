@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
-import { formatAmount } from "./money";
+import { divideCanonical, formatAmount, multiplyCanonical } from "./money";
 
 afterEach(async () => {
   await i18n.changeLanguage("en");
@@ -69,6 +69,40 @@ describe("formatAmount", () => {
     expect(canonicalDigits(formatAmount("1234.56", "USD"), "en")).toBe("1234.56");
     expect(canonicalDigits(formatAmount("1234.567", "USD"), "en")).toBe("1234.57");
     expect(canonicalDigits(formatAmount("1234.56", "JPY"), "en")).toBe("1235");
+  });
+});
+
+describe("canonical decimal defaults", () => {
+  it.each([
+    ["2", "3.5", 2, "7"],
+    ["1.005", "1", 2, "1"],
+    ["1.004", "1", 2, "1"],
+    ["1234.6", "1", 0, "1235"],
+    ["1.015", "1", 2, "1.02"],
+  ])("multiplies and rounds %s × %s to %s places", (left, right, places, expected) => {
+    expect(multiplyCanonical(left, right, places)).toBe(expected);
+  });
+
+  it.each([
+    ["1", "8", 2, "0.12"],
+    ["1", "40", 2, "0.02"],
+    ["1", "200", 2, "0"],
+    ["1", "3", 0, "0"],
+  ])("divides and rounds %s ÷ %s to %s places", (left, right, places, expected) => {
+    expect(divideCanonical(left, right, places)).toBe(expected);
+  });
+
+  it("uses ties-to-even at a half", () => {
+    expect(multiplyCanonical("1.005", "1", 2)).toBe("1");
+    expect(multiplyCanonical("1.015", "1", 2)).toBe("1.02");
+    expect(divideCanonical("1", "400", 2)).toBe("0");
+    expect(divideCanonical("3", "400", 2)).toBe("0.01");
+  });
+
+  it("returns an empty default for invalid input or zero denominator", () => {
+    expect(multiplyCanonical("", "2", 2)).toBe("");
+    expect(divideCanonical("2", "0", 2)).toBe("");
+    expect(divideCanonical("not-a-decimal", "2", 2)).toBe("");
   });
 });
 

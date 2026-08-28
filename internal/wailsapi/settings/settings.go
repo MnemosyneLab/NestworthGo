@@ -5,6 +5,9 @@
 package settings
 
 import (
+	"sort"
+	"strings"
+
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -68,4 +71,29 @@ func (s *Service) Reset() (settings.Settings, error) {
 // SupportedCurrencies returns the closed currency catalog from domain.
 func (s *Service) SupportedCurrencies() []string {
 	return settings.SupportedCurrencies()
+}
+
+// FXProviders returns only registered providers that advertise latest-FX
+// support. Settings can therefore render the same closed list the
+// application routing layer can actually resolve.
+func (s *Service) FXProviders() []string {
+	if s.app == nil || s.app.MarketDataRegistry() == nil {
+		return []string{settings.DefaultFXProvider}
+	}
+	providers := s.app.MarketDataRegistry().Providers()
+	keys := make([]string, 0, len(providers))
+	for _, provider := range providers {
+		if provider == nil || !provider.Capabilities().LatestFX {
+			continue
+		}
+		key := strings.ToLower(strings.TrimSpace(provider.Key()))
+		if key != "" {
+			keys = append(keys, key)
+		}
+	}
+	if len(keys) == 0 {
+		return []string{settings.DefaultFXProvider}
+	}
+	sort.Strings(keys)
+	return keys
 }

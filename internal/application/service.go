@@ -43,6 +43,8 @@ func NewService(repository Repository, registries ...MarketDataRegistryPort) *Se
 	if len(registries) > 0 {
 		service.marketData = registries[0]
 	}
+	service.valuation.SetFXProviderKey(service.FXProviderKey)
+	service.gain.SetFXProviderKey(service.FXProviderKey)
 	return service
 }
 

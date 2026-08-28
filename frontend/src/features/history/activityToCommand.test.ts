@@ -61,6 +61,21 @@ describe("activityToInitialCommand kind mapping", () => {
     } as ActivityDTO;
     expect(activityToInitialCommand(activity).kind).toBe(ChangeCommandKind.ChangePositionAdjustment);
   });
+
+  it("keeps FX fees visible and never copies the original timestamp into Fix", () => {
+    const activity = {
+      id: "a1",
+      kind: "fx_conversion",
+      effectiveAt: "2026-01-01T00:00:00Z",
+      effects: [
+        { role: "transfer_from", accountId: "acc-1", money: { amount: "100", currency: "USD" } },
+        { role: "transfer_to", accountId: "acc-1", money: { amount: "90", currency: "EUR" } },
+        { role: "fee", accountId: "acc-1", money: { amount: "1", currency: "USD" } },
+      ],
+    } as unknown as ActivityDTO;
+    expect(activityToInitialCommand(activity)).toEqual(expect.objectContaining({ fee: "1", feeCurrency: "USD" }));
+    expect(activityToInitialCommand(activity).effectiveAt).toBeUndefined();
+  });
 });
 
 describe("emptyChangeRequest", () => {

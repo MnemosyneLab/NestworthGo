@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useAccounts } from "@/queries/accounts";
+import { useSettings } from "@/queries/settings";
 import {
   useInstruments,
   useCreateInstrument,
@@ -25,6 +26,7 @@ import { useHoldingGainsByAccounts } from "@/queries/analytics";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
+import { formatTimestamp } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import {
   AlertDialog,
@@ -111,6 +113,7 @@ function InstrumentRow({
   onArchive: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const settings = useSettings();
   const quote = useCurrentInstrumentQuote(instrument.id);
   const quoteTime = quote.data?.quotedAt ?? quote.data?.createdAt;
 
@@ -133,7 +136,7 @@ function InstrumentRow({
             {quoteTime && (
               <span className="ml-2 text-xs text-muted-foreground">
                 {t("portfolio.quotedAsOf", {
-                  time: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(quoteTime)),
+                  time: formatTimestamp(quoteTime, settings.data?.timezone, i18n.language),
                 })}
               </span>
             )}

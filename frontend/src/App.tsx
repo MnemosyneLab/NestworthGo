@@ -31,7 +31,6 @@ function App() {
   const startup = useStartup();
   const settings = useSettings({ enabled: startup.data?.available === true });
   const setAppearance = useUiStore((state) => state.setAppearance);
-  const [settingsHydrated, setSettingsHydrated] = useState(false);
 
   useEffect(() => {
     if (!settings.data) {
@@ -39,10 +38,9 @@ function App() {
     }
     setAppearance(settings.data.appearance as Appearance);
     setLanguage(settings.data.language);
-    setSettingsHydrated(true);
   }, [settings.data, setAppearance]);
 
-  const workspaceReady = startup.data?.available === true && settingsHydrated && Boolean(settings.data);
+  const workspaceReady = startup.data?.available === true && Boolean(settings.data);
   const bootstrap = useBootstrap({ enabled: workspaceReady });
 
   if (startup.isLoading) {
@@ -51,7 +49,7 @@ function App() {
   if (startup.isError || (startup.data && !startup.data.available)) {
     return <BlockedStartupPage startup={startup.data} failure={startup.error} />;
   }
-  if (settings.isLoading || !settingsHydrated) {
+  if (settings.isLoading || !settings.data) {
     return <StartupLoadingPage label={t("ui.state.loadingWorkspace")} />;
   }
   if (settings.isError || !settings.data) {

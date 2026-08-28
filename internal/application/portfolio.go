@@ -240,11 +240,15 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domai
 	if err != nil {
 		return nil, err
 	}
+	providerKey := s.FXProviderKey()
 	var selected *domain.FXQuote
 	for index := range quotes {
 		quote := &quotes[index]
 		quoteA, quoteB, normalizeErr := domain.NormalizeFXPair(quote.BaseCurrency, quote.QuoteCurrency)
 		if normalizeErr != nil || quote.SourceKind != preference.SourceKind || quoteA != a || quoteB != b {
+			continue
+		}
+		if preference.SourceKind == domain.QuoteSourceProvider && providerKey != "" && strings.ToLower(strings.TrimSpace(quote.SourceKey)) != providerKey {
 			continue
 		}
 		if selected == nil || quoteLater(quote.QuotedAt, quote.CreatedAt, quote.ID.String(), selected.QuotedAt, selected.CreatedAt, selected.ID.String()) {
@@ -683,9 +687,6 @@ func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, sou
 	if err != nil {
 		return domain.FXPreference{}, err
 	}
-	if a != household.BaseCurrency && b != household.BaseCurrency {
-		return domain.FXPreference{}, &domain.Error{Code: domain.ErrValidation, Field: "currencyPair", Message: "currency pair must include the Household base currency"}
-	}
 	parsedSource, err := domain.ParseQuoteSourceKind(source)
 	if err != nil {
 		return domain.FXPreference{}, err
@@ -738,9 +739,6 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 	quoteCurrencyCode, err := domain.ParseSupportedCurrency(quoteCurrency)
 	if err != nil {
 		return domain.FXQuote{}, err
-	}
-	if base != household.BaseCurrency && quoteCurrencyCode != household.BaseCurrency {
-		return domain.FXQuote{}, &domain.Error{Code: domain.ErrValidation, Field: "currencyPair", Message: "currency pair must include the Household base currency"}
 	}
 	parsedRate, err := domain.ParseFxRate(rate)
 	if err != nil {

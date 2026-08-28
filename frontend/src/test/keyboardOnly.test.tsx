@@ -28,6 +28,7 @@ const listAccounts = vi.fn();
 const createAccount = vi.fn();
 const historyOrigin = vi.fn();
 const listActivities = vi.fn();
+const listActivityPage = vi.fn();
 const previewChange = vi.fn();
 const recordChange = vi.fn();
 const settingsLoad = vi.fn();
@@ -76,6 +77,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/histo
     StartHistoryWithCosts: vi.fn(),
     StartingPointDraft: () => Promise.resolve([]),
     ListActivities: () => listActivities(),
+    ListActivityPage: (...args: unknown[]) => listActivityPage(...args),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
     PreviewFixChange: vi.fn(),
     RecordChange: (...args: unknown[]) => recordChange(...args),
@@ -137,11 +139,14 @@ beforeEach(() => {
   createAccount.mockReset();
   historyOrigin.mockReset();
   listActivities.mockReset();
+  listActivityPage.mockReset();
   previewChange.mockReset();
   recordChange.mockReset();
   settingsLoad.mockReset();
   settingsSave.mockClear();
   settingsLoad.mockResolvedValue(defaultSettings);
+  listActivities.mockResolvedValue([]);
+  listActivityPage.mockImplementation(async (...args: unknown[]) => ({ activities: await listActivities(...args) }));
 });
 
 describe("keyboard-only completion", () => {
@@ -243,7 +248,11 @@ describe("keyboard-only completion", () => {
     renderWithQueryClient(<HistoryPage />);
 
     await screen.findByRole("button", { name: /record change/i }); // wait for HistoryOrigin to load
-    await userEvent.tab(); // body -> "Record change" Sheet trigger
+    await userEvent.tab(); // body -> kind filter
+    await userEvent.tab(); // -> account filter
+    await userEvent.tab(); // -> from-date filter
+    await userEvent.tab(); // -> to-date filter
+    await userEvent.tab(); // -> "Record change" Sheet trigger
     expect(screen.getByRole("button", { name: /record change/i })).toHaveFocus();
     await userEvent.keyboard("{Enter}"); // opens the Sheet
 
@@ -262,6 +271,8 @@ describe("keyboard-only completion", () => {
     await userEvent.tab(); // -> currency select (left at its default: USD)
     await userEvent.tab(); // -> reason select (default: Other)
     await userEvent.tab(); // -> note input
+    await userEvent.tab(); // -> effective date
+    await userEvent.tab(); // -> effective time
     await userEvent.tab(); // -> Preview button
     const previewOrConfirm = within(form).getByRole("button", { name: "Preview" });
     expect(previewOrConfirm).toHaveFocus();
@@ -297,6 +308,8 @@ describe("keyboard-only completion", () => {
     await userEvent.selectOptions(within(form).getByLabelText("Language"), "en");
 
     await userEvent.tab(); // -> Currency select (left at default)
+    await userEvent.tab(); // -> Timezone combobox (left at default)
+    await userEvent.tab(); // -> FX provider select (left at default)
     await userEvent.tab(); // -> Save button
     expect(within(form).getByRole("button", { name: "Save changes" })).toHaveFocus();
     await userEvent.keyboard("{Enter}");

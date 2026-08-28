@@ -7,8 +7,11 @@ import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/layout/PageState";
 import { displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
+import { resolvedTimeZone } from "@/lib/time";
+import { useSettings } from "@/queries/settings";
 import { useStartHistory, useStartingPointDraft } from "@/queries/history";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
+import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 
 /** StartHistoryForm is the existing Start History flow, reused from History
  * and from Account detail when an event action needs History first. Cancel
@@ -18,14 +21,15 @@ export function StartHistoryForm({
   onCancel,
   compact = false,
 }: {
-  onStarted?: () => void;
+  onStarted?: (origin: HistoryOriginDTO) => void;
   onCancel?: () => void;
   compact?: boolean;
 }) {
   const { t } = useTranslation();
   const startHistory = useStartHistory();
   const draft = useStartingPointDraft();
-  const [timezone, setTimezone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const settings = useSettings();
+  const timezone = resolvedTimeZone(settings.data?.timezone);
   const startDate = localDateInTimeZone(timezone);
   const holdings = draft.data ?? [];
   const [unitCosts, setUnitCosts] = useState<Record<string, string>>({});
@@ -45,9 +49,9 @@ export function StartHistoryForm({
     startHistory.mutate(
       { timezone, costOverrides },
       {
-        onSuccess: () => {
+        onSuccess: (nextOrigin) => {
           toast.success(t("history.started"));
-          onStarted?.();
+          onStarted?.(nextOrigin);
         },
       },
     );
@@ -66,10 +70,10 @@ export function StartHistoryForm({
         <Input
           id="history-timezone"
           value={timezone}
-          onChange={(event) => setTimezone(event.target.value)}
-          autoComplete="off"
+          readOnly
           autoFocus={compact}
         />
+        <p className="text-xs leading-5 text-muted-foreground">{t("history.timezoneResolvedHelp")}</p>
       </div>
       <div className="flex flex-col gap-1.5 text-left">
         <Label htmlFor="history-start-date">{t("history.startDate")}</Label>
@@ -117,7 +121,7 @@ export function StartHistoryForm({
             {t("common.cancel")}
           </Button>
         )}
-        <Button type="button" onClick={submit} disabled={startHistory.isPending || draft.isLoading || missingCost}>
+        <Button type="button" onClick={submit} disabled={startHistory.isPending || settings.isLoading || draft.isLoading || missingCost}>
           {startHistory.isPending ? t("common.pending") : t("history.startButton")}
         </Button>
       </div>

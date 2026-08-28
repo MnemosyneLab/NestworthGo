@@ -13,6 +13,7 @@ const startHistory = vi.fn();
 const startHistoryWithCosts = vi.fn();
 const startingPointDraft = vi.fn();
 const listActivities = vi.fn();
+const listActivityPage = vi.fn();
 const previewChange = vi.fn();
 const previewFixChange = vi.fn();
 const recordChange = vi.fn();
@@ -21,6 +22,13 @@ const fixChange = vi.fn();
 const listAccounts = vi.fn();
 const listInstruments = vi.fn();
 const holdingsByAccounts = vi.fn();
+const settingsLoad = vi.fn();
+const listFXPreferences = vi.fn();
+const currentFXQuote = vi.fn();
+const setFXPreference = vi.fn();
+const currentInstrumentQuote = vi.fn();
+const refreshFX = vi.fn();
+const refreshInstrument = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
@@ -29,6 +37,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     StartHistoryWithCosts: (...args: unknown[]) => startHistoryWithCosts(...args),
     StartingPointDraft: () => startingPointDraft(),
     ListActivities: () => listActivities(),
+    ListActivityPage: (...args: unknown[]) => listActivityPage(...args),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
     PreviewFixChange: (...args: unknown[]) => previewFixChange(...args),
     RecordChange: (...args: unknown[]) => recordChange(...args),
@@ -47,8 +56,26 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/in
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
   Service: { HoldingsByAccounts: (...args: unknown[]) => holdingsByAccounts(...args) },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
+  Service: {
+    ListFXPreferences: () => listFXPreferences(),
+    CurrentFXQuote: (...args: unknown[]) => currentFXQuote(...args),
+    SetFXPreference: (...args: unknown[]) => setFXPreference(...args),
+    CurrentInstrumentQuote: (...args: unknown[]) => currentInstrumentQuote(...args),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
+  Service: {
+    RefreshFX: (...args: unknown[]) => refreshFX(...args),
+    RefreshInstrument: (...args: unknown[]) => refreshInstrument(...args),
+  },
+}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
-  Service: { SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]) },
+  Service: {
+    Load: () => settingsLoad(),
+    SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]),
+    FXProviders: () => Promise.resolve(["frankfurter"]),
+  },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/household", () => ({
   Service: {
@@ -75,6 +102,7 @@ beforeEach(() => {
   startHistoryWithCosts.mockReset();
   startingPointDraft.mockReset();
   listActivities.mockReset();
+  listActivityPage.mockReset();
   previewChange.mockReset();
   recordChange.mockReset();
   undoChange.mockReset();
@@ -83,6 +111,13 @@ beforeEach(() => {
   listAccounts.mockReset();
   listInstruments.mockReset();
   holdingsByAccounts.mockReset();
+  settingsLoad.mockReset();
+  listFXPreferences.mockReset();
+  currentFXQuote.mockReset();
+  setFXPreference.mockReset();
+  currentInstrumentQuote.mockReset();
+  refreshFX.mockReset();
+  refreshInstrument.mockReset();
   bootstrap.mockReset();
   bootstrap.mockResolvedValue({
     household: { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
@@ -91,11 +126,20 @@ beforeEach(() => {
     groups: [],
   });
   startingPointDraft.mockResolvedValue([]);
+  listActivities.mockResolvedValue([]);
+  listActivityPage.mockImplementation(async (...args: unknown[]) => ({ activities: await listActivities(...args) }));
   listAccounts.mockResolvedValue([
     { account: { id: "acc-1", name: "Checking", trackingMode: "balance" }, ownership: [], latestValue: null },
   ]);
   listInstruments.mockResolvedValue([]);
   holdingsByAccounts.mockResolvedValue({});
+  settingsLoad.mockResolvedValue({ timezone: "system", fx_provider: "frankfurter" });
+  listFXPreferences.mockResolvedValue([]);
+  currentFXQuote.mockResolvedValue(null);
+  setFXPreference.mockResolvedValue({ currencyA: "EUR", currencyB: "USD", sourceKind: "provider" });
+  currentInstrumentQuote.mockResolvedValue(null);
+  refreshFX.mockResolvedValue({ items: [{ targetKey: "fx:EUR/USD", kind: "fx", status: "fetched" }], rateLimited: false });
+  refreshInstrument.mockResolvedValue({ items: [{ targetKey: "instrument:instrument-1", kind: "instrument", status: "fetched" }], rateLimited: false });
 });
 
 describe("HistoryPage", () => {
@@ -106,16 +150,17 @@ describe("HistoryPage", () => {
     expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
   });
 
-  it("starts history with the given timezone", async () => {
+  it("starts history with the resolved settings timezone", async () => {
     historyOrigin.mockResolvedValue(null);
     startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     renderPage();
     const timezoneInput = await screen.findByLabelText("Timezone");
-    await userEvent.clear(timezoneInput);
-    await userEvent.type(timezoneInput, "UTC");
-    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone("UTC") ?? "");
+    expect(timezoneInput).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    expect(timezoneInput).toHaveAttribute("readonly");
+    const resolvedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(resolvedTimezone) ?? "");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
-    expect(startHistory).toHaveBeenCalledWith("UTC");
+    expect(startHistory).toHaveBeenCalledWith(resolvedTimezone);
     expect(startHistoryWithCosts).not.toHaveBeenCalled();
   });
 
@@ -127,12 +172,12 @@ describe("HistoryPage", () => {
     startHistoryWithCosts.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     renderPage();
     const timezoneInput = await screen.findByLabelText("Timezone");
-    await userEvent.clear(timezoneInput);
-    await userEvent.type(timezoneInput, "UTC");
+    expect(timezoneInput).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    expect(timezoneInput).toHaveAttribute("readonly");
     const costInput = await screen.findByLabelText(/Vanguard S&P 500 ETF/);
     await userEvent.type(costInput, "430.25");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
-    expect(startHistoryWithCosts).toHaveBeenCalledWith("UTC", { h1: "430.25" });
+    expect(startHistoryWithCosts).toHaveBeenCalledWith(Intl.DateTimeFormat().resolvedOptions().timeZone, { h1: "430.25" });
     expect(startHistory).not.toHaveBeenCalled();
   });
 
@@ -209,7 +254,7 @@ describe("HistoryPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
     await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
-    await within(form).findByRole("option", { name: "NVIDIA" });
+    await within(form).findByRole("option", { name: /NVIDIA/ });
     await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
     await userEvent.selectOptions(within(form).getByLabelText("Instrument"), "instrument-1");
     await userEvent.type(within(form).getByLabelText("Quantity"), "10");
@@ -227,6 +272,79 @@ describe("HistoryPage", () => {
         feeCurrency: "EUR",
       }),
     );
+  });
+
+  it("defaults trade gross from the latest unit price while keeping it editable", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockResolvedValue([{ id: "instrument-1", name: "NVIDIA", quoteCurrency: "EUR", quoteSource: "manual" }]);
+    listAccounts.mockResolvedValue([{ account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings", defaultCurrency: "CNY" }, ownership: [], latestValue: null }]);
+    holdingsByAccounts.mockResolvedValue({ "brokerage-1": [] });
+    currentInstrumentQuote.mockResolvedValue({ id: "quote-1", instrumentId: "instrument-1", unitPrice: "123.456", currency: "EUR", quotedAt: "2026-08-23T00:00:00Z" });
+    previewChange.mockResolvedValue({ activity: { id: "trade-1", kind: "buy", effects: [] }, effects: [], resulting: [] });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
+    await userEvent.selectOptions(within(form).getByLabelText("Instrument"), "instrument-1");
+    await userEvent.type(within(form).getByLabelText("Quantity"), "10");
+
+    await waitFor(() => expect(within(form).getByLabelText("Gross total")).toHaveValue("1234.56"));
+    expect(within(form).getByLabelText("Gross total")).not.toHaveAttribute("disabled");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ gross: "1234.56", grossCurrency: "EUR" }));
+  });
+
+  it("preserves a manually overridden trade gross when quantity changes", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockResolvedValue([{ id: "instrument-1", name: "NVIDIA", quoteCurrency: "EUR", quoteSource: "manual" }]);
+    listAccounts.mockResolvedValue([{ account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings", defaultCurrency: "CNY" }, ownership: [], latestValue: null }]);
+    holdingsByAccounts.mockResolvedValue({ "brokerage-1": [] });
+    currentInstrumentQuote.mockResolvedValue({ id: "quote-1", instrumentId: "instrument-1", unitPrice: "123.456", currency: "EUR", quotedAt: "2026-08-23T00:00:00Z" });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
+    await userEvent.selectOptions(within(form).getByLabelText("Instrument"), "instrument-1");
+    await userEvent.type(within(form).getByLabelText("Quantity"), "10");
+    await waitFor(() => expect(within(form).getByLabelText("Gross total")).toHaveValue("1234.56"));
+
+    const gross = within(form).getByLabelText("Gross total");
+    const quantity = within(form).getByLabelText("Quantity");
+    await userEvent.clear(gross);
+    await userEvent.type(gross, "999");
+    await userEvent.clear(quantity);
+    await userEvent.type(quantity, "11");
+
+    expect(gross).toHaveValue("999");
+    await userEvent.clear(gross);
+    await userEvent.clear(quantity);
+    await userEvent.type(quantity, "12");
+    await waitFor(() => expect(gross).toHaveValue("1481.47"));
+  });
+
+  it("updates a new direct FX pair after saving its provider preference", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listAccounts.mockResolvedValue([{ account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings", defaultCurrency: "CNY" }, ownership: [], latestValue: null }]);
+    holdingsByAccounts.mockResolvedValue({ "brokerage-1": [] });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeFXConversion);
+    await userEvent.selectOptions(within(form).getByLabelText("Account"), "brokerage-1");
+    const currencies = within(form).getAllByLabelText("Currency");
+    await userEvent.selectOptions(currencies[0], "USD");
+    await userEvent.selectOptions(currencies[1], "SGD");
+
+    const update = await within(form).findByRole("button", { name: "Update" });
+    await userEvent.click(update);
+    await waitFor(() => expect(setFXPreference).toHaveBeenCalledWith("USD", "SGD", "provider"));
+    await waitFor(() => expect(refreshFX).toHaveBeenCalledWith("USD", "SGD"));
+    expect(currentFXQuote).not.toHaveBeenCalledWith("USD", "USD");
   });
 
   it("lists activities as a plain-language sentence and undoes one after confirmation", async () => {
@@ -282,6 +400,7 @@ describe("HistoryPage", () => {
     // (which inverts the original Activity first), never plain
     // PreviewChange (which would double-count it).
     expect(previewFixChange).toHaveBeenCalledWith("a1", expect.objectContaining({ kind: "money_added", accountId: "acc-1", amount: "1200" }));
+    expect(previewFixChange.mock.calls[0][1]).toEqual(expect.objectContaining({ effectiveAt: "", effectiveLocalDate: "", effectiveLocalTime: "" }));
     expect(previewChange).not.toHaveBeenCalled();
 
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));

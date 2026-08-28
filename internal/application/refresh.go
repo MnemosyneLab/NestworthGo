@@ -69,9 +69,10 @@ func (s *Service) RefreshInstrument(ctx context.Context, id domain.InstrumentID)
 	return RefreshResult{Items: []RefreshTargetResult{{TargetKey: instrumentTargetKey(id), Kind: RefreshInstrumentTarget, Status: RefreshSkipped, ErrorCode: domain.ErrNotFound}}}, nil
 }
 
-// RefreshFX refreshes a required pair in the native-to-Household-base
-// orientation. Either input orientation is accepted, but the provider always
-// receives the non-base currency first and the Household base second.
+// RefreshFX refreshes one selected provider-backed pair directly. Either
+// input orientation is accepted; the canonical pair is used for preference
+// lookup and result identity, while the provider receives the requested
+// orientation. The pair does not need to include the Household base currency.
 func (s *Service) RefreshFX(ctx context.Context, currencyA, currencyB string) (RefreshResult, error) {
 	a, err := domain.ParseSupportedCurrency(currencyA)
 	if err != nil {
@@ -81,18 +82,34 @@ func (s *Service) RefreshFX(ctx context.Context, currencyA, currencyB string) (R
 	if err != nil {
 		return refreshInputFailure(fxTargetKeyFromStrings(currencyA, currencyB), RefreshFXTarget, err), nil
 	}
+	normalizedA, normalizedB, err := domain.NormalizeFXPair(a, b)
+	if err != nil {
+		return refreshInputFailure(fxTargetKeyFromStrings(currencyA, currencyB), RefreshFXTarget, err), nil
+	}
+	key := fxPairKey(normalizedA, normalizedB)
 	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return RefreshResult{}, err
 	}
-	targets := refreshTargetsForSnapshot(snapshot)
-	key := fxPairKey(a, b)
-	for _, target := range targets {
-		if target.kind == RefreshFXTarget && target.key == "fx:"+key {
-			return s.refreshTargets(ctx, []refreshTarget{target}), nil
-		}
+	if snapshot.Household == nil {
+		return RefreshResult{Items: []RefreshTargetResult{{TargetKey: "fx:" + key, Kind: RefreshFXTarget, Status: RefreshSkipped, ErrorCode: domain.ErrUnavailable}}}, nil
 	}
-	return RefreshResult{Items: []RefreshTargetResult{{TargetKey: "fx:" + key, Kind: RefreshFXTarget, Status: RefreshSkipped, ErrorCode: domain.ErrNotFound}}}, nil
+	preferenceFound := false
+	providerPreference := false
+	for _, preference := range snapshot.FXPreferences {
+		if fxPairKey(preference.CurrencyA, preference.CurrencyB) != key {
+			continue
+		}
+		preferenceFound = true
+		providerPreference = preference.SourceKind == domain.QuoteSourceProvider
+		break
+	}
+	target := refreshTarget{key: "fx:" + key, kind: RefreshFXTarget, baseCurrency: a, quoteCurrency: b, householdID: snapshot.Household.ID}
+	if !preferenceFound || !providerPreference {
+		target.skip = true
+		target.skipCode = domain.ErrUnavailable
+	}
+	return s.refreshTargets(ctx, []refreshTarget{target}), nil
 }
 
 // RefreshAll derives a deterministic set from the one local snapshot. It
@@ -103,7 +120,9 @@ func (s *Service) RefreshAll(ctx context.Context) (RefreshResult, error) {
 	if err != nil {
 		return RefreshResult{}, err
 	}
-	return s.refreshTargets(ctx, refreshTargetsForSnapshot(snapshot)), nil
+	targets := refreshTargetsForSnapshot(snapshot)
+	targets = append(targets, extraFXRefreshTargetsForSnapshot(snapshot)...)
+	return s.refreshTargets(ctx, targets), nil
 }
 
 // RefreshRequiredFX refreshes only the FX targets required by the current
@@ -336,6 +355,45 @@ func refreshTargetsForSnapshot(snapshot domain.PortfolioSnapshot) []refreshTarge
 	}
 	sort.Slice(targets, func(i, j int) bool { return targets[i].key < targets[j].key })
 	return targets
+}
+
+// extraFXRefreshTargetsForSnapshot adds provider-backed preferences that are
+// not currently needed to value an account or holding. Required valuation FX
+// targets remain in the first group returned by refreshTargetsForSnapshot, so
+// a provider rate limit on an optional pair can never prevent a required pair
+// from being attempted.
+func extraFXRefreshTargetsForSnapshot(snapshot domain.PortfolioSnapshot) []refreshTarget {
+	if snapshot.Household == nil {
+		return []refreshTarget{}
+	}
+	required := make(map[string]struct{})
+	for _, target := range refreshTargetsForSnapshot(snapshot) {
+		if target.kind == RefreshFXTarget {
+			required[target.key] = struct{}{}
+		}
+	}
+	extras := make([]refreshTarget, 0)
+	seen := make(map[string]struct{}, len(required))
+	for key := range required {
+		seen[key] = struct{}{}
+	}
+	for _, preference := range snapshot.FXPreferences {
+		if preference.SourceKind != domain.QuoteSourceProvider {
+			continue
+		}
+		a, b, err := domain.NormalizeFXPair(preference.CurrencyA, preference.CurrencyB)
+		if err != nil {
+			continue
+		}
+		key := "fx:" + fxPairKey(a, b)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		extras = append(extras, refreshTarget{key: key, kind: RefreshFXTarget, baseCurrency: a, quoteCurrency: b, householdID: snapshot.Household.ID})
+	}
+	sort.Slice(extras, func(i, j int) bool { return extras[i].key < extras[j].key })
+	return extras
 }
 
 func instrumentRefreshTarget(instrument domain.Instrument) refreshTarget {

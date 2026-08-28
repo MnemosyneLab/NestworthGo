@@ -3,11 +3,13 @@ import { useOverview } from "@/queries/portfolio";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
 import { useHistoryOrigin, useListActivities } from "@/queries/history";
+import { useSettings } from "@/queries/settings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatAmount, formatPercent } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
+import { formatTimestamp } from "@/lib/time";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { activitySentence } from "@/features/history/activitySentence";
@@ -66,8 +68,8 @@ function missingItemLabel(
   return accountNames.get(item.accountId) || t("overview.unknownAccount");
 }
 
-function formatUpdatedAt(timestamp: number, language: string): string {
-  return new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(new Date(timestamp));
+function formatUpdatedAt(timestamp: number, language: string, timezone?: string): string {
+  return formatTimestamp(timestamp, timezone, language);
 }
 
 export function OverviewPage({
@@ -84,6 +86,7 @@ export function OverviewPage({
   onOpenInvestments?: () => void;
 } = {}) {
   const { t, i18n } = useTranslation();
+  const settings = useSettings();
   const overview = useOverview();
   const origin = useHistoryOrigin();
   const activities = useListActivities(5);
@@ -108,7 +111,7 @@ export function OverviewPage({
   const currency = data.currency || "USD";
   const missing = data.missingInputs ?? [];
   const updatedLabel =
-    overview.dataUpdatedAt > 0 ? t("overview.updatedAt", { time: formatUpdatedAt(overview.dataUpdatedAt, i18n.language) }) : undefined;
+    overview.dataUpdatedAt > 0 ? t("overview.updatedAt", { time: formatUpdatedAt(overview.dataUpdatedAt, i18n.language, settings.data?.timezone) }) : undefined;
   const healthBadge = data.complete ? (
     <Badge variant="success">{t("overview.healthy")}</Badge>
   ) : (

@@ -52,3 +52,14 @@ export function useSupportedCurrencies() {
     staleTime: Infinity,
   });
 }
+
+export function useFXProviders() {
+  return useQuery({
+    queryKey: queryKeys.settings.fxProviders,
+    queryFn: () => {
+      const service = SettingsService as typeof SettingsService & { FXProviders?: () => Promise<string[]> };
+      return callService(() => service.FXProviders?.() ?? Promise.resolve(["frankfurter"]));
+    },
+    staleTime: Infinity,
+  });
+}

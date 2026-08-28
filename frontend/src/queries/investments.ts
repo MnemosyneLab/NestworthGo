@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAccounts } from "@/queries/accounts";
 import { Service as InstrumentService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument";
 import type { InstrumentRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument/models";
 import { Service as HoldingService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding";
@@ -63,19 +64,26 @@ export function useCreateHolding() {
  * binding, since all three are already loaded elsewhere in the app.
  */
 export function useAllHoldingsFlat(accountIds: string[]) {
+  const accounts = useAccounts();
   const holdingsByAccount = useHoldingsByAccounts(accountIds);
   const instruments = useInstruments();
   const instrumentNameById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const accountNameById = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
   const flat = Object.entries(holdingsByAccount.data ?? {}).flatMap(([accId, holdings]) =>
     (holdings ?? [])
       .filter((holding) => !holding.archivedAt)
-      .map((holding) => ({ ...holding, accountId: accId, instrumentName: instrumentNameById.get(holding.instrumentId) })),
+      .map((holding) => ({
+        ...holding,
+        accountId: accId,
+        accountName: accountNameById.get(accId),
+        instrumentName: instrumentNameById.get(holding.instrumentId),
+      })),
   );
   return {
     data: flat,
-    isLoading: holdingsByAccount.isLoading || instruments.isLoading,
-    isError: holdingsByAccount.isError || instruments.isError,
-    refetch: () => Promise.all([holdingsByAccount.refetch(), instruments.refetch()]),
+    isLoading: accounts.isLoading || holdingsByAccount.isLoading || instruments.isLoading,
+    isError: accounts.isError || holdingsByAccount.isError || instruments.isError,
+    refetch: () => Promise.all([accounts.refetch(), holdingsByAccount.refetch(), instruments.refetch()]),
   };
 }
 
@@ -91,7 +99,7 @@ export function useCurrentFXQuote(currencyA: string, currencyB: string) {
   return useQuery({
     queryKey: queryKeys.quote.fx.current(currencyA, currencyB),
     queryFn: () => callService(() => QuoteService.CurrentFXQuote(currencyA, currencyB)),
-    enabled: Boolean(currencyA) && Boolean(currencyB),
+    enabled: Boolean(currencyA) && Boolean(currencyB) && currencyA !== currencyB,
   });
 }
 

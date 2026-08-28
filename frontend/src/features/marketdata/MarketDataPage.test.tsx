@@ -109,7 +109,7 @@ describe("MarketDataPage", () => {
     expect(savedData).toHaveTextContent("1 CNY = 0.19 SGD");
   });
 
-  it("configures Frankfurter for an FX pair without a source and refreshes it", async () => {
+  it("configures a provider for an FX pair without a source and refreshes it", async () => {
     overview.mockResolvedValue({ missingInputs: [{ kind: "fx_rate", baseCurrency: "CNY", quoteCurrency: "SGD" }] });
     setFXPreference.mockResolvedValue({
       householdId: "h1",
@@ -122,7 +122,7 @@ describe("MarketDataPage", () => {
     refreshRequiredFX.mockResolvedValue({ items: [{ targetKey: "fx:CNY/SGD", kind: "fx", status: "fetched" }], rateLimited: false });
 
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Use Frankfurter" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Use provider" }));
 
     expect(setFXPreference).toHaveBeenCalledWith("CNY", "SGD", "provider");
     expect(await screen.findByTestId("refresh-results")).toHaveTextContent("CNY/SGD");

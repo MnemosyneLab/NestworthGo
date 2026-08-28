@@ -1,6 +1,7 @@
 package history
 
 import (
+	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -78,12 +79,19 @@ type ChangeCommandRequest struct {
 	InterestOrFee         string `json:"interestOrFee,omitempty"`
 	InterestOrFeeCurrency string `json:"interestOrFeeCurrency,omitempty"`
 
-	Reason      string  `json:"reason,omitempty"`
-	EffectiveAt string  `json:"effectiveAt,omitempty"`
-	Note        *string `json:"note,omitempty"`
+	Reason      string `json:"reason,omitempty"`
+	EffectiveAt string `json:"effectiveAt,omitempty"`
+	// EffectiveLocalDate and EffectiveLocalTime are the wall-clock fields used
+	// by the record form. The server resolves them in the immutable History
+	// Origin timezone; EffectiveAt remains available for older callers and
+	// machine-generated RFC3339 commands.
+	EffectiveLocalDate string  `json:"effectiveLocalDate,omitempty"`
+	EffectiveLocalTime string  `json:"effectiveLocalTime,omitempty"`
+	Note               *string `json:"note,omitempty"`
 }
 
 func parseTimeOrZero(value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
 	if value == "" {
 		return time.Time{}, nil
 	}
@@ -92,6 +100,19 @@ func parseTimeOrZero(value string) (time.Time, error) {
 		return time.Time{}, &domain.Error{Code: domain.ErrValidation, Field: "effectiveAt", Message: "must be an RFC 3339 timestamp"}
 	}
 	return parsed, nil
+}
+
+func (r ChangeCommandRequest) effectiveAt(originTimezone string) (time.Time, error) {
+	date := strings.TrimSpace(r.EffectiveLocalDate)
+	clock := strings.TrimSpace(r.EffectiveLocalTime)
+	switch {
+	case date != "" && clock != "":
+		return domain.ResolveLocalDateTime(date, clock, originTimezone)
+	case date != "" || clock != "":
+		return time.Time{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveLocalDateTime", Message: "local date and time must be provided together"}
+	default:
+		return parseTimeOrZero(r.EffectiveAt)
+	}
 }
 
 func parseMoneyField(amount, currency string) (domain.Money, error) {
@@ -117,8 +138,12 @@ func parseOptionalMoneyField(amount, currency string) (*domain.Money, error) {
 // switches on. householdID comes from the caller's own Bootstrap/context,
 // never from client-submitted input, so a malicious or stale request
 // cannot target a different Household.
-func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID) (any, error) {
-	effectiveAt, err := parseTimeOrZero(r.EffectiveAt)
+func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID, originTimezones ...string) (any, error) {
+	originTimezone := ""
+	if len(originTimezones) > 0 {
+		originTimezone = originTimezones[0]
+	}
+	effectiveAt, err := r.effectiveAt(originTimezone)
 	if err != nil {
 		return nil, err
 	}

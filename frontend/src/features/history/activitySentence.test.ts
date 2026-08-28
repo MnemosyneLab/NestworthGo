@@ -6,7 +6,10 @@ const catalog: Record<string, string> = {
   "history.sentence.added": "Added {{amount}} to {{account}}",
   "history.sentence.transferred": "Transferred {{amount}} from {{from}} to {{to}}",
   "history.sentence.bought": "Bought {{quantity}} {{instrument}} for {{amount}}",
+  "history.sentence.converted": "Converted {{sold}} to {{bought}} in {{account}}",
+  "history.sentence.paidDebt": "Paid {{amount}} to {{account}}",
   "history.sentence.reversal": "Reversed a previous change",
+  "history.sentence.withFee": "{{sentence}} (Fee {{fee}})",
   "history.sentence.withReason": "{{sentence}} ({{reason}})",
   "history.reason.contribution": "Contribution",
   "history.unknownAccount": "an account",
@@ -61,6 +64,30 @@ describe("activitySentence", () => {
     } as unknown as ActivityDTO;
 
     expect(activitySentence(t, activity, accounts, instruments)).toBe("Bought 10 NVIDIA for $1,500.00");
+  });
+
+  it("includes trade and FX fees in the sentence", () => {
+    const trade = {
+      kind: "buy",
+      tradeDetail: {
+        side: "buy",
+        instrumentId: "i1",
+        quantity: "10",
+        gross: { amount: "1500", currency: "USD" },
+        fee: { amount: "5", currency: "USD" },
+      },
+    } as unknown as ActivityDTO;
+    expect(activitySentence(t, trade, accounts, instruments)).toBe("Bought 10 NVIDIA for $1,500.00 (Fee $5.00)");
+
+    const fx = {
+      kind: "fx_conversion",
+      effects: [
+        { role: "transfer_from", accountId: "acc-1", money: { amount: "100", currency: "USD" } },
+        { role: "transfer_to", accountId: "acc-1", money: { amount: "90", currency: "EUR" } },
+        { role: "fee", accountId: "acc-1", money: { amount: "1", currency: "USD" } },
+      ],
+    } as unknown as ActivityDTO;
+    expect(activitySentence(t, fx, accounts, instruments)).toBe("Converted $100.00 to €90.00 in Checking (Fee $1.00)");
   });
 
   it("describes a reversal without requiring effect data", () => {

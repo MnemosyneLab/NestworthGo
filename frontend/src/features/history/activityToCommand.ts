@@ -74,7 +74,7 @@ export function activityToInitialCommand(activity: ActivityDTO): ChangeCommandRe
         sold: from?.money?.amount ?? "",
         soldCurrency: from?.money?.currency ?? "USD",
         bought: to?.money?.amount ?? "",
-        boughtCurrency: to?.money?.currency ?? "USD",
+        boughtCurrency: to?.money?.currency ?? "",
         fee: fee?.money?.amount ?? "",
         feeCurrency: fee?.money?.currency ?? "",
         note,
@@ -167,7 +167,7 @@ export function emptyChangeRequest(kind: ChangeCommandKind, currency: string): C
     case ChangeCommandKind.ChangeCashTransfer:
       return { ...request, sentCurrency: currency, receivedCurrency: currency };
     case ChangeCommandKind.ChangeFXConversion:
-      return { ...request, soldCurrency: currency, boughtCurrency: currency, feeCurrency: currency };
+      return { ...request, soldCurrency: currency, boughtCurrency: "", feeCurrency: currency };
     case ChangeCommandKind.ChangeTrade:
       return { ...request, side: "buy", grossCurrency: currency, feeCurrency: currency };
     case ChangeCommandKind.ChangeDebtDraw:

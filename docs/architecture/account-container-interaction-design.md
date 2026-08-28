@@ -1,241 +1,331 @@
-# Account 容器交互契约
+# Account Container Interaction Contract
 
-## 1. 文档状态与权威边界
+## 1. Document status and authority
 
-- 状态：Implemented / current contract
-- 配套领域契约：[account-container-and-position-model-design.md](account-container-and-position-model-design.md)
-- 适用基线：Nestworth-go `0.2.1` / schema v7 / 当前 Wails 前端
-- 数据策略：这是未发布版本的 breaking cutover。只支持全新的 schema v7 数据库；不设计旧数据、旧交互或旧页面兼容层。
+- Status: Implemented / current contract
+- Companion domain contract: [account-container-and-position-model-design.md](account-container-and-position-model-design.md)
+- Baseline: Nestworth-go `0.2.1` / schema v7 / current Wails frontend
+- Data policy: this is a breaking cutover for an unreleased version. Only a
+  fresh schema v7 database is supported; there is no legacy-data, old
+  interaction, or old-page compatibility layer.
 
-本文冻结 Account 容器模型在桌面端的创建、查看和操作方式。三元组合法性、分类、inclusion、tracking 不可变等规则仍以领域契约为准；本文不重新定义领域模型。
+This document freezes how the Account container model is created, viewed, and
+operated in the desktop app. Legal combinations, classification, inclusion,
+and tracking immutability still come from the domain contract. This document
+does not redefine the domain model.
 
-产品原则：
+Product principle:
 
-> 创建时让用户描述「这是什么现实账户、想记录多细」；详情页展示「这个账户里面有什么」；Overview 再按底层资产重新聚合。
+> At create, let the user describe "what real-world account this is and how
+> detailed the record should be". The detail page shows "what is inside this
+> account". Overview then re-aggregates by underlying asset.
 
-Asset Type 与 Account Type 是两套视图，不能混在一起。不引入 SubAccount；用户看到的始终是一个现实 Account 及其内部现金和持仓。
+Asset Type and Account Type are two views. Do not mix them. Do not introduce
+SubAccount. The user always sees one real-world Account and the cash and
+holdings inside it.
 
-## 2. 最终决策摘要
+## 2. Final decision summary
 
-1. Account 是主导航对象；Accounts 列表点击后进入 Account 详情，而不是直接打开元数据编辑。
-2. 创建流程先选 Institution，再选现实账户类型。普通用户不直接选择 `balance_sheet_role` 或内部 tracking 枚举。
-3. 银行账户和数字钱包询问「只记录总余额」还是「分别记录现金和持仓」；券商、投资账户和加密交易所默认记录现金和持仓。
-4. `tracking_mode=holdings` 的 Account 统一显示 Cash + Investments。银行综合账户与券商账户使用同一套详情结构。
-5. `tracking_mode=balance` 和 `manual_value` 的 Account 使用轻量 Simple 详情，只显示当前余额或估值。
-6. Account 详情必须提供真正的 Buy / Sell 主路径。「记录已有持仓」是另一项次要操作，不能冒充买入，也不会扣减现金。
-7. Composite Account 必须支持按币种记录现金。Account 默认币种是默认输入和展示上下文，不是该账户现金的唯一允许币种。
-8. History 尚未开始时，允许录入期初现金、期初持仓和期初估值；交易类动作先明确启动 History，再返回原操作继续。
-9. Overview 默认按底层 Asset Type 展示；另设 By institution 与 By account type，标题必须写清聚合维度。
-10. Portfolio 是独立页面，只包含整户 `include_in_portfolio=true` 的资产账户；Composite Account 的现金和持仓会整户进入。
-11. 金额、市值、完整性和分类由后端 read model 提供。前端只组合和展示，不重算财务权威值。
-12. 全家持仓表可以保留为「所有持仓索引」，但不再承担 Account 详情或 Portfolio 的职责。
+1. Account is the primary navigation object. Clicking an Accounts-list row
+   opens Account detail, not metadata edit.
+2. Create chooses Institution first, then the real-world account type. Ordinary
+   users do not pick `balance_sheet_role` or internal tracking enums directly.
+3. Bank accounts and digital wallets ask whether to record the account total
+   only or cash and holdings separately. Brokerages, investment accounts, and
+   crypto exchanges default to cash and holdings.
+4. Accounts with `tracking_mode=holdings` all show Cash + Investments. A mixed
+   bank account and a brokerage use the same detail structure.
+5. Accounts with `tracking_mode=balance` or `manual_value` use a light Simple
+   detail that shows only the current balance or valuation.
+6. Account detail must provide a real Buy / Sell primary path. "Record
+   existing position" is a separate secondary action. It must not pose as a
+   buy and must not reduce cash.
+7. A Composite Account must record cash by currency. The Account default
+   currency is the default input and display context, not the only allowed
+   cash currency.
+8. Before History has started, opening cash, opening holdings, and opening
+   valuations may be entered. Trade-like actions first start History
+   explicitly, then return to the original action.
+9. Overview defaults to underlying Asset Type, with By institution and By
+   account type as additional views. Titles must name the aggregation
+   dimension.
+10. Portfolio is a separate page. It contains only whole-account
+    `include_in_portfolio=true` asset accounts. Cash and holdings of a
+    Composite Account enter together.
+11. Amounts, market values, completeness, and classification come from backend
+    read models. The frontend only composes and displays them; it does not
+    recompute financial authority.
+12. A household-wide holdings table may remain as an "all holdings index", but
+    it no longer owns Account detail or Portfolio responsibilities.
 
-## 3. 当前实现与边界
+## 3. Current implementation and boundaries
 
-当前 `0.2.1` 实现已经接入 Account 容器交互闭环：
+The current `0.2.1` implementation already closes the Account-container
+interaction loop:
 
-- `AccountsPage` 按 Institution 分组；点击账户进入同一 workspace 的详情页，创建使用 Institution-first wizard。
-- 创建向导从 Catalog 读取合法组合，以现实账户类型和记录方式提问；Role、Tracking 和 inclusion 使用后端 Catalog 结果，所有人必须至少选择一名。
-- `AccountDetail` 对 Holdings Account 展示按币种的 Cash 和按 Instrument 的 Investments；Balance / Manual Value Account 展示单一当前值。金额、完整性和缺失原因来自后端 valuation DTO。
-- 详情页提供期初现金、现金校准、存取款、换汇、转账、买入、卖出、记录已有持仓和 Simple value 更新入口；需要 History 的动作会先显示 Start History。
-- Overview 提供 component 粒度的 `assetsByType` / `liabilitiesByType`，并保留账户级 `byAccountType`、`byInstitution` 和 `byGroup`；Portfolio 是独立导航页面并按整户 inclusion 工作。
-- 归档账户可以查看但以只读方式展示；账户设置、归档和恢复位于详情页，而不是列表行的隐式编辑操作。
+- `AccountsPage` groups by Institution. Clicking an account opens detail in the
+  same workspace. Create uses an Institution-first wizard.
+- The create wizard reads legal combinations from Catalog and asks in
+  real-world account-type and recording-method language. Role, Tracking, and
+  inclusion come from backend Catalog results. At least one owner must be
+  selected.
+- `AccountDetail` shows cash by currency and investments by Instrument for
+  Holdings Accounts, and a single current value for Balance / Manual Value
+  Accounts. Amounts, completeness, and missing reasons come from backend
+  valuation DTOs.
+- Detail provides opening cash, cash reconcile, deposit/withdraw, FX
+  conversion, transfer, buy, sell, record existing position, and Simple value
+  update. Actions that need History first show Start History.
+- Overview provides component-grained `assetsByType` / `liabilitiesByType`
+  and keeps account-level `byAccountType`, `byInstitution`, and `byGroup`.
+  Portfolio is a separate navigation page and works with whole-account
+  inclusion.
+- Archived accounts can be viewed read-only. Account settings, archive, and
+  restore live on the detail page, not as implicit row-edit actions.
 
-持续有效的边界如下：
+Standing boundaries:
 
-- Simple Account（`balance` / `manual_value`）的值必须使用 Account 默认币种；Holdings Account 的 Cash component 可以使用系统支持的其他币种。
-- `tracking_mode` 创建后不可变；本版本不支持 tracking transition 或 component-level inclusion。
-- Holdings Account 的 Portfolio inclusion 仍是 whole-account 语义；现金和全部持仓一起进入或一起排除。
-- 历史 Simple Account 的 bucket 名称来自当前 metadata，并标记为 `current-metadata-derived`。
+- Simple Account (`balance` / `manual_value`) values must use the Account
+  default currency. Cash components of a Holdings Account may use other
+  system-supported currencies.
+- `tracking_mode` is immutable after create. This version does not support
+  tracking transition or component-level inclusion.
+- Holdings Account Portfolio inclusion remains whole-account: cash and all
+  holdings enter or are excluded together.
+- Historical Simple Account bucket names come from current metadata and are
+  marked `current-metadata-derived`.
 
-## 4. 目标与非目标
+## 4. Goals and non-goals
 
-### 4.1 目标
+### 4.1 Goals
 
-- 用户能按现实账户心智创建银行、券商、数字钱包、房产、信用卡等账户。
-- 用户能在 Account 详情看到多币种现金、持仓数量和市值。
-- 用户能在综合银行账户中记录现金，并直接买入基金、理财、黄金等标的。
-- 用户能清楚区分期初头寸、余额校准、存取款、买卖和换汇。
-- Overview 与 Portfolio 的聚合维度清晰且与领域分类一致。
-- 所有不可变规则在创建时被说明；编辑页不提供注定失败的控件。
+- Users can create bank, brokerage, digital-wallet, property, credit-card, and
+  similar accounts using real-world account mental models.
+- Users can see multi-currency cash, holding quantities, and market values on
+  Account detail.
+- Users can record cash in a mixed bank account and buy funds,
+  wealth-management products, gold, and similar instruments there.
+- Users can distinguish opening positions, balance reconciliation, deposits and
+  withdrawals, trades, and FX conversion.
+- Overview and Portfolio aggregation dimensions are clear and match domain
+  classification.
+- Every immutable rule is explained at create. Edit screens do not offer
+  controls that are guaranteed to fail.
 
-### 4.2 明确不做
+### 4.2 Explicit non-goals
 
-- 不做 schema v6 迁移、旧数据转换或旧 UI 兼容。
-- 不引入 SubAccount。
-- 不支持创建后转换 tracking mode。
-- 不支持 component 级 inclusion；三个 inclusion 仍是整户开关。
-- 不新增 Activity kinds。
-- 不根据 Institution 名称猜测或强制 tracking。
-- 不把现金行扩展为「活期/定期」子账户模型。
+- No schema v6 migration, legacy-data conversion, or old UI compatibility.
+- Do not introduce SubAccount.
+- Do not support tracking-mode conversion after create.
+- Do not support component-level inclusion; the three inclusion switches stay
+  whole-account.
+- Do not add Activity kinds.
+- Do not guess or force tracking from Institution name.
+- Do not expand cash rows into a demand/time-deposit sub-account model.
 
-## 5. 产品语言
+## 5. Product language
 
-主路径使用左侧产品语言；写入仍使用右侧领域值。Catalog 的合法组合是创建和编辑的唯一选项来源。
+The primary path uses the product language on the left. Writes still use the
+domain values on the right. Catalog legal combinations are the only option
+source for create and edit.
 
-| 用户看到的 | 领域值 |
+| User sees | Domain value |
 | --- | --- |
-| 只记录账户总余额 | `tracking_mode=balance` |
-| 分别记录现金和持仓 | `tracking_mode=holdings` |
-| 只记录一个估值 | `tracking_mode=manual_value` |
-| 资产 / 负债（仅 Other 创建时显式选择） | `balance_sheet_role` |
-| 计入净资产 / 投资组合 / 流动资产 | 三个 Account inclusion 开关 |
+| Record the account total only | `tracking_mode=balance` |
+| Record cash and holdings separately | `tracking_mode=holdings` |
+| Record a single estimated value | `tracking_mode=manual_value` |
+| Asset / Liability (explicit only when creating Other) | `balance_sheet_role` |
+| Include in net worth / portfolio / liquid assets | The three Account inclusion switches |
 
-主路径禁止出现：`holdings`、`balance`、`manual_value`、`tracking mode`、`balance sheet role`、SubAccount、Investment-only。
+The primary path must not show: `holdings`, `balance`, `manual_value`,
+`tracking mode`, `balance sheet role`, SubAccount, or Investment-only.
 
-设置页可以使用更正式的词，但仍显示产品名：
+Settings may use more formal wording, but still show product names:
 
-| 设置项 | 示例 |
+| Setting | Example |
 | --- | --- |
-| Account type | 银行账户、券商账户、信用卡 |
+| Account type | Bank account, Brokerage, Credit card |
 | Tracking method | Detailed positions / Account total / Manual value |
-| 不可变提示 | This cannot currently be changed after account creation |
+| Immutable hint | This cannot currently be changed after account creation |
 
-## 6. 信息架构与导航
+## 6. Information architecture and navigation
 
 ```text
 Overview
-Accounts          现实账户列表与详情
-Portfolio         被纳入投资组合的资产账户
-History           资金与头寸变化
-Instruments       Household 级标的目录
+Accounts          Real-world account list and detail
+Portfolio         Asset accounts included in the portfolio
+History           Cash and position changes
+Instruments       Household-level instrument catalog
 Market data
 Settings
 ```
 
-- Accounts 是「钱在哪里、账户里有什么」的主入口。
-- Portfolio 是 `include_in_portfolio` 范围内的投资视图。
-- Instruments 是可复用标的目录，不代表标的已经被任何账户持有。
-- 全家持仓表如保留，应命名为「所有持仓索引」，作为跨账户查询工具，而不是 Portfolio 或 Account 的替代品。
+- Accounts is the primary entry for "where the money is and what is inside the
+  account".
+- Portfolio is the investment view within `include_in_portfolio`.
+- Instruments is a reusable instrument catalog. Presence there does not mean
+  any account already holds the instrument.
+- If a household-wide holdings table remains, name it "all holdings index". It
+  is a cross-account lookup tool, not a substitute for Portfolio or Account.
 
-## 7. 创建 Account
+## 7. Creating an Account
 
-创建使用分步向导，不再用一张表直接暴露三维领域字段。创建成功后，Composite 进入空的 Cash + Investments 详情；Simple 进入余额/估值详情。
+Create uses a stepped wizard instead of exposing the three domain fields on
+one form. After success, a Composite Account opens empty Cash + Investments
+detail; a Simple Account opens balance/valuation detail.
 
-### 7.1 流程
+### 7.1 Flow
 
 ```text
-1. Where is it held?              Institution（可选，可当场新建）
+1. Where is it held?              Institution (optional; can be created here)
 2. What kind of account is it?    Account type
-3. How would you like to track it? 仅在有两种常见记法时出现
-4. Account details                名称、默认币种、所有人、inclusion
+3. How would you like to track it? Shown only when two common recording methods exist
+4. Account details                Name, default currency, owners, inclusion
 5. Review and create
 ```
 
-不可变选择必须在 Review 中用自然语言回显，例如：
+Immutable choices must be echoed in natural language on Review, for example:
 
 ```text
-招商银行 · 银行账户
-分别记录现金和持仓
-创建后暂不能改为只记录总余额
+China Merchants Bank · Bank account
+Record cash and holdings separately
+After creation this cannot currently be changed to an account total
 ```
 
 ### 7.2 Institution
 
-- 第一步列出已有 Institution，并提供「没有对应机构」和「新建机构」。
-- Institution 保持可选。现金、房产、车辆、收藏品常常没有托管机构；银行、券商、信用卡应提示选择，但不强制。
-- Institution 不决定三元组。同一机构下可以同时有银行账户、信用卡和投资账户。
+- Step 1 lists existing Institutions and offers "No matching institution" and
+  "Add an institution".
+- Institution stays optional. Cash, property, vehicles, and collectibles often
+  have no custodian. Banks, brokerages, and credit cards should be prompted to
+  choose one, but it is not required.
+- Institution does not decide the triple. The same institution may hold a
+  bank account, a credit card, and an investment account.
 
-### 7.3 Account type、Role 与记录方式
+### 7.3 Account type, Role, and recording method
 
-主列表：
+Primary list:
 
 ```text
-银行账户
-券商账户
-投资账户
-加密交易所
-数字钱包
-房产
-车辆
-信用卡
-贷款
-其他
+Bank account
+Brokerage
+Investment account
+Crypto exchange
+Digital wallet
+Property
+Vehicle
+Credit card
+Loan
+Other
 ```
 
-「更多」中保留 Catalog 里同样合法但较少使用的类型：现金、养老金、保险、收藏品、应收款。前端不得硬编码一个缩水枚举；展示集合和合法组合来自 Catalog。
+"More account types" keeps equally legal but less common Catalog types: Cash
+on hand, Pension, Insurance policy, Collectible, Receivable. The frontend must
+not hard-code a reduced enum. The display set and legal combinations come from
+Catalog.
 
-除 `other` 外，Role 由 `DefaultBalanceSheetRole(type)` 自动写入。`other` 必须询问「这是资产还是负债」，再显示对应合法记录方式。
+Except for `other`, Role is written automatically by
+`DefaultBalanceSheetRole(type)`. `other` must ask "Is this an asset or a
+liability?" and then show the matching legal recording methods.
 
-| `account_type` | 主路径记录方式 | 创建时可选项 |
+| `account_type` | Primary-path recording | Options at create |
 | --- | --- | --- |
-| `cash_on_hand` | 只记录总余额 | 无 |
-| `bank_account` | 询问；默认只记录总余额 | 总余额 / 分别记录现金和持仓 |
-| `digital_wallet` | 同银行账户 | 总余额 / 分别记录现金和持仓 |
-| `brokerage` | 分别记录现金和持仓 | 高级：只记录一个总市值 |
-| `investment_account` | 分别记录现金和持仓 | 高级：只记录一个总市值 |
-| `crypto_exchange` | 分别记录现金和持仓 | 无 |
-| `pension` | 分别记录现金和持仓 | 高级：只记录一个总额 |
-| `insurance_policy` / `property` / `vehicle` / `collectible` | 只记录一个估值 | 无 |
-| `receivable` | 只记录总余额 | 高级：按估值记录 |
-| `credit_card` / `loan` | 只记录总余额 | 无 |
-| `other` + asset | 必须选择 | 总余额 / 现金和持仓 / 一个估值 |
-| `other` + liability | 只记录总余额 | 无 |
+| `cash_on_hand` | Record the account total only | None |
+| `bank_account` | Ask; default to account total only | Account total / cash and holdings separately |
+| `digital_wallet` | Same as bank account | Account total / cash and holdings separately |
+| `brokerage` | Record cash and holdings separately | Advanced: record a single market value |
+| `investment_account` | Record cash and holdings separately | Advanced: record a single market value |
+| `crypto_exchange` | Record cash and holdings separately | None |
+| `pension` | Record cash and holdings separately | Advanced: record a single total |
+| `insurance_policy` / `property` / `vehicle` / `collectible` | Record a single estimated value | None |
+| `receivable` | Record the account total only | Advanced: record by valuation |
+| `credit_card` / `loan` | Record the account total only | None |
+| `other` + asset | Must choose | Account total / cash and holdings / a single estimated value |
+| `other` + liability | Record the account total only | None |
 
-银行和数字钱包的提问：
-
-```text
-你希望怎样记录这个账户？
-
-○ 只记录账户总余额
-  适合普通存款或单一余额账户
-
-○ 分别记录现金、基金、理财、黄金等
-  适合综合账户。创建后不能改成只记录总额。
-```
-
-券商、投资账户和加密交易所直接进入详细记录方式，不要求用户理解 tracking。
-
-### 7.4 Details 与 Inclusion
-
-主要字段：名称、默认币种、所有人。Institution 回显且可返回修改。分组、图标、图片及三个 include 放在「更多设置」。
-
-所有人必须由用户明确勾选，至少一名；默认不预选任何人。未勾选时 Continue / 添加账户为 disabled，不可点击。创建提交路径也必须拒绝空所有权；仅禁用按钮不够。不得把空列表默认成「全体家庭成员、平均分配」。已勾选的多名所有人，比例留空仍可在已勾选的人之间平均分配；也可填写明确百分比（例如 70/30），总和必须为 100%。空所有人集合是禁用主按钮，不是 §14 的原位错误、也不是无响应的 Continue。
-
-Inclusion 初始值使用 `SuggestedInclusion`。Composite Account 勾选投资组合时必须显示整户说明：
+Bank and digital-wallet question:
 
 ```text
-计入投资组合
+How should this account be recorded?
 
-此账户内的全部现金和持仓都会进入投资组合，
-而不是只计算基金、理财或其他投资持仓。
+○ Record the account total only
+  Best for ordinary deposits or a single balance.
+
+○ Record cash, funds, wealth-management products, gold, and similar holdings separately
+  Best for mixed accounts. This cannot currently be changed to an account total after creation.
 ```
 
-Simple Account 可以在创建流程录入初始余额或估值。Composite Account 不录入一个虚构总额；创建后进入详情添加现金或期初持仓。
+Brokerages, investment accounts, and crypto exchanges enter detailed
+recording directly. Users are not required to understand tracking.
 
-## 8. Accounts 列表
+### 7.4 Details and Inclusion
 
-Accounts 页是现实账户入口，不是元数据编辑表。
+Primary fields: name, default currency, owners. Institution is echoed and can
+be changed by going back. Group, icon, image, and the three include switches
+live under "More settings".
 
-- 默认按 Institution 分组；没有机构的账户放在「未指定机构」。
-- 每行显示名称、Account type 产品名、家庭本位合计和数据完整性状态。
-- Account type chip 只表示账户类型，不能用 Cash / Stock 等底层资产类型冒充。
-- 点击进入详情；编辑、归档、图片等操作放在详情的 Account settings。
-- archived Account 默认不出现在活跃列表；查看归档项时详情为只读，除非先恢复。
-- 合计不完整时显示「部分估值」及未计价原因，不把缺失金额当作零。
+Owners must be selected explicitly, at least one. Nobody is preselected.
+Continue / Add account stay disabled until then. The create submit path must
+also reject empty ownership; disabling the button is not enough. Do not default
+an empty list to "all household members, equal shares". After several owners
+are selected, leaving shares blank may still split equally among the selected
+people, or the user may enter explicit percentages such as 70/30 that must sum
+to 100%. An empty owner set disables the primary button. It is not a §14
+inline error and not an unresponsive Continue.
 
-## 9. Account 详情
+Inclusion defaults use `SuggestedInclusion`. Checking Portfolio for a
+Composite Account must show the whole-account explanation:
 
-### 9.1 通用页头
+```text
+Include in portfolio
+
+Every cash balance and holding in this account will enter the portfolio,
+not only funds or other investments.
+```
+
+A Simple Account may enter an initial balance or valuation during create. A
+Composite Account does not enter a fictional total; after create it opens
+detail to add cash or opening holdings.
+
+## 8. Accounts list
+
+The Accounts page is the real-world account entry, not a metadata-edit table.
+
+- Default grouping is by Institution. Accounts with no institution go under
+  "No institution".
+- Each row shows name, Account type product name, household-base total, and
+  data-completeness status.
+- The Account type chip means account type only. It must not impersonate
+  underlying asset types such as Cash / Stock.
+- Clicking opens detail. Edit, archive, and image actions live in Account
+  settings on the detail page.
+- Archived Accounts are omitted from the active list by default. When an
+  archived item is opened, detail is read-only until it is restored.
+- Incomplete totals show "Partial valuation" and the missing-pricing reason.
+  Missing amounts are not treated as zero.
+
+## 9. Account detail
+
+### 9.1 Shared page header
 
 ```text
 MooMoo SG Brokerage                         128,420 CNY
 
-MooMoo SG · 券商账户
-计入净资产 · 计入投资组合
+MooMoo SG · Brokerage
+Included in net worth · Included in portfolio
 ```
 
-标题合计使用后端 Account valuation。页头还应容纳：
+The title total uses the backend Account valuation. The header also holds:
 
-- `asOf` 时间；
-- 完整 / 部分估值状态；
-- archived 只读状态；
-- Account settings 入口；
-- 整户 inclusion 提示。
+- `asOf` time;
+- complete / partial valuation status;
+- archived read-only status;
+- Account settings entry;
+- whole-account inclusion hint.
 
-### 9.2 Composite：Cash + Investments
+### 9.2 Composite: Cash + Investments
 
-所有 `tracking_mode=holdings` 的 Account 使用同一布局：
+Every Account with `tracking_mode=holdings` uses the same layout:
 
 ```text
 Cash
@@ -250,119 +340,153 @@ Investments
 ------------------------------------------------
 NVDA     Stock          20       3,648 USD
 QQQ      ETF            15       ...
-招银理财A Bank product   1       200,000 CNY
+CMB WM A Bank product   1       200,000 CNY
 
 [Buy investment]  [Record existing position]
 ```
 
-招商银行综合账户与券商使用同一套结构。差异只来自内部现金和 Instrument 类型，不来自另一套 Account 页面。
+A CMB mixed account and a brokerage use the same structure. Differences come
+only from internal cash and Instrument types, not from a second Account page.
 
-现金行按币种聚合；持仓行至少显示 Instrument、类型、数量、当前市值与估值状态。若当前报价缺失，显示数量和「缺少当前价格」，不显示推算的零市值。
+Cash rows aggregate by currency. Holding rows at least show Instrument, type,
+quantity, current market value, and valuation status. If the current quote is
+missing, show quantity and "Missing current price". Do not show a derived
+zero market value.
 
-空状态必须带下一步动作：
+Empty states must include the next action:
 
 ```text
-Cash          还没有现金余额       Add cash balance
-Investments   还没有持仓           Buy investment
+Cash          No cash balances yet       Add cash balance
+Investments   No holdings yet             Buy investment
 ```
 
-### 9.3 Cash 操作的语义
+### 9.3 Cash-action semantics
 
-不同动作不能都叫「Add cash」：
+These actions must not all be called "Add cash":
 
-| 用户动作 | 意义 | 现有命令/写入 |
+| User action | Meaning | Existing command / write |
 | --- | --- | --- |
-| Add cash balance / Reconcile balance | 把某币种当前余额校准到结果值 | `AppendAccountCashValue` |
-| Deposit | 外部资金进入账户，输入变化额 | `MoneyAdded` |
-| Withdraw | 资金离开账户，输入变化额 | `MoneyRemoved` |
-| Convert currency | 同账户或账户间换汇 | `FXConversion` |
-| Transfer | 两个账户间移动现金 | `CashTransfer` |
+| Add cash balance / Reconcile balance | Calibrate the current balance of one currency to a resulting value | `AppendAccountCashValue` |
+| Deposit | External funds enter the account; the user enters a change amount | `MoneyAdded` |
+| Withdraw | Funds leave the account; the user enters a change amount | `MoneyRemoved` |
+| Convert currency | FX conversion in the same account or between accounts | `FXConversion` |
+| Transfer | Move cash between two accounts | `CashTransfer` |
 
-「Add cash balance」表单先选币种，再输入该币种的结果余额。Composite 可选择任何支持币种，默认选 Account 默认币种。确认页需说明 History 已开始后会把差额记录为 reconciliation。
+The "Add cash balance" form chooses currency first, then the resulting
+balance in that currency. A Composite Account may choose any supported
+currency and defaults to the Account default currency. The confirm page must
+explain that after History has started the difference is recorded as a
+reconciliation.
 
-### 9.4 Buy / Sell 与「记录已有持仓」
+### 9.4 Buy / Sell versus "Record existing position"
 
-这两类操作必须分开：
+These two operations must stay separate:
 
-- **Buy investment / Sell** 是交易。它改变现金和持仓，走现有 `ChangeTrade`。
-- **Record existing position** 是录入期初或修正当前持仓数量，不扣现金。它走 `CreateHolding` / Position Adjustment。
+- **Buy investment / Sell** is a trade. It changes cash and holdings through the
+  existing `ChangeTrade`.
+- **Record existing position** records an opening quantity or corrects the
+  current holding quantity and does not reduce cash. It uses `CreateHolding`
+  / Position Adjustment.
 
-「记录已有持仓」是次要或高级入口，文案明确：
+"Record existing position" is a secondary or advanced entry. The copy is
+explicit:
 
 ```text
-记录账户中已经存在的持仓数量。
-这不会记录买入交易，也不会扣减现金。
+Record a quantity already in this account.
+This is not a buy and does not reduce cash.
 ```
 
-主路径不创建零数量占位 Holding：
+The primary path does not create zero-quantity placeholder Holdings:
 
-- Record existing position 要求数量大于零；
-- 用户首次 Buy 一个该账户尚未持有的 Instrument 时，应用层在同一事务内创建 Holding 并完成 Trade；
-- Instrument 可以从 Household 目录选择，也可以在 sheet 中创建最小必要信息；Instrument 不是 SubAccount。
+- Record existing position requires a quantity greater than zero;
+- when the user first Buys an Instrument the account does not yet hold, the
+  application layer creates the Holding and completes the Trade in the same
+  transaction;
+- an Instrument may be chosen from the Household catalog or created in the
+  sheet with the minimum required information; an Instrument is not a
+  SubAccount.
 
-因此「银行账户能买基金」的完整闭环是：创建银行综合账户 → 记录对应币种现金 → Buy investment → 选择/创建基金 → 输入数量与成交信息 → 完成交易并刷新现金、持仓和估值。
+The complete loop for "a bank account can buy a fund" is: create a mixed bank
+account → record cash in the matching currency → Buy investment → choose or
+create the fund → enter quantity and trade details → complete the trade and
+refresh cash, holdings, and valuation.
 
-### 9.5 History 尚未开始
+### 9.5 History has not started
 
-History 未开始时，详情允许录入期初状态：
+While History has not started, detail may record opening state:
 
-- 期初现金余额；
-- 已有持仓及数量；
-- Simple Account 的初始余额或估值。
+- opening cash balances;
+- existing holdings and quantities;
+- Simple Account initial balance or valuation.
 
-Deposit、Withdraw、Buy、Sell、Convert、Transfer 等事件型动作需要 History。用户触发这些动作时：
+Event-like actions such as Deposit, Withdraw, Buy, Sell, Convert, and
+Transfer need History. When the user triggers them:
 
-1. 显示为什么需要开始 History，以及将使用的起始日期；
-2. 打开现有 Start History 流程；
-3. 成功后返回原 Account 和原动作，保留安全的已填字段；
-4. 用户取消则不写入、不静默开始 History。
+1. Explain why History must start and which start date will be used;
+2. Open the existing Start History flow;
+3. After success, return to the original Account and original action, keeping
+   safe already-filled fields;
+4. Cancel writes nothing and does not silently start History.
 
-不得用「请先去 Settings 开启」把用户赶出当前任务。
+Do not send the user out of the current task with "please go to Settings
+first".
 
-### 9.6 Simple 详情
+### 9.6 Simple detail
 
-`balance` 与 `manual_value` 不显示 Cash / Investments：
+`balance` and `manual_value` do not show Cash / Investments:
 
 ```text
-自住房                                      5,000,000 CNY
+Primary home                                  5,000,000 CNY
 
-房产
-上次估值 5,000,000 CNY · 2026-08-27
+Property
+Last recorded value 5,000,000 CNY · 2026-08-27
 
 [Update value]
 ```
 
 ```text
-招商银行信用卡                                  8,420 CNY
+CMB credit card                                8,420 CNY
 
-信用卡 · 负债
-当前余额 8,420 CNY
+Credit card · Liability
+Current balance 8,420 CNY
 
 [Update balance]
 ```
 
-负债用绝对值显示，并用「负债」说明其净资产方向；除非全应用统一符号规则，不在详情标题单独引入负号。
+Liabilities are shown as absolute amounts, with "Liability" explaining the net
+worth direction. Do not introduce a minus sign in the detail title unless the
+whole app adopts a consistent sign rule.
 
-- History 未开始：写入初始 Account value。
-- History 已开始：余额型使用现有 Balance Adjustment；估值型使用 Manual Valuation / Value Update。
+- History not started: write the initial Account value.
+- History started: balance accounts use the existing Balance Adjustment;
+  valuation accounts use Manual Valuation / Value Update.
 
 ### 9.7 Account settings
 
-设置中：
+In settings:
 
-- 可改：名称、Account type（仅仍合法的兼容项）、Institution、分组、所有人、三个 inclusion、图标/图片；
-- 只读：Tracking method，并显示「创建后暂不能更改」；
-- 只读：Role；`other` 的 Role 也不允许创建后修改；
-- Account type 更新不重算 inclusion、不产生 Activity、不改变金额；
-- holdings Account 的 Portfolio inclusion 旁始终显示整户提示。
-- 所有人与创建向导同一闸门：必须至少勾选一名；Save 在未勾选时 disabled，更新提交路径同样拒绝空所有权。不得把空列表默认成全体家庭成员。已勾选多人时，比例留空仍可在已勾选者之间平分，或填写明确比例。
+- Editable: name, Account type (only still-legal compatible values),
+  Institution, group, owners, the three inclusion switches, icon/image;
+- Read-only: Tracking method, with "This cannot currently be changed after
+  account creation";
+- Read-only: Role; Role of `other` also cannot change after create;
+- Account type updates do not recompute inclusion, create Activities, or change
+  amounts;
+- Holdings Accounts always show the whole-account hint next to Portfolio
+  inclusion.
+- Owners use the same gate as the create wizard: at least one owner must be
+  selected. Save is disabled until then, and the update submit path also
+  rejects empty ownership. Do not default an empty list to all household
+  members. After several owners are selected, blank shares may still split
+  equally among the selected people, or explicit shares may be entered.
 
 ## 10. Overview
 
-Overview 继续以净资产、资产和负债为顶层合计。资产区的默认主图按底层资产展示：
+Overview still uses net worth, assets, and liabilities as top-level totals.
+The default primary asset chart is by underlying asset:
 
 ```text
-Asset allocation          assetsByType，component 粒度
+Asset allocation          assetsByType, component grain
 Cash
 Stocks
 ETFs
@@ -373,38 +497,47 @@ Precious metals
 Property
 ...
 
-By institution            byInstitution，Account 粒度
-招商银行
+By institution            byInstitution, Account grain
+China Merchants Bank
 MooMoo SG
 DBS
-未指定机构
+No institution
 
-By account type           byAccountType，Account 粒度
-银行账户
-券商账户
-房产
+By account type           byAccountType, Account grain
+Bank account
+Brokerage
+Property
 ...
 ```
 
-负债保持 `liabilitiesByType`，不并入 Asset allocation。
+Liabilities stay in `liabilitiesByType` and are not merged into Asset
+allocation.
 
-UI 必须解释维度差异：
+The UI must explain the dimension difference:
 
-> Asset allocation 按现金和标的类型汇总；By account type 按现实账户种类汇总。一个银行综合账户会同时出现在「银行账户」和多个底层资产行中。
+> Asset allocation groups cash and holdings by their underlying type. By
+> account type groups each real-world account as a whole. A mixed bank
+> account appears as a bank account and also in several underlying-asset rows.
 
-`byAccountType` 必须由后端加入 `OverviewResult`，而不是前端从 Account 列表重算。规则：
+`byAccountType` must be added to `OverviewResult` by the backend. The frontend
+must not recompute it from the Account list. Rules:
 
-- 只聚合 `include_in_net_worth=true` 且 role=asset 的 Account；
-- 按 Account 的当前 valued subtotal 整户归入 `account_type`，Composite 不拆分；
-- 使用与 Overview 顶层资产相同的 as-of、换算和 incomplete 语义；
-- 缺失估值不按零处理；
-- 百分比分母使用同一结果中的资产 valued subtotal。
+- Aggregate only Accounts with `include_in_net_worth=true` and role=asset;
+- Place the Account's current valued subtotal into `account_type` as a whole;
+  do not split Composite Accounts;
+- Use the same as-of, conversion, and incomplete semantics as top-level
+  Overview assets;
+- Missing valuations are not treated as zero;
+- Percentage denominators use the asset valued subtotal from the same result.
 
-By member / by group 可以保留为次要块，但不与 Asset allocation 抢主位。
+By member / by group may remain as secondary blocks, but they must not compete
+with Asset allocation for the primary position.
 
 ## 11. Portfolio
 
-Portfolio 是独立页面，直接使用现有 `PortfolioService.Portfolio`，只展示 `include_in_portfolio=true` 且 role=asset 的 Account。
+Portfolio is a separate page that uses the existing
+`PortfolioService.Portfolio` and shows only Accounts with
+`include_in_portfolio=true` and role=asset.
 
 ```text
 Portfolio                              320,000 CNY
@@ -421,135 +554,177 @@ MooMoo SG Brokerage                   180,000 CNY
 IBKR                                  140,000 CNY
 ```
 
-- 点击 Account 进入同一 Account 详情。
-- Composite Account 被纳入时，现金和全部持仓都会出现；页面和设置都重复整户说明。
-- 未纳入的 Account 不显示，也不进入分母。
-- 缺失报价或汇率时沿用后端 incomplete / excluded amount 语义，不把它们当作零。
+- Clicking an Account opens the same Account detail.
+- When a Composite Account is included, cash and all holdings appear. The page
+  and settings repeat the whole-account explanation.
+- Excluded Accounts are not shown and do not enter the denominator.
+- Missing quotes or FX rates keep backend incomplete / excluded-amount
+  semantics and are not treated as zero.
 
-## 12. 动作与现有领域命令映射
+## 12. Action mapping to existing domain commands
 
-| 详情入口 | 领域意图 | 约束 |
+| Detail entry | Domain intent | Constraint |
 | --- | --- | --- |
-| Add cash balance | `AppendAccountCashValue` | Composite 任意支持币种；输入结果余额 |
-| Deposit / Withdraw | `MoneyAdded` / `MoneyRemoved` | History 已开始；输入变化额 |
-| Convert | `FXConversion` | History 已开始 |
-| Transfer | `CashTransfer` | History 已开始 |
-| Buy / Sell | `ChangeTrade` | History 已开始；首次 Buy 原子创建 Holding |
-| Record existing position | `CreateHolding` / Position Adjustment | 不动现金；数量 > 0 |
-| Update Simple value | Account Value / Balance Adjustment / Manual Valuation | 使用 Account 默认币种 |
+| Add cash balance | `AppendAccountCashValue` | Composite: any supported currency; enter the resulting balance |
+| Deposit / Withdraw | `MoneyAdded` / `MoneyRemoved` | History has started; enter a change amount |
+| Convert | `FXConversion` | History has started |
+| Transfer | `CashTransfer` | History has started |
+| Buy / Sell | `ChangeTrade` | History has started; first Buy atomically creates the Holding |
+| Record existing position | `CreateHolding` / Position Adjustment | Does not move cash; quantity > 0 |
+| Update Simple value | Account Value / Balance Adjustment / Manual Valuation | Uses the Account default currency |
 
-不得新增 Activity kinds 来支撑这些界面。详情页只负责预填 Account 上下文并选择正确命令，不复制一套不同的 History 语义。
+Do not add Activity kinds to support these screens. Detail only pre-fills
+Account context and chooses the correct command. It does not copy a different
+History semantics.
 
-## 13. Read model 与 API 接缝
+## 13. Read-model and API seams
 
-### 13.1 前端可先组合的现有能力
+### 13.1 Existing capabilities the frontend can compose
 
-| 表面 | 权威来源 | 前端职责 |
+| Surface | Authority | Frontend responsibility |
 | --- | --- | --- |
-| 创建向导 | Catalog `accountCombinations` + `CreateAccount` | 展示现实语言，提交合法组合 |
-| Accounts 列表 | `ListAccounts` + Institution + Account valuations | 分组与导航 |
-| 详情合计/完整性 | `AccountValuation(s)` | 直接展示 |
-| 当前现金 | valuation 中的 cash components | 按币种展示 |
-| 持仓数量 | `HoldingsByAccounts` | 与 valuation component 按 `holdingId` 对齐 |
-| Instrument 元数据 | Instrument 列表/详情 | 显示名称、类型、报价币种 |
-| 当前价格 | 当前 quote read model | 有则展示；无则显示缺失 |
-| Portfolio | `PortfolioService.Portfolio` | 页面布局与跳转 |
+| Create wizard | Catalog `accountCombinations` + `CreateAccount` | Show real-world language and submit a legal combination |
+| Accounts list | `ListAccounts` + Institution + Account valuations | Grouping and navigation |
+| Detail total / completeness | `AccountValuation(s)` | Display directly |
+| Current cash | cash components in the valuation | Display by currency |
+| Holding quantity | `HoldingsByAccounts` | Align with valuation components by `holdingId` |
+| Instrument metadata | Instrument list/detail | Show name, type, quote currency |
+| Current price | current quote read model | Show when present; show missing otherwise |
+| Portfolio | `PortfolioService.Portfolio` | Page layout and navigation |
 
-`ListAccountCashValues` 是观察历史，不应由前端自行挑一条「最新记录」作为当前现金权威值。当前状态使用与 Account valuation 同一 as-of 的 cash components，避免历史排序、币种缺口和刷新时序产生两套真相。
+`ListAccountCashValues` is observation history. The frontend must not pick
+one "latest record" as the current-cash authority. Current state uses cash
+components at the same as-of as Account valuation, so history ordering,
+currency gaps, and refresh timing do not create two sources of truth.
 
-### 13.2 当前后端事实
+### 13.2 Current backend facts
 
-- Composite cash 的多币种校验由应用层和领域层共同保证，并覆盖 History 开始前后的写入路径。
-- `OverviewResult.ByAccountType` 由后端生成，与 Overview 其余结果共用换算、as-of 和 incomplete 规则。
-- Account 详情使用现有 Account、Holding、Instrument 和 valuation read models 组合展示，不新增独立的财务写入模型。
+- Composite cash multi-currency validation is shared by the application and
+  domain layers and covers write paths before and after History starts.
+- `OverviewResult.ByAccountType` is produced by the backend and shares
+  conversion, as-of, and incomplete rules with the rest of Overview.
+- Account detail composes existing Account, Holding, Instrument, and valuation
+  read models. It does not add a separate financial write model.
 
-### 13.3 前端禁止事项
+### 13.3 Frontend prohibitions
 
-- 不自己把数量乘报价生成权威市值；
-- 不自己做汇率换算或净资产加总；
-- 不把缺少报价、汇率或 component 的金额当作零；
-- 不从 append-only 观察记录推断当前余额；
-- 不复制 `IsValidAccountCombination`、分类或 SuggestedInclusion 规则；
-- 不在 Account type 更新后重算 inclusion；
-- 不使用浮点数进行金额计算。
+- Do not multiply quantity by quote to produce an authoritative market value;
+- Do not convert FX or sum net worth locally;
+- Do not treat missing quotes, FX rates, or components as zero;
+- Do not infer a current balance from append-only observation history;
+- Do not copy `IsValidAccountCombination`, classification, or
+  SuggestedInclusion rules;
+- Do not recompute inclusion after an Account type update;
+- Do not use floating point for money.
 
-单位价格只显示后端当前 quote；没有可靠 quote 时可以省略该列或显示「缺少当前价格」，不能用市值和数量反推展示值。
+Unit price shows only the current backend quote. When there is no reliable
+quote, omit the column or show "Missing current price". Do not reverse a
+display value from market value and quantity.
 
-## 14. 状态、错误与可访问性
+## 14. State, errors, and accessibility
 
-所有新页面和 sheet 必须覆盖：
+Every new page and sheet must cover:
 
-- loading skeleton；
-- 无现金、无持仓、无 Portfolio Account 等空状态；
-- 部分估值、缺少 quote、缺少 FX 的解释；
-- API validation error 原位展示，并保留用户输入；
-- History 未开始的可恢复流程；
-- archived Account 的只读状态；
-- 写入成功后只使相关 Account、Overview、Portfolio 和 History query 失效；
-- 防重复提交与明确的进行中状态。
+- loading skeleton;
+- empty states such as no cash, no holdings, and no Portfolio Account;
+- explanations for partial valuation, missing quote, and missing FX;
+- inline API validation errors that preserve user input;
+- a recoverable flow when History has not started;
+- archived Account read-only state;
+- after a successful write, invalidate only the related Account, Overview,
+  Portfolio, and History queries;
+- duplicate-submit protection and a clear in-progress state.
 
-交互与可访问性要求：
+Interaction and accessibility:
 
-- 所有操作可用键盘完成，sheet 打开后聚焦标题或首个字段，关闭后焦点返回触发按钮；
-- 不只用颜色表达资产/负债、included/excluded、完整/不完整；
-- tab、radio、menu 使用正确语义和 `aria-selected` / `aria-checked`；
-- 金额同时显示币种代码或无歧义符号；
-- 删除、归档等破坏性操作不与 Buy / Update value 等主操作并排使用相同视觉权重。
+- Every action is keyboard-complete. Opening a sheet focuses the title or
+  first field; closing returns focus to the trigger;
+- Do not use color alone for asset/liability, included/excluded, or
+  complete/incomplete;
+- Tabs, radios, and menus use correct semantics and `aria-selected` /
+  `aria-checked`;
+- Amounts show a currency code or an unambiguous symbol;
+- Destructive actions such as delete and archive do not sit beside Buy /
+  Update value with the same visual weight.
 
-## 15. 行为矩阵
+## 15. Behavior matrix
 
-### 15.1 创建与不可变规则
+### 15.1 Create and immutability
 
-- 银行账户默认询问记录方式，默认只记总额；选择详细记录后创建为合法 holdings 组合。
-- 券商不询问内部 tracking 术语，默认进入 Cash + Investments。
-- 信用卡自动创建为负债；Other 显式选择资产或负债。
-- 主路径不出现内部枚举或 SubAccount。
-- 编辑不能修改 Role / Tracking；兼容 type 更新不产生 Activity、不改变金额、不重算 inclusion；非法 type 更新被拒。
-- 未勾选所有人时不能 Continue / 添加账户 / Save；创建和更新的提交路径拒绝空所有权。不得把空所有人列表默认成全体家庭成员平分。已勾选多人且比例留空时，在已勾选者之间平均分配仍被允许。
+- Bank accounts ask for a recording method by default and default to account
+  total only. Choosing detailed recording creates a legal holdings combination.
+- Brokerages do not ask using internal tracking terms and default to Cash +
+  Investments.
+- Credit cards are created as liabilities automatically. Other chooses asset or
+  liability explicitly.
+- The primary path does not show internal enums or SubAccount.
+- Edit cannot change Role / Tracking. Compatible type updates create no
+  Activity, change no amounts, and recompute no inclusion. Illegal type updates
+  are rejected.
+- Continue / Add account / Save stay disabled with no owners selected. Create
+  and update submit paths reject empty ownership. Do not default an empty
+  owner list to equal shares among all household members. Equal split among
+  already-selected owners with blank shares remains allowed.
 
 ### 15.2 Composite Account
 
-- 默认币种 SGD 的 MooMoo Account 可同时录入 SGD、USD、CNY 现金。
-- MooMoo 和招行综合账户使用同一详情结构，并能显示 Instrument 类型不同的持仓。
-- 当前现金来自 valuation cash components；持仓数量与估值能稳定对齐。
-- 缺 quote / FX 时显示部分估值与原因，金额不按零处理。
-- Record existing position 不扣现金，且不允许零数量占位。
-- 首次 Buy 未持有的基金时自动创建 Holding，现金与数量在同一成功操作后更新。
+- A MooMoo Account with default currency SGD can record SGD, USD, and CNY
+  cash at the same time.
+- MooMoo and a CMB mixed account use the same detail structure and can show
+  holdings of different Instrument types.
+- Current cash comes from valuation cash components. Holding quantities and
+  valuations stay aligned.
+- Missing quote / FX shows partial valuation and the reason. Amounts are not
+  treated as zero.
+- Record existing position does not reduce cash and does not allow a
+  zero-quantity placeholder.
+- The first Buy of an unheld fund creates the Holding automatically. Cash and
+  quantity update after the same successful operation.
 
-### 15.3 History 边界
+### 15.3 History boundary
 
-- History 未开始时可记录期初现金、已有持仓和 Simple 初始值。
-- 从详情发起 Buy / Deposit 等动作会进入 Start History，完成后返回原动作；取消不写入。
-- History 已开始后的 cash reconciliation、Trade、FX 和 Transfer 产生现有 Activity kinds，不新增种类。
+- Before History starts, opening cash, existing holdings, and Simple initial
+  values may be recorded.
+- Buy / Deposit and similar actions from detail enter Start History and return
+  to the original action after success. Cancel writes nothing.
+- After History has started, cash reconciliation, Trade, FX, and Transfer
+  produce existing Activity kinds. No new kinds are added.
 
-### 15.4 Overview 与 Portfolio
+### 15.4 Overview and Portfolio
 
-- 招行综合账户整户出现在 By account type 的「银行账户」，其 cash / fund / gold components 同时进入 Asset allocation 对应行。
-- `byAccountType` 与顶层 Overview 使用相同 as-of、换算和 incomplete 语义。
-- Portfolio 不含未勾选 Account；勾选 Composite 时现金和持仓整户进入，并显示说明。
-- 所有持仓索引与 Portfolio 使用不同名称和目的，不再让用户误以为两者相同。
+- A CMB mixed account appears as a whole under By account type "Bank account".
+  Its cash / fund / gold components also enter the matching Asset allocation
+  rows.
+- `byAccountType` uses the same as-of, conversion, and incomplete semantics as
+  top-level Overview.
+- Portfolio omits unchecked Accounts. Checking a Composite Account includes
+  cash and holdings as a whole and shows the explanation.
+- The all-holdings index and Portfolio keep different names and purposes so
+  users do not treat them as the same view.
 
-### 15.5 端到端关键旅程
+### 15.5 End-to-end critical journey
 
 ```text
-创建招商银行综合账户
-→ 选择「分别记录现金、基金、理财、黄金等」
-→ 添加 CNY 现金余额
-→ 点击 Buy investment
-→ 若需要，完成 Start History 并返回
-→ 选择或创建基金，完成首次买入
-→ Account 详情同时显示减少后的现金与基金持仓
-→ Overview 按 Cash / Mutual fund 分类
-→ 若整户 included，Portfolio 同时包含该账户现金与基金
+Create a China Merchants Bank mixed account
+→ Choose "Record cash, funds, wealth-management products, gold, and similar holdings separately"
+→ Add a CNY cash balance
+→ Click Buy investment
+→ If needed, complete Start History and return
+→ Choose or create a fund and complete the first buy
+→ Account detail shows the reduced cash and the fund holding together
+→ Overview classifies by Cash / Mutual fund
+→ If the whole account is included, Portfolio contains that account's cash and fund
 ```
 
-## 16. 明确延期项
+## 16. Explicitly deferred items
 
-以下内容可以以后单独设计，不阻塞本方案：
+These can be designed later and do not block this contract:
 
-- tracking mode 转换；
-- component 级 inclusion；
-- cash component 的用户别名或存款产品子类型；
-- tax lot、订单状态、费用拆分等更完整交易模型；
-- Account 详情永久 URL / 多窗口路由；第一版可在 Accounts workspace 内全幅切换；
-- 更复杂的 Account detail 聚合 DTO，除非现有 read models 无法保证一致 as-of。
+- tracking-mode conversion;
+- component-level inclusion;
+- user aliases or deposit-product subtypes for cash components;
+- a fuller trade model with tax lots, order status, and fee splits;
+- permanent Account-detail URLs / multi-window routing; the first version may
+  switch full-width inside the Accounts workspace;
+- a more complex Account-detail aggregation DTO unless existing read models
+  cannot keep a consistent as-of.

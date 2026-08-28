@@ -15,8 +15,10 @@ import {
   useSetFXPreference,
 } from "@/queries/investments";
 import { useOverview } from "@/queries/portfolio";
+import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
+import { formatTimestamp } from "@/lib/time";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import type { FXPreferenceDTO, InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
@@ -87,11 +89,15 @@ function preferenceForPair(preferences: FXPreferenceDTO[] | null | undefined, pa
   return (preferences ?? []).find((preference) => fxPairKey(preference.currencyA, preference.currencyB) === key);
 }
 
-function fxSourceLabel(t: (key: string, options?: Record<string, unknown>) => string, preference?: FXPreferenceDTO): string {
+function fxSourceLabel(t: (key: string, options?: Record<string, unknown>) => string, preference: FXPreferenceDTO | undefined, providerKey?: string): string {
   if (!preference) {
     return t("marketData.sourceMissing");
   }
-  return preference.sourceKind === "provider" ? t("marketData.providerFrankfurter") : displayEnum(t, "portfolio", preference.sourceKind);
+  return preference.sourceKind === "provider"
+    ? providerKey
+      ? t(`settings.provider.${providerKey}`, { defaultValue: providerKey })
+      : t("settings.providers.fxProvider")
+    : displayEnum(t, "portfolio", preference.sourceKind);
 }
 
 function skipReasonText(t: (key: string, options?: Record<string, unknown>) => string, item: RefreshTargetResultDTO, kind: "instrument" | "fx"): string | undefined {
@@ -107,12 +113,12 @@ function skipReasonText(t: (key: string, options?: Record<string, unknown>) => s
   return t("marketData.skipped");
 }
 
-function formatQuotedAt(value: string, language: string): string {
+function formatQuotedAt(value: string, language: string, timezone?: string): string {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
-  return new Intl.DateTimeFormat(language, { dateStyle: "medium", timeStyle: "short" }).format(parsed);
+  return formatTimestamp(parsed, timezone, language);
 }
 
 function InstrumentRefreshRow({
@@ -123,6 +129,7 @@ function InstrumentRefreshRow({
   name: string;
 }) {
   const { t, i18n } = useTranslation();
+  const settings = useSettings();
   const instrumentId = item.targetKey.slice(INSTRUMENT_KEY_PREFIX.length);
   const quote = useCurrentInstrumentQuote(instrumentId);
 
@@ -135,7 +142,7 @@ function InstrumentRefreshRow({
       <p className="text-muted-foreground">
         {quote.data ? t("marketData.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) }) : t("marketData.noQuoteYet")}
       </p>
-      {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language) })}</p>}
+      {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}</p>}
       {item.status === "skipped" && <p className="text-xs text-muted-foreground">{skipReasonText(t, item, "instrument")}</p>}
     </li>
   );
@@ -153,6 +160,7 @@ function FxRefreshRow({
   isConfiguring: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  const settings = useSettings();
   const pair = item.targetKey.slice(FX_KEY_PREFIX.length);
   const [currencyA, currencyB] = pair.split("/");
   const quote = useCurrentFXQuote(currencyA, currencyB);
@@ -168,7 +176,7 @@ function FxRefreshRow({
           ? t("marketData.latestRate", { base: quote.data.baseCurrency, rate: formatAmount(quote.data.rate), quote: quote.data.quoteCurrency })
           : t("marketData.noQuoteYet")}
       </p>
-      {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language) })}</p>}
+      {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}</p>}
       {item.status === "skipped" && <p className="text-xs text-muted-foreground">{skipReasonText(t, item, "fx")}</p>}
       {!configured && <Button variant="outline" size="sm" onClick={onConfigure} disabled={isConfiguring}>
         {isConfiguring ? t("marketData.configuringFX") : t("marketData.configureFX")}
@@ -193,6 +201,7 @@ function RefreshResults({
   configuringPair?: string;
 }) {
   const { t, i18n } = useTranslation();
+  const settings = useSettings();
   const instrumentNameById = new Map(instruments.map((instrument) => [instrument.id, instrument.name]));
   const items = result.items ?? [];
   const updated = items.filter((item) => item.status === "fetched").length;
@@ -208,7 +217,7 @@ function RefreshResults({
       {refreshedAt && (
         <p className="text-xs text-muted-foreground">
           {t("marketData.refreshedAt", {
-            time: new Intl.DateTimeFormat(i18n.language, { dateStyle: "medium", timeStyle: "short" }).format(refreshedAt),
+            time: formatTimestamp(refreshedAt, settings.data?.timezone, i18n.language),
           })}
         </p>
       )}
@@ -254,6 +263,7 @@ function RefreshResults({
 
 function SavedInstrumentRow({ instrument }: { instrument: InstrumentDTO }) {
   const { t, i18n } = useTranslation();
+  const settings = useSettings();
   const quote = useCurrentInstrumentQuote(instrument.id);
 
   return (
@@ -270,7 +280,7 @@ function SavedInstrumentRow({ instrument }: { instrument: InstrumentDTO }) {
           <>
             <span className="font-medium">{t("marketData.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) })}</span>
             <span className="ml-2 text-xs text-muted-foreground">
-              {t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language) })}
+              {t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}
             </span>
           </>
         ) : (
@@ -293,6 +303,7 @@ function SavedFXRow({
   isConfiguring: boolean;
 }) {
   const { t, i18n } = useTranslation();
+  const settings = useSettings();
   const quote = useCurrentFXQuote(pair.currencyA, pair.currencyB);
   const providerUnavailable = preference?.sourceKind !== "provider";
 
@@ -300,7 +311,7 @@ function SavedFXRow({
     <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-3 text-sm" data-testid={`saved-fx-${fxPairKey(pair.currencyA, pair.currencyB)}`}>
       <span className="flex items-center gap-2">
         <span className="font-medium">{pair.currencyA}/{pair.currencyB}</span>
-        <Badge variant={!preference ? "warning" : "secondary"}>{fxSourceLabel(t, preference)}</Badge>
+        <Badge variant={!preference ? "warning" : "secondary"}>{fxSourceLabel(t, preference, settings.data?.fx_provider)}</Badge>
       </span>
       <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-right">
         {quote.isLoading ? (
@@ -315,7 +326,7 @@ function SavedFXRow({
               })}
             </span>
             <span className="text-xs text-muted-foreground">
-              {t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language) })}
+              {t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}
             </span>
           </>
         ) : (

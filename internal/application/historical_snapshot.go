@@ -64,7 +64,9 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	}
 	// PortfolioSnapshot intentionally reports investment totals only. For a
 	// daily balance-sheet snapshot, value every account and sign liabilities.
-	valuedAccounts, missing, err := NewValuationService(s.repository, func() time.Time { return cutoff }).ValueAccounts(portfolio)
+	valuation := NewValuationService(s.repository, func() time.Time { return cutoff })
+	valuation.SetFXProviderKey(s.FXProviderKey)
+	valuedAccounts, missing, err := valuation.ValueAccounts(portfolio)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}

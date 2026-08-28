@@ -3,6 +3,7 @@ package history
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -24,6 +25,54 @@ var commandKindActivity = []struct {
 	{ChangeValueUpdate, domain.ActivityValueUpdate},
 	{ChangeDebtDraw, domain.ActivityDebtDraw},
 	{ChangeDebtPayment, domain.ActivityDebtPayment},
+}
+
+func TestToCommandResolvesLocalDateTimeInHistoryOriginTimezone(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	accountID := domain.NewAccountID().String()
+	request := ChangeCommandRequest{
+		Kind: ChangeMoneyAdded, AccountID: accountID, Amount: "1", Currency: "USD", Reason: "other",
+		EffectiveAt: "2026-01-01T00:00:00Z", EffectiveLocalDate: "2026-08-23", EffectiveLocalTime: "20:00",
+	}
+	command, err := request.ToCommand(householdID, "Asia/Shanghai")
+	if err != nil {
+		t.Fatalf("ToCommand: %v", err)
+	}
+	input, ok := command.(domain.MoneyAddedInput)
+	if !ok {
+		t.Fatalf("command = %T, want domain.MoneyAddedInput", command)
+	}
+	want := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	if !input.EffectiveAt.Equal(want) {
+		t.Fatalf("EffectiveAt = %s, want %s", input.EffectiveAt, want)
+	}
+}
+
+func TestToCommandRejectsPartialOrDSTInvalidLocalDateTime(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	base := ChangeCommandRequest{Kind: ChangeMoneyAdded, AccountID: domain.NewAccountID().String(), Amount: "1", Currency: "USD", Reason: "other"}
+	for _, testCase := range []struct {
+		name  string
+		date  string
+		clock string
+	}{
+		{name: "partial", date: "2026-08-23"},
+		{name: "DST gap", date: "2026-03-08", clock: "02:30"},
+		{name: "DST repeat", date: "2026-11-01", clock: "01:30"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := base
+			request.EffectiveLocalDate = testCase.date
+			request.EffectiveLocalTime = testCase.clock
+			_, err := request.ToCommand(householdID, "America/New_York")
+			if err == nil {
+				t.Fatal("ToCommand error = nil")
+			}
+			if typed, ok := err.(*domain.Error); !ok || typed.Code != domain.ErrInvalidChangeTime {
+				t.Fatalf("ToCommand error = %T %v, want ErrInvalidChangeTime", err, err)
+			}
+		})
+	}
 }
 
 func TestToCommandAcceptsEveryChangeCommandKind(t *testing.T) {

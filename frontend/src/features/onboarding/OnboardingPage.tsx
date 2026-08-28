@@ -50,6 +50,8 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
 
   useEffect(() => {
     if (settings.data?.language) {
+      // The settings query can resolve after this standalone page mounts.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLanguagePreference(settings.data.language);
     }
   }, [settings.data?.language]);

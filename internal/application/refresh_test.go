@@ -196,6 +196,44 @@ func TestFXProviderSelectionRoutesRequiredFXOnly(t *testing.T) {
 	}
 }
 
+func TestRefreshFXRequestsAndPersistsDirectNonBasePair(t *testing.T) {
+	_, service, fake, _, _ := newRefreshFixture(t)
+	rate, err := domain.ParseFxRate("0.91")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	fake.fx["USD/EUR"] = struct {
+		quote LatestFXQuote
+		err   error
+	}{quote: LatestFXQuote{Rate: rate, BaseCurrency: "USD", QuoteCurrency: "EUR", SourceKey: fake.Key(), QuotedAt: now}, err: nil}
+	if _, err := service.SetFXPreference(context.Background(), "USD", "EUR", "provider"); err != nil {
+		t.Fatalf("SetFXPreference: %v", err)
+	}
+	result, err := service.RefreshFX(context.Background(), "USD", "EUR")
+	if err != nil {
+		t.Fatalf("RefreshFX: %v", err)
+	}
+	assertRefreshStatus(t, result, "fx:EUR/USD", RefreshFetched)
+	if calls := fake.callNames(); len(calls) != 1 || calls[0] != "fx:USD/EUR" {
+		t.Fatalf("direct FX provider calls = %v, want fx:USD/EUR", calls)
+	}
+	quotes, err := service.repository.ListFXQuotes(context.Background(), resultHouseholdID(t, service))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var direct *domain.FXQuote
+	for index := range quotes {
+		if quotes[index].BaseCurrency == "USD" && quotes[index].QuoteCurrency == "EUR" {
+			direct = &quotes[index]
+			break
+		}
+	}
+	if direct == nil || direct.Rate.Canonical() != "0.91" {
+		t.Fatalf("direct quote = %+v, want USD/EUR 0.91", direct)
+	}
+}
+
 func resultHouseholdID(t *testing.T, service *Service) domain.HouseholdID {
 	t.Helper()
 	household, err := service.repository.Household(context.Background())
@@ -321,6 +359,34 @@ func TestRefreshDeduplicatesTargetsAndProviderObservations(t *testing.T) {
 	quotes, err = service.repository.ListInstrumentQuotes(ctx, instrument.ID)
 	if err != nil || len(quotes) != 2 {
 		t.Fatalf("changed same-time observation was not appended: %d, err = %v", len(quotes), err)
+	}
+}
+
+func TestRefreshAllRunsRequiredFXBeforeExtraProviderPairs(t *testing.T) {
+	_, service, fake, _, _ := newRefreshFixture(t)
+	rate, err := domain.ParseFxRate("0.91")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake.fx["EUR/USD"] = struct {
+		quote LatestFXQuote
+		err   error
+	}{err: &domain.Error{Code: domain.ErrProviderRateLimit, Message: "provider rate limit reached"}}
+	if _, err := service.SetFXPreference(context.Background(), "EUR", "USD", "provider"); err != nil {
+		t.Fatalf("SetFXPreference(extra): %v", err)
+	}
+	fake.fx["USD/CNY"] = struct {
+		quote LatestFXQuote
+		err   error
+	}{quote: LatestFXQuote{Rate: rate, BaseCurrency: "USD", QuoteCurrency: "CNY", SourceKey: fake.Key(), QuotedAt: time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)}, err: nil}
+	result, err := service.RefreshAll(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRefreshStatus(t, result, "fx:CNY/USD", RefreshFetched)
+	assertRefreshStatus(t, result, "fx:EUR/USD", RefreshRateLimited)
+	if calls := fake.callNames(); len(calls) != 3 || calls[0] != "fx:USD/CNY" || calls[1] != "instrument:QQQ" || calls[2] != "fx:EUR/USD" {
+		t.Fatalf("RefreshAll call order = %v, want required FX before extra pair", calls)
 	}
 }
 

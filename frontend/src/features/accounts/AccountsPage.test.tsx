@@ -23,6 +23,7 @@ const createHolding = vi.fn();
 const appendCash = vi.fn();
 const previewChange = vi.fn();
 const recordChange = vi.fn();
+const settingsLoad = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
@@ -61,7 +62,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
-  Service: { SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]) },
+  Service: {
+    Load: () => settingsLoad(),
+    SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]),
+    FXProviders: () => Promise.resolve(["frankfurter"]),
+  },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
   const { TEST_CATALOG } = await import("@/test/catalog");
@@ -172,6 +177,7 @@ beforeEach(() => {
   appendCash.mockReset();
   previewChange.mockReset();
   recordChange.mockReset();
+  settingsLoad.mockReset();
   listAccounts.mockResolvedValue([emptyAccount]);
   accountValuations.mockResolvedValue([
     {
@@ -189,6 +195,7 @@ beforeEach(() => {
   createMediaAsset.mockResolvedValue({ id: "media-1" });
   historyOrigin.mockResolvedValue(null);
   startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  settingsLoad.mockResolvedValue({ timezone: "system", fx_provider: "frankfurter" });
   listInstruments.mockResolvedValue([]);
   holdingsByAccounts.mockResolvedValue({});
   createHolding.mockResolvedValue({ id: "h1", accountId: "brk-1", instrumentId: "i1", quantity: "1" });
@@ -590,12 +597,11 @@ describe("AccountsPage", () => {
     expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
     expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
     const timezone = await screen.findByLabelText("Timezone");
-    await userEvent.clear(timezone);
-    await userEvent.type(timezone, "UTC");
-    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone("UTC") ?? "");
+    expect(timezone).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    expect(timezone).toHaveAttribute("readonly");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
     expect(await screen.findByLabelText("Instrument")).toBeInTheDocument();
-    expect(startHistory).toHaveBeenCalledWith("UTC");
+    expect(startHistory).toHaveBeenCalledWith(Intl.DateTimeFormat().resolvedOptions().timeZone);
     expect(historyOrigin).toHaveBeenCalled();
     expect(recordChange).not.toHaveBeenCalled();
   });
@@ -775,8 +781,8 @@ describe("AccountsPage", () => {
     expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
     expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
     const timezone = screen.getByLabelText("Timezone");
-    await userEvent.clear(timezone);
-    await userEvent.type(timezone, "UTC");
+    expect(timezone).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    expect(timezone).toHaveAttribute("readonly");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
 
     const tradeForm = await screen.findByRole("form", { name: "Record change" });

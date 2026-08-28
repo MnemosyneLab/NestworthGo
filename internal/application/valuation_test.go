@@ -289,6 +289,37 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 	}
 }
 
+func TestSelectFXQuoteUsesTheCurrentProviderSourceKey(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	rate, err := domain.ParseFxRate("6.9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	preference, err := domain.NewFXPreference(householdID, "USD", "CNY", domain.QuoteSourceProvider, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldQuote, err := domain.NewFXQuote(domain.FXQuoteInput{
+		HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate,
+		SourceKind: domain.QuoteSourceProvider, SourceKey: "old-provider", QuotedAt: now.Add(time.Hour),
+	}, now.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	currentQuote, err := domain.NewFXQuote(domain.FXQuoteInput{
+		HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate,
+		SourceKind: domain.QuoteSourceProvider, SourceKey: "frankfurter", QuotedAt: now,
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected := selectFXQuote(preference, []domain.FXQuote{currentQuote, oldQuote}, "USD", "CNY", "frankfurter")
+	if selected == nil || selected.SourceKey != "frankfurter" {
+		t.Fatalf("selected FX quote = %+v, want current provider quote", selected)
+	}
+}
+
 func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *testing.T) {
 	ctx := context.Background()
 	database, err := sqlite.Open(t.TempDir() + "/precision.db")

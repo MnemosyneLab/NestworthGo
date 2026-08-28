@@ -111,7 +111,7 @@ func TestFXPreferenceAndManualFXQuote(t *testing.T) {
 	}
 }
 
-func TestSetFXPreferenceRequiresBaseCurrency(t *testing.T) {
+func TestSetFXPreferenceAcceptsDirectPairWithoutBaseCurrency(t *testing.T) {
 	app := wailstest.NewService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
@@ -120,8 +120,11 @@ func TestSetFXPreferenceRequiresBaseCurrency(t *testing.T) {
 		t.Fatalf("CompleteOnboarding: %v", err)
 	}
 	service := quote.NewService(app)
-	_, err := service.SetFXPreference(ctx, "SGD", "EUR", "manual")
-	if err == nil {
-		t.Fatal("want a validation error when neither currency is the household base")
+	preference, err := service.SetFXPreference(ctx, "SGD", "EUR", "manual")
+	if err != nil {
+		t.Fatalf("SetFXPreference: %v", err)
+	}
+	if preference.CurrencyA != "EUR" || preference.CurrencyB != "SGD" {
+		t.Fatalf("preference = %+v, want canonical EUR/SGD", preference)
 	}
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service as HistoryService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history";
-import type { ChangeCommandRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
+import type { ActivityQueryRequest, ChangeCommandRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 import { invalidateActivityChange, invalidateHistoryReads } from "@/queries/invalidation";
@@ -35,6 +35,20 @@ export function useListActivities(limit = 50) {
   return useQuery({
     queryKey: queryKeys.history.activities(limit),
     queryFn: () => callService(() => HistoryService.ListActivities(limit)),
+  });
+}
+
+export function useActivityPage(request: ActivityQueryRequest = {}) {
+  const normalized: ActivityQueryRequest = {
+    ...(request.accountId ? { accountId: request.accountId } : {}),
+    ...(request.kinds && request.kinds.length > 0 ? { kinds: [...request.kinds].sort() } : {}),
+    ...(request.fromLocalDate ? { fromLocalDate: request.fromLocalDate } : {}),
+    ...(request.toLocalDate ? { toLocalDate: request.toLocalDate } : {}),
+    limit: request.limit ?? 50,
+  };
+  return useQuery({
+    queryKey: queryKeys.history.activityPage(normalized),
+    queryFn: () => callService(() => HistoryService.ListActivityPage(normalized)),
   });
 }
 

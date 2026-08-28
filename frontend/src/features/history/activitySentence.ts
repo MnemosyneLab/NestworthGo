@@ -34,11 +34,23 @@ export function activitySentence(
     (id ? instruments.get(id) : undefined) || t("history.unknownInstrument");
 
   const core = coreSentence(t, activity, effects, accountName, instrumentName);
+  const fee = feeLabel(activity, effects);
+  const sentence = fee && !activity.reversesActivityId ? t("history.sentence.withFee", { sentence: core, fee }) : core;
   const reason = activity.reason ? displayEnum(t, "history.reason", activity.reason) : "";
   if (reason && activity.reason !== "other") {
-    return t("history.sentence.withReason", { sentence: core, reason });
+    return t("history.sentence.withReason", { sentence, reason });
   }
-  return core;
+  return sentence;
+}
+
+function feeLabel(activity: ActivityDTO, effects: ActivityEffectDTO[]): string {
+  if ((activity.kind === "buy" || activity.kind === "sell") && activity.tradeDetail?.fee) {
+    return formatAmount(activity.tradeDetail.fee.amount, activity.tradeDetail.fee.currency);
+  }
+  if (activity.kind === "fx_conversion" || activity.kind === "debt_payment") {
+    return moneyLabel(byRole(effects, "fee"));
+  }
+  return "";
 }
 
 function coreSentence(
@@ -145,4 +157,3 @@ function coreSentence(
       return displayEnum(t, "history.kind", activity.kind);
   }
 }
-
