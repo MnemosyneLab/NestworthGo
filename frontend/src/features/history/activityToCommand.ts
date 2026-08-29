@@ -35,6 +35,18 @@ export function activityToInitialCommand(activity: ActivityDTO): ChangeCommandRe
       };
     }
 
+    case "cash_dividend": {
+      const effect = effects[0];
+      return {
+        kind: ChangeCommandKind.ChangeCashDividend,
+        holdingId: activity.dividendDetail?.holdingId ?? "",
+        amount: activity.dividendDetail?.amount?.amount ?? effect?.money?.amount ?? "",
+        currency: activity.dividendDetail?.amount?.currency ?? effect?.money?.currency ?? "USD",
+        note,
+        added: true,
+      };
+    }
+
     case "value_update": {
       const effect = effects[0];
       return {
@@ -161,6 +173,7 @@ export function emptyChangeRequest(kind: ChangeCommandKind, currency: string): C
   switch (kind) {
     case ChangeCommandKind.ChangeMoneyAdded:
     case ChangeCommandKind.ChangeMoneyRemoved:
+    case ChangeCommandKind.ChangeCashDividend:
       return { ...request, currency };
     case ChangeCommandKind.ChangeValueUpdate:
       return { ...request, newValueCurrency: currency };

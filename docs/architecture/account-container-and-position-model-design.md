@@ -2,8 +2,8 @@
 
 ## 1. Document status and decision summary
 
-- Status: Implemented / current contract in Nestworth-go `0.2.1` / SQLite schema v8
-- Baseline: Nestworth-go current domain model and SQLite schema v8
+- Status: Implemented / current contract in Nestworth-go `0.2.1` / SQLite schema v9
+- Baseline: Nestworth-go current domain model and SQLite schema v9
 - Purpose: Record Account-model facts across domain, database, application, and release
 - This document describes the landed breaking cutover; it does not provide a v6 migration
 
@@ -40,8 +40,8 @@ This design also freezes these product decisions:
 
 - Overview replaces the old account-level `ByCategory` with component-grained
   `assetsByType` and adds `liabilitiesByType`;
-- schema v8 is the current breaking schema with no legacy-database migration,
-  compatibility reads, or automatic reset; older generations including v7 are rejected;
+- schema v9 is the current breaking schema with no legacy-database migration,
+  compatibility reads, or automatic reset; older generations including v8 are rejected;
 - current Wails DTOs expose only the new fields and do not define dual-API
   precedence;
 - SQLite `accounts`, `account_state_observations`, and
@@ -52,7 +52,7 @@ This design also freezes these product decisions:
 ## 2. Historical baseline before cutover
 
 This section records the schema v6 state before cutover. It is not current
-behavior. The current repository uses schema v8 and the
+behavior. The current repository uses schema v9 and the
 `account_type` / `balance_sheet_role` / `tracking_mode` contract defined here.
 
 At that time `accounts` contained:
@@ -708,8 +708,10 @@ margin model is allowed, keep:
 
 ### 11.1 Existing Activity taxonomy
 
-This design does not invent new Activity kinds. The existing Nestworth domain
-semantics and their targets are:
+The current taxonomy includes Cash Dividend as a distinct persisted kind
+(`cash_dividend`) because it carries Holding identity that `cash_in` cannot.
+Do not invent synonym kinds for Account restructuring; Cash Dividend is a new
+financial fact, not a relabel of Deposit/Income.
 
 | Domain semantics | Effect target |
 | --- | --- |
@@ -721,6 +723,7 @@ semantics and their targets are:
 | Transfer | Internal Account Cash movement, expressed with existing transfer legs |
 | Buy | Holding Quantity increase plus the trade cash leg from existing trade semantics |
 | Sell | Holding Quantity decrease plus the trade cash leg from existing trade semantics |
+| Cash Dividend | Account Cash increase on the Holding's Account, attributed to that Holding via `activity_dividend_details`; quantity and cost basis do not change |
 | Income | Income classification through existing cash effect/reason |
 | Fee | Fee classification through existing fee effect |
 | Debt Draw | Debt Account Value and cash endpoint |
@@ -730,7 +733,7 @@ semantics and their targets are:
 | Reversal | An exact reverse Activity of the original Activity |
 
 The code layer carries these semantics with stable persisted kind values such
-as `cash_in`, `cash_out`, and `value_update`. Product labels, domain commands,
+as `cash_in`, `cash_out`, `cash_dividend`, and `value_update`. Product labels, domain commands,
 and persisted kinds keep one mapping. Do not invent synonym kinds because
 Accounts were restructured.
 
@@ -923,19 +926,19 @@ include_in_investment
 Repository, schema verifier, domain, Wails DTOs, and UI all use the new
 names only. There is no dual-read, dual-write, or deprecated field.
 
-The schema file describes complete v8. It does not write SQL that rebuilds
-tables from v6 or v7 or converts rows. Test fixtures, demo data, and development
-databases are created from empty v8.
+The schema file describes complete v9. It does not write SQL that rebuilds
+tables from v6, v7, or v8 or converts rows. Test fixtures, demo data, and development
+databases are created from empty v9.
 
 ### 14.3 Startup and error policy
 
 Database open has only three outcomes:
 
-1. Path missing or file empty: create a fresh schema v8;
-2. `PRAGMA user_version == 8`: run the full schema and data verifier, then
+1. Path missing or file empty: create a fresh schema v9;
+2. `PRAGMA user_version == 9`: run the full schema and data verifier, then
    start if it passes;
 3. Any other version, missing column, leftover old column, or CHECK / index /
-   foreign key that does not match v8: close the database and return a clear
+   foreign key that does not match v9: close the database and return a clear
    incompatible-schema error.
 
 The data verifier at least runs `PRAGMA integrity_check`,
@@ -989,7 +992,7 @@ and tracking mode remain legal, and do not create financial Activities.
 `internal/application/service.go` coordinates Account and ownership
 mutations. `internal/application/valuation.go` is the current valuation
 authority for Simple and Composite Accounts, whole-account Portfolio
-inclusion, and role filtering. SQLite schema v8 and
+inclusion, and role filtering. SQLite schema v9 and
 `internal/infrastructure/sqlite/schema_verify.go` enforce the fields,
 closed-combination CHECK, indexes, and data invariants before business writes.
 History replay keeps Account metadata changes separate from financial facts.

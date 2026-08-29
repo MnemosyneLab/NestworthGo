@@ -324,6 +324,11 @@ func attachActivityDetails(ctx context.Context, query queryer, activity *domain.
 		return err
 	}
 	activity.TradeDetail = trade
+	dividend, err := activityDividendDetailQuery(ctx, query, activity.ID)
+	if err != nil {
+		return err
+	}
+	activity.DividendDetail = dividend
 	resulting, err := activityResultingQuery(ctx, query, activity.ID)
 	if err != nil {
 		return err
@@ -375,6 +380,30 @@ func activityTradeDetailQuery(ctx context.Context, query queryer, activityID dom
 		detail.Fee = &fee
 	}
 	return detail, nil
+}
+
+func activityDividendDetailQuery(ctx context.Context, query queryer, activityID domain.ActivityID) (*domain.DividendDetail, error) {
+	var holdingID, instrumentID, amount, currency string
+	err := query.QueryRowContext(ctx, `SELECT holding_id, instrument_id, amount, currency FROM activity_dividend_details WHERE activity_id = ?`, activityID.String()).Scan(&holdingID, &instrumentID, &amount, &currency)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	parsedHolding, err := domain.ParseHoldingID(holdingID)
+	if err != nil {
+		return nil, err
+	}
+	parsedInstrument, err := domain.ParseInstrumentID(instrumentID)
+	if err != nil {
+		return nil, err
+	}
+	parsedAmount, err := domain.ParseMoney(amount, domain.CurrencyCode(currency))
+	if err != nil {
+		return nil, err
+	}
+	return &domain.DividendDetail{HoldingID: parsedHolding, InstrumentID: parsedInstrument, Amount: parsedAmount}, nil
 }
 
 func activityResultingQuery(ctx context.Context, query queryer, activityID domain.ActivityID) ([]domain.EndpointView, error) {

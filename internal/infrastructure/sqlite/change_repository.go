@@ -136,6 +136,12 @@ func commitActivityTx(ctx context.Context, tx *sql.Tx, commit domain.ActivityCom
 			return err
 		}
 	}
+	if activity.DividendDetail != nil {
+		detail := activity.DividendDetail
+		if _, err := tx.ExecContext(ctx, `INSERT INTO activity_dividend_details(activity_id, holding_id, instrument_id, amount, currency) VALUES(?, ?, ?, ?, ?)`, activity.ID.String(), detail.HoldingID.String(), detail.InstrumentID.String(), detail.Amount.CanonicalAmount(), detail.Amount.Currency().String()); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

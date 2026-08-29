@@ -7,7 +7,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// ChangeCommandKind discriminates ChangeCommandRequest, mirroring the ten
+// ChangeCommandKind discriminates ChangeCommandRequest, mirroring the eleven
 // concrete domain.PreviewChange input types. Wails v3's binding
 // generator produces TypeScript models from Go struct declarations, not
 // from a runtime union, so this is one Go struct with every variant's
@@ -17,6 +17,7 @@ type ChangeCommandKind string
 const (
 	ChangeMoneyAdded         ChangeCommandKind = "money_added"
 	ChangeMoneyRemoved       ChangeCommandKind = "money_removed"
+	ChangeCashDividend       ChangeCommandKind = "cash_dividend"
 	ChangeCashTransfer       ChangeCommandKind = "cash_transfer"
 	ChangeFXConversion       ChangeCommandKind = "fx_conversion"
 	ChangePositionTransfer   ChangeCommandKind = "position_transfer"
@@ -177,6 +178,17 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID, originTi
 			return nil, err
 		}
 		return domain.MoneyRemovedInput{HouseholdID: householdID, AccountID: accountID, Amount: amount, Reason: reason, EffectiveAt: effectiveAt, Note: r.Note}, nil
+
+	case ChangeCashDividend:
+		holdingID, err := domain.ParseHoldingID(r.HoldingID)
+		if err != nil {
+			return nil, err
+		}
+		amount, err := parseMoneyField(r.Amount, r.Currency)
+		if err != nil {
+			return nil, err
+		}
+		return domain.CashDividendInput{HouseholdID: householdID, HoldingID: holdingID, Amount: amount, EffectiveAt: effectiveAt, Note: r.Note}, nil
 
 	case ChangeCashTransfer:
 		fromID, err := domain.ParseAccountID(r.FromAccountID)

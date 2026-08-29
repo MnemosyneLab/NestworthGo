@@ -188,6 +188,94 @@ func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
 	}
 }
 
+func TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/dividend.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repository := sqlite.NewRepository(database)
+	service := NewService(repository)
+	ctx := context.Background()
+	clock := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Dividends", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-01-01", false); err != nil {
+		t.Fatal(err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "50", "USD", "2026-01-01"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	beforeEvents, err := repository.ListCostBasisEvents(ctx, holding.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	amount, _ := domain.ParseMoney("25", "USD")
+	preview, err := service.RecordChange(ctx, domain.CashDividendInput{HouseholdID: bootstrap.Household.ID, HoldingID: holding.ID, Amount: amount, EffectiveAt: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Activity.Kind != domain.ActivityCashDividend || preview.Activity.DividendDetail == nil || preview.Activity.DividendDetail.HoldingID != holding.ID {
+		t.Fatalf("recorded dividend = %+v", preview.Activity)
+	}
+	if preview.Resulting[0].Amount != "75" || preview.Resulting[0].Currency != "USD" {
+		t.Fatalf("resulting cash = %+v", preview.Resulting)
+	}
+
+	var persistedHolding, persistedAmount, persistedCurrency string
+	if err := database.SQL.QueryRow("SELECT holding_id, amount, currency FROM activity_dividend_details WHERE activity_id = ?", preview.Activity.ID.String()).Scan(&persistedHolding, &persistedAmount, &persistedCurrency); err != nil {
+		t.Fatal(err)
+	}
+	if persistedHolding != holding.ID.String() || persistedAmount != "25" || persistedCurrency != "USD" {
+		t.Fatalf("persisted dividend detail = %s %s %s", persistedHolding, persistedAmount, persistedCurrency)
+	}
+
+	loaded, err := repository.Holding(ctx, holding.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Quantity.Canonical() != "10" {
+		t.Fatalf("holding quantity = %s, want 10", loaded.Quantity.Canonical())
+	}
+	afterEvents, err := repository.ListCostBasisEvents(ctx, holding.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(afterEvents) != len(beforeEvents) {
+		t.Fatalf("cost basis events changed from %d to %d", len(beforeEvents), len(afterEvents))
+	}
+
+	undo, err := service.UndoChange(ctx, preview.Activity.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if undo.Activity.Kind != domain.ActivityReversal || undo.Resulting[0].Amount != "50" {
+		t.Fatalf("undo = %+v", undo)
+	}
+}
+
 func TestRecordFirstBuyCreatesHoldingAndCommitsAtomically(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/first-buy.db")
 	if err != nil {

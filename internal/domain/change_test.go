@@ -137,6 +137,63 @@ func TestPreviewMoneyAddedAllowsForeignCurrencyOnHoldingsAndRejectsOnSimple(t *t
 	}
 }
 
+func TestPreviewCashDividendCreditsHoldingsCashWithoutChangingQuantity(t *testing.T) {
+	state, _, broker, qqq, _ := changeTestState(t)
+	usd, _ := ParseCurrency("USD")
+	cny, _ := ParseCurrency("CNY")
+	amount, _ := ParseMoney("12.5", usd)
+	preview, err := PreviewChange(state, CashDividendInput{HouseholdID: state.HouseholdID, HoldingID: qqq, Amount: amount, EffectiveAt: state.Now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Activity.Kind != ActivityCashDividend || preview.Activity.Reason != ReasonIncome {
+		t.Fatalf("activity = %+v", preview.Activity)
+	}
+	if preview.Activity.DividendDetail == nil || preview.Activity.DividendDetail.HoldingID != qqq || preview.Activity.DividendDetail.Amount.CanonicalAmount() != "12.5" {
+		t.Fatalf("dividend detail = %+v", preview.Activity.DividendDetail)
+	}
+	if len(preview.Effects) != 1 || preview.Effects[0].Target != EffectTargetAccountCash || preview.Effects[0].Classification != ClassificationIncome || preview.Effects[0].HoldingID != nil {
+		t.Fatalf("effect = %+v", preview.Effects[0])
+	}
+	if preview.Resulting[0].Amount != "1012.5" || preview.Resulting[0].Currency != usd {
+		t.Fatalf("resulting = %+v", preview.Resulting)
+	}
+	if state.Holdings[qqq].Current.Canonical() != "3" {
+		t.Fatalf("quantity mutated in preview state = %s", state.Holdings[qqq].Current.Canonical())
+	}
+
+	foreign, _ := ParseMoney("80", cny)
+	foreignPreview, err := PreviewChange(state, CashDividendInput{HouseholdID: state.HouseholdID, HoldingID: qqq, Amount: foreign, EffectiveAt: state.Now})
+	if err != nil {
+		t.Fatalf("foreign dividend: %v", err)
+	}
+	if foreignPreview.Resulting[0].Currency != cny || foreignPreview.Resulting[0].Amount != "80" {
+		t.Fatalf("foreign resulting = %+v", foreignPreview.Resulting)
+	}
+
+	zero, _ := ParseMoney("0", usd)
+	if _, err := PreviewChange(state, CashDividendInput{HouseholdID: state.HouseholdID, HoldingID: qqq, Amount: zero}); err == nil || err.(*Error).Code != ErrInvalidChange {
+		t.Fatalf("zero amount error = %v", err)
+	}
+
+	simple := findAccount(state, "Family Cash")
+	orphaned := HoldingID(newID())
+	state.Holdings[orphaned] = ChangeHoldingState{ID: orphaned, AccountID: simple, InstrumentID: state.Holdings[qqq].InstrumentID, InstrumentName: "Cash Stock", Currency: cny, Current: state.Holdings[qqq].Current}
+	if _, err := PreviewChange(state, CashDividendInput{HouseholdID: state.HouseholdID, HoldingID: orphaned, Amount: amount}); err == nil || err.(*Error).Code != ErrInvalidChange {
+		t.Fatalf("simple-account dividend error = %v", err)
+	}
+
+	archived := HoldingID(newID())
+	state.Holdings[archived] = ChangeHoldingState{ID: archived, AccountID: broker, InstrumentID: state.Holdings[qqq].InstrumentID, InstrumentName: "QQQ", Currency: usd, Archived: true, Current: state.Holdings[qqq].Current}
+	if _, err := PreviewChange(state, CashDividendInput{HouseholdID: state.HouseholdID, HoldingID: archived, Amount: amount}); err == nil || err.(*Error).Code != ErrConflict {
+		t.Fatalf("archived holding error = %v", err)
+	}
+
+	if _, err := PreviewChange(state, CashDividendInput{HouseholdID: state.HouseholdID, HoldingID: HoldingID(newID()), Amount: amount}); err == nil || err.(*Error).Code != ErrNotFound {
+		t.Fatalf("missing holding error = %v", err)
+	}
+}
+
 func TestPreviewFXConversionRejectsMissingSoldCash(t *testing.T) {
 	state, _, broker, _, _ := changeTestState(t)
 	usd, _ := ParseCurrency("USD")

@@ -368,6 +368,7 @@
       "buy": "买入",
       "cash_in": "增加金额",
       "cash_out": "减少金额",
+      "cash_dividend": "现金分红",
       "cash_transfer": "现金转账",
       "debt": "借款 / 还款",
       "debt_draw": "借款",

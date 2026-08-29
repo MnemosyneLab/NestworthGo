@@ -93,6 +93,10 @@ func TestParseActivityKind(t *testing.T) {
 	if err != nil || got != ActivityCashIn {
 		t.Fatalf("ParseActivityKind(cash_in) = %q, %v", got, err)
 	}
+	dividend, err := ParseActivityKind("cash_dividend")
+	if err != nil || dividend != ActivityCashDividend {
+		t.Fatalf("ParseActivityKind(cash_dividend) = %q, %v", dividend, err)
+	}
 }
 
 func TestParseOwnershipScope(t *testing.T) {

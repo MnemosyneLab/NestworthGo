@@ -75,6 +75,13 @@ function ActivityDetailBody({
           {detail?.fee && <p>{t("history.fee")}: {moneyText(detail.fee.amount, detail.fee.currency)}</p>}
         </div>
       )}
+      {activity.kind === "cash_dividend" && (
+        <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+          <p>{t("history.detailAccount")}: {accounts.get(effects[0]?.accountId ?? "") ?? t("history.unknownAccount")}</p>
+          <p>{t("history.detailInstrument")}: {(activity.dividendDetail?.instrumentId ? instruments.get(activity.dividendDetail.instrumentId) : undefined) ?? t("history.unknownInstrument")}</p>
+          {activity.dividendDetail?.amount && <p>{t("history.amount")}: {moneyText(activity.dividendDetail.amount.amount, activity.dividendDetail.amount.currency)}</p>}
+        </div>
+      )}
       {activity.kind === "cash_transfer" && (
         <div className="flex flex-col gap-1 rounded-md border border-border p-3">
           <p>{t("history.detailFrom")}: {accounts.get(from?.accountId ?? "") ?? t("history.unknownAccount")} {from?.money ? moneyText(from.money.amount, from.money.currency) : ""}</p>
@@ -97,7 +104,7 @@ function ActivityDetailBody({
           {activity.reason && <p>{t("history.reasonLabel")}: {displayEnum(t, "history.reason", activity.reason)}</p>}
         </div>
       )}
-      {activity.kind !== "buy" && activity.kind !== "sell" && activity.kind !== "cash_transfer" && activity.kind !== "fx_conversion" && activity.kind !== "value_update" && (
+      {activity.kind !== "buy" && activity.kind !== "sell" && activity.kind !== "cash_dividend" && activity.kind !== "cash_transfer" && activity.kind !== "fx_conversion" && activity.kind !== "value_update" && (
         <ul className="flex flex-col gap-1 rounded-md border border-border p-3">
           {effects.map((effect, index) => (
             <li key={effect.id || index}>{effectLine(t, effect, accounts, instruments)}</li>

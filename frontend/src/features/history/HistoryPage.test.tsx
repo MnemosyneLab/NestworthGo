@@ -233,6 +233,42 @@ describe("HistoryPage", () => {
     expect(previewChange.mock.calls[0][0].currency).not.toBe("CNY");
   });
 
+  it("previews a cash dividend against a holding", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listActivities.mockResolvedValue([]);
+    listAccounts.mockResolvedValue([
+      { account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null },
+    ]);
+    listInstruments.mockResolvedValue([
+      { id: "instrument-1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" },
+    ]);
+    holdingsByAccounts.mockResolvedValue({
+      "brokerage-1": [{ id: "holding-1", accountId: "brokerage-1", instrumentId: "instrument-1", quantity: "10" }],
+    });
+    previewChange.mockResolvedValue({
+      activity: { id: "div-1", kind: "cash_dividend", effects: [] },
+      effects: [],
+      resulting: [{ target: "account_cash", name: "Brokerage", amount: "25", currency: "USD" }],
+    });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeCashDividend);
+    await userEvent.selectOptions(within(form).getByLabelText("Holding"), "holding-1");
+    await userEvent.type(within(form).getByLabelText("Amount"), "25");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+
+    expect(previewChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: "cash_dividend",
+        holdingId: "holding-1",
+        amount: "25",
+        currency: "USD",
+      }),
+    );
+  });
+
   it("previews a trade with visible currencies and the existing matching holding", async () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     listActivities.mockResolvedValue([]);

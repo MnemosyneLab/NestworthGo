@@ -46,7 +46,7 @@ export function activitySentence(
   const core = coreSentence(t, activity, effects, accountName, instrumentName);
   const fee = feeLabel(activity, effects);
   const sentence = fee && !activity.reversesActivityId ? t("history.sentence.withFee", { sentence: core, fee }) : core;
-  const skipReason = activity.kind === "buy" || activity.kind === "sell";
+  const skipReason = activity.kind === "buy" || activity.kind === "sell" || activity.kind === "cash_dividend";
   const reason = activity.reason ? displayEnum(t, "history.reason", activity.reason) : "";
   if (!skipReason && reason && activity.reason !== "other") {
     return t("history.sentence.withReason", { sentence, reason });
@@ -84,6 +84,18 @@ function coreSentence(
         return displayEnum(t, "history.kind", activity.kind);
       }
       return t("history.sentence.added", { amount, account: accountName(firstMoney) });
+    }
+    case "cash_dividend": {
+      const detail = activity.dividendDetail;
+      const amount = detail?.amount ? formatAmount(detail.amount.amount, detail.amount.currency) : moneyLabel(firstMoney);
+      if (!amount) {
+        return displayEnum(t, "history.kind", activity.kind);
+      }
+      return t("history.sentence.dividend", {
+        amount,
+        instrument: instrumentName(detail?.instrumentId),
+        account: accountName(firstMoney),
+      });
     }
     case "cash_out": {
       const amount = moneyLabel(firstMoney);

@@ -280,7 +280,7 @@ CREATE TABLE history_origin_fx_preferences (
 CREATE TABLE activities (
     id TEXT PRIMARY KEY NOT NULL,
     household_id TEXT NOT NULL,
-    kind TEXT NOT NULL CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal')),
+    kind TEXT NOT NULL CHECK(kind IN ('cash_in','cash_out','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal')),
     reason TEXT NOT NULL,
     effective_at TEXT NOT NULL,
     effective_local_date TEXT NOT NULL,
@@ -333,16 +333,6 @@ CREATE TABLE activity_trade_details (
     FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT,
     FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT,
     FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT
-);
-CREATE TABLE activity_dividend_details (
-    activity_id TEXT PRIMARY KEY NOT NULL,
-    holding_id TEXT NOT NULL,
-    instrument_id TEXT NOT NULL,
-    amount TEXT NOT NULL,
-    currency TEXT NOT NULL CHECK(currency GLOB '[A-Z][A-Z][A-Z]'),
-    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT,
-    FOREIGN KEY(holding_id) REFERENCES holdings(id) ON DELETE RESTRICT,
-    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT
 );
 CREATE TABLE activity_correction_groups (
     id TEXT PRIMARY KEY NOT NULL,
@@ -487,4 +477,4 @@ CREATE TABLE holding_state_observations (
 );
 CREATE INDEX idx_holding_state_observations_effective ON holding_state_observations(holding_id, effective_at DESC, created_at DESC, id DESC);
 CREATE INDEX idx_daily_valuation_items_fx_preference ON daily_valuation_snapshot_items(fx_preference_observation_id);
-PRAGMA user_version = 9;
+PRAGMA user_version = 8;

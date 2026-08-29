@@ -368,6 +368,7 @@
       "buy": "Buy",
       "cash_in": "Money added",
       "cash_out": "Money removed",
+      "cash_dividend": "Cash dividend",
       "cash_transfer": "Cash transfer",
       "debt": "Debt draw / payment",
       "debt_draw": "Debt draw",

@@ -42,6 +42,7 @@ import {
 const KINDS: ChangeCommandKind[] = [
   ChangeCommandKind.ChangeMoneyAdded,
   ChangeCommandKind.ChangeMoneyRemoved,
+  ChangeCommandKind.ChangeCashDividend,
   ChangeCommandKind.ChangeCashTransfer,
   ChangeCommandKind.ChangeFXConversion,
   ChangeCommandKind.ChangePositionTransfer,
@@ -518,6 +519,8 @@ function RecordChangeFormReady({
       case ChangeCommandKind.ChangeMoneyAdded:
       case ChangeCommandKind.ChangeMoneyRemoved:
         return Boolean(request.accountId && request.amount?.trim() && request.currency);
+      case ChangeCommandKind.ChangeCashDividend:
+        return Boolean(request.holdingId && request.amount?.trim() && request.currency);
       case ChangeCommandKind.ChangeCashTransfer:
         return Boolean(request.fromAccountId && request.toAccountId && request.fromAccountId !== request.toAccountId && request.sent?.trim() && request.received?.trim() && request.sentCurrency && request.receivedCurrency);
       case ChangeCommandKind.ChangeFXConversion:
@@ -757,6 +760,24 @@ function RecordChangeFormReady({
       {(kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved) && (
         <>
           {!lock?.accountId && <AccountSelect id="change-account" label={t("history.accountSelect")} value={request.accountId ?? ""} onChange={(accountId) => handleAccountWithCurrency(accountId, {}, ["amount"])} accounts={accountOptions} />}
+          <MoneyFields prefix="change" label={t("history.amount")} amount={request.amount ?? ""} currency={request.currency ?? defaultCurrency} currencies={currencyOptions} onAmount={(amount) => patch({ amount })} onCurrency={(currency) => patch({ currency })} />
+        </>
+      )}
+
+      {kind === ChangeCommandKind.ChangeCashDividend && (
+        <>
+          <OptionSelect
+            id="change-holding"
+            label={t("history.holding")}
+            value={request.holdingId ?? ""}
+            emptyLabel={t("history.selectEmpty")}
+            options={holdingOptions}
+            onChange={(holdingId) => {
+              const holding = holdings.data.find((candidate) => candidate.id === holdingId);
+              const instrument = (instruments.data ?? []).find((candidate) => candidate.id === holding?.instrumentId);
+              patch({ holdingId, currency: instrument?.quoteCurrency ?? defaultCurrency }, ["amount"]);
+            }}
+          />
           <MoneyFields prefix="change" label={t("history.amount")} amount={request.amount ?? ""} currency={request.currency ?? defaultCurrency} currencies={currencyOptions} onAmount={(amount) => patch({ amount })} onCurrency={(currency) => patch({ currency })} />
         </>
       )}

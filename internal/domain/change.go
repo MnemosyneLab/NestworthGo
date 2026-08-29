@@ -124,6 +124,7 @@ type ActivityKind string
 const (
 	ActivityCashIn           ActivityKind = "cash_in"
 	ActivityCashOut          ActivityKind = "cash_out"
+	ActivityCashDividend     ActivityKind = "cash_dividend"
 	ActivityCashTransfer     ActivityKind = "cash_transfer"
 	ActivityFXConversion     ActivityKind = "fx_conversion"
 	ActivityPositionTransfer ActivityKind = "position_transfer"
@@ -140,7 +141,7 @@ func (k ActivityKind) String() string { return string(k) }
 func ParseActivityKind(value string) (ActivityKind, error) {
 	kind := ActivityKind(strings.TrimSpace(value))
 	switch kind {
-	case ActivityCashIn, ActivityCashOut, ActivityCashTransfer, ActivityFXConversion,
+	case ActivityCashIn, ActivityCashOut, ActivityCashDividend, ActivityCashTransfer, ActivityFXConversion,
 		ActivityPositionTransfer, ActivityBuy, ActivitySell, ActivityValueUpdate,
 		ActivityDebtDraw, ActivityDebtPayment, ActivityReversal:
 		return kind, nil
@@ -151,7 +152,7 @@ func ParseActivityKind(value string) (ActivityKind, error) {
 
 func AllActivityKinds() []ActivityKind {
 	return []ActivityKind{
-		ActivityCashIn, ActivityCashOut, ActivityCashTransfer, ActivityFXConversion,
+		ActivityCashIn, ActivityCashOut, ActivityCashDividend, ActivityCashTransfer, ActivityFXConversion,
 		ActivityPositionTransfer, ActivityBuy, ActivitySell, ActivityValueUpdate,
 		ActivityDebtDraw, ActivityDebtPayment, ActivityReversal,
 	}
@@ -254,6 +255,7 @@ type Activity struct {
 	CorrectionGroupID  *ActivityCorrectionGroupID
 	TransactionFXRate  *FxRate
 	TradeDetail        *TradeDetail
+	DividendDetail     *DividendDetail
 	Resulting          []EndpointView
 	Effects            []ActivityEffect
 }
@@ -402,6 +404,14 @@ type ActivityCommit struct {
 	Resulting []EndpointView
 }
 
+type CashDividendInput struct {
+	HouseholdID HouseholdID
+	HoldingID   HoldingID
+	Amount      Money
+	EffectiveAt time.Time
+	Note        *string
+}
+
 type MoneyAddedInput struct {
 	HouseholdID HouseholdID
 	AccountID   AccountID
@@ -514,6 +524,14 @@ type TradeDetail struct {
 	Fee          *Money
 }
 
+// DividendDetail is the queryable cash-dividend payload stored beside the
+// cash effect. The effect itself cannot carry Holding identity.
+type DividendDetail struct {
+	HoldingID    HoldingID
+	InstrumentID InstrumentID
+	Amount       Money
+}
+
 type ValueUpdateInput struct {
 	HouseholdID HouseholdID
 	AccountID   AccountID
@@ -548,6 +566,8 @@ func PreviewChange(state ChangeState, command any) (ChangePreview, error) {
 		return buildMoneyChange(state, input, true)
 	case MoneyRemovedInput:
 		return buildMoneyChange(state, input, false)
+	case CashDividendInput:
+		return buildCashDividend(state, input)
 	case CashTransferInput:
 		return buildCashTransfer(state, input)
 	case FXConversionInput:
@@ -755,6 +775,35 @@ func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, 
 		return ChangePreview{}, err
 	}
 	activity.Effects = []ActivityEffect{effect}
+	return ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{result}}, nil
+}
+
+func buildCashDividend(state ChangeState, input CashDividendInput) (ChangePreview, error) {
+	holding, err := state.holding(input.HoldingID, input.HouseholdID)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	account, err := state.account(holding.AccountID, input.HouseholdID)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	if account.Mode != TrackingHoldings {
+		return ChangePreview{}, changeError(ErrInvalidChange, "holdingId", "cash dividends require a Holdings Account")
+	}
+	if input.Amount.IsZero() {
+		return ChangePreview{}, changeError(ErrInvalidChange, "amount", "must be greater than zero")
+	}
+	activity, err := state.newActivity(input.HouseholdID, ActivityCashDividend, ReasonIncome, input.EffectiveAt, input.Note)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	effect := cashEffect(activity.ID, 1, EffectRoleAmount, EffectAdded, ClassificationIncome, account.ID, input.Amount)
+	result, err := state.cash(account.ID, input.Amount, EffectAdded)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	activity.Effects = []ActivityEffect{effect}
+	activity.DividendDetail = &DividendDetail{HoldingID: holding.ID, InstrumentID: holding.InstrumentID, Amount: input.Amount}
 	return ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{result}}, nil
 }
 

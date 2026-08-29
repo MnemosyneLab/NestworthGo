@@ -36,7 +36,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { resolvedTimeZone } from "@/lib/time";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
-const ACTIVITY_KINDS = ["cash_in", "cash_out", "cash_transfer", "fx_conversion", "position_transfer", "buy", "sell", "value_update", "debt_draw", "debt_payment"];
+const ACTIVITY_KINDS = ["cash_in", "cash_out", "cash_dividend", "cash_transfer", "fx_conversion", "position_transfer", "buy", "sell", "value_update", "debt_draw", "debt_payment"];
 
 function Timeline() {
   const { t } = useTranslation();

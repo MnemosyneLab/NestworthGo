@@ -17,6 +17,7 @@ var commandKindActivity = []struct {
 }{
 	{ChangeMoneyAdded, domain.ActivityCashIn},
 	{ChangeMoneyRemoved, domain.ActivityCashOut},
+	{ChangeCashDividend, domain.ActivityCashDividend},
 	{ChangeCashTransfer, domain.ActivityCashTransfer},
 	{ChangeFXConversion, domain.ActivityFXConversion},
 	{ChangePositionTransfer, domain.ActivityPositionTransfer},
@@ -86,6 +87,7 @@ func TestToCommandAcceptsEveryChangeCommandKind(t *testing.T) {
 	requests := map[ChangeCommandKind]ChangeCommandRequest{
 		ChangeMoneyAdded:         {Kind: ChangeMoneyAdded, AccountID: accountID, Amount: "1", Currency: "USD"},
 		ChangeMoneyRemoved:       {Kind: ChangeMoneyRemoved, AccountID: accountID, Amount: "1", Currency: "USD"},
+		ChangeCashDividend:       {Kind: ChangeCashDividend, HoldingID: holdingID, Amount: "1", Currency: "USD"},
 		ChangeCashTransfer:       {Kind: ChangeCashTransfer, FromAccountID: accountID, ToAccountID: otherAccountID, Sent: "1", SentCurrency: "USD", Received: "1", ReceivedCurrency: "USD"},
 		ChangeFXConversion:       {Kind: ChangeFXConversion, AccountID: accountID, Sold: "1", SoldCurrency: "USD", Bought: "1", BoughtCurrency: "CNY"},
 		ChangePositionTransfer:   {Kind: ChangePositionTransfer, FromHoldingID: holdingID, ToHoldingID: otherHoldingID, Quantity: "1"},
@@ -126,7 +128,7 @@ func TestCommandKindActivityTableCoversEveryKind(t *testing.T) {
 		covered[mapping.kind] = true
 	}
 	for _, kind := range []ChangeCommandKind{
-		ChangeMoneyAdded, ChangeMoneyRemoved, ChangeCashTransfer, ChangeFXConversion,
+		ChangeMoneyAdded, ChangeMoneyRemoved, ChangeCashDividend, ChangeCashTransfer, ChangeFXConversion,
 		ChangePositionTransfer, ChangePositionAdjustment, ChangeTrade, ChangeValueUpdate,
 		ChangeDebtDraw, ChangeDebtPayment,
 	} {

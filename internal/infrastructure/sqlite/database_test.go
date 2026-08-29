@@ -209,7 +209,7 @@ func TestOpenRejectsSchema6FixtureWithoutWriting(t *testing.T) {
 		t.Fatal("schema 6 database changed after rejected open")
 	}
 	message := openErr.Error()
-	if !strings.Contains(message, "found version 6") || !strings.Contains(message, "supported version 8") || !strings.Contains(message, "new database") {
+	if !strings.Contains(message, "found version 6") || !strings.Contains(message, "supported version 9") || !strings.Contains(message, "new database") {
 		t.Fatalf("legacy error = %v, want found/supported versions and new-database guidance", openErr)
 	}
 }
@@ -250,5 +250,44 @@ func TestOpenRejectsSchema7FixtureWithoutWriting(t *testing.T) {
 	}
 	if string(before) != string(after) {
 		t.Fatal("schema 7 database changed after rejected open")
+	}
+}
+
+func TestOpenRejectsSchema8FixtureWithoutWriting(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schema8.db")
+	script, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "schema8", "schema8-fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seed.Exec(string(script)); err != nil {
+		_ = seed.Close()
+		t.Fatal(err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, openErr := Open(path)
+	var bootstrapErr *BootstrapError
+	if !errors.As(openErr, &bootstrapErr) || bootstrapErr.Status != StatusLegacyDatabase {
+		t.Fatalf("Open error = %v, want legacy database rejection", openErr)
+	}
+	if bootstrapErr.Found != 8 || bootstrapErr.Supported != CurrentSchemaVersion {
+		t.Fatalf("versions found=%d supported=%d, want 8 and %d", bootstrapErr.Found, bootstrapErr.Supported, CurrentSchemaVersion)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(before) != string(after) {
+		t.Fatal("schema 8 database changed after rejected open")
 	}
 }

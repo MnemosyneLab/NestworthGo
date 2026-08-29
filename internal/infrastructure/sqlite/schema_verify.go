@@ -512,6 +512,9 @@ func historySchemaColumns() map[string][]schemaColumn {
 		"activity_trade_details": {
 			expectedColumn("activity_id", "TEXT", 1, 1), expectedColumn("side", "TEXT", 1, 0), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("quantity", "TEXT", 1, 0), expectedColumn("gross_amount", "TEXT", 1, 0), expectedColumn("gross_currency", "TEXT", 1, 0), expectedColumn("unit_price", "TEXT", 1, 0), expectedColumn("fee_amount", "TEXT", 0, 0), expectedColumn("fee_currency", "TEXT", 0, 0),
 		},
+		"activity_dividend_details": {
+			expectedColumn("activity_id", "TEXT", 1, 1), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("amount", "TEXT", 1, 0), expectedColumn("currency", "TEXT", 1, 0),
+		},
 		"activity_correction_groups": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("original_activity_id", "TEXT", 1, 0), expectedColumn("replacement_activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
 		},
@@ -582,6 +585,8 @@ func expectedSchemaChecks() map[string][]string {
 		"instrument_quotes":   {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))"},
 		"fx_quotes":           {"CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))", "CHECK(base_currency <> quote_currency)"},
 		"fx_preferences":      {"CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]')", "CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(currency_a < currency_b)"},
+		"activities":          {"CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal'))"},
+		"activity_dividend_details": {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
 	}
 }
 

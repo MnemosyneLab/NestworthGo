@@ -220,6 +220,7 @@ export const additionsEn = {
       removedQuantity: "Removed {{quantity}} of {{instrument}}",
       drewDebt: "Drew {{amount}} on {{account}}",
       paidDebt: "Paid {{amount}} toward {{account}}",
+      dividend: "Dividend {{amount}} from {{instrument}} into {{account}}",
       reversal: "Reversed a previous change",
       withReason: "{{sentence}} ({{reason}})",
       withFee: "{{sentence}} (fee {{fee}})",
@@ -329,6 +330,7 @@ export const additionsEn = {
     kind: {
       cash_in: "Money added",
       cash_out: "Money removed",
+      cash_dividend: "Cash dividend",
       buy: "Buy",
       sell: "Sell",
       reversal: "Reversal",
@@ -724,6 +726,7 @@ export const additionsZhCN = {
       removedQuantity: "减少了 {{quantity}} {{instrument}}",
       drewDebt: "从 {{account}} 借入 {{amount}}",
       paidDebt: "向 {{account}} 偿还 {{amount}}",
+      dividend: "从 {{instrument}} 分得 {{amount}} 至 {{account}}",
       reversal: "冲销了此前的一项变化",
       withReason: "{{sentence}}（{{reason}}）",
       withFee: "{{sentence}}（费用 {{fee}}）",
@@ -833,6 +836,7 @@ export const additionsZhCN = {
     kind: {
       cash_in: "增加金额",
       cash_out: "减少金额",
+      cash_dividend: "现金分红",
       buy: "买入",
       sell: "卖出",
       reversal: "冲销",
@@ -1218,6 +1222,7 @@ export const additionsZhTW = {
       removedQuantity: "減少了 {{quantity}} {{instrument}}",
       drewDebt: "從 {{account}} 借入 {{amount}}",
       paidDebt: "向 {{account}} 償還 {{amount}}",
+      dividend: "從 {{instrument}} 分得 {{amount}} 至 {{account}}",
       reversal: "沖銷了此前的一項變更",
       withReason: "{{sentence}}（{{reason}}）",
       withFee: "{{sentence}}（費用 {{fee}}）",
@@ -1327,6 +1332,7 @@ export const additionsZhTW = {
     kind: {
       cash_in: "增加金額",
       cash_out: "減少金額",
+      cash_dividend: "現金分紅",
       buy: "買入",
       sell: "賣出",
       reversal: "沖銷",

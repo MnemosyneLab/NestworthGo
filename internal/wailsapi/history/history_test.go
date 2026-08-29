@@ -93,7 +93,7 @@ func TestHistoryOriginStartedByOnboarding(t *testing.T) {
 
 // TestChangeCommandUnionRoundTripsEveryKind verifies that the
 // HistoryService change-command union round-trips every change kind
-// currently supported by domain.PreviewChange. It exercises all ten
+// currently supported by domain.PreviewChange. It exercises all eleven
 // domain.PreviewChange input kinds through history.Service.RecordChange.
 func TestChangeCommandUnionRoundTripsEveryKind(t *testing.T) {
 	fx := newFixture(t)
@@ -153,6 +153,16 @@ func TestChangeCommandUnionRoundTripsEveryKind(t *testing.T) {
 	}
 	holdingAID := tradePreview.Activity.TradeDetail.HoldingID
 
+	dividendPreview, err := fx.service.RecordChange(ctx, history.ChangeCommandRequest{
+		Kind: history.ChangeCashDividend, HoldingID: holdingAID, Amount: "15", Currency: "USD",
+	})
+	if err != nil {
+		t.Fatalf("RecordChange(cash_dividend): %v", err)
+	}
+	if dividendPreview.Activity.DividendDetail == nil || dividendPreview.Activity.DividendDetail.HoldingID != holdingAID {
+		t.Fatalf("dividend activity has no DividendDetail: %+v", dividendPreview.Activity)
+	}
+
 	holdingBDTO, err := holding.NewService(fx.app).CreateHolding(ctx, holding.CreateHoldingRequest{
 		AccountID: fx.brokerage2ID, InstrumentID: fx.instrumentID, Quantity: "0",
 	})
@@ -178,21 +188,27 @@ func TestChangeCommandUnionRoundTripsEveryKind(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListActivities: %v", err)
 	}
-	// 11 recorded activities: the ten domain.PreviewChange command kinds
+	// 12 recorded activities: the eleven domain.PreviewChange command kinds
 	// plus one extra money_added call (funding the Brokerage cash
 	// sub-ledger) needed to make the fx_conversion/trade commands valid.
-	if len(activities) != 11 {
-		t.Fatalf("ListActivities returned %d activities, want 11", len(activities))
+	if len(activities) != 12 {
+		t.Fatalf("ListActivities returned %d activities, want 12", len(activities))
 	}
 	var listedTrade *wire.ActivityDTO
+	var listedDividend *wire.ActivityDTO
 	for index := range activities {
 		if activities[index].TradeDetail != nil {
 			listedTrade = &activities[index]
-			break
+		}
+		if activities[index].DividendDetail != nil {
+			listedDividend = &activities[index]
 		}
 	}
 	if listedTrade == nil || listedTrade.TradeDetail.HoldingID != holdingAID {
 		t.Fatalf("ListActivities omitted TradeDetail on the buy: %+v", activities)
+	}
+	if listedDividend == nil || listedDividend.DividendDetail.HoldingID != holdingAID {
+		t.Fatalf("ListActivities omitted DividendDetail: %+v", activities)
 	}
 }
 

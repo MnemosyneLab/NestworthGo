@@ -11,6 +11,7 @@ import { activityToInitialCommand, emptyChangeRequest } from "@/features/history
 const ACTIVITY_TO_COMMAND: Record<string, ChangeCommandKind> = {
   cash_in: ChangeCommandKind.ChangeMoneyAdded,
   cash_out: ChangeCommandKind.ChangeMoneyRemoved,
+  cash_dividend: ChangeCommandKind.ChangeCashDividend,
   cash_transfer: ChangeCommandKind.ChangeCashTransfer,
   fx_conversion: ChangeCommandKind.ChangeFXConversion,
   buy: ChangeCommandKind.ChangeTrade,
@@ -33,6 +34,7 @@ describe("activityToInitialCommand kind mapping", () => {
         { role: "quantity", holdingId: "h1", quantity: "1" },
       ],
       tradeDetail: { holdingId: "h1", instrumentId: "i1", side: activityKind === "sell" ? "sell" : "buy", quantity: "1", gross: { amount: "1", currency: "USD" } },
+      dividendDetail: { holdingId: "h1", instrumentId: "i1", amount: { amount: "1", currency: "USD" } },
     } as ActivityDTO;
 
     expect(activityToInitialCommand(activity).kind).toBe(commandKind);

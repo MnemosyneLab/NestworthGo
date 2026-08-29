@@ -946,6 +946,22 @@ func FromTradeDetail(value *domain.TradeDetail) *TradeDetailDTO {
 	}
 }
 
+// DividendDetailDTO mirrors domain.DividendDetail.
+type DividendDetailDTO struct {
+	HoldingID    string    `json:"holdingId"`
+	InstrumentID string    `json:"instrumentId"`
+	Amount       MoneyView `json:"amount"`
+}
+
+func FromDividendDetail(value *domain.DividendDetail) *DividendDetailDTO {
+	if value == nil {
+		return nil
+	}
+	return &DividendDetailDTO{
+		HoldingID: value.HoldingID.String(), InstrumentID: value.InstrumentID.String(), Amount: FromMoney(value.Amount),
+	}
+}
+
 // ActivityDTO mirrors domain.Activity.
 type ActivityDTO struct {
 	ID                 string              `json:"id"`
@@ -960,6 +976,7 @@ type ActivityDTO struct {
 	CorrectionGroupID  *string             `json:"correctionGroupId,omitempty"`
 	TransactionFXRate  *string             `json:"transactionFxRate,omitempty"`
 	TradeDetail        *TradeDetailDTO     `json:"tradeDetail,omitempty"`
+	DividendDetail     *DividendDetailDTO  `json:"dividendDetail,omitempty"`
 	Resulting          []EndpointViewDTO   `json:"resulting,omitempty"`
 	Effects            []ActivityEffectDTO `json:"effects"`
 }
@@ -968,7 +985,7 @@ func FromActivity(value domain.Activity) ActivityDTO {
 	dto := ActivityDTO{
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Kind: string(value.Kind), Reason: string(value.Reason),
 		EffectiveAt: FormatTime(value.EffectiveAt), EffectiveLocalDate: value.EffectiveLocalDate, CreatedAt: FormatTime(value.CreatedAt),
-		Note: value.Note, TradeDetail: FromTradeDetail(value.TradeDetail), Resulting: FromEndpointViews(value.Resulting), Effects: FromActivityEffects(value.Effects),
+		Note: value.Note, TradeDetail: FromTradeDetail(value.TradeDetail), DividendDetail: FromDividendDetail(value.DividendDetail), Resulting: FromEndpointViews(value.Resulting), Effects: FromActivityEffects(value.Effects),
 	}
 	if value.ReversesActivityID != nil {
 		id := value.ReversesActivityID.String()

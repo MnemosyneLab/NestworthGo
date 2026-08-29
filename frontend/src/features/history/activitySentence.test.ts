@@ -11,6 +11,7 @@ const catalog: Record<string, string> = {
   "history.sentence.updatedValueDecreased": "{{account}} decreased {{delta}}",
   "history.sentence.converted": "Converted {{sold}} to {{bought}} in {{account}}",
   "history.sentence.paidDebt": "Paid {{amount}} to {{account}}",
+  "history.sentence.dividend": "Dividend {{amount}} from {{instrument}} into {{account}}",
   "history.sentence.reversal": "Reversed a previous change",
   "history.sentence.withFee": "{{sentence}} (Fee {{fee}})",
   "history.sentence.withReason": "{{sentence}} ({{reason}})",
@@ -69,6 +70,17 @@ describe("activitySentence", () => {
     } as unknown as ActivityDTO;
 
     expect(activitySentence(t, activity, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for $1,500.00");
+  });
+
+  it("describes a cash dividend without appending income reason", () => {
+    const activity = {
+      kind: "cash_dividend",
+      reason: "income",
+      dividendDetail: { holdingId: "h1", instrumentId: "i1", amount: { amount: "12.5", currency: "USD" } },
+      effects: [{ accountId: "acc-1", money: { amount: "12.5", currency: "USD" } }],
+    } as unknown as ActivityDTO;
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Dividend $12.50 from NVIDIA into Checking");
+    expect(activitySentence(t, activity, accounts, instruments)).not.toMatch(/Income/);
   });
 
   it("does not append principal reason for buy or sell", () => {
