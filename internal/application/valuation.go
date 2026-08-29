@@ -17,6 +17,7 @@ type ValuationService struct {
 	repository    Repository
 	now           func() time.Time
 	fxProviderKey func() string
+	quoteCacheTTL func() time.Duration
 }
 
 func NewValuationService(repository Repository, clocks ...func() time.Time) *ValuationService {
@@ -33,6 +34,19 @@ func NewValuationService(repository Repository, clocks ...func() time.Time) *Val
 // historical and isolated domain callers.
 func (v *ValuationService) SetFXProviderKey(providerKey func() string) {
 	v.fxProviderKey = providerKey
+}
+
+func (v *ValuationService) SetQuoteCacheTTL(ttl func() time.Duration) {
+	v.quoteCacheTTL = ttl
+}
+
+func (v *ValuationService) quoteTTL() time.Duration {
+	if v != nil && v.quoteCacheTTL != nil {
+		if ttl := v.quoteCacheTTL(); ttl > 0 {
+			return ttl
+		}
+	}
+	return 12 * time.Hour
 }
 
 func (v *ValuationService) ValueAccounts(snapshot domain.PortfolioSnapshot) ([]domain.AccountValuation, []domain.MissingInputView, error) {
@@ -91,18 +105,21 @@ func (v *ValuationService) PortfolioSnapshot(snapshot domain.PortfolioSnapshot) 
 	hasValue := false
 	for _, item := range valued {
 		account := item.model.Account
-		if !account.IncludeInPortfolio || account.IsLiability() {
+		if account.IsLiability() || account.ArchivedAt != nil {
 			continue
 		}
-		portfolio.Accounts = append(portfolio.Accounts, item.model)
-		if !item.model.Complete {
-			portfolio.Complete = false
-		}
-		if item.hasBase {
-			total = total.Add(item.baseExact)
-			hasValue = true
-		}
+		holdingComponents := make([]domain.ValuationComponent, 0, len(item.model.Components))
+		holdingTotal := decimal.Zero
+		hasHoldingValue := false
+		complete := true
 		for _, component := range item.model.Components {
+			if component.InstrumentID == nil {
+				continue
+			}
+			holdingComponents = append(holdingComponents, component)
+			if !component.Available {
+				complete = false
+			}
 			if component.BaseAmount == nil || component.BaseAmountExact == "" {
 				continue
 			}
@@ -110,23 +127,22 @@ func (v *ValuationService) PortfolioSnapshot(snapshot domain.PortfolioSnapshot) 
 			if parseErr != nil {
 				return domain.PortfolioValuation{}, &domain.Error{Code: domain.ErrIntegrity, Field: "amount", Message: "stored valuation amount is invalid"}
 			}
+			holdingTotal = holdingTotal.Add(baseAmount)
+			hasHoldingValue = true
 			currencyKey := component.NativeCurrency.String()
 			valuesByCurrency[currencyKey] = valuesByCurrency[currencyKey].Add(baseAmount)
 			labelsByCurrency[currencyKey] = currencyKey
 			countryKey, countryLabel := "unknown", "Unknown"
 			typeKey, typeLabel := "manual", "Manual"
 			var instrument *domain.Instrument
-			if component.InstrumentID != nil {
-				if found, ok := instrumentByID(snapshot.Instruments, *component.InstrumentID); ok {
-					copied := found
-					instrument = &copied
-					if instrument.CountryCode != nil {
-						countryKey, countryLabel = *instrument.CountryCode, *instrument.CountryCode
-					}
+			if found, ok := instrumentByID(snapshot.Instruments, *component.InstrumentID); ok {
+				copied := found
+				instrument = &copied
+				if instrument.CountryCode != nil {
+					countryKey, countryLabel = *instrument.CountryCode, *instrument.CountryCode
 				}
 			}
-			cash := account.TrackingMode == domain.TrackingHoldings && component.InstrumentID == nil
-			class, classErr := domain.ClassifyAccountComponent(account, instrument, cash)
+			class, classErr := domain.ClassifyAccountComponent(account, instrument, false)
 			if classErr != nil {
 				return domain.PortfolioValuation{}, classErr
 			}
@@ -141,6 +157,30 @@ func (v *ValuationService) PortfolioSnapshot(snapshot domain.PortfolioSnapshot) 
 			labelsByCountry[countryKey] = countryLabel
 			valuesByType[typeKey] = valuesByType[typeKey].Add(baseAmount)
 			labelsByType[typeKey] = typeLabel
+		}
+		if len(holdingComponents) == 0 {
+			continue
+		}
+		model := item.model
+		model.Components = holdingComponents
+		model.Complete = complete
+		model.MissingInputs = missingForInstrumentComponents(item.model.MissingInputs, holdingComponents)
+		if hasHoldingValue {
+			view, err := moneyView(holdingTotal, snapshot.Household.BaseCurrency)
+			if err != nil {
+				return domain.PortfolioValuation{}, err
+			}
+			model.BaseValue = &view
+		} else {
+			model.BaseValue = nil
+		}
+		portfolio.Accounts = append(portfolio.Accounts, model)
+		if !model.Complete {
+			portfolio.Complete = false
+		}
+		if hasHoldingValue {
+			total = total.Add(holdingTotal)
+			hasValue = true
 		}
 	}
 	portfolio.MissingInputs = missingForAccounts(portfolio.Accounts)
@@ -316,7 +356,7 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
 	}
-	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now())
+	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now(), v.quoteTTL())
 	component, missing, err := v.valueNative(snapshot, accountID, &holding.InstrumentID, native, instrument.QuoteCurrency, &evidence)
 	if err != nil {
 		return domain.ValuationComponent{}, nil, err
@@ -370,14 +410,19 @@ func (v *ValuationService) convert(snapshot domain.PortfolioSnapshot, accountID 
 		return native, nil, nil, nil
 	}
 	preference := findFXPreference(snapshot.FXPreferences, currency, baseCurrency)
-	if preference == nil {
-		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
-	}
 	providerKey := ""
-	if preference.SourceKind == domain.QuoteSourceProvider && v.fxProviderKey != nil {
+	if v.fxProviderKey != nil {
 		providerKey = strings.ToLower(strings.TrimSpace(v.fxProviderKey()))
 	}
-	quote := selectFXQuote(*preference, snapshot.FXQuotes, currency, baseCurrency, providerKey)
+	source := domain.QuoteSourceProvider
+	if preference != nil {
+		source = preference.SourceKind
+	}
+	implicit := domain.FXPreference{HouseholdID: snapshot.Household.ID, CurrencyA: currency, CurrencyB: baseCurrency, SourceKind: source}
+	if preference != nil {
+		implicit = *preference
+	}
+	quote := selectFXQuote(implicit, snapshot.FXQuotes, currency, baseCurrency, providerKey)
 	if quote == nil {
 		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
 	}
@@ -391,7 +436,7 @@ func (v *ValuationService) convert(snapshot domain.PortfolioSnapshot, accountID 
 	if err != nil {
 		return decimal.Zero, nil, nil, err
 	}
-	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now())
+	evidence := quoteEvidence(quote.ID.String(), quote.SourceKind, quote.SourceKey, quote.QuotedAt, quote.Delayed, v.now(), v.quoteTTL())
 	return converted, &evidence, nil, nil
 }
 
@@ -456,8 +501,8 @@ func quoteLater(quotedAt, createdAt time.Time, id string, otherQuotedAt, otherCr
 	return id > otherID
 }
 
-func quoteEvidence(id string, source domain.QuoteSourceKind, key string, quotedAt time.Time, delayed bool, now time.Time) domain.QuoteEvidenceView {
-	return domain.QuoteEvidenceView{ObservationID: id, Source: source, SourceKey: key, QuotedAt: quotedAt, Freshness: domain.QuoteFreshness(source, delayed, quotedAt, now), Delayed: delayed}
+func quoteEvidence(id string, source domain.QuoteSourceKind, key string, quotedAt time.Time, delayed bool, now time.Time, ttl time.Duration) domain.QuoteEvidenceView {
+	return domain.QuoteEvidenceView{ObservationID: id, Source: source, SourceKey: key, QuotedAt: quotedAt, Freshness: domain.QuoteFreshness(source, delayed, quotedAt, now, ttl), Delayed: delayed}
 }
 
 func latestCashValues(values []domain.AccountCashValue) []domain.AccountCashValue {
@@ -534,6 +579,37 @@ func makeAllocations(values map[string]decimal.Decimal, labels map[string]string
 		result = append(result, domain.AllocationView{Key: key, Label: label, Amount: amount, ShareBPS: shares[key]})
 	}
 	return result, nil
+}
+
+func missingForInstrumentComponents(missing []domain.MissingInputView, holdings []domain.ValuationComponent) []domain.MissingInputView {
+	currencies := make(map[domain.CurrencyCode]struct{}, len(holdings))
+	instruments := make(map[domain.InstrumentID]struct{}, len(holdings))
+	for _, component := range holdings {
+		currencies[component.NativeCurrency] = struct{}{}
+		if component.InstrumentID != nil {
+			instruments[*component.InstrumentID] = struct{}{}
+		}
+	}
+	filtered := make([]domain.MissingInputView, 0, len(missing))
+	for _, item := range missing {
+		switch item.Kind {
+		case domain.MissingAccountValue:
+			continue
+		case domain.MissingInstrumentPrice, domain.MissingInstrument:
+			if item.InstrumentID != nil {
+				if _, ok := instruments[*item.InstrumentID]; ok {
+					filtered = append(filtered, item)
+				}
+			}
+		case domain.MissingFXRate:
+			if _, ok := currencies[item.QuoteCurrency]; ok {
+				filtered = append(filtered, item)
+			}
+		default:
+			filtered = append(filtered, item)
+		}
+	}
+	return filtered
 }
 
 func missingForAccounts(accounts []domain.AccountValuation) []domain.MissingInputView {

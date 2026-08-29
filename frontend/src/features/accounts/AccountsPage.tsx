@@ -9,6 +9,7 @@ import { useAccounts, useAccountValuations, useCreateAccount } from "@/queries/a
 import { AccountCreateWizard } from "@/features/accounts/AccountCreateWizard";
 import { AccountDetail } from "@/features/accounts/AccountDetail";
 import { formatAmount } from "@/lib/money";
+import { nativeMoney } from "@/features/accounts/nativeMoney";
 import { displayEnum, displayError } from "@/lib/display";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -167,9 +168,18 @@ export function AccountsPage({
               <ul className="overflow-hidden rounded-lg border border-border">
                 {group.records.map((record) => {
                   const valuation = valuationByAccountId.get(record.account.id);
-                  const value = valuation?.baseValue
-                    ? formatAmount(valuation.baseValue.amount, valuation.baseValue.currency)
-                    : t("accounts.noValue");
+                  const native = nativeMoney(record, valuation);
+                  const base = valuation?.baseValue;
+                  const value = native
+                    ? formatAmount(native.amount, native.currency)
+                    : base
+                      ? formatAmount(base.amount, base.currency)
+                      : t("accounts.noValue");
+                  const secondary = native && base
+                    ? formatAmount(base.amount, base.currency)
+                    : native && !base && !valuations.isLoading
+                      ? t("accounts.pendingConversion")
+                      : undefined;
                   const completeness = valuation
                     ? valuation.complete
                       ? t("accounts.completeValuation")
@@ -196,7 +206,10 @@ export function AccountsPage({
                           </span>
                           <span className="text-xs text-muted-foreground">{completeness}</span>
                         </span>
-                        <span className="shrink-0 text-sm font-medium">{value}</span>
+                        <span className="flex shrink-0 flex-col items-end text-sm font-medium">
+                          <span>{value}</span>
+                          {secondary && <span className="text-xs font-normal text-muted-foreground">{secondary}</span>}
+                        </span>
                       </button>
                     </li>
                   );

@@ -49,9 +49,9 @@ holdings inside it.
 9. Overview defaults to underlying Asset Type, with By institution and By
    account type as additional views. Titles must name the aggregation
    dimension.
-10. Portfolio is a separate page. It contains only whole-account
-    `include_in_portfolio=true` asset accounts. Cash and holdings of a
-    Composite Account enter together.
+10. Portfolio is a separate page. It contains holdings (instrument
+    components) of active asset accounts. Cash is excluded. The create
+    and settings forms do not show an include-in-portfolio checkbox.
 11. Amounts, market values, completeness, and classification come from backend
     read models. The frontend only composes and displays them; it does not
     recompute financial authority.
@@ -162,7 +162,8 @@ Settings
 
 - Accounts is the primary entry for "where the money is and what is inside the
   account".
-- Portfolio is the investment view within `include_in_portfolio`.
+- Portfolio is the investment view of holdings (not cash, not the unused
+  `include_in_portfolio` flag).
 - Instruments is a reusable instrument catalog. Presence there does not mean
   any account already holds the instrument.
 - If a household-wide holdings table remains, name it "all holdings index". It
@@ -273,15 +274,9 @@ people, or the user may enter explicit percentages such as 70/30 that must sum
 to 100%. An empty owner set disables the primary button. It is not a §14
 inline error and not an unresponsive Continue.
 
-Inclusion defaults use `SuggestedInclusion`. Checking Portfolio for a
-Composite Account must show the whole-account explanation:
-
-```text
-Include in portfolio
-
-Every cash balance and holding in this account will enter the portfolio,
-not only funds or other investments.
-```
+Inclusion defaults use `SuggestedInclusion` for net worth and liquid
+assets. Portfolio inclusion is not shown: holdings enter Portfolio and cash
+does not.
 
 A Simple Account may enter an initial balance or valuation during create. A
 Composite Account does not enter a fictional total; after create it opens
@@ -466,14 +461,13 @@ whole app adopts a consistent sign rule.
 In settings:
 
 - Editable: name, Account type (only still-legal compatible values),
-  Institution, group, owners, the three inclusion switches, and icon;
+  Institution, group, owners, net-worth and liquid-assets inclusion, and icon;
 - Read-only: Tracking method, with "This cannot currently be changed after
   account creation";
 - Read-only: Role; Role of `other` also cannot change after create;
 - Account type updates do not recompute inclusion, create Activities, or change
   amounts;
-- Holdings Accounts always show the whole-account hint next to Portfolio
-  inclusion.
+- Portfolio inclusion is not an account setting; holdings enter Portfolio.
 - Owners use the same gate as the create wizard: at least one owner must be
   selected. Save is disabled until then, and the update submit path also
   rejects empty ownership. Do not default an empty list to all household
@@ -536,8 +530,8 @@ with Asset allocation for the primary position.
 ## 11. Portfolio
 
 Portfolio is a separate page that uses the existing
-`PortfolioService.Portfolio` and shows only Accounts with
-`include_in_portfolio=true` and role=asset.
+`PortfolioService.Portfolio` and shows holdings of asset Accounts. Cash is
+excluded. `include_in_portfolio` is not used for the live total.
 
 ```text
 Portfolio                              320,000 CNY

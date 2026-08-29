@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -50,6 +51,7 @@ type refreshTarget struct {
 	providerKey    string
 	providerSymbol string
 	skip           bool
+	cached         bool
 	skipCode       domain.ErrorCode
 }
 
@@ -105,7 +107,7 @@ func (s *Service) RefreshFX(ctx context.Context, currencyA, currencyB string) (R
 		break
 	}
 	target := refreshTarget{key: "fx:" + key, kind: RefreshFXTarget, baseCurrency: a, quoteCurrency: b, householdID: snapshot.Household.ID}
-	if !preferenceFound || !providerPreference {
+	if preferenceFound && !providerPreference {
 		target.skip = true
 		target.skipCode = domain.ErrUnavailable
 	}
@@ -122,6 +124,15 @@ func (s *Service) RefreshAll(ctx context.Context) (RefreshResult, error) {
 	}
 	targets := refreshTargetsForSnapshot(snapshot)
 	targets = append(targets, extraFXRefreshTargetsForSnapshot(snapshot)...)
+	return s.refreshTargets(ctx, targets), nil
+}
+
+func (s *Service) RefreshMissingOrStale(ctx context.Context) (RefreshResult, error) {
+	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return RefreshResult{}, err
+	}
+	targets := s.applyQuoteCache(snapshot, refreshTargetsForSnapshot(snapshot), false)
 	return s.refreshTargets(ctx, targets), nil
 }
 
@@ -204,6 +215,9 @@ func refreshProviderKey(target refreshTarget, marketData marketDataSnapshot) str
 
 func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marketData marketDataSnapshot) (RefreshTargetResult, bool) {
 	if target.skip {
+		if target.cached {
+			return cachedRefresh(target), false
+		}
 		return RefreshTargetResult{TargetKey: target.key, Kind: target.kind, Status: RefreshSkipped, ErrorCode: target.skipCode}, false
 	}
 	if ctx == nil {
@@ -279,6 +293,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 	if persistErr != nil {
 		return failedRefresh(target, persistErr), false
 	}
+	s.rememberProviderFXPreference(ctx, target)
 	if inserted {
 		return fetchedRefresh(target), false
 	}
@@ -343,7 +358,7 @@ func refreshTargetsForSnapshot(snapshot domain.PortfolioSnapshot) []refreshTarge
 	}
 	for key, target := range requiredFX {
 		preference, ok := preferences[key]
-		if !ok || preference.SourceKind != domain.QuoteSourceProvider {
+		if ok && preference.SourceKind != domain.QuoteSourceProvider {
 			target.skip = true
 			target.skipCode = domain.ErrUnavailable
 		}
@@ -355,6 +370,69 @@ func refreshTargetsForSnapshot(snapshot domain.PortfolioSnapshot) []refreshTarge
 	}
 	sort.Slice(targets, func(i, j int) bool { return targets[i].key < targets[j].key })
 	return targets
+}
+
+func (s *Service) applyQuoteCache(snapshot domain.PortfolioSnapshot, targets []refreshTarget, force bool) []refreshTarget {
+	if force {
+		return targets
+	}
+	ttl := s.QuoteCacheTTL()
+	now := s.clock()
+	for index := range targets {
+		if targets[index].skip {
+			continue
+		}
+		quotedAt := latestProviderQuotedAt(snapshot, targets[index])
+		if quotedAt.IsZero() {
+			continue
+		}
+		if now.Sub(quotedAt) < ttl {
+			targets[index].skip = true
+			targets[index].cached = true
+		}
+	}
+	return targets
+}
+
+func latestProviderQuotedAt(snapshot domain.PortfolioSnapshot, target refreshTarget) time.Time {
+	var selected time.Time
+	if target.kind == RefreshInstrumentTarget {
+		for _, quote := range snapshot.InstrumentQuotes {
+			if quote.InstrumentID != target.instrument.ID || quote.SourceKind != domain.QuoteSourceProvider {
+				continue
+			}
+			if selected.IsZero() || quote.QuotedAt.After(selected) {
+				selected = quote.QuotedAt
+			}
+		}
+		return selected
+	}
+	for _, quote := range snapshot.FXQuotes {
+		if quote.SourceKind != domain.QuoteSourceProvider {
+			continue
+		}
+		if !((quote.BaseCurrency == target.baseCurrency && quote.QuoteCurrency == target.quoteCurrency) || (quote.BaseCurrency == target.quoteCurrency && quote.QuoteCurrency == target.baseCurrency)) {
+			continue
+		}
+		if selected.IsZero() || quote.QuotedAt.After(selected) {
+			selected = quote.QuotedAt
+		}
+	}
+	return selected
+}
+
+func (s *Service) rememberProviderFXPreference(ctx context.Context, target refreshTarget) {
+	if target.householdID == "" || target.kind != RefreshFXTarget {
+		return
+	}
+	preferences, err := s.repository.ListFXPreferences(ctx, target.householdID)
+	if err != nil {
+		return
+	}
+	if findFXPreference(preferences, target.baseCurrency, target.quoteCurrency) != nil {
+		return
+	}
+	_, _ = s.SetFXPreference(ctx, target.baseCurrency.String(), target.quoteCurrency.String(), string(domain.QuoteSourceProvider))
 }
 
 // extraFXRefreshTargetsForSnapshot adds provider-backed preferences that are

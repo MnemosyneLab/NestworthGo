@@ -307,6 +307,39 @@ export function OverviewPage({
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-4">
+        <BreakdownList
+          title={t("overview.assetsByType")}
+          description={t("overview.assetsByTypeHint")}
+          items={(data.assetsByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
+          currency={currency}
+        />
+        <p className="text-sm text-muted-foreground">{t("overview.dimensionHint")}</p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <BreakdownList
+            title={t("overview.byInstitution")}
+            items={(data.byInstitution ?? []).map((item) => ({
+              ...item,
+              label: item.label || t("overview.unassignedInstitution"),
+            }))}
+            currency={currency}
+          />
+          <BreakdownList
+            title={t("overview.byAccountType")}
+            description={t("overview.byAccountTypeHint")}
+            items={(data.byAccountType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
+            currency={currency}
+          />
+          <BreakdownList
+            title={t("overview.liabilitiesByType")}
+            items={(data.liabilitiesByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
+            currency={currency}
+          />
+          <BreakdownList title={t("overview.byMember")} items={data.byMember ?? []} currency={currency} />
+          <BreakdownList title={t("overview.byGroup")} items={data.byGroup ?? []} currency={currency} />
+        </div>
+      </div>
+
       <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-3">
           <CardTitle>{t("overview.recentActivity")}</CardTitle>
@@ -342,39 +375,6 @@ export function OverviewPage({
           )}
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-1 gap-4">
-        <BreakdownList
-          title={t("overview.assetsByType")}
-          description={t("overview.assetsByTypeHint")}
-          items={(data.assetsByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
-          currency={currency}
-        />
-        <p className="text-sm text-muted-foreground">{t("overview.dimensionHint")}</p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <BreakdownList
-            title={t("overview.byInstitution")}
-            items={(data.byInstitution ?? []).map((item) => ({
-              ...item,
-              label: item.label || t("overview.unassignedInstitution"),
-            }))}
-            currency={currency}
-          />
-          <BreakdownList
-            title={t("overview.byAccountType")}
-            description={t("overview.byAccountTypeHint")}
-            items={(data.byAccountType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
-            currency={currency}
-          />
-          <BreakdownList
-            title={t("overview.liabilitiesByType")}
-            items={(data.liabilitiesByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
-            currency={currency}
-          />
-          <BreakdownList title={t("overview.byMember")} items={data.byMember ?? []} currency={currency} />
-          <BreakdownList title={t("overview.byGroup")} items={data.byGroup ?? []} currency={currency} />
-        </div>
-      </div>
     </div>
   );
 }

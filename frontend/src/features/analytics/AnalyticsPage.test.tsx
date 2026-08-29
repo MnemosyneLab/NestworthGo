@@ -18,6 +18,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ca
   const { TEST_CATALOG } = await import("@/test/catalog");
   return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
 });
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
+  Service: { HistoryOrigin: () => Promise.resolve(null) },
+}));
 
 function renderPage() {
   const queryClient = createTestQueryClient();

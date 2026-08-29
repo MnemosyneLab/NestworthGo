@@ -14,8 +14,8 @@ export function useOverview() {
   });
 }
 
-/** usePortfolio loads the independent Portfolio page. The Go service already
- * limits the result to include_in_portfolio asset accounts. */
+/** usePortfolio loads the independent Portfolio page. The Go service
+ * includes holding components only; cash and include_in_portfolio are ignored. */
 export function usePortfolio() {
   return useQuery({
     queryKey: queryKeys.portfolio.all,

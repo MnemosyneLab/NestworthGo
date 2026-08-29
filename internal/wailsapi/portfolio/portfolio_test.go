@@ -82,8 +82,8 @@ func TestPortfolioValuation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Portfolio: %v", err)
 	}
-	if len(result.Accounts) != 1 {
-		t.Fatalf("Accounts = %+v, want 1 (liabilities are excluded from Portfolio)", result.Accounts)
+	if len(result.Accounts) != 0 {
+		t.Fatalf("Accounts = %+v, want none (cash-only bank accounts are excluded from Portfolio)", result.Accounts)
 	}
 }
 

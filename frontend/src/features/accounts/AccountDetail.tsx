@@ -13,6 +13,7 @@ import { useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/q
 import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
 import { useHistoryOrigin } from "@/queries/history";
 import { formatAmount } from "@/lib/money";
+import { nativeMoney } from "@/features/accounts/nativeMoney";
 import { formatTimestamp } from "@/lib/time";
 import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
@@ -99,9 +100,17 @@ export function AccountDetail({
     [holdingsQuery.data, record.account.id, valuation, instruments.data],
   );
 
-  const titleAmount = valuation?.baseValue
+  const native = nativeMoney(record, valuation);
+  const titleAmount = native
+    ? formatAmount(native.amount, native.currency)
+    : valuation?.baseValue
+      ? formatAmount(valuation.baseValue.amount, valuation.baseValue.currency)
+      : t("accounts.noValue");
+  const titleSecondary = native && valuation?.baseValue
     ? formatAmount(valuation.baseValue.amount, valuation.baseValue.currency)
-    : t("accounts.noValue");
+    : native && !valuation?.baseValue
+      ? t("accounts.pendingConversion")
+      : undefined;
   const completeness = valuation
     ? valuation.complete
       ? t("accounts.completeValuation")
@@ -134,6 +143,7 @@ export function AccountDetail({
         status={
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-2xl font-semibold tracking-tight">{titleAmount}</p>
+            {titleSecondary && <p className="text-sm text-muted-foreground">{titleSecondary}</p>}
             <Badge variant={valuation?.complete ? "success" : "warning"}>{completeness}</Badge>
             {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}
             {record.account.balanceSheetRole === "liability" && <Badge variant="outline">{t("accounts.liability")}</Badge>}
@@ -154,12 +164,7 @@ export function AccountDetail({
 
       <p className="text-sm text-muted-foreground">
         {record.account.includeInNetWorth ? t("accounts.includedInNetWorth") : t("accounts.excludedFromNetWorth")}
-        {" · "}
-        {record.account.includeInPortfolio ? t("accounts.includedInPortfolio") : t("accounts.excludedFromPortfolio")}
       </p>
-      {record.account.trackingMode === "holdings" && record.account.includeInPortfolio && (
-        <p className="text-sm text-muted-foreground">{t("accounts.wholeAccountPortfolio")}</p>
-      )}
       {archived && (
         <p role="status" className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
           {t("accounts.archivedReadOnly")}
@@ -190,10 +195,11 @@ export function AccountDetail({
                   {cash.map((component) => (
                     <li key={component.nativeCurrency} className="flex items-center justify-between">
                       <span>{component.nativeCurrency}</span>
-                      <span>
-                        {component.available
+                      <span className="flex items-center gap-2">
+                        {component.nativeAmount
                           ? formatAmount(component.nativeAmount, component.nativeCurrency)
                           : t("accounts.partialValuation")}
+                        {!component.available && <Badge variant="warning">{t("accounts.missingFx")}</Badge>}
                       </span>
                     </li>
                   ))}

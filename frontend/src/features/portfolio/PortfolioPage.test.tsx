@@ -57,7 +57,7 @@ describe("PortfolioPage", () => {
     });
     renderPage(onOpenAccount);
     expect(await screen.findByTestId("portfolio-total")).toHaveTextContent("$320,000.00");
-    expect(screen.getByText(/every cash balance and holding/i)).toBeInTheDocument();
+    expect(screen.getByText(/manual-value accounts are not in the portfolio/i)).toBeInTheDocument();
     expect(screen.getByText("Stock")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "MooMoo SG Brokerage" }));
     expect(onOpenAccount).toHaveBeenCalledWith("brk-1");
@@ -74,7 +74,7 @@ describe("PortfolioPage", () => {
       byCountry: [],
     });
     renderPage();
-    expect(await screen.findByText("No accounts in the portfolio")).toBeInTheDocument();
+    expect(await screen.findByText("No holdings yet")).toBeInTheDocument();
   });
 
   it("does not treat incomplete valuation as zero", async () => {

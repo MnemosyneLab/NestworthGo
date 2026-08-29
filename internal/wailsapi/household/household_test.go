@@ -48,6 +48,12 @@ func TestCompleteOnboardingThenBootstrap(t *testing.T) {
 	if len(result.Members) != 2 {
 		t.Fatalf("Members = %+v, want 2", result.Members)
 	}
+	if len(result.Institutions) != 1 || result.Institutions[0].Name != "Default institution" {
+		t.Fatalf("Institutions = %+v, want one default institution", result.Institutions)
+	}
+	if len(result.Groups) != 1 || result.Groups[0].Name != "Default group" {
+		t.Fatalf("Groups = %+v, want one default group", result.Groups)
+	}
 }
 
 func TestCompleteOnboardingRoundTripsAsJSON(t *testing.T) {

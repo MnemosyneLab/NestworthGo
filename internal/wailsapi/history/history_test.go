@@ -14,6 +14,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 type fixture struct {
@@ -182,6 +183,16 @@ func TestChangeCommandUnionRoundTripsEveryKind(t *testing.T) {
 	// sub-ledger) needed to make the fx_conversion/trade commands valid.
 	if len(activities) != 11 {
 		t.Fatalf("ListActivities returned %d activities, want 11", len(activities))
+	}
+	var listedTrade *wire.ActivityDTO
+	for index := range activities {
+		if activities[index].TradeDetail != nil {
+			listedTrade = &activities[index]
+			break
+		}
+	}
+	if listedTrade == nil || listedTrade.TradeDetail.HoldingID != holdingAID {
+		t.Fatalf("ListActivities omitted TradeDetail on the buy: %+v", activities)
 	}
 }
 

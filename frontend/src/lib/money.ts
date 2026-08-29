@@ -168,6 +168,32 @@ export function sameCanonicalDecimal(left: string, right: string): boolean {
   return canonicalDecimal(left) === canonicalDecimal(right);
 }
 
+/** Compares two canonical decimal strings without converting through Number. */
+export function compareCanonical(left: string, right: string): number {
+  const first = parseCanonicalParts(left);
+  const second = parseCanonicalParts(right);
+  if (!first && !second) {
+    return 0;
+  }
+  if (!first) {
+    return -1;
+  }
+  if (!second) {
+    return 1;
+  }
+  if (first.negative !== second.negative) {
+    return first.negative ? -1 : 1;
+  }
+  const scale = Math.max(first.fraction.length, second.fraction.length);
+  const leftValue = BigInt(first.integer + first.fraction.padEnd(scale, "0"));
+  const rightValue = BigInt(second.integer + second.fraction.padEnd(scale, "0"));
+  if (leftValue === rightValue) {
+    return 0;
+  }
+  const comparison = leftValue < rightValue ? -1 : 1;
+  return first.negative ? -comparison : comparison;
+}
+
 export function isPositiveCanonical(value: string): boolean {
   const normalized = canonicalDecimal(value.trim());
   return normalized !== "" && normalized !== "0" && !normalized.startsWith("-");

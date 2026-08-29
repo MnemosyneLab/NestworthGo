@@ -110,3 +110,17 @@ export function useFixChange() {
     onSuccess: (_data, variables) => invalidateActivityChange(queryClient, affectedAccountIds(variables.replacement)),
   });
 }
+
+export function useRebuildHistoricalSnapshots() {
+  return useMutation({
+    mutationFn: ({ startDate, endDate }: { startDate: string; endDate: string }) => {
+      const service = HistoryService as typeof HistoryService & {
+        RebuildHistoricalSnapshots?: (startDate: string, endDate: string) => Promise<number>;
+      };
+      if (typeof service.RebuildHistoricalSnapshots !== "function") {
+        return Promise.resolve(0);
+      }
+      return callService(() => service.RebuildHistoricalSnapshots(startDate, endDate));
+    },
+  });
+}

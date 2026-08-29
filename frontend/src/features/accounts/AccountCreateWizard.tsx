@@ -28,6 +28,18 @@ import type { AccountFormExtras } from "@/features/accounts/AccountForm";
 
 type WizardStep = "institution" | "type" | "tracking" | "details" | "review";
 
+type DirectorySelection = {
+  id: string;
+  sortOrder: number;
+  archivedAt?: string | null;
+};
+
+function lowestActiveDirectoryId(records: readonly DirectorySelection[] | null | undefined): string {
+  return [...(records ?? [])]
+    .filter((record) => !record.archivedAt)
+    .sort((left, right) => (left.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.sortOrder ?? Number.MAX_SAFE_INTEGER) || left.id.localeCompare(right.id))[0]?.id ?? "";
+}
+
 /**
  * AccountCreateWizard is the real-world create path: institution, then account
  * type, then a tracking question only when the catalog has more than one
@@ -79,6 +91,8 @@ export function AccountCreateWizard({
   const [includeInPortfolio, setIncludeInPortfolio] = useState(false);
   const [includeInLiquidAssets, setIncludeInLiquidAssets] = useState(false);
   const [groupId, setGroupId] = useState("");
+  const [institutionTouched, setInstitutionTouched] = useState(false);
+  const [groupTouched, setGroupTouched] = useState(false);
   const [iconKey, setIconKey] = useState("cash");
   const [iconCustomized, setIconCustomized] = useState(false);
   const [showMoreSettings, setShowMoreSettings] = useState(false);
@@ -93,6 +107,10 @@ export function AccountCreateWizard({
   const typeLocked = roleLocked(combinations, resolvedType);
   const typeRoles = rolesFor(combinations, resolvedType);
   const prompt = accountType ? trackingPrompt(combinations, accountType, role) : resolvedPrompt;
+  const defaultInstitutionId = useMemo(() => lowestActiveDirectoryId(institutions.data), [institutions.data]);
+  const defaultGroupId = useMemo(() => lowestActiveDirectoryId(groups.data), [groups.data]);
+  const selectedInstitutionId = institutionTouched ? institutionId : institutionId || defaultInstitutionId;
+  const selectedGroupId = groupTouched ? groupId : groupId || defaultGroupId;
 
   const applyType = (nextType: string) => {
     const nextRole = defaultRole(combinations, nextType);
@@ -135,8 +153,8 @@ export function AccountCreateWizard({
   };
 
   const institutionName = useMemo(
-    () => (institutions.data ?? []).find((item) => item.id === institutionId)?.name,
-    [institutions.data, institutionId],
+    () => (institutions.data ?? []).find((item) => item.id === selectedInstitutionId)?.name,
+    [institutions.data, selectedInstitutionId],
   );
 
   const goNextFromInstitution = async () => {
@@ -213,8 +231,8 @@ export function AccountCreateWizard({
       includeInPortfolio,
       includeInLiquidAssets,
       ownership: ownershipShares(ownerIds, ownershipPercentages, useCustomPercentages),
-      institutionId: institutionId || undefined,
-      groupId: groupId || undefined,
+      institutionId: selectedInstitutionId || undefined,
+      groupId: selectedGroupId || undefined,
       iconKey: iconKey || undefined,
       initialAmount: resolvedTracking === "holdings" ? "" : initialAmount || "0",
     };
@@ -247,9 +265,10 @@ export function AccountCreateWizard({
           <div className="flex flex-col gap-2" role="listbox" aria-label={t("nav.institutions")}>
             <button
               type="button"
-              className={`rounded-md border px-3 py-2 text-left text-sm ${institutionId === "" && !showNewInstitution ? "border-primary bg-primary/10" : "border-border"}`}
-              aria-selected={institutionId === "" && !showNewInstitution}
+              className={`rounded-md border px-3 py-2 text-left text-sm ${selectedInstitutionId === "" && !showNewInstitution ? "border-primary bg-primary/10" : "border-border"}`}
+              aria-selected={selectedInstitutionId === "" && !showNewInstitution}
               onClick={() => {
+                setInstitutionTouched(true);
                 setInstitutionId("");
                 setShowNewInstitution(false);
               }}
@@ -260,9 +279,10 @@ export function AccountCreateWizard({
               <button
                 key={institution.id}
                 type="button"
-                className={`rounded-md border px-3 py-2 text-left text-sm ${institutionId === institution.id && !showNewInstitution ? "border-primary bg-primary/10" : "border-border"}`}
-                aria-selected={institutionId === institution.id && !showNewInstitution}
+                className={`rounded-md border px-3 py-2 text-left text-sm ${selectedInstitutionId === institution.id && !showNewInstitution ? "border-primary bg-primary/10" : "border-border"}`}
+                aria-selected={selectedInstitutionId === institution.id && !showNewInstitution}
                 onClick={() => {
+                  setInstitutionTouched(true);
                   setInstitutionId(institution.id);
                   setShowNewInstitution(false);
                 }}
@@ -274,7 +294,10 @@ export function AccountCreateWizard({
               type="button"
               className={`rounded-md border px-3 py-2 text-left text-sm ${showNewInstitution ? "border-primary bg-primary/10" : "border-border"}`}
               aria-pressed={showNewInstitution}
-              onClick={() => setShowNewInstitution(true)}
+              onClick={() => {
+                setInstitutionTouched(true);
+                setShowNewInstitution(true);
+              }}
             >
               {t("accounts.createInstitution")}
             </button>
@@ -446,20 +469,9 @@ export function AccountCreateWizard({
                 <input type="checkbox" checked={includeInNetWorth} onChange={(event) => setIncludeInNetWorth(event.target.checked)} /> {t("accounts.includeInNetWorth")}
               </label>
               <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={includeInPortfolio}
-                  onChange={(event) => setIncludeInPortfolio(event.target.checked)}
-                />{" "}
-                {t("accounts.includeInPortfolio")}
-              </label>
-              {resolvedTracking === "holdings" && includeInPortfolio && (
-                <p className="text-xs text-muted-foreground">{t("accounts.wholeAccountPortfolio")}</p>
-              )}
-              <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={includeInLiquidAssets} onChange={(event) => setIncludeInLiquidAssets(event.target.checked)} /> {t("accounts.includeInLiquidAssets")}
               </label>
-              <EntitySelect id="wizard-group" label={t("nav.groups")} value={groupId} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={setGroupId} />
+              <EntitySelect id="wizard-group" label={t("nav.groups")} value={selectedGroupId} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => { setGroupTouched(true); setGroupId(value); }} />
               <IconPicker id="wizard-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
             </div>
           )}

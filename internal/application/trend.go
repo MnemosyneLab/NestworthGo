@@ -29,6 +29,14 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 	nowLocal := s.clock().In(location)
 	year, month, day := nowLocal.Date()
 	today := time.Date(year, month, day, 0, 0, 0, 0, location)
+	todayKey := today.Format("2006-01-02")
+	originDate := origin.StartedAt.In(location).Format("2006-01-02")
+	if originDate >= todayKey {
+		return domain.NetWorthTrend{Range: trendRange, Currency: bootstrap.Household.BaseCurrency}, nil
+	}
+	if err := s.ensureClosedDaySnapshots(ctx, originDate, today.AddDate(0, 0, -1).Format("2006-01-02")); err != nil {
+		return domain.NetWorthTrend{}, err
+	}
 	since := time.Time{}
 	switch trendRange {
 	case domain.Trend30Days:
@@ -46,7 +54,13 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 	}
 	points := make([]domain.NetWorthTrendPoint, 0, len(snapshots)+1)
 	for _, snapshot := range snapshots {
+		if snapshot.LocalDate >= todayKey {
+			continue
+		}
 		points = append(points, domain.NetWorthTrendPoint{LocalDate: snapshot.LocalDate, Value: snapshot.NetWorthAmount, Complete: snapshot.Complete})
+	}
+	if len(points) == 0 {
+		return domain.NetWorthTrend{Range: trendRange, Currency: bootstrap.Household.BaseCurrency}, nil
 	}
 	current, err := s.Overview(ctx, domain.AccountFilter{})
 	if err != nil {
@@ -56,7 +70,46 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 	if err != nil {
 		return domain.NetWorthTrend{}, err
 	}
-	todayKey := s.clock().In(location).Format("2006-01-02")
 	points = append(points, domain.NetWorthTrendPoint{LocalDate: todayKey, Value: &currentMoney, Complete: current.Complete})
 	return domain.NetWorthTrend{Range: trendRange, Currency: bootstrap.Household.BaseCurrency, Points: points}, nil
+}
+
+func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, yesterday string) error {
+	if startDate == "" || yesterday == "" || startDate > yesterday {
+		return nil
+	}
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return err
+	}
+	state, err := s.repository.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		return err
+	}
+	rebuildFrom := startDate
+	if state.DirtyFrom != nil && *state.DirtyFrom != "" && *state.DirtyFrom > rebuildFrom {
+		rebuildFrom = *state.DirtyFrom
+	}
+	if state.LastCompletedClosedOn != nil && *state.LastCompletedClosedOn >= yesterday && (state.DirtyFrom == nil || *state.DirtyFrom == "") {
+		return nil
+	}
+	start, err := time.Parse("2006-01-02", rebuildFrom)
+	if err != nil {
+		return err
+	}
+	end, err := time.Parse("2006-01-02", yesterday)
+	if err != nil {
+		return err
+	}
+	for cursor := start; !cursor.After(end); {
+		chunkEnd := cursor.AddDate(0, 0, 30)
+		if chunkEnd.After(end) {
+			chunkEnd = end
+		}
+		if _, err := s.RebuildHistoricalSnapshots(ctx, cursor.Format("2006-01-02"), chunkEnd.Format("2006-01-02")); err != nil {
+			return err
+		}
+		cursor = chunkEnd.AddDate(0, 0, 1)
+	}
+	return nil
 }

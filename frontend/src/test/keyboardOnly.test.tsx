@@ -304,6 +304,7 @@ describe("keyboard-only completion", () => {
     await userEvent.tab(); // -> Currency select (left at default)
     await userEvent.tab(); // -> Timezone combobox (left at default)
     await userEvent.tab(); // -> FX provider select (left at default)
+    await userEvent.tab(); // -> Quote cache duration select (left at default)
     await userEvent.tab(); // -> Save button
     expect(within(form).getByRole("button", { name: "Save changes" })).toHaveFocus();
     await userEvent.keyboard("{Enter}");

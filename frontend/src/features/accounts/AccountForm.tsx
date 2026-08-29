@@ -121,7 +121,6 @@ export function AccountForm({
   const accountType = useWatch({ control, name: "accountType" });
   const balanceSheetRole = useWatch({ control, name: "balanceSheetRole" });
   const trackingMode = useWatch({ control, name: "trackingMode" });
-  const includeInPortfolio = useWatch({ control, name: "includeInPortfolio" });
   const ownerIds = useWatch({ control, name: "ownerIds" });
   const ownershipPercentages = useWatch({ control, name: "ownershipPercentages" }) ?? [];
   const institutionId = useWatch({ control, name: "institutionId" });
@@ -360,14 +359,8 @@ export function AccountForm({
           <input type="checkbox" {...register("includeInNetWorth")} /> {t("accounts.includeInNetWorth")}
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" {...register("includeInPortfolio")} /> {t("accounts.includeInPortfolio")}
-        </label>
-        <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" {...register("includeInLiquidAssets")} /> {t("accounts.includeInLiquidAssets")}
         </label>
-        {trackingMode === "holdings" && includeInPortfolio && (
-          <p className="text-xs text-muted-foreground">{t("accounts.wholeAccountPortfolio")}</p>
-        )}
       </div>
 
       <Button

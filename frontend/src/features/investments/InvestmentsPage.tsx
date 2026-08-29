@@ -1,10 +1,19 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus } from "lucide-react";
+import {
+  createColumnHelper,
+  flexRender,
+  getCoreRowModel,
+  getSortedRowModel,
+  useReactTable,
+  type SortingState,
+} from "@tanstack/react-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -26,7 +35,7 @@ import {
 import { useHoldingGainsByAccounts } from "@/queries/analytics";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { displayEnum, displayError } from "@/lib/display";
-import { formatAmount } from "@/lib/money";
+import { compareCanonical, formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { EntityIcon } from "@/components/icons/EntityIcon";
@@ -86,7 +95,7 @@ function ManualQuoteForm({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`quote-date-${instrumentId}`}>{t("portfolio.quotedAt")}</Label>
-        <Input id={`quote-date-${instrumentId}`} type="date" value={quotedAt} onChange={(event) => setQuotedAt(event.target.value)} />
+        <DatePicker id={`quote-date-${instrumentId}`} value={quotedAt} onChange={setQuotedAt} />
       </div>
       {saveQuote.isError && (
         <p role="alert" className="text-sm text-destructive">
@@ -270,6 +279,118 @@ function InstrumentsTab() {
   );
 }
 
+type HoldingsIndexRow = {
+  id: string;
+  instrument: string;
+  account: string;
+  quantity: string;
+  cost?: string;
+  currentValue?: string;
+  unrealized?: string;
+  costLabel: string;
+  currentLabel: string;
+  unrealizedLabel?: string;
+  missingLabel?: string;
+  gainNegative: boolean;
+};
+
+const holdingsColumnHelper = createColumnHelper<HoldingsIndexRow>();
+
+function HoldingsIndexTable({ rows }: { rows: HoldingsIndexRow[] }) {
+  const { t } = useTranslation();
+  const [sorting, setSorting] = useState<SortingState>([{ id: "currentValue", desc: true }]);
+  const columns = useMemo(
+    () => [
+      holdingsColumnHelper.accessor("instrument", {
+        header: t("history.instrument"),
+        cell: (info) => info.getValue(),
+      }),
+      holdingsColumnHelper.accessor("account", {
+        header: t("history.accountSelect"),
+        cell: (info) => info.getValue(),
+      }),
+      holdingsColumnHelper.accessor("quantity", {
+        header: t("portfolio.quantity"),
+        sortingFn: (left, right, columnId) => compareCanonical(String(left.getValue(columnId) ?? "0"), String(right.getValue(columnId) ?? "0")),
+        cell: (info) => formatAmount(info.getValue()),
+      }),
+      holdingsColumnHelper.accessor("cost", {
+        header: t("portfolio.cost"),
+        sortingFn: (left, right, columnId) => compareCanonical(String(left.getValue(columnId) ?? ""), String(right.getValue(columnId) ?? "")),
+        sortUndefined: "last",
+        cell: (info) => info.row.original.costLabel,
+      }),
+      holdingsColumnHelper.accessor("currentValue", {
+        header: t("portfolio.currentValue"),
+        sortingFn: (left, right, columnId) => compareCanonical(String(left.getValue(columnId) ?? ""), String(right.getValue(columnId) ?? "")),
+        sortUndefined: "last",
+        cell: (info) => info.row.original.currentLabel,
+      }),
+      holdingsColumnHelper.accessor("unrealized", {
+        header: t("portfolio.unrealizedGain"),
+        sortingFn: (left, right, columnId) => compareCanonical(String(left.getValue(columnId) ?? ""), String(right.getValue(columnId) ?? "")),
+        sortUndefined: "last",
+        cell: (info) =>
+          info.row.original.missingLabel ? (
+            <Badge variant="secondary">{info.row.original.missingLabel}</Badge>
+          ) : (
+            <span className={info.row.original.gainNegative ? "text-gain-negative" : "text-gain-positive"}>
+              {info.row.original.unrealizedLabel ?? t("accounts.noValue")}
+            </span>
+          ),
+      }),
+    ],
+    [t],
+  );
+  // TanStack Table's stateful table instance is intentionally consumed directly.
+  // eslint-disable-next-line react-hooks/incompatible-library -- the API is the table's supported sorting boundary
+  const table = useReactTable({
+    data: rows,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
+  return (
+    <div className="overflow-x-auto rounded-lg border border-border">
+      <table className="w-full min-w-[48rem] text-left text-sm" data-testid="holdings-table">
+        <caption className="sr-only">{t("portfolio.holdingsTableLabel")}</caption>
+        <thead>
+          {table.getHeaderGroups().map((headerGroup) => (
+            <tr key={headerGroup.id} className="border-b border-border bg-muted/40">
+              {headerGroup.headers.map((header) => {
+                const sorted = header.column.getIsSorted();
+                return (
+                  <th key={header.id} className="px-3 py-2 font-medium text-muted-foreground">
+                    <button type="button" className="inline-flex items-center gap-1" onClick={header.column.getToggleSortingHandler()}>
+                      {flexRender(header.column.columnDef.header, header.getContext())}
+                      {sorted === "asc" && <ArrowUp className="size-3" aria-hidden="true" />}
+                      {sorted === "desc" && <ArrowDown className="size-3" aria-hidden="true" />}
+                    </button>
+                  </th>
+                );
+              })}
+            </tr>
+          ))}
+        </thead>
+        <tbody>
+          {table.getRowModel().rows.map((row) => (
+            <tr key={row.id} className="border-b border-border last:border-0">
+              {row.getVisibleCells().map((cell) => (
+                <td key={cell.id} className="px-3 py-3">
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function HoldingsTab() {
   const { t } = useTranslation();
   const accounts = useAccounts({});
@@ -386,64 +507,38 @@ function HoldingsTab() {
       {allHoldings.length === 0 ? (
         <EmptyState title={t("portfolio.noHoldings")} description={t("portfolio.noHoldingsDescription")} />
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
-          <table className="w-full min-w-[48rem] text-left text-sm" data-testid="holdings-table">
-            <caption className="sr-only">{t("portfolio.holdingsTableLabel")}</caption>
-            <thead>
-              <tr className="border-b border-border bg-muted/40">
-                <th className="px-3 py-2 font-medium text-muted-foreground">{t("history.instrument")}</th>
-                <th className="px-3 py-2 font-medium text-muted-foreground">{t("history.accountSelect")}</th>
-                <th className="px-3 py-2 font-medium text-muted-foreground">{t("portfolio.quantity")}</th>
-                <th className="px-3 py-2 font-medium text-muted-foreground">{t("portfolio.cost")}</th>
-                <th className="px-3 py-2 font-medium text-muted-foreground">{t("portfolio.currentValue")}</th>
-                <th className="px-3 py-2 font-medium text-muted-foreground">{t("portfolio.unrealizedGain")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {allHoldings.map((holding) => {
-                const gain = holdingGains.byHoldingId.get(holding.id);
-                const gainClass =
-                  gain?.unrealizedGain && gain.unrealizedGain.amount.startsWith("-") ? "text-gain-negative" : "text-gain-positive";
-                return (
-                  <tr key={holding.id} className="border-b border-border last:border-0">
-                    <td className="px-3 py-3 font-medium">{holding.instrumentName ?? t("portfolio.unknownInstrument")}</td>
-                    <td className="px-3 py-3 text-muted-foreground">{accountNameById.get(holding.accountId) ?? t("accounts.none")}</td>
-                    <td className="px-3 py-3">{formatAmount(holding.quantity)}</td>
-                    {gain ? (
-                      gain.available ? (
-                        <>
-                          <td className="px-3 py-3">{formatAmount(gain.totalCost.amount, gain.totalCost.currency)}</td>
-                          <td className="px-3 py-3">
-                            {gain.currentValue ? formatAmount(gain.currentValue.amount, gain.currentValue.currency) : t("accounts.noValue")}
-                          </td>
-                          <td className={gainClass + " px-3 py-3"}>
-                            {gain.unrealizedGain ? formatAmount(gain.unrealizedGain.amount, gain.unrealizedGain.currency) : t("accounts.noValue")}
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="px-3 py-3">
-                            {gain.totalCost ? formatAmount(gain.totalCost.amount, gain.totalCost.currency) : t("accounts.noValue")}
-                          </td>
-                          <td className="px-3 py-3 text-muted-foreground">{t("accounts.noValue")}</td>
-                          <td className="px-3 py-3">
-                            <Badge variant="secondary">
-                              {gain.missingReason ? displayEnum(t, "portfolio.missingReason", gain.missingReason) : t("portfolio.unavailable")}
-                            </Badge>
-                          </td>
-                        </>
-                      )
-                    ) : (
-                      <td className="px-3 py-3 text-muted-foreground" colSpan={3} aria-label={t("portfolio.loading")}>
-                        …
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <HoldingsIndexTable
+          rows={allHoldings.map((holding) => {
+            const gain = holdingGains.byHoldingId.get(holding.id);
+            return {
+              id: holding.id,
+              instrument: holding.instrumentName ?? t("portfolio.unknownInstrument"),
+              account: accountNameById.get(holding.accountId) ?? t("accounts.none"),
+              quantity: holding.quantity,
+              cost: gain?.totalCost?.amount,
+              currentValue: gain?.available ? gain.currentValue?.amount : undefined,
+              unrealized: gain?.available ? gain.unrealizedGain?.amount : undefined,
+              costLabel: gain?.totalCost ? formatAmount(gain.totalCost.amount, gain.totalCost.currency) : gain ? t("accounts.noValue") : "…",
+              currentLabel:
+                gain?.available && gain.currentValue
+                  ? formatAmount(gain.currentValue.amount, gain.currentValue.currency)
+                  : gain
+                    ? t("accounts.noValue")
+                    : "…",
+              unrealizedLabel:
+                gain?.available && gain.unrealizedGain
+                  ? formatAmount(gain.unrealizedGain.amount, gain.unrealizedGain.currency)
+                  : undefined,
+              missingLabel:
+                gain && !gain.available
+                  ? gain.missingReason
+                    ? displayEnum(t, "portfolio.missingReason", gain.missingReason)
+                    : t("portfolio.unavailable")
+                  : undefined,
+              gainNegative: Boolean(gain?.unrealizedGain?.amount.startsWith("-")),
+            };
+          })}
+        />
       )}
     </div>
   );

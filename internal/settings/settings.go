@@ -94,6 +94,7 @@ type Settings struct {
 	WindowWidth       float32    `json:"window_width"`
 	WindowHeight      float32    `json:"window_height"`
 	FXProvider        string     `json:"fx_provider"`
+	QuoteCacheTTL     string     `json:"quote_cache_ttl"`
 }
 
 // Minimum and maximum window dimensions accepted from a persisted settings
@@ -107,6 +108,11 @@ const (
 
 	DefaultWindowWidth  = 1100
 	DefaultWindowHeight = 720
+
+	QuoteCacheTTL1h  = "1h"
+	QuoteCacheTTL3h  = "3h"
+	QuoteCacheTTL12h = "12h"
+	QuoteCacheTTL24h = "24h"
 )
 
 func Default() Settings {
@@ -126,6 +132,7 @@ func Default() Settings {
 		WindowWidth:       DefaultWindowWidth,
 		WindowHeight:      DefaultWindowHeight,
 		FXProvider:        DefaultFXProvider,
+		QuoteCacheTTL:     QuoteCacheTTL12h,
 	}
 }
 
@@ -185,6 +192,13 @@ func (s Settings) Validate() error {
 	}
 	if s.FXProvider != FXProviderFrankfurter {
 		return fmt.Errorf("unsupported FX provider %q", s.FXProvider)
+	}
+	ttl := s.QuoteCacheTTL
+	if ttl == "" {
+		ttl = QuoteCacheTTL12h
+	}
+	if !oneOf(ttl, QuoteCacheTTL1h, QuoteCacheTTL3h, QuoteCacheTTL12h, QuoteCacheTTL24h) {
+		return fmt.Errorf("unsupported quote cache ttl %q", s.QuoteCacheTTL)
 	}
 	return nil
 }
@@ -341,6 +355,9 @@ func salvage(loaded, defaults Settings) Settings {
 	fixed.FXProvider = salvageValue(strings.TrimSpace(fixed.FXProvider), defaults.FXProvider, func(v string) bool {
 		return v == FXProviderFrankfurter
 	})
+	fixed.QuoteCacheTTL = salvageValue(fixed.QuoteCacheTTL, defaults.QuoteCacheTTL, func(v string) bool {
+		return oneOf(v, QuoteCacheTTL1h, QuoteCacheTTL3h, QuoteCacheTTL12h, QuoteCacheTTL24h)
+	})
 	return fixed
 }
 
@@ -370,6 +387,7 @@ func changedFieldNames(from, to Settings) []string {
 		{"window_width", from.WindowWidth, to.WindowWidth},
 		{"window_height", from.WindowHeight, to.WindowHeight},
 		{"fx_provider", from.FXProvider, to.FXProvider},
+		{"quote_cache_ttl", from.QuoteCacheTTL, to.QuoteCacheTTL},
 	}
 	var changed []string
 	for _, field := range fields {
@@ -419,4 +437,17 @@ func (s *Store) Save(value Settings) error {
 		return err
 	}
 	return os.Rename(temporaryName, s.Path)
+}
+
+func (s Settings) QuoteCacheTTLDuration() time.Duration {
+	switch s.QuoteCacheTTL {
+	case QuoteCacheTTL1h:
+		return time.Hour
+	case QuoteCacheTTL3h:
+		return 3 * time.Hour
+	case QuoteCacheTTL24h:
+		return 24 * time.Hour
+	default:
+		return 12 * time.Hour
+	}
 }

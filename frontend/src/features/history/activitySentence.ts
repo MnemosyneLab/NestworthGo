@@ -1,6 +1,16 @@
 import { displayEnum } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
-import type { ActivityDTO, ActivityEffectDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import type { ActivityDTO, ActivityEffectDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+
+type ActivityWithResulting = ActivityDTO & { resulting?: EndpointViewDTO[] | null };
+
+function activityResultingAmount(activity: ActivityWithResulting): string {
+  const endpoint = activity.resulting?.[0];
+  if (!endpoint?.amount) {
+    return "";
+  }
+  return formatAmount(endpoint.amount, endpoint.currency);
+}
 
 type Translator = (key: string, options?: Record<string, unknown>) => string;
 
@@ -36,8 +46,9 @@ export function activitySentence(
   const core = coreSentence(t, activity, effects, accountName, instrumentName);
   const fee = feeLabel(activity, effects);
   const sentence = fee && !activity.reversesActivityId ? t("history.sentence.withFee", { sentence: core, fee }) : core;
+  const skipReason = activity.kind === "buy" || activity.kind === "sell";
   const reason = activity.reason ? displayEnum(t, "history.reason", activity.reason) : "";
-  if (reason && activity.reason !== "other") {
+  if (!skipReason && reason && activity.reason !== "other") {
     return t("history.sentence.withReason", { sentence, reason });
   }
   return sentence;
@@ -47,7 +58,7 @@ function feeLabel(activity: ActivityDTO, effects: ActivityEffectDTO[]): string {
   if ((activity.kind === "buy" || activity.kind === "sell") && activity.tradeDetail?.fee) {
     return formatAmount(activity.tradeDetail.fee.amount, activity.tradeDetail.fee.currency);
   }
-  if (activity.kind === "fx_conversion" || activity.kind === "debt_payment") {
+  if (activity.kind === "fx_conversion" || activity.kind === "debt_payment" || activity.kind === "cash_transfer") {
     return moneyLabel(byRole(effects, "fee"));
   }
   return "";
@@ -101,23 +112,33 @@ function coreSentence(
       return t("history.sentence.converted", { sold, bought, account: accountName(from ?? to) });
     }
     case "value_update": {
+      const resulting = activityResultingAmount(activity);
+      if (resulting) {
+        return t("history.sentence.updatedValue", { amount: resulting, account: accountName(firstMoney) });
+      }
       const amount = moneyLabel(firstMoney);
       if (!amount) {
         return displayEnum(t, "history.kind", activity.kind);
       }
-      return t("history.sentence.updatedValue", { amount, account: accountName(firstMoney) });
+      const canonical = firstMoney?.money?.amount ?? "";
+      const increased = !canonical.startsWith("-");
+      const delta = formatAmount(canonical.startsWith("-") ? canonical.slice(1) : canonical, firstMoney?.money?.currency);
+      const key = increased ? "history.sentence.updatedValueIncreased" : "history.sentence.updatedValueDecreased";
+      return t(key, { delta, account: accountName(firstMoney) });
     }
     case "buy":
     case "sell": {
       const detail = activity.tradeDetail;
-      const amount = detail?.gross ? formatAmount(detail.gross.amount, detail.gross.currency) : moneyLabel(byRole(effects, "principal"));
+      const principal = byRole(effects, "principal");
+      const amount = detail?.gross ? formatAmount(detail.gross.amount, detail.gross.currency) : moneyLabel(principal);
       const quantity = detail?.quantity ? formatAmount(detail.quantity) : "";
-      const instrument = instrumentName(detail?.instrumentId ?? byRole(effects, "principal")?.instrumentId);
+      const instrument = instrumentName(detail?.instrumentId ?? principal?.instrumentId);
+      const account = accountName(principal ?? effects.find((effect) => effect.accountId));
       if (!amount || !quantity) {
         return displayEnum(t, "history.kind", activity.kind);
       }
       const key = detail?.side === "sell" || activity.kind === "sell" ? "history.sentence.sold" : "history.sentence.bought";
-      return t(key, { quantity, instrument, amount });
+      return t(key, { quantity, instrument, amount, account });
     }
     case "position_transfer": {
       if (effects.length >= 2) {

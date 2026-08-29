@@ -6,7 +6,6 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/wailsapp/wails/v3 v3.0.0-beta.12
-	golang.org/x/image v0.41.0
 	modernc.org/sqlite v1.44.3
 )
 

@@ -5,13 +5,17 @@ import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestwort
 const catalog: Record<string, string> = {
   "history.sentence.added": "Added {{amount}} to {{account}}",
   "history.sentence.transferred": "Transferred {{amount}} from {{from}} to {{to}}",
-  "history.sentence.bought": "Bought {{quantity}} {{instrument}} for {{amount}}",
+  "history.sentence.bought": "Bought {{quantity}} {{instrument}} in {{account}} for {{amount}}",
+  "history.sentence.sold": "Sold {{quantity}} {{instrument}} in {{account}} for {{amount}}",
+  "history.sentence.updatedValueIncreased": "{{account}} increased {{delta}}",
+  "history.sentence.updatedValueDecreased": "{{account}} decreased {{delta}}",
   "history.sentence.converted": "Converted {{sold}} to {{bought}} in {{account}}",
   "history.sentence.paidDebt": "Paid {{amount}} to {{account}}",
   "history.sentence.reversal": "Reversed a previous change",
   "history.sentence.withFee": "{{sentence}} (Fee {{fee}})",
   "history.sentence.withReason": "{{sentence}} ({{reason}})",
-  "history.reason.contribution": "Contribution",
+  "history.sentence.updatedValue": "Updated {{account}} to {{amount}}",
+  "history.reason.reconciliation": "Reconciliation",
   "history.unknownAccount": "an account",
   "history.unknownInstrument": "an instrument",
   "history.kind.cash_in": "Money added",
@@ -61,9 +65,44 @@ describe("activitySentence", () => {
         quantity: "10",
         gross: { amount: "1500", currency: "USD" },
       },
+      effects: [{ role: "principal", accountId: "acc-1" }],
     } as unknown as ActivityDTO;
 
-    expect(activitySentence(t, activity, accounts, instruments)).toBe("Bought 10 NVIDIA for $1,500.00");
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for $1,500.00");
+  });
+
+  it("does not append principal reason for buy or sell", () => {
+    const activity = {
+      kind: "buy",
+      reason: "principal",
+      tradeDetail: {
+        side: "buy",
+        instrumentId: "i1",
+        quantity: "10",
+        gross: { amount: "1500", currency: "USD" },
+      },
+      effects: [{ role: "principal", accountId: "acc-1" }],
+    } as unknown as ActivityDTO;
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for $1,500.00");
+    expect(activitySentence(t, activity, accounts, instruments)).not.toMatch(/Principal/);
+  });
+
+  it("describes a value update using the resulting endpoint, not the delta", () => {
+    const activity = {
+      kind: "value_update",
+      reason: "reconciliation",
+      effects: [{ accountId: "acc-1", money: { amount: "20", currency: "USD" } }],
+      resulting: [{ amount: "320", currency: "USD" }],
+    } as unknown as ActivityDTO;
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Updated Checking to $320.00 (Reconciliation)");
+  });
+
+  it("falls back to increased or decreased delta when resulting is missing", () => {
+    const activity = {
+      kind: "value_update",
+      effects: [{ accountId: "acc-1", money: { amount: "20", currency: "USD" } }],
+    } as unknown as ActivityDTO;
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Checking increased $20.00");
   });
 
   it("includes trade and FX fees in the sentence", () => {
@@ -76,8 +115,9 @@ describe("activitySentence", () => {
         gross: { amount: "1500", currency: "USD" },
         fee: { amount: "5", currency: "USD" },
       },
+      effects: [{ role: "principal", accountId: "acc-1" }],
     } as unknown as ActivityDTO;
-    expect(activitySentence(t, trade, accounts, instruments)).toBe("Bought 10 NVIDIA for $1,500.00 (Fee $5.00)");
+    expect(activitySentence(t, trade, accounts, instruments)).toBe("Bought 10 NVIDIA in Checking for $1,500.00 (Fee $5.00)");
 
     const fx = {
       kind: "fx_conversion",

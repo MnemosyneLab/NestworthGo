@@ -493,26 +493,27 @@ The new schema uses:
 include_in_portfolio
 ```
 
-This means "does this Account enter Portfolio as a whole", not "this Account
-contains only investment assets". Database, domain, API, and UI share one
-name and do not keep an `include_in_investment` alias.
+This means "does this Account enter Portfolio as a whole" in persisted
+metadata. Database, domain, and API still share the column
+`include_in_portfolio`. Live Portfolio valuation no longer reads it: a
+Holding (component with `instrumentId`) enters Portfolio, cash does not, and
+the create/settings UI no longer shows the checkbox. See
+[Trial UX optimization](../design/trial-ux-optimization.md).
 
 ### 9.2 Whole-account inclusion
 
-The current version uses a simple, consistent rule:
+The current **persisted** field is still whole-account, but live Portfolio
+totals follow holdings-only:
 
-> If an Account is included in Portfolio, every valuable component of that
-> Account participates in Portfolio valuation and allocation.
+> If an Account has holdings, those holdings participate in Portfolio.
+> Cash in the same Account does not. `include_in_portfolio` is ignored.
 
-Therefore, when a brokerage or mixed bank Composite Account is included in
-Portfolio:
+Therefore, for a brokerage or mixed bank Composite Account:
 
-- cash enters the Portfolio cash allocation;
+- cash does **not** enter Portfolio;
 - stocks, ETFs, funds, gold, crypto, and similar holdings enter the matching
   Instrument-type allocation;
-- every component of the Account uses the same Account inclusion decision;
-- if the Account is excluded from Portfolio, none of its components enter
-  Portfolio.
+- if the Account has no holdings, it does not appear on the Portfolio page.
 
 This is natural for a brokerage: settlement cash is usually part of the
 portfolio.
@@ -607,8 +608,8 @@ Keep the existing financial semantics:
 - archived Accounts or `include_in_net_worth=false` do not participate in net
   worth;
 - `balance_sheet_role=liability` amounts are negative in net worth;
-- Portfolio selects only Accounts with `include_in_portfolio=true` and
-  role=asset;
+- Portfolio selects holding components on active asset Accounts (cash and
+  `include_in_portfolio` are ignored for the live total);
 - the frontend must not recompute totals from already-rounded view models.
 
 ### 10.2 Unified classification function
@@ -679,18 +680,14 @@ share one category chip.
 
 ### 10.4 Portfolio
 
-Portfolio total is the sum of complete base values of all
-`include_in_portfolio=true`, active, complete, asset-role Accounts. For each
-included Account:
+Portfolio total is the sum of complete holding-component base values on
+active, asset-role Accounts. Cash is excluded. `include_in_portfolio` is
+not used for the live total. For each included holding:
 
-- every complete component participates in allocation;
-- Cash Balance enters `cash`;
-- a Holding enters its Instrument type;
-- a Simple Account enters the account-type-derived or `manual` bucket;
+- the Holding enters its Instrument type;
 - a component with a missing quote is not zero-filled, and the
   Account/Portfolio is marked incomplete;
-- the same total and the same complete-account denominator are used for amount
-  and percentage.
+- cash in the same Account is omitted.
 
 Portfolio may still provide allocation by native currency, country, and
 Instrument type. `account_type` is a complementary filter, not an asset

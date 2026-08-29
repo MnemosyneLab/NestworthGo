@@ -3,6 +3,7 @@ import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
+import { queryKeys } from "@/queries/keys";
 import { AccountsPage } from "./AccountsPage";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
 
@@ -23,6 +24,8 @@ const previewChange = vi.fn();
 const recordChange = vi.fn();
 const settingsLoad = vi.fn();
 const currentInstrumentQuote = vi.fn();
+const listInstitutions = vi.fn();
+const listGroups = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
@@ -38,8 +41,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ac
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/directory", () => ({
   Service: {
     ListMembers: () => Promise.resolve([{ id: "alice", name: "Alice" }, { id: "bob", name: "Bob" }]),
-    ListInstitutions: () => Promise.resolve([{ id: "cmb", name: "China Merchants Bank" }]),
-    ListGroups: () => Promise.resolve([]),
+    ListInstitutions: (...args: unknown[]) => listInstitutions(...args),
+    ListGroups: (...args: unknown[]) => listGroups(...args),
     CreateInstitution: vi.fn(),
   },
 }));
@@ -111,11 +114,12 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
 
 function renderPage() {
   const queryClient = createTestQueryClient();
-  return render(
+  const rendered = render(
     <QueryClientProvider client={queryClient}>
       <AccountsPage />
     </QueryClientProvider>,
   );
+  return { ...rendered, queryClient };
 }
 
 const emptyAccount = {
@@ -184,6 +188,8 @@ beforeEach(() => {
   recordChange.mockReset();
   settingsLoad.mockReset();
   currentInstrumentQuote.mockReset();
+  listInstitutions.mockReset();
+  listGroups.mockReset();
   listAccounts.mockResolvedValue([emptyAccount]);
   accountValuations.mockResolvedValue([
     {
@@ -206,6 +212,10 @@ beforeEach(() => {
   appendCash.mockResolvedValue(undefined);
   appendValue.mockResolvedValue(undefined);
   currentInstrumentQuote.mockResolvedValue(null);
+  listInstitutions.mockResolvedValue([
+    { id: "cmb", name: "China Merchants Bank", iconKey: "bank", institutionType: "bank", sortOrder: 0, archivedAt: null },
+  ]);
+  listGroups.mockResolvedValue([]);
 });
 
 describe("AccountsPage", () => {
@@ -219,7 +229,7 @@ describe("AccountsPage", () => {
     renderPage();
     expect(await screen.findByText("Checking")).toBeInTheDocument();
     expect(screen.getByText("China Merchants Bank")).toBeInTheDocument();
-    expect(screen.getByText("$1,000.00")).toBeInTheDocument();
+    expect(screen.getAllByText("$1,000.00").length).toBeGreaterThan(0);
     expect(screen.getByText("Bank account")).toBeInTheDocument();
     expect(screen.getByText("Complete")).toBeInTheDocument();
   });
@@ -230,13 +240,15 @@ describe("AccountsPage", () => {
     expect(await screen.findByText("Checking")).toBeInTheDocument();
     expect(screen.getByText("Loading")).toBeInTheDocument();
     expect(screen.queryByText("Complete")).not.toBeInTheDocument();
-    expect(screen.getByText("No current value")).toBeInTheDocument();
+    expect(screen.getByText("$1,000.00")).toBeInTheDocument();
   });
 
   it("does not label a missing valuation as complete", async () => {
     accountValuations.mockResolvedValue([]);
     renderPage();
     expect(await screen.findByText("Checking")).toBeInTheDocument();
+    expect(screen.getByText("$1,000.00")).toBeInTheDocument();
+    expect(screen.getByText("Pending conversion")).toBeInTheDocument();
     expect(screen.getAllByText("No current value").length).toBeGreaterThan(0);
     expect(screen.queryByText("Complete")).not.toBeInTheDocument();
   });
@@ -286,6 +298,61 @@ describe("AccountsPage", () => {
         initialAmount: "500",
       }),
     );
+  });
+
+  it("preselects the lowest-order active directory entries and submits both IDs", async () => {
+    listInstitutions.mockResolvedValue([
+      { id: "later-bank", name: "Later Bank", iconKey: "bank", institutionType: "bank", sortOrder: 20, archivedAt: null },
+      { id: "primary-bank", name: "Primary Bank", iconKey: "bank", institutionType: "bank", sortOrder: 1, archivedAt: null },
+      { id: "archived-bank", name: "Archived Bank", iconKey: "bank", institutionType: "bank", sortOrder: -1, archivedAt: "2026-01-01T00:00:00Z" },
+    ]);
+    listGroups.mockResolvedValue([
+      { id: "later-group", name: "Later group", iconKey: "folder", sortOrder: 20, archivedAt: null },
+      { id: "primary-group", name: "Primary group", iconKey: "folder", sortOrder: 1, archivedAt: null },
+      { id: "archived-group", name: "Archived group", iconKey: "folder", sortOrder: -1, archivedAt: "2026-01-01T00:00:00Z" },
+    ]);
+
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Create account" });
+    await waitFor(() => expect(within(form).getByRole("button", { name: "Primary Bank" })).toHaveAttribute("aria-selected", "true"));
+    await continueWizard(form, 3);
+
+    await userEvent.click(within(form).getByRole("button", { name: "More settings" }));
+    expect(form.querySelector("#wizard-group")).toHaveTextContent("Primary group");
+    await userEvent.type(within(form).getByLabelText("Name"), "Primary account");
+    await userEvent.click(within(form).getByLabelText("Alice"));
+    await continueWizard(form, 1);
+    await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
+
+    await waitFor(() =>
+      expect(createAccount).toHaveBeenCalledWith(
+        expect.objectContaining({ institutionId: "primary-bank", groupId: "primary-group" }),
+      ),
+    );
+  });
+
+  it("keeps a manually selected institution when directory data refreshes and renames it", async () => {
+    const initialInstitutions = [
+      { id: "primary-bank", name: "Primary Bank", iconKey: "bank", institutionType: "bank", sortOrder: 1, archivedAt: null },
+      { id: "later-bank", name: "Later Bank", iconKey: "bank", institutionType: "bank", sortOrder: 20, archivedAt: null },
+    ];
+    listInstitutions.mockResolvedValue(initialInstitutions);
+    const { queryClient } = renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Create account" });
+    await waitFor(() => expect(within(form).getByRole("button", { name: "Primary Bank" })).toHaveAttribute("aria-selected", "true"));
+    await userEvent.click(within(form).getByRole("button", { name: "Later Bank" }));
+
+    listInstitutions.mockResolvedValue([
+      { ...initialInstitutions[0], sortOrder: -10 },
+      { ...initialInstitutions[1], name: "Renamed Later Bank", sortOrder: 20 },
+    ]);
+    await queryClient.refetchQueries({ queryKey: queryKeys.directory.institutions(false) });
+
+    await waitFor(() => expect(within(form).getByRole("button", { name: "Renamed Later Bank" })).toHaveAttribute("aria-selected", "true"));
   });
 
   it("disables Continue and does not submit when no owner is checked", async () => {
@@ -359,7 +426,7 @@ describe("AccountsPage", () => {
     expect(within(form).queryByText("How should this account be recorded?")).not.toBeInTheDocument();
     expect(within(form).queryByLabelText("Balance sheet role")).not.toBeInTheDocument();
     await userEvent.click(within(form).getByRole("button", { name: "More settings" }));
-    expect(within(form).getByLabelText("Include in portfolio")).toBeChecked();
+    expect(within(form).queryByLabelText("Include in portfolio")).not.toBeInTheDocument();
     await userEvent.type(within(form).getByLabelText("Name"), "Brokerage");
     await userEvent.click(within(form).getByLabelText("Alice"));
     await continueWizard(form, 1);
@@ -455,7 +522,7 @@ describe("AccountsPage", () => {
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getAllByText("Investments").length).toBeGreaterThan(0);
-    expect(screen.getByText("$800.00")).toBeInTheDocument();
+    expect(screen.getAllByText("$800.00").length).toBeGreaterThan(0);
     expect(screen.getByText(/SGD\s*200\.00/)).toBeInTheDocument();
     expect(screen.getByText("NVIDIA")).toBeInTheDocument();
     expect(screen.getByText("Stock")).toBeInTheDocument();
@@ -781,7 +848,7 @@ describe("AccountsPage", () => {
     await userEvent.type(within(cashForm).getByLabelText("Resulting balance"), "10000");
     await userEvent.click(within(cashForm).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(appendCash).toHaveBeenCalledWith("cmb-mixed", "10000", "CNY", ""));
-    expect(await screen.findByText(/CN¥\s*10,000\.00/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/CN¥\s*10,000\.00/)).length).toBeGreaterThan(0);
 
     await userEvent.click(await screen.findByRole("button", { name: "Buy investment" }));
     expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
@@ -798,7 +865,7 @@ describe("AccountsPage", () => {
     await userEvent.click(within(tradeForm).getByRole("button", { name: "Preview" }));
     await userEvent.click(await within(tradeForm).findByRole("button", { name: "Confirm" }));
 
-    expect(await screen.findByText(/CN¥\s*8,000\.00/)).toBeInTheDocument();
+    expect((await screen.findAllByText(/CN¥\s*8,000\.00/)).length).toBeGreaterThan(0);
     expect(screen.queryByText(/CN¥\s*10,000\.00/)).not.toBeInTheDocument();
     expect(screen.getByText("XYZ Fund")).toBeInTheDocument();
     expect(screen.getByText("100")).toBeInTheDocument();
@@ -870,11 +937,11 @@ describe("AccountsPage", () => {
     expect(within(form).getByText("Asset")).toBeInTheDocument();
     expect(within(form).getByText(/Tracking method/)).toBeInTheDocument();
     expect(within(form).getByText(/Record cash and holdings separately/)).toBeInTheDocument();
-    expect(within(form).getByLabelText("Include in portfolio")).toBeChecked();
+    expect(within(form).queryByLabelText("Include in portfolio")).not.toBeInTheDocument();
     await userEvent.selectOptions(within(form).getByLabelText("Account type"), "bank_account");
     expect(within(form).getByText("Asset")).toBeInTheDocument();
     expect(within(form).getByText(/Record cash and holdings separately/)).toBeInTheDocument();
-    expect(within(form).getByLabelText("Include in portfolio")).toBeChecked();
+    expect(within(form).queryByLabelText("Include in portfolio")).not.toBeInTheDocument();
     await userEvent.click(within(form).getByRole("button", { name: "Save" }));
     expect(updateAccount).toHaveBeenCalledWith(
       "brk-1",

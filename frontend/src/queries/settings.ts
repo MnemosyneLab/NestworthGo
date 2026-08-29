@@ -63,3 +63,18 @@ export function useFXProviders() {
     staleTime: Infinity,
   });
 }
+
+export type QuoteCacheTTL = "1h" | "3h" | "12h" | "24h";
+
+export function quoteCacheTtlOf(settings: Settings): QuoteCacheTTL {
+  const record = settings as Settings & { quote_cache_ttl?: string; quoteCacheTTL?: string };
+  const value = record.quote_cache_ttl ?? record.quoteCacheTTL;
+  if (value === "1h" || value === "3h" || value === "12h" || value === "24h") {
+    return value;
+  }
+  return "12h";
+}
+
+export function withQuoteCacheTtl(settings: Settings, ttl: QuoteCacheTTL): Settings {
+  return { ...settings, quote_cache_ttl: ttl } as Settings;
+}

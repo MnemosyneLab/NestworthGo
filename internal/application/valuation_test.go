@@ -125,7 +125,7 @@ func TestValuationServiceMatchesGoldenPortfolioAndPartialSubtotal(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMoneyView(t, portfolio.ValuedSubtotal, "62190", "CNY")
+	assertMoneyView(t, portfolio.ValuedSubtotal, "35700", "CNY")
 	if !portfolio.Complete || len(portfolio.MissingInputs) != 0 {
 		t.Fatalf("complete portfolio = %+v", portfolio)
 	}
@@ -150,7 +150,7 @@ func TestValuationServiceMatchesGoldenPortfolioAndPartialSubtotal(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMoneyView(t, partialPortfolio.ValuedSubtotal, "40990", "CNY")
+	assertMoneyView(t, partialPortfolio.ValuedSubtotal, "14500", "CNY")
 	if partialPortfolio.Complete || len(partialPortfolio.MissingInputs) != 1 {
 		t.Fatalf("partial portfolio = %+v", partialPortfolio)
 	}
@@ -187,7 +187,7 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMoneyView(t, manual.ValuedSubtotal, "62190", "CNY")
+	assertMoneyView(t, manual.ValuedSubtotal, "35700", "CNY")
 	manualAccount, err := fixture.service.AccountValuation(ctx, fixture.account.Account.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -204,7 +204,7 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMoneyView(t, inverse.ValuedSubtotal, "62190", "CNY")
+	assertMoneyView(t, inverse.ValuedSubtotal, "35700", "CNY")
 
 	providerPrice, err := domain.ParseUnitPrice("700")
 	if err != nil {
@@ -248,7 +248,7 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertMoneyView(t, provider.ValuedSubtotal, "62190", "CNY")
+	assertMoneyView(t, provider.ValuedSubtotal, "35700", "CNY")
 	providerAccount, err := fixture.service.AccountValuation(ctx, fixture.account.Account.ID)
 	if err != nil {
 		t.Fatal(err)

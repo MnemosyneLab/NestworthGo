@@ -960,6 +960,7 @@ type ActivityDTO struct {
 	CorrectionGroupID  *string             `json:"correctionGroupId,omitempty"`
 	TransactionFXRate  *string             `json:"transactionFxRate,omitempty"`
 	TradeDetail        *TradeDetailDTO     `json:"tradeDetail,omitempty"`
+	Resulting          []EndpointViewDTO   `json:"resulting,omitempty"`
 	Effects            []ActivityEffectDTO `json:"effects"`
 }
 
@@ -967,7 +968,7 @@ func FromActivity(value domain.Activity) ActivityDTO {
 	dto := ActivityDTO{
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Kind: string(value.Kind), Reason: string(value.Reason),
 		EffectiveAt: FormatTime(value.EffectiveAt), EffectiveLocalDate: value.EffectiveLocalDate, CreatedAt: FormatTime(value.CreatedAt),
-		Note: value.Note, TradeDetail: FromTradeDetail(value.TradeDetail), Effects: FromActivityEffects(value.Effects),
+		Note: value.Note, TradeDetail: FromTradeDetail(value.TradeDetail), Resulting: FromEndpointViews(value.Resulting), Effects: FromActivityEffects(value.Effects),
 	}
 	if value.ReversesActivityID != nil {
 		id := value.ReversesActivityID.String()

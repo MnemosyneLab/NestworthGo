@@ -1,5 +1,5 @@
 // Package marketdata adapts internal/application.Service's provider
-// refresh surface (RefreshAll, RefreshRequiredFX, RefreshInstrument,
+// refresh surface (RefreshAll, RefreshMissingOrStale, RefreshRequiredFX, RefreshInstrument,
 // RefreshFX, SetFXProvider, FXProviderKey) for the Wails IPC boundary.
 //
 // A synchronous method per operation is exposed for simple callers (the
@@ -81,6 +81,14 @@ func fromRefreshResult(value application.RefreshResult) RefreshResultDTO {
 
 func (s *Service) RefreshAll(ctx context.Context) (RefreshResultDTO, error) {
 	result, err := s.app.RefreshAll(ctx)
+	if err != nil {
+		return RefreshResultDTO{}, apierror.Wrap(err)
+	}
+	return fromRefreshResult(result), nil
+}
+
+func (s *Service) RefreshMissingOrStale(ctx context.Context) (RefreshResultDTO, error) {
+	result, err := s.app.RefreshMissingOrStale(ctx)
 	if err != nil {
 		return RefreshResultDTO{}, apierror.Wrap(err)
 	}
@@ -206,6 +214,10 @@ func (s *Service) emitImmediate(requestID string, err error) {
 // immediately; completion is reported via RefreshCompletedEvent.
 func (s *Service) StartRefreshAll(requestID string) {
 	s.runAsync(requestID, s.app.RefreshAll)
+}
+
+func (s *Service) StartRefreshMissingOrStale(requestID string) {
+	s.runAsync(requestID, s.app.RefreshMissingOrStale)
 }
 
 func (s *Service) StartRefreshRequiredFX(requestID string) {

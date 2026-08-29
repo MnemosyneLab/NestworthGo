@@ -106,8 +106,17 @@ func TestInstitutionLifecycleWithIcon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListInstitutions: %v", err)
 	}
-	if len(list) != 1 || list[0].IconKey != "bank-branch" {
-		t.Fatalf("ListInstitutions = %+v, want icon bank-branch", list)
+	found := false
+	for _, item := range list {
+		if item.ID == institution.ID {
+			found = true
+			if item.IconKey != "bank-branch" {
+				t.Fatalf("ListInstitutions = %+v, want icon bank-branch on %s", list, institution.ID)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("created institution missing from list: %+v", list)
 	}
 
 	if err := service.ArchiveInstitution(ctx, institution.ID, true); err != nil {
@@ -117,8 +126,10 @@ func TestInstitutionLifecycleWithIcon(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListInstitutions after archive: %v", err)
 	}
-	if len(afterArchive) != 0 {
-		t.Fatalf("expected no active institutions after archive, got %+v", afterArchive)
+	for _, item := range afterArchive {
+		if item.ID == institution.ID {
+			t.Fatalf("archived institution still listed among active institutions: %+v", afterArchive)
+		}
 	}
 }
 

@@ -23,12 +23,21 @@ import { useRefreshFX, useRefreshInstrument } from "@/queries/marketdata";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
-import type { AccountRecordDTO, EndpointViewDTO, FXQuoteDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
-import { currencyFractionDigits, divideCanonical, formatAmount, isPositiveCanonical, multiplyCanonical, sameCanonicalDecimal } from "@/lib/money";
+import type { AccountRecordDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import { DatePicker } from "@/components/ui/date-picker";
+import { TimePicker } from "@/components/ui/time-picker";
+import { formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
 import { displayError } from "@/lib/display";
 import { formatTimestamp, localDateTimeInTimeZone, resolvedTimeZone } from "@/lib/time";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
 import { QuoteHint } from "@/features/history/QuoteHint";
+import {
+  CalculateAmounts,
+  computeFilledSide,
+  convertWithQuote,
+  notifyCalculateBlocked,
+  tradeFillFromPrice,
+} from "@/features/history/CalculateAmounts";
 
 const KINDS: ChangeCommandKind[] = [
   ChangeCommandKind.ChangeMoneyAdded,
@@ -125,6 +134,7 @@ function MoneyFields({
   onCurrency,
   disabledCurrency = false,
   allowEmpty = false,
+  readOnly = false,
 }: {
   prefix: string;
   label: string;
@@ -135,6 +145,7 @@ function MoneyFields({
   onCurrency?: (value: string) => void;
   disabledCurrency?: boolean;
   allowEmpty?: boolean;
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const options = currencies.includes(currency) || !currency ? currencies : [currency, ...currencies];
@@ -142,14 +153,14 @@ function MoneyFields({
     <div className="flex gap-2">
       <div className="flex flex-1 flex-col gap-1.5">
         <Label htmlFor={`${prefix}-amount`}>{label}</Label>
-        <Input id={`${prefix}-amount`} inputMode="decimal" value={amount} onChange={(event) => onAmount(event.target.value)} />
+        <Input id={`${prefix}-amount`} inputMode="decimal" value={amount} readOnly={readOnly} onChange={(event) => onAmount(event.target.value)} />
       </div>
       <div className="flex w-28 flex-col gap-1.5">
         <Label htmlFor={`${prefix}-currency`}>{t("history.currency")}</Label>
         <NativeSelect
           id={`${prefix}-currency`}
           value={currency}
-          disabled={disabledCurrency}
+          disabled={disabledCurrency || readOnly}
           onChange={(event) => onCurrency?.(event.target.value)}
         >
           {allowEmpty && <option value="">{t("history.selectEmpty")}</option>}
@@ -180,17 +191,6 @@ function currencyFromRequest(request: ChangeCommandRequest | undefined): string 
 
 function accountOptionName(record: AccountRecordDTO): string {
   return `${record.account.name} · ${record.account.defaultCurrency || ""}`.replace(/ · $/, "");
-}
-
-function quoteAmount(quote: FXQuoteDTO, amount: string, from: string, to: string): string {
-  const places = currencyFractionDigits(to);
-  if (quote.baseCurrency === from && quote.quoteCurrency === to) {
-    return multiplyCanonical(amount, quote.rate, places);
-  }
-  if (quote.baseCurrency === to && quote.quoteCurrency === from) {
-    return divideCanonical(amount, quote.rate, places);
-  }
-  return "";
 }
 
 function timeKey(date: string, clock: string): string {
@@ -281,7 +281,6 @@ function RecordChangeFormReady({
   const fxPreferences = useFXPreferences();
   const setFXPreference = useSetFXPreference();
   const [creatingInstrument, setCreatingInstrument] = useState(false);
-  const [fxDriver, setFXDriver] = useState<"sold" | "bought">("sold");
   const currencyOptions = currencies.data ?? [defaultCurrency];
 
   const initialRequest: ChangeCommandRequest = (() => {
@@ -426,51 +425,7 @@ function RecordChangeFormReady({
   })();
   const instrumentQuote = useCurrentInstrumentQuote(request.instrumentId ?? "");
   const fxQuote = useCurrentFXQuote(request.soldCurrency ?? "", request.boughtCurrency ?? "");
-  const fxSourceAmount = fxDriver === "sold" ? request.sold : request.bought;
-
-  useEffect(() => {
-    if (kind !== ChangeCommandKind.ChangeTrade || !request.quantity?.trim() || !instrumentQuote.data || !request.grossCurrency) {
-      return;
-    }
-    setAutomatic("gross", multiplyCanonical(request.quantity.trim(), instrumentQuote.data.unitPrice, currencyFractionDigits(request.grossCurrency)));
-  }, [instrumentQuote.data, kind, request.grossCurrency, request.quantity]);
-
-  useEffect(() => {
-    if (kind !== ChangeCommandKind.ChangeFXConversion || !fxQuote.data) {
-      return;
-    }
-    const soldCurrency = request.soldCurrency ?? "";
-    const boughtCurrency = request.boughtCurrency ?? "";
-    if (!soldCurrency || !boughtCurrency || soldCurrency === boughtCurrency) {
-      return;
-    }
-    if (fxDriver === "sold" && fxSourceAmount?.trim()) {
-      setAutomatic("bought", quoteAmount(fxQuote.data, fxSourceAmount.trim(), soldCurrency, boughtCurrency));
-    } else if (fxDriver === "bought" && fxSourceAmount?.trim()) {
-      setAutomatic("sold", quoteAmount(fxQuote.data, fxSourceAmount.trim(), boughtCurrency, soldCurrency));
-    }
-  }, [fxDriver, fxQuote.data, fxSourceAmount, kind, request.boughtCurrency, request.soldCurrency]);
-
-  useEffect(() => {
-    if (kind !== ChangeCommandKind.ChangeCashTransfer || !request.sentCurrency || !request.receivedCurrency) {
-      return;
-    }
-    if (request.sentCurrency !== request.receivedCurrency) {
-      setRequest((current) => {
-        const received = current.received ?? "";
-        if (!received || autoValues.current.received !== received) {
-          return current;
-        }
-        delete autoValues.current.received;
-        return { ...current, received: "" };
-      });
-      return;
-    }
-    if (!request.sent?.trim()) {
-      return;
-    }
-    setAutomatic("received", request.sent.trim());
-  }, [kind, request.receivedCurrency, request.sent, request.sentCurrency]);
+  const transferFXQuote = useCurrentFXQuote(request.sentCurrency ?? "", request.receivedCurrency ?? "");
 
   useEffect(() => {
     if (fixActivityId || kind !== ChangeCommandKind.ChangeValueUpdate || !displayedCurrentValue) {
@@ -494,7 +449,10 @@ function RecordChangeFormReady({
     if (kind === ChangeCommandKind.ChangeDebtPayment && request.interestOrFeeCurrency !== request.principalCurrency) {
       setRequest((current) => ({ ...current, interestOrFeeCurrency: current.principalCurrency ?? "" }));
     }
-  }, [kind, request.feeCurrency, request.grossCurrency, request.interestOrFeeCurrency, request.principalCurrency, request.soldCurrency]);
+    if (kind === ChangeCommandKind.ChangeCashTransfer && request.feeCurrency !== request.sentCurrency) {
+      setRequest((current) => ({ ...current, feeCurrency: current.sentCurrency ?? "" }));
+    }
+  }, [kind, request.feeCurrency, request.grossCurrency, request.interestOrFeeCurrency, request.principalCurrency, request.sentCurrency, request.soldCurrency]);
 
   useEffect(() => {
     if (kind === ChangeCommandKind.ChangeTrade && request.side === "sell" && request.holdingId && !positiveSettlementHoldings.some((holding) => holding.id === request.holdingId)) {
@@ -581,14 +539,20 @@ function RecordChangeFormReady({
   })();
   const canPreview = hasRequiredFields && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride));
 
-  const buildRequest = (): ChangeCommandRequest => ({
-    ...request,
-    feeCurrency: request.feeCurrency || request.soldCurrency || request.grossCurrency,
-    interestOrFeeCurrency: request.interestOrFeeCurrency || request.principalCurrency,
-    effectiveLocalDate: fixActivityId ? "" : request.effectiveLocalDate,
-    effectiveLocalTime: fixActivityId ? "" : request.effectiveLocalTime,
-    effectiveAt: "",
-  });
+  const buildRequest = (): ChangeCommandRequest => {
+    const sameCurrencyTransfer =
+      kind === ChangeCommandKind.ChangeCashTransfer && Boolean(request.sentCurrency) && request.sentCurrency === request.receivedCurrency;
+    return {
+      ...request,
+      received: sameCurrencyTransfer ? request.sent : request.received,
+      receivedCurrency: sameCurrencyTransfer ? request.sentCurrency : request.receivedCurrency,
+      feeCurrency: request.feeCurrency || request.soldCurrency || request.grossCurrency || request.sentCurrency,
+      interestOrFeeCurrency: request.interestOrFeeCurrency || request.principalCurrency,
+      effectiveLocalDate: fixActivityId ? "" : request.effectiveLocalDate,
+      effectiveLocalTime: fixActivityId ? "" : request.effectiveLocalTime,
+      effectiveAt: "",
+    };
+  };
 
   const runPreview = () => {
     if (!canPreview) {
@@ -639,7 +603,6 @@ function RecordChangeFormReady({
 
   const handleFXAccount = (accountId: string) => {
     const accountCurrency = accountById.get(accountId)?.account.defaultCurrency || defaultCurrency;
-    setFXDriver("sold");
     patch(
       {
         accountId,
@@ -677,6 +640,87 @@ function RecordChangeFormReady({
       return;
     }
     refreshFX.mutate(variables);
+  };
+
+  const transferPairReady = Boolean(request.sentCurrency && request.receivedCurrency && request.sentCurrency !== request.receivedCurrency);
+  const sameCurrencyTransfer = Boolean(request.sentCurrency && request.sentCurrency === request.receivedCurrency);
+
+  const updateTransferFX = () => {
+    if (!transferPairReady) {
+      return;
+    }
+    const variables = { currencyA: request.sentCurrency!, currencyB: request.receivedCurrency! };
+    const preference = (fxPreferences.data ?? []).find(
+      (item) => [item.currencyA, item.currencyB].sort().join("/") === [variables.currencyA, variables.currencyB].sort().join("/"),
+    );
+    if (!preference) {
+      setFXPreference.mutate({ ...variables, source: "provider" }, { onSuccess: () => refreshFX.mutate(variables) });
+      return;
+    }
+    refreshFX.mutate(variables);
+  };
+
+  const runFXCalculate = () => {
+    if (!fxQuote.data) {
+      notifyCalculateBlocked(t, "missing-quote");
+      return;
+    }
+    const side = computeFilledSide(request.sold ?? "", request.bought ?? "");
+    if (side === "both-empty") {
+      notifyCalculateBlocked(t, "both-empty");
+      return;
+    }
+    if (side === "none") {
+      return;
+    }
+    const soldCurrency = request.soldCurrency ?? "";
+    const boughtCurrency = request.boughtCurrency ?? "";
+    if (side === "b") {
+      patch({ bought: convertWithQuote(fxQuote.data, (request.sold ?? "").trim(), soldCurrency, boughtCurrency) });
+      return;
+    }
+    patch({ sold: convertWithQuote(fxQuote.data, (request.bought ?? "").trim(), boughtCurrency, soldCurrency) });
+  };
+
+  const runTransferCalculate = () => {
+    if (!transferFXQuote.data) {
+      notifyCalculateBlocked(t, "missing-quote");
+      return;
+    }
+    const side = computeFilledSide(request.sent ?? "", request.received ?? "");
+    if (side === "both-empty") {
+      notifyCalculateBlocked(t, "both-empty");
+      return;
+    }
+    if (side === "none") {
+      return;
+    }
+    const sentCurrency = request.sentCurrency ?? "";
+    const receivedCurrency = request.receivedCurrency ?? "";
+    if (side === "b") {
+      patch({ received: convertWithQuote(transferFXQuote.data, (request.sent ?? "").trim(), sentCurrency, receivedCurrency) });
+      return;
+    }
+    patch({ sent: convertWithQuote(transferFXQuote.data, (request.received ?? "").trim(), receivedCurrency, sentCurrency) });
+  };
+
+  const runTradeCalculate = () => {
+    if (!instrumentQuote.data) {
+      notifyCalculateBlocked(t, "missing-quote");
+      return;
+    }
+    const side = computeFilledSide(request.quantity ?? "", request.gross ?? "");
+    if (side === "both-empty") {
+      notifyCalculateBlocked(t, "both-empty");
+      return;
+    }
+    if (side === "none") {
+      return;
+    }
+    const filled = tradeFillFromPrice(request.quantity ?? "", request.gross ?? "", instrumentQuote.data.unitPrice, request.grossCurrency ?? defaultCurrency);
+    if (filled) {
+      patch(filled);
+    }
   };
 
   return (
@@ -742,8 +786,29 @@ function RecordChangeFormReady({
         <>
           {!lock?.accountId && <AccountSelect id="change-from-account" label={t("history.fromAccount")} value={request.fromAccountId ?? ""} onChange={(fromAccountId) => handleTransferAccount("fromAccountId", "sentCurrency", fromAccountId)} accounts={accountOptions} />}
           <AccountSelect id="change-to-account" label={t("history.toAccount")} value={request.toAccountId ?? ""} onChange={(toAccountId) => handleTransferAccount("toAccountId", "receivedCurrency", toAccountId)} accounts={accountOptions} />
-          <MoneyFields prefix="change-sent" label={t("history.sent")} amount={request.sent ?? ""} currency={request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={(sent) => patch({ sent })} onCurrency={(sentCurrency) => patch({ sentCurrency })} />
-          <MoneyFields prefix="change-received" label={t("history.received")} amount={request.received ?? ""} currency={request.receivedCurrency ?? request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={(received) => patch({ received })} onCurrency={(receivedCurrency) => patch({ receivedCurrency })} />
+          <MoneyFields prefix="change-sent" label={t("history.sent")} amount={request.sent ?? ""} currency={request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={(sent) => patch({ sent })} onCurrency={(sentCurrency) => patch({ sentCurrency })} disabledCurrency />
+          {sameCurrencyTransfer ? (
+            <MoneyFields prefix="change-received" label={t("history.received")} amount={request.sent ?? ""} currency={request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={() => undefined} disabledCurrency readOnly />
+          ) : (
+            <MoneyFields prefix="change-received" label={t("history.received")} amount={request.received ?? ""} currency={request.receivedCurrency ?? request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} onAmount={(received) => patch({ received })} onCurrency={(receivedCurrency) => patch({ receivedCurrency })} disabledCurrency />
+          )}
+          {transferPairReady && (
+            <CalculateAmounts
+              onCalculate={runTransferCalculate}
+              quoteHint={
+                <QuoteHint
+                  quote={transferFXQuote.data}
+                  quoteLabel={transferFXQuote.data ? t("marketData.latestRate", { base: transferFXQuote.data.baseCurrency, rate: formatAmount(transferFXQuote.data.rate), quote: transferFXQuote.data.quoteCurrency }) : undefined}
+                  manual={(fxPreferences.data ?? []).find((preference) => [preference.currencyA, preference.currencyB].sort().join("/") === [request.sentCurrency, request.receivedCurrency].sort().join("/"))?.sourceKind === "manual"}
+                  onUpdate={updateTransferFX}
+                  isUpdating={setFXPreference.isPending || refreshFX.isPending}
+                  loading={transferFXQuote.isLoading}
+                  error={setFXPreference.error ?? refreshFX.error}
+                />
+              }
+            />
+          )}
+          <MoneyFields prefix="change-transfer-fee" label={t("history.feeOptional")} amount={request.fee ?? ""} currency={request.feeCurrency ?? request.sentCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency onAmount={(fee) => patch({ fee })} />
         </>
       )}
 
@@ -756,25 +821,13 @@ function RecordChangeFormReady({
             amount={request.sold ?? ""}
             currency={request.soldCurrency ?? defaultCurrency}
             currencies={currencyOptions}
-            onAmount={(sold) => {
-              if (sold.trim()) {
-                setFXDriver("sold");
-                patch({ sold }, ["bought"]);
-              } else if (request.bought?.trim()) {
-                setFXDriver("bought");
-                patch({ sold });
-              } else {
-                setFXDriver("sold");
-                patch({ sold });
-              }
-            }}
+            onAmount={(sold) => patch({ sold })}
             onCurrency={(soldCurrency) => {
-              setFXDriver("sold");
               if (soldCurrency === request.boughtCurrency) {
                 patch({ soldCurrency, boughtCurrency: "", bought: "" }, ["bought"]);
                 return;
               }
-              patch({ soldCurrency }, ["bought"]);
+              patch({ soldCurrency });
             }}
           />
           <MoneyFields
@@ -784,36 +837,31 @@ function RecordChangeFormReady({
             currency={request.boughtCurrency ?? ""}
             currencies={currencyOptions.filter((code) => code !== (request.soldCurrency ?? ""))}
             allowEmpty
-            onAmount={(bought) => {
-              if (bought.trim()) {
-                setFXDriver("bought");
-                patch({ bought }, ["sold"]);
-              } else if (request.sold?.trim()) {
-                setFXDriver("sold");
-                patch({ bought });
-              } else {
-                setFXDriver("bought");
-                patch({ bought });
-              }
-            }}
+            onAmount={(bought) => patch({ bought })}
             onCurrency={(boughtCurrency) => {
-              setFXDriver("bought");
               if (boughtCurrency === request.soldCurrency) {
                 patch({ boughtCurrency: "", bought: "" }, ["sold"]);
                 return;
               }
-              patch({ boughtCurrency }, ["sold"]);
+              patch({ boughtCurrency });
             }}
           />
-          {fxPairReady && <QuoteHint
-            quote={fxQuote.data}
-            quoteLabel={fxQuote.data ? t("marketData.latestRate", { base: fxQuote.data.baseCurrency, rate: formatAmount(fxQuote.data.rate), quote: fxQuote.data.quoteCurrency }) : undefined}
-            manual={fxPreference?.sourceKind === "manual"}
-            onUpdate={updateFX}
-            isUpdating={setFXPreference.isPending || refreshFX.isPending}
-            loading={fxQuote.isLoading}
-            error={setFXPreference.error ?? refreshFX.error}
-          />}
+          {fxPairReady && (
+            <CalculateAmounts
+              onCalculate={runFXCalculate}
+              quoteHint={
+                <QuoteHint
+                  quote={fxQuote.data}
+                  quoteLabel={fxQuote.data ? t("marketData.latestRate", { base: fxQuote.data.baseCurrency, rate: formatAmount(fxQuote.data.rate), quote: fxQuote.data.quoteCurrency }) : undefined}
+                  manual={fxPreference?.sourceKind === "manual"}
+                  onUpdate={updateFX}
+                  isUpdating={setFXPreference.isPending || refreshFX.isPending}
+                  loading={fxQuote.isLoading}
+                  error={setFXPreference.error ?? refreshFX.error}
+                />
+              }
+            />
+          )}
           <MoneyFields prefix="change-fx-fee" label={t("history.fxFee")} amount={request.fee ?? ""} currency={request.feeCurrency ?? request.soldCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency onAmount={(fee) => patch({ fee })} />
         </>
       )}
@@ -873,7 +921,14 @@ function RecordChangeFormReady({
               patch({ instrumentId: selection, holdingId: matchingHoldingId(request.settlementAccountId ?? "", selection), grossCurrency: currency, feeCurrency: currency }, ["gross"]);
             }}
           />
-          {selectedInstrument && <QuoteHint quote={instrumentQuote.data} quoteLabel={instrumentQuote.data ? t("portfolio.latestPrice", { value: formatAmount(instrumentQuote.data.unitPrice, instrumentQuote.data.currency) }) : undefined} manual={selectedInstrument.quoteSource === "manual"} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={instrumentQuote.isLoading} error={refreshInstrument.error} />}
+          {selectedInstrument && (
+            <CalculateAmounts
+              onCalculate={runTradeCalculate}
+              quoteHint={
+                <QuoteHint quote={instrumentQuote.data} quoteLabel={instrumentQuote.data ? t("portfolio.latestPrice", { value: formatAmount(instrumentQuote.data.unitPrice, instrumentQuote.data.currency) }) : undefined} manual={selectedInstrument.quoteSource === "manual"} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={instrumentQuote.isLoading} error={refreshInstrument.error} />
+              }
+            />
+          )}
           {request.side !== "sell" && (creatingInstrument ? (
             <InstrumentForm
               isSubmitting={createInstrument.isPending}
@@ -889,8 +944,8 @@ function RecordChangeFormReady({
               }}
             />
           ) : <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>{t("accounts.createInstrument")}</Button>)}
-          <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value }, ["gross"])} /></div>
-          <MoneyFields prefix="change-gross" label={t("history.grossTotal")} amount={request.gross ?? ""} currency={request.grossCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency={Boolean(selectedInstrument)} onAmount={(gross) => patch({ gross })} onCurrency={selectedInstrument ? undefined : (grossCurrency) => patch({ grossCurrency }, ["gross"])} />
+          <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
+          <MoneyFields prefix="change-gross" label={t("history.grossTotal")} amount={request.gross ?? ""} currency={request.grossCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency={Boolean(selectedInstrument)} onAmount={(gross) => patch({ gross })} onCurrency={selectedInstrument ? undefined : (grossCurrency) => patch({ grossCurrency })} />
           <MoneyFields prefix="change-fee" label={t("history.feeOptional")} amount={request.fee ?? ""} currency={request.feeCurrency ?? request.grossCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency onAmount={(fee) => patch({ fee })} />
         </>
       )}
@@ -909,8 +964,20 @@ function RecordChangeFormReady({
       {!fixActivityId ? (
         <>
           <div className="grid gap-2 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5"><Label htmlFor="change-effective-date">{t("history.effectiveDate")}</Label><Input id="change-effective-date" type="date" value={localDate} onChange={(event) => patch({ effectiveLocalDate: event.target.value, effectiveAt: "" })} /></div>
-            <div className="flex flex-col gap-1.5"><Label htmlFor="change-effective-time">{t("history.effectiveTime")}</Label><Input id="change-effective-time" type="time" value={localTime} onChange={(event) => patch({ effectiveLocalTime: event.target.value, effectiveAt: "" })} /></div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="change-effective-date">{t("history.effectiveDate")}</Label>
+              <DatePicker
+                id="change-effective-date"
+                value={localDate}
+                min={originLocal?.date}
+                max={nowLocal?.date}
+                onChange={(effectiveLocalDate) => patch({ effectiveLocalDate, effectiveAt: "" })}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="change-effective-time">{t("history.effectiveTime")}</Label>
+              <TimePicker id="change-effective-time" value={localTime} onChange={(effectiveLocalTime) => patch({ effectiveLocalTime, effectiveAt: "" })} />
+            </div>
           </div>
           <p className="text-xs text-muted-foreground">{t("history.effectiveDateTimeHelp", { timezone: originZone })}</p>
         </>

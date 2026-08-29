@@ -88,6 +88,8 @@ func main() {
 				slog.Error("default FX provider rejected at startup", "error", fallbackErr)
 			}
 		}
+		service.SetQuoteCacheTTL(preference.QuoteCacheTTLDuration())
+		service.SetUILanguage(string(preference.Language))
 		if _, err := service.Bootstrap(context.Background()); err != nil {
 			slog.Error("bootstrap failed at startup", "error", err)
 		}

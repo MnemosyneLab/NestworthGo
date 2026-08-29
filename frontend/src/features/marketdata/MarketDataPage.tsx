@@ -4,9 +4,10 @@ import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { NativeSelect } from "@/components/ui/select";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState } from "@/components/layout/PageState";
-import { useRefreshAll, useRefreshRequiredFX } from "@/queries/marketdata";
+import { useRefreshAll, useRefreshMissingOrStale } from "@/queries/marketdata";
 import {
   useCurrentFXQuote,
   useCurrentInstrumentQuote,
@@ -304,13 +305,12 @@ function SavedFXRow({
 }: {
   pair: FxPair;
   preference?: FXPreferenceDTO;
-  onConfigure: () => void;
+  onConfigure: (source?: string) => void;
   isConfiguring: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const quote = useCurrentFXQuote(pair.currencyA, pair.currencyB);
-  const providerUnavailable = preference?.sourceKind !== "provider";
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-3 text-sm" data-testid={`saved-fx-${fxPairKey(pair.currencyA, pair.currencyB)}`}>
@@ -337,9 +337,21 @@ function SavedFXRow({
         ) : (
           <span className="text-muted-foreground">{t("marketData.noQuoteYet")}</span>
         )}
-        {providerUnavailable && <Button variant="outline" size="sm" onClick={onConfigure} disabled={isConfiguring}>
-          {isConfiguring ? t("marketData.configuringFX") : t("marketData.configureFX")}
-        </Button>}
+        {preference ? (
+          <NativeSelect
+            aria-label={t("marketData.sourceMissing")}
+            value={preference.sourceKind}
+            disabled={isConfiguring}
+            onChange={(event) => onConfigure(event.target.value)}
+          >
+            <option value="provider">{t("portfolio.provider")}</option>
+            <option value="manual">{t("portfolio.manual")}</option>
+          </NativeSelect>
+        ) : (
+          <Button variant="outline" size="sm" onClick={() => onConfigure("provider")} disabled={isConfiguring}>
+            {isConfiguring ? t("marketData.configuringFX") : t("marketData.configureFX")}
+          </Button>
+        )}
       </span>
     </li>
   );
@@ -355,7 +367,7 @@ function SavedMarketData({
   instruments: InstrumentDTO[];
   fxPairs: FxPair[];
   fxPreferences: FXPreferenceDTO[];
-  onConfigureFX: (pair: FxPair) => void;
+  onConfigureFX: (pair: FxPair, source?: string) => void;
   configuringPair?: string;
 }) {
   const { t } = useTranslation();
@@ -378,7 +390,7 @@ function SavedMarketData({
                 key={key}
                 pair={pair}
                 preference={preferenceForPair(fxPreferences, pair)}
-                onConfigure={() => onConfigureFX(pair)}
+                onConfigure={(source) => onConfigureFX(pair, source)}
                 isConfiguring={configuringPair === key}
               />
             );
@@ -397,13 +409,13 @@ export function MarketDataPage() {
   const fxPreferences = useFXPreferences();
   const overview = useOverview();
   const refreshAll = useRefreshAll();
-  const refreshRequiredFX = useRefreshRequiredFX();
+  const refreshMissingOrStale = useRefreshMissingOrStale();
   const setFXPreference = useSetFXPreference();
-  const [lastRefresh, setLastRefresh] = useState<"all" | "fx" | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<"all" | "missing" | null>(null);
   const [result, setResult] = useState<RefreshResultDTO | undefined>();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | undefined>();
   const [configuringPair, setConfiguringPair] = useState<string | undefined>();
-  const activeRefresh = lastRefresh === "fx" ? refreshRequiredFX : refreshAll;
+  const activeRefresh = lastRefresh === "missing" ? refreshMissingOrStale : refreshAll;
 
   const runRefreshAll = () => {
     setLastRefresh("all");
@@ -417,11 +429,11 @@ export function MarketDataPage() {
     });
   };
 
-  const runRefreshFX = () => {
-    setLastRefresh("fx");
+  const runRefreshMissingOrStale = () => {
+    setLastRefresh("missing");
     setResult(undefined);
     setLastRefreshAt(undefined);
-    refreshRequiredFX.mutate(undefined, {
+    refreshMissingOrStale.mutate(undefined, {
       onSuccess: (next) => {
         setResult(next);
         setLastRefreshAt(new Date());
@@ -429,15 +441,17 @@ export function MarketDataPage() {
     });
   };
 
-  const configureFX = (pair: FxPair) => {
+  const configureFX = (pair: FxPair, source = "provider") => {
     const key = fxPairKey(pair.currencyA, pair.currencyB);
     setConfiguringPair(key);
     setFXPreference.mutate(
-      { currencyA: pair.currencyA, currencyB: pair.currencyB, source: "provider" },
+      { currencyA: pair.currencyA, currencyB: pair.currencyB, source },
       {
         onSuccess: () => {
           setConfiguringPair(undefined);
-          runRefreshFX();
+          if (source === "provider") {
+            runRefreshMissingOrStale();
+          }
         },
         onError: (error) => {
           setConfiguringPair(undefined);
@@ -455,11 +469,11 @@ export function MarketDataPage() {
     <div className="flex flex-col gap-6">
       <PageHeader title={t("nav.marketData")} description={t("marketData.description")} />
       <div className="flex flex-wrap gap-2">
-        <Button onClick={runRefreshAll} disabled={refreshAll.isPending || refreshRequiredFX.isPending || setFXPreference.isPending}>
-          <RefreshCw className="size-4" aria-hidden="true" /> {refreshAll.isPending ? t("marketData.refreshing") : t("marketData.refreshAll")}
+        <Button onClick={runRefreshMissingOrStale} disabled={refreshAll.isPending || refreshMissingOrStale.isPending || setFXPreference.isPending}>
+          <RefreshCw className="size-4" aria-hidden="true" /> {refreshMissingOrStale.isPending ? t("marketData.refreshing") : t("marketData.refreshMissingOrStale")}
         </Button>
-        <Button variant="outline" onClick={runRefreshFX} disabled={refreshAll.isPending || refreshRequiredFX.isPending || setFXPreference.isPending}>
-          <RefreshCw className="size-4" aria-hidden="true" /> {refreshRequiredFX.isPending ? t("marketData.refreshing") : t("marketData.refreshFX")}
+        <Button variant="outline" onClick={runRefreshAll} disabled={refreshAll.isPending || refreshMissingOrStale.isPending || setFXPreference.isPending}>
+          <RefreshCw className="size-4" aria-hidden="true" /> {refreshAll.isPending ? t("marketData.refreshing") : t("marketData.forceRefreshAll")}
         </Button>
       </div>
 
@@ -467,7 +481,7 @@ export function MarketDataPage() {
         <ErrorState
           title={t("marketData.loadError")}
           description={displayError(activeRefresh.error, t("ui.state.errorDescription"))}
-          onRetry={lastRefresh === "fx" ? runRefreshFX : runRefreshAll}
+          onRetry={lastRefresh === "missing" ? runRefreshMissingOrStale : runRefreshAll}
           retryLabel={t("common.retryAction")}
         />
       )}

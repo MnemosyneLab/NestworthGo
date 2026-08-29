@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,8 +6,10 @@ import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useRealizedGain, useNetWorthTrend } from "@/queries/analytics";
+import { useHistoryOrigin, useRebuildHistoricalSnapshots } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { formatAmount } from "@/lib/money";
+import { localDateTimeInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
 const TREND_RANGE_LABELS: Record<string, string> = {
@@ -16,21 +18,46 @@ const TREND_RANGE_LABELS: Record<string, string> = {
   all: "analytics.rangeAll",
 };
 
+function shiftYmd(ymd: string, days: number): string {
+  const [year, month, day] = ymd.split("-").map(Number);
+  const date = new Date(year, (month ?? 1) - 1, (day ?? 1) + days);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
 /** Analytics separates trend context from realized-gain detail and exposes
  * the same chart data in an accessible table disclosure. */
 export function AnalyticsPage() {
   const { t } = useTranslation();
   const catalog = useCatalog();
+  const origin = useHistoryOrigin();
+  const rebuild = useRebuildHistoricalSnapshots();
   const ranges = catalog.data?.trendRanges ?? [];
   const [range, setRange] = useState("30d");
   const realizedGain = useRealizedGain(range);
   const netWorthTrend = useNetWorthTrend(range);
 
+  useEffect(() => {
+    if (!origin.data) {
+      return;
+    }
+    const today = localDateTimeInTimeZone(origin.data.timezone)?.date;
+    const start = localDateTimeInTimeZone(origin.data.timezone, new Date(origin.data.startedAt))?.date;
+    if (!today || !start) {
+      return;
+    }
+    const yesterday = shiftYmd(today, -1);
+    if (start <= yesterday) {
+      rebuild.mutate({ startDate: start, endDate: yesterday });
+    }
+    // Rebuild once per origin load; mutate identity is stable enough for this page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [origin.data?.id, origin.data?.startedAt, origin.data?.timezone]);
+
   if (realizedGain.isLoading || netWorthTrend.isLoading) {
     return <LoadingState label={t("analytics.loading")} />;
   }
 
-  if (realizedGain.isError || netWorthTrend.isError) {
+  if (realizedGain.isError) {
     return (
       <ErrorState
         title={t("analytics.loadError")}
@@ -45,6 +72,8 @@ export function AnalyticsPage() {
   }
 
   const points = netWorthTrend.data?.points ?? [];
+  const today = origin.data ? localDateTimeInTimeZone(origin.data.timezone)?.date : undefined;
+  const todayOnlyTrend = points.length <= 1 && (!points[0] || points[0].localDate === today);
   const trendOption: EChartsOption = {
     xAxis: { type: "category" as const, data: points.map((point) => point.localDate) },
     yAxis: { type: "value" as const },
@@ -66,7 +95,7 @@ export function AnalyticsPage() {
 
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("analytics.range")}>
         {ranges.map((id) => (
-          <Button key={id} variant={range === id ? "default" : "outline"} size="sm" onClick={() => setRange(id)}>
+          <Button key={id} variant={range === id ? "default" : "outline" } size="sm" onClick={() => setRange(id)}>
             {t(TREND_RANGE_LABELS[id] ?? id)}
           </Button>
         ))}
@@ -77,7 +106,25 @@ export function AnalyticsPage() {
           <CardTitle>{t("analytics.trend")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {points.length > 0 ? (
+          {netWorthTrend.isError || rebuild.isError ? (
+            <ErrorState
+              title={t("analytics.loadError")}
+              description={t("ui.state.errorDescription")}
+              onRetry={() => {
+                void netWorthTrend.refetch();
+                if (origin.data) {
+                  const todayDate = localDateTimeInTimeZone(origin.data.timezone)?.date;
+                  const start = localDateTimeInTimeZone(origin.data.timezone, new Date(origin.data.startedAt))?.date;
+                  if (todayDate && start) {
+                    rebuild.mutate({ startDate: start, endDate: shiftYmd(todayDate, -1) });
+                  }
+                }
+              }}
+              retryLabel={t("common.retryAction")}
+            />
+          ) : todayOnlyTrend ? (
+            <EmptyState title={t("analytics.trendEmpty")} description={t("analytics.chartSummary")} />
+          ) : (
             <EChart
               option={trendOption}
               style={{ height: 320 }}
@@ -90,8 +137,6 @@ export function AnalyticsPage() {
                 point.value ? formatAmount(point.value.amount, point.value.currency) : t("accounts.noValue"),
               ])}
             />
-          ) : (
-            <EmptyState title={t("analytics.empty")} description={t("analytics.chartSummary")} />
           )}
         </CardContent>
       </Card>

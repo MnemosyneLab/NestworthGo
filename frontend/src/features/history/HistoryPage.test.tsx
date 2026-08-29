@@ -290,6 +290,7 @@ describe("HistoryPage", () => {
     await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
     await userEvent.selectOptions(within(form).getByLabelText("Instrument"), "instrument-1");
     await userEvent.type(within(form).getByLabelText("Quantity"), "10");
+    await userEvent.click(within(form).getByRole("button", { name: "Calculate" }));
 
     await waitFor(() => expect(within(form).getByLabelText("Gross total")).toHaveValue("1234.56"));
     expect(within(form).getByLabelText("Gross total")).not.toHaveAttribute("disabled");
@@ -311,6 +312,7 @@ describe("HistoryPage", () => {
     await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
     await userEvent.selectOptions(within(form).getByLabelText("Instrument"), "instrument-1");
     await userEvent.type(within(form).getByLabelText("Quantity"), "10");
+    await userEvent.click(within(form).getByRole("button", { name: "Calculate" }));
     await waitFor(() => expect(within(form).getByLabelText("Gross total")).toHaveValue("1234.56"));
 
     const gross = within(form).getByLabelText("Gross total");
@@ -319,12 +321,12 @@ describe("HistoryPage", () => {
     await userEvent.type(gross, "999");
     await userEvent.clear(quantity);
     await userEvent.type(quantity, "11");
+    await userEvent.click(within(form).getByRole("button", { name: "Calculate" }));
 
     expect(gross).toHaveValue("999");
     await userEvent.clear(gross);
-    await userEvent.clear(quantity);
-    await userEvent.type(quantity, "12");
-    await waitFor(() => expect(gross).toHaveValue("1481.47"));
+    await userEvent.click(within(form).getByRole("button", { name: "Calculate" }));
+    await waitFor(() => expect(gross).toHaveValue("1358.02"));
   });
 
   it("updates a new direct FX pair after saving its provider preference", async () => {
@@ -365,6 +367,9 @@ describe("HistoryPage", () => {
     const list = await screen.findByTestId("activity-list");
     expect(list).toHaveTextContent("Added $1,000.00 to Checking (Contribution)");
     expect(list).not.toHaveTextContent("cash_in");
+    await userEvent.click(await within(list).findByRole("button", { name: "Details" }));
+    expect(await screen.findByText("Local date and time")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
     await userEvent.click(await within(list).findByRole("button", { name: "Undo" }));
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Undo" }));
@@ -471,6 +476,7 @@ describe("HistoryPage", () => {
     await userEvent.selectOptions(currencies[0], "USD");
     await userEvent.selectOptions(currencies[1], "SGD");
     await userEvent.type(within(form).getByLabelText("Sold"), "100");
+    await userEvent.click(within(form).getByRole("button", { name: "Calculate" }));
     await waitFor(() => expect(["92", "92.00"]).toContain((within(form).getByLabelText("Bought") as HTMLInputElement).value));
   });
 

@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
-import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies, useFXProviders } from "@/queries/settings";
+import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies, useFXProviders, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
@@ -70,7 +70,8 @@ export function SettingsPage() {
     draft.language !== settings.data.language ||
     draft.currency !== settings.data.currency ||
     draft.timezone !== settings.data.timezone ||
-    draft.fx_provider !== settings.data.fx_provider;
+    draft.fx_provider !== settings.data.fx_provider ||
+    quoteCacheTtlOf(draft) !== quoteCacheTtlOf(settings.data);
   const update = (patch: Partial<Settings>) => {
     setDraftOverride((current) => ({ ...(current ?? settings.data), ...patch }));
   };
@@ -177,6 +178,22 @@ export function SettingsPage() {
                 </option>
               ))}
             </NativeSelect>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-quote-cache-ttl">{t("settings.quoteCacheTtl")}</Label>
+            <NativeSelect
+              id="settings-quote-cache-ttl"
+              value={quoteCacheTtlOf(draft)}
+              onChange={(event) => setDraftOverride(withQuoteCacheTtl(draft, event.target.value as QuoteCacheTTL))}
+            >
+              {(["1h", "3h", "12h", "24h"] as QuoteCacheTTL[]).map((ttl) => (
+                <option key={ttl} value={ttl}>
+                  {t(`settings.quoteCacheTtlOption.${ttl}`)}
+                </option>
+              ))}
+            </NativeSelect>
+            <p className="text-xs text-muted-foreground">{t("settings.quoteCacheTtlHelp")}</p>
           </div>
         </div>
 

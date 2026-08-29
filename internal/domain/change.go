@@ -254,6 +254,7 @@ type Activity struct {
 	CorrectionGroupID  *ActivityCorrectionGroupID
 	TransactionFXRate  *FxRate
 	TradeDetail        *TradeDetail
+	Resulting          []EndpointView
 	Effects            []ActivityEffect
 }
 
@@ -425,6 +426,7 @@ type CashTransferInput struct {
 	ToAccountID   AccountID
 	Sent          Money
 	Received      Money
+	Fee           *Money
 	EffectiveAt   time.Time
 	Note          *string
 }
@@ -941,6 +943,14 @@ func buildCashTransfer(state ChangeState, input CashTransferInput) (ChangePrevie
 	if input.Sent.Currency() == input.Received.Currency() && !input.Sent.Amount().Equal(input.Received.Amount()) {
 		return ChangePreview{}, changeError(ErrTransferMismatch, "received", "same-currency transfers must conserve their amount")
 	}
+	if input.Fee != nil {
+		if input.Fee.IsZero() {
+			return ChangePreview{}, changeError(ErrInvalidChange, "fee", "fee must be greater than zero")
+		}
+		if input.Fee.Currency() != input.Sent.Currency() {
+			return ChangePreview{}, changeError(ErrInvalidChange, "fee", "fee currency must match sent currency")
+		}
+	}
 	rate, err := NewFxRate(input.Received.Amount().Div(input.Sent.Amount()).Round(12))
 	if err != nil {
 		return ChangePreview{}, err
@@ -949,7 +959,14 @@ func buildCashTransfer(state ChangeState, input CashTransferInput) (ChangePrevie
 	if err != nil {
 		return ChangePreview{}, err
 	}
-	fromView, err := state.accountAmount(from, input.Sent, EffectRemoved)
+	totalSent := input.Sent
+	if input.Fee != nil {
+		totalSent, err = totalSent.Add(*input.Fee)
+		if err != nil {
+			return ChangePreview{}, err
+		}
+	}
+	fromView, err := state.accountAmount(from, totalSent, EffectRemoved)
 	if err != nil {
 		return ChangePreview{}, err
 	}
@@ -958,6 +975,9 @@ func buildCashTransfer(state ChangeState, input CashTransferInput) (ChangePrevie
 		return ChangePreview{}, err
 	}
 	effects := []ActivityEffect{accountEffect(activity.ID, 1, EffectRoleTransferFrom, EffectRemoved, accountTarget(from), ClassificationInternalTransfer, from.ID, input.Sent, nil), accountEffect(activity.ID, 2, EffectRoleTransferTo, EffectAdded, accountTarget(to), ClassificationInternalTransfer, to.ID, input.Received, nil)}
+	if input.Fee != nil {
+		effects = append(effects, accountEffect(activity.ID, 3, EffectRoleFee, EffectRemoved, accountTarget(from), ClassificationFee, from.ID, *input.Fee, nil))
+	}
 	activity.TransactionFXRate = &rate
 	activity.Effects = effects
 	return ChangePreview{Activity: activity, Effects: effects, Resulting: []EndpointView{fromView, toView}, DerivedRate: &rate}, nil

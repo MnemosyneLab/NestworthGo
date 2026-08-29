@@ -27,7 +27,7 @@ This document is the experience plan for recording changes: auto-filled defaults
 - Changing History Origin timezone after history has started (that would rewrite `effectiveLocalDate` on past activities). Settings timezone is the editor **before** start; origin stores a snapshot.
 - History rewrite: Fix must not move a replacement onto the original activity’s `effectiveAt`. Replay filters `effective_at <= cutoff` and ignores `created_at` ([`historical_replay.go`](../../internal/application/historical_replay.go), [`ListActivitiesUntil`](../../internal/infrastructure/sqlite/activity_repository.go)).
 - Yahoo as an FX vendor. Yahoo is instrument-only. The FX select lists providers with `LatestFX` (today: Frankfurter only).
-- A new datetime library. Native date/time inputs plus Go `ResolveLocalDateTime` for DST-safe conversion.
+- A new datetime library for the original 2026-08 plan. Native date/time inputs were later replaced by shadcn Calendar (`react-day-picker` on Base UI) and a 24-hour hour/minute picker; see [Trial UX optimization](trial-ux-optimization.md).
 - Optimistic valuation totals after record. Existing invalidation/reload stays.
 - Putting extra (non-valuation) FX pairs into `RefreshRequiredFX`. That path stays snapshot-required vs-base only.
 

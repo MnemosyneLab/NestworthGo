@@ -175,6 +175,81 @@ describe("InvestmentsPage", () => {
     expect(table).toHaveTextContent("$500.00");
   });
 
+  it("sorts the holdings index by numeric values, names, and missing market values", async () => {
+    listInstruments.mockResolvedValue([
+      { id: "i-missing", name: "No Price Fund", quoteCurrency: "USD", quoteSource: "manual" },
+      { id: "i-high", name: "Beta Fund", quoteCurrency: "USD", quoteSource: "manual" },
+      { id: "i-low", name: "Alpha Fund", quoteCurrency: "USD", quoteSource: "manual" },
+    ]);
+    holdingsByAccounts.mockResolvedValue({
+      "acc-1": [
+        { id: "h-missing", accountId: "acc-1", instrumentId: "i-missing", quantity: "5" },
+        { id: "h-high", accountId: "acc-1", instrumentId: "i-high", quantity: "1" },
+        { id: "h-low", accountId: "acc-1", instrumentId: "i-low", quantity: "2" },
+      ],
+    });
+    accountGain.mockResolvedValue({
+      accountId: "acc-1",
+      available: false,
+      holdings: [
+        {
+          holdingId: "h-missing",
+          accountId: "acc-1",
+          instrumentId: "i-missing",
+          instrumentName: "No Price Fund",
+          quantity: "5",
+          averageCost: { amount: "2", currency: "USD" },
+          totalCost: { amount: "10", currency: "USD" },
+          realizedGain: { amount: "0", currency: "USD" },
+          available: false,
+          missingReason: "current instrument price is unavailable",
+        },
+        {
+          holdingId: "h-high",
+          accountId: "acc-1",
+          instrumentId: "i-high",
+          instrumentName: "Beta Fund",
+          quantity: "1",
+          averageCost: { amount: "100", currency: "USD" },
+          totalCost: { amount: "100", currency: "USD" },
+          currentValue: { amount: "100", currency: "USD" },
+          realizedGain: { amount: "0", currency: "USD" },
+          unrealizedGain: { amount: "0", currency: "USD" },
+          available: true,
+        },
+        {
+          holdingId: "h-low",
+          accountId: "acc-1",
+          instrumentId: "i-low",
+          instrumentName: "Alpha Fund",
+          quantity: "2",
+          averageCost: { amount: "1", currency: "USD" },
+          totalCost: { amount: "2", currency: "USD" },
+          currentValue: { amount: "20", currency: "USD" },
+          realizedGain: { amount: "0", currency: "USD" },
+          unrealizedGain: { amount: "18", currency: "USD" },
+          available: true,
+        },
+      ],
+    });
+
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: "All holdings index" }));
+    const table = await screen.findByTestId("holdings-table");
+    const rowNames = () => Array.from(table.querySelectorAll("tbody tr")).map((row) => row.querySelector("td")?.textContent?.trim());
+
+    await waitFor(() => expect(rowNames()).toEqual(["Beta Fund", "Alpha Fund", "No Price Fund"]));
+
+    await userEvent.click(within(table).getByRole("button", { name: "Current value" }));
+    await waitFor(() => expect(rowNames()).toEqual(["Alpha Fund", "Beta Fund", "No Price Fund"]));
+
+    await userEvent.click(within(table).getByRole("button", { name: "Cost" }));
+    await waitFor(() => expect(rowNames()).toEqual(["Alpha Fund", "No Price Fund", "Beta Fund"]));
+
+    await userEvent.click(within(table).getByRole("button", { name: "Instrument" }));
+    await waitFor(() => expect(rowNames()).toEqual(["Alpha Fund", "Beta Fund", "No Price Fund"]));
+  });
+
   it("shows an unavailable badge when a Holding's gain cannot be computed", async () => {
     holdingsByAccounts.mockResolvedValue({ "acc-1": [{ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" }] });
     accountGain.mockResolvedValue({

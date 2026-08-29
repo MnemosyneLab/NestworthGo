@@ -30,7 +30,7 @@ func ProviderObservationEarliest() time.Time {
 	return time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
 }
 
-func QuoteFreshness(source QuoteSourceKind, delayed bool, quotedAt, now time.Time) Freshness {
+func QuoteFreshness(source QuoteSourceKind, delayed bool, quotedAt, now time.Time, ttl time.Duration) Freshness {
 	if source == QuoteSourceManual {
 		return FreshnessManual
 	}
@@ -41,7 +41,10 @@ func QuoteFreshness(source QuoteSourceKind, delayed bool, quotedAt, now time.Tim
 	if quotedAt.After(now.Add(QuoteClockSkewTolerance)) {
 		return FreshnessUnavailable
 	}
-	if age > 24*time.Hour {
+	if ttl <= 0 {
+		ttl = 12 * time.Hour
+	}
+	if age >= ttl {
 		return FreshnessStale
 	}
 	if delayed {

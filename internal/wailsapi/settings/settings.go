@@ -52,6 +52,10 @@ func (s *Service) Save(value settings.Settings) error {
 			return apierror.Wrap(err)
 		}
 	}
+	if s.app != nil {
+		s.app.SetQuoteCacheTTL(value.QuoteCacheTTLDuration())
+		s.app.SetUILanguage(string(value.Language))
+	}
 	if err := s.store.Save(value); err != nil {
 		return apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"})
 	}

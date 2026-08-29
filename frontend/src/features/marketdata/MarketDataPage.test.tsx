@@ -160,7 +160,7 @@ describe("MarketDataPage", () => {
       rateLimited: false,
     });
     renderPage();
-    await userEvent.click(screen.getByRole("button", { name: /market data/i }));
+    await userEvent.click(screen.getByRole("button", { name: /force refresh all/i }));
     const results = await screen.findByTestId("refresh-results");
     expect(results).toHaveTextContent("Global Equity Fund");
     expect(results).toHaveTextContent("Updated");
@@ -174,7 +174,7 @@ describe("MarketDataPage", () => {
     listInstruments.mockResolvedValue([]);
     refreshAll.mockResolvedValue({ items: [], rateLimited: false });
     renderPage();
-    await userEvent.click(screen.getByRole("button", { name: /market data/i }));
+    await userEvent.click(screen.getByRole("button", { name: /force refresh all/i }));
     expect(await screen.findByText("No saved market data needs refreshing.")).toBeInTheDocument();
   });
 });

@@ -195,7 +195,11 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID, originTi
 		if err != nil {
 			return nil, err
 		}
-		return domain.CashTransferInput{HouseholdID: householdID, FromAccountID: fromID, ToAccountID: toID, Sent: sent, Received: received, EffectiveAt: effectiveAt, Note: r.Note}, nil
+		fee, err := parseOptionalMoneyField(r.Fee, r.FeeCurrency)
+		if err != nil {
+			return nil, err
+		}
+		return domain.CashTransferInput{HouseholdID: householdID, FromAccountID: fromID, ToAccountID: toID, Sent: sent, Received: received, Fee: fee, EffectiveAt: effectiveAt, Note: r.Note}, nil
 
 	case ChangeFXConversion:
 		accountID, err := domain.ParseAccountID(r.AccountID)

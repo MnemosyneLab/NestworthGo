@@ -22,18 +22,21 @@ type Service struct {
 	now           func() time.Time
 	marketData    MarketDataRegistryPort
 	fxProviderKey string
+	quoteCacheTTL time.Duration
+	uiLanguage    string
 
 	changeMu sync.Mutex
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
-	service := &Service{repository: repository, now: time.Now}
+	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour}
 	service.valuation = NewValuationService(repository, service.clock)
 	service.gain = NewGainService(repository, service.clock)
 	if len(registries) > 0 {
 		service.marketData = registries[0]
 	}
 	service.valuation.SetFXProviderKey(service.FXProviderKey)
+	service.valuation.SetQuoteCacheTTL(service.QuoteCacheTTL)
 	service.gain.SetFXProviderKey(service.FXProviderKey)
 	return service
 }
@@ -92,6 +95,36 @@ func (s *Service) FXProviderKey() string {
 	return ""
 }
 
+func (s *Service) SetQuoteCacheTTL(ttl time.Duration) {
+	if ttl <= 0 {
+		ttl = 12 * time.Hour
+	}
+	s.stateMu.Lock()
+	s.quoteCacheTTL = ttl
+	s.stateMu.Unlock()
+}
+
+func (s *Service) QuoteCacheTTL() time.Duration {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+	if s.quoteCacheTTL <= 0 {
+		return 12 * time.Hour
+	}
+	return s.quoteCacheTTL
+}
+
+func (s *Service) SetUILanguage(language string) {
+	s.stateMu.Lock()
+	s.uiLanguage = strings.TrimSpace(language)
+	s.stateMu.Unlock()
+}
+
+func (s *Service) UILanguage() string {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+	return s.uiLanguage
+}
+
 func (s *Service) setClock(now func() time.Time) {
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
@@ -120,6 +153,9 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 	}
 	if household == nil {
 		return Bootstrap{}, nil
+	}
+	if err := s.ensureDefaultDirectory(ctx, *household); err != nil {
+		return Bootstrap{}, err
 	}
 	members, err := s.repository.ListMembers(ctx, false)
 	if err != nil {
@@ -202,13 +238,61 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 		members = append(members, member)
 	}
 	if strings.TrimSpace(input.Timezone) == "" {
-		return s.repository.CreateOnboarding(ctx, household, members)
+		if err := s.repository.CreateOnboarding(ctx, household, members); err != nil {
+			return err
+		}
+		return s.ensureDefaultDirectory(ctx, household)
 	}
 	origin, err := domain.NewHistoryOrigin(household.ID, input.Timezone, s.clock(), s.clock())
 	if err != nil {
 		return err
 	}
-	return s.repository.CreateOnboardingWithHistory(ctx, household, members, domain.HistoryOriginData{Origin: origin})
+	if err := s.repository.CreateOnboardingWithHistory(ctx, household, members, domain.HistoryOriginData{Origin: origin}); err != nil {
+		return err
+	}
+	return s.ensureDefaultDirectory(ctx, household)
+}
+
+func defaultDirectoryNames(language string) (string, string) {
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "zh-cn":
+		return "默认机构", "默认分组"
+	case "zh-tw":
+		return "預設機構", "預設分組"
+	default:
+		return "Default institution", "Default group"
+	}
+}
+
+func (s *Service) ensureDefaultDirectory(ctx context.Context, household domain.Household) error {
+	institutionName, groupName := defaultDirectoryNames(s.UILanguage())
+	institutions, err := s.repository.ListInstitutions(ctx, false)
+	if err != nil {
+		return err
+	}
+	if len(institutions) == 0 {
+		institution, createErr := domain.NewInstitution(household.ID, institutionName, domain.InstitutionOther, s.clock())
+		if createErr != nil {
+			return createErr
+		}
+		if err := s.repository.CreateInstitution(ctx, institution); err != nil {
+			return err
+		}
+	}
+	groups, err := s.repository.ListGroups(ctx, false)
+	if err != nil {
+		return err
+	}
+	if len(groups) == 0 {
+		group, createErr := domain.NewGroup(household.ID, groupName, s.clock())
+		if createErr != nil {
+			return createErr
+		}
+		if err := s.repository.CreateGroup(ctx, group); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) CreateMember(ctx context.Context, name string, iconKeys ...string) (domain.Member, error) {

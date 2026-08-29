@@ -36,6 +36,22 @@ export function useRefreshRequiredFX() {
   });
 }
 
+export function useRefreshMissingOrStale() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => {
+      const service = MarketDataService as typeof MarketDataService & {
+        RefreshMissingOrStale?: () => ReturnType<typeof MarketDataService.RefreshAll>;
+      };
+      if (typeof service.RefreshMissingOrStale === "function") {
+        return callService(() => service.RefreshMissingOrStale());
+      }
+      return callService(() => MarketDataService.RefreshRequiredFX());
+    },
+    onSuccess: () => invalidateRefreshAll(queryClient),
+  });
+}
+
 export function useRefreshInstrument() {
   const queryClient = useQueryClient();
   return useMutation({

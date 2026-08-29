@@ -234,7 +234,7 @@ net worth   = assets - liabilities
 
 An Account contributes nothing when it is archived or `include_in_net_worth` is false. A missing required quote excludes only the affected component, marks parent aggregates incomplete, and never substitutes zero or one. Identity conversion (native currency equals base) needs no FX quote and carries no FX freshness; it must not override the Instrument Quote freshness. Direct and inverse FX against the Household base currency must produce the same rounded Money result. Multi-hop FX is not used.
 
-The Portfolio total is the sum of the authoritative base values of complete, active, non-liability Accounts with `include_in_portfolio`. An incomplete included Account is reported in `unvaluedItems`, excluded from the total, and lowers account-level coverage; missing values are never treated as zero. Simple investment Accounts valued by balance or manual value remain visible and contribute when complete; their Overview bucket comes from `account_type` (typically `unclassified_investment`). Holdings and cash allocations are added only for complete Holdings Accounts, so allocation amounts and percentages share the same complete-account denominator as the total.
+The Portfolio total is the sum of complete holding components (InstrumentID present) on active, non-liability Accounts. Cash is excluded. The persisted `include_in_portfolio` flag is unused for this total. An incomplete holding is reported in missing inputs, excluded from the valued subtotal, and never treated as zero. Simple investment Accounts without holdings do not enter Portfolio. Overview still uses `include_in_net_worth`.
 
 The Go service retains full checked decimal precision through quantity × price, FX conversion, and aggregation. Only application view-model construction rounds to four fractional digits with midpoint-nearest-even. Overview, Account detail, and Investments never reconstruct aggregate inputs from rounded strings.
 
@@ -250,7 +250,10 @@ The latest Instrument Quote or FX Quote for a preference is selected by:
 2. `created_at` descending
 3. ID descending
 
-Freshness of a selected provider quote is Fresh when it is at most 24 hours old, Delayed when the provider marks it delayed and it is still within 24 hours, and Stale when it is older than 24 hours. Manual quotes are labeled Manual. A missing required quote is Unavailable. Identity FX is neutral and preserves the selected Instrument Quote state.
+Freshness of a selected provider quote is Fresh when it is younger than the
+global quote cache TTL (Settings: 1h / 3h / 12h / 24h, default 12 hours),
+Delayed when the provider marks it delayed and it is still within that TTL,
+and Stale when it is at least as old as the TTL. Manual quotes are labeled Manual. A missing required quote is Unavailable. Identity FX is neutral and preserves the selected Instrument Quote state.
 
 Overview breakdowns follow these definitions:
 

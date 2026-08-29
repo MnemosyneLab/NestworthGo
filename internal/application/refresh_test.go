@@ -168,6 +168,52 @@ func newRefreshFixture(t *testing.T) (*sqlite.DB, *Service, *refreshFakeProvider
 	return database, service, fake, account, instrument
 }
 
+func newRefreshFixtureWithoutFXPreference(t *testing.T) (*sqlite.DB, *Service, *refreshFakeProvider, domain.AccountRecord, domain.Instrument) {
+	t.Helper()
+	database, err := sqlite.Open(t.TempDir() + "/refresh.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	fake := newRefreshFakeProvider()
+	service := NewService(sqlite.NewRepository(database), NewMarketDataRegistry(fake))
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Refresh", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "fake", ProviderSymbol: "QQQ"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "10", "USD", "2026-08-23"); err != nil {
+		t.Fatal(err)
+	}
+	price, _ := domain.ParseUnitPrice("700")
+	fake.instruments["QQQ"] = struct {
+		quote LatestInstrumentQuote
+		err   error
+	}{quote: LatestInstrumentQuote{Price: price, Currency: "USD", SourceKey: "fake", QuotedAt: now}, err: nil}
+	rate, _ := domain.ParseFxRate("6.9")
+	fake.fx["USD/CNY"] = struct {
+		quote LatestFXQuote
+		err   error
+	}{quote: LatestFXQuote{Rate: rate, BaseCurrency: "USD", QuoteCurrency: "CNY", SourceKey: "fake", QuotedAt: now}, err: nil}
+	return database, service, fake, account, instrument
+}
+
 func TestFXProviderSelectionRoutesRequiredFXOnly(t *testing.T) {
 	_, service, fake, _, _ := newRefreshFixture(t)
 	alias := &refreshAliasProvider{key: "alternate", target: fake}
@@ -542,6 +588,87 @@ func TestRefreshRequiredFXDoesNotStartInstrumentTargets(t *testing.T) {
 	}
 	if fake.callCount() != 1 || fake.callNames()[0] != "fx:USD/CNY" {
 		t.Fatalf("FX-only provider calls = %v; instrument = %s", fake.callNames(), instrument.ID)
+	}
+}
+
+func TestRefreshRequiredFXWithoutPreferenceFetches(t *testing.T) {
+	_, service, fake, _, _ := newRefreshFixtureWithoutFXPreference(t)
+	result, err := service.RefreshRequiredFX(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRefreshStatus(t, result, "fx:CNY/USD", RefreshFetched)
+	if names := fake.callNames(); len(names) != 1 || names[0] != "fx:USD/CNY" {
+		t.Fatalf("required FX without preference calls = %v, want one FX call", names)
+	}
+}
+
+func TestRefreshMissingOrStaleRespectsQuoteCacheTTL(t *testing.T) {
+	_, service, fake, _, instrument := newRefreshFixture(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	service.SetQuoteCacheTTL(time.Hour)
+	setProviderQuotes := func(price, rate string, quotedAt time.Time) {
+		t.Helper()
+		parsedRate, err := domain.ParseFxRate(rate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		fake.instruments["QQQ"] = struct {
+			quote LatestInstrumentQuote
+			err   error
+		}{quote: LatestInstrumentQuote{Price: mustUnitPrice(t, price), Currency: "USD", SourceKey: fake.Key(), QuotedAt: quotedAt}, err: nil}
+		fake.fx["USD/CNY"] = struct {
+			quote LatestFXQuote
+			err   error
+		}{quote: LatestFXQuote{Rate: parsedRate, BaseCurrency: "USD", QuoteCurrency: "CNY", SourceKey: fake.Key(), QuotedAt: quotedAt}, err: nil}
+	}
+
+	if _, err := service.RefreshAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	fake.mu.Lock()
+	fake.calls = nil
+	fake.mu.Unlock()
+
+	cached, err := service.RefreshMissingOrStale(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRefreshStatus(t, cached, instrumentTargetKey(instrument.ID), RefreshCached)
+	assertRefreshStatus(t, cached, "fx:CNY/USD", RefreshCached)
+	if fake.callCount() != 0 {
+		t.Fatalf("fresh quotes still contacted provider: %v", fake.callNames())
+	}
+
+	// RefreshAll must still contact both providers while the saved quotes are
+	// fresh. Change the observations so the result also proves they were
+	// persisted rather than merely deduplicated.
+	setProviderQuotes("701", "6.91", now)
+	forced, err := service.RefreshAll(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRefreshStatus(t, forced, instrumentTargetKey(instrument.ID), RefreshFetched)
+	assertRefreshStatus(t, forced, "fx:CNY/USD", RefreshFetched)
+	if names := fake.callNames(); len(names) != 2 || names[0] != "fx:USD/CNY" || names[1] != "instrument:QQQ" {
+		t.Fatalf("force refresh provider calls = %v, want required FX and instrument", names)
+	}
+
+	fake.mu.Lock()
+	fake.calls = nil
+	fake.mu.Unlock()
+	now = now.Add(time.Hour)
+	setProviderQuotes("702", "6.92", now)
+	stale, err := service.RefreshMissingOrStale(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRefreshStatus(t, stale, instrumentTargetKey(instrument.ID), RefreshFetched)
+	assertRefreshStatus(t, stale, "fx:CNY/USD", RefreshFetched)
+	if names := fake.callNames(); len(names) != 2 || names[0] != "fx:USD/CNY" || names[1] != "instrument:QQQ" {
+		t.Fatalf("expired refresh provider calls = %v, want required FX and instrument", names)
 	}
 }
 

@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +31,8 @@ import { RecordChangeForm } from "@/features/history/RecordChangeForm";
 import { StartHistoryForm } from "@/features/history/StartHistoryForm";
 import { activityToInitialCommand } from "@/features/history/activityToCommand";
 import { activitySentence } from "@/features/history/activitySentence";
+import { ActivityDetailSheet } from "@/features/history/ActivityDetailSheet";
+import { DatePicker } from "@/components/ui/date-picker";
 import { resolvedTimeZone } from "@/lib/time";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
@@ -41,9 +42,11 @@ function Timeline() {
   const { t } = useTranslation();
   const accounts = useAccounts({});
   const instruments = useInstruments();
+  const origin = useHistoryOrigin();
   const undoChange = useUndoChange();
   const [open, setOpen] = useState(false);
   const [fixTarget, setFixTarget] = useState<ActivityDTO | null>(null);
+  const [detailTarget, setDetailTarget] = useState<ActivityDTO | null>(null);
   const [kindFilter, setKindFilter] = useState("");
   const [accountFilter, setAccountFilter] = useState("");
   const [fromLocalDate, setFromLocalDate] = useState("");
@@ -99,11 +102,11 @@ function Timeline() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="history-filter-from">{t("history.filterFrom")}</Label>
-          <Input id="history-filter-from" type="date" value={fromLocalDate} onChange={(event) => setFromLocalDate(event.target.value)} />
+          <DatePicker id="history-filter-from" value={fromLocalDate} onChange={setFromLocalDate} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="history-filter-to">{t("history.filterTo")}</Label>
-          <Input id="history-filter-to" type="date" value={toLocalDate} onChange={(event) => setToLocalDate(event.target.value)} />
+          <DatePicker id="history-filter-to" value={toLocalDate} onChange={setToLocalDate} />
         </div>
         {(kindFilter || accountFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" className="self-end sm:col-span-2 lg:col-span-4 lg:justify-self-end" onClick={() => { setKindFilter(""); setAccountFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
       </section>
@@ -146,37 +149,42 @@ function Timeline() {
                     {activity.correctionGroupId && !activity.reversesActivityId && <Badge variant="secondary">{t("history.corrected")}</Badge>}
                   </div>
                 </div>
-                {canModify && (
-                  <span className="flex shrink-0 items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setFixTarget(activity)}>
-                      {t("history.fixAction")}
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                        {t("history.undoAction")}
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>{t("history.undoTitle")}</AlertDialogTitle>
-                          <AlertDialogDescription>{t("history.undoDescription")}</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() =>
-                              undoChange.mutate(activity.id, {
-                                onSuccess: () => toast.success(t("history.undone")),
-                                onError: (error) => toast.error(displayError(error, t("history.actionError"))),
-                              })
-                            }
-                          >
-                            {t("history.undoAction")}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </span>
-                )}
+                <span className="flex shrink-0 items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setDetailTarget(activity)}>
+                    {t("common.details")}
+                  </Button>
+                  {canModify && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => setFixTarget(activity)}>
+                        {t("history.fixAction")}
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                          {t("history.undoAction")}
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{t("history.undoTitle")}</AlertDialogTitle>
+                            <AlertDialogDescription>{t("history.undoDescription")}</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() =>
+                                undoChange.mutate(activity.id, {
+                                  onSuccess: () => toast.success(t("history.undone")),
+                                  onError: (error) => toast.error(displayError(error, t("history.actionError"))),
+                                })
+                              }
+                            >
+                              {t("history.undoAction")}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </>
+                  )}
+                </span>
               </li>
             );
           })}
@@ -204,6 +212,14 @@ function Timeline() {
           </div>
         </SheetContent>
       </Sheet>
+      <ActivityDetailSheet
+        activity={detailTarget}
+        timezone={origin.data?.timezone}
+        accounts={accountNames}
+        instruments={instrumentNames}
+        onClose={() => setDetailTarget(null)}
+        t={t}
+      />
     </div>
   );
 }

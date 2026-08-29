@@ -1,14 +1,14 @@
 # Trial UX optimization
 
-- Status: **Planned**
+- Status: **Implemented**
 - Date: 2026-08-28
 - Baseline: Nestworth-go `0.2.1` / schema v8 / current Wails frontend
 - Source: 试用反馈 16 条 + 同日拍板
 - Companion: [History and related-form defaults](history-and-form-defaults-ux.md), [Account Container Interaction](../architecture/account-container-interaction-design.md), [Account Container Model](../architecture/account-container-and-position-model-design.md)
 
-本文是落地前的体验方案，不是已实现合同。实现时以本文为准；与旧文档冲突的条目，以本文覆盖说明为准。
+本文是 2026-08-28 试用后的体验方案，现已落地。实现以本文为准；与旧文档冲突的条目，以本文覆盖说明为准。
 
-代码、测试和当前 UI 仍是 implemented 行为的来源。实现完成后把本页 Status 改为 Implemented，并回写被覆盖的架构/设计段落。
+代码、测试和当前 UI 是 implemented 行为的来源。
 
 ## 已拍板的产品规则
 

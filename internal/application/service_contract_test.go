@@ -55,14 +55,36 @@ func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
 		t.Fatalf("account icon: %v", err)
 	}
 	institutions, err := service.ListInstitutions(ctx, true)
-	if err != nil || len(institutions) != 1 || institutions[0].IconKey == nil || *institutions[0].IconKey != "home" {
+	if err != nil {
+		t.Fatalf("reloaded institutions: %v", err)
+	}
+	var reloadedInstitution *domain.Institution
+	for index := range institutions {
+		if institutions[index].ID == institution.ID {
+			copied := institutions[index]
+			reloadedInstitution = &copied
+			break
+		}
+	}
+	if reloadedInstitution == nil || reloadedInstitution.IconKey == nil || *reloadedInstitution.IconKey != "home" {
 		t.Fatalf("reloaded institution icon = %#v, err = %v", institutions, err)
 	}
-	if !institutions[0].UpdatedAt.Equal(clock) {
-		t.Fatalf("institution UpdatedAt = %s, want injected clock %s", institutions[0].UpdatedAt, clock)
+	if !reloadedInstitution.UpdatedAt.Equal(clock) {
+		t.Fatalf("institution UpdatedAt = %s, want injected clock %s", reloadedInstitution.UpdatedAt, clock)
 	}
 	groups, err := service.ListGroups(ctx, true)
-	if err != nil || len(groups) != 1 || groups[0].IconKey == nil || *groups[0].IconKey != "folder" {
+	if err != nil {
+		t.Fatalf("reloaded groups: %v", err)
+	}
+	var reloadedGroup *domain.Group
+	for index := range groups {
+		if groups[index].ID == group.ID {
+			copied := groups[index]
+			reloadedGroup = &copied
+			break
+		}
+	}
+	if reloadedGroup == nil || reloadedGroup.IconKey == nil || *reloadedGroup.IconKey != "folder" {
 		t.Fatalf("reloaded group icon = %#v, err = %v", groups, err)
 	}
 	accountsWithIcons, err := service.ListAccounts(ctx, domain.AccountFilter{})
