@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
 import { PageHeader } from "@/components/layout/PageHeader";
-import { useRealizedGain, useNetWorthTrend } from "@/queries/analytics";
+import { useRealizedGain, useDividendIncome, useNetWorthTrend } from "@/queries/analytics";
 import { useHistoryOrigin, useRebuildHistoricalSnapshots } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { formatAmount } from "@/lib/money";
@@ -17,6 +17,45 @@ const TREND_RANGE_LABELS: Record<string, string> = {
   "1y": "analytics.range1year",
   all: "analytics.rangeAll",
 };
+
+type PeriodGroup = {
+  key: string;
+  label: string;
+  gain: { amount: string; currency: string };
+  available?: boolean;
+};
+
+function PeriodGroupList({
+  title,
+  groups,
+  emptyLabel,
+  incompleteLabel,
+}: {
+  title: string;
+  groups: PeriodGroup[];
+  emptyLabel: string;
+  incompleteLabel: string;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-sm font-medium">{title}</p>
+      {groups.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {groups.map((group) => (
+            <li key={group.key} className="flex items-center justify-between gap-4 text-sm">
+              <span>{group.label}</span>
+              <span className={Number(group.gain.amount) >= 0 ? "text-gain-positive" : "text-gain-negative"}>
+                {group.available === false ? incompleteLabel : formatAmount(group.gain.amount, group.gain.currency)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 function shiftYmd(ymd: string, days: number): string {
   const [year, month, day] = ymd.split("-").map(Number);
@@ -34,6 +73,7 @@ export function AnalyticsPage() {
   const ranges = catalog.data?.trendRanges ?? [];
   const [range, setRange] = useState("30d");
   const realizedGain = useRealizedGain(range);
+  const dividendIncome = useDividendIncome(range);
   const netWorthTrend = useNetWorthTrend(range);
 
   useEffect(() => {
@@ -53,17 +93,18 @@ export function AnalyticsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [origin.data?.id, origin.data?.startedAt, origin.data?.timezone]);
 
-  if (realizedGain.isLoading || netWorthTrend.isLoading) {
+  if (realizedGain.isLoading || dividendIncome.isLoading || netWorthTrend.isLoading) {
     return <LoadingState label={t("analytics.loading")} />;
   }
 
-  if (realizedGain.isError) {
+  if (realizedGain.isError || dividendIncome.isError) {
     return (
       <ErrorState
         title={t("analytics.loadError")}
         description={t("ui.state.errorDescription")}
         onRetry={() => {
           void realizedGain.refetch();
+          void dividendIncome.refetch();
           void netWorthTrend.refetch();
         }}
         retryLabel={t("common.retryAction")}
@@ -88,6 +129,7 @@ export function AnalyticsPage() {
     ],
   };
   const gainData = realizedGain.data;
+  const incomeData = dividendIncome.data;
 
   return (
     <div className="flex flex-col gap-6">
@@ -148,40 +190,40 @@ export function AnalyticsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          <div>
-            <p className="mb-2 text-sm font-medium">{t("analytics.byInstrument")}</p>
-            {(gainData?.byInstrument ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("analytics.empty")}</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {(gainData?.byInstrument ?? []).map((group) => (
-                  <li key={group.key} className="flex items-center justify-between gap-4 text-sm">
-                    <span>{group.label}</span>
-                    <span className={Number(group.gain.amount) >= 0 ? "text-gain-positive" : "text-gain-negative"}>
-                      {formatAmount(group.gain.amount, group.gain.currency)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-medium">{t("analytics.byAccount")}</p>
-            {(gainData?.byAccount ?? []).length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t("analytics.empty")}</p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {(gainData?.byAccount ?? []).map((group) => (
-                  <li key={group.key} className="flex items-center justify-between gap-4 text-sm">
-                    <span>{group.label}</span>
-                    <span className={Number(group.gain.amount) >= 0 ? "text-gain-positive" : "text-gain-negative"}>
-                      {formatAmount(group.gain.amount, group.gain.currency)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+          <PeriodGroupList
+            title={t("analytics.byInstrument")}
+            groups={gainData?.byInstrument ?? []}
+            emptyLabel={t("analytics.empty")}
+            incompleteLabel={t("analytics.statusPartial")}
+          />
+          <PeriodGroupList
+            title={t("analytics.byAccount")}
+            groups={gainData?.byAccount ?? []}
+            emptyLabel={t("analytics.empty")}
+            incompleteLabel={t("analytics.statusPartial")}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className={cn(incomeData && !incomeData.available && "text-warning")}>
+            {t("analytics.dividendIncome")} {incomeData && !incomeData.available && `(${t("analytics.statusPartial")})`}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <PeriodGroupList
+            title={t("analytics.byInstrument")}
+            groups={incomeData?.byInstrument ?? []}
+            emptyLabel={t("analytics.empty")}
+            incompleteLabel={t("analytics.statusPartial")}
+          />
+          <PeriodGroupList
+            title={t("analytics.byAccount")}
+            groups={incomeData?.byAccount ?? []}
+            emptyLabel={t("analytics.empty")}
+            incompleteLabel={t("analytics.statusPartial")}
+          />
         </CardContent>
       </Card>
     </div>

@@ -1031,4 +1031,106 @@ describe("AccountsPage", () => {
     await userEvent.selectOptions(await screen.findByLabelText("Instrument"), "i1");
     await waitFor(() => expect(screen.getByLabelText("Unit cost (optional)")).toHaveValue("12.50"));
   });
+
+  it("opens cash dividend from a holding row with that holding preselected and submits the existing command", async () => {
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockResolvedValue([{ id: "fund-1", name: "XYZ Fund", type: "mutual_fund", quoteCurrency: "USD", quoteSource: "manual" }]);
+    holdingsByAccounts.mockResolvedValue({
+      "brk-1": [{ id: "holding-1", accountId: "brk-1", instrumentId: "fund-1", quantity: "10" }],
+    });
+    accountValuations.mockResolvedValue([
+      {
+        account: brokerageAccount.account,
+        ownership: brokerageAccount.ownership,
+        complete: true,
+        components: [
+          { holdingId: "holding-1", instrumentId: "fund-1", instrumentName: "XYZ Fund", nativeAmount: "1000", nativeCurrency: "USD", available: true },
+        ],
+        missingInputs: [],
+        baseValue: { amount: "1000", currency: "USD" },
+      },
+    ]);
+    previewChange.mockResolvedValue({
+      activity: { id: "div-1", kind: "cash_dividend", effects: [] },
+      effects: [],
+      resulting: [{ target: "account_cash", name: "MooMoo", amount: "25", currency: "USD" }],
+    });
+    recordChange.mockResolvedValue({ activity: { id: "div-1", kind: "cash_dividend" }, effects: [], resulting: [] });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    const holdingRow = (await screen.findByText("XYZ Fund")).closest("tr");
+    expect(holdingRow).not.toBeNull();
+    await userEvent.click(within(holdingRow as HTMLElement).getByRole("button", { name: "Cash dividend" }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    expect(within(form).queryByLabelText("Holding")).not.toBeInTheDocument();
+    await userEvent.type(within(form).getByLabelText("Amount"), "25");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() =>
+      expect(previewChange).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "cash_dividend", holdingId: "holding-1", amount: "25" }),
+      ),
+    );
+    await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
+    await waitFor(() =>
+      expect(recordChange).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "cash_dividend", holdingId: "holding-1", amount: "25" }),
+      ),
+    );
+  });
+
+  it("opens cash dividend from the account action and only offers that account's holdings", async () => {
+    const other = {
+      account: { ...brokerageAccount.account, id: "brk-2", name: "Other Broker" },
+      ownership: brokerageAccount.ownership,
+      institutionName: "China Merchants Bank",
+    };
+    listAccounts.mockResolvedValue([brokerageAccount, other]);
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockResolvedValue([{ id: "fund-1", name: "XYZ Fund", type: "mutual_fund", quoteCurrency: "USD", quoteSource: "manual" }]);
+    holdingsByAccounts.mockResolvedValue({
+      "brk-1": [{ id: "holding-1", accountId: "brk-1", instrumentId: "fund-1", quantity: "10" }],
+      "brk-2": [{ id: "holding-2", accountId: "brk-2", instrumentId: "fund-1", quantity: "8" }],
+    });
+    accountValuations.mockResolvedValue([
+      {
+        account: brokerageAccount.account,
+        ownership: brokerageAccount.ownership,
+        complete: true,
+        components: [
+          { holdingId: "holding-1", instrumentId: "fund-1", instrumentName: "XYZ Fund", nativeAmount: "1000", nativeCurrency: "USD", available: true },
+        ],
+        missingInputs: [],
+        baseValue: { amount: "1000", currency: "USD" },
+      },
+    ]);
+    previewChange.mockResolvedValue({
+      activity: { id: "div-1", kind: "cash_dividend", effects: [] },
+      effects: [],
+      resulting: [{ target: "account_cash", name: "MooMoo", amount: "12", currency: "USD" }],
+    });
+    recordChange.mockResolvedValue({ activity: { id: "div-1", kind: "cash_dividend" }, effects: [], resulting: [] });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    await screen.findByText("XYZ Fund");
+    const accountAction = screen.getAllByRole("button", { name: "Cash dividend" }).find((button) => !button.closest("tr"));
+    expect(accountAction).toBeDefined();
+    await userEvent.click(accountAction as HTMLElement);
+    const form = await screen.findByRole("form", { name: "Record change" });
+    const holdingSelect = within(form).getByLabelText("Holding");
+    expect(within(holdingSelect).getByRole("option", { name: /MooMoo/ })).toBeInTheDocument();
+    expect(within(holdingSelect).queryByRole("option", { name: /Other Broker/ })).not.toBeInTheDocument();
+    await userEvent.selectOptions(holdingSelect, "holding-1");
+    await userEvent.type(within(form).getByLabelText("Amount"), "12");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() =>
+      expect(previewChange).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: "cash_dividend", holdingId: "holding-1", amount: "12" }),
+      ),
+    );
+    await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(recordChange).toHaveBeenCalled());
+  });
 });

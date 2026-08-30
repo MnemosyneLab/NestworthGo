@@ -30,12 +30,13 @@ export type AccountAction =
   | "transfer"
   | "buy"
   | "sell"
+  | "dividend"
   | "position"
   | "simple"
   | "settings"
   | null;
 
-const HISTORY_ACTIONS: AccountAction[] = ["deposit", "withdraw", "fx", "transfer", "buy", "sell"];
+const HISTORY_ACTIONS: AccountAction[] = ["deposit", "withdraw", "fx", "transfer", "buy", "sell", "dividend"];
 
 export function actionNeedsHistory(action: AccountAction): boolean {
   return action !== null && HISTORY_ACTIONS.includes(action);
@@ -43,6 +44,7 @@ export function actionNeedsHistory(action: AccountAction): boolean {
 
 export function AccountActionSheet({
   action,
+  holdingId,
   record,
   valuation,
   historyStarted,
@@ -50,6 +52,7 @@ export function AccountActionSheet({
   onRecorded,
 }: {
   action: Exclude<AccountAction, "settings" | null>;
+  holdingId?: string;
   record: AccountRecordDTO;
   valuation?: import("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models").AccountValuationDTO;
   historyStarted: boolean;
@@ -78,7 +81,9 @@ export function AccountActionSheet({
               ? t("accounts.buyInvestment")
               : action === "sell"
                 ? t("accounts.sellInvestment")
-                : action === "position"
+                : action === "dividend"
+                  ? t("accounts.cashDividend")
+                  : action === "position"
                   ? t("accounts.recordPosition")
                   : record.account.trackingMode === "manual_value"
                     ? t("accounts.updateValue")
@@ -108,7 +113,7 @@ export function AccountActionSheet({
           ) : action === "simple" ? (
             <SimpleValueForm record={record} valuation={valuation} onDone={onRecorded} />
           ) : (
-            <LockedChangeForm action={action} record={record} onDone={onRecorded} originOverride={startedOrigin} />
+            <LockedChangeForm action={action} holdingId={holdingId} record={record} onDone={onRecorded} originOverride={startedOrigin} />
           )}
         </div>
       </SheetContent>
@@ -367,11 +372,13 @@ function SimpleValueForm({
 
 function LockedChangeForm({
   action,
+  holdingId,
   record,
   onDone,
   originOverride,
 }: {
   action: Exclude<AccountAction, "cash" | "position" | "simple" | "settings" | null>;
+  holdingId?: string;
   record: AccountRecordDTO;
   onDone: () => void;
   originOverride?: HistoryOriginDTO;
@@ -389,12 +396,15 @@ function LockedChangeForm({
         ? ChangeCommandKind.ChangeFXConversion
         : action === "transfer"
           ? ChangeCommandKind.ChangeCashTransfer
-          : ChangeCommandKind.ChangeTrade;
+          : action === "dividend"
+            ? ChangeCommandKind.ChangeCashDividend
+            : ChangeCommandKind.ChangeTrade;
   const initial: ChangeCommandRequest = {
     ...emptyChangeRequest(kind, currency),
     accountId: record.account.id,
     settlementAccountId: record.account.id,
     fromAccountId: action === "transfer" ? record.account.id : undefined,
+    holdingId: action === "dividend" ? holdingId : undefined,
     side: action === "sell" ? "sell" : "buy",
     currency,
   };
@@ -403,6 +413,7 @@ function LockedChangeForm({
     hideKind: true,
     accountId: action === "buy" || action === "sell" ? undefined : record.account.id,
     settlementAccountId: action === "buy" || action === "sell" ? record.account.id : undefined,
+    holdingId: action === "dividend" ? holdingId : undefined,
   };
   return (
     <div className="flex flex-col gap-4">

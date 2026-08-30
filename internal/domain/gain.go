@@ -79,6 +79,20 @@ type RealizedGainView struct {
 	MissingReason string
 }
 
+// DividendIncomeView groups cash-dividend income by Instrument and Account
+// for one inclusive local-date range. It is independent of realized sell
+// gain: missing FX affects only the affected group and is never shown as a
+// zero income amount for that missing observation.
+type DividendIncomeView struct {
+	From          LocalDate
+	To            LocalDate
+	Currency      CurrencyCode
+	ByInstrument  []GainGroupView
+	ByAccount     []GainGroupView
+	Available     bool
+	MissingReason string
+}
+
 // StartingPointHoldingView is the editable, family-facing draft used before
 // history begins. UnitCost is prefilled from the selected current quote and
 // is intentionally kept as a canonical string until the application parses

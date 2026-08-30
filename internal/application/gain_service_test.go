@@ -231,6 +231,250 @@ func seedGainSchema7Fixture(t *testing.T) *sqlite.DB {
 	return &sqlite.DB{SQL: seed, Path: path, Status: sqlite.StatusReady}
 }
 
+func TestDividendIncomeAggregatesIndependentlyOfRealizedGain(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/dividend-income.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repository := sqlite.NewRepository(database)
+	service := NewService(repository)
+	now := time.Date(2026, time.August, 26, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Dividend income", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstAccount, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage A", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "USD", IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondAccount, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage B", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "USD", IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	qqq, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	aapl, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, qqq.ID, "100", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, aapl.ID, "50", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	qqqHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: firstAccount.Account.ID.String(), InstrumentID: qqq.ID.String(), Quantity: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	aaplHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: secondAccount.Account.ID.String(), InstrumentID: aapl.ID.String(), Quantity: "4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, firstAccount.Account.ID, "50", "USD", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, secondAccount.Account.ID, "20", "USD", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	service.setClock(func() time.Time { return time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC) })
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	service.setClock(func() time.Time { return now })
+	qqqAmount, _ := domain.ParseMoney("10", "USD")
+	aaplAmount, _ := domain.ParseMoney("20", "USD")
+	laterAmount, _ := domain.ParseMoney("5", "USD")
+	if _, err := service.RecordChange(ctx, domain.CashDividendInput{HouseholdID: bootstrap.Household.ID, HoldingID: qqqHolding.ID, Amount: qqqAmount, EffectiveAt: time.Date(2026, time.August, 24, 15, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RecordChange(ctx, domain.CashDividendInput{HouseholdID: bootstrap.Household.ID, HoldingID: aaplHolding.ID, Amount: aaplAmount, EffectiveAt: time.Date(2026, time.August, 24, 16, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatal(err)
+	}
+	later, err := service.RecordChange(ctx, domain.CashDividendInput{HouseholdID: bootstrap.Household.ID, HoldingID: qqqHolding.ID, Amount: laterAmount, EffectiveAt: time.Date(2026, time.August, 26, 10, 0, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	day, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !day.Available || day.Currency != "USD" {
+		t.Fatalf("same-currency dividend income unavailable: %+v", day)
+	}
+	qqqGroup := gainGroupByKey(t, day.ByInstrument, qqq.ID.String())
+	aaplGroup := gainGroupByKey(t, day.ByInstrument, aapl.ID.String())
+	if qqqGroup.Gain.Amount != "10" || qqqGroup.Label != "QQQ" || aaplGroup.Gain.Amount != "20" || aaplGroup.Label != "Apple" {
+		t.Fatalf("by instrument = %+v", day.ByInstrument)
+	}
+	if gainGroupByKey(t, day.ByAccount, firstAccount.Account.ID.String()).Gain.Amount != "10" || gainGroupByKey(t, day.ByAccount, secondAccount.Account.ID.String()).Gain.Amount != "20" {
+		t.Fatalf("by account = %+v", day.ByAccount)
+	}
+
+	realized, err := service.RealizedGainInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-26")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(realized.ByInstrument) != 0 || len(realized.ByAccount) != 0 {
+		t.Fatalf("dividends were classified as realized sell gain: %+v", realized)
+	}
+
+	scoped, err := service.DividendIncomeInRange(ctx, domain.GainScope{AccountID: &firstAccount.Account.ID, InstrumentID: &qqq.ID}, "2026-08-24", "2026-08-26")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(scoped.ByInstrument) != 1 || scoped.ByInstrument[0].Gain.Amount != "15" || len(scoped.ByAccount) != 1 {
+		t.Fatalf("scoped dividend income = %+v", scoped)
+	}
+
+	if err := service.ArchiveInstrument(ctx, qqq.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	archived, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gainGroupByKey(t, archived.ByInstrument, qqq.ID.String()).Label != "QQQ" {
+		t.Fatalf("archived instrument dropped from dividend income: %+v", archived.ByInstrument)
+	}
+
+	if _, err := service.UndoChange(ctx, later.Activity.ID); err != nil {
+		t.Fatal(err)
+	}
+	afterUndo, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-26", "2026-08-26")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(afterUndo.ByInstrument) != 0 {
+		t.Fatalf("reversed dividend remained in income: %+v", afterUndo)
+	}
+}
+
+func TestDividendIncomeMissingFXMarksGroupUnavailable(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/dividend-fx.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Dividend FX", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "USD", IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	localAccount, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Local Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "CNY", IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	usdInstrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cnyInstrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "510300", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, usdInstrument.ID, "100", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, cnyInstrument.ID, "4", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	usdHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: usdInstrument.ID.String(), Quantity: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cnyHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: localAccount.Account.ID.String(), InstrumentID: cnyInstrument.ID.String(), Quantity: "100"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "50", "USD", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, localAccount.Account.ID, "200", "CNY", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	usdAmount, _ := domain.ParseMoney("10", "USD")
+	cnyAmount, _ := domain.ParseMoney("30", "CNY")
+	if _, err := service.RecordChange(ctx, domain.CashDividendInput{HouseholdID: bootstrap.Household.ID, HoldingID: usdHolding.ID, Amount: usdAmount, EffectiveAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RecordChange(ctx, domain.CashDividendInput{HouseholdID: bootstrap.Household.ID, HoldingID: cnyHolding.ID, Amount: cnyAmount, EffectiveAt: now}); err != nil {
+		t.Fatal(err)
+	}
+
+	missing, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if missing.Available || missing.MissingReason == "" {
+		t.Fatalf("missing FX was not explained: %+v", missing)
+	}
+	usdGroup := gainGroupByKey(t, missing.ByInstrument, usdInstrument.ID.String())
+	cnyGroup := gainGroupByKey(t, missing.ByInstrument, cnyInstrument.ID.String())
+	if usdGroup.Available || usdGroup.MissingReason == "" {
+		t.Fatalf("USD dividend group should be unavailable: %+v", usdGroup)
+	}
+	if !cnyGroup.Available || cnyGroup.Gain.Amount != "30" {
+		t.Fatalf("CNY dividend should still convert: %+v", cnyGroup)
+	}
+
+	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "7", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	converted, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !converted.Available || gainGroupByKey(t, converted.ByInstrument, usdInstrument.ID.String()).Gain.Amount != "70" {
+		t.Fatalf("converted dividend income = %+v", converted)
+	}
+}
+
+func gainGroupByKey(t *testing.T, groups []domain.GainGroupView, key string) domain.GainGroupView {
+	t.Helper()
+	for _, group := range groups {
+		if group.Key == key {
+			return group
+		}
+	}
+	t.Fatalf("gain group %s was not found in %+v", key, groups)
+	return domain.GainGroupView{}
+}
+
 func mustMoney(t *testing.T, amount, currency string) domain.Money {
 	t.Helper()
 	money, err := domain.ParseMoney(amount, domain.CurrencyCode(currency))

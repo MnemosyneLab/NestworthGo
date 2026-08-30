@@ -267,12 +267,13 @@ type ActivityCursor struct {
 }
 
 type ActivityQuery struct {
-	AccountID     *AccountID
-	Kinds         []ActivityKind
-	FromLocalDate string
-	ToLocalDate   string
-	After         *ActivityCursor
-	Limit         int
+	AccountID       *AccountID
+	Kinds           []ActivityKind
+	FromLocalDate   string
+	ToLocalDate     string
+	After           *ActivityCursor
+	Limit           int
+	ExcludeReversed bool
 }
 
 type ActivityPage struct {

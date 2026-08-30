@@ -845,6 +845,14 @@ func FromRealizedGain(value domain.RealizedGainView) RealizedGainDTO {
 	}
 }
 
+func FromDividendIncome(value domain.DividendIncomeView) RealizedGainDTO {
+	return RealizedGainDTO{
+		From: value.From, To: value.To, Currency: value.Currency.String(),
+		ByInstrument: FromGainGroups(value.ByInstrument), ByAccount: FromGainGroups(value.ByAccount),
+		Available: value.Available, MissingReason: value.MissingReason,
+	}
+}
+
 // StartingPointHoldingDTO mirrors domain.StartingPointHoldingView.
 type StartingPointHoldingDTO struct {
 	HoldingID      string `json:"holdingId"`

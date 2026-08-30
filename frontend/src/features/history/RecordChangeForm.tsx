@@ -181,6 +181,7 @@ export type RecordChangeLock = {
   hideKind?: boolean;
   accountId?: string;
   settlementAccountId?: string;
+  holdingId?: string;
 };
 
 function currencyFromRequest(request: ChangeCommandRequest | undefined): string | undefined {
@@ -291,6 +292,7 @@ function RecordChangeFormReady({
       kind: lock?.kind ?? base.kind,
       accountId: lock?.accountId ?? base.accountId,
       settlementAccountId: lock?.settlementAccountId ?? base.settlementAccountId,
+      holdingId: lock?.holdingId ?? base.holdingId,
       fromAccountId:
         lock?.accountId && (lock.kind === ChangeCommandKind.ChangeCashTransfer || base.kind === ChangeCommandKind.ChangeCashTransfer)
           ? lock.accountId
@@ -379,6 +381,18 @@ function RecordChangeFormReady({
   const holdingName = (holding: { instrumentName?: string; accountName?: string; quantity: string }) =>
     `${holding.instrumentName ?? t("portfolio.unknownInstrument")} · ${holding.accountName ?? t("history.unknownAccount")} · ${formatAmount(holding.quantity)}`;
   const holdingOptions = holdings.data.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
+  const activeInstrumentIds = new Set((instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => instrument.id));
+  const dividendHoldings = holdings.data.filter((holding) => {
+    if (lock?.holdingId) {
+      return holding.id === lock.holdingId;
+    }
+    if (lock?.accountId && holding.accountId !== lock.accountId) {
+      return false;
+    }
+    return activeInstrumentIds.has(holding.instrumentId);
+  });
+  const dividendHoldingOptions = dividendHoldings.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
+  const lockedDividendHolding = dividendHoldings.find((holding) => holding.id === (lock?.holdingId ?? request.holdingId));
   const selectedSettlement = request.settlementAccountId ?? "";
   const positiveSettlementHoldings = holdings.data.filter((holding) => holding.accountId === selectedSettlement && isPositiveCanonical(holding.quantity));
   const sellHoldingOptions = positiveSettlementHoldings.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
@@ -766,18 +780,22 @@ function RecordChangeFormReady({
 
       {kind === ChangeCommandKind.ChangeCashDividend && (
         <>
-          <OptionSelect
-            id="change-holding"
-            label={t("history.holding")}
-            value={request.holdingId ?? ""}
-            emptyLabel={t("history.selectEmpty")}
-            options={holdingOptions}
-            onChange={(holdingId) => {
-              const holding = holdings.data.find((candidate) => candidate.id === holdingId);
-              const instrument = (instruments.data ?? []).find((candidate) => candidate.id === holding?.instrumentId);
-              patch({ holdingId, currency: instrument?.quoteCurrency ?? defaultCurrency }, ["amount"]);
-            }}
-          />
+          {lock?.holdingId ? (
+            lockedDividendHolding && <p className="text-sm text-muted-foreground">{holdingName(lockedDividendHolding)}</p>
+          ) : (
+            <OptionSelect
+              id="change-holding"
+              label={t("history.holding")}
+              value={request.holdingId ?? ""}
+              emptyLabel={t("history.selectEmpty")}
+              options={dividendHoldingOptions}
+              onChange={(holdingId) => {
+                const holding = holdings.data.find((candidate) => candidate.id === holdingId);
+                const instrument = (instruments.data ?? []).find((candidate) => candidate.id === holding?.instrumentId);
+                patch({ holdingId, currency: instrument?.quoteCurrency ?? defaultCurrency }, ["amount"]);
+              }}
+            />
+          )}
           <MoneyFields prefix="change" label={t("history.amount")} amount={request.amount ?? ""} currency={request.currency ?? defaultCurrency} currencies={currencyOptions} onAmount={(amount) => patch({ amount })} onCurrency={(currency) => patch({ currency })} />
         </>
       )}

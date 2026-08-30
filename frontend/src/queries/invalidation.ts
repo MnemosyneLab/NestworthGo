@@ -62,6 +62,8 @@ export function invalidateActivityChange(queryClient: QueryClient, accountIds?: 
   invalidateHistoryReads(queryClient);
   invalidateHoldingReads(queryClient);
   invalidateCurrentValuation(queryClient, accountIds);
+  invalidate(queryClient, ["analytics", "realizedGain"]);
+  invalidate(queryClient, ["analytics", "dividendIncome"]);
 }
 
 export function invalidateInstrumentQuoteChange(queryClient: QueryClient, instrumentId: string) {

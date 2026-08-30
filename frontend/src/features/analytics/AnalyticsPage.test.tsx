@@ -6,10 +6,16 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { AnalyticsPage } from "./AnalyticsPage";
 
 const realizedGain = vi.fn();
+const dividendIncome = vi.fn();
 const netWorthTrend = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
-  Service: { RealizedGain: (...args: unknown[]) => realizedGain(...args), AccountGain: vi.fn(), HoldingGain: vi.fn() },
+  Service: {
+    RealizedGain: (...args: unknown[]) => realizedGain(...args),
+    DividendIncome: (...args: unknown[]) => dividendIncome(...args),
+    AccountGain: vi.fn(),
+    HoldingGain: vi.fn(),
+  },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
   Service: { NetWorthTrend: (...args: unknown[]) => netWorthTrend(...args), Overview: vi.fn(), Portfolio: vi.fn() },
@@ -42,6 +48,7 @@ describe("AnalyticsPage", () => {
       byAccount: [{ key: "a1", label: "Brokerage", gain: { amount: "500", currency: "USD" } }],
     });
     netWorthTrend.mockResolvedValue({ range: "30d", currency: "USD", points: [] });
+    dividendIncome.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
 
     renderPage();
     expect(await screen.findByText("NVIDIA")).toBeInTheDocument();
@@ -49,17 +56,20 @@ describe("AnalyticsPage", () => {
     expect(realizedGain).toHaveBeenCalledWith({}, "30d");
   });
 
-  it("switches range and re-fetches realized gain", async () => {
+  it("switches range and re-fetches realized gain and dividend income", async () => {
     realizedGain.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
+    dividendIncome.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
     netWorthTrend.mockResolvedValue({ range: "1y", currency: "USD", points: [] });
 
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "1 year" }));
     expect(realizedGain).toHaveBeenCalledWith({}, "1y");
+    expect(dividendIncome).toHaveBeenCalledWith({}, "1y");
   });
 
   it("renders trend range buttons from the catalog only", async () => {
     realizedGain.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
+    dividendIncome.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
     netWorthTrend.mockResolvedValue({ range: "30d", currency: "USD", points: [] });
     renderPage();
     const group = await screen.findByRole("group", { name: "Range" });
@@ -67,5 +77,31 @@ describe("AnalyticsPage", () => {
       expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["30 days", "1 year"]);
     });
     expect(within(group).queryByRole("button", { name: "All history" })).not.toBeInTheDocument();
+  });
+
+  it("renders dividend income separately from realized gain and marks missing FX", async () => {
+    realizedGain.mockResolvedValue({
+      from: "2026-01-01",
+      to: "2026-01-31",
+      currency: "USD",
+      available: true,
+      byInstrument: [{ key: "i1", label: "NVIDIA", gain: { amount: "500", currency: "USD" }, available: true }],
+      byAccount: [],
+    });
+    dividendIncome.mockResolvedValue({
+      from: "2026-01-01",
+      to: "2026-01-31",
+      currency: "CNY",
+      available: false,
+      byInstrument: [{ key: "i2", label: "QQQ", gain: { amount: "0", currency: "CNY" }, available: false }],
+      byAccount: [{ key: "a1", label: "Brokerage", gain: { amount: "0", currency: "CNY" }, available: false }],
+    });
+    netWorthTrend.mockResolvedValue({ range: "30d", currency: "USD", points: [] });
+
+    renderPage();
+    expect(await screen.findByText("Dividend income (Incomplete)")).toBeInTheDocument();
+    expect(screen.getByText("QQQ")).toBeInTheDocument();
+    expect(screen.getByText("NVIDIA")).toBeInTheDocument();
+    expect(dividendIncome).toHaveBeenCalledWith({}, "30d");
   });
 });

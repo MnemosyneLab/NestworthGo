@@ -12,6 +12,13 @@ export function useRealizedGain(trendRange: string) {
   });
 }
 
+export function useDividendIncome(trendRange: string) {
+  return useQuery({
+    queryKey: queryKeys.analytics.dividendIncome(trendRange),
+    queryFn: () => callService(() => AnalyticsService.DividendIncome({}, trendRange)),
+  });
+}
+
 export function useNetWorthTrend(trendRange: string) {
   return useQuery({
     queryKey: queryKeys.analytics.netWorthTrend(trendRange),

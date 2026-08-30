@@ -227,6 +227,9 @@ func (r *Repository) ListActivityPage(ctx context.Context, householdID domain.Ho
 		}
 		statement += ` AND kind IN (` + strings.Join(placeholders, ",") + `)`
 	}
+	if query.ExcludeReversed {
+		statement += ` AND reverses_activity_id IS NULL AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = activities.id)`
+	}
 	if query.FromLocalDate != "" {
 		statement += ` AND effective_local_date >= ?`
 		args = append(args, query.FromLocalDate)

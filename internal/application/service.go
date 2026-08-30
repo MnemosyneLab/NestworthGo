@@ -920,6 +920,17 @@ func (s *Service) RealizedGain(ctx context.Context, scope domain.GainScope, tren
 	return s.gain.RealizedGain(ctx, scope, trendRange)
 }
 
+// DividendIncomeInRange returns cash-dividend income grouped by Instrument
+// and Account for an inclusive local-date range.
+func (s *Service) DividendIncomeInRange(ctx context.Context, scope domain.GainScope, from, to domain.LocalDate) (domain.DividendIncomeView, error) {
+	return s.gain.DividendIncomeInRange(ctx, scope, from, to)
+}
+
+// DividendIncome resolves an Analytics trend range through GainService.
+func (s *Service) DividendIncome(ctx context.Context, scope domain.GainScope, trendRange domain.TrendRange) (domain.DividendIncomeView, error) {
+	return s.gain.DividendIncome(ctx, scope, trendRange)
+}
+
 func (s *Service) AccountValuations(ctx context.Context, filter domain.AccountFilter) ([]domain.AccountValuation, error) {
 	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, filter)
 	if err != nil {

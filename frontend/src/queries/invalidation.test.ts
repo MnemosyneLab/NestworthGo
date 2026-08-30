@@ -181,6 +181,8 @@ function seededClient() {
     queryKeys.portfolio.all,
     queryKeys.analytics.accountGain.current("account-1"),
     queryKeys.analytics.accountGain.current("account-2"),
+    queryKeys.analytics.realizedGain("30d"),
+    queryKeys.analytics.dividendIncome("30d"),
     queryKeys.holdings.byAccounts(["account-1"]),
     queryKeys.instruments.list(),
     queryKeys.quote.instrument.current("instrument-1"),
@@ -249,6 +251,8 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-2"))).toBe(false);
+    expect(isInvalidated(queryClient, queryKeys.analytics.realizedGain("30d"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.dividendIncome("30d"))).toBe(true);
 
     const undoClient = seededClient();
     const undo = renderMutation(undoClient, useUndoChange);

@@ -1,7 +1,8 @@
 // Package analytics adapts internal/application.Service's cost/gain read
-// surface (HoldingGain, AccountGain, RealizedGain, RealizedGainInRange) for
-// the Wails IPC boundary. It is read-only and depends on the instrument and
-// holding services' data already being loaded by the frontend.
+// surface (HoldingGain, AccountGain, RealizedGain, DividendIncome, and their
+// range readers) for the Wails IPC boundary. It is read-only and depends on
+// the instrument and holding services' data already being loaded by the
+// frontend.
 package analytics
 
 import (
@@ -98,4 +99,34 @@ func (s *Service) RealizedGain(ctx context.Context, scope GainScopeRequest, tren
 		return wire.RealizedGainDTO{}, apierror.Wrap(err)
 	}
 	return wire.FromRealizedGain(view), nil
+}
+
+func (s *Service) DividendIncomeInRange(ctx context.Context, scope GainScopeRequest, from, to string) (wire.RealizedGainDTO, error) {
+	domainScope, err := scope.toDomain()
+	if err != nil {
+		return wire.RealizedGainDTO{}, apierror.Wrap(err)
+	}
+	view, err := s.app.DividendIncomeInRange(ctx, domainScope, from, to)
+	if err != nil {
+		return wire.RealizedGainDTO{}, apierror.Wrap(err)
+	}
+	return wire.FromDividendIncome(view), nil
+}
+
+// DividendIncome resolves a named trend range ("30d", "1y", "all") the same
+// way the Analytics range selector is implemented in the frontend.
+func (s *Service) DividendIncome(ctx context.Context, scope GainScopeRequest, trendRange string) (wire.RealizedGainDTO, error) {
+	domainScope, err := scope.toDomain()
+	if err != nil {
+		return wire.RealizedGainDTO{}, apierror.Wrap(err)
+	}
+	parsed, err := domain.ParseTrendRange(trendRange)
+	if err != nil {
+		return wire.RealizedGainDTO{}, apierror.Wrap(err)
+	}
+	view, err := s.app.DividendIncome(ctx, domainScope, parsed)
+	if err != nil {
+		return wire.RealizedGainDTO{}, apierror.Wrap(err)
+	}
+	return wire.FromDividendIncome(view), nil
 }

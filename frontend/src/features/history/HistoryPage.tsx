@@ -41,7 +41,7 @@ const ACTIVITY_KINDS = ["cash_in", "cash_out", "cash_dividend", "cash_transfer",
 function Timeline() {
   const { t } = useTranslation();
   const accounts = useAccounts({});
-  const instruments = useInstruments();
+  const instruments = useInstruments(true);
   const origin = useHistoryOrigin();
   const undoChange = useUndoChange();
   const [open, setOpen] = useState(false);

@@ -196,27 +196,151 @@ func (g *GainService) RealizedGainInRange(ctx context.Context, scope domain.Gain
 // inclusive local-date range using the service clock and the history
 // timezone, then delegates to the explicit range reader.
 func (g *GainService) RealizedGain(ctx context.Context, scope domain.GainScope, trendRange domain.TrendRange) (domain.RealizedGainView, error) {
-	household, err := g.repository.Household(ctx)
+	from, to, err := g.trendRangeBounds(ctx, trendRange)
 	if err != nil {
 		return domain.RealizedGainView{}, err
 	}
-	if household == nil {
+	if from == "" {
 		return domain.RealizedGainView{Available: true}, nil
+	}
+	return g.RealizedGainInRange(ctx, scope, from, to)
+}
+
+const dividendIncomeMissingFX = "dividend income foreign-exchange rate is unavailable"
+
+// DividendIncomeInRange sums cash-dividend income in the inclusive local-date
+// range. Amounts convert with the FX observation available at each activity's
+// own effective time. Missing FX marks only the affected groups; dividends are
+// never mixed into realized sell gain.
+func (g *GainService) DividendIncomeInRange(ctx context.Context, scope domain.GainScope, from, to domain.LocalDate) (domain.DividendIncomeView, error) {
+	fromTime, err := time.Parse("2006-01-02", from)
+	if err != nil {
+		return domain.DividendIncomeView{}, &domain.Error{Code: domain.ErrValidation, Field: "from", Message: "from date must use YYYY-MM-DD"}
+	}
+	toTime, err := time.Parse("2006-01-02", to)
+	if err != nil {
+		return domain.DividendIncomeView{}, &domain.Error{Code: domain.ErrValidation, Field: "to", Message: "to date must use YYYY-MM-DD"}
+	}
+	if fromTime.After(toTime) {
+		return domain.DividendIncomeView{}, &domain.Error{Code: domain.ErrValidation, Field: "range", Message: "from date must not be after to date"}
+	}
+	snapshot, err := g.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return domain.DividendIncomeView{}, err
+	}
+	if snapshot.Household == nil {
+		return domain.DividendIncomeView{From: from, To: to, Available: true}, nil
+	}
+	fxQuotes, _, err := g.gainFXInputs(ctx, snapshot)
+	if err != nil {
+		return domain.DividendIncomeView{}, err
+	}
+	activities, err := g.listDividendActivities(ctx, snapshot.Household.ID, from, to)
+	if err != nil {
+		return domain.DividendIncomeView{}, err
+	}
+	accounts := make(map[domain.AccountID]string, len(snapshot.Accounts))
+	for _, record := range snapshot.Accounts {
+		accounts[record.Account.ID] = record.Account.Name
+	}
+	instruments := make(map[domain.InstrumentID]domain.Instrument, len(snapshot.Instruments))
+	for _, instrument := range snapshot.Instruments {
+		instruments[instrument.ID] = instrument
+	}
+	holdings := make(map[domain.HoldingID]domain.Holding, len(snapshot.Holdings))
+	for _, holding := range snapshot.Holdings {
+		holdings[holding.ID] = holding
+	}
+	byInstrument := make(map[domain.InstrumentID]*gainGroupAccumulator)
+	byAccount := make(map[domain.AccountID]*gainGroupAccumulator)
+	result := domain.DividendIncomeView{From: from, To: to, Currency: snapshot.Household.BaseCurrency, Available: true}
+	for _, activity := range activities {
+		detail := activity.DividendDetail
+		if detail == nil {
+			continue
+		}
+		if scope.InstrumentID != nil && detail.InstrumentID != *scope.InstrumentID {
+			continue
+		}
+		accountID, ok := dividendAccountID(activity, holdings)
+		if !ok {
+			continue
+		}
+		if scope.AccountID != nil && accountID != *scope.AccountID {
+			continue
+		}
+		instrumentLabel := detail.InstrumentID.String()
+		if instrument, found := instruments[detail.InstrumentID]; found {
+			instrumentLabel = instrument.Name
+		}
+		accountLabel := accountID.String()
+		if name := accounts[accountID]; name != "" {
+			accountLabel = name
+		}
+		instrumentGroup := groupForInstrument(byInstrument, detail.InstrumentID, instrumentLabel)
+		accountGroup := groupForAccount(byAccount, accountID, accountLabel)
+		rate, rateAvailable := gainFXRateAtOrBefore(snapshot, fxQuotes, detail.Amount.Currency(), activity.EffectiveAt)
+		if !rateAvailable {
+			result.Available = false
+			if result.MissingReason == "" {
+				result.MissingReason = dividendIncomeMissingFX
+			}
+			instrumentGroup.Available = false
+			instrumentGroup.MissingReason = dividendIncomeMissingFX
+			accountGroup.Available = false
+			accountGroup.MissingReason = dividendIncomeMissingFX
+			continue
+		}
+		converted := detail.Amount.Amount().Mul(rate)
+		instrumentGroup.Total = instrumentGroup.Total.Add(converted)
+		accountGroup.Total = accountGroup.Total.Add(converted)
+	}
+	result.ByInstrument, err = finishGainGroups(byInstrument, snapshot.Household.BaseCurrency)
+	if err != nil {
+		return domain.DividendIncomeView{}, err
+	}
+	result.ByAccount, err = finishGainGroups(byAccount, snapshot.Household.BaseCurrency)
+	if err != nil {
+		return domain.DividendIncomeView{}, err
+	}
+	return result, nil
+}
+
+// DividendIncome resolves an Analytics trend range, then delegates to the
+// explicit dividend-income range reader.
+func (g *GainService) DividendIncome(ctx context.Context, scope domain.GainScope, trendRange domain.TrendRange) (domain.DividendIncomeView, error) {
+	from, to, err := g.trendRangeBounds(ctx, trendRange)
+	if err != nil {
+		return domain.DividendIncomeView{}, err
+	}
+	if from == "" {
+		return domain.DividendIncomeView{Available: true}, nil
+	}
+	return g.DividendIncomeInRange(ctx, scope, from, to)
+}
+
+func (g *GainService) trendRangeBounds(ctx context.Context, trendRange domain.TrendRange) (from, to domain.LocalDate, err error) {
+	household, err := g.repository.Household(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	if household == nil {
+		return "", "", nil
 	}
 	origin, err := g.repository.HistoryOrigin(ctx, household.ID)
 	if err != nil {
-		return domain.RealizedGainView{}, err
+		return "", "", err
 	}
 	location := time.UTC
 	if origin != nil {
 		location, err = time.LoadLocation(origin.Timezone)
 		if err != nil {
-			return domain.RealizedGainView{}, err
+			return "", "", err
 		}
 	}
 	now := g.now().In(location)
 	today := now.Format("2006-01-02")
-	from := today
+	from = today
 	switch trendRange {
 	case domain.Trend30Days:
 		from = now.AddDate(0, 0, -29).Format("2006-01-02")
@@ -227,9 +351,48 @@ func (g *GainService) RealizedGain(ctx context.Context, scope domain.GainScope, 
 			from = origin.StartedAt.In(location).Format("2006-01-02")
 		}
 	default:
-		return domain.RealizedGainView{}, &domain.Error{Code: domain.ErrValidation, Field: "range", Message: "trend range is not supported"}
+		return "", "", &domain.Error{Code: domain.ErrValidation, Field: "range", Message: "trend range is not supported"}
 	}
-	return g.RealizedGainInRange(ctx, scope, from, today)
+	return from, today, nil
+}
+
+func (g *GainService) listDividendActivities(ctx context.Context, householdID domain.HouseholdID, from, to domain.LocalDate) ([]domain.Activity, error) {
+	var activities []domain.Activity
+	query := domain.ActivityQuery{
+		Kinds:           []domain.ActivityKind{domain.ActivityCashDividend},
+		FromLocalDate:   from,
+		ToLocalDate:     to,
+		ExcludeReversed: true,
+		Limit:           100,
+	}
+	for {
+		page, err := g.repository.ListActivityPage(ctx, householdID, query)
+		if err != nil {
+			return nil, err
+		}
+		activities = append(activities, page.Activities...)
+		if !page.HasMore || page.Next == nil {
+			break
+		}
+		query.After = page.Next
+	}
+	return activities, nil
+}
+
+func dividendAccountID(activity domain.Activity, holdings map[domain.HoldingID]domain.Holding) (domain.AccountID, bool) {
+	for _, effect := range activity.Effects {
+		if effect.AccountID != nil {
+			return *effect.AccountID, true
+		}
+	}
+	if activity.DividendDetail == nil {
+		return "", false
+	}
+	holding, ok := holdings[activity.DividendDetail.HoldingID]
+	if !ok {
+		return "", false
+	}
+	return holding.AccountID, true
 }
 
 type gainGroupAccumulator struct {

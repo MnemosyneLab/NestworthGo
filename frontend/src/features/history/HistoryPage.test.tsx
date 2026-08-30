@@ -269,6 +269,47 @@ describe("HistoryPage", () => {
     );
   });
 
+  it("shows archived instrument names on historical dividends without offering them in the new form", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockImplementation(async (includeArchived?: boolean) => {
+      const nvidia = { id: "instrument-1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual", archivedAt: "2026-06-01T00:00:00Z" };
+      const apple = { id: "instrument-2", name: "Apple", quoteCurrency: "USD", quoteSource: "manual", archivedAt: null };
+      return includeArchived ? [nvidia, apple] : [apple];
+    });
+    listAccounts.mockResolvedValue([
+      { account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null },
+    ]);
+    holdingsByAccounts.mockResolvedValue({
+      "brokerage-1": [
+        { id: "holding-archived", accountId: "brokerage-1", instrumentId: "instrument-1", quantity: "10", archivedAt: null },
+        { id: "holding-live", accountId: "brokerage-1", instrumentId: "instrument-2", quantity: "4", archivedAt: null },
+        { id: "holding-gone", accountId: "brokerage-1", instrumentId: "instrument-2", quantity: "1", archivedAt: "2026-06-01T00:00:00Z" },
+      ],
+    });
+    listActivities.mockResolvedValue([
+      {
+        id: "div-archived",
+        kind: "cash_dividend",
+        effectiveAt: "2026-01-15T00:00:00.000Z",
+        effectiveLocalDate: "2026-01-15",
+        dividendDetail: { holdingId: "holding-archived", instrumentId: "instrument-1", amount: { amount: "25", currency: "USD" } },
+        effects: [{ accountId: "brokerage-1", money: { amount: "25", currency: "USD" } }],
+      },
+    ]);
+
+    renderPage();
+    expect(await screen.findByText("Dividend $25.00 from NVIDIA into Brokerage")).toBeInTheDocument();
+    expect(screen.queryByText(/unknown instrument/i)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeCashDividend);
+    const holdingSelect = within(form).getByLabelText("Holding");
+    expect(within(holdingSelect).getByRole("option", { name: /Apple/ })).toBeInTheDocument();
+    expect(within(holdingSelect).queryByRole("option", { name: /NVIDIA/ })).not.toBeInTheDocument();
+    expect(within(holdingSelect).queryByRole("option", { name: /holding-gone/ })).not.toBeInTheDocument();
+  });
+
   it("previews a trade with visible currencies and the existing matching holding", async () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     listActivities.mockResolvedValue([]);

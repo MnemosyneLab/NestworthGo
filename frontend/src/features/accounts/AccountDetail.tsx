@@ -46,6 +46,7 @@ function holdingRows(
   holding: HoldingDTO;
   instrumentName: string;
   instrumentType: string;
+  instrumentActive: boolean;
   component?: ValuationComponentDTO;
 }[] {
   const byHoldingId = new Map((valuation?.components ?? []).filter((component) => component.holdingId).map((component) => [component.holdingId as string, component]));
@@ -59,6 +60,7 @@ function holdingRows(
         holding,
         instrumentName: component?.instrumentName || instrument?.name || holding.instrumentId,
         instrumentType: instrument?.type ?? "",
+        instrumentActive: Boolean(instrument),
         component,
       };
     });
@@ -88,17 +90,18 @@ export function AccountDetail({
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
   const [action, setAction] = useState<AccountAction>(null);
+  const [actionHoldingId, setActionHoldingId] = useState<string>();
   const [settingsError, setSettingsError] = useState<string | undefined>();
   const archived = Boolean(record.account.archivedAt);
   const composite = record.account.trackingMode === "holdings";
   const historyStarted = Boolean(origin.data);
   const readOnly = archived;
-
   const cash = useMemo(() => cashComponents(valuation), [valuation]);
   const rows = useMemo(
     () => holdingRows(holdingsQuery.data?.[record.account.id] ?? [], valuation, instruments.data ?? []),
     [holdingsQuery.data, record.account.id, valuation, instruments.data],
   );
+  const dividendHoldingsAvailable = rows.some((row) => row.instrumentActive);
 
   const native = nativeMoney(record, valuation);
   const titleAmount = native
@@ -239,6 +242,7 @@ export function AccountDetail({
                       <th className="py-2 font-medium">{t("accounts.instrumentType")}</th>
                       <th className="py-2 font-medium">{t("accounts.quantity")}</th>
                       <th className="py-2 font-medium">{t("accounts.marketValue")}</th>
+                      {!readOnly && <th className="py-2 font-medium"><span className="sr-only">{t("accounts.cashDividend")}</span></th>}
                     </tr>
                   </thead>
                   <tbody>
@@ -252,6 +256,23 @@ export function AccountDetail({
                             ? formatAmount(row.component.nativeAmount, row.component.nativeCurrency)
                             : t("accounts.missingPrice")}
                         </td>
+                        {!readOnly && (
+                          <td className="py-2 text-right">
+                            {row.instrumentActive ? (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setActionHoldingId(row.holding.id);
+                                  setAction("dividend");
+                                }}
+                              >
+                                {t("accounts.cashDividend")}
+                              </Button>
+                            ) : null}
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -265,6 +286,18 @@ export function AccountDetail({
                   {rows.length > 0 && (
                     <Button type="button" variant="outline" onClick={() => setAction("sell")}>
                       {t("accounts.sellInvestment")}
+                    </Button>
+                  )}
+                  {dividendHoldingsAvailable && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setActionHoldingId(undefined);
+                        setAction("dividend");
+                      }}
+                    >
+                      {t("accounts.cashDividend")}
                     </Button>
                   )}
                   <Button type="button" variant="ghost" onClick={() => setAction("position")}>
@@ -300,11 +333,18 @@ export function AccountDetail({
       {action && action !== "settings" && (
         <AccountActionSheet
           action={action}
+          holdingId={actionHoldingId}
           record={record}
           valuation={valuation}
           historyStarted={historyStarted}
-          onClose={() => setAction(null)}
-          onRecorded={() => setAction(null)}
+          onClose={() => {
+            setAction(null);
+            setActionHoldingId(undefined);
+          }}
+          onRecorded={() => {
+            setAction(null);
+            setActionHoldingId(undefined);
+          }}
         />
       )}
 

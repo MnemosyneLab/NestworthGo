@@ -4,9 +4,9 @@
 
 - Status: Implemented / current contract
 - Companion domain contract: [account-container-and-position-model-design.md](account-container-and-position-model-design.md)
-- Baseline: Nestworth-go `0.2.1` / schema v8 / current Wails frontend
+- Baseline: Nestworth-go `0.2.1` / schema v9 / current Wails frontend
 - Data policy: this is a breaking cutover for an unreleased version. Only a
-  fresh schema v8 database is supported; there is no legacy-data, old
+  fresh schema v9 database is supported; there is no legacy-data, old
   interaction, or old-page compatibility layer.
 
 This document freezes how the Account container model is created, viewed, and

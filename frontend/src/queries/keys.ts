@@ -72,6 +72,7 @@ export const queryKeys = {
   analytics: {
     all: ["analytics"] as const,
     realizedGain: (trendRange: string) => ["analytics", "realizedGain", trendRange] as const,
+    dividendIncome: (trendRange: string) => ["analytics", "dividendIncome", trendRange] as const,
     accountGain: {
       all: ["analytics", "accountGain"] as const,
       current: (accountId: string) => ["analytics", "accountGain", accountId] as const,

@@ -6,6 +6,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/holding"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
@@ -100,6 +101,68 @@ func TestHoldingGainNotFound(t *testing.T) {
 	_, err := service.HoldingGain(ctx, "00000000-0000-7000-8000-000000000000")
 	if err == nil {
 		t.Fatal("want an error for an unknown holding")
+	}
+}
+
+func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
+	app := wailstest.NewService(t)
+	ctx := context.Background()
+	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
+		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
+	}); err != nil {
+		t.Fatalf("CompleteOnboarding: %v", err)
+	}
+	bootstrap, err := household.NewService(app).Bootstrap(ctx)
+	if err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	accountRecord, err := account.NewService(app).CreateAccount(ctx, account.CreateAccountRequest{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []string{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	instrumentDTO, err := instrument.NewService(app).CreateInstrument(ctx, instrument.InstrumentRequest{
+		Name: "NVIDIA", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual",
+	})
+	if err != nil {
+		t.Fatalf("CreateInstrument: %v", err)
+	}
+	holdingDTO, err := holding.NewService(app).CreateHolding(ctx, holding.CreateHoldingRequest{
+		AccountID: accountRecord.Account.ID, InstrumentID: instrumentDTO.ID, Quantity: "10",
+	})
+	if err != nil {
+		t.Fatalf("CreateHolding: %v", err)
+	}
+	if _, err := quote.NewService(app).SaveManualInstrumentQuote(ctx, instrumentDTO.ID, "150", "2026-01-15T00:00:00.000Z"); err != nil {
+		t.Fatalf("SaveManualInstrumentQuote: %v", err)
+	}
+	historyService := history.NewService(app)
+	if _, err := historyService.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatalf("StartHistory: %v", err)
+	}
+	if _, err := historyService.RecordChange(ctx, history.ChangeCommandRequest{
+		Kind: history.ChangeCashDividend, HoldingID: holdingDTO.ID, Amount: "25", Currency: "USD",
+	}); err != nil {
+		t.Fatalf("RecordChange: %v", err)
+	}
+
+	service := analytics.NewService(app)
+	income, err := service.DividendIncomeInRange(ctx, analytics.GainScopeRequest{}, "2000-01-01", "2030-01-01")
+	if err != nil {
+		t.Fatalf("DividendIncomeInRange: %v", err)
+	}
+	if !income.Available || len(income.ByInstrument) != 1 || income.ByInstrument[0].Gain.Amount != "25" {
+		t.Fatalf("DividendIncomeInRange = %+v", income)
+	}
+	realized, err := service.RealizedGainInRange(ctx, analytics.GainScopeRequest{}, "2000-01-01", "2030-01-01")
+	if err != nil {
+		t.Fatalf("RealizedGainInRange: %v", err)
+	}
+	if len(realized.ByInstrument) != 0 {
+		t.Fatalf("dividend mixed into realized gain: %+v", realized)
 	}
 }
 
