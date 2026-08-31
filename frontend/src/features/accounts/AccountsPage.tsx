@@ -9,7 +9,7 @@ import { useAccounts, useAccountValuations, useCreateAccount } from "@/queries/a
 import { AccountCreateWizard } from "@/features/accounts/AccountCreateWizard";
 import { AccountDetail } from "@/features/accounts/AccountDetail";
 import { formatAmount } from "@/lib/money";
-import { nativeMoney } from "@/features/accounts/nativeMoney";
+import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
 import { displayEnum, displayError } from "@/lib/display";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -168,18 +168,17 @@ export function AccountsPage({
               <ul className="overflow-hidden rounded-lg border border-border">
                 {group.records.map((record) => {
                   const valuation = valuationByAccountId.get(record.account.id);
-                  const native = nativeMoney(record, valuation);
-                  const base = valuation?.baseValue;
-                  const value = native
-                    ? formatAmount(native.amount, native.currency)
-                    : base
-                      ? formatAmount(base.amount, base.currency)
-                      : t("accounts.noValue");
-                  const secondary = native && base
-                    ? formatAmount(base.amount, base.currency)
-                    : native && !base && !valuations.isLoading
+                  const displayMoney = accountDisplayMoney(record, valuation);
+                  const value = displayMoney.primary
+                    ? formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)
+                    : displayMoney.pendingConversion && !valuations.isLoading
                       ? t("accounts.pendingConversion")
-                      : undefined;
+                      : t("accounts.noValue");
+                  const secondary = displayMoney.secondary
+                    ? formatAmount(displayMoney.secondary.amount, displayMoney.secondary.currency)
+                    : displayMoney.primary && displayMoney.pendingConversion && !valuations.isLoading
+                      ? t("accounts.pendingConversion")
+                    : undefined;
                   const completeness = valuation
                     ? valuation.complete
                       ? t("accounts.completeValuation")

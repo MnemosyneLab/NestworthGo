@@ -17,7 +17,7 @@ import { useBootstrap } from "@/queries/household";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { displayEnum } from "@/lib/display";
-import { ownershipShares, trackingMethodKey } from "@/features/accounts/accountCatalog";
+import { compatibleAccountTypes, ownershipShares, trackingMethodKey } from "@/features/accounts/accountCatalog";
 import { ACCOUNT_TYPE_ICONS } from "@/lib/defaultIcons";
 
 const accountFormSchema = z.object({
@@ -137,16 +137,8 @@ export function AccountForm({
     if (!isEdit) {
       return catalogTypes;
     }
-    const compatible = new Set(
-      combinations
-        .filter((item) => item.balanceSheetRole === frozenRole && item.trackingMode === frozenTracking)
-        .map((item) => item.accountType),
-    );
-    if (accountType) {
-      compatible.add(accountType);
-    }
-    return catalogTypes.filter((type) => compatible.has(type));
-  }, [isEdit, catalog.data?.accountTypes, combinations, frozenRole, frozenTracking, accountType]);
+    return compatibleAccountTypes(combinations, catalogTypes, frozenRole, frozenTracking, record?.account.accountType);
+  }, [isEdit, catalog.data?.accountTypes, combinations, frozenRole, frozenTracking, record?.account.accountType]);
   const matchingCombinations = useMemo(
     () => combinations.filter((item) => item.accountType === accountType),
     [combinations, accountType],
@@ -270,7 +262,7 @@ export function AccountForm({
           >
             {trackingModeOptions.map((mode) => (
               <option key={mode} value={mode}>
-                {t(trackingMethodKey(mode))}
+                {t(trackingMethodKey(mode, accountType))}
               </option>
             ))}
           </NativeSelect>
@@ -279,7 +271,7 @@ export function AccountForm({
       {isEdit && (
         <div className="flex flex-col gap-1">
           <p className="text-sm text-muted-foreground">
-            {t("accounts.trackingMethod")}: {t(trackingMethodKey(trackingMode))}
+            {t("accounts.trackingMethod")}: {t(trackingMethodKey(trackingMode, accountType))}
           </p>
           <p className="text-xs text-muted-foreground">{t("accounts.trackingImmutable")}</p>
         </div>

@@ -30,6 +30,15 @@ export function useCreateInstrument() {
   });
 }
 
+export function useUpdateInstrument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, request }: { id: string; request: InstrumentRequest }) =>
+      callService(() => InstrumentService.UpdateInstrument(id, request)),
+    onSuccess: () => invalidateInstrumentReads(queryClient),
+  });
+}
+
 export function useArchiveInstrument() {
   const queryClient = useQueryClient();
   return useMutation({

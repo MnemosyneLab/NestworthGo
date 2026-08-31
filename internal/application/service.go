@@ -730,6 +730,9 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if mode != current.Account.TrackingMode {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Field: "trackingMode", Message: "tracking mode is immutable after account creation"}
 	}
+	if mode == domain.TrackingHoldings && (primary == domain.TypeCashOnHand) != (current.Account.AccountType == domain.TypeCashOnHand) {
+		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Field: "accountType", Message: "cash-only multi-currency accounts cannot be converted to or from investment accounts"}
+	}
 	if secondary != current.Account.BalanceSheetRole {
 		return domain.AccountRecord{}, &domain.Error{Code: domain.ErrValidation, Field: "balanceSheetRole", Message: "balance sheet role is immutable after account creation"}
 	}

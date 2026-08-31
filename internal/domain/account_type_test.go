@@ -6,8 +6,8 @@ import (
 )
 
 func TestLegalAccountCombinationsAreClosed(t *testing.T) {
-	if got := len(LegalAccountCombinations()); got != 24 {
-		t.Fatalf("combination count = %d, want 24", got)
+	if got := len(LegalAccountCombinations()); got != 25 {
+		t.Fatalf("combination count = %d, want 25", got)
 	}
 	valid := []struct {
 		accountType AccountType
@@ -15,6 +15,7 @@ func TestLegalAccountCombinationsAreClosed(t *testing.T) {
 		tracking    TrackingMode
 	}{
 		{TypeCashOnHand, RoleAsset, TrackingBalance},
+		{TypeCashOnHand, RoleAsset, TrackingHoldings},
 		{TypeBankAccount, RoleAsset, TrackingBalance},
 		{TypeBankAccount, RoleAsset, TrackingHoldings},
 		{TypeBrokerage, RoleAsset, TrackingHoldings},
@@ -44,7 +45,6 @@ func TestIllegalAccountCombinationsAreRejected(t *testing.T) {
 		{TypeBankAccount, RoleLiability, TrackingBalance},
 		{TypeCryptoExchange, RoleAsset, TrackingBalance},
 		{TypeProperty, RoleAsset, TrackingHoldings},
-		{TypeCashOnHand, RoleAsset, TrackingHoldings},
 		{TypeOther, RoleLiability, TrackingHoldings},
 		{TypeOther, RoleLiability, TrackingManualValue},
 		{TypeBrokerage, RoleLiability, TrackingHoldings},
@@ -122,6 +122,10 @@ func TestSuggestedInclusionMatrix(t *testing.T) {
 	mixed := SuggestedInclusion(TypeBankAccount, TrackingHoldings)
 	if mixed.IncludeInPortfolio || mixed.IncludeInLiquidAssets {
 		t.Fatalf("bank holdings defaults = %+v", mixed)
+	}
+	multiCurrencyCash := SuggestedInclusion(TypeCashOnHand, TrackingHoldings)
+	if !multiCurrencyCash.IncludeInLiquidAssets || multiCurrencyCash.IncludeInPortfolio {
+		t.Fatalf("multi-currency cash defaults = %+v", multiCurrencyCash)
 	}
 }
 

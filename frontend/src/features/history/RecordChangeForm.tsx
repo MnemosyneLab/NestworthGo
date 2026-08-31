@@ -365,6 +365,7 @@ function RecordChangeFormReady({
   const accountById = useMemo(() => new Map(accountRecords.map((record) => [record.account.id, record])), [accountRecords]);
   const activeAccountRecords = accountRecords.filter((record) => !record.account.archivedAt);
   const holdingsAccountRecords = activeAccountRecords.filter((record) => record.account.trackingMode === "holdings");
+  const investmentAccountRecords = holdingsAccountRecords.filter((record) => record.account.accountType !== "cash_on_hand");
   const valueAccountRecords = activeAccountRecords.filter((record) => record.account.trackingMode === "balance" || record.account.trackingMode === "manual_value");
   const debtAccountRecords = activeAccountRecords.filter((record) => record.account.balanceSheetRole === "liability" && record.account.trackingMode === "balance");
   const cashAccountRecords = activeAccountRecords.filter(
@@ -374,6 +375,7 @@ function RecordChangeFormReady({
   );
   const accountOptions = activeAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
   const holdingsAccountOptions = holdingsAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
+  const investmentAccountOptions = investmentAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
   const valueAccountOptions = valueAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
   const debtAccountOptions = debtAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
   const cashAccountOptions = cashAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
@@ -927,7 +929,7 @@ function RecordChangeFormReady({
 
       {kind === ChangeCommandKind.ChangeTrade && (
         <>
-          {!lock?.settlementAccountId && <AccountSelect id="change-settlement-account" label={t("history.settlementAccount")} value={request.settlementAccountId ?? ""} onChange={(settlementAccountId) => patch({ settlementAccountId, holdingId: request.side === "sell" ? "" : matchingHoldingId(settlementAccountId, request.instrumentId ?? "") }, ["gross"])} accounts={holdingsAccountOptions} />}
+          {!lock?.settlementAccountId && <AccountSelect id="change-settlement-account" label={t("history.settlementAccount")} value={request.settlementAccountId ?? ""} onChange={(settlementAccountId) => patch({ settlementAccountId, holdingId: request.side === "sell" ? "" : matchingHoldingId(settlementAccountId, request.instrumentId ?? "") }, ["gross"])} accounts={investmentAccountOptions} />}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="change-side">{t("history.side")}</Label>
             <NativeSelect

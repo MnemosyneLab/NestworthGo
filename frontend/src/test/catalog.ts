@@ -9,11 +9,14 @@ export const TEST_CATALOG: CatalogDTO = {
   institutionTypes: ["bank", "brokerage", "insurer", "exchange", "employer", "government", "other"],
   quoteSources: ["manual", "provider"],
   instrumentProviders: ["yahoo_finance"],
+  instrumentCountryCodes: ["AU", "CN", "EU", "GB", "HK", "JP", "SG", "TW", "US", "KR", "CH"],
+  instrumentMarketCodes: ["ASX", "SSE", "SZSE", "BSE", "EURONEXT", "XETRA", "LSE", "HKEX", "TSE", "SGX", "TWSE", "NASDAQ", "NYSE", "AMEX", "KRX", "SIX"],
   accountTypes: ["cash_on_hand", "bank_account", "brokerage", "credit_card", "other"],
   balanceSheetRoles: ["asset", "liability"],
   trackingModes: ["balance", "manual_value", "holdings"],
   accountCombinations: [
     { accountType: "cash_on_hand", balanceSheetRole: "asset", trackingMode: "balance", roleLocked: true, includeInNetWorth: true, includeInPortfolio: false, includeInLiquidAssets: true, wholeAccountWarning: false },
+    { accountType: "cash_on_hand", balanceSheetRole: "asset", trackingMode: "holdings", roleLocked: true, includeInNetWorth: true, includeInPortfolio: false, includeInLiquidAssets: true, wholeAccountWarning: false },
     { accountType: "bank_account", balanceSheetRole: "asset", trackingMode: "balance", roleLocked: true, includeInNetWorth: true, includeInPortfolio: false, includeInLiquidAssets: true, wholeAccountWarning: false },
     { accountType: "bank_account", balanceSheetRole: "asset", trackingMode: "holdings", roleLocked: true, includeInNetWorth: true, includeInPortfolio: false, includeInLiquidAssets: false, wholeAccountWarning: true },
     { accountType: "brokerage", balanceSheetRole: "asset", trackingMode: "holdings", roleLocked: true, includeInNetWorth: true, includeInPortfolio: true, includeInLiquidAssets: false, wholeAccountWarning: true },
@@ -23,7 +26,7 @@ export const TEST_CATALOG: CatalogDTO = {
     { accountType: "other", balanceSheetRole: "liability", trackingMode: "balance", roleLocked: false, includeInNetWorth: true, includeInPortfolio: false, includeInLiquidAssets: false, wholeAccountWarning: false },
   ],
   trackingModesByAccountType: {
-    cash_on_hand: ["balance"],
+    cash_on_hand: ["balance", "holdings"],
     bank_account: ["balance", "holdings"],
     brokerage: ["holdings", "manual_value"],
     credit_card: ["balance"],

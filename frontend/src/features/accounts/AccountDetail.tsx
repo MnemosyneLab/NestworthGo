@@ -13,7 +13,7 @@ import { useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/q
 import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
 import { useHistoryOrigin } from "@/queries/history";
 import { formatAmount } from "@/lib/money";
-import { nativeMoney } from "@/features/accounts/nativeMoney";
+import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
 import { formatTimestamp } from "@/lib/time";
 import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
@@ -68,8 +68,9 @@ function holdingRows(
 
 /**
  * AccountDetail is the in-workspace full-width Account view. Composite
- * accounts share one Cash + Investments layout; Simple accounts show a
- * single current value. Amounts come from backend valuation components.
+ * investment accounts share one Cash + Investments layout; multi-currency
+ * cash-on-hand accounts show only Cash. Simple accounts show one current
+ * value. Amounts come from backend valuation components.
  */
 export function AccountDetail({
   record,
@@ -94,6 +95,7 @@ export function AccountDetail({
   const [settingsError, setSettingsError] = useState<string | undefined>();
   const archived = Boolean(record.account.archivedAt);
   const composite = record.account.trackingMode === "holdings";
+  const cashOnly = composite && record.account.accountType === "cash_on_hand";
   const historyStarted = Boolean(origin.data);
   const readOnly = archived;
   const cash = useMemo(() => cashComponents(valuation), [valuation]);
@@ -103,15 +105,15 @@ export function AccountDetail({
   );
   const dividendHoldingsAvailable = rows.some((row) => row.instrumentActive);
 
-  const native = nativeMoney(record, valuation);
-  const titleAmount = native
-    ? formatAmount(native.amount, native.currency)
-    : valuation?.baseValue
-      ? formatAmount(valuation.baseValue.amount, valuation.baseValue.currency)
+  const displayMoney = accountDisplayMoney(record, valuation);
+  const titleAmount = displayMoney.primary
+    ? formatAmount(displayMoney.primary.amount, displayMoney.primary.currency)
+    : displayMoney.pendingConversion
+      ? t("accounts.pendingConversion")
       : t("accounts.noValue");
-  const titleSecondary = native && valuation?.baseValue
-    ? formatAmount(valuation.baseValue.amount, valuation.baseValue.currency)
-    : native && !valuation?.baseValue
+  const titleSecondary = displayMoney.secondary
+    ? formatAmount(displayMoney.secondary.amount, displayMoney.secondary.currency)
+    : displayMoney.primary && displayMoney.pendingConversion
       ? t("accounts.pendingConversion")
       : undefined;
   const completeness = valuation
@@ -179,13 +181,13 @@ export function AccountDetail({
         </p>
       )}
 
-      {composite && (holdingsQuery.isLoading || instruments.isLoading) && <LoadingState label={t("ui.state.loadingPage")} />}
-      {composite && holdingsQuery.isError && (
+      {composite && !cashOnly && (holdingsQuery.isLoading || instruments.isLoading) && <LoadingState label={t("ui.state.loadingPage")} />}
+      {composite && !cashOnly && holdingsQuery.isError && (
         <ErrorState title={t("accounts.loadError")} description={t("ui.state.errorDescription")} onRetry={() => holdingsQuery.refetch()} retryLabel={t("common.retryAction")} />
       )}
 
-      {composite && !holdingsQuery.isLoading && !holdingsQuery.isError && (
-        <div className="grid gap-4 lg:grid-cols-2">
+      {composite && (cashOnly || (!holdingsQuery.isLoading && !holdingsQuery.isError)) && (
+        <div className={cn("grid gap-4", !cashOnly && "lg:grid-cols-2")}>
           <Card>
             <CardHeader>
               <CardTitle>{t("accounts.cash")}</CardTitle>
@@ -226,7 +228,7 @@ export function AccountDetail({
               )}
             </CardContent>
           </Card>
-          <Card>
+          {!cashOnly && <Card>
             <CardHeader>
               <CardTitle>{t("accounts.investments")}</CardTitle>
             </CardHeader>
@@ -306,7 +308,7 @@ export function AccountDetail({
                 </div>
               )}
             </CardContent>
-          </Card>
+          </Card>}
         </div>
       )}
 

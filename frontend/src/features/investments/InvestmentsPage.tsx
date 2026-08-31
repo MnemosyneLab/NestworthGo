@@ -25,6 +25,7 @@ import { useSettings } from "@/queries/settings";
 import {
   useInstruments,
   useCreateInstrument,
+  useUpdateInstrument,
   useArchiveInstrument,
   useSetInstrumentIcon,
   useCreateHolding,
@@ -40,6 +41,7 @@ import { formatTimestamp } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { EntityIcon } from "@/components/icons/EntityIcon";
 import { IconPicker } from "@/components/forms/IconPicker";
+import type { InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -111,17 +113,12 @@ function ManualQuoteForm({
 
 function InstrumentRow({
   instrument,
+  onEdit,
   onSetPrice,
   onArchive,
 }: {
-  instrument: {
-    id: string;
-    name: string;
-    quoteCurrency: string;
-    quoteSource: string;
-    iconKey: string;
-    archivedAt?: string | null;
-  };
+  instrument: InstrumentDTO;
+  onEdit: () => void;
   onSetPrice: () => void;
   onArchive: () => void;
 }) {
@@ -163,6 +160,7 @@ function InstrumentRow({
         )}
       </span>
       <span className="flex shrink-0 items-center gap-2">
+        {!instrument.archivedAt && <Button type="button" variant="outline" size="sm" onClick={onEdit}>{t("common.edit")}</Button>}
         <Button type="button" variant="outline" size="sm" onClick={() => setEditingIcon((value) => !value)}>{t("common.icon")}</Button>
         {instrument.quoteSource === "manual" && !instrument.archivedAt && (
           <Button type="button" variant="outline" size="sm" onClick={onSetPrice}>
@@ -194,8 +192,10 @@ function InstrumentsTab() {
   const { t } = useTranslation();
   const instruments = useInstruments();
   const createInstrument = useCreateInstrument();
+  const updateInstrument = useUpdateInstrument();
   const archiveInstrument = useArchiveInstrument();
   const [open, setOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<InstrumentDTO | null>(null);
   const [quoteTarget, setQuoteTarget] = useState<{ id: string; name: string; currency: string } | null>(null);
 
   if (instruments.isLoading) {
@@ -246,6 +246,7 @@ function InstrumentsTab() {
             <InstrumentRow
               key={instrument.id}
               instrument={instrument}
+              onEdit={() => setEditTarget(instrument)}
               onSetPrice={() => setQuoteTarget({ id: instrument.id, name: instrument.name, currency: instrument.quoteCurrency })}
               onArchive={() =>
                 archiveInstrument.mutate(
@@ -260,6 +261,33 @@ function InstrumentsTab() {
           ))}
         </ul>
       )}
+      <Sheet open={Boolean(editTarget)} onOpenChange={(open) => !open && setEditTarget(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>{t("portfolio.editInstrument")}</SheetTitle>
+          </SheetHeader>
+          {editTarget && (
+            <InstrumentForm
+              key={editTarget.id}
+              instrument={editTarget}
+              submitLabel={t("common.save")}
+              isSubmitting={updateInstrument.isPending}
+              submissionError={updateInstrument.isError ? displayError(updateInstrument.error, t("portfolio.updateError")) : undefined}
+              onSubmit={(request) =>
+                updateInstrument.mutate(
+                  { id: editTarget.id, request },
+                  {
+                    onSuccess: () => {
+                      toast.success(t("common.saved"));
+                      setEditTarget(null);
+                    },
+                  },
+                )
+              }
+            />
+          )}
+        </SheetContent>
+      </Sheet>
       <Sheet open={Boolean(quoteTarget)} onOpenChange={(open) => !open && setQuoteTarget(null)}>
         <SheetContent>
           <SheetHeader>
@@ -402,7 +430,9 @@ function HoldingsTab() {
   const [quantity, setQuantity] = useState("");
   const [formError, setFormError] = useState<string | undefined>();
 
-  const holdingsAccounts = (accounts.data ?? []).filter((record) => record.account.trackingMode === "holdings" && !record.account.archivedAt);
+  const holdingsAccounts = (accounts.data ?? []).filter(
+    (record) => record.account.trackingMode === "holdings" && record.account.accountType !== "cash_on_hand" && !record.account.archivedAt,
+  );
   const accountIds = holdingsAccounts.map((record) => record.account.id);
   const holdings = useAllHoldingsFlat(accountIds);
   const holdingGains = useHoldingGainsByAccounts(accountIds);

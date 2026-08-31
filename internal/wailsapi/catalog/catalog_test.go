@@ -28,6 +28,12 @@ func TestCatalogMatchesDomainAndSettings(t *testing.T) {
 	if !reflect.DeepEqual(got.InstrumentProviders, application.InstrumentProviderKeys()) {
 		t.Fatalf("instrumentProviders = %v, want %v", got.InstrumentProviders, application.InstrumentProviderKeys())
 	}
+	if !reflect.DeepEqual(got.InstrumentCountryCodes, domain.SupportedInstrumentCountryCodes()) {
+		t.Fatalf("instrumentCountryCodes = %v", got.InstrumentCountryCodes)
+	}
+	if !reflect.DeepEqual(got.InstrumentMarketCodes, domain.SupportedInstrumentMarketCodes()) {
+		t.Fatalf("instrumentMarketCodes = %v", got.InstrumentMarketCodes)
+	}
 	if !reflect.DeepEqual(got.AccountTypes, stringSlice(domain.AllAccountTypes())) {
 		t.Fatalf("accountTypes = %v", got.AccountTypes)
 	}
@@ -36,6 +42,9 @@ func TestCatalogMatchesDomainAndSettings(t *testing.T) {
 	}
 	if got.AccountCombinations[0].AccountType != domain.TypeCashOnHand.String() {
 		t.Fatalf("first combination = %+v", got.AccountCombinations[0])
+	}
+	if got.AccountCombinations[1].AccountType != domain.TypeCashOnHand.String() || got.AccountCombinations[1].TrackingMode != string(domain.TrackingHoldings) || got.AccountCombinations[1].WholeAccountWarning {
+		t.Fatalf("multi-currency cash combination = %+v", got.AccountCombinations[1])
 	}
 	if !reflect.DeepEqual(got.BalanceSheetRoles, stringSlice(domain.AllBalanceSheetRoles())) {
 		t.Fatalf("balanceSheetRoles = %v", got.BalanceSheetRoles)

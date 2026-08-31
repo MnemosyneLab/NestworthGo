@@ -26,7 +26,7 @@ export const MORE_ACCOUNT_TYPE_ORDER = [
 
 const TOTAL_OWNERSHIP_BPS = 10000;
 
-export type TrackingPromptKind = "skip" | "ask" | "advanced";
+export type TrackingPromptKind = "skip" | "ask";
 
 export function splitAccountTypes(catalogTypes: readonly string[]): { primary: string[]; more: string[] } {
   const catalog = new Set(catalogTypes);
@@ -80,16 +80,13 @@ export function trackingPrompt(
   if (options.length <= 1) {
     return { kind: "skip", options, defaultMode: options[0] ?? "balance" };
   }
-  if (accountType === "bank_account" || accountType === "digital_wallet") {
+  if (accountType === "cash_on_hand" || accountType === "bank_account" || accountType === "digital_wallet") {
     return { kind: "ask", options, defaultMode: options.includes("balance") ? "balance" : options[0] };
   }
   if (accountType === "other") {
     return { kind: "ask", options, defaultMode: "" };
   }
-  if (options.includes("holdings")) {
-    return { kind: "advanced", options, defaultMode: "holdings" };
-  }
-  return { kind: "ask", options, defaultMode: options[0] };
+  return { kind: "ask", options, defaultMode: options.includes("holdings") ? "holdings" : options[0] };
 }
 
 export function matchingCombination(
@@ -116,7 +113,11 @@ export function compatibleAccountTypes(
   if (currentType) {
     compatible.add(currentType);
   }
-  return catalogTypes.filter((type) => compatible.has(type));
+  return catalogTypes.filter(
+    (type) =>
+      compatible.has(type) &&
+      (trackingMode !== "holdings" || !currentType || (type === "cash_on_hand") === (currentType === "cash_on_hand")),
+  );
 }
 
 /** ownershipShares maps checked owners to basis-point shares. An empty owner
@@ -144,12 +145,22 @@ export function ownershipShares(
   }));
 }
 
-export function trackingMethodKey(mode: string): string {
+export function trackingMethodKey(mode: string, accountType?: string): string {
   if (mode === "holdings") {
+    if (accountType === "cash_on_hand") {
+      return "accounts.tracking.multiCurrencyCash";
+    }
     return "accounts.tracking.holdings";
   }
   if (mode === "manual_value") {
     return "accounts.tracking.manualValue";
   }
   return "accounts.tracking.balance";
+}
+
+export function trackingHelpKey(mode: string, accountType?: string): string {
+  if (mode === "holdings") {
+    return accountType === "cash_on_hand" ? "accounts.tracking.multiCurrencyCashHelp" : "accounts.tracking.holdingsHelp";
+  }
+  return mode === "manual_value" ? "accounts.tracking.manualValueHelp" : "accounts.tracking.balanceHelp";
 }

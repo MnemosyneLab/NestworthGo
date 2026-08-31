@@ -7,6 +7,7 @@ import { InvestmentsPage } from "./InvestmentsPage";
 
 const listInstruments = vi.fn();
 const createInstrument = vi.fn();
+const updateInstrument = vi.fn();
 const archiveInstrument = vi.fn().mockResolvedValue(undefined);
 const listAccounts = vi.fn();
 const createHolding = vi.fn();
@@ -18,6 +19,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/in
   Service: {
     ListInstruments: (...args: unknown[]) => listInstruments(...args),
     CreateInstrument: (...args: unknown[]) => createInstrument(...args),
+    UpdateInstrument: (...args: unknown[]) => updateInstrument(...args),
     ArchiveInstrument: (...args: unknown[]) => archiveInstrument(...args),
   },
 }));
@@ -73,6 +75,7 @@ function renderPage() {
 beforeEach(() => {
   listInstruments.mockReset();
   createInstrument.mockReset();
+  updateInstrument.mockReset();
   archiveInstrument.mockClear();
   listAccounts.mockReset();
   createHolding.mockReset();
@@ -85,6 +88,7 @@ beforeEach(() => {
 
   listInstruments.mockResolvedValue([]);
   createInstrument.mockResolvedValue({ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" });
+  updateInstrument.mockResolvedValue({ id: "i1", name: "NVIDIA Corp", quoteCurrency: "USD", quoteSource: "manual" });
   listAccounts.mockResolvedValue([
     { account: { id: "acc-1", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null },
   ]);
@@ -125,6 +129,48 @@ describe("InvestmentsPage", () => {
     );
   });
 
+  it("edits all Instrument identity fields", async () => {
+    listInstruments.mockResolvedValue([{
+      id: "i1",
+      householdId: "h1",
+      name: "NVIDIA",
+      type: "stock",
+      quoteCurrency: "USD",
+      symbol: "NVDA",
+      marketCode: "NASDAQ",
+      countryCode: "US",
+      isin: "US67066G1040",
+      note: "Old note",
+      iconKey: "stock",
+      sortOrder: 0,
+      quoteSource: "manual",
+      createdAt: "",
+      updatedAt: "",
+    }]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    const name = within(form).getByLabelText("Name");
+    await userEvent.clear(name);
+    await userEvent.type(name, "NVIDIA Corp");
+    const symbol = within(form).getByLabelText("Security symbol");
+    await userEvent.clear(symbol);
+    await userEvent.type(symbol, "NVDA.O");
+    await userEvent.selectOptions(within(form).getByLabelText("Trading market"), "SGX");
+    await userEvent.selectOptions(within(form).getByLabelText("Country / region"), "SG");
+    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
+
+    expect(updateInstrument).toHaveBeenCalledWith("i1", expect.objectContaining({
+      replace: true,
+      name: "NVIDIA Corp",
+      symbol: "NVDA.O",
+      marketCode: "SGX",
+      countryCode: "SG",
+      isin: "US67066G1040",
+      note: "Old note",
+    }));
+  });
+
   it("creates a Holding for a Holdings-mode Account", async () => {
     renderPage();
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
@@ -138,6 +184,17 @@ describe("InvestmentsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Add holding" }));
 
     expect(createHolding).toHaveBeenCalledWith({ accountId: "acc-1", instrumentId: "i1", quantity: "10" });
+  });
+
+  it("does not offer cash-only multi-currency accounts for investment holdings", async () => {
+    listAccounts.mockResolvedValue([
+      { account: { id: "cash-1", name: "Travel cash", accountType: "cash_on_hand", trackingMode: "holdings" }, ownership: [], latestValue: null },
+    ]);
+    renderPage();
+    await userEvent.click(screen.getByRole("tab", { name: "All holdings index" }));
+
+    expect(await screen.findByText("No investment account available")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add holding" })).not.toBeInTheDocument();
   });
 
   it("shows per-Holding cost/gain columns from AnalyticsService.HoldingGain data", async () => {
@@ -328,7 +385,7 @@ describe("InvestmentsPage", () => {
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.type(within(form).getByLabelText("Name"), "NVIDIA");
     await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "provider");
-    await userEvent.type(within(form).getByLabelText("Provider symbol"), "NVDA");
+    await userEvent.type(within(form).getByLabelText("Quote lookup symbol"), "NVDA");
     await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
 
     expect(createInstrument).toHaveBeenCalledWith(

@@ -260,14 +260,15 @@ describe("AccountsPage", () => {
         account: brokerageAccount.account,
         ownership: brokerageAccount.ownership,
         complete: true,
-        components: [],
+        components: [{ nativeCurrency: "USD", nativeAmount: "3542.10", available: true }],
         missingInputs: [],
-        baseValue: { amount: "2500", currency: "USD" },
+        baseValue: { amount: "35706.45", currency: "CNY" },
       },
     ]);
     renderPage();
     expect(await screen.findByText("MooMoo")).toBeInTheDocument();
-    expect(screen.getByText("$2,500.00")).toBeInTheDocument();
+    expect(screen.getByText(/35,706\.45/)).toBeInTheDocument();
+    expect(screen.queryByText(/3,542\.10/)).not.toBeInTheDocument();
   });
 
   it("creates a bank account through the wizard with equal ownership", async () => {
@@ -277,8 +278,9 @@ describe("AccountsPage", () => {
     const form = await screen.findByRole("form", { name: "Create account" });
     await continueWizard(form, 2);
     expect(within(form).getByText("How should this account be recorded?")).toBeInTheDocument();
-    expect(within(form).getByText("Record the account total only")).toBeInTheDocument();
+    expect(within(form).getByText("Keep one account balance")).toBeInTheDocument();
     await continueWizard(form, 1);
+    expect(within(form).getByText("Recording: Keep one account balance")).toBeInTheDocument();
     await userEvent.type(within(form).getByLabelText("Name"), "New Savings");
     await userEvent.click(within(form).getByLabelText("Alice"));
     await userEvent.click(within(form).getByLabelText("Bob"));
@@ -415,7 +417,7 @@ describe("AccountsPage", () => {
     );
   });
 
-  it("defaults brokerage to cash and holdings without exposing tracking enums", async () => {
+  it("shows brokerage tracking options and defaults to cash and holdings", async () => {
     renderPage();
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
@@ -423,7 +425,11 @@ describe("AccountsPage", () => {
     await continueWizard(form, 1);
     await userEvent.click(within(form).getByRole("button", { name: "Brokerage" }));
     await continueWizard(form, 1);
-    expect(within(form).queryByText("How should this account be recorded?")).not.toBeInTheDocument();
+    expect(within(form).getByText("How should this account be recorded?")).toBeInTheDocument();
+    expect(within(form).getByRole("radio", { name: /Record cash and holdings separately/ })).toBeChecked();
+    expect(within(form).getByRole("radio", { name: /Keep one account value/ })).not.toBeChecked();
+    await continueWizard(form, 1);
+    expect(within(form).getByText("Recording: Record cash and holdings separately")).toBeInTheDocument();
     expect(within(form).queryByLabelText("Balance sheet role")).not.toBeInTheDocument();
     await userEvent.click(within(form).getByRole("button", { name: "More settings" }));
     expect(within(form).queryByLabelText("Include in portfolio")).not.toBeInTheDocument();
@@ -466,19 +472,50 @@ describe("AccountsPage", () => {
     );
   });
 
+  it("creates cash on hand with separate balances by currency", async () => {
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Create account" });
+    await continueWizard(form, 1);
+    await userEvent.click(within(form).getByRole("button", { name: "More account types" }));
+    await userEvent.click(within(form).getByRole("button", { name: "Cash on hand" }));
+    await continueWizard(form, 1);
+    await userEvent.click(within(form).getByRole("radio", { name: /Record cash by currency/ }));
+    await continueWizard(form, 1);
+    await userEvent.type(within(form).getByLabelText("Name"), "Travel cash");
+    await userEvent.click(within(form).getByLabelText("Alice"));
+    await continueWizard(form, 1);
+    await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
+
+    expect(createAccount).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Travel cash",
+      accountType: "cash_on_hand",
+      trackingMode: "holdings",
+      initialAmount: "",
+      includeInLiquidAssets: true,
+    }));
+  });
+
   it("renders catalog-only account types on the type step", async () => {
     renderPage();
     await screen.findByText("Checking");
     await userEvent.click(screen.getByText("Add account"));
     const form = await screen.findByRole("form", { name: "Create account" });
     await continueWizard(form, 1);
-    expect(within(form).getByRole("button", { name: "Bank account" })).toBeInTheDocument();
-    expect(within(form).getByRole("button", { name: "Brokerage" })).toBeInTheDocument();
-    expect(within(form).getByRole("button", { name: "Credit card" })).toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Bank account" })).toHaveTextContent(
+      "Recording: Keep one account balance or Record cash and holdings separately",
+    );
+    expect(within(form).getByRole("button", { name: "Brokerage" })).toHaveTextContent(
+      "Recording: Record cash and holdings separately or Keep one account value",
+    );
+    expect(within(form).getByRole("button", { name: "Credit card" })).toHaveTextContent("Recording: Keep one account balance");
     expect(within(form).getByRole("button", { name: "Other" })).toBeInTheDocument();
     expect(within(form).queryByRole("button", { name: "Cash on hand" })).not.toBeInTheDocument();
     await userEvent.click(within(form).getByRole("button", { name: "More account types" }));
-    expect(within(form).getByRole("button", { name: "Cash on hand" })).toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Cash on hand" })).toHaveTextContent(
+      "Recording: Keep one account balance or Record cash by currency",
+    );
   });
 
   it("opens simple account detail instead of the metadata editor", async () => {
@@ -520,6 +557,7 @@ describe("AccountsPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
+    expect(screen.getByText("$2,500.00")).toHaveClass("text-2xl");
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getAllByText("Investments").length).toBeGreaterThan(0);
     expect(screen.getAllByText("$800.00").length).toBeGreaterThan(0);
@@ -528,6 +566,41 @@ describe("AccountsPage", () => {
     expect(screen.getByText("Stock")).toBeInTheDocument();
     expect(screen.getByText("Partial valuation")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/Missing FX rate/);
+  });
+
+  it("shows multi-currency cash without investment actions for cash on hand", async () => {
+    const multiCurrencyCashAccount = {
+      account: {
+        ...emptyAccount.account,
+        id: "cash-1",
+        name: "Travel cash",
+        accountType: "cash_on_hand",
+        trackingMode: "holdings",
+        includeInLiquidAssets: true,
+      },
+      ownership: emptyAccount.ownership,
+    };
+    listAccounts.mockResolvedValue([multiCurrencyCashAccount]);
+    accountValuations.mockResolvedValue([{
+      account: multiCurrencyCashAccount.account,
+      ownership: multiCurrencyCashAccount.ownership,
+      complete: true,
+      components: [
+        { nativeCurrency: "USD", nativeAmount: "200", available: true },
+        { nativeCurrency: "SGD", nativeAmount: "300", available: true },
+      ],
+      missingInputs: [],
+      baseValue: { amount: "425", currency: "USD" },
+    }]);
+    holdingsByAccounts.mockResolvedValue({ "cash-1": [] });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /Travel cash/ }));
+    expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
+    expect(screen.getByText("Cash")).toBeInTheDocument();
+    expect(screen.getByText(/SGD\s*300\.00/)).toBeInTheDocument();
+    expect(screen.queryByText("Investments")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Buy investment" })).not.toBeInTheDocument();
   });
 
   it("rejects a zero-quantity existing position and does not record a buy", async () => {

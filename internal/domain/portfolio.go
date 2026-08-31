@@ -102,6 +102,20 @@ type InstrumentInput struct {
 	ProviderSymbol *string
 }
 
+// SupportedInstrumentCountryCodes is the user-facing country/region catalog
+// for instruments. It follows the geographic coverage of SupportedCurrencies;
+// EU is a region because EUR-denominated instruments are not country-specific.
+func SupportedInstrumentCountryCodes() []string {
+	return []string{"AU", "CN", "EU", "GB", "HK", "JP", "SG", "TW", "US", "KR", "CH"}
+}
+
+// SupportedInstrumentMarketCodes covers the main exchanges for the currencies
+// accepted by the app. Instrument persistence remains syntax-compatible with
+// older custom codes, while create/edit surfaces use this curated catalog.
+func SupportedInstrumentMarketCodes() []string {
+	return []string{"ASX", "SSE", "SZSE", "BSE", "EURONEXT", "XETRA", "LSE", "HKEX", "TSE", "SGX", "TWSE", "NASDAQ", "NYSE", "AMEX", "KRX", "SIX"}
+}
+
 func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 	name, err := validateName("name", input.Name)
 	if err != nil {
@@ -225,6 +239,9 @@ func NewHolding(input HoldingInput, now time.Time) (Holding, error) {
 func NewHoldingForAccount(account Account, instrument Instrument, quantity Quantity, note *string, sortOrder int, now time.Time) (Holding, error) {
 	if account.TrackingMode != TrackingHoldings {
 		return Holding{}, validation("trackingMode", "Holdings must belong to a Holdings account")
+	}
+	if account.AccountType == TypeCashOnHand {
+		return Holding{}, validation("accountType", "Cash on hand accounts can only contain cash balances")
 	}
 	if account.HouseholdID != instrument.HouseholdID {
 		return Holding{}, validation("householdId", "account and instrument must belong to the same Household")

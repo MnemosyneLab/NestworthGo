@@ -19,6 +19,8 @@ import {
   rolesFor,
   splitAccountTypes,
   trackingMethodKey,
+  trackingHelpKey,
+  trackingModesFor,
   trackingPrompt,
 } from "@/features/accounts/accountCatalog";
 import { ACCOUNT_TYPE_ICONS } from "@/lib/defaultIcons";
@@ -80,7 +82,6 @@ export function AccountCreateWizard({
   const [showMoreTypes, setShowMoreTypes] = useState(false);
   const [role, setRole] = useState("asset");
   const [trackingMode, setTrackingMode] = useState("balance");
-  const [showAdvancedTracking, setShowAdvancedTracking] = useState(false);
   const [name, setName] = useState("");
   const [defaultCurrency, setDefaultCurrency] = useState("");
   const [initialAmount, setInitialAmount] = useState("");
@@ -120,7 +121,6 @@ export function AccountCreateWizard({
     if (!iconCustomized) setIconKey(ACCOUNT_TYPE_ICONS[nextType] ?? "account");
     setRole(nextRole);
     setTrackingMode(nextPrompt.defaultMode);
-    setShowAdvancedTracking(false);
     setTrackingError(undefined);
     if (match) {
       setIncludeInNetWorth(match.includeInNetWorth);
@@ -241,15 +241,23 @@ export function AccountCreateWizard({
 
   const typeButton = (type: string) => {
     const selected = (accountType || resolvedType) === type;
+    const typeRole = selected ? resolvedRole : defaultRole(combinations, type);
+    const methods = trackingModesFor(combinations, type, typeRole)
+      .map((mode) => t(trackingMethodKey(mode, type)))
+      .join(t("accounts.trackingMethodSeparator"));
     return (
       <button
         key={type}
         type="button"
         className={`rounded-md border px-3 py-2 text-left text-sm ${selected ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border"}`}
+        aria-label={displayEnum(t, "enum", type)}
         aria-pressed={selected}
         onClick={() => applyType(type)}
       >
-        <span className="flex items-center gap-2"><EntityIcon iconKey={ACCOUNT_TYPE_ICONS[type]} kind="account" />{displayEnum(t, "enum", type)}</span>
+        <span className="flex items-center gap-2 font-medium"><EntityIcon iconKey={ACCOUNT_TYPE_ICONS[type]} kind="account" />{displayEnum(t, "enum", type)}</span>
+        <span className="mt-1 block text-xs text-muted-foreground">
+          {t("accounts.supportedTrackingMethods", { methods })}
+        </span>
       </button>
     );
   };
@@ -357,16 +365,24 @@ export function AccountCreateWizard({
 
       {step === "tracking" && (
         <div className="flex flex-col gap-4">
-          <h3 className="text-base font-semibold">{t("accounts.trackingQuestion")}</h3>
+          <div>
+            <h3 className="text-base font-semibold">{t("accounts.trackingQuestion")}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{displayEnum(t, "enum", accountType)}</p>
+          </div>
           <div className="flex flex-col gap-3" role="radiogroup" aria-label={t("accounts.trackingQuestion")}>
             {prompt.options.map((mode) => (
               <label key={mode} className="flex cursor-pointer flex-col gap-1 rounded-md border border-border p-3 has-[:checked]:border-primary has-[:checked]:bg-primary/10">
                 <span className="flex items-center gap-2 text-sm font-medium">
                   <input type="radio" name="account-tracking" checked={trackingMode === mode} onChange={() => applyTracking(mode)} />
-                  {t(trackingMethodKey(mode))}
+                  {t(trackingMethodKey(mode, accountType))}
+                  {mode === prompt.defaultMode && (
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
+                      {t("accounts.recommended")}
+                    </span>
+                  )}
                 </span>
                 <span className="pl-6 text-xs text-muted-foreground">
-                  {mode === "holdings" ? t("accounts.tracking.holdingsHelp") : mode === "manual_value" ? t("accounts.tracking.manualValueHelp") : t("accounts.tracking.balanceHelp")}
+                  {t(trackingHelpKey(mode, accountType))}
                 </span>
               </label>
             ))}
@@ -385,21 +401,11 @@ export function AccountCreateWizard({
           <p className="text-sm text-muted-foreground">
             {institutionName || t("accounts.noInstitution")} · {displayEnum(t, "enum", accountType)}
           </p>
-          {prompt.kind === "advanced" && (
-            <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setShowAdvancedTracking((value) => !value)}>
-              {showAdvancedTracking ? t("accounts.useDetailedTracking") : t("accounts.advancedTracking")}
-            </Button>
-          )}
-          {prompt.kind === "advanced" && showAdvancedTracking && (
-            <div className="flex flex-col gap-2">
-              {prompt.options.map((mode) => (
-                <label key={mode} className="flex items-center gap-2 text-sm">
-                  <input type="radio" name="advanced-tracking" checked={trackingMode === mode} onChange={() => applyTracking(mode)} />
-                  {t(trackingMethodKey(mode))}
-                </label>
-              ))}
-            </div>
-          )}
+          <p className="text-sm">
+            <span className="text-muted-foreground">
+              {t("accounts.selectedTrackingMethod", { method: t(trackingMethodKey(resolvedTracking, resolvedType)) })}
+            </span>
+          </p>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="account-name">{t("accounts.name")}</Label>
             <Input id="account-name" value={name} onChange={(event) => setName(event.target.value)} autoFocus />
@@ -486,7 +492,7 @@ export function AccountCreateWizard({
               {institutionName ? `${institutionName} · ${displayEnum(t, "enum", accountType)}` : displayEnum(t, "enum", accountType)}
             </p>
             <p className="mt-1">{name}</p>
-            <p className="mt-2">{t(trackingMethodKey(resolvedTracking))}</p>
+            <p className="mt-2">{t(trackingMethodKey(resolvedTracking, resolvedType))}</p>
             <p className="text-muted-foreground">{t("accounts.reviewTrackingImmutable")}</p>
           </div>
           {submissionError && (

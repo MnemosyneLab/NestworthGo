@@ -20,6 +20,8 @@ export type CatalogDTO = {
   institutionTypes: string[];
   quoteSources: string[];
   instrumentProviders: string[];
+  instrumentCountryCodes: string[];
+  instrumentMarketCodes: string[];
   accountTypes: string[];
   balanceSheetRoles?: string[];
   trackingModes?: string[];

@@ -24,9 +24,14 @@ describe("accountCatalog", () => {
     expect(prompt.defaultMode).toBe("balance");
   });
 
-  it("defaults brokerage to cash and holdings without exposing tracking terms", () => {
+  it("asks cash on hand whether to track one or multiple currencies", () => {
+    const prompt = trackingPrompt(TEST_CATALOG.accountCombinations, "cash_on_hand", "asset");
+    expect(prompt).toEqual({ kind: "ask", options: ["balance", "holdings"], defaultMode: "balance" });
+  });
+
+  it("asks brokerage how to track and defaults to cash and holdings", () => {
     const prompt = trackingPrompt(TEST_CATALOG.accountCombinations, "brokerage", "asset");
-    expect(prompt.kind).toBe("advanced");
+    expect(prompt.kind).toBe("ask");
     expect(prompt.defaultMode).toBe("holdings");
     expect(prompt.options).toContain("manual_value");
   });
@@ -40,6 +45,12 @@ describe("accountCatalog", () => {
     expect(
       compatibleAccountTypes(TEST_CATALOG.accountCombinations, TEST_CATALOG.accountTypes, "asset", "holdings", "brokerage"),
     ).toEqual(["bank_account", "brokerage"]);
+  });
+
+  it("does not convert cash-only multi-currency accounts to investment accounts", () => {
+    expect(
+      compatibleAccountTypes(TEST_CATALOG.accountCombinations, TEST_CATALOG.accountTypes, "asset", "holdings", "cash_on_hand"),
+    ).toEqual(["cash_on_hand"]);
   });
 
   it("does not invent household-wide shares from an empty owner list", () => {

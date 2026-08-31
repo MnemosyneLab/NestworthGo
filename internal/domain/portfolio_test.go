@@ -43,6 +43,29 @@ func TestInstrumentProviderBindingAndPortfolioRelationships(t *testing.T) {
 	}
 }
 
+func TestCashOnHandHoldingsModeRejectsInvestmentHoldings(t *testing.T) {
+	householdID := HouseholdID(newID())
+	account := Account{
+		ID: NewAccountID(), HouseholdID: householdID, AccountType: TypeCashOnHand,
+		BalanceSheetRole: RoleAsset, TrackingMode: TrackingHoldings, DefaultCurrency: CurrencyCode("USD"),
+	}
+	instrument := Instrument{ID: NewInstrumentID(), HouseholdID: householdID}
+	quantity, err := ParseQuantity("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewHoldingForAccount(account, instrument, quantity, nil, 0, time.Now()); err == nil {
+		t.Fatal("cash on hand account accepted an investment holding")
+	}
+	money, err := ParseMoney("100", CurrencyCode("SGD"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewAccountCashValue(account, money, time.Now(), time.Now()); err != nil {
+		t.Fatalf("multi-currency cash observation failed: %v", err)
+	}
+}
+
 func TestHoldingsAccountRejectsFakeInitialAmountAndCashUsesHoldingsMode(t *testing.T) {
 	householdID := HouseholdID(newID())
 	memberID := MemberID(newID())

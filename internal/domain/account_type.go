@@ -135,6 +135,7 @@ type accountCombinationKey struct {
 
 var legalAccountCombinations = []AccountCombination{
 	{TypeCashOnHand, RoleAsset, TrackingBalance},
+	{TypeCashOnHand, RoleAsset, TrackingHoldings},
 	{TypeBankAccount, RoleAsset, TrackingBalance},
 	{TypeBankAccount, RoleAsset, TrackingHoldings},
 	{TypeBrokerage, RoleAsset, TrackingHoldings},
@@ -216,7 +217,7 @@ func SuggestedInclusion(accountType AccountType, tracking TrackingMode) Inclusio
 	case TypeBrokerage, TypeInvestmentAccount, TypeCryptoExchange, TypePension:
 		defaults.IncludeInPortfolio = true
 	}
-	if tracking == TrackingBalance && (accountType == TypeCashOnHand || accountType == TypeBankAccount || accountType == TypeDigitalWallet) {
+	if accountType == TypeCashOnHand || (tracking == TrackingBalance && (accountType == TypeBankAccount || accountType == TypeDigitalWallet)) {
 		defaults.IncludeInLiquidAssets = true
 	}
 	return defaults

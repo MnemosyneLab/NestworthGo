@@ -29,6 +29,8 @@ type CatalogDTO struct {
 	InstitutionTypes           []string                `json:"institutionTypes"`
 	QuoteSources               []string                `json:"quoteSources"`
 	InstrumentProviders        []string                `json:"instrumentProviders"`
+	InstrumentCountryCodes     []string                `json:"instrumentCountryCodes"`
+	InstrumentMarketCodes      []string                `json:"instrumentMarketCodes"`
 	AccountTypes               []string                `json:"accountTypes"`
 	BalanceSheetRoles          []string                `json:"balanceSheetRoles"`
 	TrackingModes              []string                `json:"trackingModes"`
@@ -59,7 +61,7 @@ func (s *Service) Catalog() CatalogDTO {
 			IncludeInNetWorth:     defaults.IncludeInNetWorth,
 			IncludeInPortfolio:    defaults.IncludeInPortfolio,
 			IncludeInLiquidAssets: defaults.IncludeInLiquidAssets,
-			WholeAccountWarning:   combination.TrackingMode == domain.TrackingHoldings,
+			WholeAccountWarning:   combination.TrackingMode == domain.TrackingHoldings && combination.AccountType != domain.TypeCashOnHand,
 		}
 		combinations = append(combinations, item)
 		typeKey := combination.AccountType.String()
@@ -79,6 +81,8 @@ func (s *Service) Catalog() CatalogDTO {
 		InstitutionTypes:           stringSlice(domain.AllInstitutionTypes()),
 		QuoteSources:               stringSlice(domain.AllQuoteSourceKinds()),
 		InstrumentProviders:        application.InstrumentProviderKeys(),
+		InstrumentCountryCodes:     domain.SupportedInstrumentCountryCodes(),
+		InstrumentMarketCodes:      domain.SupportedInstrumentMarketCodes(),
 		AccountTypes:               stringSlice(domain.AllAccountTypes()),
 		BalanceSheetRoles:          stringSlice(domain.AllBalanceSheetRoles()),
 		TrackingModes:              stringSlice(domain.AllTrackingModes()),
