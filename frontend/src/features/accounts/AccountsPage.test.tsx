@@ -600,6 +600,9 @@ describe("AccountsPage", () => {
     expect(screen.getByTestId("composition-native-cash-SGD")).toHaveTextContent(/SGD\s*200\.00/);
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getAllByText("Investments").length).toBeGreaterThan(0);
+    const cashHoldingsLayout = screen.getByTestId("account-cash-holdings-layout");
+    expect(cashHoldingsLayout).toHaveClass("2xl:grid-cols-2");
+    expect(cashHoldingsLayout).not.toHaveClass("lg:grid-cols-2");
     expect(screen.getAllByText("$800.00").length).toBeGreaterThan(0);
     expect(screen.getAllByText(/SGD\s*200\.00/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("NVIDIA").length).toBeGreaterThan(0);

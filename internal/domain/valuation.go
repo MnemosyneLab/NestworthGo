@@ -149,6 +149,7 @@ type PortfolioValuation struct {
 // callers must not query one quote or Holding at a time.
 type PortfolioSnapshot struct {
 	Household        *Household
+	Origin           *HistoryOrigin
 	Members          []Member
 	Institutions     []Institution
 	Groups           []Group

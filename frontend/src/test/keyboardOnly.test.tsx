@@ -103,6 +103,20 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app",
     Startup: () => Promise.resolve({ available: true }),
   },
 }));
+vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/data", () => ({
+  Service: {
+    LastBackupStatus: () => Promise.resolve({ available: false }),
+    CreateBackup: () => Promise.resolve({ cancelled: true }),
+    ExportCSV: () => Promise.resolve({ cancelled: true }),
+    SelectCSV: () => Promise.resolve({ cancelled: true }),
+  },
+}));
+vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery", () => ({
+  Service: {
+    InspectBackup: () => Promise.resolve({ cancelled: true }),
+    ConfirmRestore: () => Promise.resolve({ restartRequired: false }),
+  },
+}));
 
 function renderWithQueryClient(element: React.ReactElement) {
   const queryClient = createTestQueryClient();

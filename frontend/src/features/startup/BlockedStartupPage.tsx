@@ -1,9 +1,15 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { StartupDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app/models";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/layout/PageState";
 import { parseWailsError, translateWailsError, type WireError } from "@/lib/wails";
+import { useInspectBackup, useConfirmRestore } from "@/queries/data";
+import { displayError } from "@/lib/display";
+import { toast } from "sonner";
 
 export function StartupLoadingPage({ label }: { label: string }) {
   return (
@@ -32,6 +38,12 @@ export function StartupLoadingPage({ label }: { label: string }) {
  */
 export function BlockedStartupPage({ startup, failure }: { startup?: StartupDTO | null; failure?: unknown }) {
   const { t } = useTranslation();
+  const inspect = useInspectBackup();
+  const confirmRestore = useConfirmRestore();
+  const [preview, setPreview] = useState<{ token?: string; backupHousehold?: string; backupCurrency?: string; backupAccounts?: number } | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [confirmation, setConfirmation] = useState("");
+  const [restarting, setRestarting] = useState(false);
   const wireError: WireError = startup?.code
     ? { code: startup.code, field: startup.field, message: startup.message ?? "" }
     : failure && typeof failure === "object" && "wireError" in failure
@@ -54,6 +66,23 @@ export function BlockedStartupPage({ startup, failure }: { startup?: StartupDTO 
             <Button type="button" onClick={() => window.location.reload()}>
               {t("startup.retry")}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                inspect.mutate(undefined, {
+                  onSuccess: (result) => {
+                    if (!result.cancelled) {
+                      setPreview(result);
+                    }
+                  },
+                  onError: (error) => toast.error(displayError(error, t("startup.genericFailure"))),
+                })
+              }
+              disabled={inspect.isPending || restarting}
+            >
+              {t("startup.restore")}
+            </Button>
             <details className="text-sm text-muted-foreground">
               <summary className="cursor-pointer rounded-md px-2 py-1 underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
                 {t("startup.diagnosis")}
@@ -62,6 +91,38 @@ export function BlockedStartupPage({ startup, failure }: { startup?: StartupDTO 
               <code className="mt-1 block rounded bg-muted px-2 py-1 text-xs text-foreground">{diagnosticCode}</code>
             </details>
           </div>
+          {preview && !restarting ? (
+            <div className="flex flex-col gap-2 text-sm">
+              <p>{t("settings.data.restoreDescription")}</p>
+              <p>{t("settings.data.restoreHousehold", { name: preview.backupHousehold || "—", currency: preview.backupCurrency || "—" })}</p>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} />
+                {t("settings.data.restoreAcknowledge")}
+              </label>
+              <Label htmlFor="blocked-restore-confirm">{t("settings.data.restoreTypeLabel")}</Label>
+              <Input id="blocked-restore-confirm" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} autoComplete="off" />
+              <Button
+                type="button"
+                disabled={!acknowledged || confirmation.trim().toLowerCase() !== "restore" || confirmRestore.isPending}
+                onClick={() =>
+                  confirmRestore.mutate(
+                    { token: preview.token ?? "", confirmation, acknowledged, restoreChrome: false, restoreFormat: false, restoreRouting: false },
+                    {
+                      onSuccess: (result) => {
+                        if (result.restartRequired) {
+                          setRestarting(true);
+                        }
+                      },
+                      onError: (error) => toast.error(displayError(error, t("startup.genericFailure"))),
+                    },
+                  )
+                }
+              >
+                {t("settings.data.restoreConfirm")}
+              </Button>
+            </div>
+          ) : null}
+          {restarting ? <p className="text-sm">{t("settings.data.restoreRestart")}</p> : null}
         </CardContent>
       </Card>
     </main>

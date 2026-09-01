@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -26,6 +27,8 @@ type Service struct {
 	uiLanguage    string
 
 	changeMu sync.Mutex
+
+	exclusive atomic.Bool
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {

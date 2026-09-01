@@ -34,6 +34,20 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     HistoryOrigin: () => historyOrigin(),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/data", () => ({
+  Service: {
+    LastBackupStatus: () => Promise.resolve({ available: false }),
+    CreateBackup: () => Promise.resolve({ cancelled: true }),
+    ExportCSV: () => Promise.resolve({ cancelled: true }),
+    SelectCSV: () => Promise.resolve({ cancelled: true }),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery", () => ({
+  Service: {
+    InspectBackup: () => Promise.resolve({ cancelled: true }),
+    ConfirmRestore: () => Promise.resolve({ restartRequired: false }),
+  },
+}));
 
 function renderPage() {
   const queryClient = createTestQueryClient({ retry: false });
@@ -101,11 +115,12 @@ describe("SettingsPage", () => {
     expect(reset).not.toHaveBeenCalled();
   });
 
-  it("renders the About section from AppService.AppInfo", async () => {
+  it("renders the Data management actions", async () => {
     renderPage();
-    expect(await screen.findByLabelText("About Nestworth")).toBeInTheDocument();
-    expect(await screen.findByText(/Version v0\.2\.0/)).toBeInTheDocument();
-    expect(screen.getByText(/Build 1/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Data management" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back up data" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restore from backup" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Import / Export CSV" })).toBeInTheDocument();
   });
 
   it("renders appearance and language options from the catalog only", async () => {

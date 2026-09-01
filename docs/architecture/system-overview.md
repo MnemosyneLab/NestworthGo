@@ -2,13 +2,13 @@
 
 ## Current baseline
 
-Nestworth `0.2.1` is a local-first desktop application with a Wails v3 shell
+Nestworth `0.3.0` is a local-first desktop application with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
-provides typed domain contracts, SQLite bootstrap with one current schema `8`,
+provides typed domain contracts, SQLite bootstrap with one current schema `9`,
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
-currency decomposition, Analytics, exact valuation, and explicit
-Yahoo/Frankfurter refresh routing.
+currency decomposition, Analytics, exact valuation, explicit
+Yahoo/Frankfurter refresh routing, local backup/restore, and CSV portability.
 The React UI renders application results through `internal/wailsapi` DTOs; it
 does not open SQLite, call HTTP, or recalculate financial totals.
 

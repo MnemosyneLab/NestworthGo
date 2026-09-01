@@ -23,6 +23,7 @@ import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies,
 import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
+import { DataManagementSection } from "@/features/settings/DataManagementSection";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { setLanguage, languageOptionKey } from "@/i18n";
 import { displayError } from "@/lib/display";
@@ -266,6 +267,8 @@ export function SettingsPage() {
           </AlertDialogContent>
         </AlertDialog>
       </section>
+
+      <DataManagementSection />
 
       <div className="max-w-2xl">
         <AboutPage />

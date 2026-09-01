@@ -6,18 +6,22 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
-## 0.2.1 — Account container model
+## 0.3.0 — Backup, restore, and CSV portability
 
 Status: `In progress`.
 
-This line keeps the Wails v3 local-first desktop and replaces Account
-categories with `account_type`, `balance_sheet_role`, and `tracking_mode` on
-schema `8`. Closeout priorities are:
+This line keeps the Wails v3 local-first desktop and schema `9`, and adds
+recoverable local backup/restore plus create-only Accounts/Holdings CSV
+exchange. Closeout priorities are:
 
-- legal type/role/tracking combinations on create and update;
-- Overview `assetsByType` / `liabilitiesByType` at component granularity;
-- whole-account `include_in_portfolio`;
-- reject incompatible databases, including schemas `6` and `7`, without rewriting them.
+- verified `.nestworth-backup` packages and journaled restore with quit/relaunch;
+- blocked-startup restore without an open business session;
+- CSV preview, mapping, and all-or-nothing create-only import.
+
+## 0.2.1 — Account container model
+
+Status: `Superseded`. The unpublished `0.2.1` Account-container closeout is
+replaced by `0.3.0`.
 
 ## 0.2.0 — Coherent local-first desktop
 
@@ -28,14 +32,11 @@ Status: `Superseded`. The unpublished `0.2.0` Wails v3 closeout is replaced by
 
 These are planned, not part of the current release:
 
-1. Data safety: recoverable local backup/restore with explicit validation and
-   no accidental overwrite.
-2. Controlled exchange: import/export with preview, validation, and one
-   atomic commit.
-3. Maintenance: search, saved views, and clearer audit/history workflows as
+1. Maintenance: search, saved views, and clearer audit/history workflows as
    the local data set grows.
-4. Integrations: optional direct connections only after the local model,
+2. Integrations: optional direct connections only after the local model,
    privacy boundary, and recovery story are strong enough to support them.
+3. Encrypted backup as a separate security design.
 
 ## Long-term direction
 

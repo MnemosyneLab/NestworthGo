@@ -16,6 +16,8 @@ type Repository interface {
 	PortfolioRepository
 	HistoryRepository
 	SnapshotRepository
+	DatabaseAdminRepository
+	CSVImportRepository
 }
 
 // DirectoryRepository owns Household, Members, Institutions, Groups, and
@@ -132,4 +134,19 @@ type SnapshotRepository interface {
 	CompleteDailySnapshotRange(context.Context, domain.HouseholdID, string, time.Time) error
 	DailySnapshotState(context.Context, domain.HouseholdID) (domain.DailySnapshotState, error)
 	ListDailyValuationSnapshots(context.Context, domain.HouseholdID, time.Time) ([]domain.DailyValuationSnapshot, error)
+}
+
+// DatabaseAdminRepository is the live-file snapshot and close path used by
+// backup and restore. It never copies a live main SQLite file.
+type DatabaseAdminRepository interface {
+	SnapshotTo(context.Context, string) error
+	CheckpointWAL(context.Context) error
+	Close() error
+	Path() string
+	PreviewCounts(context.Context) (accounts, holdings, activities int, err error)
+}
+
+// CSVImportRepository writes a create-only import plan in one transaction.
+type CSVImportRepository interface {
+	CommitCSVImport(context.Context, domain.CSVImportBatch) error
 }

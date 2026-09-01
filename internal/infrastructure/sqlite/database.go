@@ -144,7 +144,9 @@ func (db *DB) Close() error {
 	if db == nil || db.SQL == nil {
 		return nil
 	}
-	return db.SQL.Close()
+	err := db.SQL.Close()
+	db.SQL = nil
+	return err
 }
 
 func (db *DB) Verify(ctx context.Context) error {

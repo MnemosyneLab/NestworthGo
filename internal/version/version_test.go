@@ -2,12 +2,12 @@ package version
 
 import "testing"
 
-func TestReleaseMetadataIsV021(t *testing.T) {
-	if Version != "v0.2.1" {
-		t.Fatalf("Version = %q, want v0.2.1", Version)
+func TestReleaseMetadataIsV030(t *testing.T) {
+	if Version != "v0.3.0" {
+		t.Fatalf("Version = %q, want v0.3.0", Version)
 	}
-	if Build != "2" {
-		t.Fatalf("Build = %q, want 2", Build)
+	if Build != "1" {
+		t.Fatalf("Build = %q, want 1", Build)
 	}
 	if AppID != "com.nestworth.app" {
 		t.Fatalf("AppID = %q, want com.nestworth.app", AppID)

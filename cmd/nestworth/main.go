@@ -17,6 +17,7 @@ import (
 	webassets "github.com/waltwang/nestworth-go"
 	nestworthapp "github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -25,14 +26,17 @@ import (
 	wailsanalytics "github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	wailsapp "github.com/waltwang/nestworth-go/internal/wailsapi/app"
 	wailscatalog "github.com/waltwang/nestworth-go/internal/wailsapi/catalog"
+	wailsdata "github.com/waltwang/nestworth-go/internal/wailsapi/data"
 	wailsdirectory "github.com/waltwang/nestworth-go/internal/wailsapi/directory"
 	wailshistory "github.com/waltwang/nestworth-go/internal/wailsapi/history"
 	wailsholding "github.com/waltwang/nestworth-go/internal/wailsapi/holding"
 	wailshousehold "github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	wailsinstrument "github.com/waltwang/nestworth-go/internal/wailsapi/instrument"
 	wailsmarketdata "github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
 	wailsportfolio "github.com/waltwang/nestworth-go/internal/wailsapi/portfolio"
 	wailsquote "github.com/waltwang/nestworth-go/internal/wailsapi/quote"
+	wailsrecovery "github.com/waltwang/nestworth-go/internal/wailsapi/recovery"
 	wailssettings "github.com/waltwang/nestworth-go/internal/wailsapi/settings"
 )
 
@@ -64,42 +68,66 @@ func main() {
 	}
 
 	databasePath := defaultDatabasePath()
-	database, databaseErr := sqlite.Open(databasePath)
+	var database *sqlite.DB
 	var service *nestworthapp.Service
 	var startupErr error
-	if databaseErr != nil {
-		slog.Error("could not open the local database; the application will start with backend calls unavailable", "error", databaseErr, "path", databasePath)
-		startupErr = &domain.Error{Code: domain.ErrUnavailable, Field: "database", Message: "the local database could not be opened"}
+	if err := backup.ReconcileOnStartup(databasePath, store); err != nil {
+		slog.Error("restore journal could not be reconciled", "error", err, "path", databasePath)
+		startupErr = err
 	} else {
-		defer database.Close()
-		registry := nestworthapp.NewMarketDataRegistryWithDefault(nestworthapp.FrankfurterProviderKey,
-			marketdata.NewFrankfurterProvider(nil),
-			marketdata.NewYahooChartProvider(nil),
-		)
-		service = nestworthapp.NewService(sqlite.NewRepository(database), registry)
-		if err := service.SetFXProvider(preference.FXProvider); err != nil {
-			// Fall back for this session only: the persisted choice stays on
-			// disk so a transient provider failure cannot rewrite the user's
-			// configuration silently.
-			slog.Warn("configured FX provider is not available; falling back to the default for this session",
-				"provider", preference.FXProvider, "fallback", settings.DefaultFXProvider, "error", err)
-			preference.FXProvider = settings.DefaultFXProvider
-			if fallbackErr := service.SetFXProvider(preference.FXProvider); fallbackErr != nil {
-				slog.Error("default FX provider rejected at startup", "error", fallbackErr)
-			}
+		// Restore reconciliation may have merged selected settings from the
+		// backup. Load them before constructing services and the main window.
+		if refreshed, refreshErr := store.Load(); refreshErr == nil {
+			preference = refreshed
+		} else {
+			slog.Warn("could not reload settings after restore reconciliation", "error", refreshErr)
 		}
-		service.SetQuoteCacheTTL(preference.QuoteCacheTTLDuration())
-		service.SetUILanguage(string(preference.Language))
-		if _, err := service.Bootstrap(context.Background()); err != nil {
-			slog.Error("bootstrap failed at startup", "error", err)
+		var databaseErr error
+		database, databaseErr = sqlite.Open(databasePath)
+		if databaseErr != nil {
+			slog.Error("could not open the local database; the application will start with backend calls unavailable", "error", databaseErr, "path", databasePath)
+			startupErr = &domain.Error{Code: domain.ErrUnavailable, Field: "database", Message: "the local database could not be opened"}
+		} else {
+			registry := nestworthapp.NewMarketDataRegistryWithDefault(nestworthapp.FrankfurterProviderKey,
+				marketdata.NewFrankfurterProvider(nil),
+				marketdata.NewYahooChartProvider(nil),
+			)
+			service = nestworthapp.NewService(sqlite.NewRepository(database), registry)
+			if err := service.SetFXProvider(preference.FXProvider); err != nil {
+				// Fall back for this session only: the persisted choice stays on
+				// disk so a transient provider failure cannot rewrite the user's
+				// configuration silently.
+				slog.Warn("configured FX provider is not available; falling back to the default for this session",
+					"provider", preference.FXProvider, "fallback", settings.DefaultFXProvider, "error", err)
+				preference.FXProvider = settings.DefaultFXProvider
+				if fallbackErr := service.SetFXProvider(preference.FXProvider); fallbackErr != nil {
+					slog.Error("default FX provider rejected at startup", "error", fallbackErr)
+				}
+			}
+			service.SetQuoteCacheTTL(preference.QuoteCacheTTLDuration())
+			service.SetUILanguage(string(preference.Language))
+			if _, err := service.Bootstrap(context.Background()); err != nil {
+				slog.Error("bootstrap failed at startup", "error", err)
+				startupErr = err
+				_ = database.Close()
+				database = nil
+				service = nil
+			} else {
+				defer database.Close()
+			}
 		}
 	}
 
 	emitter := &lazyEventEmitter{}
+	platform := &lazyPlatform{}
+	var marketdataService *wailsmarketdata.Service
+	if service != nil {
+		marketdataService = wailsmarketdata.NewService(service, emitter)
+	}
 	app := application.New(application.Options{
 		Name:        version.Name,
 		Description: version.Description,
-		Services:    services(service, store, emitter, startupErr),
+		Services:    services(service, store, database, databasePath, emitter, platform, marketdataService, startupErr),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(webassets.Dist),
 		},
@@ -108,6 +136,7 @@ func main() {
 		},
 	})
 	emitter.manager = app.Event
+	platform.setApp(app)
 
 	app.Menu.SetApplicationMenu(application.DefaultApplicationMenu())
 
@@ -142,13 +171,18 @@ func main() {
 // only AppService and CatalogService are registered so the frontend can
 // render BlockedStartupPage from Startup() without calling unregistered
 // services. Catalog is always available because it is a static vocabulary.
-func services(service *nestworthapp.Service, store *settings.Store, emitter wailsmarketdata.EventEmitter, startupErr error) []application.Service {
+func services(service *nestworthapp.Service, store *settings.Store, database *sqlite.DB, databasePath string, emitter wailsmarketdata.EventEmitter, platform *lazyPlatform, marketdataService *wailsmarketdata.Service, startupErr error) []application.Service {
+	recovery := wailsrecovery.NewService(databasePath, service, store, platform, platform, refreshGate(marketdataService))
 	registered := []application.Service{
 		application.NewService(wailsapp.NewService(startupErr)),
 		application.NewService(wailscatalog.NewService()),
+		application.NewService(recovery),
 	}
 	if service == nil {
 		return registered
+	}
+	if marketdataService == nil {
+		marketdataService = wailsmarketdata.NewService(service, emitter)
 	}
 	return append(registered,
 		application.NewService(wailshousehold.NewService(service)),
@@ -160,9 +194,17 @@ func services(service *nestworthapp.Service, store *settings.Store, emitter wail
 		application.NewService(wailsquote.NewService(service)),
 		application.NewService(wailsanalytics.NewService(service)),
 		application.NewService(wailshistory.NewService(service)),
-		application.NewService(wailsmarketdata.NewService(service, emitter)),
+		application.NewService(marketdataService),
 		application.NewService(wailssettings.NewService(store, service)),
+		application.NewService(wailsdata.NewService(service, store, database, platform, marketdataService)),
 	)
+}
+
+func refreshGate(service *wailsmarketdata.Service) native.RefreshGate {
+	if service == nil {
+		return native.NoopRefresh{}
+	}
+	return service
 }
 
 func persistWindowSize(store *settings.Store, window *application.WebviewWindow) {

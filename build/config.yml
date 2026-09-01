@@ -11,7 +11,7 @@ info:
   description: "A local-first personal finance desktop application for building and maintaining a personal or household balance sheet." # The application description
   copyright: "(c) 2026, Nestworth" # Copyright text
   comments: "Local-first household balance sheet" # Comments
-  version: "0.2.1" # The application version; kept in sync with internal/version.Version
+  version: "0.3.0" # The application version; kept in sync with internal/version.Version
   # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)
   #                               # Should match the name of your .icon file without the extension
   #                               # If not set and Assets.car exists, defaults to "appicon"

@@ -38,6 +38,10 @@ func readPortfolioSnapshotQuery(ctx context.Context, query queryer, filter domai
 	if household == nil {
 		return domain.PortfolioSnapshot{}, nil
 	}
+	origin, err := historyOriginQuery(ctx, query, household.ID)
+	if err != nil {
+		return domain.PortfolioSnapshot{}, err
+	}
 	members, err := listMembersQuery(ctx, query, true)
 	if err != nil {
 		return domain.PortfolioSnapshot{}, err
@@ -79,7 +83,7 @@ func readPortfolioSnapshotQuery(ctx context.Context, query queryer, filter domai
 		return domain.PortfolioSnapshot{}, err
 	}
 	return domain.PortfolioSnapshot{
-		Household: household, Members: members, Institutions: institutions, Groups: groups,
+		Household: household, Origin: origin, Members: members, Institutions: institutions, Groups: groups,
 		Accounts: accounts, Instruments: instruments, Holdings: holdings, CashValues: cashValues,
 		InstrumentQuotes: instrumentQuotes, FXQuotes: fxQuotes, FXPreferences: fxPreferences,
 	}, nil

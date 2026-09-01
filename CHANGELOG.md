@@ -3,22 +3,20 @@
 All notable changes to Nestworth are recorded here. The project has not
 published a public distribution yet.
 
-## [0.2.1] — Unreleased
+## [0.3.0] — Unreleased
 
-### Changed
+### Added
 
-- Replaced Account primary/secondary categories with `account_type`,
-  `balance_sheet_role`, and `tracking_mode` on a breaking SQLite schema `7`.
-- Overview now reports component-level `assetsByType` and `liabilitiesByType`
-  instead of account-level category totals.
-- Portfolio inclusion is a whole-account `include_in_portfolio` switch.
-- Existing schema `6` databases are rejected without migration or rewrite;
-  a new database must be created.
+- Local `.nestworth-backup` backup/restore with checksum, schema, and
+  SQLite verification, a journaled file-group swap, and quit-and-relaunch.
+- Restore from blocked startup when the current database cannot be opened.
+- Accounts and Holdings CSV export/import with mapping, preview, and an
+  all-or-nothing create-only commit.
 
 ### Current capability
 
 - Local Household onboarding, Accounts, Directory, Investments, Market Data,
-  History, Analytics, and Settings surfaces are available in the desktop UI.
+  History, Analytics, Settings, backup/restore, and CSV portability.
 - Go remains authoritative for financial validation, persistence, valuation,
   replay, cost basis, gains, and provider routing.
 - Frontend tests cover page behavior, localization, error handling, and
@@ -26,9 +24,15 @@ published a public distribution yet.
 
 ### Deferred
 
-- Backup/Restore, Import/Export, synchronization, direct financial
-  integrations, background refresh, signing, notarization, and public
-  artifact publication remain outside this release closeout.
+- Encrypted or cloud backup, synchronization, direct financial integrations,
+  background refresh, signing, notarization, and public artifact publication
+  remain outside this release closeout.
+
+## [0.2.1] — Superseded unreleased line
+
+`0.2.1` replaced Account categories with `account_type`,
+`balance_sheet_role`, and `tracking_mode` on schema `9`. It was never
+published and is superseded by `0.3.0`.
 
 ## [0.2.0] — Superseded unreleased line
 

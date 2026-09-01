@@ -7,8 +7,8 @@ that boundary remain backend-owned.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. The current `0.2.1` line owns one complete SQLite schema
-`8`; older database generations, including schemas `6` and `7`, are rejected without
+and query results. The current `0.3.0` line owns one complete SQLite schema
+`9`; older database generations, including schemas `6`, `7`, and `8`, are rejected without
 migration. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
@@ -45,7 +45,9 @@ Compatibility is rechecked on the writable connection before schema or business 
 The current schema implements Household, Member, Institution, Group,
 Account, Ownership, Account Value, Instrument, Holding, Account
 Cash Value, Instrument Quote, FX Quote, FX Preference, History Origin, Activity,
-snapshot, and dirty-state persistence. Recovery remains a future extension.
+snapshot, and dirty-state persistence. Local backup/restore and CSV import/export
+are application-owned sidecar and file workflows; they do not add business schema
+tables.
 
 Manual Instrument, Holding, cash, quote, preference, archive, and
 foreign-currency Account commands are application-owned and have no provider
@@ -70,7 +72,7 @@ or network dependency.
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the current `schema.sql` and
-documented here without duplicating SQL. The current supported schema is `8`.
+documented here without duplicating SQL. The current supported schema is `9`.
 Future and older schema generations are blocked before business or settings
 writes.
 
@@ -120,6 +122,19 @@ passing database rows or driver-specific errors. Recommended rules:
 The UI formats strings for display but never calculates totals, reciprocal FX
 rates, ownership percentages, gain, or return.
 
+## Backup, restore, and CSV IPC
+
+`RecoveryService` is always bound, including when the business database could
+not be opened. `DataService` is bound only when a live database session exists.
+
+Backup writes a `.nestworth-backup` ZIP (`manifest.json`, `database.sqlite`,
+`settings.json`) using `VACUUM INTO`, then stores a filename-only summary in
+`.nestworth-backup-status.json` next to the live database. Restore verifies the
+package, replaces the live SQLite file group through a journaled swap, quits,
+and finishes verification on the next launch. CSV import/export is create-only
+for Accounts and Holdings, with preview and an all-or-nothing commit. CSV is
+not a backup substitute.
+
 ## Error contract
 
 Application errors should be grouped into stable categories such as:
@@ -130,6 +145,8 @@ Application errors should be grouped into stable categories such as:
 - unsupported database, migration failure, and integrity failure
 - invalid Activity, insufficient balance/quantity, or correction conflict
 - unavailable provider, rate limit, malformed provider response
+- backup format, checksum, schema, restore confirmation, and restore swap
+- CSV encoding, mapping, row, duplicate, limit, and commit failures
 - internal error
 
 Detailed database/driver errors stay in local diagnostics. They must not be

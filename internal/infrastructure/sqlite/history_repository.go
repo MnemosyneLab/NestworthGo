@@ -10,7 +10,11 @@ import (
 )
 
 func (r *Repository) HistoryOrigin(ctx context.Context, householdID domain.HouseholdID) (*domain.HistoryOrigin, error) {
-	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, timezone, started_at, created_at FROM history_origins WHERE household_id = ?`, householdID.String())
+	return historyOriginQuery(ctx, r.database.SQL, householdID)
+}
+
+func historyOriginQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) (*domain.HistoryOrigin, error) {
+	row := query.QueryRowContext(ctx, `SELECT id, household_id, timezone, started_at, created_at FROM history_origins WHERE household_id = ?`, householdID.String())
 	origin, err := scanHistoryOrigin(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

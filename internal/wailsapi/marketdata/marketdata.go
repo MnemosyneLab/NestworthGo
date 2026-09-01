@@ -43,6 +43,7 @@ type Service struct {
 	mu        sync.Mutex
 	nextToken uint64
 	cancels   map[string]refreshRegistration
+	wg        sync.WaitGroup
 }
 
 type refreshRegistration struct {
@@ -188,10 +189,26 @@ func (s *Service) CancelRefresh(requestID string) {
 	}
 }
 
+func (s *Service) CancelAllAndWait() {
+	s.mu.Lock()
+	cancels := make([]context.CancelFunc, 0, len(s.cancels))
+	for id, registration := range s.cancels {
+		cancels = append(cancels, registration.cancel)
+		delete(s.cancels, id)
+	}
+	s.mu.Unlock()
+	for _, cancel := range cancels {
+		cancel()
+	}
+	s.wg.Wait()
+}
+
 func (s *Service) runAsync(requestID string, run func(context.Context) (application.RefreshResult, error)) {
 	ctx, cancel := context.WithCancel(context.Background())
 	token := s.registerCancel(requestID, cancel)
+	s.wg.Add(1)
 	go func() {
+		defer s.wg.Done()
 		defer cancel()
 		result, err := run(ctx)
 		payload := RefreshCompletedPayload{RequestID: requestID}

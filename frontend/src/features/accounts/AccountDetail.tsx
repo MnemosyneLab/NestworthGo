@@ -256,7 +256,7 @@ export function AccountDetail({
       )}
 
       {composite && (cashOnly || (!holdingsQuery.isLoading && !holdingsQuery.isError)) && (
-        <div className={cn("grid gap-4", !cashOnly && "lg:grid-cols-2")}>
+        <div data-testid="account-cash-holdings-layout" className={cn("grid gap-4", !cashOnly && "2xl:grid-cols-2")}>
           <Card>
             <CardHeader>
               <CardTitle>{t("accounts.cash")}</CardTitle>
