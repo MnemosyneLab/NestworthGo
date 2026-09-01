@@ -213,6 +213,16 @@ type DailyValuationSnapshotItem struct {
 	ClassificationBasis       ClassificationBasis
 }
 
+// ValidateNativeAmount applies the storage contract for the unrounded value
+// captured before BaseAmount is reduced to Money precision.
+func (item DailyValuationSnapshotItem) ValidateNativeAmount() error {
+	if item.NativeAmount == "" {
+		return nil
+	}
+	_, err := ParseNativeAmount(item.NativeAmount)
+	return err
+}
+
 // HistoricalSnapshotBatch is the immutable read input for one bounded
 // historical rebuild. The application filters these candidates by each day's
 // cutoff while the repository guarantees that all fields came from one read

@@ -382,7 +382,11 @@ func (v *ValuationService) valueCash(snapshot domain.PortfolioSnapshot, accountI
 }
 
 func (v *ValuationService) valueNative(snapshot domain.PortfolioSnapshot, accountID domain.AccountID, instrumentID *domain.InstrumentID, native decimal.Decimal, currency domain.CurrencyCode, priceEvidence *domain.QuoteEvidenceView) (domain.ValuationComponent, []domain.MissingInputView, error) {
-	component := domain.ValuationComponent{AccountID: accountID, InstrumentID: cloneInstrumentID(instrumentID), NativeAmount: native.String(), NativeCurrency: currency, PriceEvidence: priceEvidence, Available: true}
+	nativeAmount, err := domain.ParseNativeAmount(native.String())
+	if err != nil {
+		return domain.ValuationComponent{}, nil, err
+	}
+	component := domain.ValuationComponent{AccountID: accountID, InstrumentID: cloneInstrumentID(instrumentID), NativeAmount: nativeAmount, NativeCurrency: currency, PriceEvidence: priceEvidence, Available: true}
 	if preference := findFXPreference(snapshot.FXPreferences, currency, snapshot.Household.BaseCurrency); preference != nil {
 		component.FXPreferenceObservationID = preference.ObservationID
 	}

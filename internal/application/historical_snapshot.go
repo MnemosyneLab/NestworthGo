@@ -90,6 +90,9 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 		}
 		for _, component := range account.Components {
 			item := domain.DailyValuationSnapshotItem{ID: domain.NewDailyValuationSnapshotItemID(), AccountID: account.Account.ID, HoldingID: component.HoldingID, NativeAmount: component.NativeAmount, NativeCurrency: component.NativeCurrency, Complete: component.Available, InstrumentID: component.InstrumentID, StateObservationID: component.StateObservationID, PreferenceObservationID: component.PreferenceObservationID, FXPreferenceObservationID: component.FXPreferenceObservationID}
+			if err := item.ValidateNativeAmount(); err != nil {
+				return domain.DailyValuationSnapshot{}, false, err
+			}
 			if component.PriceEvidence != nil && component.PriceEvidence.ObservationID != "" {
 				quoteID := component.PriceEvidence.ObservationID
 				item.QuoteID = &quoteID

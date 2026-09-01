@@ -61,6 +61,18 @@ func TestPortfolioDecimalArithmeticIsCheckedAndUnrounded(t *testing.T) {
 	}
 }
 
+func TestNativeAmountAllowsFullQuantityAndUnitPricePrecision(t *testing.T) {
+	value, err := ParseNativeAmount("11568.99735")
+	if err != nil || value != "11568.99735" {
+		t.Fatalf("native amount = %q, err = %v", value, err)
+	}
+	for _, input := range []string{"", "01", "1.", "1e2", "-1", "1.00000000000000000"} {
+		if _, err := ParseNativeAmount(input); err == nil {
+			t.Fatalf("ParseNativeAmount(%q) succeeded", input)
+		}
+	}
+}
+
 func TestMoneyBoundaryUsesBankersRounding(t *testing.T) {
 	even, err := NewMoney(decimal.RequireFromString("1.23445"), CurrencyCode("CNY"))
 	if err != nil {

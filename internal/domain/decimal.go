@@ -7,10 +7,11 @@ import (
 )
 
 var (
-	quantitySyntax    = regexp.MustCompile(`^(0|[1-9][0-9]{0,17})(\.[0-9]{1,8})?$`)
-	unitPriceSyntax   = regexp.MustCompile(`^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$`)
-	fxRateSyntax      = regexp.MustCompile(`^(0|[1-9][0-9]{0,7})(\.[0-9]{1,12})?$`)
-	signedMoneySyntax = regexp.MustCompile(`^-?(0|[1-9][0-9]{0,11})(\.[0-9]{1,4})?$`)
+	quantitySyntax     = regexp.MustCompile(`^(0|[1-9][0-9]{0,17})(\.[0-9]{1,8})?$`)
+	unitPriceSyntax    = regexp.MustCompile(`^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$`)
+	fxRateSyntax       = regexp.MustCompile(`^(0|[1-9][0-9]{0,7})(\.[0-9]{1,12})?$`)
+	nativeAmountSyntax = regexp.MustCompile(`^(0|[1-9][0-9]{0,11})(\.[0-9]{1,16})?$`)
+	signedMoneySyntax  = regexp.MustCompile(`^-?(0|[1-9][0-9]{0,11})(\.[0-9]{1,4})?$`)
 
 	maxQuantity  = decimal.RequireFromString("999999999999999999.99999999")
 	maxUnitPrice = decimal.RequireFromString("999999999999.99999999")
@@ -77,6 +78,26 @@ func (p UnitPrice) Canonical() string        { return canonicalDecimal(p.value) 
 func (p UnitPrice) CanonicalString() string  { return p.Canonical() }
 func (p UnitPrice) String() string           { return p.Canonical() }
 func (p UnitPrice) IsZero() bool             { return p.value.IsZero() }
+
+// ParseNativeAmount validates the unrounded native value stored in a daily
+// valuation snapshot item. A holding's quantity and unit price each allow
+// eight fractional digits, so their product may require up to sixteen. The
+// value is still bounded by the existing intermediate monetary range, but it
+// must not be sent through ParseMoney because ParseMoney intentionally allows
+// only four fractional digits.
+func ParseNativeAmount(value string) (string, error) {
+	if !nativeAmountSyntax.MatchString(value) {
+		return "", validation("nativeAmount", "must be a canonical non-negative decimal with up to sixteen fractional digits")
+	}
+	parsed, err := decimal.NewFromString(value)
+	if err != nil {
+		return "", validation("nativeAmount", "is not a valid decimal")
+	}
+	if err := validateBoundedDecimal("nativeAmount", parsed, maxMoney, 12, 16, false); err != nil {
+		return "", err
+	}
+	return canonicalDecimal(parsed), nil
+}
 
 // FxRate is a strictly positive exact rate with up to 8 integer and 12
 // fractional digits. Its orientation is documented by the FXQuote contract:

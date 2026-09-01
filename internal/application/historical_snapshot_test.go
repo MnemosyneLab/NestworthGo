@@ -7,6 +7,55 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+func TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "high-precision-snapshot", []string{"Owner"})
+	owner := bootstrap.Members[0].ID
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
+	})
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	stock, err := service.CreateInstrument(ctx, InstrumentInput{Name: "High precision ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatalf("CreateInstrument: %v", err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: stock.ID.String(), Quantity: "3.14159"})
+	if err != nil {
+		t.Fatalf("CreateHolding: %v", err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, stock.ID, "3682", "2026-08-01", false); err != nil {
+		t.Fatalf("AppendManualInstrumentQuote: %v", err)
+	}
+	if _, err := service.StartHistoryWithCosts(ctx, "UTC", map[domain.HoldingID]string{holding.ID: "3682"}); err != nil {
+		t.Fatalf("StartHistoryWithCosts: %v", err)
+	}
+	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
+	snapshot, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-01")
+	if err != nil || !appended {
+		t.Fatalf("BuildDailyValuationSnapshot: appended=%v err=%v", appended, err)
+	}
+	if len(snapshot.Items) != 1 || snapshot.Items[0].NativeAmount != "11567.33438" || snapshot.Items[0].BaseAmount == nil || snapshot.Items[0].BaseAmount.CanonicalAmount() != "11567.3344" || snapshot.NetWorthAmount == nil || snapshot.NetWorthAmount.CanonicalAmount() != "11567.3344" {
+		t.Fatalf("snapshot native amount = %+v", snapshot.Items)
+	}
+	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("ListDailyValuationSnapshots: count=%d err=%v", len(listed), err)
+	}
+	if listed[0].Items[0].NativeAmount != "11567.33438" {
+		t.Fatalf("reloaded native amount = %q", listed[0].Items[0].NativeAmount)
+	}
+	trend, err := service.NetWorthTrend(ctx, domain.TrendAllTime)
+	if err != nil {
+		t.Fatalf("NetWorthTrend: %v", err)
+	}
+	if len(trend.Points) < 2 || trend.Points[0].Value == nil || trend.Points[0].Value.CanonicalAmount() != "11567.3344" {
+		t.Fatalf("trend = %+v", trend)
+	}
+}
+
 func TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals(t *testing.T) {
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "snapshot-classification", []string{"Owner"})
 	owner := bootstrap.Members[0].ID

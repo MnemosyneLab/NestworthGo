@@ -58,6 +58,9 @@ func saveDailyValuationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot doma
 		if item.ID == "" {
 			item.ID = domain.NewDailyValuationSnapshotItemID()
 		}
+		if err := item.ValidateNativeAmount(); err != nil {
+			return false, err
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshot_items(id, snapshot_id, account_id, holding_id, instrument_id, native_amount, native_currency, base_amount, base_currency, quote_id, fx_quote_id, state_observation_id, preference_observation_id, complete, missing_reason, fx_preference_observation_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.ID.String(), snapshot.ID.String(), item.AccountID.String(), nullableSnapshotHoldingID(item.HoldingID), nullableSnapshotInstrumentID(item.InstrumentID), nullableSnapshotString(item.NativeAmount), nullableSnapshotCurrency(item.NativeCurrency), nullableMoneyAmount(item.BaseAmount), snapshot.Currency.String(), nullableSnapshotStringPtr(item.QuoteID), nullableSnapshotStringPtr(item.FXQuoteID), nullableSnapshotAccountObservationID(item.StateObservationID), nullableSnapshotPreferenceObservationID(item.PreferenceObservationID), boolValue(item.Complete), nullableSnapshotStringPtr(item.MissingReason), nullableSnapshotFXPreferenceObservationID(item.FXPreferenceObservationID)); err != nil {
 			return false, err
 		}
@@ -234,10 +237,10 @@ func (r *Repository) listDailyValuationSnapshotItems(ctx context.Context, snapsh
 			if parseErr != nil {
 				return nil, parseErr
 			}
-			if _, parseErr := domain.ParseMoney(nativeAmount.String, currency); parseErr != nil {
+			item.NativeAmount, item.NativeCurrency = nativeAmount.String, currency
+			if parseErr := item.ValidateNativeAmount(); parseErr != nil {
 				return nil, parseErr
 			}
-			item.NativeAmount, item.NativeCurrency = nativeAmount.String, currency
 		}
 		if baseAmount.Valid && baseAmount.String != "" {
 			currency := baseCurrency
