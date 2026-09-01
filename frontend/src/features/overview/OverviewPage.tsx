@@ -7,12 +7,13 @@ import { useSettings } from "@/queries/settings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatAmount, formatPercent } from "@/lib/money";
+import { formatAmount, formatPercent, isPositiveCanonical } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import { formatTimestamp } from "@/lib/time";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { activitySentence } from "@/features/history/activitySentence";
+import { CompositionChart } from "@/components/charts/CompositionChart";
 import type { BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 function BreakdownList({
@@ -318,12 +319,57 @@ export function OverviewPage({
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        <BreakdownList
-          title={t("overview.assetsByType")}
-          description={t("overview.assetsByTypeHint")}
-          items={(data.assetsByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
-          currency={currency}
-        />
+        {(data.assetsByType ?? []).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("overview.composition")}</CardTitle>
+              <p className="text-sm font-normal text-muted-foreground">{t("overview.compositionHint")}</p>
+            </CardHeader>
+            <CardContent>
+              <CompositionChart
+                title={t("overview.composition")}
+                items={(data.assetsByType ?? []).map((item) => ({
+                  key: item.key,
+                  label: displayEnum(t, "enum", item.key),
+                  amount: item.amount,
+                  shareBps: item.shareBps,
+                }))}
+                currency={currency}
+                centerValue={data.assets}
+                centerCaption={t("overview.valuedSubtotal")}
+                ariaLabel={t("overview.composition")}
+                summary={t("overview.compositionHint")}
+                height={280}
+                complete={data.complete}
+                missingCount={missing.length}
+              />
+            </CardContent>
+          </Card>
+        )}
+        {isPositiveCanonical(data.liabilities) && (data.liabilitiesByType ?? []).length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("overview.liabilitiesComposition")}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CompositionChart
+                title={t("overview.liabilitiesComposition")}
+                items={(data.liabilitiesByType ?? []).map((item) => ({
+                  key: item.key,
+                  label: displayEnum(t, "enum", item.key),
+                  amount: item.amount,
+                  shareBps: item.shareBps,
+                }))}
+                currency={currency}
+                centerValue={data.liabilities}
+                centerCaption={t("overview.valuedSubtotal")}
+                ariaLabel={t("overview.liabilitiesComposition")}
+                summary={t("overview.liabilitiesComposition")}
+                height={280}
+              />
+            </CardContent>
+          </Card>
+        )}
         <p className="text-sm text-muted-foreground">{t("overview.dimensionHint")}</p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <BreakdownList
@@ -338,11 +384,6 @@ export function OverviewPage({
             title={t("overview.byAccountType")}
             description={t("overview.byAccountTypeHint")}
             items={(data.byAccountType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
-            currency={currency}
-          />
-          <BreakdownList
-            title={t("overview.liabilitiesByType")}
-            items={(data.liabilitiesByType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
             currency={currency}
           />
           <BreakdownList title={t("overview.byMember")} items={data.byMember ?? []} currency={currency} />

@@ -65,6 +65,20 @@ func TestParseTrendRange(t *testing.T) {
 	}
 }
 
+func TestParseQuoteSourceFilter(t *testing.T) {
+	got, err := ParseQuoteSourceFilter("")
+	if err != nil || got != QuoteSourceFilterAll {
+		t.Fatalf("empty filter = %q, %v", got, err)
+	}
+	got, err = ParseQuoteSourceFilter("manual")
+	if err != nil || got != QuoteSourceFilterManual {
+		t.Fatalf("manual filter = %q, %v", got, err)
+	}
+	if _, err := ParseQuoteSourceFilter("yahoo"); err == nil {
+		t.Fatal("ParseQuoteSourceFilter accepted yahoo")
+	}
+}
+
 func TestParseActivityReasonAndTradeSide(t *testing.T) {
 	if _, err := ParseActivityReason("not-a-reason"); err == nil {
 		t.Fatal("ParseActivityReason accepted an unknown reason")

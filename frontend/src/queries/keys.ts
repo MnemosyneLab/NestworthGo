@@ -56,11 +56,15 @@ export const queryKeys = {
     instrument: {
       all: ["quote", "instrument"] as const,
       current: (instrumentId: string) => ["quote", "instrument", instrumentId] as const,
+      series: (instrumentId: string, trendRange: string, sourceFilter: string) =>
+        ["quote", "instrument", instrumentId, "series", trendRange, sourceFilter] as const,
     },
     fx: {
       all: ["quote", "fx"] as const,
       preferences: ["quote", "fx", "preferences"] as const,
       current: (currencyA: string, currencyB: string) => ["quote", "fx", ...[currencyA, currencyB].sort()] as const,
+      series: (currencyA: string, currencyB: string, trendRange: string, sourceFilter: string) =>
+        ["quote", "fx", currencyA, currencyB, "series", trendRange, sourceFilter] as const,
     },
   },
   overview: {
@@ -68,6 +72,7 @@ export const queryKeys = {
   },
   portfolio: {
     all: ["portfolio"] as const,
+    trend: (trendRange: string) => ["portfolio", "trend", trendRange] as const,
   },
   analytics: {
     all: ["analytics"] as const,
@@ -78,6 +83,7 @@ export const queryKeys = {
       current: (accountId: string) => ["analytics", "accountGain", accountId] as const,
     },
     netWorthTrend: (trendRange: string) => ["analytics", "netWorthTrend", trendRange] as const,
+    netWorthTrendPrefix: ["analytics", "netWorthTrend"] as const,
   },
   history: {
     all: ["history"] as const,

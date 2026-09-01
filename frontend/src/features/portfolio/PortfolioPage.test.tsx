@@ -11,9 +11,15 @@ const listAccounts = vi.fn();
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
   Service: {
     Portfolio: () => portfolio(),
+    PortfolioTrend: () => Promise.resolve({ range: "30d", currency: "USD", points: [] }),
     Overview: vi.fn(),
+    NetWorthTrend: vi.fn(),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: { ListAccounts: () => listAccounts() },
 }));
@@ -58,7 +64,7 @@ describe("PortfolioPage", () => {
     renderPage(onOpenAccount);
     expect(await screen.findByTestId("portfolio-total")).toHaveTextContent("$320,000.00");
     expect(screen.getByText(/manual-value accounts are not in the portfolio/i)).toBeInTheDocument();
-    expect(screen.getByText("Stock")).toBeInTheDocument();
+    expect(screen.getAllByText("Stock").length).toBeGreaterThan(0);
     await userEvent.click(screen.getByRole("button", { name: "MooMoo SG Brokerage" }));
     expect(onOpenAccount).toHaveBeenCalledWith("brk-1");
   });

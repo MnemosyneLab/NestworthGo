@@ -49,14 +49,14 @@ export function EmptyState({
   action,
 }: {
   title: string;
-  description: string;
+  description?: string;
   action?: ReactNode;
 }) {
   return (
     <div className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-card/40 p-8 text-center">
       <Inbox className="size-5 text-muted-foreground" aria-hidden="true" />
       <h2 className="font-medium text-foreground">{title}</h2>
-      <p className="max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
+      {description ? <p className="max-w-md text-sm leading-6 text-muted-foreground">{description}</p> : null}
       {action && <div className="mt-2">{action}</div>}
     </div>
   );

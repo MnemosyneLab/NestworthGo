@@ -22,3 +22,10 @@ export function usePortfolio() {
     queryFn: () => callService(() => PortfolioService.Portfolio({})),
   });
 }
+
+export function usePortfolioTrend(trendRange: string) {
+  return useQuery({
+    queryKey: queryKeys.portfolio.trend(trendRange),
+    queryFn: () => callService(() => PortfolioService.PortfolioTrend(trendRange)),
+  });
+}

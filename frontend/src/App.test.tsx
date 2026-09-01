@@ -136,6 +136,8 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfoli
         byAccountType: [],
       }),
     Portfolio: () => portfolio(),
+    PortfolioTrend: () => Promise.resolve({ range: "30d", currency: "USD", points: [] }),
+    NetWorthTrend: () => Promise.resolve({ range: "30d", currency: "USD", points: [] }),
   },
 }));
 
@@ -164,7 +166,10 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding"
 }));
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
-  Service: {},
+  Service: {
+    InstrumentQuoteSeries: () => Promise.resolve({ range: "30d", points: [], observations: [] }),
+    FXQuoteSeries: () => Promise.resolve({ range: "30d", points: [], observations: [] }),
+  },
 }));
 
 beforeEach(() => {

@@ -23,6 +23,7 @@ import { formatTimestamp } from "@/lib/time";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import type { FXPreferenceDTO, InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { EntityIcon } from "@/components/icons/EntityIcon";
+import { QuoteHistorySheet, type QuoteHistoryTarget } from "@/features/marketdata/QuoteHistorySheet";
 
 const STATUS_VARIANT: Record<string, "success" | "secondary" | "destructive" | "warning"> = {
   fetched: "success",
@@ -266,7 +267,7 @@ function RefreshResults({
   );
 }
 
-function SavedInstrumentRow({ instrument }: { instrument: InstrumentDTO }) {
+function SavedInstrumentRow({ instrument, onViewHistory }: { instrument: InstrumentDTO; onViewHistory: () => void }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const quote = useCurrentInstrumentQuote(instrument.id);
@@ -279,19 +280,22 @@ function SavedInstrumentRow({ instrument }: { instrument: InstrumentDTO }) {
         <Badge variant="secondary">{instrument.quoteCurrency}</Badge>
         <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>{displayEnum(t, "portfolio", instrument.quoteSource)}</Badge>
       </span>
-      <span className="text-right">
+      <span className="flex flex-wrap items-center justify-end gap-2 text-right">
         {quote.isLoading ? (
           <span className="text-muted-foreground">{t("portfolio.priceLoading")}</span>
         ) : quote.data ? (
           <>
             <span className="font-medium">{t("marketData.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) })}</span>
-            <span className="ml-2 text-xs text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}
             </span>
           </>
         ) : (
           <span className="text-muted-foreground">{t("marketData.noQuoteYet")}</span>
         )}
+        <Button type="button" variant="outline" size="sm" onClick={onViewHistory}>
+          {t("charts.viewHistory")}
+        </Button>
       </span>
     </li>
   );
@@ -302,11 +306,13 @@ function SavedFXRow({
   preference,
   onConfigure,
   isConfiguring,
+  onViewHistory,
 }: {
   pair: FxPair;
   preference?: FXPreferenceDTO;
   onConfigure: (source?: string) => void;
   isConfiguring: boolean;
+  onViewHistory: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
@@ -352,6 +358,9 @@ function SavedFXRow({
             {isConfiguring ? t("marketData.configuringFX") : t("marketData.configureFX")}
           </Button>
         )}
+        <Button type="button" variant="outline" size="sm" onClick={onViewHistory}>
+          {t("charts.viewHistory")}
+        </Button>
       </span>
     </li>
   );
@@ -363,12 +372,14 @@ function SavedMarketData({
   fxPreferences,
   onConfigureFX,
   configuringPair,
+  onViewHistory,
 }: {
   instruments: InstrumentDTO[];
   fxPairs: FxPair[];
   fxPreferences: FXPreferenceDTO[];
   onConfigureFX: (pair: FxPair, source?: string) => void;
   configuringPair?: string;
+  onViewHistory: (target: QuoteHistoryTarget) => void;
 }) {
   const { t } = useTranslation();
 
@@ -382,7 +393,13 @@ function SavedMarketData({
         <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">{t("marketData.noSavedData")}</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {instruments.map((instrument) => <SavedInstrumentRow key={instrument.id} instrument={instrument} />)}
+          {instruments.map((instrument) => (
+            <SavedInstrumentRow
+              key={instrument.id}
+              instrument={instrument}
+              onViewHistory={() => onViewHistory({ kind: "instrument", instrument })}
+            />
+          ))}
           {fxPairs.map((pair) => {
             const key = fxPairKey(pair.currencyA, pair.currencyB);
             return (
@@ -392,6 +409,7 @@ function SavedMarketData({
                 preference={preferenceForPair(fxPreferences, pair)}
                 onConfigure={(source) => onConfigureFX(pair, source)}
                 isConfiguring={configuringPair === key}
+                onViewHistory={() => onViewHistory({ kind: "fx", currencyA: pair.currencyA, currencyB: pair.currencyB })}
               />
             );
           })}
@@ -415,6 +433,7 @@ export function MarketDataPage() {
   const [result, setResult] = useState<RefreshResultDTO | undefined>();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | undefined>();
   const [configuringPair, setConfiguringPair] = useState<string | undefined>();
+  const [historyTarget, setHistoryTarget] = useState<QuoteHistoryTarget | null>(null);
   const activeRefresh = lastRefresh === "missing" ? refreshMissingOrStale : refreshAll;
 
   const runRefreshAll = () => {
@@ -504,8 +523,10 @@ export function MarketDataPage() {
           fxPreferences={preferenceList}
           onConfigureFX={configureFX}
           configuringPair={configuringPair}
+          onViewHistory={setHistoryTarget}
         />
       )}
+      {historyTarget ? <QuoteHistorySheet target={historyTarget} onClose={() => setHistoryTarget(null)} /> : null}
       {!activeRefresh.isError && result && (
         <RefreshResults
           result={result}

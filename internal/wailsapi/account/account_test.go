@@ -52,6 +52,50 @@ func TestCreateAccountMinimalFields(t *testing.T) {
 	}
 }
 
+func TestCreateMultiCurrencyCashOnHandAccount(t *testing.T) {
+	app, members := onboardedApp(t)
+	service := account.NewService(app)
+	record, err := service.CreateAccount(context.Background(), account.CreateAccountRequest{
+		Name: "Travel cash", AccountType: "cash_on_hand", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInLiquidAssets: true,
+		OwnerIDs: []string{members[0].ID}, InitialAmount: "",
+	})
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	if record.Account.AccountType != "cash_on_hand" || record.Account.TrackingMode != "holdings" {
+		t.Fatalf("record = %+v", record.Account)
+	}
+	if record.LatestValue != nil {
+		t.Fatalf("LatestValue = %+v, want nil", record.LatestValue)
+	}
+}
+
+func TestCreateMultiCurrencyCashOnHandAccountAfterHistoryStarted(t *testing.T) {
+	app := wailstest.NewService(t)
+	ctx := context.Background()
+	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
+		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"}, Timezone: "UTC",
+	}); err != nil {
+		t.Fatalf("CompleteOnboarding: %v", err)
+	}
+	bootstrap, err := household.NewService(app).Bootstrap(ctx)
+	if err != nil {
+		t.Fatalf("Bootstrap: %v", err)
+	}
+	record, err := account.NewService(app).CreateAccount(ctx, account.CreateAccountRequest{
+		Name: "Travel cash", AccountType: "cash_on_hand", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInLiquidAssets: true,
+		OwnerIDs: []string{bootstrap.Members[0].ID}, InitialAmount: "",
+	})
+	if err != nil {
+		t.Fatalf("CreateAccount after history: %v", err)
+	}
+	if record.Account.TrackingMode != "holdings" {
+		t.Fatalf("tracking = %s, want holdings", record.Account.TrackingMode)
+	}
+}
+
 const domainTotalOwnershipBPS = 10000
 
 func TestCreateAccountWithExplicitOwnershipPercentages(t *testing.T) {

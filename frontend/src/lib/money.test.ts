@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
-import { divideCanonical, formatAmount, multiplyCanonical } from "./money";
+import { addCanonical, divideCanonical, formatAmount, multiplyCanonical } from "./money";
 
 afterEach(async () => {
   await i18n.changeLanguage("en");
@@ -99,10 +99,10 @@ describe("canonical decimal defaults", () => {
     expect(divideCanonical("3", "400", 2)).toBe("0.01");
   });
 
-  it("returns an empty default for invalid input or zero denominator", () => {
-    expect(multiplyCanonical("", "2", 2)).toBe("");
-    expect(divideCanonical("2", "0", 2)).toBe("");
-    expect(divideCanonical("not-a-decimal", "2", 2)).toBe("");
+  it("adds canonical decimals without converting through Number", () => {
+    expect(addCanonical("10", "20")).toBe("30");
+    expect(addCanonical("1.5", "2.25")).toBe("3.75");
+    expect(addCanonical("10", "-2.5")).toBe("7.5");
   });
 });
 

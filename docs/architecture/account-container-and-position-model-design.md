@@ -41,7 +41,8 @@ This design also freezes these product decisions:
 - Overview replaces the old account-level `ByCategory` with component-grained
   `assetsByType` and adds `liabilitiesByType`;
 - schema v9 is the current breaking schema with no legacy-database migration,
-  compatibility reads, or automatic reset; older generations including v8 are rejected;
+  compatibility reads, or automatic reset; older generations including v8 are rejected.
+  Opening v9 may losslessly widen the `cash_on_hand` combination CHECK;
 - current Wails DTOs expose only the new fields and do not define dual-API
   precedence;
 - SQLite `accounts`, `account_state_observations`, and
@@ -234,7 +235,7 @@ listed are rejected by `NewAccount`:
 
 | `account_type` | Real-world meaning | Legal role | Legal tracking |
 | --- | --- | --- | --- |
-| `cash_on_hand` | An independent physical cash boundary such as a cash box or safe | `asset` | `balance` |
+| `cash_on_hand` | An independent physical cash boundary such as a cash box or safe | `asset` | `balance`, `holdings` |
 | `bank_account` | A bank deposit or mixed bank account | `asset` | `balance`, `holdings` |
 | `brokerage` | A brokerage account | `asset` | `holdings`, `manual_value` |
 | `investment_account` | A standalone fund, precious-metal, or other investment account | `asset` | `holdings`, `manual_value` |
@@ -935,11 +936,17 @@ databases are created from empty v9.
 Database open has only three outcomes:
 
 1. Path missing or file empty: create a fresh schema v9;
-2. `PRAGMA user_version == 9`: run the full schema and data verifier, then
-   start if it passes;
+2. `PRAGMA user_version == 9`: losslessly widen the `accounts` combination
+   CHECK if it still forbids `cash_on_hand + holdings`, then run the full
+   schema and data verifier, and start if it passes;
 3. Any other version, missing column, leftover old column, or CHECK / index /
    foreign key that does not match v9: close the database and return a clear
    incompatible-schema error.
+
+The CHECK widening is the only auto-migrate exception on v9. It copies every
+`accounts` row into a rebuilt table with a looser constraint; it does not
+convert, delete, or invent data. v6, v7, and v8 databases are still rejected
+without writing.
 
 The data verifier at least runs `PRAGMA integrity_check`,
 `foreign_key_check`, and domain invariants that SQLite CHECKs cannot fully
@@ -949,8 +956,9 @@ only to Simple Accounts, and no duplicate active Instrument in the same
 Account. Any failure is an incompatible database and must not enter business
 reads or writes.
 
-The startup path must not auto-migrate, auto-delete, auto-reset, silently
-repair, or copy old data. The error must at least include failure kind, found
+The startup path must not auto-migrate older schema versions, auto-delete,
+auto-reset, or copy old data, except for the v9 CHECK widening above. The
+error for a rejected database must at least include failure kind, found
 version, supported version, database path, and an action that says to create
 a new database. The old database file stays as-is for the user to keep or
 delete.

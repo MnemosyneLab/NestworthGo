@@ -271,13 +271,32 @@ func AllTrendRanges() []TrendRange {
 }
 
 type NetWorthTrendPoint struct {
-	LocalDate string
-	Value     *Money
-	Complete  bool
+	LocalDate    string
+	NetWorth     *Money
+	Assets       *Money
+	Liabilities  *Money
+	Complete     bool
+	MissingCount int
 }
 
 type NetWorthTrend struct {
 	Range    TrendRange
 	Currency CurrencyCode
 	Points   []NetWorthTrendPoint
+	Start    *Money
+	End      *Money
+	Change   *SignedMoney
+}
+
+type PortfolioTrendPoint struct {
+	LocalDate      string
+	ValuedSubtotal *Money
+	Complete       bool
+	MissingCount   int
+}
+
+type PortfolioTrend struct {
+	Range    TrendRange
+	Currency CurrencyCode
+	Points   []PortfolioTrendPoint
 }

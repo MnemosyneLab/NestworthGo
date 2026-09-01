@@ -13,6 +13,8 @@ const currentFXQuote = vi.fn();
 const listFXPreferences = vi.fn();
 const setFXPreference = vi.fn();
 const refreshRequiredFX = vi.fn();
+const instrumentQuoteSeries = vi.fn();
+const fxQuoteSeries = vi.fn();
 const overview = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
@@ -29,8 +31,14 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/qu
     CurrentFXQuote: (a: string, b: string) => currentFXQuote(a, b),
     ListFXPreferences: () => listFXPreferences(),
     SetFXPreference: (a: string, b: string, source: string) => setFXPreference(a, b, source),
+    InstrumentQuoteSeries: (...args: unknown[]) => instrumentQuoteSeries(...args),
+    FXQuoteSeries: (...args: unknown[]) => fxQuoteSeries(...args),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
+  const { TEST_CATALOG } = await import("@/test/catalog");
+  return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
+});
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
   Service: { Overview: () => overview() },
@@ -62,6 +70,10 @@ describe("MarketDataPage", () => {
     listFXPreferences.mockReset();
     setFXPreference.mockReset();
     overview.mockReset();
+    instrumentQuoteSeries.mockReset();
+    fxQuoteSeries.mockReset();
+    instrumentQuoteSeries.mockResolvedValue({ range: "30d", points: [], observations: [], outsideRange: false });
+    fxQuoteSeries.mockResolvedValue({ range: "30d", points: [], observations: [], outsideRange: false });
     listInstruments.mockResolvedValue([]);
     currentInstrumentQuote.mockResolvedValue(null);
     currentFXQuote.mockResolvedValue(null);
@@ -176,5 +188,80 @@ describe("MarketDataPage", () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: /force refresh all/i }));
     expect(await screen.findByText("No saved market data needs refreshing.")).toBeInTheDocument();
+  });
+
+  it("opens local quote history without calling a provider", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "Global Equity Fund", quoteCurrency: "USD", quoteSource: "provider" }]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "View history" }));
+    expect(await screen.findByRole("heading", { name: "Global Equity Fund price history" })).toBeInTheDocument();
+    expect(await screen.findByText("No local history is saved yet.")).toBeInTheDocument();
+  });
+
+  it("offers show-all when local facts exist outside the selected range", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "Global Equity Fund", quoteCurrency: "USD", quoteSource: "provider" }]);
+    instrumentQuoteSeries.mockResolvedValue({ range: "30d", points: [], observations: [], outsideRange: true });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "View history" }));
+    expect(await screen.findByText("No local observations in this range.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show all history" })).toBeInTheDocument();
+  });
+
+  it("loads swapped FX history as a new directional series instead of the sorted pair cache", async () => {
+    listFXPreferences.mockResolvedValue([
+      {
+        householdId: "h1",
+        currencyA: "CNY",
+        currencyB: "USD",
+        sourceKind: "provider",
+        createdAt: "2024-01-01T00:00:00Z",
+        updatedAt: "2024-01-01T00:00:00Z",
+      },
+    ]);
+    fxQuoteSeries.mockImplementation(async (base: string, quote: string) => {
+      if (base === "USD" && quote === "CNY") {
+        return {
+          range: "30d",
+          baseCurrency: "USD",
+          quoteCurrency: "CNY",
+          points: [
+            { quotedAt: "2026-08-20T00:00:00Z", value: "7", sourceKind: "manual", sourceKey: "", delayed: false },
+          ],
+          observations: [
+            { quotedAt: "2026-08-20T00:00:00Z", value: "7", sourceKind: "manual", sourceKey: "", delayed: false },
+          ],
+          outsideRange: false,
+        };
+      }
+      return {
+        range: "30d",
+        baseCurrency: "CNY",
+        quoteCurrency: "USD",
+        points: [
+          { quotedAt: "2026-08-20T00:00:00Z", value: "0.14", sourceKind: "manual", sourceKey: "", delayed: false },
+          { quotedAt: "2026-08-21T00:00:00Z", value: "0.15", sourceKind: "provider", sourceKey: "frankfurter", delayed: true },
+        ],
+        observations: [
+          { quotedAt: "2026-08-21T00:00:00Z", value: "0.15", sourceKind: "provider", sourceKey: "frankfurter", delayed: true },
+          { quotedAt: "2026-08-20T00:00:00Z", value: "0.14", sourceKind: "manual", sourceKey: "", delayed: false },
+        ],
+        outsideRange: false,
+      };
+    });
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "View history" }));
+    expect(await screen.findByRole("heading", { name: "CNY/USD rate history" })).toBeInTheDocument();
+    expect(fxQuoteSeries).toHaveBeenCalledWith("CNY", "USD", "30d", "all");
+    await userEvent.click(screen.getByText("View data table"));
+    expect(screen.getByText("Provider · frankfurter")).toBeInTheDocument();
+    expect(screen.getAllByText("Delayed").length).toBeGreaterThan(0);
+    expect(screen.getByText("Not delayed")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Swap direction" }));
+    expect(await screen.findByRole("heading", { name: "USD/CNY rate history" })).toBeInTheDocument();
+    expect(fxQuoteSeries).toHaveBeenCalledWith("USD", "CNY", "30d", "all");
+    expect(fxQuoteSeries.mock.calls[0]?.slice(0, 2)).toEqual(["CNY", "USD"]);
+    expect(fxQuoteSeries.mock.calls[1]?.slice(0, 2)).toEqual(["USD", "CNY"]);
   });
 });

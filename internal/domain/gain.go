@@ -73,6 +73,7 @@ type RealizedGainView struct {
 	From          LocalDate
 	To            LocalDate
 	Currency      CurrencyCode
+	Total         *SignedMoneyView
 	ByInstrument  []GainGroupView
 	ByAccount     []GainGroupView
 	Available     bool
@@ -87,6 +88,7 @@ type DividendIncomeView struct {
 	From          LocalDate
 	To            LocalDate
 	Currency      CurrencyCode
+	Total         *SignedMoneyView
 	ByInstrument  []GainGroupView
 	ByAccount     []GainGroupView
 	Available     bool

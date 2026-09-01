@@ -1,11 +1,17 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
-import { usePortfolio } from "@/queries/portfolio";
-import { formatAmount, formatPercent } from "@/lib/money";
+import { CompositionChart } from "@/components/charts/CompositionChart";
+import { TrendChart } from "@/components/charts/TrendChart";
+import { RangeToggle } from "@/components/charts/RangeToggle";
+import { chartTheme } from "@/components/charts/chartTheme";
+import { usePortfolio, usePortfolioTrend } from "@/queries/portfolio";
+import { useCatalog } from "@/queries/catalog";
+import { formatAmount } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import { EntityIcon } from "@/components/icons/EntityIcon";
 
@@ -16,7 +22,12 @@ import { EntityIcon } from "@/components/icons/EntityIcon";
  */
 export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: string) => void } = {}) {
   const { t } = useTranslation();
+  const catalog = useCatalog();
   const portfolio = usePortfolio();
+  const ranges = catalog.data?.trendRanges ?? ["30d", "1y", "all"];
+  const [range, setRange] = useState("30d");
+  const trend = usePortfolioTrend(range);
+  const theme = chartTheme();
 
   if (portfolio.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
@@ -37,6 +48,8 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
   const total = data.valuedSubtotal ? formatAmount(data.valuedSubtotal.amount, data.valuedSubtotal.currency) : t("accounts.noValue");
   const accounts = data.accounts ?? [];
   const allocation = data.byInstrumentType ?? [];
+  const missingCount = (data.missingInputs ?? []).length;
+  const trendPoints = trend.data?.points ?? [];
 
   return (
     <div className="flex flex-col gap-6" data-testid="portfolio-page">
@@ -48,7 +61,7 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
         <>
           <Card>
             <CardHeader className="flex flex-row items-start justify-between gap-3">
-              <CardTitle>{t("portfolio.pageTitle")}</CardTitle>
+              <CardTitle>{t("charts.valuedSubtotal")}</CardTitle>
               <Badge variant={data.complete ? "success" : "warning"}>
                 {data.complete ? t("overview.healthy") : t("overview.needsAttention")}
               </Badge>
@@ -58,7 +71,9 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
                 {total}
               </p>
               {!data.complete && (
-                <p className="mt-2 text-sm text-warning-foreground">{t("overview.totalsExcludeMissing")}</p>
+                <p className="mt-2 text-sm text-warning-foreground">
+                  {t("overview.totalsExcludeMissing")} {t("portfolio.missingQuotes", { count: missingCount })}
+                </p>
               )}
             </CardContent>
           </Card>
@@ -68,19 +83,61 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
               <CardHeader>
                 <CardTitle>{t("portfolio.allocation")}</CardTitle>
               </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                {allocation.map((item) => (
-                  <div key={item.key} className="flex items-center justify-between text-sm">
-                    <span>{displayEnum(t, "enum", item.key)}</span>
-                    <span className="flex items-center gap-2 text-muted-foreground">
-                      <span>{formatAmount(item.amount.amount, item.amount.currency || currency)}</span>
-                      <Badge variant="secondary">{formatPercent(item.shareBps)}</Badge>
-                    </span>
-                  </div>
-                ))}
+              <CardContent>
+                <CompositionChart
+                  title={t("portfolio.allocation")}
+                  items={allocation.map((item) => ({
+                    key: item.key,
+                    label: displayEnum(t, "enum", item.key),
+                    amount: item.amount.amount,
+                    shareBps: item.shareBps,
+                  }))}
+                  currency={currency}
+                  centerValue={data.valuedSubtotal?.amount ?? "0"}
+                  centerCaption={t("charts.valuedSubtotal")}
+                  ariaLabel={t("portfolio.allocation")}
+                  summary={t("portfolio.allocation")}
+                  height={320}
+                  complete={data.complete}
+                  missingCount={missingCount}
+                />
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t("portfolio.trend")}</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
+              {trend.isError ? (
+                <ErrorState
+                  title={t("portfolio.loadError")}
+                  description={t("ui.state.errorDescription")}
+                  onRetry={() => void trend.refetch()}
+                  retryLabel={t("common.retryAction")}
+                />
+              ) : trend.isLoading ? (
+                <LoadingState label={t("portfolio.loading")} />
+              ) : (
+                <TrendChart
+                  ariaLabel={t("portfolio.trend")}
+                  summary={t("portfolio.trendSummary")}
+                  dates={trendPoints.map((point) => point.localDate)}
+                  series={[{
+                    key: "valuedSubtotal",
+                    name: t("charts.valuedSubtotal"),
+                    color: theme.primary,
+                    values: trendPoints.map((point) => point.valuedSubtotal?.amount),
+                  }]}
+                  currency={trend.data?.currency || currency}
+                  height={320}
+                  emptyTitle={t("charts.insufficientHistory")}
+                />
+              )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

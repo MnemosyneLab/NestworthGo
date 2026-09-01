@@ -1,97 +1,31 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { EChart, type EChartsOption } from "@/components/charts/EChart";
-import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
+import { TrendChart } from "@/components/charts/TrendChart";
+import { SignedBarChart } from "@/components/charts/SignedBarChart";
+import { RangeToggle } from "@/components/charts/RangeToggle";
+import { chartTheme } from "@/components/charts/chartTheme";
+import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useRealizedGain, useDividendIncome, useNetWorthTrend } from "@/queries/analytics";
-import { useHistoryOrigin, useRebuildHistoricalSnapshots } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { formatAmount } from "@/lib/money";
-import { localDateTimeInTimeZone } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
-const TREND_RANGE_LABELS: Record<string, string> = {
-  "30d": "analytics.range30",
-  "1y": "analytics.range1year",
-  all: "analytics.rangeAll",
-};
-
-type PeriodGroup = {
-  key: string;
-  label: string;
-  gain: { amount: string; currency: string };
-  available?: boolean;
-};
-
-function PeriodGroupList({
-  title,
-  groups,
-  emptyLabel,
-  incompleteLabel,
-}: {
-  title: string;
-  groups: PeriodGroup[];
-  emptyLabel: string;
-  incompleteLabel: string;
-}) {
-  return (
-    <div>
-      <p className="mb-2 text-sm font-medium">{title}</p>
-      {groups.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{emptyLabel}</p>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {groups.map((group) => (
-            <li key={group.key} className="flex items-center justify-between gap-4 text-sm">
-              <span>{group.label}</span>
-              <span className={Number(group.gain.amount) >= 0 ? "text-gain-positive" : "text-gain-negative"}>
-                {group.available === false ? incompleteLabel : formatAmount(group.gain.amount, group.gain.currency)}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-function shiftYmd(ymd: string, days: number): string {
-  const [year, month, day] = ymd.split("-").map(Number);
-  const date = new Date(year, (month ?? 1) - 1, (day ?? 1) + days);
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
 /** Analytics separates trend context from realized-gain detail and exposes
- * the same chart data in an accessible table disclosure. */
+ * the same chart data in an accessible table disclosure. Snapshot rebuilds
+ * stay in the Go trend read path, which chunks the 31-day backend limit. */
 export function AnalyticsPage() {
   const { t } = useTranslation();
   const catalog = useCatalog();
-  const origin = useHistoryOrigin();
-  const rebuild = useRebuildHistoricalSnapshots();
   const ranges = catalog.data?.trendRanges ?? [];
   const [range, setRange] = useState("30d");
+  const [gainDimension, setGainDimension] = useState<"instrument" | "account">("instrument");
   const realizedGain = useRealizedGain(range);
   const dividendIncome = useDividendIncome(range);
   const netWorthTrend = useNetWorthTrend(range);
-
-  useEffect(() => {
-    if (!origin.data) {
-      return;
-    }
-    const today = localDateTimeInTimeZone(origin.data.timezone)?.date;
-    const start = localDateTimeInTimeZone(origin.data.timezone, new Date(origin.data.startedAt))?.date;
-    if (!today || !start) {
-      return;
-    }
-    const yesterday = shiftYmd(today, -1);
-    if (start <= yesterday) {
-      rebuild.mutate({ startDate: start, endDate: yesterday });
-    }
-    // Rebuild once per origin load; mutate identity is stable enough for this page.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [origin.data?.id, origin.data?.startedAt, origin.data?.timezone]);
+  const theme = chartTheme();
 
   if (realizedGain.isLoading || dividendIncome.isLoading || netWorthTrend.isLoading) {
     return <LoadingState label={t("analytics.loading")} />;
@@ -113,73 +47,67 @@ export function AnalyticsPage() {
   }
 
   const points = netWorthTrend.data?.points ?? [];
-  const today = origin.data ? localDateTimeInTimeZone(origin.data.timezone)?.date : undefined;
-  const todayOnlyTrend = points.length <= 1 && (!points[0] || points[0].localDate === today);
-  const trendOption: EChartsOption = {
-    xAxis: { type: "category" as const, data: points.map((point) => point.localDate) },
-    yAxis: { type: "value" as const },
-    tooltip: { trigger: "axis" as const },
-    series: [
-      {
-        type: "line" as const,
-        name: t("analytics.trend"),
-        data: points.map((point) => (point.value ? Number(point.value.amount) : null)),
-        connectNulls: false,
-      },
-    ],
-  };
   const gainData = realizedGain.data;
   const incomeData = dividendIncome.data;
+  const gainGroups = gainDimension === "instrument" ? (gainData?.byInstrument ?? []) : (gainData?.byAccount ?? []);
+  const incomeGroups = incomeData?.byInstrument ?? [];
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t("nav.analytics")} description={t("analytics.description")} />
 
-      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("analytics.range")}>
-        {ranges.map((id) => (
-          <Button key={id} variant={range === id ? "default" : "outline" } size="sm" onClick={() => setRange(id)}>
-            {t(TREND_RANGE_LABELS[id] ?? id)}
-          </Button>
-        ))}
-      </div>
+      <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("analytics.trend")}</CardTitle>
+          <CardTitle>{t("analytics.wealthTrend")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {netWorthTrend.isError || rebuild.isError ? (
+          {netWorthTrend.isError ? (
             <ErrorState
               title={t("analytics.loadError")}
               description={t("ui.state.errorDescription")}
               onRetry={() => {
                 void netWorthTrend.refetch();
-                if (origin.data) {
-                  const todayDate = localDateTimeInTimeZone(origin.data.timezone)?.date;
-                  const start = localDateTimeInTimeZone(origin.data.timezone, new Date(origin.data.startedAt))?.date;
-                  if (todayDate && start) {
-                    rebuild.mutate({ startDate: start, endDate: shiftYmd(todayDate, -1) });
-                  }
-                }
               }}
               retryLabel={t("common.retryAction")}
             />
-          ) : todayOnlyTrend ? (
-            <EmptyState title={t("analytics.trendEmpty")} description={t("analytics.chartSummary")} />
           ) : (
-            <EChart
-              option={trendOption}
-              style={{ height: 320 }}
-              ariaLabel={t("analytics.trend")}
-              summary={t("analytics.chartSummary")}
-              dataTableLabel={t("analytics.dataTable")}
-              dataTableColumns={[t("analytics.dataTableDate"), t("analytics.dataTableValue")]}
-              dataTableRows={points.map((point) => [
+            <TrendChart
+              ariaLabel={t("analytics.wealthTrend")}
+              summary={t("analytics.wealthSummary")}
+              dates={points.map((point) => point.localDate)}
+              series={[
+                { key: "netWorth", name: t("charts.netWorth"), color: theme.primary, values: points.map((point) => point.netWorth?.amount) },
+                { key: "assets", name: t("charts.assets"), color: theme.success, values: points.map((point) => point.assets?.amount) },
+                { key: "liabilities", name: t("charts.liabilities"), color: theme.destructive, values: points.map((point) => point.liabilities?.amount) },
+              ]}
+              currency={netWorthTrend.data?.currency || "USD"}
+              height={320}
+              emptyTitle={t("analytics.trendEmpty")}
+              extraTableColumns={[t("charts.date"), t("charts.netWorth"), t("charts.assets"), t("charts.liabilities"), t("charts.incomplete")]}
+              extraTableRows={points.map((point) => [
                 point.localDate,
-                point.value ? formatAmount(point.value.amount, point.value.currency) : t("accounts.noValue"),
+                point.netWorth ? formatAmount(point.netWorth.amount, point.netWorth.currency) : t("accounts.noValue"),
+                point.assets ? formatAmount(point.assets.amount, point.assets.currency) : t("accounts.noValue"),
+                point.liabilities ? formatAmount(point.liabilities.amount, point.liabilities.currency) : t("accounts.noValue"),
+                point.complete ? t("charts.complete") : t("charts.incomplete"),
               ])}
             />
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("analytics.periodSummary")}</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <SummaryItem label={t("analytics.periodStart")} value={netWorthTrend.data?.start ? formatAmount(netWorthTrend.data.start.amount, netWorthTrend.data.start.currency) : t("accounts.noValue")} />
+          <SummaryItem label={t("analytics.periodEnd")} value={netWorthTrend.data?.end ? formatAmount(netWorthTrend.data.end.amount, netWorthTrend.data.end.currency) : t("accounts.noValue")} />
+          <SummaryItem label={t("analytics.periodChange")} value={netWorthTrend.data?.change ? formatAmount(netWorthTrend.data.change.amount, netWorthTrend.data.change.currency) : t("accounts.noValue")} />
+          <SummaryItem label={t("analytics.realizedGain")} value={gainData?.total ? formatAmount(gainData.total.amount, gainData.total.currency) : t("accounts.noValue")} warning={gainData && !gainData.available} />
+          <SummaryItem label={t("analytics.dividendIncome")} value={incomeData?.total ? formatAmount(incomeData.total.amount, incomeData.total.currency) : t("accounts.noValue")} warning={incomeData && !incomeData.available} />
         </CardContent>
       </Card>
 
@@ -189,18 +117,27 @@ export function AnalyticsPage() {
             {t("analytics.realizedGain")} {gainData && !gainData.available && `(${t("analytics.statusPartial")})`}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <PeriodGroupList
-            title={t("analytics.byInstrument")}
-            groups={gainData?.byInstrument ?? []}
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap gap-2" role="group" aria-label={t("analytics.realizedGain")}>
+            <Button type="button" size="sm" variant={gainDimension === "instrument" ? "default" : "outline"} onClick={() => setGainDimension("instrument")}>
+              {t("analytics.byInstrument")}
+            </Button>
+            <Button type="button" size="sm" variant={gainDimension === "account" ? "default" : "outline"} onClick={() => setGainDimension("account")}>
+              {t("analytics.byAccount")}
+            </Button>
+          </div>
+          <SignedBarChart
+            ariaLabel={t("analytics.realizedGain")}
+            summary={t("analytics.realizedGain")}
+            items={gainGroups.map((group) => ({
+              key: group.key,
+              label: group.label,
+              amount: group.gain.amount,
+              currency: group.gain.currency,
+              available: group.available,
+            }))}
             emptyLabel={t("analytics.empty")}
-            incompleteLabel={t("analytics.statusPartial")}
-          />
-          <PeriodGroupList
-            title={t("analytics.byAccount")}
-            groups={gainData?.byAccount ?? []}
-            emptyLabel={t("analytics.empty")}
-            incompleteLabel={t("analytics.statusPartial")}
+            allowNegative
           />
         </CardContent>
       </Card>
@@ -211,21 +148,31 @@ export function AnalyticsPage() {
             {t("analytics.dividendIncome")} {incomeData && !incomeData.available && `(${t("analytics.statusPartial")})`}
           </CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-col gap-5">
-          <PeriodGroupList
-            title={t("analytics.byInstrument")}
-            groups={incomeData?.byInstrument ?? []}
+        <CardContent>
+          <SignedBarChart
+            ariaLabel={t("analytics.dividendIncome")}
+            summary={t("analytics.dividendIncome")}
+            items={incomeGroups.map((group) => ({
+              key: group.key,
+              label: group.label,
+              amount: group.gain.amount,
+              currency: group.gain.currency,
+              available: group.available,
+            }))}
             emptyLabel={t("analytics.empty")}
-            incompleteLabel={t("analytics.statusPartial")}
-          />
-          <PeriodGroupList
-            title={t("analytics.byAccount")}
-            groups={incomeData?.byAccount ?? []}
-            emptyLabel={t("analytics.empty")}
-            incompleteLabel={t("analytics.statusPartial")}
+            allowNegative={false}
           />
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function SummaryItem({ label, value, warning }: { label: string; value: string; warning?: boolean }) {
+  return (
+    <div>
+      <p className="text-sm text-muted-foreground">{label}</p>
+      <p className={cn("mt-1 text-lg font-semibold", warning && "text-warning")}>{value}</p>
     </div>
   );
 }

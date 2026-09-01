@@ -106,9 +106,12 @@ func (s *Service) Portfolio(ctx context.Context, request account.AccountFilterRe
 
 // NetWorthTrendPointDTO mirrors domain.NetWorthTrendPoint.
 type NetWorthTrendPointDTO struct {
-	LocalDate string          `json:"localDate"`
-	Value     *wire.MoneyView `json:"value,omitempty"`
-	Complete  bool            `json:"complete"`
+	LocalDate    string          `json:"localDate"`
+	NetWorth     *wire.MoneyView `json:"netWorth,omitempty"`
+	Assets       *wire.MoneyView `json:"assets,omitempty"`
+	Liabilities  *wire.MoneyView `json:"liabilities,omitempty"`
+	Complete     bool            `json:"complete"`
+	MissingCount int             `json:"missingCount"`
 }
 
 // NetWorthTrendDTO mirrors domain.NetWorthTrend.
@@ -116,6 +119,32 @@ type NetWorthTrendDTO struct {
 	Range    string                  `json:"range"`
 	Currency string                  `json:"currency"`
 	Points   []NetWorthTrendPointDTO `json:"points"`
+	Start    *wire.MoneyView         `json:"start,omitempty"`
+	End      *wire.MoneyView         `json:"end,omitempty"`
+	Change   *wire.SignedMoneyView   `json:"change,omitempty"`
+}
+
+func fromNetWorthTrend(result domain.NetWorthTrend) NetWorthTrendDTO {
+	points := make([]NetWorthTrendPointDTO, 0, len(result.Points))
+	for _, point := range result.Points {
+		points = append(points, NetWorthTrendPointDTO{
+			LocalDate:    point.LocalDate,
+			NetWorth:     wire.FromMoneyPtr(point.NetWorth),
+			Assets:       wire.FromMoneyPtr(point.Assets),
+			Liabilities:  wire.FromMoneyPtr(point.Liabilities),
+			Complete:     point.Complete,
+			MissingCount: point.MissingCount,
+		})
+	}
+	var change *wire.SignedMoneyView
+	if result.Change != nil {
+		view := wire.FromSignedMoney(*result.Change)
+		change = &view
+	}
+	return NetWorthTrendDTO{
+		Range: string(result.Range), Currency: result.Currency.String(), Points: points,
+		Start: wire.FromMoneyPtr(result.Start), End: wire.FromMoneyPtr(result.End), Change: change,
+	}
 }
 
 func (s *Service) NetWorthTrend(ctx context.Context, trendRange string) (NetWorthTrendDTO, error) {
@@ -127,9 +156,41 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange string) (NetWort
 	if err != nil {
 		return NetWorthTrendDTO{}, apierror.Wrap(err)
 	}
-	points := make([]NetWorthTrendPointDTO, 0, len(result.Points))
-	for _, point := range result.Points {
-		points = append(points, NetWorthTrendPointDTO{LocalDate: point.LocalDate, Value: wire.FromMoneyPtr(point.Value), Complete: point.Complete})
+	return fromNetWorthTrend(result), nil
+}
+
+// PortfolioTrendPointDTO mirrors domain.PortfolioTrendPoint.
+type PortfolioTrendPointDTO struct {
+	LocalDate      string          `json:"localDate"`
+	ValuedSubtotal *wire.MoneyView `json:"valuedSubtotal,omitempty"`
+	Complete       bool            `json:"complete"`
+	MissingCount   int             `json:"missingCount"`
+}
+
+// PortfolioTrendDTO mirrors domain.PortfolioTrend.
+type PortfolioTrendDTO struct {
+	Range    string                   `json:"range"`
+	Currency string                   `json:"currency"`
+	Points   []PortfolioTrendPointDTO `json:"points"`
+}
+
+func (s *Service) PortfolioTrend(ctx context.Context, trendRange string) (PortfolioTrendDTO, error) {
+	parsed, err := domain.ParseTrendRange(trendRange)
+	if err != nil {
+		return PortfolioTrendDTO{}, apierror.Wrap(err)
 	}
-	return NetWorthTrendDTO{Range: string(result.Range), Currency: result.Currency.String(), Points: points}, nil
+	result, err := s.app.PortfolioTrend(ctx, parsed)
+	if err != nil {
+		return PortfolioTrendDTO{}, apierror.Wrap(err)
+	}
+	points := make([]PortfolioTrendPointDTO, 0, len(result.Points))
+	for _, point := range result.Points {
+		points = append(points, PortfolioTrendPointDTO{
+			LocalDate:      point.LocalDate,
+			ValuedSubtotal: wire.FromMoneyPtr(point.ValuedSubtotal),
+			Complete:       point.Complete,
+			MissingCount:   point.MissingCount,
+		})
+	}
+	return PortfolioTrendDTO{Range: string(result.Range), Currency: result.Currency.String(), Points: points}, nil
 }

@@ -138,6 +138,29 @@ export function multiplyCanonical(left: string, right: string, places = 20): str
 }
 
 /**
+ * Adds two canonical decimal strings using integer arithmetic only.
+ * The result keeps the larger input scale and then strips trailing zeros.
+ */
+export function addCanonical(left: string, right: string): string {
+  const first = parseCanonicalParts(left);
+  const second = parseCanonicalParts(right);
+  if (!first || !second) {
+    return "";
+  }
+  const scale = Math.max(first.fraction.length, second.fraction.length);
+  const leftValue = BigInt(first.integer + first.fraction.padEnd(scale, "0"));
+  const rightValue = BigInt(second.integer + second.fraction.padEnd(scale, "0"));
+  const sum = (first.negative ? -leftValue : leftValue) + (second.negative ? -rightValue : rightValue);
+  const negative = sum < 0n;
+  const absolute = negative ? -sum : sum;
+  const digits = absolute.toString().padStart(scale + 1, "0");
+  const integer = scale === 0 ? digits : digits.slice(0, -scale);
+  const fraction = scale === 0 ? "" : digits.slice(-scale);
+  const unsigned = canonicalDecimal(fraction.replace(/0+$/, "") ? `${integer}.${fraction}` : integer);
+  return negative && unsigned !== "0" ? `-${unsigned}` : unsigned;
+}
+
+/**
  * Divides two canonical decimal strings using integer arithmetic only.
  * The result is rounded to `places` with ties-to-even (banker's rounding).
  */

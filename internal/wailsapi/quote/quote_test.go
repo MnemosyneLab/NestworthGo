@@ -111,6 +111,78 @@ func TestFXPreferenceAndManualFXQuote(t *testing.T) {
 	}
 }
 
+func TestInstrumentAndFXQuoteSeriesAreLocalAndDirectional(t *testing.T) {
+	app := wailstest.NewService(t)
+	ctx := context.Background()
+	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
+		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
+	}); err != nil {
+		t.Fatalf("CompleteOnboarding: %v", err)
+	}
+	created, err := instrument.NewService(app).CreateInstrument(ctx, instrument.InstrumentRequest{
+		Name: "NVIDIA", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual",
+	})
+	if err != nil {
+		t.Fatalf("CreateInstrument: %v", err)
+	}
+	service := quote.NewService(app)
+	if _, err := service.SaveManualInstrumentQuote(ctx, created.ID, "131.70", "2026-08-20T00:00:00.000Z"); err != nil {
+		t.Fatalf("SaveManualInstrumentQuote: %v", err)
+	}
+	if _, err := service.SaveManualFXQuote(ctx, "USD", "CNY", "7", "2026-08-20T00:00:00.000Z"); err != nil {
+		t.Fatalf("SaveManualFXQuote: %v", err)
+	}
+
+	instrumentSeries, err := service.InstrumentQuoteSeries(ctx, created.ID, "all", "all")
+	if err != nil {
+		t.Fatalf("InstrumentQuoteSeries: %v", err)
+	}
+	if instrumentSeries.DisplayCurrency != "USD" || len(instrumentSeries.Points) != 1 || instrumentSeries.Points[0].Value != "131.7" {
+		t.Fatalf("instrument series = %+v", instrumentSeries)
+	}
+	if instrumentSeries.Points[0].SourceKind != "manual" || instrumentSeries.Points[0].Delayed {
+		t.Fatalf("instrument series source = %+v", instrumentSeries.Points[0])
+	}
+
+	direct, err := service.FXQuoteSeries(ctx, "USD", "CNY", "all", "")
+	if err != nil {
+		t.Fatalf("FXQuoteSeries: %v", err)
+	}
+	if direct.BaseCurrency != "USD" || direct.QuoteCurrency != "CNY" || len(direct.Points) != 1 || direct.Points[0].Value != "7" {
+		t.Fatalf("direct FX series = %+v", direct)
+	}
+	inverted, err := service.FXQuoteSeries(ctx, "CNY", "USD", "all", "manual")
+	if err != nil {
+		t.Fatalf("inverted FXQuoteSeries: %v", err)
+	}
+	if inverted.BaseCurrency != "CNY" || inverted.QuoteCurrency != "USD" || inverted.Points[0].Value != "0.142857142857" {
+		t.Fatalf("inverted FX series = %+v, want Go reciprocal", inverted)
+	}
+}
+
+func TestQuoteSeriesRejectsUnknownRangeAndFilter(t *testing.T) {
+	app := wailstest.NewService(t)
+	ctx := context.Background()
+	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
+		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
+	}); err != nil {
+		t.Fatalf("CompleteOnboarding: %v", err)
+	}
+	created, err := instrument.NewService(app).CreateInstrument(ctx, instrument.InstrumentRequest{
+		Name: "NVIDIA", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual",
+	})
+	if err != nil {
+		t.Fatalf("CreateInstrument: %v", err)
+	}
+	service := quote.NewService(app)
+	if _, err := service.InstrumentQuoteSeries(ctx, created.ID, "week", "all"); err == nil {
+		t.Fatal("InstrumentQuoteSeries accepted week")
+	}
+	if _, err := service.FXQuoteSeries(ctx, "USD", "CNY", "all", "yahoo"); err == nil {
+		t.Fatal("FXQuoteSeries accepted yahoo filter")
+	}
+}
+
 func TestSetFXPreferenceAcceptsDirectPairWithoutBaseCurrency(t *testing.T) {
 	app := wailstest.NewService(t)
 	ctx := context.Background()

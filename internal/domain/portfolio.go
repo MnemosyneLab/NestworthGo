@@ -61,6 +61,70 @@ func AllQuoteSourceKinds() []QuoteSourceKind {
 	return []QuoteSourceKind{QuoteSourceManual, QuoteSourceProvider}
 }
 
+// QuoteSourceFilter is the chart-facing source selector. Empty and "all"
+// both mean every locally stored fact; manual and provider keep their
+// existing QuoteSourceKind meaning.
+type QuoteSourceFilter string
+
+const (
+	QuoteSourceFilterAll      QuoteSourceFilter = "all"
+	QuoteSourceFilterManual   QuoteSourceFilter = "manual"
+	QuoteSourceFilterProvider QuoteSourceFilter = "provider"
+)
+
+func ParseQuoteSourceFilter(value string) (QuoteSourceFilter, error) {
+	filter := QuoteSourceFilter(strings.TrimSpace(value))
+	if filter == "" {
+		return QuoteSourceFilterAll, nil
+	}
+	switch filter {
+	case QuoteSourceFilterAll, QuoteSourceFilterManual, QuoteSourceFilterProvider:
+		return filter, nil
+	default:
+		return "", validation("sourceFilter", "quote source filter is not supported")
+	}
+}
+
+func (filter QuoteSourceFilter) SourceKind() *QuoteSourceKind {
+	switch filter {
+	case QuoteSourceFilterManual:
+		kind := QuoteSourceManual
+		return &kind
+	case QuoteSourceFilterProvider:
+		kind := QuoteSourceProvider
+		return &kind
+	default:
+		return nil
+	}
+}
+
+// QuoteSeriesPoint is one locally stored observation projected for a chart or
+// data table. Value is already canonical; the frontend must not invert FX.
+type QuoteSeriesPoint struct {
+	ID         string
+	QuotedAt   time.Time
+	CreatedAt  time.Time
+	Value      string
+	SourceKind QuoteSourceKind
+	SourceKey  string
+	Delayed    bool
+}
+
+// QuoteSeries is the bounded local-history read model for one instrument or
+// one FX pair direction. Points are the chart series; Observations retains
+// every matching fact, newest first.
+type QuoteSeries struct {
+	Range           TrendRange
+	DisplayCurrency CurrencyCode
+	BaseCurrency    CurrencyCode
+	QuoteCurrency   CurrencyCode
+	Points          []QuoteSeriesPoint
+	Observations    []QuoteSeriesPoint
+	// OutsideRange is true when this window has no observations but matching
+	// local facts exist outside it. The frontend uses this for "show all".
+	OutsideRange bool
+}
+
 // Instrument is a household-scoped quoted asset. Provider metadata is kept as
 // opaque application data; the domain never knows a Yahoo response shape.
 type Instrument struct {

@@ -77,6 +77,22 @@ describe("query keys and dependency invalidation", () => {
     );
   });
 
+  it("keeps FX series keys directional while current quotes stay pair-symmetric", () => {
+    expect(queryKeys.quote.fx.current("USD", "CNY")).toEqual(queryKeys.quote.fx.current("CNY", "USD"));
+    expect(queryKeys.quote.fx.series("USD", "CNY", "30d", "all")).not.toEqual(
+      queryKeys.quote.fx.series("CNY", "USD", "30d", "all"),
+    );
+    expect(queryKeys.quote.fx.series("USD", "CNY", "30d", "all")).toEqual([
+      "quote",
+      "fx",
+      "USD",
+      "CNY",
+      "series",
+      "30d",
+      "all",
+    ]);
+  });
+
   it("keeps Start History inside the History namespace", () => {
     const queryClient = clientWith(
       queryKeys.history.origin,

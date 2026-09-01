@@ -828,18 +828,19 @@ func FromGainGroups(values []domain.GainGroupView) []GainGroupDTO {
 
 // RealizedGainDTO mirrors domain.RealizedGainView.
 type RealizedGainDTO struct {
-	From          string         `json:"from"`
-	To            string         `json:"to"`
-	Currency      string         `json:"currency,omitempty"`
-	ByInstrument  []GainGroupDTO `json:"byInstrument"`
-	ByAccount     []GainGroupDTO `json:"byAccount"`
-	Available     bool           `json:"available"`
-	MissingReason string         `json:"missingReason,omitempty"`
+	From          string           `json:"from"`
+	To            string           `json:"to"`
+	Currency      string           `json:"currency,omitempty"`
+	Total         *SignedMoneyView `json:"total,omitempty"`
+	ByInstrument  []GainGroupDTO   `json:"byInstrument"`
+	ByAccount     []GainGroupDTO   `json:"byAccount"`
+	Available     bool             `json:"available"`
+	MissingReason string           `json:"missingReason,omitempty"`
 }
 
 func FromRealizedGain(value domain.RealizedGainView) RealizedGainDTO {
 	return RealizedGainDTO{
-		From: value.From, To: value.To, Currency: value.Currency.String(),
+		From: value.From, To: value.To, Currency: value.Currency.String(), Total: FromSignedMoneyView(value.Total),
 		ByInstrument: FromGainGroups(value.ByInstrument), ByAccount: FromGainGroups(value.ByAccount),
 		Available: value.Available, MissingReason: value.MissingReason,
 	}
@@ -847,7 +848,7 @@ func FromRealizedGain(value domain.RealizedGainView) RealizedGainDTO {
 
 func FromDividendIncome(value domain.DividendIncomeView) RealizedGainDTO {
 	return RealizedGainDTO{
-		From: value.From, To: value.To, Currency: value.Currency.String(),
+		From: value.From, To: value.To, Currency: value.Currency.String(), Total: FromSignedMoneyView(value.Total),
 		ByInstrument: FromGainGroups(value.ByInstrument), ByAccount: FromGainGroups(value.ByAccount),
 		Available: value.Available, MissingReason: value.MissingReason,
 	}

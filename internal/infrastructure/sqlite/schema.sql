@@ -71,7 +71,7 @@ CREATE TABLE accounts (
     archived_at TEXT,
     icon_key TEXT NOT NULL,
     CHECK(
-        (account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode = 'balance') OR
+        (account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')) OR
         (account_type = 'bank_account' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')) OR
         (account_type = 'brokerage' AND balance_sheet_role = 'asset' AND tracking_mode IN ('holdings','manual_value')) OR
         (account_type = 'investment_account' AND balance_sheet_role = 'asset' AND tracking_mode IN ('holdings','manual_value')) OR

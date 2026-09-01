@@ -101,8 +101,8 @@ describe("OverviewPage", () => {
     expect(screen.getByText("Bob")).toBeInTheDocument();
     expect(screen.getByText("40.0%")).toBeInTheDocument();
     expect(screen.getByText("Complete")).toBeInTheDocument();
-    expect(screen.getByText("Cash")).toBeInTheDocument();
-    expect(screen.getByText("Credit card")).toBeInTheDocument();
+    expect(screen.getAllByText("Cash").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Credit card").length).toBeGreaterThan(0);
     expect(screen.getByText("By account type")).toBeInTheDocument();
     expect(screen.getByText("Bank account")).toBeInTheDocument();
     expect(screen.getByText(/groups each real-world account as a whole/i)).toBeInTheDocument();

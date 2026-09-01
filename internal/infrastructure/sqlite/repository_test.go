@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -375,4 +376,124 @@ func seedPortfolioRepository(t *testing.T) (*DB, *Repository, domain.Household, 
 	}
 	t.Cleanup(func() { database.Close() })
 	return database, repository, household, account, instrument
+}
+
+func TestCreateAccountPersistsMultiCurrencyCashOnHand(t *testing.T) {
+	_, repository, household, _, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	members, err := repository.ListMembers(ctx, true)
+	if err != nil || len(members) == 0 {
+		t.Fatalf("ListMembers: %v", err)
+	}
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	account, ownership, initial, err := domain.NewAccount(domain.AccountInput{
+		HouseholdID: household.ID, Name: "Travel cash", AccountType: domain.TypeCashOnHand, BalanceSheetRole: domain.RoleAsset,
+		TrackingMode: domain.TrackingHoldings, DefaultCurrency: domain.CurrencyCode("CNY"),
+		IncludeInNetWorth: true, IncludeInLiquidAssets: true,
+		Ownership: []domain.OwnershipShare{{MemberID: members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if initial != nil {
+		t.Fatal("holdings cash on hand must not carry an initial Account Value")
+	}
+	if err := repository.CreateAccount(ctx, account, ownership, nil); err != nil {
+		t.Fatalf("CreateAccount cash_on_hand holdings: %v", err)
+	}
+	loaded, err := repository.AccountRecord(ctx, household.ID, account.ID)
+	if err != nil {
+		t.Fatalf("AccountRecord: %v", err)
+	}
+	if loaded.Account.AccountType != domain.TypeCashOnHand || loaded.Account.TrackingMode != domain.TrackingHoldings {
+		t.Fatalf("loaded account = %+v", loaded.Account)
+	}
+	if loaded.LatestValue != nil {
+		t.Fatalf("LatestValue = %+v, want nil", loaded.LatestValue)
+	}
+}
+
+func TestCreateAccountAfterLegacyCheckRepairPersistsMultiCurrencyCashOnHand(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "legacy-check.db")
+	first, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := rewriteAccountsCheckFragment(ctx, first.SQL, cashOnHandBalanceOrHoldingsCheck, cashOnHandBalanceOnlyCheck); err != nil {
+		t.Fatalf("install legacy check: %v", err)
+	}
+	repository := NewRepository(first)
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	household, err := domain.NewHousehold("Repair", domain.CurrencyCode("CNY"), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	member, err := domain.NewMember(household.ID, "Owner", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.CreateOnboarding(ctx, household, []domain.Member{member}); err != nil {
+		t.Fatalf("onboarding: %v", err)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open repaired database: %v", err)
+	}
+	defer reopened.Close()
+	repository = NewRepository(reopened)
+	account, ownership, _, err := domain.NewAccount(domain.AccountInput{
+		HouseholdID: household.ID, Name: "Travel cash", AccountType: domain.TypeCashOnHand, BalanceSheetRole: domain.RoleAsset,
+		TrackingMode: domain.TrackingHoldings, DefaultCurrency: domain.CurrencyCode("CNY"),
+		IncludeInNetWorth: true, IncludeInLiquidAssets: true,
+		Ownership: []domain.OwnershipShare{{MemberID: member.ID, ShareBPS: domain.TotalOwnershipBPS}},
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.CreateAccount(ctx, account, ownership, nil); err != nil {
+		t.Fatalf("CreateAccount after repair: %v", err)
+	}
+	loaded, err := repository.AccountRecord(ctx, household.ID, account.ID)
+	if err != nil {
+		t.Fatalf("AccountRecord: %v", err)
+	}
+	if loaded.Account.TrackingMode != domain.TrackingHoldings {
+		t.Fatalf("loaded tracking = %s, want holdings", loaded.Account.TrackingMode)
+	}
+}
+
+func TestCreateAccountMapsIllegalCombinationToDomainError(t *testing.T) {
+	_, repository, household, _, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	members, err := repository.ListMembers(ctx, true)
+	if err != nil || len(members) == 0 {
+		t.Fatalf("ListMembers: %v", err)
+	}
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	account, ownership, initial, err := domain.NewAccount(domain.AccountInput{
+		HouseholdID: household.ID, Name: "Invalid", AccountType: domain.TypeCashOnHand, BalanceSheetRole: domain.RoleAsset,
+		TrackingMode: domain.TrackingBalance, DefaultCurrency: domain.CurrencyCode("CNY"),
+		Ownership: []domain.OwnershipShare{{MemberID: members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "1",
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account.BalanceSheetRole = domain.RoleLiability
+	value, err := domain.NewAccountValue(account, *initial, now, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = repository.CreateAccount(ctx, account, ownership, &value)
+	var domainErr *domain.Error
+	if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrValidation {
+		t.Fatalf("CreateAccount error = %v, want validation", err)
+	}
+	if strings.Contains(strings.ToLower(err.Error()), "check") || strings.Contains(strings.ToLower(err.Error()), "sqlite") {
+		t.Fatalf("domain error leaked SQL detail: %v", err)
+	}
 }

@@ -576,16 +576,16 @@ func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 
 func expectedSchemaChecks() map[string][]string {
 	return map[string][]string{
-		"households":          {"CHECK(singleton_key = 1)", "CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')"},
-		"accounts":            {"CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other'))", "CHECK(balance_sheet_role IN ('asset','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK((account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode = 'balance')", "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_portfolio IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
-		"account_ownership":   {"CHECK(share_bps > 0 AND share_bps <= 10000)"},
-		"account_values":      {"CHECK(value_kind IN ('balance','manual_value'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
-		"instruments":         {"CHECK(instrument_type IN ('stock','etf','mutual_fund','crypto','bond','precious_metal','bank_investment_product','other'))", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(country_code IS NULL OR country_code GLOB '[A-Z][A-Z]')", "CHECK(quote_source IN ('manual','provider'))", "CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL))"},
-		"account_cash_values": {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
-		"instrument_quotes":   {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))"},
-		"fx_quotes":           {"CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))", "CHECK(base_currency <> quote_currency)"},
-		"fx_preferences":      {"CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]')", "CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(currency_a < currency_b)"},
-		"activities":          {"CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal'))"},
+		"households":                {"CHECK(singleton_key = 1)", "CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"accounts":                  {"CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other'))", "CHECK(balance_sheet_role IN ('asset','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK((" + cashOnHandBalanceOrHoldingsCheck, "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_portfolio IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
+		"account_ownership":         {"CHECK(share_bps > 0 AND share_bps <= 10000)"},
+		"account_values":            {"CHECK(value_kind IN ('balance','manual_value'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"instruments":               {"CHECK(instrument_type IN ('stock','etf','mutual_fund','crypto','bond','precious_metal','bank_investment_product','other'))", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(country_code IS NULL OR country_code GLOB '[A-Z][A-Z]')", "CHECK(quote_source IN ('manual','provider'))", "CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL))"},
+		"account_cash_values":       {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"instrument_quotes":         {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))"},
+		"fx_quotes":                 {"CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))", "CHECK(base_currency <> quote_currency)"},
+		"fx_preferences":            {"CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]')", "CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(currency_a < currency_b)"},
+		"activities":                {"CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal'))"},
 		"activity_dividend_details": {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
 	}
 }

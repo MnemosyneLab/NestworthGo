@@ -24,8 +24,17 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ca
   const { TEST_CATALOG } = await import("@/test/catalog");
   return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
 });
+const rebuildHistoricalSnapshots = vi.fn();
+
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
-  Service: { HistoryOrigin: () => Promise.resolve(null) },
+  Service: {
+    HistoryOrigin: () => Promise.resolve({
+      id: "origin-1",
+      timezone: "UTC",
+      startedAt: "2026-06-01T00:00:00.000Z",
+    }),
+    RebuildHistoricalSnapshots: (...args: unknown[]) => rebuildHistoricalSnapshots(...args),
+  },
 }));
 
 function renderPage() {
@@ -51,8 +60,9 @@ describe("AnalyticsPage", () => {
     dividendIncome.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
 
     renderPage();
-    expect(await screen.findByText("NVIDIA")).toBeInTheDocument();
-    expect(screen.getByText("Brokerage")).toBeInTheDocument();
+    expect(await screen.findAllByText("NVIDIA")).not.toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: "By account" }));
+    expect(screen.getAllByText("Brokerage").length).toBeGreaterThan(0);
     expect(realizedGain).toHaveBeenCalledWith({}, "30d");
   });
 
@@ -100,8 +110,19 @@ describe("AnalyticsPage", () => {
 
     renderPage();
     expect(await screen.findByText("Dividend income (Incomplete)")).toBeInTheDocument();
-    expect(screen.getByText("QQQ")).toBeInTheDocument();
-    expect(screen.getByText("NVIDIA")).toBeInTheDocument();
+    expect(screen.getAllByText("QQQ").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("NVIDIA").length).toBeGreaterThan(0);
     expect(dividendIncome).toHaveBeenCalledWith({}, "30d");
+  });
+
+  it("does not rebuild the entire snapshot history when origin is older than 31 days", async () => {
+    rebuildHistoricalSnapshots.mockReset();
+    realizedGain.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
+    dividendIncome.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
+    netWorthTrend.mockResolvedValue({ range: "all", currency: "USD", points: [] });
+
+    renderPage();
+    expect(await screen.findByText("Wealth trend")).toBeInTheDocument();
+    expect(rebuildHistoricalSnapshots).not.toHaveBeenCalled();
   });
 });

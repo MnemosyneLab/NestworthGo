@@ -93,6 +93,91 @@ func (s *Service) FXQuoteHistory(ctx context.Context) ([]wire.FXQuoteDTO, error)
 	return wire.FromFXQuotes(quotes), nil
 }
 
+// QuoteSeriesPointDTO is one local observation in the requested display
+// direction. Value is a canonical decimal string.
+type QuoteSeriesPointDTO struct {
+	QuotedAt   string `json:"quotedAt"`
+	Value      string `json:"value"`
+	SourceKind string `json:"sourceKind"`
+	SourceKey  string `json:"sourceKey"`
+	Delayed    bool   `json:"delayed"`
+}
+
+// QuoteSeriesDTO is the bounded local quote-history read model used by
+// Market Data charts. Observations keep every matching fact; Points are the
+// deterministically selected chart series.
+type QuoteSeriesDTO struct {
+	Range           string                `json:"range"`
+	DisplayCurrency string                `json:"displayCurrency,omitempty"`
+	BaseCurrency    string                `json:"baseCurrency,omitempty"`
+	QuoteCurrency   string                `json:"quoteCurrency,omitempty"`
+	Points          []QuoteSeriesPointDTO `json:"points"`
+	Observations    []QuoteSeriesPointDTO `json:"observations"`
+	OutsideRange    bool                  `json:"outsideRange"`
+}
+
+func fromQuoteSeries(value domain.QuoteSeries) QuoteSeriesDTO {
+	return QuoteSeriesDTO{
+		Range:           string(value.Range),
+		DisplayCurrency: value.DisplayCurrency.String(),
+		BaseCurrency:    value.BaseCurrency.String(),
+		QuoteCurrency:   value.QuoteCurrency.String(),
+		Points:          fromQuoteSeriesPoints(value.Points),
+		Observations:    fromQuoteSeriesPoints(value.Observations),
+		OutsideRange:    value.OutsideRange,
+	}
+}
+
+func fromQuoteSeriesPoints(values []domain.QuoteSeriesPoint) []QuoteSeriesPointDTO {
+	result := make([]QuoteSeriesPointDTO, 0, len(values))
+	for _, point := range values {
+		result = append(result, QuoteSeriesPointDTO{
+			QuotedAt:   wire.FormatTime(point.QuotedAt),
+			Value:      point.Value,
+			SourceKind: string(point.SourceKind),
+			SourceKey:  point.SourceKey,
+			Delayed:    point.Delayed,
+		})
+	}
+	return result
+}
+
+func (s *Service) InstrumentQuoteSeries(ctx context.Context, instrumentID, trendRange, sourceFilter string) (QuoteSeriesDTO, error) {
+	id, err := domain.ParseInstrumentID(instrumentID)
+	if err != nil {
+		return QuoteSeriesDTO{}, apierror.Wrap(err)
+	}
+	parsedRange, err := domain.ParseTrendRange(trendRange)
+	if err != nil {
+		return QuoteSeriesDTO{}, apierror.Wrap(err)
+	}
+	parsedFilter, err := domain.ParseQuoteSourceFilter(sourceFilter)
+	if err != nil {
+		return QuoteSeriesDTO{}, apierror.Wrap(err)
+	}
+	result, err := s.app.InstrumentQuoteSeries(ctx, id, parsedRange, parsedFilter)
+	if err != nil {
+		return QuoteSeriesDTO{}, apierror.Wrap(err)
+	}
+	return fromQuoteSeries(result), nil
+}
+
+func (s *Service) FXQuoteSeries(ctx context.Context, currencyA, currencyB, trendRange, sourceFilter string) (QuoteSeriesDTO, error) {
+	parsedRange, err := domain.ParseTrendRange(trendRange)
+	if err != nil {
+		return QuoteSeriesDTO{}, apierror.Wrap(err)
+	}
+	parsedFilter, err := domain.ParseQuoteSourceFilter(sourceFilter)
+	if err != nil {
+		return QuoteSeriesDTO{}, apierror.Wrap(err)
+	}
+	result, err := s.app.FXQuoteSeries(ctx, domain.CurrencyCode(currencyA), domain.CurrencyCode(currencyB), parsedRange, parsedFilter)
+	if err != nil {
+		return QuoteSeriesDTO{}, apierror.Wrap(err)
+	}
+	return fromQuoteSeries(result), nil
+}
+
 func (s *Service) SaveManualFXQuote(ctx context.Context, baseCurrency, quoteCurrency, rate, quotedAt string) (wire.FXQuoteDTO, error) {
 	quote, err := s.app.SaveManualFXQuote(ctx, baseCurrency, quoteCurrency, rate, quotedAt)
 	if err != nil {

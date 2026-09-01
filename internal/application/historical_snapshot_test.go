@@ -51,8 +51,11 @@ func TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend(t *test
 	if err != nil {
 		t.Fatalf("NetWorthTrend: %v", err)
 	}
-	if len(trend.Points) < 2 || trend.Points[0].Value == nil || trend.Points[0].Value.CanonicalAmount() != "11567.3344" {
+	if len(trend.Points) < 2 || trend.Points[0].NetWorth == nil || trend.Points[0].NetWorth.CanonicalAmount() != "11567.3344" {
 		t.Fatalf("trend = %+v", trend)
+	}
+	if trend.Points[0].Assets == nil || trend.Points[0].Assets.CanonicalAmount() != "11567.3344" {
+		t.Fatalf("trend assets = %+v", trend.Points[0].Assets)
 	}
 }
 

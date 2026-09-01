@@ -102,6 +102,18 @@ func TestNetWorthTrendWithoutHistory(t *testing.T) {
 	}
 }
 
+func TestPortfolioTrendWithoutHistory(t *testing.T) {
+	app, _ := setup(t)
+	service := portfolio.NewService(app)
+	result, err := service.PortfolioTrend(context.Background(), "30d")
+	if err != nil {
+		t.Fatalf("PortfolioTrend: %v", err)
+	}
+	if result.Currency != "USD" || len(result.Points) != 0 {
+		t.Fatalf("PortfolioTrend = %+v, want empty before history starts", result)
+	}
+}
+
 // Unknown trend ranges fail at ParseTrendRange on the Wails boundary, even
 // before history has started. The frontend catalog is the only source of
 // range buttons, so an unknown value is a client bug rather than a

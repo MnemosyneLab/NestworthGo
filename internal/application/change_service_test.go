@@ -663,7 +663,7 @@ func TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision(t *t
 		t.Fatalf("snapshot revisions may1=%d may2=%d revision1=%d", mayOne, mayTwo, revisions)
 	}
 	trend, err := service.NetWorthTrend(ctx, domain.TrendAllTime)
-	if err != nil || len(trend.Points) != 3 || trend.Points[0].Value == nil || trend.Points[0].Value.CanonicalAmount() != "1000" || trend.Points[1].Value == nil || trend.Points[1].Value.CanonicalAmount() != "1500" {
+	if err != nil || len(trend.Points) != 3 || trend.Points[0].NetWorth == nil || trend.Points[0].NetWorth.CanonicalAmount() != "1000" || trend.Points[1].NetWorth == nil || trend.Points[1].NetWorth.CanonicalAmount() != "1500" {
 		t.Fatalf("trend = %+v err=%v", trend, err)
 	}
 }

@@ -182,7 +182,7 @@ component-level cash and Holdings. The legal combinations are closed:
 
 | Account type | Balance-sheet role | Allowed tracking modes |
 | --- | --- | --- |
-| `cash_on_hand` | asset | `balance` |
+| `cash_on_hand` | asset | `balance`, `holdings` |
 | `bank_account` | asset | `balance`, `holdings` |
 | `brokerage` | asset | `holdings`, `manual_value` |
 | `investment_account` | asset | `holdings`, `manual_value` |

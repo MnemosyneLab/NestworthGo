@@ -105,10 +105,10 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
   };
 
   return (
-    <div className="flex h-[100dvh] w-screen overflow-hidden bg-background text-foreground">
+    <div className="fixed inset-0 flex min-h-0 min-w-0 overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
-          "flex flex-col border-r border-border bg-card/80 backdrop-blur-sm transition-[width] duration-150",
+          "flex shrink-0 flex-col border-r border-border bg-card/80 backdrop-blur-sm transition-[width] duration-150",
           collapsed ? "w-14" : "w-56",
         )}
       >
@@ -166,8 +166,8 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
           </div>
         )}
       </aside>
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 items-center justify-end gap-2 border-b border-border bg-card/60 px-4 backdrop-blur-sm">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        <header className="flex h-14 shrink-0 items-center justify-end gap-2 border-b border-border bg-card/60 px-4 backdrop-blur-sm">
           <LanguageSwitcher
             language={settings.language}
             disabled={saveSettings.isPending}
@@ -179,8 +179,8 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
             onChange={(appearance) => persistHeaderSetting({ appearance: appearance as Settings["appearance"] })}
           />
         </header>
-        <main id="main-content" className="flex-1 overflow-auto p-6 sm:p-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        <main id="main-content" className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">
+          <div className="mx-auto min-w-0 w-full max-w-7xl">{children}</div>
         </main>
       </div>
     </div>

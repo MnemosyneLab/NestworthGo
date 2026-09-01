@@ -120,6 +120,22 @@ export function useCurrentFXQuote(currencyA: string, currencyB: string) {
   });
 }
 
+export function useInstrumentQuoteSeries(instrumentId: string, trendRange: string, sourceFilter: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.quote.instrument.series(instrumentId, trendRange, sourceFilter),
+    queryFn: () => callService(() => QuoteService.InstrumentQuoteSeries(instrumentId, trendRange, sourceFilter)),
+    enabled: enabled && Boolean(instrumentId),
+  });
+}
+
+export function useFXQuoteSeries(currencyA: string, currencyB: string, trendRange: string, sourceFilter: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.quote.fx.series(currencyA, currencyB, trendRange, sourceFilter),
+    queryFn: () => callService(() => QuoteService.FXQuoteSeries(currencyA, currencyB, trendRange, sourceFilter)),
+    enabled: enabled && Boolean(currencyA) && Boolean(currencyB) && currencyA !== currencyB,
+  });
+}
+
 export function useFXPreferences() {
   return useQuery({
     queryKey: queryKeys.quote.fx.preferences,

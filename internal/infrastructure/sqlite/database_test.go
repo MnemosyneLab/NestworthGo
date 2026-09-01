@@ -291,3 +291,43 @@ func TestOpenRejectsSchema8FixtureWithoutWriting(t *testing.T) {
 		t.Fatal("schema 8 database changed after rejected open")
 	}
 }
+
+func TestOpenRewritesLegacyCashOnHandHoldingsCheck(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "repair.db")
+	first, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if err := rewriteAccountsCheckFragment(ctx, first.SQL, cashOnHandBalanceOrHoldingsCheck, cashOnHandBalanceOnlyCheck); err != nil {
+		t.Fatalf("install legacy check: %v", err)
+	}
+	if got := accountsCreateSQL(t, first.SQL); !schemaSQLContains(got, cashOnHandBalanceOnlyCheck) {
+		t.Fatalf("legacy check missing from setup: %s", got)
+	}
+	if err := first.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open after legacy check: %v", err)
+	}
+	defer reopened.Close()
+	got := accountsCreateSQL(t, reopened.SQL)
+	if !schemaSQLContains(got, cashOnHandBalanceOrHoldingsCheck) {
+		t.Fatalf("reopened accounts check = %s, want holdings allowed", got)
+	}
+	if schemaSQLContains(got, cashOnHandBalanceOnlyCheck) {
+		t.Fatalf("reopened accounts check still has the legacy fragment: %s", got)
+	}
+}
+
+func accountsCreateSQL(t *testing.T, database *sql.DB) string {
+	t.Helper()
+	var definition string
+	if err := database.QueryRow(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'accounts'`).Scan(&definition); err != nil {
+		t.Fatalf("read accounts sql: %v", err)
+	}
+	return definition
+}

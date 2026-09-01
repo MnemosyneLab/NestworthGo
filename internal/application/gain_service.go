@@ -189,6 +189,10 @@ func (g *GainService) RealizedGainInRange(ctx context.Context, scope domain.Gain
 	if err != nil {
 		return domain.RealizedGainView{}, err
 	}
+	result.Total, err = totalFromGainGroups(result.ByInstrument, snapshot.Household.BaseCurrency)
+	if err != nil {
+		return domain.RealizedGainView{}, err
+	}
 	return result, nil
 }
 
@@ -300,6 +304,10 @@ func (g *GainService) DividendIncomeInRange(ctx context.Context, scope domain.Ga
 		return domain.DividendIncomeView{}, err
 	}
 	result.ByAccount, err = finishGainGroups(byAccount, snapshot.Household.BaseCurrency)
+	if err != nil {
+		return domain.DividendIncomeView{}, err
+	}
+	result.Total, err = totalFromGainGroups(result.ByInstrument, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return domain.DividendIncomeView{}, err
 	}
@@ -419,6 +427,30 @@ func groupForAccount(groups map[domain.AccountID]*gainGroupAccumulator, id domai
 	group := &gainGroupAccumulator{Key: id.String(), Label: label, Available: true}
 	groups[id] = group
 	return group
+}
+
+func totalFromGainGroups(groups []domain.GainGroupView, currency domain.CurrencyCode) (*domain.SignedMoneyView, error) {
+	sum := decimal.Zero
+	hasAvailable := false
+	for _, group := range groups {
+		if !group.Available {
+			continue
+		}
+		amount, err := decimal.NewFromString(group.Gain.Amount)
+		if err != nil {
+			return nil, &domain.Error{Code: domain.ErrIntegrity, Field: "amount", Message: "stored gain amount is invalid"}
+		}
+		sum = sum.Add(amount)
+		hasAvailable = true
+	}
+	if !hasAvailable && len(groups) > 0 {
+		return nil, nil
+	}
+	view, err := signedMoneyView(sum, currency)
+	if err != nil {
+		return nil, err
+	}
+	return &view, nil
 }
 
 func finishGainGroups[K comparable](groups map[K]*gainGroupAccumulator, currency domain.CurrencyCode) ([]domain.GainGroupView, error) {

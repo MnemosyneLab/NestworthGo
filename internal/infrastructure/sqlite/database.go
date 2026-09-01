@@ -124,8 +124,13 @@ func Open(path string) (*DB, error) {
 		if err := tx.Commit(); err != nil {
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
-	} else if err := verifySchema(context.Background(), database); err != nil {
-		return closeOnError(StatusIntegrityFailed, found, err)
+	} else {
+		if err := repairV9CashOnHandHoldingsCheck(context.Background(), database); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		if err := verifySchema(context.Background(), database); err != nil {
+			return closeOnError(StatusIntegrityFailed, found, err)
+		}
 	}
 	if path != ":memory:" {
 		if _, err := database.ExecContext(context.Background(), "PRAGMA journal_mode = WAL"); err != nil {
@@ -159,9 +164,12 @@ func (db *DB) WithTx(ctx context.Context, fn func(*sql.Tx) error) error {
 	}
 	if err := fn(tx); err != nil {
 		_ = tx.Rollback()
-		return err
+		return mapSQLiteError(err)
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return mapSQLiteError(err)
+	}
+	return nil
 }
 
 func databaseExists(path string) (bool, error) {

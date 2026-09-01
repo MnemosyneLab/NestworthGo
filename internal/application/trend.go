@@ -4,74 +4,274 @@ import (
 	"context"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
 func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRange) (domain.NetWorthTrend, error) {
-	bootstrap, err := s.Bootstrap(ctx)
+	window, err := s.closedTrendWindow(ctx, trendRange)
 	if err != nil {
 		return domain.NetWorthTrend{}, err
 	}
+	if window == nil {
+		return domain.NetWorthTrend{Range: trendRange}, nil
+	}
+	points := make([]domain.NetWorthTrendPoint, 0, len(window.snapshots)+1)
+	for _, snapshot := range window.snapshots {
+		if snapshot.LocalDate >= window.todayKey {
+			continue
+		}
+		points = append(points, domain.NetWorthTrendPoint{
+			LocalDate:    snapshot.LocalDate,
+			NetWorth:     snapshot.NetWorthAmount,
+			Assets:       snapshot.AssetsAmount,
+			Liabilities:  snapshot.LiabilitiesAmount,
+			Complete:     snapshot.Complete,
+			MissingCount: snapshot.MissingCount,
+		})
+	}
+	if window.todayKey != "" {
+		current, err := s.Overview(ctx, domain.AccountFilter{})
+		if err != nil {
+			return domain.NetWorthTrend{}, err
+		}
+		netWorth, err := domain.NewMoney(current.NetWorth, current.Currency)
+		if err != nil {
+			return domain.NetWorthTrend{}, err
+		}
+		assets, err := domain.NewMoney(current.Assets, current.Currency)
+		if err != nil {
+			return domain.NetWorthTrend{}, err
+		}
+		liabilities, err := domain.NewMoney(current.Liabilities, current.Currency)
+		if err != nil {
+			return domain.NetWorthTrend{}, err
+		}
+		points = append(points, domain.NetWorthTrendPoint{
+			LocalDate:    window.todayKey,
+			NetWorth:     &netWorth,
+			Assets:       &assets,
+			Liabilities:  &liabilities,
+			Complete:     current.Complete,
+			MissingCount: len(current.MissingInputs),
+		})
+	}
+	if len(points) == 0 {
+		return domain.NetWorthTrend{Range: trendRange, Currency: window.currency}, nil
+	}
+	start, end, change, err := wealthTrendSummary(points, window.currency)
+	if err != nil {
+		return domain.NetWorthTrend{}, err
+	}
+	return domain.NetWorthTrend{Range: trendRange, Currency: window.currency, Points: points, Start: start, End: end, Change: change}, nil
+}
+
+func (s *Service) PortfolioTrend(ctx context.Context, trendRange domain.TrendRange) (domain.PortfolioTrend, error) {
+	window, err := s.closedTrendWindow(ctx, trendRange)
+	if err != nil {
+		return domain.PortfolioTrend{}, err
+	}
+	if window == nil {
+		return domain.PortfolioTrend{Range: trendRange}, nil
+	}
+	points := make([]domain.PortfolioTrendPoint, 0, len(window.snapshots)+1)
+	for _, snapshot := range window.snapshots {
+		if snapshot.LocalDate >= window.todayKey {
+			continue
+		}
+		point, include, err := portfolioPointFromSnapshot(snapshot, window.currency)
+		if err != nil {
+			return domain.PortfolioTrend{}, err
+		}
+		if include {
+			points = append(points, point)
+		}
+	}
+	if window.todayKey != "" {
+		current, err := s.Portfolio(ctx, domain.AccountFilter{})
+		if err != nil {
+			return domain.PortfolioTrend{}, err
+		}
+		var valued *domain.Money
+		if current.ValuedSubtotal != nil {
+			money, parseErr := domain.ParseMoney(current.ValuedSubtotal.Amount, current.ValuedSubtotal.Currency)
+			if parseErr != nil {
+				return domain.PortfolioTrend{}, parseErr
+			}
+			valued = &money
+		}
+		points = append(points, domain.PortfolioTrendPoint{
+			LocalDate:      window.todayKey,
+			ValuedSubtotal: valued,
+			Complete:       current.Complete,
+			MissingCount:   len(current.MissingInputs),
+		})
+	}
+	if len(points) == 0 {
+		return domain.PortfolioTrend{Range: trendRange, Currency: window.currency}, nil
+	}
+	return domain.PortfolioTrend{Range: trendRange, Currency: window.currency, Points: points}, nil
+}
+
+type closedTrendWindow struct {
+	currency  domain.CurrencyCode
+	todayKey  string
+	snapshots []domain.DailyValuationSnapshot
+}
+
+func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.TrendRange) (*closedTrendWindow, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if bootstrap.Household == nil {
-		return domain.NetWorthTrend{}, nil
+		return nil, nil
 	}
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
-		return domain.NetWorthTrend{}, err
+		return nil, err
 	}
+	window := &closedTrendWindow{currency: bootstrap.Household.BaseCurrency}
 	if origin == nil {
-		return domain.NetWorthTrend{Range: trendRange, Currency: bootstrap.Household.BaseCurrency}, nil
+		return window, nil
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {
-		return domain.NetWorthTrend{}, err
+		return nil, err
 	}
 	nowLocal := s.clock().In(location)
 	year, month, day := nowLocal.Date()
 	today := time.Date(year, month, day, 0, 0, 0, 0, location)
-	todayKey := today.Format("2006-01-02")
+	window.todayKey = today.Format("2006-01-02")
 	originDate := origin.StartedAt.In(location).Format("2006-01-02")
-	if originDate >= todayKey {
-		return domain.NetWorthTrend{Range: trendRange, Currency: bootstrap.Household.BaseCurrency}, nil
+	if originDate >= window.todayKey {
+		return window, nil
 	}
 	if err := s.ensureClosedDaySnapshots(ctx, originDate, today.AddDate(0, 0, -1).Format("2006-01-02")); err != nil {
-		return domain.NetWorthTrend{}, err
+		return nil, err
 	}
-	since := time.Time{}
-	switch trendRange {
-	case domain.Trend30Days:
-		since = today.AddDate(0, 0, -29)
-	case domain.TrendOneYear:
-		since = today.AddDate(0, 0, -364)
-	case domain.TrendAllTime:
-		since = origin.StartedAt.In(location)
-	default:
-		return domain.NetWorthTrend{}, &domain.Error{Code: domain.ErrValidation, Field: "range", Message: "trend range is not supported"}
+	since, err := trendSince(trendRange, today, origin.StartedAt.In(location))
+	if err != nil {
+		return nil, err
 	}
 	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, since)
 	if err != nil {
-		return domain.NetWorthTrend{}, err
+		return nil, err
 	}
-	points := make([]domain.NetWorthTrendPoint, 0, len(snapshots)+1)
-	for _, snapshot := range snapshots {
-		if snapshot.LocalDate >= todayKey {
+	window.snapshots = snapshots
+	return window, nil
+}
+
+func trendSince(trendRange domain.TrendRange, today, origin time.Time) (time.Time, error) {
+	switch trendRange {
+	case domain.Trend30Days:
+		return today.AddDate(0, 0, -29), nil
+	case domain.TrendOneYear:
+		return today.AddDate(0, 0, -364), nil
+	case domain.TrendAllTime:
+		return origin, nil
+	default:
+		return time.Time{}, &domain.Error{Code: domain.ErrValidation, Field: "range", Message: "trend range is not supported"}
+	}
+}
+
+func wealthTrendSummary(points []domain.NetWorthTrendPoint, currency domain.CurrencyCode) (*domain.Money, *domain.Money, *domain.SignedMoney, error) {
+	var start, end *domain.Money
+	for _, point := range points {
+		if point.NetWorth != nil {
+			start = point.NetWorth
+			break
+		}
+	}
+	for index := len(points) - 1; index >= 0; index-- {
+		if points[index].NetWorth != nil {
+			end = points[index].NetWorth
+			break
+		}
+	}
+	if start == nil || end == nil {
+		return start, end, nil, nil
+	}
+	change, err := domain.NewSignedMoney(end.Amount().Sub(start.Amount()), currency)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return start, end, &change, nil
+}
+
+func portfolioPointFromSnapshot(snapshot domain.DailyValuationSnapshot, currency domain.CurrencyCode) (domain.PortfolioTrendPoint, bool, error) {
+	valued := decimal.Zero
+	missing := 0
+	complete := true
+	hasInstrument := false
+	for _, item := range snapshot.Items {
+		if item.InstrumentID == nil {
 			continue
 		}
-		points = append(points, domain.NetWorthTrendPoint{LocalDate: snapshot.LocalDate, Value: snapshot.NetWorthAmount, Complete: snapshot.Complete})
+		hasInstrument = true
+		if item.BaseAmount != nil {
+			valued = valued.Add(item.BaseAmount.Amount())
+		}
+		if !item.Complete {
+			complete = false
+			missing++
+		}
 	}
-	if len(points) == 0 {
-		return domain.NetWorthTrend{Range: trendRange, Currency: bootstrap.Household.BaseCurrency}, nil
+	if !hasInstrument {
+		return domain.PortfolioTrendPoint{}, false, nil
 	}
-	current, err := s.Overview(ctx, domain.AccountFilter{})
+	money, err := domain.NewMoney(valued, currency)
 	if err != nil {
-		return domain.NetWorthTrend{}, err
+		return domain.PortfolioTrendPoint{}, false, err
 	}
-	currentMoney, err := domain.NewMoney(current.NetWorth, current.Currency)
+	return domain.PortfolioTrendPoint{
+		LocalDate:      snapshot.LocalDate,
+		ValuedSubtotal: &money,
+		Complete:       complete && missing == 0,
+		MissingCount:   missing,
+	}, true, nil
+}
+
+func closedDayRebuildFrom(originDate, yesterday string, state domain.DailySnapshotState) (string, bool, error) {
+	if originDate == "" || yesterday == "" || originDate > yesterday {
+		return "", true, nil
+	}
+	rebuildFrom := originDate
+	dirty := ""
+	if state.DirtyFrom != nil {
+		dirty = *state.DirtyFrom
+	}
+	lastCompleted := ""
+	if state.LastCompletedClosedOn != nil {
+		lastCompleted = *state.LastCompletedClosedOn
+	}
+	if dirty != "" && dirty > rebuildFrom {
+		rebuildFrom = dirty
+	}
+	if lastCompleted != "" && lastCompleted >= yesterday && dirty == "" {
+		return "", true, nil
+	}
+	if dirty == "" && lastCompleted != "" {
+		next, err := nextClosedDay(lastCompleted)
+		if err != nil {
+			return "", false, err
+		}
+		if next > rebuildFrom {
+			rebuildFrom = next
+		}
+	}
+	if rebuildFrom > yesterday {
+		return "", true, nil
+	}
+	return rebuildFrom, false, nil
+}
+
+func nextClosedDay(localDate string) (string, error) {
+	parsed, err := time.Parse("2006-01-02", localDate)
 	if err != nil {
-		return domain.NetWorthTrend{}, err
+		return "", err
 	}
-	points = append(points, domain.NetWorthTrendPoint{LocalDate: todayKey, Value: &currentMoney, Complete: current.Complete})
-	return domain.NetWorthTrend{Range: trendRange, Currency: bootstrap.Household.BaseCurrency, Points: points}, nil
+	return parsed.AddDate(0, 0, 1).Format("2006-01-02"), nil
 }
 
 func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, yesterday string) error {
@@ -86,11 +286,11 @@ func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, yeste
 	if err != nil {
 		return err
 	}
-	rebuildFrom := startDate
-	if state.DirtyFrom != nil && *state.DirtyFrom != "" && *state.DirtyFrom > rebuildFrom {
-		rebuildFrom = *state.DirtyFrom
+	rebuildFrom, skip, err := closedDayRebuildFrom(startDate, yesterday, state)
+	if err != nil {
+		return err
 	}
-	if state.LastCompletedClosedOn != nil && *state.LastCompletedClosedOn >= yesterday && (state.DirtyFrom == nil || *state.DirtyFrom == "") {
+	if skip {
 		return nil
 	}
 	start, err := time.Parse("2006-01-02", rebuildFrom)
