@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/select";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState } from "@/components/layout/PageState";
 import { useRefreshAll, useRefreshMissingOrStale } from "@/queries/marketdata";
 import {
@@ -173,21 +174,25 @@ function FxRefreshRow({
   const quote = useCurrentFXQuote(currencyA, currencyB);
 
   return (
-    <li className="flex flex-col gap-1 rounded-md border border-border px-3 py-3 text-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 rounded-md border border-border px-3 py-3 text-sm">
+      <div className="col-span-2 row-start-1 flex min-w-0 items-center justify-between gap-2">
         <span className="font-medium text-foreground">{pair}</span>
-        <Badge variant={STATUS_VARIANT[item.status] ?? "secondary"}>{displayEnum(t, "marketData.status", item.status)}</Badge>
+        <span className="flex shrink-0 items-center gap-2">
+          <Badge variant={STATUS_VARIANT[item.status] ?? "secondary"}>{displayEnum(t, "marketData.status", item.status)}</Badge>
+          {!configured && <Button variant="outline" size="sm" onClick={onConfigure} disabled={isConfiguring}>
+            {isConfiguring ? t("marketData.configuringFX") : t("marketData.configureFX")}
+          </Button>}
+        </span>
       </div>
-      <p className="text-muted-foreground">
-        {quote.data
-          ? t("marketData.latestRate", { base: quote.data.baseCurrency, rate: formatAmount(quote.data.rate), quote: quote.data.quoteCurrency })
-          : t("marketData.noQuoteYet")}
-      </p>
-      {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}</p>}
-      {item.status === "skipped" && <p className="text-xs text-muted-foreground">{skipReasonText(t, item, "fx")}</p>}
-      {!configured && <Button variant="outline" size="sm" onClick={onConfigure} disabled={isConfiguring}>
-        {isConfiguring ? t("marketData.configuringFX") : t("marketData.configureFX")}
-      </Button>}
+      <div className="col-span-2 row-start-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="text-muted-foreground">
+          {quote.data
+            ? t("marketData.latestRate", { base: quote.data.baseCurrency, rate: formatAmount(quote.data.rate), quote: quote.data.quoteCurrency })
+            : t("marketData.noQuoteYet")}
+        </p>
+        {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}</p>}
+        {item.status === "skipped" && <p className="text-xs text-muted-foreground">{skipReasonText(t, item, "fx")}</p>}
+      </div>
     </li>
   );
 }
@@ -274,14 +279,14 @@ function SavedInstrumentRow({ instrument, onViewHistory }: { instrument: Instrum
   const quote = useCurrentInstrumentQuote(instrument.id);
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-3 text-sm" data-testid={`saved-instrument-${instrument.id}`}>
-      <span className="flex items-center gap-2">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-md border border-border px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,auto)_auto]" data-testid={`saved-instrument-${instrument.id}`}>
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
         <EntityIcon iconKey={instrument.iconKey} kind="instrument" className="size-5 text-primary" />
         <span className="font-medium">{instrument.name}</span>
         <Badge variant="secondary">{instrument.quoteCurrency}</Badge>
         <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>{displayEnum(t, "portfolio", instrument.quoteSource)}</Badge>
       </span>
-      <span className="flex flex-wrap items-center justify-end gap-2 text-right">
+      <span className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center justify-end gap-2 text-right lg:col-span-1 lg:col-start-2 lg:row-start-1">
         {quote.isLoading ? (
           <span className="text-muted-foreground">{t("portfolio.priceLoading")}</span>
         ) : quote.data ? (
@@ -294,9 +299,9 @@ function SavedInstrumentRow({ instrument, onViewHistory }: { instrument: Instrum
         ) : (
           <span className="text-muted-foreground">{t("marketData.noQuoteYet")}</span>
         )}
-        <Button type="button" variant="outline" size="sm" onClick={onViewHistory}>
-          {t("charts.viewHistory")}
-        </Button>
+      </span>
+      <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-2 lg:col-start-3">
+        <Button type="button" variant="outline" size="sm" onClick={onViewHistory}>{t("charts.viewHistory")}</Button>
       </span>
     </li>
   );
@@ -320,12 +325,12 @@ function SavedFXRow({
   const quote = useCurrentFXQuote(pair.currencyA, pair.currencyB);
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-3 text-sm" data-testid={`saved-fx-${fxPairKey(pair.currencyA, pair.currencyB)}`}>
-      <span className="flex items-center gap-2">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-md border border-border px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,auto)_auto]" data-testid={`saved-fx-${fxPairKey(pair.currencyA, pair.currencyB)}`}>
+      <span className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="font-medium">{pair.currencyA}/{pair.currencyB}</span>
         <Badge variant={!preference ? "warning" : "secondary"}>{fxSourceLabel(t, preference, settings.data?.fx_provider)}</Badge>
       </span>
-      <span className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-right">
+      <span className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-right lg:col-span-1 lg:col-start-2 lg:row-start-1">
         {quote.isLoading ? (
           <span className="text-muted-foreground">{t("portfolio.priceLoading")}</span>
         ) : quote.data ? (
@@ -344,6 +349,8 @@ function SavedFXRow({
         ) : (
           <span className="text-muted-foreground">{t("marketData.noQuoteYet")}</span>
         )}
+      </span>
+      <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-2 lg:col-start-3">
         {preference ? (
           <NativeSelect
             aria-label={t("marketData.sourceMissing")}
@@ -503,7 +510,8 @@ export function MarketDataPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("nav.marketData")} description={t("marketData.description")} />
+      <PageChrome pageId="market-data" title={t("nav.marketData")} />
+      <PageIntro description={t("marketData.description")} />
       <div className="flex flex-wrap gap-2">
         <Button onClick={runRefreshMissingOrStale} disabled={refreshAll.isPending || refreshMissingOrStale.isPending || setFXPreference.isPending}>
           <RefreshCw className="size-4" aria-hidden="true" /> {refreshMissingOrStale.isPending ? t("marketData.refreshing") : t("marketData.refreshMissingOrStale")}

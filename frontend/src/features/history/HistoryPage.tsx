@@ -22,7 +22,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { displayError } from "@/lib/display";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 import { useAccounts } from "@/queries/accounts";
 import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
 import { useActivity, useActivityPage, useHistoryOrigin, useUndoChange } from "@/queries/history";
@@ -123,24 +124,29 @@ function Timeline() {
       </section>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{t("history.activityKind")}</p>
-        <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger className={cn(buttonVariants(), "gap-2") }>
-            <Plus className="size-4" aria-hidden="true" /> {t("history.recordButton")}
-          </SheetTrigger>
-          <SheetContent>
-            <SheetHeader>
-              <SheetTitle>{t("history.formLabel")}</SheetTitle>
-            </SheetHeader>
-            <div className="overflow-y-auto">
-              <RecordChangeForm
-                onRecorded={() => {
-                  toast.success(t("history.recorded"));
-                  setOpen(false);
-                }}
-              />
-            </div>
-          </SheetContent>
-        </Sheet>
+        <PageChrome
+          pageId="history"
+          actions={
+            <Sheet open={open} onOpenChange={setOpen}>
+              <SheetTrigger className={cn(buttonVariants({ size: "sm" }), "gap-2")}>
+                <Plus className="size-4" aria-hidden="true" /> {t("history.recordButton")}
+              </SheetTrigger>
+              <SheetContent>
+                <SheetHeader>
+                  <SheetTitle>{t("history.formLabel")}</SheetTitle>
+                </SheetHeader>
+                <div className="overflow-y-auto">
+                  <RecordChangeForm
+                    onRecorded={() => {
+                      toast.success(t("history.recorded"));
+                      setOpen(false);
+                    }}
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          }
+        />
       </div>
 
       {activityList.length === 0 ? (
@@ -250,7 +256,8 @@ export function HistoryPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("nav.history")} description={t("history.description")} />
+      <PageChrome pageId="history" title={t("nav.history")} />
+      <PageIntro description={t("history.description")} />
       {origin.isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
       {origin.isError && (
         <ErrorState

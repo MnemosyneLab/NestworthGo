@@ -123,6 +123,12 @@ describe("MarketDataPage", () => {
     await screen.findByText("Latest: $12.50");
     await screen.findByText("1 CNY = 0.19 SGD");
     const savedData = screen.getByTestId("saved-market-data");
+    const savedInstrument = screen.getByTestId("saved-instrument-i1");
+    const savedFX = screen.getByTestId("saved-fx-CNY/SGD");
+    expect(savedInstrument).toHaveClass("grid-cols-[minmax(0,1fr)_auto]");
+    expect(within(savedInstrument).getByRole("button", { name: "View history" }).parentElement).toHaveClass("row-start-1");
+    expect(savedFX).toHaveClass("grid-cols-[minmax(0,1fr)_auto]");
+    expect(within(savedFX).getByRole("button", { name: "View history" }).parentElement).toHaveClass("row-start-1");
     expect(savedData).toHaveTextContent("Global Equity Fund");
     expect(savedData).toHaveTextContent("Latest: $12.50");
     expect(savedData).toHaveTextContent("CNY/SGD");

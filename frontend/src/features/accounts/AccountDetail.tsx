@@ -5,7 +5,8 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { AccountForm, type AccountFormExtras } from "@/features/accounts/AccountForm";
 import { AccountActionSheet, type AccountAction } from "@/features/accounts/AccountActionSheets";
@@ -185,27 +186,30 @@ export function AccountDetail({
 
   return (
     <div className="flex flex-col gap-6" data-testid="account-detail">
-      <PageHeader
-        title={<span className="flex items-center gap-2"><EntityIcon iconKey={record.account.iconKey} kind="account" className="size-6 text-primary" />{record.account.name}</span>}
+      <PageChrome
+        pageId="accounts"
+        title={<span className="flex min-w-0 items-center gap-2"><EntityIcon iconKey={record.account.iconKey} kind="account" className="size-5 shrink-0 text-primary" />{record.account.name}</span>}
+        actions={
+          <>
+            <Button type="button" variant="outline" size="sm" onClick={onBack}>
+              <ArrowLeft className="size-4" aria-hidden="true" /> {t("accounts.backToList")}
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => setAction("settings")}>
+              {t("accounts.settings")}
+            </Button>
+          </>
+        }
+      />
+      <PageIntro
         description={`${institutionLabel} · ${displayEnum(t, "enum", record.account.accountType)}`}
         status={
-          <div className="flex flex-wrap items-center gap-2">
+          <>
             <p className="text-2xl font-semibold tracking-tight">{titleAmount}</p>
             {titleSecondary && <p className="text-sm text-muted-foreground">{titleSecondary}</p>}
             <Badge variant={valuation?.complete ? "success" : "warning"}>{completeness}</Badge>
             {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}
             {record.account.balanceSheetRole === "liability" && <Badge variant="outline">{t("accounts.liability")}</Badge>}
             {asOf && <p className="text-sm text-muted-foreground">{asOf}</p>}
-          </div>
-        }
-        actions={
-          <>
-            <Button type="button" variant="outline" onClick={onBack}>
-              <ArrowLeft className="size-4" aria-hidden="true" /> {t("accounts.backToList")}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setAction("settings")}>
-              {t("accounts.settings")}
-            </Button>
           </>
         }
       />

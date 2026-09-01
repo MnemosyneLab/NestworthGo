@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { chartNumber, chartTheme, joinTooltipLines } from "@/components/charts/chartTheme";
@@ -49,50 +49,56 @@ export function CompositionChart({
   const { t } = useTranslation();
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
-  const theme = chartTheme();
-  const slices = collapseChartCategories(items).map((item) => (
+  const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  const themePalette = chartTheme().palette;
+  const themePaletteKey = themePalette.join("\u0000");
+  const slices = useMemo(() => collapseChartCategories(items).map((item) => (
     item.key === "other" ? { ...item, label: t("charts.otherCategory") } : item
-  ));
+  )), [items, t]);
   const showNative = slices.some((slice) => distinctNative(slice, currency));
-  const activeKey = hoveredKey ?? selectedKey;
+  const activeKey = hoveredKey ?? focusedKey ?? selectedKey;
+
+  const option: EChartsOption = useMemo(() => {
+    const palette = themePaletteKey.split("\u0000");
+    return {
+      tooltip: {
+        trigger: "item",
+        confine: true,
+        transitionDuration: 0,
+        formatter: (params) => {
+          const point = params as { name?: string };
+          const slice = slices.find((candidate) => candidate.key === point.name);
+          if (!slice) {
+            return "";
+          }
+          return joinTooltipLines([slice.label, sliceTooltipAmount(slice, currency)]);
+        },
+      },
+      series: [
+        {
+          type: "pie",
+          name: title,
+          radius: ["52%", "74%"],
+          center: ["50%", "50%"],
+          selectedMode: "single",
+          data: slices.map((slice, index) => ({
+            id: slice.key,
+            name: slice.key,
+            value: chartNumber(slice.amount) ?? 0,
+            itemStyle: { color: palette[index % palette.length] },
+          })),
+          label: { show: false },
+          emphasis: { disabled: true },
+        },
+      ],
+    };
+  }, [currency, slices, themePaletteKey, title]);
 
   if (slices.length === 0) {
     return null;
   }
 
-  const keyFromLabel = (name: string | null) => slices.find((slice) => slice.label === name)?.key ?? null;
-
-  const option: EChartsOption = {
-    tooltip: {
-      trigger: "item",
-      confine: true,
-      transitionDuration: 0,
-      formatter: (params) => {
-        const point = params as { name?: string; dataIndex?: number };
-        const slice = slices[point.dataIndex ?? -1];
-        if (!slice) {
-          return "";
-        }
-        return joinTooltipLines([slice.label, sliceTooltipAmount(slice, currency)]);
-      },
-    },
-    series: [
-      {
-        type: "pie",
-        name: title,
-        radius: ["52%", "74%"],
-        center: ["50%", "50%"],
-        selectedMode: "single",
-        data: slices.map((slice, index) => ({
-          name: slice.label,
-          value: chartNumber(slice.amount) ?? 0,
-          itemStyle: { color: theme.palette[index % theme.palette.length] },
-        })),
-        label: { show: false },
-        emphasis: { disabled: true },
-      },
-    ],
-  };
+  const keyFromChartName = (name: string | null) => slices.find((slice) => slice.key === name)?.key ?? null;
 
   return (
     <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,0.9fr)]" data-testid="composition-chart">
@@ -116,9 +122,10 @@ export function CompositionChart({
             ]
             : [item.label, formatAmount(item.amount, currency), formatPercent(item.shareBps)])}
           onSelectName={(name) => {
-            const key = keyFromLabel(name);
+            const key = keyFromChartName(name);
             setSelectedKey((current) => (key && current === key ? null : key));
           }}
+          onHoverName={(name) => setHoveredKey(keyFromChartName(name))}
           center={(
             <>
               <p className="text-lg font-semibold tracking-tight">{formatAmount(centerValue, currency)}</p>
@@ -145,8 +152,8 @@ export function CompositionChart({
             onClick={() => setSelectedKey((current) => (current === slice.key ? null : slice.key))}
             onMouseEnter={() => setHoveredKey(slice.key)}
             onMouseLeave={() => setHoveredKey(null)}
-            onFocus={() => setHoveredKey(slice.key)}
-            onBlur={() => setHoveredKey(null)}
+            onFocus={() => setFocusedKey(slice.key)}
+            onBlur={() => setFocusedKey(null)}
           >
             <span className="text-foreground">{slice.label}</span>
             <span className="flex items-center gap-2 text-muted-foreground">

@@ -7,7 +7,8 @@ import { SignedBarChart } from "@/components/charts/SignedBarChart";
 import { RangeToggle } from "@/components/charts/RangeToggle";
 import { chartTheme } from "@/components/charts/chartTheme";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 import { useRealizedGain, useDividendIncome, useNetWorthTrend } from "@/queries/analytics";
 import { useCatalog } from "@/queries/catalog";
 import { formatAmount } from "@/lib/money";
@@ -26,23 +27,27 @@ export function AnalyticsPage() {
   const dividendIncome = useDividendIncome(range);
   const netWorthTrend = useNetWorthTrend(range);
   const theme = chartTheme();
+  const pageChrome = <PageChrome pageId="analytics" title={t("nav.analytics")} />;
 
   if (realizedGain.isLoading || dividendIncome.isLoading || netWorthTrend.isLoading) {
-    return <LoadingState label={t("analytics.loading")} />;
+    return <>{pageChrome}<LoadingState label={t("analytics.loading")} /></>;
   }
 
   if (realizedGain.isError || dividendIncome.isError) {
     return (
-      <ErrorState
-        title={t("analytics.loadError")}
-        description={t("ui.state.errorDescription")}
-        onRetry={() => {
-          void realizedGain.refetch();
-          void dividendIncome.refetch();
-          void netWorthTrend.refetch();
-        }}
-        retryLabel={t("common.retryAction")}
-      />
+      <>
+        {pageChrome}
+        <ErrorState
+          title={t("analytics.loadError")}
+          description={t("ui.state.errorDescription")}
+          onRetry={() => {
+            void realizedGain.refetch();
+            void dividendIncome.refetch();
+            void netWorthTrend.refetch();
+          }}
+          retryLabel={t("common.retryAction")}
+        />
+      </>
     );
   }
 
@@ -54,7 +59,8 @@ export function AnalyticsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("nav.analytics")} description={t("analytics.description")} />
+      {pageChrome}
+      <PageIntro description={t("analytics.description")} />
 
       <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
 

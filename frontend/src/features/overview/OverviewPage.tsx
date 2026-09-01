@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { formatAmount, formatPercent, isPositiveCanonical } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import { formatTimestamp } from "@/lib/time";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { activitySentence } from "@/features/history/activitySentence";
 import { CompositionChart } from "@/components/charts/CompositionChart";
@@ -95,18 +96,22 @@ export function OverviewPage({
   const instruments = useInstruments(true);
   const accountIds = (accounts.data ?? []).map((record) => record.account.id);
   const holdings = useHoldingsByAccounts(accountIds);
+  const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} />;
 
   if (overview.isLoading) {
-    return <LoadingState label={t("ui.state.loadingPage")} />;
+    return <>{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></>;
   }
   if (overview.isError || !overview.data) {
     return (
-      <ErrorState
-        title={t("overview.loadError")}
-        description={t("ui.state.errorDescription")}
-        onRetry={() => overview.refetch()}
-        retryLabel={t("common.retryAction")}
-      />
+      <>
+        {pageChrome}
+        <ErrorState
+          title={t("overview.loadError")}
+          description={t("ui.state.errorDescription")}
+          onRetry={() => overview.refetch()}
+          retryLabel={t("common.retryAction")}
+        />
+      </>
     );
   }
 
@@ -131,7 +136,8 @@ export function OverviewPage({
   if (data.accountCount === 0) {
     return (
       <div className="flex flex-col gap-6" data-testid="overview-page">
-        <PageHeader title={t("nav.overview")} description={t("overview.description")} status={headerStatus} />
+        {pageChrome}
+        <PageIntro description={t("overview.description")} status={headerStatus} />
         <EmptyState
           title={t("overview.emptyTitle")}
           description={t("overview.emptyDescription")}
@@ -175,7 +181,8 @@ export function OverviewPage({
 
   return (
     <div className="flex flex-col gap-6" data-testid="overview-page">
-      <PageHeader title={t("nav.overview")} description={t("overview.description")} status={headerStatus} />
+      {pageChrome}
+      <PageIntro description={t("overview.description")} status={headerStatus} />
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.9fr)]">
         <Card className="relative overflow-hidden">

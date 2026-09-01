@@ -362,7 +362,10 @@ describe("InvestmentsPage", () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
     renderPage();
     await screen.findByText("NVIDIA");
-    await userEvent.click(screen.getByRole("button", { name: "Set price" }));
+    expect(screen.queryByRole("button", { name: "Icon" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Set price" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Set price" }));
     await userEvent.type(await screen.findByLabelText("Unit price"), "131.70");
     const priceButtons = screen.getAllByRole("button", { name: "Set price" });
     await userEvent.click(priceButtons[priceButtons.length - 1]);

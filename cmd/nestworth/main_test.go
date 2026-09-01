@@ -9,6 +9,28 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 )
 
+func TestWindowSizeFromSettingsRestoresSavedSize(t *testing.T) {
+	preference := settings.Default()
+	preference.WindowWidth = 1440
+	preference.WindowHeight = 900
+
+	width, height := windowSizeFromSettings(preference)
+	if width != 1440 || height != 900 {
+		t.Fatalf("windowSizeFromSettings() = %dx%d, want 1440x900", width, height)
+	}
+}
+
+func TestWindowSizeFromSettingsUsesDefaultsForInvalidSize(t *testing.T) {
+	preference := settings.Default()
+	preference.WindowWidth = settings.MinWindowWidth - 1
+	preference.WindowHeight = settings.DefaultWindowHeight
+
+	width, height := windowSizeFromSettings(preference)
+	if width != settings.DefaultWindowWidth || height != settings.DefaultWindowHeight {
+		t.Fatalf("windowSizeFromSettings() = %dx%d, want defaults %dx%d", width, height, settings.DefaultWindowWidth, settings.DefaultWindowHeight)
+	}
+}
+
 func TestPersistWindowSizeValueLoadsLatestSettings(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	store := settings.NewStore(path)

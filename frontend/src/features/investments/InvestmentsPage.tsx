@@ -18,7 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useAccounts } from "@/queries/accounts";
 import { useSettings } from "@/queries/settings";
@@ -27,7 +28,6 @@ import {
   useCreateInstrument,
   useUpdateInstrument,
   useArchiveInstrument,
-  useSetInstrumentIcon,
   useCreateHolding,
   useAllHoldingsFlat,
   useCurrentInstrumentQuote,
@@ -41,7 +41,6 @@ import { formatTimestamp } from "@/lib/time";
 import { groupByInstrumentType } from "@/lib/groupByInstrumentType";
 import { cn } from "@/lib/utils";
 import { EntityIcon } from "@/components/icons/EntityIcon";
-import { IconPicker } from "@/components/forms/IconPicker";
 import type { InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import {
   AlertDialog,
@@ -115,24 +114,19 @@ function ManualQuoteForm({
 function InstrumentRow({
   instrument,
   onEdit,
-  onSetPrice,
   onArchive,
 }: {
   instrument: InstrumentDTO;
   onEdit: () => void;
-  onSetPrice: () => void;
   onArchive: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const quote = useCurrentInstrumentQuote(instrument.id);
-  const setIcon = useSetInstrumentIcon();
-  const [editingIcon, setEditingIcon] = useState(false);
-  const [iconKey, setIconKey] = useState(instrument.iconKey);
   const quoteTime = quote.data?.quotedAt ?? quote.data?.createdAt;
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-3 text-sm">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-md border border-border px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(15rem,auto)_auto]">
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <EntityIcon iconKey={instrument.iconKey} kind="instrument" className="size-5 text-primary" />
         <span className="font-medium">{instrument.name}</span>
@@ -142,7 +136,7 @@ function InstrumentRow({
         </Badge>
         {instrument.archivedAt && <Badge variant="secondary">{t("common.archived")}</Badge>}
       </span>
-      <span className="flex min-w-[15rem] flex-1 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-right">
+      <span className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-right lg:col-span-1 lg:col-start-2 lg:row-start-1">
         {quote.isLoading ? (
           <span className="text-muted-foreground">{t("portfolio.priceLoading")}</span>
         ) : quote.data ? (
@@ -160,14 +154,8 @@ function InstrumentRow({
           <span className="text-muted-foreground">{t("portfolio.noCurrentPrice")}</span>
         )}
       </span>
-      <span className="flex shrink-0 items-center gap-2">
+      <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-2 lg:col-start-3">
         {!instrument.archivedAt && <Button type="button" variant="outline" size="sm" onClick={onEdit}>{t("common.edit")}</Button>}
-        <Button type="button" variant="outline" size="sm" onClick={() => setEditingIcon((value) => !value)}>{t("common.icon")}</Button>
-        {instrument.quoteSource === "manual" && !instrument.archivedAt && (
-          <Button type="button" variant="outline" size="sm" onClick={onSetPrice}>
-            {t("portfolio.setPrice")}
-          </Button>
-        )}
         <AlertDialog>
           <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
             {instrument.archivedAt ? t("common.active") : t("common.archive")}
@@ -184,12 +172,11 @@ function InstrumentRow({
           </AlertDialogContent>
         </AlertDialog>
       </span>
-      {editingIcon && <div className="w-full border-t border-border pt-3"><IconPicker id={`instrument-${instrument.id}-icon`} value={iconKey} kind="instrument" onChange={setIconKey} /><Button className="mt-2" size="sm" disabled={setIcon.isPending} onClick={() => setIcon.mutateAsync({ id: instrument.id, iconKey }).then(() => setEditingIcon(false))}>{t("common.save")}</Button></div>}
     </li>
   );
 }
 
-function InstrumentsTab() {
+function InstrumentsTab({ active }: { active: boolean }) {
   const { t } = useTranslation();
   const instruments = useInstruments();
   const createInstrument = useCreateInstrument();
@@ -197,7 +184,7 @@ function InstrumentsTab() {
   const archiveInstrument = useArchiveInstrument();
   const [open, setOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<InstrumentDTO | null>(null);
-  const [quoteTarget, setQuoteTarget] = useState<{ id: string; name: string; currency: string } | null>(null);
+  const [showPriceForm, setShowPriceForm] = useState(false);
 
   if (instruments.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
@@ -216,28 +203,34 @@ function InstrumentsTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger className={buttonVariants({})}>
-          <Plus className="size-4" aria-hidden="true" /> {t("portfolio.addInstrument")}
-        </SheetTrigger>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>{t("portfolio.addInstrument")}</SheetTitle>
-          </SheetHeader>
-          <InstrumentForm
-            isSubmitting={createInstrument.isPending}
-            submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
-            onSubmit={(request) =>
-              createInstrument.mutate(request, {
-                onSuccess: () => {
-                  toast.success(t("portfolio.instrumentCreated"));
-                  setOpen(false);
-                },
-              })
-            }
-          />
-        </SheetContent>
-      </Sheet>
+      <PageChrome
+        pageId="investments"
+        enabled={active}
+        actions={
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger className={buttonVariants({ size: "sm" })}>
+              <Plus className="size-4" aria-hidden="true" /> {t("portfolio.addInstrument")}
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>{t("portfolio.addInstrument")}</SheetTitle>
+              </SheetHeader>
+              <InstrumentForm
+                isSubmitting={createInstrument.isPending}
+                submissionError={createInstrument.isError ? displayError(createInstrument.error, t("portfolio.createError")) : undefined}
+                onSubmit={(request) =>
+                  createInstrument.mutate(request, {
+                    onSuccess: () => {
+                      toast.success(t("portfolio.instrumentCreated"));
+                      setOpen(false);
+                    },
+                  })
+                }
+              />
+            </SheetContent>
+          </Sheet>
+        }
+      />
 
       {(instruments.data ?? []).length === 0 ? (
         <EmptyState title={t("portfolio.noInstruments")} description={t("portfolio.noInstrumentsDescription")} />
@@ -251,8 +244,10 @@ function InstrumentsTab() {
                   <InstrumentRow
                     key={instrument.id}
                     instrument={instrument}
-                    onEdit={() => setEditTarget(instrument)}
-                    onSetPrice={() => setQuoteTarget({ id: instrument.id, name: instrument.name, currency: instrument.quoteCurrency })}
+                    onEdit={() => {
+                      setShowPriceForm(false);
+                      setEditTarget(instrument);
+                    }}
                     onArchive={() =>
                       archiveInstrument.mutate(
                         { id: instrument.id, archived: !instrument.archivedAt },
@@ -269,7 +264,15 @@ function InstrumentsTab() {
           ))}
         </div>
       )}
-      <Sheet open={Boolean(editTarget)} onOpenChange={(open) => !open && setEditTarget(null)}>
+      <Sheet
+        open={Boolean(editTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditTarget(null);
+            setShowPriceForm(false);
+          }
+        }}
+      >
         <SheetContent>
           <SheetHeader>
             <SheetTitle>{t("portfolio.editInstrument")}</SheetTitle>
@@ -287,6 +290,7 @@ function InstrumentsTab() {
                   {
                     onSuccess: () => {
                       toast.success(t("common.saved"));
+                      setShowPriceForm(false);
                       setEditTarget(null);
                     },
                   },
@@ -294,20 +298,22 @@ function InstrumentsTab() {
               }
             />
           )}
-        </SheetContent>
-      </Sheet>
-      <Sheet open={Boolean(quoteTarget)} onOpenChange={(open) => !open && setQuoteTarget(null)}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>{quoteTarget ? `${t("portfolio.setPrice")} · ${quoteTarget.name}` : t("portfolio.setPrice")}</SheetTitle>
-          </SheetHeader>
-          {quoteTarget && (
-            <ManualQuoteForm
-              key={quoteTarget.id}
-              instrumentId={quoteTarget.id}
-              currency={quoteTarget.currency}
-              onSaved={() => setQuoteTarget(null)}
-            />
+          {editTarget && editTarget.quoteSource === "manual" && (
+            <div className="mt-5 border-t border-border pt-5">
+              <Button type="button" variant="outline" onClick={() => setShowPriceForm((value) => !value)}>
+                {t("portfolio.setPrice")}
+              </Button>
+              {showPriceForm && (
+                <div className="mt-4">
+                  <ManualQuoteForm
+                    key={`${editTarget.id}-price`}
+                    instrumentId={editTarget.id}
+                    currency={editTarget.quoteCurrency}
+                    onSaved={() => setShowPriceForm(false)}
+                  />
+                </div>
+              )}
+            </div>
           )}
         </SheetContent>
       </Sheet>
@@ -427,7 +433,7 @@ function HoldingsIndexTable({ rows }: { rows: HoldingsIndexRow[] }) {
   );
 }
 
-function HoldingsTab() {
+function HoldingsTab({ active }: { active: boolean }) {
   const { t } = useTranslation();
   const accounts = useAccounts({});
   const instruments = useInstruments();
@@ -495,52 +501,58 @@ function HoldingsTab() {
   return (
     <div className="flex flex-col gap-4">
       <p className="text-sm text-muted-foreground">{t("portfolio.holdingsIndexDescription")}</p>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetTrigger className={buttonVariants({})}>
-          <Plus className="size-4" aria-hidden="true" /> {t("portfolio.addHolding")}
-        </SheetTrigger>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>{t("portfolio.addHolding")}</SheetTitle>
-          </SheetHeader>
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="holding-account">{t("history.accountSelect")}</Label>
-              <NativeSelect id="holding-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
-                <option value="">{t("history.accountSelectEmpty")}</option>
-                {holdingsAccounts.map((record) => (
-                  <option key={record.account.id} value={record.account.id}>
-                    {record.account.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="holding-instrument">{t("history.instrument")}</Label>
-              <NativeSelect id="holding-instrument" value={instrumentId} onChange={(event) => setInstrumentId(event.target.value)}>
-                <option value="">{t("history.selectInstrument")}</option>
-                {(instruments.data ?? []).map((instrument) => (
-                  <option key={instrument.id} value={instrument.id}>
-                    {instrument.name}
-                  </option>
-                ))}
-              </NativeSelect>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="holding-quantity">{t("history.quantity")}</Label>
-              <Input id="holding-quantity" value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" />
-            </div>
-            {(formError || createHolding.isError) && (
-              <p role="alert" className="text-sm text-destructive">
-                {formError ?? displayError(createHolding.error, t("portfolio.createError"))}
-              </p>
-            )}
-            <Button onClick={submit} disabled={createHolding.isPending}>
-              {createHolding.isPending ? t("common.pending") : t("portfolio.addHolding")}
-            </Button>
-          </div>
-        </SheetContent>
-      </Sheet>
+      <PageChrome
+        pageId="investments"
+        enabled={active}
+        actions={
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger className={buttonVariants({ size: "sm" })}>
+              <Plus className="size-4" aria-hidden="true" /> {t("portfolio.addHolding")}
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>{t("portfolio.addHolding")}</SheetTitle>
+              </SheetHeader>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="holding-account">{t("history.accountSelect")}</Label>
+                  <NativeSelect id="holding-account" value={accountId} onChange={(event) => setAccountId(event.target.value)}>
+                    <option value="">{t("history.accountSelectEmpty")}</option>
+                    {holdingsAccounts.map((record) => (
+                      <option key={record.account.id} value={record.account.id}>
+                        {record.account.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="holding-instrument">{t("history.instrument")}</Label>
+                  <NativeSelect id="holding-instrument" value={instrumentId} onChange={(event) => setInstrumentId(event.target.value)}>
+                    <option value="">{t("history.selectInstrument")}</option>
+                    {(instruments.data ?? []).map((instrument) => (
+                      <option key={instrument.id} value={instrument.id}>
+                        {instrument.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="holding-quantity">{t("history.quantity")}</Label>
+                  <Input id="holding-quantity" value={quantity} onChange={(event) => setQuantity(event.target.value)} inputMode="decimal" />
+                </div>
+                {(formError || createHolding.isError) && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {formError ?? displayError(createHolding.error, t("portfolio.createError"))}
+                  </p>
+                )}
+                <Button onClick={submit} disabled={createHolding.isPending}>
+                  {createHolding.isPending ? t("common.pending") : t("portfolio.addHolding")}
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        }
+      />
 
       {allHoldings.length === 0 ? (
         <EmptyState title={t("portfolio.noHoldings")} description={t("portfolio.noHoldingsDescription")} />
@@ -587,19 +599,21 @@ function HoldingsTab() {
  */
 export function InvestmentsPage() {
   const { t } = useTranslation();
+  const [tab, setTab] = useState("instruments");
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("nav.instruments")} description={t("portfolio.description")} />
-      <Tabs defaultValue="instruments">
+      <PageChrome pageId="investments" title={t("nav.instruments")} />
+      <PageIntro description={t("portfolio.description")} />
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="instruments">{t("portfolio.instrumentsTab")}</TabsTrigger>
           <TabsTrigger value="holdings">{t("portfolio.holdingsTab")}</TabsTrigger>
         </TabsList>
         <TabsContent value="instruments">
-          <InstrumentsTab />
+          <InstrumentsTab active={tab === "instruments"} />
         </TabsContent>
         <TabsContent value="holdings">
-          <HoldingsTab />
+          <HoldingsTab active={tab === "holdings"} />
         </TabsContent>
       </Tabs>
     </div>

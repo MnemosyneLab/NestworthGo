@@ -14,6 +14,7 @@ import { BrandLockup } from "@/components/brand/BrandLockup";
 import { displayError } from "@/lib/display";
 import { toast } from "sonner";
 import type { Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
+import { PageChromeProvider } from "@/components/layout/PageChrome";
 
 const APPEARANCE_ICONS: Record<Appearance, React.ComponentType<{ className?: string }>> = {
   system: Monitor,
@@ -86,6 +87,7 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
   const appInfo = useAppInfo();
   const saveSettings = useSaveSettings();
   const setAppearance = useUiStore((state) => state.setAppearance);
+  const [pageBarTarget, setPageBarTarget] = React.useState<HTMLDivElement | null>(null);
 
   const persistHeaderSetting = (patch: Partial<Settings>) => {
     const next = { ...settings, ...patch };
@@ -105,7 +107,8 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
   };
 
   return (
-    <div className="fixed inset-0 flex min-h-0 min-w-0 overflow-hidden bg-background text-foreground">
+    <PageChromeProvider activePageId={activePageId} target={pageBarTarget}>
+      <div className="fixed inset-0 flex min-h-0 min-w-0 overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
           "flex shrink-0 flex-col border-r border-border bg-card/80 backdrop-blur-sm transition-[width] duration-150",
@@ -167,23 +170,27 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
         )}
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 shrink-0 items-center justify-end gap-2 border-b border-border bg-card/60 px-4 backdrop-blur-sm">
-          <LanguageSwitcher
-            language={settings.language}
-            disabled={saveSettings.isPending}
-            onChange={(language) => persistHeaderSetting({ language: language as Settings["language"] })}
-          />
-          <AppearanceToggle
-            appearance={settings.appearance as Appearance}
-            disabled={saveSettings.isPending}
-            onChange={(appearance) => persistHeaderSetting({ appearance: appearance as Settings["appearance"] })}
-          />
+        <header className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card/60 px-4 py-2 backdrop-blur-sm sm:flex-nowrap sm:gap-3">
+          <div ref={setPageBarTarget} className="order-1 flex min-w-0 basis-full items-center gap-3 sm:flex-1 sm:basis-auto" />
+          <div className="order-2 ml-auto flex shrink-0 items-center gap-2">
+            <LanguageSwitcher
+              language={settings.language}
+              disabled={saveSettings.isPending}
+              onChange={(language) => persistHeaderSetting({ language: language as Settings["language"] })}
+            />
+            <AppearanceToggle
+              appearance={settings.appearance as Appearance}
+              disabled={saveSettings.isPending}
+              onChange={(appearance) => persistHeaderSetting({ appearance: appearance as Settings["appearance"] })}
+            />
+          </div>
         </header>
         <main id="main-content" className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">
           <div className="mx-auto min-w-0 w-full max-w-7xl">{children}</div>
         </main>
       </div>
-    </div>
+      </div>
+    </PageChromeProvider>
   );
 }
 

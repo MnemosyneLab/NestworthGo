@@ -176,8 +176,7 @@ describe("keyboard-only completion", () => {
     renderWithQueryClient(<AccountsPage />);
 
     await screen.findByText("No accounts yet");
-    await userEvent.tab(); // body -> "Show archived" checkbox
-    await userEvent.tab(); // -> "Add account" Sheet trigger
+    await userEvent.tab(); // body -> "Add account" Sheet trigger
     expect(screen.getByRole("button", { name: "Add account" })).toHaveFocus();
     await userEvent.keyboard("{Enter}"); // opens the Sheet
 

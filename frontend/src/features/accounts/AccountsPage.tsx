@@ -11,7 +11,8 @@ import { AccountDetail } from "@/features/accounts/AccountDetail";
 import { formatAmount } from "@/lib/money";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
 import { displayEnum, displayError } from "@/lib/display";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { toast } from "sonner";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
@@ -89,35 +90,38 @@ export function AccountsPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
+      <PageChrome
+        pageId="accounts"
         title={t("nav.accounts")}
-        description={t("accounts.description")}
         actions={
-          <>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
-              {t("accounts.showArchived")}
-            </label>
-            <Sheet
-              open={createOpen}
-              onOpenChange={(open) => {
-                setCreateOpen(open);
-                if (open) setCreateError(undefined);
-              }}
-            >
-              <SheetTrigger className={cn(buttonVariants(), "gap-2")}>
-                <Plus className="size-4" aria-hidden="true" /> {t("accounts.create")}
-              </SheetTrigger>
-              <SheetContent>
-                <SheetHeader>
-                  <SheetTitle>{t("accounts.createTitle")}</SheetTitle>
-                </SheetHeader>
-                <div className="overflow-y-auto">
-                  <AccountCreateWizard isSubmitting={createSubmitting} submissionError={createError} onSubmit={saveCreate} />
-                </div>
-              </SheetContent>
-            </Sheet>
-          </>
+          <Sheet
+            open={createOpen}
+            onOpenChange={(open) => {
+              setCreateOpen(open);
+              if (open) setCreateError(undefined);
+            }}
+          >
+            <SheetTrigger className={cn(buttonVariants(), "gap-2")}>
+              <Plus className="size-4" aria-hidden="true" /> {t("accounts.create")}
+            </SheetTrigger>
+            <SheetContent>
+              <SheetHeader>
+                <SheetTitle>{t("accounts.createTitle")}</SheetTitle>
+              </SheetHeader>
+              <div className="overflow-y-auto">
+                <AccountCreateWizard isSubmitting={createSubmitting} submissionError={createError} onSubmit={saveCreate} />
+              </div>
+            </SheetContent>
+          </Sheet>
+        }
+      />
+      <PageIntro
+        description={t("accounts.description")}
+        status={
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            <input type="checkbox" checked={showArchived} onChange={(event) => setShowArchived(event.target.checked)} />
+            {t("accounts.showArchived")}
+          </label>
         }
       />
 

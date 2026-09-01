@@ -111,10 +111,7 @@ func main() {
 
 	app.Menu.SetApplicationMenu(application.DefaultApplicationMenu())
 
-	width, height := settings.DefaultWindowWidth, settings.DefaultWindowHeight
-	if preference.Validate() == nil {
-		width, height = int(preference.WindowWidth), int(preference.WindowHeight)
-	}
+	width, height := windowSizeFromSettings(preference)
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:  version.Name,
 		Width:  width,
@@ -124,6 +121,9 @@ func main() {
 			TitleBar: application.MacTitleBarDefault,
 		},
 		URL: "/",
+	})
+	window.OnWindowEvent(events.Common.WindowDidResize, func(_ *application.WindowEvent) {
+		persistWindowSize(store, window)
 	})
 	window.OnWindowEvent(events.Common.WindowClosing, func(_ *application.WindowEvent) {
 		persistWindowSize(store, window)
@@ -173,6 +173,13 @@ func persistWindowSize(store *settings.Store, window *application.WebviewWindow)
 	if err := persistWindowSizeValue(store, width, height); err != nil {
 		slog.Warn("could not persist window size", "error", err)
 	}
+}
+
+func windowSizeFromSettings(preference settings.Settings) (int, int) {
+	if preference.Validate() == nil {
+		return int(preference.WindowWidth), int(preference.WindowHeight)
+	}
+	return settings.DefaultWindowWidth, settings.DefaultWindowHeight
 }
 
 func persistWindowSizeValue(store *settings.Store, width, height int) error {

@@ -50,6 +50,7 @@ export interface EChartProps {
   dataTableColumns?: string[];
   dataTableRows?: string[][];
   onSelectName?: (name: string | null) => void;
+  onHoverName?: (name: string | null) => void;
   center?: React.ReactNode;
 }
 
@@ -68,15 +69,20 @@ export function EChart({
   dataTableColumns,
   dataTableRows,
   onSelectName,
+  onHoverName,
   center,
 }: EChartProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const chartRef = React.useRef<echarts.ECharts | null>(null);
   const summaryId = React.useId();
   const onSelectNameRef = React.useRef(onSelectName);
+  const onHoverNameRef = React.useRef(onHoverName);
   React.useEffect(() => {
     onSelectNameRef.current = onSelectName;
   }, [onSelectName]);
+  React.useEffect(() => {
+    onHoverNameRef.current = onHoverName;
+  }, [onHoverName]);
 
   React.useEffect(() => {
     if (!containerRef.current) {
@@ -92,7 +98,16 @@ export function EChart({
     const onClick = (params: { name?: string }) => {
       onSelectNameRef.current?.(params.name ?? null);
     };
+    const onMouseOver = (params: { name?: string }) => {
+      onHoverNameRef.current?.(params.name ?? null);
+    };
+    const onMouseOut = () => {
+      onHoverNameRef.current?.(null);
+    };
     chart.on("click", onClick);
+    chart.on("mouseover", onMouseOver);
+    chart.on("mouseout", onMouseOut);
+    chart.on("globalout", onMouseOut);
 
     const resizeObserver = new ResizeObserver(() => {
       try {
@@ -107,6 +122,9 @@ export function EChart({
       resizeObserver.disconnect();
       try {
         chart?.off("click", onClick);
+        chart?.off("mouseover", onMouseOver);
+        chart?.off("mouseout", onMouseOut);
+        chart?.off("globalout", onMouseOut);
         chart?.dispose();
       } catch {
         // jsdom canvas disposal is best-effort.

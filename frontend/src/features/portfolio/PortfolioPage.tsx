@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { TrendChart } from "@/components/charts/TrendChart";
@@ -28,18 +29,22 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
   const [range, setRange] = useState("30d");
   const trend = usePortfolioTrend(range);
   const theme = chartTheme();
+  const pageChrome = <PageChrome pageId="portfolio" title={t("portfolio.pageTitle")} />;
 
   if (portfolio.isLoading) {
-    return <LoadingState label={t("portfolio.loading")} />;
+    return <>{pageChrome}<LoadingState label={t("portfolio.loading")} /></>;
   }
   if (portfolio.isError || !portfolio.data) {
     return (
-      <ErrorState
-        title={t("portfolio.loadError")}
-        description={t("ui.state.errorDescription")}
-        onRetry={() => portfolio.refetch()}
-        retryLabel={t("common.retryAction")}
-      />
+      <>
+        {pageChrome}
+        <ErrorState
+          title={t("portfolio.loadError")}
+          description={t("ui.state.errorDescription")}
+          onRetry={() => portfolio.refetch()}
+          retryLabel={t("common.retryAction")}
+        />
+      </>
     );
   }
 
@@ -57,7 +62,8 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
 
   return (
     <div className="flex flex-col gap-6" data-testid="portfolio-page">
-      <PageHeader title={t("portfolio.pageTitle")} description={t("portfolio.pageDescription")} />
+      {pageChrome}
+      <PageIntro description={t("portfolio.pageDescription")} />
       <p className="text-sm text-muted-foreground">{t("portfolio.holdingsOnlyNote")}</p>
       {accounts.length === 0 ? (
         <EmptyState title={t("portfolio.emptyTitle")} description={t("portfolio.emptyDescription")} />

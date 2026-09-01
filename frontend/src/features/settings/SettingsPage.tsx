@@ -16,7 +16,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies, useFXProviders, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
@@ -44,25 +45,29 @@ export function SettingsPage() {
   const origin = useHistoryOrigin();
   const setAppearance = useUiStore((state) => state.setAppearance);
   const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
+  const pageChrome = <PageChrome pageId="settings" title={t("settings.title")} />;
 
   if (settings.isLoading) {
-    return <LoadingState label={t("ui.state.loadingPage")} />;
+    return <>{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></>;
   }
 
   if (settings.isError || !settings.data) {
     return (
-      <ErrorState
-        title={t("settings.loadError")}
-        description={t("ui.state.errorDescription")}
-        onRetry={() => settings.refetch()}
-        retryLabel={t("common.retryAction")}
-      />
+      <>
+        {pageChrome}
+        <ErrorState
+          title={t("settings.loadError")}
+          description={t("ui.state.errorDescription")}
+          onRetry={() => settings.refetch()}
+          retryLabel={t("common.retryAction")}
+        />
+      </>
     );
   }
 
   const draft = draftOverride ?? settings.data;
   if (!draft) {
-    return <LoadingState label={t("ui.state.loadingPage")} />;
+    return <>{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></>;
   }
 
   const isDirty =
@@ -94,7 +99,8 @@ export function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <PageHeader title={t("settings.title")} description={t("settings.subtitle")} />
+      {pageChrome}
+      <PageIntro description={t("settings.subtitle")} />
 
       <form onSubmit={submit} className="flex max-w-2xl flex-col gap-5" aria-label={t("settings.formLabel")}>
         <div className="grid gap-5 sm:grid-cols-2">

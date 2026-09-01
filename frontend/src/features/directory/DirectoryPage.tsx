@@ -3,7 +3,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DirectoryEntityList, type DirectoryCreatePayload } from "@/features/directory/DirectoryEntityList";
 import { useMembers, useInstitutions, useGroups, useCreateMember, useUpdateMember, useArchiveMember, useSetMemberIcon, useCreateInstitution, useUpdateInstitution, useArchiveInstitution, useSetInstitutionIcon, useCreateGroup, useUpdateGroup, useArchiveGroup, useSetGroupIcon } from "@/queries/directory";
 import { useCatalog } from "@/queries/catalog";
-import { PageHeader } from "@/components/layout/PageHeader";
+import { PageIntro } from "@/components/layout/PageHeader";
+import { PageChrome } from "@/components/layout/PageChrome";
 
 export function DirectoryPage() {
   const { t } = useTranslation(); const catalog = useCatalog();
@@ -11,7 +12,7 @@ export function DirectoryPage() {
   const institutions = useInstitutions(); const createInstitution = useCreateInstitution(); const updateInstitution = useUpdateInstitution(); const archiveInstitution = useArchiveInstitution(); const setInstitutionIcon = useSetInstitutionIcon();
   const groups = useGroups(); const createGroup = useCreateGroup(); const updateGroup = useUpdateGroup(); const archiveGroup = useArchiveGroup(); const setGroupIcon = useSetGroupIcon();
 
-  return <div className="flex flex-col gap-6"><PageHeader title={t("nav.directory")} description={t("directory.description")} />
+  return <div className="flex flex-col gap-6"><PageChrome pageId="directory" title={t("nav.directory")} /><PageIntro description={t("directory.description")} />
     <Tabs defaultValue="members"><TabsList><TabsTrigger value="members">{t("nav.members")}</TabsTrigger><TabsTrigger value="institutions">{t("nav.institutions")}</TabsTrigger><TabsTrigger value="groups">{t("nav.groups")}</TabsTrigger></TabsList>
       <TabsContent value="members"><DirectoryEntityList kind="member" entities={members.data ?? undefined} isLoading={members.isLoading} isError={members.isError}
         onCreate={(payload: DirectoryCreatePayload) => createMember.mutateAsync({ name: payload.name, iconKey: payload.iconKey })}
