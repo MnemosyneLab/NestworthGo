@@ -462,7 +462,14 @@ func finishGainGroups[K comparable](groups map[K]*gainGroupAccumulator, currency
 		}
 		result = append(result, domain.GainGroupView{Key: group.Key, Label: group.Label, Gain: gain, Available: group.Available, MissingReason: group.MissingReason})
 	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Key < result[j].Key })
+	sort.SliceStable(result, func(i, j int) bool {
+		left, leftErr := decimal.NewFromString(result[i].Gain.Amount)
+		right, rightErr := decimal.NewFromString(result[j].Gain.Amount)
+		if leftErr != nil || rightErr != nil || left.Equal(right) {
+			return result[i].Key < result[j].Key
+		}
+		return left.GreaterThan(right)
+	})
 	return result, nil
 }
 

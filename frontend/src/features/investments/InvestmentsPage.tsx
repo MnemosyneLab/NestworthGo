@@ -38,6 +38,7 @@ import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { displayEnum, displayError } from "@/lib/display";
 import { compareCanonical, formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
+import { groupByInstrumentType } from "@/lib/groupByInstrumentType";
 import { cn } from "@/lib/utils";
 import { EntityIcon } from "@/components/icons/EntityIcon";
 import { IconPicker } from "@/components/forms/IconPicker";
@@ -241,25 +242,32 @@ function InstrumentsTab() {
       {(instruments.data ?? []).length === 0 ? (
         <EmptyState title={t("portfolio.noInstruments")} description={t("portfolio.noInstrumentsDescription")} />
       ) : (
-        <ul className="flex flex-col gap-2">
-          {(instruments.data ?? []).map((instrument) => (
-            <InstrumentRow
-              key={instrument.id}
-              instrument={instrument}
-              onEdit={() => setEditTarget(instrument)}
-              onSetPrice={() => setQuoteTarget({ id: instrument.id, name: instrument.name, currency: instrument.quoteCurrency })}
-              onArchive={() =>
-                archiveInstrument.mutate(
-                  { id: instrument.id, archived: !instrument.archivedAt },
-                  {
-                    onSuccess: () => toast.success(instrument.archivedAt ? t("common.active") : t("common.archived")),
-                    onError: (error) => toast.error(displayError(error, t("portfolio.updateError"))),
-                  },
-                )
-              }
-            />
+        <div className="flex flex-col gap-4">
+          {groupByInstrumentType(instruments.data ?? []).map((group) => (
+            <section key={group.key} className="flex flex-col gap-2" data-testid={`instrument-type-group-${group.key}`}>
+              <h2 className="text-sm font-medium text-muted-foreground">{displayEnum(t, "enum", group.key)}</h2>
+              <ul className="flex flex-col gap-2">
+                {group.items.map((instrument) => (
+                  <InstrumentRow
+                    key={instrument.id}
+                    instrument={instrument}
+                    onEdit={() => setEditTarget(instrument)}
+                    onSetPrice={() => setQuoteTarget({ id: instrument.id, name: instrument.name, currency: instrument.quoteCurrency })}
+                    onArchive={() =>
+                      archiveInstrument.mutate(
+                        { id: instrument.id, archived: !instrument.archivedAt },
+                        {
+                          onSuccess: () => toast.success(instrument.archivedAt ? t("common.active") : t("common.archived")),
+                          onError: (error) => toast.error(displayError(error, t("portfolio.updateError"))),
+                        },
+                      )
+                    }
+                  />
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
       <Sheet open={Boolean(editTarget)} onOpenChange={(open) => !open && setEditTarget(null)}>
         <SheetContent>

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -128,6 +128,44 @@ describe("MarketDataPage", () => {
     expect(savedData).toHaveTextContent("CNY/SGD");
     expect(savedData).toHaveTextContent("1 CNY = 0.19 SGD");
     expect(savedData).toHaveTextContent(formatTimestamp("2024-01-01T00:00:00Z", "Pacific/Auckland", "en"));
+  });
+
+  it("groups saved data as FX then instrument type, sorted by currency", async () => {
+    listInstruments.mockResolvedValue([
+      { id: "etf-1", name: "QQQ", type: "etf", quoteCurrency: "USD", quoteSource: "provider" },
+      { id: "stock-usd", name: "Apple", type: "stock", quoteCurrency: "USD", quoteSource: "provider" },
+      { id: "stock-cny", name: "Kweichow", type: "stock", quoteCurrency: "CNY", quoteSource: "provider" },
+    ]);
+    listFXPreferences.mockResolvedValue([
+      {
+        householdId: "h1",
+        currencyA: "USD",
+        currencyB: "SGD",
+        sourceKind: "provider",
+        createdAt: "2024-01-01T00:00:00Z",
+        updatedAt: "2024-01-01T00:00:00Z",
+      },
+      {
+        householdId: "h1",
+        currencyA: "CNY",
+        currencyB: "SGD",
+        sourceKind: "provider",
+        createdAt: "2024-01-01T00:00:00Z",
+        updatedAt: "2024-01-01T00:00:00Z",
+      },
+    ]);
+
+    renderPage();
+    const fxGroup = await screen.findByTestId("market-data-group-fx");
+    const stockGroup = screen.getByTestId("market-data-group-stock");
+    const etfGroup = screen.getByTestId("market-data-group-etf");
+    expect(fxGroup.compareDocumentPosition(stockGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(stockGroup.compareDocumentPosition(etfGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      within(fxGroup).getByTestId("saved-fx-CNY/SGD").compareDocumentPosition(within(fxGroup).getByTestId("saved-fx-SGD/USD"))
+        & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(within(stockGroup).getByText("Kweichow").compareDocumentPosition(within(stockGroup).getByText("Apple")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("configures a provider for an FX pair without a source and refreshes it", async () => {

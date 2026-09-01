@@ -487,3 +487,30 @@ func assertMoneyView(t *testing.T, money *domain.MoneyView, amount string, curre
 		t.Fatalf("money view = %+v, want %s %s", money, amount, currency)
 	}
 }
+
+func TestMakeAllocationsSortsByAmountDescending(t *testing.T) {
+	result, err := makeAllocations(
+		map[string]decimal.Decimal{"etf": decimal.RequireFromString("100"), "stock": decimal.RequireFromString("900")},
+		map[string]string{"etf": "ETF", "stock": "Stock"},
+		decimal.RequireFromString("1000"),
+		"USD",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result) != 2 || result[0].Key != "stock" || result[1].Key != "etf" {
+		t.Fatalf("order = %+v, want stock then etf", result)
+	}
+}
+
+func TestSortAccountValuationsOrdersByBaseValueDescending(t *testing.T) {
+	accounts := []domain.AccountValuation{
+		{Account: domain.Account{Name: "Small"}, BaseValue: &domain.MoneyView{Amount: "100", Currency: "USD"}},
+		{Account: domain.Account{Name: "Large"}, BaseValue: &domain.MoneyView{Amount: "900", Currency: "USD"}},
+		{Account: domain.Account{Name: "Missing"}},
+	}
+	sortAccountValuations(accounts)
+	if accounts[0].Account.Name != "Large" || accounts[1].Account.Name != "Small" || accounts[2].Account.Name != "Missing" {
+		t.Fatalf("order = %+v", accounts)
+	}
+}

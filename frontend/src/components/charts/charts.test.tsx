@@ -46,6 +46,27 @@ describe("chart interactions", () => {
     expect(other).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("shows native and household amounts when a slice uses another currency", () => {
+    render(
+      <CompositionChart
+        title="Account composition"
+        items={[
+          { key: "usd", label: "USD", amount: "800", shareBps: 8000, nativeAmount: "800", nativeCurrency: "USD" },
+          { key: "sgd", label: "SGD", amount: "200", shareBps: 2000, nativeAmount: "270", nativeCurrency: "SGD" },
+        ]}
+        currency="USD"
+        centerValue="1000"
+        centerCaption="Valued subtotal"
+        ariaLabel="Account composition"
+        summary="Account composition"
+      />,
+    );
+
+    expect(screen.getByTestId("composition-native-sgd")).toHaveTextContent(/SGD\s*270\.00/);
+    expect(screen.queryByTestId("composition-native-usd")).not.toBeInTheDocument();
+    expect(screen.getByTestId("composition-slice-sgd")).toHaveTextContent("$200.00");
+  });
+
   it("draws a same-day single-point trend instead of hiding it as empty", () => {
     render(
       <TrendChart
@@ -128,6 +149,27 @@ describe("chart interactions", () => {
       />,
     );
     expect(screen.getAllByText(`Alice <img src=x onerror=alert(1)>`).length).toBeGreaterThan(0);
+  });
+
+  it("lists signed bars by amount descending with losses last", () => {
+    render(
+      <SignedBarChart
+        ariaLabel="Gain"
+        summary="Gain"
+        items={[
+          { key: "loss", label: "Loss", amount: "-20", currency: "USD" },
+          { key: "small", label: "Small", amount: "10", currency: "USD" },
+          { key: "large", label: "Large", amount: "500", currency: "USD" },
+        ]}
+        emptyLabel="empty"
+      />,
+    );
+    const legend = screen.getByTestId("signed-bar-legend");
+    expect([...legend.querySelectorAll("li")].map((item) => item.querySelector("span")?.textContent)).toEqual([
+      "Large",
+      "Small",
+      "Loss",
+    ]);
   });
 
   it("disables animation when the user prefers reduced motion", () => {

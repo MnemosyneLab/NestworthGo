@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
 import { chartNumber, chartTheme, joinTooltipLines } from "@/components/charts/chartTheme";
 import { EmptyState } from "@/components/layout/PageState";
-import { compareCanonical, formatAmount } from "@/lib/money";
+import { compareCanonical, formatAmount, sortByCanonicalDesc } from "@/lib/money";
 
 export interface BarChartItem {
   key: string;
@@ -31,7 +31,12 @@ export function SignedBarChart({
 }: SignedBarChartProps) {
   const { t } = useTranslation();
   const theme = chartTheme();
-  const visible = items.filter((item) => item.available !== false);
+  const sorted = sortByCanonicalDesc(
+    items,
+    (item) => item.amount,
+    (left, right) => left.key.localeCompare(right.key),
+  );
+  const visible = sorted.filter((item) => item.available !== false);
 
   if (items.length === 0) {
     return <EmptyState title={emptyLabel} />;
@@ -84,14 +89,14 @@ export function SignedBarChart({
           summary={summary}
           dataTableLabel={t("charts.viewDataTable")}
           dataTableColumns={[t("charts.category"), t("charts.amount")]}
-          dataTableRows={items.map((item) => [
+          dataTableRows={sorted.map((item) => [
             item.label,
             item.available === false ? t("analytics.statusPartial") : formatAmount(item.amount, item.currency),
           ])}
         />
       ) : null}
-      <ul className="flex flex-col gap-1">
-        {items.map((item) => (
+      <ul className="flex flex-col gap-1" data-testid="signed-bar-legend">
+        {sorted.map((item) => (
           <li key={item.key} className="flex items-center justify-between gap-4 text-sm">
             <span>{item.label}</span>
             <span className={compareCanonical(item.amount, "0") >= 0 ? "text-gain-positive" : "text-gain-negative"}>

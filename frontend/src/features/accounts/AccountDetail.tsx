@@ -12,8 +12,10 @@ import { AccountActionSheet, type AccountAction } from "@/features/accounts/Acco
 import { useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/queries/accounts";
 import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
 import { useHistoryOrigin } from "@/queries/history";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, sortByCanonicalDesc } from "@/lib/money";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
+import { accountCompositionItems, componentHouseholdAmount, sortValuationComponents } from "@/features/accounts/accountComposition";
+import { CompositionChart } from "@/components/charts/CompositionChart";
 import { formatTimestamp } from "@/lib/time";
 import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
@@ -35,7 +37,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 function cashComponents(valuation?: AccountValuationDTO): ValuationComponentDTO[] {
-  return (valuation?.components ?? []).filter((component) => !component.instrumentId);
+  const householdCurrency = valuation?.baseValue?.currency ?? "";
+  return sortValuationComponents(
+    (valuation?.components ?? []).filter((component) => !component.instrumentId),
+    householdCurrency,
+  );
 }
 
 function holdingRows(
@@ -49,9 +55,10 @@ function holdingRows(
   instrumentActive: boolean;
   component?: ValuationComponentDTO;
 }[] {
+  const householdCurrency = valuation?.baseValue?.currency ?? "";
   const byHoldingId = new Map((valuation?.components ?? []).filter((component) => component.holdingId).map((component) => [component.holdingId as string, component]));
   const instrumentById = new Map(instruments.map((instrument) => [instrument.id, instrument]));
-  return holdings
+  const rows = holdings
     .filter((holding) => !holding.archivedAt)
     .map((holding) => {
       const instrument = instrumentById.get(holding.instrumentId);
@@ -64,6 +71,37 @@ function holdingRows(
         component,
       };
     });
+  return sortByCanonicalDesc(
+    rows,
+    (row) => (row.component ? componentHouseholdAmount(row.component, householdCurrency) : undefined) ?? "0",
+    (left, right) => left.instrumentName.localeCompare(right.instrumentName),
+  );
+}
+
+function ComponentAmounts({
+  component,
+  householdCurrency,
+  pendingLabel,
+}: {
+  component: ValuationComponentDTO;
+  householdCurrency: string;
+  pendingLabel: string;
+}) {
+  const native = component.nativeAmount
+    ? formatAmount(component.nativeAmount, component.nativeCurrency)
+    : pendingLabel;
+  const householdAmount = component.baseAmount
+    ? formatAmount(component.baseAmount.amount, component.baseAmount.currency)
+    : componentHouseholdAmount(component, householdCurrency)
+      ? formatAmount(componentHouseholdAmount(component, householdCurrency) as string, householdCurrency)
+      : undefined;
+  const showHousehold = Boolean(householdAmount && component.nativeCurrency !== householdCurrency);
+  return (
+    <span className="flex flex-col items-end">
+      <span>{native}</span>
+      {showHousehold && <span className="text-xs font-normal text-muted-foreground">{householdAmount}</span>}
+    </span>
+  );
 }
 
 /**
@@ -102,6 +140,11 @@ export function AccountDetail({
   const rows = useMemo(
     () => holdingRows(holdingsQuery.data?.[record.account.id] ?? [], valuation, instruments.data ?? []),
     [holdingsQuery.data, record.account.id, valuation, instruments.data],
+  );
+  const householdCurrency = valuation?.baseValue?.currency ?? "";
+  const compositionItems = useMemo(
+    () => (composite && householdCurrency ? accountCompositionItems(valuation?.components ?? [], householdCurrency) : []),
+    [composite, householdCurrency, valuation?.components],
   );
   const dividendHoldingsAvailable = rows.some((row) => row.instrumentActive);
 
@@ -186,6 +229,28 @@ export function AccountDetail({
         <ErrorState title={t("accounts.loadError")} description={t("ui.state.errorDescription")} onRetry={() => holdingsQuery.refetch()} retryLabel={t("common.retryAction")} />
       )}
 
+      {composite && compositionItems.length >= 2 && householdCurrency && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("accounts.composition")}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CompositionChart
+              title={t("accounts.composition")}
+              items={compositionItems}
+              currency={householdCurrency}
+              centerValue={valuation?.baseValue?.amount ?? compositionItems[0]?.amount ?? "0"}
+              centerCaption={t("charts.valuedSubtotal")}
+              ariaLabel={t("accounts.composition")}
+              summary={t("accounts.composition")}
+              height={280}
+              complete={valuation?.complete ?? true}
+              missingCount={(valuation?.missingInputs ?? []).length}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       {composite && (cashOnly || (!holdingsQuery.isLoading && !holdingsQuery.isError)) && (
         <div className={cn("grid gap-4", !cashOnly && "lg:grid-cols-2")}>
           <Card>
@@ -201,9 +266,11 @@ export function AccountDetail({
                     <li key={component.nativeCurrency} className="flex items-center justify-between">
                       <span>{component.nativeCurrency}</span>
                       <span className="flex items-center gap-2">
-                        {component.nativeAmount
-                          ? formatAmount(component.nativeAmount, component.nativeCurrency)
-                          : t("accounts.partialValuation")}
+                        <ComponentAmounts
+                          component={component}
+                          householdCurrency={householdCurrency}
+                          pendingLabel={t("accounts.partialValuation")}
+                        />
                         {!component.available && <Badge variant="warning">{t("accounts.missingFx")}</Badge>}
                       </span>
                     </li>
@@ -254,9 +321,15 @@ export function AccountDetail({
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
                         <td className="py-2">{formatAmount(row.holding.quantity)}</td>
                         <td className="py-2">
-                          {row.component?.available && row.component.nativeAmount
-                            ? formatAmount(row.component.nativeAmount, row.component.nativeCurrency)
-                            : t("accounts.missingPrice")}
+                          {row.component?.available && row.component.nativeAmount ? (
+                            <ComponentAmounts
+                              component={row.component}
+                              householdCurrency={householdCurrency}
+                              pendingLabel={t("accounts.partialValuation")}
+                            />
+                          ) : (
+                            t("accounts.missingPrice")
+                          )}
                         </td>
                         {!readOnly && (
                           <td className="py-2 text-right">

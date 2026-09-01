@@ -14,35 +14,10 @@ import { displayEnum, displayError } from "@/lib/display";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { toast } from "sonner";
-import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
+import { groupAccounts } from "@/features/accounts/accountGroups";
 import { EntityIcon } from "@/components/icons/EntityIcon";
-
-function groupAccounts(records: AccountRecordDTO[]): { key: string; label: string; records: AccountRecordDTO[] }[] {
-  const groups = new Map<string, { label: string; records: AccountRecordDTO[] }>();
-  for (const record of records) {
-    const key = record.account.institutionId || "unassigned";
-    const label = record.institutionName || "";
-    const existing = groups.get(key);
-    if (existing) {
-      existing.records.push(record);
-    } else {
-      groups.set(key, { label, records: [record] });
-    }
-  }
-  return [...groups.entries()]
-    .map(([key, value]) => ({ key, label: value.label, records: value.records }))
-    .sort((left, right) => {
-      if (left.key === "unassigned") {
-        return 1;
-      }
-      if (right.key === "unassigned") {
-        return -1;
-      }
-      return left.label.localeCompare(right.label);
-    });
-}
 
 /**
  * AccountsPage is the real-world account list. Clicking a row opens Account
@@ -78,7 +53,10 @@ export function AccountsPage({
     [valuations.data],
   );
   const selectedRecord = (accounts.data ?? []).find((record) => record.account.id === selectedId) ?? null;
-  const grouped = groupAccounts(accounts.data ?? []);
+  const grouped = useMemo(
+    () => groupAccounts(accounts.data ?? [], valuations.data ?? []),
+    [accounts.data, valuations.data],
+  );
 
   const saveCreate = async (request: CreateAccountRequest, extras: AccountFormExtras) => {
     setCreateError(undefined);

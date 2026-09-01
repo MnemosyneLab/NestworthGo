@@ -191,6 +191,24 @@ export function sameCanonicalDecimal(left: string, right: string): boolean {
   return canonicalDecimal(left) === canonicalDecimal(right);
 }
 
+/**
+ * Sorts items by canonical amount descending. Equal amounts keep a stable
+ * tie-break via `tieBreak` so UI lists do not shuffle across renders.
+ */
+export function sortByCanonicalDesc<T>(
+  items: readonly T[],
+  amount: (item: T) => string | undefined,
+  tieBreak?: (left: T, right: T) => number,
+): T[] {
+  return [...items].sort((left, right) => {
+    const comparison = compareCanonical(amount(right) ?? "0", amount(left) ?? "0");
+    if (comparison !== 0) {
+      return comparison;
+    }
+    return tieBreak?.(left, right) ?? 0;
+  });
+}
+
 /** Compares two canonical decimal strings without converting through Number. */
 export function compareCanonical(left: string, right: string): number {
   const first = parseCanonicalParts(left);
@@ -220,6 +238,52 @@ export function compareCanonical(left: string, right: string): number {
 export function isPositiveCanonical(value: string): boolean {
   const normalized = canonicalDecimal(value.trim());
   return normalized !== "" && normalized !== "0" && !normalized.startsWith("-");
+}
+
+const TOTAL_SHARE_BPS = 10000n;
+
+/**
+ * Allocates integer basis-point shares that sum to 10000. Remainders go to
+ * the largest fractional parts so pie-chart percents stay exact.
+ */
+export function allocateShareBps(amounts: string[]): number[] {
+  if (amounts.length === 0) {
+    return [];
+  }
+  const parsed = amounts.map((amount) => parseCanonicalParts(amount));
+  if (parsed.some((part) => !part || part.negative)) {
+    return amounts.map(() => 0);
+  }
+  const scale = Math.max(0, ...parsed.map((part) => part!.fraction.length));
+  const values = parsed.map((part) => BigInt(part!.integer + part!.fraction.padEnd(scale, "0")));
+  let total = 0n;
+  for (const value of values) {
+    total += value;
+  }
+  if (total === 0n) {
+    return amounts.map(() => 0);
+  }
+  const floors: number[] = [];
+  const remainders: { index: number; remainder: bigint }[] = [];
+  let allocated = 0;
+  for (let index = 0; index < values.length; index += 1) {
+    const scaled = values[index] * TOTAL_SHARE_BPS;
+    const floor = Number(scaled / total);
+    floors.push(floor);
+    allocated += floor;
+    remainders.push({ index, remainder: scaled % total });
+  }
+  remainders.sort((left, right) => {
+    if (left.remainder === right.remainder) {
+      return left.index - right.index;
+    }
+    return left.remainder > right.remainder ? -1 : 1;
+  });
+  const remaining = Number(TOTAL_SHARE_BPS) - allocated;
+  for (let index = 0; index < remaining && index < remainders.length; index += 1) {
+    floors[remainders[index].index] += 1;
+  }
+  return floors;
 }
 
 export function currencyFractionDigits(currency: string, locale = i18n.language || "en"): number {

@@ -1173,6 +1173,12 @@ func makeBreakdownWithLabels(values map[string]decimal.Decimal, denominator deci
 		}
 		result = append(result, domain.BreakdownItem{Key: key, Label: label, Amount: values[key], ShareBPS: shares[key]})
 	}
+	sort.SliceStable(result, func(i, j int) bool {
+		if !result[i].Amount.Equal(result[j].Amount) {
+			return result[i].Amount.GreaterThan(result[j].Amount)
+		}
+		return result[i].Key < result[j].Key
+	})
 	return result
 }
 

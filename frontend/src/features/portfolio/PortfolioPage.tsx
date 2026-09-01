@@ -11,7 +11,7 @@ import { RangeToggle } from "@/components/charts/RangeToggle";
 import { chartTheme } from "@/components/charts/chartTheme";
 import { usePortfolio, usePortfolioTrend } from "@/queries/portfolio";
 import { useCatalog } from "@/queries/catalog";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, sortByCanonicalDesc } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import { EntityIcon } from "@/components/icons/EntityIcon";
 
@@ -46,7 +46,11 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
   const data = portfolio.data;
   const currency = data.currency || "USD";
   const total = data.valuedSubtotal ? formatAmount(data.valuedSubtotal.amount, data.valuedSubtotal.currency) : t("accounts.noValue");
-  const accounts = data.accounts ?? [];
+  const accounts = sortByCanonicalDesc(
+    data.accounts ?? [],
+    (valuation) => valuation.baseValue?.amount,
+    (left, right) => left.account.name.localeCompare(right.account.name),
+  );
   const allocation = data.byInstrumentType ?? [];
   const missingCount = (data.missingInputs ?? []).length;
   const trendPoints = trend.data?.points ?? [];

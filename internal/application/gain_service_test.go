@@ -322,8 +322,14 @@ func TestDividendIncomeAggregatesIndependentlyOfRealizedGain(t *testing.T) {
 	if qqqGroup.Gain.Amount != "10" || qqqGroup.Label != "QQQ" || aaplGroup.Gain.Amount != "20" || aaplGroup.Label != "Apple" {
 		t.Fatalf("by instrument = %+v", day.ByInstrument)
 	}
+	if len(day.ByInstrument) != 2 || day.ByInstrument[0].Label != "Apple" || day.ByInstrument[1].Label != "QQQ" {
+		t.Fatalf("instrument groups were not largest-first: %+v", day.ByInstrument)
+	}
 	if gainGroupByKey(t, day.ByAccount, firstAccount.Account.ID.String()).Gain.Amount != "10" || gainGroupByKey(t, day.ByAccount, secondAccount.Account.ID.String()).Gain.Amount != "20" {
 		t.Fatalf("by account = %+v", day.ByAccount)
+	}
+	if len(day.ByAccount) != 2 || day.ByAccount[0].Label != "Brokerage B" || day.ByAccount[1].Label != "Brokerage A" {
+		t.Fatalf("account groups were not largest-first: %+v", day.ByAccount)
 	}
 
 	realized, err := service.RealizedGainInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-26")

@@ -117,6 +117,20 @@ describe("InvestmentsPage", () => {
     expect(await screen.findByText("Latest: $131.70")).toBeInTheDocument();
   });
 
+  it("groups instruments by type and sorts by currency then name", async () => {
+    listInstruments.mockResolvedValue([
+      { id: "etf-1", name: "QQQ", type: "etf", quoteCurrency: "USD", quoteSource: "manual" },
+      { id: "stock-usd", name: "Apple", type: "stock", quoteCurrency: "USD", quoteSource: "manual" },
+      { id: "stock-cny", name: "Kweichow", type: "stock", quoteCurrency: "CNY", quoteSource: "manual" },
+    ]);
+
+    renderPage();
+    const stockGroup = await screen.findByTestId("instrument-type-group-stock");
+    const etfGroup = screen.getByTestId("instrument-type-group-etf");
+    expect(stockGroup.compareDocumentPosition(etfGroup) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(stockGroup).getByText("Kweichow").compareDocumentPosition(within(stockGroup).getByText("Apple")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("creates an Instrument with manual quote source", async () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));

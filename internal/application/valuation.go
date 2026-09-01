@@ -210,7 +210,30 @@ func (v *ValuationService) PortfolioSnapshot(snapshot domain.PortfolioSnapshot) 
 	if err != nil {
 		return domain.PortfolioValuation{}, err
 	}
+	sortAccountValuations(portfolio.Accounts)
 	return portfolio, nil
+}
+
+func sortAccountValuations(accounts []domain.AccountValuation) {
+	sort.SliceStable(accounts, func(i, j int) bool {
+		left := accountBaseAmount(accounts[i])
+		right := accountBaseAmount(accounts[j])
+		if !left.Equal(right) {
+			return left.GreaterThan(right)
+		}
+		return accounts[i].Account.Name < accounts[j].Account.Name
+	})
+}
+
+func accountBaseAmount(account domain.AccountValuation) decimal.Decimal {
+	if account.BaseValue == nil || account.BaseValue.Amount == "" {
+		return decimal.Zero
+	}
+	value, err := decimal.NewFromString(account.BaseValue.Amount)
+	if err != nil {
+		return decimal.Zero
+	}
+	return value
 }
 
 type valuedAccount struct {
@@ -582,6 +605,14 @@ func makeAllocations(values map[string]decimal.Decimal, labels map[string]string
 		}
 		result = append(result, domain.AllocationView{Key: key, Label: label, Amount: amount, ShareBPS: shares[key]})
 	}
+	sort.SliceStable(result, func(i, j int) bool {
+		left, leftErr := decimal.NewFromString(result[i].Amount.Amount)
+		right, rightErr := decimal.NewFromString(result[j].Amount.Amount)
+		if leftErr != nil || rightErr != nil || left.Equal(right) {
+			return result[i].Key < result[j].Key
+		}
+		return left.GreaterThan(right)
+	})
 	return result, nil
 }
 

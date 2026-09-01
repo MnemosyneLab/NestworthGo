@@ -226,6 +226,9 @@ func TestOverviewClassifiesCompositeAndSimpleBuckets(t *testing.T) {
 	if buckets[domain.BucketCash] != "1000" || buckets[domain.BucketStock] != "100" {
 		t.Fatalf("assetsByType = %+v, want cash=1000 stock=100", result.AssetsByType)
 	}
+	if result.AssetsByType[0].Key != domain.BucketCash || result.AssetsByType[1].Key != domain.BucketStock {
+		t.Fatalf("assetsByType order = %+v, want cash then stock", result.AssetsByType)
+	}
 	if len(result.LiabilitiesByType) != 1 || result.LiabilitiesByType[0].Key != domain.BucketCreditCard || result.LiabilitiesByType[0].Amount.String() != "150" {
 		t.Fatalf("liabilitiesByType = %+v", result.LiabilitiesByType)
 	}
@@ -235,6 +238,9 @@ func TestOverviewClassifiesCompositeAndSimpleBuckets(t *testing.T) {
 	}
 	if byType["bank_account"] != "800" || byType["brokerage"] != "300" {
 		t.Fatalf("byAccountType = %+v, want bank_account=800 brokerage=300", result.ByAccountType)
+	}
+	if result.ByAccountType[0].Key != "bank_account" || result.ByAccountType[1].Key != "brokerage" {
+		t.Fatalf("byAccountType order = %+v, want bank_account then brokerage", result.ByAccountType)
 	}
 	if _, ok := byType["credit_card"]; ok {
 		t.Fatalf("byAccountType included a liability: %+v", result.ByAccountType)
@@ -292,6 +298,9 @@ func TestOverviewByAccountTypeKeepsMixedBankAccountWhole(t *testing.T) {
 	}
 	if buckets[domain.BucketCash] != "50000" || buckets[domain.BucketMutualFund] != "200000" || buckets[domain.BucketPreciousMetal] != "800" {
 		t.Fatalf("assetsByType = %+v", result.AssetsByType)
+	}
+	if len(result.AssetsByType) < 3 || result.AssetsByType[0].Key != domain.BucketMutualFund || result.AssetsByType[1].Key != domain.BucketCash || result.AssetsByType[2].Key != domain.BucketPreciousMetal {
+		t.Fatalf("assetsByType order = %+v, want mutual_fund then cash then precious_metal", result.AssetsByType)
 	}
 	if len(result.ByAccountType) != 1 || result.ByAccountType[0].Key != "bank_account" || result.ByAccountType[0].Amount.String() != "250800" {
 		t.Fatalf("byAccountType = %+v, want one bank_account row of 250800", result.ByAccountType)

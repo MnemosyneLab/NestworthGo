@@ -1,10 +1,12 @@
-import { addCanonical, isPositiveCanonical } from "@/lib/money";
+import { addCanonical, isPositiveCanonical, sortByCanonicalDesc } from "@/lib/money";
 
 export interface ChartCategory {
   key: string;
   label: string;
   amount: string;
   shareBps: number;
+  nativeAmount?: string;
+  nativeCurrency?: string;
 }
 
 /**
@@ -12,7 +14,11 @@ export interface ChartCategory {
  * canonical strings; this does not re-derive amounts from holdings.
  */
 export function collapseChartCategories(items: ChartCategory[], maxVisible = 5, otherKey = "other"): ChartCategory[] {
-  const positive = items.filter((item) => isPositiveCanonical(item.amount));
+  const positive = sortByCanonicalDesc(
+    items.filter((item) => isPositiveCanonical(item.amount)),
+    (item) => item.amount,
+    (left, right) => left.key.localeCompare(right.key),
+  );
   if (positive.length <= maxVisible + 1) {
     return positive;
   }

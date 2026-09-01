@@ -66,6 +66,45 @@ describe("AnalyticsPage", () => {
     expect(realizedGain).toHaveBeenCalledWith({}, "30d");
   });
 
+  it("lists realized gain groups largest-first with losses last", async () => {
+    realizedGain.mockResolvedValue({
+      from: "2026-01-01",
+      to: "2026-01-31",
+      currency: "USD",
+      available: true,
+      byInstrument: [
+        { key: "i-loss", label: "Loss Co", gain: { amount: "-40", currency: "USD" } },
+        { key: "i-small", label: "Small Co", gain: { amount: "10", currency: "USD" } },
+        { key: "i-large", label: "Large Co", gain: { amount: "500", currency: "USD" } },
+      ],
+      byAccount: [],
+    });
+    dividendIncome.mockResolvedValue({
+      from: "2026-01-01",
+      to: "2026-01-31",
+      currency: "USD",
+      available: true,
+      byInstrument: [
+        { key: "d-small", label: "QQQ", gain: { amount: "10", currency: "USD" } },
+        { key: "d-large", label: "Apple", gain: { amount: "20", currency: "USD" } },
+      ],
+      byAccount: [],
+    });
+    netWorthTrend.mockResolvedValue({ range: "30d", currency: "USD", points: [] });
+
+    renderPage();
+    const [gainLegend, incomeLegend] = await screen.findAllByTestId("signed-bar-legend");
+    expect([...gainLegend.querySelectorAll("li")].map((item) => item.querySelector("span")?.textContent)).toEqual([
+      "Large Co",
+      "Small Co",
+      "Loss Co",
+    ]);
+    expect([...incomeLegend.querySelectorAll("li")].map((item) => item.querySelector("span")?.textContent)).toEqual([
+      "Apple",
+      "QQQ",
+    ]);
+  });
+
   it("switches range and re-fetches realized gain and dividend income", async () => {
     realizedGain.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
     dividendIncome.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });

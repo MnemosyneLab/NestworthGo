@@ -20,6 +20,7 @@ import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
+import { groupByInstrumentType, sortFxPairs } from "@/lib/groupByInstrumentType";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import type { FXPreferenceDTO, InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { EntityIcon } from "@/components/icons/EntityIcon";
@@ -382,6 +383,8 @@ function SavedMarketData({
   onViewHistory: (target: QuoteHistoryTarget) => void;
 }) {
   const { t } = useTranslation();
+  const sortedFxPairs = sortFxPairs(fxPairs);
+  const instrumentGroups = groupByInstrumentType(instruments);
 
   return (
     <section className="flex flex-col gap-3" aria-labelledby="saved-market-data-heading" data-testid="saved-market-data">
@@ -392,28 +395,42 @@ function SavedMarketData({
       {instruments.length === 0 && fxPairs.length === 0 ? (
         <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">{t("marketData.noSavedData")}</p>
       ) : (
-        <ul className="flex flex-col gap-2">
-          {instruments.map((instrument) => (
-            <SavedInstrumentRow
-              key={instrument.id}
-              instrument={instrument}
-              onViewHistory={() => onViewHistory({ kind: "instrument", instrument })}
-            />
+        <div className="flex flex-col gap-4">
+          {sortedFxPairs.length > 0 ? (
+            <section className="flex flex-col gap-2" data-testid="market-data-group-fx">
+              <h3 className="text-sm font-medium text-muted-foreground">{t("marketData.fxGroup")}</h3>
+              <ul className="flex flex-col gap-2">
+                {sortedFxPairs.map((pair) => {
+                  const key = fxPairKey(pair.currencyA, pair.currencyB);
+                  return (
+                    <SavedFXRow
+                      key={key}
+                      pair={pair}
+                      preference={preferenceForPair(fxPreferences, pair)}
+                      onConfigure={(source) => onConfigureFX(pair, source)}
+                      isConfiguring={configuringPair === key}
+                      onViewHistory={() => onViewHistory({ kind: "fx", currencyA: pair.currencyA, currencyB: pair.currencyB })}
+                    />
+                  );
+                })}
+              </ul>
+            </section>
+          ) : null}
+          {instrumentGroups.map((group) => (
+            <section key={group.key} className="flex flex-col gap-2" data-testid={`market-data-group-${group.key}`}>
+              <h3 className="text-sm font-medium text-muted-foreground">{displayEnum(t, "enum", group.key)}</h3>
+              <ul className="flex flex-col gap-2">
+                {group.items.map((instrument) => (
+                  <SavedInstrumentRow
+                    key={instrument.id}
+                    instrument={instrument}
+                    onViewHistory={() => onViewHistory({ kind: "instrument", instrument })}
+                  />
+                ))}
+              </ul>
+            </section>
           ))}
-          {fxPairs.map((pair) => {
-            const key = fxPairKey(pair.currencyA, pair.currencyB);
-            return (
-              <SavedFXRow
-                key={key}
-                pair={pair}
-                preference={preferenceForPair(fxPreferences, pair)}
-                onConfigure={(source) => onConfigureFX(pair, source)}
-                isConfiguring={configuringPair === key}
-                onViewHistory={() => onViewHistory({ kind: "fx", currencyA: pair.currencyA, currencyB: pair.currencyB })}
-              />
-            );
-          })}
-        </ul>
+        </div>
       )}
     </section>
   );

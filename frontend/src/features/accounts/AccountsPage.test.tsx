@@ -234,6 +234,39 @@ describe("AccountsPage", () => {
     expect(screen.getByText("Complete")).toBeInTheDocument();
   });
 
+  it("lists larger institution groups and accounts first", async () => {
+    const smaller = {
+      account: { ...emptyAccount.account, id: "acc-small", name: "Small Checking", institutionId: "alpha" },
+      ownership: emptyAccount.ownership,
+      latestValue: emptyAccount.latestValue,
+      institutionName: "Alpha Bank",
+    };
+    const larger = {
+      account: { ...emptyAccount.account, id: "acc-large", name: "Large Checking", institutionId: "zeta" },
+      ownership: emptyAccount.ownership,
+      latestValue: emptyAccount.latestValue,
+      institutionName: "Zeta Bank",
+    };
+    const extra = {
+      account: { ...emptyAccount.account, id: "acc-extra", name: "Extra Checking", institutionId: "zeta" },
+      ownership: emptyAccount.ownership,
+      latestValue: emptyAccount.latestValue,
+      institutionName: "Zeta Bank",
+    };
+    listAccounts.mockResolvedValue([smaller, extra, larger]);
+    accountValuations.mockResolvedValue([
+      { account: smaller.account, ownership: smaller.ownership, complete: true, components: [], missingInputs: [], baseValue: { amount: "100", currency: "USD" } },
+      { account: extra.account, ownership: extra.ownership, complete: true, components: [], missingInputs: [], baseValue: { amount: "200", currency: "USD" } },
+      { account: larger.account, ownership: larger.ownership, complete: true, components: [], missingInputs: [], baseValue: { amount: "800", currency: "USD" } },
+    ]);
+    renderPage();
+    const headings = (await screen.findAllByRole("heading", { level: 2 })).map((node) => node.textContent);
+    expect(headings[0]).toBe("Zeta Bank");
+    expect(headings[1]).toBe("Alpha Bank");
+    const zetaSection = screen.getByRole("heading", { name: "Zeta Bank" }).closest("section");
+    expect(zetaSection?.textContent?.indexOf("Large Checking")).toBeLessThan(zetaSection?.textContent?.indexOf("Extra Checking") ?? 0);
+  });
+
   it("does not label a still-loading valuation as complete", async () => {
     accountValuations.mockReturnValue(new Promise(() => {}));
     renderPage();
@@ -535,8 +568,8 @@ describe("AccountsPage", () => {
         ownership: brokerageAccount.ownership,
         complete: false,
         components: [
-          { nativeCurrency: "USD", nativeAmount: "800", available: true },
-          { nativeCurrency: "SGD", nativeAmount: "200", available: true },
+          { nativeCurrency: "SGD", nativeAmount: "200", available: true, baseAmount: { amount: "150", currency: "USD" } },
+          { nativeCurrency: "USD", nativeAmount: "800", available: true, baseAmount: { amount: "800", currency: "USD" } },
           {
             holdingId: "h1",
             instrumentId: "i1",
@@ -544,6 +577,7 @@ describe("AccountsPage", () => {
             nativeCurrency: "USD",
             nativeAmount: "1500",
             available: true,
+            baseAmount: { amount: "1500", currency: "USD" },
           },
         ],
         missingInputs: [{ kind: "fx_rate", accountId: "brk-1" }],
@@ -557,12 +591,18 @@ describe("AccountsPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
-    expect(screen.getByText("$2,500.00")).toHaveClass("text-2xl");
+    expect(screen.getByText("$2,500.00", { selector: ".text-2xl" })).toHaveClass("text-2xl");
+    expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
+    const slices = ["h1", "cash-USD", "cash-SGD"].map((key) => screen.getByTestId(`composition-slice-${key}`));
+    expect(slices[0]).toHaveTextContent("NVIDIA");
+    expect(slices[1]).toHaveTextContent("USD");
+    expect(slices[2]).toHaveTextContent("SGD");
+    expect(screen.getByTestId("composition-native-cash-SGD")).toHaveTextContent(/SGD\s*200\.00/);
     expect(screen.getByText("Cash")).toBeInTheDocument();
     expect(screen.getAllByText("Investments").length).toBeGreaterThan(0);
     expect(screen.getAllByText("$800.00").length).toBeGreaterThan(0);
-    expect(screen.getByText(/SGD\s*200\.00/)).toBeInTheDocument();
-    expect(screen.getByText("NVIDIA")).toBeInTheDocument();
+    expect(screen.getAllByText(/SGD\s*200\.00/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("NVIDIA").length).toBeGreaterThan(0);
     expect(screen.getByText("Stock")).toBeInTheDocument();
     expect(screen.getByText("Partial valuation")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/Missing FX rate/);
@@ -586,8 +626,8 @@ describe("AccountsPage", () => {
       ownership: multiCurrencyCashAccount.ownership,
       complete: true,
       components: [
-        { nativeCurrency: "USD", nativeAmount: "200", available: true },
-        { nativeCurrency: "SGD", nativeAmount: "300", available: true },
+        { nativeCurrency: "SGD", nativeAmount: "300", available: true, baseAmount: { amount: "225", currency: "USD" } },
+        { nativeCurrency: "USD", nativeAmount: "200", available: true, baseAmount: { amount: "200", currency: "USD" } },
       ],
       missingInputs: [],
       baseValue: { amount: "425", currency: "USD" },
@@ -598,7 +638,9 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Travel cash/ }));
     expect(await screen.findByTestId("account-detail")).toBeInTheDocument();
     expect(screen.getByText("Cash")).toBeInTheDocument();
-    expect(screen.getByText(/SGD\s*300\.00/)).toBeInTheDocument();
+    expect(screen.getByTestId("composition-chart")).toBeInTheDocument();
+    expect(screen.getByTestId("composition-slice-cash-SGD")).toHaveTextContent("SGD");
+    expect(screen.getAllByText(/SGD\s*300\.00/).length).toBeGreaterThan(0);
     expect(screen.queryByText("Investments")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Buy investment" })).not.toBeInTheDocument();
   });

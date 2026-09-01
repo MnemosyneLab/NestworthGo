@@ -110,6 +110,31 @@ describe("OverviewPage", () => {
     expect(await screen.findByText("Added $1,000.00 to Checking (Contribution)")).toBeInTheDocument();
   });
 
+  it("lists institutions from largest to smallest", async () => {
+    await renderWithMockedOverview({
+      currency: "USD",
+      accountCount: 2,
+      complete: true,
+      missingInputs: [],
+      assets: "1500",
+      liabilities: "0",
+      netWorth: "1500",
+      assetsByType: [{ key: "cash", label: "cash", amount: "1500", shareBps: 10000 }],
+      liabilitiesByType: [],
+      byMember: [],
+      byInstitution: [
+        { key: "broker", label: "Brokerage", amount: "1000", shareBps: 6667 },
+        { key: "bank", label: "Bank", amount: "500", shareBps: 3333 },
+      ],
+      byGroup: [],
+      byAccountType: [],
+    });
+
+    const labels = (await screen.findAllByText(/Brokerage|Bank/)).map((node) => node.textContent);
+    expect(labels.indexOf("Brokerage")).toBeGreaterThanOrEqual(0);
+    expect(labels.indexOf("Brokerage")).toBeLessThan(labels.indexOf("Bank"));
+  });
+
   it("shows an incomplete-data banner listing missing inputs, never a fabricated zero", async () => {
     await renderWithMockedOverview({
       currency: "USD",

@@ -7,6 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { formatAmount, formatPercent } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
+function distinctNative(slice: ChartCategory, householdCurrency: string): boolean {
+  return Boolean(slice.nativeAmount && slice.nativeCurrency && slice.nativeCurrency !== householdCurrency);
+}
+
+function sliceTooltipAmount(slice: ChartCategory, householdCurrency: string): string {
+  const household = `${formatAmount(slice.amount, householdCurrency)} (${formatPercent(slice.shareBps)})`;
+  if (!distinctNative(slice, householdCurrency)) {
+    return household;
+  }
+  return `${formatAmount(slice.nativeAmount as string, slice.nativeCurrency as string)} · ${household}`;
+}
+
 export interface CompositionChartProps {
   title: string;
   description?: string;
@@ -41,6 +53,7 @@ export function CompositionChart({
   const slices = collapseChartCategories(items).map((item) => (
     item.key === "other" ? { ...item, label: t("charts.otherCategory") } : item
   ));
+  const showNative = slices.some((slice) => distinctNative(slice, currency));
   const activeKey = hoveredKey ?? selectedKey;
 
   if (slices.length === 0) {
@@ -60,7 +73,7 @@ export function CompositionChart({
         if (!slice) {
           return "";
         }
-        return joinTooltipLines([slice.label, `${formatAmount(slice.amount, currency)} (${formatPercent(slice.shareBps)})`]);
+        return joinTooltipLines([slice.label, sliceTooltipAmount(slice, currency)]);
       },
     },
     series: [
@@ -89,8 +102,19 @@ export function CompositionChart({
           ariaLabel={ariaLabel}
           summary={summary}
           dataTableLabel={t("charts.viewDataTable")}
-          dataTableColumns={[t("charts.category"), t("charts.amount"), t("charts.share")]}
-          dataTableRows={items.map((item) => [item.label, formatAmount(item.amount, currency), formatPercent(item.shareBps)])}
+          dataTableColumns={showNative
+            ? [t("charts.category"), t("accounts.nativeAmount"), t("accounts.householdAmount"), t("charts.share")]
+            : [t("charts.category"), t("charts.amount"), t("charts.share")]}
+          dataTableRows={slices.map((item) => showNative
+            ? [
+              item.label,
+              distinctNative(item, currency) && item.nativeAmount && item.nativeCurrency
+                ? formatAmount(item.nativeAmount, item.nativeCurrency)
+                : formatAmount(item.amount, currency),
+              formatAmount(item.amount, currency),
+              formatPercent(item.shareBps),
+            ]
+            : [item.label, formatAmount(item.amount, currency), formatPercent(item.shareBps)])}
           onSelectName={(name) => {
             const key = keyFromLabel(name);
             setSelectedKey((current) => (key && current === key ? null : key));
@@ -126,7 +150,12 @@ export function CompositionChart({
           >
             <span className="text-foreground">{slice.label}</span>
             <span className="flex items-center gap-2 text-muted-foreground">
-              <span>{formatAmount(slice.amount, currency)}</span>
+              <span className="flex flex-col items-end">
+                {distinctNative(slice, currency) && slice.nativeAmount && slice.nativeCurrency && (
+                  <span data-testid={`composition-native-${slice.key}`}>{formatAmount(slice.nativeAmount, slice.nativeCurrency)}</span>
+                )}
+                <span>{formatAmount(slice.amount, currency)}</span>
+              </span>
               <Badge variant="secondary">{formatPercent(slice.shareBps)}</Badge>
             </span>
           </button>

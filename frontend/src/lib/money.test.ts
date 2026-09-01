@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
-import { addCanonical, divideCanonical, formatAmount, multiplyCanonical } from "./money";
+import { addCanonical, allocateShareBps, divideCanonical, formatAmount, multiplyCanonical, sortByCanonicalDesc } from "./money";
 
 afterEach(async () => {
   await i18n.changeLanguage("en");
@@ -103,6 +103,27 @@ describe("canonical decimal defaults", () => {
     expect(addCanonical("10", "20")).toBe("30");
     expect(addCanonical("1.5", "2.25")).toBe("3.75");
     expect(addCanonical("10", "-2.5")).toBe("7.5");
+  });
+
+  it("sorts by canonical amount descending with a stable key tie-break", () => {
+    const sorted = sortByCanonicalDesc(
+      [
+        { key: "b", amount: "10" },
+        { key: "a", amount: "50" },
+        { key: "c", amount: "10" },
+        { key: "d", amount: "30" },
+      ],
+      (item) => item.amount,
+      (left, right) => left.key.localeCompare(right.key),
+    );
+    expect(sorted.map((item) => item.key)).toEqual(["a", "d", "b", "c"]);
+  });
+
+  it("allocates basis-point shares that sum to 10000", () => {
+    expect(allocateShareBps(["50", "50"])).toEqual([5000, 5000]);
+    const shares = allocateShareBps(["1", "1", "1"]);
+    expect(shares.reduce((sum, share) => sum + share, 0)).toBe(10000);
+    expect(Math.max(...shares) - Math.min(...shares)).toBeLessThanOrEqual(1);
   });
 });
 
