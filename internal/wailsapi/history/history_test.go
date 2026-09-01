@@ -248,6 +248,13 @@ func TestUndoChange(t *testing.T) {
 	if undone.Activity.ReversesActivityID == nil || *undone.Activity.ReversesActivityID != recorded.Activity.ID {
 		t.Fatalf("undone.Activity.ReversesActivityID = %v, want %q", undone.Activity.ReversesActivityID, recorded.Activity.ID)
 	}
+	loaded, err := fx.service.Activity(ctx, recorded.Activity.ID)
+	if err != nil {
+		t.Fatalf("Activity(original): %v", err)
+	}
+	if loaded.ID != recorded.Activity.ID || len(loaded.Effects) != 1 || loaded.Effects[0].AccountID == nil || *loaded.Effects[0].AccountID != fx.checkingID {
+		t.Fatalf("Activity(original) = %+v, want the original activity with its Checking effect", loaded)
+	}
 	_, err = fx.service.UndoChange(ctx, recorded.Activity.ID)
 	if err == nil {
 		t.Fatal("second UndoChange on the same activity should fail")

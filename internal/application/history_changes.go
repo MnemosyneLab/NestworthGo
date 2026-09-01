@@ -18,6 +18,20 @@ func (s *Service) ListActivities(ctx context.Context, limit int) ([]domain.Activ
 	return s.repository.ListActivities(ctx, bootstrap.Household.ID, limit)
 }
 
+// Activity loads one immutable history record by ID. This read path is used by
+// presentation code that needs the original record for a reversal even when
+// that record is outside the current filtered or paginated activity list.
+func (s *Service) Activity(ctx context.Context, activityID domain.ActivityID) (domain.Activity, error) {
+	bootstrap, err := s.Bootstrap(ctx)
+	if err != nil {
+		return domain.Activity{}, err
+	}
+	if bootstrap.Household == nil {
+		return domain.Activity{}, onboardingRequired()
+	}
+	return s.repository.Activity(ctx, bootstrap.Household.ID, activityID)
+}
+
 func (s *Service) ListActivityPage(ctx context.Context, query domain.ActivityQuery) (domain.ActivityPage, error) {
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {

@@ -14,6 +14,7 @@ const startHistoryWithCosts = vi.fn();
 const startingPointDraft = vi.fn();
 const listActivities = vi.fn();
 const listActivityPage = vi.fn();
+const getActivity = vi.fn();
 const previewChange = vi.fn();
 const previewFixChange = vi.fn();
 const recordChange = vi.fn();
@@ -37,6 +38,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     StartHistoryWithCosts: (...args: unknown[]) => startHistoryWithCosts(...args),
     StartingPointDraft: () => startingPointDraft(),
     ListActivities: () => listActivities(),
+    Activity: (...args: unknown[]) => getActivity(...args),
     ListActivityPage: (...args: unknown[]) => listActivityPage(...args),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
     PreviewFixChange: (...args: unknown[]) => previewFixChange(...args),
@@ -104,6 +106,7 @@ beforeEach(() => {
   startingPointDraft.mockReset();
   listActivities.mockReset();
   listActivityPage.mockReset();
+  getActivity.mockReset();
   previewChange.mockReset();
   recordChange.mockReset();
   undoChange.mockReset();
@@ -129,6 +132,7 @@ beforeEach(() => {
   startingPointDraft.mockResolvedValue([]);
   listActivities.mockResolvedValue([]);
   listActivityPage.mockImplementation(async (...args: unknown[]) => ({ activities: await listActivities(...args) }));
+  getActivity.mockResolvedValue(null);
   listAccounts.mockResolvedValue([
     { account: { id: "acc-1", name: "Checking", trackingMode: "balance" }, ownership: [], latestValue: null },
   ]);
@@ -451,6 +455,69 @@ describe("HistoryPage", () => {
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Undo" }));
     expect(undoChange).toHaveBeenCalledWith("a1");
+  });
+
+  it("uses archived account names in history but excludes them from the account filter", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listAccounts.mockResolvedValue([
+      { account: { id: "active", name: "Checking", trackingMode: "balance" }, ownership: [], latestValue: null },
+      { account: { id: "archived", name: "Closed Savings", trackingMode: "balance", archivedAt: "2026-01-02" }, ownership: [], latestValue: null },
+    ]);
+    listActivities.mockResolvedValue([
+      {
+        id: "a1",
+        kind: "cash_out",
+        reason: "expense",
+        effectiveLocalDate: "2026-01-01",
+        effects: [{ accountId: "archived", money: { amount: "25", currency: "USD" } }],
+      },
+    ]);
+
+    renderPage();
+
+    expect(await screen.findByText("Removed $25.00 from Closed Savings (Expense)")).toBeInTheDocument();
+    const accountFilter = screen.getByLabelText("Account");
+    expect(within(accountFilter).getByRole("option", { name: "Checking" })).toBeInTheDocument();
+    expect(within(accountFilter).queryByRole("option", { name: "Closed Savings" })).not.toBeInTheDocument();
+    expect(listAccounts).toHaveBeenCalledWith(expect.objectContaining({ includeArchived: true }));
+  });
+
+  it("loads a reversal's original activity by ID and labels every effect direction", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listAccounts.mockResolvedValue([
+      { account: { id: "checking", name: "Checking", trackingMode: "balance" }, ownership: [], latestValue: null },
+      { account: { id: "brokerage", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null },
+    ]);
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA" }]);
+    holdingsByAccounts.mockResolvedValue({ brokerage: [{ id: "h1", instrumentId: "i1" }] });
+    listActivities.mockResolvedValue([
+      {
+        id: "reversal-1",
+        kind: "reversal",
+        reversesActivityId: "original-outside-page",
+        effectiveLocalDate: "2026-01-02",
+        effects: [
+          { id: "e1", role: "amount", direction: "removed", accountId: "checking", money: { amount: "100", currency: "USD" } },
+          { id: "e2", role: "quantity", direction: "added", holdingId: "h1", instrumentId: "i1", quantity: "2" },
+        ],
+      },
+    ]);
+    getActivity.mockResolvedValue({
+      id: "original-outside-page",
+      kind: "cash_in",
+      reason: "income",
+      effectiveLocalDate: "2025-01-01",
+      effects: [{ accountId: "checking", money: { amount: "100", currency: "USD" } }],
+    });
+
+    renderPage();
+    const list = await screen.findByTestId("activity-list");
+    await userEvent.click(within(list).getByRole("button", { name: "Details" }));
+
+    expect(await screen.findByText((_, node) => node?.textContent === "Original activity: Added $100.00 to Checking (Income)")).toBeInTheDocument();
+    expect(screen.getByText("Checking · Amount removed: $100.00")).toBeInTheDocument();
+    expect(screen.getByText("Brokerage · NVIDIA · Quantity added: 2")).toBeInTheDocument();
+    expect(getActivity).toHaveBeenCalledWith("original-outside-page");
   });
 
   it("fixes a change, pre-filling the form from the original activity's effects", async () => {

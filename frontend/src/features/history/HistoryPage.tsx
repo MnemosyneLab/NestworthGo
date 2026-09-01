@@ -24,8 +24,8 @@ import { displayError } from "@/lib/display";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAccounts } from "@/queries/accounts";
-import { useInstruments } from "@/queries/investments";
-import { useActivityPage, useHistoryOrigin, useUndoChange } from "@/queries/history";
+import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
+import { useActivity, useActivityPage, useHistoryOrigin, useUndoChange } from "@/queries/history";
 import { useSettings } from "@/queries/settings";
 import { RecordChangeForm } from "@/features/history/RecordChangeForm";
 import { StartHistoryForm } from "@/features/history/StartHistoryForm";
@@ -40,8 +40,10 @@ const ACTIVITY_KINDS = ["cash_in", "cash_out", "cash_dividend", "cash_transfer",
 
 function Timeline() {
   const { t } = useTranslation();
-  const accounts = useAccounts({});
+  const accounts = useAccounts({ includeArchived: true });
   const instruments = useInstruments(true);
+  const accountIds = (accounts.data ?? []).map((record) => record.account.id);
+  const holdings = useHoldingsByAccounts(accountIds);
   const origin = useHistoryOrigin();
   const undoChange = useUndoChange();
   const [open, setOpen] = useState(false);
@@ -51,6 +53,7 @@ function Timeline() {
   const [accountFilter, setAccountFilter] = useState("");
   const [fromLocalDate, setFromLocalDate] = useState("");
   const [toLocalDate, setToLocalDate] = useState("");
+  const originalActivity = useActivity(detailTarget?.reversesActivityId ?? "");
   const activities = useActivityPage({
     accountId: accountFilter || undefined,
     kinds: kindFilter ? [kindFilter] : undefined,
@@ -59,16 +62,16 @@ function Timeline() {
     limit: 50,
   });
 
-  if (activities.isLoading || accounts.isLoading || instruments.isLoading) {
+  if (activities.isLoading || accounts.isLoading || instruments.isLoading || holdings.isLoading) {
     return <LoadingState label={t("history.loading")} />;
   }
 
-  if (activities.isError) {
+  if (activities.isError || accounts.isError || instruments.isError || holdings.isError) {
     return (
       <ErrorState
         title={t("history.loadError")}
         description={t("ui.state.errorDescription")}
-        onRetry={() => activities.refetch()}
+        onRetry={() => { void Promise.all([activities.refetch(), accounts.refetch(), instruments.refetch(), holdings.refetch()]); }}
         retryLabel={t("common.retryAction")}
       />
     );
@@ -82,6 +85,14 @@ function Timeline() {
   );
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
   const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const holdingNames = new Map(
+    Object.entries(holdings.data ?? {}).flatMap(([accountId, accountHoldings]) =>
+      (accountHoldings ?? []).map((holding) => [
+        holding.id,
+        `${accountNames.get(accountId) ?? t("history.unknownAccount")} · ${instrumentNames.get(holding.instrumentId) ?? t("history.unknownInstrument")}`,
+      ] as const),
+    ),
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -138,7 +149,7 @@ function Timeline() {
         <ul className="flex flex-col gap-2" data-testid="activity-list" aria-label={t("history.activityKind")}>
           {activityList.map((activity) => {
             const canModify = !activity.reversesActivityId && !reversedActivityIds.has(activity.id);
-            const summary = activitySentence(t, activity, accountNames, instrumentNames);
+            const summary = activitySentence(t, activity, accountNames, instrumentNames, holdingNames);
             return (
               <li key={activity.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-3 text-sm">
                 <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -217,6 +228,9 @@ function Timeline() {
         timezone={origin.data?.timezone}
         accounts={accountNames}
         instruments={instrumentNames}
+        holdings={holdingNames}
+        originalActivity={originalActivity.data}
+        originalActivityLoading={originalActivity.isLoading}
         onClose={() => setDetailTarget(null)}
         t={t}
       />

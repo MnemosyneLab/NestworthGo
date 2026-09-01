@@ -4,33 +4,29 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import type { OverviewPage as OverviewPageComponent } from "./OverviewPage";
 
+const listActivities = vi.fn();
+const listAccounts = vi.fn();
+const listInstruments = vi.fn();
+const holdingsByAccounts = vi.fn();
+
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
     HistoryOrigin: () => Promise.resolve({ id: "origin-1", timezone: "UTC" }),
-    ListActivities: () =>
-      Promise.resolve([
-        {
-          id: "a1",
-          kind: "cash_in",
-          reason: "contribution",
-          effectiveLocalDate: "2026-01-01",
-          effects: [{ accountId: "acc-1", money: { amount: "1000", currency: "USD" } }],
-        },
-      ]),
+    ListActivities: (...args: unknown[]) => listActivities(...args),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
-    ListAccounts: () =>
-      Promise.resolve([{ account: { id: "acc-1", name: "Checking" }, ownership: [], latestValue: null }]),
+    ListAccounts: (...args: unknown[]) => listAccounts(...args),
   },
 }));
-const listInstruments = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
-  Service: { ListInstruments: () => listInstruments() },
+  Service: { ListInstruments: (...args: unknown[]) => listInstruments(...args) },
 }));
-vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({ Service: {} }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
+  Service: { HoldingsByAccounts: (...args: unknown[]) => holdingsByAccounts(...args) },
+}));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({ Service: {} }));
 
 // Each test needs a different mocked Overview() response, so the binding
@@ -52,8 +48,22 @@ async function renderWithMockedOverview(response: unknown) {
 }
 
 beforeEach(() => {
+  listActivities.mockReset();
+  listAccounts.mockReset();
   listInstruments.mockReset();
+  holdingsByAccounts.mockReset();
+  listActivities.mockResolvedValue([
+    {
+      id: "a1",
+      kind: "cash_in",
+      reason: "contribution",
+      effectiveLocalDate: "2026-01-01",
+      effects: [{ accountId: "acc-1", money: { amount: "1000", currency: "USD" } }],
+    },
+  ]);
+  listAccounts.mockResolvedValue([{ account: { id: "acc-1", name: "Checking" }, ownership: [], latestValue: null }]);
   listInstruments.mockResolvedValue([]);
+  holdingsByAccounts.mockResolvedValue({});
 });
 
 describe("OverviewPage", () => {
@@ -141,5 +151,48 @@ describe("OverviewPage", () => {
 
     expect(await screen.findByText("1 instrument price needs a refresh.")).toBeInTheDocument();
     expect(screen.queryByText("1 instrument needs a manual price.")).not.toBeInTheDocument();
+  });
+
+  it("uses archived account, instrument, and holding names in a recent position transfer", async () => {
+    listAccounts.mockResolvedValue([
+      { account: { id: "old-brokerage", name: "Archived Brokerage", archivedAt: "2026-01-10" }, ownership: [], latestValue: null },
+      { account: { id: "retirement", name: "Retirement" }, ownership: [], latestValue: null },
+    ]);
+    listInstruments.mockResolvedValue([{ id: "i1", name: "Archived NVIDIA", archivedAt: "2026-01-10" }]);
+    holdingsByAccounts.mockResolvedValue({
+      "old-brokerage": [{ id: "h1", instrumentId: "i1", archivedAt: "2026-01-10" }],
+      retirement: [{ id: "h2", instrumentId: "i1" }],
+    });
+    listActivities.mockResolvedValue([
+      {
+        id: "transfer-1",
+        kind: "position_transfer",
+        reason: "other",
+        effectiveLocalDate: "2026-01-01",
+        effects: [
+          { role: "transfer_from", direction: "removed", holdingId: "h1", instrumentId: "i1", quantity: "2" },
+          { role: "transfer_to", direction: "added", holdingId: "h2", instrumentId: "i1", quantity: "2" },
+        ],
+      },
+    ]);
+
+    await renderWithMockedOverview({
+      currency: "USD",
+      accountCount: 2,
+      complete: true,
+      missingInputs: [],
+      assets: "0",
+      liabilities: "0",
+      netWorth: "0",
+      assetsByType: [],
+      liabilitiesByType: [],
+      byMember: [],
+      byInstitution: [],
+      byGroup: [],
+    });
+
+    expect(await screen.findByText("Moved 2 from Archived Brokerage · Archived NVIDIA to Retirement · Archived NVIDIA")).toBeInTheDocument();
+    expect(listAccounts).toHaveBeenCalledWith(expect.objectContaining({ includeArchived: true }));
+    expect(listInstruments).toHaveBeenCalledWith(true);
   });
 });

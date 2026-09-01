@@ -240,6 +240,18 @@ func (s *Service) ListActivities(ctx context.Context, limit int) ([]wire.Activit
 	return wire.FromActivities(activities), nil
 }
 
+func (s *Service) Activity(ctx context.Context, activityID string) (wire.ActivityDTO, error) {
+	id, err := domain.ParseActivityID(activityID)
+	if err != nil {
+		return wire.ActivityDTO{}, apierror.Wrap(err)
+	}
+	activity, err := s.app.Activity(ctx, id)
+	if err != nil {
+		return wire.ActivityDTO{}, apierror.Wrap(err)
+	}
+	return wire.FromActivity(activity), nil
+}
+
 // ActivityQueryRequest mirrors domain.ActivityQuery.
 type ActivityQueryRequest struct {
 	AccountID        *string  `json:"accountId,omitempty"`

@@ -36,14 +36,17 @@ export function activitySentence(
   activity: ActivityDTO,
   accounts: Map<string, string>,
   instruments: Map<string, string>,
+  holdings: Map<string, string> = new Map(),
 ): string {
   const effects = activity.effects ?? [];
   const accountName = (effect: ActivityEffectDTO | undefined) =>
     (effect?.accountId ? accounts.get(effect.accountId) : undefined) || t("history.unknownAccount");
   const instrumentName = (id: string | null | undefined) =>
     (id ? instruments.get(id) : undefined) || t("history.unknownInstrument");
+  const holdingName = (effect: ActivityEffectDTO | undefined) =>
+    (effect?.holdingId ? holdings.get(effect.holdingId) : undefined) || instrumentName(effect?.instrumentId);
 
-  const core = coreSentence(t, activity, effects, accountName, instrumentName);
+  const core = coreSentence(t, activity, effects, accountName, instrumentName, holdingName);
   const fee = feeLabel(activity, effects);
   const sentence = fee && !activity.reversesActivityId ? t("history.sentence.withFee", { sentence: core, fee }) : core;
   const skipReason = activity.kind === "buy" || activity.kind === "sell" || activity.kind === "cash_dividend";
@@ -70,6 +73,7 @@ function coreSentence(
   effects: ActivityEffectDTO[],
   accountName: (effect: ActivityEffectDTO | undefined) => string,
   instrumentName: (id: string | null | undefined) => string,
+  holdingName: (effect: ActivityEffectDTO | undefined) => string,
 ): string {
   if (activity.reversesActivityId) {
     return t("history.sentence.reversal");
@@ -160,8 +164,8 @@ function coreSentence(
         if (!quantity) {
           return displayEnum(t, "history.kind", activity.kind);
         }
-        const fromLabel = from?.accountId ? accountName(from) : instrumentName(from?.instrumentId);
-        const toLabel = to?.accountId ? accountName(to) : instrumentName(to?.instrumentId);
+        const fromLabel = from?.accountId ? accountName(from) : holdingName(from);
+        const toLabel = to?.accountId ? accountName(to) : holdingName(to);
         return t("history.sentence.movedPosition", { quantity, from: fromLabel, to: toLabel });
       }
       const effect = byRole(effects, "quantity") ?? effects[0];
@@ -170,7 +174,7 @@ function coreSentence(
         return displayEnum(t, "history.kind", activity.kind);
       }
       const key = effect?.direction === "removed" ? "history.sentence.removedQuantity" : "history.sentence.addedQuantity";
-      return t(key, { quantity, instrument: instrumentName(effect?.instrumentId) });
+      return t(key, { quantity, instrument: holdingName(effect) });
     }
     case "debt_draw": {
       const amount = moneyLabel(byRole(effects, "debt") ?? firstMoney);

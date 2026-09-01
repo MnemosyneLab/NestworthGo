@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useOverview } from "@/queries/portfolio";
 import { useAccounts } from "@/queries/accounts";
-import { useInstruments } from "@/queries/investments";
+import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
 import { useHistoryOrigin, useListActivities } from "@/queries/history";
 import { useSettings } from "@/queries/settings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,8 +90,10 @@ export function OverviewPage({
   const overview = useOverview();
   const origin = useHistoryOrigin();
   const activities = useListActivities(5);
-  const accounts = useAccounts({});
-  const instruments = useInstruments();
+  const accounts = useAccounts({ includeArchived: true });
+  const instruments = useInstruments(true);
+  const accountIds = (accounts.data ?? []).map((record) => record.account.id);
+  const holdings = useHoldingsByAccounts(accountIds);
 
   if (overview.isLoading) {
     return <LoadingState label={t("ui.state.loadingPage")} />;
@@ -158,6 +160,14 @@ export function OverviewPage({
   }).length;
   const missingProviderPrices = missingPrices - missingManualPrices;
   const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const holdingNames = new Map(
+    Object.entries(holdings.data ?? {}).flatMap(([accountId, accountHoldings]) =>
+      (accountHoldings ?? []).map((holding) => [
+        holding.id,
+        `${accountNames.get(accountId) ?? t("history.unknownAccount")} · ${instrumentNames.get(holding.instrumentId) ?? t("history.unknownInstrument")}`,
+      ] as const),
+    ),
+  );
   const recent = activities.data ?? [];
   const historyReady = !origin.isLoading && !origin.isError && Boolean(origin.data);
   const historyNotStarted = !origin.isLoading && !origin.isError && !origin.data;
@@ -350,14 +360,14 @@ export function OverviewPage({
           )}
         </CardHeader>
         <CardContent>
-          {activities.isError ? (
+          {activities.isError || accounts.isError || instruments.isError || holdings.isError ? (
             <ErrorState
               title={t("history.loadError")}
               description={t("ui.state.errorDescription")}
-              onRetry={() => activities.refetch()}
+              onRetry={() => { void Promise.all([activities.refetch(), accounts.refetch(), instruments.refetch(), holdings.refetch()]); }}
               retryLabel={t("common.retryAction")}
             />
-          ) : activities.isLoading || accounts.isLoading || instruments.isLoading ? (
+          ) : activities.isLoading || accounts.isLoading || instruments.isLoading || holdings.isLoading ? (
             <LoadingState label={t("history.loading")} />
           ) : recent.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("overview.noRecentActivity")}</p>
@@ -365,7 +375,7 @@ export function OverviewPage({
             <ul className="flex flex-col gap-3" data-testid="overview-recent-activity">
               {recent.map((activity) => (
                 <li key={activity.id} className="flex flex-col gap-1 border-b border-border pb-3 text-sm last:border-0 last:pb-0">
-                  <p className="text-foreground">{activitySentence(t, activity, accountNames, instrumentNames)}</p>
+                  <p className="text-foreground">{activitySentence(t, activity, accountNames, instrumentNames, holdingNames)}</p>
                   <time className="text-xs text-muted-foreground" dateTime={activity.effectiveAt}>
                     {activity.effectiveLocalDate}
                   </time>

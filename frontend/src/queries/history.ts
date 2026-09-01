@@ -38,6 +38,14 @@ export function useListActivities(limit = 50) {
   });
 }
 
+export function useActivity(activityId: string) {
+  return useQuery({
+    queryKey: queryKeys.history.activity(activityId),
+    queryFn: () => callService(() => HistoryService.Activity(activityId)),
+    enabled: Boolean(activityId),
+  });
+}
+
 export function useActivityPage(request: ActivityQueryRequest = {}) {
   const normalized: ActivityQueryRequest = {
     ...(request.accountId ? { accountId: request.accountId } : {}),

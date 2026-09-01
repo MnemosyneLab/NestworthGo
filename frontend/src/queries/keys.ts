@@ -83,6 +83,7 @@ export const queryKeys = {
     all: ["history"] as const,
     origin: ["history", "origin"] as const,
     startingPointDraft: ["history", "startingPointDraft"] as const,
+    activity: (activityId: string) => ["history", "activity", activityId] as const,
     activities: (limit: number) => ["history", "activities", limit] as const,
     activityPage: (request: unknown) => ["history", "activityPage", request] as const,
   },
