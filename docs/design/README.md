@@ -13,6 +13,10 @@ the startup/onboarding gates are defined by
 - [History and related-form defaults](history-and-form-defaults-ux.md) — Record-change auto-fill, quote/FX preview, Settings timezone and FX provider, picker filters, and current-balance echo.
 - [Trial UX optimization](trial-ux-optimization.md) — Implemented follow-up from the 2026-08-28 trial: default institution/group, native amounts without FX, history sentences and detail, date/time pickers, calculate buttons, portfolio-by-holding, and market-data refresh TTL.
 
+## Planned designs
+
+- [Visual analytics and market history](visual-analytics-and-market-history.md) — Planned charts for Overview, Portfolio, Analytics, and local-first Instrument/FX quote history, with optional provider history as a later explicit workflow.
+
 ## Current screen map
 
 The desktop shell exposes these top-level destinations:

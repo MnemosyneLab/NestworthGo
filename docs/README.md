@@ -18,6 +18,7 @@ bundles.
 | Architecture | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | SQLite, transactions, serialization, errors, and providers |
 | Design | [Account Container Interaction](architecture/account-container-interaction-design.md) | Current Account creation, detail, action, and accessibility behavior |
 | Design | [Trial UX optimization](design/trial-ux-optimization.md) | Trial follow-up: pickers, calculate buttons, portfolio-by-holding, market-data TTL |
+| Design | [Visual Analytics and Market History](design/visual-analytics-and-market-history.md) | Planned Overview, Portfolio, Analytics, and local-first quote-history charts |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
