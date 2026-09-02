@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/csvcodec"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -153,10 +152,7 @@ func TestExclusiveRestoreRejectsMutationBeforeDatabaseClose(t *testing.T) {
 
 func TestCSVCommitAndOrdinaryWriteAreMutuallyExclusive(t *testing.T) {
 	service, ctx, _, _ := newOnboardedService(t, "exclusive-csv", []string{"Alice"})
-	table, err := csvcodec.Parse([]byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-08-01,Alice:100%\n"), csvcodec.DelimiterComma)
-	if err != nil {
-		t.Fatal(err)
-	}
+	table := parseCSVTable(t, "account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-08-01,Alice:100%\n")
 	plan, err := service.BuildCSVImportPlan(ctx, CSVProfileAccounts, table, nil, CSVParseOptions{DateFormat: CSVDateISO, DecimalSep: ".", GroupingSep: "none"}, nil)
 	if err != nil || len(plan.Errors) != 0 {
 		t.Fatalf("plan err=%v errors=%+v", err, plan.Errors)

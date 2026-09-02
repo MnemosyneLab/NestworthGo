@@ -18,6 +18,7 @@ import (
 	webassets "github.com/waltwang/nestworth-go"
 	nestworthapp "github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -115,6 +116,8 @@ func run() error {
 				marketdata.NewYahooChartProvider(nil),
 			)
 			service = nestworthapp.NewService(sqlite.NewRepository(database), registry)
+			appports.Wire(service)
+			service.SetLiveDatabasePath(databasePath)
 			if err := service.SetFXProvider(preference.FXProvider); err != nil {
 				// Fall back for this session only: the persisted choice stays on
 				// disk so a transient provider failure cannot rewrite the user's
@@ -147,11 +150,12 @@ func run() error {
 	if hasSchema {
 		appService = wailsapp.NewServiceWithSchema(startupErr, foundSchema, supportedSchema)
 	}
-	recoveryService := wailsrecovery.NewService(databasePath, service, store, platform, platform, refreshGate(marketdataService))
+	recoveryUseCase := nestworthapp.NewRecovery(databasePath, backup.NewRuntime(), service)
+	recoveryService := wailsrecovery.NewService(recoveryUseCase, platform, platform, refreshGate(marketdataService))
 	defer recoveryService.Shutdown()
 	var dataService *wailsdata.Service
 	if service != nil {
-		dataService = wailsdata.NewService(service, store, database, platform, marketdataService)
+		dataService = wailsdata.NewService(service, store, platform, marketdataService)
 		defer dataService.Shutdown()
 	}
 	app := application.New(application.Options{

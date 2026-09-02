@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/csvcodec"
 )
 
 const (
@@ -159,7 +158,11 @@ func (s *Service) ExportAccountsCSV(ctx context.Context, includeArchived bool) (
 			deref(record.Account.Note),
 		})
 	}
-	return csvcodec.Encode(AccountsCSVHeaders, rows)
+	codec, err := s.requireCSV()
+	if err != nil {
+		return nil, err
+	}
+	return codec.Encode(AccountsCSVHeaders, rows)
 }
 
 func (s *Service) ExportHoldingsCSV(ctx context.Context, includeArchived bool) ([]byte, error) {
@@ -234,7 +237,11 @@ func (s *Service) ExportHoldingsCSV(ctx context.Context, includeArchived bool) (
 			deref(item.holding.Note),
 		})
 	}
-	return csvcodec.Encode(HoldingsCSVHeaders, rows)
+	codec, err := s.requireCSV()
+	if err != nil {
+		return nil, err
+	}
+	return codec.Encode(HoldingsCSVHeaders, rows)
 }
 
 func (s *Service) CommitCSVImport(ctx context.Context, plan CSVImportPlan) (CSVPreviewStats, error) {
@@ -400,10 +407,10 @@ func formatBPSPercent(bps int) string {
 }
 
 func previewRows(rows [][]string) [][]string {
-	if len(rows) <= csvcodec.PreviewRowCap {
+	if len(rows) <= CSVPreviewRowCap {
 		return rows
 	}
-	return rows[:csvcodec.PreviewRowCap]
+	return rows[:CSVPreviewRowCap]
 }
 
 func latestManualQuote(quotes []domain.InstrumentQuote) *domain.InstrumentQuote {

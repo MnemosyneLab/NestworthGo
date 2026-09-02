@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -20,11 +21,15 @@ import (
 // the real repository implementation.
 func NewService(t *testing.T, registries ...application.MarketDataRegistryPort) *application.Service {
 	t.Helper()
-	database, err := sqlite.Open(filepath.Join(t.TempDir(), "nestworth.db"))
+	path := filepath.Join(t.TempDir(), "nestworth.db")
+	database, err := sqlite.Open(path)
 	if err != nil {
 		t.Fatalf("open test database: %v", err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	repository := sqlite.NewRepository(database)
-	return application.NewService(repository, registries...)
+	service := application.NewService(repository, registries...)
+	appports.Wire(service)
+	service.SetLiveDatabasePath(path)
+	return service
 }

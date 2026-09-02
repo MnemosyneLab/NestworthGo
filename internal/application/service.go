@@ -22,6 +22,9 @@ type Service struct {
 	stateMu       sync.RWMutex
 	now           func() time.Time
 	marketData    MarketDataRegistryPort
+	csvCodec      CSVCodecPort
+	backup        BackupRuntime
+	liveDBPath    string
 	fxProviderKey string
 	quoteCacheTTL time.Duration
 	uiLanguage    string
@@ -30,10 +33,13 @@ type Service struct {
 
 	writes       WriteCoordinator
 	refreshEpoch atomic.Uint64
+
+	csvMu       sync.Mutex
+	csvSessions map[string]*csvImportSession
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
-	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour}
+	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, csvSessions: map[string]*csvImportSession{}}
 	service.writes.init()
 	service.valuation = NewValuationService(repository, service.clock)
 	service.gain = NewGainService(repository, service.clock)
@@ -158,9 +164,6 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 	}
 	if household == nil {
 		return Bootstrap{}, nil
-	}
-	if err := s.ensureDefaultDirectory(ctx, *household); err != nil {
-		return Bootstrap{}, err
 	}
 	members, err := s.repository.ListMembers(ctx, false)
 	if err != nil {
