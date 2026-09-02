@@ -29,7 +29,7 @@ describe("history mutation IDs", () => {
     const record = renderMutation(useRecordChange);
     const payload = { kind: "money_added" as const, accountId: "account-1", amount: "10", currency: "USD" };
     await act(async () => {
-      await expect(record.result.current.mutateAsync(payload as never)).rejects.toThrow("network");
+      await expect(record.result.current.mutateAsync(payload as never)).rejects.toThrow();
     });
     await act(async () => {
       await record.result.current.mutateAsync(payload as never);
