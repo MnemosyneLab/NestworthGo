@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { AppShell, DEFAULT_PAGE_ID } from "@/app/AppShell";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OverviewPage } from "@/features/overview/OverviewPage";
@@ -22,12 +22,15 @@ import { setLanguage } from "@/i18n";
  * App gates on AppService.Startup() before any other bound service so a
  * failed database open renders BlockedStartupPage instead of a raw Wails
  * "service not found" rejection. Onboarding runs until a Household exists.
+ *
+ * Only the active workspace page is mounted. Server state stays in TanStack
+ * Query; selectedAccountId is App-owned UI state that survives leaving
+ * Accounts. Hidden pages must not keep query observers or effects alive.
  */
 function App() {
   const { t } = useTranslation();
   const [activePageId, setActivePageId] = useState(DEFAULT_PAGE_ID);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [visitedPageIds, setVisitedPageIds] = useState<string[]>([DEFAULT_PAGE_ID]);
   const startup = useStartup();
   const settings = useSettings({ enabled: startup.data?.available === true });
   const setAppearance = useUiStore((state) => state.setAppearance);
@@ -63,19 +66,11 @@ function App() {
   }
 
   if (bootstrap.data && !bootstrap.data.household) {
-    return <OnboardingPage onCompleted={() => {
-      setVisitedPageIds((current) => (current.includes("accounts") ? current : [...current, "accounts"]));
-      setActivePageId("accounts");
-    }} />;
+    return <OnboardingPage onCompleted={() => setActivePageId("accounts")} />;
   }
 
-  const visited = (id: string) => id === activePageId || visitedPageIds.includes(id);
-  const markVisited = (id: string) => {
-    setVisitedPageIds((current) => (current.includes(id) ? current : [...current, id]));
-  };
   const openAccount = (accountId: string) => {
     setSelectedAccountId(accountId);
-    markVisited("accounts");
     setActivePageId("accounts");
   };
   const handleNavigate = (pageId: string) => {
@@ -84,69 +79,32 @@ function App() {
     if (pageId === "accounts") {
       setSelectedAccountId(null);
     }
-    markVisited(pageId);
     setActivePageId(pageId);
   };
 
   return (
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data}>
-      {visited("overview") && (
-        <WorkspaceSurface id="overview" activePageId={activePageId}>
-          <OverviewPage
-            onAddAccount={() => handleNavigate("accounts")}
-            onOpenAccounts={() => handleNavigate("accounts")}
-            onOpenHistory={() => handleNavigate("history")}
-            onOpenMarketData={() => handleNavigate("market-data")}
-            onOpenInvestments={() => handleNavigate("investments")}
-          />
-        </WorkspaceSurface>
+      {activePageId === "overview" && (
+        <OverviewPage
+          onAddAccount={() => handleNavigate("accounts")}
+          onOpenAccounts={() => handleNavigate("accounts")}
+          onOpenHistory={() => handleNavigate("history")}
+          onOpenMarketData={() => handleNavigate("market-data")}
+          onOpenInvestments={() => handleNavigate("investments")}
+        />
       )}
-      {visited("accounts") && (
-        <WorkspaceSurface id="accounts" activePageId={activePageId}>
-          <AccountsPage selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} />
-        </WorkspaceSurface>
+      {activePageId === "accounts" && (
+        <AccountsPage selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} />
       )}
-      {visited("portfolio") && (
-        <WorkspaceSurface id="portfolio" activePageId={activePageId}>
-          <PortfolioPage onOpenAccount={openAccount} />
-        </WorkspaceSurface>
-      )}
-      {visited("directory") && (
-        <WorkspaceSurface id="directory" activePageId={activePageId}>
-          <DirectoryPage />
-        </WorkspaceSurface>
-      )}
-      {visited("investments") && (
-        <WorkspaceSurface id="investments" activePageId={activePageId}>
-          <InvestmentsPage />
-        </WorkspaceSurface>
-      )}
-      {visited("market-data") && (
-        <WorkspaceSurface id="market-data" activePageId={activePageId}>
-          <MarketDataPage />
-        </WorkspaceSurface>
-      )}
-      {visited("settings") && (
-        <WorkspaceSurface id="settings" activePageId={activePageId}>
-          <SettingsPage />
-        </WorkspaceSurface>
-      )}
-      {visited("history") && (
-        <WorkspaceSurface id="history" activePageId={activePageId}>
-          <HistoryPage />
-        </WorkspaceSurface>
-      )}
-      {visited("analytics") && (
-        <WorkspaceSurface id="analytics" activePageId={activePageId}>
-          <AnalyticsPage />
-        </WorkspaceSurface>
-      )}
+      {activePageId === "portfolio" && <PortfolioPage onOpenAccount={openAccount} />}
+      {activePageId === "directory" && <DirectoryPage />}
+      {activePageId === "investments" && <InvestmentsPage />}
+      {activePageId === "market-data" && <MarketDataPage />}
+      {activePageId === "settings" && <SettingsPage />}
+      {activePageId === "history" && <HistoryPage />}
+      {activePageId === "analytics" && <AnalyticsPage />}
     </AppShell>
   );
-}
-
-function WorkspaceSurface({ id, activePageId, children }: { id: string; activePageId: string; children: ReactNode }) {
-  return <div hidden={id !== activePageId}>{children}</div>;
 }
 
 export default App;

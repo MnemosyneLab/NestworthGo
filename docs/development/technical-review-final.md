@@ -124,7 +124,7 @@ the current code does not actually have.
 | F14 | P1 | Actual UX bug | History returns a cursor but the UI never requests the next page. | `HistoryPage.tsx`, `frontend/src/queries/history.ts` | Resolved |
 | F15 | P1 | Integrity/debt | Optional directory IDs can be silently converted to nil; schema verification casts exact quantities through `REAL`; aggregate ownership and snapshot provenance are not fully checked at persistence boundaries. | `sqlite/repository.go`, `schema_verify.go`, snapshot/ownership writers | Resolved |
 | F16 | P1 | Privacy/hardening | Live database mode is not normalized, startup logs full paths, and pending Restore packages have no TTL/count bound. | `sqlite/database.go`, `cmd/nestworth/main.go`, `wailsapi/recovery/recovery.go` | Resolved |
-| F17 | P1 | Performance | Activity/snapshot list hydration is per parent row; hidden pages can keep queries active. | SQLite list repositories, `frontend/src/App.tsx` | Open |
+| F17 | P1 | Performance | Activity/snapshot list hydration is per parent row; hidden pages can keep queries active. | SQLite list repositories, `frontend/src/App.tsx` | Resolved |
 | F18 | P2 | Architecture debt | `application.Service` is a broad facade; application imports CSV infrastructure; Wails data/recovery adapters own persistence lifecycle. | `internal/application`, `internal/wailsapi/data`, `recovery` | Open |
 | F19 | P2 | Contract/documentation debt | Activity taxonomy and cost-basis entities in architecture docs do not match stored code; `include_in_liquid_assets` has no metric consumer. | `docs/architecture`, account UI/contracts | Open |
 | F20 | P2 | Reliability/release debt | Activity mutations have no request idempotency key; there is no CI workflow; native/package gates are manual; Wails is beta. | History commands, `.github`, build files | Open |
@@ -444,7 +444,7 @@ Acceptance criteria:
 
 **Covers:** F13 and the repository portion of F17.
 
-**Progress:** F13 resolved. `AccountGains` reads one portfolio snapshot and shares one cost-basis replay; Investments uses a single TanStack query. Overview returns labels, history-started, and bounded recent-activity headlines from that same use case so the page no longer fans out to accounts/instruments/holdings/history APIs. F17 repository hydration is batched: a 50-row Activity page and a 365-day snapshot range use a bounded query count (`IN (...)` child lookups on existing indexes). Hidden-page query lifecycle remains Work Package 9.
+**Progress:** F13 resolved. `AccountGains` reads one portfolio snapshot and shares one cost-basis replay; Investments uses a single TanStack query. Overview returns labels, history-started, and bounded recent-activity headlines from that same use case so the page no longer fans out to accounts/instruments/holdings/history APIs. F17 repository hydration is batched: a 50-row Activity page and a 365-day snapshot range use a bounded query count (`IN (...)` child lookups on existing indexes). F17 frontend: only the active workspace page is mounted; TanStack Query retains server state and `selectedAccountId` remains App-owned UI state.
 
 Implementation steps:
 
@@ -478,7 +478,7 @@ Acceptance criteria:
 
 **Covers:** F14, frontend part of F17, and F21.
 
-**Progress:** F14 resolved. History uses `useInfiniteQuery` with the backend keyset cursor (`afterId`, `afterEffectiveAt`, `afterCreatedAt`) kept out of the query key so loaded pages stay stable across mutation invalidation. A Load more action requests the next page while `hasMore` is true. Tests cover more than 50 Activities with identical `effective_at`/`created_at` on both the SQLite keyset and the History UI.
+**Progress:** F14 resolved. History uses `useInfiniteQuery` with the backend keyset cursor (`afterId`, `afterEffectiveAt`, `afterCreatedAt`) kept out of the query key so loaded pages stay stable across mutation invalidation. A Load more action requests the next page while `hasMore` is true. Tests cover more than 50 Activities with identical `effective_at`/`created_at` on both the SQLite keyset and the History UI. F17 frontend resolved: inactive workspace pages unmount instead of staying `hidden`.
 
 Implementation steps:
 

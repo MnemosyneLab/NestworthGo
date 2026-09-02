@@ -324,4 +324,23 @@ describe("App shell smoke test", () => {
     expect(await screen.findByTestId("accounts-table")).toBeInTheDocument();
     expect(screen.queryByTestId("account-detail")).not.toBeInTheDocument();
   });
+
+  it("unmounts inactive workspace pages so their queries do not stay subscribed", async () => {
+    await i18n.changeLanguage("en");
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    );
+    expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.settings") }));
+    expect(await screen.findByRole("form", { name: i18n.t("settings.formLabel") })).toBeInTheDocument();
+    expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
+
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.overview") }));
+    expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: i18n.t("settings.formLabel") })).not.toBeInTheDocument();
+  });
 });
