@@ -111,7 +111,7 @@ the current code does not actually have.
 | F1 | P0 | Actual bug | Historical snapshots ignore `IncludeInNetWorth`. | `internal/application/historical_snapshot.go`, `service.go` | Resolved |
 | F2 | P0 | Actual bug | Negative net worth cannot be saved or appended as today's trend point. | `internal/domain/history.go`, `historical_snapshot.go`, `trend.go`, Wails DTOs | Resolved |
 | F3 | P0 | Actual bug | Historical account and portfolio totals sum rounded Money values. | `historical_snapshot.go`, `trend.go`, `snapshot_repository.go` | Resolved |
-| F4 | P0 | Actual data-integrity bug | `buildPositionTransfer` discards `NewQuantity` errors; commit consumes the invalid endpoint. | `internal/domain/change.go`, `change_repository.go` | Open |
+| F4 | P0 | Actual data-integrity bug | `buildPositionTransfer` discards `NewQuantity` errors; commit consumes the invalid endpoint. | `internal/domain/change.go`, `change_repository.go` | Resolved |
 | F5 | P0 | Actual consistency bug | Gain paths drop active holdings whose Instrument is archived and drop realized history for archived Holdings. | `internal/application/gain_service.go`, `internal/infrastructure/sqlite/cost_basis_repository.go` | Open |
 | F6 | P0 | Actual consistency bug | Historical gain/dividend FX requires an explicit preference while live valuation can use the default provider. | `gain_service.go`, `valuation.go` | Open |
 | F7 | P0 | Actual compatibility bug | Read-only backup verification rejects the accepted pre-repair v9 account CHECK shape. | `sqlite/readonly.go`, `schema_repair.go`, `schema_verify.go` | Open |
@@ -221,6 +221,8 @@ Acceptance criteria:
 ### Work Package 2 — Close Transfer and Gain Correctness Gaps
 
 **Covers:** F4–F6.
+
+**Progress:** F4 resolved. F5 and F6 remain open.
 
 Implementation steps:
 
