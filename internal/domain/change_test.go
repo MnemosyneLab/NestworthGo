@@ -294,6 +294,28 @@ func TestResolveLocalDateTimeRejectsDSTGapAndAmbiguity(t *testing.T) {
 	}
 }
 
+func TestPreviewPositionTransferRejectsDestinationOverflow(t *testing.T) {
+	state, _, _, fromID, toID := changeTestState(t)
+	maxQty, err := ParseQuantity("999999999999999999.99999999")
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding := state.Holdings[toID]
+	holding.Current = maxQty
+	state.Holdings[toID] = holding
+	quantity, err := ParseQuantity("0.00000001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = PreviewChange(state, PositionTransferInput{HouseholdID: state.HouseholdID, FromHoldingID: fromID, ToHoldingID: toID, Quantity: quantity})
+	if err == nil {
+		t.Fatal("destination overflow was accepted")
+	}
+	if typed, ok := err.(*Error); !ok || typed.Code != ErrDecimalOverflow {
+		t.Fatalf("overflow error = %v, want decimal_overflow", err)
+	}
+}
+
 func findAccount(state ChangeState, name string) AccountID {
 	for id, account := range state.Accounts {
 		if account.Name == name {

@@ -420,6 +420,76 @@ func TestRecordTransfersUseNativeEndpointsAndCommitAtomically(t *testing.T) {
 	}
 }
 
+func TestPositionTransferOverflowPersistsNoRows(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/transfer-overflow.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Overflow", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ownerIDs := []domain.MemberID{bootstrap.Members[0].ID}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "1", "2026-08-01", false); err != nil {
+		t.Fatal(err)
+	}
+	fromBroker, err := service.CreateAccount(ctx, AccountInput{Name: "From", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: ownerIDs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	toBroker, err := service.CreateAccount(ctx, AccountInput{Name: "To", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: ownerIDs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fromHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: fromBroker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	toHolding, err := service.CreateHolding(ctx, HoldingInput{AccountID: toBroker.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "999999999999999999.99999999"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	clock = clock.Add(24 * time.Hour)
+	_, err = service.RecordChange(ctx, domain.PositionTransferInput{
+		HouseholdID: bootstrap.Household.ID, FromHoldingID: fromHolding.ID, ToHoldingID: toHolding.ID,
+		Quantity: mustQuantity(t, "0.00000001"), EffectiveAt: clock,
+	})
+	if err == nil {
+		t.Fatal("destination overflow was accepted")
+	}
+	if typed, ok := err.(*domain.Error); !ok || typed.Code != domain.ErrDecimalOverflow {
+		t.Fatalf("overflow error = %v, want decimal_overflow", err)
+	}
+	var activities, effects, quantities int
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activities").Scan(&activities); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM activity_effects").Scan(&effects); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM holding_quantity_values").Scan(&quantities); err != nil {
+		t.Fatal(err)
+	}
+	if activities != 0 || effects != 0 || quantities != 0 {
+		t.Fatalf("overflow wrote activities=%d effects=%d quantities=%d", activities, effects, quantities)
+	}
+}
+
 func TestUndoAndFixKeepEvidenceAppendOnly(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/correction.db")
 	if err != nil {

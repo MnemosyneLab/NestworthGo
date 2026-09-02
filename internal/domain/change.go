@@ -1112,8 +1112,14 @@ func buildPositionTransfer(state ChangeState, input PositionTransferInput) (Chan
 	if err != nil {
 		return ChangePreview{}, err
 	}
-	fromQty, _ := NewQuantity(from.Current.Decimal().Sub(input.Quantity.Decimal()))
-	toQty, _ := NewQuantity(to.Current.Decimal().Add(input.Quantity.Decimal()))
+	fromQty, err := NewQuantity(from.Current.Decimal().Sub(input.Quantity.Decimal()))
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	toQty, err := NewQuantity(to.Current.Decimal().Add(input.Quantity.Decimal()))
+	if err != nil {
+		return ChangePreview{}, err
+	}
 	effects := []ActivityEffect{holdingEffect(activity.ID, 1, EffectRoleTransferFrom, EffectRemoved, ClassificationInternalTransfer, from, input.Quantity), holdingEffect(activity.ID, 2, EffectRoleTransferTo, EffectAdded, ClassificationInternalTransfer, to, input.Quantity)}
 	activity.Effects = effects
 	fromID, toID := from.ID, to.ID
