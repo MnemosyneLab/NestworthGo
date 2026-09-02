@@ -246,8 +246,8 @@ func TestReplayCostBasisCorrectionReplacesFeeAdjustedBuy(t *testing.T) {
 }
 
 func TestReplayCostBasisCryptoScaleFeeAdjustedBuy(t *testing.T) {
-	// (0.00000001 * 1.23456789 + 0.0001) / 0.00000001 = 10000.00123456789
-	// which banker's-rounds at eight places to 10000.00123457.
+	// (0.00000001 * 1.23456789 + 0.0001) / 0.00000001 = 1.23456789 + 10000
+	// = 10001.23456789, which already fits the unit-price scale.
 	fee := mustMoney(t, "0.0001", "USD")
 	result, err := ReplayCostBasis(nil, []CostBasisEvent{
 		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "0.00000001"), UnitPrice: unitPricePointer(t, "1.23456789"), Fee: &fee},
@@ -255,7 +255,7 @@ func TestReplayCostBasisCryptoScaleFeeAdjustedBuy(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReplayCostBasis returned error: %v", err)
 	}
-	if got, want := result.Current.AverageUnitCost.Canonical(), "10000.00123457"; got != want {
+	if got, want := result.Current.AverageUnitCost.Canonical(), "10001.23456789"; got != want {
 		t.Fatalf("crypto-scale average = %q, want %q", got, want)
 	}
 }
