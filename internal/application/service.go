@@ -988,7 +988,7 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 		groupLabels[current.ID.String()] = current.Name
 	}
 	for _, valuation := range valuations {
-		if !valuation.Account.IncludeInNetWorth {
+		if !domain.AccountEligibleForNetWorth(valuation.Account) {
 			continue
 		}
 		value, err := exactBaseAmount(valuation)

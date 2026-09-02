@@ -73,10 +73,15 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	assets, liabilities := decimal.Zero, decimal.Zero
 	complete := true
 	items := make([]domain.DailyValuationSnapshotItem, 0)
+	eligibleMissing := 0
 	for _, account := range valuedAccounts {
+		if !domain.AccountEligibleForNetWorth(account.Account) {
+			continue
+		}
 		if !account.Complete {
 			complete = false
 		}
+		eligibleMissing += len(account.MissingInputs)
 		if account.BaseValue != nil {
 			amount, parseErr := decimal.NewFromString(account.BaseValue.Amount)
 			if parseErr != nil {
@@ -131,7 +136,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 		return domain.DailyValuationSnapshot{}, false, err
 	}
 	hash := snapshotContentHash(localDate, cutoff, assetsMoney, liabilitiesMoney, netWorthMoney, items)
-	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: portfolio.Household.BaseCurrency, Complete: complete && len(missing) == 0, ComponentCount: len(items), MissingCount: len(missing), GenerationReason: "manual", CreatedAt: s.clock(), Items: items}
+	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: portfolio.Household.BaseCurrency, Complete: complete && eligibleMissing == 0, ComponentCount: len(items), MissingCount: eligibleMissing, GenerationReason: "manual", CreatedAt: s.clock(), Items: items}
 	appended, err := s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
 	return snapshot, appended, err
 }

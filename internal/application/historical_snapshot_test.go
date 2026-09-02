@@ -7,6 +7,71 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+func TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "excluded-snapshot", []string{"Owner"})
+	owner := bootstrap.Members[0].ID
+	included, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
+	})
+	if err != nil {
+		t.Fatalf("included asset: %v", err)
+	}
+	excludedAsset, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Hidden cash", AccountType: "cash_on_hand", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: false,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "9000",
+	})
+	if err != nil {
+		t.Fatalf("excluded asset: %v", err)
+	}
+	excludedLiability, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Hidden card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: false,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "50",
+	})
+	if err != nil {
+		t.Fatalf("excluded liability: %v", err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatalf("StartHistory: %v", err)
+	}
+	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
+	overview, err := service.Overview(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatalf("Overview: %v", err)
+	}
+	if overview.NetWorth.String() != "100" || overview.Assets.String() != "100" || overview.Liabilities.String() != "0" {
+		t.Fatalf("live overview = assets=%s liabilities=%s net=%s, want 100/0/100", overview.Assets, overview.Liabilities, overview.NetWorth)
+	}
+	snapshot, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-01")
+	if err != nil || !appended {
+		t.Fatalf("BuildDailyValuationSnapshot: appended=%v err=%v", appended, err)
+	}
+	if snapshot.NetWorthAmount == nil || snapshot.NetWorthAmount.CanonicalAmount() != "100" || snapshot.AssetsAmount == nil || snapshot.AssetsAmount.CanonicalAmount() != "100" || snapshot.LiabilitiesAmount == nil || snapshot.LiabilitiesAmount.CanonicalAmount() != "0" {
+		t.Fatalf("snapshot totals = %+v", snapshot)
+	}
+	for _, item := range snapshot.Items {
+		if item.AccountID == excludedAsset.Account.ID || item.AccountID == excludedLiability.Account.ID {
+			t.Fatalf("excluded account %s entered snapshot items: %+v", item.AccountID, item)
+		}
+		if item.AccountID != included.Account.ID {
+			t.Fatalf("unexpected snapshot account %s", item.AccountID)
+		}
+	}
+	if len(snapshot.Items) != 1 {
+		t.Fatalf("snapshot items = %d, want 1 included account", len(snapshot.Items))
+	}
+	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("ListDailyValuationSnapshots: count=%d err=%v", len(listed), err)
+	}
+	if listed[0].NetWorthAmount == nil || listed[0].NetWorthAmount.CanonicalAmount() != "100" {
+		t.Fatalf("reloaded snapshot net worth = %+v", listed[0].NetWorthAmount)
+	}
+}
+
 func TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend(t *testing.T) {
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "high-precision-snapshot", []string{"Owner"})
 	owner := bootstrap.Members[0].ID

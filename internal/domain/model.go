@@ -716,11 +716,18 @@ func NewAccountValue(account Account, amount Money, effectiveAt, createdAt time.
 	return AccountValue{ID: NewAccountValueID(), AccountID: account.ID, ValueKind: account.TrackingMode, Amount: amount, EffectiveAt: normalizeTime(effectiveAt), CreatedAt: normalizeTime(createdAt)}, nil
 }
 
+// AccountEligibleForNetWorth is the single eligibility rule used by live
+// Overview totals and historical snapshot aggregation. Liability sign is
+// applied by the aggregator, not this helper.
+func AccountEligibleForNetWorth(account Account) bool {
+	return account.IncludeInNetWorth && account.ArchivedAt == nil
+}
+
 func (a Account) SignedAmount(value Money) (decimal.Decimal, error) {
 	if value.Currency() != a.DefaultCurrency {
 		return decimal.Zero, validation("amount", "currency must match account currency")
 	}
-	if !a.IncludeInNetWorth || a.ArchivedAt != nil {
+	if !AccountEligibleForNetWorth(a) {
 		return decimal.Zero, nil
 	}
 	if a.IsLiability() {

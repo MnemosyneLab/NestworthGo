@@ -43,6 +43,22 @@ func TestOwnershipRequiresExactBasisPoints(t *testing.T) {
 	}
 }
 
+func TestAccountEligibleForNetWorthRejectsArchivedAndExcluded(t *testing.T) {
+	now := time.Now()
+	included := Account{IncludeInNetWorth: true}
+	if !AccountEligibleForNetWorth(included) {
+		t.Fatal("included active account was rejected")
+	}
+	excluded := Account{IncludeInNetWorth: false}
+	if AccountEligibleForNetWorth(excluded) {
+		t.Fatal("excluded account was accepted")
+	}
+	archived := Account{IncludeInNetWorth: true, ArchivedAt: &now}
+	if AccountEligibleForNetWorth(archived) {
+		t.Fatal("archived account was accepted")
+	}
+}
+
 func TestAccountAndValueUseCategorySignSemantics(t *testing.T) {
 	householdID := HouseholdID(newID())
 	memberID := MemberID(newID())
