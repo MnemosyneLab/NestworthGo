@@ -49,6 +49,68 @@ func TestListActivityPageHydrationQueryCountIsBounded(t *testing.T) {
 	_ = repository
 }
 
+func TestListActivityPageKeysetDoesNotSkipIdenticalTimestamps(t *testing.T) {
+	database, _, household, account, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	const total = 51
+	when := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	wantIDs := make(map[string]struct{}, total)
+	for i := 0; i < total; i++ {
+		activityID := domain.NewActivityID()
+		wantIDs[activityID.String()] = struct{}{}
+		if _, err := database.SQL.ExecContext(ctx, `INSERT INTO activities(id, household_id, kind, reason, effective_at, effective_local_date, created_at) VALUES(?, ?, 'cash_in', 'contribution', ?, '2026-01-01', ?)`,
+			activityID.String(), household.ID.String(), formatTimestamp(when), formatTimestamp(when)); err != nil {
+			t.Fatalf("insert activity %d: %v", i, err)
+		}
+		if _, err := database.SQL.ExecContext(ctx, `INSERT INTO activity_effects(id, activity_id, sequence, role, direction, target, classification, account_id, amount, currency) VALUES(?, ?, 1, 'principal', 'added', 'account_cash', 'income', ?, '10', 'CNY')`,
+			domain.NewActivityEffectID().String(), activityID.String(), account.ID.String()); err != nil {
+			t.Fatalf("insert effect %d: %v", i, err)
+		}
+	}
+
+	first, err := listActivityPageQuery(ctx, database.SQL, household.ID, domain.ActivityQuery{Limit: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(first.Activities) != 50 || !first.HasMore || first.Next == nil {
+		t.Fatalf("first page = len=%d hasMore=%v next=%v", len(first.Activities), first.HasMore, first.Next)
+	}
+	second, err := listActivityPageQuery(ctx, database.SQL, household.ID, domain.ActivityQuery{Limit: 50, After: first.Next})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(second.Activities) != 1 || second.HasMore || second.Next != nil {
+		t.Fatalf("second page = len=%d hasMore=%v next=%v", len(second.Activities), second.HasMore, second.Next)
+	}
+
+	seen := make(map[string]struct{}, total)
+	order := make([]string, 0, total)
+	for _, activity := range append(append([]domain.Activity{}, first.Activities...), second.Activities...) {
+		id := activity.ID.String()
+		if _, duplicate := seen[id]; duplicate {
+			t.Fatalf("duplicate activity %s across pages", id)
+		}
+		if !activity.EffectiveAt.Equal(when) || !activity.CreatedAt.Equal(when) {
+			t.Fatalf("activity %s timestamps drifted: effective=%v created=%v", id, activity.EffectiveAt, activity.CreatedAt)
+		}
+		seen[id] = struct{}{}
+		order = append(order, id)
+	}
+	if len(seen) != total {
+		t.Fatalf("paged %d unique activities, want %d (skipped %d)", len(seen), total, total-len(seen))
+	}
+	for id := range wantIDs {
+		if _, ok := seen[id]; !ok {
+			t.Fatalf("skipped activity %s", id)
+		}
+	}
+	for index := 1; index < len(order); index++ {
+		if order[index-1] <= order[index] {
+			t.Fatalf("keyset order is not id DESC at %d: %s then %s", index, order[index-1], order[index])
+		}
+	}
+}
+
 func TestListDailyValuationSnapshotsHydrationQueryCountIsBounded(t *testing.T) {
 	database, repository, household, account, _ := seedPortfolioRepository(t)
 	ctx := context.Background()

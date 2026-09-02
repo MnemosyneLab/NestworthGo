@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service as HistoryService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history";
 import type { ActivityQueryRequest, ChangeCommandRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { callService } from "@/lib/wails";
@@ -54,9 +54,26 @@ export function useActivityPage(request: ActivityQueryRequest = {}) {
     ...(request.toLocalDate ? { toLocalDate: request.toLocalDate } : {}),
     limit: request.limit ?? 50,
   };
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.history.activityPage(normalized),
-    queryFn: () => callService(() => HistoryService.ListActivityPage(normalized)),
+    queryFn: ({ pageParam }) =>
+      callService(() =>
+        HistoryService.ListActivityPage({
+          ...normalized,
+          ...(pageParam ?? {}),
+        }),
+      ),
+    initialPageParam: undefined as Pick<ActivityQueryRequest, "afterId" | "afterEffectiveAt" | "afterCreatedAt"> | undefined,
+    getNextPageParam: (lastPage) => {
+      if (!lastPage.hasMore || !lastPage.next) {
+        return undefined;
+      }
+      return {
+        afterId: lastPage.next.id,
+        afterEffectiveAt: lastPage.next.effectiveAt,
+        afterCreatedAt: lastPage.next.createdAt,
+      };
+    },
   });
 }
 

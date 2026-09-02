@@ -121,7 +121,7 @@ the current code does not actually have.
 | F11 | P1 | Financial correctness | Average cost rounds to two decimals despite an eight-decimal `UnitPrice` contract. | `internal/domain/cost_basis.go` | Resolved |
 | F12 | P1 | Accounting policy gap | Buy fees reduce cash but are not included in acquisition basis. | `internal/domain/change.go`, `cost_basis.go` | Resolved |
 | F13 | P1 | Performance/API | Investments performs one full-snapshot `AccountGain` call per Account; Overview also fans out. | `application/gain_service.go`, `frontend/src/queries/analytics.ts`, `OverviewPage.tsx` | Resolved |
-| F14 | P1 | Actual UX bug | History returns a cursor but the UI never requests the next page. | `HistoryPage.tsx`, `frontend/src/queries/history.ts` | Open |
+| F14 | P1 | Actual UX bug | History returns a cursor but the UI never requests the next page. | `HistoryPage.tsx`, `frontend/src/queries/history.ts` | Resolved |
 | F15 | P1 | Integrity/debt | Optional directory IDs can be silently converted to nil; schema verification casts exact quantities through `REAL`; aggregate ownership and snapshot provenance are not fully checked at persistence boundaries. | `sqlite/repository.go`, `schema_verify.go`, snapshot/ownership writers | Resolved |
 | F16 | P1 | Privacy/hardening | Live database mode is not normalized, startup logs full paths, and pending Restore packages have no TTL/count bound. | `sqlite/database.go`, `cmd/nestworth/main.go`, `wailsapi/recovery/recovery.go` | Resolved |
 | F17 | P1 | Performance | Activity/snapshot list hydration is per parent row; hidden pages can keep queries active. | SQLite list repositories, `frontend/src/App.tsx` | Open |
@@ -477,6 +477,8 @@ Acceptance criteria:
 ### Work Package 9 — Finish History Pagination and Frontend Lifecycle
 
 **Covers:** F14, frontend part of F17, and F21.
+
+**Progress:** F14 resolved. History uses `useInfiniteQuery` with the backend keyset cursor (`afterId`, `afterEffectiveAt`, `afterCreatedAt`) kept out of the query key so loaded pages stay stable across mutation invalidation. A Load more action requests the next page while `hasMore` is true. Tests cover more than 50 Activities with identical `effective_at`/`created_at` on both the SQLite keyset and the History UI.
 
 Implementation steps:
 

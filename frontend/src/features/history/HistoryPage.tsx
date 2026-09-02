@@ -78,7 +78,7 @@ function Timeline() {
     );
   }
 
-  const activityList = activities.data?.activities ?? [];
+  const activityList = activities.data?.pages.flatMap((page) => page.activities ?? []) ?? [];
   const reversedActivityIds = new Set(
     activityList
       .map((activity) => activity.reversesActivityId)
@@ -206,6 +206,20 @@ function Timeline() {
             );
           })}
         </ul>
+      )}
+      {activities.hasNextPage && (
+        <Button
+          type="button"
+          variant="outline"
+          className="self-center"
+          data-testid="history-load-more"
+          disabled={activities.isFetchingNextPage}
+          onClick={() => {
+            void activities.fetchNextPage();
+          }}
+        >
+          {t("history.loadMore")}
+        </Button>
       )}
 
       <Sheet open={fixTarget !== null} onOpenChange={(next) => !next && setFixTarget(null)}>
