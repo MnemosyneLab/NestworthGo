@@ -278,7 +278,23 @@ func verifyTable(ctx context.Context, query schemaQuery, table string, expected 
 			return fmt.Errorf("table %s is missing required check %q", table, check)
 		}
 	}
+	if table == "accounts" {
+		var definition string
+		if err := query.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&definition); err != nil {
+			return err
+		}
+		if err := verifyAcceptedCashOnHandCheck(definition); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func verifyAcceptedCashOnHandCheck(definition string) error {
+	if schemaSQLContains(definition, "CHECK(("+cashOnHandBalanceOnlyCheck) || schemaSQLContains(definition, "CHECK(("+cashOnHandBalanceOrHoldingsCheck) {
+		return nil
+	}
+	return fmt.Errorf("table accounts is missing a recognized v9 cash_on_hand tracking check")
 }
 
 func verifyIndex(ctx context.Context, query schemaQuery, expected expectedIndex) error {
@@ -577,7 +593,7 @@ func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 func expectedSchemaChecks() map[string][]string {
 	return map[string][]string{
 		"households":                {"CHECK(singleton_key = 1)", "CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')"},
-		"accounts":                  {"CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other'))", "CHECK(balance_sheet_role IN ('asset','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK((" + cashOnHandBalanceOrHoldingsCheck, "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_portfolio IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
+		"accounts":                  {"CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other'))", "CHECK(balance_sheet_role IN ('asset','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_portfolio IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
 		"account_ownership":         {"CHECK(share_bps > 0 AND share_bps <= 10000)"},
 		"account_values":            {"CHECK(value_kind IN ('balance','manual_value'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
 		"instruments":               {"CHECK(instrument_type IN ('stock','etf','mutual_fund','crypto','bond','precious_metal','bank_investment_product','other'))", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(country_code IS NULL OR country_code GLOB '[A-Z][A-Z]')", "CHECK(quote_source IN ('manual','provider'))", "CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL))"},
