@@ -164,7 +164,7 @@ func (g *GainService) RealizedGainInRange(ctx context.Context, scope domain.Gain
 			}
 			instrumentGroup := groupForInstrument(byInstrument, instrument.ID, instrument.Name)
 			accountGroup := groupForAccount(byAccount, holding.AccountID, accounts[holding.AccountID])
-			rate, rateAvailable := gainFXRateAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Currency(), event.EffectiveAt)
+			rate, rateAvailable := g.fxRateAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Currency(), event.EffectiveAt)
 			if !rateAvailable {
 				result.Available = false
 				if result.MissingReason == "" {
@@ -283,7 +283,7 @@ func (g *GainService) DividendIncomeInRange(ctx context.Context, scope domain.Ga
 		}
 		instrumentGroup := groupForInstrument(byInstrument, detail.InstrumentID, instrumentLabel)
 		accountGroup := groupForAccount(byAccount, accountID, accountLabel)
-		rate, rateAvailable := gainFXRateAtOrBefore(snapshot, fxQuotes, detail.Amount.Currency(), activity.EffectiveAt)
+		rate, rateAvailable := g.fxRateAtOrBefore(snapshot, fxQuotes, detail.Amount.Currency(), activity.EffectiveAt)
 		if !rateAvailable {
 			result.Available = false
 			if result.MissingReason == "" {
@@ -653,7 +653,7 @@ func (g *GainService) acquisitionFXRate(ctx context.Context, snapshot domain.Por
 		}
 		switch event.Kind {
 		case domain.CostBasisStartingPoint, domain.CostBasisBuy, domain.CostBasisAdjustmentIn:
-			rate, ok := gainFXRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
+			rate, ok := g.fxRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
 			if !ok {
 				return decimal.Zero, false
 			}
@@ -669,7 +669,7 @@ func (g *GainService) acquisitionFXRate(ctx context.Context, snapshot domain.Por
 				}
 				rate, ok = g.acquisitionFXRate(ctx, snapshot, native, starting, sourceEvents, replay, fxQuotes, origin)
 			} else {
-				rate, ok = gainFXRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
+				rate, ok = g.fxRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
 			}
 			if !ok {
 				return decimal.Zero, false
@@ -699,35 +699,8 @@ func blendFXRate(currentRate, currentQuantity, incomingRate, incomingQuantity de
 	return currentRate.Mul(currentQuantity).Add(incomingRate.Mul(incomingQuantity)).Div(totalQuantity), totalQuantity
 }
 
-func gainFXRateAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
-	base := snapshot.Household.BaseCurrency
-	if native == base {
-		return decimal.NewFromInt(1), true
-	}
-	preference := findFXPreference(snapshot.FXPreferences, native, base)
-	if preference == nil {
-		return decimal.Zero, false
-	}
-	var selected *domain.FXQuote
-	for index := range quotes {
-		quote := &quotes[index]
-		if quote.HouseholdID != preference.HouseholdID || quote.SourceKind != preference.SourceKind || quote.QuotedAt.After(cutoff) {
-			continue
-		}
-		if !((quote.BaseCurrency == native && quote.QuoteCurrency == base) || (quote.BaseCurrency == base && quote.QuoteCurrency == native)) {
-			continue
-		}
-		if selected == nil || quoteLater(quote.QuotedAt, quote.CreatedAt, quote.ID.String(), selected.QuotedAt, selected.CreatedAt, selected.ID.String()) {
-			selected = quote
-		}
-	}
-	if selected == nil {
-		return decimal.Zero, false
-	}
-	if selected.BaseCurrency == native && selected.QuoteCurrency == base {
-		return selected.Rate.Decimal(), true
-	}
-	return decimal.NewFromInt(1).Div(selected.Rate.Decimal()), true
+func (g *GainService) fxRateAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
+	return g.valuation.fxRateAtOrBefore(snapshot, quotes, native, cutoff)
 }
 
 func moneyViewPointer(value decimal.Decimal, currency domain.CurrencyCode) *domain.MoneyView {

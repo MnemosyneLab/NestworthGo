@@ -613,6 +613,108 @@ func TestDividendIncomeMissingFXMarksGroupUnavailable(t *testing.T) {
 	}
 }
 
+func TestFXQuoteWithoutPreferenceAgreesAcrossOverviewGainAndDividend(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/fx-no-preference.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repository := sqlite.NewRepository(database)
+	service := NewService(repository)
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "FX agreement", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	rate, err := domain.ParseFxRate("7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quote, err := domain.NewFXQuote(domain.FXQuoteInput{
+		HouseholdID: bootstrap.Household.ID, BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate,
+		SourceKind: domain.QuoteSourceProvider, SourceKey: "frankfurter", QuotedAt: now,
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.AppendFXQuote(ctx, quote); err != nil {
+		t.Fatal(err)
+	}
+	preferences, err := service.ListFXPreferences(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(preferences) != 0 {
+		t.Fatalf("explicit FX preference was stored: %+v", preferences)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+
+	overview, err := service.Overview(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !overview.Complete || overview.Assets.String() != "7700" {
+		t.Fatalf("overview without explicit FX preference = %+v", overview)
+	}
+
+	amount, _ := domain.ParseMoney("10", "USD")
+	if _, err := service.RecordChange(ctx, domain.CashDividendInput{HouseholdID: bootstrap.Household.ID, HoldingID: holding.ID, Amount: amount, EffectiveAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	dividends, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !dividends.Available || len(dividends.ByInstrument) != 1 || dividends.ByInstrument[0].Gain.Amount != "70" {
+		t.Fatalf("dividend without explicit FX preference = %+v", dividends)
+	}
+
+	service.setClock(func() time.Time { return now.Add(time.Hour) })
+	if _, err := service.RecordChange(ctx, domain.TradeInput{
+		HouseholdID: bootstrap.Household.ID, Side: domain.TradeSell, SettlementAccountID: account.Account.ID,
+		HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "10"),
+		Gross: mustMoney(t, "150", "USD"), EffectiveAt: now.Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	realized, err := service.RealizedGainInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !realized.Available || len(realized.ByInstrument) != 1 || realized.ByInstrument[0].Gain.Amount != "350" {
+		t.Fatalf("realized gain without explicit FX preference = %+v", realized)
+	}
+}
+
 func gainGroupByKey(t *testing.T, groups []domain.GainGroupView, key string) domain.GainGroupView {
 	t.Helper()
 	for _, group := range groups {
