@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import i18n from "@/i18n";
-import { addCanonical, allocateShareBps, divideCanonical, formatAmount, multiplyCanonical, sortByCanonicalDesc } from "./money";
+import { addCanonical, allocateShareBps, divideCanonical, formatAmount, multiplyCanonical, percentToShareBps, sortByCanonicalDesc } from "./money";
 
 afterEach(async () => {
   await i18n.changeLanguage("en");
@@ -124,6 +124,14 @@ describe("canonical decimal defaults", () => {
     const shares = allocateShareBps(["1", "1", "1"]);
     expect(shares.reduce((sum, share) => sum + share, 0)).toBe(10000);
     expect(Math.max(...shares) - Math.min(...shares)).toBeLessThanOrEqual(1);
+  });
+
+  it("converts ownership percents to basis points without JavaScript Number", () => {
+    expect(percentToShareBps("70")).toBe(7000);
+    expect(percentToShareBps("33.335")).toBe(3334);
+    expect(percentToShareBps("66.665")).toBe(6666);
+    expect(percentToShareBps("12.34567890123456789")).toBe(1235);
+    expect(percentToShareBps("not-a-number")).toBe(0);
   });
 });
 

@@ -12,9 +12,9 @@ import { useInspectBackup, useConfirmRestore } from "@/queries/data";
 import { displayError } from "@/lib/display";
 import { toast } from "sonner";
 
-type BlockedStartup = StartupDTO & {
-  foundSchemaVersion?: number;
-  supportedSchemaVersion?: number;
+type BlockedStartup = Omit<StartupDTO, "foundSchemaVersion" | "supportedSchemaVersion"> & {
+  foundSchemaVersion?: number | null;
+  supportedSchemaVersion?: number | null;
 };
 
 export function StartupLoadingPage({ label }: { label: string }) {

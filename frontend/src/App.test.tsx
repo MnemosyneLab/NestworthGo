@@ -228,6 +228,7 @@ describe("App shell smoke test", () => {
     );
 
     expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("ui.state.loadingPage"))).not.toBeInTheDocument();
     await waitFor(() => expect(document.documentElement.classList.contains("dark")).toBe(true));
     expect(i18n.language).toBe("zh-CN");
   });

@@ -128,7 +128,7 @@ the current code does not actually have.
 | F18 | P2 | Architecture debt | `application.Service` is a broad facade; application imports CSV infrastructure; Wails data/recovery adapters own persistence lifecycle. | `internal/application`, `internal/wailsapi/data`, `recovery` | Open |
 | F19 | P2 | Contract/documentation debt | Activity taxonomy and cost-basis entities in architecture docs do not match stored code; `include_in_liquid_assets` has no metric consumer. | `docs/architecture`, account UI/contracts | Open |
 | F20 | P2 | Reliability/release debt | Activity mutations have no request idempotency key; there is no CI workflow; native/package gates are manual; Wails is beta. | History commands, `.github`, build files | Open |
-| F21 | P2 | Frontend precision/performance | Ownership conversion uses JavaScript `Number`; the production bundle has one large main chunk. | `accountCatalog.ts`, frontend route/import structure | Open |
+| F21 | P2 | Frontend precision/performance | Ownership conversion uses JavaScript `Number`; the production bundle has one large main chunk. | `accountCatalog.ts`, frontend route/import structure | Resolved |
 
 ## Implementation Sequence
 
@@ -478,7 +478,7 @@ Acceptance criteria:
 
 **Covers:** F14, frontend part of F17, and F21.
 
-**Progress:** F14 resolved. History uses `useInfiniteQuery` with the backend keyset cursor (`afterId`, `afterEffectiveAt`, `afterCreatedAt`) kept out of the query key so loaded pages stay stable across mutation invalidation. A Load more action requests the next page while `hasMore` is true. Tests cover more than 50 Activities with identical `effective_at`/`created_at` on both the SQLite keyset and the History UI. F17 frontend resolved: inactive workspace pages unmount instead of staying `hidden`.
+**Progress:** F14 resolved. History uses `useInfiniteQuery` with the backend keyset cursor (`afterId`, `afterEffectiveAt`, `afterCreatedAt`) kept out of the query key so loaded pages stay stable across mutation invalidation. A Load more action requests the next page while `hasMore` is true. Tests cover more than 50 Activities with identical `effective_at`/`created_at` on both the SQLite keyset and the History UI. F17 frontend resolved: inactive workspace pages unmount instead of staying `hidden`. F21 resolved: ownership percents convert through `percentToShareBps` (`multiplyCanonical` integer rounding); Go `ParseOwnership` remains authoritative. Chart/analytics routes load via `React.lazy`. Production bundle after the split: main `index` 102 kB gzip 26 kB (review baseline ~1.68 MB in one main chunk). Remaining Vite warning is the `echarts` vendor chunk at 588 kB, loaded in parallel for Overview charts so the landing page has no Suspense flash.
 
 Implementation steps:
 

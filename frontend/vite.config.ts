@@ -31,4 +31,21 @@ export default defineConfig({
     },
   },
   plugins: [react(), tailwindcss(), wails("./bindings"), preserveDistGitkeep()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // echarts stays a dedicated vendor chunk so the main index file
+          // stays well under Vite's 500 kB warning. Overview still imports
+          // charts statically, so this chunk loads in parallel with no
+          // landing-page Suspense flash. The remaining >500 kB warning is
+          // this vendor file (~588 kB), a measured exception.
+          if (id.includes("node_modules/echarts") || id.includes("node_modules/zrender")) {
+            return "echarts";
+          }
+          return undefined;
+        },
+      },
+    },
+  },
 });

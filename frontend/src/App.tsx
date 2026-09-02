@@ -1,16 +1,10 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { AppShell, DEFAULT_PAGE_ID } from "@/app/AppShell";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { OverviewPage } from "@/features/overview/OverviewPage";
 import { AccountsPage } from "@/features/accounts/AccountsPage";
-import { PortfolioPage } from "@/features/portfolio/PortfolioPage";
-import { DirectoryPage } from "@/features/directory/DirectoryPage";
-import { InvestmentsPage } from "@/features/investments/InvestmentsPage";
-import { MarketDataPage } from "@/features/marketdata/MarketDataPage";
-import { SettingsPage } from "@/features/settings/SettingsPage";
-import { HistoryPage } from "@/features/history/HistoryPage";
-import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { BlockedStartupPage, StartupLoadingPage } from "@/features/startup/BlockedStartupPage";
+import { LoadingState } from "@/components/layout/PageState";
 import { useTranslation } from "react-i18next";
 import { useBootstrap } from "@/queries/household";
 import { useStartup } from "@/queries/app";
@@ -18,14 +12,27 @@ import { useSettings } from "@/queries/settings";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
 
+const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
+const DirectoryPage = lazy(() => import("@/features/directory/DirectoryPage").then((module) => ({ default: module.DirectoryPage })));
+const InvestmentsPage = lazy(() => import("@/features/investments/InvestmentsPage").then((module) => ({ default: module.InvestmentsPage })));
+const MarketDataPage = lazy(() => import("@/features/marketdata/MarketDataPage").then((module) => ({ default: module.MarketDataPage })));
+const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((module) => ({ default: module.SettingsPage })));
+const HistoryPage = lazy(() => import("@/features/history/HistoryPage").then((module) => ({ default: module.HistoryPage })));
+const AnalyticsPage = lazy(() => import("@/features/analytics/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
+
+function WorkspaceLazy({ children }: { children: ReactNode }) {
+  const { t } = useTranslation();
+  return <Suspense fallback={<LoadingState label={t("ui.state.loadingPage")} />}>{children}</Suspense>;
+}
+
 /**
  * App gates on AppService.Startup() before any other bound service so a
  * failed database open renders BlockedStartupPage instead of a raw Wails
  * "service not found" rejection. Onboarding runs until a Household exists.
  *
- * Only the active workspace page is mounted. Server state stays in TanStack
- * Query; selectedAccountId is App-owned UI state that survives leaving
- * Accounts. Hidden pages must not keep query observers or effects alive.
+ * Only the active workspace page is mounted. Overview stays a static import
+ * so the default landing page has no Suspense flash. Other routes load
+ * through dynamic imports; server state stays in TanStack Query.
  */
 function App() {
   const { t } = useTranslation();
@@ -96,13 +103,41 @@ function App() {
       {activePageId === "accounts" && (
         <AccountsPage selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} />
       )}
-      {activePageId === "portfolio" && <PortfolioPage onOpenAccount={openAccount} />}
-      {activePageId === "directory" && <DirectoryPage />}
-      {activePageId === "investments" && <InvestmentsPage />}
-      {activePageId === "market-data" && <MarketDataPage />}
-      {activePageId === "settings" && <SettingsPage />}
-      {activePageId === "history" && <HistoryPage />}
-      {activePageId === "analytics" && <AnalyticsPage />}
+      {activePageId === "portfolio" && (
+        <WorkspaceLazy>
+          <PortfolioPage onOpenAccount={openAccount} />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "directory" && (
+        <WorkspaceLazy>
+          <DirectoryPage />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "investments" && (
+        <WorkspaceLazy>
+          <InvestmentsPage />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "market-data" && (
+        <WorkspaceLazy>
+          <MarketDataPage />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "settings" && (
+        <WorkspaceLazy>
+          <SettingsPage />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "history" && (
+        <WorkspaceLazy>
+          <HistoryPage />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "analytics" && (
+        <WorkspaceLazy>
+          <AnalyticsPage />
+        </WorkspaceLazy>
+      )}
     </AppShell>
   );
 }

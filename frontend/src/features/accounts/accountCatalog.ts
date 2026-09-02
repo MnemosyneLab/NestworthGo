@@ -1,4 +1,5 @@
 import type { AccountCombinationDTO } from "@/queries/catalog";
+import { percentToShareBps } from "@/lib/money";
 
 /** Preferred primary create-wizard types. Catalog remains the closed set:
  * types missing from the catalog are omitted, and unknown catalog types
@@ -134,7 +135,7 @@ export function ownershipShares(
   if (useCustom && percentages && percentages.length === ownerIds.length) {
     return ownerIds.map((memberId, index) => ({
       memberId,
-      shareBps: Math.round(Number(percentages[index]) * 100),
+      shareBps: percentToShareBps(percentages[index]),
     }));
   }
   const base = Math.floor(TOTAL_OWNERSHIP_BPS / ownerIds.length);
