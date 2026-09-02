@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -163,31 +162,41 @@ func (r *Repository) StartingPointCost(ctx context.Context, holdingID domain.Hol
 	if filter.IncludeArchivedHoldings {
 		archiveClause = ""
 	}
-	var value sql.NullString
-	err := r.database.SQL.QueryRowContext(ctx, `
-		SELECT c.unit_cost
+	rows, err := r.database.SQL.QueryContext(ctx, `
+		SELECT c.quantity, c.unit_cost
 		FROM history_origin_components c
 		JOIN history_origins o ON o.id = c.origin_id
 		JOIN holdings h ON h.id = c.holding_id
 		JOIN accounts owner_account ON owner_account.id = h.account_id AND owner_account.household_id = o.household_id
 		WHERE c.holding_id = ?
 		  AND c.instrument_id = h.instrument_id
-		  AND c.component_kind = 'holding_quantity'
-		  AND CAST(c.quantity AS REAL) > 0`+archiveClause+`
-		ORDER BY c.created_at ASC, c.id ASC
-		LIMIT 1`, holdingID.String()).Scan(&value)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
+		  AND c.component_kind = 'holding_quantity'`+archiveClause+`
+		ORDER BY c.created_at ASC, c.id ASC`, holdingID.String())
 	if err != nil {
 		return nil, err
 	}
-	if !value.Valid {
-		return nil, nil
+	defer rows.Close()
+	for rows.Next() {
+		var quantity string
+		var unitCost sql.NullString
+		if err := rows.Scan(&quantity, &unitCost); err != nil {
+			return nil, err
+		}
+		parsedQuantity, err := domain.ParseQuantity(quantity)
+		if err != nil {
+			return nil, asStoredIntegrity("quantity", err)
+		}
+		if parsedQuantity.IsZero() || !unitCost.Valid || unitCost.String == "" {
+			continue
+		}
+		parsed, err := domain.ParseUnitPrice(unitCost.String)
+		if err != nil {
+			return nil, asStoredIntegrity("unitPrice", err)
+		}
+		return &parsed, nil
 	}
-	parsed, err := domain.ParseUnitPrice(value.String)
-	if err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return &parsed, nil
+	return nil, rows.Close()
 }

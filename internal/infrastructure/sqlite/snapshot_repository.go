@@ -65,6 +65,9 @@ func saveDailyValuationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot doma
 		if err := item.ValidateBaseAmountExact(); err != nil {
 			return false, err
 		}
+		if err := validateSnapshotItemProvenance(ctx, tx, snapshot.HouseholdID, item); err != nil {
+			return false, err
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshot_items(id, snapshot_id, account_id, holding_id, instrument_id, native_amount, native_currency, base_amount, base_currency, quote_id, fx_quote_id, state_observation_id, preference_observation_id, complete, missing_reason, fx_preference_observation_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.ID.String(), snapshot.ID.String(), item.AccountID.String(), nullableSnapshotHoldingID(item.HoldingID), nullableSnapshotInstrumentID(item.InstrumentID), nullableSnapshotString(item.NativeAmount), nullableSnapshotCurrency(item.NativeCurrency), snapshotItemStoredBaseAmount(item), snapshot.Currency.String(), nullableSnapshotStringPtr(item.QuoteID), nullableSnapshotStringPtr(item.FXQuoteID), nullableSnapshotAccountObservationID(item.StateObservationID), nullableSnapshotPreferenceObservationID(item.PreferenceObservationID), boolValue(item.Complete), nullableSnapshotStringPtr(item.MissingReason), nullableSnapshotFXPreferenceObservationID(item.FXPreferenceObservationID)); err != nil {
 			return false, err
 		}
@@ -361,6 +364,43 @@ func nullableSnapshotFXPreferenceObservationID(value *domain.FXPreferenceObserva
 		return nil
 	}
 	return value.String()
+}
+
+func validateSnapshotItemProvenance(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, item domain.DailyValuationSnapshotItem) error {
+	if item.QuoteID != nil && *item.QuoteID != "" {
+		quoteID, err := domain.ParseInstrumentQuoteID(*item.QuoteID)
+		if err != nil {
+			return asStoredIntegrity("quoteId", err)
+		}
+		if err := requireHouseholdRow(ctx, tx, `SELECT COUNT(*) FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE q.id = ? AND i.household_id = ?`, quoteID.String(), householdID.String(), "quoteId", "snapshot quote provenance does not exist in this household"); err != nil {
+			return err
+		}
+	}
+	if item.FXQuoteID != nil && *item.FXQuoteID != "" {
+		fxQuoteID, err := domain.ParseFXQuoteID(*item.FXQuoteID)
+		if err != nil {
+			return asStoredIntegrity("fxQuoteId", err)
+		}
+		if err := requireHouseholdRow(ctx, tx, `SELECT COUNT(*) FROM fx_quotes WHERE id = ? AND household_id = ?`, fxQuoteID.String(), householdID.String(), "fxQuoteId", "snapshot FX quote provenance does not exist in this household"); err != nil {
+			return err
+		}
+	}
+	if item.StateObservationID != nil {
+		if err := requireHouseholdRow(ctx, tx, `SELECT COUNT(*) FROM account_state_observations o JOIN accounts a ON a.id = o.account_id WHERE o.id = ? AND a.household_id = ?`, item.StateObservationID.String(), householdID.String(), "stateObservationId", "snapshot account-state provenance does not exist in this household"); err != nil {
+			return err
+		}
+	}
+	if item.PreferenceObservationID != nil {
+		if err := requireHouseholdRow(ctx, tx, `SELECT COUNT(*) FROM instrument_preference_observations o JOIN instruments i ON i.id = o.instrument_id WHERE o.id = ? AND i.household_id = ?`, item.PreferenceObservationID.String(), householdID.String(), "preferenceObservationId", "snapshot instrument-preference provenance does not exist in this household"); err != nil {
+			return err
+		}
+	}
+	if item.FXPreferenceObservationID != nil {
+		if err := requireHouseholdRow(ctx, tx, `SELECT COUNT(*) FROM fx_preference_observations WHERE id = ? AND household_id = ?`, item.FXPreferenceObservationID.String(), householdID.String(), "fxPreferenceObservationId", "snapshot FX-preference provenance does not exist in this household"); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func nullableSnapshotString(value string) any {

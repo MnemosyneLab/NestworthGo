@@ -47,6 +47,18 @@ func mapSQLiteError(err error) error {
 	}
 }
 
+func storedIntegrity(field, message string) *domain.Error {
+	return &domain.Error{Code: domain.ErrIntegrity, Field: field, Message: message}
+}
+
+func asStoredIntegrity(field string, err error) *domain.Error {
+	var domainErr *domain.Error
+	if errors.As(err, &domainErr) {
+		return storedIntegrity(field, domainErr.Message)
+	}
+	return storedIntegrity(field, err.Error())
+}
+
 func isCheckConstraint(code int, message string) bool {
 	if code == sqlite3lib.SQLITE_CONSTRAINT_CHECK {
 		return true

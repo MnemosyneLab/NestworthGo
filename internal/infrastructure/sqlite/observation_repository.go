@@ -324,6 +324,9 @@ func listFXPreferenceObservationsQuery(ctx context.Context, query queryer, house
 }
 
 func appendAccountStateObservationTx(ctx context.Context, tx *sql.Tx, observation domain.AccountStateObservation) error {
+	if _, err := domain.ParseOwnership(observation.Ownership); err != nil {
+		return err
+	}
 	household, timezone, err := historyOwnerTx(ctx, tx, observationAccountHouseholdQuery, observation.AccountID.String())
 	if err != nil {
 		return err
@@ -335,6 +338,13 @@ func appendAccountStateObservationTx(ctx context.Context, tx *sql.Tx, observatio
 		if _, err := tx.ExecContext(ctx, `INSERT INTO account_state_ownership(observation_id, member_id, share_bps) VALUES(?, ?, ?)`, observation.ID.String(), share.MemberID.String(), share.ShareBPS); err != nil {
 			return err
 		}
+	}
+	var total int
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(share_bps), 0) FROM account_state_ownership WHERE observation_id = ?`, observation.ID.String()).Scan(&total); err != nil {
+		return err
+	}
+	if total != domain.TotalOwnershipBPS {
+		return storedIntegrity("ownership", "shares must total exactly 10000 basis points")
 	}
 	return markHistoryDirtyTx(ctx, tx, household, observationEffectiveDate(observation.EffectiveAt, timezone), timezone, observation.CreatedAt)
 }

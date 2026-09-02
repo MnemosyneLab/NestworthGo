@@ -398,6 +398,15 @@ func validateHistoryOriginData(data domain.HistoryOriginData) error {
 		}
 		data.Components[index].OriginID = data.Origin.ID
 	}
+	sharesByAccount := make(map[domain.AccountID][]domain.OwnershipShare)
+	for _, ownership := range data.Ownership {
+		sharesByAccount[ownership.AccountID] = append(sharesByAccount[ownership.AccountID], domain.OwnershipShare{MemberID: ownership.MemberID, ShareBPS: ownership.ShareBPS})
+	}
+	for _, shares := range sharesByAccount {
+		if _, err := domain.ParseOwnership(shares); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

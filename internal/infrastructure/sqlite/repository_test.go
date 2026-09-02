@@ -535,3 +535,59 @@ func TestListActivitiesScanErrorDoesNotPinConnection(t *testing.T) {
 		t.Fatalf("Household after paged scan error: %v", err)
 	}
 }
+
+func TestMalformedInstitutionIDReturnsIntegrityError(t *testing.T) {
+	database, repository, household, account, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	if _, err := database.SQL.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE accounts SET institution_id = 'bad' WHERE id = ?`, account.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `PRAGMA foreign_keys = ON`); err != nil {
+		t.Fatal(err)
+	}
+	_, err := repository.AccountRecord(ctx, household.ID, account.ID)
+	if !hasDomainErrorCode(err, domain.ErrIntegrity) {
+		t.Fatalf("AccountRecord error = %v, want integrity_failed", err)
+	}
+}
+
+func TestUpdateAccountRejectsEmptyOwnership(t *testing.T) {
+	_, repository, _, account, _ := seedPortfolioRepository(t)
+	err := repository.UpdateAccount(context.Background(), account, domain.Ownership{})
+	if err == nil {
+		t.Fatal("UpdateAccount accepted empty ownership")
+	}
+}
+
+func TestSaveSnapshotRejectsDanglingQuoteProvenance(t *testing.T) {
+	database, repository, household, account, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	cutoff := time.Date(2026, 8, 22, 23, 59, 59, 999000000, time.UTC)
+	if _, err := database.SQL.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at) VALUES(?, ?, NULL, ?)`, household.ID.String(), "2026-08-20", formatTimestamp(cutoff)); err != nil {
+		t.Fatal(err)
+	}
+	missingQuote := domain.NewInstrumentQuoteID().String()
+	snapshot := domain.DailyValuationSnapshot{
+		ID:          domain.NewDailyValuationSnapshotID(),
+		HouseholdID: household.ID,
+		LocalDate:   "2026-08-22",
+		CutoffAt:    cutoff,
+		ContentHash: "hash-provenance",
+		Currency:    domain.CurrencyCode("CNY"),
+		Complete:    true,
+		Revision:    1,
+		CreatedAt:   cutoff,
+		Items: []domain.DailyValuationSnapshotItem{{
+			AccountID: account.ID,
+			QuoteID:   &missingQuote,
+			Complete:  true,
+		}},
+	}
+	_, err := repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, cutoff)
+	if !hasDomainErrorCode(err, domain.ErrIntegrity) {
+		t.Fatalf("save error = %v, want integrity_failed", err)
+	}
+}

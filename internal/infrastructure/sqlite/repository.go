@@ -646,6 +646,9 @@ func insertAccount(ctx context.Context, tx *sql.Tx, account domain.Account) erro
 }
 
 func replaceOwnership(ctx context.Context, tx *sql.Tx, accountID domain.AccountID, ownership domain.Ownership, allowArchivedExisting bool) error {
+	if _, err := domain.ParseOwnership(ownership.Shares()); err != nil {
+		return err
+	}
 	var householdID string
 	if err := tx.QueryRowContext(ctx, `SELECT household_id FROM accounts WHERE id = ?`, accountID.String()).Scan(&householdID); err != nil {
 		return err
@@ -690,6 +693,13 @@ func replaceOwnership(ctx context.Context, tx *sql.Tx, accountID domain.AccountI
 		if _, err := tx.ExecContext(ctx, `INSERT INTO account_ownership(account_id, member_id, share_bps) VALUES(?, ?, ?)`, accountID.String(), share.MemberID.String(), share.ShareBPS); err != nil {
 			return err
 		}
+	}
+	var total int
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(share_bps), 0) FROM account_ownership WHERE account_id = ?`, accountID.String()).Scan(&total); err != nil {
+		return err
+	}
+	if total != domain.TotalOwnershipBPS {
+		return storedIntegrity("ownership", "shares must total exactly 10000 basis points")
 	}
 	return nil
 }
@@ -863,7 +873,15 @@ func scanAccountRecord(row interface{ Scan(...any) error }) (domain.AccountRecor
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	return domain.AccountRecord{Account: domain.Account{ID: accountID, HouseholdID: hID, InstitutionID: parseInstitutionID(nullString(institution)), GroupID: parseGroupID(nullString(group)), Name: name, AccountType: category, BalanceSheetRole: balanceSheetRole, TrackingMode: mode, DefaultCurrency: currencyCode, Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), IncludeInNetWorth: includeNetWorth != 0, IncludeInPortfolio: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, OpenedOn: parseNullable(nullString(opened)), ClosedOn: parseNullable(nullString(closed)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, InstitutionName: institutionName, GroupName: groupName}, nil
+	institutionID, err := parseInstitutionID(nullString(institution))
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	groupID, err := parseGroupID(nullString(group))
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	return domain.AccountRecord{Account: domain.Account{ID: accountID, HouseholdID: hID, InstitutionID: institutionID, GroupID: groupID, Name: name, AccountType: category, BalanceSheetRole: balanceSheetRole, TrackingMode: mode, DefaultCurrency: currencyCode, Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), IncludeInNetWorth: includeNetWorth != 0, IncludeInPortfolio: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, OpenedOn: parseNullable(nullString(opened)), ClosedOn: parseNullable(nullString(closed)), SortOrder: sortOrder, CreatedAt: created.UTC(), UpdatedAt: updated.UTC(), ArchivedAt: archivedAt}, InstitutionName: institutionName, GroupName: groupName}, nil
 }
 
 func nullString(value sql.NullString) string {
@@ -946,23 +964,23 @@ func parseTimePtr(value sql.NullString) (*time.Time, error) {
 	parsed = parsed.UTC()
 	return &parsed, nil
 }
-func parseInstitutionID(value string) *domain.InstitutionID {
+func parseInstitutionID(value string) (*domain.InstitutionID, error) {
 	if value == "" {
-		return nil
+		return nil, nil
 	}
 	id, err := domain.ParseInstitutionID(value)
 	if err != nil {
-		return nil
+		return nil, asStoredIntegrity("institutionId", err)
 	}
-	return &id
+	return &id, nil
 }
-func parseGroupID(value string) *domain.GroupID {
+func parseGroupID(value string) (*domain.GroupID, error) {
 	if value == "" {
-		return nil
+		return nil, nil
 	}
 	id, err := domain.ParseGroupID(value)
 	if err != nil {
-		return nil
+		return nil, asStoredIntegrity("groupId", err)
 	}
-	return &id
+	return &id, nil
 }

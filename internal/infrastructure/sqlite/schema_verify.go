@@ -99,6 +99,12 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 	if err := verifyAccountModelInvariants(ctx, query); err != nil {
 		return err
 	}
+	if err := verifyCanonicalNumericText(ctx, query); err != nil {
+		return err
+	}
+	if err := verifySnapshotProvenance(ctx, query); err != nil {
+		return err
+	}
 	rows, err := query.QueryContext(ctx, "PRAGMA foreign_key_check")
 	if err != nil {
 		return err
@@ -111,47 +117,101 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 }
 
 func verifyCostBasisInvariant(ctx context.Context, query schemaQuery) error {
-	var missing int
-	err := query.QueryRowContext(ctx, `
-		SELECT COUNT(*)
+	rows, err := query.QueryContext(ctx, `
+		SELECT h.id, h.quantity,
+			EXISTS (
+				SELECT 1
+				FROM activity_trade_details td
+				JOIN activities trade ON trade.id = td.activity_id
+				WHERE td.holding_id = h.id
+				  AND trade.reverses_activity_id IS NULL
+				  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = trade.id)
+			),
+			EXISTS (
+				SELECT 1
+				FROM activity_effects effect
+				JOIN activities transfer ON transfer.id = effect.activity_id
+				WHERE effect.holding_id = h.id
+				  AND effect.direction = 'added'
+				  AND transfer.kind = 'position_transfer'
+			),
+			EXISTS (
+				SELECT 1
+				FROM activity_effects effect
+				WHERE effect.holding_id = h.id
+				  AND effect.cost_unit_price IS NOT NULL
+			)
 		FROM holdings h
 		JOIN accounts a ON a.id = h.account_id
-		JOIN history_origins o ON o.household_id = a.household_id
-		WHERE CAST(h.quantity AS REAL) > 0
-		  AND NOT EXISTS (
-			SELECT 1
-			FROM history_origin_components c
-			WHERE c.origin_id = o.id
-			  AND c.holding_id = h.id
-			  AND c.instrument_id = h.instrument_id
-			  AND c.component_kind = 'holding_quantity'
-			  AND CAST(c.quantity AS REAL) > 0
-			  AND c.unit_cost IS NOT NULL
-		  )
-		  AND NOT EXISTS (
-			SELECT 1
-			FROM activity_trade_details td
-			JOIN activities trade ON trade.id = td.activity_id
-			WHERE td.holding_id = h.id
-			  AND trade.reverses_activity_id IS NULL
-			  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = trade.id)
-		  )
-		  AND NOT EXISTS (
-			SELECT 1
-			FROM activity_effects effect
-			JOIN activities transfer ON transfer.id = effect.activity_id
-			WHERE effect.holding_id = h.id
-			  AND effect.direction = 'added'
-			  AND transfer.kind = 'position_transfer'
-		  )
-		  AND NOT EXISTS (
-			SELECT 1
-			FROM activity_effects effect
-			WHERE effect.holding_id = h.id
-			  AND effect.cost_unit_price IS NOT NULL
-		  )`).Scan(&missing)
+		JOIN history_origins o ON o.household_id = a.household_id`)
 	if err != nil {
 		return err
+	}
+	defer rows.Close()
+	type holdingCostRow struct {
+		id                                   string
+		quantity                             string
+		hasTrade, hasTransfer, hasEffectCost bool
+	}
+	var holdings []holdingCostRow
+	for rows.Next() {
+		var id, quantity string
+		var hasTrade, hasTransfer, hasEffectCost int
+		if err := rows.Scan(&id, &quantity, &hasTrade, &hasTransfer, &hasEffectCost); err != nil {
+			return err
+		}
+		holdings = append(holdings, holdingCostRow{id: id, quantity: quantity, hasTrade: hasTrade != 0, hasTransfer: hasTransfer != 0, hasEffectCost: hasEffectCost != 0})
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	originRows, err := query.QueryContext(ctx, `
+		SELECT c.holding_id, c.quantity
+		FROM history_origin_components c
+		JOIN holdings h ON h.id = c.holding_id AND c.instrument_id = h.instrument_id
+		WHERE c.component_kind = 'holding_quantity' AND c.unit_cost IS NOT NULL AND c.holding_id IS NOT NULL`)
+	if err != nil {
+		return err
+	}
+	defer originRows.Close()
+	originPositive := make(map[string]bool)
+	for originRows.Next() {
+		var holdingID, quantity string
+		if err := originRows.Scan(&holdingID, &quantity); err != nil {
+			return err
+		}
+		parsed, err := domain.ParseQuantity(quantity)
+		if err != nil {
+			return storedIntegrity("quantity", "history origin quantity is not a canonical decimal")
+		}
+		if !parsed.IsZero() {
+			originPositive[holdingID] = true
+		}
+	}
+	if err := originRows.Err(); err != nil {
+		return err
+	}
+	if err := originRows.Close(); err != nil {
+		return err
+	}
+
+	missing := 0
+	for _, holding := range holdings {
+		parsed, err := domain.ParseQuantity(holding.quantity)
+		if err != nil {
+			return storedIntegrity("quantity", "holding quantity is not a canonical decimal")
+		}
+		if parsed.IsZero() {
+			continue
+		}
+		if holding.hasTrade || holding.hasTransfer || holding.hasEffectCost || originPositive[holding.id] {
+			continue
+		}
+		missing++
 	}
 	if missing != 0 {
 		return fmt.Errorf("%d positive Holding rows have no resolvable cost basis", missing)
@@ -173,6 +233,27 @@ func verifyAccountModelInvariants(ctx context.Context, query schemaQuery) error 
 	}
 	if badOwnership != 0 {
 		return fmt.Errorf("%d accounts have ownership shares that do not total 10000 basis points", badOwnership)
+	}
+	var badObservationOwnership int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM (SELECT observation_id FROM account_state_ownership GROUP BY observation_id HAVING SUM(share_bps) != 10000)`).Scan(&badObservationOwnership); err != nil {
+		return err
+	}
+	if badObservationOwnership != 0 {
+		return fmt.Errorf("%d account state observations have ownership shares that do not total 10000 basis points", badObservationOwnership)
+	}
+	var missingObservationOwnership int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM account_state_observations o WHERE NOT EXISTS (SELECT 1 FROM account_state_ownership s WHERE s.observation_id = o.id)`).Scan(&missingObservationOwnership); err != nil {
+		return err
+	}
+	if missingObservationOwnership != 0 {
+		return fmt.Errorf("%d account state observations have no ownership rows", missingObservationOwnership)
+	}
+	var badOriginOwnership int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM (SELECT origin_id, account_id FROM history_origin_ownership GROUP BY origin_id, account_id HAVING SUM(share_bps) != 10000)`).Scan(&badOriginOwnership); err != nil {
+		return err
+	}
+	if badOriginOwnership != 0 {
+		return fmt.Errorf("%d history origin account ownership splits do not total 10000 basis points", badOriginOwnership)
 	}
 	var badHoldings int
 	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM holdings h JOIN accounts a ON a.id = h.account_id WHERE a.tracking_mode != 'holdings'`).Scan(&badHoldings); err != nil {
