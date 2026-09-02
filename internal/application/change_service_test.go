@@ -227,7 +227,7 @@ func TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis(t *t
 	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
-	beforeEvents, err := repository.ListCostBasisEvents(ctx, holding.ID)
+	beforeEvents, err := repository.ListCostBasisEvents(ctx, holding.ID, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis(t *t
 	if loaded.Quantity.Canonical() != "10" {
 		t.Fatalf("holding quantity = %s, want 10", loaded.Quantity.Canonical())
 	}
-	afterEvents, err := repository.ListCostBasisEvents(ctx, holding.ID)
+	afterEvents, err := repository.ListCostBasisEvents(ctx, holding.ID, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}

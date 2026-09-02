@@ -111,7 +111,7 @@ func TestCreateHoldingCostOverridePersistsAlreadyExistedAdjustment(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	events, err := service.repository.ListCostBasisEvents(ctx, holding.ID)
+	events, err := service.repository.ListCostBasisEvents(ctx, holding.ID, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}

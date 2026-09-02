@@ -79,7 +79,7 @@ func (g *GainService) AccountGain(ctx context.Context, accountID domain.AccountI
 			continue
 		}
 		instrument, ok := gainInstrument(snapshot.Instruments, holding.InstrumentID)
-		if !ok || instrument.ArchivedAt != nil {
+		if !ok {
 			continue
 		}
 		view, viewErr := g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin)
@@ -146,11 +146,11 @@ func (g *GainService) RealizedGainInRange(ctx context.Context, scope domain.Gain
 	byAccount := make(map[domain.AccountID]*gainGroupAccumulator)
 	result := domain.RealizedGainView{From: from, To: to, Currency: snapshot.Household.BaseCurrency, Available: true}
 	for _, holding := range snapshot.Holdings {
-		if holding.ArchivedAt != nil || (scope.AccountID != nil && holding.AccountID != *scope.AccountID) || (scope.InstrumentID != nil && holding.InstrumentID != *scope.InstrumentID) {
+		if (scope.AccountID != nil && holding.AccountID != *scope.AccountID) || (scope.InstrumentID != nil && holding.InstrumentID != *scope.InstrumentID) {
 			continue
 		}
 		instrument, ok := instruments[holding.InstrumentID]
-		if !ok || instrument.ArchivedAt != nil {
+		if !ok {
 			continue
 		}
 		replayed, replayErr := replay.replay(ctx, holding.ID, nil)
@@ -835,7 +835,7 @@ func gainHolding(snapshot domain.PortfolioSnapshot, id domain.HoldingID) (domain
 			continue
 		}
 		instrument, ok := gainInstrument(snapshot.Instruments, holding.InstrumentID)
-		if !ok || instrument.ArchivedAt != nil {
+		if !ok {
 			break
 		}
 		return holding, instrument, nil
@@ -910,6 +910,10 @@ type costBasisReplayContext struct {
 	active     map[replayMemoKey]bool
 }
 
+// historicalCostBasisFilter loads immutable cost facts after a Holding is
+// archived so period realized gain and transfer-source replay stay complete.
+var historicalCostBasisFilter = domain.CostBasisReadFilter{IncludeArchivedHoldings: true}
+
 func newCostBasisReplayContext(repository Repository, holdings ...[]domain.Holding) *costBasisReplayContext {
 	quantities := make(map[domain.HoldingID]domain.Quantity)
 	if len(holdings) > 0 {
@@ -947,14 +951,14 @@ func (c *costBasisReplayContext) replay(ctx context.Context, holdingID domain.Ho
 
 func (c *costBasisReplayContext) preparedEvents(ctx context.Context, holdingID domain.HoldingID, cutoff *time.Time) (*domain.UnitPrice, []domain.CostBasisEvent, error) {
 	if _, ok := c.events[holdingID]; !ok {
-		events, err := c.repository.ListCostBasisEvents(ctx, holdingID)
+		events, err := c.repository.ListCostBasisEvents(ctx, holdingID, historicalCostBasisFilter)
 		if err != nil {
 			return nil, nil, err
 		}
 		c.events[holdingID] = events
 	}
 	if _, ok := c.starting[holdingID]; !ok {
-		starting, err := c.repository.StartingPointCost(ctx, holdingID)
+		starting, err := c.repository.StartingPointCost(ctx, holdingID, historicalCostBasisFilter)
 		if err != nil {
 			return nil, nil, err
 		}

@@ -179,7 +179,7 @@ func TestPostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
 	if adjustmentCost != "10" {
 		t.Fatalf("persisted reconciliation unit cost = %q, want 10", adjustmentCost)
 	}
-	events, err := repository.ListCostBasisEvents(ctx, holding.ID)
+	events, err := repository.ListCostBasisEvents(ctx, holding.ID, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}

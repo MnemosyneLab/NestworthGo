@@ -64,6 +64,14 @@ type CostBasisResult struct {
 	Realized []RealizedGainEvent
 }
 
+// CostBasisReadFilter controls historical cost-event reads. Current-position
+// queries keep their own archive filters; this option exists so realized-gain
+// and transfer-source replay can still load immutable facts after a Holding
+// is archived.
+type CostBasisReadFilter struct {
+	IncludeArchivedHoldings bool
+}
+
 // ReplayCostBasis walks a Holding's Starting Point cost and ordered immutable
 // Activity facts. Average costs are normalized to two decimal places with
 // decimal banker's rounding, which is the release's money-facing precision
