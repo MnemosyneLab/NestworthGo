@@ -137,7 +137,7 @@ func TestAccountGainIncludesActiveHoldingWithArchivedInstrument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10", UnitCost: "10"})
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,11 +202,11 @@ func TestRealizedGainIncludesSoldThenArchivedHolding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10", UnitCost: "10"})
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "15", "2026-08-24", false); err != nil {
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-24", false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
