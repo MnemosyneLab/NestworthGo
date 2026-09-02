@@ -444,7 +444,7 @@ Acceptance criteria:
 
 **Covers:** F13 and the repository portion of F17.
 
-**Progress:** F13 resolved. `AccountGains` reads one portfolio snapshot and shares one cost-basis replay; Investments uses a single TanStack query. Overview returns labels, history-started, and bounded recent-activity headlines from that same use case so the page no longer fans out to accounts/instruments/holdings/history APIs.
+**Progress:** F13 resolved. `AccountGains` reads one portfolio snapshot and shares one cost-basis replay; Investments uses a single TanStack query. Overview returns labels, history-started, and bounded recent-activity headlines from that same use case so the page no longer fans out to accounts/instruments/holdings/history APIs. F17 repository hydration is batched: a 50-row Activity page and a 365-day snapshot range use a bounded query count (`IN (...)` child lookups on existing indexes). Hidden-page query lifecycle remains Work Package 9.
 
 Implementation steps:
 
