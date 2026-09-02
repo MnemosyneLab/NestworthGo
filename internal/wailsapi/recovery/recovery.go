@@ -167,49 +167,59 @@ func (s *Service) ConfirmRestore(request RestoreConfirmRequest) (RestoreResultDT
 	if !ok {
 		return RestoreResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrNotFound, Message: "restore preview expired"})
 	}
-	if s.app != nil {
-		if err := s.app.BeginExclusiveOperation(); err != nil {
+	if s.app == nil {
+		s.refresh.CancelAllAndWait()
+		err := backup.InstallRestore(context.Background(), s.liveDBPath, pending.pkg, &backup.SessionHooks{}, backup.RestoreClasses{
+			Chrome: request.RestoreChrome, Format: request.RestoreFormat, Routing: request.RestoreRouting,
+		}, time.Now())
+		if err != nil {
 			return RestoreResultDTO{}, apierror.Wrap(err)
 		}
+		go s.quit.Quit()
+		return RestoreResultDTO{RestartRequired: true}, nil
 	}
-	s.refresh.CancelAllAndWait()
-	var unlocked bool
-	unlock := func() {
-		if s.app != nil && !unlocked {
-			s.app.UnlockWrites()
-			unlocked = true
+	var result RestoreResultDTO
+	err := s.app.WithExclusiveKeep(context.Background(), application.ExclusiveRestore, func(ctx context.Context) (bool, error) {
+		s.refresh.CancelAllAndWait()
+		var unlocked bool
+		unlock := func() {
+			if !unlocked {
+				s.app.UnlockWrites()
+				unlocked = true
+			}
 		}
-	}
-	sessionClosed := false
-	hooks := &backup.SessionHooks{}
-	if s.app != nil {
+		sessionClosed := false
+		hooks := &backup.SessionHooks{}
 		s.app.LockWrites()
 		hooks.Quiesce = func(context.Context) error { return nil }
 		hooks.Checkpoint = s.app.CheckpointWAL
 		hooks.Close = func() error {
-			err := s.app.CloseDatabase()
-			if err == nil {
+			closeErr := s.app.CloseDatabase()
+			if closeErr == nil {
 				sessionClosed = true
 			}
-			return err
+			return closeErr
 		}
-	}
-	err := backup.InstallRestore(context.Background(), s.liveDBPath, pending.pkg, hooks, backup.RestoreClasses{
-		Chrome: request.RestoreChrome, Format: request.RestoreFormat, Routing: request.RestoreRouting,
-	}, time.Now())
+		installErr := backup.InstallRestore(ctx, s.liveDBPath, pending.pkg, hooks, backup.RestoreClasses{
+			Chrome: request.RestoreChrome, Format: request.RestoreFormat, Routing: request.RestoreRouting,
+		}, time.Now())
+		if installErr != nil {
+			if sessionClosed {
+				go s.quit.Quit()
+				result = RestoreResultDTO{RestartRequired: true}
+				return true, installErr
+			}
+			unlock()
+			return false, installErr
+		}
+		go s.quit.Quit()
+		result = RestoreResultDTO{RestartRequired: true}
+		return true, nil
+	})
 	if err != nil {
-		if sessionClosed {
-			go s.quit.Quit()
-			return RestoreResultDTO{RestartRequired: true}, apierror.Wrap(err)
-		}
-		unlock()
-		if s.app != nil {
-			s.app.EndExclusiveOperation()
-		}
-		return RestoreResultDTO{}, apierror.Wrap(err)
+		return result, apierror.Wrap(err)
 	}
-	go s.quit.Quit()
-	return RestoreResultDTO{RestartRequired: true}, nil
+	return result, nil
 }
 
 func jsonLooksLikeSettings(data []byte) bool {

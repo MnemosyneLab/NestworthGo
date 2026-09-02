@@ -28,11 +28,13 @@ type Service struct {
 
 	changeMu sync.Mutex
 
-	exclusive atomic.Bool
+	writes       WriteCoordinator
+	refreshEpoch atomic.Uint64
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
 	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour}
+	service.writes.init()
 	service.valuation = NewValuationService(repository, service.clock)
 	service.gain = NewGainService(repository, service.clock)
 	if len(registries) > 0 {
@@ -215,6 +217,11 @@ func (s *Service) ListGroups(ctx context.Context, includeArchived bool) ([]domai
 }
 
 func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if household, err := s.repository.Household(ctx); err != nil {
 		return err
 	} else if household != nil {
@@ -268,6 +275,11 @@ func defaultDirectoryNames(language string) (string, string) {
 }
 
 func (s *Service) ensureDefaultDirectory(ctx context.Context, household domain.Household) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	institutionName, groupName := defaultDirectoryNames(s.UILanguage())
 	institutions, err := s.repository.ListInstitutions(ctx, false)
 	if err != nil {
@@ -299,6 +311,11 @@ func (s *Service) ensureDefaultDirectory(ctx context.Context, household domain.H
 }
 
 func (s *Service) CreateMember(ctx context.Context, name string, iconKeys ...string) (domain.Member, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Member{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Member{}, err
@@ -316,6 +333,11 @@ func (s *Service) CreateMember(ctx context.Context, name string, iconKeys ...str
 	return member, nil
 }
 func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name string) (domain.Member, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Member{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Member{}, err
@@ -336,6 +358,11 @@ func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name str
 }
 
 func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archived bool) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
@@ -344,6 +371,11 @@ func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archive
 }
 
 func (s *Service) CreateInstitution(ctx context.Context, name string, institutionType domain.InstitutionType, iconKeys ...string) (domain.Institution, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Institution{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Institution{}, err
@@ -361,6 +393,11 @@ func (s *Service) CreateInstitution(ctx context.Context, name string, institutio
 	return institution, nil
 }
 func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID, name string) (domain.Institution, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Institution{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Institution{}, err
@@ -381,6 +418,11 @@ func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID
 }
 
 func (s *Service) ArchiveInstitution(ctx context.Context, id domain.InstitutionID, archived bool) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
@@ -389,6 +431,11 @@ func (s *Service) ArchiveInstitution(ctx context.Context, id domain.InstitutionI
 }
 
 func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...string) (domain.Group, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Group{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Group{}, err
@@ -406,6 +453,11 @@ func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...stri
 	return group, nil
 }
 func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name string) (domain.Group, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Group{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Group{}, err
@@ -426,6 +478,11 @@ func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name strin
 }
 
 func (s *Service) ArchiveGroup(ctx context.Context, id domain.GroupID, archived bool) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
@@ -461,6 +518,11 @@ func (s *Service) setIcon(ctx context.Context, iconKey string, save func(domain.
 	if err != nil {
 		return err
 	}
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
@@ -499,6 +561,11 @@ type AccountInput struct {
 }
 
 func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain.AccountRecord, error) {
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	defer unlock()
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {
 		return domain.AccountRecord{}, err
@@ -508,8 +575,6 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	}
 	// The Starting-point read and the history-chain commit below must be
 	// atomic against other change writers.
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
 	origin, err := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
 	if err != nil {
 		return domain.AccountRecord{}, err
@@ -638,8 +703,11 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 
 // UpdateAccount changes metadata and ownership without rewriting AccountValue history.
 func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input AccountInput) (domain.AccountRecord, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	defer unlock()
 	currentRecord, err := s.accountRecord(ctx, id)
 	if err != nil {
 		return domain.AccountRecord{}, err
@@ -819,8 +887,11 @@ func (s *Service) accountRecord(ctx context.Context, id domain.AccountID) (domai
 }
 
 func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.AccountID, amount, effectiveAt string) (domain.AccountValue, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.AccountValue{}, err
+	}
+	defer unlock()
 	loaded, err := s.accountRecord(ctx, accountID)
 	if err != nil {
 		return domain.AccountValue{}, err
@@ -864,12 +935,15 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 }
 
 func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archived bool) error {
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
 	records, err := s.repository.ListAccountRecords(ctx, household.ID, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return err

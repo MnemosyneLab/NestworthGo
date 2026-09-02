@@ -55,8 +55,11 @@ func (s *Service) ListActivityPage(ctx context.Context, query domain.ActivityQue
 }
 
 func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) (domain.ChangePreview, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	defer unlock()
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -158,8 +161,11 @@ func (s *Service) fixChangePreview(ctx context.Context, activityID domain.Activi
 // kind's UX) shows the actually-correct resulting balance/quantity
 // instead of one that ignores the original Activity being replaced.
 func (s *Service) PreviewFixChange(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (domain.ChangePreview, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	defer unlock()
 	_, replacement, err := s.fixChangePreview(ctx, activityID, replacementCommand)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -168,8 +174,11 @@ func (s *Service) PreviewFixChange(ctx context.Context, activityID domain.Activi
 }
 
 func (s *Service) FixChange(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (domain.ChangePreview, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	defer unlock()
 	inverse, replacement, err := s.fixChangePreview(ctx, activityID, replacementCommand)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -203,8 +212,11 @@ func (s *Service) appendObservationTime(origin *domain.HistoryOrigin, effectiveA
 }
 
 func (s *Service) AppendAccountStateObservation(ctx context.Context, observation domain.AccountStateObservation) error {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
 		return err
@@ -223,8 +235,11 @@ func (s *Service) AppendAccountStateObservation(ctx context.Context, observation
 }
 
 func (s *Service) AppendInstrumentPreferenceObservation(ctx context.Context, observation domain.InstrumentPreferenceObservation) error {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
 		return err
@@ -243,8 +258,11 @@ func (s *Service) AppendInstrumentPreferenceObservation(ctx context.Context, obs
 }
 
 func (s *Service) AppendFXPreferenceObservation(ctx context.Context, observation domain.FXPreferenceObservation) error {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
 		return err

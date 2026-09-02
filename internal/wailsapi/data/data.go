@@ -121,63 +121,65 @@ func (s *Service) CreateBackup() (BackupResultDTO, error) {
 			return BackupResultDTO{Cancelled: true}, nil
 		}
 	}
-	if err := s.app.BeginExclusiveOperation(); err != nil {
-		return BackupResultDTO{}, apierror.Wrap(err)
-	}
-	defer s.app.EndExclusiveOperation()
-	s.refresh.CancelAllAndWait()
-	s.app.LockWrites()
-	snapPath := filepath.Join(filepath.Dir(path), ".nestworth-snapshot-tmp.sqlite")
-	_ = os.Remove(snapPath)
-	ctx := context.Background()
-	snapErr := s.app.SnapshotTo(ctx, snapPath)
-	s.app.UnlockWrites()
-	if snapErr != nil {
+	var result BackupResultDTO
+	if err := s.app.WithExclusive(context.Background(), application.ExclusiveBackup, func(ctx context.Context) error {
+		s.refresh.CancelAllAndWait()
+		s.app.LockWrites()
+		snapPath := filepath.Join(filepath.Dir(path), ".nestworth-snapshot-tmp.sqlite")
 		_ = os.Remove(snapPath)
-		return BackupResultDTO{}, apierror.Wrap(snapErr)
-	}
-	defer os.Remove(snapPath)
-	verified, err := sqlite.OpenReadOnlyForVerify(snapPath)
-	if err != nil {
-		return BackupResultDTO{}, apierror.Wrap(err)
-	}
-	counts, err := verified.EntityCounts(ctx)
-	_ = verified.Close()
-	if err != nil {
-		return BackupResultDTO{}, apierror.Wrap(err)
-	}
-	databaseBytes, err := os.ReadFile(snapPath)
-	if err != nil {
-		return BackupResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "the database snapshot could not be read"})
-	}
-	settingsJSON := []byte("{}\n")
-	if s.store != nil {
-		if current, loadErr := s.store.Load(); loadErr == nil {
-			if encoded, encodeErr := json.Marshal(current); encodeErr == nil {
-				settingsJSON = append(encoded, '\n')
+		snapErr := s.app.SnapshotTo(ctx, snapPath)
+		s.app.UnlockWrites()
+		if snapErr != nil {
+			_ = os.Remove(snapPath)
+			return snapErr
+		}
+		defer os.Remove(snapPath)
+		verified, err := sqlite.OpenReadOnlyForVerify(snapPath)
+		if err != nil {
+			return err
+		}
+		counts, err := verified.EntityCounts(ctx)
+		_ = verified.Close()
+		if err != nil {
+			return err
+		}
+		databaseBytes, err := os.ReadFile(snapPath)
+		if err != nil {
+			return &domain.Error{Code: domain.ErrUnavailable, Message: "the database snapshot could not be read"}
+		}
+		settingsJSON := []byte("{}\n")
+		if s.store != nil {
+			if current, loadErr := s.store.Load(); loadErr == nil {
+				if encoded, encodeErr := json.Marshal(current); encodeErr == nil {
+					settingsJSON = append(encoded, '\n')
+				}
 			}
 		}
-	}
-	pkg := backup.Package{
-		Manifest: backup.NewManifest(time.Now().UTC(), databaseBytes, settingsJSON, counts),
-		Database: databaseBytes,
-		Settings: settingsJSON,
-	}
-	if err := backup.WritePackage(path, pkg); err != nil {
+		pkg := backup.Package{
+			Manifest: backup.NewManifest(time.Now().UTC(), databaseBytes, settingsJSON, counts),
+			Database: databaseBytes,
+			Settings: settingsJSON,
+		}
+		if err := backup.WritePackage(path, pkg); err != nil {
+			return err
+		}
+		status := backup.Status{
+			BackupFileName: filepath.Base(path), CreatedAt: pkg.Manifest.CreatedAt, SchemaVersion: pkg.Manifest.SchemaVersion,
+			AppVersion: pkg.Manifest.AppVersion, AppBuild: pkg.Manifest.AppBuild, VerificationResult: "ok",
+		}
+		if err := backup.WriteStatus(s.database.Path, status); err != nil {
+			return err
+		}
+		result = BackupResultDTO{
+			FileName: status.BackupFileName, CreatedAt: status.CreatedAt, SchemaVersion: status.SchemaVersion,
+			AppVersion: version.Version, AppBuild: version.Build, Accounts: counts.Accounts, Holdings: counts.Holdings,
+			Activities: counts.Activities, VerificationResult: "ok",
+		}
+		return nil
+	}); err != nil {
 		return BackupResultDTO{}, apierror.Wrap(err)
 	}
-	status := backup.Status{
-		BackupFileName: filepath.Base(path), CreatedAt: pkg.Manifest.CreatedAt, SchemaVersion: pkg.Manifest.SchemaVersion,
-		AppVersion: pkg.Manifest.AppVersion, AppBuild: pkg.Manifest.AppBuild, VerificationResult: "ok",
-	}
-	if err := backup.WriteStatus(s.database.Path, status); err != nil {
-		return BackupResultDTO{}, apierror.Wrap(err)
-	}
-	return BackupResultDTO{
-		FileName: status.BackupFileName, CreatedAt: status.CreatedAt, SchemaVersion: status.SchemaVersion,
-		AppVersion: version.Version, AppBuild: version.Build, Accounts: counts.Accounts, Holdings: counts.Holdings,
-		Activities: counts.Activities, VerificationResult: "ok",
-	}, nil
+	return result, nil
 }
 
 type CSVExportResultDTO struct {

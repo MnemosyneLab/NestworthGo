@@ -147,7 +147,13 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	}
 	hash := snapshotContentHash(localDate, cutoff, assetsMoney, liabilitiesMoney, netWorthMoney, items)
 	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: baseCurrency, Complete: complete && eligibleMissing == 0, ComponentCount: len(items), MissingCount: eligibleMissing, GenerationReason: "manual", CreatedAt: s.clock(), Items: items}
-	appended, err := s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
+	var appended bool
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.DailyValuationSnapshot{}, false, err
+	}
+	appended, err = s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
+	unlock()
 	return snapshot, appended, err
 }
 
@@ -313,7 +319,9 @@ func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, end
 }
 
 func (s *Service) CompleteDailySnapshotRange(ctx context.Context, householdID domain.HouseholdID, targetDate string) error {
-	return s.repository.CompleteDailySnapshotRange(ctx, householdID, targetDate, s.clock())
+	return s.WithWrite(ctx, func(ctx context.Context) error {
+		return s.repository.CompleteDailySnapshotRange(ctx, householdID, targetDate, s.clock())
+	})
 }
 
 func (s *Service) DailySnapshotState(ctx context.Context, householdID domain.HouseholdID) (domain.DailySnapshotState, error) {

@@ -78,8 +78,11 @@ func (s *Service) PreviewChange(ctx context.Context, command any) (domain.Change
 // RecordChange re-loads the current state before building and committing the
 // effects. A previous preview is never accepted as write authorization.
 func (s *Service) RecordChange(ctx context.Context, command any) (domain.ChangePreview, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	defer unlock()
 	return s.recordChangeLocked(ctx, command)
 }
 

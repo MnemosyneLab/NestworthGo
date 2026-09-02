@@ -117,7 +117,7 @@ the current code does not actually have.
 | F7 | P0 | Actual compatibility bug | Read-only backup verification rejects the accepted pre-repair v9 account CHECK shape. | `sqlite/readonly.go`, `schema_repair.go`, `schema_verify.go` | Resolved |
 | F8 | P0 | Actual resource bug | Some query loops return on scan error before closing `Rows` on a one-connection pool. | `activity_repository.go`, `observation_repository.go`, `snapshot_repository.go` | Resolved |
 | F9 | P0 | Actual recovery-contract bug | Known bootstrap states are collapsed to generic `unavailable`. | `cmd/nestworth/main.go`, `sqlite/database.go`, Wails App startup DTO/UI | Resolved |
-| F10 | P0 | Actual concurrency/design bug | Backup/import/restore exclusivity does not cover directory, onboarding, settings, and refresh persistence writers. | `application/exclusive.go`, `service.go`, `refresh.go`, Wails data/recovery adapters | Open |
+| F10 | P0 | Actual concurrency/design bug | Backup/import/restore exclusivity does not cover directory, onboarding, settings, and refresh persistence writers. | `application/exclusive.go`, `service.go`, `refresh.go`, Wails data/recovery adapters | Resolved |
 | F11 | P1 | Financial correctness | Average cost rounds to two decimals despite an eight-decimal `UnitPrice` contract. | `internal/domain/cost_basis.go` | Resolved |
 | F12 | P1 | Accounting policy gap | Buy fees reduce cash but are not included in acquisition basis. | `internal/domain/change.go`, `cost_basis.go` | Resolved |
 | F13 | P1 | Performance/API | Investments performs one full-snapshot `AccountGain` call per Account; Overview also fans out. | `application/gain_service.go`, `frontend/src/queries/analytics.ts`, `OverviewPage.tsx` | Open |
@@ -369,6 +369,8 @@ Acceptance criteria:
 ### Work Package 6 — Replace the Partial Exclusive Flag With One Write Gate
 
 **Covers:** F10 and backup-related architecture concerns.
+
+**Progress:** F10 resolved. `WriteCoordinator` is the single write gate; exclusive backup/restore/CSV and ordinary mutations share it.
 
 The current atomic `exclusive` flag is advisory: ordinary writers do not check
 it. Replace it with one application-owned coordinator rather than adding

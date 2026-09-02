@@ -251,6 +251,8 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		return skippedRefresh(target, domain.ErrUnavailable), false
 	}
 
+	epoch := s.refreshEpoch.Load()
+
 	if target.kind == RefreshInstrumentTarget {
 		quote, providerErr := provider.LatestInstrument(ctx, InstrumentMarketIdentity{ProviderKey: target.providerKey, ProviderSymbol: target.providerSymbol, QuoteCurrency: target.instrument.QuoteCurrency})
 		if providerErr != nil {
@@ -264,7 +266,12 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		if createErr != nil {
 			return failedRefresh(target, malformedProviderError()), false
 		}
-		inserted, persistErr := s.repository.AppendProviderInstrumentQuoteIfChanged(ctx, stored)
+		var inserted bool
+		persistErr := s.persistRefreshWrite(ctx, epoch, func(ctx context.Context) error {
+			var err error
+			inserted, err = s.repository.AppendProviderInstrumentQuoteIfChanged(ctx, stored)
+			return err
+		})
 		if persistErr != nil {
 			return failedRefresh(target, persistErr), false
 		}
@@ -289,7 +296,12 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 	if createErr != nil {
 		return failedRefresh(target, malformedProviderError()), false
 	}
-	inserted, persistErr := s.repository.AppendProviderFXQuoteIfChanged(ctx, stored)
+	var inserted bool
+	persistErr := s.persistRefreshWrite(ctx, epoch, func(ctx context.Context) error {
+		var err error
+		inserted, err = s.repository.AppendProviderFXQuoteIfChanged(ctx, stored)
+		return err
+	})
 	if persistErr != nil {
 		return failedRefresh(target, persistErr), false
 	}
