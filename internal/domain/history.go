@@ -184,7 +184,7 @@ type DailyValuationSnapshot struct {
 	ContentHash       string
 	AssetsAmount      *Money
 	LiabilitiesAmount *Money
-	NetWorthAmount    *Money
+	NetWorthAmount    *SignedMoney
 	Currency          CurrencyCode
 	Complete          bool
 	ComponentCount    int
@@ -272,7 +272,7 @@ func AllTrendRanges() []TrendRange {
 
 type NetWorthTrendPoint struct {
 	LocalDate    string
-	NetWorth     *Money
+	NetWorth     *SignedMoney
 	Assets       *Money
 	Liabilities  *Money
 	Complete     bool
@@ -283,8 +283,8 @@ type NetWorthTrend struct {
 	Range    TrendRange
 	Currency CurrencyCode
 	Points   []NetWorthTrendPoint
-	Start    *Money
-	End      *Money
+	Start    *SignedMoney
+	End      *SignedMoney
 	Change   *SignedMoney
 }
 

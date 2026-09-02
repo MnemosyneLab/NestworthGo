@@ -109,7 +109,7 @@ the current code does not actually have.
 | ID | Priority | Type | Verified problem | Primary locations | Status |
 | --- | --- | --- | --- | --- | --- |
 | F1 | P0 | Actual bug | Historical snapshots ignore `IncludeInNetWorth`. | `internal/application/historical_snapshot.go`, `service.go` | Resolved |
-| F2 | P0 | Actual bug | Negative net worth cannot be saved or appended as today's trend point. | `internal/domain/history.go`, `historical_snapshot.go`, `trend.go`, Wails DTOs | Open |
+| F2 | P0 | Actual bug | Negative net worth cannot be saved or appended as today's trend point. | `internal/domain/history.go`, `historical_snapshot.go`, `trend.go`, Wails DTOs | Resolved |
 | F3 | P0 | Actual bug | Historical account and portfolio totals sum rounded Money values. | `historical_snapshot.go`, `trend.go`, `snapshot_repository.go` | Open |
 | F4 | P0 | Actual data-integrity bug | `buildPositionTransfer` discards `NewQuantity` errors; commit consumes the invalid endpoint. | `internal/domain/change.go`, `change_repository.go` | Open |
 | F5 | P0 | Actual consistency bug | Gain paths drop active holdings whose Instrument is archived and drop realized history for archived Holdings. | `internal/application/gain_service.go`, `internal/infrastructure/sqlite/cost_basis_repository.go` | Open |
@@ -170,7 +170,7 @@ Required tests:
 
 **Covers:** F1–F3.
 
-**Progress:** F1 resolved. F2 and F3 remain open.
+**Progress:** F1 and F2 resolved. F3 remains open.
 
 Primary files:
 

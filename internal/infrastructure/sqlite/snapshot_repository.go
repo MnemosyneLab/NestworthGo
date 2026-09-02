@@ -51,7 +51,7 @@ func saveDailyValuationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot doma
 		}
 		snapshot.SupersedesID = &previous
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, snapshot.ID.String(), snapshot.HouseholdID.String(), snapshot.LocalDate, formatTimestamp(snapshot.CutoffAt), snapshot.Revision, nullableSnapshotID(snapshot.SupersedesID), snapshot.ContentHash, nullableMoneyAmount(snapshot.AssetsAmount), nullableMoneyAmount(snapshot.LiabilitiesAmount), nullableMoneyAmount(snapshot.NetWorthAmount), snapshot.Currency.String(), boolValue(snapshot.Complete), snapshot.ComponentCount, snapshot.MissingCount, snapshot.GenerationReason, formatTimestamp(snapshot.CreatedAt)); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, snapshot.ID.String(), snapshot.HouseholdID.String(), snapshot.LocalDate, formatTimestamp(snapshot.CutoffAt), snapshot.Revision, nullableSnapshotID(snapshot.SupersedesID), snapshot.ContentHash, nullableMoneyAmount(snapshot.AssetsAmount), nullableMoneyAmount(snapshot.LiabilitiesAmount), nullableSignedMoneyAmount(snapshot.NetWorthAmount), snapshot.Currency.String(), boolValue(snapshot.Complete), snapshot.ComponentCount, snapshot.MissingCount, snapshot.GenerationReason, formatTimestamp(snapshot.CreatedAt)); err != nil {
 		return false, err
 	}
 	for _, item := range snapshot.Items {
@@ -167,7 +167,7 @@ func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdI
 		for _, source := range []struct {
 			value sql.NullString
 			out   **domain.Money
-		}{{assets, &snapshot.AssetsAmount}, {liabilities, &snapshot.LiabilitiesAmount}, {netWorth, &snapshot.NetWorthAmount}} {
+		}{{assets, &snapshot.AssetsAmount}, {liabilities, &snapshot.LiabilitiesAmount}} {
 			if !source.value.Valid || source.value.String == "" {
 				continue
 			}
@@ -176,6 +176,13 @@ func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdI
 				return nil, parseErr
 			}
 			*source.out = &value
+		}
+		if netWorth.Valid && netWorth.String != "" {
+			value, parseErr := domain.ParseSignedMoney(netWorth.String, baseCurrency)
+			if parseErr != nil {
+				return nil, parseErr
+			}
+			snapshot.NetWorthAmount = &value
 		}
 		result = append(result, snapshot)
 	}

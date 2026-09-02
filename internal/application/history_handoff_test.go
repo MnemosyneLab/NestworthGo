@@ -422,6 +422,10 @@ func TestSnapshotHashIncludesFXPreferenceEvidence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	netWorth, err := domain.ParseSignedMoney("10", "CNY")
+	if err != nil {
+		t.Fatal(err)
+	}
 	firstPreference := domain.NewFXPreferenceObservationID()
 	secondPreference := domain.NewFXPreferenceObservationID()
 	first := domain.DailyValuationSnapshotItem{
@@ -435,8 +439,8 @@ func TestSnapshotHashIncludesFXPreferenceEvidence(t *testing.T) {
 	}
 	second := first
 	second.FXPreferenceObservationID = &secondPreference
-	firstHash := snapshotContentHash("2026-08-01", time.Date(2026, 8, 1, 23, 59, 59, 0, time.UTC), amount, amount, amount, []domain.DailyValuationSnapshotItem{first})
-	secondHash := snapshotContentHash("2026-08-01", time.Date(2026, 8, 1, 23, 59, 59, 0, time.UTC), amount, amount, amount, []domain.DailyValuationSnapshotItem{second})
+	firstHash := snapshotContentHash("2026-08-01", time.Date(2026, 8, 1, 23, 59, 59, 0, time.UTC), amount, amount, netWorth, []domain.DailyValuationSnapshotItem{first})
+	secondHash := snapshotContentHash("2026-08-01", time.Date(2026, 8, 1, 23, 59, 59, 0, time.UTC), amount, amount, netWorth, []domain.DailyValuationSnapshotItem{second})
 	if firstHash == secondHash {
 		t.Fatalf("snapshot hash ignored FX preference evidence: %q", firstHash)
 	}

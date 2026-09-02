@@ -7,6 +7,67 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
+func TestNegativeNetWorthSavesReloadsAndTrends(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "negative-net-worth", []string{"Owner"})
+	owner := bootstrap.Members[0].ID
+	if _, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "50",
+	}); err != nil {
+		t.Fatalf("asset: %v", err)
+	}
+	if _, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Card", AccountType: "credit_card", BalanceSheetRole: "liability", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "80",
+	}); err != nil {
+		t.Fatalf("liability: %v", err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatalf("StartHistory: %v", err)
+	}
+	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
+	overview, err := service.Overview(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatalf("Overview: %v", err)
+	}
+	if overview.Assets.String() != "50" || overview.Liabilities.String() != "80" || overview.NetWorth.String() != "-30" {
+		t.Fatalf("live overview = assets=%s liabilities=%s net=%s, want 50/80/-30", overview.Assets, overview.Liabilities, overview.NetWorth)
+	}
+	snapshot, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-01")
+	if err != nil || !appended {
+		t.Fatalf("BuildDailyValuationSnapshot: appended=%v err=%v", appended, err)
+	}
+	if snapshot.NetWorthAmount == nil || snapshot.NetWorthAmount.CanonicalAmount() != "-30" {
+		t.Fatalf("snapshot net worth = %+v, want -30", snapshot.NetWorthAmount)
+	}
+	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	if err != nil || len(listed) != 1 || listed[0].NetWorthAmount == nil || listed[0].NetWorthAmount.CanonicalAmount() != "-30" {
+		t.Fatalf("reloaded snapshot = %+v err=%v", listed, err)
+	}
+	trend, err := service.NetWorthTrend(ctx, domain.TrendAllTime)
+	if err != nil {
+		t.Fatalf("NetWorthTrend: %v", err)
+	}
+	if len(trend.Points) < 2 {
+		t.Fatalf("trend points = %d, want closed day plus today", len(trend.Points))
+	}
+	if trend.Points[0].NetWorth == nil || trend.Points[0].NetWorth.CanonicalAmount() != "-30" {
+		t.Fatalf("closed-day trend point = %+v, want -30", trend.Points[0].NetWorth)
+	}
+	last := trend.Points[len(trend.Points)-1]
+	if last.NetWorth == nil || last.NetWorth.CanonicalAmount() != "-30" {
+		t.Fatalf("today trend point = %+v, want -30", last.NetWorth)
+	}
+	if trend.Start == nil || trend.Start.CanonicalAmount() != "-30" || trend.End == nil || trend.End.CanonicalAmount() != "-30" {
+		t.Fatalf("trend start/end = %+v / %+v, want -30", trend.Start, trend.End)
+	}
+	if trend.Change == nil || trend.Change.CanonicalAmount() != "0" {
+		t.Fatalf("trend change = %+v, want 0", trend.Change)
+	}
+}
+
 func TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts(t *testing.T) {
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "excluded-snapshot", []string{"Owner"})
 	owner := bootstrap.Members[0].ID

@@ -98,6 +98,14 @@ func FromSignedMoney(value domain.SignedMoney) SignedMoneyView {
 	return SignedMoneyView{Amount: value.CanonicalAmount(), Currency: value.Currency().String()}
 }
 
+func FromSignedMoneyPtr(value *domain.SignedMoney) *SignedMoneyView {
+	if value == nil {
+		return nil
+	}
+	converted := FromSignedMoney(*value)
+	return &converted
+}
+
 // StringPtr returns nil for an empty string and a pointer to the value
 // otherwise, matching the "explicit optional pointer" rule (technical
 // for DTO fields sourced from an optional domain string.

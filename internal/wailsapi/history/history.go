@@ -364,7 +364,7 @@ type DailyValuationSnapshotDTO struct {
 	Revision          int                             `json:"revision"`
 	AssetsAmount      *wire.MoneyView                 `json:"assetsAmount,omitempty"`
 	LiabilitiesAmount *wire.MoneyView                 `json:"liabilitiesAmount,omitempty"`
-	NetWorthAmount    *wire.MoneyView                 `json:"netWorthAmount,omitempty"`
+	NetWorthAmount    *wire.SignedMoneyView           `json:"netWorthAmount,omitempty"`
 	Currency          string                          `json:"currency"`
 	Complete          bool                            `json:"complete"`
 	ComponentCount    int                             `json:"componentCount"`
@@ -403,7 +403,7 @@ func fromDailyValuationSnapshot(value domain.DailyValuationSnapshot) DailyValuat
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), LocalDate: value.LocalDate,
 		CutoffAt: wire.FormatTime(value.CutoffAt), Revision: value.Revision,
 		AssetsAmount: wire.FromMoneyPtr(value.AssetsAmount), LiabilitiesAmount: wire.FromMoneyPtr(value.LiabilitiesAmount),
-		NetWorthAmount: wire.FromMoneyPtr(value.NetWorthAmount), Currency: value.Currency.String(), Complete: value.Complete,
+		NetWorthAmount: wire.FromSignedMoneyPtr(value.NetWorthAmount), Currency: value.Currency.String(), Complete: value.Complete,
 		ComponentCount: value.ComponentCount, MissingCount: value.MissingCount, GenerationReason: value.GenerationReason,
 		CreatedAt: wire.FormatTime(value.CreatedAt), Items: items,
 	}

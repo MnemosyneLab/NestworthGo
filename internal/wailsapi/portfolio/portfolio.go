@@ -106,12 +106,12 @@ func (s *Service) Portfolio(ctx context.Context, request account.AccountFilterRe
 
 // NetWorthTrendPointDTO mirrors domain.NetWorthTrendPoint.
 type NetWorthTrendPointDTO struct {
-	LocalDate    string          `json:"localDate"`
-	NetWorth     *wire.MoneyView `json:"netWorth,omitempty"`
-	Assets       *wire.MoneyView `json:"assets,omitempty"`
-	Liabilities  *wire.MoneyView `json:"liabilities,omitempty"`
-	Complete     bool            `json:"complete"`
-	MissingCount int             `json:"missingCount"`
+	LocalDate    string                `json:"localDate"`
+	NetWorth     *wire.SignedMoneyView `json:"netWorth,omitempty"`
+	Assets       *wire.MoneyView       `json:"assets,omitempty"`
+	Liabilities  *wire.MoneyView       `json:"liabilities,omitempty"`
+	Complete     bool                  `json:"complete"`
+	MissingCount int                   `json:"missingCount"`
 }
 
 // NetWorthTrendDTO mirrors domain.NetWorthTrend.
@@ -119,8 +119,8 @@ type NetWorthTrendDTO struct {
 	Range    string                  `json:"range"`
 	Currency string                  `json:"currency"`
 	Points   []NetWorthTrendPointDTO `json:"points"`
-	Start    *wire.MoneyView         `json:"start,omitempty"`
-	End      *wire.MoneyView         `json:"end,omitempty"`
+	Start    *wire.SignedMoneyView   `json:"start,omitempty"`
+	End      *wire.SignedMoneyView   `json:"end,omitempty"`
 	Change   *wire.SignedMoneyView   `json:"change,omitempty"`
 }
 
@@ -129,7 +129,7 @@ func fromNetWorthTrend(result domain.NetWorthTrend) NetWorthTrendDTO {
 	for _, point := range result.Points {
 		points = append(points, NetWorthTrendPointDTO{
 			LocalDate:    point.LocalDate,
-			NetWorth:     wire.FromMoneyPtr(point.NetWorth),
+			NetWorth:     wire.FromSignedMoneyPtr(point.NetWorth),
 			Assets:       wire.FromMoneyPtr(point.Assets),
 			Liabilities:  wire.FromMoneyPtr(point.Liabilities),
 			Complete:     point.Complete,
@@ -143,7 +143,7 @@ func fromNetWorthTrend(result domain.NetWorthTrend) NetWorthTrendDTO {
 	}
 	return NetWorthTrendDTO{
 		Range: string(result.Range), Currency: result.Currency.String(), Points: points,
-		Start: wire.FromMoneyPtr(result.Start), End: wire.FromMoneyPtr(result.End), Change: change,
+		Start: wire.FromSignedMoneyPtr(result.Start), End: wire.FromSignedMoneyPtr(result.End), Change: change,
 	}
 }
 

@@ -250,6 +250,13 @@ func nullableRate(value *domain.FxRate) any {
 	return value.Canonical()
 }
 
+func nullableSignedMoneyAmount(value *domain.SignedMoney) any {
+	if value == nil {
+		return nil
+	}
+	return value.CanonicalAmount()
+}
+
 func nullableMoneyAmount(value *domain.Money) any {
 	if value == nil {
 		return nil

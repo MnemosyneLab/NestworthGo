@@ -35,7 +35,7 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 		if err != nil {
 			return domain.NetWorthTrend{}, err
 		}
-		netWorth, err := domain.NewMoney(current.NetWorth, current.Currency)
+		netWorth, err := domain.NewSignedMoney(current.NetWorth, current.Currency)
 		if err != nil {
 			return domain.NetWorthTrend{}, err
 		}
@@ -175,8 +175,8 @@ func trendSince(trendRange domain.TrendRange, today, origin time.Time) (time.Tim
 	}
 }
 
-func wealthTrendSummary(points []domain.NetWorthTrendPoint, currency domain.CurrencyCode) (*domain.Money, *domain.Money, *domain.SignedMoney, error) {
-	var start, end *domain.Money
+func wealthTrendSummary(points []domain.NetWorthTrendPoint, currency domain.CurrencyCode) (*domain.SignedMoney, *domain.SignedMoney, *domain.SignedMoney, error) {
+	var start, end *domain.SignedMoney
 	for _, point := range points {
 		if point.NetWorth != nil {
 			start = point.NetWorth

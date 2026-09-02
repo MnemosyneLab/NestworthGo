@@ -131,7 +131,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}
-	netWorthMoney, err := domain.NewMoney(assets.Sub(liabilities), portfolio.Household.BaseCurrency)
+	netWorthMoney, err := domain.NewSignedMoney(assets.Sub(liabilities), portfolio.Household.BaseCurrency)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}
@@ -150,7 +150,7 @@ func (s *Service) historicalPortfolioSnapshot(ctx context.Context, origin *domai
 	return HistoricalReplay{repository: s.repository, batch: batch, quotes: quotes}.Snapshot(ctx, origin, cutoff)
 }
 
-func snapshotContentHash(localDate string, cutoff time.Time, assets, liabilities, netWorth domain.Money, items []domain.DailyValuationSnapshotItem) string {
+func snapshotContentHash(localDate string, cutoff time.Time, assets, liabilities domain.Money, netWorth domain.SignedMoney, items []domain.DailyValuationSnapshotItem) string {
 	sort.Slice(items, func(i, j int) bool {
 		return snapshotItemSortKey(items[i]) < snapshotItemSortKey(items[j])
 	})
