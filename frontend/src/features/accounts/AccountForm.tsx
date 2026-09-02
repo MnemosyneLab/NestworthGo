@@ -32,6 +32,10 @@ const accountFormSchema = z.object({
   institutionId: z.string().optional(),
   groupId: z.string().optional(),
   includeInNetWorth: z.boolean(),
+  // includeInPortfolio and includeInLiquidAssets remain in the submitted
+  // payload so catalog defaults and existing stored values are preserved.
+  // Neither flag is shown: Portfolio ignores includeInPortfolio, and no
+  // liquid-assets metric exists yet.
   includeInPortfolio: z.boolean(),
   includeInLiquidAssets: z.boolean(),
 });
@@ -349,9 +353,6 @@ export function AccountForm({
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" {...register("includeInNetWorth")} /> {t("accounts.includeInNetWorth")}
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" {...register("includeInLiquidAssets")} /> {t("accounts.includeInLiquidAssets")}
         </label>
       </div>
 

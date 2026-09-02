@@ -474,9 +474,6 @@ export function AccountCreateWizard({
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={includeInNetWorth} onChange={(event) => setIncludeInNetWorth(event.target.checked)} /> {t("accounts.includeInNetWorth")}
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={includeInLiquidAssets} onChange={(event) => setIncludeInLiquidAssets(event.target.checked)} /> {t("accounts.includeInLiquidAssets")}
-              </label>
               <EntitySelect id="wizard-group" label={t("nav.groups")} value={selectedGroupId} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => { setGroupTouched(true); setGroupId(value); }} />
               <IconPicker id="wizard-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
             </div>
