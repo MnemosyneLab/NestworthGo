@@ -25,6 +25,7 @@ type FXPreferenceObservationID string
 type HoldingQuantityValueID string
 type DailyValuationSnapshotID string
 type DailyValuationSnapshotItemID string
+type MutationID string
 
 func NewActivityID() ActivityID             { return ActivityID(newID()) }
 func NewActivityEffectID() ActivityEffectID { return ActivityEffectID(newID()) }
@@ -56,6 +57,7 @@ func NewDailyValuationSnapshotID() DailyValuationSnapshotID { return DailyValuat
 func NewDailyValuationSnapshotItemID() DailyValuationSnapshotItemID {
 	return DailyValuationSnapshotItemID(newID())
 }
+func NewMutationID() MutationID { return MutationID(newID()) }
 
 func (id ActivityID) String() string                        { return string(id) }
 func (id ActivityEffectID) String() string                  { return string(id) }
@@ -71,6 +73,7 @@ func (id FXPreferenceObservationID) String() string         { return string(id) 
 func (id HoldingQuantityValueID) String() string            { return string(id) }
 func (id DailyValuationSnapshotID) String() string          { return string(id) }
 func (id DailyValuationSnapshotItemID) String() string      { return string(id) }
+func (id MutationID) String() string                        { return string(id) }
 
 func parseHistoryID[T ~string](value, field string) (T, error) {
 	return parseID[T](value, field)
@@ -87,6 +90,9 @@ func ParseHistoryOriginID(value string) (HistoryOriginID, error) {
 }
 func ParseActivityCorrectionGroupID(value string) (ActivityCorrectionGroupID, error) {
 	return parseHistoryID[ActivityCorrectionGroupID](value, "correctionGroupId")
+}
+func ParseMutationID(value string) (MutationID, error) {
+	return parseHistoryID[MutationID](value, "mutationId")
 }
 func ParseHistoryOriginComponentID(value string) (HistoryOriginComponentID, error) {
 	return parseHistoryID[HistoryOriginComponentID](value, "historyOriginComponentId")
@@ -403,6 +409,24 @@ type ActivityCommit struct {
 	Activity  Activity
 	Effects   []ActivityEffect
 	Resulting []EndpointView
+	Mutation  *ActivityMutation
+}
+
+// ActivityMutation is the client-generated idempotency key stored with a
+// committed Activity. The same ID plus the same payload hash replays the
+// original result; the same ID with a different hash is a conflict.
+type ActivityMutation struct {
+	ID            MutationID
+	PayloadSHA256 string
+}
+
+// ActivityMutationRecord is the persisted idempotency row.
+type ActivityMutationRecord struct {
+	HouseholdID   HouseholdID
+	ID            MutationID
+	PayloadSHA256 string
+	ActivityID    ActivityID
+	CreatedAt     time.Time
 }
 
 type CashDividendInput struct {

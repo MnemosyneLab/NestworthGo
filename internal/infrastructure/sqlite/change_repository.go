@@ -142,7 +142,32 @@ func commitActivityTx(ctx context.Context, tx *sql.Tx, commit domain.ActivityCom
 			return err
 		}
 	}
+	if commit.Mutation != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO activity_mutation_keys(household_id, mutation_id, payload_sha256, activity_id, created_at) VALUES(?, ?, ?, ?, ?)`, activity.HouseholdID.String(), commit.Mutation.ID.String(), commit.Mutation.PayloadSHA256, activity.ID.String(), formatTimestamp(asOf)); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func (r *Repository) LookupActivityMutation(ctx context.Context, householdID domain.HouseholdID, mutationID domain.MutationID) (*domain.ActivityMutationRecord, error) {
+	var payloadHash, activityID, createdAt string
+	err := r.database.SQL.QueryRowContext(ctx, `SELECT payload_sha256, activity_id, created_at FROM activity_mutation_keys WHERE household_id = ? AND mutation_id = ?`, householdID.String(), mutationID.String()).Scan(&payloadHash, &activityID, &createdAt)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	parsedActivity, err := domain.ParseActivityID(activityID)
+	if err != nil {
+		return nil, err
+	}
+	created, err := time.Parse(time.RFC3339Nano, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.ActivityMutationRecord{HouseholdID: householdID, ID: mutationID, PayloadSHA256: payloadHash, ActivityID: parsedActivity, CreatedAt: created.UTC()}, nil
 }
 
 func validateActiveEffectTargetTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, effect domain.ActivityEffect) error {

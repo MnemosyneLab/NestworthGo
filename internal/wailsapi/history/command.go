@@ -1,6 +1,9 @@
 package history
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -89,6 +92,11 @@ type ChangeCommandRequest struct {
 	EffectiveLocalDate string  `json:"effectiveLocalDate,omitempty"`
 	EffectiveLocalTime string  `json:"effectiveLocalTime,omitempty"`
 	Note               *string `json:"note,omitempty"`
+	// MutationID is a client-generated UUID that makes Record/Commit/Fix
+	// retries idempotent. Empty keeps the unkeyed path for tests and older
+	// callers. It is omitted from the payload hash so the same command can
+	// reuse one ID.
+	MutationID string `json:"mutationId,omitempty"`
 }
 
 func parseTimeOrZero(value string) (time.Time, error) {
@@ -352,4 +360,25 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID, originTi
 	default:
 		return nil, &domain.Error{Code: domain.ErrInvalidChange, Field: "kind", Message: "change kind is not supported"}
 	}
+}
+
+// MutationEnvelope returns the parsed mutation ID and a SHA-256 of this
+// request with MutationID cleared. An empty mutation ID skips hashing so
+// unkeyed callers stay valid.
+func (r ChangeCommandRequest) MutationEnvelope() (mutationID, payloadHash string, err error) {
+	if strings.TrimSpace(r.MutationID) == "" {
+		return "", "", nil
+	}
+	parsed, err := domain.ParseMutationID(r.MutationID)
+	if err != nil {
+		return "", "", err
+	}
+	copy := r
+	copy.MutationID = ""
+	data, err := json.Marshal(copy)
+	if err != nil {
+		return "", "", &domain.Error{Code: domain.ErrInvalidChange, Field: "mutationId", Message: "command payload could not be hashed"}
+	}
+	sum := sha256.Sum256(data)
+	return parsed.String(), hex.EncodeToString(sum[:]), nil
 }

@@ -647,11 +647,35 @@ func historySchemaColumns() map[string][]schemaColumn {
 		"history_snapshot_state": {
 			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("dirty_from", "TEXT", 0, 0), expectedColumn("last_completed_closed_on", "TEXT", 0, 0), expectedColumn("updated_at", "TEXT", 1, 0),
 		},
+		"activity_mutation_keys": {
+			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("mutation_id", "TEXT", 1, 2), expectedColumn("payload_sha256", "TEXT", 1, 0), expectedColumn("activity_id", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
 	}
 }
 
 func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 	for table, columns := range historySchemaColumns() {
+		if table == "activity_mutation_keys" {
+			exists, err := schemaTableExists(ctx, query, table)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				continue
+			}
+			if err := verifyTable(ctx, query, table, columns); err != nil {
+				return err
+			}
+			for _, foreignKey := range []expectedForeignKey{
+				{table: "activity_mutation_keys", refTable: "households", from: "household_id", to: "id", onDelete: "RESTRICT"},
+				{table: "activity_mutation_keys", refTable: "activities", from: "activity_id", to: "id", onDelete: "RESTRICT"},
+			} {
+				if err := verifyForeignKeys(ctx, query, foreignKey); err != nil {
+					return err
+				}
+			}
+			continue
+		}
 		if err := verifyTable(ctx, query, table, columns); err != nil {
 			return err
 		}
@@ -671,6 +695,17 @@ func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 		}
 	}
 	return nil
+}
+
+func schemaTableExists(ctx context.Context, query schemaQuery, table string) (bool, error) {
+	var objectType string
+	if err := query.QueryRowContext(ctx, `SELECT type FROM sqlite_master WHERE name = ?`, table).Scan(&objectType); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return objectType == "table", nil
 }
 
 func expectedSchemaChecks() map[string][]string {

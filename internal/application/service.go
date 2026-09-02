@@ -917,7 +917,7 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 		return domain.AccountValue{}, originErr
 	}
 	if origin != nil {
-		preview, commitErr := s.recordChangeLocked(ctx, domain.ValueUpdateInput{HouseholdID: record.Account.HouseholdID, AccountID: accountID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when})
+		preview, commitErr := s.recordChangeLocked(ctx, domain.ValueUpdateInput{HouseholdID: record.Account.HouseholdID, AccountID: accountID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when}, nil)
 		if commitErr != nil {
 			return domain.AccountValue{}, commitErr
 		}

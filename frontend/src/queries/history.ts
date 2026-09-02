@@ -1,4 +1,5 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRef } from "react";
 import { Service as HistoryService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history";
 import type { ActivityQueryRequest, ChangeCommandRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { callService } from "@/lib/wails";
@@ -111,11 +112,31 @@ function affectedAccountIds(request: ChangeCommandRequest): string[] {
   ].filter((id): id is string => Boolean(id)))];
 }
 
+type clientMutationSlot = { payload: string; id: string };
+
+function commandPayloadKey(request: ChangeCommandRequest): string {
+  return JSON.stringify({ ...request, mutationId: "" });
+}
+
+function withClientMutationID(request: ChangeCommandRequest, slot: { current: clientMutationSlot | null }): ChangeCommandRequest {
+  const payload = commandPayloadKey(request);
+  if (slot.current == null || slot.current.payload !== payload) {
+    const existing = request.mutationId?.trim();
+    slot.current = { payload, id: existing || crypto.randomUUID() };
+  }
+  return { ...request, mutationId: slot.current.id };
+}
+
 export function useRecordChange() {
   const queryClient = useQueryClient();
+  const mutationSlot = useRef<clientMutationSlot | null>(null);
   return useMutation({
-    mutationFn: (request: ChangeCommandRequest) => callService(() => HistoryService.RecordChange(request)),
-    onSuccess: (_data, variables) => invalidateActivityChange(queryClient, affectedAccountIds(variables)),
+    mutationFn: (request: ChangeCommandRequest) =>
+      callService(() => HistoryService.RecordChange(withClientMutationID(request, mutationSlot))),
+    onSuccess: (_data, variables) => {
+      mutationSlot.current = null;
+      invalidateActivityChange(queryClient, affectedAccountIds(variables));
+    },
   });
 }
 
@@ -129,10 +150,14 @@ export function useUndoChange() {
 
 export function useFixChange() {
   const queryClient = useQueryClient();
+  const mutationSlot = useRef<clientMutationSlot | null>(null);
   return useMutation({
     mutationFn: ({ activityId, replacement }: { activityId: string; replacement: ChangeCommandRequest }) =>
-      callService(() => HistoryService.FixChange(activityId, replacement)),
-    onSuccess: (_data, variables) => invalidateActivityChange(queryClient, affectedAccountIds(variables.replacement)),
+      callService(() => HistoryService.FixChange(activityId, withClientMutationID(replacement, mutationSlot))),
+    onSuccess: (_data, variables) => {
+      mutationSlot.current = null;
+      invalidateActivityChange(queryClient, affectedAccountIds(variables.replacement));
+    },
   });
 }
 

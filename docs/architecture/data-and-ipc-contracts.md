@@ -66,6 +66,7 @@ or network dependency.
 | Instrument/FX Quote | Append-only price and FX observations |
 | History Origin | Cutover boundary for trustworthy reconstructed history |
 | Activity and Activity Leg | Immutable explanations for post-origin changes |
+| Activity mutation key | Client-generated UUID plus payload hash making Record/Fix retries idempotent |
 | Daily Snapshot | Append-only closed-day valuation revision |
 | Average Cost Evidence | Starting Point and cost-bearing Activity inputs replayed into derived cost/gain views |
 | Gain Read Models | Derived Holding, Account, and realized-period results with explicit unavailable state |
@@ -86,6 +87,11 @@ writes.
 - Unknown targets return a stable not-found error and write nothing.
 - Append-only observations never overwrite prior financial evidence.
 - Posted Activities are immutable; reversal and correction append linked records.
+- Record, Commit, and Fix Activity commands accept an optional client-generated
+  `mutationId`. The same ID with the same payload returns the original result;
+  the same ID with a different payload returns `conflict`. Empty IDs remain
+  valid for tests and older callers. The key is stored in
+  `activity_mutation_keys` without bumping schema version 9.
 
 ## Current valuation and provider refresh
 

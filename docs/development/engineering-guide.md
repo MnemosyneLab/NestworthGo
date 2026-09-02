@@ -133,6 +133,13 @@ FX-provider routing.
 Use sanitized deterministic fixtures. Provider tests use fakes and must not
 depend on live network responses.
 
+GitHub Actions workflow `.github/workflows/check.yml` runs the same automated
+gates on `main` and pull requests: gofmt, `go test ./...`, a separate race job,
+vet, `go build ./cmd/nestworth`, frontend build/lint/typecheck/test, and
+`git diff --check`. Native `.app`/DMG packaging, signing, and notarization stay
+manual. Wails v3 remains pinned at `v3.0.0-beta.12` (`@wailsio/runtime` at
+`3.0.0-beta.9`); upgrade those versions only in a dedicated change.
+
 ## Documentation and change gate
 
 Update the owning architecture or product document when a stable contract

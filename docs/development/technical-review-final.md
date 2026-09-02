@@ -127,7 +127,7 @@ the current code does not actually have.
 | F17 | P1 | Performance | Activity/snapshot list hydration is per parent row; hidden pages can keep queries active. | SQLite list repositories, `frontend/src/App.tsx` | Resolved |
 | F18 | P2 | Architecture debt | `application.Service` is a broad facade; application imports CSV infrastructure; Wails data/recovery adapters own persistence lifecycle. | `internal/application`, `internal/wailsapi/data`, `recovery` | Resolved |
 | F19 | P2 | Contract/documentation debt | Activity taxonomy and cost-basis entities in architecture docs do not match stored code; `include_in_liquid_assets` has no metric consumer. | `docs/architecture`, account UI/contracts | Resolved |
-| F20 | P2 | Reliability/release debt | Activity mutations have no request idempotency key; there is no CI workflow; native/package gates are manual; Wails is beta. | History commands, `.github`, build files | Open |
+| F20 | P2 | Reliability/release debt | Activity mutations have no request idempotency key; there is no CI workflow; native/package gates are manual; Wails is beta. | History commands, `.github`, build files | Resolved |
 | F21 | P2 | Frontend precision/performance | Ownership conversion uses JavaScript `Number`; the production bundle has one large main chunk. | `accountCatalog.ts`, frontend route/import structure | Resolved |
 
 ## Implementation Sequence

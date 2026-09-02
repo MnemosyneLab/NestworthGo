@@ -174,11 +174,27 @@ func (s *Service) PreviewFixChange(ctx context.Context, activityID domain.Activi
 }
 
 func (s *Service) FixChange(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (domain.ChangePreview, error) {
+	return s.FixChangeWithMutation(ctx, activityID, replacementCommand, "", "")
+}
+
+// FixChangeWithMutation is FixChange with an optional client-generated
+// idempotency key stored on the replacement Activity. An empty mutation ID
+// keeps the unkeyed path.
+func (s *Service) FixChangeWithMutation(ctx context.Context, activityID domain.ActivityID, replacementCommand any, mutationID, payloadHash string) (domain.ChangePreview, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
 	defer unlock()
+	key, err := parseActivityMutation(mutationID, payloadHash)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if replay, err := s.replayActivityMutation(ctx, key); err != nil {
+		return domain.ChangePreview{}, err
+	} else if replay != nil {
+		return *replay, nil
+	}
 	inverse, replacement, err := s.fixChangePreview(ctx, activityID, replacementCommand)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -187,7 +203,10 @@ func (s *Service) FixChange(ctx context.Context, activityID domain.ActivityID, r
 	inverse.Activity.CorrectionGroupID = &groupID
 	replacement.Activity.CorrectionGroupID = &groupID
 	asOf := s.clock()
-	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{{Activity: inverse.Activity, Effects: inverse.Effects, Resulting: inverse.Resulting}, {Activity: replacement.Activity, Effects: replacement.Effects, Resulting: replacement.Resulting}}, asOf); err != nil {
+	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{
+		{Activity: inverse.Activity, Effects: inverse.Effects, Resulting: inverse.Resulting},
+		{Activity: replacement.Activity, Effects: replacement.Effects, Resulting: replacement.Resulting, Mutation: key},
+	}, asOf); err != nil {
 		return domain.ChangePreview{}, err
 	}
 	return replacement, nil

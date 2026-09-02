@@ -140,25 +140,17 @@ func (s *Service) PreviewChange(ctx context.Context, request ChangeCommandReques
 }
 
 func (s *Service) RecordChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
-	householdID, originTimezone, err := s.resolveHistoryContext(ctx)
-	if err != nil {
-		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
-	}
-	command, err := request.ToCommand(householdID, originTimezone)
-	if err != nil {
-		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
-	}
-	preview, err := s.app.RecordChange(ctx, command)
-	if err != nil {
-		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
-	}
-	return wire.FromChangePreview(preview), nil
+	return s.commitChangeRequest(ctx, request)
 }
 
 // CommitChange is kept as a wire alias of RecordChange so the frontend's
 // "preview, then confirm" UX has a stable name to call. Application code
 // has a single RecordChange write path.
 func (s *Service) CommitChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
+	return s.commitChangeRequest(ctx, request)
+}
+
+func (s *Service) commitChangeRequest(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
 	householdID, originTimezone, err := s.resolveHistoryContext(ctx)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
@@ -167,7 +159,11 @@ func (s *Service) CommitChange(ctx context.Context, request ChangeCommandRequest
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	preview, err := s.app.RecordChange(ctx, command)
+	mutationID, payloadHash, err := request.MutationEnvelope()
+	if err != nil {
+		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
+	}
+	preview, err := s.app.RecordChangeWithMutation(ctx, command, mutationID, payloadHash)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
@@ -225,7 +221,11 @@ func (s *Service) FixChange(ctx context.Context, activityID string, replacement 
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
-	preview, err := s.app.FixChange(ctx, id, command)
+	mutationID, payloadHash, err := replacement.MutationEnvelope()
+	if err != nil {
+		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
+	}
+	preview, err := s.app.FixChangeWithMutation(ctx, id, command, mutationID, payloadHash)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}

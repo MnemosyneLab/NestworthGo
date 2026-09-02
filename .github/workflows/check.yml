@@ -1,0 +1,72 @@
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install native Go build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: gofmt
+        run: test -z "$(gofmt -l cmd internal)"
+      - name: Frontend build
+        working-directory: frontend
+        run: pnpm run build
+      - name: Go tests
+        run: go test ./...
+      - name: Go vet
+        run: go vet ./...
+      - name: Go build
+        run: go build ./cmd/nestworth
+      - name: Frontend lint
+        working-directory: frontend
+        run: pnpm run lint
+      - name: Frontend typecheck
+        working-directory: frontend
+        run: pnpm run typecheck
+      - name: Frontend tests
+        working-directory: frontend
+        run: pnpm run test
+      - name: Trailing whitespace
+        run: git diff --check
+
+  race:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install native Go build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
+      - name: Go tests with race detector
+        run: go test -race ./...

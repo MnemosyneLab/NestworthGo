@@ -612,7 +612,7 @@ func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.A
 		} else {
 			command = domain.MoneyRemovedInput{HouseholdID: household.ID, AccountID: accountID, Amount: delta, Reason: domain.ReasonReconciliation, EffectiveAt: when}
 		}
-		preview, commitErr := s.commitChangeLocked(ctx, state, command)
+		preview, commitErr := s.commitChangeLocked(ctx, state, command, nil)
 		if commitErr != nil {
 			return domain.AccountCashValue{}, commitErr
 		}

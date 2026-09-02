@@ -78,18 +78,35 @@ func (s *Service) PreviewChange(ctx context.Context, command any) (domain.Change
 // RecordChange re-loads the current state before building and committing the
 // effects. A previous preview is never accepted as write authorization.
 func (s *Service) RecordChange(ctx context.Context, command any) (domain.ChangePreview, error) {
+	return s.RecordChangeWithMutation(ctx, command, "", "")
+}
+
+// RecordChangeWithMutation is RecordChange with an optional client-generated
+// idempotency key. An empty mutation ID keeps the unkeyed path used by tests
+// and older callers. The same ID plus the same payload hash replays the
+// original Activity; the same ID with a different hash returns conflict.
+func (s *Service) RecordChangeWithMutation(ctx context.Context, command any, mutationID, payloadHash string) (domain.ChangePreview, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
 	defer unlock()
-	return s.recordChangeLocked(ctx, command)
+	key, err := parseActivityMutation(mutationID, payloadHash)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if replay, err := s.replayActivityMutation(ctx, key); err != nil {
+		return domain.ChangePreview{}, err
+	} else if replay != nil {
+		return *replay, nil
+	}
+	return s.recordChangeLocked(ctx, command, key)
 }
 
 // recordChangeLocked re-loads the current state before building and committing
 // the effects; the caller must hold s.changeMu. A previous preview is never
 // accepted as write authorization.
-func (s *Service) recordChangeLocked(ctx context.Context, command any) (domain.ChangePreview, error) {
+func (s *Service) recordChangeLocked(ctx context.Context, command any, key *domain.ActivityMutation) (domain.ChangePreview, error) {
 	origin, snapshot, err := s.loadChangeContext(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -102,7 +119,7 @@ func (s *Service) recordChangeLocked(ctx context.Context, command any) (domain.C
 		for _, existing := range snapshot.Holdings {
 			if existing.ArchivedAt == nil && existing.AccountID == trade.SettlementAccountID && existing.InstrumentID == trade.InstrumentID {
 				trade.HoldingID = existing.ID
-				return s.commitChangeLocked(ctx, state, trade)
+				return s.commitChangeLocked(ctx, state, trade, key)
 			}
 		}
 		if trade.Side != domain.TradeBuy {
@@ -130,22 +147,22 @@ func (s *Service) recordChangeLocked(ctx context.Context, command any) (domain.C
 		if previewErr != nil {
 			return domain.ChangePreview{}, previewErr
 		}
-		if commitErr := s.repository.CreateHoldingWithActivity(ctx, holding, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}, s.clock()); commitErr != nil {
+		if commitErr := s.repository.CreateHoldingWithActivity(ctx, holding, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting, Mutation: key}, s.clock()); commitErr != nil {
 			return domain.ChangePreview{}, commitErr
 		}
 		return preview, nil
 	}
-	return s.commitChangeLocked(ctx, state, command)
+	return s.commitChangeLocked(ctx, state, command, key)
 }
 
 // commitChangeLocked previews the command against the given state and commits
 // it; the caller must hold s.changeMu.
-func (s *Service) commitChangeLocked(ctx context.Context, state domain.ChangeState, command any) (domain.ChangePreview, error) {
+func (s *Service) commitChangeLocked(ctx context.Context, state domain.ChangeState, command any, key *domain.ActivityMutation) (domain.ChangePreview, error) {
 	preview, err := domain.PreviewChange(state, command)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.clock()); err != nil {
+	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting, Mutation: key}}, s.clock()); err != nil {
 		return domain.ChangePreview{}, err
 	}
 	return preview, nil

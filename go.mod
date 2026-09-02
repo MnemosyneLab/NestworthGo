@@ -5,6 +5,9 @@ go 1.26.0
 require (
 	github.com/google/uuid v1.6.0
 	github.com/shopspring/decimal v1.4.0
+	// Wails v3 is still beta. Keep this module version pinned; upgrade only
+	// in a dedicated change with regenerated bindings, full automated gates,
+	// and native/package smoke tests.
 	github.com/wailsapp/wails/v3 v3.0.0-beta.12
 	modernc.org/sqlite v1.44.3
 )

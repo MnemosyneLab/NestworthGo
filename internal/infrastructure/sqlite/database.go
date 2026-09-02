@@ -147,6 +147,9 @@ func Open(path string) (*DB, error) {
 		if err := repairV9CashOnHandHoldingsCheck(context.Background(), database); err != nil {
 			return closeOnError(StatusUnavailable, found, err)
 		}
+		if err := ensureActivityMutationKeysTable(context.Background(), database); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
 		if err := verifySchema(context.Background(), database); err != nil {
 			return closeOnError(StatusIntegrityFailed, found, err)
 		}

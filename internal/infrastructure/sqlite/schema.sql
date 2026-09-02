@@ -487,4 +487,14 @@ CREATE TABLE holding_state_observations (
 );
 CREATE INDEX idx_holding_state_observations_effective ON holding_state_observations(holding_id, effective_at DESC, created_at DESC, id DESC);
 CREATE INDEX idx_daily_valuation_items_fx_preference ON daily_valuation_snapshot_items(fx_preference_observation_id);
+CREATE TABLE activity_mutation_keys (
+    household_id TEXT NOT NULL,
+    mutation_id TEXT NOT NULL,
+    payload_sha256 TEXT NOT NULL,
+    activity_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(household_id, mutation_id),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
+);
 PRAGMA user_version = 9;

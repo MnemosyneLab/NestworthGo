@@ -10,6 +10,16 @@ import (
 const (
 	cashOnHandBalanceOnlyCheck       = "account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode = 'balance'"
 	cashOnHandBalanceOrHoldingsCheck = "account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')"
+	activityMutationKeysCreateSQL    = `CREATE TABLE IF NOT EXISTS activity_mutation_keys (
+    household_id TEXT NOT NULL,
+    mutation_id TEXT NOT NULL,
+    payload_sha256 TEXT NOT NULL,
+    activity_id TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(household_id, mutation_id),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
+    FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
+)`
 )
 
 // repairV9CashOnHandHoldingsCheck is the one approved exception to schema v9's
@@ -18,6 +28,17 @@ const (
 // Databases that already have the corrected CHECK are left unchanged.
 func repairV9CashOnHandHoldingsCheck(ctx context.Context, database *sql.DB) error {
 	return rewriteAccountsCheckFragment(ctx, database, cashOnHandBalanceOnlyCheck, cashOnHandBalanceOrHoldingsCheck)
+}
+
+// ensureActivityMutationKeysTable adds the Activity command idempotency table
+// to an existing schema-9 database. This is additive: it does not bump
+// user_version, rewrite rows, or reject read-only backups that lack the table.
+func ensureActivityMutationKeysTable(ctx context.Context, database *sql.DB) error {
+	if database == nil {
+		return fmt.Errorf("database is not open")
+	}
+	_, err := database.ExecContext(ctx, activityMutationKeysCreateSQL)
+	return err
 }
 
 func rewriteAccountsCheckFragment(ctx context.Context, database *sql.DB, from, to string) error {
