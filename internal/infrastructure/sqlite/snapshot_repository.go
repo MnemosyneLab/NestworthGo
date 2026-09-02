@@ -128,6 +128,10 @@ func nextSnapshotDate(localDate string) (string, error) {
 }
 
 func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdID domain.HouseholdID, since time.Time) ([]domain.DailyValuationSnapshot, error) {
+	return listDailyValuationSnapshotsQuery(ctx, r.database.SQL, householdID, since)
+}
+
+func listDailyValuationSnapshotsQuery(ctx context.Context, db queryer, householdID domain.HouseholdID, since time.Time) ([]domain.DailyValuationSnapshot, error) {
 	query := `SELECT id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at FROM daily_valuation_snapshots WHERE household_id = ? AND revision = (SELECT MAX(latest.revision) FROM daily_valuation_snapshots latest WHERE latest.household_id = daily_valuation_snapshots.household_id AND latest.local_date = daily_valuation_snapshots.local_date)`
 	args := []any{householdID.String()}
 	if !since.IsZero() {
@@ -135,7 +139,7 @@ func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdI
 		args = append(args, since.Format("2006-01-02"))
 	}
 	query += ` ORDER BY local_date ASC`
-	rows, err := r.database.SQL.QueryContext(ctx, query, args...)
+	rows, err := db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -200,121 +204,147 @@ func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdI
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	for index := range result {
-		result[index].Items, err = r.listDailyValuationSnapshotItems(ctx, result[index].ID, result[index].Currency)
-		if err != nil {
-			return nil, err
-		}
+	if err := attachDailyValuationSnapshotItems(ctx, db, result); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
 
-func (r *Repository) listDailyValuationSnapshotItems(ctx context.Context, snapshotID domain.DailyValuationSnapshotID, baseCurrency domain.CurrencyCode) ([]domain.DailyValuationSnapshotItem, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, `SELECT i.id, i.account_id, i.holding_id, i.instrument_id, i.native_amount, i.native_currency, i.base_amount, i.base_currency, i.quote_id, i.fx_quote_id, i.state_observation_id, i.preference_observation_id, i.complete, i.missing_reason, i.fx_preference_observation_id, a.tracking_mode FROM daily_valuation_snapshot_items i JOIN accounts a ON a.id = i.account_id WHERE i.snapshot_id = ? ORDER BY i.account_id, i.id`, snapshotID.String())
+func attachDailyValuationSnapshotItems(ctx context.Context, query queryer, snapshots []domain.DailyValuationSnapshot) error {
+	if len(snapshots) == 0 {
+		return nil
+	}
+	ids := make([]string, len(snapshots))
+	indexByID := make(map[string]int, len(snapshots))
+	currencies := make(map[string]domain.CurrencyCode, len(snapshots))
+	for index := range snapshots {
+		id := snapshots[index].ID.String()
+		ids[index] = id
+		indexByID[id] = index
+		currencies[id] = snapshots[index].Currency
+		snapshots[index].Items = nil
+	}
+	clause, args := sqlInArgs(ids)
+	rows, err := query.QueryContext(ctx, `SELECT i.snapshot_id, i.id, i.account_id, i.holding_id, i.instrument_id, i.native_amount, i.native_currency, i.base_amount, i.base_currency, i.quote_id, i.fx_quote_id, i.state_observation_id, i.preference_observation_id, i.complete, i.missing_reason, i.fx_preference_observation_id, a.tracking_mode FROM daily_valuation_snapshot_items i JOIN accounts a ON a.id = i.account_id WHERE i.snapshot_id IN (`+clause+`) ORDER BY i.snapshot_id, i.account_id, i.id`, args...)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer rows.Close()
-	var items []domain.DailyValuationSnapshotItem
 	for rows.Next() {
-		var id, accountID, trackingMode string
+		var snapshotID, id, accountID, trackingMode string
 		var holdingID, instrumentID, nativeAmount, nativeCurrency, baseAmount, rowBaseCurrency, quoteID, fxQuoteID, stateObservationID, preferenceObservationID, missingReason, fxPreferenceObservationID sql.NullString
 		var complete int
-		if err := rows.Scan(&id, &accountID, &holdingID, &instrumentID, &nativeAmount, &nativeCurrency, &baseAmount, &rowBaseCurrency, &quoteID, &fxQuoteID, &stateObservationID, &preferenceObservationID, &complete, &missingReason, &fxPreferenceObservationID, &trackingMode); err != nil {
-			return nil, err
+		if err := rows.Scan(&snapshotID, &id, &accountID, &holdingID, &instrumentID, &nativeAmount, &nativeCurrency, &baseAmount, &rowBaseCurrency, &quoteID, &fxQuoteID, &stateObservationID, &preferenceObservationID, &complete, &missingReason, &fxPreferenceObservationID, &trackingMode); err != nil {
+			return err
 		}
-		parsedID, err := domain.ParseDailyValuationSnapshotItemID(id)
+		index, ok := indexByID[snapshotID]
+		if !ok {
+			continue
+		}
+		parsedSnapshot, err := domain.ParseDailyValuationSnapshotID(snapshotID)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		parsedAccount, err := domain.ParseAccountID(accountID)
+		item, err := scanDailyValuationSnapshotItem(id, parsedSnapshot, accountID, holdingID, instrumentID, nativeAmount, nativeCurrency, baseAmount, rowBaseCurrency, quoteID, fxQuoteID, stateObservationID, preferenceObservationID, complete, missingReason, fxPreferenceObservationID, trackingMode, currencies[snapshotID])
 		if err != nil {
-			return nil, err
+			return err
 		}
-		item := domain.DailyValuationSnapshotItem{ID: parsedID, SnapshotID: snapshotID, AccountID: parsedAccount, Complete: complete != 0}
-		if holdingID.Valid && holdingID.String != "" {
-			value, parseErr := domain.ParseHoldingID(holdingID.String)
-			if parseErr != nil {
-				return nil, parseErr
-			}
-			item.HoldingID = &value
-		}
-		if instrumentID.Valid && instrumentID.String != "" {
-			value, parseErr := domain.ParseInstrumentID(instrumentID.String)
-			if parseErr != nil {
-				return nil, parseErr
-			}
-			item.InstrumentID = &value
-		}
-		if nativeAmount.Valid && nativeCurrency.Valid {
-			currency, parseErr := domain.ParseCurrency(nativeCurrency.String)
-			if parseErr != nil {
-				return nil, parseErr
-			}
-			item.NativeAmount, item.NativeCurrency = nativeAmount.String, currency
-			if parseErr := item.ValidateNativeAmount(); parseErr != nil {
-				return nil, parseErr
-			}
-		}
-		if baseAmount.Valid && baseAmount.String != "" {
-			currency := baseCurrency
-			if rowBaseCurrency.Valid && rowBaseCurrency.String != "" {
-				currency, err = domain.ParseCurrency(rowBaseCurrency.String)
-				if err != nil {
-					return nil, err
-				}
-			}
-			exact, parseErr := domain.ParseNativeAmount(baseAmount.String)
-			if parseErr != nil {
-				return nil, parseErr
-			}
-			item.BaseAmountExact = exact
-			parsed, parsedErr := decimal.NewFromString(exact)
-			if parsedErr != nil {
-				return nil, &domain.Error{Code: domain.ErrIntegrity, Message: "stored snapshot base amount is invalid"}
-			}
-			rounded, roundErr := domain.NewMoney(parsed, currency)
-			if roundErr != nil {
-				return nil, roundErr
-			}
-			item.BaseAmount = &rounded
-		}
-		if quoteID.Valid && quoteID.String != "" {
-			item.QuoteID = &quoteID.String
-		}
-		if fxQuoteID.Valid && fxQuoteID.String != "" {
-			item.FXQuoteID = &fxQuoteID.String
-		}
-		if stateObservationID.Valid && stateObservationID.String != "" {
-			value, parseErr := domain.ParseAccountStateObservationID(stateObservationID.String)
-			if parseErr != nil {
-				return nil, parseErr
-			}
-			item.StateObservationID = &value
-		}
-		if preferenceObservationID.Valid && preferenceObservationID.String != "" {
-			value, parseErr := domain.ParseInstrumentPreferenceObservationID(preferenceObservationID.String)
-			if parseErr != nil {
-				return nil, parseErr
-			}
-			item.PreferenceObservationID = &value
-		}
-		if fxPreferenceObservationID.Valid && fxPreferenceObservationID.String != "" {
-			value, parseErr := domain.ParseFXPreferenceObservationID(fxPreferenceObservationID.String)
-			if parseErr != nil {
-				return nil, parseErr
-			}
-			item.FXPreferenceObservationID = &value
-		}
-		if missingReason.Valid && missingReason.String != "" {
-			item.MissingReason = &missingReason.String
-		}
-		if trackingMode != string(domain.TrackingHoldings) {
-			item.ClassificationBasis = domain.ClassificationCurrentMetadataDerived
-		}
-		items = append(items, item)
+		snapshots[index].Items = append(snapshots[index].Items, item)
 	}
-	return items, rows.Err()
+	return rows.Err()
+}
+
+func scanDailyValuationSnapshotItem(id string, snapshotID domain.DailyValuationSnapshotID, accountID string, holdingID, instrumentID, nativeAmount, nativeCurrency, baseAmount, rowBaseCurrency, quoteID, fxQuoteID, stateObservationID, preferenceObservationID sql.NullString, complete int, missingReason, fxPreferenceObservationID sql.NullString, trackingMode string, baseCurrency domain.CurrencyCode) (domain.DailyValuationSnapshotItem, error) {
+	parsedID, err := domain.ParseDailyValuationSnapshotItemID(id)
+	if err != nil {
+		return domain.DailyValuationSnapshotItem{}, err
+	}
+	parsedAccount, err := domain.ParseAccountID(accountID)
+	if err != nil {
+		return domain.DailyValuationSnapshotItem{}, err
+	}
+	item := domain.DailyValuationSnapshotItem{ID: parsedID, SnapshotID: snapshotID, AccountID: parsedAccount, Complete: complete != 0}
+	if holdingID.Valid && holdingID.String != "" {
+		value, parseErr := domain.ParseHoldingID(holdingID.String)
+		if parseErr != nil {
+			return domain.DailyValuationSnapshotItem{}, parseErr
+		}
+		item.HoldingID = &value
+	}
+	if instrumentID.Valid && instrumentID.String != "" {
+		value, parseErr := domain.ParseInstrumentID(instrumentID.String)
+		if parseErr != nil {
+			return domain.DailyValuationSnapshotItem{}, parseErr
+		}
+		item.InstrumentID = &value
+	}
+	if nativeAmount.Valid && nativeCurrency.Valid {
+		currency, parseErr := domain.ParseCurrency(nativeCurrency.String)
+		if parseErr != nil {
+			return domain.DailyValuationSnapshotItem{}, parseErr
+		}
+		item.NativeAmount, item.NativeCurrency = nativeAmount.String, currency
+		if parseErr := item.ValidateNativeAmount(); parseErr != nil {
+			return domain.DailyValuationSnapshotItem{}, parseErr
+		}
+	}
+	if baseAmount.Valid && baseAmount.String != "" {
+		currency := baseCurrency
+		if rowBaseCurrency.Valid && rowBaseCurrency.String != "" {
+			currency, err = domain.ParseCurrency(rowBaseCurrency.String)
+			if err != nil {
+				return domain.DailyValuationSnapshotItem{}, err
+			}
+		}
+		exact, parseErr := domain.ParseNativeAmount(baseAmount.String)
+		if parseErr != nil {
+			return domain.DailyValuationSnapshotItem{}, parseErr
+		}
+		item.BaseAmountExact = exact
+		parsed, parsedErr := decimal.NewFromString(exact)
+		if parsedErr != nil {
+			return domain.DailyValuationSnapshotItem{}, &domain.Error{Code: domain.ErrIntegrity, Message: "stored snapshot base amount is invalid"}
+		}
+		rounded, roundErr := domain.NewMoney(parsed, currency)
+		if roundErr != nil {
+			return domain.DailyValuationSnapshotItem{}, roundErr
+		}
+		item.BaseAmount = &rounded
+	}
+	if quoteID.Valid && quoteID.String != "" {
+		item.QuoteID = &quoteID.String
+	}
+	if fxQuoteID.Valid && fxQuoteID.String != "" {
+		item.FXQuoteID = &fxQuoteID.String
+	}
+	if stateObservationID.Valid && stateObservationID.String != "" {
+		value, parseErr := domain.ParseAccountStateObservationID(stateObservationID.String)
+		if parseErr != nil {
+			return domain.DailyValuationSnapshotItem{}, parseErr
+		}
+		item.StateObservationID = &value
+	}
+	if preferenceObservationID.Valid && preferenceObservationID.String != "" {
+		value, parseErr := domain.ParseInstrumentPreferenceObservationID(preferenceObservationID.String)
+		if parseErr != nil {
+			return domain.DailyValuationSnapshotItem{}, parseErr
+		}
+		item.PreferenceObservationID = &value
+	}
+	if fxPreferenceObservationID.Valid && fxPreferenceObservationID.String != "" {
+		value, parseErr := domain.ParseFXPreferenceObservationID(fxPreferenceObservationID.String)
+		if parseErr != nil {
+			return domain.DailyValuationSnapshotItem{}, parseErr
+		}
+		item.FXPreferenceObservationID = &value
+	}
+	if missingReason.Valid && missingReason.String != "" {
+		item.MissingReason = &missingReason.String
+	}
+	if trackingMode != string(domain.TrackingHoldings) {
+		item.ClassificationBasis = domain.ClassificationCurrentMetadataDerived
+	}
+	return item, nil
 }
 
 func snapshotItemStoredBaseAmount(item domain.DailyValuationSnapshotItem) any {

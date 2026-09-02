@@ -20,6 +20,16 @@ type queryer interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
+func sqlInArgs(ids []string) (string, []any) {
+	placeholders := make([]string, len(ids))
+	args := make([]any, len(ids))
+	for index, id := range ids {
+		placeholders[index] = "?"
+		args[index] = id
+	}
+	return strings.Join(placeholders, ","), args
+}
+
 func (r *Repository) ReadSnapshot(ctx context.Context, filter domain.AccountFilter) (domain.ReadSnapshot, error) {
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
