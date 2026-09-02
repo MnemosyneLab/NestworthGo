@@ -506,6 +506,9 @@ func listAccountRecords(ctx context.Context, query queryer, householdID domain.H
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
 	if len(accounts) == 0 {
 		return accounts, nil
 	}
@@ -652,19 +655,20 @@ func replaceOwnership(ctx context.Context, tx *sql.Tx, accountID domain.AccountI
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var memberID string
 		if err := rows.Scan(&memberID); err != nil {
-			_ = rows.Close()
 			return err
 		}
 		existing[memberID] = true
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return err
 	}
-	_ = rows.Close()
+	if err := rows.Close(); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM account_ownership WHERE account_id = ?`, accountID.String()); err != nil {
 		return err
 	}

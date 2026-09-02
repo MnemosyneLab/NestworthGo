@@ -136,6 +136,7 @@ func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdI
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var result []domain.DailyValuationSnapshot
 	for rows.Next() {
 		var id, localDate, cutoffAt, contentHash, currency, generationReason, createdAt string
@@ -191,7 +192,6 @@ func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdI
 		result = append(result, snapshot)
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return nil, err
 	}
 	if err := rows.Close(); err != nil {

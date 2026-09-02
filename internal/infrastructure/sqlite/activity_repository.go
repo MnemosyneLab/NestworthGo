@@ -181,6 +181,7 @@ func (r *Repository) ListActivities(ctx context.Context, householdID domain.Hous
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var activities []domain.Activity
 	for rows.Next() {
 		activity, scanErr := activityFromScanner(rows)
@@ -190,7 +191,6 @@ func (r *Repository) ListActivities(ctx context.Context, householdID domain.Hous
 		activities = append(activities, activity)
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return nil, err
 	}
 	if err := rows.Close(); err != nil {
@@ -250,17 +250,16 @@ func (r *Repository) ListActivityPage(ctx context.Context, householdID domain.Ho
 	if err != nil {
 		return domain.ActivityPage{}, err
 	}
+	defer rows.Close()
 	var activities []domain.Activity
 	for rows.Next() {
 		activity, scanErr := activityFromScanner(rows)
 		if scanErr != nil {
-			_ = rows.Close()
 			return domain.ActivityPage{}, scanErr
 		}
 		activities = append(activities, activity)
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return domain.ActivityPage{}, err
 	}
 	if err := rows.Close(); err != nil {
@@ -296,17 +295,16 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var activities []domain.Activity
 	for rows.Next() {
 		activity, scanErr := activityFromScanner(rows)
 		if scanErr != nil {
-			_ = rows.Close()
 			return nil, scanErr
 		}
 		activities = append(activities, activity)
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return nil, err
 	}
 	if err := rows.Close(); err != nil {

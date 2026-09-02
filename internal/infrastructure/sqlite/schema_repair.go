@@ -50,20 +50,21 @@ func rewriteAccountsCheckFragment(ctx context.Context, database *sql.DB, from, t
 	if err != nil {
 		return err
 	}
+	defer indexRows.Close()
 	indexSQL := make([]string, 0, 4)
 	for indexRows.Next() {
 		var statement string
 		if err := indexRows.Scan(&statement); err != nil {
-			_ = indexRows.Close()
 			return err
 		}
 		indexSQL = append(indexSQL, statement)
 	}
 	if err := indexRows.Err(); err != nil {
-		_ = indexRows.Close()
 		return err
 	}
-	_ = indexRows.Close()
+	if err := indexRows.Close(); err != nil {
+		return err
+	}
 
 	if _, err := database.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
 		return err

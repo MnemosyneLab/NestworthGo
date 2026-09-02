@@ -497,3 +497,41 @@ func TestCreateAccountMapsIllegalCombinationToDomainError(t *testing.T) {
 		t.Fatalf("domain error leaked SQL detail: %v", err)
 	}
 }
+
+func TestListActivitiesScanErrorDoesNotPinConnection(t *testing.T) {
+	database, repository, household, _, _ := seedPortfolioRepository(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	_, err := database.SQL.ExecContext(ctx, `INSERT INTO activities(id, household_id, kind, reason, effective_at, effective_local_date, created_at) VALUES(?, ?, 'cash_in', 'contribution', ?, ?, ?)`,
+		"bad", household.ID.String(), "2026-08-23T12:00:00.000Z", "2026-08-23", "2026-08-23T12:00:00.000Z")
+	if err != nil {
+		t.Fatalf("insert malformed activity: %v", err)
+	}
+	_, err = repository.ListActivities(ctx, household.ID, 10)
+	if err == nil {
+		t.Fatal("ListActivities accepted a malformed activity id")
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("scan error pinned the one-connection pool: %v", err)
+	}
+	if _, err := repository.Household(ctx); err != nil {
+		t.Fatalf("Household after scan error: %v", err)
+	}
+	members, err := repository.ListMembers(ctx, true)
+	if err != nil {
+		t.Fatalf("ListMembers after scan error: %v", err)
+	}
+	if len(members) == 0 {
+		t.Fatal("expected members after scan error")
+	}
+	page, err := repository.ListActivityPage(ctx, household.ID, domain.ActivityQuery{Limit: 10})
+	if err == nil {
+		t.Fatalf("ListActivityPage accepted a malformed activity id: %+v", page)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("paged scan error pinned the one-connection pool: %v", err)
+	}
+	if _, err := repository.Household(ctx); err != nil {
+		t.Fatalf("Household after paged scan error: %v", err)
+	}
+}

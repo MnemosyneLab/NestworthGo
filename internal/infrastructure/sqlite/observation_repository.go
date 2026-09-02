@@ -36,6 +36,7 @@ func listAccountStateObservationsQuery(ctx context.Context, query queryer, house
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	observations := make([]domain.AccountStateObservation, 0)
 	for rows.Next() {
 		var id, accountID, effectiveAt, createdAt string
@@ -75,7 +76,6 @@ func listAccountStateObservationsQuery(ctx context.Context, query queryer, house
 		observations = append(observations, domain.AccountStateObservation{ID: parsedID, AccountID: parsedAccount, EffectiveAt: effective.UTC(), ArchivedAt: archived, IncludeInNetWorth: includeNetWorth != 0, IncludeInPortfolio: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, ActivityID: parsedActivity, CreatedAt: created.UTC()})
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return nil, err
 	}
 	if err := rows.Close(); err != nil {
@@ -89,11 +89,11 @@ func listAccountStateObservationsQuery(ctx context.Context, query queryer, house
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var observationID, memberID string
 		var shareBPS int
 		if err := rows.Scan(&observationID, &memberID, &shareBPS); err != nil {
-			_ = rows.Close()
 			return nil, err
 		}
 		index, ok := indices[domain.AccountStateObservationID(observationID)]
@@ -102,13 +102,11 @@ func listAccountStateObservationsQuery(ctx context.Context, query queryer, house
 		}
 		parsedMember, err := domain.ParseMemberID(memberID)
 		if err != nil {
-			_ = rows.Close()
 			return nil, err
 		}
 		observations[index].Ownership = append(observations[index].Ownership, domain.OwnershipShare{MemberID: parsedMember, ShareBPS: shareBPS})
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return nil, err
 	}
 	if err := rows.Close(); err != nil {

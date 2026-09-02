@@ -239,13 +239,13 @@ func verifyTable(ctx context.Context, query schemaQuery, table string, expected 
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	actual := make([]schemaColumn, 0, len(expected))
 	for rows.Next() {
 		var cid, notNull, primaryKey int
 		var name, typeName string
 		var defaultValue sql.NullString
 		if err := rows.Scan(&cid, &name, &typeName, &notNull, &defaultValue, &primaryKey); err != nil {
-			_ = rows.Close()
 			return err
 		}
 		value := ""
@@ -255,10 +255,11 @@ func verifyTable(ctx context.Context, query schemaQuery, table string, expected 
 		actual = append(actual, schemaColumn{name: name, typeName: strings.ToUpper(strings.TrimSpace(typeName)), notNull: notNull, defaultVal: value, primaryKey: primaryKey})
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return err
 	}
-	_ = rows.Close()
+	if err := rows.Close(); err != nil {
+		return err
+	}
 	if len(actual) != len(expected) {
 		return fmt.Errorf("table %s has %d columns, want %d", table, len(actual), len(expected))
 	}
@@ -302,12 +303,12 @@ func verifyIndex(ctx context.Context, query schemaQuery, expected expectedIndex)
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	found := false
 	for rows.Next() {
 		var sequence, unique, partial int
 		var name, origin string
 		if err := rows.Scan(&sequence, &name, &unique, &origin, &partial); err != nil {
-			_ = rows.Close()
 			return err
 		}
 		if name != expected.name {
@@ -315,15 +316,15 @@ func verifyIndex(ctx context.Context, query schemaQuery, expected expectedIndex)
 		}
 		found = true
 		if unique != expected.unique || partial != expected.partial {
-			_ = rows.Close()
 			return fmt.Errorf("index %s definition flags are unique=%d partial=%d, want unique=%d partial=%d", expected.name, unique, partial, expected.unique, expected.partial)
 		}
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return err
 	}
-	_ = rows.Close()
+	if err := rows.Close(); err != nil {
+		return err
+	}
 	if !found {
 		return fmt.Errorf("required index %s is missing from %s", expected.name, expected.table)
 	}
@@ -332,29 +333,29 @@ func verifyIndex(ctx context.Context, query schemaQuery, expected expectedIndex)
 	if err != nil {
 		return err
 	}
+	defer indexRows.Close()
 	actualColumns := make([]expectedIndexColumn, 0, len(expected.columns))
 	for indexRows.Next() {
 		var sequence, cid, descending, key int
 		var name sql.NullString
 		var collation string
 		if err := indexRows.Scan(&sequence, &cid, &name, &descending, &collation, &key); err != nil {
-			_ = indexRows.Close()
 			return err
 		}
 		if key == 0 {
 			continue
 		}
 		if !name.Valid {
-			_ = indexRows.Close()
 			return fmt.Errorf("index %s contains an unnamed key column", expected.name)
 		}
 		actualColumns = append(actualColumns, expectedIndexColumn{name: name.String, desc: descending})
 	}
 	if err := indexRows.Err(); err != nil {
-		_ = indexRows.Close()
 		return err
 	}
-	_ = indexRows.Close()
+	if err := indexRows.Close(); err != nil {
+		return err
+	}
 	if len(actualColumns) != len(expected.columns) {
 		return fmt.Errorf("index %s has %d key columns, want %d", expected.name, len(actualColumns), len(expected.columns))
 	}
@@ -380,21 +381,22 @@ func verifyForeignKeys(ctx context.Context, query schemaQuery, expected expected
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	actual := make(map[string]bool)
 	for rows.Next() {
 		var id, sequence int
 		var table, from, to, onUpdate, onDelete, match string
 		if err := rows.Scan(&id, &sequence, &table, &from, &to, &onUpdate, &onDelete, &match); err != nil {
-			_ = rows.Close()
 			return err
 		}
 		actual[foreignKeyKey(table, from, to, onDelete)] = true
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return err
 	}
-	_ = rows.Close()
+	if err := rows.Close(); err != nil {
+		return err
+	}
 	want := foreignKeyKey(expected.refTable, expected.from, expected.to, expected.onDelete)
 	if !actual[want] {
 		return fmt.Errorf("table %s is missing foreign key %s.%s -> %s.%s ON DELETE %s", expected.table, expected.table, expected.from, expected.refTable, expected.to, expected.onDelete)
