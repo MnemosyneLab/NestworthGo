@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -168,4 +169,38 @@ func mustMemberID(t *testing.T, app *application.Service) domain.MemberID {
 		t.Fatalf("bootstrap: %v", err)
 	}
 	return bootstrap.Members[0].ID
+}
+
+func TestCSVSessionExpiresAndEvicts(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "accounts.csv")
+	if err := os.WriteFile(path, []byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-08-01,Alice:100%\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	clock := time.Date(2026, 9, 2, 12, 0, 0, 0, time.UTC)
+	service := NewService(nil, nil, nil, memoryDialogs{open: path}, nil)
+	service.now = func() time.Time { return clock }
+	first, err := service.SelectCSV("accounts", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock = clock.Add(time.Second)
+	if _, err := service.SelectCSV("accounts", ""); err != nil {
+		t.Fatal(err)
+	}
+	clock = clock.Add(time.Second)
+	if _, err := service.SelectCSV("accounts", ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.PreviewCSV(CSVOptionsRequest{Token: first.Token, Profile: "accounts", DateFormat: "iso", DecimalSep: ".", GroupingSep: "none"}); err == nil {
+		t.Fatal("expected evicted CSV token to fail")
+	}
+	clock = clock.Add(pendingCSVTTL)
+	latest, err := service.SelectCSV("accounts", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	clock = clock.Add(pendingCSVTTL)
+	if _, err := service.PreviewCSV(CSVOptionsRequest{Token: latest.Token, Profile: "accounts", DateFormat: "iso", DecimalSep: ".", GroupingSep: "none"}); err == nil {
+		t.Fatal("expected expired CSV token to fail")
+	}
 }

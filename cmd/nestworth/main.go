@@ -147,10 +147,17 @@ func run() error {
 	if hasSchema {
 		appService = wailsapp.NewServiceWithSchema(startupErr, foundSchema, supportedSchema)
 	}
+	recoveryService := wailsrecovery.NewService(databasePath, service, store, platform, platform, refreshGate(marketdataService))
+	defer recoveryService.Shutdown()
+	var dataService *wailsdata.Service
+	if service != nil {
+		dataService = wailsdata.NewService(service, store, database, platform, marketdataService)
+		defer dataService.Shutdown()
+	}
 	app := application.New(application.Options{
 		Name:        version.Name,
 		Description: version.Description,
-		Services:    services(service, store, database, databasePath, emitter, platform, marketdataService, appService),
+		Services:    services(service, store, recoveryService, dataService, marketdataService, appService),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(webassets.Dist),
 		},
@@ -195,18 +202,17 @@ func run() error {
 // only AppService and CatalogService are registered so the frontend can
 // render BlockedStartupPage from Startup() without calling unregistered
 // services. Catalog is always available because it is a static vocabulary.
-func services(service *nestworthapp.Service, store *settings.Store, database *sqlite.DB, databasePath string, emitter wailsmarketdata.EventEmitter, platform *lazyPlatform, marketdataService *wailsmarketdata.Service, appService *wailsapp.Service) []application.Service {
-	recovery := wailsrecovery.NewService(databasePath, service, store, platform, platform, refreshGate(marketdataService))
+func services(service *nestworthapp.Service, store *settings.Store, recovery *wailsrecovery.Service, data *wailsdata.Service, marketdataService *wailsmarketdata.Service, appService *wailsapp.Service) []application.Service {
 	registered := []application.Service{
 		application.NewService(appService),
 		application.NewService(wailscatalog.NewService()),
 		application.NewService(recovery),
 	}
-	if service == nil {
+	if service == nil || data == nil {
 		return registered
 	}
 	if marketdataService == nil {
-		marketdataService = wailsmarketdata.NewService(service, emitter)
+		marketdataService = wailsmarketdata.NewService(service, nil)
 	}
 	return append(registered,
 		application.NewService(wailshousehold.NewService(service)),
@@ -220,7 +226,7 @@ func services(service *nestworthapp.Service, store *settings.Store, database *sq
 		application.NewService(wailshistory.NewService(service)),
 		application.NewService(marketdataService),
 		application.NewService(wailssettings.NewService(store, service)),
-		application.NewService(wailsdata.NewService(service, store, database, platform, marketdataService)),
+		application.NewService(data),
 	)
 }
 
@@ -237,7 +243,7 @@ func persistWindowSize(store *settings.Store, window *application.WebviewWindow)
 		return
 	}
 	if err := persistWindowSizeValue(store, width, height); err != nil {
-		slog.Warn("could not persist window size", "error", err)
+		slog.Warn("could not persist window size")
 	}
 }
 
@@ -256,7 +262,7 @@ func persistWindowSizeValue(store *settings.Store, width, height int) error {
 	preference.WindowWidth = float32(width)
 	preference.WindowHeight = float32(height)
 	if err := preference.Validate(); err != nil {
-		slog.Warn("window size out of persisted bounds; not saving", "error", err, "width", width, "height", height)
+		slog.Warn("window size out of persisted bounds; not saving")
 		return err
 	}
 	return store.Save(preference)

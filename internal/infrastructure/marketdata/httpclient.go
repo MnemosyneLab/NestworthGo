@@ -114,7 +114,27 @@ func (c *providerHTTPClient) doFetch(ctx context.Context, requestURL *url.URL, p
 // before it is folded into the static "provider is unavailable" message shown
 // to users.
 func logProviderRootCause(err error) {
-	slog.Debug("marketdata: provider transport failure", "err", err)
+	slog.Debug("marketdata: provider transport failure", "kind", sanitizeProviderError(err))
+}
+
+func sanitizeProviderError(err error) string {
+	if err == nil {
+		return "none"
+	}
+	if errors.Is(err, context.Canceled) {
+		return "canceled"
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return "deadline"
+	}
+	var urlErr *url.Error
+	if errors.As(err, &urlErr) {
+		if urlErr.Timeout() {
+			return "timeout"
+		}
+		return "transport"
+	}
+	return "unavailable"
 }
 
 func providerResponseTooLarge() error {

@@ -1,10 +1,13 @@
 package settings
 
 import (
+	"bytes"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -218,5 +221,40 @@ func TestStoreRoundTripPersistsWindowSize(t *testing.T) {
 	}
 	if got.WindowWidth != 1440 || got.WindowHeight != 900 {
 		t.Fatalf("Load() window size = %vx%v, want 1440x900", got.WindowWidth, got.WindowHeight)
+	}
+}
+
+func TestLoadSalvageLogsOmitPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "secret-dir", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	value := Default()
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(encoded, &payload); err != nil {
+		t.Fatal(err)
+	}
+	payload["appearance"] = "not-a-real-appearance"
+	rewritten, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, rewritten, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	previous := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	if _, err := NewStore(path).Load(); err != nil {
+		t.Fatal(err)
+	}
+	logged := buf.String()
+	if strings.Contains(logged, path) || strings.Contains(logged, "secret-dir") {
+		t.Fatalf("settings log leaked path: %s", logged)
 	}
 }

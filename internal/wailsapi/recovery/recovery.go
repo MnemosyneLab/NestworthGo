@@ -19,6 +19,15 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
 )
 
+const (
+	// pendingRestoreTTL is the documented lifetime of a Restore preview token
+	// and its staged package. Inspect, confirm, and shutdown expire entries
+	// that are older than this.
+	pendingRestoreTTL         = 15 * time.Minute
+	maxPendingRestoreSessions = 2
+	maxPendingRestoreBytes    = backup.MaxMemberBytes
+)
+
 type Service struct {
 	liveDBPath string
 	app        *application.Service
@@ -26,14 +35,18 @@ type Service struct {
 	dialogs    native.Dialogs
 	quit       native.Quitter
 	refresh    native.RefreshGate
+	now        func() time.Time
 
 	mu      sync.Mutex
 	pending map[string]pendingRestore
 }
 
 type pendingRestore struct {
-	pkg      backup.Package
-	fileName string
+	stagedPath  string
+	fileName    string
+	fingerprint string
+	createdAt   time.Time
+	sizeBytes   int64
 }
 
 func NewService(liveDBPath string, app *application.Service, store *settings.Store, dialogs native.Dialogs, quit native.Quitter, refresh native.RefreshGate) *Service {
@@ -46,7 +59,7 @@ func NewService(liveDBPath string, app *application.Service, store *settings.Sto
 	if refresh == nil {
 		refresh = native.NoopRefresh{}
 	}
-	return &Service{liveDBPath: liveDBPath, app: app, store: store, dialogs: dialogs, quit: quit, refresh: refresh, pending: map[string]pendingRestore{}}
+	return &Service{liveDBPath: liveDBPath, app: app, store: store, dialogs: dialogs, quit: quit, refresh: refresh, now: time.Now, pending: map[string]pendingRestore{}}
 }
 
 type RestorePreviewDTO struct {
@@ -136,7 +149,27 @@ func (s *Service) InspectBackup() (RestorePreviewDTO, error) {
 		}
 	}
 	s.mu.Lock()
-	s.pending[dto.Token] = pendingRestore{pkg: pkg, fileName: dto.FileName}
+	s.expireLocked(s.clock())
+	if err := s.retainLocked(int64(len(pkg.Database))); err != nil {
+		s.mu.Unlock()
+		return RestorePreviewDTO{}, apierror.Wrap(err)
+	}
+	stagedPath := filepath.Join(dir, ".nestworth-restore-"+dto.Token+backup.FileExt)
+	if err := backup.WritePackage(stagedPath, pkg); err != nil {
+		s.mu.Unlock()
+		return RestorePreviewDTO{}, apierror.Wrap(err)
+	}
+	fingerprint := ""
+	if meta, ok := pkg.Manifest.Members[backup.MemberDatabase]; ok {
+		fingerprint = meta.SHA256
+	}
+	s.pending[dto.Token] = pendingRestore{
+		stagedPath:  stagedPath,
+		fileName:    dto.FileName,
+		fingerprint: fingerprint,
+		createdAt:   s.clock(),
+		sizeBytes:   int64(len(pkg.Database)),
+	}
 	s.mu.Unlock()
 	return dto, nil
 }
@@ -159,6 +192,7 @@ func (s *Service) ConfirmRestore(request RestoreConfirmRequest) (RestoreResultDT
 		return RestoreResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrBackupRestoreConfirmation, Message: "restore confirmation is required"})
 	}
 	s.mu.Lock()
+	s.expireLocked(s.clock())
 	pending, ok := s.pending[request.Token]
 	if ok {
 		delete(s.pending, request.Token)
@@ -167,9 +201,17 @@ func (s *Service) ConfirmRestore(request RestoreConfirmRequest) (RestoreResultDT
 	if !ok {
 		return RestoreResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrNotFound, Message: "restore preview expired"})
 	}
+	defer os.Remove(pending.stagedPath)
+	pkg, err := backup.ReadPackage(pending.stagedPath)
+	if err != nil {
+		return RestoreResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrNotFound, Message: "restore preview expired"})
+	}
+	if meta, ok := pkg.Manifest.Members[backup.MemberDatabase]; !ok || !strings.EqualFold(meta.SHA256, pending.fingerprint) {
+		return RestoreResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrBackupChecksumFailed, Message: "restore preview expired"})
+	}
 	if s.app == nil {
 		s.refresh.CancelAllAndWait()
-		err := backup.InstallRestore(context.Background(), s.liveDBPath, pending.pkg, &backup.SessionHooks{}, backup.RestoreClasses{
+		err := backup.InstallRestore(context.Background(), s.liveDBPath, pkg, &backup.SessionHooks{}, backup.RestoreClasses{
 			Chrome: request.RestoreChrome, Format: request.RestoreFormat, Routing: request.RestoreRouting,
 		}, time.Now())
 		if err != nil {
@@ -179,7 +221,7 @@ func (s *Service) ConfirmRestore(request RestoreConfirmRequest) (RestoreResultDT
 		return RestoreResultDTO{RestartRequired: true}, nil
 	}
 	var result RestoreResultDTO
-	err := s.app.WithExclusiveKeep(context.Background(), application.ExclusiveRestore, func(ctx context.Context) (bool, error) {
+	err = s.app.WithExclusiveKeep(context.Background(), application.ExclusiveRestore, func(ctx context.Context) (bool, error) {
 		s.refresh.CancelAllAndWait()
 		var unlocked bool
 		unlock := func() {
@@ -200,7 +242,7 @@ func (s *Service) ConfirmRestore(request RestoreConfirmRequest) (RestoreResultDT
 			}
 			return closeErr
 		}
-		installErr := backup.InstallRestore(ctx, s.liveDBPath, pending.pkg, hooks, backup.RestoreClasses{
+		installErr := backup.InstallRestore(ctx, s.liveDBPath, pkg, hooks, backup.RestoreClasses{
 			Chrome: request.RestoreChrome, Format: request.RestoreFormat, Routing: request.RestoreRouting,
 		}, time.Now())
 		if installErr != nil {
@@ -235,4 +277,74 @@ func randomSuffix() string {
 	var entropy [8]byte
 	_, _ = rand.Read(entropy[:])
 	return hex.EncodeToString(entropy[:])
+}
+
+func (s *Service) clock() time.Time {
+	if s != nil && s.now != nil {
+		return s.now()
+	}
+	return time.Now()
+}
+
+// Shutdown deletes staged Restore packages. It is safe to call more than once.
+func (s *Service) Shutdown() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for token := range s.pending {
+		s.dropLocked(token)
+	}
+}
+
+func (s *Service) expireLocked(now time.Time) {
+	for token, pending := range s.pending {
+		if now.Sub(pending.createdAt) >= pendingRestoreTTL {
+			s.dropLocked(token)
+		}
+	}
+}
+
+func (s *Service) retainLocked(extraBytes int64) error {
+	for {
+		if len(s.pending) < maxPendingRestoreSessions && s.pendingBytesLocked()+extraBytes <= maxPendingRestoreBytes {
+			return nil
+		}
+		if len(s.pending) == 0 {
+			return &domain.Error{Code: domain.ErrUnavailable, Message: "restore preview could not be retained"}
+		}
+		s.dropLocked(oldestPendingToken(s.pending))
+	}
+}
+
+func (s *Service) pendingBytesLocked() int64 {
+	var total int64
+	for _, pending := range s.pending {
+		total += pending.sizeBytes
+	}
+	return total
+}
+
+func (s *Service) dropLocked(token string) {
+	pending, ok := s.pending[token]
+	if !ok {
+		return
+	}
+	delete(s.pending, token)
+	if pending.stagedPath != "" {
+		_ = os.Remove(pending.stagedPath)
+	}
+}
+
+func oldestPendingToken(pending map[string]pendingRestore) string {
+	var token string
+	var created time.Time
+	for key, item := range pending {
+		if token == "" || item.createdAt.Before(created) {
+			token = key
+			created = item.createdAt
+		}
+	}
+	return token
 }

@@ -292,13 +292,12 @@ func (s *Store) Load() (Settings, error) {
 	}
 	repaired := salvage(loaded, defaults)
 	if err := repaired.Validate(); err != nil {
-		slog.Error("settings salvage still produced invalid settings; using defaults", "path", s.Path, "error", err)
+		slog.Error("settings salvage still produced invalid settings; using defaults")
 		return defaults, nil
 	}
 	if repaired != loaded {
 		slog.Warn("settings file contained invalid values; reset individual fields to defaults",
-			"path", s.Path,
-			"reset", strings.Join(changedFieldNames(loaded, repaired), ", "))
+			"fields", strings.Join(changedFieldNames(loaded, repaired), ", "))
 	}
 	return repaired, nil
 }

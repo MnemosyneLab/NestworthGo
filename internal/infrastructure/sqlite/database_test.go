@@ -84,6 +84,50 @@ func TestOpenReopensCurrentDatabaseWithoutMigrationStatus(t *testing.T) {
 	}
 }
 
+func TestOpenEnforcesRestrictiveDatabaseMode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mode.db")
+	assertMode := func(file string, required bool) {
+		t.Helper()
+		info, statErr := os.Stat(file)
+		if statErr != nil {
+			if !required && errors.Is(statErr, os.ErrNotExist) {
+				return
+			}
+			t.Fatal(statErr)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("%s perm = %o, want 0600", filepath.Base(file), info.Mode().Perm())
+		}
+	}
+	database, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMode(path, true)
+	assertMode(path+"-wal", true)
+	assertMode(path+"-shm", false)
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path + "-wal"); err == nil {
+		if err := os.Chmod(path+"-wal", 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	assertMode(path, true)
+	assertMode(path+"-wal", true)
+	assertMode(path+"-shm", false)
+}
+
 func TestOpenRejectsLegacyDatabaseWithoutWriting(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "legacy.db")
 	legacy, err := sql.Open("sqlite", path)

@@ -2,8 +2,10 @@ package main
 
 import (
 	"bytes"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/settings"
@@ -84,5 +86,24 @@ func TestPersistWindowSizeValueSkipsWriteWhenSettingsLoadFails(t *testing.T) {
 	}
 	if !bytes.Equal(after, before) {
 		t.Fatal("persistWindowSizeValue() replaced settings after load failure")
+	}
+}
+
+func TestPersistWindowSizeLogsOmitErrorAndPath(t *testing.T) {
+	var buf bytes.Buffer
+	previous := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(previous) })
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	path := filepath.Join(t.TempDir(), "settings.json")
+	store := settings.NewStore(path)
+	if err := store.Save(settings.Default()); err != nil {
+		t.Fatal(err)
+	}
+	if err := persistWindowSizeValue(store, int(settings.MaxWindowWidth)+1, 900); err == nil {
+		t.Fatal("expected invalid window size to fail")
+	}
+	logged := buf.String()
+	if strings.Contains(logged, path) || strings.Contains(logged, "error=") || strings.Contains(logged, "width=") {
+		t.Fatalf("log leaked forbidden fields: %s", logged)
 	}
 }

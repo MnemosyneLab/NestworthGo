@@ -155,6 +155,16 @@ func Open(path string) (*DB, error) {
 		if _, err := database.ExecContext(context.Background(), "PRAGMA journal_mode = WAL"); err != nil {
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
+		tx, err := database.BeginTx(context.Background(), nil)
+		if err != nil {
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+		}
+		if err := tx.Commit(); err != nil {
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+		}
+		if err := restrictLiveDatabaseFiles(path); err != nil {
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+		}
 	}
 	return &DB{SQL: database, Path: path, Status: StatusReady}, nil
 }
@@ -224,4 +234,20 @@ func fileSize(path string) int64 {
 		return 0
 	}
 	return info.Size()
+}
+
+// restrictLiveDatabaseFiles enforces 0600 on the live database and its
+// app-owned WAL/SHM sidecars after Open has confirmed the path is the
+// Nestworth database. Missing sidecars are ignored; the parent directory is
+// already created 0700.
+func restrictLiveDatabaseFiles(path string) error {
+	if path == "" || path == ":memory:" {
+		return nil
+	}
+	for _, file := range []string{path, path + "-wal", path + "-shm"} {
+		if err := os.Chmod(file, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	return nil
 }

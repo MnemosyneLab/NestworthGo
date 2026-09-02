@@ -29,6 +29,7 @@ type Service struct {
 	dialogs  native.Dialogs
 	refresh  native.RefreshGate
 	database *sqlite.DB
+	now      func() time.Time
 
 	mu       sync.Mutex
 	sessions map[string]*csvSession
@@ -44,7 +45,15 @@ type csvSession struct {
 	holdingsMapping map[string]string
 	previewOK       bool
 	confirmed       bool
+	createdAt       time.Time
+	sizeBytes       int64
 }
+
+const (
+	pendingCSVTTL         = 15 * time.Minute
+	maxPendingCSVSessions = 2
+	maxPendingCSVBytes    = csvcodec.MaxFileBytes * 2
+)
 
 func NewService(app *application.Service, store *settings.Store, database *sqlite.DB, dialogs native.Dialogs, refresh native.RefreshGate) *Service {
 	if dialogs == nil {
@@ -53,7 +62,7 @@ func NewService(app *application.Service, store *settings.Store, database *sqlit
 	if refresh == nil {
 		refresh = native.NoopRefresh{}
 	}
-	return &Service{app: app, store: store, database: database, dialogs: dialogs, refresh: refresh, sessions: map[string]*csvSession{}}
+	return &Service{app: app, store: store, database: database, dialogs: dialogs, refresh: refresh, now: time.Now, sessions: map[string]*csvSession{}}
 }
 
 type BackupStatusDTO struct {
@@ -275,10 +284,19 @@ func (s *Service) SelectCSV(profile, sessionToken string) (CSVFileDTO, error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.expireCSVLocked(s.clock())
 	token := sessionToken
 	if token == "" {
+		if err := s.retainCSVLocked(info.Size()); err != nil {
+			return CSVFileDTO{}, apierror.Wrap(err)
+		}
 		token = newCSVToken()
-		s.sessions[token] = &csvSession{options: application.CSVParseOptions{Delimiter: rune(delimiter), DateFormat: application.CSVDateISO, DecimalSep: ".", GroupingSep: "none"}, accountsMapping: map[string]string{}, holdingsMapping: map[string]string{}}
+		s.sessions[token] = &csvSession{
+			options:         application.CSVParseOptions{Delimiter: rune(delimiter), DateFormat: application.CSVDateISO, DecimalSep: ".", GroupingSep: "none"},
+			accountsMapping: map[string]string{},
+			holdingsMapping: map[string]string{},
+			createdAt:       s.clock(),
+		}
 	}
 	session := s.sessions[token]
 	if session == nil {
@@ -294,6 +312,11 @@ func (s *Service) SelectCSV(profile, sessionToken string) (CSVFileDTO, error) {
 		session.holdingsTable = &copyTable
 	default:
 		return CSVFileDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrCSVInvalidFormat, Message: "CSV profile is not supported"})
+	}
+	session.sizeBytes = csvSessionSize(session)
+	if session.sizeBytes > maxPendingCSVBytes {
+		delete(s.sessions, token)
+		return CSVFileDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrCSVLimitExceeded, Message: "CSV file exceeds the size limit"})
 	}
 	return CSVFileDTO{
 		Token: token, Profile: strings.ToLower(profile), FileName: filepath.Base(path),
@@ -335,6 +358,7 @@ func (s *Service) PreviewCSV(request CSVOptionsRequest) (CSVPreviewDTO, error) {
 		return CSVPreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
 	}
 	s.mu.Lock()
+	s.expireCSVLocked(s.clock())
 	session := s.sessions[request.Token]
 	if session == nil {
 		s.mu.Unlock()
@@ -409,6 +433,7 @@ func (s *Service) PreviewCSV(request CSVOptionsRequest) (CSVPreviewDTO, error) {
 func (s *Service) ConfirmCSV(token string) (CSVConfirmDTO, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.expireCSVLocked(s.clock())
 	session := s.sessions[token]
 	if session == nil {
 		return CSVConfirmDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrNotFound, Message: "import session expired"})
@@ -432,6 +457,7 @@ func (s *Service) CommitCSV(token string) (application.CSVPreviewStats, error) {
 		return application.CSVPreviewStats{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
 	}
 	s.mu.Lock()
+	s.expireCSVLocked(s.clock())
 	session := s.sessions[token]
 	if session == nil {
 		s.mu.Unlock()
@@ -534,6 +560,7 @@ type CSVErrorFileDTO struct {
 
 func (s *Service) DownloadCSVErrors(token string) (CSVErrorFileDTO, error) {
 	s.mu.Lock()
+	s.expireCSVLocked(s.clock())
 	session := s.sessions[token]
 	s.mu.Unlock()
 	if session == nil {
@@ -568,6 +595,91 @@ func (s *Service) CancelCSV(token string) {
 	s.mu.Lock()
 	delete(s.sessions, token)
 	s.mu.Unlock()
+}
+
+func (s *Service) Shutdown() {
+	if s == nil {
+		return
+	}
+	s.mu.Lock()
+	s.sessions = map[string]*csvSession{}
+	s.mu.Unlock()
+}
+
+func (s *Service) clock() time.Time {
+	if s != nil && s.now != nil {
+		return s.now()
+	}
+	return time.Now()
+}
+
+func (s *Service) expireCSVLocked(now time.Time) {
+	for token, session := range s.sessions {
+		if session == nil || now.Sub(session.createdAt) >= pendingCSVTTL {
+			delete(s.sessions, token)
+		}
+	}
+}
+
+func (s *Service) retainCSVLocked(extraBytes int64) error {
+	for {
+		if len(s.sessions) < maxPendingCSVSessions && s.csvBytesLocked()+extraBytes <= maxPendingCSVBytes {
+			return nil
+		}
+		if len(s.sessions) == 0 {
+			return &domain.Error{Code: domain.ErrCSVLimitExceeded, Message: "CSV file exceeds the size limit"}
+		}
+		delete(s.sessions, oldestCSVToken(s.sessions))
+	}
+}
+
+func (s *Service) csvBytesLocked() int64 {
+	var total int64
+	for _, session := range s.sessions {
+		if session != nil {
+			total += session.sizeBytes
+		}
+	}
+	return total
+}
+
+func csvSessionSize(session *csvSession) int64 {
+	if session == nil {
+		return 0
+	}
+	var total int64
+	if session.accountsTable != nil {
+		total += int64(len(session.accountsTable.Headers))
+		for _, row := range session.accountsTable.Rows {
+			for _, cell := range row {
+				total += int64(len(cell))
+			}
+		}
+	}
+	if session.holdingsTable != nil {
+		total += int64(len(session.holdingsTable.Headers))
+		for _, row := range session.holdingsTable.Rows {
+			for _, cell := range row {
+				total += int64(len(cell))
+			}
+		}
+	}
+	return total
+}
+
+func oldestCSVToken(sessions map[string]*csvSession) string {
+	var token string
+	var created time.Time
+	for key, session := range sessions {
+		if session == nil {
+			continue
+		}
+		if token == "" || session.createdAt.Before(created) {
+			token = key
+			created = session.createdAt
+		}
+	}
+	return token
 }
 
 func delimiterName(value csvcodec.Delimiter) string {

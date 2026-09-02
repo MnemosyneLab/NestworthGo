@@ -123,7 +123,7 @@ the current code does not actually have.
 | F13 | P1 | Performance/API | Investments performs one full-snapshot `AccountGain` call per Account; Overview also fans out. | `application/gain_service.go`, `frontend/src/queries/analytics.ts`, `OverviewPage.tsx` | Open |
 | F14 | P1 | Actual UX bug | History returns a cursor but the UI never requests the next page. | `HistoryPage.tsx`, `frontend/src/queries/history.ts` | Open |
 | F15 | P1 | Integrity/debt | Optional directory IDs can be silently converted to nil; schema verification casts exact quantities through `REAL`; aggregate ownership and snapshot provenance are not fully checked at persistence boundaries. | `sqlite/repository.go`, `schema_verify.go`, snapshot/ownership writers | Resolved |
-| F16 | P1 | Privacy/hardening | Live database mode is not normalized, startup logs full paths, and pending Restore packages have no TTL/count bound. | `sqlite/database.go`, `cmd/nestworth/main.go`, `wailsapi/recovery/recovery.go` | Open |
+| F16 | P1 | Privacy/hardening | Live database mode is not normalized, startup logs full paths, and pending Restore packages have no TTL/count bound. | `sqlite/database.go`, `cmd/nestworth/main.go`, `wailsapi/recovery/recovery.go` | Resolved |
 | F17 | P1 | Performance | Activity/snapshot list hydration is per parent row; hidden pages can keep queries active. | SQLite list repositories, `frontend/src/App.tsx` | Open |
 | F18 | P2 | Architecture debt | `application.Service` is a broad facade; application imports CSV infrastructure; Wails data/recovery adapters own persistence lifecycle. | `internal/application`, `internal/wailsapi/data`, `recovery` | Open |
 | F19 | P2 | Contract/documentation debt | Activity taxonomy and cost-basis entities in architecture docs do not match stored code; `include_in_liquid_assets` has no metric consumer. | `docs/architecture`, account UI/contracts | Open |
@@ -415,6 +415,8 @@ Concurrency matrix to test:
 ### Work Package 7 — Tighten Privacy, File Modes, and Token Lifecycle
 
 **Covers:** F16 and security/privacy review items.
+
+**Progress:** F16 resolved. Live DB/WAL/SHM are forced to `0600`; logs omit paths and provider URLs; Restore/CSV previews expire, cap, and Restore stages a `0600` file instead of keeping the package in memory.
 
 Implementation steps:
 
