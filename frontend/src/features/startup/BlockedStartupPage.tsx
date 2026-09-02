@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import type { StartupDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app/models";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,11 @@ import { parseWailsError, translateWailsError, type WireError } from "@/lib/wail
 import { useInspectBackup, useConfirmRestore } from "@/queries/data";
 import { displayError } from "@/lib/display";
 import { toast } from "sonner";
+
+type BlockedStartup = StartupDTO & {
+  foundSchemaVersion?: number;
+  supportedSchemaVersion?: number;
+};
 
 export function StartupLoadingPage({ label }: { label: string }) {
   return (
@@ -30,13 +36,29 @@ export function StartupLoadingPage({ label }: { label: string }) {
   );
 }
 
+function blockedCopy(code: string | undefined, t: TFunction) {
+  switch (code) {
+    case "database_upgrade_required":
+      return { title: t("startup.upgradeTitle"), description: t("startup.upgradeDescription"), guidance: t("startup.upgradeGuidance") };
+    case "database_from_newer_version":
+      return { title: t("startup.newerTitle"), description: t("startup.newerDescription"), guidance: t("startup.newerGuidance") };
+    case "database_integrity_failed":
+      return { title: t("startup.integrityTitle"), description: t("startup.integrityDescription"), guidance: t("startup.integrityGuidance") };
+    case "database_unavailable":
+      return { title: t("startup.unavailableTitle"), description: t("startup.unavailableDescription"), guidance: t("startup.unavailableGuidance") };
+    default:
+      return { title: t("startup.blockedTitle"), description: t("startup.blockedDescription"), guidance: t("startup.readOnly") };
+  }
+}
+
 /**
  * BlockedStartupPage is shown when the local database could not be opened,
  * so business writes stay disabled. Retry
  * is "quit and relaunch" rather than an in-process reopen — Wails
- * services are constructed once at process start.
+ * services are constructed once at process start. Restore stays available
+ * in every blocked state.
  */
-export function BlockedStartupPage({ startup, failure }: { startup?: StartupDTO | null; failure?: unknown }) {
+export function BlockedStartupPage({ startup, failure }: { startup?: BlockedStartup | null; failure?: unknown }) {
   const { t } = useTranslation();
   const inspect = useInspectBackup();
   const confirmRestore = useConfirmRestore();
@@ -49,18 +71,26 @@ export function BlockedStartupPage({ startup, failure }: { startup?: StartupDTO 
     : failure && typeof failure === "object" && "wireError" in failure
       ? ((failure as Error & { wireError: WireError }).wireError ?? parseWailsError(failure))
       : parseWailsError(failure);
-  const message = startup?.code || failure ? translateWailsError(wireError) : t("startup.genericFailure");
   const diagnosticCode = startup?.code ?? wireError.code;
+  const copy = blockedCopy(diagnosticCode, t);
+  const message = startup?.code || failure ? translateWailsError(wireError) : t("startup.genericFailure");
+  const showSchema =
+    startup?.foundSchemaVersion != null && startup?.supportedSchemaVersion != null && (diagnosticCode === "database_upgrade_required" || diagnosticCode === "database_from_newer_version");
 
   return (
     <main className="flex min-h-[100dvh] w-screen items-center justify-center bg-background p-6">
       <Card className="w-full max-w-lg" role="alert">
         <CardHeader>
-          <CardTitle>{t("startup.blockedTitle")}</CardTitle>
-          <CardDescription>{t("startup.blockedDescription")}</CardDescription>
+          <CardTitle>{copy.title}</CardTitle>
+          <CardDescription>{copy.description}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <p className="text-sm text-muted-foreground">{t("startup.readOnly")}</p>
+          <p className="text-sm text-muted-foreground">{copy.guidance}</p>
+          {showSchema ? (
+            <p className="text-sm text-muted-foreground">
+              {t("startup.schemaVersion", { found: startup?.foundSchemaVersion, supported: startup?.supportedSchemaVersion })}
+            </p>
+          ) : null}
           <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{message}</p>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" onClick={() => window.location.reload()}>

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
@@ -320,6 +321,27 @@ func TestOpenRewritesLegacyCashOnHandHoldingsCheck(t *testing.T) {
 	}
 	if schemaSQLContains(got, cashOnHandBalanceOnlyCheck) {
 		t.Fatalf("reopened accounts check still has the legacy fragment: %s", got)
+	}
+}
+
+func TestBootstrapErrorSafeErrorOmitsPathAndDriverText(t *testing.T) {
+	cases := []struct {
+		status BootstrapStatus
+		want   domain.ErrorCode
+	}{
+		{StatusLegacyDatabase, domain.ErrDatabaseUpgradeRequired},
+		{StatusUnsupportedFuture, domain.ErrDatabaseFromNewerVersion},
+		{StatusIntegrityFailed, domain.ErrDatabaseIntegrityFailed},
+		{StatusUnavailable, domain.ErrDatabaseUnavailable},
+	}
+	for _, testCase := range cases {
+		err := (&BootstrapError{Status: testCase.status, Found: 7, Supported: 9, Path: "/secret/nestworth.db", Err: errors.New("sqlite: constraint failed")}).SafeError()
+		if err.Code != testCase.want || err.Field != "database" {
+			t.Fatalf("status %s SafeError = %+v, want %s", testCase.status, err, testCase.want)
+		}
+		if strings.Contains(err.Error(), "/secret") || strings.Contains(strings.ToLower(err.Error()), "sqlite") {
+			t.Fatalf("SafeError leaked technical detail: %v", err)
+		}
 	}
 }
 

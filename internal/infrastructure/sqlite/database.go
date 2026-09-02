@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
@@ -59,6 +60,24 @@ func (e *BootstrapError) Error() string {
 }
 
 func (e *BootstrapError) Unwrap() error { return e.Err }
+
+// SafeError maps a bootstrap failure to a user-facing domain error without
+// filesystem paths, SQL, or driver text.
+func (e *BootstrapError) SafeError() *domain.Error {
+	if e == nil {
+		return &domain.Error{Code: domain.ErrDatabaseUnavailable, Field: "database", Message: "the local database could not be opened"}
+	}
+	switch e.Status {
+	case StatusLegacyDatabase:
+		return &domain.Error{Code: domain.ErrDatabaseUpgradeRequired, Field: "database", Message: "this database was created by an older Nestworth version"}
+	case StatusUnsupportedFuture:
+		return &domain.Error{Code: domain.ErrDatabaseFromNewerVersion, Field: "database", Message: "this database was created by a newer Nestworth version"}
+	case StatusIntegrityFailed:
+		return &domain.Error{Code: domain.ErrDatabaseIntegrityFailed, Field: "database", Message: "the local database failed an integrity check"}
+	default:
+		return &domain.Error{Code: domain.ErrDatabaseUnavailable, Field: "database", Message: "the local database could not be opened"}
+	}
+}
 
 // DB is a single local SQLite connection pool. It is intentionally capped at
 // one writer connection to make transaction boundaries and snapshots explicit.

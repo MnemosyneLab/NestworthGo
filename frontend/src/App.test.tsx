@@ -290,13 +290,13 @@ describe("App shell smoke test", () => {
 
   it("renders the blocked-startup page when the database is unavailable", async () => {
     await i18n.changeLanguage("en");
-    startup.mockResolvedValue({ available: false, code: "unavailable", field: "database" });
+    startup.mockResolvedValue({ available: false, code: "database_unavailable", field: "database" });
     render(
       <AppProviders>
         <App />
       </AppProviders>,
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.blockedTitle"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.unavailableTitle"));
     expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
   });
 

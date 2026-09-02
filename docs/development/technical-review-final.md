@@ -116,7 +116,7 @@ the current code does not actually have.
 | F6 | P0 | Actual consistency bug | Historical gain/dividend FX requires an explicit preference while live valuation can use the default provider. | `gain_service.go`, `valuation.go` | Resolved |
 | F7 | P0 | Actual compatibility bug | Read-only backup verification rejects the accepted pre-repair v9 account CHECK shape. | `sqlite/readonly.go`, `schema_repair.go`, `schema_verify.go` | Resolved |
 | F8 | P0 | Actual resource bug | Some query loops return on scan error before closing `Rows` on a one-connection pool. | `activity_repository.go`, `observation_repository.go`, `snapshot_repository.go` | Resolved |
-| F9 | P0 | Actual recovery-contract bug | Known bootstrap states are collapsed to generic `unavailable`. | `cmd/nestworth/main.go`, `sqlite/database.go`, Wails App startup DTO/UI | Open |
+| F9 | P0 | Actual recovery-contract bug | Known bootstrap states are collapsed to generic `unavailable`. | `cmd/nestworth/main.go`, `sqlite/database.go`, Wails App startup DTO/UI | Resolved |
 | F10 | P0 | Actual concurrency/design bug | Backup/import/restore exclusivity does not cover directory, onboarding, settings, and refresh persistence writers. | `application/exclusive.go`, `service.go`, `refresh.go`, Wails data/recovery adapters | Open |
 | F11 | P1 | Financial correctness | Average cost rounds to two decimals despite an eight-decimal `UnitPrice` contract. | `internal/domain/cost_basis.go` | Resolved |
 | F12 | P1 | Accounting policy gap | Buy fees reduce cash but are not included in acquisition basis. | `internal/domain/change.go`, `cost_basis.go` | Resolved |
@@ -336,6 +336,8 @@ Acceptance criteria:
 ### Work Package 5 — Preserve Actionable Startup Recovery
 
 **Covers:** F9.
+
+**Progress:** F9 resolved.
 
 Implementation steps:
 
