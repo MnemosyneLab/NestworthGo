@@ -209,8 +209,16 @@ func portfolioPointFromSnapshot(snapshot domain.DailyValuationSnapshot, currency
 			continue
 		}
 		hasInstrument = true
-		if item.BaseAmount != nil {
-			valued = valued.Add(item.BaseAmount.Amount())
+		exact := item.BaseAmountExact
+		if exact == "" && item.BaseAmount != nil {
+			exact = item.BaseAmount.CanonicalAmount()
+		}
+		if exact != "" {
+			amount, parseErr := decimal.NewFromString(exact)
+			if parseErr != nil {
+				return domain.PortfolioTrendPoint{}, false, &domain.Error{Code: domain.ErrIntegrity, Message: "stored snapshot base amount is invalid"}
+			}
+			valued = valued.Add(amount)
 		}
 		if !item.Complete {
 			complete = false
@@ -285,6 +293,17 @@ func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, yeste
 	state, err := s.repository.DailySnapshotState(ctx, household.ID)
 	if err != nil {
 		return err
+	}
+	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, household.ID, time.Time{})
+	if err != nil {
+		return err
+	}
+	for _, snapshot := range snapshots {
+		if snapshotHashNeedsRebuild(snapshot.ContentHash) {
+			originCopy := startDate
+			state.DirtyFrom = &originCopy
+			break
+		}
 	}
 	rebuildFrom, skip, err := closedDayRebuildFrom(startDate, yesterday, state)
 	if err != nil {

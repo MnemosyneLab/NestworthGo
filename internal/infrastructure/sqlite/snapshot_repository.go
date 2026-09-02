@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -61,7 +62,10 @@ func saveDailyValuationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot doma
 		if err := item.ValidateNativeAmount(); err != nil {
 			return false, err
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshot_items(id, snapshot_id, account_id, holding_id, instrument_id, native_amount, native_currency, base_amount, base_currency, quote_id, fx_quote_id, state_observation_id, preference_observation_id, complete, missing_reason, fx_preference_observation_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.ID.String(), snapshot.ID.String(), item.AccountID.String(), nullableSnapshotHoldingID(item.HoldingID), nullableSnapshotInstrumentID(item.InstrumentID), nullableSnapshotString(item.NativeAmount), nullableSnapshotCurrency(item.NativeCurrency), nullableMoneyAmount(item.BaseAmount), snapshot.Currency.String(), nullableSnapshotStringPtr(item.QuoteID), nullableSnapshotStringPtr(item.FXQuoteID), nullableSnapshotAccountObservationID(item.StateObservationID), nullableSnapshotPreferenceObservationID(item.PreferenceObservationID), boolValue(item.Complete), nullableSnapshotStringPtr(item.MissingReason), nullableSnapshotFXPreferenceObservationID(item.FXPreferenceObservationID)); err != nil {
+		if err := item.ValidateBaseAmountExact(); err != nil {
+			return false, err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshot_items(id, snapshot_id, account_id, holding_id, instrument_id, native_amount, native_currency, base_amount, base_currency, quote_id, fx_quote_id, state_observation_id, preference_observation_id, complete, missing_reason, fx_preference_observation_id) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, item.ID.String(), snapshot.ID.String(), item.AccountID.String(), nullableSnapshotHoldingID(item.HoldingID), nullableSnapshotInstrumentID(item.InstrumentID), nullableSnapshotString(item.NativeAmount), nullableSnapshotCurrency(item.NativeCurrency), snapshotItemStoredBaseAmount(item), snapshot.Currency.String(), nullableSnapshotStringPtr(item.QuoteID), nullableSnapshotStringPtr(item.FXQuoteID), nullableSnapshotAccountObservationID(item.StateObservationID), nullableSnapshotPreferenceObservationID(item.PreferenceObservationID), boolValue(item.Complete), nullableSnapshotStringPtr(item.MissingReason), nullableSnapshotFXPreferenceObservationID(item.FXPreferenceObservationID)); err != nil {
 			return false, err
 		}
 	}
@@ -257,11 +261,20 @@ func (r *Repository) listDailyValuationSnapshotItems(ctx context.Context, snapsh
 					return nil, err
 				}
 			}
-			value, parseErr := domain.ParseMoney(baseAmount.String, currency)
+			exact, parseErr := domain.ParseNativeAmount(baseAmount.String)
 			if parseErr != nil {
 				return nil, parseErr
 			}
-			item.BaseAmount = &value
+			item.BaseAmountExact = exact
+			parsed, parsedErr := decimal.NewFromString(exact)
+			if parsedErr != nil {
+				return nil, &domain.Error{Code: domain.ErrIntegrity, Message: "stored snapshot base amount is invalid"}
+			}
+			rounded, roundErr := domain.NewMoney(parsed, currency)
+			if roundErr != nil {
+				return nil, roundErr
+			}
+			item.BaseAmount = &rounded
 		}
 		if quoteID.Valid && quoteID.String != "" {
 			item.QuoteID = &quoteID.String
@@ -299,6 +312,13 @@ func (r *Repository) listDailyValuationSnapshotItems(ctx context.Context, snapsh
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+func snapshotItemStoredBaseAmount(item domain.DailyValuationSnapshotItem) any {
+	if item.BaseAmountExact != "" {
+		return item.BaseAmountExact
+	}
+	return nullableMoneyAmount(item.BaseAmount)
 }
 
 func nullableSnapshotID(value *domain.DailyValuationSnapshotID) any {

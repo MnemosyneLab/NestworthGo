@@ -203,6 +203,7 @@ type DailyValuationSnapshotItem struct {
 	NativeAmount              string
 	NativeCurrency            CurrencyCode
 	BaseAmount                *Money
+	BaseAmountExact           string
 	QuoteID                   *string
 	FXQuoteID                 *string
 	StateObservationID        *AccountStateObservationID
@@ -220,6 +221,16 @@ func (item DailyValuationSnapshotItem) ValidateNativeAmount() error {
 		return nil
 	}
 	_, err := ParseNativeAmount(item.NativeAmount)
+	return err
+}
+
+// ValidateBaseAmountExact applies the storage contract for the canonical
+// unrounded base amount persisted in snapshot-item base_amount TEXT.
+func (item DailyValuationSnapshotItem) ValidateBaseAmountExact() error {
+	if item.BaseAmountExact == "" {
+		return nil
+	}
+	_, err := ParseNativeAmount(item.BaseAmountExact)
 	return err
 }
 
