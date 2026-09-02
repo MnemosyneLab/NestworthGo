@@ -441,17 +441,20 @@ func FromValuationComponents(values []domain.ValuationComponent) []ValuationComp
 type MissingInputDTO struct {
 	Kind             string  `json:"kind"`
 	AccountID        string  `json:"accountId"`
+	AccountName      string  `json:"accountName,omitempty"`
 	InstrumentID     *string `json:"instrumentId,omitempty"`
 	InstrumentName   string  `json:"instrumentName,omitempty"`
 	InstrumentSymbol string  `json:"instrumentSymbol,omitempty"`
+	QuoteSource      string  `json:"quoteSource,omitempty"`
 	BaseCurrency     string  `json:"baseCurrency,omitempty"`
 	QuoteCurrency    string  `json:"quoteCurrency,omitempty"`
 }
 
 func FromMissingInput(value domain.MissingInputView) MissingInputDTO {
 	dto := MissingInputDTO{
-		Kind: string(value.Kind), AccountID: value.AccountID.String(), InstrumentName: value.InstrumentName,
-		InstrumentSymbol: value.InstrumentSymbol, BaseCurrency: value.BaseCurrency.String(), QuoteCurrency: value.QuoteCurrency.String(),
+		Kind: string(value.Kind), AccountID: value.AccountID.String(), AccountName: value.AccountName,
+		InstrumentName: value.InstrumentName, InstrumentSymbol: value.InstrumentSymbol, QuoteSource: string(value.QuoteSource),
+		BaseCurrency: value.BaseCurrency.String(), QuoteCurrency: value.QuoteCurrency.String(),
 	}
 	if value.InstrumentID != nil {
 		id := value.InstrumentID.String()
@@ -808,6 +811,14 @@ func FromAccountGain(value domain.AccountGainView) AccountGainDTO {
 		RealizedGain: FromSignedMoneyView(value.RealizedGain), UnrealizedGain: FromSignedMoneyView(value.UnrealizedGain),
 		Available: value.Available, MissingReason: value.MissingReason,
 	}
+}
+
+func FromAccountGains(values []domain.AccountGainView) []AccountGainDTO {
+	result := make([]AccountGainDTO, 0, len(values))
+	for _, value := range values {
+		result = append(result, FromAccountGain(value))
+	}
+	return result
 }
 
 // GainGroupDTO mirrors domain.GainGroupView.

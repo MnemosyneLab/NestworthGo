@@ -989,6 +989,13 @@ func (s *Service) AccountGain(ctx context.Context, id domain.AccountID) (domain.
 	return s.gain.AccountGain(ctx, id)
 }
 
+// AccountGains returns cost and gain views for the requested Accounts from
+// one snapshot and one cost-basis replay. An empty ID list returns every
+// Account in the household.
+func (s *Service) AccountGains(ctx context.Context, ids []domain.AccountID) ([]domain.AccountGainView, error) {
+	return s.gain.AccountGains(ctx, ids)
+}
+
 // RealizedGainInRange returns realized gains grouped by Instrument and
 // Account for an inclusive local-date range.
 func (s *Service) RealizedGainInRange(ctx context.Context, scope domain.GainScope, from, to domain.LocalDate) (domain.RealizedGainView, error) {
@@ -1026,7 +1033,7 @@ func (s *Service) Portfolio(ctx context.Context, filter domain.AccountFilter) (d
 }
 
 func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (domain.OverviewResult, error) {
-	filter.IncludeArchived = false
+	filter.IncludeArchived = true
 	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, filter)
 	if err != nil {
 		return domain.OverviewResult{}, err
@@ -1038,7 +1045,13 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	if err != nil {
 		return domain.OverviewResult{}, err
 	}
-	result := domain.OverviewResult{Currency: snapshot.Household.BaseCurrency, AccountCount: len(snapshot.Accounts), Complete: true}
+	accountCount := 0
+	for _, record := range snapshot.Accounts {
+		if record.Account.ArchivedAt == nil {
+			accountCount++
+		}
+	}
+	result := domain.OverviewResult{Currency: snapshot.Household.BaseCurrency, AccountCount: accountCount, Complete: true}
 	assetsByType := map[string]decimal.Decimal{}
 	liabilitiesByType := map[string]decimal.Decimal{}
 	member := map[string]decimal.Decimal{}
@@ -1139,7 +1152,65 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	result.ByInstitution = makeBreakdownWithLabels(institution, result.Assets, institutionLabels)
 	result.ByGroup = makeBreakdownWithLabels(group, result.Assets, groupLabels)
 	result.ByAccountType = makeBreakdown(accountType, result.Assets)
+	if err := s.attachOverviewHeadlines(ctx, snapshot, &result); err != nil {
+		return domain.OverviewResult{}, err
+	}
 	return result, nil
+}
+
+const overviewRecentActivityLimit = 5
+
+func (s *Service) attachOverviewHeadlines(ctx context.Context, snapshot domain.PortfolioSnapshot, result *domain.OverviewResult) error {
+	result.HistoryStarted = snapshot.Origin != nil
+	accountNames := make(map[domain.AccountID]string, len(snapshot.Accounts))
+	result.AccountLabels = make([]domain.OverviewNamedRef, 0, len(snapshot.Accounts))
+	for _, record := range snapshot.Accounts {
+		accountNames[record.Account.ID] = record.Account.Name
+		result.AccountLabels = append(result.AccountLabels, domain.OverviewNamedRef{ID: record.Account.ID.String(), Name: record.Account.Name})
+	}
+	sort.Slice(result.AccountLabels, func(i, j int) bool { return result.AccountLabels[i].ID < result.AccountLabels[j].ID })
+	instrumentNames := make(map[domain.InstrumentID]string, len(snapshot.Instruments))
+	instrumentSources := make(map[domain.InstrumentID]domain.QuoteSourceKind, len(snapshot.Instruments))
+	result.InstrumentLabels = make([]domain.OverviewInstrumentRef, 0, len(snapshot.Instruments))
+	for _, instrument := range snapshot.Instruments {
+		instrumentNames[instrument.ID] = instrument.Name
+		instrumentSources[instrument.ID] = instrument.QuoteSource
+		result.InstrumentLabels = append(result.InstrumentLabels, domain.OverviewInstrumentRef{
+			ID: instrument.ID.String(), Name: instrument.Name, QuoteSource: instrument.QuoteSource,
+		})
+	}
+	sort.Slice(result.InstrumentLabels, func(i, j int) bool { return result.InstrumentLabels[i].ID < result.InstrumentLabels[j].ID })
+	result.HoldingLabels = make([]domain.OverviewHoldingRef, 0, len(snapshot.Holdings))
+	for _, holding := range snapshot.Holdings {
+		accountName := accountNames[holding.AccountID]
+		if accountName == "" {
+			accountName = holding.AccountID.String()
+		}
+		instrumentName := instrumentNames[holding.InstrumentID]
+		if instrumentName == "" {
+			instrumentName = holding.InstrumentID.String()
+		}
+		result.HoldingLabels = append(result.HoldingLabels, domain.OverviewHoldingRef{
+			ID: holding.ID.String(), AccountID: holding.AccountID.String(), InstrumentID: holding.InstrumentID.String(),
+			Name: accountName + " · " + instrumentName,
+		})
+	}
+	sort.Slice(result.HoldingLabels, func(i, j int) bool { return result.HoldingLabels[i].ID < result.HoldingLabels[j].ID })
+	for index, missing := range result.MissingInputs {
+		result.MissingInputs[index].AccountName = accountNames[missing.AccountID]
+		if missing.InstrumentID != nil {
+			result.MissingInputs[index].QuoteSource = instrumentSources[*missing.InstrumentID]
+		}
+	}
+	if snapshot.Household == nil {
+		return nil
+	}
+	activities, err := s.repository.ListActivities(ctx, snapshot.Household.ID, overviewRecentActivityLimit)
+	if err != nil {
+		return err
+	}
+	result.RecentActivities = activities
+	return nil
 }
 
 func resolveOwnership(input AccountInput) ([]domain.OwnershipShare, error) {

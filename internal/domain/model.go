@@ -783,6 +783,29 @@ type BreakdownItem struct {
 	ClassificationBasis ClassificationBasis
 }
 
+// OverviewNamedRef is a label the Overview screen needs without a second
+// directory round-trip. IDs stay opaque strings at this boundary.
+type OverviewNamedRef struct {
+	ID   string
+	Name string
+}
+
+// OverviewInstrumentRef includes quote source so Overview can distinguish
+// manual-price next steps from provider refresh without listing Instruments.
+type OverviewInstrumentRef struct {
+	ID          string
+	Name        string
+	QuoteSource QuoteSourceKind
+}
+
+// OverviewHoldingRef names a Holding as "Account · Instrument" for headlines.
+type OverviewHoldingRef struct {
+	ID           string
+	AccountID    string
+	InstrumentID string
+	Name         string
+}
+
 type OverviewResult struct {
 	Currency          CurrencyCode
 	AccountCount      int
@@ -797,6 +820,11 @@ type OverviewResult struct {
 	ByInstitution     []BreakdownItem
 	ByGroup           []BreakdownItem
 	ByAccountType     []BreakdownItem
+	HistoryStarted    bool
+	RecentActivities  []Activity
+	AccountLabels     []OverviewNamedRef
+	InstrumentLabels  []OverviewInstrumentRef
+	HoldingLabels     []OverviewHoldingRef
 }
 
 type OwnershipScope string

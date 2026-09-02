@@ -74,17 +74,16 @@ export const queryKeys = {
     all: ["portfolio"] as const,
     trend: (trendRange: string) => ["portfolio", "trend", trendRange] as const,
   },
-  analytics: {
-    all: ["analytics"] as const,
-    realizedGain: (trendRange: string) => ["analytics", "realizedGain", trendRange] as const,
-    dividendIncome: (trendRange: string) => ["analytics", "dividendIncome", trendRange] as const,
-    accountGain: {
-      all: ["analytics", "accountGain"] as const,
-      current: (accountId: string) => ["analytics", "accountGain", accountId] as const,
+    analytics: {
+      all: ["analytics"] as const,
+      realizedGain: (trendRange: string) => ["analytics", "realizedGain", trendRange] as const,
+      dividendIncome: (trendRange: string) => ["analytics", "dividendIncome", trendRange] as const,
+      accountGains: {
+        all: ["analytics", "accountGains"] as const,
+      },
+      netWorthTrend: (trendRange: string) => ["analytics", "netWorthTrend", trendRange] as const,
+      netWorthTrendPrefix: ["analytics", "netWorthTrend"] as const,
     },
-    netWorthTrend: (trendRange: string) => ["analytics", "netWorthTrend", trendRange] as const,
-    netWorthTrendPrefix: ["analytics", "netWorthTrend"] as const,
-  },
   history: {
     all: ["history"] as const,
     origin: ["history", "origin"] as const,

@@ -51,28 +51,62 @@ func (g *GainService) HoldingGain(ctx context.Context, holdingID domain.HoldingI
 }
 
 func (g *GainService) AccountGain(ctx context.Context, accountID domain.AccountID) (domain.AccountGainView, error) {
-	snapshot, err := g.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	views, err := g.AccountGains(ctx, []domain.AccountID{accountID})
 	if err != nil {
 		return domain.AccountGainView{}, err
 	}
+	return views[0], nil
+}
+
+// AccountGains returns cost/gain views for the requested Accounts from one
+// portfolio snapshot and one shared cost-basis replay. An empty ID list
+// returns every Account in the snapshot, ordered by Account ID.
+func (g *GainService) AccountGains(ctx context.Context, accountIDs []domain.AccountID) ([]domain.AccountGainView, error) {
+	snapshot, err := g.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return nil, err
+	}
 	if snapshot.Household == nil {
-		return domain.AccountGainView{}, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
-	}
-	accountExists := false
-	for _, record := range snapshot.Accounts {
-		if record.Account.ID == accountID {
-			accountExists = true
-			break
+		if len(accountIDs) > 0 {
+			return nil, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
 		}
+		return []domain.AccountGainView{}, nil
 	}
-	if !accountExists {
-		return domain.AccountGainView{}, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
+	accountsByID := make(map[domain.AccountID]struct{}, len(snapshot.Accounts))
+	for _, record := range snapshot.Accounts {
+		accountsByID[record.Account.ID] = struct{}{}
+	}
+	ids := accountIDs
+	if len(ids) == 0 {
+		ids = make([]domain.AccountID, 0, len(snapshot.Accounts))
+		for _, record := range snapshot.Accounts {
+			ids = append(ids, record.Account.ID)
+		}
+		sort.Slice(ids, func(i, j int) bool { return ids[i].String() < ids[j].String() })
+	} else {
+		for _, id := range ids {
+			if _, ok := accountsByID[id]; !ok {
+				return nil, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
+			}
+		}
 	}
 	fxQuotes, origin, err := g.gainFXInputs(ctx, snapshot)
 	if err != nil {
-		return domain.AccountGainView{}, err
+		return nil, err
 	}
 	replay := newCostBasisReplayContext(g.repository, snapshot.Holdings)
+	results := make([]domain.AccountGainView, 0, len(ids))
+	for _, accountID := range ids {
+		view, viewErr := g.accountGainFromSnapshot(ctx, snapshot, accountID, replay, fxQuotes, origin)
+		if viewErr != nil {
+			return nil, viewErr
+		}
+		results = append(results, view)
+	}
+	return results, nil
+}
+
+func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot domain.PortfolioSnapshot, accountID domain.AccountID, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin) (domain.AccountGainView, error) {
 	result := domain.AccountGainView{AccountID: accountID, Holdings: make([]domain.HoldingGainView, 0), Available: true}
 	for _, holding := range snapshot.Holdings {
 		if holding.AccountID != accountID || holding.ArchivedAt != nil {

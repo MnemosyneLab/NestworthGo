@@ -804,6 +804,100 @@ func mustMoney(t *testing.T, amount, currency string) domain.Money {
 	return money
 }
 
+type snapshotCountRepository struct {
+	Repository
+	count int
+}
+
+func (r *snapshotCountRepository) ReadPortfolioSnapshot(ctx context.Context, filter domain.AccountFilter) (domain.PortfolioSnapshot, error) {
+	r.count++
+	return r.Repository.ReadPortfolioSnapshot(ctx, filter)
+}
+
+func TestAccountGainsReadsOneSnapshotForManyAccounts(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/account-gains-batch.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repository := sqlite.NewRepository(database)
+	service := NewService(repository)
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Batch Gains", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := bootstrap.Members[0].ID
+	first, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage A", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{owner},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage B", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{owner},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: first.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: second.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-24T12:00:00Z", false); err != nil {
+		t.Fatal(err)
+	}
+
+	counter := &snapshotCountRepository{Repository: repository}
+	gain := NewGainService(counter, func() time.Time { return now })
+	views, err := gain.AccountGains(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counter.count != 1 {
+		t.Fatalf("ReadPortfolioSnapshot count = %d, want 1 for household AccountGains", counter.count)
+	}
+	if len(views) != 2 {
+		t.Fatalf("AccountGains = %d views, want 2 accounts", len(views))
+	}
+	byAccount := map[domain.AccountID]domain.AccountGainView{}
+	for _, view := range views {
+		byAccount[view.AccountID] = view
+	}
+	if len(byAccount[first.Account.ID].Holdings) != 1 || byAccount[first.Account.ID].Holdings[0].Quantity != "2" {
+		t.Fatalf("first account gain = %+v", byAccount[first.Account.ID])
+	}
+	if len(byAccount[second.Account.ID].Holdings) != 1 || byAccount[second.Account.ID].Holdings[0].Quantity != "3" {
+		t.Fatalf("second account gain = %+v", byAccount[second.Account.ID])
+	}
+
+	firstOnly, err := gain.AccountGains(ctx, []domain.AccountID{first.Account.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(firstOnly) != 1 || firstOnly[0].AccountID != first.Account.ID {
+		t.Fatalf("filtered AccountGains = %+v", firstOnly)
+	}
+	if counter.count != 2 {
+		t.Fatalf("second AccountGains snapshot count = %d, want 2 total", counter.count)
+	}
+}
+
 func findHoldingForInstrument(t *testing.T, repository Repository, accountID domain.AccountID, instrumentID domain.InstrumentID) domain.HoldingID {
 	t.Helper()
 	holdings, err := repository.ListHoldings(context.Background(), accountID, true)

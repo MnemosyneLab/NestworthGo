@@ -80,6 +80,14 @@ func TestHoldingGainAvailableAfterQuote(t *testing.T) {
 		t.Fatalf("Holdings = %+v, want 1", accountGain.Holdings)
 	}
 
+	batch, err := service.AccountGains(ctx)
+	if err != nil {
+		t.Fatalf("AccountGains: %v", err)
+	}
+	if len(batch) != 1 || len(batch[0].Holdings) != 1 || batch[0].AccountID != accountRecord.Account.ID {
+		t.Fatalf("AccountGains = %+v, want one account matching AccountGain", batch)
+	}
+
 	realized, err := service.RealizedGainInRange(ctx, analytics.GainScopeRequest{}, "2000-01-01", "2030-01-01")
 	if err != nil {
 		t.Fatalf("RealizedGainInRange: %v", err)

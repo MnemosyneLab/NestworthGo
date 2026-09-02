@@ -1,8 +1,5 @@
 import { useTranslation } from "react-i18next";
 import { useOverview } from "@/queries/portfolio";
-import { useAccounts } from "@/queries/accounts";
-import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
-import { useHistoryOrigin, useListActivities } from "@/queries/history";
 import { useSettings } from "@/queries/settings";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +12,33 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { activitySentence } from "@/features/history/activitySentence";
 import { CompositionChart } from "@/components/charts/CompositionChart";
-import type { BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+
+type OverviewMissingInput = MissingInputDTO & { accountName?: string; quoteSource?: string };
+type OverviewLabel = { id: string; name: string };
+type OverviewInstrumentLabel = OverviewLabel & { quoteSource?: string };
+type OverviewHoldingLabel = OverviewLabel & { accountId: string; instrumentId: string };
+
+type OverviewReadModel = {
+  currency: string;
+  accountCount: number;
+  complete: boolean;
+  missingInputs?: OverviewMissingInput[];
+  assets: string;
+  liabilities: string;
+  netWorth: string;
+  assetsByType?: BreakdownDTO[];
+  liabilitiesByType?: BreakdownDTO[];
+  byMember?: BreakdownDTO[];
+  byInstitution?: BreakdownDTO[];
+  byGroup?: BreakdownDTO[];
+  byAccountType?: BreakdownDTO[];
+  historyStarted?: boolean;
+  recentActivities?: ActivityDTO[];
+  accountLabels?: OverviewLabel[];
+  instrumentLabels?: OverviewInstrumentLabel[];
+  holdingLabels?: OverviewHoldingLabel[];
+};
 
 function BreakdownList({
   title,
@@ -52,13 +75,13 @@ function BreakdownList({
   );
 }
 
-function countMissing(items: MissingInputDTO[], kind: string): number {
+function countMissing(items: OverviewMissingInput[], kind: string): number {
   return items.filter((item) => item.kind === kind).length;
 }
 
 function missingItemLabel(
   t: (key: string) => string,
-  item: MissingInputDTO,
+  item: OverviewMissingInput,
   accountNames: Map<string, string>,
 ): string {
   if (item.kind === "instrument_price") {
@@ -67,7 +90,7 @@ function missingItemLabel(
   if (item.kind === "fx_rate" && (item.baseCurrency || item.quoteCurrency)) {
     return `${item.baseCurrency}/${item.quoteCurrency}`;
   }
-  return accountNames.get(item.accountId) || t("overview.unknownAccount");
+  return item.accountName || accountNames.get(item.accountId) || t("overview.unknownAccount");
 }
 
 function formatUpdatedAt(timestamp: number, language: string, timezone?: string): string {
@@ -90,12 +113,6 @@ export function OverviewPage({
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const overview = useOverview();
-  const origin = useHistoryOrigin();
-  const activities = useListActivities(5);
-  const accounts = useAccounts({ includeArchived: true });
-  const instruments = useInstruments(true);
-  const accountIds = (accounts.data ?? []).map((record) => record.account.id);
-  const holdings = useHoldingsByAccounts(accountIds);
   const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} />;
 
   if (overview.isLoading) {
@@ -115,7 +132,7 @@ export function OverviewPage({
     );
   }
 
-  const data = overview.data;
+  const data = overview.data as OverviewReadModel;
   const currency = data.currency || "USD";
   const missing = data.missingInputs ?? [];
   const updatedLabel =
@@ -156,28 +173,21 @@ export function OverviewPage({
   const missingPrices = countMissing(missing, "instrument_price");
   const missingValues = countMissing(missing, "account_value");
   const missingFx = countMissing(missing, "fx_rate");
-  const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
-  const instrumentById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument]));
+  const accountNames = new Map((data.accountLabels ?? []).map((label) => [label.id, label.name]));
+  const instrumentNames = new Map((data.instrumentLabels ?? []).map((label) => [label.id, label.name]));
+  const quoteSourceByInstrument = new Map((data.instrumentLabels ?? []).map((label) => [label.id, label.quoteSource]));
+  const holdingNames = new Map((data.holdingLabels ?? []).map((label) => [label.id, label.name]));
   const missingManualPrices = missing.filter((item) => {
     if (item.kind !== "instrument_price") {
       return false;
     }
-    const instrument = item.instrumentId ? instrumentById.get(item.instrumentId) : undefined;
-    return !instrument || instrument.quoteSource === "manual";
+    const source = item.quoteSource || (item.instrumentId ? quoteSourceByInstrument.get(item.instrumentId) : undefined);
+    return source !== "provider";
   }).length;
   const missingProviderPrices = missingPrices - missingManualPrices;
-  const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
-  const holdingNames = new Map(
-    Object.entries(holdings.data ?? {}).flatMap(([accountId, accountHoldings]) =>
-      (accountHoldings ?? []).map((holding) => [
-        holding.id,
-        `${accountNames.get(accountId) ?? t("history.unknownAccount")} · ${instrumentNames.get(holding.instrumentId) ?? t("history.unknownInstrument")}`,
-      ] as const),
-    ),
-  );
-  const recent = activities.data ?? [];
-  const historyReady = !origin.isLoading && !origin.isError && Boolean(origin.data);
-  const historyNotStarted = !origin.isLoading && !origin.isError && !origin.data;
+  const recent = data.recentActivities ?? [];
+  const historyReady = data.historyStarted;
+  const historyNotStarted = !data.historyStarted;
 
   return (
     <div className="flex flex-col gap-6" data-testid="overview-page">
@@ -254,7 +264,7 @@ export function OverviewPage({
               missingValues === 0 &&
               missingFx === 0 &&
               !historyNotStarted &&
-              !(historyReady && !activities.isLoading && !activities.isError && recent.length === 0) ? (
+              !(historyReady && recent.length === 0) ? (
                 <p className="text-sm text-muted-foreground">{t("overview.noNextSteps")}</p>
               ) : (
                 <ul className="flex flex-col gap-3">
@@ -308,7 +318,7 @@ export function OverviewPage({
                       )}
                     </li>
                   )}
-                  {historyReady && !activities.isLoading && !activities.isError && recent.length === 0 && (
+                  {historyReady && recent.length === 0 && (
                     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-foreground">{t("overview.recordChangeNext")}</p>
                       {onOpenHistory && (
@@ -408,16 +418,7 @@ export function OverviewPage({
           )}
         </CardHeader>
         <CardContent>
-          {activities.isError || accounts.isError || instruments.isError || holdings.isError ? (
-            <ErrorState
-              title={t("history.loadError")}
-              description={t("ui.state.errorDescription")}
-              onRetry={() => { void Promise.all([activities.refetch(), accounts.refetch(), instruments.refetch(), holdings.refetch()]); }}
-              retryLabel={t("common.retryAction")}
-            />
-          ) : activities.isLoading || accounts.isLoading || instruments.isLoading || holdings.isLoading ? (
-            <LoadingState label={t("history.loading")} />
-          ) : recent.length === 0 ? (
+          {recent.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("overview.noRecentActivity")}</p>
           ) : (
             <ul className="flex flex-col gap-3" data-testid="overview-recent-activity">

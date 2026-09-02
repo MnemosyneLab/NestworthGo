@@ -120,7 +120,7 @@ the current code does not actually have.
 | F10 | P0 | Actual concurrency/design bug | Backup/import/restore exclusivity does not cover directory, onboarding, settings, and refresh persistence writers. | `application/exclusive.go`, `service.go`, `refresh.go`, Wails data/recovery adapters | Resolved |
 | F11 | P1 | Financial correctness | Average cost rounds to two decimals despite an eight-decimal `UnitPrice` contract. | `internal/domain/cost_basis.go` | Resolved |
 | F12 | P1 | Accounting policy gap | Buy fees reduce cash but are not included in acquisition basis. | `internal/domain/change.go`, `cost_basis.go` | Resolved |
-| F13 | P1 | Performance/API | Investments performs one full-snapshot `AccountGain` call per Account; Overview also fans out. | `application/gain_service.go`, `frontend/src/queries/analytics.ts`, `OverviewPage.tsx` | Open |
+| F13 | P1 | Performance/API | Investments performs one full-snapshot `AccountGain` call per Account; Overview also fans out. | `application/gain_service.go`, `frontend/src/queries/analytics.ts`, `OverviewPage.tsx` | Resolved |
 | F14 | P1 | Actual UX bug | History returns a cursor but the UI never requests the next page. | `HistoryPage.tsx`, `frontend/src/queries/history.ts` | Open |
 | F15 | P1 | Integrity/debt | Optional directory IDs can be silently converted to nil; schema verification casts exact quantities through `REAL`; aggregate ownership and snapshot provenance are not fully checked at persistence boundaries. | `sqlite/repository.go`, `schema_verify.go`, snapshot/ownership writers | Resolved |
 | F16 | P1 | Privacy/hardening | Live database mode is not normalized, startup logs full paths, and pending Restore packages have no TTL/count bound. | `sqlite/database.go`, `cmd/nestworth/main.go`, `wailsapi/recovery/recovery.go` | Resolved |
@@ -443,6 +443,8 @@ Acceptance criteria:
 ### Work Package 8 — Batch Analytics and List Hydration
 
 **Covers:** F13 and the repository portion of F17.
+
+**Progress:** F13 resolved. `AccountGains` reads one portfolio snapshot and shares one cost-basis replay; Investments uses a single TanStack query. Overview returns labels, history-started, and bounded recent-activity headlines from that same use case so the page no longer fans out to accounts/instruments/holdings/history APIs.
 
 Implementation steps:
 

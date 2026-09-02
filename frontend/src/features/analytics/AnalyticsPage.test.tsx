@@ -14,6 +14,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/an
     RealizedGain: (...args: unknown[]) => realizedGain(...args),
     DividendIncome: (...args: unknown[]) => dividendIncome(...args),
     AccountGain: vi.fn(),
+    AccountGains: vi.fn(),
     HoldingGain: vi.fn(),
   },
 }));
