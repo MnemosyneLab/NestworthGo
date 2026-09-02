@@ -101,4 +101,10 @@ func TestUnitPriceFromExactRoundsOnlyWhenScaleExceedsEight(t *testing.T) {
 	if err != nil || repeating.Canonical() != "93.33333333" {
 		t.Fatalf("repeating average = %q err=%v", repeating.Canonical(), err)
 	}
+	// DivisionPrecision pads exact quotients with trailing zeros; those extra
+	// scale digits must still round to the supported unit-price scale.
+	exactQuotient, err := UnitPriceFromExact(decimal.RequireFromString("840").Div(decimal.RequireFromString("10")))
+	if err != nil || exactQuotient.Canonical() != "84" {
+		t.Fatalf("exact quotient = %q err=%v", exactQuotient.Canonical(), err)
+	}
 }

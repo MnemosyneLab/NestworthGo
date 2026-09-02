@@ -237,7 +237,8 @@ func blendCost(current CostLot, incoming *UnitPrice, incomingQuantity Quantity, 
 	if err != nil {
 		return CostLot{}, err
 	}
-	average, err := UnitPriceFromExact(oldValue.Add(incomingValue).Div(total.Decimal()))
+	sum := oldValue.Add(incomingValue).Div(total.Decimal())
+	average, err := UnitPriceFromExact(sum)
 	if err != nil {
 		return CostLot{}, err
 	}

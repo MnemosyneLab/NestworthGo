@@ -146,7 +146,8 @@ func (p UnitPrice) Multiply(quantity Quantity) (decimal.Decimal, error) {
 // scale. Banker's rounding is applied once only when division or another
 // exact calculation produces more than eight fractional digits.
 func UnitPriceFromExact(value decimal.Decimal) (UnitPrice, error) {
-	if !value.Equal(value.Truncate(8)) {
+	scale, _ := decimalShape(value)
+	if scale > 8 {
 		value = value.RoundBank(8)
 	}
 	return NewUnitPrice(value)
