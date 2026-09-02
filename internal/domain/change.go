@@ -1219,7 +1219,7 @@ func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {
 	if input.Fee != nil && (input.Fee.Currency() != input.Gross.Currency() || input.Fee.Amount().IsNegative()) {
 		return ChangePreview{}, &Error{Code: ErrInvalidTrade, Field: "fee", Message: "fee currency must match the settlement currency"}
 	}
-	unitPrice, err := NewUnitPrice(input.Gross.Amount().Div(input.Quantity.Decimal()).Round(8))
+	unitPrice, err := UnitPriceFromExact(input.Gross.Amount().Div(input.Quantity.Decimal()))
 	if err != nil {
 		return ChangePreview{}, err
 	}

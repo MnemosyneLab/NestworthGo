@@ -118,13 +118,17 @@ they do not create a synthetic trade or a mutable cost column on the Holding.
 
 ### Derived Average Cost and Gain
 
-`ReplayCostBasis` blends cost-bearing increases by quantity, keeps the average
-cost of remaining quantity across reductions, and emits signed realized gain
-events for sells. Transfers resolve the sending Holding's average cost at the
-transfer time. `GainService` derives native and base-currency cost/value/gain
-views plus the exact two-part Instrument/currency decomposition. These results
-are recomputed on reads and are never stored as financial facts. FIFO lots,
-unknown-basis declarations, and return calculations remain deferred.
+`ReplayCostBasis` blends cost-bearing increases by quantity at the supported
+`UnitPrice` scale of eight fractional digits, keeps the average cost of
+remaining quantity across reductions, and emits signed realized gain events
+for sells. Trade `UnitPrice` stays price-only (`gross / quantity`). Buy fees
+increase acquisition basis as `(gross + fee) / quantity`. Sell realized gain
+is proceeds minus remaining basis minus the sell fee. Transfers resolve the
+sending Holding's average cost at the transfer time. `GainService` derives
+native and base-currency cost/value/gain views plus the exact two-part
+Instrument/currency decomposition. These results are recomputed on reads and
+are never stored as financial facts. FIFO lots, unknown-basis declarations,
+and return calculations remain deferred.
 
 ### Gain, Return, and Attribution
 
@@ -167,7 +171,7 @@ Additional decimal types:
 | SignedMoney | Up to 12 | Up to 4 | Output-only; leading `-` allowed; never converted into `Money` |
 | ReturnRate | Up to 8 | Up to 6 | Output-only fraction, not a percentage; `0.0404` means 4.04% |
 
-Canonical output removes insignificant trailing zeros: `1.2300` becomes `1.23`, and `0.0000` becomes `0`. Valuation uses checked decimal operations and rounds only values that cross the Money DTO boundary to four fractional digits using midpoint-nearest-even. Overflow returns `DECIMAL_OVERFLOW`.
+Canonical output removes insignificant trailing zeros: `1.2300` becomes `1.23`, and `0.0000` becomes `0`. Valuation uses checked decimal operations and rounds only values that cross the Money DTO boundary to four fractional digits using midpoint-nearest-even. Average cost uses the `UnitPrice` scale: eight fractional digits, with midpoint-nearest-even applied once when a blend or fee-adjusted acquisition cost divides past that scale. Overflow returns `DECIMAL_OVERFLOW`.
 
 ### Time
 

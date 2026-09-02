@@ -251,6 +251,75 @@ func TestRealizedGainIncludesSoldThenArchivedHolding(t *testing.T) {
 	}
 }
 
+func TestHoldingGainIncludesBuyFeeInAverageCost(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/gain-buy-fee.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Buy fee gain", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	fee := mustMoney(t, "10", "USD")
+	service.setClock(func() time.Time { return now.Add(time.Hour) })
+	if _, err := service.RecordChange(ctx, domain.TradeInput{
+		HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: account.Account.ID,
+		HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "10"),
+		Gross: mustMoney(t, "100", "USD"), Fee: &fee, EffectiveAt: now.Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "2026-08-24T13:00:00Z", false); err != nil {
+		t.Fatal(err)
+	}
+
+	view, err := service.HoldingGain(ctx, holding.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Starting 10 at 10 plus buy 10 at (100+10)/10 = 11 => average 10.5, total 210.
+	// Quote 12 * 20 = 240, unrealized 30.
+	if view.Quantity != "20" || view.AverageCost.Amount != "10.5" || view.TotalCost.Amount != "210" {
+		t.Fatalf("fee-adjusted cost view = %+v", view)
+	}
+	if view.CurrentValue == nil || view.CurrentValue.Amount != "240" || view.UnrealizedGain == nil || view.UnrealizedGain.Amount != "30" {
+		t.Fatalf("fee-adjusted current view = %+v", view)
+	}
+}
+
 func TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain(t *testing.T) {
 	fixture := newGoldenValuationFixture(t, true)
 	ctx := context.Background()

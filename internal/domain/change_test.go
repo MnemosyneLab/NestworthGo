@@ -269,6 +269,15 @@ func TestPreviewTradeValueUpdateAndNoChange(t *testing.T) {
 	if preview.Activity.TradeDetail.HoldingID != qqq {
 		t.Fatalf("trade resolved holding = %s, want %s", preview.Activity.TradeDetail.HoldingID, qqq)
 	}
+	unevenQty, _ := ParseQuantity("3")
+	unevenGross, _ := ParseMoney("10", state.Accounts[broker].Currency)
+	uneven, err := PreviewChange(state, TradeInput{HouseholdID: state.HouseholdID, Side: TradeBuy, SettlementAccountID: broker, HoldingID: qqq, InstrumentID: state.Holdings[qqq].InstrumentID, Quantity: unevenQty, Gross: unevenGross})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uneven.DerivedUnitPrice == nil || uneven.DerivedUnitPrice.Canonical() != "3.33333333" {
+		t.Fatalf("implied trade unit price = %v, want 3.33333333", uneven.DerivedUnitPrice)
+	}
 	updated, _ := ParseMoney("1000", state.Accounts[broker].Currency)
 	_, err = PreviewChange(state, ValueUpdateInput{HouseholdID: state.HouseholdID, AccountID: broker, NewValue: updated})
 	if err == nil || err.(*Error).Code != ErrInvalidChange {

@@ -24,8 +24,8 @@ const (
 // event carries the captured quantity; startingCost is passed separately to
 // ReplayCostBasis to keep the public function aligned with the release
 // contract. UnitCost is accepted on the StartingPoint event as a convenient
-// serialized form and is otherwise used for TransferIn/AdjustmentIn. UnitPrice
-// is used by Buy/Sell. Currency is required for a Sell so a signed realized
+// serialized form and is otherwise used for TransferIn/AdjustmentIn and for a
+// fee-adjusted Buy acquisition cost. UnitPrice is the price-only trade price. Currency is required for a Sell so a signed realized
 // amount can retain its settlement currency.
 type CostBasisEvent struct {
 	ActivityID         ActivityID
@@ -204,10 +204,17 @@ func reversedActivityIDs(events []CostBasisEvent) map[ActivityID]bool {
 func eventUnitCost(event CostBasisEvent) (*UnitPrice, error) {
 	switch event.Kind {
 	case CostBasisBuy:
+		if event.UnitCost != nil {
+			return event.UnitCost, nil
+		}
 		if event.UnitPrice == nil {
 			return nil, invalidCostBasis("unitPrice", "Buy requires a unit price")
 		}
-		return event.UnitPrice, nil
+		cost, err := BuyAcquisitionUnitCost(event.Quantity, *event.UnitPrice, event.Fee)
+		if err != nil {
+			return nil, err
+		}
+		return &cost, nil
 	case CostBasisTransferIn, CostBasisAdjustmentIn:
 		if event.UnitCost == nil {
 			return nil, &Error{Code: ErrCostBasisRequired, Field: "unitCost", Message: "an incoming quantity requires a per-unit cost"}
@@ -216,6 +223,24 @@ func eventUnitCost(event CostBasisEvent) (*UnitPrice, error) {
 	default:
 		return nil, invalidCostBasis("kind", "event does not provide an incoming cost")
 	}
+}
+
+// BuyAcquisitionUnitCost is the fee-adjusted per-unit basis used by average
+// cost. Trade UnitPrice remains price-only (gross / quantity); a buy fee is
+// added to acquisition basis as (gross + fee) / quantity.
+func BuyAcquisitionUnitCost(quantity Quantity, unitPrice UnitPrice, fee *Money) (UnitPrice, error) {
+	if quantity.IsZero() {
+		return UnitPrice{}, invalidCostBasis("quantity", "cost-basis event quantity must be greater than zero")
+	}
+	gross, err := quantity.Multiply(unitPrice)
+	if err != nil {
+		return UnitPrice{}, err
+	}
+	total := gross
+	if fee != nil {
+		total = total.Add(fee.Amount())
+	}
+	return UnitPriceFromExact(total.Div(quantity.Decimal()))
 }
 
 func blendCost(current CostLot, incoming *UnitPrice, incomingQuantity Quantity, hasCost bool) (CostLot, error) {
