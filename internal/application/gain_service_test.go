@@ -82,10 +82,10 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.Quantity != "9" || view.AverageCost.Amount != "93.33" || view.AverageCost.Currency != "USD" {
+	if view.Quantity != "9" || view.AverageCost.Amount != "93.3333" || view.AverageCost.Currency != "USD" {
 		t.Fatalf("cost view = %+v", view)
 	}
-	if view.TotalCost.Amount != "839.97" || view.RealizedGain.Amount != "340.02" || view.UnrealizedGain == nil || view.UnrealizedGain.Amount != "960.03" {
+	if view.TotalCost.Amount != "840" || view.RealizedGain.Amount != "340" || view.UnrealizedGain == nil || view.UnrealizedGain.Amount != "960" {
 		t.Fatalf("gain view = %+v", view)
 	}
 	if view.CurrentValue == nil || view.CurrentValue.Amount != "1800" || !view.Available {
@@ -96,7 +96,7 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !period.Available || len(period.ByInstrument) != 1 || period.ByInstrument[0].Gain.Amount != "2380.14" || len(period.ByAccount) != 1 || period.ByAccount[0].Gain.Amount != "2380.14" {
+	if !period.Available || len(period.ByInstrument) != 1 || period.ByInstrument[0].Gain.Amount != "2380" || len(period.ByAccount) != 1 || period.ByAccount[0].Gain.Amount != "2380" {
 		t.Fatalf("realized period = %+v", period)
 	}
 	excluded, err := service.RealizedGainInRange(ctx, scope, "2026-08-25", "2026-08-25")

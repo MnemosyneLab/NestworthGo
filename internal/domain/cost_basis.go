@@ -73,10 +73,10 @@ type CostBasisReadFilter struct {
 }
 
 // ReplayCostBasis walks a Holding's Starting Point cost and ordered immutable
-// Activity facts. Average costs are normalized to two decimal places with
-// decimal banker's rounding, which is the release's money-facing precision
-// (for example, 1400/15 becomes 93.33). No binary float or external state is
-// involved.
+// Activity facts. Average costs keep the supported UnitPrice scale of eight
+// fractional digits; banker's rounding is applied only when a blend divides
+// past that scale (for example, 1400/15 becomes 93.33333333). No binary float
+// or external state is involved.
 func ReplayCostBasis(startingCost *UnitPrice, events []CostBasisEvent) (CostBasisResult, error) {
 	currentQuantity, err := ParseQuantity("0")
 	if err != nil {
@@ -237,7 +237,7 @@ func blendCost(current CostLot, incoming *UnitPrice, incomingQuantity Quantity, 
 	if err != nil {
 		return CostLot{}, err
 	}
-	average, err := NewUnitPrice(oldValue.Add(incomingValue).Div(total.Decimal()).RoundBank(2))
+	average, err := UnitPriceFromExact(oldValue.Add(incomingValue).Div(total.Decimal()))
 	if err != nil {
 		return CostLot{}, err
 	}

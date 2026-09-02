@@ -23,14 +23,32 @@ func TestReplayCostBasisGoldenAverageCostAndRealizedGain(t *testing.T) {
 	if got, want := result.Current.Quantity.Canonical(), "9"; got != want {
 		t.Fatalf("remaining quantity = %q, want %q", got, want)
 	}
-	if got, want := result.Current.AverageUnitCost.Canonical(), "93.33"; got != want {
+	if got, want := result.Current.AverageUnitCost.Canonical(), "93.33333333"; got != want {
 		t.Fatalf("average cost = %q, want %q", got, want)
 	}
 	if len(result.Realized) != 1 {
 		t.Fatalf("realized events = %d, want 1", len(result.Realized))
 	}
-	if got, want := result.Realized[0].RealizedGain.CanonicalAmount(), "340.02"; got != want {
+	if got, want := result.Realized[0].RealizedGain.CanonicalAmount(), "340"; got != want {
 		t.Fatalf("realized gain = %q, want %q", got, want)
+	}
+}
+
+func TestReplayCostBasisPreservesEightDecimalAverageCost(t *testing.T) {
+	// 2 * 1.23456789 + 3 * 1.25000005 = 6.21913593; 6.21913593 / 5 = 1.243827186
+	// which rounds half-to-even at eight places to 1.24382719.
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "2"), UnitPrice: unitPricePointer(t, "1.23456789")},
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "3"), UnitPrice: unitPricePointer(t, "1.25000005")},
+	})
+	if err != nil {
+		t.Fatalf("ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := result.Current.Quantity.Canonical(), "5"; got != want {
+		t.Fatalf("quantity = %q, want %q", got, want)
+	}
+	if got, want := result.Current.AverageUnitCost.Canonical(), "1.24382719"; got != want {
+		t.Fatalf("eight-decimal average cost = %q, want %q", got, want)
 	}
 }
 
@@ -49,7 +67,7 @@ func TestReplayCostBasisHandlesAllQuantityEventKinds(t *testing.T) {
 	if got, want := result.Current.Quantity.Canonical(), "10"; got != want {
 		t.Fatalf("quantity = %q, want %q", got, want)
 	}
-	if got, want := result.Current.AverageUnitCost.Canonical(), "86.36"; got != want {
+	if got, want := result.Current.AverageUnitCost.Canonical(), "86.36363636"; got != want {
 		t.Fatalf("average cost = %q, want %q", got, want)
 	}
 }
@@ -71,7 +89,7 @@ func TestReplayCostBasisExcludesReversedPairsAndKeepsFixReplacement(t *testing.T
 	if got, want := result.Current.Quantity.Canonical(), "15"; got != want {
 		t.Fatalf("quantity = %q, want %q", got, want)
 	}
-	if got, want := result.Current.AverageUnitCost.Canonical(), "86.67"; got != want {
+	if got, want := result.Current.AverageUnitCost.Canonical(), "86.66666667"; got != want {
 		t.Fatalf("replacement average cost = %q, want %q", got, want)
 	}
 }
