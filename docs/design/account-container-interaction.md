@@ -3,11 +3,11 @@
 ## 1. Document status and authority
 
 - Status: Implemented / current contract
-- Companion domain contract: [account-container-and-position-model-design.md](account-container-and-position-model-design.md)
-- Baseline: Nestworth-go `0.2.1` / schema v9 / current Wails frontend
-- Data policy: this is a breaking cutover for an unreleased version. Only a
-  fresh schema v9 database is supported; there is no legacy-data, old
-  interaction, or old-page compatibility layer.
+- Companion domain contract: [Domain Model](../architecture/domain-model.md)
+- Baseline: Nestworth-go `0.3.0` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
+- Data policy: the current release supports fresh or validated schema `9`
+  databases only; there is no legacy-data, old interaction, or old-page
+  compatibility layer.
 
 This document freezes how the Account container model is created, viewed, and
 operated in the desktop app. Legal combinations, classification, inclusion,
@@ -60,8 +60,8 @@ holdings inside it.
 
 ## 3. Current implementation and boundaries
 
-The current `0.2.1` implementation already closes the Account-container
-interaction loop:
+The current `0.3.0` implementation closes the Account-container interaction
+loop:
 
 - `AccountsPage` groups by Institution. Clicking an account opens detail in the
   same workspace. Create uses an Institution-first wizard.
@@ -78,8 +78,9 @@ interaction loop:
   update. Actions that need History first show Start History.
 - Overview provides component-grained `assetsByType` / `liabilitiesByType`
   and keeps account-level `byAccountType`, `byInstitution`, and `byGroup`.
-  Portfolio is a separate navigation page and works with whole-account
-  inclusion.
+- Portfolio is a separate navigation page and lists active Instrument-backed
+  holdings from asset Accounts; cash and Simple Account values are excluded.
+  The persisted `include_in_portfolio` field is ignored by this metric.
 - Archived accounts can be viewed read-only. Account settings, archive, and
   restore live on the detail page, not as implicit row-edit actions.
 
@@ -88,10 +89,13 @@ Standing boundaries:
 - Simple Account (`balance` / `manual_value`) values must use the Account
   default currency. Cash components of a Holdings Account may use other
   system-supported currencies.
-- `tracking_mode` is immutable after create. This version does not support
-  tracking transition or component-level inclusion.
-- Holdings Account Portfolio inclusion remains whole-account: cash and all
-  holdings enter or are excluded together.
+- `tracking_mode` is immutable after create. Tracking transition is not
+  supported.
+- Portfolio is holdings-only: active Instrument-backed holdings on asset
+  Accounts enter the view; cash, liabilities, archived Holdings, Simple
+  Account values, and `include_in_portfolio` do not.
+- `include_in_liquid_assets` is persisted compatibility data with no current
+  metric consumer and is not a user-facing control.
 - Historical Simple Account bucket names come from current metadata and are
   marked `current-metadata-derived`.
 
@@ -114,11 +118,9 @@ Standing boundaries:
 
 ### 4.2 Explicit non-goals
 
-- No schema v6 migration, legacy-data conversion, or old UI compatibility.
-- Do not introduce SubAccount.
+- Do not support component-level inclusion in the current UI. The persisted
+  Portfolio and liquid-assets fields remain compatibility data.
 - Do not support tracking-mode conversion after create.
-- Do not support component-level inclusion; the three inclusion switches stay
-  whole-account.
 - Do not add Activity kinds.
 - Do not guess or force tracking from Institution name.
 - Do not expand cash rows into a demand/time-deposit sub-account model.
@@ -135,7 +137,7 @@ source for create and edit.
 | Record cash and holdings separately | `tracking_mode=holdings` |
 | Record a single estimated value | `tracking_mode=manual_value` |
 | Asset / Liability (explicit only when creating Other) | `balance_sheet_role` |
-| Include in net worth / portfolio / liquid assets | The three Account inclusion switches |
+| Include in net worth | `include_in_net_worth`; portfolio and liquid-assets fields are compatibility data |
 
 The primary path must not show: `holdings`, `balance`, `manual_value`,
 `tracking mode`, `balance sheet role`, SubAccount, or Investment-only.
@@ -153,7 +155,7 @@ Settings may use more formal wording, but still show product names:
 ```text
 Overview
 Accounts          Real-world account list and detail
-Portfolio         Asset accounts included in the portfolio
+Portfolio         Active Instrument-backed holdings from asset Accounts
 History           Cash and position changes
 Instruments       Household-level instrument catalog
 Market data
@@ -262,8 +264,9 @@ recording directly. Users are not required to understand tracking.
 ### 7.4 Details and Inclusion
 
 Primary fields: name, default currency, owners. Institution is echoed and can
-be changed by going back. Group, icon, and the three include switches
-live under "More settings".
+be changed by going back. Group, icon, and the supported net-worth inclusion
+control live under "More settings". Portfolio and liquid-assets fields remain
+persisted compatibility data and are not user-facing controls.
 
 Owners must be selected explicitly, at least one. Nobody is preselected.
 Continue / Add account stay disabled until then. The create submit path must
@@ -274,9 +277,9 @@ people, or the user may enter explicit percentages such as 70/30 that must sum
 to 100%. An empty owner set disables the primary button. It is not a §14
 inline error and not an unresponsive Continue.
 
-Inclusion defaults use `SuggestedInclusion` for net worth and liquid
-assets. Portfolio inclusion is not shown: holdings enter Portfolio and cash
-does not.
+At persistence, `SuggestedInclusion` may supply net-worth and compatibility
+defaults. The UI exposes only net-worth inclusion; Portfolio is holdings-only,
+and `include_in_liquid_assets` is not user-facing.
 
 A Simple Account may enter an initial balance or valuation during create. A
 Composite Account does not enter a fictional total; after create it opens
@@ -307,7 +310,7 @@ The Accounts page is the real-world account entry, not a metadata-edit table.
 MooMoo SG Brokerage                         128,420 CNY
 
 MooMoo SG · Brokerage
-Included in net worth · Included in portfolio
+Included in net worth
 ```
 
 The title total uses the backend Account valuation. The header also holds:
@@ -315,8 +318,7 @@ The title total uses the backend Account valuation. The header also holds:
 - `asOf` time;
 - complete / partial valuation status;
 - archived read-only status;
-- Account settings entry;
-- whole-account inclusion hint.
+- Account settings entry.
 
 ### 9.2 Composite: Cash + Investments
 
@@ -461,13 +463,15 @@ whole app adopts a consistent sign rule.
 In settings:
 
 - Editable: name, Account type (only still-legal compatible values),
-  Institution, group, owners, net-worth and liquid-assets inclusion, and icon;
+  Institution, group, owners, net-worth inclusion, and icon;
 - Read-only: Tracking method, with "This cannot currently be changed after
   account creation";
 - Read-only: Role; Role of `other` also cannot change after create;
 - Account type updates do not recompute inclusion, create Activities, or change
   amounts;
-- Portfolio inclusion is not an account setting; holdings enter Portfolio.
+- Portfolio is holdings-only: active Instrument-backed holdings on asset
+  Accounts enter the view; cash, Simple Account values, liabilities, archived
+  Holdings, and `include_in_portfolio` do not;
 - Owners use the same gate as the create wizard: at least one owner must be
   selected. Save is disabled until then, and the update submit path also
   rejects empty ownership. Do not default an empty list to all household
@@ -537,7 +541,6 @@ excluded. `include_in_portfolio` is not used for the live total.
 Portfolio                              320,000 CNY
 
 Allocation                             byInstrumentType
-Cash            12%
 Stocks          35%
 ETFs            40%
 Crypto           5%
@@ -549,9 +552,8 @@ IBKR                                  140,000 CNY
 ```
 
 - Clicking an Account opens the same Account detail.
-- When a Composite Account is included, cash and all holdings appear. The page
-  and settings repeat the whole-account explanation.
-- Excluded Accounts are not shown and do not enter the denominator.
+- The page lists active Instrument-backed holdings from asset Accounts. Cash,
+  liabilities, archived Holdings, and Simple Account totals are excluded.
 - Missing quotes or FX rates keep backend incomplete / excluded-amount
   semantics and are not treated as zero.
 
@@ -691,8 +693,9 @@ Interaction and accessibility:
   rows.
 - `byAccountType` uses the same as-of, conversion, and incomplete semantics as
   top-level Overview.
-- Portfolio omits unchecked Accounts. Checking a Composite Account includes
-  cash and holdings as a whole and shows the explanation.
+- Portfolio lists active Instrument-backed holdings from asset Accounts.
+  Cash, liabilities, archived Holdings, and Simple Account totals are
+  excluded; `include_in_portfolio` is ignored.
 - The all-holdings index and Portfolio keep different names and purposes so
   users do not treat them as the same view.
 
@@ -707,7 +710,7 @@ Create a China Merchants Bank mixed account
 → Choose or create a fund and complete the first buy
 → Account detail shows the reduced cash and the fund holding together
 → Overview classifies by Cash / Mutual fund
-→ If the whole account is included, Portfolio contains that account's cash and fund
+→ Portfolio contains the fund holding, while the account's cash remains only in Account detail and Overview
 ```
 
 ## 16. Explicitly deferred items

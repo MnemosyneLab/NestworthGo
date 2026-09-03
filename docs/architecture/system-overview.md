@@ -125,7 +125,13 @@ Dependency versions are owned by `go.mod` and `go.sum`, not duplicated here.
 ## Privacy and security boundaries
 
 - No account registration or required internet connection for core operation.
-- Business data remains local and is not sent to the webview or external providers.
+- Durable business data remains local in SQLite. The local Wails webview
+  receives only selected read-model DTOs needed to render the UI, never raw
+  database rows or driver objects.
+- Provider requests are explicit and receive only the minimum quote identity
+  needed for the requested refresh. Balances and other display values may cross
+  the local boundary only as explicit DTO fields; notes, credentials, raw
+  database data, and raw provider payloads do not become user-facing data.
 - Provider integrations are explicit adapters with safe failure behavior and
   no startup dependency. Yahoo supplies instrument quotes and Frankfurter
   supplies FX refresh.

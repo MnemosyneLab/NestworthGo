@@ -8,12 +8,11 @@ maintained scope and acceptance document for this line.
 - [v0.3.0 release contract](v0.3.0.md) — runtime, product scope, backup/restore,
   CSV portability, validation, packaging, and public-distribution gates.
 
-## Historical
+## Historical context
 
-- [v0.2.1 release contract](v0.2.1.md) — superseded unreleased Account
-  container line.
-- [v0.2.0 release contract](v0.2.0.md) — superseded unreleased Wails v3
-  closeout line.
+Historical release facts and superseded milestones belong in
+[`CHANGELOG.md`](../../CHANGELOG.md). Unpublished or superseded implementation
+contracts are not maintained as release documents.
 
 ## Release documentation rules
 

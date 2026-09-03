@@ -54,6 +54,28 @@ An Account is the unit shown in the balance sheet. It has one `account_type`, on
 `account_type` names the real-world container. `balance_sheet_role` is the persistent asset or liability side and is immutable after create. `tracking_mode` is immutable after create. Type may be edited only when the new type remains legal with the frozen role and tracking. Create and update share one closed combination table.
 
 An Account can represent cash on hand, a bank or brokerage account, a wallet, a pension or insurance policy, property, a receivable, a credit card, a loan, or an other container. A Holdings-tracked Account contains Holdings and cash-by-currency observations instead of an initial Account Value. An Account is not itself an Instrument. Composite (holdings) classification comes from cash and Instrument components; Simple classification comes from `account_type` and role.
+### Real-world Account boundary
+
+Create an Account only when the real world has an independent statement or
+reconciliation boundary, external account number or contract, ownership or
+lifecycle boundary, or the ability to change its value independently. A
+currency inside one Account is an Account Cash observation, and an asset inside
+one Account is a Holding; neither becomes a generic `SubAccount`. Create a
+separate Account when the institution actually provides an independent fund,
+gold, or other account boundary.
+
+For example, one brokerage may contain SGD, USD, and CNY cash plus stock, ETF,
+and crypto Holdings. A mixed bank Account may contain deposits, bank
+wealth-management products, funds, and gold. If the bank card, fund account,
+and gold account have independent statements or external account numbers,
+model them as separate Accounts under the same Institution. This boundary is a
+domain fact, not a Portfolio grouping choice.
+
+Fiat cash is represented by Account Cash with a `CurrencyCode`. A stablecoin
+such as USDC or USDT is an Instrument with crypto type and a Holding, even when
+its intended peg is USD; it has quantity and price semantics and is not fiat
+cash.
+
 
 ### Ownership
 

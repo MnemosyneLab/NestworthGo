@@ -141,6 +141,35 @@ and finishes verification on the next launch. CSV import/export is create-only
 for Accounts and Holdings, with preview and an all-or-nothing commit. CSV is
 not a backup substitute.
 
+## Account persistence and recovery details
+
+The Account row persists `account_type`, `balance_sheet_role`,
+`tracking_mode`, default currency, lifecycle state, ownership references, and
+compatibility inclusion fields. The schema CHECK expresses the legal triple,
+not merely independent enum membership. `balance_sheet_role` and
+`tracking_mode` are immutable after creation; an `account_type` update is
+accepted only when the existing role and tracking mode remain a legal schema-9
+combination. Holdings and Account Cash rows belong only to Holdings Accounts;
+Account Value rows belong only to Simple Accounts. There is no `SubAccount`
+table or compatibility alias for the removed category fields.
+
+Schema verification runs integrity, foreign-key, ownership, combination, and
+component-shape checks before business reads or writes. A rejected older,
+future, or structurally invalid database receives no persistent application
+writes. The only supported schema-9 adjustment is a lossless widening of the
+`cash_on_hand` combination CHECK when the existing database is otherwise schema
+9 and valid.
+
+Recovery and portability are file workflows rather than business tables. A
+backup has the fixed members `manifest.json`, `database.sqlite`, and
+`settings.json`; verification is read-only and checks format, limits,
+checksums, schema, foreign keys, and integrity before replacement. Restore uses
+a journaled file-group swap and rolls back an incomplete replacement. CSV
+Accounts and Holdings imports are create-only: mapping and preview happen
+before one atomic commit, and observation dates remain explicit input rather
+than silently using the current time. The detailed user flow and stable error
+surface live in [Backup, restore, and CSV portability](../design/backup-restore-and-csv-portability.md).
+
 ## Error contract
 
 Application errors should be grouped into stable categories such as:

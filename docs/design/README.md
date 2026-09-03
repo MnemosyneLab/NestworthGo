@@ -8,14 +8,10 @@ the startup/onboarding gates are defined by
 
 ## Maintained contracts
 
-- [Account Container Interaction](../architecture/account-container-interaction-design.md) — Account creation, detail views, actions, state handling, and accessibility behavior.
-- [Account Container Model](../architecture/account-container-and-position-model-design.md) — The domain and persistence contract used by the interaction design.
-- [History and related-form defaults](history-and-form-defaults-ux.md) — Record-change auto-fill, quote/FX preview, Settings timezone and FX provider, picker filters, and current-balance echo.
-- [Trial UX optimization](trial-ux-optimization.md) — Implemented follow-up from the 2026-08-28 trial: default institution/group, native amounts without FX, history sentences and detail, date/time pickers, calculate buttons, portfolio-by-holding, and market-data refresh TTL.
-
-## Planned designs
-
-- [Visual analytics and market history](visual-analytics-and-market-history.md) — Planned charts for Overview, Portfolio, Analytics, and local-first Instrument/FX quote history, with optional provider history as a later explicit workflow.
+- [Account Container Interaction](account-container-interaction.md) — Account creation, detail views, actions, state handling, and accessibility behavior.
+- [History and related-form defaults](history-and-form-defaults-ux.md) — Current history, picker, calculation, quote, timezone, and form-state behavior.
+- [Backup, restore, and CSV portability](backup-restore-and-csv-portability.md) — Implemented local backup, restore, Accounts CSV, and Holdings CSV workflows.
+- [Visual analytics and market history](visual-analytics-and-market-history.md) — Implemented chart and local quote-history surfaces, with external historical-series work still planned.
 
 ## Current screen map
 
@@ -51,6 +47,6 @@ verified opens the blocked-startup state and keeps business calls unavailable.
 
 Use the current code and tests as the baseline for design changes. A change to
 layout, wording, or interaction details must state whether it is implemented,
-planned, or deferred. Store durable decisions in the product, architecture, or
-release document that owns them; standalone prototypes are not product
-contracts.
+in progress, planned, or deferred. Store durable decisions in the product,
+architecture, or release document that owns them; standalone prototypes are
+not product contracts.

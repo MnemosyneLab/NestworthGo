@@ -14,13 +14,14 @@ bundles.
 | Design | [Design and UX](design/README.md) | Current screen map, interaction invariants, and maintained design contracts |
 | Architecture | [System Overview](architecture/system-overview.md) | Runtime layers, startup, state ownership, and security boundaries |
 | Architecture | [Domain Model](architecture/domain-model.md) | Financial entities, validation, and calculation semantics |
-| Architecture | [Account Container Model](architecture/account-container-and-position-model-design.md) | Current Account, component, classification, and schema-v8 contract |
-| Architecture | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | SQLite, transactions, serialization, errors, and providers |
-| Design | [Account Container Interaction](architecture/account-container-interaction-design.md) | Current Account creation, detail, action, and accessibility behavior |
-| Design | [Trial UX optimization](design/trial-ux-optimization.md) | Trial follow-up: pickers, calculate buttons, portfolio-by-holding, market-data TTL |
-| Design | [Visual Analytics and Market History](design/visual-analytics-and-market-history.md) | Planned Overview, Portfolio, Analytics, and local-first quote-history charts |
+| Architecture | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | SQLite, transactions, serialization, recovery, and providers |
+| Design | [Account Container Interaction](design/account-container-interaction.md) | Current Account creation, detail, action, and accessibility behavior |
+| Design | [History and Form Defaults](design/history-and-form-defaults-ux.md) | Current history, picker, calculation, and form-state behavior |
+| Design | [Backup, Restore, and CSV Portability](design/backup-restore-and-csv-portability.md) | Implemented backup, restore, and CSV workflows |
+| Design | [Visual Analytics and Market History](design/visual-analytics-and-market-history.md) | Implemented chart surfaces and planned historical-series work |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
+| Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
 | Release | [v0.3.0 Contract](releases/v0.3.0.md) | Scope, acceptance, and release gates for the current line |
 
@@ -49,6 +50,6 @@ Every new document should identify its owner, scope, status, and validation
 boundary. Keep one canonical description for each financial rule and link to
 it from other documents.
 
-The Account model and interaction documents are maintained contracts. They are
-not task logs; short-lived reviews and implementation notes do not belong in
-this index.
+Architecture documents own domain and persistence contracts; design documents
+own user-visible flows and interaction state. Short-lived reviews,
+implementation notes, and session artifacts do not belong in this index.
