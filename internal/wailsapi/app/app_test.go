@@ -45,13 +45,13 @@ func TestStartupAvailableWhenDatabaseOpened(t *testing.T) {
 }
 
 func TestStartupReportsUnavailableAsWireErrorShape(t *testing.T) {
-	original := &domain.Error{Code: domain.ErrUnavailable, Field: "database", Message: "the local database could not be opened"}
+	original := &domain.Error{Code: domain.ErrDatabaseUnavailable, Field: "database", Message: "the local database could not be opened"}
 	startup := app.NewService(original).Startup()
 	if startup.Available {
 		t.Fatal("Startup() available = true, want false")
 	}
-	if startup.Code != string(domain.ErrUnavailable) || startup.Field != "database" {
-		t.Fatalf("Startup() = %+v, want unavailable/database", startup)
+	if startup.Code != string(domain.ErrDatabaseUnavailable) || startup.Field != "database" {
+		t.Fatalf("Startup() = %+v, want database_unavailable/database", startup)
 	}
 	encoded, err := json.Marshal(startup)
 	if err != nil {
@@ -59,6 +59,39 @@ func TestStartupReportsUnavailableAsWireErrorShape(t *testing.T) {
 	}
 	if !strings.Contains(string(encoded), `"available":false`) {
 		t.Fatalf("encoded startup = %s", encoded)
+	}
+}
+
+func TestStartupMapsEveryBootstrapStatus(t *testing.T) {
+	cases := []struct {
+		code      domain.ErrorCode
+		found     int
+		supported int
+	}{
+		{domain.ErrDatabaseUpgradeRequired, 7, 9},
+		{domain.ErrDatabaseFromNewerVersion, 10, 9},
+		{domain.ErrDatabaseIntegrityFailed, 9, 9},
+		{domain.ErrDatabaseUnavailable, 0, 9},
+	}
+	for _, testCase := range cases {
+		original := &domain.Error{Code: testCase.code, Field: "database", Message: "safe"}
+		startup := app.NewServiceWithSchema(original, testCase.found, testCase.supported).Startup()
+		if startup.Available || startup.Code != string(testCase.code) {
+			t.Fatalf("Startup() = %+v, want code %s", startup, testCase.code)
+		}
+		if startup.FoundSchemaVersion == nil || *startup.FoundSchemaVersion != testCase.found {
+			t.Fatalf("found schema = %v, want %d", startup.FoundSchemaVersion, testCase.found)
+		}
+		if startup.SupportedSchemaVersion == nil || *startup.SupportedSchemaVersion != testCase.supported {
+			t.Fatalf("supported schema = %v, want %d", startup.SupportedSchemaVersion, testCase.supported)
+		}
+		encoded, err := json.Marshal(startup)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(encoded), "/") || strings.Contains(strings.ToLower(string(encoded)), "sqlite") {
+			t.Fatalf("startup DTO leaked technical detail: %s", encoded)
+		}
 	}
 }
 

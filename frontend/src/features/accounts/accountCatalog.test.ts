@@ -82,4 +82,14 @@ describe("accountCatalog", () => {
       { memberId: "bob", shareBps: 3000 },
     ]);
   });
+
+  it("converts midpoint and long-decimal percentages without JavaScript Number", () => {
+    expect(ownershipShares(["alice", "bob"], ["33.335", "66.665"], true)).toEqual([
+      { memberId: "alice", shareBps: 3334 },
+      { memberId: "bob", shareBps: 6666 },
+    ]);
+    expect(ownershipShares(["alice"], ["12.34567890123456789"], true)).toEqual([
+      { memberId: "alice", shareBps: 1235 },
+    ]);
+  });
 });

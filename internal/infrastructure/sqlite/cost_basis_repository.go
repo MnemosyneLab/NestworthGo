@@ -3,7 +3,6 @@ package sqlite
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
@@ -12,12 +11,17 @@ import (
 
 // ListCostBasisEvents returns one bounded, Holding-scoped read. Transfer-in
 // events retain the source Holding ID; GainService resolves that source's
-// historical average before calling the pure replay function.
-func (r *Repository) ListCostBasisEvents(ctx context.Context, holdingID domain.HoldingID) ([]domain.CostBasisEvent, error) {
-	return listCostBasisEventsQuery(ctx, r.database.SQL, holdingID)
+// historical average before calling the pure replay function. Pass
+// IncludeArchivedHoldings to replay sold-then-archived positions.
+func (r *Repository) ListCostBasisEvents(ctx context.Context, holdingID domain.HoldingID, filter domain.CostBasisReadFilter) ([]domain.CostBasisEvent, error) {
+	return listCostBasisEventsQuery(ctx, r.database.SQL, holdingID, filter.IncludeArchivedHoldings)
 }
 
-func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID domain.HoldingID) ([]domain.CostBasisEvent, error) {
+func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID domain.HoldingID, includeArchivedHoldings bool) ([]domain.CostBasisEvent, error) {
+	archiveClause := " AND h.archived_at IS NULL"
+	if includeArchivedHoldings {
+		archiveClause = ""
+	}
 	rows, err := query.QueryContext(ctx, `
 		SELECT e.activity_id, a.effective_at, a.created_at, a.kind, a.reason,
 		       e.direction, e.role, e.classification, e.quantity, e.cost_unit_price,
@@ -25,7 +29,7 @@ func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID doma
 		       source_effect.holding_id
 		FROM activity_effects e
 		JOIN activities a ON a.id = e.activity_id
-		JOIN holdings h ON h.id = e.holding_id AND h.archived_at IS NULL
+		JOIN holdings h ON h.id = e.holding_id
 		JOIN accounts owner_account ON owner_account.id = h.account_id
 		LEFT JOIN activity_trade_details t ON t.activity_id = a.id
 		LEFT JOIN activity_effects source_effect
@@ -37,7 +41,7 @@ func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID doma
 		  AND e.target = 'holding_quantity'
 		  AND a.household_id = owner_account.household_id
 		  AND a.reverses_activity_id IS NULL
-		  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = a.id)
+		  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = a.id)`+archiveClause+`
 		ORDER BY a.effective_at ASC, a.created_at ASC, a.id ASC, e.sequence ASC`, holdingID.String())
 	if err != nil {
 		return nil, err
@@ -153,32 +157,46 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 	_ = created // created_at participates in SQL ordering; EffectiveAt is the domain event time.
 	return event, nil
 }
-func (r *Repository) StartingPointCost(ctx context.Context, holdingID domain.HoldingID) (*domain.UnitPrice, error) {
-	var value sql.NullString
-	err := r.database.SQL.QueryRowContext(ctx, `
-		SELECT c.unit_cost
+func (r *Repository) StartingPointCost(ctx context.Context, holdingID domain.HoldingID, filter domain.CostBasisReadFilter) (*domain.UnitPrice, error) {
+	archiveClause := " AND h.archived_at IS NULL"
+	if filter.IncludeArchivedHoldings {
+		archiveClause = ""
+	}
+	rows, err := r.database.SQL.QueryContext(ctx, `
+		SELECT c.quantity, c.unit_cost
 		FROM history_origin_components c
 		JOIN history_origins o ON o.id = c.origin_id
-		JOIN holdings h ON h.id = c.holding_id AND h.archived_at IS NULL
+		JOIN holdings h ON h.id = c.holding_id
 		JOIN accounts owner_account ON owner_account.id = h.account_id AND owner_account.household_id = o.household_id
 		WHERE c.holding_id = ?
 		  AND c.instrument_id = h.instrument_id
-		  AND c.component_kind = 'holding_quantity'
-		  AND CAST(c.quantity AS REAL) > 0
-		ORDER BY c.created_at ASC, c.id ASC
-		LIMIT 1`, holdingID.String()).Scan(&value)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
+		  AND c.component_kind = 'holding_quantity'`+archiveClause+`
+		ORDER BY c.created_at ASC, c.id ASC`, holdingID.String())
 	if err != nil {
 		return nil, err
 	}
-	if !value.Valid {
-		return nil, nil
+	defer rows.Close()
+	for rows.Next() {
+		var quantity string
+		var unitCost sql.NullString
+		if err := rows.Scan(&quantity, &unitCost); err != nil {
+			return nil, err
+		}
+		parsedQuantity, err := domain.ParseQuantity(quantity)
+		if err != nil {
+			return nil, asStoredIntegrity("quantity", err)
+		}
+		if parsedQuantity.IsZero() || !unitCost.Valid || unitCost.String == "" {
+			continue
+		}
+		parsed, err := domain.ParseUnitPrice(unitCost.String)
+		if err != nil {
+			return nil, asStoredIntegrity("unitPrice", err)
+		}
+		return &parsed, nil
 	}
-	parsed, err := domain.ParseUnitPrice(value.String)
-	if err != nil {
+	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	return &parsed, nil
+	return nil, rows.Close()
 }

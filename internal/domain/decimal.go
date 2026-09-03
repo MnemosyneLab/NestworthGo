@@ -142,6 +142,17 @@ func (p UnitPrice) Multiply(quantity Quantity) (decimal.Decimal, error) {
 	return MultiplyQuantityAndUnitPrice(quantity, p)
 }
 
+// UnitPriceFromExact constructs a UnitPrice at the supported eight-decimal
+// scale. Banker's rounding is applied once only when division or another
+// exact calculation produces more than eight fractional digits.
+func UnitPriceFromExact(value decimal.Decimal) (UnitPrice, error) {
+	scale, _ := decimalShape(value)
+	if scale > 8 {
+		value = value.RoundBank(8)
+	}
+	return NewUnitPrice(value)
+}
+
 // MultiplyQuantityAndUnitPrice preserves precision until the Money boundary.
 func MultiplyQuantityAndUnitPrice(quantity Quantity, price UnitPrice) (decimal.Decimal, error) {
 	return checkedIntermediate(quantity.value.Mul(price.value))

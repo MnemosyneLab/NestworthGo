@@ -122,3 +122,49 @@ func TestVerifyRejectsArchivedHoldingOnNonHoldingsAccount(t *testing.T) {
 		t.Fatalf("Verify error = %v, want archived holding on a non-holdings account", err)
 	}
 }
+
+func TestVerifyRejectsNonCanonicalHoldingQuantity(t *testing.T) {
+	database, _, _, account, instrument := seedPortfolioRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	if _, err := database.SQL.ExecContext(ctx, `INSERT INTO holdings(id, account_id, instrument_id, quantity, sort_order, created_at, updated_at) VALUES(?, ?, ?, '1e-8', 0, ?, ?)`,
+		domain.NewHoldingID().String(), account.ID.String(), instrument.ID.String(), formatTimestamp(now), formatTimestamp(now)); err != nil {
+		t.Fatal(err)
+	}
+	err := database.Verify(ctx)
+	if !hasDomainErrorCode(err, domain.ErrIntegrity) {
+		t.Fatalf("Verify error = %v, want integrity_failed for scientific-notation quantity", err)
+	}
+}
+
+func TestVerifyRejectsOwnershipThatDoesNotTotal10000(t *testing.T) {
+	database, _, _, account, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE account_ownership SET share_bps = 9999 WHERE account_id = ?`, account.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Verify(ctx); err == nil {
+		t.Fatal("Verify accepted ownership that does not total 10000 basis points")
+	}
+}
+
+func TestVerifyRejectsDanglingSnapshotQuoteProvenance(t *testing.T) {
+	database, _, household, account, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	now := time.Date(2026, 8, 22, 23, 59, 59, 999000000, time.UTC)
+	snapshotID := domain.NewDailyValuationSnapshotID()
+	itemID := domain.NewDailyValuationSnapshotItemID()
+	if _, err := database.SQL.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, content_hash, currency, complete, component_count, missing_count, generation_reason, created_at) VALUES(?, ?, '2026-08-22', ?, 1, 'hash', 'CNY', 1, 1, 0, 'test', ?)`,
+		snapshotID.String(), household.ID.String(), formatTimestamp(now), formatTimestamp(now)); err != nil {
+		t.Fatal(err)
+	}
+	missingQuote := domain.NewInstrumentQuoteID().String()
+	if _, err := database.SQL.ExecContext(ctx, `INSERT INTO daily_valuation_snapshot_items(id, snapshot_id, account_id, base_currency, complete, quote_id) VALUES(?, ?, ?, 'CNY', 1, ?)`,
+		itemID.String(), snapshotID.String(), account.ID.String(), missingQuote); err != nil {
+		t.Fatal(err)
+	}
+	err := database.Verify(ctx)
+	if !hasDomainErrorCode(err, domain.ErrIntegrity) {
+		t.Fatalf("Verify error = %v, want integrity_failed for dangling quote provenance", err)
+	}
+}

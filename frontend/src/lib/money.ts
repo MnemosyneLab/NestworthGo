@@ -286,6 +286,21 @@ export function allocateShareBps(amounts: string[]): number[] {
   return floors;
 }
 
+/**
+ * percentToShareBps converts a user-entered percent string into integer
+ * basis points with exact decimal arithmetic. 1% is 100 bps. Ties round to
+ * even at the integer, matching multiplyCanonical. Invalid or negative
+ * input becomes 0; Go ParseOwnership remains authoritative.
+ */
+export function percentToShareBps(percent: string): number {
+  const product = multiplyCanonical(percent.trim(), "100", 0);
+  if (!product || product.startsWith("-") || !/^\d+$/.test(product)) {
+    return 0;
+  }
+  const value = Number(product);
+  return Number.isSafeInteger(value) ? value : 0;
+}
+
 export function currencyFractionDigits(currency: string, locale = i18n.language || "en"): number {
   if (currency in CURRENCY_FRACTION_DIGITS) {
     return CURRENCY_FRACTION_DIGITS[currency] ?? 2;

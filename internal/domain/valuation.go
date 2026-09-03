@@ -79,9 +79,11 @@ const (
 type MissingInputView struct {
 	Kind             MissingInputKind
 	AccountID        AccountID
+	AccountName      string
 	InstrumentID     *InstrumentID
 	InstrumentName   string
 	InstrumentSymbol string
+	QuoteSource      QuoteSourceKind
 	BaseCurrency     CurrencyCode
 	QuoteCurrency    CurrencyCode
 }

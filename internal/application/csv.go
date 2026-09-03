@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/csvcodec"
 )
 
 const (
@@ -159,7 +158,11 @@ func (s *Service) ExportAccountsCSV(ctx context.Context, includeArchived bool) (
 			deref(record.Account.Note),
 		})
 	}
-	return csvcodec.Encode(AccountsCSVHeaders, rows)
+	codec, err := s.requireCSV()
+	if err != nil {
+		return nil, err
+	}
+	return codec.Encode(AccountsCSVHeaders, rows)
 }
 
 func (s *Service) ExportHoldingsCSV(ctx context.Context, includeArchived bool) ([]byte, error) {
@@ -234,7 +237,11 @@ func (s *Service) ExportHoldingsCSV(ctx context.Context, includeArchived bool) (
 			deref(item.holding.Note),
 		})
 	}
-	return csvcodec.Encode(HoldingsCSVHeaders, rows)
+	codec, err := s.requireCSV()
+	if err != nil {
+		return nil, err
+	}
+	return codec.Encode(HoldingsCSVHeaders, rows)
 }
 
 func (s *Service) CommitCSVImport(ctx context.Context, plan CSVImportPlan) (CSVPreviewStats, error) {
@@ -242,26 +249,30 @@ func (s *Service) CommitCSVImport(ctx context.Context, plan CSVImportPlan) (CSVP
 }
 
 func (s *Service) CommitCSVImportBuilt(ctx context.Context, build func() (CSVImportPlan, error)) (CSVPreviewStats, error) {
-	if err := s.BeginExclusiveOperation(); err != nil {
-		return CSVPreviewStats{}, err
-	}
-	defer s.EndExclusiveOperation()
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
-	plan, err := build()
-	if err != nil {
-		return CSVPreviewStats{}, err
-	}
-	if len(plan.Errors) > 0 {
-		return CSVPreviewStats{}, &domain.Error{Code: domain.ErrCSVRowInvalid, Message: "CSV has blocking errors"}
-	}
-	if _, err := s.requireHousehold(ctx); err != nil {
-		return CSVPreviewStats{}, err
-	}
-	if err := s.repository.CommitCSVImport(ctx, plan.Batch); err != nil {
-		return CSVPreviewStats{}, err
-	}
-	return plan.Stats, nil
+	var stats CSVPreviewStats
+	err := s.WithExclusive(ctx, ExclusiveCSV, func(ctx context.Context) error {
+		ctx, unlock, lockErr := s.beginLedgerWrite(ctx)
+		if lockErr != nil {
+			return lockErr
+		}
+		defer unlock()
+		plan, buildErr := build()
+		if buildErr != nil {
+			return buildErr
+		}
+		if len(plan.Errors) > 0 {
+			return &domain.Error{Code: domain.ErrCSVRowInvalid, Message: "CSV has blocking errors"}
+		}
+		if _, err := s.requireHousehold(ctx); err != nil {
+			return err
+		}
+		if err := s.repository.CommitCSVImport(ctx, plan.Batch); err != nil {
+			return err
+		}
+		stats = plan.Stats
+		return nil
+	})
+	return stats, err
 }
 
 func (s *Service) CurrentDatabasePreview(ctx context.Context) (BackupSidePreview, error) {
@@ -396,10 +407,10 @@ func formatBPSPercent(bps int) string {
 }
 
 func previewRows(rows [][]string) [][]string {
-	if len(rows) <= csvcodec.PreviewRowCap {
+	if len(rows) <= CSVPreviewRowCap {
 		return rows
 	}
-	return rows[:csvcodec.PreviewRowCap]
+	return rows[:CSVPreviewRowCap]
 }
 
 func latestManualQuote(quotes []domain.InstrumentQuote) *domain.InstrumentQuote {

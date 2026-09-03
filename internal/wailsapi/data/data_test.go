@@ -8,7 +8,6 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
@@ -24,12 +23,7 @@ func (m memoryDialogs) ConfirmReplace(string) (bool, error)                     
 
 func TestCreateBackupCancel(t *testing.T) {
 	app := wailstest.NewService(t)
-	database, err := sqlite.Open(filepath.Join(t.TempDir(), "live.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = database.Close() })
-	service := NewService(app, nil, database, memoryDialogs{}, native.NoopRefresh{})
+	service := NewService(app, nil, memoryDialogs{}, native.NoopRefresh{})
 	result, err := service.CreateBackup()
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +34,7 @@ func TestCreateBackupCancel(t *testing.T) {
 }
 
 func TestSelectCSVCancel(t *testing.T) {
-	service := NewService(nil, nil, nil, memoryDialogs{}, nil)
+	service := NewService(nil, nil, memoryDialogs{}, nil)
 	result, err := service.SelectCSV("accounts", "")
 	if err != nil {
 		t.Fatal(err)
@@ -51,12 +45,7 @@ func TestSelectCSVCancel(t *testing.T) {
 }
 
 func TestLastBackupStatusMissing(t *testing.T) {
-	database, err := sqlite.Open(filepath.Join(t.TempDir(), "live.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = database.Close() })
-	service := NewService(nil, nil, database, nil, nil)
+	service := NewService(nil, nil, nil, nil)
 	status, err := service.LastBackupStatus()
 	if err != nil {
 		t.Fatal(err)
@@ -77,7 +66,7 @@ func TestCommitCSVRequiresPreviewAndConfirm(t *testing.T) {
 	if err := os.WriteFile(path, []byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-08-01,Alice:100%\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	service := NewService(app, nil, nil, memoryDialogs{open: path}, native.NoopRefresh{})
+	service := NewService(app, nil, memoryDialogs{open: path}, native.NoopRefresh{})
 	selected, err := service.SelectCSV("accounts", "")
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +116,7 @@ func TestPreviewCSVKeepsAccountsErrorsForSharedSession(t *testing.T) {
 	if err := os.WriteFile(holdingsPath, []byte("account_name,instrument_type,instrument_name,quantity,quote_currency,unit_price,quote_date\nBroker,etf,QQQ,10,USD,400.12,2026-08-01\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	service := NewService(app, nil, nil, memoryDialogs{open: accountsPath}, native.NoopRefresh{})
+	service := NewService(app, nil, memoryDialogs{open: accountsPath}, native.NoopRefresh{})
 	selected, err := service.SelectCSV("accounts", "")
 	if err != nil {
 		t.Fatal(err)

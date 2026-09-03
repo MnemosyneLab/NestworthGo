@@ -314,9 +314,34 @@ func TestSelectFXQuoteUsesTheCurrentProviderSourceKey(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	selected := selectFXQuote(preference, []domain.FXQuote{currentQuote, oldQuote}, "USD", "CNY", "frankfurter")
+	selected := selectFXQuote(preference, []domain.FXQuote{currentQuote, oldQuote}, "USD", "CNY", "frankfurter", nil)
 	if selected == nil || selected.SourceKey != "frankfurter" {
 		t.Fatalf("selected FX quote = %+v, want current provider quote", selected)
+	}
+}
+
+func TestSelectFXQuoteUsesDefaultProviderWhenPreferenceMissing(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+	rate, err := domain.ParseFxRate("7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quote, err := domain.NewFXQuote(domain.FXQuoteInput{
+		HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate,
+		SourceKind: domain.QuoteSourceProvider, SourceKey: "frankfurter", QuotedAt: now,
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	implicit := domain.FXPreference{HouseholdID: householdID, CurrencyA: "USD", CurrencyB: "CNY", SourceKind: domain.QuoteSourceProvider}
+	selected := selectFXQuote(implicit, []domain.FXQuote{quote}, "USD", "CNY", "frankfurter", nil)
+	if selected == nil || selected.SourceKey != "frankfurter" {
+		t.Fatalf("selected FX quote = %+v, want default provider quote", selected)
+	}
+	cutoff := now.Add(-time.Hour)
+	if later := selectFXQuote(implicit, []domain.FXQuote{quote}, "USD", "CNY", "frankfurter", &cutoff); later != nil {
+		t.Fatalf("quote after cutoff was selected: %+v", later)
 	}
 }
 

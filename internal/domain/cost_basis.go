@@ -24,8 +24,8 @@ const (
 // event carries the captured quantity; startingCost is passed separately to
 // ReplayCostBasis to keep the public function aligned with the release
 // contract. UnitCost is accepted on the StartingPoint event as a convenient
-// serialized form and is otherwise used for TransferIn/AdjustmentIn. UnitPrice
-// is used by Buy/Sell. Currency is required for a Sell so a signed realized
+// serialized form and is otherwise used for TransferIn/AdjustmentIn and for a
+// fee-adjusted Buy acquisition cost. UnitPrice is the price-only trade price. Currency is required for a Sell so a signed realized
 // amount can retain its settlement currency.
 type CostBasisEvent struct {
 	ActivityID         ActivityID
@@ -64,11 +64,19 @@ type CostBasisResult struct {
 	Realized []RealizedGainEvent
 }
 
+// CostBasisReadFilter controls historical cost-event reads. Current-position
+// queries keep their own archive filters; this option exists so realized-gain
+// and transfer-source replay can still load immutable facts after a Holding
+// is archived.
+type CostBasisReadFilter struct {
+	IncludeArchivedHoldings bool
+}
+
 // ReplayCostBasis walks a Holding's Starting Point cost and ordered immutable
-// Activity facts. Average costs are normalized to two decimal places with
-// decimal banker's rounding, which is the release's money-facing precision
-// (for example, 1400/15 becomes 93.33). No binary float or external state is
-// involved.
+// Activity facts. Average costs keep the supported UnitPrice scale of eight
+// fractional digits; banker's rounding is applied only when a blend divides
+// past that scale (for example, 1400/15 becomes 93.33333333). No binary float
+// or external state is involved.
 func ReplayCostBasis(startingCost *UnitPrice, events []CostBasisEvent) (CostBasisResult, error) {
 	currentQuantity, err := ParseQuantity("0")
 	if err != nil {
@@ -196,10 +204,17 @@ func reversedActivityIDs(events []CostBasisEvent) map[ActivityID]bool {
 func eventUnitCost(event CostBasisEvent) (*UnitPrice, error) {
 	switch event.Kind {
 	case CostBasisBuy:
+		if event.UnitCost != nil {
+			return event.UnitCost, nil
+		}
 		if event.UnitPrice == nil {
 			return nil, invalidCostBasis("unitPrice", "Buy requires a unit price")
 		}
-		return event.UnitPrice, nil
+		cost, err := BuyAcquisitionUnitCost(event.Quantity, *event.UnitPrice, event.Fee)
+		if err != nil {
+			return nil, err
+		}
+		return &cost, nil
 	case CostBasisTransferIn, CostBasisAdjustmentIn:
 		if event.UnitCost == nil {
 			return nil, &Error{Code: ErrCostBasisRequired, Field: "unitCost", Message: "an incoming quantity requires a per-unit cost"}
@@ -208,6 +223,24 @@ func eventUnitCost(event CostBasisEvent) (*UnitPrice, error) {
 	default:
 		return nil, invalidCostBasis("kind", "event does not provide an incoming cost")
 	}
+}
+
+// BuyAcquisitionUnitCost is the fee-adjusted per-unit basis used by average
+// cost. Trade UnitPrice remains price-only (gross / quantity); a buy fee is
+// added to acquisition basis as (gross + fee) / quantity.
+func BuyAcquisitionUnitCost(quantity Quantity, unitPrice UnitPrice, fee *Money) (UnitPrice, error) {
+	if quantity.IsZero() {
+		return UnitPrice{}, invalidCostBasis("quantity", "cost-basis event quantity must be greater than zero")
+	}
+	gross, err := quantity.Multiply(unitPrice)
+	if err != nil {
+		return UnitPrice{}, err
+	}
+	total := gross
+	if fee != nil {
+		total = total.Add(fee.Amount())
+	}
+	return UnitPriceFromExact(total.Div(quantity.Decimal()))
 }
 
 func blendCost(current CostLot, incoming *UnitPrice, incomingQuantity Quantity, hasCost bool) (CostLot, error) {
@@ -229,7 +262,8 @@ func blendCost(current CostLot, incoming *UnitPrice, incomingQuantity Quantity, 
 	if err != nil {
 		return CostLot{}, err
 	}
-	average, err := NewUnitPrice(oldValue.Add(incomingValue).Div(total.Decimal()).RoundBank(2))
+	sum := oldValue.Add(incomingValue).Div(total.Decimal())
+	average, err := UnitPriceFromExact(sum)
 	if err != nil {
 		return CostLot{}, err
 	}

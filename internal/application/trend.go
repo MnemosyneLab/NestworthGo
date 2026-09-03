@@ -35,7 +35,7 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 		if err != nil {
 			return domain.NetWorthTrend{}, err
 		}
-		netWorth, err := domain.NewMoney(current.NetWorth, current.Currency)
+		netWorth, err := domain.NewSignedMoney(current.NetWorth, current.Currency)
 		if err != nil {
 			return domain.NetWorthTrend{}, err
 		}
@@ -175,8 +175,8 @@ func trendSince(trendRange domain.TrendRange, today, origin time.Time) (time.Tim
 	}
 }
 
-func wealthTrendSummary(points []domain.NetWorthTrendPoint, currency domain.CurrencyCode) (*domain.Money, *domain.Money, *domain.SignedMoney, error) {
-	var start, end *domain.Money
+func wealthTrendSummary(points []domain.NetWorthTrendPoint, currency domain.CurrencyCode) (*domain.SignedMoney, *domain.SignedMoney, *domain.SignedMoney, error) {
+	var start, end *domain.SignedMoney
 	for _, point := range points {
 		if point.NetWorth != nil {
 			start = point.NetWorth
@@ -209,8 +209,16 @@ func portfolioPointFromSnapshot(snapshot domain.DailyValuationSnapshot, currency
 			continue
 		}
 		hasInstrument = true
-		if item.BaseAmount != nil {
-			valued = valued.Add(item.BaseAmount.Amount())
+		exact := item.BaseAmountExact
+		if exact == "" && item.BaseAmount != nil {
+			exact = item.BaseAmount.CanonicalAmount()
+		}
+		if exact != "" {
+			amount, parseErr := decimal.NewFromString(exact)
+			if parseErr != nil {
+				return domain.PortfolioTrendPoint{}, false, &domain.Error{Code: domain.ErrIntegrity, Message: "stored snapshot base amount is invalid"}
+			}
+			valued = valued.Add(amount)
 		}
 		if !item.Complete {
 			complete = false
@@ -285,6 +293,17 @@ func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, yeste
 	state, err := s.repository.DailySnapshotState(ctx, household.ID)
 	if err != nil {
 		return err
+	}
+	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, household.ID, time.Time{})
+	if err != nil {
+		return err
+	}
+	for _, snapshot := range snapshots {
+		if snapshotHashNeedsRebuild(snapshot.ContentHash) {
+			originCopy := startDate
+			state.DirtyFrom = &originCopy
+			break
+		}
 	}
 	rebuildFrom, skip, err := closedDayRebuildFrom(startDate, yesterday, state)
 	if err != nil {

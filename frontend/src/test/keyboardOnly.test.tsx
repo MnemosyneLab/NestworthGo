@@ -18,6 +18,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
+import { paginateActivityPage } from "@/test/activityPage";
 import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { AccountsPage } from "@/features/accounts/AccountsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
@@ -154,7 +155,9 @@ beforeEach(() => {
   settingsSave.mockClear();
   settingsLoad.mockResolvedValue(defaultSettings);
   listActivities.mockResolvedValue([]);
-  listActivityPage.mockImplementation(async (...args: unknown[]) => ({ activities: await listActivities(...args) }));
+  listActivityPage.mockImplementation(async (request: { afterId?: string; afterEffectiveAt?: string; afterCreatedAt?: string; limit?: number } = {}) =>
+    paginateActivityPage(await listActivities(), request),
+  );
 });
 
 describe("keyboard-only completion", () => {

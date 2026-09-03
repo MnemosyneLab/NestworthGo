@@ -184,7 +184,7 @@ type DailyValuationSnapshot struct {
 	ContentHash       string
 	AssetsAmount      *Money
 	LiabilitiesAmount *Money
-	NetWorthAmount    *Money
+	NetWorthAmount    *SignedMoney
 	Currency          CurrencyCode
 	Complete          bool
 	ComponentCount    int
@@ -203,6 +203,7 @@ type DailyValuationSnapshotItem struct {
 	NativeAmount              string
 	NativeCurrency            CurrencyCode
 	BaseAmount                *Money
+	BaseAmountExact           string
 	QuoteID                   *string
 	FXQuoteID                 *string
 	StateObservationID        *AccountStateObservationID
@@ -220,6 +221,16 @@ func (item DailyValuationSnapshotItem) ValidateNativeAmount() error {
 		return nil
 	}
 	_, err := ParseNativeAmount(item.NativeAmount)
+	return err
+}
+
+// ValidateBaseAmountExact applies the storage contract for the canonical
+// unrounded base amount persisted in snapshot-item base_amount TEXT.
+func (item DailyValuationSnapshotItem) ValidateBaseAmountExact() error {
+	if item.BaseAmountExact == "" {
+		return nil
+	}
+	_, err := ParseNativeAmount(item.BaseAmountExact)
 	return err
 }
 
@@ -272,7 +283,7 @@ func AllTrendRanges() []TrendRange {
 
 type NetWorthTrendPoint struct {
 	LocalDate    string
-	NetWorth     *Money
+	NetWorth     *SignedMoney
 	Assets       *Money
 	Liabilities  *Money
 	Complete     bool
@@ -283,8 +294,8 @@ type NetWorthTrend struct {
 	Range    TrendRange
 	Currency CurrencyCode
 	Points   []NetWorthTrendPoint
-	Start    *Money
-	End      *Money
+	Start    *SignedMoney
+	End      *SignedMoney
 	Change   *SignedMoney
 }
 

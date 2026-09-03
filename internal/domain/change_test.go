@@ -269,6 +269,15 @@ func TestPreviewTradeValueUpdateAndNoChange(t *testing.T) {
 	if preview.Activity.TradeDetail.HoldingID != qqq {
 		t.Fatalf("trade resolved holding = %s, want %s", preview.Activity.TradeDetail.HoldingID, qqq)
 	}
+	unevenQty, _ := ParseQuantity("3")
+	unevenGross, _ := ParseMoney("10", state.Accounts[broker].Currency)
+	uneven, err := PreviewChange(state, TradeInput{HouseholdID: state.HouseholdID, Side: TradeBuy, SettlementAccountID: broker, HoldingID: qqq, InstrumentID: state.Holdings[qqq].InstrumentID, Quantity: unevenQty, Gross: unevenGross})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uneven.DerivedUnitPrice == nil || uneven.DerivedUnitPrice.Canonical() != "3.33333333" {
+		t.Fatalf("implied trade unit price = %v, want 3.33333333", uneven.DerivedUnitPrice)
+	}
 	updated, _ := ParseMoney("1000", state.Accounts[broker].Currency)
 	_, err = PreviewChange(state, ValueUpdateInput{HouseholdID: state.HouseholdID, AccountID: broker, NewValue: updated})
 	if err == nil || err.(*Error).Code != ErrInvalidChange {
@@ -291,6 +300,28 @@ func TestResolveLocalDateTimeRejectsDSTGapAndAmbiguity(t *testing.T) {
 	resolved, err := ResolveLocalDateTime("2026-08-23", "20:00", "Asia/Shanghai")
 	if err != nil || resolved.Location() != time.UTC || resolved.Format(time.RFC3339) != "2026-08-23T12:00:00Z" {
 		t.Fatalf("resolved time = %v, error=%v", resolved, err)
+	}
+}
+
+func TestPreviewPositionTransferRejectsDestinationOverflow(t *testing.T) {
+	state, _, _, fromID, toID := changeTestState(t)
+	maxQty, err := ParseQuantity("999999999999999999.99999999")
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding := state.Holdings[toID]
+	holding.Current = maxQty
+	state.Holdings[toID] = holding
+	quantity, err := ParseQuantity("0.00000001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = PreviewChange(state, PositionTransferInput{HouseholdID: state.HouseholdID, FromHoldingID: fromID, ToHoldingID: toID, Quantity: quantity})
+	if err == nil {
+		t.Fatal("destination overflow was accepted")
+	}
+	if typed, ok := err.(*Error); !ok || typed.Code != ErrDecimalOverflow {
+		t.Fatalf("overflow error = %v, want decimal_overflow", err)
 	}
 }
 

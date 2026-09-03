@@ -17,6 +17,10 @@ func TestDailyValuationSnapshotDTOMarksSimpleItemsNotTotals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	netWorth, err := domain.ParseSignedMoney("800", currency)
+	if err != nil {
+		t.Fatal(err)
+	}
 	simpleID := domain.NewAccountID()
 	holdingsID := domain.NewAccountID()
 	holdingID := domain.NewHoldingID()
@@ -29,7 +33,7 @@ func TestDailyValuationSnapshotDTOMarksSimpleItemsNotTotals(t *testing.T) {
 		Currency:          currency,
 		AssetsAmount:      &amount,
 		LiabilitiesAmount: &amount,
-		NetWorthAmount:    &amount,
+		NetWorthAmount:    &netWorth,
 		Items: []domain.DailyValuationSnapshotItem{
 			{
 				ID:                  domain.NewDailyValuationSnapshotItemID(),

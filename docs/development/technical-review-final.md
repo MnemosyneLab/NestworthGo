@@ -106,29 +106,29 @@ the current code does not actually have.
 
 ## Prioritized Issue Register
 
-| ID | Priority | Type | Verified problem | Primary locations |
-| --- | --- | --- | --- | --- |
-| F1 | P0 | Actual bug | Historical snapshots ignore `IncludeInNetWorth`. | `internal/application/historical_snapshot.go`, `service.go` |
-| F2 | P0 | Actual bug | Negative net worth cannot be saved or appended as today's trend point. | `internal/domain/history.go`, `historical_snapshot.go`, `trend.go`, Wails DTOs |
-| F3 | P0 | Actual bug | Historical account and portfolio totals sum rounded Money values. | `historical_snapshot.go`, `trend.go`, `snapshot_repository.go` |
-| F4 | P0 | Actual data-integrity bug | `buildPositionTransfer` discards `NewQuantity` errors; commit consumes the invalid endpoint. | `internal/domain/change.go`, `change_repository.go` |
-| F5 | P0 | Actual consistency bug | Gain paths drop active holdings whose Instrument is archived and drop realized history for archived Holdings. | `internal/application/gain_service.go`, `internal/infrastructure/sqlite/cost_basis_repository.go` |
-| F6 | P0 | Actual consistency bug | Historical gain/dividend FX requires an explicit preference while live valuation can use the default provider. | `gain_service.go`, `valuation.go` |
-| F7 | P0 | Actual compatibility bug | Read-only backup verification rejects the accepted pre-repair v9 account CHECK shape. | `sqlite/readonly.go`, `schema_repair.go`, `schema_verify.go` |
-| F8 | P0 | Actual resource bug | Some query loops return on scan error before closing `Rows` on a one-connection pool. | `activity_repository.go`, `observation_repository.go`, `snapshot_repository.go` |
-| F9 | P0 | Actual recovery-contract bug | Known bootstrap states are collapsed to generic `unavailable`. | `cmd/nestworth/main.go`, `sqlite/database.go`, Wails App startup DTO/UI |
-| F10 | P0 | Actual concurrency/design bug | Backup/import/restore exclusivity does not cover directory, onboarding, settings, and refresh persistence writers. | `application/exclusive.go`, `service.go`, `refresh.go`, Wails data/recovery adapters |
-| F11 | P1 | Financial correctness | Average cost rounds to two decimals despite an eight-decimal `UnitPrice` contract. | `internal/domain/cost_basis.go` |
-| F12 | P1 | Accounting policy gap | Buy fees reduce cash but are not included in acquisition basis. | `internal/domain/change.go`, `cost_basis.go` |
-| F13 | P1 | Performance/API | Investments performs one full-snapshot `AccountGain` call per Account; Overview also fans out. | `application/gain_service.go`, `frontend/src/queries/analytics.ts`, `OverviewPage.tsx` |
-| F14 | P1 | Actual UX bug | History returns a cursor but the UI never requests the next page. | `HistoryPage.tsx`, `frontend/src/queries/history.ts` |
-| F15 | P1 | Integrity/debt | Optional directory IDs can be silently converted to nil; schema verification casts exact quantities through `REAL`; aggregate ownership and snapshot provenance are not fully checked at persistence boundaries. | `sqlite/repository.go`, `schema_verify.go`, snapshot/ownership writers |
-| F16 | P1 | Privacy/hardening | Live database mode is not normalized, startup logs full paths, and pending Restore packages have no TTL/count bound. | `sqlite/database.go`, `cmd/nestworth/main.go`, `wailsapi/recovery/recovery.go` |
-| F17 | P1 | Performance | Activity/snapshot list hydration is per parent row; hidden pages can keep queries active. | SQLite list repositories, `frontend/src/App.tsx` |
-| F18 | P2 | Architecture debt | `application.Service` is a broad facade; application imports CSV infrastructure; Wails data/recovery adapters own persistence lifecycle. | `internal/application`, `internal/wailsapi/data`, `recovery` |
-| F19 | P2 | Contract/documentation debt | Activity taxonomy and cost-basis entities in architecture docs do not match stored code; `include_in_liquid_assets` has no metric consumer. | `docs/architecture`, account UI/contracts |
-| F20 | P2 | Reliability/release debt | Activity mutations have no request idempotency key; there is no CI workflow; native/package gates are manual; Wails is beta. | History commands, `.github`, build files |
-| F21 | P2 | Frontend precision/performance | Ownership conversion uses JavaScript `Number`; the production bundle has one large main chunk. | `accountCatalog.ts`, frontend route/import structure |
+| ID | Priority | Type | Verified problem | Primary locations | Status |
+| --- | --- | --- | --- | --- | --- |
+| F1 | P0 | Actual bug | Historical snapshots ignore `IncludeInNetWorth`. | `internal/application/historical_snapshot.go`, `service.go` | Resolved |
+| F2 | P0 | Actual bug | Negative net worth cannot be saved or appended as today's trend point. | `internal/domain/history.go`, `historical_snapshot.go`, `trend.go`, Wails DTOs | Resolved |
+| F3 | P0 | Actual bug | Historical account and portfolio totals sum rounded Money values. | `historical_snapshot.go`, `trend.go`, `snapshot_repository.go` | Resolved |
+| F4 | P0 | Actual data-integrity bug | `buildPositionTransfer` discards `NewQuantity` errors; commit consumes the invalid endpoint. | `internal/domain/change.go`, `change_repository.go` | Resolved |
+| F5 | P0 | Actual consistency bug | Gain paths drop active holdings whose Instrument is archived and drop realized history for archived Holdings. | `internal/application/gain_service.go`, `internal/infrastructure/sqlite/cost_basis_repository.go` | Resolved |
+| F6 | P0 | Actual consistency bug | Historical gain/dividend FX requires an explicit preference while live valuation can use the default provider. | `gain_service.go`, `valuation.go` | Resolved |
+| F7 | P0 | Actual compatibility bug | Read-only backup verification rejects the accepted pre-repair v9 account CHECK shape. | `sqlite/readonly.go`, `schema_repair.go`, `schema_verify.go` | Resolved |
+| F8 | P0 | Actual resource bug | Some query loops return on scan error before closing `Rows` on a one-connection pool. | `activity_repository.go`, `observation_repository.go`, `snapshot_repository.go` | Resolved |
+| F9 | P0 | Actual recovery-contract bug | Known bootstrap states are collapsed to generic `unavailable`. | `cmd/nestworth/main.go`, `sqlite/database.go`, Wails App startup DTO/UI | Resolved |
+| F10 | P0 | Actual concurrency/design bug | Backup/import/restore exclusivity does not cover directory, onboarding, settings, and refresh persistence writers. | `application/exclusive.go`, `service.go`, `refresh.go`, Wails data/recovery adapters | Resolved |
+| F11 | P1 | Financial correctness | Average cost rounds to two decimals despite an eight-decimal `UnitPrice` contract. | `internal/domain/cost_basis.go` | Resolved |
+| F12 | P1 | Accounting policy gap | Buy fees reduce cash but are not included in acquisition basis. | `internal/domain/change.go`, `cost_basis.go` | Resolved |
+| F13 | P1 | Performance/API | Investments performs one full-snapshot `AccountGain` call per Account; Overview also fans out. | `application/gain_service.go`, `frontend/src/queries/analytics.ts`, `OverviewPage.tsx` | Resolved |
+| F14 | P1 | Actual UX bug | History returns a cursor but the UI never requests the next page. | `HistoryPage.tsx`, `frontend/src/queries/history.ts` | Resolved |
+| F15 | P1 | Integrity/debt | Optional directory IDs can be silently converted to nil; schema verification casts exact quantities through `REAL`; aggregate ownership and snapshot provenance are not fully checked at persistence boundaries. | `sqlite/repository.go`, `schema_verify.go`, snapshot/ownership writers | Resolved |
+| F16 | P1 | Privacy/hardening | Live database mode is not normalized, startup logs full paths, and pending Restore packages have no TTL/count bound. | `sqlite/database.go`, `cmd/nestworth/main.go`, `wailsapi/recovery/recovery.go` | Resolved |
+| F17 | P1 | Performance | Activity/snapshot list hydration is per parent row; hidden pages can keep queries active. | SQLite list repositories, `frontend/src/App.tsx` | Resolved |
+| F18 | P2 | Architecture debt | `application.Service` is a broad facade; application imports CSV infrastructure; Wails data/recovery adapters own persistence lifecycle. | `internal/application`, `internal/wailsapi/data`, `recovery` | Resolved |
+| F19 | P2 | Contract/documentation debt | Activity taxonomy and cost-basis entities in architecture docs do not match stored code; `include_in_liquid_assets` has no metric consumer. | `docs/architecture`, account UI/contracts | Resolved |
+| F20 | P2 | Reliability/release debt | Activity mutations have no request idempotency key; there is no CI workflow; native/package gates are manual; Wails is beta. | History commands, `.github`, build files | Resolved |
+| F21 | P2 | Frontend precision/performance | Ownership conversion uses JavaScript `Number`; the production bundle has one large main chunk. | `accountCatalog.ts`, frontend route/import structure | Resolved |
 
 ## Implementation Sequence
 
@@ -169,6 +169,8 @@ Required tests:
 ### Work Package 1 — Unify Historical and Live Valuation
 
 **Covers:** F1–F3.
+
+**Progress:** F1, F2, and F3 resolved.
 
 Primary files:
 
@@ -220,6 +222,8 @@ Acceptance criteria:
 
 **Covers:** F4–F6.
 
+**Progress:** F4, F5, and F6 resolved.
+
 Implementation steps:
 
 1. In `buildPositionTransfer`, return the `NewQuantity` error for both source and
@@ -256,6 +260,8 @@ Acceptance criteria:
 
 **Covers:** F11–F12 and rounding-policy debt.
 
+**Progress:** F11 and F12 resolved.
+
 Implementation steps:
 
 1. Replace `RoundBank(2)` in `blendCost` with construction at the supported
@@ -283,6 +289,8 @@ Required cases:
 ### Work Package 4 — Make SQLite Verification and Readers Fail Closed
 
 **Covers:** F7–F8 and the integrity part of F15.
+
+**Progress:** F7, F8, and F15 resolved.
 
 Implementation steps:
 
@@ -329,6 +337,8 @@ Acceptance criteria:
 
 **Covers:** F9.
 
+**Progress:** F9 resolved.
+
 Implementation steps:
 
 1. Add stable safe domain/wire codes for at least:
@@ -359,6 +369,8 @@ Acceptance criteria:
 ### Work Package 6 — Replace the Partial Exclusive Flag With One Write Gate
 
 **Covers:** F10 and backup-related architecture concerns.
+
+**Progress:** F10 resolved. `WriteCoordinator` is the single write gate; exclusive backup/restore/CSV and ordinary mutations share it.
 
 The current atomic `exclusive` flag is advisory: ordinary writers do not check
 it. Replace it with one application-owned coordinator rather than adding
@@ -404,6 +416,8 @@ Concurrency matrix to test:
 
 **Covers:** F16 and security/privacy review items.
 
+**Progress:** F16 resolved. Live DB/WAL/SHM are forced to `0600`; logs omit paths and provider URLs; Restore/CSV previews expire, cap, and Restore stages a `0600` file instead of keeping the package in memory.
+
 Implementation steps:
 
 1. After validating that the path is the app-owned live database, enforce `0600`
@@ -429,6 +443,8 @@ Acceptance criteria:
 ### Work Package 8 — Batch Analytics and List Hydration
 
 **Covers:** F13 and the repository portion of F17.
+
+**Progress:** F13 resolved. `AccountGains` reads one portfolio snapshot and shares one cost-basis replay; Investments uses a single TanStack query. Overview returns labels, history-started, and bounded recent-activity headlines from that same use case so the page no longer fans out to accounts/instruments/holdings/history APIs. F17 repository hydration is batched: a 50-row Activity page and a 365-day snapshot range use a bounded query count (`IN (...)` child lookups on existing indexes). F17 frontend: only the active workspace page is mounted; TanStack Query retains server state and `selectedAccountId` remains App-owned UI state.
 
 Implementation steps:
 
@@ -461,6 +477,8 @@ Acceptance criteria:
 ### Work Package 9 — Finish History Pagination and Frontend Lifecycle
 
 **Covers:** F14, frontend part of F17, and F21.
+
+**Progress:** F14 resolved. History uses `useInfiniteQuery` with the backend keyset cursor (`afterId`, `afterEffectiveAt`, `afterCreatedAt`) kept out of the query key so loaded pages stay stable across mutation invalidation. A Load more action requests the next page while `hasMore` is true. Tests cover more than 50 Activities with identical `effective_at`/`created_at` on both the SQLite keyset and the History UI. F17 frontend resolved: inactive workspace pages unmount instead of staying `hidden`. F21 resolved: ownership percents convert through `percentToShareBps` (`multiplyCanonical` integer rounding); Go `ParseOwnership` remains authoritative. Chart/analytics routes load via `React.lazy`. Production bundle after the split: main `index` 102 kB gzip 26 kB (review baseline ~1.68 MB in one main chunk). Remaining Vite warning is the `echarts` vendor chunk at 588 kB, loaded in parallel for Overview charts so the landing page has no Suspense flash.
 
 Implementation steps:
 

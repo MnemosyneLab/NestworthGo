@@ -137,3 +137,39 @@ func TestCommandKindActivityTableCoversEveryKind(t *testing.T) {
 		}
 	}
 }
+
+func TestMutationEnvelopeHashesPayloadWithoutMutationID(t *testing.T) {
+	base := ChangeCommandRequest{
+		Kind: ChangeMoneyAdded, AccountID: domain.NewAccountID().String(), Amount: "10", Currency: "USD", Reason: "income",
+	}
+	firstID := domain.NewMutationID().String()
+	secondID := domain.NewMutationID().String()
+	firstIDOut, firstHash, err := (ChangeCommandRequest{Kind: base.Kind, AccountID: base.AccountID, Amount: base.Amount, Currency: base.Currency, Reason: base.Reason, MutationID: firstID}).MutationEnvelope()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if firstIDOut != firstID {
+		t.Fatalf("mutation ID = %q, want %q", firstIDOut, firstID)
+	}
+	_, secondHash, err := (ChangeCommandRequest{Kind: base.Kind, AccountID: base.AccountID, Amount: base.Amount, Currency: base.Currency, Reason: base.Reason, MutationID: secondID}).MutationEnvelope()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if firstHash != secondHash {
+		t.Fatalf("payload hashes differ across mutation IDs: %s vs %s", firstHash, secondHash)
+	}
+	_, otherHash, err := (ChangeCommandRequest{Kind: base.Kind, AccountID: base.AccountID, Amount: "11", Currency: base.Currency, Reason: base.Reason, MutationID: firstID}).MutationEnvelope()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if otherHash == firstHash {
+		t.Fatal("payload hash did not change when the command amount changed")
+	}
+	id, hash, err := base.MutationEnvelope()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if id != "" || hash != "" {
+		t.Fatalf("empty mutation ID envelope = (%q, %q), want empty", id, hash)
+	}
+}

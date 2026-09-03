@@ -25,10 +25,6 @@ erDiagram
     HOUSEHOLD ||--o{ ACTIVITY : records
     ACTIVITY ||--|{ ACTIVITY_LEG : composed_of
     HOUSEHOLD ||--o{ DAILY_SNAPSHOT : valued_as
-    HOUSEHOLD ||--o{ COST_BASIS_DECLARATION : declares
-    COST_BASIS_DECLARATION }o--o| HOLDING : origin_lot
-    COST_BASIS_DECLARATION }o--o| ACTIVITY_LEG : acquisition_lot
-    INSTRUMENT ||--o{ COST_BASIS_DECLARATION : quotes
 ```
 
 ## Core Entities
@@ -94,9 +90,33 @@ supplies no Instrument binding.
 
 ### Activity
 
-An Activity is an immutable ledger header with one or more validated typed legs. It records why a Balance, cash, liability, or Holding Quantity changed. Users submit a kind-specific application command; Go constructs legs. There is no edit or delete of a posted Activity. Reversal posts the exact inverse. Correction posts a reversal and a replacement in one transaction.
+An Activity is an immutable ledger header with one or more validated typed
+legs. It records why a Balance, cash, liability, or Holding Quantity changed.
+Users submit a kind-specific application command; Go constructs legs. There is
+no edit or delete of a posted Activity. Reversal posts the exact inverse.
+Correction posts a reversal and a replacement in one transaction.
 
-Supported kinds are Opening Adjustment, Balance Adjustment, Position Adjustment, Deposit, Withdrawal, Transfer, Buy, Sell, Cash Dividend, Income, Fee, Debt Draw, Debt Payment, Debt Adjustment, Manual Valuation, and Reversal.
+Stored `kind` values are the canonical vocabulary. UI copy is a presentation
+map only and must not be treated as a second stored taxonomy.
+
+| Stored kind | Typical UI label | Notes |
+| --- | --- | --- |
+| `cash_in` | Money added | Reasons include `contribution`, `income`, `gift`, `other`. |
+| `cash_out` | Money removed | Reasons include `expense`, `fee`, `other`. |
+| `cash_dividend` | Cash dividend | |
+| `cash_transfer` | Transfer | Internal cash movement. |
+| `fx_conversion` | Currency conversion | Same Account, two currencies. |
+| `position_transfer` | Position transfer | |
+| `buy` | Buy | |
+| `sell` | Sell | |
+| `value_update` | Value update | Opening, balance, and manual-valuation adjustments. |
+| `debt_draw` | Debt draw | |
+| `debt_payment` | Debt payment | |
+| `reversal` | Reversal | Inverse of a posted Activity. |
+
+There is no stored `COST_BASIS_DECLARATION` table and no `LotRef` identity.
+Starting-point and already-existed unit cost live on origin components and
+trade/adjustment evidence. FIFO lots remain deferred.
 
 Classification is derived in Go from kind and leg role. Internal transfers and trade principal contribute zero external wealth flow. Explicit fees remain distinguishable from principal. A cross-currency internal transfer may change base-currency net worth by conversion spread versus market FX; that spread is a computed overlay, not a fee and not external flow.
 
@@ -118,13 +138,17 @@ they do not create a synthetic trade or a mutable cost column on the Holding.
 
 ### Derived Average Cost and Gain
 
-`ReplayCostBasis` blends cost-bearing increases by quantity, keeps the average
-cost of remaining quantity across reductions, and emits signed realized gain
-events for sells. Transfers resolve the sending Holding's average cost at the
-transfer time. `GainService` derives native and base-currency cost/value/gain
-views plus the exact two-part Instrument/currency decomposition. These results
-are recomputed on reads and are never stored as financial facts. FIFO lots,
-unknown-basis declarations, and return calculations remain deferred.
+`ReplayCostBasis` blends cost-bearing increases by quantity at the supported
+`UnitPrice` scale of eight fractional digits, keeps the average cost of
+remaining quantity across reductions, and emits signed realized gain events
+for sells. Trade `UnitPrice` stays price-only (`gross / quantity`). Buy fees
+increase acquisition basis as `(gross + fee) / quantity`. Sell realized gain
+is proceeds minus remaining basis minus the sell fee. Transfers resolve the
+sending Holding's average cost at the transfer time. `GainService` derives
+native and base-currency cost/value/gain views plus the exact two-part
+Instrument/currency decomposition. These results are recomputed on reads and
+are never stored as financial facts. FIFO lots, unknown-basis declarations,
+and return calculations remain deferred.
 
 ### Gain, Return, and Attribution
 
@@ -139,7 +163,7 @@ incomplete result rather than zero, one, or an estimate.
 
 ### Identifiers
 
-HouseholdId, MemberId, InstitutionId, AccountGroupId, AccountId, AccountValueId, InstrumentId, HoldingId, AccountCashValueId, InstrumentQuoteId, FxQuoteId, ActivityId, ActivityLegId, HistoryOriginId, HistoryOriginItemId, AccountStateObservationId, HoldingQuantityValueId, QuotePreferenceObservationId, ValuationSnapshotId, ValuationSnapshotItemId, and CostBasisDeclarationId are distinct Go types backed by UUID v7. A derived `LotRef` is `OriginHolding(HoldingId)` or `Acquisition(ActivityLegId)`, not a generated UUID. IDs are lowercase hyphenated UUID strings at persistence and application boundaries. IDs from different entity types are not interchangeable. A provider symbol is metadata, never a Nestworth business ID. A reversal or correction link references an `ActivityId`; it is not encoded in notes.
+HouseholdId, MemberId, InstitutionId, AccountGroupId, AccountId, AccountValueId, InstrumentId, HoldingId, AccountCashValueId, InstrumentQuoteId, FxQuoteId, ActivityId, ActivityLegId, HistoryOriginId, HistoryOriginItemId, AccountStateObservationId, HoldingQuantityValueId, QuotePreferenceObservationId, ValuationSnapshotId, and ValuationSnapshotItemId are distinct Go types backed by UUID v7. IDs are lowercase hyphenated UUID strings at persistence and application boundaries. IDs from different entity types are not interchangeable. A provider symbol is metadata, never a Nestworth business ID. A reversal or correction link references an `ActivityId`; it is not encoded in notes. `CostBasisDeclarationId` and `LotRef` are deferred identities and are not allocated in the current schema.
 
 ### Currency
 
@@ -167,7 +191,7 @@ Additional decimal types:
 | SignedMoney | Up to 12 | Up to 4 | Output-only; leading `-` allowed; never converted into `Money` |
 | ReturnRate | Up to 8 | Up to 6 | Output-only fraction, not a percentage; `0.0404` means 4.04% |
 
-Canonical output removes insignificant trailing zeros: `1.2300` becomes `1.23`, and `0.0000` becomes `0`. Valuation uses checked decimal operations and rounds only values that cross the Money DTO boundary to four fractional digits using midpoint-nearest-even. Overflow returns `DECIMAL_OVERFLOW`.
+Canonical output removes insignificant trailing zeros: `1.2300` becomes `1.23`, and `0.0000` becomes `0`. Valuation uses checked decimal operations and rounds only values that cross the Money DTO boundary to four fractional digits using midpoint-nearest-even. Average cost uses the `UnitPrice` scale: eight fractional digits, with midpoint-nearest-even applied once when a blend or fee-adjusted acquisition cost divides past that scale. Overflow returns `DECIMAL_OVERFLOW`.
 
 ### Time
 
@@ -234,7 +258,9 @@ net worth   = assets - liabilities
 
 An Account contributes nothing when it is archived or `include_in_net_worth` is false. A missing required quote excludes only the affected component, marks parent aggregates incomplete, and never substitutes zero or one. Identity conversion (native currency equals base) needs no FX quote and carries no FX freshness; it must not override the Instrument Quote freshness. Direct and inverse FX against the Household base currency must produce the same rounded Money result. Multi-hop FX is not used.
 
-The Portfolio total is the sum of complete holding components (InstrumentID present) on active, non-liability Accounts. Cash is excluded. The persisted `include_in_portfolio` flag is unused for this total. An incomplete holding is reported in missing inputs, excluded from the valued subtotal, and never treated as zero. Simple investment Accounts without holdings do not enter Portfolio. Overview still uses `include_in_net_worth`.
+The Portfolio total is the sum of complete holding components (InstrumentID present) on active, non-liability Accounts. Cash is excluded. The persisted `include_in_portfolio` flag is a compatibility field and is intentionally unused by this holdings-only Portfolio metric. An incomplete holding is reported in missing inputs, excluded from the valued subtotal, and never treated as zero. Simple investment Accounts without holdings do not enter Portfolio. Overview still uses `include_in_net_worth`.
+
+`include_in_liquid_assets` is also persisted for compatibility. No current total, breakdown, or Overview headline reads it. Until a named liquid-assets metric ships, the flag is reserved: create/edit forms do not expose it, catalog defaults may still be stored on create, and existing values are preserved on edit. The flag must not be described as changing a visible total.
 
 The Go service retains full checked decimal precision through quantity × price, FX conversion, and aggregation. Only application view-model construction rounds to four fractional digits with midpoint-nearest-even. Overview, Account detail, and Investments never reconstruct aggregate inputs from rounded strings.
 

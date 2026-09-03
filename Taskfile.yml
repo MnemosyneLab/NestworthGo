@@ -54,6 +54,7 @@ tasks:
       - task: common:frontend:run
         vars:
           SCRIPT: test
+      - git diff --check
 
   build:
     summary: Builds the application

@@ -23,6 +23,10 @@ const (
 	ErrMigration                   ErrorCode = "migration_failed"
 	ErrIntegrity                   ErrorCode = "integrity_failed"
 	ErrUnavailable                 ErrorCode = "unavailable"
+	ErrDatabaseUpgradeRequired     ErrorCode = "database_upgrade_required"
+	ErrDatabaseFromNewerVersion    ErrorCode = "database_from_newer_version"
+	ErrDatabaseIntegrityFailed     ErrorCode = "database_integrity_failed"
+	ErrDatabaseUnavailable         ErrorCode = "database_unavailable"
 	ErrDecimalOverflow             ErrorCode = "decimal_overflow"
 	ErrProviderUnavailable         ErrorCode = "provider_unavailable"
 	ErrProviderAuthentication      ErrorCode = "provider_authentication"
@@ -716,11 +720,18 @@ func NewAccountValue(account Account, amount Money, effectiveAt, createdAt time.
 	return AccountValue{ID: NewAccountValueID(), AccountID: account.ID, ValueKind: account.TrackingMode, Amount: amount, EffectiveAt: normalizeTime(effectiveAt), CreatedAt: normalizeTime(createdAt)}, nil
 }
 
+// AccountEligibleForNetWorth is the single eligibility rule used by live
+// Overview totals and historical snapshot aggregation. Liability sign is
+// applied by the aggregator, not this helper.
+func AccountEligibleForNetWorth(account Account) bool {
+	return account.IncludeInNetWorth && account.ArchivedAt == nil
+}
+
 func (a Account) SignedAmount(value Money) (decimal.Decimal, error) {
 	if value.Currency() != a.DefaultCurrency {
 		return decimal.Zero, validation("amount", "currency must match account currency")
 	}
-	if !a.IncludeInNetWorth || a.ArchivedAt != nil {
+	if !AccountEligibleForNetWorth(a) {
 		return decimal.Zero, nil
 	}
 	if a.IsLiability() {
@@ -772,6 +783,29 @@ type BreakdownItem struct {
 	ClassificationBasis ClassificationBasis
 }
 
+// OverviewNamedRef is a label the Overview screen needs without a second
+// directory round-trip. IDs stay opaque strings at this boundary.
+type OverviewNamedRef struct {
+	ID   string
+	Name string
+}
+
+// OverviewInstrumentRef includes quote source so Overview can distinguish
+// manual-price next steps from provider refresh without listing Instruments.
+type OverviewInstrumentRef struct {
+	ID          string
+	Name        string
+	QuoteSource QuoteSourceKind
+}
+
+// OverviewHoldingRef names a Holding as "Account · Instrument" for headlines.
+type OverviewHoldingRef struct {
+	ID           string
+	AccountID    string
+	InstrumentID string
+	Name         string
+}
+
 type OverviewResult struct {
 	Currency          CurrencyCode
 	AccountCount      int
@@ -786,6 +820,11 @@ type OverviewResult struct {
 	ByInstitution     []BreakdownItem
 	ByGroup           []BreakdownItem
 	ByAccountType     []BreakdownItem
+	HistoryStarted    bool
+	RecentActivities  []Activity
+	AccountLabels     []OverviewNamedRef
+	InstrumentLabels  []OverviewInstrumentRef
+	HoldingLabels     []OverviewHoldingRef
 }
 
 type OwnershipScope string

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
@@ -81,6 +82,50 @@ func TestOpenReopensCurrentDatabaseWithoutMigrationStatus(t *testing.T) {
 	if reopened.Status != StatusReady {
 		t.Fatalf("reopen status = %q, want ready", reopened.Status)
 	}
+}
+
+func TestOpenEnforcesRestrictiveDatabaseMode(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "mode.db")
+	assertMode := func(file string, required bool) {
+		t.Helper()
+		info, statErr := os.Stat(file)
+		if statErr != nil {
+			if !required && errors.Is(statErr, os.ErrNotExist) {
+				return
+			}
+			t.Fatal(statErr)
+		}
+		if info.Mode().Perm() != 0o600 {
+			t.Fatalf("%s perm = %o, want 0600", filepath.Base(file), info.Mode().Perm())
+		}
+	}
+	database, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertMode(path, true)
+	assertMode(path+"-wal", true)
+	assertMode(path+"-shm", false)
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(path + "-wal"); err == nil {
+		if err := os.Chmod(path+"-wal", 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	assertMode(path, true)
+	assertMode(path+"-wal", true)
+	assertMode(path+"-shm", false)
 }
 
 func TestOpenRejectsLegacyDatabaseWithoutWriting(t *testing.T) {
@@ -320,6 +365,27 @@ func TestOpenRewritesLegacyCashOnHandHoldingsCheck(t *testing.T) {
 	}
 	if schemaSQLContains(got, cashOnHandBalanceOnlyCheck) {
 		t.Fatalf("reopened accounts check still has the legacy fragment: %s", got)
+	}
+}
+
+func TestBootstrapErrorSafeErrorOmitsPathAndDriverText(t *testing.T) {
+	cases := []struct {
+		status BootstrapStatus
+		want   domain.ErrorCode
+	}{
+		{StatusLegacyDatabase, domain.ErrDatabaseUpgradeRequired},
+		{StatusUnsupportedFuture, domain.ErrDatabaseFromNewerVersion},
+		{StatusIntegrityFailed, domain.ErrDatabaseIntegrityFailed},
+		{StatusUnavailable, domain.ErrDatabaseUnavailable},
+	}
+	for _, testCase := range cases {
+		err := (&BootstrapError{Status: testCase.status, Found: 7, Supported: 9, Path: "/secret/nestworth.db", Err: errors.New("sqlite: constraint failed")}).SafeError()
+		if err.Code != testCase.want || err.Field != "database" {
+			t.Fatalf("status %s SafeError = %+v, want %s", testCase.status, err, testCase.want)
+		}
+		if strings.Contains(err.Error(), "/secret") || strings.Contains(strings.ToLower(err.Error()), "sqlite") {
+			t.Fatalf("SafeError leaked technical detail: %v", err)
+		}
 	}
 }
 

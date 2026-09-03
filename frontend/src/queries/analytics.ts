@@ -1,4 +1,4 @@
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Service as AnalyticsService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics";
 import { Service as PortfolioService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio";
 import type { HoldingGainDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -27,30 +27,32 @@ export function useNetWorthTrend(trendRange: string) {
 }
 
 /**
- * useHoldingGainsByAccounts fetches AnalyticsService.AccountGain for every
- * given Account and flattens the result into a per-Holding lookup, so a
- * flat Holdings list (Investments page) can show cost/current
- * value/gain columns per row without re-deriving them client-side. Go remains
- * the sole calculation authority. Each account-gain query uses the shared
- * account-gain key so later reads of the same account reuse this cache.
+ * useHoldingGainsByAccounts fetches household AccountGains in one query and
+ * flattens holdings into a lookup. Go remains the sole calculation
+ * authority. accountIds is kept so callers can wait until the Account list
+ * is known; the backend still reads one snapshot for the whole household.
  */
 export function useHoldingGainsByAccounts(accountIds: string[]) {
-  const results = useQueries({
-    queries: accountIds.map((accountId) => ({
-      queryKey: queryKeys.analytics.accountGain.current(accountId),
-      queryFn: () => callService(() => AnalyticsService.AccountGain(accountId)),
-    })),
+  const enabled = accountIds.length > 0;
+  const result = useQuery({
+    queryKey: queryKeys.analytics.accountGains.all,
+    queryFn: () => callService(() => AnalyticsService.AccountGains()),
+    enabled,
   });
   const byHoldingId = new Map<string, HoldingGainDTO>();
-  for (const result of results) {
-    for (const holding of result.data?.holdings ?? []) {
+  const wanted = new Set(accountIds);
+  for (const account of result.data ?? []) {
+    if (wanted.size > 0 && !wanted.has(account.accountId)) {
+      continue;
+    }
+    for (const holding of account.holdings ?? []) {
       byHoldingId.set(holding.holdingId, holding);
     }
   }
   return {
     byHoldingId,
-    isLoading: results.some((result) => result.isLoading),
-    isError: results.some((result) => result.isError),
-    refetch: () => Promise.all(results.map((result) => result.refetch())),
+    isLoading: enabled && result.isLoading,
+    isError: result.isError,
+    refetch: result.refetch,
   };
 }

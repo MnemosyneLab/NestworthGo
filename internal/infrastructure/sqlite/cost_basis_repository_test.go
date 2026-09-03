@@ -43,7 +43,7 @@ func TestCostBasisEventsUseOneBoundedQueryForAllEvents(t *testing.T) {
 	database := seedSchema7Fixture(t, path)
 	defer database.Close()
 	counter := &countingQueryer{queryer: database.SQL}
-	events, err := listCostBasisEventsQuery(context.Background(), counter, domain.HoldingID("00000000-0000-4000-8000-000000000050"))
+	events, err := listCostBasisEventsQuery(context.Background(), counter, domain.HoldingID("00000000-0000-4000-8000-000000000050"), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,14 +63,14 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 	ctx := context.Background()
 
 	holding050 := domain.HoldingID("00000000-0000-4000-8000-000000000050")
-	startingCost, err := repository.StartingPointCost(ctx, holding050)
+	startingCost, err := repository.StartingPointCost(ctx, holding050, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if startingCost == nil || startingCost.Canonical() != "720" {
 		t.Fatalf("StartingPointCost = %v, want 720", startingCost)
 	}
-	events, err := repository.ListCostBasisEvents(ctx, holding050)
+	events, err := repository.ListCostBasisEvents(ctx, holding050, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,14 +88,14 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 	}
 
 	holding053 := domain.HoldingID("00000000-0000-4000-8000-000000000053")
-	transferCost, err := repository.StartingPointCost(ctx, holding053)
+	transferCost, err := repository.StartingPointCost(ctx, holding053, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if transferCost == nil || transferCost.Canonical() != "720" {
 		t.Fatalf("transfer Holding StartingPointCost = %v, want 720", transferCost)
 	}
-	transferEvents, err := repository.ListCostBasisEvents(ctx, holding053)
+	transferEvents, err := repository.ListCostBasisEvents(ctx, holding053, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -104,14 +104,14 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 	}
 
 	zeroHolding := domain.HoldingID("00000000-0000-4000-8000-000000000052")
-	zeroCost, err := repository.StartingPointCost(ctx, zeroHolding)
+	zeroCost, err := repository.StartingPointCost(ctx, zeroHolding, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if zeroCost != nil {
 		t.Fatalf("zero Holding StartingPointCost = %v, want nil", zeroCost)
 	}
-	zeroEvents, err := repository.ListCostBasisEvents(ctx, zeroHolding)
+	zeroEvents, err := repository.ListCostBasisEvents(ctx, zeroHolding, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -120,7 +120,7 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 	}
 }
 
-func TestCostBasisRepositoryExcludesArchivedHolding(t *testing.T) {
+func TestCostBasisRepositoryExcludesArchivedHoldingUnlessRequested(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "archived-cost-basis.db")
 	database := seedSchema7Fixture(t, path)
 	defer database.Close()
@@ -128,18 +128,33 @@ func TestCostBasisRepositoryExcludesArchivedHolding(t *testing.T) {
 		t.Fatal(err)
 	}
 	repository := NewRepository(database)
-	events, err := repository.ListCostBasisEvents(context.Background(), domain.HoldingID("00000000-0000-4000-8000-000000000050"))
+	holdingID := domain.HoldingID("00000000-0000-4000-8000-000000000050")
+	events, err := repository.ListCostBasisEvents(context.Background(), holdingID, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(events) != 0 {
-		t.Fatalf("archived Holding events = %+v, want none", events)
+		t.Fatalf("archived Holding events = %+v, want none without IncludeArchivedHoldings", events)
 	}
-	cost, err := repository.StartingPointCost(context.Background(), domain.HoldingID("00000000-0000-4000-8000-000000000050"))
+	cost, err := repository.StartingPointCost(context.Background(), holdingID, domain.CostBasisReadFilter{})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cost != nil {
-		t.Fatalf("archived Holding cost = %v, want nil", cost)
+		t.Fatalf("archived Holding cost = %v, want nil without IncludeArchivedHoldings", cost)
+	}
+	historicalEvents, err := repository.ListCostBasisEvents(context.Background(), holdingID, domain.CostBasisReadFilter{IncludeArchivedHoldings: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(historicalEvents) != 3 {
+		t.Fatalf("archived Holding historical events = %d, want 3", len(historicalEvents))
+	}
+	historicalCost, err := repository.StartingPointCost(context.Background(), holdingID, domain.CostBasisReadFilter{IncludeArchivedHoldings: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if historicalCost == nil || historicalCost.Canonical() != "720" {
+		t.Fatalf("archived Holding historical cost = %v, want 720", historicalCost)
 	}
 }

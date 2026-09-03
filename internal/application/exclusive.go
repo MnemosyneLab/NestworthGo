@@ -2,21 +2,11 @@ package application
 
 import (
 	"context"
-
-	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func (s *Service) BeginExclusiveOperation() error {
-	if !s.exclusive.CompareAndSwap(false, true) {
-		return &domain.Error{Code: domain.ErrBackupRestoreBusy, Message: "a backup, restore, or import is already in progress"}
-	}
-	return nil
-}
-
-func (s *Service) EndExclusiveOperation() {
-	s.exclusive.Store(false)
-}
-
+// LockWrites takes changeMu. Call it only while holding the exclusive
+// permit, around the SQLite snapshot or Restore close path. Do not hold it
+// across a save-file dialog or backup packaging I/O.
 func (s *Service) LockWrites() {
 	s.changeMu.Lock()
 }

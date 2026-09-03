@@ -45,12 +45,15 @@ type QuoteHistoryQuery struct {
 }
 
 func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (domain.Instrument, error) {
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.Instrument{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
 	instrument, err := newInstrumentFromInput(household.ID, input, s.clock())
 	if err != nil {
 		return domain.Instrument{}, err
@@ -254,12 +257,15 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domai
 }
 
 func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, input InstrumentInput) (domain.Instrument, error) {
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.Instrument{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
 	current, err := s.repository.Instrument(ctx, household.ID, id)
 	if err != nil {
 		return domain.Instrument{}, err
@@ -289,12 +295,15 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 }
 
 func (s *Service) ArchiveInstrument(ctx context.Context, id domain.InstrumentID, archived bool) error {
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
 	return s.repository.SetInstrumentArchive(ctx, household.ID, id, archived, s.clock())
 }
 
@@ -305,12 +314,15 @@ func (s *Service) SetInstrumentIcon(ctx context.Context, id domain.InstrumentID,
 }
 
 func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.InstrumentID, source string) error {
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
 	parsed, err := domain.ParseQuoteSourceKind(source)
 	if err != nil {
 		return err
@@ -351,8 +363,11 @@ type HoldingUpdateInput struct {
 }
 
 func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain.Holding, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.Holding{}, err
+	}
+	defer unlock()
 	accountID, err := domain.ParseAccountID(input.AccountID)
 	if err != nil {
 		return domain.Holding{}, err
@@ -463,8 +478,11 @@ func (s *Service) UpdateHoldingQuantity(ctx context.Context, id domain.HoldingID
 }
 
 func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input HoldingUpdateInput) (domain.Holding, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.Holding{}, err
+	}
+	defer unlock()
 	snapshot, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.Holding{}, err
@@ -506,8 +524,11 @@ func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input 
 }
 
 func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archived bool) error {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	snapshot, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return err
@@ -532,8 +553,11 @@ func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archi
 }
 
 func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.AccountID, amount, currency, effectiveAt string) (domain.AccountCashValue, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.AccountCashValue{}, err
+	}
+	defer unlock()
 	snapshot, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.AccountCashValue{}, err
@@ -588,7 +612,7 @@ func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.A
 		} else {
 			command = domain.MoneyRemovedInput{HouseholdID: household.ID, AccountID: accountID, Amount: delta, Reason: domain.ReasonReconciliation, EffectiveAt: when}
 		}
-		preview, commitErr := s.commitChangeLocked(ctx, state, command)
+		preview, commitErr := s.commitChangeLocked(ctx, state, command, nil)
 		if commitErr != nil {
 			return domain.AccountCashValue{}, commitErr
 		}
@@ -616,8 +640,11 @@ func (s *Service) ListAccountCashValues(ctx context.Context, accountID domain.Ac
 }
 
 func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID domain.InstrumentID, unitPrice, quotedAt string, delayed bool) (domain.InstrumentQuote, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.InstrumentQuote{}, err
+	}
+	defer unlock()
 	snapshot, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.InstrumentQuote{}, err
@@ -655,8 +682,11 @@ func (s *Service) SaveManualInstrumentQuote(ctx context.Context, instrumentID do
 }
 
 func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, source string) (domain.FXPreference, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.FXPreference{}, err
+	}
+	defer unlock()
 	_, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.FXPreference{}, err
@@ -708,8 +738,11 @@ func (s *Service) ListFXPreferences(ctx context.Context) ([]domain.FXPreference,
 }
 
 func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCurrency, rate, quotedAt string) (domain.FXQuote, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.FXQuote{}, err
+	}
+	defer unlock()
 	_, household, err := s.portfolioSnapshot(ctx)
 	if err != nil {
 		return domain.FXQuote{}, err

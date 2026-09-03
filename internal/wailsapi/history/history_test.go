@@ -400,3 +400,33 @@ func TestDailySnapshotStateAndBuild(t *testing.T) {
 		t.Fatalf("err = %v, want invalid_change_time", err)
 	}
 }
+
+func TestRecordChangeMutationIDIsIdempotent(t *testing.T) {
+	fx := newFixture(t)
+	ctx := context.Background()
+	mutationID := "11111111-1111-4111-8111-111111111111"
+	request := history.ChangeCommandRequest{
+		Kind: history.ChangeMoneyAdded, AccountID: fx.checkingID, Amount: "25", Currency: "USD", Reason: "contribution", MutationID: mutationID,
+	}
+	first, err := fx.service.RecordChange(ctx, request)
+	if err != nil {
+		t.Fatalf("first RecordChange: %v", err)
+	}
+	replay, err := fx.service.RecordChange(ctx, request)
+	if err != nil {
+		t.Fatalf("replay RecordChange: %v", err)
+	}
+	if replay.Activity.ID != first.Activity.ID {
+		t.Fatalf("replay activity ID = %s, want %s", replay.Activity.ID, first.Activity.ID)
+	}
+	conflict := request
+	conflict.Amount = "50"
+	_, err = fx.service.RecordChange(ctx, conflict)
+	if err == nil {
+		t.Fatal("expected conflict for same mutation ID and different payload")
+	}
+	wireErr, ok := apierror.Parse(err.Error())
+	if !ok || wireErr.Code != "conflict" || wireErr.Field != "mutationId" {
+		t.Fatalf("err = %v, want conflict mutationId", err)
+	}
+}

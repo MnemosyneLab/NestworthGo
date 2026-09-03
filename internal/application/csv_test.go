@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/csvcodec"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -17,10 +16,7 @@ func TestAccountsCSVImportSetsEffectiveAtFromValueDate(t *testing.T) {
 	service, ctx, bootstrap, _ := newOnboardedService(t, "csv-accounts", []string{"Alice", "Bob"})
 	clock := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
-	table, err := csvcodec.Parse([]byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,100.50,2026-08-15,Alice:33.33%;Bob:66.67%\n"), csvcodec.DelimiterComma)
-	if err != nil {
-		t.Fatal(err)
-	}
+	table := parseCSVTable(t, "account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,100.50,2026-08-15,Alice:33.33%;Bob:66.67%\n")
 	plan, err := service.BuildCSVImportPlan(ctx, CSVProfileAccounts, table, nil, CSVParseOptions{DateFormat: CSVDateISO, DecimalSep: ".", GroupingSep: "none"}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -53,10 +49,7 @@ func TestAccountsCSVImportSetsEffectiveAtFromValueDate(t *testing.T) {
 func TestAccountsCSVRejectsFutureDate(t *testing.T) {
 	service, ctx, _, _ := newOnboardedService(t, "csv-future", []string{"Alice"})
 	service.setClock(func() time.Time { return time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC) })
-	table, err := csvcodec.Parse([]byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-09-02,Alice:100%\n"), csvcodec.DelimiterComma)
-	if err != nil {
-		t.Fatal(err)
-	}
+	table := parseCSVTable(t, "account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-09-02,Alice:100%\n")
 	plan, err := service.BuildCSVImportPlan(ctx, CSVProfileAccounts, table, nil, CSVParseOptions{DateFormat: CSVDateISO}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -69,10 +62,7 @@ func TestAccountsCSVRejectsFutureDate(t *testing.T) {
 func TestAccountsCSVParsesCommaDecimalOwnership(t *testing.T) {
 	service, ctx, _, _ := newOnboardedService(t, "csv-comma-ownership", []string{"Alice", "Bob"})
 	// The ownership field is quoted because the CSV delimiter is also a comma.
-	table, err := csvcodec.Parse([]byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-08-01,\"Alice:33,33%;Bob:66,67%\"\n"), csvcodec.DelimiterComma)
-	if err != nil {
-		t.Fatal(err)
-	}
+	table := parseCSVTable(t, "account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-08-01,\"Alice:33,33%;Bob:66,67%\"\n")
 	plan, err := service.BuildCSVImportPlan(ctx, CSVProfileAccounts, table, nil, CSVParseOptions{DateFormat: CSVDateISO, DecimalSep: ",", GroupingSep: "."}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -100,10 +90,7 @@ func TestHoldingsCSVRequiresEmptyAccountValue(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	table, err := csvcodec.Parse([]byte("account_name,instrument_type,instrument_name,quantity,quote_currency,unit_price,quote_date\nBroker,etf,QQQ,10,USD,400.12,2026-08-01\n"), csvcodec.DelimiterComma)
-	if err != nil {
-		t.Fatal(err)
-	}
+	table := parseCSVTable(t, "account_name,instrument_type,instrument_name,quantity,quote_currency,unit_price,quote_date\nBroker,etf,QQQ,10,USD,400.12,2026-08-01\n")
 	options := CSVParseOptions{DateFormat: CSVDateISO, Unresolved: []CSVUnresolvedAction{{Kind: "instrument", Name: "QQQ", Action: CSVUnresolvedCreate}}}
 	plan, err := service.BuildCSVImportPlan(ctx, CSVProfileHoldings, table, nil, options, nil)
 	if err != nil {
@@ -129,10 +116,7 @@ func TestHoldingsCSVBlocksUnmatchedInstrument(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	table, err := csvcodec.Parse([]byte("account_name,instrument_type,instrument_name,quantity,quote_currency,unit_price,quote_date\nBroker,etf,QQQ,10,USD,400.12,2026-08-01\n"), csvcodec.DelimiterComma)
-	if err != nil {
-		t.Fatal(err)
-	}
+	table := parseCSVTable(t, "account_name,instrument_type,instrument_name,quantity,quote_currency,unit_price,quote_date\nBroker,etf,QQQ,10,USD,400.12,2026-08-01\n")
 	plan, err := service.BuildCSVImportPlan(ctx, CSVProfileHoldings, table, nil, CSVParseOptions{DateFormat: CSVDateISO}, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -154,14 +138,8 @@ func TestSharedCSVImportBlocksWhenAccountsHaveErrors(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	accountsTable, err := csvcodec.Parse([]byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nBroken,not-a-type,asset,balance,CNY,10,2026-08-01,Alice:100%\n"), csvcodec.DelimiterComma)
-	if err != nil {
-		t.Fatal(err)
-	}
-	holdingsTable, err := csvcodec.Parse([]byte("account_name,instrument_type,instrument_name,quantity,quote_currency,unit_price,quote_date\nBroker,etf,QQQ,10,USD,400.12,2026-08-01\n"), csvcodec.DelimiterComma)
-	if err != nil {
-		t.Fatal(err)
-	}
+	accountsTable := parseCSVTable(t, "account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nBroken,not-a-type,asset,balance,CNY,10,2026-08-01,Alice:100%\n")
+	holdingsTable := parseCSVTable(t, "account_name,instrument_type,instrument_name,quantity,quote_currency,unit_price,quote_date\nBroker,etf,QQQ,10,USD,400.12,2026-08-01\n")
 	options := CSVParseOptions{DateFormat: CSVDateISO, DecimalSep: ".", GroupingSep: "none", Unresolved: []CSVUnresolvedAction{{Kind: "instrument", Name: "QQQ", Action: CSVUnresolvedCreate}}}
 	accountsPlan, err := service.BuildCSVImportPlan(ctx, CSVProfileAccounts, accountsTable, nil, options, nil)
 	if err != nil {
@@ -234,12 +212,14 @@ func TestExportAccountsCSVUsesHistoryOriginCalendarDate(t *testing.T) {
 }
 
 func TestExportAccountsCSVRoundTripSingaporeDate(t *testing.T) {
-	database, err := sqlite.Open(filepath.Join(t.TempDir(), "csv-tz.db"))
+	path := filepath.Join(t.TempDir(), "csv-tz.db")
+	database, err := sqlite.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	service := NewService(sqlite.NewRepository(database))
+	wireTestPorts(service, path)
 	singapore, err := time.LoadLocation("Asia/Singapore")
 	if err != nil {
 		t.Fatal(err)

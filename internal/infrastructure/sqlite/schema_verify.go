@@ -99,6 +99,12 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 	if err := verifyAccountModelInvariants(ctx, query); err != nil {
 		return err
 	}
+	if err := verifyCanonicalNumericText(ctx, query); err != nil {
+		return err
+	}
+	if err := verifySnapshotProvenance(ctx, query); err != nil {
+		return err
+	}
 	rows, err := query.QueryContext(ctx, "PRAGMA foreign_key_check")
 	if err != nil {
 		return err
@@ -111,47 +117,101 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 }
 
 func verifyCostBasisInvariant(ctx context.Context, query schemaQuery) error {
-	var missing int
-	err := query.QueryRowContext(ctx, `
-		SELECT COUNT(*)
+	rows, err := query.QueryContext(ctx, `
+		SELECT h.id, h.quantity,
+			EXISTS (
+				SELECT 1
+				FROM activity_trade_details td
+				JOIN activities trade ON trade.id = td.activity_id
+				WHERE td.holding_id = h.id
+				  AND trade.reverses_activity_id IS NULL
+				  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = trade.id)
+			),
+			EXISTS (
+				SELECT 1
+				FROM activity_effects effect
+				JOIN activities transfer ON transfer.id = effect.activity_id
+				WHERE effect.holding_id = h.id
+				  AND effect.direction = 'added'
+				  AND transfer.kind = 'position_transfer'
+			),
+			EXISTS (
+				SELECT 1
+				FROM activity_effects effect
+				WHERE effect.holding_id = h.id
+				  AND effect.cost_unit_price IS NOT NULL
+			)
 		FROM holdings h
 		JOIN accounts a ON a.id = h.account_id
-		JOIN history_origins o ON o.household_id = a.household_id
-		WHERE CAST(h.quantity AS REAL) > 0
-		  AND NOT EXISTS (
-			SELECT 1
-			FROM history_origin_components c
-			WHERE c.origin_id = o.id
-			  AND c.holding_id = h.id
-			  AND c.instrument_id = h.instrument_id
-			  AND c.component_kind = 'holding_quantity'
-			  AND CAST(c.quantity AS REAL) > 0
-			  AND c.unit_cost IS NOT NULL
-		  )
-		  AND NOT EXISTS (
-			SELECT 1
-			FROM activity_trade_details td
-			JOIN activities trade ON trade.id = td.activity_id
-			WHERE td.holding_id = h.id
-			  AND trade.reverses_activity_id IS NULL
-			  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = trade.id)
-		  )
-		  AND NOT EXISTS (
-			SELECT 1
-			FROM activity_effects effect
-			JOIN activities transfer ON transfer.id = effect.activity_id
-			WHERE effect.holding_id = h.id
-			  AND effect.direction = 'added'
-			  AND transfer.kind = 'position_transfer'
-		  )
-		  AND NOT EXISTS (
-			SELECT 1
-			FROM activity_effects effect
-			WHERE effect.holding_id = h.id
-			  AND effect.cost_unit_price IS NOT NULL
-		  )`).Scan(&missing)
+		JOIN history_origins o ON o.household_id = a.household_id`)
 	if err != nil {
 		return err
+	}
+	defer rows.Close()
+	type holdingCostRow struct {
+		id                                   string
+		quantity                             string
+		hasTrade, hasTransfer, hasEffectCost bool
+	}
+	var holdings []holdingCostRow
+	for rows.Next() {
+		var id, quantity string
+		var hasTrade, hasTransfer, hasEffectCost int
+		if err := rows.Scan(&id, &quantity, &hasTrade, &hasTransfer, &hasEffectCost); err != nil {
+			return err
+		}
+		holdings = append(holdings, holdingCostRow{id: id, quantity: quantity, hasTrade: hasTrade != 0, hasTransfer: hasTransfer != 0, hasEffectCost: hasEffectCost != 0})
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	originRows, err := query.QueryContext(ctx, `
+		SELECT c.holding_id, c.quantity
+		FROM history_origin_components c
+		JOIN holdings h ON h.id = c.holding_id AND c.instrument_id = h.instrument_id
+		WHERE c.component_kind = 'holding_quantity' AND c.unit_cost IS NOT NULL AND c.holding_id IS NOT NULL`)
+	if err != nil {
+		return err
+	}
+	defer originRows.Close()
+	originPositive := make(map[string]bool)
+	for originRows.Next() {
+		var holdingID, quantity string
+		if err := originRows.Scan(&holdingID, &quantity); err != nil {
+			return err
+		}
+		parsed, err := domain.ParseQuantity(quantity)
+		if err != nil {
+			return storedIntegrity("quantity", "history origin quantity is not a canonical decimal")
+		}
+		if !parsed.IsZero() {
+			originPositive[holdingID] = true
+		}
+	}
+	if err := originRows.Err(); err != nil {
+		return err
+	}
+	if err := originRows.Close(); err != nil {
+		return err
+	}
+
+	missing := 0
+	for _, holding := range holdings {
+		parsed, err := domain.ParseQuantity(holding.quantity)
+		if err != nil {
+			return storedIntegrity("quantity", "holding quantity is not a canonical decimal")
+		}
+		if parsed.IsZero() {
+			continue
+		}
+		if holding.hasTrade || holding.hasTransfer || holding.hasEffectCost || originPositive[holding.id] {
+			continue
+		}
+		missing++
 	}
 	if missing != 0 {
 		return fmt.Errorf("%d positive Holding rows have no resolvable cost basis", missing)
@@ -173,6 +233,27 @@ func verifyAccountModelInvariants(ctx context.Context, query schemaQuery) error 
 	}
 	if badOwnership != 0 {
 		return fmt.Errorf("%d accounts have ownership shares that do not total 10000 basis points", badOwnership)
+	}
+	var badObservationOwnership int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM (SELECT observation_id FROM account_state_ownership GROUP BY observation_id HAVING SUM(share_bps) != 10000)`).Scan(&badObservationOwnership); err != nil {
+		return err
+	}
+	if badObservationOwnership != 0 {
+		return fmt.Errorf("%d account state observations have ownership shares that do not total 10000 basis points", badObservationOwnership)
+	}
+	var missingObservationOwnership int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM account_state_observations o WHERE NOT EXISTS (SELECT 1 FROM account_state_ownership s WHERE s.observation_id = o.id)`).Scan(&missingObservationOwnership); err != nil {
+		return err
+	}
+	if missingObservationOwnership != 0 {
+		return fmt.Errorf("%d account state observations have no ownership rows", missingObservationOwnership)
+	}
+	var badOriginOwnership int
+	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM (SELECT origin_id, account_id FROM history_origin_ownership GROUP BY origin_id, account_id HAVING SUM(share_bps) != 10000)`).Scan(&badOriginOwnership); err != nil {
+		return err
+	}
+	if badOriginOwnership != 0 {
+		return fmt.Errorf("%d history origin account ownership splits do not total 10000 basis points", badOriginOwnership)
 	}
 	var badHoldings int
 	if err := query.QueryRowContext(ctx, `SELECT COUNT(*) FROM holdings h JOIN accounts a ON a.id = h.account_id WHERE a.tracking_mode != 'holdings'`).Scan(&badHoldings); err != nil {
@@ -239,13 +320,13 @@ func verifyTable(ctx context.Context, query schemaQuery, table string, expected 
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	actual := make([]schemaColumn, 0, len(expected))
 	for rows.Next() {
 		var cid, notNull, primaryKey int
 		var name, typeName string
 		var defaultValue sql.NullString
 		if err := rows.Scan(&cid, &name, &typeName, &notNull, &defaultValue, &primaryKey); err != nil {
-			_ = rows.Close()
 			return err
 		}
 		value := ""
@@ -255,10 +336,11 @@ func verifyTable(ctx context.Context, query schemaQuery, table string, expected 
 		actual = append(actual, schemaColumn{name: name, typeName: strings.ToUpper(strings.TrimSpace(typeName)), notNull: notNull, defaultVal: value, primaryKey: primaryKey})
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return err
 	}
-	_ = rows.Close()
+	if err := rows.Close(); err != nil {
+		return err
+	}
 	if len(actual) != len(expected) {
 		return fmt.Errorf("table %s has %d columns, want %d", table, len(actual), len(expected))
 	}
@@ -278,7 +360,23 @@ func verifyTable(ctx context.Context, query schemaQuery, table string, expected 
 			return fmt.Errorf("table %s is missing required check %q", table, check)
 		}
 	}
+	if table == "accounts" {
+		var definition string
+		if err := query.QueryRowContext(ctx, `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?`, table).Scan(&definition); err != nil {
+			return err
+		}
+		if err := verifyAcceptedCashOnHandCheck(definition); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func verifyAcceptedCashOnHandCheck(definition string) error {
+	if schemaSQLContains(definition, "CHECK(("+cashOnHandBalanceOnlyCheck) || schemaSQLContains(definition, "CHECK(("+cashOnHandBalanceOrHoldingsCheck) {
+		return nil
+	}
+	return fmt.Errorf("table accounts is missing a recognized v9 cash_on_hand tracking check")
 }
 
 func verifyIndex(ctx context.Context, query schemaQuery, expected expectedIndex) error {
@@ -286,12 +384,12 @@ func verifyIndex(ctx context.Context, query schemaQuery, expected expectedIndex)
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	found := false
 	for rows.Next() {
 		var sequence, unique, partial int
 		var name, origin string
 		if err := rows.Scan(&sequence, &name, &unique, &origin, &partial); err != nil {
-			_ = rows.Close()
 			return err
 		}
 		if name != expected.name {
@@ -299,15 +397,15 @@ func verifyIndex(ctx context.Context, query schemaQuery, expected expectedIndex)
 		}
 		found = true
 		if unique != expected.unique || partial != expected.partial {
-			_ = rows.Close()
 			return fmt.Errorf("index %s definition flags are unique=%d partial=%d, want unique=%d partial=%d", expected.name, unique, partial, expected.unique, expected.partial)
 		}
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return err
 	}
-	_ = rows.Close()
+	if err := rows.Close(); err != nil {
+		return err
+	}
 	if !found {
 		return fmt.Errorf("required index %s is missing from %s", expected.name, expected.table)
 	}
@@ -316,29 +414,29 @@ func verifyIndex(ctx context.Context, query schemaQuery, expected expectedIndex)
 	if err != nil {
 		return err
 	}
+	defer indexRows.Close()
 	actualColumns := make([]expectedIndexColumn, 0, len(expected.columns))
 	for indexRows.Next() {
 		var sequence, cid, descending, key int
 		var name sql.NullString
 		var collation string
 		if err := indexRows.Scan(&sequence, &cid, &name, &descending, &collation, &key); err != nil {
-			_ = indexRows.Close()
 			return err
 		}
 		if key == 0 {
 			continue
 		}
 		if !name.Valid {
-			_ = indexRows.Close()
 			return fmt.Errorf("index %s contains an unnamed key column", expected.name)
 		}
 		actualColumns = append(actualColumns, expectedIndexColumn{name: name.String, desc: descending})
 	}
 	if err := indexRows.Err(); err != nil {
-		_ = indexRows.Close()
 		return err
 	}
-	_ = indexRows.Close()
+	if err := indexRows.Close(); err != nil {
+		return err
+	}
 	if len(actualColumns) != len(expected.columns) {
 		return fmt.Errorf("index %s has %d key columns, want %d", expected.name, len(actualColumns), len(expected.columns))
 	}
@@ -364,21 +462,22 @@ func verifyForeignKeys(ctx context.Context, query schemaQuery, expected expected
 	if err != nil {
 		return err
 	}
+	defer rows.Close()
 	actual := make(map[string]bool)
 	for rows.Next() {
 		var id, sequence int
 		var table, from, to, onUpdate, onDelete, match string
 		if err := rows.Scan(&id, &sequence, &table, &from, &to, &onUpdate, &onDelete, &match); err != nil {
-			_ = rows.Close()
 			return err
 		}
 		actual[foreignKeyKey(table, from, to, onDelete)] = true
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return err
 	}
-	_ = rows.Close()
+	if err := rows.Close(); err != nil {
+		return err
+	}
 	want := foreignKeyKey(expected.refTable, expected.from, expected.to, expected.onDelete)
 	if !actual[want] {
 		return fmt.Errorf("table %s is missing foreign key %s.%s -> %s.%s ON DELETE %s", expected.table, expected.table, expected.from, expected.refTable, expected.to, expected.onDelete)
@@ -548,11 +647,35 @@ func historySchemaColumns() map[string][]schemaColumn {
 		"history_snapshot_state": {
 			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("dirty_from", "TEXT", 0, 0), expectedColumn("last_completed_closed_on", "TEXT", 0, 0), expectedColumn("updated_at", "TEXT", 1, 0),
 		},
+		"activity_mutation_keys": {
+			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("mutation_id", "TEXT", 1, 2), expectedColumn("payload_sha256", "TEXT", 1, 0), expectedColumn("activity_id", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
 	}
 }
 
 func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 	for table, columns := range historySchemaColumns() {
+		if table == "activity_mutation_keys" {
+			exists, err := schemaTableExists(ctx, query, table)
+			if err != nil {
+				return err
+			}
+			if !exists {
+				continue
+			}
+			if err := verifyTable(ctx, query, table, columns); err != nil {
+				return err
+			}
+			for _, foreignKey := range []expectedForeignKey{
+				{table: "activity_mutation_keys", refTable: "households", from: "household_id", to: "id", onDelete: "RESTRICT"},
+				{table: "activity_mutation_keys", refTable: "activities", from: "activity_id", to: "id", onDelete: "RESTRICT"},
+			} {
+				if err := verifyForeignKeys(ctx, query, foreignKey); err != nil {
+					return err
+				}
+			}
+			continue
+		}
 		if err := verifyTable(ctx, query, table, columns); err != nil {
 			return err
 		}
@@ -574,10 +697,21 @@ func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 	return nil
 }
 
+func schemaTableExists(ctx context.Context, query schemaQuery, table string) (bool, error) {
+	var objectType string
+	if err := query.QueryRowContext(ctx, `SELECT type FROM sqlite_master WHERE name = ?`, table).Scan(&objectType); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return objectType == "table", nil
+}
+
 func expectedSchemaChecks() map[string][]string {
 	return map[string][]string{
 		"households":                {"CHECK(singleton_key = 1)", "CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')"},
-		"accounts":                  {"CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other'))", "CHECK(balance_sheet_role IN ('asset','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK((" + cashOnHandBalanceOrHoldingsCheck, "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_portfolio IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
+		"accounts":                  {"CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other'))", "CHECK(balance_sheet_role IN ('asset','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_portfolio IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
 		"account_ownership":         {"CHECK(share_bps > 0 AND share_bps <= 10000)"},
 		"account_values":            {"CHECK(value_kind IN ('balance','manual_value'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
 		"instruments":               {"CHECK(instrument_type IN ('stock','etf','mutual_fund','crypto','bond','precious_metal','bank_investment_product','other'))", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(country_code IS NULL OR country_code GLOB '[A-Z][A-Z]')", "CHECK(quote_source IN ('manual','provider'))", "CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL))"},

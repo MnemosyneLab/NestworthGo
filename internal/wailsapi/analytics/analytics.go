@@ -1,8 +1,6 @@
 // Package analytics adapts internal/application.Service's cost/gain read
-// surface (HoldingGain, AccountGain, RealizedGain, DividendIncome, and their
-// range readers) for the Wails IPC boundary. It is read-only and depends on
-// the instrument and holding services' data already being loaded by the
-// frontend.
+// surface (HoldingGain, AccountGain, AccountGains, RealizedGain, DividendIncome,
+// and their range readers) for the Wails IPC boundary. It is read-only.
 package analytics
 
 import (
@@ -44,6 +42,14 @@ func (s *Service) AccountGain(ctx context.Context, accountID string) (wire.Accou
 		return wire.AccountGainDTO{}, apierror.Wrap(err)
 	}
 	return wire.FromAccountGain(view), nil
+}
+
+func (s *Service) AccountGains(ctx context.Context) ([]wire.AccountGainDTO, error) {
+	views, err := s.app.AccountGains(ctx, nil)
+	if err != nil {
+		return nil, apierror.Wrap(err)
+	}
+	return wire.FromAccountGains(views), nil
 }
 
 // GainScopeRequest mirrors domain.GainScope: nil fields mean "not filtered."

@@ -436,20 +436,7 @@ func (v *ValuationService) convert(snapshot domain.PortfolioSnapshot, accountID 
 	if currency == baseCurrency {
 		return native, nil, nil, nil
 	}
-	preference := findFXPreference(snapshot.FXPreferences, currency, baseCurrency)
-	providerKey := ""
-	if v.fxProviderKey != nil {
-		providerKey = strings.ToLower(strings.TrimSpace(v.fxProviderKey()))
-	}
-	source := domain.QuoteSourceProvider
-	if preference != nil {
-		source = preference.SourceKind
-	}
-	implicit := domain.FXPreference{HouseholdID: snapshot.Household.ID, CurrencyA: currency, CurrencyB: baseCurrency, SourceKind: source}
-	if preference != nil {
-		implicit = *preference
-	}
-	quote := selectFXQuote(implicit, snapshot.FXQuotes, currency, baseCurrency, providerKey)
+	quote := v.selectFXQuote(snapshot, snapshot.FXQuotes, currency, nil)
 	if quote == nil {
 		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
 	}
@@ -467,6 +454,52 @@ func (v *ValuationService) convert(snapshot domain.PortfolioSnapshot, accountID 
 	return converted, &evidence, nil, nil
 }
 
+func (v *ValuationService) providerKey() string {
+	if v == nil || v.fxProviderKey == nil {
+		return ""
+	}
+	return strings.ToLower(strings.TrimSpace(v.fxProviderKey()))
+}
+
+// selectFXQuote is the single FX observation selector for live valuation,
+// historical snapshots, realized gain, acquisition FX, and dividend income.
+// An explicit stored preference wins; otherwise the configured/default
+// provider key is used. Only persisted quotes are considered.
+func (v *ValuationService) selectFXQuote(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff *time.Time) *domain.FXQuote {
+	if snapshot.Household == nil {
+		return nil
+	}
+	return selectFXQuote(implicitFXPreference(snapshot, native), quotes, native, snapshot.Household.BaseCurrency, v.providerKey(), cutoff)
+}
+
+func (v *ValuationService) fxRateAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
+	if snapshot.Household == nil {
+		return decimal.Zero, false
+	}
+	if native == snapshot.Household.BaseCurrency {
+		return decimal.NewFromInt(1), true
+	}
+	return fxRateFromQuote(v.selectFXQuote(snapshot, quotes, native, &cutoff), native, snapshot.Household.BaseCurrency)
+}
+
+func implicitFXPreference(snapshot domain.PortfolioSnapshot, native domain.CurrencyCode) domain.FXPreference {
+	base := snapshot.Household.BaseCurrency
+	if preference := findFXPreference(snapshot.FXPreferences, native, base); preference != nil {
+		return *preference
+	}
+	return domain.FXPreference{HouseholdID: snapshot.Household.ID, CurrencyA: native, CurrencyB: base, SourceKind: domain.QuoteSourceProvider}
+}
+
+func fxRateFromQuote(quote *domain.FXQuote, native, householdBase domain.CurrencyCode) (decimal.Decimal, bool) {
+	if quote == nil {
+		return decimal.Zero, false
+	}
+	if quote.BaseCurrency == native && quote.QuoteCurrency == householdBase {
+		return quote.Rate.Decimal(), true
+	}
+	return decimal.NewFromInt(1).Div(quote.Rate.Decimal()), true
+}
+
 func selectInstrumentQuote(instrument domain.Instrument, quotes []domain.InstrumentQuote) *domain.InstrumentQuote {
 	var selected *domain.InstrumentQuote
 	for index := range quotes {
@@ -481,15 +514,15 @@ func selectInstrumentQuote(instrument domain.Instrument, quotes []domain.Instrum
 	return selected
 }
 
-func selectFXQuote(preference domain.FXPreference, quotes []domain.FXQuote, native, householdBase domain.CurrencyCode, providerKeys ...string) *domain.FXQuote {
-	providerKey := ""
-	if len(providerKeys) > 0 {
-		providerKey = strings.ToLower(strings.TrimSpace(providerKeys[0]))
-	}
+func selectFXQuote(preference domain.FXPreference, quotes []domain.FXQuote, native, householdBase domain.CurrencyCode, providerKey string, cutoff *time.Time) *domain.FXQuote {
+	providerKey = strings.ToLower(strings.TrimSpace(providerKey))
 	var selected *domain.FXQuote
 	for index := range quotes {
 		quote := &quotes[index]
 		if quote.HouseholdID != preference.HouseholdID || quote.SourceKind != preference.SourceKind {
+			continue
+		}
+		if cutoff != nil && quote.QuotedAt.After(*cutoff) {
 			continue
 		}
 		if preference.SourceKind == domain.QuoteSourceProvider && providerKey != "" && strings.ToLower(strings.TrimSpace(quote.SourceKey)) != providerKey {

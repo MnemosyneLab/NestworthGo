@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -73,21 +74,16 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	assets, liabilities := decimal.Zero, decimal.Zero
 	complete := true
 	items := make([]domain.DailyValuationSnapshotItem, 0)
+	eligibleMissing := 0
+	baseCurrency := portfolio.Household.BaseCurrency
 	for _, account := range valuedAccounts {
+		if !domain.AccountEligibleForNetWorth(account.Account) {
+			continue
+		}
 		if !account.Complete {
 			complete = false
 		}
-		if account.BaseValue != nil {
-			amount, parseErr := decimal.NewFromString(account.BaseValue.Amount)
-			if parseErr != nil {
-				return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrIntegrity, Message: "historical base amount is invalid"}
-			}
-			if account.Account.IsLiability() {
-				liabilities = liabilities.Add(amount)
-			} else {
-				assets = assets.Add(amount)
-			}
-		}
+		eligibleMissing += len(account.MissingInputs)
 		for _, component := range account.Components {
 			item := domain.DailyValuationSnapshotItem{ID: domain.NewDailyValuationSnapshotItemID(), AccountID: account.Account.ID, HoldingID: component.HoldingID, NativeAmount: component.NativeAmount, NativeCurrency: component.NativeCurrency, Complete: component.Available, InstrumentID: component.InstrumentID, StateObservationID: component.StateObservationID, PreferenceObservationID: component.PreferenceObservationID, FXPreferenceObservationID: component.FXPreferenceObservationID}
 			if err := item.ValidateNativeAmount(); err != nil {
@@ -101,12 +97,31 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 				fxQuoteID := component.FXEvidence.ObservationID
 				item.FXQuoteID = &fxQuoteID
 			}
-			if component.BaseAmount != nil {
-				base, parseErr := domain.ParseMoney(component.BaseAmount.Amount, component.BaseAmount.Currency)
+			if component.BaseAmountExact != "" {
+				exact, parseErr := domain.ParseNativeAmount(component.BaseAmountExact)
 				if parseErr != nil {
 					return domain.DailyValuationSnapshot{}, false, parseErr
 				}
-				item.BaseAmount = &base
+				item.BaseAmountExact = exact
+				if err := item.ValidateBaseAmountExact(); err != nil {
+					return domain.DailyValuationSnapshot{}, false, err
+				}
+				amount, amountErr := decimal.NewFromString(exact)
+				if amountErr != nil {
+					return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrIntegrity, Message: "historical base amount is invalid"}
+				}
+				rounded, roundErr := domain.NewMoney(amount, baseCurrency)
+				if roundErr != nil {
+					return domain.DailyValuationSnapshot{}, false, roundErr
+				}
+				item.BaseAmount = &rounded
+				if component.Available {
+					if account.Account.IsLiability() {
+						liabilities = liabilities.Add(amount)
+					} else {
+						assets = assets.Add(amount)
+					}
+				}
 			}
 			if !component.Available {
 				reason := missingReason(component, missing)
@@ -118,21 +133,27 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 			items = append(items, item)
 		}
 	}
-	assetsMoney, err := domain.NewMoney(assets, portfolio.Household.BaseCurrency)
+	assetsMoney, err := domain.NewMoney(assets, baseCurrency)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}
-	liabilitiesMoney, err := domain.NewMoney(liabilities, portfolio.Household.BaseCurrency)
+	liabilitiesMoney, err := domain.NewMoney(liabilities, baseCurrency)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}
-	netWorthMoney, err := domain.NewMoney(assets.Sub(liabilities), portfolio.Household.BaseCurrency)
+	netWorthMoney, err := domain.NewSignedMoney(assets.Sub(liabilities), baseCurrency)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}
 	hash := snapshotContentHash(localDate, cutoff, assetsMoney, liabilitiesMoney, netWorthMoney, items)
-	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: portfolio.Household.BaseCurrency, Complete: complete && len(missing) == 0, ComponentCount: len(items), MissingCount: len(missing), GenerationReason: "manual", CreatedAt: s.clock(), Items: items}
-	appended, err := s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
+	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: baseCurrency, Complete: complete && eligibleMissing == 0, ComponentCount: len(items), MissingCount: eligibleMissing, GenerationReason: "manual", CreatedAt: s.clock(), Items: items}
+	var appended bool
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.DailyValuationSnapshot{}, false, err
+	}
+	appended, err = s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
+	unlock()
 	return snapshot, appended, err
 }
 
@@ -145,7 +166,9 @@ func (s *Service) historicalPortfolioSnapshot(ctx context.Context, origin *domai
 	return HistoricalReplay{repository: s.repository, batch: batch, quotes: quotes}.Snapshot(ctx, origin, cutoff)
 }
 
-func snapshotContentHash(localDate string, cutoff time.Time, assets, liabilities, netWorth domain.Money, items []domain.DailyValuationSnapshotItem) string {
+const snapshotContentHashVersion = "v2"
+
+func snapshotContentHash(localDate string, cutoff time.Time, assets, liabilities domain.Money, netWorth domain.SignedMoney, items []domain.DailyValuationSnapshotItem) string {
 	sort.Slice(items, func(i, j int) bool {
 		return snapshotItemSortKey(items[i]) < snapshotItemSortKey(items[j])
 	})
@@ -154,7 +177,11 @@ func snapshotContentHash(localDate string, cutoff time.Time, assets, liabilities
 	for _, item := range items {
 		fmt.Fprintf(hash, "|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%t|%s", item.AccountID.String(), snapshotItemHoldingIDString(item), snapshotItemInstrumentIDString(item), snapshotItemStateObservationIDString(item), snapshotItemPreferenceObservationIDString(item), snapshotItemFXPreferenceObservationIDString(item), item.NativeAmount, item.NativeCurrency.String(), snapshotItemBaseAmountString(item), snapshotItemQuoteIDString(item), snapshotItemFXQuoteIDString(item), item.Complete, snapshotItemMissingReasonString(item))
 	}
-	return hex.EncodeToString(hash.Sum(nil))
+	return snapshotContentHashVersion + ":" + hex.EncodeToString(hash.Sum(nil))
+}
+
+func snapshotHashNeedsRebuild(contentHash string) bool {
+	return !strings.HasPrefix(contentHash, snapshotContentHashVersion+":")
 }
 
 func snapshotItemSortKey(item domain.DailyValuationSnapshotItem) string {
@@ -225,6 +252,9 @@ func missingReason(component domain.ValuationComponent, _ []domain.MissingInputV
 }
 
 func snapshotItemBaseAmountString(item domain.DailyValuationSnapshotItem) string {
+	if item.BaseAmountExact != "" {
+		return item.BaseAmountExact
+	}
 	if item.BaseAmount == nil {
 		return ""
 	}
@@ -289,7 +319,9 @@ func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, end
 }
 
 func (s *Service) CompleteDailySnapshotRange(ctx context.Context, householdID domain.HouseholdID, targetDate string) error {
-	return s.repository.CompleteDailySnapshotRange(ctx, householdID, targetDate, s.clock())
+	return s.WithWrite(ctx, func(ctx context.Context) error {
+		return s.repository.CompleteDailySnapshotRange(ctx, householdID, targetDate, s.clock())
+	})
 }
 
 func (s *Service) DailySnapshotState(ctx context.Context, householdID domain.HouseholdID) (domain.DailySnapshotState, error) {

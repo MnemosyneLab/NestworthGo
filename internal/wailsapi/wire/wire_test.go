@@ -72,8 +72,8 @@ func TestFromMoneyViewNilIsNil(t *testing.T) {
 	if got := FromMoneyView(nil); got != nil {
 		t.Fatalf("FromMoneyView(nil) = %v, want nil", got)
 	}
-	if got := FromSignedMoneyView(nil); got != nil {
-		t.Fatalf("FromSignedMoneyView(nil) = %v, want nil", got)
+	if got := FromSignedMoneyPtr(nil); got != nil {
+		t.Fatalf("FromSignedMoneyPtr(nil) = %v, want nil", got)
 	}
 }
 

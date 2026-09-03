@@ -22,17 +22,25 @@ type Service struct {
 	stateMu       sync.RWMutex
 	now           func() time.Time
 	marketData    MarketDataRegistryPort
+	csvCodec      CSVCodecPort
+	backup        BackupRuntime
+	liveDBPath    string
 	fxProviderKey string
 	quoteCacheTTL time.Duration
 	uiLanguage    string
 
 	changeMu sync.Mutex
 
-	exclusive atomic.Bool
+	writes       WriteCoordinator
+	refreshEpoch atomic.Uint64
+
+	csvMu       sync.Mutex
+	csvSessions map[string]*csvImportSession
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
-	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour}
+	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, csvSessions: map[string]*csvImportSession{}}
+	service.writes.init()
 	service.valuation = NewValuationService(repository, service.clock)
 	service.gain = NewGainService(repository, service.clock)
 	if len(registries) > 0 {
@@ -157,9 +165,6 @@ func (s *Service) Bootstrap(ctx context.Context) (Bootstrap, error) {
 	if household == nil {
 		return Bootstrap{}, nil
 	}
-	if err := s.ensureDefaultDirectory(ctx, *household); err != nil {
-		return Bootstrap{}, err
-	}
 	members, err := s.repository.ListMembers(ctx, false)
 	if err != nil {
 		return Bootstrap{}, err
@@ -215,6 +220,11 @@ func (s *Service) ListGroups(ctx context.Context, includeArchived bool) ([]domai
 }
 
 func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	if household, err := s.repository.Household(ctx); err != nil {
 		return err
 	} else if household != nil {
@@ -268,6 +278,11 @@ func defaultDirectoryNames(language string) (string, string) {
 }
 
 func (s *Service) ensureDefaultDirectory(ctx context.Context, household domain.Household) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	institutionName, groupName := defaultDirectoryNames(s.UILanguage())
 	institutions, err := s.repository.ListInstitutions(ctx, false)
 	if err != nil {
@@ -299,6 +314,11 @@ func (s *Service) ensureDefaultDirectory(ctx context.Context, household domain.H
 }
 
 func (s *Service) CreateMember(ctx context.Context, name string, iconKeys ...string) (domain.Member, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Member{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Member{}, err
@@ -316,6 +336,11 @@ func (s *Service) CreateMember(ctx context.Context, name string, iconKeys ...str
 	return member, nil
 }
 func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name string) (domain.Member, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Member{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Member{}, err
@@ -336,6 +361,11 @@ func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name str
 }
 
 func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archived bool) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
@@ -344,6 +374,11 @@ func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archive
 }
 
 func (s *Service) CreateInstitution(ctx context.Context, name string, institutionType domain.InstitutionType, iconKeys ...string) (domain.Institution, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Institution{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Institution{}, err
@@ -361,6 +396,11 @@ func (s *Service) CreateInstitution(ctx context.Context, name string, institutio
 	return institution, nil
 }
 func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID, name string) (domain.Institution, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Institution{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Institution{}, err
@@ -381,6 +421,11 @@ func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID
 }
 
 func (s *Service) ArchiveInstitution(ctx context.Context, id domain.InstitutionID, archived bool) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
@@ -389,6 +434,11 @@ func (s *Service) ArchiveInstitution(ctx context.Context, id domain.InstitutionI
 }
 
 func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...string) (domain.Group, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Group{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Group{}, err
@@ -406,6 +456,11 @@ func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...stri
 	return group, nil
 }
 func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name string) (domain.Group, error) {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.Group{}, err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return domain.Group{}, err
@@ -426,6 +481,11 @@ func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name strin
 }
 
 func (s *Service) ArchiveGroup(ctx context.Context, id domain.GroupID, archived bool) error {
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
@@ -461,6 +521,11 @@ func (s *Service) setIcon(ctx context.Context, iconKey string, save func(domain.
 	if err != nil {
 		return err
 	}
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
@@ -499,6 +564,11 @@ type AccountInput struct {
 }
 
 func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain.AccountRecord, error) {
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	defer unlock()
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {
 		return domain.AccountRecord{}, err
@@ -508,8 +578,6 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	}
 	// The Starting-point read and the history-chain commit below must be
 	// atomic against other change writers.
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
 	origin, err := s.repository.HistoryOrigin(ctx, bootstrap.Household.ID)
 	if err != nil {
 		return domain.AccountRecord{}, err
@@ -638,8 +706,11 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 
 // UpdateAccount changes metadata and ownership without rewriting AccountValue history.
 func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input AccountInput) (domain.AccountRecord, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.AccountRecord{}, err
+	}
+	defer unlock()
 	currentRecord, err := s.accountRecord(ctx, id)
 	if err != nil {
 		return domain.AccountRecord{}, err
@@ -819,8 +890,11 @@ func (s *Service) accountRecord(ctx context.Context, id domain.AccountID) (domai
 }
 
 func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.AccountID, amount, effectiveAt string) (domain.AccountValue, error) {
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.AccountValue{}, err
+	}
+	defer unlock()
 	loaded, err := s.accountRecord(ctx, accountID)
 	if err != nil {
 		return domain.AccountValue{}, err
@@ -843,7 +917,7 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 		return domain.AccountValue{}, originErr
 	}
 	if origin != nil {
-		preview, commitErr := s.recordChangeLocked(ctx, domain.ValueUpdateInput{HouseholdID: record.Account.HouseholdID, AccountID: accountID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when})
+		preview, commitErr := s.recordChangeLocked(ctx, domain.ValueUpdateInput{HouseholdID: record.Account.HouseholdID, AccountID: accountID, NewValue: money, Reason: domain.ReasonReconciliation, EffectiveAt: when}, nil)
 		if commitErr != nil {
 			return domain.AccountValue{}, commitErr
 		}
@@ -864,12 +938,15 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 }
 
 func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archived bool) error {
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return err
+	}
+	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return err
 	}
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
 	records, err := s.repository.ListAccountRecords(ctx, household.ID, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return err
@@ -915,6 +992,13 @@ func (s *Service) AccountGain(ctx context.Context, id domain.AccountID) (domain.
 	return s.gain.AccountGain(ctx, id)
 }
 
+// AccountGains returns cost and gain views for the requested Accounts from
+// one snapshot and one cost-basis replay. An empty ID list returns every
+// Account in the household.
+func (s *Service) AccountGains(ctx context.Context, ids []domain.AccountID) ([]domain.AccountGainView, error) {
+	return s.gain.AccountGains(ctx, ids)
+}
+
 // RealizedGainInRange returns realized gains grouped by Instrument and
 // Account for an inclusive local-date range.
 func (s *Service) RealizedGainInRange(ctx context.Context, scope domain.GainScope, from, to domain.LocalDate) (domain.RealizedGainView, error) {
@@ -952,7 +1036,7 @@ func (s *Service) Portfolio(ctx context.Context, filter domain.AccountFilter) (d
 }
 
 func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (domain.OverviewResult, error) {
-	filter.IncludeArchived = false
+	filter.IncludeArchived = true
 	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, filter)
 	if err != nil {
 		return domain.OverviewResult{}, err
@@ -964,7 +1048,13 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	if err != nil {
 		return domain.OverviewResult{}, err
 	}
-	result := domain.OverviewResult{Currency: snapshot.Household.BaseCurrency, AccountCount: len(snapshot.Accounts), Complete: true}
+	accountCount := 0
+	for _, record := range snapshot.Accounts {
+		if record.Account.ArchivedAt == nil {
+			accountCount++
+		}
+	}
+	result := domain.OverviewResult{Currency: snapshot.Household.BaseCurrency, AccountCount: accountCount, Complete: true}
 	assetsByType := map[string]decimal.Decimal{}
 	liabilitiesByType := map[string]decimal.Decimal{}
 	member := map[string]decimal.Decimal{}
@@ -988,7 +1078,7 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 		groupLabels[current.ID.String()] = current.Name
 	}
 	for _, valuation := range valuations {
-		if !valuation.Account.IncludeInNetWorth {
+		if !domain.AccountEligibleForNetWorth(valuation.Account) {
 			continue
 		}
 		value, err := exactBaseAmount(valuation)
@@ -1065,7 +1155,65 @@ func (s *Service) Overview(ctx context.Context, filter domain.AccountFilter) (do
 	result.ByInstitution = makeBreakdownWithLabels(institution, result.Assets, institutionLabels)
 	result.ByGroup = makeBreakdownWithLabels(group, result.Assets, groupLabels)
 	result.ByAccountType = makeBreakdown(accountType, result.Assets)
+	if err := s.attachOverviewHeadlines(ctx, snapshot, &result); err != nil {
+		return domain.OverviewResult{}, err
+	}
 	return result, nil
+}
+
+const overviewRecentActivityLimit = 5
+
+func (s *Service) attachOverviewHeadlines(ctx context.Context, snapshot domain.PortfolioSnapshot, result *domain.OverviewResult) error {
+	result.HistoryStarted = snapshot.Origin != nil
+	accountNames := make(map[domain.AccountID]string, len(snapshot.Accounts))
+	result.AccountLabels = make([]domain.OverviewNamedRef, 0, len(snapshot.Accounts))
+	for _, record := range snapshot.Accounts {
+		accountNames[record.Account.ID] = record.Account.Name
+		result.AccountLabels = append(result.AccountLabels, domain.OverviewNamedRef{ID: record.Account.ID.String(), Name: record.Account.Name})
+	}
+	sort.Slice(result.AccountLabels, func(i, j int) bool { return result.AccountLabels[i].ID < result.AccountLabels[j].ID })
+	instrumentNames := make(map[domain.InstrumentID]string, len(snapshot.Instruments))
+	instrumentSources := make(map[domain.InstrumentID]domain.QuoteSourceKind, len(snapshot.Instruments))
+	result.InstrumentLabels = make([]domain.OverviewInstrumentRef, 0, len(snapshot.Instruments))
+	for _, instrument := range snapshot.Instruments {
+		instrumentNames[instrument.ID] = instrument.Name
+		instrumentSources[instrument.ID] = instrument.QuoteSource
+		result.InstrumentLabels = append(result.InstrumentLabels, domain.OverviewInstrumentRef{
+			ID: instrument.ID.String(), Name: instrument.Name, QuoteSource: instrument.QuoteSource,
+		})
+	}
+	sort.Slice(result.InstrumentLabels, func(i, j int) bool { return result.InstrumentLabels[i].ID < result.InstrumentLabels[j].ID })
+	result.HoldingLabels = make([]domain.OverviewHoldingRef, 0, len(snapshot.Holdings))
+	for _, holding := range snapshot.Holdings {
+		accountName := accountNames[holding.AccountID]
+		if accountName == "" {
+			accountName = holding.AccountID.String()
+		}
+		instrumentName := instrumentNames[holding.InstrumentID]
+		if instrumentName == "" {
+			instrumentName = holding.InstrumentID.String()
+		}
+		result.HoldingLabels = append(result.HoldingLabels, domain.OverviewHoldingRef{
+			ID: holding.ID.String(), AccountID: holding.AccountID.String(), InstrumentID: holding.InstrumentID.String(),
+			Name: accountName + " · " + instrumentName,
+		})
+	}
+	sort.Slice(result.HoldingLabels, func(i, j int) bool { return result.HoldingLabels[i].ID < result.HoldingLabels[j].ID })
+	for index, missing := range result.MissingInputs {
+		result.MissingInputs[index].AccountName = accountNames[missing.AccountID]
+		if missing.InstrumentID != nil {
+			result.MissingInputs[index].QuoteSource = instrumentSources[*missing.InstrumentID]
+		}
+	}
+	if snapshot.Household == nil {
+		return nil
+	}
+	activities, err := s.repository.ListActivities(ctx, snapshot.Household.ID, overviewRecentActivityLimit)
+	if err != nil {
+		return err
+	}
+	result.RecentActivities = activities
+	return nil
 }
 
 func resolveOwnership(input AccountInput) ([]domain.OwnershipShare, error) {

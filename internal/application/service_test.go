@@ -50,6 +50,82 @@ func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
 	if len(result.ByMember) != 2 {
 		t.Fatalf("member breakdown length = %d", len(result.ByMember))
 	}
+	if len(result.AccountLabels) != 3 {
+		t.Fatalf("account labels = %d, want 3 (including excluded)", len(result.AccountLabels))
+	}
+}
+
+func TestOverviewHeadlinesUseOneSnapshotForLabelsAndRecentActivity(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "overview-headlines", []string{"Owner"})
+	setClock(time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC))
+	owner := bootstrap.Members[0].ID
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{owner},
+	})
+	if err != nil {
+		t.Fatalf("CreateAccount: %v", err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "NVIDIA", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatalf("CreateInstrument: %v", err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+	if err != nil {
+		t.Fatalf("CreateHolding: %v", err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "CNY", "2026-08-24"); err != nil {
+		t.Fatalf("AppendAccountCashValue: %v", err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-24T12:00:00Z", false); err != nil {
+		t.Fatalf("AppendManualInstrumentQuote: %v", err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatalf("StartHistory: %v", err)
+	}
+	setClock(time.Date(2026, time.August, 24, 13, 0, 0, 0, time.UTC))
+	amount, err := domain.ParseMoney("100", "CNY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RecordChange(ctx, domain.MoneyAddedInput{HouseholdID: bootstrap.Household.ID, AccountID: account.Account.ID, Amount: amount, Reason: domain.ReasonContribution, EffectiveAt: time.Date(2026, time.August, 24, 13, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatalf("RecordChange: %v", err)
+	}
+
+	result, err := service.Overview(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatalf("Overview: %v", err)
+	}
+	if !result.HistoryStarted {
+		t.Fatal("HistoryStarted = false, want true")
+	}
+	if result.AccountCount != 1 {
+		t.Fatalf("AccountCount = %d, want 1", result.AccountCount)
+	}
+	if len(result.RecentActivities) != 1 || result.RecentActivities[0].Kind != domain.ActivityCashIn {
+		t.Fatalf("recent activities = %+v, want one cash_in", result.RecentActivities)
+	}
+	foundHolding := false
+	for _, label := range result.HoldingLabels {
+		if label.ID == holding.ID.String() && label.Name == "Brokerage · NVIDIA" {
+			foundHolding = true
+			break
+		}
+	}
+	if !foundHolding {
+		t.Fatalf("holding labels = %+v, want Brokerage · NVIDIA", result.HoldingLabels)
+	}
+	foundInstrument := false
+	for _, label := range result.InstrumentLabels {
+		if label.ID == instrument.ID.String() && label.QuoteSource == domain.QuoteSourceManual {
+			foundInstrument = true
+			break
+		}
+	}
+	if !foundInstrument {
+		t.Fatalf("instrument labels = %+v", result.InstrumentLabels)
+	}
 }
 
 type directoryCountingRepository struct {

@@ -51,35 +51,69 @@ func (g *GainService) HoldingGain(ctx context.Context, holdingID domain.HoldingI
 }
 
 func (g *GainService) AccountGain(ctx context.Context, accountID domain.AccountID) (domain.AccountGainView, error) {
-	snapshot, err := g.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	views, err := g.AccountGains(ctx, []domain.AccountID{accountID})
 	if err != nil {
 		return domain.AccountGainView{}, err
 	}
+	return views[0], nil
+}
+
+// AccountGains returns cost/gain views for the requested Accounts from one
+// portfolio snapshot and one shared cost-basis replay. An empty ID list
+// returns every Account in the snapshot, ordered by Account ID.
+func (g *GainService) AccountGains(ctx context.Context, accountIDs []domain.AccountID) ([]domain.AccountGainView, error) {
+	snapshot, err := g.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return nil, err
+	}
 	if snapshot.Household == nil {
-		return domain.AccountGainView{}, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
-	}
-	accountExists := false
-	for _, record := range snapshot.Accounts {
-		if record.Account.ID == accountID {
-			accountExists = true
-			break
+		if len(accountIDs) > 0 {
+			return nil, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
 		}
+		return []domain.AccountGainView{}, nil
 	}
-	if !accountExists {
-		return domain.AccountGainView{}, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
+	accountsByID := make(map[domain.AccountID]struct{}, len(snapshot.Accounts))
+	for _, record := range snapshot.Accounts {
+		accountsByID[record.Account.ID] = struct{}{}
+	}
+	ids := accountIDs
+	if len(ids) == 0 {
+		ids = make([]domain.AccountID, 0, len(snapshot.Accounts))
+		for _, record := range snapshot.Accounts {
+			ids = append(ids, record.Account.ID)
+		}
+		sort.Slice(ids, func(i, j int) bool { return ids[i].String() < ids[j].String() })
+	} else {
+		for _, id := range ids {
+			if _, ok := accountsByID[id]; !ok {
+				return nil, &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
+			}
+		}
 	}
 	fxQuotes, origin, err := g.gainFXInputs(ctx, snapshot)
 	if err != nil {
-		return domain.AccountGainView{}, err
+		return nil, err
 	}
 	replay := newCostBasisReplayContext(g.repository, snapshot.Holdings)
+	results := make([]domain.AccountGainView, 0, len(ids))
+	for _, accountID := range ids {
+		view, viewErr := g.accountGainFromSnapshot(ctx, snapshot, accountID, replay, fxQuotes, origin)
+		if viewErr != nil {
+			return nil, viewErr
+		}
+		results = append(results, view)
+	}
+	return results, nil
+}
+
+func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot domain.PortfolioSnapshot, accountID domain.AccountID, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin) (domain.AccountGainView, error) {
 	result := domain.AccountGainView{AccountID: accountID, Holdings: make([]domain.HoldingGainView, 0), Available: true}
 	for _, holding := range snapshot.Holdings {
 		if holding.AccountID != accountID || holding.ArchivedAt != nil {
 			continue
 		}
 		instrument, ok := gainInstrument(snapshot.Instruments, holding.InstrumentID)
-		if !ok || instrument.ArchivedAt != nil {
+		if !ok {
 			continue
 		}
 		view, viewErr := g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin)
@@ -146,11 +180,11 @@ func (g *GainService) RealizedGainInRange(ctx context.Context, scope domain.Gain
 	byAccount := make(map[domain.AccountID]*gainGroupAccumulator)
 	result := domain.RealizedGainView{From: from, To: to, Currency: snapshot.Household.BaseCurrency, Available: true}
 	for _, holding := range snapshot.Holdings {
-		if holding.ArchivedAt != nil || (scope.AccountID != nil && holding.AccountID != *scope.AccountID) || (scope.InstrumentID != nil && holding.InstrumentID != *scope.InstrumentID) {
+		if (scope.AccountID != nil && holding.AccountID != *scope.AccountID) || (scope.InstrumentID != nil && holding.InstrumentID != *scope.InstrumentID) {
 			continue
 		}
 		instrument, ok := instruments[holding.InstrumentID]
-		if !ok || instrument.ArchivedAt != nil {
+		if !ok {
 			continue
 		}
 		replayed, replayErr := replay.replay(ctx, holding.ID, nil)
@@ -164,7 +198,7 @@ func (g *GainService) RealizedGainInRange(ctx context.Context, scope domain.Gain
 			}
 			instrumentGroup := groupForInstrument(byInstrument, instrument.ID, instrument.Name)
 			accountGroup := groupForAccount(byAccount, holding.AccountID, accounts[holding.AccountID])
-			rate, rateAvailable := gainFXRateAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Currency(), event.EffectiveAt)
+			rate, rateAvailable := g.fxRateAtOrBefore(snapshot, fxQuotes, event.RealizedGain.Currency(), event.EffectiveAt)
 			if !rateAvailable {
 				result.Available = false
 				if result.MissingReason == "" {
@@ -283,7 +317,7 @@ func (g *GainService) DividendIncomeInRange(ctx context.Context, scope domain.Ga
 		}
 		instrumentGroup := groupForInstrument(byInstrument, detail.InstrumentID, instrumentLabel)
 		accountGroup := groupForAccount(byAccount, accountID, accountLabel)
-		rate, rateAvailable := gainFXRateAtOrBefore(snapshot, fxQuotes, detail.Amount.Currency(), activity.EffectiveAt)
+		rate, rateAvailable := g.fxRateAtOrBefore(snapshot, fxQuotes, detail.Amount.Currency(), activity.EffectiveAt)
 		if !rateAvailable {
 			result.Available = false
 			if result.MissingReason == "" {
@@ -653,7 +687,7 @@ func (g *GainService) acquisitionFXRate(ctx context.Context, snapshot domain.Por
 		}
 		switch event.Kind {
 		case domain.CostBasisStartingPoint, domain.CostBasisBuy, domain.CostBasisAdjustmentIn:
-			rate, ok := gainFXRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
+			rate, ok := g.fxRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
 			if !ok {
 				return decimal.Zero, false
 			}
@@ -669,7 +703,7 @@ func (g *GainService) acquisitionFXRate(ctx context.Context, snapshot domain.Por
 				}
 				rate, ok = g.acquisitionFXRate(ctx, snapshot, native, starting, sourceEvents, replay, fxQuotes, origin)
 			} else {
-				rate, ok = gainFXRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
+				rate, ok = g.fxRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
 			}
 			if !ok {
 				return decimal.Zero, false
@@ -699,35 +733,8 @@ func blendFXRate(currentRate, currentQuantity, incomingRate, incomingQuantity de
 	return currentRate.Mul(currentQuantity).Add(incomingRate.Mul(incomingQuantity)).Div(totalQuantity), totalQuantity
 }
 
-func gainFXRateAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
-	base := snapshot.Household.BaseCurrency
-	if native == base {
-		return decimal.NewFromInt(1), true
-	}
-	preference := findFXPreference(snapshot.FXPreferences, native, base)
-	if preference == nil {
-		return decimal.Zero, false
-	}
-	var selected *domain.FXQuote
-	for index := range quotes {
-		quote := &quotes[index]
-		if quote.HouseholdID != preference.HouseholdID || quote.SourceKind != preference.SourceKind || quote.QuotedAt.After(cutoff) {
-			continue
-		}
-		if !((quote.BaseCurrency == native && quote.QuoteCurrency == base) || (quote.BaseCurrency == base && quote.QuoteCurrency == native)) {
-			continue
-		}
-		if selected == nil || quoteLater(quote.QuotedAt, quote.CreatedAt, quote.ID.String(), selected.QuotedAt, selected.CreatedAt, selected.ID.String()) {
-			selected = quote
-		}
-	}
-	if selected == nil {
-		return decimal.Zero, false
-	}
-	if selected.BaseCurrency == native && selected.QuoteCurrency == base {
-		return selected.Rate.Decimal(), true
-	}
-	return decimal.NewFromInt(1).Div(selected.Rate.Decimal()), true
+func (g *GainService) fxRateAtOrBefore(snapshot domain.PortfolioSnapshot, quotes []domain.FXQuote, native domain.CurrencyCode, cutoff time.Time) (decimal.Decimal, bool) {
+	return g.valuation.fxRateAtOrBefore(snapshot, quotes, native, cutoff)
 }
 
 func moneyViewPointer(value decimal.Decimal, currency domain.CurrencyCode) *domain.MoneyView {
@@ -835,7 +842,7 @@ func gainHolding(snapshot domain.PortfolioSnapshot, id domain.HoldingID) (domain
 			continue
 		}
 		instrument, ok := gainInstrument(snapshot.Instruments, holding.InstrumentID)
-		if !ok || instrument.ArchivedAt != nil {
+		if !ok {
 			break
 		}
 		return holding, instrument, nil
@@ -910,6 +917,10 @@ type costBasisReplayContext struct {
 	active     map[replayMemoKey]bool
 }
 
+// historicalCostBasisFilter loads immutable cost facts after a Holding is
+// archived so period realized gain and transfer-source replay stay complete.
+var historicalCostBasisFilter = domain.CostBasisReadFilter{IncludeArchivedHoldings: true}
+
 func newCostBasisReplayContext(repository Repository, holdings ...[]domain.Holding) *costBasisReplayContext {
 	quantities := make(map[domain.HoldingID]domain.Quantity)
 	if len(holdings) > 0 {
@@ -947,14 +958,14 @@ func (c *costBasisReplayContext) replay(ctx context.Context, holdingID domain.Ho
 
 func (c *costBasisReplayContext) preparedEvents(ctx context.Context, holdingID domain.HoldingID, cutoff *time.Time) (*domain.UnitPrice, []domain.CostBasisEvent, error) {
 	if _, ok := c.events[holdingID]; !ok {
-		events, err := c.repository.ListCostBasisEvents(ctx, holdingID)
+		events, err := c.repository.ListCostBasisEvents(ctx, holdingID, historicalCostBasisFilter)
 		if err != nil {
 			return nil, nil, err
 		}
 		c.events[holdingID] = events
 	}
 	if _, ok := c.starting[holdingID]; !ok {
-		starting, err := c.repository.StartingPointCost(ctx, holdingID)
+		starting, err := c.repository.StartingPointCost(ctx, holdingID, historicalCostBasisFilter)
 		if err != nil {
 			return nil, nil, err
 		}

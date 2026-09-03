@@ -6,10 +6,9 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/csvcodec"
 )
 
-func (s *Service) BuildCSVImportPlan(ctx context.Context, profile string, table csvcodec.Table, mapping map[string]string, options CSVParseOptions, seed *CSVImportPlan) (CSVImportPlan, error) {
+func (s *Service) BuildCSVImportPlan(ctx context.Context, profile string, table CSVTable, mapping map[string]string, options CSVParseOptions, seed *CSVImportPlan) (CSVImportPlan, error) {
 	if err := validateCSVParseOptions(options); err != nil {
 		return CSVImportPlan{}, err
 	}
@@ -102,7 +101,7 @@ func resolveMapping(headers []string, mapping map[string]string, profile string)
 				source = mapped
 			}
 		}
-		index := csvcodec.HeaderIndex(headers, source)
+		index := csvHeaderIndex(headers, source)
 		if index < 0 {
 			if isOptionalCSVField(target) {
 				continue
@@ -137,7 +136,7 @@ func cell(row []string, column map[string]int, name string) string {
 	return strings.TrimSpace(row[index])
 }
 
-func planAccountsCSV(plan *CSVImportPlan, household domain.Household, origin *domain.HistoryOrigin, now time.Time, table csvcodec.Table, column map[string]int, options CSVParseOptions, members []domain.Member, institutions []domain.Institution, groups []domain.Group, accounts []domain.AccountRecord) {
+func planAccountsCSV(plan *CSVImportPlan, household domain.Household, origin *domain.HistoryOrigin, now time.Time, table CSVTable, column map[string]int, options CSVParseOptions, members []domain.Member, institutions []domain.Institution, groups []domain.Group, accounts []domain.AccountRecord) {
 	memberByName := uniqueNameIndex(len(members), func(i int) string { return members[i].Name })
 	institutionByName := uniqueNameIndex(len(institutions), func(i int) string { return institutions[i].Name })
 	groupByName := uniqueNameIndex(len(groups), func(i int) string { return groups[i].Name })
@@ -353,7 +352,7 @@ func planAccountsCSV(plan *CSVImportPlan, household domain.Household, origin *do
 	}
 }
 
-func planHoldingsCSV(plan *CSVImportPlan, household domain.Household, origin *domain.HistoryOrigin, now time.Time, table csvcodec.Table, column map[string]int, options CSVParseOptions, accounts []domain.AccountRecord, instruments []domain.Instrument, existingHoldings map[string]struct{}) {
+func planHoldingsCSV(plan *CSVImportPlan, household domain.Household, origin *domain.HistoryOrigin, now time.Time, table CSVTable, column map[string]int, options CSVParseOptions, accounts []domain.AccountRecord, instruments []domain.Instrument, existingHoldings map[string]struct{}) {
 	accountByName := map[string][]domain.AccountRecord{}
 	for _, record := range accounts {
 		accountByName[record.Account.Name] = append(accountByName[record.Account.Name], record)

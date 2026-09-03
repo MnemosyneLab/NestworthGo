@@ -89,3 +89,22 @@ func TestMoneyBoundaryUsesBankersRounding(t *testing.T) {
 		t.Fatalf("odd midpoint rounded to %s", odd.CanonicalAmount())
 	}
 }
+
+func TestUnitPriceFromExactRoundsOnlyWhenScaleExceedsEight(t *testing.T) {
+	exact, err := UnitPriceFromExact(decimal.RequireFromString("1.23456789"))
+	if err != nil || exact.Canonical() != "1.23456789" {
+		t.Fatalf("exact eight-decimal price = %q err=%v", exact.Canonical(), err)
+	}
+	// 1400/15 = 93.3 repeating; ninth fractional digit is 3, so banker's
+	// rounding at eight places is 93.33333333.
+	repeating, err := UnitPriceFromExact(decimal.RequireFromString("1400").Div(decimal.RequireFromString("15")))
+	if err != nil || repeating.Canonical() != "93.33333333" {
+		t.Fatalf("repeating average = %q err=%v", repeating.Canonical(), err)
+	}
+	// DivisionPrecision pads exact quotients with trailing zeros; those extra
+	// scale digits must still round to the supported unit-price scale.
+	exactQuotient, err := UnitPriceFromExact(decimal.RequireFromString("840").Div(decimal.RequireFromString("10")))
+	if err != nil || exactQuotient.Canonical() != "84" {
+		t.Fatalf("exact quotient = %q err=%v", exactQuotient.Canonical(), err)
+	}
+}

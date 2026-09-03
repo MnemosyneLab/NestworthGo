@@ -5,6 +5,7 @@
 package settings
 
 import (
+	"context"
 	"sort"
 	"strings"
 
@@ -43,23 +44,31 @@ func (s *Service) Save(value settings.Settings) error {
 	if err := value.Validate(); err != nil {
 		return apierror.Wrap(&domain.Error{Code: domain.ErrValidation, Message: err.Error()})
 	}
-	current, err := s.store.Load()
-	if err != nil {
-		return apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be loaded"})
-	}
-	if s.app != nil && value.FXProvider != current.FXProvider {
-		if err := s.app.SetFXProvider(value.FXProvider); err != nil {
-			return apierror.Wrap(err)
+	persist := func() error {
+		current, err := s.store.Load()
+		if err != nil {
+			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be loaded"}
 		}
+		if s.app != nil && value.FXProvider != current.FXProvider {
+			if err := s.app.SetFXProvider(value.FXProvider); err != nil {
+				return err
+			}
+		}
+		if s.app != nil {
+			s.app.SetQuoteCacheTTL(value.QuoteCacheTTLDuration())
+			s.app.SetUILanguage(string(value.Language))
+		}
+		if err := s.store.Save(value); err != nil {
+			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"}
+		}
+		return nil
 	}
-	if s.app != nil {
-		s.app.SetQuoteCacheTTL(value.QuoteCacheTTLDuration())
-		s.app.SetUILanguage(string(value.Language))
+	if s.app == nil {
+		return apierror.Wrap(persist())
 	}
-	if err := s.store.Save(value); err != nil {
-		return apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"})
-	}
-	return nil
+	return apierror.Wrap(s.app.WithWrite(context.Background(), func(context.Context) error {
+		return persist()
+	}))
 }
 
 // Reset restores settings.Default(), applying the same FX-provider

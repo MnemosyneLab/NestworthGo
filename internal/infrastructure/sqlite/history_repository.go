@@ -137,136 +137,128 @@ func historyOriginDataQuery(ctx context.Context, query queryer, originID domain.
 	if err != nil {
 		return data, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var accountID, createdAt string
 		var archivedAt sql.NullString
 		var includeNetWorth, includeInvestment, includeLiquid int
 		if err := rows.Scan(&accountID, &archivedAt, &includeNetWorth, &includeInvestment, &includeLiquid, &createdAt); err != nil {
-			rows.Close()
 			return data, err
 		}
 		parsedAccount, err := domain.ParseAccountID(accountID)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		created, err := time.Parse(time.RFC3339Nano, createdAt)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		archived, err := parseTimePtr(archivedAt)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		data.AccountStates = append(data.AccountStates, domain.HistoryOriginAccountState{OriginID: originID, AccountID: parsedAccount, ArchivedAt: archived, IncludeInNetWorth: includeNetWorth != 0, IncludeInPortfolio: includeInvestment != 0, IncludeInLiquidAssets: includeLiquid != 0, CreatedAt: created.UTC()})
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
 		return data, err
 	}
-	rows.Close()
+	if err := rows.Close(); err != nil {
+		return data, err
+	}
 
 	rows, err = query.QueryContext(ctx, `SELECT account_id, member_id, share_bps FROM history_origin_ownership WHERE origin_id = ? ORDER BY account_id, member_id`, originID.String())
 	if err != nil {
 		return data, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var accountID, memberID string
 		var shareBPS int
 		if err := rows.Scan(&accountID, &memberID, &shareBPS); err != nil {
-			rows.Close()
 			return data, err
 		}
 		parsedAccount, err := domain.ParseAccountID(accountID)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		parsedMember, err := domain.ParseMemberID(memberID)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		data.Ownership = append(data.Ownership, domain.HistoryOriginOwnership{OriginID: originID, AccountID: parsedAccount, MemberID: parsedMember, ShareBPS: shareBPS})
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
 		return data, err
 	}
-	rows.Close()
+	if err := rows.Close(); err != nil {
+		return data, err
+	}
 
 	rows, err = query.QueryContext(ctx, `SELECT instrument_id, source_kind, created_at FROM history_origin_instrument_preferences WHERE origin_id = ? ORDER BY instrument_id`, originID.String())
 	if err != nil {
 		return data, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var instrumentID, sourceKind, createdAt string
 		if err := rows.Scan(&instrumentID, &sourceKind, &createdAt); err != nil {
-			rows.Close()
 			return data, err
 		}
 		parsedInstrument, err := domain.ParseInstrumentID(instrumentID)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		parsedSource, err := domain.ParseQuoteSourceKind(sourceKind)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		created, err := time.Parse(time.RFC3339Nano, createdAt)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		data.InstrumentPreferences = append(data.InstrumentPreferences, domain.HistoryOriginInstrumentPreference{OriginID: originID, InstrumentID: parsedInstrument, SourceKind: parsedSource, CreatedAt: created.UTC()})
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
 		return data, err
 	}
-	rows.Close()
+	if err := rows.Close(); err != nil {
+		return data, err
+	}
 
 	rows, err = query.QueryContext(ctx, `SELECT currency_a, currency_b, source_kind, created_at FROM history_origin_fx_preferences WHERE origin_id = ? ORDER BY currency_a, currency_b`, originID.String())
 	if err != nil {
 		return data, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var currencyA, currencyB, sourceKind, createdAt string
 		if err := rows.Scan(&currencyA, &currencyB, &sourceKind, &createdAt); err != nil {
-			rows.Close()
 			return data, err
 		}
 		parsedA, err := domain.ParseCurrency(currencyA)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		parsedB, err := domain.ParseCurrency(currencyB)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		parsedSource, err := domain.ParseQuoteSourceKind(sourceKind)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		created, err := time.Parse(time.RFC3339Nano, createdAt)
 		if err != nil {
-			rows.Close()
 			return data, err
 		}
 		data.FXPreferences = append(data.FXPreferences, domain.HistoryOriginFXPreference{OriginID: originID, CurrencyA: parsedA, CurrencyB: parsedB, SourceKind: parsedSource, CreatedAt: created.UTC()})
 	}
 	if err := rows.Err(); err != nil {
-		rows.Close()
 		return data, err
 	}
-	rows.Close()
+	if err := rows.Close(); err != nil {
+		return data, err
+	}
 	return data, nil
 }
 
@@ -405,6 +397,15 @@ func validateHistoryOriginData(data domain.HistoryOriginData) error {
 			return err
 		}
 		data.Components[index].OriginID = data.Origin.ID
+	}
+	sharesByAccount := make(map[domain.AccountID][]domain.OwnershipShare)
+	for _, ownership := range data.Ownership {
+		sharesByAccount[ownership.AccountID] = append(sharesByAccount[ownership.AccountID], domain.OwnershipShare{MemberID: ownership.MemberID, ShareBPS: ownership.ShareBPS})
+	}
+	for _, shares := range sharesByAccount {
+		if _, err := domain.ParseOwnership(shares); err != nil {
+			return err
+		}
 	}
 	return nil
 }

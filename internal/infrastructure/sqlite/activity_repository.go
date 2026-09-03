@@ -19,14 +19,11 @@ func (r *Repository) Activity(ctx context.Context, householdID domain.HouseholdI
 	if err != nil {
 		return domain.Activity{}, err
 	}
-	activity.Effects, err = r.activityEffects(ctx, activity.ID)
-	if err != nil {
+	activities := []domain.Activity{activity}
+	if err := hydrateActivities(ctx, r.database.SQL, activities); err != nil {
 		return domain.Activity{}, err
 	}
-	if err := attachActivityDetails(ctx, r.database.SQL, &activity); err != nil {
-		return domain.Activity{}, err
-	}
-	return activity, nil
+	return activities[0], nil
 }
 
 func activityFromScanner(scanner rowScanner) (domain.Activity, error) {
@@ -181,6 +178,7 @@ func (r *Repository) ListActivities(ctx context.Context, householdID domain.Hous
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var activities []domain.Activity
 	for rows.Next() {
 		activity, scanErr := activityFromScanner(rows)
@@ -190,25 +188,22 @@ func (r *Repository) ListActivities(ctx context.Context, householdID domain.Hous
 		activities = append(activities, activity)
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return nil, err
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	for index := range activities {
-		activities[index].Effects, err = r.activityEffects(ctx, activities[index].ID)
-		if err != nil {
-			return nil, err
-		}
-		if err := attachActivityDetails(ctx, r.database.SQL, &activities[index]); err != nil {
-			return nil, err
-		}
+	if err := hydrateActivities(ctx, r.database.SQL, activities); err != nil {
+		return nil, err
 	}
 	return activities, nil
 }
 
 func (r *Repository) ListActivityPage(ctx context.Context, householdID domain.HouseholdID, query domain.ActivityQuery) (domain.ActivityPage, error) {
+	return listActivityPageQuery(ctx, r.database.SQL, householdID, query)
+}
+
+func listActivityPageQuery(ctx context.Context, db queryer, householdID domain.HouseholdID, query domain.ActivityQuery) (domain.ActivityPage, error) {
 	limit := query.Limit
 	if limit <= 0 || limit > 100 {
 		limit = 100
@@ -246,21 +241,20 @@ func (r *Repository) ListActivityPage(ctx context.Context, householdID domain.Ho
 	}
 	statement += ` ORDER BY effective_at DESC, created_at DESC, id DESC LIMIT ?`
 	args = append(args, limit+1)
-	rows, err := r.database.SQL.QueryContext(ctx, statement, args...)
+	rows, err := db.QueryContext(ctx, statement, args...)
 	if err != nil {
 		return domain.ActivityPage{}, err
 	}
+	defer rows.Close()
 	var activities []domain.Activity
 	for rows.Next() {
 		activity, scanErr := activityFromScanner(rows)
 		if scanErr != nil {
-			_ = rows.Close()
 			return domain.ActivityPage{}, scanErr
 		}
 		activities = append(activities, activity)
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return domain.ActivityPage{}, err
 	}
 	if err := rows.Close(); err != nil {
@@ -270,14 +264,8 @@ func (r *Repository) ListActivityPage(ctx context.Context, householdID domain.Ho
 	if hasMore {
 		activities = activities[:limit]
 	}
-	for index := range activities {
-		activities[index].Effects, err = r.activityEffects(ctx, activities[index].ID)
-		if err != nil {
-			return domain.ActivityPage{}, err
-		}
-		if err := attachActivityDetails(ctx, r.database.SQL, &activities[index]); err != nil {
-			return domain.ActivityPage{}, err
-		}
+	if err := hydrateActivities(ctx, db, activities); err != nil {
+		return domain.ActivityPage{}, err
 	}
 	page := domain.ActivityPage{Activities: activities, HasMore: hasMore}
 	if hasMore && len(activities) > 0 {
@@ -296,60 +284,197 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	var activities []domain.Activity
 	for rows.Next() {
 		activity, scanErr := activityFromScanner(rows)
 		if scanErr != nil {
-			_ = rows.Close()
 			return nil, scanErr
 		}
 		activities = append(activities, activity)
 	}
 	if err := rows.Err(); err != nil {
-		_ = rows.Close()
 		return nil, err
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	for index := range activities {
-		activities[index].Effects, err = activityEffectsQuery(ctx, query, activities[index].ID)
-		if err != nil {
-			return nil, err
-		}
+	if err := attachActivityEffects(ctx, query, activities); err != nil {
+		return nil, err
 	}
 	return activities, nil
 }
 
-func attachActivityDetails(ctx context.Context, query queryer, activity *domain.Activity) error {
-	trade, err := activityTradeDetailQuery(ctx, query, activity.ID)
-	if err != nil {
+func hydrateActivities(ctx context.Context, query queryer, activities []domain.Activity) error {
+	if err := attachActivityEffects(ctx, query, activities); err != nil {
 		return err
 	}
-	activity.TradeDetail = trade
-	dividend, err := activityDividendDetailQuery(ctx, query, activity.ID)
-	if err != nil {
+	if err := attachActivityTradeDetails(ctx, query, activities); err != nil {
 		return err
 	}
-	activity.DividendDetail = dividend
-	resulting, err := activityResultingQuery(ctx, query, activity.ID)
-	if err != nil {
+	if err := attachActivityDividendDetails(ctx, query, activities); err != nil {
 		return err
 	}
-	activity.Resulting = resulting
-	return nil
+	return attachActivityResulting(ctx, query, activities)
 }
 
-func activityTradeDetailQuery(ctx context.Context, query queryer, activityID domain.ActivityID) (*domain.TradeDetail, error) {
-	var side, instrumentID, holdingID, quantity, grossAmount, grossCurrency, unitPrice string
-	var feeAmount, feeCurrency sql.NullString
-	err := query.QueryRowContext(ctx, `SELECT side, instrument_id, holding_id, quantity, gross_amount, gross_currency, unit_price, fee_amount, fee_currency FROM activity_trade_details WHERE activity_id = ?`, activityID.String()).Scan(&side, &instrumentID, &holdingID, &quantity, &grossAmount, &grossCurrency, &unitPrice, &feeAmount, &feeCurrency)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+func activityIDs(activities []domain.Activity) []string {
+	ids := make([]string, len(activities))
+	for index := range activities {
+		ids[index] = activities[index].ID.String()
 	}
+	return ids
+}
+
+func activityIndexByID(activities []domain.Activity) map[string]int {
+	indexByID := make(map[string]int, len(activities))
+	for index := range activities {
+		indexByID[activities[index].ID.String()] = index
+	}
+	return indexByID
+}
+
+func attachActivityEffects(ctx context.Context, query queryer, activities []domain.Activity) error {
+	if len(activities) == 0 {
+		return nil
+	}
+	clause, args := sqlInArgs(activityIDs(activities))
+	rows, err := query.QueryContext(ctx, `SELECT id, activity_id, sequence, role, direction, target, classification, account_id, holding_id, instrument_id, amount, currency, quantity, cost_unit_price FROM activity_effects WHERE activity_id IN (`+clause+`) ORDER BY activity_id, sequence ASC`, args...)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	defer rows.Close()
+	indexByID := activityIndexByID(activities)
+	for index := range activities {
+		activities[index].Effects = nil
+	}
+	for rows.Next() {
+		var id, activityValue, role, direction, target, classification string
+		var sequence int
+		var accountID, holdingID, instrumentID, amount, currency, quantity, costUnitPrice sql.NullString
+		if err := rows.Scan(&id, &activityValue, &sequence, &role, &direction, &target, &classification, &accountID, &holdingID, &instrumentID, &amount, &currency, &quantity, &costUnitPrice); err != nil {
+			return err
+		}
+		effect, parseErr := scanActivityEffectWithSequence(id, activityValue, sequence, role, direction, target, classification, accountID, holdingID, instrumentID, amount, currency, quantity, costUnitPrice)
+		if parseErr != nil {
+			return parseErr
+		}
+		index, ok := indexByID[activityValue]
+		if !ok {
+			continue
+		}
+		activities[index].Effects = append(activities[index].Effects, effect)
+	}
+	return rows.Err()
+}
+
+func attachActivityTradeDetails(ctx context.Context, query queryer, activities []domain.Activity) error {
+	if len(activities) == 0 {
+		return nil
+	}
+	clause, args := sqlInArgs(activityIDs(activities))
+	rows, err := query.QueryContext(ctx, `SELECT activity_id, side, instrument_id, holding_id, quantity, gross_amount, gross_currency, unit_price, fee_amount, fee_currency FROM activity_trade_details WHERE activity_id IN (`+clause+`)`, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	indexByID := activityIndexByID(activities)
+	for rows.Next() {
+		var activityID, side, instrumentID, holdingID, quantity, grossAmount, grossCurrency, unitPrice string
+		var feeAmount, feeCurrency sql.NullString
+		if err := rows.Scan(&activityID, &side, &instrumentID, &holdingID, &quantity, &grossAmount, &grossCurrency, &unitPrice, &feeAmount, &feeCurrency); err != nil {
+			return err
+		}
+		detail, parseErr := parseTradeDetail(side, instrumentID, holdingID, quantity, grossAmount, grossCurrency, unitPrice, feeAmount, feeCurrency)
+		if parseErr != nil {
+			return parseErr
+		}
+		index, ok := indexByID[activityID]
+		if !ok {
+			continue
+		}
+		activities[index].TradeDetail = detail
+	}
+	return rows.Err()
+}
+
+func attachActivityDividendDetails(ctx context.Context, query queryer, activities []domain.Activity) error {
+	if len(activities) == 0 {
+		return nil
+	}
+	clause, args := sqlInArgs(activityIDs(activities))
+	rows, err := query.QueryContext(ctx, `SELECT activity_id, holding_id, instrument_id, amount, currency FROM activity_dividend_details WHERE activity_id IN (`+clause+`)`, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	indexByID := activityIndexByID(activities)
+	for rows.Next() {
+		var activityID, holdingID, instrumentID, amount, currency string
+		if err := rows.Scan(&activityID, &holdingID, &instrumentID, &amount, &currency); err != nil {
+			return err
+		}
+		detail, parseErr := parseDividendDetail(holdingID, instrumentID, amount, currency)
+		if parseErr != nil {
+			return parseErr
+		}
+		index, ok := indexByID[activityID]
+		if !ok {
+			continue
+		}
+		activities[index].DividendDetail = detail
+	}
+	return rows.Err()
+}
+
+func attachActivityResulting(ctx context.Context, query queryer, activities []domain.Activity) error {
+	if len(activities) == 0 {
+		return nil
+	}
+	clause, args := sqlInArgs(activityIDs(activities))
+	unionArgs := make([]any, 0, len(args)*3)
+	unionArgs = append(unionArgs, args...)
+	unionArgs = append(unionArgs, args...)
+	unionArgs = append(unionArgs, args...)
+	rows, err := query.QueryContext(ctx, `SELECT e.activity_id, e.target, e.account_id, e.holding_id, av.amount, av.currency, ''
+FROM activity_effects e
+JOIN account_values av ON av.activity_effect_id = e.id AND av.projection_kind = 'event'
+WHERE e.activity_id IN (`+clause+`)
+UNION ALL
+SELECT e.activity_id, e.target, e.account_id, e.holding_id, ac.amount, ac.currency, ''
+FROM activity_effects e
+JOIN account_cash_values ac ON ac.activity_effect_id = e.id AND ac.projection_kind = 'event'
+WHERE e.activity_id IN (`+clause+`)
+UNION ALL
+SELECT e.activity_id, e.target, e.account_id, e.holding_id, '', '', hq.quantity
+FROM activity_effects e
+JOIN holding_quantity_values hq ON hq.activity_effect_id = e.id AND hq.projection_kind = 'event'
+WHERE e.activity_id IN (`+clause+`)`, unionArgs...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	indexByID := activityIndexByID(activities)
+	for rows.Next() {
+		var activityID, target string
+		var accountID, holdingID, amount, currency, quantity sql.NullString
+		if err := rows.Scan(&activityID, &target, &accountID, &holdingID, &amount, &currency, &quantity); err != nil {
+			return err
+		}
+		view, parseErr := parseEndpointView(target, accountID, holdingID, amount, currency, quantity)
+		if parseErr != nil {
+			return parseErr
+		}
+		index, ok := indexByID[activityID]
+		if !ok {
+			continue
+		}
+		activities[index].Resulting = append(activities[index].Resulting, view)
+	}
+	return rows.Err()
+}
+
+func parseTradeDetail(side, instrumentID, holdingID, quantity, grossAmount, grossCurrency, unitPrice string, feeAmount, feeCurrency sql.NullString) (*domain.TradeDetail, error) {
 	parsedSide, err := domain.ParseTradeSide(side)
 	if err != nil {
 		return nil, err
@@ -385,15 +510,7 @@ func activityTradeDetailQuery(ctx context.Context, query queryer, activityID dom
 	return detail, nil
 }
 
-func activityDividendDetailQuery(ctx context.Context, query queryer, activityID domain.ActivityID) (*domain.DividendDetail, error) {
-	var holdingID, instrumentID, amount, currency string
-	err := query.QueryRowContext(ctx, `SELECT holding_id, instrument_id, amount, currency FROM activity_dividend_details WHERE activity_id = ?`, activityID.String()).Scan(&holdingID, &instrumentID, &amount, &currency)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
+func parseDividendDetail(holdingID, instrumentID, amount, currency string) (*domain.DividendDetail, error) {
 	parsedHolding, err := domain.ParseHoldingID(holdingID)
 	if err != nil {
 		return nil, err
@@ -409,48 +526,21 @@ func activityDividendDetailQuery(ctx context.Context, query queryer, activityID 
 	return &domain.DividendDetail{HoldingID: parsedHolding, InstrumentID: parsedInstrument, Amount: parsedAmount}, nil
 }
 
-func activityResultingQuery(ctx context.Context, query queryer, activityID domain.ActivityID) ([]domain.EndpointView, error) {
-	rows, err := query.QueryContext(ctx, `SELECT e.target, e.account_id, e.holding_id, av.amount, av.currency, ''
-FROM activity_effects e
-JOIN account_values av ON av.activity_effect_id = e.id AND av.projection_kind = 'event'
-WHERE e.activity_id = ?
-UNION ALL
-SELECT e.target, e.account_id, e.holding_id, ac.amount, ac.currency, ''
-FROM activity_effects e
-JOIN account_cash_values ac ON ac.activity_effect_id = e.id AND ac.projection_kind = 'event'
-WHERE e.activity_id = ?
-UNION ALL
-SELECT e.target, e.account_id, e.holding_id, '', '', hq.quantity
-FROM activity_effects e
-JOIN holding_quantity_values hq ON hq.activity_effect_id = e.id AND hq.projection_kind = 'event'
-WHERE e.activity_id = ?`, activityID.String(), activityID.String(), activityID.String())
-	if err != nil {
-		return nil, err
+func parseEndpointView(target string, accountID, holdingID, amount, currency, quantity sql.NullString) (domain.EndpointView, error) {
+	view := domain.EndpointView{Target: domain.EffectTarget(target), Amount: amount.String, Quantity: quantity.String, Currency: domain.CurrencyCode(currency.String)}
+	if accountID.Valid && accountID.String != "" {
+		parsed, parseErr := domain.ParseAccountID(accountID.String)
+		if parseErr != nil {
+			return domain.EndpointView{}, parseErr
+		}
+		view.AccountID = &parsed
 	}
-	defer rows.Close()
-	var views []domain.EndpointView
-	for rows.Next() {
-		var target string
-		var accountID, holdingID, amount, currency, quantity sql.NullString
-		if err := rows.Scan(&target, &accountID, &holdingID, &amount, &currency, &quantity); err != nil {
-			return nil, err
+	if holdingID.Valid && holdingID.String != "" {
+		parsed, parseErr := domain.ParseHoldingID(holdingID.String)
+		if parseErr != nil {
+			return domain.EndpointView{}, parseErr
 		}
-		view := domain.EndpointView{Target: domain.EffectTarget(target), Amount: amount.String, Quantity: quantity.String, Currency: domain.CurrencyCode(currency.String)}
-		if accountID.Valid && accountID.String != "" {
-			parsed, parseErr := domain.ParseAccountID(accountID.String)
-			if parseErr != nil {
-				return nil, parseErr
-			}
-			view.AccountID = &parsed
-		}
-		if holdingID.Valid && holdingID.String != "" {
-			parsed, parseErr := domain.ParseHoldingID(holdingID.String)
-			if parseErr != nil {
-				return nil, parseErr
-			}
-			view.HoldingID = &parsed
-		}
-		views = append(views, view)
+		view.HoldingID = &parsed
 	}
-	return views, rows.Err()
+	return view, nil
 }

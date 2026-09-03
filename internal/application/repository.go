@@ -104,8 +104,8 @@ type HistoryRepository interface {
 	HistoryOrigin(context.Context, domain.HouseholdID) (*domain.HistoryOrigin, error)
 	ListHistoryOriginComponents(context.Context, domain.HistoryOriginID) ([]domain.HistoryOriginComponent, error)
 	HistoryOriginData(context.Context, domain.HistoryOriginID) (domain.HistoryOriginData, error)
-	ListCostBasisEvents(context.Context, domain.HoldingID) ([]domain.CostBasisEvent, error)
-	StartingPointCost(context.Context, domain.HoldingID) (*domain.UnitPrice, error)
+	ListCostBasisEvents(context.Context, domain.HoldingID, domain.CostBasisReadFilter) ([]domain.CostBasisEvent, error)
+	StartingPointCost(context.Context, domain.HoldingID, domain.CostBasisReadFilter) (*domain.UnitPrice, error)
 	ListAccountStateObservations(context.Context, domain.HouseholdID) ([]domain.AccountStateObservation, error)
 	ListInstrumentStateObservations(context.Context, domain.HouseholdID) ([]domain.InstrumentStateObservation, error)
 	ListHoldingStateObservations(context.Context, domain.HouseholdID) ([]domain.HoldingStateObservation, error)
@@ -115,6 +115,7 @@ type HistoryRepository interface {
 	StartHistory(context.Context, domain.HistoryOriginData) (domain.HistoryOrigin, error)
 	CommitActivity(context.Context, domain.Activity, []domain.ActivityEffect, []domain.EndpointView, time.Time) error
 	CommitActivityBatch(context.Context, []domain.ActivityCommit, time.Time) error
+	LookupActivityMutation(context.Context, domain.HouseholdID, domain.MutationID) (*domain.ActivityMutationRecord, error)
 	Activity(context.Context, domain.HouseholdID, domain.ActivityID) (domain.Activity, error)
 	ActivityEffects(context.Context, domain.ActivityID) ([]domain.ActivityEffect, error)
 	ActivityHasReversal(context.Context, domain.HouseholdID, domain.ActivityID) (bool, error)

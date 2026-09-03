@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -17,6 +18,7 @@ import (
 	webassets "github.com/waltwang/nestworth-go"
 	nestworthapp "github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -61,59 +63,79 @@ func (e *lazyEventEmitter) Emit(name string, data any) {
 }
 
 func main() {
+	if err := run(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	store := settings.DefaultStore()
 	preference, loadErr := store.Load()
 	if loadErr != nil {
-		slog.Warn("could not load saved settings; using defaults", "error", loadErr)
+		slog.Warn("could not load saved settings; using defaults")
 	}
 
 	databasePath := defaultDatabasePath()
 	var database *sqlite.DB
+	defer func() {
+		if database != nil {
+			_ = database.Close()
+		}
+	}()
 	var service *nestworthapp.Service
 	var startupErr error
+	var foundSchema, supportedSchema int
+	var hasSchema bool
 	if err := backup.ReconcileOnStartup(databasePath, store); err != nil {
-		slog.Error("restore journal could not be reconciled", "error", err, "path", databasePath)
-		startupErr = err
+		slog.Error("restore journal could not be reconciled")
+		startupErr = &domain.Error{Code: domain.ErrDatabaseUnavailable, Field: "database", Message: "the local database could not be opened"}
 	} else {
 		// Restore reconciliation may have merged selected settings from the
 		// backup. Load them before constructing services and the main window.
 		if refreshed, refreshErr := store.Load(); refreshErr == nil {
 			preference = refreshed
 		} else {
-			slog.Warn("could not reload settings after restore reconciliation", "error", refreshErr)
+			slog.Warn("could not reload settings after restore reconciliation")
 		}
 		var databaseErr error
 		database, databaseErr = sqlite.Open(databasePath)
 		if databaseErr != nil {
-			slog.Error("could not open the local database; the application will start with backend calls unavailable", "error", databaseErr, "path", databasePath)
-			startupErr = &domain.Error{Code: domain.ErrUnavailable, Field: "database", Message: "the local database could not be opened"}
+			var bootstrap *sqlite.BootstrapError
+			if errors.As(databaseErr, &bootstrap) {
+				slog.Error("could not open the local database; the application will start with recovery available", "status", bootstrap.Status)
+				startupErr = bootstrap.SafeError()
+				foundSchema, supportedSchema = bootstrap.Found, bootstrap.Supported
+				hasSchema = true
+			} else {
+				slog.Error("could not open the local database; the application will start with recovery available")
+				startupErr = &domain.Error{Code: domain.ErrDatabaseUnavailable, Field: "database", Message: "the local database could not be opened"}
+			}
 		} else {
 			registry := nestworthapp.NewMarketDataRegistryWithDefault(nestworthapp.FrankfurterProviderKey,
 				marketdata.NewFrankfurterProvider(nil),
 				marketdata.NewYahooChartProvider(nil),
 			)
 			service = nestworthapp.NewService(sqlite.NewRepository(database), registry)
+			appports.Wire(service)
+			service.SetLiveDatabasePath(databasePath)
 			if err := service.SetFXProvider(preference.FXProvider); err != nil {
 				// Fall back for this session only: the persisted choice stays on
 				// disk so a transient provider failure cannot rewrite the user's
 				// configuration silently.
-				slog.Warn("configured FX provider is not available; falling back to the default for this session",
-					"provider", preference.FXProvider, "fallback", settings.DefaultFXProvider, "error", err)
+				slog.Warn("configured FX provider is not available; falling back to the default for this session")
 				preference.FXProvider = settings.DefaultFXProvider
 				if fallbackErr := service.SetFXProvider(preference.FXProvider); fallbackErr != nil {
-					slog.Error("default FX provider rejected at startup", "error", fallbackErr)
+					slog.Error("default FX provider rejected at startup")
 				}
 			}
 			service.SetQuoteCacheTTL(preference.QuoteCacheTTLDuration())
 			service.SetUILanguage(string(preference.Language))
 			if _, err := service.Bootstrap(context.Background()); err != nil {
-				slog.Error("bootstrap failed at startup", "error", err)
+				slog.Error("bootstrap failed at startup")
 				startupErr = err
 				_ = database.Close()
 				database = nil
 				service = nil
-			} else {
-				defer database.Close()
 			}
 		}
 	}
@@ -124,10 +146,22 @@ func main() {
 	if service != nil {
 		marketdataService = wailsmarketdata.NewService(service, emitter)
 	}
+	appService := wailsapp.NewService(startupErr)
+	if hasSchema {
+		appService = wailsapp.NewServiceWithSchema(startupErr, foundSchema, supportedSchema)
+	}
+	recoveryUseCase := nestworthapp.NewRecovery(databasePath, backup.NewRuntime(), service)
+	recoveryService := wailsrecovery.NewService(recoveryUseCase, platform, platform, refreshGate(marketdataService))
+	defer recoveryService.Shutdown()
+	var dataService *wailsdata.Service
+	if service != nil {
+		dataService = wailsdata.NewService(service, store, platform, marketdataService)
+		defer dataService.Shutdown()
+	}
 	app := application.New(application.Options{
 		Name:        version.Name,
 		Description: version.Description,
-		Services:    services(service, store, database, databasePath, emitter, platform, marketdataService, startupErr),
+		Services:    services(service, store, recoveryService, dataService, marketdataService, appService),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(webassets.Dist),
 		},
@@ -159,9 +193,10 @@ func main() {
 	})
 
 	if err := app.Run(); err != nil {
-		slog.Error("application exited with an error", "error", err)
-		os.Exit(1)
+		slog.Error("application exited with an error")
+		return err
 	}
+	return nil
 }
 
 // services builds the bound-service list. service is nil only when the
@@ -171,18 +206,17 @@ func main() {
 // only AppService and CatalogService are registered so the frontend can
 // render BlockedStartupPage from Startup() without calling unregistered
 // services. Catalog is always available because it is a static vocabulary.
-func services(service *nestworthapp.Service, store *settings.Store, database *sqlite.DB, databasePath string, emitter wailsmarketdata.EventEmitter, platform *lazyPlatform, marketdataService *wailsmarketdata.Service, startupErr error) []application.Service {
-	recovery := wailsrecovery.NewService(databasePath, service, store, platform, platform, refreshGate(marketdataService))
+func services(service *nestworthapp.Service, store *settings.Store, recovery *wailsrecovery.Service, data *wailsdata.Service, marketdataService *wailsmarketdata.Service, appService *wailsapp.Service) []application.Service {
 	registered := []application.Service{
-		application.NewService(wailsapp.NewService(startupErr)),
+		application.NewService(appService),
 		application.NewService(wailscatalog.NewService()),
 		application.NewService(recovery),
 	}
-	if service == nil {
+	if service == nil || data == nil {
 		return registered
 	}
 	if marketdataService == nil {
-		marketdataService = wailsmarketdata.NewService(service, emitter)
+		marketdataService = wailsmarketdata.NewService(service, nil)
 	}
 	return append(registered,
 		application.NewService(wailshousehold.NewService(service)),
@@ -196,7 +230,7 @@ func services(service *nestworthapp.Service, store *settings.Store, database *sq
 		application.NewService(wailshistory.NewService(service)),
 		application.NewService(marketdataService),
 		application.NewService(wailssettings.NewService(store, service)),
-		application.NewService(wailsdata.NewService(service, store, database, platform, marketdataService)),
+		application.NewService(data),
 	)
 }
 
@@ -213,7 +247,7 @@ func persistWindowSize(store *settings.Store, window *application.WebviewWindow)
 		return
 	}
 	if err := persistWindowSizeValue(store, width, height); err != nil {
-		slog.Warn("could not persist window size", "error", err)
+		slog.Warn("could not persist window size")
 	}
 }
 
@@ -232,7 +266,7 @@ func persistWindowSizeValue(store *settings.Store, width, height int) error {
 	preference.WindowWidth = float32(width)
 	preference.WindowHeight = float32(height)
 	if err := preference.Validate(); err != nil {
-		slog.Warn("window size out of persisted bounds; not saving", "error", err, "width", width, "height", height)
+		slog.Warn("window size out of persisted bounds; not saving")
 		return err
 	}
 	return store.Save(preference)

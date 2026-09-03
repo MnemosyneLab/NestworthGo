@@ -1,9 +1,12 @@
 package application
 
 import (
+	"bytes"
 	"context"
+	"encoding/csv"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -12,18 +15,86 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
+type testCSVCodec struct{}
+
+func (testCSVCodec) DetectDelimiter(sample string) rune {
+	if strings.Count(sample, ";") > strings.Count(sample, ",") {
+		return ';'
+	}
+	if strings.Contains(sample, "\t") {
+		return '\t'
+	}
+	return ','
+}
+
+func (c testCSVCodec) Parse(data []byte, delimiter rune) (CSVTable, error) {
+	hasBOM := bytes.HasPrefix(data, []byte{0xEF, 0xBB, 0xBF})
+	if hasBOM {
+		data = data[3:]
+	}
+	if delimiter == 0 {
+		delimiter = ','
+	}
+	reader := csv.NewReader(bytes.NewReader(data))
+	reader.Comma = delimiter
+	reader.LazyQuotes = true
+	reader.FieldsPerRecord = -1
+	records, err := reader.ReadAll()
+	if err != nil {
+		return CSVTable{}, err
+	}
+	table := CSVTable{Delimiter: delimiter, HasBOM: hasBOM}
+	if len(records) == 0 {
+		return table, nil
+	}
+	table.Headers = records[0]
+	if len(records) > 1 {
+		table.Rows = records[1:]
+	}
+	return table, nil
+}
+
+func (testCSVCodec) Encode(headers []string, rows [][]string) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.Write([]byte{0xEF, 0xBB, 0xBF})
+	writer := csv.NewWriter(&buf)
+	if err := writer.Write(headers); err != nil {
+		return nil, err
+	}
+	if err := writer.WriteAll(rows); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func parseCSVTable(t *testing.T, raw string) CSVTable {
+	t.Helper()
+	table, err := testCSVCodec{}.Parse([]byte(raw), ',')
+	if err != nil {
+		t.Fatal(err)
+	}
+	return table
+}
+
+func wireTestPorts(service *Service, livePath string) {
+	service.SetCSVCodec(testCSVCodec{})
+	service.SetLiveDatabasePath(livePath)
+}
+
 func newOnboardedService(t *testing.T, name string, members []string) (*Service, context.Context, Bootstrap, func(time.Time)) {
 	t.Helper()
 	if len(members) == 0 {
 		members = []string{"Owner"}
 	}
-	database, err := sqlite.Open(filepath.Join(t.TempDir(), name+".db"))
+	path := filepath.Join(t.TempDir(), name+".db")
+	database, err := sqlite.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
 	repository := sqlite.NewRepository(database)
 	service := NewService(repository)
+	wireTestPorts(service, path)
 	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	service.setClock(func() time.Time { return clock })
 	ctx := context.Background()

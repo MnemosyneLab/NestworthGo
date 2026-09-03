@@ -228,6 +228,7 @@ describe("App shell smoke test", () => {
     );
 
     expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("ui.state.loadingPage"))).not.toBeInTheDocument();
     await waitFor(() => expect(document.documentElement.classList.contains("dark")).toBe(true));
     expect(i18n.language).toBe("zh-CN");
   });
@@ -290,13 +291,13 @@ describe("App shell smoke test", () => {
 
   it("renders the blocked-startup page when the database is unavailable", async () => {
     await i18n.changeLanguage("en");
-    startup.mockResolvedValue({ available: false, code: "unavailable", field: "database" });
+    startup.mockResolvedValue({ available: false, code: "database_unavailable", field: "database" });
     render(
       <AppProviders>
         <App />
       </AppProviders>,
     );
-    expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.blockedTitle"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.unavailableTitle"));
     expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
   });
 
@@ -323,5 +324,24 @@ describe("App shell smoke test", () => {
 
     expect(await screen.findByTestId("accounts-table")).toBeInTheDocument();
     expect(screen.queryByTestId("account-detail")).not.toBeInTheDocument();
+  });
+
+  it("unmounts inactive workspace pages so their queries do not stay subscribed", async () => {
+    await i18n.changeLanguage("en");
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    );
+    expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.settings") }));
+    expect(await screen.findByRole("form", { name: i18n.t("settings.formLabel") })).toBeInTheDocument();
+    expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
+
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.overview") }));
+    expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+    expect(screen.queryByRole("form", { name: i18n.t("settings.formLabel") })).not.toBeInTheDocument();
   });
 });

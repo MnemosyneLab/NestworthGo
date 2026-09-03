@@ -35,6 +35,11 @@ func (s *Service) StartHistory(ctx context.Context, timezone string) (domain.His
 // per-Holding cost overrides. A missing override keeps the selected current
 // quote as the default, preserving the original StartHistory contract.
 func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, costOverrides map[domain.HoldingID]string) (domain.HistoryOrigin, error) {
+	ctx, unlock, err := s.beginLedgerWrite(ctx)
+	if err != nil {
+		return domain.HistoryOrigin{}, err
+	}
+	defer unlock()
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {
 		return domain.HistoryOrigin{}, err
@@ -42,8 +47,6 @@ func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, co
 	if bootstrap.Household == nil {
 		return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
-	s.changeMu.Lock()
-	defer s.changeMu.Unlock()
 	now := s.clock()
 	origin, err := domain.NewHistoryOrigin(bootstrap.Household.ID, timezone, now, now)
 	if err != nil {

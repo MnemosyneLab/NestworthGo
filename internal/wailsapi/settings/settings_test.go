@@ -1,9 +1,12 @@
 package settings_test
 
 import (
+	"context"
 	"path/filepath"
 	"testing"
+	"time"
 
+	"github.com/waltwang/nestworth-go/internal/application"
 	appsettings "github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/settings"
@@ -92,10 +95,31 @@ func TestResetRestoresDefaults(t *testing.T) {
 	}
 }
 
-func TestSupportedCurrenciesMatchesSettingsPackage(t *testing.T) {
-	service := newTestService(t)
-	currencies := service.SupportedCurrencies()
-	if len(currencies) != len(appsettings.SupportedCurrencies()) {
-		t.Fatalf("SupportedCurrencies() = %v, want %v", currencies, appsettings.SupportedCurrencies())
+func TestSaveReturnsBusyDuringExclusive(t *testing.T) {
+	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	app := wailstest.NewService(t)
+	service := settings.NewService(store, app)
+	started := make(chan struct{})
+	release := make(chan struct{})
+	go func() {
+		_ = app.WithExclusive(context.Background(), application.ExclusiveBackup, func(context.Context) error {
+			close(started)
+			<-release
+			return nil
+		})
+	}()
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("exclusive operation did not start")
+	}
+	err := service.Save(appsettings.Default())
+	close(release)
+	if err == nil {
+		t.Fatal("expected settings save to be busy during backup")
+	}
+	wireErr, ok := apierror.Parse(err.Error())
+	if !ok || wireErr.Code != "backup_restore_busy" {
+		t.Fatalf("err = %v, want backup_restore_busy", err)
 	}
 }

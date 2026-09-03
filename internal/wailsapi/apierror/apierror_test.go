@@ -87,6 +87,7 @@ func TestWrapPreservesEveryDomainErrorCode(t *testing.T) {
 	codes := []domain.ErrorCode{
 		domain.ErrValidation, domain.ErrNotFound, domain.ErrConflict, domain.ErrUnsupportedDB,
 		domain.ErrMigration, domain.ErrIntegrity, domain.ErrUnavailable, domain.ErrDecimalOverflow,
+		domain.ErrDatabaseUpgradeRequired, domain.ErrDatabaseFromNewerVersion, domain.ErrDatabaseIntegrityFailed, domain.ErrDatabaseUnavailable,
 		domain.ErrProviderUnavailable, domain.ErrProviderAuthentication, domain.ErrProviderRateLimit,
 		domain.ErrUnsupportedProviderSymbol, domain.ErrMalformedProviderResponse, domain.ErrMarketDataResponseTooLarge,
 		domain.ErrHistoryNotStarted, domain.ErrHistoryTimezoneRequired, domain.ErrInvalidChange,

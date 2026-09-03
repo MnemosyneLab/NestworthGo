@@ -23,14 +23,32 @@ func TestReplayCostBasisGoldenAverageCostAndRealizedGain(t *testing.T) {
 	if got, want := result.Current.Quantity.Canonical(), "9"; got != want {
 		t.Fatalf("remaining quantity = %q, want %q", got, want)
 	}
-	if got, want := result.Current.AverageUnitCost.Canonical(), "93.33"; got != want {
+	if got, want := result.Current.AverageUnitCost.Canonical(), "93.33333333"; got != want {
 		t.Fatalf("average cost = %q, want %q", got, want)
 	}
 	if len(result.Realized) != 1 {
 		t.Fatalf("realized events = %d, want 1", len(result.Realized))
 	}
-	if got, want := result.Realized[0].RealizedGain.CanonicalAmount(), "340.02"; got != want {
+	if got, want := result.Realized[0].RealizedGain.CanonicalAmount(), "340"; got != want {
 		t.Fatalf("realized gain = %q, want %q", got, want)
+	}
+}
+
+func TestReplayCostBasisPreservesEightDecimalAverageCost(t *testing.T) {
+	// 2 * 1.23456789 + 3 * 1.25000005 = 6.21913593; 6.21913593 / 5 = 1.243827186
+	// which rounds half-to-even at eight places to 1.24382719.
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "2"), UnitPrice: unitPricePointer(t, "1.23456789")},
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "3"), UnitPrice: unitPricePointer(t, "1.25000005")},
+	})
+	if err != nil {
+		t.Fatalf("ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := result.Current.Quantity.Canonical(), "5"; got != want {
+		t.Fatalf("quantity = %q, want %q", got, want)
+	}
+	if got, want := result.Current.AverageUnitCost.Canonical(), "1.24382719"; got != want {
+		t.Fatalf("eight-decimal average cost = %q, want %q", got, want)
 	}
 }
 
@@ -49,7 +67,7 @@ func TestReplayCostBasisHandlesAllQuantityEventKinds(t *testing.T) {
 	if got, want := result.Current.Quantity.Canonical(), "10"; got != want {
 		t.Fatalf("quantity = %q, want %q", got, want)
 	}
-	if got, want := result.Current.AverageUnitCost.Canonical(), "86.36"; got != want {
+	if got, want := result.Current.AverageUnitCost.Canonical(), "86.36363636"; got != want {
 		t.Fatalf("average cost = %q, want %q", got, want)
 	}
 }
@@ -71,7 +89,7 @@ func TestReplayCostBasisExcludesReversedPairsAndKeepsFixReplacement(t *testing.T
 	if got, want := result.Current.Quantity.Canonical(), "15"; got != want {
 		t.Fatalf("quantity = %q, want %q", got, want)
 	}
-	if got, want := result.Current.AverageUnitCost.Canonical(), "86.67"; got != want {
+	if got, want := result.Current.AverageUnitCost.Canonical(), "86.66666667"; got != want {
 		t.Fatalf("replacement average cost = %q, want %q", got, want)
 	}
 }
@@ -105,6 +123,140 @@ func TestReplayCostBasisEmitsSignedLoss(t *testing.T) {
 	}
 	if got, want := result.Realized[0].RealizedGain.CanonicalAmount(), "-10"; got != want {
 		t.Fatalf("realized loss = %q, want %q", got, want)
+	}
+}
+
+func TestReplayCostBasisBuyFeeOnlyIncreasesAcquisitionBasis(t *testing.T) {
+	// 10 * 10 = 100 gross + 10 fee => acquisition 11. Sell 10 at 15, no sell fee:
+	// proceeds 150 - remaining basis 110 = 40.
+	fee := mustMoney(t, "10", "USD")
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "10"), Fee: &fee},
+		{Kind: CostBasisSell, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "15"), Currency: CurrencyCode("USD")},
+	})
+	if err != nil {
+		t.Fatalf("ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := result.Current.Quantity.Canonical(), "0"; got != want {
+		t.Fatalf("quantity = %q, want %q", got, want)
+	}
+	if got, want := result.Realized[0].RealizedGain.CanonicalAmount(), "40"; got != want {
+		t.Fatalf("buy-fee realized gain = %q, want %q", got, want)
+	}
+}
+
+func TestReplayCostBasisSellFeeOnlyReducesProceeds(t *testing.T) {
+	// Buy 10 at 10, sell 10 at 15 with fee 5: 150 - 100 - 5 = 45.
+	fee := mustMoney(t, "5", "USD")
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "10")},
+		{Kind: CostBasisSell, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "15"), Fee: &fee, Currency: CurrencyCode("USD")},
+	})
+	if err != nil {
+		t.Fatalf("ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := result.Realized[0].RealizedGain.CanonicalAmount(), "45"; got != want {
+		t.Fatalf("sell-fee realized gain = %q, want %q", got, want)
+	}
+}
+
+func TestReplayCostBasisBuyAndSellFeesAreNetOfFees(t *testing.T) {
+	// Buy 10 at 10 + 10 fee => 11. Sell 10 at 15 - 5 fee: 150 - 110 - 5 = 35.
+	buyFee := mustMoney(t, "10", "USD")
+	sellFee := mustMoney(t, "5", "USD")
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "10"), Fee: &buyFee},
+		{Kind: CostBasisSell, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "15"), Fee: &sellFee, Currency: CurrencyCode("USD")},
+	})
+	if err != nil {
+		t.Fatalf("ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := result.Realized[0].RealizedGain.CanonicalAmount(), "35"; got != want {
+		t.Fatalf("net-of-fees realized gain = %q, want %q", got, want)
+	}
+}
+
+func TestReplayCostBasisPartialSaleAndTransferKeepFeeAdjustedAverage(t *testing.T) {
+	// Buy 10 at 10 + 10 fee => 11. Partial sell 4 at 20: (20-11)*4 = 36.
+	// Remaining 6 at 11 transfer out; transfer in of those 6 keeps 11.
+	buyFee := mustMoney(t, "10", "USD")
+	source := HoldingID("source")
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "10"), Fee: &buyFee},
+		{Kind: CostBasisSell, Quantity: mustQuantity(t, "4"), UnitPrice: unitPricePointer(t, "20"), Currency: CurrencyCode("USD")},
+		{Kind: CostBasisTransferOut, Quantity: mustQuantity(t, "6")},
+	})
+	if err != nil {
+		t.Fatalf("ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := result.Realized[0].RealizedGain.CanonicalAmount(), "36"; got != want {
+		t.Fatalf("partial sale realized gain = %q, want %q", got, want)
+	}
+	if !result.Current.Quantity.IsZero() {
+		t.Fatalf("source quantity after transfer = %s, want 0", result.Current.Quantity.Canonical())
+	}
+	incoming := mustUnitPrice(t, "11")
+	transferred, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisTransferIn, Quantity: mustQuantity(t, "6"), UnitCost: &incoming, SourceHoldingID: &source},
+	})
+	if err != nil {
+		t.Fatalf("transfer-in ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := transferred.Current.AverageUnitCost.Canonical(), "11"; got != want {
+		t.Fatalf("transfer-in average = %q, want %q", got, want)
+	}
+}
+
+func TestReplayCostBasisReversalDropsFeeAdjustedBuy(t *testing.T) {
+	buyID := ActivityID("buy")
+	undoID := ActivityID("undo")
+	buyFee := mustMoney(t, "10", "USD")
+	starting := mustUnitPrice(t, "8")
+	result, err := ReplayCostBasis(&starting, []CostBasisEvent{
+		{ActivityID: ActivityID("start"), Kind: CostBasisStartingPoint, Quantity: mustQuantity(t, "2")},
+		{ActivityID: buyID, Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "10"), Fee: &buyFee},
+		{ActivityID: undoID, Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "10"), Fee: &buyFee, ReversesActivityID: &buyID},
+	})
+	if err != nil {
+		t.Fatalf("ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := result.Current.Quantity.Canonical(), "2"; got != want {
+		t.Fatalf("quantity after reversal = %q, want %q", got, want)
+	}
+	if got, want := result.Current.AverageUnitCost.Canonical(), "8"; got != want {
+		t.Fatalf("average after reversal = %q, want %q", got, want)
+	}
+}
+
+func TestReplayCostBasisCorrectionReplacesFeeAdjustedBuy(t *testing.T) {
+	originalID := ActivityID("original-buy")
+	reversalID := ActivityID("undo-original")
+	originalFee := mustMoney(t, "10", "USD")
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{ActivityID: originalID, Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "10"), Fee: &originalFee},
+		{ActivityID: reversalID, Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "10"), Fee: &originalFee, ReversesActivityID: &originalID},
+		{ActivityID: ActivityID("replacement"), Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "12")},
+	})
+	if err != nil {
+		t.Fatalf("ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := result.Current.AverageUnitCost.Canonical(), "12"; got != want {
+		t.Fatalf("corrected average = %q, want %q", got, want)
+	}
+}
+
+func TestReplayCostBasisCryptoScaleFeeAdjustedBuy(t *testing.T) {
+	// (0.00000001 * 1.23456789 + 0.0001) / 0.00000001 = 1.23456789 + 10000
+	// = 10001.23456789, which already fits the unit-price scale.
+	fee := mustMoney(t, "0.0001", "USD")
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "0.00000001"), UnitPrice: unitPricePointer(t, "1.23456789"), Fee: &fee},
+	})
+	if err != nil {
+		t.Fatalf("ReplayCostBasis returned error: %v", err)
+	}
+	if got, want := result.Current.AverageUnitCost.Canonical(), "10001.23456789"; got != want {
+		t.Fatalf("crypto-scale average = %q, want %q", got, want)
 	}
 }
 
@@ -152,6 +304,15 @@ func mustUnitPrice(t *testing.T, value string) UnitPrice {
 	result, err := ParseUnitPrice(value)
 	if err != nil {
 		t.Fatalf("parse unit price %q: %v", value, err)
+	}
+	return result
+}
+
+func mustMoney(t *testing.T, amount, currency string) Money {
+	t.Helper()
+	result, err := ParseMoney(amount, CurrencyCode(currency))
+	if err != nil {
+		t.Fatalf("parse money %q %s: %v", amount, currency, err)
 	}
 	return result
 }

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	_ "modernc.org/sqlite"
 )
 
@@ -59,6 +60,24 @@ func (e *BootstrapError) Error() string {
 }
 
 func (e *BootstrapError) Unwrap() error { return e.Err }
+
+// SafeError maps a bootstrap failure to a user-facing domain error without
+// filesystem paths, SQL, or driver text.
+func (e *BootstrapError) SafeError() *domain.Error {
+	if e == nil {
+		return &domain.Error{Code: domain.ErrDatabaseUnavailable, Field: "database", Message: "the local database could not be opened"}
+	}
+	switch e.Status {
+	case StatusLegacyDatabase:
+		return &domain.Error{Code: domain.ErrDatabaseUpgradeRequired, Field: "database", Message: "this database was created by an older Nestworth version"}
+	case StatusUnsupportedFuture:
+		return &domain.Error{Code: domain.ErrDatabaseFromNewerVersion, Field: "database", Message: "this database was created by a newer Nestworth version"}
+	case StatusIntegrityFailed:
+		return &domain.Error{Code: domain.ErrDatabaseIntegrityFailed, Field: "database", Message: "the local database failed an integrity check"}
+	default:
+		return &domain.Error{Code: domain.ErrDatabaseUnavailable, Field: "database", Message: "the local database could not be opened"}
+	}
+}
 
 // DB is a single local SQLite connection pool. It is intentionally capped at
 // one writer connection to make transaction boundaries and snapshots explicit.
@@ -128,12 +147,25 @@ func Open(path string) (*DB, error) {
 		if err := repairV9CashOnHandHoldingsCheck(context.Background(), database); err != nil {
 			return closeOnError(StatusUnavailable, found, err)
 		}
+		if err := ensureActivityMutationKeysTable(context.Background(), database); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
 		if err := verifySchema(context.Background(), database); err != nil {
 			return closeOnError(StatusIntegrityFailed, found, err)
 		}
 	}
 	if path != ":memory:" {
 		if _, err := database.ExecContext(context.Background(), "PRAGMA journal_mode = WAL"); err != nil {
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+		}
+		tx, err := database.BeginTx(context.Background(), nil)
+		if err != nil {
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+		}
+		if err := tx.Commit(); err != nil {
+			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+		}
+		if err := restrictLiveDatabaseFiles(path); err != nil {
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
 	}
@@ -205,4 +237,20 @@ func fileSize(path string) int64 {
 		return 0
 	}
 	return info.Size()
+}
+
+// restrictLiveDatabaseFiles enforces 0600 on the live database and its
+// app-owned WAL/SHM sidecars after Open has confirmed the path is the
+// Nestworth database. Missing sidecars are ignored; the parent directory is
+// already created 0700.
+func restrictLiveDatabaseFiles(path string) error {
+	if path == "" || path == ":memory:" {
+		return nil
+	}
+	for _, file := range []string{path, path + "-wal", path + "-shm"} {
+		if err := os.Chmod(file, 0o600); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+	}
+	return nil
 }

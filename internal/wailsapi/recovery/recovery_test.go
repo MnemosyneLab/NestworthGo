@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
@@ -20,12 +21,15 @@ func (m memoryDialogs) SaveFile(string, string, string, string) (string, error) 
 func (m memoryDialogs) OpenFile(string, string, string) (string, error)         { return m.open, nil }
 func (m memoryDialogs) ConfirmReplace(string) (bool, error)                     { return false, nil }
 
-type recordingQuitter struct{ quit bool }
-
-func (q *recordingQuitter) Quit() { q.quit = true }
+func newTestRecovery(t *testing.T, live string, dialogs native.Dialogs, quit native.Quitter) *Service {
+	t.Helper()
+	recovery := application.NewRecovery(live, backup.NewRuntime(), nil)
+	t.Cleanup(recovery.Shutdown)
+	return NewService(recovery, dialogs, quit, native.NoopRefresh{})
+}
 
 func TestInspectBackupCancel(t *testing.T) {
-	service := NewService(filepath.Join(t.TempDir(), "nestworth.db"), nil, nil, memoryDialogs{}, nil, nil)
+	service := NewService(nil, memoryDialogs{}, nil, nil)
 	result, err := service.InspectBackup()
 	if err != nil {
 		t.Fatal(err)
@@ -41,7 +45,7 @@ func TestInspectBackupRejectsInvalidArchive(t *testing.T) {
 	if err := os.WriteFile(path, []byte("not a zip"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	service := NewService(filepath.Join(dir, "nestworth.db"), nil, nil, memoryDialogs{open: path}, nil, nil)
+	service := newTestRecovery(t, filepath.Join(dir, "nestworth.db"), memoryDialogs{open: path}, nil)
 	_, err := service.InspectBackup()
 	if err == nil {
 		t.Fatal("expected invalid backup to fail")
@@ -50,7 +54,9 @@ func TestInspectBackupRejectsInvalidArchive(t *testing.T) {
 
 func TestConfirmRestoreRequiresTypedConfirmation(t *testing.T) {
 	app := wailstest.NewService(t)
-	service := NewService(filepath.Join(t.TempDir(), "nestworth.db"), app, nil, native.NoopDialogs{}, nil, nil)
+	recovery := application.NewRecovery(filepath.Join(t.TempDir(), "nestworth.db"), backup.NewRuntime(), app)
+	t.Cleanup(recovery.Shutdown)
+	service := NewService(recovery, native.NoopDialogs{}, nil, nil)
 	_, err := service.ConfirmRestore(RestoreConfirmRequest{Token: "missing", Confirmation: "no", Acknowledged: true})
 	if err == nil {
 		t.Fatal("expected confirmation error")
@@ -59,6 +65,38 @@ func TestConfirmRestoreRequiresTypedConfirmation(t *testing.T) {
 
 func TestInspectBackupPreviewFromValidPackage(t *testing.T) {
 	dir := t.TempDir()
+	backupPath, live := writeTestBackup(t, dir)
+	service := newTestRecovery(t, live, memoryDialogs{open: backupPath}, nil)
+	preview, err := service.InspectBackup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Cancelled || preview.Token == "" || preview.SchemaVersion != sqlite.CurrentSchemaVersion {
+		t.Fatalf("preview = %+v", preview)
+	}
+	if preview.HasOpenSession {
+		t.Fatal("blocked-startup inspect should report no open session")
+	}
+}
+
+func TestRestorePreviewTokenIsSingleUse(t *testing.T) {
+	dir := t.TempDir()
+	backupPath, live := writeTestBackup(t, dir)
+	service := newTestRecovery(t, live, memoryDialogs{open: backupPath}, native.NoopQuitter{})
+	preview, err := service.InspectBackup()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = service.ConfirmRestore(RestoreConfirmRequest{Token: preview.Token, Confirmation: "RESTORE", Acknowledged: true})
+	_, err = service.ConfirmRestore(RestoreConfirmRequest{Token: preview.Token, Confirmation: "RESTORE", Acknowledged: true})
+	if err == nil {
+		t.Fatal("expected reused token to fail")
+	}
+	service.Shutdown()
+}
+
+func writeTestBackup(t *testing.T, dir string) (backupPath, live string) {
+	t.Helper()
 	dbPath := filepath.Join(dir, "src.db")
 	database, err := sqlite.Open(dbPath)
 	if err != nil {
@@ -76,20 +114,9 @@ func TestInspectBackupPreviewFromValidPackage(t *testing.T) {
 		Database: data,
 		Settings: []byte("{}\n"),
 	}
-	backupPath := filepath.Join(dir, "ok.nestworth-backup")
+	backupPath = filepath.Join(dir, "ok.nestworth-backup")
 	if err := backup.WritePackage(backupPath, pkg); err != nil {
 		t.Fatal(err)
 	}
-	live := filepath.Join(dir, "nestworth.db")
-	service := NewService(live, nil, nil, memoryDialogs{open: backupPath}, nil, nil)
-	preview, err := service.InspectBackup()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if preview.Cancelled || preview.Token == "" || preview.SchemaVersion != sqlite.CurrentSchemaVersion {
-		t.Fatalf("preview = %+v", preview)
-	}
-	if preview.HasOpenSession {
-		t.Fatal("blocked-startup inspect should report no open session")
-	}
+	return backupPath, filepath.Join(dir, "nestworth.db")
 }

@@ -128,8 +128,7 @@ describe("query keys and dependency invalidation", () => {
   it("refreshes Overview and current gains for FX-only refresh, not raw quote or holding lists", () => {
     const queryClient = clientWith(
       queryKeys.overview.all,
-      queryKeys.analytics.accountGain.current("account-1"),
-      queryKeys.analytics.accountGain.current("account-2"),
+      queryKeys.analytics.accountGains.all,
       queryKeys.quote.instrument.current("instrument-1"),
       queryKeys.holdings.byAccounts(["account-1"]),
     );
@@ -137,8 +136,7 @@ describe("query keys and dependency invalidation", () => {
     invalidateRequiredFX(queryClient);
 
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-2"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(false);
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(false);
   });
@@ -147,7 +145,7 @@ describe("query keys and dependency invalidation", () => {
     const queryClient = clientWith(
       queryKeys.overview.all,
       queryKeys.quote.instrument.current("instrument-1"),
-      queryKeys.analytics.accountGain.current("account-1"),
+      queryKeys.analytics.accountGains.all,
       queryKeys.holdings.byAccounts(["account-1"]),
     );
 
@@ -155,37 +153,33 @@ describe("query keys and dependency invalidation", () => {
 
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(false);
   });
 
-  it("invalidates only the affected account gain for a holding change when its account is known", () => {
+  it("invalidates household account gains for a holding change", () => {
     const queryClient = clientWith(
       queryKeys.holdings.byAccounts(["account-1"]),
       queryKeys.overview.all,
-      queryKeys.analytics.accountGain.current("account-1"),
-      queryKeys.analytics.accountGain.current("account-2"),
+      queryKeys.analytics.accountGains.all,
     );
 
     invalidateHoldingChange(queryClient, "account-1");
 
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-2"))).toBe(false);
+    expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
   });
 
-  it("falls back to the account-gain prefix when affected accounts are unknown", () => {
+  it("invalidates the household account-gains query when affected accounts are unknown", () => {
     const queryClient = clientWith(
       queryKeys.overview.all,
-      queryKeys.analytics.accountGain.current("account-1"),
-      queryKeys.analytics.accountGain.current("account-2"),
+      queryKeys.analytics.accountGains.all,
     );
 
     invalidateCurrentValuation(queryClient);
 
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-2"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
   });
 });
 
@@ -195,8 +189,7 @@ function seededClient() {
     queryKeys.accounts.valuations(),
     queryKeys.overview.all,
     queryKeys.portfolio.all,
-    queryKeys.analytics.accountGain.current("account-1"),
-    queryKeys.analytics.accountGain.current("account-2"),
+    queryKeys.analytics.accountGains.all,
     queryKeys.analytics.realizedGain("30d"),
     queryKeys.analytics.dividendIncome("30d"),
     queryKeys.holdings.byAccounts(["account-1"]),
@@ -231,8 +224,7 @@ describe("mutation-hook invalidation", () => {
     await act(async () => {
       await update.result.current.mutateAsync({ id: "account-1", request: { name: "Cash" } as never });
     });
-    expect(isInvalidated(updateClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
-    expect(isInvalidated(updateClient, queryKeys.analytics.accountGain.current("account-2"))).toBe(false);
+    expect(isInvalidated(updateClient, queryKeys.analytics.accountGains.all)).toBe(true);
     expect(isInvalidated(updateClient, queryKeys.history.origin)).toBe(false);
 
     const archiveClient = seededClient();
@@ -253,7 +245,7 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.portfolio.all)).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(false);
   });
 
@@ -265,8 +257,7 @@ describe("mutation-hook invalidation", () => {
     });
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.accountGain.current("account-2"))).toBe(false);
+    expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.realizedGain("30d"))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.dividendIncome("30d"))).toBe(true);
 
@@ -276,7 +267,7 @@ describe("mutation-hook invalidation", () => {
       await undo.result.current.mutateAsync("activity-1");
     });
     expect(isInvalidated(undoClient, queryKeys.history.origin)).toBe(true);
-    expect(isInvalidated(undoClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
+    expect(isInvalidated(undoClient, queryKeys.analytics.accountGains.all)).toBe(true);
 
     const fixClient = seededClient();
     const fix = renderMutation(fixClient, useFixChange);
@@ -284,7 +275,7 @@ describe("mutation-hook invalidation", () => {
       await fix.result.current.mutateAsync({ activityId: "activity-1", replacement: { kind: "money_added", accountId: "account-1" } as never });
     });
     expect(isInvalidated(fixClient, queryKeys.history.origin)).toBe(true);
-    expect(isInvalidated(fixClient, queryKeys.analytics.accountGain.current("account-1"))).toBe(true);
+    expect(isInvalidated(fixClient, queryKeys.analytics.accountGains.all)).toBe(true);
   });
 
   it("invalidates quote and valuation after a manual quote, not raw holdings or History", async () => {

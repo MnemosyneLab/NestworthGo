@@ -3,6 +3,7 @@ import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
+import { paginateActivityPage } from "@/test/activityPage";
 import { HistoryPage } from "./HistoryPage";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
@@ -131,7 +132,9 @@ beforeEach(() => {
   });
   startingPointDraft.mockResolvedValue([]);
   listActivities.mockResolvedValue([]);
-  listActivityPage.mockImplementation(async (...args: unknown[]) => ({ activities: await listActivities(...args) }));
+  listActivityPage.mockImplementation(async (request: { afterId?: string; afterEffectiveAt?: string; afterCreatedAt?: string; limit?: number } = {}) =>
+    paginateActivityPage(await listActivities(), request),
+  );
   getActivity.mockResolvedValue(null);
   listAccounts.mockResolvedValue([
     { account: { id: "acc-1", name: "Checking", trackingMode: "balance" }, ownership: [], latestValue: null },
@@ -703,5 +706,42 @@ describe("HistoryPage", () => {
     await userEvent.clear(within(form).getByLabelText("New value"));
     await userEvent.type(within(form).getByLabelText("New value"), "1100");
     expect(within(form).getByRole("button", { name: "Preview" })).toBeEnabled();
+  });
+
+  it("loads every activity across pages when timestamps are identical", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    const stamp = "2026-01-01T12:00:00.000Z";
+    const activities = Array.from({ length: 51 }, (_, index) => ({
+      id: `act-${String(index).padStart(3, "0")}`,
+      kind: "cash_in",
+      reason: "contribution",
+      effectiveAt: stamp,
+      createdAt: stamp,
+      effectiveLocalDate: "2026-01-01",
+      effects: [{ accountId: "acc-1", money: { amount: String(index + 1), currency: "USD" } }],
+    }));
+    listActivities.mockResolvedValue(activities);
+
+    renderPage();
+    const list = await screen.findByTestId("activity-list");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(50);
+    expect(list).toHaveTextContent("Added $51.00 to Checking");
+    expect(list).not.toHaveTextContent("Added $1.00 to Checking");
+
+    await userEvent.click(screen.getByTestId("history-load-more"));
+    await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(51));
+    expect(list).toHaveTextContent("Added $1.00 to Checking");
+    expect(screen.queryByTestId("history-load-more")).not.toBeInTheDocument();
+    expect(listActivityPage.mock.calls.some((call) => !call[0]?.afterId && call[0]?.limit === 50)).toBe(true);
+    expect(
+      listActivityPage.mock.calls.some(
+        (call) =>
+          call[0]?.afterId === "act-001" &&
+          call[0]?.afterEffectiveAt === stamp &&
+          call[0]?.afterCreatedAt === stamp,
+      ),
+    ).toBe(true);
+    const renderedIds = within(list).getAllByRole("listitem").map((item) => item.textContent);
+    expect(new Set(renderedIds).size).toBe(51);
   });
 });

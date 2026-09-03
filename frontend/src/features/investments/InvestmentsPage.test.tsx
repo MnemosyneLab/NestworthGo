@@ -12,7 +12,7 @@ const archiveInstrument = vi.fn().mockResolvedValue(undefined);
 const listAccounts = vi.fn();
 const createHolding = vi.fn();
 const holdingsByAccounts = vi.fn();
-const accountGain = vi.fn();
+const accountGains = vi.fn();
 const currentInstrumentQuote = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
@@ -31,7 +31,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
-  Service: { AccountGain: (...args: unknown[]) => accountGain(...args), RealizedGain: vi.fn(), HoldingGain: vi.fn() },
+  Service: { AccountGains: (...args: unknown[]) => accountGains(...args), AccountGain: vi.fn(), RealizedGain: vi.fn(), HoldingGain: vi.fn() },
 }));
 const saveManualQuote = vi.fn();
 
@@ -80,7 +80,7 @@ beforeEach(() => {
   listAccounts.mockReset();
   createHolding.mockReset();
   holdingsByAccounts.mockReset();
-  accountGain.mockReset();
+  accountGains.mockReset();
   saveManualQuote.mockReset();
   currentInstrumentQuote.mockReset();
   saveManualQuote.mockResolvedValue({ id: "q1", instrumentId: "i1", unitPrice: "131.70" });
@@ -93,7 +93,7 @@ beforeEach(() => {
     { account: { id: "acc-1", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null },
   ]);
   holdingsByAccounts.mockResolvedValue({ "acc-1": [] });
-  accountGain.mockResolvedValue({ accountId: "acc-1", holdings: [], available: true });
+  accountGains.mockResolvedValue([{ accountId: "acc-1", holdings: [], available: true }]);
   createHolding.mockResolvedValue({ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" });
 });
 
@@ -214,7 +214,7 @@ describe("InvestmentsPage", () => {
   it("shows per-Holding cost/gain columns from AnalyticsService.HoldingGain data", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
     holdingsByAccounts.mockResolvedValue({ "acc-1": [{ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" }] });
-    accountGain.mockResolvedValue({
+    accountGains.mockResolvedValue([{
       accountId: "acc-1",
       available: true,
       holdings: [
@@ -232,7 +232,7 @@ describe("InvestmentsPage", () => {
           available: true,
         },
       ],
-    });
+    }]);
 
     renderPage();
     await userEvent.click(screen.getByRole("tab", { name: "All holdings index" }));
@@ -259,7 +259,7 @@ describe("InvestmentsPage", () => {
         { id: "h-low", accountId: "acc-1", instrumentId: "i-low", quantity: "2" },
       ],
     });
-    accountGain.mockResolvedValue({
+    accountGains.mockResolvedValue([{
       accountId: "acc-1",
       available: false,
       holdings: [
@@ -302,7 +302,7 @@ describe("InvestmentsPage", () => {
           available: true,
         },
       ],
-    });
+    }]);
 
     renderPage();
     await userEvent.click(screen.getByRole("tab", { name: "All holdings index" }));
@@ -323,7 +323,7 @@ describe("InvestmentsPage", () => {
 
   it("shows an unavailable badge when a Holding's gain cannot be computed", async () => {
     holdingsByAccounts.mockResolvedValue({ "acc-1": [{ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" }] });
-    accountGain.mockResolvedValue({
+    accountGains.mockResolvedValue([{
       accountId: "acc-1",
       available: false,
       holdings: [
@@ -340,7 +340,7 @@ describe("InvestmentsPage", () => {
           missingReason: "current instrument price is unavailable",
         },
       ],
-    });
+    }]);
 
     renderPage();
     await userEvent.click(screen.getByRole("tab", { name: "All holdings index" }));

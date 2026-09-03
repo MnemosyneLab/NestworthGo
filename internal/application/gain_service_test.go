@@ -82,10 +82,10 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.Quantity != "9" || view.AverageCost.Amount != "93.33" || view.AverageCost.Currency != "USD" {
+	if view.Quantity != "9" || view.AverageCost.Amount != "93.3333" || view.AverageCost.Currency != "USD" {
 		t.Fatalf("cost view = %+v", view)
 	}
-	if view.TotalCost.Amount != "839.97" || view.RealizedGain.Amount != "340.02" || view.UnrealizedGain == nil || view.UnrealizedGain.Amount != "960.03" {
+	if view.TotalCost.Amount != "840" || view.RealizedGain.Amount != "340" || view.UnrealizedGain == nil || view.UnrealizedGain.Amount != "960" {
 		t.Fatalf("gain view = %+v", view)
 	}
 	if view.CurrentValue == nil || view.CurrentValue.Amount != "1800" || !view.Available {
@@ -96,7 +96,7 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !period.Available || len(period.ByInstrument) != 1 || period.ByInstrument[0].Gain.Amount != "2380.14" || len(period.ByAccount) != 1 || period.ByAccount[0].Gain.Amount != "2380.14" {
+	if !period.Available || len(period.ByInstrument) != 1 || period.ByInstrument[0].Gain.Amount != "2380" || len(period.ByAccount) != 1 || period.ByAccount[0].Gain.Amount != "2380" {
 		t.Fatalf("realized period = %+v", period)
 	}
 	excluded, err := service.RealizedGainInRange(ctx, scope, "2026-08-25", "2026-08-25")
@@ -105,6 +105,218 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 	}
 	if len(excluded.ByInstrument) != 0 || len(excluded.ByAccount) != 0 {
 		t.Fatalf("sell outside range was included = %+v", excluded)
+	}
+}
+
+func TestAccountGainIncludesActiveHoldingWithArchivedInstrument(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/gain-archived-instrument.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Archived instrument gain", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ArchiveInstrument(ctx, instrument.ID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	accountGain, err := service.AccountGain(ctx, account.Account.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accountGain.Holdings) != 1 || accountGain.Holdings[0].HoldingID != holding.ID {
+		t.Fatalf("archived instrument dropped from current account gain: %+v", accountGain)
+	}
+	if accountGain.Holdings[0].Quantity != "10" || accountGain.Holdings[0].CurrentValue == nil || accountGain.Holdings[0].CurrentValue.Amount != "120" {
+		t.Fatalf("archived instrument current gain = %+v", accountGain.Holdings[0])
+	}
+	holdingGain, err := service.HoldingGain(ctx, holding.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if holdingGain.InstrumentName != "QQQ" || holdingGain.CurrentValue == nil || holdingGain.CurrentValue.Amount != "120" {
+		t.Fatalf("holding gain after instrument archive = %+v", holdingGain)
+	}
+}
+
+func TestRealizedGainIncludesSoldThenArchivedHolding(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/gain-archived-holding.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Archived holding gain", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	service.setClock(func() time.Time { return now.Add(time.Hour) })
+	if _, err := service.RecordChange(ctx, domain.TradeInput{
+		HouseholdID: bootstrap.Household.ID, Side: domain.TradeSell, SettlementAccountID: account.Account.ID,
+		HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "10"),
+		Gross: mustMoney(t, "150", "USD"), EffectiveAt: now.Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	before, err := service.RealizedGainInRange(ctx, domain.GainScope{AccountID: &account.Account.ID}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !before.Available || len(before.ByInstrument) != 1 || before.ByInstrument[0].Gain.Amount != "50" {
+		t.Fatalf("realized gain before archive = %+v", before)
+	}
+	if err := service.ArchiveHolding(ctx, holding.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if err := service.ArchiveInstrument(ctx, instrument.ID, true); err != nil {
+		t.Fatal(err)
+	}
+
+	after, err := service.RealizedGainInRange(ctx, domain.GainScope{AccountID: &account.Account.ID}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !after.Available || len(after.ByInstrument) != 1 || after.ByInstrument[0].Gain.Amount != "50" || after.ByInstrument[0].Label != "QQQ" {
+		t.Fatalf("sold then archived holding dropped from realized gain: %+v", after)
+	}
+	accountGain, err := service.AccountGain(ctx, account.Account.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accountGain.Holdings) != 0 {
+		t.Fatalf("archived holding remained in current account gain: %+v", accountGain)
+	}
+}
+
+func TestHoldingGainIncludesBuyFeeInAverageCost(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/gain-buy-fee.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	service := NewService(sqlite.NewRepository(database))
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Buy fee gain", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	fee := mustMoney(t, "10", "USD")
+	service.setClock(func() time.Time { return now.Add(time.Hour) })
+	if _, err := service.RecordChange(ctx, domain.TradeInput{
+		HouseholdID: bootstrap.Household.ID, Side: domain.TradeBuy, SettlementAccountID: account.Account.ID,
+		HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "10"),
+		Gross: mustMoney(t, "100", "USD"), Fee: &fee, EffectiveAt: now.Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "12", "2026-08-24T13:00:00Z", false); err != nil {
+		t.Fatal(err)
+	}
+
+	view, err := service.HoldingGain(ctx, holding.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Starting 10 at 10 plus buy 10 at (100+10)/10 = 11 => average 10.5, total 210.
+	// Quote 12 * 20 = 240, unrealized 30.
+	if view.Quantity != "20" || view.AverageCost.Amount != "10.5" || view.TotalCost.Amount != "210" {
+		t.Fatalf("fee-adjusted cost view = %+v", view)
+	}
+	if view.CurrentValue == nil || view.CurrentValue.Amount != "240" || view.UnrealizedGain == nil || view.UnrealizedGain.Amount != "30" {
+		t.Fatalf("fee-adjusted current view = %+v", view)
 	}
 }
 
@@ -144,7 +356,7 @@ func TestGainServiceTransferUsesSendingCostAtTransferTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if source.AverageCost.Amount != "316.67" || target.AverageCost.Amount != "720" {
+	if source.AverageCost.Amount != "316.6667" || target.AverageCost.Amount != "720" {
 		t.Fatalf("transfer cost resolution used today's source cost: source=%+v target=%+v", source, target)
 	}
 }
@@ -470,6 +682,108 @@ func TestDividendIncomeMissingFXMarksGroupUnavailable(t *testing.T) {
 	}
 }
 
+func TestFXQuoteWithoutPreferenceAgreesAcrossOverviewGainAndDividend(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/fx-no-preference.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repository := sqlite.NewRepository(database)
+	service := NewService(repository)
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "FX agreement", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "1000", "USD", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-24", false); err != nil {
+		t.Fatal(err)
+	}
+	rate, err := domain.ParseFxRate("7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quote, err := domain.NewFXQuote(domain.FXQuoteInput{
+		HouseholdID: bootstrap.Household.ID, BaseCurrency: "USD", QuoteCurrency: "CNY", Rate: rate,
+		SourceKind: domain.QuoteSourceProvider, SourceKey: "frankfurter", QuotedAt: now,
+	}, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.AppendFXQuote(ctx, quote); err != nil {
+		t.Fatal(err)
+	}
+	preferences, err := service.ListFXPreferences(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(preferences) != 0 {
+		t.Fatalf("explicit FX preference was stored: %+v", preferences)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+
+	overview, err := service.Overview(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !overview.Complete || overview.Assets.String() != "7700" {
+		t.Fatalf("overview without explicit FX preference = %+v", overview)
+	}
+
+	amount, _ := domain.ParseMoney("10", "USD")
+	if _, err := service.RecordChange(ctx, domain.CashDividendInput{HouseholdID: bootstrap.Household.ID, HoldingID: holding.ID, Amount: amount, EffectiveAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	dividends, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !dividends.Available || len(dividends.ByInstrument) != 1 || dividends.ByInstrument[0].Gain.Amount != "70" {
+		t.Fatalf("dividend without explicit FX preference = %+v", dividends)
+	}
+
+	service.setClock(func() time.Time { return now.Add(time.Hour) })
+	if _, err := service.RecordChange(ctx, domain.TradeInput{
+		HouseholdID: bootstrap.Household.ID, Side: domain.TradeSell, SettlementAccountID: account.Account.ID,
+		HoldingID: holding.ID, InstrumentID: instrument.ID, Quantity: mustQuantity(t, "10"),
+		Gross: mustMoney(t, "150", "USD"), EffectiveAt: now.Add(time.Hour),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	realized, err := service.RealizedGainInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !realized.Available || len(realized.ByInstrument) != 1 || realized.ByInstrument[0].Gain.Amount != "350" {
+		t.Fatalf("realized gain without explicit FX preference = %+v", realized)
+	}
+}
+
 func gainGroupByKey(t *testing.T, groups []domain.GainGroupView, key string) domain.GainGroupView {
 	t.Helper()
 	for _, group := range groups {
@@ -488,6 +802,100 @@ func mustMoney(t *testing.T, amount, currency string) domain.Money {
 		t.Fatal(err)
 	}
 	return money
+}
+
+type snapshotCountRepository struct {
+	Repository
+	count int
+}
+
+func (r *snapshotCountRepository) ReadPortfolioSnapshot(ctx context.Context, filter domain.AccountFilter) (domain.PortfolioSnapshot, error) {
+	r.count++
+	return r.Repository.ReadPortfolioSnapshot(ctx, filter)
+}
+
+func TestAccountGainsReadsOneSnapshotForManyAccounts(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/account-gains-batch.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	repository := sqlite.NewRepository(database)
+	service := NewService(repository)
+	now := time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Batch Gains", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	owner := bootstrap.Members[0].ID
+	first, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage A", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{owner},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage B", AccountType: "brokerage", BalanceSheetRole: "asset",
+		TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		OwnerIDs: []domain.MemberID{owner},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: first.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: second.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-24T12:00:00Z", false); err != nil {
+		t.Fatal(err)
+	}
+
+	counter := &snapshotCountRepository{Repository: repository}
+	gain := NewGainService(counter, func() time.Time { return now })
+	views, err := gain.AccountGains(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counter.count != 1 {
+		t.Fatalf("ReadPortfolioSnapshot count = %d, want 1 for household AccountGains", counter.count)
+	}
+	if len(views) != 2 {
+		t.Fatalf("AccountGains = %d views, want 2 accounts", len(views))
+	}
+	byAccount := map[domain.AccountID]domain.AccountGainView{}
+	for _, view := range views {
+		byAccount[view.AccountID] = view
+	}
+	if len(byAccount[first.Account.ID].Holdings) != 1 || byAccount[first.Account.ID].Holdings[0].Quantity != "2" {
+		t.Fatalf("first account gain = %+v", byAccount[first.Account.ID])
+	}
+	if len(byAccount[second.Account.ID].Holdings) != 1 || byAccount[second.Account.ID].Holdings[0].Quantity != "3" {
+		t.Fatalf("second account gain = %+v", byAccount[second.Account.ID])
+	}
+
+	firstOnly, err := gain.AccountGains(ctx, []domain.AccountID{first.Account.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(firstOnly) != 1 || firstOnly[0].AccountID != first.Account.ID {
+		t.Fatalf("filtered AccountGains = %+v", firstOnly)
+	}
+	if counter.count != 2 {
+		t.Fatalf("second AccountGains snapshot count = %d, want 2 total", counter.count)
+	}
 }
 
 func findHoldingForInstrument(t *testing.T, repository Repository, accountID domain.AccountID, instrumentID domain.InstrumentID) domain.HoldingID {

@@ -2,41 +2,22 @@ package recovery
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"os"
-	"path/filepath"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
-	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
 )
 
 type Service struct {
-	liveDBPath string
-	app        *application.Service
-	store      *settings.Store
-	dialogs    native.Dialogs
-	quit       native.Quitter
-	refresh    native.RefreshGate
-
-	mu      sync.Mutex
-	pending map[string]pendingRestore
+	recovery *application.Recovery
+	dialogs  native.Dialogs
+	quit     native.Quitter
+	refresh  native.RefreshGate
 }
 
-type pendingRestore struct {
-	pkg      backup.Package
-	fileName string
-}
-
-func NewService(liveDBPath string, app *application.Service, store *settings.Store, dialogs native.Dialogs, quit native.Quitter, refresh native.RefreshGate) *Service {
+func NewService(recovery *application.Recovery, dialogs native.Dialogs, quit native.Quitter, refresh native.RefreshGate) *Service {
 	if dialogs == nil {
 		dialogs = native.NoopDialogs{}
 	}
@@ -46,7 +27,7 @@ func NewService(liveDBPath string, app *application.Service, store *settings.Sto
 	if refresh == nil {
 		refresh = native.NoopRefresh{}
 	}
-	return &Service{liveDBPath: liveDBPath, app: app, store: store, dialogs: dialogs, quit: quit, refresh: refresh, pending: map[string]pendingRestore{}}
+	return &Service{recovery: recovery, dialogs: dialogs, quit: quit, refresh: refresh}
 }
 
 type RestorePreviewDTO struct {
@@ -80,65 +61,22 @@ func (s *Service) InspectBackup() (RestorePreviewDTO, error) {
 	if path == "" {
 		return RestorePreviewDTO{Cancelled: true}, nil
 	}
-	pkg, err := backup.ReadPackage(path)
+	if s.recovery == nil {
+		return RestorePreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "recovery is not available"})
+	}
+	preview, err := s.recovery.InspectBackup(context.Background(), path)
 	if err != nil {
 		return RestorePreviewDTO{}, apierror.Wrap(err)
 	}
-	dir := filepath.Dir(s.liveDBPath)
-	inspectPath := filepath.Join(dir, ".nestworth-inspect-"+randomSuffix()+".sqlite")
-	if err := backup.ExtractDatabase(pkg, inspectPath); err != nil {
-		return RestorePreviewDTO{}, apierror.Wrap(err)
-	}
-	defer os.Remove(inspectPath)
-	if err := backup.VerifyExtractedDatabase(context.Background(), inspectPath); err != nil {
-		return RestorePreviewDTO{}, apierror.Wrap(err)
-	}
-	verified, err := sqlite.OpenReadOnlyForVerify(inspectPath)
-	if err != nil {
-		return RestorePreviewDTO{}, apierror.Wrap(err)
-	}
-	ctx := context.Background()
-	summary, err := verified.HouseholdSummary(ctx)
-	if err != nil {
-		_ = verified.Close()
-		return RestorePreviewDTO{}, apierror.Wrap(err)
-	}
-	counts, err := verified.EntityCounts(ctx)
-	if err != nil {
-		_ = verified.Close()
-		return RestorePreviewDTO{}, apierror.Wrap(err)
-	}
-	_ = verified.Close()
-	dto := RestorePreviewDTO{
-		Token:            newToken(),
-		FileName:         filepath.Base(path),
-		CreatedAt:        pkg.Manifest.CreatedAt,
-		AppVersion:       pkg.Manifest.AppVersion,
-		AppBuild:         pkg.Manifest.AppBuild,
-		SchemaVersion:    pkg.Manifest.SchemaVersion,
-		FormatVersion:    pkg.Manifest.FormatVersion,
-		BackupHousehold:  summary.Name,
-		BackupCurrency:   summary.BaseCurrency,
-		BackupAccounts:   counts.Accounts,
-		BackupHoldings:   counts.Holdings,
-		BackupActivities: counts.Activities,
-		HasOpenSession:   s.app != nil,
-		SettingsReadable: jsonLooksLikeSettings(pkg.Settings),
-	}
-	if s.app != nil {
-		current, previewErr := s.app.CurrentDatabasePreview(ctx)
-		if previewErr == nil {
-			dto.CurrentHousehold = current.HouseholdName
-			dto.CurrentCurrency = current.BaseCurrency
-			dto.CurrentAccounts = current.Accounts
-			dto.CurrentHoldings = current.Holdings
-			dto.CurrentActivities = current.Activities
-		}
-	}
-	s.mu.Lock()
-	s.pending[dto.Token] = pendingRestore{pkg: pkg, fileName: dto.FileName}
-	s.mu.Unlock()
-	return dto, nil
+	return RestorePreviewDTO{
+		Token: preview.Token, FileName: preview.FileName, CreatedAt: preview.CreatedAt,
+		AppVersion: preview.AppVersion, AppBuild: preview.AppBuild, SchemaVersion: preview.SchemaVersion,
+		FormatVersion: preview.FormatVersion, BackupHousehold: preview.BackupHousehold, BackupCurrency: preview.BackupCurrency,
+		BackupAccounts: preview.BackupAccounts, BackupHoldings: preview.BackupHoldings, BackupActivities: preview.BackupActivities,
+		CurrentHousehold: preview.CurrentHousehold, CurrentCurrency: preview.CurrentCurrency, CurrentAccounts: preview.CurrentAccounts,
+		CurrentHoldings: preview.CurrentHoldings, CurrentActivities: preview.CurrentActivities,
+		SettingsReadable: preview.SettingsReadable, HasOpenSession: preview.HasOpenSession,
+	}, nil
 }
 
 type RestoreConfirmRequest struct {
@@ -155,74 +93,28 @@ type RestoreResultDTO struct {
 }
 
 func (s *Service) ConfirmRestore(request RestoreConfirmRequest) (RestoreResultDTO, error) {
+	if s.recovery == nil {
+		return RestoreResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "recovery is not available"})
+	}
 	if !request.Acknowledged || !strings.EqualFold(strings.TrimSpace(request.Confirmation), "RESTORE") {
 		return RestoreResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrBackupRestoreConfirmation, Message: "restore confirmation is required"})
 	}
-	s.mu.Lock()
-	pending, ok := s.pending[request.Token]
-	if ok {
-		delete(s.pending, request.Token)
-	}
-	s.mu.Unlock()
-	if !ok {
-		return RestoreResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrNotFound, Message: "restore preview expired"})
-	}
-	if s.app != nil {
-		if err := s.app.BeginExclusiveOperation(); err != nil {
-			return RestoreResultDTO{}, apierror.Wrap(err)
-		}
-	}
 	s.refresh.CancelAllAndWait()
-	var unlocked bool
-	unlock := func() {
-		if s.app != nil && !unlocked {
-			s.app.UnlockWrites()
-			unlocked = true
-		}
+	result, err := s.recovery.ConfirmRestore(context.Background(), application.RestoreConfirmInput{
+		Token: request.Token, Confirmation: request.Confirmation, Acknowledged: request.Acknowledged,
+		RestoreChrome: request.RestoreChrome, RestoreFormat: request.RestoreFormat, RestoreRouting: request.RestoreRouting,
+	})
+	if result.RestartRequired {
+		go s.quit.Quit()
 	}
-	sessionClosed := false
-	hooks := &backup.SessionHooks{}
-	if s.app != nil {
-		s.app.LockWrites()
-		hooks.Quiesce = func(context.Context) error { return nil }
-		hooks.Checkpoint = s.app.CheckpointWAL
-		hooks.Close = func() error {
-			err := s.app.CloseDatabase()
-			if err == nil {
-				sessionClosed = true
-			}
-			return err
-		}
-	}
-	err := backup.InstallRestore(context.Background(), s.liveDBPath, pending.pkg, hooks, backup.RestoreClasses{
-		Chrome: request.RestoreChrome, Format: request.RestoreFormat, Routing: request.RestoreRouting,
-	}, time.Now())
 	if err != nil {
-		if sessionClosed {
-			go s.quit.Quit()
-			return RestoreResultDTO{RestartRequired: true}, apierror.Wrap(err)
-		}
-		unlock()
-		if s.app != nil {
-			s.app.EndExclusiveOperation()
-		}
-		return RestoreResultDTO{}, apierror.Wrap(err)
+		return RestoreResultDTO{RestartRequired: result.RestartRequired}, apierror.Wrap(err)
 	}
-	go s.quit.Quit()
-	return RestoreResultDTO{RestartRequired: true}, nil
+	return RestoreResultDTO{RestartRequired: result.RestartRequired}, nil
 }
 
-func jsonLooksLikeSettings(data []byte) bool {
-	trimmed := strings.TrimSpace(string(data))
-	return strings.HasPrefix(trimmed, "{") && strings.Contains(trimmed, "schema_version")
-}
-
-func newToken() string {
-	return randomSuffix()
-}
-
-func randomSuffix() string {
-	var entropy [8]byte
-	_, _ = rand.Read(entropy[:])
-	return hex.EncodeToString(entropy[:])
+func (s *Service) Shutdown() {
+	if s != nil && s.recovery != nil {
+		s.recovery.Shutdown()
+	}
 }

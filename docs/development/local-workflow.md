@@ -103,8 +103,12 @@ wails3 task check
 ```
 
 It regenerates the frontend bundle, then runs `gofmt` validation, Go tests,
-`go vet`, the canonical Go build, frontend lint, frontend type checking, and
-frontend tests.
+`go vet`, the canonical Go build, frontend lint, frontend type checking,
+frontend tests, and `git diff --check`.
+
+The same automated gates run in GitHub Actions on `main` and pull requests
+(`.github/workflows/check.yml`), with race detection as a separate job. Native
+packaging, signing, and notarization remain manual.
 
 ## Build and package the macOS app
 
