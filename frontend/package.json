@@ -21,7 +21,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@tanstack/react-query": "^5.101.4",
     "@tanstack/react-table": "^8.21.3",
-    "@wailsio/runtime": "3.0.0-beta.9",
+    "@wailsio/runtime": "3.0.0-beta.16",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

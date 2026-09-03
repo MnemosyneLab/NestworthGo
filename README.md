@@ -57,7 +57,7 @@ retention, and manual accessibility review remain distribution gates.
 ## Technology
 
 - Go 1.26 and Go modules;
-- Wails v3 `v3.0.0-beta.12`;
+- Wails v3 `v3.0.0-beta.16`;
 - React, TypeScript, Vite, Tailwind CSS, TanStack Query/Table, Zustand,
   React Hook Form, Zod, i18next, and Apache ECharts;
 - SQLite as the local durable source of financial truth;

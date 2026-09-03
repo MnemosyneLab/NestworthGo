@@ -8,7 +8,7 @@ cross-compilation tasks for other platforms.
 
 - Go 1.26 or newer;
 - Node.js with pnpm;
-- Wails CLI `v3.0.0-beta.12` available as `wails3`;
+- Wails CLI `v3.0.0-beta.16` available as `wails3`;
 - macOS and Xcode command-line tools for native `.app` and `.dmg` packaging.
 - Linux additionally needs GCC, pkg-config, and Wails GTK/WebKit headers to
   compile `./cmd/nestworth`:

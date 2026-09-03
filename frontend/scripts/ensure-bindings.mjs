@@ -38,7 +38,7 @@ let result = run("wails3", [
 if (result.error?.code === "ENOENT") {
   result = run("go", [
     "run",
-    "github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.12",
+    "github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16",
     "generate",
     "bindings",
     "-clean=true",
@@ -50,7 +50,7 @@ if (result.error?.code === "ENOENT") {
 
 if (result.status !== 0) {
   console.error(
-    "Failed to generate frontend/bindings. Install Wails v3.0.0-beta.12 and retry from the repository root:",
+    "Failed to generate frontend/bindings. Install Wails v3.0.0-beta.16 and retry from the repository root:",
   );
   console.error("  wails3 generate bindings -ts -i ./...");
   process.exit(result.status ?? 1);
