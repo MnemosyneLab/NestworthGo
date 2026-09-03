@@ -12,6 +12,7 @@ the startup/onboarding gates are defined by
 - [History and related-form defaults](history-and-form-defaults-ux.md) — Current history, picker, calculation, quote, timezone, and form-state behavior.
 - [Backup, restore, and CSV portability](backup-restore-and-csv-portability.md) — Implemented local backup, restore, Accounts CSV, and Holdings CSV workflows.
 - [Visual analytics and market history](visual-analytics-and-market-history.md) — Implemented chart and local quote-history surfaces, with external historical-series work still planned.
+- [Analytics redesign architecture](analytics/analytics-redesign-architecture.md) — Approved for implementation: replace the Analysis dashboard with Return Analysis and Asset Changes. Product, wireframe, and [development plan](analytics/analytics-development-plan.md) companions live in the same folder. Engine work has not started.
 
 ## Current screen map
 
