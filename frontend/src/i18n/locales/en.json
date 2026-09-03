@@ -593,10 +593,8 @@
   "option": {
     "accent": {
       "amber": "Amber",
-      "forest": "Forest",
       "nestworth": "Nestworth",
-      "ocean": "Ocean",
-      "rose": "Rose"
+      "ocean": "Ocean"
     },
     "appearance": {
       "dark": "Dark",

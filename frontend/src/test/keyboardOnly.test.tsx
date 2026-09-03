@@ -313,6 +313,9 @@ describe("keyboard-only completion", () => {
     // it here, consistent with the Account/Record-change selects above.
     await userEvent.selectOptions(within(form).getByLabelText("Appearance"), "light");
 
+    await userEvent.tab(); // -> Color theme select (left at default)
+    expect(within(form).getByLabelText("Color theme")).toHaveFocus();
+
     await userEvent.tab(); // -> Language select
     expect(within(form).getByLabelText("Language")).toHaveFocus();
     await userEvent.selectOptions(within(form).getByLabelText("Language"), "en");

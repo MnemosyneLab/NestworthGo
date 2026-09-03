@@ -24,7 +24,7 @@ import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
 import { DataManagementSection } from "@/features/settings/DataManagementSection";
-import { useUiStore, type Appearance } from "@/stores/ui";
+import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
 import { setLanguage, languageOptionKey } from "@/i18n";
 import { displayError } from "@/lib/display";
 import type { Settings } from "../../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
@@ -45,6 +45,7 @@ export function SettingsPage() {
   const catalog = useCatalog();
   const origin = useHistoryOrigin();
   const setAppearance = useUiStore((state) => state.setAppearance);
+  const setAccent = useUiStore((state) => state.setAccent);
   const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
   const pageChrome = <PageChrome pageId="settings" title={t("settings.title")} />;
 
@@ -73,6 +74,7 @@ export function SettingsPage() {
 
   const isDirty =
     draft.appearance !== settings.data.appearance ||
+    draft.accent !== settings.data.accent ||
     draft.language !== settings.data.language ||
     draft.currency !== settings.data.currency ||
     draft.timezone !== settings.data.timezone ||
@@ -84,6 +86,7 @@ export function SettingsPage() {
 
   const applyLivePreferences = (value: Settings) => {
     setAppearance(value.appearance as Appearance);
+    setAccent(value.accent as Accent);
     setLanguage(value.language);
   };
 
@@ -115,6 +118,21 @@ export function SettingsPage() {
               {(catalog.data?.appearances ?? []).map((appearance) => (
                 <option key={appearance} value={appearance}>
                   {t(`option.appearance.${appearance}`)}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-accent">{t("settings.appearance.accent")}</Label>
+            <NativeSelect
+              id="settings-accent"
+              value={draft.accent}
+              onChange={(event) => update({ accent: event.target.value as Settings["accent"] })}
+            >
+              {(catalog.data?.accents ?? []).map((accent) => (
+                <option key={accent} value={accent}>
+                  {t(`option.accent.${accent}`)}
                 </option>
               ))}
             </NativeSelect>

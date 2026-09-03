@@ -66,7 +66,7 @@ export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isE
   };
 
   return <div className="flex flex-col gap-4">
-    <Sheet open={open} onOpenChange={setOpen}><SheetTrigger className={buttonVariants({})}><Plus className="size-4" aria-hidden="true" /> {addLabel}</SheetTrigger>
+    <Sheet open={open} onOpenChange={setOpen}><SheetTrigger className={cn(buttonVariants({}), "w-fit self-start gap-2")}><Plus className="size-4" aria-hidden="true" /> {addLabel}</SheetTrigger>
       <SheetContent><SheetHeader><SheetTitle>{addLabel}</SheetTitle></SheetHeader><form onSubmit={submitCreate} className="flex flex-col gap-4" aria-label={createLabel}>
         <Input value={name} onChange={(event) => setName(event.target.value)} placeholder={createLabel} aria-label={createLabel} disabled={submitting} />
         {kind === "institution" && <NativeSelect value={selectedInstitutionType} aria-label={t("directory.institutionType")} onChange={(event) => { const next = event.target.value; setInstitutionType(next); if (!iconCustomized) setIconKey(INSTITUTION_TYPE_ICONS[next] ?? DEFAULT_ICONS.institution); }}>

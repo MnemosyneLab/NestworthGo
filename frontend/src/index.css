@@ -95,6 +95,80 @@
   --shadow-lg: 0 16px 32px -12px oklch(0% 0 0 / 0.5), 0 4px 10px -4px oklch(0% 0 0 / 0.36);
 }
 
+/* "Ocean" theme — high-contrast electric blue/cyan, selected via the
+   `data-accent="ocean"` attribute on <html>. Financial-state tokens
+   (success/warning/destructive/gain-* and data-*) stay identical across accents
+   so gain/loss meaning never depends on the chosen color theme. */
+html[data-accent="ocean"] {
+  --color-background: oklch(98% 0.006 235);
+  --color-foreground: oklch(14% 0.02 235);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(14% 0.02 235);
+  --color-border: oklch(83% 0.025 235);
+  --color-muted: oklch(92% 0.018 235);
+  --color-muted-foreground: oklch(38% 0.025 235);
+
+  --color-primary: oklch(52% 0.21 235);
+  --color-primary-foreground: oklch(99% 0.006 235);
+  --color-brand-from: oklch(50% 0.22 240);
+  --color-brand-to: oklch(62% 0.19 195);
+  --color-accent: oklch(68% 0.16 195);
+  --color-accent-foreground: oklch(15% 0.02 195);
+}
+
+html[data-accent="ocean"].dark {
+  --color-background: oklch(11% 0.02 235);
+  --color-foreground: oklch(96% 0.006 235);
+  --color-card: oklch(16% 0.024 235);
+  --color-card-foreground: oklch(96% 0.006 235);
+  --color-border: oklch(30% 0.03 235);
+  --color-muted: oklch(21% 0.022 235);
+  --color-muted-foreground: oklch(70% 0.016 235);
+
+  --color-primary: oklch(76% 0.17 205);
+  --color-primary-foreground: oklch(12% 0.02 205);
+  --color-brand-from: oklch(70% 0.19 225);
+  --color-brand-to: oklch(80% 0.15 190);
+  --color-accent: oklch(80% 0.14 190);
+  --color-accent-foreground: oklch(13% 0.02 190);
+}
+
+/* "Amber" theme — high-contrast vivid orange/amber, selected via the
+   `data-accent="amber"` attribute on <html>. */
+html[data-accent="amber"] {
+  --color-background: oklch(98% 0.008 75);
+  --color-foreground: oklch(15% 0.02 40);
+  --color-card: oklch(100% 0 0);
+  --color-card-foreground: oklch(15% 0.02 40);
+  --color-border: oklch(84% 0.03 65);
+  --color-muted: oklch(92% 0.02 65);
+  --color-muted-foreground: oklch(40% 0.03 50);
+
+  --color-primary: oklch(56% 0.21 45);
+  --color-primary-foreground: oklch(99% 0.008 45);
+  --color-brand-from: oklch(58% 0.21 40);
+  --color-brand-to: oklch(64% 0.19 65);
+  --color-accent: oklch(72% 0.16 80);
+  --color-accent-foreground: oklch(16% 0.02 80);
+}
+
+html[data-accent="amber"].dark {
+  --color-background: oklch(12% 0.018 40);
+  --color-foreground: oklch(96% 0.008 60);
+  --color-card: oklch(17% 0.022 45);
+  --color-card-foreground: oklch(96% 0.008 60);
+  --color-border: oklch(32% 0.03 50);
+  --color-muted: oklch(22% 0.022 50);
+  --color-muted-foreground: oklch(70% 0.02 55);
+
+  --color-primary: oklch(74% 0.19 50);
+  --color-primary-foreground: oklch(14% 0.02 50);
+  --color-brand-from: oklch(70% 0.2 45);
+  --color-brand-to: oklch(78% 0.17 75);
+  --color-accent: oklch(78% 0.15 75);
+  --color-accent-foreground: oklch(14% 0.02 75);
+}
+
 :root {
   color-scheme: light;
 }

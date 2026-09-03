@@ -35,7 +35,7 @@ export const TEST_CATALOG: CatalogDTO = {
   trendRanges: ["30d", "1y"],
   appearances: ["system", "light", "dark"],
   languages: ["system", "en", "zh-CN", "zh-TW"],
-  accents: ["nestworth", "ocean", "forest", "amber", "rose"],
+  accents: ["nestworth", "ocean", "amber"],
   moneyInReasons: ["income", "contribution", "gift", "other", "reconciliation"],
   moneyOutReasons: ["expense", "fee", "tax", "other", "reconciliation"],
   valueUpdateReasons: ["reconciliation", "other"],

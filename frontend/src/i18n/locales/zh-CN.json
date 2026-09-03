@@ -593,10 +593,8 @@
   "option": {
     "accent": {
       "amber": "琥珀",
-      "forest": "森林",
       "nestworth": "Nestworth",
-      "ocean": "海洋",
-      "rose": "玫瑰"
+      "ocean": "海洋"
     },
     "appearance": {
       "dark": "深色",
