@@ -124,9 +124,9 @@ describe("AnalyticsPage", () => {
     renderPage();
     const group = await screen.findByRole("group", { name: "Range" });
     await waitFor(() => {
-      expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["30 days", "1 year"]);
+      expect(within(group).getAllByRole("button").map((button) => button.textContent)).toEqual(["30 days", "ytd", "1 year", "All history"]);
     });
-    expect(within(group).queryByRole("button", { name: "All history" })).not.toBeInTheDocument();
+    expect(within(group).getByRole("button", { name: "All history" })).toBeInTheDocument();
   });
 
   it("renders dividend income separately from realized gain and marks missing FX", async () => {

@@ -25,7 +25,7 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
   const { t } = useTranslation();
   const catalog = useCatalog();
   const portfolio = usePortfolio();
-  const ranges = catalog.data?.trendRanges ?? ["30d", "1y", "all"];
+  const ranges = catalog.data?.trendRanges ?? ["30d", "ytd", "1y", "all"];
   const [range, setRange] = useState("30d");
   const trend = usePortfolioTrend(range);
   const theme = chartTheme();

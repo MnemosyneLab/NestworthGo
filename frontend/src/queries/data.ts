@@ -109,6 +109,12 @@ export function useCommitCSV() {
   });
 }
 
+export function useCancelCSV() {
+  return useMutation({
+    mutationFn: (token: string) => callService(() => DataService.CancelCSV(token)),
+  });
+}
+
 export function useDownloadCSVErrors() {
   return useMutation({
     mutationFn: (token: string) => callService(() => DataService.DownloadCSVErrors(token)),

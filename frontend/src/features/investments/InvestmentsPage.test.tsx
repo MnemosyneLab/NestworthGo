@@ -33,11 +33,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
   Service: { AccountGains: (...args: unknown[]) => accountGains(...args), AccountGain: vi.fn(), RealizedGain: vi.fn(), HoldingGain: vi.fn() },
 }));
-const saveManualQuote = vi.fn();
+const appendManualQuote = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
   Service: {
-    SaveManualInstrumentQuote: (...args: unknown[]) => saveManualQuote(...args),
+    AppendManualInstrumentQuote: (...args: unknown[]) => appendManualQuote(...args),
     CurrentInstrumentQuote: (...args: unknown[]) => currentInstrumentQuote(...args),
   },
 }));
@@ -81,9 +81,9 @@ beforeEach(() => {
   createHolding.mockReset();
   holdingsByAccounts.mockReset();
   accountGains.mockReset();
-  saveManualQuote.mockReset();
+  appendManualQuote.mockReset();
   currentInstrumentQuote.mockReset();
-  saveManualQuote.mockResolvedValue({ id: "q1", instrumentId: "i1", unitPrice: "131.70" });
+  appendManualQuote.mockResolvedValue({ id: "q1", instrumentId: "i1", unitPrice: "131.70" });
   currentInstrumentQuote.mockResolvedValue(null);
 
   listInstruments.mockResolvedValue([]);
@@ -369,7 +369,15 @@ describe("InvestmentsPage", () => {
     await userEvent.type(await screen.findByLabelText("Unit price"), "131.70");
     const priceButtons = screen.getAllByRole("button", { name: "Set price" });
     await userEvent.click(priceButtons[priceButtons.length - 1]);
-    expect(saveManualQuote).toHaveBeenCalledWith("i1", "131.70", "");
+    expect(appendManualQuote).toHaveBeenCalledWith("i1", "131.70", "", false);
+  });
+
+  it("keeps manual quote entry available without changing a provider preference", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "provider" }]);
+    renderPage();
+    await screen.findByText("NVIDIA");
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(await screen.findByRole("button", { name: "Set price" })).toBeInTheDocument();
   });
 
   it("shows a validation error when Add holding is submitted empty", async () => {

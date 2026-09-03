@@ -111,7 +111,7 @@ export function AccountActionSheet({
           ) : action === "position" ? (
             <ExistingPositionForm record={record} onDone={onRecorded} />
           ) : action === "simple" ? (
-            <SimpleValueForm record={record} valuation={valuation} onDone={onRecorded} />
+            <SimpleValueForm record={record} valuation={valuation} historyStarted={historyReady} onDone={onRecorded} />
           ) : (
             <LockedChangeForm action={action} holdingId={holdingId} record={record} onDone={onRecorded} originOverride={startedOrigin} />
           )}
@@ -300,10 +300,12 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
 function SimpleValueForm({
   record,
   valuation,
+  historyStarted,
   onDone,
 }: {
   record: AccountRecordDTO;
   valuation?: import("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models").AccountValuationDTO;
+  historyStarted: boolean;
   onDone: () => void;
 }) {
   const { t } = useTranslation();
@@ -324,6 +326,21 @@ function SimpleValueForm({
       automaticAmount.current = currentAmount;
     }
   }, [currentAmount]);
+
+  if (historyStarted) {
+    const initial: ChangeCommandRequest = {
+      ...emptyChangeRequest(ChangeCommandKind.ChangeValueUpdate, record.account.defaultCurrency),
+      accountId: record.account.id,
+      currency: record.account.defaultCurrency,
+    };
+    return (
+      <RecordChangeForm
+        initial={initial}
+        lock={{ kind: ChangeCommandKind.ChangeValueUpdate, hideKind: true, accountId: record.account.id }}
+        onRecorded={onDone}
+      />
+    );
+  }
 
   const submit = () => {
     if (!amount.trim()) {

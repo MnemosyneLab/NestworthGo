@@ -26,6 +26,8 @@ const settingsLoad = vi.fn();
 const currentInstrumentQuote = vi.fn();
 const listInstitutions = vi.fn();
 const listGroups = vi.fn();
+const listAccountCashValues = vi.fn();
+const historyMutationAllowed = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
@@ -36,6 +38,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ac
     ArchiveAccount: (...args: unknown[]) => archiveAccount(...args),
     SetAccountIcon: vi.fn(),
     AppendAccountValue: (...args: unknown[]) => appendValue(...args),
+    ListAccountCashValues: (...args: unknown[]) => listAccountCashValues(...args),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/directory", () => ({
@@ -78,6 +81,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     PreviewChange: (...args: unknown[]) => previewChange(...args),
     PreviewFixChange: vi.fn(),
     RecordChange: (...args: unknown[]) => recordChange(...args),
+    HistoryMutationAllowed: () => historyMutationAllowed(),
     UndoChange: vi.fn(),
     FixChange: vi.fn(),
   },
@@ -188,6 +192,8 @@ beforeEach(() => {
   recordChange.mockReset();
   settingsLoad.mockReset();
   currentInstrumentQuote.mockReset();
+  listAccountCashValues.mockReset();
+  historyMutationAllowed.mockReset();
   listInstitutions.mockReset();
   listGroups.mockReset();
   listAccounts.mockResolvedValue([emptyAccount]);
@@ -205,13 +211,15 @@ beforeEach(() => {
   updateAccount.mockResolvedValue(emptyAccount);
   historyOrigin.mockResolvedValue(null);
   startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-  settingsLoad.mockResolvedValue({ timezone: "system", fx_provider: "frankfurter" });
+  settingsLoad.mockResolvedValue({ timezone: "system", fxProvider: "frankfurter" });
   listInstruments.mockResolvedValue([]);
   holdingsByAccounts.mockResolvedValue({});
   createHolding.mockResolvedValue({ id: "h1", accountId: "brk-1", instrumentId: "i1", quantity: "1" });
   appendCash.mockResolvedValue(undefined);
   appendValue.mockResolvedValue(undefined);
   currentInstrumentQuote.mockResolvedValue(null);
+  listAccountCashValues.mockResolvedValue([]);
+  historyMutationAllowed.mockResolvedValue({});
   listInstitutions.mockResolvedValue([
     { id: "cmb", name: "China Merchants Bank", iconKey: "bank", institutionType: "bank", sortOrder: 0, archivedAt: null },
   ]);

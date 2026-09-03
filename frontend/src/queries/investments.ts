@@ -154,13 +154,34 @@ export function useSetFXPreference() {
   });
 }
 
-export function useSaveManualInstrumentQuote() {
+export function useAppendManualInstrumentQuote() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ instrumentId, unitPrice, quotedAt }: { instrumentId: string; unitPrice: string; quotedAt: string }) =>
-      callService(() => QuoteService.SaveManualInstrumentQuote(instrumentId, unitPrice, quotedAt)),
+      callService(() => QuoteService.AppendManualInstrumentQuote(instrumentId, unitPrice, quotedAt, false)),
     onSuccess: (_data, variables) => {
       invalidateInstrumentQuoteChange(queryClient, variables.instrumentId);
     },
+  });
+}
+
+export function useSetInstrumentQuoteSource() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ instrumentId, source }: { instrumentId: string; source: string }) =>
+      callService(() => InstrumentService.SetInstrumentQuoteSource(instrumentId, source)),
+    onSuccess: (_data, variables) => {
+      invalidateInstrumentReads(queryClient);
+      invalidateInstrumentQuoteChange(queryClient, variables.instrumentId);
+    },
+  });
+}
+
+export function useAppendManualFXQuote() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ baseCurrency, quoteCurrency, rate, quotedAt }: { baseCurrency: string; quoteCurrency: string; rate: string; quotedAt: string }) =>
+      callService(() => QuoteService.AppendManualFXQuote(baseCurrency, quoteCurrency, rate, quotedAt)),
+    onSuccess: () => invalidateRequiredFX(queryClient),
   });
 }

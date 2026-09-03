@@ -26,7 +26,7 @@ import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { useAccounts } from "@/queries/accounts";
 import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
-import { useActivity, useActivityPage, useHistoryOrigin, useUndoChange } from "@/queries/history";
+import { useActivity, useActivityPage, useDailySnapshotState, useHistoryOrigin, useRebuildHistoricalSnapshots, useUndoChange } from "@/queries/history";
 import { useSettings } from "@/queries/settings";
 import { RecordChangeForm } from "@/features/history/RecordChangeForm";
 import { StartHistoryForm } from "@/features/history/StartHistoryForm";
@@ -266,7 +266,28 @@ function Timeline() {
 export function HistoryPage() {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
+  const snapshotState = useDailySnapshotState();
+  const rebuildSnapshots = useRebuildHistoricalSnapshots();
   const settings = useSettings();
+
+  const repairSnapshots = () => {
+    if (!origin.data) return;
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: origin.data.timezone }).format(new Date());
+    const endDate = new Date(`${today}T00:00:00Z`);
+    endDate.setUTCDate(endDate.getUTCDate() - 1);
+    const end = endDate.toISOString().slice(0, 10);
+    const startCandidate = new Date(`${end}T00:00:00Z`);
+    startCandidate.setUTCDate(startCandidate.getUTCDate() - 30);
+    const startCandidateDate = startCandidate.toISOString().slice(0, 10);
+    const originDate = new Intl.DateTimeFormat("en-CA", { timeZone: origin.data.timezone }).format(new Date(origin.data.startedAt));
+    const start = startCandidateDate < originDate
+      ? originDate
+      : startCandidateDate;
+    rebuildSnapshots.mutate({ startDate: start, endDate: end }, {
+      onSuccess: (count) => toast.success(t("history.snapshotsRepaired", { count })),
+      onError: (error) => toast.error(displayError(error, t("history.actionError"))),
+    });
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -293,6 +314,21 @@ export function HistoryPage() {
             </p>
           )}
           <Timeline />
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-3" aria-label={t("history.snapshotHealth")}>
+            <div className="flex flex-col gap-1 text-sm">
+              <p className="font-medium">{t("history.snapshotHealth")}</p>
+              <p className="text-muted-foreground">
+                {snapshotState.data?.dirtyFrom
+                  ? t("history.snapshotNeedsRepair", { date: snapshotState.data.dirtyFrom })
+                  : snapshotState.data?.lastCompletedClosedOn
+                    ? t("history.snapshotHealthyThrough", { date: snapshotState.data.lastCompletedClosedOn })
+                    : t("history.snapshotNotBuilt")}
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" onClick={repairSnapshots} disabled={rebuildSnapshots.isPending}>
+              {rebuildSnapshots.isPending ? t("common.pending") : t("history.repairSnapshots")}
+            </Button>
+          </section>
         </>
       )}
     </div>

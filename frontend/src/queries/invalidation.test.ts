@@ -13,9 +13,26 @@ import {
   invalidateRequiredFX,
 } from "@/queries/invalidation";
 import { useArchiveAccount, useCreateAccount, useUpdateAccount } from "@/queries/accounts";
-import { useArchiveInstrument, useCreateHolding, useCreateInstrument, useSaveManualInstrumentQuote } from "@/queries/investments";
+import { useAppendManualInstrumentQuote, useArchiveInstrument, useCreateHolding, useCreateInstrument } from "@/queries/investments";
 import { useFixChange, useRecordChange, useStartHistory, useUndoChange } from "@/queries/history";
 import { useRefreshAll, useRefreshRequiredFX } from "@/queries/marketdata";
+
+const refreshHarness = vi.hoisted(() => {
+  const listeners = new Map<string, (event: { data: unknown }) => void>();
+  const start = vi.fn(async (requestId: string) => {
+    queueMicrotask(() => listeners.get("marketdata.refresh.completed")?.({ data: { requestId, result: { items: [] } } }));
+  });
+  return { listeners, start, cancel: vi.fn(async () => undefined) };
+});
+
+vi.mock("@wailsio/runtime", () => ({
+  Events: {
+    On: (name: string, listener: (event: { data: unknown }) => void) => {
+      refreshHarness.listeners.set(name, listener);
+      return () => refreshHarness.listeners.delete(name);
+    },
+  },
+}));
 
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: {
@@ -37,7 +54,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instr
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
   Service: {
-    SaveManualInstrumentQuote: vi.fn(async () => undefined),
+    AppendManualInstrumentQuote: vi.fn(async () => undefined),
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
@@ -52,8 +69,9 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/histo
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
-    RefreshAll: vi.fn(async () => ({})),
-    RefreshRequiredFX: vi.fn(async () => ({})),
+    StartRefreshAll: refreshHarness.start,
+    StartRefreshRequiredFX: refreshHarness.start,
+    CancelRefresh: refreshHarness.cancel,
   },
 }));
 
@@ -190,8 +208,8 @@ function seededClient() {
     queryKeys.overview.all,
     queryKeys.portfolio.all,
     queryKeys.analytics.accountGains.all,
-    queryKeys.analytics.realizedGain("30d"),
-    queryKeys.analytics.dividendIncome("30d"),
+    queryKeys.analytics.realizedGain({}, "30d"),
+    queryKeys.analytics.dividendIncome({}, "30d"),
     queryKeys.holdings.byAccounts(["account-1"]),
     queryKeys.instruments.list(),
     queryKeys.quote.instrument.current("instrument-1"),
@@ -258,8 +276,8 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.realizedGain("30d"))).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.dividendIncome("30d"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.realizedGain({}, "30d"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.dividendIncome({}, "30d"))).toBe(true);
 
     const undoClient = seededClient();
     const undo = renderMutation(undoClient, useUndoChange);
@@ -280,7 +298,7 @@ describe("mutation-hook invalidation", () => {
 
   it("invalidates quote and valuation after a manual quote, not raw holdings or History", async () => {
     const queryClient = seededClient();
-    const save = renderMutation(queryClient, useSaveManualInstrumentQuote);
+    const save = renderMutation(queryClient, useAppendManualInstrumentQuote);
     await act(async () => {
       await save.result.current.mutateAsync({ instrumentId: "instrument-1", unitPrice: "1", quotedAt: "" });
     });

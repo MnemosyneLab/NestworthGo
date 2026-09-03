@@ -33,6 +33,12 @@ jobs:
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+      - name: Generate Wails bindings
+        working-directory: frontend
+        run: pnpm run generate:bindings
+      - name: Verify generated Wails bindings
+        working-directory: frontend
+        run: pnpm run check:bindings
       - name: gofmt
         run: test -z "$(gofmt -l cmd internal)"
       - name: Frontend build

@@ -143,9 +143,8 @@ func (s *Service) RecordChange(ctx context.Context, request ChangeCommandRequest
 	return s.commitChangeRequest(ctx, request)
 }
 
-// CommitChange is kept as a wire alias of RecordChange so the frontend's
-// "preview, then confirm" UX has a stable name to call. Application code
-// has a single RecordChange write path.
+// CommitChange is kept as a wire alias of RecordChange for old clients.
+// Deprecated: use RecordChange. Application code has a single write path.
 func (s *Service) CommitChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
 	return s.commitChangeRequest(ctx, request)
 }

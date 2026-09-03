@@ -31,6 +31,23 @@ const setFXPreference = vi.fn();
 const currentInstrumentQuote = vi.fn();
 const refreshFX = vi.fn();
 const refreshInstrument = vi.fn();
+const historyMutationAllowed = vi.fn();
+const dailySnapshotState = vi.fn();
+const rebuildHistoricalSnapshots = vi.fn();
+const refreshListeners = new Map<string, (event: { data: unknown }) => void>();
+const startRefresh = (operation: (...args: unknown[]) => Promise<unknown>) => async (requestId: string, ...args: unknown[]) => {
+  const result = await operation(...args);
+  queueMicrotask(() => refreshListeners.get("marketdata.refresh.completed")?.({ data: { requestId, result } }));
+};
+
+vi.mock("@wailsio/runtime", () => ({
+  Events: {
+    On: (name: string, listener: (event: { data: unknown }) => void) => {
+      refreshListeners.set(name, listener);
+      return () => refreshListeners.delete(name);
+    },
+  },
+}));
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
@@ -46,6 +63,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     RecordChange: (...args: unknown[]) => recordChange(...args),
     UndoChange: (...args: unknown[]) => undoChange(...args),
     FixChange: (...args: unknown[]) => fixChange(...args),
+    HistoryMutationAllowed: () => historyMutationAllowed(),
+    DailySnapshotState: (...args: unknown[]) => dailySnapshotState(...args),
+    RebuildHistoricalSnapshots: (...args: unknown[]) => rebuildHistoricalSnapshots(...args),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
@@ -70,8 +90,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/qu
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
-    RefreshFX: (...args: unknown[]) => refreshFX(...args),
-    RefreshInstrument: (...args: unknown[]) => refreshInstrument(...args),
+    StartRefreshFX: (...args: unknown[]) => startRefresh(refreshFX)(...args as [string, ...unknown[]]),
+    StartRefreshInstrument: (...args: unknown[]) => startRefresh(refreshInstrument)(...args as [string, ...unknown[]]),
+    CancelRefresh: vi.fn(async () => undefined),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
@@ -123,6 +144,9 @@ beforeEach(() => {
   currentInstrumentQuote.mockReset();
   refreshFX.mockReset();
   refreshInstrument.mockReset();
+  historyMutationAllowed.mockReset();
+  dailySnapshotState.mockReset();
+  rebuildHistoricalSnapshots.mockReset();
   bootstrap.mockReset();
   bootstrap.mockResolvedValue({
     household: { id: "h1", name: "Test", baseCurrency: "USD", createdAt: "", updatedAt: "" },
@@ -141,13 +165,16 @@ beforeEach(() => {
   ]);
   listInstruments.mockResolvedValue([]);
   holdingsByAccounts.mockResolvedValue({});
-  settingsLoad.mockResolvedValue({ timezone: "system", fx_provider: "frankfurter" });
+  settingsLoad.mockResolvedValue({ timezone: "system", fxProvider: "frankfurter" });
   listFXPreferences.mockResolvedValue([]);
   currentFXQuote.mockResolvedValue(null);
   setFXPreference.mockResolvedValue({ currencyA: "EUR", currencyB: "USD", sourceKind: "provider" });
   currentInstrumentQuote.mockResolvedValue(null);
   refreshFX.mockResolvedValue({ items: [{ targetKey: "fx:EUR/USD", kind: "fx", status: "fetched" }], rateLimited: false });
   refreshInstrument.mockResolvedValue({ items: [{ targetKey: "instrument:instrument-1", kind: "instrument", status: "fetched" }], rateLimited: false });
+  historyMutationAllowed.mockResolvedValue({});
+  dailySnapshotState.mockResolvedValue({ householdId: "h1", dirtyFrom: null, lastCompletedClosedOn: null });
+  rebuildHistoricalSnapshots.mockResolvedValue(0);
 });
 
 describe("HistoryPage", () => {

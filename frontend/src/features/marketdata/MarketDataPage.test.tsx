@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -16,13 +16,38 @@ const refreshRequiredFX = vi.fn();
 const instrumentQuoteSeries = vi.fn();
 const fxQuoteSeries = vi.fn();
 const overview = vi.fn();
+const setInstrumentQuoteSource = vi.fn();
+const appendManualFXQuote = vi.fn();
+const cancelRefresh = vi.fn(async () => undefined);
+const refreshListeners = new Map<string, (event: { data: unknown }) => void>();
+const startRefresh = (operation: () => Promise<unknown>) => async (requestId: string) => {
+  const result = await operation();
+  queueMicrotask(() => refreshListeners.get("marketdata.refresh.completed")?.({ data: { requestId, status: "completed", result } }));
+};
+
+vi.mock("@wailsio/runtime", () => ({
+  Events: {
+    On: (name: string, listener: (event: { data: unknown }) => void) => {
+      refreshListeners.set(name, listener);
+      return () => refreshListeners.delete(name);
+    },
+  },
+}));
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
-  Service: { RefreshAll: () => refreshAll(), RefreshRequiredFX: () => refreshRequiredFX() },
+  Service: {
+    StartRefreshAll: (requestId: string) => startRefresh(refreshAll)(requestId),
+    StartRefreshRequiredFX: (requestId: string) => startRefresh(refreshRequiredFX)(requestId),
+    StartRefreshMissingOrStale: (requestId: string) => startRefresh(refreshAll)(requestId),
+    CancelRefresh: () => cancelRefresh(),
+  },
 }));
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
-  Service: { ListInstruments: () => listInstruments() },
+  Service: {
+    ListInstruments: () => listInstruments(),
+    SetInstrumentQuoteSource: (...args: unknown[]) => setInstrumentQuoteSource(...args),
+  },
 }));
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
@@ -31,6 +56,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/qu
     CurrentFXQuote: (a: string, b: string) => currentFXQuote(a, b),
     ListFXPreferences: () => listFXPreferences(),
     SetFXPreference: (a: string, b: string, source: string) => setFXPreference(a, b, source),
+    AppendManualFXQuote: (...args: unknown[]) => appendManualFXQuote(...args),
     InstrumentQuoteSeries: (...args: unknown[]) => instrumentQuoteSeries(...args),
     FXQuoteSeries: (...args: unknown[]) => fxQuoteSeries(...args),
   },
@@ -45,7 +71,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/po
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: {
-    Load: () => Promise.resolve({ timezone: "Pacific/Auckland", fx_provider: "frankfurter" }),
+    Load: () => Promise.resolve({ timezone: "Pacific/Auckland", fxProvider: "frankfurter" }),
     SupportedCurrencies: () => Promise.resolve(["USD", "CNY", "SGD"]),
     FXProviders: () => Promise.resolve(["frankfurter"]),
   },
@@ -69,6 +95,9 @@ describe("MarketDataPage", () => {
     currentFXQuote.mockReset();
     listFXPreferences.mockReset();
     setFXPreference.mockReset();
+    setInstrumentQuoteSource.mockReset();
+    appendManualFXQuote.mockReset();
+    cancelRefresh.mockReset();
     overview.mockReset();
     instrumentQuoteSeries.mockReset();
     fxQuoteSeries.mockReset();
@@ -136,6 +165,23 @@ describe("MarketDataPage", () => {
     expect(savedData).toHaveTextContent(formatTimestamp("2024-01-01T00:00:00Z", "Pacific/Auckland", "en"));
   });
 
+  it("saves a manual FX observation without changing its preference", async () => {
+    appendManualFXQuote.mockResolvedValue({
+      id: "fx-manual",
+      baseCurrency: "SGD",
+      quoteCurrency: "USD",
+      rate: "1.25",
+      sourceKind: "manual",
+    });
+    renderPage();
+    await waitFor(() => expect(screen.getByLabelText("Base currency")).toHaveValue("USD"));
+    await userEvent.selectOptions(screen.getByLabelText("Base currency"), "SGD");
+    await userEvent.selectOptions(screen.getByLabelText("Quote currency"), "USD");
+    await userEvent.type(screen.getByLabelText("Rate"), "1.25");
+    await userEvent.click(screen.getByRole("button", { name: "Save manual FX quote" }));
+    expect(appendManualFXQuote).toHaveBeenCalledWith("SGD", "USD", "1.25", "");
+  });
+
   it("groups saved data as FX then instrument type, sorted by currency", async () => {
     listInstruments.mockResolvedValue([
       { id: "etf-1", name: "QQQ", type: "etf", quoteCurrency: "USD", quoteSource: "provider" },
@@ -184,14 +230,14 @@ describe("MarketDataPage", () => {
       createdAt: "2024-01-01T00:00:00Z",
       updatedAt: "2024-01-01T00:00:00Z",
     });
-    refreshRequiredFX.mockResolvedValue({ items: [{ targetKey: "fx:CNY/SGD", kind: "fx", status: "fetched" }], rateLimited: false });
+    refreshAll.mockResolvedValue({ items: [{ targetKey: "fx:CNY/SGD", kind: "fx", status: "fetched" }], rateLimited: false });
 
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Use provider" }));
 
     expect(setFXPreference).toHaveBeenCalledWith("CNY", "SGD", "provider");
     expect(await screen.findByTestId("refresh-results")).toHaveTextContent("CNY/SGD");
-    expect(refreshRequiredFX).toHaveBeenCalledTimes(1);
+    expect(refreshAll).toHaveBeenCalledTimes(1);
   });
 
   it("triggers RefreshAll and renders the per-target results", async () => {
@@ -224,6 +270,21 @@ describe("MarketDataPage", () => {
     expect(results).toHaveTextContent("SGD/USD");
     expect(results).toHaveTextContent("No saved value yet");
     expect(results).toHaveTextContent("No provider is configured for this target.");
+  });
+
+  it("cancels an active refresh and ignores its completion", async () => {
+    let releaseRefresh: (() => void) | undefined;
+    refreshAll.mockImplementation(() => new Promise((resolve) => {
+      releaseRefresh = () => resolve({ items: [], rateLimited: false });
+    }));
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: /force refresh all/i }));
+    const cancelButton = await screen.findByRole("button", { name: "Cancel refresh" });
+    await userEvent.click(cancelButton);
+    expect(cancelRefresh).toHaveBeenCalledTimes(1);
+    expect(await screen.findByRole("status")).toHaveTextContent("Refresh cancelled");
+    releaseRefresh?.();
+    expect(screen.queryByTestId("refresh-results")).not.toBeInTheDocument();
   });
 
   it("shows an empty state when there are no refresh targets", async () => {

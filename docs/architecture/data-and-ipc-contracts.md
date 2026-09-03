@@ -109,7 +109,12 @@ FX refresh resolves Frankfurter, while Instrument refresh resolves each Instrume
 passive read paths make zero provider calls. Refresh results expose only stable
 target/status/error-code values. Cancellation, generation checks, retry
 state, and completion belong to `MarketDataService` events plus the
-frontend: an event for an abandoned request ID is ignored.
+frontend. The frontend-facing refresh contract is `StartRefreshAll`,
+`StartRefreshInstrument`, `StartRefreshFX`, `StartRefreshMissingOrStale`,
+`StartRefreshRequiredFX`, and `CancelRefresh`, with the request ID carried by
+`marketdata.refresh.completed`. The synchronous `Refresh*` methods remain
+backend compatibility helpers and are not a frontend path. An event for an
+abandoned request ID is ignored.
 
 ## Serialization and view models
 
@@ -127,6 +132,54 @@ passing database rows or driver-specific errors. Recommended rules:
 
 The UI formats strings for display but never calculates totals, reciprocal FX
 rates, ownership percentages, gain, or return.
+
+### Generated bindings are the frontend contract
+
+The TypeScript files under `frontend/bindings/` are generated from the
+exported Wails services and are the only frontend-facing API contract. Every
+frontend service call must use the generated method with its generated
+signature. Optional casts, method-existence checks, silent no-ops, and
+fallbacks to a different method hide backend/binding drift and can change
+business semantics. Missing or stale bindings must fail generation, typecheck,
+or CI rather than being discovered at runtime.
+
+`pnpm run generate:bindings` regenerates the bindings before frontend
+development, builds, and tests. CI also runs `pnpm run check:bindings`, which
+generates into a temporary directory and compares the result with the working
+bindings. Persistence structs are not Wails DTOs: settings keep snake_case
+on disk while `SettingsDTO` exposes camelCase IPC fields. Persistence
+compatibility belongs in a migration, not in a frontend dual-read.
+
+Daily snapshot and trend data carries an explicit `status`: `complete`,
+`incomplete`, or `missing`. Incomplete and missing points have nullable
+valuation fields and are rendered as chart gaps. A partial or absent
+valuation is never represented as zero.
+
+### Canonical mutations and analytics scope
+
+Quote observations and quote-source preferences are separate facts. The
+canonical manual quote commands append an observation only;
+`SetInstrumentQuoteSource` or `SetFXPreference` is the explicit preference
+mutation. The old `Save*Quote` names are deprecated aliases.
+
+Market-data refresh is an asynchronous operation: each `StartRefresh*` returns
+an operation ID, and `marketdata.refresh.completed` reports the matching
+`requestId` with `completed`, `failed`, or `cancelled` status. `CancelRefresh`
+is idempotent; the frontend detaches listeners on completion, cancellation, or
+unmount.
+
+After history starts, financial mutations use `PreviewChange` followed by
+`RecordChange`. `CreateHolding` is for creating an initial position,
+`UpdateHolding` is metadata-only, and `UpdateHoldingQuantity` is a deprecated
+pre-history compatibility path. `AppendAccountValue` is for bootstrap/import
+baseline data; a user value correction is a `value_update` history change.
+`HistoryMutationAllowed` is a frontend preflight only; the backend enforces
+the same rule again in the record/mutation command.
+
+Analytics queries carry an explicit scope (portfolio when both scope IDs are
+unset, or account/instrument scope) and either a named range (`30d`, `ytd`,
+`1y`, `all`) or an explicit local-date range. Range readers are the canonical
+path for custom dates.
 
 ## Backup, restore, and CSV IPC
 

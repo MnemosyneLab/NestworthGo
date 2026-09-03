@@ -142,6 +142,9 @@ func quoteHistoryQuery(trendRange domain.TrendRange, sourceFilter domain.QuoteSo
 	case domain.Trend30Days:
 		from := today.AddDate(0, 0, -29)
 		query.From = &from
+	case domain.TrendYearToDate:
+		from := time.Date(today.Year(), time.January, 1, 0, 0, 0, 0, location)
+		query.From = &from
 	case domain.TrendOneYear:
 		from := today.AddDate(0, 0, -364)
 		query.From = &from

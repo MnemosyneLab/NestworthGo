@@ -28,6 +28,14 @@ export function useAccountValuations(filter: AccountFilterRequest = {}) {
   });
 }
 
+export function useAccountCashValues(accountId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...queryKeys.accounts.all, "cashValues", accountId] as const,
+    queryFn: () => callService(() => HoldingService.ListAccountCashValues(accountId)),
+    enabled: enabled && Boolean(accountId),
+  });
+}
+
 export function useCreateAccount() {
   const queryClient = useQueryClient();
   return useMutation({

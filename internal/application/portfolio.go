@@ -474,10 +474,17 @@ func (s *Service) HoldingsByAccounts(ctx context.Context, accountIDs []domain.Ac
 }
 
 func (s *Service) UpdateHoldingQuantity(ctx context.Context, id domain.HoldingID, quantity string) (domain.Holding, error) {
-	return s.UpdateHolding(ctx, id, HoldingUpdateInput{Quantity: quantity, QuantitySet: true})
+	return s.updateHolding(ctx, id, HoldingUpdateInput{Quantity: quantity, QuantitySet: true}, true)
 }
 
 func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input HoldingUpdateInput) (domain.Holding, error) {
+	if input.QuantitySet || input.Quantity != "" {
+		return domain.Holding{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "quantity", Message: "UpdateHolding only supports metadata; use UpdateHoldingQuantity before History or RecordChange after History"}
+	}
+	return s.updateHolding(ctx, id, input, false)
+}
+
+func (s *Service) updateHolding(ctx context.Context, id domain.HoldingID, input HoldingUpdateInput, allowQuantity bool) (domain.Holding, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.Holding{}, err
@@ -498,6 +505,9 @@ func (s *Service) UpdateHolding(ctx context.Context, id domain.HoldingID, input 
 		return domain.Holding{}, &domain.Error{Code: domain.ErrValidation, Field: "holdingId", Message: "holding is archived"}
 	}
 	if input.QuantitySet || input.Quantity != "" {
+		if !allowQuantity {
+			return domain.Holding{}, &domain.Error{Code: domain.ErrInvalidChange, Field: "quantity", Message: "holding quantity changes are not metadata"}
+		}
 		if origin, originErr := s.repository.HistoryOrigin(ctx, household.ID); originErr != nil {
 			return domain.Holding{}, originErr
 		} else if origin != nil {
@@ -553,6 +563,9 @@ func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archi
 }
 
 func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.AccountID, amount, currency, effectiveAt string) (domain.AccountCashValue, error) {
+	// Before History this appends a cash baseline. After History the resulting
+	// balance is converted to a reconciliation cash_in/cash_out and committed
+	// by the same PreviewChange/RecordChange engine.
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.AccountCashValue{}, err
@@ -671,13 +684,17 @@ func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID 
 	if err != nil {
 		return domain.InstrumentQuote{}, err
 	}
-	if err := s.repository.AppendInstrumentQuoteAndSelectManual(ctx, quote); err != nil {
+	// Adding an observation and selecting its source are separate commands.
+	// Saving a manual quote must not change the user's preferred source.
+	if err := s.repository.AppendInstrumentQuote(ctx, quote); err != nil {
 		return domain.InstrumentQuote{}, err
 	}
 	return quote, nil
 }
 
 func (s *Service) SaveManualInstrumentQuote(ctx context.Context, instrumentID domain.InstrumentID, unitPrice, quotedAt string) (domain.InstrumentQuote, error) {
+	// Deprecated: use AppendManualInstrumentQuote. Save is retained as a
+	// compatibility alias and intentionally has the same append-only semantics.
 	return s.AppendManualInstrumentQuote(ctx, instrumentID, unitPrice, quotedAt, false)
 }
 
@@ -770,13 +787,16 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 	if err != nil {
 		return domain.FXQuote{}, err
 	}
-	if err := s.repository.AppendFXQuoteAndSelectManual(ctx, fxQuote); err != nil {
+	// Adding an observation and selecting its source are separate commands.
+	if err := s.repository.AppendFXQuote(ctx, fxQuote); err != nil {
 		return domain.FXQuote{}, err
 	}
 	return fxQuote, nil
 }
 
 func (s *Service) SaveManualFXQuote(ctx context.Context, baseCurrency, quoteCurrency, rate, quotedAt string) (domain.FXQuote, error) {
+	// Deprecated: use AppendManualFXQuote. Save is retained as a compatibility
+	// alias and intentionally has the same append-only semantics.
 	return s.AppendManualFXQuote(ctx, baseCurrency, quoteCurrency, rate, quotedAt)
 }
 

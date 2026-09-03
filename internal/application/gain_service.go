@@ -386,6 +386,8 @@ func (g *GainService) trendRangeBounds(ctx context.Context, trendRange domain.Tr
 	switch trendRange {
 	case domain.Trend30Days:
 		from = now.AddDate(0, 0, -29).Format("2006-01-02")
+	case domain.TrendYearToDate:
+		from = time.Date(now.Year(), time.January, 1, 0, 0, 0, 0, location).Format("2006-01-02")
 	case domain.TrendOneYear:
 		from = now.AddDate(0, 0, -364).Format("2006-01-02")
 	case domain.TrendAllTime:

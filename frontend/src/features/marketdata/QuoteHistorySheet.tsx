@@ -36,7 +36,7 @@ export function QuoteHistorySheet({
   const { t, i18n } = useTranslation();
   const catalog = useCatalog();
   const settings = useSettings();
-  const ranges = catalog.data?.trendRanges ?? ["30d", "1y", "all"];
+  const ranges = catalog.data?.trendRanges ?? ["30d", "ytd", "1y", "all"];
   const [range, setRange] = useState("30d");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [swapped, setSwapped] = useState(false);

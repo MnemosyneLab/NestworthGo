@@ -74,19 +74,21 @@ export const queryKeys = {
     all: ["portfolio"] as const,
     trend: (trendRange: string) => ["portfolio", "trend", trendRange] as const,
   },
-    analytics: {
-      all: ["analytics"] as const,
-      realizedGain: (trendRange: string) => ["analytics", "realizedGain", trendRange] as const,
-      dividendIncome: (trendRange: string) => ["analytics", "dividendIncome", trendRange] as const,
-      accountGains: {
-        all: ["analytics", "accountGains"] as const,
-      },
-      netWorthTrend: (trendRange: string) => ["analytics", "netWorthTrend", trendRange] as const,
-      netWorthTrendPrefix: ["analytics", "netWorthTrend"] as const,
+  analytics: {
+    all: ["analytics"] as const,
+    realizedGain: (scope: unknown, range: unknown) => ["analytics", "realizedGain", scope, range] as const,
+    dividendIncome: (scope: unknown, range: unknown) => ["analytics", "dividendIncome", scope, range] as const,
+    accountGains: {
+      all: ["analytics", "accountGains"] as const,
     },
+    netWorthTrend: (range: unknown) => ["analytics", "netWorthTrend", range] as const,
+    netWorthTrendPrefix: ["analytics", "netWorthTrend"] as const,
+  },
   history: {
     all: ["history"] as const,
     origin: ["history", "origin"] as const,
+    mutationAllowed: ["history", "mutationAllowed"] as const,
+    snapshotState: ["history", "snapshotState"] as const,
     startingPointDraft: ["history", "startingPointDraft"] as const,
     activity: (activityId: string) => ["history", "activity", activityId] as const,
     activities: (limit: number) => ["history", "activities", limit] as const,

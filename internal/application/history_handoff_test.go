@@ -256,7 +256,13 @@ func TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
 	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-07-20", false); err != nil {
 		t.Fatal(err)
 	}
+	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	clock = time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
@@ -289,8 +295,8 @@ func TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
 		if snapshot.NetWorthAmount == nil || snapshot.NetWorthAmount.CanonicalAmount() != "70" {
 			t.Fatalf("backdated quote snapshot = %+v", snapshot)
 		}
-		if len(snapshot.Items) != 1 || snapshot.Items[0].FXPreferenceObservationID == nil {
-			t.Fatalf("FX preference provenance = %+v", snapshot.Items)
+		if len(snapshot.Items) != 1 || snapshot.Items[0].QuoteID == nil || snapshot.Items[0].FXQuoteID == nil {
+			t.Fatalf("quote provenance = %+v", snapshot.Items)
 		}
 	}
 	if err := database.SQL.QueryRow("SELECT dirty_from FROM history_snapshot_state WHERE household_id = ?", bootstrap.Household.ID.String()).Scan(&dirty); err != nil {

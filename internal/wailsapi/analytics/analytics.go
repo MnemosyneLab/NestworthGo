@@ -52,7 +52,8 @@ func (s *Service) AccountGains(ctx context.Context) ([]wire.AccountGainDTO, erro
 	return wire.FromAccountGains(views), nil
 }
 
-// GainScopeRequest mirrors domain.GainScope: nil fields mean "not filtered."
+// GainScopeRequest mirrors domain.GainScope: an empty request is the explicit
+// portfolio scope; setting AccountID or InstrumentID narrows the calculation.
 type GainScopeRequest struct {
 	AccountID    *string `json:"accountId,omitempty"`
 	InstrumentID *string `json:"instrumentId,omitempty"`
@@ -89,7 +90,7 @@ func (s *Service) RealizedGainInRange(ctx context.Context, scope GainScopeReques
 	return wire.FromRealizedGain(view), nil
 }
 
-// RealizedGain resolves a named trend range ("30d", "1y", "all") the same
+// RealizedGain resolves a named trend range ("30d", "ytd", "1y", "all") the same
 // way the Analytics range selector is implemented in the frontend.
 func (s *Service) RealizedGain(ctx context.Context, scope GainScopeRequest, trendRange string) (wire.RealizedGainDTO, error) {
 	domainScope, err := scope.toDomain()
@@ -119,7 +120,7 @@ func (s *Service) DividendIncomeInRange(ctx context.Context, scope GainScopeRequ
 	return wire.FromDividendIncome(view), nil
 }
 
-// DividendIncome resolves a named trend range ("30d", "1y", "all") the same
+// DividendIncome resolves a named trend range ("30d", "ytd", "1y", "all") the same
 // way the Analytics range selector is implemented in the frontend.
 func (s *Service) DividendIncome(ctx context.Context, scope GainScopeRequest, trendRange string) (wire.RealizedGainDTO, error) {
 	domainScope, err := scope.toDomain()

@@ -81,11 +81,13 @@ func TestUpdateHoldingQuantityAndNote(t *testing.T) {
 		t.Fatalf("CreateHolding: %v", err)
 	}
 	note := "core position"
-	updated, err := service.UpdateHolding(ctx, created.ID, holding.UpdateHoldingRequest{
-		Quantity: "15", QuantitySet: true, Note: &note, NoteSet: true,
-	})
+	updated, err := service.UpdateHoldingQuantity(ctx, created.ID, "15")
 	if err != nil {
-		t.Fatalf("UpdateHolding: %v", err)
+		t.Fatalf("UpdateHoldingQuantity: %v", err)
+	}
+	updated, err = service.UpdateHolding(ctx, created.ID, holding.UpdateHoldingRequest{Note: &note, NoteSet: true})
+	if err != nil {
+		t.Fatalf("UpdateHolding metadata: %v", err)
 	}
 	if updated.Quantity != "15" || updated.Note == nil || *updated.Note != "core position" {
 		t.Fatalf("updated = %+v", updated)

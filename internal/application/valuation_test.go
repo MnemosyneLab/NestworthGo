@@ -74,8 +74,14 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 	if _, err := service.AppendManualInstrumentQuote(ctx, qqq.ID, "700", "2026-08-23", false); err != nil {
 		t.Fatal(err)
 	}
+	if err := service.SetInstrumentQuoteSource(ctx, qqq.ID, "manual"); err != nil {
+		t.Fatal(err)
+	}
 	if includeES3Quote {
 		if _, err := service.AppendManualInstrumentQuote(ctx, es3.ID, "4", "2026-08-23", false); err != nil {
+			t.Fatal(err)
+		}
+		if err := service.SetInstrumentQuoteSource(ctx, es3.ID, "manual"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -83,6 +89,12 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 		t.Fatal(err)
 	}
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "6.9", "2026-08-23"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetFXPreference(ctx, "SGD", "CNY", "manual"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 

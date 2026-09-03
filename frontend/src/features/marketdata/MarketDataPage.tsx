@@ -3,8 +3,12 @@ import { useTranslation } from "react-i18next";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState } from "@/components/layout/PageState";
@@ -14,10 +18,12 @@ import {
   useCurrentInstrumentQuote,
   useFXPreferences,
   useInstruments,
+  useAppendManualFXQuote,
   useSetFXPreference,
+  useSetInstrumentQuoteSource,
 } from "@/queries/investments";
+import { useSettings, useSupportedCurrencies } from "@/queries/settings";
 import { useOverview } from "@/queries/portfolio";
-import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
@@ -273,7 +279,7 @@ function RefreshResults({
   );
 }
 
-function SavedInstrumentRow({ instrument, onViewHistory }: { instrument: InstrumentDTO; onViewHistory: () => void }) {
+function SavedInstrumentRow({ instrument, onConfigure, isConfiguring, onViewHistory }: { instrument: InstrumentDTO; onConfigure: (source: string) => void; isConfiguring: boolean; onViewHistory: () => void }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const quote = useCurrentInstrumentQuote(instrument.id);
@@ -301,6 +307,10 @@ function SavedInstrumentRow({ instrument, onViewHistory }: { instrument: Instrum
         )}
       </span>
       <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-2 lg:col-start-3">
+        <NativeSelect aria-label={t("marketData.instrumentSource")} value={instrument.quoteSource} disabled={isConfiguring} onChange={(event) => onConfigure(event.target.value)}>
+          <option value="provider">{t("portfolio.provider")}</option>
+          <option value="manual">{t("portfolio.manual")}</option>
+        </NativeSelect>
         <Button type="button" variant="outline" size="sm" onClick={onViewHistory}>{t("charts.viewHistory")}</Button>
       </span>
     </li>
@@ -328,7 +338,7 @@ function SavedFXRow({
     <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-md border border-border px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,auto)_auto]" data-testid={`saved-fx-${fxPairKey(pair.currencyA, pair.currencyB)}`}>
       <span className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="font-medium">{pair.currencyA}/{pair.currencyB}</span>
-        <Badge variant={!preference ? "warning" : "secondary"}>{fxSourceLabel(t, preference, settings.data?.fx_provider)}</Badge>
+        <Badge variant={!preference ? "warning" : "secondary"}>{fxSourceLabel(t, preference, settings.data?.fxProvider)}</Badge>
       </span>
       <span className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-right lg:col-span-1 lg:col-start-2 lg:row-start-1">
         {quote.isLoading ? (
@@ -374,19 +384,83 @@ function SavedFXRow({
   );
 }
 
+function ManualFXQuoteForm() {
+  const { t } = useTranslation();
+  const currencies = useSupportedCurrencies();
+  const appendQuote = useAppendManualFXQuote();
+  const options = currencies.data ?? [];
+  const [baseCurrency, setBaseCurrency] = useState("");
+  const [quoteCurrency, setQuoteCurrency] = useState("");
+  const [rate, setRate] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState("");
+  const selectedBaseCurrency = baseCurrency || options[0] || "";
+  const selectedQuoteCurrency = quoteCurrency || options[1] || options[0] || "";
+  const invalidPair = !selectedBaseCurrency || !selectedQuoteCurrency || selectedBaseCurrency === selectedQuoteCurrency;
+
+  const submit = () => {
+    if (invalidPair || !rate.trim()) return;
+    appendQuote.mutate({
+      baseCurrency: selectedBaseCurrency,
+      quoteCurrency: selectedQuoteCurrency,
+      rate: rate.trim(),
+      quotedAt: effectiveDate ? new Date(`${effectiveDate}T00:00:00`).toISOString() : "",
+    });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("marketData.manualFXTitle")}</CardTitle>
+        <p className="text-sm text-muted-foreground">{t("marketData.manualFXDescription")}</p>
+      </CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="manual-fx-base">{t("marketData.baseCurrency")}</Label>
+          <NativeSelect id="manual-fx-base" value={selectedBaseCurrency} onChange={(event) => setBaseCurrency(event.target.value)}>
+            {options.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+          </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="manual-fx-quote">{t("marketData.quoteCurrency")}</Label>
+          <NativeSelect id="manual-fx-quote" value={selectedQuoteCurrency} onChange={(event) => setQuoteCurrency(event.target.value)}>
+            {options.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+          </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="manual-fx-rate">{t("marketData.rate")}</Label>
+          <Input id="manual-fx-rate" inputMode="decimal" value={rate} onChange={(event) => setRate(event.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="manual-fx-date">{t("marketData.effectiveDate")}</Label>
+          <DatePicker id="manual-fx-date" value={effectiveDate} onChange={setEffectiveDate} />
+        </div>
+        {invalidPair && <p className="text-sm text-destructive sm:col-span-2 lg:col-span-4">{t("marketData.invalidPair")}</p>}
+        {appendQuote.isError && <p role="alert" className="text-sm text-destructive sm:col-span-2 lg:col-span-4">{displayError(appendQuote.error, t("marketData.loadError"))}</p>}
+        <Button type="button" onClick={submit} disabled={appendQuote.isPending || invalidPair || !rate.trim()} className="sm:col-span-2 lg:col-span-4 lg:justify-self-start">
+          {appendQuote.isPending ? t("common.pending") : t("marketData.saveManualFX")}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SavedMarketData({
   instruments,
   fxPairs,
   fxPreferences,
   onConfigureFX,
+  onConfigureInstrument,
   configuringPair,
+  configuringInstrument,
   onViewHistory,
 }: {
   instruments: InstrumentDTO[];
   fxPairs: FxPair[];
   fxPreferences: FXPreferenceDTO[];
   onConfigureFX: (pair: FxPair, source?: string) => void;
+  onConfigureInstrument: (instrument: InstrumentDTO, source: string) => void;
   configuringPair?: string;
+  configuringInstrument?: string;
   onViewHistory: (target: QuoteHistoryTarget) => void;
 }) {
   const { t } = useTranslation();
@@ -431,6 +505,8 @@ function SavedMarketData({
                   <SavedInstrumentRow
                     key={instrument.id}
                     instrument={instrument}
+                    onConfigure={(source) => onConfigureInstrument(instrument, source)}
+                    isConfiguring={configuringInstrument === instrument.id}
                     onViewHistory={() => onViewHistory({ kind: "instrument", instrument })}
                   />
                 ))}
@@ -453,10 +529,12 @@ export function MarketDataPage() {
   const refreshAll = useRefreshAll();
   const refreshMissingOrStale = useRefreshMissingOrStale();
   const setFXPreference = useSetFXPreference();
+  const setInstrumentQuoteSource = useSetInstrumentQuoteSource();
   const [lastRefresh, setLastRefresh] = useState<"all" | "missing" | null>(null);
   const [result, setResult] = useState<RefreshResultDTO | undefined>();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | undefined>();
   const [configuringPair, setConfiguringPair] = useState<string | undefined>();
+  const [configuringInstrument, setConfiguringInstrument] = useState<string | undefined>();
   const [historyTarget, setHistoryTarget] = useState<QuoteHistoryTarget | null>(null);
   const activeRefresh = lastRefresh === "missing" ? refreshMissingOrStale : refreshAll;
 
@@ -466,8 +544,10 @@ export function MarketDataPage() {
     setLastRefreshAt(undefined);
     refreshAll.mutate(undefined, {
       onSuccess: (next) => {
-        setResult(next);
-        setLastRefreshAt(new Date());
+        if (next) {
+          setResult(next);
+          setLastRefreshAt(new Date());
+        }
       },
     });
   };
@@ -478,10 +558,26 @@ export function MarketDataPage() {
     setLastRefreshAt(undefined);
     refreshMissingOrStale.mutate(undefined, {
       onSuccess: (next) => {
-        setResult(next);
-        setLastRefreshAt(new Date());
+        if (next) {
+          setResult(next);
+          setLastRefreshAt(new Date());
+        }
       },
     });
+  };
+
+  const configureInstrument = (instrument: InstrumentDTO, source: string) => {
+    setConfiguringInstrument(instrument.id);
+    setInstrumentQuoteSource.mutate(
+      { instrumentId: instrument.id, source },
+      {
+        onSuccess: () => setConfiguringInstrument(undefined),
+        onError: (error) => {
+          setConfiguringInstrument(undefined);
+          toast.error(displayError(error, t("marketData.loadError")));
+        },
+      },
+    );
   };
 
   const configureFX = (pair: FxPair, source = "provider") => {
@@ -513,13 +609,16 @@ export function MarketDataPage() {
       <PageChrome pageId="market-data" title={t("nav.marketData")} />
       <PageIntro description={t("marketData.description")} />
       <div className="flex flex-wrap gap-2">
-        <Button onClick={runRefreshMissingOrStale} disabled={refreshAll.isPending || refreshMissingOrStale.isPending || setFXPreference.isPending}>
-          <RefreshCw className="size-4" aria-hidden="true" /> {refreshMissingOrStale.isPending ? t("marketData.refreshing") : t("marketData.refreshMissingOrStale")}
+        <Button onClick={runRefreshMissingOrStale} disabled={refreshAll.refreshing || refreshMissingOrStale.refreshing || setFXPreference.isPending || setInstrumentQuoteSource.isPending}>
+          <RefreshCw className="size-4" aria-hidden="true" /> {refreshMissingOrStale.refreshing ? t("marketData.refreshing") : t("marketData.refreshMissingOrStale")}
         </Button>
-        <Button variant="outline" onClick={runRefreshAll} disabled={refreshAll.isPending || refreshMissingOrStale.isPending || setFXPreference.isPending}>
-          <RefreshCw className="size-4" aria-hidden="true" /> {refreshAll.isPending ? t("marketData.refreshing") : t("marketData.forceRefreshAll")}
+        <Button variant="outline" onClick={runRefreshAll} disabled={refreshAll.refreshing || refreshMissingOrStale.refreshing || setFXPreference.isPending || setInstrumentQuoteSource.isPending}>
+          <RefreshCw className="size-4" aria-hidden="true" /> {refreshAll.refreshing ? t("marketData.refreshing") : t("marketData.forceRefreshAll")}
         </Button>
+        {activeRefresh.refreshing && <Button type="button" variant="outline" onClick={activeRefresh.cancel}>{t("marketData.cancelRefresh")}</Button>}
       </div>
+
+      {activeRefresh.operationStatus === "cancelled" && <p role="status" className="text-sm text-muted-foreground">{t("marketData.refreshCancelled")}</p>}
 
       {activeRefresh.isError && (
         <ErrorState
@@ -547,7 +646,9 @@ export function MarketDataPage() {
           fxPairs={fxPairs}
           fxPreferences={preferenceList}
           onConfigureFX={configureFX}
+          onConfigureInstrument={configureInstrument}
           configuringPair={configuringPair}
+          configuringInstrument={configuringInstrument}
           onViewHistory={setHistoryTarget}
         />
       )}
@@ -562,6 +663,7 @@ export function MarketDataPage() {
           configuringPair={configuringPair}
         />
       )}
+      <ManualFXQuoteForm />
       {!activeRefresh.isError && !result && (
         <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">{t("marketData.explicitNotice")}</p>
       )}

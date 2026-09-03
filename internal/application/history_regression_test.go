@@ -359,7 +359,7 @@ func TestNormalMetadataAndBackdatedQuotesAppendEvidenceAndDirtyHistory(t *testin
 	if err := database.SQL.QueryRow("SELECT COUNT(*) FROM fx_preference_observations").Scan(&fxObservations); err != nil {
 		t.Fatal(err)
 	}
-	if accountObservations != 1 || instrumentObservations != 1 || fxObservations != 1 {
+	if accountObservations != 1 || instrumentObservations != 0 || fxObservations != 0 {
 		t.Fatalf("observation counts = account=%d instrument=%d fx=%d", accountObservations, instrumentObservations, fxObservations)
 	}
 	var dirty string

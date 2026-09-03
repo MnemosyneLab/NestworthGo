@@ -2,12 +2,9 @@
 // refresh surface (RefreshAll, RefreshMissingOrStale, RefreshRequiredFX, RefreshInstrument,
 // RefreshFX, SetFXProvider, FXProviderKey) for the Wails IPC boundary.
 //
-// A synchronous method per operation is exposed for simple callers (the
-// frontend's TanStack Query useMutation already treats any bound method as
-// async, since every Wails call already returns a Promise). The
-// StartXxx/CancelRefresh pair additionally implements the cancellable,
-// event-streamed design: an event for an abandoned request ID is ignored
-// by the frontend so a stale completion cannot corrupt current UI state.
+// StartXxx/CancelRefresh is the FE-facing cancellable, event-streamed design.
+// Synchronous methods remain for backend/internal callers and compatibility;
+// they are not the frontend refresh contract.
 package marketdata
 
 import (
@@ -81,6 +78,8 @@ func fromRefreshResult(value application.RefreshResult) RefreshResultDTO {
 }
 
 func (s *Service) RefreshAll(ctx context.Context) (RefreshResultDTO, error) {
+	// Deprecated for frontend callers: use StartRefreshAll and the completion
+	// event so a long-running operation can be cancelled and observed.
 	result, err := s.app.RefreshAll(ctx)
 	if err != nil {
 		return RefreshResultDTO{}, apierror.Wrap(err)
@@ -89,6 +88,7 @@ func (s *Service) RefreshAll(ctx context.Context) (RefreshResultDTO, error) {
 }
 
 func (s *Service) RefreshMissingOrStale(ctx context.Context) (RefreshResultDTO, error) {
+	// Deprecated for frontend callers: use StartRefreshMissingOrStale.
 	result, err := s.app.RefreshMissingOrStale(ctx)
 	if err != nil {
 		return RefreshResultDTO{}, apierror.Wrap(err)
@@ -97,6 +97,7 @@ func (s *Service) RefreshMissingOrStale(ctx context.Context) (RefreshResultDTO, 
 }
 
 func (s *Service) RefreshRequiredFX(ctx context.Context) (RefreshResultDTO, error) {
+	// Deprecated for frontend callers: use StartRefreshRequiredFX.
 	result, err := s.app.RefreshRequiredFX(ctx)
 	if err != nil {
 		return RefreshResultDTO{}, apierror.Wrap(err)
@@ -105,6 +106,7 @@ func (s *Service) RefreshRequiredFX(ctx context.Context) (RefreshResultDTO, erro
 }
 
 func (s *Service) RefreshInstrument(ctx context.Context, instrumentID string) (RefreshResultDTO, error) {
+	// Deprecated for frontend callers: use StartRefreshInstrument.
 	id, err := domain.ParseInstrumentID(instrumentID)
 	if err != nil {
 		return RefreshResultDTO{}, apierror.Wrap(err)
@@ -117,6 +119,7 @@ func (s *Service) RefreshInstrument(ctx context.Context, instrumentID string) (R
 }
 
 func (s *Service) RefreshFX(ctx context.Context, currencyA, currencyB string) (RefreshResultDTO, error) {
+	// Deprecated for frontend callers: use StartRefreshFX.
 	result, err := s.app.RefreshFX(ctx, currencyA, currencyB)
 	if err != nil {
 		return RefreshResultDTO{}, apierror.Wrap(err)
@@ -125,6 +128,8 @@ func (s *Service) RefreshFX(ctx context.Context, currencyA, currencyB string) (R
 }
 
 func (s *Service) SetFXProvider(key string) error {
+	// Deprecated for frontend callers: SettingsService.Save is the canonical
+	// provider-configuration path.
 	return apierror.Wrap(s.app.SetFXProvider(key))
 }
 
@@ -141,6 +146,7 @@ func (s *Service) FXProviderKey() string {
 // TypeScript event payload.
 type RefreshCompletedPayload struct {
 	RequestID string            `json:"requestId"`
+	Status    string            `json:"status"`
 	Result    *RefreshResultDTO `json:"result,omitempty"`
 	Error     string            `json:"error,omitempty"`
 }
@@ -176,9 +182,10 @@ func (s *Service) emitIfCurrent(requestID string, token uint64, payload RefreshC
 }
 
 // CancelRefresh cancels the in-flight refresh started under requestID, if
-// any. Calling it for an unknown or already-completed requestID is a no-op,
-// not an error: the frontend does not need to race its own completion
-// event to decide whether cancellation is still meaningful.
+// any, and emits a cancelled completion event. Calling it for an unknown or
+// already-completed requestID is a no-op, not an error: the frontend does not
+// need to race its own completion event to decide whether cancellation is
+// still meaningful.
 func (s *Service) CancelRefresh(requestID string) {
 	s.mu.Lock()
 	registration, ok := s.cancels[requestID]
@@ -186,6 +193,7 @@ func (s *Service) CancelRefresh(requestID string) {
 	s.mu.Unlock()
 	if ok {
 		registration.cancel()
+		s.events.Emit(RefreshCompletedEvent, RefreshCompletedPayload{RequestID: requestID, Status: "cancelled"})
 	}
 }
 
@@ -211,8 +219,9 @@ func (s *Service) runAsync(requestID string, run func(context.Context) (applicat
 		defer s.wg.Done()
 		defer cancel()
 		result, err := run(ctx)
-		payload := RefreshCompletedPayload{RequestID: requestID}
+		payload := RefreshCompletedPayload{RequestID: requestID, Status: "completed"}
 		if err != nil {
+			payload.Status = "failed"
 			payload.Error = apierror.Wrap(err).Error()
 		} else {
 			dto := fromRefreshResult(result)
@@ -224,7 +233,7 @@ func (s *Service) runAsync(requestID string, run func(context.Context) (applicat
 
 func (s *Service) emitImmediate(requestID string, err error) {
 	token := s.registerCancel(requestID, func() {})
-	s.emitIfCurrent(requestID, token, RefreshCompletedPayload{RequestID: requestID, Error: apierror.Wrap(err).Error()})
+	s.emitIfCurrent(requestID, token, RefreshCompletedPayload{RequestID: requestID, Status: "failed", Error: apierror.Wrap(err).Error()})
 }
 
 // StartRefreshAll launches RefreshAll in a goroutine and returns

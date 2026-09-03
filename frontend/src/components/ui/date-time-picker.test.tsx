@@ -7,7 +7,7 @@ import { settingsQueryKey } from "@/queries/settings";
 import { DatePicker } from "./date-picker";
 import { TimePicker } from "./time-picker";
 
-function renderDatePicker(settings: { week_start: string; date_format: string }, onChange = vi.fn()) {
+function renderDatePicker(settings: { weekStart: string; dateFormat: string }, onChange = vi.fn()) {
   const queryClient = createTestQueryClient();
   queryClient.setQueryData(settingsQueryKey, settings);
   return {
@@ -21,8 +21,8 @@ function renderDatePicker(settings: { week_start: string; date_format: string },
 }
 
 describe("DatePicker and TimePicker", () => {
-  it("uses week_start and date_format settings and disables dates outside min/max", async () => {
-    renderDatePicker({ week_start: "sunday", date_format: "day-first" });
+  it("uses weekStart and dateFormat settings and disables dates outside min/max", async () => {
+    renderDatePicker({ weekStart: "sunday", dateFormat: "day-first" });
 
     expect(screen.getByRole("button", { name: "15/08/2026" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "15/08/2026" }));

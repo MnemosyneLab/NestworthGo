@@ -250,6 +250,8 @@ func (s *Service) ArchiveAccount(ctx context.Context, id string, archived bool) 
 }
 
 func (s *Service) AppendAccountValue(ctx context.Context, id, amount, effectiveAt string) (wire.AccountValueDTO, error) {
+	// AppendAccountValue is the bootstrap/import baseline path. Once history
+	// exists, application.Service converts it to a RecordChange value_update.
 	accountID, err := domain.ParseAccountID(id)
 	if err != nil {
 		return wire.AccountValueDTO{}, apierror.Wrap(err)
@@ -262,6 +264,7 @@ func (s *Service) AppendAccountValue(ctx context.Context, id, amount, effectiveA
 }
 
 func (s *Service) AccountValuation(ctx context.Context, id string) (wire.AccountValuationDTO, error) {
+	// Deprecated: use AccountValuations for the batch valuation read path.
 	accountID, err := domain.ParseAccountID(id)
 	if err != nil {
 		return wire.AccountValuationDTO{}, apierror.Wrap(err)

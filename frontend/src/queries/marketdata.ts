@@ -1,70 +1,137 @@
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Events } from "@wailsio/runtime";
 import { Service as MarketDataService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata";
-import { callService } from "@/lib/wails";
+import type { RefreshCompletedPayload, RefreshResultDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
+import { callService, parseWailsError, translateWailsError } from "@/lib/wails";
 import { invalidateQuoteReads, invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
 
-function requireRefreshSuccess<T extends { items?: Array<{ status: string }> | null }>(result: T): T {
-  const unsuccessful = result.items?.find((item) => item.status === "failed" || item.status === "rate_limited" || item.status === "skipped");
-  if (unsuccessful) {
-    throw new Error("Quote update was not completed");
-  }
-  return result;
+const REFRESH_COMPLETED_EVENT = "marketdata.refresh.completed" as const;
+
+export type RefreshOperationStatus = "idle" | "refreshing" | "completed" | "failed" | "cancelled";
+
+type AsyncRefreshOptions<TInput> = {
+	start: (requestId: string, input: TInput) => Promise<void>;
+	invalidate: (queryClient: ReturnType<typeof useQueryClient>, input: TInput, result: RefreshResultDTO) => void;
+};
+
+type PendingRefresh = {
+	requestId: string;
+	cleanup: () => void;
+	resolve: (result: RefreshResultDTO | undefined) => void;
+	reject: (error: Error) => void;
+	cancelled: boolean;
+};
+
+function refreshEventError(raw: string): Error {
+	const wireError = parseWailsError(raw);
+	const error = new Error(translateWailsError(wireError));
+	(error as Error & { wireError: typeof wireError }).wireError = wireError;
+	return error;
 }
 
-/**
- * useRefreshAll calls the synchronous RefreshAll() binding. The Go
- * service also exposes a cancellable, event-streamed
- * StartRefreshAll/CancelRefresh pair for a future
- * "cancel a long-running refresh" UX; this page uses the simpler
- * synchronous call, which TanStack Query's useMutation already treats as
- * async (a real Wails call is a Promise regardless of which Go-side
- * variant is used).
- */
+function resultFailed(result: RefreshResultDTO): boolean {
+	return Boolean(result.items?.some((item) => item.status === "failed" || item.status === "rate_limited" || item.status === "skipped"));
+}
+
+function useAsyncRefresh<TInput>({ start, invalidate }: AsyncRefreshOptions<TInput>) {
+	const queryClient = useQueryClient();
+	const pending = useRef<PendingRefresh | null>(null);
+	const [operationStatus, setOperationStatus] = useState<RefreshOperationStatus>("idle");
+
+	const cancel = useCallback(() => {
+		const current = pending.current;
+		if (!current) return;
+		current.cancelled = true;
+		current.cleanup();
+		pending.current = null;
+		setOperationStatus("cancelled");
+		void callService(() => MarketDataService.CancelRefresh(current.requestId)).catch(() => {
+			// The Go cancellation command is idempotent; the listener is already detached.
+		});
+		current.resolve(undefined);
+	}, []);
+
+	const mutation = useMutation<RefreshResultDTO | undefined, Error, TInput>({
+		mutationFn: async (input) => {
+			const requestId = crypto.randomUUID();
+			const completion = new Promise<RefreshResultDTO | undefined>((resolve, reject) => {
+				const cleanup = Events.On(REFRESH_COMPLETED_EVENT, (event) => {
+					const payload: RefreshCompletedPayload = event.data;
+					if (payload.requestId !== requestId || pending.current?.cancelled) return;
+					pending.current = null;
+					cleanup();
+					if (payload.status === "cancelled") {
+						setOperationStatus("cancelled");
+						resolve(undefined);
+						return;
+					}
+					if (payload.error) {
+						setOperationStatus("failed");
+						reject(refreshEventError(payload.error));
+						return;
+					}
+					if (!payload.result) {
+						setOperationStatus("failed");
+						reject(new Error("Refresh completed without a result"));
+						return;
+					}
+					setOperationStatus(resultFailed(payload.result) ? "failed" : "completed");
+					resolve(payload.result);
+				});
+				pending.current = { requestId, cleanup, resolve, reject, cancelled: false };
+			});
+			setOperationStatus("refreshing");
+			try {
+				await callService(() => start(requestId, input));
+				return await completion;
+			} catch (error) {
+				pending.current?.cleanup();
+				pending.current = null;
+				setOperationStatus("failed");
+				throw error;
+			}
+		},
+		onSuccess: (result, input) => {
+			if (result) invalidate(queryClient, input, result);
+		},
+	});
+
+	useEffect(() => () => cancel(), [cancel]);
+	return { ...mutation, operationStatus, refreshing: operationStatus === "refreshing", cancel };
+}
+
 export function useRefreshAll() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => callService(() => MarketDataService.RefreshAll()),
-    onSuccess: () => invalidateRefreshAll(queryClient),
-  });
+	return useAsyncRefresh<void>({
+		start: (requestId) => MarketDataService.StartRefreshAll(requestId),
+		invalidate: (queryClient) => invalidateRefreshAll(queryClient),
+	});
 }
 
 export function useRefreshRequiredFX() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => callService(() => MarketDataService.RefreshRequiredFX()),
-    onSuccess: () => invalidateRequiredFX(queryClient),
-  });
+	return useAsyncRefresh<void>({
+		start: (requestId) => MarketDataService.StartRefreshRequiredFX(requestId),
+		invalidate: (queryClient) => invalidateRequiredFX(queryClient),
+	});
 }
 
 export function useRefreshMissingOrStale() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => {
-      const service = MarketDataService as typeof MarketDataService & {
-        RefreshMissingOrStale?: () => ReturnType<typeof MarketDataService.RefreshAll>;
-      };
-      if (typeof service.RefreshMissingOrStale === "function") {
-        return callService(() => service.RefreshMissingOrStale());
-      }
-      return callService(() => MarketDataService.RefreshRequiredFX());
-    },
-    onSuccess: () => invalidateRefreshAll(queryClient),
-  });
+	return useAsyncRefresh<void>({
+		start: (requestId) => MarketDataService.StartRefreshMissingOrStale(requestId),
+		invalidate: (queryClient) => invalidateRefreshAll(queryClient),
+	});
 }
 
 export function useRefreshInstrument() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (instrumentId: string) => requireRefreshSuccess(await callService(() => MarketDataService.RefreshInstrument(instrumentId))),
-    onSuccess: (_data, instrumentId) => invalidateQuoteReads(queryClient, instrumentId),
-  });
+	return useAsyncRefresh<string>({
+		start: (requestId, instrumentId) => MarketDataService.StartRefreshInstrument(requestId, instrumentId),
+		invalidate: (queryClient, instrumentId) => invalidateQuoteReads(queryClient, instrumentId),
+	});
 }
 
 export function useRefreshFX() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ currencyA, currencyB }: { currencyA: string; currencyB: string }) =>
-      requireRefreshSuccess(await callService(() => MarketDataService.RefreshFX(currencyA, currencyB))),
-    onSuccess: () => invalidateRequiredFX(queryClient),
-  });
+	return useAsyncRefresh<{ currencyA: string; currencyB: string }>({
+		start: (requestId, pair) => MarketDataService.StartRefreshFX(requestId, pair.currencyA, pair.currencyB),
+		invalidate: (queryClient) => invalidateRequiredFX(queryClient),
+	});
 }

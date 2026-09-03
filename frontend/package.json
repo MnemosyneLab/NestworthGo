@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "node ./scripts/ensure-bindings.mjs && vite",
-    "generate:bindings": "node ./scripts/ensure-bindings.mjs --force",
+    "generate:bindings": "node ./scripts/ensure-bindings.mjs",
+    "check:bindings": "node ./scripts/ensure-bindings.mjs --check",
     "build:dev": "node ./scripts/ensure-bindings.mjs && tsc && vite build --minify false --mode development",
     "build": "node ./scripts/ensure-bindings.mjs && tsc && vite build --mode production",
     "preview": "vite preview",

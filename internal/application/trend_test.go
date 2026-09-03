@@ -90,6 +90,75 @@ func TestTrendChartsIncludeTodayWhenHistoryStartsToday(t *testing.T) {
 	}
 }
 
+func TestNetWorthTrendDoesNotPlotIncompleteSnapshotAsZero(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-incomplete-gap", []string{"Owner"})
+	owner := bootstrap.Members[0].ID
+	if _, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
+	}); err != nil {
+		t.Fatalf("account: %v", err)
+	}
+	setClock(time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC))
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatalf("StartHistory: %v", err)
+	}
+	setClock(time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC))
+	zero, err := domain.ParseMoney("0", "CNY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeroSigned, err := domain.ParseSignedMoney("0", "CNY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	assets, err := domain.ParseMoney("100", "CNY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	netWorth, err := domain.ParseSignedMoney("100", "CNY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, snapshot := range []domain.DailyValuationSnapshot{
+		{
+			ID: domain.NewDailyValuationSnapshotID(), HouseholdID: bootstrap.Household.ID, LocalDate: "2026-08-01",
+			CutoffAt: time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC).Add(-time.Millisecond), ContentHash: "v2:test-incomplete",
+			AssetsAmount: &zero, LiabilitiesAmount: &zero, NetWorthAmount: &zeroSigned, Currency: "CNY",
+			Complete: false, ComponentCount: 1, MissingCount: 1, GenerationReason: "test", CreatedAt: time.Now().UTC(),
+		},
+		{
+			ID: domain.NewDailyValuationSnapshotID(), HouseholdID: bootstrap.Household.ID, LocalDate: "2026-08-02",
+			CutoffAt: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC).Add(-time.Millisecond), ContentHash: "v2:test-complete",
+			AssetsAmount: &assets, LiabilitiesAmount: &zero, NetWorthAmount: &netWorth, Currency: "CNY",
+			Complete: true, ComponentCount: 1, CreatedAt: time.Now().UTC(),
+		},
+	} {
+		if _, err := service.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, time.Now().UTC()); err != nil {
+			t.Fatalf("save %s snapshot: %v", snapshot.LocalDate, err)
+		}
+	}
+
+	trend, err := service.NetWorthTrend(ctx, domain.TrendAllTime)
+	if err != nil {
+		t.Fatalf("NetWorthTrend: %v", err)
+	}
+	if len(trend.Points) != 3 {
+		t.Fatalf("trend points = %+v, want incomplete, complete, and today", trend.Points)
+	}
+	if first := trend.Points[0]; first.Status != domain.TrendPointIncomplete || first.NetWorth != nil || first.Assets != nil || first.Liabilities != nil {
+		t.Fatalf("incomplete point = %+v, want null valuation and incomplete status", first)
+	}
+	if second := trend.Points[1]; second.Status != domain.TrendPointComplete || second.NetWorth == nil || second.NetWorth.CanonicalAmount() != "100" {
+		t.Fatalf("complete point = %+v, want 100", second)
+	}
+	missing, include, err := portfolioPointFromSnapshot(domain.DailyValuationSnapshot{LocalDate: "2026-08-01"}, "CNY")
+	if err != nil || !include || missing.Status != domain.TrendPointMissing || missing.ValuedSubtotal != nil {
+		t.Fatalf("missing portfolio point = %+v include=%v err=%v, want a null gap", missing, include, err)
+	}
+}
+
 func TestNetWorthTrendRebuildsHistoryLongerThan31DaysFromLastCompleted(t *testing.T) {
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-long-history", []string{"Owner"})
 	owner := bootstrap.Members[0].ID

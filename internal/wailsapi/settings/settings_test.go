@@ -2,7 +2,9 @@ package settings_test
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,20 +22,32 @@ func newTestService(t *testing.T) *settings.Service {
 	return settings.NewService(store, app)
 }
 
+func defaultDTO() settings.SettingsDTO {
+	value := appsettings.Default()
+	return settings.SettingsDTO{
+		SchemaVersion: value.SchemaVersion, Appearance: value.Appearance, Accent: value.Accent,
+		Language: value.Language, Timezone: value.Timezone, WeekStart: value.WeekStart,
+		DateFormat: value.DateFormat, TimeFormat: value.TimeFormat, Currency: value.Currency,
+		DecimalSeparator: value.DecimalSeparator, GroupingSeparator: value.GroupingSeparator,
+		DecimalPlaces: value.DecimalPlaces, WindowWidth: value.WindowWidth, WindowHeight: value.WindowHeight,
+		FXProvider: value.FXProvider, QuoteCacheTTL: value.QuoteCacheTTL,
+	}
+}
+
 func TestLoadReturnsDefaultsWhenNoFileExists(t *testing.T) {
 	service := newTestService(t)
 	value, err := service.Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if value != appsettings.Default() {
+	if value != defaultDTO() {
 		t.Fatalf("Load() = %+v, want defaults", value)
 	}
 }
 
 func TestSaveAndLoadRoundTrip(t *testing.T) {
 	service := newTestService(t)
-	updated := appsettings.Default()
+	updated := defaultDTO()
 	updated.Appearance = appsettings.AppearanceDark
 	updated.Language = appsettings.LanguageZhCN
 	if err := service.Save(updated); err != nil {
@@ -50,7 +64,7 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 
 func TestSaveRejectsInvalidSettings(t *testing.T) {
 	service := newTestService(t)
-	invalid := appsettings.Default()
+	invalid := defaultDTO()
 	invalid.Appearance = "not-a-real-appearance"
 	err := service.Save(invalid)
 	if err == nil {
@@ -64,7 +78,7 @@ func TestSaveRejectsInvalidSettings(t *testing.T) {
 
 func TestSaveRejectsUnsupportedFXProvider(t *testing.T) {
 	service := newTestService(t)
-	invalid := appsettings.Default()
+	invalid := defaultDTO()
 	invalid.FXProvider = "does-not-exist"
 	err := service.Save(invalid)
 	if err == nil {
@@ -74,7 +88,7 @@ func TestSaveRejectsUnsupportedFXProvider(t *testing.T) {
 
 func TestResetRestoresDefaults(t *testing.T) {
 	service := newTestService(t)
-	updated := appsettings.Default()
+	updated := defaultDTO()
 	updated.Appearance = appsettings.AppearanceDark
 	if err := service.Save(updated); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -83,14 +97,14 @@ func TestResetRestoresDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reset: %v", err)
 	}
-	if reset != appsettings.Default() {
+	if reset != defaultDTO() {
 		t.Fatalf("Reset() = %+v, want defaults", reset)
 	}
 	loaded, err := service.Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if loaded != appsettings.Default() {
+	if loaded != defaultDTO() {
 		t.Fatalf("Load() after Reset = %+v, want defaults", loaded)
 	}
 }
@@ -113,7 +127,7 @@ func TestSaveReturnsBusyDuringExclusive(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("exclusive operation did not start")
 	}
-	err := service.Save(appsettings.Default())
+	err := service.Save(defaultDTO())
 	close(release)
 	if err == nil {
 		t.Fatal("expected settings save to be busy during backup")
@@ -121,5 +135,23 @@ func TestSaveReturnsBusyDuringExclusive(t *testing.T) {
 	wireErr, ok := apierror.Parse(err.Error())
 	if !ok || wireErr.Code != "backup_restore_busy" {
 		t.Fatalf("err = %v, want backup_restore_busy", err)
+	}
+}
+
+func TestSettingsDTOUsesCamelCaseWireKeys(t *testing.T) {
+	payload, err := json.Marshal(defaultDTO())
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded := string(payload)
+	for _, key := range []string{"schemaVersion", "weekStart", "dateFormat", "fxProvider", "quoteCacheTTL"} {
+		if !strings.Contains(encoded, `"`+key+`"`) {
+			t.Fatalf("payload = %s, missing camelCase key %q", encoded, key)
+		}
+	}
+	for _, key := range []string{"schema_version", "week_start", "date_format", "fx_provider", "quote_cache_ttl"} {
+		if strings.Contains(encoded, `"`+key+`"`) {
+			t.Fatalf("payload = %s, contains persisted snake_case key %q", encoded, key)
+		}
 	}
 }

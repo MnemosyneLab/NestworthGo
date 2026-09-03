@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
   usePreviewCSV,
   useConfirmCSV,
   useCommitCSV,
+  useCancelCSV,
   useDownloadCSVErrors,
   type CSVPreviewDTO,
 } from "@/queries/data";
@@ -56,6 +57,11 @@ export function DataManagementSection() {
   const previewCSV = usePreviewCSV();
   const confirmCSV = useConfirmCSV();
   const commitCSV = useCommitCSV();
+  const cancelCSV = useCancelCSV();
+  const cancelCSVRef = useRef(cancelCSV.mutateAsync);
+  useEffect(() => {
+    cancelCSVRef.current = cancelCSV.mutateAsync;
+  }, [cancelCSV.mutateAsync]);
   const downloadErrors = useDownloadCSVErrors();
   const [restoreOpen, setRestoreOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
@@ -68,6 +74,7 @@ export function DataManagementSection() {
   const [includeArchived, setIncludeArchived] = useState(false);
   const [csvStep, setCsvStep] = useState(1);
   const [csvToken, setCsvToken] = useState("");
+  const csvTokenRef = useRef("");
   const [csvProfile, setCsvProfile] = useState("accounts");
   const [accountsHeaders, setAccountsHeaders] = useState<string[]>([]);
   const [holdingsHeaders, setHoldingsHeaders] = useState<string[]>([]);
@@ -89,7 +96,11 @@ export function DataManagementSection() {
   const hasHoldingsFile = holdingsHeaders.length > 0;
   const csvNumberFormatConflict = csvGroupingSep !== "none" && csvGroupingSep !== "space" && csvGroupingSep === csvDecimalSep;
 
-  const resetCSV = () => {
+  const resetCSV = (cancelSession = true) => {
+    if (cancelSession && csvTokenRef.current) {
+      void cancelCSVRef.current(csvTokenRef.current).catch(() => undefined);
+    }
+    csvTokenRef.current = "";
     setCsvStep(1);
     setCsvToken("");
     setCsvPreview(null);
@@ -100,6 +111,12 @@ export function DataManagementSection() {
     setUnresolvedChoices({});
     setCsvProfile("accounts");
   };
+
+  useEffect(() => () => {
+    if (csvTokenRef.current) {
+      void cancelCSVRef.current(csvTokenRef.current).catch(() => undefined);
+    }
+  }, []);
 
   const runBackup = () => {
     createBackup.mutate(undefined, {
@@ -163,6 +180,7 @@ export function DataManagementSection() {
             return;
           }
           setCsvProfile(profile);
+          csvTokenRef.current = result.token ?? "";
           setCsvToken(result.token ?? "");
           setCsvDelimiter(result.delimiter ?? "comma");
           const next: Record<string, string> = {};
@@ -238,7 +256,7 @@ export function DataManagementSection() {
       onSuccess: (stats) => {
         toast.success(t("settings.data.csvImported", { accounts: stats.createAccounts, holdings: stats.createHoldings }));
         setCsvOpen(false);
-        resetCSV();
+        resetCSV(false);
       },
       onError: (error) => toast.error(displayError(error, t("settings.saveError"))),
     });

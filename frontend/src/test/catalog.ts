@@ -32,7 +32,7 @@ export const TEST_CATALOG: CatalogDTO = {
     credit_card: ["balance"],
     other: ["balance"],
   },
-  trendRanges: ["30d", "1y"],
+  trendRanges: ["30d", "ytd", "1y", "all"],
   appearances: ["system", "light", "dark"],
   languages: ["system", "en", "zh-CN", "zh-TW"],
   accents: ["nestworth", "ocean", "amber"],

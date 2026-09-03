@@ -147,6 +147,7 @@ type NetWorthTrendPointDTO struct {
 	NetWorth     *wire.SignedMoneyView `json:"netWorth,omitempty"`
 	Assets       *wire.MoneyView       `json:"assets,omitempty"`
 	Liabilities  *wire.MoneyView       `json:"liabilities,omitempty"`
+	Status       string                `json:"status"`
 	Complete     bool                  `json:"complete"`
 	MissingCount int                   `json:"missingCount"`
 }
@@ -169,6 +170,7 @@ func fromNetWorthTrend(result domain.NetWorthTrend) NetWorthTrendDTO {
 			NetWorth:     wire.FromSignedMoneyPtr(point.NetWorth),
 			Assets:       wire.FromMoneyPtr(point.Assets),
 			Liabilities:  wire.FromMoneyPtr(point.Liabilities),
+			Status:       string(point.Status),
 			Complete:     point.Complete,
 			MissingCount: point.MissingCount,
 		})
@@ -200,6 +202,7 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange string) (NetWort
 type PortfolioTrendPointDTO struct {
 	LocalDate      string          `json:"localDate"`
 	ValuedSubtotal *wire.MoneyView `json:"valuedSubtotal,omitempty"`
+	Status         string          `json:"status"`
 	Complete       bool            `json:"complete"`
 	MissingCount   int             `json:"missingCount"`
 }
@@ -225,6 +228,7 @@ func (s *Service) PortfolioTrend(ctx context.Context, trendRange string) (Portfo
 		points = append(points, PortfolioTrendPointDTO{
 			LocalDate:      point.LocalDate,
 			ValuedSubtotal: wire.FromMoneyPtr(point.ValuedSubtotal),
+			Status:         string(point.Status),
 			Complete:       point.Complete,
 			MissingCount:   point.MissingCount,
 		})

@@ -55,7 +55,7 @@ export function DatePicker({
   const settings = useSettings();
   const [open, setOpen] = useState(false);
   const selected = parseYmd(value);
-  const weekStartsOn = settings.data?.week_start === "sunday" ? (0 as const) : (1 as const);
+  const weekStartsOn = settings.data?.weekStart === "sunday" ? (0 as const) : (1 as const);
   const disabledMatcher = useMemo(() => {
     const before = min ? parseYmd(min) : undefined;
     const after = max ? parseYmd(max) : undefined;
@@ -84,7 +84,7 @@ export function DatePicker({
         )}
       >
         <CalendarIcon className="size-4" aria-hidden="true" />
-        {selected ? displayDate(selected, settings.data?.date_format, i18n.language) : (placeholder ?? t("history.selectEmpty"))}
+        {selected ? displayDate(selected, settings.data?.dateFormat, i18n.language) : (placeholder ?? t("history.selectEmpty"))}
       </PopoverTrigger>
       <PopoverContent className="w-auto p-2">
         <Calendar

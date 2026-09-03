@@ -21,11 +21,25 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 		if snapshot.LocalDate >= window.todayKey {
 			continue
 		}
+		status := domain.TrendPointIncomplete
+		if snapshot.ID == "" {
+			status = domain.TrendPointMissing
+		}
+		var netWorth *domain.SignedMoney
+		var assets *domain.Money
+		var liabilities *domain.Money
+		if snapshot.Complete && snapshot.ID != "" {
+			netWorth = snapshot.NetWorthAmount
+			assets = snapshot.AssetsAmount
+			liabilities = snapshot.LiabilitiesAmount
+			status = domain.TrendPointComplete
+		}
 		points = append(points, domain.NetWorthTrendPoint{
 			LocalDate:    snapshot.LocalDate,
-			NetWorth:     snapshot.NetWorthAmount,
-			Assets:       snapshot.AssetsAmount,
-			Liabilities:  snapshot.LiabilitiesAmount,
+			NetWorth:     netWorth,
+			Assets:       assets,
+			Liabilities:  liabilities,
+			Status:       status,
 			Complete:     snapshot.Complete,
 			MissingCount: snapshot.MissingCount,
 		})
@@ -35,26 +49,29 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 		if err != nil {
 			return domain.NetWorthTrend{}, err
 		}
-		netWorth, err := domain.NewSignedMoney(current.NetWorth, current.Currency)
-		if err != nil {
-			return domain.NetWorthTrend{}, err
+		point := domain.NetWorthTrendPoint{
+			LocalDate: window.todayKey, Complete: current.Complete,
+			MissingCount: len(current.MissingInputs), Status: domain.TrendPointIncomplete,
 		}
-		assets, err := domain.NewMoney(current.Assets, current.Currency)
-		if err != nil {
-			return domain.NetWorthTrend{}, err
+		if current.Complete {
+			netWorth, err := domain.NewSignedMoney(current.NetWorth, current.Currency)
+			if err != nil {
+				return domain.NetWorthTrend{}, err
+			}
+			assets, err := domain.NewMoney(current.Assets, current.Currency)
+			if err != nil {
+				return domain.NetWorthTrend{}, err
+			}
+			liabilities, err := domain.NewMoney(current.Liabilities, current.Currency)
+			if err != nil {
+				return domain.NetWorthTrend{}, err
+			}
+			point.NetWorth = &netWorth
+			point.Assets = &assets
+			point.Liabilities = &liabilities
+			point.Status = domain.TrendPointComplete
 		}
-		liabilities, err := domain.NewMoney(current.Liabilities, current.Currency)
-		if err != nil {
-			return domain.NetWorthTrend{}, err
-		}
-		points = append(points, domain.NetWorthTrendPoint{
-			LocalDate:    window.todayKey,
-			NetWorth:     &netWorth,
-			Assets:       &assets,
-			Liabilities:  &liabilities,
-			Complete:     current.Complete,
-			MissingCount: len(current.MissingInputs),
-		})
+		points = append(points, point)
 	}
 	if len(points) == 0 {
 		return domain.NetWorthTrend{Range: trendRange, Currency: window.currency}, nil
@@ -93,7 +110,7 @@ func (s *Service) PortfolioTrend(ctx context.Context, trendRange domain.TrendRan
 			return domain.PortfolioTrend{}, err
 		}
 		var valued *domain.Money
-		if current.ValuedSubtotal != nil {
+		if current.Complete && current.ValuedSubtotal != nil {
 			money, parseErr := domain.ParseMoney(current.ValuedSubtotal.Amount, current.ValuedSubtotal.Currency)
 			if parseErr != nil {
 				return domain.PortfolioTrend{}, parseErr
@@ -103,8 +120,14 @@ func (s *Service) PortfolioTrend(ctx context.Context, trendRange domain.TrendRan
 		points = append(points, domain.PortfolioTrendPoint{
 			LocalDate:      window.todayKey,
 			ValuedSubtotal: valued,
-			Complete:       current.Complete,
-			MissingCount:   len(current.MissingInputs),
+			Status: func() domain.TrendPointStatus {
+				if current.Complete {
+					return domain.TrendPointComplete
+				}
+				return domain.TrendPointIncomplete
+			}(),
+			Complete:     current.Complete,
+			MissingCount: len(current.MissingInputs),
 		})
 	}
 	if len(points) == 0 {
@@ -154,11 +177,31 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	if err != nil {
 		return nil, err
 	}
+	originLocal := origin.StartedAt.In(location)
+	originMidnight := time.Date(originLocal.Year(), originLocal.Month(), originLocal.Day(), 0, 0, 0, 0, location)
+	if since.Before(originMidnight) {
+		since = originMidnight
+	}
 	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, since)
 	if err != nil {
 		return nil, err
 	}
-	window.snapshots = snapshots
+	byDate := make(map[string]domain.DailyValuationSnapshot, len(snapshots))
+	for _, snapshot := range snapshots {
+		byDate[snapshot.LocalDate] = snapshot
+	}
+	first := since.In(location)
+	first = time.Date(first.Year(), first.Month(), first.Day(), 0, 0, 0, 0, location)
+	last := today.AddDate(0, 0, -1)
+	for cursor := first; !cursor.After(last); cursor = cursor.AddDate(0, 0, 1) {
+		key := cursor.Format("2006-01-02")
+		if snapshot, ok := byDate[key]; ok {
+			window.snapshots = append(window.snapshots, snapshot)
+			continue
+		}
+		// A missing day is a first-class gap, never a zero-valued snapshot.
+		window.snapshots = append(window.snapshots, domain.DailyValuationSnapshot{LocalDate: key, MissingCount: 1})
+	}
 	return window, nil
 }
 
@@ -166,6 +209,8 @@ func trendSince(trendRange domain.TrendRange, today, origin time.Time) (time.Tim
 	switch trendRange {
 	case domain.Trend30Days:
 		return today.AddDate(0, 0, -29), nil
+	case domain.TrendYearToDate:
+		return time.Date(today.Year(), time.January, 1, 0, 0, 0, 0, today.Location()), nil
 	case domain.TrendOneYear:
 		return today.AddDate(0, 0, -364), nil
 	case domain.TrendAllTime:
@@ -200,6 +245,9 @@ func wealthTrendSummary(points []domain.NetWorthTrendPoint, currency domain.Curr
 }
 
 func portfolioPointFromSnapshot(snapshot domain.DailyValuationSnapshot, currency domain.CurrencyCode) (domain.PortfolioTrendPoint, bool, error) {
+	if snapshot.ID == "" {
+		return domain.PortfolioTrendPoint{LocalDate: snapshot.LocalDate, Status: domain.TrendPointMissing, MissingCount: 1}, true, nil
+	}
 	valued := decimal.Zero
 	missing := 0
 	complete := true
@@ -226,7 +274,13 @@ func portfolioPointFromSnapshot(snapshot domain.DailyValuationSnapshot, currency
 		}
 	}
 	if !hasInstrument {
-		return domain.PortfolioTrendPoint{}, false, nil
+		if snapshot.Complete {
+			return domain.PortfolioTrendPoint{}, false, nil
+		}
+		return domain.PortfolioTrendPoint{LocalDate: snapshot.LocalDate, Status: domain.TrendPointIncomplete, MissingCount: snapshot.MissingCount}, true, nil
+	}
+	if !snapshot.Complete || !complete || missing > 0 {
+		return domain.PortfolioTrendPoint{LocalDate: snapshot.LocalDate, Status: domain.TrendPointIncomplete, MissingCount: missing}, true, nil
 	}
 	money, err := domain.NewMoney(valued, currency)
 	if err != nil {
@@ -235,7 +289,8 @@ func portfolioPointFromSnapshot(snapshot domain.DailyValuationSnapshot, currency
 	return domain.PortfolioTrendPoint{
 		LocalDate:      snapshot.LocalDate,
 		ValuedSubtotal: &money,
-		Complete:       complete && missing == 0,
+		Status:         domain.TrendPointComplete,
+		Complete:       true,
 		MissingCount:   missing,
 	}, true, nil
 }

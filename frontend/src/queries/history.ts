@@ -13,6 +13,20 @@ export function useHistoryOrigin() {
   });
 }
 
+export function useHistoryMutationAllowed() {
+  return useQuery({
+    queryKey: queryKeys.history.mutationAllowed,
+    queryFn: () => callService(() => HistoryService.HistoryMutationAllowed()),
+  });
+}
+
+export function useDailySnapshotState() {
+  return useQuery({
+    queryKey: queryKeys.history.snapshotState,
+    queryFn: () => callService(() => HistoryService.DailySnapshotState("")),
+  });
+}
+
 export function useStartingPointDraft(enabled = true) {
   return useQuery({
     queryKey: queryKeys.history.startingPointDraft,
@@ -162,15 +176,10 @@ export function useFixChange() {
 }
 
 export function useRebuildHistoricalSnapshots() {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ startDate, endDate }: { startDate: string; endDate: string }) => {
-      const service = HistoryService as typeof HistoryService & {
-        RebuildHistoricalSnapshots?: (startDate: string, endDate: string) => Promise<number>;
-      };
-      if (typeof service.RebuildHistoricalSnapshots !== "function") {
-        return Promise.resolve(0);
-      }
-      return callService(() => service.RebuildHistoricalSnapshots(startDate, endDate));
-    },
+    mutationFn: ({ startDate, endDate }: { startDate: string; endDate: string }) =>
+      callService(() => HistoryService.RebuildHistoricalSnapshots(startDate, endDate)),
+    onSuccess: () => invalidateHistoryReads(queryClient),
   });
 }

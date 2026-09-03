@@ -10,7 +10,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { AccountForm, type AccountFormExtras } from "@/features/accounts/AccountForm";
 import { AccountActionSheet, type AccountAction } from "@/features/accounts/AccountActionSheets";
-import { useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/queries/accounts";
+import { useAccountCashValues, useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/queries/accounts";
 import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
 import { useHistoryOrigin } from "@/queries/history";
 import { formatAmount, sortByCanonicalDesc } from "@/lib/money";
@@ -134,6 +134,7 @@ export function AccountDetail({
   const [settingsError, setSettingsError] = useState<string | undefined>();
   const archived = Boolean(record.account.archivedAt);
   const composite = record.account.trackingMode === "holdings";
+  const cashValues = useAccountCashValues(record.account.id, composite);
   const cashOnly = composite && record.account.accountType === "cash_on_hand";
   const historyStarted = Boolean(origin.data);
   const readOnly = archived;
@@ -387,6 +388,22 @@ export function AccountDetail({
             </CardContent>
           </Card>}
         </div>
+      )}
+
+      {composite && !cashValues.isError && (cashValues.data?.length ?? 0) > 0 && (
+        <Card>
+          <CardHeader><CardTitle>{t("accounts.cashHistory")}</CardTitle></CardHeader>
+          <CardContent>
+            <ul className="flex flex-col gap-2 text-sm">
+              {(cashValues.data ?? []).map((value) => (
+                <li key={value.id} className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0">
+                  <time dateTime={value.effectiveAt}>{formatTimestamp(value.effectiveAt, settings.data?.timezone, i18n.language)}</time>
+                  <span>{formatAmount(value.amount.amount, value.amount.currency)}</span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
       {!composite && (

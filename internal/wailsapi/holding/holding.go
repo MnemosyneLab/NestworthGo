@@ -40,13 +40,10 @@ func (s *Service) CreateHolding(ctx context.Context, request CreateHoldingReques
 	return wire.FromHolding(holding), nil
 }
 
-// UpdateHoldingRequest mirrors application.HoldingUpdateInput's explicit
-// "Set flags" shape: a field is only applied when its *Set companion is
-// true, which is how the application layer already distinguishes "leave
-// unchanged" from "clear to empty/zero" for Note and SortOrder.
+// UpdateHoldingRequest is the metadata-only update contract. Quantity is
+// intentionally absent: financial quantity changes use the dedicated
+// pre-history compatibility method or HistoryService.RecordChange.
 type UpdateHoldingRequest struct {
-	Quantity     string  `json:"quantity,omitempty"`
-	QuantitySet  bool    `json:"quantitySet,omitempty"`
 	Note         *string `json:"note,omitempty"`
 	NoteSet      bool    `json:"noteSet,omitempty"`
 	SortOrder    int     `json:"sortOrder,omitempty"`
@@ -59,7 +56,7 @@ func (s *Service) UpdateHolding(ctx context.Context, id string, request UpdateHo
 		return wire.HoldingDTO{}, apierror.Wrap(err)
 	}
 	holding, err := s.app.UpdateHolding(ctx, holdingID, application.HoldingUpdateInput{
-		Quantity: request.Quantity, QuantitySet: request.QuantitySet, Note: request.Note, NoteSet: request.NoteSet,
+		Note: request.Note, NoteSet: request.NoteSet,
 		SortOrder: request.SortOrder, SortOrderSet: request.SortOrderSet,
 	})
 	if err != nil {
@@ -68,11 +65,10 @@ func (s *Service) UpdateHolding(ctx context.Context, id string, request UpdateHo
 	return wire.FromHolding(holding), nil
 }
 
-// UpdateHoldingQuantity is the dedicated "record a quantity change outside
-// of History" path application.Service exposes for pre-history use; once
-// history has started, the application layer rejects it with
-// domain.ErrConflict and the frontend must use the history service's
-// RecordChange instead.
+// UpdateHoldingQuantity is retained for pre-history compatibility only; once
+// history has started, the application layer rejects it and the frontend
+// must use HistoryService.RecordChange with a position adjustment.
+// Deprecated: use HistoryService.RecordChange after history starts.
 func (s *Service) UpdateHoldingQuantity(ctx context.Context, id, quantity string) (wire.HoldingDTO, error) {
 	holdingID, err := domain.ParseHoldingID(id)
 	if err != nil {
@@ -128,6 +124,11 @@ func (s *Service) ArchiveHolding(ctx context.Context, id string, archived bool) 
 	return apierror.Wrap(s.app.ArchiveHolding(ctx, holdingID, archived))
 }
 
+// AppendAccountCashValue is the cash baseline/import entry point before
+// history starts. After history starts, application.Service translates the
+// requested resulting balance into a reconciliation cash_in/cash_out and
+// commits it through the same PreviewChange/RecordChange engine; it does not
+// create a second persistence path.
 func (s *Service) AppendAccountCashValue(ctx context.Context, accountID, amount, currency, effectiveAt string) (wire.AccountCashValueDTO, error) {
 	parsedAccountID, err := domain.ParseAccountID(accountID)
 	if err != nil {

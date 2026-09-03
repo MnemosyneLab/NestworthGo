@@ -13,7 +13,7 @@ import { useSaveSettings } from "@/queries/settings";
 import { BrandLockup } from "@/components/brand/BrandLockup";
 import { displayError } from "@/lib/display";
 import { toast } from "sonner";
-import type { Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
+import type { SettingsDTO as Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { PageChromeProvider } from "@/components/layout/PageChrome";
 
 const APPEARANCE_ICONS: Record<Appearance, React.ComponentType<{ className?: string }>> = {

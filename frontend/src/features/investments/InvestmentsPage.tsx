@@ -31,7 +31,7 @@ import {
   useCreateHolding,
   useAllHoldingsFlat,
   useCurrentInstrumentQuote,
-  useSaveManualInstrumentQuote,
+  useAppendManualInstrumentQuote,
 } from "@/queries/investments";
 import { useHoldingGainsByAccounts } from "@/queries/analytics";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
@@ -64,7 +64,7 @@ function ManualQuoteForm({
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
-  const saveQuote = useSaveManualInstrumentQuote();
+  const appendQuote = useAppendManualInstrumentQuote();
   const [unitPrice, setUnitPrice] = useState("");
   const [quotedAt, setQuotedAt] = useState("");
 
@@ -72,7 +72,7 @@ function ManualQuoteForm({
     if (!unitPrice.trim()) {
       return;
     }
-    saveQuote.mutate(
+    appendQuote.mutate(
       { instrumentId, unitPrice: unitPrice.trim(), quotedAt: quotedAt ? new Date(`${quotedAt}T00:00:00`).toISOString() : "" },
       {
         onSuccess: () => {
@@ -99,13 +99,13 @@ function ManualQuoteForm({
         <Label htmlFor={`quote-date-${instrumentId}`}>{t("portfolio.quotedAt")}</Label>
         <DatePicker id={`quote-date-${instrumentId}`} value={quotedAt} onChange={setQuotedAt} />
       </div>
-      {saveQuote.isError && (
+      {appendQuote.isError && (
         <p role="alert" className="text-sm text-destructive">
-          {displayError(saveQuote.error, t("portfolio.updateError"))}
+          {displayError(appendQuote.error, t("portfolio.updateError"))}
         </p>
       )}
-      <Button onClick={submit} disabled={saveQuote.isPending || !unitPrice.trim()}>
-        {saveQuote.isPending ? t("common.pending") : t("portfolio.setPrice")}
+      <Button onClick={submit} disabled={appendQuote.isPending || !unitPrice.trim()}>
+        {appendQuote.isPending ? t("common.pending") : t("portfolio.setPrice")}
       </Button>
     </div>
   );
@@ -298,7 +298,7 @@ function InstrumentsTab({ active }: { active: boolean }) {
               }
             />
           )}
-          {editTarget && editTarget.quoteSource === "manual" && (
+          {editTarget && (
             <div className="mt-5 border-t border-border pt-5">
               <Button type="button" variant="outline" onClick={() => setShowPriceForm((value) => !value)}>
                 {t("portfolio.setPrice")}

@@ -64,16 +64,16 @@ const defaultSettings = {
   accent: "nestworth",
   language: "en",
   timezone: "system",
-  week_start: "monday",
-  date_format: "iso",
-  time_format: "24h",
+  weekStart: "monday",
+  dateFormat: "iso",
+  timeFormat: "24h",
   currency: "USD",
-  decimal_separator: ".",
-  grouping_separator: ",",
-  decimal_places: 2,
-  window_width: 1100,
-  window_height: 720,
-  fx_provider: "frankfurter",
+  decimalSeparator: ".",
+  groupingSeparator: ",",
+  decimalPlaces: 2,
+  windowWidth: 1100,
+  windowHeight: 720,
+  fxProvider: "frankfurter",
 };
 
 beforeEach(() => {
@@ -140,7 +140,7 @@ describe("SettingsPage", () => {
     await userEvent.keyboard("{Enter}");
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Asia/Shanghai", fx_provider: "frankfurter" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Asia/Shanghai", fxProvider: "frankfurter" }));
   });
 
   it("notes when Settings presentation timezone differs from History Origin", async () => {

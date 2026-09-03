@@ -27,7 +27,7 @@ import { DataManagementSection } from "@/features/settings/DataManagementSection
 import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
 import { setLanguage, languageOptionKey } from "@/i18n";
 import { displayError } from "@/lib/display";
-import type { Settings } from "../../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
+import type { SettingsDTO as Settings } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { resolvedTimeZone, timeZoneOptions } from "@/lib/time";
 
 /**
@@ -78,7 +78,7 @@ export function SettingsPage() {
     draft.language !== settings.data.language ||
     draft.currency !== settings.data.currency ||
     draft.timezone !== settings.data.timezone ||
-    draft.fx_provider !== settings.data.fx_provider ||
+    draft.fxProvider !== settings.data.fxProvider ||
     quoteCacheTtlOf(draft) !== quoteCacheTtlOf(settings.data);
   const update = (patch: Partial<Settings>) => {
     setDraftOverride((current) => ({ ...(current ?? settings.data), ...patch }));
@@ -194,10 +194,10 @@ export function SettingsPage() {
             <Label htmlFor="settings-fx-provider">{t("settings.providers.fxProvider")}</Label>
             <NativeSelect
               id="settings-fx-provider"
-              value={draft.fx_provider}
-              onChange={(event) => update({ fx_provider: event.target.value })}
+              value={draft.fxProvider}
+              onChange={(event) => update({ fxProvider: event.target.value })}
             >
-              {(fxProviders.data ?? [draft.fx_provider]).map((provider) => (
+              {(fxProviders.data ?? [draft.fxProvider]).map((provider) => (
                 <option key={provider} value={provider}>
                   {t(`settings.provider.${provider}`, { defaultValue: provider })}
                 </option>

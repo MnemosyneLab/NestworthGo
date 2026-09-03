@@ -55,6 +55,12 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "7", "2026-08-24T12:00:00Z"); err != nil {
 		t.Fatal(err)
 	}
+	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
@@ -397,6 +403,12 @@ func TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX(t *testing.
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "6.8", "2026-08-24"); err != nil {
 		t.Fatal(err)
 	}
+	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
@@ -671,6 +683,9 @@ func TestDividendIncomeMissingFXMarksGroupUnavailable(t *testing.T) {
 	}
 
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "7", "2026-08-24"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
 		t.Fatal(err)
 	}
 	converted, err := service.DividendIncomeInRange(ctx, domain.GainScope{}, "2026-08-24", "2026-08-24")

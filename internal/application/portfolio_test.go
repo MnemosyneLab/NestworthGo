@@ -82,6 +82,9 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 	if err != nil {
 		t.Fatalf("manual FX: %v", err)
 	}
+	if _, err := service.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {
+		t.Fatalf("select manual FX source: %v", err)
+	}
 	if fx.BaseCurrency != domain.CurrencyCode("USD") || fx.QuoteCurrency != domain.CurrencyCode("CNY") {
 		t.Fatalf("manual FX orientation = %+v", fx)
 	}
@@ -117,6 +120,44 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 	}
 }
 
+func TestHoldingQuantityUpdatesCannotBypassHistory(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "holding-history-boundary", []string{"Owner"})
+	owner := bootstrap.Members[0].ID
+	setClock(time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC))
+	account, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+		DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
+		Ownership: []domain.OwnershipShare{{MemberID: owner, ShareBPS: domain.TotalOwnershipBPS}},
+	})
+	if err != nil {
+		t.Fatalf("account: %v", err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatalf("instrument: %v", err)
+	}
+	holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "2"})
+	if err != nil {
+		t.Fatalf("holding: %v", err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "10", "2026-08-01", false); err != nil {
+		t.Fatalf("quote: %v", err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatalf("StartHistory: %v", err)
+	}
+	if _, err := service.UpdateHolding(ctx, holding.ID, HoldingUpdateInput{Quantity: "3", QuantitySet: true}); err == nil {
+		t.Fatal("UpdateHolding accepted a quantity mutation")
+	} else if typed, ok := err.(*domain.Error); !ok || typed.Code != domain.ErrInvalidChange {
+		t.Fatalf("UpdateHolding error = %v, want invalid change", err)
+	}
+	if _, err := service.UpdateHoldingQuantity(ctx, holding.ID, "3"); err == nil {
+		t.Fatal("UpdateHoldingQuantity accepted a post-history mutation")
+	} else if typed, ok := err.(*domain.Error); !ok || typed.Code != domain.ErrConflict {
+		t.Fatalf("UpdateHoldingQuantity error = %v, want conflict", err)
+	}
+}
+
 func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/provider-binding.db")
 	if err != nil {
@@ -135,9 +176,19 @@ func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
 	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "provider"); err != nil {
 		t.Fatalf("select provider: %v", err)
 	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "123", "2026-08-23", false); err != nil {
+		t.Fatalf("append manual observation: %v", err)
+	}
 	items, err := service.ListInstruments(ctx, false)
 	if err != nil || len(items) != 1 || items[0].QuoteSource != domain.QuoteSourceProvider {
-		t.Fatalf("provider selection = %+v, err = %v", items, err)
+		t.Fatalf("manual observation changed provider selection = %+v, err = %v", items, err)
+	}
+	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+		t.Fatalf("select manual source: %v", err)
+	}
+	items, err = service.ListInstruments(ctx, false)
+	if err != nil || len(items) != 1 || items[0].QuoteSource != domain.QuoteSourceManual {
+		t.Fatalf("explicit manual selection = %+v, err = %v", items, err)
 	}
 }
 

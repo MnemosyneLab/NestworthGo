@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/select";
 import { TrendChart } from "@/components/charts/TrendChart";
 import { SignedBarChart } from "@/components/charts/SignedBarChart";
 import { RangeToggle } from "@/components/charts/RangeToggle";
@@ -9,7 +10,10 @@ import { chartTheme } from "@/components/charts/chartTheme";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
-import { useRealizedGain, useDividendIncome, useNetWorthTrend } from "@/queries/analytics";
+import { useRealizedGain, useDividendIncome, useNetWorthTrend, type AnalyticsRange, type AnalyticsTrendRange, portfolioScope } from "@/queries/analytics";
+import { useAccounts } from "@/queries/accounts";
+import { useInstruments } from "@/queries/investments";
+import { useDailySnapshotState } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { formatAmount } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -21,10 +25,18 @@ export function AnalyticsPage() {
   const { t } = useTranslation();
   const catalog = useCatalog();
   const ranges = catalog.data?.trendRanges ?? [];
-  const [range, setRange] = useState("30d");
+  const [range, setRange] = useState<AnalyticsRange>({ kind: "trend", value: "30d" });
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+  const [scopeKind, setScopeKind] = useState<"portfolio" | "account" | "instrument">("portfolio");
+  const [scopeId, setScopeId] = useState("");
+  const accounts = useAccounts();
+  const instruments = useInstruments();
+  const scope = scopeKind === "account" && scopeId ? { accountId: scopeId } : scopeKind === "instrument" && scopeId ? { instrumentId: scopeId } : portfolioScope;
+  const snapshotState = useDailySnapshotState();
   const [gainDimension, setGainDimension] = useState<"instrument" | "account">("instrument");
-  const realizedGain = useRealizedGain(range);
-  const dividendIncome = useDividendIncome(range);
+  const realizedGain = useRealizedGain(range, scope);
+  const dividendIncome = useDividendIncome(range, scope);
   const netWorthTrend = useNetWorthTrend(range);
   const theme = chartTheme();
   const pageChrome = <PageChrome pageId="analytics" title={t("nav.analytics")} />;
@@ -61,15 +73,52 @@ export function AnalyticsPage() {
     <div className="flex flex-col gap-6">
       {pageChrome}
       <PageIntro description={t("analytics.description")} />
+      {snapshotState.data && <p role="status" className="text-sm text-muted-foreground">{snapshotState.data.dirtyFrom ? t("analytics.snapshotNeedsRepair", { date: snapshotState.data.dirtyFrom }) : snapshotState.data.lastCompletedClosedOn ? t("analytics.snapshotHealthyThrough", { date: snapshotState.data.lastCompletedClosedOn }) : t("analytics.snapshotNotBuilt")}</p>}
 
-      <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
+      <div className="flex flex-wrap items-end gap-3">
+        <RangeToggle
+          ranges={ranges}
+          value={range.kind === "trend" ? range.value : ""}
+          onChange={(value) => {
+            setRange({ kind: "trend", value: value as AnalyticsTrendRange });
+          }}
+          label={t("analytics.range")}
+        />
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="analytics-scope" className="text-sm font-medium">{t("analytics.scope")}</label>
+          <NativeSelect id="analytics-scope" value={scopeKind} onChange={(event) => { setScopeKind(event.target.value as typeof scopeKind); setScopeId(""); }}>
+            <option value="portfolio">{t("analytics.scopePortfolio")}</option>
+            <option value="account">{t("analytics.scopeAccount")}</option>
+            <option value="instrument">{t("analytics.scopeInstrument")}</option>
+          </NativeSelect>
+        </div>
+        {scopeKind !== "portfolio" && (
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="analytics-scope-id" className="text-sm font-medium">{t("analytics.scopeSelection")}</label>
+            <NativeSelect id="analytics-scope-id" value={scopeId} onChange={(event) => setScopeId(event.target.value)}>
+              <option value="">{t("common.selectOption")}</option>
+              {(scopeKind === "account" ? accounts.data ?? [] : instruments.data ?? []).map((item) => {
+                const id = "account" in item ? item.account.id : item.id;
+                const label = "account" in item ? item.account.name : item.name;
+                return <option key={id} value={id}>{label}</option>;
+              })}
+            </NativeSelect>
+          </div>
+        )}
+      </div>
+      <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
+        <div className="flex flex-col gap-1.5"><label htmlFor="analytics-from" className="text-sm font-medium">{t("analytics.customFrom")}</label><input id="analytics-from" type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm" /></div>
+        <div className="flex flex-col gap-1.5"><label htmlFor="analytics-to" className="text-sm font-medium">{t("analytics.customTo")}</label><input id="analytics-to" type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm" /></div>
+        <Button type="button" variant="outline" disabled={!customFrom || !customTo || customFrom > customTo} onClick={() => setRange({ kind: "custom", from: customFrom, to: customTo })}>{t("analytics.applyCustomRange")}</Button>
+        {range.kind === "custom" && <span className="text-sm text-muted-foreground">{t("analytics.customRangeActive")}</span>}
+      </div>
 
       <Card>
         <CardHeader>
           <CardTitle>{t("analytics.wealthTrend")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {netWorthTrend.isError ? (
+          {range.kind === "custom" ? <p className="text-sm text-muted-foreground">{t("analytics.customWealthUnavailable")}</p> : netWorthTrend.isError ? (
             <ErrorState
               title={t("analytics.loadError")}
               description={t("ui.state.errorDescription")}

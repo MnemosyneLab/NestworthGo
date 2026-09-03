@@ -9,6 +9,7 @@ const lastBackupStatus = vi.fn();
 const selectCSV = vi.fn();
 const previewCSV = vi.fn();
 const confirmCSV = vi.fn();
+const cancelCSV = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/data", () => ({
   Service: {
@@ -18,6 +19,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/da
     SelectCSV: (...args: unknown[]) => selectCSV(...args),
     PreviewCSV: (...args: unknown[]) => previewCSV(...args),
     ConfirmCSV: (...args: unknown[]) => confirmCSV(...args),
+    CancelCSV: (...args: unknown[]) => cancelCSV(...args),
     CommitCSV: () => Promise.resolve({ createAccounts: 0, createHoldings: 0 }),
     DownloadCSVErrors: () => Promise.resolve({ cancelled: true }),
   },
@@ -43,6 +45,7 @@ beforeEach(() => {
   selectCSV.mockReset();
   previewCSV.mockReset();
   confirmCSV.mockReset();
+  cancelCSV.mockReset();
   lastBackupStatus.mockResolvedValue({ available: false });
 });
 

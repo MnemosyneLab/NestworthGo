@@ -75,3 +75,31 @@ func TestDuplicateRequestIDCancelsOldWorkerWithoutClearingNewRegistration(t *tes
 	// replacement has already cleared its own registration, so this is a no-op.
 	service.CancelRefresh("duplicate")
 }
+
+func TestCancelRefreshEmitsCancelledEventAndSuppressesWorkerCompletion(t *testing.T) {
+	emitter := &lifecycleEmitter{notify: make(chan struct{}, 1)}
+	service := &Service{events: emitter, cancels: make(map[string]refreshRegistration)}
+	started := make(chan struct{})
+	finished := make(chan struct{})
+
+	service.runAsync("cancel", func(ctx context.Context) (application.RefreshResult, error) {
+		close(started)
+		<-ctx.Done()
+		close(finished)
+		return application.RefreshResult{}, ctx.Err()
+	})
+	<-started
+	service.CancelRefresh("cancel")
+	service.wg.Wait()
+	<-finished
+
+	if got := emitter.count(); got != 1 {
+		t.Fatalf("event count = %d, want one cancellation event", got)
+	}
+	emitter.mu.Lock()
+	payload := emitter.events[0]
+	emitter.mu.Unlock()
+	if payload.RequestID != "cancel" || payload.Status != "cancelled" || payload.Result != nil || payload.Error != "" {
+		t.Fatalf("cancellation payload = %+v", payload)
+	}
+}

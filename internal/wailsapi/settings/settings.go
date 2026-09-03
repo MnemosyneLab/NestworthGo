@@ -20,6 +20,50 @@ type Service struct {
 	app   *application.Service
 }
 
+// SettingsDTO is the Wails wire contract. The persisted settings.Settings
+// struct intentionally keeps its snake_case JSON tags for the on-disk format;
+// it must not leak into IPC or force the frontend to maintain two key shapes.
+type SettingsDTO struct {
+	SchemaVersion     int                 `json:"schemaVersion"`
+	Appearance        settings.Appearance `json:"appearance"`
+	Accent            settings.Accent     `json:"accent"`
+	Language          settings.Language   `json:"language"`
+	Timezone          string              `json:"timezone"`
+	WeekStart         string              `json:"weekStart"`
+	DateFormat        string              `json:"dateFormat"`
+	TimeFormat        string              `json:"timeFormat"`
+	Currency          string              `json:"currency"`
+	DecimalSeparator  string              `json:"decimalSeparator"`
+	GroupingSeparator string              `json:"groupingSeparator"`
+	DecimalPlaces     int                 `json:"decimalPlaces"`
+	WindowWidth       float32             `json:"windowWidth"`
+	WindowHeight      float32             `json:"windowHeight"`
+	FXProvider        string              `json:"fxProvider"`
+	QuoteCacheTTL     string              `json:"quoteCacheTTL"`
+}
+
+func fromSettings(value settings.Settings) SettingsDTO {
+	return SettingsDTO{
+		SchemaVersion: value.SchemaVersion, Appearance: value.Appearance, Accent: value.Accent,
+		Language: value.Language, Timezone: value.Timezone, WeekStart: value.WeekStart,
+		DateFormat: value.DateFormat, TimeFormat: value.TimeFormat, Currency: value.Currency,
+		DecimalSeparator: value.DecimalSeparator, GroupingSeparator: value.GroupingSeparator,
+		DecimalPlaces: value.DecimalPlaces, WindowWidth: value.WindowWidth, WindowHeight: value.WindowHeight,
+		FXProvider: value.FXProvider, QuoteCacheTTL: value.QuoteCacheTTL,
+	}
+}
+
+func (value SettingsDTO) toSettings() settings.Settings {
+	return settings.Settings{
+		SchemaVersion: value.SchemaVersion, Appearance: value.Appearance, Accent: value.Accent,
+		Language: value.Language, Timezone: value.Timezone, WeekStart: value.WeekStart,
+		DateFormat: value.DateFormat, TimeFormat: value.TimeFormat, Currency: value.Currency,
+		DecimalSeparator: value.DecimalSeparator, GroupingSeparator: value.GroupingSeparator,
+		DecimalPlaces: value.DecimalPlaces, WindowWidth: value.WindowWidth, WindowHeight: value.WindowHeight,
+		FXProvider: value.FXProvider, QuoteCacheTTL: value.QuoteCacheTTL,
+	}
+}
+
 func NewService(store *settings.Store, app *application.Service) *Service {
 	return &Service{store: store, app: app}
 }
@@ -28,20 +72,22 @@ func NewService(store *settings.Store, app *application.Service) *Service {
 // defaults if none are saved yet or the saved file could not be fully
 // trusted (internal/settings.Store.Load already salvages individually
 // invalid fields rather than discarding the whole file).
-func (s *Service) Load() (settings.Settings, error) {
+func (s *Service) Load() (SettingsDTO, error) {
 	value, err := s.store.Load()
 	if err != nil {
-		return settings.Default(), apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be loaded"})
+		return fromSettings(settings.Default()), apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be loaded"})
 	}
-	return value, nil
+	return fromSettings(value), nil
 }
 
 // Save validates the submitted preferences, applies an FX provider change
 // through application.Service.SetFXProvider first (so a rejected provider
 // choice never gets persisted), and only then writes the file — the same
-// same ordering used by the application service.
-func (s *Service) Save(value settings.Settings) error {
-	if err := value.Validate(); err != nil {
+// ordering used by the application service.
+
+func (s *Service) Save(value SettingsDTO) error {
+	persisted := value.toSettings()
+	if err := persisted.Validate(); err != nil {
 		return apierror.Wrap(&domain.Error{Code: domain.ErrValidation, Message: err.Error()})
 	}
 	persist := func() error {
@@ -49,16 +95,16 @@ func (s *Service) Save(value settings.Settings) error {
 		if err != nil {
 			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be loaded"}
 		}
-		if s.app != nil && value.FXProvider != current.FXProvider {
-			if err := s.app.SetFXProvider(value.FXProvider); err != nil {
+		if s.app != nil && persisted.FXProvider != current.FXProvider {
+			if err := s.app.SetFXProvider(persisted.FXProvider); err != nil {
 				return err
 			}
 		}
 		if s.app != nil {
-			s.app.SetQuoteCacheTTL(value.QuoteCacheTTLDuration())
-			s.app.SetUILanguage(string(value.Language))
+			s.app.SetQuoteCacheTTL(persisted.QuoteCacheTTLDuration())
+			s.app.SetUILanguage(string(persisted.Language))
 		}
-		if err := s.store.Save(value); err != nil {
+		if err := s.store.Save(persisted); err != nil {
 			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"}
 		}
 		return nil
@@ -73,12 +119,12 @@ func (s *Service) Save(value settings.Settings) error {
 
 // Reset restores settings.Default(), applying the same FX-provider
 // delegation performed by Save.
-func (s *Service) Reset() (settings.Settings, error) {
+func (s *Service) Reset() (SettingsDTO, error) {
 	defaults := settings.Default()
-	if err := s.Save(defaults); err != nil {
-		return settings.Settings{}, err
+	if err := s.Save(fromSettings(defaults)); err != nil {
+		return SettingsDTO{}, err
 	}
-	return defaults, nil
+	return fromSettings(defaults), nil
 }
 
 // SupportedCurrencies returns the closed currency catalog from domain.

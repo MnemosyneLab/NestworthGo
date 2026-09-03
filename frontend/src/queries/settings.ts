@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service as SettingsService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings";
-import type { Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
+import type { SettingsDTO as Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 
@@ -56,10 +56,7 @@ export function useSupportedCurrencies() {
 export function useFXProviders() {
   return useQuery({
     queryKey: queryKeys.settings.fxProviders,
-    queryFn: () => {
-      const service = SettingsService as typeof SettingsService & { FXProviders?: () => Promise<string[]> };
-      return callService(() => service.FXProviders?.() ?? Promise.resolve(["frankfurter"]));
-    },
+    queryFn: () => callService(() => SettingsService.FXProviders()),
     staleTime: Infinity,
   });
 }
@@ -67,8 +64,7 @@ export function useFXProviders() {
 export type QuoteCacheTTL = "1h" | "3h" | "12h" | "24h";
 
 export function quoteCacheTtlOf(settings: Settings): QuoteCacheTTL {
-  const record = settings as Settings & { quote_cache_ttl?: string; quoteCacheTTL?: string };
-  const value = record.quote_cache_ttl ?? record.quoteCacheTTL;
+  const value = settings.quoteCacheTTL;
   if (value === "1h" || value === "3h" || value === "12h" || value === "24h") {
     return value;
   }
@@ -76,5 +72,5 @@ export function quoteCacheTtlOf(settings: Settings): QuoteCacheTTL {
 }
 
 export function withQuoteCacheTtl(settings: Settings, ttl: QuoteCacheTTL): Settings {
-  return { ...settings, quote_cache_ttl: ttl } as Settings;
+  return { ...settings, quoteCacheTTL: ttl };
 }

@@ -262,15 +262,16 @@ type DailySnapshotState struct {
 type TrendRange string
 
 const (
-	Trend30Days  TrendRange = "30d"
-	TrendOneYear TrendRange = "1y"
-	TrendAllTime TrendRange = "all"
+	Trend30Days     TrendRange = "30d"
+	TrendYearToDate TrendRange = "ytd"
+	TrendOneYear    TrendRange = "1y"
+	TrendAllTime    TrendRange = "all"
 )
 
 func ParseTrendRange(value string) (TrendRange, error) {
 	trendRange := TrendRange(strings.TrimSpace(value))
 	switch trendRange {
-	case Trend30Days, TrendOneYear, TrendAllTime:
+	case Trend30Days, TrendYearToDate, TrendOneYear, TrendAllTime:
 		return trendRange, nil
 	default:
 		return "", validation("range", "trend range is not supported")
@@ -278,14 +279,23 @@ func ParseTrendRange(value string) (TrendRange, error) {
 }
 
 func AllTrendRanges() []TrendRange {
-	return []TrendRange{Trend30Days, TrendOneYear, TrendAllTime}
+	return []TrendRange{Trend30Days, TrendYearToDate, TrendOneYear, TrendAllTime}
 }
+
+type TrendPointStatus string
+
+const (
+	TrendPointComplete   TrendPointStatus = "complete"
+	TrendPointIncomplete TrendPointStatus = "incomplete"
+	TrendPointMissing    TrendPointStatus = "missing"
+)
 
 type NetWorthTrendPoint struct {
 	LocalDate    string
 	NetWorth     *SignedMoney
 	Assets       *Money
 	Liabilities  *Money
+	Status       TrendPointStatus
 	Complete     bool
 	MissingCount int
 }
@@ -302,6 +312,7 @@ type NetWorthTrend struct {
 type PortfolioTrendPoint struct {
 	LocalDate      string
 	ValuedSubtotal *Money
+	Status         TrendPointStatus
 	Complete       bool
 	MissingCount   int
 }

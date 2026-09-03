@@ -15,7 +15,7 @@ import {
   useFXPreferences,
   useSetFXPreference,
 } from "@/queries/investments";
-import { useHistoryOrigin, usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
+import { useHistoryMutationAllowed, useHistoryOrigin, usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
 import { useSettings, useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { useBootstrap } from "@/queries/household";
@@ -270,6 +270,7 @@ function RecordChangeFormReady({
   const catalog = useCatalog();
   const settings = useSettings();
   const origin = useHistoryOrigin();
+  const mutationAllowed = useHistoryMutationAllowed();
   const effectiveOrigin = originOverride ?? origin.data;
   const allAccountIds = (accounts.data ?? []).map((record) => record.account.id);
   const holdings = useAllHoldingsFlat(allAccountIds);
@@ -556,7 +557,7 @@ function RecordChangeFormReady({
         return false;
     }
   })();
-  const canPreview = hasRequiredFields && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride));
+  const canPreview = hasRequiredFields && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
     const sameCurrencyTransfer =
@@ -1030,6 +1031,7 @@ function RecordChangeFormReady({
       <div className="flex flex-col gap-1.5"><Label htmlFor="change-note">{t("history.note")}</Label><Input id="change-note" value={request.note ?? ""} onChange={(event) => patch({ note: event.target.value || null })} placeholder={t("history.notePlaceholder")} /></div>
 
       {(accounts.isError || instruments.isError || holdings.isError) && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive"><span>{t("history.dependenciesError")}</span><Button type="button" variant="outline" size="sm" onClick={() => void Promise.all([accounts.refetch(), instruments.refetch(), holdings.refetch()])}>{t("common.retryAction")}</Button></div>}
+      {mutationAllowed.isError && <p role="alert" className="text-sm text-destructive">{t("history.mutationUnavailable")}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{displayError(error, t("history.actionError"))}</p>}
 
       {previewResult && <div role="status" className="flex flex-col gap-1 rounded-md border border-border bg-muted p-3 text-sm"><p className="font-medium">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
