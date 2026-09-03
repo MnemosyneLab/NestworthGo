@@ -18,17 +18,17 @@ export function DirectoryPage() {
         onCreate={(payload: DirectoryCreatePayload) => createMember.mutateAsync({ name: payload.name, iconKey: payload.iconKey })}
         onUpdate={(id, name) => updateMember.mutateAsync({ id, name })} onArchive={(id, archived) => archiveMember.mutateAsync({ id, archived })}
         onSetIcon={(id, iconKey) => setMemberIcon.mutateAsync({ id, iconKey })} onRetry={() => members.refetch()}
-        createLabel={t("onboarding.memberNamePlaceholder")} addLabel={t("members.createTitle")} emptyLabel={t("members.createDescription")} /></TabsContent>
+        addLabel={t("members.createTitle")} emptyLabel={t("members.createDescription")} /></TabsContent>
       <TabsContent value="institutions"><DirectoryEntityList kind="institution" entities={institutions.data ?? undefined} isLoading={institutions.isLoading} isError={institutions.isError}
         institutionTypes={catalog.data?.institutionTypes ?? []}
         onCreate={(payload: DirectoryCreatePayload) => createInstitution.mutateAsync({ name: payload.name, institutionType: payload.institutionType ?? "", iconKey: payload.iconKey })}
         onUpdate={(id, name) => updateInstitution.mutateAsync({ id, name })} onArchive={(id, archived) => archiveInstitution.mutateAsync({ id, archived })}
         onSetIcon={(id, iconKey) => setInstitutionIcon.mutateAsync({ id, iconKey })} onRetry={() => institutions.refetch()}
-        createLabel={t("institutions.createTitle")} addLabel={t("institutions.createTitle")} emptyLabel={t("institutions.createDescription")} /></TabsContent>
+        addLabel={t("institutions.createTitle")} emptyLabel={t("institutions.createDescription")} /></TabsContent>
       <TabsContent value="groups"><DirectoryEntityList kind="group" entities={groups.data ?? undefined} isLoading={groups.isLoading} isError={groups.isError}
         onCreate={(payload: DirectoryCreatePayload) => createGroup.mutateAsync({ name: payload.name, iconKey: payload.iconKey })}
         onUpdate={(id, name) => updateGroup.mutateAsync({ id, name })} onArchive={(id, archived) => archiveGroup.mutateAsync({ id, archived })}
         onSetIcon={(id, iconKey) => setGroupIcon.mutateAsync({ id, iconKey })} onRetry={() => groups.refetch()}
-        createLabel={t("groups.createTitle")} addLabel={t("groups.createTitle")} emptyLabel={t("groups.createDescription")} /></TabsContent>
+        addLabel={t("groups.createTitle")} emptyLabel={t("groups.createDescription")} /></TabsContent>
     </Tabs></div>;
 }

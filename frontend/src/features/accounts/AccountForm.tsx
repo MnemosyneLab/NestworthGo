@@ -248,6 +248,8 @@ export function AccountForm({
         </NativeSelect>
       </div>
 
+      <IconPicker id="account-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
+
       <div className="flex flex-col gap-1.5">
         <Label id="account-role-label">{t("accounts.balanceSheetRole")}</Label>
         <p id="account-role" aria-labelledby="account-role-label" className="text-sm text-muted-foreground">
@@ -372,7 +374,6 @@ export function AccountForm({
         <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">
           <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutions.data ?? []} emptyLabel={t("accounts.none")} kind="institution" onChange={(value) => setValue("institutionId", value)} />
           <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => setValue("groupId", value)} />
-          <IconPicker id="account-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
         </div>
       )}
 

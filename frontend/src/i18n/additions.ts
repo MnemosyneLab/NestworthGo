@@ -237,6 +237,8 @@ export const additionsEn = {
     institutionType: "Institution type",
     institutionTypeRequired: "Choose an institution type",
     nameRequired: "Enter a name before saving.",
+    nameLabel: { member: "Member name", institution: "Institution name", group: "Group name" },
+    namePlaceholder: { member: "e.g. Alice", institution: "e.g. Chase", group: "e.g. Retirement" },
     defaultInstitution: "Default institution",
     defaultGroup: "Default group",
   },
@@ -558,6 +560,11 @@ export const additionsEn = {
     countryRegion: {
       AU: "Australia", CN: "China", EU: "Europe", GB: "United Kingdom", HK: "Hong Kong",
       JP: "Japan", SG: "Singapore", TW: "Taiwan", US: "United States", KR: "South Korea", CH: "Switzerland",
+    },
+    market: {
+      ASX: "ASX", SSE: "Shanghai", SZSE: "Shenzhen", BSE: "Beijing", EURONEXT: "Euronext",
+      XETRA: "Xetra", LSE: "London", HKEX: "Hong Kong", TSE: "Tokyo", SGX: "Singapore",
+      TWSE: "Taiwan", NASDAQ: "Nasdaq", NYSE: "New York", AMEX: "AMEX", KRX: "Korea", SIX: "Switzerland",
     },
     providerKey: "Provider key",
     providerSymbol: "Quote lookup symbol",
@@ -962,6 +969,8 @@ export const additionsZhCN = {
     institutionType: "机构类型",
     institutionTypeRequired: "请选择机构类型",
     nameRequired: "请输入名称后再保存。",
+    nameLabel: { member: "成员姓名", institution: "机构名称", group: "分组名称" },
+    namePlaceholder: { member: "例如 小明", institution: "例如 招商银行", group: "例如 养老金" },
     defaultInstitution: "默认机构",
     defaultGroup: "默认分组",
   },
@@ -1272,6 +1281,11 @@ export const additionsZhCN = {
     countryRegion: {
       AU: "澳大利亚", CN: "中国", EU: "欧洲", GB: "英国", HK: "中国香港",
       JP: "日本", SG: "新加坡", TW: "中国台湾", US: "美国", KR: "韩国", CH: "瑞士",
+    },
+    market: {
+      ASX: "澳交所", SSE: "上交所", SZSE: "深交所", BSE: "北交所", EURONEXT: "泛欧",
+      XETRA: "德交所", LSE: "伦交所", HKEX: "港交所", TSE: "东证", SGX: "新交所",
+      TWSE: "台交所", NASDAQ: "纳斯达克", NYSE: "纽交所", AMEX: "美交所", KRX: "韩交所", SIX: "瑞交所",
     },
     providerKey: "提供方标识",
     providerSymbol: "行情查询代码",
@@ -1676,6 +1690,8 @@ export const additionsZhTW = {
     institutionType: "機構類型",
     institutionTypeRequired: "請選擇機構類型",
     nameRequired: "請輸入名稱後再儲存。",
+    nameLabel: { member: "成員姓名", institution: "機構名稱", group: "分組名稱" },
+    namePlaceholder: { member: "例如 小明", institution: "例如 招商銀行", group: "例如 退休金" },
     defaultInstitution: "預設機構",
     defaultGroup: "預設分組",
   },
@@ -1986,6 +2002,11 @@ export const additionsZhTW = {
     countryRegion: {
       AU: "澳洲", CN: "中國", EU: "歐洲", GB: "英國", HK: "中國香港",
       JP: "日本", SG: "新加坡", TW: "中國台灣", US: "美國", KR: "韓國", CH: "瑞士",
+    },
+    market: {
+      ASX: "澳交所", SSE: "上交所", SZSE: "深交所", BSE: "北交所", EURONEXT: "泛歐",
+      XETRA: "德交所", LSE: "倫交所", HKEX: "港交所", TSE: "東證", SGX: "新交所",
+      TWSE: "台交所", NASDAQ: "納斯達克", NYSE: "紐交所", AMEX: "美交所", KRX: "韓交所", SIX: "瑞交所",
     },
     providerKey: "提供方識別碼",
     providerSymbol: "行情查詢代碼",

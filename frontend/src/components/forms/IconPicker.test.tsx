@@ -12,6 +12,11 @@ function PickerHarness() {
 }
 
 describe("IconPicker", () => {
+  it("keeps icon choices out of the tab order until opened", () => {
+    render(<PickerHarness />);
+    expect(screen.queryByRole("button", { name: "Brokerage" })).not.toBeInTheDocument();
+  });
+
   it("shows the selected preview and updates the selected state from the grid", async () => {
     render(<PickerHarness />);
     const trigger = screen.getByLabelText("Choose icon");

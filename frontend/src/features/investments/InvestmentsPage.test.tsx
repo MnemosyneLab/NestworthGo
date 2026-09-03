@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { InvestmentsPage } from "./InvestmentsPage";
+import { TEST_CATALOG, selectValues } from "@/test/catalog";
 
 const listInstruments = vi.fn();
 const createInstrument = vi.fn();
@@ -170,8 +171,8 @@ describe("InvestmentsPage", () => {
     const symbol = within(form).getByLabelText("Security symbol");
     await userEvent.clear(symbol);
     await userEvent.type(symbol, "NVDA.O");
-    await userEvent.selectOptions(within(form).getByLabelText("Trading market"), "SGX");
     await userEvent.selectOptions(within(form).getByLabelText("Country / region"), "SG");
+    await userEvent.selectOptions(within(form).getByLabelText("Trading market"), "SGX");
     await userEvent.click(within(form).getByRole("button", { name: "Save" }));
 
     expect(updateInstrument).toHaveBeenCalledWith("i1", expect.objectContaining({
@@ -424,12 +425,42 @@ describe("InvestmentsPage", () => {
   });
 
   it("renders instrument type options from the catalog only", async () => {
-    const { TEST_CATALOG, selectValues } = await import("@/test/catalog");
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await waitFor(() => {
       expect(selectValues(within(form).getByLabelText("Type"))).toEqual(TEST_CATALOG.instrumentTypes);
     });
+  });
+
+  it("places name, then type, then icon, and labels markets as code plus short name", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    const name = await within(form).findByLabelText("Name");
+    const type = within(form).getByLabelText("Type");
+    const icon = within(form).getByLabelText("Choose icon");
+    expect(name.compareDocumentPosition(type) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(type.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(form).getByRole("option", { name: "NASDAQ - Nasdaq" })).toBeInTheDocument();
+    expect(within(form).getByRole("option", { name: "NYSE - New York" })).toBeInTheDocument();
+    expect(within(form).getByRole("option", { name: "HKEX - Hong Kong" })).toBeInTheDocument();
+  });
+
+  it("filters markets by country and fills country when a market is chosen", async () => {
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await waitFor(() => expect(within(form).getByLabelText("Trading market")).toBeEnabled());
+    await userEvent.selectOptions(within(form).getByLabelText("Country / region"), "US");
+    expect(selectValues(within(form).getByLabelText("Trading market"))).toEqual(["", "NASDAQ", "NYSE", "AMEX"]);
+    await userEvent.selectOptions(within(form).getByLabelText("Trading market"), "NASDAQ");
+    expect(within(form).getByLabelText("Country / region")).toHaveValue("US");
+    await userEvent.selectOptions(within(form).getByLabelText("Country / region"), "CN");
+    expect(within(form).getByLabelText("Trading market")).toHaveValue("");
+    expect(selectValues(within(form).getByLabelText("Trading market"))).toEqual(["", "SSE", "SZSE", "BSE"]);
+    await userEvent.selectOptions(within(form).getByLabelText("Country / region"), "");
+    await userEvent.selectOptions(within(form).getByLabelText("Trading market"), "HKEX");
+    expect(within(form).getByLabelText("Country / region")).toHaveValue("HK");
   });
 });

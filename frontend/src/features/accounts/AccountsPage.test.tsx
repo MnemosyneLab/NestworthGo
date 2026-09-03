@@ -1019,6 +1019,10 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
     const form = await screen.findByRole("form", { name: "Account form" });
     const nameInput = within(form).getByLabelText("Name");
+    const type = within(form).getByLabelText("Account type");
+    const icon = within(form).getByLabelText("Choose icon");
+    expect(nameInput.compareDocumentPosition(type) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(type.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, "Renamed");
     await userEvent.click(within(form).getByRole("button", { name: "Save" }));

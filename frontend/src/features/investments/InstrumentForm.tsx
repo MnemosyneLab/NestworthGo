@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -15,6 +15,7 @@ import type { InstrumentDTO } from "../../../bindings/github.com/waltwang/nestwo
 import { displayEnum } from "@/lib/display";
 import { IconPicker } from "@/components/forms/IconPicker";
 import { INSTRUMENT_TYPE_ICONS } from "@/lib/defaultIcons";
+import { countryForMarket, marketsForCountry } from "@/lib/instrumentMarkets";
 
 const instrumentFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -32,6 +33,11 @@ const instrumentFormSchema = z.object({
 });
 
 type InstrumentFormValues = z.infer<typeof instrumentFormSchema>;
+
+function marketLabel(code: string, t: (key: string, options?: Record<string, unknown>) => string): string {
+  const name = displayEnum(t, "portfolio.market", code);
+  return name ? `${code} - ${name}` : code;
+}
 
 /** InstrumentForm creates or replaces an Instrument.
  * Provider-bound instruments require a provider key/symbol per
@@ -68,14 +74,20 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
   const quoteSource = useWatch({ control, name: "quoteSource" });
   const instrumentType = useWatch({ control, name: "type" });
   const iconKey = useWatch({ control, name: "iconKey" });
+  const countryCode = useWatch({ control, name: "countryCode" }) ?? "";
+  const marketCode = useWatch({ control, name: "marketCode" }) ?? "";
   const [iconCustomized, setIconCustomized] = useState(Boolean(instrument));
   const householdCurrency = bootstrap.data?.household?.baseCurrency;
   const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
   const instrumentTypes = catalog.data?.instrumentTypes ?? [];
   const quoteSources = catalog.data?.quoteSources ?? [];
   const instrumentProviders = catalog.data?.instrumentProviders ?? [];
-  const marketOptions = Array.from(new Set([...(catalog.data?.instrumentMarketCodes ?? []), ...(instrument?.marketCode ? [instrument.marketCode] : [])]));
+  const allMarketCodes = useMemo(
+    () => Array.from(new Set([...(catalog.data?.instrumentMarketCodes ?? []), ...(instrument?.marketCode ? [instrument.marketCode] : [])])),
+    [catalog.data?.instrumentMarketCodes, instrument?.marketCode],
+  );
   const countryOptions = Array.from(new Set([...(catalog.data?.instrumentCountryCodes ?? []), ...(instrument?.countryCode ? [instrument.countryCode] : [])]));
+  const marketOptions = marketsForCountry(allMarketCodes, countryCode, marketCode);
   const defaultProviderKey = catalog.data?.instrumentProviders?.[0];
 
   useEffect(() => {
@@ -126,33 +138,6 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           </p>
         )}
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="instrument-symbol">{t("portfolio.symbol")}</Label>
-          <Input id="instrument-symbol" {...register("symbol")} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="instrument-market-code">{t("portfolio.marketCode")}</Label>
-          <NativeSelect id="instrument-market-code" {...register("marketCode")}>
-            <option value="">{t("common.selectOption")}</option>
-            {marketOptions.map((market) => <option key={market} value={market}>{market}</option>)}
-          </NativeSelect>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="instrument-country-code">{t("portfolio.countryCode")}</Label>
-          <NativeSelect id="instrument-country-code" {...register("countryCode")}>
-            <option value="">{t("common.selectOption")}</option>
-            {countryOptions.map((country) => (
-              <option key={country} value={country}>{displayEnum(t, "portfolio.countryRegion", country)} · {country}</option>
-            ))}
-          </NativeSelect>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="instrument-isin">{t("portfolio.isin")}</Label>
-          <Input id="instrument-isin" {...register("isin")} />
-        </div>
-      </div>
-      <IconPicker id="instrument-icon" value={iconKey} kind="instrument" onChange={(key) => { setValue("iconKey", key); setIconCustomized(true); }} />
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-type">{t("portfolio.type")}</Label>
         <NativeSelect id="instrument-type" {...register("type")}>
@@ -163,25 +148,75 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           ))}
         </NativeSelect>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="instrument-currency">{t("accounts.currency")}</Label>
-        <NativeSelect id="instrument-currency" {...register("quoteCurrency")}>
-          {currencyOptions.map((currency) => (
-            <option key={currency} value={currency}>
-              {currency}
-            </option>
-          ))}
-        </NativeSelect>
+      <IconPicker id="instrument-icon" value={iconKey} kind="instrument" onChange={(key) => { setValue("iconKey", key); setIconCustomized(true); }} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="instrument-country-code">{t("portfolio.countryCode")}</Label>
+          <NativeSelect
+            id="instrument-country-code"
+            value={countryCode}
+            onChange={(event) => {
+              const next = event.target.value;
+              setValue("countryCode", next);
+              if (marketCode && next && countryForMarket(marketCode) !== next) {
+                setValue("marketCode", "");
+              }
+            }}
+          >
+            <option value="">{t("common.selectOption")}</option>
+            {countryOptions.map((country) => (
+              <option key={country} value={country}>{displayEnum(t, "portfolio.countryRegion", country)} · {country}</option>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="instrument-market-code">{t("portfolio.marketCode")}</Label>
+          <NativeSelect
+            id="instrument-market-code"
+            value={marketCode}
+            onChange={(event) => {
+              const next = event.target.value;
+              setValue("marketCode", next);
+              const country = countryForMarket(next);
+              if (country) {
+                setValue("countryCode", country);
+              }
+            }}
+          >
+            <option value="">{t("common.selectOption")}</option>
+            {marketOptions.map((market) => <option key={market} value={market}>{marketLabel(market, t)}</option>)}
+          </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="instrument-symbol">{t("portfolio.symbol")}</Label>
+          <Input id="instrument-symbol" {...register("symbol")} />
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="instrument-isin">{t("portfolio.isin")}</Label>
+          <Input id="instrument-isin" {...register("isin")} />
+        </div>
       </div>
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="instrument-quote-source">{t("portfolio.quoteSource")}</Label>
-        <NativeSelect id="instrument-quote-source" {...register("quoteSource")}>
-          {quoteSources.map((source) => (
-            <option key={source} value={source}>
-              {displayEnum(t, "portfolio", source)}
-            </option>
-          ))}
-        </NativeSelect>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="instrument-currency">{t("accounts.currency")}</Label>
+          <NativeSelect id="instrument-currency" {...register("quoteCurrency")}>
+            {currencyOptions.map((currency) => (
+              <option key={currency} value={currency}>
+                {currency}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="instrument-quote-source">{t("portfolio.quoteSource")}</Label>
+          <NativeSelect id="instrument-quote-source" {...register("quoteSource")}>
+            {quoteSources.map((source) => (
+              <option key={source} value={source}>
+                {displayEnum(t, "portfolio", source)}
+              </option>
+            ))}
+          </NativeSelect>
+        </div>
       </div>
       {quoteSource === "provider" && (
         <>

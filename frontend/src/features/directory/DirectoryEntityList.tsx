@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -18,11 +19,11 @@ import { DEFAULT_ICONS, INSTITUTION_TYPE_ICONS } from "@/lib/defaultIcons";
 interface Entity { id: string; name: string; archivedAt?: string | null; iconKey: string; institutionType?: string; }
 export type DirectoryCreatePayload = { name: string; iconKey: string; institutionType?: string };
 
-export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isError, onCreate, onUpdate, onArchive, onSetIcon, onRetry, createLabel, addLabel, emptyLabel, kind, institutionTypes = [] }: {
+export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isError, onCreate, onUpdate, onArchive, onSetIcon, onRetry, addLabel, emptyLabel, kind, institutionTypes = [] }: {
   entities: T[] | undefined; isLoading: boolean; isError: boolean; onCreate: (payload: DirectoryCreatePayload) => Promise<unknown>;
   onUpdate: (id: string, name: string) => Promise<unknown>; onArchive: (id: string, archived: boolean) => Promise<unknown>;
   onSetIcon: (id: string, iconKey: string) => Promise<unknown>; onRetry: () => void | Promise<unknown>;
-  createLabel: string; addLabel: string; emptyLabel: string; kind: EntityIconKind; institutionTypes?: string[];
+  addLabel: string; emptyLabel: string; kind: EntityIconKind; institutionTypes?: string[];
 }) {
   const { t } = useTranslation();
   const fallback = DEFAULT_ICONS[kind];
@@ -67,10 +68,16 @@ export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isE
 
   return <div className="flex flex-col gap-4">
     <Sheet open={open} onOpenChange={setOpen}><SheetTrigger className={cn(buttonVariants({}), "w-fit self-start gap-2")}><Plus className="size-4" aria-hidden="true" /> {addLabel}</SheetTrigger>
-      <SheetContent><SheetHeader><SheetTitle>{addLabel}</SheetTitle></SheetHeader><form onSubmit={submitCreate} className="flex flex-col gap-4" aria-label={createLabel}>
-        <Input value={name} onChange={(event) => setName(event.target.value)} placeholder={createLabel} aria-label={createLabel} disabled={submitting} />
-        {kind === "institution" && <NativeSelect value={selectedInstitutionType} aria-label={t("directory.institutionType")} onChange={(event) => { const next = event.target.value; setInstitutionType(next); if (!iconCustomized) setIconKey(INSTITUTION_TYPE_ICONS[next] ?? DEFAULT_ICONS.institution); }}>
-          {institutionTypes.map((type) => <option key={type} value={type}>{displayEnum(t, "institutionType", type)}</option>)}</NativeSelect>}
+      <SheetContent><SheetHeader><SheetTitle>{addLabel}</SheetTitle></SheetHeader><form onSubmit={submitCreate} className="flex flex-col gap-4" aria-label={addLabel}>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${kind}-create-name`}>{t(`directory.nameLabel.${kind}`)}</Label>
+          <Input id={`${kind}-create-name`} value={name} onChange={(event) => setName(event.target.value)} placeholder={t(`directory.namePlaceholder.${kind}`)} disabled={submitting} />
+        </div>
+        {kind === "institution" && <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${kind}-create-type`}>{t("directory.institutionType")}</Label>
+          <NativeSelect id={`${kind}-create-type`} value={selectedInstitutionType} aria-label={t("directory.institutionType")} onChange={(event) => { const next = event.target.value; setInstitutionType(next); if (!iconCustomized) setIconKey(INSTITUTION_TYPE_ICONS[next] ?? DEFAULT_ICONS.institution); }}>
+          {institutionTypes.map((type) => <option key={type} value={type}>{displayEnum(t, "institutionType", type)}</option>)}</NativeSelect>
+        </div>}
         <IconPicker id={`${kind}-create-icon`} value={createIconKey} kind={kind} onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <Button type="submit" disabled={submitting}>{submitting ? t("common.pending") : t("common.add")}</Button>

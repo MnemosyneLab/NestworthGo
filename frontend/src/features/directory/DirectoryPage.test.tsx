@@ -67,8 +67,12 @@ describe("DirectoryPage", () => {
     renderPage();
     await screen.findByText("Alice");
     await userEvent.click(screen.getByRole("button", { name: "Add a member" }));
-    const form = await screen.findByRole("form", { name: "Member name" });
-    await userEvent.type(within(form).getByRole("textbox"), "Bob");
+    const form = await screen.findByRole("form", { name: "Add a member" });
+    const name = within(form).getByLabelText("Member name");
+    const icon = within(form).getByLabelText("Choose icon");
+    expect(name.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(name).toHaveAttribute("placeholder", "e.g. Alice");
+    await userEvent.type(within(form).getByLabelText("Member name"), "Bob");
     await userEvent.click(within(form).getByRole("button", { name: /add/i }));
     expect(createMember).toHaveBeenCalledWith("Bob", "user");
   });
@@ -97,10 +101,26 @@ describe("DirectoryPage", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Institutions" }));
     await userEvent.click(screen.getByRole("button", { name: "Add an institution" }));
     const form = await screen.findByRole("form", { name: "Add an institution" });
-    await userEvent.type(within(form).getByRole("textbox"), "Acme");
+    const name = within(form).getByLabelText("Institution name");
+    const type = within(form).getByLabelText("Institution type");
+    const icon = within(form).getByLabelText("Choose icon");
+    expect(name.compareDocumentPosition(type) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(type.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(name).toHaveAttribute("placeholder", "e.g. Chase");
+    await userEvent.type(within(form).getByLabelText("Institution name"), "Acme");
     await userEvent.selectOptions(within(form).getByLabelText("Institution type"), "insurer");
     await userEvent.click(within(form).getByRole("button", { name: "Add" }));
     expect(createInstitution).toHaveBeenCalledWith("Acme", "insurer", "shield-plus");
+  });
+
+  it("uses a group-name hint instead of the add-group title as the placeholder", async () => {
+    renderPage();
+    await screen.findByText("Alice");
+    await userEvent.click(screen.getByRole("tab", { name: "Groups" }));
+    await userEvent.click(screen.getByRole("button", { name: "Add a group" }));
+    const form = await screen.findByRole("form", { name: "Add a group" });
+    expect(within(form).getByLabelText("Group name")).toHaveAttribute("placeholder", "e.g. Retirement");
+    expect(within(form).getByLabelText("Group name")).not.toHaveAttribute("placeholder", "Add a group");
   });
 
   it("renames a Member through UpdateMember", async () => {

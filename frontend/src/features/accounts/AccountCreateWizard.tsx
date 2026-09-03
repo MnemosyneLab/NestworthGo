@@ -23,7 +23,7 @@ import {
   trackingModesFor,
   trackingPrompt,
 } from "@/features/accounts/accountCatalog";
-import { ACCOUNT_TYPE_ICONS } from "@/lib/defaultIcons";
+import { ACCOUNT_TYPE_ICONS, INSTITUTION_TYPE_ICONS } from "@/lib/defaultIcons";
 import { EntityIcon } from "@/components/icons/EntityIcon";
 import { EntitySelect } from "@/components/forms/EntitySelect";
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
@@ -77,6 +77,8 @@ export function AccountCreateWizard({
   const [showNewInstitution, setShowNewInstitution] = useState(false);
   const [newInstitutionName, setNewInstitutionName] = useState("");
   const [newInstitutionType, setNewInstitutionType] = useState("bank");
+  const [newInstitutionIcon, setNewInstitutionIcon] = useState(INSTITUTION_TYPE_ICONS.bank);
+  const [newInstitutionIconCustomized, setNewInstitutionIconCustomized] = useState(false);
   const [institutionError, setInstitutionError] = useState<string | undefined>();
   const [accountType, setAccountType] = useState("");
   const [showMoreTypes, setShowMoreTypes] = useState(false);
@@ -166,7 +168,7 @@ export function AccountCreateWizard({
       }
       setInstitutionError(undefined);
       try {
-        const created = await createInstitution.mutateAsync({ name: trimmed, institutionType: newInstitutionType, iconKey: "" });
+        const created = await createInstitution.mutateAsync({ name: trimmed, institutionType: newInstitutionType, iconKey: newInstitutionIcon });
         setInstitutionId(created.id);
         setShowNewInstitution(false);
         setNewInstitutionName("");
@@ -323,10 +325,26 @@ export function AccountCreateWizard({
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="new-institution-type">{t("directory.institutionType")}</Label>
-                <NativeSelect id="new-institution-type" value={newInstitutionType} onChange={(event) => setNewInstitutionType(event.target.value)}>
+                <NativeSelect
+                  id="new-institution-type"
+                  value={newInstitutionType}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setNewInstitutionType(next);
+                    if (!newInstitutionIconCustomized) {
+                      setNewInstitutionIcon(INSTITUTION_TYPE_ICONS[next] ?? INSTITUTION_TYPE_ICONS.other);
+                    }
+                  }}
+                >
                   {(catalog.data?.institutionTypes ?? []).map((type) => <option key={type} value={type}>{displayEnum(t, "institutionType", type)}</option>)}
                 </NativeSelect>
               </div>
+              <IconPicker
+                id="new-institution-icon"
+                value={newInstitutionIconCustomized ? newInstitutionIcon : (INSTITUTION_TYPE_ICONS[newInstitutionType] ?? INSTITUTION_TYPE_ICONS.other)}
+                kind="institution"
+                onChange={(key) => { setNewInstitutionIcon(key); setNewInstitutionIconCustomized(true); }}
+              />
             </div>
           )}
           {institutionError && (
@@ -415,6 +433,7 @@ export function AccountCreateWizard({
               </p>
             )}
           </div>
+          <IconPicker id="wizard-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="account-currency">{t("accounts.currency")}</Label>
             <NativeSelect id="account-currency" value={currencyValue} onChange={(event) => setDefaultCurrency(event.target.value)}>
@@ -475,7 +494,6 @@ export function AccountCreateWizard({
                 <input type="checkbox" checked={includeInNetWorth} onChange={(event) => setIncludeInNetWorth(event.target.checked)} /> {t("accounts.includeInNetWorth")}
               </label>
               <EntitySelect id="wizard-group" label={t("nav.groups")} value={selectedGroupId} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => { setGroupTouched(true); setGroupId(value); }} />
-              <IconPicker id="wizard-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
             </div>
           )}
         </div>

@@ -216,6 +216,7 @@ describe("keyboard-only completion", () => {
     expect(nameInput).toHaveFocus();
     await userEvent.keyboard("New Savings");
 
+    await userEvent.tab(); // -> icon picker
     await userEvent.tab(); // -> currency select
     await userEvent.tab(); // -> initial value input
     expect(within(form).getByLabelText("Initial value")).toHaveFocus();
