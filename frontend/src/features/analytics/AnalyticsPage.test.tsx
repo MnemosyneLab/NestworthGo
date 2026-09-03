@@ -12,7 +12,9 @@ const netWorthTrend = vi.fn();
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
   Service: {
     RealizedGain: (...args: unknown[]) => realizedGain(...args),
+    RealizedGainInRange: (...args: unknown[]) => realizedGain(...args),
     DividendIncome: (...args: unknown[]) => dividendIncome(...args),
+    DividendIncomeInRange: (...args: unknown[]) => dividendIncome(...args),
     AccountGain: vi.fn(),
     AccountGains: vi.fn(),
     HoldingGain: vi.fn(),
@@ -35,6 +37,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
       startedAt: "2026-06-01T00:00:00.000Z",
     }),
     RebuildHistoricalSnapshots: (...args: unknown[]) => rebuildHistoricalSnapshots(...args),
+  },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
+  Service: {
+    Load: () => Promise.resolve({ weekStart: "monday", dateFormat: "year-first", timezone: "UTC" }),
   },
 }));
 
@@ -164,5 +171,25 @@ describe("AnalyticsPage", () => {
     renderPage();
     expect(await screen.findByText("Wealth trend")).toBeInTheDocument();
     expect(rebuildHistoricalSnapshots).not.toHaveBeenCalled();
+  });
+
+  it("applies a custom range from the shared date picker", async () => {
+    realizedGain.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
+    dividendIncome.mockResolvedValue({ from: "", to: "", currency: "USD", available: true, byInstrument: [], byAccount: [] });
+    netWorthTrend.mockResolvedValue({ range: "30d", currency: "USD", points: [] });
+
+    renderPage();
+    expect(document.querySelector('input[type="date"]')).not.toBeInTheDocument();
+    await userEvent.click(await screen.findByLabelText("Custom from"));
+    const fromCalendar = await screen.findByRole("grid");
+    await userEvent.click(fromCalendar.querySelector('[data-day="2026-09-01"] button') as HTMLElement);
+    await userEvent.click(screen.getByLabelText("Custom to"));
+    const toCalendar = await screen.findByRole("grid");
+    await userEvent.click(toCalendar.querySelector('[data-day="2026-09-03"] button') as HTMLElement);
+    await userEvent.click(screen.getByRole("button", { name: "Apply custom range" }));
+    await waitFor(() => {
+      expect(realizedGain).toHaveBeenCalledWith({}, "2026-09-01", "2026-09-03");
+      expect(dividendIncome).toHaveBeenCalledWith({}, "2026-09-01", "2026-09-03");
+    });
   });
 });

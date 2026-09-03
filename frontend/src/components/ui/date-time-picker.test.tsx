@@ -37,6 +37,22 @@ describe("DatePicker and TimePicker", () => {
     expect(dayButton("2026-08-21")).toBeDisabled();
   });
 
+  it("shows one month caption and one year caption in the dropdown header", async () => {
+    renderDatePicker({ weekStart: "sunday", dateFormat: "day-first" });
+
+    await userEvent.click(screen.getByRole("button", { name: "15/08/2026" }));
+    await screen.findByRole("grid");
+
+    const month = screen.getByRole("combobox", { name: /month/i });
+    const year = screen.getByRole("combobox", { name: /year/i });
+    expect(month).toHaveClass("opacity-0");
+    expect(year).toHaveClass("opacity-0");
+
+    const captions = [...document.querySelectorAll('[aria-hidden="true"]')].map((el) => el.textContent?.replace(/\s+/g, " ").trim() ?? "");
+    expect(captions.filter((text) => /^Aug/.test(text))).toHaveLength(1);
+    expect(captions.filter((text) => text === "2026" || /^2026 /.test(text))).toHaveLength(1);
+  });
+
   it("offers a 00-23 hour picker without a native time input", async () => {
     const onChange = vi.fn();
     const { container } = render(

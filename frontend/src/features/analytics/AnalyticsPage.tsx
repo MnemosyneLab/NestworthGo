@@ -10,6 +10,7 @@ import { chartTheme } from "@/components/charts/chartTheme";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useRealizedGain, useDividendIncome, useNetWorthTrend, type AnalyticsRange, type AnalyticsTrendRange, portfolioScope } from "@/queries/analytics";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
@@ -107,8 +108,14 @@ export function AnalyticsPage() {
         )}
       </div>
       <div className="flex flex-wrap items-end gap-2 rounded-md border border-border bg-muted/30 p-3">
-        <div className="flex flex-col gap-1.5"><label htmlFor="analytics-from" className="text-sm font-medium">{t("analytics.customFrom")}</label><input id="analytics-from" type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm" /></div>
-        <div className="flex flex-col gap-1.5"><label htmlFor="analytics-to" className="text-sm font-medium">{t("analytics.customTo")}</label><input id="analytics-to" type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm" /></div>
+        <div className="flex min-w-44 flex-col gap-1.5">
+          <label htmlFor="analytics-from" className="text-sm font-medium">{t("analytics.customFrom")}</label>
+          <DatePicker id="analytics-from" value={customFrom} max={customTo || undefined} onChange={setCustomFrom} />
+        </div>
+        <div className="flex min-w-44 flex-col gap-1.5">
+          <label htmlFor="analytics-to" className="text-sm font-medium">{t("analytics.customTo")}</label>
+          <DatePicker id="analytics-to" value={customTo} min={customFrom || undefined} onChange={setCustomTo} />
+        </div>
         <Button type="button" variant="outline" disabled={!customFrom || !customTo || customFrom > customTo} onClick={() => setRange({ kind: "custom", from: customFrom, to: customTo })}>{t("analytics.applyCustomRange")}</Button>
         {range.kind === "custom" && <span className="text-sm text-muted-foreground">{t("analytics.customRangeActive")}</span>}
       </div>

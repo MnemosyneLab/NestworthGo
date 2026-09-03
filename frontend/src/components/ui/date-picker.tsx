@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { format, isValid } from "date-fns";
+import { enUS, zhCN, zhTW, type Locale } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { buttonVariants } from "@/components/ui/button";
@@ -8,7 +9,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useSettings } from "@/queries/settings";
 import { cn } from "@/lib/utils";
 
-function parseYmd(value: string): Date | undefined {
+function pickerLocale(language: string): Locale {
+  if (language === "zh-TW") {
+    return zhTW;
+  }
+  if (language.startsWith("zh")) {
+    return zhCN;
+  }
+  return enUS;
+}
+
+function parseYmd(value: string | undefined): Date | undefined {
+  if (!value) {
+    return undefined;
+  }
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
   if (!match) {
     return undefined;
@@ -56,6 +70,11 @@ export function DatePicker({
   const [open, setOpen] = useState(false);
   const selected = parseYmd(value);
   const weekStartsOn = settings.data?.weekStart === "sunday" ? (0 as const) : (1 as const);
+  const startMonth = useMemo(
+    () => parseYmd(min) ?? new Date(new Date().getFullYear() - 50, 0),
+    [min],
+  );
+  const endMonth = useMemo(() => parseYmd(max) ?? new Date(), [max]);
   const disabledMatcher = useMemo(() => {
     const before = min ? parseYmd(min) : undefined;
     const after = max ? parseYmd(max) : undefined;
@@ -86,12 +105,17 @@ export function DatePicker({
         <CalendarIcon className="size-4" aria-hidden="true" />
         {selected ? displayDate(selected, settings.data?.dateFormat, i18n.language) : (placeholder ?? t("history.selectEmpty"))}
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-2">
+      <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
           captionLayout="dropdown"
+          locale={pickerLocale(i18n.language)}
+          formatters={{
+            formatMonthDropdown: (date) => date.toLocaleString(i18n.language, { month: "short" }),
+          }}
           weekStartsOn={weekStartsOn}
           selected={selected}
+          defaultMonth={selected}
           onSelect={(date) => {
             if (!date) {
               return;
@@ -100,8 +124,8 @@ export function DatePicker({
             setOpen(false);
           }}
           disabled={disabledMatcher}
-          startMonth={disabledMatcher && "before" in disabledMatcher && disabledMatcher.before ? disabledMatcher.before : undefined}
-          endMonth={disabledMatcher && "after" in disabledMatcher && disabledMatcher.after ? disabledMatcher.after : undefined}
+          startMonth={startMonth}
+          endMonth={endMonth}
         />
       </PopoverContent>
     </Popover>
