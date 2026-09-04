@@ -7,7 +7,7 @@ that boundary remain backend-owned.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. The current `0.3.0` line owns one complete SQLite schema
+and query results. The current `0.3.1` line owns one complete SQLite schema
 `9`; older database generations, including schemas `6`, `7`, and `8`, are rejected without
 migration. UI code
 consumes view models and must not reconstruct authoritative financial values.

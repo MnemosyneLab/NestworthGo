@@ -6,9 +6,19 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
+## 0.3.1 — Analytics Phase 1a
+
+Status: `In progress` (Phase 1a complete; later analytics phases remain
+planned).
+
+This line carries forward the local-first Wails v3 desktop and schema `9`, and
+completes the Go-only Analytics Phase 1a kernel: scoped universes, one-pass
+classification, signed Asset Changes identity, path-aware Price/FX, cash FX,
+corporate-action handling, residual tolerance, and Origin-timezone boundaries.
+
 ## 0.3.0 — Backup, restore, and CSV portability
 
-Status: `In progress`.
+Status: `Superseded` by `0.3.1`.
 
 This line keeps the Wails v3 local-first desktop and schema `9`, and adds
 recoverable local backup/restore plus create-only Accounts/Holdings CSV

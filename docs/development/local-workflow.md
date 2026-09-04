@@ -119,7 +119,7 @@ Use the root tasks for the normal arm64 flow:
 | `wails3 task build` | `bin/nestworth` | Production Go binary with embedded frontend |
 | `wails3 task package` | `bin/Nestworth.app` | Ad-hoc signed local `.app` bundle |
 | `wails3 task package:dmg` | `bin/Nestworth.dmg` | UDZO DMG with an Applications shortcut |
-| `wails3 task package:release` | `dist/macos/Nestworth.app` and `dist/macos/Nestworth-0.3.0-arm64.dmg` | Copies and verifies release-shaped local artifacts |
+| `wails3 task package:release` | `dist/macos/Nestworth.app` and `dist/macos/Nestworth-0.3.1-arm64.dmg` | Copies and verifies release-shaped local artifacts |
 
 The release task is the recommended local packaging smoke test:
 

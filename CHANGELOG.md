@@ -3,7 +3,22 @@
 All notable changes to Nestworth are recorded here. The project has not
 published a public distribution yet.
 
-## [0.3.0] — Unreleased
+## [0.3.1] — Unreleased
+
+### Added
+
+- Completed Analytics Phase 1a's Go-only analysis kernel: scoped universes,
+  effect classification, signed Asset Changes identity, path-aware Price/FX,
+  cash FX, residuals, corporate-action handling, and Origin-timezone bounds.
+- Added interest to the writable money-in and value-update reason catalogs.
+
+### Verification
+
+- Phase 1a golden cases and service integration coverage pass, together with
+  the full Go and frontend automated suites.
+- Synchronized application metadata as `v0.3.1` / build `2`.
+
+## [0.3.0] — Superseded unreleased line
 
 ### Added
 

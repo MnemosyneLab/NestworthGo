@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Development Plan
 
-**Status:** Proposed delivery plan (not started)  
+**Status:** Phase 1a complete; Phases 1b–6 not started
 **Product:** Nestworth  
 **Companions:** [Product design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Technical architecture](analytics-redesign-architecture.md)
 
@@ -94,6 +94,8 @@ Cases 43 and 44 are API-layer behaviour, not engine maths, which is why they sit
 ---
 
 ## 4. Phase 1a — Universe, classifier, Asset Changes identity
+
+**Status:** Complete (Go kernel and Phase 1a golden-case coverage verified)
 
 **Goal:** every value movement is classified once, and signed physical amounts reconcile beginning to ending.
 

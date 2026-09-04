@@ -2,7 +2,7 @@
 
 - Owner: Design and Frontend
 - Status: **Implemented**
-- Baseline: Nestworth-go `0.3.0` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
+- Baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
 - Surfaces: History, Record change, Account action sheets, Start History, Settings, cash reconciliation, simple values, existing positions, and activity detail
 - Companions: [Domain Model](../architecture/domain-model.md), [Data and Application Contracts](../architecture/data-and-ipc-contracts.md), and [Account Container Interaction](account-container-interaction.md)
 

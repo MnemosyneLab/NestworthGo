@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-Nestworth `0.3.0` is a Go 1.26 module with a Wails v3 desktop shell and a
+Nestworth `0.3.1` is a Go 1.26 module with a Wails v3 desktop shell and a
 React + TypeScript frontend. The Go domain and application layers own
 financial validation, persistence, valuation, replay, cost basis, gains, and
 provider routing. The frontend owns presentation, interaction state,
@@ -40,9 +40,9 @@ expected binding file is missing.
 Run the normal automated checks with a writable cache:
 
 ```bash
-GOCACHE=/tmp/nestworth-go-0.3.0 go test ./...
-GOCACHE=/tmp/nestworth-go-0.3.0 go test -race ./...
-GOCACHE=/tmp/nestworth-go-0.3.0 go vet ./...
+GOCACHE=/tmp/nestworth-go-0.3.1 go test ./...
+GOCACHE=/tmp/nestworth-go-0.3.1 go test -race ./...
+GOCACHE=/tmp/nestworth-go-0.3.1 go vet ./...
 gofmt -l cmd internal
 go build ./cmd/nestworth
 cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
@@ -64,7 +64,7 @@ wails3 task package:release
 ```
 
 The expected output is `dist/macos/Nestworth.app` and
-`dist/macos/Nestworth-0.3.0-arm64.dmg`. Use isolated database and settings
+`dist/macos/Nestworth-0.3.1-arm64.dmg`. Use isolated database and settings
 paths for a launch smoke; never point tests at real financial data.
 
 ## Repository layout
@@ -147,8 +147,8 @@ changes. Before committing:
 
 ```bash
 gofmt -l cmd internal
-GOCACHE=/tmp/nestworth-go-0.3.0 go test ./...
-GOCACHE=/tmp/nestworth-go-0.3.0 go vet ./...
+GOCACHE=/tmp/nestworth-go-0.3.1 go test ./...
+GOCACHE=/tmp/nestworth-go-0.3.1 go vet ./...
 go build ./cmd/nestworth
 git diff --check
 ```

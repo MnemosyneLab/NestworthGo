@@ -2,11 +2,11 @@
 
 - Owner: Product, Application, and Infrastructure
 - Status: **Implemented**
-- Current release: Nestworth `0.3.0`, build `1`
+- Current release: Nestworth `0.3.1`, build `2`
 - Database: SQLite schema `9`
 - Platform: macOS Apple Silicon with Wails v3
 - Companion: [Data and Application Contracts](../architecture/data-and-ipc-contracts.md)
-- Release scope: [v0.3.0 contract](../releases/v0.3.0.md)
+- Release scope: [v0.3.1 contract](../releases/v0.3.1.md)
 
 This document defines the current local backup, restore, and CSV portability
 contract. SQLite remains the local business-data source, Go remains authoritative
@@ -87,8 +87,8 @@ The manifest includes at least:
   "format_version": 1,
   "backup_kind": "full",
   "app_name": "Nestworth",
-  "app_version": "0.3.0",
-  "app_build": "1",
+  "app_version": "0.3.1",
+  "app_build": "2",
   "schema_version": 9,
   "created_at": "2026-09-01T00:00:00Z",
   "members": {
