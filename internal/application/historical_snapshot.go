@@ -154,6 +154,9 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	}
 	appended, err = s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
 	unlock()
+	if err == nil && appended {
+		s.invalidateAnalysis()
+	}
 	return snapshot, appended, err
 }
 
@@ -319,9 +322,13 @@ func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, end
 }
 
 func (s *Service) CompleteDailySnapshotRange(ctx context.Context, householdID domain.HouseholdID, targetDate string) error {
-	return s.WithWrite(ctx, func(ctx context.Context) error {
+	err := s.WithWrite(ctx, func(ctx context.Context) error {
 		return s.repository.CompleteDailySnapshotRange(ctx, householdID, targetDate, s.clock())
 	})
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) DailySnapshotState(ctx context.Context, householdID domain.HouseholdID) (domain.DailySnapshotState, error) {

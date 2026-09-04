@@ -157,6 +157,72 @@ export interface AllocationDTO {
     "shareBps": number;
 }
 
+export interface AnalysisDimensionAmountDTO {
+    "key": string;
+    "label": string;
+    "accountId"?: string;
+    "instrumentId"?: string;
+    "amount"?: SignedMoneyView | null;
+}
+
+export interface AssetChangeDTO {
+    "summary": AssetChangeSummaryDTO;
+    "waterfall": AssetChangeRowDTO[] | null;
+    "groups": AssetChangeGroupDTO[] | null;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface AssetChangeGroupDTO {
+    "key": string;
+    "label": string;
+    "amount"?: SignedMoneyView | null;
+    "rows": AssetChangeRowDTO[] | null;
+}
+
+export interface AssetChangeRowDTO {
+    "key": string;
+    "label": string;
+    "bucket": string;
+    "amount"?: SignedMoneyView | null;
+}
+
+export interface AssetChangeSummaryDTO {
+    "beginningValue"?: SignedMoneyView | null;
+    "endingValue"?: SignedMoneyView | null;
+    "change"?: SignedMoneyView | null;
+}
+
+export interface AssetDriverDetailDTO {
+    "driverKey": string;
+    "byInstrument": AnalysisDimensionAmountDTO[] | null;
+    "byAccount": AnalysisDimensionAmountDTO[] | null;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface AssetTrendDTO {
+    "points": AssetTrendPointDTO[] | null;
+    "summary"?: SignedMoneyView | null;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface AssetTrendPointDTO {
+    "period": string;
+    "value"?: SignedMoneyView | null;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
 /**
  * BreakdownDTO mirrors domain.BreakdownItem (an exact decimal.Decimal
  * amount, canonicalized here to a string).
@@ -167,6 +233,48 @@ export interface BreakdownDTO {
     "amount": string;
     "shareBps": number;
     "classificationBasis"?: string;
+}
+
+export interface CategoriesDTO {
+    "total"?: SignedMoneyView | null;
+    "rows": CategoryRowDTO[] | null;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface CategoryActivityRefDTO {
+    "date": string;
+    "activityId"?: string;
+    "accountId"?: string;
+    "holdingId"?: string;
+    "instrumentId"?: string;
+    "amount"?: SignedMoneyView | null;
+}
+
+export interface CategoryChildDTO {
+    "key": string;
+    "label": string;
+    "amount"?: SignedMoneyView | null;
+}
+
+export interface CategoryDetailDTO {
+    "children": CategoryChildDTO[] | null;
+    "activityRefs": CategoryActivityRefDTO[] | null;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface CategoryRowDTO {
+    "key": string;
+    "label": string;
+    "accountId"?: string;
+    "instrumentId"?: string;
+    "assetClass"?: string;
+    "amount"?: SignedMoneyView | null;
 }
 
 /**

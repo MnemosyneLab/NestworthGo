@@ -150,6 +150,7 @@ func (s *Service) recordChangeLocked(ctx context.Context, command any, key *doma
 		if commitErr := s.repository.CreateHoldingWithActivity(ctx, holding, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting, Mutation: key}, s.clock()); commitErr != nil {
 			return domain.ChangePreview{}, commitErr
 		}
+		s.invalidateAnalysis()
 		return preview, nil
 	}
 	return s.commitChangeLocked(ctx, state, command, key)
@@ -165,6 +166,7 @@ func (s *Service) commitChangeLocked(ctx context.Context, state domain.ChangeSta
 	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting, Mutation: key}}, s.clock()); err != nil {
 		return domain.ChangePreview{}, err
 	}
+	s.invalidateAnalysis()
 	return preview, nil
 }
 

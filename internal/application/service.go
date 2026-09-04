@@ -257,7 +257,11 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 		if err := s.repository.CreateOnboarding(ctx, household, members); err != nil {
 			return err
 		}
-		return s.ensureDefaultDirectory(ctx, household)
+		if err := s.ensureDefaultDirectory(ctx, household); err != nil {
+			return err
+		}
+		s.invalidateAnalysis()
+		return nil
 	}
 	origin, err := domain.NewHistoryOrigin(household.ID, input.Timezone, s.clock(), s.clock())
 	if err != nil {
@@ -266,7 +270,11 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 	if err := s.repository.CreateOnboardingWithHistory(ctx, household, members, domain.HistoryOriginData{Origin: origin}); err != nil {
 		return err
 	}
-	return s.ensureDefaultDirectory(ctx, household)
+	if err := s.ensureDefaultDirectory(ctx, household); err != nil {
+		return err
+	}
+	s.invalidateAnalysis()
+	return nil
 }
 
 func defaultDirectoryNames(language string) (string, string) {
@@ -336,6 +344,7 @@ func (s *Service) CreateMember(ctx context.Context, name string, iconKeys ...str
 	if err := s.repository.CreateMember(ctx, member); err != nil {
 		return domain.Member{}, err
 	}
+	s.invalidateAnalysis()
 	return member, nil
 }
 func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name string) (domain.Member, error) {
@@ -360,6 +369,7 @@ func (s *Service) UpdateMember(ctx context.Context, id domain.MemberID, name str
 	if err := s.repository.UpdateMember(ctx, updated); err != nil {
 		return domain.Member{}, err
 	}
+	s.invalidateAnalysis()
 	return updated, nil
 }
 
@@ -373,7 +383,11 @@ func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archive
 	if err != nil {
 		return err
 	}
-	return s.repository.SetMemberArchive(ctx, household.ID, id, archived, s.clock())
+	err = s.repository.SetMemberArchive(ctx, household.ID, id, archived, s.clock())
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) CreateInstitution(ctx context.Context, name string, institutionType domain.InstitutionType, iconKeys ...string) (domain.Institution, error) {
@@ -396,6 +410,7 @@ func (s *Service) CreateInstitution(ctx context.Context, name string, institutio
 	if err := s.repository.CreateInstitution(ctx, institution); err != nil {
 		return domain.Institution{}, err
 	}
+	s.invalidateAnalysis()
 	return institution, nil
 }
 func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID, name string) (domain.Institution, error) {
@@ -420,6 +435,7 @@ func (s *Service) UpdateInstitution(ctx context.Context, id domain.InstitutionID
 	if err := s.repository.UpdateInstitution(ctx, updated); err != nil {
 		return domain.Institution{}, err
 	}
+	s.invalidateAnalysis()
 	return updated, nil
 }
 
@@ -433,7 +449,11 @@ func (s *Service) ArchiveInstitution(ctx context.Context, id domain.InstitutionI
 	if err != nil {
 		return err
 	}
-	return s.repository.SetInstitutionArchive(ctx, household.ID, id, archived, s.clock())
+	err = s.repository.SetInstitutionArchive(ctx, household.ID, id, archived, s.clock())
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...string) (domain.Group, error) {
@@ -456,6 +476,7 @@ func (s *Service) CreateGroup(ctx context.Context, name string, iconKeys ...stri
 	if err := s.repository.CreateGroup(ctx, group); err != nil {
 		return domain.Group{}, err
 	}
+	s.invalidateAnalysis()
 	return group, nil
 }
 func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name string) (domain.Group, error) {
@@ -480,6 +501,7 @@ func (s *Service) UpdateGroup(ctx context.Context, id domain.GroupID, name strin
 	if err := s.repository.UpdateGroup(ctx, updated); err != nil {
 		return domain.Group{}, err
 	}
+	s.invalidateAnalysis()
 	return updated, nil
 }
 
@@ -493,7 +515,11 @@ func (s *Service) ArchiveGroup(ctx context.Context, id domain.GroupID, archived 
 	if err != nil {
 		return err
 	}
-	return s.repository.SetGroupArchive(ctx, household.ID, id, archived, s.clock())
+	err = s.repository.SetGroupArchive(ctx, household.ID, id, archived, s.clock())
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) SetMemberIcon(ctx context.Context, id domain.MemberID, iconKey string) error {
@@ -664,6 +690,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 		if err := s.repository.CreateAccount(ctx, account, ownership, value); err != nil {
 			return domain.AccountRecord{}, err
 		}
+		s.invalidateAnalysis()
 		return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: value}, nil
 	}
 	creationObservation := domain.AccountStateObservation{
@@ -681,6 +708,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 		if err := s.repository.CreateAccountWithHistory(ctx, account, ownership, value, creationObservation, nil, s.clock()); err != nil {
 			return domain.AccountRecord{}, err
 		}
+		s.invalidateAnalysis()
 		return domain.AccountRecord{Account: account, Ownership: ownership, LatestValue: value}, nil
 	}
 	zero, zeroErr := domain.ParseMoney("0", account.DefaultCurrency)
@@ -696,6 +724,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if err := s.repository.CreateAccountWithHistory(ctx, account, ownership, value, creationObservation, &commit, s.clock()); err != nil {
 		return domain.AccountRecord{}, err
 	}
+	s.invalidateAnalysis()
 	resultMoney, parseErr := domain.ParseMoney(preview.Resulting[0].Amount, preview.Resulting[0].Currency)
 	if parseErr != nil {
 		return domain.AccountRecord{}, parseErr
@@ -869,6 +898,7 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	} else if err := s.repository.UpdateAccount(ctx, account, ownership); err != nil {
 		return domain.AccountRecord{}, err
 	}
+	s.invalidateAnalysis()
 	current.Account, current.Ownership = account, ownership
 	return *current, nil
 }
@@ -937,6 +967,7 @@ func (s *Service) AppendAccountValue(ctx context.Context, accountID domain.Accou
 	if err := s.repository.AppendAccountValue(ctx, value); err != nil {
 		return domain.AccountValue{}, err
 	}
+	s.invalidateAnalysis()
 	return value, nil
 }
 
@@ -975,9 +1006,14 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 		return observationErr
 	}
 	if observation.ID != "" {
-		return s.repository.SetAccountArchiveWithObservation(ctx, household.ID, id, archived, now, observation)
+		err = s.repository.SetAccountArchiveWithObservation(ctx, household.ID, id, archived, now, observation)
+	} else {
+		err = s.repository.SetAccountArchive(ctx, household.ID, id, archived, now)
 	}
-	return s.repository.SetAccountArchive(ctx, household.ID, id, archived, now)
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) AccountValuation(ctx context.Context, id domain.AccountID) (domain.AccountValuation, error) {

@@ -67,11 +67,13 @@ func (s *Service) CreateInstrument(ctx context.Context, input InstrumentInput) (
 		if err := s.repository.CreateInstrumentWithObservation(ctx, instrument, observation); err != nil {
 			return domain.Instrument{}, err
 		}
+		s.invalidateAnalysis()
 		return instrument, nil
 	}
 	if err := s.repository.CreateInstrument(ctx, instrument); err != nil {
 		return domain.Instrument{}, err
 	}
+	s.invalidateAnalysis()
 	return instrument, nil
 }
 
@@ -291,6 +293,7 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	} else if err := s.repository.UpdateInstrument(ctx, updated); err != nil {
 		return domain.Instrument{}, err
 	}
+	s.invalidateAnalysis()
 	return updated, nil
 }
 
@@ -304,7 +307,11 @@ func (s *Service) ArchiveInstrument(ctx context.Context, id domain.InstrumentID,
 	if err != nil {
 		return err
 	}
-	return s.repository.SetInstrumentArchive(ctx, household.ID, id, archived, s.clock())
+	err = s.repository.SetInstrumentArchive(ctx, household.ID, id, archived, s.clock())
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) SetInstrumentIcon(ctx context.Context, id domain.InstrumentID, iconKey string) error {
@@ -339,9 +346,17 @@ func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.Instru
 		if observationErr != nil {
 			return observationErr
 		}
-		return s.repository.SetInstrumentQuoteSourceWithObservation(ctx, household.ID, id, parsed, observation)
+		err := s.repository.SetInstrumentQuoteSourceWithObservation(ctx, household.ID, id, parsed, observation)
+		if err == nil {
+			s.invalidateAnalysis()
+		}
+		return err
 	}
-	return s.repository.SetInstrumentQuoteSource(ctx, household.ID, id, parsed, s.clock())
+	err = s.repository.SetInstrumentQuoteSource(ctx, household.ID, id, parsed, s.clock())
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 type HoldingInput struct {
@@ -436,11 +451,13 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 		if err := s.repository.CreateHoldingWithActivity(ctx, created, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting}, s.clock()); err != nil {
 			return domain.Holding{}, err
 		}
+		s.invalidateAnalysis()
 		return holding, nil
 	}
 	if err := s.repository.CreateHolding(ctx, holding); err != nil {
 		return domain.Holding{}, err
 	}
+	s.invalidateAnalysis()
 	return holding, nil
 }
 
@@ -530,6 +547,7 @@ func (s *Service) updateHolding(ctx context.Context, id domain.HoldingID, input 
 	if err := s.repository.UpdateHolding(ctx, current); err != nil {
 		return domain.Holding{}, err
 	}
+	s.invalidateAnalysis()
 	return current, nil
 }
 
@@ -559,7 +577,11 @@ func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archi
 			return &domain.Error{Code: domain.ErrConflict, Message: "a Holding must have zero quantity before it is archived"}
 		}
 	}
-	return s.repository.SetHoldingArchive(ctx, household.ID, id, archived, s.clock())
+	err = s.repository.SetHoldingArchive(ctx, household.ID, id, archived, s.clock())
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.AccountID, amount, currency, effectiveAt string) (domain.AccountCashValue, error) {
@@ -638,6 +660,7 @@ func (s *Service) AppendAccountCashValue(ctx context.Context, accountID domain.A
 	if err := s.repository.AppendAccountCashValue(ctx, value); err != nil {
 		return domain.AccountCashValue{}, err
 	}
+	s.invalidateAnalysis()
 	return value, nil
 }
 
@@ -689,6 +712,7 @@ func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID 
 	if err := s.repository.AppendInstrumentQuote(ctx, quote); err != nil {
 		return domain.InstrumentQuote{}, err
 	}
+	s.invalidateAnalysis()
 	return quote, nil
 }
 
@@ -740,6 +764,7 @@ func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, sou
 	if saveErr != nil {
 		return domain.FXPreference{}, saveErr
 	}
+	s.invalidateAnalysis()
 	return preference, nil
 }
 
@@ -791,6 +816,7 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 	if err := s.repository.AppendFXQuote(ctx, fxQuote); err != nil {
 		return domain.FXQuote{}, err
 	}
+	s.invalidateAnalysis()
 	return fxQuote, nil
 }
 

@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Development Plan
 
-**Status:** Phase 1a–1b complete; Phases 2a–6 not started
+**Status:** Phase 1a–2a complete; Phases 2b–6 not started
 **Product:** Nestworth  
 **Companions:** [Product design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Technical architecture](analytics-redesign-architecture.md)
 
@@ -166,6 +166,8 @@ Cases 43 and 44 are API-layer behaviour, not engine maths, which is why they sit
 ---
 
 ## 6. Phase 2a — Asset Changes Wails APIs
+
+**Status:** Complete (Asset Changes Wails APIs, memo, DTO plumbing, and Phase 2a exit criteria verified)
 
 **Goal:** view-shaped Asset Changes reads over one memoized `PeriodAnalysisResult`, plus the shared API plumbing.
 
@@ -388,7 +390,7 @@ If schema v10 quantity is required, it is part of Phase 1a, not a later cleanup.
 |---|---|
 | 1a Universe, classifier, identity, Price/FX | Complete |
 | 1b Return, Dietz, linking | Complete |
-| 2a Asset Changes Wails APIs | Not started |
+| 2a Asset Changes Wails APIs | Complete |
 | 2b Return Wails APIs | Not started |
 | 3 Insights shell + Return Calendar | Not started |
 | 4 Asset Change Drivers | Not started |

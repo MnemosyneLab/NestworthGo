@@ -108,7 +108,11 @@ func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, co
 	for _, preference := range snapshot.FXPreferences {
 		data.FXPreferences = append(data.FXPreferences, domain.HistoryOriginFXPreference{OriginID: origin.ID, CurrencyA: preference.CurrencyA, CurrencyB: preference.CurrencyB, SourceKind: preference.SourceKind, CreatedAt: now})
 	}
-	return s.repository.StartHistory(ctx, data)
+	result, err := s.repository.StartHistory(ctx, data)
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return result, err
 }
 
 // StartingPointDraft returns positive active Holdings and their selected

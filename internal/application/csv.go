@@ -269,6 +269,7 @@ func (s *Service) CommitCSVImportBuilt(ctx context.Context, build func() (CSVImp
 		if err := s.repository.CommitCSVImport(ctx, plan.Batch); err != nil {
 			return err
 		}
+		s.invalidateAnalysis()
 		stats = plan.Stats
 		return nil
 	})

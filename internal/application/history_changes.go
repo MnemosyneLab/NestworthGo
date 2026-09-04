@@ -96,6 +96,7 @@ func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) 
 	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.clock()); err != nil {
 		return domain.ChangePreview{}, err
 	}
+	s.invalidateAnalysis()
 	return preview, nil
 }
 
@@ -209,6 +210,7 @@ func (s *Service) FixChangeWithMutation(ctx context.Context, activityID domain.A
 	}, asOf); err != nil {
 		return domain.ChangePreview{}, err
 	}
+	s.invalidateAnalysis()
 	return replacement, nil
 }
 
@@ -250,7 +252,11 @@ func (s *Service) AppendAccountStateObservation(ctx context.Context, observation
 	if _, err := domain.ParseOwnership(observation.Ownership); err != nil {
 		return err
 	}
-	return s.repository.AppendAccountStateObservation(ctx, observation)
+	err = s.repository.AppendAccountStateObservation(ctx, observation)
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) AppendInstrumentPreferenceObservation(ctx context.Context, observation domain.InstrumentPreferenceObservation) error {
@@ -273,7 +279,11 @@ func (s *Service) AppendInstrumentPreferenceObservation(ctx context.Context, obs
 	if _, err := domain.ParseQuoteSourceKind(string(observation.SourceKind)); err != nil {
 		return err
 	}
-	return s.repository.AppendInstrumentPreferenceObservation(ctx, observation)
+	err = s.repository.AppendInstrumentPreferenceObservation(ctx, observation)
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) AppendFXPreferenceObservation(ctx context.Context, observation domain.FXPreferenceObservation) error {
@@ -302,7 +312,11 @@ func (s *Service) AppendFXPreferenceObservation(ctx context.Context, observation
 	if _, err := domain.ParseQuoteSourceKind(string(observation.SourceKind)); err != nil {
 		return err
 	}
-	return s.repository.AppendFXPreferenceObservation(ctx, observation)
+	err = s.repository.AppendFXPreferenceObservation(ctx, observation)
+	if err == nil {
+		s.invalidateAnalysis()
+	}
+	return err
 }
 
 func (s *Service) accountStateObservation(ctx context.Context, account domain.Account, ownership domain.Ownership) (domain.AccountStateObservation, error) {

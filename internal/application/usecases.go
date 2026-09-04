@@ -57,6 +57,17 @@ type ValuationUseCase interface {
 	PortfolioTrend(ctx context.Context, trendRange domain.TrendRange) (domain.PortfolioTrend, error)
 }
 
+// AnalysisUseCase is the Phase 2a Asset Changes projection surface. All
+// methods consume one memoized PeriodAnalysisResult per query; they do not
+// expose a second calculation path.
+type AnalysisUseCase interface {
+	AssetChange(context.Context, domain.AnalysisQuery) (AssetChangeResult, error)
+	AssetDriverDetail(context.Context, domain.AnalysisQuery, string) (AssetDriverDetailResult, error)
+	AssetTrend(context.Context, domain.AnalysisQuery, AssetTrendGranularity, AssetTrendMetric) (AssetTrendResult, error)
+	Categories(context.Context, domain.AnalysisQuery, AnalysisCategoryType) (CategoriesResult, error)
+	CategoryDetail(context.Context, domain.AnalysisQuery, AnalysisCategoryType, string) (CategoryDetailResult, error)
+}
+
 // HistoryService is the activity ledger and change-command use case.
 type HistoryService interface {
 	HistoryOrigin(ctx context.Context) (*domain.HistoryOrigin, error)
@@ -98,6 +109,7 @@ var (
 	_ DirectoryService    = (*Service)(nil)
 	_ LedgerService       = (*Service)(nil)
 	_ ValuationUseCase    = (*Service)(nil)
+	_ AnalysisUseCase     = (*Service)(nil)
 	_ HistoryService      = (*Service)(nil)
 	_ ImportExportService = (*Service)(nil)
 	_ RecoveryService     = (*Recovery)(nil)

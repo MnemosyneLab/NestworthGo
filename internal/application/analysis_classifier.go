@@ -163,12 +163,8 @@ func (u analysisUniverse) returnOwner(holdingID *domain.HoldingID, instrumentID 
 }
 
 func (u analysisUniverse) investmentComponentInUniverse(component domain.ComponentID) bool {
-	for _, candidate := range u.context.InvestmentUniverse.Components {
-		if candidate.Key() == component.Key() {
-			return true
-		}
-	}
-	return false
+	_, ok := u.investmentComponentKeys[component.Key()]
+	return ok
 }
 
 func endpointsInInvestmentUniverse(endpoints []domain.ComponentID, universe analysisUniverse) bool {

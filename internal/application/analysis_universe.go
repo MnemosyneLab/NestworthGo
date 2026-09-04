@@ -22,11 +22,13 @@ type AnalysisInputs struct {
 }
 
 type analysisUniverse struct {
-	context     domain.ResolvedAnalysisContext
-	accounts    map[domain.AccountID]domain.Account
-	ownership   map[domain.AccountID]domain.Ownership
-	instruments map[domain.InstrumentID]domain.Instrument
-	holdings    map[domain.HoldingID]domain.Holding
+	context                 domain.ResolvedAnalysisContext
+	accounts                map[domain.AccountID]domain.Account
+	ownership               map[domain.AccountID]domain.Ownership
+	instruments             map[domain.InstrumentID]domain.Instrument
+	holdings                map[domain.HoldingID]domain.Holding
+	componentKeys           map[string]struct{}
+	investmentComponentKeys map[string]struct{}
 }
 
 func resolveAnalysisUniverse(input AnalysisInputs, query domain.AnalysisQuery) (analysisUniverse, error) {
@@ -116,7 +118,18 @@ func resolveAnalysisUniverse(input AnalysisInputs, query domain.AnalysisQuery) (
 		InvestmentUniverse:  domain.InvestmentUniverse{Components: investmentComponents(components, query.IncludeCash, accounts)},
 		AnalysisDayTimezone: input.Origin.Timezone,
 	}
-	return analysisUniverse{context: context, accounts: accounts, ownership: ownership, instruments: instruments, holdings: holdings}, nil
+	componentKeys := make(map[string]struct{}, len(components))
+	for _, component := range components {
+		componentKeys[component.Key()] = struct{}{}
+	}
+	investmentComponentKeys := make(map[string]struct{}, len(context.InvestmentUniverse.Components))
+	for _, component := range context.InvestmentUniverse.Components {
+		investmentComponentKeys[component.Key()] = struct{}{}
+	}
+	return analysisUniverse{
+		context: context, accounts: accounts, ownership: ownership, instruments: instruments, holdings: holdings,
+		componentKeys: componentKeys, investmentComponentKeys: investmentComponentKeys,
+	}, nil
 }
 
 func analysisItemMatches(query domain.AnalysisQuery, account domain.Account, instrument *domain.Instrument, item domain.DailyValuationSnapshotItem, ownership domain.Ownership) bool {
@@ -252,13 +265,8 @@ func componentAssetClass(component domain.ComponentID, accounts map[domain.Accou
 }
 
 func (u analysisUniverse) componentInUniverse(component domain.ComponentID) bool {
-	key := component.Key()
-	for _, candidate := range u.context.Universe.Components {
-		if candidate.Key() == key {
-			return true
-		}
-	}
-	return false
+	_, ok := u.componentKeys[component.Key()]
+	return ok
 }
 
 func (u analysisUniverse) ensureComponentCurrency(component domain.ComponentID) (domain.ComponentID, error) {

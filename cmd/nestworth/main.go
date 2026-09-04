@@ -25,6 +25,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/version"
 	wailsaccount "github.com/waltwang/nestworth-go/internal/wailsapi/account"
+	wailsanalysis "github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	wailsanalytics "github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	wailsapp "github.com/waltwang/nestworth-go/internal/wailsapi/app"
 	wailscatalog "github.com/waltwang/nestworth-go/internal/wailsapi/catalog"
@@ -227,6 +228,7 @@ func services(service *nestworthapp.Service, store *settings.Store, recovery *wa
 		application.NewService(wailsholding.NewService(service)),
 		application.NewService(wailsquote.NewService(service)),
 		application.NewService(wailsanalytics.NewService(service)),
+		application.NewService(wailsanalysis.NewService(service)),
 		application.NewService(wailshistory.NewService(service)),
 		application.NewService(marketdataService),
 		application.NewService(wailssettings.NewService(store, service)),

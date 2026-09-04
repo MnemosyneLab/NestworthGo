@@ -276,6 +276,9 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 			return failedRefresh(target, persistErr), false
 		}
 		if inserted {
+			s.invalidateAnalysis()
+		}
+		if inserted {
 			return fetchedRefresh(target), false
 		}
 		return cachedRefresh(target), false
@@ -304,6 +307,9 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 	})
 	if persistErr != nil {
 		return failedRefresh(target, persistErr), false
+	}
+	if inserted {
+		s.invalidateAnalysis()
 	}
 	s.rememberProviderFXPreference(ctx, target)
 	if inserted {

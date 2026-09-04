@@ -215,6 +215,7 @@ type ComponentDay struct {
 	DietzCapitalFlows []DietzCapitalFlow
 	AttributedEffects []AttributedEffect
 	BeginningValue    SignedMoney
+	EndingValue       SignedMoney
 	ReturnAmount      *SignedMoney
 	InvestedCapital   *SignedMoney
 	ReturnRate        *decimal.Decimal
@@ -238,9 +239,9 @@ type PeriodAnalysisResult struct {
 	ReturnAmount        *SignedMoney
 	// InvestedCapital is the InvestmentUniverse beginning on Query.From. It is
 	// not the Dietz denominator and not the sum of daily beginning values.
-	InvestedCapital     *SignedMoney
-	ReturnRate          *decimal.Decimal
-	Status              Completeness
+	InvestedCapital *SignedMoney
+	ReturnRate      *decimal.Decimal
+	Status          Completeness
 }
 
 // Validate is deliberately structural: arithmetic and currency consistency belong to the engine.

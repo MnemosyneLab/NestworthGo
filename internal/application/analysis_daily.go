@@ -54,7 +54,17 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
 		totalDays++
 	}
-	result := domain.PeriodAnalysisResult{Query: query, AnalysisDayTimezone: input.Origin.Timezone, Days: make([]domain.ComponentDay, 0), Coverage: domain.RateCoverage{TotalDays: totalDays}, Status: domain.CompletenessOK}
+	result := domain.PeriodAnalysisResult{Query: query, AnalysisDayTimezone: input.Origin.Timezone, Days: make([]domain.ComponentDay, 0, totalDays*len(universe.context.Universe.Components)), Coverage: domain.RateCoverage{TotalDays: totalDays}, Status: domain.CompletenessOK}
+	activitiesByDate := make(map[string][]domain.Activity, len(input.Activities))
+	for _, activity := range input.Activities {
+		localDate := activityLocalDate(activity, input.Origin.Timezone)
+		activitiesByDate[localDate] = append(activitiesByDate[localDate], activity)
+	}
+	previousItems := make(map[string]domain.DailyValuationSnapshotItem)
+	firstPreviousDate := start.AddDate(0, 0, -1).Format("2006-01-02")
+	if previousSnapshot, ok := byDate[firstPreviousDate]; ok {
+		previousItems = snapshotItemsByComponent(previousSnapshot, universe.accounts, universe.instruments)
+	}
 	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
 		localDate := date.Format("2006-01-02")
 		daySnapshot, hasDay := byDate[localDate]
@@ -67,10 +77,7 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 		endItems := snapshotItemsByComponent(daySnapshot, universe.accounts, universe.instruments)
 		var effects []classifiedAnalysisEffect
 		if hasDay {
-			for _, activity := range input.Activities {
-				if activityLocalDate(activity, input.Origin.Timezone) != localDate {
-					continue
-				}
+			for _, activity := range activitiesByDate[localDate] {
 				classified, classifyErr := universe.classifyActivity(activity, daySnapshot, previous, input, query)
 				if classifyErr != nil {
 					return domain.PeriodAnalysisResult{}, classifyErr
@@ -82,10 +89,6 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 		for _, effect := range effects {
 			effectsByComponent[effect.component.Key()] = append(effectsByComponent[effect.component.Key()], effect)
 		}
-		previousItems := make(map[string]domain.DailyValuationSnapshotItem)
-		if previous != nil {
-			previousItems = snapshotItemsByComponent(*previous, universe.accounts, universe.instruments)
-		}
 		for _, component := range universe.context.Universe.Components {
 			day, err := buildComponentDay(localDate, component, previousItems[component.Key()], endItems[component.Key()], previousSnapshot, daySnapshot, hasPrevious, hasDay, effectsByComponent[component.Key()], input, query, universe)
 			if err != nil {
@@ -93,6 +96,7 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 			}
 			result.Days = append(result.Days, day)
 		}
+		previousItems = endItems
 	}
 	if err := finalizeAnalysisReturns(&result, universe, input, query); err != nil {
 		return domain.PeriodAnalysisResult{}, err
@@ -142,6 +146,10 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		return day, nil
 	}
 	day.BeginningValue, err = newSigned(begin, valueCurrency(previous, query.Valuation, baseCurrency))
+	if err != nil {
+		return domain.ComponentDay{}, err
+	}
+	day.EndingValue, err = newSigned(ending, valueCurrency(current, query.Valuation, baseCurrency))
 	if err != nil {
 		return domain.ComponentDay{}, err
 	}
@@ -510,6 +518,11 @@ func computeCashBridge(component domain.ComponentID, previous, current domain.Da
 		return holdingBridge{}, nil
 	}
 	base := input.Portfolio.Household.BaseCurrency
+	if previous.NativeCurrency == base && current.NativeCurrency == base {
+		// A base-currency cash component cannot have an FX driver. Avoid
+		// reparsing native amounts and looking up quotes on the hot path.
+		return holdingBridge{}, nil
+	}
 	// Cash FX is a path calculation.  Keep each recorded cash movement at its
 	// event FX; otherwise an omitted/incorrect movement can be silently
 	// absorbed by the ending-value difference and leave no residual.
