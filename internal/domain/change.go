@@ -194,15 +194,15 @@ func ParseActivityReason(value string) (ActivityReason, error) {
 }
 
 func MoneyInReasons() []ActivityReason {
-	return []ActivityReason{ReasonIncome, ReasonContribution, ReasonGift, ReasonOther, ReasonReconciliation}
+	return []ActivityReason{ReasonIncome, ReasonInterest, ReasonContribution, ReasonGift, ReasonOther, ReasonReconciliation}
 }
 
 func MoneyOutReasons() []ActivityReason {
-	return []ActivityReason{ReasonExpense, ReasonFee, ReasonTax, ReasonOther, ReasonReconciliation}
+	return []ActivityReason{ReasonExpense, ReasonFee, ReasonTax, ReasonInterest, ReasonOther, ReasonReconciliation}
 }
 
 func ValueUpdateReasons() []ActivityReason {
-	return []ActivityReason{ReasonReconciliation, ReasonOther}
+	return []ActivityReason{ReasonInterest, ReasonReconciliation, ReasonOther}
 }
 
 type ActivityClassification string
@@ -766,10 +766,10 @@ func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, 
 		reason = ReasonOther
 	}
 	if added {
-		if reason != ReasonIncome && reason != ReasonContribution && reason != ReasonGift && reason != ReasonOther && reason != ReasonReconciliation {
+		if reason != ReasonIncome && reason != ReasonInterest && reason != ReasonContribution && reason != ReasonGift && reason != ReasonOther && reason != ReasonReconciliation {
 			return ChangePreview{}, changeError(ErrInvalidChange, "reason", "reason is not allowed for Money added")
 		}
-	} else if reason != ReasonExpense && reason != ReasonFee && reason != ReasonTax && reason != ReasonOther && reason != ReasonReconciliation {
+	} else if reason != ReasonExpense && reason != ReasonFee && reason != ReasonTax && reason != ReasonInterest && reason != ReasonOther && reason != ReasonReconciliation {
 		return ChangePreview{}, changeError(ErrInvalidChange, "reason", "reason is not allowed for Money removed")
 	}
 	account, err := state.account(accountID, household)
@@ -1333,7 +1333,7 @@ func buildValueUpdate(state ChangeState, input ValueUpdateInput) (ChangePreview,
 	if input.Reason == "" {
 		input.Reason = ReasonReconciliation
 	}
-	if input.Reason != ReasonReconciliation && input.Reason != ReasonOther {
+	if input.Reason != ReasonInterest && input.Reason != ReasonReconciliation && input.Reason != ReasonOther {
 		return ChangePreview{}, changeError(ErrInvalidChange, "reason", "reason is not allowed for a value update")
 	}
 	activity, err := state.newActivity(input.HouseholdID, ActivityValueUpdate, input.Reason, input.EffectiveAt, input.Note)

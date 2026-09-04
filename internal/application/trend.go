@@ -308,7 +308,12 @@ func closedDayRebuildFrom(originDate, yesterday string, state domain.DailySnapsh
 	if state.LastCompletedClosedOn != nil {
 		lastCompleted = *state.LastCompletedClosedOn
 	}
-	if dirty != "" && dirty > rebuildFrom {
+	// A dirty marker alone does not prove that the days before the requested
+	// rebuild start were ever materialized. On a first analysis after
+	// StartHistory, preserve that start so the requested range has its required
+	// predecessor snapshot. Once a completion watermark exists, the dirty marker
+	// can safely narrow the rebuild.
+	if dirty != "" && lastCompleted != "" && dirty > rebuildFrom {
 		rebuildFrom = dirty
 	}
 	if lastCompleted != "" && lastCompleted >= yesterday && dirty == "" {

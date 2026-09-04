@@ -16,6 +16,7 @@ type Service struct {
 	repository Repository
 	valuation  *ValuationService
 	gain       *GainService
+	analysis   *AnalysisService
 
 	// stateMu guards the mutable service configuration below so a refresh
 	// worker reading it never races a concurrent setter.
@@ -43,6 +44,8 @@ func NewService(repository Repository, registries ...MarketDataRegistryPort) *Se
 	service.writes.init()
 	service.valuation = NewValuationService(repository, service.clock)
 	service.gain = NewGainService(repository, service.clock)
+	service.analysis = NewAnalysisService(repository, service.clock)
+	service.analysis.SetSnapshotEnsurer(service.ensureClosedDaySnapshots)
 	if len(registries) > 0 {
 		service.marketData = registries[0]
 	}

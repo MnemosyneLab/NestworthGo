@@ -10,6 +10,7 @@ import (
 func TestClosedDayRebuildFromStartsAfterLastCompleted(t *testing.T) {
 	lastCompleted := "2026-07-31"
 	dirty := "2026-07-10"
+	firstDirty := "2026-08-02"
 	cases := []struct {
 		name          string
 		origin        string
@@ -23,6 +24,7 @@ func TestClosedDayRebuildFromStartsAfterLastCompleted(t *testing.T) {
 		{name: "already complete", origin: "2026-06-20", yesterday: "2026-07-31", lastCompleted: &lastCompleted, wantSkip: true},
 		{name: "dirty range wins over last completed", origin: "2026-06-20", yesterday: "2026-08-01", lastCompleted: &lastCompleted, dirtyFrom: &dirty, wantFrom: "2026-07-10"},
 		{name: "no cursor rebuilds from origin", origin: "2026-06-20", yesterday: "2026-07-01", wantFrom: "2026-06-20"},
+		{name: "dirty first run still rebuilds origin", origin: "2026-08-01", yesterday: "2026-08-02", dirtyFrom: &firstDirty, wantFrom: "2026-08-01"},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {

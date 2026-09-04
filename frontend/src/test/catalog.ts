@@ -36,9 +36,9 @@ export const TEST_CATALOG: CatalogDTO = {
   appearances: ["system", "light", "dark"],
   languages: ["system", "en", "zh-CN", "zh-TW"],
   accents: ["nestworth", "ocean", "amber"],
-  moneyInReasons: ["income", "contribution", "gift", "other", "reconciliation"],
-  moneyOutReasons: ["expense", "fee", "tax", "other", "reconciliation"],
-  valueUpdateReasons: ["reconciliation", "other"],
+  moneyInReasons: ["income", "interest", "contribution", "gift", "other", "reconciliation"],
+  moneyOutReasons: ["expense", "fee", "tax", "interest", "other", "reconciliation"],
+  valueUpdateReasons: ["interest", "reconciliation", "other"],
   tradeSides: ["buy", "sell"],
 };
 
