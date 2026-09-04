@@ -449,6 +449,9 @@ type MoneyAddedInput struct {
 type MoneyRemovedInput struct {
 	HouseholdID HouseholdID
 	AccountID   AccountID
+	// HoldingID associates a tax or fee with the investment return of a
+	// holding. An omitted ID keeps the change as an unassociated cash flow.
+	HoldingID   *HoldingID
 	Amount      Money
 	Reason      ActivityReason
 	EffectiveAt time.Time
@@ -754,11 +757,13 @@ func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, 
 	var reason ActivityReason
 	var effectiveAt time.Time
 	var note *string
+	var holdingID *HoldingID
 	switch value := input.(type) {
 	case MoneyAddedInput:
 		household, accountID, amount, reason, effectiveAt, note = value.HouseholdID, value.AccountID, value.Amount, value.Reason, value.EffectiveAt, value.Note
 	case MoneyRemovedInput:
 		household, accountID, amount, reason, effectiveAt, note = value.HouseholdID, value.AccountID, value.Amount, value.Reason, value.EffectiveAt, value.Note
+		holdingID = value.HoldingID
 	default:
 		return ChangePreview{}, changeError(ErrInvalidChange, "command", "money change is not supported")
 	}
@@ -772,9 +777,22 @@ func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, 
 	} else if reason != ReasonExpense && reason != ReasonFee && reason != ReasonTax && reason != ReasonInterest && reason != ReasonOther && reason != ReasonReconciliation {
 		return ChangePreview{}, changeError(ErrInvalidChange, "reason", "reason is not allowed for Money removed")
 	}
+	if holdingID != nil && (added || (reason != ReasonTax && reason != ReasonFee)) {
+		return ChangePreview{}, changeError(ErrInvalidChange, "holdingId", "holding association is only allowed for Money removed tax or fee")
+	}
 	account, err := state.account(accountID, household)
 	if err != nil {
 		return ChangePreview{}, err
+	}
+	var holding ChangeHoldingState
+	if holdingID != nil {
+		holding, err = state.holding(*holdingID, household)
+		if err != nil {
+			return ChangePreview{}, err
+		}
+		if account.Mode != TrackingHoldings || holding.AccountID != account.ID {
+			return ChangePreview{}, changeError(ErrInvalidChange, "holdingId", "holding must belong to the cash Account")
+		}
 	}
 	if amount.IsZero() {
 		return ChangePreview{}, changeError(ErrInvalidChange, "amount", "must be greater than zero")
@@ -798,6 +816,9 @@ func buildMoneyChange(state ChangeState, input any, added bool) (ChangePreview, 
 	result, err := state.accountAmount(account, amount, direction)
 	if err != nil {
 		return ChangePreview{}, err
+	}
+	if holdingID != nil {
+		activity.DividendDetail = &DividendDetail{HoldingID: holding.ID, InstrumentID: holding.InstrumentID, Amount: amount}
 	}
 	activity.Effects = []ActivityEffect{effect}
 	return ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{result}}, nil

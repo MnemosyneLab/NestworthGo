@@ -7,7 +7,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// AnalysisService loads the immutable inputs for the Phase 1a calculation.
+// AnalysisService loads the immutable inputs for the Phase 1b calculation.
 // It intentionally has no Wails or projection concerns: later phases consume
 // PeriodAnalysisResult rather than replaying the ledger per view.
 type AnalysisService struct {
@@ -16,7 +16,7 @@ type AnalysisService struct {
 	ensureSnapshots func(context.Context, string, string) error
 }
 
-// ComputeAnalysis exposes the pure Phase 1a kernel for deterministic tests
+// ComputeAnalysis exposes the pure Phase 1b kernel for deterministic tests
 // and non-Wails callers.  Repository loading and closed-day maintenance stay
 // in AnalysisService.Compute.
 func ComputeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {

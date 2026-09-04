@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Development Plan
 
-**Status:** Phase 1a complete; Phases 1b–6 not started
+**Status:** Phase 1a–1b complete; Phases 2a–6 not started
 **Product:** Nestworth  
 **Companions:** [Product design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Technical architecture](analytics-redesign-architecture.md)
 
@@ -133,6 +133,8 @@ Cases 43 and 44 are API-layer behaviour, not engine maths, which is why they sit
 ---
 
 ## 5. Phase 1b — Return, Dietz, linking
+
+**Status:** Complete (Go kernel and Phase 1b golden-case coverage verified)
 
 **Goal:** rates and return amounts whose financial meaning is correct, on top of the 1a kernel.
 
@@ -384,8 +386,8 @@ If schema v10 quantity is required, it is part of Phase 1a, not a later cleanup.
 
 | Phase | Status |
 |---|---|
-| 1a Universe, classifier, identity, Price/FX | Not started |
-| 1b Return, Dietz, linking | Not started |
+| 1a Universe, classifier, identity, Price/FX | Complete |
+| 1b Return, Dietz, linking | Complete |
 | 2a Asset Changes Wails APIs | Not started |
 | 2b Return Wails APIs | Not started |
 | 3 Insights shell + Return Calendar | Not started |

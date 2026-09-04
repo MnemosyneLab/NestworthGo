@@ -119,6 +119,31 @@ func TestToCommandAcceptsEveryChangeCommandKind(t *testing.T) {
 	}
 }
 
+func TestToCommandMoneyRemovedCarriesHoldingAssociation(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	accountID := domain.NewAccountID()
+	holdingID := domain.NewHoldingID()
+	request := ChangeCommandRequest{
+		Kind: ChangeMoneyRemoved, AccountID: accountID.String(), HoldingID: holdingID.String(),
+		Amount: "30", Currency: "USD", Reason: "tax",
+	}
+
+	command, err := request.ToCommand(householdID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, ok := command.(domain.MoneyRemovedInput)
+	if !ok {
+		t.Fatalf("command = %T, want domain.MoneyRemovedInput", command)
+	}
+	if input.HoldingID == nil || *input.HoldingID != holdingID {
+		t.Fatalf("holding association = %v, want %s", input.HoldingID, holdingID)
+	}
+	if input.Reason != domain.ReasonTax {
+		t.Fatalf("reason = %s, want tax", input.Reason)
+	}
+}
+
 func TestCommandKindActivityTableCoversEveryKind(t *testing.T) {
 	covered := map[ChangeCommandKind]bool{}
 	for _, mapping := range commandKindActivity {

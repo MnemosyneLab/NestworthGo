@@ -8,7 +8,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// AnalysisInputs is the immutable read set consumed by the Phase 1a kernel.
+// AnalysisInputs is the immutable read set consumed by the Phase 1b kernel.
 // Keeping the pure input type public makes the calculation independently
 // testable without opening a database, while AnalysisService supplies it from
 // the repository in one application-level read flow.
@@ -70,6 +70,7 @@ func resolveAnalysisUniverse(input AnalysisInputs, query domain.AnalysisQuery) (
 				continue
 			}
 			component := componentIDForItem(item, account)
+			component.AssetClass = itemAssetClass(account, instrument, item)
 			componentsByKey[component.Key()] = component
 		}
 	}
@@ -112,7 +113,7 @@ func resolveAnalysisUniverse(input AnalysisInputs, query domain.AnalysisQuery) (
 	sort.Strings(assetClassesIn)
 	context := domain.ResolvedAnalysisContext{
 		Universe:            domain.AnalysisUniverse{Accounts: accountsIn, Instruments: instrumentsIn, Currencies: currenciesIn, AssetClasses: assetClassesIn, Components: components},
-		InvestmentUniverse:  domain.InvestmentUniverse{Components: investmentComponents(components, query.IncludeCash)},
+		InvestmentUniverse:  domain.InvestmentUniverse{Components: investmentComponents(components, query.IncludeCash, accounts)},
 		AnalysisDayTimezone: input.Origin.Timezone,
 	}
 	return analysisUniverse{context: context, accounts: accounts, ownership: ownership, instruments: instruments, holdings: holdings}, nil
@@ -186,9 +187,9 @@ func componentForEffect(effect domain.ActivityEffect, accounts map[domain.Accoun
 		instrumentID := holding.InstrumentID
 		instrument, ok := instruments[instrumentID]
 		if !ok {
-			return domain.ComponentID{AccountID: holding.AccountID, HoldingID: effect.HoldingID, InstrumentID: &instrumentID}, true
+			return domain.ComponentID{AccountID: holding.AccountID, HoldingID: effect.HoldingID, InstrumentID: &instrumentID, AssetClass: "unknown"}, true
 		}
-		return domain.ComponentID{AccountID: holding.AccountID, HoldingID: effect.HoldingID, InstrumentID: &instrumentID, Currency: instrument.QuoteCurrency}, true
+		return domain.ComponentID{AccountID: holding.AccountID, HoldingID: effect.HoldingID, InstrumentID: &instrumentID, Currency: instrument.QuoteCurrency, AssetClass: string(instrument.Type)}, true
 	}
 	if effect.AccountID == nil || effect.Money == nil {
 		return domain.ComponentID{}, false
@@ -197,7 +198,7 @@ func componentForEffect(effect domain.ActivityEffect, accounts map[domain.Accoun
 	if !ok {
 		return domain.ComponentID{}, false
 	}
-	return domain.ComponentID{AccountID: account.ID, Currency: effect.Money.Currency(), Cash: true}, true
+	return domain.ComponentID{AccountID: account.ID, Currency: effect.Money.Currency(), AssetClass: itemAssetClass(account, nil, domain.DailyValuationSnapshotItem{NativeCurrency: effect.Money.Currency()}), Cash: true}, true
 }
 
 func instrumentForItem(item domain.DailyValuationSnapshotItem, instruments map[domain.InstrumentID]domain.Instrument) (*domain.Instrument, bool) {
@@ -211,10 +212,11 @@ func instrumentForItem(item domain.DailyValuationSnapshotItem, instruments map[d
 	return &instrument, true
 }
 
-func investmentComponents(components domain.Components, includeCash bool) domain.Components {
+func investmentComponents(components domain.Components, includeCash bool, accounts map[domain.AccountID]domain.Account) domain.Components {
 	result := make(domain.Components, 0, len(components))
 	for _, component := range components {
-		if component.InstrumentID != nil || (includeCash && component.Cash) {
+		account, accountOK := accounts[component.AccountID]
+		if component.InstrumentID != nil || (includeCash && component.Cash && accountOK && !account.IsLiability()) {
 			result = append(result, component)
 		}
 	}

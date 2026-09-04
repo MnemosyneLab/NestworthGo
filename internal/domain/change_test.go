@@ -61,6 +61,51 @@ func TestPreviewMoneyAddedAndRemovedUsesTypedEffects(t *testing.T) {
 	}
 }
 
+func TestPreviewMoneyRemovedTaxCarriesOptionalDividendAssociation(t *testing.T) {
+	state, _, broker, holdingID, _ := changeTestState(t)
+	amount, _ := ParseMoney("30", "USD")
+
+	associated, err := PreviewChange(state, MoneyRemovedInput{
+		HouseholdID: state.HouseholdID,
+		AccountID:   broker,
+		HoldingID:   &holdingID,
+		Amount:      amount,
+		Reason:      ReasonTax,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if associated.Activity.DividendDetail == nil {
+		t.Fatal("associated tax preview has no DividendDetail")
+	}
+	if detail := associated.Activity.DividendDetail; detail.HoldingID != holdingID || detail.InstrumentID != state.Holdings[holdingID].InstrumentID || !detail.Amount.Amount().Equal(amount.Amount()) || detail.Amount.Currency() != amount.Currency() {
+		t.Fatalf("associated tax detail = %+v, want holding %s and amount %s", detail, holdingID, amount.CanonicalAmount())
+	}
+
+	unassociated, err := PreviewChange(state, MoneyRemovedInput{
+		HouseholdID: state.HouseholdID,
+		AccountID:   broker,
+		Amount:      amount,
+		Reason:      ReasonTax,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unassociated.Activity.DividendDetail != nil {
+		t.Fatalf("unassociated tax preview detail = %+v, want nil", unassociated.Activity.DividendDetail)
+	}
+
+	if _, err := PreviewChange(state, MoneyRemovedInput{
+		HouseholdID: state.HouseholdID,
+		AccountID:   broker,
+		HoldingID:   &holdingID,
+		Amount:      amount,
+		Reason:      ReasonExpense,
+	}); err == nil {
+		t.Fatal("holding association on an expense was accepted")
+	}
+}
+
 func TestPreviewCrossCurrencyTransferDerivesExactRateAndRejectsInsufficientCash(t *testing.T) {
 	state, _, broker, _, _ := changeTestState(t)
 	cny, _ := ParseCurrency("CNY")

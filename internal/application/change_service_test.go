@@ -274,6 +274,37 @@ func TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis(t *t
 	if undo.Activity.Kind != domain.ActivityReversal || undo.Resulting[0].Amount != "50" {
 		t.Fatalf("undo = %+v", undo)
 	}
+
+	associatedTaxAmount, _ := domain.ParseMoney("10", "USD")
+	associatedHoldingID := holding.ID
+	associatedTax, err := service.RecordChange(ctx, domain.MoneyRemovedInput{
+		HouseholdID: bootstrap.Household.ID,
+		AccountID:   account.Account.ID,
+		HoldingID:   &associatedHoldingID,
+		Amount:      associatedTaxAmount,
+		Reason:      domain.ReasonTax,
+		EffectiveAt: clock,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if associatedTax.Activity.DividendDetail == nil || associatedTax.Activity.DividendDetail.HoldingID != holding.ID || !associatedTax.Activity.DividendDetail.Amount.Amount().Equal(associatedTaxAmount.Amount()) || associatedTax.Activity.DividendDetail.Amount.Currency() != associatedTaxAmount.Currency() {
+		t.Fatalf("recorded associated tax = %+v", associatedTax.Activity.DividendDetail)
+	}
+	var persistedTaxHolding, persistedTaxAmount, persistedTaxCurrency string
+	if err := database.SQL.QueryRow("SELECT holding_id, amount, currency FROM activity_dividend_details WHERE activity_id = ?", associatedTax.Activity.ID.String()).Scan(&persistedTaxHolding, &persistedTaxAmount, &persistedTaxCurrency); err != nil {
+		t.Fatal(err)
+	}
+	if persistedTaxHolding != holding.ID.String() || persistedTaxAmount != "10" || persistedTaxCurrency != "USD" {
+		t.Fatalf("persisted associated tax detail = %s %s %s", persistedTaxHolding, persistedTaxAmount, persistedTaxCurrency)
+	}
+	loadedTax, err := repository.Activity(ctx, bootstrap.Household.ID, associatedTax.Activity.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loadedTax.DividendDetail == nil || loadedTax.DividendDetail.HoldingID != holding.ID || !loadedTax.DividendDetail.Amount.Amount().Equal(associatedTaxAmount.Amount()) || loadedTax.DividendDetail.Amount.Currency() != associatedTaxAmount.Currency() {
+		t.Fatalf("loaded associated tax detail = %+v", loadedTax.DividendDetail)
+	}
 }
 
 func TestRecordFirstBuyCreatesHoldingAndCommitsAtomically(t *testing.T) {

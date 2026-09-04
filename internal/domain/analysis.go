@@ -105,6 +105,7 @@ type ComponentID struct {
 	HoldingID    *HoldingID
 	InstrumentID *InstrumentID
 	Currency     CurrencyCode
+	AssetClass   string
 	Cash         bool
 }
 type Components []ComponentID
@@ -171,17 +172,19 @@ type DietzCapitalFlow struct {
 }
 
 // AttributedEffect keeps the three projections of one economic event
-// orthogonal.  A nil field means that the event does not contribute to that
-// projection.
+// orthogonal. A nil field means that the event does not contribute to that
+// projection. PotentialDietzCapitalFlow preserves a capital leg that is
+// internal to the current universe but may be external to a later group fold.
 type AttributedEffect struct {
-	AssetBucket         *AttributionBucket
-	ReturnComponent     *ReturnComponent
-	DietzCapitalFlow    *DietzCapitalFlow
-	Amount              SignedMoney
-	SourceEffect        ActivityEffect
-	Component           ComponentID
-	RelatedHoldingID    *HoldingID
-	RelatedInstrumentID *InstrumentID
+	AssetBucket               *AttributionBucket
+	ReturnComponent           *ReturnComponent
+	DietzCapitalFlow          *DietzCapitalFlow
+	PotentialDietzCapitalFlow *DietzCapitalFlow
+	Amount                    SignedMoney
+	SourceEffect              ActivityEffect
+	Component                 ComponentID
+	RelatedHoldingID          *HoldingID
+	RelatedInstrumentID       *InstrumentID
 }
 
 type Completeness string
@@ -204,20 +207,40 @@ type Tolerance struct {
 }
 
 type ComponentDay struct {
-	Date             LocalDate
-	Component        ComponentID
-	AssetBuckets     map[AttributionBucket]SignedMoney
-	ReturnComponents map[ReturnComponent]SignedMoney
-	DietzFlow        SignedMoney
-	BeginningValue   SignedMoney
-	Status           Completeness
-	Residual         *Residual
+	Date              LocalDate
+	Component         ComponentID
+	AssetBuckets      map[AttributionBucket]SignedMoney
+	ReturnComponents  map[ReturnComponent]SignedMoney
+	DietzFlow         SignedMoney
+	DietzCapitalFlows []DietzCapitalFlow
+	AttributedEffects []AttributedEffect
+	BeginningValue    SignedMoney
+	ReturnAmount      *SignedMoney
+	InvestedCapital   *SignedMoney
+	ReturnRate        *decimal.Decimal
+	Status            Completeness
+	Residual          *Residual
+}
+type DailyReturn struct {
+	Date            LocalDate
+	Amount          *SignedMoney
+	InvestedCapital *SignedMoney
+	Rate            *decimal.Decimal
+	Status          Completeness
 }
 type RateCoverage struct{ RatedDays, TotalDays int }
 type PeriodAnalysisResult struct {
-	Query    AnalysisQuery
-	Days     []ComponentDay
-	Coverage RateCoverage
+	Query               AnalysisQuery
+	AnalysisDayTimezone string
+	Days                []ComponentDay
+	DailyReturns        []DailyReturn
+	Coverage            RateCoverage
+	ReturnAmount        *SignedMoney
+	// InvestedCapital is the InvestmentUniverse beginning on Query.From. It is
+	// not the Dietz denominator and not the sum of daily beginning values.
+	InvestedCapital     *SignedMoney
+	ReturnRate          *decimal.Decimal
+	Status              Completeness
 }
 
 // Validate is deliberately structural: arithmetic and currency consistency belong to the engine.

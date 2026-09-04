@@ -185,7 +185,15 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID, originTi
 		if err != nil {
 			return nil, err
 		}
-		return domain.MoneyRemovedInput{HouseholdID: householdID, AccountID: accountID, Amount: amount, Reason: reason, EffectiveAt: effectiveAt, Note: r.Note}, nil
+		var holdingID *domain.HoldingID
+		if strings.TrimSpace(r.HoldingID) != "" {
+			parsed, err := domain.ParseHoldingID(r.HoldingID)
+			if err != nil {
+				return nil, err
+			}
+			holdingID = &parsed
+		}
+		return domain.MoneyRemovedInput{HouseholdID: householdID, AccountID: accountID, HoldingID: holdingID, Amount: amount, Reason: reason, EffectiveAt: effectiveAt, Note: r.Note}, nil
 
 	case ChangeCashDividend:
 		holdingID, err := domain.ParseHoldingID(r.HoldingID)

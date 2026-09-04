@@ -38,15 +38,23 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 	for _, snapshot := range input.Snapshots {
 		byDate[snapshot.LocalDate] = snapshot
 	}
-	start, err := time.Parse("2006-01-02", query.From)
+	location, err := time.LoadLocation(input.Origin.Timezone)
+	if err != nil {
+		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "analysis requires a valid History Origin timezone"}
+	}
+	start, err := time.ParseInLocation("2006-01-02", query.From, location)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrValidation, Field: "from", Message: "date must use YYYY-MM-DD"}
 	}
-	end, err := time.Parse("2006-01-02", query.To)
+	end, err := time.ParseInLocation("2006-01-02", query.To, location)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrValidation, Field: "to", Message: "date must use YYYY-MM-DD"}
 	}
-	result := domain.PeriodAnalysisResult{Query: query, Days: make([]domain.ComponentDay, 0), Coverage: domain.RateCoverage{TotalDays: int(end.Sub(start).Hours()/24) + 1}}
+	totalDays := 0
+	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
+		totalDays++
+	}
+	result := domain.PeriodAnalysisResult{Query: query, AnalysisDayTimezone: input.Origin.Timezone, Days: make([]domain.ComponentDay, 0), Coverage: domain.RateCoverage{TotalDays: totalDays}, Status: domain.CompletenessOK}
 	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
 		localDate := date.Format("2006-01-02")
 		daySnapshot, hasDay := byDate[localDate]
@@ -86,6 +94,9 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 			result.Days = append(result.Days, day)
 		}
 	}
+	if err := finalizeAnalysisReturns(&result, universe, input, query); err != nil {
+		return domain.PeriodAnalysisResult{}, err
+	}
 	return result, nil
 }
 
@@ -108,7 +119,7 @@ func snapshotItemsByComponent(snapshot domain.DailyValuationSnapshot, accounts m
 }
 
 func buildComponentDay(date string, component domain.ComponentID, previous, current domain.DailyValuationSnapshotItem, previousSnapshot, currentSnapshot domain.DailyValuationSnapshot, hasPrevious, hasCurrent bool, effects []classifiedAnalysisEffect, input AnalysisInputs, query domain.AnalysisQuery, universe analysisUniverse) (domain.ComponentDay, error) {
-	day := domain.ComponentDay{Date: domain.LocalDate(date), Component: component, AssetBuckets: make(map[domain.AttributionBucket]domain.SignedMoney), ReturnComponents: make(map[domain.ReturnComponent]domain.SignedMoney), Status: domain.CompletenessOK}
+	day := domain.ComponentDay{Date: domain.LocalDate(date), Component: component, AssetBuckets: make(map[domain.AttributionBucket]domain.SignedMoney), ReturnComponents: make(map[domain.ReturnComponent]domain.SignedMoney), DietzCapitalFlows: make([]domain.DietzCapitalFlow, 0), AttributedEffects: make([]domain.AttributedEffect, 0), Status: domain.CompletenessOK}
 	if !hasPrevious || !hasCurrent || !previous.Complete || !current.Complete {
 		day.Status = domain.CompletenessUnavailable
 		if hasPrevious && hasCurrent && (previous.Complete || current.Complete) {
@@ -148,6 +159,58 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 				neutralTotal = neutralTotal.Add(effect.amount)
 			}
 		}
+		if effect.returnComponent != nil && effect.returnKnown {
+			if err := addReturn(day.ReturnComponents, *effect.returnComponent, effect.returnAmount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+				return domain.ComponentDay{}, err
+			}
+		}
+		var flow domain.SignedMoney
+		if effect.dietzKnown {
+			var flowErr error
+			flow, flowErr = newSigned(effect.dietzAmount, valueCurrency(current, query.Valuation, baseCurrency))
+			if flowErr != nil {
+				return domain.ComponentDay{}, flowErr
+			}
+			day.DietzCapitalFlows = append(day.DietzCapitalFlows, domain.DietzCapitalFlow{Amount: flow, EffectiveAt: effect.activity.EffectiveAt})
+			weighted := effect.dietzAmount.Mul(analysisDayFlowWeight(date, input.Origin.Timezone, effect.activity.EffectiveAt))
+			weightedFlow, flowErr := newSigned(weighted, valueCurrency(current, query.Valuation, baseCurrency))
+			if flowErr != nil {
+				return domain.ComponentDay{}, flowErr
+			}
+			day.DietzFlow, flowErr = addSignedValues(day.DietzFlow, weightedFlow, valueCurrency(current, query.Valuation, baseCurrency))
+			if flowErr != nil {
+				return domain.ComponentDay{}, flowErr
+			}
+		}
+		var potentialDietzFlow *domain.DietzCapitalFlow
+		if effect.potentialDietzKnown && !effect.dietzKnown {
+			potentialMoney, potentialErr := newSigned(effect.potentialDietzAmount, valueCurrency(current, query.Valuation, baseCurrency))
+			if potentialErr != nil {
+				return domain.ComponentDay{}, potentialErr
+			}
+			potentialDietzFlow = &domain.DietzCapitalFlow{Amount: potentialMoney, EffectiveAt: effect.activity.EffectiveAt}
+		}
+		if effect.bucket != nil || effect.returnComponent != nil || effect.dietzKnown || potentialDietzFlow != nil {
+			projectionAmount := effect.amount
+			if effect.returnComponent != nil && effect.returnKnown {
+				projectionAmount = effect.returnAmount
+			}
+			attributedAmount, amountErr := newSigned(projectionAmount, valueCurrency(current, query.Valuation, baseCurrency))
+			if amountErr != nil {
+				return domain.ComponentDay{}, amountErr
+			}
+			var dietzFlow *domain.DietzCapitalFlow
+			if effect.dietzKnown {
+				flowCopy := domain.DietzCapitalFlow{Amount: flow, EffectiveAt: effect.activity.EffectiveAt}
+				dietzFlow = &flowCopy
+			}
+			day.AttributedEffects = append(day.AttributedEffects, domain.AttributedEffect{
+				AssetBucket: effect.bucket, ReturnComponent: effect.returnComponent,
+				DietzCapitalFlow: dietzFlow, PotentialDietzCapitalFlow: potentialDietzFlow,
+				Amount: attributedAmount, SourceEffect: effect.effect, Component: effect.component,
+				RelatedHoldingID: effect.relatedHolding, RelatedInstrumentID: effect.relatedInstrument,
+			})
+		}
 	}
 	bridge := holdingBridge{}
 	if component.HoldingID != nil {
@@ -162,11 +225,43 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		if err := addBucket(day.AssetBuckets, domain.BucketPriceChange, bridge.price, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
+		if universe.investmentComponentInUniverse(component) {
+			if err := addReturn(day.ReturnComponents, domain.ReturnPriceChange, bridge.price, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+				return domain.ComponentDay{}, err
+			}
+		}
+		priceBucket := domain.BucketPriceChange
+		attributedAmount, amountErr := newSigned(bridge.price, valueCurrency(current, query.Valuation, baseCurrency))
+		if amountErr != nil {
+			return domain.ComponentDay{}, amountErr
+		}
+		var priceReturn *domain.ReturnComponent
+		if universe.investmentComponentInUniverse(component) {
+			value := domain.ReturnPriceChange
+			priceReturn = &value
+		}
+		day.AttributedEffects = append(day.AttributedEffects, domain.AttributedEffect{AssetBucket: &priceBucket, ReturnComponent: priceReturn, Amount: attributedAmount, Component: component})
 	}
 	if bridge.fx.Sign() != 0 {
 		if err := addBucket(day.AssetBuckets, domain.BucketFXImpact, bridge.fx, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
+		if universe.investmentComponentInUniverse(component) {
+			if err := addReturn(day.ReturnComponents, domain.ReturnFXImpact, bridge.fx, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
+				return domain.ComponentDay{}, err
+			}
+		}
+		fxBucket := domain.BucketFXImpact
+		attributedAmount, amountErr := newSigned(bridge.fx, valueCurrency(current, query.Valuation, baseCurrency))
+		if amountErr != nil {
+			return domain.ComponentDay{}, amountErr
+		}
+		var fxReturn *domain.ReturnComponent
+		if universe.investmentComponentInUniverse(component) {
+			value := domain.ReturnFXImpact
+			fxReturn = &value
+		}
+		day.AttributedEffects = append(day.AttributedEffects, domain.AttributedEffect{AssetBucket: &fxBucket, ReturnComponent: fxReturn, Amount: attributedAmount, Component: component})
 	}
 	driverTotal := directTotal.Add(bridge.price).Add(bridge.fx)
 	knownInternal := neutralTotal
@@ -185,6 +280,29 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		day.Residual = &domain.Residual{Amount: residualMoney, Tolerance: tolerance, Visible: true}
 	} else if bridge.partial {
 		day.Status = domain.CompletenessPartial
+	}
+	// Asset Changes is defined over the whole resolved universe, while Return
+	// Analysis is defined over its independent InvestmentUniverse. Keep return
+	// fields absent on excluded cash/liability components so a later group fold
+	// cannot accidentally put them back into a return denominator.
+	if !universe.investmentComponentInUniverse(component) {
+		return day, nil
+	}
+	returnTotal := decimal.Zero
+	if total, ok := sumReturnComponents(day.ReturnComponents); ok {
+		returnTotal = total.Amount()
+	}
+	returnMoney, returnErr := newSigned(returnTotal, valueCurrency(current, query.Valuation, baseCurrency))
+	if returnErr != nil {
+		return domain.ComponentDay{}, returnErr
+	}
+	day.ReturnAmount = &returnMoney
+	if invested, investedErr := addSignedValues(day.BeginningValue, day.DietzFlow, valueCurrency(current, query.Valuation, baseCurrency)); investedErr == nil {
+		day.InvestedCapital = &invested
+		if day.Status == domain.CompletenessOK && invested.Amount().IsPositive() && day.ReturnAmount != nil {
+			rate := day.ReturnAmount.Amount().Div(invested.Amount())
+			day.ReturnRate = &rate
+		}
 	}
 	return day, nil
 }
@@ -242,6 +360,43 @@ func addBucket(buckets map[domain.AttributionBucket]domain.SignedMoney, bucket d
 	}
 	buckets[bucket] = value
 	return nil
+}
+
+func addReturn(components map[domain.ReturnComponent]domain.SignedMoney, component domain.ReturnComponent, amount decimal.Decimal, currency domain.CurrencyCode) error {
+	if amount.IsZero() {
+		return nil
+	}
+	current := decimal.Zero
+	if existing, ok := components[component]; ok {
+		current = existing.Amount()
+	}
+	value, err := newSigned(current.Add(amount), currency)
+	if err != nil {
+		return err
+	}
+	components[component] = value
+	return nil
+}
+
+func addSignedValues(left, right domain.SignedMoney, currency domain.CurrencyCode) (domain.SignedMoney, error) {
+	return newSigned(left.Amount().Add(right.Amount()), currency)
+}
+
+func sumReturnComponents(components map[domain.ReturnComponent]domain.SignedMoney) (domain.SignedMoney, bool) {
+	if len(components) == 0 {
+		return domain.SignedMoney{}, false
+	}
+	var currency domain.CurrencyCode
+	total := decimal.Zero
+	for _, value := range components {
+		currency = value.Currency()
+		total = total.Add(value.Amount())
+	}
+	signed, err := newSigned(total, currency)
+	if err != nil {
+		return domain.SignedMoney{}, false
+	}
+	return signed, true
 }
 
 func residualTolerance(currency domain.CurrencyCode, beginning decimal.Decimal) decimal.Decimal {
@@ -441,6 +596,7 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 	qc := closing.Div(closeQuote.UnitPrice.Decimal())
 	type segment struct{ quantity, price, fx decimal.Decimal }
 	segments := make([]segment, 0, 1+len(effects))
+	seenTrades := make(map[domain.ActivityID]bool)
 	openFX, openOK := decimal.NewFromInt(1), true
 	closeFX, closeOK := decimal.NewFromInt(1), true
 	if query.Valuation == domain.ValuationBase && !q0.IsZero() {
@@ -459,6 +615,13 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 	transferredOut := decimal.Zero
 	for _, effect := range effects {
 		if effect.activity.TradeDetail != nil && effect.activity.TradeDetail.HoldingID == *component.HoldingID {
+			// A trade fee may be projected onto this holding as a return-only
+			// effect in addition to the physical quantity leg. The trade path is
+			// an activity-level fact and must be walked once, not once per effect.
+			if seenTrades[effect.activity.ID] {
+				continue
+			}
+			seenTrades[effect.activity.ID] = true
 			quantity := effect.activity.TradeDetail.Quantity.Decimal()
 			if effect.activity.TradeDetail.Side == domain.TradeSell {
 				quantity = quantity.Neg()
