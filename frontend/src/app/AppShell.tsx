@@ -1,7 +1,7 @@
 import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor } from "lucide-react";
-import { NAV_GROUPS, DEFAULT_PAGE_ID } from "@/app/navigation";
+import { NAV_GROUPS, DEFAULT_PAGE_ID, targetForPage, type NavigationTarget, type PageId } from "@/app/navigation";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { useTheme } from "@/hooks/useTheme";
 import { Button } from "@/components/ui/button";
@@ -66,8 +66,8 @@ function LanguageSwitcher({ language, disabled, onChange }: { language: string; 
 }
 
 export interface AppShellProps {
-  activePageId: string;
-  onNavigate: (pageId: string) => void;
+  activePageId: PageId;
+  onNavigate: (target: NavigationTarget) => void;
   settings: Settings;
   children: React.ReactNode;
 }
@@ -137,7 +137,7 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => onNavigate(item.id)}
+                    onClick={() => onNavigate(targetForPage(item.id))}
                     aria-label={label}
                     title={collapsed ? label : undefined}
                     aria-current={active ? "page" : undefined}

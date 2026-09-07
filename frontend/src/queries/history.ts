@@ -64,6 +64,7 @@ export function useActivity(activityId: string) {
 export function useActivityPage(request: ActivityQueryRequest = {}) {
   const normalized: ActivityQueryRequest = {
     ...(request.accountId ? { accountId: request.accountId } : {}),
+    ...(request.instrumentId ? { instrumentId: request.instrumentId } : {}),
     ...(request.kinds && request.kinds.length > 0 ? { kinds: [...request.kinds].sort() } : {}),
     ...(request.fromLocalDate ? { fromLocalDate: request.fromLocalDate } : {}),
     ...(request.toLocalDate ? { toLocalDate: request.toLocalDate } : {}),

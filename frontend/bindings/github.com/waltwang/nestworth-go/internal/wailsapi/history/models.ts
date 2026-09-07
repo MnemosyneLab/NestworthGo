@@ -10,6 +10,7 @@ import * as wire$0 from "../wire/models.js";
  */
 export interface ActivityQueryRequest {
     "accountId"?: string | null;
+    "instrumentId"?: string | null;
     "kinds"?: string[] | null;
     "fromLocalDate"?: string;
     "toLocalDate"?: string;

@@ -193,11 +193,13 @@ describe("query keys and dependency invalidation", () => {
     const queryClient = clientWith(
       queryKeys.overview.all,
       queryKeys.analytics.accountGains.all,
+      queryKeys.analysis.returnCalendar({}, "2026-09"),
     );
 
     invalidateCurrentValuation(queryClient);
 
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analysis.returnCalendar({}, "2026-09"))).toBe(true);
   });
 });
 
@@ -208,6 +210,7 @@ function seededClient() {
     queryKeys.overview.all,
     queryKeys.portfolio.all,
     queryKeys.analytics.accountGains.all,
+    queryKeys.analysis.returnCalendar({}, "2026-09"),
     queryKeys.analytics.realizedGain({}, "30d"),
     queryKeys.analytics.dividendIncome({}, "30d"),
     queryKeys.holdings.byAccounts(["account-1"]),

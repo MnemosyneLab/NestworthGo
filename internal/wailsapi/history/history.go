@@ -254,6 +254,7 @@ func (s *Service) Activity(ctx context.Context, activityID string) (wire.Activit
 // ActivityQueryRequest mirrors domain.ActivityQuery.
 type ActivityQueryRequest struct {
 	AccountID        *string  `json:"accountId,omitempty"`
+	InstrumentID     *string  `json:"instrumentId,omitempty"`
 	Kinds            []string `json:"kinds,omitempty"`
 	FromLocalDate    string   `json:"fromLocalDate,omitempty"`
 	ToLocalDate      string   `json:"toLocalDate,omitempty"`
@@ -271,6 +272,13 @@ func (r ActivityQueryRequest) toDomain() (domain.ActivityQuery, error) {
 			return domain.ActivityQuery{}, err
 		}
 		query.AccountID = &id
+	}
+	if r.InstrumentID != nil {
+		id, err := domain.ParseInstrumentID(*r.InstrumentID)
+		if err != nil {
+			return domain.ActivityQuery{}, err
+		}
+		query.InstrumentID = &id
 	}
 	for _, kind := range r.Kinds {
 		parsed, err := domain.ParseActivityKind(kind)

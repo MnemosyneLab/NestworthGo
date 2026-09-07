@@ -263,6 +263,7 @@ describe("keyboard-only completion", () => {
     await screen.findByRole("button", { name: /record change/i }); // wait for HistoryOrigin to load
     await userEvent.tab(); // body -> kind filter
     await userEvent.tab(); // -> account filter
+    await userEvent.tab(); // -> instrument filter
     await userEvent.tab(); // -> from-date filter
     await userEvent.tab(); // -> to-date filter
     await userEvent.tab(); // -> "Record change" Sheet trigger

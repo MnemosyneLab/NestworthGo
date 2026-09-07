@@ -112,11 +112,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ca
   return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
 });
 
-function renderPage() {
+function renderPage(filters?: { kinds?: string[]; accountId?: string; instrumentId?: string; from?: string; to?: string }) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <HistoryPage />
+      <HistoryPage navigationFilters={filters} />
     </QueryClientProvider>,
   );
 }
@@ -178,6 +178,21 @@ beforeEach(() => {
 });
 
 describe("HistoryPage", () => {
+  it("applies navigation filters from another page", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockResolvedValue([{ id: "instrument-1", name: "ETF", archivedAt: null }]);
+    renderPage({ kinds: ["buy"], accountId: "acc-1", instrumentId: "instrument-1", from: "2026-01-01", to: "2026-01-31" });
+    await screen.findByText("No activity yet");
+    expect(listActivityPage).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: "acc-1",
+      instrumentId: "instrument-1",
+      kinds: ["buy"],
+      fromLocalDate: "2026-01-01",
+      toLocalDate: "2026-01-31",
+      limit: 50,
+    }));
+  });
+
   it("prompts to Start History when none exists yet", async () => {
     historyOrigin.mockResolvedValue(null);
     renderPage();

@@ -40,12 +40,92 @@ function assertSameKeySet(label: string, base: Tree, others: Record<string, Tree
 }
 
 describe("i18next locale coverage", () => {
+  const phase3Keys = [
+    "nav.returnAnalysis",
+    "nav.assetChanges",
+    "insights.returnAnalysis",
+    "insights.assetChanges",
+    "insights.description",
+    "insights.calendar",
+    "insights.trend",
+    "insights.contribution",
+    "insights.drivers",
+    "insights.assetTrend",
+    "insights.categories",
+    "insights.filters",
+    "insights.moreFilters",
+    "insights.scope",
+    "insights.currency",
+    "insights.assetClass",
+    "insights.member",
+    "insights.instrument",
+    "insights.valuation",
+    "insights.valuationBase",
+    "insights.valuationNative",
+    "insights.valuationForced",
+    "insights.cash",
+    "insights.cashIncluded",
+    "insights.cashExcluded",
+    "insights.from",
+    "insights.to",
+    "insights.reset",
+    "insights.apply",
+    "insights.previous",
+    "insights.next",
+    "insights.today",
+    "insights.month",
+    "insights.year",
+    "insights.coverage",
+    "insights.issues",
+    "insights.partial",
+    "insights.todayMuted",
+    "insights.empty",
+    "insights.noInvestments",
+    "insights.noInvestmentAssets",
+    "insights.noInvestmentAssetsHint",
+    "insights.historyInsufficient",
+    "insights.historyInsufficientHint",
+    "insights.noOrigin",
+    "insights.noOriginHint",
+    "insights.scopeRequired",
+    "insights.scopeRequiredHint",
+    "insights.loading",
+    "insights.error",
+    "insights.summary",
+    "insights.beginning",
+    "insights.ending",
+    "insights.returnAmount",
+    "insights.returnRate",
+    "insights.composition",
+    "insights.contributors",
+    "insights.daySheet",
+    "insights.close",
+    "insights.viewAssetChanges",
+    "insights.noData",
+    "insights.placeholder",
+    "insights.notAvailableYet",
+    "insights.components.priceChange",
+    "insights.components.fxImpact",
+    "insights.components.dividendInterest",
+    "insights.components.investmentFee",
+    "insights.components.cashFxImpact",
+    "insights.components.residual",
+    "common.all",
+  ];
+
   it("the ported translation catalog has identical keys across en/zh-CN/zh-TW", () => {
     assertSameKeySet("translation", en, { "zh-CN": zhCN, "zh-TW": zhTW });
   });
 
   it("the additions.ts catalog has identical keys across en/zh-CN/zh-TW", () => {
     assertSameKeySet("additions", additionsEn, { "zh-CN": additionsZhCN, "zh-TW": additionsZhTW });
+  });
+
+  it("contains the Phase 3 Insights vocabulary in every locale", () => {
+    for (const [locale, tree] of Object.entries({ en: additionsEn, "zh-CN": additionsZhCN, "zh-TW": additionsZhTW })) {
+      const keys = new Set(flattenKeys(tree));
+      expect({ locale, missing: phase3Keys.filter((key) => !keys.has(key)) }).toEqual({ locale, missing: [] });
+    }
   });
 
   it("the errorCode namespace has identical keys across en/zh-CN/zh-TW, keyed 1:1 by domain.ErrorCode", () => {

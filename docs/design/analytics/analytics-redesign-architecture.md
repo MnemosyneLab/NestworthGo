@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Technical Architecture
 
-**Status:** Phases 1a–2b complete; Phases 3–6 not started
+**Status:** Phases 1a–3 complete; Phases 4–6 not started
 **Product:** Nestworth  
 **Target:** Desktop application (Wails v3)  
 **Replaces:** Existing Insights `Analysis` page  

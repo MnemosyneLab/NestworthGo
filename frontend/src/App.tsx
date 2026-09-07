@@ -11,6 +11,8 @@ import { useStartup } from "@/queries/app";
 import { useSettings } from "@/queries/settings";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
+import { targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId } from "@/app/navigation";
+import { useAnalysisStore } from "@/stores/analysis";
 
 const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
 const DirectoryPage = lazy(() => import("@/features/directory/DirectoryPage").then((module) => ({ default: module.DirectoryPage })));
@@ -19,6 +21,8 @@ const MarketDataPage = lazy(() => import("@/features/marketdata/MarketDataPage")
 const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 const HistoryPage = lazy(() => import("@/features/history/HistoryPage").then((module) => ({ default: module.HistoryPage })));
 const AnalyticsPage = lazy(() => import("@/features/analytics/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
+const ReturnAnalysisPage = lazy(() => import("@/features/insights/ReturnAnalysisPage").then((module) => ({ default: module.ReturnAnalysisPage })));
+const AssetChangesPage = lazy(() => import("@/features/insights/AssetChangesPage").then((module) => ({ default: module.AssetChangesPage })));
 
 function WorkspaceLazy({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
@@ -36,11 +40,15 @@ function WorkspaceLazy({ children }: { children: ReactNode }) {
  */
 function App() {
   const { t } = useTranslation();
-  const [activePageId, setActivePageId] = useState(DEFAULT_PAGE_ID);
+  const [activePageId, setActivePageId] = useState<PageId>(DEFAULT_PAGE_ID);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [historyFilters, setHistoryFilters] = useState<HistoryNavigationFilters | undefined>();
   const startup = useStartup();
   const settings = useSettings({ enabled: startup.data?.available === true });
   const setAppearance = useUiStore((state) => state.setAppearance);
+  const setAnalysisFilters = useAnalysisStore((state) => state.setFilters);
+  const setReturnView = useAnalysisStore((state) => state.setReturnView);
+  const setAssetView = useAnalysisStore((state) => state.setAssetView);
 
   useEffect(() => {
     if (!settings.data) {
@@ -80,11 +88,23 @@ function App() {
     setSelectedAccountId(accountId);
     setActivePageId("accounts");
   };
-  const handleNavigate = (pageId: string) => {
+  const handleNavigate = (target: NavigationTarget | PageId) => {
+    const navigation = typeof target === "string" ? targetForPage(target) : target;
+    const pageId = navigation.page;
     // Top-level Accounts navigation always returns to the list. Opening a
     // specific account uses openAccount, which sets selectedAccountId first.
     if (pageId === "accounts") {
       setSelectedAccountId(null);
+    }
+    if (navigation.page === "history") {
+      setHistoryFilters(navigation.filters);
+    }
+    if (navigation.page === "return-analysis") {
+      if (navigation.analysis) setAnalysisFilters(navigation.analysis);
+      setReturnView({ tab: navigation.tab, cursor: navigation.cursor });
+    } else if (navigation.page === "asset-changes") {
+      if (navigation.analysis) setAnalysisFilters(navigation.analysis);
+      setAssetView({ tab: navigation.tab, cursor: navigation.cursor });
     }
     setActivePageId(pageId);
   };
@@ -130,12 +150,22 @@ function App() {
       )}
       {activePageId === "history" && (
         <WorkspaceLazy>
-          <HistoryPage />
+          <HistoryPage navigationFilters={historyFilters} />
         </WorkspaceLazy>
       )}
       {activePageId === "analytics" && (
         <WorkspaceLazy>
           <AnalyticsPage />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "return-analysis" && (
+        <WorkspaceLazy>
+          <ReturnAnalysisPage onOpenAssetChanges={(analysis) => handleNavigate({ page: "asset-changes", tab: "drivers", analysis })} />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "asset-changes" && (
+        <WorkspaceLazy>
+          <AssetChangesPage />
         </WorkspaceLazy>
       )}
     </AppShell>

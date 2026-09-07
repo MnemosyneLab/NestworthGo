@@ -365,6 +365,35 @@ func TestListActivityPageDateValidation(t *testing.T) {
 	}
 }
 
+func TestListActivityPageInstrumentFilter(t *testing.T) {
+	fx := newFixture(t)
+	ctx := context.Background()
+	if _, err := fx.service.RecordChange(ctx, history.ChangeCommandRequest{
+		Kind: history.ChangeMoneyAdded, AccountID: fx.brokerageID, Amount: "5000", Currency: "USD", Reason: "contribution",
+	}); err != nil {
+		t.Fatalf("RecordChange(money_added): %v", err)
+	}
+	trade, err := fx.service.RecordChange(ctx, history.ChangeCommandRequest{
+		Kind: history.ChangeTrade, SettlementAccountID: fx.brokerageID, InstrumentID: fx.instrumentID,
+		Side: "buy", Quantity: "10", Gross: "1000", GrossCurrency: "USD", Fee: "0", FeeCurrency: "USD",
+	})
+	if err != nil {
+		t.Fatalf("RecordChange(trade): %v", err)
+	}
+	if _, err := fx.service.RecordChange(ctx, history.ChangeCommandRequest{
+		Kind: history.ChangeCashDividend, HoldingID: trade.Activity.TradeDetail.HoldingID, Amount: "15", Currency: "USD",
+	}); err != nil {
+		t.Fatalf("RecordChange(cash_dividend): %v", err)
+	}
+	page, err := fx.service.ListActivityPage(ctx, history.ActivityQueryRequest{InstrumentID: &fx.instrumentID, Limit: 10})
+	if err != nil {
+		t.Fatalf("ListActivityPage: %v", err)
+	}
+	if len(page.Activities) != 2 || !((page.Activities[0].Kind == "cash_dividend" && page.Activities[1].Kind == "buy") || (page.Activities[0].Kind == "buy" && page.Activities[1].Kind == "cash_dividend")) {
+		t.Fatalf("instrument-filtered page = %+v, want dividend and buy activities", page.Activities)
+	}
+}
+
 func TestDailySnapshotStateAndBuild(t *testing.T) {
 	fx := newFixture(t)
 	ctx := context.Background()

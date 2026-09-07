@@ -214,6 +214,10 @@ func listActivityPageQuery(ctx context.Context, db queryer, householdID domain.H
 		statement += ` AND EXISTS (SELECT 1 FROM activity_effects filter_effect WHERE filter_effect.activity_id = activities.id AND filter_effect.account_id = ?)`
 		args = append(args, query.AccountID.String())
 	}
+	if query.InstrumentID != nil {
+		statement += ` AND (EXISTS (SELECT 1 FROM activity_effects filter_effect WHERE filter_effect.activity_id = activities.id AND filter_effect.instrument_id = ?) OR EXISTS (SELECT 1 FROM activity_trade_details filter_trade WHERE filter_trade.activity_id = activities.id AND filter_trade.instrument_id = ?) OR EXISTS (SELECT 1 FROM activity_dividend_details filter_dividend WHERE filter_dividend.activity_id = activities.id AND filter_dividend.instrument_id = ?))`
+		args = append(args, query.InstrumentID.String(), query.InstrumentID.String(), query.InstrumentID.String())
+	}
 	if len(query.Kinds) > 0 {
 		placeholders := make([]string, len(query.Kinds))
 		for index, kind := range query.Kinds {

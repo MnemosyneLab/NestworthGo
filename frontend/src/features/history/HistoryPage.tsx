@@ -36,10 +36,11 @@ import { ActivityDetailSheet } from "@/features/history/ActivityDetailSheet";
 import { DatePicker } from "@/components/ui/date-picker";
 import { resolvedTimeZone } from "@/lib/time";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import type { HistoryNavigationFilters } from "@/app/navigation";
 
 const ACTIVITY_KINDS = ["cash_in", "cash_out", "cash_dividend", "cash_transfer", "fx_conversion", "position_transfer", "buy", "sell", "value_update", "debt_draw", "debt_payment"];
 
-function Timeline() {
+function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigationFilters }) {
   const { t } = useTranslation();
   const accounts = useAccounts({ includeArchived: true });
   const instruments = useInstruments(true);
@@ -50,13 +51,15 @@ function Timeline() {
   const [open, setOpen] = useState(false);
   const [fixTarget, setFixTarget] = useState<ActivityDTO | null>(null);
   const [detailTarget, setDetailTarget] = useState<ActivityDTO | null>(null);
-  const [kindFilter, setKindFilter] = useState("");
-  const [accountFilter, setAccountFilter] = useState("");
-  const [fromLocalDate, setFromLocalDate] = useState("");
-  const [toLocalDate, setToLocalDate] = useState("");
+  const [kindFilter, setKindFilter] = useState(navigationFilters?.kinds?.[0] ?? "");
+  const [accountFilter, setAccountFilter] = useState(navigationFilters?.accountId ?? "");
+  const [instrumentFilter, setInstrumentFilter] = useState(navigationFilters?.instrumentId ?? "");
+  const [fromLocalDate, setFromLocalDate] = useState(navigationFilters?.from ?? "");
+  const [toLocalDate, setToLocalDate] = useState(navigationFilters?.to ?? "");
   const originalActivity = useActivity(detailTarget?.reversesActivityId ?? "");
   const activities = useActivityPage({
     accountId: accountFilter || undefined,
+    instrumentId: instrumentFilter || undefined,
     kinds: kindFilter ? [kindFilter] : undefined,
     fromLocalDate: fromLocalDate || undefined,
     toLocalDate: toLocalDate || undefined,
@@ -113,6 +116,13 @@ function Timeline() {
           </NativeSelect>
         </div>
         <div className="flex flex-col gap-1.5">
+          <Label htmlFor="history-filter-instrument">{t("history.filterInstrument")}</Label>
+          <NativeSelect id="history-filter-instrument" value={instrumentFilter} onChange={(event) => setInstrumentFilter(event.target.value)}>
+            <option value="">{t("history.filterAll")}</option>
+            {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => <option key={instrument.id} value={instrument.id}>{instrument.name}</option>)}
+          </NativeSelect>
+        </div>
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="history-filter-from">{t("history.filterFrom")}</Label>
           <DatePicker id="history-filter-from" value={fromLocalDate} onChange={setFromLocalDate} />
         </div>
@@ -120,7 +130,7 @@ function Timeline() {
           <Label htmlFor="history-filter-to">{t("history.filterTo")}</Label>
           <DatePicker id="history-filter-to" value={toLocalDate} onChange={setToLocalDate} />
         </div>
-        {(kindFilter || accountFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" className="self-end sm:col-span-2 lg:col-span-4 lg:justify-self-end" onClick={() => { setKindFilter(""); setAccountFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
+        {(kindFilter || accountFilter || instrumentFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" className="self-end sm:col-span-2 lg:col-span-4 lg:justify-self-end" onClick={() => { setKindFilter(""); setAccountFilter(""); setInstrumentFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
       </section>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{t("history.activityKind")}</p>
@@ -263,7 +273,7 @@ function Timeline() {
  * Fix through HistoryService. Mutating actions keep the append-only history
  * contract visible to the user and never expose backend enum identifiers.
  */
-export function HistoryPage() {
+export function HistoryPage({ navigationFilters }: { navigationFilters?: HistoryNavigationFilters }) {
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
   const snapshotState = useDailySnapshotState();
@@ -313,7 +323,7 @@ export function HistoryPage() {
               {t("history.settingsTimezoneDiff", { origin: origin.data.timezone, presentation: resolvedTimeZone(settings.data.timezone) })}
             </p>
           )}
-          <Timeline />
+          <Timeline key={JSON.stringify(navigationFilters ?? {})} navigationFilters={navigationFilters} />
           <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-3" aria-label={t("history.snapshotHealth")}>
             <div className="flex flex-col gap-1 text-sm">
               <p className="font-medium">{t("history.snapshotHealth")}</p>

@@ -84,6 +84,14 @@ export const queryKeys = {
     netWorthTrend: (range: unknown) => ["analytics", "netWorthTrend", range] as const,
     netWorthTrendPrefix: ["analytics", "netWorthTrend"] as const,
   },
+  analysis: {
+    all: ["analysis"] as const,
+    returnCalendar: (request: unknown, cursor: string) => ["analysis", "returnCalendar", request, cursor] as const,
+    returnDay: (request: unknown, date: string) => ["analysis", "returnDay", request, date] as const,
+    returnTrend: (request: unknown, display: string) => ["analysis", "returnTrend", request, display] as const,
+    contribution: (request: unknown, returnType: string, groupBy: string, ordering: string) =>
+      ["analysis", "contribution", request, returnType, groupBy, ordering] as const,
+  },
   history: {
     all: ["history"] as const,
     origin: ["history", "origin"] as const,

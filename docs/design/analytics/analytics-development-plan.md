@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Development Plan
 
-**Status:** Phase 1a–2b complete; Phases 3–6 not started
+**Status:** Phase 1a–3 complete; Phases 4–6 not started
 **Product:** Nestworth  
 **Companions:** [Product design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Technical architecture](analytics-redesign-architecture.md)
 
@@ -234,6 +234,8 @@ inflate the existing Phase 2a timing test.
 
 ## 8. Phase 3 — Insights shell and Return Calendar
 
+**Status:** Complete (Insights shell, Return Calendar, shared filters, coverage states, and frontend tests verified)
+
 **Goal:** first user-visible replacement page.
 
 **Includes:**
@@ -302,7 +304,7 @@ Day-sheet link “View Asset Changes for This Day” may stay disabled until Pha
 - Asset Trend: one metric, day / week / month; levels = end-of-period, flows = sum, return amount = sum, return % = geometric Dietz
 - Categories: type selector, ranked list, optional donut, category sheet (account or instrument grouping, not a budget tree)
 
-**Does not include:** deleting Analysis, History `instrumentId` (that can land here if cheap, or in Phase 6).
+**Does not include:** deleting Analysis and the remaining History deep-link surfaces.
 
 **Done when:**
 
@@ -403,7 +405,7 @@ If schema v10 quantity is required, it is part of Phase 1a, not a later cleanup.
 | 1b Return, Dietz, linking | Complete |
 | 2a Asset Changes Wails APIs | Complete |
 | 2b Return Wails APIs | Complete |
-| 3 Insights shell + Return Calendar | Not started |
+| 3 Insights shell + Return Calendar | Complete |
 | 4 Asset Change Drivers | Not started |
 | 5 Remaining tabs | Not started |
 | 6 History, cutover, docs | Not started |

@@ -274,6 +274,7 @@ type ActivityCursor struct {
 
 type ActivityQuery struct {
 	AccountID       *AccountID
+	InstrumentID    *InstrumentID
 	Kinds           []ActivityKind
 	FromLocalDate   string
 	ToLocalDate     string
