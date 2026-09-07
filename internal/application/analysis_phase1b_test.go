@@ -173,6 +173,93 @@ func TestAnalyticsPhase1bDSTWeightUsesOriginLocalDayLength(t *testing.T) {
 	}
 }
 
+func TestAnalyticsPhase1bReconciliationIsNotDietzCapital(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	account := phase1aAgentAccount("CNY", domain.TrackingHoldings, domain.RoleAsset)
+	account.HouseholdID = householdID
+	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
+	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "fund", Type: domain.InstrumentETF, QuoteCurrency: "CNY"}
+	holding := domain.Holding{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}
+	openQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
+	closeQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "110"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}
+	activityID := domain.NewActivityID()
+	money := phase1aAgentMoney(t, "500", "CNY")
+	reconciliation := domain.Activity{ID: activityID, Kind: domain.ActivityCashIn, Reason: domain.ReasonReconciliation, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Role: domain.EffectRoleAmount, Direction: domain.EffectAdded, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationRemeasurement, AccountID: &account.ID, Money: &money}}}
+	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "CNY", "1000", "1000", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "CNY", "1000", "1000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
+	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "CNY", "1500", "1500", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "CNY", "1100", "1100", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
+	input := AnalysisInputs{Origin: phase1aAgentOrigin(t, householdID), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{reconciliation}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
+	result, err := ComputeAnalysis(input, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cashDay domain.ComponentDay
+	for _, day := range result.Days {
+		if day.Component.Cash {
+			cashDay = day
+			break
+		}
+	}
+	if cashDay.Component.AccountID == "" {
+		t.Fatal("cash component day was missing")
+	}
+	if got := analyticsPhase1aBucket(cashDay, domain.BucketAdjustment); !got.Equal(decimal.NewFromInt(500)) {
+		t.Fatalf("reconciliation asset bucket = %s, want Adjustment 500", got)
+	}
+	if len(cashDay.DietzCapitalFlows) != 0 || !cashDay.DietzFlow.IsZero() {
+		t.Fatalf("reconciliation entered Dietz capital: flows=%+v flow=%s", cashDay.DietzCapitalFlows, cashDay.DietzFlow.Amount())
+	}
+	if result.ReturnRate == nil || !result.ReturnRate.Equal(decimal.RequireFromString("0.05")) {
+		t.Fatalf("reconciliation distorted the return rate: %+v, want 0.05", result.ReturnRate)
+	}
+}
+
+func TestAnalyticsPhase1bDSTNoonFlowWeightUsesOriginLocalDay(t *testing.T) {
+	location, err := time.LoadLocation("America/Los_Angeles")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, testCase := range []struct {
+		date  string
+		hours int64
+	}{
+		{date: "2026-03-08", hours: 23},
+		{date: "2026-11-01", hours: 25},
+	} {
+		householdID := domain.NewHouseholdID()
+		account := phase1aAgentAccount("USD", domain.TrackingBalance, domain.RoleAsset)
+		account.HouseholdID = householdID
+		previousDate := time.Date(2026, 3, 7, 0, 0, 0, 0, time.UTC)
+		if testCase.date == "2026-11-01" {
+			previousDate = time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
+		}
+		previous := domain.DailyValuationSnapshot{LocalDate: previousDate.Format("2006-01-02"), CutoffAt: previousDate.Add(23*time.Hour + 59*time.Minute), Currency: "USD", Complete: true, Items: []domain.DailyValuationSnapshotItem{phase1aAgentItem(t, account.ID, "USD", "100", "100")}}
+		current := domain.DailyValuationSnapshot{LocalDate: testCase.date, CutoffAt: previousDate.AddDate(0, 0, 1).Add(23*time.Hour + 59*time.Minute), Currency: "USD", Complete: true, Items: []domain.DailyValuationSnapshotItem{phase1aAgentItem(t, account.ID, "USD", "200", "200")}}
+		noon := time.Date(previousDate.Year(), previousDate.Month(), previousDate.Day()+1, 12, 0, 0, 0, location)
+		activityID := domain.NewActivityID()
+		money := phase1aAgentMoney(t, "100", "USD")
+		activity := domain.Activity{ID: activityID, Kind: domain.ActivityCashIn, Reason: domain.ReasonContribution, EffectiveAt: noon, EffectiveLocalDate: "1999-01-01", Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Role: domain.EffectRoleAmount, Direction: domain.EffectAdded, Target: domain.EffectTargetAccountValue, Classification: domain.ClassificationExternalInflow, AccountID: &account.ID, Money: &money}}}
+		origin, originErr := domain.NewHistoryOrigin(householdID, location.String(), time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
+		if originErr != nil {
+			t.Fatal(originErr)
+		}
+		input := AnalysisInputs{Origin: origin, Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}}
+		query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: domain.LocalDate(testCase.date), To: domain.LocalDate(testCase.date), Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
+		result, computeErr := ComputeAnalysis(input, query)
+		if computeErr != nil {
+			t.Fatal(computeErr)
+		}
+		day := result.Days[0]
+		want, signedErr := domain.NewSignedMoney(decimal.NewFromInt(100).Mul(decimal.NewFromInt(12).Div(decimal.NewFromInt(testCase.hours))), "USD")
+		if signedErr != nil {
+			t.Fatal(signedErr)
+		}
+		if !day.DietzFlow.Amount().Equal(want.Amount()) {
+			t.Fatalf("%s DietzFlow = %s, want %s (12/%dh)", testCase.date, day.DietzFlow.Amount(), want.Amount(), testCase.hours)
+		}
+	}
+}
+
 func TestAnalyticsPhase1bDividendAndTradeFeeFollowInvestmentAssociation(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	account := phase1aAgentAccount("USD", domain.TrackingHoldings, domain.RoleAsset)

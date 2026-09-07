@@ -182,7 +182,7 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	if since.Before(originMidnight) {
 		since = originMidnight
 	}
-	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, since)
+	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, since, time.Time{})
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, yeste
 	if err != nil {
 		return err
 	}
-	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, household.ID, time.Time{})
+	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
 	if err != nil {
 		return err
 	}

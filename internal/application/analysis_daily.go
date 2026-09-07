@@ -27,6 +27,7 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 	if _, err := time.LoadLocation(input.Origin.Timezone); err != nil {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "analysis requires a valid History Origin timezone"}
 	}
+	input.Snapshots = snapshotsInAnalysisWindow(input.Snapshots, query.From, query.To)
 	universe, err := resolveAnalysisUniverse(input, query)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
@@ -93,6 +94,9 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 			day, err := buildComponentDay(localDate, component, previousItems[component.Key()], endItems[component.Key()], previousSnapshot, daySnapshot, hasPrevious, hasDay, effectsByComponent[component.Key()], input, query, universe)
 			if err != nil {
 				return domain.PeriodAnalysisResult{}, err
+			}
+			if day.Status == domain.CompletenessOK && (universe.hasUnknownAccount(localDate) || universe.hasUnknownAccount(previousDate)) {
+				day.Status = domain.CompletenessPartial
 			}
 			result.Days = append(result.Days, day)
 		}
@@ -296,11 +300,11 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 	if !universe.investmentComponentInUniverse(component) {
 		return day, nil
 	}
-	returnTotal := decimal.Zero
-	if total, ok := sumReturnComponents(day.ReturnComponents); ok {
-		returnTotal = total.Amount()
+	total, sumErr := sumReturnComponents(day.ReturnComponents)
+	if sumErr != nil {
+		return domain.ComponentDay{}, sumErr
 	}
-	returnMoney, returnErr := newSigned(returnTotal, valueCurrency(current, query.Valuation, baseCurrency))
+	returnMoney, returnErr := newSigned(total.Amount(), valueCurrency(current, query.Valuation, baseCurrency))
 	if returnErr != nil {
 		return domain.ComponentDay{}, returnErr
 	}
@@ -390,9 +394,9 @@ func addSignedValues(left, right domain.SignedMoney, currency domain.CurrencyCod
 	return newSigned(left.Amount().Add(right.Amount()), currency)
 }
 
-func sumReturnComponents(components map[domain.ReturnComponent]domain.SignedMoney) (domain.SignedMoney, bool) {
+func sumReturnComponents(components map[domain.ReturnComponent]domain.SignedMoney) (domain.SignedMoney, error) {
 	if len(components) == 0 {
-		return domain.SignedMoney{}, false
+		return domain.SignedMoney{}, nil
 	}
 	var currency domain.CurrencyCode
 	total := decimal.Zero
@@ -400,11 +404,7 @@ func sumReturnComponents(components map[domain.ReturnComponent]domain.SignedMone
 		currency = value.Currency()
 		total = total.Add(value.Amount())
 	}
-	signed, err := newSigned(total, currency)
-	if err != nil {
-		return domain.SignedMoney{}, false
-	}
-	return signed, true
+	return newSigned(total, currency)
 }
 
 func residualTolerance(currency domain.CurrencyCode, beginning decimal.Decimal) decimal.Decimal {
@@ -586,11 +586,10 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 	}
 	openQuote := universe.quoteForItem(previous, input.InstrumentQuotes, previousCutoff)
 	closeQuote := universe.quoteForItem(current, input.InstrumentQuotes, currentCutoff)
-	if closeQuote == nil && current.NativeAmount != "0" {
-		return holdingBridge{partial: true}, nil
-	}
 	if closeQuote == nil {
-		return holdingBridge{}, nil
+		// A closed position with no closing quote still has unaccounted price
+		// movement between the opening mark and the disposal.
+		return holdingBridge{partial: true}, nil
 	}
 	opening, err := decimal.NewFromString(previous.NativeAmount)
 	if err != nil {

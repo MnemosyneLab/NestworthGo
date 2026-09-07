@@ -218,6 +218,12 @@ func (u analysisUniverse) potentialDietzCapitalAmount(activity domain.Activity, 
 	if activity.Kind == domain.ActivityCashDividend || activity.Kind == domain.ActivityValueUpdate || activity.Kind == domain.ActivityPositionTransfer {
 		return decimal.Zero, false
 	}
+	if effect.Classification == domain.ClassificationRemeasurement {
+		// Cash reconciliation is an observation, not new capital. Asset Changes
+		// already buckets it as Adjustment; Dietz must not put the same amount
+		// into the return denominator.
+		return decimal.Zero, false
+	}
 	if activity.Kind == domain.ActivityCashIn && activity.Reason == domain.ReasonInterest {
 		return decimal.Zero, false
 	}
@@ -378,9 +384,9 @@ func (u analysisUniverse) effectAmount(activity domain.Activity, effect domain.A
 }
 
 func activityLocalDate(activity domain.Activity, timezone string) string {
-	if activity.EffectiveLocalDate != "" {
-		return activity.EffectiveLocalDate
-	}
+	// Always convert EffectiveAt in the Origin timezone. A persisted
+	// EffectiveLocalDate can be stale relative to a timezone change and would
+	// silently place the flow on the wrong analysis day.
 	if timezone == "" {
 		return activity.EffectiveAt.UTC().Format("2006-01-02")
 	}

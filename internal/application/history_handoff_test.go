@@ -287,7 +287,7 @@ func TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
 	if err != nil || count != 2 {
 		t.Fatalf("backdated rebuild count=%d err=%v", count, err)
 	}
-	snapshots, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	snapshots, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil || len(snapshots) != 2 {
 		t.Fatalf("snapshots=%d err=%v", len(snapshots), err)
 	}
@@ -412,7 +412,7 @@ func TestArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
 	if count, err := service.RebuildHistoricalSnapshots(ctx, "2026-08-01", "2026-08-04"); err != nil || count != 4 {
 		t.Fatalf("archive rebuild count=%d err=%v", count, err)
 	}
-	snapshots, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	snapshots, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}

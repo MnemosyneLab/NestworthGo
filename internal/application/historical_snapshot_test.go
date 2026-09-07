@@ -75,7 +75,7 @@ func TestExactSubCentComponentsAgreeAcrossLiveSnapshotReloadAndTrends(t *testing
 			t.Fatalf("display base = %+v, want rounded 0.0001", item.BaseAmount)
 		}
 	}
-	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil || len(listed) != 1 {
 		t.Fatalf("ListDailyValuationSnapshots: count=%d err=%v", len(listed), err)
 	}
@@ -188,7 +188,7 @@ func TestNegativeNetWorthSavesReloadsAndTrends(t *testing.T) {
 	if snapshot.NetWorthAmount == nil || snapshot.NetWorthAmount.CanonicalAmount() != "-30" {
 		t.Fatalf("snapshot net worth = %+v, want -30", snapshot.NetWorthAmount)
 	}
-	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil || len(listed) != 1 || listed[0].NetWorthAmount == nil || listed[0].NetWorthAmount.CanonicalAmount() != "-30" {
 		t.Fatalf("reloaded snapshot = %+v err=%v", listed, err)
 	}
@@ -270,7 +270,7 @@ func TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts(t *testing.T) 
 	if len(snapshot.Items) != 1 {
 		t.Fatalf("snapshot items = %d, want 1 included account", len(snapshot.Items))
 	}
-	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil || len(listed) != 1 {
 		t.Fatalf("ListDailyValuationSnapshots: count=%d err=%v", len(listed), err)
 	}
@@ -312,7 +312,7 @@ func TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend(t *test
 	if len(snapshot.Items) != 1 || snapshot.Items[0].NativeAmount != "11567.33438" || snapshot.Items[0].BaseAmount == nil || snapshot.Items[0].BaseAmount.CanonicalAmount() != "11567.3344" || snapshot.NetWorthAmount == nil || snapshot.NetWorthAmount.CanonicalAmount() != "11567.3344" {
 		t.Fatalf("snapshot native amount = %+v", snapshot.Items)
 	}
-	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil || len(listed) != 1 {
 		t.Fatalf("ListDailyValuationSnapshots: count=%d err=%v", len(listed), err)
 	}
@@ -374,7 +374,7 @@ func TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals(t *testing.T) {
 	}
 	assertSnapshotClassification(t, snapshot, bank.Account.ID, brokerage.Account.ID)
 
-	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil || len(listed) != 1 {
 		t.Fatalf("ListDailyValuationSnapshots = %d err=%v", len(listed), err)
 	}
@@ -456,7 +456,7 @@ func TestBackdatedCashDividendAppearsInHistoricalSnapshots(t *testing.T) {
 	if err != nil || count != 3 {
 		t.Fatalf("RebuildHistoricalSnapshots count=%d err=%v", count, err)
 	}
-	snapshots, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	snapshots, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}

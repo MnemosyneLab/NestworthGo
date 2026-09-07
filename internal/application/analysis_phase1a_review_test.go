@@ -603,7 +603,7 @@ func TestAnalyticsPhase1aReviewCase40OriginTimezoneBoundaries(t *testing.T) {
 		{date: "2026-03-08", effective: time.Date(2026, 3, 9, 6, 30, 0, 0, time.UTC), want: "2026-03-08"},
 		{date: "2026-11-01", effective: time.Date(2026, 11, 2, 7, 30, 0, 0, time.UTC), want: "2026-11-01"},
 	} {
-		if got := activityLocalDate(domain.Activity{EffectiveAt: tc.effective}, "America/Los_Angeles"); got != tc.want {
+		if got := activityLocalDate(domain.Activity{EffectiveAt: tc.effective, EffectiveLocalDate: "1999-01-01"}, "America/Los_Angeles"); got != tc.want {
 			t.Fatalf("effective %s assigned to %s, want %s", tc.effective, got, tc.want)
 		}
 	}
@@ -645,11 +645,29 @@ func TestAnalyticsPhase1aReviewCase41CurrencyAwareTolerance(t *testing.T) {
 	if got := residualTolerance("CNY", decimal.Zero); !got.Equal(decimal.RequireFromString("0.02")) {
 		t.Fatalf("CNY tolerance=%s, want 0.02", got)
 	}
-	// BTC is not currently a supported currency. Phase 1a's documented
-	// fallback is the legacy two-decimal display precision for unknown codes.
-	if got := residualTolerance("BTC", decimal.Zero); !got.Equal(decimal.RequireFromString("0.02")) {
-		t.Fatalf("unknown-currency tolerance=%s, want 0.02", got)
+	jpy := analysisCurrencyResidualResult(t, "JPY", "100", "101")
+	if jpy.Status != domain.CompletenessOK || jpy.Residual != nil {
+		t.Fatalf("JPY residual of 1 was treated as material: %+v", jpy)
 	}
+	cny := analysisCurrencyResidualResult(t, "CNY", "100", "101")
+	if cny.Status != domain.CompletenessPartial || cny.Residual == nil || !cny.Residual.Amount.Amount().Equal(decimal.NewFromInt(1)) {
+		t.Fatalf("CNY residual of 1 was treated as noise: %+v", cny)
+	}
+}
+
+func analysisCurrencyResidualResult(t *testing.T, currency domain.CurrencyCode, begin, end string) domain.ComponentDay {
+	t.Helper()
+	householdID := domain.NewHouseholdID()
+	household := &domain.Household{ID: householdID, BaseCurrency: currency}
+	account := analyticsPhase1aAccount(householdID, currency, domain.TrackingBalance, domain.RoleAsset)
+	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, string(currency), begin, begin, nil, nil, "", ""))
+	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, string(currency), end, end, nil, nil, "", ""))
+	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}}
+	result, err := ComputeAnalysis(input, analyticsPhase1aBaseQuery(domain.ValuationBase))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result.Days[0]
 }
 
 func TestAnalyticsPhase1aReviewServiceLoadsClosedSnapshots(t *testing.T) {
@@ -700,7 +718,7 @@ func TestAnalyticsPhase1aReviewServiceLoadsClosedSnapshots(t *testing.T) {
 	}
 	reviewAssertIdentity(t, day, "110")
 
-	snapshots, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{})
+	snapshots, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -721,4 +739,76 @@ func reviewFXQuote(t *testing.T, householdID domain.HouseholdID, native, rate st
 		t.Fatal(err)
 	}
 	return domain.FXQuote{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: domain.CurrencyCode(native), QuoteCurrency: "CNY", Rate: parsed, QuotedAt: quotedAt}
+}
+
+func TestAnalyticsPhase1aClosedPositionWithoutCloseQuoteIsPartial(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
+	account := analyticsPhase1aAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
+	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
+	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Type: domain.InstrumentStock, QuoteCurrency: "CNY"}
+	openQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
+	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "CNY", "10000", "10000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
+	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "CNY", "0", "0", &holdingID, &instrumentID, "", ""))
+	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, InstrumentQuotes: []domain.InstrumentQuote{openQuote}}
+	result, err := ComputeAnalysis(input, analyticsPhase1aBaseQuery(domain.ValuationBase))
+	if err != nil {
+		t.Fatal(err)
+	}
+	day := result.Days[0]
+	if day.Status != domain.CompletenessPartial {
+		t.Fatalf("closed position without a closing quote reported complete: %+v", day)
+	}
+}
+
+func TestAnalyticsPhase1aUnknownAccountSnapshotItemIsPartial(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
+	account := analyticsPhase1aAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
+	orphan := domain.NewAccountID()
+	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "CNY", "100", "100", nil, nil, "", ""), analyticsPhase1aItem(t, orphan, "CNY", "50", "50", nil, nil, "", ""))
+	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "CNY", "100", "100", nil, nil, "", ""), analyticsPhase1aItem(t, orphan, "CNY", "50", "50", nil, nil, "", ""))
+	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}}
+	result, err := ComputeAnalysis(input, analyticsPhase1aBaseQuery(domain.ValuationBase))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status == domain.CompletenessOK {
+		t.Fatalf("unknown-account snapshot item left the period complete: %+v", result)
+	}
+	if len(result.Days) != 1 || result.Days[0].Status != domain.CompletenessPartial {
+		t.Fatalf("unknown-account snapshot item was dropped silently: %+v", result.Days)
+	}
+}
+
+func TestAnalyticsPhase1aSnapshotWindowExcludesOutOfRangeComponents(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
+	cny := analyticsPhase1aAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
+	usd := analyticsPhase1aAccount(householdID, "USD", domain.TrackingBalance, domain.RoleAsset)
+	stale := analyticsPhase1aSnapshot("2025-01-01", analyticsPhase1aItem(t, usd.ID, "USD", "1", "7", nil, nil, "", ""))
+	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, cny.ID, "CNY", "100", "100", nil, nil, "", ""))
+	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, cny.ID, "CNY", "100", "100", nil, nil, "", ""))
+	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: cny}, {Account: usd}}}, Snapshots: []domain.DailyValuationSnapshot{stale, previous, current}}
+	result, err := ComputeAnalysis(input, analyticsPhase1aBaseQuery(domain.ValuationNative))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Status != domain.CompletenessOK || len(result.Days) != 1 {
+		t.Fatalf("out-of-window USD component leaked into the query: status=%s days=%d", result.Status, len(result.Days))
+	}
+}
+
+func TestSumReturnComponentsPropagatesOverflow(t *testing.T) {
+	half, err := domain.NewSignedMoney(decimal.RequireFromString("600000000000"), "USD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = sumReturnComponents(map[domain.ReturnComponent]domain.SignedMoney{
+		domain.ReturnPriceChange: half,
+		domain.ReturnFXImpact:    half,
+	})
+	if err == nil {
+		t.Fatal("overflowing return components were summed as zero")
+	}
 }

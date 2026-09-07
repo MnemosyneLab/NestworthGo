@@ -276,24 +276,32 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 	if query.To >= domain.LocalDate(today) {
 		return AnalysisInputs{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "to", Message: "analysis range must end on a closed day"}
 	}
-	if s.ensureSnapshots != nil {
-		snapshotFrom := string(query.From)
-		if query.From > domain.LocalDate(originDate) {
-			fromDate, parseErr := time.Parse("2006-01-02", string(query.From))
-			if parseErr == nil {
-				candidate := fromDate.AddDate(0, 0, -1).Format("2006-01-02")
-				if candidate > originDate {
-					snapshotFrom = candidate
-				} else {
-					snapshotFrom = originDate
-				}
+	snapshotFrom := string(query.From)
+	if query.From > domain.LocalDate(originDate) {
+		fromDate, parseErr := time.Parse("2006-01-02", string(query.From))
+		if parseErr == nil {
+			candidate := fromDate.AddDate(0, 0, -1).Format("2006-01-02")
+			if candidate > originDate {
+				snapshotFrom = candidate
+			} else {
+				snapshotFrom = originDate
 			}
 		}
+	}
+	if s.ensureSnapshots != nil {
 		if err := s.ensureSnapshots(ctx, snapshotFrom, string(query.To)); err != nil {
 			return AnalysisInputs{}, err
 		}
 	}
-	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, portfolio.Household.ID, time.Time{})
+	sinceAt, err := time.Parse("2006-01-02", snapshotFrom)
+	if err != nil {
+		return AnalysisInputs{}, &domain.Error{Code: domain.ErrValidation, Field: "from", Message: "date must use YYYY-MM-DD"}
+	}
+	untilAt, err := time.Parse("2006-01-02", string(query.To))
+	if err != nil {
+		return AnalysisInputs{}, &domain.Error{Code: domain.ErrValidation, Field: "to", Message: "date must use YYYY-MM-DD"}
+	}
+	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, portfolio.Household.ID, sinceAt, untilAt)
 	if err != nil {
 		return AnalysisInputs{}, err
 	}

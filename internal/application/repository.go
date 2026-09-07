@@ -134,7 +134,7 @@ type SnapshotRepository interface {
 	SaveDailyValuationSnapshotAndMarkCompleted(context.Context, domain.DailyValuationSnapshot, time.Time) (bool, error)
 	CompleteDailySnapshotRange(context.Context, domain.HouseholdID, string, time.Time) error
 	DailySnapshotState(context.Context, domain.HouseholdID) (domain.DailySnapshotState, error)
-	ListDailyValuationSnapshots(context.Context, domain.HouseholdID, time.Time) ([]domain.DailyValuationSnapshot, error)
+	ListDailyValuationSnapshots(context.Context, domain.HouseholdID, time.Time, time.Time) ([]domain.DailyValuationSnapshot, error)
 }
 
 // DatabaseAdminRepository is the live-file snapshot and close path used by

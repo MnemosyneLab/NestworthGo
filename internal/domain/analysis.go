@@ -200,11 +200,6 @@ type Residual struct {
 	Tolerance decimal.Decimal
 	Visible   bool
 }
-type Tolerance struct {
-	Amount         decimal.Decimal
-	Currency       CurrencyCode
-	BeginningValue Money
-}
 
 type ComponentDay struct {
 	Date              LocalDate

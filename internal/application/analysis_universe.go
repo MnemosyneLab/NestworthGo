@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -29,6 +30,7 @@ type analysisUniverse struct {
 	holdings                map[domain.HoldingID]domain.Holding
 	componentKeys           map[string]struct{}
 	investmentComponentKeys map[string]struct{}
+	unknownAccountDates     map[string]struct{}
 }
 
 func resolveAnalysisUniverse(input AnalysisInputs, query domain.AnalysisQuery) (analysisUniverse, error) {
@@ -54,6 +56,7 @@ func resolveAnalysisUniverse(input AnalysisInputs, query domain.AnalysisQuery) (
 	}
 
 	componentsByKey := make(map[string]domain.ComponentID)
+	unknownAccountDates := make(map[string]struct{})
 	for _, snapshot := range input.Snapshots {
 		for _, item := range snapshot.Items {
 			account, ok := accounts[item.AccountID]
@@ -61,7 +64,9 @@ func resolveAnalysisUniverse(input AnalysisInputs, query domain.AnalysisQuery) (
 				// Historical snapshots can retain an archived account. Its
 				// current record is still required for sign and scope matching;
 				// an absent record is an integrity error rather than a guessed
-				// asset.
+				// asset, so the date is marked incomplete instead of dropping
+				// the item silently.
+				unknownAccountDates[snapshot.LocalDate] = struct{}{}
 				continue
 			}
 			if !domain.AccountEligibleForNetWorth(account) {
@@ -128,8 +133,36 @@ func resolveAnalysisUniverse(input AnalysisInputs, query domain.AnalysisQuery) (
 	}
 	return analysisUniverse{
 		context: context, accounts: accounts, ownership: ownership, instruments: instruments, holdings: holdings,
-		componentKeys: componentKeys, investmentComponentKeys: investmentComponentKeys,
+		componentKeys: componentKeys, investmentComponentKeys: investmentComponentKeys, unknownAccountDates: unknownAccountDates,
 	}, nil
+}
+
+func (u analysisUniverse) hasUnknownAccount(localDate string) bool {
+	_, ok := u.unknownAccountDates[localDate]
+	return ok
+}
+
+func snapshotsInAnalysisWindow(snapshots []domain.DailyValuationSnapshot, from, to domain.LocalDate) []domain.DailyValuationSnapshot {
+	start, end := analysisSnapshotBounds(from, to)
+	if start == "" {
+		return snapshots
+	}
+	filtered := make([]domain.DailyValuationSnapshot, 0, len(snapshots))
+	for _, snapshot := range snapshots {
+		if snapshot.LocalDate < start || snapshot.LocalDate > end {
+			continue
+		}
+		filtered = append(filtered, snapshot)
+	}
+	return filtered
+}
+
+func analysisSnapshotBounds(from, to domain.LocalDate) (string, string) {
+	parsed, err := time.Parse("2006-01-02", string(from))
+	if err != nil {
+		return "", string(to)
+	}
+	return parsed.AddDate(0, 0, -1).Format("2006-01-02"), string(to)
 }
 
 func analysisItemMatches(query domain.AnalysisQuery, account domain.Account, instrument *domain.Instrument, item domain.DailyValuationSnapshotItem, ownership domain.Ownership) bool {

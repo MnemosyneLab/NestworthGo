@@ -127,16 +127,20 @@ func nextSnapshotDate(localDate string) (string, error) {
 	return parsed.AddDate(0, 0, 1).Format("2006-01-02"), nil
 }
 
-func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdID domain.HouseholdID, since time.Time) ([]domain.DailyValuationSnapshot, error) {
-	return listDailyValuationSnapshotsQuery(ctx, r.database.SQL, householdID, since)
+func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdID domain.HouseholdID, since, until time.Time) ([]domain.DailyValuationSnapshot, error) {
+	return listDailyValuationSnapshotsQuery(ctx, r.database.SQL, householdID, since, until)
 }
 
-func listDailyValuationSnapshotsQuery(ctx context.Context, db queryer, householdID domain.HouseholdID, since time.Time) ([]domain.DailyValuationSnapshot, error) {
+func listDailyValuationSnapshotsQuery(ctx context.Context, db queryer, householdID domain.HouseholdID, since, until time.Time) ([]domain.DailyValuationSnapshot, error) {
 	query := `SELECT id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at FROM daily_valuation_snapshots WHERE household_id = ? AND revision = (SELECT MAX(latest.revision) FROM daily_valuation_snapshots latest WHERE latest.household_id = daily_valuation_snapshots.household_id AND latest.local_date = daily_valuation_snapshots.local_date)`
 	args := []any{householdID.String()}
 	if !since.IsZero() {
 		query += ` AND local_date >= ?`
 		args = append(args, since.Format("2006-01-02"))
+	}
+	if !until.IsZero() {
+		query += ` AND local_date <= ?`
+		args = append(args, until.Format("2006-01-02"))
 	}
 	query += ` ORDER BY local_date ASC`
 	rows, err := db.QueryContext(ctx, query, args...)

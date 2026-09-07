@@ -132,7 +132,7 @@ func TestListDailyValuationSnapshotsHydrationQueryCountIsBounded(t *testing.T) {
 	}
 
 	counter := &countingQueryer{queryer: database.SQL}
-	snapshots, err := listDailyValuationSnapshotsQuery(ctx, counter, household.ID, time.Time{})
+	snapshots, err := listDailyValuationSnapshotsQuery(ctx, counter, household.ID, time.Time{}, time.Time{})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -154,7 +154,7 @@ tolerance(component, day) = max(
 )
 ```
 
-`minorUnit` comes from the currency's decimal places (JPY 1, CNY 0.01, BTC 1e-8) — never a hardcoded `0.01`. Rolling a period up sums component-day tolerances in quadrature (`sqrt(Σ t²)`), not linearly, so a 3-year window does not become permanently `partial` from rounding alone.
+`minorUnit` comes from the currency's decimal places (JPY 1, CNY 0.01, KRW 1) — never a hardcoded `0.01`. The product catalog does not include crypto codes; BTC is not a supported currency and is not part of this definition. Rolling a period up sums component-day tolerances in quadrature (`sqrt(Σ t²)`), not linearly, so a 3-year window does not become permanently `partial` from rounding alone.
 
 A residual within tolerance is dropped to zero and hidden. Above tolerance it is kept, shown, and marks the day `partial`.
 
@@ -1014,7 +1014,7 @@ Added by review — these cover the failure modes that reconciliation alone cann
 38. **Gift into included cash** is Income once (§7.2), never also ExternalToScopeFlows, and is Dietz capital.
 39. **Rate coverage** (§5.1): a month with one `unavailable` day returns `ratedDays = 30, totalDays = 31`, `status: "partial"`, a linked rate over the 30 rated days, and an amount over all days with defined amounts. A month where 20 of 31 days lack a rate returns **no** period rate.
 40. **DST day.** A 23-hour and a 25-hour Origin-local day: a noon flow's Dietz weight is computed against the actual local day length, not 86400.
-41. **Tolerance is currency-aware** (§4.1): the same nominal residual is noise in JPY and material in BTC. A 3-year window does not become `partial` from accumulated rounding alone.
+41. **Tolerance is currency-aware** (§4.1): the same nominal residual is noise in JPY and material in CNY. A 3-year window does not become `partial` from accumulated rounding alone.
 42. **Group Dietz equivalence** (§9.1): a Contribution row's linked rate computed by folding `ComponentDay` rows equals resolving that group as its own `InvestmentUniverse` and re-running the full engine, to the money precision. This is the test that licenses the single-pass implementation.
 43. **Native and base disagree on forced valuation** (§6.1): a household of USD-only instruments plus a CNY cash account returns `valuationForced: null` from `ReturnCalendar` and `"base"` from `AssetChange`, in the same query. Switching tabs does not mutate the stored `valuation`.
 44. **Memo is not stale** (§11.2): compute a window, mutate an activity inside it, recompute the identical query, assert the result changed. Repeat for a snapshot rebuild that restores a previous `dirty_from`.

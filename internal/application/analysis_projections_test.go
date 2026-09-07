@@ -409,6 +409,118 @@ func TestAnalyticsPhase2aCase44MemoInvalidatesAfterActivityAndSnapshotBuild(t *t
 	if service.analysis.AnalysisDataGeneration() <= rebuildGeneration || service.analysis.MemoEntryCount() != 0 {
 		t.Fatalf("snapshot mutation did not invalidate memo: generation %d -> %d, entries=%d", rebuildGeneration, service.analysis.AnalysisDataGeneration(), service.analysis.MemoEntryCount())
 	}
+	rebuilt, err := service.AssetChange(ctx, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rebuilt.Summary.EndingValue == nil || !rebuilt.Summary.EndingValue.Amount().Equal(decimal.NewFromInt(110)) {
+		t.Fatalf("after snapshot rebuild ending = %+v, want 110", rebuilt.Summary.EndingValue)
+	}
+}
+
+func TestAnalyticsPhase2aCase44SnapshotRebuildChangesWindowResult(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/analysis-snapshot-rebuild.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+
+	service := NewService(sqlite.NewRepository(database))
+	clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	ctx := context.Background()
+	if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Memo", BaseCurrency: "USD", MemberNames: []string{"Owner"}, Timezone: "UTC"}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-01T00:00:00Z", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"}); err != nil {
+		t.Fatal(err)
+	}
+	clock = time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC)
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-03", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
+	before, err := service.AssetChange(ctx, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.Summary.EndingValue == nil || !before.Summary.EndingValue.Amount().Equal(decimal.NewFromInt(100)) {
+		t.Fatalf("before quote rebuild ending = %+v, want 100", before.Summary.EndingValue)
+	}
+	if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "150", "2026-08-03T12:00:00Z", false); err != nil {
+		t.Fatal(err)
+	}
+	if _, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-03"); err != nil || !appended {
+		t.Fatalf("in-window snapshot rebuild append = %v, err=%v", appended, err)
+	}
+	after, err := service.AssetChange(ctx, query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Summary.EndingValue == nil || !after.Summary.EndingValue.Amount().Equal(decimal.NewFromInt(150)) {
+		t.Fatalf("after snapshot rebuild ending = %+v, want 150", after.Summary.EndingValue)
+	}
+}
+
+// TestPhase2aPerformanceBudgets enforces architecture §18.1. The 3Y/500-component
+// cold path is skipped under the race detector because that instrumentation
+// changes wall-clock cost by more than the budget.
+func TestPhase2aPerformanceBudgets(t *testing.T) {
+	t.Run("warm-memo", func(t *testing.T) {
+		input, query := phase2aSizedInputs(50, "2025-12-01", "2025-12-31")
+		repository := &projectionRepository{portfolio: input.Portfolio, snapshots: input.Snapshots}
+		service := NewAnalysisService(repository, func() time.Time { return time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC) })
+		ctx := context.Background()
+		if _, err := service.Compute(ctx, query); err != nil {
+			t.Fatal(err)
+		}
+		started := time.Now()
+		if _, err := service.Compute(ctx, query); err != nil {
+			t.Fatal(err)
+		}
+		if elapsed := time.Since(started); elapsed >= 100*time.Millisecond {
+			t.Fatalf("warm memo took %s, want < 100ms", elapsed)
+		}
+	})
+	t.Run("cold-month", func(t *testing.T) {
+		input, query := phase2aSizedInputs(200, "2025-12-01", "2025-12-31")
+		budget := 300 * time.Millisecond
+		if analysisRaceDetector {
+			budget = 2 * time.Second
+		}
+		started := time.Now()
+		if _, err := ComputeAnalysis(input, query); err != nil {
+			t.Fatal(err)
+		}
+		if elapsed := time.Since(started); elapsed >= budget {
+			t.Fatalf("cold 1-month/200-component took %s, want < %s", elapsed, budget)
+		}
+	})
+	t.Run("cold-3y", func(t *testing.T) {
+		if analysisRaceDetector {
+			t.Skip("§18.1 3s budget is a production-runtime number; -race inflates wall-clock cost")
+		}
+		input, query := phase2aUpperBoundInputs()
+		started := time.Now()
+		if _, err := ComputeAnalysis(input, query); err != nil {
+			t.Fatal(err)
+		}
+		if elapsed := time.Since(started); elapsed >= 3*time.Second {
+			t.Fatalf("cold 3Y/500-component took %s, want < 3s", elapsed)
+		}
+	})
 }
 
 // BenchmarkPhase2aColdComputeUpperBound is intentionally a benchmark rather
@@ -426,9 +538,10 @@ func BenchmarkPhase2aColdComputeUpperBound(b *testing.B) {
 }
 
 func phase2aUpperBoundInputs() (AnalysisInputs, domain.AnalysisQuery) {
-	const componentCount = 500
-	const startDate = "2023-01-01"
-	const endDate = "2025-12-31"
+	return phase2aSizedInputs(500, "2023-01-01", "2025-12-31")
+}
+
+func phase2aSizedInputs(componentCount int, startDate, endDate string) (AnalysisInputs, domain.AnalysisQuery) {
 	householdID := domain.HouseholdID("00000000-0000-0000-0000-000000000100")
 	accounts := make([]domain.AccountRecord, 0, componentCount)
 	accountIDs := make([]domain.AccountID, 0, componentCount)
@@ -441,7 +554,7 @@ func phase2aUpperBoundInputs() (AnalysisInputs, domain.AnalysisQuery) {
 	portfolio := domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "USD"}, Origin: origin, Accounts: accounts}
 	start, _ := time.Parse("2006-01-02", startDate)
 	end, _ := time.Parse("2006-01-02", endDate)
-	snapshots := make([]domain.DailyValuationSnapshot, 0, componentCount)
+	snapshots := make([]domain.DailyValuationSnapshot, 0)
 	for date := start.AddDate(0, 0, -1); !date.After(end); date = date.AddDate(0, 0, 1) {
 		localDate := date.Format("2006-01-02")
 		items := make([]domain.DailyValuationSnapshotItem, 0, componentCount)
@@ -450,7 +563,7 @@ func phase2aUpperBoundInputs() (AnalysisInputs, domain.AnalysisQuery) {
 		}
 		snapshots = append(snapshots, domain.DailyValuationSnapshot{HouseholdID: householdID, LocalDate: localDate, CutoffAt: date.Add(24*time.Hour - time.Millisecond), Complete: true, Items: items})
 	}
-	return AnalysisInputs{Origin: *origin, Portfolio: portfolio, Snapshots: snapshots}, domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: startDate, To: endDate, Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
+	return AnalysisInputs{Origin: *origin, Portfolio: portfolio, Snapshots: snapshots}, domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: domain.LocalDate(startDate), To: domain.LocalDate(endDate), Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
 }
 
 func analysisTestDay(t *testing.T, date string, accountID domain.AccountID, beginning string, buckets map[domain.AttributionBucket]string) domain.ComponentDay {
@@ -516,8 +629,28 @@ func (r *projectionRepository) ReadPortfolioSnapshot(context.Context, domain.Acc
 	return r.portfolio, nil
 }
 
-func (r *projectionRepository) ListDailyValuationSnapshots(context.Context, domain.HouseholdID, time.Time) ([]domain.DailyValuationSnapshot, error) {
-	return r.snapshots, nil
+func (r *projectionRepository) ListDailyValuationSnapshots(_ context.Context, _ domain.HouseholdID, since, until time.Time) ([]domain.DailyValuationSnapshot, error) {
+	if since.IsZero() && until.IsZero() {
+		return r.snapshots, nil
+	}
+	start, end := "", ""
+	if !since.IsZero() {
+		start = since.Format("2006-01-02")
+	}
+	if !until.IsZero() {
+		end = until.Format("2006-01-02")
+	}
+	filtered := make([]domain.DailyValuationSnapshot, 0, len(r.snapshots))
+	for _, snapshot := range r.snapshots {
+		if start != "" && snapshot.LocalDate < start {
+			continue
+		}
+		if end != "" && snapshot.LocalDate > end {
+			continue
+		}
+		filtered = append(filtered, snapshot)
+	}
+	return filtered, nil
 }
 
 func (r *projectionRepository) ListActivitiesUntil(context.Context, domain.HouseholdID, time.Time) ([]domain.Activity, error) {
@@ -536,7 +669,7 @@ func (r *emptyAnalysisRepository) ReadPortfolioSnapshot(context.Context, domain.
 	return domain.PortfolioSnapshot{Household: household, Origin: origin}, nil
 }
 
-func (r *emptyAnalysisRepository) ListDailyValuationSnapshots(context.Context, domain.HouseholdID, time.Time) ([]domain.DailyValuationSnapshot, error) {
+func (r *emptyAnalysisRepository) ListDailyValuationSnapshots(context.Context, domain.HouseholdID, time.Time, time.Time) ([]domain.DailyValuationSnapshot, error) {
 	return []domain.DailyValuationSnapshot{}, nil
 }
 

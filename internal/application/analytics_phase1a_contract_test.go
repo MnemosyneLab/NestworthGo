@@ -222,6 +222,31 @@ func TestAnalyticsPhase1aReviewCases23And27And34And36Boundaries(t *testing.T) {
 	}
 }
 
+func TestAnalyticsPhase1aReviewCase36UnexplainedQuantityChange(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
+	account := analyticsPhase1aAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
+	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
+	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Type: domain.InstrumentStock, QuoteCurrency: "CNY"}
+	openQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
+	closeQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}
+	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "CNY", "10000", "10000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
+	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "CNY", "11000", "11000", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
+	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	result, err := ComputeAnalysis(input, analyticsPhase1aBaseQuery(domain.ValuationBase))
+	if err != nil {
+		t.Fatal(err)
+	}
+	day := result.Days[0]
+	if day.Status != domain.CompletenessPartial || day.Residual == nil || !day.Residual.Amount.Amount().Equal(decimal.NewFromInt(1000)) {
+		t.Fatalf("unexplained quantity change was not residual: %+v", day)
+	}
+	if !analyticsPhase1aBucket(day, domain.BucketPriceChange).IsZero() {
+		t.Fatalf("engine synthesised a price for an unexplained quantity change: %+v", day)
+	}
+	reviewAssertIdentity(t, day, "11000")
+}
+
 func TestAnalyticsPhase1aReviewCase35InKindTransferHasNoPriceAndIsScopeRelative(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
