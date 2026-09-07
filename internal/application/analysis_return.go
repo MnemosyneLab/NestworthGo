@@ -22,8 +22,13 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 		return err
 	}
 	valuationCurrency := input.Portfolio.Household.BaseCurrency
-	if query.Valuation == domain.ValuationNative && len(universe.context.Universe.Currencies) > 0 {
-		valuationCurrency = universe.context.Universe.Currencies[0]
+	if query.Valuation == domain.ValuationNative {
+		for _, component := range universe.context.InvestmentUniverse.Components {
+			if component.Currency != "" {
+				valuationCurrency = component.Currency
+				break
+			}
+		}
 	}
 	start, err := time.ParseInLocation("2006-01-02", string(query.From), location)
 	if err != nil {
@@ -63,7 +68,7 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 				amount = amount.Add(componentDay.ReturnAmount.Amount())
 				hasPeriodCurrency = true
 			}
-			if componentDay.Status == domain.CompletenessOK {
+			if componentDay.BeginningValue.Currency() != "" {
 				beginning = beginning.Add(componentDay.BeginningValue.Amount())
 				if localDate == query.From {
 					periodBeginning = periodBeginning.Add(componentDay.BeginningValue.Amount())
@@ -222,15 +227,24 @@ type ReturnGroup struct {
 // internal trade as capital entering the instrument group, without doing a
 // second engine pass.
 func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([]ReturnGroup, error) {
-	type groupDay struct {
-		amount          decimal.Decimal
-		beginning       decimal.Decimal
-		legacyCapital   decimal.Decimal
-		flows           []domain.DietzCapitalFlow
-		complete        bool
-		hasFlowMetadata bool
+	if canFoldReturnGroupsChronologically(result) {
+		return foldReturnGroupsChronologically(result, by)
 	}
-	groups := make(map[string]map[domain.LocalDate]*groupDay)
+	type groupDay struct {
+		amount        decimal.Decimal
+		beginning     decimal.Decimal
+		legacyCapital decimal.Decimal
+		flows         []domain.DietzCapitalFlow
+		complete      bool
+	}
+	type groupDateKey struct {
+		group string
+		date  domain.LocalDate
+	}
+	buckets := make(map[groupDateKey]groupDay)
+	datesByGroup := make(map[string][]domain.LocalDate)
+	datesOrdered := make(map[string]bool)
+	hasFlowMetadata := false
 	for _, day := range result.Days {
 		// ComponentDay is also the Asset Changes granularity. Return folding must
 		// select the same InvestmentUniverse as the daily linker, so excluded
@@ -242,13 +256,17 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 		if key == "" {
 			return nil, fmt.Errorf("unsupported analysis group: %s", by)
 		}
-		if _, ok := groups[key]; !ok {
-			groups[key] = make(map[domain.LocalDate]*groupDay)
-		}
-		bucket := groups[key][day.Date]
-		if bucket == nil {
-			bucket = &groupDay{complete: true}
-			groups[key][day.Date] = bucket
+		bucketKey := groupDateKey{group: key, date: day.Date}
+		bucket, exists := buckets[bucketKey]
+		if !exists {
+			bucket = groupDay{complete: true}
+			dates := datesByGroup[key]
+			if len(dates) == 0 {
+				datesOrdered[key] = true
+			} else if datesOrdered[key] && dates[len(dates)-1] > day.Date {
+				datesOrdered[key] = false
+			}
+			datesByGroup[key] = append(datesByGroup[key], day.Date)
 		}
 		if day.Status != domain.CompletenessOK {
 			bucket.complete = false
@@ -271,33 +289,25 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 			if flow == nil {
 				continue
 			}
+			hasFlowMetadata = true
 			bucket.flows = append(bucket.flows, *flow)
-			bucket.hasFlowMetadata = true
 		}
+		buckets[bucketKey] = bucket
 	}
 
 	var location *time.Location
-	for _, days := range groups {
-		for _, day := range days {
-			if !day.hasFlowMetadata {
-				continue
-			}
-			if result.AnalysisDayTimezone == "" {
-				return nil, fmt.Errorf("analysis day timezone is required for group Dietz folding")
-			}
-			var err error
-			location, err = time.LoadLocation(result.AnalysisDayTimezone)
-			if err != nil {
-				return nil, err
-			}
-			break
+	if hasFlowMetadata {
+		if result.AnalysisDayTimezone == "" {
+			return nil, fmt.Errorf("analysis day timezone is required for group Dietz folding")
 		}
-		if location != nil {
-			break
+		var err error
+		location, err = time.LoadLocation(result.AnalysisDayTimezone)
+		if err != nil {
+			return nil, err
 		}
 	}
-	keys := make([]string, 0, len(groups))
-	for key := range groups {
+	keys := make([]string, 0, len(datesByGroup))
+	for key := range datesByGroup {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
@@ -305,7 +315,12 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 	for _, key := range keys {
 		group := ReturnGroup{Key: key, Coverage: domain.RateCoverage{TotalDays: result.Coverage.TotalDays}}
 		rates := make([]decimal.Decimal, 0, result.Coverage.TotalDays)
-		for date, daily := range groups[key] {
+		dates := datesByGroup[key]
+		if !datesOrdered[key] {
+			sort.Slice(dates, func(i, j int) bool { return dates[i] < dates[j] })
+		}
+		for _, date := range dates {
+			daily := buckets[groupDateKey{group: key, date: date}]
 			group.ReturnAmount = group.ReturnAmount.Add(daily.amount)
 			capital := daily.beginning.Add(daily.legacyCapital)
 			if len(daily.flows) > 0 {
@@ -335,6 +350,121 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 			group.ReturnRate = &rate
 		}
 		resultGroups = append(resultGroups, group)
+	}
+	return resultGroups, nil
+}
+
+func canFoldReturnGroupsChronologically(result domain.PeriodAnalysisResult) bool {
+	var previous domain.LocalDate
+	for _, day := range result.Days {
+		if !returnEligibleComponent(day.Component, result.Query.IncludeCash) {
+			continue
+		}
+		if previous != "" && day.Date < previous {
+			return false
+		}
+		previous = day.Date
+		for _, attributed := range day.AttributedEffects {
+			if attributed.PotentialDietzCapitalFlow != nil || attributed.DietzCapitalFlow != nil {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func foldReturnGroupsChronologically(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([]ReturnGroup, error) {
+	type groupState struct {
+		key              string
+		returnAmount     decimal.Decimal
+		rates            []decimal.Decimal
+		currentDate      domain.LocalDate
+		currentAmount    decimal.Decimal
+		currentBeginning decimal.Decimal
+		currentLegacy    decimal.Decimal
+		currentComplete  bool
+	}
+	groups := make([]groupState, 0)
+	groupIndexes := make(map[string]int)
+	active := make([]int, 0)
+	currentDate := domain.LocalDate("")
+	finalizeDate := func() {
+		for _, index := range active {
+			group := &groups[index]
+			capital := group.currentBeginning.Add(group.currentLegacy)
+			if group.currentComplete && capital.IsPositive() {
+				group.rates = append(group.rates, group.currentAmount.Div(capital))
+			}
+			group.currentAmount = decimal.Zero
+			group.currentBeginning = decimal.Zero
+			group.currentLegacy = decimal.Zero
+			group.currentComplete = true
+			group.currentDate = ""
+		}
+		active = active[:0]
+	}
+	for _, day := range result.Days {
+		if !returnEligibleComponent(day.Component, result.Query.IncludeCash) {
+			continue
+		}
+		if currentDate != "" && day.Date != currentDate {
+			finalizeDate()
+		}
+		currentDate = day.Date
+		key := returnGroupKey(day.Component, by)
+		if key == "" {
+			return nil, fmt.Errorf("unsupported analysis group: %s", by)
+		}
+		index, ok := groupIndexes[key]
+		if !ok {
+			index = len(groups)
+			groupIndexes[key] = index
+			groups = append(groups, groupState{key: key})
+		}
+		group := &groups[index]
+		if group.currentDate != day.Date {
+			group.currentDate = day.Date
+			group.currentComplete = true
+			active = append(active, index)
+		}
+		if day.Status != domain.CompletenessOK {
+			group.currentComplete = false
+		}
+		if day.ReturnAmount != nil {
+			amount := day.ReturnAmount.Amount()
+			group.returnAmount = group.returnAmount.Add(amount)
+			group.currentAmount = group.currentAmount.Add(amount)
+		}
+		if len(day.AttributedEffects) == 0 && day.InvestedCapital != nil {
+			group.currentLegacy = group.currentLegacy.Add(day.InvestedCapital.Amount())
+		} else {
+			group.currentBeginning = group.currentBeginning.Add(day.BeginningValue.Amount())
+		}
+	}
+	if currentDate != "" {
+		finalizeDate()
+	}
+	indices := make([]int, len(groups))
+	for index := range groups {
+		indices[index] = index
+	}
+	sort.Slice(indices, func(i, j int) bool { return groups[indices[i]].key < groups[indices[j]].key })
+	resultGroups := make([]ReturnGroup, 0, len(indices))
+	for _, index := range indices {
+		group := groups[index]
+		coverage := domain.RateCoverage{RatedDays: len(group.rates), TotalDays: result.Coverage.TotalDays}
+		status := domain.CompletenessUnavailable
+		if coverage.RatedDays == coverage.TotalDays && coverage.RatedDays > 0 {
+			status = domain.CompletenessOK
+		} else if coverage.RatedDays > 0 {
+			status = domain.CompletenessPartial
+		}
+		row := ReturnGroup{Key: group.key, ReturnAmount: group.returnAmount, Coverage: coverage, Status: status}
+		if len(group.rates)*2 >= result.Coverage.TotalDays && len(group.rates) > 0 {
+			rate := GeometricLink(group.rates)
+			row.ReturnRate = &rate
+		}
+		resultGroups = append(resultGroups, row)
 	}
 	return resultGroups, nil
 }

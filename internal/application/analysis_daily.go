@@ -15,6 +15,14 @@ type holdingBridge struct {
 }
 
 func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
+	return computeAnalysisForValuationUniverse(input, query, false)
+}
+
+func computeInvestmentAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
+	return computeAnalysisForValuationUniverse(input, query, true)
+}
+
+func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, error) {
 	if err := query.Validate(); err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
@@ -32,7 +40,11 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
-	if query.Valuation == domain.ValuationNative && len(universe.context.Universe.Currencies) > 1 {
+	valuationComponents := universe.context.Universe.Components
+	if investmentOnly {
+		valuationComponents = universe.context.InvestmentUniverse.Components
+	}
+	if query.Valuation == domain.ValuationNative && len(investmentCurrencies(valuationComponents)) > 1 {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrValidation, Field: "valuation", Message: "native valuation requires a single component currency"}
 	}
 	byDate := make(map[string]domain.DailyValuationSnapshot, len(input.Snapshots))
@@ -55,7 +67,7 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 	for date := start; !date.After(end); date = date.AddDate(0, 0, 1) {
 		totalDays++
 	}
-	result := domain.PeriodAnalysisResult{Query: query, AnalysisDayTimezone: input.Origin.Timezone, Days: make([]domain.ComponentDay, 0, totalDays*len(universe.context.Universe.Components)), Coverage: domain.RateCoverage{TotalDays: totalDays}, Status: domain.CompletenessOK}
+	result := domain.PeriodAnalysisResult{Query: query, AnalysisDayTimezone: input.Origin.Timezone, Days: make([]domain.ComponentDay, 0, totalDays*len(valuationComponents)), Coverage: domain.RateCoverage{TotalDays: totalDays}, Status: domain.CompletenessOK}
 	activitiesByDate := make(map[string][]domain.Activity, len(input.Activities))
 	for _, activity := range input.Activities {
 		localDate := activityLocalDate(activity, input.Origin.Timezone)
@@ -90,7 +102,7 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 		for _, effect := range effects {
 			effectsByComponent[effect.component.Key()] = append(effectsByComponent[effect.component.Key()], effect)
 		}
-		for _, component := range universe.context.Universe.Components {
+		for _, component := range valuationComponents {
 			day, err := buildComponentDay(localDate, component, previousItems[component.Key()], endItems[component.Key()], previousSnapshot, daySnapshot, hasPrevious, hasDay, effectsByComponent[component.Key()], input, query, universe)
 			if err != nil {
 				return domain.PeriodAnalysisResult{}, err
@@ -106,6 +118,16 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 		return domain.PeriodAnalysisResult{}, err
 	}
 	return result, nil
+}
+
+func investmentCurrencies(components domain.Components) map[domain.CurrencyCode]struct{} {
+	currencies := make(map[domain.CurrencyCode]struct{})
+	for _, component := range components {
+		if component.Currency != "" {
+			currencies[component.Currency] = struct{}{}
+		}
+	}
+	return currencies
 }
 
 func snapshotItemsByComponent(snapshot domain.DailyValuationSnapshot, accounts map[domain.AccountID]domain.Account, instruments map[domain.InstrumentID]domain.Instrument) map[string]domain.DailyValuationSnapshotItem {

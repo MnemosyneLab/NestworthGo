@@ -12,5 +12,10 @@ export type {
     AssetDriverDetailDTO,
     AssetTrendDTO,
     CategoriesDTO,
-    CategoryDetailDTO
+    CategoryDetailDTO,
+    ContributionDTO,
+    ContributionItemDTO,
+    ReturnCalendarDTO,
+    ReturnDayDTO,
+    ReturnTrendDTO
 } from "./models.js";

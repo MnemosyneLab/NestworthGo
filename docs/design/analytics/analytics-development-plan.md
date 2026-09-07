@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Development Plan
 
-**Status:** Phase 1a–2a complete; Phases 2b–6 not started
+**Status:** Phase 1a–2b complete; Phases 3–6 not started
 **Product:** Nestworth  
 **Companions:** [Product design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Technical architecture](analytics-redesign-architecture.md)
 
@@ -199,6 +199,8 @@ Cases 43 and 44 are API-layer behaviour, not engine maths, which is why they sit
 
 ## 7. Phase 2b — Return Wails APIs
 
+**Status:** Complete (Return projections, Wails DTOs, forced-valuation split, coverage contracts, and performance evidence verified)
+
 **Goal:** the return half of the surface, reusing 2a's DTO and memo plumbing.
 
 **Includes:**
@@ -208,16 +210,25 @@ Cases 43 and 44 are API-layer behaviour, not engine maths, which is why they sit
 - `ReturnCalendar.issues[]` for the period-level incomplete-data list
 - `summary` carries beginning/ending invested value, return amount, return rate, and rate coverage
 - `ContributionSort` enum, with rate sorts falling back to `amount_desc` on views whose `%` is omitted
+- `cursor` is an optional `YYYY-MM` visible-month selector for `ReturnCalendar`; it filters `cells[]` while summary, period issues, and top contributors remain for the full query window. Phase 3 must pass the visible month as the cursor rather than shrinking the analysis query.
+- `ReturnTrend` point `rate` is the daily Modified Dietz rate; the period-linked rate is the parent result's `rate`, and `linked_rate` points intentionally have no `value`
 
 **Done when:**
 
 - Native valuation forces base against `InvestmentUniverse`, independently of the Asset Changes answer (**golden case 43**)
-- Contribution `Unrealized` is range-end cost-basis floating gain, or the field is omitted — never `Total − Realized − Dividend`
+- Contribution `Unrealized` is range-end cost-basis floating gain, or an explicit unavailable response until that cost basis is wired — never `Total − Realized − Dividend`
 - Contribution Total Return % is group Dietz; Realized and Dividend omit `%`
 - Rate-bearing DTOs carry `ratedDays` / `totalDays`
 - Performance budgets in §18.1 are met for Contribution over the same upper-bound fixture
 
 **Verify:** application + wailsapi tests; regenerate bindings. Frontend still shows Analysis.
+
+**Performance evidence:** `BenchmarkPhase2bContributionUpperBound` uses the
+same 3Y / 500-component fixture as Phase 2a. On the local Apple M3 Pro it ran
+at approximately 2.45s/op over two cold iterations; the corresponding fold
+benchmark was approximately 0.79s/op. These are benchmark observations rather
+than a wall-clock assertion because repository-wide test concurrency can
+inflate the existing Phase 2a timing test.
 
 ---
 
@@ -391,7 +402,7 @@ If schema v10 quantity is required, it is part of Phase 1a, not a later cleanup.
 | 1a Universe, classifier, identity, Price/FX | Complete |
 | 1b Return, Dietz, linking | Complete |
 | 2a Asset Changes Wails APIs | Complete |
-| 2b Return Wails APIs | Not started |
+| 2b Return Wails APIs | Complete |
 | 3 Insights shell + Return Calendar | Not started |
 | 4 Asset Change Drivers | Not started |
 | 5 Remaining tabs | Not started |

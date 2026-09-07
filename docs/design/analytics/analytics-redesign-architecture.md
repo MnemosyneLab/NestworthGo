@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Technical Architecture
 
-**Status:** Phase 1a complete; Return/API/UI phases not started
+**Status:** Phases 1a–2b complete; Phases 3–6 not started
 **Product:** Nestworth  
 **Target:** Desktop application (Wails v3)  
 **Replaces:** Existing Insights `Analysis` page  
@@ -853,6 +853,18 @@ AnalysisService
 Amounts are canonical strings plus currency, with `available` / `status` / `missingReason`. The frontend uses [`formatAmount`](../../../frontend/src/lib/money.ts) only.
 
 Every response carries `valuationForced` (§6.1) and, when it contains a rate, `ratedDays` / `totalDays` (§5.1).
+
+In Phase 2b, `ReturnCalendar` accepts an optional `cursor` in `YYYY-MM` form.
+It selects the visible month's `cells[]` while leaving `summary`, period-level
+`issues[]`, and `topContributors[]` scoped to the full query window. Phase 3
+must use this cursor for the visible month; it must not shrink the analysis
+query and accidentally turn a period summary into a month summary. Granularity
+is `day` in Phase 2b; month/year aggregation belongs to the Phase 3 surface.
+
+For `ReturnTrend(display = linked_rate)`, each point's `rate` is that day's
+Modified Dietz rate and its `value` is intentionally null. The period-linked
+rate is the parent response's `rate`; clients must not treat a point rate as a
+linked cumulative rate.
 
 ### 12.1 Fields the UI actually needs
 

@@ -38,3 +38,13 @@ export type AssetTrendDTO = wire$0.AssetTrendDTO;
 export type CategoriesDTO = wire$0.CategoriesDTO;
 
 export type CategoryDetailDTO = wire$0.CategoryDetailDTO;
+
+export type ContributionDTO = wire$0.ContributionDTO;
+
+export type ContributionItemDTO = wire$0.ContributionItemDTO;
+
+export type ReturnCalendarDTO = wire$0.ReturnCalendarDTO;
+
+export type ReturnDayDTO = wire$0.ReturnDayDTO;
+
+export type ReturnTrendDTO = wire$0.ReturnTrendDTO;

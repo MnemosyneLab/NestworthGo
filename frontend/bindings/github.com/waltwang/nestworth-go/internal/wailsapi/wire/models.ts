@@ -289,6 +289,63 @@ export interface ChangePreviewDTO {
     "derivedUnitPrice"?: string | null;
 }
 
+export interface ContributionComponentDTO {
+    "key": string;
+    "accountId"?: string;
+    "instrumentId"?: string;
+    "currency"?: string;
+    "amount"?: SignedMoneyView | null;
+}
+
+export interface ContributionDTO {
+    "returnType": string;
+    "groupBy": string;
+    "rows": ContributionRowDTO[] | null;
+    "ratedDays": number;
+    "totalDays": number;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface ContributionHistoryHintDTO {
+    "kinds": string[] | null;
+    "accountId"?: string;
+    "instrumentId"?: string;
+    "from": string;
+    "to": string;
+}
+
+export interface ContributionItemDTO {
+    "key": string;
+    "label": string;
+    "amount"?: SignedMoneyView | null;
+    "rate": string | null;
+    "ratedDays": number;
+    "totalDays": number;
+    "components": ContributionComponentDTO[] | null;
+    "byAccount": ContributionComponentDTO[] | null;
+    "historyHint": ContributionHistoryHintDTO;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface ContributionRowDTO {
+    "key": string;
+    "label": string;
+    "amount"?: SignedMoneyView | null;
+    "rate": string | null;
+    "ratedDays": number;
+    "totalDays": number;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
 /**
  * DividendDetailDTO mirrors domain.DividendDetail.
  */
@@ -541,6 +598,95 @@ export interface RealizedGainDTO {
     "byAccount": GainGroupDTO[] | null;
     "available": boolean;
     "missingReason"?: string;
+}
+
+export interface ReturnCalendarDTO {
+    "summary": ReturnCalendarSummaryDTO;
+    "cells": ReturnDayDTO[] | null;
+    "topContributors": ReturnContributorDTO[] | null;
+    "issues": ReturnIssueDTO[] | null;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface ReturnCalendarSummaryDTO {
+    "beginningInvestedValue"?: SignedMoneyView | null;
+    "endingInvestedValue"?: SignedMoneyView | null;
+    "returnAmount"?: SignedMoneyView | null;
+    "returnRate": string | null;
+    "ratedDays": number;
+    "totalDays": number;
+}
+
+export interface ReturnComponentAmountDTO {
+    "component": string;
+    "amount"?: SignedMoneyView | null;
+}
+
+export interface ReturnContributorDTO {
+    "key": string;
+    "label": string;
+    "amount"?: SignedMoneyView | null;
+    "rate": string | null;
+    "ratedDays": number;
+    "totalDays": number;
+}
+
+export interface ReturnDayDTO {
+    "date": string;
+    "beginningInvestedValue"?: SignedMoneyView | null;
+    "endingInvestedValue"?: SignedMoneyView | null;
+    "returnAmount"?: SignedMoneyView | null;
+    "returnRate": string | null;
+    "composition": ReturnComponentAmountDTO[] | null;
+    "contributors": ReturnContributorDTO[] | null;
+    "ratedDays": number;
+    "totalDays": number;
+    "issues": ReturnIssueDTO[] | null;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface ReturnIssueDTO {
+    "date": string;
+    "status": string;
+    "missingReason"?: string;
+}
+
+export interface ReturnTrendDTO {
+    "display": string;
+    "points": ReturnTrendPointDTO[] | null;
+    "sources": ReturnContributorDTO[] | null;
+    "amount"?: SignedMoneyView | null;
+    "rate": string | null;
+    "ratedDays": number;
+    "totalDays": number;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
+}
+
+export interface ReturnTrendPointDTO {
+    "date": string;
+    "amount"?: SignedMoneyView | null;
+
+    /**
+     * Rate is the daily Modified Dietz rate. The period-linked rate is on the
+     * parent ReturnTrendDTO; Value stays empty for linked_rate.
+     */
+    "rate": string | null;
+    "value"?: SignedMoneyView | null;
+    "ratedDays": number;
+    "totalDays": number;
+    "available": boolean;
+    "status": string;
+    "missingReason"?: string;
+    "valuationForced": string | null;
 }
 
 /**

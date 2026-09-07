@@ -28,3 +28,23 @@ export function Categories(request: $models.AnalysisQueryRequest, categoryType: 
 export function CategoryDetail(request: $models.AnalysisQueryRequest, categoryType: string, rowKey: string): $CancellablePromise<$models.CategoryDetailDTO> {
     return $Call.ByID(1774987935, request, categoryType, rowKey);
 }
+
+export function Contribution(request: $models.AnalysisQueryRequest, returnType: string, groupBy: string, ordering: string): $CancellablePromise<$models.ContributionDTO> {
+    return $Call.ByID(2563139900, request, returnType, groupBy, ordering);
+}
+
+export function ContributionItem(request: $models.AnalysisQueryRequest, returnType: string, groupBy: string, groupKey: string): $CancellablePromise<$models.ContributionItemDTO> {
+    return $Call.ByID(1067179987, request, returnType, groupBy, groupKey);
+}
+
+export function ReturnCalendar(request: $models.AnalysisQueryRequest, cursor: string, granularity: string): $CancellablePromise<$models.ReturnCalendarDTO> {
+    return $Call.ByID(3528800486, request, cursor, granularity);
+}
+
+export function ReturnDay(request: $models.AnalysisQueryRequest, date: string): $CancellablePromise<$models.ReturnDayDTO> {
+    return $Call.ByID(2040120570, request, date);
+}
+
+export function ReturnTrend(request: $models.AnalysisQueryRequest, display: string): $CancellablePromise<$models.ReturnTrendDTO> {
+    return $Call.ByID(1977493351, request, display);
+}

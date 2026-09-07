@@ -83,6 +83,17 @@ func (s *AnalysisService) Compute(ctx context.Context, query domain.AnalysisQuer
 // then computed once as base valuation. Both query keys are memoized so a
 // repeated projection does not reload the portfolio and ledger.
 func (s *AnalysisService) ComputeWithValuationFallback(ctx context.Context, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, string, error) {
+	return s.computeWithValuationFallback(ctx, query, false)
+}
+
+// ComputeWithInvestmentValuationFallback is the Return Analysis calculation
+// path. Native valuation is validated against the InvestmentUniverse, while
+// Asset Changes continue to use the full AnalysisUniverse.
+func (s *AnalysisService) ComputeWithInvestmentValuationFallback(ctx context.Context, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, string, error) {
+	return s.computeWithValuationFallback(ctx, query, true)
+}
+
+func (s *AnalysisService) computeWithValuationFallback(ctx context.Context, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, string, error) {
 	if err := query.Validate(); err != nil {
 		return domain.PeriodAnalysisResult{}, "", err
 	}
@@ -95,6 +106,9 @@ func (s *AnalysisService) ComputeWithValuationFallback(ctx context.Context, quer
 	}
 
 	nativeKey := analysisQueryHash(query)
+	if investmentOnly {
+		nativeKey += "|investment-universe"
+	}
 	if result, forced, ok := s.memoResult(nativeKey, true); ok {
 		return result, forced, nil
 	}
@@ -103,7 +117,7 @@ func (s *AnalysisService) ComputeWithValuationFallback(ctx context.Context, quer
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, "", err
 	}
-	result, err := ComputeAnalysis(input, query)
+	result, err := computeAnalysisForValuationUniverse(input, query, investmentOnly)
 	if err == nil {
 		s.memoize(generation, analysisMemoEntry{key: nativeKey, generation: generation, result: result})
 		return result, "", nil
@@ -114,7 +128,7 @@ func (s *AnalysisService) ComputeWithValuationFallback(ctx context.Context, quer
 
 	baseQuery := query
 	baseQuery.Valuation = domain.ValuationBase
-	result, err = ComputeAnalysis(input, baseQuery)
+	result, err = computeAnalysisForValuationUniverse(input, baseQuery, investmentOnly)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, "", err
 	}

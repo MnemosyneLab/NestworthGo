@@ -203,6 +203,13 @@ func (s *Service) analyzeAssetProjection(ctx context.Context, query domain.Analy
 	return s.analysisService().ComputeWithValuationFallback(ctx, query)
 }
 
+func (s *Service) analyzeReturnProjection(ctx context.Context, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, string, error) {
+	if s == nil {
+		return domain.PeriodAnalysisResult{}, "", &domain.Error{Code: domain.ErrUnavailable, Message: "application service is not configured"}
+	}
+	return s.analysisService().ComputeWithInvestmentValuationFallback(ctx, query)
+}
+
 func availability(result domain.PeriodAnalysisResult, forced string) AnalysisAvailability {
 	hasUsableDay := false
 	hasIncompleteDay := false
