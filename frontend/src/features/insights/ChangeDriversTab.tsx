@@ -13,7 +13,18 @@ import type { AssetChangeDTO, AssetChangeGroupDTO, AssetChangeRowDTO, AssetDrive
 import { formatAmount } from "@/lib/money";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
-import type { HistoryNavigationFilters } from "@/app/navigation";
+import type { AnalysisNavigationContext, HistoryNavigationFilters } from "@/app/navigation";
+import type { AnalysisSessionState } from "@/stores/analysis";
+
+const RETURN_DRIVER_BUCKETS = new Set(["price_change", "dividend_interest", "fx_impact", "fee"]);
+
+function contributionReturnType(bucket: string): NonNullable<AnalysisNavigationContext["returnType"]> {
+  return bucket === "dividend_interest" ? "dividend_interest" : "total_return";
+}
+
+function isReturnDriver(bucket?: string): boolean {
+  return Boolean(bucket && RETURN_DRIVER_BUCKETS.has(bucket));
+}
 
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
@@ -114,7 +125,7 @@ function residualLabel(item: NonNullable<AssetDriverDetailDTO["residualDetails"]
   return dimensions.length > 0 ? dimensions.join(" · ") : item.componentKey;
 }
 
-function DriverDetailSheet({ request, selected, onClose, accountNames, instrumentNames, onOpenHistory }: { request: AnalysisQueryRequest; selected: AssetChangeRowDTO | null; onClose: () => void; accountNames: Map<string, string>; instrumentNames: Map<string, string>; onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
+function DriverDetailSheet({ request, session, selected, onClose, accountNames, instrumentNames, onOpenHistory, onOpenReturnAnalysis }: { request: AnalysisQueryRequest; session: AnalysisSessionState; selected: AssetChangeRowDTO | null; onClose: () => void; accountNames: Map<string, string>; instrumentNames: Map<string, string>; onOpenHistory?: (filters: HistoryNavigationFilters) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
   const { t } = useTranslation();
   const detail = useAssetDriverDetail(request, selected?.bucket ?? "", Boolean(selected));
   const isResidual = selected?.bucket === "residual";
@@ -125,14 +136,15 @@ function DriverDetailSheet({ request, selected, onClose, accountNames, instrumen
           <SheetTitle>{selected?.label ?? t("insights.driverDetails")}</SheetTitle>
           <p className="text-sm text-muted-foreground">{request.from} — {request.to}</p>
         </SheetHeader>
-        {detail.isLoading ? <LoadingState label={t("insights.loading")} /> : detail.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => detail.refetch()} retryLabel={t("common.retryAction")} /> : detail.data ? <DriverDetailContent data={detail.data} selected={selected} isResidual={isResidual} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} /> : <EmptyState title={t("insights.noDriverDetails")} />}
+        {detail.isLoading ? <LoadingState label={t("insights.loading")} /> : detail.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => detail.refetch()} retryLabel={t("common.retryAction")} /> : detail.data ? <DriverDetailContent data={detail.data} request={request} session={session} selected={selected} isResidual={isResidual} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} onOpenReturnAnalysis={onOpenReturnAnalysis} /> : <EmptyState title={t("insights.noDriverDetails")} />}
       </SheetContent>
     </Sheet>
   );
 }
 
-function DriverDetailContent({ data, selected, isResidual, accountNames, instrumentNames, onOpenHistory }: { data: AssetDriverDetailDTO; selected: AssetChangeRowDTO | null; isResidual: boolean; accountNames: Map<string, string>; instrumentNames: Map<string, string>; onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
+function DriverDetailContent({ data, request, session, selected, isResidual, accountNames, instrumentNames, onOpenHistory, onOpenReturnAnalysis }: { data: AssetDriverDetailDTO; request: AnalysisQueryRequest; session: AnalysisSessionState; selected: AssetChangeRowDTO | null; isResidual: boolean; accountNames: Map<string, string>; instrumentNames: Map<string, string>; onOpenHistory?: (filters: HistoryNavigationFilters) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
   const { t } = useTranslation();
+  const openReturnAnalysis = onOpenReturnAnalysis && isReturnDriver(selected?.bucket);
   return (
     <div className="flex flex-col gap-5 overflow-y-auto">
       <div>
@@ -150,11 +162,29 @@ function DriverDetailContent({ data, selected, isResidual, accountNames, instrum
       <DimensionList title={t("insights.byInstrument")} rows={data.byInstrument} labelFor={(row) => row.instrumentId ? instrumentNames.get(row.instrumentId) ?? row.label : row.label} />
       <DimensionList title={t("insights.byAccount")} rows={data.byAccount} labelFor={(row) => row.accountId ? accountNames.get(row.accountId) ?? row.label : row.label} />
       {!isResidual && (!data.byInstrument?.length && !data.byAccount?.length) && <EmptyState title={t("insights.noDriverDetails")} />}
+      {openReturnAnalysis && selected && (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onOpenReturnAnalysis?.({
+            scope: session.scope,
+            scopeId: session.scopeId,
+            valuation: session.valuation,
+            includeCash: session.includeCash,
+            from: request.from,
+            to: request.to,
+            moreFilters: session.moreFilters,
+            returnType: contributionReturnType(selected.bucket),
+          })}
+        >
+          {t("insights.openReturnAnalysis")}
+        </Button>
+      )}
     </div>
   );
 }
 
-export function ChangeDriversTab({ request, scope, onOpenHistory }: { request: AnalysisQueryRequest; scope: "portfolio" | "account" | "instrument"; onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
+export function ChangeDriversTab({ request, session, scope, onOpenHistory, onOpenReturnAnalysis }: { request: AnalysisQueryRequest; session: AnalysisSessionState; scope: "portfolio" | "account" | "instrument"; onOpenHistory?: (filters: HistoryNavigationFilters) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
   const { t } = useTranslation();
   const [selected, setSelected] = useState<AssetChangeRowDTO | null>(null);
   const data = useAssetChange(request);
@@ -172,11 +202,11 @@ export function ChangeDriversTab({ request, scope, onOpenHistory }: { request: A
     <div className="flex flex-col gap-4" data-testid="change-drivers">
       <SummaryCard data={result} scope={scope} />
       <WaterfallChart summary={result.summary} rows={rows} onSelect={(key) => { const row = rows.find((candidate) => candidate.key === key); if (row) setSelected(row); }} labels={{ beginning: t("insights.beginningValue"), ending: t("insights.endingValue"), amount: t("insights.amount"), empty: t("insights.noAssetChangeData") }} />
-      <section className="flex flex-col gap-3" aria-label={t("insights.attribution")}> 
+      <section className="flex flex-col gap-3" aria-label={t("insights.attribution")}>
         <h2 className="text-lg font-semibold">{t("insights.attribution")}</h2>
         <div className="grid gap-3 lg:grid-cols-2">{groups.map((group) => <AttributionGroup key={group.key} group={group} onSelect={setSelected} />)}</div>
       </section>
-      <DriverDetailSheet request={request} selected={selected} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} onClose={() => setSelected(null)} />
+      <DriverDetailSheet request={request} session={session} selected={selected} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} onOpenReturnAnalysis={onOpenReturnAnalysis} onClose={() => setSelected(null)} />
     </div>
   );
 }

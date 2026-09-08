@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Technical Architecture
 
-**Status:** Phases 1a–4 complete; Phase 5 in progress (desktop smoke pending); Phase 6 not started
+**Status:** Phase 1a–5 complete for code; Phase 6 in progress (cutover implemented; desktop smoke pending)
 **Product:** Nestworth  
 **Target:** Desktop application (Wails v3)  
 **Replaces:** Existing Insights `Analysis` page  
@@ -26,18 +26,20 @@ Insights
     Change Drivers | Trend | Categories
 ```
 
-The old `Analysis` navigation item and dashboard are removed after the replacement pages are functional.
+The old `Analysis` navigation item and dashboard are removed. Investments still loads holding gains from `GainService`.
 
 ---
 
 ## 2. What exists today (and why it is not enough)
 
-The current Insights item is one page, [`frontend/src/features/analytics/AnalyticsPage.tsx`](../../../frontend/src/features/analytics/AnalyticsPage.tsx), over three read models:
+Insights destinations are Return Analysis and Asset Changes. The old Analysis dashboard (`AnalyticsPage`) is removed.
+
+That dashboard read three models that remain available for other surfaces, but are not the Insights engine:
 
 - `RealizedGain` / `DividendIncome` — period **sell** gains and **cash dividends** only ([`internal/application/gain_service.go`](../../../internal/application/gain_service.go))
 - `NetWorthTrend` — household **level** series, named ranges only, no scope ([`internal/application/trend.go`](../../../internal/application/trend.go))
 
-There is no daily investment return, no waterfall, no universe-relative effect classification, and no period mark-to-market attribution.
+They do not provide daily investment return, waterfall, universe-relative effect classification, or period mark-to-market attribution.
 
 Reusable foundations:
 

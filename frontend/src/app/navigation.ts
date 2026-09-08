@@ -9,7 +9,6 @@ export type PageId =
   | "history"
   | "return-analysis"
   | "asset-changes"
-  | "analytics"
   | "directory"
   | "market-data"
   | "settings";
@@ -25,6 +24,7 @@ export interface AnalysisNavigationContext {
   from?: string;
   to?: string;
   moreFilters?: Record<string, string | boolean | undefined>;
+  returnType?: "total_return" | "realized" | "dividend_interest";
 }
 
 export interface HistoryNavigationFilters {
@@ -81,7 +81,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "return-analysis", translationKey: "nav.returnAnalysis", icon: ChartLine },
       { id: "asset-changes", translationKey: "nav.assetChanges", icon: GitCompareArrows },
-      { id: "analytics", translationKey: "nav.analytics", icon: ChartLine },
     ],
   },
   {

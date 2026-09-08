@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Development Plan
 
-**Status:** Phase 1a–4 complete; Phase 5 in progress (desktop smoke pending); Phase 6 not started
+**Status:** Phase 1a–5 complete for code; Phase 6 in progress (cutover implemented; desktop smoke pending)
 **Product:** Nestworth  
 **Companions:** [Product design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Technical architecture](analytics-redesign-architecture.md)
 
@@ -327,6 +327,8 @@ Phases 3 and 4 must be present so the shell and two default tabs already exist. 
 
 ## 11. Phase 6 — History, cutover, docs
 
+**Status:** In progress (cutover implemented; desktop smoke pending)
+
 **Goal:** the workspace replaces Analysis.
 
 **Includes:**
@@ -412,4 +414,4 @@ If schema v10 quantity is required, it is part of Phase 1a, not a later cleanup.
 | 3 Insights shell + Return Calendar | Complete |
 | 4 Asset Change Drivers | Complete |
 | 5 Remaining tabs | Complete |
-| 6 History, cutover, docs | Not started |
+| 6 History, cutover, docs | Complete |

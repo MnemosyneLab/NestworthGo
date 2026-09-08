@@ -96,7 +96,7 @@ function ItemDetail({ data, returnType, accountNames, instrumentNames, onOpenHis
   const showRate = returnType === "total_return" || (returnType === "unrealized" && data.rate != null);
   const openHistory = () => {
     if (!onOpenHistory) return;
-    onOpenHistory({ from: data.historyHint.from, to: data.historyHint.to, accountId: data.historyHint.accountId || undefined, instrumentId: data.historyHint.instrumentId || undefined, kinds: data.historyHint.kinds ?? undefined });
+    onOpenHistory({ from: data.historyHint.from, to: data.historyHint.to, accountId: data.historyHint.accountId || undefined, instrumentId: data.historyHint.instrumentId || undefined, kinds: data.historyHint.kinds && data.historyHint.kinds.length > 0 ? data.historyHint.kinds : undefined });
   };
   return <div className="flex flex-col gap-5 overflow-y-auto"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.contribution")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.amount)}</p>{showRate && <p className="text-sm text-muted-foreground">{rateText(data.rate)}{coverageMark(data.ratedDays, data.totalDays)}</p>}</div>{data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}{data.status === "partial" && <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{data.missingReason ?? t("insights.partial")}</p>}<p className="text-sm text-muted-foreground">{t("insights.contributionIndependent")}</p><DetailList title={t("insights.composition")} values={data.components} labelFor={(item) => compositionLabel(t, item, accountNames, instrumentNames)} /><DetailList title={t("insights.byAccount")} values={data.byAccount} labelFor={(item) => accountNames.get(item.accountId || item.key) ?? item.key} />{onOpenHistory && <Button type="button" variant="outline" onClick={openHistory}>{t("insights.viewInHistory")}</Button>}</div>;
 }
@@ -108,7 +108,7 @@ function DetailList({ title, values, labelFor }: { title: string; values: Contri
 
 export function ContributionTab({ session, onOpenHistory }: { session: AnalysisSessionState; onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
   const { t } = useTranslation();
-  const [returnType, setReturnType] = useState("total_return");
+  const [returnType, setReturnType] = useState<string>(session.contributionReturnType || "total_return");
   const [groupBy, setGroupBy] = useState("instrument");
   const [ordering, setOrdering] = useState("amount_desc");
   const [selected, setSelected] = useState<ContributionRowDTO | null>(null);

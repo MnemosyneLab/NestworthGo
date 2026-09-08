@@ -68,7 +68,7 @@ describe("Phase 5 insight tabs", () => {
     categoryDetail.mockReset();
     returnTrend.mockResolvedValue({ display: "cumulative_amount", points: [{ date: "2026-09-01", amount: { amount: "2", currency: "USD" }, value: { amount: "2", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 1, ...available }], sources: [{ key: "price_change", label: "price_change", amount: { amount: "2", currency: "USD" }, share: "1" }], amount: { amount: "2", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 1, ...available });
     contribution.mockResolvedValue({ returnType: "total_return", groupBy: "instrument", rows: [{ key: "instrument-1", label: "instrument-1", amount: { amount: "2", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 3, ...available }], ratedDays: 1, totalDays: 3, ...available });
-    contributionItem.mockResolvedValue({ key: "instrument-1", label: "instrument-1", amount: { amount: "2", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 3, components: [{ key: "price_change", amount: { amount: "2", currency: "USD" } }], byAccount: [{ key: "account-1", accountId: "account-1", amount: { amount: "2", currency: "USD" } }], historyHint: { kinds: ["trade"], from: "2026-09-01", to: "2026-09-01" }, ...available });
+    contributionItem.mockResolvedValue({ key: "instrument-1", label: "instrument-1", amount: { amount: "2", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 3, components: [{ key: "price_change", amount: { amount: "2", currency: "USD" } }], byAccount: [{ key: "account-1", accountId: "account-1", amount: { amount: "2", currency: "USD" } }], historyHint: { kinds: [], from: "2026-09-01", to: "2026-09-01", accountId: "account-1", instrumentId: "instrument-1" }, ...available });
     assetTrend.mockResolvedValue({ points: [{ period: "2026-09", value: { amount: "102", currency: "USD" }, rate: null, ratedDays: 1, totalDays: 1, ...available }], summary: { amount: "102", currency: "USD" }, rate: null, ratedDays: 1, totalDays: 1, ...available });
     categories.mockResolvedValue({ total: { amount: "10", currency: "USD" }, rows: [{ key: "account-1", label: "account-1", accountId: "account-1", amount: { amount: "10", currency: "USD" } }], ...available });
     categoryDetail.mockResolvedValue({ children: [{ key: "groceries", label: "Groceries", amount: { amount: "10", currency: "USD" } }], activityRefs: [{ date: "2026-09-01", activityId: "activity-1", accountId: "account-1", amount: { amount: "10", currency: "USD" } }], ...available });
@@ -118,6 +118,28 @@ describe("Phase 5 insight tabs", () => {
     expect(contributionItem).toHaveBeenCalledWith(expect.anything(), "total_return", "instrument", "instrument-1");
   });
 
+  it("opens History from a contribution item with date and scope filters and empty kinds", async () => {
+    const onOpenHistory = vi.fn();
+    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} onOpenHistory={onOpenHistory} />);
+    fireEvent.click(await screen.findByRole("button", { name: /QQQ/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "View in History" }));
+    expect(onOpenHistory).toHaveBeenCalledWith({
+      from: "2026-09-01",
+      to: "2026-09-01",
+      accountId: "account-1",
+      instrumentId: "instrument-1",
+      kinds: undefined,
+    });
+  });
+
+  it("starts Contribution on the navigated return type", async () => {
+    useAnalysisStore.getState().setFilters({ returnType: "dividend_interest" });
+    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    await screen.findByTestId("contribution");
+    expect(screen.getByLabelText("Return type")).toHaveValue("dividend_interest");
+    expect(contribution).toHaveBeenCalledWith(expect.anything(), "dividend_interest", "instrument", "amount_desc");
+  });
+
   it("hides Realized rate sort and currency grouping", async () => {
     renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
     await screen.findByText("QQQ");
@@ -146,5 +168,13 @@ describe("Phase 5 insight tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: /Brokerage/ }));
     expect(await screen.findByText("Groceries")).toBeInTheDocument();
     expect(categoryDetail).toHaveBeenCalledWith(expect.anything(), "spending", "account-1");
+  });
+
+  it("opens History from a category record for the selected day and account", async () => {
+    const onOpenHistory = vi.fn();
+    renderWithClient(<CategoriesTab session={useAnalysisStore.getState()} onOpenHistory={onOpenHistory} />);
+    fireEvent.click(await screen.findByRole("button", { name: /Brokerage/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "View in History" }));
+    expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-01", to: "2026-09-01", accountId: "account-1", instrumentId: undefined });
   });
 });

@@ -11,9 +11,9 @@ import { analysisRequest, effectiveRange } from "@/features/insights/analysisReq
 import { currentMonth } from "@/features/insights/calendar";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useHistoryOrigin } from "@/queries/history";
-import type { HistoryNavigationFilters } from "@/app/navigation";
+import type { AnalysisNavigationContext, HistoryNavigationFilters } from "@/app/navigation";
 
-export function AssetChangesPage({ onOpenHistory }: { onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
+export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOpenHistory?: (filters: HistoryNavigationFilters) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
   const { t } = useTranslation();
   const session = useAnalysisStore();
   const setFilters = useAnalysisStore((state) => state.setFilters);
@@ -38,7 +38,7 @@ export function AssetChangesPage({ onOpenHistory }: { onOpenHistory?: (filters: 
   ) : !rangeAvailable ? (
     <EmptyState title={t("insights.noAssetChangeData")} description={t("insights.noAssetChangeDataHint")} />
   ) : (
-    <ChangeDriversTab request={request} scope={scope} onOpenHistory={onOpenHistory} />
+    <ChangeDriversTab request={request} session={session} scope={scope} onOpenHistory={onOpenHistory} onOpenReturnAnalysis={onOpenReturnAnalysis} />
   );
 
   return (

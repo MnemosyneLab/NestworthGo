@@ -3,7 +3,7 @@
 - Owner: Product, Design, and Analytics
 - Status: **In progress**
 - Baseline: Nestworth-go `0.3.1` / SQLite schema `9` / Wails v3 `v3.0.0-beta.16`
-- Scope: chart surfaces and local quote history in Overview, Portfolio, Analytics, and Market Data
+- Scope: chart surfaces and local quote history in Overview, Portfolio, Return Analysis, Asset Changes, Investments, and Market Data
 - Companion: [Domain Model](../architecture/domain-model.md) and [Data and Application Contracts](../architecture/data-and-ipc-contracts.md)
 
 This document describes the current chart contract and the remaining work for
@@ -13,15 +13,15 @@ chart.
 
 ## 1. User questions and chart choices
 
-The surfaces answer four separate questions:
+The surfaces answer these questions:
 
 1. **Overview:** Where are current assets concentrated, and what liabilities
    make up the balance sheet?
 2. **Portfolio:** Which active Instrument-backed holdings are present, and what
    is their current valued subtotal?
-3. **Analytics:** How have assets, liabilities, net worth, realized gains, and
-   dividends changed over time?
-4. **Market Data:** Which local Instrument and FX observations exist, from which
+3. **Return Analysis / Asset Changes:** How did investment return and asset value change over a chosen scope and period?
+4. **Investments:** What is the current holding gain on each position?
+5. **Market Data:** Which local Instrument and FX observations exist, from which
    source, and for what observation times?
 
 | Relationship | Default chart | Avoid |
@@ -37,10 +37,10 @@ The current frontend already provides the following behavior:
 
 - `EChart` renders the supported line, bar, and donut chart types with the
   existing theme and accessibility/data-table support.
+- Return Analysis and Asset Changes project one analysis kernel: Calendar, Return Trend, Contribution, Change Drivers, Asset Trend, and Categories. They do not use `AnalyticsPage`.
+- Investments still loads holding gains through [`useHoldingGainsByAccounts`](../../frontend/src/queries/analytics.ts) and Wails `GainService`.
 - Overview and Portfolio expose backend composition results; their chart
   surfaces use those results rather than recomputing categories or totals.
-- `AnalyticsPage` renders the net-worth trend and the multi-series, signed
-  realized-gain, and dividend views from application queries.
 - Portfolio trend data is available through the application read model and is
   rendered as a backend-authoritative time series.
 - Local directional Instrument and FX quote-series reads are available for
@@ -89,26 +89,21 @@ missing count. Closed days use persisted snapshot holding components; the
 current day uses the live Portfolio read model. The frontend never reconstructs
 history from current Holdings.
 
-### 3.3 Analytics
+### 3.3 Return Analysis, Asset Changes, and Investments
 
-Analytics keeps one global range control and combines:
+Insights no longer has an Analysis dashboard. Return Analysis and Asset Changes
+share one filter store and project the analysis kernel:
 
-- a wealth trend with assets, liabilities, and net worth as switchable series;
-- a signed realized-gain bar chart with a zero baseline;
-- a dividend-income bar chart; and
-- expandable details that retain exact backend values.
+- Return Calendar, Return Trend, and Contribution on Return Analysis;
+- Change Drivers, Asset Trend, and Categories on Asset Changes;
+- History deep-links from residual, contribution, and category sheets.
 
-The trend uses closed-day snapshots plus a current live point. If the current
-day is also the last saved snapshot day, it appears once. If no closed day
-exists, the UI explains that a trend starts after the next closed day instead
-of drawing a misleading single-point line. Rebuild failures remain visible and
-retryable.
+The frontend formats those Wails projections. It does not recompute return or
+waterfall totals. Completeness, forced valuation, and residual remain visible.
 
-Assets and liabilities are separate signed concepts: liabilities are shown as a
-positive magnitude with an explicit liability label, while net worth is the
-signed result returned by Go. Gains may be positive or negative and dividends
-are non-negative income results. Unavailable inputs produce an explicit
-unavailable or incomplete state.
+Investments still shows current holding gains from `GainService`. It does not
+replace Return Analysis. The old Analysis wealth-trend / realized-gain /
+dividend dashboard is removed.
 
 ### 3.4 Market Data and quote history
 

@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { useAnalysisStore } from "@/stores/analysis";
+import type { AnalysisNavigationContext } from "@/app/navigation";
 import { AssetChangesPage } from "./AssetChangesPage";
 
 const assetChange = vi.fn();
@@ -43,7 +44,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/di
   Service: { ListMembers: () => Promise.resolve([]) },
 }));
 
-function renderPage(props: { onOpenHistory?: (filters: { from?: string; to?: string; accountId?: string; instrumentId?: string }) => void } = {}) {
+function renderPage(props: { onOpenHistory?: (filters: { from?: string; to?: string; accountId?: string; instrumentId?: string }) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void } = {}) {
   const queryClient = createTestQueryClient();
   return render(<QueryClientProvider client={queryClient}><AssetChangesPage {...props} /></QueryClientProvider>);
 }
@@ -69,7 +70,10 @@ describe("AssetChangesPage", () => {
       ],
       groups: [
         { key: "cash", label: "Cash flows", amount: { amount: "10", currency: "USD" }, rows: [{ key: "income", label: "Income", bucket: "income", amount: { amount: "10", currency: "USD" } }] },
-        { key: "market", label: "Market & investment", amount: { amount: "20", currency: "USD" }, rows: [{ key: "dividend_interest", label: "Dividend & interest", bucket: "dividend_interest", amount: { amount: "20", currency: "USD" } }] },
+        { key: "market", label: "Market & investment", amount: { amount: "20", currency: "USD" }, rows: [
+          { key: "price_change", label: "Price change", bucket: "price_change", amount: { amount: "20", currency: "USD" } },
+          { key: "dividend_interest", label: "Dividend & interest", bucket: "dividend_interest", amount: { amount: "20", currency: "USD" } },
+        ] },
         { key: "other", label: "Other", amount: { amount: "-5", currency: "USD" }, rows: [{ key: "residual", label: "Unexplained difference", bucket: "residual", amount: { amount: "-5", currency: "USD" } }] },
       ],
       available: true,
@@ -102,6 +106,7 @@ describe("AssetChangesPage", () => {
     expect(screen.getByText("Market & Investment")).toBeInTheDocument();
     expect(screen.getByText("Other")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Income/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Price Change/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Dividend & Interest/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Unexplained difference/ })).toHaveClass("border-warning/40");
     expect(assetChange).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-01", to: "2026-09-06" }));
@@ -122,6 +127,52 @@ describe("AssetChangesPage", () => {
     await user.click(await screen.findByRole("button", { name: /Unexplained difference/ }));
     await user.click(await screen.findByRole("button", { name: "View in History" }));
     expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-02", to: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1" });
+    expect(screen.queryByRole("button", { name: "Open Return Analysis" })).not.toBeInTheDocument();
+  });
+
+  it("opens Contribution from a Price Change driver with the shared analysis window", async () => {
+    const user = userEvent.setup();
+    const onOpenReturnAnalysis = vi.fn();
+    assetDriverDetail.mockResolvedValue({
+      driverKey: "price_change",
+      byInstrument: [{ key: "instrument-1", instrumentId: "instrument-1", label: "QQQ", amount: { amount: "20", currency: "USD" } }],
+      byAccount: [{ key: "account-1", accountId: "account-1", label: "Brokerage", amount: { amount: "20", currency: "USD" } }],
+      residualDetails: [],
+      available: true,
+      status: "ok",
+      missingReason: null,
+      valuationForced: null,
+    });
+    renderPage({ onOpenReturnAnalysis });
+    await user.click(await screen.findByRole("button", { name: /Price Change/ }));
+    await user.click(await screen.findByRole("button", { name: "Open Return Analysis" }));
+    expect(onOpenReturnAnalysis).toHaveBeenCalledWith(expect.objectContaining({
+      scope: "portfolio",
+      includeCash: true,
+      from: "2026-09-01",
+      to: "2026-09-06",
+      returnType: "total_return",
+    }));
+  });
+
+  it("does not offer Contribution from cash-flow drivers", async () => {
+    const user = userEvent.setup();
+    const onOpenReturnAnalysis = vi.fn();
+    assetDriverDetail.mockResolvedValue({
+      driverKey: "income",
+      byInstrument: [],
+      byAccount: [{ key: "account-1", accountId: "account-1", label: "Brokerage", amount: { amount: "10", currency: "USD" } }],
+      residualDetails: [],
+      available: true,
+      status: "ok",
+      missingReason: null,
+      valuationForced: null,
+    });
+    renderPage({ onOpenReturnAnalysis });
+    await user.click(await screen.findByRole("button", { name: /Income/ }));
+    await waitFor(() => expect(assetDriverDetail).toHaveBeenCalledWith(expect.anything(), "income"));
+    expect(screen.queryByRole("button", { name: "Open Return Analysis" })).not.toBeInTheDocument();
+    expect(onOpenReturnAnalysis).not.toHaveBeenCalled();
   });
 
   it("does not render a zero-value driver row and preserves the partial marker", async () => {

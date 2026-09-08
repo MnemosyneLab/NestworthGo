@@ -31,4 +31,12 @@ describe("analysis session store", () => {
     useAnalysisStore.getState().setAssetView({ tab: "trend" });
     expect(useAnalysisStore.getState().valuation).toBe("native");
   });
+
+  it("stores a navigated Contribution return type without changing valuation", () => {
+    useAnalysisStore.getState().setFilters({ valuation: "native", returnType: "dividend_interest" });
+    expect(useAnalysisStore.getState()).toMatchObject({
+      valuation: "native",
+      contributionReturnType: "dividend_interest",
+    });
+  });
 });

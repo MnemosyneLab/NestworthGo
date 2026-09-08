@@ -9,6 +9,7 @@ export interface AnalysisSessionState {
   from: string;
   to: string;
   moreFilters: Record<string, string | boolean | undefined>;
+  contributionReturnType: NonNullable<AnalysisNavigationContext["returnType"]>;
   returnTab: AnalysisTab;
   returnCursor: string;
   assetTab: AssetChangesTab;
@@ -27,6 +28,7 @@ const initialSession = {
   from: "",
   to: "",
   moreFilters: {},
+  contributionReturnType: "total_return" as const,
   returnTab: "calendar" as const,
   returnCursor: "",
   assetTab: "drivers" as const,
@@ -43,6 +45,7 @@ export const useAnalysisStore = create<AnalysisSessionState>((set) => ({
     from: filters.from ?? state.from,
     to: filters.to ?? state.to,
     moreFilters: filters.moreFilters ? { ...state.moreFilters, ...filters.moreFilters } : state.moreFilters,
+    contributionReturnType: filters.returnType ?? state.contributionReturnType,
   })),
   setReturnView: (view) => set((state) => ({
     returnTab: view.tab ?? state.returnTab,

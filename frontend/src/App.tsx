@@ -20,7 +20,6 @@ const InvestmentsPage = lazy(() => import("@/features/investments/InvestmentsPag
 const MarketDataPage = lazy(() => import("@/features/marketdata/MarketDataPage").then((module) => ({ default: module.MarketDataPage })));
 const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 const HistoryPage = lazy(() => import("@/features/history/HistoryPage").then((module) => ({ default: module.HistoryPage })));
-const AnalyticsPage = lazy(() => import("@/features/analytics/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
 const ReturnAnalysisPage = lazy(() => import("@/features/insights/ReturnAnalysisPage").then((module) => ({ default: module.ReturnAnalysisPage })));
 const AssetChangesPage = lazy(() => import("@/features/insights/AssetChangesPage").then((module) => ({ default: module.AssetChangesPage })));
 
@@ -153,11 +152,6 @@ function App() {
           <HistoryPage navigationFilters={historyFilters} />
         </WorkspaceLazy>
       )}
-      {activePageId === "analytics" && (
-        <WorkspaceLazy>
-          <AnalyticsPage />
-        </WorkspaceLazy>
-      )}
       {activePageId === "return-analysis" && (
         <WorkspaceLazy>
           <ReturnAnalysisPage onOpenAssetChanges={(analysis) => handleNavigate({ page: "asset-changes", tab: "drivers", analysis })} onOpenHistory={(filters) => handleNavigate({ page: "history", filters })} />
@@ -165,7 +159,7 @@ function App() {
       )}
       {activePageId === "asset-changes" && (
         <WorkspaceLazy>
-          <AssetChangesPage onOpenHistory={(filters) => handleNavigate({ page: "history", filters })} />
+          <AssetChangesPage onOpenHistory={(filters) => handleNavigate({ page: "history", filters })} onOpenReturnAnalysis={(analysis) => handleNavigate({ page: "return-analysis", tab: "contribution", analysis })} />
         </WorkspaceLazy>
       )}
     </AppShell>

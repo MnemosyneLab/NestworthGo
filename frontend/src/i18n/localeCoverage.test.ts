@@ -137,6 +137,7 @@ describe("i18next locale coverage", () => {
     "insights.byAccount",
     "insights.componentDays",
     "insights.viewInHistory",
+    "insights.openReturnAnalysis",
     "insights.driverDetails",
     "insights.noDriverDetails",
     "insights.noAssetChangeData",

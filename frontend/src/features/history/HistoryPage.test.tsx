@@ -193,6 +193,21 @@ describe("HistoryPage", () => {
     }));
   });
 
+  it("treats an empty kinds payload as all activity kinds", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockResolvedValue([{ id: "instrument-1", name: "ETF", archivedAt: null }]);
+    renderPage({ kinds: [], accountId: "acc-1", instrumentId: "instrument-1", from: "2026-01-01", to: "2026-01-31" });
+    await screen.findByText("No activity yet");
+    expect(listActivityPage).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: "acc-1",
+      instrumentId: "instrument-1",
+      fromLocalDate: "2026-01-01",
+      toLocalDate: "2026-01-31",
+      limit: 50,
+    }));
+    expect(listActivityPage.mock.calls[0][0].kinds).toBeUndefined();
+  });
+
   it("prompts to Start History when none exists yet", async () => {
     historyOrigin.mockResolvedValue(null);
     renderPage();
