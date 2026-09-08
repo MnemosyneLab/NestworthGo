@@ -57,7 +57,7 @@ type ValuationUseCase interface {
 	PortfolioTrend(ctx context.Context, trendRange domain.TrendRange) (domain.PortfolioTrend, error)
 }
 
-// AnalysisUseCase is the Phase 2a/2b analysis projection surface. All
+// AnalysisUseCase is the analysis projection surface. All
 // methods consume one memoized PeriodAnalysisResult per query; they do not
 // expose a second calculation path.
 type AnalysisUseCase interface {

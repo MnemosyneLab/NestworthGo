@@ -13,8 +13,8 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// AnalysisService loads the immutable inputs for the Phase 1b calculation and
-// owns the bounded memo consumed by the Phase 2a projections.
+// AnalysisService loads the immutable inputs for the analysis calculation and
+// owns the bounded memo consumed by the analysis projections.
 type AnalysisService struct {
 	repository      Repository
 	now             func() time.Time
@@ -37,7 +37,7 @@ type analysisMemoEntry struct {
 	valuationForced string
 }
 
-// ComputeAnalysis exposes the pure Phase 1b kernel for deterministic tests
+// ComputeAnalysis exposes the pure analysis kernel for deterministic tests
 // and non-Wails callers.  Repository loading and closed-day maintenance stay
 // in AnalysisService.Compute.
 func ComputeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
@@ -63,13 +63,13 @@ func (s *AnalysisService) Compute(ctx context.Context, query domain.AnalysisQuer
 	if s == nil || s.repository == nil {
 		return domain.PeriodAnalysisResult{}, &domain.Error{Code: domain.ErrUnavailable, Message: "analysis repository is not configured"}
 	}
-	key := analysisQueryHash(query)
+	key := analysisMemoKey(query, false)
 	if result, _, ok := s.memoResult(key, false); ok {
 		return result, nil
 	}
 	generation := s.memoGeneration()
 
-	result, err := s.computeUncached(ctx, query)
+	result, err := s.computeUncachedUniverse(ctx, query, false)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
@@ -101,14 +101,24 @@ func (s *AnalysisService) computeWithValuationFallback(ctx context.Context, quer
 		return domain.PeriodAnalysisResult{}, "", &domain.Error{Code: domain.ErrUnavailable, Message: "analysis repository is not configured"}
 	}
 	if query.Valuation != domain.ValuationNative {
-		result, err := s.Compute(ctx, query)
-		return result, "", err
+		if !investmentOnly {
+			result, err := s.Compute(ctx, query)
+			return result, "", err
+		}
+		key := analysisMemoKey(query, true)
+		if result, _, ok := s.memoResult(key, false); ok {
+			return result, "", nil
+		}
+		generation := s.memoGeneration()
+		result, err := s.computeUncachedUniverse(ctx, query, true)
+		if err != nil {
+			return domain.PeriodAnalysisResult{}, "", err
+		}
+		s.memoize(generation, analysisMemoEntry{key: key, generation: generation, result: result})
+		return result, "", nil
 	}
 
-	nativeKey := analysisQueryHash(query)
-	if investmentOnly {
-		nativeKey += "|investment-universe"
-	}
+	nativeKey := analysisMemoKey(query, investmentOnly)
 	if result, forced, ok := s.memoResult(nativeKey, true); ok {
 		return result, forced, nil
 	}
@@ -132,7 +142,7 @@ func (s *AnalysisService) computeWithValuationFallback(ctx context.Context, quer
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, "", err
 	}
-	baseKey := analysisQueryHash(baseQuery)
+	baseKey := analysisMemoKey(baseQuery, investmentOnly)
 	s.memoize(
 		generation,
 		analysisMemoEntry{key: nativeKey, generation: generation, result: result, valuationForced: string(domain.ValuationBase)},
@@ -225,6 +235,14 @@ func (s *AnalysisService) MemoEntryCount() int {
 	return len(s.memo)
 }
 
+func analysisMemoKey(query domain.AnalysisQuery, investmentOnly bool) string {
+	key := analysisQueryHash(query)
+	if investmentOnly {
+		return key + "|investment-universe"
+	}
+	return key
+}
+
 func analysisQueryHash(query domain.AnalysisQuery) string {
 	// Keep field order explicit. This is a canonical representation, not a
 	// fmt dump of a struct whose formatting could change with a Go release.
@@ -252,12 +270,12 @@ func optionalAnalysisCurrency(value *domain.CurrencyCode) string {
 	return value.String()
 }
 
-func (s *AnalysisService) computeUncached(ctx context.Context, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
+func (s *AnalysisService) computeUncachedUniverse(ctx context.Context, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, error) {
 	input, err := s.loadInputs(ctx, query)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err
 	}
-	return computeAnalysis(input, query)
+	return computeAnalysisForValuationUniverse(input, query, investmentOnly)
 }
 
 func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQuery) (AnalysisInputs, error) {

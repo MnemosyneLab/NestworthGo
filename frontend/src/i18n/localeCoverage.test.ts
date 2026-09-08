@@ -40,7 +40,7 @@ function assertSameKeySet(label: string, base: Tree, others: Record<string, Tree
 }
 
 describe("i18next locale coverage", () => {
-  const phase3Keys = [
+  const insightsKeys = [
     "nav.returnAnalysis",
     "nav.assetChanges",
     "insights.returnAnalysis",
@@ -112,7 +112,7 @@ describe("i18next locale coverage", () => {
     "insights.components.residual",
     "common.all",
   ];
-  const phase4Keys = [
+  const changeDriversKeys = [
     "insights.assetChangesDescription",
     "insights.netWorthChange",
     "insights.accountValueChange",
@@ -144,6 +144,9 @@ describe("i18next locale coverage", () => {
     "insights.noAssetChangeDataHint",
     "insights.unavailableAmount",
     "insights.waterfallMismatch",
+    "insights.waterfallIncomplete",
+    "insights.residualIssues",
+    "insights.historyRangeWider",
   ];
 
   it("the ported translation catalog has identical keys across en/zh-CN/zh-TW", () => {
@@ -154,17 +157,17 @@ describe("i18next locale coverage", () => {
     assertSameKeySet("additions", additionsEn, { "zh-CN": additionsZhCN, "zh-TW": additionsZhTW });
   });
 
-  it("contains the Phase 3 Insights vocabulary in every locale", () => {
+  it("contains the Insights vocabulary in every locale", () => {
     for (const [locale, tree] of Object.entries({ en: additionsEn, "zh-CN": additionsZhCN, "zh-TW": additionsZhTW })) {
       const keys = new Set(flattenKeys(tree));
-      expect({ locale, missing: phase3Keys.filter((key) => !keys.has(key)) }).toEqual({ locale, missing: [] });
+      expect({ locale, missing: insightsKeys.filter((key) => !keys.has(key)) }).toEqual({ locale, missing: [] });
     }
   });
 
-  it("contains the Phase 4 Change Drivers vocabulary in every locale", () => {
+  it("contains the Change Drivers vocabulary in every locale", () => {
     for (const [locale, tree] of Object.entries({ en: additionsEn, "zh-CN": additionsZhCN, "zh-TW": additionsZhTW })) {
       const keys = new Set(flattenKeys(tree));
-      expect({ locale, missing: phase4Keys.filter((key) => !keys.has(key)) }).toEqual({ locale, missing: [] });
+      expect({ locale, missing: changeDriversKeys.filter((key) => !keys.has(key)) }).toEqual({ locale, missing: [] });
     }
   });
 

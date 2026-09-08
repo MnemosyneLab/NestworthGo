@@ -186,7 +186,7 @@ function DriverDetailContent({ data, request, session, selected, isResidual, acc
 
 export function ChangeDriversTab({ request, session, scope, onOpenHistory, onOpenReturnAnalysis }: { request: AnalysisQueryRequest; session: AnalysisSessionState; scope: "portfolio" | "account" | "instrument"; onOpenHistory?: (filters: HistoryNavigationFilters) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
   const { t } = useTranslation();
-  const [selected, setSelected] = useState<AssetChangeRowDTO | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const data = useAssetChange(request);
   const accounts = useAccounts();
   const instruments = useInstruments();
@@ -196,17 +196,62 @@ export function ChangeDriversTab({ request, session, scope, onOpenHistory, onOpe
   const result = data.data;
   const rows = (result.waterfall ?? []).map((row) => ({ ...row, label: driverLabel(t, row.bucket, row.label) }));
   const groups = (result.groups ?? []).map((group) => ({ ...group, label: groupLabel(t, group.key, group.label), rows: (group.rows ?? []).map((row) => ({ ...row, label: driverLabel(t, row.bucket, row.label) })) }));
+  const residualRow = rows.find((row) => row.bucket === "residual") ?? groups.flatMap((group) => group.rows ?? []).find((row) => row.bucket === "residual") ?? (result.residualIssueCount > 0 ? { key: "residual", label: driverLabel(t, "residual", t("insights.residualIssues")), bucket: "residual", amount: null } : null);
+  const selected = rows.find((row) => row.key === selectedKey) ?? (selectedKey === "residual" ? residualRow : null) ?? null;
+  if (selectedKey && !selected) setSelectedKey(null);
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
   const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
   return (
+    <ChangeDriversContent
+      request={request}
+      session={session}
+      scope={scope}
+      result={result}
+      rows={rows}
+      groups={groups}
+      residualRow={residualRow}
+      residualIssueCount={result.residualIssueCount ?? 0}
+      selected={selected}
+      setSelectedKey={setSelectedKey}
+      accountNames={accountNames}
+      instrumentNames={instrumentNames}
+      onOpenHistory={onOpenHistory}
+      onOpenReturnAnalysis={onOpenReturnAnalysis}
+    />
+  );
+}
+
+function ChangeDriversContent({ request, session, scope, result, rows, groups, residualRow, residualIssueCount, selected, setSelectedKey, accountNames, instrumentNames, onOpenHistory, onOpenReturnAnalysis }: {
+  request: AnalysisQueryRequest;
+  session: AnalysisSessionState;
+  scope: "portfolio" | "account" | "instrument";
+  result: AssetChangeDTO;
+  rows: AssetChangeRowDTO[];
+  groups: AssetChangeGroupDTO[];
+  residualRow: AssetChangeRowDTO | null;
+  residualIssueCount: number;
+  selected: AssetChangeRowDTO | null;
+  setSelectedKey: (key: string | null) => void;
+  accountNames: Map<string, string>;
+  instrumentNames: Map<string, string>;
+  onOpenHistory?: (filters: HistoryNavigationFilters) => void;
+  onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void;
+}) {
+  const { t } = useTranslation();
+  return (
     <div className="flex flex-col gap-4" data-testid="change-drivers">
       <SummaryCard data={result} scope={scope} />
-      <WaterfallChart summary={result.summary} rows={rows} onSelect={(key) => { const row = rows.find((candidate) => candidate.key === key); if (row) setSelected(row); }} labels={{ beginning: t("insights.beginningValue"), ending: t("insights.endingValue"), amount: t("insights.amount"), empty: t("insights.noAssetChangeData") }} />
+      <WaterfallChart summary={result.summary} rows={rows} onSelect={(key) => setSelectedKey(key)} labels={{ beginning: t("insights.beginningValue"), ending: t("insights.endingValue"), amount: t("insights.amount"), empty: t("insights.noAssetChangeData") }} />
       <section className="flex flex-col gap-3" aria-label={t("insights.attribution")}>
         <h2 className="text-lg font-semibold">{t("insights.attribution")}</h2>
-        <div className="grid gap-3 lg:grid-cols-2">{groups.map((group) => <AttributionGroup key={group.key} group={group} onSelect={setSelected} />)}</div>
+        <div className="grid gap-3 lg:grid-cols-2">{groups.map((group) => <AttributionGroup key={group.key} group={group} onSelect={(row) => setSelectedKey(row.key)} />)}</div>
+        {residualIssueCount > 0 && !groups.some((group) => (group.rows ?? []).some((row) => row.bucket === "residual")) && residualRow && (
+          <Button type="button" variant="outline" className="self-start border-warning/40 bg-warning/5" onClick={() => setSelectedKey("residual")}>
+            {t("insights.residualIssues")} ({residualIssueCount})
+          </Button>
+        )}
       </section>
-      <DriverDetailSheet request={request} session={session} selected={selected} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} onOpenReturnAnalysis={onOpenReturnAnalysis} onClose={() => setSelected(null)} />
+      <DriverDetailSheet request={request} session={session} selected={selected} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} onOpenReturnAnalysis={onOpenReturnAnalysis} onClose={() => setSelectedKey(null)} />
     </div>
   );
 }

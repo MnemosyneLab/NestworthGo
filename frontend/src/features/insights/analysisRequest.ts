@@ -26,19 +26,24 @@ export function analysisRequest(state: AnalysisSessionState, from: string, to: s
   return request;
 }
 
-export function effectiveRange(state: Pick<AnalysisSessionState, "from" | "to">, month: string, timeZone?: string): { from: string; to: string } {
+export function originLocalDate(startedAt: string, timeZone?: string): string {
+  const originInstant = new Date(startedAt);
+  return Number.isNaN(originInstant.getTime()) ? startedAt.slice(0, 10) : ymdInTimeZone(originInstant, timeZone);
+}
+
+export function effectiveRange(state: Pick<AnalysisSessionState, "from" | "to">, month: string, timeZone?: string, startedAt?: string): { from: string; to: string } {
   const [year, value] = month.split("-").map(Number);
   const monthStartValue = `${month}-01`;
   const end = new Date(year, value, 0);
   const monthEndValue = `${year}-${String(value).padStart(2, "0")}-${String(end.getDate()).padStart(2, "0")}`;
-  return {
+  return clampAnalyzableRange({
     from: state.from || monthStartValue,
-    to: clampToClosedDate(state.to || monthEndValue, timeZone),
-  };
+    to: state.to || monthEndValue,
+  }, startedAt, timeZone);
 }
 
-export function yearRange(year: number, timeZone?: string): { from: string; to: string } {
-  return periodRange({ from: "", to: "" }, `${year}-01-01`, `${year}-12-31`, timeZone);
+export function yearRange(year: number, timeZone?: string, startedAt?: string): { from: string; to: string } {
+  return periodRange({ from: "", to: "" }, `${year}-01-01`, `${year}-12-31`, timeZone, startedAt);
 }
 
 function addDays(value: string, amount: number): string {
@@ -56,8 +61,7 @@ function maxDate(left: string, right: string): string {
  * range never asks the engine for dates before the available history. */
 export function returnTrendRange(range: Exclude<ReturnTrendRange, "custom">, startedAt: string, timeZone?: string): { from: string; to: string } {
   const to = lastClosedDate(timeZone);
-  const originInstant = new Date(startedAt);
-  const originDate = Number.isNaN(originInstant.getTime()) ? startedAt.slice(0, 10) : ymdInTimeZone(originInstant, timeZone);
+  const originDate = originLocalDate(startedAt, timeZone);
   const start = range === "all"
     ? originDate
     : range === "ytd"
@@ -81,10 +85,18 @@ export function activeReturnTrendRange(state: Pick<AnalysisSessionState, "from" 
  * cursor contract can preserve its period summary; year cards, however, are
  * independent periods and must use this intersection.
  */
-export function periodRange(state: Pick<AnalysisSessionState, "from" | "to">, from: string, to: string, timeZone?: string): { from: string; to: string } {
+export function periodRange(state: Pick<AnalysisSessionState, "from" | "to">, from: string, to: string, timeZone?: string, startedAt?: string): { from: string; to: string } {
   const periodFrom = state.from && state.from > from ? state.from : from;
   const periodTo = state.to && state.to < to ? state.to : to;
-  return { from: periodFrom, to: clampToClosedDate(periodTo, timeZone) };
+  return clampAnalyzableRange({ from: periodFrom, to: periodTo }, startedAt, timeZone);
+}
+
+function clampAnalyzableRange(range: { from: string; to: string }, startedAt?: string, timeZone?: string): { from: string; to: string } {
+  const originDate = startedAt ? originLocalDate(startedAt, timeZone) : "";
+  return {
+    from: originDate && range.from < originDate ? originDate : range.from,
+    to: clampToClosedDate(range.to, timeZone),
+  };
 }
 
 function clampToClosedDate(to: string, timeZone?: string): string {

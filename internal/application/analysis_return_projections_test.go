@@ -258,7 +258,7 @@ func TestContributionItemTotalReturnCompositionUsesReturnComponents(t *testing.T
 }
 
 func TestContributionItemReturnsNotFoundForUnknownGroup(t *testing.T) {
-	input, query := phase2aSizedInputs(1, "2025-12-01", "2025-12-02")
+	input, query := analysisSizedInputs(1, "2025-12-01", "2025-12-02")
 	repository := &projectionRepository{portfolio: input.Portfolio, snapshots: input.Snapshots}
 	service := &Service{analysis: NewAnalysisService(repository, func() time.Time { return time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC) })}
 	_, err := service.ContributionItem(context.Background(), query, ContributionTotalReturn, ContributionGroupAccount, "missing-group")
@@ -410,8 +410,8 @@ func (r *projectionRepository) ListInstrumentQuotes(context.Context, domain.Inst
 	return nil, nil
 }
 
-func BenchmarkPhase2bContributionUpperBound(b *testing.B) {
-	input, query := phase2aUpperBoundInputs()
+func BenchmarkContributionUpperBound(b *testing.B) {
+	input, query := analysisUpperBoundInputs()
 	repository := &projectionRepository{portfolio: input.Portfolio, snapshots: input.Snapshots}
 	service := &Service{analysis: NewAnalysisService(repository, func() time.Time { return time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC) })}
 	ctx := context.Background()
@@ -425,8 +425,8 @@ func BenchmarkPhase2bContributionUpperBound(b *testing.B) {
 	}
 }
 
-func BenchmarkPhase2bFoldUpperBound(b *testing.B) {
-	input, query := phase2aUpperBoundInputs()
+func BenchmarkFoldUpperBound(b *testing.B) {
+	input, query := analysisUpperBoundInputs()
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {
 		b.Fatal(err)
@@ -440,8 +440,8 @@ func BenchmarkPhase2bFoldUpperBound(b *testing.B) {
 	}
 }
 
-func BenchmarkPhase2bServiceComputeUpperBound(b *testing.B) {
-	input, query := phase2aUpperBoundInputs()
+func BenchmarkAnalysisServiceComputeUpperBound(b *testing.B) {
+	input, query := analysisUpperBoundInputs()
 	repository := &projectionRepository{portfolio: input.Portfolio, snapshots: input.Snapshots}
 	service := &Service{analysis: NewAnalysisService(repository, func() time.Time { return time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC) })}
 	ctx := context.Background()

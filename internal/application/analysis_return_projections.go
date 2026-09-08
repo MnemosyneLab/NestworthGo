@@ -12,7 +12,7 @@ import (
 
 // ReturnCalendarResult, ReturnDayResult, and ReturnTrendResult are application
 // read models. They intentionally contain domain money and decimal values; the
-// Wails layer owns serialization, just as it does for the Phase 2a models.
+// Wails layer owns serialization, just as it does for the Asset Changes models.
 type ReturnComponentAmount struct {
 	Component domain.ReturnComponent
 	Amount    *domain.SignedMoney
@@ -306,6 +306,9 @@ func projectContributionItem(result domain.PeriodAnalysisResult, forced string, 
 	componentAmounts := make(map[domain.ReturnComponent]decimal.Decimal)
 	accountAmounts := make(map[string]decimal.Decimal)
 	accountCurrency := make(map[string]string)
+	hintAccounts := make(map[string]struct{})
+	hintInstruments := make(map[string]struct{})
+	allHaveInstrument := true
 	itemAmount := decimal.Zero
 	foundGroup := false
 	for _, day := range result.Days {
@@ -332,17 +335,28 @@ func projectContributionItem(result domain.PeriodAnalysisResult, forced string, 
 			componentAmounts[domain.ReturnDividendInterest] = componentAmounts[domain.ReturnDividendInterest].Add(amount)
 		}
 		itemAmount = itemAmount.Add(amount)
-		if amount.IsZero() {
-			continue
-		}
 		accountKey := day.Component.AccountID.String()
-		accountAmounts[accountKey] = accountAmounts[accountKey].Add(amount)
-		accountCurrency[accountKey] = day.Component.Currency.String()
-		if item.HistoryHint.AccountID == "" {
-			item.HistoryHint.AccountID = accountKey
+		if !amount.IsZero() {
+			accountAmounts[accountKey] = accountAmounts[accountKey].Add(amount)
+			accountCurrency[accountKey] = day.Component.Currency.String()
 		}
-		if item.HistoryHint.InstrumentID == "" && day.Component.InstrumentID != nil {
-			item.HistoryHint.InstrumentID = day.Component.InstrumentID.String()
+		hintAccounts[accountKey] = struct{}{}
+		if day.Component.InstrumentID != nil && day.Component.InstrumentID.String() != "" {
+			hintInstruments[day.Component.InstrumentID.String()] = struct{}{}
+		} else {
+			// Cash and other non-instrument legs are part of the group. A later
+			// unique InstrumentID must not silently exclude them from History.
+			allHaveInstrument = false
+		}
+	}
+	if len(hintAccounts) == 1 {
+		for accountID := range hintAccounts {
+			item.HistoryHint.AccountID = accountID
+		}
+	}
+	if allHaveInstrument && len(hintInstruments) == 1 {
+		for instrumentID := range hintInstruments {
+			item.HistoryHint.InstrumentID = instrumentID
 		}
 	}
 	// ComponentDay intentionally retains attribution, not the parent
@@ -403,9 +417,9 @@ func projectReturnCalendar(result domain.PeriodAnalysisResult, forced, cursor st
 	return calendar, nil
 }
 
-// ReturnCalendar's 2b cursor is a visible-month selector. It filters cells
+// ReturnCalendar's cursor is a visible-month selector. It filters cells
 // while keeping summary, period issues, and top contributors for the full
-// query window. Phase 3 can therefore request a visible month without
+// query window. The UI can therefore request a visible month without
 // changing the period summary contract.
 func returnCalendarMonth(cursor string) (string, error) {
 	cursor = strings.TrimSpace(cursor)
@@ -444,17 +458,34 @@ func projectReturnDays(result domain.PeriodAnalysisResult, forced string) []Retu
 	days := make([]ReturnDayResult, 0, len(result.DailyReturns))
 	for _, daily := range result.DailyReturns {
 		var beginning, ending decimal.Decimal
+		hasBeginning, hasEnding := false, false
 		components := map[domain.ReturnComponent]decimal.Decimal{}
 		for _, day := range byDate[daily.Date] {
-			beginning = beginning.Add(day.BeginningValue.Amount())
-			ending = ending.Add(day.EndingValue.Amount())
+			if day.BeginningValue.Currency() != "" {
+				beginning = beginning.Add(day.BeginningValue.Amount())
+				hasBeginning = true
+			}
+			if day.EndingValue.Currency() != "" {
+				ending = ending.Add(day.EndingValue.Amount())
+				hasEnding = true
+			}
 			for component, value := range day.ReturnComponents {
+				if value.Currency() == "" {
+					continue
+				}
 				components[component] = components[component].Add(value.Amount())
 			}
 		}
 		currency := resultCurrency(result)
 		coverage := dailyCoverage(daily)
-		cell := ReturnDayResult{AnalysisAvailability: dailyAvailability(daily, forced), Date: daily.Date, ReturnAmount: daily.Amount, ReturnRate: daily.Rate, Coverage: coverage, BeginningInvestedValue: signedPointer(beginning, currency), EndingInvestedValue: signedPointer(ending, currency), Contributors: returnContributorsFromAmounts(contributorsByDate[daily.Date], currency, coverage)}
+		var beginningValue, endingValue *domain.SignedMoney
+		if hasBeginning {
+			beginningValue = signedPointer(beginning, currency)
+		}
+		if hasEnding {
+			endingValue = signedPointer(ending, currency)
+		}
+		cell := ReturnDayResult{AnalysisAvailability: dailyAvailability(daily, forced), Date: daily.Date, ReturnAmount: daily.Amount, ReturnRate: daily.Rate, Coverage: coverage, BeginningInvestedValue: beginningValue, EndingInvestedValue: endingValue, Contributors: returnContributorsFromAmounts(contributorsByDate[daily.Date], currency, coverage)}
 		keys := make([]string, 0, len(components))
 		for component := range components {
 			keys = append(keys, string(component))
@@ -816,12 +847,15 @@ func periodEndingValue(result domain.PeriodAnalysisResult) *domain.SignedMoney {
 	}
 	date := result.DailyReturns[len(result.DailyReturns)-1].Date
 	total := decimal.Zero
+	hasEnding := false
 	for _, day := range result.Days {
-		if day.Date == date && returnEligibleComponent(day.Component, result.Query.IncludeCash) {
-			total = total.Add(day.EndingValue.Amount())
+		if day.Date != date || !returnEligibleComponent(day.Component, result.Query.IncludeCash) || day.EndingValue.Currency() == "" {
+			continue
 		}
+		total = total.Add(day.EndingValue.Amount())
+		hasEnding = true
 	}
-	if resultCurrency(result) == "" {
+	if !hasEnding || resultCurrency(result) == "" {
 		return nil
 	}
 	return signedPointer(total, resultCurrency(result))

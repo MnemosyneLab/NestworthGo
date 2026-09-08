@@ -46,7 +46,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/di
 
 function renderPage(props: { onOpenHistory?: (filters: { from?: string; to?: string; accountId?: string; instrumentId?: string }) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void } = {}) {
   const queryClient = createTestQueryClient();
-  return render(<QueryClientProvider client={queryClient}><AssetChangesPage {...props} /></QueryClientProvider>);
+  const view = render(<QueryClientProvider client={queryClient}><AssetChangesPage {...props} /></QueryClientProvider>);
+  return { queryClient, ...view };
 }
 
 describe("AssetChangesPage", () => {
@@ -80,6 +81,7 @@ describe("AssetChangesPage", () => {
       status: "partial",
       missingReason: "one component is incomplete",
       valuationForced: null,
+      residualIssueCount: 1,
     });
     assetDriverDetail.mockResolvedValue({
       driverKey: "residual",
@@ -187,5 +189,60 @@ describe("AssetChangesPage", () => {
     renderPage();
     expect(await screen.findByText("No asset change data for this period.")).toBeInTheDocument();
     expect(screen.getByText("no usable asset days are available for this period")).toBeInTheDocument();
+  });
+
+  it("keeps a residual issue entry when net residual is zero", async () => {
+    const user = userEvent.setup();
+    assetChange.mockResolvedValue({
+      summary: { beginningValue: { amount: "100", currency: "USD" }, endingValue: { amount: "100", currency: "USD" }, change: { amount: "0", currency: "USD" } },
+      waterfall: [],
+      groups: [],
+      available: true,
+      status: "partial",
+      missingReason: "one component is incomplete",
+      valuationForced: null,
+      residualIssueCount: 2,
+    });
+    renderPage();
+    expect(await screen.findByRole("button", { name: /Unexplained differences \(2\)/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Unexplained differences \(2\)/ }));
+    expect(await screen.findByText("Component / day")).toBeInTheDocument();
+    expect(assetDriverDetail).toHaveBeenCalledWith(expect.anything(), "residual");
+  });
+
+  it("refreshes the driver sheet total from the current response", async () => {
+    const user = userEvent.setup();
+    const { queryClient } = renderPage();
+    await user.click(await screen.findByRole("button", { name: /Unexplained difference/ }));
+    const sheet = await screen.findByRole("dialog");
+    expect(sheet.querySelector(".text-2xl")).toHaveTextContent("-$5.00");
+    assetChange.mockResolvedValue({
+      summary: { beginningValue: { amount: "100", currency: "USD" }, endingValue: { amount: "115", currency: "USD" }, change: { amount: "15", currency: "USD" } },
+      waterfall: [
+        { key: "income", label: "Income", bucket: "income", amount: { amount: "10", currency: "USD" } },
+        { key: "price_change", label: "Price change", bucket: "price_change", amount: { amount: "20", currency: "USD" } },
+        { key: "residual", label: "Unexplained difference", bucket: "residual", amount: { amount: "-10", currency: "USD" } },
+      ],
+      groups: [
+        { key: "other", label: "Other", amount: { amount: "-10", currency: "USD" }, rows: [{ key: "residual", label: "Unexplained difference", bucket: "residual", amount: { amount: "-10", currency: "USD" } }] },
+      ],
+      available: true,
+      status: "partial",
+      missingReason: "one component is incomplete",
+      valuationForced: null,
+      residualIssueCount: 1,
+    });
+    assetDriverDetail.mockResolvedValue({
+      driverKey: "residual",
+      byInstrument: [],
+      byAccount: [],
+      residualDetails: [{ date: "2026-09-02", componentKey: "account-1/holding:h1/instrument:instrument-1", accountId: "account-1", holdingId: "h1", instrumentId: "instrument-1", amount: { amount: "-10", currency: "USD" } }],
+      available: true,
+      status: "partial",
+      missingReason: "one component is incomplete",
+      valuationForced: null,
+    });
+    await queryClient.invalidateQueries({ queryKey: ["analysis"] });
+    await waitFor(() => expect(screen.getByRole("dialog").querySelector(".text-2xl")).toHaveTextContent("-$10.00"));
   });
 });

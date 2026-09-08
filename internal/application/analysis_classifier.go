@@ -192,7 +192,7 @@ func (u analysisUniverse) dietzCapitalAmount(activity domain.Activity, effect do
 	if !known || !u.investmentComponentInUniverse(component) {
 		return decimal.Zero, false
 	}
-	if activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell || activity.Kind == domain.ActivityCashTransfer || activity.Kind == domain.ActivityFXConversion || activity.Kind == domain.ActivityDebtDraw || activity.Kind == domain.ActivityDebtPayment {
+	if activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell || activity.Kind == domain.ActivityCashTransfer || activity.Kind == domain.ActivityFXConversion || activity.Kind == domain.ActivityDebtDraw || activity.Kind == domain.ActivityDebtPayment || activity.Kind == domain.ActivityPositionTransfer {
 		if endpointsInInvestmentUniverse(endpoints, u) {
 			return decimal.Zero, false
 		}
@@ -215,13 +215,14 @@ func (u analysisUniverse) potentialDietzCapitalAmount(activity domain.Activity, 
 		// capital. An unassociated fee remains a negative Dietz flow below.
 		return decimal.Zero, false
 	}
-	if activity.Kind == domain.ActivityCashDividend || activity.Kind == domain.ActivityValueUpdate || activity.Kind == domain.ActivityPositionTransfer {
+	if activity.Kind == domain.ActivityCashDividend || activity.Kind == domain.ActivityValueUpdate {
 		return decimal.Zero, false
 	}
 	if effect.Classification == domain.ClassificationRemeasurement {
-		// Cash reconciliation is an observation, not new capital. Asset Changes
-		// already buckets it as Adjustment; Dietz must not put the same amount
-		// into the return denominator.
+		// Cash reconciliation and quantity-only split restatements are
+		// observations, not new capital. Asset Changes already buckets cash
+		// reconciliation as Adjustment; Dietz must not put the same amount into
+		// the return denominator or invent a market value from cost.
 		return decimal.Zero, false
 	}
 	if activity.Kind == domain.ActivityCashIn && activity.Reason == domain.ReasonInterest {
@@ -229,6 +230,15 @@ func (u analysisUniverse) potentialDietzCapitalAmount(activity domain.Activity, 
 	}
 	if (activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell) && effect.Role == domain.EffectRoleFee {
 		return decimal.Zero, false
+	}
+	if activity.Kind == domain.ActivityPositionTransfer {
+		// In-kind transfers are quantity legs. Keep a signed potential flow only
+		// when the market value is already known from the snapshot path; never
+		// substitute cost or zero.
+		if !known {
+			return decimal.Zero, false
+		}
+		return amount, true
 	}
 	if effect.Money == nil && activity.TradeDetail == nil {
 		return decimal.Zero, false

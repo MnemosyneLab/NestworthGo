@@ -57,8 +57,10 @@ function stepsFromData(summary: AssetChangeSummaryDTO, rows: AssetChangeRowDTO[]
     steps.push(makeStep(row.key, row.label, row.amount, running, true));
     running = steps[steps.length - 1]?.end ?? running;
   }
-  const ending = summary.endingValue ?? { amount: running, currency: beginning.currency };
-  steps.push(makeStep("ending", labels.ending, ending, "0", false));
+  if (!summary.endingValue) {
+    return steps;
+  }
+  steps.push(makeStep("ending", labels.ending, summary.endingValue, "0", false));
   return steps;
 }
 
@@ -98,6 +100,7 @@ export function WaterfallChart({ summary, rows, labels, onSelect }: { summary: A
       {
         type: "bar",
         stack: "waterfall",
+        stackStrategy: "all",
         silent: true,
         itemStyle: { color: "transparent" },
         emphasis: { disabled: true },
@@ -106,6 +109,7 @@ export function WaterfallChart({ summary, rows, labels, onSelect }: { summary: A
       {
         type: "bar",
         stack: "waterfall",
+        stackStrategy: "all",
         emphasis: { disabled: true },
         data: steps.map((step) => ({
           value: chartNumber(step.span) ?? 0,
@@ -114,9 +118,11 @@ export function WaterfallChart({ summary, rows, labels, onSelect }: { summary: A
       },
     ],
   };
+  const endingKnown = steps.some((step) => step.key === "ending");
   return (
     <div data-testid="asset-waterfall">
-      {!reconciled && <div role="alert" className="mb-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{t("insights.waterfallMismatch")}</div>}
+      {!endingKnown && <div role="alert" className="mb-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{t("insights.waterfallIncomplete")}</div>}
+      {endingKnown && !reconciled && <div role="alert" className="mb-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{t("insights.waterfallMismatch")}</div>}
       <EChart
         option={option}
         height={340}

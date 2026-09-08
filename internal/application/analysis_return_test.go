@@ -8,7 +8,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func TestAnalyticsPhase1bModifiedDietzAndGeometricLinking(t *testing.T) {
+func TestAnalysisReturnModifiedDietzAndGeometricLinking(t *testing.T) {
 	dayStart := time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC)
 	dayEnd := dayStart.AddDate(0, 0, 1)
 	flowMoney, err := domain.ParseSignedMoney("90000", "CNY")
@@ -26,7 +26,7 @@ func TestAnalyticsPhase1bModifiedDietzAndGeometricLinking(t *testing.T) {
 	}
 }
 
-func TestAnalyticsPhase1bCase37InterestRaisesReturnIncomeIsCapital(t *testing.T) {
+func TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital(t *testing.T) {
 	for _, testCase := range []struct {
 		name       string
 		reason     domain.ActivityReason
@@ -40,7 +40,7 @@ func TestAnalyticsPhase1bCase37InterestRaisesReturnIncomeIsCapital(t *testing.T)
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			householdID := domain.NewHouseholdID()
-			account := phase1aAgentAccount("CNY", domain.TrackingHoldings, domain.RoleAsset)
+			account := analysisAgentAccount("CNY", domain.TrackingHoldings, domain.RoleAsset)
 			account.HouseholdID = householdID
 			instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
 			instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "fund", Type: domain.InstrumentETF, QuoteCurrency: "CNY"}
@@ -52,12 +52,12 @@ func TestAnalyticsPhase1bCase37InterestRaisesReturnIncomeIsCapital(t *testing.T)
 			if testCase.withCredit {
 				currentCash = "1500"
 				activityID := domain.NewActivityID()
-				money := phase1aAgentMoney(t, "500", "CNY")
+				money := analysisAgentMoney(t, "500", "CNY")
 				activities = []domain.Activity{{ID: activityID, Kind: domain.ActivityCashIn, Reason: testCase.reason, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Role: domain.EffectRoleAmount, Direction: domain.EffectAdded, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationIncome, AccountID: &account.ID, Money: &money}}}}
 			}
-			previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "CNY", previousCash, previousCash, nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "CNY", "1000", "1000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
-			current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "CNY", currentCash, currentCash, nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "CNY", "1100", "1100", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
-			input := AnalysisInputs{Origin: phase1aAgentOrigin(t, householdID), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: activities, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+			previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", previousCash, previousCash, nil, nil, "", ""), analysisItem(t, account.ID, "CNY", "1000", "1000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
+			current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", currentCash, currentCash, nil, nil, "", ""), analysisItem(t, account.ID, "CNY", "1100", "1100", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
+			input := AnalysisInputs{Origin: analysisAgentOrigin(t, householdID), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: activities, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
 			query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
 			result, err := ComputeAnalysis(input, query)
 			if err != nil {
@@ -91,7 +91,7 @@ func TestAnalyticsPhase1bCase37InterestRaisesReturnIncomeIsCapital(t *testing.T)
 	}
 }
 
-func TestAnalyticsPhase1bCases19And20UseWeightedCapitalOnlyWhenCashIncluded(t *testing.T) {
+func TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded(t *testing.T) {
 	for _, testCase := range []struct {
 		name           string
 		reason         domain.ActivityReason
@@ -106,20 +106,20 @@ func TestAnalyticsPhase1bCases19And20UseWeightedCapitalOnlyWhenCashIncluded(t *t
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			householdID := domain.NewHouseholdID()
-			account := phase1aAgentAccount("USD", domain.TrackingHoldings, domain.RoleAsset)
+			account := analysisAgentAccount("USD", domain.TrackingHoldings, domain.RoleAsset)
 			account.HouseholdID = householdID
 			instrumentID := domain.NewInstrumentID()
 			holdingID := domain.NewHoldingID()
 			instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "QQQ", Type: domain.InstrumentETF, QuoteCurrency: "USD"}
 			holding := domain.Holding{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}
-			previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "USD", "10000", "10000", &holdingID, &instrumentID, "", ""))
-			current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "USD", "90000", "90000", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "USD", "11000", "11000", &holdingID, &instrumentID, "", ""))
+			previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""), analysisItem(t, account.ID, "USD", "10000", "10000", &holdingID, &instrumentID, "", ""))
+			current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", "90000", "90000", nil, nil, "", ""), analysisItem(t, account.ID, "USD", "11000", "11000", &holdingID, &instrumentID, "", ""))
 			activityID := domain.NewActivityID()
-			amount := phase1aAgentMoney(t, "90000", "USD")
+			amount := analysisAgentMoney(t, "90000", "USD")
 			activity := domain.Activity{ID: activityID, Kind: domain.ActivityCashIn, Reason: testCase.reason, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Role: domain.EffectRoleAmount, Direction: domain.EffectAdded, Target: domain.EffectTargetAccountCash, Classification: testCase.classification, AccountID: &account.ID, Money: &amount}}}
 			openingPrice, _ := domain.ParseUnitPrice("10000")
 			closingPrice, _ := domain.ParseUnitPrice("11000")
-			input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: openingPrice, Currency: "USD", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}, {ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: closingPrice, Currency: "USD", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}}}
+			input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{activity}, InstrumentQuotes: []domain.InstrumentQuote{{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: openingPrice, Currency: "USD", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}, {ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: closingPrice, Currency: "USD", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}}}
 			query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: testCase.includeCash}
 			result, err := ComputeAnalysis(input, query)
 			if err != nil {
@@ -144,7 +144,7 @@ func TestAnalyticsPhase1bCases19And20UseWeightedCapitalOnlyWhenCashIncluded(t *t
 	}
 }
 
-func TestAnalyticsPhase1bDSTWeightUsesOriginLocalDayLength(t *testing.T) {
+func TestAnalysisReturnDSTWeightUsesOriginLocalDayLength(t *testing.T) {
 	location, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		t.Fatal(err)
@@ -173,9 +173,9 @@ func TestAnalyticsPhase1bDSTWeightUsesOriginLocalDayLength(t *testing.T) {
 	}
 }
 
-func TestAnalyticsPhase1bReconciliationIsNotDietzCapital(t *testing.T) {
+func TestAnalysisReturnReconciliationIsNotDietzCapital(t *testing.T) {
 	householdID := domain.NewHouseholdID()
-	account := phase1aAgentAccount("CNY", domain.TrackingHoldings, domain.RoleAsset)
+	account := analysisAgentAccount("CNY", domain.TrackingHoldings, domain.RoleAsset)
 	account.HouseholdID = householdID
 	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "fund", Type: domain.InstrumentETF, QuoteCurrency: "CNY"}
@@ -183,11 +183,11 @@ func TestAnalyticsPhase1bReconciliationIsNotDietzCapital(t *testing.T) {
 	openQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
 	closeQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "110"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}
 	activityID := domain.NewActivityID()
-	money := phase1aAgentMoney(t, "500", "CNY")
+	money := analysisAgentMoney(t, "500", "CNY")
 	reconciliation := domain.Activity{ID: activityID, Kind: domain.ActivityCashIn, Reason: domain.ReasonReconciliation, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Role: domain.EffectRoleAmount, Direction: domain.EffectAdded, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationRemeasurement, AccountID: &account.ID, Money: &money}}}
-	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "CNY", "1000", "1000", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "CNY", "1000", "1000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
-	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "CNY", "1500", "1500", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "CNY", "1100", "1100", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
-	input := AnalysisInputs{Origin: phase1aAgentOrigin(t, householdID), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{reconciliation}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "1000", "1000", nil, nil, "", ""), analysisItem(t, account.ID, "CNY", "1000", "1000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
+	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "1500", "1500", nil, nil, "", ""), analysisItem(t, account.ID, "CNY", "1100", "1100", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
+	input := AnalysisInputs{Origin: analysisAgentOrigin(t, householdID), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{reconciliation}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {
@@ -203,7 +203,7 @@ func TestAnalyticsPhase1bReconciliationIsNotDietzCapital(t *testing.T) {
 	if cashDay.Component.AccountID == "" {
 		t.Fatal("cash component day was missing")
 	}
-	if got := analyticsPhase1aBucket(cashDay, domain.BucketAdjustment); !got.Equal(decimal.NewFromInt(500)) {
+	if got := analysisBucket(cashDay, domain.BucketAdjustment); !got.Equal(decimal.NewFromInt(500)) {
 		t.Fatalf("reconciliation asset bucket = %s, want Adjustment 500", got)
 	}
 	if len(cashDay.DietzCapitalFlows) != 0 || !cashDay.DietzFlow.IsZero() {
@@ -214,7 +214,7 @@ func TestAnalyticsPhase1bReconciliationIsNotDietzCapital(t *testing.T) {
 	}
 }
 
-func TestAnalyticsPhase1bDSTNoonFlowWeightUsesOriginLocalDay(t *testing.T) {
+func TestAnalysisReturnDSTNoonFlowWeightUsesOriginLocalDay(t *testing.T) {
 	location, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		t.Fatal(err)
@@ -227,17 +227,17 @@ func TestAnalyticsPhase1bDSTNoonFlowWeightUsesOriginLocalDay(t *testing.T) {
 		{date: "2026-11-01", hours: 25},
 	} {
 		householdID := domain.NewHouseholdID()
-		account := phase1aAgentAccount("USD", domain.TrackingBalance, domain.RoleAsset)
+		account := analysisAgentAccount("USD", domain.TrackingBalance, domain.RoleAsset)
 		account.HouseholdID = householdID
 		previousDate := time.Date(2026, 3, 7, 0, 0, 0, 0, time.UTC)
 		if testCase.date == "2026-11-01" {
 			previousDate = time.Date(2026, 10, 31, 0, 0, 0, 0, time.UTC)
 		}
-		previous := domain.DailyValuationSnapshot{LocalDate: previousDate.Format("2006-01-02"), CutoffAt: previousDate.Add(23*time.Hour + 59*time.Minute), Currency: "USD", Complete: true, Items: []domain.DailyValuationSnapshotItem{phase1aAgentItem(t, account.ID, "USD", "100", "100")}}
-		current := domain.DailyValuationSnapshot{LocalDate: testCase.date, CutoffAt: previousDate.AddDate(0, 0, 1).Add(23*time.Hour + 59*time.Minute), Currency: "USD", Complete: true, Items: []domain.DailyValuationSnapshotItem{phase1aAgentItem(t, account.ID, "USD", "200", "200")}}
+		previous := domain.DailyValuationSnapshot{LocalDate: previousDate.Format("2006-01-02"), CutoffAt: previousDate.Add(23*time.Hour + 59*time.Minute), Currency: "USD", Complete: true, Items: []domain.DailyValuationSnapshotItem{analysisAgentItem(t, account.ID, "USD", "100", "100")}}
+		current := domain.DailyValuationSnapshot{LocalDate: testCase.date, CutoffAt: previousDate.AddDate(0, 0, 1).Add(23*time.Hour + 59*time.Minute), Currency: "USD", Complete: true, Items: []domain.DailyValuationSnapshotItem{analysisAgentItem(t, account.ID, "USD", "200", "200")}}
 		noon := time.Date(previousDate.Year(), previousDate.Month(), previousDate.Day()+1, 12, 0, 0, 0, location)
 		activityID := domain.NewActivityID()
-		money := phase1aAgentMoney(t, "100", "USD")
+		money := analysisAgentMoney(t, "100", "USD")
 		activity := domain.Activity{ID: activityID, Kind: domain.ActivityCashIn, Reason: domain.ReasonContribution, EffectiveAt: noon, EffectiveLocalDate: "1999-01-01", Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Role: domain.EffectRoleAmount, Direction: domain.EffectAdded, Target: domain.EffectTargetAccountValue, Classification: domain.ClassificationExternalInflow, AccountID: &account.ID, Money: &money}}}
 		origin, originErr := domain.NewHistoryOrigin(householdID, location.String(), time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC))
 		if originErr != nil {
@@ -260,24 +260,24 @@ func TestAnalyticsPhase1bDSTNoonFlowWeightUsesOriginLocalDay(t *testing.T) {
 	}
 }
 
-func TestAnalyticsPhase1bDividendAndTradeFeeFollowInvestmentAssociation(t *testing.T) {
+func TestAnalysisReturnDividendAndTradeFeeFollowInvestmentAssociation(t *testing.T) {
 	householdID := domain.NewHouseholdID()
-	account := phase1aAgentAccount("USD", domain.TrackingHoldings, domain.RoleAsset)
+	account := analysisAgentAccount("USD", domain.TrackingHoldings, domain.RoleAsset)
 	account.HouseholdID = householdID
 	instrumentID := domain.NewInstrumentID()
 	holdingID := domain.NewHoldingID()
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "QQQ", Type: domain.InstrumentETF, QuoteCurrency: "USD"}
 	holding := domain.Holding{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}
-	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "USD", "100", "100", &holdingID, &instrumentID, "", ""))
-	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "USD", "70", "70", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "USD", "99", "99", &holdingID, &instrumentID, "", ""))
+	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""), analysisItem(t, account.ID, "USD", "100", "100", &holdingID, &instrumentID, "", ""))
+	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", "70", "70", nil, nil, "", ""), analysisItem(t, account.ID, "USD", "99", "99", &holdingID, &instrumentID, "", ""))
 	openingPrice, _ := domain.ParseUnitPrice("100")
 	closingPrice, _ := domain.ParseUnitPrice("99")
 	dividendID := domain.NewActivityID()
-	dividendMoney := phase1aAgentMoney(t, "70", "USD")
+	dividendMoney := analysisAgentMoney(t, "70", "USD")
 	dividend := domain.Activity{ID: dividendID, Kind: domain.ActivityCashDividend, Reason: domain.ReasonIncome, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", DividendDetail: &domain.DividendDetail{HoldingID: holdingID, InstrumentID: instrumentID, Amount: dividendMoney}, Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: dividendID, Sequence: 1, Role: domain.EffectRoleAmount, Direction: domain.EffectAdded, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationIncome, AccountID: &account.ID, Money: &dividendMoney}}}
 	openingQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: openingPrice, Currency: "USD", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
 	closingQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: closingPrice, Currency: "USD", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}
-	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{dividend}, InstrumentQuotes: []domain.InstrumentQuote{openingQuote, closingQuote}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{dividend}, InstrumentQuotes: []domain.InstrumentQuote{openingQuote, closingQuote}}
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeInstrument, ID: instrumentID.String()}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {
@@ -297,11 +297,11 @@ func TestAnalyticsPhase1bDividendAndTradeFeeFollowInvestmentAssociation(t *testi
 		t.Fatalf("instrument return = %+v, want 69", result.ReturnAmount)
 	}
 
-	fee := phase1aAgentMoney(t, "2", "USD")
+	fee := analysisAgentMoney(t, "2", "USD")
 	feeID := domain.NewActivityID()
 	unitPrice, _ := domain.ParseUnitPrice("100")
 	quantity, _ := domain.ParseQuantity("1")
-	trade := domain.Activity{ID: feeID, Kind: domain.ActivityBuy, Reason: domain.ReasonPrincipal, EffectiveAt: time.Date(2026, 8, 2, 13, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", TradeDetail: &domain.TradeDetail{Side: domain.TradeBuy, InstrumentID: instrumentID, HoldingID: holdingID, Quantity: quantity, Gross: phase1aAgentMoney(t, "100", "USD"), UnitPrice: unitPrice, Fee: &fee}, Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: feeID, Sequence: 1, Role: domain.EffectRoleFee, Direction: domain.EffectRemoved, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationFee, AccountID: &account.ID, Money: &fee}}}
+	trade := domain.Activity{ID: feeID, Kind: domain.ActivityBuy, Reason: domain.ReasonPrincipal, EffectiveAt: time.Date(2026, 8, 2, 13, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-08-02", TradeDetail: &domain.TradeDetail{Side: domain.TradeBuy, InstrumentID: instrumentID, HoldingID: holdingID, Quantity: quantity, Gross: analysisAgentMoney(t, "100", "USD"), UnitPrice: unitPrice, Fee: &fee}, Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: feeID, Sequence: 1, Role: domain.EffectRoleFee, Direction: domain.EffectRemoved, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationFee, AccountID: &account.ID, Money: &fee}}}
 	feeInput := input
 	feeInput.Activities = []domain.Activity{trade}
 	feeResult, err := ComputeAnalysis(feeInput, query)
@@ -317,7 +317,7 @@ func TestAnalyticsPhase1bDividendAndTradeFeeFollowInvestmentAssociation(t *testi
 	}
 }
 
-func TestAnalyticsPhase1bCases04To07And18TradePath(t *testing.T) {
+func TestAnalysisReturnCases04To07And18TradePath(t *testing.T) {
 	type tradeSpec struct {
 		name       string
 		side       domain.TradeSide
@@ -342,7 +342,7 @@ func TestAnalyticsPhase1bCases04To07And18TradePath(t *testing.T) {
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			householdID := domain.NewHouseholdID()
-			account := phase1aAgentAccount("USD", domain.TrackingHoldings, domain.RoleAsset)
+			account := analysisAgentAccount("USD", domain.TrackingHoldings, domain.RoleAsset)
 			account.HouseholdID = householdID
 			instrumentID := domain.NewInstrumentID()
 			holdingID := domain.NewHoldingID()
@@ -354,8 +354,8 @@ func TestAnalyticsPhase1bCases04To07And18TradePath(t *testing.T) {
 			closingUnitPrice, _ := domain.ParseUnitPrice(testCase.closingPrice)
 			openingNative := openingQuantity.Decimal().Mul(openingUnitPrice.Decimal()).String()
 			closingNative := closingQuantity.Decimal().Mul(closingUnitPrice.Decimal()).String()
-			previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "USD", openingNative, openingNative, &holdingID, &instrumentID, "", ""))
-			current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "USD", closingNative, closingNative, &holdingID, &instrumentID, "", ""))
+			previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "USD", openingNative, openingNative, &holdingID, &instrumentID, "", ""))
+			current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", closingNative, closingNative, &holdingID, &instrumentID, "", ""))
 			activities := make([]domain.Activity, 0, len(testCase.trades))
 			quotes := []domain.InstrumentQuote{{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: openingUnitPrice, Currency: "USD", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}, {ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: closingUnitPrice, Currency: "USD", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}}
 			for index, trade := range testCase.trades {
@@ -371,7 +371,7 @@ func TestAnalyticsPhase1bCases04To07And18TradePath(t *testing.T) {
 				}
 				activities = append(activities, domain.Activity{ID: activityID, Kind: map[domain.TradeSide]domain.ActivityKind{domain.TradeBuy: domain.ActivityBuy, domain.TradeSell: domain.ActivitySell}[trade.side], Reason: domain.ReasonPrincipal, EffectiveAt: when, EffectiveLocalDate: "2026-08-02", TradeDetail: &domain.TradeDetail{Side: trade.side, InstrumentID: instrumentID, HoldingID: holdingID, Quantity: quantity, Gross: gross, UnitPrice: unitPrice}, Effects: []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Role: domain.EffectRoleQuantity, Direction: quantityDirection, Target: domain.EffectTargetHoldingQuantity, Classification: domain.ClassificationTradePrincipal, HoldingID: &holdingID, InstrumentID: &instrumentID, Quantity: &quantity}, {ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 2, Role: domain.EffectRolePrincipal, Direction: cashDirection, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationTradePrincipal, AccountID: &account.ID, Money: &gross}}})
 			}
-			input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: activities, InstrumentQuotes: quotes}
+			input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "USD"}, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: activities, InstrumentQuotes: quotes}
 			query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeInstrument, ID: instrumentID.String()}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
 			result, err := ComputeAnalysis(input, query)
 			if err != nil {
@@ -402,14 +402,14 @@ func TestAnalyticsPhase1bCases04To07And18TradePath(t *testing.T) {
 	}
 }
 
-func TestAnalyticsPhase1bCase39RateCoverageSkipsUnavailableDays(t *testing.T) {
+func TestAnalysisReturnCase39RateCoverageSkipsUnavailableDays(t *testing.T) {
 	householdID := domain.NewHouseholdID()
-	account := phase1aAgentAccount("CNY", domain.TrackingBalance, domain.RoleAsset)
+	account := analysisAgentAccount("CNY", domain.TrackingBalance, domain.RoleAsset)
 	account.HouseholdID = householdID
 	item := func(date, amount string) domain.DailyValuationSnapshot {
-		return analyticsPhase1aSnapshot(date, analyticsPhase1aItem(t, account.ID, "CNY", amount, amount, nil, nil, "", ""))
+		return analysisSnapshot(date, analysisItem(t, account.ID, "CNY", amount, amount, nil, nil, "", ""))
 	}
-	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{item("2026-08-01", "100"), item("2026-08-02", "100"), item("2026-08-03", "100")}}
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{item("2026-08-01", "100"), item("2026-08-02", "100"), item("2026-08-03", "100")}}
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-04", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {
@@ -428,15 +428,15 @@ func TestAnalyticsPhase1bCase39RateCoverageSkipsUnavailableDays(t *testing.T) {
 	}
 }
 
-func TestAnalyticsPhase1bPeriodInvestedCapitalUsesFirstDayBeginning(t *testing.T) {
+func TestAnalysisReturnPeriodInvestedCapitalUsesFirstDayBeginning(t *testing.T) {
 	h := domain.NewHouseholdID()
-	account := analyticsPhase1aAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
+	account := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	item := func(date string) domain.DailyValuationSnapshot {
-		return analyticsPhase1aSnapshot(date, analyticsPhase1aItem(t, account.ID, "CNY", "100", "100", nil, nil, "", ""))
+		return analysisSnapshot(date, analysisItem(t, account.ID, "CNY", "100", "100", nil, nil, "", ""))
 	}
 	input := AnalysisInputs{
-		Origin:    analyticsPhase1aOrigin(t, h, "UTC"),
+		Origin:    analysisOrigin(t, h, "UTC"),
 		Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}},
 		Snapshots: []domain.DailyValuationSnapshot{item("2026-08-01"), item("2026-08-02"), item("2026-08-03")},
 	}
@@ -458,7 +458,7 @@ func TestAnalyticsPhase1bPeriodInvestedCapitalUsesFirstDayBeginning(t *testing.T
 	}
 }
 
-func TestAnalyticsPhase1bFoldReturnGroupsUsesAdditiveDailyCapital(t *testing.T) {
+func TestAnalysisReturnFoldReturnGroupsUsesAdditiveDailyCapital(t *testing.T) {
 	first := domain.ComponentID{AccountID: domain.NewAccountID(), InstrumentID: func() *domain.InstrumentID { id := domain.NewInstrumentID(); return &id }(), Currency: "USD", AssetClass: string(domain.InstrumentETF)}
 	second := first
 	second.AccountID = domain.NewAccountID()
@@ -479,10 +479,10 @@ func TestAnalyticsPhase1bFoldReturnGroupsUsesAdditiveDailyCapital(t *testing.T) 
 	}
 }
 
-func TestAnalyticsPhase1bCase19NoonContributionUsesWeightedDietzCapital(t *testing.T) {
+func TestAnalysisReturnCase19NoonContributionUsesWeightedDietzCapital(t *testing.T) {
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
-	account := analyticsPhase1aAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
+	account := analysisAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
 	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: h, Name: "fund", Type: domain.InstrumentETF, QuoteCurrency: "CNY"}
 	state := reviewChangeState(t, h, reviewAccountState(t, account, "0"))
@@ -494,10 +494,10 @@ func TestAnalyticsPhase1bCase19NoonContributionUsesWeightedDietzCapital(t *testi
 	trade := reviewApplyChange(t, &state, domain.TradeInput{HouseholdID: h, Side: domain.TradeBuy, SettlementAccountID: account.ID, HoldingID: holdingID, InstrumentID: instrumentID, Quantity: mustQuantity(t, "9"), Gross: mustMoney(t, "90000", "CNY"), EffectiveAt: noon})
 	openQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "10000"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
 	closeQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "10100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}
-	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "CNY", "0", "0", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "CNY", "10000", "10000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
-	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "CNY", "0", "0", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "CNY", "101000", "101000", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
-	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, h, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{contribution, trade}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
-	query := analyticsPhase1aBaseQuery(domain.ValuationBase)
+	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "0", "0", nil, nil, "", ""), analysisItem(t, account.ID, "CNY", "10000", "10000", &holdingID, &instrumentID, openQuote.ID.String(), ""))
+	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "0", "0", nil, nil, "", ""), analysisItem(t, account.ID, "CNY", "101000", "101000", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
+	input := AnalysisInputs{Origin: analysisOrigin(t, h, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{contribution, trade}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	query := analysisBaseQuery(domain.ValuationBase)
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {
 		t.Fatal(err)
@@ -512,32 +512,32 @@ func TestAnalyticsPhase1bCase19NoonContributionUsesWeightedDietzCapital(t *testi
 	if result.Coverage != (domain.RateCoverage{RatedDays: 1, TotalDays: 1}) || result.Status != domain.CompletenessOK {
 		t.Fatalf("case 19 coverage/status = %+v/%s", result.Coverage, result.Status)
 	}
-	cashDay := analyticsPhase1aFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "CNY", Cash: true})
+	cashDay := analysisFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "CNY", Cash: true})
 	if len(cashDay.DietzCapitalFlows) != 1 || !cashDay.DietzCapitalFlows[0].Amount.Amount().Equal(decimal.NewFromInt(90000)) {
 		t.Fatalf("case 19 cash Dietz flow = %+v", cashDay.DietzCapitalFlows)
 	}
 	reviewAssertPeriodIdentity(t, result, "101000")
 }
 
-func TestAnalyticsPhase1bCase20SalaryIsIncomeAndCashInclusionControlsDietz(t *testing.T) {
+func TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz(t *testing.T) {
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
-	account := analyticsPhase1aAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
+	account := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	state := reviewChangeState(t, h, reviewAccountState(t, account, "100"))
 	salary := reviewApplyChange(t, &state, domain.MoneyAddedInput{HouseholdID: h, AccountID: account.ID, Amount: mustMoney(t, "100", "CNY"), Reason: domain.ReasonIncome, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)})
-	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "CNY", "100", "100", nil, nil, "", ""))
-	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "CNY", "200", "200", nil, nil, "", ""))
-	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, h, "UTC"), Portfolio: reviewPortfolio(household, account), Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{salary}}
+	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "100", "100", nil, nil, "", ""))
+	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "200", "200", nil, nil, "", ""))
+	input := AnalysisInputs{Origin: analysisOrigin(t, h, "UTC"), Portfolio: reviewPortfolio(household, account), Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{salary}}
 	for _, includeCash := range []bool{true, false} {
 		t.Run(map[bool]string{true: "included_cash", false: "excluded_cash"}[includeCash], func(t *testing.T) {
-			query := analyticsPhase1aBaseQuery(domain.ValuationBase)
+			query := analysisBaseQuery(domain.ValuationBase)
 			query.IncludeCash = includeCash
 			result, err := ComputeAnalysis(input, query)
 			if err != nil {
 				t.Fatal(err)
 			}
 			day := result.Days[0]
-			if got := analyticsPhase1aBucket(day, domain.BucketIncome); !got.Equal(decimal.NewFromInt(100)) || day.Residual != nil {
+			if got := analysisBucket(day, domain.BucketIncome); !got.Equal(decimal.NewFromInt(100)) || day.Residual != nil {
 				t.Fatalf("salary asset projection = %+v", day)
 			}
 			reviewAssertIdentity(t, day, "200")
@@ -552,10 +552,10 @@ func TestAnalyticsPhase1bCase20SalaryIsIncomeAndCashInclusionControlsDietz(t *te
 	}
 }
 
-func TestAnalyticsPhase1bCases11And22TradeFeeIsInvestmentReturn(t *testing.T) {
+func TestAnalysisReturnCases11And22TradeFeeIsInvestmentReturn(t *testing.T) {
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "USD"}
-	account := analyticsPhase1aAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
+	account := analysisAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
 	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: h, Name: "QQQ", Type: domain.InstrumentETF, QuoteCurrency: "USD"}
 	state := reviewChangeState(t, h, reviewAccountState(t, account, "0"))
@@ -566,20 +566,20 @@ func TestAnalyticsPhase1bCases11And22TradeFeeIsInvestmentReturn(t *testing.T) {
 	trade := reviewApplyChange(t, &state, domain.TradeInput{HouseholdID: h, Side: domain.TradeBuy, SettlementAccountID: account.ID, HoldingID: holdingID, InstrumentID: instrumentID, Quantity: mustQuantity(t, "1"), Gross: mustMoney(t, "100", "USD"), Fee: &fee, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)})
 	openQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "USD", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
 	closeQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "USD", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}
-	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "USD", "102", "102", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "USD", "0", "0", &holdingID, &instrumentID, openQuote.ID.String(), ""))
-	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "USD", "100", "100", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
-	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, h, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{trade}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
-	householdQuery := analyticsPhase1aBaseQuery(domain.ValuationBase)
+	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "USD", "102", "102", nil, nil, "", ""), analysisItem(t, account.ID, "USD", "0", "0", &holdingID, &instrumentID, openQuote.ID.String(), ""))
+	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""), analysisItem(t, account.ID, "USD", "100", "100", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
+	input := AnalysisInputs{Origin: analysisOrigin(t, h, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{trade}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	householdQuery := analysisBaseQuery(domain.ValuationBase)
 	householdResult, err := ComputeAnalysis(input, householdQuery)
 	if err != nil {
 		t.Fatal(err)
 	}
-	cashDay := analyticsPhase1aFindDay(t, householdResult, domain.ComponentID{AccountID: account.ID, Currency: "USD", Cash: true})
-	if got := analyticsPhase1aBucket(cashDay, domain.BucketFee); !got.Equal(decimal.NewFromInt(-2)) || cashDay.Residual != nil {
+	cashDay := analysisFindDay(t, householdResult, domain.ComponentID{AccountID: account.ID, Currency: "USD", Cash: true})
+	if got := analysisBucket(cashDay, domain.BucketFee); !got.Equal(decimal.NewFromInt(-2)) || cashDay.Residual != nil {
 		t.Fatalf("case 11 cash fee projection = %+v", cashDay)
 	}
-	holdingDay := analyticsPhase1aFindDay(t, householdResult, domain.ComponentID{AccountID: account.ID, HoldingID: &holdingID, InstrumentID: &instrumentID, Currency: "USD"})
-	if got := holdingDay.ReturnComponents[domain.ReturnInvestmentFee].Amount(); !got.Equal(decimal.NewFromInt(-2)) || len(holdingDay.DietzCapitalFlows) != 0 || !analyticsPhase1aBucket(holdingDay, domain.BucketPriceChange).IsZero() {
+	holdingDay := analysisFindDay(t, householdResult, domain.ComponentID{AccountID: account.ID, HoldingID: &holdingID, InstrumentID: &instrumentID, Currency: "USD"})
+	if got := holdingDay.ReturnComponents[domain.ReturnInvestmentFee].Amount(); !got.Equal(decimal.NewFromInt(-2)) || len(holdingDay.DietzCapitalFlows) != 0 || !analysisBucket(holdingDay, domain.BucketPriceChange).IsZero() {
 		t.Fatalf("case 11 associated fee return/flow = %+v/%+v", holdingDay.ReturnComponents, holdingDay.DietzCapitalFlows)
 	}
 	reviewAssertPeriodIdentity(t, householdResult, "100")
@@ -591,15 +591,15 @@ func TestAnalyticsPhase1bCases11And22TradeFeeIsInvestmentReturn(t *testing.T) {
 		t.Fatal(err)
 	}
 	instrumentDay := instrumentResult.Days[0]
-	if !analyticsPhase1aBucket(instrumentDay, domain.BucketExternalFlow).Equal(decimal.NewFromInt(100)) || !analyticsPhase1aBucket(instrumentDay, domain.BucketFee).IsZero() || instrumentDay.Residual != nil || !instrumentDay.ReturnComponents[domain.ReturnInvestmentFee].Amount().Equal(decimal.NewFromInt(-2)) {
+	if !analysisBucket(instrumentDay, domain.BucketExternalFlow).Equal(decimal.NewFromInt(100)) || !analysisBucket(instrumentDay, domain.BucketFee).IsZero() || instrumentDay.Residual != nil || !instrumentDay.ReturnComponents[domain.ReturnInvestmentFee].Amount().Equal(decimal.NewFromInt(-2)) {
 		t.Fatalf("case 22 QQQ fee leaked to Asset Changes = %+v", instrumentDay)
 	}
 }
 
-func TestAnalyticsPhase1bCase12DividendNetCashAndAssociatedTax(t *testing.T) {
+func TestAnalysisReturnCase12DividendNetCashAndAssociatedTax(t *testing.T) {
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "USD"}
-	account := analyticsPhase1aAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
+	account := analysisAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
 	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: h, Name: "QQQ", Type: domain.InstrumentETF, QuoteCurrency: "USD"}
 	state := reviewChangeState(t, h, reviewAccountState(t, account, "0"))
@@ -612,18 +612,18 @@ func TestAnalyticsPhase1bCase12DividendNetCashAndAssociatedTax(t *testing.T) {
 	unassociatedTax := reviewApplyChange(t, &state, domain.MoneyRemovedInput{HouseholdID: h, AccountID: account.ID, Amount: mustMoney(t, "5", "USD"), Reason: domain.ReasonTax, EffectiveAt: noon})
 	openQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "USD", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
 	closeQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "USD", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}
-	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "USD", "100", "100", &holdingID, &instrumentID, openQuote.ID.String(), ""))
-	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "USD", "35", "35", nil, nil, "", ""), analyticsPhase1aItem(t, account.ID, "USD", "100", "100", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
-	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, h, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{dividend, associatedTax, unassociatedTax}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
-	result, err := ComputeAnalysis(input, analyticsPhase1aBaseQuery(domain.ValuationBase))
+	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""), analysisItem(t, account.ID, "USD", "100", "100", &holdingID, &instrumentID, openQuote.ID.String(), ""))
+	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", "35", "35", nil, nil, "", ""), analysisItem(t, account.ID, "USD", "100", "100", &holdingID, &instrumentID, closeQuote.ID.String(), ""))
+	input := AnalysisInputs{Origin: analysisOrigin(t, h, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{dividend, associatedTax, unassociatedTax}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
 	if err != nil {
 		t.Fatal(err)
 	}
-	cashDay := analyticsPhase1aFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "USD", Cash: true})
-	if got := analyticsPhase1aBucket(cashDay, domain.BucketDividendInterest); !got.Equal(decimal.NewFromInt(70)) || !analyticsPhase1aBucket(cashDay, domain.BucketFee).Equal(decimal.NewFromInt(-35)) || cashDay.Residual != nil {
+	cashDay := analysisFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "USD", Cash: true})
+	if got := analysisBucket(cashDay, domain.BucketDividendInterest); !got.Equal(decimal.NewFromInt(70)) || !analysisBucket(cashDay, domain.BucketFee).Equal(decimal.NewFromInt(-35)) || cashDay.Residual != nil {
 		t.Fatalf("case 12 cash identity = %+v", cashDay)
 	}
-	holdingDay := analyticsPhase1aFindDay(t, result, domain.ComponentID{AccountID: account.ID, HoldingID: &holdingID, InstrumentID: &instrumentID, Currency: "USD"})
+	holdingDay := analysisFindDay(t, result, domain.ComponentID{AccountID: account.ID, HoldingID: &holdingID, InstrumentID: &instrumentID, Currency: "USD"})
 	if !holdingDay.ReturnComponents[domain.ReturnDividendInterest].Amount().Equal(decimal.NewFromInt(70)) || !holdingDay.ReturnComponents[domain.ReturnInvestmentFee].Amount().Equal(decimal.NewFromInt(-30)) {
 		t.Fatalf("case 12 return association = %+v", holdingDay.ReturnComponents)
 	}
@@ -639,23 +639,23 @@ func TestAnalyticsPhase1bCase12DividendNetCashAndAssociatedTax(t *testing.T) {
 	reviewAssertPeriodIdentity(t, result, "135")
 }
 
-func TestAnalyticsPhase1bCase28BankMaintenanceFeeIsCapitalNotInvestmentReturn(t *testing.T) {
+func TestAnalysisReturnCase28BankMaintenanceFeeIsCapitalNotInvestmentReturn(t *testing.T) {
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "USD"}
-	account := analyticsPhase1aAccount(h, "USD", domain.TrackingBalance, domain.RoleAsset)
+	account := analysisAccount(h, "USD", domain.TrackingBalance, domain.RoleAsset)
 	state := reviewChangeState(t, h, reviewAccountState(t, account, "100"))
 	fee := reviewApplyChange(t, &state, domain.MoneyRemovedInput{HouseholdID: h, AccountID: account.ID, Amount: mustMoney(t, "5", "USD"), Reason: domain.ReasonFee, EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)})
-	previous := analyticsPhase1aSnapshot("2026-08-01", analyticsPhase1aItem(t, account.ID, "USD", "100", "100", nil, nil, "", ""))
-	current := analyticsPhase1aSnapshot("2026-08-02", analyticsPhase1aItem(t, account.ID, "USD", "95", "95", nil, nil, "", ""))
-	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, h, "UTC"), Portfolio: reviewPortfolio(household, account), Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{fee}}
-	query := analyticsPhase1aBaseQuery(domain.ValuationBase)
+	previous := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "USD", "100", "100", nil, nil, "", ""))
+	current := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", "95", "95", nil, nil, "", ""))
+	input := AnalysisInputs{Origin: analysisOrigin(t, h, "UTC"), Portfolio: reviewPortfolio(household, account), Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{fee}}
+	query := analysisBaseQuery(domain.ValuationBase)
 	query.IncludeCash = true
 	result, err := ComputeAnalysis(input, query)
 	if err != nil {
 		t.Fatal(err)
 	}
-	day := analyticsPhase1aFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "USD", Cash: true})
-	if got := analyticsPhase1aBucket(day, domain.BucketFee); !got.Equal(decimal.NewFromInt(-5)) || day.Residual != nil {
+	day := analysisFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "USD", Cash: true})
+	if got := analysisBucket(day, domain.BucketFee); !got.Equal(decimal.NewFromInt(-5)) || day.Residual != nil {
 		t.Fatalf("case 28 Asset Changes fee = %+v", day)
 	}
 	if len(day.DietzCapitalFlows) != 1 || !day.DietzCapitalFlows[0].Amount.Amount().Equal(decimal.NewFromInt(-5)) {
@@ -666,7 +666,7 @@ func TestAnalyticsPhase1bCase28BankMaintenanceFeeIsCapitalNotInvestmentReturn(t 
 	}
 }
 
-func TestAnalyticsPhase1bCase30GroupRateUsesOwnDietzDenominator(t *testing.T) {
+func TestAnalysisReturnCase30GroupRateUsesOwnDietzDenominator(t *testing.T) {
 	account := domain.NewAccountID()
 	instrumentID := domain.NewInstrumentID()
 	component := domain.ComponentID{AccountID: account, InstrumentID: &instrumentID, Currency: "USD", AssetClass: string(domain.InstrumentETF)}
@@ -683,11 +683,11 @@ func TestAnalyticsPhase1bCase30GroupRateUsesOwnDietzDenominator(t *testing.T) {
 	}
 }
 
-func TestAnalyticsPhase1bCase42FoldMatchesInstrumentScopeEngine(t *testing.T) {
+func TestAnalysisReturnCase42FoldMatchesInstrumentScopeEngine(t *testing.T) {
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "USD"}
-	firstAccount := analyticsPhase1aAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
-	secondAccount := analyticsPhase1aAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
+	firstAccount := analysisAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
+	secondAccount := analysisAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
 	instrumentID := domain.NewInstrumentID()
 	firstHoldingID, secondHoldingID := domain.NewHoldingID(), domain.NewHoldingID()
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: h, Name: "QQQ", Type: domain.InstrumentETF, QuoteCurrency: "USD"}
@@ -699,18 +699,18 @@ func TestAnalyticsPhase1bCase42FoldMatchesInstrumentScopeEngine(t *testing.T) {
 	state.Holdings[secondHoldingID] = domain.ChangeHoldingState{ID: secondHoldingID, AccountID: secondAccount.ID, InstrumentID: instrumentID, InstrumentName: instrument.Name, Currency: "USD", Current: mustQuantity(t, "100")}
 	state.Instruments[instrumentID] = instrument
 	trade := reviewApplyChange(t, &state, domain.TradeInput{HouseholdID: h, Side: domain.TradeBuy, SettlementAccountID: firstAccount.ID, HoldingID: firstHoldingID, InstrumentID: instrumentID, Quantity: mustQuantity(t, "900"), Gross: mustMoney(t, "90000", "USD"), EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)})
-	previous := analyticsPhase1aSnapshot("2026-08-01",
-		analyticsPhase1aItem(t, firstAccount.ID, "USD", "90000", "90000", nil, nil, "", ""),
-		analyticsPhase1aItem(t, firstAccount.ID, "USD", "0", "0", &firstHoldingID, &instrumentID, openQuote.ID.String(), ""),
-		analyticsPhase1aItem(t, secondAccount.ID, "USD", "10000", "10000", &secondHoldingID, &instrumentID, openQuote.ID.String(), ""),
+	previous := analysisSnapshot("2026-08-01",
+		analysisItem(t, firstAccount.ID, "USD", "90000", "90000", nil, nil, "", ""),
+		analysisItem(t, firstAccount.ID, "USD", "0", "0", &firstHoldingID, &instrumentID, openQuote.ID.String(), ""),
+		analysisItem(t, secondAccount.ID, "USD", "10000", "10000", &secondHoldingID, &instrumentID, openQuote.ID.String(), ""),
 	)
-	current := analyticsPhase1aSnapshot("2026-08-02",
-		analyticsPhase1aItem(t, firstAccount.ID, "USD", "0", "0", nil, nil, "", ""),
-		analyticsPhase1aItem(t, firstAccount.ID, "USD", "90900", "90900", &firstHoldingID, &instrumentID, closeQuote.ID.String(), ""),
-		analyticsPhase1aItem(t, secondAccount.ID, "USD", "10100", "10100", &secondHoldingID, &instrumentID, closeQuote.ID.String(), ""),
+	current := analysisSnapshot("2026-08-02",
+		analysisItem(t, firstAccount.ID, "USD", "0", "0", nil, nil, "", ""),
+		analysisItem(t, firstAccount.ID, "USD", "90900", "90900", &firstHoldingID, &instrumentID, closeQuote.ID.String(), ""),
+		analysisItem(t, secondAccount.ID, "USD", "10100", "10100", &secondHoldingID, &instrumentID, closeQuote.ID.String(), ""),
 	)
-	input := AnalysisInputs{Origin: analyticsPhase1aOrigin(t, h, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: firstAccount}, {Account: secondAccount}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: firstHoldingID, AccountID: firstAccount.ID, InstrumentID: instrumentID}, {ID: secondHoldingID, AccountID: secondAccount.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{trade}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
-	query := analyticsPhase1aBaseQuery(domain.ValuationBase)
+	input := AnalysisInputs{Origin: analysisOrigin(t, h, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: firstAccount}, {Account: secondAccount}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{{ID: firstHoldingID, AccountID: firstAccount.ID, InstrumentID: instrumentID}, {ID: secondHoldingID, AccountID: secondAccount.ID, InstrumentID: instrumentID}}}, Snapshots: []domain.DailyValuationSnapshot{previous, current}, Activities: []domain.Activity{trade}, InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote}}
+	query := analysisBaseQuery(domain.ValuationBase)
 	query.IncludeCash = true
 	portfolioResult, err := ComputeAnalysis(input, query)
 	if err != nil {

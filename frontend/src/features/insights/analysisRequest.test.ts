@@ -35,4 +35,13 @@ describe("analysis request ranges", () => {
     expect(activeReturnTrendRange({ from: "2026-08-09", to: "" }, "2026-01-01T00:00:00Z", "UTC")).toBeNull();
     vi.useRealTimers();
   });
+
+  it("clamps default month and year ranges to History Origin", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-08T12:00:00Z"));
+    expect(effectiveRange({ from: "", to: "" }, "2026-09", "UTC", "2026-09-03T00:00:00Z")).toEqual({ from: "2026-09-03", to: "2026-09-07" });
+    expect(yearRange(2026, "UTC", "2026-09-03T00:00:00Z")).toEqual({ from: "2026-09-03", to: "2026-09-07" });
+    expect(effectiveRange({ from: "", to: "" }, "2026-08", "UTC", "2026-09-03T00:00:00Z")).toEqual({ from: "2026-09-03", to: "2026-08-31" });
+    vi.useRealTimers();
+  });
 });

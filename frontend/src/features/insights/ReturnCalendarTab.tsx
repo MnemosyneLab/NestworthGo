@@ -79,7 +79,7 @@ function aggregateMonth(cells: ReturnDayDTO[]): MonthReturnSummary {
   }
   return {
     returnAmount: hasAmount ? { amount, currency } : null,
-    returnRate: hasRate ? addCanonical(factor, "-1") : null,
+    returnRate: hasRate && ratedDays > 0 && ratedDays * 2 >= totalDays ? addCanonical(factor, "-1") : null,
     ratedDays,
     totalDays,
     available,
@@ -220,6 +220,8 @@ function DayDetails({ data, date, session, onAssetChanges }: { data: ReturnDayDT
   return <div className="flex flex-col gap-4 overflow-y-auto"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{issue.missingReason ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
 }
 
+export { aggregateMonth, aggregateYearMonths };
+
 export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges }: { session: AnalysisSessionState; onCursorChange: (cursor: string) => void; onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void }) {
   const { t, i18n } = useTranslation();
   const origin = useHistoryOrigin();
@@ -230,7 +232,7 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const visibleMonth = session.returnCursor || currentMonth(timeZone);
   const year = Number(visibleMonth.slice(0, 4));
-  const range = view === "year" ? periodRange(session, `${year}-01-01`, `${year}-12-31`, timeZone) : effectiveRange(session, visibleMonth, timeZone);
+  const range = view === "year" ? periodRange(session, `${year}-01-01`, `${year}-12-31`, timeZone, origin.data?.startedAt) : effectiveRange(session, visibleMonth, timeZone, origin.data?.startedAt);
   const request = analysisRequest(session, range.from, range.to);
   const visibleMonthIsFuture = isFuture(`${visibleMonth}-01`, timeZone);
   const originReady = !origin.isLoading && !origin.isError && Boolean(origin.data?.timezone);

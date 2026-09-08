@@ -169,6 +169,7 @@ export interface AssetChangeDTO {
     "summary": AssetChangeSummaryDTO;
     "waterfall": AssetChangeRowDTO[] | null;
     "groups": AssetChangeGroupDTO[] | null;
+    "residualIssueCount": number;
     "available": boolean;
     "status": string;
     "missingReason"?: string;

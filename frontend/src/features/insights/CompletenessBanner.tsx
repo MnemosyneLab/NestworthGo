@@ -6,6 +6,33 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { ReturnIssueDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
+export function AvailabilityMarks({
+  status,
+  missingReason,
+  valuationForced,
+  ratedDays,
+  totalDays,
+}: {
+  status?: string;
+  missingReason?: string | null;
+  valuationForced?: string | null;
+  ratedDays?: number;
+  totalDays?: number;
+}) {
+  const { t } = useTranslation();
+  const partial = status === "partial" || (typeof ratedDays === "number" && typeof totalDays === "number" && totalDays > 0 && ratedDays < totalDays);
+  if (!partial && !valuationForced && !missingReason) return null;
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}
+        {partial && <Badge variant="warning">{t("insights.partial")}{typeof ratedDays === "number" && typeof totalDays === "number" ? ` ${ratedDays}/${totalDays}` : ""}</Badge>}
+      </div>
+      {missingReason && <p className="text-sm text-warning-foreground">{missingReason}</p>}
+    </div>
+  );
+}
+
 export function CompletenessBanner({
   issues,
   ratedDays,

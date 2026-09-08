@@ -1,6 +1,6 @@
 package wire
 
-// Phase 2b return projection DTOs. Rates remain optional canonical decimal
+// Return projection DTOs. Rates remain optional canonical decimal
 // strings at the IPC boundary; a nil rate is meaningful and is not encoded as
 // zero.
 

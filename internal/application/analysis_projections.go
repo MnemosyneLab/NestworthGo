@@ -11,7 +11,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// AnalysisAvailability is shared by the Phase 2a projections. Available is
+// AnalysisAvailability is shared by the analysis projections. Available is
 // deliberately separate from Status: a partial result contains usable
 // values, but the caller must not mistake it for a complete period.
 type AnalysisAvailability struct {
@@ -43,9 +43,10 @@ type AssetChangeSummary struct {
 
 type AssetChangeResult struct {
 	AnalysisAvailability
-	Summary   AssetChangeSummary
-	Waterfall []AssetChangeRow
-	Groups    []AssetChangeGroup
+	Summary            AssetChangeSummary
+	Waterfall          []AssetChangeRow
+	Groups             []AssetChangeGroup
+	ResidualIssueCount int
 }
 
 type AnalysisDimensionAmount struct {
@@ -301,7 +302,19 @@ func foldAssetChange(result domain.PeriodAnalysisResult, forced string) AssetCha
 		rows = append(rows, AssetChangeRow{Key: string(bucket), Label: assetBucketLabel(bucket), Bucket: bucket, Amount: signedPointer(amount, currency)})
 	}
 	groups := foldAssetGroups(waterfall, currency)
-	return AssetChangeResult{AnalysisAvailability: status, Summary: summary, Waterfall: rows, Groups: groups}
+	return AssetChangeResult{AnalysisAvailability: status, Summary: summary, Waterfall: rows, Groups: groups, ResidualIssueCount: countResidualIssues(result)}
+}
+
+func countResidualIssues(result domain.PeriodAnalysisResult) int {
+	count := 0
+	for _, day := range result.Days {
+		amount, ok := day.AssetBuckets[domain.BucketResidual]
+		if !ok || amount.IsZero() {
+			continue
+		}
+		count++
+	}
+	return count
 }
 
 func foldAssetGroups(waterfall map[domain.AttributionBucket]decimal.Decimal, currency domain.CurrencyCode) []AssetChangeGroup {
@@ -688,7 +701,7 @@ func periodBeginning(result domain.PeriodAnalysisResult) (decimal.Decimal, bool)
 	amount := decimal.Zero
 	has := false
 	for _, day := range result.Days {
-		if day.Date != result.Query.From || day.Status == domain.CompletenessUnavailable {
+		if day.Date != result.Query.From || day.Status == domain.CompletenessUnavailable || day.BeginningValue.Currency() == "" {
 			continue
 		}
 		amount = amount.Add(day.BeginningValue.Amount())
@@ -707,7 +720,7 @@ func periodEnding(result domain.PeriodAnalysisResult) (decimal.Decimal, bool) {
 		value := day.EndingValue.Amount()
 		if day.EndingValue.Currency() == "" {
 			// Compatibility for deterministic callers that construct the
-			// original Phase 1b shape by hand.
+			// original analysis kernel shape by hand.
 			value = day.BeginningValue.Amount()
 			for _, bucket := range day.AssetBuckets {
 				value = value.Add(bucket.Amount())

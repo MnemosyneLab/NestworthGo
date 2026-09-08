@@ -1,4 +1,4 @@
-// Package analysis exposes the Phase 2a Asset Changes projections. It is
+// Package analysis exposes the Asset Changes projections. It is
 // intentionally separate from the legacy analytics service, which remains the
 // read surface for cost and gain screens.
 package analysis
@@ -220,12 +220,13 @@ func fromAssetChange(value application.AssetChangeResult) AssetChangeDTO {
 			EndingValue:    wire.FromSignedMoneyPtr(value.Summary.EndingValue),
 			Change:         wire.FromSignedMoneyPtr(value.Summary.Change),
 		},
-		Available:       value.Available,
-		Status:          string(value.Status),
-		MissingReason:   value.MissingReason,
-		ValuationForced: value.ValuationForced,
-		Waterfall:       fromAssetChangeRows(value.Waterfall),
-		Groups:          fromAssetChangeGroups(value.Groups),
+		Available:          value.Available,
+		Status:             string(value.Status),
+		MissingReason:      value.MissingReason,
+		ValuationForced:    value.ValuationForced,
+		Waterfall:          fromAssetChangeRows(value.Waterfall),
+		Groups:             fromAssetChangeGroups(value.Groups),
+		ResidualIssueCount: value.ResidualIssueCount,
 	}
 }
 

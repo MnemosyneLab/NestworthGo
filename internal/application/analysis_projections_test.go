@@ -145,7 +145,7 @@ func TestAssetChangeAvailabilityUsesAssetDaysForCashOnlyAccount(t *testing.T) {
 
 func TestAssetChangeAvailabilityIgnoresInvestmentReturnCoverage(t *testing.T) {
 	householdID := domain.NewHouseholdID()
-	account := analyticsPhase1aAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
+	account := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
 	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
 	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "QQQ", Type: domain.InstrumentETF, QuoteCurrency: "CNY"}
 	state := reviewChangeState(t, householdID, reviewAccountState(t, account, "0"))
@@ -156,13 +156,13 @@ func TestAssetChangeAvailabilityIgnoresInvestmentReturnCoverage(t *testing.T) {
 	openQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC)}
 	closeQuote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: mustUnitPrice(t, "100"), Currency: "CNY", QuotedAt: time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC)}
 	holdingItem := func(amount, quoteID string) domain.DailyValuationSnapshotItem {
-		return analyticsPhase1aItem(t, account.ID, "CNY", amount, amount, &holdingID, &instrumentID, quoteID, "")
+		return analysisItem(t, account.ID, "CNY", amount, amount, &holdingID, &instrumentID, quoteID, "")
 	}
 	cashItem := func(amount string) domain.DailyValuationSnapshotItem {
-		return analyticsPhase1aItem(t, account.ID, "CNY", amount, amount, nil, nil, "", "")
+		return analysisItem(t, account.ID, "CNY", amount, amount, nil, nil, "", "")
 	}
 	input := AnalysisInputs{
-		Origin: analyticsPhase1aOrigin(t, householdID, "UTC"),
+		Origin: analysisOrigin(t, householdID, "UTC"),
 		Portfolio: domain.PortfolioSnapshot{
 			Household:   &domain.Household{ID: householdID, BaseCurrency: "CNY"},
 			Accounts:    []domain.AccountRecord{{Account: account}},
@@ -170,9 +170,9 @@ func TestAssetChangeAvailabilityIgnoresInvestmentReturnCoverage(t *testing.T) {
 			Holdings:    []domain.Holding{{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}},
 		},
 		Snapshots: []domain.DailyValuationSnapshot{
-			analyticsPhase1aSnapshot("2026-08-01", cashItem("0"), holdingItem("100", openQuote.ID.String())),
-			analyticsPhase1aSnapshot("2026-08-02", cashItem("100"), holdingItem("0", closeQuote.ID.String())),
-			analyticsPhase1aSnapshot("2026-08-03", cashItem("100"), holdingItem("0", closeQuote.ID.String())),
+			analysisSnapshot("2026-08-01", cashItem("0"), holdingItem("100", openQuote.ID.String())),
+			analysisSnapshot("2026-08-02", cashItem("100"), holdingItem("0", closeQuote.ID.String())),
+			analysisSnapshot("2026-08-03", cashItem("100"), holdingItem("0", closeQuote.ID.String())),
 		},
 		Activities:       []domain.Activity{sell},
 		InstrumentQuotes: []domain.InstrumentQuote{openQuote, closeQuote},
@@ -492,7 +492,7 @@ func TestAssetChangeForcesBaseForMultiCurrencyNativeQuery(t *testing.T) {
 	}
 }
 
-func TestAnalyticsPhase2aCase44MemoInvalidatesAfterActivityAndSnapshotBuild(t *testing.T) {
+func TestAnalysisCase44MemoInvalidatesAfterActivityAndSnapshotBuild(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/analysis-memo.db")
 	if err != nil {
 		t.Fatal(err)
@@ -575,7 +575,7 @@ func TestAnalyticsPhase2aCase44MemoInvalidatesAfterActivityAndSnapshotBuild(t *t
 	}
 }
 
-func TestAnalyticsPhase2aCase44SnapshotRebuildChangesWindowResult(t *testing.T) {
+func TestAnalysisCase44SnapshotRebuildChangesWindowResult(t *testing.T) {
 	database, err := sqlite.Open(t.TempDir() + "/analysis-snapshot-rebuild.db")
 	if err != nil {
 		t.Fatal(err)
@@ -631,12 +631,12 @@ func TestAnalyticsPhase2aCase44SnapshotRebuildChangesWindowResult(t *testing.T) 
 	}
 }
 
-// TestPhase2aPerformanceBudgets enforces architecture §18.1. The 3Y/500-component
+// TestAnalysisPerformanceBudgets enforces architecture §18.1. The 3Y/500-component
 // cold path is skipped under the race detector because that instrumentation
 // changes wall-clock cost by more than the budget.
-func TestPhase2aPerformanceBudgets(t *testing.T) {
+func TestAnalysisPerformanceBudgets(t *testing.T) {
 	t.Run("warm-memo", func(t *testing.T) {
-		input, query := phase2aSizedInputs(50, "2025-12-01", "2025-12-31")
+		input, query := analysisSizedInputs(50, "2025-12-01", "2025-12-31")
 		repository := &projectionRepository{portfolio: input.Portfolio, snapshots: input.Snapshots}
 		service := NewAnalysisService(repository, func() time.Time { return time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC) })
 		ctx := context.Background()
@@ -652,7 +652,7 @@ func TestPhase2aPerformanceBudgets(t *testing.T) {
 		}
 	})
 	t.Run("cold-month", func(t *testing.T) {
-		input, query := phase2aSizedInputs(200, "2025-12-01", "2025-12-31")
+		input, query := analysisSizedInputs(200, "2025-12-01", "2025-12-31")
 		budget := 300 * time.Millisecond
 		if analysisRaceDetector {
 			budget = 2 * time.Second
@@ -669,7 +669,7 @@ func TestPhase2aPerformanceBudgets(t *testing.T) {
 		if analysisRaceDetector {
 			t.Skip("§18.1 3s budget is a production-runtime number; -race inflates wall-clock cost")
 		}
-		input, query := phase2aUpperBoundInputs()
+		input, query := analysisUpperBoundInputs()
 		started := time.Now()
 		if _, err := ComputeAnalysis(input, query); err != nil {
 			t.Fatal(err)
@@ -680,11 +680,11 @@ func TestPhase2aPerformanceBudgets(t *testing.T) {
 	})
 }
 
-// BenchmarkPhase2aColdComputeUpperBound is intentionally a benchmark rather
-// than a wall-clock assertion in the regular test suite. It keeps the Phase
-// 2a performance budget reproducible without making CI depend on host load.
-func BenchmarkPhase2aColdComputeUpperBound(b *testing.B) {
-	input, query := phase2aUpperBoundInputs()
+// BenchmarkAnalysisColdComputeUpperBound is intentionally a benchmark rather
+// than a wall-clock assertion in the regular test suite. It keeps the analysis
+// performance budget reproducible without making CI depend on host load.
+func BenchmarkAnalysisColdComputeUpperBound(b *testing.B) {
+	input, query := analysisUpperBoundInputs()
 	b.ReportMetric(float64(len(input.Snapshots)*len(input.Portfolio.Accounts)), "snapshot-components")
 	b.ResetTimer()
 	for index := 0; index < b.N; index++ {
@@ -694,11 +694,11 @@ func BenchmarkPhase2aColdComputeUpperBound(b *testing.B) {
 	}
 }
 
-func phase2aUpperBoundInputs() (AnalysisInputs, domain.AnalysisQuery) {
-	return phase2aSizedInputs(500, "2023-01-01", "2025-12-31")
+func analysisUpperBoundInputs() (AnalysisInputs, domain.AnalysisQuery) {
+	return analysisSizedInputs(500, "2023-01-01", "2025-12-31")
 }
 
-func phase2aSizedInputs(componentCount int, startDate, endDate string) (AnalysisInputs, domain.AnalysisQuery) {
+func analysisSizedInputs(componentCount int, startDate, endDate string) (AnalysisInputs, domain.AnalysisQuery) {
 	householdID := domain.HouseholdID("00000000-0000-0000-0000-000000000100")
 	accounts := make([]domain.AccountRecord, 0, componentCount)
 	accountIDs := make([]domain.AccountID, 0, componentCount)

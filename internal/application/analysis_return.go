@@ -60,16 +60,20 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 		beginning := decimal.Zero
 		flows := make([]domain.DietzCapitalFlow, 0)
 		complete := len(componentDays) > 0
+		hasKnownAmount := false
+		hasKnownBeginning := false
 		for _, componentDay := range componentDays {
 			if componentDay.Status != domain.CompletenessOK {
 				complete = false
 			}
 			if componentDay.ReturnAmount != nil {
 				amount = amount.Add(componentDay.ReturnAmount.Amount())
+				hasKnownAmount = true
 				hasPeriodCurrency = true
 			}
 			if componentDay.BeginningValue.Currency() != "" {
 				beginning = beginning.Add(componentDay.BeginningValue.Amount())
+				hasKnownBeginning = true
 				if localDate == query.From {
 					periodBeginning = periodBeginning.Add(componentDay.BeginningValue.Amount())
 					hasPeriodBeginning = true
@@ -81,11 +85,13 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 		if len(componentDays) == 0 {
 			complete = false
 		}
-		if len(componentDays) > 0 {
+		if hasKnownAmount || hasKnownBeginning {
 			daily.Status = domain.CompletenessPartial
 			if complete {
 				daily.Status = domain.CompletenessOK
 			}
+		}
+		if hasKnownAmount {
 			amountMoney, moneyErr := newSigned(amount, valuationCurrency)
 			if moneyErr != nil {
 				return moneyErr
@@ -99,7 +105,7 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 		for _, flow := range flows {
 			capital = capital.Add(flow.Amount.Amount().Mul(dietzFlowWeight(flow.EffectiveAt, dayStart, dayEnd)))
 		}
-		if len(componentDays) > 0 {
+		if hasKnownBeginning {
 			capitalMoney, moneyErr := newSigned(capital, valuationCurrency)
 			if moneyErr != nil {
 				return moneyErr

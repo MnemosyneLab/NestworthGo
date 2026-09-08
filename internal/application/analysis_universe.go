@@ -9,7 +9,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// AnalysisInputs is the immutable read set consumed by the Phase 1b kernel.
+// AnalysisInputs is the immutable read set consumed by the analysis kernel.
 // Keeping the pure input type public makes the calculation independently
 // testable without opening a database, while AnalysisService supplies it from
 // the repository in one application-level read flow.

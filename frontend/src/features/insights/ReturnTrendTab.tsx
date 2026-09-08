@@ -92,12 +92,11 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   const chartValues = useMemo(() => (data?.points ?? []).map((point) => display === "linked_rate" ? point.rate : point.value?.amount ?? null), [data?.points, display]);
   const dates = useMemo(() => (data?.points ?? []).map((point) => point.date), [data?.points]);
 
-  if (context.origin.isLoading || trend.isLoading) return <LoadingState label={t("insights.loading")} />;
-  if (context.origin.isError || trend.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => { void (context.origin.isError ? context.origin.refetch() : trend.refetch()); }} retryLabel={t("common.retryAction")} />;
+  if (context.origin.isLoading) return <LoadingState label={t("insights.loading")} />;
+  if (context.origin.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => context.origin.refetch()} retryLabel={t("common.retryAction")} />;
   if (!originData) return <EmptyState title={t("insights.noOrigin")} description={t("insights.noOriginHint")} />;
   if (!context.scopeReady) return <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />;
   if (!context.rangeAvailable) return <EmptyState title={t("insights.historyInsufficient")} description={t("insights.historyInsufficientHint")} />;
-  if (!data?.available) return availabilityEmpty(data, t);
 
   const selectedRange = activeReturnTrendRange(session, originData.startedAt, originData.timezone);
   const applyRange = (range: Exclude<ReturnTrendRange, "custom">) => {
@@ -106,6 +105,19 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   const focusCustomRange = () => {
     document.getElementById("analysis-from")?.focus();
   };
+
+  let results;
+  if (trend.isLoading) results = <LoadingState label={t("insights.loading")} />;
+  else if (trend.isError) results = <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => trend.refetch()} retryLabel={t("common.retryAction")} />;
+  else if (!data?.available) results = availabilityEmpty(data, t);
+  else results = (
+    <>
+      <TrendSummary data={data} />
+      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent><TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: "hsl(var(--chart-1))", values: chartValues }]} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display)]} extraTableRows={dates.map((date, index) => [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index])])} /></CardContent></Card>}
+      {(data.sources ?? []).length > 0 && <Card><CardHeader><CardTitle>{t("insights.returnSources")}</CardTitle></CardHeader><CardContent><ul className="flex flex-col gap-2 text-sm">{(data.sources ?? []).map((source) => <li key={source.key} className="flex items-center gap-3"><span className="min-w-0 flex-1 truncate">{sourceLabel(t, source.key)}</span><span className="shrink-0">{amountText(source.amount)}</span><span className="w-16 shrink-0 text-right text-muted-foreground">{source.share == null ? "—" : shareText(source.share)}</span></li>)}</ul></CardContent></Card>}
+      <Button type="button" variant="ghost" className="self-start" onClick={() => setDisplay("cumulative_amount")} hidden={display === "cumulative_amount"}>{t("insights.resetDisplay")}</Button>
+    </>
+  );
 
   return (
     <div className="flex flex-col gap-4" data-testid="return-trend">
@@ -117,10 +129,7 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
         <div className="flex flex-col gap-1.5"><label htmlFor="return-trend-display" className="text-sm font-medium">{t("insights.display")}</label><NativeSelect id="return-trend-display" value={display} onChange={(event) => setDisplay(event.target.value)}><option value="cumulative_amount">{t("insights.returnTrendCumulative")}</option><option value="linked_rate">{t("insights.returnTrendLinked")}</option><option value="period_return_amount">{t("insights.returnTrendPeriod")}</option></NativeSelect></div>
         <p className="max-w-md text-sm text-muted-foreground">{display === "linked_rate" ? t("insights.dailyRateHint") : t("insights.returnTrendHint")}</p>
       </div>
-      <TrendSummary data={data} />
-      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent><TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: "hsl(var(--chart-1))", values: chartValues }]} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display)]} extraTableRows={dates.map((date, index) => [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index])])} /></CardContent></Card>}
-      {(data.sources ?? []).length > 0 && <Card><CardHeader><CardTitle>{t("insights.returnSources")}</CardTitle></CardHeader><CardContent><ul className="flex flex-col gap-2 text-sm">{(data.sources ?? []).map((source) => <li key={source.key} className="flex items-center gap-3"><span className="min-w-0 flex-1 truncate">{sourceLabel(t, source.key)}</span><span className="shrink-0">{amountText(source.amount)}</span><span className="w-16 shrink-0 text-right text-muted-foreground">{source.share == null ? "—" : shareText(source.share)}</span></li>)}</ul></CardContent></Card>}
-      <Button type="button" variant="ghost" className="self-start" onClick={() => setDisplay("cumulative_amount")} hidden={display === "cumulative_amount"}>{t("insights.resetDisplay")}</Button>
+      {results}
     </div>
   );
 }

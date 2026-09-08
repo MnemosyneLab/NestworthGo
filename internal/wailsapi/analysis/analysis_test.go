@@ -30,6 +30,7 @@ func TestAnalysisDTOUsesCanonicalSignedMoneyAndCompleteness(t *testing.T) {
 	value := application.AssetChangeResult{
 		AnalysisAvailability: application.AnalysisAvailability{Available: true, Status: domain.CompletenessPartial, MissingReason: "missing quote", ValuationForced: &forced},
 		Summary:              application.AssetChangeSummary{Change: &amount},
+		ResidualIssueCount:   2,
 	}
 	dto := fromAssetChange(value)
 	encoded, err := json.Marshal(dto)
@@ -42,6 +43,9 @@ func TestAnalysisDTOUsesCanonicalSignedMoneyAndCompleteness(t *testing.T) {
 	}
 	if shape["available"] != true || shape["status"] != "partial" || shape["missingReason"] != "missing quote" || shape["valuationForced"] != "base" {
 		t.Fatalf("metadata shape = %s", encoded)
+	}
+	if shape["residualIssueCount"] != float64(2) {
+		t.Fatalf("residualIssueCount shape = %s, want 2", encoded)
 	}
 	summary, ok := shape["summary"].(map[string]any)
 	if !ok {

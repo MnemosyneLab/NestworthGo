@@ -1,17 +1,18 @@
 package wire
 
-// Phase 2a Asset Changes response DTOs. These live in the shared wire
+// Asset Changes response DTOs. These live in the shared wire
 // package so all analysis surfaces use the same canonical signed amount and
 // completeness vocabulary at the IPC boundary.
 
 type AssetChangeDTO struct {
-	Summary         AssetChangeSummaryDTO `json:"summary"`
-	Waterfall       []AssetChangeRowDTO   `json:"waterfall"`
-	Groups          []AssetChangeGroupDTO `json:"groups"`
-	Available       bool                  `json:"available"`
-	Status          string                `json:"status"`
-	MissingReason   string                `json:"missingReason,omitempty"`
-	ValuationForced *string               `json:"valuationForced"`
+	Summary            AssetChangeSummaryDTO `json:"summary"`
+	Waterfall          []AssetChangeRowDTO   `json:"waterfall"`
+	Groups             []AssetChangeGroupDTO `json:"groups"`
+	ResidualIssueCount int                   `json:"residualIssueCount"`
+	Available          bool                  `json:"available"`
+	Status             string                `json:"status"`
+	MissingReason      string                `json:"missingReason,omitempty"`
+	ValuationForced    *string               `json:"valuationForced"`
 }
 
 type AssetChangeSummaryDTO struct {

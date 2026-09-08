@@ -13,7 +13,7 @@ export function useAnalysisProjectionContext(session: AnalysisSessionState): {
 } {
   const origin = useHistoryOrigin();
   const visibleMonth = currentMonth(origin.data?.timezone);
-  const range = effectiveRange(session, visibleMonth, origin.data?.timezone);
+  const range = effectiveRange(session, visibleMonth, origin.data?.timezone, origin.data?.startedAt);
   const request = analysisRequest(session, range.from, range.to);
   const scopeReady = session.scope === "portfolio" || Boolean(session.scopeId);
   const rangeAvailable = range.from <= range.to;

@@ -11,6 +11,7 @@ import type { CategoriesDTO, CategoryDetailDTO, CategoryRowDTO, SignedMoneyView 
 import type { AnalysisSessionState } from "@/stores/analysis";
 import type { HistoryNavigationFilters } from "@/app/navigation";
 import { useAnalysisProjectionContext } from "@/features/insights/analysisProjectionContext";
+import { AvailabilityMarks } from "@/features/insights/CompletenessBanner";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
 import { formatAmount } from "@/lib/money";
@@ -39,23 +40,78 @@ function DetailContent({ data, total, onOpenHistory }: { data: CategoryDetailDTO
 export function CategoriesTab({ session, onOpenHistory }: { session: AnalysisSessionState; onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
   const { t } = useTranslation();
   const [categoryType, setCategoryType] = useState("spending");
-  const [selected, setSelected] = useState<CategoryRowDTO | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const context = useAnalysisProjectionContext(session);
   const categories = useCategories(context.request, categoryType, context.enabled);
-  const detail = useCategoryDetail(context.request, categoryType, selected?.key ?? "", Boolean(selected) && context.enabled);
+  const detail = useCategoryDetail(context.request, categoryType, selectedKey ?? "", Boolean(selectedKey) && context.enabled);
   const accounts = useAccounts();
   const instruments = useInstruments();
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
   const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
   const labelFor = (row: CategoryRowDTO) => row.accountId ? accountNames.get(row.accountId) ?? row.label : row.instrumentId ? instrumentNames.get(row.instrumentId) ?? row.label : row.label;
   const data = categories.data;
+  const selected = (data?.rows ?? []).find((row) => row.key === selectedKey) ?? null;
+  if (selectedKey && data && !selected) setSelectedKey(null);
 
-  if (context.origin.isLoading || categories.isLoading) return <LoadingState label={t("insights.loading")} />;
-  if (context.origin.isError || categories.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => { void (context.origin.isError ? context.origin.refetch() : categories.refetch()); }} retryLabel={t("common.retryAction")} />;
+  if (context.origin.isLoading) return <LoadingState label={t("insights.loading")} />;
+  if (context.origin.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => context.origin.refetch()} retryLabel={t("common.retryAction")} />;
   if (!context.origin.data) return <EmptyState title={t("insights.noOrigin")} description={t("insights.noOriginHint")} />;
   if (!context.scopeReady) return <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />;
   if (!context.rangeAvailable) return <EmptyState title={t("insights.historyInsufficient")} description={t("insights.historyInsufficientHint")} />;
-  if (!data?.available) return categoriesEmpty(data, t);
 
-  return <div className="flex flex-col gap-4" data-testid="categories"><div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card/60 p-4"><div className="flex flex-col gap-1.5"><label htmlFor="categories-type" className="text-sm font-medium">{t("insights.categoryType")}</label><NativeSelect id="categories-type" value={categoryType} onChange={(event) => { setCategoryType(event.target.value); setSelected(null); }}><option value="income">{t("insights.income")}</option><option value="spending">{t("insights.spending")}</option><option value="fees">{t("insights.fees")}</option><option value="investment_return">{t("insights.investmentReturn")}</option><option value="dividend_interest">{t("insights.dividendInterestView")}</option></NativeSelect></div><p className="max-w-md text-sm text-muted-foreground">{t("insights.categoriesHint")}</p></div><Card><CardHeader className="flex-row items-center justify-between gap-3"><CardTitle>{typeLabel(t, categoryType)}</CardTitle>{data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}</CardHeader><CardContent><div className="mb-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.total")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.total)}</p></div><ul className="divide-y divide-border" aria-label={t("insights.categories")}>{(data.rows ?? []).map((row) => <li key={row.key}><Button type="button" variant="ghost" className="h-auto w-full justify-between gap-4 rounded-md px-3 py-2 text-left" onClick={() => setSelected(row)}><span className="min-w-0 flex-1 truncate">{labelFor(row)}</span><span className="shrink-0">{amountText(row.amount)}</span></Button></li>)}</ul>{(data.rows ?? []).length === 0 && <EmptyState title={t("insights.noCategoryData")} description={t("insights.noCategoryDataHint")} />}</CardContent></Card><Sheet open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelected(null); }}><SheetContent side="right"><SheetHeader><SheetTitle>{selected ? labelFor(selected) : t("insights.categoryDetail")}</SheetTitle></SheetHeader>{detail.isLoading ? <LoadingState label={t("insights.loading")} /> : detail.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => detail.refetch()} retryLabel={t("common.retryAction")} /> : detail.data ? <DetailContent data={detail.data} total={selected?.amount} onOpenHistory={onOpenHistory} /> : <EmptyState title={t("insights.noRecords")} />}</SheetContent></Sheet></div>;
+  const toolbar = (
+    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card/60 p-4">
+      <div className="flex flex-col gap-1.5">
+        <label htmlFor="categories-type" className="text-sm font-medium">{t("insights.categoryType")}</label>
+        <NativeSelect id="categories-type" value={categoryType} onChange={(event) => { setCategoryType(event.target.value); setSelectedKey(null); }}>
+          <option value="income">{t("insights.income")}</option>
+          <option value="spending">{t("insights.spending")}</option>
+          <option value="fees">{t("insights.fees")}</option>
+          <option value="investment_return">{t("insights.investmentReturn")}</option>
+          <option value="dividend_interest">{t("insights.dividendInterestView")}</option>
+        </NativeSelect>
+      </div>
+      <p className="max-w-md text-sm text-muted-foreground">{t("insights.categoriesHint")}</p>
+    </div>
+  );
+
+  let results;
+  if (categories.isLoading) results = <LoadingState label={t("insights.loading")} />;
+  else if (categories.isError) results = <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => categories.refetch()} retryLabel={t("common.retryAction")} />;
+  else if (!data?.available) results = categoriesEmpty(data, t);
+  else results = (
+    <>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-3">
+          <CardTitle>{typeLabel(t, categoryType)}</CardTitle>
+          <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} />
+        </CardHeader>
+        <CardContent>
+          <div className="mb-4">
+            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.total")}</p>
+            <p className="mt-1 text-2xl font-semibold">{amountText(data.total)}</p>
+          </div>
+          <ul className="divide-y divide-border" aria-label={t("insights.categories")}>
+            {(data.rows ?? []).map((row) => (
+              <li key={row.key}>
+                <Button type="button" variant="ghost" className="h-auto w-full justify-between gap-4 rounded-md px-3 py-2 text-left" onClick={() => setSelectedKey(row.key)}>
+                  <span className="min-w-0 flex-1 truncate">{labelFor(row)}</span>
+                  <span className="shrink-0">{amountText(row.amount)}</span>
+                </Button>
+              </li>
+            ))}
+          </ul>
+          {(data.rows ?? []).length === 0 && <EmptyState title={t("insights.noCategoryData")} description={t("insights.noCategoryDataHint")} />}
+        </CardContent>
+      </Card>
+      <Sheet open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelectedKey(null); }}>
+        <SheetContent side="right">
+          <SheetHeader><SheetTitle>{selected ? labelFor(selected) : t("insights.categoryDetail")}</SheetTitle></SheetHeader>
+          {detail.isLoading ? <LoadingState label={t("insights.loading")} /> : detail.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => detail.refetch()} retryLabel={t("common.retryAction")} /> : detail.data ? <DetailContent data={detail.data} total={selected?.amount} onOpenHistory={onOpenHistory} /> : <EmptyState title={t("insights.noRecords")} />}
+        </SheetContent>
+      </Sheet>
+    </>
+  );
+
+  return <div className="flex flex-col gap-4" data-testid="categories">{toolbar}{results}</div>;
 }

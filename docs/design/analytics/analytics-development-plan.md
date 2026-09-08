@@ -223,7 +223,7 @@ Cases 43 and 44 are API-layer behaviour, not engine maths, which is why they sit
 
 **Verify:** application + wailsapi tests; regenerate bindings. Frontend still shows Analysis.
 
-**Performance evidence:** `BenchmarkPhase2bContributionUpperBound` uses the
+**Performance evidence:** `BenchmarkContributionUpperBound` uses the
 same 3Y / 500-component fixture as Phase 2a. On the local Apple M3 Pro it ran
 at approximately 2.45s/op over two cold iterations; the corresponding fold
 benchmark was approximately 0.79s/op. These are benchmark observations rather

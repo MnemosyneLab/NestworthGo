@@ -45,7 +45,8 @@ vi.mock("@/components/charts/TrendChart", () => ({
 
 function renderWithClient(child: ReactNode) {
   const queryClient = createTestQueryClient({ retry: false });
-  return render(<QueryClientProvider client={queryClient}>{child}</QueryClientProvider>);
+  const view = render(<QueryClientProvider client={queryClient}>{child}</QueryClientProvider>);
+  return { queryClient, ...view };
 }
 
 function ConnectedReturnTrendTab() {
@@ -55,7 +56,7 @@ function ConnectedReturnTrendTab() {
 
 const available = { available: true, status: "ok", valuationForced: null };
 
-describe("Phase 5 insight tabs", () => {
+describe("insight tabs", () => {
   beforeEach(() => {
     useAnalysisStore.getState().reset();
     historyOrigin.mockReset();
@@ -176,5 +177,56 @@ describe("Phase 5 insight tabs", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Brokerage/ }));
     fireEvent.click(await screen.findByRole("button", { name: "View in History" }));
     expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-01", to: "2026-09-01", accountId: "account-1", instrumentId: undefined });
+  });
+
+  it("keeps Return type visible when Realized is unavailable so Total can be restored", async () => {
+    contribution.mockImplementation((_request, returnType) => {
+      if (returnType === "realized") {
+        return Promise.resolve({ available: false, status: "unavailable", missingReason: "realized gain is unavailable for this filter", returnType: "realized", rows: [], valuationForced: null });
+      }
+      return Promise.resolve({ returnType: "total_return", groupBy: "instrument", rows: [{ key: "instrument-1", label: "instrument-1", amount: { amount: "2", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 3, ...available }], ratedDays: 1, totalDays: 3, ...available });
+    });
+    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    await screen.findByText("QQQ");
+    fireEvent.change(screen.getByLabelText("Return type"), { target: { value: "realized" } });
+    expect(await screen.findByText("realized gain is unavailable for this filter")).toBeInTheDocument();
+    expect(screen.getByLabelText("Return type")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Return type"), { target: { value: "total_return" } });
+    expect(await screen.findByText("QQQ")).toBeInTheDocument();
+  });
+
+  it("shows Categories completeness and forced-base on the main list", async () => {
+    categories.mockResolvedValue({
+      total: { amount: "10", currency: "USD" },
+      rows: [{ key: "account-1", label: "account-1", accountId: "account-1", amount: { amount: "10", currency: "USD" } }],
+      available: true,
+      status: "partial",
+      missingReason: "one category day is incomplete",
+      valuationForced: "base",
+    });
+    renderWithClient(<CategoriesTab session={useAnalysisStore.getState()} />);
+    expect(await screen.findByText("Partial coverage")).toBeInTheDocument();
+    expect(screen.getByText("Native valuation is unavailable; showing base currency.")).toBeInTheDocument();
+    expect(screen.getByText("one category day is incomplete")).toBeInTheDocument();
+    expect(screen.getByLabelText("Category type")).toBeInTheDocument();
+  });
+
+  it("shows Asset Trend forced-base and coverage on the main result", async () => {
+    assetTrend.mockResolvedValue({
+      points: [{ period: "2026-09", value: { amount: "102", currency: "USD" }, rate: "0.02", ratedDays: 1, totalDays: 3, ...available }],
+      summary: { amount: "102", currency: "USD" },
+      rate: "0.02",
+      ratedDays: 1,
+      totalDays: 3,
+      available: true,
+      status: "partial",
+      missingReason: "one trend day is incomplete",
+      valuationForced: "base",
+    });
+    renderWithClient(<AssetTrendTab session={useAnalysisStore.getState()} />);
+    expect(await screen.findByText("Native valuation is unavailable; showing base currency.")).toBeInTheDocument();
+    expect(screen.getByText("one trend day is incomplete")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Metric"), { target: { value: "return_rate" } });
+    expect(await screen.findByText(/Coverage: 1\/3/)).toBeInTheDocument();
   });
 });
