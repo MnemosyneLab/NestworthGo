@@ -303,7 +303,7 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	if err := attachActivityEffects(ctx, query, activities); err != nil {
+	if err := hydrateActivities(ctx, query, activities); err != nil {
 		return nil, err
 	}
 	return activities, nil

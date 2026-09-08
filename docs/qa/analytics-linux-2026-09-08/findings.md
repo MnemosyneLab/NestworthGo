@@ -100,3 +100,8 @@ Engine-level: IncludeCash changes invested capital and period return amount on 2
 - Seed recorded cash dividend 2026-08-28 (+USD 12.50); Categories Dividend & Interest shows +A$18.83.
 - Contribution tab Dividend & Interest type shows **no rows** for 2026-08-01..09-07 Portfolio Base Include cash.
 - Likely UI/query filter vs category attribution mismatch — product investigation.
+## CO-03 Contribution dividend empty (2026-09-09 07:40 SGT) — FIXED (product)
+
+- Cause: `listActivitiesUntilQuery` only `attachActivityEffects`; `DividendDetail` nil → Contribution dividend_interest empty while Categories used cash AssetBuckets.
+- Fix: call `hydrateActivities` instead (same as ListActivities).
+- File: `internal/infrastructure/sqlite/activity_repository.go`

@@ -1,43 +1,36 @@
 # NestworthGo Analytics QA Report (Linux)
 
-- **Updated:** 2026-09-09 00:55 SGT (supplement push)
-- **Base commit:** `4cee772` · **Branch:** `qa/analytics-linux-2026-09-08`
+- **Updated:** 2026-09-09 07:42 SGT
+- **Base:** `4cee772` · **Branch/PR:** `qa/analytics-linux-2026-09-08` / https://github.com/MnemosyneLab/NestworthGo/pull/12
 - **Plan:** `docs/testing/nestworth-analytics-test-plan.md`
-- **PR:** https://github.com/MnemosyneLab/NestworthGo/pull/12
 
 ## Executive summary
 
 | Area | Status |
 |------|--------|
 | Layer A/B | PASS (known cold-3y FAIL) |
-| P0 Smoke SM-01–15 | PASS |
-| Shared Filter | Mostly PASS; **FL-22/23 FAIL** |
-| Calendar / Trend / Contribution / Asset | PASS + seed PARTIALs |
+| P0 Smoke / Filters / Tabs / Sheets | Mostly PASS; **FL-22/23 FAIL** |
 | Trust / i18n / visual | Trust PASS; i18n PARTIAL; 1440 PARTIAL |
-| **Supplement** | RC-06/Trust quote/CO-02/Fees/CAT-05/FL-18–19 **PASS**; **CO-03 FAIL**; RC-07 PARTIAL |
+| Supplement seed gaps | RC-06/Trust quote/CO-02/Fees PASS; RC-07 PARTIAL |
+| FL-18/19 Dietz IncludeCash | **PASS** (probe) |
+| Fixture A–D | **PASS** (in-memory probe) |
+| Deliberate Residual | **PASS** (+A$100 on 2026-08-12 residual DB) |
+| More Filters MF-01–05 | **PASS** |
+| **CO-03 dividend Contribution** | **PASS after product fix** (`hydrateActivities`) |
 
-**Release sign-off: No** — FL-22/23, CO-03, residual, i18n, perf.
+**Release sign-off: No** — remaining: FL-22/23 date clamp, i18n English warnings, unexplained residual on main seed period, cold-3y perf, 1440 env limit.
 
-## Supplement (this update)
+## Product fix in this PR
 
-Extended seed: missing-quote **2026-08-17**, negative prices **2026-08-20..23**, sell **08-27**, dividend **08-28**, fee **08-29**.
+`internal/infrastructure/sqlite/activity_repository.go`: `listActivitiesUntilQuery` now calls `hydrateActivities` so analysis loads `DividendDetail` (fixes Contribution Dividend empty while Categories showed income).
 
-- FL-18/19 Dietz: IncludeCash changes period return A$513.39 vs A$382.39; salary day capital differs (`seed/probe-cash-include.json`).
-- CO-03 FAIL: Categories shows dividend but Contribution Dividend type has no rows.
+## Key artifacts
 
-## Reproduce seed
+- `seed/probe-fixtures.json`, `probe-residual.json`, `probe-cash-include.json`
+- `logs/11-co03-div.txt`, `12-residual.log`, `13-rebuild-co03-fix.log`
+- `screenshots/supplement/`
 
-```bash
-export NESTWORTH_DATABASE_PATH=/tmp/nestworth-qa.db
-go run ./cmd/analytics-qa-seed
-NESTWORTH_PROBE_MODE=cash-include go run ./cmd/analytics-qa-probe
-```
-
-## Details
-
-- `STATUS.md`, `findings.md`, `screenshots/`, `logs/`, `seed/`
-
-## Screenshot inventory (89)
+## Screenshot inventory (99)
 
 - `screenshots/asset-trend/at01-default.png`
 - `screenshots/asset-trend/at02-granularity.png`
@@ -109,14 +102,24 @@ NESTWORTH_PROBE_MODE=cash-include go run ./cmd/analytics-qa-probe
 - `screenshots/p0/sm13-history-nav.png`
 - `screenshots/p0/sm14-calendar-to-asset.png`
 - `screenshots/p0/sm15-driver-to-return.png`
+- `screenshots/supplement/mf-residual-sheet.png`
+- `screenshots/supplement/mf01-more-filters-open.png`
+- `screenshots/supplement/mf02-currency.png`
+- `screenshots/supplement/mf03-asset-class.png`
+- `screenshots/supplement/mf04-clear.png`
+- `screenshots/supplement/mf05-tab-persist.png`
 - `screenshots/supplement/sup-cat03-fees.png`
 - `screenshots/supplement/sup-cat05-div.png`
 - `screenshots/supplement/sup-co02-realized.png`
+- `screenshots/supplement/sup-co03-dividend-after-fix.png`
+- `screenshots/supplement/sup-co03-dividend-sheet-after-fix.png`
 - `screenshots/supplement/sup-co03-dividend.png`
 - `screenshots/supplement/sup-rc06-negative.png`
 - `screenshots/supplement/sup-rc07-flat.png`
 - `screenshots/supplement/sup-stale-still-ok.png`
 - `screenshots/supplement/sup-tr-missing-quote-aug17.png`
+- `screenshots/supplement/visual-1440-drivers.png`
+- `screenshots/supplement/visual-1440-return.png`
 - `screenshots/trend/rt-sources.png`
 - `screenshots/trend/rt01-cumulative-amount.png`
 - `screenshots/trend/rt02-linked-return-pct.png`

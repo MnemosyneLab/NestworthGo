@@ -1,3 +1,3 @@
 Overriding existing handler for signal 10. Set JSC_SIGNAL_FOR_GC if you want WebKit to use a different signal
 
-** (process:2): WARNING **: 16:34:35.102: Can't connect to a11y bus: Could not connect: No such file or directory
+** (process:2): WARNING **: 23:40:07.892: Can't connect to a11y bus: Could not connect: No such file or directory

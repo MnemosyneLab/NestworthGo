@@ -253,3 +253,27 @@ Next: finalize REPORT → branch + push
 | FL-18/19 | PASS | probe salaryDietzCapitalDiffers |
 
 Screenshots: `screenshots/supplement/`
+## More Filters + 1440 + residual sheet (2026-09-09 07:36 SGT)
+
+| Area | Result |
+|------|--------|
+| MF-01–05 | PASS |
+| Residual sheet | PASS |
+| Visual 1440 | PARTIAL (stayed 1280×800 maximized) |
+
+Awaiting: Fixture A–D probe, deliberate residual DB, CO-03 analysis
+## Round 2: CO-03 fix + fixtures + residual + MF (2026-09-09 07:40 SGT)
+
+| Item | Result |
+|------|--------|
+| CO-03 root cause | Product: listActivitiesUntilQuery used attachActivityEffects not hydrateActivities |
+| CO-03 fix | activity_repository.go → hydrateActivities; sqlite tests PASS; binary rebuilt |
+| CO-03 desktop retest | in progress |
+| Fixtures A–D | **PASS** (probe-fixtures.json) |
+| Deliberate residual | **PASS** day 2026-08-12 +A$100 on residual DB |
+| More Filters MF-01–05 | PASS |
+| Visual 1440 | PARTIAL |
+## CO-03 desktop after hydrateActivities fix (2026-09-09 07:42 SGT)
+
+- **PASS** Contribution Dividend & Interest: Apple Inc +A$18.83; sheet OK
+- Screenshots: `screenshots/supplement/sup-co03-dividend-after-fix.png`, `sup-co03-dividend-sheet-after-fix.png`

@@ -17,9 +17,28 @@ import (
 )
 
 func main() {
-	if os.Getenv("NESTWORTH_PROBE_MODE") == "cash-include" {
+	switch os.Getenv("NESTWORTH_PROBE_MODE") {
+	case "cash-include":
 		if err := runCashIncludeProbe(); err != nil {
 			fmt.Fprintf(os.Stderr, "cash-include probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	case "co03":
+		if err := runCO03Probe(); err != nil {
+			fmt.Fprintf(os.Stderr, "co03 probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	case "residual":
+		if err := runResidualProbe(); err != nil {
+			fmt.Fprintf(os.Stderr, "residual probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	case "fixtures":
+		if err := runFixturesProbe(); err != nil {
+			fmt.Fprintf(os.Stderr, "fixtures probe failed: %v\n", err)
 			os.Exit(1)
 		}
 		return
@@ -54,18 +73,18 @@ type modeResult struct {
 }
 
 type cashProbeOut struct {
-	From               string     `json:"from"`
-	To                 string     `json:"to"`
-	Valuation          string     `json:"valuation"`
-	Basis              string     `json:"basis"`
-	Scope              string     `json:"scope"`
-	DBPath             string     `json:"dbPath"`
-	DBOpenMode         string     `json:"dbOpenMode"`
-	SalaryLocalDate    string     `json:"salaryLocalDate"`
-	IncludeCashTrue    modeResult `json:"includeCashTrue"`
-	IncludeCashFalse   modeResult `json:"includeCashFalse"`
-	FL1819             fl1819Out  `json:"fl18_19"`
-	Error              string     `json:"error,omitempty"`
+	From             string     `json:"from"`
+	To               string     `json:"to"`
+	Valuation        string     `json:"valuation"`
+	Basis            string     `json:"basis"`
+	Scope            string     `json:"scope"`
+	DBPath           string     `json:"dbPath"`
+	DBOpenMode       string     `json:"dbOpenMode"`
+	SalaryLocalDate  string     `json:"salaryLocalDate"`
+	IncludeCashTrue  modeResult `json:"includeCashTrue"`
+	IncludeCashFalse modeResult `json:"includeCashFalse"`
+	FL1819           fl1819Out  `json:"fl18_19"`
+	Error            string     `json:"error,omitempty"`
 }
 
 type fl1819Out struct {
