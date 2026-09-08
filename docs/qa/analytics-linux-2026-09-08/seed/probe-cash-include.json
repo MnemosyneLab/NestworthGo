@@ -1,0 +1,68 @@
+{
+  "from": "2026-08-01",
+  "to": "2026-09-07",
+  "valuation": "base",
+  "basis": "investment",
+  "scope": "household",
+  "dbPath": "/workspace/nestworth-analytics-qa/data/nestworth.db",
+  "dbOpenMode": "OpenReadOnlyForVerify(mode=ro,query_only)",
+  "salaryLocalDate": "2026-08-05",
+  "includeCashTrue": {
+    "includeCash": true,
+    "ratedDays": 34,
+    "totalDays": 38,
+    "status": "partial",
+    "periodReturnAmount": {
+      "amount": "513.3858",
+      "currency": "AUD"
+    },
+    "periodReturnRate": "0.00788335446999598809978210183359403808710194934783869973798984734389801591469249024478686393752714951000200571193040840669445438544169749478749018860957863095256073938739542246134405254622076612167583843089323218089775650073748855102640556515565052806813603775037697540645177234805786271316424502240795741394408841465797080132377566530623675838935450098110447571670161680007009741359329251731581560710926655250911843152405421817850064265485190202835267636833380314717094680406183090396935027409869301331286526456244884876448116418946269184",
+    "salaryDay": {
+      "date": "2026-08-05",
+      "status": "ok",
+      "investedCapital": {
+        "amount": "48029.3706",
+        "currency": "AUD"
+      },
+      "returnAmount": {
+        "amount": "11.518",
+        "currency": "AUD"
+      },
+      "returnRate": "0.0002398115955601",
+      "cashDietzFlowSum": {
+        "amount": "3000",
+        "currency": "AUD"
+      },
+      "cashDietzFlowCount": 1
+    }
+  },
+  "includeCashFalse": {
+    "includeCash": false,
+    "ratedDays": 34,
+    "totalDays": 38,
+    "status": "partial",
+    "periodReturnAmount": {
+      "amount": "382.3938",
+      "currency": "AUD"
+    },
+    "periodReturnRate": "0.07357564314516342094816716122366094413096725251806717233685597663702800909897809190293229094703071452254720269993628071954615906298545718576755407231911974910707603329791933323157934639608543435502059732410857065525982493196478621991300292330893841662650685388102384768855612015271964681703203328266363744521225137249658611563662565766260687775403361964013210760534236283038627765285239580845519574413033864285045969732427880208912376683546022060957870276207511352286871293535879142424769050980673464330686056591657355270357723389165568",
+    "salaryDay": {
+      "date": "2026-08-05",
+      "status": "ok",
+      "investedCapital": {
+        "amount": "2770.821",
+        "currency": "AUD"
+      },
+      "returnAmount": {
+        "amount": "7.879",
+        "currency": "AUD"
+      },
+      "returnRate": "0.0028435615292363",
+      "cashDietzFlowCount": 0
+    }
+  },
+  "fl18_19": {
+    "salaryDietzCapitalDiffers": true,
+    "detail": "salaryDay=2026-08-05 investedCapital include=\"48029.3706\" exclude=\"2770.821\" cashDietzFlows include=1(3000) exclude=0()"
+  }
+}

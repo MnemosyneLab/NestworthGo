@@ -1,0 +1,67 @@
+[PASS] onboarding — household=01a081dc-ba2c-770d-954b-01a0e7faed74 member=01a081dc-ba2c-7713-873a-7ce8d06f44ab base=AUD tz=(empty, no history yet)
+[PASS] accounts — cash=01a081dc-ba2e-74a1-8d00-bbf73ffacdc9 broker=01a081dc-ba2f-722b-8172-7a5d69fabd90
+[PASS] instrument_aapl — id=01a081dc-ba2f-7d2a-a82c-05b960b99bfb quoteSource=manual
+[PASS] current_quotes — fx USD/AUD=1.5000 aapl=180.00 at 2026-09-08T16:32:01Z
+[PASS] fx_preference_manual — USD/AUD source=manual
+[PASS] start_history — tz=Asia/Singapore components=1 origin=01a081dc-ba34-762d-a0f1-0e1dfe9da091
+[PASS] backdate_origin — started_at=2026-07-25T16:32:01Z (~45d ago)
+[PASS] daily_quotes — days=0..44 written=44 aapl=44 skip_day=22 local=2026-08-17 (no AAPL/FX); neg_drop day_25..28; flat day_36=2026-08-31
+[PASS] act_day1_contrib_usd — brokerage +20000 USD contribution
+[PASS] act_day2_contrib_aud — cash +5000 AUD contribution
+[PASS] act_day5_buy_aapl — buy 10 AAPL ~1800 USD fee 5 holding=01a081dc-bab5-70bc-90cf-45c1d9ee45a4
+[PASS] act_day10_income — cash +3000 AUD income/salary
+[PASS] act_day15_spending — cash -200 AUD expense via MoneyRemovedInput
+[PASS] act_day20_buy_aapl — buy 5 AAPL ~950 USD
+[PASS] act_day30_contrib_usd — brokerage +1000 USD contribution
+[PASS] act_day32_sell_aapl — sell 3 AAPL gross=615 USD (~205/sh vs ~183.7 cost) local=2026-08-27 holding=01a081dc-bab5-70bc-90cf-45c1d9ee45a4
+[PASS] act_day33_dividend — CashDividendInput +12.50 USD on holding local=2026-08-28
+[PASS] act_day34_bank_fee — AUD Cash -15 AUD fee local=2026-08-29
+[PASS] true_zero_day_plan — day_36 local=2026-08-31 flat AAPL=207.00 FX same ramp skip, no activity — probe will note if engine still marks partial
+[PASS] backdate_entities — instrument.created_at=2026-07-25T16:32:01Z holding.created_at=2026-07-30T16:32:01Z
+[PASS] rebuild_snapshots — rebuilt=45 range=2026-07-26..2026-09-08 chunks<=31d
+rebuilt snapshot count: 45
+[PASS] complete_daily_range — targetDate=2026-09-08
+[PASS] missing_quote_gap — local=2026-08-17 snap=01a081dc-badd-761a-8baf-b533e0e90243 complete=0 missing_items=2 (skip write day_22; as-of carry noted — Trust mark for §17.1)
+[PASS] verify_snapshots — origin_components=1 usable_snapshots=45 items=129 max_component_count=3 sample_assets=49917.1592 incomplete_days=1 missing_quote_snap=[2026-08-17 complete=0 comps=3 missing=2 rev=1] activities=[buy:2, cash_dividend:1, cash_in:4, cash_out:2, sell:1]
+[PASS] settings_aud — wrote /workspace/nestworth-analytics-qa/data/settings.json currency=AUD
+wrote /workspace/nestworth-analytics-qa/seed/seed-results.json
+OVERALL: PASS
+panic: from: analysis range precedes the Starting point
+
+goroutine 1 [running]:
+main.main()
+	/workspace/NestworthGo-fe-be-audit/cmd/analytics-qa-probe/main.go:48 +0x23f8
+exit status 2
+UNAVAIL 2026-07-26 status=unavailable
+coverage rated=35 total=45 status=partial from=2026-07-26 to=2026-09-08
+day_statuses ok=35 partial=9 unavailable=1 non_ok=10
+has_completeness_not_ok=true
+sample_partial_days: 2026-07-27 amount=&{{0x2a247abfba60 -4} AUD} rate=<nil> | 2026-07-28 amount=&{{0x2a247abfbcc0 -4} AUD} rate=<nil> | 2026-07-29 amount=&{{0x2a247ac020a0 -4} AUD} rate=<nil> | 2026-07-30 amount=&{{0x2a247ac02280 -4} AUD} rate=<nil> | 2026-07-31 amount=&{{0x2a247ac02480 -4} AUD} rate=<nil> | 2026-08-15 amount=&{{0x2a247ac092e0 -4} AUD} rate=<nil> | 2026-08-17 amount=&{{0x2a247ac09760 -4} AUD} rate=<nil> | 2026-08-18 amount=&{{0x2a247ac098c0 -4} AUD} rate=<nil>
+sample_negative_return_days (5 shown): 2026-08-20 rate=-0.0021698440856749 amount=&{{0x2a247ac09e80 -4} AUD} status=ok | 2026-08-21 rate=-0.0021751628004014 amount=&{{0x2a247ac12260 -4} AUD} status=ok | 2026-08-22 rate=-0.0021805060090024 amount=&{{0x2a247ac12600 -4} AUD} status=ok | 2026-08-23 rate=-0.0021858738816748 amount=&{{0x2a247ac128c0 -4} AUD} status=ok | 2026-09-01 rate=-0.0029912543597492 amount=&{{0x2a247ac1e620 -4} AUD} status=ok
+sample_zero_rate_days: (none — engine may mark flat days partial)
+contribution_types:
+  type=total_return available=true status=partial reason="one or more return days are incomplete" rated=35/45 rows=2 valuationForced=<nil>
+    row key=01a081dc-ba2f-7d2a-a82c-05b960b99bfb amount=&{{0x2a247ac1f5a0 -4} AUD} rate=0.076382283135792663141027810580637717947824720002186131737991630466428650552319542881256450464993713003753623920521069873953665751977327373317975609591174923718016153149176424896478856922492098474526474945542230717751404816017176814867939624397491265070684371431581738597098860206748321773428848908682416036655202181429488985983409150235877924863776090346108909321684597710547272747694699052410269989501187737199925041085664501338485425726609953726280736264691271609711061922077389452252500149195717584813623296620813676552778116162206557078489234735104 rated=35/45 status=partial
+    row key=cash amount=&{{0x2a247ac2ecc0 -4} AUD} rate=0.0033655774302233568780366068994819525812186628632121884286260079425631993045107181549418106712597906580000056658859594025317896606448537757726846208766815154846498004398556921587768929419536160842137981975392654776810287404793780433888837524097750344786894036267567945557970240820902508913570577244786955129105022667914915542476558181994805628716385818771710314000797760207322060655318546544327461711887840156968103823660406534605616032072071954453832154270598613235828063164419144493761578385328481627083507792911398253687270685907686093992147240855770140155902088874552599486527655218119236970827837335406115506491242856471092508908545265106944 rated=41/45 status=partial
+  type=realized available=true status=ok reason="" rated=0/0 rows=1 valuationForced=<nil>
+    row key=01a081dc-ba2f-7d2a-a82c-05b960b99bfb amount=&{{0x2a247ac35ce0 -4} AUD} rate=<nil> rated=0/0 status=ok
+  type=unrealized available=false status=unavailable reason="unrealized range-end cost basis is not available from the analysis result" rated=0/0 rows=0 valuationForced=<nil>
+  type=dividend_interest available=true status=partial reason="one or more return days are incomplete" rated=35/45 rows=0 valuationForced=<nil>
+contribution_types_available=total_return,realized,dividend_interest
+activities sell=1 cash_dividend=1 fee_cash_out=1
+incomplete_snapshot_days:
+  2026-08-17 complete=0 comps=3 assets=48038.1805
+item_incomplete_by_day:
+  2026-08-17 incomplete_items=2
+
+===== SUMMARY (SGT local dates) =====
+missing_quote_day: 2026-08-17 (offset 22)
+negative_price_window: day_25..28 local=2026-08-20..2026-08-23
+sell_day: 2026-08-27
+dividend_day: 2026-08-28
+fee_day: 2026-08-29
+flat_zero_day: 2026-08-31
+incomplete_days: 1
+activities: buy:2, cash_dividend:1, cash_in:4, cash_out:2, sell:1
+usable_snapshots: 45
+seed_overall: PASS

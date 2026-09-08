@@ -2,18 +2,35 @@
   "commit": "4cee77220fde42a60131282ef2f637c5750cb96b",
   "db_path": "/workspace/nestworth-analytics-qa/data/nestworth.db",
   "ids": {
-    "acct_broker": "01a08163-aa0d-7bcd-a1ed-2e47ab8e32c6",
-    "acct_cash": "01a08163-aa0c-7ad6-bdd0-c4f57bc2e441",
-    "history_origin": "2026-07-25T14:19:47Z",
+    "acct_broker": "01a081dc-ba2f-722b-8172-7a5d69fabd90",
+    "acct_cash": "01a081dc-ba2e-74a1-8d00-bbf73ffacdc9",
+    "dividend_day_offset": "33",
+    "dividend_local_date": "2026-08-28",
+    "fee_day_offset": "34",
+    "fee_local_date": "2026-08-29",
+    "flat_zero_day_offset": "36",
+    "flat_zero_local_date": "2026-08-31",
+    "history_origin": "2026-07-25T16:32:01Z",
     "history_origin_components": "1",
-    "history_origin_id": "01a08163-aa12-7210-83ae-eb3bc900e01c",
-    "household": "01a08163-aa0a-7d91-a0c6-5475a50fa087",
-    "inst_aapl": "01a08163-aa0e-740d-afac-ed08f01ab771",
-    "member": "01a08163-aa0a-7d9b-8b24-849b4e045099",
+    "history_origin_id": "01a081dc-ba34-762d-a0f1-0e1dfe9da091",
+    "holding_aapl": "01a081dc-bab5-70bc-90cf-45c1d9ee45a4",
+    "household": "01a081dc-ba2c-770d-954b-01a0e7faed74",
+    "inst_aapl": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+    "member": "01a081dc-ba2c-7713-873a-7ce8d06f44ab",
+    "missing_quote_day_offset": "22",
+    "missing_quote_gap_complete": "0",
+    "missing_quote_gap_snap": "01a081dc-badd-761a-8baf-b533e0e90243",
+    "missing_quote_local_date": "2026-08-17",
+    "negative_price_window": "day_25..28 local=2026-08-20..2026-08-23",
+    "sell_day_offset": "32",
+    "sell_local_date": "2026-08-27",
     "snapshot_rebuild_count": "45",
+    "verify_activity_kinds": "buy:2, cash_dividend:1, cash_in:4, cash_out:2, sell:1",
+    "verify_incomplete_days": "1",
     "verify_max_component_count": "3",
+    "verify_missing_quote_snap": "2026-08-17 complete=0 comps=3 missing=2 rev=1",
     "verify_origin_components": "1",
-    "verify_sample_assets": "49899.72",
+    "verify_sample_assets": "49917.1592",
     "verify_snapshot_items": "129",
     "verify_usable_snapshots": "45"
   },
@@ -21,22 +38,22 @@
     {
       "name": "onboarding",
       "status": "PASS",
-      "notes": "household=01a08163-aa0a-7d91-a0c6-5475a50fa087 member=01a08163-aa0a-7d9b-8b24-849b4e045099 base=AUD tz=(empty, no history yet)"
+      "notes": "household=01a081dc-ba2c-770d-954b-01a0e7faed74 member=01a081dc-ba2c-7713-873a-7ce8d06f44ab base=AUD tz=(empty, no history yet)"
     },
     {
       "name": "accounts",
       "status": "PASS",
-      "notes": "cash=01a08163-aa0c-7ad6-bdd0-c4f57bc2e441 broker=01a08163-aa0d-7bcd-a1ed-2e47ab8e32c6"
+      "notes": "cash=01a081dc-ba2e-74a1-8d00-bbf73ffacdc9 broker=01a081dc-ba2f-722b-8172-7a5d69fabd90"
     },
     {
       "name": "instrument_aapl",
       "status": "PASS",
-      "notes": "id=01a08163-aa0e-740d-afac-ed08f01ab771 quoteSource=manual"
+      "notes": "id=01a081dc-ba2f-7d2a-a82c-05b960b99bfb quoteSource=manual"
     },
     {
       "name": "current_quotes",
       "status": "PASS",
-      "notes": "fx USD/AUD=1.5000 aapl=180.00 at 2026-09-08T14:19:47Z"
+      "notes": "fx USD/AUD=1.5000 aapl=180.00 at 2026-09-08T16:32:01Z"
     },
     {
       "name": "fx_preference_manual",
@@ -46,17 +63,17 @@
     {
       "name": "start_history",
       "status": "PASS",
-      "notes": "tz=Asia/Singapore components=1 origin=01a08163-aa12-7210-83ae-eb3bc900e01c"
+      "notes": "tz=Asia/Singapore components=1 origin=01a081dc-ba34-762d-a0f1-0e1dfe9da091"
     },
     {
       "name": "backdate_origin",
       "status": "PASS",
-      "notes": "started_at=2026-07-25T14:19:47Z (~45d ago)"
+      "notes": "started_at=2026-07-25T16:32:01Z (~45d ago)"
     },
     {
       "name": "daily_quotes",
       "status": "PASS",
-      "notes": "days=0..44 count=45 fx~1.50..1.5088 aapl~180..202.00"
+      "notes": "days=0..44 written=44 aapl=44 skip_day=22 local=2026-08-17 (no AAPL/FX); neg_drop day_25..28; flat day_36=2026-08-31"
     },
     {
       "name": "act_day1_contrib_usd",
@@ -71,7 +88,7 @@
     {
       "name": "act_day5_buy_aapl",
       "status": "PASS",
-      "notes": "buy 10 AAPL ~1800 USD fee 5"
+      "notes": "buy 10 AAPL ~1800 USD fee 5 holding=01a081dc-bab5-70bc-90cf-45c1d9ee45a4"
     },
     {
       "name": "act_day10_income",
@@ -94,24 +111,49 @@
       "notes": "brokerage +1000 USD contribution"
     },
     {
+      "name": "act_day32_sell_aapl",
+      "status": "PASS",
+      "notes": "sell 3 AAPL gross=615 USD (~205/sh vs ~183.7 cost) local=2026-08-27 holding=01a081dc-bab5-70bc-90cf-45c1d9ee45a4"
+    },
+    {
+      "name": "act_day33_dividend",
+      "status": "PASS",
+      "notes": "CashDividendInput +12.50 USD on holding local=2026-08-28"
+    },
+    {
+      "name": "act_day34_bank_fee",
+      "status": "PASS",
+      "notes": "AUD Cash -15 AUD fee local=2026-08-29"
+    },
+    {
+      "name": "true_zero_day_plan",
+      "status": "PASS",
+      "notes": "day_36 local=2026-08-31 flat AAPL=207.00 FX same ramp skip, no activity — probe will note if engine still marks partial"
+    },
+    {
       "name": "backdate_entities",
       "status": "PASS",
-      "notes": "instrument.created_at=2026-07-25T14:19:47Z holding.created_at=2026-07-30T14:19:47Z"
+      "notes": "instrument.created_at=2026-07-25T16:32:01Z holding.created_at=2026-07-30T16:32:01Z"
     },
     {
       "name": "rebuild_snapshots",
       "status": "PASS",
-      "notes": "rebuilt=45 range=2026-07-25..2026-09-07 chunks\u003c=31d"
+      "notes": "rebuilt=45 range=2026-07-26..2026-09-08 chunks\u003c=31d"
     },
     {
       "name": "complete_daily_range",
       "status": "PASS",
-      "notes": "targetDate=2026-09-07"
+      "notes": "targetDate=2026-09-08"
+    },
+    {
+      "name": "missing_quote_gap",
+      "status": "PASS",
+      "notes": "local=2026-08-17 snap=01a081dc-badd-761a-8baf-b533e0e90243 complete=0 missing_items=2 (skip write day_22; as-of carry noted — Trust mark for §17.1)"
     },
     {
       "name": "verify_snapshots",
       "status": "PASS",
-      "notes": "origin_components=1 usable_snapshots=45 items=129 max_component_count=3 sample_assets=49899.72"
+      "notes": "origin_components=1 usable_snapshots=45 items=129 max_component_count=3 sample_assets=49917.1592 incomplete_days=1 missing_quote_snap=[2026-08-17 complete=0 comps=3 missing=2 rev=1] activities=[buy:2, cash_dividend:1, cash_in:4, cash_out:2, sell:1]"
     },
     {
       "name": "settings_aud",

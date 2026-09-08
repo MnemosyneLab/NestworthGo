@@ -231,3 +231,25 @@ Next: Trust / i18n / visual / stale (Layer D–F)
 | V-1440 | PARTIAL — resize unavailable (stayed 1280×800) |
 
 Next: finalize REPORT → branch + push
+## FL-18/19 Dietz cash include probe (2026-09-09 00:42 SGT)
+
+- Probe mode cash-include on live DB (read-only); Nestworth left running
+- IncludeCash true: period return amt A$513.3858; salary day Dietz capital ~48029 with 1×3000 AUD cash flow
+- IncludeCash false: period return amt A$382.3938; salary day capital ~2770; cash Dietz flows 0
+- **salaryDietzCapitalDiffers: true** → FL-18/19 numeric **PASS** (engine)
+- Artifact: `seed/probe-cash-include.json`, `logs/10-probe-cash.log`
+## Supplement desktop gap retest (2026-09-09 00:55 SGT)
+
+| ID | Result | Notes |
+|----|--------|-------|
+| SUP-RC06 | PASS | Aug 20–23 negative ~-0.22% |
+| SUP-RC07 | PARTIAL | Aug 31 +0.01% not true zero |
+| SUP-TR-QUOTE | PASS | Aug 17 incomplete 0/1 |
+| SUP-CO02 | PASS | Realized Apple +A$96.41 |
+| SUP-CO03 | **FAIL** | Dividend & Interest contribution empty rows |
+| SUP-CAT03 | PASS | Fees -A$15 |
+| SUP-CAT05 | PASS | Div category +A$18.83 |
+| SUP-STALE | PASS/PARTIAL | nav OK; quote-mutation skipped |
+| FL-18/19 | PASS | probe salaryDietzCapitalDiffers |
+
+Screenshots: `screenshots/supplement/`

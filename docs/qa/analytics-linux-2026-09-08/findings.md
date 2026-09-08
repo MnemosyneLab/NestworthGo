@@ -92,3 +92,11 @@
 
 - Period 2026-08-01..09-07 Portfolio Base AUD Include cash: Drivers show **Unexplained difference +A$1,428.80** with reconciliation warning; partial coverage warning on summary.
 - May be seed/history-origin backdate artifact or real residual — investigate before release sign-off; not a crash.
+## FL-18/19 Include vs Exclude Cash Dietz (2026-09-09 00:42 SGT) — PASS (probe)
+
+Engine-level: IncludeCash changes invested capital and period return amount on 2026-08-01..09-07; salary day 2026-08-05 has Dietz cash flow only when IncludeCash=true. See `seed/probe-cash-include.json`.
+## CO-03 Contribution Dividend empty (2026-09-09 00:55 SGT) — FAIL
+
+- Seed recorded cash dividend 2026-08-28 (+USD 12.50); Categories Dividend & Interest shows +A$18.83.
+- Contribution tab Dividend & Interest type shows **no rows** for 2026-08-01..09-07 Portfolio Base Include cash.
+- Likely UI/query filter vs category attribution mismatch — product investigation.

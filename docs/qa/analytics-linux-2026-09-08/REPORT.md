@@ -1,41 +1,43 @@
 # NestworthGo Analytics QA Report (Linux)
 
-- **When:** 2026-09-08 23:52 SGT
-- **Base commit:** `4cee772` (`main`)
+- **Updated:** 2026-09-09 00:55 SGT (supplement push)
+- **Base commit:** `4cee772` · **Branch:** `qa/analytics-linux-2026-09-08`
 - **Plan:** `docs/testing/nestworth-analytics-test-plan.md`
-- **Host:** Linux Wails, DISPLAY `:11` 1280×800
-- **Seed:** `cmd/analytics-qa-seed`, `cmd/analytics-qa-probe`
-- **Committed here:** screenshots, logs, STATUS, findings (no binary/DB)
+- **PR:** https://github.com/MnemosyneLab/NestworthGo/pull/12
 
 ## Executive summary
 
 | Area | Status |
 |------|--------|
-| Layer A | PASS w/ known `cold-3y` FAIL |
-| Layer B engine/golden | **PASS** |
-| P0 Smoke SM-01–15 | **PASS** |
+| Layer A/B | PASS (known cold-3y FAIL) |
+| P0 Smoke SM-01–15 | PASS |
 | Shared Filter | Mostly PASS; **FL-22/23 FAIL** |
-| Calendar / Trend / Contribution | PASS (+ seed PARTIALs) |
-| Asset Changes | PASS/PARTIAL; residual noted |
+| Calendar / Trend / Contribution / Asset | PASS + seed PARTIALs |
 | Trust / i18n / visual | Trust PASS; i18n PARTIAL; 1440 PARTIAL |
+| **Supplement** | RC-06/Trust quote/CO-02/Fees/CAT-05/FL-18–19 **PASS**; **CO-03 FAIL**; RC-07 PARTIAL |
 
-**Release sign-off: No** (FL-22/23 P0, residual, i18n, perf).
+**Release sign-off: No** — FL-22/23, CO-03, residual, i18n, perf.
+
+## Supplement (this update)
+
+Extended seed: missing-quote **2026-08-17**, negative prices **2026-08-20..23**, sell **08-27**, dividend **08-28**, fee **08-29**.
+
+- FL-18/19 Dietz: IncludeCash changes period return A$513.39 vs A$382.39; salary day capital differs (`seed/probe-cash-include.json`).
+- CO-03 FAIL: Categories shows dividend but Contribution Dividend type has no rows.
 
 ## Reproduce seed
 
 ```bash
 export NESTWORTH_DATABASE_PATH=/tmp/nestworth-qa.db
 go run ./cmd/analytics-qa-seed
+NESTWORTH_PROBE_MODE=cash-include go run ./cmd/analytics-qa-probe
 ```
 
 ## Details
 
-- `STATUS.md` — chronological run log
-- `findings.md` — defects / seed issues
-- `screenshots/` — evidence
-- `logs/` — build/test/app logs
+- `STATUS.md`, `findings.md`, `screenshots/`, `logs/`, `seed/`
 
-## Screenshot inventory (81)
+## Screenshot inventory (89)
 
 - `screenshots/asset-trend/at01-default.png`
 - `screenshots/asset-trend/at02-granularity.png`
@@ -107,6 +109,14 @@ go run ./cmd/analytics-qa-seed
 - `screenshots/p0/sm13-history-nav.png`
 - `screenshots/p0/sm14-calendar-to-asset.png`
 - `screenshots/p0/sm15-driver-to-return.png`
+- `screenshots/supplement/sup-cat03-fees.png`
+- `screenshots/supplement/sup-cat05-div.png`
+- `screenshots/supplement/sup-co02-realized.png`
+- `screenshots/supplement/sup-co03-dividend.png`
+- `screenshots/supplement/sup-rc06-negative.png`
+- `screenshots/supplement/sup-rc07-flat.png`
+- `screenshots/supplement/sup-stale-still-ok.png`
+- `screenshots/supplement/sup-tr-missing-quote-aug17.png`
 - `screenshots/trend/rt-sources.png`
 - `screenshots/trend/rt01-cumulative-amount.png`
 - `screenshots/trend/rt02-linked-return-pct.png`
