@@ -102,8 +102,7 @@ The frontend formats those Wails projections. It does not recompute return or
 waterfall totals. Completeness, forced valuation, and residual remain visible.
 
 Investments still shows current holding gains from `GainService`. It does not
-replace Return Analysis. The old Analysis wealth-trend / realized-gain /
-dividend dashboard is removed.
+replace Return Analysis.
 
 ### 3.4 Market Data and quote history
 

@@ -1,12 +1,11 @@
 # Nestworth Analytics Redesign — Product & Interaction Design
 
-**Status:** Final product design  
+**Status:** Current product design  
 **Product:** Nestworth  
 **Target:** Desktop application (Wails v3)  
 **Primary navigation area:** Insights  
-**New pages:** `Return Analysis`, `Asset Changes`  
-**Replaces:** Existing `Analysis` page  
-**Companions:** [Technical architecture](analytics-redesign-architecture.md), [Wireframes](analytics-wireframes.md), [Development plan](analytics-development-plan.md)
+**Pages:** `Return Analysis`, `Asset Changes`  
+**Companions:** [Technical architecture](analytics-redesign-architecture.md), [Wireframes](analytics-wireframes.md)
 
 ---
 
@@ -16,7 +15,7 @@ The existing **Analysis** page mixes several different analytical jobs into one 
 
 The redesign removes the single **Analysis** navigation item entirely.
 
-Under the existing **Insights** section in the left sidebar, Nestworth will expose two first-class pages:
+Under **Insights** in the left sidebar, Nestworth exposes two first-class pages:
 
 - **Return Analysis** — answers: **“How much did my investments earn, and what contributed to the result?”**
 - **Asset Changes** — answers: **“Why did my assets or net worth increase or decrease over a period?”**

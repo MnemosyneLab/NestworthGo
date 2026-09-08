@@ -13,8 +13,8 @@ The application currently provides:
 - Accounts, Members, Institutions, Groups, Instruments, and Holdings;
 - Multi-currency valuation with explicit user-triggered market-data refresh;
 - Immutable financial changes, History Origin, replay, snapshots, and History;
-- Average-cost basis, realized/unrealized gain, currency decomposition, and
-  Analytics;
+- Average-cost basis, realized/unrealized gain, currency decomposition,
+  Return Analysis, and Asset Changes;
 - Settings for language, appearance, display formats, window state, and FX
   provider selection;
 - Local backup/restore and Accounts/Holdings CSV import/export.

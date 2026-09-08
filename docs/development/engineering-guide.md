@@ -143,7 +143,7 @@ manual. Wails v3 is pinned at `v3.0.0-beta.16` (`@wailsio/runtime` at
 ## Documentation and change gate
 
 Update the owning architecture or product document when a stable contract
-changes. Before committing:
+changes. Maintained documentation is English. Before committing:
 
 ```bash
 gofmt -l cmd internal

@@ -7,16 +7,19 @@ published a public distribution yet.
 
 ### Added
 
-- Completed Analytics Phase 1a's Go-only analysis kernel: scoped universes,
-  effect classification, signed Asset Changes identity, path-aware Price/FX,
-  cash FX, residuals, corporate-action handling, and Origin-timezone bounds.
+- Replaced the Insights Analysis dashboard with Return Analysis and Asset
+  Changes: scoped universes, effect classification, signed Asset Changes
+  identity, path-aware Price/FX, Modified Dietz linking, memoized Wails
+  projections, six tabs, shared filters, and History deep-links.
 - Added interest to the writable money-in and value-update reason catalogs.
 
 ### Verification
 
-- Phase 1a golden cases and service integration coverage pass, together with
-  the full Go and frontend automated suites.
+- Analysis kernel and Insights automated suites pass, together with the full
+  Go and frontend test runs.
 - Synchronized application metadata as `v0.3.1` / build `2`.
+- Wails desktop smoke, real-household review, keyboard/accessibility,
+  signing, and notarization remain named unexecuted gates.
 
 ## [0.3.0] — Superseded unreleased line
 
@@ -31,7 +34,8 @@ published a public distribution yet.
 ### Current capability
 
 - Local Household onboarding, Accounts, Directory, Investments, Market Data,
-  History, Analytics, Settings, backup/restore, and CSV portability.
+  History, Return Analysis, Asset Changes, Settings, backup/restore, and CSV
+  portability.
 - Go remains authoritative for financial validation, persistence, valuation,
   replay, cost basis, gains, and provider routing.
 - Frontend tests cover page behavior, localization, error handling, and

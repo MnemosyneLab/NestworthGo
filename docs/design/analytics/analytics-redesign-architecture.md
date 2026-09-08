@@ -1,16 +1,16 @@
 # Nestworth Analytics Redesign — Technical Architecture
 
-**Status:** Phase 1a–5 complete for code; Phase 6 in progress (cutover implemented; desktop smoke pending)
+**Status:** Implemented in code and automated tests; Wails desktop smoke pending  
 **Product:** Nestworth  
 **Target:** Desktop application (Wails v3)  
-**Replaces:** Existing Insights `Analysis` page  
-**Companions:** [Product & interaction design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Development plan](analytics-development-plan.md), [Domain model](../../architecture/domain-model.md), [Data and IPC contracts](../../architecture/data-and-ipc-contracts.md)
+**Insights pages:** `Return Analysis`, `Asset Changes`  
+**Companions:** [Product & interaction design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Domain model](../../architecture/domain-model.md), [Data and IPC contracts](../../architecture/data-and-ipc-contracts.md)
 
 This document is the **how**. The product design is the **what**. Implementation must not start from rejected shortcuts: simple `amount / beginning` percentages, start-of-day TWR that ignores intra-day flows, opening-quantity-only Price/FX, FX Impact computed as a leftover, a synthetic transaction price for a split or in-kind transfer, interest treated as capital, transfer-only scope rewrite, or `Unrealized = Total − Realized − Dividend`.
 
 Go remains the calculation authority. The frontend formats, navigates, and never recomputes return or waterfall totals.
 
-**Gate:** no Insights page starts before the engine cases behind *that page* pass. The gate is per track, not one global gate — Asset Changes reads only `AssetBucket`, so it is gated on the identity and Price/FX cases; Return Analysis is gated on the return, Dietz, and linking cases as well. See the [development plan](analytics-development-plan.md) for the per-phase allocation. Reconciling beginning to ending is not sufficient if Price, FX, or return % have the wrong financial meaning.
+Reconciling beginning to ending is not sufficient if Price, FX, or return % have the wrong financial meaning. Asset Changes reads `AssetBucket`; Return Analysis also requires return, Dietz, and linking cases. Golden cases in §16 remain the engine gate.
 
 ---
 
@@ -30,11 +30,9 @@ The old `Analysis` navigation item and dashboard are removed. Investments still 
 
 ---
 
-## 2. What exists today (and why it is not enough)
+## 2. Other read models (not the Insights engine)
 
-Insights destinations are Return Analysis and Asset Changes. The old Analysis dashboard (`AnalyticsPage`) is removed.
-
-That dashboard read three models that remain available for other surfaces, but are not the Insights engine:
+`GainService` and net-worth trend remain available for Investments and Overview. They are not the Insights engine:
 
 - `RealizedGain` / `DividendIncome` — period **sell** gains and **cash dividends** only ([`internal/application/gain_service.go`](../../../internal/application/gain_service.go))
 - `NetWorthTrend` — household **level** series, named ranges only, no scope ([`internal/application/trend.go`](../../../internal/application/trend.go))
@@ -264,7 +262,7 @@ Never derive one from the other. A period % is not `amount / capital`, and a per
 
 Interest credited on cash is **investment return of that cash**, not a capital contribution. If it were classified as `Income` with `DietzCapitalFlow +amount`, it would inflate the Dietz denominator while contributing nothing to the numerator — every household with a savings balance would see its return rate *pushed down* by earning interest. That is worse than the current behaviour, not a neutral simplification.
 
-The current ledger cannot distinguish salary from interest: both are `cash_in` with reason `income`. Phase 1a therefore adds a distinct **`interest` reason** (a domain-level reason value; no schema migration if `reason` is already a string column):
+The current ledger cannot distinguish salary from interest: both are `cash_in` with reason `income`. A distinct **`interest` reason** (a domain-level reason value; no schema migration if `reason` is already a string column) therefore exists:
 
 | Reason | AssetBucket | ReturnComponent | DietzCapitalFlow |
 |---|---|---|---|
@@ -449,7 +447,7 @@ The precedence is only unambiguous if the reason values are enumerated. Rule 1 i
 
 | Ledger reason | AssetBucket | Note |
 |---|---|---|
-| `interest` | DividendInterest | New in Phase 1a (§5.2) |
+| `interest` | DividendInterest | §5.2 |
 | `income` — salary, bonus, refund, rebate, **gift** | Income | A gift is `cash_in + reason income`, so it is **Income**, not ExternalToScopeFlows |
 | `expense` | Spending | Includes cash loan interest (§4) |
 | `fee`, `tax` | Fee | Only when no earlier rule matched |
@@ -833,9 +831,11 @@ Do not key the memo on `dirty_from` / last completed date alone. After a rebuild
 
 Increment `analysisDataGeneration` (or drop the entire memo) on any event that changes analytics inputs: activity mutation, snapshot rebuild, instrument or FX quote correction, account / holding / cash mutation. A process restart starts at generation 0 with an empty memo, which is sufficient for a desktop app.
 
-The memo is a **bounded LRU of 2 entries**, not an unbounded map. The query hash includes scope, dates, valuation, `includeCash`, and every filter, so a user exploring filters would otherwise accumulate one full day × component result per combination — a 3Y window over 500 components is on the order of half a million rows each. Two entries covers the only access pattern that matters (the two Insights pages sharing one filter set); correctness already comes from the generation counter, so eviction can never serve stale data.
+The memo is a **bounded LRU of 2 entries**, not an unbounded map. The query hash includes scope, dates, valuation, `includeCash`, every filter, and whether the compute used the Investment universe only. An investment-only fallback (for example Return native falling back to base) must not occupy the full Analysis-universe key: later Asset Changes on the same dates would otherwise receive a result that omitted liabilities and other excluded components.
 
-Stale-memo behaviour is a regression test, not just a convention: mutate an activity, re-query the identical window, assert the result changed (development plan Phase 2a).
+Unknown amounts stay absent (`nil` / unavailable). A day or period whose amounts are all unknown is not an available zero.
+
+Stale-memo behaviour is a regression test, not just a convention: mutate an activity, re-query the identical window, assert the result changed.
 
 Reuse [`ensureClosedDaySnapshots`](../../../internal/application/trend.go) (31-day chunks). Long All / 3Y windows may rebuild on first open; the UI keeps chrome and section skeletons.
 
@@ -857,16 +857,18 @@ AnalysisService
   CategoryDetail(query, categoryType, rowKey) → children[], activityRefs[]
 ```
 
+`historyHint` collects accounts and instruments from the whole contribution group. Set `InstrumentID` only when every contributing component shares the same non-empty instrument; a cash (or other no-instrument) leg keeps the account filter and leaves instrument unset so History is not silently narrower than the detail.
+
 Amounts are canonical strings plus currency, with `available` / `status` / `missingReason`. The frontend uses [`formatAmount`](../../../frontend/src/lib/money.ts) only.
 
 Every response carries `valuationForced` (§6.1) and, when it contains a rate, `ratedDays` / `totalDays` (§5.1).
 
-In Phase 2b, `ReturnCalendar` accepts an optional `cursor` in `YYYY-MM` form.
+`ReturnCalendar` accepts an optional `cursor` in `YYYY-MM` form.
 It selects the visible month's `cells[]` while leaving `summary`, period-level
-`issues[]`, and `topContributors[]` scoped to the full query window. Phase 3
+`issues[]`, and `topContributors[]` scoped to the full query window. The UI
 must use this cursor for the visible month; it must not shrink the analysis
-query and accidentally turn a period summary into a month summary. Granularity
-is `day` in Phase 2b; month/year aggregation belongs to the Phase 3 surface.
+query and accidentally turn a period summary into a month summary. Engine
+granularity is `day`; month/year aggregation is a presentation fold.
 
 For `ReturnTrend(display = linked_rate)`, each point's `rate` is that day's
 Modified Dietz rate and its `value` is intentionally null. The period-linked
@@ -977,17 +979,15 @@ The banner is not a dead end: it opens the period `issues[]` list (§12.1) — w
 
 ---
 
-## 15. Delivery sequence
+## 15. Current surface
 
-Phasing, dependencies, and per-phase exit criteria live in the [development plan](analytics-development-plan.md).
-
-Engine identity **and** financial meaning land before UI, per track: the Asset Changes page waits on the identity, Price/FX, and corporate-action cases; the Return Analysis page additionally waits on the return, Dietz, and linking cases. Neither page starts on an unproven kernel. Invalidate new query keys from [`invalidateActivityChange`](../../../frontend/src/queries/invalidation.ts) / `invalidateCurrentValuation`.
+The six tabs, shared filters, sheets, and History links are implemented. Invalidate analysis query keys from [`invalidateActivityChange`](../../../frontend/src/queries/invalidation.ts) / `invalidateCurrentValuation`. Wails desktop smoke remains a named release gate, not a claim of completeness.
 
 ---
 
 ## 16. Golden cases (engine gate)
 
-These must pass before Insights UI work:
+These remain the engine gate. A result that reconciles beginning to ending is not enough if Price, FX, or return % have the wrong meaning.
 
 1. Household transfer: DBS → MooMoo is not wealth or return.
 2. Account-scope rewrite of the same transfer.
@@ -1067,7 +1067,7 @@ Added by review — these cover the failure modes that reconciliation alone cann
 
 ### 18.1 Performance budgets
 
-The engine reads day × component, `ensureClosedDaySnapshots` may rebuild on first open, and Contribution folds every component. Without a number, the first real household discovers the limit. Phase 2a / 2b exit criteria:
+The engine reads day × component, `ensureClosedDaySnapshots` may rebuild on first open, and Contribution folds every component. Without a number, the first real household discovers the limit. Budgets:
 
 | Scenario | Budget |
 |---|---|

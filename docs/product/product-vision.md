@@ -92,7 +92,7 @@ The product grows around these top-level destinations:
 - Groups
 - Institutions
 - Settings
-- Investments, Activity, and Analytics; Automation when its release becomes active
+- Investments, Activity, Return Analysis, and Asset Changes; Automation when its release becomes active
 
 The interface should favor direct navigation, keyboard access, clear empty states, and explicit confirmation for consequential actions. It should not expose storage-oriented concepts unless they help the user make a financial decision.
 

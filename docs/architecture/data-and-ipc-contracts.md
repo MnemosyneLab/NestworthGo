@@ -176,9 +176,11 @@ baseline data; a user value correction is a `value_update` history change.
 `HistoryMutationAllowed` is a frontend preflight only; the backend enforces
 the same rule again in the record/mutation command.
 
-Analytics queries carry an explicit scope (portfolio when both scope IDs are
-unset, or account/instrument scope) and either a named range (`30d`, `ytd`,
-`1y`, `all`) or an explicit local-date range. Range readers are the canonical
+Analysis queries use `domain.AnalysisQuery` (typed scope, local-date range,
+valuation, basis, `includeCash`, and filters) through
+[`internal/wailsapi/analysis`](../../internal/wailsapi/analysis/analysis.go).
+Named ranges such as `30d` and `ytd` are UI presets that clamp to History
+Origin; they are not a second query language. Range readers are the canonical
 path for custom dates.
 
 ## Backup, restore, and CSV IPC

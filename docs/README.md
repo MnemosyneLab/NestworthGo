@@ -19,6 +19,8 @@ bundles.
 | Design | [History and Form Defaults](design/history-and-form-defaults-ux.md) | Current history, picker, calculation, and form-state behavior |
 | Design | [Backup, Restore, and CSV Portability](design/backup-restore-and-csv-portability.md) | Implemented backup, restore, and CSV workflows |
 | Design | [Visual Analytics and Market History](design/visual-analytics-and-market-history.md) | Implemented chart surfaces and planned historical-series work |
+| Design | [Analytics redesign](design/analytics/analytics-redesign-architecture.md) | Return Analysis and Asset Changes kernel, projections, and golden cases |
+| Design | [Monthly review and data confidence](design/monthly-review-and-data-confidence.md) | Planned as-of review loop; not in the current release |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
@@ -51,5 +53,6 @@ boundary. Keep one canonical description for each financial rule and link to
 it from other documents.
 
 Architecture documents own domain and persistence contracts; design documents
-own user-visible flows and interaction state. Short-lived reviews,
-implementation notes, and session artifacts do not belong in this index.
+own user-visible flows and interaction state. Maintained documentation is
+English. Short-lived reviews, implementation notes, and session artifacts do
+not belong in this index.

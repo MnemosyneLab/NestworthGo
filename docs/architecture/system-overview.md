@@ -7,7 +7,7 @@ Nestworth `0.3.1` is a local-first desktop application with a Wails v3 shell
 provides typed domain contracts, SQLite bootstrap with one current schema `9`,
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
-currency decomposition, Analytics, exact valuation, explicit
+currency decomposition, Return Analysis, Asset Changes, exact valuation, explicit
 Yahoo/Frankfurter refresh routing, local backup/restore, and CSV portability.
 The React UI renders application results through `internal/wailsapi` DTOs; it
 does not open SQLite, call HTTP, or recalculate financial totals.
@@ -93,7 +93,7 @@ flowchart TD
     Blocked --> Error["Keep business writes unavailable"]
 ```
 
-The compatibility inspection, schema verification, and blocked-startup paths are implemented in `internal/infrastructure/sqlite`. Non-empty older databases are rejected without writes, and unsupported future versions are rejected before schema writes. The application then bootstraps the active Household, opens onboarding when needed, and renders the live Overview or the GainService-backed Investments and Analytics views.
+The compatibility inspection, schema verification, and blocked-startup paths are implemented in `internal/infrastructure/sqlite`. Non-empty older databases are rejected without writes, and unsupported future versions are rejected before schema writes. The application then bootstraps the active Household, opens onboarding when needed, and renders the live Overview, Investments, Return Analysis, and Asset Changes views.
 
 ## State ownership
 
@@ -148,6 +148,6 @@ boundaries:
 - Provider implementations stay behind application interfaces.
 - One valuation path supplies current summaries; history reconstructs from the
   History Origin and ordered Activities.
-- Analytics remain a read-only interpretation of the ledger.
+- Return Analysis and Asset Changes remain a read-only interpretation of the ledger.
 - Historical facts are appended or explicitly corrected, never silently edited.
 - Compatibility checks occur before business writes; this generation does not migrate older databases.

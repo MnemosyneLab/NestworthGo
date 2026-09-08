@@ -11,6 +11,6 @@ Wails module/runtime/CLI upgrades, bindings regeneration, automated checks, and
 native/package validation boundaries.
 
 Development documents should describe reproducible work against the current
-tree. Temporary investigations belong in the issue or pull request that owns
-them; they should not become permanent release documentation without being
-revalidated.
+tree. Maintained documentation is English. Temporary investigations belong in
+the issue or pull request that owns them; they should not become permanent
+release documentation without being revalidated.
