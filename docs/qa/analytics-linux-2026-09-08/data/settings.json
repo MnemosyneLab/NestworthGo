@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "appearance": "system",
+  "accent": "nestworth",
+  "language": "en",
+  "timezone": "system",
+  "week_start": "monday",
+  "date_format": "iso",
+  "time_format": "24h",
+  "currency": "AUD",
+  "decimal_separator": ".",
+  "grouping_separator": ",",
+  "decimal_places": 2,
+  "window_width": 1280,
+  "window_height": 719,
+  "fx_provider": "frankfurter",
+  "quote_cache_ttl": "12h"
+}

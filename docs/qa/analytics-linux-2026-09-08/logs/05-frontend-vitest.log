@@ -1,0 +1,14 @@
+$ node ./scripts/ensure-bindings.mjs && vitest run
+Generating Wails TypeScript bindings...
+Wails v3.0.0-beta.12 › Generate Bindings
+ INFO  Processed: 300 Packages, 16 Services, 126 Methods, 4 Enums, 124 Models, 1 Event in 2.894729187s.
+ INFO  Output directory: /workspace/NestworthGo-fe-be-audit/frontend/bindings
+
+ RUN  v4.1.11 /workspace/NestworthGo-fe-be-audit/frontend
+
+
+ Test Files  44 passed (44)
+      Tests  341 passed (341)
+   Start at  10:17:58
+   Duration  16.67s (transform 4.92s, setup 9.49s, import 32.17s, tests 36.39s, environment 28.97s)
+

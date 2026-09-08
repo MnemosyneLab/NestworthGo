@@ -1,0 +1,26 @@
+--- FAIL: TestAnalysisPerformanceBudgets (5.41s)
+    --- FAIL: TestAnalysisPerformanceBudgets/cold-3y (5.28s)
+        analysis_projections_test.go:678: cold 3Y/500-component took 5.196028125s, want < 3s
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	8.526s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/account	0.357s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analysis	0.004s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analytics	0.118s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/apierror	0.004s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/app	0.004s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/catalog	0.006s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/data	0.076s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/directory	0.184s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/history	0.419s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/holding	0.140s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/household	0.129s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/instrument	0.140s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/marketdata	0.153s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/native	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/portfolio	0.206s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/quote	0.140s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/recovery	0.147s
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/settings	0.114s
+?   	github.com/waltwang/nestworth-go/internal/wailsapi/wailstest	[no test files]
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/wire	0.008s
+FAIL

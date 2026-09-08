@@ -1,0 +1,122 @@
+{
+  "commit": "4cee77220fde42a60131282ef2f637c5750cb96b",
+  "db_path": "/workspace/nestworth-analytics-qa/data/nestworth.db",
+  "ids": {
+    "acct_broker": "01a08163-aa0d-7bcd-a1ed-2e47ab8e32c6",
+    "acct_cash": "01a08163-aa0c-7ad6-bdd0-c4f57bc2e441",
+    "history_origin": "2026-07-25T14:19:47Z",
+    "history_origin_components": "1",
+    "history_origin_id": "01a08163-aa12-7210-83ae-eb3bc900e01c",
+    "household": "01a08163-aa0a-7d91-a0c6-5475a50fa087",
+    "inst_aapl": "01a08163-aa0e-740d-afac-ed08f01ab771",
+    "member": "01a08163-aa0a-7d9b-8b24-849b4e045099",
+    "snapshot_rebuild_count": "45",
+    "verify_max_component_count": "3",
+    "verify_origin_components": "1",
+    "verify_sample_assets": "49899.72",
+    "verify_snapshot_items": "129",
+    "verify_usable_snapshots": "45"
+  },
+  "results": [
+    {
+      "name": "onboarding",
+      "status": "PASS",
+      "notes": "household=01a08163-aa0a-7d91-a0c6-5475a50fa087 member=01a08163-aa0a-7d9b-8b24-849b4e045099 base=AUD tz=(empty, no history yet)"
+    },
+    {
+      "name": "accounts",
+      "status": "PASS",
+      "notes": "cash=01a08163-aa0c-7ad6-bdd0-c4f57bc2e441 broker=01a08163-aa0d-7bcd-a1ed-2e47ab8e32c6"
+    },
+    {
+      "name": "instrument_aapl",
+      "status": "PASS",
+      "notes": "id=01a08163-aa0e-740d-afac-ed08f01ab771 quoteSource=manual"
+    },
+    {
+      "name": "current_quotes",
+      "status": "PASS",
+      "notes": "fx USD/AUD=1.5000 aapl=180.00 at 2026-09-08T14:19:47Z"
+    },
+    {
+      "name": "fx_preference_manual",
+      "status": "PASS",
+      "notes": "USD/AUD source=manual"
+    },
+    {
+      "name": "start_history",
+      "status": "PASS",
+      "notes": "tz=Asia/Singapore components=1 origin=01a08163-aa12-7210-83ae-eb3bc900e01c"
+    },
+    {
+      "name": "backdate_origin",
+      "status": "PASS",
+      "notes": "started_at=2026-07-25T14:19:47Z (~45d ago)"
+    },
+    {
+      "name": "daily_quotes",
+      "status": "PASS",
+      "notes": "days=0..44 count=45 fx~1.50..1.5088 aapl~180..202.00"
+    },
+    {
+      "name": "act_day1_contrib_usd",
+      "status": "PASS",
+      "notes": "brokerage +20000 USD contribution"
+    },
+    {
+      "name": "act_day2_contrib_aud",
+      "status": "PASS",
+      "notes": "cash +5000 AUD contribution"
+    },
+    {
+      "name": "act_day5_buy_aapl",
+      "status": "PASS",
+      "notes": "buy 10 AAPL ~1800 USD fee 5"
+    },
+    {
+      "name": "act_day10_income",
+      "status": "PASS",
+      "notes": "cash +3000 AUD income/salary"
+    },
+    {
+      "name": "act_day15_spending",
+      "status": "PASS",
+      "notes": "cash -200 AUD expense via MoneyRemovedInput"
+    },
+    {
+      "name": "act_day20_buy_aapl",
+      "status": "PASS",
+      "notes": "buy 5 AAPL ~950 USD"
+    },
+    {
+      "name": "act_day30_contrib_usd",
+      "status": "PASS",
+      "notes": "brokerage +1000 USD contribution"
+    },
+    {
+      "name": "backdate_entities",
+      "status": "PASS",
+      "notes": "instrument.created_at=2026-07-25T14:19:47Z holding.created_at=2026-07-30T14:19:47Z"
+    },
+    {
+      "name": "rebuild_snapshots",
+      "status": "PASS",
+      "notes": "rebuilt=45 range=2026-07-25..2026-09-07 chunks\u003c=31d"
+    },
+    {
+      "name": "complete_daily_range",
+      "status": "PASS",
+      "notes": "targetDate=2026-09-07"
+    },
+    {
+      "name": "verify_snapshots",
+      "status": "PASS",
+      "notes": "origin_components=1 usable_snapshots=45 items=129 max_component_count=3 sample_assets=49899.72"
+    },
+    {
+      "name": "settings_aud",
+      "status": "PASS",
+      "notes": "wrote /workspace/nestworth-analytics-qa/data/settings.json currency=AUD"
+    }
+  ]
+}

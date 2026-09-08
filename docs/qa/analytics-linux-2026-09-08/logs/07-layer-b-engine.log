@@ -1,0 +1,690 @@
+=== Nestworth Analytics QA Layer B — Engine correctness / golden ===
+When (UTC): 2026-09-08 10:20:33
+When (SGT): 2026-09-08 18:20:33 +08
+Commit: 4cee77220fde42a60131282ef2f637c5750cb96b
+PWD: /workspace/NestworthGo-fe-be-audit
+
+=== 1) Fixture-mapped focused tests (-v -count=1) ===
+=== RUN   TestAnalysisReviewCases09And26ForeignHoldingFX
+--- PASS: TestAnalysisReviewCases09And26ForeignHoldingFX (0.00s)
+=== RUN   TestAnalysisReviewCase32TrackingBalanceCashFormula
+--- PASS: TestAnalysisReviewCase32TrackingBalanceCashFormula (0.00s)
+=== RUN   TestAnalysisReviewCases13And14ScopeSemantics
+--- PASS: TestAnalysisReviewCases13And14ScopeSemantics (0.00s)
+=== RUN   TestAnalysisReviewCases01And02And17bIdentity
+--- PASS: TestAnalysisReviewCases01And02And17bIdentity (0.00s)
+=== RUN   TestAnalysisReviewCases09And26And32FXPaths
+--- PASS: TestAnalysisReviewCases09And26And32FXPaths (0.00s)
+=== RUN   TestAnalysisReviewCase35InKindTransferHasNoPriceAndIsScopeRelative
+--- PASS: TestAnalysisReviewCase35InKindTransferHasNoPriceAndIsScopeRelative (0.00s)
+=== RUN   TestAnalysisReturnModifiedDietzAndGeometricLinking
+--- PASS: TestAnalysisReturnModifiedDietzAndGeometricLinking (0.00s)
+=== RUN   TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded
+=== RUN   TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case19_contribution
+=== RUN   TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case20_salary_with_cash
+=== RUN   TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case20_salary_without_cash
+--- PASS: TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded (0.00s)
+    --- PASS: TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case19_contribution (0.00s)
+    --- PASS: TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case20_salary_with_cash (0.00s)
+    --- PASS: TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case20_salary_without_cash (0.00s)
+=== RUN   TestAnalysisReturnCase19NoonContributionUsesWeightedDietzCapital
+--- PASS: TestAnalysisReturnCase19NoonContributionUsesWeightedDietzCapital (0.00s)
+=== RUN   TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz
+=== RUN   TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz/included_cash
+=== RUN   TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz/excluded_cash
+--- PASS: TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz (0.00s)
+    --- PASS: TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz/included_cash (0.00s)
+    --- PASS: TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz/excluded_cash (0.00s)
+=== RUN   TestValuationServiceMatchesGoldenPortfolioAndPartialSubtotal
+--- PASS: TestValuationServiceMatchesGoldenPortfolioAndPartialSubtotal (0.07s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/application	0.093s
+FOCUSED_EXIT=0
+
+=== 2) All analysis_* / return / attribution / review / fixture / projections tests (-count=1) ===
+Filter: TestAnalysis|TestAsset|TestReview|TestDividend|TestCategories|TestValuation.*Golden|TestGain
+--- FAIL: TestAnalysisPerformanceBudgets (5.23s)
+    --- FAIL: TestAnalysisPerformanceBudgets/cold-3y (5.15s)
+        analysis_projections_test.go:678: cold 3Y/500-component took 5.092925095s, want < 3s
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	5.683s
+FAIL
+ENGINE_FILTER_EXIT=1
+
+=== 3) Full internal/application package (-count=1) — includes known cold-3y perf ===
+=== RUN   TestAnalysisDebtDrawIsNetWorthNeutral
+--- PASS: TestAnalysisDebtDrawIsNetWorthNeutral (0.00s)
+=== RUN   TestAnalysisInterestUsesDividendInterestBucket
+--- PASS: TestAnalysisInterestUsesDividendInterestBucket (0.00s)
+=== RUN   TestAnalysisReviewCase03ScopeIntersection
+--- PASS: TestAnalysisReviewCase03ScopeIntersection (0.00s)
+=== RUN   TestAnalysisReviewCase08SameDayOpenClose
+--- PASS: TestAnalysisReviewCase08SameDayOpenClose (0.00s)
+=== RUN   TestAnalysisReviewCase10FXConversion
+--- PASS: TestAnalysisReviewCase10FXConversion (0.00s)
+=== RUN   TestAnalysisReviewCases09And26ForeignHoldingFX
+--- PASS: TestAnalysisReviewCases09And26ForeignHoldingFX (0.00s)
+=== RUN   TestAnalysisReviewCase32TrackingBalanceCashFormula
+--- PASS: TestAnalysisReviewCase32TrackingBalanceCashFormula (0.00s)
+=== RUN   TestAnalysisReviewDepositInterestIsWritable
+--- PASS: TestAnalysisReviewDepositInterestIsWritable (0.00s)
+=== RUN   TestAnalysisReviewCases13And14ScopeSemantics
+--- PASS: TestAnalysisReviewCases13And14ScopeSemantics (0.00s)
+=== RUN   TestAnalysisReviewCases16And17RealDebtPaymentPath
+=== RUN   TestAnalysisReviewCases16And17RealDebtPaymentPath/case-15-principal-draw-is-neutral
+=== RUN   TestAnalysisReviewCases16And17RealDebtPaymentPath/case-16-principal-repayment
+=== RUN   TestAnalysisReviewCases16And17RealDebtPaymentPath/case-17-interest-is-spending
+--- PASS: TestAnalysisReviewCases16And17RealDebtPaymentPath (0.00s)
+    --- PASS: TestAnalysisReviewCases16And17RealDebtPaymentPath/case-15-principal-draw-is-neutral (0.00s)
+    --- PASS: TestAnalysisReviewCases16And17RealDebtPaymentPath/case-16-principal-repayment (0.00s)
+    --- PASS: TestAnalysisReviewCases16And17RealDebtPaymentPath/case-17-interest-is-spending (0.00s)
+=== RUN   TestAnalysisReviewCase17bCapitalisedInterest
+--- PASS: TestAnalysisReviewCase17bCapitalisedInterest (0.00s)
+=== RUN   TestAnalysisReviewCase24FractionalQuantity
+--- PASS: TestAnalysisReviewCase24FractionalQuantity (0.00s)
+=== RUN   TestAnalysisReviewCase25ValueUpdateAndResidual
+--- PASS: TestAnalysisReviewCase25ValueUpdateAndResidual (0.00s)
+=== RUN   TestAnalysisReviewCases28And29RealMoneyOutPath
+=== RUN   TestAnalysisReviewCases28And29RealMoneyOutPath/case-28-bank-maintenance-fee
+=== RUN   TestAnalysisReviewCases28And29RealMoneyOutPath/case-29-unassociated-tax
+--- PASS: TestAnalysisReviewCases28And29RealMoneyOutPath (0.00s)
+    --- PASS: TestAnalysisReviewCases28And29RealMoneyOutPath/case-28-bank-maintenance-fee (0.00s)
+    --- PASS: TestAnalysisReviewCases28And29RealMoneyOutPath/case-29-unassociated-tax (0.00s)
+=== RUN   TestAnalysisReviewCase31IdentityAcrossScopes
+--- PASS: TestAnalysisReviewCase31IdentityAcrossScopes (0.00s)
+=== RUN   TestAnalysisReviewCase40OriginTimezoneBoundaries
+--- PASS: TestAnalysisReviewCase40OriginTimezoneBoundaries (0.00s)
+=== RUN   TestAnalysisReviewCase41CurrencyAwareTolerance
+--- PASS: TestAnalysisReviewCase41CurrencyAwareTolerance (0.00s)
+=== RUN   TestAnalysisReviewServiceLoadsClosedSnapshots
+--- PASS: TestAnalysisReviewServiceLoadsClosedSnapshots (0.03s)
+=== RUN   TestAnalysisClosedPositionWithoutCloseQuoteIsPartial
+--- PASS: TestAnalysisClosedPositionWithoutCloseQuoteIsPartial (0.00s)
+=== RUN   TestAnalysisUnknownAccountSnapshotItemIsPartial
+--- PASS: TestAnalysisUnknownAccountSnapshotItemIsPartial (0.00s)
+=== RUN   TestAnalysisSnapshotWindowExcludesOutOfRangeComponents
+--- PASS: TestAnalysisSnapshotWindowExcludesOutOfRangeComponents (0.00s)
+=== RUN   TestSumReturnComponentsPropagatesOverflow
+--- PASS: TestSumReturnComponentsPropagatesOverflow (0.00s)
+=== RUN   TestAnalysisReviewCases01And02And17bIdentity
+--- PASS: TestAnalysisReviewCases01And02And17bIdentity (0.00s)
+=== RUN   TestAnalysisReviewCases09And26And32FXPaths
+--- PASS: TestAnalysisReviewCases09And26And32FXPaths (0.00s)
+=== RUN   TestAnalysisReviewCases23And27And34And36Boundaries
+--- PASS: TestAnalysisReviewCases23And27And34And36Boundaries (0.00s)
+=== RUN   TestAnalysisReviewCase36UnexplainedQuantityChange
+--- PASS: TestAnalysisReviewCase36UnexplainedQuantityChange (0.00s)
+=== RUN   TestAnalysisReviewCase35InKindTransferHasNoPriceAndIsScopeRelative
+--- PASS: TestAnalysisReviewCase35InKindTransferHasNoPriceAndIsScopeRelative (0.00s)
+=== RUN   TestAnalysisReviewCases33And36QuantityErrorKeepsFormulaDriversAndShowsResidual
+--- PASS: TestAnalysisReviewCases33And36QuantityErrorKeepsFormulaDriversAndShowsResidual (0.00s)
+=== RUN   TestAnalysisReviewCase17CashInterestIsSignedSpending
+--- PASS: TestAnalysisReviewCase17CashInterestIsSignedSpending (0.00s)
+=== RUN   TestAnalysisReviewCase04SameDayBuyUsesTradePath
+--- PASS: TestAnalysisReviewCase04SameDayBuyUsesTradePath (0.00s)
+=== RUN   TestAnalysisReviewCase38GiftIsIncomeNotExternalFlow
+--- PASS: TestAnalysisReviewCase38GiftIsIncomeNotExternalFlow (0.00s)
+=== RUN   TestAssetChangeProjectionReconcilesSummaryAndWaterfall
+--- PASS: TestAssetChangeProjectionReconcilesSummaryAndWaterfall (0.00s)
+=== RUN   TestAssetDriverDetailResidualKeepsComponentAndDay
+--- PASS: TestAssetDriverDetailResidualKeepsComponentAndDay (0.00s)
+=== RUN   TestAssetChangeGroupsKeepResidualAsItsOwnOtherRow
+--- PASS: TestAssetChangeGroupsKeepResidualAsItsOwnOtherRow (0.00s)
+=== RUN   TestAssetChangeGroupsSeparateCashFlowsFromMarketAndInvestment
+--- PASS: TestAssetChangeGroupsSeparateCashFlowsFromMarketAndInvestment (0.00s)
+=== RUN   TestAssetChangeAvailabilityUsesAssetDaysForCashOnlyAccount
+--- PASS: TestAssetChangeAvailabilityUsesAssetDaysForCashOnlyAccount (0.00s)
+=== RUN   TestAssetChangeAvailabilityIgnoresInvestmentReturnCoverage
+--- PASS: TestAssetChangeAvailabilityIgnoresInvestmentReturnCoverage (0.00s)
+=== RUN   TestAssetChangeProjectionUsesRecordedEndingValueForInternalTransfers
+--- PASS: TestAssetChangeProjectionUsesRecordedEndingValueForInternalTransfers (0.00s)
+=== RUN   TestAssetTrendUsesPeriodEndForLevelsAndSumsFlows
+--- PASS: TestAssetTrendUsesPeriodEndForLevelsAndSumsFlows (0.00s)
+=== RUN   TestAssetTrendReturnRateGeometricallyLinksDailyRates
+--- PASS: TestAssetTrendReturnRateGeometricallyLinksDailyRates (0.00s)
+=== RUN   TestAssetTrendReturnRateOmitsMinorityCoverage
+--- PASS: TestAssetTrendReturnRateOmitsMinorityCoverage (0.00s)
+=== RUN   TestAnalysisMemoIsCanonicalAndBounded
+--- PASS: TestAnalysisMemoIsCanonicalAndBounded (0.00s)
+=== RUN   TestAnalysisQueryHashCanonicalizesAssetClass
+--- PASS: TestAnalysisQueryHashCanonicalizesAssetClass (0.00s)
+=== RUN   TestDividendCategoriesUseAssociatedReturnEffects
+--- PASS: TestDividendCategoriesUseAssociatedReturnEffects (0.00s)
+=== RUN   TestCategoriesRanksRowsBySignedAmount
+--- PASS: TestCategoriesRanksRowsBySignedAmount (0.00s)
+=== RUN   TestAssetChangeForcesBaseForMultiCurrencyNativeQuery
+--- PASS: TestAssetChangeForcesBaseForMultiCurrencyNativeQuery (0.00s)
+=== RUN   TestAnalysisCase44MemoInvalidatesAfterActivityAndSnapshotBuild
+--- PASS: TestAnalysisCase44MemoInvalidatesAfterActivityAndSnapshotBuild (0.04s)
+=== RUN   TestAnalysisCase44SnapshotRebuildChangesWindowResult
+--- PASS: TestAnalysisCase44SnapshotRebuildChangesWindowResult (0.04s)
+=== RUN   TestAnalysisPerformanceBudgets
+=== RUN   TestAnalysisPerformanceBudgets/warm-memo
+=== RUN   TestAnalysisPerformanceBudgets/cold-month
+=== RUN   TestAnalysisPerformanceBudgets/cold-3y
+    analysis_projections_test.go:678: cold 3Y/500-component took 5.177705945s, want < 3s
+--- FAIL: TestAnalysisPerformanceBudgets (5.32s)
+    --- PASS: TestAnalysisPerformanceBudgets/warm-memo (0.02s)
+    --- PASS: TestAnalysisPerformanceBudgets/cold-month (0.06s)
+    --- FAIL: TestAnalysisPerformanceBudgets/cold-3y (5.24s)
+=== RUN   TestReturnCalendarProjectsCompositionCoverageAndIssues
+--- PASS: TestReturnCalendarProjectsCompositionCoverageAndIssues (0.00s)
+=== RUN   TestReturnCalendarUsesDailyCoverageNotPeriodCoverage
+--- PASS: TestReturnCalendarUsesDailyCoverageNotPeriodCoverage (0.00s)
+=== RUN   TestReturnCalendarCursorFiltersCellsButKeepsPeriodSummary
+--- PASS: TestReturnCalendarCursorFiltersCellsButKeepsPeriodSummary (0.00s)
+=== RUN   TestReturnTrendKeepsDailyRatesAndGeometricPeriodRate
+--- PASS: TestReturnTrendKeepsDailyRatesAndGeometricPeriodRate (0.00s)
+=== RUN   TestReturnTrendSourcesUseReturnComponents
+--- PASS: TestReturnTrendSourcesUseReturnComponents (0.00s)
+=== RUN   TestReturnCalendarDoesNotTurnACompleteNoCapitalDayIntoAnIssue
+--- PASS: TestReturnCalendarDoesNotTurnACompleteNoCapitalDayIntoAnIssue (0.00s)
+=== RUN   TestReturnTrendDisplayProjectsCumulativeAmount
+--- PASS: TestReturnTrendDisplayProjectsCumulativeAmount (0.00s)
+=== RUN   TestContributionTotalReturnUsesFoldAndRateSortFallsBackForDividend
+--- PASS: TestContributionTotalReturnUsesFoldAndRateSortFallsBackForDividend (0.00s)
+=== RUN   TestContributionSortingHandlesUnavailableAmounts
+--- PASS: TestContributionSortingHandlesUnavailableAmounts (0.00s)
+=== RUN   TestContributionItemTotalReturnCompositionUsesReturnComponents
+--- PASS: TestContributionItemTotalReturnCompositionUsesReturnComponents (0.00s)
+=== RUN   TestContributionItemReturnsNotFoundForUnknownGroup
+--- PASS: TestContributionItemReturnsNotFoundForUnknownGroup (0.00s)
+=== RUN   TestFoldReturnGroupsLinksRatesInDateOrder
+--- PASS: TestFoldReturnGroupsLinksRatesInDateOrder (0.00s)
+=== RUN   TestContributionUnrealizedIsUnavailableWithoutCostBasis
+--- PASS: TestContributionUnrealizedIsUnavailableWithoutCostBasis (0.00s)
+=== RUN   TestContributionIndependentViewsDoNotRequireReturnEngine
+--- PASS: TestContributionIndependentViewsDoNotRequireReturnEngine (0.00s)
+=== RUN   TestReturnProjectionCarriesForcedBaseForCase43
+--- PASS: TestReturnProjectionCarriesForcedBaseForCase43 (0.00s)
+=== RUN   TestReturnCalendarCase43UsesValuationFallback
+--- PASS: TestReturnCalendarCase43UsesValuationFallback (0.00s)
+=== RUN   TestAnalysisReturnModifiedDietzAndGeometricLinking
+--- PASS: TestAnalysisReturnModifiedDietzAndGeometricLinking (0.00s)
+=== RUN   TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital
+=== RUN   TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital/baseline
+=== RUN   TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital/interest
+=== RUN   TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital/income
+--- PASS: TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital (0.00s)
+    --- PASS: TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital/baseline (0.00s)
+    --- PASS: TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital/interest (0.00s)
+    --- PASS: TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital/income (0.00s)
+=== RUN   TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded
+=== RUN   TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case19_contribution
+=== RUN   TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case20_salary_with_cash
+=== RUN   TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case20_salary_without_cash
+--- PASS: TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded (0.00s)
+    --- PASS: TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case19_contribution (0.00s)
+    --- PASS: TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case20_salary_with_cash (0.00s)
+    --- PASS: TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded/case20_salary_without_cash (0.00s)
+=== RUN   TestAnalysisReturnDSTWeightUsesOriginLocalDayLength
+--- PASS: TestAnalysisReturnDSTWeightUsesOriginLocalDayLength (0.00s)
+=== RUN   TestAnalysisReturnReconciliationIsNotDietzCapital
+--- PASS: TestAnalysisReturnReconciliationIsNotDietzCapital (0.00s)
+=== RUN   TestAnalysisReturnDSTNoonFlowWeightUsesOriginLocalDay
+--- PASS: TestAnalysisReturnDSTNoonFlowWeightUsesOriginLocalDay (0.00s)
+=== RUN   TestAnalysisReturnDividendAndTradeFeeFollowInvestmentAssociation
+--- PASS: TestAnalysisReturnDividendAndTradeFeeFollowInvestmentAssociation (0.00s)
+=== RUN   TestAnalysisReturnCases04To07And18TradePath
+=== RUN   TestAnalysisReturnCases04To07And18TradePath/case04_buy_rises
+=== RUN   TestAnalysisReturnCases04To07And18TradePath/case05_buy_falls
+=== RUN   TestAnalysisReturnCases04To07And18TradePath/case06_partial_sell
+=== RUN   TestAnalysisReturnCases04To07And18TradePath/case07_multiple_buys_sells
+=== RUN   TestAnalysisReturnCases04To07And18TradePath/case18_zero_beginning
+--- PASS: TestAnalysisReturnCases04To07And18TradePath (0.00s)
+    --- PASS: TestAnalysisReturnCases04To07And18TradePath/case04_buy_rises (0.00s)
+    --- PASS: TestAnalysisReturnCases04To07And18TradePath/case05_buy_falls (0.00s)
+    --- PASS: TestAnalysisReturnCases04To07And18TradePath/case06_partial_sell (0.00s)
+    --- PASS: TestAnalysisReturnCases04To07And18TradePath/case07_multiple_buys_sells (0.00s)
+    --- PASS: TestAnalysisReturnCases04To07And18TradePath/case18_zero_beginning (0.00s)
+=== RUN   TestAnalysisReturnCase39RateCoverageSkipsUnavailableDays
+--- PASS: TestAnalysisReturnCase39RateCoverageSkipsUnavailableDays (0.00s)
+=== RUN   TestAnalysisReturnPeriodInvestedCapitalUsesFirstDayBeginning
+--- PASS: TestAnalysisReturnPeriodInvestedCapitalUsesFirstDayBeginning (0.00s)
+=== RUN   TestAnalysisReturnFoldReturnGroupsUsesAdditiveDailyCapital
+--- PASS: TestAnalysisReturnFoldReturnGroupsUsesAdditiveDailyCapital (0.00s)
+=== RUN   TestAnalysisReturnCase19NoonContributionUsesWeightedDietzCapital
+--- PASS: TestAnalysisReturnCase19NoonContributionUsesWeightedDietzCapital (0.00s)
+=== RUN   TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz
+=== RUN   TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz/included_cash
+=== RUN   TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz/excluded_cash
+--- PASS: TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz (0.00s)
+    --- PASS: TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz/included_cash (0.00s)
+    --- PASS: TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz/excluded_cash (0.00s)
+=== RUN   TestAnalysisReturnCases11And22TradeFeeIsInvestmentReturn
+--- PASS: TestAnalysisReturnCases11And22TradeFeeIsInvestmentReturn (0.00s)
+=== RUN   TestAnalysisReturnCase12DividendNetCashAndAssociatedTax
+--- PASS: TestAnalysisReturnCase12DividendNetCashAndAssociatedTax (0.00s)
+=== RUN   TestAnalysisReturnCase28BankMaintenanceFeeIsCapitalNotInvestmentReturn
+--- PASS: TestAnalysisReturnCase28BankMaintenanceFeeIsCapitalNotInvestmentReturn (0.00s)
+=== RUN   TestAnalysisReturnCase30GroupRateUsesOwnDietzDenominator
+--- PASS: TestAnalysisReturnCase30GroupRateUsesOwnDietzDenominator (0.00s)
+=== RUN   TestAnalysisReturnCase42FoldMatchesInstrumentScopeEngine
+--- PASS: TestAnalysisReturnCase42FoldMatchesInstrumentScopeEngine (0.00s)
+=== RUN   TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache
+=== RUN   TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache/assets-first
+=== RUN   TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache/return-native-fallback-then-assets
+--- PASS: TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache (0.00s)
+    --- PASS: TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache/assets-first (0.00s)
+    --- PASS: TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache/return-native-fallback-then-assets (0.00s)
+=== RUN   TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept
+=== RUN   TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept/fully-missing-day-is-unavailable
+=== RUN   TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept/complete-zero-return
+=== RUN   TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept/complete-non-positive-capital
+--- PASS: TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept (0.00s)
+    --- PASS: TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept/fully-missing-day-is-unavailable (0.00s)
+    --- PASS: TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept/complete-zero-return (0.00s)
+    --- PASS: TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept/complete-non-positive-capital (0.00s)
+=== RUN   TestReviewF03InKindTransferIsDietzCapitalAtScopeBoundary
+--- PASS: TestReviewF03InKindTransferIsDietzCapitalAtScopeBoundary (0.00s)
+=== RUN   TestReviewF03SplitAndReconciliationAreNotDietzCapital
+--- PASS: TestReviewF03SplitAndReconciliationAreNotDietzCapital (0.00s)
+=== RUN   TestReviewF07OffsettingResidualKeepsIssueCountWithoutZeroBar
+--- PASS: TestReviewF07OffsettingResidualKeepsIssueCountWithoutZeroBar (0.00s)
+=== RUN   TestReviewF11ContributionHistoryHintUsesWholeGroup
+--- PASS: TestReviewF11ContributionHistoryHintUsesWholeGroup (0.00s)
+=== RUN   TestHoldingsByAccountsGroupsHoldingsByAccount
+--- PASS: TestHoldingsByAccountsGroupsHoldingsByAccount (0.02s)
+=== RUN   TestConcurrentAppendAccountCashValueSerializes
+--- PASS: TestConcurrentAppendAccountCashValueSerializes (0.03s)
+=== RUN   TestBootstrapDoesNotRecreateDefaultDirectory
+--- PASS: TestBootstrapDoesNotRecreateDefaultDirectory (0.02s)
+=== RUN   TestCSVSessionExpiresAndEvicts
+--- PASS: TestCSVSessionExpiresAndEvicts (0.02s)
+=== RUN   TestRecordChangeWithMutationReplaysSamePayloadAndConflictsOnMismatch
+--- PASS: TestRecordChangeWithMutationReplaysSamePayloadAndConflictsOnMismatch (0.02s)
+=== RUN   TestFixChangeWithMutationStoresKeyOnReplacement
+--- PASS: TestFixChangeWithMutationStoresKeyOnReplacement (0.02s)
+=== RUN   TestParseActivityMutationRejectsInvalidHash
+--- PASS: TestParseActivityMutationRejectsInvalidHash (0.00s)
+=== RUN   TestRecordChangeWritesActivityEffectsProjectionAndClosedDayDirtyState
+--- PASS: TestRecordChangeWritesActivityEffectsProjectionAndClosedDayDirtyState (0.02s)
+=== RUN   TestRecordChangeRequiresStartingPointAndDoesNotCallProviders
+--- PASS: TestRecordChangeRequiresStartingPointAndDoesNotCallProviders (0.02s)
+=== RUN   TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail
+--- PASS: TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail (0.03s)
+=== RUN   TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis
+--- PASS: TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis (0.03s)
+=== RUN   TestRecordFirstBuyCreatesHoldingAndCommitsAtomically
+--- PASS: TestRecordFirstBuyCreatesHoldingAndCommitsAtomically (0.02s)
+=== RUN   TestRecordTransfersUseNativeEndpointsAndCommitAtomically
+--- PASS: TestRecordTransfersUseNativeEndpointsAndCommitAtomically (0.03s)
+=== RUN   TestPositionTransferOverflowPersistsNoRows
+--- PASS: TestPositionTransferOverflowPersistsNoRows (0.02s)
+=== RUN   TestUndoAndFixKeepEvidenceAppendOnly
+--- PASS: TestUndoAndFixKeepEvidenceAppendOnly (0.03s)
+=== RUN   TestPreviewFixChangeMatchesFixChangeWithoutCommitting
+--- PASS: TestPreviewFixChangeMatchesFixChangeWithoutCommitting (0.02s)
+=== RUN   TestAppendEffectiveStateAndPreferenceObservations
+--- PASS: TestAppendEffectiveStateAndPreferenceObservations (0.02s)
+=== RUN   TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision
+--- PASS: TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision (0.02s)
+=== RUN   TestCompositeCashAcceptsForeignCurrencyBeforeAndAfterHistory
+--- PASS: TestCompositeCashAcceptsForeignCurrencyBeforeAndAfterHistory (0.03s)
+=== RUN   TestMixedBankFirstFundBuyDecreasesCashAndShowsHolding
+--- PASS: TestMixedBankFirstFundBuyDecreasesCashAndShowsHolding (0.02s)
+=== RUN   TestAccountsCSVImportSetsEffectiveAtFromValueDate
+--- PASS: TestAccountsCSVImportSetsEffectiveAtFromValueDate (0.02s)
+=== RUN   TestAccountsCSVRejectsFutureDate
+--- PASS: TestAccountsCSVRejectsFutureDate (0.02s)
+=== RUN   TestAccountsCSVParsesCommaDecimalOwnership
+--- PASS: TestAccountsCSVParsesCommaDecimalOwnership (0.01s)
+=== RUN   TestCSVRejectsConflictingNumberSeparators
+--- PASS: TestCSVRejectsConflictingNumberSeparators (0.00s)
+=== RUN   TestHoldingsCSVRequiresEmptyAccountValue
+--- PASS: TestHoldingsCSVRequiresEmptyAccountValue (0.02s)
+=== RUN   TestHoldingsCSVBlocksUnmatchedInstrument
+--- PASS: TestHoldingsCSVBlocksUnmatchedInstrument (0.02s)
+=== RUN   TestSharedCSVImportBlocksWhenAccountsHaveErrors
+--- PASS: TestSharedCSVImportBlocksWhenAccountsHaveErrors (0.02s)
+=== RUN   TestOwnershipCSVEscapesDelimitersInMemberNames
+--- PASS: TestOwnershipCSVEscapesDelimitersInMemberNames (0.00s)
+=== RUN   TestExportAccountsCSVUsesHistoryOriginCalendarDate
+--- PASS: TestExportAccountsCSVUsesHistoryOriginCalendarDate (0.00s)
+=== RUN   TestExportAccountsCSVRoundTripSingaporeDate
+--- PASS: TestExportAccountsCSVRoundTripSingaporeDate (0.02s)
+=== RUN   TestExportAccountsCSVRoundTrip
+--- PASS: TestExportAccountsCSVRoundTrip (0.02s)
+=== RUN   TestOwnershipBPSAllows3333And6667
+--- PASS: TestOwnershipBPSAllows3333And6667 (0.00s)
+=== RUN   TestWithExclusiveRejectsOverlap
+--- PASS: TestWithExclusiveRejectsOverlap (0.02s)
+=== RUN   TestExclusiveBackupRejectsActivityDirectoryIconAndSettingsWriters
+--- PASS: TestExclusiveBackupRejectsActivityDirectoryIconAndSettingsWriters (0.02s)
+=== RUN   TestExclusiveRestoreRejectsMutationBeforeDatabaseClose
+--- PASS: TestExclusiveRestoreRejectsMutationBeforeDatabaseClose (0.02s)
+=== RUN   TestCSVCommitAndOrdinaryWriteAreMutuallyExclusive
+--- PASS: TestCSVCommitAndOrdinaryWriteAreMutuallyExclusive (0.07s)
+=== RUN   TestOrdinaryWritesRemainSerializedUnderRace
+--- PASS: TestOrdinaryWritesRemainSerializedUnderRace (0.02s)
+=== RUN   TestExclusiveBackupRejectsInFlightRefreshPersist
+--- PASS: TestExclusiveBackupRejectsInFlightRefreshPersist (0.03s)
+=== RUN   TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts
+--- PASS: TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts (0.05s)
+=== RUN   TestLegacyFixtureSupportsRepositoryGainReads
+--- PASS: TestLegacyFixtureSupportsRepositoryGainReads (0.07s)
+=== RUN   TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository
+--- PASS: TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository (0.03s)
+=== RUN   TestAccountGainIncludesActiveHoldingWithArchivedInstrument
+--- PASS: TestAccountGainIncludesActiveHoldingWithArchivedInstrument (0.02s)
+=== RUN   TestRealizedGainIncludesSoldThenArchivedHolding
+--- PASS: TestRealizedGainIncludesSoldThenArchivedHolding (0.03s)
+=== RUN   TestHoldingGainIncludesBuyFeeInAverageCost
+--- PASS: TestHoldingGainIncludesBuyFeeInAverageCost (0.03s)
+=== RUN   TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain
+--- PASS: TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain (0.03s)
+=== RUN   TestGainServiceTransferUsesSendingCostAtTransferTime
+--- PASS: TestGainServiceTransferUsesSendingCostAtTransferTime (0.06s)
+=== RUN   TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX
+--- PASS: TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX (0.03s)
+=== RUN   TestDividendIncomeAggregatesIndependentlyOfRealizedGain
+--- PASS: TestDividendIncomeAggregatesIndependentlyOfRealizedGain (0.04s)
+=== RUN   TestDividendIncomeMissingFXMarksGroupUnavailable
+--- PASS: TestDividendIncomeMissingFXMarksGroupUnavailable (0.04s)
+=== RUN   TestFXQuoteWithoutPreferenceAgreesAcrossOverviewGainAndDividend
+--- PASS: TestFXQuoteWithoutPreferenceAgreesAcrossOverviewGainAndDividend (0.03s)
+=== RUN   TestAccountGainsReadsOneSnapshotForManyAccounts
+--- PASS: TestAccountGainsReadsOneSnapshotForManyAccounts (0.02s)
+=== RUN   TestExactSubCentComponentsAgreeAcrossLiveSnapshotReloadAndTrends
+--- PASS: TestExactSubCentComponentsAgreeAcrossLiveSnapshotReloadAndTrends (0.03s)
+=== RUN   TestLegacySnapshotHashRebuildsAppendOnlyV2Revision
+--- PASS: TestLegacySnapshotHashRebuildsAppendOnlyV2Revision (0.02s)
+=== RUN   TestNegativeNetWorthSavesReloadsAndTrends
+--- PASS: TestNegativeNetWorthSavesReloadsAndTrends (0.02s)
+=== RUN   TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts
+--- PASS: TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts (0.02s)
+=== RUN   TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend
+--- PASS: TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend (0.03s)
+=== RUN   TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals
+--- PASS: TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals (0.02s)
+=== RUN   TestBackdatedCashDividendAppearsInHistoricalSnapshots
+--- PASS: TestBackdatedCashDividendAppearsInHistoricalSnapshots (0.03s)
+=== RUN   TestStartHistoryAndCreateInstrumentSerializeHistoryBoundary
+--- PASS: TestStartHistoryAndCreateInstrumentSerializeHistoryBoundary (0.12s)
+=== RUN   TestConcurrentObservationWritersSerializeUnderHistoryLock
+--- PASS: TestConcurrentObservationWritersSerializeUnderHistoryLock (0.02s)
+=== RUN   TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost
+--- PASS: TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost (0.02s)
+=== RUN   TestCreateHoldingCostOverridePersistsAlreadyExistedAdjustment
+--- PASS: TestCreateHoldingCostOverridePersistsAlreadyExistedAdjustment (0.02s)
+=== RUN   TestRebuildHistoricalSnapshotsInvalidStartIsValidationError
+--- PASS: TestRebuildHistoricalSnapshotsInvalidStartIsValidationError (0.01s)
+=== RUN   TestPostOriginEntitiesUseCreationBaselinesBeforeLaterEdits
+--- PASS: TestPostOriginEntitiesUseCreationBaselinesBeforeLaterEdits (0.03s)
+=== RUN   TestRebuildLoadsOneImmutableBatchAndResumesCursor
+--- PASS: TestRebuildLoadsOneImmutableBatchAndResumesCursor (0.02s)
+=== RUN   TestActivityPageComposesFiltersAndKeysetCursor
+--- PASS: TestActivityPageComposesFiltersAndKeysetCursor (0.02s)
+=== RUN   TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance
+--- PASS: TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance (0.03s)
+=== RUN   TestArchiveIntervalsRebuildAndRetainActiveHoldings
+--- PASS: TestArchiveIntervalsRebuildAndRetainActiveHoldings (0.03s)
+=== RUN   TestSnapshotHashIncludesFXPreferenceEvidence
+--- PASS: TestSnapshotHashIncludesFXPreferenceEvidence (0.00s)
+=== RUN   TestConcurrentRecordChangesSerializeWithoutLostCurrentState
+--- PASS: TestConcurrentRecordChangesSerializeWithoutLostCurrentState (0.02s)
+=== RUN   TestDebtPaymentAppliesPrincipalAndFeeCumulatively
+=== RUN   TestDebtPaymentAppliesPrincipalAndFeeCumulatively/balance
+=== RUN   TestDebtPaymentAppliesPrincipalAndFeeCumulatively/holdings
+--- PASS: TestDebtPaymentAppliesPrincipalAndFeeCumulatively (0.04s)
+    --- PASS: TestDebtPaymentAppliesPrincipalAndFeeCumulatively/balance (0.02s)
+    --- PASS: TestDebtPaymentAppliesPrincipalAndFeeCumulatively/holdings (0.02s)
+=== RUN   TestDebtPaymentRejectsInsufficientCombinedCashWithoutWrites
+--- PASS: TestDebtPaymentRejectsInsufficientCombinedCashWithoutWrites (0.02s)
+=== RUN   TestPostHistoryCreationRecordsReconciliationActivities
+--- PASS: TestPostHistoryCreationRecordsReconciliationActivities (0.02s)
+=== RUN   TestSnapshotCursorPreservesEarlierDirtyDates
+--- PASS: TestSnapshotCursorPreservesEarlierDirtyDates (0.02s)
+=== RUN   TestArchivedChangeTargetsAreRejectedAtPreviewAndCommit
+--- PASS: TestArchivedChangeTargetsAreRejectedAtPreviewAndCommit (0.03s)
+=== RUN   TestNormalMetadataAndBackdatedQuotesAppendEvidenceAndDirtyHistory
+--- PASS: TestNormalMetadataAndBackdatedQuotesAppendEvidenceAndDirtyHistory (0.02s)
+=== RUN   TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently
+--- PASS: TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently (0.02s)
+=== RUN   TestStartHistoryRequiresConfirmedIANAZone
+--- PASS: TestStartHistoryRequiresConfirmedIANAZone (0.02s)
+=== RUN   TestMarketDataRegistryResolvesDeterministicProviders
+--- PASS: TestMarketDataRegistryResolvesDeterministicProviders (0.00s)
+=== RUN   TestMarketDataRegistryMissingDefaultIsSafe
+--- PASS: TestMarketDataRegistryMissingDefaultIsSafe (0.00s)
+=== RUN   TestMarketDataRegistrySupportsExplicitDefault
+--- PASS: TestMarketDataRegistrySupportsExplicitDefault (0.00s)
+=== RUN   TestInstrumentProviderKeysExcludesFXOnlyProviders
+--- PASS: TestInstrumentProviderKeysExcludesFXOnlyProviders (0.00s)
+=== RUN   TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary
+--- PASS: TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary (0.03s)
+=== RUN   TestHoldingQuantityUpdatesCannotBypassHistory
+--- PASS: TestHoldingQuantityUpdatesCannotBypassHistory (0.02s)
+=== RUN   TestProviderBindingCanBeSelectedWithoutNetwork
+--- PASS: TestProviderBindingCanBeSelectedWithoutNetwork (0.02s)
+=== RUN   TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem
+--- PASS: TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem (0.02s)
+=== RUN   TestNormalizeProviderObservationTimeBoundsAndRoundTrips
+=== RUN   TestNormalizeProviderObservationTimeBoundsAndRoundTrips/earliest
+=== RUN   TestNormalizeProviderObservationTimeBoundsAndRoundTrips/future_tolerance
+=== RUN   TestNormalizeProviderObservationTimeBoundsAndRoundTrips/future_out_of_range
+=== RUN   TestNormalizeProviderObservationTimeBoundsAndRoundTrips/largest_unix_value
+=== RUN   TestNormalizeProviderObservationTimeBoundsAndRoundTrips/before_lower_bound
+--- PASS: TestNormalizeProviderObservationTimeBoundsAndRoundTrips (0.00s)
+    --- PASS: TestNormalizeProviderObservationTimeBoundsAndRoundTrips/earliest (0.00s)
+    --- PASS: TestNormalizeProviderObservationTimeBoundsAndRoundTrips/future_tolerance (0.00s)
+    --- PASS: TestNormalizeProviderObservationTimeBoundsAndRoundTrips/future_out_of_range (0.00s)
+    --- PASS: TestNormalizeProviderObservationTimeBoundsAndRoundTrips/largest_unix_value (0.00s)
+    --- PASS: TestNormalizeProviderObservationTimeBoundsAndRoundTrips/before_lower_bound (0.00s)
+=== RUN   TestInstrumentQuoteSeriesClipsRangeAndKeepsDeterministicPoints
+--- PASS: TestInstrumentQuoteSeriesClipsRangeAndKeepsDeterministicPoints (0.02s)
+=== RUN   TestInstrumentQuoteSeriesSourceFilterAndEmptyRange
+--- PASS: TestInstrumentQuoteSeriesSourceFilterAndEmptyRange (0.02s)
+=== RUN   TestFXQuoteSeriesInvertsStoredOrientation
+--- PASS: TestFXQuoteSeriesInvertsStoredOrientation (0.02s)
+=== RUN   TestFXQuoteSeriesRejectsSameCurrency
+--- PASS: TestFXQuoteSeriesRejectsSameCurrency (0.02s)
+=== RUN   TestPortfolioTrendSumsInstrumentItemsAndExcludesCash
+--- PASS: TestPortfolioTrendSumsInstrumentItemsAndExcludesCash (0.03s)
+=== RUN   TestFXProviderSelectionRoutesRequiredFXOnly
+--- PASS: TestFXProviderSelectionRoutesRequiredFXOnly (0.02s)
+=== RUN   TestRefreshFXRequestsAndPersistsDirectNonBasePair
+--- PASS: TestRefreshFXRequestsAndPersistsDirectNonBasePair (0.02s)
+=== RUN   TestSetFXProviderRejectsMissingOrFXIncapableProvider
+--- PASS: TestSetFXProviderRejectsMissingOrFXIncapableProvider (0.00s)
+=== RUN   TestRefreshUsesOneRegistrySnapshotDuringRegistrySwap
+--- PASS: TestRefreshUsesOneRegistrySnapshotDuringRegistrySwap (0.02s)
+=== RUN   TestRefreshDeduplicatesTargetsAndProviderObservations
+--- PASS: TestRefreshDeduplicatesTargetsAndProviderObservations (0.02s)
+=== RUN   TestRefreshAllRunsRequiredFXBeforeExtraProviderPairs
+--- PASS: TestRefreshAllRunsRequiredFXBeforeExtraProviderPairs (0.02s)
+=== RUN   TestRefreshSkipsManualTargetsAndStopsAfterRateLimit
+--- PASS: TestRefreshSkipsManualTargetsAndStopsAfterRateLimit (0.02s)
+=== RUN   TestRefreshRateLimitStopsOnlyTargetsOwnedByThatProvider
+--- PASS: TestRefreshRateLimitStopsOnlyTargetsOwnedByThatProvider (0.02s)
+=== RUN   TestRefreshRejectsProviderTimesBeforeWritingQuotes
+=== RUN   TestRefreshRejectsProviderTimesBeforeWritingQuotes/future
+=== RUN   TestRefreshRejectsProviderTimesBeforeWritingQuotes/largest_unix_value
+--- PASS: TestRefreshRejectsProviderTimesBeforeWritingQuotes (0.02s)
+    --- PASS: TestRefreshRejectsProviderTimesBeforeWritingQuotes/future (0.00s)
+    --- PASS: TestRefreshRejectsProviderTimesBeforeWritingQuotes/largest_unix_value (0.00s)
+=== RUN   TestRefreshForeignInstrumentIsSkippedWithoutProviderCall
+--- PASS: TestRefreshForeignInstrumentIsSkippedWithoutProviderCall (0.02s)
+=== RUN   TestRefreshRequiredFXDoesNotStartInstrumentTargets
+--- PASS: TestRefreshRequiredFXDoesNotStartInstrumentTargets (0.02s)
+=== RUN   TestRefreshRequiredFXWithoutPreferenceFetches
+--- PASS: TestRefreshRequiredFXWithoutPreferenceFetches (0.02s)
+=== RUN   TestRefreshMissingOrStaleRespectsQuoteCacheTTL
+--- PASS: TestRefreshMissingOrStaleRespectsQuoteCacheTTL (0.03s)
+=== RUN   TestAccountFiltersLatestValueAndIcons
+--- PASS: TestAccountFiltersLatestValueAndIcons (0.02s)
+=== RUN   TestHouseholdAccountAndOverviewFlow
+--- PASS: TestHouseholdAccountAndOverviewFlow (0.02s)
+=== RUN   TestOverviewHeadlinesUseOneSnapshotForLabelsAndRecentActivity
+--- PASS: TestOverviewHeadlinesUseOneSnapshotForLabelsAndRecentActivity (0.02s)
+=== RUN   TestIdentityOnlyMutationsDoNotLoadBootstrapDirectories
+--- PASS: TestIdentityOnlyMutationsDoNotLoadBootstrapDirectories (0.02s)
+=== RUN   TestUpdateAccountAllowsCompatibleTypeChangeWithoutActivity
+--- PASS: TestUpdateAccountAllowsCompatibleTypeChangeWithoutActivity (0.02s)
+=== RUN   TestUpdateAccountRejectsIncompatibleTypeAndImmutableRole
+--- PASS: TestUpdateAccountRejectsIncompatibleTypeAndImmutableRole (0.02s)
+=== RUN   TestOverviewClassifiesCompositeAndSimpleBuckets
+--- PASS: TestOverviewClassifiesCompositeAndSimpleBuckets (0.02s)
+=== RUN   TestOverviewByAccountTypeKeepsMixedBankAccountWhole
+--- PASS: TestOverviewByAccountTypeKeepsMixedBankAccountWhole (0.02s)
+=== RUN   TestCreateAccountRejectsEmptyOwnership
+--- PASS: TestCreateAccountRejectsEmptyOwnership (0.01s)
+=== RUN   TestUpdateAccountRejectsExplicitEmptyOwnership
+--- PASS: TestUpdateAccountRejectsExplicitEmptyOwnership (0.02s)
+=== RUN   TestUpdateAccountOmittingOwnershipPreservesCustomSplit
+--- PASS: TestUpdateAccountOmittingOwnershipPreservesCustomSplit (0.02s)
+=== RUN   TestClosedDayRebuildFromStartsAfterLastCompleted
+=== RUN   TestClosedDayRebuildFromStartsAfterLastCompleted/new_day_after_completed_history
+=== RUN   TestClosedDayRebuildFromStartsAfterLastCompleted/already_complete
+=== RUN   TestClosedDayRebuildFromStartsAfterLastCompleted/dirty_range_wins_over_last_completed
+=== RUN   TestClosedDayRebuildFromStartsAfterLastCompleted/no_cursor_rebuilds_from_origin
+=== RUN   TestClosedDayRebuildFromStartsAfterLastCompleted/dirty_first_run_still_rebuilds_origin
+--- PASS: TestClosedDayRebuildFromStartsAfterLastCompleted (0.00s)
+    --- PASS: TestClosedDayRebuildFromStartsAfterLastCompleted/new_day_after_completed_history (0.00s)
+    --- PASS: TestClosedDayRebuildFromStartsAfterLastCompleted/already_complete (0.00s)
+    --- PASS: TestClosedDayRebuildFromStartsAfterLastCompleted/dirty_range_wins_over_last_completed (0.00s)
+    --- PASS: TestClosedDayRebuildFromStartsAfterLastCompleted/no_cursor_rebuilds_from_origin (0.00s)
+    --- PASS: TestClosedDayRebuildFromStartsAfterLastCompleted/dirty_first_run_still_rebuilds_origin (0.00s)
+=== RUN   TestTrendChartsIncludeTodayWhenHistoryStartsToday
+--- PASS: TestTrendChartsIncludeTodayWhenHistoryStartsToday (0.02s)
+=== RUN   TestNetWorthTrendDoesNotPlotIncompleteSnapshotAsZero
+--- PASS: TestNetWorthTrendDoesNotPlotIncompleteSnapshotAsZero (0.02s)
+=== RUN   TestNetWorthTrendRebuildsHistoryLongerThan31DaysFromLastCompleted
+--- PASS: TestNetWorthTrendRebuildsHistoryLongerThan31DaysFromLastCompleted (0.04s)
+=== RUN   TestValuationServiceMatchesGoldenPortfolioAndPartialSubtotal
+--- PASS: TestValuationServiceMatchesGoldenPortfolioAndPartialSubtotal (0.07s)
+=== RUN   TestValuationServiceResolvesSourcesOrientationAndFreshness
+--- PASS: TestValuationServiceResolvesSourcesOrientationAndFreshness (0.04s)
+=== RUN   TestSelectFXQuoteUsesTheCurrentProviderSourceKey
+--- PASS: TestSelectFXQuoteUsesTheCurrentProviderSourceKey (0.00s)
+=== RUN   TestSelectFXQuoteUsesDefaultProviderWhenPreferenceMissing
+--- PASS: TestSelectFXQuoteUsesDefaultProviderWhenPreferenceMissing (0.00s)
+=== RUN   TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived
+--- PASS: TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived (0.03s)
+=== RUN   TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX
+--- PASS: TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX (0.02s)
+=== RUN   TestMakeAllocationsSortsByAmountDescending
+--- PASS: TestMakeAllocationsSortsByAmountDescending (0.00s)
+=== RUN   TestSortAccountValuationsOrdersByBaseValueDescending
+--- PASS: TestSortAccountValuationsOrdersByBaseValueDescending (0.00s)
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	8.344s
+FAIL
+FULL_APP_EXIT=1
+
+=== 4) wailsapi/analytics + related insights packages ===
+=== RUN   TestHoldingGainAvailableAfterQuote
+--- PASS: TestHoldingGainAvailableAfterQuote (0.03s)
+=== RUN   TestHoldingGainNotFound
+--- PASS: TestHoldingGainNotFound (0.02s)
+=== RUN   TestDividendIncomeIndependentOfRealizedGain
+--- PASS: TestDividendIncomeIndependentOfRealizedGain (0.03s)
+=== RUN   TestRealizedGainInvalidDateRange
+--- PASS: TestRealizedGainInvalidDateRange (0.02s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/analytics	0.092s
+=== RUN   TestCreateAndListHolding
+--- PASS: TestCreateAndListHolding (0.02s)
+=== RUN   TestUpdateHoldingQuantityAndNote
+--- PASS: TestUpdateHoldingQuantityAndNote (0.02s)
+=== RUN   TestHoldingsByAccounts
+--- PASS: TestHoldingsByAccounts (0.02s)
+=== RUN   TestArchiveHoldingRequiresZeroQuantityAfterHistoryStarts
+--- PASS: TestArchiveHoldingRequiresZeroQuantityAfterHistoryStarts (0.02s)
+=== RUN   TestAppendAndListAccountCashValue
+--- PASS: TestAppendAndListAccountCashValue (0.02s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/holding	0.107s
+=== RUN   TestOverviewComputesNetWorth
+--- PASS: TestOverviewComputesNetWorth (0.03s)
+=== RUN   TestOverviewBeforeOnboarding
+--- PASS: TestOverviewBeforeOnboarding (0.02s)
+=== RUN   TestPortfolioValuation
+--- PASS: TestPortfolioValuation (0.02s)
+=== RUN   TestNetWorthTrendWithoutHistory
+--- PASS: TestNetWorthTrendWithoutHistory (0.02s)
+=== RUN   TestPortfolioTrendWithoutHistory
+--- PASS: TestPortfolioTrendWithoutHistory (0.02s)
+=== RUN   TestNetWorthTrendRejectsUnknownRangeBeforeHistoryStarts
+--- PASS: TestNetWorthTrendRejectsUnknownRangeBeforeHistoryStarts (0.02s)
+=== RUN   TestOverviewMultiOwnerFixtureMatchesFrontendGolden
+--- PASS: TestOverviewMultiOwnerFixtureMatchesFrontendGolden (0.02s)
+=== RUN   TestOverviewDTORoundTripsAsJSON
+--- PASS: TestOverviewDTORoundTripsAsJSON (0.02s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/portfolio	0.167s
+=== RUN   TestToCommandResolvesLocalDateTimeInHistoryOriginTimezone
+--- PASS: TestToCommandResolvesLocalDateTimeInHistoryOriginTimezone (0.00s)
+=== RUN   TestToCommandRejectsPartialOrDSTInvalidLocalDateTime
+=== RUN   TestToCommandRejectsPartialOrDSTInvalidLocalDateTime/partial
+=== RUN   TestToCommandRejectsPartialOrDSTInvalidLocalDateTime/DST_gap
+=== RUN   TestToCommandRejectsPartialOrDSTInvalidLocalDateTime/DST_repeat
+--- PASS: TestToCommandRejectsPartialOrDSTInvalidLocalDateTime (0.00s)
+    --- PASS: TestToCommandRejectsPartialOrDSTInvalidLocalDateTime/partial (0.00s)
+    --- PASS: TestToCommandRejectsPartialOrDSTInvalidLocalDateTime/DST_gap (0.00s)
+    --- PASS: TestToCommandRejectsPartialOrDSTInvalidLocalDateTime/DST_repeat (0.00s)
+=== RUN   TestToCommandAcceptsEveryChangeCommandKind
+--- PASS: TestToCommandAcceptsEveryChangeCommandKind (0.00s)
+=== RUN   TestToCommandMoneyRemovedCarriesHoldingAssociation
+--- PASS: TestToCommandMoneyRemovedCarriesHoldingAssociation (0.00s)
+=== RUN   TestCommandKindActivityTableCoversEveryKind
+--- PASS: TestCommandKindActivityTableCoversEveryKind (0.00s)
+=== RUN   TestMutationEnvelopeHashesPayloadWithoutMutationID
+--- PASS: TestMutationEnvelopeHashesPayloadWithoutMutationID (0.00s)
+=== RUN   TestDailyValuationSnapshotDTOMarksSimpleItemsNotTotals
+--- PASS: TestDailyValuationSnapshotDTOMarksSimpleItemsNotTotals (0.00s)
+=== RUN   TestHistoryOriginStartedByOnboarding
+--- PASS: TestHistoryOriginStartedByOnboarding (0.02s)
+=== RUN   TestChangeCommandUnionRoundTripsEveryKind
+--- PASS: TestChangeCommandUnionRoundTripsEveryKind (0.05s)
+=== RUN   TestPreviewChangeDoesNotCommit
+--- PASS: TestPreviewChangeDoesNotCommit (0.02s)
+=== RUN   TestUndoChange
+--- PASS: TestUndoChange (0.03s)
+=== RUN   TestFixChangeReplacesWithCorrectionGroup
+--- PASS: TestFixChangeReplacesWithCorrectionGroup (0.03s)
+=== RUN   TestPreviewFixChangeMatchesFixChange
+--- PASS: TestPreviewFixChangeMatchesFixChange (0.03s)
+=== RUN   TestChangeCommandUnsupportedKind
+--- PASS: TestChangeCommandUnsupportedKind (0.03s)
+=== RUN   TestChangeCommandInvalidAccountID
+--- PASS: TestChangeCommandInvalidAccountID (0.02s)
+=== RUN   TestListActivityPageDateValidation
+--- PASS: TestListActivityPageDateValidation (0.02s)
+=== RUN   TestListActivityPageInstrumentFilter
+--- PASS: TestListActivityPageInstrumentFilter (0.03s)
+=== RUN   TestDailySnapshotStateAndBuild
+--- PASS: TestDailySnapshotStateAndBuild (0.02s)
+=== RUN   TestRecordChangeMutationIDIsIdempotent
+--- PASS: TestRecordChangeMutationIDIsIdempotent (0.02s)
+PASS
+ok  	github.com/waltwang/nestworth-go/internal/wailsapi/history	0.336s
+WAILSAPI_EXIT=0
+
+=== Summary of FAIL lines ===
+
+=== 5) Correctness-only: skip TestAnalysisPerformanceBudgets ===
+ok  	github.com/waltwang/nestworth-go/internal/application	3.093s
+CORRECTNESS_SKIP_PERF_EXIT=0
+
+=== 6) Performance subtests detail (-v) ===
+=== RUN   TestAnalysisPerformanceBudgets
+=== RUN   TestAnalysisPerformanceBudgets/warm-memo
+=== RUN   TestAnalysisPerformanceBudgets/cold-month
+=== RUN   TestAnalysisPerformanceBudgets/cold-3y
+    analysis_projections_test.go:678: cold 3Y/500-component took 5.190736845s, want < 3s
+--- FAIL: TestAnalysisPerformanceBudgets (5.33s)
+    --- PASS: TestAnalysisPerformanceBudgets/warm-memo (0.02s)
+    --- PASS: TestAnalysisPerformanceBudgets/cold-month (0.06s)
+    --- FAIL: TestAnalysisPerformanceBudgets/cold-3y (5.25s)
+FAIL
+FAIL	github.com/waltwang/nestworth-go/internal/application	5.376s
+FAIL
+PERF_EXIT=1
+
+=== Counts from verbose full package log ===
+PASS lines: 216
+FAIL lines: 1
+--- FAIL: TestAnalysisPerformanceBudgets (5.32s)
+
+Layer B complete at UTC 2026-09-08 10:21:15 / SGT 2026-09-08 18:21:15 +08
