@@ -252,6 +252,60 @@ func TestAssetTrendUsesPeriodEndForLevelsAndSumsFlows(t *testing.T) {
 	}
 }
 
+func TestAssetTrendReturnRateGeometricallyLinksDailyRates(t *testing.T) {
+	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
+	rateOne, _ := decimal.NewFromString("0.10")
+	rateTwo, _ := decimal.NewFromString("0.20")
+	linked, _ := decimal.NewFromString("0.32")
+	result := domain.PeriodAnalysisResult{
+		Query:               query,
+		AnalysisDayTimezone: "UTC",
+		Status:              domain.CompletenessOK,
+		Days: []domain.ComponentDay{
+			analysisTestDay(t, "2026-08-01", accountID, "100", nil),
+			analysisTestDay(t, "2026-08-02", accountID, "100", nil),
+		},
+		DailyReturns: []domain.DailyReturn{
+			{Date: "2026-08-01", Rate: &rateOne, Status: domain.CompletenessOK},
+			{Date: "2026-08-02", Rate: &rateTwo, Status: domain.CompletenessOK},
+		},
+		Coverage:   domain.RateCoverage{RatedDays: 2, TotalDays: 2},
+		ReturnRate: &linked,
+	}
+	trend, err := foldAssetTrend(result, "", TrendMonth, TrendReturnRate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trend.Points) != 1 || trend.Points[0].Rate == nil || !trend.Points[0].Rate.Equal(linked) {
+		t.Fatalf("monthly return rate = %#v, want geometric 0.32", trend.Points)
+	}
+	if trend.Points[0].Coverage != (domain.RateCoverage{RatedDays: 2, TotalDays: 2}) {
+		t.Fatalf("monthly coverage = %+v, want 2/2", trend.Points[0].Coverage)
+	}
+}
+
+func TestAssetTrendReturnRateOmitsMinorityCoverage(t *testing.T) {
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-03", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
+	rate := decimal.NewFromInt(1).Div(decimal.NewFromInt(10))
+	result := domain.PeriodAnalysisResult{
+		Query: query, AnalysisDayTimezone: "UTC", Status: domain.CompletenessOK,
+		DailyReturns: []domain.DailyReturn{
+			{Date: "2026-08-01", Rate: &rate, Status: domain.CompletenessOK},
+			{Date: "2026-08-02", Status: domain.CompletenessOK},
+			{Date: "2026-08-03", Status: domain.CompletenessOK},
+		},
+		Coverage: domain.RateCoverage{RatedDays: 1, TotalDays: 3},
+	}
+	trend, err := foldAssetTrend(result, "", TrendMonth, TrendReturnRate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trend.Points) != 1 || trend.Points[0].Rate != nil || trend.Points[0].Status != domain.CompletenessPartial || trend.Points[0].Coverage != (domain.RateCoverage{RatedDays: 1, TotalDays: 3}) {
+		t.Fatalf("minority rate coverage = %+v, want partial 1/3 with nil rate", trend.Points)
+	}
+}
+
 func TestAnalysisMemoIsCanonicalAndBounded(t *testing.T) {
 	repository := &emptyAnalysisRepository{}
 	service := NewAnalysisService(repository, func() time.Time { return time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC) })
@@ -350,6 +404,36 @@ func TestDividendCategoriesUseAssociatedReturnEffects(t *testing.T) {
 	}
 	if len(detail.Children) != 1 || !detail.Children[0].Amount.Amount().Equal(decimal.NewFromInt(70)) {
 		t.Fatalf("associated dividend detail children = %+v", detail.Children)
+	}
+}
+
+func TestCategoriesRanksRowsBySignedAmount(t *testing.T) {
+	smallAccount := domain.AccountID("00000000-0000-0000-0000-000000000001")
+	largeAccount := domain.AccountID("00000000-0000-0000-0000-000000000002")
+	spending := domain.BucketSpending
+	small := analysisSignedTestMoney(t, "5")
+	large := analysisSignedTestMoney(t, "50")
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-02", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
+	result := domain.PeriodAnalysisResult{Query: query, Status: domain.CompletenessOK, Days: []domain.ComponentDay{
+		{Date: "2026-08-02", Component: domain.ComponentID{AccountID: smallAccount, Currency: "USD"}, Status: domain.CompletenessOK, AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{spending: small}},
+		{Date: "2026-08-02", Component: domain.ComponentID{AccountID: largeAccount, Currency: "USD"}, Status: domain.CompletenessOK, AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{spending: large}},
+	}}
+	categories := foldCategories(result, "", CategorySpending)
+	if len(categories.Rows) != 2 || categories.Rows[0].Key != largeAccount.String() || categories.Rows[1].Key != smallAccount.String() {
+		t.Fatalf("category ranking = %+v, want amount desc not key order", categories.Rows)
+	}
+	holdingSmall, holdingLarge := domain.NewHoldingID(), domain.NewHoldingID()
+	instrumentID := domain.NewInstrumentID()
+	price := domain.BucketPriceChange
+	smallHolding := domain.ComponentID{AccountID: largeAccount, HoldingID: &holdingSmall, InstrumentID: &instrumentID, Currency: "USD", AssetClass: "equity"}
+	largeHolding := domain.ComponentID{AccountID: largeAccount, HoldingID: &holdingLarge, InstrumentID: &instrumentID, Currency: "USD", AssetClass: "equity"}
+	detailResult := domain.PeriodAnalysisResult{Query: query, Status: domain.CompletenessOK, Days: []domain.ComponentDay{
+		{Date: "2026-08-02", Component: smallHolding, Status: domain.CompletenessOK, AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{price: small}},
+		{Date: "2026-08-02", Component: largeHolding, Status: domain.CompletenessOK, AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{price: large}},
+	}}
+	detail := foldCategoryDetail(detailResult, "", CategoryInvestmentReturn, instrumentID.String())
+	if len(detail.Children) != 2 || !detail.Children[0].Amount.Amount().Equal(decimal.NewFromInt(50)) || !detail.Children[1].Amount.Amount().Equal(decimal.NewFromInt(5)) {
+		t.Fatalf("category children ranking = %+v, want amount desc", detail.Children)
 	}
 }
 

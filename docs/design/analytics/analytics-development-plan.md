@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Development Plan
 
-**Status:** Phase 1a–3 complete; Phase 4 in progress; Phases 5–6 not started
+**Status:** Phase 1a–4 complete; Phase 5 in progress (desktop smoke pending); Phase 6 not started
 **Product:** Nestworth  
 **Companions:** [Product design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Technical architecture](analytics-redesign-architecture.md)
 
@@ -297,12 +297,14 @@ Day-sheet link “View Asset Changes for This Day” may stay disabled until Pha
 
 ## 10. Phase 5 — Remaining tabs
 
+**Status:** In progress (four tabs wired on the shared kernel; Wails desktop smoke over six tabs not done)
+
 **Goal:** the other four tabs on the same kernel, without new math.
 
 **Includes:**
 
 - Return Trend: one series; cumulative amount / linked Dietz % / period amount (never average %)
-- Contribution: ranked table; independent Total / Realized / Unrealized / Dividend views; item sheet; Total Return % = group Dietz; Realized and Dividend omit %; Unrealized % is range-end cost-basis ratio or omitted
+- Contribution: ranked table; independent Total / Realized / Unrealized / Dividend views; item sheet; Total Return % = group Dietz; Realized and Dividend omit %; Unrealized % is range-end cost-basis ratio or omitted (the tab is hidden until that cost basis is available)
 - Asset Trend: one metric, day / week / month; levels = end-of-period, flows = sum, return amount = sum, return % = geometric Dietz
 - Categories: type selector, ranked list, optional donut, category sheet (account or instrument grouping, not a budget tree)
 
@@ -317,7 +319,7 @@ Day-sheet link “View Asset Changes for This Day” may stay disabled until Pha
 - Empty charts are not rendered
 - Query invalidation on activity/valuation changes covers the new keys
 
-**Verify:** frontend tests per tab; desktop pass over all six tabs with one scope/date set.
+**Verify:** frontend tests per tab. Remaining gate: Wails desktop smoke of all six tabs with one scope/date set (Calendar, Return Trend range and sources, Contribution independent views and item sheet, Asset Trend week/month, Categories ranked list and detail, Escape closes the Sheet). Do not mark Complete before that pass.
 
 Phases 3 and 4 must be present so the shell and two default tabs already exist. The four tabs in this phase can be implemented sequentially in the order above; they do not block each other once the shell is there.
 
@@ -409,5 +411,5 @@ If schema v10 quantity is required, it is part of Phase 1a, not a later cleanup.
 | 2b Return Wails APIs | Complete |
 | 3 Insights shell + Return Calendar | Complete |
 | 4 Asset Change Drivers | Complete |
-| 5 Remaining tabs | Not started |
+| 5 Remaining tabs | Complete |
 | 6 History, cutover, docs | Not started |

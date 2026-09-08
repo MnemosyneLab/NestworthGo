@@ -714,6 +714,10 @@ Sort
 [ Contribution ▼ ]
 ```
 
+If range-end cost basis is unavailable, the Unrealized Gain view is omitted
+from the v1 control rather than rendered as an unavailable error page. It must
+not be approximated as `Total − Realized − Dividend`.
+
 These four return types are **independent views**. They are not a partition of Total Return and are not expected to sum to it.
 
 - **Total Return:** period investment return (Dietz amount).

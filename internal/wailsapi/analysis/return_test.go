@@ -61,7 +61,7 @@ func TestReturnTrendDTOKeepsUnforcedRateNullAndMapsSources(t *testing.T) {
 		AnalysisAvailability: application.AnalysisAvailability{Available: true, Status: domain.CompletenessOK},
 		Display:              application.ReturnTrendLinkedRate,
 		Points:               []application.ReturnTrendPoint{{Date: "2026-08-01", Amount: &amount, Rate: &rate, Coverage: domain.RateCoverage{RatedDays: 1, TotalDays: 1}}},
-		Sources:              []application.ReturnContributor{{Key: "qqq", Label: "QQQ", Amount: &amount, Coverage: domain.RateCoverage{RatedDays: 2, TotalDays: 3}}},
+		Sources:              []application.ReturnSource{{Key: "price_change", Label: "price_change", Amount: &amount, Share: &rate}},
 		Coverage:             domain.RateCoverage{RatedDays: 1, TotalDays: 1},
 	})
 	encoded, err := json.Marshal(dto)
@@ -82,8 +82,8 @@ func TestReturnTrendDTOKeepsUnforcedRateNullAndMapsSources(t *testing.T) {
 		t.Fatalf("trend sources = %s", encoded)
 	}
 	source := shape["sources"].([]any)[0].(map[string]any)
-	if source["ratedDays"] != float64(2) || source["totalDays"] != float64(3) {
-		t.Fatalf("source coverage = %s", encoded)
+	if source["key"] != "price_change" || source["share"] != "0.75" {
+		t.Fatalf("source shape = %s", encoded)
 	}
 	point := shape["points"].([]any)[0].(map[string]any)
 	if point["rate"] != "0.75" || point["ratedDays"] != float64(1) || point["totalDays"] != float64(1) || point["value"] != nil {

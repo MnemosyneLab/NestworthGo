@@ -5,6 +5,8 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalysisFilterBar } from "@/features/insights/AnalysisFilterBar";
 import { ChangeDriversTab } from "@/features/insights/ChangeDriversTab";
+import { AssetTrendTab } from "@/features/insights/AssetTrendTab";
+import { CategoriesTab } from "@/features/insights/CategoriesTab";
 import { analysisRequest, effectiveRange } from "@/features/insights/analysisRequest";
 import { currentMonth } from "@/features/insights/calendar";
 import { useAnalysisStore } from "@/stores/analysis";
@@ -51,8 +53,8 @@ export function AssetChangesPage({ onOpenHistory }: { onOpenHistory?: (filters: 
         </TabsList>
         <AnalysisFilterBar session={session} onChange={setFilters} onReset={reset} />
         <TabsContent value="drivers">{driverContent}</TabsContent>
-        <TabsContent value="trend"><EmptyState title={t("insights.assetTrend")} description={t("insights.notAvailableYet")} /></TabsContent>
-        <TabsContent value="categories"><EmptyState title={t("insights.categories")} description={t("insights.notAvailableYet")} /></TabsContent>
+        <TabsContent value="trend"><AssetTrendTab session={session} /></TabsContent>
+        <TabsContent value="categories"><CategoriesTab session={session} onOpenHistory={onOpenHistory} /></TabsContent>
       </Tabs>
     </div>
   );

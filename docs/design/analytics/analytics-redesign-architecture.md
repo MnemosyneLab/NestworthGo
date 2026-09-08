@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Technical Architecture
 
-**Status:** Phases 1a–3 complete; Phase 4 in progress; Phases 5–6 not started
+**Status:** Phases 1a–4 complete; Phase 5 in progress (desktop smoke pending); Phase 6 not started
 **Product:** Nestworth  
 **Target:** Desktop application (Wails v3)  
 **Replaces:** Existing Insights `Analysis` page  
@@ -771,6 +771,11 @@ If the user also records a separate `reason=tax` cash-out **associated with that
 | Return amount | Investment return, dividend, FX, fees | Sum of daily signed amounts |
 | Return % | Linked Dietz | Geometric link of that window's daily Dietz rates; never sum or average % |
 
+For `AssetTrend(metric = return_rate)`, each point carries the geometric link for
+its day/week/month bucket in `rate`, with `ratedDays` / `totalDays`; the response
+`rate` is the full-query linked rate. `value` remains empty because a percentage
+is not a money amount.
+
 ---
 
 ## 11. Engine packages and memoization
@@ -840,12 +845,12 @@ Reuse [`ensureClosedDaySnapshots`](../../../internal/application/trend.go) (31-d
 AnalysisService
   ReturnCalendar(query, cursor, granularity) → summary, cells[], topContributors[], completeness, issues[]
   ReturnDay(query, date) → composition, contributors[], issues[]
-  ReturnTrend(query, display) → points[], sources[], summary   // % = linked daily Dietz, never averaged
+  ReturnTrend(query, display) → points[], sources[], summary   // sources = Price/Dividend/FX/Fees; % = linked daily Dietz, never averaged
   Contribution(query, returnType, groupBy, sort) → rows[]      // amount always; % only per §9.1
-  ContributionItem(query, groupKey) → components, byAccount[], historyHint
+  ContributionItem(query, groupKey) → components (Total Return: ReturnComponent keys Price/Dividend/FX/Fees), byAccount[], historyHint
   AssetChange(query) → summary, waterfall[], groups[] (cash vs market vs other; residual is a row in other)
   AssetDriverDetail(query, driverKey) → byInstrument[], byAccount[], residualDetails[]
-  AssetTrend(query, granularity, metric) → points[], summary   // aggregation: §10.3
+  AssetTrend(query, granularity, metric) → points[], summary   // aggregation: §10.3; return_rate is geometric Dietz
   Categories(query, categoryType) → total, rows[]
   CategoryDetail(query, categoryType, rowKey) → children[], activityRefs[]
 ```

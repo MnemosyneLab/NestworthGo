@@ -123,7 +123,7 @@ func fromReturnTrend(value application.ReturnTrendResult) wire.ReturnTrendDTO {
 	result := wire.ReturnTrendDTO{
 		Display:   string(value.Display),
 		Points:    make([]wire.ReturnTrendPointDTO, 0, len(value.Points)),
-		Sources:   fromReturnContributors(value.Sources),
+		Sources:   fromReturnSources(value.Sources),
 		Amount:    wire.FromSignedMoneyPtr(value.Amount),
 		Rate:      decimalStringPtr(value.Rate),
 		RatedDays: value.Coverage.RatedDays,
@@ -197,6 +197,14 @@ func fromReturnContributors(values []application.ReturnContributor) []wire.Retur
 	result := make([]wire.ReturnContributorDTO, 0, len(values))
 	for _, value := range values {
 		result = append(result, wire.ReturnContributorDTO{Key: value.Key, Label: value.Label, Amount: wire.FromSignedMoneyPtr(value.Amount), Rate: decimalStringPtr(value.Rate), RatedDays: value.Coverage.RatedDays, TotalDays: value.Coverage.TotalDays})
+	}
+	return result
+}
+
+func fromReturnSources(values []application.ReturnSource) []wire.ReturnSourceDTO {
+	result := make([]wire.ReturnSourceDTO, 0, len(values))
+	for _, value := range values {
+		result = append(result, wire.ReturnSourceDTO{Key: value.Key, Label: value.Label, Amount: wire.FromSignedMoneyPtr(value.Amount), Share: decimalStringPtr(value.Share)})
 	}
 	return result
 }

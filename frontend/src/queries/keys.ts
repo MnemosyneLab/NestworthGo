@@ -93,6 +93,13 @@ export const queryKeys = {
     returnTrend: (request: unknown, display: string) => ["analysis", "returnTrend", request, display] as const,
     contribution: (request: unknown, returnType: string, groupBy: string, ordering: string) =>
       ["analysis", "contribution", request, returnType, groupBy, ordering] as const,
+    contributionItem: (request: unknown, returnType: string, groupBy: string, groupKey: string) =>
+      ["analysis", "contributionItem", request, returnType, groupBy, groupKey] as const,
+    assetTrend: (request: unknown, granularity: string, metric: string) =>
+      ["analysis", "assetTrend", request, granularity, metric] as const,
+    categories: (request: unknown, categoryType: string) => ["analysis", "categories", request, categoryType] as const,
+    categoryDetail: (request: unknown, categoryType: string, rowKey: string) =>
+      ["analysis", "categoryDetail", request, categoryType, rowKey] as const,
   },
   history: {
     all: ["history"] as const,

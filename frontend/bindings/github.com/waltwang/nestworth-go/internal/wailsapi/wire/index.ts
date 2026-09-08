@@ -58,6 +58,7 @@ export type {
     ReturnContributorDTO,
     ReturnDayDTO,
     ReturnIssueDTO,
+    ReturnSourceDTO,
     ReturnTrendDTO,
     ReturnTrendPointDTO,
     SignedMoneyView,

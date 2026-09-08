@@ -65,6 +65,9 @@ type AssetResidualDetailDTO struct {
 type AssetTrendPointDTO struct {
 	Period          string           `json:"period"`
 	Value           *SignedMoneyView `json:"value,omitempty"`
+	Rate            *string          `json:"rate"`
+	RatedDays       int              `json:"ratedDays"`
+	TotalDays       int              `json:"totalDays"`
 	Available       bool             `json:"available"`
 	Status          string           `json:"status"`
 	MissingReason   string           `json:"missingReason,omitempty"`
@@ -74,6 +77,9 @@ type AssetTrendPointDTO struct {
 type AssetTrendDTO struct {
 	Points          []AssetTrendPointDTO `json:"points"`
 	Summary         *SignedMoneyView     `json:"summary,omitempty"`
+	Rate            *string              `json:"rate"`
+	RatedDays       int                  `json:"ratedDays"`
+	TotalDays       int                  `json:"totalDays"`
 	Available       bool                 `json:"available"`
 	Status          string               `json:"status"`
 	MissingReason   string               `json:"missingReason,omitempty"`

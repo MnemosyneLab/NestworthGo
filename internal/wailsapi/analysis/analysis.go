@@ -267,9 +267,9 @@ func fromDimensionAmounts(values []application.AnalysisDimensionAmount) []Analys
 }
 
 func fromAssetTrend(value application.AssetTrendResult) AssetTrendDTO {
-	result := AssetTrendDTO{Available: value.Available, Status: string(value.Status), MissingReason: value.MissingReason, ValuationForced: value.ValuationForced, Summary: wire.FromSignedMoneyPtr(value.Summary), Points: make([]AssetTrendPointDTO, 0, len(value.Points))}
+	result := AssetTrendDTO{Available: value.Available, Status: string(value.Status), MissingReason: value.MissingReason, ValuationForced: value.ValuationForced, Summary: wire.FromSignedMoneyPtr(value.Summary), Rate: decimalStringPtr(value.Rate), RatedDays: value.Coverage.RatedDays, TotalDays: value.Coverage.TotalDays, Points: make([]AssetTrendPointDTO, 0, len(value.Points))}
 	for _, point := range value.Points {
-		result.Points = append(result.Points, AssetTrendPointDTO{Period: point.Period, Value: wire.FromSignedMoneyPtr(point.Value), Available: point.Available, Status: string(point.Status), MissingReason: point.MissingReason, ValuationForced: point.ValuationForced})
+		result.Points = append(result.Points, AssetTrendPointDTO{Period: point.Period, Value: wire.FromSignedMoneyPtr(point.Value), Rate: decimalStringPtr(point.Rate), RatedDays: point.Coverage.RatedDays, TotalDays: point.Coverage.TotalDays, Available: point.Available, Status: string(point.Status), MissingReason: point.MissingReason, ValuationForced: point.ValuationForced})
 	}
 	return result
 }

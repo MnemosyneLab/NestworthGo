@@ -3,15 +3,17 @@ import { useTranslation } from "react-i18next";
 import type { AnalysisNavigationContext } from "@/app/navigation";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { PageIntro } from "@/components/layout/PageHeader";
-import { EmptyState } from "@/components/layout/PageState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalysisFilterBar } from "@/features/insights/AnalysisFilterBar";
 import { ReturnCalendarTab } from "@/features/insights/ReturnCalendarTab";
+import { ReturnTrendTab } from "@/features/insights/ReturnTrendTab";
+import { ContributionTab } from "@/features/insights/ContributionTab";
 import { currentMonth } from "@/features/insights/calendar";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useHistoryOrigin } from "@/queries/history";
+import type { HistoryNavigationFilters } from "@/app/navigation";
 
-export function ReturnAnalysisPage({ onOpenAssetChanges }: { onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void }) {
+export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOpenAssetChanges?: (analysis: AnalysisNavigationContext) => void; onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
   const { t } = useTranslation();
   const session = useAnalysisStore();
   const setFilters = useAnalysisStore((state) => state.setFilters);
@@ -37,8 +39,8 @@ export function ReturnAnalysisPage({ onOpenAssetChanges }: { onOpenAssetChanges?
         <TabsContent value="calendar">
           <ReturnCalendarTab session={session} onCursorChange={(cursor) => setReturnView({ cursor })} onOpenAssetChanges={onOpenAssetChanges} />
         </TabsContent>
-        <TabsContent value="trend"><EmptyState title={t("insights.trend")} description={t("insights.notAvailableYet")} /></TabsContent>
-        <TabsContent value="contribution"><EmptyState title={t("insights.contribution")} description={t("insights.notAvailableYet")} /></TabsContent>
+        <TabsContent value="trend"><ReturnTrendTab session={session} /></TabsContent>
+        <TabsContent value="contribution"><ContributionTab session={session} onOpenHistory={onOpenHistory} /></TabsContent>
       </Tabs>
     </div>
   );

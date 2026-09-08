@@ -113,6 +113,34 @@ func TestReturnTrendKeepsDailyRatesAndGeometricPeriodRate(t *testing.T) {
 	}
 }
 
+func TestReturnTrendSourcesUseReturnComponents(t *testing.T) {
+	instrumentID := domain.NewInstrumentID()
+	day := returnProjectionDay(t, instrumentID, "100", "10")
+	dividend := testReturnMoney(t, "2")
+	fee := testReturnMoney(t, "-1")
+	day.ReturnComponents[domain.ReturnDividendInterest] = dividend
+	day.ReturnComponents[domain.ReturnInvestmentFee] = fee
+	query := testReturnQuery("2026-08-01", "2026-08-01")
+	query.IncludeCash = false
+	periodAmount := testReturnMoney(t, "11")
+	result := domain.PeriodAnalysisResult{
+		Query:        query,
+		Days:         []domain.ComponentDay{day},
+		DailyReturns: []domain.DailyReturn{{Date: "2026-08-01", Amount: &periodAmount, Status: domain.CompletenessOK}},
+		ReturnAmount: &periodAmount,
+	}
+	trend, err := projectReturnTrend(result, "", ReturnTrendCumulativeAmount)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(trend.Sources) != 3 || trend.Sources[0].Key != string(domain.ReturnDividendInterest) || trend.Sources[1].Key != string(domain.ReturnInvestmentFee) || trend.Sources[2].Key != string(domain.ReturnPriceChange) {
+		t.Fatalf("trend sources = %+v", trend.Sources)
+	}
+	if trend.Sources[0].Share == nil || !trend.Sources[0].Share.Equal(decimal.NewFromInt(2).Div(decimal.NewFromInt(11))) {
+		t.Fatalf("dividend source share = %+v", trend.Sources[0])
+	}
+}
+
 func TestReturnCalendarDoesNotTurnACompleteNoCapitalDayIntoAnIssue(t *testing.T) {
 	zero := testReturnMoney(t, "0")
 	result := domain.PeriodAnalysisResult{
@@ -179,6 +207,53 @@ func TestContributionSortingHandlesUnavailableAmounts(t *testing.T) {
 	contributors := returnContributorsFromAmounts(map[string]decimal.Decimal{"missing": decimal.NewFromInt(1)}, "", domain.RateCoverage{TotalDays: 1})
 	if len(contributors) != 1 || contributors[0].Amount != nil {
 		t.Fatalf("nil contributor amount = %+v", contributors)
+	}
+}
+
+func TestContributionItemTotalReturnCompositionUsesReturnComponents(t *testing.T) {
+	instrumentID := domain.NewInstrumentID()
+	holdingA, holdingB := domain.NewHoldingID(), domain.NewHoldingID()
+	first := returnProjectionDay(t, instrumentID, "100", "10")
+	first.Component.HoldingID = &holdingA
+	dividend, fx, fee := testReturnMoney(t, "2"), testReturnMoney(t, "1"), testReturnMoney(t, "-1")
+	first.ReturnComponents[domain.ReturnDividendInterest] = dividend
+	first.ReturnComponents[domain.ReturnFXImpact] = fx
+	first.ReturnComponents[domain.ReturnInvestmentFee] = fee
+	firstTotal := testReturnMoney(t, "12")
+	first.ReturnAmount = &firstTotal
+	second := returnProjectionDay(t, instrumentID, "50", "3")
+	second.Component.HoldingID = &holdingB
+	query := testReturnQuery("2026-08-01", "2026-08-01")
+	query.IncludeCash = false
+	result := domain.PeriodAnalysisResult{Query: query, Days: []domain.ComponentDay{first, second}, Coverage: domain.RateCoverage{RatedDays: 1, TotalDays: 1}, DailyReturns: []domain.DailyReturn{{Date: "2026-08-01", Status: domain.CompletenessOK}}}
+	item, err := projectContributionItem(result, "", query, ContributionTotalReturn, ContributionGroupInstrument, instrumentID.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	allowed := map[string]bool{
+		string(domain.ReturnPriceChange):      true,
+		string(domain.ReturnDividendInterest): true,
+		string(domain.ReturnFXImpact):         true,
+		string(domain.ReturnInvestmentFee):    true,
+	}
+	if len(item.Components) == 0 {
+		t.Fatal("total return composition is empty")
+	}
+	sum := decimal.Zero
+	for _, component := range item.Components {
+		if !allowed[component.Key] {
+			t.Fatalf("composition key %q is not a ReturnComponent; holding key would be %q", component.Key, first.Component.Key())
+		}
+		if component.Amount == nil {
+			t.Fatalf("composition amount missing for %s", component.Key)
+		}
+		sum = sum.Add(component.Amount.Amount())
+	}
+	if item.Amount == nil || !sum.Equal(item.Amount.Amount()) {
+		t.Fatalf("composition sum %s != total return %v", sum, item.Amount)
+	}
+	if len(item.ByAccount) != 2 {
+		t.Fatalf("byAccount = %+v, want two accounts", item.ByAccount)
 	}
 }
 

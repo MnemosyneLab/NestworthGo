@@ -61,6 +61,17 @@ type ReturnContributor struct {
 	Coverage domain.RateCoverage
 }
 
+// ReturnSource is the component-level breakdown shown by Return Trend. It is
+// deliberately separate from ReturnContributor: the calendar's contributors
+// answer "which holding/account?", while trend sources answer "which return
+// component?".
+type ReturnSource struct {
+	Key    string
+	Label  string
+	Amount *domain.SignedMoney
+	Share  *decimal.Decimal
+}
+
 type ReturnTrendDisplay string
 
 const (
@@ -82,9 +93,11 @@ type ReturnTrendPoint struct {
 
 type ReturnTrendResult struct {
 	AnalysisAvailability
-	Display  ReturnTrendDisplay
-	Points   []ReturnTrendPoint
-	Sources  []ReturnContributor
+	Display ReturnTrendDisplay
+	Points  []ReturnTrendPoint
+	// Sources is the return-component breakdown, not the calendar's holding
+	// contributor list. It is folded from ReturnComponents in the same result.
+	Sources  []ReturnSource
 	Amount   *domain.SignedMoney
 	Rate     *decimal.Decimal
 	Coverage domain.RateCoverage
@@ -285,10 +298,12 @@ func (s *Service) ContributionItem(ctx context.Context, query domain.AnalysisQue
 	if err != nil {
 		return ContributionItemResult{}, err
 	}
+	return projectContributionItem(result, forced, query, returnType, groupBy, groupKey)
+}
+
+func projectContributionItem(result domain.PeriodAnalysisResult, forced string, query domain.AnalysisQuery, returnType ContributionReturnType, groupBy ContributionGroupBy, groupKey string) (ContributionItemResult, error) {
 	item := ContributionItemResult{Key: groupKey, Label: groupKey, AnalysisAvailability: returnAvailability(result, forced), HistoryHint: ContributionHistoryHint{From: query.From, To: query.To}}
-	historyKinds := make(map[string]struct{})
-	componentAmounts := make(map[string]decimal.Decimal)
-	componentMetadata := make(map[string]ContributionComponent)
+	componentAmounts := make(map[domain.ReturnComponent]decimal.Decimal)
 	accountAmounts := make(map[string]decimal.Decimal)
 	accountCurrency := make(map[string]string)
 	itemAmount := decimal.Zero
@@ -297,13 +312,15 @@ func (s *Service) ContributionItem(ctx context.Context, query domain.AnalysisQue
 		if !returnEligibleComponent(day.Component, query.IncludeCash) || returnGroupKey(day.Component, analysisGroupBy(groupBy)) != groupKey {
 			continue
 		}
-		if returnType == ContributionTotalReturn {
-			foundGroup = true
-		}
 		amount := decimal.Zero
 		if returnType == ContributionTotalReturn {
-			for _, value := range day.ReturnComponents {
+			foundGroup = true
+			for component, value := range day.ReturnComponents {
+				if value.Currency() == "" {
+					continue
+				}
 				amount = amount.Add(value.Amount())
+				componentAmounts[component] = componentAmounts[component].Add(value.Amount())
 			}
 		} else {
 			value, ok := day.ReturnComponents[domain.ReturnDividendInterest]
@@ -312,53 +329,29 @@ func (s *Service) ContributionItem(ctx context.Context, query domain.AnalysisQue
 			}
 			foundGroup = true
 			amount = value.Amount()
+			componentAmounts[domain.ReturnDividendInterest] = componentAmounts[domain.ReturnDividendInterest].Add(amount)
 		}
 		itemAmount = itemAmount.Add(amount)
 		if amount.IsZero() {
 			continue
 		}
-		componentKey := day.Component.Key()
-		componentAmounts[componentKey] = componentAmounts[componentKey].Add(amount)
-		component := ContributionComponent{Key: componentKey, AccountID: day.Component.AccountID.String(), Currency: day.Component.Currency.String()}
-		if day.Component.InstrumentID != nil {
-			component.InstrumentID = day.Component.InstrumentID.String()
-		}
-		componentMetadata[componentKey] = component
-		accountKey := component.AccountID
+		accountKey := day.Component.AccountID.String()
 		accountAmounts[accountKey] = accountAmounts[accountKey].Add(amount)
-		accountCurrency[accountKey] = component.Currency
-		for returnComponent := range day.ReturnComponents {
-			historyKinds[string(returnComponent)] = struct{}{}
-		}
+		accountCurrency[accountKey] = day.Component.Currency.String()
 		if item.HistoryHint.AccountID == "" {
-			item.HistoryHint.AccountID = component.AccountID
+			item.HistoryHint.AccountID = accountKey
 		}
-		if item.HistoryHint.InstrumentID == "" && component.InstrumentID != "" {
-			item.HistoryHint.InstrumentID = component.InstrumentID
+		if item.HistoryHint.InstrumentID == "" && day.Component.InstrumentID != nil {
+			item.HistoryHint.InstrumentID = day.Component.InstrumentID.String()
 		}
 	}
-	for kind := range historyKinds {
-		item.HistoryHint.Kinds = append(item.HistoryHint.Kinds, kind)
-	}
-	sort.Strings(item.HistoryHint.Kinds)
-	componentKeys := make([]string, 0, len(componentMetadata))
-	for key := range componentMetadata {
-		componentKeys = append(componentKeys, key)
-	}
-	sort.Strings(componentKeys)
-	for _, key := range componentKeys {
-		component := componentMetadata[key]
-		component.Amount = signedPointer(componentAmounts[key], resultCurrency(result))
-		item.Components = append(item.Components, component)
-	}
-	accountKeys := make([]string, 0, len(accountAmounts))
-	for key := range accountAmounts {
-		accountKeys = append(accountKeys, key)
-	}
-	sort.Strings(accountKeys)
-	for _, key := range accountKeys {
-		item.ByAccount = append(item.ByAccount, ContributionComponent{Key: key, AccountID: key, Currency: accountCurrency[key], Amount: signedPointer(accountAmounts[key], resultCurrency(result))})
-	}
+	// ComponentDay intentionally retains attribution, not the parent
+	// ActivityKind. Leave Kinds empty rather than passing return-component keys
+	// (price_change, fx_impact, ...) to History as if they were activity kinds.
+	// The date/account/instrument filters still take the user to the relevant
+	// history slice without silently filtering every record out.
+	item.Components = contributionComposition(componentAmounts, resultCurrency(result))
+	item.ByAccount = contributionByAccount(accountAmounts, accountCurrency, resultCurrency(result))
 	if returnType == ContributionTotalReturn {
 		groups, err := FoldReturnGroups(result, analysisGroupBy(groupBy))
 		if err != nil {
@@ -397,7 +390,11 @@ func projectReturnCalendar(result domain.PeriodAnalysisResult, forced, cursor st
 			}
 		}
 	}
-	calendar := ReturnCalendarResult{AnalysisAvailability: returnAvailability(result, forced), Days: days, Issues: make([]ReturnIssue, 0), TopContributors: topReturnContributors(result, forced)}
+	topContributors, err := topReturnContributors(result, forced)
+	if err != nil {
+		return ReturnCalendarResult{}, err
+	}
+	calendar := ReturnCalendarResult{AnalysisAvailability: returnAvailability(result, forced), Days: days, Issues: make([]ReturnIssue, 0), TopContributors: topContributors}
 	for _, day := range allDays {
 		calendar.Issues = append(calendar.Issues, day.Issues...)
 	}
@@ -491,16 +488,16 @@ func projectReturnTrend(result domain.PeriodAnalysisResult, forced string, displ
 		}
 		points = append(points, ReturnTrendPoint{Date: daily.Date, Amount: daily.Amount, Rate: daily.Rate, Value: value, Coverage: dailyCoverage(daily), AnalysisAvailability: dailyAvailability(daily, forced)})
 	}
-	return ReturnTrendResult{AnalysisAvailability: returnAvailability(result, forced), Display: display, Points: points, Sources: topReturnContributors(result, forced), Amount: result.ReturnAmount, Rate: result.ReturnRate, Coverage: result.Coverage}, nil
+	return ReturnTrendResult{AnalysisAvailability: returnAvailability(result, forced), Display: display, Points: points, Sources: returnSources(result), Amount: result.ReturnAmount, Rate: result.ReturnRate, Coverage: result.Coverage}, nil
 }
 
-func topReturnContributors(result domain.PeriodAnalysisResult, forced string) []ReturnContributor {
+func topReturnContributors(result domain.PeriodAnalysisResult, forced string) ([]ReturnContributor, error) {
 	if !hasNonZeroReturnAmount(result) {
-		return []ReturnContributor{}
+		return []ReturnContributor{}, nil
 	}
 	groups, err := FoldReturnGroups(result, GroupByInstrument)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	currency := resultCurrency(result)
 	contributors := make([]ReturnContributor, 0, len(groups))
@@ -513,7 +510,77 @@ func topReturnContributors(result domain.PeriodAnalysisResult, forced string) []
 	if len(contributors) > 5 {
 		contributors = contributors[:5]
 	}
-	return contributors
+	return contributors, nil
+}
+
+func contributionComposition(amounts map[domain.ReturnComponent]decimal.Decimal, currency domain.CurrencyCode) []ContributionComponent {
+	keys := make([]string, 0, len(amounts))
+	for component, amount := range amounts {
+		if amount.IsZero() {
+			continue
+		}
+		keys = append(keys, string(component))
+	}
+	sort.Strings(keys)
+	components := make([]ContributionComponent, 0, len(keys))
+	for _, key := range keys {
+		components = append(components, ContributionComponent{Key: key, Currency: currency.String(), Amount: signedPointer(amounts[domain.ReturnComponent(key)], currency)})
+	}
+	return components
+}
+
+func contributionByAccount(amounts map[string]decimal.Decimal, currencies map[string]string, currency domain.CurrencyCode) []ContributionComponent {
+	accounts := make([]ContributionComponent, 0, len(amounts))
+	for key, amount := range amounts {
+		if amount.IsZero() {
+			continue
+		}
+		accountCurrency := currencies[key]
+		if accountCurrency == "" {
+			accountCurrency = currency.String()
+		}
+		accounts = append(accounts, ContributionComponent{Key: key, AccountID: key, Currency: accountCurrency, Amount: signedPointer(amount, currency)})
+	}
+	sort.SliceStable(accounts, func(i, j int) bool {
+		return signedAmountGreater(accounts[i].Amount, accounts[j].Amount)
+	})
+	return accounts
+}
+
+func returnSources(result domain.PeriodAnalysisResult) []ReturnSource {
+	amounts := make(map[domain.ReturnComponent]decimal.Decimal)
+	for _, day := range result.Days {
+		if !returnEligibleComponent(day.Component, result.Query.IncludeCash) {
+			continue
+		}
+		for component, amount := range day.ReturnComponents {
+			amounts[component] = amounts[component].Add(amount.Amount())
+		}
+	}
+	keys := make([]string, 0, len(amounts))
+	for component, amount := range amounts {
+		if amount.IsZero() {
+			continue
+		}
+		keys = append(keys, string(component))
+	}
+	sort.Strings(keys)
+	currency := resultCurrency(result)
+	var total decimal.Decimal
+	if result.ReturnAmount != nil {
+		total = result.ReturnAmount.Amount()
+	}
+	sources := make([]ReturnSource, 0, len(keys))
+	for _, key := range keys {
+		amount := amounts[domain.ReturnComponent(key)]
+		var share *decimal.Decimal
+		if !total.IsZero() {
+			value := amount.Div(total)
+			share = &value
+		}
+		sources = append(sources, ReturnSource{Key: key, Label: key, Amount: signedPointer(amount, currency), Share: share})
+	}
+	return sources
 }
 
 func hasNonZeroReturnAmount(result domain.PeriodAnalysisResult) bool {

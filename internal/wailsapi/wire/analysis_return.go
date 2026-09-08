@@ -18,6 +18,13 @@ type ReturnContributorDTO struct {
 	TotalDays int              `json:"totalDays"`
 }
 
+type ReturnSourceDTO struct {
+	Key    string           `json:"key"`
+	Label  string           `json:"label"`
+	Amount *SignedMoneyView `json:"amount,omitempty"`
+	Share  *string          `json:"share"`
+}
+
 type ReturnIssueDTO struct {
 	Date          string `json:"date"`
 	Status        string `json:"status"`
@@ -77,17 +84,17 @@ type ReturnTrendPointDTO struct {
 }
 
 type ReturnTrendDTO struct {
-	Display         string                 `json:"display"`
-	Points          []ReturnTrendPointDTO  `json:"points"`
-	Sources         []ReturnContributorDTO `json:"sources"`
-	Amount          *SignedMoneyView       `json:"amount,omitempty"`
-	Rate            *string                `json:"rate"`
-	RatedDays       int                    `json:"ratedDays"`
-	TotalDays       int                    `json:"totalDays"`
-	Available       bool                   `json:"available"`
-	Status          string                 `json:"status"`
-	MissingReason   string                 `json:"missingReason,omitempty"`
-	ValuationForced *string                `json:"valuationForced"`
+	Display         string                `json:"display"`
+	Points          []ReturnTrendPointDTO `json:"points"`
+	Sources         []ReturnSourceDTO     `json:"sources"`
+	Amount          *SignedMoneyView      `json:"amount,omitempty"`
+	Rate            *string               `json:"rate"`
+	RatedDays       int                   `json:"ratedDays"`
+	TotalDays       int                   `json:"totalDays"`
+	Available       bool                  `json:"available"`
+	Status          string                `json:"status"`
+	MissingReason   string                `json:"missingReason,omitempty"`
+	ValuationForced *string               `json:"valuationForced"`
 }
 
 type ContributionComponentDTO struct {

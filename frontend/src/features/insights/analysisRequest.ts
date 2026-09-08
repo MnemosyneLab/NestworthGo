@@ -1,6 +1,8 @@
 import type { AnalysisQueryRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis/models";
 import type { AnalysisSessionState } from "@/stores/analysis";
-import { lastClosedDate } from "@/features/insights/calendar";
+import { lastClosedDate, parseYmd, ymd, ymdInTimeZone } from "@/features/insights/calendar";
+
+export type ReturnTrendRange = "30d" | "ytd" | "1y" | "3y" | "all" | "custom";
 
 export function analysisRequest(state: AnalysisSessionState, from: string, to: string): AnalysisQueryRequest {
   const scopeKind = state.scope === "account" ? "account" : state.scope === "instrument" ? "instrument" : "household";
@@ -37,6 +39,40 @@ export function effectiveRange(state: Pick<AnalysisSessionState, "from" | "to">,
 
 export function yearRange(year: number, timeZone?: string): { from: string; to: string } {
   return periodRange({ from: "", to: "" }, `${year}-01-01`, `${year}-12-31`, timeZone);
+}
+
+function addDays(value: string, amount: number): string {
+  const date = parseYmd(value);
+  date.setDate(date.getDate() + amount);
+  return ymd(date);
+}
+
+function maxDate(left: string, right: string): string {
+  return left > right ? left : right;
+}
+
+/** Named ranges for Return Trend. The end is always the latest closed
+ * Origin-local day, and the start is clamped to History Origin so a named
+ * range never asks the engine for dates before the available history. */
+export function returnTrendRange(range: Exclude<ReturnTrendRange, "custom">, startedAt: string, timeZone?: string): { from: string; to: string } {
+  const to = lastClosedDate(timeZone);
+  const originInstant = new Date(startedAt);
+  const originDate = Number.isNaN(originInstant.getTime()) ? startedAt.slice(0, 10) : ymdInTimeZone(originInstant, timeZone);
+  const start = range === "all"
+    ? originDate
+    : range === "ytd"
+      ? `${to.slice(0, 4)}-01-01`
+      : addDays(to, range === "30d" ? -29 : range === "1y" ? -364 : -1094);
+  return { from: maxDate(start, originDate), to };
+}
+
+export function activeReturnTrendRange(state: Pick<AnalysisSessionState, "from" | "to">, startedAt: string, timeZone?: string): ReturnTrendRange | null {
+  if (!state.from || !state.to) return null;
+  for (const range of ["30d", "ytd", "1y", "3y", "all"] as const) {
+    const named = returnTrendRange(range, startedAt, timeZone);
+    if (named.from === state.from && named.to === state.to) return range;
+  }
+  return "custom";
 }
 
 /**

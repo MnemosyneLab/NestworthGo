@@ -218,6 +218,9 @@ export interface AssetResidualDetailDTO {
 export interface AssetTrendDTO {
     "points": AssetTrendPointDTO[] | null;
     "summary"?: SignedMoneyView | null;
+    "rate": string | null;
+    "ratedDays": number;
+    "totalDays": number;
     "available": boolean;
     "status": string;
     "missingReason"?: string;
@@ -227,6 +230,9 @@ export interface AssetTrendDTO {
 export interface AssetTrendPointDTO {
     "period": string;
     "value"?: SignedMoneyView | null;
+    "rate": string | null;
+    "ratedDays": number;
+    "totalDays": number;
     "available": boolean;
     "status": string;
     "missingReason"?: string;
@@ -667,10 +673,17 @@ export interface ReturnIssueDTO {
     "missingReason"?: string;
 }
 
+export interface ReturnSourceDTO {
+    "key": string;
+    "label": string;
+    "amount"?: SignedMoneyView | null;
+    "share": string | null;
+}
+
 export interface ReturnTrendDTO {
     "display": string;
     "points": ReturnTrendPointDTO[] | null;
-    "sources": ReturnContributorDTO[] | null;
+    "sources": ReturnSourceDTO[] | null;
     "amount"?: SignedMoneyView | null;
     "rate": string | null;
     "ratedDays": number;

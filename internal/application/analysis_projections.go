@@ -98,20 +98,25 @@ const (
 	TrendPriceChange      AssetTrendMetric = "price_change"
 	TrendFXImpact         AssetTrendMetric = "fx_impact"
 	TrendInvestmentReturn AssetTrendMetric = "investment_return"
+	TrendReturnRate       AssetTrendMetric = "return_rate"
 	TrendNetChange        AssetTrendMetric = "net_change"
 	TrendResidual         AssetTrendMetric = "residual"
 )
 
 type AssetTrendPoint struct {
-	Period string
-	Value  *domain.SignedMoney
+	Period   string
+	Value    *domain.SignedMoney
+	Rate     *decimal.Decimal
+	Coverage domain.RateCoverage
 	AnalysisAvailability
 }
 
 type AssetTrendResult struct {
 	AnalysisAvailability
-	Points  []AssetTrendPoint
-	Summary *domain.SignedMoney
+	Points   []AssetTrendPoint
+	Summary  *domain.SignedMoney
+	Rate     *decimal.Decimal
+	Coverage domain.RateCoverage
 }
 
 type AnalysisCategoryType string
@@ -390,6 +395,9 @@ func foldAssetTrend(result domain.PeriodAnalysisResult, forced string, granulari
 	if !validTrendMetric(metric) {
 		return AssetTrendResult{}, &domain.Error{Code: domain.ErrValidation, Field: "metric", Message: "asset trend metric is invalid"}
 	}
+	if metric == TrendReturnRate {
+		return foldAssetTrendRates(result, forced, granularity)
+	}
 	type trendBucket struct {
 		amount        decimal.Decimal
 		currency      domain.CurrencyCode
@@ -487,7 +495,59 @@ func foldAssetTrend(result domain.PeriodAnalysisResult, forced string, granulari
 		summary = signedPointer(flowSummary, flowCurrency)
 	}
 	status := availability(result, forced)
-	return AssetTrendResult{AnalysisAvailability: status, Points: points, Summary: summary}, nil
+	return AssetTrendResult{AnalysisAvailability: status, Points: points, Summary: summary, Coverage: result.Coverage}, nil
+}
+
+func foldAssetTrendRates(result domain.PeriodAnalysisResult, forced string, granularity AssetTrendGranularity) (AssetTrendResult, error) {
+	type rateBucket struct {
+		factor    decimal.Decimal
+		ratedDays int
+		totalDays int
+		status    domain.Completeness
+	}
+	periods := map[string]*rateBucket{}
+	for _, daily := range result.DailyReturns {
+		period, err := assetTrendPeriod(daily.Date, result.AnalysisDayTimezone, granularity)
+		if err != nil {
+			return AssetTrendResult{}, err
+		}
+		bucket := periods[period]
+		if bucket == nil {
+			bucket = &rateBucket{factor: decimal.NewFromInt(1), status: daily.Status}
+			periods[period] = bucket
+		} else {
+			bucket.status = mergeCompleteness(bucket.status, daily.Status)
+		}
+		bucket.totalDays++
+		if daily.Rate != nil && daily.Status == domain.CompletenessOK {
+			bucket.factor = bucket.factor.Mul(decimal.NewFromInt(1).Add(*daily.Rate))
+			bucket.ratedDays++
+		}
+	}
+	keys := make([]string, 0, len(periods))
+	for key := range periods {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	points := make([]AssetTrendPoint, 0, len(keys))
+	for _, key := range keys {
+		bucket := periods[key]
+		if bucket.ratedDays < bucket.totalDays && bucket.status == domain.CompletenessOK {
+			bucket.status = domain.CompletenessPartial
+		}
+		point := AssetTrendPoint{Period: key, Coverage: domain.RateCoverage{RatedDays: bucket.ratedDays, TotalDays: bucket.totalDays}, AnalysisAvailability: AnalysisAvailability{Available: bucket.status != domain.CompletenessUnavailable, Status: bucket.status, ValuationForced: forcedPointer(forced)}}
+		if bucket.ratedDays > 0 && bucket.ratedDays*2 >= bucket.totalDays {
+			rate := bucket.factor.Sub(decimal.NewFromInt(1))
+			point.Rate = &rate
+		}
+		if bucket.status == domain.CompletenessPartial {
+			point.MissingReason = "rate coverage is partial"
+		} else if bucket.status == domain.CompletenessUnavailable {
+			point.MissingReason = "no complete analysis inputs are available for this period"
+		}
+		points = append(points, point)
+	}
+	return AssetTrendResult{AnalysisAvailability: availability(result, forced), Points: points, Rate: result.ReturnRate, Coverage: result.Coverage}, nil
 }
 
 func foldCategories(result domain.PeriodAnalysisResult, forced string, categoryType AnalysisCategoryType) CategoriesResult {
@@ -532,7 +592,7 @@ func foldCategories(result domain.PeriodAnalysisResult, forced string, categoryT
 	for _, row := range rows {
 		resultRows = append(resultRows, row)
 	}
-	sort.Slice(resultRows, func(i, j int) bool { return resultRows[i].Key < resultRows[j].Key })
+	sort.SliceStable(resultRows, func(i, j int) bool { return signedAmountGreater(resultRows[i].Amount, resultRows[j].Amount) })
 	return CategoriesResult{AnalysisAvailability: availability(result, forced), Total: signedPointerIf(total, currency), Rows: resultRows}
 }
 
@@ -580,7 +640,7 @@ func foldCategoryDetail(result domain.PeriodAnalysisResult, forced string, categ
 	for key, amount := range children {
 		childRows = append(childRows, CategoryChild{Key: key, Label: key, Amount: signedPointer(amount, currency)})
 	}
-	sort.Slice(childRows, func(i, j int) bool { return childRows[i].Key < childRows[j].Key })
+	sort.SliceStable(childRows, func(i, j int) bool { return signedAmountGreater(childRows[i].Amount, childRows[j].Amount) })
 	sort.Slice(refs, func(i, j int) bool {
 		if refs[i].Date != refs[j].Date {
 			return refs[i].Date < refs[j].Date
@@ -743,7 +803,7 @@ func isTrendLevel(metric AssetTrendMetric) bool {
 }
 
 func validTrendMetric(metric AssetTrendMetric) bool {
-	if isTrendLevel(metric) || metric == TrendInvestmentReturn || metric == TrendNetChange {
+	if isTrendLevel(metric) || metric == TrendInvestmentReturn || metric == TrendReturnRate || metric == TrendNetChange {
 		return true
 	}
 	_, ok := trendMetricBucket(metric)

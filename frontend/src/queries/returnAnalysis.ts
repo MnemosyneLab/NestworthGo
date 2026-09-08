@@ -4,7 +4,11 @@ import type {
   AnalysisQueryRequest,
   AssetChangeDTO,
   AssetDriverDetailDTO,
+  AssetTrendDTO,
+  CategoriesDTO,
+  CategoryDetailDTO,
   ContributionDTO,
+  ContributionItemDTO,
   ReturnCalendarDTO,
   ReturnDayDTO,
   ReturnTrendDTO,
@@ -61,5 +65,37 @@ export function useContribution(request: AnalysisQueryRequest, returnType: strin
     queryKey: queryKeys.analysis.contribution(request, returnType, groupBy, ordering),
     queryFn: () => callService(() => AnalysisService.Contribution(request, returnType, groupBy, ordering)),
     enabled,
+  });
+}
+
+export function useContributionItem(request: AnalysisQueryRequest, returnType: string, groupBy: string, groupKey: string, enabled = true) {
+  return useQuery<ContributionItemDTO>({
+    queryKey: queryKeys.analysis.contributionItem(request, returnType, groupBy, groupKey),
+    queryFn: () => callService(() => AnalysisService.ContributionItem(request, returnType, groupBy, groupKey)),
+    enabled: enabled && Boolean(groupKey),
+  });
+}
+
+export function useAssetTrend(request: AnalysisQueryRequest, granularity: string, metric: string, enabled = true) {
+  return useQuery<AssetTrendDTO>({
+    queryKey: queryKeys.analysis.assetTrend(request, granularity, metric),
+    queryFn: () => callService(() => AnalysisService.AssetTrend(request, granularity, metric)),
+    enabled,
+  });
+}
+
+export function useCategories(request: AnalysisQueryRequest, categoryType: string, enabled = true) {
+  return useQuery<CategoriesDTO>({
+    queryKey: queryKeys.analysis.categories(request, categoryType),
+    queryFn: () => callService(() => AnalysisService.Categories(request, categoryType)),
+    enabled,
+  });
+}
+
+export function useCategoryDetail(request: AnalysisQueryRequest, categoryType: string, rowKey: string, enabled = true) {
+  return useQuery<CategoryDetailDTO>({
+    queryKey: queryKeys.analysis.categoryDetail(request, categoryType, rowKey),
+    queryFn: () => callService(() => AnalysisService.CategoryDetail(request, categoryType, rowKey)),
+    enabled: enabled && Boolean(rowKey),
   });
 }

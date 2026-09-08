@@ -160,7 +160,7 @@ function App() {
       )}
       {activePageId === "return-analysis" && (
         <WorkspaceLazy>
-          <ReturnAnalysisPage onOpenAssetChanges={(analysis) => handleNavigate({ page: "asset-changes", tab: "drivers", analysis })} />
+          <ReturnAnalysisPage onOpenAssetChanges={(analysis) => handleNavigate({ page: "asset-changes", tab: "drivers", analysis })} onOpenHistory={(filters) => handleNavigate({ page: "history", filters })} />
         </WorkspaceLazy>
       )}
       {activePageId === "asset-changes" && (
