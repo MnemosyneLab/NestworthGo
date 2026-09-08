@@ -46,10 +46,20 @@ type AssetDriverDetailDTO struct {
 	DriverKey       string                       `json:"driverKey"`
 	ByInstrument    []AnalysisDimensionAmountDTO `json:"byInstrument"`
 	ByAccount       []AnalysisDimensionAmountDTO `json:"byAccount"`
+	ResidualDetails []AssetResidualDetailDTO     `json:"residualDetails"`
 	Available       bool                         `json:"available"`
 	Status          string                       `json:"status"`
 	MissingReason   string                       `json:"missingReason,omitempty"`
 	ValuationForced *string                      `json:"valuationForced"`
+}
+
+type AssetResidualDetailDTO struct {
+	Date         string           `json:"date"`
+	ComponentKey string           `json:"componentKey"`
+	AccountID    string           `json:"accountId,omitempty"`
+	HoldingID    string           `json:"holdingId,omitempty"`
+	InstrumentID string           `json:"instrumentId,omitempty"`
+	Amount       *SignedMoneyView `json:"amount,omitempty"`
 }
 
 type AssetTrendPointDTO struct {

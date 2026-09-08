@@ -37,6 +37,79 @@ func TestAssetChangeProjectionReconcilesSummaryAndWaterfall(t *testing.T) {
 	}
 }
 
+func TestAssetDriverDetailResidualKeepsComponentAndDay(t *testing.T) {
+	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
+	holdingID := domain.HoldingID("00000000-0000-0000-0000-000000000011")
+	instrumentID := domain.InstrumentID("00000000-0000-0000-0000-000000000021")
+	component := domain.ComponentID{AccountID: accountID, HoldingID: &holdingID, InstrumentID: &instrumentID, Currency: "USD", AssetClass: "equity"}
+	residual := analysisSignedTestMoney(t, "-5")
+	result := domain.PeriodAnalysisResult{Query: domain.AnalysisQuery{From: "2026-08-01", To: "2026-08-02"}, Days: []domain.ComponentDay{{
+		Date:         "2026-08-02",
+		Component:    component,
+		Status:       domain.CompletenessPartial,
+		AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{domain.BucketResidual: residual},
+	}}}
+
+	detail := foldAssetDriverDetail(result, "", string(domain.BucketResidual))
+	if len(detail.ResidualDetails) != 1 {
+		t.Fatalf("residual details = %+v, want one component/day detail", detail.ResidualDetails)
+	}
+	got := detail.ResidualDetails[0]
+	if got.Date != "2026-08-02" || got.ComponentKey != component.Key() || got.AccountID != accountID.String() || got.HoldingID != holdingID.String() || got.InstrumentID != instrumentID.String() || got.Amount == nil || got.Amount.Amount().String() != "-5" {
+		t.Fatalf("residual detail = %+v, want component/day identity and -5", got)
+	}
+}
+
+func TestAssetChangeGroupsKeepResidualAsItsOwnOtherRow(t *testing.T) {
+	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-01", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
+	day := analysisTestDay(t, "2026-08-01", accountID, "100", map[domain.AttributionBucket]string{domain.BucketResidual: "5"})
+	result := foldAssetChange(domain.PeriodAnalysisResult{Query: query, Status: domain.CompletenessPartial, Days: []domain.ComponentDay{day}}, "")
+	if len(result.Groups) != 1 || result.Groups[0].Key != "other" || len(result.Groups[0].Rows) != 1 || result.Groups[0].Rows[0].Bucket != domain.BucketResidual {
+		t.Fatalf("groups = %+v, want residual as one row in other", result.Groups)
+	}
+}
+
+func TestAssetChangeGroupsSeparateCashFlowsFromMarketAndInvestment(t *testing.T) {
+	values := map[domain.AttributionBucket]string{
+		domain.BucketExternalFlow:     "1",
+		domain.BucketIncome:           "2",
+		domain.BucketSpending:         "-3",
+		domain.BucketDividendInterest: "4",
+		domain.BucketPriceChange:      "5",
+		domain.BucketFXImpact:         "-2",
+		domain.BucketFee:              "-7",
+		domain.BucketLiabilityImpact:  "8",
+		domain.BucketAdjustment:       "9",
+		domain.BucketResidual:         "-17",
+	}
+	waterfall := make(map[domain.AttributionBucket]decimal.Decimal, len(values))
+	for bucket, value := range values {
+		waterfall[bucket] = decimal.RequireFromString(value)
+	}
+	groups := foldAssetGroups(waterfall, "USD")
+	if len(groups) != 3 {
+		t.Fatalf("groups = %+v, want cash, market, other", groups)
+	}
+	want := map[string][]domain.AttributionBucket{
+		"cash":   {domain.BucketExternalFlow, domain.BucketIncome, domain.BucketSpending},
+		"market": {domain.BucketDividendInterest, domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFee},
+		"other":  {domain.BucketLiabilityImpact, domain.BucketAdjustment, domain.BucketResidual},
+	}
+	for _, group := range groups {
+		got := make([]domain.AttributionBucket, 0, len(group.Rows))
+		for _, row := range group.Rows {
+			got = append(got, row.Bucket)
+		}
+		if fmt.Sprint(got) != fmt.Sprint(want[group.Key]) {
+			t.Fatalf("%s rows = %v, want %v", group.Key, got, want[group.Key])
+		}
+		if !group.Amount.Amount().IsZero() {
+			t.Fatalf("%s amount = %s, want zero after cancellation", group.Key, group.Amount.Amount())
+		}
+	}
+}
+
 func TestAssetChangeAvailabilityUsesAssetDaysForCashOnlyAccount(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	account := domain.Account{ID: domain.NewAccountID(), HouseholdID: householdID, Name: "Cash", AccountType: domain.TypeBankAccount, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingBalance, DefaultCurrency: "USD", IncludeInNetWorth: true}

@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Development Plan
 
-**Status:** Phase 1a–3 complete; Phases 4–6 not started
+**Status:** Phase 1a–3 complete; Phase 4 in progress; Phases 5–6 not started
 **Product:** Nestworth  
 **Companions:** [Product design](analytics-product-design.md), [Wireframes](analytics-wireframes.md), [Technical architecture](analytics-redesign-architecture.md)
 
@@ -268,6 +268,8 @@ Day-sheet link “View Asset Changes for This Day” may stay disabled until Pha
 
 ## 9. Phase 4 — Asset Change Drivers
 
+**Status:** In progress (Change Drivers UI, waterfall attribution, and residual drill-down implemented; desktop smoke pending)
+
 **Goal:** the second mental model: why value changed.
 
 **Includes:**
@@ -406,6 +408,6 @@ If schema v10 quantity is required, it is part of Phase 1a, not a later cleanup.
 | 2a Asset Changes Wails APIs | Complete |
 | 2b Return Wails APIs | Complete |
 | 3 Insights shell + Return Calendar | Complete |
-| 4 Asset Change Drivers | Not started |
+| 4 Asset Change Drivers | Complete |
 | 5 Remaining tabs | Not started |
 | 6 History, cutover, docs | Not started |

@@ -19,6 +19,7 @@ export type {
     AssetChangeRowDTO,
     AssetChangeSummaryDTO,
     AssetDriverDetailDTO,
+    AssetResidualDetailDTO,
     AssetTrendDTO,
     AssetTrendPointDTO,
     BreakdownDTO,

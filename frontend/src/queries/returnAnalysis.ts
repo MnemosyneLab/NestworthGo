@@ -2,6 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Service as AnalysisService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis";
 import type {
   AnalysisQueryRequest,
+  AssetChangeDTO,
+  AssetDriverDetailDTO,
   ContributionDTO,
   ReturnCalendarDTO,
   ReturnDayDTO,
@@ -15,6 +17,22 @@ export function useReturnCalendar(request: AnalysisQueryRequest, cursor: string,
     queryKey: queryKeys.analysis.returnCalendar(request, cursor),
     queryFn: () => fetchReturnCalendar(request, cursor),
     enabled,
+  });
+}
+
+export function useAssetChange(request: AnalysisQueryRequest, enabled = true) {
+  return useQuery<AssetChangeDTO>({
+    queryKey: queryKeys.analysis.assetChange(request),
+    queryFn: () => callService(() => AnalysisService.AssetChange(request)),
+    enabled,
+  });
+}
+
+export function useAssetDriverDetail(request: AnalysisQueryRequest, driverKey: string, enabled = true) {
+  return useQuery<AssetDriverDetailDTO>({
+    queryKey: queryKeys.analysis.assetDriverDetail(request, driverKey),
+    queryFn: () => callService(() => AnalysisService.AssetDriverDetail(request, driverKey)),
+    enabled: enabled && Boolean(driverKey),
   });
 }
 

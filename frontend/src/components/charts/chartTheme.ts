@@ -15,6 +15,7 @@ export function chartTheme() {
     accent: cssColor("--color-accent", "#3aa8b8"),
     success: cssColor("--color-success", "#2f9e5c"),
     destructive: cssColor("--color-destructive", "#c4473a"),
+    warning: cssColor("--color-warning", "#c9a227"),
     gainPositive: cssColor("--color-gain-positive", "#2f9e5c"),
     gainNegative: cssColor("--color-gain-negative", "#c4473a"),
     palette: [

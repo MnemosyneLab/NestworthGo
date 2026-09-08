@@ -1,6 +1,6 @@
 # Nestworth Analytics Redesign — Technical Architecture
 
-**Status:** Phases 1a–3 complete; Phases 4–6 not started
+**Status:** Phases 1a–3 complete; Phase 4 in progress; Phases 5–6 not started
 **Product:** Nestworth  
 **Target:** Desktop application (Wails v3)  
 **Replaces:** Existing Insights `Analysis` page  
@@ -843,8 +843,8 @@ AnalysisService
   ReturnTrend(query, display) → points[], sources[], summary   // % = linked daily Dietz, never averaged
   Contribution(query, returnType, groupBy, sort) → rows[]      // amount always; % only per §9.1
   ContributionItem(query, groupKey) → components, byAccount[], historyHint
-  AssetChange(query) → summary, waterfall[], groups[] (cash vs market vs other vs residual)
-  AssetDriverDetail(query, driverKey) → byInstrument[], byAccount[]
+  AssetChange(query) → summary, waterfall[], groups[] (cash vs market vs other; residual is a row in other)
+  AssetDriverDetail(query, driverKey) → byInstrument[], byAccount[], residualDetails[]
   AssetTrend(query, granularity, metric) → points[], summary   // aggregation: §10.3
   Categories(query, categoryType) → total, rows[]
   CategoryDetail(query, categoryType, rowKey) → children[], activityRefs[]

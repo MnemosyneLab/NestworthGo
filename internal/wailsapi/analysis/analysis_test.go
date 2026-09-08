@@ -91,4 +91,27 @@ func TestAnalysisDTOsSerializeUnforcedValuationAsNull(t *testing.T) {
 	}
 }
 
+func TestAssetDriverDTOIncludesResidualDetails(t *testing.T) {
+	amount, err := domain.ParseSignedMoney("-5", "USD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	dto := fromAssetDriverDetail(application.AssetDriverDetailResult{ResidualDetails: []application.AssetResidualDetail{{Date: "2026-08-02", ComponentKey: "account/holding/instrument", Amount: &amount}}})
+	encoded, err := json.Marshal(dto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shape map[string]any
+	if err := json.Unmarshal(encoded, &shape); err != nil {
+		t.Fatal(err)
+	}
+	details, ok := shape["residualDetails"].([]any)
+	if !ok || len(details) != 1 {
+		t.Fatalf("residual details shape = %s", encoded)
+	}
+	if details[0].(map[string]any)["componentKey"] != "account/holding/instrument" {
+		t.Fatalf("residual detail = %s", encoded)
+	}
+}
+
 func stringPtr(value string) *string { return &value }

@@ -86,6 +86,8 @@ export const queryKeys = {
   },
   analysis: {
     all: ["analysis"] as const,
+    assetChange: (request: unknown) => ["analysis", "assetChange", request] as const,
+    assetDriverDetail: (request: unknown, driverKey: string) => ["analysis", "assetDriverDetail", request, driverKey] as const,
     returnCalendar: (request: unknown, cursor: string) => ["analysis", "returnCalendar", request, cursor] as const,
     returnDay: (request: unknown, date: string) => ["analysis", "returnDay", request, date] as const,
     returnTrend: (request: unknown, display: string) => ["analysis", "returnTrend", request, display] as const,

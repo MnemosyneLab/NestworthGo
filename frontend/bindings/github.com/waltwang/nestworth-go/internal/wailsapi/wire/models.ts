@@ -199,10 +199,20 @@ export interface AssetDriverDetailDTO {
     "driverKey": string;
     "byInstrument": AnalysisDimensionAmountDTO[] | null;
     "byAccount": AnalysisDimensionAmountDTO[] | null;
+    "residualDetails": AssetResidualDetailDTO[] | null;
     "available": boolean;
     "status": string;
     "missingReason"?: string;
     "valuationForced": string | null;
+}
+
+export interface AssetResidualDetailDTO {
+    "date": string;
+    "componentKey": string;
+    "accountId"?: string;
+    "holdingId"?: string;
+    "instrumentId"?: string;
+    "amount"?: SignedMoneyView | null;
 }
 
 export interface AssetTrendDTO {

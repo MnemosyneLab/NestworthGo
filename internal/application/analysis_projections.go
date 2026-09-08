@@ -58,9 +58,22 @@ type AnalysisDimensionAmount struct {
 
 type AssetDriverDetailResult struct {
 	AnalysisAvailability
-	DriverKey    string
-	ByInstrument []AnalysisDimensionAmount
-	ByAccount    []AnalysisDimensionAmount
+	DriverKey       string
+	ByInstrument    []AnalysisDimensionAmount
+	ByAccount       []AnalysisDimensionAmount
+	ResidualDetails []AssetResidualDetail
+}
+
+// AssetResidualDetail keeps the component/day identity of an unexplained
+// difference. Residuals are not an aggregate-only driver: the user needs to
+// know which valued component and closed day requires attention.
+type AssetResidualDetail struct {
+	Date         domain.LocalDate
+	ComponentKey string
+	AccountID    string
+	HoldingID    string
+	InstrumentID string
+	Amount       *domain.SignedMoney
 }
 
 type AssetTrendGranularity string
@@ -293,10 +306,9 @@ func foldAssetGroups(waterfall map[domain.AttributionBucket]decimal.Decimal, cur
 		buckets []domain.AttributionBucket
 	}
 	defs := []groupDef{
-		{key: "cash", label: "Cash flows", buckets: []domain.AttributionBucket{domain.BucketExternalFlow, domain.BucketIncome, domain.BucketSpending, domain.BucketDividendInterest, domain.BucketFee}},
-		{key: "market", label: "Market", buckets: []domain.AttributionBucket{domain.BucketPriceChange, domain.BucketFXImpact}},
-		{key: "other", label: "Other", buckets: []domain.AttributionBucket{domain.BucketLiabilityImpact, domain.BucketAdjustment}},
-		{key: "residual", label: "Unexplained difference", buckets: []domain.AttributionBucket{domain.BucketResidual}},
+		{key: "cash", label: "Cash flows", buckets: []domain.AttributionBucket{domain.BucketExternalFlow, domain.BucketIncome, domain.BucketSpending}},
+		{key: "market", label: "Market & investment", buckets: []domain.AttributionBucket{domain.BucketDividendInterest, domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFee}},
+		{key: "other", label: "Other", buckets: []domain.AttributionBucket{domain.BucketLiabilityImpact, domain.BucketAdjustment, domain.BucketResidual}},
 	}
 	groups := make([]AssetChangeGroup, 0, len(defs))
 	for _, def := range defs {
@@ -310,7 +322,7 @@ func foldAssetGroups(waterfall map[domain.AttributionBucket]decimal.Decimal, cur
 			}
 			rows = append(rows, AssetChangeRow{Key: string(bucket), Label: assetBucketLabel(bucket), Bucket: bucket, Amount: signedPointer(value, currency)})
 		}
-		if amount.IsZero() {
+		if len(rows) == 0 {
 			continue
 		}
 		groups = append(groups, AssetChangeGroup{Key: def.key, Label: def.label, Amount: signedPointer(amount, currency), Rows: rows})
@@ -323,6 +335,7 @@ func foldAssetDriverDetail(result domain.PeriodAnalysisResult, forced, driverKey
 	bucket := domain.AttributionBucket(strings.TrimSpace(driverKey))
 	byInstrument := make(map[string]AnalysisDimensionAmount)
 	byAccount := make(map[string]AnalysisDimensionAmount)
+	residualDetails := make([]AssetResidualDetail, 0)
 	var currency domain.CurrencyCode
 	for _, day := range result.Days {
 		amount, ok := day.AssetBuckets[bucket]
@@ -331,6 +344,21 @@ func foldAssetDriverDetail(result domain.PeriodAnalysisResult, forced, driverKey
 		}
 		currency = amount.Currency()
 		component := day.Component
+		if bucket == domain.BucketResidual {
+			detail := AssetResidualDetail{
+				Date:         day.Date,
+				ComponentKey: component.Key(),
+				AccountID:    component.AccountID.String(),
+				Amount:       signedPointer(amount.Amount(), amount.Currency()),
+			}
+			if component.HoldingID != nil {
+				detail.HoldingID = component.HoldingID.String()
+			}
+			if component.InstrumentID != nil {
+				detail.InstrumentID = component.InstrumentID.String()
+			}
+			residualDetails = append(residualDetails, detail)
+		}
 		accountKey := component.AccountID.String()
 		accountRow := byAccount[accountKey]
 		accountRow.Key, accountRow.Label, accountRow.AccountID = accountKey, accountKey, accountKey
@@ -346,7 +374,13 @@ func foldAssetDriverDetail(result domain.PeriodAnalysisResult, forced, driverKey
 		instrumentRow.Amount = signedPointer(decimalValue(instrumentRow.Amount).Add(amount.Amount()), currency)
 		byInstrument[instrumentKey] = instrumentRow
 	}
-	return AssetDriverDetailResult{AnalysisAvailability: status, DriverKey: string(bucket), ByInstrument: sortedDimensionAmounts(byInstrument), ByAccount: sortedDimensionAmounts(byAccount)}
+	sort.Slice(residualDetails, func(i, j int) bool {
+		if residualDetails[i].Date != residualDetails[j].Date {
+			return residualDetails[i].Date < residualDetails[j].Date
+		}
+		return residualDetails[i].ComponentKey < residualDetails[j].ComponentKey
+	})
+	return AssetDriverDetailResult{AnalysisAvailability: status, DriverKey: string(bucket), ByInstrument: sortedDimensionAmounts(byInstrument), ByAccount: sortedDimensionAmounts(byAccount), ResidualDetails: residualDetails}
 }
 
 func foldAssetTrend(result domain.PeriodAnalysisResult, forced string, granularity AssetTrendGranularity, metric AssetTrendMetric) (AssetTrendResult, error) {

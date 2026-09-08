@@ -112,6 +112,38 @@ describe("i18next locale coverage", () => {
     "insights.components.residual",
     "common.all",
   ];
+  const phase4Keys = [
+    "insights.assetChangesDescription",
+    "insights.netWorthChange",
+    "insights.accountValueChange",
+    "insights.assetValueChange",
+    "insights.investmentAssetChange",
+    "insights.beginningValue",
+    "insights.endingValue",
+    "insights.change",
+    "insights.amount",
+    "insights.attribution",
+    "insights.cashFlows",
+    "insights.market",
+    "insights.other",
+    "insights.residualGroup",
+    "insights.externalFlows",
+    "insights.income",
+    "insights.spending",
+    "insights.liabilityImpact",
+    "insights.adjustments",
+    "insights.total",
+    "insights.byInstrument",
+    "insights.byAccount",
+    "insights.componentDays",
+    "insights.viewInHistory",
+    "insights.driverDetails",
+    "insights.noDriverDetails",
+    "insights.noAssetChangeData",
+    "insights.noAssetChangeDataHint",
+    "insights.unavailableAmount",
+    "insights.waterfallMismatch",
+  ];
 
   it("the ported translation catalog has identical keys across en/zh-CN/zh-TW", () => {
     assertSameKeySet("translation", en, { "zh-CN": zhCN, "zh-TW": zhTW });
@@ -125,6 +157,13 @@ describe("i18next locale coverage", () => {
     for (const [locale, tree] of Object.entries({ en: additionsEn, "zh-CN": additionsZhCN, "zh-TW": additionsZhTW })) {
       const keys = new Set(flattenKeys(tree));
       expect({ locale, missing: phase3Keys.filter((key) => !keys.has(key)) }).toEqual({ locale, missing: [] });
+    }
+  });
+
+  it("contains the Phase 4 Change Drivers vocabulary in every locale", () => {
+    for (const [locale, tree] of Object.entries({ en: additionsEn, "zh-CN": additionsZhCN, "zh-TW": additionsZhTW })) {
+      const keys = new Set(flattenKeys(tree));
+      expect({ locale, missing: phase4Keys.filter((key) => !keys.has(key)) }).toEqual({ locale, missing: [] });
     }
   });
 

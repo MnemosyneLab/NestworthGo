@@ -144,6 +144,7 @@ type AssetChangeRowDTO = wire.AssetChangeRowDTO
 type AssetChangeGroupDTO = wire.AssetChangeGroupDTO
 type AnalysisDimensionAmountDTO = wire.AnalysisDimensionAmountDTO
 type AssetDriverDetailDTO = wire.AssetDriverDetailDTO
+type AssetResidualDetailDTO = wire.AssetResidualDetailDTO
 type AssetTrendPointDTO = wire.AssetTrendPointDTO
 type AssetTrendDTO = wire.AssetTrendDTO
 type CategoryRowDTO = wire.CategoryRowDTO
@@ -245,7 +246,15 @@ func fromAssetChangeGroups(values []application.AssetChangeGroup) []AssetChangeG
 }
 
 func fromAssetDriverDetail(value application.AssetDriverDetailResult) AssetDriverDetailDTO {
-	result := AssetDriverDetailDTO{DriverKey: value.DriverKey, Available: value.Available, Status: string(value.Status), MissingReason: value.MissingReason, ValuationForced: value.ValuationForced, ByInstrument: fromDimensionAmounts(value.ByInstrument), ByAccount: fromDimensionAmounts(value.ByAccount)}
+	result := AssetDriverDetailDTO{DriverKey: value.DriverKey, Available: value.Available, Status: string(value.Status), MissingReason: value.MissingReason, ValuationForced: value.ValuationForced, ByInstrument: fromDimensionAmounts(value.ByInstrument), ByAccount: fromDimensionAmounts(value.ByAccount), ResidualDetails: fromAssetResidualDetails(value.ResidualDetails)}
+	return result
+}
+
+func fromAssetResidualDetails(values []application.AssetResidualDetail) []AssetResidualDetailDTO {
+	result := make([]AssetResidualDetailDTO, 0, len(values))
+	for _, value := range values {
+		result = append(result, AssetResidualDetailDTO{Date: string(value.Date), ComponentKey: value.ComponentKey, AccountID: value.AccountID, HoldingID: value.HoldingID, InstrumentID: value.InstrumentID, Amount: wire.FromSignedMoneyPtr(value.Amount)})
+	}
 	return result
 }
 

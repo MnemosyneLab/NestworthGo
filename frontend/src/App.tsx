@@ -165,7 +165,7 @@ function App() {
       )}
       {activePageId === "asset-changes" && (
         <WorkspaceLazy>
-          <AssetChangesPage />
+          <AssetChangesPage onOpenHistory={(filters) => handleNavigate({ page: "history", filters })} />
         </WorkspaceLazy>
       )}
     </AppShell>
