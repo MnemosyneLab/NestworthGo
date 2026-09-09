@@ -40,6 +40,82 @@ func TestTrueZeroScheduleIsFlat(t *testing.T) {
 		t.Fatalf("FX must be flat on days 35/36: usd=%v/%v sgd=%v/%v",
 			usdAudRate(35), usdAudRate(36), sgdAudRate(35), sgdAudRate(36))
 	}
+	if usdCnyRate(35) != usdCnyRate(36) {
+		t.Fatalf("USD/CNY must be flat on days 35/36: %v/%v", usdCnyRate(35), usdCnyRate(36))
+	}
+	for _, base := range []string{"AUD", "USD", "CNY"} {
+		for _, p := range fxPairsForBase(base) {
+			if p.Rate(35) != p.Rate(36) {
+				t.Fatalf("%s pair %s/%s not flat on 35/36: %v/%v", base, p.Base, p.Quote, p.Rate(35), p.Rate(36))
+			}
+		}
+	}
+}
+
+func TestParseV3ScenarioBaseCurrency(t *testing.T) {
+	t.Setenv("NESTWORTH_QA_BASE_CURRENCY", "")
+	cases := []struct {
+		name, family, base string
+		ok                 bool
+	}{
+		{"complete", "complete", "AUD", true},
+		{"complete-usd", "complete", "USD", true},
+		{"complete-cny", "complete", "CNY", true},
+		{"missing-price", "missing-price", "AUD", true},
+		{"missing-fx", "missing-fx", "AUD", true},
+		{"missing-both", "missing-both", "AUD", true},
+		{"loan-fc07", "", "", false},
+	}
+	for _, tc := range cases {
+		cfg, ok := parseV3Scenario(tc.name)
+		if ok != tc.ok {
+			t.Fatalf("%s ok=%v want %v", tc.name, ok, tc.ok)
+		}
+		if !ok {
+			continue
+		}
+		if cfg.Family != tc.family || cfg.Base != tc.base {
+			t.Fatalf("%s family=%s base=%s want family=%s base=%s", tc.name, cfg.Family, cfg.Base, tc.family, tc.base)
+		}
+	}
+}
+
+func TestParseV3ScenarioEnvOverridesComplete(t *testing.T) {
+	t.Setenv("NESTWORTH_QA_BASE_CURRENCY", "USD")
+	cfg, ok := parseV3Scenario("complete")
+	if !ok || cfg.Family != "complete" || cfg.Base != "USD" {
+		t.Fatalf("complete + env USD: %+v ok=%v", cfg, ok)
+	}
+}
+
+func TestParseV3ScenarioEnvRejectedOnMissing(t *testing.T) {
+	t.Setenv("NESTWORTH_QA_BASE_CURRENCY", "USD")
+	defer func() {
+		if recover() == nil {
+			t.Fatal("missing-price + USD base must panic")
+		}
+	}()
+	parseV3Scenario("missing-price")
+}
+
+func TestFXPairsForUSDAndCNYQuoteAgainstHouseholdBase(t *testing.T) {
+	usd := fxPairsForBase("USD")
+	if len(usd) != 2 || usd[0].Quote != "USD" || usd[1].Quote != "USD" {
+		t.Fatalf("USD pairs must quote USD, got %+v", usd)
+	}
+	cny := fxPairsForBase("CNY")
+	if len(cny) != 3 {
+		t.Fatalf("CNY needs USD/AUD/SGD vs CNY, got %d", len(cny))
+	}
+	for _, p := range cny {
+		if p.Quote != "CNY" {
+			t.Fatalf("CNY pair quote=%s want CNY", p.Quote)
+		}
+	}
+	aud := fxPairsForBase("AUD")
+	if len(aud) != 2 || aud[0].Quote != "AUD" || aud[1].Quote != "AUD" {
+		t.Fatalf("AUD pairs must stay USD/AUD and SGD/AUD, got %+v", aud)
+	}
 }
 
 func TestParseLoanScenarioFamily(t *testing.T) {

@@ -6,12 +6,13 @@ Deterministic Insights Round-3 “mini family” for desktop/probe acceptance of
 
 | Variable | Default | Notes |
 |---|---|---|
-| `NESTWORTH_QA_SCENARIO` | `complete` | `complete` \| `missing-price` \| `missing-fx` \| `missing-both` \| **`loan-fc07`** \| **`loan-fc07-utc`** \| **`loan-fc07-cny`** \| **`loan-fc07-usd`** \| **`loan-fc07-week-sunday`** |
+| `NESTWORTH_QA_SCENARIO` | `complete` | `complete` \| **`complete-usd`** \| **`complete-cny`** \| `missing-price` \| `missing-fx` \| `missing-both` \| **`loan-fc07`** \| **`loan-fc07-utc`** \| **`loan-fc07-cny`** \| **`loan-fc07-usd`** \| **`loan-fc07-week-sunday`** |
 | `NESTWORTH_QA_ANCHOR` | `2026-07-26T00:00:00Z` | RFC3339 UTC history origin |
 | `NESTWORTH_QA_RESET` | unset | Must be `1` to replace an existing QA database |
 | `NESTWORTH_QA_OUTPUT_DIR` | `/workspace/nestworth-analytics-qa` | Artifact root; reset only allows DBs under this tree |
 | `NESTWORTH_DATABASE_PATH` | `$OUTPUT_DIR/data/nestworth.db` | Isolated sqlite file |
 | `NESTWORTH_QA_COMMIT` | `git rev-parse HEAD` | Recorded in `seed-results.json` |
+| `NESTWORTH_QA_BASE_CURRENCY` | `AUD` | Optional `AUD` \| `USD` \| `CNY` for **`complete` / `complete-*` only**. `missing-*` stay AUD. |
 | `NESTWORTH_QA_LOAN_CURRENCY` | scenario default | Optional `AUD` \| `CNY` \| `USD` override for `loan-*` |
 | `NESTWORTH_QA_LOAN_TZ` | scenario default | Optional IANA timezone override for `loan-*` |
 | `NESTWORTH_QA_WEEK_START` | scenario default | Optional `monday` \| `sunday` override for `loan-*` |
@@ -31,6 +32,24 @@ done
 ```
 
 `seed-results.json` records `fixture_version`, scenario, IDs, and per-step PASS/FAIL.
+
+§5 base currency (real onboarded DBs, default AUD `complete` unchanged):
+
+```bash
+# explicit scenario IDs
+for s in complete-usd complete-cny; do
+  NESTWORTH_QA_OUTPUT_DIR=/tmp/nestworth-qa-v3-$s NESTWORTH_QA_RESET=1 \
+  NESTWORTH_QA_ANCHOR=2026-07-26T00:00:00Z NESTWORTH_QA_SCENARIO=$s \
+  go run ./cmd/analytics-qa-seed
+done
+
+# equivalent env knob on complete
+NESTWORTH_QA_OUTPUT_DIR=/tmp/nestworth-qa-v3-complete-usd NESTWORTH_QA_RESET=1 \
+NESTWORTH_QA_SCENARIO=complete NESTWORTH_QA_BASE_CURRENCY=USD \
+go run ./cmd/analytics-qa-seed
+```
+
+`complete-usd` / `complete-cny` keep the v3 account/instrument/activity timeline. FX preferences and manual quotes are written **against the household base** (USD: AUD/USD + SGD/USD derived from the AUD schedule; CNY: USD/CNY + AUD/CNY + SGD/CNY). `missing-*` stay AUD so the R3 completeness matrix does not move.
 
 FC-07 loan is a **separate** scenario (`loan-fc07`) so the v3 complete / missing-* mini-family stays unchanged.
 
@@ -153,7 +172,7 @@ done
 | `cash-include`, `co03`, `residual`, `fixtures`, `quantitative`, `reconcile` | v3 / engine fixtures |
 | `loan-fc07` | loan DB: FC-07 oracles + Base/Native + household/account scope + Include/Exclude on the draw day + settings week/currency |
 | `timezone-r4` | self-contained TZ/DST DBs + in-memory oracles (no FX fills) |
-| `r4-matrix` | timezone-r4 + settings.Validate matrix + loan extras (`NESTWORTH_QA_LOAN_DB`) + complete extras (`NESTWORTH_QA_COMPLETE_DB`); SKIP missing DBs; BLOCKED desktop/macOS/locale-visual rows |
+| `r4-matrix` | timezone-r4 + settings.Validate matrix + loan extras (`NESTWORTH_QA_LOAN_DB`) + complete extras (`NESTWORTH_QA_COMPLETE_DB`) + `complete-usd`/`complete-cny` (`NESTWORTH_QA_COMPLETE_USD_DB` / `NESTWORTH_QA_COMPLETE_CNY_DB`); SKIP missing DBs; BLOCKED desktop/macOS/locale-visual rows |
 
 SKIP and BLOCKED do not fail `allPass`. FAIL does.
 
