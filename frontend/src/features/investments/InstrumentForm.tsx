@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -82,10 +82,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
   const instrumentTypes = catalog.data?.instrumentTypes ?? [];
   const quoteSources = catalog.data?.quoteSources ?? [];
   const instrumentProviders = catalog.data?.instrumentProviders ?? [];
-  const allMarketCodes = useMemo(
-    () => Array.from(new Set([...(catalog.data?.instrumentMarketCodes ?? []), ...(instrument?.marketCode ? [instrument.marketCode] : [])])),
-    [catalog.data?.instrumentMarketCodes, instrument?.marketCode],
-  );
+  const allMarketCodes = Array.from(new Set([...(catalog.data?.instrumentMarketCodes ?? []), ...(instrument?.marketCode ? [instrument.marketCode] : [])]));
   const countryOptions = Array.from(new Set([...(catalog.data?.instrumentCountryCodes ?? []), ...(instrument?.countryCode ? [instrument.countryCode] : [])]));
   const marketOptions = marketsForCountry(allMarketCodes, countryCode, marketCode);
   const defaultProviderKey = catalog.data?.instrumentProviders?.[0];

@@ -18,6 +18,8 @@ import { addCanonical, formatAmount, multiplyCanonical } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { useHistoryOrigin } from "@/queries/history";
 import { useSettings } from "@/queries/settings";
+import { useInstruments } from "@/queries/investments";
+import { analysisReason } from "@/features/insights/analysisText";
 
 function amountText(value?: { amount: string; currency: string } | null): string {
   if (!value) return "—";
@@ -44,10 +46,28 @@ function coverageLabel(ratedDays: number, totalDays: number): string {
 
 interface MonthReturnSummary {
   returnAmount: SignedMoneyView | null;
+  amountStatus: "complete" | "partial" | "unavailable";
   returnRate: string | null;
   ratedDays: number;
   totalDays: number;
   available: boolean;
+}
+
+function monthAmountStatus(cells: ReturnDayDTO[]): MonthReturnSummary["amountStatus"] {
+  let hasKnownAmount = false;
+  let hasIncompleteAmount = false;
+  for (const cell of cells) {
+    if (cell.amountStatus === "complete") {
+      hasKnownAmount = true;
+    } else if (cell.amountStatus === "partial") {
+      hasKnownAmount = true;
+      hasIncompleteAmount = true;
+    } else {
+      hasIncompleteAmount = true;
+    }
+  }
+  if (!hasKnownAmount) return "unavailable";
+  return hasIncompleteAmount ? "partial" : "complete";
 }
 
 function aggregateMonth(cells: ReturnDayDTO[]): MonthReturnSummary {
@@ -79,6 +99,7 @@ function aggregateMonth(cells: ReturnDayDTO[]): MonthReturnSummary {
   }
   return {
     returnAmount: hasAmount ? { amount, currency } : null,
+    amountStatus: monthAmountStatus(cells),
     returnRate: hasRate && ratedDays > 0 && ratedDays * 2 >= totalDays ? addCanonical(factor, "-1") : null,
     ratedDays,
     totalDays,
@@ -107,6 +128,8 @@ function Summary({ data }: { data: ReturnCalendarDTO }) {
   const { t } = useTranslation();
   const summary = data.summary;
   const partial = summary.ratedDays < summary.totalDays;
+  const amountPartial = summary.amountStatus === "partial";
+  const amountUnavailable = summary.amountStatus === "unavailable";
   return (
     <Card>
       <CardHeader className="gap-3">
@@ -120,7 +143,7 @@ function Summary({ data }: { data: ReturnCalendarDTO }) {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p>
-            <p className="text-2xl font-semibold">{amountText(summary.returnAmount)}</p>
+            <p className="text-2xl font-semibold">{amountText(summary.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p>
           </div>
           <div className="text-right">
             <p className="text-sm text-muted-foreground">{t("insights.returnRate")}</p>
@@ -165,9 +188,15 @@ function componentLabel(t: (key: string) => string, component: string): string {
   return t(`insights.components.${key}`);
 }
 
-function ContributorList({ values, title }: { values: ReturnContributorDTO[] | null | undefined; title: string }) {
+function contributorLabel(t: (key: string) => string, item: ReturnContributorDTO, instrumentNames: Map<string, string>): string {
+  if (item.key === "cash") return t("insights.cash");
+  return instrumentNames.get(item.key) ?? item.label;
+}
+
+function ContributorList({ values, title, instrumentNames = new Map() }: { values: ReturnContributorDTO[] | null | undefined; title: string; instrumentNames?: Map<string, string> }) {
+  const { t } = useTranslation();
   if (!values || values.length === 0) return null;
-  return <div className="mt-3 border-t border-border pt-3"><p className="mb-2 text-sm font-medium">{title}</p><ul className="flex flex-col gap-2 text-sm">{values.slice(0, 5).map((item) => <li key={item.key} className="flex justify-between gap-3"><span className="truncate">{item.label}</span><span className="shrink-0">{amountText(item.amount)}</span></li>)}</ul></div>;
+  return <div className="mt-3 border-t border-border pt-3"><p className="mb-2 text-sm font-medium">{title}</p><ul className="flex flex-col gap-2 text-sm">{values.slice(0, 5).map((item) => <li key={item.key} className="flex justify-between gap-3"><span className="truncate">{contributorLabel(t, item, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></li>)}</ul></div>;
 }
 
 function DayCell({ day, date, inMonth, timeZone, onOpen }: { day?: ReturnDayDTO; date: string; inMonth: boolean; timeZone?: string; onOpen: (date: string) => void }) {
@@ -178,11 +207,13 @@ function DayCell({ day, date, inMonth, timeZone, onOpen }: { day?: ReturnDayDTO;
   const amount = amountNumber(day?.returnAmount);
   const hasData = Boolean(day?.available);
   const showData = hasData && !today;
+  const amountPartial = day?.amountStatus === "partial";
+  const amountUnavailable = day?.amountStatus === "unavailable";
   return (
     <div data-testid={`return-day-${date}`} className={cn("group relative min-h-28 rounded-lg border border-border p-2 transition-colors", !inMonth && "border-transparent bg-muted/20 opacity-45", inMonth && hasData && !today && amount >= 0.005 && "bg-success/8", inMonth && hasData && !today && amount <= -0.005 && "bg-destructive/7", (future || today) && "opacity-60")}>
       <button type="button" disabled={!inMonth || future || today || !day} onClick={() => onOpen(date)} className="flex min-h-24 w-full flex-col items-start gap-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
         <span className="flex w-full items-center justify-between text-xs font-medium"><span>{Number(date.slice(-2))}</span>{today && <span className="text-[0.65rem] text-muted-foreground">{t("insights.today")}</span>}</span>
-        {day && showData ? <><span className="mt-2 text-sm font-semibold" title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}</span></> : <span className="mt-2 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span>}
+        {day && showData ? <><span className="mt-2 text-sm font-semibold" title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</span></> : <span className="mt-2 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span>}
       </button>
       {day && showData && day.composition && day.composition.length > 0 && (
         <div className="pointer-events-none invisible absolute left-2 top-full z-20 mt-1 w-64 rounded-lg border border-border bg-card p-3 text-xs shadow-lg group-hover:visible group-focus-within:visible">
@@ -205,7 +236,8 @@ function MonthGrid({ data, month, timeZone, weekStartsOn, onOpen }: { data?: Ret
 
 function YearGrid({ dataByMonth, year, onOpenMonth }: { dataByMonth: Map<string, MonthReturnSummary>; year: number; onOpenMonth: (month: string) => void }) {
   const { i18n } = useTranslation();
-  return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{yearMonths(year).map((month) => { const data = dataByMonth.get(month); return <button key={month} type="button" className="rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" onClick={() => onOpenMonth(month)}><div className="flex items-center justify-between"><span className="font-medium">{monthLabel(month, i18n.language, false)}</span><span className="text-sm font-semibold">{rateText(data?.returnRate)}</span></div><p className="mt-3 text-lg font-semibold">{amountText(data?.returnAmount)}</p><p className="mt-1 text-xs text-muted-foreground">{data ? coverageLabel(data.ratedDays, data.totalDays) : "—"}</p></button>; })}</div>;
+  const { t } = useTranslation();
+  return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{yearMonths(year).map((month) => { const data = dataByMonth.get(month); const amountStatusLabel = data?.amountStatus === "partial" ? t("insights.amountPartial") : t("insights.amountUnavailable"); const showAmountStatus = Boolean(data && data.totalDays > 0 && data.amountStatus !== "complete"); return <button key={month} type="button" className="rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" onClick={() => onOpenMonth(month)}><div className="flex items-center justify-between"><span className="font-medium">{monthLabel(month, i18n.language, false)}</span><span className="text-sm font-semibold">{rateText(data?.returnRate)}</span></div><p className="mt-3 text-lg font-semibold">{amountText(data?.returnAmount)}{showAmountStatus && <><sup className="ml-1 text-warning-foreground" title={amountStatusLabel}>◇</sup><span className="sr-only">{amountStatusLabel}</span></>}</p><p className="mt-1 text-xs text-muted-foreground">{data ? coverageLabel(data.ratedDays, data.totalDays) : "—"}</p></button>; })}</div>;
 }
 
 function DaySheet({ request, date, session, onClose, onAssetChanges }: { request: AnalysisQueryRequest; date: string | null; session: AnalysisSessionState; onClose: () => void; onAssetChanges?: (analysis: AnalysisNavigationContext) => void }) {
@@ -216,8 +248,12 @@ function DaySheet({ request, date, session, onClose, onAssetChanges }: { request
 
 function DayDetails({ data, date, session, onAssetChanges }: { data: ReturnDayDTO; date: string; session: AnalysisSessionState; onAssetChanges?: (analysis: AnalysisNavigationContext) => void }) {
   const { t } = useTranslation();
+  const instruments = useInstruments();
+  const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const amountPartial = data.amountStatus === "partial";
+  const amountUnavailable = data.amountStatus === "unavailable";
   const openAssetChanges = () => onAssetChanges?.({ scope: session.scope, scopeId: session.scopeId, valuation: session.valuation, includeCash: session.includeCash, from: date, to: date, moreFilters: session.moreFilters });
-  return <div className="flex flex-col gap-4 overflow-y-auto"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{issue.missingReason ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
+  return <div className="flex flex-col gap-4 overflow-y-auto"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
 }
 
 export { aggregateMonth, aggregateYearMonths };
@@ -226,6 +262,8 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   const { t, i18n } = useTranslation();
   const origin = useHistoryOrigin();
   const settings = useSettings();
+  const instruments = useInstruments();
+  const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
   const timeZone = origin.data?.timezone;
   const weekStartsOn = settings.data?.weekStart === "sunday" ? 0 : 1;
   const [view, setView] = useState<"month" | "year">("month");
@@ -263,7 +301,7 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   } else if (!monthRangeAvailable || visibleMonthIsFuture) {
     content = <MonthGrid data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} />;
   } else if (data?.available) {
-    content = <><CompletenessBanner issues={data.issues ?? []} ratedDays={data.summary.ratedDays} totalDays={data.summary.totalDays} /><Summary data={data} /><MonthGrid data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} /><ContributorList values={data.topContributors} title={t("insights.contributors")} /></>;
+    content = <><CompletenessBanner issues={data.issues ?? []} ratedDays={data.summary.ratedDays} totalDays={data.summary.totalDays} /><Summary data={data} /><MonthGrid data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} /><ContributorList values={data.topContributors} title={t("insights.contributors")} instrumentNames={instrumentNames} /></>;
   } else {
     content = <CalendarEmptyState data={data} />;
   }

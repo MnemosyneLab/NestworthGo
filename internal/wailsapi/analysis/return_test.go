@@ -51,6 +51,33 @@ func TestReturnDTOUsesCanonicalRatesCoverageAndIssues(t *testing.T) {
 	}
 }
 
+func TestReturnDTOMapsAmountStatusForCalendarAndDay(t *testing.T) {
+	amount, err := domain.ParseSignedMoney("0", "USD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, status := range []string{application.ReturnAmountComplete, application.ReturnAmountPartial, application.ReturnAmountUnavailable} {
+		t.Run(status, func(t *testing.T) {
+			value := application.ReturnCalendarResult{
+				Summary: application.ReturnCalendarSummary{ReturnAmount: &amount, AmountStatus: status},
+				Days:    []application.ReturnDayResult{{ReturnAmount: &amount, AmountStatus: status}},
+			}
+			calendar := fromReturnCalendar(value)
+			if calendar.Summary.AmountStatus != status {
+				t.Fatalf("calendar summary amountStatus = %q, want %q", calendar.Summary.AmountStatus, status)
+			}
+			if len(calendar.Cells) != 1 || calendar.Cells[0].AmountStatus != status {
+				t.Fatalf("calendar cell amountStatus = %+v, want %q", calendar.Cells, status)
+			}
+
+			day := fromReturnDay(value.Days[0])
+			if day.AmountStatus != status {
+				t.Fatalf("day amountStatus = %q, want %q", day.AmountStatus, status)
+			}
+		})
+	}
+}
+
 func TestReturnTrendDTOKeepsUnforcedRateNullAndMapsSources(t *testing.T) {
 	amount, err := domain.ParseSignedMoney("7.5", "USD")
 	if err != nil {

@@ -9,8 +9,11 @@ import { useAccounts } from "@/queries/accounts";
 import { useMembers } from "@/queries/directory";
 import { useInstruments } from "@/queries/investments";
 import { useSettings } from "@/queries/settings";
+import { useHistoryOrigin } from "@/queries/history";
 import type { AnalysisNavigationContext } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
+import { lastClosedDate } from "@/features/insights/calendar";
+import { originLocalDate } from "@/features/insights/analysisRequest";
 
 export function AnalysisFilterBar({
   session,
@@ -23,6 +26,7 @@ export function AnalysisFilterBar({
 }) {
   const { t } = useTranslation();
   const settings = useSettings();
+  const origin = useHistoryOrigin();
   const accounts = useAccounts();
   const instruments = useInstruments();
   const catalog = useCatalog();
@@ -30,6 +34,10 @@ export function AnalysisFilterBar({
 
   const update = (value: AnalysisNavigationContext) => onChange(value);
   const scope = session.scope ?? "portfolio";
+  const closedDate = lastClosedDate(origin.data?.timezone);
+  const originDate = origin.data?.startedAt ? originLocalDate(origin.data.startedAt, origin.data.timezone) : undefined;
+  const fromMax = session.to && session.to < closedDate ? session.to : closedDate;
+  const toMin = session.from && (!originDate || session.from > originDate) ? session.from : originDate;
 
   return (
     <section aria-label={t("insights.filters")} className="flex flex-col gap-4 rounded-xl border border-border bg-card/60 p-4">
@@ -95,11 +103,11 @@ export function AnalysisFilterBar({
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">
           <Label htmlFor="analysis-from">{t("insights.from")}</Label>
-          <DatePicker id="analysis-from" value={session.from} max={session.to || undefined} onChange={(from) => update({ from })} placeholder={t("common.selectOption")} />
+          <DatePicker id="analysis-from" value={session.from} min={originDate} max={fromMax} onChange={(from) => update({ from })} placeholder={t("common.selectOption")} />
         </div>
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">
           <Label htmlFor="analysis-to">{t("insights.to")}</Label>
-          <DatePicker id="analysis-to" value={session.to} min={session.from || undefined} onChange={(to) => update({ to })} placeholder={t("common.selectOption")} />
+          <DatePicker id="analysis-to" value={session.to} min={toMin} max={closedDate} onChange={(to) => update({ to })} placeholder={t("common.selectOption")} />
         </div>
         <Button type="button" variant="outline" onClick={onReset}>{t("insights.reset")}</Button>
       </div>

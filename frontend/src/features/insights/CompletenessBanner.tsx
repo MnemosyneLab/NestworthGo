@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { ReturnIssueDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import { analysisReason } from "@/features/insights/analysisText";
 
 export function AvailabilityMarks({
   status,
@@ -28,7 +29,7 @@ export function AvailabilityMarks({
         {valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}
         {partial && <Badge variant="warning">{t("insights.partial")}{typeof ratedDays === "number" && typeof totalDays === "number" ? ` ${ratedDays}/${totalDays}` : ""}</Badge>}
       </div>
-      {missingReason && <p className="text-sm text-warning-foreground">{missingReason}</p>}
+      {missingReason && <p className="text-sm text-warning-foreground">{analysisReason(t, missingReason)}</p>}
     </div>
   );
 }
@@ -67,7 +68,7 @@ export function CompletenessBanner({
             {issues.map((issue) => (
               <li key={`${issue.date}-${issue.status}`} className="rounded-md border border-border px-3 py-2">
                 <div className="font-medium">{issue.date}</div>
-                <div className="text-muted-foreground">{issue.missingReason ?? issue.status}</div>
+                <div className="text-muted-foreground">{analysisReason(t, issue.missingReason) ?? issue.status}</div>
               </li>
             ))}
           </ul>

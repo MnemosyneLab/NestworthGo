@@ -12,6 +12,7 @@ import type { AnalysisSessionState } from "@/stores/analysis";
 import type { HistoryNavigationFilters } from "@/app/navigation";
 import { useAnalysisProjectionContext } from "@/features/insights/analysisProjectionContext";
 import { AvailabilityMarks } from "@/features/insights/CompletenessBanner";
+import { analysisReason } from "@/features/insights/analysisText";
 import { compareCanonical, divideCanonical, formatAmount, multiplyCanonical } from "@/lib/money";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
@@ -53,15 +54,15 @@ function componentLabel(t: (key: string) => string, key: string): string {
   return name ? t(`insights.components.${name}`) : key;
 }
 
-function contributionRowLabel(groupBy: string, key: string, label: string, accountNames: Map<string, string>, instrumentNames: Map<string, string>): string {
+function contributionRowLabel(t: (key: string) => string, groupBy: string, key: string, label: string, accountNames: Map<string, string>, instrumentNames: Map<string, string>): string {
   if (groupBy === "account") return accountNames.get(key) ?? label;
   if (groupBy === "instrument") return instrumentNames.get(key) ?? label;
-  return key;
+  return key === "cash" ? t("insights.cash") : key;
 }
 
 function contributionEmpty(data: ContributionDTO | undefined, returnType: string, t: (key: string) => string) {
-  if (returnType === "unrealized") return <EmptyState title={t("insights.unrealizedUnavailable")} description={data?.missingReason ?? t("insights.unrealizedUnavailableHint")} />;
-  return <EmptyState title={t("insights.noContributionData")} description={data?.missingReason ?? t("insights.noContributionDataHint")} />;
+  if (returnType === "unrealized") return <EmptyState title={t("insights.unrealizedUnavailable")} description={analysisReason(t, data?.missingReason) ?? t("insights.unrealizedUnavailableHint")} />;
+  return <EmptyState title={t("insights.noContributionData")} description={analysisReason(t, data?.missingReason) ?? t("insights.noContributionDataHint")} />;
 }
 
 function absoluteAmount(value: string): string {
@@ -90,7 +91,7 @@ function compositionLabel(t: (key: string) => string, item: NonNullable<Contribu
   if (returnComponentKeys[item.key]) return componentLabel(t, item.key);
   if (item.instrumentId) return instrumentNames.get(item.instrumentId) ?? item.key;
   if (item.accountId) return accountNames.get(item.accountId) ?? item.key;
-  return item.key;
+  return item.key === "cash" ? t("insights.cash") : item.key;
 }
 
 function ItemDetail({ data, returnType, accountNames, instrumentNames, onOpenHistory }: { data: ContributionItemDTO; returnType: string; accountNames: Map<string, string>; instrumentNames: Map<string, string>; onOpenHistory?: (filters: HistoryNavigationFilters) => void }) {
@@ -101,7 +102,7 @@ function ItemDetail({ data, returnType, accountNames, instrumentNames, onOpenHis
     onOpenHistory({ from: data.historyHint.from, to: data.historyHint.to, accountId: data.historyHint.accountId || undefined, instrumentId: data.historyHint.instrumentId || undefined, kinds: data.historyHint.kinds && data.historyHint.kinds.length > 0 ? data.historyHint.kinds : undefined });
   };
   const historyNarrowed = Boolean(data.historyHint.accountId || data.historyHint.instrumentId);
-  return <div className="flex flex-col gap-5 overflow-y-auto"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.contribution")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.amount)}</p>{showRate && <p className="text-sm text-muted-foreground">{rateText(data.rate)}{coverageMark(data.ratedDays, data.totalDays)}</p>}</div>{data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}{data.status === "partial" && <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{data.missingReason ?? t("insights.partial")}</p>}<p className="text-sm text-muted-foreground">{t("insights.contributionIndependent")}</p><DetailList title={t("insights.composition")} values={data.components} labelFor={(item) => compositionLabel(t, item, accountNames, instrumentNames)} /><DetailList title={t("insights.byAccount")} values={data.byAccount} labelFor={(item) => accountNames.get(item.accountId || item.key) ?? item.key} />{onOpenHistory && <div className="flex flex-col gap-2">{!historyNarrowed && (data.byAccount?.length ?? 0) > 1 && <p className="text-sm text-muted-foreground">{t("insights.historyRangeWider")}</p>}<Button type="button" variant="outline" onClick={openHistory}>{t("insights.viewInHistory")}</Button></div>}</div>;
+  return <div className="flex flex-col gap-5 overflow-y-auto"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.contribution")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.amount)}</p>{showRate && <p className="text-sm text-muted-foreground">{rateText(data.rate)}{coverageMark(data.ratedDays, data.totalDays)}</p>}</div>{data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}{data.status === "partial" && <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{analysisReason(t, data.missingReason) ?? t("insights.partial")}</p>}<p className="text-sm text-muted-foreground">{t("insights.contributionIndependent")}</p><DetailList title={t("insights.composition")} values={data.components} labelFor={(item) => compositionLabel(t, item, accountNames, instrumentNames)} /><DetailList title={t("insights.byAccount")} values={data.byAccount} labelFor={(item) => accountNames.get(item.accountId || item.key) ?? (item.key === "cash" ? t("insights.cash") : item.key)} />{onOpenHistory && <div className="flex flex-col gap-2">{!historyNarrowed && (data.byAccount?.length ?? 0) > 1 && <p className="text-sm text-muted-foreground">{t("insights.historyRangeWider")}</p>}<Button type="button" variant="outline" onClick={openHistory}>{t("insights.viewInHistory")}</Button></div>}</div>;
 }
 
 function DetailList({ title, values, labelFor }: { title: string; values: ContributionItemDTO["components"]; labelFor: (item: NonNullable<ContributionItemDTO["components"]>[number]) => string }) {
@@ -124,7 +125,7 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
   const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
   const data = contribution.data;
   const showRate = returnType === "total_return" || (returnType === "unrealized" && (data?.rows ?? []).some((row) => row.rate != null));
-  const labelFor = (row: { key: string; label: string }) => contributionRowLabel(groupBy, row.key, row.label, accountNames, instrumentNames);
+  const labelFor = (row: { key: string; label: string }) => contributionRowLabel(t, groupBy, row.key, row.label, accountNames, instrumentNames);
   const selected = (data?.rows ?? []).find((row) => row.key === selectedKey) ?? null;
   if (selectedKey && data && !selected) setSelectedKey(null);
 

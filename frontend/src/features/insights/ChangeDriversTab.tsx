@@ -13,6 +13,7 @@ import type { AssetChangeDTO, AssetChangeGroupDTO, AssetChangeRowDTO, AssetDrive
 import { formatAmount } from "@/lib/money";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
+import { analysisReason } from "@/features/insights/analysisText";
 import type { AnalysisNavigationContext, HistoryNavigationFilters } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
 
@@ -73,7 +74,7 @@ function SummaryCard({ data, scope }: { data: AssetChangeDTO; scope: "portfolio"
           <SummaryValue label={t("insights.change")} value={amountText(data.summary.change)} emphasis />
         </div>
       </CardHeader>
-      {partial && data.missingReason && <CardContent><p className="text-sm text-warning-foreground">{data.missingReason}</p></CardContent>}
+      {partial && data.missingReason && <CardContent><p className="text-sm text-warning-foreground">{analysisReason(t, data.missingReason)}</p></CardContent>}
     </Card>
   );
 }
@@ -117,12 +118,12 @@ function DimensionList({ title, rows, labelFor }: { title: string; rows: AssetDr
   return <div className="flex flex-col gap-2"><h3 className="text-sm font-medium">{title}</h3><ul className="flex flex-col gap-1 text-sm">{rows.map((row) => <li key={row.key} className="flex justify-between gap-3"><span className="truncate">{labelFor?.(row) ?? row.label}</span><span className="shrink-0">{amountText(row.amount)}</span></li>)}</ul></div>;
 }
 
-function residualLabel(item: NonNullable<AssetDriverDetailDTO["residualDetails"]>[number], accountNames: Map<string, string>, instrumentNames: Map<string, string>): string {
+function residualLabel(t: (key: string) => string, item: NonNullable<AssetDriverDetailDTO["residualDetails"]>[number], accountNames: Map<string, string>, instrumentNames: Map<string, string>): string {
   const dimensions = [
     item.accountId ? accountNames.get(item.accountId) ?? item.accountId : "",
     item.instrumentId ? instrumentNames.get(item.instrumentId) ?? item.instrumentId : "",
   ].filter(Boolean);
-  return dimensions.length > 0 ? dimensions.join(" · ") : item.componentKey;
+  return dimensions.length > 0 ? dimensions.join(" · ") : t("insights.unattributedResidual");
 }
 
 function DriverDetailSheet({ request, session, selected, onClose, accountNames, instrumentNames, onOpenHistory, onOpenReturnAnalysis }: { request: AnalysisQueryRequest; session: AnalysisSessionState; selected: AssetChangeRowDTO | null; onClose: () => void; accountNames: Map<string, string>; instrumentNames: Map<string, string>; onOpenHistory?: (filters: HistoryNavigationFilters) => void; onOpenReturnAnalysis?: (analysis: AnalysisNavigationContext) => void }) {
@@ -152,15 +153,15 @@ function DriverDetailContent({ data, request, session, selected, isResidual, acc
         <p className="mt-1 text-2xl font-semibold">{amountText(selected?.amount)}</p>
       </div>
       {data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}
-      {data.status === "partial" && <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground"><AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{data.missingReason ?? t("insights.partial")}</div>}
+      {data.status === "partial" && <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground"><AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{analysisReason(t, data.missingReason) ?? t("insights.partial")}</div>}
       {isResidual && data.residualDetails && data.residualDetails.length > 0 ? (
         <div className="flex flex-col gap-2">
           <h3 className="text-sm font-medium">{t("insights.componentDays")}</h3>
-          <ul className="flex flex-col gap-2 text-sm">{data.residualDetails.map((item) => <li key={`${item.date}-${item.componentKey}`} className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2"><div className="flex justify-between gap-3"><span className="truncate">{residualLabel(item, accountNames, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></div><p className="mt-1 text-xs text-muted-foreground">{item.date}</p><p className="mt-1 truncate text-xs text-muted-foreground">{item.componentKey}</p>{onOpenHistory && <Button type="button" variant="link" size="sm" className="mt-1 h-auto px-0" onClick={() => onOpenHistory({ from: item.date, to: item.date, accountId: item.accountId || undefined, instrumentId: item.instrumentId || undefined })}>{t("insights.viewInHistory")}</Button>}</li>)}</ul>
+          <ul className="flex flex-col gap-2 text-sm">{data.residualDetails.map((item) => <li key={`${item.date}-${item.componentKey}`} className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2"><div className="flex justify-between gap-3"><span className="truncate">{residualLabel(t, item, accountNames, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></div><p className="mt-1 text-xs text-muted-foreground">{item.date}</p><details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">{t("insights.internalReference")}</summary><code className="mt-1 block break-all">{item.componentKey}</code></details>{onOpenHistory && <Button type="button" variant="link" size="sm" className="mt-1 h-auto px-0" onClick={() => onOpenHistory({ from: item.date, to: item.date, accountId: item.accountId || undefined, instrumentId: item.instrumentId || undefined })}>{t("insights.viewInHistory")}</Button>}</li>)}</ul>
         </div>
       ) : null}
-      <DimensionList title={t("insights.byInstrument")} rows={data.byInstrument} labelFor={(row) => row.instrumentId ? instrumentNames.get(row.instrumentId) ?? row.label : row.label} />
-      <DimensionList title={t("insights.byAccount")} rows={data.byAccount} labelFor={(row) => row.accountId ? accountNames.get(row.accountId) ?? row.label : row.label} />
+      <DimensionList title={t("insights.byInstrument")} rows={data.byInstrument} labelFor={(row) => row.instrumentId ? instrumentNames.get(row.instrumentId) ?? row.label : row.key === "cash" ? t("insights.cash") : row.label} />
+      <DimensionList title={t("insights.byAccount")} rows={data.byAccount} labelFor={(row) => row.accountId ? accountNames.get(row.accountId) ?? row.label : row.key === "cash" ? t("insights.cash") : row.label} />
       {!isResidual && (!data.byInstrument?.length && !data.byAccount?.length) && <EmptyState title={t("insights.noDriverDetails")} />}
       {openReturnAnalysis && selected && (
         <Button
@@ -192,7 +193,7 @@ export function ChangeDriversTab({ request, session, scope, onOpenHistory, onOpe
   const instruments = useInstruments();
   if (data.isLoading) return <LoadingState label={t("insights.loading")} />;
   if (data.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => data.refetch()} retryLabel={t("common.retryAction")} />;
-  if (!data.data?.available) return <EmptyState title={t("insights.noAssetChangeData")} description={data.data?.missingReason ?? t("insights.noAssetChangeDataHint")} />;
+  if (!data.data?.available) return <EmptyState title={t("insights.noAssetChangeData")} description={analysisReason(t, data.data?.missingReason) ?? t("insights.noAssetChangeDataHint")} />;
   const result = data.data;
   const rows = (result.waterfall ?? []).map((row) => ({ ...row, label: driverLabel(t, row.bucket, row.label) }));
   const groups = (result.groups ?? []).map((group) => ({ ...group, label: groupLabel(t, group.key, group.label), rows: (group.rows ?? []).map((row) => ({ ...row, label: driverLabel(t, row.bucket, row.label) })) }));

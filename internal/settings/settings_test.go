@@ -67,8 +67,29 @@ func TestStoreCorruptFileFallsBackToDefaults(t *testing.T) {
 	}
 
 	got, err := NewStore(path).Load()
-	if err == nil {
-		t.Fatal("Load() error = nil, want corrupt-file error")
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil while falling back to defaults", err)
+	}
+	if !reflect.DeepEqual(got, Default()) {
+		t.Fatalf("Load() = %#v, want defaults %#v", got, Default())
+	}
+}
+
+func TestStoreUnsupportedSchemaFallsBackToDefaults(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	stored := Default()
+	stored.SchemaVersion = CurrentSchemaVersion + 1
+	data, err := json.Marshal(stored)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	got, err := NewStore(path).Load()
+	if err != nil {
+		t.Fatalf("Load() error = %v, want nil while falling back to defaults", err)
 	}
 	if !reflect.DeepEqual(got, Default()) {
 		t.Fatalf("Load() = %#v, want defaults %#v", got, Default())

@@ -42,6 +42,9 @@ tasks:
       - task: common:build:frontend
     cmds:
       - test -z "$(gofmt -l cmd internal)"
+      - task: common:frontend:run
+        vars:
+          SCRIPT: check:bindings
       - go test ./...
       - go vet ./...
       - go build ./cmd/nestworth

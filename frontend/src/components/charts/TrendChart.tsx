@@ -27,6 +27,7 @@ export interface TrendChartProps {
   emptyTitle: string;
   emptyDescription?: string;
   valueFormatter?: (value: string | null | undefined) => string;
+  axisValueFormatter?: (value: string | number) => string;
   extraTableColumns?: string[];
   extraTableRows?: string[][];
 }
@@ -74,6 +75,7 @@ export function TrendChart({
   emptyTitle,
   emptyDescription,
   valueFormatter,
+  axisValueFormatter,
   extraTableColumns,
   extraTableRows,
 }: TrendChartProps) {
@@ -117,7 +119,7 @@ export function TrendChart({
       },
     },
     xAxis: { type: "category", data: dates, axisLabel: { color: theme.muted } },
-    yAxis: { type: "value", axisLabel: { color: theme.muted }, splitLine: { lineStyle: { color: theme.border } } },
+    yAxis: { type: "value", axisLabel: { color: theme.muted, ...(axisValueFormatter ? { formatter: axisValueFormatter } : {}) }, splitLine: { lineStyle: { color: theme.border } } },
     series: series.map((item) => {
       const showSourceMarks = (item.pointMeta ?? []).some((meta) => meta?.sourceLabel || meta?.delayed);
       return {

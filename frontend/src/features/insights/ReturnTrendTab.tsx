@@ -28,6 +28,14 @@ function rateText(value: string | null | undefined): string {
   return numeric > 0 ? `+${rounded}%` : `${rounded}%`;
 }
 
+function rateAxisText(value: string | number): string {
+  const numeric = Number(value) * 100;
+  if (!Number.isFinite(numeric)) return "";
+  const precision = Math.abs(numeric) < 0.1 ? 4 : Math.abs(numeric) < 1 ? 3 : 2;
+  const rounded = numeric.toFixed(precision).replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+  return `${numeric > 0 ? "+" : ""}${rounded}%`;
+}
+
 function shareText(value: string | null | undefined): string {
   if (value == null) return "—";
   const numeric = Number(value) * 100;
@@ -113,7 +121,7 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   else results = (
     <>
       <TrendSummary data={data} />
-      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent><TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: "hsl(var(--chart-1))", values: chartValues }]} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display)]} extraTableRows={dates.map((date, index) => [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index])])} /></CardContent></Card>}
+      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent><TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: "hsl(var(--chart-1))", values: chartValues }]} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} axisValueFormatter={display === "linked_rate" ? rateAxisText : undefined} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display)]} extraTableRows={dates.map((date, index) => [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index])])} /></CardContent></Card>}
       {(data.sources ?? []).length > 0 && <Card><CardHeader><CardTitle>{t("insights.returnSources")}</CardTitle></CardHeader><CardContent><ul className="flex flex-col gap-2 text-sm">{(data.sources ?? []).map((source) => <li key={source.key} className="flex items-center gap-3"><span className="min-w-0 flex-1 truncate">{sourceLabel(t, source.key)}</span><span className="shrink-0">{amountText(source.amount)}</span><span className="w-16 shrink-0 text-right text-muted-foreground">{source.share == null ? "—" : shareText(source.share)}</span></li>)}</ul></CardContent></Card>}
       <Button type="button" variant="ghost" className="self-start" onClick={() => setDisplay("cumulative_amount")} hidden={display === "cumulative_amount"}>{t("insights.resetDisplay")}</Button>
     </>

@@ -273,6 +273,8 @@ export interface CategoryActivityRefDTO {
 export interface CategoryChildDTO {
     "key": string;
     "label": string;
+    "accountId"?: string;
+    "instrumentId"?: string;
     "amount"?: SignedMoneyView | null;
 }
 
@@ -632,6 +634,7 @@ export interface ReturnCalendarSummaryDTO {
     "beginningInvestedValue"?: SignedMoneyView | null;
     "endingInvestedValue"?: SignedMoneyView | null;
     "returnAmount"?: SignedMoneyView | null;
+    "amountStatus": string;
     "returnRate": string | null;
     "ratedDays": number;
     "totalDays": number;
@@ -656,6 +659,7 @@ export interface ReturnDayDTO {
     "beginningInvestedValue"?: SignedMoneyView | null;
     "endingInvestedValue"?: SignedMoneyView | null;
     "returnAmount"?: SignedMoneyView | null;
+    "amountStatus": string;
     "returnRate": string | null;
     "composition": ReturnComponentAmountDTO[] | null;
     "contributors": ReturnContributorDTO[] | null;

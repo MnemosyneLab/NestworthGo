@@ -250,6 +250,18 @@ type Store struct {
 	Path string
 }
 
+// LoadStatus describes whether a loaded value is safe for an automatic
+// persistence operation. Defaults returned for an absent file are safe to
+// materialize; recovered values from an untrusted file require an explicit
+// user save/reset before the original file may be replaced.
+type LoadStatus uint8
+
+const (
+	LoadStatusMissing LoadStatus = iota
+	LoadStatusClean
+	LoadStatusRecovered
+)
+
 func NewStore(path string) *Store {
 	return &Store{Path: path}
 }
@@ -266,38 +278,53 @@ func DefaultStore() *Store {
 }
 
 func (s *Store) Load() (Settings, error) {
+	value, _, err := s.LoadWithStatus()
+	return value, err
+}
+
+// LoadWithStatus returns safe settings plus the provenance of those settings.
+// Callers that persist automatically must not replace the source file when
+// status is LoadStatusRecovered; an explicit settings Save or Reset may do so.
+func (s *Store) LoadWithStatus() (Settings, LoadStatus, error) {
 	defaults := Default()
 	if s == nil || s.Path == "" {
-		return defaults, errors.New("settings path is empty")
+		return defaults, LoadStatusRecovered, errors.New("settings path is empty")
 	}
 
 	data, err := os.ReadFile(s.Path)
 	if errors.Is(err, os.ErrNotExist) {
-		return defaults, nil
+		return defaults, LoadStatusMissing, nil
 	}
 	if err != nil {
-		return defaults, err
+		return defaults, LoadStatusRecovered, err
 	}
 
 	var loaded Settings
 	if err := json.Unmarshal(data, &loaded); err != nil {
-		return defaults, fmt.Errorf("decode settings: %w", err)
+		// Settings are presentation-only. A malformed file must not strand the
+		// frontend in its startup loading state; use safe defaults while keeping
+		// the original file untouched until an explicit save/reset.
+		slog.Warn("settings file is malformed; using defaults", "path", s.Path, "error", err)
+		return defaults, LoadStatusRecovered, nil
 	}
 	if loaded.SchemaVersion != CurrentSchemaVersion {
 		// A different schema version changes what the fields mean, so no
-		// individual field can be trusted; fall back to full defaults.
-		return defaults, fmt.Errorf("unsupported settings schema version %d", loaded.SchemaVersion)
+		// individual field can be trusted; fall back to full defaults while
+		// keeping the original file untouched until an explicit save/reset.
+		slog.Warn("settings file uses an unsupported schema; using defaults", "path", s.Path, "schema_version", loaded.SchemaVersion)
+		return defaults, LoadStatusRecovered, nil
 	}
 	repaired := salvage(loaded, defaults)
 	if err := repaired.Validate(); err != nil {
 		slog.Error("settings salvage still produced invalid settings; using defaults")
-		return defaults, nil
+		return defaults, LoadStatusRecovered, nil
 	}
 	if repaired != loaded {
 		slog.Warn("settings file contained invalid values; reset individual fields to defaults",
 			"fields", strings.Join(changedFieldNames(loaded, repaired), ", "))
+		return repaired, LoadStatusRecovered, nil
 	}
-	return repaired, nil
+	return repaired, LoadStatusClean, nil
 }
 
 // salvage keeps every field that still validates and resets only the

@@ -11,6 +11,9 @@ export function useSettings(options?: { enabled?: boolean }) {
     queryKey: settingsQueryKey,
     queryFn: () => callService(() => SettingsService.Load()),
     enabled: options?.enabled ?? true,
+    // Settings are local and deterministic; repeated retries only prolong
+    // the startup loading screen and cannot repair a read failure.
+    retry: false,
   });
 }
 

@@ -261,9 +261,12 @@ func windowSizeFromSettings(preference settings.Settings) (int, int) {
 }
 
 func persistWindowSizeValue(store *settings.Store, width, height int) error {
-	preference, err := store.Load()
+	preference, loadStatus, err := store.LoadWithStatus()
 	if err != nil {
 		return fmt.Errorf("load settings before persisting window size: %w", err)
+	}
+	if loadStatus == settings.LoadStatusRecovered {
+		return fmt.Errorf("saved settings require explicit recovery before persisting window size")
 	}
 	preference.WindowWidth = float32(width)
 	preference.WindowHeight = float32(height)

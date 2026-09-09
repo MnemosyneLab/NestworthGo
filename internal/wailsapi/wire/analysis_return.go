@@ -36,6 +36,7 @@ type ReturnDayDTO struct {
 	BeginningInvestedValue *SignedMoneyView           `json:"beginningInvestedValue,omitempty"`
 	EndingInvestedValue    *SignedMoneyView           `json:"endingInvestedValue,omitempty"`
 	ReturnAmount           *SignedMoneyView           `json:"returnAmount,omitempty"`
+	AmountStatus           string                     `json:"amountStatus"`
 	ReturnRate             *string                    `json:"returnRate"`
 	Composition            []ReturnComponentAmountDTO `json:"composition"`
 	Contributors           []ReturnContributorDTO     `json:"contributors"`
@@ -52,6 +53,7 @@ type ReturnCalendarSummaryDTO struct {
 	BeginningInvestedValue *SignedMoneyView `json:"beginningInvestedValue,omitempty"`
 	EndingInvestedValue    *SignedMoneyView `json:"endingInvestedValue,omitempty"`
 	ReturnAmount           *SignedMoneyView `json:"returnAmount,omitempty"`
+	AmountStatus           string           `json:"amountStatus"`
 	ReturnRate             *string          `json:"returnRate"`
 	RatedDays              int              `json:"ratedDays"`
 	TotalDays              int              `json:"totalDays"`

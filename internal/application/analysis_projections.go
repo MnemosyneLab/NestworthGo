@@ -146,9 +146,11 @@ type CategoriesResult struct {
 }
 
 type CategoryChild struct {
-	Key    string
-	Label  string
-	Amount *domain.SignedMoney
+	Key          string
+	Label        string
+	AccountID    string
+	InstrumentID string
+	Amount       *domain.SignedMoney
 }
 
 type CategoryActivityRef struct {
@@ -651,7 +653,8 @@ func foldCategoryDetail(result domain.PeriodAnalysisResult, forced string, categ
 	}
 	childRows := make([]CategoryChild, 0, len(children))
 	for key, amount := range children {
-		childRows = append(childRows, CategoryChild{Key: key, Label: key, Amount: signedPointer(amount, currency)})
+		accountID, instrumentID := categoryChildDimensions(result, key)
+		childRows = append(childRows, CategoryChild{Key: key, Label: key, AccountID: accountID, InstrumentID: instrumentID, Amount: signedPointer(amount, currency)})
 	}
 	sort.SliceStable(childRows, func(i, j int) bool { return signedAmountGreater(childRows[i].Amount, childRows[j].Amount) })
 	sort.Slice(refs, func(i, j int) bool {
@@ -661,6 +664,21 @@ func foldCategoryDetail(result domain.PeriodAnalysisResult, forced string, categ
 		return refs[i].ActivityID < refs[j].ActivityID
 	})
 	return CategoryDetailResult{AnalysisAvailability: availability(result, forced), Children: childRows, ActivityRefs: refs}
+}
+
+func categoryChildDimensions(result domain.PeriodAnalysisResult, key string) (string, string) {
+	for _, day := range result.Days {
+		if day.Component.Key() != key {
+			continue
+		}
+		accountID := day.Component.AccountID.String()
+		instrumentID := ""
+		if day.Component.InstrumentID != nil {
+			instrumentID = day.Component.InstrumentID.String()
+		}
+		return accountID, instrumentID
+	}
+	return "", ""
 }
 
 func hasReturnComponent(result domain.PeriodAnalysisResult, wanted domain.ReturnComponent) bool {

@@ -30,17 +30,28 @@ type ReturnDayResult struct {
 	BeginningInvestedValue *domain.SignedMoney
 	EndingInvestedValue    *domain.SignedMoney
 	ReturnAmount           *domain.SignedMoney
-	ReturnRate             *decimal.Decimal
-	Composition            []ReturnComponentAmount
-	Contributors           []ReturnContributor
-	Coverage               domain.RateCoverage
-	Issues                 []ReturnIssue
+	// AmountStatus distinguishes a complete known amount from a partial
+	// component sum. A partial day can still have a useful amount even when
+	// its Dietz rate is unavailable.
+	AmountStatus string
+	ReturnRate   *decimal.Decimal
+	Composition  []ReturnComponentAmount
+	Contributors []ReturnContributor
+	Coverage     domain.RateCoverage
+	Issues       []ReturnIssue
 }
+
+const (
+	ReturnAmountComplete    = "complete"
+	ReturnAmountPartial     = "partial"
+	ReturnAmountUnavailable = "unavailable"
+)
 
 type ReturnCalendarSummary struct {
 	BeginningInvestedValue *domain.SignedMoney
 	EndingInvestedValue    *domain.SignedMoney
 	ReturnAmount           *domain.SignedMoney
+	AmountStatus           string
 	ReturnRate             *decimal.Decimal
 	Coverage               domain.RateCoverage
 }
@@ -412,9 +423,42 @@ func projectReturnCalendar(result domain.PeriodAnalysisResult, forced, cursor st
 	for _, day := range allDays {
 		calendar.Issues = append(calendar.Issues, day.Issues...)
 	}
-	calendar.Summary = ReturnCalendarSummary{BeginningInvestedValue: result.InvestedCapital, ReturnAmount: result.ReturnAmount, ReturnRate: result.ReturnRate, Coverage: result.Coverage}
+	amountStatus := returnAmountStatus(result)
+	calendar.Summary = ReturnCalendarSummary{BeginningInvestedValue: result.InvestedCapital, ReturnAmount: result.ReturnAmount, AmountStatus: amountStatus, ReturnRate: result.ReturnRate, Coverage: result.Coverage}
 	calendar.Summary.EndingInvestedValue = periodEndingValue(result)
 	return calendar, nil
+}
+
+func returnAmountStatus(result domain.PeriodAnalysisResult) string {
+	if result.ReturnAmount == nil {
+		return ReturnAmountUnavailable
+	}
+	if len(result.DailyReturns) == 0 {
+		if result.Status == domain.CompletenessPartial {
+			return ReturnAmountPartial
+		}
+		return ReturnAmountComplete
+	}
+
+	knownDays := 0
+	partial := false
+	for _, day := range result.DailyReturns {
+		if day.Amount == nil {
+			partial = true
+			continue
+		}
+		knownDays++
+		if day.Status != domain.CompletenessOK {
+			partial = true
+		}
+	}
+	if knownDays == 0 {
+		return ReturnAmountUnavailable
+	}
+	if partial {
+		return ReturnAmountPartial
+	}
+	return ReturnAmountComplete
 }
 
 // ReturnCalendar's cursor is a visible-month selector. It filters cells
@@ -485,7 +529,14 @@ func projectReturnDays(result domain.PeriodAnalysisResult, forced string) []Retu
 		if hasEnding {
 			endingValue = signedPointer(ending, currency)
 		}
-		cell := ReturnDayResult{AnalysisAvailability: dailyAvailability(daily, forced), Date: daily.Date, ReturnAmount: daily.Amount, ReturnRate: daily.Rate, Coverage: coverage, BeginningInvestedValue: beginningValue, EndingInvestedValue: endingValue, Contributors: returnContributorsFromAmounts(contributorsByDate[daily.Date], currency, coverage)}
+		amountStatus := ReturnAmountUnavailable
+		if daily.Amount != nil {
+			amountStatus = ReturnAmountComplete
+			if daily.Status != domain.CompletenessOK {
+				amountStatus = ReturnAmountPartial
+			}
+		}
+		cell := ReturnDayResult{AnalysisAvailability: dailyAvailability(daily, forced), Date: daily.Date, ReturnAmount: daily.Amount, AmountStatus: amountStatus, ReturnRate: daily.Rate, Coverage: coverage, BeginningInvestedValue: beginningValue, EndingInvestedValue: endingValue, Contributors: returnContributorsFromAmounts(contributorsByDate[daily.Date], currency, coverage)}
 		keys := make([]string, 0, len(components))
 		for component := range components {
 			keys = append(keys, string(component))

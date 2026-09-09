@@ -154,8 +154,34 @@ func TestReturnCalendarDoesNotTurnACompleteNoCapitalDayIntoAnIssue(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(calendar.Issues) != 0 || len(calendar.Days[0].Issues) != 0 || calendar.Days[0].Status != domain.CompletenessOK {
+	if len(calendar.Issues) != 0 || len(calendar.Days[0].Issues) != 0 || calendar.Days[0].Status != domain.CompletenessOK || calendar.Summary.AmountStatus != ReturnAmountComplete {
 		t.Fatalf("complete no-capital day = %+v", calendar)
+	}
+}
+
+func TestReturnCalendarAmountStatusFollowsKnownDailyAmounts(t *testing.T) {
+	amount := testReturnMoney(t, "0")
+	result := domain.PeriodAnalysisResult{
+		Query:        testReturnQuery("2026-08-01", "2026-08-02"),
+		DailyReturns: []domain.DailyReturn{{Date: "2026-08-01", Amount: &amount, Status: domain.CompletenessOK}, {Date: "2026-08-02", Status: domain.CompletenessPartial}},
+		ReturnAmount: &amount,
+		Status:       domain.CompletenessPartial,
+	}
+	calendar, err := projectReturnCalendar(result, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calendar.Summary.AmountStatus != ReturnAmountPartial {
+		t.Fatalf("partial amount status = %q, want %q", calendar.Summary.AmountStatus, ReturnAmountPartial)
+	}
+
+	result = domain.PeriodAnalysisResult{DailyReturns: []domain.DailyReturn{{Date: "2026-08-01", Status: domain.CompletenessUnavailable}}}
+	calendar, err = projectReturnCalendar(result, "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if calendar.Summary.AmountStatus != ReturnAmountUnavailable {
+		t.Fatalf("unavailable amount status = %q, want %q", calendar.Summary.AmountStatus, ReturnAmountUnavailable)
 	}
 }
 

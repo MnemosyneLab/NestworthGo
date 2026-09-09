@@ -3,6 +3,7 @@ package settings_test
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -106,6 +107,25 @@ func TestResetRestoresDefaults(t *testing.T) {
 	}
 	if loaded != defaultDTO() {
 		t.Fatalf("Load() after Reset = %+v, want defaults", loaded)
+	}
+}
+
+func TestResetExplicitlyRecoversMalformedSettings(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(`{"appearance":`), 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+	service := settings.NewService(appsettings.NewStore(path), nil)
+
+	if _, err := service.Reset(); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	loaded, err := appsettings.NewStore(path).Load()
+	if err != nil {
+		t.Fatalf("Load after explicit reset: %v", err)
+	}
+	if loaded != appsettings.Default() {
+		t.Fatalf("Load after explicit reset = %#v, want defaults %#v", loaded, appsettings.Default())
 	}
 }
 

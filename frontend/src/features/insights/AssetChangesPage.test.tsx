@@ -188,7 +188,7 @@ describe("AssetChangesPage", () => {
     assetChange.mockResolvedValueOnce({ available: false, status: "unavailable", missingReason: "no usable asset days are available for this period", waterfall: [], groups: [], summary: {}, valuationForced: null });
     renderPage();
     expect(await screen.findByText("No asset change data for this period.")).toBeInTheDocument();
-    expect(screen.getByText("no usable asset days are available for this period")).toBeInTheDocument();
+    expect(screen.getByText("No usable asset days are available for this period.")).toBeInTheDocument();
   });
 
   it("keeps a residual issue entry when net residual is zero", async () => {

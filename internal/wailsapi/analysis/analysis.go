@@ -286,7 +286,7 @@ func fromCategories(value application.CategoriesResult) CategoriesDTO {
 func fromCategoryDetail(value application.CategoryDetailResult) CategoryDetailDTO {
 	result := CategoryDetailDTO{Available: value.Available, Status: string(value.Status), MissingReason: value.MissingReason, ValuationForced: value.ValuationForced, Children: make([]CategoryChildDTO, 0, len(value.Children)), ActivityRefs: make([]CategoryActivityRefDTO, 0, len(value.ActivityRefs))}
 	for _, child := range value.Children {
-		result.Children = append(result.Children, CategoryChildDTO{Key: child.Key, Label: child.Label, Amount: wire.FromSignedMoneyPtr(child.Amount)})
+		result.Children = append(result.Children, CategoryChildDTO{Key: child.Key, Label: child.Label, AccountID: child.AccountID, InstrumentID: child.InstrumentID, Amount: wire.FromSignedMoneyPtr(child.Amount)})
 	}
 	for _, ref := range value.ActivityRefs {
 		result.ActivityRefs = append(result.ActivityRefs, CategoryActivityRefDTO{Date: ref.Date, ActivityID: ref.ActivityID, AccountID: ref.AccountID, HoldingID: ref.HoldingID, InstrumentID: ref.InstrumentID, Amount: wire.FromSignedMoneyPtr(ref.Amount)})

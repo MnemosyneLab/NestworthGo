@@ -219,6 +219,18 @@ beforeEach(() => {
 });
 
 describe("App shell smoke test", () => {
+  it("does not leave a settings load failure on an infinite loading screen", async () => {
+    settingsLoad.mockRejectedValueOnce(new Error("settings failed"));
+    render(
+      <AppProviders>
+        <App />
+      </AppProviders>,
+    );
+
+    expect(await screen.findByRole("alert", {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("ui.state.loadingWorkspace"))).not.toBeInTheDocument();
+  });
+
   it("hydrates saved appearance and language before rendering the workspace", async () => {
     settingsLoad.mockResolvedValue({ ...defaultSettings, appearance: "dark", language: "zh-CN" });
     render(

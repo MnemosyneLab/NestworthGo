@@ -12,6 +12,7 @@ const marker = join(
 	"github.com/waltwang/nestworth-go/internal/wailsapi/app/index.ts",
 );
 const checkOnly = process.argv.includes("--check");
+const pinnedWailsVersion = "v3.0.0-beta.16";
 
 const env = {
 	...process.env,
@@ -25,9 +26,16 @@ function run(command, args) {
 
 function generate(outputDirectory) {
 	const args = ["generate", "bindings", "-clean=true", "-ts", "-i", "-d", outputDirectory, "./..."];
-	let result = run("wails3", args);
-	if (result.error?.code === "ENOENT") {
-		result = run("go", ["run", "github.com/wailsapp/wails/v3/cmd/wails3@v3.0.0-beta.16", ...args]);
+	const installed = spawnSync("wails3", ["version"], { env, encoding: "utf8" });
+	const installedVersion = `${installed.stdout ?? ""}${installed.stderr ?? ""}`;
+	let result;
+	if (installed.status === 0 && installedVersion.includes(pinnedWailsVersion)) {
+		result = run("wails3", args);
+	} else {
+		if (installed.status === 0) {
+			console.warn(`Ignoring wails3 ${installedVersion.trim()}; using pinned ${pinnedWailsVersion}.`);
+		}
+		result = run("go", ["run", `github.com/wailsapp/wails/v3/cmd/wails3@${pinnedWailsVersion}`, ...args]);
 	}
 	return result;
 }

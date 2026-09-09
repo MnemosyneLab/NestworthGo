@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -21,10 +23,49 @@ type Result struct {
 }
 
 type Report struct {
-	Commit  string            `json:"commit"`
-	DBPath  string            `json:"db_path"`
-	IDs     map[string]string `json:"ids"`
-	Results []Result          `json:"results"`
+	FixtureVersion string            `json:"fixture_version"`
+	Scenario       string            `json:"scenario"`
+	Anchor         string            `json:"anchor"`
+	Commit         string            `json:"commit"`
+	Dirty          bool              `json:"dirty"`
+	DBPath         string            `json:"db_path"`
+	OutputDir      string            `json:"output_dir"`
+	IDs            map[string]string `json:"ids"`
+	Results        []Result          `json:"results"`
+}
+
+const (
+	fixtureVersion  = "analytics-linux-qa-v2"
+	defaultQAAnchor = "2026-07-26T00:00:00Z"
+)
+
+func envOr(name, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func gitIdentity() (string, bool) {
+	commit := strings.TrimSpace(os.Getenv("NESTWORTH_QA_COMMIT"))
+	if commit == "" {
+		if output, err := exec.Command("git", "rev-parse", "HEAD").Output(); err == nil {
+			commit = strings.TrimSpace(string(output))
+		}
+	}
+	if commit == "" {
+		commit = "unknown"
+	}
+	dirtyOutput, err := exec.Command("git", "status", "--porcelain").Output()
+	return commit, err == nil && len(strings.TrimSpace(string(dirtyOutput))) > 0
+}
+
+func parseAnchor(value string) time.Time {
+	anchor, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		panic(fmt.Errorf("NESTWORTH_QA_ANCHOR must be RFC3339: %w", err))
+	}
+	return anchor.UTC().Truncate(time.Second)
 }
 
 func must[T any](v T, err error) T {
@@ -55,16 +96,45 @@ func countQuery(db *sql.DB, query string) int {
 	return n
 }
 
+func pathWithin(base, target string) bool {
+	baseAbs, err := filepath.Abs(base)
+	if err != nil {
+		return false
+	}
+	targetAbs, err := filepath.Abs(target)
+	if err != nil {
+		return false
+	}
+	rel, err := filepath.Rel(filepath.Clean(baseAbs), filepath.Clean(targetAbs))
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
 func main() {
-	base := "/workspace/nestworth-analytics-qa"
-	dbPath := os.Getenv("NESTWORTH_DATABASE_PATH")
+	base := envOr("NESTWORTH_QA_OUTPUT_DIR", "/workspace/nestworth-analytics-qa")
+	dbPath := strings.TrimSpace(os.Getenv("NESTWORTH_DATABASE_PATH"))
 	if dbPath == "" {
 		dbPath = filepath.Join(base, "data", "nestworth.db")
 	}
+	scenario := envOr("NESTWORTH_QA_SCENARIO", "complete")
+	if scenario != "complete" && scenario != "missing-price" && scenario != "missing-fx" && scenario != "missing-both" {
+		panic(fmt.Errorf("unsupported NESTWORTH_QA_SCENARIO %q", scenario))
+	}
+	anchor := parseAnchor(envOr("NESTWORTH_QA_ANCHOR", defaultQAAnchor))
+	reset := os.Getenv("NESTWORTH_QA_RESET") == "1"
+	if _, err := os.Stat(dbPath); err == nil && !reset {
+		panic(fmt.Errorf("refusing to overwrite existing QA database %s; set NESTWORTH_QA_RESET=1 for an explicit QA reset", dbPath))
+	} else if err != nil && !os.IsNotExist(err) {
+		panic(fmt.Errorf("inspect QA database %s: %w", dbPath, err))
+	}
 	_ = os.MkdirAll(filepath.Dir(dbPath), 0o755)
-	_ = os.Remove(dbPath)
-	_ = os.Remove(dbPath + "-wal")
-	_ = os.Remove(dbPath + "-shm")
+	if reset {
+		if !pathWithin(base, dbPath) {
+			panic(fmt.Errorf("refusing to reset database outside NESTWORTH_QA_OUTPUT_DIR: %s", dbPath))
+		}
+		_ = os.Remove(dbPath)
+		_ = os.Remove(dbPath + "-wal")
+		_ = os.Remove(dbPath + "-shm")
+	}
 
 	database := must(sqlite.Open(dbPath))
 	defer database.Close()
@@ -72,11 +142,8 @@ func main() {
 	svc := application.NewService(repo)
 	ctx := context.Background()
 
-	report := &Report{
-		Commit: "4cee77220fde42a60131282ef2f637c5750cb96b",
-		DBPath: dbPath,
-		IDs:    map[string]string{},
-	}
+	commit, dirty := gitIdentity()
+	report := &Report{FixtureVersion: fixtureVersion, Scenario: scenario, Anchor: anchor.Format(time.RFC3339), Commit: commit, Dirty: dirty, DBPath: dbPath, OutputDir: base, IDs: map[string]string{}}
 
 	must0 := func(err error) {
 		if err != nil {
@@ -88,6 +155,14 @@ func main() {
 	localDate := func(t time.Time) string {
 		return t.In(sgt).Format("2006-01-02")
 	}
+	originAt := anchor
+	day := func(offset int) time.Time {
+		return originAt.Add(time.Duration(offset) * 24 * time.Hour).UTC()
+	}
+	iso := func(t time.Time) string { return t.Format(time.RFC3339) }
+
+	missingPrice := scenario == "missing-price" || scenario == "missing-both"
+	missingFX := scenario == "missing-fx" || scenario == "missing-both"
 
 	// 1) Onboard WITHOUT timezone so HistoryOrigin is not created empty.
 	must0(svc.CompleteOnboarding(ctx, application.OnboardingInput{
@@ -132,14 +207,23 @@ func main() {
 	}
 
 	// 4) One current FX + AAPL quote before StartHistory (FX useful even without holdings).
-	nowISO := time.Now().UTC().Format(time.RFC3339)
-	_ = must(svc.AppendManualFXQuote(ctx, "USD", "AUD", "1.5000", nowISO))
-	_ = must(svc.AppendManualInstrumentQuote(ctx, aapl.ID, "180.00", nowISO, false))
-	add(report, "current_quotes", "PASS", fmt.Sprintf("fx USD/AUD=1.5000 aapl=180.00 at %s", nowISO))
+	nowISO := iso(originAt)
+	if !missingFX {
+		_ = must(svc.AppendManualFXQuote(ctx, "USD", "AUD", "1.5000", nowISO))
+	}
+	if !missingPrice {
+		_ = must(svc.AppendManualInstrumentQuote(ctx, aapl.ID, "180.00", nowISO, false))
+	}
+	add(report, "current_quotes", "PASS", fmt.Sprintf("scenario=%s fx=%s aapl=%s at %s", scenario, map[bool]string{true: "omitted", false: "1.5000"}[missingFX], map[bool]string{true: "omitted", false: "180.00"}[missingPrice], nowISO))
 
 	// 4b) Prefer manual FX for USD/AUD BEFORE StartHistory so origin captures it.
 	pref := must(svc.SetFXPreference(ctx, "USD", "AUD", "manual"))
-	add(report, "fx_preference_manual", "PASS", fmt.Sprintf("USD/AUD source=%s", pref.SourceKind))
+	manualPreferenceCount := countQuery(database.SQL, `SELECT COUNT(*) FROM fx_preferences WHERE currency_a = 'AUD' AND currency_b = 'USD' AND source_kind = 'manual'`)
+	if manualPreferenceCount != 1 || pref.SourceKind != domain.QuoteSourceManual {
+		add(report, "fx_preference_manual", "FAIL", fmt.Sprintf("USD/AUD source=%s rows=%d", pref.SourceKind, manualPreferenceCount))
+	} else {
+		add(report, "fx_preference_manual", "PASS", fmt.Sprintf("USD/AUD source=%s rows=%d", pref.SourceKind, manualPreferenceCount))
+	}
 
 	// 5) StartHistory AFTER accounts exist → non-empty history_origin_components.
 	origin := must(svc.StartHistory(ctx, "Asia/Singapore"))
@@ -152,27 +236,19 @@ func main() {
 	}
 	report.IDs["history_origin_components"] = fmt.Sprintf("%d", compCount)
 
-	// 6) SQL backdate history_origins.started_at / created_at ~45 days ago UTC.
-	originAt := time.Now().UTC().Add(-45 * 24 * time.Hour).Truncate(time.Second)
+	// 6) SQL backdate history_origins.started_at / created_at to the fixed QA anchor.
 	originISO := originAt.Format(time.RFC3339Nano)
 	if _, err := database.SQL.Exec(`UPDATE history_origins SET started_at = ?, created_at = ?`, originISO, originISO); err != nil {
 		panic(err)
 	}
 	report.IDs["history_origin"] = originAt.Format(time.RFC3339)
-	add(report, "backdate_origin", "PASS", fmt.Sprintf("started_at=%s (~45d ago)", originISO))
-
-	day := func(offset int) time.Time {
-		return originAt.Add(time.Duration(offset) * 24 * time.Hour).UTC()
-	}
-	iso := func(t time.Time) string { return t.Format(time.RFC3339) }
+	add(report, "backdate_origin", "PASS", fmt.Sprintf("started_at=%s anchor=%s", originISO, report.Anchor))
 
 	// Price schedule helpers.
 	// Day 24 baseline for negative window; days 25–28 drop ~10% cumulative.
 	// Day 35/36 flat for true-zero-ish probe; days 29+ recover above cost for sell gain.
 	aaplPrice := func(d int) float64 {
 		switch {
-		case d == 22:
-			return 0 // missing quote day — not written
 		case d >= 25 && d <= 28:
 			base24 := 180.0 + 24*0.5            // 192
 			factor := 1.0 - 0.025*float64(d-24) // 0.975, 0.95, 0.925, 0.90
@@ -208,14 +284,20 @@ func main() {
 	for d := 0; d <= 44; d++ {
 		t := day(d)
 		ts := iso(t)
-		if d == missingQuoteDay {
-			// Intentionally omit both AAPL and FX quotes for this mid-range day.
-			continue
+		if !(missingFX && d <= missingQuoteDay) {
+			_ = must(svc.AppendManualFXQuote(ctx, "USD", "AUD", func() string {
+				rate := 1.50 + float64(d)*0.0002
+				if d == 35 || d == 36 {
+					rate = 1.5070
+				}
+				return fmt.Sprintf("%.4f", rate)
+			}(), ts))
+			quoteCount++
 		}
-		_ = must(svc.AppendManualFXQuote(ctx, "USD", "AUD", fmt.Sprintf("%.4f", 1.50+float64(d)*0.0002), ts))
-		_ = must(svc.AppendManualInstrumentQuote(ctx, aapl.ID, fmt.Sprintf("%.2f", aaplPrice(d)), ts, false))
-		quoteCount++
-		aaplQuoteCount++
+		if !(missingPrice && d <= missingQuoteDay) {
+			_ = must(svc.AppendManualInstrumentQuote(ctx, aapl.ID, fmt.Sprintf("%.2f", aaplPrice(d)), ts, false))
+			aaplQuoteCount++
+		}
 	}
 	missingLocal := localDate(day(missingQuoteDay))
 	report.IDs["missing_quote_day_offset"] = fmt.Sprintf("%d", missingQuoteDay)
@@ -223,9 +305,20 @@ func main() {
 	report.IDs["negative_price_window"] = fmt.Sprintf("day_%d..%d local=%s..%s", negStart, negEnd, localDate(day(negStart)), localDate(day(negEnd)))
 	report.IDs["flat_zero_day_offset"] = fmt.Sprintf("%d", flatZeroDay)
 	report.IDs["flat_zero_local_date"] = localDate(day(flatZeroDay))
-	add(report, "daily_quotes", "PASS", fmt.Sprintf(
-		"days=0..44 written=%d aapl=%d skip_day=%d local=%s (no AAPL/FX); neg_drop day_%d..%d; flat day_%d=%s",
-		quoteCount, aaplQuoteCount, missingQuoteDay, missingLocal, negStart, negEnd, flatZeroDay, localDate(day(flatZeroDay)),
+	expectedFXQuotes, expectedAAPLQuotes := 45, 45
+	if missingFX {
+		expectedFXQuotes = 22
+	}
+	if missingPrice {
+		expectedAAPLQuotes = 22
+	}
+	quoteStatus := "PASS"
+	if quoteCount != expectedFXQuotes || aaplQuoteCount != expectedAAPLQuotes {
+		quoteStatus = "FAIL"
+	}
+	add(report, "daily_quotes", quoteStatus, fmt.Sprintf(
+		"scenario=%s fx=%d/%d aapl=%d/%d missing_through_day=%d local=%s; neg_drop day_%d..%d; flat day_%d=%s",
+		scenario, quoteCount, expectedFXQuotes, aaplQuoteCount, expectedAAPLQuotes, missingQuoteDay, missingLocal, negStart, negEnd, flatZeroDay, localDate(day(flatZeroDay)),
 	))
 
 	// 8) Activities with EffectiveAt = originAt + offsets (after backdated origin).
@@ -341,8 +434,8 @@ func main() {
 	add(report, "act_day34_bank_fee", "PASS", fmt.Sprintf("AUD Cash -15 AUD fee local=%s", feeLocal))
 
 	// Note true-zero-ish day: flat quote day 36, no activity (RC-07).
-	add(report, "true_zero_day_plan", "PASS", fmt.Sprintf(
-		"day_%d local=%s flat AAPL=207.00 FX same ramp skip, no activity — probe will note if engine still marks partial",
+	add(report, "true_zero_day_fixture", "PASS", fmt.Sprintf(
+		"day_%d local=%s flat AAPL=207.00 FX=1.5070 on days 35/36, no activity — probe verifies exact zero",
 		flatZeroDay, localDate(day(flatZeroDay)),
 	))
 
@@ -355,12 +448,18 @@ func main() {
 	if _, err := database.SQL.Exec(`UPDATE holdings SET created_at = ?, updated_at = ?`, holdingAt, holdingAt); err != nil {
 		panic(err)
 	}
-	add(report, "backdate_entities", "PASS", fmt.Sprintf("instrument.created_at=%s holding.created_at=%s", instrumentAt, holdingAt))
+	entityCount := countQuery(database.SQL, `SELECT COUNT(*) FROM instruments WHERE id = '`+string(aapl.ID)+`' AND created_at = '`+instrumentAt+`'`) + countQuery(database.SQL, `SELECT COUNT(*) FROM holdings WHERE created_at = '`+holdingAt+`'`)
+	if entityCount != 2 {
+		add(report, "backdate_entities", "FAIL", fmt.Sprintf("instrument.created_at=%s holding.created_at=%s verified_rows=%d", instrumentAt, holdingAt, entityCount))
+	} else {
+		add(report, "backdate_entities", "PASS", fmt.Sprintf("instrument.created_at=%s holding.created_at=%s verified_rows=%d", instrumentAt, holdingAt, entityCount))
+	}
 
-	// 9) Rebuild snapshots in chunks ≤31 days from origin LOCAL date through yesterday (SGT).
-	// UTC date of originAt can be the prior calendar day vs Asia/Singapore Starting point.
+	// 9) Rebuild snapshots in chunks ≤31 days from origin LOCAL date through the
+	// fixed fixture end date. A missing-price/FX scenario omits the dependency
+	// through day 22; the normal rebuild must produce the incomplete snapshot.
 	startDate := localDate(originAt)
-	endDate := time.Now().In(sgt).Add(-24 * time.Hour).Format("2006-01-02")
+	endDate := localDate(day(44))
 	cursor, _ := time.Parse("2006-01-02", startDate)
 	endT, _ := time.Parse("2006-01-02", endDate)
 	totalSnap := 0
@@ -393,46 +492,52 @@ func main() {
 			add(report, "complete_daily_range", "PASS", fmt.Sprintf("targetDate=%s", endDate))
 		}
 
-		// §17.1 Trust gap: as-of selection carries prior quotes into the skipped
-		// day, so engine rebuild stays complete. Seed still omits writing quotes
-		// for that offset; mark the latest snapshot incomplete so Calendar/Trust
-		// must not show a fake 0% (without deleting quotes — that breaks Open
-		// provenance integrity on older revisions).
+		flatQuery := domain.AnalysisQuery{
+			Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: localDate(day(flatZeroDay - 1)), To: localDate(day(flatZeroDay)),
+			Valuation: domain.ValuationBase, IncludeCash: true, Basis: domain.ReturnBasisInvestment,
+		}
+		flatResult, flatErr := svc.Analyze(ctx, flatQuery)
+		flatFound := false
+		flatOK := false
+		if flatErr == nil {
+			for _, daily := range flatResult.DailyReturns {
+				if string(daily.Date) != localDate(day(flatZeroDay)) {
+					continue
+				}
+				flatFound = true
+				flatOK = daily.Status == domain.CompletenessOK && daily.Amount != nil && daily.Amount.Amount().IsZero() && daily.Rate != nil && daily.Rate.IsZero()
+			}
+		}
+		if flatErr != nil || !flatFound || !flatOK {
+			add(report, "true_zero_day", "FAIL", fmt.Sprintf("date=%s found=%v exact_zero=%v error=%v", localDate(day(flatZeroDay)), flatFound, flatOK, flatErr))
+		} else {
+			add(report, "true_zero_day", "PASS", fmt.Sprintf("date=%s status=ok amount=0 rate=0 with flat AAPL and FX", localDate(day(flatZeroDay))))
+		}
+
 		var gapSnapID string
-		var gapCompleteBefore int
 		err := database.SQL.QueryRow(`
 			SELECT id, complete FROM daily_valuation_snapshots s
 			WHERE local_date = ? AND revision = (
 				SELECT MAX(revision) FROM daily_valuation_snapshots s2
 				WHERE s2.household_id = s.household_id AND s2.local_date = s.local_date
 			)
-		`, missingLocal).Scan(&gapSnapID, &gapCompleteBefore)
+		`, missingLocal).Scan(&gapSnapID, new(int))
 		if err != nil {
 			add(report, "missing_quote_gap", "FAIL", err.Error())
 		} else {
-			if _, err := database.SQL.Exec(`
-				UPDATE daily_valuation_snapshot_items
-				SET complete = 0,
-				    missing_reason = CASE
-					WHEN instrument_id IS NOT NULL THEN 'missing instrument price'
-					WHEN native_currency != 'AUD' THEN 'missing account value or FX rate'
-					ELSE missing_reason
-				    END
-				WHERE snapshot_id = ? AND (instrument_id IS NOT NULL OR native_currency != 'AUD')
-			`, gapSnapID); err != nil {
-				panic(err)
-			}
 			var missingN int
 			_ = database.SQL.QueryRow(`SELECT COUNT(*) FROM daily_valuation_snapshot_items WHERE snapshot_id = ? AND complete = 0`, gapSnapID).Scan(&missingN)
-			if _, err := database.SQL.Exec(`UPDATE daily_valuation_snapshots SET complete = 0, missing_count = ? WHERE id = ?`, missingN, gapSnapID); err != nil {
-				panic(err)
-			}
 			var gapComplete int
 			_ = database.SQL.QueryRow(`SELECT complete FROM daily_valuation_snapshots WHERE id = ?`, gapSnapID).Scan(&gapComplete)
-			if gapComplete != 0 || missingN == 0 {
-				add(report, "missing_quote_gap", "FAIL", fmt.Sprintf("local=%s snap=%s complete=%d missingN=%d before=%d", missingLocal, gapSnapID, gapComplete, missingN, gapCompleteBefore))
+			expectedIncomplete := missingPrice || missingFX
+			if expectedIncomplete && (gapComplete != 0 || missingN == 0) {
+				add(report, "missing_quote_gap", "FAIL", fmt.Sprintf("scenario=%s local=%s snap=%s complete=%d missing_items=%d want incomplete", scenario, missingLocal, gapSnapID, gapComplete, missingN))
+			} else if !expectedIncomplete && (gapComplete == 0 || missingN != 0) {
+				add(report, "missing_quote_gap", "FAIL", fmt.Sprintf("scenario=%s local=%s snap=%s complete=%d missing_items=%d want complete", scenario, missingLocal, gapSnapID, gapComplete, missingN))
 			} else {
-				add(report, "missing_quote_gap", "PASS", fmt.Sprintf("local=%s snap=%s complete=0 missing_items=%d (skip write day_%d; as-of carry noted — Trust mark for §17.1)", missingLocal, gapSnapID, missingN, missingQuoteDay))
+				status := "PASS"
+				note := fmt.Sprintf("scenario=%s local=%s snap=%s complete=%d missing_items=%d", scenario, missingLocal, gapSnapID, gapComplete, missingN)
+				add(report, "missing_quote_gap", status, note)
 			}
 			report.IDs["missing_quote_gap_complete"] = fmt.Sprintf("%d", gapComplete)
 			report.IDs["missing_quote_gap_snap"] = gapSnapID

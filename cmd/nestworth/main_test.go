@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -67,7 +68,7 @@ func TestPersistWindowSizeValueLoadsLatestSettings(t *testing.T) {
 	}
 }
 
-func TestPersistWindowSizeValueSkipsWriteWhenSettingsLoadFails(t *testing.T) {
+func TestPersistWindowSizeValuePreservesMalformedSettings(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	if err := os.WriteFile(path, []byte(`{"appearance":`), 0o600); err != nil {
 		t.Fatalf("WriteFile() error = %v", err)
@@ -78,14 +79,45 @@ func TestPersistWindowSizeValueSkipsWriteWhenSettingsLoadFails(t *testing.T) {
 	}
 
 	if err := persistWindowSizeValue(settings.NewStore(path), 1440, 900); err == nil {
-		t.Fatal("persistWindowSizeValue() error = nil, want settings load error")
+		t.Fatal("persistWindowSizeValue() unexpectedly overwrote malformed settings")
 	}
 	after, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("ReadFile() after error = %v", err)
+		t.Fatalf("ReadFile() after recovery = %v", err)
 	}
 	if !bytes.Equal(after, before) {
-		t.Fatal("persistWindowSizeValue() replaced settings after load failure")
+		t.Fatal("persistWindowSizeValue() changed malformed settings")
+	}
+	got, err := settings.NewStore(path).Load()
+	if err != nil {
+		t.Fatalf("Load() after preservation = %v", err)
+	}
+	if got != settings.Default() {
+		t.Fatalf("Load() after preservation = %#v, want temporary defaults %#v", got, settings.Default())
+	}
+}
+
+func TestPersistWindowSizeValuePreservesUnsupportedSchema(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	value := settings.Default()
+	value.SchemaVersion++
+	before, err := json.Marshal(value)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	if err := os.WriteFile(path, before, 0o600); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := persistWindowSizeValue(settings.NewStore(path), 1440, 900); err == nil {
+		t.Fatal("persistWindowSizeValue() unexpectedly overwrote unsupported schema")
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("ReadFile() after preservation = %v", err)
+	}
+	if !bytes.Equal(after, before) {
+		t.Fatal("persistWindowSizeValue() changed unsupported schema")
 	}
 }
 

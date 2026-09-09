@@ -348,7 +348,11 @@ func runLegacyProbe() {
 			from = t.In(sgt).Format("2006-01-02")
 		}
 	}
-	to := time.Now().In(time.FixedZone("SGT", 8*3600)).Add(-24 * time.Hour).Format("2006-01-02")
+	to := ""
+	_ = database.SQL.QueryRow(`SELECT MAX(local_date) FROM daily_valuation_snapshots`).Scan(&to)
+	if to == "" {
+		to = time.Now().In(time.FixedZone("SGT", 8*3600)).Add(-24 * time.Hour).Format("2006-01-02")
+	}
 	if v := os.Getenv("NESTWORTH_PROBE_FROM"); v != "" {
 		from = v
 	}

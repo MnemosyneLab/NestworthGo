@@ -66,11 +66,11 @@ function App() {
   if (startup.isError || (startup.data && !startup.data.available)) {
     return <BlockedStartupPage startup={startup.data} failure={startup.error} />;
   }
+  if (settings.isError) {
+    return <BlockedStartupPage failure={settings.error} />;
+  }
   if (settings.isLoading || !settings.data) {
     return <StartupLoadingPage label={t("ui.state.loadingWorkspace")} />;
-  }
-  if (settings.isError || !settings.data) {
-    return <BlockedStartupPage failure={settings.error} />;
   }
   if (bootstrap.isLoading) {
     return <StartupLoadingPage label={t("ui.state.loadingWorkspace")} />;

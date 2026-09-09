@@ -106,9 +106,11 @@ type CategoriesDTO struct {
 }
 
 type CategoryChildDTO struct {
-	Key    string           `json:"key"`
-	Label  string           `json:"label"`
-	Amount *SignedMoneyView `json:"amount,omitempty"`
+	Key          string           `json:"key"`
+	Label        string           `json:"label"`
+	AccountID    string           `json:"accountId,omitempty"`
+	InstrumentID string           `json:"instrumentId,omitempty"`
+	Amount       *SignedMoneyView `json:"amount,omitempty"`
 }
 
 type CategoryActivityRefDTO struct {

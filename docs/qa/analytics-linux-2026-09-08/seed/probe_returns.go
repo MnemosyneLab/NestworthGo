@@ -28,8 +28,8 @@ func main() {
 
 	query := domain.AnalysisQuery{
 		Scope:       domain.AnalysisScope{Kind: domain.ScopeHousehold},
-		From:        "2026-08-01",
-		To:          "2026-09-07",
+		From:        envOr("NESTWORTH_PROBE_FROM", "2026-08-01"),
+		To:          envOr("NESTWORTH_PROBE_TO", "2026-09-07"),
 		Valuation:   domain.ValuationBase,
 		IncludeCash: true,
 		Basis:       domain.ReturnBasisInvestment,
@@ -63,4 +63,11 @@ func main() {
 	for _, row := range contrib.Rows {
 		fmt.Printf("  row key=%s amount=%v rate=%v rated=%d/%d status=%s\n", row.Key, row.Amount, row.Rate, row.Coverage.RatedDays, row.Coverage.TotalDays, row.Status)
 	}
+}
+
+func envOr(name, fallback string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return fallback
 }
