@@ -1,0 +1,25 @@
+{
+  "product": "NestworthGo",
+  "build": "main@367c3b0",
+  "checks": {
+    "01_insights_home": {"status": "PASS", "notes": "Return Analysis opened from Insights; screenshot captured."},
+    "02_date_clamp_FL22_FL23": {"status": "PASS", "notes": "From picker showed July 1-25 disabled and July 26-31 enabled; To picker disabled dates after the last closed day. Native picker UI visibly prevents out-of-range dates; no raw HTML attributes inspected."},
+    "03_return_calendar_zero_day_RC07": {"status": "PASS", "notes": "August 31, 2026 showed exactly 0% and A$0.00."},
+    "04_contribution_dividends_CO03": {"status": "PASS", "notes": "Range 2026-08-28 through 2026-09-08 with Dividend & Interest selected showed Apple Inc +A$18.83."},
+    "05_friendly_labels_P04": {"status": "PASS", "notes": "Contribution/category views displayed Apple Inc; no raw UUID labels were visible."},
+    "06_return_percent_axis_P05": {"status": "PASS", "notes": "Return Trend switched to Return % and axis labels were sensibly formatted (+0.1%, 0%, -0.1%)."},
+    "07_i18n_zh_CN": {"status": "PASS", "notes": "Language selector path: top-right language menu -> 简体中文. Insights headings, labels, chart legend, and empty-state style text were Chinese with no visible leftover English."},
+    "08_drivers_residual": {"status": "PASS", "notes": "Full sample range 2026-07-26 through 2026-09-08 showed Cash flows and Market & Investment attribution with no Residual row/card. A separate Partial coverage banner reported one or more incomplete asset days."}
+  },
+  "screenshots": [
+    "01-insights-home.png",
+    "02-from-picker.png",
+    "03-to-picker.png",
+    "04-calendar-aug-zero-day.png",
+    "05-contribution-dividend.png",
+    "06-labels-not-uuid.png",
+    "07-trend-pct-axis.png",
+    "08-zh-cn-insights.png",
+    "09-drivers-no-bad-residual.png"
+  ]
+}

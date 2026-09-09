@@ -1,0 +1,83 @@
+{
+  "app": "Nestworth",
+  "language": "English",
+  "timestamp": "2026-09-09T14:41:00+08:00",
+  "summary": {
+    "PASS": 7,
+    "PARTIAL": 0,
+    "FAIL": 0,
+    "SKIP": 0
+  },
+  "screenshots_dir": "/workspace/nestworth-analytics-qa-r2/screenshots/deep",
+  "results": [
+    {
+      "id": "MF deep",
+      "status": "PASS",
+      "screenshots": [
+        "mf-01-open.png",
+        "mf-02-intersection.png",
+        "mf-03-include-cash.png"
+      ],
+      "notes": "More Filters opened. Tested Portfolio to Account/US Brokerage scope, Base valuation, Include cash and Exclude cash, and stock asset-class filter. Narrow intersection changed ending value from A$32,132.16 to A$3,657.33. Native option was present and checked. No activity-type chips were present. Contribution basis controls were checked separately: Total Return, Realized Gain, and Dividend & Interest were available; no Investment basis option."
+    },
+    {
+      "id": "Contribution group-by",
+      "status": "PASS",
+      "screenshots": [
+        "co-groupby.png"
+      ],
+      "notes": "Contribution tab switched grouping from instrument to asset class and sort to Return rate, high to low. Result rendered stock with +A$434.47 and +12.18%. Available groupings were instrument, account, currency, and asset class."
+    },
+    {
+      "id": "Categories deep",
+      "status": "PASS",
+      "screenshots": [
+        "cat-drill.png"
+      ],
+      "notes": "Asset Changes > Categories > Investment Return rendered amounts. Drilled Apple Inc: total +A$9.54, account breakdown and dated records shown. No UUIDs exposed."
+    },
+    {
+      "id": "Empty/error-ish UX",
+      "status": "PASS",
+      "screenshots": [
+        "empty-state.png"
+      ],
+      "notes": "Contribution filtered to a single day (2026-09-07) plus bond asset class; empty panel copy was clear: No contribution data for this period. Return days are unavailable."
+    },
+    {
+      "id": "Calendar year view / month nav",
+      "status": "PASS",
+      "screenshots": [
+        "rc-year-or-nav.png"
+      ],
+      "notes": "Return Calendar year view available for 2026 with Partial coverage 39/45 and Issues (6); month navigation was exercised to August, which loaded data."
+    },
+    {
+      "id": "Stale / refresh smoke",
+      "status": "PASS",
+      "screenshots": [
+        "stale-or-nav-back.png"
+      ],
+      "notes": "No obvious in-place refresh/rebuild action. Soft stale check via History then back to Return Analysis succeeded; August data reloaded (+A$628.23, +1.29%)."
+    },
+    {
+      "id": "Native valuation",
+      "status": "PASS",
+      "screenshots": [
+        "native-valuation.png"
+      ],
+      "notes": "Return Trend switched to Native for Account > US Brokerage. Native valuation rendered without fallback banner: -$60.00 and -0.28%."
+    }
+  ],
+  "screenshot_files": [
+    "mf-01-open.png",
+    "mf-02-intersection.png",
+    "mf-03-include-cash.png",
+    "co-groupby.png",
+    "cat-drill.png",
+    "empty-state.png",
+    "rc-year-or-nav.png",
+    "stale-or-nav-back.png",
+    "native-valuation.png"
+  ]
+}
