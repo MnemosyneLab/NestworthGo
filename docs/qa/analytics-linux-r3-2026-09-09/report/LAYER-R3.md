@@ -42,9 +42,9 @@ Fixture: AUD Cash + US/SG Brokerage; AAPL/QQQ/ES3; 45 snaps `2026-07-26..2026-09
 | C2 IncludeCash | **PASS** | salary capital include≠exclude |
 | C3 True-zero | **PASS** | 2026-08-31 rate=0 status=ok |
 | C4 missing-both All | **PASS** | partial 21/45, no panic |
-| C5–C9 | **SKIP** | no DB modes / no residual corrupt DB |
+| C5–C9 | **PASS** | DB-backed quantitative + clean/corrupt residual controls; compact evidence in `probes/REMEDIATION-2026-09-09.json` |
 
-Rollup: `probes/SUMMARY.json` — **4 PASS / 0 FAIL / 5 SKIP**.
+Rollup: `probes/SUMMARY.json` — **9 PASS / 0 FAIL / 0 SKIP** for automated probes.
 
 ## Phase A trend presets (tie-in)
 
@@ -54,11 +54,11 @@ See `probes/A-trend-presets.json`. missing-both All/Custom/~30D all **partial** 
 
 - DEF-R2-02: `screenshots/def-r2-02/RESULTS.json` → **FIXED**
 - D1–D8: `screenshots/desktop-d/RESULTS.json` → 6 PASS / 2 PARTIAL
-- Incomplete matrix: `screenshots/incomplete/` → **PENDING**
+- Incomplete matrix: missing-both evidence exists; missing-price/missing-fx/zh-CN native replay → **PENDING**
 
 ### Chinese short bullets
 
 - Layer A：构建 PASS；Go 仅 cold-3y 失败（~5s / 预算 3s）；MissingFX 相关 PASS。  
 - Layer B：seed v3 四场景各 35 PASS。  
-- Layer C：C1–C4 PASS；C5–C9 SKIP。  
+- Layer C：C1–C9 automated PASS；native missing-price/missing-fx/zh-CN replay仍待执行。
 - DEF-R2-02：探针 + 桌面 FIXED。  

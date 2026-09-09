@@ -4,7 +4,7 @@
 |-------|-------|
 | When | **2026-09-09** SGT (UTC+8) |
 | Branch | **`qa/analytics-linux-r3-2026-09-09`** |
-| Commit | **`91d10c0`** `feat(qa): analytics-linux-qa-v3 mini-family seed (#14)` |
+| Commit | Base QA evidence **`91d10c0`**; remediation is currently uncommitted working-tree changes |
 | Full SHA | `91d10c0216d31d274857e9bbf71d971dd6b8c7bd` |
 | Lineage | DEF-R2-02 soft-FX fix present since **`ea94f48`** lineage |
 | Platform | Linux amd64 |
@@ -13,7 +13,7 @@
 
 ## Verdict (one-pager)
 
-**ACCEPTANCE NEARLY MET** — Round-2 blocker **DEF-R2-02 FIXED** (probe + desktop). Residual: incomplete-matrix desktop **PENDING**; probes **C5–C9 SKIP**; desktop **D5/D6 PARTIAL**; Linux **cold-3y** known.
+**AUTOMATED REMEDIATION GREEN; NATIVE DESKTOP REPLAY PENDING** — DEF-R2-02 remains fixed; D5/D6 and C5–C9 are fixed/covered in code and automated probes. The old D5/D6 screenshots remain historical, while missing-price/missing-fx/zh-CN and post-mutation native Wails checks were not rerun.
 
 | Gate | Result |
 |------|--------|
@@ -22,26 +22,28 @@
 | MissingFX / Return targeted | **PASS** |
 | Phase A DEF-R2-02 harness | **PASS** — FIXED |
 | Seed v3 four scenarios | **PASS** — 4/4 OVERALL (35/35 each) |
-| Probe C1–C9 | **4 PASS / 0 FAIL / 5 SKIP** |
-| Desktop D1–D8 (complete) | **6 PASS / 2 PARTIAL** (D5 waterfall reconcile; D6 History filters All) |
-| Incomplete matrix desktop | **PENDING** (empty `screenshots/incomplete/`) |
+| Probe C1–C9 | **9 PASS / 0 FAIL / 0 SKIP** (new quantitative + residual controls) |
+| Desktop D1–D8 (complete) | Historical **6 PASS / 2 PARTIAL**; D5/D6 fixes not replayed in native Wails |
+| Incomplete matrix desktop | **PARTIAL/PENDING** — missing-both evidence exists; missing-price/missing-fx/zh-CN not rerun |
 | DEF-R2-02 desktop | **FIXED** — Trend All Partial 21/45, chart OK, no generic load error |
 
 ## Open / carry
 
 1. **DEF-R2-01** — Linux cold-3y perf (known, non-blocking)
-2. **R3-D5** — Drivers waterfall reconcile warning (PARTIAL)
-3. **R3-D6** — History deep-link account/instrument filters remain All (PARTIAL)
-4. Incomplete-matrix desktop (plan D7 multi-scenario) — **PENDING**
-5. Probe modes C5–C8 + residual corrupt DB for C9 — **SKIP** / tooling gap
+2. **Native replay** — verify D5 warning is gone and D6 filters land after rebuilding the application
+3. Incomplete-matrix desktop — missing-price, missing-fx and zh-CN still pending
+4. Native D8 post-mutation replay — application/frontend invalidation tests pass; GUI mutation not rerun
 
 ## Closed this round
 
 - **DEF-R2-02** — FIXED (probe partial 21/45 no panic; desktop chart + Partial coverage)
+- **R3-D5** — FIXED in application attribution/precision path; top-level exact probe delta=0
+- **R3-D6** — FIXED in realized HistoryHint application + Wails DTO path; frontend navigation tests pass
+- **R3-Q1/C9** — C5–C9 DB-backed probes pass, including clean/corrupt residual controls
 
 ## Exit criteria
 
-- Met: four DBs; no unexpected probe FAIL; DEF-R2-02 fixed; D1–D8 RESULTS on complete; report written
-- Partial: incomplete desktop matrix; quantitative C5/C8; docs not yet git commit/PR
+- Met: four DBs; no unexpected probe FAIL; C5–C9 automated probes pass; D5/D6 backend and frontend regression tests pass; report written
+- Pending: native Wails replay, missing-price/missing-fx/zh-CN matrix, and GUI-level D8 data mutation evidence
 
 See `REPORT.md` for full tables, screenshot index, and evidence paths.

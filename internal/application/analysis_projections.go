@@ -274,8 +274,15 @@ func foldAssetChange(result domain.PeriodAnalysisResult, forced string) AssetCha
 		if day.BeginningValue.Currency() != "" {
 			currency = day.BeginningValue.Currency()
 		}
+		if len(day.AssetBucketExact) > 0 {
+			for bucket, amount := range day.AssetBucketExact {
+				waterfall[bucket] = waterfall[bucket].Add(amount)
+			}
+		}
 		for bucket, amount := range day.AssetBuckets {
-			waterfall[bucket] = waterfall[bucket].Add(amount.Amount())
+			if len(day.AssetBucketExact) == 0 {
+				waterfall[bucket] = waterfall[bucket].Add(amount.Amount())
+			}
 			if currency == "" {
 				currency = amount.Currency()
 			}

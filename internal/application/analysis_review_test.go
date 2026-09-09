@@ -256,6 +256,32 @@ func TestReviewF07OffsettingResidualKeepsIssueCountWithoutZeroBar(t *testing.T) 
 	}
 }
 
+func TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding(t *testing.T) {
+	accountID := domain.NewAccountID()
+	beginning := analysisSignedTestMoney(t, "100")
+	ending := analysisSignedTestMoney(t, "100.0001")
+	zero := analysisSignedTestMoney(t, "0")
+	day := domain.ComponentDay{
+		Date:         "2026-08-01",
+		Component:    domain.ComponentID{AccountID: accountID, Currency: "USD", Cash: true},
+		AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{domain.BucketAdjustment: zero},
+		AssetBucketExact: map[domain.AttributionBucket]decimal.Decimal{
+			domain.BucketAdjustment: decimal.RequireFromString("0.0001"),
+		},
+		BeginningValue: beginning,
+		EndingValue:    ending,
+		Status:         domain.CompletenessOK,
+	}
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-01", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
+	projection := foldAssetChange(domain.PeriodAnalysisResult{Query: query, Days: []domain.ComponentDay{day}}, "")
+	if projection.Summary.Change == nil || !projection.Summary.Change.Amount().Equal(decimal.RequireFromString("0.0001")) {
+		t.Fatalf("summary change = %+v, want 0.0001 USD", projection.Summary.Change)
+	}
+	if len(projection.Waterfall) != 1 || projection.Waterfall[0].Amount == nil || !projection.Waterfall[0].Amount.Amount().Equal(decimal.RequireFromString("0.0001")) {
+		t.Fatalf("waterfall = %+v, want exact adjustment", projection.Waterfall)
+	}
+}
+
 func TestReviewF11ContributionHistoryHintUsesWholeGroup(t *testing.T) {
 	firstAccount, secondAccount := domain.NewAccountID(), domain.NewAccountID()
 	dividendTen := testReturnMoney(t, "10")
@@ -351,5 +377,28 @@ func TestReviewF11ContributionHistoryHintUsesWholeGroup(t *testing.T) {
 	}
 	if holdingItem.HistoryHint.AccountID != firstAccount.String() || holdingItem.HistoryHint.InstrumentID != instrumentID.String() {
 		t.Fatalf("holding-only hint = %+v, want account and instrument", holdingItem.HistoryHint)
+	}
+}
+
+func TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions(t *testing.T) {
+	accountID, instrumentID := domain.NewAccountID(), domain.NewInstrumentID()
+	query := testReturnQuery("2026-08-01", "2026-08-31")
+
+	instrumentHint := realizedContributionHistoryHint(query, ContributionGroupInstrument, instrumentID.String())
+	if instrumentHint.AccountID != "" || instrumentHint.InstrumentID != instrumentID.String() {
+		t.Fatalf("household instrument hint = %+v, want instrument only", instrumentHint)
+	}
+
+	query.Scope = domain.AnalysisScope{Kind: domain.ScopeAccount, ID: accountID.String()}
+	accountScopedInstrumentHint := realizedContributionHistoryHint(query, ContributionGroupInstrument, instrumentID.String())
+	if accountScopedInstrumentHint.AccountID != accountID.String() || accountScopedInstrumentHint.InstrumentID != instrumentID.String() {
+		t.Fatalf("account-scoped instrument hint = %+v, want both dimensions", accountScopedInstrumentHint)
+	}
+
+	query.Scope = domain.AnalysisScope{Kind: domain.ScopeHousehold}
+	query.Filters.InstrumentID = &instrumentID
+	accountHint := realizedContributionHistoryHint(query, ContributionGroupAccount, accountID.String())
+	if accountHint.AccountID != accountID.String() || accountHint.InstrumentID != instrumentID.String() {
+		t.Fatalf("instrument-filtered account hint = %+v, want both dimensions", accountHint)
 	}
 }

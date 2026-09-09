@@ -1,6 +1,6 @@
 # Round-3 问题分析与修复方案
 
-审查日期：2026-09-09。报告测试版本：`91d10c0`；本地审查版本：`19eda27`（追加 R3 QA 文档）。本方案来自报告、PLAN、RESULTS/RECHECK、关键截图及当前代码核对；没有重跑应用、重新生成数据库或执行测试。仅新增本方案，不修改产品代码或原始测试记录。
+审查日期：2026-09-09。报告测试版本：`91d10c0`；本地审查版本：`19eda27`（追加 R3 QA 文档）。下方原始问题清单保留审查时的事实；本文件末尾的“当前修复记录”是本轮实现后的权威状态。
 
 ## 1. 结论与优先级
 
@@ -105,6 +105,32 @@
 - 归档用于关闭 D5/D6 的原始 DTO、查询、seed manifest、探针结果和必要日志。当前仓库镜像未包含报告引用的全部 DB/原始日志/seed JSON，应明确哪些仅存在于运行机；不要求将二进制或大 DB 提交 Git。
 - 区分 snapshot complete 与收益日 rated：complete 的 `incomplete_days=0` 和 All `39/45` 并不直接矛盾；把 origin/早期日期未评级的原因明确列出，不将所有 partial 误判为缺价。
 - DEF-R2-02 继续关闭；Linux cold-3y 仅保留环境观测，不重新设为发布阻塞。
+
+## 8. 当前修复记录（2026-09-09）
+
+本轮已经修改产品代码、探针和回归测试；旧截图/旧 RESULTS 不被改写为新的桌面证据。
+
+| 项目 | 当前结果 | 证据 |
+|---|---|---|
+| R3-D5 | **代码修复 + 自动化 PASS**。活动导致的新增/清仓组件现在按真实活动边界参与分析；waterfall 汇总保留未序列化的精确 attribution，避免逐组件四位舍入制造假 mismatch。固定 v3 complete、Base AUD、Include cash、2026-08-01..31 的 `ending - beginning - sum(waterfall)=0 AUD`，residual issues=0。 | `cmd/analytics-qa-probe` `NESTWORTH_PROBE_MODE=reconcile`；`probes/REMEDIATION-2026-09-09.json`；`TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding` |
+| R3-D6 | **后端/Wails/frontend 自动化 PASS**。Realized 按 Instrument 时写入 instrument；按 Account 时写入 account；另一维只有在 query scope/filter 明确约束时才保留，混合 cash/security 不凭名称推导。 | `realizedContributionHistoryHint`；`TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions`；`TestContributionItemDTOPreservesHistoryHintDimensions`；frontend 344 tests |
+| R3-Q1 | **C5–C8 DB-backed PASS**。Scope expected 独立读取边界 snapshot items；Native/Base 检查混币种 forced Base 与 instrument quote currency；sources 精确相加；transfer 由 persisted `cash_transfer` 活动发现且 household external_flow=0。 | `NESTWORTH_PROBE_MODE=quantitative`；`probes/REMEDIATION-2026-09-09.json` |
+| R3-Q1/C9 | **clean/corrupt residual PASS**。探针复制数据库后才注入 +100 AUD，clean 样本 issues=0；corrupt 样本 native 不变、residual 明细可追到 2026-08-12/13 且金额 ±100 AUD。 | `NESTWORTH_PROBE_MODE=residual`，`NESTWORTH_RESIDUAL_INJECT=false/true`；同上 JSON |
+| R3-Q2 | **仍需真实桌面补测**。仓库现有 incomplete 证据是 missing-both；missing-price、missing-fx 及中文/正确 Change Drivers 页面没有在本轮原生 Wails 中重跑。 | `screenshots/incomplete/RESULTS.json` |
+| R3-Q3 | **代码/应用层验证 PASS，原生桌面变更流程未重跑**。既有 `TestAnalysisCase44MemoInvalidatesAfterActivityAndSnapshotBuild` 覆盖 activity 与 snapshot rebuild 后结果变化；frontend invalidation tests 通过。 | application test、`frontend/src/queries/invalidation.test.ts` |
+| R3-Q4 | **文档状态已更新**：C5–C9 不再标为 tooling SKIP；旧桌面截图继续标为历史证据，未把自动化结果伪装成新截图。 | 本文件、`STATUS.md`、`REPORT.md`、`probes/C-phase.md`、`probes/SUMMARY.json` |
+
+### 本轮可复现命令
+
+```text
+GOCACHE=/tmp/nestworth-remediation-cache go run ./cmd/analytics-qa-seed
+NESTWORTH_PROBE_MODE=reconcile ... go run ./cmd/analytics-qa-probe
+NESTWORTH_PROBE_MODE=quantitative ... go run ./cmd/analytics-qa-probe
+NESTWORTH_PROBE_MODE=residual NESTWORTH_RESIDUAL_INJECT=false ... go run ./cmd/analytics-qa-probe
+NESTWORTH_PROBE_MODE=residual NESTWORTH_RESIDUAL_INJECT=true ... go run ./cmd/analytics-qa-probe
+```
+
+其中 `...` 必须指向 seed 生成的数据库和各自 JSON 输出路径；residual 模式只修改复制品。Linux cold-3y 仍为已知环境性能观察项；Wails 原生 GUI 截图、missing-price/missing-fx 矩阵和中文页面仍是未执行门禁，不能由上述自动化结果替代。
 
 ## 7. 推荐交付顺序与完成标准
 

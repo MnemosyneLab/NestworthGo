@@ -1,0 +1,42 @@
+{
+  "codeVersion": "working-tree",
+  "fixtureVersion": "analytics-qa-seed-v3",
+  "scenario": "complete",
+  "query": {
+    "scope": "household",
+    "valuation": "base",
+    "includeCash": true,
+    "from": "2026-08-01",
+    "to": "2026-08-31"
+  },
+  "d5": {
+    "status": "PASS",
+    "beginning": "54258.02 AUD",
+    "ending": "59784.3685 AUD",
+    "change": "5526.3485 AUD",
+    "waterfallSum": "5526.3485 AUD",
+    "delta": "0 AUD",
+    "residualIssueCount": 0,
+    "notes": [
+      "exact attribution is aggregated before public money rounding",
+      "daily diagnostic deltas remain visible at public component rounding precision; they are not hidden or used as a top-level epsilon"
+    ]
+  },
+  "quantitative": {
+    "C5_scope": {"status": "PASS", "delta": "0"},
+    "C6_native_base": {"status": "PASS", "mixedCurrencies": true, "nativeValuationForced": "base"},
+    "C7_return_sources": {"status": "PASS", "periodReturn": "1235.3483 AUD", "sourceSum": "1235.3483 AUD", "delta": "0"},
+    "C8_transfer": {"status": "PASS", "transferDays": ["2026-08-16"], "householdExternalFlow": "0 AUD"}
+  },
+  "residual": {
+    "clean": {"status": "PASS", "residualIssueCount": 0},
+    "corruptCopy": {"status": "PASS", "injectedBaseDelta": "100 AUD", "nativeChanged": false, "details": ["+100 AUD", "-100 AUD"]}
+  },
+  "automatedGates": {
+    "frontendTests": "344 passed",
+    "frontendTypecheck": "PASS",
+    "frontendLint": "PASS",
+    "wailsNativeDesktopReplay": "NOT_RUN",
+    "incompleteMissingPriceMissingFXDesktopMatrix": "NOT_RUN"
+  }
+}

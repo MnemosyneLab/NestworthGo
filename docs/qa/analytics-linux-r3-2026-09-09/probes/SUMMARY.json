@@ -40,53 +40,43 @@
     {
       "id": "C5",
       "name": "scope triangulation (portfolio/account/instrument)",
-      "mode": null,
-      "status": "SKIP",
-      "detail": "No NESTWORTH_PROBE_MODE for DB-backed scope triangulation. Fixture D covers in-memory scope semantics only (see C1)."
+      "mode": "quantitative",
+      "status": "PASS",
+      "detail": "Independent latest snapshot boundary totals reconcile household, account partition, and instrument plus explicit cash; delta=0."
     },
     {
       "id": "C6",
       "name": "native vs base valuation",
-      "mode": null,
-      "status": "SKIP",
-      "detail": "No probe mode / env flag for Native vs Base against scenario DBs."
+      "mode": "quantitative",
+      "status": "PASS",
+      "detail": "Mixed currencies force Base; instrument Native currency matches quote currency."
     },
     {
       "id": "C7",
       "name": "return sources sum vs period return",
-      "mode": null,
-      "status": "SKIP",
-      "detail": "No sources-summation probe mode. Bonus: co03 dividend path PASS_BOTH on complete (logs/C-co03.out) \u2014 not a full Price+FX+Div+Fee vs period check.",
-      "bonus": {
-        "co03": "PASS_BOTH",
-        "log": "logs/C-co03.out",
-        "detail": "conclusion=PASS_BOTH"
-      }
+      "mode": "quantitative",
+      "status": "PASS",
+      "detail": "Price/FX/Dividend/Fee sources sum to period return exactly; coverage is emitted and realized gain is excluded."
     },
     {
       "id": "C8",
       "name": "transfer neutrality FC-01",
-      "mode": null,
-      "status": "SKIP",
-      "detail": "No transfer-day neutrality probe mode. Seed includes FC-01 transfers; fixture D asserts household transfer price=0 in-memory (C1)."
+      "mode": "quantitative",
+      "status": "PASS",
+      "detail": "Persisted cash_transfer day 2026-08-16 has household external_flow=0 while market/FX/fee changes remain visible."
     },
     {
       "id": "C9",
       "name": "residual corrupt day",
       "mode": "residual",
-      "status": "SKIP",
-      "detail": "residual mode expects a deliberately corrupted snapshot item. Ran against complete DB \u2192 residualIssueCount=0, pass=false (clean fixture). No nestworth-residual.db / seed corrupt flag in r3 four-scenario set. Artifact kept for evidence.",
-      "artifact": "seed/probe-residual.json",
-      "observed": {
-        "residualIssueCount": 0,
-        "pass": false,
-        "detail": "deliberate +100 AUD base corruption on holding item 01a08520-6289-74a7-a16f-855105cf1850 local=2026-08-12; expected residual\u2248100; waterfall=<nil> day=<nil> issues=0"
-      }
+      "status": "PASS",
+      "detail": "Clean copied DB has residualIssueCount=0; isolated copied DB with +100 AUD base-only corruption retains +100/-100 details and native amount unchanged.",
+      "artifact": "probes/REMEDIATION-2026-09-09.json"
     }
   ],
   "counts": {
-    "PASS": 4,
+    "PASS": 9,
     "FAIL": 0,
-    "SKIP": 5
+    "SKIP": 0
   }
 }

@@ -22,11 +22,13 @@
 | Plan | `PLAN.md` / `report/PLAN.md` |
 | Supporting notes | `report/DEF-R2-02.md`, `report/LAYER-R3.md`, `logs/A-phase-summary.md`, `seed/B-SUMMARY.md`, `probes/C-phase.md` |
 
+> **Remediation update (2026-09-09, authoritative for this working tree):** R3-D5 is fixed in the application attribution/precision path and the fixed v3 complete probe reports `ending - beginning - sum(waterfall) = 0 AUD` with zero residual issues. R3-D6 is fixed in realized HistoryHint, Wails DTO mapping, and frontend navigation coverage. C5–C8 quantitative probes and C9 clean/corrupt residual controls are **9/9 PASS**; see `probes/REMEDIATION-2026-09-09.json`. The D5/D6 screenshots below are historical evidence from before these fixes, not a claim that native Wails replay has been completed. Missing-price, missing-fx, zh-CN incomplete-matrix checks, and GUI-level D8 mutation replay remain **NOT_RUN**.
+
 ---
 
 ## 1. Verdict / 结论
 
-**Overall: ACCEPTANCE NEARLY MET — DEF-R2-02 CLOSED; residual gaps remain (incomplete desktop matrix PENDING; C5–C9 SKIP; D5/D6 PARTIAL; Linux cold-3y known).**
+**Overall: AUTOMATED REMEDIATION GREEN; NATIVE DESKTOP REPLAY PENDING — DEF-R2-02 CLOSED; Linux cold-3y remains a known non-blocking observation.**
 
 | Area | Result |
 |------|--------|
@@ -35,12 +37,12 @@
 | Classifier / MissingFX / Return cases | **PASS** (targeted logs) |
 | Phase A — DEF-R2-02 harness | **PASS** — FIXED on probe + desktop |
 | Phase B — Seed v3 four scenarios | **PASS** — **4/4 OVERALL**; each **35 PASS / 0 FAIL** |
-| Phase C — Probe pack C1–C9 | **4 PASS / 0 FAIL / 5 SKIP** (C5–C9) |
-| Phase D — Desktop D1–D8 (complete) | **6 PASS / 2 PARTIAL** (D5 waterfall reconcile warning; D6 History filters All) |
-| Desktop incomplete matrix (D7 plan) | **PENDING** — `screenshots/incomplete/` empty (no `RESULTS.json`) |
+| Phase C — Probe pack C1–C9 | **9 PASS / 0 FAIL / 0 SKIP** after remediation |
+| Phase D — Desktop D1–D8 (complete) | Historical **6 PASS / 2 PARTIAL**; corrected D5/D6 native replay not run |
+| Desktop incomplete matrix (D7 plan) | **PARTIAL/PENDING** — missing-both evidence exists; missing-price/missing-fx/zh-CN not rerun |
 | DEF-R2-02 (Trend All on missing-both) | **FIXED** — probe partial 21/45 no panic; desktop chart + Partial coverage, no generic load error |
 
-**Green acceptance** (PLAN §3) additionally required DEF-R2-02 fixed → **met**. Full acceptance-grade claim is tempered by: incomplete-matrix desktop still PENDING; quantitative probes C5–C8 not implemented as DB modes; D5/D6 PARTIAL UX notes.
+**Green acceptance** (PLAN §3) additionally required DEF-R2-02 fixed → **met**. The remaining acceptance gate is native Wails replay for corrected D5/D6, the missing-price/missing-fx/zh-CN desktop matrix, and GUI-level D8 mutation evidence.
 
 ---
 
@@ -60,7 +62,7 @@
 - 1440 / responsive deep visual
 - Real household data / notarization
 - Loan (FC-07) stretch; deliberate residual corrupt DB
-- Product code changes in this QA pass (fix already in lineage)
+- Native Wails replay on this remediation host
 - Git commit / push of docs (explicitly not done this pass)
 
 ### Methods / 方法
@@ -68,7 +70,7 @@
 2. Build: `wails3` Linux native → `binaries/nestworth` (~19.8 MB). Log: `logs/02-build.log`.
 3. Go targeted: cold-3y / Classification / MissingFX / Return cases — `logs/01-go-analysis.log`, `logs/01b-*.log`, `logs/01c-*.log`, `logs/01d-*.log`.
 4. Seed: `cmd/analytics-qa-seed` with `NESTWORTH_QA_SCENARIO=…` → `seed/seed-results-*.json`, `seed/B-SUMMARY.md`.
-5. Probes: `cmd/analytics-qa-probe` modes `fixtures` / `cash-include` / legacy / `residual` / `co03` → `probes/SUMMARY.json`, `probes/C-phase.md`, `probes/A-trend-presets.json`.
+5. Probes: `cmd/analytics-qa-probe` modes `fixtures` / `cash-include` / legacy / `residual` / `co03` / `reconcile` / `quantitative` → `probes/SUMMARY.json`, `probes/C-phase.md`, `probes/REMEDIATION-2026-09-09.json`.
 6. Desktop: launch with `NESTWORTH_DATABASE_PATH` / `NESTWORTH_SETTINGS_PATH`; capture PNG + `RESULTS.json` under `screenshots/{def-r2-02,desktop-d,incomplete}/`.
 
 Default complete-DB desktop filters unless noted: **Portfolio · Base (AUD) · Include cash · sample ranges around Aug–Sep 2026** (case-specific in Phase D table).
@@ -191,7 +193,7 @@ Gap day = **2026-08-17** (offset 22). True-zero day = **2026-08-31** (offset 36)
 
 **When:** 2026-09-09 15:46 SGT  
 **Against:** complete DB unless noted; missing-both for C4  
-**Counts:** **4 PASS / 0 FAIL / 5 SKIP**  
+**Counts:** **9 PASS / 0 FAIL / 0 SKIP** for the automated probe pack; native desktop checks are separate NOT_RUN evidence.
 **Artifacts:** `probes/SUMMARY.json`, `probes/C-phase.md`
 
 | ID | Name | Status | Detail / artifact |
@@ -200,16 +202,16 @@ Gap day = **2026-08-17** (offset 22). True-zero day = **2026-08-31** (offset 36)
 | C2 | IncludeCash FL-18/19 | **PASS** | salaryDay=2026-08-05; investedCapital include=`56825.49` vs exclude=`2770.821`; cashDietzFlows include=1(3000) exclude=0 — `seed/probe-cash-include.json` |
 | C3 | True-zero Aug 31 | **PASS** | sample_zero includes `2026-08-31 rate=0 status=ok`; All-range complete still Analyze `status=partial` (origin UNAVAIL) — `logs/C3-true-zero-complete.out` |
 | C4 | missing-both All | **PASS** | partial **21/45**, exit 0, no panic (DEF-R2-02 regression) — `logs/C4-missing-both.out` |
-| C5 | Scope triangulation | **SKIP** | No DB-backed scope probe mode (fixture D in-memory only via C1) |
-| C6 | Native vs Base | **SKIP** | No probe mode / env flag |
-| C7 | Return sources sum | **SKIP** | No sources-summation mode; **bonus** co03 `PASS_BOTH` on complete — `logs/C-co03.out` |
-| C8 | Transfer neutrality FC-01 | **SKIP** | No transfer-day probe mode; seed includes transfers; fixture D asserts transfer price=0 in-memory (C1) |
-| C9 | Residual corrupt day | **SKIP** | residual mode needs deliberate corrupt DB; ran on complete → `residualIssueCount=0`, `pass=false` (clean) — `seed/probe-residual.json` |
+| C5 | Scope triangulation | **PASS** | quantitative mode uses independent boundary snapshot totals; household/account/instrument + explicit cash delta=0 |
+| C6 | Native vs Base | **PASS** | quantitative mode verifies mixed-currency forced Base and instrument Native quote currency |
+| C7 | Return sources sum | **PASS** | quantitative mode verifies Price/FX/Dividend/Fee source sum and coverage |
+| C8 | Transfer neutrality FC-01 | **PASS** | quantitative mode discovers persisted transfer day and verifies household external_flow=0 |
+| C9 | Residual corrupt day | **PASS** | clean copy issues=0; corrupt copy +100 AUD retains ±100 AUD details and native unchanged |
 
 **Existing modes:** `fixtures`, `cash-include`, `co03`, `residual`, legacy/default.  
 **No modes yet for:** scope triangulation, native/base forced flag, return-sources reconciliation, transfer-day ≈0.
 
-**Exit C:** No unexpected FAIL. SKIPs are tooling gaps (documented), not product regressions. Failures would block acceptance claim — none present.
+**Exit C:** **9/9 PASS**, no unexpected FAIL or SKIP. Raw compact evidence: `probes/REMEDIATION-2026-09-09.json`.
 
 ---
 
@@ -225,12 +227,12 @@ Source: `screenshots/desktop-d/RESULTS.json`.
 | D2 | Scope — Account / Instrument | **PASS** | Account → US Brokerage refreshed totals; Instrument → Apple Inc refreshed totals | `d2-account.png`, `d2-instrument.png` |
 | D3 | Include Cash + Categories Income | **PASS** | Cash Exclude/Include toggled; Categories → Income with Include cash showed salary **+A$3,000.00** (partial coverage noted) | `d3-cash.png` |
 | D4 | Contribution Realized + Dividend | **PASS** | Realized: Apple Inc **+A$96.41**, Invesco QQQ Trust **+A$15.02**; Dividend & Interest by Asset Class: Cash **+A$500.00**, stock **+A$18.83** | `d4-realized.png`, `d4-dividend.png` |
-| D5 | Drivers waterfall | **PARTIAL** | Aug 1–31 Change Drivers rendered: External flows **+A$1,506.00**; Income +A$3,000.00, Spending −A$200.00, Div&Int +A$518.83, Price +A$534.27, FX +A$169.65, Fees −A$15.00; **UI warned waterfall drivers do not reconcile to ending value** | `d5-drivers.png` |
-| D6 | History deep-link | **PARTIAL** | Contribution → View in History: dates From **2026-08-01** to **2026-09-08**; **account/instrument filters remained All**; Apple sale detail correctly showed Account US Brokerage, Instrument Apple Inc, Sell, Aug 27 2026 8:00 AM Asia/Singapore | `d6-history.png` |
+| D5 | Drivers waterfall | **AUTOMATED FIX / NATIVE REPLAY PENDING** | Historical screenshot had the warning. Fixed probe: exact Aug 1–31 `delta=0 AUD`, residual issues=0; corrected screenshot not captured | `d5-drivers.png`, `probes/REMEDIATION-2026-09-09.json` |
+| D6 | History deep-link | **AUTOMATED FIX / NATIVE REPLAY PENDING** | Historical screenshot had All filters. Realized HistoryHint + Wails DTO + frontend payload tests now pass; corrected screenshot not captured | `d6-history.png`, `probes/REMEDIATION-2026-09-09.json` |
 | D7 | True-zero day (calendar) | **PASS** | Return Calendar August 2026 day **31** showed exactly **0%** and **A$0.00** | `d7-zero.png` |
 | D8 | Soft invalidation / back | **PASS** | History opened, then Return Analysis reloaded successfully with August 2026 summary | `d8-back.png` |
 
-**Desktop complete summary:** **6 PASS / 2 PARTIAL** (D5, D6). No unexplained crash.
+**Desktop complete summary:** Historical **6 PASS / 2 PARTIAL**; D5/D6 automated remediation is green, but native replay remains pending. No unexplained crash.
 
 ### DEF-R2-02 desktop (missing-both)
 
@@ -246,8 +248,8 @@ Source: `screenshots/def-r2-02/RESULTS.json`.
 | Item | Status |
 |------|--------|
 | `screenshots/incomplete/RESULTS.json` | **MISSING** |
-| Folder | Present but **empty** (no PNGs) |
-| Verdict | **PENDING / in progress** — not executed this pass for missing-price / missing-fx / missing-both UX banners / zh-CN / Trend All per incomplete scenario beyond DEF-R2-02 dedicated folder |
+| Folder | Contains the existing missing-both shallow run and recheck screenshots |
+| Verdict | **PARTIAL / PENDING** — missing-price / missing-fx / zh-CN / correct Change Drivers page were not executed in this remediation turn |
 
 ---
 
@@ -257,8 +259,8 @@ Source: `screenshots/def-r2-02/RESULTS.json`.
 |----|----------|-------|--------|------------------|
 | **DEF-R2-01** | Known / non-blocking | Linux `cold-3y` perf budget | **Open (carry)** | ~5.08 s want &lt;3 s on Linux; M3 Pro policy non-blocking. `logs/01-go-analysis.log` |
 | **DEF-R2-02** | Was P1 release hold | missing-both + Return Trend **All** → generic Insights load error / probe panic | **FIXED** | Probe: partial 21/45, no panic. Desktop: chart + Partial 21/45, no generic error. Fix: `convertValuationAmount` soft-missing-FX. Card: `report/DEF-R2-02.md`. Evidence: `logs/03-probe-*`, `probes/A-trend-presets.json`, `screenshots/def-r2-02/*` |
-| **R3-D5** | UX / attribution note | Change Drivers waterfall reconcile warning | **Open (PARTIAL)** | Drivers look sane; UI still warns waterfall does not reconcile to ending value on Aug 1–31. `screenshots/desktop-d/d5-drivers.png` |
-| **R3-D6** | UX / deep-link | History deep-link leaves account/instrument filters as **All** | **Open (PARTIAL)** | Dates filled; sale detail correct; scope filters not pre-selected. `screenshots/desktop-d/d6-history.png` |
+| **R3-D5** | Attribution/precision | Change Drivers waterfall reconcile warning | **FIXED in code; native replay pending** | Exact v3 probe delta=0 and residual issues=0; old screenshot remains historical. |
+| **R3-D6** | Deep-link contract | History deep-link leaves account/instrument filters as **All** | **FIXED in code/tests; native replay pending** | Realized HistoryHint, DTO mapping, and frontend navigation payload are covered. |
 
 No new P0/P1 crash-class defects in Round-3 desktop/probe runs.
 
@@ -271,9 +273,9 @@ From PLAN §3 (Round-3 acceptance-grade):
 | # | Criterion | Met? | Comment |
 |---|-----------|------|---------|
 | 1 | Four scenario DBs build cleanly from one seed story | **YES** | 4/4 OVERALL PASS; 35/35 each |
-| 2 | Probe pack C1–C9 no unexpected FAIL | **YES** | 0 FAIL; C5–C9 **SKIP** (tooling); DEF-R2-02 no longer known FAIL |
-| 3 | Desktop D1–D8 executed with RESULTS | **PARTIAL** | D1–D8 complete RESULTS present; **incomplete-matrix folder PENDING** |
-| 4 | Scope / transfer / multi-instrument ≥1 quantitative probe each | **PARTIAL** | Desktop D2 scope UX PASS; C5/C8 SKIP; multi-instrument via seed + D4 amounts |
+| 2 | Probe pack C1–C9 no unexpected FAIL | **YES** | **9 PASS / 0 FAIL / 0 SKIP** after remediation; DEF-R2-02 remains fixed |
+| 3 | Desktop D1–D8 executed with RESULTS | **PARTIAL** | Historical D1–D8 results exist; corrected D5/D6 and missing-price/missing-fx/zh-CN native replay remains pending |
+| 4 | Scope / transfer / multi-instrument ≥1 quantitative probe each | **YES** | C5/C8 quantitative probes pass; instrument + cash partition is explicit |
 | 5 | Report published on branch/PR | **DOCS WRITTEN** | This REPORT + STATUS under artifact root + `docs/qa/analytics-linux-r3-2026-09-09/`; **no git commit/push this pass** |
 
 **Green acceptance** additional requirement: DEF-R2-02 fixed or waived → **YES (FIXED)**.
@@ -282,12 +284,12 @@ From PLAN §3 (Round-3 acceptance-grade):
 
 - **DEF-R2-02 closed** (probe + desktop) — Round-2 release hold lifted for that defect.
 - Seed v3 mini-family + four completeness variants are **acceptance-ready**.
-- Probe core path (C1–C4) green; extend modes for C5–C8 and residual corrupt DB for C9 next.
-- Desktop complete smoke strong; treat D5 reconcile warning and D6 History filter All as follow-ups.
-- Finish **incomplete-matrix** desktop (`screenshots/incomplete/`) before claiming full D7.
+- Automated probe pack C1–C9 is green; the raw compact result is `probes/REMEDIATION-2026-09-09.json`.
+- D5 reconcile warning and D6 History filter All are fixed in code/tests; replay the native app before closing the desktop evidence gate.
+- Finish **incomplete-matrix** desktop missing-price/missing-fx/zh-CN and correct Change Drivers page before claiming full D7.
 - Linux **cold-3y** remains known non-blocking.
 
-**Verdict label:** **ACCEPTANCE NEARLY MET** (blocker DEF-R2-02 fixed; residual PENDING/PARTIAL/SKIP items documented).
+**Verdict label:** **AUTOMATED REMEDIATION GREEN / DESKTOP REPLAY PENDING** (DEF-R2-02, D5/D6 code paths, C5–C9 probes fixed; remaining gaps are explicitly native GUI evidence).
 
 ---
 
@@ -312,8 +314,8 @@ From PLAN §3 (Round-3 acceptance-grade):
 | `d3-cash.png` | D3 Include Cash / Income |
 | `d4-realized.png` | D4 Realized Gain |
 | `d4-dividend.png` | D4 Dividend & Interest |
-| `d5-drivers.png` | D5 Change Drivers waterfall (PARTIAL) |
-| `d6-history.png` | D6 History deep-link (PARTIAL) |
+| `d5-drivers.png` | Historical D5 Change Drivers waterfall (pre-remediation PARTIAL screenshot) |
+| `d6-history.png` | Historical D6 History deep-link (pre-remediation PARTIAL screenshot) |
 | `d7-zero.png` | D7 True-zero Aug 31 |
 | `d8-back.png` | D8 Back to Insights |
 | `RESULTS.json` | D1–D8 statuses |
@@ -372,11 +374,11 @@ Docs mirror: `docs/qa/analytics-linux-r3-2026-09-09/` (REPORT, STATUS, PLAN, DEF
 
 ## 15. Chinese executive bullets / 中文要点
 
-- **结论：** Round-3 **接近验收**；Round-2 阻断项 **DEF-R2-02 已关闭**（探针 + 桌面）；尚有 incomplete 桌面矩阵 **PENDING**、C5–C9 **SKIP**、D5/D6 **PARTIAL**、Linux cold-3y 已知。
+- **结论：** 自动化 remediation **9/9 PASS**；Round-2 阻断项 **DEF-R2-02 已关闭**；D5/D6 代码和测试已修复，剩余是原生桌面 replay、缺价/缺 FX/中文矩阵及 Linux cold-3y 已知观察项。
 - **环境：** 分支 `qa/analytics-linux-r3-2026-09-09`，提交 **`91d10c0`**（seed v3），修复血统含 **`ea94f48`** soft-FX；二进制 ~19.8 MB。
 - **种子：** 四场景 **4/4 PASS**（各 35 PASS）；家庭 = AUD Cash + US/SG Brokerage；标的 AAPL/QQQ/ES3；缺口日 08-17；真零日 08-31。
-- **探针：** C1–C4 **PASS**；C5–C9 **SKIP**（缺模式/缺残差库）；无意外 FAIL。
-- **桌面 complete：** D1–D4/D7/D8 **PASS**；D5 瀑布对账警告 **PARTIAL**；D6 History 筛选仍为 All **PARTIAL**。
+- **探针：** C1–C9 **PASS**；Scope/Native-Base/Sources/Transfer 及 clean/corrupt residual 均有 DB-backed 结果。
+- **桌面 complete：** D1–D4/D7/D8 为历史 PASS；D5/D6 已有自动化修复，但原生截图尚未重录。
 - **DEF-R2-02：** missing-both Trend All → Partial 21/45 出图，无 “Insights could not be loaded”。
 - **未做：** `screenshots/incomplete/` 矩阵桌面；本轮不 git commit/push。
 

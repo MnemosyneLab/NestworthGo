@@ -279,7 +279,7 @@ func (s *Service) ContributionItem(ctx context.Context, query domain.AnalysisQue
 		if err != nil {
 			return ContributionItemResult{}, err
 		}
-		item := ContributionItemResult{Key: groupKey, Label: groupKey, AnalysisAvailability: contribution.AnalysisAvailability, HistoryHint: ContributionHistoryHint{From: query.From, To: query.To}}
+		item := ContributionItemResult{Key: groupKey, Label: groupKey, AnalysisAvailability: contribution.AnalysisAvailability, HistoryHint: realizedContributionHistoryHint(query, groupBy, groupKey)}
 		var matched *ContributionRow
 		for _, row := range contribution.Rows {
 			if row.Key == groupKey {
@@ -937,4 +937,32 @@ func realizedScope(query domain.AnalysisQuery) (domain.GainScope, bool) {
 		scope.InstrumentID = query.Filters.InstrumentID
 	}
 	return scope, true
+}
+
+// realizedContributionHistoryHint carries only dimensions that are known to
+// be part of the realized-gain query. The selected group is always safe to
+// retain; the other dimension is retained only when the query explicitly
+// constrained it. Inferring it from a label would hide cash interest when a
+// group contains both cash and securities.
+func realizedContributionHistoryHint(query domain.AnalysisQuery, groupBy ContributionGroupBy, groupKey string) ContributionHistoryHint {
+	hint := ContributionHistoryHint{From: query.From, To: query.To}
+	if query.Scope.Kind == domain.ScopeAccount {
+		hint.AccountID = query.Scope.ID
+	}
+	if query.Scope.Kind == domain.ScopeInstrument {
+		hint.InstrumentID = query.Scope.ID
+	}
+	if query.Filters.AccountID != nil {
+		hint.AccountID = query.Filters.AccountID.String()
+	}
+	if query.Filters.InstrumentID != nil {
+		hint.InstrumentID = query.Filters.InstrumentID.String()
+	}
+	switch groupBy {
+	case ContributionGroupAccount:
+		hint.AccountID = groupKey
+	case ContributionGroupInstrument:
+		hint.InstrumentID = groupKey
+	}
+	return hint
 }

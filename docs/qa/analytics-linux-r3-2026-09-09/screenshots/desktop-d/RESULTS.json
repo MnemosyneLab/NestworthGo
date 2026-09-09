@@ -2,6 +2,7 @@
   "phase": "D",
   "db": "nestworth-complete.db (seed v3)",
   "app": "Nestworth Wails desktop",
+  "evidenceNote": "D5/D6 entries are historical screenshots from before the remediation. Automated replacement evidence is in probes/REMEDIATION-2026-09-09.json; native Wails replay remains NOT_RUN.",
   "results": {
     "D1": {
       "status": "PASS",

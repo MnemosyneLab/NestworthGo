@@ -2,7 +2,8 @@
   "task": "Nestworth analytics QA r3",
   "database": "missing-both v3",
   "mode": "desktop only",
-  "overall": "PASS",
+  "overall": "PARTIAL",
+  "scopeNote": "This artifact covers the existing missing-both desktop run only. missing-price, missing-fx, zh-CN, and the corrected Asset Changes > Change Drivers page were not replayed in the remediation turn.",
   "checks": [
     {
       "id": "01-partial-banner",
