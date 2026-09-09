@@ -1,0 +1,295 @@
+CO-03 Dividend Contribution — root cause + verification
+=======================================================
+When: 2026-09-09 (SGT)
+DB: /tmp/nestworth-co03.db (copy of nestworth-analytics-qa/data/nestworth.db; no reseed)
+Seed: CashDividendInput +12.50 USD on AAPL holding, local date 2026-08-28 (already in DB)
+
+## Symptom
+- Categories Dividend & Interest: +A$18.8325
+- Contribution returnType=dividend_interest: 0 rows (API available=true) → UI empty
+
+## Root cause (product, not seed)
+`listActivitiesUntilQuery` in activity_repository.go (AnalysisService.loadInputs path)
+only called attachActivityEffects and skipped hydrateActivities.
+
+- activity.DividendDetail was nil for cash_dividend
+- assetBucketFor(kind==cash_dividend) still tagged BucketDividendInterest on cash → Categories OK
+- returnAssociation requires DividendDetail != nil → no ReturnDividendInterest on holding
+- Contribution projectDividendContribution → rows=0
+
+Seed CashDividendInput + activity_dividend_details were already correct. No seed change.
+
+## Fix applied (product)
+listActivitiesUntilQuery now calls hydrateActivities (same as ListActivities).
+
+## After fix (probe)
+conclusion=PASS_BOTH
+categories_rows=1 total={'amount': '18.8325', 'currency': 'AUD'} path=return_effects
+contribution_rows=1 available=True ui_empty=False
+has_return_components=None has_return_attributed=None
+contributionRated=36/38
+apiHasDividendContributionRows=True
+uiWouldShowEmpty=False
+
+## Probe JSON
+{
+  "dbPath": "/tmp/nestworth-co03.db",
+  "from": "2026-08-01",
+  "to": "2026-09-07",
+  "dividendLocalDate": "2026-08-28",
+  "categoriesAvailable": true,
+  "categoriesStatus": "partial",
+  "categoriesTotal": {
+    "amount": "18.8325",
+    "currency": "AUD"
+  },
+  "categoriesRows": [
+    {
+      "key": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "label": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "amount": {
+        "amount": "18.8325",
+        "currency": "AUD"
+      }
+    }
+  ],
+  "categoriesPath": "return_effects",
+  "contributionAvailable": true,
+  "contributionStatus": "partial",
+  "contributionReason": "one or more return days are incomplete",
+  "contributionRows": [
+    {
+      "key": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "label": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "amount": {
+        "amount": "18.8325",
+        "currency": "AUD"
+      }
+    }
+  ],
+  "contributionRated": "36/38",
+  "apiHasDividendContributionRows": true,
+  "uiWouldShowEmpty": false,
+  "hasReturnAttributedEffects": true,
+  "hasReturnComponentsMap": true,
+  "dividendDayComponents": [
+    {
+      "date": "2026-08-28",
+      "componentKey": "01a081dc-ba2e-74a1-8d00-bbf73ffacdc9/cash/currency:AUD",
+      "cash": true,
+      "accountId": "01a081dc-ba2e-74a1-8d00-bbf73ffacdc9",
+      "status": "ok"
+    },
+    {
+      "date": "2026-08-28",
+      "componentKey": "01a081dc-ba2f-722b-8172-7a5d69fabd90/cash/currency:USD",
+      "cash": true,
+      "accountId": "01a081dc-ba2f-722b-8172-7a5d69fabd90",
+      "status": "ok",
+      "assetBuckets": {
+        "dividend_interest": {
+          "amount": "18.8325",
+          "currency": "AUD"
+        },
+        "fx_impact": {
+          "amount": "3.772",
+          "currency": "AUD"
+        }
+      },
+      "returnComponents": {
+        "fx_impact": {
+          "amount": "3.772",
+          "currency": "AUD"
+        }
+      },
+      "attributedEffects": [
+        {
+          "bucket": "dividend_interest",
+          "amount": {
+            "amount": "18.8325",
+            "currency": "AUD"
+          }
+        },
+        {
+          "bucket": "fx_impact",
+          "returnComponent": "fx_impact",
+          "amount": {
+            "amount": "3.772",
+            "currency": "AUD"
+          }
+        }
+      ]
+    },
+    {
+      "date": "2026-08-28",
+      "componentKey": "01a081dc-ba2f-722b-8172-7a5d69fabd90/holding:01a081dc-bab5-70bc-90cf-45c1d9ee45a4/instrument:01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "cash": false,
+      "instrumentId": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "holdingId": "01a081dc-bab5-70bc-90cf-45c1d9ee45a4",
+      "accountId": "01a081dc-ba2f-722b-8172-7a5d69fabd90",
+      "status": "ok",
+      "assetBuckets": {
+        "fx_impact": {
+          "amount": "0.4944",
+          "currency": "AUD"
+        },
+        "price_change": {
+          "amount": "18.0768",
+          "currency": "AUD"
+        }
+      },
+      "returnComponents": {
+        "dividend_interest": {
+          "amount": "18.8325",
+          "currency": "AUD"
+        },
+        "fx_impact": {
+          "amount": "0.4944",
+          "currency": "AUD"
+        },
+        "price_change": {
+          "amount": "18.0768",
+          "currency": "AUD"
+        }
+      },
+      "attributedEffects": [
+        {
+          "returnComponent": "dividend_interest",
+          "amount": {
+            "amount": "18.8325",
+            "currency": "AUD"
+          },
+          "relatedHolding": "01a081dc-bab5-70bc-90cf-45c1d9ee45a4",
+          "relatedInstrument": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb"
+        },
+        {
+          "bucket": "price_change",
+          "returnComponent": "price_change",
+          "amount": {
+            "amount": "18.0768",
+            "currency": "AUD"
+          }
+        },
+        {
+          "bucket": "fx_impact",
+          "returnComponent": "fx_impact",
+          "amount": {
+            "amount": "0.4944",
+            "currency": "AUD"
+          }
+        }
+      ]
+    }
+  ],
+  "assetAnalyzeDividendDay": [
+    {
+      "date": "2026-08-28",
+      "componentKey": "01a081dc-ba2e-74a1-8d00-bbf73ffacdc9/cash/currency:AUD",
+      "cash": true,
+      "accountId": "01a081dc-ba2e-74a1-8d00-bbf73ffacdc9",
+      "status": "ok"
+    },
+    {
+      "date": "2026-08-28",
+      "componentKey": "01a081dc-ba2f-722b-8172-7a5d69fabd90/cash/currency:USD",
+      "cash": true,
+      "accountId": "01a081dc-ba2f-722b-8172-7a5d69fabd90",
+      "status": "ok",
+      "assetBuckets": {
+        "dividend_interest": {
+          "amount": "18.8325",
+          "currency": "AUD"
+        },
+        "fx_impact": {
+          "amount": "3.772",
+          "currency": "AUD"
+        }
+      },
+      "returnComponents": {
+        "fx_impact": {
+          "amount": "3.772",
+          "currency": "AUD"
+        }
+      },
+      "attributedEffects": [
+        {
+          "bucket": "dividend_interest",
+          "amount": {
+            "amount": "18.8325",
+            "currency": "AUD"
+          }
+        },
+        {
+          "bucket": "fx_impact",
+          "returnComponent": "fx_impact",
+          "amount": {
+            "amount": "3.772",
+            "currency": "AUD"
+          }
+        }
+      ]
+    },
+    {
+      "date": "2026-08-28",
+      "componentKey": "01a081dc-ba2f-722b-8172-7a5d69fabd90/holding:01a081dc-bab5-70bc-90cf-45c1d9ee45a4/instrument:01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "cash": false,
+      "instrumentId": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "holdingId": "01a081dc-bab5-70bc-90cf-45c1d9ee45a4",
+      "accountId": "01a081dc-ba2f-722b-8172-7a5d69fabd90",
+      "status": "ok",
+      "assetBuckets": {
+        "fx_impact": {
+          "amount": "0.4944",
+          "currency": "AUD"
+        },
+        "price_change": {
+          "amount": "18.0768",
+          "currency": "AUD"
+        }
+      },
+      "returnComponents": {
+        "dividend_interest": {
+          "amount": "18.8325",
+          "currency": "AUD"
+        },
+        "fx_impact": {
+          "amount": "0.4944",
+          "currency": "AUD"
+        },
+        "price_change": {
+          "amount": "18.0768",
+          "currency": "AUD"
+        }
+      },
+      "attributedEffects": [
+        {
+          "returnComponent": "dividend_interest",
+          "amount": {
+            "amount": "18.8325",
+            "currency": "AUD"
+          },
+          "relatedHolding": "01a081dc-bab5-70bc-90cf-45c1d9ee45a4",
+          "relatedInstrument": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb"
+        },
+        {
+          "bucket": "price_change",
+          "returnComponent": "price_change",
+          "amount": {
+            "amount": "18.0768",
+            "currency": "AUD"
+          }
+        },
+        {
+          "bucket": "fx_impact",
+          "returnComponent": "fx_impact",
+          "amount": {
+            "amount": "0.4944",
+            "currency": "AUD"
+          }
+        }
+      ]
+    }
+  ],
+  "conclusion": "PASS_BOTH",
+  "detail": "; Categories and Contribution both show dividend rows"
+}

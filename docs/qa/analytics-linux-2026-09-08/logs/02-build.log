@@ -1,0 +1,112 @@
+task: [linux:common:go:mod:tidy] go mod tidy
+task: [linux:generate:dotdesktop] mkdir -p /workspace/NestworthGo-fe-be-audit/build/linux/appimage
+task: Task "linux:common:generate:icons" is up to date
+task: [linux:generate:dotdesktop] wails3 generate .desktop -name "nestworth" -exec "nestworth" -icon "nestworth" -outputfile "/workspace/NestworthGo-fe-be-audit/build/linux/nestworth.desktop" -categories "Development;"
+task: [linux:common:install:frontend:deps:bun] bun install
+bun install v1.3.14 (0d9b296a)
+
+Checked 291 installs across 340 packages (no changes) [32.00ms]
+task: [linux:common:generate:bindings] wails3 generate bindings -f '-tags production' -clean=true -ts -i ./...
+Wails v3.0.0-beta.12 › Generate Bindings
+ INFO  Processed: 293 Packages, 16 Services, 126 Methods, 4 Enums, 124 Models, 1 Event in 2.832244854s.
+ INFO  Output directory: /workspace/NestworthGo-fe-be-audit/frontend/bindings
+task: [linux:common:frontend:run:bun] bun run build
+$ node ./scripts/ensure-bindings.mjs && tsc && vite build --mode production
+Generating Wails TypeScript bindings...
+Wails v3.0.0-beta.12 › Generate Bindings
+ INFO  Processed: 300 Packages, 16 Services, 126 Methods, 4 Enums, 124 Models, 1 Event in 19.439004902s.
+ INFO  Output directory: /workspace/NestworthGo-fe-be-audit/frontend/bindings
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 3903 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                      1.86 kB │ gzip:   0.60 kB
+dist/assets/logo-mark-qCCT58MW.png                  34.15 kB
+dist/assets/wordmark-UoPGCP5V.png                   36.51 kB
+dist/assets/index-DmUn7Eq7.css                      48.34 kB │ gzip:   8.87 kB
+dist/assets/portfolio-CPCozjB-.js                    0.16 kB │ gzip:   0.14 kB
+dist/assets/display-ClI3QuWC.js                      0.32 kB │ gzip:   0.23 kB
+dist/assets/react-D6v56Xnk.js                        0.69 kB │ gzip:   0.42 kB
+dist/assets/rolldown-runtime-hePW80VL.js             0.71 kB │ gzip:   0.42 kB
+dist/assets/groupByInstrumentType-3iwTwn2s.js        0.75 kB │ gzip:   0.39 kB
+dist/assets/RangeToggle-Cxu9KXoz.js                  0.88 kB │ gzip:   0.44 kB
+dist/assets/badge-Dw_5jufK.js                        1.16 kB │ gzip:   0.61 kB
+dist/assets/settings-DoAUNKHx.js                     1.19 kB │ gzip:   0.56 kB
+dist/assets/DirectionContext-CN7eD2t6.js             1.83 kB │ gzip:   0.82 kB
+dist/assets/TrendChart-CEtYrFx3.js                   2.38 kB │ gzip:   1.18 kB
+dist/assets/filterable-select-BEgeurbK.js            2.42 kB │ gzip:   1.16 kB
+dist/assets/EChart-DODHZpNo.js                       4.25 kB │ gzip:   1.80 kB
+dist/assets/money-CNvZjQSZ.js                        4.77 kB │ gzip:   1.99 kB
+dist/assets/PortfolioPage-BtM1WMhA.js                4.81 kB │ gzip:   1.74 kB
+dist/assets/DirectoryPage-Bwg5H3Dj.js                7.26 kB │ gzip:   2.41 kB
+dist/assets/defaultIcons-Dmcoanht.js                 8.97 kB │ gzip:   2.05 kB
+dist/assets/EntityIcon-8tQ7hH-x.js                  10.14 kB │ gzip:   3.80 kB
+dist/assets/analysisProjectionContext-BTOU23h-.js   13.57 kB │ gzip:   3.82 kB
+dist/assets/tabs-DorO5Zgx.js                        14.12 kB │ gzip:   5.38 kB
+dist/assets/HistoryPage-Cb9AMh1d.js                 18.41 kB │ gzip:   4.47 kB
+dist/assets/MarketDataPage-BlKNrRYc.js              20.02 kB │ gzip:   5.32 kB
+dist/assets/SettingsPage-DDiG4g0J.js                22.84 kB │ gzip:   5.38 kB
+dist/assets/AssetChangesPage-Dm8Ryn2K.js            26.98 kB │ gzip:   6.61 kB
+dist/assets/ReturnAnalysisPage-kmrCu8nt.js          30.86 kB │ gzip:   7.41 kB
+dist/assets/input-CBehlox3.js                       34.04 kB │ gzip:   9.57 kB
+dist/assets/InvestmentsPage-DGnHrNo4.js             61.44 kB │ gzip:  16.31 kB
+dist/assets/invalidation-BYnwl8Cp.js                71.84 kB │ gzip:  23.91 kB
+dist/assets/date-picker-BHomuR7k.js                134.40 kB │ gzip:  41.85 kB
+dist/assets/index-Cx1DIkCn.js                      272.92 kB │ gzip:  73.55 kB
+dist/assets/PageState-Bg5_dlw8.js                  465.20 kB │ gzip: 151.03 kB
+dist/assets/echarts-mbQjEpM3.js                    588.23 kB │ gzip: 198.66 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 678ms
+task: [linux:build:native] go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X github.com/waltwang/nestworth-go/internal/version.Version=v0.3.1 -X github.com/waltwang/nestworth-go/internal/version.Build=2" -o bin/nestworth ./cmd/nestworth
+# github.com/wailsapp/wails/v3/pkg/application
+linux_cgo.c: In function ‘window_move_x11’:
+linux_cgo.c:1013:5: warning: ‘gdk_x11_display_get_xdisplay’ is deprecated [-Wdeprecated-declarations]
+ 1013 |     Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+      |     ^~~~~~~
+In file included from /usr/include/gtk-4.0/gdk/x11/gdkx.h:39,
+                 from linux_cgo.c:6:
+/usr/include/gtk-4.0/gdk/x11/gdkx11display.h:60:15: note: declared here
+   60 | Display *     gdk_x11_display_get_xdisplay     (GdkDisplay  *display);
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c:1014:5: warning: ‘gdk_x11_surface_get_xid’ is deprecated [-Wdeprecated-declarations]
+ 1014 |     Window xwindow = gdk_x11_surface_get_xid(GDK_X11_SURFACE(surface));
+      |     ^~~~~~
+In file included from /usr/include/gtk-4.0/gdk/x11/gdkx.h:47:
+/usr/include/gtk-4.0/gdk/x11/gdkx11surface.h:56:10: note: declared here
+   56 | Window   gdk_x11_surface_get_xid           (GdkSurface   *surface);
+      |          ^~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c: In function ‘window_get_position_x11’:
+linux_cgo.c:1036:5: warning: ‘gdk_x11_display_get_xdisplay’ is deprecated [-Wdeprecated-declarations]
+ 1036 |     Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+      |     ^~~~~~~
+/usr/include/gtk-4.0/gdk/x11/gdkx11display.h:60:15: note: declared here
+   60 | Display *     gdk_x11_display_get_xdisplay     (GdkDisplay  *display);
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c:1037:5: warning: ‘gdk_x11_surface_get_xid’ is deprecated [-Wdeprecated-declarations]
+ 1037 |     Window xwindow = gdk_x11_surface_get_xid(GDK_X11_SURFACE(surface));
+      |     ^~~~~~
+/usr/include/gtk-4.0/gdk/x11/gdkx11surface.h:56:10: note: declared here
+   56 | Window   gdk_x11_surface_get_xid           (GdkSurface   *surface);
+      |          ^~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c: In function ‘window_send_always_on_top_x11’:
+linux_cgo.c:1067:5: warning: ‘gdk_x11_display_get_xdisplay’ is deprecated [-Wdeprecated-declarations]
+ 1067 |     Display *xdisplay = gdk_x11_display_get_xdisplay(display);
+      |     ^~~~~~~
+/usr/include/gtk-4.0/gdk/x11/gdkx11display.h:60:15: note: declared here
+   60 | Display *     gdk_x11_display_get_xdisplay     (GdkDisplay  *display);
+      |               ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+linux_cgo.c:1068:5: warning: ‘gdk_x11_surface_get_xid’ is deprecated [-Wdeprecated-declarations]
+ 1068 |     Window xwindow = gdk_x11_surface_get_xid(GDK_X11_SURFACE(surface));
+      |     ^~~~~~
+/usr/include/gtk-4.0/gdk/x11/gdkx11surface.h:56:10: note: declared here
+   56 | Window   gdk_x11_surface_get_xid           (GdkSurface   *surface);
+      |          ^~~~~~~~~~~~~~~~~~~~~~~
+
+Need documentation? Run: ]8;;https://v3.wails.io/getting-started/your-first-app/\wails3 docs]8;;\
+ ♥   If Wails is useful to you or your company, please consider sponsoring the project: ]8;;https://github.com/sponsors/leaanthony\wails3 sponsor]8;;\

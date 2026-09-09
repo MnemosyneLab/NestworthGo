@@ -1,0 +1,198 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/shopspring/decimal"
+	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+)
+
+type residualOut struct {
+	DBPath               string        `json:"dbPath"`
+	CorruptDay           string        `json:"corruptDay"`
+	ItemID               string        `json:"itemId"`
+	HoldingID            string        `json:"holdingId"`
+	BaseBefore           string        `json:"baseBefore"`
+	BaseAfter            string        `json:"baseAfter"`
+	NativeUnchanged      string        `json:"nativeUnchanged"`
+	ExpectedResidual     string        `json:"expectedResidualApprox"`
+	RevisionAfter        int           `json:"revisionAfter"`
+	From                 string        `json:"from"`
+	To                   string        `json:"to"`
+	AssetChangeAvail     bool          `json:"assetChangeAvailable"`
+	ResidualIssueCount   int           `json:"residualIssueCount"`
+	WaterfallResidual    *co03Money    `json:"waterfallResidual,omitempty"`
+	DriverDetailCount    int           `json:"driverDetailCount"`
+	DriverDetails        []residualDet `json:"driverDetails"`
+	DayComponentResidual *co03Money    `json:"dayComponentResidual,omitempty"`
+	DayStatus            string        `json:"dayStatus,omitempty"`
+	UnexplainedPositive  bool          `json:"unexplainedPositive"`
+	PASS                 bool          `json:"pass"`
+	Detail               string        `json:"detail"`
+	Error                string        `json:"error,omitempty"`
+}
+
+type residualDet struct {
+	Date         string     `json:"date"`
+	ComponentKey string     `json:"componentKey"`
+	AccountID    string     `json:"accountId,omitempty"`
+	HoldingID    string     `json:"holdingId,omitempty"`
+	InstrumentID string     `json:"instrumentId,omitempty"`
+	Amount       *co03Money `json:"amount,omitempty"`
+}
+
+func runResidualProbe() error {
+	dbPath := envOr("NESTWORTH_DATABASE_PATH", "/workspace/nestworth-analytics-qa/data/nestworth-residual.db")
+	outPath := envOr("NESTWORTH_PROBE_OUT", "/workspace/nestworth-analytics-qa/seed/probe-residual.json")
+	logPath := envOr("NESTWORTH_PROBE_LOG", "/workspace/nestworth-analytics-qa/logs/12-residual.log")
+	corruptDay := envOr("NESTWORTH_RESIDUAL_DAY", "2026-08-12")
+	from := envOr("NESTWORTH_PROBE_FROM", "2026-08-01")
+	to := envOr("NESTWORTH_PROBE_TO", "2026-09-07")
+
+	out := residualOut{
+		DBPath: dbPath, CorruptDay: corruptDay, From: from, To: to,
+		ItemID:     "01a081dc-bad8-761d-8e36-1a34b217fded",
+		HoldingID:  "01a081dc-bab5-70bc-90cf-45c1d9ee45a4",
+		BaseBefore: "2833.909", BaseAfter: "2933.909", NativeUnchanged: "1885",
+		ExpectedResidual: "100",
+	}
+
+	database, openMode, lockNote, err := openProbeDB(dbPath)
+	_ = openMode
+	if err != nil {
+		out.Error = err.Error()
+		if lockNote != "" {
+			out.Error = lockNote + "; " + out.Error
+		}
+		return writeResidual(outPath, logPath, out)
+	}
+	defer database.Close()
+	if lockNote != "" {
+		out.Detail = "sqlite_ro_fallback: " + lockNote
+	}
+
+	// Confirm corruption still present
+	var base, native string
+	var rev int
+	row := database.SQL.QueryRow(`SELECT i.base_amount, i.native_amount, s.revision
+		FROM daily_valuation_snapshot_items i
+		JOIN daily_valuation_snapshots s ON s.id=i.snapshot_id
+		WHERE i.id=?`, out.ItemID)
+	if err := row.Scan(&base, &native, &rev); err != nil {
+		out.Error = "corrupt item lookup: " + err.Error()
+		return writeResidual(outPath, logPath, out)
+	}
+	out.BaseAfter = base
+	out.NativeUnchanged = native
+	out.RevisionAfter = rev
+
+	svc := application.NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	query := domain.AnalysisQuery{
+		Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold},
+		From:  from, To: to,
+		Valuation: domain.ValuationBase, IncludeCash: true, Basis: domain.ReturnBasisInvestment,
+	}
+
+	change, err := svc.AssetChange(ctx, query)
+	if err != nil {
+		out.Error = "AssetChange: " + err.Error()
+		return writeResidual(outPath, logPath, out)
+	}
+	out.AssetChangeAvail = change.Available
+	out.ResidualIssueCount = change.ResidualIssueCount
+	for _, row := range change.Waterfall {
+		if row.Bucket == domain.BucketResidual && row.Amount != nil {
+			out.WaterfallResidual = moneyOutCo03(row.Amount)
+		}
+	}
+
+	detail, err := svc.AssetDriverDetail(ctx, query, string(domain.BucketResidual))
+	if err != nil {
+		out.Error = "AssetDriverDetail: " + err.Error()
+		return writeResidual(outPath, logPath, out)
+	}
+	out.DriverDetailCount = len(detail.ResidualDetails)
+	for _, d := range detail.ResidualDetails {
+		out.DriverDetails = append(out.DriverDetails, residualDet{
+			Date: string(d.Date), ComponentKey: d.ComponentKey,
+			AccountID: d.AccountID, HoldingID: d.HoldingID, InstrumentID: d.InstrumentID,
+			Amount: moneyOutCo03(d.Amount),
+		})
+	}
+
+	// Also inspect Analyze day for the corrupt local date
+	result, err := svc.Analyze(ctx, query)
+	if err != nil {
+		out.Error = "Analyze: " + err.Error()
+		return writeResidual(outPath, logPath, out)
+	}
+	for _, day := range result.Days {
+		if string(day.Date) != corruptDay {
+			continue
+		}
+		if day.Component.HoldingID == nil || day.Component.HoldingID.String() != out.HoldingID {
+			continue
+		}
+		out.DayStatus = string(day.Status)
+		if day.Residual != nil {
+			out.DayComponentResidual = moneyOutCo03(&day.Residual.Amount)
+		} else if v, ok := day.AssetBuckets[domain.BucketResidual]; ok && v.Currency() != "" {
+			out.DayComponentResidual = &co03Money{Amount: v.CanonicalAmount(), Currency: v.Currency().String()}
+		}
+	}
+
+	residualAmt := decimal.Zero
+	if out.WaterfallResidual != nil {
+		residualAmt, _ = decimal.NewFromString(out.WaterfallResidual.Amount)
+	}
+	dayAmt := decimal.Zero
+	if out.DayComponentResidual != nil {
+		dayAmt, _ = decimal.NewFromString(out.DayComponentResidual.Amount)
+	}
+	out.UnexplainedPositive = residualAmt.IsPositive() || dayAmt.IsPositive() || out.ResidualIssueCount > 0
+	out.PASS = out.UnexplainedPositive && (dayAmt.Abs().GreaterThan(decimal.NewFromInt(50)) || residualAmt.Abs().GreaterThan(decimal.NewFromInt(50)))
+	out.Detail = fmt.Sprintf("deliberate +100 AUD base corruption on holding item %s local=%s; expected residual≈100; waterfall=%v day=%v issues=%d",
+		out.ItemID, corruptDay, out.WaterfallResidual, out.DayComponentResidual, out.ResidualIssueCount)
+
+	return writeResidual(outPath, logPath, out)
+}
+
+func writeResidual(outPath, logPath string, out residualOut) error {
+	raw, err := json.MarshalIndent(out, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(outPath), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(outPath, raw, 0o644); err != nil {
+		return err
+	}
+	var b strings.Builder
+	b.WriteString("§17.4 Deliberate Residual probe\n")
+	b.WriteString("================================\n")
+	b.Write(raw)
+	b.WriteString("\n\nSUMMARY\n")
+	fmt.Fprintf(&b, "pass=%v unexplainedPositive=%v corruptDay=%s expected≈%s\n", out.PASS, out.UnexplainedPositive, out.CorruptDay, out.ExpectedResidual)
+	fmt.Fprintf(&b, "waterfallResidual=%v dayResidual=%v residualIssueCount=%d\n", out.WaterfallResidual, out.DayComponentResidual, out.ResidualIssueCount)
+	fmt.Fprintf(&b, "detail=%s\n", out.Detail)
+	if out.Error != "" {
+		fmt.Fprintf(&b, "error=%s\n", out.Error)
+	}
+	if err := os.MkdirAll(filepath.Dir(logPath), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(logPath, []byte(b.String()), 0o644); err != nil {
+		return err
+	}
+	fmt.Print(b.String())
+	return nil
+}

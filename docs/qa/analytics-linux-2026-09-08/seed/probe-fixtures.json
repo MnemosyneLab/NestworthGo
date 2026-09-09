@@ -1,0 +1,73 @@
+{
+  "when": "2026-09-08T23:38:10Z",
+  "mode": "NESTWORTH_PROBE_MODE=fixtures (in-memory ComputeAnalysis)",
+  "results": [
+    {
+      "id": "A",
+      "name": "Modified Dietz ~1.81818%",
+      "status": "PASS",
+      "expected": {
+        "helperRated": true,
+        "rate": "0.0181818181818182",
+        "returnAmount": "1000"
+      },
+      "got": {
+        "helperRate": "0.0181818181818182",
+        "helperRated": true,
+        "rate": "0.0181818181818182",
+        "returnAmount": "1000"
+      }
+    },
+    {
+      "id": "B",
+      "name": "Foreign holding Price 70 / FX 22 base",
+      "status": "PASS",
+      "expected": {
+        "baseFX": "22",
+        "basePrice": "70",
+        "nativeFX": "0",
+        "nativePrice": "10"
+      },
+      "got": {
+        "baseFX": "22",
+        "basePrice": "70",
+        "nativeFX": "0",
+        "nativePrice": "10"
+      }
+    },
+    {
+      "id": "C",
+      "name": "Foreign cash Income 71 / FX 21",
+      "status": "PASS",
+      "expected": {
+        "fx": "21",
+        "income": "71",
+        "residual": null
+      },
+      "got": {
+        "fx": "21",
+        "income": "71",
+        "residual": null,
+        "status": "ok"
+      }
+    },
+    {
+      "id": "D",
+      "name": "Scope semantics instrument external +100 / transfer relative",
+      "status": "PASS",
+      "expected": {
+        "accountExternalOnReceive": "100",
+        "householdTransferPrice": "0",
+        "instrumentExternalFlow": "100"
+      },
+      "got": {
+        "accountExternalOnReceive": "100",
+        "householdTransferPriceZero": true,
+        "instrumentDayOK": true,
+        "instrumentExternalFlow": "100"
+      }
+    }
+  ],
+  "allPass": true,
+  "summary": "4 PASS / 0 FAIL"
+}

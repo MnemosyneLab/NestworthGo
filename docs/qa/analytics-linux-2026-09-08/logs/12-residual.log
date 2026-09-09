@@ -1,0 +1,68 @@
+§17.4 Deliberate Residual experiment
+====================================
+When: 2026-09-09 (SGT)
+Approach: non-destructive copy → data/nestworth-residual.db (main nestworth.db untouched; nestworth app left running)
+
+## Corruption
+- Day: 2026-08-12 (quiet complete day; no activities)
+- Item: holding AAPL 01a081dc-bad8-761d-8e36-1a34b217fded
+- Change: base_amount 2833.909 → 2933.909 (+100 AUD); native left 1885
+- Snapshot revision bumped to 2
+- Expected day residual ≈ +100 AUD (Price/FX from quotes unchanged; delta unexplained)
+
+## Verification (AssetChange / AssetDriverDetail / Analyze)
+- residualIssueCount=2
+- day 2026-08-12 holding residual={'amount': '100', 'currency': 'AUD'} status=partial
+- driver details: +100 on 2026-08-12 and -100 on 2026-08-13 (next-day begin inherits inflated end → opposite residual)
+- period waterfall residual may net near zero because +100/−100 cancel across days; day-level Unexplained difference > 0 is the deliberate signal
+- pass=True unexplainedPositive=True
+
+## Probe JSON
+{
+  "dbPath": "/workspace/nestworth-analytics-qa/data/nestworth-residual.db",
+  "corruptDay": "2026-08-12",
+  "itemId": "01a081dc-bad8-761d-8e36-1a34b217fded",
+  "holdingId": "01a081dc-bab5-70bc-90cf-45c1d9ee45a4",
+  "baseBefore": "2833.909",
+  "baseAfter": "2933.909",
+  "nativeUnchanged": "1885",
+  "expectedResidualApprox": "100",
+  "revisionAfter": 2,
+  "from": "2026-08-01",
+  "to": "2026-09-07",
+  "assetChangeAvailable": true,
+  "residualIssueCount": 2,
+  "driverDetailCount": 2,
+  "driverDetails": [
+    {
+      "date": "2026-08-12",
+      "componentKey": "01a081dc-ba2f-722b-8172-7a5d69fabd90/holding:01a081dc-bab5-70bc-90cf-45c1d9ee45a4/instrument:01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "accountId": "01a081dc-ba2f-722b-8172-7a5d69fabd90",
+      "holdingId": "01a081dc-bab5-70bc-90cf-45c1d9ee45a4",
+      "instrumentId": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "amount": {
+        "amount": "100",
+        "currency": "AUD"
+      }
+    },
+    {
+      "date": "2026-08-13",
+      "componentKey": "01a081dc-ba2f-722b-8172-7a5d69fabd90/holding:01a081dc-bab5-70bc-90cf-45c1d9ee45a4/instrument:01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "accountId": "01a081dc-ba2f-722b-8172-7a5d69fabd90",
+      "holdingId": "01a081dc-bab5-70bc-90cf-45c1d9ee45a4",
+      "instrumentId": "01a081dc-ba2f-7d2a-a82c-05b960b99bfb",
+      "amount": {
+        "amount": "-100",
+        "currency": "AUD"
+      }
+    }
+  ],
+  "dayComponentResidual": {
+    "amount": "100",
+    "currency": "AUD"
+  },
+  "dayStatus": "partial",
+  "unexplainedPositive": true,
+  "pass": true,
+  "detail": "deliberate +100 AUD base corruption on holding item 01a081dc-bad8-761d-8e36-1a34b217fded local=2026-08-12; expected residual\u2248100; waterfall=<nil> day=&{100 AUD} issues=2"
+}

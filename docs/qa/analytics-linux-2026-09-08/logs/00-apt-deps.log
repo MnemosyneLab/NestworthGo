@@ -1,0 +1,11 @@
+Reading package lists...
+Building dependency tree...
+Reading state information...
+gcc is already the newest version (4:14.2.0-1).
+pkg-config is already the newest version (1.8.1-4).
+libgtk-4-dev is already the newest version (4.18.6+ds-2).
+libwebkitgtk-6.0-dev is already the newest version (2.52.6-1~deb13u1).
+libsoup-3.0-dev is already the newest version (3.6.5-3).
+file is already the newest version (1:5.46-5).
+dpkg-dev is already the newest version (1.22.22).
+0 upgraded, 0 newly installed, 0 to remove and 1 not upgraded.

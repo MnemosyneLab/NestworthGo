@@ -1,0 +1,7 @@
+[PASS] R1.setup_provider — AAPL quoteSource=provider yahoo_finance
+[PASS] R1.append_keeps_provider — preferred still provider after manual append; observation sourceKind=manual price=199.99
+[PASS] R1.set_source_roundtrip — manual then provider via SetInstrumentQuoteSource OK
+[PASS] R3.rebuild_snapshots — rebuilt=60 range=2026-07-10..2026-09-07
+[PASS] R3.null_gaps_not_zero — points=30 complete=29 nullGaps=1 zeroFakes=0 currency=AUD
+[PASS] R3.snapshot_state — lastCompleted=0x2760a12a3bf0 dirtyFrom=0x2760a12a3bd8
+wrote /workspace/nestworth-align-smoke/seed-results.json

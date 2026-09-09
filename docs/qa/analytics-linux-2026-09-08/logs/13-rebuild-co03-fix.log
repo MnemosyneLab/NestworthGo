@@ -1,0 +1,17 @@
+task: [linux:common:go:mod:tidy] go mod tidy
+task: [linux:generate:dotdesktop] mkdir -p /workspace/NestworthGo-fe-be-audit/build/linux/appimage
+task: Task "linux:common:generate:icons" is up to date
+task: [linux:generate:dotdesktop] wails3 generate .desktop -name "nestworth" -exec "nestworth" -icon "nestworth" -outputfile "/workspace/NestworthGo-fe-be-audit/build/linux/nestworth.desktop" -categories "Development;"
+task: [linux:common:install:frontend:deps:bun] bun install
+bun install v1.3.14 (0d9b296a)
+
+Checked 291 installs across 340 packages (no changes) [141.00ms]
+task: [linux:common:generate:bindings] wails3 generate bindings -f '-tags production' -clean=true -ts -i ./...
+Wails v3.0.0-beta.12 › Generate Bindings
+ INFO  Processed: 295 Packages, 16 Services, 126 Methods, 4 Enums, 124 Models, 1 Event in 20.11576201s.
+ INFO  Output directory: /workspace/NestworthGo-fe-be-audit/frontend/bindings
+task: Task "build:frontend (DEV= RUNNER=bun)" is up to date
+task: [linux:build:native] go build -tags production -trimpath -buildvcs=false -ldflags="-w -s -X github.com/waltwang/nestworth-go/internal/version.Version=v0.3.1 -X github.com/waltwang/nestworth-go/internal/version.Build=2" -o bin/nestworth ./cmd/nestworth
+
+Need documentation? Run: ]8;;https://v3.wails.io/getting-started/your-first-app/\wails3 docs]8;;\
+ ♥   If Wails is useful to you or your company, please consider sponsoring the project: ]8;;https://github.com/sponsors/leaanthony\wails3 sponsor]8;;\

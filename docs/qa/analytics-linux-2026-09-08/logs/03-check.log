@@ -1,0 +1,61 @@
+task: [common:go:mod:tidy] go mod tidy
+task: [common:install:frontend:deps:bun] bun install
+bun install v1.3.14 (0d9b296a)
+
+Checked 291 installs across 340 packages (no changes) [8.00ms]
+task: Task "common:generate:bindings" is up to date
+task: [common:frontend:run:bun] bun run build
+$ node ./scripts/ensure-bindings.mjs && tsc && vite build --mode production
+Generating Wails TypeScript bindings...
+Wails v3.0.0-beta.12 › Generate Bindings
+ INFO  Processed: 300 Packages, 16 Services, 126 Methods, 4 Enums, 124 Models, 1 Event in 2.726401912s.
+ INFO  Output directory: /workspace/NestworthGo-fe-be-audit/frontend/bindings
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 3903 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                      1.86 kB │ gzip:   0.60 kB
+dist/assets/logo-mark-qCCT58MW.png                  34.15 kB
+dist/assets/wordmark-UoPGCP5V.png                   36.51 kB
+dist/assets/index-DmUn7Eq7.css                      48.34 kB │ gzip:   8.87 kB
+dist/assets/portfolio-CPCozjB-.js                    0.16 kB │ gzip:   0.14 kB
+dist/assets/display-ClI3QuWC.js                      0.32 kB │ gzip:   0.23 kB
+dist/assets/react-D6v56Xnk.js                        0.69 kB │ gzip:   0.42 kB
+dist/assets/rolldown-runtime-hePW80VL.js             0.71 kB │ gzip:   0.42 kB
+dist/assets/groupByInstrumentType-3iwTwn2s.js        0.75 kB │ gzip:   0.39 kB
+dist/assets/RangeToggle-Cxu9KXoz.js                  0.88 kB │ gzip:   0.44 kB
+dist/assets/badge-Dw_5jufK.js                        1.16 kB │ gzip:   0.61 kB
+dist/assets/settings-DoAUNKHx.js                     1.19 kB │ gzip:   0.56 kB
+dist/assets/DirectionContext-CN7eD2t6.js             1.83 kB │ gzip:   0.82 kB
+dist/assets/TrendChart-CEtYrFx3.js                   2.38 kB │ gzip:   1.18 kB
+dist/assets/filterable-select-BEgeurbK.js            2.42 kB │ gzip:   1.16 kB
+dist/assets/EChart-DODHZpNo.js                       4.25 kB │ gzip:   1.80 kB
+dist/assets/money-CNvZjQSZ.js                        4.77 kB │ gzip:   1.99 kB
+dist/assets/PortfolioPage-BtM1WMhA.js                4.81 kB │ gzip:   1.74 kB
+dist/assets/DirectoryPage-Bwg5H3Dj.js                7.26 kB │ gzip:   2.41 kB
+dist/assets/defaultIcons-Dmcoanht.js                 8.97 kB │ gzip:   2.05 kB
+dist/assets/EntityIcon-8tQ7hH-x.js                  10.14 kB │ gzip:   3.80 kB
+dist/assets/analysisProjectionContext-BTOU23h-.js   13.57 kB │ gzip:   3.82 kB
+dist/assets/tabs-DorO5Zgx.js                        14.12 kB │ gzip:   5.38 kB
+dist/assets/HistoryPage-Cb9AMh1d.js                 18.41 kB │ gzip:   4.47 kB
+dist/assets/MarketDataPage-BlKNrRYc.js              20.02 kB │ gzip:   5.32 kB
+dist/assets/SettingsPage-DDiG4g0J.js                22.84 kB │ gzip:   5.38 kB
+dist/assets/AssetChangesPage-Dm8Ryn2K.js            26.98 kB │ gzip:   6.61 kB
+dist/assets/ReturnAnalysisPage-kmrCu8nt.js          30.86 kB │ gzip:   7.41 kB
+dist/assets/input-CBehlox3.js                       34.04 kB │ gzip:   9.57 kB
+dist/assets/InvestmentsPage-DGnHrNo4.js             61.44 kB │ gzip:  16.31 kB
+dist/assets/invalidation-BYnwl8Cp.js                71.84 kB │ gzip:  23.91 kB
+dist/assets/date-picker-BHomuR7k.js                134.40 kB │ gzip:  41.85 kB
+dist/assets/index-Cx1DIkCn.js                      272.92 kB │ gzip:  73.55 kB
+dist/assets/PageState-Bg5_dlw8.js                  465.20 kB │ gzip: 151.03 kB
+dist/assets/echarts-mbQjEpM3.js                    588.23 kB │ gzip: 198.66 kB
+
+✓ built in 716ms
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+task: [check] test -z "$(gofmt -l cmd internal)"
+  ERROR   task: Failed to run task "check": exit status 1
