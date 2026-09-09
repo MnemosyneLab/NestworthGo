@@ -268,6 +268,40 @@ func forcedPointer(forced string) *string {
 
 func foldAssetChange(result domain.PeriodAnalysisResult, forced string) AssetChangeResult {
 	status := availability(result, forced)
+	waterfall, currency := aggregateAssetWaterfall(result)
+
+	beginning, beginningOK := periodBeginning(result)
+	ending, endingOK := periodEnding(result)
+	summary := AssetChangeSummary{}
+	if beginningOK {
+		summary.BeginningValue = signedPointer(beginning, currency)
+	}
+	if endingOK {
+		summary.EndingValue = signedPointer(ending, currency)
+	}
+	if beginningOK && endingOK {
+		summary.Change = signedPointer(ending.Sub(beginning), currency)
+	}
+
+	// SignedMoney is the four-decimal public contract. Round each driver only
+	// after the exact period aggregation, then distribute a rounding remainder
+	// deterministically when the exact total rounds to the same summary change.
+	// A genuine exact-total mismatch is deliberately left visible so this is
+	// not an epsilon that can hide attribution defects.
+	waterfall = reconcileAssetWaterfall(waterfall, summary.Change)
+	rows := make([]AssetChangeRow, 0, len(waterfall))
+	for _, bucket := range orderedBuckets() {
+		amount, ok := waterfall[bucket]
+		if !ok || amount.IsZero() {
+			continue
+		}
+		rows = append(rows, AssetChangeRow{Key: string(bucket), Label: assetBucketLabel(bucket), Bucket: bucket, Amount: signedPointer(amount, currency)})
+	}
+	groups := foldAssetGroups(waterfall, currency)
+	return AssetChangeResult{AnalysisAvailability: status, Summary: summary, Waterfall: rows, Groups: groups, ResidualIssueCount: countResidualIssues(result)}
+}
+
+func aggregateAssetWaterfall(result domain.PeriodAnalysisResult) (map[domain.AttributionBucket]decimal.Decimal, domain.CurrencyCode) {
 	waterfall := make(map[domain.AttributionBucket]decimal.Decimal)
 	var currency domain.CurrencyCode
 	for _, day := range result.Days {
@@ -288,42 +322,95 @@ func foldAssetChange(result domain.PeriodAnalysisResult, forced string) AssetCha
 			}
 		}
 	}
-
-	beginning, beginningOK := periodBeginning(result)
-	ending, endingOK := periodEnding(result)
-	summary := AssetChangeSummary{}
-	if beginningOK {
-		summary.BeginningValue = signedPointer(beginning, currency)
-	}
-	if endingOK {
-		summary.EndingValue = signedPointer(ending, currency)
-	}
-	if beginningOK && endingOK {
-		summary.Change = signedPointer(ending.Sub(beginning), currency)
-	}
-
-	rows := make([]AssetChangeRow, 0, len(waterfall))
-	for _, bucket := range orderedBuckets() {
-		amount, ok := waterfall[bucket]
-		if !ok || amount.IsZero() {
-			continue
-		}
-		rows = append(rows, AssetChangeRow{Key: string(bucket), Label: assetBucketLabel(bucket), Bucket: bucket, Amount: signedPointer(amount, currency)})
-	}
-	groups := foldAssetGroups(waterfall, currency)
-	return AssetChangeResult{AnalysisAvailability: status, Summary: summary, Waterfall: rows, Groups: groups, ResidualIssueCount: countResidualIssues(result)}
+	return waterfall, currency
 }
 
 func countResidualIssues(result domain.PeriodAnalysisResult) int {
 	count := 0
 	for _, day := range result.Days {
-		amount, ok := day.AssetBuckets[domain.BucketResidual]
+		amount, _, ok := assetBucketAmount(day, domain.BucketResidual)
 		if !ok || amount.IsZero() {
 			continue
 		}
 		count++
 	}
 	return count
+}
+
+const assetProjectionPrecision = 4
+
+func reconcileAssetWaterfall(waterfall map[domain.AttributionBucket]decimal.Decimal, change *domain.SignedMoney) map[domain.AttributionBucket]decimal.Decimal {
+	rounded := make(map[domain.AttributionBucket]decimal.Decimal, len(waterfall))
+	exactTotal := decimal.Zero
+	roundedTotal := decimal.Zero
+	for bucket, amount := range waterfall {
+		exactTotal = exactTotal.Add(amount)
+		value := amount.RoundBank(assetProjectionPrecision)
+		if !value.IsZero() {
+			rounded[bucket] = value
+		}
+		roundedTotal = roundedTotal.Add(value)
+	}
+	if change == nil {
+		return rounded
+	}
+	target := change.Amount().RoundBank(assetProjectionPrecision)
+	if !exactTotal.RoundBank(assetProjectionPrecision).Equal(target) {
+		return rounded
+	}
+	remainder := target.Sub(roundedTotal)
+	if remainder.IsZero() {
+		return rounded
+	}
+	bucket, ok := largestAssetBucket(waterfall)
+	if !ok {
+		return rounded
+	}
+	value := rounded[bucket].Add(remainder).RoundBank(assetProjectionPrecision)
+	if value.IsZero() {
+		delete(rounded, bucket)
+	} else {
+		rounded[bucket] = value
+	}
+	return rounded
+}
+
+func largestAssetBucket(values map[domain.AttributionBucket]decimal.Decimal) (domain.AttributionBucket, bool) {
+	var selected domain.AttributionBucket
+	best := decimal.Zero
+	found := false
+	for _, bucket := range orderedBuckets() {
+		value, ok := values[bucket]
+		if !ok || value.IsZero() {
+			continue
+		}
+		if !found || value.Abs().GreaterThan(best) {
+			selected, best, found = bucket, value.Abs(), true
+		}
+	}
+	return selected, found
+}
+
+func assetBucketAmount(day domain.ComponentDay, bucket domain.AttributionBucket) (decimal.Decimal, domain.CurrencyCode, bool) {
+	if len(day.AssetBucketExact) > 0 {
+		amount, ok := day.AssetBucketExact[bucket]
+		if !ok || amount.IsZero() {
+			return decimal.Zero, "", false
+		}
+		currency := day.EndingValue.Currency()
+		if currency == "" {
+			currency = day.BeginningValue.Currency()
+		}
+		if currency == "" {
+			currency = day.Component.Currency
+		}
+		return amount, currency, currency != ""
+	}
+	value, ok := day.AssetBuckets[bucket]
+	if !ok || value.IsZero() {
+		return decimal.Zero, "", false
+	}
+	return value.Amount(), value.Currency(), value.Currency() != ""
 }
 
 func foldAssetGroups(waterfall map[domain.AttributionBucket]decimal.Decimal, currency domain.CurrencyCode) []AssetChangeGroup {
@@ -360,23 +447,31 @@ func foldAssetGroups(waterfall map[domain.AttributionBucket]decimal.Decimal, cur
 func foldAssetDriverDetail(result domain.PeriodAnalysisResult, forced, driverKey string) AssetDriverDetailResult {
 	status := availability(result, forced)
 	bucket := domain.AttributionBucket(strings.TrimSpace(driverKey))
-	byInstrument := make(map[string]AnalysisDimensionAmount)
-	byAccount := make(map[string]AnalysisDimensionAmount)
+	byInstrument := make(map[string]decimal.Decimal)
+	byAccount := make(map[string]decimal.Decimal)
 	residualDetails := make([]AssetResidualDetail, 0)
 	var currency domain.CurrencyCode
+	waterfall, waterfallCurrency := aggregateAssetWaterfall(result)
+	beginning, beginningOK := periodBeginning(result)
+	ending, endingOK := periodEnding(result)
+	var summaryChange *domain.SignedMoney
+	if beginningOK && endingOK {
+		summaryChange = signedPointer(ending.Sub(beginning), waterfallCurrency)
+	}
+	roundedWaterfall := reconcileAssetWaterfall(waterfall, summaryChange)
 	for _, day := range result.Days {
-		amount, ok := day.AssetBuckets[bucket]
-		if !ok || amount.IsZero() {
+		amount, amountCurrency, ok := assetBucketAmount(day, bucket)
+		if !ok {
 			continue
 		}
-		currency = amount.Currency()
+		currency = amountCurrency
 		component := day.Component
 		if bucket == domain.BucketResidual {
 			detail := AssetResidualDetail{
 				Date:         day.Date,
 				ComponentKey: component.Key(),
 				AccountID:    component.AccountID.String(),
-				Amount:       signedPointer(amount.Amount(), amount.Currency()),
+				Amount:       signedPointer(amount, amountCurrency),
 			}
 			if component.HoldingID != nil {
 				detail.HoldingID = component.HoldingID.String()
@@ -387,19 +482,28 @@ func foldAssetDriverDetail(result domain.PeriodAnalysisResult, forced, driverKey
 			residualDetails = append(residualDetails, detail)
 		}
 		accountKey := component.AccountID.String()
-		accountRow := byAccount[accountKey]
-		accountRow.Key, accountRow.Label, accountRow.AccountID = accountKey, accountKey, accountKey
-		accountRow.Amount = signedPointer(decimalValue(accountRow.Amount).Add(amount.Amount()), currency)
-		byAccount[accountKey] = accountRow
+		byAccount[accountKey] = byAccount[accountKey].Add(amount)
 
 		instrumentKey := "cash"
 		if component.InstrumentID != nil {
 			instrumentKey = component.InstrumentID.String()
 		}
-		instrumentRow := byInstrument[instrumentKey]
-		instrumentRow.Key, instrumentRow.Label, instrumentRow.InstrumentID = instrumentKey, instrumentKey, instrumentKey
-		instrumentRow.Amount = signedPointer(decimalValue(instrumentRow.Amount).Add(amount.Amount()), currency)
-		byInstrument[instrumentKey] = instrumentRow
+		byInstrument[instrumentKey] = byInstrument[instrumentKey].Add(amount)
+	}
+	if target, ok := roundedWaterfall[bucket]; ok {
+		byAccount = reconcileDimensionAmounts(byAccount, target)
+		byInstrument = reconcileDimensionAmounts(byInstrument, target)
+	} else {
+		byAccount = reconcileDimensionAmounts(byAccount, decimal.Zero)
+		byInstrument = reconcileDimensionAmounts(byInstrument, decimal.Zero)
+	}
+	instrumentRows := make(map[string]AnalysisDimensionAmount, len(byInstrument))
+	for key, amount := range byInstrument {
+		instrumentRows[key] = AnalysisDimensionAmount{Key: key, Label: key, InstrumentID: key, Amount: signedPointer(amount, currency)}
+	}
+	accountRows := make(map[string]AnalysisDimensionAmount, len(byAccount))
+	for key, amount := range byAccount {
+		accountRows[key] = AnalysisDimensionAmount{Key: key, Label: key, AccountID: key, Amount: signedPointer(amount, currency)}
 	}
 	sort.Slice(residualDetails, func(i, j int) bool {
 		if residualDetails[i].Date != residualDetails[j].Date {
@@ -407,7 +511,47 @@ func foldAssetDriverDetail(result domain.PeriodAnalysisResult, forced, driverKey
 		}
 		return residualDetails[i].ComponentKey < residualDetails[j].ComponentKey
 	})
-	return AssetDriverDetailResult{AnalysisAvailability: status, DriverKey: string(bucket), ByInstrument: sortedDimensionAmounts(byInstrument), ByAccount: sortedDimensionAmounts(byAccount), ResidualDetails: residualDetails}
+	return AssetDriverDetailResult{AnalysisAvailability: status, DriverKey: string(bucket), ByInstrument: sortedDimensionAmounts(instrumentRows), ByAccount: sortedDimensionAmounts(accountRows), ResidualDetails: residualDetails}
+}
+
+func reconcileDimensionAmounts(values map[string]decimal.Decimal, target decimal.Decimal) map[string]decimal.Decimal {
+	rounded := make(map[string]decimal.Decimal, len(values))
+	total := decimal.Zero
+	for key, amount := range values {
+		value := amount.RoundBank(assetProjectionPrecision)
+		if !value.IsZero() {
+			rounded[key] = value
+		}
+		total = total.Add(value)
+	}
+	remainder := target.Sub(total)
+	if remainder.IsZero() || len(values) == 0 {
+		return rounded
+	}
+	selected := ""
+	best := decimal.Zero
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		amount := values[key]
+		if amount.IsZero() || selected != "" && !amount.Abs().GreaterThan(best) {
+			continue
+		}
+		selected, best = key, amount.Abs()
+	}
+	if selected == "" {
+		return rounded
+	}
+	value := rounded[selected].Add(remainder).RoundBank(assetProjectionPrecision)
+	if value.IsZero() {
+		delete(rounded, selected)
+	} else {
+		rounded[selected] = value
+	}
+	return rounded
 }
 
 func foldAssetTrend(result domain.PeriodAnalysisResult, forced string, granularity AssetTrendGranularity, metric AssetTrendMetric) (AssetTrendResult, error) {
@@ -444,29 +588,38 @@ func foldAssetTrend(result domain.PeriodAnalysisResult, forced string, granulari
 		if day.Status == domain.CompletenessUnavailable {
 			continue
 		}
-		value, ok := trendDayValue(day, metric)
+		var amount decimal.Decimal
+		var valueCurrency domain.CurrencyCode
+		var ok bool
+		if isTrendLevel(metric) {
+			value, valueOK := trendDayValue(day, metric)
+			if valueOK {
+				amount, valueCurrency, ok = value.Amount(), value.Currency(), true
+			}
+		} else {
+			amount, valueCurrency, ok = trendDayAmount(day, metric)
+		}
 		if !ok {
 			if day.BeginningValue.Currency() == "" {
 				continue
 			}
-			zero, zeroErr := domain.NewSignedMoney(decimal.Zero, day.BeginningValue.Currency())
-			if zeroErr != nil {
-				continue
-			}
-			value = zero
+			amount = decimal.Zero
+			valueCurrency = day.BeginningValue.Currency()
 		}
 		if bucket.currency == "" {
-			bucket.currency = value.Currency()
+			bucket.currency = valueCurrency
 		}
 		if isTrendLevel(metric) {
 			// A level is a point-in-time total. First sum all components for
 			// each local day, then select that period's last day. This avoids
 			// both averaging levels and overwriting one component with another.
 			date := string(day.Date)
-			bucket.levelByDate[date] = bucket.levelByDate[date].Add(value.Amount())
-			bucket.levelCurrency = value.Currency()
+			bucket.levelByDate[date] = bucket.levelByDate[date].Add(amount)
+			bucket.levelCurrency = valueCurrency
 		} else {
-			bucket.amount = bucket.amount.Add(value.Amount())
+			// Keep the exact amount through the whole period. Rounding each
+			// daily value here can erase several small non-zero days.
+			bucket.amount = bucket.amount.Add(amount)
 			bucket.hasValue = true
 		}
 	}
@@ -574,7 +727,12 @@ func foldAssetTrendRates(result domain.PeriodAnalysisResult, forced string, gran
 
 func foldCategories(result domain.PeriodAnalysisResult, forced string, categoryType AnalysisCategoryType) CategoriesResult {
 	bucketSet := categoryBuckets(categoryType)
-	rows := make(map[string]CategoryRow)
+	type categoryAccumulator struct {
+		row      CategoryRow
+		amount   decimal.Decimal
+		currency domain.CurrencyCode
+	}
+	rows := make(map[string]categoryAccumulator)
 	var total decimal.Decimal
 	var currency domain.CurrencyCode
 	useReturnEffects := categoryType == CategoryDividendInterest && hasReturnComponent(result, domain.ReturnDividendInterest)
@@ -589,17 +747,22 @@ func foldCategories(result domain.PeriodAnalysisResult, forced string, categoryT
 				total = total.Add(amount)
 				rowKey, row := categoryRowForEffect(day.Component, categoryType, attributed)
 				row.Key, row.Label = rowKey, rowKey
-				row.Amount = signedPointer(decimalValue(row.Amount).Add(amount), currency)
-				rows[rowKey] = row
+				accumulator := rows[rowKey]
+				accumulator.row = row
+				accumulator.amount = accumulator.amount.Add(amount)
+				accumulator.currency = currency
+				rows[rowKey] = accumulator
 			}
 			continue
 		}
 		amount := decimal.Zero
-		for bucket, value := range day.AssetBuckets {
-			if bucketSet[bucket] {
-				amount = amount.Add(value.Amount())
-				currency = value.Currency()
+		for bucket := range bucketSet {
+			value, valueCurrency, ok := assetBucketAmount(day, bucket)
+			if !ok {
+				continue
 			}
+			amount = amount.Add(value)
+			currency = valueCurrency
 		}
 		if amount.IsZero() {
 			continue
@@ -607,11 +770,16 @@ func foldCategories(result domain.PeriodAnalysisResult, forced string, categoryT
 		total = total.Add(amount)
 		rowKey, row := categoryRowFor(day.Component, categoryType)
 		row.Key, row.Label = rowKey, rowKey
-		row.Amount = signedPointer(decimalValue(row.Amount).Add(amount), currency)
-		rows[rowKey] = row
+		accumulator := rows[rowKey]
+		accumulator.row = row
+		accumulator.amount = accumulator.amount.Add(amount)
+		accumulator.currency = currency
+		rows[rowKey] = accumulator
 	}
 	resultRows := make([]CategoryRow, 0, len(rows))
-	for _, row := range rows {
+	for _, accumulator := range rows {
+		row := accumulator.row
+		row.Amount = signedPointer(accumulator.amount, accumulator.currency)
 		resultRows = append(resultRows, row)
 	}
 	sort.SliceStable(resultRows, func(i, j int) bool { return signedAmountGreater(resultRows[i].Amount, resultRows[j].Amount) })
@@ -644,12 +812,13 @@ func foldCategoryDetail(result domain.PeriodAnalysisResult, forced string, categ
 		if key != rowKey {
 			continue
 		}
-		for bucket, amount := range day.AssetBuckets {
-			if !bucketSet[bucket] {
+		for bucket := range bucketSet {
+			amount, amountCurrency, ok := assetBucketAmount(day, bucket)
+			if !ok {
 				continue
 			}
-			currency = amount.Currency()
-			children[day.Component.Key()] = children[day.Component.Key()].Add(amount.Amount())
+			currency = amountCurrency
+			children[day.Component.Key()] = children[day.Component.Key()].Add(amount)
 		}
 		for _, attributed := range day.AttributedEffects {
 			if attributed.AssetBucket == nil || !bucketSet[*attributed.AssetBucket] {
@@ -785,35 +954,60 @@ func trendDayValue(day domain.ComponentDay, metric AssetTrendMetric) (domain.Sig
 		}
 		return signed, true
 	}
-	if metric == TrendInvestmentReturn {
-		return sumDayBuckets(day, map[domain.AttributionBucket]bool{domain.BucketPriceChange: true, domain.BucketFXImpact: true, domain.BucketDividendInterest: true})
-	}
-	if metric == TrendNetChange {
-		return sumDayBuckets(day, allAssetBuckets())
-	}
-	bucket, ok := trendMetricBucket(metric)
+	amount, currency, ok := trendDayAmount(day, metric)
 	if !ok {
 		return domain.SignedMoney{}, false
 	}
-	value, exists := day.AssetBuckets[bucket]
-	return value, exists
+	value, err := domain.NewSignedMoney(amount, currency)
+	if err != nil {
+		return domain.SignedMoney{}, false
+	}
+	return value, true
+}
+
+func trendDayAmount(day domain.ComponentDay, metric AssetTrendMetric) (decimal.Decimal, domain.CurrencyCode, bool) {
+	if metric == TrendInvestmentReturn {
+		return sumDayBucketAmounts(day, map[domain.AttributionBucket]bool{domain.BucketPriceChange: true, domain.BucketFXImpact: true, domain.BucketDividendInterest: true})
+	}
+	if metric == TrendNetChange {
+		return sumDayBucketAmounts(day, allAssetBuckets())
+	}
+	bucket, ok := trendMetricBucket(metric)
+	if !ok {
+		return decimal.Zero, "", false
+	}
+	return assetBucketAmount(day, bucket)
 }
 
 func sumDayBuckets(day domain.ComponentDay, wanted map[domain.AttributionBucket]bool) (domain.SignedMoney, bool) {
-	var result domain.SignedMoney
+	amount, currency, found := sumDayBucketAmounts(day, wanted)
+	if !found {
+		return domain.SignedMoney{}, false
+	}
+	result, err := domain.NewSignedMoney(amount, currency)
+	if err != nil {
+		return domain.SignedMoney{}, false
+	}
+	return result, true
+}
+
+func sumDayBucketAmounts(day domain.ComponentDay, wanted map[domain.AttributionBucket]bool) (decimal.Decimal, domain.CurrencyCode, bool) {
+	amount := decimal.Zero
+	var currency domain.CurrencyCode
 	found := false
-	for bucket, value := range day.AssetBuckets {
+	for bucket := range wanted {
+		value, valueCurrency, ok := assetBucketAmount(day, bucket)
+		if !ok {
+			continue
+		}
 		if !wanted[bucket] {
 			continue
 		}
-		if !found {
-			result = value
-			found = true
-		} else {
-			result, _ = domain.NewSignedMoney(result.Amount().Add(value.Amount()), result.Currency())
-		}
+		amount = amount.Add(value)
+		currency = valueCurrency
+		found = true
 	}
-	return result, found
+	return amount, currency, found
 }
 
 func assetTrendPeriod(date domain.LocalDate, timezone string, granularity AssetTrendGranularity) (string, error) {

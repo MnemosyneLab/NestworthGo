@@ -16,12 +16,12 @@
 | C5 | Scope triangulation | **PASS** | `NESTWORTH_PROBE_MODE=quantitative`; independent boundary snapshot totals reconcile household, accounts, instruments + explicit cash |
 | C6 | Native vs Base | **PASS** | Same quantitative probe; mixed account currencies force Base and instrument Native uses quote currency |
 | C7 | Return sources | **PASS** | Same quantitative probe; Price/FX/Dividend/Fee source sum equals period return with coverage emitted |
-| C8 | Transfer neutrality | **PASS** | Same quantitative probe; persisted `cash_transfer` day 2026-08-16 has household `external_flow=0` while day change remains visible |
+| C8 | Transfer neutrality | **PASS** | Same quantitative probe; fixed-snapshot counterfactual removes in-range `cash_transfer` activities, then compares household change/external flow, Price/FX/Fee, Return sources, and both endpoint accounts. 2026-08-16 endpoints are `+200/-200 AUD`; every with-vs-without delta is `0`. |
 | C9 | Residual | **PASS** | `residual` clean copy has issues=0; isolated corrupt copy adds +100 AUD and retains ±100 AUD residual details |
 
 ## Existing probe modes used
 
-`NESTWORTH_PROBE_MODE` values present in `cmd/analytics-qa-probe`: `fixtures`, `cash-include`, `co03`, `residual`, `reconcile`, `quantitative`, plus legacy/default.
+`NESTWORTH_PROBE_MODE` values present in `cmd/analytics-qa-probe`: `fixtures`, `cash-include`, `co03`, `residual`, `reconcile`, `quantitative`, plus legacy/default. The quantitative C8 case now runs an explicit with/without-transfer counterfactual; it does not close transfer neutrality from `external_flow=0` alone.
 
 The raw run output is summarized in `REMEDIATION-2026-09-09.json`; the residual mode always works on a copied database. `reconcile` keeps exact DTO-style decimal values and returns non-zero only for a top-level mismatch or probe error.
 

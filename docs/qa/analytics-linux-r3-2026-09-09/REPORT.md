@@ -205,11 +205,11 @@ Gap day = **2026-08-17** (offset 22). True-zero day = **2026-08-31** (offset 36)
 | C5 | Scope triangulation | **PASS** | quantitative mode uses independent boundary snapshot totals; household/account/instrument + explicit cash delta=0 |
 | C6 | Native vs Base | **PASS** | quantitative mode verifies mixed-currency forced Base and instrument Native quote currency |
 | C7 | Return sources sum | **PASS** | quantitative mode verifies Price/FX/Dividend/Fee source sum and coverage |
-| C8 | Transfer neutrality FC-01 | **PASS** | quantitative mode discovers persisted transfer day and verifies household external_flow=0 |
+| C8 | Transfer neutrality FC-01 | **PASS** | quantitative mode runs a fixed-snapshot with/without-transfer counterfactual; household change/external flow, Price/FX/Fee, Return sources, and both endpoint accounts all reconcile with delta=0 |
 | C9 | Residual corrupt day | **PASS** | clean copy issues=0; corrupt copy +100 AUD retains ±100 AUD details and native unchanged |
 
 **Existing modes:** `fixtures`, `cash-include`, `co03`, `residual`, legacy/default.  
-**No modes yet for:** scope triangulation, native/base forced flag, return-sources reconciliation, transfer-day ≈0.
+The quantitative mode now covers scope triangulation, native/base forced flag, return-sources reconciliation, and the transfer-day with/without counterfactual. The legacy mode list below is retained only as historical context for the original report.
 
 **Exit C:** **9/9 PASS**, no unexpected FAIL or SKIP. Raw compact evidence: `probes/REMEDIATION-2026-09-09.json`.
 
@@ -259,7 +259,7 @@ Source: `screenshots/def-r2-02/RESULTS.json`.
 |----|----------|-------|--------|------------------|
 | **DEF-R2-01** | Known / non-blocking | Linux `cold-3y` perf budget | **Open (carry)** | ~5.08 s want &lt;3 s on Linux; M3 Pro policy non-blocking. `logs/01-go-analysis.log` |
 | **DEF-R2-02** | Was P1 release hold | missing-both + Return Trend **All** → generic Insights load error / probe panic | **FIXED** | Probe: partial 21/45, no panic. Desktop: chart + Partial 21/45, no generic error. Fix: `convertValuationAmount` soft-missing-FX. Card: `report/DEF-R2-02.md`. Evidence: `logs/03-probe-*`, `probes/A-trend-presets.json`, `screenshots/def-r2-02/*` |
-| **R3-D5** | Attribution/precision | Change Drivers waterfall reconcile warning | **FIXED in code; native replay pending** | Exact v3 probe delta=0 and residual issues=0; old screenshot remains historical. |
+| **R3-D5** | Attribution/precision | Change Drivers waterfall reconcile warning and rounded detail mismatch | **FIXED in code; native replay pending** | Four-decimal public contract now reconciles multi-bucket rounding without hiding genuine exact mismatches; detail projections aggregate exact attribution before final rounding. v3 probe delta=0 and residual issues=0; old screenshot remains historical. |
 | **R3-D6** | Deep-link contract | History deep-link leaves account/instrument filters as **All** | **FIXED in code/tests; native replay pending** | Realized HistoryHint, DTO mapping, and frontend navigation payload are covered. |
 
 No new P0/P1 crash-class defects in Round-3 desktop/probe runs.

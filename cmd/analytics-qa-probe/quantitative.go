@@ -51,6 +51,37 @@ type snapshotTotals struct {
 	Cash         decimal.Decimal
 }
 
+// withoutTransferRepository provides the counterfactual input for C8 without
+// changing the fixture database. All persistence stays delegated to the real
+// repository; only the selected in-range cash_transfer activities are
+// omitted from the analysis read.
+type withoutTransferRepository struct {
+	application.Repository
+	from string
+	to   string
+}
+
+func (r withoutTransferRepository) ListActivitiesUntil(ctx context.Context, householdID domain.HouseholdID, cutoff time.Time) ([]domain.Activity, error) {
+	activities, err := r.Repository.ListActivitiesUntil(ctx, householdID, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	filtered := make([]domain.Activity, 0, len(activities))
+	for _, activity := range activities {
+		if activity.Kind == domain.ActivityCashTransfer && activity.EffectiveLocalDate >= r.from && activity.EffectiveLocalDate <= r.to {
+			continue
+		}
+		filtered = append(filtered, activity)
+	}
+	return filtered, nil
+}
+
+type transferLeg struct {
+	accountID string
+	currency  domain.CurrencyCode
+	amount    decimal.Decimal
+}
+
 func runQuantitativeProbe() error {
 	dbPath := envOr("NESTWORTH_DATABASE_PATH", "/workspace/nestworth-analytics-qa/data/nestworth.db")
 	outPath := envOr("NESTWORTH_PROBE_OUT", "/workspace/nestworth-analytics-qa/probes/quantitative.json")
@@ -94,7 +125,7 @@ func runQuantitativeProbe() error {
 	out.Cases = append(out.Cases, quantitativeScopeCase(ctx, service, portfolio, query, beginning, ending, household, beginningDate))
 	out.Cases = append(out.Cases, quantitativeNativeCase(ctx, service, portfolio, from, to))
 	out.Cases = append(out.Cases, quantitativeSourcesCase(ctx, service, query))
-	out.Cases = append(out.Cases, quantitativeTransferCase(ctx, service, portfolio, from, to))
+	out.Cases = append(out.Cases, quantitativeTransferCase(ctx, service, repository, portfolio, from, to))
 
 	out.AllPass = true
 	for _, probe := range out.Cases {
@@ -256,18 +287,35 @@ func quantitativeSourcesCase(ctx context.Context, service *application.Service, 
 	return c
 }
 
-func quantitativeTransferCase(ctx context.Context, service *application.Service, portfolio domain.PortfolioSnapshot, from, to string) quantitativeCase {
-	c := quantitativeCase{ID: "C8", Name: "Transfer neutrality", Status: "PASS", Query: map[string]any{"from": from, "to": to, "basis": string(domain.ReturnBasisInvestment), "scope": "household", "includeCash": true}, Expected: map[string]any{"householdExternalFlowOnTransferDays": "0"}, Actual: map[string]any{}, Delta: map[string]any{}, Tolerance: "0"}
+func quantitativeTransferCase(ctx context.Context, service *application.Service, repository application.Repository, portfolio domain.PortfolioSnapshot, from, to string) quantitativeCase {
+	c := quantitativeCase{ID: "C8", Name: "Transfer neutrality", Status: "PASS", Query: map[string]any{"from": from, "to": to, "basis": string(domain.ReturnBasisInvestment), "scope": "household", "includeCash": true, "counterfactual": "same snapshots and quotes with in-range cash_transfer activities removed"}, Expected: map[string]any{"householdChangeDeltaWithVsWithoutTransfer": "0", "householdExternalFlowDeltaWithVsWithoutTransfer": "0", "marketFXFeeDeltaWithVsWithoutTransfer": "0", "accountEndpointDeltaMatchesTransferLeg": true, "returnSourceDeltaWithVsWithoutTransfer": "0"}, Actual: map[string]any{}, Delta: map[string]any{}, Tolerance: "0"}
 	activities, err := service.ListActivities(ctx, 1000)
 	if err != nil {
 		return failQuantitative(c, err.Error())
 	}
-	transferDays := map[string]bool{}
+	transferDays := map[string]map[string]transferLeg{}
 	for _, activity := range activities {
-		if string(activity.Kind) != "cash_transfer" || activity.EffectiveLocalDate < from || activity.EffectiveLocalDate > to {
+		if activity.Kind != domain.ActivityCashTransfer || activity.EffectiveLocalDate < from || activity.EffectiveLocalDate > to {
 			continue
 		}
-		transferDays[activity.EffectiveLocalDate] = true
+		if transferDays[activity.EffectiveLocalDate] == nil {
+			transferDays[activity.EffectiveLocalDate] = map[string]transferLeg{}
+		}
+		for _, effect := range activity.Effects {
+			if effect.AccountID == nil || effect.Money == nil || (effect.Role != domain.EffectRoleTransferFrom && effect.Role != domain.EffectRoleTransferTo) {
+				continue
+			}
+			amount := effect.Money.Amount()
+			if effect.Direction == domain.EffectRemoved {
+				amount = amount.Neg()
+			}
+			accountID := effect.AccountID.String()
+			leg := transferDays[activity.EffectiveLocalDate][accountID]
+			leg.accountID = accountID
+			leg.currency = effect.Money.Currency()
+			leg.amount = leg.amount.Add(amount)
+			transferDays[activity.EffectiveLocalDate][accountID] = leg
+		}
 	}
 	if len(transferDays) == 0 {
 		return failQuantitative(c, "no cash_transfer activity in selected range")
@@ -277,27 +325,114 @@ func quantitativeTransferCase(ctx context.Context, service *application.Service,
 		days = append(days, date)
 	}
 	sort.Strings(days)
+	withoutTransfers := application.NewService(withoutTransferRepository{Repository: repository, from: from, to: to})
 	for _, date := range days {
 		query := quantitativeQuery(date, date, domain.ScopeHousehold, "", domain.ValuationBase)
-		result, err := service.AssetChange(ctx, query)
+		withResult, err := service.AssetChange(ctx, query)
 		if err != nil {
 			return failQuantitative(c, fmt.Sprintf("transfer day %s: %v", date, err))
 		}
-		external := decimal.Zero
-		for _, row := range result.Waterfall {
-			if row.Bucket == domain.BucketExternalFlow && row.Amount != nil {
-				external = external.Add(row.Amount.Amount())
+		withoutResult, err := withoutTransfers.AssetChange(ctx, query)
+		if err != nil {
+			return failQuantitative(c, fmt.Sprintf("transfer counterfactual day %s: %v", date, err))
+		}
+		changeDelta := moneyDecimal(withResult.Summary.Change).Sub(moneyDecimal(withoutResult.Summary.Change))
+		externalDelta := assetChangeBucket(withResult, domain.BucketExternalFlow).Sub(assetChangeBucket(withoutResult, domain.BucketExternalFlow))
+		dayActual := map[string]any{
+			"householdChangeWithTransfer":          moneyAmount(withResult.Summary.Change),
+			"householdChangeWithoutTransfer":       moneyAmount(withoutResult.Summary.Change),
+			"householdExternalFlowWithTransfer":    assetChangeBucket(withResult, domain.BucketExternalFlow).String(),
+			"householdExternalFlowWithoutTransfer": assetChangeBucket(withoutResult, domain.BucketExternalFlow).String(),
+		}
+		dayDelta := map[string]any{"householdChange": changeDelta.String(), "householdExternalFlow": externalDelta.String()}
+		for _, bucket := range []domain.AttributionBucket{domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFee} {
+			delta := assetChangeBucket(withResult, bucket).Sub(assetChangeBucket(withoutResult, bucket))
+			dayActual[string(bucket)+"WithTransfer"] = assetChangeBucket(withResult, bucket).String()
+			dayActual[string(bucket)+"WithoutTransfer"] = assetChangeBucket(withoutResult, bucket).String()
+			dayDelta[string(bucket)] = delta.String()
+			if !delta.IsZero() {
+				return failQuantitative(c, fmt.Sprintf("transfer day %s changed %s attribution by %s", date, bucket, delta))
 			}
 		}
-		c.Actual[date] = map[string]string{"externalFlow": external.String(), "change": moneyAmount(result.Summary.Change)}
-		c.Delta[date] = external.String()
-		if !external.IsZero() {
-			return failQuantitative(c, fmt.Sprintf("household transfer day %s has external flow %s", date, external))
+		accountActual := map[string]any{}
+		accountDelta := map[string]string{}
+		for accountID, leg := range transferDays[date] {
+			if leg.amount.IsZero() {
+				continue
+			}
+			accountQuery := quantitativeQuery(date, date, domain.ScopeAccount, accountID, domain.ValuationBase)
+			withAccount, accountErr := service.AssetChange(ctx, accountQuery)
+			if accountErr != nil {
+				return failQuantitative(c, fmt.Sprintf("transfer account %s on %s: %v", accountID, date, accountErr))
+			}
+			withoutAccount, accountErr := withoutTransfers.AssetChange(ctx, accountQuery)
+			if accountErr != nil {
+				return failQuantitative(c, fmt.Sprintf("transfer counterfactual account %s on %s: %v", accountID, date, accountErr))
+			}
+			observed := assetChangeBucket(withAccount, domain.BucketExternalFlow).Sub(assetChangeBucket(withoutAccount, domain.BucketExternalFlow))
+			changeDifference := moneyDecimal(withAccount.Summary.Change).Sub(moneyDecimal(withoutAccount.Summary.Change))
+			accountActual[accountID] = map[string]string{"leg": leg.amount.String(), "currency": leg.currency.String(), "externalFlowDelta": observed.String(), "changeDelta": changeDifference.String()}
+			accountDelta[accountID] = observed.Sub(leg.amount).String()
+			if leg.currency != portfolio.Household.BaseCurrency {
+				return failQuantitative(c, fmt.Sprintf("transfer account %s on %s uses %s; C8 expected base-currency endpoint legs", accountID, date, leg.currency))
+			}
+			if !observed.Equal(leg.amount) || !changeDifference.IsZero() {
+				return failQuantitative(c, fmt.Sprintf("transfer account %s on %s endpoint mismatch: expected %s, observed external %s, change delta %s", accountID, date, leg.amount, observed, changeDifference))
+			}
+		}
+		if !changeDelta.IsZero() || !externalDelta.IsZero() {
+			return failQuantitative(c, fmt.Sprintf("transfer day %s changed household change/external flow: change=%s external=%s", date, changeDelta, externalDelta))
+		}
+		dayActual["accounts"] = accountActual
+		dayDelta["accounts"] = accountDelta
+		c.Actual[date] = dayActual
+		c.Delta[date] = dayDelta
+	}
+	withReturn, err := service.ReturnTrend(ctx, quantitativeQuery(from, to, domain.ScopeHousehold, "", domain.ValuationBase), application.ReturnTrendPeriodReturnAmount)
+	if err != nil {
+		return failQuantitative(c, fmt.Sprintf("transfer return with activities: %v", err))
+	}
+	withoutReturn, err := withoutTransfers.ReturnTrend(ctx, quantitativeQuery(from, to, domain.ScopeHousehold, "", domain.ValuationBase), application.ReturnTrendPeriodReturnAmount)
+	if err != nil {
+		return failQuantitative(c, fmt.Sprintf("transfer return without activities: %v", err))
+	}
+	returnDelta := moneyDecimal(withReturn.Amount).Sub(moneyDecimal(withoutReturn.Amount))
+	c.Actual["return"] = map[string]any{"withTransfer": moneyAmount(withReturn.Amount), "withoutTransfer": moneyAmount(withoutReturn.Amount), "sourcesWithTransfer": returnSourceAmounts(withReturn.Sources), "sourcesWithoutTransfer": returnSourceAmounts(withoutReturn.Sources)}
+	c.Delta["returnAmount"] = returnDelta.String()
+	if !returnDelta.IsZero() {
+		return failQuantitative(c, fmt.Sprintf("transfer changed household return amount by %s", returnDelta))
+	}
+	withSources := returnSourceAmounts(withReturn.Sources)
+	withoutSources := returnSourceAmounts(withoutReturn.Sources)
+	for _, key := range []string{string(domain.ReturnPriceChange), string(domain.ReturnFXImpact), string(domain.ReturnInvestmentFee)} {
+		delta := withSources[key].Sub(withoutSources[key])
+		c.Delta["return_"+key] = delta.String()
+		if !delta.IsZero() {
+			return failQuantitative(c, fmt.Sprintf("transfer changed return source %s by %s", key, delta))
 		}
 	}
 	c.Expected["transferDays"] = days
-	c.Evidence = []string{"transfer days are discovered from persisted cash_transfer activities", "market/FX/fee rows are retained; only household external_flow is required to be zero", fmt.Sprintf("accounts=%d instruments=%d", len(portfolio.Accounts), len(portfolio.Instruments))}
+	c.Evidence = []string{"transfer days are discovered from persisted cash_transfer activities", "the counterfactual keeps snapshots and quotes fixed while removing only in-range cash_transfer activities", "household change and external flow are compared day by day", "price_change, fx_impact, fee, and return sources are compared independently", "both transfer endpoint accounts are checked against their signed transfer legs", fmt.Sprintf("accounts=%d instruments=%d", len(portfolio.Accounts), len(portfolio.Instruments))}
 	return c
+}
+
+func assetChangeBucket(result application.AssetChangeResult, bucket domain.AttributionBucket) decimal.Decimal {
+	for _, row := range result.Waterfall {
+		if row.Bucket == bucket && row.Amount != nil {
+			return row.Amount.Amount()
+		}
+	}
+	return decimal.Zero
+}
+
+func returnSourceAmounts(sources []application.ReturnSource) map[string]decimal.Decimal {
+	result := make(map[string]decimal.Decimal, len(sources))
+	for _, source := range sources {
+		if source.Amount != nil {
+			result[source.Key] = source.Amount.Amount()
+		}
+	}
+	return result
 }
 
 func loadSnapshotTotals(db *sql.DB, householdID, localDate string) (snapshotTotals, error) {

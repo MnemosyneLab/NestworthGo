@@ -112,13 +112,25 @@
 
 | 项目 | 当前结果 | 证据 |
 |---|---|---|
-| R3-D5 | **代码修复 + 自动化 PASS**。活动导致的新增/清仓组件现在按真实活动边界参与分析；waterfall 汇总保留未序列化的精确 attribution，避免逐组件四位舍入制造假 mismatch。固定 v3 complete、Base AUD、Include cash、2026-08-01..31 的 `ending - beginning - sum(waterfall)=0 AUD`，residual issues=0。 | `cmd/analytics-qa-probe` `NESTWORTH_PROBE_MODE=reconcile`；`probes/REMEDIATION-2026-09-09.json`；`TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding` |
+| R3-D5 | **代码修复 + 复查边界 PASS**。活动导致的新增/清仓组件按真实活动边界参与分析；waterfall、驱动详情、分类详情及 bucket 投影先聚合精确 attribution，最后按四位公开金额契约舍入。多 bucket 舍入余数只在精确总和按同一精度等于摘要变化时确定性分配；真实精确差额仍保留为 mismatch。固定 v3 complete、Base AUD、Include cash、2026-08-01..31 的 `ending - beginning - sum(waterfall)=0 AUD`，residual issues=0。 | `cmd/analytics-qa-probe` `NESTWORTH_PROBE_MODE=reconcile`；`probes/REMEDIATION-2026-09-09.json`；`TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding`；`TestReviewD5WaterfallAllocatesMultiBucketRoundingRemainder`；`TestReviewD5AssetDriverDetailAggregatesExactAttributionBeforeRounding`；分类/趋势/全零明细边界测试 |
 | R3-D6 | **后端/Wails/frontend 自动化 PASS**。Realized 按 Instrument 时写入 instrument；按 Account 时写入 account；另一维只有在 query scope/filter 明确约束时才保留，混合 cash/security 不凭名称推导。 | `realizedContributionHistoryHint`；`TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions`；`TestContributionItemDTOPreservesHistoryHintDimensions`；frontend 344 tests |
-| R3-Q1 | **C5–C8 DB-backed PASS**。Scope expected 独立读取边界 snapshot items；Native/Base 检查混币种 forced Base 与 instrument quote currency；sources 精确相加；transfer 由 persisted `cash_transfer` 活动发现且 household external_flow=0。 | `NESTWORTH_PROBE_MODE=quantitative`；`probes/REMEDIATION-2026-09-09.json` |
+| R3-Q1 | **C5–C8 DB-backed PASS**。Scope expected 独立读取边界 snapshot items；Native/Base 检查混币种 forced Base 与 instrument quote currency；sources 精确相加；Transfer 使用固定 snapshots/quotes 的有无转账反事实，逐日核对 household change/external flow、Price/FX/Fee、Return sources 和两端账户。 | `NESTWORTH_PROBE_MODE=quantitative`；`probes/REMEDIATION-2026-09-09.json` |
 | R3-Q1/C9 | **clean/corrupt residual PASS**。探针复制数据库后才注入 +100 AUD，clean 样本 issues=0；corrupt 样本 native 不变、residual 明细可追到 2026-08-12/13 且金额 ±100 AUD。 | `NESTWORTH_PROBE_MODE=residual`，`NESTWORTH_RESIDUAL_INJECT=false/true`；同上 JSON |
 | R3-Q2 | **仍需真实桌面补测**。仓库现有 incomplete 证据是 missing-both；missing-price、missing-fx 及中文/正确 Change Drivers 页面没有在本轮原生 Wails 中重跑。 | `screenshots/incomplete/RESULTS.json` |
 | R3-Q3 | **代码/应用层验证 PASS，原生桌面变更流程未重跑**。既有 `TestAnalysisCase44MemoInvalidatesAfterActivityAndSnapshotBuild` 覆盖 activity 与 snapshot rebuild 后结果变化；frontend invalidation tests 通过。 | application test、`frontend/src/queries/invalidation.test.ts` |
 | R3-Q4 | **文档状态已更新**：C5–C9 不再标为 tooling SKIP；旧桌面截图继续标为历史证据，未把自动化结果伪装成新截图。 | 本文件、`STATUS.md`、`REPORT.md`、`probes/C-phase.md`、`probes/SUMMARY.json` |
+
+### 8.1 复查追加修复（2026-09-09）
+
+复查确认 D6 原修复成立；上一轮 D5 的瀑布/下钻口径和 Transfer 验收已补齐。本轮又发现并修复三处更细的舍入边界：全零明细余差、分类行提前舍入、趋势周期提前舍入。
+
+1. **瀑布精度契约**：摘要、driver rows、groups 和前端严格对账均以四位 `SignedMoney` 为公开契约。精确 bucket 总和按四位舍入后等于摘要变化时，才把行级舍入余数分配给绝对值最大的确定性 bucket；若精确总和本身不一致，不使用 epsilon 或虚构 residual 隐藏问题。
+2. **下钻口径**：`AssetDriverDetail`、Categories/CategoryDetail 及 bucket 型趋势读取 `AssetBucketExact`，跨天/跨组件先聚合精确值，最后一次舍入；旧调用者没有 exact map 时保留四位视图兼容路径。
+3. **Transfer 对照**：C8 在不修改 fixture 的前提下，使用相同 snapshots/quotes，分别执行包含和移除区间 `cash_transfer` 活动的分析；逐转账日核对 household change/external flow、Price/FX/Fee，逐账户核对两端 signed transfer leg，并核对 Return amount 与 Price/FX/Fee sources。跨币种 endpoint 不伪装成 base-currency 精确断言，而是明确失败并要求专门的 FX 口径。
+4. **维度明细余差**：`reconcileDimensionAmounts` 不再因所有单项四位舍入后为零而提前返回；从原始非零维度中按绝对值和稳定 key 选择承接项，使例如两个 `0.00004` 账户仍能显示聚合后的 `0.0001`。
+5. **分类与趋势累加**：Categories 按 row key、Asset Trend 按 period 保存 decimal 累加器；仅在生成 `CategoryRow`、trend point/summary DTO 时调用 `SignedMoney` 舍入，避免多个 `0.00004` 日值在聚合前丢失。
+
+复查边界测试覆盖两个 `0.00006` bucket 的 `0.0002` vs `0.0001` 舍入样本、跨账户 `0.00004 + 0.00004` 明细、分类行和月趋势的同类样本。application/Wails 定向回归和 probe 包编译测试通过；本轮未重跑数据库探针，因此既有 C8/数据库证据保持原样。Native Wails replay、缺 price/FX 中文矩阵和真实 D8 变更流程仍按原计划保持未执行，不由自动化结果替代。
 
 ### 本轮可复现命令
 

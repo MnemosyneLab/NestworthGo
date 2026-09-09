@@ -63,7 +63,7 @@
       "name": "transfer neutrality FC-01",
       "mode": "quantitative",
       "status": "PASS",
-      "detail": "Persisted cash_transfer day 2026-08-16 has household external_flow=0 while market/FX/fee changes remain visible."
+      "detail": "Fixed-snapshot counterfactual removes in-range cash_transfer activities and compares household change/external flow, Price/FX/Fee, Return sources, and both endpoint accounts; 2026-08-16 endpoints are +200/-200 AUD and every with-vs-without delta is 0."
     },
     {
       "id": "C9",

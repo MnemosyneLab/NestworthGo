@@ -19,6 +19,7 @@
     "residualIssueCount": 0,
     "notes": [
       "exact attribution is aggregated before public money rounding",
+      "public waterfall rows use a four-decimal contract with deterministic remainder allocation only when the exact total rounds to the summary change",
       "daily diagnostic deltas remain visible at public component rounding precision; they are not hidden or used as a top-level epsilon"
     ]
   },
@@ -26,7 +27,19 @@
     "C5_scope": {"status": "PASS", "delta": "0"},
     "C6_native_base": {"status": "PASS", "mixedCurrencies": true, "nativeValuationForced": "base"},
     "C7_return_sources": {"status": "PASS", "periodReturn": "1235.3483 AUD", "sourceSum": "1235.3483 AUD", "delta": "0"},
-    "C8_transfer": {"status": "PASS", "transferDays": ["2026-08-16"], "householdExternalFlow": "0 AUD"}
+    "C8_transfer": {
+      "status": "PASS",
+      "counterfactual": "same snapshots and quotes with in-range cash_transfer activities removed",
+      "transferDays": ["2026-08-16"],
+      "endpointLegs": ["+200 AUD", "-200 AUD"],
+      "householdChangeDelta": "0 AUD",
+      "householdExternalFlowDelta": "0 AUD",
+      "priceChangeDelta": "0 AUD",
+      "fxImpactDelta": "0 AUD",
+      "feeDelta": "0 AUD",
+      "returnAmountDelta": "0 AUD",
+      "returnSourceDeltas": {"price_change": "0 AUD", "fx_impact": "0 AUD", "investment_fee": "0 AUD"}
+    }
   },
   "residual": {
     "clean": {"status": "PASS", "residualIssueCount": 0},
