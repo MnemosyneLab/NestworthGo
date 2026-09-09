@@ -82,6 +82,8 @@ Quotes are written for days `0..44`. Through **day 22 inclusive**:
 
 Rebuild must produce the incomplete snapshot; the seed does **not** SQL-inject `complete=0`.
 
+Household-scope Dietz `ratedDays` on a long Include-cash window can still be below `totalDays` even when every snapshot is complete (zero-capital or unrateable days). Use the gap-day snapshot flags and the seed `missing_quote_gap` step for §17, not period `ratedDays`.
+
 ## FC-07 loan (skipped)
 
 `DebtDrawInput` / `DebtPaymentInput` exist, but a loan sleeve is **not** seeded. Adding a liability before `StartHistory` would expand origin components, FX/completeness surface, and the true-zero constraint. Round-3 mini-family stays on multi-account / multi-instrument / transfer / same-day trade. Revisit FC-07 in a later fixture if desktop needs drawdown / repayment / cash interest.
