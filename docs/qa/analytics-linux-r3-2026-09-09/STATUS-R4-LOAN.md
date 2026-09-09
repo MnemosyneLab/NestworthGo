@@ -10,7 +10,7 @@ This stub is not a Round-4 desktop acceptance report. Leave `REPORT.md` / `REPOR
 
 ## Verdict
 
-**TOOLING + LINUX HARNESS READY.** Every **runnable** PLAN checklist row was executed. Desktop visual / macOS Apple Silicon / November snapshot-rebuild remain **BLOCKED** with reasons. One **SKIP**: instrument scope on the loan-only fixture (instrument smoke ran on v3 complete instead).
+**TOOLING + LINUX HARNESS READY.** Every **runnable** PLAN checklist row was executed, including **ENV-BASE-USD / ENV-BASE-CNY** as real onboarded `complete-usd` / `complete-cny` sqlite DBs. Desktop visual / macOS Apple Silicon / November snapshot-rebuild remain **BLOCKED** with reasons. One **SKIP**: instrument scope on the loan-only fixture (instrument smoke ran on v3 complete instead).
 
 ## Harness (this VM)
 
@@ -21,10 +21,13 @@ This stub is not a Round-4 desktop acceptance report. Leave `REPORT.md` / `REPOR
 | Seed `loan-fc07-cny` | **PASS** (base=CNY) |
 | Seed `loan-fc07-usd` | **PASS** (base=USD) |
 | Seed `loan-fc07-week-sunday` | **PASS** (`week_start=sunday`) |
-| Seed v3 `complete` | **PASS** (AUD R3 mini-family unchanged) |
-| Probe `loan-fc07` (all five DBs) | **PASS** 7/7 each (FC-07 + Base/Native + household/account + Include/Exclude draw + settings) |
-| Probe `timezone-r4` | **PASS** 23/23 (includes LA gap/ambiguity reject + SGT/UTC/LA Origin DBs) |
-| Probe `r4-matrix` | **PASS** `44 PASS / 0 FAIL / 1 SKIP / 10 BLOCKED` |
+| Seed v3 `complete` | **PASS** (AUD R3 mini-family unchanged; `households.base_currency=AUD`) |
+| Seed `complete-usd` | **PASS** (`base_currency=USD`, 45 snapshots, `incomplete_days=0`) |
+| Seed `complete-cny` | **PASS** (`base_currency=CNY`, 45 snapshots, `incomplete_days=0`) |
+| Seed `complete` + `NESTWORTH_QA_BASE_CURRENCY=USD` | **PASS** (same onboarded USD household as `complete-usd`) |
+| Probe `loan-fc07` | **PASS** 7/7 (FC-07 + Base/Native + household/account + Include/Exclude draw + settings) |
+| Probe `timezone-r4` / LA DST | **PASS** (`dst_gap_la` still rejects 2026-03-08 02:30) |
+| Probe `r4-matrix` | **PASS** `46 PASS / 0 FAIL / 1 SKIP / 10 BLOCKED` (`env_base_usd` / `env_base_cny` included) |
 | Unit `TestAnalysisReviewCases16And17RealDebtPaymentPath` | **PASS** (cases 15–17) |
 | Unit `TestResolveLocalDateTimeRejectsDSTGapAndAmbiguity` | **PASS** |
 | `go test ./cmd/analytics-qa-seed ./cmd/analytics-qa-probe` | **PASS** |
@@ -50,6 +53,6 @@ FC-07 probe oracles (AUD SGT, draw 2026-07-27 / repay 2026-07-29 / interest 2026
 
 ## Self-review
 
-Walked `PLAN-R4-LOAN.md` checklist after the harness. No runnable row left unimplemented. Engine week fold (`assetTrendPeriod` Monday-only) stays BLOCKED as a product/UI split, not a missing probe.
+Walked `PLAN-R4-LOAN.md` checklist after adding `complete-usd` / `complete-cny`. ENV-BASE-USD is no longer BLOCKED: `analytics-qa-seed` onboards a real sqlite household with `base_currency=USD` (scenario ID or `NESTWORTH_QA_BASE_CURRENCY=USD`). Same for CNY. AUD `complete` / `missing-*` unchanged. Loan FC-07 and LA/SGT/UTC DST probes still PASS.
 
 See `PLAN-R4-LOAN.md` §2 for the full ID table.
