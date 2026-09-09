@@ -1,0 +1,134 @@
+{
+  "headSha": "fa46d30e5210450f168755694f7c12162fdc0f18",
+  "branch": "qa/analytics-linux-r3-2026-09-09",
+  "fixtureVersion": "analytics-qa-seed-v3 (existing r3 DBs, not re-seeded)",
+  "dbComplete": "/workspace/nestworth-analytics-qa-r3/data/nestworth-complete.db",
+  "dbMissingBoth": "/workspace/nestworth-analytics-qa-r3/data/nestworth-missing-both.db",
+  "outRoot": "/workspace/nestworth-analytics-qa-r3-retest",
+  "buildOK": true,
+  "allPass": true,
+  "failCount": 0,
+  "failIds": [],
+  "items": [
+    {
+      "id": "BUILD",
+      "name": "wails3 task build",
+      "status": "PASS",
+      "detail": "binary exists=True size=19855904",
+      "artifact": "logs/01-build.log",
+      "stderr": ""
+    },
+    {
+      "id": "UNIT",
+      "name": "go test Review|HistoryHint|Waterfall|Attribution|MissingFX|ReturnMissing",
+      "status": "PASS",
+      "detail": "ok  \tgithub.com/waltwang/nestworth-go/internal/application\t0.080s",
+      "artifact": "logs/02-unit-gates.log",
+      "stderr": ""
+    },
+    {
+      "id": "FE_bun",
+      "name": "frontend bun test",
+      "status": "SKIP",
+      "detail": "bun test is Bun runner (no jsdom); timed out / incomplete. Use bun run test (vitest).",
+      "artifact": "logs/03-frontend-bun-test.log",
+      "stderr": ""
+    },
+    {
+      "id": "FE_vitest",
+      "name": "frontend bun run test (vitest)",
+      "status": "PASS",
+      "detail": "344 passed / 44 files / 16.50s",
+      "artifact": "logs/03c-vitest-full.log",
+      "stderr": ""
+    },
+    {
+      "id": "D5",
+      "name": "reconcile Aug 2026-08-01..31",
+      "status": "PASS",
+      "detail": "delta={'amount': '0', 'currency': 'AUD'} beginning={'amount': '54258.02', 'currency': 'AUD'} ending={'amount': '59784.3685', 'currency': 'AUD'} waterfallSum={'amount': '5526.3485', 'currency': 'AUD'} residualIssueCount=0 error=",
+      "artifact": "probes/D5-reconcile.json",
+      "stderr": ""
+    },
+    {
+      "id": "C5",
+      "name": "Scope triangulation",
+      "status": "PASS",
+      "detail": "delta={'accountPartitionChange': '0', 'householdChange': '0', 'instrumentChange': '0'} errorReason=",
+      "artifact": "probes/C5-C8-quantitative.json",
+      "stderr": ""
+    },
+    {
+      "id": "C6",
+      "name": "Native versus Base",
+      "status": "PASS",
+      "detail": "delta=None errorReason=",
+      "artifact": "probes/C5-C8-quantitative.json",
+      "stderr": ""
+    },
+    {
+      "id": "C7",
+      "name": "Return sources",
+      "status": "PASS",
+      "detail": "delta={'sourceSumMinusPeriodReturn': '0'} errorReason=",
+      "artifact": "probes/C5-C8-quantitative.json",
+      "stderr": ""
+    },
+    {
+      "id": "C8",
+      "name": "Transfer neutrality",
+      "status": "PASS",
+      "detail": "delta={'2026-08-16': {'accounts': {'01a08520-609d-7052-b5f1-29387848af8e': '0', '01a08520-609e-7f2c-beba-2435dbb9a91c': '0'}, 'fee': '0', 'fx_impact': '0', 'householdChange': '0', 'householdExternalFlow': '0', 'price_change': '0'}, 'returnAmount': '0', 'return_fx_impact': '0', 'return_investment_fee': '0', 'return_price_change': '0'} errorReason=",
+      "artifact": "probes/C5-C8-quantitative.json",
+      "stderr": ""
+    },
+    {
+      "id": "C9_clean",
+      "name": "residual inject=false",
+      "status": "PASS",
+      "detail": "issues=0 pass=True detail=clean copied fixture local=2026-08-12; expected no residual; waterfall=<nil> day=<nil> issues=0 error=",
+      "artifact": "probes/C9-residual-clean.json",
+      "stderr": ""
+    },
+    {
+      "id": "C9_corrupt",
+      "name": "residual inject=true +100 AUD",
+      "status": "PASS",
+      "detail": "issues=2 pass=True waterfall=None day={'amount': '100', 'currency': 'AUD'} baseBefore=2833.909 baseAfter=2933.909 nativeUnchanged=1885 detail=deliberate +100 AUD base corruption on holding item 01a08520-6289-74a7-a16f-855105cf1850 local=2026-08-12; expected residual\u2248100; waterfall=<nil> day=&{100 AUD} issues=2 error=",
+      "artifact": "probes/C9-residual-corrupt.json",
+      "stderr": ""
+    },
+    {
+      "id": "C1",
+      "name": "fixtures A-D in-memory",
+      "status": "PASS",
+      "detail": "[{\"id\": \"A\", \"pass\": null, \"name\": \"Modified Dietz ~1.81818%\"}, {\"id\": \"B\", \"pass\": null, \"name\": \"Foreign holding Price 70 / FX 22 base\"}, {\"id\": \"C\", \"pass\": null, \"name\": \"Foreign cash Income 71 / FX 21\"}, {\"id\": \"D\", \"pass\": null, \"name\": \"Scope semantics instrument external +100 / transfer relative\"}]",
+      "artifact": "probes/C1-fixtures.json",
+      "stderr": ""
+    },
+    {
+      "id": "C2",
+      "name": "cash-include FL-18/19",
+      "status": "PASS",
+      "detail": "differs=True detail=salaryDay=2026-08-05 investedCapital include=\"56825.49\" exclude=\"2770.821\" cashDietzFlows include=1(3000) exclude=0() error=",
+      "artifact": "probes/C2-cash-include.json",
+      "stderr": ""
+    },
+    {
+      "id": "C4",
+      "name": "DEF-R2-02 missing-both All (legacy)",
+      "status": "PASS",
+      "detail": "coverage rated=21 total=45 status=partial; panic=False",
+      "artifact": "logs/C4-missing-both.out",
+      "stderr": ""
+    },
+    {
+      "id": "DEF-R2-02",
+      "name": "alias of C4 missing-both All",
+      "status": "PASS",
+      "detail": "coverage rated=21 total=45 status=partial",
+      "artifact": "logs/C4-missing-both.out",
+      "stderr": ""
+    }
+  ]
+}

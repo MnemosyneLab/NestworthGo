@@ -1,0 +1,201 @@
+{
+  "codeVersion": "fa46d30",
+  "fixtureVersion": "analytics-qa-seed-v3",
+  "scenario": "complete",
+  "dbPath": "/workspace/nestworth-analytics-qa-r3/data/nestworth-complete.db",
+  "cases": [
+    {
+      "id": "C5",
+      "name": "Scope triangulation",
+      "status": "PASS",
+      "query": {
+        "from": "2026-08-01",
+        "includeCash": true,
+        "scope": "household/account/instrument+cash",
+        "to": "2026-08-31",
+        "valuation": "base"
+      },
+      "expected": {
+        "accountPartitionChange": "5526.3485",
+        "boundaryBeginningDate": "2026-07-31",
+        "cashChange": "3217.0675",
+        "householdBeginning": "54258.02",
+        "householdChange": "5526.3485",
+        "householdEnding": "59784.3685",
+        "instrumentChange": "2309.281",
+        "instrumentPlusCashChange": "5526.3485"
+      },
+      "actual": {
+        "accountPartitionChange": "5526.3485",
+        "cashPlusInstrumentChange": "5526.3485",
+        "householdBeginning": "54258.02",
+        "householdChange": "5526.3485",
+        "householdEnding": "59784.3685",
+        "instrumentChange": "2309.281"
+      },
+      "delta": {
+        "accountPartitionChange": "0",
+        "householdChange": "0",
+        "instrumentChange": "0"
+      },
+      "tolerance": "0",
+      "evidence": [
+        "expected totals come from latest daily_valuation_snapshot_items at query boundaries",
+        "instrument scope is checked separately and cash is added explicitly; rates are not summed"
+      ]
+    },
+    {
+      "id": "C6",
+      "name": "Native versus Base",
+      "status": "PASS",
+      "query": {
+        "from": "2026-08-01",
+        "includeCash": true,
+        "to": "2026-08-31"
+      },
+      "expected": {
+        "mixedCurrencies": true,
+        "nativeValuationForced": true
+      },
+      "actual": {
+        "baseCurrency": "AUD",
+        "nativeCurrency": "AUD",
+        "nativeValuationForced": "base"
+      },
+      "tolerance": "0",
+      "evidence": [
+        "currency cardinality comes from portfolio account metadata",
+        "instrument Native currency is checked against instrument quote currency",
+        "missing-FX behavior remains represented by the service availability/forced fields"
+      ]
+    },
+    {
+      "id": "C7",
+      "name": "Return sources",
+      "status": "PASS",
+      "query": {
+        "basis": "investment",
+        "from": "2026-08-01",
+        "includeCash": true,
+        "to": "2026-08-31",
+        "valuation": "base"
+      },
+      "expected": {
+        "sourceKeys": [
+          "dividend_interest",
+          "fx_impact",
+          "price_change"
+        ],
+        "sourceSumEqualsPeriodReturn": true
+      },
+      "actual": {
+        "coverage": {
+          "ratedDays": 31,
+          "totalDays": 31
+        },
+        "periodReturn": "1235.3483",
+        "sourceSum": "1235.3483"
+      },
+      "delta": {
+        "sourceSumMinusPeriodReturn": "0"
+      },
+      "tolerance": "0",
+      "evidence": [
+        "realized gain is intentionally excluded; only total-return source components are compared",
+        "coverage is emitted alongside the source sum"
+      ]
+    },
+    {
+      "id": "C8",
+      "name": "Transfer neutrality",
+      "status": "PASS",
+      "query": {
+        "basis": "investment",
+        "counterfactual": "same snapshots and quotes with in-range cash_transfer activities removed",
+        "from": "2026-08-01",
+        "includeCash": true,
+        "scope": "household",
+        "to": "2026-08-31"
+      },
+      "expected": {
+        "accountEndpointDeltaMatchesTransferLeg": true,
+        "householdChangeDeltaWithVsWithoutTransfer": "0",
+        "householdExternalFlowDeltaWithVsWithoutTransfer": "0",
+        "marketFXFeeDeltaWithVsWithoutTransfer": "0",
+        "returnSourceDeltaWithVsWithoutTransfer": "0",
+        "transferDays": [
+          "2026-08-16"
+        ]
+      },
+      "actual": {
+        "2026-08-16": {
+          "accounts": {
+            "01a08520-609d-7052-b5f1-29387848af8e": {
+              "changeDelta": "0",
+              "currency": "AUD",
+              "externalFlowDelta": "200",
+              "leg": "200"
+            },
+            "01a08520-609e-7f2c-beba-2435dbb9a91c": {
+              "changeDelta": "0",
+              "currency": "AUD",
+              "externalFlowDelta": "-200",
+              "leg": "-200"
+            }
+          },
+          "feeWithTransfer": "0",
+          "feeWithoutTransfer": "0",
+          "fx_impactWithTransfer": "5.6222",
+          "fx_impactWithoutTransfer": "5.6222",
+          "householdChangeWithTransfer": "17.7696",
+          "householdChangeWithoutTransfer": "17.7696",
+          "householdExternalFlowWithTransfer": "0",
+          "householdExternalFlowWithoutTransfer": "0",
+          "price_changeWithTransfer": "12.1474",
+          "price_changeWithoutTransfer": "12.1474"
+        },
+        "return": {
+          "sourcesWithTransfer": {
+            "dividend_interest": "518.8325",
+            "fx_impact": "169.6491",
+            "price_change": "546.8667"
+          },
+          "sourcesWithoutTransfer": {
+            "dividend_interest": "518.8325",
+            "fx_impact": "169.6491",
+            "price_change": "546.8667"
+          },
+          "withTransfer": "1235.3483",
+          "withoutTransfer": "1235.3483"
+        }
+      },
+      "delta": {
+        "2026-08-16": {
+          "accounts": {
+            "01a08520-609d-7052-b5f1-29387848af8e": "0",
+            "01a08520-609e-7f2c-beba-2435dbb9a91c": "0"
+          },
+          "fee": "0",
+          "fx_impact": "0",
+          "householdChange": "0",
+          "householdExternalFlow": "0",
+          "price_change": "0"
+        },
+        "returnAmount": "0",
+        "return_fx_impact": "0",
+        "return_investment_fee": "0",
+        "return_price_change": "0"
+      },
+      "tolerance": "0",
+      "evidence": [
+        "transfer days are discovered from persisted cash_transfer activities",
+        "the counterfactual keeps snapshots and quotes fixed while removing only in-range cash_transfer activities",
+        "household change and external flow are compared day by day",
+        "price_change, fx_impact, fee, and return sources are compared independently",
+        "both transfer endpoint accounts are checked against their signed transfer legs",
+        "accounts=3 instruments=3"
+      ]
+    }
+  ],
+  "allPass": true
+}

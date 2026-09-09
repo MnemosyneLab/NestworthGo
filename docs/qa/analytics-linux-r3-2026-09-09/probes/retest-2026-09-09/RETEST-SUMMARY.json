@@ -1,0 +1,53 @@
+{
+  "headSha": "fa46d30e5210450f168755694f7c12162fdc0f18",
+  "buildOK": true,
+  "allPass": true,
+  "statusById": {
+    "BUILD": "PASS",
+    "UNIT": "PASS",
+    "FE_bun": "SKIP",
+    "FE_vitest": "PASS",
+    "D5": "PASS",
+    "C5": "PASS",
+    "C6": "PASS",
+    "C7": "PASS",
+    "C8": "PASS",
+    "C9_clean": "PASS",
+    "C9_corrupt": "PASS",
+    "C1": "PASS",
+    "C2": "PASS",
+    "C4": "PASS",
+    "DEF-R2-02": "PASS"
+  },
+  "failIds": [],
+  "d5": {
+    "delta": {
+      "amount": "0",
+      "currency": "AUD"
+    },
+    "residualIssueCount": 0,
+    "beginning": {
+      "amount": "54258.02",
+      "currency": "AUD"
+    },
+    "ending": {
+      "amount": "59784.3685",
+      "currency": "AUD"
+    },
+    "waterfallSum": {
+      "amount": "5526.3485",
+      "currency": "AUD"
+    }
+  },
+  "quantitativeAllPass": true,
+  "c9": {
+    "cleanPass": true,
+    "corruptPass": true,
+    "corruptIssues": 2
+  },
+  "c4": "coverage rated=21 total=45 status=partial",
+  "frontend": {
+    "status": "PASS",
+    "detail": "vitest 344 passed (44 files); bun-native test SKIP"
+  }
+}

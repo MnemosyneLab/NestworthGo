@@ -1,0 +1,12 @@
+{
+  "test": "D8 soft-invalidation desktop test",
+  "view": "Asset Changes > Change Drivers",
+  "filters": {"scope": "Portfolio", "valuation": "Base (AUD)", "cash": "Include cash", "from": "2026-08-01", "to": null},
+  "baseline_value": "+A$5,561.81",
+  "after_value": "+A$5,661.81",
+  "headline": "Net Worth Change",
+  "mutation": "Added A$100.00 cash income to AUD Cash on 2026-08-20 via History UI.",
+  "expected_direction": "increase by A$100.00",
+  "result": "PASS",
+  "screenshots": ["01-baseline.png", "01b-mutation.png", "02-after-mutation.png"]
+}
