@@ -1,13 +1,18 @@
 // Command analytics-qa-seed builds Insights QA fixtures.
 //
-//	NESTWORTH_QA_SCENARIO     complete | missing-price | missing-fx | missing-both | loan-fc07
+//	NESTWORTH_QA_SCENARIO     complete | missing-price | missing-fx | missing-both
+//	                          | loan-fc07 | loan-fc07-utc | loan-fc07-cny
+//	                          | loan-fc07-usd | loan-fc07-week-sunday
 //	NESTWORTH_QA_ANCHOR       RFC3339 UTC (default 2026-07-26T00:00:00Z)
 //	NESTWORTH_QA_RESET        set to 1 to replace an existing QA database
 //	NESTWORTH_QA_OUTPUT_DIR   artifact root (default /workspace/nestworth-analytics-qa)
 //	NESTWORTH_DATABASE_PATH   sqlite path (default $OUTPUT_DIR/data/nestworth.db)
+//	NESTWORTH_QA_LOAN_CURRENCY optional AUD|CNY|USD override for loan-* scenarios
+//	NESTWORTH_QA_LOAN_TZ       optional IANA timezone override for loan-* scenarios
+//	NESTWORTH_QA_WEEK_START    optional monday|sunday override for loan-* scenarios
 //
 // The v3 mini-family (complete / missing-*) stays FC-01–06. FC-07 lives in the
-// separate loan-fc07 scenario; see README.md and loan.go.
+// separate loan-fc07* family; see README.md and loan.go.
 package main
 
 import (
@@ -254,8 +259,8 @@ func main() {
 		dbPath = filepath.Join(base, "data", "nestworth.db")
 	}
 	scenario := envOr("NESTWORTH_QA_SCENARIO", "complete")
-	if scenario == loanFC07Scenario {
-		runLoanFC07(base, dbPath)
+	if cfg, ok := parseLoanScenario(scenario); ok {
+		runLoanFC07(base, dbPath, cfg)
 		return
 	}
 	if scenario != "complete" && scenario != "missing-price" && scenario != "missing-fx" && scenario != "missing-both" {

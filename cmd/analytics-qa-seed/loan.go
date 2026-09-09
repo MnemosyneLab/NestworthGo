@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -27,10 +29,68 @@ const (
 	loanRepayPrincipal    = "10000"
 	loanInterestPrincipal = "1000"
 	loanInterestFee       = "500"
-	loanCurrency          = "AUD"
 )
 
-func runLoanFC07(base, dbPath string) {
+type loanConfig struct {
+	Scenario  string
+	Currency  string
+	Timezone  string
+	WeekStart string
+	WindowW   int
+}
+
+func parseLoanScenario(scenario string) (loanConfig, bool) {
+	cfg := loanConfig{
+		Scenario:  scenario,
+		Currency:  "AUD",
+		Timezone:  "Asia/Singapore",
+		WeekStart: "monday",
+		WindowW:   1280,
+	}
+	switch scenario {
+	case "loan-fc07":
+	case "loan-fc07-utc":
+		cfg.Timezone = "UTC"
+	case "loan-fc07-cny":
+		cfg.Currency = "CNY"
+	case "loan-fc07-usd":
+		cfg.Currency = "USD"
+	case "loan-fc07-week-sunday":
+		cfg.WeekStart = "sunday"
+	default:
+		return loanConfig{}, false
+	}
+	if v := strings.ToUpper(strings.TrimSpace(os.Getenv("NESTWORTH_QA_LOAN_CURRENCY"))); v != "" {
+		cfg.Currency = v
+	}
+	if v := strings.TrimSpace(os.Getenv("NESTWORTH_QA_LOAN_TZ")); v != "" {
+		cfg.Timezone = v
+	}
+	if v := strings.ToLower(strings.TrimSpace(os.Getenv("NESTWORTH_QA_WEEK_START"))); v != "" {
+		cfg.WeekStart = v
+	}
+	if v := strings.TrimSpace(os.Getenv("NESTWORTH_QA_WINDOW_W")); v != "" {
+		w, err := strconv.Atoi(v)
+		if err != nil || w <= 0 {
+			panic(fmt.Errorf("NESTWORTH_QA_WINDOW_W must be a positive integer, got %q", v))
+		}
+		cfg.WindowW = w
+	}
+	if cfg.WeekStart != "monday" && cfg.WeekStart != "sunday" {
+		panic(fmt.Errorf("NESTWORTH_QA_WEEK_START must be monday or sunday, got %q", cfg.WeekStart))
+	}
+	if _, err := time.LoadLocation(cfg.Timezone); err != nil {
+		panic(fmt.Errorf("loan timezone %q is not a valid IANA zone: %w", cfg.Timezone, err))
+	}
+	switch cfg.Currency {
+	case "AUD", "CNY", "USD":
+	default:
+		panic(fmt.Errorf("loan base currency %q is not in the R4 matrix (AUD/CNY/USD)", cfg.Currency))
+	}
+	return cfg, true
+}
+
+func runLoanFC07(base, dbPath string, cfg loanConfig) {
 	anchor := parseAnchor(envOr("NESTWORTH_QA_ANCHOR", defaultQAAnchor))
 	database := openResetQADatabase(base, dbPath)
 	defer database.Close()
@@ -41,7 +101,7 @@ func runLoanFC07(base, dbPath string) {
 	commit, dirty := gitIdentity()
 	report := &Report{
 		FixtureVersion: loanFixtureVersion,
-		Scenario:       loanFC07Scenario,
+		Scenario:       cfg.Scenario,
 		Anchor:         anchor.Format(time.RFC3339),
 		Commit:         commit,
 		Dirty:          dirty,
@@ -56,15 +116,15 @@ func runLoanFC07(base, dbPath string) {
 		}
 	}
 
-	sgt := must(time.LoadLocation("Asia/Singapore"))
-	localDate := func(t time.Time) string { return t.In(sgt).Format("2006-01-02") }
+	loc := must(time.LoadLocation(cfg.Timezone))
+	localDate := func(t time.Time) string { return t.In(loc).Format("2006-01-02") }
 	day := func(offset int) time.Time {
 		return anchor.Add(time.Duration(offset) * 24 * time.Hour).UTC()
 	}
 
 	must0(svc.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Analytics QA Loan FC-07",
-		BaseCurrency:  loanCurrency,
+		BaseCurrency:  cfg.Currency,
 		MemberNames:   []string{"Weichen"},
 		Timezone:      "",
 	}))
@@ -74,30 +134,37 @@ func runLoanFC07(base, dbPath string) {
 	report.IDs["household"] = string(hh)
 	report.IDs["member"] = string(m1)
 	report.IDs["fixture_version"] = loanFixtureVersion
-	report.IDs["base_currency"] = loanCurrency
-	add(report, "onboarding", "PASS", fmt.Sprintf("household=%s member=%s base=%s tz=(empty, no history yet)", hh, m1, loanCurrency))
+	report.IDs["base_currency"] = cfg.Currency
+	report.IDs["timezone"] = cfg.Timezone
+	report.IDs["week_start"] = cfg.WeekStart
+	report.IDs["window_width"] = fmt.Sprintf("%d", cfg.WindowW)
+	add(report, "onboarding", "PASS", fmt.Sprintf("household=%s member=%s base=%s tz=(empty, no history yet)", hh, m1, cfg.Currency))
 
+	cashName := cfg.Currency + " Cash"
+	loanName := cfg.Currency + " Loan"
 	cash := must(svc.CreateAccount(ctx, application.AccountInput{
-		Name: "AUD Cash", AccountType: "bank_account", BalanceSheetRole: "asset",
-		TrackingMode: "balance", DefaultCurrency: loanCurrency, InitialAmount: loanCashInitial,
+		Name: cashName, AccountType: "bank_account", BalanceSheetRole: "asset",
+		TrackingMode: "balance", DefaultCurrency: cfg.Currency, InitialAmount: loanCashInitial,
 		IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{m1},
 	}))
 	loan := must(svc.CreateAccount(ctx, application.AccountInput{
-		Name: "AUD Loan", AccountType: "loan", BalanceSheetRole: "liability",
-		TrackingMode: "balance", DefaultCurrency: loanCurrency, InitialAmount: "0",
+		Name: loanName, AccountType: "loan", BalanceSheetRole: "liability",
+		TrackingMode: "balance", DefaultCurrency: cfg.Currency, InitialAmount: "0",
 		IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{m1},
 	}))
 	report.IDs["acct_cash"] = string(cash.Account.ID)
 	report.IDs["acct_loan"] = string(loan.Account.ID)
-	add(report, "accounts", "PASS", fmt.Sprintf("cash=%s loan=%s initial_cash=%s %s loan_initial=0", cash.Account.ID, loan.Account.ID, loanCashInitial, loanCurrency))
+	add(report, "accounts", "PASS", fmt.Sprintf("cash=%s loan=%s initial_cash=%s %s loan_initial=0", cash.Account.ID, loan.Account.ID, loanCashInitial, cfg.Currency))
 
-	origin := must(svc.StartHistory(ctx, "Asia/Singapore"))
+	origin := must(svc.StartHistory(ctx, cfg.Timezone))
 	compCount := countQuery(database.SQL, `SELECT COUNT(*) FROM history_origin_components`)
 	report.IDs["history_origin_id"] = string(origin.ID)
-	if compCount <= 0 {
-		add(report, "start_history", "FAIL", fmt.Sprintf("history_origin_components=%d want >0", compCount))
+	var storedTZ string
+	_ = database.SQL.QueryRow(`SELECT timezone FROM history_origins WHERE id = ?`, origin.ID.String()).Scan(&storedTZ)
+	if compCount <= 0 || storedTZ != cfg.Timezone {
+		add(report, "start_history", "FAIL", fmt.Sprintf("history_origin_components=%d tz=%q want=%s", compCount, storedTZ, cfg.Timezone))
 	} else {
-		add(report, "start_history", "PASS", fmt.Sprintf("tz=Asia/Singapore components=%d origin=%s", compCount, origin.ID))
+		add(report, "start_history", "PASS", fmt.Sprintf("tz=%s components=%d origin=%s", cfg.Timezone, compCount, origin.ID))
 	}
 
 	originISO := anchor.Format(time.RFC3339Nano)
@@ -123,30 +190,30 @@ func runLoanFC07(base, dbPath string) {
 	must0(func() error {
 		_, err := svc.RecordChange(ctx, domain.DebtDrawInput{
 			HouseholdID: hh, DebtAccountID: loan.Account.ID, CashAccountID: cash.Account.ID,
-			Principal: money(loanDrawPrincipal, loanCurrency), EffectiveAt: drawAt,
+			Principal: money(loanDrawPrincipal, cfg.Currency), EffectiveAt: drawAt,
 		})
 		return err
 	}())
-	add(report, "act_draw", "PASS", fmt.Sprintf("FC-07 draw %s %s local=%s", loanDrawPrincipal, loanCurrency, drawLocal))
+	add(report, "act_draw", "PASS", fmt.Sprintf("FC-07 draw %s %s local=%s", loanDrawPrincipal, cfg.Currency, drawLocal))
 
 	must0(func() error {
 		_, err := svc.RecordChange(ctx, domain.DebtPaymentInput{
 			HouseholdID: hh, DebtAccountID: loan.Account.ID, CashAccountID: cash.Account.ID,
-			Principal: money(loanRepayPrincipal, loanCurrency), EffectiveAt: repayAt,
+			Principal: money(loanRepayPrincipal, cfg.Currency), EffectiveAt: repayAt,
 		})
 		return err
 	}())
-	add(report, "act_repay", "PASS", fmt.Sprintf("FC-07 repay principal %s %s local=%s", loanRepayPrincipal, loanCurrency, repayLocal))
+	add(report, "act_repay", "PASS", fmt.Sprintf("FC-07 repay principal %s %s local=%s", loanRepayPrincipal, cfg.Currency, repayLocal))
 
-	interest := money(loanInterestFee, loanCurrency)
+	interest := money(loanInterestFee, cfg.Currency)
 	must0(func() error {
 		_, err := svc.RecordChange(ctx, domain.DebtPaymentInput{
 			HouseholdID: hh, DebtAccountID: loan.Account.ID, CashAccountID: cash.Account.ID,
-			Principal: money(loanInterestPrincipal, loanCurrency), InterestOrFee: &interest, EffectiveAt: interestAt,
+			Principal: money(loanInterestPrincipal, cfg.Currency), InterestOrFee: &interest, EffectiveAt: interestAt,
 		})
 		return err
 	}())
-	add(report, "act_interest", "PASS", fmt.Sprintf("FC-07 payment principal %s + interest/fee %s %s local=%s", loanInterestPrincipal, loanInterestFee, loanCurrency, interestLocal))
+	add(report, "act_interest", "PASS", fmt.Sprintf("FC-07 payment principal %s + interest/fee %s %s local=%s", loanInterestPrincipal, loanInterestFee, cfg.Currency, interestLocal))
 
 	drawN := countQuery(database.SQL, `SELECT COUNT(*) FROM activities WHERE kind = 'debt_draw'`)
 	payN := countQuery(database.SQL, `SELECT COUNT(*) FROM activities WHERE kind = 'debt_payment'`)
@@ -192,11 +259,11 @@ func runLoanFC07(base, dbPath string) {
 		assertLoanFC07(report, database, svc, ctx, drawLocal, repayLocal, interestLocal)
 	}
 
-	writeAUDSettings(report, base)
+	writeLoanSettings(report, base, cfg)
 	finishSeed(report)
 }
 
-func writeAUDSettings(report *Report, base string) {
+func writeLoanSettings(report *Report, base string, cfg loanConfig) {
 	settingsPath := filepath.Join(base, "data", "settings.json")
 	settings := map[string]any{
 		"schema_version":     1,
@@ -204,24 +271,24 @@ func writeAUDSettings(report *Report, base string) {
 		"accent":             "nestworth",
 		"language":           "en",
 		"timezone":           "system",
-		"week_start":         "monday",
+		"week_start":         cfg.WeekStart,
 		"date_format":        "iso",
 		"time_format":        "24h",
-		"currency":           loanCurrency,
+		"currency":           cfg.Currency,
 		"decimal_separator":  ".",
 		"grouping_separator": ",",
 		"decimal_places":     2,
-		"window_width":       1280,
+		"window_width":       cfg.WindowW,
 		"window_height":      720,
 		"fx_provider":        "frankfurter",
 		"quote_cache_ttl":    "12h",
 	}
 	sb, _ := json.MarshalIndent(settings, "", "  ")
 	if err := os.WriteFile(settingsPath, append(sb, '\n'), 0o644); err != nil {
-		add(report, "settings_aud", "FAIL", err.Error())
+		add(report, "settings", "FAIL", err.Error())
 		return
 	}
-	add(report, "settings_aud", "PASS", fmt.Sprintf("wrote %s currency=%s", settingsPath, loanCurrency))
+	add(report, "settings", "PASS", fmt.Sprintf("wrote %s currency=%s week_start=%s window=%d", settingsPath, cfg.Currency, cfg.WeekStart, cfg.WindowW))
 }
 
 func assertLoanFC07(report *Report, database *sqlite.DB, svc *application.Service, ctx context.Context, drawLocal, repayLocal, interestLocal string) {

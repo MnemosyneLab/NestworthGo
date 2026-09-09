@@ -6,12 +6,16 @@ Deterministic Insights Round-3 “mini family” for desktop/probe acceptance of
 
 | Variable | Default | Notes |
 |---|---|---|
-| `NESTWORTH_QA_SCENARIO` | `complete` | `complete` \| `missing-price` \| `missing-fx` \| `missing-both` \| **`loan-fc07`** |
+| `NESTWORTH_QA_SCENARIO` | `complete` | `complete` \| `missing-price` \| `missing-fx` \| `missing-both` \| **`loan-fc07`** \| **`loan-fc07-utc`** \| **`loan-fc07-cny`** \| **`loan-fc07-usd`** \| **`loan-fc07-week-sunday`** |
 | `NESTWORTH_QA_ANCHOR` | `2026-07-26T00:00:00Z` | RFC3339 UTC history origin |
 | `NESTWORTH_QA_RESET` | unset | Must be `1` to replace an existing QA database |
 | `NESTWORTH_QA_OUTPUT_DIR` | `/workspace/nestworth-analytics-qa` | Artifact root; reset only allows DBs under this tree |
 | `NESTWORTH_DATABASE_PATH` | `$OUTPUT_DIR/data/nestworth.db` | Isolated sqlite file |
 | `NESTWORTH_QA_COMMIT` | `git rev-parse HEAD` | Recorded in `seed-results.json` |
+| `NESTWORTH_QA_LOAN_CURRENCY` | scenario default | Optional `AUD` \| `CNY` \| `USD` override for `loan-*` |
+| `NESTWORTH_QA_LOAN_TZ` | scenario default | Optional IANA timezone override for `loan-*` |
+| `NESTWORTH_QA_WEEK_START` | scenario default | Optional `monday` \| `sunday` override for `loan-*` |
+| `NESTWORTH_QA_WINDOW_W` | `1280` | Optional settings `window_width` for `loan-*` |
 
 Smoke (all four scenarios):
 
@@ -101,23 +105,44 @@ Rebuild must produce the incomplete snapshot; the seed does **not** SQL-inject `
 
 Household-scope Dietz `ratedDays` on a long Include-cash window can still be below `totalDays` even when every snapshot is complete (zero-capital or unrateable days). Use the gap-day snapshot flags and the seed `missing_quote_gap` step for §17, not period `ratedDays`.
 
-## FC-07 loan (`NESTWORTH_QA_SCENARIO=loan-fc07`)
+## FC-07 loan (`NESTWORTH_QA_SCENARIO=loan-fc07*`)
 
-Currency choice: **AUD base** for continuity with R3 v3 (not CNY). Single-currency so the loan fixture does not invent FX fills.
+FC-07 is a **separate** scenario family so the v3 complete / missing-* mini-family stays unchanged. Default `loan-fc07` is AUD + `Asia/Singapore` + week start Monday (R3 continuity). Round-4 matrix siblings:
 
-Fixture version `analytics-linux-qa-loan-fc07`. Household: AUD Cash (bank / balance, initial 20000) + AUD Loan (`TypeLoan` / `RoleLiability` / balance, initial 0). History timezone `Asia/Singapore`. Default anchor `2026-07-26T00:00:00Z`.
-
-| Day | Local (default) | Event | Oracle (test-plan FC-07 / Cases 16–17) |
+| Scenario | Base currency | History timezone | `week_start` |
 |---|---|---|---|
-| 1 | 2026-07-27 | `DebtDrawInput` 100000 AUD | Cash +P, Debt +P, **net worth change = 0**, not investment return |
+| `loan-fc07` | AUD | Asia/Singapore | monday |
+| `loan-fc07-utc` | AUD | UTC | monday |
+| `loan-fc07-cny` | CNY | Asia/Singapore | monday |
+| `loan-fc07-usd` | USD | Asia/Singapore | monday |
+| `loan-fc07-week-sunday` | AUD | Asia/Singapore | sunday |
+
+Single-currency so the loan fixture does not invent FX fills. Env overrides (`NESTWORTH_QA_LOAN_CURRENCY`, `NESTWORTH_QA_LOAN_TZ`, `NESTWORTH_QA_WEEK_START`) apply to any `loan-*` scenario.
+
+Fixture version `analytics-linux-qa-loan-fc07`. Household: `{CCY} Cash` (bank / balance, initial 20000) + `{CCY} Loan` (`TypeLoan` / `RoleLiability` / balance, initial 0). Default anchor `2026-07-26T00:00:00Z`.
+
+| Day | Local (SGT default) | Event | Oracle (test-plan FC-07 / Cases 16–17) |
+|---|---|---|---|
+| 1 | 2026-07-27 | `DebtDrawInput` 100000 | Cash +P, Debt +P, **net worth change = 0**, not investment return |
 | 3 | 2026-07-29 | `DebtPaymentInput` principal 10000 | Cash −P, Debt −P, **net worth change = 0** |
 | 5 | 2026-07-31 | `DebtPaymentInput` principal 1000 + `InterestOrFee` 500 | Cash −1500, debt principal −1000, **Spending −500**, net worth −500; must **not** be Dividend & Interest / investment return |
 
-Seed JSON asserts OVERALL plus named steps `fc07_draw_nw0`, `fc07_repay_nw0`, `fc07_interest_spending`. Principal on the interest day is 1000 (API requires principal > 0); amounts match `TestAnalysisReviewCases16And17RealDebtPaymentPath`.
+Seed JSON asserts OVERALL plus named steps `fc07_draw_nw0`, `fc07_repay_nw0`, `fc07_interest_spending`. Principal on the interest day is **1000** (API requires principal > 0; `InterestOrFee`-only is rejected). Amounts match `TestAnalysisReviewCases16And17RealDebtPaymentPath`.
 
-The v3 complete / missing-* family still omits a loan sleeve (origin / true-zero / completeness matrix stay FC-01–06). Use `loan-fc07` when desktop or probes need draw / repay / cash interest.
+The v3 complete / missing-* family still omits a loan sleeve. Use `loan-fc07*` when probes or desktop need draw / repay / cash interest.
 
-Round-4 timezone/DST is **not** this seed. Use `NESTWORTH_PROBE_MODE=timezone-r4` (builds Origin DBs for `Asia/Singapore`, `UTC`, `America/Los_Angeles` and asserts local calendar days around 2026-03-08 / 2026-11-01).
+Round-4 timezone/DST Origin DBs are **not** this seed. Use `NESTWORTH_PROBE_MODE=timezone-r4` (builds Origin DBs for `Asia/Singapore`, `UTC`, `America/Los_Angeles` and asserts local calendar days around 2026-03-08 / 2026-11-01, including LA gap/ambiguity rejection). `NESTWORTH_PROBE_MODE=r4-matrix` aggregates timezone-r4 + settings week/window/locale Validate + loan extras + complete-DB instrument/cash-include when those DBs exist.
+
+```bash
+ROOT=/tmp/nestworth-qa-loan-fc07
+for s in loan-fc07 loan-fc07-utc loan-fc07-cny loan-fc07-usd loan-fc07-week-sunday; do
+  NESTWORTH_QA_OUTPUT_DIR="$ROOT/$s" \
+  NESTWORTH_QA_RESET=1 \
+  NESTWORTH_QA_ANCHOR=2026-07-26T00:00:00Z \
+  NESTWORTH_QA_SCENARIO=$s \
+  go run ./cmd/analytics-qa-seed
+done
+```
 
 ## Probe helpers
 
@@ -126,5 +151,9 @@ Round-4 timezone/DST is **not** this seed. Use `NESTWORTH_PROBE_MODE=timezone-r4
 | `NESTWORTH_PROBE_MODE` | Reads |
 |---|---|
 | `cash-include`, `co03`, `residual`, `fixtures`, `quantitative`, `reconcile` | v3 / engine fixtures |
-| `loan-fc07` | loan DB from this scenario |
+| `loan-fc07` | loan DB: FC-07 oracles + Base/Native + household/account scope + Include/Exclude on the draw day + settings week/currency |
 | `timezone-r4` | self-contained TZ/DST DBs + in-memory oracles (no FX fills) |
+| `r4-matrix` | timezone-r4 + settings.Validate matrix + loan extras (`NESTWORTH_QA_LOAN_DB`) + complete extras (`NESTWORTH_QA_COMPLETE_DB`); SKIP missing DBs; BLOCKED desktop/macOS/locale-visual rows |
+
+SKIP and BLOCKED do not fail `allPass`. FAIL does.
+
