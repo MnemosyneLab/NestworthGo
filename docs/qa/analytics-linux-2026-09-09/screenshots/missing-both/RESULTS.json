@@ -1,0 +1,33 @@
+{
+  "fixture": "missing-both",
+  "incomplete_days": 22,
+  "gap_day": "2026-08-17",
+  "overall": "PARTIAL",
+  "checks": {
+    "01_insights_partial": {
+      "status": "PARTIAL",
+      "screenshot": "screenshots/missing-both/01-insights-partial.png",
+      "summary": "Return Analysis opens and August shows Partial coverage 13/31 with Issues (18). Selecting All in Return Trend also produced a generic Insights could not be loaded error, so this is partial rather than a clean pass."
+    },
+    "02_gap_day_aug17": {
+      "status": "PASS",
+      "screenshot": "screenshots/missing-both/02-gap-day-aug17.png",
+      "summary": "2026-08-17 opens safely in the drawer with amountStatus-style diamonds, A$0.00, 0/1, and Daily return is incomplete."
+    },
+    "03_drivers_incomplete": {
+      "status": "PASS",
+      "screenshot": "screenshots/missing-both/03-drivers-incomplete.png",
+      "summary": "Change Drivers shows Partial coverage, One or more asset days are incomplete, and the reconciliation warning."
+    },
+    "04_zh_incomplete_warning": {
+      "status": "PASS",
+      "screenshot": "screenshots/missing-both/04-zh-incomplete-warning.png",
+      "summary": "简体中文 localizes the partial-coverage and incomplete-day warnings; no leftover English Missing quote text is visible."
+    },
+    "05_labels": {
+      "status": "PASS",
+      "screenshot": "screenshots/missing-both/05-labels.png",
+      "summary": "Instruments shows friendly Apple Inc label and no UUID."
+    }
+  }
+}
