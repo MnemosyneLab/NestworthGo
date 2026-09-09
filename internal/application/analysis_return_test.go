@@ -596,6 +596,79 @@ func TestAnalysisReturnCases11And22TradeFeeIsInvestmentReturn(t *testing.T) {
 	}
 }
 
+func TestAnalysisReturnMissingFXOnAssociatedCashDoesNotFailPeriod(t *testing.T) {
+	for _, testCase := range []struct {
+		name     string
+		activity func(householdID domain.HouseholdID, accountID domain.AccountID, holdingID domain.HoldingID, instrumentID domain.InstrumentID) domain.Activity
+	}{
+		{
+			name: "trade_fee",
+			activity: func(householdID domain.HouseholdID, accountID domain.AccountID, holdingID domain.HoldingID, instrumentID domain.InstrumentID) domain.Activity {
+				fee := analysisAgentMoney(t, "5", "USD")
+				unitPrice, _ := domain.ParseUnitPrice("180")
+				quantity, _ := domain.ParseQuantity("10")
+				activityID := domain.NewActivityID()
+				return domain.Activity{
+					ID: activityID, HouseholdID: householdID, Kind: domain.ActivityBuy, Reason: domain.ReasonPrincipal,
+					EffectiveAt: time.Date(2026, 7, 31, 13, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-07-31",
+					TradeDetail: &domain.TradeDetail{Side: domain.TradeBuy, InstrumentID: instrumentID, HoldingID: holdingID, Quantity: quantity, Gross: analysisAgentMoney(t, "1800", "USD"), UnitPrice: unitPrice, Fee: &fee},
+					Effects:     []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Role: domain.EffectRoleFee, Direction: domain.EffectRemoved, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationFee, AccountID: &accountID, Money: &fee}},
+				}
+			},
+		},
+		{
+			name: "dividend",
+			activity: func(householdID domain.HouseholdID, accountID domain.AccountID, holdingID domain.HoldingID, instrumentID domain.InstrumentID) domain.Activity {
+				amount := analysisAgentMoney(t, "12.50", "USD")
+				activityID := domain.NewActivityID()
+				return domain.Activity{
+					ID: activityID, HouseholdID: householdID, Kind: domain.ActivityCashDividend, Reason: domain.ReasonIncome,
+					EffectiveAt: time.Date(2026, 7, 31, 12, 0, 0, 0, time.UTC), EffectiveLocalDate: "2026-07-31",
+					DividendDetail: &domain.DividendDetail{HoldingID: holdingID, InstrumentID: instrumentID, Amount: amount},
+					Effects:        []domain.ActivityEffect{{ID: domain.NewActivityEffectID(), ActivityID: activityID, Sequence: 1, Role: domain.EffectRoleAmount, Direction: domain.EffectAdded, Target: domain.EffectTargetAccountCash, Classification: domain.ClassificationIncome, AccountID: &accountID, Money: &amount}},
+				}
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			householdID := domain.NewHouseholdID()
+			account := analysisAgentAccount("USD", domain.TrackingHoldings, domain.RoleAsset)
+			account.HouseholdID = householdID
+			instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
+			instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "AAPL", Type: domain.InstrumentStock, QuoteCurrency: "USD"}
+			holding := domain.Holding{ID: holdingID, AccountID: account.ID, InstrumentID: instrumentID}
+			incomplete := domain.DailyValuationSnapshotItem{ID: domain.NewDailyValuationSnapshotItemID(), AccountID: account.ID, HoldingID: &holdingID, InstrumentID: &instrumentID, NativeAmount: "1800", NativeCurrency: "USD", Complete: false}
+			previous := analysisSnapshot("2026-07-30", incomplete)
+			current := analysisSnapshot("2026-07-31", incomplete)
+			previous.Complete = false
+			current.Complete = false
+			input := AnalysisInputs{
+				Origin: analysisOrigin(t, householdID, "UTC"),
+				Portfolio: domain.PortfolioSnapshot{
+					Household:   &domain.Household{ID: householdID, BaseCurrency: "AUD"},
+					Accounts:    []domain.AccountRecord{{Account: account}},
+					Instruments: []domain.Instrument{instrument},
+					Holdings:    []domain.Holding{holding},
+				},
+				Snapshots:  []domain.DailyValuationSnapshot{previous, current},
+				Activities: []domain.Activity{testCase.activity(householdID, account.ID, holdingID, instrumentID)},
+			}
+			query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-07-31", To: "2026-07-31", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: true}
+			result, err := ComputeAnalysis(input, query)
+			if err != nil {
+				t.Fatalf("missing FX on associated %s must not fail the period: %v", testCase.name, err)
+			}
+			trend, err := projectReturnTrend(result, "", ReturnTrendCumulativeAmount)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if trend.Status != domain.CompletenessUnavailable && trend.Status != domain.CompletenessPartial {
+				t.Fatalf("trend status = %s, want unavailable or partial", trend.Status)
+			}
+		})
+	}
+}
+
 func TestAnalysisReturnCase12DividendNetCashAndAssociatedTax(t *testing.T) {
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "USD"}

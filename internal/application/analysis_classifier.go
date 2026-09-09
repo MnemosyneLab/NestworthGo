@@ -183,8 +183,21 @@ func (u analysisUniverse) effectAmountForComponent(activity domain.Activity, eff
 	if effect.Money == nil {
 		return u.effectAmount(activity, effect, component, domain.DailyValuationSnapshot{}, nil, nil, input, query)
 	}
-	value, err := u.convertAmount(effect.Money.Amount(), effect.Money.Currency(), activity.EffectiveAt, input, query, component.Currency)
-	return value, err == nil, err
+	return u.convertValuationAmount(effect.Money.Amount(), effect.Money.Currency(), activity.EffectiveAt, input, query, component.Currency)
+}
+
+// convertValuationAmount converts a known cash amount into the selected
+// valuation currency. A missing FX rate on a base-valuation foreign amount is
+// treated as unknown so a partial period can still load.
+func (u analysisUniverse) convertValuationAmount(value decimal.Decimal, currency domain.CurrencyCode, at time.Time, input AnalysisInputs, query domain.AnalysisQuery, targetCurrency domain.CurrencyCode) (decimal.Decimal, bool, error) {
+	converted, err := u.convertAmount(value, currency, at, input, query, targetCurrency)
+	if err == nil {
+		return converted, true, nil
+	}
+	if query.Valuation == domain.ValuationBase && input.Portfolio.Household != nil && currency != input.Portfolio.Household.BaseCurrency {
+		return decimal.Zero, false, nil
+	}
+	return decimal.Zero, false, err
 }
 
 func (u analysisUniverse) dietzCapitalAmount(activity domain.Activity, effect domain.ActivityEffect, amount decimal.Decimal, known bool, component domain.ComponentID, endpoints []domain.ComponentID) (decimal.Decimal, bool) {
@@ -344,11 +357,7 @@ func signedDirection(direction domain.EffectDirection, amount decimal.Decimal) d
 
 func (u analysisUniverse) effectAmount(activity domain.Activity, effect domain.ActivityEffect, component domain.ComponentID, daySnapshot domain.DailyValuationSnapshot, endItems, startItems map[string]domain.DailyValuationSnapshotItem, input AnalysisInputs, query domain.AnalysisQuery) (decimal.Decimal, bool, error) {
 	if effect.Money != nil {
-		value, err := u.convertAmount(effect.Money.Amount(), effect.Money.Currency(), activity.EffectiveAt, input, query, component.Currency)
-		if err != nil && query.Valuation == domain.ValuationBase && effect.Money.Currency() != input.Portfolio.Household.BaseCurrency {
-			return decimal.Zero, false, nil
-		}
-		return value, err == nil, err
+		return u.convertValuationAmount(effect.Money.Amount(), effect.Money.Currency(), activity.EffectiveAt, input, query, component.Currency)
 	}
 	if effect.Quantity == nil {
 		return decimal.Zero, false, nil
@@ -357,19 +366,14 @@ func (u analysisUniverse) effectAmount(activity domain.Activity, effect domain.A
 		return decimal.Zero, false, nil
 	}
 	if activity.TradeDetail != nil && activity.TradeDetail.HoldingID == *effect.HoldingID {
-		value, err := u.convertAmount(activity.TradeDetail.Gross.Amount(), activity.TradeDetail.Gross.Currency(), activity.EffectiveAt, input, query, component.Currency)
-		if err != nil && query.Valuation == domain.ValuationBase && activity.TradeDetail.Gross.Currency() != input.Portfolio.Household.BaseCurrency {
-			return decimal.Zero, false, nil
-		}
-		return value, err == nil, err
+		return u.convertValuationAmount(activity.TradeDetail.Gross.Amount(), activity.TradeDetail.Gross.Currency(), activity.EffectiveAt, input, query, component.Currency)
 	}
 	if effect.CostUnitPrice != nil {
 		value, err := domain.MultiplyQuantityAndUnitPrice(*effect.Quantity, *effect.CostUnitPrice)
 		if err != nil {
 			return decimal.Zero, false, err
 		}
-		value, err = u.convertAmount(value, component.Currency, activity.EffectiveAt, input, query, component.Currency)
-		return value, err == nil, err
+		return u.convertValuationAmount(value, component.Currency, activity.EffectiveAt, input, query, component.Currency)
 	}
 	if activity.Kind == domain.ActivityPositionTransfer {
 		items := endItems
