@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -58,6 +59,7 @@ func runR4MatrixProbe() error {
 	}
 	cases = append(cases, r4LoanMatrixCases()...)
 	cases = append(cases, r4CompleteMatrixCases()...)
+	cases = append(cases, r4OnboardedBaseCurrencyCases()...)
 	cases = append(cases, r4DesktopPlaceholderCases()...)
 	return writeMatrixProbe(outPath, out, cases)
 }
@@ -265,6 +267,61 @@ func r4CompleteMatrixCases() []matrixCase {
 		Detail:   cmp.Detail,
 	})
 	return cases
+}
+
+func r4OnboardedBaseCurrencyCases() []matrixCase {
+	return []matrixCase{
+		r4OnboardedBaseDB("env_base_usd", "USD",
+			envOr("NESTWORTH_QA_COMPLETE_USD_DB", ""),
+			"/tmp/nestworth-qa-v3-complete-usd/data/nestworth.db",
+		),
+		r4OnboardedBaseDB("env_base_cny", "CNY",
+			envOr("NESTWORTH_QA_COMPLETE_CNY_DB", ""),
+			"/tmp/nestworth-qa-v3-complete-cny/data/nestworth.db",
+		),
+	}
+}
+
+func r4OnboardedBaseDB(id, wantBase string, paths ...string) matrixCase {
+	name := "§5 onboarded household base " + wantBase
+	dbPath := firstExisting(paths...)
+	if dbPath == "" {
+		return matrixCase{
+			ID: id, Name: name, Owner: "probe", Status: "SKIP",
+			Expected: map[string]any{"base_currency": wantBase, "onboarded": true},
+			Detail:   "seed complete-" + strings.ToLower(wantBase) + " (or NESTWORTH_QA_BASE_CURRENCY=" + wantBase + " on complete) to a nestworth.db",
+		}
+	}
+	database, _, _, err := openProbeDB(dbPath)
+	if err != nil {
+		return matrixCase{ID: id, Name: name, Owner: "probe", Status: "FAIL", Detail: err.Error()}
+	}
+	defer database.Close()
+	var gotBase string
+	if err := database.SQL.QueryRow(`SELECT base_currency FROM households WHERE singleton_key = 1`).Scan(&gotBase); err != nil {
+		return matrixCase{ID: id, Name: name, Owner: "probe", Status: "FAIL", Detail: err.Error()}
+	}
+	var snaps, fx, accounts int
+	_ = database.SQL.QueryRow(`SELECT COUNT(*) FROM daily_valuation_snapshots`).Scan(&snaps)
+	_ = database.SQL.QueryRow(`SELECT COUNT(*) FROM fx_quotes`).Scan(&fx)
+	_ = database.SQL.QueryRow(`SELECT COUNT(*) FROM accounts`).Scan(&accounts)
+	svc := application.NewService(sqlite.NewRepository(database))
+	ctx := context.Background()
+	_, analyzeErr := svc.Analyze(ctx, domain.AnalysisQuery{
+		Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold},
+		From:  "2026-08-01", To: "2026-08-01", Valuation: domain.ValuationBase,
+		IncludeCash: true, Basis: domain.ReturnBasisInvestment,
+	})
+	got := map[string]any{
+		"dbPath": dbPath, "base_currency": gotBase, "snapshots": snaps, "fx_quotes": fx, "accounts": accounts,
+		"analyzeErr": errString(analyzeErr),
+	}
+	expected := map[string]any{"base_currency": wantBase, "snapshots": ">0", "accounts": ">0", "analyze": "ok"}
+	if gotBase != wantBase || snaps <= 0 || accounts <= 0 || analyzeErr != nil {
+		detail := fmt.Sprintf("base=%s want=%s snaps=%d accounts=%d analyze=%v", gotBase, wantBase, snaps, accounts, analyzeErr)
+		return matrixCase{ID: id, Name: name, Owner: "probe", Status: "FAIL", Expected: expected, Got: got, Detail: detail}
+	}
+	return matrixCase{ID: id, Name: name, Owner: "probe", Status: "PASS", Expected: expected, Got: got, Detail: dbPath}
 }
 
 func firstExisting(paths ...string) string {
