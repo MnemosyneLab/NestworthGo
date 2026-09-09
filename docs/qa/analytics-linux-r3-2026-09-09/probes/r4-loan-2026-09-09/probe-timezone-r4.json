@@ -1,0 +1,323 @@
+{
+  "when": "2026-09-09T14:42:00Z",
+  "mode": "NESTWORTH_PROBE_MODE=timezone-r4",
+  "dbRoot": "/workspace/nestworth-analytics-qa-r4/timezone-r4",
+  "results": [
+    {
+      "id": "dst_gap_ny",
+      "name": "ResolveLocalDateTime rejects 2026-03-08 02:30 America/New_York (spring gap)",
+      "status": "PASS",
+      "expected": {
+        "code": "invalid_change_time"
+      },
+      "got": {
+        "error": "time: local time does not exist in the selected timezone",
+        "local": "2026-03-08 02:30",
+        "timezone": "America/New_York"
+      }
+    },
+    {
+      "id": "dst_gap_la",
+      "name": "ResolveLocalDateTime rejects 2026-03-08 02:30 America/Los_Angeles (spring gap)",
+      "status": "PASS",
+      "expected": {
+        "code": "invalid_change_time"
+      },
+      "got": {
+        "error": "time: local time does not exist in the selected timezone",
+        "local": "2026-03-08 02:30",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "dst_ambiguity_ny",
+      "name": "ResolveLocalDateTime rejects 2026-11-01 01:30 America/New_York (fall ambiguity)",
+      "status": "PASS",
+      "expected": {
+        "code": "invalid_change_time"
+      },
+      "got": {
+        "error": "time: local time is ambiguous in the selected timezone",
+        "local": "2026-11-01 01:30",
+        "timezone": "America/New_York"
+      }
+    },
+    {
+      "id": "dst_ambiguity_la",
+      "name": "ResolveLocalDateTime rejects 2026-11-01 01:30 America/Los_Angeles (fall ambiguity)",
+      "status": "PASS",
+      "expected": {
+        "code": "invalid_change_time"
+      },
+      "got": {
+        "error": "time: local time is ambiguous in the selected timezone",
+        "local": "2026-11-01 01:30",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "local_la_spring_boundary",
+      "name": "activityLocalDate 2026-03-09T06:30:00Z in America/Los_Angeles",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles"
+      },
+      "got": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "local_la_fall_boundary",
+      "name": "activityLocalDate 2026-11-02T07:30:00Z in America/Los_Angeles",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-11-01",
+        "timezone": "America/Los_Angeles"
+      },
+      "got": {
+        "localDate": "2026-11-01",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "local_la_spring_afternoon",
+      "name": "activityLocalDate 2026-03-08T16:30:00Z in America/Los_Angeles",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles"
+      },
+      "got": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "local_sgt_spring_boundary",
+      "name": "activityLocalDate 2026-03-09T06:30:00Z in Asia/Singapore",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore"
+      },
+      "got": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore"
+      }
+    },
+    {
+      "id": "local_sgt_fall_boundary",
+      "name": "activityLocalDate 2026-11-02T07:30:00Z in Asia/Singapore",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-11-02",
+        "timezone": "Asia/Singapore"
+      },
+      "got": {
+        "localDate": "2026-11-02",
+        "timezone": "Asia/Singapore"
+      }
+    },
+    {
+      "id": "local_sgt_spring_afternoon",
+      "name": "activityLocalDate 2026-03-08T16:30:00Z in Asia/Singapore",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore"
+      },
+      "got": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore"
+      }
+    },
+    {
+      "id": "local_utc_spring_boundary",
+      "name": "activityLocalDate 2026-03-09T06:30:00Z in UTC",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "UTC"
+      },
+      "got": {
+        "localDate": "2026-03-09",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "local_utc_fall_boundary",
+      "name": "activityLocalDate 2026-11-02T07:30:00Z in UTC",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-11-02",
+        "timezone": "UTC"
+      },
+      "got": {
+        "localDate": "2026-11-02",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "local_utc_spring_afternoon",
+      "name": "activityLocalDate 2026-03-08T16:30:00Z in UTC",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-08",
+        "timezone": "UTC"
+      },
+      "got": {
+        "localDate": "2026-03-08",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "la_day_length_spring",
+      "name": "America/Los_Angeles 2026-03-08 local day length",
+      "status": "PASS",
+      "expected": {
+        "hours": 23
+      },
+      "got": {
+        "end": "2026-03-09T07:00:00Z",
+        "hours": 23,
+        "start": "2026-03-08T08:00:00Z"
+      }
+    },
+    {
+      "id": "la_day_length_fall",
+      "name": "America/Los_Angeles 2026-11-01 local day length",
+      "status": "PASS",
+      "expected": {
+        "hours": 25
+      },
+      "got": {
+        "end": "2026-11-02T08:00:00Z",
+        "hours": 25,
+        "start": "2026-11-01T07:00:00Z"
+      }
+    },
+    {
+      "id": "la_origin_bounds_spring_fall",
+      "name": "ResolveLocalDateTime LA 00:00 bounds 23h / 25h",
+      "status": "PASS",
+      "expected": {
+        "fallHours": 25,
+        "springHours": 23
+      },
+      "got": {
+        "fallHours": 25,
+        "springHours": 23
+      }
+    },
+    {
+      "id": "analysis_la_spring_assigns_day",
+      "name": "ComputeAnalysis assigns 2026-03-09T06:30Z to LA 2026-03-08",
+      "status": "PASS",
+      "expected": {
+        "assignedDate": "2026-03-08",
+        "externalFlow": "100",
+        "otherDateFlow": "0"
+      },
+      "got": {
+        "activityLocalDate": "2026-03-08",
+        "assignedDate": "2026-03-08",
+        "externalFlow": "100",
+        "otherDateFlow": "0"
+      }
+    },
+    {
+      "id": "analysis_la_fall_assigns_day",
+      "name": "ComputeAnalysis assigns 2026-11-02T07:30Z to LA 2026-11-01",
+      "status": "PASS",
+      "expected": {
+        "assignedDate": "2026-11-01",
+        "externalFlow": "100",
+        "otherDateFlow": "0"
+      },
+      "got": {
+        "activityLocalDate": "2026-11-01",
+        "assignedDate": "2026-11-01",
+        "externalFlow": "100",
+        "otherDateFlow": "0"
+      }
+    },
+    {
+      "id": "analysis_la_spring_dietz_noon_weight",
+      "name": "LA spring-forward noon Dietz weight uses 23h day",
+      "status": "PASS",
+      "expected": {
+        "dietzFlow": "52.1739",
+        "hours": 23
+      },
+      "got": {
+        "dietzFlow": "52.1739",
+        "hours": 23
+      }
+    },
+    {
+      "id": "analysis_la_fall_dietz_noon_weight",
+      "name": "LA fall-back noon Dietz weight uses 25h day",
+      "status": "PASS",
+      "expected": {
+        "dietzFlow": "48",
+        "hours": 25
+      },
+      "got": {
+        "dietzFlow": "48",
+        "hours": 25
+      }
+    },
+    {
+      "id": "db_origin_asia-singapore",
+      "name": "HistoryOrigin timezone Asia/Singapore spring UTC instant",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore",
+        "utc": "2026-03-09T06:30:00Z"
+      },
+      "got": {
+        "assignedLocalDate": "2026-03-09",
+        "dbPath": "/workspace/nestworth-analytics-qa-r4/timezone-r4/asia-singapore/data/nestworth.db",
+        "timezone": "Asia/Singapore"
+      },
+      "detail": "origin=Asia/Singapore persisted_local=2026-03-09 analysis=2026-03-09 db=/workspace/nestworth-analytics-qa-r4/timezone-r4/asia-singapore/data/nestworth.db"
+    },
+    {
+      "id": "db_origin_utc",
+      "name": "HistoryOrigin timezone UTC spring UTC instant",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "UTC",
+        "utc": "2026-03-09T06:30:00Z"
+      },
+      "got": {
+        "assignedLocalDate": "2026-03-09",
+        "dbPath": "/workspace/nestworth-analytics-qa-r4/timezone-r4/utc/data/nestworth.db",
+        "timezone": "UTC"
+      },
+      "detail": "origin=UTC persisted_local=2026-03-09 analysis=2026-03-09 db=/workspace/nestworth-analytics-qa-r4/timezone-r4/utc/data/nestworth.db"
+    },
+    {
+      "id": "db_origin_america-los_angeles",
+      "name": "HistoryOrigin timezone America/Los_Angeles spring UTC instant",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles",
+        "utc": "2026-03-09T06:30:00Z"
+      },
+      "got": {
+        "assignedLocalDate": "2026-03-08",
+        "dbPath": "/workspace/nestworth-analytics-qa-r4/timezone-r4/america-los_angeles/data/nestworth.db",
+        "timezone": "America/Los_Angeles"
+      },
+      "detail": "origin=America/Los_Angeles persisted_local=2026-03-08 analysis=2026-03-08 db=/workspace/nestworth-analytics-qa-r4/timezone-r4/america-los_angeles/data/nestworth.db"
+    }
+  ],
+  "allPass": true,
+  "summary": "23 PASS / 0 FAIL"
+}

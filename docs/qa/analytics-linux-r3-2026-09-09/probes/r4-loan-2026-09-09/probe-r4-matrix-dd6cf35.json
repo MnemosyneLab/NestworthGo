@@ -1,0 +1,796 @@
+{
+  "when": "2026-09-09T14:55:08Z",
+  "mode": "NESTWORTH_PROBE_MODE=r4-matrix",
+  "host": "linux/amd64",
+  "results": [
+    {
+      "id": "m_os_linux",
+      "name": "Linux host can run seed/probe matrix",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "goos": "linux"
+      },
+      "got": {
+        "goarch": "amd64",
+        "goos": "linux"
+      },
+      "detail": "this Cloud VM is Linux; macOS Apple Silicon is a separate desktop host"
+    },
+    {
+      "id": "m_os_macos_apple_silicon",
+      "name": "macOS Apple Silicon §5 OS row",
+      "owner": "desktop",
+      "status": "BLOCKED",
+      "expected": {
+        "goarch": "arm64",
+        "goos": "darwin"
+      },
+      "got": {
+        "goarch": "amd64",
+        "goos": "linux"
+      },
+      "detail": "BLOCKED host: this runner is not macOS Apple Silicon"
+    },
+    {
+      "id": "m_week_monday",
+      "name": "settings.Validate week_start=monday",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "week_start": "monday"
+      },
+      "got": {
+        "week_start": "monday"
+      }
+    },
+    {
+      "id": "m_week_sunday",
+      "name": "settings.Validate week_start=sunday",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "week_start": "sunday"
+      },
+      "got": {
+        "week_start": "sunday"
+      }
+    },
+    {
+      "id": "m_locale_validate_en",
+      "name": "settings.Validate language=en",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "language": "en"
+      },
+      "got": {
+        "language": "en"
+      }
+    },
+    {
+      "id": "m_locale_validate_zh-CN",
+      "name": "settings.Validate language=zh-CN",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "language": "zh-CN"
+      },
+      "got": {
+        "language": "zh-CN"
+      }
+    },
+    {
+      "id": "m_locale_validate_zh-TW",
+      "name": "settings.Validate language=zh-TW",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "language": "zh-TW"
+      },
+      "got": {
+        "language": "zh-TW"
+      }
+    },
+    {
+      "id": "m_window_1280",
+      "name": "settings.Validate window_width=1280",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "window_width": 1280
+      },
+      "got": {
+        "window_width": 1280
+      }
+    },
+    {
+      "id": "m_window_1440",
+      "name": "settings.Validate window_width=1440",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "window_width": 1440
+      },
+      "got": {
+        "window_width": 1440
+      }
+    },
+    {
+      "id": "m_window_narrow",
+      "name": "settings.Validate window_width=800",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "window_width": 800
+      },
+      "got": {
+        "window_width": 800
+      }
+    },
+    {
+      "id": "dst_gap_ny",
+      "name": "ResolveLocalDateTime rejects 2026-03-08 02:30 America/New_York (spring gap)",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "code": "invalid_change_time"
+      },
+      "got": {
+        "error": "time: local time does not exist in the selected timezone",
+        "local": "2026-03-08 02:30",
+        "timezone": "America/New_York"
+      }
+    },
+    {
+      "id": "dst_gap_la",
+      "name": "ResolveLocalDateTime rejects 2026-03-08 02:30 America/Los_Angeles (spring gap)",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "code": "invalid_change_time"
+      },
+      "got": {
+        "error": "time: local time does not exist in the selected timezone",
+        "local": "2026-03-08 02:30",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "dst_ambiguity_ny",
+      "name": "ResolveLocalDateTime rejects 2026-11-01 01:30 America/New_York (fall ambiguity)",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "code": "invalid_change_time"
+      },
+      "got": {
+        "error": "time: local time is ambiguous in the selected timezone",
+        "local": "2026-11-01 01:30",
+        "timezone": "America/New_York"
+      }
+    },
+    {
+      "id": "dst_ambiguity_la",
+      "name": "ResolveLocalDateTime rejects 2026-11-01 01:30 America/Los_Angeles (fall ambiguity)",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "code": "invalid_change_time"
+      },
+      "got": {
+        "error": "time: local time is ambiguous in the selected timezone",
+        "local": "2026-11-01 01:30",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "local_la_spring_boundary",
+      "name": "activityLocalDate 2026-03-09T06:30:00Z in America/Los_Angeles",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles"
+      },
+      "got": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "local_la_fall_boundary",
+      "name": "activityLocalDate 2026-11-02T07:30:00Z in America/Los_Angeles",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-11-01",
+        "timezone": "America/Los_Angeles"
+      },
+      "got": {
+        "localDate": "2026-11-01",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "local_la_spring_afternoon",
+      "name": "activityLocalDate 2026-03-08T16:30:00Z in America/Los_Angeles",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles"
+      },
+      "got": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles"
+      }
+    },
+    {
+      "id": "local_sgt_spring_boundary",
+      "name": "activityLocalDate 2026-03-09T06:30:00Z in Asia/Singapore",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore"
+      },
+      "got": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore"
+      }
+    },
+    {
+      "id": "local_sgt_fall_boundary",
+      "name": "activityLocalDate 2026-11-02T07:30:00Z in Asia/Singapore",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-11-02",
+        "timezone": "Asia/Singapore"
+      },
+      "got": {
+        "localDate": "2026-11-02",
+        "timezone": "Asia/Singapore"
+      }
+    },
+    {
+      "id": "local_sgt_spring_afternoon",
+      "name": "activityLocalDate 2026-03-08T16:30:00Z in Asia/Singapore",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore"
+      },
+      "got": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore"
+      }
+    },
+    {
+      "id": "local_utc_spring_boundary",
+      "name": "activityLocalDate 2026-03-09T06:30:00Z in UTC",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "UTC"
+      },
+      "got": {
+        "localDate": "2026-03-09",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "local_utc_fall_boundary",
+      "name": "activityLocalDate 2026-11-02T07:30:00Z in UTC",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-11-02",
+        "timezone": "UTC"
+      },
+      "got": {
+        "localDate": "2026-11-02",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "local_utc_spring_afternoon",
+      "name": "activityLocalDate 2026-03-08T16:30:00Z in UTC",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-08",
+        "timezone": "UTC"
+      },
+      "got": {
+        "localDate": "2026-03-08",
+        "timezone": "UTC"
+      }
+    },
+    {
+      "id": "la_day_length_spring",
+      "name": "America/Los_Angeles 2026-03-08 local day length",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "hours": 23
+      },
+      "got": {
+        "end": "2026-03-09T07:00:00Z",
+        "hours": 23,
+        "start": "2026-03-08T08:00:00Z"
+      }
+    },
+    {
+      "id": "la_day_length_fall",
+      "name": "America/Los_Angeles 2026-11-01 local day length",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "hours": 25
+      },
+      "got": {
+        "end": "2026-11-02T08:00:00Z",
+        "hours": 25,
+        "start": "2026-11-01T07:00:00Z"
+      }
+    },
+    {
+      "id": "la_origin_bounds_spring_fall",
+      "name": "ResolveLocalDateTime LA 00:00 bounds 23h / 25h",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "fallHours": 25,
+        "springHours": 23
+      },
+      "got": {
+        "fallHours": 25,
+        "springHours": 23
+      }
+    },
+    {
+      "id": "analysis_la_spring_assigns_day",
+      "name": "ComputeAnalysis assigns 2026-03-09T06:30Z to LA 2026-03-08",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "assignedDate": "2026-03-08",
+        "externalFlow": "100",
+        "otherDateFlow": "0"
+      },
+      "got": {
+        "activityLocalDate": "2026-03-08",
+        "assignedDate": "2026-03-08",
+        "externalFlow": "100",
+        "otherDateFlow": "0"
+      }
+    },
+    {
+      "id": "analysis_la_fall_assigns_day",
+      "name": "ComputeAnalysis assigns 2026-11-02T07:30Z to LA 2026-11-01",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "assignedDate": "2026-11-01",
+        "externalFlow": "100",
+        "otherDateFlow": "0"
+      },
+      "got": {
+        "activityLocalDate": "2026-11-01",
+        "assignedDate": "2026-11-01",
+        "externalFlow": "100",
+        "otherDateFlow": "0"
+      }
+    },
+    {
+      "id": "analysis_la_spring_dietz_noon_weight",
+      "name": "LA spring-forward noon Dietz weight uses 23h day",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "dietzFlow": "52.1739",
+        "hours": 23
+      },
+      "got": {
+        "dietzFlow": "52.1739",
+        "hours": 23
+      }
+    },
+    {
+      "id": "analysis_la_fall_dietz_noon_weight",
+      "name": "LA fall-back noon Dietz weight uses 25h day",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "dietzFlow": "48",
+        "hours": 25
+      },
+      "got": {
+        "dietzFlow": "48",
+        "hours": 25
+      }
+    },
+    {
+      "id": "db_origin_asia-singapore",
+      "name": "HistoryOrigin timezone Asia/Singapore spring UTC instant",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "Asia/Singapore",
+        "utc": "2026-03-09T06:30:00Z"
+      },
+      "got": {
+        "assignedLocalDate": "2026-03-09",
+        "dbPath": "/workspace/nestworth-analytics-qa-r4/timezone-r4/asia-singapore/data/nestworth.db",
+        "timezone": "Asia/Singapore"
+      },
+      "detail": "origin=Asia/Singapore persisted_local=2026-03-09 analysis=2026-03-09 db=/workspace/nestworth-analytics-qa-r4/timezone-r4/asia-singapore/data/nestworth.db"
+    },
+    {
+      "id": "db_origin_utc",
+      "name": "HistoryOrigin timezone UTC spring UTC instant",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-09",
+        "timezone": "UTC",
+        "utc": "2026-03-09T06:30:00Z"
+      },
+      "got": {
+        "assignedLocalDate": "2026-03-09",
+        "dbPath": "/workspace/nestworth-analytics-qa-r4/timezone-r4/utc/data/nestworth.db",
+        "timezone": "UTC"
+      },
+      "detail": "origin=UTC persisted_local=2026-03-09 analysis=2026-03-09 db=/workspace/nestworth-analytics-qa-r4/timezone-r4/utc/data/nestworth.db"
+    },
+    {
+      "id": "db_origin_america-los_angeles",
+      "name": "HistoryOrigin timezone America/Los_Angeles spring UTC instant",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "localDate": "2026-03-08",
+        "timezone": "America/Los_Angeles",
+        "utc": "2026-03-09T06:30:00Z"
+      },
+      "got": {
+        "assignedLocalDate": "2026-03-08",
+        "dbPath": "/workspace/nestworth-analytics-qa-r4/timezone-r4/america-los_angeles/data/nestworth.db",
+        "timezone": "America/Los_Angeles"
+      },
+      "detail": "origin=America/Los_Angeles persisted_local=2026-03-08 analysis=2026-03-08 db=/workspace/nestworth-analytics-qa-r4/timezone-r4/america-los_angeles/data/nestworth.db"
+    },
+    {
+      "id": "m_loan_db",
+      "name": "open loan-fc07 DB",
+      "owner": "probe",
+      "status": "PASS",
+      "got": {
+        "currency": "AUD",
+        "dbPath": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/nestworth.db",
+        "timezone": "Asia/Singapore",
+        "week_start": "monday"
+      },
+      "detail": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/nestworth.db"
+    },
+    {
+      "id": "fc07_draw_nw0",
+      "name": "draw net-worth neutrality",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "dividendInterest": "0",
+        "nwDelta": "0",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "0"
+      },
+      "got": {
+        "begin": "20000",
+        "dividendInterest": "0",
+        "end": "20000",
+        "nwDelta": "0",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "0"
+      },
+      "detail": "date=2026-07-27 nw_delta=0 spending=0 return=0"
+    },
+    {
+      "id": "fc07_repay_nw0",
+      "name": "repay principal net-worth neutrality",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "dividendInterest": "0",
+        "nwDelta": "0",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "0"
+      },
+      "got": {
+        "begin": "20000",
+        "dividendInterest": "0",
+        "end": "20000",
+        "nwDelta": "0",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "0"
+      },
+      "detail": "date=2026-07-29 nw_delta=0 spending=0 return=0"
+    },
+    {
+      "id": "fc07_interest_spending",
+      "name": "cash interest is Spending, not return",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "dividendInterest": "0",
+        "nwDelta": "-500",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "-500"
+      },
+      "got": {
+        "categoriesSpending": "-500",
+        "dividendInterest": "0",
+        "nwDelta": "-500",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "-500"
+      },
+      "detail": "date=2026-07-31 nw_delta=-500 spending=-500 categories=-500 return=0"
+    },
+    {
+      "id": "r4_valuation_base_native",
+      "name": "Valuation Base vs Native (single-currency loan)",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "baseOK": true,
+        "nativeForced": false,
+        "nativeOK": true,
+        "singleCurrency": true
+      },
+      "got": {
+        "analyzeNativeErr": "",
+        "baseCurrency": "AUD",
+        "baseErr": "",
+        "nativeCurrency": "AUD",
+        "nativeErr": "",
+        "nativeForced": ""
+      },
+      "detail": "Native not forced; Analyze Native succeeded"
+    },
+    {
+      "id": "r4_scope_portfolio_account",
+      "name": "Scope Portfolio (household) / Account",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "accountCash": true,
+        "accountLoan": true,
+        "instrument": "SKIP loan fixture has no instruments",
+        "portfolio": "household"
+      },
+      "got": {
+        "cashDays": 1,
+        "cashErr": "",
+        "loanDays": 1,
+        "loanErr": "",
+        "portfolioDays": 2,
+        "portfolioErr": ""
+      },
+      "detail": "household/account cash=01a0869e-35ef-739e-9a7d-ba58fe031aaf loan=01a0869e-35f0-7244-a749-d7ac89a57fa9"
+    },
+    {
+      "id": "r4_cash_include_exclude_draw",
+      "name": "Cash Include vs Exclude on draw day",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "day": "draw capital-flow",
+        "excludeDiffers": true,
+        "includeCashDietz": "\u003e0"
+      },
+      "got": {
+        "excludeCashDietz": 0,
+        "excludeInvestedCapital": "",
+        "includeCashDietz": 1,
+        "includeInvestedCapital": "86666.6667"
+      },
+      "detail": "draw=2026-07-27 includeFlows=1 excludeFlows=0 cap include=\"86666.6667\" exclude=\"\""
+    },
+    {
+      "id": "r4_settings_week_currency",
+      "name": "settings.json week_start and currency",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "currency": "AUD",
+        "week_start": "monday"
+      },
+      "got": {
+        "currency": "AUD",
+        "language": "en",
+        "path": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/settings.json",
+        "week_start": "monday",
+        "window_width": 1280
+      },
+      "detail": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/settings.json"
+    },
+    {
+      "id": "m_scope_instrument_loan",
+      "name": "Instrument scope on loan fixture",
+      "owner": "probe",
+      "status": "SKIP",
+      "detail": "loan-fc07 household has cash+loan only; instrument smoke uses complete v3 DB"
+    },
+    {
+      "id": "m_complete_db",
+      "name": "open v3 complete DB",
+      "owner": "probe",
+      "status": "PASS",
+      "got": {
+        "dbPath": "/workspace/nestworth-analytics-qa-r3/data/nestworth-complete.db"
+      }
+    },
+    {
+      "id": "m_valuation_native_mixed",
+      "name": "Native vs Base mixed-currency complete (C6)",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "mixedCurrencies": true,
+        "nativeValuationForced": true
+      },
+      "got": {
+        "baseCurrency": "AUD",
+        "nativeCurrency": "AUD",
+        "nativeValuationForced": "base"
+      }
+    },
+    {
+      "id": "m_scope_instrument",
+      "name": "Scope Instrument smoke",
+      "owner": "probe",
+      "status": "PASS",
+      "got": {
+        "days": 31,
+        "err": "",
+        "id": "01a08520-60a0-7346-ab17-6045d4098962",
+        "instrument": "Apple Inc"
+      },
+      "detail": "Apple Inc"
+    },
+    {
+      "id": "m_cash_include_salary",
+      "name": "Cash Include vs Exclude on salary/capital-flow day (complete)",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "salaryDate": "2026-08-05",
+        "salaryDietzCapitalDiffers": true
+      },
+      "got": {
+        "detail": "salaryDay=2026-08-05 investedCapital include=\"56825.49\" exclude=\"2770.821\" cashDietzFlows include=1(3000) exclude=0()",
+        "differs": true,
+        "excludeErr": "",
+        "includeErr": ""
+      },
+      "detail": "salaryDay=2026-08-05 investedCapital include=\"56825.49\" exclude=\"2770.821\" cashDietzFlows include=1(3000) exclude=0()"
+    },
+    {
+      "id": "env_base_usd",
+      "name": "§5 onboarded household base USD",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "accounts": "\u003e0",
+        "analyze": "ok",
+        "base_currency": "USD",
+        "snapshots": "\u003e0"
+      },
+      "got": {
+        "accounts": 3,
+        "analyzeErr": "",
+        "base_currency": "USD",
+        "dbPath": "/workspace/nestworth-analytics-qa-r4/complete-usd/data/nestworth.db",
+        "fx_quotes": 92,
+        "snapshots": 45
+      },
+      "detail": "/workspace/nestworth-analytics-qa-r4/complete-usd/data/nestworth.db"
+    },
+    {
+      "id": "env_base_cny",
+      "name": "§5 onboarded household base CNY",
+      "owner": "probe",
+      "status": "PASS",
+      "expected": {
+        "accounts": "\u003e0",
+        "analyze": "ok",
+        "base_currency": "CNY",
+        "snapshots": "\u003e0"
+      },
+      "got": {
+        "accounts": 3,
+        "analyzeErr": "",
+        "base_currency": "CNY",
+        "dbPath": "/workspace/nestworth-analytics-qa-r4/complete-cny/data/nestworth.db",
+        "fx_quotes": 138,
+        "snapshots": 45
+      },
+      "detail": "/workspace/nestworth-analytics-qa-r4/complete-cny/data/nestworth.db"
+    },
+    {
+      "id": "m_locale_visual_en",
+      "name": "Locale English UI strings",
+      "owner": "desktop",
+      "status": "BLOCKED",
+      "detail": "locale strings are desktop later; settings.Validate covers the enum"
+    },
+    {
+      "id": "m_locale_visual_zh_cn",
+      "name": "Locale 简体中文 UI strings",
+      "owner": "desktop",
+      "status": "BLOCKED",
+      "detail": "locale strings are desktop later"
+    },
+    {
+      "id": "m_locale_visual_zh_tw",
+      "name": "Locale 繁体中文 UI strings",
+      "owner": "desktop",
+      "status": "BLOCKED",
+      "detail": "locale strings are desktop later"
+    },
+    {
+      "id": "m_window_visual_1280",
+      "name": "Desktop window ~1280×800",
+      "owner": "desktop",
+      "status": "BLOCKED",
+      "detail": "visual window QA is desktop; Linux can do it later"
+    },
+    {
+      "id": "m_window_visual_1440",
+      "name": "Desktop window ~1440×900",
+      "owner": "desktop",
+      "status": "BLOCKED",
+      "detail": "visual window QA is desktop; Linux can do it later"
+    },
+    {
+      "id": "m_window_visual_narrow",
+      "name": "Desktop narrow width",
+      "owner": "desktop",
+      "status": "BLOCKED",
+      "detail": "visual window QA is desktop; Linux can do it later"
+    },
+    {
+      "id": "d_fc07_insights",
+      "name": "Desktop Insights FC-07 draw/repay/interest",
+      "owner": "desktop",
+      "status": "BLOCKED",
+      "detail": "not this Linux probe pass"
+    },
+    {
+      "id": "d_tz_history_origin",
+      "name": "Desktop History Origin timezone",
+      "owner": "desktop",
+      "status": "BLOCKED",
+      "detail": "not this Linux probe pass"
+    },
+    {
+      "id": "m_dst_fall_snapshot_rebuild",
+      "name": "Fall-back 2026-11-01 Origin snapshot rebuild",
+      "owner": "probe",
+      "status": "BLOCKED",
+      "detail": "November 2026 is not a closed day on a 2026-09-09 wall clock; fall-back uses activityLocalDate + in-memory ComputeAnalysis"
+    }
+  ],
+  "allPass": true,
+  "summary": "46 PASS / 0 FAIL / 1 SKIP / 10 BLOCKED"
+}

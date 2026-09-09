@@ -1,0 +1,253 @@
+{
+  "fixture_version": "analytics-linux-qa-v3",
+  "scenario": "complete-cny",
+  "anchor": "2026-07-26T00:00:00Z",
+  "commit": "dd6cf35",
+  "dirty": true,
+  "db_path": "/workspace/nestworth-analytics-qa-r4/complete-cny/data/nestworth.db",
+  "output_dir": "/workspace/nestworth-analytics-qa-r4/complete-cny",
+  "ids": {
+    "acct_broker": "01a086aa-1a40-74d8-b3bf-3e341c6a707b",
+    "acct_cash": "01a086aa-1a3f-74f1-8d55-fed0aaa6460f",
+    "acct_sg": "01a086aa-1a40-7e66-80c8-2a5b1c08576c",
+    "base_currency": "CNY",
+    "dividend_day_offset": "33",
+    "dividend_local_date": "2026-08-28",
+    "es3_buy_day_offset": "18",
+    "es3_buy_local_date": "2026-08-13",
+    "fee_day_offset": "34",
+    "fee_local_date": "2026-08-29",
+    "fixture_version": "analytics-linux-qa-v3",
+    "flat_zero_day_offset": "36",
+    "flat_zero_local_date": "2026-08-31",
+    "history_origin": "2026-07-26T00:00:00Z",
+    "history_origin_components": "1",
+    "history_origin_id": "01a086aa-1a4d-77c1-bc8a-f280c88541df",
+    "holding_aapl": "01a086aa-1cd0-7d15-93f2-794c40c6f693",
+    "holding_es3": "01a086aa-1cef-7ca2-bbe8-e4889421a8a4",
+    "holding_qqq": "01a086aa-1cd9-79c2-ba3a-7a88cfd718b9",
+    "household": "01a086aa-1a3c-7f2d-80fa-e1635a4f57e8",
+    "inst_aapl": "01a086aa-1a41-7c02-bdbc-831a55b55810",
+    "inst_es3": "01a086aa-1a43-70f1-ab6f-bbb74cdbc239",
+    "inst_qqq": "01a086aa-1a42-77ea-831a-3735e7ade7de",
+    "interest_day_offset": "7",
+    "interest_local_date": "2026-08-02",
+    "member": "01a086aa-1a3c-7f36-9ff3-aa46f1a35d77",
+    "missing_quote_day_offset": "22",
+    "missing_quote_gap_complete": "1",
+    "missing_quote_gap_snap": "01a086aa-1d26-7d57-9ce7-17e596e6c3d8",
+    "missing_quote_local_date": "2026-08-17",
+    "negative_price_window": "day_25..28 local=2026-08-20..2026-08-23",
+    "qqq_hold_day_offset": "12",
+    "qqq_hold_local_date": "2026-08-07",
+    "qqq_sameday_local_date": "2026-08-03",
+    "qqq_sameday_offset": "8",
+    "sell_day_offset": "32",
+    "sell_local_date": "2026-08-27",
+    "snapshot_rebuild_count": "45",
+    "transfer_back_day_offset": "21",
+    "transfer_back_local_date": "2026-08-16",
+    "transfer_out_day_offset": "3",
+    "transfer_out_local_date": "2026-07-29",
+    "v3_family": "complete",
+    "verify_accounts": "3",
+    "verify_activity_kinds": "buy:5, cash_dividend:1, cash_in:6, cash_out:2, cash_transfer:2, sell:2",
+    "verify_buys": "5",
+    "verify_cash_transfers": "2",
+    "verify_holdings": "3",
+    "verify_incomplete_days": "0",
+    "verify_instruments": "3",
+    "verify_interest": "1",
+    "verify_max_component_count": "7",
+    "verify_missing_quote_snap": "2026-08-17 complete=1 comps=7 missing=0 rev=1",
+    "verify_origin_components": "1",
+    "verify_qqq_sameday_trades": "2",
+    "verify_salary": "1",
+    "verify_sample_assets": "285331.5791",
+    "verify_sells": "2",
+    "verify_snapshot_items": "276",
+    "verify_usable_snapshots": "45"
+  },
+  "results": [
+    {
+      "name": "onboarding",
+      "status": "PASS",
+      "notes": "household=01a086aa-1a3c-7f2d-80fa-e1635a4f57e8 member=01a086aa-1a3c-7f36-9ff3-aa46f1a35d77 base=CNY tz=(empty, no history yet)"
+    },
+    {
+      "name": "household_base_currency",
+      "status": "PASS",
+      "notes": "households.base_currency=CNY"
+    },
+    {
+      "name": "accounts",
+      "status": "PASS",
+      "notes": "cash=01a086aa-1a3f-74f1-8d55-fed0aaa6460f us_broker=01a086aa-1a40-74d8-b3bf-3e341c6a707b sg_broker=01a086aa-1a40-7e66-80c8-2a5b1c08576c"
+    },
+    {
+      "name": "instruments",
+      "status": "PASS",
+      "notes": "aapl=01a086aa-1a41-7c02-bdbc-831a55b55810 qqq=01a086aa-1a42-77ea-831a-3735e7ade7de es3=01a086aa-1a43-70f1-ab6f-bbb74cdbc239 quoteSource=manual"
+    },
+    {
+      "name": "current_quotes",
+      "status": "PASS",
+      "notes": "scenario=complete-cny fx=USD/CNY=7.200000 AUD/CNY=4.800000 SGD/CNY=5.520000 prices=AAPL=180 QQQ=400 ES3=3.20 at 2026-07-26T00:00:00Z"
+    },
+    {
+      "name": "fx_preference_manual",
+      "status": "PASS",
+      "notes": "USD/CNY=manual AUD/CNY=manual SGD/CNY=manual rows=3"
+    },
+    {
+      "name": "start_history",
+      "status": "PASS",
+      "notes": "tz=Asia/Singapore components=1 origin=01a086aa-1a4d-77c1-bc8a-f280c88541df"
+    },
+    {
+      "name": "backdate_origin",
+      "status": "PASS",
+      "notes": "started_at=2026-07-26T00:00:00Z anchor=2026-07-26T00:00:00Z"
+    },
+    {
+      "name": "daily_quotes",
+      "status": "PASS",
+      "notes": "scenario=complete-cny base=CNY fx_pairs=3 usd_fx=45/45 sgd_fx=45/45 aapl=45/45 qqq=45/45 es3=45/45 missing_through_day=22 local=2026-08-17; neg_drop day_25..28; flat day_36=2026-08-31"
+    },
+    {
+      "name": "act_day1_contrib_usd",
+      "status": "PASS",
+      "notes": "US Brokerage +20000 USD contribution"
+    },
+    {
+      "name": "act_day2_contrib_aud",
+      "status": "PASS",
+      "notes": "AUD Cash +5000 AUD contribution"
+    },
+    {
+      "name": "act_day3_transfer_aud_to_us",
+      "status": "PASS",
+      "notes": "FC-01 AUD Cash → US Brokerage AUD sleeve 1000 AUD local=2026-07-29"
+    },
+    {
+      "name": "act_day4_contrib_sgd",
+      "status": "PASS",
+      "notes": "SG Brokerage +8000 SGD contribution"
+    },
+    {
+      "name": "act_day5_buy_aapl",
+      "status": "PASS",
+      "notes": "buy 10 AAPL ~1800 USD fee 5 holding=01a086aa-1cd0-7d15-93f2-794c40c6f693"
+    },
+    {
+      "name": "act_day7_interest",
+      "status": "PASS",
+      "notes": "FC-05 AUD Cash +500 AUD interest local=2026-08-02"
+    },
+    {
+      "name": "act_day8_qqq_sameday",
+      "status": "PASS",
+      "notes": "FC-03 buy 1 QQQ @400 then sell 1 @410 same local=2026-08-03 holding=01a086aa-1cd9-79c2-ba3a-7a88cfd718b9"
+    },
+    {
+      "name": "act_day10_income",
+      "status": "PASS",
+      "notes": "FC-05 AUD Cash +3000 AUD income/salary"
+    },
+    {
+      "name": "act_day12_buy_qqq",
+      "status": "PASS",
+      "notes": "FC-02 buy 2 QQQ ~810 USD local=2026-08-07 holding=01a086aa-1cd9-79c2-ba3a-7a88cfd718b9"
+    },
+    {
+      "name": "act_day15_spending",
+      "status": "PASS",
+      "notes": "AUD Cash -200 AUD expense via MoneyRemovedInput"
+    },
+    {
+      "name": "act_day18_buy_es3",
+      "status": "PASS",
+      "notes": "FC-04 buy 10 ES3 ~35 SGD local=2026-08-13 holding=01a086aa-1cef-7ca2-bbe8-e4889421a8a4"
+    },
+    {
+      "name": "act_day20_buy_aapl",
+      "status": "PASS",
+      "notes": "buy 5 AAPL ~950 USD"
+    },
+    {
+      "name": "act_day21_transfer_us_to_aud",
+      "status": "PASS",
+      "notes": "FC-01 reverse US Brokerage AUD sleeve → AUD Cash 200 AUD local=2026-08-16"
+    },
+    {
+      "name": "act_day30_contrib_usd",
+      "status": "PASS",
+      "notes": "US Brokerage +1000 USD contribution"
+    },
+    {
+      "name": "act_day32_sell_aapl",
+      "status": "PASS",
+      "notes": "sell 3 AAPL gross=615 USD (~205/sh vs ~183.7 cost) local=2026-08-27 holding=01a086aa-1cd0-7d15-93f2-794c40c6f693"
+    },
+    {
+      "name": "act_day33_dividend",
+      "status": "PASS",
+      "notes": "FC-06 CashDividendInput +12.50 USD on AAPL holding local=2026-08-28"
+    },
+    {
+      "name": "act_day34_bank_fee",
+      "status": "PASS",
+      "notes": "AUD Cash -15 AUD fee local=2026-08-29"
+    },
+    {
+      "name": "true_zero_day_fixture",
+      "status": "PASS",
+      "notes": "day_36 local=2026-08-31 flat AAPL=207 QQQ=420 ES3=3.40 USD/AUD=1.5070 SGD/AUD=1.1570, no activity — probe verifies exact zero"
+    },
+    {
+      "name": "holdings_present",
+      "status": "PASS",
+      "notes": "aapl=01a086aa-1cd0-7d15-93f2-794c40c6f693 qqq=01a086aa-1cd9-79c2-ba3a-7a88cfd718b9 es3=01a086aa-1cef-7ca2-bbe8-e4889421a8a4"
+    },
+    {
+      "name": "backdate_entities",
+      "status": "PASS",
+      "notes": "instruments=3 holdings=3 instrument.created_at=2026-07-26T00:00:00Z"
+    },
+    {
+      "name": "rebuild_snapshots",
+      "status": "PASS",
+      "notes": "rebuilt=45 range=2026-07-26..2026-09-08 chunks\u003c=31d"
+    },
+    {
+      "name": "complete_daily_range",
+      "status": "PASS",
+      "notes": "targetDate=2026-09-08"
+    },
+    {
+      "name": "true_zero_day",
+      "status": "PASS",
+      "notes": "date=2026-08-31 status=ok amount=0 rate=0 with flat AAPL/QQQ/ES3 and USD+SGD FX"
+    },
+    {
+      "name": "missing_quote_gap",
+      "status": "PASS",
+      "notes": "scenario=complete-cny local=2026-08-17 snap=01a086aa-1d26-7d57-9ce7-17e596e6c3d8 complete=1 missing_items=0"
+    },
+    {
+      "name": "verify_snapshots",
+      "status": "PASS",
+      "notes": "origin_components=1 usable_snapshots=45 items=276 max_component_count=7 sample_assets=285331.5791 incomplete_days=0 missing_quote_snap=[2026-08-17 complete=1 comps=7 missing=0 rev=1] activities=[buy:5, cash_dividend:1, cash_in:6, cash_out:2, cash_transfer:2, sell:2]"
+    },
+    {
+      "name": "verify_v3_family",
+      "status": "PASS",
+      "notes": "accounts=3 instruments=3 holdings=3 transfers=2 interest=1 salary=1 buys=5 sells=2 qqq_sameday=2"
+    },
+    {
+      "name": "settings",
+      "status": "PASS",
+      "notes": "wrote /workspace/nestworth-analytics-qa-r4/complete-cny/data/settings.json currency=CNY"
+    }
+  ]
+}

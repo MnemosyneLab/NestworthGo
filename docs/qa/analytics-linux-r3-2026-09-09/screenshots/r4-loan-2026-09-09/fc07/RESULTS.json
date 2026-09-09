@@ -1,0 +1,38 @@
+{
+  "app": "Nestworth",
+  "loan": "FC-07",
+  "database": "loan-fc07",
+  "display": ":11",
+  "date_range": {"from": "2026-07-27", "to": "2026-07-31"},
+  "checks": {
+    "History": "PASS",
+    "Drivers": "PASS"
+  },
+  "observed": {
+    "history": [
+      {"date": "2026-07-27", "event": "Drew", "amount": "A$100,000.00", "instrument": "AUD Loan", "category": "Principal"},
+      {"date": "2026-07-29", "event": "Paid", "amount": "A$10,000.00", "instrument": "AUD Loan", "category": "Principal"},
+      {"date": "2026-07-31", "event": "Paid", "amount": "A$1,000.00", "fee": "A$500.00", "instrument": "AUD Loan", "category": "Principal"}
+    ],
+    "drivers": {
+      "beginning_value": "A$20,000.00",
+      "ending_value": "A$19,500.00",
+      "change": "-A$500.00",
+      "spending": "-A$500.00",
+      "cash_flows": "-A$500.00",
+      "false_huge_return_from_principal": false
+    },
+    "categories": {
+      "spending_total": "-A$500.00",
+      "spending_account": "AUD Cash",
+      "spending_account_amount": "-A$500.00",
+      "dividend_and_interest_display": "—"
+    }
+  },
+  "files": [
+    "01-history.png",
+    "02-drivers-range.png",
+    "03-categories-or-drivers-interest.png",
+    "RESULTS.json"
+  ]
+}

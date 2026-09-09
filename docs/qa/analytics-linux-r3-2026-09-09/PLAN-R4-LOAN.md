@@ -7,7 +7,7 @@
 | Goal | Linux QA can run **seed → probe** for FC-07 Loan and every **runnable** item in test-plan §5 + FC-07 |
 | Out | Rewriting R3 reports; inventing FX fills; weakening Cases 16/17 or history_regression oracles |
 | Artifact root (suggested) | `/tmp/nestworth-qa-loan-fc07/` and `/tmp/nestworth-qa-v3-complete/` |
-| Docs target | `docs/qa/analytics-linux-r3-2026-09-09/` (this plan + `STATUS-R4-LOAN.md` only) |
+| Docs target | `docs/qa/analytics-linux-r3-2026-09-09/` (this plan + `STATUS-R4-LOAN.md` + `REPORT-R4-LOAN-2026-09-09.md` + evidence) |
 
 Self-review rule: walk the checklist before declaring done. Any **runnable** row that is not PASS must be implemented or marked **BLOCKED** with a reason. SKIP is allowed only when a fixture is absent by design (and `allPass` still holds). Desktop-visual / macOS-host rows stay BLOCKED on this Linux VM.
 
@@ -55,21 +55,21 @@ Status values: **PASS** (automation green on this host), **SKIP** (fixture optio
 | FC07-P2 | Probe repay NW 0 | yes | probe | PASS | `loan-fc07` |
 | FC07-P3 | Probe interest Spending not return | yes | probe | PASS | `loan-fc07` |
 | FC07-U1 | `TestAnalysisReviewCases16And17RealDebtPaymentPath` | yes | unit | PASS | keep green |
-| FC07-D1 | Desktop Insights FC-07 | no (desktop later) | desktop | BLOCKED | Linux desktop QA after probes |
+| FC07-D1 | Desktop Insights FC-07 | yes (desktop done) | desktop | PASS | History/Drivers/Categories; begin A$20,000 end A$19,500 change −A$500 spending −A$500; DI —; `screenshots/r4-loan-2026-09-09/fc07/` |
 | M-OS-LINUX | Linux seed/probe host | yes | probe | PASS | `r4-matrix` `m_os_linux` |
 | M-OS-MAC | macOS Apple Silicon | no | desktop | BLOCKED | this runner is not darwin/arm64 |
 | M-WIN-1280 | `settings.Validate` width 1280 | yes | probe | PASS | `m_window_1280` |
 | M-WIN-1440 | `settings.Validate` width 1440 | yes | probe | PASS | `m_window_1440` |
 | M-WIN-NARROW | `settings.Validate` width 800 | yes | probe | PASS | `m_window_narrow` |
-| M-WIN-VIS-1280 | Visual ~1280×800 | no | desktop | BLOCKED | desktop QA row; Linux can do later |
-| M-WIN-VIS-1440 | Visual ~1440×900 | no | desktop | BLOCKED | desktop QA row |
-| M-WIN-VIS-NARROW | Visual narrow width | no | desktop | BLOCKED | desktop QA row |
+| M-WIN-VIS-1280 | Visual ~1280×800 | yes | desktop | PASS | `win/01-1280.png`; Insights usable |
+| M-WIN-VIS-1440 | Visual ~1440×900 | partial | desktop | PARTIAL | Physical display 1280; `win/03-1440.png` max-width attempt only |
+| M-WIN-VIS-NARROW | Visual narrow width | yes | desktop | PASS | `win/02-narrow.png` ~900; reflow OK |
 | M-LOC-EN | `settings.Validate` language=en | yes | probe | PASS | enum only |
 | M-LOC-ZHCN | `settings.Validate` language=zh-CN | yes | probe | PASS | enum only |
 | M-LOC-ZHTW | `settings.Validate` language=zh-TW | yes | probe | PASS | enum only |
-| M-LOC-VIS-EN | English UI strings | no | desktop | BLOCKED | locale strings are desktop later |
-| M-LOC-VIS-ZHCN | 简体中文 UI strings | no | desktop | BLOCKED | locale strings are desktop later |
-| M-LOC-VIS-ZHTW | 繁体中文 UI strings | no | desktop | BLOCKED | locale strings are desktop later |
+| M-LOC-VIS-EN | English UI strings | yes | desktop | PASS | `locale/en.png` |
+| M-LOC-VIS-ZHCN | 简体中文 UI strings | yes | desktop | PASS | `locale/zh-CN.png` |
+| M-LOC-VIS-ZHTW | 繁体中文 UI strings | yes | desktop | PASS | `locale/zh-TW.png` |
 | M-CCY-AUD | Seed `complete` AUD | yes | seed | PASS | default v3; must stay green |
 | M-CCY-CNY | Seed `complete-cny` + `loan-fc07-cny` | yes | seed+probe | PASS | real onboarded DB; `env_base_cny` |
 | M-CCY-USD | Seed `complete-usd` + `loan-fc07-usd` | yes | seed+probe | PASS | real onboarded DB; `env_base_usd`; `NESTWORTH_QA_BASE_CURRENCY=USD` |
@@ -95,7 +95,7 @@ Status values: **PASS** (automation green on this host), **SKIP** (fixture optio
 | M-CASH-INCL | Include cash Dietz on draw day | yes | probe | PASS | loan draw is a capital-flow day |
 | M-CASH-EXCL | Exclude differs on draw day | yes | probe | PASS | same |
 | M-CASH-SALARY | Include vs Exclude on v3 salary day | yes | probe | PASS | complete DB FL-18/19 pattern; else SKIP |
-| D-TZ | Desktop History Origin tz | no | desktop | BLOCKED | after probes |
+| D-TZ | Desktop History Origin tz | partial | desktop | PARTIAL | System→UTC informational only; no SGT↔UTC picker; `tz/*.png` + RESULTS-DESK-ENV |
 | V3-COMPLETE | v3 `complete` seed still OVERALL PASS | yes | seed | PASS | must stay green |
 
 ---
