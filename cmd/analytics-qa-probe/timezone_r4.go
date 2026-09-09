@@ -310,12 +310,15 @@ func tzAssertNoonDietz(date string, hours int64) (map[string]any, map[string]any
 	if len(result.Days) == 0 {
 		return nil, nil, fmt.Errorf("no component days")
 	}
-	want := decimal.NewFromInt(100).Mul(decimal.NewFromInt(12).Div(decimal.NewFromInt(hours)))
+	want, err := domain.NewSignedMoney(decimal.NewFromInt(100).Mul(decimal.NewFromInt(12).Div(decimal.NewFromInt(hours))), "USD")
+	if err != nil {
+		return nil, nil, err
+	}
 	gotAmt := result.Days[0].DietzFlow.Amount()
-	expected := map[string]any{"dietzFlow": want.String(), "hours": hours}
+	expected := map[string]any{"dietzFlow": want.CanonicalAmount(), "hours": hours}
 	got := map[string]any{"dietzFlow": gotAmt.String(), "hours": hours}
-	if !gotAmt.Equal(want) {
-		return expected, got, fmt.Errorf("DietzFlow=%s want %s (12/%dh)", gotAmt, want, hours)
+	if !gotAmt.Equal(want.Amount()) {
+		return expected, got, fmt.Errorf("DietzFlow=%s want %s (12/%dh)", gotAmt, want.Amount(), hours)
 	}
 	return expected, got, nil
 }
