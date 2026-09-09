@@ -6,7 +6,7 @@ Deterministic Insights Round-3 “mini family” for desktop/probe acceptance of
 
 | Variable | Default | Notes |
 |---|---|---|
-| `NESTWORTH_QA_SCENARIO` | `complete` | `complete` \| `missing-price` \| `missing-fx` \| `missing-both` |
+| `NESTWORTH_QA_SCENARIO` | `complete` | `complete` \| `missing-price` \| `missing-fx` \| `missing-both` \| **`loan-fc07`** |
 | `NESTWORTH_QA_ANCHOR` | `2026-07-26T00:00:00Z` | RFC3339 UTC history origin |
 | `NESTWORTH_QA_RESET` | unset | Must be `1` to replace an existing QA database |
 | `NESTWORTH_QA_OUTPUT_DIR` | `/workspace/nestworth-analytics-qa` | Artifact root; reset only allows DBs under this tree |
@@ -27,6 +27,23 @@ done
 ```
 
 `seed-results.json` records `fixture_version`, scenario, IDs, and per-step PASS/FAIL.
+
+FC-07 loan is a **separate** scenario (`loan-fc07`) so the v3 complete / missing-* mini-family stays unchanged.
+
+```bash
+ROOT=/tmp/nestworth-qa-loan-fc07
+NESTWORTH_QA_OUTPUT_DIR="$ROOT" \
+NESTWORTH_QA_RESET=1 \
+NESTWORTH_QA_ANCHOR=2026-07-26T00:00:00Z \
+NESTWORTH_QA_SCENARIO=loan-fc07 \
+go run ./cmd/analytics-qa-seed
+
+NESTWORTH_DATABASE_PATH="$ROOT/data/nestworth.db" \
+NESTWORTH_QA_OUTPUT_DIR="$ROOT" \
+NESTWORTH_PROBE_MODE=loan-fc07 \
+NESTWORTH_PROBE_OUT="$ROOT/seed/probe-loan-fc07.json" \
+go run ./cmd/analytics-qa-probe
+```
 
 ## Household (AUD base)
 
@@ -84,10 +101,30 @@ Rebuild must produce the incomplete snapshot; the seed does **not** SQL-inject `
 
 Household-scope Dietz `ratedDays` on a long Include-cash window can still be below `totalDays` even when every snapshot is complete (zero-capital or unrateable days). Use the gap-day snapshot flags and the seed `missing_quote_gap` step for §17, not period `ratedDays`.
 
-## FC-07 loan (skipped)
+## FC-07 loan (`NESTWORTH_QA_SCENARIO=loan-fc07`)
 
-`DebtDrawInput` / `DebtPaymentInput` exist, but a loan sleeve is **not** seeded. Adding a liability before `StartHistory` would expand origin components, FX/completeness surface, and the true-zero constraint. Round-3 mini-family stays on multi-account / multi-instrument / transfer / same-day trade. Revisit FC-07 in a later fixture if desktop needs drawdown / repayment / cash interest.
+Currency choice: **AUD base** for continuity with R3 v3 (not CNY). Single-currency so the loan fixture does not invent FX fills.
+
+Fixture version `analytics-linux-qa-loan-fc07`. Household: AUD Cash (bank / balance, initial 20000) + AUD Loan (`TypeLoan` / `RoleLiability` / balance, initial 0). History timezone `Asia/Singapore`. Default anchor `2026-07-26T00:00:00Z`.
+
+| Day | Local (default) | Event | Oracle (test-plan FC-07 / Cases 16–17) |
+|---|---|---|---|
+| 1 | 2026-07-27 | `DebtDrawInput` 100000 AUD | Cash +P, Debt +P, **net worth change = 0**, not investment return |
+| 3 | 2026-07-29 | `DebtPaymentInput` principal 10000 | Cash −P, Debt −P, **net worth change = 0** |
+| 5 | 2026-07-31 | `DebtPaymentInput` principal 1000 + `InterestOrFee` 500 | Cash −1500, debt principal −1000, **Spending −500**, net worth −500; must **not** be Dividend & Interest / investment return |
+
+Seed JSON asserts OVERALL plus named steps `fc07_draw_nw0`, `fc07_repay_nw0`, `fc07_interest_spending`. Principal on the interest day is 1000 (API requires principal > 0); amounts match `TestAnalysisReviewCases16And17RealDebtPaymentPath`.
+
+The v3 complete / missing-* family still omits a loan sleeve (origin / true-zero / completeness matrix stay FC-01–06). Use `loan-fc07` when desktop or probes need draw / repay / cash interest.
+
+Round-4 timezone/DST is **not** this seed. Use `NESTWORTH_PROBE_MODE=timezone-r4` (builds Origin DBs for `Asia/Singapore`, `UTC`, `America/Los_Angeles` and asserts local calendar days around 2026-03-08 / 2026-11-01).
 
 ## Probe helpers
 
-Existing `cmd/analytics-qa-probe` modes (`cash-include`, `co03`, `residual`, `fixtures`) read this DB without v2-only ID assumptions. No probe changes in v3.
+`cmd/analytics-qa-probe` modes:
+
+| `NESTWORTH_PROBE_MODE` | Reads |
+|---|---|
+| `cash-include`, `co03`, `residual`, `fixtures`, `quantitative`, `reconcile` | v3 / engine fixtures |
+| `loan-fc07` | loan DB from this scenario |
+| `timezone-r4` | self-contained TZ/DST DBs + in-memory oracles (no FX fills) |

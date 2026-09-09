@@ -42,6 +42,21 @@ func TestTrueZeroScheduleIsFlat(t *testing.T) {
 	}
 }
 
+func TestLoanFC07ScenarioConstants(t *testing.T) {
+	if loanFC07Scenario != "loan-fc07" {
+		t.Fatalf("loanFC07Scenario = %q, want loan-fc07", loanFC07Scenario)
+	}
+	if loanFixtureVersion != "analytics-linux-qa-loan-fc07" {
+		t.Fatalf("loanFixtureVersion = %q, want analytics-linux-qa-loan-fc07", loanFixtureVersion)
+	}
+	if loanDrawDay >= loanRepayDay || loanRepayDay >= loanInterestDay || loanInterestDay >= loanQuoteHorizon {
+		t.Fatalf("loan days must sit inside the rebuild window: draw=%d repay=%d interest=%d horizon=%d", loanDrawDay, loanRepayDay, loanInterestDay, loanQuoteHorizon)
+	}
+	if loanDrawPrincipal != "100000" || loanRepayPrincipal != "10000" || loanInterestFee != "500" {
+		t.Fatalf("FC-07 oracles drifted: draw=%s repay=%s interest=%s", loanDrawPrincipal, loanRepayPrincipal, loanInterestFee)
+	}
+}
+
 func TestExpectedGapQuoteCount(t *testing.T) {
 	if expectedQuoteDays != 45 {
 		t.Fatalf("expectedQuoteDays = %d, want 45", expectedQuoteDays)

@@ -1,16 +1,13 @@
-// Command analytics-qa-seed builds the Insights Round-3 “mini family” fixture
-// (analytics-linux-qa-v3) for desktop/probe acceptance of the analytics test
-// plan §6 / FC-01–06.
+// Command analytics-qa-seed builds Insights QA fixtures.
 //
-// Env (unchanged from v2):
-//
-//	NESTWORTH_QA_SCENARIO     complete | missing-price | missing-fx | missing-both
+//	NESTWORTH_QA_SCENARIO     complete | missing-price | missing-fx | missing-both | loan-fc07
 //	NESTWORTH_QA_ANCHOR       RFC3339 UTC (default 2026-07-26T00:00:00Z)
 //	NESTWORTH_QA_RESET        set to 1 to replace an existing QA database
 //	NESTWORTH_QA_OUTPUT_DIR   artifact root (default /workspace/nestworth-analytics-qa)
 //	NESTWORTH_DATABASE_PATH   sqlite path (default $OUTPUT_DIR/data/nestworth.db)
 //
-// FC-07 loan is intentionally omitted; see README.md.
+// The v3 mini-family (complete / missing-*) stays FC-01–06. FC-07 lives in the
+// separate loan-fc07 scenario; see README.md and loan.go.
 package main
 
 import (
@@ -207,17 +204,7 @@ func holdingIDFrom(preview domain.ChangePreview) domain.HoldingID {
 	return ""
 }
 
-func main() {
-	base := envOr("NESTWORTH_QA_OUTPUT_DIR", "/workspace/nestworth-analytics-qa")
-	dbPath := strings.TrimSpace(os.Getenv("NESTWORTH_DATABASE_PATH"))
-	if dbPath == "" {
-		dbPath = filepath.Join(base, "data", "nestworth.db")
-	}
-	scenario := envOr("NESTWORTH_QA_SCENARIO", "complete")
-	if scenario != "complete" && scenario != "missing-price" && scenario != "missing-fx" && scenario != "missing-both" {
-		panic(fmt.Errorf("unsupported NESTWORTH_QA_SCENARIO %q", scenario))
-	}
-	anchor := parseAnchor(envOr("NESTWORTH_QA_ANCHOR", defaultQAAnchor))
+func openResetQADatabase(base, dbPath string) *sqlite.DB {
 	reset := os.Getenv("NESTWORTH_QA_RESET") == "1"
 	if _, err := os.Stat(dbPath); err == nil && !reset {
 		panic(fmt.Errorf("refusing to overwrite existing QA database %s; set NESTWORTH_QA_RESET=1 for an explicit QA reset", dbPath))
@@ -233,8 +220,50 @@ func main() {
 		_ = os.Remove(dbPath + "-wal")
 		_ = os.Remove(dbPath + "-shm")
 	}
+	return must(sqlite.Open(dbPath))
+}
 
-	database := must(sqlite.Open(dbPath))
+func finishSeed(report *Report) {
+	outDir := filepath.Join(report.OutputDir, "seed")
+	_ = os.MkdirAll(outDir, 0o755)
+	out := filepath.Join(outDir, "seed-results.json")
+	b, _ := json.MarshalIndent(report, "", "  ")
+	if err := os.WriteFile(out, b, 0o644); err != nil {
+		panic(err)
+	}
+	fmt.Printf("wrote %s\n", out)
+
+	failed := false
+	for _, r := range report.Results {
+		if r.Status == "FAIL" {
+			failed = true
+			fmt.Printf("FAIL: %s — %s\n", r.Name, r.Notes)
+		}
+	}
+	if failed {
+		fmt.Println("OVERALL: FAIL")
+		os.Exit(2)
+	}
+	fmt.Println("OVERALL: PASS")
+}
+
+func main() {
+	base := envOr("NESTWORTH_QA_OUTPUT_DIR", "/workspace/nestworth-analytics-qa")
+	dbPath := strings.TrimSpace(os.Getenv("NESTWORTH_DATABASE_PATH"))
+	if dbPath == "" {
+		dbPath = filepath.Join(base, "data", "nestworth.db")
+	}
+	scenario := envOr("NESTWORTH_QA_SCENARIO", "complete")
+	if scenario == loanFC07Scenario {
+		runLoanFC07(base, dbPath)
+		return
+	}
+	if scenario != "complete" && scenario != "missing-price" && scenario != "missing-fx" && scenario != "missing-both" {
+		panic(fmt.Errorf("unsupported NESTWORTH_QA_SCENARIO %q", scenario))
+	}
+	anchor := parseAnchor(envOr("NESTWORTH_QA_ANCHOR", defaultQAAnchor))
+
+	database := openResetQADatabase(base, dbPath)
 	defer database.Close()
 	repo := sqlite.NewRepository(database)
 	svc := application.NewService(repo)
@@ -857,23 +886,5 @@ func main() {
 	must0(os.WriteFile(settingsPath, append(sb, '\n'), 0o644))
 	add(report, "settings_aud", "PASS", fmt.Sprintf("wrote %s currency=AUD", settingsPath))
 
-	outDir := filepath.Join(base, "seed")
-	_ = os.MkdirAll(outDir, 0o755)
-	out := filepath.Join(outDir, "seed-results.json")
-	b, _ := json.MarshalIndent(report, "", "  ")
-	must0(os.WriteFile(out, b, 0o644))
-	fmt.Printf("wrote %s\n", out)
-
-	failed := false
-	for _, r := range report.Results {
-		if r.Status == "FAIL" {
-			failed = true
-			fmt.Printf("FAIL: %s — %s\n", r.Name, r.Notes)
-		}
-	}
-	if failed {
-		fmt.Println("OVERALL: FAIL")
-		os.Exit(2)
-	}
-	fmt.Println("OVERALL: PASS")
+	finishSeed(report)
 }
