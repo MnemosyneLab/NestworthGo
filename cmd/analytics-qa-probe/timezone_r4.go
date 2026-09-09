@@ -60,30 +60,10 @@ func runTimezoneR4Probe() error {
 
 func tzDomainCases() []tzCase {
 	cases := []tzCase{
-		tzCheck("dst_gap_ny", "ResolveLocalDateTime rejects 2026-03-08 02:30 America/New_York (spring gap)", func() (map[string]any, map[string]any, error) {
-			_, err := domain.ResolveLocalDateTime("2026-03-08", "02:30", "America/New_York")
-			got := map[string]any{"error": errString(err)}
-			if err == nil {
-				return map[string]any{"code": domain.ErrInvalidChangeTime}, got, fmt.Errorf("DST gap was accepted")
-			}
-			typed, ok := err.(*domain.Error)
-			if !ok || typed.Code != domain.ErrInvalidChangeTime {
-				return map[string]any{"code": domain.ErrInvalidChangeTime}, got, fmt.Errorf("DST gap error = %v", err)
-			}
-			return map[string]any{"code": domain.ErrInvalidChangeTime}, got, nil
-		}),
-		tzCheck("dst_ambiguity_ny", "ResolveLocalDateTime rejects 2026-11-01 01:30 America/New_York (fall ambiguity)", func() (map[string]any, map[string]any, error) {
-			_, err := domain.ResolveLocalDateTime("2026-11-01", "01:30", "America/New_York")
-			got := map[string]any{"error": errString(err)}
-			if err == nil {
-				return map[string]any{"code": domain.ErrInvalidChangeTime}, got, fmt.Errorf("DST ambiguity was accepted")
-			}
-			typed, ok := err.(*domain.Error)
-			if !ok || typed.Code != domain.ErrInvalidChangeTime {
-				return map[string]any{"code": domain.ErrInvalidChangeTime}, got, fmt.Errorf("DST ambiguity error = %v", err)
-			}
-			return map[string]any{"code": domain.ErrInvalidChangeTime}, got, nil
-		}),
+		tzRejectLocal("dst_gap_ny", "ResolveLocalDateTime rejects 2026-03-08 02:30 America/New_York (spring gap)", "2026-03-08", "02:30", "America/New_York"),
+		tzRejectLocal("dst_gap_la", "ResolveLocalDateTime rejects 2026-03-08 02:30 America/Los_Angeles (spring gap)", "2026-03-08", "02:30", "America/Los_Angeles"),
+		tzRejectLocal("dst_ambiguity_ny", "ResolveLocalDateTime rejects 2026-11-01 01:30 America/New_York (fall ambiguity)", "2026-11-01", "01:30", "America/New_York"),
+		tzRejectLocal("dst_ambiguity_la", "ResolveLocalDateTime rejects 2026-11-01 01:30 America/Los_Angeles (fall ambiguity)", "2026-11-01", "01:30", "America/Los_Angeles"),
 	}
 
 	type mapping struct {
@@ -487,6 +467,21 @@ func errString(err error) string {
 		return ""
 	}
 	return err.Error()
+}
+
+func tzRejectLocal(id, name, date, clock, timezone string) tzCase {
+	return tzCheck(id, name, func() (map[string]any, map[string]any, error) {
+		_, err := domain.ResolveLocalDateTime(date, clock, timezone)
+		got := map[string]any{"error": errString(err), "timezone": timezone, "local": date + " " + clock}
+		if err == nil {
+			return map[string]any{"code": domain.ErrInvalidChangeTime}, got, fmt.Errorf("invalid local time was accepted")
+		}
+		typed, ok := err.(*domain.Error)
+		if !ok || typed.Code != domain.ErrInvalidChangeTime {
+			return map[string]any{"code": domain.ErrInvalidChangeTime}, got, fmt.Errorf("error = %v", err)
+		}
+		return map[string]any{"code": domain.ErrInvalidChangeTime}, got, nil
+	})
 }
 
 func tzCheck(id, name string, fn func() (map[string]any, map[string]any, error)) tzCase {

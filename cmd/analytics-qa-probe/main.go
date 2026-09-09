@@ -60,6 +60,12 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	case "r4-matrix":
+		if err := runR4MatrixProbe(); err != nil {
+			fmt.Fprintf(os.Stderr, "r4-matrix probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	case "fixtures":
 		if err := runFixturesProbe(); err != nil {
 			fmt.Fprintf(os.Stderr, "fixtures probe failed: %v\n", err)
