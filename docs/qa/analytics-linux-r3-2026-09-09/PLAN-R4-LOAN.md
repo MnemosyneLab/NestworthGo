@@ -70,9 +70,11 @@ Status values: **PASS** (automation green on this host), **SKIP** (fixture optio
 | M-LOC-VIS-EN | English UI strings | no | desktop | BLOCKED | locale strings are desktop later |
 | M-LOC-VIS-ZHCN | 简体中文 UI strings | no | desktop | BLOCKED | locale strings are desktop later |
 | M-LOC-VIS-ZHTW | 繁体中文 UI strings | no | desktop | BLOCKED | locale strings are desktop later |
-| M-CCY-AUD | Seed `loan-fc07` AUD | yes | seed | PASS | must not break v3 AUD R3 |
-| M-CCY-CNY | Seed `loan-fc07-cny` | yes | seed | PASS | separate scenario ID |
-| M-CCY-USD | Seed `loan-fc07-usd` | yes | seed | PASS | separate scenario ID |
+| M-CCY-AUD | Seed `complete` AUD | yes | seed | PASS | default v3; must stay green |
+| M-CCY-CNY | Seed `complete-cny` + `loan-fc07-cny` | yes | seed+probe | PASS | real onboarded DB; `env_base_cny` |
+| M-CCY-USD | Seed `complete-usd` + `loan-fc07-usd` | yes | seed+probe | PASS | real onboarded DB; `env_base_usd`; `NESTWORTH_QA_BASE_CURRENCY=USD` |
+| ENV-BASE-USD | Onboarded `complete` household base USD | yes | seed+probe | PASS | `complete-usd` or env knob; not in-memory |
+| ENV-BASE-CNY | Onboarded `complete` household base CNY | yes | seed+probe | PASS | `complete-cny` or env knob; not in-memory |
 | M-TZ-SGT | Origin `Asia/Singapore` | yes | seed+probe | PASS | `loan-fc07` + timezone-r4 Origin DB |
 | M-TZ-UTC | Origin `UTC` | yes | seed+probe | PASS | `loan-fc07-utc` + timezone-r4 Origin DB |
 | M-TZ-LA | Origin `America/Los_Angeles` spring | yes | probe | PASS | timezone-r4 Origin DB (closed days) |
@@ -108,8 +110,9 @@ Status values: **PASS** (automation green on this host), **SKIP** (fixture optio
 | L2 | Day 1 draw 100000; day 3 repay 10000; day 5 pay 1000 + interest 500 | Activities persist; rebuild window covers all three |
 | L3 | Named steps `fc07_draw_nw0`, `fc07_repay_nw0`, `fc07_interest_spending` | OVERALL PASS |
 | L4 | Scenario IDs `loan-fc07-utc` / `-cny` / `-usd` / `-week-sunday` | each OVERALL PASS; v3 `complete` unchanged |
+| L5 | `complete-usd` / `complete-cny` (or `NESTWORTH_QA_BASE_CURRENCY`) onboard real DBs | `households.base_currency` matches; snapshots rebuild; AUD `complete` / `missing-*` unchanged |
 
-**Exit L:** every `loan-fc07*` scenario in the table seeds OVERALL PASS.
+**Exit L:** every `loan-fc07*` scenario in the table seeds OVERALL PASS; `complete-usd` and `complete-cny` OVERALL PASS.
 
 ### Phase P — Probes (`cmd/analytics-qa-probe`)
 
@@ -117,7 +120,7 @@ Status values: **PASS** (automation green on this host), **SKIP** (fixture optio
 |---|---|---|
 | P1 | `loan-fc07` | FC-07 oracles; Base vs Native; household + account; Include vs Exclude on draw; settings week/currency |
 | P2 | `timezone-r4` | Origin TZ SGT / UTC / LA; local dates around DST; **LA and NY** gap/ambiguity rejected; LA 23h / 25h |
-| P3 | `r4-matrix` | P2 + settings.Validate week/window/locale + host BLOCKED rows + loan extras + complete instrument/cash-include when DBs exist |
+| P3 | `r4-matrix` | P2 + settings.Validate week/window/locale + host BLOCKED rows + loan extras + complete instrument/cash-include + `env_base_usd` / `env_base_cny` when those DBs exist |
 
 Fall-back 2026-11-01 is **after** a 2026-09-09 wall clock, so snapshot rebuild cannot cover November. P2: (a) builds spring Origin DBs (closed days), (b) asserts fall-back via `activityLocalDate` + in-memory `ComputeAnalysis`. No FX fills.
 
@@ -159,9 +162,21 @@ go run ./cmd/analytics-qa-probe
 NESTWORTH_QA_OUTPUT_DIR="$ROOT" \
 NESTWORTH_QA_LOAN_DB="$ROOT/loan-fc07/data/nestworth.db" \
 NESTWORTH_QA_COMPLETE_DB=/tmp/nestworth-qa-v3-complete/data/nestworth.db \
+NESTWORTH_QA_COMPLETE_USD_DB=/tmp/nestworth-qa-v3-complete-usd/data/nestworth.db \
+NESTWORTH_QA_COMPLETE_CNY_DB=/tmp/nestworth-qa-v3-complete-cny/data/nestworth.db \
 NESTWORTH_PROBE_MODE=r4-matrix \
 NESTWORTH_PROBE_OUT="$ROOT/seed/probe-r4-matrix.json" \
 go run ./cmd/analytics-qa-probe
+```
+
+§5 USD/CNY onboarded DBs (AUD `complete` stays default):
+
+```bash
+for s in complete-usd complete-cny; do
+  NESTWORTH_QA_OUTPUT_DIR=/tmp/nestworth-qa-v3-$s NESTWORTH_QA_RESET=1 \
+  NESTWORTH_QA_ANCHOR=2026-07-26T00:00:00Z NESTWORTH_QA_SCENARIO=$s \
+  go run ./cmd/analytics-qa-seed
+done
 ```
 
 Keep v3 smoke (`complete` / `missing-*`) unchanged; see `cmd/analytics-qa-seed/README.md`.
@@ -171,7 +186,8 @@ Keep v3 smoke (`complete` / `missing-*`) unchanged; see `cmd/analytics-qa-seed/R
 ## 5. Decision log
 
 - AUD default (not CNY) for R3 continuity; Case 16/17 numbers are currency-agnostic oracles
-- CNY / USD / UTC / Sunday are **separate scenario IDs**, not flags on v3
+- CNY / USD for §5 use **separate** `complete-usd` / `complete-cny` (or `NESTWORTH_QA_BASE_CURRENCY` on `complete`); `missing-*` remain AUD
+- USD/CNY FX quotes are the existing AUD schedule retargeted to the household base (plus a documented USD/CNY series); not a missing-quote fill
 - Interest day uses principal 1000 + fee 500 because `DebtPaymentInput` rejects zero principal
 - Fall-back DST via in-memory analysis: November 2026 is not a closed day on a Sep 2026 wall clock
 - Product code for debt/DST is **out of scope** unless probes FAIL against the existing oracles
