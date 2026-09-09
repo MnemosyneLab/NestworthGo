@@ -1,0 +1,9 @@
+{
+  "verdict": "PASS",
+  "status": "FIXED",
+  "notes": "Return Analysis > Return Trend loaded successfully against missing-both DB with DEF-R2-02. All range showed a rendered cumulative-return chart and Partial coverage 21/45, with no generic 'Insights could not be loaded' error. 30D also rendered successfully with Partial coverage 21/30 and a chart.",
+  "screenshots": [
+    "01-trend-all.png",
+    "02-trend-30d-or-mid.png"
+  ]
+}

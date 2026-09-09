@@ -1,0 +1,43 @@
+{
+  "task": "Nestworth analytics QA r3",
+  "database": "missing-both v3",
+  "mode": "desktop only",
+  "overall": "PASS",
+  "checks": [
+    {
+      "id": "01-partial-banner",
+      "status": "PASS",
+      "screenshot": "screenshots/incomplete/01-partial-banner.png",
+      "observed": "Return Analysis shows Partial coverage 21/45 with Issues (24)."
+    },
+    {
+      "id": "02-trend-all",
+      "status": "PASS",
+      "screenshot": "screenshots/incomplete/02-trend-all.png",
+      "observed": "Recheck: All loads 2026-07-26..2026-09-08 with chart + Partial 21/45; no load error. Prior FAIL was chip-state false positive (YTD/All date coincidence mid-year). See RECHECK.json + 02b-trend-all-retry.png"
+    },
+    {
+      "id": "03-gap-day",
+      "status": "PASS",
+      "screenshot": "screenshots/incomplete/03-gap-day.png",
+      "observed": "August 17 is visible with incomplete diamond markers and no return data."
+    },
+    {
+      "id": "04-drivers",
+      "status": "PASS",
+      "screenshot": "screenshots/incomplete/04-drivers.png",
+      "observed": "Drivers/Contribution shows Partial coverage 21/45 and One or more return days are incomplete; instrument rows are marked Partial coverage."
+    },
+    {
+      "id": "missing-price",
+      "status": "SKIP",
+      "reason": "desktop shallow = missing-both only"
+    },
+    {
+      "id": "missing-fx",
+      "status": "SKIP",
+      "reason": "desktop shallow = missing-both only"
+    }
+  ],
+  "recheck": "FIXED \u2014 see RECHECK.json"
+}
