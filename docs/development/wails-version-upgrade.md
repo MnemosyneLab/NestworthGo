@@ -8,9 +8,9 @@ remain synchronized.
 The current repository baseline is:
 
 ```text
-Go module:      github.com/wailsapp/wails/v3 v3.0.0-beta.16
-Frontend:       @wailsio/runtime 3.0.0-beta.16
-CLI/fallback:   v3.0.0-beta.16
+Go module:      github.com/wailsapp/wails/v3 v3.0.0-beta.19
+Frontend:       @wailsio/runtime 3.0.0-beta.19
+CLI/fallback:   v3.0.0-beta.19
 ```
 
 For another target, replace the version variables below. Go and CLI versions use
@@ -63,8 +63,8 @@ Set the target versions and writable caches. Restricted environments should not
 rely on the default Go cache directories:
 
 ```bash
-WAILS_GO_VERSION=v3.0.0-beta.16
-WAILS_RUNTIME_VERSION=3.0.0-beta.16
+WAILS_GO_VERSION=v3.0.0-beta.19
+WAILS_RUNTIME_VERSION=3.0.0-beta.19
 GOCACHE=/tmp/nestworth-wails-gocache
 GOMODCACHE=/tmp/nestworth-wails-gomodcache
 export WAILS_GO_VERSION WAILS_RUNTIME_VERSION GOCACHE GOMODCACHE
@@ -100,7 +100,7 @@ PATH="$(go env GOPATH)/bin:$PATH" wails3 version
 The output must be the target version:
 
 ```text
-v3.0.0-beta.16
+v3.0.0-beta.19
 ```
 
 If an old version is still reported, inspect `type -a wails3` and retry with the
@@ -360,5 +360,5 @@ needs migration, record it as a separate compatibility change with tests.
 For a dependency-only change, a suitable Conventional Commit is:
 
 ```text
-chore(deps): upgrade Wails to v3.0.0-beta.16
+chore(deps): upgrade Wails to v3.0.0-beta.19
 ```

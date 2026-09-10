@@ -12,7 +12,7 @@ const marker = join(
 	"github.com/waltwang/nestworth-go/internal/wailsapi/app/index.ts",
 );
 const checkOnly = process.argv.includes("--check");
-const pinnedWailsVersion = "v3.0.0-beta.16";
+const pinnedWailsVersion = "v3.0.0-beta.19";
 
 const env = {
 	...process.env,
@@ -88,7 +88,7 @@ if (checkOnly) {
 	console.log("Generating Wails TypeScript bindings...");
 	const result = generate(bindingsRoot);
 	if (result.status !== 0) {
-		console.error("Failed to generate frontend/bindings. Install Wails v3.0.0-beta.16 and retry from the repository root:");
+		console.error("Failed to generate frontend/bindings. Install Wails v3.0.0-beta.19 and retry from the repository root:");
 		console.error("  wails3 generate bindings -ts -i -d frontend/bindings ./...");
 		process.exit(result.status ?? 1);
 	}

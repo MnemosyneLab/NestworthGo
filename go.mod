@@ -8,7 +8,7 @@ require (
 	// Wails v3 is still beta. Keep this module version pinned; upgrade only
 	// in a dedicated change with regenerated bindings, full automated gates,
 	// and native/package smoke tests.
-	github.com/wailsapp/wails/v3 v3.0.0-beta.16
+	github.com/wailsapp/wails/v3 v3.0.0-beta.19
 	modernc.org/sqlite v1.44.3
 )
 

@@ -3,6 +3,18 @@
 All notable changes to Nestworth are recorded here. The project has not
 published a public distribution yet.
 
+## [0.3.2] — Unreleased
+
+### Changed
+
+- Advanced synchronized application metadata to `v0.3.2` / build `3`.
+
+### Verification
+
+- The previous `0.3.1` capability and validation scope carry forward.
+- Wails desktop smoke, real-household review, keyboard/accessibility,
+  signing, and notarization remain named unexecuted gates.
+
 ## [0.3.1] — Unreleased
 
 ### Added

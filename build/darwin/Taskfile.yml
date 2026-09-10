@@ -9,8 +9,8 @@ vars:
   # Finder/bundle name used by the current Wails package (Nestworth.app).
   # The Go binary in BIN_DIR stays APP_NAME (nestworth) from the root Taskfile.
   BUNDLE_NAME: '{{.BUNDLE_NAME | default "Nestworth"}}'
-  APP_VERSION: '{{.NESTWORTH_VERSION | default "0.3.1"}}'
-  APP_BUILD: '{{.NESTWORTH_BUILD | default "2"}}'
+  APP_VERSION: '{{.NESTWORTH_VERSION | default "0.3.2"}}'
+  APP_BUILD: '{{.NESTWORTH_BUILD | default "3"}}'
   NATIVE_ICNS: '{{.NATIVE_ICNS | default "assets/icons/icon.icns"}}'
 
 tasks:
@@ -51,7 +51,7 @@ tasks:
     vars:
       # NESTWORTH_VERSION_LDFLAGS stamps internal/version so the packaged
       # application reports the same version/build identity.
-      NESTWORTH_VERSION_LDFLAGS: '-X github.com/waltwang/nestworth-go/internal/version.Version={{.NESTWORTH_VERSION | default "v0.3.1"}} -X github.com/waltwang/nestworth-go/internal/version.Build={{.NESTWORTH_BUILD | default "2"}}'
+      NESTWORTH_VERSION_LDFLAGS: '-X github.com/waltwang/nestworth-go/internal/version.Version={{.NESTWORTH_VERSION | default "v0.3.2"}} -X github.com/waltwang/nestworth-go/internal/version.Build={{.NESTWORTH_BUILD | default "3"}}'
       BUILD_FLAGS: '{{if eq .DEV "true"}}{{if or .EXTRA_TAGS (eq .OBFUSCATED "true")}}-tags {{if eq .OBFUSCATED "true"}}wails_obfuscated{{if .EXTRA_TAGS}},{{end}}{{end}}{{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l" -ldflags="{{.NESTWORTH_VERSION_LDFLAGS}}"{{else}}-tags production{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s {{.NESTWORTH_VERSION_LDFLAGS}}"{{end}}'
       DEFAULT_OUTPUT: '{{.BIN_DIR}}/{{.APP_NAME}}'
       OUTPUT: '{{ .OUTPUT | default .DEFAULT_OUTPUT }}'

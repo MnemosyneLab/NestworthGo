@@ -1,11 +1,11 @@
 # Release Documents
 
-The current release line is `0.3.1`. The release contract below is the single
+The current release line is `0.3.2`. The release contract below is the single
 maintained scope and acceptance document for this line.
 
 ## Current release
 
-- [v0.3.1 release contract](v0.3.1.md) — runtime, product scope, backup/restore,
+- [v0.3.2 release contract](v0.3.2.md) — runtime, product scope, backup/restore,
   CSV portability, validation, packaging, and public-distribution gates.
 
 ## Historical context
