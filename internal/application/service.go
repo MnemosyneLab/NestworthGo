@@ -145,6 +145,12 @@ func (s *Service) setClock(now func() time.Time) {
 	s.now = now
 }
 
+// SetClock injects the backend clock. Tests pin it to the fixture instant;
+// production leaves time.Now.
+func (s *Service) SetClock(now func() time.Time) {
+	s.setClock(now)
+}
+
 // clock reads the configured clock through stateMu. It doubles as the
 // injectable clock value for services that take a func() time.Time.
 func (s *Service) clock() time.Time {

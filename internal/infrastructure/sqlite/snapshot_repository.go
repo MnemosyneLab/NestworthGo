@@ -94,7 +94,7 @@ func markDailySnapshotCompletedTx(ctx context.Context, tx *sql.Tx, householdID d
 }
 
 func (r *Repository) CompleteDailySnapshotRange(ctx context.Context, householdID domain.HouseholdID, targetDate string, updatedAt time.Time) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN NULL ELSE dirty_from END, updated_at = ? WHERE household_id = ?`, targetDate, formatTimestamp(updatedAt), householdID.String())
+	result, err := r.database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN NULL ELSE dirty_from END, dirty_to = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN NULL ELSE dirty_to END, updated_at = ? WHERE household_id = ?`, targetDate, targetDate, formatTimestamp(updatedAt), householdID.String())
 	if err != nil {
 		return err
 	}

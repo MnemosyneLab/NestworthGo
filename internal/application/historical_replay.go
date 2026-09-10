@@ -300,7 +300,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 			return domain.PortfolioSnapshot{}, quoteErr
 		}
 		for _, quote := range quotes {
-			if !quote.QuotedAt.After(cutoff) {
+			if domain.ObservationEligible(quote.QuotedAt, cutoff) {
 				snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, quote)
 			}
 		}
@@ -315,7 +315,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		return domain.PortfolioSnapshot{}, err
 	}
 	for _, quote := range fxQuotes {
-		if !quote.QuotedAt.After(cutoff) {
+		if domain.ObservationEligible(quote.QuotedAt, cutoff) {
 			snapshot.FXQuotes = append(snapshot.FXQuotes, quote)
 		}
 	}

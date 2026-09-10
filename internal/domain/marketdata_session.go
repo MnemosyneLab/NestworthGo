@@ -123,3 +123,32 @@ func FrankfurterReferenceEligibleAt(referenceDate string) (time.Time, error) {
 func OpeningAnchorLookbackWindows() []int {
 	return []int{7, 30, 365}
 }
+
+// LastFinalizedUSEquityMarketDate is the latest US regular-session market
+// date whose close instant is strictly before now. It is a session label,
+// not a household local date.
+func LastFinalizedUSEquityMarketDate(now time.Time) (string, error) {
+	if now.IsZero() {
+		return "", validation("now", "backend clock is required")
+	}
+	location, err := time.LoadLocation(USEquitySessionTimezone)
+	if err != nil {
+		return "", err
+	}
+	evidence := SessionEvidence{Kind: SessionKindRegular, Timezone: USEquitySessionTimezone, CloseClock: USEquityRegularCloseClock, Policy: USEquityRegularClosePolicy}
+	start := now.In(location)
+	for i := 0; i < 14; i++ {
+		date := start.AddDate(0, 0, -i).Format("2006-01-02")
+		session, resolveErr := ResolveEquitySessionClose(date, "US", evidence)
+		if resolveErr != nil {
+			return "", resolveErr
+		}
+		if session.Status != "mapped" {
+			continue
+		}
+		if session.CloseInstant.Before(now) {
+			return date, nil
+		}
+	}
+	return "", validation("session", "no finalized US equity close is available")
+}

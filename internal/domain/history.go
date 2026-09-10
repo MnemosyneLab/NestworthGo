@@ -262,6 +262,17 @@ type DailySnapshotState struct {
 	ResolverPolicyVersion string
 }
 
+type InstrumentHistoryCoverage struct {
+	InstrumentID       InstrumentID
+	ProviderKey        string
+	ProviderSymbol     string
+	Market             string
+	QuoteCurrency      CurrencyCode
+	BindingRevision    int
+	CloseMarketDates   []string
+	NoObservationDates []string
+}
+
 type TrendRange string
 
 const (
