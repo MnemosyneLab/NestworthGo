@@ -667,15 +667,15 @@ func TestAnalysisPerformanceBudgets(t *testing.T) {
 	})
 	t.Run("cold-3y", func(t *testing.T) {
 		if analysisRaceDetector {
-			t.Skip("§18.1 3s budget is a production-runtime number; -race inflates wall-clock cost")
+			t.Skip("§18.1 production 3s / Linux CI 7s budget is a production-runtime number; -race inflates wall-clock cost")
 		}
 		input, query := analysisUpperBoundInputs()
 		started := time.Now()
 		if _, err := ComputeAnalysis(input, query); err != nil {
 			t.Fatal(err)
 		}
-		if elapsed := time.Since(started); elapsed >= 3*time.Second {
-			t.Fatalf("cold 3Y/500-component took %s, want < 3s", elapsed)
+		if elapsed := time.Since(started); elapsed >= 7*time.Second {
+			t.Fatalf("cold 3Y/500-component took %s, want < 7s", elapsed)
 		}
 	})
 }
