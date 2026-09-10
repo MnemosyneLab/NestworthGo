@@ -1,0 +1,30 @@
+{
+  "generated_at": "2026-09-09 22:11:10 SGT",
+  "worktree": "/workspace/NestworthGo-fe-be-audit",
+  "branch": "qa/analytics-linux-r3-2026-09-09",
+  "head": "0e69858ec4b8ed97b469cf1e46645ba9815a574b",
+  "platform": "linux/amd64",
+  "go": "go1.24.4",
+  "scope": "Loan FC-07 + Round-4 DST/timezone + week-start/valuation adjacent unit baseline (no seed wait)",
+  "counts": {
+    "pass": 51,
+    "fail": 0,
+    "skip": 0,
+    "total": 51,
+    "frontend_vitest_cases": 19
+  },
+  "logs": [
+    "/workspace/nestworth-analytics-qa-r4/logs/unit-debt-loan.log",
+    "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log",
+    "/workspace/nestworth-analytics-qa-r4/logs/unit-frontend-debt-tz-weekstart.log",
+    "/workspace/nestworth-analytics-qa-r4/logs/unit-interest-includecash.log",
+    "/workspace/nestworth-analytics-qa-r4/logs/unit-settings.log",
+    "/workspace/nestworth-analytics-qa-r4/logs/unit-sqlite-valuation.log",
+    "/workspace/nestworth-analytics-qa-r4/logs/unit-valuation-extra.log",
+    "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+  ],
+  "seed_loan": "BLOCKED-waiting-cloud \u2014 analytics-qa-seed intentionally omits FC-07 loan sleeve (cmd/analytics-qa-seed/README.md)",
+  "desktop": "BLOCKED \u2014 loan seed absent; TZ Singapore/UTC desktop needs settings+app session; macOS Apple Silicon host-blocked",
+  "go_unit_unique": 48,
+  "frontend_vitest": "19 PASS / 0 FAIL (3 files)"
+}

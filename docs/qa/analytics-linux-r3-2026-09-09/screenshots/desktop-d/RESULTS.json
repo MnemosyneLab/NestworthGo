@@ -1,0 +1,67 @@
+{
+  "phase": "D",
+  "db": "nestworth-complete.db (seed v3)",
+  "app": "Nestworth Wails desktop",
+  "evidenceNote": "D5/D6 entries are historical screenshots from before the remediation. Automated replacement evidence is in probes/REMEDIATION-2026-09-09.json; native Wails replay remains NOT_RUN.",
+  "results": {
+    "D1": {
+      "status": "PASS",
+      "summary": "Return Calendar opened at September 2026 default; switched to Asset Changes > Change Drivers and back.",
+      "screenshots": [
+        "screenshots/desktop-d/d1-return.png",
+        "screenshots/desktop-d/d1-asset.png"
+      ]
+    },
+    "D2": {
+      "status": "PASS",
+      "summary": "Account scope selected US Brokerage and refreshed totals; Instrument scope selected friendly name Apple Inc and refreshed totals.",
+      "screenshots": [
+        "screenshots/desktop-d/d2-account.png",
+        "screenshots/desktop-d/d2-instrument.png"
+      ]
+    },
+    "D3": {
+      "status": "PASS",
+      "summary": "Cash selector toggled Exclude/Include. Categories > Income with Include cash showed salary income of +A$3,000.00 (partial coverage noted).",
+      "screenshots": [
+        "screenshots/desktop-d/d3-cash.png"
+      ]
+    },
+    "D4": {
+      "status": "PASS",
+      "summary": "Realized Gain showed Apple Inc +A$96.41 and Invesco QQQ Trust +A$15.02. Dividend & Interest grouped by Asset Class showed Cash +A$500.00 and stock +A$18.83.",
+      "screenshots": [
+        "screenshots/desktop-d/d4-realized.png",
+        "screenshots/desktop-d/d4-dividend.png"
+      ]
+    },
+    "D5": {
+      "status": "PARTIAL",
+      "summary": "Exact August 1-31 Change Drivers waterfall rendered. External flows were +A$1,506.00 with no crazy residual evident; attribution showed Income +A$3,000.00, Spending -A$200.00, Dividend & Interest +A$518.83, Price Change +A$534.27, FX Impact +A$169.65, Fees -A$15.00. The UI still warned that waterfall drivers do not reconcile to ending value, so marked PARTIAL.",
+      "screenshots": [
+        "screenshots/desktop-d/d5-drivers.png"
+      ]
+    },
+    "D6": {
+      "status": "PARTIAL",
+      "summary": "Contribution row opened a View in History deep-link. History dates were From 2026-08-01 to 2026-09-08; account/instrument filters remained All, but Apple sale details correctly showed Account US Brokerage, Instrument Apple Inc, Sell, Aug 27 2026 8:00 AM Asia/Singapore.",
+      "screenshots": [
+        "screenshots/desktop-d/d6-history.png"
+      ]
+    },
+    "D7": {
+      "status": "PASS",
+      "summary": "Return Calendar August 2026 day 31 showed exactly 0% and A$0.00.",
+      "screenshots": [
+        "screenshots/desktop-d/d7-zero.png"
+      ]
+    },
+    "D8": {
+      "status": "PASS",
+      "summary": "History opened, then returning to Return Analysis reloaded successfully with August 2026 summary data.",
+      "screenshots": [
+        "screenshots/desktop-d/d8-back.png"
+      ]
+    }
+  }
+}

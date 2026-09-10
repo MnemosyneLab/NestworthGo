@@ -1,0 +1,105 @@
+{
+  "fixture_version": "analytics-linux-qa-loan-fc07",
+  "scenario": "loan-fc07-utc",
+  "anchor": "2026-07-26T00:00:00Z",
+  "commit": "ce8aedb720f99f6b686357c5d6f655af724014c8",
+  "dirty": true,
+  "db_path": "/workspace/nestworth-analytics-qa-r4/loan-fc07-utc/data/nestworth.db",
+  "output_dir": "/workspace/nestworth-analytics-qa-r4/loan-fc07-utc",
+  "ids": {
+    "acct_cash": "01a0869e-35ef-7528-9c52-0c0f05428f8b",
+    "acct_loan": "01a0869e-35f0-7a40-a048-d7893df2f99f",
+    "base_currency": "AUD",
+    "draw_day_offset": "1",
+    "draw_local_date": "2026-07-27",
+    "draw_principal": "100000",
+    "fixture_version": "analytics-linux-qa-loan-fc07",
+    "history_origin": "2026-07-26T00:00:00Z",
+    "history_origin_id": "01a0869e-35f1-77e7-91cc-65138ad8de2d",
+    "household": "01a0869e-35ec-7e21-a510-4ec5dfd565da",
+    "interest_day_offset": "5",
+    "interest_local_date": "2026-07-31",
+    "interest_or_fee": "500",
+    "interest_principal": "1000",
+    "member": "01a0869e-35ec-7e2c-934e-c0ce21faf8f7",
+    "repay_day_offset": "3",
+    "repay_local_date": "2026-07-29",
+    "repay_principal": "10000",
+    "snapshot_rebuild_count": "9",
+    "timezone": "UTC",
+    "week_start": "monday",
+    "window_width": "1280"
+  },
+  "results": [
+    {
+      "name": "onboarding",
+      "status": "PASS",
+      "notes": "household=01a0869e-35ec-7e21-a510-4ec5dfd565da member=01a0869e-35ec-7e2c-934e-c0ce21faf8f7 base=AUD tz=(empty, no history yet)"
+    },
+    {
+      "name": "accounts",
+      "status": "PASS",
+      "notes": "cash=01a0869e-35ef-7528-9c52-0c0f05428f8b loan=01a0869e-35f0-7a40-a048-d7893df2f99f initial_cash=20000 AUD loan_initial=0"
+    },
+    {
+      "name": "start_history",
+      "status": "PASS",
+      "notes": "tz=UTC components=2 origin=01a0869e-35f1-77e7-91cc-65138ad8de2d"
+    },
+    {
+      "name": "backdate_origin",
+      "status": "PASS",
+      "notes": "started_at=2026-07-26T00:00:00Z anchor=2026-07-26T00:00:00Z"
+    },
+    {
+      "name": "act_draw",
+      "status": "PASS",
+      "notes": "FC-07 draw 100000 AUD local=2026-07-27"
+    },
+    {
+      "name": "act_repay",
+      "status": "PASS",
+      "notes": "FC-07 repay principal 10000 AUD local=2026-07-29"
+    },
+    {
+      "name": "act_interest",
+      "status": "PASS",
+      "notes": "FC-07 payment principal 1000 + interest/fee 500 AUD local=2026-07-31"
+    },
+    {
+      "name": "verify_loan_activities",
+      "status": "PASS",
+      "notes": "debt_draw=1 debt_payment=2 fee_effects=1"
+    },
+    {
+      "name": "rebuild_snapshots",
+      "status": "PASS",
+      "notes": "rebuilt=9 range=2026-07-26..2026-08-03"
+    },
+    {
+      "name": "complete_daily_range",
+      "status": "PASS",
+      "notes": "targetDate=2026-08-03"
+    },
+    {
+      "name": "fc07_draw_nw0",
+      "status": "PASS",
+      "notes": "date=2026-07-27 snapshot_nw 20000→20000 delta=0 analyze_nw_delta=0 spending=0 return=0 residual=0"
+    },
+    {
+      "name": "fc07_repay_nw0",
+      "status": "PASS",
+      "notes": "date=2026-07-29 snapshot_nw 20000→20000 delta=0 analyze_nw_delta=0 spending=0 return=0 residual=0"
+    },
+    {
+      "name": "fc07_interest_spending",
+      "status": "PASS",
+      "notes": "date=2026-07-31 nw_delta=-500 spending=-500 categories=-500 return=0 dividend_interest=0 residual=0"
+    },
+    {
+      "name": "settings",
+      "status": "PASS",
+      "notes": "wrote /workspace/nestworth-analytics-qa-r4/loan-fc07-utc/data/settings.json currency=AUD week_start=monday window=1280"
+    }
+  ]
+}

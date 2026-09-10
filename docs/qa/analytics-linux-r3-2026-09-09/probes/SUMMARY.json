@@ -1,0 +1,82 @@
+{
+  "when": "2026-09-09 15:46 SGT",
+  "repo": "qa/analytics-linux-r3-2026-09-09 @ 91d10c0",
+  "artifactRoot": "/workspace/nestworth-analytics-qa-r3",
+  "dbComplete": "/workspace/nestworth-analytics-qa-r3/data/nestworth-complete.db",
+  "dbMissingBoth": "/workspace/nestworth-analytics-qa-r3/data/nestworth-missing-both.db",
+  "probes": [
+    {
+      "id": "C1",
+      "name": "fixtures A\u2013D",
+      "mode": "fixtures",
+      "status": "PASS",
+      "detail": "4 PASS / 0 FAIL",
+      "artifact": "seed/probe-fixtures.json"
+    },
+    {
+      "id": "C2",
+      "name": "cash-include FL-18/19",
+      "mode": "cash-include",
+      "status": "PASS",
+      "detail": "salaryDay=2026-08-05 investedCapital include=\"56825.49\" exclude=\"2770.821\" cashDietzFlows include=1(3000) exclude=0()",
+      "artifact": "seed/probe-cash-include.json"
+    },
+    {
+      "id": "C3",
+      "name": "true-zero Aug 31 (legacy/complete)",
+      "mode": "legacy (default)",
+      "status": "PASS",
+      "detail": "coverage rated=26 total=45 status=partial from=2026-07-26 to=2026-09-08; sample_zero_rate_days includes 2026-08-31 rate=0 status=ok",
+      "artifact": "logs/C3-true-zero-complete.out"
+    },
+    {
+      "id": "C4",
+      "name": "missing-both All-range (no panic)",
+      "mode": "legacy (default)",
+      "status": "PASS",
+      "detail": "coverage rated=21 total=45 status=partial from=2026-07-26 to=2026-09-08; exit 0; no panic (DEF-R2-02 regression)",
+      "artifact": "logs/C4-missing-both.out"
+    },
+    {
+      "id": "C5",
+      "name": "scope triangulation (portfolio/account/instrument)",
+      "mode": "quantitative",
+      "status": "PASS",
+      "detail": "Independent latest snapshot boundary totals reconcile household, account partition, and instrument plus explicit cash; delta=0."
+    },
+    {
+      "id": "C6",
+      "name": "native vs base valuation",
+      "mode": "quantitative",
+      "status": "PASS",
+      "detail": "Mixed currencies force Base; instrument Native currency matches quote currency."
+    },
+    {
+      "id": "C7",
+      "name": "return sources sum vs period return",
+      "mode": "quantitative",
+      "status": "PASS",
+      "detail": "Price/FX/Dividend/Fee sources sum to period return exactly; coverage is emitted and realized gain is excluded."
+    },
+    {
+      "id": "C8",
+      "name": "transfer neutrality FC-01",
+      "mode": "quantitative",
+      "status": "PASS",
+      "detail": "Fixed-snapshot counterfactual removes in-range cash_transfer activities and compares household change/external flow, Price/FX/Fee, Return sources, and both endpoint accounts; 2026-08-16 endpoints are +200/-200 AUD and every with-vs-without delta is 0."
+    },
+    {
+      "id": "C9",
+      "name": "residual corrupt day",
+      "mode": "residual",
+      "status": "PASS",
+      "detail": "Clean copied DB has residualIssueCount=0; isolated copied DB with +100 AUD base-only corruption retains +100/-100 details and native amount unchanged.",
+      "artifact": "probes/REMEDIATION-2026-09-09.json"
+    }
+  ],
+  "counts": {
+    "PASS": 9,
+    "FAIL": 0,
+    "SKIP": 0
+  }
+}

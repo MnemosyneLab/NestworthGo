@@ -256,6 +256,172 @@ func TestReviewF07OffsettingResidualKeepsIssueCountWithoutZeroBar(t *testing.T) 
 	}
 }
 
+func TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding(t *testing.T) {
+	accountID := domain.NewAccountID()
+	beginning := analysisSignedTestMoney(t, "100")
+	ending := analysisSignedTestMoney(t, "100.0001")
+	zero := analysisSignedTestMoney(t, "0")
+	day := domain.ComponentDay{
+		Date:         "2026-08-01",
+		Component:    domain.ComponentID{AccountID: accountID, Currency: "USD", Cash: true},
+		AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{domain.BucketAdjustment: zero},
+		AssetBucketExact: map[domain.AttributionBucket]decimal.Decimal{
+			domain.BucketAdjustment: decimal.RequireFromString("0.0001"),
+		},
+		BeginningValue: beginning,
+		EndingValue:    ending,
+		Status:         domain.CompletenessOK,
+	}
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-01", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
+	projection := foldAssetChange(domain.PeriodAnalysisResult{Query: query, Days: []domain.ComponentDay{day}}, "")
+	if projection.Summary.Change == nil || !projection.Summary.Change.Amount().Equal(decimal.RequireFromString("0.0001")) {
+		t.Fatalf("summary change = %+v, want 0.0001 USD", projection.Summary.Change)
+	}
+	if len(projection.Waterfall) != 1 || projection.Waterfall[0].Amount == nil || !projection.Waterfall[0].Amount.Amount().Equal(decimal.RequireFromString("0.0001")) {
+		t.Fatalf("waterfall = %+v, want exact adjustment", projection.Waterfall)
+	}
+}
+
+func TestReviewD5WaterfallAllocatesMultiBucketRoundingRemainder(t *testing.T) {
+	accountID := domain.NewAccountID()
+	day := domain.ComponentDay{
+		Date:           "2026-08-01",
+		Component:      domain.ComponentID{AccountID: accountID, Currency: "USD", Cash: true},
+		BeginningValue: analysisSignedTestMoney(t, "100"),
+		EndingValue:    analysisSignedTestMoney(t, "100.0001"),
+		Status:         domain.CompletenessOK,
+		AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{
+			domain.BucketIncome:      analysisSignedTestMoney(t, "0.0001"),
+			domain.BucketPriceChange: analysisSignedTestMoney(t, "0.0001"),
+		},
+		AssetBucketExact: map[domain.AttributionBucket]decimal.Decimal{
+			domain.BucketIncome:      decimal.RequireFromString("0.00006"),
+			domain.BucketPriceChange: decimal.RequireFromString("0.00006"),
+		},
+	}
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-01", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
+	projection := foldAssetChange(domain.PeriodAnalysisResult{Query: query, Days: []domain.ComponentDay{day}}, "")
+	if projection.Summary.Change == nil || projection.Summary.Change.Amount().String() != "0.0001" {
+		t.Fatalf("summary change = %+v, want 0.0001 USD", projection.Summary.Change)
+	}
+	waterfall := decimal.Zero
+	for _, row := range projection.Waterfall {
+		waterfall = waterfall.Add(row.Amount.Amount())
+	}
+	if waterfall.String() != "0.0001" {
+		t.Fatalf("waterfall sum = %s, want 0.0001; rows = %+v", waterfall, projection.Waterfall)
+	}
+	if len(projection.Waterfall) != 1 || projection.Waterfall[0].Bucket != domain.BucketPriceChange {
+		t.Fatalf("waterfall rows = %+v, want the deterministic price-change remainder row", projection.Waterfall)
+	}
+	result := domain.PeriodAnalysisResult{Query: query, Days: []domain.ComponentDay{day}}
+	incomeDetail := foldAssetDriverDetail(result, "", string(domain.BucketIncome))
+	if len(incomeDetail.ByAccount) != 0 || len(incomeDetail.ByInstrument) != 0 {
+		t.Fatalf("income detail = %+v, want the same zeroed public bucket as the waterfall", incomeDetail)
+	}
+	priceDetail := foldAssetDriverDetail(result, "", string(domain.BucketPriceChange))
+	if len(priceDetail.ByAccount) != 1 || priceDetail.ByAccount[0].Amount == nil || priceDetail.ByAccount[0].Amount.Amount().String() != "0.0001" {
+		t.Fatalf("price detail = %+v, want the same 0.0001 public bucket as the waterfall", priceDetail.ByAccount)
+	}
+}
+
+func TestReviewD5WaterfallKeepsGenuineExactMismatchVisible(t *testing.T) {
+	accountID := domain.NewAccountID()
+	day := domain.ComponentDay{
+		Date:           "2026-08-01",
+		Component:      domain.ComponentID{AccountID: accountID, Currency: "USD", Cash: true},
+		BeginningValue: analysisSignedTestMoney(t, "100"),
+		EndingValue:    analysisSignedTestMoney(t, "100.0001"),
+		Status:         domain.CompletenessOK,
+		AssetBuckets:   map[domain.AttributionBucket]domain.SignedMoney{domain.BucketIncome: analysisSignedTestMoney(t, "0.0002")},
+		AssetBucketExact: map[domain.AttributionBucket]decimal.Decimal{
+			domain.BucketIncome: decimal.RequireFromString("0.0002"),
+		},
+	}
+	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-01", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
+	projection := foldAssetChange(domain.PeriodAnalysisResult{Query: query, Days: []domain.ComponentDay{day}}, "")
+	if len(projection.Waterfall) != 1 || projection.Waterfall[0].Amount == nil || projection.Waterfall[0].Amount.Amount().String() != "0.0002" {
+		t.Fatalf("waterfall = %+v, want genuine 0.0002 mismatch to remain visible", projection.Waterfall)
+	}
+}
+
+func TestReviewD5AssetDriverDetailAggregatesExactAttributionBeforeRounding(t *testing.T) {
+	firstAccount, secondAccount := domain.NewAccountID(), domain.NewAccountID()
+	day := func(date string, accountID domain.AccountID) domain.ComponentDay {
+		return domain.ComponentDay{
+			Date:      date,
+			Component: domain.ComponentID{AccountID: accountID, Currency: "USD", Cash: true},
+			Status:    domain.CompletenessOK,
+			AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{
+				domain.BucketAdjustment: analysisSignedTestMoney(t, "0"),
+			},
+			AssetBucketExact: map[domain.AttributionBucket]decimal.Decimal{
+				domain.BucketAdjustment: decimal.RequireFromString("0.00004"),
+			},
+		}
+	}
+	detail := foldAssetDriverDetail(domain.PeriodAnalysisResult{Query: domain.AnalysisQuery{From: "2026-08-01", To: "2026-08-02"}, Days: []domain.ComponentDay{day("2026-08-01", firstAccount), day("2026-08-02", secondAccount)}}, "", string(domain.BucketAdjustment))
+	if len(detail.ByAccount) != 1 || detail.ByAccount[0].Amount == nil || detail.ByAccount[0].Amount.Amount().String() != "0.0001" {
+		t.Fatalf("by-account detail = %+v, want one remainder recipient rounded to 0.0001", detail.ByAccount)
+	}
+	if len(detail.ByInstrument) != 1 || detail.ByInstrument[0].Amount == nil || detail.ByInstrument[0].Amount.Amount().String() != "0.0001" {
+		t.Fatalf("by-instrument detail = %+v, want one exact aggregate rounded to 0.0001", detail.ByInstrument)
+	}
+}
+
+func TestReviewD5CategoryRowsAggregateExactBeforeRounding(t *testing.T) {
+	accountID := domain.NewAccountID()
+	day := func(date string) domain.ComponentDay {
+		return domain.ComponentDay{
+			Date:      date,
+			Component: domain.ComponentID{AccountID: accountID, Currency: "USD", Cash: true},
+			Status:    domain.CompletenessOK,
+			AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{
+				domain.BucketIncome: analysisSignedTestMoney(t, "0"),
+			},
+			AssetBucketExact: map[domain.AttributionBucket]decimal.Decimal{
+				domain.BucketIncome: decimal.RequireFromString("0.00004"),
+			},
+		}
+	}
+	result := foldCategories(domain.PeriodAnalysisResult{Days: []domain.ComponentDay{day("2026-08-01"), day("2026-08-02")}}, "", CategoryIncome)
+	if result.Total == nil || result.Total.Amount().String() != "0.0001" {
+		t.Fatalf("category total = %+v, want 0.0001", result.Total)
+	}
+	if len(result.Rows) != 1 || result.Rows[0].Amount == nil || result.Rows[0].Amount.Amount().String() != "0.0001" {
+		t.Fatalf("category rows = %+v, want one row rounded after aggregation", result.Rows)
+	}
+}
+
+func TestReviewD5AssetTrendAggregatesExactPeriodAmountBeforeRounding(t *testing.T) {
+	accountID := domain.NewAccountID()
+	day := func(date string) domain.ComponentDay {
+		return domain.ComponentDay{
+			Date:           date,
+			Component:      domain.ComponentID{AccountID: accountID, Currency: "USD", Cash: true},
+			BeginningValue: analysisSignedTestMoney(t, "100"),
+			EndingValue:    analysisSignedTestMoney(t, "100"),
+			Status:         domain.CompletenessOK,
+			AssetBuckets: map[domain.AttributionBucket]domain.SignedMoney{
+				domain.BucketIncome: analysisSignedTestMoney(t, "0"),
+			},
+			AssetBucketExact: map[domain.AttributionBucket]decimal.Decimal{
+				domain.BucketIncome: decimal.RequireFromString("0.00004"),
+			},
+		}
+	}
+	result, err := foldAssetTrend(domain.PeriodAnalysisResult{AnalysisDayTimezone: "UTC", Days: []domain.ComponentDay{day("2026-08-01"), day("2026-08-02")}}, "", TrendMonth, TrendIncome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Summary == nil || result.Summary.Amount().String() != "0.0001" {
+		t.Fatalf("trend summary = %+v, want 0.0001", result.Summary)
+	}
+	if len(result.Points) != 1 || result.Points[0].Value == nil || result.Points[0].Value.Amount().String() != "0.0001" {
+		t.Fatalf("trend points = %+v, want one monthly point rounded after aggregation", result.Points)
+	}
+}
+
 func TestReviewF11ContributionHistoryHintUsesWholeGroup(t *testing.T) {
 	firstAccount, secondAccount := domain.NewAccountID(), domain.NewAccountID()
 	dividendTen := testReturnMoney(t, "10")
@@ -351,5 +517,28 @@ func TestReviewF11ContributionHistoryHintUsesWholeGroup(t *testing.T) {
 	}
 	if holdingItem.HistoryHint.AccountID != firstAccount.String() || holdingItem.HistoryHint.InstrumentID != instrumentID.String() {
 		t.Fatalf("holding-only hint = %+v, want account and instrument", holdingItem.HistoryHint)
+	}
+}
+
+func TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions(t *testing.T) {
+	accountID, instrumentID := domain.NewAccountID(), domain.NewInstrumentID()
+	query := testReturnQuery("2026-08-01", "2026-08-31")
+
+	instrumentHint := realizedContributionHistoryHint(query, ContributionGroupInstrument, instrumentID.String())
+	if instrumentHint.AccountID != "" || instrumentHint.InstrumentID != instrumentID.String() {
+		t.Fatalf("household instrument hint = %+v, want instrument only", instrumentHint)
+	}
+
+	query.Scope = domain.AnalysisScope{Kind: domain.ScopeAccount, ID: accountID.String()}
+	accountScopedInstrumentHint := realizedContributionHistoryHint(query, ContributionGroupInstrument, instrumentID.String())
+	if accountScopedInstrumentHint.AccountID != accountID.String() || accountScopedInstrumentHint.InstrumentID != instrumentID.String() {
+		t.Fatalf("account-scoped instrument hint = %+v, want both dimensions", accountScopedInstrumentHint)
+	}
+
+	query.Scope = domain.AnalysisScope{Kind: domain.ScopeHousehold}
+	query.Filters.InstrumentID = &instrumentID
+	accountHint := realizedContributionHistoryHint(query, ContributionGroupAccount, accountID.String())
+	if accountHint.AccountID != accountID.String() || accountHint.InstrumentID != instrumentID.String() {
+		t.Fatalf("instrument-filtered account hint = %+v, want both dimensions", accountHint)
 	}
 }

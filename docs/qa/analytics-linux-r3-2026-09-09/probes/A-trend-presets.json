@@ -1,0 +1,135 @@
+{
+  "id": "A-trend-presets",
+  "phase": "A2",
+  "generatedAtSGT": "2026-09-09 15:32 SGT",
+  "repo": "/workspace/NestworthGo-fe-be-audit",
+  "branch": "qa/analytics-linux-r3-2026-09-09",
+  "rev": "ea94f485f1f65fb58a2d506d13d3456fbd40fb26",
+  "probeCmd": "env -u NESTWORTH_PROBE_MODE NESTWORTH_DATABASE_PATH=<db> [NESTWORTH_PROBE_FROM=…] [NESTWORTH_PROBE_TO=…] go run ./cmd/analytics-qa-probe",
+  "dateOverride": {
+    "supported": true,
+    "envFrom": "NESTWORTH_PROBE_FROM",
+    "envTo": "NESTWORTH_PROBE_TO",
+    "source": "cmd/analytics-qa-probe/main.go runLegacyProbe — already reads FROM/TO; no probe extension required",
+    "allDefault": "omit FROM/TO → from=history_origins.started_at (SGT local date) to=MAX(daily_valuation_snapshots.local_date)",
+    "cashIncludeDefaults": "2026-08-01..2026-09-07 (used as Custom mid)"
+  },
+  "presets": [
+    {
+      "id": "All",
+      "approxUiPreset": "Trend All = History Origin → last closed",
+      "from": "2026-07-26",
+      "to": "2026-09-08",
+      "howSet": "omit NESTWORTH_PROBE_FROM/TO (auto origin→last closed)"
+    },
+    {
+      "id": "CustomMid",
+      "approxUiPreset": "Custom mid-range",
+      "from": "2026-08-01",
+      "to": "2026-09-07",
+      "howSet": "NESTWORTH_PROBE_FROM/TO (same as cash-include defaults)"
+    },
+    {
+      "id": "Approx30D",
+      "approxUiPreset": "30D-ish = last 30 closed days inclusive ending at last closed",
+      "from": "2026-08-10",
+      "to": "2026-09-08",
+      "howSet": "NESTWORTH_PROBE_FROM=2026-08-10 NESTWORTH_PROBE_TO=2026-09-08",
+      "note": "Not a product calendar '30D' button exact; inclusive day count = 30 ending at MAX(local_date)"
+    }
+  ],
+  "scenarios": [
+    {
+      "scenario": "missing-both",
+      "db": "/workspace/nestworth-analytics-qa-r3/data/nestworth-missing-both.db",
+      "results": [
+        {
+          "preset": "All",
+          "ok": true,
+          "panicked": false,
+          "exitCode": 0,
+          "coverage": { "rated": 21, "total": 45, "status": "partial", "from": "2026-07-26", "to": "2026-09-08" },
+          "dayStatuses": { "ok": 21, "partial": 23, "unavailable": 1, "nonOk": 24 },
+          "log": "logs/A-trend/mb-all.out",
+          "alsoCited": "logs/03-probe-missing-both-all.out",
+          "verdict": "partial"
+        },
+        {
+          "preset": "CustomMid",
+          "ok": true,
+          "panicked": false,
+          "exitCode": 0,
+          "coverage": { "rated": 20, "total": 38, "status": "partial", "from": "2026-08-01", "to": "2026-09-07" },
+          "dayStatuses": { "ok": 20, "partial": 18, "unavailable": 0, "nonOk": 18 },
+          "log": "logs/A-trend/mb-mid.out",
+          "verdict": "partial"
+        },
+        {
+          "preset": "Approx30D",
+          "ok": true,
+          "panicked": false,
+          "exitCode": 0,
+          "coverage": { "rated": 21, "total": 30, "status": "partial", "from": "2026-08-10", "to": "2026-09-08" },
+          "dayStatuses": { "ok": 21, "partial": 9, "unavailable": 0, "nonOk": 9 },
+          "log": "logs/A-trend/mb-30d.out",
+          "verdict": "partial"
+        }
+      ]
+    },
+    {
+      "scenario": "complete",
+      "db": "/workspace/nestworth-analytics-qa-r3/data/nestworth-complete.db",
+      "dbNote": "Restored full copy from r2 (r3 copy was truncated / missing household until re-copied)",
+      "results": [
+        {
+          "preset": "All",
+          "ok": true,
+          "panicked": false,
+          "exitCode": 0,
+          "coverage": { "rated": 39, "total": 45, "status": "partial", "from": "2026-07-26", "to": "2026-09-08" },
+          "dayStatuses": { "ok": 39, "partial": 5, "unavailable": 1, "nonOk": 6 },
+          "log": "logs/A-trend/complete-all.out",
+          "verdict": "partial",
+          "note": "Origin day UNAVAIL + early Jul partial days even on 'complete' fixture — expected seed shape for All window"
+        },
+        {
+          "preset": "CustomMid",
+          "ok": true,
+          "panicked": false,
+          "exitCode": 0,
+          "coverage": { "rated": 38, "total": 38, "status": "ok", "from": "2026-08-01", "to": "2026-09-07" },
+          "dayStatuses": { "ok": 38, "partial": 0, "unavailable": 0, "nonOk": 0 },
+          "log": "logs/A-trend/complete-mid.out",
+          "verdict": "ok"
+        },
+        {
+          "preset": "Approx30D",
+          "ok": true,
+          "panicked": false,
+          "exitCode": 0,
+          "coverage": { "rated": 30, "total": 30, "status": "ok", "from": "2026-08-10", "to": "2026-09-08" },
+          "dayStatuses": { "ok": 30, "partial": 0, "unavailable": 0, "nonOk": 0 },
+          "log": "logs/A-trend/complete-30d.out",
+          "verdict": "ok"
+        }
+      ]
+    }
+  ],
+  "table": [
+    { "scenario": "missing-both", "preset": "All", "range": "2026-07-26..2026-09-08", "result": "partial", "coverage": "21/45", "panic": false },
+    { "scenario": "missing-both", "preset": "CustomMid", "range": "2026-08-01..2026-09-07", "result": "partial", "coverage": "20/38", "panic": false },
+    { "scenario": "missing-both", "preset": "Approx30D", "range": "2026-08-10..2026-09-08", "result": "partial", "coverage": "21/30", "panic": false },
+    { "scenario": "complete", "preset": "All", "range": "2026-07-26..2026-09-08", "result": "partial", "coverage": "39/45", "panic": false },
+    { "scenario": "complete", "preset": "CustomMid", "range": "2026-08-01..2026-09-07", "result": "ok", "coverage": "38/38", "panic": false },
+    { "scenario": "complete", "preset": "Approx30D", "range": "2026-08-10..2026-09-08", "result": "ok", "coverage": "30/30", "panic": false }
+  ],
+  "limitations": [
+    "YTD / 1Y / 3Y UI presets not separately probed (fixture window is ~45 days from origin; those presets would collapse to All or be empty).",
+    "Approx30D is probe-constructed inclusive last-30-closed-days, not a verified UI button mapping.",
+    "Desktop Trend All confirm still pending (DEF-R2-02 A3)."
+  ],
+  "defR202": {
+    "status": "FIXED_pending_desktop",
+    "cite": "logs/03-probe-missing-both-all.out — coverage partial 21/45, no panic"
+  }
+}

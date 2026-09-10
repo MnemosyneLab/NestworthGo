@@ -1,0 +1,151 @@
+{
+  "when": "2026-09-09T14:42:00Z",
+  "mode": "NESTWORTH_PROBE_MODE=loan-fc07",
+  "dbPath": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/nestworth.db",
+  "drawLocalDate": "2026-07-27",
+  "repayLocalDate": "2026-07-29",
+  "interestLocalDate": "2026-07-31",
+  "results": [
+    {
+      "id": "fc07_draw_nw0",
+      "name": "draw net-worth neutrality",
+      "status": "PASS",
+      "expected": {
+        "dividendInterest": "0",
+        "nwDelta": "0",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "0"
+      },
+      "got": {
+        "begin": "20000",
+        "dividendInterest": "0",
+        "end": "20000",
+        "nwDelta": "0",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "0"
+      },
+      "detail": "date=2026-07-27 nw_delta=0 spending=0 return=0"
+    },
+    {
+      "id": "fc07_repay_nw0",
+      "name": "repay principal net-worth neutrality",
+      "status": "PASS",
+      "expected": {
+        "dividendInterest": "0",
+        "nwDelta": "0",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "0"
+      },
+      "got": {
+        "begin": "20000",
+        "dividendInterest": "0",
+        "end": "20000",
+        "nwDelta": "0",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "0"
+      },
+      "detail": "date=2026-07-29 nw_delta=0 spending=0 return=0"
+    },
+    {
+      "id": "fc07_interest_spending",
+      "name": "cash interest is Spending, not return",
+      "status": "PASS",
+      "expected": {
+        "dividendInterest": "0",
+        "nwDelta": "-500",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "-500"
+      },
+      "got": {
+        "categoriesSpending": "-500",
+        "dividendInterest": "0",
+        "nwDelta": "-500",
+        "residual": false,
+        "returnAmount": "0",
+        "spending": "-500"
+      },
+      "detail": "date=2026-07-31 nw_delta=-500 spending=-500 categories=-500 return=0"
+    },
+    {
+      "id": "r4_valuation_base_native",
+      "name": "Valuation Base vs Native (single-currency loan)",
+      "status": "PASS",
+      "expected": {
+        "baseOK": true,
+        "nativeForced": false,
+        "nativeOK": true,
+        "singleCurrency": true
+      },
+      "got": {
+        "analyzeNativeErr": "",
+        "baseCurrency": "AUD",
+        "baseErr": "",
+        "nativeCurrency": "AUD",
+        "nativeErr": "",
+        "nativeForced": ""
+      },
+      "detail": "Native not forced; Analyze Native succeeded"
+    },
+    {
+      "id": "r4_scope_portfolio_account",
+      "name": "Scope Portfolio (household) / Account",
+      "status": "PASS",
+      "expected": {
+        "accountCash": true,
+        "accountLoan": true,
+        "instrument": "SKIP loan fixture has no instruments",
+        "portfolio": "household"
+      },
+      "got": {
+        "cashDays": 1,
+        "cashErr": "",
+        "loanDays": 1,
+        "loanErr": "",
+        "portfolioDays": 2,
+        "portfolioErr": ""
+      },
+      "detail": "household/account cash=01a0869e-35ef-739e-9a7d-ba58fe031aaf loan=01a0869e-35f0-7244-a749-d7ac89a57fa9"
+    },
+    {
+      "id": "r4_cash_include_exclude_draw",
+      "name": "Cash Include vs Exclude on draw day",
+      "status": "PASS",
+      "expected": {
+        "day": "draw capital-flow",
+        "excludeDiffers": true,
+        "includeCashDietz": "\u003e0"
+      },
+      "got": {
+        "excludeCashDietz": 0,
+        "excludeInvestedCapital": "",
+        "includeCashDietz": 1,
+        "includeInvestedCapital": "86666.6667"
+      },
+      "detail": "draw=2026-07-27 includeFlows=1 excludeFlows=0 cap include=\"86666.6667\" exclude=\"\""
+    },
+    {
+      "id": "r4_settings_week_currency",
+      "name": "settings.json week_start and currency",
+      "status": "PASS",
+      "expected": {
+        "currency": "AUD",
+        "week_start": "monday"
+      },
+      "got": {
+        "currency": "AUD",
+        "language": "en",
+        "path": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/settings.json",
+        "week_start": "monday",
+        "window_width": 1280
+      },
+      "detail": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/settings.json"
+    }
+  ],
+  "allPass": true,
+  "summary": "7 PASS / 0 FAIL / 0 SKIP"
+}

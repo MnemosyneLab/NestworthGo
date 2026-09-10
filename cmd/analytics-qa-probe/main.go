@@ -36,6 +36,36 @@ func main() {
 			os.Exit(1)
 		}
 		return
+	case "reconcile":
+		if err := runReconcileProbe(); err != nil {
+			fmt.Fprintf(os.Stderr, "reconcile probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	case "quantitative":
+		if err := runQuantitativeProbe(); err != nil {
+			fmt.Fprintf(os.Stderr, "quantitative probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	case "loan-fc07":
+		if err := runLoanFC07Probe(); err != nil {
+			fmt.Fprintf(os.Stderr, "loan-fc07 probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	case "timezone-r4":
+		if err := runTimezoneR4Probe(); err != nil {
+			fmt.Fprintf(os.Stderr, "timezone-r4 probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	case "r4-matrix":
+		if err := runR4MatrixProbe(); err != nil {
+			fmt.Fprintf(os.Stderr, "r4-matrix probe failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
 	case "fixtures":
 		if err := runFixturesProbe(); err != nil {
 			fmt.Fprintf(os.Stderr, "fixtures probe failed: %v\n", err)

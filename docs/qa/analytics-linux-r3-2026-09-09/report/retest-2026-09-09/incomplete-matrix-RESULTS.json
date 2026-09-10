@@ -1,0 +1,42 @@
+{
+  "build": "nestworth-analytics-qa-r3-retest",
+  "display": ":11",
+  "language_order": ["English", "简体中文", "English"],
+  "scenarios": {
+    "missing-both": {
+      "checks": {
+        "return_analysis_partial_banner": {"status": "PASS", "observed": "Partial coverage 21/45; Issues (24)"},
+        "return_trend_all": {"status": "PASS", "observed": "Chart loaded; Partial coverage 21/45; no Insights could not be loaded; From 2026-07-26, To 2026-09-08"},
+        "calendar_aug_gap_and_zero": {"status": "PASS", "observed": "Aug 17 incomplete marker ◇; Aug 31 0% and A$0.00"},
+        "asset_changes_change_drivers": {"status": "PASS", "observed": "Change Drivers selected; Partial coverage; One or more asset days are incomplete"},
+        "simplified_chinese_copy": {"status": "PASS", "observed": "Chinese partial-coverage banner and incomplete-day warning shown"}
+      },
+      "screenshots": ["missing-both-banner.png", "missing-both-trend-all.png", "missing-both-cal-gap.png", "missing-both-drivers.png", "missing-both-zh-drivers.png", "missing-both-zh-banner.png"],
+      "overall": "PASS"
+    },
+    "missing-price": {
+      "checks": {
+        "return_analysis_partial_banner": {"status": "PASS", "observed": "Partial coverage 21/45; Issues (24)"},
+        "return_trend_all": {"status": "PASS", "observed": "Chart loaded; Partial coverage 21/45; no Insights could not be loaded; From 2026-07-26, To 2026-09-08"},
+        "calendar_aug_gap_and_zero": {"status": "PASS", "observed": "Aug 17 incomplete marker ◇; Aug 31 0% and A$0.00"},
+        "asset_changes_change_drivers": {"status": "PASS", "observed": "Change Drivers selected; Partial coverage; One or more asset days are incomplete"},
+        "simplified_chinese_copy": {"status": "PASS", "observed": "Chinese partial-coverage banner and incomplete-day warning shown"}
+      },
+      "screenshots": ["missing-price-banner.png", "missing-price-trend-all.png", "missing-price-cal-gap.png", "missing-price-drivers.png", "missing-price-zh-drivers.png", "missing-price-zh-banner.png"],
+      "overall": "PASS"
+    },
+    "missing-fx": {
+      "checks": {
+        "return_analysis_partial_banner": {"status": "PASS", "observed": "Partial coverage 21/45; Issues (24)"},
+        "return_trend_all": {"status": "PASS", "observed": "Chart loaded; Partial coverage 21/45; no Insights could not be loaded; From 2026-07-26, To 2026-09-08"},
+        "calendar_aug_gap_and_zero": {"status": "PASS", "observed": "Aug 17 incomplete marker ◇; Aug 31 0% and A$0.00"},
+        "asset_changes_change_drivers": {"status": "PASS", "observed": "Change Drivers selected; Partial coverage; One or more asset days are incomplete"},
+        "simplified_chinese_copy": {"status": "PASS", "observed": "Chinese partial-coverage banner and incomplete-day warning shown"}
+      },
+      "screenshots": ["missing-fx-banner.png", "missing-fx-trend-all.png", "missing-fx-cal-gap.png", "missing-fx-drivers.png", "missing-fx-zh-drivers.png", "missing-fx-zh-banner.png"],
+      "overall": "PASS"
+    }
+  },
+  "overall": "PASS",
+  "summary": "All 3 incomplete-matrix scenarios passed all 5 requested checks. App left in English."
+}

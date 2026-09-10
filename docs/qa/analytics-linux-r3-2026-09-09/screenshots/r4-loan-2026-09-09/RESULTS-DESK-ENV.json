@@ -1,0 +1,18 @@
+{
+  "DESK-TZ": {
+    "status": "PARTIAL",
+    "notes": "Settings timezone is informational: System timezone, resolves to UTC; only that option is listed, so Asia/Singapore ↔ UTC switching is not available. Return Analysis/Insights loaded normally with coherent September 2026 calendar and no crash. Captures: tz/01-settings-tz.png, tz/02-after-switch.png."
+  },
+  "DESK-WEEK": {
+    "status": "PARTIAL",
+    "notes": "No week-start setting was available in Settings. Calendar is Monday-first (Mon–Sun); Sunday mode could not be selected, so no header change was possible. Captures: week/01-monday.png, week/02-sunday.png (same observed state)."
+  },
+  "DESK-WIN": {
+    "status": "PASS",
+    "notes": "Insights/Return Analysis remained usable at default ~1280 and at ~900 narrow width; no blank/crash observed and calendar content reflowed. Physical desktop is 1280 px wide, so a true ~1440 capture was not possible; win/03-1440.png records the maximum visible width attempt."
+  },
+  "DESK-LOC": {
+    "status": "PASS",
+    "notes": "English, 简体中文, and 繁體中文 all switched successfully; visible Insights strings changed and Return Analysis remained loaded. App restored to English. Captures: locale/en.png, locale/zh-CN.png, locale/zh-TW.png."
+  }
+}

@@ -118,4 +118,25 @@ func TestAssetDriverDTOIncludesResidualDetails(t *testing.T) {
 	}
 }
 
+func TestContributionItemDTOPreservesHistoryHintDimensions(t *testing.T) {
+	value := application.ContributionItemResult{
+		Key:   "instrument",
+		Label: "Instrument",
+		HistoryHint: application.ContributionHistoryHint{
+			Kinds:        []string{"buy", "sell"},
+			AccountID:    "00000000-0000-4000-8000-000000000001",
+			InstrumentID: "00000000-0000-4000-8000-000000000002",
+			From:         "2026-08-01",
+			To:           "2026-08-31",
+		},
+	}
+	dto := fromContributionItem(value)
+	if dto.HistoryHint.AccountID != value.HistoryHint.AccountID || dto.HistoryHint.InstrumentID != value.HistoryHint.InstrumentID || dto.HistoryHint.From != string(value.HistoryHint.From) || dto.HistoryHint.To != string(value.HistoryHint.To) {
+		t.Fatalf("history hint = %+v, want %+v", dto.HistoryHint, value.HistoryHint)
+	}
+	if len(dto.HistoryHint.Kinds) != 2 || dto.HistoryHint.Kinds[0] != "buy" || dto.HistoryHint.Kinds[1] != "sell" {
+		t.Fatalf("history kinds = %+v", dto.HistoryHint.Kinds)
+	}
+}
+
 func stringPtr(value string) *string { return &value }

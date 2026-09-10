@@ -1,0 +1,35 @@
+{
+  "D5": {
+    "status": "PASS",
+    "screen": "Asset Changes -> Change Drivers",
+    "filters": {
+      "from": "2026-08-01",
+      "to": "2026-08-31",
+      "scope": "Portfolio",
+      "valuation": "Base (AUD)",
+      "cash": "Include cash"
+    },
+    "summary": {
+      "beginning": "+A$54,258.02",
+      "ending": "+A$59,784.37",
+      "change": "+A$5,526.35"
+    },
+    "notes": "No waterfall reconciliation or ending-value mismatch warning was present."
+  },
+  "D6": {
+    "status": "PASS",
+    "screen": "Return Analysis -> Contribution -> Apple Inc detail -> View in History",
+    "beforeClick": {
+      "returnType": "Realized Gain",
+      "groupBy": "Instrument",
+      "groupKey": "Apple Inc"
+    },
+    "afterClick": {
+      "instrumentFilter": "Apple Inc",
+      "accountFilter": "All",
+      "from": "2026-08-01",
+      "to": "2026-08-31"
+    },
+    "notes": "History opened with Instrument filter set to Apple Inc, not All."
+  }
+}

@@ -1,0 +1,229 @@
+{
+  "when": "2026-09-09 22:55 SGT",
+  "worktree": "/workspace/NestworthGo-fe-be-audit",
+  "commit": "dd6cf35",
+  "branch": "qa/analytics-linux-r3-2026-09-09",
+  "artifact_root": "/workspace/nestworth-analytics-qa-r4",
+  "desktop": "SKIPPED (not in this task)",
+  "overall": "PASS",
+  "seeds": {
+    "loan-fc07": {
+      "status": "PASS",
+      "output_dir": "/workspace/nestworth-analytics-qa-r4/loan-fc07",
+      "db_path": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/nestworth.db",
+      "seed_results": "/workspace/nestworth-analytics-qa-r4/loan-fc07/seed/seed-results.json",
+      "seed_log": "/workspace/nestworth-analytics-qa-r4/loan-fc07/logs/seed.log",
+      "fixture_version": "analytics-linux-qa-loan-fc07",
+      "commit": "ce8aedb720f99f6b686357c5d6f655af724014c8",
+      "ids": {
+        "timezone": "Asia/Singapore",
+        "base_currency": "AUD",
+        "week_start": "monday",
+        "draw_local_date": "2026-07-27",
+        "repay_local_date": "2026-07-29",
+        "interest_local_date": "2026-07-31",
+        "acct_cash": "01a0869e-35ef-739e-9a7d-ba58fe031aaf",
+        "acct_loan": "01a0869e-35f0-7244-a749-d7ac89a57fa9"
+      },
+      "results_summary": "14 PASS / 0 FAIL",
+      "fail_details": null
+    },
+    "loan-fc07-utc": {
+      "status": "PASS",
+      "output_dir": "/workspace/nestworth-analytics-qa-r4/loan-fc07-utc",
+      "db_path": "/workspace/nestworth-analytics-qa-r4/loan-fc07-utc/data/nestworth.db",
+      "seed_results": "/workspace/nestworth-analytics-qa-r4/loan-fc07-utc/seed/seed-results.json",
+      "seed_log": "/workspace/nestworth-analytics-qa-r4/loan-fc07-utc/logs/seed.log",
+      "fixture_version": "analytics-linux-qa-loan-fc07",
+      "commit": "ce8aedb720f99f6b686357c5d6f655af724014c8",
+      "ids": {
+        "timezone": "UTC",
+        "base_currency": "AUD",
+        "week_start": "monday",
+        "draw_local_date": "2026-07-27",
+        "repay_local_date": "2026-07-29",
+        "interest_local_date": "2026-07-31",
+        "acct_cash": "01a0869e-35ef-7528-9c52-0c0f05428f8b",
+        "acct_loan": "01a0869e-35f0-7a40-a048-d7893df2f99f"
+      },
+      "results_summary": "14 PASS / 0 FAIL",
+      "fail_details": null
+    },
+    "loan-fc07-cny": {
+      "status": "PASS",
+      "output_dir": "/workspace/nestworth-analytics-qa-r4/loan-fc07-cny",
+      "db_path": "/workspace/nestworth-analytics-qa-r4/loan-fc07-cny/data/nestworth.db",
+      "seed_results": "/workspace/nestworth-analytics-qa-r4/loan-fc07-cny/seed/seed-results.json",
+      "seed_log": "/workspace/nestworth-analytics-qa-r4/loan-fc07-cny/logs/seed.log",
+      "fixture_version": "analytics-linux-qa-loan-fc07",
+      "commit": "ce8aedb720f99f6b686357c5d6f655af724014c8",
+      "ids": {
+        "timezone": "Asia/Singapore",
+        "base_currency": "CNY",
+        "week_start": "monday",
+        "draw_local_date": "2026-07-27",
+        "repay_local_date": "2026-07-29",
+        "interest_local_date": "2026-07-31",
+        "acct_cash": "01a0869e-35ee-7881-8475-f2644e5cdad2",
+        "acct_loan": "01a0869e-35ef-7ba0-b6f5-18f4bf86e406"
+      },
+      "results_summary": "14 PASS / 0 FAIL",
+      "fail_details": null
+    },
+    "loan-fc07-usd": {
+      "status": "PASS",
+      "output_dir": "/workspace/nestworth-analytics-qa-r4/loan-fc07-usd",
+      "db_path": "/workspace/nestworth-analytics-qa-r4/loan-fc07-usd/data/nestworth.db",
+      "seed_results": "/workspace/nestworth-analytics-qa-r4/loan-fc07-usd/seed/seed-results.json",
+      "seed_log": "/workspace/nestworth-analytics-qa-r4/loan-fc07-usd/logs/seed.log",
+      "fixture_version": "analytics-linux-qa-loan-fc07",
+      "commit": "ce8aedb720f99f6b686357c5d6f655af724014c8",
+      "ids": {
+        "timezone": "Asia/Singapore",
+        "base_currency": "USD",
+        "week_start": "monday",
+        "draw_local_date": "2026-07-27",
+        "repay_local_date": "2026-07-29",
+        "interest_local_date": "2026-07-31",
+        "acct_cash": "01a0869e-35ee-78ac-b560-6e991b9103f4",
+        "acct_loan": "01a0869e-35ef-7a9a-a4b0-2131bac30e41"
+      },
+      "results_summary": "14 PASS / 0 FAIL",
+      "fail_details": null
+    },
+    "loan-fc07-week-sunday": {
+      "status": "PASS",
+      "output_dir": "/workspace/nestworth-analytics-qa-r4/loan-fc07-week-sunday",
+      "db_path": "/workspace/nestworth-analytics-qa-r4/loan-fc07-week-sunday/data/nestworth.db",
+      "seed_results": "/workspace/nestworth-analytics-qa-r4/loan-fc07-week-sunday/seed/seed-results.json",
+      "seed_log": "/workspace/nestworth-analytics-qa-r4/loan-fc07-week-sunday/logs/seed.log",
+      "fixture_version": "analytics-linux-qa-loan-fc07",
+      "commit": "ce8aedb720f99f6b686357c5d6f655af724014c8",
+      "ids": {
+        "timezone": "Asia/Singapore",
+        "base_currency": "AUD",
+        "week_start": "sunday",
+        "draw_local_date": "2026-07-27",
+        "repay_local_date": "2026-07-29",
+        "interest_local_date": "2026-07-31",
+        "acct_cash": "01a0869e-35ee-7caa-9ce1-0bfc0ef50446",
+        "acct_loan": "01a0869e-35f0-706f-ba7c-9f486b956173"
+      },
+      "results_summary": "14 PASS / 0 FAIL",
+      "fail_details": null
+    },
+    "complete-usd": {
+      "status": "PASS",
+      "output_dir": "/workspace/nestworth-analytics-qa-r4/complete-usd",
+      "db_path": "/workspace/nestworth-analytics-qa-r4/complete-usd/data/nestworth.db",
+      "seed_results": "/workspace/nestworth-analytics-qa-r4/complete-usd/seed/seed-results.json",
+      "seed_log": "/workspace/nestworth-analytics-qa-r4/complete-usd/logs/seed.log",
+      "fixture_version": "analytics-linux-qa-v3",
+      "commit": "dd6cf35",
+      "ids": {
+        "base_currency": "USD",
+        "household": "01a086aa-1822-7baf-a027-978e7738f68c",
+        "acct_cash": "01a086aa-1824-797e-9ba8-640ad2b677f0",
+        "acct_broker": "01a086aa-1825-7743-96bb-89464978f25e",
+        "acct_sg": "01a086aa-1826-70b2-b633-67184afe694b"
+      },
+      "results_summary": "36 PASS / 0 FAIL",
+      "fail_details": null
+    },
+    "complete-cny": {
+      "status": "PASS",
+      "output_dir": "/workspace/nestworth-analytics-qa-r4/complete-cny",
+      "db_path": "/workspace/nestworth-analytics-qa-r4/complete-cny/data/nestworth.db",
+      "seed_results": "/workspace/nestworth-analytics-qa-r4/complete-cny/seed/seed-results.json",
+      "seed_log": "/workspace/nestworth-analytics-qa-r4/complete-cny/logs/seed.log",
+      "fixture_version": "analytics-linux-qa-v3",
+      "commit": "dd6cf35",
+      "ids": {
+        "base_currency": "CNY",
+        "household": "01a086aa-1a3c-7f2d-80fa-e1635a4f57e8",
+        "acct_cash": "01a086aa-1a3f-74f1-8d55-fed0aaa6460f",
+        "acct_broker": "01a086aa-1a40-74d8-b3bf-3e341c6a707b",
+        "acct_sg": "01a086aa-1a40-7e66-80c8-2a5b1c08576c"
+      },
+      "results_summary": "36 PASS / 0 FAIL",
+      "fail_details": null
+    },
+    "complete-usd-via-env": {
+      "status": "PASS",
+      "output_dir": "/workspace/nestworth-analytics-qa-r4/complete-usd-via-env",
+      "db_path": "/workspace/nestworth-analytics-qa-r4/complete-usd-via-env/data/nestworth.db",
+      "seed_results": "/workspace/nestworth-analytics-qa-r4/complete-usd-via-env/seed/seed-results.json",
+      "seed_log": "/workspace/nestworth-analytics-qa-r4/complete-usd-via-env/logs/seed.log",
+      "fixture_version": "analytics-linux-qa-v3",
+      "commit": "dd6cf35",
+      "ids": {
+        "base_currency": "USD",
+        "household": "01a086aa-1d77-79c5-99f7-fd9f29ff3fa0",
+        "acct_cash": "01a086aa-1d7a-7da3-a420-81e8f87f63b2",
+        "acct_broker": "01a086aa-1d7c-70d4-9fd4-615568b43b96",
+        "acct_sg": "01a086aa-1d7c-7b60-8045-34762105272d"
+      },
+      "results_summary": "36 PASS / 0 FAIL",
+      "fail_details": null,
+      "note": "NESTWORTH_QA_SCENARIO=complete NESTWORTH_QA_BASE_CURRENCY=USD"
+    }
+  },
+  "probes": {
+    "loan-fc07": {
+      "status": "PASS",
+      "out": "/workspace/nestworth-analytics-qa-r4/probes/probe-loan-fc07.json",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/probe-loan-fc07.log",
+      "summary": "7 PASS / 0 FAIL / 0 SKIP",
+      "allPass": true,
+      "dbPath": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/nestworth.db"
+    },
+    "timezone-r4": {
+      "status": "PASS",
+      "out": "/workspace/nestworth-analytics-qa-r4/probes/probe-timezone-r4.json",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/probe-timezone-r4.log",
+      "summary": "23 PASS / 0 FAIL",
+      "allPass": true,
+      "dbPath": "/workspace/nestworth-analytics-qa-r4/timezone-r4"
+    },
+    "r4-matrix": {
+      "status": "PASS",
+      "out": "/workspace/nestworth-analytics-qa-r4/probes/probe-r4-matrix-dd6cf35.json",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/probe-r4-matrix-dd6cf35.log",
+      "summary": "46 PASS / 0 FAIL / 1 SKIP / 10 BLOCKED",
+      "allPass": true,
+      "dbPath": null,
+      "env": {
+        "NESTWORTH_QA_LOAN_DB": "/workspace/nestworth-analytics-qa-r4/loan-fc07/data/nestworth.db",
+        "NESTWORTH_QA_COMPLETE_DB": "/workspace/nestworth-analytics-qa-r3/data/nestworth-complete.db",
+        "NESTWORTH_QA_COMPLETE_USD_DB": "/workspace/nestworth-analytics-qa-r4/complete-usd/data/nestworth.db",
+        "NESTWORTH_QA_COMPLETE_CNY_DB": "/workspace/nestworth-analytics-qa-r4/complete-cny/data/nestworth.db",
+        "NESTWORTH_QA_OUTPUT_DIR": "/workspace/nestworth-analytics-qa-r4"
+      }
+    }
+  },
+  "unit_tests": {
+    "analytics-qa-probe": {
+      "status": "PASS",
+      "command": "go test ./cmd/analytics-qa-probe/ -count=1",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-analytics-qa-probe.log",
+      "detail": "2 PASS (TestR4SettingsMatrixCasesPass, TestR4HostMacOSIsBlockedOnLinux)"
+    },
+    "analytics-qa-seed": {
+      "status": "PASS",
+      "command": "go test ./cmd/analytics-qa-seed/ -count=1",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-analytics-qa-seed.log",
+      "detail": "7 PASS including TestParseLoanScenarioFamily, TestLoanFC07ScenarioConstants"
+    }
+  },
+  "notes": [
+    "Per-scenario OUTPUT_DIR used to avoid nestworth.db clobber",
+    "Unset polluted NESTWORTH_DATABASE_PATH before seeding",
+    "Primary loan DB for probes: /workspace/nestworth-analytics-qa-r4/loan-fc07/data/nestworth.db",
+    "Complete AUD DB: /workspace/nestworth-analytics-qa-r3/data/nestworth-complete.db",
+    "Complete USD DB: /workspace/nestworth-analytics-qa-r4/complete-usd/data/nestworth.db",
+    "Complete CNY DB: /workspace/nestworth-analytics-qa-r4/complete-cny/data/nestworth.db",
+    "Optional complete+NESTWORTH_QA_BASE_CURRENCY=USD: /workspace/nestworth-analytics-qa-r4/complete-usd-via-env/data/nestworth.db",
+    "r4-matrix @ dd6cf35: 46 PASS / 0 FAIL / 1 SKIP / 10 BLOCKED (env_base_usd + env_base_cny now PASS; desktop/macOS placeholders expected)",
+    "ENV-BASE-USD/CNY unblocked via complete-usd / complete-cny seed scenarios"
+  ]
+}

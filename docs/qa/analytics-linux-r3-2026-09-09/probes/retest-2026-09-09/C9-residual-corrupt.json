@@ -1,0 +1,49 @@
+{
+  "dbPath": "/workspace/nestworth-analytics-qa-r3-retest/probes/residual-corrupt-work.db",
+  "injection": true,
+  "corruptDay": "2026-08-12",
+  "itemId": "01a08520-6289-74a7-a16f-855105cf1850",
+  "holdingId": "01a08520-624d-7f2f-9961-ee4f72ba4015",
+  "baseBefore": "2833.909",
+  "baseAfter": "2933.909",
+  "nativeUnchanged": "1885",
+  "expectedResidualApprox": "100",
+  "revisionAfter": 1,
+  "from": "2026-08-01",
+  "to": "2026-08-31",
+  "assetChangeAvailable": true,
+  "residualIssueCount": 2,
+  "driverDetailCount": 2,
+  "driverDetails": [
+    {
+      "date": "2026-08-12",
+      "componentKey": "01a08520-609e-7f2c-beba-2435dbb9a91c/holding:01a08520-624d-7f2f-9961-ee4f72ba4015/instrument:01a08520-60a0-7346-ab17-6045d4098962",
+      "accountId": "01a08520-609e-7f2c-beba-2435dbb9a91c",
+      "holdingId": "01a08520-624d-7f2f-9961-ee4f72ba4015",
+      "instrumentId": "01a08520-60a0-7346-ab17-6045d4098962",
+      "amount": {
+        "amount": "100",
+        "currency": "AUD"
+      }
+    },
+    {
+      "date": "2026-08-13",
+      "componentKey": "01a08520-609e-7f2c-beba-2435dbb9a91c/holding:01a08520-624d-7f2f-9961-ee4f72ba4015/instrument:01a08520-60a0-7346-ab17-6045d4098962",
+      "accountId": "01a08520-609e-7f2c-beba-2435dbb9a91c",
+      "holdingId": "01a08520-624d-7f2f-9961-ee4f72ba4015",
+      "instrumentId": "01a08520-60a0-7346-ab17-6045d4098962",
+      "amount": {
+        "amount": "-100",
+        "currency": "AUD"
+      }
+    }
+  ],
+  "dayComponentResidual": {
+    "amount": "100",
+    "currency": "AUD"
+  },
+  "dayStatus": "partial",
+  "unexplainedPositive": true,
+  "pass": true,
+  "detail": "deliberate +100 AUD base corruption on holding item 01a08520-6289-74a7-a16f-855105cf1850 local=2026-08-12; expected residual≈100; waterfall=\u003cnil\u003e day=\u0026{100 AUD} issues=2"
+}

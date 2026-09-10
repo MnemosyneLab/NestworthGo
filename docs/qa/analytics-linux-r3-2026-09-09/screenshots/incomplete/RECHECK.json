@@ -1,0 +1,10 @@
+{
+  "verdict": "FIXED",
+  "notes": [
+    "Opened Return Analysis > Return Trend.",
+    "Initial selected preset was YTD; From 2026-07-26 and To 2026-09-08.",
+    "All was clicked twice; highlight stayed on YTD initially. A 30D responsiveness check changed dates to 2026-08-10..2026-09-08, then clicking All expanded back to 2026-07-26..2026-09-08 (history origin to last closed), so All did not remain on the clearly shorter 30D window.",
+    "No \u201cInsights could not be loaded\u201d message observed; Cumulative Return chart is visible; Partial coverage 21/45 is shown.",
+    "Screenshot saved to /workspace/nestworth-analytics-qa-r3/screenshots/incomplete/02b-trend-all-retry.png."
+  ]
+}

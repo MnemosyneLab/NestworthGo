@@ -1,0 +1,323 @@
+{
+  "generated_at": "2026-09-09 22:11:10 SGT",
+  "head": "0e69858ec4b8ed97b469cf1e46645ba9815a574b",
+  "branch": "qa/analytics-linux-r3-2026-09-09",
+  "counts": {
+    "pass": 51,
+    "fail": 0,
+    "skip": 0,
+    "total": 51,
+    "frontend_vitest_cases": 19
+  },
+  "tests": [
+    {
+      "name": "frontend/ActivityDetailSheet.test.tsx (debt_draw + debt_payment UI)",
+      "status": "PASS",
+      "package": "frontend",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-frontend-debt-tz-weekstart.log",
+      "note": "vitest file group: 19 tests / 3 files all PASS"
+    },
+    {
+      "name": "frontend/SettingsPage.test.tsx (timezone save + origin note)",
+      "status": "PASS",
+      "package": "frontend",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-frontend-debt-tz-weekstart.log",
+      "note": "vitest file group: 19 tests / 3 files all PASS"
+    },
+    {
+      "name": "frontend/date-time-picker.test.tsx (weekStart sunday)",
+      "status": "PASS",
+      "package": "frontend",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-frontend-debt-tz-weekstart.log",
+      "note": "vitest file group: 19 tests / 3 files all PASS"
+    },
+    {
+      "name": "TestAnalysisDebtDrawIsNetWorthNeutral",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-debt-loan.log"
+    },
+    {
+      "name": "TestAnalysisInterestUsesDividendInterestBucket",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-interest-includecash.log"
+    },
+    {
+      "name": "TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-interest-includecash.log"
+    },
+    {
+      "name": "TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-interest-includecash.log"
+    },
+    {
+      "name": "TestAnalysisReturnDSTNoonFlowWeightUsesOriginLocalDay",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestAnalysisReturnDSTWeightUsesOriginLocalDayLength",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestAnalysisReturnPeriodInvestedCapitalUsesFirstDayBeginning",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestAnalysisReviewCase17CashInterestIsSignedSpending",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-debt-loan.log"
+    },
+    {
+      "name": "TestAnalysisReviewCase17bCapitalisedInterest",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-debt-loan.log"
+    },
+    {
+      "name": "TestAnalysisReviewCase40OriginTimezoneBoundaries",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestAnalysisReviewCases16And17RealDebtPaymentPath",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-debt-loan.log"
+    },
+    {
+      "name": "TestAnalysisReviewDepositInterestIsWritable",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-interest-includecash.log"
+    },
+    {
+      "name": "TestDebtPaymentAppliesPrincipalAndFeeCumulatively",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-debt-loan.log"
+    },
+    {
+      "name": "TestDebtPaymentRejectsInsufficientCombinedCashWithoutWrites",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-debt-loan.log"
+    },
+    {
+      "name": "TestExportAccountsCSVRoundTripSingaporeDate",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestMakeAllocationsSortsByAmountDescending",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-valuation-extra.log"
+    },
+    {
+      "name": "TestRebuildHistoricalSnapshotsInvalidStartIsValidationError",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestReturnCalendarCase43UsesValuationFallback",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestReturnProjectionCarriesForcedBaseForCase43",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestSelectFXQuoteUsesDefaultProviderWhenPreferenceMissing",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-valuation-extra.log"
+    },
+    {
+      "name": "TestSelectFXQuoteUsesTheCurrentProviderSourceKey",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-valuation-extra.log"
+    },
+    {
+      "name": "TestSortAccountValuationsOrdersByBaseValueDescending",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestValuationServiceMatchesGoldenPortfolioAndPartialSubtotal",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestValuationServiceResolvesSourcesOrientationAndFreshness",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX",
+      "status": "PASS",
+      "package": "internal/application",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-valuation-extra.log"
+    },
+    {
+      "name": "TestDebtDrawUsesDistinctNonLiabilityCashEndpoint",
+      "status": "PASS",
+      "package": "internal/domain",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-debt-loan.log"
+    },
+    {
+      "name": "TestQuoteFreshnessRejectsExtremeProviderTimes",
+      "status": "PASS",
+      "package": "internal/domain",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestResolveLocalDateTimeRejectsDSTGapAndAmbiguity",
+      "status": "PASS",
+      "package": "internal/domain",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestDateTimeConvertsTimezoneAndUsesSelectedLayouts",
+      "status": "PASS",
+      "package": "internal/format",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestValidateTimezone",
+      "status": "PASS",
+      "package": "internal/format",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestListDailyValuationSnapshotsHydrationQueryCountIsBounded",
+      "status": "PASS",
+      "package": "internal/infrastructure/sqlite",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-sqlite-valuation.log"
+    },
+    {
+      "name": "TestSaveDailyValuationSnapshotAndMarkCompletedAdvancesStateAtomically",
+      "status": "PASS",
+      "package": "internal/infrastructure/sqlite",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-sqlite-valuation.log"
+    },
+    {
+      "name": "TestAccountValuationNotFound",
+      "status": "PASS",
+      "package": "internal/wailsapi/account",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestAppendAccountValueAndValuation",
+      "status": "PASS",
+      "package": "internal/wailsapi/account",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestAnalysisDTOsSerializeUnforcedValuationAsNull",
+      "status": "PASS",
+      "package": "internal/wailsapi/analysis",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestDailyValuationSnapshotDTOMarksSimpleItemsNotTotals",
+      "status": "PASS",
+      "package": "internal/wailsapi/history",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestToCommandRejectsPartialOrDSTInvalidLocalDateTime",
+      "status": "PASS",
+      "package": "internal/wailsapi/history",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestToCommandResolvesLocalDateTimeInHistoryOriginTimezone",
+      "status": "PASS",
+      "package": "internal/wailsapi/history",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-dst-timezone.log"
+    },
+    {
+      "name": "TestPortfolioValuation",
+      "status": "PASS",
+      "package": "internal/wailsapi/portfolio",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-weekstart-valuation.log"
+    },
+    {
+      "name": "TestLoadReturnsDefaultsWhenNoFileExists",
+      "status": "PASS",
+      "package": "internal/wailsapi/settings",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-settings.log"
+    },
+    {
+      "name": "TestResetExplicitlyRecoversMalformedSettings",
+      "status": "PASS",
+      "package": "internal/wailsapi/settings",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-settings.log"
+    },
+    {
+      "name": "TestResetRestoresDefaults",
+      "status": "PASS",
+      "package": "internal/wailsapi/settings",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-settings.log"
+    },
+    {
+      "name": "TestSaveAndLoadRoundTrip",
+      "status": "PASS",
+      "package": "internal/wailsapi/settings",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-settings.log"
+    },
+    {
+      "name": "TestSaveRejectsInvalidSettings",
+      "status": "PASS",
+      "package": "internal/wailsapi/settings",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-settings.log"
+    },
+    {
+      "name": "TestSaveRejectsUnsupportedFXProvider",
+      "status": "PASS",
+      "package": "internal/wailsapi/settings",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-settings.log"
+    },
+    {
+      "name": "TestSaveReturnsBusyDuringExclusive",
+      "status": "PASS",
+      "package": "internal/wailsapi/settings",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-settings.log"
+    },
+    {
+      "name": "TestSettingsDTOUsesCamelCaseWireKeys",
+      "status": "PASS",
+      "package": "internal/wailsapi/settings",
+      "log": "/workspace/nestworth-analytics-qa-r4/logs/unit-settings.log"
+    }
+  ]
+}

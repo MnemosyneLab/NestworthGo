@@ -1,0 +1,22 @@
+{
+  "dbPath": "/workspace/nestworth-analytics-qa-r3-retest/probes/residual-clean-work.db",
+  "injection": false,
+  "corruptDay": "2026-08-12",
+  "itemId": "01a08520-6289-74a7-a16f-855105cf1850",
+  "holdingId": "01a08520-624d-7f2f-9961-ee4f72ba4015",
+  "baseBefore": "2833.909",
+  "baseAfter": "2833.909",
+  "nativeUnchanged": "1885",
+  "expectedResidualApprox": "100",
+  "revisionAfter": 1,
+  "from": "2026-08-01",
+  "to": "2026-08-31",
+  "assetChangeAvailable": true,
+  "residualIssueCount": 0,
+  "driverDetailCount": 0,
+  "driverDetails": null,
+  "dayStatus": "ok",
+  "unexplainedPositive": false,
+  "pass": true,
+  "detail": "clean copied fixture local=2026-08-12; expected no residual; waterfall=\u003cnil\u003e day=\u003cnil\u003e issues=0"
+}

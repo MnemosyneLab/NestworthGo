@@ -1,16 +1,22 @@
-// Command analytics-qa-seed builds the Insights Round-3 “mini family” fixture
-// (analytics-linux-qa-v3) for desktop/probe acceptance of the analytics test
-// plan §6 / FC-01–06.
+// Command analytics-qa-seed builds Insights QA fixtures.
 //
-// Env (unchanged from v2):
-//
-//	NESTWORTH_QA_SCENARIO     complete | missing-price | missing-fx | missing-both
+//	NESTWORTH_QA_SCENARIO     complete | complete-usd | complete-cny
+//	                          | missing-price | missing-fx | missing-both
+//	                          | loan-fc07 | loan-fc07-utc | loan-fc07-cny
+//	                          | loan-fc07-usd | loan-fc07-week-sunday
 //	NESTWORTH_QA_ANCHOR       RFC3339 UTC (default 2026-07-26T00:00:00Z)
 //	NESTWORTH_QA_RESET        set to 1 to replace an existing QA database
 //	NESTWORTH_QA_OUTPUT_DIR   artifact root (default /workspace/nestworth-analytics-qa)
 //	NESTWORTH_DATABASE_PATH   sqlite path (default $OUTPUT_DIR/data/nestworth.db)
+//	NESTWORTH_QA_BASE_CURRENCY optional AUD|USD|CNY for complete / complete-* (default AUD)
+//	NESTWORTH_QA_LOAN_CURRENCY optional AUD|CNY|USD override for loan-* scenarios
+//	NESTWORTH_QA_LOAN_TZ       optional IANA timezone override for loan-* scenarios
+//	NESTWORTH_QA_WEEK_START    optional monday|sunday override for loan-* scenarios
 //
-// FC-07 loan is intentionally omitted; see README.md.
+// The v3 mini-family (complete / missing-*) stays FC-01–06. complete-usd /
+// complete-cny (or NESTWORTH_QA_BASE_CURRENCY) onboard a real DB with that
+// household base without mutating default AUD complete. FC-07 lives in the
+// separate loan-fc07* family; see README.md and loan.go.
 package main
 
 import (
@@ -207,17 +213,7 @@ func holdingIDFrom(preview domain.ChangePreview) domain.HoldingID {
 	return ""
 }
 
-func main() {
-	base := envOr("NESTWORTH_QA_OUTPUT_DIR", "/workspace/nestworth-analytics-qa")
-	dbPath := strings.TrimSpace(os.Getenv("NESTWORTH_DATABASE_PATH"))
-	if dbPath == "" {
-		dbPath = filepath.Join(base, "data", "nestworth.db")
-	}
-	scenario := envOr("NESTWORTH_QA_SCENARIO", "complete")
-	if scenario != "complete" && scenario != "missing-price" && scenario != "missing-fx" && scenario != "missing-both" {
-		panic(fmt.Errorf("unsupported NESTWORTH_QA_SCENARIO %q", scenario))
-	}
-	anchor := parseAnchor(envOr("NESTWORTH_QA_ANCHOR", defaultQAAnchor))
+func openResetQADatabase(base, dbPath string) *sqlite.DB {
 	reset := os.Getenv("NESTWORTH_QA_RESET") == "1"
 	if _, err := os.Stat(dbPath); err == nil && !reset {
 		panic(fmt.Errorf("refusing to overwrite existing QA database %s; set NESTWORTH_QA_RESET=1 for an explicit QA reset", dbPath))
@@ -233,8 +229,51 @@ func main() {
 		_ = os.Remove(dbPath + "-wal")
 		_ = os.Remove(dbPath + "-shm")
 	}
+	return must(sqlite.Open(dbPath))
+}
 
-	database := must(sqlite.Open(dbPath))
+func finishSeed(report *Report) {
+	outDir := filepath.Join(report.OutputDir, "seed")
+	_ = os.MkdirAll(outDir, 0o755)
+	out := filepath.Join(outDir, "seed-results.json")
+	b, _ := json.MarshalIndent(report, "", "  ")
+	if err := os.WriteFile(out, b, 0o644); err != nil {
+		panic(err)
+	}
+	fmt.Printf("wrote %s\n", out)
+
+	failed := false
+	for _, r := range report.Results {
+		if r.Status == "FAIL" {
+			failed = true
+			fmt.Printf("FAIL: %s — %s\n", r.Name, r.Notes)
+		}
+	}
+	if failed {
+		fmt.Println("OVERALL: FAIL")
+		os.Exit(2)
+	}
+	fmt.Println("OVERALL: PASS")
+}
+
+func main() {
+	base := envOr("NESTWORTH_QA_OUTPUT_DIR", "/workspace/nestworth-analytics-qa")
+	dbPath := strings.TrimSpace(os.Getenv("NESTWORTH_DATABASE_PATH"))
+	if dbPath == "" {
+		dbPath = filepath.Join(base, "data", "nestworth.db")
+	}
+	scenario := envOr("NESTWORTH_QA_SCENARIO", "complete")
+	if cfg, ok := parseLoanScenario(scenario); ok {
+		runLoanFC07(base, dbPath, cfg)
+		return
+	}
+	v3, ok := parseV3Scenario(scenario)
+	if !ok {
+		panic(fmt.Errorf("unsupported NESTWORTH_QA_SCENARIO %q", scenario))
+	}
+	anchor := parseAnchor(envOr("NESTWORTH_QA_ANCHOR", defaultQAAnchor))
+
+	database := openResetQADatabase(base, dbPath)
 	defer database.Close()
 	repo := sqlite.NewRepository(database)
 	svc := application.NewService(repo)
@@ -259,13 +298,15 @@ func main() {
 	}
 	iso := func(t time.Time) string { return t.Format(time.RFC3339) }
 
-	missingPrice := scenario == "missing-price" || scenario == "missing-both"
-	missingFX := scenario == "missing-fx" || scenario == "missing-both"
+	missingPrice := v3.Family == "missing-price" || v3.Family == "missing-both"
+	missingFX := v3.Family == "missing-fx" || v3.Family == "missing-both"
+	householdBase := v3.Base
+	pairs := fxPairsForBase(householdBase)
 
 	// 1) Onboard WITHOUT timezone so HistoryOrigin is not created empty.
 	must0(svc.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "Analytics QA",
-		BaseCurrency:  "AUD",
+		BaseCurrency:  householdBase,
 		MemberNames:   []string{"Weichen"},
 		Timezone:      "",
 	}))
@@ -275,7 +316,17 @@ func main() {
 	report.IDs["household"] = string(hh)
 	report.IDs["member"] = string(m1)
 	report.IDs["fixture_version"] = fixtureVersion
-	add(report, "onboarding", "PASS", fmt.Sprintf("household=%s member=%s base=AUD tz=(empty, no history yet)", hh, m1))
+	report.IDs["base_currency"] = householdBase
+	report.IDs["v3_family"] = v3.Family
+	add(report, "onboarding", "PASS", fmt.Sprintf("household=%s member=%s base=%s tz=(empty, no history yet)", hh, m1, householdBase))
+
+	var storedBase string
+	_ = database.SQL.QueryRow(`SELECT base_currency FROM households WHERE singleton_key = 1`).Scan(&storedBase)
+	if storedBase != householdBase {
+		add(report, "household_base_currency", "FAIL", fmt.Sprintf("households.base_currency=%q want=%s", storedBase, householdBase))
+	} else {
+		add(report, "household_base_currency", "PASS", fmt.Sprintf("households.base_currency=%s", storedBase))
+	}
 
 	// 2) Create accounts before StartHistory so origin captures cash components.
 	cash := must(svc.CreateAccount(ctx, application.AccountInput{
@@ -325,28 +376,32 @@ func main() {
 	// 4) One current FX + instrument quote before StartHistory.
 	nowISO := iso(originAt)
 	if !missingFX {
-		_ = must(svc.AppendManualFXQuote(ctx, "USD", "AUD", "1.5000", nowISO))
-		_ = must(svc.AppendManualFXQuote(ctx, "SGD", "AUD", "1.1500", nowISO))
+		for _, p := range pairs {
+			_ = must(svc.AppendManualFXQuote(ctx, p.Base, p.Quote, formatFXRate(householdBase, 0, p), nowISO))
+		}
 	}
 	if !missingPrice {
 		_ = must(svc.AppendManualInstrumentQuote(ctx, aapl.ID, "180.00", nowISO, false))
 		_ = must(svc.AppendManualInstrumentQuote(ctx, qqq.ID, "400.00", nowISO, false))
 		_ = must(svc.AppendManualInstrumentQuote(ctx, es3.ID, "3.20", nowISO, false))
 	}
-	add(report, "current_quotes", "PASS", fmt.Sprintf("scenario=%s fx=%s prices=%s at %s", scenario, map[bool]string{true: "omitted", false: "USD/AUD=1.5000 SGD/AUD=1.1500"}[missingFX], map[bool]string{true: "omitted", false: "AAPL=180 QQQ=400 ES3=3.20"}[missingPrice], nowISO))
+	add(report, "current_quotes", "PASS", fmt.Sprintf("scenario=%s fx=%s prices=%s at %s", scenario, map[bool]string{true: "omitted", false: fxPairLabel(householdBase, pairs)}[missingFX], map[bool]string{true: "omitted", false: "AAPL=180 QQQ=400 ES3=3.20"}[missingPrice], nowISO))
 
-	// 4b) Prefer manual FX for USD/AUD and SGD/AUD BEFORE StartHistory.
-	usdPref := must(svc.SetFXPreference(ctx, "USD", "AUD", "manual"))
-	sgdPref := must(svc.SetFXPreference(ctx, "SGD", "AUD", "manual"))
-	manualPreferenceCount := countQuery(database.SQL, `
-		SELECT COUNT(*) FROM fx_preferences
-		WHERE source_kind = 'manual'
-		  AND ((currency_a = 'AUD' AND currency_b = 'USD') OR (currency_a = 'AUD' AND currency_b = 'SGD'))
-	`)
-	if manualPreferenceCount != 2 || usdPref.SourceKind != domain.QuoteSourceManual || sgdPref.SourceKind != domain.QuoteSourceManual {
-		add(report, "fx_preference_manual", "FAIL", fmt.Sprintf("USD/AUD source=%s SGD/AUD source=%s rows=%d want=2", usdPref.SourceKind, sgdPref.SourceKind, manualPreferenceCount))
+	// 4b) Prefer manual FX against the household base BEFORE StartHistory.
+	prefsOK := true
+	prefNotes := make([]string, 0, len(pairs))
+	for _, p := range pairs {
+		pref := must(svc.SetFXPreference(ctx, p.Base, p.Quote, "manual"))
+		prefNotes = append(prefNotes, p.Base+"/"+p.Quote+"="+string(pref.SourceKind))
+		if pref.SourceKind != domain.QuoteSourceManual {
+			prefsOK = false
+		}
+	}
+	manualPreferenceCount := countQuery(database.SQL, `SELECT COUNT(*) FROM fx_preferences WHERE source_kind = 'manual'`)
+	if !prefsOK || manualPreferenceCount != len(pairs) {
+		add(report, "fx_preference_manual", "FAIL", fmt.Sprintf("%s rows=%d want=%d", strings.Join(prefNotes, " "), manualPreferenceCount, len(pairs)))
 	} else {
-		add(report, "fx_preference_manual", "PASS", fmt.Sprintf("USD/AUD+SGD/AUD source=manual rows=%d", manualPreferenceCount))
+		add(report, "fx_preference_manual", "PASS", fmt.Sprintf("%s rows=%d", strings.Join(prefNotes, " "), manualPreferenceCount))
 	}
 
 	// 5) StartHistory AFTER accounts exist → non-empty history_origin_components.
@@ -371,12 +426,15 @@ func main() {
 	// 7) Daily FX + instrument quotes for d=0..44. Completeness matrix omits
 	// price and/or FX through missingQuoteDay (inclusive) per scenario.
 	usdFXCount, sgdFXCount := 0, 0
+	pairFXCount := make([]int, len(pairs))
 	aaplQuoteCount, qqqQuoteCount, es3QuoteCount := 0, 0, 0
 	for d := 0; d <= quoteHorizon; d++ {
 		ts := iso(day(d))
 		if !(missingFX && d <= missingQuoteDay) {
-			_ = must(svc.AppendManualFXQuote(ctx, "USD", "AUD", fmt.Sprintf("%.4f", usdAudRate(d)), ts))
-			_ = must(svc.AppendManualFXQuote(ctx, "SGD", "AUD", fmt.Sprintf("%.4f", sgdAudRate(d)), ts))
+			for i, p := range pairs {
+				_ = must(svc.AppendManualFXQuote(ctx, p.Base, p.Quote, formatFXRate(householdBase, d, p), ts))
+				pairFXCount[i]++
+			}
 			usdFXCount++
 			sgdFXCount++
 		}
@@ -403,13 +461,18 @@ func main() {
 		expectedInstrumentQuotes = expectedGapQuotes
 	}
 	quoteStatus := "PASS"
+	for _, n := range pairFXCount {
+		if n != expectedPairQuotes {
+			quoteStatus = "FAIL"
+		}
+	}
 	if usdFXCount != expectedPairQuotes || sgdFXCount != expectedPairQuotes ||
 		aaplQuoteCount != expectedInstrumentQuotes || qqqQuoteCount != expectedInstrumentQuotes || es3QuoteCount != expectedInstrumentQuotes {
 		quoteStatus = "FAIL"
 	}
 	add(report, "daily_quotes", quoteStatus, fmt.Sprintf(
-		"scenario=%s usd_fx=%d/%d sgd_fx=%d/%d aapl=%d/%d qqq=%d/%d es3=%d/%d missing_through_day=%d local=%s; neg_drop day_%d..%d; flat day_%d=%s",
-		scenario, usdFXCount, expectedPairQuotes, sgdFXCount, expectedPairQuotes,
+		"scenario=%s base=%s fx_pairs=%d usd_fx=%d/%d sgd_fx=%d/%d aapl=%d/%d qqq=%d/%d es3=%d/%d missing_through_day=%d local=%s; neg_drop day_%d..%d; flat day_%d=%s",
+		scenario, householdBase, len(pairs), usdFXCount, expectedPairQuotes, sgdFXCount, expectedPairQuotes,
 		aaplQuoteCount, expectedInstrumentQuotes, qqqQuoteCount, expectedInstrumentQuotes, es3QuoteCount, expectedInstrumentQuotes,
 		missingQuoteDay, missingLocal, negStart, negEnd, flatZeroDay, localDate(day(flatZeroDay)),
 	))
@@ -844,7 +907,7 @@ func main() {
 		"week_start":         "monday",
 		"date_format":        "iso",
 		"time_format":        "24h",
-		"currency":           "AUD",
+		"currency":           householdBase,
 		"decimal_separator":  ".",
 		"grouping_separator": ",",
 		"decimal_places":     2,
@@ -855,25 +918,11 @@ func main() {
 	}
 	sb, _ := json.MarshalIndent(settings, "", "  ")
 	must0(os.WriteFile(settingsPath, append(sb, '\n'), 0o644))
-	add(report, "settings_aud", "PASS", fmt.Sprintf("wrote %s currency=AUD", settingsPath))
-
-	outDir := filepath.Join(base, "seed")
-	_ = os.MkdirAll(outDir, 0o755)
-	out := filepath.Join(outDir, "seed-results.json")
-	b, _ := json.MarshalIndent(report, "", "  ")
-	must0(os.WriteFile(out, b, 0o644))
-	fmt.Printf("wrote %s\n", out)
-
-	failed := false
-	for _, r := range report.Results {
-		if r.Status == "FAIL" {
-			failed = true
-			fmt.Printf("FAIL: %s — %s\n", r.Name, r.Notes)
-		}
+	settingsName := "settings_aud"
+	if householdBase != "AUD" {
+		settingsName = "settings"
 	}
-	if failed {
-		fmt.Println("OVERALL: FAIL")
-		os.Exit(2)
-	}
-	fmt.Println("OVERALL: PASS")
+	add(report, settingsName, "PASS", fmt.Sprintf("wrote %s currency=%s", settingsPath, householdBase))
+
+	finishSeed(report)
 }

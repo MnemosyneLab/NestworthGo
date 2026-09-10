@@ -149,7 +149,31 @@ func snapshotItemsByComponent(snapshot domain.DailyValuationSnapshot, accounts m
 }
 
 func buildComponentDay(date string, component domain.ComponentID, previous, current domain.DailyValuationSnapshotItem, previousSnapshot, currentSnapshot domain.DailyValuationSnapshot, hasPrevious, hasCurrent bool, effects []classifiedAnalysisEffect, input AnalysisInputs, query domain.AnalysisQuery, universe analysisUniverse) (domain.ComponentDay, error) {
-	day := domain.ComponentDay{Date: domain.LocalDate(date), Component: component, AssetBuckets: make(map[domain.AttributionBucket]domain.SignedMoney), ReturnComponents: make(map[domain.ReturnComponent]domain.SignedMoney), DietzCapitalFlows: make([]domain.DietzCapitalFlow, 0), AttributedEffects: make([]domain.AttributedEffect, 0), Status: domain.CompletenessOK}
+	day := domain.ComponentDay{Date: domain.LocalDate(date), Component: component, AssetBuckets: make(map[domain.AttributionBucket]domain.SignedMoney), AssetBucketExact: make(map[domain.AttributionBucket]decimal.Decimal), ReturnComponents: make(map[domain.ReturnComponent]domain.SignedMoney), DietzCapitalFlows: make([]domain.DietzCapitalFlow, 0), AttributedEffects: make([]domain.AttributedEffect, 0), Status: domain.CompletenessOK}
+	// A trade can create a holding component, close it, or create a foreign
+	// cash sleeve on the same day. The snapshot legitimately omits a zero
+	// balance component at one side of that boundary, but dropping the whole
+	// day would also drop the known trade leg and make the household Asset
+	// Changes waterfall fail to reconcile. An activity is the only safe proof
+	// that the missing side is an opening zero; without one, keep the day
+	// unavailable so missing valuation data is never guessed as zero.
+	if (len(effects) > 0 || componentHasActivityInRange(component, input.Activities, query.From, query.To)) && previousSnapshot.Complete && currentSnapshot.Complete {
+		previousMissing := previous.AccountID == ""
+		currentMissing := current.AccountID == ""
+		if previousMissing && !currentMissing && current.Complete {
+			previous = zeroValuationItem(component, current)
+			hasPrevious = true
+		}
+		if currentMissing && !previousMissing && previous.Complete {
+			current = zeroValuationItem(component, previous)
+			hasCurrent = true
+		}
+		if previousMissing && currentMissing {
+			previous = zeroValuationItem(component, domain.DailyValuationSnapshotItem{})
+			current = zeroValuationItem(component, previous)
+			hasPrevious, hasCurrent = true, true
+		}
+	}
 	if !hasPrevious || !hasCurrent || !previous.Complete || !current.Complete {
 		day.Status = domain.CompletenessUnavailable
 		if hasPrevious && hasCurrent && (previous.Complete || current.Complete) {
@@ -188,6 +212,7 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 				if err := addBucket(day.AssetBuckets, *effect.bucket, effect.amount, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 					return domain.ComponentDay{}, err
 				}
+				addExactBucket(day.AssetBucketExact, *effect.bucket, effect.amount)
 				directTotal = directTotal.Add(effect.amount)
 			} else if effect.neutral {
 				neutralTotal = neutralTotal.Add(effect.amount)
@@ -259,6 +284,7 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		if err := addBucket(day.AssetBuckets, domain.BucketPriceChange, bridge.price, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
+		addExactBucket(day.AssetBucketExact, domain.BucketPriceChange, bridge.price)
 		if universe.investmentComponentInUniverse(component) {
 			if err := addReturn(day.ReturnComponents, domain.ReturnPriceChange, bridge.price, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 				return domain.ComponentDay{}, err
@@ -280,6 +306,7 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		if err := addBucket(day.AssetBuckets, domain.BucketFXImpact, bridge.fx, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
+		addExactBucket(day.AssetBucketExact, domain.BucketFXImpact, bridge.fx)
 		if universe.investmentComponentInUniverse(component) {
 			if err := addReturn(day.ReturnComponents, domain.ReturnFXImpact, bridge.fx, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 				return domain.ComponentDay{}, err
@@ -311,6 +338,7 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		if err := addBucket(day.AssetBuckets, bucket, unexplained, valueCurrency(current, query.Valuation, baseCurrency)); err != nil {
 			return domain.ComponentDay{}, err
 		}
+		addExactBucket(day.AssetBucketExact, bucket, unexplained)
 		day.Residual = &domain.Residual{Amount: residualMoney, Tolerance: tolerance, Visible: true}
 	} else if bridge.partial {
 		day.Status = domain.CompletenessPartial
@@ -339,6 +367,46 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		}
 	}
 	return day, nil
+}
+
+func componentHasActivityInRange(component domain.ComponentID, activities []domain.Activity, from, to domain.LocalDate) bool {
+	for _, activity := range activities {
+		if activity.EffectiveLocalDate < from || activity.EffectiveLocalDate > to {
+			continue
+		}
+		for _, effect := range activity.Effects {
+			if componentEffectMatches(component, effect) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func componentEffectMatches(component domain.ComponentID, effect domain.ActivityEffect) bool {
+	if component.HoldingID != nil {
+		return effect.HoldingID != nil && *effect.HoldingID == *component.HoldingID
+	}
+	if component.Cash && effect.HoldingID == nil && effect.AccountID != nil {
+		return *effect.AccountID == component.AccountID
+	}
+	return effect.AccountID != nil && *effect.AccountID == component.AccountID
+}
+
+func zeroValuationItem(component domain.ComponentID, template domain.DailyValuationSnapshotItem) domain.DailyValuationSnapshotItem {
+	item := domain.DailyValuationSnapshotItem{
+		AccountID:       component.AccountID,
+		HoldingID:       component.HoldingID,
+		InstrumentID:    component.InstrumentID,
+		NativeAmount:    "0",
+		NativeCurrency:  component.Currency,
+		BaseAmountExact: "0",
+		Complete:        true,
+	}
+	if item.NativeCurrency == "" {
+		item.NativeCurrency = template.NativeCurrency
+	}
+	return item
 }
 
 func snapshotItemValue(item domain.DailyValuationSnapshotItem, account domain.Account, valuation domain.Valuation, baseCurrency domain.CurrencyCode) (decimal.Decimal, bool, error) {
@@ -394,6 +462,13 @@ func addBucket(buckets map[domain.AttributionBucket]domain.SignedMoney, bucket d
 	}
 	buckets[bucket] = value
 	return nil
+}
+
+func addExactBucket(buckets map[domain.AttributionBucket]decimal.Decimal, bucket domain.AttributionBucket, amount decimal.Decimal) {
+	if buckets == nil || amount.IsZero() {
+		return
+	}
+	buckets[bucket] = buckets[bucket].Add(amount)
 }
 
 func addReturn(components map[domain.ReturnComponent]domain.SignedMoney, component domain.ReturnComponent, amount decimal.Decimal, currency domain.CurrencyCode) error {

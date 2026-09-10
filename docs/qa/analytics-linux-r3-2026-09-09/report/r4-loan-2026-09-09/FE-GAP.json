@@ -1,0 +1,192 @@
+{
+  "generated_at": "2026-09-09 22:15:06 SGT",
+  "worktree": "/workspace/NestworthGo-fe-be-audit",
+  "branch": "qa/analytics-linux-r3-2026-09-09",
+  "head": "0e69858ec4b8ed97b469cf1e46645ba9815a574b",
+  "platform": "linux/amd64",
+  "scope": "R4 gap close: FE-MORE + FE-ONBOARD + light Go analysis return/history + PROBE C1 fixtures (no Loan seed)",
+  "fe_more": {
+    "id": "FE-MORE",
+    "status": "PASS",
+    "command": "bun run test -- src/features/insights src/queries/invalidation.test.ts src/features/history/HistoryPage.test.tsx",
+    "files_passed": 8,
+    "tests_passed": 80,
+    "tests_failed": 0,
+    "files": {
+      "src/features/history/HistoryPage.test.tsx": {
+        "tests": 25,
+        "status": "PASS"
+      },
+      "src/features/insights/AssetChangesPage.test.tsx": {
+        "tests": 8,
+        "status": "PASS"
+      },
+      "src/features/insights/ReturnAnalysisPage.test.tsx": {
+        "tests": 6,
+        "status": "PASS"
+      },
+      "src/features/insights/ReturnCalendarTab.test.ts": {
+        "tests": 3,
+        "status": "PASS"
+      },
+      "src/features/insights/WaterfallChart.test.ts": {
+        "tests": 5,
+        "status": "PASS"
+      },
+      "src/features/insights/analysisRequest.test.ts": {
+        "tests": 5,
+        "status": "PASS"
+      },
+      "src/features/insights/insightTabs.test.tsx": {
+        "tests": 14,
+        "status": "PASS"
+      },
+      "src/queries/invalidation.test.ts": {
+        "tests": 14,
+        "status": "PASS"
+      }
+    },
+    "highlights": [
+      "insights forced-base: insightTabs Categories + Asset Trend forced-base assertions",
+      "invalidation.test.ts: query keys + mutation-hook invalidation",
+      "HistoryPage: starts history with resolved settings timezone; shows History Origin timezone"
+    ],
+    "logs": [
+      "/workspace/nestworth-analytics-qa-r4/logs/fe-more-insights-invalidation-history.log",
+      "/workspace/nestworth-analytics-qa-r4/logs/fe-more-insights-invalidation-history.verbose.log"
+    ]
+  },
+  "fe_onboard": {
+    "id": "FE-ONBOARD",
+    "status": "PASS",
+    "command": "bun run test -- src/features/onboarding/OnboardingPage.test.tsx",
+    "files_passed": 1,
+    "tests_passed": 5,
+    "tests_failed": 0,
+    "note": "Fixtures include timezone=system and weekStart=monday defaults; suite exercises onboarding submit + language switch (no dedicated timezone/weekStart mutation UI in OnboardingPage \u2014 Settings already covered in baseline).",
+    "files": {
+      "src/features/onboarding/OnboardingPage.test.tsx": {
+        "tests": 5,
+        "status": "PASS"
+      }
+    },
+    "logs": [
+      "/workspace/nestworth-analytics-qa-r4/logs/fe-more-onboarding.log",
+      "/workspace/nestworth-analytics-qa-r4/logs/fe-more-onboarding.verbose.log"
+    ]
+  },
+  "go_analysis_return_history": {
+    "id": "UNIT-GO-ANALYSIS-SUBSET",
+    "status": "PASS",
+    "command": "go test ./internal/application/ -count=1 -timeout 180s -v -run 'TestAnalysisReturn|TestAnalysisReview|TestHistorical|TestHistory'",
+    "top_level_pass": 47,
+    "fail": 0,
+    "tests": [
+      "TestAnalysisReviewCase03ScopeIntersection",
+      "TestAnalysisReviewCase08SameDayOpenClose",
+      "TestAnalysisReviewCase10FXConversion",
+      "TestAnalysisReviewCases09And26ForeignHoldingFX",
+      "TestAnalysisReviewCase32TrackingBalanceCashFormula",
+      "TestAnalysisReviewDepositInterestIsWritable",
+      "TestAnalysisReviewCases13And14ScopeSemantics",
+      "TestAnalysisReviewCases16And17RealDebtPaymentPath",
+      "TestAnalysisReviewCase17bCapitalisedInterest",
+      "TestAnalysisReviewCase24FractionalQuantity",
+      "TestAnalysisReviewCase25ValueUpdateAndResidual",
+      "TestAnalysisReviewCases28And29RealMoneyOutPath",
+      "TestAnalysisReviewCase31IdentityAcrossScopes",
+      "TestAnalysisReviewCase40OriginTimezoneBoundaries",
+      "TestAnalysisReviewCase41CurrencyAwareTolerance",
+      "TestAnalysisReviewServiceLoadsClosedSnapshots",
+      "TestAnalysisReviewCases01And02And17bIdentity",
+      "TestAnalysisReviewCases09And26And32FXPaths",
+      "TestAnalysisReviewCases23And27And34And36Boundaries",
+      "TestAnalysisReviewCase36UnexplainedQuantityChange",
+      "TestAnalysisReviewCase35InKindTransferHasNoPriceAndIsScopeRelative",
+      "TestAnalysisReviewCases33And36QuantityErrorKeepsFormulaDriversAndShowsResidual",
+      "TestAnalysisReviewCase17CashInterestIsSignedSpending",
+      "TestAnalysisReviewCase04SameDayBuyUsesTradePath",
+      "TestAnalysisReviewCase38GiftIsIncomeNotExternalFlow",
+      "TestAnalysisReturnModifiedDietzAndGeometricLinking",
+      "TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital",
+      "TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded",
+      "TestAnalysisReturnDSTWeightUsesOriginLocalDayLength",
+      "TestAnalysisReturnReconciliationIsNotDietzCapital",
+      "TestAnalysisReturnDSTNoonFlowWeightUsesOriginLocalDay",
+      "TestAnalysisReturnDividendAndTradeFeeFollowInvestmentAssociation",
+      "TestAnalysisReturnCases04To07And18TradePath",
+      "TestAnalysisReturnCase39RateCoverageSkipsUnavailableDays",
+      "TestAnalysisReturnPeriodInvestedCapitalUsesFirstDayBeginning",
+      "TestAnalysisReturnFoldReturnGroupsUsesAdditiveDailyCapital",
+      "TestAnalysisReturnCase19NoonContributionUsesWeightedDietzCapital",
+      "TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz",
+      "TestAnalysisReturnCases11And22TradeFeeIsInvestmentReturn",
+      "TestAnalysisReturnMissingFXOnAssociatedCashDoesNotFailPeriod",
+      "TestAnalysisReturnCase12DividendNetCashAndAssociatedTax",
+      "TestAnalysisReturnCase28BankMaintenanceFeeIsCapitalNotInvestmentReturn",
+      "TestAnalysisReturnCase30GroupRateUsesOwnDietzDenominator",
+      "TestAnalysisReturnCase42FoldMatchesInstrumentScopeEngine",
+      "TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision",
+      "TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts",
+      "TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals"
+    ],
+    "note": "Broader than R4 baseline regex; not full ./internal/... and not cold-3y soak. TestHistory alone matches no names (history_* tests use other prefixes); TestHistorical* included.",
+    "log": "/workspace/nestworth-analytics-qa-r4/logs/go-analysis-return-history.log"
+  },
+  "probe_c1_fixtures": {
+    "id": "PROBE-R3-REUSE",
+    "status": "PASS",
+    "mode": "NESTWORTH_PROBE_MODE=fixtures",
+    "allPass": true,
+    "summary": "4 PASS / 0 FAIL",
+    "results": [
+      {
+        "id": "A",
+        "status": "PASS",
+        "name": "Modified Dietz ~1.81818%"
+      },
+      {
+        "id": "B",
+        "status": "PASS",
+        "name": "Foreign holding Price 70 / FX 22 base"
+      },
+      {
+        "id": "C",
+        "status": "PASS",
+        "name": "Foreign cash Income 71 / FX 21"
+      },
+      {
+        "id": "D",
+        "status": "PASS",
+        "name": "Scope semantics instrument external +100 / transfer relative"
+      }
+    ],
+    "note": "In-memory ComputeAnalysis fixtures A\u2013D. Not Loan coverage. Complete DB present at nestworth-analytics-qa-r3/data/nestworth-complete.db but unused for this light C1 path.",
+    "artifact": "/workspace/nestworth-analytics-qa-r4/seed/probe-fixtures.json",
+    "log": "/workspace/nestworth-analytics-qa-r4/logs/probe-c1-fixtures.log"
+  },
+  "counts": {
+    "fe_vitest_pass": 85,
+    "fe_vitest_fail": 0,
+    "fe_files_pass": 9,
+    "go_top_level_pass": 47,
+    "go_fail": 0,
+    "probe_fixtures_pass": 4,
+    "probe_fixtures_fail": 0
+  },
+  "remaining_runnable_gaps": [
+    "DESK-TZ",
+    "DESK-WEEK",
+    "DESK-WIN",
+    "DESK-LOC",
+    "ENV-BASE-USD",
+    "UNIT-GO-FULLPKG"
+  ],
+  "still_blocked": [
+    "FC07-SEED",
+    "FC07-PROBE",
+    "FC07-DESK",
+    "ENV-OS-MAC",
+    "R3-INCOMPLETE-DESK"
+  ]
+}
