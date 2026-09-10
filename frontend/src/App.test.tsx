@@ -306,7 +306,7 @@ describe("App shell smoke test", () => {
     expect(within(nav).getByRole("button", { name: i18n.t("nav.overview") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.directory") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") })).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: i18n.t("nav.instruments") })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: i18n.t("nav.holdings") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") })).toBeInTheDocument();
 
     await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") }));

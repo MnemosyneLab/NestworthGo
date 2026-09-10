@@ -33,7 +33,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
   Service: { Load: () => Promise.resolve({ timezone: "Asia/Singapore" }) },
 }));
 
-function renderPage(props: { onOpenSettings?: () => void; onOpenMarketData?: () => void; onOpenInvestments?: () => void } = {}) {
+function renderPage(props: { onOpenSettings?: () => void; onOpenMarketData?: () => void } = {}) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
@@ -84,7 +84,7 @@ describe("DataHealthPage", () => {
 
   it("keeps executable repairs and manual prerequisites separate", async () => {
     const onOpenSettings = vi.fn();
-    const onOpenInvestments = vi.fn();
+    const onOpenMarketData = vi.fn();
     scanHealth.mockResolvedValue({
       healthy: false,
       incompleteSince: "2026-09-05",
@@ -132,7 +132,7 @@ describe("DataHealthPage", () => {
         },
       ],
     });
-    renderPage({ onOpenSettings, onOpenInvestments });
+    renderPage({ onOpenSettings, onOpenMarketData });
     expect(await screen.findByText("Data incomplete since 2026-09-05")).toBeInTheDocument();
     expect(screen.getByText("Executable repairs")).toBeInTheDocument();
     expect(screen.getByText("Prerequisites")).toBeInTheDocument();
@@ -144,7 +144,7 @@ describe("DataHealthPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Open provider settings" }));
     expect(onOpenSettings).toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Add manual data" }));
-    expect(onOpenInvestments).toHaveBeenCalled();
+    expect(onOpenMarketData).toHaveBeenCalled();
   });
 
   it("shows a repair preview before starting Repair All", async () => {
@@ -175,5 +175,44 @@ describe("DataHealthPage", () => {
     expect(startSync).not.toHaveBeenCalled();
     await userEvent.click(screen.getByTestId("confirm-repair"));
     await waitFor(() => expect(startSync).toHaveBeenCalledWith({ scope: "repair_all" }));
+  });
+
+  it("disables Repair All when only prerequisites remain", async () => {
+    scanHealth.mockResolvedValue({
+      healthy: false,
+      incompleteSince: "2026-09-05",
+      issueCount: 2,
+      executableCount: 0,
+      prerequisiteCount: 2,
+      snapshotDays: 0,
+      issues: [
+        {
+          id: "key",
+          kind: "missing_provider_key",
+          severity: "blocking",
+          groupKey: "provider_key:tiingo",
+          targetKey: "provider:tiingo",
+          label: "tiingo",
+          provider: "tiingo",
+          action: "provider_settings",
+          executable: false,
+        },
+        {
+          id: "manual",
+          kind: "missing_manual_price",
+          severity: "blocking",
+          groupKey: "instrument:m1",
+          targetKey: "instrument:m1",
+          label: "ABC Bank Wealth",
+          action: "manual_entry",
+          executable: false,
+        },
+      ],
+    });
+    renderPage();
+    const repair = await screen.findByTestId("repair-all");
+    expect(repair).toBeDisabled();
+    expect(previewSync).not.toHaveBeenCalled();
+    expect(startSync).not.toHaveBeenCalled();
   });
 });

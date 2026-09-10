@@ -118,7 +118,6 @@ function App() {
           onOpenHistory={() => handleNavigate("history")}
           onOpenMarketData={() => handleNavigate("market-data")}
           onOpenDataHealth={() => handleNavigate("data-health")}
-          onOpenInvestments={() => handleNavigate("investments")}
         />
       )}
       {activePageId === "accounts" && (
@@ -149,7 +148,6 @@ function App() {
           <DataHealthPage
             onOpenSettings={() => handleNavigate("settings")}
             onOpenMarketData={() => handleNavigate("market-data")}
-            onOpenInvestments={() => handleNavigate("investments")}
           />
         </WorkspaceLazy>
       )}

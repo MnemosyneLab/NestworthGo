@@ -104,14 +104,12 @@ export function OverviewPage({
   onOpenHistory,
   onOpenMarketData,
   onOpenDataHealth,
-  onOpenInvestments,
 }: {
   onAddAccount?: () => void;
   onOpenAccounts?: () => void;
   onOpenHistory?: () => void;
   onOpenMarketData?: () => void;
   onOpenDataHealth?: () => void;
-  onOpenInvestments?: () => void;
 } = {}) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
@@ -280,9 +278,9 @@ export function OverviewPage({
                   {missingManualPrices > 0 && (
                     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-foreground">{t("overview.setManualPricesNext", { count: missingManualPrices })}</p>
-                      {onOpenInvestments && (
-                        <Button type="button" size="sm" variant="outline" onClick={onOpenInvestments}>
-                          {t("overview.openInvestments")}
+                      {onOpenMarketData && (
+                        <Button type="button" size="sm" variant="outline" onClick={onOpenMarketData}>
+                          {t("overview.openMarketData")}
                         </Button>
                       )}
                     </li>

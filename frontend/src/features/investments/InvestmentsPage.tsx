@@ -10,7 +10,6 @@ import {
   useReactTable,
   type SortingState,
 } from "@tanstack/react-table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +26,6 @@ import {
   useAllHoldingsFlat,
 } from "@/queries/investments";
 import { useHoldingGainsByAccounts } from "@/queries/analytics";
-import { InstrumentManagement } from "@/features/investments/InstrumentManagement";
 import { displayEnum, displayError } from "@/lib/display";
 import { compareCanonical, formatAmount } from "@/lib/money";
 
@@ -143,7 +141,7 @@ function HoldingsIndexTable({ rows }: { rows: HoldingsIndexRow[] }) {
   );
 }
 
-function HoldingsTab({ active }: { active: boolean }) {
+function HoldingsTab() {
   const { t } = useTranslation();
   const accounts = useAccounts({});
   const instruments = useInstruments();
@@ -213,7 +211,6 @@ function HoldingsTab({ active }: { active: boolean }) {
       <p className="text-sm text-muted-foreground">{t("portfolio.holdingsIndexDescription")}</p>
       <PageChrome
         pageId="investments"
-        enabled={active}
         actions={
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger className={buttonVariants({ size: "sm" })}>
@@ -304,28 +301,16 @@ function HoldingsTab({ active }: { active: boolean }) {
   );
 }
 
-/** Investments owns instrument identity and holding positions under one
- * portfolio destination, while quotes and realized gain remain in Insights.
+/** Investments is the household holdings index. Instrument identity, quotes,
+ * and provider settings live on Market Data.
  */
 export function InvestmentsPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState("instruments");
   return (
     <div className="flex flex-col gap-6">
-      <PageChrome pageId="investments" title={t("nav.instruments")} />
+      <PageChrome pageId="investments" title={t("nav.holdings")} />
       <PageIntro description={t("portfolio.description")} />
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="instruments">{t("portfolio.instrumentsTab")}</TabsTrigger>
-          <TabsTrigger value="holdings">{t("portfolio.holdingsTab")}</TabsTrigger>
-        </TabsList>
-        <TabsContent value="instruments">
-          <InstrumentManagement pageId="investments" active={tab === "instruments"} />
-        </TabsContent>
-        <TabsContent value="holdings">
-          <HoldingsTab active={tab === "holdings"} />
-        </TabsContent>
-      </Tabs>
+      <HoldingsTab />
     </div>
   );
 }

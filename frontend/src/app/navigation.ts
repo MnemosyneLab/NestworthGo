@@ -68,7 +68,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "accounts", translationKey: "nav.accounts", icon: Wallet },
       { id: "portfolio", translationKey: "nav.portfolio", icon: PieChart },
-      { id: "investments", translationKey: "nav.instruments", icon: ChartNoAxesCombined },
+      { id: "investments", translationKey: "nav.holdings", icon: ChartNoAxesCombined },
     ],
   },
   {

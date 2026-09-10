@@ -12,6 +12,7 @@ export const additionsEn = {
     returnAnalysis: "Return Analysis",
     assetChanges: "Asset Changes",
     dataHealth: "Data Health",
+    holdings: "Holdings",
   },
   navGroups: {
     portfolio: "Portfolio",
@@ -833,7 +834,7 @@ export const additionsEn = {
     },
   },
   portfolio: {
-    description: "Keep instruments and positions organized so portfolio values remain understandable.",
+    description: "Review household holdings, cost, and current value. Instrument identity and quotes live on Market Data.",
     instrumentsTab: "Instruments",
     holdingsTab: "All holdings index",
     holdingsIndexDescription: "A household-wide index of holdings. Open an account to see cash and positions together, or open Portfolio for included accounts.",
@@ -1049,6 +1050,7 @@ export const additionsZhCN = {
     returnAnalysis: "收益分析",
     assetChanges: "资产变动",
     dataHealth: "数据健康",
+    holdings: "持仓",
   },
   navGroups: {
     portfolio: "投资组合",
@@ -1855,7 +1857,7 @@ export const additionsZhCN = {
     },
   },
   portfolio: {
-    description: "管理投资标的和持仓，让投资组合价值保持清晰可读。",
+    description: "查看家庭持仓、成本和现值。标的身份和报价在市场数据页管理。",
     instrumentsTab: "投资标的",
     holdingsTab: "所有持仓索引",
     holdingsIndexDescription: "这是全家持仓索引。打开账户查看现金和持仓，或打开投资组合查看已纳入的账户。",
@@ -2070,6 +2072,7 @@ export const additionsZhTW = {
     returnAnalysis: "收益分析",
     assetChanges: "資產變動",
     dataHealth: "資料健康",
+    holdings: "持倉",
   },
   navGroups: {
     portfolio: "投資組合",
@@ -2876,7 +2879,7 @@ export const additionsZhTW = {
     },
   },
   portfolio: {
-    description: "管理投資標的和持倉，讓投資組合價值保持清晰易讀。",
+    description: "查看家庭持倉、成本和現值。標的身份和報價在市場資料頁管理。",
     instrumentsTab: "投資標的",
     holdingsTab: "所有持倉索引",
     holdingsIndexDescription: "這是全家持倉索引。開啟帳戶查看現金和持倉，或開啟投資組合查看已納入的帳戶。",

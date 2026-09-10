@@ -40,11 +40,9 @@ function issueRange(t: (key: string, options?: Record<string, unknown>) => strin
 export function DataHealthPage({
   onOpenSettings,
   onOpenMarketData,
-  onOpenInvestments,
 }: {
   onOpenSettings?: () => void;
   onOpenMarketData?: () => void;
-  onOpenInvestments?: () => void;
 } = {}) {
   const { t } = useTranslation();
   const health = useMarketDataHealth();
@@ -67,10 +65,6 @@ export function DataHealthPage({
       return;
     }
     if (issue.action === "manual_entry") {
-      if (issue.kind === "missing_manual_price") {
-        onOpenInvestments?.();
-        return;
-      }
       onOpenMarketData?.();
     }
   };
@@ -114,6 +108,7 @@ export function DataHealthPage({
 
   const report = health.data;
   const running = sync.running;
+  const canRepair = executable.length > 0 && !running && !sync.preview.isPending && !sync.start.isPending;
 
   return (
     <div className="flex flex-col gap-6" data-testid="data-health-page">
@@ -133,7 +128,7 @@ export function DataHealthPage({
                 {report.prerequisiteCount > 0 ? ` · ${t("dataHealth.summaryPrerequisites", { count: report.prerequisiteCount })}` : ""}
               </p>
             </div>
-            <Button type="button" onClick={openPreview} disabled={running || sync.preview.isPending || sync.start.isPending} data-testid="repair-all">
+            <Button type="button" onClick={openPreview} disabled={!canRepair} data-testid="repair-all">
               {sync.preview.isPending ? t("common.pending") : t("dataHealth.repairAll")}
             </Button>
           </CardHeader>
