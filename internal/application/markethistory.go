@@ -212,7 +212,7 @@ func InclusiveMarketDates(r DateRange) ([]MarketDate, error) {
 // batch must not be persisted. Invalid, unsupported, and Tiingo adjClose-only
 // or unknown-session outcomes commit nothing.
 func RefuseFailClosedInstrumentHistory(outcome MappingOutcome[InstrumentDailyObservation]) error {
-	if err := refuseFailClosedStatus(outcome.Status, outcome.Reason, outcome.Batch.Evidence.Adapter); err != nil {
+	if err := refuseFailClosedStatus(outcome.Status, outcome.Reason); err != nil {
 		return err
 	}
 	for _, observation := range outcome.Batch.Observations {
@@ -230,7 +230,7 @@ func RefuseFailClosedInstrumentHistory(outcome MappingOutcome[InstrumentDailyObs
 }
 
 func RefuseFailClosedFXHistory(outcome MappingOutcome[FXDailyObservation]) error {
-	if err := refuseFailClosedStatus(outcome.Status, outcome.Reason, outcome.Batch.Evidence.Adapter); err != nil {
+	if err := refuseFailClosedStatus(outcome.Status, outcome.Reason); err != nil {
 		return err
 	}
 	for _, observation := range outcome.Batch.Observations {
@@ -241,12 +241,9 @@ func RefuseFailClosedFXHistory(outcome MappingOutcome[FXDailyObservation]) error
 	return nil
 }
 
-func refuseFailClosedStatus(status MappingStatus, reason, adapter string) error {
+func refuseFailClosedStatus(status MappingStatus, reason string) error {
 	switch status {
 	case MappingInvalid, MappingUnsupported:
-		return failClosedPersistError(reason, reason)
-	}
-	if isTiingoAdapter(adapter) && (status == MappingInvalid || status == MappingUnsupported) {
 		return failClosedPersistError(reason, reason)
 	}
 	return nil

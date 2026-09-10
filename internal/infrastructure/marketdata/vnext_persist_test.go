@@ -75,6 +75,9 @@ func TestTiingoCompleteFixturePersistsClosesCoverageAndDirtyGeneration(t *testin
 	if state.InputGeneration == 0 || state.DirtyFrom == nil || *state.DirtyFrom == "" || state.ResolverPolicyVersion != domain.MarketDataResolverPolicy {
 		t.Fatalf("dirty state = %+v", state)
 	}
+	if state.DirtyTo == nil || *state.DirtyTo != "2026-09-09" {
+		t.Fatalf("dirty_to = %v, want last closed Singapore day 2026-09-09 (upper bound, not earliest market date)", state.DirtyTo)
+	}
 
 	again, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, outcome, fetchedAt))
 	if err != nil {
@@ -202,6 +205,45 @@ func TestUncertainTruncatedBatchPersistsNoNegativeCache(t *testing.T) {
 	}
 	if noData != 0 {
 		t.Fatal("truncated/uncertain batch wrote verified no-observation coverage")
+	}
+}
+
+func TestPersistDirtyFromUsesMarketDateWhenUTCCalendarDiffers(t *testing.T) {
+	ctx := context.Background()
+	_, repo, household, instrument := seedHistoryWorkspace(t)
+	fetchedAt := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
+	commit := sqlite.InstrumentHistoryCommit{
+		HouseholdID:    household.ID,
+		InstrumentID:   instrument.ID,
+		ProviderKey:    application.TiingoProviderKey,
+		ProviderSymbol: "AAPL",
+		QuoteCurrency:  "USD",
+		Market:         "US",
+		Status:         string(application.MappingMapped),
+		Adapter:        "tiingo_eod",
+		SourcePolicy:   string(application.PriceBasisTiingoRawClose),
+		FetchedAt:      fetchedAt,
+		Observations: []sqlite.InstrumentHistoryObservation{{
+			MarketDate:       "2026-09-08",
+			Value:            "185.25",
+			Currency:         "USD",
+			ValueEffectiveAt: time.Date(2026, 9, 9, 4, 0, 0, 0, time.UTC),
+			Kind:             string(application.InstrumentObservationClose),
+			PriceBasis:       string(application.PriceBasisTiingoRawClose),
+		}},
+	}
+	if _, err := repo.CommitInstrumentHistory(ctx, commit); err != nil {
+		t.Fatal(err)
+	}
+	state, err := repo.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.DirtyFrom == nil || *state.DirtyFrom != "2026-09-08" {
+		t.Fatalf("dirty_from = %v, want market date 2026-09-08 not UTC 2026-09-09", state.DirtyFrom)
+	}
+	if state.DirtyTo == nil || *state.DirtyTo != "2026-09-09" {
+		t.Fatalf("dirty_to = %v, want last closed local day", state.DirtyTo)
 	}
 }
 

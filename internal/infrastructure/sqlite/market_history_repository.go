@@ -92,8 +92,8 @@ func (r *Repository) CommitInstrumentHistory(ctx context.Context, request Instru
 			result.InputGeneration = generation
 			return err
 		}
-		dirtyFrom := earliestInstrumentDirtyDate(request.Observations)
-		generation, err := bumpHistoryInputGenerationTx(ctx, tx, request.HouseholdID, dirtyFrom, fetchedAt)
+		dirtyFrom, dirtyTo := instrumentHistoryDirtyBounds(request.Observations)
+		generation, err := bumpHistoryInputGenerationTx(ctx, tx, request.HouseholdID, dirtyFrom, dirtyTo, fetchedAt)
 		if err != nil {
 			return err
 		}
@@ -154,8 +154,8 @@ func (r *Repository) CommitFXHistory(ctx context.Context, request FXHistoryCommi
 			result.InputGeneration = generation
 			return err
 		}
-		dirtyFrom := earliestFXDirtyDate(request.Observations)
-		generation, err := bumpHistoryInputGenerationTx(ctx, tx, request.HouseholdID, dirtyFrom, fetchedAt)
+		dirtyFrom, dirtyTo := fxHistoryDirtyBounds(request.Observations)
+		generation, err := bumpHistoryInputGenerationTx(ctx, tx, request.HouseholdID, dirtyFrom, dirtyTo, fetchedAt)
 		if err != nil {
 			return err
 		}
@@ -448,16 +448,19 @@ func upsertDayStatusTx(ctx context.Context, tx *sql.Tx, targetType, targetID, pr
 	return true, nil
 }
 
-func bumpHistoryInputGenerationTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, dirtyFrom string, at time.Time) (int, error) {
-	if dirtyFrom != "" {
-		var timezone string
-		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&timezone); err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				return 0, err
-			}
-		} else if err := markHistoryDirtyTx(ctx, tx, householdID, dirtyFrom, timezone, at); err != nil {
+func bumpHistoryInputGenerationTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, dirtyFrom, dirtyTo string, at time.Time) (int, error) {
+	var timezone, startedAt string
+	if err := tx.QueryRowContext(ctx, `SELECT timezone, started_at FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&timezone, &startedAt); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
 			return 0, err
 		}
+	} else {
+		if dirtyFrom != "" {
+			if err := markHistoryDirtyTx(ctx, tx, householdID, dirtyFrom, timezone, at); err != nil {
+				return 0, err
+			}
+		}
+		dirtyTo = expandDirtyToLocalBound(dirtyTo, timezone, startedAt, at)
 	}
 	result, err := tx.ExecContext(ctx, `
 		UPDATE history_snapshot_state
@@ -465,7 +468,7 @@ func bumpHistoryInputGenerationTx(ctx context.Context, tx *sql.Tx, householdID d
 		    resolver_policy_version = CASE WHEN resolver_policy_version IS NULL OR resolver_policy_version = '' THEN ? ELSE resolver_policy_version END,
 		    dirty_to = CASE WHEN ? = '' THEN dirty_to WHEN dirty_to IS NULL OR dirty_to < ? THEN ? ELSE dirty_to END,
 		    updated_at = ?
-		WHERE household_id = ?`, domain.MarketDataResolverPolicy, dirtyFrom, dirtyFrom, dirtyFrom, formatTimestamp(at), householdID.String())
+		WHERE household_id = ?`, domain.MarketDataResolverPolicy, dirtyTo, dirtyTo, dirtyTo, formatTimestamp(at), householdID.String())
 	if err != nil {
 		return 0, err
 	}
@@ -490,33 +493,83 @@ func currentInputGenerationTx(ctx context.Context, tx *sql.Tx, householdID domai
 	return int(generation.Int64), nil
 }
 
-func earliestInstrumentDirtyDate(observations []InstrumentHistoryObservation) string {
-	earliest := ""
+func instrumentHistoryDirtyBounds(observations []InstrumentHistoryObservation) (string, string) {
+	dates := make([]string, 0, len(observations))
 	for _, observation := range observations {
-		date := observation.MarketDate
-		if observation.ValueEffectiveAt.IsZero() {
-			if date != "" && (earliest == "" || date < earliest) {
-				earliest = date
-			}
-			continue
-		}
-		local := observation.ValueEffectiveAt.UTC().Format("2006-01-02")
-		if earliest == "" || local < earliest {
-			earliest = local
-		}
+		dates = append(dates, observation.MarketDate)
 	}
-	return earliest
+	return marketDateBounds(dates)
 }
 
-func earliestFXDirtyDate(observations []FXHistoryObservation) string {
-	earliest := ""
+func fxHistoryDirtyBounds(observations []FXHistoryObservation) (string, string) {
+	dates := make([]string, 0, len(observations))
 	for _, observation := range observations {
-		date := observation.MarketDate
+		dates = append(dates, observation.MarketDate)
+	}
+	return marketDateBounds(dates)
+}
+
+// marketDateBounds returns the earliest and latest YYYY-MM-DD market-date
+// labels. Dirty ranges use these session labels, not ValueEffectiveAt.UTC(),
+// so a US close that lands on the next UTC calendar day still dirties the
+// market date that household snapshots resolve against.
+func marketDateBounds(dates []string) (string, string) {
+	earliest, latest := "", ""
+	for _, date := range dates {
+		date = strings.TrimSpace(date)
+		if date == "" {
+			continue
+		}
 		if earliest == "" || date < earliest {
 			earliest = date
 		}
+		if latest == "" || date > latest {
+			latest = date
+		}
 	}
-	return earliest
+	return earliest, latest
+}
+
+// expandDirtyToLocalBound raises dirty_to to the last closed household local
+// day so carried-forward snapshots after the latest market date are rebuilt.
+func expandDirtyToLocalBound(dirtyTo, timezone, startedAt string, at time.Time) string {
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return dirtyTo
+	}
+	originDate := ""
+	if startedAt != "" {
+		origin, parseErr := time.Parse(time.RFC3339Nano, startedAt)
+		if parseErr != nil {
+			origin, parseErr = time.Parse(time.RFC3339, startedAt)
+		}
+		if parseErr == nil {
+			originDate = origin.In(location).Format("2006-01-02")
+		}
+	}
+	lastClosed := lastClosedLocalDate(at, location)
+	if lastClosed == "" {
+		return dirtyTo
+	}
+	if originDate != "" && lastClosed < originDate {
+		lastClosed = originDate
+	}
+	if dirtyTo == "" || lastClosed > dirtyTo {
+		return lastClosed
+	}
+	return dirtyTo
+}
+
+func lastClosedLocalDate(at time.Time, location *time.Location) string {
+	if location == nil || at.IsZero() {
+		return ""
+	}
+	today := at.In(location).Format("2006-01-02")
+	parsed, err := time.Parse("2006-01-02", today)
+	if err != nil {
+		return ""
+	}
+	return parsed.AddDate(0, 0, -1).Format("2006-01-02")
 }
 
 func nullableEmpty(value string) any {
