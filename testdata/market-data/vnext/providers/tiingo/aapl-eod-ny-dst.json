@@ -1,0 +1,16 @@
+[
+  {
+    "date": "2026-03-06T00:00:00.000Z",
+    "close": 180.0,
+    "adjClose": 180.0,
+    "divCash": 0.0,
+    "splitFactor": 1.0
+  },
+  {
+    "date": "2026-03-09T00:00:00.000Z",
+    "close": 181.0,
+    "adjClose": 181.0,
+    "divCash": 0.0,
+    "splitFactor": 1.0
+  }
+]

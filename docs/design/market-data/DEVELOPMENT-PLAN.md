@@ -2,8 +2,8 @@
 
 Based on the [Product + Technical Design](./NestworthGo-vNext-Market-Data-Product-Technical-Design.md), revised on 2026-09-10. The design document defines the technical contracts; this document tracks development order and progress.
 
-- Overall status: Not started
-- Current step: 01
+- Overall status: In progress
+- Current step: 02
 - Last updated: 2026-09-10
 - Current blockers: None recorded
 
@@ -17,7 +17,7 @@ Mark implemented work as “Awaiting acceptance” until its acceptance checks p
 
 | Step | Work | Completion criteria | Status |
 |---|---|---|---|
-| 01 Contracts and fixtures | Fix the clock, timezone and expected amounts; define provider timestamp, price adjustment, completeness and FX mappings; prepare sanitized response fixtures. | The first end-to-end scenario has independent expected values; unsupported inputs produce explicit outcomes. | Not started |
+| 01 Contracts and fixtures | Fix the clock, timezone and expected amounts; define provider timestamp, price adjustment, completeness and FX mappings; prepare sanitized response fixtures. | The first end-to-end scenario has independent expected values; unsupported inputs produce explicit outcomes. | Completed |
 | 02 Persistence and API foundation | Observation revisions, canonical indexes, historical modes and bindings, coverage and dirty generations; historical batch interfaces and Tiingo secret storage. | Migration and offline compatibility tests pass; existing latest/manual behavior is preserved; writes and invalidation are atomic. | Not started |
 | 03 End-to-end repair | Coverage/gap and opening-anchor planning, cutoff resolver; Tiingo history → persistence → snapshot rebuild → Analytics update, initially using a manual FX fixture. | Real database probes verify delayed quotes, corrections, interruption recovery and idempotency; amounts, quality and provenance agree. | Not started |
 | 04 Provider expansion and sync policies | Yahoo history, Frankfurter v2 and Tiingo latest; historical routing, TTL, no-data expiry, recent-correction checks and Force Recheck. | Provider contract tests and controlled live checks pass; splits/dividends, FX and mode changes preserve the agreed financial semantics. | Not started |
@@ -35,6 +35,7 @@ Append a row whenever work progresses. A step may have multiple entries; retain 
 | Date | Step | Work completed / Status change | Verification results and evidence paths | Commit (or Uncommitted) | Remaining issues / Next action |
 |---|---|---|---|---|---|
 | 2026-09-10 | Planning | Development steps established; implementation not started | NOT RUN (planning document only) | Uncommitted | Start step 01 |
+| 2026-09-10 | 01 | Encoded fixed clock `Asia/Singapore` 2026-09-10 00:05, household cutoffs, US session timestamps, Tiingo raw-close / completeness / FX mappings, sanitized fixtures, and independent expected amounts for `e2e-tiingo-us-manual-fx-v1`. Unsupported, pending, uncertain, and invalid inputs now return explicit mapping outcomes. Status → Completed. | PASS: `go test ./internal/domain/ ./internal/infrastructure/marketdata/` (clock, DST/early-close, oracle amounts, Tiingo/Yahoo/Frankfurter mapping). Fixtures: `testdata/market-data/vnext/`. Live provider checks NOT RUN. Database probes NOT RUN (step 03). Native Wails NOT RUN. | this commit | Start step 02 persistence and API foundation. |
 
 ## Release Gates
 

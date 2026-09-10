@@ -1,0 +1,12 @@
+{
+  "id": "market-data-vnext-step-01",
+  "resolverPolicy": "household-cutoff-close-v1",
+  "firstVerticalSlice": "e2e-tiingo-us-manual-fx-v1",
+  "clock": "2026-09-10T00:05:00+08:00",
+  "householdTimezone": "Asia/Singapore",
+  "liveChecks": {
+    "status": "NOT_RUN",
+    "reason": "Controlled live checks are outside the default suite and are not inferred from recorded fixtures."
+  },
+  "mdCasesCoveredByFixtures": ["MD-01", "MD-02", "MD-03", "MD-04", "MD-05", "MD-09", "MD-11", "MD-12"]
+}

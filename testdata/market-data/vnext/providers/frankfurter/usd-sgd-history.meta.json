@@ -1,0 +1,13 @@
+{
+  "fixtureId": "frankfurter-usd-sgd-history",
+  "provider": "frankfurter",
+  "capability": "FXDailyHistory",
+  "baseCurrency": "USD",
+  "quoteCurrency": "SGD",
+  "requestedRange": { "start": "2026-09-04", "end": "2026-09-09" },
+  "sourcePolicy": "frankfurter-v2-blended-v1",
+  "clock": "2026-09-10T00:05:00+08:00",
+  "lastFinalizedMarketDate": "2026-09-08",
+  "pendingMarketDates": ["2026-09-09"],
+  "truncated": false
+}

@@ -1,0 +1,18 @@
+{
+  "fixtureId": "tiingo-aapl-eod-malformed",
+  "provider": "tiingo",
+  "capability": "InstrumentDailyHistory",
+  "providerSymbol": "AAPL",
+  "quoteCurrency": "USD",
+  "market": "US",
+  "requestedRange": { "start": "2026-09-04", "end": "2026-09-04" },
+  "sessionPolicy": "us_equity_regular_close_v1",
+  "sessionKind": "regular",
+  "sessionTimezone": "America/New_York",
+  "closeClock": "16:00",
+  "priceBasis": "tiingo_raw_close_v1",
+  "clock": "2026-09-10T00:05:00+08:00",
+  "lastFinalizedMarketDate": "2026-09-04",
+  "pendingMarketDates": [],
+  "truncated": false
+}

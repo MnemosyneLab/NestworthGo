@@ -1,0 +1,17 @@
+{
+  "chart": {
+    "result": [{
+      "meta": {
+        "currency": "USD",
+        "symbol": "AAPL",
+        "exchangeTimezoneName": "America/New_York"
+      },
+      "timestamp": [1755185400],
+      "indicators": {
+        "quote": [{"close": [null]}],
+        "adjclose": [{"adjclose": [185.0]}]
+      }
+    }],
+    "error": null
+  }
+}

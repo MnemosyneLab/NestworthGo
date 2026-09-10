@@ -1,0 +1,20 @@
+{
+  "id": "e2e-tiingo-us-manual-fx-v1",
+  "mdCases": ["MD-01", "MD-02", "MD-03", "MD-05", "MD-09", "MD-11"],
+  "clock": "2026-09-10T00:05:00+08:00",
+  "householdTimezone": "Asia/Singapore",
+  "baseCurrency": "SGD",
+  "startingPointLocal": "2026-09-06T00:00:00+08:00",
+  "holding": { "quantity": "10", "quoteCurrency": "USD" },
+  "cash": { "amount": "1000", "currency": "USD" },
+  "manualFx": { "base": "USD", "quote": "SGD", "rate": "1.35" },
+  "instrumentCloses": [
+    { "marketDate": "2026-09-04", "close": "185.25", "sessionTimezone": "America/New_York", "closeClock": "16:00", "sessionKind": "regular", "revision": 1 },
+    { "marketDate": "2026-09-07", "close": "186", "sessionTimezone": "America/New_York", "closeClock": "16:00", "sessionKind": "regular", "revision": 1 },
+    { "marketDate": "2026-09-08", "close": "185.25", "sessionTimezone": "America/New_York", "closeClock": "16:00", "sessionKind": "regular", "revision": 1 },
+    { "marketDate": "2026-09-08", "close": "185.25000370", "sessionTimezone": "America/New_York", "closeClock": "16:00", "sessionKind": "regular", "revision": 2, "supersedesRevision": 1 }
+  ],
+  "pendingMarketDates": ["2026-09-09"],
+  "provider": "tiingo",
+  "fxMode": "manual"
+}
