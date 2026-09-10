@@ -52,7 +52,7 @@ func saveDailyValuationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot doma
 		}
 		snapshot.SupersedesID = &previous
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, snapshot.ID.String(), snapshot.HouseholdID.String(), snapshot.LocalDate, formatTimestamp(snapshot.CutoffAt), snapshot.Revision, nullableSnapshotID(snapshot.SupersedesID), snapshot.ContentHash, nullableMoneyAmount(snapshot.AssetsAmount), nullableMoneyAmount(snapshot.LiabilitiesAmount), nullableSignedMoneyAmount(snapshot.NetWorthAmount), snapshot.Currency.String(), boolValue(snapshot.Complete), snapshot.ComponentCount, snapshot.MissingCount, snapshot.GenerationReason, formatTimestamp(snapshot.CreatedAt)); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at, input_generation, resolver_policy_version) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT input_generation FROM history_snapshot_state WHERE household_id = ?), 0), COALESCE(NULLIF((SELECT resolver_policy_version FROM history_snapshot_state WHERE household_id = ?), ''), ?))`, snapshot.ID.String(), snapshot.HouseholdID.String(), snapshot.LocalDate, formatTimestamp(snapshot.CutoffAt), snapshot.Revision, nullableSnapshotID(snapshot.SupersedesID), snapshot.ContentHash, nullableMoneyAmount(snapshot.AssetsAmount), nullableMoneyAmount(snapshot.LiabilitiesAmount), nullableSignedMoneyAmount(snapshot.NetWorthAmount), snapshot.Currency.String(), boolValue(snapshot.Complete), snapshot.ComponentCount, snapshot.MissingCount, snapshot.GenerationReason, formatTimestamp(snapshot.CreatedAt), snapshot.HouseholdID.String(), snapshot.HouseholdID.String(), domain.MarketDataResolverPolicy); err != nil {
 		return false, err
 	}
 	for _, item := range snapshot.Items {
@@ -102,19 +102,26 @@ func (r *Repository) CompleteDailySnapshotRange(ctx context.Context, householdID
 }
 
 func (r *Repository) DailySnapshotState(ctx context.Context, householdID domain.HouseholdID) (domain.DailySnapshotState, error) {
-	var dirtyFrom, lastCompleted sql.NullString
-	if err := r.database.SQL.QueryRowContext(ctx, `SELECT dirty_from, last_completed_closed_on FROM history_snapshot_state WHERE household_id = ?`, householdID.String()).Scan(&dirtyFrom, &lastCompleted); err != nil {
+	var dirtyFrom, dirtyTo, lastCompleted, policy sql.NullString
+	var generation sql.NullInt64
+	if err := r.database.SQL.QueryRowContext(ctx, `SELECT dirty_from, dirty_to, last_completed_closed_on, input_generation, resolver_policy_version FROM history_snapshot_state WHERE household_id = ?`, householdID.String()).Scan(&dirtyFrom, &dirtyTo, &lastCompleted, &generation, &policy); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.DailySnapshotState{}, &domain.Error{Code: domain.ErrNotFound, Message: "history snapshot state was not found"}
 		}
 		return domain.DailySnapshotState{}, err
 	}
-	state := domain.DailySnapshotState{HouseholdID: householdID}
+	state := domain.DailySnapshotState{HouseholdID: householdID, InputGeneration: int(generation.Int64)}
 	if dirtyFrom.Valid {
 		state.DirtyFrom = &dirtyFrom.String
 	}
+	if dirtyTo.Valid {
+		state.DirtyTo = &dirtyTo.String
+	}
 	if lastCompleted.Valid {
 		state.LastCompletedClosedOn = &lastCompleted.String
+	}
+	if policy.Valid {
+		state.ResolverPolicyVersion = policy.String
 	}
 	return state, nil
 }

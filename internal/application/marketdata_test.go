@@ -49,7 +49,7 @@ func TestMarketDataRegistryResolvesDeterministicProviders(t *testing.T) {
 		t.Fatal("duplicate provider registration succeeded")
 	}
 	capabilities := resolved.Capabilities()
-	if !capabilities.LatestInstrument || !capabilities.LatestFX || capabilities.InstrumentSearch || capabilities.DailyHistory {
+	if !capabilities.LatestInstrument || !capabilities.LatestFX || capabilities.InstrumentSearch || capabilities.DailyHistory || capabilities.InstrumentDailyHistory || capabilities.FXDailyHistory {
 		t.Fatalf("capabilities = %#v", capabilities)
 	}
 }
@@ -80,8 +80,8 @@ func TestInstrumentProviderKeysExcludesFXOnlyProviders(t *testing.T) {
 		t.Fatalf("InstrumentProviderKeys() = %v, want [%s]", keys, YahooFinanceProviderKey)
 	}
 	for _, key := range keys {
-		if key == FrankfurterProviderKey {
-			t.Fatal("InstrumentProviderKeys included FX-only frankfurter")
+		if key == FrankfurterProviderKey || key == TiingoProviderKey {
+			t.Fatalf("InstrumentProviderKeys included non-latest catalog key %s", key)
 		}
 	}
 }

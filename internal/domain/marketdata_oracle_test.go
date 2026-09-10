@@ -82,6 +82,28 @@ func TestFirstVerticalSliceFixtureMatchesOracleFacts(t *testing.T) {
 		BaseCurrency       string   `json:"baseCurrency"`
 		StartingPointLocal string   `json:"startingPointLocal"`
 		PendingMarketDates []string `json:"pendingMarketDates"`
+		Holding            struct {
+			Quantity      string `json:"quantity"`
+			QuoteCurrency string `json:"quoteCurrency"`
+		} `json:"holding"`
+		Cash struct {
+			Amount   string `json:"amount"`
+			Currency string `json:"currency"`
+		} `json:"cash"`
+		ManualFX struct {
+			Base  string `json:"base"`
+			Quote string `json:"quote"`
+			Rate  string `json:"rate"`
+		} `json:"manualFx"`
+		InstrumentCloses []struct {
+			MarketDate         string `json:"marketDate"`
+			Close              string `json:"close"`
+			SessionTimezone    string `json:"sessionTimezone"`
+			CloseClock         string `json:"closeClock"`
+			SessionKind        string `json:"sessionKind"`
+			Revision           int    `json:"revision"`
+			SupersedesRevision int    `json:"supersedesRevision"`
+		} `json:"instrumentCloses"`
 	}
 	if err := json.Unmarshal(body, &fixture); err != nil {
 		t.Fatal(err)
@@ -96,6 +118,29 @@ func TestFirstVerticalSliceFixtureMatchesOracleFacts(t *testing.T) {
 	start, err := time.Parse(time.RFC3339, fixture.StartingPointLocal)
 	if err != nil || !start.Equal(scenario.StartingPointLocal) {
 		t.Fatalf("starting point = %s oracle = %s err=%v", fixture.StartingPointLocal, scenario.StartingPointLocal, err)
+	}
+	if fixture.Holding.Quantity != scenario.Holding.Quantity || fixture.Holding.QuoteCurrency != scenario.Holding.QuoteCurrency.String() {
+		t.Fatalf("holding drifted: %+v vs %+v", fixture.Holding, scenario.Holding)
+	}
+	if fixture.Cash.Amount != scenario.Cash.Amount || fixture.Cash.Currency != scenario.Cash.Currency.String() {
+		t.Fatalf("cash drifted: %+v vs %+v", fixture.Cash, scenario.Cash)
+	}
+	if fixture.ManualFX.Base != scenario.FX.BaseCurrency.String() || fixture.ManualFX.Quote != scenario.FX.QuoteCurrency.String() || fixture.ManualFX.Rate != scenario.FX.Rate {
+		t.Fatalf("fx drifted: %+v vs %+v", fixture.ManualFX, scenario.FX)
+	}
+	if len(fixture.InstrumentCloses) != len(scenario.Closes) || len(fixture.PendingMarketDates) != len(scenario.PendingMarketDates) {
+		t.Fatalf("close/pending counts json=%d/%d go=%d/%d", len(fixture.InstrumentCloses), len(fixture.PendingMarketDates), len(scenario.Closes), len(scenario.PendingMarketDates))
+	}
+	for i, close := range fixture.InstrumentCloses {
+		want := scenario.Closes[i]
+		if close.MarketDate != want.MarketDate || close.Close != want.Close || close.SessionTimezone != want.SessionTimezone || close.CloseClock != want.CloseClock || close.SessionKind != string(want.SessionKind) || close.Revision != want.Revision || close.SupersedesRevision != want.SupersedesRevision {
+			t.Fatalf("close[%d] json=%+v go=%+v", i, close, want)
+		}
+	}
+	for i, pending := range fixture.PendingMarketDates {
+		if pending != scenario.PendingMarketDates[i] {
+			t.Fatalf("pending[%d] json=%s go=%s", i, pending, scenario.PendingMarketDates[i])
+		}
 	}
 }
 

@@ -256,7 +256,10 @@ type HistoricalSnapshotBatch struct {
 type DailySnapshotState struct {
 	HouseholdID           HouseholdID
 	DirtyFrom             *string
+	DirtyTo               *string
 	LastCompletedClosedOn *string
+	InputGeneration       int
+	ResolverPolicyVersion string
 }
 
 type TrendRange string

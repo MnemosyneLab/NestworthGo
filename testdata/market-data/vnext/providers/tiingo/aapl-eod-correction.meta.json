@@ -13,6 +13,8 @@
   "priceBasis": "tiingo_raw_close_v1",
   "clock": "2026-09-10T00:05:00+08:00",
   "lastFinalizedMarketDate": "2026-09-08",
-  "pendingMarketDates": [],
-  "truncated": false
+	"pendingMarketDates": [],
+	"truncated": false,
+	"fixtureRole": "later_correction_revision",
+	"notes": "Later restatement of the 2026-09-08 close only. It is not a complete verified window; persist it after aapl-eod-complete.json to create an immutable correction revision of the same market date."
 }

@@ -3,7 +3,7 @@
 Based on the [Product + Technical Design](./NestworthGo-vNext-Market-Data-Product-Technical-Design.md), revised on 2026-09-10. The design document defines the technical contracts; this document tracks development order and progress.
 
 - Overall status: In progress
-- Current step: 02
+- Current step: 03
 - Last updated: 2026-09-10
 - Current blockers: None recorded
 
@@ -18,7 +18,7 @@ Mark implemented work as “Awaiting acceptance” until its acceptance checks p
 | Step | Work | Completion criteria | Status |
 |---|---|---|---|
 | 01 Contracts and fixtures | Fix the clock, timezone and expected amounts; define provider timestamp, price adjustment, completeness and FX mappings; prepare sanitized response fixtures. | The first end-to-end scenario has independent expected values; unsupported inputs produce explicit outcomes. | Completed |
-| 02 Persistence and API foundation | Observation revisions, canonical indexes, historical modes and bindings, coverage and dirty generations; historical batch interfaces and Tiingo secret storage. | Migration and offline compatibility tests pass; existing latest/manual behavior is preserved; writes and invalidation are atomic. | Not started |
+| 02 Persistence and API foundation | Observation revisions, canonical indexes, historical modes and bindings, coverage and dirty generations; historical batch interfaces and Tiingo secret storage. | Migration and offline compatibility tests pass; existing latest/manual behavior is preserved; writes and invalidation are atomic. | Completed |
 | 03 End-to-end repair | Coverage/gap and opening-anchor planning, cutoff resolver; Tiingo history → persistence → snapshot rebuild → Analytics update, initially using a manual FX fixture. | Real database probes verify delayed quotes, corrections, interruption recovery and idempotency; amounts, quality and provenance agree. | Not started |
 | 04 Provider expansion and sync policies | Yahoo history, Frankfurter v2 and Tiingo latest; historical routing, TTL, no-data expiry, recent-correction checks and Force Recheck. | Provider contract tests and controlled live checks pass; splits/dividends, FX and mode changes preserve the agreed financial semantics. | Not started |
 | 05 Sync job lifecycle | Plan preview, job queries, progress events, cancellation, duplicate requests, error backoff and database switching. | Reopening a page restores progress; old jobs cannot write to a replacement database; partial success and blockers are reported accurately. | Not started |
@@ -36,6 +36,7 @@ Append a row whenever work progresses. A step may have multiple entries; retain 
 |---|---|---|---|---|---|
 | 2026-09-10 | Planning | Development steps established; implementation not started | NOT RUN (planning document only) | Uncommitted | Start step 01 |
 | 2026-09-10 | 01 | Encoded fixed clock `Asia/Singapore` 2026-09-10 00:05, household cutoffs, US session timestamps, Tiingo raw-close / completeness / FX mappings, sanitized fixtures, and independent expected amounts for `e2e-tiingo-us-manual-fx-v1`. Unsupported, pending, uncertain, and invalid inputs now return explicit mapping outcomes. Status → Completed. | PASS: `go test ./internal/domain/ ./internal/infrastructure/marketdata/` (clock, DST/early-close, oracle amounts, Tiingo/Yahoo/Frankfurter mapping). Fixtures: `testdata/market-data/vnext/`. Live provider checks NOT RUN. Database probes NOT RUN (step 03). Native Wails NOT RUN. | this commit | Start step 02 persistence and API foundation. |
+| 2026-09-10 | 02 | Schema 10: observation revisions, canonical slots, binding revision history, coverage, dirty generations. 9→10 offline migration (manual→manual, unverifiable provider→legacy, no close-slot fill; snapshots preserved; `input_generation` bump + `household-cutoff-close-v1`). Atomic `CommitInstrumentHistory` / `CommitFXHistory`; Tiingo persist fail-closed; memory/session/locked `SecretStore`. Step 01 nits: scenario JSON↔Go lock; complete vs correction fixture roles. Status → Completed. | PASS: `go test ./internal/infrastructure/sqlite/ ./internal/infrastructure/marketdata/ ./internal/infrastructure/secrets/ ./internal/domain/ ./internal/application/ -skip TestAnalysisPerformanceBudgets`; `go vet ./...`; `go build ./cmd/nestworth`; `gofmt -l cmd internal` empty. Evidence: `/opt/cursor/artifacts/step02_persist_migration_tests.log`, `/opt/cursor/artifacts/step02_secret_store_tests.log`. Live provider HTTP NOT RUN. Native OS keychain NOT RUN. Step 03 DB probes NOT RUN. Native Wails / frontend NOT RUN. Linux `TestAnalysisPerformanceBudgets` flake NOT RUN (pre-existing, non-blocking). | this commit | Start step 03 end-to-end repair (coverage/gap planning, cutoff resolver, snapshot rebuild). |
 
 ## Release Gates
 

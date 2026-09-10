@@ -314,7 +314,7 @@ func (r *Repository) StartHistory(ctx context.Context, data domain.HistoryOrigin
 				return err
 			}
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at) VALUES(?, NULL, NULL, ?)`, data.Origin.HouseholdID.String(), formatTimestamp(data.Origin.CreatedAt)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at, input_generation, resolver_policy_version) VALUES(?, NULL, NULL, ?, 0, ?)`, data.Origin.HouseholdID.String(), formatTimestamp(data.Origin.CreatedAt), domain.MarketDataResolverPolicy); err != nil {
 			return err
 		}
 		result = data.Origin
@@ -379,7 +379,7 @@ func insertHistoryOriginTx(ctx context.Context, tx *sql.Tx, data domain.HistoryO
 			return err
 		}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at) VALUES(?, NULL, NULL, ?)`, data.Origin.HouseholdID.String(), formatTimestamp(data.Origin.CreatedAt))
+	_, err := tx.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, last_completed_closed_on, updated_at, input_generation, resolver_policy_version) VALUES(?, NULL, NULL, ?, 0, ?)`, data.Origin.HouseholdID.String(), formatTimestamp(data.Origin.CreatedAt), domain.MarketDataResolverPolicy)
 	return err
 }
 

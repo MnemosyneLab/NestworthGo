@@ -98,7 +98,10 @@ func (r *Repository) CreateInstrument(ctx context.Context, instrument domain.Ins
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt))
-		return mapPortfolioWriteError(err, "instrument")
+		if err != nil {
+			return mapPortfolioWriteError(err, "instrument")
+		}
+		return syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument)
 	})
 }
 
@@ -116,6 +119,9 @@ func (r *Repository) CreateInstrumentWithObservation(ctx context.Context, instru
 		if _, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt)); err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
+		if err := syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument); err != nil {
+			return err
+		}
 		return appendInstrumentPreferenceObservationTx(ctx, tx, observation)
 	})
 }
@@ -132,7 +138,7 @@ func (r *Repository) UpdateInstrument(ctx context.Context, instrument domain.Ins
 		if err := requireAffected(result, "instrument"); err != nil {
 			return err
 		}
-		return nil
+		return syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument)
 	})
 }
 
@@ -146,6 +152,9 @@ func (r *Repository) UpdateInstrumentWithObservation(ctx context.Context, instru
 			return mapPortfolioWriteError(err, "instrument")
 		}
 		if err := requireAffected(result, "instrument"); err != nil {
+			return err
+		}
+		if err := syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument); err != nil {
 			return err
 		}
 		if observation.InstrumentID != instrument.ID || observation.SourceKind != instrument.QuoteSource {
@@ -471,13 +480,13 @@ func (r *Repository) AppendProviderInstrumentQuoteIfChanged(ctx context.Context,
 		if instrumentCurrency != quote.Currency.String() {
 			return &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "quote currency does not match instrument"}
 		}
-		result, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed)
-			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+		result, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision)
+			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
 			WHERE NOT EXISTS (
 				SELECT 1 FROM instrument_quotes
 				WHERE instrument_id = ? AND unit_price = ? AND currency = ? AND source_kind = ? AND source_key = ? AND quoted_at = ? AND delayed = ?
 			)`,
-			quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed),
+			quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestInstrumentObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt),
 			quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), boolValue(quote.Delayed))
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument quote")
@@ -552,13 +561,13 @@ func (r *Repository) AppendProviderFXQuoteIfChanged(ctx context.Context, quote d
 		if quote.BaseCurrency == quote.QuoteCurrency {
 			return &domain.Error{Code: domain.ErrValidation, Field: "currencyPair", Message: "currencies must differ"}
 		}
-		result, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed)
-			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+		result, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision)
+			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
 			WHERE NOT EXISTS (
 				SELECT 1 FROM fx_quotes
 				WHERE household_id = ? AND base_currency = ? AND quote_currency = ? AND rate = ? AND source_kind = ? AND source_key = ? AND quoted_at = ? AND delayed = ?
 			)`,
-			quote.ID.String(), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed),
+			quote.ID.String(), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestFXObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt),
 			quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), boolValue(quote.Delayed))
 		if err != nil {
 			return mapPortfolioWriteError(err, "FX quote")
@@ -1197,7 +1206,7 @@ func appendInstrumentQuoteTx(ctx context.Context, tx *sql.Tx, quote domain.Instr
 	if instrumentCurrency != quote.Currency.String() {
 		return &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "quote currency does not match instrument"}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed))
+	_, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`, quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestInstrumentObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt))
 	return mapPortfolioWriteError(err, "instrument quote")
 }
 
@@ -1208,7 +1217,7 @@ func appendFXQuoteTx(ctx context.Context, tx *sql.Tx, quote domain.FXQuote) erro
 	if quote.BaseCurrency == quote.QuoteCurrency {
 		return &domain.Error{Code: domain.ErrValidation, Field: "currencyPair", Message: "currencies must differ"}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, quote.ID.String(), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed))
+	_, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`, quote.ID.String(), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestFXObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt))
 	return mapPortfolioWriteError(err, "FX quote")
 }
 

@@ -13,6 +13,8 @@
   "priceBasis": "tiingo_raw_close_v1",
   "clock": "2026-09-10T00:05:00+08:00",
   "lastFinalizedMarketDate": "2026-09-08",
-  "pendingMarketDates": ["2026-09-09"],
-  "truncated": false
+	"pendingMarketDates": ["2026-09-09"],
+	"truncated": false,
+	"fixtureRole": "complete_verified_window",
+	"notes": "Complete verified EOD window for AAPL through 2026-09-08 with 2026-09-09 still pending. Pair with aapl-eod-correction.json, which is a later restatement of the 2026-09-08 close (new revision), not a second complete window."
 }

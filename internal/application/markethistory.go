@@ -1,10 +1,16 @@
 package application
 
-import "time"
+import (
+	"context"
+	"strings"
+	"time"
 
-// Historical market-data types encode the vNext adapter-mapping contract.
-// Persistence, provider history methods, and secret storage remain later
-// steps; these types make fixture qualification executable now.
+	"github.com/waltwang/nestworth-go/internal/domain"
+)
+
+// Historical market-data types encode the vNext adapter-mapping and persist
+// contracts. Live provider HTTP remains a later step; these types make
+// fixture qualification and offline persistence executable now.
 
 // MarketDate is an inclusive YYYY-MM-DD market-session or FX-reference label.
 // It is not an economic timestamp and must not be copied onto a household
@@ -117,4 +123,143 @@ type MappingOutcome[T any] struct {
 	Status MappingStatus
 	Reason string
 	Batch  HistoryBatch[T]
+}
+
+// InstrumentHistoryProvider is an optional history capability. It is not part
+// of MarketDataProvider so latest-only fakes and adapters stay source
+// compatible.
+type InstrumentHistoryProvider interface {
+	InstrumentDailyHistory(context.Context, InstrumentMarketIdentity, DateRange) (HistoryBatch[InstrumentDailyObservation], error)
+}
+
+// FXHistoryProvider is the FX counterpart of InstrumentHistoryProvider.
+type FXHistoryProvider interface {
+	FXDailyHistory(context.Context, FXMarketIdentity, DateRange) (HistoryBatch[FXDailyObservation], error)
+}
+
+type CommitInstrumentHistoryRequest struct {
+	HouseholdID  domain.HouseholdID
+	InstrumentID domain.InstrumentID
+	Identity     InstrumentMarketIdentity
+	Market       string
+	Outcome      MappingOutcome[InstrumentDailyObservation]
+	FetchedAt    time.Time
+}
+
+type CommitFXHistoryRequest struct {
+	HouseholdID domain.HouseholdID
+	Identity    FXMarketIdentity
+	Outcome     MappingOutcome[FXDailyObservation]
+	FetchedAt   time.Time
+}
+
+type CommitHistoryResult struct {
+	PersistedObservations int
+	NewRevisions          int
+	CoverageDays          int
+	CanonicalSlots        int
+	InputGeneration       int
+	Unchanged             bool
+}
+
+func (c MarketDataCapabilities) SupportsInstrumentHistory() bool {
+	return c.InstrumentDailyHistory
+}
+
+func (c MarketDataCapabilities) SupportsFXHistory() bool {
+	return c.FXDailyHistory
+}
+
+func SourcePolicyVersion(evidence ResponseEvidence) string {
+	if policy := strings.TrimSpace(evidence.SourcePolicy); policy != "" {
+		return policy
+	}
+	if evidence.PriceBasis != "" {
+		return string(evidence.PriceBasis)
+	}
+	return "unspecified"
+}
+
+func InclusiveMarketDates(r DateRange) ([]MarketDate, error) {
+	start, err := domain.ParseMarketDate(string(r.Start))
+	if err != nil {
+		return nil, err
+	}
+	end, err := domain.ParseMarketDate(string(r.End))
+	if err != nil {
+		return nil, err
+	}
+	if start > end {
+		return nil, &domain.Error{Code: domain.ErrValidation, Field: "dateRange", Message: "range end must not precede start"}
+	}
+	current, err := time.Parse("2006-01-02", start)
+	if err != nil {
+		return nil, err
+	}
+	last, err := time.Parse("2006-01-02", end)
+	if err != nil {
+		return nil, err
+	}
+	dates := make([]MarketDate, 0, int(last.Sub(current).Hours()/24)+1)
+	for !current.After(last) {
+		dates = append(dates, MarketDate(current.Format("2006-01-02")))
+		current = current.AddDate(0, 0, 1)
+	}
+	return dates, nil
+}
+
+// RefuseFailClosedInstrumentHistory returns a validation error when a mapped
+// batch must not be persisted. Invalid, unsupported, and Tiingo adjClose-only
+// or unknown-session outcomes commit nothing.
+func RefuseFailClosedInstrumentHistory(outcome MappingOutcome[InstrumentDailyObservation]) error {
+	if err := refuseFailClosedStatus(outcome.Status, outcome.Reason, outcome.Batch.Evidence.Adapter); err != nil {
+		return err
+	}
+	for _, observation := range outcome.Batch.Observations {
+		if strings.TrimSpace(observation.Value) == "" {
+			return failClosedPersistError(outcome.Reason, "empty_observation_value")
+		}
+		if observation.PriceBasis == PriceBasisUnsupported {
+			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
+		}
+		if isTiingoAdapter(outcome.Batch.Evidence.Adapter) && observation.PriceBasis != PriceBasisTiingoRawClose {
+			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
+		}
+	}
+	return nil
+}
+
+func RefuseFailClosedFXHistory(outcome MappingOutcome[FXDailyObservation]) error {
+	if err := refuseFailClosedStatus(outcome.Status, outcome.Reason, outcome.Batch.Evidence.Adapter); err != nil {
+		return err
+	}
+	for _, observation := range outcome.Batch.Observations {
+		if strings.TrimSpace(observation.Rate) == "" {
+			return failClosedPersistError(outcome.Reason, "empty_observation_value")
+		}
+	}
+	return nil
+}
+
+func refuseFailClosedStatus(status MappingStatus, reason, adapter string) error {
+	switch status {
+	case MappingInvalid, MappingUnsupported:
+		return failClosedPersistError(reason, reason)
+	}
+	if isTiingoAdapter(adapter) && (status == MappingInvalid || status == MappingUnsupported) {
+		return failClosedPersistError(reason, reason)
+	}
+	return nil
+}
+
+func isTiingoAdapter(adapter string) bool {
+	return strings.Contains(strings.ToLower(adapter), "tiingo")
+}
+
+func failClosedPersistError(reason, fallback string) error {
+	message := strings.TrimSpace(reason)
+	if message == "" {
+		message = fallback
+	}
+	return &domain.Error{Code: domain.ErrValidation, Field: "mapping", Message: "refusing to persist a fail-closed market-data batch: " + message}
 }

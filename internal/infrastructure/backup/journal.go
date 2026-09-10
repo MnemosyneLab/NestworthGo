@@ -125,7 +125,7 @@ func ReadStatus(liveDBPath string) (Status, error) {
 }
 
 // ReconcileOnStartup applies an unfinished restore journal before sqlite.Open.
-// It never creates an empty schema 9 database.
+// It never creates an empty current-schema database.
 func ReconcileOnStartup(liveDBPath string, store *settings.Store) error {
 	journal, err := ReadJournal(liveDBPath)
 	if errors.Is(err, os.ErrNotExist) {

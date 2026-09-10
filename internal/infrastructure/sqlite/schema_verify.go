@@ -572,9 +572,26 @@ func expectedSchemaTables() map[string][]schemaColumn {
 		},
 		"instrument_quotes": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("unit_price", "TEXT", 1, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("source_key", "TEXT", 1, 0), expectedColumn("quoted_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("delayed", "INTEGER", 1, 0, "0"),
+			expectedColumn("observation_kind", "TEXT", 1, 0, "''"), expectedColumn("effective_date", "TEXT", 0, 0), expectedColumn("provider_timestamp", "TEXT", 0, 0), expectedColumn("fetched_at", "TEXT", 0, 0), expectedColumn("value_effective_at", "TEXT", 0, 0), expectedColumn("binding_revision", "INTEGER", 0, 0), expectedColumn("source_policy_version", "TEXT", 0, 0), expectedColumn("price_basis", "TEXT", 0, 0), expectedColumn("timestamp_basis", "TEXT", 0, 0), expectedColumn("revision", "INTEGER", 1, 0, "1"), expectedColumn("supersedes_quote_id", "TEXT", 0, 0), expectedColumn("split_factor", "TEXT", 0, 0), expectedColumn("dividend_cash", "TEXT", 0, 0),
 		},
 		"fx_quotes": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("base_currency", "TEXT", 1, 0), expectedColumn("quote_currency", "TEXT", 1, 0), expectedColumn("rate", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("source_key", "TEXT", 1, 0), expectedColumn("quoted_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("delayed", "INTEGER", 1, 0, "0"),
+			expectedColumn("observation_kind", "TEXT", 1, 0, "''"), expectedColumn("effective_date", "TEXT", 0, 0), expectedColumn("fetched_at", "TEXT", 0, 0), expectedColumn("value_effective_at", "TEXT", 0, 0), expectedColumn("source_policy_version", "TEXT", 0, 0), expectedColumn("timestamp_basis", "TEXT", 0, 0), expectedColumn("revision", "INTEGER", 1, 0, "1"), expectedColumn("supersedes_quote_id", "TEXT", 0, 0),
+		},
+		"instrument_provider_bindings": {
+			expectedColumn("instrument_id", "TEXT", 1, 1), expectedColumn("provider_key", "TEXT", 1, 2), expectedColumn("provider_symbol", "TEXT", 1, 0), expectedColumn("market", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("enabled", "INTEGER", 1, 0, "1"), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("binding_revision", "INTEGER", 1, 0), expectedColumn("effective_from", "TEXT", 1, 0),
+		},
+		"instrument_provider_binding_revisions": {
+			expectedColumn("instrument_id", "TEXT", 1, 1), expectedColumn("provider_key", "TEXT", 1, 2), expectedColumn("binding_revision", "INTEGER", 1, 3), expectedColumn("provider_symbol", "TEXT", 1, 0), expectedColumn("market", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("enabled", "INTEGER", 1, 0, "1"), expectedColumn("effective_from", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
+		"instrument_observation_slots": {
+			expectedColumn("instrument_id", "TEXT", 1, 1), expectedColumn("provider_key", "TEXT", 1, 2), expectedColumn("binding_revision", "INTEGER", 1, 3), expectedColumn("source_policy_version", "TEXT", 1, 4), expectedColumn("market_date", "TEXT", 1, 5), expectedColumn("observation_kind", "TEXT", 1, 6), expectedColumn("quote_id", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0),
+		},
+		"fx_observation_slots": {
+			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("base_currency", "TEXT", 1, 2), expectedColumn("quote_currency", "TEXT", 1, 3), expectedColumn("provider_key", "TEXT", 1, 4), expectedColumn("source_policy_version", "TEXT", 1, 5), expectedColumn("market_date", "TEXT", 1, 6), expectedColumn("observation_kind", "TEXT", 1, 7), expectedColumn("quote_id", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0),
+		},
+		"market_data_day_status": {
+			expectedColumn("target_type", "TEXT", 1, 1), expectedColumn("target_id", "TEXT", 1, 2), expectedColumn("provider_key", "TEXT", 1, 3), expectedColumn("household_id", "TEXT", 1, 4), expectedColumn("binding_revision", "INTEGER", 1, 5), expectedColumn("source_policy_version", "TEXT", 1, 6), expectedColumn("effective_date", "TEXT", 1, 7), expectedColumn("status", "TEXT", 1, 0), expectedColumn("reason", "TEXT", 1, 0), expectedColumn("checked_at", "TEXT", 1, 0), expectedColumn("next_check_at", "TEXT", 0, 0), expectedColumn("expires_at", "TEXT", 0, 0),
 		},
 		"fx_preferences": {
 			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("currency_a", "TEXT", 1, 2), expectedColumn("currency_b", "TEXT", 1, 3), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0),
@@ -639,13 +656,13 @@ func historySchemaColumns() map[string][]schemaColumn {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("activity_id", "TEXT", 0, 0), expectedColumn("created_at", "TEXT", 1, 0),
 		},
 		"daily_valuation_snapshots": {
-			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("local_date", "TEXT", 1, 0), expectedColumn("cutoff_at", "TEXT", 1, 0), expectedColumn("revision", "INTEGER", 1, 0), expectedColumn("supersedes_id", "TEXT", 0, 0), expectedColumn("content_hash", "TEXT", 1, 0), expectedColumn("assets_amount", "TEXT", 0, 0), expectedColumn("liabilities_amount", "TEXT", 0, 0), expectedColumn("net_worth_amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("complete", "INTEGER", 1, 0), expectedColumn("component_count", "INTEGER", 1, 0), expectedColumn("missing_count", "INTEGER", 1, 0), expectedColumn("generation_reason", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("local_date", "TEXT", 1, 0), expectedColumn("cutoff_at", "TEXT", 1, 0), expectedColumn("revision", "INTEGER", 1, 0), expectedColumn("supersedes_id", "TEXT", 0, 0), expectedColumn("content_hash", "TEXT", 1, 0), expectedColumn("assets_amount", "TEXT", 0, 0), expectedColumn("liabilities_amount", "TEXT", 0, 0), expectedColumn("net_worth_amount", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("complete", "INTEGER", 1, 0), expectedColumn("component_count", "INTEGER", 1, 0), expectedColumn("missing_count", "INTEGER", 1, 0), expectedColumn("generation_reason", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("input_generation", "INTEGER", 1, 0, "0"), expectedColumn("resolver_policy_version", "TEXT", 1, 0, "''"),
 		},
 		"daily_valuation_snapshot_items": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("snapshot_id", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("instrument_id", "TEXT", 0, 0), expectedColumn("native_amount", "TEXT", 0, 0), expectedColumn("native_currency", "TEXT", 0, 0), expectedColumn("base_amount", "TEXT", 0, 0), expectedColumn("base_currency", "TEXT", 1, 0), expectedColumn("quote_id", "TEXT", 0, 0), expectedColumn("fx_quote_id", "TEXT", 0, 0), expectedColumn("state_observation_id", "TEXT", 0, 0), expectedColumn("preference_observation_id", "TEXT", 0, 0), expectedColumn("complete", "INTEGER", 1, 0), expectedColumn("missing_reason", "TEXT", 0, 0), expectedColumn("fx_preference_observation_id", "TEXT", 0, 0),
 		},
 		"history_snapshot_state": {
-			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("dirty_from", "TEXT", 0, 0), expectedColumn("last_completed_closed_on", "TEXT", 0, 0), expectedColumn("updated_at", "TEXT", 1, 0),
+			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("dirty_from", "TEXT", 0, 0), expectedColumn("last_completed_closed_on", "TEXT", 0, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("dirty_to", "TEXT", 0, 0), expectedColumn("input_generation", "INTEGER", 1, 0, "0"), expectedColumn("resolver_policy_version", "TEXT", 1, 0, "''"),
 		},
 		"activity_mutation_keys": {
 			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("mutation_id", "TEXT", 1, 2), expectedColumn("payload_sha256", "TEXT", 1, 0), expectedColumn("activity_id", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
@@ -710,17 +727,20 @@ func schemaTableExists(ctx context.Context, query schemaQuery, table string) (bo
 
 func expectedSchemaChecks() map[string][]string {
 	return map[string][]string{
-		"households":                {"CHECK(singleton_key = 1)", "CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')"},
-		"accounts":                  {"CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other'))", "CHECK(balance_sheet_role IN ('asset','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_portfolio IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
-		"account_ownership":         {"CHECK(share_bps > 0 AND share_bps <= 10000)"},
-		"account_values":            {"CHECK(value_kind IN ('balance','manual_value'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
-		"instruments":               {"CHECK(instrument_type IN ('stock','etf','mutual_fund','crypto','bond','precious_metal','bank_investment_product','other'))", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(country_code IS NULL OR country_code GLOB '[A-Z][A-Z]')", "CHECK(quote_source IN ('manual','provider'))", "CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL))"},
-		"account_cash_values":       {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
-		"instrument_quotes":         {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))"},
-		"fx_quotes":                 {"CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))", "CHECK(base_currency <> quote_currency)"},
-		"fx_preferences":            {"CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]')", "CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(currency_a < currency_b)"},
-		"activities":                {"CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal'))"},
-		"activity_dividend_details": {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"households":                            {"CHECK(singleton_key = 1)", "CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"accounts":                              {"CHECK(account_type IN ('cash_on_hand','bank_account','brokerage','investment_account','crypto_exchange','digital_wallet','pension','insurance_policy','property','vehicle','collectible','receivable','credit_card','loan','other'))", "CHECK(balance_sheet_role IN ('asset','liability'))", "CHECK(tracking_mode IN ('balance','manual_value','holdings'))", "CHECK(default_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(include_in_net_worth IN (0,1))", "CHECK(include_in_portfolio IN (0,1))", "CHECK(include_in_liquid_assets IN (0,1))"},
+		"account_ownership":                     {"CHECK(share_bps > 0 AND share_bps <= 10000)"},
+		"account_values":                        {"CHECK(value_kind IN ('balance','manual_value'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"instruments":                           {"CHECK(instrument_type IN ('stock','etf','mutual_fund','crypto','bond','precious_metal','bank_investment_product','other'))", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(country_code IS NULL OR country_code GLOB '[A-Z][A-Z]')", "CHECK(quote_source IN ('manual','provider'))", "CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL))"},
+		"account_cash_values":                   {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"instrument_quotes":                     {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))"},
+		"fx_quotes":                             {"CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(delayed IN (0,1))", "CHECK(base_currency <> quote_currency)"},
+		"instrument_provider_bindings":          {"CHECK(enabled IN (0,1))"},
+		"instrument_provider_binding_revisions": {"CHECK(enabled IN (0,1))"},
+		"fx_observation_slots":                  {"CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"fx_preferences":                        {"CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]')", "CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(currency_a < currency_b)"},
+		"activities":                            {"CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal'))"},
+		"activity_dividend_details":             {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
 	}
 }
 
@@ -752,6 +772,10 @@ func expectedSchemaIndexes() []expectedIndex {
 		{table: "instrument_quotes", name: "idx_instrument_quotes_latest", columns: []expectedIndexColumn{{name: "instrument_id"}, {name: "source_kind"}, {name: "currency"}, {name: "quoted_at", desc: 1}, {name: "created_at", desc: 1}, {name: "id", desc: 1}}},
 		{table: "fx_quotes", name: "idx_fx_quotes_latest", columns: []expectedIndexColumn{{name: "household_id"}, {name: "base_currency"}, {name: "quote_currency"}, {name: "source_kind"}, {name: "quoted_at", desc: 1}, {name: "created_at", desc: 1}, {name: "id", desc: 1}}},
 		{table: "fx_preferences", name: "idx_fx_preferences_household", columns: asc("household_id", "currency_a", "currency_b")},
+		{table: "instrument_provider_bindings", name: "idx_instrument_provider_bindings_instrument", columns: asc("instrument_id")},
+		{table: "instrument_observation_slots", name: "idx_instrument_observation_slots_quote", columns: asc("quote_id")},
+		{table: "fx_observation_slots", name: "idx_fx_observation_slots_quote", columns: asc("quote_id")},
+		{table: "market_data_day_status", name: "idx_market_data_day_status_household", columns: asc("household_id", "target_type", "target_id", "effective_date")},
 	}
 }
 
@@ -776,6 +800,13 @@ func expectedSchemaForeignKeys() []expectedForeignKey {
 		{table: "account_cash_values", refTable: "accounts", from: "account_id", to: "id", onDelete: "CASCADE"},
 		{table: "instrument_quotes", refTable: "instruments", from: "instrument_id", to: "id", onDelete: "CASCADE"},
 		{table: "fx_quotes", refTable: "households", from: "household_id", to: "id", onDelete: "CASCADE"},
+		{table: "instrument_provider_bindings", refTable: "instruments", from: "instrument_id", to: "id", onDelete: "CASCADE"},
+		{table: "instrument_provider_binding_revisions", refTable: "instruments", from: "instrument_id", to: "id", onDelete: "CASCADE"},
+		{table: "instrument_observation_slots", refTable: "instruments", from: "instrument_id", to: "id", onDelete: "CASCADE"},
+		{table: "instrument_observation_slots", refTable: "instrument_quotes", from: "quote_id", to: "id", onDelete: "RESTRICT"},
+		{table: "fx_observation_slots", refTable: "households", from: "household_id", to: "id", onDelete: "CASCADE"},
+		{table: "fx_observation_slots", refTable: "fx_quotes", from: "quote_id", to: "id", onDelete: "RESTRICT"},
+		{table: "market_data_day_status", refTable: "households", from: "household_id", to: "id", onDelete: "CASCADE"},
 		{table: "fx_preferences", refTable: "households", from: "household_id", to: "id", onDelete: "CASCADE"},
 		{table: "daily_valuation_snapshot_items", refTable: "fx_preference_observations", from: "fx_preference_observation_id", to: "id", onDelete: "RESTRICT"},
 	}
