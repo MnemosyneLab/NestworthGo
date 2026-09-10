@@ -30,6 +30,7 @@ func NewService(t *testing.T, registries ...application.MarketDataRegistryPort) 
 	repository := sqlite.NewRepository(database)
 	service := application.NewService(repository, registries...)
 	appports.Wire(service)
+	appports.AttachSQLiteHistory(service, repository)
 	service.SetLiveDatabasePath(path)
 	return service
 }

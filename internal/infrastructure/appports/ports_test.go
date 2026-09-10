@@ -173,8 +173,10 @@ func newWiredService(t *testing.T, name string, members []string) (*application.
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = database.Close() })
-	service := application.NewService(sqlite.NewRepository(database))
+	repo := sqlite.NewRepository(database)
+	service := application.NewService(repo)
 	Wire(service)
+	AttachSQLiteHistory(service, repo)
 	service.SetLiveDatabasePath(path)
 	ctx := context.Background()
 	if err := service.CompleteOnboarding(ctx, application.OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: members}); err != nil {

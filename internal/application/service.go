@@ -39,10 +39,19 @@ type Service struct {
 	csvSessions map[string]*csvImportSession
 
 	lastSuccessfulCheck map[string]time.Time
+
+	syncMu                sync.Mutex
+	syncJobs              map[string]*syncJobState
+	currentSyncID         string
+	syncWG                sync.WaitGroup
+	syncListener          MarketDataSyncListener
+	syncSleep             func(context.Context, time.Duration) error
+	historyRequestMaxDays int
+	historyPersist        HistoryPersister
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
-	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, csvSessions: map[string]*csvImportSession{}, lastSuccessfulCheck: map[string]time.Time{}}
+	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, csvSessions: map[string]*csvImportSession{}, lastSuccessfulCheck: map[string]time.Time{}, syncJobs: map[string]*syncJobState{}}
 	service.writes.init()
 	service.valuation = NewValuationService(repository, service.clock)
 	service.gain = NewGainService(repository, service.clock)
