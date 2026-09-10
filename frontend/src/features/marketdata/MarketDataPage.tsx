@@ -321,7 +321,7 @@ function SavedFXRow({
             </span>
             <span className="flex flex-wrap items-center justify-end gap-1 text-xs text-muted-foreground">
               {quote.data.delayed ? <Badge variant="warning">{t("charts.delayed")}</Badge> : null}
-              <span>{t("marketData.fxDailyReference")}</span>
+              {quote.data.sourceKind ? <span>{displayEnum(t, "portfolio", quote.data.sourceKind)}</span> : null}
               {quote.data.sourceKey ? <span>· {quote.data.sourceKey}</span> : null}
             </span>
           </>

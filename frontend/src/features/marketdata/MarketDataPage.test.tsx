@@ -140,8 +140,8 @@ describe("MarketDataPage", () => {
       snapshotWorkEstimate: 2,
       unresolved: [],
     });
-    startSync.mockResolvedValue({
-      job: {
+    startSync.mockImplementation(async () => {
+      const job = {
         jobId: "job-1",
         outcome: "running",
         phase: "historical_instruments",
@@ -149,11 +149,15 @@ describe("MarketDataPage", () => {
         targetCount: 2,
         estimatedRequests: 3,
         scope: { scope: "repair_all" },
-      },
-      attached: false,
-      conflict: false,
+      };
+      getCurrentSyncJob.mockResolvedValue(job);
+      return { job, attached: false, conflict: false };
     });
-    cancelSyncJob.mockResolvedValue({ jobId: "job-1", outcome: "cancelled", phase: "cancelled" });
+    cancelSyncJob.mockImplementation(async () => {
+      const job = { jobId: "job-1", outcome: "cancelled", phase: "cancelled" };
+      getCurrentSyncJob.mockResolvedValue(job);
+      return job;
+    });
     instrumentQuoteSeries.mockResolvedValue({ range: "30d", points: [], observations: [], outsideRange: false });
     fxQuoteSeries.mockResolvedValue({ range: "30d", points: [], observations: [], outsideRange: false });
     listInstruments.mockResolvedValue([]);
@@ -176,6 +180,7 @@ describe("MarketDataPage", () => {
       createdAt: "2024-01-01T00:00:00Z",
       delayed: true,
     });
+    listFXPreferences.mockResolvedValue([
       {
         householdId: "h1",
         currencyA: "CNY",
@@ -429,7 +434,7 @@ describe("MarketDataPage", () => {
     expect(fxQuoteSeries).toHaveBeenCalledWith("USD", "CNY", "30d", "all");
     expect(fxQuoteSeries.mock.calls[0]?.slice(0, 2)).toEqual(["CNY", "USD"]);
     expect(fxQuoteSeries.mock.calls[1]?.slice(0, 2)).toEqual(["USD", "CNY"]);
-    expect(screen.getByText(/daily reference rates/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/daily reference rates/i).length).toBeGreaterThan(0);
   });
 
   it("filters instruments by search without dropping management actions", async () => {
@@ -454,7 +459,7 @@ describe("MarketDataPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Start sync" }));
     expect(startSync).toHaveBeenCalledWith({ scope: "repair_all", forceRecheck: false });
     expect(await screen.findByTestId("sync-progress")).toHaveTextContent("Historical prices");
-    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(screen.getByTestId("sync-progress")).toHaveTextContent("1 / 2");
     await userEvent.click(screen.getByRole("button", { name: "Cancel sync" }));
     expect(cancelSyncJob).toHaveBeenCalledWith("job-1");
   });
