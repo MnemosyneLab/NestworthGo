@@ -9,5 +9,11 @@ export {
 export type {
     RefreshCompletedPayload,
     RefreshResultDTO,
-    RefreshTargetResultDTO
+    RefreshTargetResultDTO,
+    SyncBlockerDTO,
+    SyncItemDTO,
+    SyncJobDTO,
+    SyncPlanPreviewDTO,
+    SyncRequestDTO,
+    SyncStartResultDTO
 } from "./models.js";

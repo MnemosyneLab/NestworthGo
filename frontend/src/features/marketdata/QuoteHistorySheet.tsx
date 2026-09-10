@@ -76,9 +76,12 @@ export function QuoteHistorySheet({
           <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
           <SourceFilterToggle value={sourceFilter} onChange={setSourceFilter} />
           {target.kind === "fx" && (
-            <Button type="button" variant="outline" size="sm" onClick={() => setSwapped((current) => !current)}>
-              {t("charts.swapDirection")}
-            </Button>
+            <>
+              <p className="text-sm text-muted-foreground">{t("marketData.fxDailyReference")}</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => setSwapped((current) => !current)}>
+                {t("charts.swapDirection")}
+              </Button>
+            </>
           )}
           {series.isLoading ? (
             <LoadingState label={t("ui.state.loadingPage")} />

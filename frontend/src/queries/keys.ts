@@ -111,4 +111,9 @@ export const queryKeys = {
     activities: (limit: number) => ["history", "activities", limit] as const,
     activityPage: (request: unknown) => ["history", "activityPage", request] as const,
   },
+  marketdata: {
+    all: ["marketdata"] as const,
+    currentSync: ["marketdata", "currentSync"] as const,
+    job: (jobId: string) => ["marketdata", "job", jobId] as const,
+  },
 } as const;

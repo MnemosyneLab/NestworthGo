@@ -34,3 +34,69 @@ export interface RefreshTargetResultDTO {
     "status": string;
     "errorCode"?: string;
 }
+
+export interface SyncBlockerDTO {
+    "targetKey": string;
+    "code": string;
+    "reason": string;
+}
+
+export interface SyncItemDTO {
+    "targetKey": string;
+    "kind": string;
+    "status": string;
+    "detail"?: string;
+    "provider"?: string;
+}
+
+export interface SyncJobDTO {
+    "jobId": string;
+    "workspaceId": string;
+    "householdId": string;
+    "planRevision": string;
+    "sequence": number;
+    "phase": string;
+    "outcome": string;
+    "scope": SyncRequestDTO;
+    "estimatedRequests": number;
+    "completedRequests": number;
+    "targetCount": number;
+    "completedTargets": number;
+    "snapshotDaysPlanned": number;
+    "snapshotDaysRebuilt": number;
+    "committedBatches": number;
+    "items"?: SyncItemDTO[] | null;
+    "blockers"?: SyncBlockerDTO[] | null;
+    "prerequisites"?: SyncBlockerDTO[] | null;
+    "nextEligibilityAt"?: string;
+    "errorCode"?: string;
+}
+
+export interface SyncPlanPreviewDTO {
+    "asOf": string;
+    "configRevision": string;
+    "scope": SyncRequestDTO;
+    "estimatedRequestCount": number;
+    "snapshotWorkEstimate": number;
+    "unresolved"?: SyncBlockerDTO[] | null;
+    "instrumentTargets": number;
+    "fxTargets": number;
+    "latestInstrumentCount": number;
+    "latestFxCount": number;
+    "fetchRanges": number;
+}
+
+export interface SyncRequestDTO {
+    "scope": string;
+    "instrumentId"?: string;
+    "currencyA"?: string;
+    "currencyB"?: string;
+    "forceRecheck"?: boolean;
+}
+
+export interface SyncStartResultDTO {
+    "job": SyncJobDTO;
+    "attached": boolean;
+    "conflict": boolean;
+    "reason"?: string;
+}

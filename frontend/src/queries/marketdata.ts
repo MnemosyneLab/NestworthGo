@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Events } from "@wailsio/runtime";
 import { Service as MarketDataService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata";
 import type { RefreshCompletedPayload, RefreshResultDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import { callService, parseWailsError, translateWailsError } from "@/lib/wails";
-import { invalidateQuoteReads, invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
+import { invalidateMarketDataSync, invalidateQuoteReads, invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
+import { queryKeys } from "@/queries/keys";
+import type {
+  SyncJobDTO,
+  SyncPlanPreviewDTO,
+  SyncRequestDTO,
+  SyncStartResultDTO,
+} from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 
 const REFRESH_COMPLETED_EVENT = "marketdata.refresh.completed" as const;
 
@@ -133,5 +140,87 @@ export function useRefreshFX() {
 	return useAsyncRefresh<{ currencyA: string; currencyB: string }>({
 		start: (requestId, pair) => MarketDataService.StartRefreshFX(requestId, pair.currencyA, pair.currencyB),
 		invalidate: (queryClient) => invalidateRequiredFX(queryClient),
+	});
+}
+
+const SYNC_EVENTS = [
+	"marketdata.sync.started",
+	"marketdata.sync.progress",
+	"marketdata.sync.item",
+	"marketdata.sync.completed",
+] as const;
+
+export function emptySyncJob(job: SyncJobDTO | null | undefined): boolean {
+	return !job?.jobId;
+}
+
+export function syncJobIsRunning(job: SyncJobDTO | null | undefined): boolean {
+	return Boolean(job?.jobId) && job?.outcome === "running";
+}
+
+export function useCurrentSyncJob() {
+	const queryClient = useQueryClient();
+	const query = useQuery({
+		queryKey: queryKeys.marketdata.currentSync,
+		queryFn: async () => {
+			const job = await callService(() => MarketDataService.GetCurrentSyncJob());
+			return emptySyncJob(job) ? null : job;
+		},
+		refetchInterval: (current) => (syncJobIsRunning(current.state.data) ? 2000 : false),
+	});
+
+	useEffect(() => {
+		const cleanups = SYNC_EVENTS.map((name) =>
+			Events.On(name, () => {
+				void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
+			}),
+		);
+		return () => {
+			cleanups.forEach((cleanup) => cleanup());
+		};
+	}, [queryClient]);
+
+	const seenRunning = useRef(false);
+	useEffect(() => {
+		if (syncJobIsRunning(query.data)) {
+			seenRunning.current = true;
+			return;
+		}
+		if (seenRunning.current) {
+			seenRunning.current = false;
+			invalidateMarketDataSync(queryClient);
+		}
+	}, [query.data, queryClient]);
+
+	return query;
+}
+
+export function usePreviewMarketDataSync() {
+	return useMutation<SyncPlanPreviewDTO, Error, SyncRequestDTO>({
+		mutationFn: (request) => callService(() => MarketDataService.PreviewMarketDataSync(request)),
+	});
+}
+
+export function useStartMarketDataSync() {
+	const queryClient = useQueryClient();
+	return useMutation<SyncStartResultDTO, Error, SyncRequestDTO>({
+		mutationFn: (request) => callService(() => MarketDataService.StartMarketDataSync(request)),
+		onSuccess: (result) => {
+			if (result.job?.jobId) {
+				queryClient.setQueryData(queryKeys.marketdata.currentSync, result.job);
+			}
+			void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
+		},
+	});
+}
+
+export function useCancelSyncJob() {
+	const queryClient = useQueryClient();
+	return useMutation<SyncJobDTO, Error, string>({
+		mutationFn: (jobId) => callService(() => MarketDataService.CancelSyncJob(jobId)),
+		onSuccess: (job) => {
+			queryClient.setQueryData(queryKeys.marketdata.currentSync, emptySyncJob(job) ? null : job);
+			void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
+		},
 	});
 }
