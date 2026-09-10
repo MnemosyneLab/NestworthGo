@@ -12,6 +12,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { activitySentence } from "@/features/history/activitySentence";
 import { CompositionChart } from "@/components/charts/CompositionChart";
+import { DataHealthIndicator } from "@/features/data-health/DataHealthIndicator";
 import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 type OverviewMissingInput = MissingInputDTO & { accountName?: string; quoteSource?: string };
@@ -102,12 +103,14 @@ export function OverviewPage({
   onOpenAccounts,
   onOpenHistory,
   onOpenMarketData,
+  onOpenDataHealth,
   onOpenInvestments,
 }: {
   onAddAccount?: () => void;
   onOpenAccounts?: () => void;
   onOpenHistory?: () => void;
   onOpenMarketData?: () => void;
+  onOpenDataHealth?: () => void;
   onOpenInvestments?: () => void;
 } = {}) {
   const { t, i18n } = useTranslation();
@@ -146,6 +149,7 @@ export function OverviewPage({
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant="secondary">{t("overview.accountCount", { count: data.accountCount })}</Badge>
       {healthBadge}
+      <DataHealthIndicator onOpen={onOpenDataHealth} />
       {updatedLabel && <p className="text-sm text-muted-foreground">{updatedLabel}</p>}
     </div>
   );
@@ -248,6 +252,11 @@ export function OverviewPage({
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {onOpenDataHealth && (
+                    <Button type="button" size="sm" variant="outline" onClick={onOpenDataHealth}>
+                      {t("dataHealth.fixInDataHealth")}
+                    </Button>
                   )}
                 </div>
               )}

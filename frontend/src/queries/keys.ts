@@ -114,6 +114,7 @@ export const queryKeys = {
   marketdata: {
     all: ["marketdata"] as const,
     currentSync: ["marketdata", "currentSync"] as const,
+    health: ["marketdata", "health"] as const,
     job: (jobId: string) => ["marketdata", "job", jobId] as const,
   },
 } as const;

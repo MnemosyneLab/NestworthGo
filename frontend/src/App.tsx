@@ -18,6 +18,7 @@ const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").th
 const DirectoryPage = lazy(() => import("@/features/directory/DirectoryPage").then((module) => ({ default: module.DirectoryPage })));
 const InvestmentsPage = lazy(() => import("@/features/investments/InvestmentsPage").then((module) => ({ default: module.InvestmentsPage })));
 const MarketDataPage = lazy(() => import("@/features/marketdata/MarketDataPage").then((module) => ({ default: module.MarketDataPage })));
+const DataHealthPage = lazy(() => import("@/features/data-health/DataHealthPage").then((module) => ({ default: module.DataHealthPage })));
 const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 const HistoryPage = lazy(() => import("@/features/history/HistoryPage").then((module) => ({ default: module.HistoryPage })));
 const ReturnAnalysisPage = lazy(() => import("@/features/insights/ReturnAnalysisPage").then((module) => ({ default: module.ReturnAnalysisPage })));
@@ -116,6 +117,7 @@ function App() {
           onOpenAccounts={() => handleNavigate("accounts")}
           onOpenHistory={() => handleNavigate("history")}
           onOpenMarketData={() => handleNavigate("market-data")}
+          onOpenDataHealth={() => handleNavigate("data-health")}
           onOpenInvestments={() => handleNavigate("investments")}
         />
       )}
@@ -139,7 +141,16 @@ function App() {
       )}
       {activePageId === "market-data" && (
         <WorkspaceLazy>
-          <MarketDataPage />
+          <MarketDataPage onOpenDataHealth={() => handleNavigate("data-health")} />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "data-health" && (
+        <WorkspaceLazy>
+          <DataHealthPage
+            onOpenSettings={() => handleNavigate("settings")}
+            onOpenMarketData={() => handleNavigate("market-data")}
+            onOpenInvestments={() => handleNavigate("investments")}
+          />
         </WorkspaceLazy>
       )}
       {activePageId === "settings" && (

@@ -79,6 +79,12 @@ const defaultSettings = {
   fxProvider: "frankfurter",
 };
 
+vi.mock("@wailsio/runtime", () => ({
+  Events: {
+    On: () => () => undefined,
+  },
+}));
+
 // The generated Wails binding calls Call.ByID under the hood, which tries
 // to reach the Wails runtime bridge that does not exist in jsdom.
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/app", () => ({
@@ -169,6 +175,13 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", 
   Service: {
     InstrumentQuoteSeries: () => Promise.resolve({ range: "30d", points: [], observations: [] }),
     FXQuoteSeries: () => Promise.resolve({ range: "30d", points: [], observations: [] }),
+  },
+}));
+
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
+  Service: {
+    ScanMarketDataHealth: () => Promise.resolve({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] }),
+    GetCurrentSyncJob: () => Promise.resolve({ jobId: "" }),
   },
 }));
 
@@ -294,6 +307,10 @@ describe("App shell smoke test", () => {
     expect(within(nav).getByRole("button", { name: i18n.t("nav.directory") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.instruments") })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") })).toBeInTheDocument();
+
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") }));
+    expect(await screen.findByTestId("data-health-page")).toBeInTheDocument();
 
     // Settings is a real surface and remains reachable from the grouped nav.
     await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.settings") }));

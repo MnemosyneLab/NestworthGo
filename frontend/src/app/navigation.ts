@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { House, Wallet, ChartNoAxesCombined, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows } from "lucide-react";
+import { House, Wallet, ChartNoAxesCombined, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, HeartPulse } from "lucide-react";
 
 export type PageId =
   | "overview"
@@ -11,6 +11,7 @@ export type PageId =
   | "asset-changes"
   | "directory"
   | "market-data"
+  | "data-health"
   | "settings";
 
 export type AnalysisTab = "calendar" | "trend" | "contribution";
@@ -93,6 +94,7 @@ export const NAV_GROUPS: NavGroup[] = [
     translationKey: "navGroups.settings",
     items: [
       { id: "market-data", translationKey: "nav.marketData", icon: RefreshCw },
+      { id: "data-health", translationKey: "nav.dataHealth", icon: HeartPulse },
       { id: "settings", translationKey: "nav.settings", icon: Settings },
     ],
   },

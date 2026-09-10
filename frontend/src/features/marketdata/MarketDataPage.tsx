@@ -34,6 +34,7 @@ import { EntityIcon } from "@/components/icons/EntityIcon";
 import { QuoteHistorySheet, type QuoteHistoryTarget } from "@/features/marketdata/QuoteHistorySheet";
 import { InstrumentManagement } from "@/features/investments/InstrumentManagement";
 import { MarketDataSyncBar, useMarketDataSyncActions } from "@/features/marketdata/MarketDataSyncBar";
+import { DataHealthIndicator } from "@/features/data-health/DataHealthIndicator";
 
 const STATUS_VARIANT: Record<string, "success" | "secondary" | "destructive" | "warning"> = {
   fetched: "success",
@@ -463,7 +464,7 @@ function SavedFXRates({
 
 /** MarketDataPage merges instrument management and FX rates onto one
  * destination, with Sync Data progress restored from the in-process job. */
-export function MarketDataPage() {
+export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => void } = {}) {
   const { t } = useTranslation();
   const instruments = useInstruments();
   const fxPreferences = useFXPreferences();
@@ -552,7 +553,10 @@ export function MarketDataPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageChrome pageId="market-data" title={t("nav.marketData")} />
-      <PageIntro description={t("marketData.description")} />
+      <PageIntro
+        description={t("marketData.description")}
+        status={<DataHealthIndicator onOpen={onOpenDataHealth} />}
+      />
       <MarketDataSyncBar
         latestRefreshing={latestRefreshing || setFXPreference.isPending || setInstrumentQuoteSource.isPending}
         onRefreshMissing={runRefreshMissingOrStale}

@@ -224,3 +224,10 @@ export function useCancelSyncJob() {
 		},
 	});
 }
+
+export function useMarketDataHealth() {
+	return useQuery({
+		queryKey: queryKeys.marketdata.health,
+		queryFn: () => callService(() => MarketDataService.ScanMarketDataHealth()),
+	});
+}
