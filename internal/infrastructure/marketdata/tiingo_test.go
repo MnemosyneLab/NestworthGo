@@ -44,6 +44,25 @@ func TestTiingoLatestRefusesNonUSAndMissingSecret(t *testing.T) {
 	assertProviderCode(t, err, domain.ErrUnsupportedProviderSymbol)
 }
 
+func TestTiingoLocalConfigStatusDoesNotContactNetwork(t *testing.T) {
+	store := secrets.NewMemoryStore()
+	provider := NewTiingoProviderWithOptions(TiingoProviderOptions{Secrets: store, Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("LocalConfigStatus contacted Tiingo")
+		return nil, nil
+	})})
+	code, reason := provider.LocalConfigStatus(context.Background())
+	if code != application.ProviderConfigMissingKey {
+		t.Fatalf("status = %s %s", code, reason)
+	}
+	if _, err := store.Put(context.Background(), application.TiingoSecretRef(), []byte("test-token")); err != nil {
+		t.Fatal(err)
+	}
+	code, reason = provider.LocalConfigStatus(context.Background())
+	if code != application.ProviderConfigOK {
+		t.Fatalf("configured status = %s %s", code, reason)
+	}
+}
+
 func TestTiingoProviderHistoryAndLatestUseFixtures(t *testing.T) {
 	store := secrets.NewMemoryStore()
 	if _, err := store.Put(context.Background(), application.TiingoSecretRef(), []byte("test-token")); err != nil {

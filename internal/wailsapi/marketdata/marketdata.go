@@ -348,6 +348,77 @@ type SyncStartResultDTO struct {
 	Reason   string     `json:"reason,omitempty"`
 }
 
+type HealthIssueDTO struct {
+	ID           string `json:"id"`
+	Kind         string `json:"kind"`
+	Severity     string `json:"severity"`
+	GroupKey     string `json:"groupKey"`
+	TargetKey    string `json:"targetKey"`
+	Label        string `json:"label,omitempty"`
+	Provider     string `json:"provider,omitempty"`
+	InstrumentID string `json:"instrumentId,omitempty"`
+	CurrencyA    string `json:"currencyA,omitempty"`
+	CurrencyB    string `json:"currencyB,omitempty"`
+	RangeStart   string `json:"rangeStart,omitempty"`
+	RangeEnd     string `json:"rangeEnd,omitempty"`
+	RangeCount   int    `json:"rangeCount,omitempty"`
+	Code         string `json:"code,omitempty"`
+	Reason       string `json:"reason,omitempty"`
+	Action       string `json:"action"`
+	Executable   bool   `json:"executable"`
+	Collapsed    bool   `json:"collapsed,omitempty"`
+}
+
+type MarketDataHealthReportDTO struct {
+	Healthy                 bool             `json:"healthy"`
+	IncompleteSince         string           `json:"incompleteSince,omitempty"`
+	CoverageThrough         string           `json:"coverageThrough,omitempty"`
+	LastFinalizedMarketDate string           `json:"lastFinalizedMarketDate,omitempty"`
+	IssueCount              int              `json:"issueCount"`
+	ExecutableCount         int              `json:"executableCount"`
+	PrerequisiteCount       int              `json:"prerequisiteCount"`
+	SnapshotDays            int              `json:"snapshotDays"`
+	Issues                  []HealthIssueDTO `json:"issues,omitempty"`
+}
+
+func fromHealthIssue(issue application.HealthIssue) HealthIssueDTO {
+	return HealthIssueDTO{
+		ID: issue.ID, Kind: issue.Kind, Severity: issue.Severity, GroupKey: issue.GroupKey,
+		TargetKey: issue.TargetKey, Label: issue.Label, Provider: issue.Provider,
+		InstrumentID: issue.InstrumentID, CurrencyA: issue.CurrencyA, CurrencyB: issue.CurrencyB,
+		RangeStart: issue.RangeStart, RangeEnd: issue.RangeEnd, RangeCount: issue.RangeCount,
+		Code: issue.Code, Reason: issue.Reason, Action: issue.Action, Executable: issue.Executable,
+		Collapsed: issue.Collapsed,
+	}
+}
+
+func fromHealthReport(report application.MarketDataHealthReport) MarketDataHealthReportDTO {
+	dto := MarketDataHealthReportDTO{
+		Healthy: report.Healthy, IncompleteSince: report.IncompleteSince, CoverageThrough: report.CoverageThrough,
+		LastFinalizedMarketDate: report.LastFinalizedMarketDate, IssueCount: report.IssueCount,
+		ExecutableCount: report.ExecutableCount, PrerequisiteCount: report.PrerequisiteCount,
+		SnapshotDays: report.SnapshotDays,
+	}
+	for _, issue := range report.Issues {
+		dto.Issues = append(dto.Issues, fromHealthIssue(issue))
+	}
+	return dto
+}
+
+// ScanMarketDataHealth runs the local Data Health scan. Opening Data Health
+// must not cause provider HTTP; this method only reads the database, secret
+// status, and in-process job snapshot.
+func (s *Service) ScanMarketDataHealth() (MarketDataHealthReportDTO, error) {
+	if s.app == nil {
+		return MarketDataHealthReportDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
+	}
+	report, err := s.app.ScanMarketDataHealth(context.Background())
+	if err != nil {
+		return MarketDataHealthReportDTO{}, apierror.Wrap(err)
+	}
+	return fromHealthReport(report), nil
+}
+
 func fromSyncRequest(dto SyncRequestDTO) application.SyncRequest {
 	return application.SyncRequest{
 		Scope:        application.SyncScopeKind(dto.Scope),

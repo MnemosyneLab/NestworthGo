@@ -64,6 +64,15 @@ export function RefreshRequiredFX(): $CancellablePromise<$models.RefreshResultDT
     return $Call.ByID(1206509500);
 }
 
+/**
+ * ScanMarketDataHealth runs the local Data Health scan. Opening Data Health
+ * must not cause provider HTTP; this method only reads the database, secret
+ * status, and in-process job snapshot.
+ */
+export function ScanMarketDataHealth(): $CancellablePromise<$models.MarketDataHealthReportDTO> {
+    return $Call.ByID(247455835);
+}
+
 export function SetFXProvider(key: string): $CancellablePromise<void> {
     return $Call.ByID(758763431, key);
 }

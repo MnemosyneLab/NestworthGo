@@ -276,6 +276,14 @@ type InstrumentHistoryCoverage struct {
 	NoObservationCheckedAt map[string]time.Time
 }
 
+type FXHistoryCoverage struct {
+	BaseCurrency        CurrencyCode
+	QuoteCurrency       CurrencyCode
+	ProviderKey         string
+	DailyReferenceDates []string
+	NoObservationDates  []string
+}
+
 type TrendRange string
 
 const (

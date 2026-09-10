@@ -100,6 +100,94 @@ func listCloseMarketDates(ctx context.Context, query queryer, instrumentID strin
 	return dates, fetched, rows.Err()
 }
 
+func (r *Repository) ListFXHistoryCoverage(ctx context.Context, householdID domain.HouseholdID) ([]domain.FXHistoryCoverage, error) {
+	rows, err := r.database.SQL.QueryContext(ctx, `
+		SELECT s.base_currency, s.quote_currency, s.provider_key, s.market_date
+		FROM fx_observation_slots s
+		WHERE s.household_id = ? AND s.observation_kind = ?
+		ORDER BY s.base_currency, s.quote_currency, s.provider_key, s.market_date`, householdID.String(), observationKindDailyReference)
+	if err != nil {
+		return nil, err
+	}
+	byKey := map[string]*domain.FXHistoryCoverage{}
+	order := make([]string, 0)
+	for rows.Next() {
+		var base, quote, provider, marketDate string
+		if err := rows.Scan(&base, &quote, &provider, &marketDate); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		key := strings.TrimSpace(base) + "/" + strings.TrimSpace(quote) + ":" + strings.TrimSpace(provider)
+		item, ok := byKey[key]
+		if !ok {
+			parsedBase, baseErr := domain.ParseSupportedCurrency(base)
+			if baseErr != nil {
+				_ = rows.Close()
+				return nil, baseErr
+			}
+			parsedQuote, quoteErr := domain.ParseSupportedCurrency(quote)
+			if quoteErr != nil {
+				_ = rows.Close()
+				return nil, quoteErr
+			}
+			item = &domain.FXHistoryCoverage{BaseCurrency: parsedBase, QuoteCurrency: parsedQuote, ProviderKey: strings.TrimSpace(provider)}
+			byKey[key] = item
+			order = append(order, key)
+		}
+		item.DailyReferenceDates = append(item.DailyReferenceDates, marketDate)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	noObsRows, err := r.database.SQL.QueryContext(ctx, `
+		SELECT target_id, provider_key, effective_date
+		FROM market_data_day_status
+		WHERE household_id = ? AND target_type = 'fx' AND status = ?
+		ORDER BY target_id, provider_key, effective_date`, householdID.String(), coverageStatusNoObservation)
+	if err != nil {
+		return nil, err
+	}
+	defer noObsRows.Close()
+	for noObsRows.Next() {
+		var targetID, provider, date string
+		if err := noObsRows.Scan(&targetID, &provider, &date); err != nil {
+			return nil, err
+		}
+		key := strings.TrimSpace(targetID) + ":" + strings.TrimSpace(provider)
+		item, ok := byKey[key]
+		if !ok {
+			parts := strings.Split(strings.TrimSpace(targetID), "/")
+			if len(parts) != 2 {
+				continue
+			}
+			parsedBase, baseErr := domain.ParseSupportedCurrency(parts[0])
+			if baseErr != nil {
+				return nil, baseErr
+			}
+			parsedQuote, quoteErr := domain.ParseSupportedCurrency(parts[1])
+			if quoteErr != nil {
+				return nil, quoteErr
+			}
+			item = &domain.FXHistoryCoverage{BaseCurrency: parsedBase, QuoteCurrency: parsedQuote, ProviderKey: strings.TrimSpace(provider)}
+			byKey[key] = item
+			order = append(order, key)
+		}
+		item.NoObservationDates = append(item.NoObservationDates, date)
+	}
+	if err := noObsRows.Err(); err != nil {
+		return nil, err
+	}
+	result := make([]domain.FXHistoryCoverage, 0, len(order))
+	for _, key := range order {
+		result = append(result, *byKey[key])
+	}
+	return result, nil
+}
+
 func listNoObservationCoverage(ctx context.Context, query queryer, instrumentID string) ([]string, map[string]time.Time, map[string]time.Time, error) {
 	rows, err := query.QueryContext(ctx, `
 		SELECT effective_date, expires_at, checked_at FROM market_data_day_status

@@ -82,6 +82,19 @@ type MarketDataProvider interface {
 	LatestFX(context.Context, FXMarketIdentity) (LatestFXQuote, error)
 }
 
+// ProviderLocalStatus is an optional adapter surface for Data Health.
+// Implementations must inspect local configuration only and must not
+// perform network I/O.
+type ProviderLocalStatus interface {
+	LocalConfigStatus(context.Context) (code, reason string)
+}
+
+const (
+	ProviderConfigOK          = "ok"
+	ProviderConfigMissingKey  = "missing_key"
+	ProviderConfigUnavailable = "unavailable"
+)
+
 // MarketDataRegistryPort keeps Service independent from provider routing and
 // from the infrastructure package that supplies the production registry.
 type MarketDataRegistryPort interface {

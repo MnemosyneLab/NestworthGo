@@ -57,6 +57,22 @@ func (p *TiingoProvider) Capabilities() application.MarketDataCapabilities {
 	return application.MarketDataCapabilities{LatestInstrument: true, InstrumentDailyHistory: true}
 }
 
+// LocalConfigStatus inspects the secret store only. It never opens an HTTP
+// connection, including when the key is missing.
+func (p *TiingoProvider) LocalConfigStatus(ctx context.Context) (code, reason string) {
+	if p.secrets == nil {
+		return application.ProviderConfigMissingKey, "tiingo_key_missing"
+	}
+	status, err := p.secrets.Status(ctx, application.TiingoSecretRef())
+	if err != nil {
+		return application.ProviderConfigUnavailable, "secret_store"
+	}
+	if !application.TiingoKeyConfigured(status) {
+		return application.ProviderConfigMissingKey, string(status)
+	}
+	return application.ProviderConfigOK, ""
+}
+
 func (p *TiingoProvider) LatestInstrument(ctx context.Context, identity application.InstrumentMarketIdentity) (application.LatestInstrumentQuote, error) {
 	if strings.TrimSpace(identity.ProviderSymbol) == "" {
 		return application.LatestInstrumentQuote{}, providerValidation("providerSymbol", "provider symbol is required")

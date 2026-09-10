@@ -7,6 +7,8 @@ export {
 };
 
 export type {
+    HealthIssueDTO,
+    MarketDataHealthReportDTO,
     RefreshCompletedPayload,
     RefreshResultDTO,
     RefreshTargetResultDTO,

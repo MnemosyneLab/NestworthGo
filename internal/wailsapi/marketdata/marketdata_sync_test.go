@@ -68,3 +68,20 @@ func TestMarketDataSyncPreviewStartGetAndEvents(t *testing.T) {
 		t.Fatal("missing marketdata.sync.started")
 	}
 }
+
+func TestScanMarketDataHealthIsLocal(t *testing.T) {
+	app := wailstest.NewService(t)
+	if err := household.NewService(app).CompleteOnboarding(context.Background(), household.CompleteOnboardingRequest{
+		HouseholdName: "Health", BaseCurrency: "SGD", MemberNames: []string{"Owner"}, Timezone: "Asia/Singapore",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	service := marketdata.NewService(app, newFakeEmitter())
+	report, err := service.ScanMarketDataHealth()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.IssueCount < 0 {
+		t.Fatalf("report = %+v", report)
+	}
+}
