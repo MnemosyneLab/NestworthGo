@@ -5,7 +5,7 @@ Based on the [Product + Technical Design](./NestworthGo-vNext-Market-Data-Produc
 - Overall status: In progress
 - Current step: 08
 - Last updated: 2026-09-10
-- Current blockers: None recorded
+- Current blockers: Native Wails desktop, Apple M3 Pro performance, live Tiingo, OS keychain, durable job resume
 
 ## How to Use
 
@@ -23,8 +23,8 @@ Mark implemented work as “Awaiting acceptance” until its acceptance checks p
 | 04 Provider expansion and sync policies | Yahoo history, Frankfurter v2 and Tiingo latest; historical routing, TTL, no-data expiry, recent-correction checks and Force Recheck. | Provider contract tests and controlled live checks pass; splits/dividends, FX and mode changes preserve the agreed financial semantics. | Awaiting acceptance |
 | 05 Sync job lifecycle | Plan preview, job queries, progress events, cancellation, duplicate requests, error backoff and database switching. | Reopening a page restores progress; old jobs cannot write to a replacement database; partial success and blockers are reported accurately. | Awaiting acceptance |
 | 06 Unified Market Data page | Merge Instruments / FX Rates; preserve management, search, history and manual entry; integrate source settings and sync progress. | Existing capabilities remain available; Wails bindings, frontend tests and amount/quality display checks pass. | Awaiting acceptance |
-| 07 Data Health | Local scanning, root-cause grouping, repair preview, Repair All, actions for missing keys/bindings/manual data and Overview indicators. | Opening the page makes no network requests; executable repairs and manual prerequisites are handled separately; repair results are verified. | Awaiting acceptance |
-| 08 Integration acceptance and cleanup | Full regression, upgrade/backup restoration, native Wails, localization and keyboard flows, performance; remove obsolete pages and code. | Acceptance under design sections 63 and 66 is complete, with evidence tied to commits/fixtures; unexecuted gates are not marked as passed. | Not started |
+| 07 Data Health | Local scanning, root-cause grouping, repair preview, Repair All, actions for missing keys/bindings/manual data and Overview indicators. | Opening the page makes no network requests; executable repairs and manual prerequisites are handled separately; repair results are verified. | Completed |
+| 08 Integration acceptance and cleanup | Full regression, upgrade/backup restoration, native Wails, localization and keyboard flows, performance; remove obsolete pages and code. | Acceptance under design sections 63 and 66 is complete, with evidence tied to commits/fixtures; unexecuted gates are not marked as passed. | Awaiting acceptance |
 
 Step 03 is the prerequisite for provider expansion and major UI development. Verify migration, precision and invalidation within their owning steps rather than deferring them to final acceptance. Reference acceptance cases MD-01 through MD-17 in design section 66.
 
@@ -46,6 +46,57 @@ Append a row whenever work progresses. A step may have multiple entries; retain 
 | 2026-09-10 | CI | Frontend `pnpm install` failed on `ERR_PNPM_MINIMUM_RELEASE_AGE_VIOLATION` for pinned `@wailsio/runtime@3.0.0-beta.19`. `.npmrc` exclude array was ignored by pnpm 12.2.1; the same version-scoped exception is now in `frontend/pnpm-workspace.yaml`. The 7-day age gate remains for every other package. | PASS local: `cd frontend && pnpm install --frozen-lockfile` with pnpm 12.2.1 installed the pinned runtime. CI `test` install re-run after this commit. | 3a26678 | Confirm GitHub `test` job gets past frontend install. |
 | 2026-09-10 | 06 | Unified Market Data page: Instruments / FX Rates tabs; instrument create/edit/archive/search/manual price; source settings; history sheets; Sync Data preview/start/progress/cancel on the Step 05 job APIs; latest refresh buttons kept. FX history labeled as daily reference, not close. Wails sync bindings generated. Status → Awaiting acceptance. Current step → 07. | PASS: `pnpm run test` 44 files / 347 tests; `pnpm run typecheck`; `pnpm run lint`. Evidence: `/opt/cursor/artifacts/step06_frontend_all_tests.log`, `/opt/cursor/artifacts/step06_frontend_tests.log`, `/opt/cursor/artifacts/step06_typecheck.log`, `/opt/cursor/artifacts/step06_lint.log`. Native Wails UI NOT RUN. Live Tiingo NOT RUN. Native OS keychain NOT RUN. Data Health page NOT RUN (Step 07). | this commit | Start step 07 Data Health. Carry-forward: in-process jobs (no durable resume); Prerequisites vs Blockers UI still both shown from job snapshot; Retry-After not parsed; native keychain / Tiingo live / TTL durability. |
 | 2026-09-10 | 07 | Data Health Center: local `ScanMarketDataHealth` (DB, planner, secret status, in-process job; never Latest/History HTTP). Root-cause grouping collapses missing Tiingo key and snapshot dirty/missing under missing inputs. Yahoo history is unsupported coverage, not auto-repair. Repair All previews then starts shared `repair_all` sync. Page + Overview/Market Data indicators (`Data Health ✓` / `N issues`); missing key → settings, missing binding → instrument editor, missing manual price/FX → manual entry. Status → Awaiting acceptance. Current step → 08. | PASS: `TestScanMarketDataHealthPerformsNoProviderNetwork`, `TestScanMarketDataHealthSeparatesPrerequisitesFromExecutableRepairs`, `TestScanMarketDataHealthVerifiesRepairClearsExecutableGaps`, `TestClassifyInstrumentHealthYahooIsNotAutoRepairable`, `TestClassifyInstrumentHealthBindingOpensEditor`, `TestTiingoLocalConfigStatusDoesNotContactNetwork`, `TestScanMarketDataHealthIsLocal`; `go test ./internal/application/ ./internal/infrastructure/marketdata/ ./internal/infrastructure/sqlite/ ./internal/infrastructure/secrets/ ./internal/wailsapi/marketdata/ ./internal/domain/ ./cmd/nestworth/ -skip TestAnalysisPerformanceBudgets`; `go vet` on those packages; `go build ./cmd/nestworth`; `gofmt -l cmd internal` empty; `pnpm run test` 45 files / 350 tests; `pnpm run typecheck`; `pnpm run lint`. Evidence: `/opt/cursor/artifacts/step07_go_tests.log`, `/opt/cursor/artifacts/step07_health_verbose.log`, `/opt/cursor/artifacts/step07_frontend_tests.log`, `/opt/cursor/artifacts/step07_frontend_page_tests.log`, `/opt/cursor/artifacts/step07_typecheck.log`, `/opt/cursor/artifacts/step07_lint.log`. Native Wails UI NOT RUN. Live Tiingo NOT RUN. Native OS keychain NOT RUN. Durable job resume NOT RUN. Retry-After parsing NOT RUN. | this commit | Start step 08 integration acceptance and cleanup. Carry-forward: native Wails walkthrough; durable in-process jobs (no resume across process restart); Retry-After not parsed (bounded 1h eligibility used); Prerequisites vs Blockers UI duplication; dual Market Data hooks (`useMarketDataSyncActions` on Data Health + Market Data); Step 08 cleanup of Investments duplicate management. |
+| 2026-09-10 | 07 LGTM | Weichen LGTM: Step 07 exit criteria met, CI green on `914dc27`. Status → Completed. | PASS GitHub CI (2 checks). Native Wails still NOT RUN (does not reopen Step 07). | 914dc27 | Start Step 08. |
+| 2026-09-10 | 08 | Integration cleanup and honest acceptance report. Investments is holdings-only; instrument identity/quotes/bindings live only on Market Data. Data Health and Overview missing-price actions open Market Data. Repair All disabled when only prerequisites remain. Automated regression, locale key coverage, schema 9→10 migration, backup/restore unit tests, and secret-store (memory/locked/unavailable) tests run. Status → Awaiting acceptance. | PASS automated: `pnpm run test` 46 files / 352 tests; `pnpm run typecheck`; `pnpm run lint`; `localeCoverage.test.ts`; `go test` application/marketdata/sqlite/secrets/appports/wailsapi/domain/cmd `-skip TestAnalysisPerformanceBudgets`; `go vet`; `go build ./cmd/nestworth`. Backup/restore: `TestBackupAndCSVImportWithoutWails`, restore preview/expiry/single-use. Migration: `TestOpenMigratesSchema9FixtureWithoutNetwork` (no network). Secrets: locked/unavailable/no plaintext files. Linux `cold-3y` this run 4.10s (CI 10s gate; Apple M3 Pro 3s NOT RUN). Evidence: `/opt/cursor/artifacts/step08_frontend_tests.log`, `/opt/cursor/artifacts/step08_frontend_cleanup_tests.log`, `/opt/cursor/artifacts/step08_go_regression.log`, `/opt/cursor/artifacts/step08_backup_verbose.log`, `/opt/cursor/artifacts/step08_migration_secrets.log`, `/opt/cursor/artifacts/step08_linux_performance.log`, `/opt/cursor/artifacts/step08_typecheck.log`, `/opt/cursor/artifacts/step08_lint.log`. Native Wails UI NOT RUN. Keyboard flows NOT RUN. Live Tiingo NOT RUN. OS keychain NOT RUN. Durable job resume NOT RUN. Retry-After parsing NOT RUN. Upgrade Later native dialog NOT RUN. | this commit | Remaining: native desktop acceptance, M3 Pro performance, live Tiingo, OS keychain. See MD matrix below. Carry-forward unchanged: Prerequisites vs Blockers UI duplication; Retry-After not parsed; in-process jobs. Dual Market Data hooks kept (shared `useMarketDataSyncActions`). |
+
+## Step 08 — Section 63 / 66 evidence (2026-09-10)
+
+Automated results are tied to `30788ca` (cleanup) plus this documentation commit. Unexecuted native/live gates are **NOT RUN**, not inferred from unit tests.
+
+### Section 63 product (this environment)
+
+| Criterion | Result |
+|---|---|
+| Only one Market Data management page | PASS frontend: Investments no longer hosts instrument CRUD; Market Data keeps Instruments + FX tabs |
+| Instruments and FX available there | PASS Step 06/08 frontend tests |
+| Data Health is a separate nav page | PASS Step 07/08 `App.test.tsx` + Data Health page tests |
+| User can select Tiingo or Yahoo for US equities | PASS catalog/instrument form tests (not a native settings walkthrough) |
+| Tiingo key configured safely | PASS in-memory/locked/unavailable secret-store tests. Native OS keychain **NOT RUN** |
+| Sync shows real progress | PASS frontend job-query tests. Native Wails event reattachment **NOT RUN** |
+
+### Section 66.1 MD matrix
+
+| ID | Automated (this Linux environment) | Native / live / OS |
+|---|---|---|
+| MD-01 | PASS domain clock, DST, early-close, household cutoff fixtures (Step 01) | Native live session **NOT RUN** |
+| MD-02 | PASS Tiingo mapping fixtures: pending/uncertain/invalid batches (Step 01/04) | Live Tiingo **NOT RUN** |
+| MD-03 | PASS Force Recheck / no-data expiry offline (Step 04) | Live provider **NOT RUN** |
+| MD-04 | PASS adapter split/dividend fixtures (Step 04). Full Analytics attribution across every Wails view **NOT RUN** | Native **NOT RUN** |
+| MD-05 | PASS SQLite e2e repair probe with weekend/origin (Step 03) | Native **NOT RUN** |
+| MD-06 | PASS routing/mode interval unit tests (Step 04) | Native **NOT RUN** |
+| MD-07 | PASS latest TTL vs history unit tests (Step 04/05). TTL is process-local | Native **NOT RUN** |
+| MD-08 | PASS persist-then-crash dirty recovery (Step 03) and cancel (Step 05) | Durable resume across process restart **NOT RUN** |
+| MD-09 | PASS generation/dirty on persist (Step 02/03). Concurrent manual edit during rebuild **NOT RUN** | Native **NOT RUN** |
+| MD-10 | PASS dirty-range snapshot rebuild (Step 03) | Native **NOT RUN** |
+| MD-11 | PASS revision persistence / idempotent ingest (Step 02) | Native **NOT RUN** |
+| MD-12 | PASS Frankfurter inversion/identity/offline; controlled live Frankfurter (Step 04) | Unsupported-pair native UX **NOT RUN** |
+| MD-13 | PASS `TestOpenMigratesSchema9FixtureWithoutNetwork`. Upgrade Later dialog **NOT RUN** | Restored backup with missing OS secret **NOT RUN** |
+| MD-14 | PASS attach/conflict/cancel/workspace fence (Step 05) | Native reopen sheet / DB switch UI **NOT RUN** |
+| MD-15 | PASS Data Health prerequisites vs repairs (Step 07); 429 backoff unit (Step 05) | Native **NOT RUN** |
+| MD-16 | PASS Overview missing≠zero frontend tests; Analytics DTOs remain server-authored | Native all-views walkthrough **NOT RUN** |
+| MD-17 | PASS schema 9→10 migration; backup package create/inspect/restore-preview tests. Tiingo secrets are not in SQLite | OS keychain round-trip **NOT RUN**. Native backup UI **NOT RUN** |
+
+### Section 66.2 release verification
+
+| Gate | Result |
+|---|---|
+| Go / bindings / frontend tests, typecheck, lint, build | PASS this environment (see Step 08 log row) |
+| Migration and backup/restore unit tests | PASS (appports + sqlite). Native restore wizard **NOT RUN** |
+| Quantitative DB probes with independent oracles | PASS Step 03 e2e probe already recorded. Not re-run as a new live probe |
+| Native Wails smoke (key storage, events, DB switch, keyboard, en/zh-CN/zh-TW calendar) | **NOT RUN** (Linux cloud VM, no desktop app) |
+| Locale key identity en / zh-CN / zh-TW | PASS `frontend/src/i18n/localeCoverage.test.ts`. Rendered calendar/keyboard **NOT RUN** |
+| Apple M3 Pro cold-3y < 3s | **NOT RUN**. Linux this run: cold-3y 4.10s (CI assertion 10s; non-blocking reference) |
+| Sync idempotency (no duplicate semantic writes) | PASS unit/e2e from Steps 03–05. Native repeat Sync **NOT RUN** |
 
 ## Release Gates
 
