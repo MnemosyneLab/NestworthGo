@@ -254,7 +254,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 	epoch := s.refreshEpoch.Load()
 
 	if target.kind == RefreshInstrumentTarget {
-		quote, providerErr := provider.LatestInstrument(ctx, InstrumentMarketIdentity{ProviderKey: target.providerKey, ProviderSymbol: target.providerSymbol, QuoteCurrency: target.instrument.QuoteCurrency})
+		quote, providerErr := provider.LatestInstrument(ctx, InstrumentMarketIdentity{ProviderKey: target.providerKey, ProviderSymbol: target.providerSymbol, QuoteCurrency: target.instrument.QuoteCurrency, Market: instrumentMarket(target.instrument)})
 		if providerErr != nil {
 			return providerRefreshFailure(target, providerErr)
 		}
@@ -278,6 +278,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		if inserted {
 			s.invalidateAnalysis()
 		}
+		s.rememberSuccessfulCheck(target.key)
 		if inserted {
 			return fetchedRefresh(target), false
 		}
@@ -312,6 +313,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		s.invalidateAnalysis()
 	}
 	s.rememberProviderFXPreference(ctx, target)
+	s.rememberSuccessfulCheck(target.key)
 	if inserted {
 		return fetchedRefresh(target), false
 	}
@@ -400,11 +402,8 @@ func (s *Service) applyQuoteCache(snapshot domain.PortfolioSnapshot, targets []r
 		if targets[index].skip {
 			continue
 		}
-		quotedAt := latestProviderQuotedAt(snapshot, targets[index])
-		if quotedAt.IsZero() {
-			continue
-		}
-		if now.Sub(quotedAt) < ttl {
+		lastCheck := s.lastSuccessfulCheckAt(targets[index].key)
+		if !domain.LatestRequestDue(lastCheck, now, ttl, false) {
 			targets[index].skip = true
 			targets[index].cached = true
 		}
@@ -412,31 +411,32 @@ func (s *Service) applyQuoteCache(snapshot domain.PortfolioSnapshot, targets []r
 	return targets
 }
 
-func latestProviderQuotedAt(snapshot domain.PortfolioSnapshot, target refreshTarget) time.Time {
-	var selected time.Time
-	if target.kind == RefreshInstrumentTarget {
-		for _, quote := range snapshot.InstrumentQuotes {
-			if quote.InstrumentID != target.instrument.ID || quote.SourceKind != domain.QuoteSourceProvider {
-				continue
-			}
-			if selected.IsZero() || quote.QuotedAt.After(selected) {
-				selected = quote.QuotedAt
-			}
-		}
-		return selected
+func (s *Service) lastSuccessfulCheckAt(key string) time.Time {
+	s.stateMu.RLock()
+	defer s.stateMu.RUnlock()
+	if s.lastSuccessfulCheck == nil {
+		return time.Time{}
 	}
-	for _, quote := range snapshot.FXQuotes {
-		if quote.SourceKind != domain.QuoteSourceProvider {
-			continue
-		}
-		if !((quote.BaseCurrency == target.baseCurrency && quote.QuoteCurrency == target.quoteCurrency) || (quote.BaseCurrency == target.quoteCurrency && quote.QuoteCurrency == target.baseCurrency)) {
-			continue
-		}
-		if selected.IsZero() || quote.QuotedAt.After(selected) {
-			selected = quote.QuotedAt
-		}
+	return s.lastSuccessfulCheck[key]
+}
+
+func (s *Service) rememberSuccessfulCheck(key string) {
+	if strings.TrimSpace(key) == "" {
+		return
 	}
-	return selected
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+	if s.lastSuccessfulCheck == nil {
+		s.lastSuccessfulCheck = map[string]time.Time{}
+	}
+	s.lastSuccessfulCheck[key] = s.now()
+}
+
+func instrumentMarket(instrument domain.Instrument) string {
+	if instrument.MarketCode == nil {
+		return ""
+	}
+	return strings.TrimSpace(*instrument.MarketCode)
 }
 
 func (s *Service) rememberProviderFXPreference(ctx context.Context, target refreshTarget) {

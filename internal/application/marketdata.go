@@ -16,16 +16,16 @@ const YahooFinanceProviderKey = "yahoo_finance"
 
 const FrankfurterProviderKey = "frankfurter"
 
-// TiingoProviderKey identifies the historical equity provider. It is not
-// part of InstrumentProviderKeys; the compiled-in latest catalog remains
-// Yahoo-only until later routing work.
+// TiingoProviderKey identifies the US-listed equity provider. It is part of
+// InstrumentProviderKeys so US bindings can select Tiingo or Yahoo.
 const TiingoProviderKey = "tiingo"
 
 // InstrumentProviderKeys is the closed catalog of provider keys that can
 // bind an Instrument's quote source. Frankfurter is FX-only and is not
-// included.
+// included. US instruments may use Yahoo or Tiingo; other markets stay
+// Yahoo-only at routing time.
 func InstrumentProviderKeys() []string {
-	return []string{YahooFinanceProviderKey}
+	return []string{YahooFinanceProviderKey, TiingoProviderKey}
 }
 
 // MarketDataCapabilities describes the deliberately small provider surface.
@@ -45,6 +45,7 @@ type InstrumentMarketIdentity struct {
 	ProviderKey    string
 	ProviderSymbol string
 	QuoteCurrency  domain.CurrencyCode
+	Market         string
 }
 
 // FXMarketIdentity identifies one direct native-to-quote currency request.

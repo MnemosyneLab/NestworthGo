@@ -37,10 +37,12 @@ type Service struct {
 
 	csvMu       sync.Mutex
 	csvSessions map[string]*csvImportSession
+
+	lastSuccessfulCheck map[string]time.Time
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
-	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, csvSessions: map[string]*csvImportSession{}}
+	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, csvSessions: map[string]*csvImportSession{}, lastSuccessfulCheck: map[string]time.Time{}}
 	service.writes.init()
 	service.valuation = NewValuationService(repository, service.clock)
 	service.gain = NewGainService(repository, service.clock)

@@ -251,6 +251,33 @@ func TestYahooChartProviderSharesTwoRequestSemaphore(t *testing.T) {
 	}
 }
 
+func TestYahooChartProviderHistoryStaysFailClosed(t *testing.T) {
+	_, body := mustLoadVNext(t, "providers/yahoo/aapl-history-split.json")
+	var captured *http.Request
+	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
+		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			captured = request
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), ContentLength: int64(len(body)), Header: make(http.Header), Request: request}, nil
+		}),
+		Semaphore: make(chan struct{}, 2),
+	})
+	if !provider.Capabilities().InstrumentDailyHistory || provider.Capabilities().LatestFX {
+		t.Fatalf("Yahoo capabilities = %#v", provider.Capabilities())
+	}
+	outcome, err := provider.InstrumentDailyHistory(context.Background(), application.InstrumentMarketIdentity{
+		ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US",
+	}, application.DateRange{Start: "2026-06-10", End: "2026-06-10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Status != application.MappingUnsupported || len(outcome.Batch.Observations) != 0 {
+		t.Fatalf("Yahoo history invented a close: %+v", outcome)
+	}
+	if captured == nil || captured.URL.Host != yahooChartHost || !strings.Contains(captured.URL.RawQuery, "interval=1d") || !strings.Contains(captured.URL.RawQuery, "period1=") {
+		t.Fatalf("Yahoo history request = %#v", captured)
+	}
+}
+
 func assertProviderCode(t *testing.T, err error, expected domain.ErrorCode) {
 	t.Helper()
 	if err == nil {

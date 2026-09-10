@@ -263,14 +263,17 @@ type DailySnapshotState struct {
 }
 
 type InstrumentHistoryCoverage struct {
-	InstrumentID       InstrumentID
-	ProviderKey        string
-	ProviderSymbol     string
-	Market             string
-	QuoteCurrency      CurrencyCode
-	BindingRevision    int
-	CloseMarketDates   []string
-	NoObservationDates []string
+	InstrumentID           InstrumentID
+	ProviderKey            string
+	ProviderSymbol         string
+	Market                 string
+	QuoteCurrency          CurrencyCode
+	BindingRevision        int
+	CloseMarketDates       []string
+	CloseFetchedAt         map[string]time.Time
+	NoObservationDates     []string
+	NoObservationExpiresAt map[string]time.Time
+	NoObservationCheckedAt map[string]time.Time
 }
 
 type TrendRange string

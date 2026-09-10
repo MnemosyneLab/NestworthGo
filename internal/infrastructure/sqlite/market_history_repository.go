@@ -294,7 +294,7 @@ func persistInstrumentCoverageTx(ctx context.Context, tx *sql.Tx, request Instru
 				if _, ok := observed[date]; ok {
 					continue
 				}
-				changed, err := upsertDayStatusTx(ctx, tx, "instrument", targetID, request.ProviderKey, request.HouseholdID.String(), bindingRevision, policy, date, coverageStatusNoObservation, request.Reason, fetchedAt, request.NextCheckAt)
+				changed, err := upsertDayStatusTx(ctx, tx, "instrument", targetID, request.ProviderKey, request.HouseholdID.String(), bindingRevision, policy, date, coverageStatusNoObservation, request.Reason, fetchedAt, request.NextCheckAt, noObservationExpiry(date, fetchedAt))
 				if err != nil {
 					return written, err
 				}
@@ -313,7 +313,7 @@ func persistInstrumentCoverageTx(ctx context.Context, tx *sql.Tx, request Instru
 			if _, ok := observed[date]; ok {
 				continue
 			}
-			changed, err := upsertDayStatusTx(ctx, tx, "instrument", targetID, request.ProviderKey, request.HouseholdID.String(), bindingRevision, policy, date, coverageStatusPending, request.Reason, fetchedAt, request.NextCheckAt)
+			changed, err := upsertDayStatusTx(ctx, tx, "instrument", targetID, request.ProviderKey, request.HouseholdID.String(), bindingRevision, policy, date, coverageStatusPending, request.Reason, fetchedAt, request.NextCheckAt, nil)
 			if err != nil {
 				return written, err
 			}
@@ -340,7 +340,7 @@ func persistFXCoverageTx(ctx context.Context, tx *sql.Tx, request FXHistoryCommi
 			if _, ok := observed[date]; ok {
 				continue
 			}
-			changed, err := upsertDayStatusTx(ctx, tx, "fx", targetID, request.ProviderKey, request.HouseholdID.String(), 0, policy, date, coverageStatusNoObservation, request.Reason, fetchedAt, request.NextCheckAt)
+			changed, err := upsertDayStatusTx(ctx, tx, "fx", targetID, request.ProviderKey, request.HouseholdID.String(), 0, policy, date, coverageStatusNoObservation, request.Reason, fetchedAt, request.NextCheckAt, noObservationExpiry(date, fetchedAt))
 			if err != nil {
 				return written, err
 			}
@@ -421,7 +421,7 @@ func upsertFXObservationSlotTx(ctx context.Context, tx *sql.Tx, householdID, bas
 	return err
 }
 
-func upsertDayStatusTx(ctx context.Context, tx *sql.Tx, targetType, targetID, providerKey, householdID string, bindingRevision int, policy, effectiveDate, status, reason string, checkedAt time.Time, nextCheckAt *time.Time) (bool, error) {
+func upsertDayStatusTx(ctx context.Context, tx *sql.Tx, targetType, targetID, providerKey, householdID string, bindingRevision int, policy, effectiveDate, status, reason string, checkedAt time.Time, nextCheckAt *time.Time, expiresAt *time.Time) (bool, error) {
 	if strings.TrimSpace(reason) == "" {
 		reason = status
 	}
@@ -431,21 +431,36 @@ func upsertDayStatusTx(ctx context.Context, tx *sql.Tx, targetType, targetID, pr
 		WHERE target_type = ? AND target_id = ? AND provider_key = ? AND household_id = ? AND binding_revision = ? AND source_policy_version = ? AND effective_date = ?`,
 		targetType, targetID, providerKey, householdID, bindingRevision, policy, effectiveDate).Scan(&existingStatus, &existingReason)
 	if err == nil && existingStatus.String == status && existingReason.String == reason {
-		return false, nil
+		_, err = tx.ExecContext(ctx, `
+			UPDATE market_data_day_status
+			SET checked_at = ?, next_check_at = ?, expires_at = ?
+			WHERE target_type = ? AND target_id = ? AND provider_key = ? AND household_id = ? AND binding_revision = ? AND source_policy_version = ? AND effective_date = ?`,
+			formatTimestamp(checkedAt), nullableTimePtr(nextCheckAt), nullableTimePtr(expiresAt),
+			targetType, targetID, providerKey, householdID, bindingRevision, policy, effectiveDate)
+		return false, err
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, err
 	}
 	_, err = tx.ExecContext(ctx, `
 		INSERT INTO market_data_day_status(target_type, target_id, provider_key, household_id, binding_revision, source_policy_version, effective_date, status, reason, checked_at, next_check_at, expires_at)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(target_type, target_id, provider_key, household_id, binding_revision, source_policy_version, effective_date)
-		DO UPDATE SET status = excluded.status, reason = excluded.reason, checked_at = excluded.checked_at, next_check_at = excluded.next_check_at`,
-		targetType, targetID, providerKey, householdID, bindingRevision, policy, effectiveDate, status, reason, formatTimestamp(checkedAt), nullableTimePtr(nextCheckAt))
+		DO UPDATE SET status = excluded.status, reason = excluded.reason, checked_at = excluded.checked_at, next_check_at = excluded.next_check_at, expires_at = excluded.expires_at`,
+		targetType, targetID, providerKey, householdID, bindingRevision, policy, effectiveDate, status, reason, formatTimestamp(checkedAt), nullableTimePtr(nextCheckAt), nullableTimePtr(expiresAt))
 	if err != nil {
 		return false, err
 	}
 	return true, nil
+}
+
+func noObservationExpiry(effectiveDate string, checkedAt time.Time) *time.Time {
+	expiry, err := domain.NoObservationExpiresAt(effectiveDate, checkedAt)
+	if err != nil {
+		fallback := checkedAt.Add(domain.RecentNoObservationTTL)
+		return &fallback
+	}
+	return &expiry
 }
 
 func bumpHistoryInputGenerationTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, dirtyFrom, dirtyTo string, at time.Time) (int, error) {

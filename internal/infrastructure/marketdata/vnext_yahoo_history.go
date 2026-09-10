@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -82,6 +83,26 @@ func QualifyYahooHistory(meta vnextFixtureMeta, body []byte) (application.Mappin
 		Status: application.MappingUnsupported,
 		Reason: "yahoo_history_not_qualified",
 	}, nil
+}
+
+func yahooHistoryRequestMeta(identity application.InstrumentMarketIdentity, rng application.DateRange) vnextFixtureMeta {
+	meta := vnextFixtureMeta{
+		FixtureID:          "yahoo-history-request",
+		Provider:           yahooProviderKey,
+		Capability:         "InstrumentDailyHistory",
+		ProviderSymbol:     identity.ProviderSymbol,
+		QuoteCurrency:      identity.QuoteCurrency.String(),
+		Market:             identity.Market,
+		PriceBasis:         string(application.PriceBasisYahooClose),
+		PriceBasisVerified: false,
+		Clock:              time.Now().UTC().Format(time.RFC3339),
+	}
+	meta.RequestedRange.Start = string(rng.Start)
+	meta.RequestedRange.End = string(rng.End)
+	if finalized, err := domain.LastFinalizedUSEquityMarketDate(time.Now().UTC()); err == nil {
+		meta.LastFinalizedMarketDate = finalized
+	}
+	return meta
 }
 
 func stringsEmpty(value string) bool { return len(value) == 0 }

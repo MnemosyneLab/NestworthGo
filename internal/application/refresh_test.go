@@ -672,6 +672,58 @@ func TestRefreshMissingOrStaleRespectsQuoteCacheTTL(t *testing.T) {
 	}
 }
 
+func TestRefreshMissingOrStaleUsesRequestFreshnessNotQuoteAge(t *testing.T) {
+	_, service, fake, _, instrument := newRefreshFixture(t)
+	ctx := context.Background()
+	friday := time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC)
+	sunday := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
+	now := sunday
+	service.setClock(func() time.Time { return now })
+	service.SetQuoteCacheTTL(3 * time.Hour)
+	price := mustUnitPrice(t, "185.25")
+	rate, err := domain.ParseFxRate("1.35")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fake.instruments["QQQ"] = struct {
+		quote LatestInstrumentQuote
+		err   error
+	}{quote: LatestInstrumentQuote{Price: price, Currency: "USD", SourceKey: fake.Key(), QuotedAt: friday}, err: nil}
+	fake.fx["USD/CNY"] = struct {
+		quote LatestFXQuote
+		err   error
+	}{quote: LatestFXQuote{Rate: rate, BaseCurrency: "USD", QuoteCurrency: "CNY", SourceKey: fake.Key(), QuotedAt: friday}, err: nil}
+
+	if _, err := service.RefreshAll(ctx); err != nil {
+		t.Fatal(err)
+	}
+	quotes, err := service.InstrumentQuoteHistory(ctx, instrument.ID)
+	if err != nil || len(quotes) == 0 {
+		t.Fatalf("quotes after Sunday check: %v %v", quotes, err)
+	}
+	if !quotes[len(quotes)-1].QuotedAt.Equal(friday) {
+		t.Fatalf("Sunday check changed Friday quoted_at to %s", quotes[len(quotes)-1].QuotedAt)
+	}
+
+	fake.mu.Lock()
+	fake.calls = nil
+	fake.mu.Unlock()
+	now = sunday.Add(45 * time.Minute)
+	cached, err := service.RefreshMissingOrStale(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertRefreshStatus(t, cached, instrumentTargetKey(instrument.ID), RefreshCached)
+	assertRefreshStatus(t, cached, "fx:CNY/USD", RefreshCached)
+	if fake.callCount() != 0 {
+		t.Fatalf("request TTL still contacted provider for a two-day-old Friday quote: %v", fake.callNames())
+	}
+	again, err := service.InstrumentQuoteHistory(ctx, instrument.ID)
+	if err != nil || len(again) == 0 || !again[len(again)-1].QuotedAt.Equal(friday) {
+		t.Fatalf("cached recheck restated quoted_at: %+v err=%v", again, err)
+	}
+}
+
 func assertRefreshStatus(t *testing.T, result RefreshResult, key string, status RefreshStatus) {
 	t.Helper()
 	for _, item := range result.Items {

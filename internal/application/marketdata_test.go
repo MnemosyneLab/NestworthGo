@@ -76,12 +76,12 @@ func TestMarketDataRegistrySupportsExplicitDefault(t *testing.T) {
 
 func TestInstrumentProviderKeysExcludesFXOnlyProviders(t *testing.T) {
 	keys := InstrumentProviderKeys()
-	if len(keys) != 1 || keys[0] != YahooFinanceProviderKey {
-		t.Fatalf("InstrumentProviderKeys() = %v, want [%s]", keys, YahooFinanceProviderKey)
+	if len(keys) != 2 || keys[0] != YahooFinanceProviderKey || keys[1] != TiingoProviderKey {
+		t.Fatalf("InstrumentProviderKeys() = %v, want [%s %s]", keys, YahooFinanceProviderKey, TiingoProviderKey)
 	}
 	for _, key := range keys {
-		if key == FrankfurterProviderKey || key == TiingoProviderKey {
-			t.Fatalf("InstrumentProviderKeys included non-latest catalog key %s", key)
+		if key == FrankfurterProviderKey {
+			t.Fatalf("InstrumentProviderKeys included FX-only key %s", key)
 		}
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/secrets"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/version"
@@ -115,6 +116,7 @@ func run() error {
 			registry := nestworthapp.NewMarketDataRegistryWithDefault(nestworthapp.FrankfurterProviderKey,
 				marketdata.NewFrankfurterProvider(nil),
 				marketdata.NewYahooChartProvider(nil),
+				marketdata.NewTiingoProvider(secrets.NewMemoryStore(), nil),
 			)
 			service = nestworthapp.NewService(sqlite.NewRepository(database), registry)
 			appports.Wire(service)

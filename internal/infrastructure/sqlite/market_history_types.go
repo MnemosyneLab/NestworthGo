@@ -84,6 +84,7 @@ const (
 	coverageStatusPending         = "pending"
 	mappingStatusMapped           = "mapped"
 	priceBasisTiingoRawClose      = "tiingo_raw_close_v1"
+	priceBasisYahooClose          = "yahoo_close_unverified"
 )
 
 // refuseFailClosedHistory is the persist-side fail-closed gate. Invalid and
@@ -101,6 +102,11 @@ func refuseFailClosedHistory(status, reason, adapter string, tiingoValues []stri
 			if value != "" && value != priceBasisTiingoRawClose {
 				return failClosedPersistError("unsupported_price_basis")
 			}
+		}
+	}
+	for _, value := range tiingoValues {
+		if value == priceBasisYahooClose {
+			return failClosedPersistError("unsupported_price_basis")
 		}
 	}
 	return nil

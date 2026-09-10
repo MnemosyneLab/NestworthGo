@@ -1,0 +1,16 @@
+[
+  {
+    "ticker": "AAPL",
+    "timestamp": "2026-09-04T20:00:00+00:00",
+    "quoteTimestamp": "2026-09-04T20:00:00+00:00",
+    "lastSaleTimestamp": "2026-09-04T20:00:00+00:00",
+    "last": 185.25,
+    "tngoLast": 185.25,
+    "prevClose": 184.5,
+    "open": 184.75,
+    "high": 186.0,
+    "low": 184.0,
+    "mid": null,
+    "volume": 1000
+  }
+]

@@ -808,6 +808,7 @@
     },
     "provider": {
       "frankfurter": "Frankfurter",
+      "tiingo": "Tiingo",
       "yahoo": "Yahoo Finance",
       "yahoo_finance": "Yahoo Finance"
     },

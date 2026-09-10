@@ -17,6 +17,9 @@ type InstrumentRepairNeed struct {
 	OpeningAnchorMissing bool
 	FetchRange           DateRange
 	MissingRanges        []DateRange
+	FetchRanges          []DateRange
+	RouteStatus          string
+	SkipReason           string
 }
 
 type HistoryRepairPlan struct {
@@ -27,6 +30,11 @@ type HistoryRepairPlan struct {
 	ResolverPolicyVersion   string
 	Instruments             []InstrumentRepairNeed
 	ManualFX                bool
+	ForceRecheck            bool
+}
+
+type HistorySyncOptions struct {
+	ForceRecheck bool
 }
 
 // PlanMarketDataRepair builds the coverage/gap and opening-anchor plan for
@@ -84,6 +92,40 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 	return plan, nil
 }
 
+// PlanHistorySync overlays historical routing, negative-cache expiry,
+// recent-correction checks, and optional Force Recheck on the coverage plan.
+// Current manual instruments are already omitted from coverage. It does not
+// perform provider HTTP.
+func (s *Service) PlanHistorySync(ctx context.Context, opts HistorySyncOptions) (HistoryRepairPlan, error) {
+	plan, err := s.PlanMarketDataRepair(ctx)
+	if err != nil {
+		return HistoryRepairPlan{}, err
+	}
+	plan.ForceRecheck = opts.ForceRecheck
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return HistoryRepairPlan{}, err
+	}
+	coverage, err := s.repository.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		return HistoryRepairPlan{}, err
+	}
+	byID := make(map[domain.InstrumentID]domain.InstrumentHistoryCoverage, len(coverage))
+	for _, item := range coverage {
+		byID[item.InstrumentID] = item
+	}
+	now := s.clock()
+	for index, need := range plan.Instruments {
+		item := byID[need.InstrumentID]
+		enriched, enrichErr := applyHistorySyncPolicy(need, item, plan.LastFinalizedMarketDate, now, opts.ForceRecheck)
+		if enrichErr != nil {
+			return HistoryRepairPlan{}, enrichErr
+		}
+		plan.Instruments[index] = enriched
+	}
+	return plan, nil
+}
+
 func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originDate, lastFinalized string) (InstrumentRepairNeed, error) {
 	closes := make([]domain.OracleClose, 0, len(coverage.CloseMarketDates))
 	for _, date := range coverage.CloseMarketDates {
@@ -131,7 +173,54 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 		OpeningAnchorMissing: missing,
 		FetchRange:           DateRange{Start: MarketDate(fetchStart), End: MarketDate(lastFinalized)},
 		MissingRanges:        dateRangesFromDates(missingDates),
+		RouteStatus:          domain.InstrumentRouteOK,
 	}, nil
+}
+
+func applyHistorySyncPolicy(need InstrumentRepairNeed, coverage domain.InstrumentHistoryCoverage, lastFinalized string, now time.Time, force bool) (InstrumentRepairNeed, error) {
+	route := domain.ResolveInstrumentRoute(coverage.Market, coverage.ProviderKey, coverage.ProviderSymbol)
+	need.RouteStatus = route.Status
+	need.SkipReason = route.Reason
+	if route.Status != domain.InstrumentRouteOK {
+		need.FetchRanges = nil
+		return need, nil
+	}
+	dates, err := InclusiveMarketDates(need.FetchRange)
+	if err != nil {
+		return InstrumentRepairNeed{}, err
+	}
+	fetchDates := make([]string, 0)
+	for _, date := range dates {
+		label := string(date)
+		_, hasClose := indexStrings(coverage.CloseMarketDates)[label]
+		_, hasNoObs := indexStrings(coverage.NoObservationDates)[label]
+		expires, hasExpiry := coverage.NoObservationExpiresAt[label]
+		decision := domain.DecideHistoryFetch(domain.HistoryFetchInput{
+			Date:                   label,
+			LastFinalized:          lastFinalized,
+			Now:                    now,
+			ForceRecheck:           force,
+			HasClose:               hasClose,
+			CloseFetchedAt:         coverage.CloseFetchedAt[label],
+			HasNoObservation:       hasNoObs,
+			NoObservationExpiresAt: expires,
+			NoObservationHasExpiry: hasExpiry,
+			NoObservationCheckedAt: coverage.NoObservationCheckedAt[label],
+		})
+		if decision.Action == domain.HistoryFetch {
+			fetchDates = append(fetchDates, label)
+		}
+	}
+	need.FetchRanges = dateRangesFromDates(fetchDates)
+	return need, nil
+}
+
+func indexStrings(values []string) map[string]struct{} {
+	out := make(map[string]struct{}, len(values))
+	for _, value := range values {
+		out[value] = struct{}{}
+	}
+	return out
 }
 
 func dateRangesFromDates(dates []string) []DateRange {

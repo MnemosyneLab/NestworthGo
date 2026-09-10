@@ -475,3 +475,126 @@ func fxCommit(household domain.Household, outcome application.MappingOutcome[app
 	}
 	return commit
 }
+
+func TestNoObservationExpiryIsPersisted(t *testing.T) {
+	ctx := context.Background()
+	database, repo, household, instrument := seedHistoryWorkspace(t)
+	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
+	outcome, err := QualifyTiingoHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fetchedAt := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
+	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, outcome, fetchedAt)); err != nil {
+		t.Fatal(err)
+	}
+	var expires sql.NullString
+	if err := database.SQL.QueryRow(`SELECT expires_at FROM market_data_day_status WHERE target_id = ? AND effective_date = '2026-09-05' AND status = 'no_observation'`, instrument.ID.String()).Scan(&expires); err != nil {
+		t.Fatal(err)
+	}
+	if !expires.Valid || expires.String == "" {
+		t.Fatal("no_observation expires_at was left NULL")
+	}
+	coverage, err := repo.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil || len(coverage) != 1 {
+		t.Fatalf("coverage = %+v err=%v", coverage, err)
+	}
+	if coverage[0].NoObservationExpiresAt["2026-09-05"].IsZero() {
+		t.Fatal("coverage omitted no-observation expiry")
+	}
+}
+
+func TestYahooHistoryIsNotPersisted(t *testing.T) {
+	ctx := context.Background()
+	database, repo, household, instrument := seedHistoryWorkspace(t)
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-history-split.json")
+	outcome, err := QualifyYahooHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := application.RefuseFailClosedInstrumentHistory(outcome); err == nil {
+		t.Fatal("Yahoo unverified close was accepted")
+	}
+	commit := instrumentCommit(household, instrument, outcome, time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC))
+	commit.ProviderKey = application.YahooFinanceProviderKey
+	commit.Adapter = "yahoo_chart"
+	if _, err := repo.CommitInstrumentHistory(ctx, commit); err == nil {
+		t.Fatal("Yahoo history batch was persisted")
+	}
+	var quotes int
+	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_quotes WHERE instrument_id = ?`, instrument.ID.String()).Scan(&quotes); err != nil {
+		t.Fatal(err)
+	}
+	if quotes != 0 {
+		t.Fatalf("Yahoo close leaked: %d", quotes)
+	}
+}
+
+func TestFailedRecheckPreservesExistingClose(t *testing.T) {
+	ctx := context.Background()
+	database, repo, household, instrument := seedHistoryWorkspace(t)
+	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
+	outcome, err := QualifyTiingoHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fetchedAt := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
+	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, outcome, fetchedAt)); err != nil {
+		t.Fatal(err)
+	}
+	badMeta, badBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-malformed.json")
+	bad, err := QualifyTiingoHistory(badMeta, badBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, bad, fetchedAt.Add(time.Minute))); err == nil {
+		t.Fatal("malformed Force Recheck was persisted")
+	}
+	var closePrice string
+	if err := database.SQL.QueryRow(`SELECT q.unit_price FROM instrument_observation_slots s JOIN instrument_quotes q ON q.id = s.quote_id WHERE s.instrument_id = ? AND s.market_date = '2026-09-04'`, instrument.ID.String()).Scan(&closePrice); err != nil {
+		t.Fatal(err)
+	}
+	if closePrice != "185.25" {
+		t.Fatalf("failed recheck overwrote close: %s", closePrice)
+	}
+}
+
+func TestProviderModeChangeKeepsPriorProviderSlots(t *testing.T) {
+	ctx := context.Background()
+	database, repo, household, instrument := seedHistoryWorkspace(t)
+	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-split.json")
+	outcome, err := QualifyTiingoHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, outcome, time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC))); err != nil {
+		t.Fatal(err)
+	}
+	var split string
+	if err := database.SQL.QueryRow(`SELECT split_factor FROM instrument_quotes WHERE instrument_id = ? AND observation_kind = 'close'`, instrument.ID.String()).Scan(&split); err != nil {
+		t.Fatal(err)
+	}
+	if split != "4.0" {
+		t.Fatalf("split_factor = %s", split)
+	}
+	service := application.NewService(repo)
+	if _, err := service.UpdateInstrument(ctx, instrument.ID, application.InstrumentInput{
+		Name: "Apple", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider",
+		ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "AAPL", MarketCode: "US",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var tiingoSlots, yahooSlots int
+	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_observation_slots WHERE instrument_id = ? AND provider_key = ?`, instrument.ID.String(), application.TiingoProviderKey).Scan(&tiingoSlots); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_observation_slots WHERE instrument_id = ? AND provider_key = ?`, instrument.ID.String(), application.YahooFinanceProviderKey).Scan(&yahooSlots); err != nil {
+		t.Fatal(err)
+	}
+	if tiingoSlots == 0 {
+		t.Fatal("switching to Yahoo deleted Tiingo historical slots")
+	}
+	if yahooSlots != 0 {
+		t.Fatal("Yahoo unverified closes were synthesized after a mode change")
+	}
+}

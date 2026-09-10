@@ -5,8 +5,11 @@
   "clock": "2026-09-10T00:05:00+08:00",
   "householdTimezone": "Asia/Singapore",
   "liveChecks": {
-    "status": "NOT_RUN",
-    "reason": "Controlled live checks are outside the default suite and are not inferred from recorded fixtures."
+    "status": "PARTIAL",
+    "defaultSuite": "TestControlledLiveProviderChecks is skipped unless NESTWORTH_LIVE_MARKET_DATA=1",
+    "frankfurterV2": "PASS (latest /v2/rate and history /v2/rates) when NESTWORTH_LIVE_MARKET_DATA=1",
+    "yahooHistory": "PASS fail-closed (zero invented closes) when NESTWORTH_LIVE_MARKET_DATA=1",
+    "tiingoLatest": "NOT RUN: TIINGO_API_KEY unset"
   },
-  "mdCasesCoveredByFixtures": ["MD-01", "MD-02", "MD-03", "MD-04", "MD-05", "MD-09", "MD-11", "MD-12"]
+  "mdCasesCoveredByFixtures": ["MD-01", "MD-02", "MD-03", "MD-04", "MD-05", "MD-06", "MD-07", "MD-09", "MD-11", "MD-12"]
 }

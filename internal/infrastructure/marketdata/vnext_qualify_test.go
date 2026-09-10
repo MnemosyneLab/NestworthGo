@@ -199,6 +199,23 @@ func TestFrankfurterV2MappingAndUnsupportedPairs(t *testing.T) {
 	if truncated.Status != application.MappingUncertain || len(truncated.Batch.VerifiedRanges) != 0 {
 		t.Fatalf("truncated = %+v", truncated)
 	}
+
+	v2Meta, _ := mustLoadVNext(t, "providers/frankfurter/usd-sgd-history.json")
+	v2Body := []byte(`[
+		{"date":"2026-09-04","base":"USD","quote":"SGD","rate":1.35},
+		{"date":"2026-09-07","base":"USD","quote":"SGD","rate":1.351},
+		{"date":"2026-09-08","base":"USD","quote":"SGD","rate":1.349}
+	]`)
+	v2, err := QualifyFrankfurterHistory(v2Meta, v2Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v2.Status != application.MappingMapped || len(v2.Batch.Observations) != 3 || v2.Batch.Observations[0].Rate != "1.35" {
+		t.Fatalf("v2 rates array = %+v", v2)
+	}
+	if v2.Batch.Observations[0].SourcePolicy != domain.FrankfurterV2BlendedPolicy || v2.Batch.Observations[0].Derived {
+		t.Fatalf("v2 observation = %+v", v2.Batch.Observations[0])
+	}
 }
 
 func TestMappedTiingoClosesMatchIndependentOracleFacts(t *testing.T) {

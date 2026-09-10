@@ -129,12 +129,12 @@ type MappingOutcome[T any] struct {
 // of MarketDataProvider so latest-only fakes and adapters stay source
 // compatible.
 type InstrumentHistoryProvider interface {
-	InstrumentDailyHistory(context.Context, InstrumentMarketIdentity, DateRange) (HistoryBatch[InstrumentDailyObservation], error)
+	InstrumentDailyHistory(context.Context, InstrumentMarketIdentity, DateRange) (MappingOutcome[InstrumentDailyObservation], error)
 }
 
 // FXHistoryProvider is the FX counterpart of InstrumentHistoryProvider.
 type FXHistoryProvider interface {
-	FXDailyHistory(context.Context, FXMarketIdentity, DateRange) (HistoryBatch[FXDailyObservation], error)
+	FXDailyHistory(context.Context, FXMarketIdentity, DateRange) (MappingOutcome[FXDailyObservation], error)
 }
 
 type CommitInstrumentHistoryRequest struct {
@@ -223,6 +223,9 @@ func RefuseFailClosedInstrumentHistory(outcome MappingOutcome[InstrumentDailyObs
 			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
 		}
 		if isTiingoAdapter(outcome.Batch.Evidence.Adapter) && observation.PriceBasis != PriceBasisTiingoRawClose {
+			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
+		}
+		if observation.PriceBasis == PriceBasisYahooClose {
 			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
 		}
 	}

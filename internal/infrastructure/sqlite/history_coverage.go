@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -53,53 +54,81 @@ func (r *Repository) ListInstrumentHistoryCoverage(ctx context.Context, househol
 	}
 	result := make([]domain.InstrumentHistoryCoverage, 0, len(seeds))
 	for _, item := range seeds {
-		closes, closeErr := listCloseMarketDates(ctx, r.database.SQL, item.InstrumentID.String())
+		closes, fetchedAt, closeErr := listCloseMarketDates(ctx, r.database.SQL, item.InstrumentID.String())
 		if closeErr != nil {
 			return nil, closeErr
 		}
 		item.CloseMarketDates = closes
-		noObs, coverageErr := listNoObservationDates(ctx, r.database.SQL, item.InstrumentID.String())
+		item.CloseFetchedAt = fetchedAt
+		noObs, expires, checked, coverageErr := listNoObservationCoverage(ctx, r.database.SQL, item.InstrumentID.String())
 		if coverageErr != nil {
 			return nil, coverageErr
 		}
 		item.NoObservationDates = noObs
+		item.NoObservationExpiresAt = expires
+		item.NoObservationCheckedAt = checked
 		result = append(result, item)
 	}
 	return result, nil
 }
 
-func listCloseMarketDates(ctx context.Context, query queryer, instrumentID string) ([]string, error) {
+func listCloseMarketDates(ctx context.Context, query queryer, instrumentID string) ([]string, map[string]time.Time, error) {
 	rows, err := query.QueryContext(ctx, `
-		SELECT market_date FROM instrument_observation_slots
-		WHERE instrument_id = ? AND observation_kind = ?
-		ORDER BY market_date`, instrumentID, observationKindClose)
+		SELECT s.market_date, q.fetched_at FROM instrument_observation_slots s
+		JOIN instrument_quotes q ON q.id = s.quote_id
+		WHERE s.instrument_id = ? AND s.observation_kind = ?
+		ORDER BY s.market_date`, instrumentID, observationKindClose)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer rows.Close()
-	return scanDateColumn(rows)
+	dates := make([]string, 0)
+	fetched := map[string]time.Time{}
+	for rows.Next() {
+		var date string
+		var fetchedAt sql.NullString
+		if err := rows.Scan(&date, &fetchedAt); err != nil {
+			return nil, nil, err
+		}
+		dates = append(dates, date)
+		if parsed, parseErr := parseTimePtr(fetchedAt); parseErr != nil {
+			return nil, nil, parseErr
+		} else if parsed != nil {
+			fetched[date] = parsed.UTC()
+		}
+	}
+	return dates, fetched, rows.Err()
 }
 
-func listNoObservationDates(ctx context.Context, query queryer, instrumentID string) ([]string, error) {
+func listNoObservationCoverage(ctx context.Context, query queryer, instrumentID string) ([]string, map[string]time.Time, map[string]time.Time, error) {
 	rows, err := query.QueryContext(ctx, `
-		SELECT effective_date FROM market_data_day_status
+		SELECT effective_date, expires_at, checked_at FROM market_data_day_status
 		WHERE target_type = 'instrument' AND target_id = ? AND status = ?
 		ORDER BY effective_date`, instrumentID, coverageStatusNoObservation)
 	if err != nil {
-		return nil, err
+		return nil, nil, nil, err
 	}
 	defer rows.Close()
-	return scanDateColumn(rows)
-}
-
-func scanDateColumn(rows *sql.Rows) ([]string, error) {
 	dates := make([]string, 0)
+	expires := map[string]time.Time{}
+	checked := map[string]time.Time{}
 	for rows.Next() {
 		var date string
-		if err := rows.Scan(&date); err != nil {
-			return nil, err
+		var expiresAt, checkedAt sql.NullString
+		if err := rows.Scan(&date, &expiresAt, &checkedAt); err != nil {
+			return nil, nil, nil, err
 		}
 		dates = append(dates, date)
+		if parsed, parseErr := parseTimePtr(expiresAt); parseErr != nil {
+			return nil, nil, nil, parseErr
+		} else if parsed != nil {
+			expires[date] = parsed.UTC()
+		}
+		if parsed, parseErr := parseTimePtr(checkedAt); parseErr != nil {
+			return nil, nil, nil, parseErr
+		} else if parsed != nil {
+			checked[date] = parsed.UTC()
+		}
 	}
-	return dates, rows.Err()
+	return dates, expires, checked, rows.Err()
 }
