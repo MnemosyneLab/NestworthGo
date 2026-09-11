@@ -44,8 +44,8 @@ func TestE2ETiingoUSManualFXRepairProbe(t *testing.T) {
 	if !instPlan.OpeningAnchorMissing {
 		t.Fatal("expected opening-anchor missing before persist")
 	}
-	if instPlan.FetchRange.Start != "2025-09-06" || planBefore.Instruments[0].FetchRange.End != "2026-09-08" {
-		t.Fatalf("fetch range = %+v, want lookback 2025-09-06 through last finalized 2026-09-08", instPlan.FetchRange)
+	if instPlan.FetchRange.Start != "2026-08-30" || planBefore.Instruments[0].FetchRange.End != "2026-09-08" {
+		t.Fatalf("fetch range = %+v, want initial 7d lookback 2026-08-30 through last finalized 2026-09-08", instPlan.FetchRange)
 	}
 	if len(instPlan.MissingRanges) == 0 {
 		t.Fatal("expected coverage gap before persist")

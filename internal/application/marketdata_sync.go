@@ -403,7 +403,7 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 	}
 	byPair := make(map[string]domain.FXHistoryCoverage, len(coverage))
 	for _, item := range coverage {
-		if strings.TrimSpace(item.ProviderKey) == providerKey && item.SourcePolicyVersion == fxSourcePolicy(providerKey) {
+		if strings.EqualFold(strings.TrimSpace(item.ProviderKey), providerKey) && item.SourcePolicyVersion == fxSourcePolicy(providerKey) {
 			byPair[fxPairKey(item.BaseCurrency, item.QuoteCurrency)] = item
 		}
 	}
@@ -422,13 +422,19 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 		}
 		if anchor, missing := domain.FindOpeningAnchor(origin, closes); !missing && anchor != "" {
 			start = anchor
-		} else if windows := domain.OpeningAnchorLookbackWindows(); len(windows) > 0 {
-			parsed, parseErr := time.Parse("2006-01-02", origin)
-			if parseErr != nil {
+		} else {
+			windowDays, _, windowErr := nextOpeningAnchorWindowForDates(item.DailyReferenceDates, item.NoObservationDates, origin)
+			if windowErr != nil {
 				blockers = append(blockers, SyncBlocker{TargetKey: fxIdentityKey(FXMarketIdentity{BaseCurrency: preference.CurrencyA, QuoteCurrency: preference.CurrencyB}), Code: string(domain.ErrValidation), Reason: "invalid_origin"})
 				continue
 			}
-			start = parsed.AddDate(0, 0, -windows[len(windows)-1]).Format("2006-01-02")
+			if windowDays > 0 {
+				start, windowErr = openingAnchorWindowStart(origin, windowDays)
+				if windowErr != nil {
+					blockers = append(blockers, SyncBlocker{TargetKey: fxIdentityKey(FXMarketIdentity{BaseCurrency: preference.CurrencyA, QuoteCurrency: preference.CurrencyB}), Code: string(domain.ErrValidation), Reason: "invalid_origin"})
+					continue
+				}
+			}
 		}
 		dates, dateErr := domain.InclusiveMarketDates(start, end)
 		if dateErr != nil {

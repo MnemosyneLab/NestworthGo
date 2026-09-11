@@ -1,4 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+// This test imports pure aggregation helpers from a component module. Its
+// generated Wails service imports the runtime transitively; keep the jsdom
+// test isolated from the runtime's browser drag polling interval.
+vi.mock("@wailsio/runtime", () => ({
+  Call: {
+    ByID: vi.fn(() => Promise.resolve(undefined)),
+  },
+}));
+
 import type { ReturnCalendarDTO, ReturnDayDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { aggregateMonth, aggregateYearMonths } from "./ReturnCalendarTab";
 

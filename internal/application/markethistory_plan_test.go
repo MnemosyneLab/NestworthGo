@@ -19,8 +19,22 @@ func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
 	if !before.OpeningAnchorMissing || before.OpeningAnchorDate != "" {
 		t.Fatalf("opening anchor before persist = %+v", before)
 	}
-	if before.FetchRange.Start != "2025-09-06" || before.FetchRange.End != "2026-09-08" {
-		t.Fatalf("fetch range = %+v, want 2025-09-06..2026-09-08 (365d lookback from origin through last finalized US date)", before.FetchRange)
+	if before.FetchRange.Start != "2026-08-30" || before.FetchRange.End != "2026-09-08" {
+		t.Fatalf("fetch range = %+v, want 2026-08-30..2026-09-08 (7d opening-anchor window through last finalized US date)", before.FetchRange)
+	}
+	if before.OpeningAnchorWindowDays != 7 || before.OpeningAnchorExhausted {
+		t.Fatalf("opening-anchor search state = %+v, want first 7d window", before)
+	}
+	firstSync, err := applyHistorySyncPolicy(before, domain.InstrumentHistoryCoverage{
+		ProviderKey:    TiingoProviderKey,
+		ProviderSymbol: "AAPL",
+		Market:         "US",
+	}, "2026-09-08", time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(firstSync.FetchRanges) != 1 || firstSync.FetchRanges[0].Start != "2026-08-30" || firstSync.FetchRanges[0].End != "2026-09-08" {
+		t.Fatalf("first staged fetch = %+v, want only 7d anchor window plus required interval", firstSync.FetchRanges)
 	}
 	if len(before.MissingRanges) == 0 {
 		t.Fatal("expected coverage gaps before persist")
@@ -46,6 +60,43 @@ func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
 				t.Fatalf("persisted close or no-observation still listed as missing: %s", date)
 			}
 		}
+	}
+}
+
+func TestPlanInstrumentRepairNeedWidensOpeningAnchorSearchAndStops(t *testing.T) {
+	coverage := domain.InstrumentHistoryCoverage{
+		ProviderKey:    TiingoProviderKey,
+		ProviderSymbol: "AAPL",
+		Market:         "US",
+	}
+	appendCoverageDates(t, &coverage.NoObservationDates, "2026-08-30", "2026-09-05")
+
+	widened, err := planInstrumentRepairNeed(coverage, "2026-09-06", "2026-09-08")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if widened.OpeningAnchorWindowDays != 30 || widened.OpeningAnchorExhausted {
+		t.Fatalf("opening-anchor search state = %+v, want second 30d window", widened)
+	}
+	if widened.FetchRange.Start != "2026-08-07" {
+		t.Fatalf("widened fetch start = %s, want 2026-08-07", widened.FetchRange.Start)
+	}
+
+	appendCoverageDates(t, &coverage.NoObservationDates, "2026-08-07", "2026-08-29")
+	exhausted, err := planInstrumentRepairNeed(coverage, "2026-09-06", "2026-09-08")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exhausted.OpeningAnchorWindowDays != 365 || exhausted.OpeningAnchorExhausted {
+		t.Fatalf("opening-anchor search state = %+v, want third 365d window", exhausted)
+	}
+	appendCoverageDates(t, &coverage.NoObservationDates, "2025-09-06", "2026-08-06")
+	exhausted, err = planInstrumentRepairNeed(coverage, "2026-09-06", "2026-09-08")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exhausted.OpeningAnchorWindowDays != 365 || !exhausted.OpeningAnchorExhausted {
+		t.Fatalf("opening-anchor search state = %+v, want exhausted 365d window", exhausted)
 	}
 }
 
@@ -156,4 +207,15 @@ func mustInclusiveDates(t *testing.T, rng DateRange) []MarketDate {
 		t.Fatal(err)
 	}
 	return dates
+}
+
+func appendCoverageDates(t *testing.T, target *[]string, start, end string) {
+	t.Helper()
+	dates, err := domain.InclusiveMarketDates(start, end)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, date := range dates {
+		*target = append(*target, date)
+	}
 }

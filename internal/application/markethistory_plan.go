@@ -10,17 +10,19 @@ import (
 )
 
 type InstrumentRepairNeed struct {
-	InstrumentID         domain.InstrumentID
-	ProviderKey          string
-	ProviderSymbol       string
-	Market               string
-	OpeningAnchorDate    string
-	OpeningAnchorMissing bool
-	FetchRange           DateRange
-	MissingRanges        []DateRange
-	FetchRanges          []DateRange
-	RouteStatus          string
-	SkipReason           string
+	InstrumentID            domain.InstrumentID
+	ProviderKey             string
+	ProviderSymbol          string
+	Market                  string
+	OpeningAnchorDate       string
+	OpeningAnchorMissing    bool
+	OpeningAnchorWindowDays int
+	OpeningAnchorExhausted  bool
+	FetchRange              DateRange
+	MissingRanges           []DateRange
+	FetchRanges             []DateRange
+	RouteStatus             string
+	SkipReason              string
 }
 
 type HistoryRepairPlan struct {
@@ -134,16 +136,26 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 	}
 	anchor, missing := domain.FindOpeningAnchor(originDate, closes)
 	lookbackStart := originDate
-	if windows := domain.OpeningAnchorLookbackWindows(); len(windows) > 0 {
-		parsed, err := time.Parse("2006-01-02", originDate)
-		if err != nil {
-			return InstrumentRepairNeed{}, err
-		}
-		lookbackStart = parsed.AddDate(0, 0, -windows[len(windows)-1]).Format("2006-01-02")
-	}
+	openingWindowDays := 0
+	openingAnchorExhausted := false
 	fetchStart := lookbackStart
 	if !missing && anchor != "" {
 		fetchStart = anchor
+	} else {
+		windowDays, exhausted, err := nextOpeningAnchorWindow(coverage, originDate)
+		if err != nil {
+			return InstrumentRepairNeed{}, err
+		}
+		openingWindowDays = windowDays
+		openingAnchorExhausted = exhausted
+		if windowDays > 0 {
+			windowStart, err := openingAnchorWindowStart(originDate, windowDays)
+			if err != nil {
+				return InstrumentRepairNeed{}, err
+			}
+			lookbackStart = windowStart
+			fetchStart = lookbackStart
+		}
 	}
 	if lastFinalized < fetchStart {
 		return InstrumentRepairNeed{}, &domain.Error{Code: domain.ErrValidation, Field: "dateRange", Message: "last finalized market date precedes the required fetch start"}
@@ -166,16 +178,67 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 		}
 	}
 	return InstrumentRepairNeed{
-		InstrumentID:         coverage.InstrumentID,
-		ProviderKey:          coverage.ProviderKey,
-		ProviderSymbol:       coverage.ProviderSymbol,
-		Market:               coverage.Market,
-		OpeningAnchorDate:    anchor,
-		OpeningAnchorMissing: missing,
-		FetchRange:           DateRange{Start: MarketDate(fetchStart), End: MarketDate(lastFinalized)},
-		MissingRanges:        dateRangesFromDates(missingDates),
-		RouteStatus:          domain.InstrumentRouteOK,
+		InstrumentID:            coverage.InstrumentID,
+		ProviderKey:             coverage.ProviderKey,
+		ProviderSymbol:          coverage.ProviderSymbol,
+		Market:                  coverage.Market,
+		OpeningAnchorDate:       anchor,
+		OpeningAnchorMissing:    missing,
+		OpeningAnchorWindowDays: openingWindowDays,
+		OpeningAnchorExhausted:  openingAnchorExhausted,
+		FetchRange:              DateRange{Start: MarketDate(fetchStart), End: MarketDate(lastFinalized)},
+		MissingRanges:           dateRangesFromDates(missingDates),
+		RouteStatus:             domain.InstrumentRouteOK,
 	}, nil
+}
+
+func nextOpeningAnchorWindow(coverage domain.InstrumentHistoryCoverage, originDate string) (int, bool, error) {
+	return nextOpeningAnchorWindowForDates(coverage.CloseMarketDates, coverage.NoObservationDates, originDate)
+}
+
+func nextOpeningAnchorWindowForDates(closeDates, noObservationDates []string, originDate string) (int, bool, error) {
+	windows := domain.OpeningAnchorLookbackWindows()
+	if len(windows) == 0 {
+		return 0, true, nil
+	}
+	origin, err := time.Parse("2006-01-02", originDate)
+	if err != nil {
+		return 0, false, err
+	}
+	covered := indexStrings(closeDates)
+	for _, date := range noObservationDates {
+		covered[date] = struct{}{}
+	}
+	for _, days := range windows {
+		start, err := openingAnchorWindowStart(originDate, days)
+		if err != nil {
+			return 0, false, err
+		}
+		end := origin.AddDate(0, 0, -1).Format("2006-01-02")
+		dates, err := domain.InclusiveMarketDates(start, end)
+		if err != nil {
+			return 0, false, err
+		}
+		complete := true
+		for _, date := range dates {
+			if _, ok := covered[string(date)]; !ok {
+				complete = false
+				break
+			}
+		}
+		if !complete {
+			return days, false, nil
+		}
+	}
+	return windows[len(windows)-1], true, nil
+}
+
+func openingAnchorWindowStart(originDate string, days int) (string, error) {
+	parsed, err := time.Parse("2006-01-02", originDate)
+	if err != nil {
+		return "", err
+	}
+	return parsed.AddDate(0, 0, -days).Format("2006-01-02"), nil
 }
 
 func applyHistorySyncPolicy(need InstrumentRepairNeed, coverage domain.InstrumentHistoryCoverage, lastFinalized string, now time.Time, force bool) (InstrumentRepairNeed, error) {

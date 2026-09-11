@@ -277,6 +277,7 @@ func TestCancelSyncJobRetainsCommittedBatches(t *testing.T) {
 		}
 	}}
 	service, repo, first, _ := newSyncFixture(t, tiingo)
+	service.historyRequestMaxDays = 3
 	start, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll})
 	if err != nil {
 		t.Fatal(err)

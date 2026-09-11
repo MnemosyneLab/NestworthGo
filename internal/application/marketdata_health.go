@@ -16,6 +16,7 @@ const (
 	HealthKindMissingManualFX          = "missing_manual_fx"
 	HealthKindMissingProviderKey       = "missing_provider_key"
 	HealthKindMissingBinding           = "missing_binding"
+	HealthKindInitialAnchorMissing     = "initial_anchor_missing"
 	HealthKindUnsupportedCoverage      = "unsupported_coverage"
 	HealthKindIncompleteValuation      = "incomplete_valuation"
 	HealthKindSnapshotMissing          = "snapshot_missing"
@@ -288,6 +289,14 @@ func classifyInstrumentHealth(need InstrumentRepairNeed, label string, blocked m
 		base.RangeCount = len(need.MissingRanges)
 		return base, true
 	}
+	if need.OpeningAnchorExhausted && len(need.MissingRanges) == 0 && len(need.FetchRanges) == 0 {
+		base.Kind = HealthKindInitialAnchorMissing
+		base.Severity = HealthSeverityBlocking
+		base.Code = HealthKindInitialAnchorMissing
+		base.Reason = HealthKindInitialAnchorMissing
+		base.Action = HealthActionManualEntry
+		return base, false
+	}
 	if !hasInstrumentGap(need) {
 		return HealthIssue{}, false
 	}
@@ -390,7 +399,11 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 		return nil, covered, err
 	}
 	coverageByPair := map[string]domain.FXHistoryCoverage{}
+	providerKey := strings.ToLower(strings.TrimSpace(s.FXProviderKey()))
 	for _, item := range coverage {
+		if !strings.EqualFold(strings.TrimSpace(item.ProviderKey), providerKey) || item.SourcePolicyVersion != fxSourcePolicy(providerKey) {
+			continue
+		}
 		coverageByPair[fxPairKey(item.BaseCurrency, item.QuoteCurrency)] = item
 	}
 	location := time.UTC
@@ -400,7 +413,6 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 		}
 	}
 	var issues []HealthIssue
-	providerKey := strings.ToLower(strings.TrimSpace(s.FXProviderKey()))
 	for _, preference := range prefs {
 		pair := fxPairKey(preference.CurrencyA, preference.CurrencyB)
 		label := pair
@@ -445,7 +457,16 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 		}
 		item := coverageByPair[pair]
 		missing := missingFXDates(plan.OriginLocalDate, plan.LastFinalizedMarketDate, item)
-		if len(missing) == 0 {
+		anchorCloses := make([]domain.OracleClose, 0, len(item.DailyReferenceDates))
+		for _, date := range item.DailyReferenceDates {
+			anchorCloses = append(anchorCloses, domain.OracleClose{MarketDate: date})
+		}
+		_, anchorMissing := domain.FindOpeningAnchor(plan.OriginLocalDate, anchorCloses)
+		_, anchorExhausted, anchorErr := nextOpeningAnchorWindowForDates(item.DailyReferenceDates, item.NoObservationDates, plan.OriginLocalDate)
+		if anchorErr != nil {
+			return nil, covered, anchorErr
+		}
+		if len(missing) == 0 && !anchorMissing {
 			continue
 		}
 		ranges := dateRangesFromDates(missing)
@@ -462,6 +483,15 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 			RangeStart: string(span.Start),
 			RangeEnd:   string(span.End),
 			RangeCount: len(ranges),
+		}
+		if len(missing) == 0 && anchorMissing && anchorExhausted {
+			issue.Kind = HealthKindInitialAnchorMissing
+			issue.Severity = HealthSeverityBlocking
+			issue.Code = HealthKindInitialAnchorMissing
+			issue.Reason = HealthKindInitialAnchorMissing
+			issue.Action = HealthActionManualEntry
+			issues = append(issues, issue)
+			continue
 		}
 		if !fxHistoryAutoRepairable(providerKey) {
 			issue.Kind = HealthKindUnsupportedCoverage
@@ -693,7 +723,7 @@ func hasUncollapsedRootCause(issues []HealthIssue) bool {
 			continue
 		}
 		switch issue.Kind {
-		case HealthKindMissingInstrumentHistory, HealthKindMissingFXHistory, HealthKindMissingManualPrice, HealthKindMissingManualFX, HealthKindMissingProviderKey, HealthKindMissingBinding, HealthKindUnsupportedCoverage, HealthKindIncompleteValuation:
+		case HealthKindMissingInstrumentHistory, HealthKindMissingFXHistory, HealthKindMissingManualPrice, HealthKindMissingManualFX, HealthKindMissingProviderKey, HealthKindMissingBinding, HealthKindInitialAnchorMissing, HealthKindUnsupportedCoverage, HealthKindIncompleteValuation:
 			return true
 		}
 	}

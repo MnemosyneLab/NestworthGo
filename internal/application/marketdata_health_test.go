@@ -237,3 +237,18 @@ func TestClassifyInstrumentHealthBindingOpensEditor(t *testing.T) {
 		t.Fatalf("binding issue = %+v", issue)
 	}
 }
+
+func TestClassifyInstrumentHealthReportsExhaustedOpeningAnchorForManualEntry(t *testing.T) {
+	need := InstrumentRepairNeed{
+		InstrumentID:           domain.InstrumentID("00000000-0000-0000-0000-000000000003"),
+		ProviderKey:            TiingoProviderKey,
+		ProviderSymbol:         "AAPL",
+		RouteStatus:            domain.InstrumentRouteOK,
+		OpeningAnchorMissing:   true,
+		OpeningAnchorExhausted: true,
+	}
+	issue, _ := classifyInstrumentHealth(need, "Apple", nil)
+	if issue.Kind != HealthKindInitialAnchorMissing || issue.Code != HealthKindInitialAnchorMissing || issue.Action != HealthActionManualEntry || issue.Executable {
+		t.Fatalf("initial-anchor issue = %+v", issue)
+	}
+}
