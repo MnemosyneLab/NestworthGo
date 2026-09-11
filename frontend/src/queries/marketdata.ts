@@ -150,6 +150,33 @@ const SYNC_EVENTS = [
 	"marketdata.sync.completed",
 ] as const;
 
+// Sync completion is a workspace concern, not a concern of the page that
+// happened to start the job. Keep one event subscription alive while the
+// workspace is mounted so navigating away from Market Data cannot orphan
+// cache invalidation.
+const syncEventClients = new Set<ReturnType<typeof useQueryClient>>();
+let syncEventCleanups: Array<() => void> = [];
+
+function subscribeToSyncEvents(queryClient: ReturnType<typeof useQueryClient>): () => void {
+	syncEventClients.add(queryClient);
+	if (syncEventClients.size === 1) {
+		syncEventCleanups = SYNC_EVENTS.map((name) =>
+			Events.On(name, () => {
+				syncEventClients.forEach((client) => {
+					void client.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
+				});
+			}),
+		);
+	}
+	return () => {
+		syncEventClients.delete(queryClient);
+		if (syncEventClients.size === 0) {
+			syncEventCleanups.forEach((cleanup) => cleanup());
+			syncEventCleanups = [];
+		}
+	};
+}
+
 export function emptySyncJob(job: SyncJobDTO | null | undefined): boolean {
 	return !job?.jobId;
 }
@@ -170,19 +197,14 @@ export function useCurrentSyncJob() {
 	});
 
 	useEffect(() => {
-		const cleanups = SYNC_EVENTS.map((name) =>
-			Events.On(name, () => {
-				void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
-			}),
-		);
-		return () => {
-			cleanups.forEach((cleanup) => cleanup());
-		};
+		return subscribeToSyncEvents(queryClient);
 	}, [queryClient]);
 
 	const seenRunning = useRef(false);
+	const observedTerminal = useRef("");
 	useEffect(() => {
-		if (syncJobIsRunning(query.data)) {
+		const job = query.data;
+		if (syncJobIsRunning(job)) {
 			seenRunning.current = true;
 			return;
 		}
@@ -190,9 +212,25 @@ export function useCurrentSyncJob() {
 			seenRunning.current = false;
 			invalidateMarketDataSync(queryClient);
 		}
+		// A workspace observer can first see a terminal job after the page that
+		// started it has been unmounted. Compensate on the first terminal read,
+		// and use the stable sequence so polling does not invalidate forever.
+		if (job?.jobId && job.outcome !== "running") {
+			const terminalSignature = `${job.jobId}:${job.sequence}:${job.outcome}`;
+			if (observedTerminal.current !== terminalSignature) {
+				observedTerminal.current = terminalSignature;
+				invalidateMarketDataSync(queryClient);
+			}
+		}
 	}, [query.data, queryClient]);
 
 	return query;
+}
+
+/** Mount once under AppShell so sync observation survives page navigation. */
+export function MarketDataSyncWorkspaceObserver() {
+	useCurrentSyncJob();
+	return null;
 }
 
 export function usePreviewMarketDataSync() {

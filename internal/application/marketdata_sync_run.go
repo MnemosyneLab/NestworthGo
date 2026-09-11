@@ -49,9 +49,6 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 		fxTasks = nil
 		fxBlockers = nil
 	}
-	if plan.ManualFX {
-		fxTasks = nil
-	}
 
 	s.publishSync(job, SyncEventProgress, func() {
 		job.snapshot.Phase = SyncPhaseHistoricalInstruments
@@ -98,7 +95,7 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 		phase = SyncPhaseCancelled
 		return
 	}
-	if request.Scope != SyncScopeInstrument && !plan.ManualFX {
+	if request.Scope != SyncScopeInstrument {
 		s.publishSync(job, SyncEventProgress, func() {
 			job.snapshot.Phase = SyncPhaseLatestFX
 		})

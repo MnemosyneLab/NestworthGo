@@ -39,7 +39,7 @@ func QualifyFrankfurterHistory(meta vnextFixtureMeta, body []byte) (application.
 			Reason: "identity_pair_is_not_a_raw_observation",
 		}, nil
 	}
-	clock, err := parseClock(meta.Clock)
+	_, err = parseClock(meta.Clock)
 	if err != nil {
 		return application.MappingOutcome[application.FXDailyObservation]{}, err
 	}
@@ -63,7 +63,7 @@ func QualifyFrankfurterHistory(meta vnextFixtureMeta, body []byte) (application.
 		if eligibleErr != nil {
 			return invalidFXOutcome("malformed_market_date"), nil
 		}
-		effectiveAt, timeErr := application.NormalizeProviderObservationTime(eligibleAt, clock)
+		effectiveAt, timeErr := application.NormalizeHistoricalObservationTime(eligibleAt)
 		if timeErr != nil {
 			return application.MappingOutcome[application.FXDailyObservation]{
 				Status: application.MappingUncertain,

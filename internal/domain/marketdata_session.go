@@ -12,6 +12,7 @@ const (
 	USEquityRegularClosePolicy = "us_equity_regular_close_v1"
 	FrankfurterV2BlendedPolicy = "frankfurter-v2-blended-v1"
 	TiingoRawClosePriceBasis   = "tiingo_raw_close_v1"
+	YahooRawClosePriceBasis    = "yahoo_close_v1"
 	TiingoProviderKey          = "tiingo"
 	YahooFinanceProviderKey    = "yahoo_finance"
 	FrankfurterProviderKey     = "frankfurter"

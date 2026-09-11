@@ -14,14 +14,50 @@ import (
 // advances the completion marker in one transaction so a crash or failure can
 // never leave the snapshot stored while the state stays stale.
 func (r *Repository) SaveDailyValuationSnapshotAndMarkCompleted(ctx context.Context, snapshot domain.DailyValuationSnapshot, updatedAt time.Time) (bool, error) {
+	var state domain.DailySnapshotState
+	var stateErr error
+	state, stateErr = r.DailySnapshotState(ctx, snapshot.HouseholdID)
+	if stateErr == nil {
+		if snapshot.InputGeneration == 0 {
+			snapshot.InputGeneration = state.InputGeneration
+		}
+		if snapshot.ResolverPolicyVersion == "" {
+			snapshot.ResolverPolicyVersion = state.ResolverPolicyVersion
+		}
+	}
+	return r.saveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, updatedAt, -1)
+}
+
+func (r *Repository) SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx context.Context, snapshot domain.DailyValuationSnapshot, updatedAt time.Time, expectedGeneration int) (bool, error) {
+	return r.saveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, updatedAt, expectedGeneration)
+}
+
+func (r *Repository) saveDailyValuationSnapshotAndMarkCompleted(ctx context.Context, snapshot domain.DailyValuationSnapshot, updatedAt time.Time, expectedGeneration int) (bool, error) {
 	var appended bool
 	err := r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		var generation int
+		var policy sql.NullString
+		if err := tx.QueryRowContext(ctx, `SELECT input_generation, resolver_policy_version FROM history_snapshot_state WHERE household_id = ?`, snapshot.HouseholdID.String()).Scan(&generation, &policy); err != nil {
+			return err
+		}
+		if expectedGeneration >= 0 && generation != expectedGeneration {
+			return snapshotGenerationChanged()
+		}
+		if expectedGeneration < 0 {
+			expectedGeneration = generation
+		}
+		if snapshot.InputGeneration == 0 {
+			snapshot.InputGeneration = expectedGeneration
+		}
+		if snapshot.ResolverPolicyVersion == "" {
+			snapshot.ResolverPolicyVersion = policy.String
+		}
 		var err error
 		appended, err = saveDailyValuationSnapshotTx(ctx, tx, snapshot)
 		if err != nil {
 			return err
 		}
-		return markDailySnapshotCompletedTx(ctx, tx, snapshot.HouseholdID, snapshot.LocalDate, updatedAt)
+		return markDailySnapshotCompletedAtGenerationTx(ctx, tx, snapshot.HouseholdID, snapshot.LocalDate, updatedAt, expectedGeneration)
 	})
 	return appended, err
 }
@@ -31,7 +67,16 @@ func saveDailyValuationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot doma
 	var existingRevision int
 	err := tx.QueryRowContext(ctx, `SELECT id, revision, content_hash FROM daily_valuation_snapshots WHERE household_id = ? AND local_date = ? ORDER BY revision DESC LIMIT 1`, snapshot.HouseholdID.String(), snapshot.LocalDate).Scan(&existingID, &existingRevision, &existingHash)
 	if err == nil && existingHash == snapshot.ContentHash {
-		return false, nil
+		policy := snapshot.ResolverPolicyVersion
+		if policy == "" {
+			policy = domain.MarketDataResolverPolicy
+		}
+		// The economic result can be identical after an input generation change.
+		// Refresh its provenance nevertheless, so a successful conditional
+		// completion never leaves a current snapshot labelled with an older
+		// generation.
+		_, updateErr := tx.ExecContext(ctx, `UPDATE daily_valuation_snapshots SET input_generation = ?, resolver_policy_version = ? WHERE id = ?`, snapshot.InputGeneration, policy, existingID)
+		return false, updateErr
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, err
@@ -52,7 +97,11 @@ func saveDailyValuationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot doma
 		}
 		snapshot.SupersedesID = &previous
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at, input_generation, resolver_policy_version) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE((SELECT input_generation FROM history_snapshot_state WHERE household_id = ?), 0), COALESCE(NULLIF((SELECT resolver_policy_version FROM history_snapshot_state WHERE household_id = ?), ''), ?))`, snapshot.ID.String(), snapshot.HouseholdID.String(), snapshot.LocalDate, formatTimestamp(snapshot.CutoffAt), snapshot.Revision, nullableSnapshotID(snapshot.SupersedesID), snapshot.ContentHash, nullableMoneyAmount(snapshot.AssetsAmount), nullableMoneyAmount(snapshot.LiabilitiesAmount), nullableSignedMoneyAmount(snapshot.NetWorthAmount), snapshot.Currency.String(), boolValue(snapshot.Complete), snapshot.ComponentCount, snapshot.MissingCount, snapshot.GenerationReason, formatTimestamp(snapshot.CreatedAt), snapshot.HouseholdID.String(), snapshot.HouseholdID.String(), domain.MarketDataResolverPolicy); err != nil {
+	policy := snapshot.ResolverPolicyVersion
+	if policy == "" {
+		policy = domain.MarketDataResolverPolicy
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at, input_generation, resolver_policy_version) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, snapshot.ID.String(), snapshot.HouseholdID.String(), snapshot.LocalDate, formatTimestamp(snapshot.CutoffAt), snapshot.Revision, nullableSnapshotID(snapshot.SupersedesID), snapshot.ContentHash, nullableMoneyAmount(snapshot.AssetsAmount), nullableMoneyAmount(snapshot.LiabilitiesAmount), nullableSignedMoneyAmount(snapshot.NetWorthAmount), snapshot.Currency.String(), boolValue(snapshot.Complete), snapshot.ComponentCount, snapshot.MissingCount, snapshot.GenerationReason, formatTimestamp(snapshot.CreatedAt), snapshot.InputGeneration, policy); err != nil {
 		return false, err
 	}
 	for _, item := range snapshot.Items {
@@ -82,23 +131,66 @@ func (r *Repository) MarkDailySnapshotCompleted(ctx context.Context, householdID
 }
 
 func markDailySnapshotCompletedTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, localDate string, updatedAt time.Time) error {
+	return markDailySnapshotCompletedAtGenerationTx(ctx, tx, householdID, localDate, updatedAt, -1)
+}
+
+func markDailySnapshotCompletedAtGenerationTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, localDate string, updatedAt time.Time, expectedGeneration int) error {
 	nextDate, err := nextSnapshotDate(localDate)
 	if err != nil {
 		return err
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from = ? THEN ? ELSE dirty_from END, last_completed_closed_on = CASE WHEN last_completed_closed_on IS NULL OR last_completed_closed_on < ? THEN ? ELSE last_completed_closed_on END, updated_at = ? WHERE household_id = ?`, localDate, nextDate, localDate, localDate, formatTimestamp(updatedAt), householdID.String())
+	query := `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from = ? THEN ? ELSE dirty_from END, last_completed_closed_on = CASE WHEN last_completed_closed_on IS NULL OR last_completed_closed_on < ? THEN ? ELSE last_completed_closed_on END, updated_at = ? WHERE household_id = ?`
+	args := []any{localDate, nextDate, localDate, localDate, formatTimestamp(updatedAt), householdID.String()}
+	if expectedGeneration >= 0 {
+		query += ` AND input_generation = ?`
+		args = append(args, expectedGeneration)
+	}
+	result, err := tx.ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}
-	return requireAffected(result, "history snapshot state")
+	if err := requireAffected(result, "history snapshot state"); err != nil {
+		if expectedGeneration >= 0 {
+			return snapshotGenerationChanged()
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *Repository) CompleteDailySnapshotRange(ctx context.Context, householdID domain.HouseholdID, targetDate string, updatedAt time.Time) error {
-	result, err := r.database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN NULL ELSE dirty_from END, dirty_to = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN NULL ELSE dirty_to END, updated_at = ? WHERE household_id = ?`, targetDate, targetDate, formatTimestamp(updatedAt), householdID.String())
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		return completeDailySnapshotRangeTx(ctx, tx, householdID, targetDate, updatedAt, -1)
+	})
+}
+
+func (r *Repository) CompleteDailySnapshotRangeAtGeneration(ctx context.Context, householdID domain.HouseholdID, targetDate string, updatedAt time.Time, expectedGeneration int) error {
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		return completeDailySnapshotRangeTx(ctx, tx, householdID, targetDate, updatedAt, expectedGeneration)
+	})
+}
+
+func completeDailySnapshotRangeTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, targetDate string, updatedAt time.Time, expectedGeneration int) error {
+	query := `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN NULL ELSE dirty_from END, dirty_to = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN NULL ELSE dirty_to END, updated_at = ? WHERE household_id = ?`
+	args := []any{targetDate, targetDate, formatTimestamp(updatedAt), householdID.String()}
+	if expectedGeneration >= 0 {
+		query += ` AND input_generation = ?`
+		args = append(args, expectedGeneration)
+	}
+	result, err := tx.ExecContext(ctx, query, args...)
 	if err != nil {
 		return err
 	}
-	return requireAffected(result, "history snapshot state")
+	if err := requireAffected(result, "history snapshot state"); err != nil && expectedGeneration >= 0 {
+		return snapshotGenerationChanged()
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
+func snapshotGenerationChanged() error {
+	return &domain.Error{Code: domain.ErrConflict, Field: "inputGeneration", Message: "snapshot input generation changed during rebuild"}
 }
 
 func (r *Repository) DailySnapshotState(ctx context.Context, householdID domain.HouseholdID) (domain.DailySnapshotState, error) {
@@ -139,7 +231,7 @@ func (r *Repository) ListDailyValuationSnapshots(ctx context.Context, householdI
 }
 
 func listDailyValuationSnapshotsQuery(ctx context.Context, db queryer, householdID domain.HouseholdID, since, until time.Time) ([]domain.DailyValuationSnapshot, error) {
-	query := `SELECT id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at FROM daily_valuation_snapshots WHERE household_id = ? AND revision = (SELECT MAX(latest.revision) FROM daily_valuation_snapshots latest WHERE latest.household_id = daily_valuation_snapshots.household_id AND latest.local_date = daily_valuation_snapshots.local_date)`
+	query := `SELECT id, local_date, cutoff_at, revision, supersedes_id, content_hash, assets_amount, liabilities_amount, net_worth_amount, currency, complete, component_count, missing_count, generation_reason, created_at, input_generation, resolver_policy_version FROM daily_valuation_snapshots WHERE household_id = ? AND revision = (SELECT MAX(latest.revision) FROM daily_valuation_snapshots latest WHERE latest.household_id = daily_valuation_snapshots.household_id AND latest.local_date = daily_valuation_snapshots.local_date)`
 	args := []any{householdID.String()}
 	if !since.IsZero() {
 		query += ` AND local_date >= ?`
@@ -159,8 +251,10 @@ func listDailyValuationSnapshotsQuery(ctx context.Context, db queryer, household
 	for rows.Next() {
 		var id, localDate, cutoffAt, contentHash, currency, generationReason, createdAt string
 		var revision, componentCount, missingCount, complete int
+		var inputGeneration sql.NullInt64
+		var resolverPolicy sql.NullString
 		var supersedes, assets, liabilities, netWorth sql.NullString
-		if err := rows.Scan(&id, &localDate, &cutoffAt, &revision, &supersedes, &contentHash, &assets, &liabilities, &netWorth, &currency, &complete, &componentCount, &missingCount, &generationReason, &createdAt); err != nil {
+		if err := rows.Scan(&id, &localDate, &cutoffAt, &revision, &supersedes, &contentHash, &assets, &liabilities, &netWorth, &currency, &complete, &componentCount, &missingCount, &generationReason, &createdAt, &inputGeneration, &resolverPolicy); err != nil {
 			return nil, err
 		}
 		parsedID, err := domain.ParseDailyValuationSnapshotID(id)
@@ -179,7 +273,7 @@ func listDailyValuationSnapshotsQuery(ctx context.Context, db queryer, household
 		if err != nil {
 			return nil, err
 		}
-		snapshot := domain.DailyValuationSnapshot{ID: parsedID, HouseholdID: householdID, LocalDate: localDate, CutoffAt: cutoff.UTC(), Revision: revision, ContentHash: contentHash, Currency: baseCurrency, Complete: complete != 0, ComponentCount: componentCount, MissingCount: missingCount, GenerationReason: generationReason, CreatedAt: created.UTC()}
+		snapshot := domain.DailyValuationSnapshot{ID: parsedID, HouseholdID: householdID, LocalDate: localDate, CutoffAt: cutoff.UTC(), Revision: revision, ContentHash: contentHash, Currency: baseCurrency, Complete: complete != 0, ComponentCount: componentCount, MissingCount: missingCount, GenerationReason: generationReason, CreatedAt: created.UTC(), InputGeneration: int(inputGeneration.Int64), ResolverPolicyVersion: resolverPolicy.String}
 		if supersedes.Valid && supersedes.String != "" {
 			value, parseErr := domain.ParseDailyValuationSnapshotID(supersedes.String)
 			if parseErr != nil {

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service as SettingsService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings";
-import type { SettingsDTO as Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
+import type { SettingsDTO as Settings, TiingoKeyStatusDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 
@@ -61,6 +61,30 @@ export function useFXProviders() {
     queryKey: queryKeys.settings.fxProviders,
     queryFn: () => callService(() => SettingsService.FXProviders()),
     staleTime: Infinity,
+  });
+}
+
+export function useTiingoKeyStatus() {
+  return useQuery({
+    queryKey: queryKeys.settings.tiingoKey,
+    queryFn: () => callService(() => SettingsService.TiingoKeyStatus()),
+    staleTime: 30_000,
+  });
+}
+
+export function useSaveTiingoAPIKey() {
+  const queryClient = useQueryClient();
+  return useMutation<TiingoKeyStatusDTO, Error, string>({
+    mutationFn: (value) => callService(() => SettingsService.SaveTiingoAPIKey(value)),
+    onSuccess: (status) => queryClient.setQueryData(queryKeys.settings.tiingoKey, status),
+  });
+}
+
+export function useDeleteTiingoAPIKey() {
+  const queryClient = useQueryClient();
+  return useMutation<TiingoKeyStatusDTO, Error, void>({
+    mutationFn: () => callService(() => SettingsService.DeleteTiingoAPIKey()),
+    onSuccess: (status) => queryClient.setQueryData(queryKeys.settings.tiingoKey, status),
   });
 }
 

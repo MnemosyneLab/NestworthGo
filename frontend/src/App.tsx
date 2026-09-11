@@ -13,6 +13,7 @@ import { useUiStore, type Appearance } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
 import { targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId } from "@/app/navigation";
 import { useAnalysisStore } from "@/stores/analysis";
+import { MarketDataSyncWorkspaceObserver } from "@/queries/marketdata";
 
 const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
 const DirectoryPage = lazy(() => import("@/features/directory/DirectoryPage").then((module) => ({ default: module.DirectoryPage })));
@@ -111,6 +112,7 @@ function App() {
 
   return (
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data}>
+      <MarketDataSyncWorkspaceObserver />
       {activePageId === "overview" && (
         <OverviewPage
           onAddAccount={() => handleNavigate("accounts")}

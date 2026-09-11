@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 
@@ -141,7 +142,7 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 		lookbackStart = parsed.AddDate(0, 0, -windows[len(windows)-1]).Format("2006-01-02")
 	}
 	fetchStart := lookbackStart
-	if !missing && anchor != "" && anchor < fetchStart {
+	if !missing && anchor != "" {
 		fetchStart = anchor
 	}
 	if lastFinalized < fetchStart {
@@ -308,24 +309,85 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 	if from > to {
 		return 0, nil
 	}
-	generation := state.InputGeneration
-	appended, err := s.RebuildHistoricalSnapshots(ctx, from, to)
-	if err != nil {
-		return appended, err
-	}
-	after, err := s.repository.DailySnapshotState(ctx, household.ID)
-	if err != nil {
-		return appended, err
-	}
-	if after.InputGeneration != generation {
-		// Inputs advanced during rebuild; keep remaining dirty rather than
-		// claiming the published generation is current.
-		return appended, nil
-	}
-	if err := s.CompleteDailySnapshotRange(ctx, household.ID, to); err != nil {
-		return appended, err
+	appended := 0
+	for chunkStart := from; chunkStart <= to; {
+		end := chunkStart
+		var err error
+		for step := 0; step < 30 && end < to; step++ {
+			end, err = nextRebuildDate(end)
+			if err != nil {
+				return appended, err
+			}
+		}
+		if end > to {
+			end = to
+		}
+		var chunkDone bool
+		for attempt := 0; attempt < 3 && !chunkDone; attempt++ {
+			chunkState, stateErr := s.repository.DailySnapshotState(ctx, household.ID)
+			if stateErr != nil {
+				return appended, stateErr
+			}
+			count, rebuildErr := s.RebuildHistoricalSnapshots(ctx, chunkStart, end)
+			if rebuildErr != nil {
+				if isSnapshotGenerationChanged(rebuildErr) {
+					continue
+				}
+				return appended + count, rebuildErr
+			}
+			if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok {
+				completeErr := s.WithWrite(ctx, func(writeCtx context.Context) error {
+					return generationRepo.CompleteDailySnapshotRangeAtGeneration(writeCtx, household.ID, end, s.clock(), chunkState.InputGeneration)
+				})
+				if isSnapshotGenerationChanged(completeErr) {
+					continue
+				}
+				if completeErr != nil {
+					return appended, completeErr
+				}
+			} else {
+				after, stateErr := s.repository.DailySnapshotState(ctx, household.ID)
+				if stateErr != nil {
+					return appended, stateErr
+				}
+				if after.InputGeneration != chunkState.InputGeneration {
+					continue
+				}
+				if err := s.CompleteDailySnapshotRange(ctx, household.ID, end); err != nil {
+					return appended, err
+				}
+			}
+			appended += count
+			chunkDone = true
+		}
+		if !chunkDone {
+			// The dirty cursor is intentionally left in place. The next sync can
+			// retry with a stable input generation rather than publishing a
+			// result whose provenance is already stale.
+			return appended, nil
+		}
+		if end == to {
+			break
+		}
+		chunkStart, err = nextRebuildDate(end)
+		if err != nil {
+			return appended, err
+		}
 	}
 	return appended, nil
+}
+
+func isSnapshotGenerationChanged(err error) bool {
+	var domainErr *domain.Error
+	return err != nil && errors.As(err, &domainErr) && domainErr != nil && domainErr.Field == "inputGeneration"
+}
+
+func nextRebuildDate(value string) (string, error) {
+	parsed, err := time.Parse("2006-01-02", value)
+	if err != nil {
+		return "", &domain.Error{Code: domain.ErrValidation, Field: "dateRange", Message: "snapshot date range is invalid"}
+	}
+	return parsed.AddDate(0, 0, 1).Format("2006-01-02"), nil
 }
 
 // HouseholdCutoffAt is the exclusive end of a closed local day used by

@@ -301,6 +301,58 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 	}
 }
 
+func TestHistoricalInstrumentQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
+	instrumentID := domain.NewInstrumentID()
+	provider := domain.TiingoProviderKey
+	instrument := domain.Instrument{
+		ID: instrumentID, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider,
+		ProviderKey: &provider, ProviderBindingRevision: 2,
+	}
+	cutoff := time.Date(2026, time.September, 7, 0, 0, 0, 0, time.UTC)
+	validEffective := time.Date(2026, time.September, 4, 20, 0, 0, 0, time.UTC)
+	price := func(value string) domain.UnitPrice {
+		parsed, err := domain.ParseUnitPrice(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return parsed
+	}
+	quotes := []domain.InstrumentQuote{
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("999"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationRealtime), ValueEffectiveAt: cutoff.Add(-time.Minute), BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("998"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), ValueEffectiveAt: validEffective, BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("997"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), ValueEffectiveAt: validEffective, BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: "old-policy", TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("186"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), ValueEffectiveAt: validEffective, BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("10000"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationLegacy), QuotedAt: cutoff.Add(-time.Hour)},
+	}
+	selected := selectHistoricalInstrumentQuote(instrument, quotes, cutoff)
+	if selected == nil || selected.UnitPrice.Canonical() != "186" {
+		t.Fatalf("selected historical quote = %+v", selected)
+	}
+}
+
+func TestHistoricalFXQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	preference := domain.FXPreference{HouseholdID: householdID, CurrencyA: "SGD", CurrencyB: "USD", SourceKind: domain.QuoteSourceProvider}
+	cutoff := time.Date(2026, time.September, 7, 0, 0, 0, 0, time.UTC)
+	effective := time.Date(2026, time.September, 4, 23, 59, 59, 999000000, time.UTC)
+	rate := func(value string) domain.FxRate {
+		parsed, err := domain.ParseFxRate(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return parsed
+	}
+	quotes := []domain.FXQuote{
+		{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: rate("99"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationLatest), ValueEffectiveAt: cutoff.Add(-time.Minute), SourcePolicyVersion: domain.FrankfurterV2BlendedPolicy, TimestampBasis: string(TimestampBasisPolicyDerived)},
+		{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: rate("1.35"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationDailyReference), ValueEffectiveAt: effective, SourcePolicyVersion: "old-policy", TimestampBasis: string(TimestampBasisPolicyDerived)},
+		{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: rate("1.351"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationDailyReference), ValueEffectiveAt: effective, SourcePolicyVersion: domain.FrankfurterV2BlendedPolicy, TimestampBasis: string(TimestampBasisPolicyDerived)},
+	}
+	selected := selectHistoricalFXQuote(preference, quotes, "USD", "SGD", domain.FrankfurterProviderKey, cutoff)
+	if selected == nil || selected.Rate.Canonical() != "1.351" {
+		t.Fatalf("selected historical FX quote = %+v", selected)
+	}
+}
+
 func TestSelectFXQuoteUsesTheCurrentProviderSourceKey(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)

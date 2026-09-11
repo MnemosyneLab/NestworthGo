@@ -106,7 +106,7 @@ func mapTiingoRow(row tiingoEODRow, meta vnextFixtureMeta, clock time.Time) (app
 		}
 		return application.MappingOutcome[application.InstrumentDailyObservation]{Status: status, Reason: session.Reason}, nil
 	}
-	effectiveAt, err := application.NormalizeProviderObservationTime(session.CloseInstant, clock)
+	effectiveAt, err := application.NormalizeHistoricalObservationTime(session.CloseInstant)
 	if err != nil {
 		return application.MappingOutcome[application.InstrumentDailyObservation]{
 			Status: application.MappingUncertain,

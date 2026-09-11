@@ -56,6 +56,10 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	if err != nil {
 		return fail(err)
 	}
+	instrumentProviderBindings, err := listInstrumentProviderBindingRevisionsQuery(ctx, tx, householdID)
+	if err != nil {
+		return fail(err)
+	}
 	fxPreferences, err := listFXPreferenceObservationsQuery(ctx, tx, householdID)
 	if err != nil {
 		return fail(err)
@@ -76,21 +80,31 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	if err != nil {
 		return fail(err)
 	}
+	var generation int
+	var resolverPolicy sql.NullString
+	if err := tx.QueryRowContext(ctx, `SELECT input_generation, resolver_policy_version FROM history_snapshot_state WHERE household_id = ?`, householdID.String()).Scan(&generation, &resolverPolicy); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return fail(err)
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return domain.HistoricalSnapshotBatch{}, err
 	}
 	return domain.HistoricalSnapshotBatch{
-		Origin:                      origin,
-		OriginData:                  originData,
-		Portfolio:                   portfolio,
-		AccountStateObservations:    accountObservations,
-		InstrumentStateObservations: instrumentStateObservations,
-		HoldingStateObservations:    holdingStateObservations,
-		InstrumentPreferenceFacts:   instrumentPreferences,
-		FXPreferenceFacts:           fxPreferences,
-		FXPreferences:               currentFXPreferences,
-		Activities:                  activities,
-		InstrumentQuoteFacts:        instrumentQuotes,
-		FXQuoteFacts:                fxQuotes,
+		Origin:                         origin,
+		OriginData:                     originData,
+		Portfolio:                      portfolio,
+		AccountStateObservations:       accountObservations,
+		InstrumentStateObservations:    instrumentStateObservations,
+		HoldingStateObservations:       holdingStateObservations,
+		InstrumentPreferenceFacts:      instrumentPreferences,
+		InstrumentProviderBindingFacts: instrumentProviderBindings,
+		FXPreferenceFacts:              fxPreferences,
+		FXPreferences:                  currentFXPreferences,
+		Activities:                     activities,
+		InstrumentQuoteFacts:           instrumentQuotes,
+		FXQuoteFacts:                   fxQuotes,
+		InputGeneration:                generation,
+		ResolverPolicyVersion:          resolverPolicy.String,
 	}, nil
 }

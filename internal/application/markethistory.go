@@ -25,9 +25,10 @@ type DateRange struct {
 type PriceBasis string
 
 const (
-	PriceBasisTiingoRawClose PriceBasis = "tiingo_raw_close_v1"
-	PriceBasisYahooClose     PriceBasis = "yahoo_close_unverified"
-	PriceBasisUnsupported    PriceBasis = "unsupported"
+	PriceBasisTiingoRawClose       PriceBasis = "tiingo_raw_close_v1"
+	PriceBasisYahooClose           PriceBasis = domain.YahooRawClosePriceBasis
+	PriceBasisYahooCloseUnverified PriceBasis = "yahoo_close_unverified"
+	PriceBasisUnsupported          PriceBasis = "unsupported"
 )
 
 type TimestampBasis string
@@ -225,7 +226,10 @@ func RefuseFailClosedInstrumentHistory(outcome MappingOutcome[InstrumentDailyObs
 		if isTiingoAdapter(outcome.Batch.Evidence.Adapter) && observation.PriceBasis != PriceBasisTiingoRawClose {
 			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
 		}
-		if observation.PriceBasis == PriceBasisYahooClose {
+		if observation.PriceBasis == PriceBasisYahooCloseUnverified {
+			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
+		}
+		if strings.Contains(strings.ToLower(outcome.Batch.Evidence.Adapter), "yahoo") && observation.PriceBasis != PriceBasisYahooClose {
 			return failClosedPersistError("unsupported_price_basis", "unsupported_price_basis")
 		}
 	}

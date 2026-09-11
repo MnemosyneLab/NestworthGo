@@ -258,21 +258,17 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 		preview.EstimatedRequestCount += len(capped)
 	}
 	if request.Scope != SyncScopeInstrument {
-		if plan.ManualFX {
-			preview.Unresolved = append(preview.Unresolved, SyncBlocker{TargetKey: "fx", Code: "manual", Reason: "manual_fx"})
-		} else {
-			fxRanges, fxBlockers := s.planFXHistoryRanges(ctx, household.ID, plan, request)
-			preview.Unresolved = append(preview.Unresolved, fxBlockers...)
-			preview.FXTargets = len(fxRanges)
-			preview.FetchRanges += len(fxRanges)
-			preview.EstimatedRequestCount += len(fxRanges)
-		}
+		fxRanges, fxBlockers := s.planFXHistoryRanges(ctx, household.ID, plan, request)
+		preview.Unresolved = append(preview.Unresolved, fxBlockers...)
+		preview.FXTargets = len(fxRanges)
+		preview.FetchRanges += len(fxRanges)
+		preview.EstimatedRequestCount += len(fxRanges)
 	}
 	if request.Scope != SyncScopeFX {
 		preview.LatestInstrumentCount = len(instruments)
 		preview.EstimatedRequestCount += len(instruments)
 	}
-	if request.Scope != SyncScopeInstrument && !plan.ManualFX {
+	if request.Scope != SyncScopeInstrument {
 		prefs, prefErr := s.repository.ListFXPreferences(ctx, household.ID)
 		if prefErr != nil {
 			return SyncPlanPreview{}, prefErr
@@ -401,6 +397,16 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 	if origin == "" || end == "" || origin > end {
 		return nil, nil
 	}
+	coverage, err := s.repository.ListFXHistoryCoverage(ctx, householdID)
+	if err != nil {
+		return nil, []SyncBlocker{{TargetKey: "fx", Code: string(domain.ErrUnavailable), Reason: "fx_coverage"}}
+	}
+	byPair := make(map[string]domain.FXHistoryCoverage, len(coverage))
+	for _, item := range coverage {
+		if strings.TrimSpace(item.ProviderKey) == providerKey && item.SourcePolicyVersion == fxSourcePolicy(providerKey) {
+			byPair[fxPairKey(item.BaseCurrency, item.QuoteCurrency)] = item
+		}
+	}
 	for _, preference := range prefs {
 		if preference.SourceKind != domain.QuoteSourceProvider {
 			continue
@@ -408,8 +414,43 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 		if request.Scope == SyncScopeFX && !fxPreferenceMatches(preference, request) {
 			continue
 		}
-		rng := DateRange{Start: MarketDate(origin), End: MarketDate(end)}
-		capped := CapHistoryRanges([]DateRange{rng}, maxDays)
+		item := byPair[fxPairKey(preference.CurrencyA, preference.CurrencyB)]
+		start := origin
+		closes := make([]domain.OracleClose, 0, len(item.DailyReferenceDates))
+		for _, date := range item.DailyReferenceDates {
+			closes = append(closes, domain.OracleClose{MarketDate: date})
+		}
+		if anchor, missing := domain.FindOpeningAnchor(origin, closes); !missing && anchor != "" {
+			start = anchor
+		} else if windows := domain.OpeningAnchorLookbackWindows(); len(windows) > 0 {
+			parsed, parseErr := time.Parse("2006-01-02", origin)
+			if parseErr != nil {
+				blockers = append(blockers, SyncBlocker{TargetKey: fxIdentityKey(FXMarketIdentity{BaseCurrency: preference.CurrencyA, QuoteCurrency: preference.CurrencyB}), Code: string(domain.ErrValidation), Reason: "invalid_origin"})
+				continue
+			}
+			start = parsed.AddDate(0, 0, -windows[len(windows)-1]).Format("2006-01-02")
+		}
+		dates, dateErr := domain.InclusiveMarketDates(start, end)
+		if dateErr != nil {
+			blockers = append(blockers, SyncBlocker{TargetKey: fxIdentityKey(FXMarketIdentity{BaseCurrency: preference.CurrencyA, QuoteCurrency: preference.CurrencyB}), Code: string(domain.ErrValidation), Reason: "invalid_range"})
+			continue
+		}
+		closeSet := indexStrings(item.DailyReferenceDates)
+		noObsSet := indexStrings(item.NoObservationDates)
+		fetchDates := make([]string, 0)
+		for _, date := range dates {
+			label := string(date)
+			decision := domain.DecideHistoryFetch(domain.HistoryFetchInput{
+				Date: label, LastFinalized: end, Now: s.clock(), ForceRecheck: request.ForceRecheck,
+				HasClose: hasString(closeSet, label), CloseFetchedAt: item.DailyReferenceFetchedAt[label],
+				HasNoObservation: hasString(noObsSet, label), NoObservationExpiresAt: item.NoObservationExpiresAt[label], NoObservationHasExpiry: !item.NoObservationExpiresAt[label].IsZero(), NoObservationCheckedAt: item.NoObservationCheckedAt[label],
+			})
+			if decision.Action == domain.HistoryFetch {
+				fetchDates = append(fetchDates, label)
+			}
+		}
+		ranges := dateRangesFromDates(fetchDates)
+		capped := CapHistoryRanges(ranges, maxDays)
 		for _, item := range capped {
 			tasks = append(tasks, fxHistoryTask{
 				identity: FXMarketIdentity{ProviderKey: providerKey, BaseCurrency: preference.CurrencyA, QuoteCurrency: preference.CurrencyB},
@@ -418,6 +459,18 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 		}
 	}
 	return tasks, blockers
+}
+
+func fxSourcePolicy(providerKey string) string {
+	if strings.EqualFold(strings.TrimSpace(providerKey), FrankfurterProviderKey) {
+		return domain.FrankfurterV2BlendedPolicy
+	}
+	return strings.TrimSpace(providerKey)
+}
+
+func hasString(values map[string]struct{}, value string) bool {
+	_, ok := values[value]
+	return ok
 }
 
 type fxHistoryTask struct {

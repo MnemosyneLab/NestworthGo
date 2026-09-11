@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/secrets"
 	appsettings "github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/settings"
@@ -173,5 +174,41 @@ func TestSettingsDTOUsesCamelCaseWireKeys(t *testing.T) {
 		if strings.Contains(encoded, `"`+key+`"`) {
 			t.Fatalf("payload = %s, contains persisted snake_case key %q", encoded, key)
 		}
+	}
+}
+
+func TestTiingoKeySessionOnlyConfigurationNeverReturnsTheSecret(t *testing.T) {
+	store := secrets.NewUnavailableStore()
+	service := settings.NewService(appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json")), nil, store)
+
+	missing, err := service.TiingoKeyStatus()
+	if err != nil {
+		t.Fatalf("TiingoKeyStatus before save: %v", err)
+	}
+	if missing.Configured || missing.Status != application.SecretStatusUnavailable {
+		t.Fatalf("missing status = %+v", missing)
+	}
+
+	saved, err := service.SaveTiingoAPIKey("  session-test-key  ")
+	if err != nil {
+		t.Fatalf("SaveTiingoAPIKey: %v", err)
+	}
+	if !saved.Configured || !saved.SessionOnly || saved.Status != application.SecretStatusSessionOnly {
+		t.Fatalf("saved status = %+v", saved)
+	}
+	encoded, err := json.Marshal(saved)
+	if err != nil {
+		t.Fatalf("marshal saved status: %v", err)
+	}
+	if strings.Contains(string(encoded), "session-test-key") {
+		t.Fatal("Tiingo key leaked through the status DTO")
+	}
+
+	deleted, err := service.DeleteTiingoAPIKey()
+	if err != nil {
+		t.Fatalf("DeleteTiingoAPIKey: %v", err)
+	}
+	if deleted.Configured || deleted.Status != application.SecretStatusUnavailable {
+		t.Fatalf("deleted status = %+v", deleted)
 	}
 }

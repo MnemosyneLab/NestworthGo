@@ -16,8 +16,9 @@ import (
 )
 
 type Service struct {
-	store *settings.Store
-	app   *application.Service
+	store       *settings.Store
+	app         *application.Service
+	secretStore application.SecretStore
 }
 
 // SettingsDTO is the Wails wire contract. The persisted settings.Settings
@@ -42,6 +43,14 @@ type SettingsDTO struct {
 	QuoteCacheTTL     string              `json:"quoteCacheTTL"`
 }
 
+// TiingoKeyStatusDTO exposes only derived secret-store state. The key itself
+// never crosses the Wails boundary and is never written to settings JSON.
+type TiingoKeyStatusDTO struct {
+	Status      application.SecretStatus `json:"status"`
+	Configured  bool                     `json:"configured"`
+	SessionOnly bool                     `json:"sessionOnly"`
+}
+
 func fromSettings(value settings.Settings) SettingsDTO {
 	return SettingsDTO{
 		SchemaVersion: value.SchemaVersion, Appearance: value.Appearance, Accent: value.Accent,
@@ -64,8 +73,49 @@ func (value SettingsDTO) toSettings() settings.Settings {
 	}
 }
 
-func NewService(store *settings.Store, app *application.Service) *Service {
-	return &Service{store: store, app: app}
+func NewService(store *settings.Store, app *application.Service, secretStores ...application.SecretStore) *Service {
+	service := &Service{store: store, app: app}
+	if len(secretStores) > 0 {
+		service.secretStore = secretStores[0]
+	}
+	return service
+}
+
+func (s *Service) TiingoKeyStatus() (TiingoKeyStatusDTO, error) {
+	if s.secretStore == nil {
+		return TiingoKeyStatusDTO{Status: application.SecretStatusUnavailable}, nil
+	}
+	status, err := s.secretStore.Status(context.Background(), application.TiingoSecretRef())
+	if err != nil {
+		return TiingoKeyStatusDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "Tiingo key status could not be read"})
+	}
+	return tiingoKeyStatus(status), nil
+}
+
+func (s *Service) SaveTiingoAPIKey(value string) (TiingoKeyStatusDTO, error) {
+	if s.secretStore == nil {
+		return TiingoKeyStatusDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "secret storage is unavailable"})
+	}
+	status, err := s.secretStore.Put(context.Background(), application.TiingoSecretRef(), []byte(strings.TrimSpace(value)))
+	if err != nil {
+		return TiingoKeyStatusDTO{}, apierror.Wrap(err)
+	}
+	return tiingoKeyStatus(status), nil
+}
+
+func (s *Service) DeleteTiingoAPIKey() (TiingoKeyStatusDTO, error) {
+	if s.secretStore == nil {
+		return TiingoKeyStatusDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "secret storage is unavailable"})
+	}
+	status, err := s.secretStore.Delete(context.Background(), application.TiingoSecretRef())
+	if err != nil {
+		return TiingoKeyStatusDTO{}, apierror.Wrap(err)
+	}
+	return tiingoKeyStatus(status), nil
+}
+
+func tiingoKeyStatus(status application.SecretStatus) TiingoKeyStatusDTO {
+	return TiingoKeyStatusDTO{Status: status, Configured: application.TiingoKeyConfigured(status), SessionOnly: status == application.SecretStatusSessionOnly}
 }
 
 // Load returns the persisted preferences, or internal/settings' documented

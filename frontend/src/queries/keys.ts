@@ -30,6 +30,7 @@ export const queryKeys = {
     all: ["settings"] as const,
     supportedCurrencies: ["settings", "supportedCurrencies"] as const,
     fxProviders: ["settings", "fxProviders"] as const,
+    tiingoKey: ["settings", "tiingoKey"] as const,
   },
   directory: {
     all: ["directory"] as const,

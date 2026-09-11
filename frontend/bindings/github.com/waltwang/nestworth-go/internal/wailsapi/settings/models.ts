@@ -3,6 +3,9 @@
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as application$0 from "../../application/models.js";
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as settings$0 from "../../settings/models.js";
 
 /**
@@ -27,4 +30,14 @@ export interface SettingsDTO {
     "windowHeight": number;
     "fxProvider": string;
     "quoteCacheTTL": string;
+}
+
+/**
+ * TiingoKeyStatusDTO exposes only derived secret-store state. The key itself
+ * never crosses the Wails boundary and is never written to settings JSON.
+ */
+export interface TiingoKeyStatusDTO {
+    "status": application$0.SecretStatus;
+    "configured": boolean;
+    "sessionOnly": boolean;
 }

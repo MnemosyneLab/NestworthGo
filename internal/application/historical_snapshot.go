@@ -27,8 +27,14 @@ type historicalQuoteCache struct {
 func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate string) (domain.DailyValuationSnapshot, bool, error) {
 	var origin *domain.HistoryOrigin
 	var err error
+	expectedGeneration := -1
+	resolverPolicy := domain.MarketDataResolverPolicy
 	if batch, ok := ctx.Value(historicalSnapshotBatchKey{}).(*domain.HistoricalSnapshotBatch); ok && batch != nil {
 		origin = &batch.Origin
+		expectedGeneration = batch.InputGeneration
+		if batch.ResolverPolicyVersion != "" {
+			resolverPolicy = batch.ResolverPolicyVersion
+		}
 	} else {
 		origin, err = s.HistoryOrigin(ctx)
 		if err != nil {
@@ -36,6 +42,14 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 		}
 		if origin == nil {
 			return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before building a snapshot"}
+		}
+		state, stateErr := s.repository.DailySnapshotState(ctx, origin.HouseholdID)
+		if stateErr != nil {
+			return domain.DailyValuationSnapshot{}, false, stateErr
+		}
+		expectedGeneration = state.InputGeneration
+		if state.ResolverPolicyVersion != "" {
+			resolverPolicy = state.ResolverPolicyVersion
 		}
 	}
 	location, err := time.LoadLocation(origin.Timezone)
@@ -67,6 +81,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	// daily balance-sheet snapshot, value every account and sign liabilities.
 	valuation := NewValuationService(s.repository, func() time.Time { return cutoff })
 	valuation.SetFXProviderKey(s.FXProviderKey)
+	valuation.SetHistorical(true)
 	valuedAccounts, missing, err := valuation.ValueAccounts(portfolio)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
@@ -146,13 +161,17 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 		return domain.DailyValuationSnapshot{}, false, err
 	}
 	hash := snapshotContentHash(localDate, cutoff, assetsMoney, liabilitiesMoney, netWorthMoney, items)
-	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: baseCurrency, Complete: complete && eligibleMissing == 0, ComponentCount: len(items), MissingCount: eligibleMissing, GenerationReason: "manual", CreatedAt: s.clock(), Items: items}
+	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: baseCurrency, Complete: complete && eligibleMissing == 0, ComponentCount: len(items), MissingCount: eligibleMissing, GenerationReason: "manual", CreatedAt: s.clock(), InputGeneration: expectedGeneration, ResolverPolicyVersion: resolverPolicy, Items: items}
 	var appended bool
 	ctx, unlock, err := s.beginWrite(ctx)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
 	}
-	appended, err = s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
+	if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok && expectedGeneration >= 0 {
+		appended, err = generationRepo.SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx, snapshot, s.clock(), expectedGeneration)
+	} else {
+		appended, err = s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
+	}
 	unlock()
 	if err == nil && appended {
 		s.invalidateAnalysis()

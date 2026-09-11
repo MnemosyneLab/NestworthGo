@@ -139,6 +139,15 @@ type SnapshotRepository interface {
 	ListFXHistoryCoverage(context.Context, domain.HouseholdID) ([]domain.FXHistoryCoverage, error)
 }
 
+// GenerationAwareSnapshotRepository makes snapshot publication conditional
+// on the generation captured by the same read used for reconstruction. The
+// optional interface keeps small in-memory test repositories source-compatible
+// while SQLite uses the atomic implementation.
+type GenerationAwareSnapshotRepository interface {
+	SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(context.Context, domain.DailyValuationSnapshot, time.Time, int) (bool, error)
+	CompleteDailySnapshotRangeAtGeneration(context.Context, domain.HouseholdID, string, time.Time, int) error
+}
+
 // DatabaseAdminRepository is the live-file snapshot and close path used by
 // backup and restore. It never copies a live main SQLite file.
 type DatabaseAdminRepository interface {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -73,15 +74,99 @@ func QualifyYahooHistory(meta vnextFixtureMeta, body []byte) (application.Mappin
 			Reason: "unsupported_price_basis",
 		}, nil
 	}
-	if !meta.PriceBasisVerified {
+	if !meta.PriceBasisVerified || strings.TrimSpace(meta.PriceBasis) != string(application.PriceBasisYahooClose) {
 		return application.MappingOutcome[application.InstrumentDailyObservation]{
 			Status: application.MappingUnsupported,
 			Reason: "unsupported_price_basis",
 		}, nil
 	}
+	if strings.TrimSpace(meta.SessionPolicy) != domain.USEquityRegularClosePolicy || strings.TrimSpace(meta.SessionKind) != string(domain.SessionKindRegular) || strings.TrimSpace(meta.CloseClock) != domain.USEquityRegularCloseClock {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{
+			Status: application.MappingUnsupported,
+			Reason: "session_policy_unverified",
+		}, nil
+	}
+	if strings.TrimSpace(result.Meta.Symbol) != "" && !strings.EqualFold(strings.TrimSpace(result.Meta.Symbol), strings.TrimSpace(meta.ProviderSymbol)) {
+		return invalidInstrumentOutcome(domain.HistoryCompleteness{Status: "invalid"}, "provider_symbol_mismatch"), nil
+	}
+	if strings.TrimSpace(result.Meta.Currency) != "" && !strings.EqualFold(strings.TrimSpace(result.Meta.Currency), strings.TrimSpace(meta.QuoteCurrency)) {
+		return invalidInstrumentOutcome(domain.HistoryCompleteness{Status: "invalid"}, "quote_currency_mismatch"), nil
+	}
+	if len(result.Timestamp) != len(result.Indicators.Quote[0].Close) {
+		return invalidInstrumentOutcome(domain.HistoryCompleteness{Status: "invalid"}, "misaligned_history"), nil
+	}
+	timezone := strings.TrimSpace(result.Meta.ExchangeTimezoneName)
+	if timezone == "" {
+		timezone = strings.TrimSpace(meta.SessionTimezone)
+	}
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUncertain, Reason: "session_timezone_unknown"}, nil
+	}
+	start, startErr := domain.ParseMarketDate(meta.RequestedRange.Start)
+	end, endErr := domain.ParseMarketDate(meta.RequestedRange.End)
+	if startErr != nil || endErr != nil || start > end {
+		return invalidInstrumentOutcome(domain.HistoryCompleteness{Status: "invalid"}, "malformed_requested_range"), nil
+	}
+	completeness, err := completenessFor(meta, false)
+	if err != nil {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
+	}
+	observations := make([]application.InstrumentDailyObservation, 0, len(result.Timestamp))
+	seenDates := map[string]struct{}{}
+	for index, timestamp := range result.Timestamp {
+		raw := result.Indicators.Quote[0].Close[index]
+		if isJSONNull(raw) || len(raw) == 0 {
+			continue
+		}
+		marketDate := time.Unix(timestamp, 0).In(location).Format("2006-01-02")
+		if marketDate < string(start) || marketDate > string(end) {
+			return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUnsupported, Reason: "provider_date_outside_requested_range"}, nil
+		}
+		if _, duplicate := seenDates[marketDate]; duplicate {
+			return invalidInstrumentOutcome(completeness, "duplicate_market_date"), nil
+		}
+		seenDates[marketDate] = struct{}{}
+		if !dateInRanges(marketDate, completeness.VerifiedRanges) {
+			continue
+		}
+		lexeme, numberErr := jsonNumberLexeme(raw)
+		if numberErr != nil {
+			return invalidInstrumentOutcome(completeness, "malformed_close"), nil
+		}
+		price, priceErr := domain.ParseUnitPrice(lexeme)
+		if priceErr != nil {
+			return invalidInstrumentOutcome(completeness, "malformed_close"), nil
+		}
+		evidence := sessionEvidence(meta)
+		evidence.Timezone = timezone
+		if evidence.Kind == "" {
+			evidence.Kind = domain.SessionKindRegular
+		}
+		session, sessionErr := domain.ResolveEquitySessionClose(marketDate, meta.Market, evidence)
+		if sessionErr != nil {
+			return application.MappingOutcome[application.InstrumentDailyObservation]{}, sessionErr
+		}
+		if session.Status != "mapped" {
+			status := application.MappingUncertain
+			if session.Status == "unsupported" {
+				status = application.MappingUnsupported
+			}
+			return application.MappingOutcome[application.InstrumentDailyObservation]{Status: status, Reason: session.Reason}, nil
+		}
+		observations = append(observations, application.InstrumentDailyObservation{
+			MarketDate: application.MarketDate(marketDate), Value: price.Canonical(), Currency: meta.QuoteCurrency,
+			ValueEffectiveAt: session.CloseInstant, ProviderTimestamp: time.Unix(timestamp, 0).UTC(),
+			Kind: application.InstrumentObservationClose, PriceBasis: application.PriceBasisYahooClose,
+			TimestampBasis: application.TimestampBasisSessionClose,
+		})
+	}
 	return application.MappingOutcome[application.InstrumentDailyObservation]{
-		Status: application.MappingUnsupported,
-		Reason: "yahoo_history_not_qualified",
+		Status: mappingStatusFor(completeness, application.MappingMapped), Reason: completeness.Reason,
+		Batch: application.HistoryBatch[application.InstrumentDailyObservation]{
+			Observations: observations, VerifiedRanges: toAppRanges(completeness.VerifiedRanges), PendingRanges: toAppRanges(completeness.PendingRanges), UncertainRanges: toAppRanges(completeness.UncertainRanges),
+			Evidence: application.ResponseEvidence{Adapter: "yahoo_chart", AdapterVersion: "vnext-qualify-2", SourcePolicy: string(application.PriceBasisYahooClose), RequestIdentity: meta.FixtureID, PriceBasis: application.PriceBasisYahooClose, TimestampBasis: application.TimestampBasisSessionClose, SessionPolicy: meta.SessionPolicy},
+		},
 	}, nil
 }
 
@@ -94,7 +179,11 @@ func yahooHistoryRequestMeta(identity application.InstrumentMarketIdentity, rng 
 		QuoteCurrency:      identity.QuoteCurrency.String(),
 		Market:             identity.Market,
 		PriceBasis:         string(application.PriceBasisYahooClose),
-		PriceBasisVerified: false,
+		PriceBasisVerified: true,
+		SessionPolicy:      domain.USEquityRegularClosePolicy,
+		SessionKind:        string(domain.SessionKindRegular),
+		SessionTimezone:    domain.USEquitySessionTimezone,
+		CloseClock:         domain.USEquityRegularCloseClock,
 		Clock:              time.Now().UTC().Format(time.RFC3339),
 	}
 	meta.RequestedRange.Start = string(rng.Start)
@@ -106,3 +195,12 @@ func yahooHistoryRequestMeta(identity application.InstrumentMarketIdentity, rng 
 }
 
 func stringsEmpty(value string) bool { return len(value) == 0 }
+
+func dateInRanges(date string, ranges []domain.InclusiveDateRange) bool {
+	for _, rng := range ranges {
+		if date >= rng.Start && date <= rng.End {
+			return true
+		}
+	}
+	return false
+}

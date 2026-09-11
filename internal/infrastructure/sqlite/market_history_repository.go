@@ -53,7 +53,7 @@ func (r *Repository) CommitInstrumentHistory(ctx context.Context, request Instru
 		if marketCode == "" && market.Valid {
 			marketCode = market.String
 		}
-		revision, err := syncInstrumentProviderBindingTx(ctx, tx, request.InstrumentID.String(), request.ProviderKey, request.ProviderSymbol, marketCode, quoteCurrency.String, fetchedAt)
+		revision, _, err := syncInstrumentProviderBindingTx(ctx, tx, request.InstrumentID.String(), request.ProviderKey, request.ProviderSymbol, marketCode, quoteCurrency.String, fetchedAt)
 		if err != nil {
 			return err
 		}
@@ -465,21 +465,28 @@ func noObservationExpiry(effectiveDate string, checkedAt time.Time) *time.Time {
 
 func bumpHistoryInputGenerationTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, dirtyFrom, dirtyTo string, at time.Time) (int, error) {
 	var timezone, startedAt string
+	generationAdvanced := false
 	if err := tx.QueryRowContext(ctx, `SELECT timezone, started_at FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&timezone, &startedAt); err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
 			return 0, err
 		}
 	} else {
 		if dirtyFrom != "" {
-			if err := markHistoryDirtyTx(ctx, tx, householdID, dirtyFrom, timezone, at); err != nil {
+			var err error
+			generationAdvanced, err = markHistoryDirtyAndAdvanceGenerationTx(ctx, tx, householdID, dirtyFrom, timezone, at)
+			if err != nil {
 				return 0, err
 			}
 		}
 		dirtyTo = expandDirtyToLocalBound(dirtyTo, timezone, startedAt, at)
 	}
+	generationExpression := "input_generation = input_generation + 1"
+	if generationAdvanced {
+		generationExpression = "input_generation = input_generation"
+	}
 	result, err := tx.ExecContext(ctx, `
 		UPDATE history_snapshot_state
-		SET input_generation = input_generation + 1,
+		SET `+generationExpression+`,
 		    resolver_policy_version = CASE WHEN resolver_policy_version IS NULL OR resolver_policy_version = '' THEN ? ELSE resolver_policy_version END,
 		    dirty_to = CASE WHEN ? = '' THEN dirty_to WHEN dirty_to IS NULL OR dirty_to < ? THEN ? ELSE dirty_to END,
 		    updated_at = ?

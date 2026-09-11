@@ -24,6 +24,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	var instrumentStateObservations []domain.InstrumentStateObservation
 	var holdingStateObservations []domain.HoldingStateObservation
 	var fxObservations []domain.FXPreferenceObservation
+	var instrumentProviderBindings []domain.InstrumentProviderBindingRevision
 	var activities []domain.Activity
 	batch := r.batch
 	var err error
@@ -32,6 +33,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		originData = batch.OriginData
 		accountObservations = batch.AccountStateObservations
 		instrumentObservations = batch.InstrumentPreferenceFacts
+		instrumentProviderBindings = batch.InstrumentProviderBindingFacts
 		instrumentStateObservations = batch.InstrumentStateObservations
 		holdingStateObservations = batch.HoldingStateObservations
 		fxObservations = batch.FXPreferenceFacts
@@ -233,6 +235,27 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		} else {
 			instrument.PreferenceObservationID = nil
 		}
+		if len(instrumentProviderBindings) > 0 && instrument.QuoteSource == domain.QuoteSourceProvider {
+			binding := latestInstrumentProviderBindingRevision(instrumentProviderBindings, instrument.ID, cutoff)
+			if binding == nil || !binding.Enabled {
+				instrument.ProviderKey = nil
+				instrument.ProviderSymbol = nil
+				instrument.MarketCode = nil
+				instrument.ProviderBindingRevision = 0
+			} else {
+				providerKey := binding.ProviderKey
+				providerSymbol := binding.ProviderSymbol
+				instrument.ProviderKey = &providerKey
+				instrument.ProviderSymbol = &providerSymbol
+				if binding.Market != "" {
+					market := binding.Market
+					instrument.MarketCode = &market
+				} else {
+					instrument.MarketCode = nil
+				}
+				instrument.ProviderBindingRevision = binding.BindingRevision
+			}
+		}
 		filteredInstruments = append(filteredInstruments, instrument)
 	}
 	snapshot.Instruments = filteredInstruments
@@ -300,9 +323,11 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 			return domain.PortfolioSnapshot{}, quoteErr
 		}
 		for _, quote := range quotes {
-			if domain.ObservationEligible(quote.QuotedAt, cutoff) {
-				snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, quote)
-			}
+			// A correction may be fetched after the household day closed while
+			// its economic effective time is historical. Keep all immutable facts
+			// here; the historical valuation resolver applies the cutoff to
+			// ValueEffectiveAt and rejects realtime/legacy observations.
+			snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, quote)
 		}
 	}
 	var fxQuotes []domain.FXQuote
@@ -315,9 +340,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		return domain.PortfolioSnapshot{}, err
 	}
 	for _, quote := range fxQuotes {
-		if domain.ObservationEligible(quote.QuotedAt, cutoff) {
-			snapshot.FXQuotes = append(snapshot.FXQuotes, quote)
-		}
+		snapshot.FXQuotes = append(snapshot.FXQuotes, quote)
 	}
 	preferences := snapshot.FXPreferences
 	if batch != nil {
@@ -384,6 +407,33 @@ func latestInstrumentObservation(observations []domain.InstrumentPreferenceObser
 		func(observation *domain.InstrumentPreferenceObservation) time.Time { return observation.CreatedAt },
 		func(observation *domain.InstrumentPreferenceObservation) string { return observation.ID.String() },
 	)
+}
+
+func latestInstrumentProviderBindingRevision(bindings []domain.InstrumentProviderBindingRevision, instrumentID domain.InstrumentID, cutoff time.Time) *domain.InstrumentProviderBindingRevision {
+	var selected *domain.InstrumentProviderBindingRevision
+	for index := range bindings {
+		candidate := &bindings[index]
+		if candidate.InstrumentID != instrumentID || candidate.EffectiveFrom.After(cutoff) {
+			continue
+		}
+		if selected == nil || instrumentProviderBindingLater(*candidate, *selected) {
+			selected = candidate
+		}
+	}
+	return selected
+}
+
+func instrumentProviderBindingLater(candidate, selected domain.InstrumentProviderBindingRevision) bool {
+	if !candidate.EffectiveFrom.Equal(selected.EffectiveFrom) {
+		return candidate.EffectiveFrom.After(selected.EffectiveFrom)
+	}
+	if !candidate.CreatedAt.Equal(selected.CreatedAt) {
+		return candidate.CreatedAt.After(selected.CreatedAt)
+	}
+	if candidate.BindingRevision != selected.BindingRevision {
+		return candidate.BindingRevision > selected.BindingRevision
+	}
+	return candidate.ProviderKey > selected.ProviderKey
 }
 
 func latestInstrumentStateObservation(observations []domain.InstrumentStateObservation, instrumentID domain.InstrumentID, cutoff time.Time) *domain.InstrumentStateObservation {

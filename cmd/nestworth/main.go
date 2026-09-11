@@ -76,6 +76,11 @@ func main() {
 
 func run() error {
 	store := settings.DefaultStore()
+	// Keep one production secret store instance shared by the Wails settings
+	// API and Tiingo provider. It uses macOS Keychain when available and falls
+	// back to an explicitly session-only value when the native store is
+	// unavailable or locked; the key never enters SQLite or settings.json.
+	secretStore := secrets.NewProductionStore()
 	preference, loadErr := store.Load()
 	if loadErr != nil {
 		slog.Warn("could not load saved settings; using defaults")
@@ -120,7 +125,7 @@ func run() error {
 			registry := nestworthapp.NewMarketDataRegistryWithDefault(nestworthapp.FrankfurterProviderKey,
 				marketdata.NewFrankfurterProvider(nil),
 				marketdata.NewYahooChartProvider(nil),
-				marketdata.NewTiingoProvider(secrets.NewMemoryStore(), nil),
+				marketdata.NewTiingoProvider(secretStore, nil),
 			)
 			repo := sqlite.NewRepository(database)
 			service = nestworthapp.NewService(repo, registry)
@@ -170,7 +175,7 @@ func run() error {
 	app := application.New(application.Options{
 		Name:        version.Name,
 		Description: version.Description,
-		Services:    services(service, store, recoveryService, dataService, marketdataService, appService),
+		Services:    services(service, store, secretStore, recoveryService, dataService, marketdataService, appService),
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(webassets.Dist),
 		},
@@ -215,7 +220,7 @@ func run() error {
 // only AppService and CatalogService are registered so the frontend can
 // render BlockedStartupPage from Startup() without calling unregistered
 // services. Catalog is always available because it is a static vocabulary.
-func services(service *nestworthapp.Service, store *settings.Store, recovery *wailsrecovery.Service, data *wailsdata.Service, marketdataService *wailsmarketdata.Service, appService *wailsapp.Service) []application.Service {
+func services(service *nestworthapp.Service, store *settings.Store, secretStore nestworthapp.SecretStore, recovery *wailsrecovery.Service, data *wailsdata.Service, marketdataService *wailsmarketdata.Service, appService *wailsapp.Service) []application.Service {
 	registered := []application.Service{
 		application.NewService(appService),
 		application.NewService(wailscatalog.NewService()),
@@ -239,7 +244,7 @@ func services(service *nestworthapp.Service, store *settings.Store, recovery *wa
 		application.NewService(wailsanalysis.NewService(service)),
 		application.NewService(wailshistory.NewService(service)),
 		application.NewService(marketdataService),
-		application.NewService(wailssettings.NewService(store, service)),
+		application.NewService(wailssettings.NewService(store, service, secretStore)),
 		application.NewService(data),
 	)
 }

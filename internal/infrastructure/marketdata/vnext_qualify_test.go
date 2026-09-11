@@ -153,6 +153,33 @@ func TestYahooHistoryQualificationStaysExplicit(t *testing.T) {
 	}
 }
 
+func TestYahooVerifiedHistoryMapsCloseWithSessionEvidence(t *testing.T) {
+	meta, body := mustLoadVNext(t, "providers/yahoo/aapl-history-split.json")
+	meta.RequestedRange.Start = "2025-06-10"
+	meta.RequestedRange.End = "2025-06-10"
+	meta.LastFinalizedMarketDate = "2025-06-10"
+	meta.PriceBasis = string(application.PriceBasisYahooClose)
+	meta.PriceBasisVerified = true
+
+	outcome, err := QualifyYahooHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Status != application.MappingMapped || len(outcome.Batch.Observations) != 1 {
+		t.Fatalf("outcome = %+v", outcome)
+	}
+	observation := outcome.Batch.Observations[0]
+	if observation.Value != "50" || observation.Kind != application.InstrumentObservationClose || observation.PriceBasis != application.PriceBasisYahooClose {
+		t.Fatalf("observation = %+v", observation)
+	}
+	if observation.ValueEffectiveAt.UTC().Format(time.RFC3339) != "2025-06-10T20:00:00Z" {
+		t.Fatalf("effective close = %s", observation.ValueEffectiveAt.UTC())
+	}
+	if outcome.Batch.Evidence.Adapter != "yahoo_chart" || outcome.Batch.Evidence.SourcePolicy != string(application.PriceBasisYahooClose) {
+		t.Fatalf("evidence = %+v", outcome.Batch.Evidence)
+	}
+}
+
 func TestFrankfurterV2MappingAndUnsupportedPairs(t *testing.T) {
 	meta, body := mustLoadVNext(t, "providers/frankfurter/usd-sgd-history.json")
 	outcome, err := QualifyFrankfurterHistory(meta, body)

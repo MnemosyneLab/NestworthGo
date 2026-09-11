@@ -19,7 +19,7 @@ import {
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
-import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies, useFXProviders, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
+import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies, useFXProviders, useTiingoKeyStatus, useSaveTiingoAPIKey, useDeleteTiingoAPIKey, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
@@ -42,11 +42,15 @@ export function SettingsPage() {
   const resetSettings = useResetSettings();
   const currencies = useSupportedCurrencies();
   const fxProviders = useFXProviders();
+  const tiingoKeyStatus = useTiingoKeyStatus();
+  const saveTiingoKey = useSaveTiingoAPIKey();
+  const deleteTiingoKey = useDeleteTiingoAPIKey();
   const catalog = useCatalog();
   const origin = useHistoryOrigin();
   const setAppearance = useUiStore((state) => state.setAppearance);
   const setAccent = useUiStore((state) => state.setAccent);
   const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
+  const [tiingoKey, setTiingoKey] = useState("");
   const pageChrome = <PageChrome pageId="settings" title={t("settings.title")} />;
 
   if (settings.isLoading) {
@@ -97,6 +101,16 @@ export function SettingsPage() {
         setDraftOverride(null);
         toast.success(t("settings.changesSaved"));
         applyLivePreferences(draft);
+      },
+    });
+  };
+
+  const submitTiingoKey = (event: React.FormEvent) => {
+    event.preventDefault();
+    saveTiingoKey.mutate(tiingoKey, {
+      onSuccess: () => {
+        setTiingoKey("");
+        toast.success(t("settings.tiingoKeySaved"));
       },
     });
   };
@@ -250,6 +264,53 @@ export function SettingsPage() {
           )}
         </div>
       </form>
+
+      <section className="max-w-2xl rounded-lg border border-border bg-card p-5" aria-labelledby="settings-market-data-title">
+        <h2 id="settings-market-data-title" className="font-medium text-foreground">
+          {t("settings.marketDataTitle")}
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{t("settings.marketDataDescription")}</p>
+        <form onSubmit={submitTiingoKey} className="mt-4 flex max-w-xl flex-col gap-2">
+          <Label htmlFor="settings-tiingo-key">{t("settings.tiingoKey")}</Label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              id="settings-tiingo-key"
+              type="password"
+              autoComplete="off"
+              value={tiingoKey}
+              onChange={(event) => setTiingoKey(event.target.value)}
+              placeholder={t("settings.tiingoKeyPlaceholder")}
+              className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button type="submit" disabled={!tiingoKey.trim() || saveTiingoKey.isPending}>
+              {saveTiingoKey.isPending ? t("common.pending") : t("settings.saveTiingoKey")}
+            </Button>
+          </div>
+            {tiingoKeyStatus.data?.configured ? (
+              <p className="text-sm text-success-foreground">
+                {tiingoKeyStatus.data.sessionOnly ? t("settings.tiingoKeySessionOnly") : t("settings.tiingoKeyConfigured")}
+              </p>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t("settings.tiingoKeyMissing")}</p>
+          )}
+          {tiingoKeyStatus.data?.configured && (
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={() => deleteTiingoKey.mutate()}
+              disabled={deleteTiingoKey.isPending}
+            >
+              {deleteTiingoKey.isPending ? t("common.pending") : t("settings.removeTiingoKey")}
+            </Button>
+          )}
+          {(saveTiingoKey.isError || deleteTiingoKey.isError || tiingoKeyStatus.isError) && (
+            <p role="alert" className="text-sm text-destructive">
+              {t("settings.tiingoKeyError")}
+            </p>
+          )}
+        </form>
+      </section>
 
       <section className="max-w-2xl rounded-lg border border-destructive/30 bg-destructive/5 p-5" aria-labelledby="settings-reset-title">
         <h2 id="settings-reset-title" className="font-medium text-foreground">
