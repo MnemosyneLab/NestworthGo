@@ -120,7 +120,7 @@ func TestE2ETiingoUSManualFXRepairProbe(t *testing.T) {
 	assertTrendAssets(t, trend, "2026-09-06", "3850.875")
 	assertTrendAssets(t, trend, "2026-09-07", "3850.875")
 	assertTrendAssets(t, trend, "2026-09-08", "3861")
-	assertTrendAssets(t, trend, "2026-09-09", "3850.875")
+	assertTrendIncomplete(t, trend, "2026-09-09")
 
 	again, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, complete, fetchedAt))
 	if err != nil {
@@ -358,6 +358,20 @@ func assertTrendAssets(t *testing.T, trend domain.NetWorthTrend, localDate, want
 		}
 		if point.Status != domain.TrendPointComplete {
 			t.Fatalf("analytics %s status = %s", localDate, point.Status)
+		}
+		return
+	}
+	t.Fatalf("analytics missing %s", localDate)
+}
+
+func assertTrendIncomplete(t *testing.T, trend domain.NetWorthTrend, localDate string) {
+	t.Helper()
+	for _, point := range trend.Points {
+		if point.LocalDate != localDate {
+			continue
+		}
+		if point.Assets != nil || point.Status != domain.TrendPointIncomplete || point.Complete {
+			t.Fatalf("analytics %s = assets=%v status=%s complete=%v, want incomplete", localDate, point.Assets, point.Status, point.Complete)
 		}
 		return
 	}

@@ -42,16 +42,3 @@ export interface CSVWarning {
     "code": string;
     "message": string;
 }
-
-export enum SecretStatus {
-    /**
-     * The Go zero value for the underlying type of the enum.
-     */
-    $zero = "",
-
-    SecretStatusMissing = "missing",
-    SecretStatusAvailable = "available",
-    SecretStatusUnavailable = "unavailable",
-    SecretStatusLocked = "locked",
-    SecretStatusSessionOnly = "session_only",
-};

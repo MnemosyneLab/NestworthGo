@@ -330,6 +330,63 @@ func TestHistoricalInstrumentQuoteSelectionRequiresCanonicalProvenance(t *testin
 	}
 }
 
+func TestHistoricalCarryForwardRequiresVerifiedCoverage(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	accountID := domain.NewAccountID()
+	instrumentID := domain.NewInstrumentID()
+	holdingID := domain.NewHoldingID()
+	provider := domain.TiingoProviderKey
+	market := "US"
+	quantity, err := domain.ParseQuantity("10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	price, err := domain.ParseUnitPrice("186")
+	if err != nil {
+		t.Fatal(err)
+	}
+	household := &domain.Household{ID: householdID, BaseCurrency: "USD"}
+	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "Historical asset", QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderBindingRevision: 1, MarketCode: &market}
+	account := domain.Account{ID: accountID, HouseholdID: householdID, Name: "Brokerage", TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD", BalanceSheetRole: domain.RoleAsset, IncludeInNetWorth: true}
+	holding := domain.Holding{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity}
+	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), ValueEffectiveAt: time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC), QuotedAt: time.Date(2026, 9, 4, 20, 1, 0, 0, time.UTC), BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)}
+	snapshot := domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{quote}}
+	cutoff := time.Date(2026, 9, 7, 23, 59, 59, 999000000, time.UTC)
+	valuation := NewValuationService(nil, func() time.Time { return cutoff })
+	valuation.SetHistorical(true)
+	accounts, _, err := valuation.ValueAccounts(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || accounts[0].Complete || len(accounts[0].MissingInputs) != 1 || accounts[0].MissingInputs[0].Kind != domain.MissingHistoryCoverage {
+		t.Fatalf("unqueried history = %+v", accounts)
+	}
+	if accounts[0].Components[0].BaseAmountExact != "1860" {
+		t.Fatalf("carry-forward amount = %s, want 1860", accounts[0].Components[0].BaseAmountExact)
+	}
+
+	snapshot.InstrumentHistoryCoverage = []domain.InstrumentHistoryCoverage{{
+		InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisTiingoRawClose),
+		CloseMarketDates: []string{"2026-09-04"}, NoObservationDates: []string{"2026-09-05", "2026-09-06", "2026-09-07"},
+	}}
+	accounts, _, err = valuation.ValueAccounts(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || !accounts[0].Complete || len(accounts[0].MissingInputs) != 0 {
+		t.Fatalf("verified no-observation history = %+v", accounts)
+	}
+
+	snapshot.InstrumentHistoryCoverage[0].UnverifiedDates = []string{"2026-09-07"}
+	accounts, _, err = valuation.ValueAccounts(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || accounts[0].Complete || len(accounts[0].MissingInputs) != 1 {
+		t.Fatalf("pending history = %+v", accounts)
+	}
+}
+
 func TestHistoricalFXQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	preference := domain.FXPreference{HouseholdID: householdID, CurrencyA: "SGD", CurrencyB: "USD", SourceKind: domain.QuoteSourceProvider}

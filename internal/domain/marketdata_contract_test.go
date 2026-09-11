@@ -52,13 +52,16 @@ func TestUnknownSessionTimingIsUncertain(t *testing.T) {
 	}
 }
 
-func TestUnsupportedMarketDoesNotGuessSession(t *testing.T) {
+func TestChineseMarketUsesShanghaiSession(t *testing.T) {
 	resolved, err := ResolveEquitySessionClose("2026-09-04", "CN", SessionEvidence{Kind: SessionKindRegular})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if resolved.Status != "unsupported" {
+	if resolved.Status != "mapped" || resolved.Policy != CNEquityRegularClosePolicy {
 		t.Fatalf("CN market = %#v", resolved)
+	}
+	if resolved.CloseInstant.UTC().Format(time.RFC3339) != "2026-09-04T07:00:00Z" {
+		t.Fatalf("CN close = %s, want Shanghai 15:00 close", resolved.CloseInstant.UTC())
 	}
 }
 

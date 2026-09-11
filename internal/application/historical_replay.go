@@ -30,6 +30,8 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	var err error
 	if batch != nil {
 		snapshot = batch.Portfolio
+		snapshot.InstrumentHistoryCoverage = batch.InstrumentHistoryCoverage
+		snapshot.FXHistoryCoverage = batch.FXHistoryCoverage
 		originData = batch.OriginData
 		accountObservations = batch.AccountStateObservations
 		instrumentObservations = batch.InstrumentPreferenceFacts
@@ -40,6 +42,14 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		activities = batch.Activities
 	} else {
 		snapshot, err = r.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+		if err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
+		snapshot.InstrumentHistoryCoverage, err = r.repository.ListInstrumentHistoryCoverage(ctx, origin.HouseholdID)
+		if err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
+		snapshot.FXHistoryCoverage, err = r.repository.ListFXHistoryCoverage(ctx, origin.HouseholdID)
 		if err != nil {
 			return domain.PortfolioSnapshot{}, err
 		}

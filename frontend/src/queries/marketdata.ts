@@ -154,25 +154,46 @@ const SYNC_EVENTS = [
 // happened to start the job. Keep one event subscription alive while the
 // workspace is mounted so navigating away from Market Data cannot orphan
 // cache invalidation.
-const syncEventClients = new Set<ReturnType<typeof useQueryClient>>();
-let syncEventCleanups: Array<() => void> = [];
+type SyncEventClientEntry = {
+	references: number;
+	cleanups: Array<() => void>;
+	cleaned: boolean;
+};
+
+const syncEventClients = new Map<ReturnType<typeof useQueryClient>, SyncEventClientEntry>();
 
 function subscribeToSyncEvents(queryClient: ReturnType<typeof useQueryClient>): () => void {
-	syncEventClients.add(queryClient);
-	if (syncEventClients.size === 1) {
-		syncEventCleanups = SYNC_EVENTS.map((name) =>
+	let entry = syncEventClients.get(queryClient);
+	if (entry) {
+		entry.references += 1;
+	} else {
+		entry = {
+			references: 1,
+			cleaned: false,
+			cleanups: SYNC_EVENTS.map((name) =>
 			Events.On(name, () => {
-				syncEventClients.forEach((client) => {
-					void client.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
-				});
+				void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
 			}),
-		);
+			),
+		};
+		syncEventClients.set(queryClient, entry);
 	}
+	const registeredEntry = entry;
+	let subscribed = true;
 	return () => {
-		syncEventClients.delete(queryClient);
-		if (syncEventClients.size === 0) {
-			syncEventCleanups.forEach((cleanup) => cleanup());
-			syncEventCleanups = [];
+		if (!subscribed) return;
+		subscribed = false;
+		const current = syncEventClients.get(queryClient);
+		if (current !== registeredEntry) {
+			return;
+		}
+		current.references -= 1;
+		if (current.references <= 0) {
+			syncEventClients.delete(queryClient);
+			if (!current.cleaned) {
+				current.cleaned = true;
+				current.cleanups.forEach((cleanup) => cleanup());
+			}
 		}
 	};
 }

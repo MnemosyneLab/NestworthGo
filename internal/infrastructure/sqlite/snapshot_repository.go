@@ -171,8 +171,17 @@ func (r *Repository) CompleteDailySnapshotRangeAtGeneration(ctx context.Context,
 }
 
 func completeDailySnapshotRangeTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, targetDate string, updatedAt time.Time, expectedGeneration int) error {
-	query := `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN NULL ELSE dirty_from END, dirty_to = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN NULL ELSE dirty_to END, updated_at = ? WHERE household_id = ?`
-	args := []any{targetDate, targetDate, formatTimestamp(updatedAt), householdID.String()}
+	nextDate, err := nextSnapshotDate(targetDate)
+	if err != nil {
+		return err
+	}
+	// Completing a bounded batch must only consume the dates that were actually
+	// rebuilt. In particular, dirty_from may already point at the next batch
+	// because SaveDailyValuationSnapshotAndMarkCompleted advanced it inside the
+	// same transaction. Never clear that remaining range just because the
+	// current batch ended before dirty_to.
+	query := `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL THEN NULL WHEN dirty_to IS NOT NULL AND dirty_to <= ? THEN NULL WHEN dirty_from > ? THEN dirty_from WHEN dirty_to IS NOT NULL AND dirty_to > ? THEN ? ELSE NULL END, dirty_to = CASE WHEN dirty_from IS NULL THEN NULL WHEN dirty_to IS NOT NULL AND dirty_to <= ? THEN NULL WHEN dirty_from > ? THEN dirty_to WHEN dirty_to IS NOT NULL AND dirty_to > ? THEN dirty_to ELSE NULL END, updated_at = ? WHERE household_id = ?`
+	args := []any{targetDate, targetDate, targetDate, nextDate, targetDate, targetDate, targetDate, formatTimestamp(updatedAt), householdID.String()}
 	if expectedGeneration >= 0 {
 		query += ` AND input_generation = ?`
 		args = append(args, expectedGeneration)

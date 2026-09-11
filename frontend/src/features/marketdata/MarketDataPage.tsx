@@ -20,7 +20,6 @@ import {
   useInstruments,
   useAppendManualFXQuote,
   useSetFXPreference,
-  useSetInstrumentQuoteSource,
 } from "@/queries/investments";
 import { useSettings, useSupportedCurrencies } from "@/queries/settings";
 import { useOverview } from "@/queries/portfolio";
@@ -472,14 +471,12 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
   const refreshAll = useRefreshAll();
   const refreshMissingOrStale = useRefreshMissingOrStale();
   const setFXPreference = useSetFXPreference();
-  const setInstrumentQuoteSource = useSetInstrumentQuoteSource();
   const sync = useMarketDataSyncActions();
   const [tab, setTab] = useState("instruments");
   const [lastRefresh, setLastRefresh] = useState<"all" | "missing" | null>(null);
   const [result, setResult] = useState<RefreshResultDTO | undefined>();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | undefined>();
   const [configuringPair, setConfiguringPair] = useState<string | undefined>();
-  const [configuringInstrument, setConfiguringInstrument] = useState<string | undefined>();
   const [historyTarget, setHistoryTarget] = useState<QuoteHistoryTarget | null>(null);
   const activeRefresh = lastRefresh === "missing" ? refreshMissingOrStale : refreshAll;
   const latestRefreshing = refreshAll.refreshing || refreshMissingOrStale.refreshing;
@@ -510,20 +507,6 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
         }
       },
     });
-  };
-
-  const configureInstrument = (instrument: InstrumentDTO, source: string) => {
-    setConfiguringInstrument(instrument.id);
-    setInstrumentQuoteSource.mutate(
-      { instrumentId: instrument.id, source },
-      {
-        onSuccess: () => setConfiguringInstrument(undefined),
-        onError: (error) => {
-          setConfiguringInstrument(undefined);
-          toast.error(displayError(error, t("marketData.loadError")));
-        },
-      },
-    );
   };
 
   const configureFX = (pair: FxPair, source = "provider") => {
@@ -558,7 +541,7 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
         status={<DataHealthIndicator onOpen={onOpenDataHealth} />}
       />
       <MarketDataSyncBar
-        latestRefreshing={latestRefreshing || setFXPreference.isPending || setInstrumentQuoteSource.isPending}
+        latestRefreshing={latestRefreshing || setFXPreference.isPending}
         onRefreshMissing={runRefreshMissingOrStale}
         onRefreshAll={runRefreshAll}
         onCancelLatest={activeRefresh.cancel}
@@ -598,10 +581,7 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
               pageId="market-data"
               active={tab === "instruments"}
               enableSearch
-              showSource
               groupTestIdPrefix="market-data-group"
-              onConfigureSource={configureInstrument}
-              configuringInstrumentId={configuringInstrument}
               onViewHistory={(instrument) => setHistoryTarget({ kind: "instrument", instrument })}
               onSyncInstrument={sync.syncInstrument}
               syncingInstrumentId={sync.syncingInstrumentId}

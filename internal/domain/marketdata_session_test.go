@@ -34,3 +34,18 @@ func TestLastFinalizedUSEquityMarketDateAfterWednesdayUSClose(t *testing.T) {
 		t.Fatalf("LastFinalizedUSEquityMarketDate(%s) = %q, want 2026-09-09", now.Format(time.RFC3339), got)
 	}
 }
+
+func TestLastFinalizedEquityMarketDateUsesMarketSession(t *testing.T) {
+	shanghai, err := time.LoadLocation(CNEquitySessionTimezone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 9, 9, 17, 0, 0, 0, shanghai)
+	got, err := LastFinalizedEquityMarketDate(now, "CN")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "2026-09-09" {
+		t.Fatalf("LastFinalizedEquityMarketDate(%s, CN) = %q, want 2026-09-09", now.Format(time.RFC3339), got)
+	}
+}

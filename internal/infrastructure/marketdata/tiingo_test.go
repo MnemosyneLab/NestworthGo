@@ -11,7 +11,6 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/secrets"
 )
 
 func TestQualifyTiingoLatestMapsDelayedUSSnapshot(t *testing.T) {
@@ -28,25 +27,23 @@ func TestQualifyTiingoLatestMapsDelayedUSSnapshot(t *testing.T) {
 	}
 }
 
-func TestTiingoLatestRefusesNonUSAndMissingSecret(t *testing.T) {
-	store := secrets.NewMemoryStore()
-	provider := NewTiingoProviderWithOptions(TiingoProviderOptions{Secrets: store, Semaphore: make(chan struct{}, 2), Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
-		t.Fatal("missing secret still contacted Tiingo")
+func TestTiingoLatestRefusesNonUSAndMissingKey(t *testing.T) {
+	key := ""
+	provider := NewTiingoProviderWithOptions(TiingoProviderOptions{APIKey: func() (string, error) { return key, nil }, Semaphore: make(chan struct{}, 2), Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+		t.Fatal("missing key still contacted Tiingo")
 		return nil, nil
 	})})
 	_, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US"})
 	assertProviderCode(t, err, domain.ErrUnavailable)
 
-	if _, err := store.Put(context.Background(), application.TiingoSecretRef(), []byte("test-token")); err != nil {
-		t.Fatal(err)
-	}
+	key = "test-token"
 	_, err = provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "000001.SS", QuoteCurrency: "CNY", Market: "CN"})
 	assertProviderCode(t, err, domain.ErrUnsupportedProviderSymbol)
 }
 
 func TestTiingoLocalConfigStatusDoesNotContactNetwork(t *testing.T) {
-	store := secrets.NewMemoryStore()
-	provider := NewTiingoProviderWithOptions(TiingoProviderOptions{Secrets: store, Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
+	key := ""
+	provider := NewTiingoProviderWithOptions(TiingoProviderOptions{APIKey: func() (string, error) { return key, nil }, Transport: roundTripFunc(func(*http.Request) (*http.Response, error) {
 		t.Fatal("LocalConfigStatus contacted Tiingo")
 		return nil, nil
 	})})
@@ -54,9 +51,7 @@ func TestTiingoLocalConfigStatusDoesNotContactNetwork(t *testing.T) {
 	if code != application.ProviderConfigMissingKey {
 		t.Fatalf("status = %s %s", code, reason)
 	}
-	if _, err := store.Put(context.Background(), application.TiingoSecretRef(), []byte("test-token")); err != nil {
-		t.Fatal(err)
-	}
+	key = "test-token"
 	code, reason = provider.LocalConfigStatus(context.Background())
 	if code != application.ProviderConfigOK {
 		t.Fatalf("configured status = %s %s", code, reason)
@@ -64,15 +59,12 @@ func TestTiingoLocalConfigStatusDoesNotContactNetwork(t *testing.T) {
 }
 
 func TestTiingoProviderHistoryAndLatestUseFixtures(t *testing.T) {
-	store := secrets.NewMemoryStore()
-	if _, err := store.Put(context.Background(), application.TiingoSecretRef(), []byte("test-token")); err != nil {
-		t.Fatal(err)
-	}
+	key := "test-token"
 	_, latestBody := mustLoadVNext(t, "providers/tiingo/aapl-iex-latest.json")
 	_, historyBody := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
 	var paths []string
 	provider := NewTiingoProviderWithOptions(TiingoProviderOptions{
-		Secrets:   store,
+		APIKey:    func() (string, error) { return key, nil },
 		Now:       func() time.Time { return time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC) },
 		Semaphore: make(chan struct{}, 2),
 		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {

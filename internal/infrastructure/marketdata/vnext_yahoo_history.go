@@ -80,7 +80,8 @@ func QualifyYahooHistory(meta vnextFixtureMeta, body []byte) (application.Mappin
 			Reason: "unsupported_price_basis",
 		}, nil
 	}
-	if strings.TrimSpace(meta.SessionPolicy) != domain.USEquityRegularClosePolicy || strings.TrimSpace(meta.SessionKind) != string(domain.SessionKindRegular) || strings.TrimSpace(meta.CloseClock) != domain.USEquityRegularCloseClock {
+	schedule, supported := domain.EquitySessionScheduleForMarket(meta.Market)
+	if !supported || strings.TrimSpace(meta.SessionPolicy) != schedule.Policy || strings.TrimSpace(meta.SessionKind) != string(domain.SessionKindRegular) || strings.TrimSpace(meta.CloseClock) != schedule.CloseClock {
 		return application.MappingOutcome[application.InstrumentDailyObservation]{
 			Status: application.MappingUnsupported,
 			Reason: "session_policy_unverified",
@@ -180,15 +181,20 @@ func yahooHistoryRequestMeta(identity application.InstrumentMarketIdentity, rng 
 		Market:             identity.Market,
 		PriceBasis:         string(application.PriceBasisYahooClose),
 		PriceBasisVerified: true,
-		SessionPolicy:      domain.USEquityRegularClosePolicy,
+		SessionPolicy:      "",
 		SessionKind:        string(domain.SessionKindRegular),
-		SessionTimezone:    domain.USEquitySessionTimezone,
-		CloseClock:         domain.USEquityRegularCloseClock,
+		SessionTimezone:    "",
+		CloseClock:         "",
 		Clock:              time.Now().UTC().Format(time.RFC3339),
 	}
 	meta.RequestedRange.Start = string(rng.Start)
 	meta.RequestedRange.End = string(rng.End)
-	if finalized, err := domain.LastFinalizedUSEquityMarketDate(time.Now().UTC()); err == nil {
+	if schedule, supported := domain.EquitySessionScheduleForMarket(identity.Market); supported {
+		meta.SessionPolicy = schedule.Policy
+		meta.SessionTimezone = schedule.Timezone
+		meta.CloseClock = schedule.CloseClock
+	}
+	if finalized, err := domain.LastFinalizedEquityMarketDate(time.Now().UTC(), identity.Market); err == nil {
 		meta.LastFinalizedMarketDate = finalized
 	}
 	return meta

@@ -73,9 +73,10 @@ const (
 	GroupingNone  = "none"
 )
 
-// Settings contains presentation preferences and explicit market-data
-// routing choices. Currency is the display currency; FXProvider selects the
-// provider used only for user-initiated FX refresh.
+// Settings contains presentation preferences, explicit market-data routing
+// choices, and the locally persisted Tiingo API key. Currency is the display
+// currency; FXProvider selects the provider used only for user-initiated FX
+// refresh.
 type Settings struct {
 	SchemaVersion     int        `json:"schema_version"`
 	Appearance        Appearance `json:"appearance"`
@@ -93,6 +94,7 @@ type Settings struct {
 	WindowHeight      float32    `json:"window_height"`
 	FXProvider        string     `json:"fx_provider"`
 	QuoteCacheTTL     string     `json:"quote_cache_ttl"`
+	TiingoAPIKey      string     `json:"tiingo_api_key"`
 }
 
 // Minimum and maximum window dimensions accepted from a persisted settings
@@ -131,6 +133,7 @@ func Default() Settings {
 		WindowHeight:      DefaultWindowHeight,
 		FXProvider:        DefaultFXProvider,
 		QuoteCacheTTL:     QuoteCacheTTL12h,
+		TiingoAPIKey:      "",
 	}
 }
 
@@ -382,6 +385,10 @@ func salvage(loaded, defaults Settings) Settings {
 	fixed.QuoteCacheTTL = salvageValue(fixed.QuoteCacheTTL, defaults.QuoteCacheTTL, func(v string) bool {
 		return oneOf(v, QuoteCacheTTL1h, QuoteCacheTTL3h, QuoteCacheTTL12h, QuoteCacheTTL24h)
 	})
+	// The API key is intentionally opaque configuration. Preserve it exactly
+	// when loading a valid settings file; API-key mutations trim it before
+	// saving.
+	fixed.TiingoAPIKey = strings.TrimSpace(fixed.TiingoAPIKey)
 	return fixed
 }
 

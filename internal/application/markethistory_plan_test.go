@@ -22,6 +22,9 @@ func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
 	if before.FetchRange.Start != "2026-08-30" || before.FetchRange.End != "2026-09-08" {
 		t.Fatalf("fetch range = %+v, want 2026-08-30..2026-09-08 (7d opening-anchor window through last finalized US date)", before.FetchRange)
 	}
+	if before.LastFinalizedMarketDate != "2026-09-08" {
+		t.Fatalf("last finalized market date = %s, want 2026-09-08", before.LastFinalizedMarketDate)
+	}
 	if before.OpeningAnchorWindowDays != 7 || before.OpeningAnchorExhausted {
 		t.Fatalf("opening-anchor search state = %+v, want first 7d window", before)
 	}
@@ -60,6 +63,27 @@ func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
 				t.Fatalf("persisted close or no-observation still listed as missing: %s", date)
 			}
 		}
+	}
+}
+
+func TestInstrumentHistoryTasksPreserveQuoteCurrencyAndMarket(t *testing.T) {
+	service := &Service{historyRequestMaxDays: 366}
+	need := InstrumentRepairNeed{
+		InstrumentID:            domain.NewInstrumentID(),
+		ProviderKey:             domain.YahooFinanceProviderKey,
+		ProviderSymbol:          "600519.SS",
+		Market:                  "CN",
+		QuoteCurrency:           "CNY",
+		LastFinalizedMarketDate: "2026-09-09",
+		RouteStatus:             domain.InstrumentRouteOK,
+		FetchRanges:             []DateRange{{Start: "2026-09-09", End: "2026-09-09"}},
+	}
+	tasks := service.instrumentHistoryTasksFromNeeds([]InstrumentRepairNeed{need})
+	if len(tasks) != 1 {
+		t.Fatalf("history tasks = %d, want one", len(tasks))
+	}
+	if tasks[0].identity.ProviderSymbol != "600519.SS" || tasks[0].identity.QuoteCurrency != "CNY" || tasks[0].identity.Market != "CN" {
+		t.Fatalf("history task identity = %+v", tasks[0].identity)
 	}
 }
 

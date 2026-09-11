@@ -184,7 +184,7 @@ func (s *Service) instrumentHistoryTasksFromNeeds(needs []InstrumentRepairNeed) 
 		identity := InstrumentMarketIdentity{
 			ProviderKey:    need.ProviderKey,
 			ProviderSymbol: need.ProviderSymbol,
-			QuoteCurrency:  "",
+			QuoteCurrency:  need.QuoteCurrency,
 			Market:         need.Market,
 		}
 		for _, rng := range CapHistoryRanges(need.FetchRanges, maxDays) {

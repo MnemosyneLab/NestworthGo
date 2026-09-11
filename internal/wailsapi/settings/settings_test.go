@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/secrets"
 	appsettings "github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/settings"
@@ -177,15 +176,15 @@ func TestSettingsDTOUsesCamelCaseWireKeys(t *testing.T) {
 	}
 }
 
-func TestTiingoKeySessionOnlyConfigurationNeverReturnsTheSecret(t *testing.T) {
-	store := secrets.NewUnavailableStore()
-	service := settings.NewService(appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json")), nil, store)
+func TestTiingoKeyConfigurationPersistsWithoutReturningTheSecret(t *testing.T) {
+	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	service := settings.NewService(store, nil)
 
 	missing, err := service.TiingoKeyStatus()
 	if err != nil {
 		t.Fatalf("TiingoKeyStatus before save: %v", err)
 	}
-	if missing.Configured || missing.Status != application.SecretStatusUnavailable {
+	if missing.Configured {
 		t.Fatalf("missing status = %+v", missing)
 	}
 
@@ -193,7 +192,7 @@ func TestTiingoKeySessionOnlyConfigurationNeverReturnsTheSecret(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SaveTiingoAPIKey: %v", err)
 	}
-	if !saved.Configured || !saved.SessionOnly || saved.Status != application.SecretStatusSessionOnly {
+	if !saved.Configured {
 		t.Fatalf("saved status = %+v", saved)
 	}
 	encoded, err := json.Marshal(saved)
@@ -204,11 +203,40 @@ func TestTiingoKeySessionOnlyConfigurationNeverReturnsTheSecret(t *testing.T) {
 		t.Fatal("Tiingo key leaked through the status DTO")
 	}
 
+	loaded, err := store.Load()
+	if err != nil || loaded.TiingoAPIKey != "session-test-key" {
+		t.Fatalf("settings key = %q, err = %v", loaded.TiingoAPIKey, err)
+	}
+
 	deleted, err := service.DeleteTiingoAPIKey()
 	if err != nil {
 		t.Fatalf("DeleteTiingoAPIKey: %v", err)
 	}
-	if deleted.Configured || deleted.Status != application.SecretStatusUnavailable {
+	if deleted.Configured {
 		t.Fatalf("deleted status = %+v", deleted)
+	}
+}
+
+func TestGeneralSettingsSaveAndResetPreserveTiingoKey(t *testing.T) {
+	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	service := settings.NewService(store, nil)
+	if _, err := service.SaveTiingoAPIKey("keep-me"); err != nil {
+		t.Fatalf("SaveTiingoAPIKey: %v", err)
+	}
+	updated := defaultDTO()
+	updated.Appearance = appsettings.AppearanceDark
+	if err := service.Save(updated); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	loaded, err := store.Load()
+	if err != nil || loaded.TiingoAPIKey != "keep-me" {
+		t.Fatalf("key after Save = %q, err = %v", loaded.TiingoAPIKey, err)
+	}
+	if _, err := service.Reset(); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	loaded, err = store.Load()
+	if err != nil || loaded.TiingoAPIKey != "keep-me" {
+		t.Fatalf("key after Reset = %q, err = %v", loaded.TiingoAPIKey, err)
 	}
 }

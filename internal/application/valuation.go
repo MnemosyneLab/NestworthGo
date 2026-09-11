@@ -291,7 +291,7 @@ func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, recor
 		component.StateObservationID = record.StateObservationID
 		model.Components = append(model.Components, component)
 		model.MissingInputs = append(model.MissingInputs, missing...)
-		if !component.Available {
+		if !component.Available || len(missing) > 0 {
 			model.Complete = false
 		}
 		if component.BaseAmountExact != "" {
@@ -378,8 +378,11 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 		}, nil, nil
 	}
 	quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes)
+	historyCoverageComplete := true
 	if v.historical {
-		quote = selectHistoricalInstrumentQuote(instrument, snapshot.InstrumentQuotes, v.now())
+		selection := selectHistoricalInstrumentQuoteWithCoverage(instrument, snapshot.InstrumentQuotes, snapshot.InstrumentHistoryCoverage, v.now())
+		quote = selection.quote
+		historyCoverageComplete = selection.coverageComplete
 	}
 	if quote == nil {
 		return domain.ValuationComponent{AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, PreferenceObservationID: instrument.PreferenceObservationID, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteCurrency: instrument.QuoteCurrency}}, nil
@@ -398,6 +401,9 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 	holdingID := holding.ID
 	component.HoldingID = &holdingID
 	component.PreferenceObservationID = instrument.PreferenceObservationID
+	if v.historical && !historyCoverageComplete {
+		missing = append(missing, domain.MissingInputView{Kind: domain.MissingHistoryCoverage, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteSource: instrument.QuoteSource, QuoteCurrency: instrument.QuoteCurrency})
+	}
 	return component, missing, nil
 }
 
@@ -437,7 +443,14 @@ func (v *ValuationService) valueNative(snapshot domain.PortfolioSnapshot, accoun
 		return domain.ValuationComponent{}, nil, err
 	}
 	component.BaseAmount = &view
-	return component, nil, nil
+	missingInputs := make([]domain.MissingInputView, 0)
+	if v.historical && currency != snapshot.Household.BaseCurrency {
+		quote := v.selectFXQuote(snapshot, snapshot.FXQuotes, currency, nil)
+		if quote != nil && quote.SourceKind == domain.QuoteSourceProvider && !historicalFXCoverageComplete(snapshot, *quote, v.now()) {
+			missingInputs = append(missingInputs, domain.MissingInputView{Kind: domain.MissingHistoryCoverage, AccountID: accountID, InstrumentID: cloneInstrumentID(instrumentID), QuoteSource: quote.SourceKind, BaseCurrency: snapshot.Household.BaseCurrency, QuoteCurrency: currency})
+		}
+	}
+	return component, missingInputs, nil
 }
 
 func (v *ValuationService) convert(snapshot domain.PortfolioSnapshot, accountID domain.AccountID, native decimal.Decimal, currency domain.CurrencyCode) (decimal.Decimal, *domain.QuoteEvidenceView, *domain.MissingInputView, error) {
@@ -532,6 +545,15 @@ func selectInstrumentQuote(instrument domain.Instrument, quotes []domain.Instrum
 }
 
 func selectHistoricalInstrumentQuote(instrument domain.Instrument, quotes []domain.InstrumentQuote, cutoff time.Time) *domain.InstrumentQuote {
+	return selectHistoricalInstrumentQuoteWithCoverage(instrument, quotes, nil, cutoff).quote
+}
+
+type historicalInstrumentSelection struct {
+	quote            *domain.InstrumentQuote
+	coverageComplete bool
+}
+
+func selectHistoricalInstrumentQuoteWithCoverage(instrument domain.Instrument, quotes []domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage, cutoff time.Time) historicalInstrumentSelection {
 	var selected *domain.InstrumentQuote
 	for index := range quotes {
 		quote := &quotes[index]
@@ -574,7 +596,129 @@ func selectHistoricalInstrumentQuote(instrument domain.Instrument, quotes []doma
 			selected = quote
 		}
 	}
-	return selected
+	selection := historicalInstrumentSelection{quote: selected, coverageComplete: true}
+	if selected != nil && instrument.QuoteSource == domain.QuoteSourceProvider {
+		selection.coverageComplete = historicalInstrumentCoverageComplete(instrument, *selected, coverage, cutoff)
+	}
+	return selection
+}
+
+func historicalInstrumentCoverageComplete(instrument domain.Instrument, quote domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage, cutoff time.Time) bool {
+	if instrument.ProviderKey == nil || strings.TrimSpace(*instrument.ProviderKey) == "" || instrument.ProviderBindingRevision <= 0 {
+		return false
+	}
+	providerKey := strings.TrimSpace(*instrument.ProviderKey)
+	policy := strings.TrimSpace(quote.SourcePolicyVersion)
+	scheduleMarket := ""
+	if instrument.MarketCode != nil {
+		scheduleMarket = strings.TrimSpace(*instrument.MarketCode)
+	}
+	location := time.UTC
+	if schedule, ok := domain.EquitySessionScheduleForMarket(scheduleMarket); ok {
+		if loaded, err := time.LoadLocation(schedule.Timezone); err == nil {
+			location = loaded
+		}
+	}
+	quoteAt := quote.ValueEffectiveAt
+	if quoteAt.IsZero() {
+		quoteAt = quote.QuotedAt
+	}
+	if quoteAt.IsZero() || quoteAt.After(cutoff) {
+		return false
+	}
+	startDate := quoteAt.In(location).Format("2006-01-02")
+	endDate := cutoff.In(location).Format("2006-01-02")
+	dates, err := domain.InclusiveMarketDates(startDate, endDate)
+	if err != nil {
+		return false
+	}
+	for _, item := range coverage {
+		if item.InstrumentID != instrument.ID || !strings.EqualFold(strings.TrimSpace(item.ProviderKey), providerKey) || item.BindingRevision != instrument.ProviderBindingRevision || strings.TrimSpace(item.SourcePolicyVersion) != policy {
+			continue
+		}
+		closes := make(map[string]struct{}, len(item.CloseMarketDates))
+		for _, date := range item.CloseMarketDates {
+			closes[date] = struct{}{}
+		}
+		noObservation := make(map[string]struct{}, len(item.NoObservationDates))
+		for _, date := range item.NoObservationDates {
+			noObservation[date] = struct{}{}
+		}
+		unverified := make(map[string]struct{}, len(item.UnverifiedDates))
+		for _, date := range item.UnverifiedDates {
+			unverified[date] = struct{}{}
+		}
+		for _, date := range dates {
+			if _, pending := unverified[date]; pending {
+				return false
+			}
+			if _, verifiedClose := closes[date]; verifiedClose {
+				continue
+			}
+			if _, verifiedNoObservation := noObservation[date]; verifiedNoObservation {
+				continue
+			}
+			// A date absent from both canonical observations and an explicit
+			// no-observation result has not been queried, so carry-forward may
+			// supply an amount but cannot make the historical result complete.
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func historicalFXCoverageComplete(snapshot domain.PortfolioSnapshot, quote domain.FXQuote, cutoff time.Time) bool {
+	if quote.SourceKind != domain.QuoteSourceProvider || quote.SourcePolicyVersion == "" {
+		return quote.SourceKind == domain.QuoteSourceManual
+	}
+	quoteAt := quote.ValueEffectiveAt
+	if quoteAt.IsZero() {
+		quoteAt = quote.QuotedAt
+	}
+	if quoteAt.IsZero() || quoteAt.After(cutoff) {
+		return false
+	}
+	startDate := quoteAt.UTC().Format("2006-01-02")
+	endDate := cutoff.UTC().Format("2006-01-02")
+	dates, err := domain.InclusiveMarketDates(startDate, endDate)
+	if err != nil {
+		return false
+	}
+	for _, item := range snapshot.FXHistoryCoverage {
+		if !strings.EqualFold(strings.TrimSpace(item.ProviderKey), strings.TrimSpace(quote.SourceKey)) || strings.TrimSpace(item.SourcePolicyVersion) != strings.TrimSpace(quote.SourcePolicyVersion) {
+			continue
+		}
+		if !((item.BaseCurrency == quote.BaseCurrency && item.QuoteCurrency == quote.QuoteCurrency) || (item.BaseCurrency == quote.QuoteCurrency && item.QuoteCurrency == quote.BaseCurrency)) {
+			continue
+		}
+		closes := make(map[string]struct{}, len(item.DailyReferenceDates))
+		for _, date := range item.DailyReferenceDates {
+			closes[date] = struct{}{}
+		}
+		noObservation := make(map[string]struct{}, len(item.NoObservationDates))
+		for _, date := range item.NoObservationDates {
+			noObservation[date] = struct{}{}
+		}
+		unverified := make(map[string]struct{}, len(item.UnverifiedDates))
+		for _, date := range item.UnverifiedDates {
+			unverified[date] = struct{}{}
+		}
+		for _, date := range dates {
+			if _, pending := unverified[date]; pending {
+				return false
+			}
+			if _, ok := closes[date]; ok {
+				continue
+			}
+			if _, ok := noObservation[date]; ok {
+				continue
+			}
+			return false
+		}
+		return true
+	}
+	return false
 }
 
 func selectFXQuote(preference domain.FXPreference, quotes []domain.FXQuote, native, householdBase domain.CurrencyCode, providerKey string, cutoff *time.Time) *domain.FXQuote {

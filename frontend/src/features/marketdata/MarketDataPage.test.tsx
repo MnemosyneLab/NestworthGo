@@ -16,7 +16,6 @@ const refreshRequiredFX = vi.fn();
 const instrumentQuoteSeries = vi.fn();
 const fxQuoteSeries = vi.fn();
 const overview = vi.fn();
-const setInstrumentQuoteSource = vi.fn();
 const appendManualFXQuote = vi.fn();
 const createInstrument = vi.fn();
 const getCurrentSyncJob = vi.fn(async () => ({ jobId: "" }));
@@ -56,7 +55,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
   Service: {
     ListInstruments: () => listInstruments(),
-    SetInstrumentQuoteSource: (...args: unknown[]) => setInstrumentQuoteSource(...args),
     CreateInstrument: (...args: unknown[]) => createInstrument(...args),
     UpdateInstrument: vi.fn(),
     ArchiveInstrument: vi.fn(),
@@ -120,7 +118,6 @@ describe("MarketDataPage", () => {
     currentFXQuote.mockReset();
     listFXPreferences.mockReset();
     setFXPreference.mockReset();
-    setInstrumentQuoteSource.mockReset();
     appendManualFXQuote.mockReset();
     createInstrument.mockReset();
     getCurrentSyncJob.mockReset();
@@ -212,6 +209,7 @@ describe("MarketDataPage", () => {
     expect(screen.getByText(/yahoo_finance/)).toBeInTheDocument();
     const savedInstrument = screen.getByTestId("saved-instrument-i1");
     expect(savedInstrument).toHaveClass("grid-cols-[minmax(0,1fr)_auto]");
+    expect(within(savedInstrument).queryByRole("combobox")).not.toBeInTheDocument();
     expect(within(savedInstrument).getByRole("button", { name: "View history" }).parentElement).toHaveClass("row-start-1");
     expect(savedInstrument).toHaveTextContent("Global Equity Fund");
     expect(savedInstrument).toHaveTextContent("Latest: $12.50");

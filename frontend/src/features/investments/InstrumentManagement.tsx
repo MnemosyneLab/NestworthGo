@@ -7,7 +7,6 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -122,9 +121,6 @@ function InstrumentRow({
   groupTestId,
   onEdit,
   onArchive,
-  showSource,
-  onConfigureSource,
-  isConfiguring,
   onViewHistory,
   onSync,
   isSyncing,
@@ -133,9 +129,6 @@ function InstrumentRow({
   groupTestId: string;
   onEdit: () => void;
   onArchive: () => void;
-  showSource?: boolean;
-  onConfigureSource?: (source: string) => void;
-  isConfiguring?: boolean;
   onViewHistory?: () => void;
   onSync?: () => void;
   isSyncing?: boolean;
@@ -182,12 +175,6 @@ function InstrumentRow({
         )}
       </span>
       <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-2 lg:col-start-3">
-        {showSource && onConfigureSource && (
-          <NativeSelect aria-label={t("marketData.instrumentSource")} value={instrument.quoteSource} disabled={isConfiguring} onChange={(event) => onConfigureSource(event.target.value)}>
-            <option value="provider">{t("portfolio.provider")}</option>
-            <option value="manual">{t("portfolio.manual")}</option>
-          </NativeSelect>
-        )}
         {onViewHistory && (
           <Button type="button" variant="outline" size="sm" onClick={onViewHistory}>
             {t("charts.viewHistory")}
@@ -227,10 +214,7 @@ export function InstrumentManagement({
   pageId,
   active,
   enableSearch = false,
-  showSource = false,
   groupTestIdPrefix = "instrument-type-group",
-  onConfigureSource,
-  configuringInstrumentId,
   onViewHistory,
   onSyncInstrument,
   syncingInstrumentId,
@@ -238,10 +222,7 @@ export function InstrumentManagement({
   pageId: string;
   active: boolean;
   enableSearch?: boolean;
-  showSource?: boolean;
   groupTestIdPrefix?: string;
-  onConfigureSource?: (instrument: InstrumentDTO, source: string) => void;
-  configuringInstrumentId?: string;
   onViewHistory?: (instrument: InstrumentDTO) => void;
   onSyncInstrument?: (instrument: InstrumentDTO) => void;
   syncingInstrumentId?: string;
@@ -339,9 +320,6 @@ export function InstrumentManagement({
                     key={instrument.id}
                     instrument={instrument}
                     groupTestId={`${groupTestIdPrefix}-${group.key}`}
-                    showSource={showSource}
-                    onConfigureSource={onConfigureSource ? (source) => onConfigureSource(instrument, source) : undefined}
-                    isConfiguring={configuringInstrumentId === instrument.id}
                     onViewHistory={onViewHistory ? () => onViewHistory(instrument) : undefined}
                     onSync={onSyncInstrument ? () => onSyncInstrument(instrument) : undefined}
                     isSyncing={syncingInstrumentId === instrument.id}

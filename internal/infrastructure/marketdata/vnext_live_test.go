@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/secrets"
 )
 
 func TestControlledLiveProviderChecks(t *testing.T) {
@@ -46,11 +45,7 @@ func TestControlledLiveProviderChecks(t *testing.T) {
 		t.Log("Tiingo latest live NOT RUN: TIINGO_API_KEY unset")
 		return
 	}
-	store := secrets.NewMemoryStore()
-	if _, err := store.Put(ctx, application.TiingoSecretRef(), []byte(os.Getenv("TIINGO_API_KEY"))); err != nil {
-		t.Fatal(err)
-	}
-	tiingo := NewTiingoProvider(store, nil)
+	tiingo := NewTiingoProvider(func() (string, error) { return os.Getenv("TIINGO_API_KEY"), nil }, nil)
 	quote, err := tiingo.LatestInstrument(ctx, application.InstrumentMarketIdentity{ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US"})
 	if err != nil {
 		t.Fatalf("Tiingo latest live: %v", err)

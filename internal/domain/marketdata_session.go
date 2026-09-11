@@ -10,6 +10,30 @@ const (
 	USEquityRegularCloseClock  = "16:00"
 	USEquityEarlyCloseClock    = "13:00"
 	USEquityRegularClosePolicy = "us_equity_regular_close_v1"
+	CNEquitySessionTimezone    = "Asia/Shanghai"
+	CNEquityRegularCloseClock  = "15:00"
+	CNEquityRegularClosePolicy = "cn_equity_regular_close_v1"
+	HKEquitySessionTimezone    = "Asia/Hong_Kong"
+	HKEquityRegularCloseClock  = "16:00"
+	HKEquityRegularClosePolicy = "hk_equity_regular_close_v1"
+	SGEquitySessionTimezone    = "Asia/Singapore"
+	SGEquityRegularCloseClock  = "17:00"
+	SGEquityRegularClosePolicy = "sg_equity_regular_close_v1"
+	JPEquitySessionTimezone    = "Asia/Tokyo"
+	JPEquityRegularCloseClock  = "15:30"
+	JPEquityRegularClosePolicy = "jp_equity_regular_close_v1"
+	TWEquitySessionTimezone    = "Asia/Taipei"
+	TWEquityRegularCloseClock  = "13:30"
+	TWEquityRegularClosePolicy = "tw_equity_regular_close_v1"
+	AUEquitySessionTimezone    = "Australia/Sydney"
+	AUEquityRegularCloseClock  = "16:00"
+	AUEquityRegularClosePolicy = "au_equity_regular_close_v1"
+	GBEquitySessionTimezone    = "Europe/London"
+	GBEquityRegularCloseClock  = "16:30"
+	GBEquityRegularClosePolicy = "gb_equity_regular_close_v1"
+	DEEquitySessionTimezone    = "Europe/Berlin"
+	DEEquityRegularCloseClock  = "17:30"
+	DEEquityRegularClosePolicy = "de_equity_regular_close_v1"
 	FrankfurterV2BlendedPolicy = "frankfurter-v2-blended-v1"
 	TiingoRawClosePriceBasis   = "tiingo_raw_close_v1"
 	YahooRawClosePriceBasis    = "yahoo_close_v1"
@@ -33,6 +57,50 @@ type SessionEvidence struct {
 	Policy     string
 }
 
+// EquitySessionSchedule is the market-specific session contract needed to
+// turn a provider market-date label into an economic close instant. A market
+// is supported only when this schedule is known; silently applying the US
+// session to another exchange would make historical prices economically wrong.
+type EquitySessionSchedule struct {
+	Timezone   string
+	CloseClock string
+	EarlyClock string
+	Policy     string
+}
+
+func EquitySessionScheduleForMarket(market string) (EquitySessionSchedule, bool) {
+	switch strings.ToUpper(strings.TrimSpace(market)) {
+	case "US", "US_EQUITY", "XNYS", "XNAS", "NYSE", "NASDAQ":
+		return EquitySessionSchedule{Timezone: USEquitySessionTimezone, CloseClock: USEquityRegularCloseClock, EarlyClock: USEquityEarlyCloseClock, Policy: USEquityRegularClosePolicy}, true
+	case "AMEX", "XASE":
+		return EquitySessionSchedule{Timezone: USEquitySessionTimezone, CloseClock: USEquityRegularCloseClock, EarlyClock: USEquityEarlyCloseClock, Policy: USEquityRegularClosePolicy}, true
+	case "CN", "SSE", "SZSE", "BSE", "XSHG", "XSHE":
+		return EquitySessionSchedule{Timezone: CNEquitySessionTimezone, CloseClock: CNEquityRegularCloseClock, Policy: CNEquityRegularClosePolicy}, true
+	case "HK", "HKEX", "XHKG":
+		return EquitySessionSchedule{Timezone: HKEquitySessionTimezone, CloseClock: HKEquityRegularCloseClock, Policy: HKEquityRegularClosePolicy}, true
+	case "SG", "SGX", "XSES":
+		return EquitySessionSchedule{Timezone: SGEquitySessionTimezone, CloseClock: SGEquityRegularCloseClock, Policy: SGEquityRegularClosePolicy}, true
+	case "JP", "TSE", "XTKS":
+		return EquitySessionSchedule{Timezone: JPEquitySessionTimezone, CloseClock: JPEquityRegularCloseClock, Policy: JPEquityRegularClosePolicy}, true
+	case "TW", "TWSE", "XTAI":
+		return EquitySessionSchedule{Timezone: TWEquitySessionTimezone, CloseClock: TWEquityRegularCloseClock, Policy: TWEquityRegularClosePolicy}, true
+	case "KR", "KRX", "XKRX":
+		return EquitySessionSchedule{Timezone: "Asia/Seoul", CloseClock: "15:30", Policy: "kr_equity_regular_close_v1"}, true
+	case "AU", "ASX", "XASX":
+		return EquitySessionSchedule{Timezone: AUEquitySessionTimezone, CloseClock: AUEquityRegularCloseClock, Policy: AUEquityRegularClosePolicy}, true
+	case "GB", "UK", "LSE", "XLON":
+		return EquitySessionSchedule{Timezone: GBEquitySessionTimezone, CloseClock: GBEquityRegularCloseClock, Policy: GBEquityRegularClosePolicy}, true
+	case "DE", "XETRA", "XFRA":
+		return EquitySessionSchedule{Timezone: DEEquitySessionTimezone, CloseClock: DEEquityRegularCloseClock, Policy: DEEquityRegularClosePolicy}, true
+	case "EURONEXT", "XPAR":
+		return EquitySessionSchedule{Timezone: "Europe/Paris", CloseClock: "17:30", Policy: "eu_equity_regular_close_v1"}, true
+	case "CH", "SIX", "XSWX":
+		return EquitySessionSchedule{Timezone: "Europe/Zurich", CloseClock: "17:30", Policy: "ch_equity_regular_close_v1"}, true
+	default:
+		return EquitySessionSchedule{}, false
+	}
+}
+
 type SessionResolution struct {
 	Status         string // mapped, uncertain, unsupported
 	Reason         string
@@ -51,7 +119,8 @@ func ResolveEquitySessionClose(marketDate, market string, evidence SessionEviden
 		return SessionResolution{}, err
 	}
 	market = strings.TrimSpace(market)
-	if !USListedEquityMarket(market) {
+	schedule, supported := EquitySessionScheduleForMarket(market)
+	if !supported {
 		return SessionResolution{Status: "unsupported", Reason: "market_not_supported_for_session_policy"}, nil
 	}
 	kind := evidence.Kind
@@ -67,17 +136,25 @@ func ResolveEquitySessionClose(marketDate, market string, evidence SessionEviden
 	}
 	timezone := strings.TrimSpace(evidence.Timezone)
 	if timezone == "" {
-		timezone = USEquitySessionTimezone
+		timezone = schedule.Timezone
+	} else if timezone != schedule.Timezone {
+		return SessionResolution{Status: "uncertain", Reason: "session_timezone_mismatch", TimestampBasis: "unknown"}, nil
 	}
 	clock := strings.TrimSpace(evidence.CloseClock)
 	if clock == "" {
 		if kind == SessionKindEarlyClose {
-			clock = USEquityEarlyCloseClock
+			clock = schedule.EarlyClock
+			if clock == "" {
+				return SessionResolution{Status: "uncertain", Reason: "early_close_clock_unverified", TimestampBasis: "unknown"}, nil
+			}
 		} else {
-			clock = USEquityRegularCloseClock
+			clock = schedule.CloseClock
 		}
 	}
-	if kind == SessionKindEarlyClose && clock == USEquityRegularCloseClock {
+	if kind == SessionKindRegular && clock != schedule.CloseClock {
+		return SessionResolution{Status: "uncertain", Reason: "session_close_clock_unverified", TimestampBasis: "unknown"}, nil
+	}
+	if kind == SessionKindEarlyClose && (schedule.EarlyClock == "" || clock == schedule.CloseClock || clock != schedule.EarlyClock) {
 		return SessionResolution{Status: "uncertain", Reason: "early_close_clock_unverified", TimestampBasis: "unknown"}, nil
 	}
 	closeInstant, err := ResolveLocalDateTime(date, clock, timezone)
@@ -86,7 +163,9 @@ func ResolveEquitySessionClose(marketDate, market string, evidence SessionEviden
 	}
 	policy := strings.TrimSpace(evidence.Policy)
 	if policy == "" {
-		policy = USEquityRegularClosePolicy
+		policy = schedule.Policy
+	} else if policy != schedule.Policy {
+		return SessionResolution{Status: "uncertain", Reason: "session_policy_unverified", TimestampBasis: "unknown"}, nil
 	}
 	return SessionResolution{
 		Status:         "mapped",
@@ -129,18 +208,28 @@ func OpeningAnchorLookbackWindows() []int {
 // date whose close instant is strictly before now. It is a session label,
 // not a household local date.
 func LastFinalizedUSEquityMarketDate(now time.Time) (string, error) {
+	return LastFinalizedEquityMarketDate(now, "US")
+}
+
+// LastFinalizedEquityMarketDate is the latest regular-session date for the
+// requested supported market whose close is strictly before now.
+func LastFinalizedEquityMarketDate(now time.Time, market string) (string, error) {
 	if now.IsZero() {
 		return "", validation("now", "backend clock is required")
 	}
-	location, err := time.LoadLocation(USEquitySessionTimezone)
+	schedule, supported := EquitySessionScheduleForMarket(market)
+	if !supported {
+		return "", validation("market", "market is not supported for session policy")
+	}
+	location, err := time.LoadLocation(schedule.Timezone)
 	if err != nil {
 		return "", err
 	}
-	evidence := SessionEvidence{Kind: SessionKindRegular, Timezone: USEquitySessionTimezone, CloseClock: USEquityRegularCloseClock, Policy: USEquityRegularClosePolicy}
+	evidence := SessionEvidence{Kind: SessionKindRegular, Timezone: schedule.Timezone, CloseClock: schedule.CloseClock, Policy: schedule.Policy}
 	start := now.In(location)
 	for i := 0; i < 14; i++ {
 		date := start.AddDate(0, 0, -i).Format("2006-01-02")
-		session, resolveErr := ResolveEquitySessionClose(date, "US", evidence)
+		session, resolveErr := ResolveEquitySessionClose(date, market, evidence)
 		if resolveErr != nil {
 			return "", resolveErr
 		}
@@ -151,5 +240,5 @@ func LastFinalizedUSEquityMarketDate(now time.Time) (string, error) {
 			return date, nil
 		}
 	}
-	return "", validation("session", "no finalized US equity close is available")
+	return "", validation("session", "no finalized equity close is available")
 }

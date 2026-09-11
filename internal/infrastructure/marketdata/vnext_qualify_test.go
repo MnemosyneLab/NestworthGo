@@ -180,6 +180,35 @@ func TestYahooVerifiedHistoryMapsCloseWithSessionEvidence(t *testing.T) {
 	}
 }
 
+func TestYahooChineseHistoryUsesChineseSessionClose(t *testing.T) {
+	meta, body := mustLoadVNext(t, "providers/yahoo/cn-600519-history.json")
+	outcome, err := QualifyYahooHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Status != application.MappingMapped || len(outcome.Batch.Observations) != 1 {
+		t.Fatalf("outcome = %+v", outcome)
+	}
+	observation := outcome.Batch.Observations[0]
+	if observation.MarketDate != "2026-09-04" || observation.Value != "1600" {
+		t.Fatalf("observation = %+v", observation)
+	}
+	if observation.ValueEffectiveAt.UTC().Format(time.RFC3339) != "2026-09-04T07:00:00Z" {
+		t.Fatalf("effective close = %s, want China 15:00 close", observation.ValueEffectiveAt.UTC())
+	}
+}
+
+func TestYahooHistoryRequestMetaUsesMarketSpecificSession(t *testing.T) {
+	meta := yahooHistoryRequestMeta(application.InstrumentMarketIdentity{
+		ProviderSymbol: "600519.SS",
+		QuoteCurrency:  "CNY",
+		Market:         "CN",
+	}, application.DateRange{Start: "2026-09-04", End: "2026-09-04"})
+	if meta.SessionTimezone != "Asia/Shanghai" || meta.CloseClock != "15:00" || meta.SessionPolicy != domain.CNEquityRegularClosePolicy {
+		t.Fatalf("Chinese Yahoo request session = %+v", meta)
+	}
+}
+
 func TestFrankfurterV2MappingAndUnsupportedPairs(t *testing.T) {
 	meta, body := mustLoadVNext(t, "providers/frankfurter/usd-sgd-history.json")
 	outcome, err := QualifyFrankfurterHistory(meta, body)

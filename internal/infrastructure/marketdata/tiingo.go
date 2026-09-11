@@ -25,18 +25,18 @@ type TiingoProviderOptions struct {
 	Timeout     time.Duration
 	MaxBodySize int64
 	Semaphore   chan struct{}
-	Secrets     application.SecretStore
+	APIKey      func() (string, error)
 	Now         func() time.Time
 }
 
 type TiingoProvider struct {
-	conn    *providerHTTPClient
-	secrets application.SecretStore
-	now     func() time.Time
+	conn   *providerHTTPClient
+	apiKey func() (string, error)
+	now    func() time.Time
 }
 
-func NewTiingoProvider(secrets application.SecretStore, transport http.RoundTripper) *TiingoProvider {
-	return NewTiingoProviderWithOptions(TiingoProviderOptions{Secrets: secrets, Transport: transport})
+func NewTiingoProvider(apiKey func() (string, error), transport http.RoundTripper) *TiingoProvider {
+	return NewTiingoProviderWithOptions(TiingoProviderOptions{APIKey: apiKey, Transport: transport})
 }
 
 func NewTiingoProviderWithOptions(options TiingoProviderOptions) *TiingoProvider {
@@ -45,9 +45,9 @@ func NewTiingoProviderWithOptions(options TiingoProviderOptions) *TiingoProvider
 		now = time.Now
 	}
 	return &TiingoProvider{
-		conn:    newProviderHTTPClient(providerHTTPOptions{Transport: options.Transport, Timeout: options.Timeout, MaxBodySize: options.MaxBodySize, Semaphore: options.Semaphore}, tiingoRequestTimeout, tiingoMaxBodyBytes, sharedTiingoSemaphore),
-		secrets: options.Secrets,
-		now:     now,
+		conn:   newProviderHTTPClient(providerHTTPOptions{Transport: options.Transport, Timeout: options.Timeout, MaxBodySize: options.MaxBodySize, Semaphore: options.Semaphore}, tiingoRequestTimeout, tiingoMaxBodyBytes, sharedTiingoSemaphore),
+		apiKey: options.APIKey,
+		now:    now,
 	}
 }
 
@@ -57,18 +57,16 @@ func (p *TiingoProvider) Capabilities() application.MarketDataCapabilities {
 	return application.MarketDataCapabilities{LatestInstrument: true, InstrumentDailyHistory: true}
 }
 
-// LocalConfigStatus inspects the secret store only. It never opens an HTTP
-// connection, including when the key is missing.
+// LocalConfigStatus inspects the local settings file only. It never opens an
+// HTTP connection, including when the key is missing.
 func (p *TiingoProvider) LocalConfigStatus(ctx context.Context) (code, reason string) {
-	if p.secrets == nil {
-		return application.ProviderConfigMissingKey, "tiingo_key_missing"
-	}
-	status, err := p.secrets.Status(ctx, application.TiingoSecretRef())
+	_ = ctx
+	value, err := p.configuredAPIKey()
 	if err != nil {
-		return application.ProviderConfigUnavailable, "secret_store"
+		return application.ProviderConfigUnavailable, "settings"
 	}
-	if !application.TiingoKeyConfigured(status) {
-		return application.ProviderConfigMissingKey, string(status)
+	if value == "" {
+		return application.ProviderConfigMissingKey, "tiingo_key_missing"
 	}
 	return application.ProviderConfigOK, ""
 }
@@ -126,17 +124,26 @@ func (p *TiingoProvider) fetch(ctx context.Context, requestURL *url.URL) ([]byte
 }
 
 func (p *TiingoProvider) apiToken(ctx context.Context) (string, error) {
-	if p.secrets == nil {
+	_ = ctx
+	value, err := p.configuredAPIKey()
+	if err != nil {
 		return "", providerError(domain.ErrUnavailable, "provider is unavailable")
 	}
-	value, status, err := p.secrets.Get(ctx, application.TiingoSecretRef())
+	if value == "" {
+		return "", providerError(domain.ErrUnavailable, "provider is unavailable")
+	}
+	return value, nil
+}
+
+func (p *TiingoProvider) configuredAPIKey() (string, error) {
+	if p.apiKey == nil {
+		return "", nil
+	}
+	value, err := p.apiKey()
 	if err != nil {
 		return "", err
 	}
-	if !application.TiingoKeyConfigured(status) || len(strings.TrimSpace(string(value))) == 0 {
-		return "", providerError(domain.ErrUnavailable, "provider is unavailable")
-	}
-	return strings.TrimSpace(string(value)), nil
+	return strings.TrimSpace(value), nil
 }
 
 func (p *TiingoProvider) clock() time.Time {

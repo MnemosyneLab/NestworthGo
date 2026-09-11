@@ -14,6 +14,8 @@ type InstrumentRepairNeed struct {
 	ProviderKey             string
 	ProviderSymbol          string
 	Market                  string
+	QuoteCurrency           domain.CurrencyCode
+	LastFinalizedMarketDate string
 	OpeningAnchorDate       string
 	OpeningAnchorMissing    bool
 	OpeningAnchorWindowDays int
@@ -86,10 +88,18 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 		ManualFX:                hasManualFX(preferences),
 	}
 	for _, item := range coverage {
-		need, planErr := planInstrumentRepairNeed(item, originDate, finalized)
+		marketFinalized := finalized
+		if _, supported := domain.EquitySessionScheduleForMarket(item.Market); supported {
+			marketFinalized, err = domain.LastFinalizedEquityMarketDate(now, item.Market)
+			if err != nil {
+				return HistoryRepairPlan{}, err
+			}
+		}
+		need, planErr := planInstrumentRepairNeed(item, originDate, marketFinalized)
 		if planErr != nil {
 			return HistoryRepairPlan{}, planErr
 		}
+		need.LastFinalizedMarketDate = marketFinalized
 		plan.Instruments = append(plan.Instruments, need)
 	}
 	return plan, nil
@@ -120,7 +130,11 @@ func (s *Service) PlanHistorySync(ctx context.Context, opts HistorySyncOptions) 
 	now := s.clock()
 	for index, need := range plan.Instruments {
 		item := byID[need.InstrumentID]
-		enriched, enrichErr := applyHistorySyncPolicy(need, item, plan.LastFinalizedMarketDate, now, opts.ForceRecheck)
+		lastFinalized := need.LastFinalizedMarketDate
+		if lastFinalized == "" {
+			lastFinalized = plan.LastFinalizedMarketDate
+		}
+		enriched, enrichErr := applyHistorySyncPolicy(need, item, lastFinalized, now, opts.ForceRecheck)
 		if enrichErr != nil {
 			return HistoryRepairPlan{}, enrichErr
 		}
@@ -182,6 +196,8 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 		ProviderKey:             coverage.ProviderKey,
 		ProviderSymbol:          coverage.ProviderSymbol,
 		Market:                  coverage.Market,
+		QuoteCurrency:           coverage.QuoteCurrency,
+		LastFinalizedMarketDate: lastFinalized,
 		OpeningAnchorDate:       anchor,
 		OpeningAnchorMissing:    missing,
 		OpeningAnchorWindowDays: openingWindowDays,

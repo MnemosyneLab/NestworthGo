@@ -269,6 +269,8 @@ type HistoricalSnapshotBatch struct {
 	Activities                     []Activity
 	InstrumentQuoteFacts           []InstrumentQuote
 	FXQuoteFacts                   []FXQuote
+	InstrumentHistoryCoverage      []InstrumentHistoryCoverage
+	FXHistoryCoverage              []FXHistoryCoverage
 	InputGeneration                int
 	ResolverPolicyVersion          string
 }
@@ -292,6 +294,7 @@ type InstrumentHistoryCoverage struct {
 	SourcePolicyVersion    string
 	CloseMarketDates       []string
 	CloseFetchedAt         map[string]time.Time
+	UnverifiedDates        []string
 	NoObservationDates     []string
 	NoObservationExpiresAt map[string]time.Time
 	NoObservationCheckedAt map[string]time.Time
@@ -304,6 +307,7 @@ type FXHistoryCoverage struct {
 	SourcePolicyVersion     string
 	DailyReferenceDates     []string
 	DailyReferenceFetchedAt map[string]time.Time
+	UnverifiedDates         []string
 	NoObservationDates      []string
 	NoObservationExpiresAt  map[string]time.Time
 	NoObservationCheckedAt  map[string]time.Time

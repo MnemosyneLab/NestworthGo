@@ -80,6 +80,14 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	if err != nil {
 		return fail(err)
 	}
+	instrumentCoverage, err := listInstrumentHistoryCoverageQuery(ctx, tx, householdID)
+	if err != nil {
+		return fail(err)
+	}
+	fxCoverage, err := listFXHistoryCoverageQuery(ctx, tx, householdID)
+	if err != nil {
+		return fail(err)
+	}
 	var generation int
 	var resolverPolicy sql.NullString
 	if err := tx.QueryRowContext(ctx, `SELECT input_generation, resolver_policy_version FROM history_snapshot_state WHERE household_id = ?`, householdID.String()).Scan(&generation, &resolverPolicy); err != nil {
@@ -104,6 +112,8 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 		Activities:                     activities,
 		InstrumentQuoteFacts:           instrumentQuotes,
 		FXQuoteFacts:                   fxQuotes,
+		InstrumentHistoryCoverage:      instrumentCoverage,
+		FXHistoryCoverage:              fxCoverage,
 		InputGeneration:                generation,
 		ResolverPolicyVersion:          resolverPolicy.String,
 	}, nil

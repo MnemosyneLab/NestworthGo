@@ -286,10 +286,8 @@ export function SettingsPage() {
               {saveTiingoKey.isPending ? t("common.pending") : t("settings.saveTiingoKey")}
             </Button>
           </div>
-            {tiingoKeyStatus.data?.configured ? (
-              <p className="text-sm text-success-foreground">
-                {tiingoKeyStatus.data.sessionOnly ? t("settings.tiingoKeySessionOnly") : t("settings.tiingoKeyConfigured")}
-              </p>
+          {tiingoKeyStatus.data?.configured ? (
+            <p className="text-sm text-success-foreground">{t("settings.tiingoKeyConfigured")}</p>
           ) : (
             <p className="text-sm text-muted-foreground">{t("settings.tiingoKeyMissing")}</p>
           )}

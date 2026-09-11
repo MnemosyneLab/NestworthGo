@@ -10,7 +10,11 @@ import (
 )
 
 func (r *Repository) ListInstrumentHistoryCoverage(ctx context.Context, householdID domain.HouseholdID) ([]domain.InstrumentHistoryCoverage, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, `
+	return listInstrumentHistoryCoverageQuery(ctx, r.database.SQL, householdID)
+}
+
+func listInstrumentHistoryCoverageQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.InstrumentHistoryCoverage, error) {
+	rows, err := query.QueryContext(ctx, `
 		SELECT i.id,
 		       COALESCE(NULLIF(b.provider_key, ''), i.provider_key, ''),
 		       COALESCE(NULLIF(b.provider_symbol, ''), i.provider_symbol, ''),
@@ -65,19 +69,24 @@ func (r *Repository) ListInstrumentHistoryCoverage(ctx context.Context, househol
 	}
 	result := make([]domain.InstrumentHistoryCoverage, 0, len(seeds))
 	for _, item := range seeds {
-		closes, fetchedAt, closeErr := listCloseMarketDates(ctx, r.database.SQL, item.InstrumentID.String(), item.ProviderKey, item.BindingRevision, item.SourcePolicyVersion)
+		closes, fetchedAt, closeErr := listCloseMarketDates(ctx, query, item.InstrumentID.String(), item.ProviderKey, item.BindingRevision, item.SourcePolicyVersion)
 		if closeErr != nil {
 			return nil, closeErr
 		}
 		item.CloseMarketDates = closes
 		item.CloseFetchedAt = fetchedAt
-		noObs, expires, checked, coverageErr := listNoObservationCoverage(ctx, r.database.SQL, item.InstrumentID.String(), householdID.String(), item.ProviderKey, item.BindingRevision, item.SourcePolicyVersion)
+		noObs, expires, checked, coverageErr := listNoObservationCoverage(ctx, query, item.InstrumentID.String(), householdID.String(), item.ProviderKey, item.BindingRevision, item.SourcePolicyVersion)
 		if coverageErr != nil {
 			return nil, coverageErr
+		}
+		unverified, unverifiedErr := listUnverifiedCoverage(ctx, query, "instrument", item.InstrumentID.String(), householdID.String(), item.ProviderKey, item.BindingRevision, item.SourcePolicyVersion)
+		if unverifiedErr != nil {
+			return nil, unverifiedErr
 		}
 		item.NoObservationDates = noObs
 		item.NoObservationExpiresAt = expires
 		item.NoObservationCheckedAt = checked
+		item.UnverifiedDates = unverified
 		result = append(result, item)
 	}
 	return result, nil
@@ -123,7 +132,11 @@ func listCloseMarketDates(ctx context.Context, query queryer, instrumentID, prov
 }
 
 func (r *Repository) ListFXHistoryCoverage(ctx context.Context, householdID domain.HouseholdID) ([]domain.FXHistoryCoverage, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, `
+	return listFXHistoryCoverageQuery(ctx, r.database.SQL, householdID)
+}
+
+func listFXHistoryCoverageQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.FXHistoryCoverage, error) {
+	rows, err := query.QueryContext(ctx, `
 		SELECT s.base_currency, s.quote_currency, s.provider_key, s.source_policy_version, s.market_date, q.fetched_at
 		FROM fx_observation_slots s
 		JOIN fx_quotes q ON q.id = s.quote_id
@@ -173,7 +186,7 @@ func (r *Repository) ListFXHistoryCoverage(ctx context.Context, householdID doma
 	if err := rows.Close(); err != nil {
 		return nil, err
 	}
-	noObsRows, err := r.database.SQL.QueryContext(ctx, `
+	noObsRows, err := query.QueryContext(ctx, `
 		SELECT target_id, provider_key, source_policy_version, effective_date, expires_at, checked_at
 		FROM market_data_day_status
 		WHERE household_id = ? AND target_type = 'fx' AND status = ?
@@ -222,6 +235,44 @@ func (r *Repository) ListFXHistoryCoverage(ctx context.Context, householdID doma
 	if err := noObsRows.Err(); err != nil {
 		return nil, err
 	}
+	unverifiedRows, err := query.QueryContext(ctx, `
+		SELECT target_id, provider_key, source_policy_version, effective_date
+		FROM market_data_day_status
+		WHERE household_id = ? AND target_type = 'fx' AND status <> ?
+		ORDER BY target_id, provider_key, source_policy_version, effective_date`, householdID.String(), coverageStatusNoObservation)
+	if err != nil {
+		return nil, err
+	}
+	defer unverifiedRows.Close()
+	for unverifiedRows.Next() {
+		var targetID, provider, policy, date string
+		if err := unverifiedRows.Scan(&targetID, &provider, &policy, &date); err != nil {
+			return nil, err
+		}
+		key := fxCoverageKeyFromTarget(targetID, provider, policy)
+		item, ok := byKey[key]
+		if !ok {
+			parts := strings.Split(strings.TrimSpace(targetID), "/")
+			if len(parts) != 2 {
+				continue
+			}
+			parsedBase, baseErr := domain.ParseSupportedCurrency(parts[0])
+			if baseErr != nil {
+				return nil, baseErr
+			}
+			parsedQuote, quoteErr := domain.ParseSupportedCurrency(parts[1])
+			if quoteErr != nil {
+				return nil, quoteErr
+			}
+			item = &domain.FXHistoryCoverage{BaseCurrency: parsedBase, QuoteCurrency: parsedQuote, ProviderKey: strings.TrimSpace(provider), SourcePolicyVersion: strings.TrimSpace(policy), DailyReferenceFetchedAt: map[string]time.Time{}, NoObservationExpiresAt: map[string]time.Time{}, NoObservationCheckedAt: map[string]time.Time{}}
+			byKey[key] = item
+			order = append(order, key)
+		}
+		item.UnverifiedDates = append(item.UnverifiedDates, date)
+	}
+	if err := unverifiedRows.Err(); err != nil {
+		return nil, err
+	}
 	result := make([]domain.FXHistoryCoverage, 0, len(order))
 	for _, key := range order {
 		result = append(result, *byKey[key])
@@ -268,4 +319,24 @@ func listNoObservationCoverage(ctx context.Context, query queryer, instrumentID,
 		}
 	}
 	return dates, expires, checked, rows.Err()
+}
+
+func listUnverifiedCoverage(ctx context.Context, query queryer, targetType, targetID, householdID, providerKey string, bindingRevision int, policy string) ([]string, error) {
+	rows, err := query.QueryContext(ctx, `
+		SELECT effective_date FROM market_data_day_status
+		WHERE target_type = ? AND target_id = ? AND household_id = ? AND provider_key = ? AND binding_revision = ? AND source_policy_version = ? AND status <> ?
+		ORDER BY effective_date`, targetType, targetID, householdID, providerKey, bindingRevision, policy, coverageStatusNoObservation)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	dates := make([]string, 0)
+	for rows.Next() {
+		var date string
+		if err := rows.Scan(&date); err != nil {
+			return nil, err
+		}
+		dates = append(dates, date)
+	}
+	return dates, rows.Err()
 }

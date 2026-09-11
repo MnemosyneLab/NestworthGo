@@ -66,8 +66,8 @@ export function RefreshRequiredFX(): $CancellablePromise<$models.RefreshResultDT
 
 /**
  * ScanMarketDataHealth runs the local Data Health scan. Opening Data Health
- * must not cause provider HTTP; this method only reads the database, secret
- * status, and in-process job snapshot.
+ * must not cause provider HTTP; this method only reads the database, local
+ * Tiingo key status, and in-process job snapshot.
  */
 export function ScanMarketDataHealth(): $CancellablePromise<$models.MarketDataHealthReportDTO> {
     return $Call.ByID(247455835);

@@ -105,7 +105,7 @@ The compatibility inspection, schema verification, and blocked-startup paths are
 | Navigation and filters | React page state |
 | Form input | Feature-owned React forms and Zod validation |
 | Language, appearance, and FX route | Local JSON settings plus i18next/theme store and application provider selection |
-| Tiingo API key | OS/session secret store; not SQLite, settings JSON, or backups |
+| Tiingo API key | Local settings JSON (mode 0600); not SQLite |
 | Chart geometry | UI-only rendering model derived from authoritative results |
 
 The UI must not optimistically invent financial totals. After a mutation it
@@ -134,8 +134,9 @@ Dependency versions are owned by `go.mod` and `go.sum`, not duplicated here.
   needed for the requested refresh. Balances and other display values may cross
   the local boundary only as explicit DTO fields; notes, credentials, raw
   database data, and raw provider payloads do not become user-facing data.
-- Tiingo secrets stay in the secret store. Backups and restored databases do
-  not include OS keys; `tiingo_key_configured` is derived at runtime.
+- Tiingo API keys are stored in the local settings JSON and are exposed to the
+  frontend only through a redacted configured/not-configured status. The key
+  is never copied into SQLite rows or logs.
 - Provider integrations are explicit adapters with safe failure behavior and
   no startup dependency. Yahoo supplies instrument quotes and Frankfurter
   supplies FX refresh.

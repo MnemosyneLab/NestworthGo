@@ -105,13 +105,13 @@ nothing. Existing latest and manual quotes remain `realtime`/`latest` and
 `manual`; migrated unverifiable provider quotes are `legacy` and do not fill
 close slots.
 
-## Secret storage
+## Tiingo API key configuration
 
-Tiingo API keys live in a `SecretStore` outside SQLite, settings JSON, and
-backups. `tiingo_key_configured` is a derived process status
-(`available`/`session_only`), not a durable boolean. Restored databases do not
-carry OS secrets. Native OS keychain backing is the production target; memory
-and session-only stores cover tests and unavailable/locked backends.
+Tiingo API keys are persisted in the local settings JSON file, which is
+created with private permissions and written atomically. The key is not part
+of SQLite business data and never crosses the Wails boundary. The settings
+service returns only a derived `configured` boolean and the provider reads
+the current key from the settings store when it makes a request.
 
 ## Current valuation and provider refresh
 
@@ -239,8 +239,9 @@ Recovery and portability are file workflows rather than business tables. A
 backup has the fixed members `manifest.json`, `database.sqlite`, and
 `settings.json`; verification is read-only and checks format, limits,
 checksums, schema, foreign keys, and integrity before replacement. Restore uses
-a journaled file-group swap and rolls back an incomplete replacement. OS and
-Tiingo secrets are excluded from backup archives. CSV
+a journaled file-group swap and rolls back an incomplete replacement. The
+Tiingo key follows the local settings JSON backup/restore policy and is not
+stored in SQLite. CSV
 Accounts and Holdings imports are create-only: mapping and preview happen
 before one atomic commit, and observation dates remain explicit input rather
 than silently using the current time. The detailed user flow and stable error

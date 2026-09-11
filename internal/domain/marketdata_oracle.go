@@ -250,7 +250,7 @@ func expectedSnapshot(localDate string, cutoff time.Time, quantity Quantity, cas
 	if carried {
 		quality = "carried_forward"
 	}
-	if marketDatePending(selected.MarketDate, pending) {
+	if marketDatePending(selected.MarketDate, pending) || pendingAfterSelected(selected.MarketDate, localDate, pending) {
 		quality = "pending"
 	}
 	return OracleSnapshot{
@@ -265,7 +265,7 @@ func expectedSnapshot(localDate string, cutoff time.Time, quantity Quantity, cas
 		BaseCashExact:      cashExactText,
 		AssetsExact:        assetsExactText,
 		AssetsRounded:      assetsRounded.CanonicalAmount(),
-		Complete:           true,
+		Complete:           quality != "pending",
 		CarriedForward:     carried,
 		Quality:            quality,
 	}, nil
@@ -400,6 +400,15 @@ func closedLocalDates(originDate, todayLocal string) ([]string, error) {
 func marketDatePending(marketDate string, pending []string) bool {
 	for _, item := range pending {
 		if item == marketDate {
+			return true
+		}
+	}
+	return false
+}
+
+func pendingAfterSelected(selectedDate, cutoffDate string, pending []string) bool {
+	for _, item := range pending {
+		if item > selectedDate && item <= cutoffDate {
 			return true
 		}
 	}

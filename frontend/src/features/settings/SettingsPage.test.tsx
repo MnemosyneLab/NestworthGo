@@ -92,9 +92,9 @@ beforeEach(() => {
   deleteTiingoAPIKey.mockReset();
   load.mockResolvedValue(defaultSettings);
   historyOrigin.mockResolvedValue(null);
-  tiingoKeyStatus.mockResolvedValue({ status: "missing", configured: false, sessionOnly: false });
-  saveTiingoAPIKey.mockResolvedValue({ status: "session_only", configured: true, sessionOnly: true });
-  deleteTiingoAPIKey.mockResolvedValue({ status: "unavailable", configured: false, sessionOnly: false });
+  tiingoKeyStatus.mockResolvedValue({ configured: false });
+  saveTiingoAPIKey.mockResolvedValue({ configured: true });
+  deleteTiingoAPIKey.mockResolvedValue({ configured: false });
 });
 
 describe("SettingsPage", () => {

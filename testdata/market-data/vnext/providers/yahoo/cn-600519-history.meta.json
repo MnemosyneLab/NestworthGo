@@ -1,0 +1,19 @@
+{
+  "fixtureId": "yahoo-cn-600519-history",
+  "provider": "yahoo_finance",
+  "capability": "InstrumentDailyHistory",
+  "providerSymbol": "600519.SS",
+  "quoteCurrency": "CNY",
+  "market": "CN",
+  "requestedRange": { "start": "2026-09-04", "end": "2026-09-04" },
+  "sessionPolicy": "cn_equity_regular_close_v1",
+  "sessionKind": "regular",
+  "sessionTimezone": "Asia/Shanghai",
+  "closeClock": "15:00",
+  "priceBasis": "yahoo_close_v1",
+  "priceBasisVerified": true,
+  "clock": "2026-09-10T00:05:00+08:00",
+  "lastFinalizedMarketDate": "2026-09-04",
+  "pendingMarketDates": [],
+  "truncated": false
+}

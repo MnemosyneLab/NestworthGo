@@ -322,21 +322,18 @@ Configured but unused
 
 Do not delete the Tiingo key when the user temporarily switches back to Yahoo.
 
-## 7.3 Tiingo secret storage
+## 7.3 Tiingo API key configuration
 
-The Tiingo API key should not be persisted in ordinary application SQLite data or exported with normal backups.
+The Tiingo API key is persisted in the local settings JSON file. The settings
+store creates the file with private permissions and writes it atomically. The
+key is not stored in SQLite business data, and it never crosses the Wails
+boundary; the settings API returns only a redacted configured/not-configured
+status.
 
-Use a secret-storage abstraction backed by the operating system where practical:
-
-- macOS: Keychain
-- Windows: Credential Manager
-- Linux: Secret Service / compatible keyring
-
-Application settings store non-secret provider selection only. `tiingo_key_configured` is a derived backend status from the secret store, not an authoritative persisted boolean: a restored database/settings file may be opened on a machine without the key.
-
-The backend should retrieve the real secret from the secret store only when constructing Tiingo requests.
-
-If the OS store is unavailable or locked, expose that state and allow a session-only key held in backend memory. Do not silently fall back to plaintext persistence. Save/replace/remove return redacted status only; restore never implies that a key has been restored. Native verification of store access and failure behavior is a release gate.
+The Tiingo provider receives a settings-backed key reader and reads the latest
+value when constructing a request. Save, replace, and remove update the same
+settings file, so changing the selected instrument provider does not delete
+the key.
 
 ---
 
@@ -1733,7 +1730,7 @@ snapshot_invalidations / existing history state extension
 
 Snapshot generation records the input generation and resolver-policy version. Saving a rebuilt snapshot and conditionally completing its dirty range is atomic. If inputs advanced during computation, discard/retry that result or keep it explicitly dirty; do not publish it as current. Concurrent UI edits and sync writes obey the same rule.
 
-Observe the existing write gate and backup/restore boundaries. Provider HTTP and secret retrieval occur outside the database write transaction/gate; validated batches recheck workspace identity and configuration revision before committing. Schema migrations and backup verification must include revision, coverage, routing and invalidation data; OS secrets remain excluded.
+Observe the existing write gate and backup/restore boundaries. Provider HTTP and settings reads occur outside the database write transaction/gate; validated batches recheck workspace identity and configuration revision before committing. Schema migrations and backup verification must include revision, coverage, routing and invalidation data; the Tiingo key remains local to the settings file and is never copied into SQLite.
 
 ---
 
@@ -1811,7 +1808,7 @@ Choosing Later performs no network work. Preserve existing data and displayable 
 
 Migration records the new resolver-policy requirement and invalidates affected historical generations locally. Do not eagerly overwrite every legacy snapshot with missing results at startup. After user-initiated repair, publish newly built generations with their actual completeness/quality; keep missing prerequisites visible. Once a scope has migrated to the new policy, do not silently fall back to legacy snapshots when a refresh fails.
 
-Migration fixtures must cover manual-only data, provider-only legacy data, mixed history, archived exposure, no network, Later, interrupted repair and restored backups without OS secrets. Schema version/backup compatibility changes follow repository conventions; no assumption that the old schema version remains sufficient.
+Migration fixtures must cover manual-only data, provider-only legacy data, mixed history, archived exposure, no network, Later, interrupted repair and restored backups with the settings-file key behavior preserved. Schema version/backup compatibility changes follow repository conventions; no assumption that the old schema version remains sufficient.
 
 ---
 
@@ -2239,7 +2236,7 @@ InstrumentValueResolver
 FXValueResolver
 SnapshotInvalidationService
 DataHealthService
-SecretStore
+TiingoSettingsKey
 ```
 
 Avoid putting all of this into one expanded `refresh.go`.
@@ -2656,7 +2653,7 @@ Implement:
 - provider-specific instrument bindings
 - no-observation coverage/day-status storage
 - provider-neutral history interfaces
-- Tiingo secret-store abstraction
+- Tiingo settings-file key configuration
 - required-coverage model
 
 No major UI redesign yet.
@@ -2758,7 +2755,7 @@ A practical dependency-ordered breakdown (independent adapter work can proceed a
 2. schema-observation-revisions-and-canonical-index
 3. schema-effective-routing-bindings-and-coverage
 4. schema-generation-safe-history-invalidation
-5. secret-store-tiingo-and-restore-status
+5. settings-file-tiingo-key-and-restore-status
 6. provider-capability-batch-contract
 7. required-coverage-and-opening-anchor-planner
 8. cutoff-resolver-and-quality-contract
@@ -2932,11 +2929,11 @@ These are normative cases in addition to section 56. Use a fixed backend clock, 
 | MD-10 | Correction to snapshot D and its carried dependents | Stop at next eligible canonical dependency; invalidate next-day return and enclosing Analytics caches; unrelated snapshots stay unchanged. |
 | MD-11 | Revision 100→101→100; repeated ingestion | Old snapshot evidence still resolves to original immutable values; semantic reversions get a new revision; retries do not duplicate revisions. |
 | MD-12 | FX reciprocal, same currency, source-policy change, unsupported pair | Exact decimal inversion, identity 1 without query, version-separated coverage, actionable manual fallback; no synthesized raw reciprocal. |
-| MD-13 | Upgrade offline/Later, interrupted repair, restored backup without secret | Existing data survives with explicit legacy/dirty quality, no startup network, no false verified Analytics, missing key does not destroy cache. |
+| MD-13 | Upgrade offline/Later, interrupted repair, restored backup with settings key | Existing data survives with explicit legacy/dirty quality, no startup network, no false verified Analytics, missing key does not destroy cache. |
 | MD-14 | Attach after events, reopen sheet, duplicate/different scope, cancel, database restore | Job query reconstructs truth; scope is explicit; cancelled/old-workspace responses cannot mutate replacement data. |
 | MD-15 | Missing key/binding/manual input; partial provider failure and 429 | Correct prerequisite action and localized code; eligible work can complete partially; request budget/backoff respected. |
 | MD-16 | Missing, verified zero, unverified carried zero/nonzero across Wails and all Analytics views | Null is not zero; quality/AmountStatus survives DTO/bindings/UI; frontend does not recompute financial values. |
-| MD-17 | Clean migration and backup/restore of revision/routing/dirty state | Original IDs/evidence preserved; schema validation and supported-version checks pass; secrets excluded. |
+| MD-17 | Clean migration and backup/restore of revision/routing/dirty state | Original IDs/evidence preserved; schema validation and supported-version checks pass; key stays in settings JSON and out of SQLite. |
 
 ## 66.2 Release verification and scope
 
