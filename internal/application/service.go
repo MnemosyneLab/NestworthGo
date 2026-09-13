@@ -37,10 +37,21 @@ type Service struct {
 
 	csvMu       sync.Mutex
 	csvSessions map[string]*csvImportSession
+
+	lastSuccessfulCheck map[string]time.Time
+
+	syncMu                sync.Mutex
+	syncJobs              map[string]*syncJobState
+	currentSyncID         string
+	syncWG                sync.WaitGroup
+	syncListener          MarketDataSyncListener
+	syncSleep             func(context.Context, time.Duration) error
+	historyRequestMaxDays int
+	historyPersist        HistoryPersister
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
-	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, csvSessions: map[string]*csvImportSession{}}
+	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, csvSessions: map[string]*csvImportSession{}, lastSuccessfulCheck: map[string]time.Time{}, syncJobs: map[string]*syncJobState{}}
 	service.writes.init()
 	service.valuation = NewValuationService(repository, service.clock)
 	service.gain = NewGainService(repository, service.clock)
@@ -143,6 +154,12 @@ func (s *Service) setClock(now func() time.Time) {
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
 	s.now = now
+}
+
+// SetClock injects the backend clock. Tests pin it to the fixture instant;
+// production leaves time.Now.
+func (s *Service) SetClock(now func() time.Time) {
+	s.setClock(now)
 }
 
 // clock reads the configured clock through stateMu. It doubles as the

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import type { OverviewPage as OverviewPageComponent } from "./OverviewPage";
@@ -7,6 +8,15 @@ import type { OverviewPage as OverviewPageComponent } from "./OverviewPage";
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({ Service: {} }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: { Load: () => Promise.resolve({ timezone: "UTC" }) },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
+  Service: {
+    ScanMarketDataHealth: () => Promise.resolve({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] }),
+    GetCurrentSyncJob: () => Promise.resolve({ jobId: "" }),
+  },
+}));
+vi.mock("@wailsio/runtime", () => ({
+  Events: { On: () => () => undefined },
 }));
 
 const defaultHeadlines = {
@@ -28,7 +38,7 @@ const defaultHeadlines = {
 // Each test needs a different mocked Overview() response, so the binding
 // is re-mocked per test with vi.doMock + a fresh dynamic import, rather
 // than one hoisted vi.mock factory shared by the whole file.
-async function renderWithMockedOverview(response: unknown) {
+async function renderWithMockedOverview(response: unknown, props: { onOpenDataHealth?: () => void } = {}) {
   vi.doMock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfolio", () => ({
     Service: { Overview: () => Promise.resolve(response) },
   }));
@@ -38,7 +48,7 @@ async function renderWithMockedOverview(response: unknown) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <FreshOverviewPage />
+      <FreshOverviewPage {...props} />
     </QueryClientProvider>,
   );
 }
@@ -90,6 +100,7 @@ describe("OverviewPage", () => {
     expect(screen.getByText(/groups each real-world account as a whole/i)).toBeInTheDocument();
     expect(screen.getByText(/Updated /)).toBeInTheDocument();
     expect(await screen.findByText("Added $1,000.00 to Checking (Contribution)")).toBeInTheDocument();
+    expect(await screen.findByTestId("data-health-indicator")).toHaveTextContent("Data Health ✓");
   });
 
   it("lists institutions from largest to smallest", async () => {
@@ -119,27 +130,33 @@ describe("OverviewPage", () => {
   });
 
   it("shows an incomplete-data banner listing missing inputs, never a fabricated zero", async () => {
-    await renderWithMockedOverview({
-      currency: "USD",
-      accountCount: 1,
-      complete: false,
-      missingInputs: [{ kind: "instrument_price", accountId: "acc-1", instrumentName: "NVIDIA" }],
-      assets: "0",
-      liabilities: "0",
-      netWorth: "0",
-      assetsByType: [],
-      liabilitiesByType: [],
-      byMember: [],
-      byInstitution: [],
-      byGroup: [],
-      ...defaultHeadlines,
-      recentActivities: [],
-    });
+    const onOpenDataHealth = vi.fn();
+    await renderWithMockedOverview(
+      {
+        currency: "USD",
+        accountCount: 1,
+        complete: false,
+        missingInputs: [{ kind: "instrument_price", accountId: "acc-1", instrumentName: "NVIDIA" }],
+        assets: "0",
+        liabilities: "0",
+        netWorth: "0",
+        assetsByType: [],
+        liabilitiesByType: [],
+        byMember: [],
+        byInstitution: [],
+        byGroup: [],
+        ...defaultHeadlines,
+        recentActivities: [],
+      },
+      { onOpenDataHealth },
+    );
 
     expect(await screen.findByRole("alert")).toHaveTextContent("NVIDIA");
     expect(screen.getByText(/excludes values that still need a price/i)).toBeInTheDocument();
     expect(screen.getByText("1 instrument needs a manual price.")).toBeInTheDocument();
     expect(screen.queryByText("1 instrument prices need a refresh.")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Fix in Data Health" }));
+    expect(onOpenDataHealth).toHaveBeenCalled();
   });
 
   it("asks to refresh provider-sourced prices on Market Data", async () => {

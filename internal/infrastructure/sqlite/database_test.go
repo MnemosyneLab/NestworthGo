@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	_ "modernc.org/sqlite"
@@ -81,6 +82,171 @@ func TestOpenReopensCurrentDatabaseWithoutMigrationStatus(t *testing.T) {
 	defer reopened.Close()
 	if reopened.Status != StatusReady {
 		t.Fatalf("reopen status = %q, want ready", reopened.Status)
+	}
+}
+
+func TestOpenInvalidatesSnapshotsWhenHistoricalResolverPolicyChanges(t *testing.T) {
+	database, repository, household, _, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	location, err := time.LoadLocation("Asia/Singapore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	startedAt := time.Date(2026, 9, 1, 0, 0, 0, 0, location)
+	origin, err := domain.NewHistoryOrigin(household.ID, location.String(), startedAt, startedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
+		t.Fatal(err)
+	}
+	snapshotID := domain.NewDailyValuationSnapshotID()
+	cutoff := startedAt.Add(23*time.Hour + 59*time.Minute + 59*time.Second + 999*time.Millisecond)
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = NULL, dirty_to = NULL, input_generation = 4, resolver_policy_version = 'household-cutoff-close-v1' WHERE household_id = ?`, household.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `INSERT INTO daily_valuation_snapshots(id, household_id, local_date, cutoff_at, revision, content_hash, currency, complete, component_count, missing_count, generation_reason, created_at, input_generation, resolver_policy_version) VALUES(?, ?, ?, ?, 1, 'stale-policy-snapshot', 'CNY', 1, 0, 0, 'manual', ?, 4, 'household-cutoff-close-v1')`, snapshotID.String(), household.ID.String(), "2026-09-01", formatTimestamp(cutoff), formatTimestamp(cutoff)); err != nil {
+		t.Fatal(err)
+	}
+	path := database.Path
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	var dirtyFrom, dirtyTo, policy string
+	var generation int
+	if err := reopened.SQL.QueryRowContext(ctx, `SELECT dirty_from, dirty_to, resolver_policy_version, input_generation FROM history_snapshot_state WHERE household_id = ?`, household.ID.String()).Scan(&dirtyFrom, &dirtyTo, &policy, &generation); err != nil {
+		t.Fatal(err)
+	}
+	if dirtyFrom != "2026-09-01" || dirtyTo == "" || policy != domain.MarketDataResolverPolicy || generation != 5 {
+		t.Fatalf("invalidated state = from=%s to=%s policy=%s generation=%d", dirtyFrom, dirtyTo, policy, generation)
+	}
+	var complete int
+	if err := reopened.SQL.QueryRowContext(ctx, `SELECT complete FROM daily_valuation_snapshots WHERE id = ?`, snapshotID.String()).Scan(&complete); err != nil {
+		t.Fatal(err)
+	}
+	if complete != 0 {
+		t.Fatalf("stale snapshot complete = %d, want invalidated", complete)
+	}
+}
+
+func TestSameHashSnapshotReuseRestoresCompletenessAfterResolverPolicyMigration(t *testing.T) {
+	database, repository, household, _, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	location, err := time.LoadLocation("Asia/Singapore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	startedAt := time.Date(2026, 9, 1, 0, 0, 0, 0, location)
+	origin, err := domain.NewHistoryOrigin(household.ID, location.String(), startedAt, startedAt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.StartHistory(ctx, domain.HistoryOriginData{Origin: origin}); err != nil {
+		t.Fatal(err)
+	}
+	cutoff := startedAt.Add(23*time.Hour + 59*time.Minute + 59*time.Second + 999*time.Millisecond)
+	contentHash := "unchanged-economic-hash"
+	snapshot := domain.DailyValuationSnapshot{
+		ID:                    domain.NewDailyValuationSnapshotID(),
+		HouseholdID:           household.ID,
+		LocalDate:             "2026-09-01",
+		CutoffAt:              cutoff,
+		ContentHash:           contentHash,
+		Currency:              domain.CurrencyCode("CNY"),
+		Complete:              true,
+		ComponentCount:        1,
+		MissingCount:          0,
+		GenerationReason:      "manual",
+		CreatedAt:             cutoff,
+		InputGeneration:       4,
+		ResolverPolicyVersion: "household-cutoff-close-v1",
+	}
+	if _, err := repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, cutoff); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = NULL, dirty_to = NULL, input_generation = 4, resolver_policy_version = 'household-cutoff-close-v1' WHERE household_id = ?`, household.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	path := database.Path
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	reopened, err := Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reopened.Close()
+	repo := NewRepository(reopened)
+	var storedComplete int
+	var storedHash string
+	var revisions, storedGeneration int
+	if err := reopened.SQL.QueryRowContext(ctx, `SELECT complete, content_hash, input_generation FROM daily_valuation_snapshots WHERE household_id = ? AND local_date = ? ORDER BY revision DESC LIMIT 1`, household.ID.String(), "2026-09-01").Scan(&storedComplete, &storedHash, &storedGeneration); err != nil {
+		t.Fatal(err)
+	}
+	if storedComplete != 0 || storedHash != contentHash || storedGeneration != 5 {
+		t.Fatalf("migrated snapshot complete=%d hash=%s generation=%d, want incomplete same hash generation 5", storedComplete, storedHash, storedGeneration)
+	}
+
+	rebuilt := snapshot
+	rebuilt.ID = domain.NewDailyValuationSnapshotID()
+	rebuilt.Complete = true
+	rebuilt.InputGeneration = 5
+	rebuilt.ResolverPolicyVersion = domain.MarketDataResolverPolicy
+	rebuilt.ComponentCount = 1
+	rebuilt.MissingCount = 0
+	if _, err := repo.SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx, rebuilt, cutoff, 4); err == nil {
+		t.Fatal("stale generation reused the migrated snapshot")
+	}
+	if err := reopened.SQL.QueryRowContext(ctx, `SELECT complete, content_hash FROM daily_valuation_snapshots WHERE household_id = ? AND local_date = ? ORDER BY revision DESC LIMIT 1`, household.ID.String(), "2026-09-01").Scan(&storedComplete, &storedHash); err != nil {
+		t.Fatal(err)
+	}
+	if err := reopened.SQL.QueryRowContext(ctx, `SELECT COUNT(*) FROM daily_valuation_snapshots WHERE household_id = ? AND local_date = ?`, household.ID.String(), "2026-09-01").Scan(&revisions); err != nil {
+		t.Fatal(err)
+	}
+	if storedComplete != 0 || storedHash != contentHash || revisions != 1 {
+		t.Fatalf("generation mismatch mutated snapshot complete=%d hash=%s revisions=%d", storedComplete, storedHash, revisions)
+	}
+
+	appended, err := repo.SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx, rebuilt, cutoff, 5)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if appended {
+		t.Fatal("unchanged economic result appended a new revision")
+	}
+	listed, err := repo.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("listed snapshots=%d err=%v", len(listed), err)
+	}
+	if !listed[0].Complete || listed[0].ContentHash != contentHash || listed[0].InputGeneration != 5 || listed[0].ResolverPolicyVersion != domain.MarketDataResolverPolicy {
+		t.Fatalf("restored snapshot = %+v", listed[0])
+	}
+
+	again, err := repo.SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx, rebuilt, cutoff, 5)
+	if err != nil || again {
+		t.Fatalf("idempotent complete reuse appended=%v err=%v", again, err)
+	}
+
+	incomplete := rebuilt
+	incomplete.Complete = false
+	incomplete.MissingCount = 1
+	incomplete.GenerationReason = "manual"
+	appended, err = repo.SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx, incomplete, cutoff, 5)
+	if err != nil || appended {
+		t.Fatalf("incomplete same-hash reuse appended=%v err=%v", appended, err)
+	}
+	listed, err = repo.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("incomplete listed snapshots=%d err=%v", len(listed), err)
+	}
+	if listed[0].Complete || listed[0].ContentHash != contentHash || listed[0].MissingCount != 1 {
+		t.Fatalf("incomplete rebuilt snapshot = %+v", listed[0])
 	}
 }
 
@@ -254,7 +420,7 @@ func TestOpenRejectsSchema6FixtureWithoutWriting(t *testing.T) {
 		t.Fatal("schema 6 database changed after rejected open")
 	}
 	message := openErr.Error()
-	if !strings.Contains(message, "found version 6") || !strings.Contains(message, "supported version 9") || !strings.Contains(message, "new database") {
+	if !strings.Contains(message, "found version 6") || !strings.Contains(message, "supported version 10") || !strings.Contains(message, "new database") {
 		t.Fatalf("legacy error = %v, want found/supported versions and new-database guidance", openErr)
 	}
 }
@@ -334,6 +500,131 @@ func TestOpenRejectsSchema8FixtureWithoutWriting(t *testing.T) {
 	}
 	if string(before) != string(after) {
 		t.Fatal("schema 8 database changed after rejected open")
+	}
+}
+
+func TestOpenMigratesSchema9FixtureWithoutNetwork(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "schema9.db")
+	schema, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "schema9", "schema9.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "schema9", "schema9-data.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	seed, err := sql.Open("sqlite", path+"?_pragma=foreign_keys%3d1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seed.Exec(string(schema)); err != nil {
+		_ = seed.Close()
+		t.Fatal(err)
+	}
+	if _, err := seed.Exec(string(data)); err != nil {
+		_ = seed.Close()
+		t.Fatal(err)
+	}
+	var version int
+	if err := seed.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		_ = seed.Close()
+		t.Fatal(err)
+	}
+	if version != 9 {
+		_ = seed.Close()
+		t.Fatalf("fixture version = %d, want 9", version)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	database, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open schema 9: %v", err)
+	}
+	defer database.Close()
+	if err := database.SQL.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != CurrentSchemaVersion {
+		t.Fatalf("migrated version = %d, want %d", version, CurrentSchemaVersion)
+	}
+
+	var manualKind, providerKind, archivedKind string
+	if err := database.SQL.QueryRow(`SELECT observation_kind FROM instrument_quotes WHERE id = '00000000-0000-4000-8000-000000000020'`).Scan(&manualKind); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow(`SELECT observation_kind FROM instrument_quotes WHERE id = '00000000-0000-4000-8000-000000000021'`).Scan(&providerKind); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow(`SELECT observation_kind FROM instrument_quotes WHERE id = '00000000-0000-4000-8000-000000000022'`).Scan(&archivedKind); err != nil {
+		t.Fatal(err)
+	}
+	if manualKind != "manual" || providerKind != "legacy" || archivedKind != "legacy" {
+		t.Fatalf("observation kinds manual=%s provider=%s archived=%s", manualKind, providerKind, archivedKind)
+	}
+
+	var closeSlots int
+	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_observation_slots`).Scan(&closeSlots); err != nil {
+		t.Fatal(err)
+	}
+	if closeSlots != 0 {
+		t.Fatal("legacy provider quotes filled canonical close slots")
+	}
+
+	var bindings int
+	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_provider_bindings`).Scan(&bindings); err != nil {
+		t.Fatal(err)
+	}
+	if bindings != 2 {
+		t.Fatalf("bindings = %d, want 2 including archived", bindings)
+	}
+	var archivedBinding string
+	if err := database.SQL.QueryRow(`SELECT provider_symbol FROM instrument_provider_bindings WHERE instrument_id = '00000000-0000-4000-8000-000000000012'`).Scan(&archivedBinding); err != nil {
+		t.Fatal(err)
+	}
+	if archivedBinding != "OLD" {
+		t.Fatalf("archived binding = %s", archivedBinding)
+	}
+
+	var snapshotCount int
+	var contentHash string
+	if err := database.SQL.QueryRow(`SELECT COUNT(*), MAX(content_hash) FROM daily_valuation_snapshots`).Scan(&snapshotCount, &contentHash); err != nil {
+		t.Fatal(err)
+	}
+	if snapshotCount != 1 || contentHash != "legacy-snapshot-v9" {
+		t.Fatalf("legacy snapshot was rewritten: count=%d hash=%s", snapshotCount, contentHash)
+	}
+
+	var dirtyFrom, policy string
+	var generation int
+	if err := database.SQL.QueryRow(`SELECT dirty_from, input_generation, resolver_policy_version FROM history_snapshot_state WHERE household_id = '00000000-0000-4000-8000-000000000001'`).Scan(&dirtyFrom, &generation, &policy); err != nil {
+		t.Fatal(err)
+	}
+	if dirtyFrom != "2026-09-01" || generation != 1 || policy != domain.MarketDataResolverPolicy {
+		t.Fatalf("dirty state dirty_from=%s generation=%d policy=%s", dirtyFrom, generation, policy)
+	}
+
+	var providerKey, providerSymbol string
+	if err := database.SQL.QueryRow(`SELECT provider_key, provider_symbol FROM instruments WHERE id = '00000000-0000-4000-8000-000000000011'`).Scan(&providerKey, &providerSymbol); err != nil {
+		t.Fatal(err)
+	}
+	if providerKey != "yahoo_finance" || providerSymbol != "AAPL" {
+		t.Fatal("migration removed legacy instrument provider columns")
+	}
+
+	var manualFX, providerFX string
+	if err := database.SQL.QueryRow(`SELECT observation_kind FROM fx_quotes WHERE id = '00000000-0000-4000-8000-000000000030'`).Scan(&manualFX); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow(`SELECT observation_kind FROM fx_quotes WHERE id = '00000000-0000-4000-8000-000000000031'`).Scan(&providerFX); err != nil {
+		t.Fatal(err)
+	}
+	if manualFX != "manual" || providerFX != "legacy" {
+		t.Fatalf("FX observation kinds manual=%s provider=%s", manualFX, providerFX)
+	}
+	if err := database.Verify(context.Background()); err != nil {
+		t.Fatalf("Verify after migration: %v", err)
 	}
 }
 

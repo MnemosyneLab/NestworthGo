@@ -47,7 +47,7 @@ func NewFrankfurterProviderWithOptions(options FrankfurterProviderOptions) *Fran
 func (p *FrankfurterProvider) Key() string { return frankfurterProviderKey }
 
 func (p *FrankfurterProvider) Capabilities() application.MarketDataCapabilities {
-	return application.MarketDataCapabilities{LatestFX: true}
+	return application.MarketDataCapabilities{LatestFX: true, FXDailyHistory: true}
 }
 
 func (p *FrankfurterProvider) LatestInstrument(context.Context, application.InstrumentMarketIdentity) (application.LatestInstrumentQuote, error) {
@@ -88,6 +88,37 @@ func (p *FrankfurterProvider) LatestFX(ctx context.Context, identity application
 	}, nil
 }
 
+func (p *FrankfurterProvider) FXDailyHistory(ctx context.Context, identity application.FXMarketIdentity, rng application.DateRange) (application.MappingOutcome[application.FXDailyObservation], error) {
+	base, err := domain.ParseCurrency(identity.BaseCurrency.String())
+	if err != nil {
+		return application.MappingOutcome[application.FXDailyObservation]{}, providerValidation("baseCurrency", "base currency is invalid")
+	}
+	quote, err := domain.ParseCurrency(identity.QuoteCurrency.String())
+	if err != nil {
+		return application.MappingOutcome[application.FXDailyObservation]{}, providerValidation("quoteCurrency", "quote currency is invalid")
+	}
+	if base == quote {
+		return application.MappingOutcome[application.FXDailyObservation]{
+			Status: application.MappingUnsupported,
+			Reason: "identity_pair_is_not_a_raw_observation",
+		}, nil
+	}
+	if _, err := application.InclusiveMarketDates(rng); err != nil {
+		return application.MappingOutcome[application.FXDailyObservation]{}, err
+	}
+	body, err := p.fetchHistory(ctx, base, quote, rng)
+	if err != nil {
+		return application.MappingOutcome[application.FXDailyObservation]{}, err
+	}
+	return QualifyFrankfurterHistory(frankfurterHistoryRequestMeta(base, quote, rng), body)
+}
+
+func (p *FrankfurterProvider) fetchHistory(ctx context.Context, base, quote domain.CurrencyCode, rng application.DateRange) ([]byte, error) {
+	return p.conn.doFetch(ctx, frankfurterHistoryURL(base, quote, rng), func(request *http.Request) {
+		request.Header.Set("Accept", "application/json")
+	}, classifyFrankfurterResponse)
+}
+
 func (p *FrankfurterProvider) fetch(ctx context.Context, base, quote domain.CurrencyCode) ([]byte, error) {
 	return p.conn.doFetch(ctx, frankfurterRateURL(base, quote), func(request *http.Request) {
 		request.Header.Set("Accept", "application/json")
@@ -123,6 +154,38 @@ func frankfurterRateURL(base, quote domain.CurrencyCode) *url.URL {
 		Host:   frankfurterHost,
 		Path:   "/v2/rate/" + url.PathEscape(base.String()) + "/" + url.PathEscape(quote.String()),
 	}
+}
+
+func frankfurterHistoryURL(base, quote domain.CurrencyCode, rng application.DateRange) *url.URL {
+	query := url.Values{}
+	query.Set("from", string(rng.Start))
+	query.Set("to", string(rng.End))
+	query.Set("base", base.String())
+	query.Set("quotes", quote.String())
+	return &url.URL{
+		Scheme:   "https",
+		Host:     frankfurterHost,
+		Path:     "/v2/rates",
+		RawQuery: query.Encode(),
+	}
+}
+
+func frankfurterHistoryRequestMeta(base, quote domain.CurrencyCode, rng application.DateRange) vnextFixtureMeta {
+	meta := vnextFixtureMeta{
+		FixtureID:     "frankfurter-v2-history-request",
+		Provider:      frankfurterProviderKey,
+		Capability:    "FXDailyHistory",
+		BaseCurrency:  base.String(),
+		QuoteCurrency: quote.String(),
+		SourcePolicy:  domain.FrankfurterV2BlendedPolicy,
+		Clock:         time.Now().UTC().Format(time.RFC3339),
+	}
+	meta.RequestedRange.Start = string(rng.Start)
+	meta.RequestedRange.End = string(rng.End)
+	if finalized, err := domain.LastFinalizedUSEquityMarketDate(time.Now().UTC()); err == nil {
+		meta.LastFinalizedMarketDate = finalized
+	}
+	return meta
 }
 
 type frankfurterRateResponse struct {
@@ -175,3 +238,4 @@ func normalizeFrankfurterRate(body []byte, expectedBase, expectedQuote domain.Cu
 }
 
 var _ application.MarketDataProvider = (*FrankfurterProvider)(nil)
+var _ application.FXHistoryProvider = (*FrankfurterProvider)(nil)

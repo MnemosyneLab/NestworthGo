@@ -143,6 +143,7 @@ type Instrument struct {
 	QuoteSource             QuoteSourceKind
 	ProviderKey             *string
 	ProviderSymbol          *string
+	ProviderBindingRevision int
 	PreferenceObservationID *InstrumentPreferenceObservationID
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
@@ -344,15 +345,28 @@ func NewAccountCashValue(account Account, amount Money, effectiveAt, createdAt t
 // InstrumentQuote is immutable history. Selection is handled by the
 // application/valuation layer using QuoteSource and timestamps.
 type InstrumentQuote struct {
-	ID           InstrumentQuoteID
-	InstrumentID InstrumentID
-	UnitPrice    UnitPrice
-	Currency     CurrencyCode
-	SourceKind   QuoteSourceKind
-	SourceKey    string
-	QuotedAt     time.Time
-	CreatedAt    time.Time
-	Delayed      bool
+	ID                  InstrumentQuoteID
+	InstrumentID        InstrumentID
+	UnitPrice           UnitPrice
+	Currency            CurrencyCode
+	SourceKind          QuoteSourceKind
+	SourceKey           string
+	QuotedAt            time.Time
+	CreatedAt           time.Time
+	Delayed             bool
+	ObservationKind     string
+	EffectiveDate       string
+	ProviderTimestamp   time.Time
+	FetchedAt           time.Time
+	ValueEffectiveAt    time.Time
+	BindingRevision     int
+	SourcePolicyVersion string
+	PriceBasis          string
+	TimestampBasis      string
+	Revision            int
+	SupersedesQuoteID   *string
+	SplitFactor         string
+	DividendCash        string
 }
 
 type InstrumentQuoteInput struct {
@@ -385,16 +399,24 @@ func NewInstrumentQuote(instrument Instrument, input InstrumentQuoteInput, creat
 // FXQuote stores an oriented observation: 1 BaseCurrency = Rate
 // QuoteCurrency. The pair preference is normalized separately.
 type FXQuote struct {
-	ID            FXQuoteID
-	HouseholdID   HouseholdID
-	BaseCurrency  CurrencyCode
-	QuoteCurrency CurrencyCode
-	Rate          FxRate
-	SourceKind    QuoteSourceKind
-	SourceKey     string
-	QuotedAt      time.Time
-	CreatedAt     time.Time
-	Delayed       bool
+	ID                  FXQuoteID
+	HouseholdID         HouseholdID
+	BaseCurrency        CurrencyCode
+	QuoteCurrency       CurrencyCode
+	Rate                FxRate
+	SourceKind          QuoteSourceKind
+	SourceKey           string
+	QuotedAt            time.Time
+	CreatedAt           time.Time
+	Delayed             bool
+	ObservationKind     string
+	EffectiveDate       string
+	FetchedAt           time.Time
+	ValueEffectiveAt    time.Time
+	SourcePolicyVersion string
+	TimestampBasis      string
+	Revision            int
+	SupersedesQuoteID   *string
 }
 
 type FXQuoteInput struct {

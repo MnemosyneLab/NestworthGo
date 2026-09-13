@@ -165,18 +165,6 @@ export function useAppendManualInstrumentQuote() {
   });
 }
 
-export function useSetInstrumentQuoteSource() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ instrumentId, source }: { instrumentId: string; source: string }) =>
-      callService(() => InstrumentService.SetInstrumentQuoteSource(instrumentId, source)),
-    onSuccess: (_data, variables) => {
-      invalidateInstrumentReads(queryClient);
-      invalidateInstrumentQuoteChange(queryClient, variables.instrumentId);
-    },
-  });
-}
-
 export function useAppendManualFXQuote() {
   const queryClient = useQueryClient();
   return useMutation({

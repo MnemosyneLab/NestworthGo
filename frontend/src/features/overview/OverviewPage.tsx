@@ -12,6 +12,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { activitySentence } from "@/features/history/activitySentence";
 import { CompositionChart } from "@/components/charts/CompositionChart";
+import { DataHealthIndicator } from "@/features/data-health/DataHealthIndicator";
 import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 type OverviewMissingInput = MissingInputDTO & { accountName?: string; quoteSource?: string };
@@ -102,13 +103,13 @@ export function OverviewPage({
   onOpenAccounts,
   onOpenHistory,
   onOpenMarketData,
-  onOpenInvestments,
+  onOpenDataHealth,
 }: {
   onAddAccount?: () => void;
   onOpenAccounts?: () => void;
   onOpenHistory?: () => void;
   onOpenMarketData?: () => void;
-  onOpenInvestments?: () => void;
+  onOpenDataHealth?: () => void;
 } = {}) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
@@ -146,6 +147,7 @@ export function OverviewPage({
     <div className="flex flex-wrap items-center gap-2">
       <Badge variant="secondary">{t("overview.accountCount", { count: data.accountCount })}</Badge>
       {healthBadge}
+      <DataHealthIndicator onOpen={onOpenDataHealth} />
       {updatedLabel && <p className="text-sm text-muted-foreground">{updatedLabel}</p>}
     </div>
   );
@@ -249,6 +251,11 @@ export function OverviewPage({
                       ))}
                     </ul>
                   )}
+                  {onOpenDataHealth && (
+                    <Button type="button" size="sm" variant="outline" onClick={onOpenDataHealth}>
+                      {t("dataHealth.fixInDataHealth")}
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -271,9 +278,9 @@ export function OverviewPage({
                   {missingManualPrices > 0 && (
                     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-foreground">{t("overview.setManualPricesNext", { count: missingManualPrices })}</p>
-                      {onOpenInvestments && (
-                        <Button type="button" size="sm" variant="outline" onClick={onOpenInvestments}>
-                          {t("overview.openInvestments")}
+                      {onOpenMarketData && (
+                        <Button type="button" size="sm" variant="outline" onClick={onOpenMarketData}>
+                          {t("overview.openMarketData")}
                         </Button>
                       )}
                     </li>

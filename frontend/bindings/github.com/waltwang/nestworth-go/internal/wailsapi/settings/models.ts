@@ -28,3 +28,11 @@ export interface SettingsDTO {
     "fxProvider": string;
     "quoteCacheTTL": string;
 }
+
+/**
+ * TiingoKeyStatusDTO exposes only whether a locally configured key exists. The
+ * key itself never crosses the Wails boundary.
+ */
+export interface TiingoKeyStatusDTO {
+    "configured": boolean;
+}

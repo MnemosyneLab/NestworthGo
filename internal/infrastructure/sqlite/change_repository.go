@@ -222,20 +222,25 @@ func endpointForEffect(effect domain.ActivityEffect, resulting []domain.Endpoint
 }
 
 func markHistoryDirtyTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, effectiveLocalDate, timezone string, asOf time.Time) error {
+	_, err := markHistoryDirtyAndAdvanceGenerationTx(ctx, tx, householdID, effectiveLocalDate, timezone, asOf)
+	return err
+}
+
+func markHistoryDirtyAndAdvanceGenerationTx(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, effectiveLocalDate, timezone string, asOf time.Time) (bool, error) {
 	location, err := time.LoadLocation(timezone)
 	if err != nil {
-		return &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "stored Household timezone is invalid"}
+		return false, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "stored Household timezone is invalid"}
 	}
 	var startedAt string
 	if err := tx.QueryRowContext(ctx, `SELECT started_at FROM history_origins WHERE household_id = ?`, householdID.String()).Scan(&startedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil
+			return false, nil
 		}
-		return err
+		return false, err
 	}
 	origin, err := time.Parse(time.RFC3339Nano, startedAt)
 	if err != nil {
-		return &domain.Error{Code: domain.ErrIntegrity, Message: "stored history Starting point is invalid"}
+		return false, &domain.Error{Code: domain.ErrIntegrity, Message: "stored history Starting point is invalid"}
 	}
 	originDate := origin.In(location).Format("2006-01-02")
 	if effectiveLocalDate < originDate {
@@ -245,13 +250,16 @@ func markHistoryDirtyTx(ctx context.Context, tx *sql.Tx, householdID domain.Hous
 		asOf = time.Now().UTC()
 	}
 	if effectiveLocalDate >= asOf.In(location).Format("2006-01-02") {
-		return nil
+		return false, nil
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN ? ELSE dirty_from END, updated_at = ? WHERE household_id = ?`, effectiveLocalDate, effectiveLocalDate, formatTimestamp(asOf), householdID.String())
+	result, err := tx.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN ? ELSE dirty_from END, input_generation = input_generation + 1, resolver_policy_version = CASE WHEN resolver_policy_version IS NULL OR resolver_policy_version = '' THEN ? ELSE resolver_policy_version END, updated_at = ? WHERE household_id = ?`, effectiveLocalDate, effectiveLocalDate, domain.MarketDataResolverPolicy, formatTimestamp(asOf), householdID.String())
 	if err != nil {
-		return err
+		return false, err
 	}
-	return requireAffected(result, "history snapshot state")
+	if err := requireAffected(result, "history snapshot state"); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func nullableActivityID(value *domain.ActivityID) any {

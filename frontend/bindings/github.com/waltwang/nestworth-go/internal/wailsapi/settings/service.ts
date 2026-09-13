@@ -9,6 +9,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+export function DeleteTiingoAPIKey(): $CancellablePromise<$models.TiingoKeyStatusDTO> {
+    return $Call.ByID(2287834341);
+}
+
 /**
  * FXProviders returns only registered providers that advertise latest-FX
  * support. Settings can therefore render the same closed list the
@@ -40,9 +44,17 @@ export function Save(value: $models.SettingsDTO): $CancellablePromise<void> {
     return $Call.ByID(1850635862, value);
 }
 
+export function SaveTiingoAPIKey(value: string): $CancellablePromise<$models.TiingoKeyStatusDTO> {
+    return $Call.ByID(452299787, value);
+}
+
 /**
  * SupportedCurrencies returns the closed currency catalog from domain.
  */
 export function SupportedCurrencies(): $CancellablePromise<string[] | null> {
     return $Call.ByID(1124163240);
+}
+
+export function TiingoKeyStatus(): $CancellablePromise<$models.TiingoKeyStatusDTO> {
+    return $Call.ByID(152636482);
 }

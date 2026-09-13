@@ -17,6 +17,40 @@ func mustBatchQuantity(t *testing.T, value string) domain.Quantity {
 	return quantity
 }
 
+func TestCompleteDailySnapshotRangePreservesRemainingDirtyRange(t *testing.T) {
+	_, repository, household, _, _ := seedPortfolioRepository(t)
+	ctx := context.Background()
+	updatedAt := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
+	if _, err := repository.database.SQL.ExecContext(ctx, `INSERT INTO history_snapshot_state(household_id, dirty_from, dirty_to, updated_at) VALUES(?, ?, ?, ?)`, household.ID.String(), "2026-10-01", "2026-11-14", formatTimestamp(updatedAt)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := repository.CompleteDailySnapshotRange(ctx, household.ID, "2026-10-06", updatedAt); err != nil {
+		t.Fatal(err)
+	}
+	state, err := repository.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.DirtyFrom == nil || *state.DirtyFrom != "2026-10-07" {
+		t.Fatalf("dirty from after first batch = %v, want 2026-10-07", state.DirtyFrom)
+	}
+	if state.DirtyTo == nil || *state.DirtyTo != "2026-11-14" {
+		t.Fatalf("dirty to after first batch = %v, want 2026-11-14", state.DirtyTo)
+	}
+
+	if err := repository.CompleteDailySnapshotRange(ctx, household.ID, "2026-11-14", updatedAt); err != nil {
+		t.Fatal(err)
+	}
+	state, err = repository.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.DirtyFrom != nil || state.DirtyTo != nil {
+		t.Fatalf("dirty range after final batch = %v..%v, want cleared", state.DirtyFrom, state.DirtyTo)
+	}
+}
+
 func TestListHoldingsByAccountsReturnsHoldingsInOneQuery(t *testing.T) {
 	database, repository, _, first, instrument := seedPortfolioRepository(t)
 	ctx := context.Background()

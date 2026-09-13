@@ -7,5 +7,6 @@ export {
 };
 
 export type {
-    SettingsDTO
+    SettingsDTO,
+    TiingoKeyStatusDTO
 } from "./models.js";

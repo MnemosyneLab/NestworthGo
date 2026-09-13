@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -154,6 +155,95 @@ func TestRebuildLoadsOneImmutableBatchAndResumesCursor(t *testing.T) {
 	}
 	if snapshots != 3 {
 		t.Fatalf("snapshots=%d, want 3", snapshots)
+	}
+}
+
+type cancelAfterSnapshotRepository struct {
+	Repository
+	base      GenerationAwareSnapshotRepository
+	cancel    context.CancelFunc
+	cancelAt  int
+	saveCount int
+	once      sync.Once
+}
+
+func (r *cancelAfterSnapshotRepository) SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx context.Context, snapshot domain.DailyValuationSnapshot, updatedAt time.Time, expectedGeneration int) (bool, error) {
+	appended, err := r.base.SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx, snapshot, updatedAt, expectedGeneration)
+	if err == nil {
+		r.saveCount++
+		if r.saveCount == r.cancelAt {
+			r.once.Do(r.cancel)
+		}
+	}
+	return appended, err
+}
+
+func (r *cancelAfterSnapshotRepository) CompleteDailySnapshotRangeAtGeneration(ctx context.Context, householdID domain.HouseholdID, targetDate string, updatedAt time.Time, expectedGeneration int) error {
+	return r.base.CompleteDailySnapshotRangeAtGeneration(ctx, householdID, targetDate, updatedAt, expectedGeneration)
+}
+
+func TestRebuildDirtySnapshotsPreservesRemainingRangeAcrossInterruptedBatch(t *testing.T) {
+	database, err := sqlite.Open(t.TempDir() + "/cross-batch-rebuild.db")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+
+	baseRepository := sqlite.NewRepository(database)
+	firstRunCtx, cancelFirstRun := context.WithCancel(context.Background())
+	repository := &cancelAfterSnapshotRepository{Repository: baseRepository, base: baseRepository, cancel: cancelFirstRun, cancelAt: 31}
+	service := NewService(repository)
+	clock := time.Date(2026, 9, 30, 12, 0, 0, 0, time.UTC)
+	service.setClock(func() time.Time { return clock })
+	if err := service.CompleteOnboarding(context.Background(), OnboardingInput{HouseholdName: "Cross-batch rebuild", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := service.Bootstrap(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.CreateAccount(context.Background(), AccountInput{Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}}); err != nil {
+		t.Fatal(err)
+	}
+	clock = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	if _, err := service.StartHistory(context.Background(), "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	clock = time.Date(2026, 11, 16, 12, 0, 0, 0, time.UTC)
+	if _, err := database.SQL.ExecContext(context.Background(), `UPDATE history_snapshot_state SET dirty_from = ?, dirty_to = ? WHERE household_id = ?`, "2026-10-01", "2026-11-15", bootstrap.Household.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+
+	appended, err := service.RebuildDirtySnapshots(firstRunCtx)
+	if !errors.Is(err, context.Canceled) || appended != 0 {
+		t.Fatalf("interrupted rebuild = appended %d err %v, want 0/context.Canceled", appended, err)
+	}
+	cancelFirstRun()
+	state, err := service.DailySnapshotState(context.Background(), bootstrap.Household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.DirtyFrom == nil || *state.DirtyFrom != "2026-11-01" || state.DirtyTo == nil || *state.DirtyTo != "2026-11-15" {
+		t.Fatalf("remaining dirty range after interruption = %+v, want 2026-11-01..2026-11-15", state)
+	}
+
+	appended, err = service.RebuildDirtySnapshots(context.Background())
+	if err != nil || appended != 15 {
+		t.Fatalf("restart rebuild = appended %d err %v, want 15/nil", appended, err)
+	}
+	state, err = service.DailySnapshotState(context.Background(), bootstrap.Household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.DirtyFrom != nil || state.DirtyTo != nil {
+		t.Fatalf("dirty range after restart = %+v, want cleared", state)
+	}
+	var snapshots int
+	if err := database.SQL.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM daily_valuation_snapshots WHERE household_id = ?`, bootstrap.Household.ID.String()).Scan(&snapshots); err != nil {
+		t.Fatal(err)
+	}
+	if snapshots != 46 {
+		t.Fatalf("snapshots after restart = %d, want 46", snapshots)
 	}
 }
 

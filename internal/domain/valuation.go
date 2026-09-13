@@ -74,6 +74,7 @@ const (
 	MissingInstrument      MissingInputKind = "missing_instrument"
 	MissingFXRate          MissingInputKind = "fx_rate"
 	MissingAccountValue    MissingInputKind = "account_value"
+	MissingHistoryCoverage MissingInputKind = "history_coverage"
 )
 
 type MissingInputView struct {
@@ -150,16 +151,18 @@ type PortfolioValuation struct {
 // portfolio summaries. Infrastructure populates it in one read transaction;
 // callers must not query one quote or Holding at a time.
 type PortfolioSnapshot struct {
-	Household        *Household
-	Origin           *HistoryOrigin
-	Members          []Member
-	Institutions     []Institution
-	Groups           []Group
-	Accounts         []AccountRecord
-	Instruments      []Instrument
-	Holdings         []Holding
-	CashValues       []AccountCashValue
-	InstrumentQuotes []InstrumentQuote
-	FXQuotes         []FXQuote
-	FXPreferences    []FXPreference
+	Household                 *Household
+	Origin                    *HistoryOrigin
+	Members                   []Member
+	Institutions              []Institution
+	Groups                    []Group
+	Accounts                  []AccountRecord
+	Instruments               []Instrument
+	Holdings                  []Holding
+	CashValues                []AccountCashValue
+	InstrumentQuotes          []InstrumentQuote
+	FXQuotes                  []FXQuote
+	FXPreferences             []FXPreference
+	InstrumentHistoryCoverage []InstrumentHistoryCoverage
+	FXHistoryCoverage         []FXHistoryCoverage
 }

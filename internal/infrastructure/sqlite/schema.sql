@@ -177,6 +177,19 @@ CREATE TABLE instrument_quotes (
     quoted_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
     delayed INTEGER NOT NULL DEFAULT 0 CHECK(delayed IN (0,1)),
+    observation_kind TEXT NOT NULL DEFAULT '',
+    effective_date TEXT,
+    provider_timestamp TEXT,
+    fetched_at TEXT,
+    value_effective_at TEXT,
+    binding_revision INTEGER,
+    source_policy_version TEXT,
+    price_basis TEXT,
+    timestamp_basis TEXT,
+    revision INTEGER NOT NULL DEFAULT 1,
+    supersedes_quote_id TEXT,
+    split_factor TEXT,
+    dividend_cash TEXT,
     FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_instrument_quotes_latest ON instrument_quotes(instrument_id, source_kind, currency, quoted_at DESC, created_at DESC, id DESC);
@@ -191,6 +204,14 @@ CREATE TABLE fx_quotes (
     quoted_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
     delayed INTEGER NOT NULL DEFAULT 0 CHECK(delayed IN (0,1)),
+    observation_kind TEXT NOT NULL DEFAULT '',
+    effective_date TEXT,
+    fetched_at TEXT,
+    value_effective_at TEXT,
+    source_policy_version TEXT,
+    timestamp_basis TEXT,
+    revision INTEGER NOT NULL DEFAULT 1,
+    supersedes_quote_id TEXT,
     CHECK(base_currency <> quote_currency),
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
@@ -430,6 +451,8 @@ CREATE TABLE daily_valuation_snapshots (
     missing_count INTEGER NOT NULL CHECK(missing_count >= 0),
     generation_reason TEXT NOT NULL,
     created_at TEXT NOT NULL,
+    input_generation INTEGER NOT NULL DEFAULT 0,
+    resolver_policy_version TEXT NOT NULL DEFAULT '',
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
     FOREIGN KEY(supersedes_id) REFERENCES daily_valuation_snapshots(id) ON DELETE RESTRICT,
     UNIQUE(household_id, local_date, revision)
@@ -462,6 +485,9 @@ CREATE TABLE history_snapshot_state (
     dirty_from TEXT,
     last_completed_closed_on TEXT,
     updated_at TEXT NOT NULL,
+    dirty_to TEXT,
+    input_generation INTEGER NOT NULL DEFAULT 0,
+    resolver_policy_version TEXT NOT NULL DEFAULT '',
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT
 );
 CREATE TABLE instrument_state_observations (
@@ -497,4 +523,78 @@ CREATE TABLE activity_mutation_keys (
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
     FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
 );
-PRAGMA user_version = 9;
+CREATE TABLE instrument_provider_bindings (
+    instrument_id TEXT NOT NULL,
+    provider_key TEXT NOT NULL,
+    provider_symbol TEXT NOT NULL,
+    market TEXT,
+    currency TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    binding_revision INTEGER NOT NULL,
+    effective_from TEXT NOT NULL,
+    PRIMARY KEY(instrument_id, provider_key),
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_instrument_provider_bindings_instrument ON instrument_provider_bindings(instrument_id);
+CREATE TABLE instrument_provider_binding_revisions (
+    instrument_id TEXT NOT NULL,
+    provider_key TEXT NOT NULL,
+    binding_revision INTEGER NOT NULL,
+    provider_symbol TEXT NOT NULL,
+    market TEXT,
+    currency TEXT,
+    enabled INTEGER NOT NULL DEFAULT 1 CHECK(enabled IN (0,1)),
+    effective_from TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(instrument_id, provider_key, binding_revision),
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
+);
+CREATE TABLE instrument_observation_slots (
+    instrument_id TEXT NOT NULL,
+    provider_key TEXT NOT NULL,
+    binding_revision INTEGER NOT NULL,
+    source_policy_version TEXT NOT NULL,
+    market_date TEXT NOT NULL,
+    observation_kind TEXT NOT NULL,
+    quote_id TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(instrument_id, provider_key, binding_revision, source_policy_version, market_date, observation_kind),
+    FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE,
+    FOREIGN KEY(quote_id) REFERENCES instrument_quotes(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_instrument_observation_slots_quote ON instrument_observation_slots(quote_id);
+CREATE TABLE fx_observation_slots (
+    household_id TEXT NOT NULL,
+    base_currency TEXT NOT NULL CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]'),
+    quote_currency TEXT NOT NULL CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]'),
+    provider_key TEXT NOT NULL,
+    source_policy_version TEXT NOT NULL,
+    market_date TEXT NOT NULL,
+    observation_kind TEXT NOT NULL,
+    quote_id TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(household_id, base_currency, quote_currency, provider_key, source_policy_version, market_date, observation_kind),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE,
+    FOREIGN KEY(quote_id) REFERENCES fx_quotes(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_fx_observation_slots_quote ON fx_observation_slots(quote_id);
+CREATE TABLE market_data_day_status (
+    target_type TEXT NOT NULL,
+    target_id TEXT NOT NULL,
+    provider_key TEXT NOT NULL,
+    household_id TEXT NOT NULL,
+    binding_revision INTEGER NOT NULL,
+    source_policy_version TEXT NOT NULL,
+    effective_date TEXT NOT NULL,
+    status TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    checked_at TEXT NOT NULL,
+    next_check_at TEXT,
+    expires_at TEXT,
+    PRIMARY KEY(target_type, target_id, provider_key, household_id, binding_revision, source_policy_version, effective_date),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_market_data_day_status_household ON market_data_day_status(household_id, target_type, target_id, effective_date);
+PRAGMA user_version = 10;

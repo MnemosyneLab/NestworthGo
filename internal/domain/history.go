@@ -145,6 +145,21 @@ type InstrumentPreferenceObservation struct {
 	CreatedAt    time.Time
 }
 
+// InstrumentProviderBindingRevision is an effective-dated provider route.
+// Historical replay must resolve this fact at the snapshot cutoff instead of
+// borrowing the instrument's current provider symbol or revision.
+type InstrumentProviderBindingRevision struct {
+	InstrumentID    InstrumentID
+	ProviderKey     string
+	ProviderSymbol  string
+	Market          string
+	Currency        CurrencyCode
+	Enabled         bool
+	BindingRevision int
+	EffectiveFrom   time.Time
+	CreatedAt       time.Time
+}
+
 type FXPreferenceObservation struct {
 	ID          FXPreferenceObservationID
 	HouseholdID HouseholdID
@@ -175,23 +190,25 @@ type HoldingStateObservation struct {
 }
 
 type DailyValuationSnapshot struct {
-	ID                DailyValuationSnapshotID
-	HouseholdID       HouseholdID
-	LocalDate         string
-	CutoffAt          time.Time
-	Revision          int
-	SupersedesID      *DailyValuationSnapshotID
-	ContentHash       string
-	AssetsAmount      *Money
-	LiabilitiesAmount *Money
-	NetWorthAmount    *SignedMoney
-	Currency          CurrencyCode
-	Complete          bool
-	ComponentCount    int
-	MissingCount      int
-	GenerationReason  string
-	CreatedAt         time.Time
-	Items             []DailyValuationSnapshotItem
+	ID                    DailyValuationSnapshotID
+	HouseholdID           HouseholdID
+	LocalDate             string
+	CutoffAt              time.Time
+	Revision              int
+	SupersedesID          *DailyValuationSnapshotID
+	ContentHash           string
+	AssetsAmount          *Money
+	LiabilitiesAmount     *Money
+	NetWorthAmount        *SignedMoney
+	Currency              CurrencyCode
+	Complete              bool
+	ComponentCount        int
+	MissingCount          int
+	GenerationReason      string
+	CreatedAt             time.Time
+	InputGeneration       int
+	ResolverPolicyVersion string
+	Items                 []DailyValuationSnapshotItem
 }
 
 type DailyValuationSnapshotItem struct {
@@ -239,24 +256,61 @@ func (item DailyValuationSnapshotItem) ValidateBaseAmountExact() error {
 // cutoff while the repository guarantees that all fields came from one read
 // transaction.
 type HistoricalSnapshotBatch struct {
-	Origin                      HistoryOrigin
-	OriginData                  HistoryOriginData
-	Portfolio                   PortfolioSnapshot
-	AccountStateObservations    []AccountStateObservation
-	InstrumentStateObservations []InstrumentStateObservation
-	HoldingStateObservations    []HoldingStateObservation
-	InstrumentPreferenceFacts   []InstrumentPreferenceObservation
-	FXPreferenceFacts           []FXPreferenceObservation
-	FXPreferences               []FXPreference
-	Activities                  []Activity
-	InstrumentQuoteFacts        []InstrumentQuote
-	FXQuoteFacts                []FXQuote
+	Origin                         HistoryOrigin
+	OriginData                     HistoryOriginData
+	Portfolio                      PortfolioSnapshot
+	AccountStateObservations       []AccountStateObservation
+	InstrumentStateObservations    []InstrumentStateObservation
+	HoldingStateObservations       []HoldingStateObservation
+	InstrumentPreferenceFacts      []InstrumentPreferenceObservation
+	InstrumentProviderBindingFacts []InstrumentProviderBindingRevision
+	FXPreferenceFacts              []FXPreferenceObservation
+	FXPreferences                  []FXPreference
+	Activities                     []Activity
+	InstrumentQuoteFacts           []InstrumentQuote
+	FXQuoteFacts                   []FXQuote
+	InstrumentHistoryCoverage      []InstrumentHistoryCoverage
+	FXHistoryCoverage              []FXHistoryCoverage
+	InputGeneration                int
+	ResolverPolicyVersion          string
 }
 
 type DailySnapshotState struct {
 	HouseholdID           HouseholdID
 	DirtyFrom             *string
+	DirtyTo               *string
 	LastCompletedClosedOn *string
+	InputGeneration       int
+	ResolverPolicyVersion string
+}
+
+type InstrumentHistoryCoverage struct {
+	InstrumentID           InstrumentID
+	ProviderKey            string
+	ProviderSymbol         string
+	Market                 string
+	QuoteCurrency          CurrencyCode
+	BindingRevision        int
+	SourcePolicyVersion    string
+	CloseMarketDates       []string
+	CloseFetchedAt         map[string]time.Time
+	UnverifiedDates        []string
+	NoObservationDates     []string
+	NoObservationExpiresAt map[string]time.Time
+	NoObservationCheckedAt map[string]time.Time
+}
+
+type FXHistoryCoverage struct {
+	BaseCurrency            CurrencyCode
+	QuoteCurrency           CurrencyCode
+	ProviderKey             string
+	SourcePolicyVersion     string
+	DailyReferenceDates     []string
+	DailyReferenceFetchedAt map[string]time.Time
+	UnverifiedDates         []string
+	NoObservationDates      []string
+	NoObservationExpiresAt  map[string]time.Time
+	NoObservationCheckedAt  map[string]time.Time
 }
 
 type TrendRange string

@@ -11,8 +11,10 @@ import (
 
 // LoadHistoricalSnapshotBatch reads every candidate needed by a bounded
 // rebuild under one SQLite read transaction. The application deliberately
-// filters the returned immutable input by each day's cutoff instead of
-// reopening a read transaction for every day.
+// filters the returned immutable portfolio/activity input by each day's
+// household cutoff while the historical resolver applies each requested
+// market-date label to its market data facts, instead of reopening a read
+// transaction for every day.
 func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdID domain.HouseholdID, cutoff time.Time) (domain.HistoricalSnapshotBatch, error) {
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -56,6 +58,10 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	if err != nil {
 		return fail(err)
 	}
+	instrumentProviderBindings, err := listInstrumentProviderBindingRevisionsQuery(ctx, tx, householdID)
+	if err != nil {
+		return fail(err)
+	}
 	fxPreferences, err := listFXPreferenceObservationsQuery(ctx, tx, householdID)
 	if err != nil {
 		return fail(err)
@@ -76,21 +82,41 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	if err != nil {
 		return fail(err)
 	}
+	instrumentCoverage, err := listHistoricalInstrumentHistoryCoverageQuery(ctx, tx, householdID)
+	if err != nil {
+		return fail(err)
+	}
+	fxCoverage, err := listFXHistoryCoverageQuery(ctx, tx, householdID)
+	if err != nil {
+		return fail(err)
+	}
+	var generation int
+	var resolverPolicy sql.NullString
+	if err := tx.QueryRowContext(ctx, `SELECT input_generation, resolver_policy_version FROM history_snapshot_state WHERE household_id = ?`, householdID.String()).Scan(&generation, &resolverPolicy); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return fail(err)
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return domain.HistoricalSnapshotBatch{}, err
 	}
 	return domain.HistoricalSnapshotBatch{
-		Origin:                      origin,
-		OriginData:                  originData,
-		Portfolio:                   portfolio,
-		AccountStateObservations:    accountObservations,
-		InstrumentStateObservations: instrumentStateObservations,
-		HoldingStateObservations:    holdingStateObservations,
-		InstrumentPreferenceFacts:   instrumentPreferences,
-		FXPreferenceFacts:           fxPreferences,
-		FXPreferences:               currentFXPreferences,
-		Activities:                  activities,
-		InstrumentQuoteFacts:        instrumentQuotes,
-		FXQuoteFacts:                fxQuotes,
+		Origin:                         origin,
+		OriginData:                     originData,
+		Portfolio:                      portfolio,
+		AccountStateObservations:       accountObservations,
+		InstrumentStateObservations:    instrumentStateObservations,
+		HoldingStateObservations:       holdingStateObservations,
+		InstrumentPreferenceFacts:      instrumentPreferences,
+		InstrumentProviderBindingFacts: instrumentProviderBindings,
+		FXPreferenceFacts:              fxPreferences,
+		FXPreferences:                  currentFXPreferences,
+		Activities:                     activities,
+		InstrumentQuoteFacts:           instrumentQuotes,
+		FXQuoteFacts:                   fxQuotes,
+		InstrumentHistoryCoverage:      instrumentCoverage,
+		FXHistoryCoverage:              fxCoverage,
+		InputGeneration:                generation,
+		ResolverPolicyVersion:          resolverPolicy.String,
 	}, nil
 }

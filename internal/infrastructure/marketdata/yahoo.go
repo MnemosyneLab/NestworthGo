@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -69,7 +70,7 @@ func NewYahooChartProviderWithOptions(options YahooChartProviderOptions) *YahooC
 func (p *YahooChartProvider) Key() string { return yahooProviderKey }
 
 func (p *YahooChartProvider) Capabilities() application.MarketDataCapabilities {
-	return application.MarketDataCapabilities{LatestInstrument: true}
+	return application.MarketDataCapabilities{LatestInstrument: true, InstrumentDailyHistory: true}
 }
 
 func (p *YahooChartProvider) LatestInstrument(ctx context.Context, identity application.InstrumentMarketIdentity) (application.LatestInstrumentQuote, error) {
@@ -97,6 +98,31 @@ func (p *YahooChartProvider) LatestInstrument(ctx context.Context, identity appl
 
 func (p *YahooChartProvider) LatestFX(context.Context, application.FXMarketIdentity) (application.LatestFXQuote, error) {
 	return application.LatestFXQuote{}, &domain.Error{Code: domain.ErrUnavailable, Message: "provider does not support FX refresh"}
+}
+
+func (p *YahooChartProvider) InstrumentDailyHistory(ctx context.Context, identity application.InstrumentMarketIdentity, rng application.DateRange) (application.MappingOutcome[application.InstrumentDailyObservation], error) {
+	if strings.TrimSpace(identity.ProviderSymbol) == "" {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, providerValidation("providerSymbol", "provider symbol is required")
+	}
+	if _, err := application.InclusiveMarketDates(rng); err != nil {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
+	}
+	body, err := p.fetchHistory(ctx, identity.ProviderSymbol, rng)
+	if err != nil {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
+	}
+	meta := yahooHistoryRequestMeta(identity, rng)
+	return QualifyYahooHistory(meta, body)
+}
+
+func (p *YahooChartProvider) fetchHistory(ctx context.Context, symbol string, rng application.DateRange) ([]byte, error) {
+	requestURL, err := yahooChartHistoryURL(symbol, rng)
+	if err != nil {
+		return nil, err
+	}
+	return p.conn.doFetch(ctx, requestURL, func(request *http.Request) {
+		request.Header = yahooBrowserHeaders()
+	}, classifyYahooResponse)
 }
 
 func (p *YahooChartProvider) fetch(ctx context.Context, symbol string) ([]byte, error) {
@@ -154,6 +180,36 @@ func yahooChartURL(symbol string) *url.URL {
 		RawPath:  "/v8/finance/chart/" + url.PathEscape(symbol),
 		RawQuery: "range=1m&interval=1d",
 	}
+}
+
+func yahooChartHistoryURL(symbol string, rng application.DateRange) (*url.URL, error) {
+	start, err := domain.ParseMarketDate(string(rng.Start))
+	if err != nil {
+		return nil, err
+	}
+	end, err := domain.ParseMarketDate(string(rng.End))
+	if err != nil {
+		return nil, err
+	}
+	startAt, err := time.Parse("2006-01-02", start)
+	if err != nil {
+		return nil, err
+	}
+	endAt, err := time.Parse("2006-01-02", end)
+	if err != nil {
+		return nil, err
+	}
+	query := url.Values{}
+	query.Set("interval", "1d")
+	query.Set("period1", strconv.FormatInt(startAt.UTC().Unix(), 10))
+	query.Set("period2", strconv.FormatInt(endAt.UTC().AddDate(0, 0, 1).Unix(), 10))
+	return &url.URL{
+		Scheme:   "https",
+		Host:     yahooChartHost,
+		Path:     "/v8/finance/chart/" + symbol,
+		RawPath:  "/v8/finance/chart/" + url.PathEscape(symbol),
+		RawQuery: query.Encode(),
+	}, nil
 }
 
 type chartEnvelope struct {
@@ -336,3 +392,4 @@ func unsupportedProviderSymbol() error {
 }
 
 var _ application.MarketDataProvider = (*YahooChartProvider)(nil)
+var _ application.InstrumentHistoryProvider = (*YahooChartProvider)(nil)

@@ -9,6 +9,9 @@ const load = vi.fn();
 const save = vi.fn().mockResolvedValue(undefined);
 const reset = vi.fn();
 const historyOrigin = vi.fn();
+const tiingoKeyStatus = vi.fn();
+const saveTiingoAPIKey = vi.fn();
+const deleteTiingoAPIKey = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: {
@@ -17,6 +20,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
     Reset: () => reset(),
     SupportedCurrencies: () => Promise.resolve(["USD", "SGD"]),
     FXProviders: () => Promise.resolve(["frankfurter"]),
+    TiingoKeyStatus: () => tiingoKeyStatus(),
+    SaveTiingoAPIKey: (...args: unknown[]) => saveTiingoAPIKey(...args),
+    DeleteTiingoAPIKey: () => deleteTiingoAPIKey(),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
@@ -81,8 +87,14 @@ beforeEach(() => {
   save.mockClear();
   reset.mockReset();
   historyOrigin.mockReset();
+  tiingoKeyStatus.mockReset();
+  saveTiingoAPIKey.mockReset();
+  deleteTiingoAPIKey.mockReset();
   load.mockResolvedValue(defaultSettings);
   historyOrigin.mockResolvedValue(null);
+  tiingoKeyStatus.mockResolvedValue({ configured: false });
+  saveTiingoAPIKey.mockResolvedValue({ configured: true });
+  deleteTiingoAPIKey.mockResolvedValue({ configured: false });
 });
 
 describe("SettingsPage", () => {

@@ -98,7 +98,10 @@ func (r *Repository) CreateInstrument(ctx context.Context, instrument domain.Ins
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt))
-		return mapPortfolioWriteError(err, "instrument")
+		if err != nil {
+			return mapPortfolioWriteError(err, "instrument")
+		}
+		return syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument)
 	})
 }
 
@@ -116,6 +119,9 @@ func (r *Repository) CreateInstrumentWithObservation(ctx context.Context, instru
 		if _, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt)); err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
+		if err := syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument); err != nil {
+			return err
+		}
 		return appendInstrumentPreferenceObservationTx(ctx, tx, observation)
 	})
 }
@@ -132,7 +138,7 @@ func (r *Repository) UpdateInstrument(ctx context.Context, instrument domain.Ins
 		if err := requireAffected(result, "instrument"); err != nil {
 			return err
 		}
-		return nil
+		return syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument)
 	})
 }
 
@@ -148,6 +154,9 @@ func (r *Repository) UpdateInstrumentWithObservation(ctx context.Context, instru
 		if err := requireAffected(result, "instrument"); err != nil {
 			return err
 		}
+		if err := syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument); err != nil {
+			return err
+		}
 		if observation.InstrumentID != instrument.ID || observation.SourceKind != instrument.QuoteSource {
 			return &domain.Error{Code: domain.ErrIntegrity, Message: "instrument preference observation does not match the updated Instrument"}
 		}
@@ -156,8 +165,16 @@ func (r *Repository) UpdateInstrumentWithObservation(ctx context.Context, instru
 }
 
 func (r *Repository) Instrument(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID) (domain.Instrument, error) {
-	row := r.database.SQL.QueryRowContext(ctx, `SELECT id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at FROM instruments WHERE id = ? AND household_id = ?`, id.String(), householdID.String())
-	return scanInstrument(row)
+	modern, err := instrumentBindingAvailable(ctx, r.database.SQL)
+	if err != nil {
+		return domain.Instrument{}, err
+	}
+	statement := `SELECT id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at FROM instruments WHERE id = ? AND household_id = ?`
+	if modern {
+		statement = `SELECT i.id, i.household_id, i.name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.id = ? AND i.household_id = ?`
+	}
+	row := r.database.SQL.QueryRowContext(ctx, statement, id.String(), householdID.String())
+	return scanInstrumentColumns(row, modern)
 }
 
 func (r *Repository) ListInstruments(ctx context.Context, householdID domain.HouseholdID, includeArchived bool) ([]domain.Instrument, error) {
@@ -471,13 +488,13 @@ func (r *Repository) AppendProviderInstrumentQuoteIfChanged(ctx context.Context,
 		if instrumentCurrency != quote.Currency.String() {
 			return &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "quote currency does not match instrument"}
 		}
-		result, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed)
-			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?
+		result, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision)
+			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
 			WHERE NOT EXISTS (
 				SELECT 1 FROM instrument_quotes
 				WHERE instrument_id = ? AND unit_price = ? AND currency = ? AND source_kind = ? AND source_key = ? AND quoted_at = ? AND delayed = ?
 			)`,
-			quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed),
+			quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestInstrumentObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt),
 			quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), boolValue(quote.Delayed))
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument quote")
@@ -526,12 +543,23 @@ func (r *Repository) AppendInstrumentQuoteAndSelectManual(ctx context.Context, q
 }
 
 func (r *Repository) ListInstrumentQuotes(ctx context.Context, instrumentID domain.InstrumentID) ([]domain.InstrumentQuote, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed FROM instrument_quotes WHERE instrument_id = ? ORDER BY quoted_at DESC, created_at DESC, id DESC`, instrumentID.String())
+	modern, err := quoteMetadataAvailable(ctx, r.database.SQL, "instrument_quotes")
+	if err != nil {
+		return nil, err
+	}
+	statement := `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed FROM instrument_quotes WHERE instrument_id = ? ORDER BY quoted_at DESC, created_at DESC, id DESC`
+	if modern {
+		statement = `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash FROM instrument_quotes WHERE instrument_id = ? ORDER BY quoted_at DESC, created_at DESC, id DESC`
+	}
+	rows, err := r.database.SQL.QueryContext(ctx, statement, instrumentID.String())
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	return scanInstrumentQuotes(rows)
+	if modern {
+		return scanInstrumentQuotes(rows)
+	}
+	return scanLegacyInstrumentQuotes(rows)
 }
 
 func (r *Repository) AppendFXQuote(ctx context.Context, quote domain.FXQuote) error {
@@ -552,13 +580,13 @@ func (r *Repository) AppendProviderFXQuoteIfChanged(ctx context.Context, quote d
 		if quote.BaseCurrency == quote.QuoteCurrency {
 			return &domain.Error{Code: domain.ErrValidation, Field: "currencyPair", Message: "currencies must differ"}
 		}
-		result, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed)
-			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+		result, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision)
+			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
 			WHERE NOT EXISTS (
 				SELECT 1 FROM fx_quotes
 				WHERE household_id = ? AND base_currency = ? AND quote_currency = ? AND rate = ? AND source_kind = ? AND source_key = ? AND quoted_at = ? AND delayed = ?
 			)`,
-			quote.ID.String(), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed),
+			quote.ID.String(), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestFXObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt),
 			quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), boolValue(quote.Delayed))
 		if err != nil {
 			return mapPortfolioWriteError(err, "FX quote")
@@ -608,12 +636,23 @@ func (r *Repository) AppendFXQuoteAndSelectManual(ctx context.Context, quote dom
 }
 
 func (r *Repository) ListFXQuotes(ctx context.Context, householdID domain.HouseholdID) ([]domain.FXQuote, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`, householdID.String())
+	modern, err := quoteMetadataAvailable(ctx, r.database.SQL, "fx_quotes")
+	if err != nil {
+		return nil, err
+	}
+	statement := `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`
+	if modern {
+		statement = `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id FROM fx_quotes WHERE household_id = ? ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`
+	}
+	rows, err := r.database.SQL.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	return scanFXQuotes(rows)
+	if modern {
+		return scanFXQuotes(rows)
+	}
+	return scanLegacyFXQuotes(rows)
 }
 
 func (r *Repository) SetFXPreference(ctx context.Context, preference domain.FXPreference) error {
@@ -744,9 +783,16 @@ func nullableTime(value *time.Time) any {
 }
 
 func listInstrumentsQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, includeArchived bool) ([]domain.Instrument, error) {
+	modern, err := instrumentBindingAvailable(ctx, query)
+	if err != nil {
+		return nil, err
+	}
 	statement := `SELECT id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at FROM instruments WHERE household_id = ?`
+	if modern {
+		statement = `SELECT i.id, i.household_id, i.name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.household_id = ?`
+	}
 	if !includeArchived {
-		statement += ` AND archived_at IS NULL`
+		statement += ` AND i.archived_at IS NULL`
 	}
 	statement += ` ORDER BY sort_order ASC, name COLLATE NOCASE ASC, id ASC`
 	rows, err := query.QueryContext(ctx, statement, householdID.String())
@@ -756,7 +802,7 @@ func listInstrumentsQuery(ctx context.Context, query queryer, householdID domain
 	defer rows.Close()
 	var result []domain.Instrument
 	for rows.Next() {
-		instrument, err := scanInstrument(rows)
+		instrument, err := scanInstrumentColumns(rows, modern)
 		if err != nil {
 			return nil, err
 		}
@@ -800,10 +846,21 @@ func listCashValuesQuery(ctx context.Context, query queryer, householdID domain.
 }
 
 func listInstrumentQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.InstrumentQuote, error) {
-	rows, err := query.QueryContext(ctx, `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed
+	modern, err := quoteMetadataAvailable(ctx, query, "instrument_quotes")
+	if err != nil {
+		return nil, err
+	}
+	statement := `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed
 		FROM instrument_quotes q
 		JOIN instruments i ON i.id = q.instrument_id
-		WHERE i.household_id = ?
+		WHERE i.household_id = ?`
+	if modern {
+		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash
+		FROM instrument_quotes q
+		JOIN instruments i ON i.id = q.instrument_id
+		WHERE i.household_id = ?`
+	}
+	statement += `
 		AND NOT EXISTS (
 			SELECT 1 FROM instrument_quotes newer
 			WHERE newer.instrument_id = q.instrument_id AND newer.source_kind = q.source_kind AND newer.currency = q.currency
@@ -811,24 +868,48 @@ func listInstrumentQuotesQuery(ctx context.Context, query queryer, householdID d
 				OR (newer.quoted_at = q.quoted_at AND newer.created_at > q.created_at)
 				OR (newer.quoted_at = q.quoted_at AND newer.created_at = q.created_at AND newer.id > q.id))
 		)
-		ORDER BY q.instrument_id ASC, q.source_kind ASC, q.currency ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`, householdID.String())
+		ORDER BY q.instrument_id ASC, q.source_kind ASC, q.currency ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`
+	rows, err := query.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	return scanInstrumentQuotes(rows)
+	if modern {
+		return scanInstrumentQuotes(rows)
+	}
+	return scanLegacyInstrumentQuotes(rows)
 }
 
 func listAllInstrumentQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) ([]domain.InstrumentQuote, error) {
-	rows, err := query.QueryContext(ctx, `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? AND q.quoted_at <= ? ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`, householdID.String(), formatTimestamp(cutoff))
+	_ = cutoff
+	modern, err := quoteMetadataAvailable(ctx, query, "instrument_quotes")
+	if err != nil {
+		return nil, err
+	}
+	statement := `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`
+	if modern {
+		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`
+	}
+	rows, err := query.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	return scanInstrumentQuotes(rows)
+	if modern {
+		return scanInstrumentQuotes(rows)
+	}
+	return scanLegacyInstrumentQuotes(rows)
 }
 
 func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.FXQuote, error) {
+	modern, err := quoteMetadataAvailable(ctx, query, "fx_quotes")
+	if err != nil {
+		return nil, err
+	}
+	columns := "q.id, q.household_id, q.base_currency, q.quote_currency, q.rate, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed"
+	if modern {
+		columns += ", q.observation_kind, q.effective_date, q.fetched_at, q.value_effective_at, q.source_policy_version, q.timestamp_basis, q.revision, q.supersedes_quote_id"
+	}
 	rows, err := query.QueryContext(ctx, `WITH candidates AS (
 			SELECT q.*,
 				CASE WHEN q.base_currency < q.quote_currency THEN q.base_currency ELSE q.quote_currency END AS currency_a,
@@ -836,7 +917,7 @@ func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID dom
 			FROM fx_quotes q
 			WHERE q.household_id = ?
 		)
-		SELECT q.id, q.household_id, q.base_currency, q.quote_currency, q.rate, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed
+		SELECT `+columns+`
 		FROM candidates q
 		WHERE NOT EXISTS (
 			SELECT 1 FROM candidates newer
@@ -850,16 +931,31 @@ func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID dom
 		return nil, err
 	}
 	defer rows.Close()
-	return scanFXQuotes(rows)
+	if modern {
+		return scanFXQuotes(rows)
+	}
+	return scanLegacyFXQuotes(rows)
 }
 
 func listAllFXQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) ([]domain.FXQuote, error) {
-	rows, err := query.QueryContext(ctx, `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? AND quoted_at <= ? ORDER BY base_currency, quote_currency, quoted_at, created_at, id`, householdID.String(), formatTimestamp(cutoff))
+	_ = cutoff
+	modern, err := quoteMetadataAvailable(ctx, query, "fx_quotes")
+	if err != nil {
+		return nil, err
+	}
+	statement := `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? ORDER BY base_currency, quote_currency, quoted_at, created_at, id`
+	if modern {
+		statement = `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id FROM fx_quotes WHERE household_id = ? ORDER BY base_currency, quote_currency, quoted_at, created_at, id`
+	}
+	rows, err := query.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	return scanFXQuotes(rows)
+	if modern {
+		return scanFXQuotes(rows)
+	}
+	return scanLegacyFXQuotes(rows)
 }
 
 func listFXPreferencesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.FXPreference, error) {
@@ -872,10 +968,19 @@ func listFXPreferencesQuery(ctx context.Context, query queryer, householdID doma
 }
 
 func scanInstrument(row interface{ Scan(...any) error }) (domain.Instrument, error) {
+	return scanInstrumentColumns(row, false)
+}
+
+func scanInstrumentColumns(row interface{ Scan(...any) error }, withBinding bool) (domain.Instrument, error) {
 	var id, householdID, name, instrumentType, quoteCurrency, createdAt, updatedAt string
 	var symbol, marketCode, countryCode, isin, note, icon, quoteSource, providerKey, providerSymbol, archived sql.NullString
 	var sortOrder int
-	if err := row.Scan(&id, &householdID, &name, &instrumentType, &quoteCurrency, &symbol, &marketCode, &countryCode, &isin, &note, &icon, &sortOrder, &quoteSource, &providerKey, &providerSymbol, &createdAt, &updatedAt, &archived); err != nil {
+	var bindingRevision int
+	destinations := []any{&id, &householdID, &name, &instrumentType, &quoteCurrency, &symbol, &marketCode, &countryCode, &isin, &note, &icon, &sortOrder, &quoteSource, &providerKey, &providerSymbol, &createdAt, &updatedAt, &archived}
+	if withBinding {
+		destinations = append(destinations, &bindingRevision)
+	}
+	if err := row.Scan(destinations...); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.Instrument{}, &domain.Error{Code: domain.ErrNotFound, Message: "instrument was not found"}
 		}
@@ -913,7 +1018,7 @@ func scanInstrument(row interface{ Scan(...any) error }) (domain.Instrument, err
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	return domain.Instrument{ID: instrumentID, HouseholdID: hID, Name: name, Type: parsedType, QuoteCurrency: currency, Symbol: parseNullable(nullString(symbol)), MarketCode: parseNullable(nullString(marketCode)), CountryCode: parseNullable(nullString(countryCode)), ISIN: parseNullable(nullString(isin)), Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), SortOrder: sortOrder, QuoteSource: source, ProviderKey: parseNullable(nullString(providerKey)), ProviderSymbol: parseNullable(nullString(providerSymbol)), CreatedAt: created, UpdatedAt: updated, ArchivedAt: archivedAt}, nil
+	return domain.Instrument{ID: instrumentID, HouseholdID: hID, Name: name, Type: parsedType, QuoteCurrency: currency, Symbol: parseNullable(nullString(symbol)), MarketCode: parseNullable(nullString(marketCode)), CountryCode: parseNullable(nullString(countryCode)), ISIN: parseNullable(nullString(isin)), Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), SortOrder: sortOrder, QuoteSource: source, ProviderKey: parseNullable(nullString(providerKey)), ProviderSymbol: parseNullable(nullString(providerSymbol)), ProviderBindingRevision: bindingRevision, CreatedAt: created, UpdatedAt: updated, ArchivedAt: archivedAt}, nil
 }
 
 func scanHolding(row interface{ Scan(...any) error }) (domain.Holding, error) {
@@ -1018,8 +1123,12 @@ func scanCashValues(rows *sql.Rows) ([]domain.AccountCashValue, error) {
 
 func scanInstrumentQuote(row interface{ Scan(...any) error }) (domain.InstrumentQuote, error) {
 	var id, instrumentID, unitPrice, currency, sourceKind, sourceKey, quotedAt, createdAt string
+	var observationKind, effectiveDate, sourcePolicy, priceBasis, timestampBasis, supersedes, splitFactor, dividendCash sql.NullString
+	var providerTimestamp, fetchedAt, valueEffectiveAt sql.NullString
 	var delayed int
-	if err := row.Scan(&id, &instrumentID, &unitPrice, &currency, &sourceKind, &sourceKey, &quotedAt, &createdAt, &delayed); err != nil {
+	var revision sql.NullInt64
+	var bindingRevision sql.NullInt64
+	if err := row.Scan(&id, &instrumentID, &unitPrice, &currency, &sourceKind, &sourceKey, &quotedAt, &createdAt, &delayed, &observationKind, &effectiveDate, &providerTimestamp, &fetchedAt, &valueEffectiveAt, &bindingRevision, &sourcePolicy, &priceBasis, &timestampBasis, &revision, &supersedes, &splitFactor, &dividendCash); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.InstrumentQuote{}, &domain.Error{Code: domain.ErrNotFound, Message: "instrument quote was not found"}
 		}
@@ -1053,7 +1162,19 @@ func scanInstrumentQuote(row interface{ Scan(...any) error }) (domain.Instrument
 	if err != nil {
 		return domain.InstrumentQuote{}, err
 	}
-	return domain.InstrumentQuote{ID: quoteID, InstrumentID: parsedInstrument, UnitPrice: price, Currency: parsedCurrency, SourceKind: parsedSource, SourceKey: sourceKey, QuotedAt: quoted, CreatedAt: created, Delayed: delayed != 0}, nil
+	providerTime, err := parseOptionalPortfolioTime(providerTimestamp)
+	if err != nil {
+		return domain.InstrumentQuote{}, err
+	}
+	fetched, err := parseOptionalPortfolioTime(fetchedAt)
+	if err != nil {
+		return domain.InstrumentQuote{}, err
+	}
+	effective, err := parseOptionalPortfolioTime(valueEffectiveAt)
+	if err != nil {
+		return domain.InstrumentQuote{}, err
+	}
+	return domain.InstrumentQuote{ID: quoteID, InstrumentID: parsedInstrument, UnitPrice: price, Currency: parsedCurrency, SourceKind: parsedSource, SourceKey: sourceKey, QuotedAt: quoted, CreatedAt: created, Delayed: delayed != 0, ObservationKind: nullString(observationKind), EffectiveDate: nullString(effectiveDate), ProviderTimestamp: providerTime, FetchedAt: fetched, ValueEffectiveAt: effective, BindingRevision: int(bindingRevision.Int64), SourcePolicyVersion: nullString(sourcePolicy), PriceBasis: nullString(priceBasis), TimestampBasis: nullString(timestampBasis), Revision: int(revision.Int64), SupersedesQuoteID: nullableStringPointer(supersedes), SplitFactor: nullString(splitFactor), DividendCash: nullString(dividendCash)}, nil
 }
 
 func scanInstrumentQuotes(rows *sql.Rows) ([]domain.InstrumentQuote, error) {
@@ -1070,8 +1191,11 @@ func scanInstrumentQuotes(rows *sql.Rows) ([]domain.InstrumentQuote, error) {
 
 func scanFXQuote(row interface{ Scan(...any) error }) (domain.FXQuote, error) {
 	var id, householdID, baseCurrency, quoteCurrency, rate, sourceKind, sourceKey, quotedAt, createdAt string
+	var observationKind, effectiveDate, sourcePolicy, timestampBasis, supersedes sql.NullString
+	var fetchedAt, valueEffectiveAt sql.NullString
 	var delayed int
-	if err := row.Scan(&id, &householdID, &baseCurrency, &quoteCurrency, &rate, &sourceKind, &sourceKey, &quotedAt, &createdAt, &delayed); err != nil {
+	var revision sql.NullInt64
+	if err := row.Scan(&id, &householdID, &baseCurrency, &quoteCurrency, &rate, &sourceKind, &sourceKey, &quotedAt, &createdAt, &delayed, &observationKind, &effectiveDate, &fetchedAt, &valueEffectiveAt, &sourcePolicy, &timestampBasis, &revision, &supersedes); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.FXQuote{}, &domain.Error{Code: domain.ErrNotFound, Message: "FX quote was not found"}
 		}
@@ -1112,7 +1236,15 @@ func scanFXQuote(row interface{ Scan(...any) error }) (domain.FXQuote, error) {
 	if base == quote {
 		return domain.FXQuote{}, fmt.Errorf("invalid identical currencies in FX quote")
 	}
-	return domain.FXQuote{ID: quoteID, HouseholdID: hID, BaseCurrency: base, QuoteCurrency: quote, Rate: parsedRate, SourceKind: parsedSource, SourceKey: sourceKey, QuotedAt: quoted, CreatedAt: created, Delayed: delayed != 0}, nil
+	fetched, err := parseOptionalPortfolioTime(fetchedAt)
+	if err != nil {
+		return domain.FXQuote{}, err
+	}
+	effective, err := parseOptionalPortfolioTime(valueEffectiveAt)
+	if err != nil {
+		return domain.FXQuote{}, err
+	}
+	return domain.FXQuote{ID: quoteID, HouseholdID: hID, BaseCurrency: base, QuoteCurrency: quote, Rate: parsedRate, SourceKind: parsedSource, SourceKey: sourceKey, QuotedAt: quoted, CreatedAt: created, Delayed: delayed != 0, ObservationKind: nullString(observationKind), EffectiveDate: nullString(effectiveDate), FetchedAt: fetched, ValueEffectiveAt: effective, SourcePolicyVersion: nullString(sourcePolicy), TimestampBasis: nullString(timestampBasis), Revision: int(revision.Int64), SupersedesQuoteID: nullableStringPointer(supersedes)}, nil
 }
 
 func scanFXQuotes(rows *sql.Rows) ([]domain.FXQuote, error) {
@@ -1182,6 +1314,152 @@ func parsePortfolioTime(value string) (time.Time, error) {
 	return parsed.UTC(), nil
 }
 
+func parseOptionalPortfolioTime(value sql.NullString) (time.Time, error) {
+	parsed, err := parseTimePtr(value)
+	if err != nil {
+		return time.Time{}, &domain.Error{Code: domain.ErrIntegrity, Field: "timestamp", Message: "stored quote timestamp is invalid"}
+	}
+	if parsed == nil {
+		return time.Time{}, nil
+	}
+	return *parsed, nil
+}
+
+func quoteMetadataAvailable(ctx context.Context, query queryer, table string) (bool, error) {
+	rows, err := query.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull, primaryKey int
+		var defaultValue sql.NullString
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return false, err
+		}
+		if name == "observation_kind" {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
+func instrumentBindingAvailable(ctx context.Context, query queryer) (bool, error) {
+	rows, err := query.QueryContext(ctx, `PRAGMA table_info(instrument_provider_bindings)`)
+	if err != nil {
+		return false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var cid, notNull, primaryKey int
+		var name, columnType string
+		var defaultValue sql.NullString
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return false, err
+		}
+		if name == "binding_revision" {
+			return true, nil
+		}
+	}
+	return false, rows.Err()
+}
+
+func nullableStringPointer(value sql.NullString) *string {
+	if !value.Valid || value.String == "" {
+		return nil
+	}
+	result := value.String
+	return &result
+}
+
+func scanLegacyInstrumentQuotes(rows *sql.Rows) ([]domain.InstrumentQuote, error) {
+	var result []domain.InstrumentQuote
+	for rows.Next() {
+		var id, instrumentID, unitPrice, currency, sourceKind, sourceKey, quotedAt, createdAt string
+		var delayed int
+		if err := rows.Scan(&id, &instrumentID, &unitPrice, &currency, &sourceKind, &sourceKey, &quotedAt, &createdAt, &delayed); err != nil {
+			return nil, err
+		}
+		quoteID, err := domain.ParseInstrumentQuoteID(id)
+		if err != nil {
+			return nil, err
+		}
+		parsedInstrument, err := domain.ParseInstrumentID(instrumentID)
+		if err != nil {
+			return nil, err
+		}
+		price, err := domain.ParseUnitPrice(unitPrice)
+		if err != nil {
+			return nil, err
+		}
+		parsedCurrency, err := domain.ParseCurrency(currency)
+		if err != nil {
+			return nil, err
+		}
+		parsedSource, err := domain.ParseQuoteSourceKind(sourceKind)
+		if err != nil {
+			return nil, err
+		}
+		quoted, err := parsePortfolioTime(quotedAt)
+		if err != nil {
+			return nil, err
+		}
+		created, err := parsePortfolioTime(createdAt)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, domain.InstrumentQuote{ID: quoteID, InstrumentID: parsedInstrument, UnitPrice: price, Currency: parsedCurrency, SourceKind: parsedSource, SourceKey: sourceKey, QuotedAt: quoted, CreatedAt: created, Delayed: delayed != 0})
+	}
+	return result, rows.Err()
+}
+
+func scanLegacyFXQuotes(rows *sql.Rows) ([]domain.FXQuote, error) {
+	var result []domain.FXQuote
+	for rows.Next() {
+		var id, householdID, baseCurrency, quoteCurrency, rate, sourceKind, sourceKey, quotedAt, createdAt string
+		var delayed int
+		if err := rows.Scan(&id, &householdID, &baseCurrency, &quoteCurrency, &rate, &sourceKind, &sourceKey, &quotedAt, &createdAt, &delayed); err != nil {
+			return nil, err
+		}
+		quoteID, err := domain.ParseFXQuoteID(id)
+		if err != nil {
+			return nil, err
+		}
+		hID, err := domain.ParseHouseholdID(householdID)
+		if err != nil {
+			return nil, err
+		}
+		base, err := domain.ParseCurrency(baseCurrency)
+		if err != nil {
+			return nil, err
+		}
+		quote, err := domain.ParseCurrency(quoteCurrency)
+		if err != nil {
+			return nil, err
+		}
+		parsedRate, err := domain.ParseFxRate(rate)
+		if err != nil {
+			return nil, err
+		}
+		parsedSource, err := domain.ParseQuoteSourceKind(sourceKind)
+		if err != nil {
+			return nil, err
+		}
+		quoted, err := parsePortfolioTime(quotedAt)
+		if err != nil {
+			return nil, err
+		}
+		created, err := parsePortfolioTime(createdAt)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, domain.FXQuote{ID: quoteID, HouseholdID: hID, BaseCurrency: base, QuoteCurrency: quote, Rate: parsedRate, SourceKind: parsedSource, SourceKey: sourceKey, QuotedAt: quoted, CreatedAt: created, Delayed: delayed != 0})
+	}
+	return result, rows.Err()
+}
+
 func appendInstrumentQuoteTx(ctx context.Context, tx *sql.Tx, quote domain.InstrumentQuote) error {
 	var instrumentCurrency string
 	var archived sql.NullString
@@ -1197,7 +1475,7 @@ func appendInstrumentQuoteTx(ctx context.Context, tx *sql.Tx, quote domain.Instr
 	if instrumentCurrency != quote.Currency.String() {
 		return &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "quote currency does not match instrument"}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed))
+	_, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`, quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestInstrumentObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt))
 	return mapPortfolioWriteError(err, "instrument quote")
 }
 
@@ -1208,7 +1486,7 @@ func appendFXQuoteTx(ctx context.Context, tx *sql.Tx, quote domain.FXQuote) erro
 	if quote.BaseCurrency == quote.QuoteCurrency {
 		return &domain.Error{Code: domain.ErrValidation, Field: "currencyPair", Message: "currencies must differ"}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, quote.ID.String(), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed))
+	_, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`, quote.ID.String(), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), quote.Rate.Canonical(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestFXObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt))
 	return mapPortfolioWriteError(err, "FX quote")
 }
 

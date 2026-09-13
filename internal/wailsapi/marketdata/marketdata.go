@@ -10,6 +10,7 @@ package marketdata
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -52,7 +53,11 @@ func NewService(app *application.Service, events EventEmitter) *Service {
 	if events == nil {
 		events = noopEmitter{}
 	}
-	return &Service{app: app, events: events, cancels: make(map[string]refreshRegistration)}
+	service := &Service{app: app, events: events, cancels: make(map[string]refreshRegistration)}
+	if app != nil {
+		app.SetMarketDataSyncListener(service.emitSyncSnapshot)
+	}
+	return service
 }
 
 // RefreshTargetResultDTO mirrors application.RefreshTargetResult.
@@ -198,6 +203,9 @@ func (s *Service) CancelRefresh(requestID string) {
 }
 
 func (s *Service) CancelAllAndWait() {
+	if s.app != nil {
+		s.app.CancelMarketDataSyncAndWait()
+	}
 	s.mu.Lock()
 	cancels := make([]context.CancelFunc, 0, len(s.cancels))
 	for id, registration := range s.cancels {
@@ -265,4 +273,282 @@ func (s *Service) StartRefreshFX(requestID, currencyA, currencyB string) {
 	s.runAsync(requestID, func(ctx context.Context) (application.RefreshResult, error) {
 		return s.app.RefreshFX(ctx, currencyA, currencyB)
 	})
+}
+
+const (
+	SyncStartedEvent   = "marketdata.sync.started"
+	SyncProgressEvent  = "marketdata.sync.progress"
+	SyncItemEvent      = "marketdata.sync.item"
+	SyncCompletedEvent = "marketdata.sync.completed"
+)
+
+type SyncRequestDTO struct {
+	Scope        string `json:"scope"`
+	InstrumentID string `json:"instrumentId,omitempty"`
+	CurrencyA    string `json:"currencyA,omitempty"`
+	CurrencyB    string `json:"currencyB,omitempty"`
+	ForceRecheck bool   `json:"forceRecheck,omitempty"`
+}
+
+type SyncBlockerDTO struct {
+	TargetKey string `json:"targetKey"`
+	Code      string `json:"code"`
+	Reason    string `json:"reason"`
+}
+
+type SyncItemDTO struct {
+	TargetKey string `json:"targetKey"`
+	Kind      string `json:"kind"`
+	Status    string `json:"status"`
+	Detail    string `json:"detail,omitempty"`
+	Provider  string `json:"provider,omitempty"`
+}
+
+type SyncJobDTO struct {
+	JobID               string           `json:"jobId"`
+	WorkspaceID         string           `json:"workspaceId"`
+	HouseholdID         string           `json:"householdId"`
+	PlanRevision        string           `json:"planRevision"`
+	Sequence            int              `json:"sequence"`
+	Phase               string           `json:"phase"`
+	Outcome             string           `json:"outcome"`
+	Scope               SyncRequestDTO   `json:"scope"`
+	EstimatedRequests   int              `json:"estimatedRequests"`
+	CompletedRequests   int              `json:"completedRequests"`
+	TargetCount         int              `json:"targetCount"`
+	CompletedTargets    int              `json:"completedTargets"`
+	SnapshotDaysPlanned int              `json:"snapshotDaysPlanned"`
+	SnapshotDaysRebuilt int              `json:"snapshotDaysRebuilt"`
+	CommittedBatches    int              `json:"committedBatches"`
+	Items               []SyncItemDTO    `json:"items,omitempty"`
+	Blockers            []SyncBlockerDTO `json:"blockers,omitempty"`
+	Prerequisites       []SyncBlockerDTO `json:"prerequisites,omitempty"`
+	NextEligibilityAt   string           `json:"nextEligibilityAt,omitempty"`
+	ErrorCode           string           `json:"errorCode,omitempty"`
+}
+
+type SyncPlanPreviewDTO struct {
+	AsOf                  string           `json:"asOf"`
+	ConfigRevision        string           `json:"configRevision"`
+	Scope                 SyncRequestDTO   `json:"scope"`
+	EstimatedRequestCount int              `json:"estimatedRequestCount"`
+	SnapshotWorkEstimate  int              `json:"snapshotWorkEstimate"`
+	Unresolved            []SyncBlockerDTO `json:"unresolved,omitempty"`
+	InstrumentTargets     int              `json:"instrumentTargets"`
+	FXTargets             int              `json:"fxTargets"`
+	LatestInstrumentCount int              `json:"latestInstrumentCount"`
+	LatestFXCount         int              `json:"latestFxCount"`
+	FetchRanges           int              `json:"fetchRanges"`
+}
+
+type SyncStartResultDTO struct {
+	Job      SyncJobDTO `json:"job"`
+	Attached bool       `json:"attached"`
+	Conflict bool       `json:"conflict"`
+	Reason   string     `json:"reason,omitempty"`
+}
+
+type HealthIssueDTO struct {
+	ID           string `json:"id"`
+	Kind         string `json:"kind"`
+	Severity     string `json:"severity"`
+	GroupKey     string `json:"groupKey"`
+	TargetKey    string `json:"targetKey"`
+	Label        string `json:"label,omitempty"`
+	Provider     string `json:"provider,omitempty"`
+	InstrumentID string `json:"instrumentId,omitempty"`
+	CurrencyA    string `json:"currencyA,omitempty"`
+	CurrencyB    string `json:"currencyB,omitempty"`
+	RangeStart   string `json:"rangeStart,omitempty"`
+	RangeEnd     string `json:"rangeEnd,omitempty"`
+	RangeCount   int    `json:"rangeCount,omitempty"`
+	Code         string `json:"code,omitempty"`
+	Reason       string `json:"reason,omitempty"`
+	Action       string `json:"action"`
+	Executable   bool   `json:"executable"`
+	Collapsed    bool   `json:"collapsed,omitempty"`
+}
+
+type MarketDataHealthReportDTO struct {
+	Healthy                 bool             `json:"healthy"`
+	IncompleteSince         string           `json:"incompleteSince,omitempty"`
+	CoverageThrough         string           `json:"coverageThrough,omitempty"`
+	LastFinalizedMarketDate string           `json:"lastFinalizedMarketDate,omitempty"`
+	IssueCount              int              `json:"issueCount"`
+	ExecutableCount         int              `json:"executableCount"`
+	PrerequisiteCount       int              `json:"prerequisiteCount"`
+	SnapshotDays            int              `json:"snapshotDays"`
+	Issues                  []HealthIssueDTO `json:"issues,omitempty"`
+}
+
+func fromHealthIssue(issue application.HealthIssue) HealthIssueDTO {
+	return HealthIssueDTO{
+		ID: issue.ID, Kind: issue.Kind, Severity: issue.Severity, GroupKey: issue.GroupKey,
+		TargetKey: issue.TargetKey, Label: issue.Label, Provider: issue.Provider,
+		InstrumentID: issue.InstrumentID, CurrencyA: issue.CurrencyA, CurrencyB: issue.CurrencyB,
+		RangeStart: issue.RangeStart, RangeEnd: issue.RangeEnd, RangeCount: issue.RangeCount,
+		Code: issue.Code, Reason: issue.Reason, Action: issue.Action, Executable: issue.Executable,
+		Collapsed: issue.Collapsed,
+	}
+}
+
+func fromHealthReport(report application.MarketDataHealthReport) MarketDataHealthReportDTO {
+	dto := MarketDataHealthReportDTO{
+		Healthy: report.Healthy, IncompleteSince: report.IncompleteSince, CoverageThrough: report.CoverageThrough,
+		LastFinalizedMarketDate: report.LastFinalizedMarketDate, IssueCount: report.IssueCount,
+		ExecutableCount: report.ExecutableCount, PrerequisiteCount: report.PrerequisiteCount,
+		SnapshotDays: report.SnapshotDays,
+	}
+	for _, issue := range report.Issues {
+		dto.Issues = append(dto.Issues, fromHealthIssue(issue))
+	}
+	return dto
+}
+
+// ScanMarketDataHealth runs the local Data Health scan. Opening Data Health
+// must not cause provider HTTP; this method only reads the database, local
+// Tiingo key status, and in-process job snapshot.
+func (s *Service) ScanMarketDataHealth() (MarketDataHealthReportDTO, error) {
+	if s.app == nil {
+		return MarketDataHealthReportDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
+	}
+	report, err := s.app.ScanMarketDataHealth(context.Background())
+	if err != nil {
+		return MarketDataHealthReportDTO{}, apierror.Wrap(err)
+	}
+	return fromHealthReport(report), nil
+}
+
+func fromSyncRequest(dto SyncRequestDTO) application.SyncRequest {
+	return application.SyncRequest{
+		Scope:        application.SyncScopeKind(dto.Scope),
+		InstrumentID: dto.InstrumentID,
+		CurrencyA:    dto.CurrencyA,
+		CurrencyB:    dto.CurrencyB,
+		ForceRecheck: dto.ForceRecheck,
+	}
+}
+
+func fromSyncJob(snapshot application.SyncJobSnapshot) SyncJobDTO {
+	dto := SyncJobDTO{
+		JobID:        snapshot.JobID,
+		WorkspaceID:  snapshot.WorkspaceID,
+		HouseholdID:  snapshot.HouseholdID.String(),
+		PlanRevision: snapshot.PlanRevision,
+		Sequence:     snapshot.Sequence,
+		Phase:        snapshot.Phase,
+		Outcome:      snapshot.Outcome,
+		Scope: SyncRequestDTO{
+			Scope:        string(snapshot.Scope.Scope),
+			InstrumentID: snapshot.Scope.InstrumentID,
+			CurrencyA:    snapshot.Scope.CurrencyA,
+			CurrencyB:    snapshot.Scope.CurrencyB,
+			ForceRecheck: snapshot.Scope.ForceRecheck,
+		},
+		EstimatedRequests:   snapshot.EstimatedRequests,
+		CompletedRequests:   snapshot.CompletedRequests,
+		TargetCount:         snapshot.TargetCount,
+		CompletedTargets:    snapshot.CompletedTargets,
+		SnapshotDaysPlanned: snapshot.SnapshotDaysPlanned,
+		SnapshotDaysRebuilt: snapshot.SnapshotDaysRebuilt,
+		CommittedBatches:    snapshot.CommittedBatches,
+		ErrorCode:           snapshot.ErrorCode,
+	}
+	for _, item := range snapshot.Items {
+		dto.Items = append(dto.Items, SyncItemDTO{TargetKey: item.TargetKey, Kind: item.Kind, Status: item.Status, Detail: item.Detail, Provider: item.Provider})
+	}
+	for _, blocker := range snapshot.Blockers {
+		dto.Blockers = append(dto.Blockers, SyncBlockerDTO{TargetKey: blocker.TargetKey, Code: blocker.Code, Reason: blocker.Reason})
+	}
+	for _, blocker := range snapshot.Prerequisites {
+		dto.Prerequisites = append(dto.Prerequisites, SyncBlockerDTO{TargetKey: blocker.TargetKey, Code: blocker.Code, Reason: blocker.Reason})
+	}
+	if snapshot.NextEligibilityAt != nil {
+		dto.NextEligibilityAt = snapshot.NextEligibilityAt.UTC().Format(time.RFC3339)
+	}
+	return dto
+}
+
+func (s *Service) PreviewMarketDataSync(request SyncRequestDTO) (SyncPlanPreviewDTO, error) {
+	if s.app == nil {
+		return SyncPlanPreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
+	}
+	preview, err := s.app.PreviewMarketDataSync(context.Background(), fromSyncRequest(request))
+	if err != nil {
+		return SyncPlanPreviewDTO{}, apierror.Wrap(err)
+	}
+	dto := SyncPlanPreviewDTO{
+		AsOf:                  preview.AsOf.UTC().Format(time.RFC3339),
+		ConfigRevision:        preview.ConfigRevision,
+		Scope:                 SyncRequestDTO{Scope: string(preview.Scope.Scope), InstrumentID: preview.Scope.InstrumentID, CurrencyA: preview.Scope.CurrencyA, CurrencyB: preview.Scope.CurrencyB, ForceRecheck: preview.Scope.ForceRecheck},
+		EstimatedRequestCount: preview.EstimatedRequestCount,
+		SnapshotWorkEstimate:  preview.SnapshotWorkEstimate,
+		InstrumentTargets:     preview.InstrumentTargets,
+		FXTargets:             preview.FXTargets,
+		LatestInstrumentCount: preview.LatestInstrumentCount,
+		LatestFXCount:         preview.LatestFXCount,
+		FetchRanges:           preview.FetchRanges,
+	}
+	for _, blocker := range preview.Unresolved {
+		dto.Unresolved = append(dto.Unresolved, SyncBlockerDTO{TargetKey: blocker.TargetKey, Code: blocker.Code, Reason: blocker.Reason})
+	}
+	return dto, nil
+}
+
+func (s *Service) StartMarketDataSync(request SyncRequestDTO) (SyncStartResultDTO, error) {
+	if s.app == nil {
+		return SyncStartResultDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
+	}
+	result, err := s.app.StartMarketDataSync(context.Background(), fromSyncRequest(request))
+	if err != nil {
+		return SyncStartResultDTO{}, apierror.Wrap(err)
+	}
+	return SyncStartResultDTO{Job: fromSyncJob(result.Job), Attached: result.Attached, Conflict: result.Conflict, Reason: result.Reason}, nil
+}
+
+func (s *Service) GetCurrentSyncJob() (SyncJobDTO, error) {
+	if s.app == nil {
+		return SyncJobDTO{}, nil
+	}
+	snapshot, ok := s.app.GetCurrentSyncJob()
+	if !ok {
+		return SyncJobDTO{}, nil
+	}
+	return fromSyncJob(snapshot), nil
+}
+
+func (s *Service) GetSyncJob(jobID string) (SyncJobDTO, error) {
+	if s.app == nil {
+		return SyncJobDTO{}, nil
+	}
+	snapshot, ok := s.app.GetSyncJob(jobID)
+	if !ok {
+		return SyncJobDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrNotFound, Message: "sync job was not found"})
+	}
+	return fromSyncJob(snapshot), nil
+}
+
+func (s *Service) CancelSyncJob(jobID string) (SyncJobDTO, error) {
+	if s.app == nil {
+		return SyncJobDTO{}, nil
+	}
+	snapshot, ok := s.app.CancelSyncJob(jobID)
+	if !ok {
+		return SyncJobDTO{}, nil
+	}
+	return fromSyncJob(snapshot), nil
+}
+
+func (s *Service) emitSyncSnapshot(event string, snapshot application.SyncJobSnapshot) {
+	dto := fromSyncJob(snapshot)
+	switch event {
+	case application.SyncEventStarted:
+		s.events.Emit(SyncStartedEvent, dto)
+	case application.SyncEventItem:
+		s.events.Emit(SyncItemEvent, dto)
+	case application.SyncEventCompleted:
+		s.events.Emit(SyncCompletedEvent, dto)
+	default:
+		s.events.Emit(SyncProgressEvent, dto)
+	}
 }

@@ -32,6 +32,34 @@ export interface TrendChartProps {
   extraTableRows?: string[][];
 }
 
+/** Converts an ISO date or timestamp into the numeric coordinate required by
+ * an ECharts time axis. Date-only values are kept at UTC midnight so the
+ * calendar date cannot shift with the viewer's local timezone. */
+export function trendChartTimestamp(value: string): number {
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (dateOnly) {
+    return Date.UTC(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]));
+  }
+  return Date.parse(value);
+}
+
+function formatTrendChartDate(value: string | number, language: string): string {
+  const timestamp = typeof value === "number" ? value : trendChartTimestamp(value);
+  if (!Number.isFinite(timestamp)) {
+    return String(value);
+  }
+  try {
+    return new Intl.DateTimeFormat(language, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(timestamp));
+  } catch {
+    return new Date(timestamp).toISOString().slice(0, 10);
+  }
+}
+
 function uniqueSourceLabels(meta: Array<TrendPointMeta | undefined> | undefined): string[] {
   return [...new Set((meta ?? []).map((point) => point?.sourceLabel).filter((label): label is string => Boolean(label)))];
 }
@@ -79,7 +107,7 @@ export function TrendChart({
   extraTableColumns,
   extraTableRows,
 }: TrendChartProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const theme = chartTheme();
   const formatValue = valueFormatter ?? ((value: string | null | undefined) => (value ? formatAmount(value, currency) : t("accounts.noValue")));
 
@@ -103,7 +131,7 @@ export function TrendChart({
       transitionDuration: 0,
       formatter: (params) => {
         const items = Array.isArray(params) ? params : [params];
-        const date = String((items[0] as { axisValue?: string }).axisValue ?? "");
+        const date = formatTrendChartDate((items[0] as { axisValue?: string | number }).axisValue ?? "", i18n.language);
         const lines = items.flatMap((item) => {
           const point = item as { seriesName?: string; dataIndex?: number; seriesIndex?: number };
           const seriesItem = series[point.seriesIndex ?? 0];
@@ -118,7 +146,14 @@ export function TrendChart({
         return joinTooltipLines([date, ...lines]);
       },
     },
-    xAxis: { type: "category", data: dates, axisLabel: { color: theme.muted } },
+    xAxis: {
+      type: "time",
+      axisLabel: {
+        color: theme.muted,
+        hideOverlap: true,
+        formatter: (value) => formatTrendChartDate(value, i18n.language),
+      },
+    },
     yAxis: { type: "value", axisLabel: { color: theme.muted, ...(axisValueFormatter ? { formatter: axisValueFormatter } : {}) }, splitLine: { lineStyle: { color: theme.border } } },
     series: series.map((item) => {
       const showSourceMarks = (item.pointMeta ?? []).some((meta) => meta?.sourceLabel || meta?.delayed);
@@ -128,7 +163,7 @@ export function TrendChart({
         data: item.values.map((value, index) => {
           const meta = item.pointMeta?.[index];
           return {
-            value: chartNumber(value),
+            value: [trendChartTimestamp(dates[index]), chartNumber(value)],
             symbol: meta?.delayed ? "diamond" : "circle",
             itemStyle: { color: meta?.sourceLabel ? sourceTint(meta.sourceLabel, theme.palette) : item.color },
           };

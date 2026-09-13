@@ -1,0 +1,9 @@
+[
+  {
+    "date": "2026-09-04T00:00:00.000Z",
+    "close": "not-a-decimal",
+    "adjClose": 185.25,
+    "divCash": 0.0,
+    "splitFactor": 1.0
+  }
+]

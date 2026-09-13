@@ -1,0 +1,18 @@
+{
+  "fixtureId": "tiingo-aapl-eod-early-close-unknown",
+  "provider": "tiingo",
+  "capability": "InstrumentDailyHistory",
+  "providerSymbol": "AAPL",
+  "quoteCurrency": "USD",
+  "market": "US",
+  "requestedRange": { "start": "2026-11-27", "end": "2026-11-27" },
+  "sessionPolicy": "us_equity_regular_close_v1",
+  "sessionKind": "unknown",
+  "sessionTimezone": "America/New_York",
+  "closeClock": "",
+  "priceBasis": "tiingo_raw_close_v1",
+  "clock": "2026-11-28T00:05:00+08:00",
+  "lastFinalizedMarketDate": "2026-11-27",
+  "pendingMarketDates": [],
+  "truncated": false
+}

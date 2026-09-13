@@ -29,3 +29,20 @@ func NormalizeProviderObservationTime(value, now time.Time) (time.Time, error) {
 	}
 	return parsed.UTC(), nil
 }
+
+// NormalizeHistoricalObservationTime canonicalizes a provider's historical
+// economic timestamp without applying the realtime clock-skew window. A
+// correction fetched today is allowed to describe a close from years ago;
+// the historical resolver gates it by its finalized market-date label. The
+// household cutoff remains relevant to transaction and position replay.
+func NormalizeHistoricalObservationTime(value time.Time) (time.Time, error) {
+	if value.IsZero() || value.Before(domain.ProviderObservationEarliest()) {
+		return time.Time{}, errors.New("historical provider observation time is invalid")
+	}
+	canonical := value.UTC().Truncate(time.Millisecond).Format(providerPersistenceTimestampLayout)
+	parsed, err := time.Parse(time.RFC3339Nano, canonical)
+	if err != nil || !parsed.Equal(value.UTC().Truncate(time.Millisecond)) {
+		return time.Time{}, errors.New("historical provider observation time cannot be persisted")
+	}
+	return parsed.UTC(), nil
+}

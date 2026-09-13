@@ -16,20 +16,27 @@ const YahooFinanceProviderKey = "yahoo_finance"
 
 const FrankfurterProviderKey = "frankfurter"
 
+// TiingoProviderKey identifies the US-listed equity provider. It is part of
+// InstrumentProviderKeys so US bindings can select Tiingo or Yahoo.
+const TiingoProviderKey = "tiingo"
+
 // InstrumentProviderKeys is the closed catalog of provider keys that can
 // bind an Instrument's quote source. Frankfurter is FX-only and is not
-// included.
+// included. US instruments may use Yahoo or Tiingo; other markets stay
+// Yahoo-only at routing time.
 func InstrumentProviderKeys() []string {
-	return []string{YahooFinanceProviderKey}
+	return []string{YahooFinanceProviderKey, TiingoProviderKey}
 }
 
 // MarketDataCapabilities describes the deliberately small provider surface.
 // Providers cannot imply search or historical-data support.
 type MarketDataCapabilities struct {
-	LatestInstrument bool
-	LatestFX         bool
-	InstrumentSearch bool
-	DailyHistory     bool
+	LatestInstrument       bool
+	LatestFX               bool
+	InstrumentSearch       bool
+	DailyHistory           bool
+	InstrumentDailyHistory bool
+	FXDailyHistory         bool
 }
 
 // InstrumentMarketIdentity is the provider-neutral identity needed for a
@@ -38,6 +45,7 @@ type InstrumentMarketIdentity struct {
 	ProviderKey    string
 	ProviderSymbol string
 	QuoteCurrency  domain.CurrencyCode
+	Market         string
 }
 
 // FXMarketIdentity identifies one direct native-to-quote currency request.
@@ -73,6 +81,19 @@ type MarketDataProvider interface {
 	LatestInstrument(context.Context, InstrumentMarketIdentity) (LatestInstrumentQuote, error)
 	LatestFX(context.Context, FXMarketIdentity) (LatestFXQuote, error)
 }
+
+// ProviderLocalStatus is an optional adapter surface for Data Health.
+// Implementations must inspect local configuration only and must not
+// perform network I/O.
+type ProviderLocalStatus interface {
+	LocalConfigStatus(context.Context) (code, reason string)
+}
+
+const (
+	ProviderConfigOK          = "ok"
+	ProviderConfigMissingKey  = "missing_key"
+	ProviderConfigUnavailable = "unavailable"
+)
 
 // MarketDataRegistryPort keeps Service independent from provider routing and
 // from the infrastructure package that supplies the production registry.

@@ -30,6 +30,7 @@ export const queryKeys = {
     all: ["settings"] as const,
     supportedCurrencies: ["settings", "supportedCurrencies"] as const,
     fxProviders: ["settings", "fxProviders"] as const,
+    tiingoKey: ["settings", "tiingoKey"] as const,
   },
   directory: {
     all: ["directory"] as const,
@@ -110,5 +111,11 @@ export const queryKeys = {
     activity: (activityId: string) => ["history", "activity", activityId] as const,
     activities: (limit: number) => ["history", "activities", limit] as const,
     activityPage: (request: unknown) => ["history", "activityPage", request] as const,
+  },
+  marketdata: {
+    all: ["marketdata"] as const,
+    currentSync: ["marketdata", "currentSync"] as const,
+    health: ["marketdata", "health"] as const,
+    job: (jobId: string) => ["marketdata", "job", jobId] as const,
   },
 } as const;

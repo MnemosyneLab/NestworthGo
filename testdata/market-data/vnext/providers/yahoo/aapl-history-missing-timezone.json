@@ -1,0 +1,16 @@
+{
+  "chart": {
+    "result": [{
+      "meta": {
+        "currency": "USD",
+        "symbol": "AAPL"
+      },
+      "timestamp": [1755185400],
+      "indicators": {
+        "quote": [{"close": [185.25]}],
+        "adjclose": [{"adjclose": [185.0]}]
+      }
+    }],
+    "error": null
+  }
+}

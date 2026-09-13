@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState } from "@/components/layout/PageState";
@@ -20,18 +20,20 @@ import {
   useInstruments,
   useAppendManualFXQuote,
   useSetFXPreference,
-  useSetInstrumentQuoteSource,
 } from "@/queries/investments";
 import { useSettings, useSupportedCurrencies } from "@/queries/settings";
 import { useOverview } from "@/queries/portfolio";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
-import { groupByInstrumentType, sortFxPairs } from "@/lib/groupByInstrumentType";
+import { sortFxPairs } from "@/lib/groupByInstrumentType";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import type { FXPreferenceDTO, InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { EntityIcon } from "@/components/icons/EntityIcon";
 import { QuoteHistorySheet, type QuoteHistoryTarget } from "@/features/marketdata/QuoteHistorySheet";
+import { InstrumentManagement } from "@/features/investments/InstrumentManagement";
+import { MarketDataSyncBar, useMarketDataSyncActions } from "@/features/marketdata/MarketDataSyncBar";
+import { DataHealthIndicator } from "@/features/data-health/DataHealthIndicator";
 
 const STATUS_VARIANT: Record<string, "success" | "secondary" | "destructive" | "warning"> = {
   fetched: "success",
@@ -279,44 +281,6 @@ function RefreshResults({
   );
 }
 
-function SavedInstrumentRow({ instrument, onConfigure, isConfiguring, onViewHistory }: { instrument: InstrumentDTO; onConfigure: (source: string) => void; isConfiguring: boolean; onViewHistory: () => void }) {
-  const { t, i18n } = useTranslation();
-  const settings = useSettings();
-  const quote = useCurrentInstrumentQuote(instrument.id);
-
-  return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-md border border-border px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,auto)_auto]" data-testid={`saved-instrument-${instrument.id}`}>
-      <span className="flex min-w-0 flex-wrap items-center gap-2">
-        <EntityIcon iconKey={instrument.iconKey} kind="instrument" className="size-5 text-primary" />
-        <span className="font-medium">{instrument.name}</span>
-        <Badge variant="secondary">{instrument.quoteCurrency}</Badge>
-        <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>{displayEnum(t, "portfolio", instrument.quoteSource)}</Badge>
-      </span>
-      <span className="col-span-2 row-start-2 flex min-w-0 flex-wrap items-center justify-end gap-2 text-right lg:col-span-1 lg:col-start-2 lg:row-start-1">
-        {quote.isLoading ? (
-          <span className="text-muted-foreground">{t("portfolio.priceLoading")}</span>
-        ) : quote.data ? (
-          <>
-            <span className="font-medium">{t("marketData.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) })}</span>
-            <span className="text-xs text-muted-foreground">
-              {t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}
-            </span>
-          </>
-        ) : (
-          <span className="text-muted-foreground">{t("marketData.noQuoteYet")}</span>
-        )}
-      </span>
-      <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-2 lg:col-start-3">
-        <NativeSelect aria-label={t("marketData.instrumentSource")} value={instrument.quoteSource} disabled={isConfiguring} onChange={(event) => onConfigure(event.target.value)}>
-          <option value="provider">{t("portfolio.provider")}</option>
-          <option value="manual">{t("portfolio.manual")}</option>
-        </NativeSelect>
-        <Button type="button" variant="outline" size="sm" onClick={onViewHistory}>{t("charts.viewHistory")}</Button>
-      </span>
-    </li>
-  );
-}
-
 function SavedFXRow({
   pair,
   preference,
@@ -354,6 +318,11 @@ function SavedFXRow({
             </span>
             <span className="text-xs text-muted-foreground">
               {t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}
+            </span>
+            <span className="flex flex-wrap items-center justify-end gap-1 text-xs text-muted-foreground">
+              {quote.data.delayed ? <Badge variant="warning">{t("charts.delayed")}</Badge> : null}
+              {quote.data.sourceKind ? <span>{displayEnum(t, "portfolio", quote.data.sourceKind)}</span> : null}
+              {quote.data.sourceKey ? <span>· {quote.data.sourceKey}</span> : null}
             </span>
           </>
         ) : (
@@ -444,84 +413,57 @@ function ManualFXQuoteForm() {
   );
 }
 
-function SavedMarketData({
-  instruments,
+function SavedFXRates({
   fxPairs,
   fxPreferences,
   onConfigureFX,
-  onConfigureInstrument,
   configuringPair,
-  configuringInstrument,
   onViewHistory,
 }: {
-  instruments: InstrumentDTO[];
   fxPairs: FxPair[];
   fxPreferences: FXPreferenceDTO[];
   onConfigureFX: (pair: FxPair, source?: string) => void;
-  onConfigureInstrument: (instrument: InstrumentDTO, source: string) => void;
   configuringPair?: string;
-  configuringInstrument?: string;
   onViewHistory: (target: QuoteHistoryTarget) => void;
 }) {
   const { t } = useTranslation();
   const sortedFxPairs = sortFxPairs(fxPairs);
-  const instrumentGroups = groupByInstrumentType(instruments);
 
   return (
-    <section className="flex flex-col gap-3" aria-labelledby="saved-market-data-heading" data-testid="saved-market-data">
+    <section className="flex flex-col gap-3" aria-labelledby="saved-fx-heading" data-testid="saved-market-data">
       <div>
-        <h2 id="saved-market-data-heading" className="text-lg font-semibold">{t("marketData.savedData")}</h2>
-        <p className="text-sm text-muted-foreground">{t("marketData.savedDataDescription")}</p>
+        <h2 id="saved-fx-heading" className="text-lg font-semibold">{t("marketData.fx")}</h2>
+        <p className="text-sm text-muted-foreground">{t("marketData.fxDailyReference")}</p>
       </div>
-      {instruments.length === 0 && fxPairs.length === 0 ? (
+      {sortedFxPairs.length === 0 ? (
         <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">{t("marketData.noSavedData")}</p>
       ) : (
-        <div className="flex flex-col gap-4">
-          {sortedFxPairs.length > 0 ? (
-            <section className="flex flex-col gap-2" data-testid="market-data-group-fx">
-              <h3 className="text-sm font-medium text-muted-foreground">{t("marketData.fxGroup")}</h3>
-              <ul className="flex flex-col gap-2">
-                {sortedFxPairs.map((pair) => {
-                  const key = fxPairKey(pair.currencyA, pair.currencyB);
-                  return (
-                    <SavedFXRow
-                      key={key}
-                      pair={pair}
-                      preference={preferenceForPair(fxPreferences, pair)}
-                      onConfigure={(source) => onConfigureFX(pair, source)}
-                      isConfiguring={configuringPair === key}
-                      onViewHistory={() => onViewHistory({ kind: "fx", currencyA: pair.currencyA, currencyB: pair.currencyB })}
-                    />
-                  );
-                })}
-              </ul>
-            </section>
-          ) : null}
-          {instrumentGroups.map((group) => (
-            <section key={group.key} className="flex flex-col gap-2" data-testid={`market-data-group-${group.key}`}>
-              <h3 className="text-sm font-medium text-muted-foreground">{displayEnum(t, "enum", group.key)}</h3>
-              <ul className="flex flex-col gap-2">
-                {group.items.map((instrument) => (
-                  <SavedInstrumentRow
-                    key={instrument.id}
-                    instrument={instrument}
-                    onConfigure={(source) => onConfigureInstrument(instrument, source)}
-                    isConfiguring={configuringInstrument === instrument.id}
-                    onViewHistory={() => onViewHistory({ kind: "instrument", instrument })}
-                  />
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
+        <section className="flex flex-col gap-2" data-testid="market-data-group-fx">
+          <ul className="flex flex-col gap-2">
+            {sortedFxPairs.map((pair) => {
+              const key = fxPairKey(pair.currencyA, pair.currencyB);
+              return (
+                <SavedFXRow
+                  key={key}
+                  pair={pair}
+                  preference={preferenceForPair(fxPreferences, pair)}
+                  onConfigure={(source) => onConfigureFX(pair, source)}
+                  isConfiguring={configuringPair === key}
+                  onViewHistory={() => onViewHistory({ kind: "fx", currencyA: pair.currencyA, currencyB: pair.currencyB })}
+                />
+              );
+            })}
+          </ul>
+        </section>
       )}
+      <ManualFXQuoteForm />
     </section>
   );
 }
 
-/** MarketDataPage makes provider refresh explicit and keeps the provider's
- * technical target identifiers out of the user-facing result list. */
-export function MarketDataPage() {
+/** MarketDataPage merges instrument management and FX rates onto one
+ * destination, with Sync Data progress restored from the in-process job. */
+export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => void } = {}) {
   const { t } = useTranslation();
   const instruments = useInstruments();
   const fxPreferences = useFXPreferences();
@@ -529,14 +471,15 @@ export function MarketDataPage() {
   const refreshAll = useRefreshAll();
   const refreshMissingOrStale = useRefreshMissingOrStale();
   const setFXPreference = useSetFXPreference();
-  const setInstrumentQuoteSource = useSetInstrumentQuoteSource();
+  const sync = useMarketDataSyncActions();
+  const [tab, setTab] = useState("instruments");
   const [lastRefresh, setLastRefresh] = useState<"all" | "missing" | null>(null);
   const [result, setResult] = useState<RefreshResultDTO | undefined>();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | undefined>();
   const [configuringPair, setConfiguringPair] = useState<string | undefined>();
-  const [configuringInstrument, setConfiguringInstrument] = useState<string | undefined>();
   const [historyTarget, setHistoryTarget] = useState<QuoteHistoryTarget | null>(null);
   const activeRefresh = lastRefresh === "missing" ? refreshMissingOrStale : refreshAll;
+  const latestRefreshing = refreshAll.refreshing || refreshMissingOrStale.refreshing;
 
   const runRefreshAll = () => {
     setLastRefresh("all");
@@ -566,20 +509,6 @@ export function MarketDataPage() {
     });
   };
 
-  const configureInstrument = (instrument: InstrumentDTO, source: string) => {
-    setConfiguringInstrument(instrument.id);
-    setInstrumentQuoteSource.mutate(
-      { instrumentId: instrument.id, source },
-      {
-        onSuccess: () => setConfiguringInstrument(undefined),
-        onError: (error) => {
-          setConfiguringInstrument(undefined);
-          toast.error(displayError(error, t("marketData.loadError")));
-        },
-      },
-    );
-  };
-
   const configureFX = (pair: FxPair, source = "provider") => {
     const key = fxPairKey(pair.currencyA, pair.currencyB);
     setConfiguringPair(key);
@@ -607,16 +536,17 @@ export function MarketDataPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageChrome pageId="market-data" title={t("nav.marketData")} />
-      <PageIntro description={t("marketData.description")} />
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={runRefreshMissingOrStale} disabled={refreshAll.refreshing || refreshMissingOrStale.refreshing || setFXPreference.isPending || setInstrumentQuoteSource.isPending}>
-          <RefreshCw className="size-4" aria-hidden="true" /> {refreshMissingOrStale.refreshing ? t("marketData.refreshing") : t("marketData.refreshMissingOrStale")}
-        </Button>
-        <Button variant="outline" onClick={runRefreshAll} disabled={refreshAll.refreshing || refreshMissingOrStale.refreshing || setFXPreference.isPending || setInstrumentQuoteSource.isPending}>
-          <RefreshCw className="size-4" aria-hidden="true" /> {refreshAll.refreshing ? t("marketData.refreshing") : t("marketData.forceRefreshAll")}
-        </Button>
-        {activeRefresh.refreshing && <Button type="button" variant="outline" onClick={activeRefresh.cancel}>{t("marketData.cancelRefresh")}</Button>}
-      </div>
+      <PageIntro
+        description={t("marketData.description")}
+        status={<DataHealthIndicator onOpen={onOpenDataHealth} />}
+      />
+      <MarketDataSyncBar
+        latestRefreshing={latestRefreshing || setFXPreference.isPending}
+        onRefreshMissing={runRefreshMissingOrStale}
+        onRefreshAll={runRefreshAll}
+        onCancelLatest={activeRefresh.cancel}
+        lastUpdatedAt={lastRefreshAt}
+      />
 
       {activeRefresh.operationStatus === "cancelled" && <p role="status" className="text-sm text-muted-foreground">{t("marketData.refreshCancelled")}</p>}
 
@@ -641,16 +571,32 @@ export function MarketDataPage() {
         />
       )}
       {!activeRefresh.isError && !instruments.isError && !fxPreferences.isError && (
-        <SavedMarketData
-          instruments={instrumentList}
-          fxPairs={fxPairs}
-          fxPreferences={preferenceList}
-          onConfigureFX={configureFX}
-          onConfigureInstrument={configureInstrument}
-          configuringPair={configuringPair}
-          configuringInstrument={configuringInstrument}
-          onViewHistory={setHistoryTarget}
-        />
+        <Tabs value={tab} onValueChange={setTab}>
+          <TabsList>
+            <TabsTrigger value="instruments">{t("marketData.instruments")}</TabsTrigger>
+            <TabsTrigger value="fx">{t("marketData.fx")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="instruments">
+            <InstrumentManagement
+              pageId="market-data"
+              active={tab === "instruments"}
+              enableSearch
+              groupTestIdPrefix="market-data-group"
+              onViewHistory={(instrument) => setHistoryTarget({ kind: "instrument", instrument })}
+              onSyncInstrument={sync.syncInstrument}
+              syncingInstrumentId={sync.syncingInstrumentId}
+            />
+          </TabsContent>
+          <TabsContent value="fx">
+            <SavedFXRates
+              fxPairs={fxPairs}
+              fxPreferences={preferenceList}
+              onConfigureFX={configureFX}
+              configuringPair={configuringPair}
+              onViewHistory={setHistoryTarget}
+            />
+          </TabsContent>
+        </Tabs>
       )}
       {historyTarget ? <QuoteHistorySheet target={historyTarget} onClose={() => setHistoryTarget(null)} /> : null}
       {!activeRefresh.isError && result && (
@@ -663,7 +609,6 @@ export function MarketDataPage() {
           configuringPair={configuringPair}
         />
       )}
-      <ManualFXQuoteForm />
       {!activeRefresh.isError && !result && (
         <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">{t("marketData.explicitNotice")}</p>
       )}

@@ -7,8 +7,9 @@ that boundary remain backend-owned.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. The current `0.3.1` line owns one complete SQLite schema
-`9`; older database generations, including schemas `6`, `7`, and `8`, are rejected without
+and query results. The current `0.3.2` line owns one complete SQLite schema
+`10`. Schema `9` migrates to `10` on open (offline, no network). Older
+database generations, including schemas `6`, `7`, and `8`, are rejected without
 migration. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
@@ -33,7 +34,9 @@ recreate a user's database after an open or migration failure.
 | --- | --- |
 | Database absent | Create the current schema, verify it, then initialize settings |
 | Supported and current | Open and verify it |
-| Older generation | Block startup without writes; tell the user to create a new database |
+| Supported older generation (`9`) | Migrate to the current schema in one local transaction, then verify |
+| Older generation (`6`–`8` and earlier) | Block startup without writes; tell the user to create a new database |
+| Newer than supported | Block business writes with a safe error |
 | Newer than supported | Block business writes with a safe error |
 | Integrity failure | Block startup; preserve the original database |
 | Path/open failure | Show an unavailable-database state |
@@ -73,9 +76,9 @@ or network dependency.
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the current `schema.sql` and
-documented here without duplicating SQL. The current supported schema is `9`.
-Future and older schema generations are blocked before business or settings
-writes.
+documented here without duplicating SQL. The current supported schema is `10`.
+Schema `9` is the only older generation that migrates; future and older schema
+generations are blocked before business or settings writes.
 
 ## Transaction guarantees
 
@@ -91,7 +94,24 @@ writes.
   `mutationId`. The same ID with the same payload returns the original result;
   the same ID with a different payload returns `conflict`. Empty IDs remain
   valid for tests and older callers. The key is stored in
-  `activity_mutation_keys` without bumping schema version 9.
+  `activity_mutation_keys` without bumping schema version.
+
+Schema `10` adds market-data observation revisions, canonical observation
+slots, provider-binding revisions, coverage (`market_data_day_status`), and
+dirty `input_generation` / `resolver_policy_version` columns. Historical
+instrument and FX batches persist in one transaction with invalidation; fail-
+closed Tiingo mappings (invalid, unsupported, adjClose-only, malformed) write
+nothing. Existing latest and manual quotes remain `realtime`/`latest` and
+`manual`; migrated unverifiable provider quotes are `legacy` and do not fill
+close slots.
+
+## Tiingo API key configuration
+
+Tiingo API keys are persisted in the local settings JSON file, which is
+created with private permissions and written atomically. The key is not part
+of SQLite business data and never crosses the Wails boundary. The settings
+service returns only a derived `configured` boolean and the provider reads
+the current key from the settings store when it makes a request.
 
 ## Current valuation and provider refresh
 
@@ -219,7 +239,9 @@ Recovery and portability are file workflows rather than business tables. A
 backup has the fixed members `manifest.json`, `database.sqlite`, and
 `settings.json`; verification is read-only and checks format, limits,
 checksums, schema, foreign keys, and integrity before replacement. Restore uses
-a journaled file-group swap and rolls back an incomplete replacement. CSV
+a journaled file-group swap and rolls back an incomplete replacement. The
+Tiingo key follows the local settings JSON backup/restore policy and is not
+stored in SQLite. CSV
 Accounts and Holdings imports are create-only: mapping and preview happen
 before one atomic commit, and observation dates remain explicit input rather
 than silently using the current time. The detailed user flow and stable error

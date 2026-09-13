@@ -43,7 +43,7 @@ func TestFrankfurterProviderNormalizesDailyRateFixture(t *testing.T) {
 	if captured == nil || captured.URL.Host != frankfurterHost || captured.URL.EscapedPath() != "/v2/rate/USD/CNY" {
 		t.Fatalf("Frankfurter request = %#v", captured)
 	}
-	if provider.Capabilities().LatestInstrument || !provider.Capabilities().LatestFX {
+	if provider.Capabilities().LatestInstrument || !provider.Capabilities().LatestFX || !provider.Capabilities().FXDailyHistory {
 		t.Fatalf("Frankfurter capabilities = %#v", provider.Capabilities())
 	}
 }
@@ -131,4 +131,39 @@ func TestFrankfurterProviderEnforcesBodyLimitAndCancellation(t *testing.T) {
 	})
 	_, err = timeoutProvider.LatestFX(context.Background(), application.FXMarketIdentity{BaseCurrency: "USD", QuoteCurrency: "CNY"})
 	assertProviderCode(t, err, domain.ErrProviderUnavailable)
+}
+
+func TestFrankfurterProviderHistoryMapsV2RangeAndIdentity(t *testing.T) {
+	_, body := mustLoadVNext(t, "providers/frankfurter/usd-sgd-history.json")
+	var captured *http.Request
+	provider := NewFrankfurterProviderWithOptions(FrankfurterProviderOptions{
+		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			captured = request
+			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), ContentLength: int64(len(body)), Header: make(http.Header), Request: request}, nil
+		}),
+		Semaphore: make(chan struct{}, 2),
+	})
+	outcome, err := provider.FXDailyHistory(context.Background(), application.FXMarketIdentity{
+		BaseCurrency: "USD", QuoteCurrency: "SGD",
+	}, application.DateRange{Start: "2026-09-04", End: "2026-09-09"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Status != application.MappingMapped || len(outcome.Batch.Observations) != 3 {
+		t.Fatalf("Frankfurter history = %+v", outcome)
+	}
+	if outcome.Batch.Observations[0].SourcePolicy != domain.FrankfurterV2BlendedPolicy || outcome.Batch.Observations[0].Derived {
+		t.Fatalf("history observation = %+v", outcome.Batch.Observations[0])
+	}
+	if captured == nil || captured.URL.Host != frankfurterHost || captured.URL.Path != "/v2/rates" || captured.URL.Query().Get("from") != "2026-09-04" || captured.URL.Query().Get("quotes") != "SGD" {
+		t.Fatalf("Frankfurter history request = %#v", captured)
+	}
+
+	identity, err := provider.FXDailyHistory(context.Background(), application.FXMarketIdentity{BaseCurrency: "USD", QuoteCurrency: "USD"}, application.DateRange{Start: "2026-09-04", End: "2026-09-09"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity.Status != application.MappingUnsupported || identity.Reason != "identity_pair_is_not_a_raw_observation" || len(identity.Batch.Observations) != 0 {
+		t.Fatalf("identity pair = %+v", identity)
+	}
 }

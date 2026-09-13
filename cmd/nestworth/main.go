@@ -45,6 +45,10 @@ import (
 
 func init() {
 	application.RegisterEvent[wailsmarketdata.RefreshCompletedPayload](wailsmarketdata.RefreshCompletedEvent)
+	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncStartedEvent)
+	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncProgressEvent)
+	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncItemEvent)
+	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncCompletedEvent)
 }
 
 // lazyEventEmitter satisfies wailsapi/marketdata.EventEmitter without
@@ -115,9 +119,18 @@ func run() error {
 			registry := nestworthapp.NewMarketDataRegistryWithDefault(nestworthapp.FrankfurterProviderKey,
 				marketdata.NewFrankfurterProvider(nil),
 				marketdata.NewYahooChartProvider(nil),
+				marketdata.NewTiingoProvider(func() (string, error) {
+					current, err := store.Load()
+					if err != nil {
+						return "", err
+					}
+					return current.TiingoAPIKey, nil
+				}, nil),
 			)
-			service = nestworthapp.NewService(sqlite.NewRepository(database), registry)
+			repo := sqlite.NewRepository(database)
+			service = nestworthapp.NewService(repo, registry)
 			appports.Wire(service)
+			appports.AttachSQLiteHistory(service, repo)
 			service.SetLiveDatabasePath(databasePath)
 			if err := service.SetFXProvider(preference.FXProvider); err != nil {
 				// Fall back for this session only: the persisted choice stays on

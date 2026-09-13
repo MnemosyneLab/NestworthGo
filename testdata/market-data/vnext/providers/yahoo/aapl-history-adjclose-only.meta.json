@@ -1,0 +1,19 @@
+{
+  "fixtureId": "yahoo-aapl-history-adjclose-only",
+  "provider": "yahoo_finance",
+  "capability": "InstrumentDailyHistory",
+  "providerSymbol": "AAPL",
+  "quoteCurrency": "USD",
+  "market": "US",
+  "requestedRange": { "start": "2026-08-14", "end": "2026-08-14" },
+  "sessionPolicy": "us_equity_regular_close_v1",
+  "sessionKind": "regular",
+  "sessionTimezone": "America/New_York",
+  "closeClock": "16:00",
+  "priceBasis": "yahoo_close_unverified",
+  "priceBasisVerified": false,
+  "clock": "2026-09-10T00:05:00+08:00",
+  "lastFinalizedMarketDate": "2026-08-14",
+  "pendingMarketDates": [],
+  "truncated": false
+}

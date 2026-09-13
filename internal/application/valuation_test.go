@@ -301,6 +301,220 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 	}
 }
 
+func TestHistoricalInstrumentQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
+	instrumentID := domain.NewInstrumentID()
+	provider := domain.TiingoProviderKey
+	instrument := domain.Instrument{
+		ID: instrumentID, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider,
+		ProviderKey: &provider, ProviderBindingRevision: 2,
+	}
+	cutoff := time.Date(2026, time.September, 7, 0, 0, 0, 0, time.UTC)
+	validEffective := time.Date(2026, time.September, 4, 20, 0, 0, 0, time.UTC)
+	price := func(value string) domain.UnitPrice {
+		parsed, err := domain.ParseUnitPrice(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return parsed
+	}
+	quotes := []domain.InstrumentQuote{
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("999"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationRealtime), ValueEffectiveAt: cutoff.Add(-time.Minute), BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("998"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("997"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: "old-policy", TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("186"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
+		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("10000"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationLegacy), QuotedAt: cutoff.Add(-time.Hour)},
+	}
+	selected := selectHistoricalInstrumentQuote(instrument, quotes, cutoff)
+	if selected == nil || selected.UnitPrice.Canonical() != "186" {
+		t.Fatalf("selected historical quote = %+v", selected)
+	}
+}
+
+func TestHistoricalCarryForwardRequiresVerifiedCoverage(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	accountID := domain.NewAccountID()
+	instrumentID := domain.NewInstrumentID()
+	holdingID := domain.NewHoldingID()
+	provider := domain.TiingoProviderKey
+	market := "US"
+	quantity, err := domain.ParseQuantity("10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	price, err := domain.ParseUnitPrice("186")
+	if err != nil {
+		t.Fatal(err)
+	}
+	household := &domain.Household{ID: householdID, BaseCurrency: "USD"}
+	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "Historical asset", QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderBindingRevision: 1, MarketCode: &market}
+	account := domain.Account{ID: accountID, HouseholdID: householdID, Name: "Brokerage", TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD", BalanceSheetRole: domain.RoleAsset, IncludeInNetWorth: true}
+	holding := domain.Holding{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity}
+	quote := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price, Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC), QuotedAt: time.Date(2026, 9, 4, 20, 1, 0, 0, time.UTC), BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)}
+	snapshot := domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{quote}}
+	cutoff := time.Date(2026, 9, 7, 23, 59, 59, 999000000, time.UTC)
+	valuation := NewValuationService(nil, func() time.Time { return cutoff })
+	valuation.SetHistorical(true)
+	accounts, _, err := valuation.ValueAccounts(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || accounts[0].Complete || len(accounts[0].MissingInputs) != 1 || accounts[0].MissingInputs[0].Kind != domain.MissingHistoryCoverage {
+		t.Fatalf("unqueried history = %+v", accounts)
+	}
+	if accounts[0].Components[0].BaseAmountExact != "1860" {
+		t.Fatalf("carry-forward amount = %s, want 1860", accounts[0].Components[0].BaseAmountExact)
+	}
+
+	snapshot.InstrumentHistoryCoverage = []domain.InstrumentHistoryCoverage{{
+		InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisTiingoRawClose),
+		CloseMarketDates: []string{"2026-09-04"}, NoObservationDates: []string{"2026-09-05", "2026-09-06", "2026-09-07"},
+	}}
+	accounts, _, err = valuation.ValueAccounts(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || !accounts[0].Complete || len(accounts[0].MissingInputs) != 0 {
+		t.Fatalf("verified no-observation history = %+v", accounts)
+	}
+
+	snapshot.InstrumentHistoryCoverage[0].UnverifiedDates = []string{"2026-09-07"}
+	accounts, _, err = valuation.ValueAccounts(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || accounts[0].Complete || len(accounts[0].MissingInputs) != 1 {
+		t.Fatalf("pending history = %+v", accounts)
+	}
+}
+
+func TestHistoricalMarketDateUsesLateCloseAndRebuildQuality(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	accountID := domain.NewAccountID()
+	instrumentID := domain.NewInstrumentID()
+	holdingID := domain.NewHoldingID()
+	provider := domain.TiingoProviderKey
+	quantity, err := domain.ParseQuantity("10")
+	if err != nil {
+		t.Fatal(err)
+	}
+	priceForTest := func(value string) domain.UnitPrice {
+		parsed, parseErr := domain.ParseUnitPrice(value)
+		if parseErr != nil {
+			t.Fatal(parseErr)
+		}
+		return parsed
+	}
+	lateClose := time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC)
+	previous := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: priceForTest("180"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-08", ValueEffectiveAt: lateClose.Add(-24 * time.Hour), BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
+	current := domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: priceForTest("186"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-09", ValueEffectiveAt: lateClose, BindingRevision: 1, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose), Revision: 1}
+	household := &domain.Household{ID: householdID, BaseCurrency: "USD"}
+	instrument := domain.Instrument{ID: instrumentID, HouseholdID: householdID, Name: "Late close", QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderBindingRevision: 1}
+	account := domain.Account{ID: accountID, HouseholdID: householdID, Name: "Brokerage", TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD", BalanceSheetRole: domain.RoleAsset, IncludeInNetWorth: true}
+	holding := domain.Holding{ID: holdingID, AccountID: accountID, InstrumentID: instrumentID, Quantity: quantity}
+	valuation := NewValuationService(nil, func() time.Time { return time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC) })
+	valuation.SetHistorical(true)
+	valuation.SetHistoricalMarketDate("2026-09-09")
+	snapshot := domain.PortfolioSnapshot{Household: household, Accounts: []domain.AccountRecord{{Account: account}}, Instruments: []domain.Instrument{instrument}, Holdings: []domain.Holding{holding}, InstrumentQuotes: []domain.InstrumentQuote{previous}, InstrumentHistoryCoverage: []domain.InstrumentHistoryCoverage{{InstrumentID: instrumentID, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: string(PriceBasisTiingoRawClose), CloseMarketDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}}}
+	accounts, _, err := valuation.ValueAccounts(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || accounts[0].Complete || accounts[0].Components[0].BaseAmountExact != "1800" || len(accounts[0].MissingInputs) != 1 || accounts[0].MissingInputs[0].Kind != domain.MissingHistoryCoverage {
+		t.Fatalf("before late close = %+v", accounts)
+	}
+
+	snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, current)
+	snapshot.InstrumentHistoryCoverage[0].CloseMarketDates = []string{"2026-09-08", "2026-09-09"}
+	snapshot.InstrumentHistoryCoverage[0].UnverifiedDates = nil
+	accounts, _, err = valuation.ValueAccounts(snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accounts) != 1 || !accounts[0].Complete || accounts[0].Components[0].BaseAmountExact != "1860" || len(accounts[0].MissingInputs) != 0 {
+		t.Fatalf("after late close = %+v", accounts)
+	}
+}
+
+func TestHistoricalFXQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	preference := domain.FXPreference{HouseholdID: householdID, CurrencyA: "SGD", CurrencyB: "USD", SourceKind: domain.QuoteSourceProvider}
+	cutoff := time.Date(2026, time.September, 7, 0, 0, 0, 0, time.UTC)
+	effective := time.Date(2026, time.September, 4, 23, 59, 59, 999000000, time.UTC)
+	rate := func(value string) domain.FxRate {
+		parsed, err := domain.ParseFxRate(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return parsed
+	}
+	quotes := []domain.FXQuote{
+		{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: rate("99"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationLatest), ValueEffectiveAt: cutoff.Add(-time.Minute), SourcePolicyVersion: domain.FrankfurterV2BlendedPolicy, TimestampBasis: string(TimestampBasisPolicyDerived)},
+		{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: rate("1.35"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationDailyReference), EffectiveDate: "2026-09-04", ValueEffectiveAt: effective, SourcePolicyVersion: "old-policy", TimestampBasis: string(TimestampBasisPolicyDerived)},
+		{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: rate("1.351"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationDailyReference), EffectiveDate: "2026-09-04", ValueEffectiveAt: effective, SourcePolicyVersion: domain.FrankfurterV2BlendedPolicy, TimestampBasis: string(TimestampBasisPolicyDerived)},
+	}
+	selected := selectHistoricalFXQuote(preference, quotes, "USD", "SGD", domain.FrankfurterProviderKey, cutoff)
+	if selected == nil || selected.Rate.Canonical() != "1.351" {
+		t.Fatalf("selected historical FX quote = %+v", selected)
+	}
+}
+
+func TestHistoricalFXMarketDateReconcilesPendingReference(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	preference := domain.FXPreference{HouseholdID: householdID, CurrencyA: "SGD", CurrencyB: "USD", SourceKind: domain.QuoteSourceProvider}
+	parseRate := func(value string) domain.FxRate {
+		rate, err := domain.ParseFxRate(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return rate
+	}
+	quotes := []domain.FXQuote{{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: parseRate("1.34"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationDailyReference), EffectiveDate: "2026-09-08", ValueEffectiveAt: time.Date(2026, 9, 8, 23, 59, 0, 0, time.UTC), SourcePolicyVersion: domain.FrankfurterV2BlendedPolicy, TimestampBasis: string(TimestampBasisPolicyDerived), Revision: 1}}
+	coverage := domain.PortfolioSnapshot{FXHistoryCoverage: []domain.FXHistoryCoverage{{BaseCurrency: "USD", QuoteCurrency: "SGD", ProviderKey: domain.FrankfurterProviderKey, SourcePolicyVersion: domain.FrankfurterV2BlendedPolicy, DailyReferenceDates: []string{"2026-09-08"}, UnverifiedDates: []string{"2026-09-09"}}}}
+	cashAccount := domain.Account{ID: domain.NewAccountID(), HouseholdID: householdID, Name: "SGD cash", TrackingMode: domain.TrackingBalance, DefaultCurrency: "SGD", BalanceSheetRole: domain.RoleAsset, IncludeInNetWorth: true}
+	cashAmount, err := domain.NewMoney(decimal.NewFromInt(100), "SGD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cashValue, err := domain.NewAccountValue(cashAccount, cashAmount, time.Date(2026, 9, 9, 0, 0, 0, 0, time.UTC), time.Date(2026, 9, 9, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+	coverage.Household = &domain.Household{ID: householdID, BaseCurrency: "USD"}
+	coverage.Accounts = []domain.AccountRecord{{Account: cashAccount, LatestValue: &cashValue}}
+	coverage.FXPreferences = []domain.FXPreference{preference}
+	coverage.FXQuotes = quotes
+	selected := selectHistoricalFXQuoteAtMarketDate(preference, quotes, "USD", "SGD", domain.FrankfurterProviderKey, "2026-09-09", time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC))
+	if selected == nil || selected.Rate.Canonical() != "1.34" || historicalFXCoverageCompleteAtMarketDate(coverage, *selected, "2026-09-09") {
+		t.Fatalf("pending reference = quote=%+v coverage=%v", selected, historicalFXCoverageCompleteAtMarketDate(coverage, *selected, "2026-09-09"))
+	}
+	valuation := NewValuationService(nil, func() time.Time { return time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC) })
+	valuation.SetHistorical(true)
+	valuation.SetHistoricalMarketDate("2026-09-09")
+	accountValues, _, err := valuation.ValueAccounts(coverage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accountValues) != 1 || accountValues[0].Complete || len(accountValues[0].MissingInputs) != 1 || accountValues[0].MissingInputs[0].Kind != domain.MissingHistoryCoverage {
+		t.Fatalf("pending FX snapshot quality = %+v", accountValues)
+	}
+
+	quotes = append(quotes, domain.FXQuote{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: parseRate("1.35"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationDailyReference), EffectiveDate: "2026-09-09", ValueEffectiveAt: time.Date(2026, 9, 10, 0, 30, 0, 0, time.UTC), SourcePolicyVersion: domain.FrankfurterV2BlendedPolicy, TimestampBasis: string(TimestampBasisPolicyDerived), Revision: 1})
+	coverage.FXHistoryCoverage[0].DailyReferenceDates = []string{"2026-09-08", "2026-09-09"}
+	coverage.FXHistoryCoverage[0].UnverifiedDates = nil
+	coverage.FXQuotes = quotes
+	selected = selectHistoricalFXQuoteAtMarketDate(preference, quotes, "USD", "SGD", domain.FrankfurterProviderKey, "2026-09-09", time.Date(2026, 9, 10, 0, 0, 0, 0, time.UTC))
+	if selected == nil || selected.Rate.Canonical() != "1.35" || !historicalFXCoverageCompleteAtMarketDate(coverage, *selected, "2026-09-09") {
+		t.Fatalf("verified reference = quote=%+v coverage=%v", selected, historicalFXCoverageCompleteAtMarketDate(coverage, *selected, "2026-09-09"))
+	}
+	accountValues, _, err = valuation.ValueAccounts(coverage)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accountValues) != 1 || !accountValues[0].Complete || len(accountValues[0].MissingInputs) != 0 {
+		t.Fatalf("verified FX snapshot quality = %+v", accountValues)
+	}
+}
+
 func TestSelectFXQuoteUsesTheCurrentProviderSourceKey(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)

@@ -175,3 +175,68 @@ func TestSettingsDTOUsesCamelCaseWireKeys(t *testing.T) {
 		}
 	}
 }
+
+func TestTiingoKeyConfigurationPersistsWithoutReturningTheSecret(t *testing.T) {
+	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	service := settings.NewService(store, nil)
+
+	missing, err := service.TiingoKeyStatus()
+	if err != nil {
+		t.Fatalf("TiingoKeyStatus before save: %v", err)
+	}
+	if missing.Configured {
+		t.Fatalf("missing status = %+v", missing)
+	}
+
+	saved, err := service.SaveTiingoAPIKey("  session-test-key  ")
+	if err != nil {
+		t.Fatalf("SaveTiingoAPIKey: %v", err)
+	}
+	if !saved.Configured {
+		t.Fatalf("saved status = %+v", saved)
+	}
+	encoded, err := json.Marshal(saved)
+	if err != nil {
+		t.Fatalf("marshal saved status: %v", err)
+	}
+	if strings.Contains(string(encoded), "session-test-key") {
+		t.Fatal("Tiingo key leaked through the status DTO")
+	}
+
+	loaded, err := store.Load()
+	if err != nil || loaded.TiingoAPIKey != "session-test-key" {
+		t.Fatalf("settings key = %q, err = %v", loaded.TiingoAPIKey, err)
+	}
+
+	deleted, err := service.DeleteTiingoAPIKey()
+	if err != nil {
+		t.Fatalf("DeleteTiingoAPIKey: %v", err)
+	}
+	if deleted.Configured {
+		t.Fatalf("deleted status = %+v", deleted)
+	}
+}
+
+func TestGeneralSettingsSaveAndResetPreserveTiingoKey(t *testing.T) {
+	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	service := settings.NewService(store, nil)
+	if _, err := service.SaveTiingoAPIKey("keep-me"); err != nil {
+		t.Fatalf("SaveTiingoAPIKey: %v", err)
+	}
+	updated := defaultDTO()
+	updated.Appearance = appsettings.AppearanceDark
+	if err := service.Save(updated); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	loaded, err := store.Load()
+	if err != nil || loaded.TiingoAPIKey != "keep-me" {
+		t.Fatalf("key after Save = %q, err = %v", loaded.TiingoAPIKey, err)
+	}
+	if _, err := service.Reset(); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	loaded, err = store.Load()
+	if err != nil || loaded.TiingoAPIKey != "keep-me" {
+		t.Fatalf("key after Reset = %q, err = %v", loaded.TiingoAPIKey, err)
+	}
+}

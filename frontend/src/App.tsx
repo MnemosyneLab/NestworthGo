@@ -13,11 +13,13 @@ import { useUiStore, type Appearance } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
 import { targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId } from "@/app/navigation";
 import { useAnalysisStore } from "@/stores/analysis";
+import { MarketDataSyncWorkspaceObserver } from "@/queries/marketdata";
 
 const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
 const DirectoryPage = lazy(() => import("@/features/directory/DirectoryPage").then((module) => ({ default: module.DirectoryPage })));
 const InvestmentsPage = lazy(() => import("@/features/investments/InvestmentsPage").then((module) => ({ default: module.InvestmentsPage })));
 const MarketDataPage = lazy(() => import("@/features/marketdata/MarketDataPage").then((module) => ({ default: module.MarketDataPage })));
+const DataHealthPage = lazy(() => import("@/features/data-health/DataHealthPage").then((module) => ({ default: module.DataHealthPage })));
 const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 const HistoryPage = lazy(() => import("@/features/history/HistoryPage").then((module) => ({ default: module.HistoryPage })));
 const ReturnAnalysisPage = lazy(() => import("@/features/insights/ReturnAnalysisPage").then((module) => ({ default: module.ReturnAnalysisPage })));
@@ -110,13 +112,14 @@ function App() {
 
   return (
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data}>
+      <MarketDataSyncWorkspaceObserver />
       {activePageId === "overview" && (
         <OverviewPage
           onAddAccount={() => handleNavigate("accounts")}
           onOpenAccounts={() => handleNavigate("accounts")}
           onOpenHistory={() => handleNavigate("history")}
           onOpenMarketData={() => handleNavigate("market-data")}
-          onOpenInvestments={() => handleNavigate("investments")}
+          onOpenDataHealth={() => handleNavigate("data-health")}
         />
       )}
       {activePageId === "accounts" && (
@@ -139,7 +142,15 @@ function App() {
       )}
       {activePageId === "market-data" && (
         <WorkspaceLazy>
-          <MarketDataPage />
+          <MarketDataPage onOpenDataHealth={() => handleNavigate("data-health")} />
+        </WorkspaceLazy>
+      )}
+      {activePageId === "data-health" && (
+        <WorkspaceLazy>
+          <DataHealthPage
+            onOpenSettings={() => handleNavigate("settings")}
+            onOpenMarketData={() => handleNavigate("market-data")}
+          />
         </WorkspaceLazy>
       )}
       {activePageId === "settings" && (

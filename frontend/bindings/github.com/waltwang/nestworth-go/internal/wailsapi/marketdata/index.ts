@@ -7,7 +7,15 @@ export {
 };
 
 export type {
+    HealthIssueDTO,
+    MarketDataHealthReportDTO,
     RefreshCompletedPayload,
     RefreshResultDTO,
-    RefreshTargetResultDTO
+    RefreshTargetResultDTO,
+    SyncBlockerDTO,
+    SyncItemDTO,
+    SyncJobDTO,
+    SyncPlanPreviewDTO,
+    SyncRequestDTO,
+    SyncStartResultDTO
 } from "./models.js";

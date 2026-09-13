@@ -1,0 +1,9 @@
+# Settings-only workspace file (this directory is a single package).
+# pnpm 11+ reads minimumReleaseAge* from here; the matching .npmrc keys
+# are kept as a fallback for older clients.
+#
+# Pinned Wails v3 runtime is a <7-day-old beta; keep the 7-day age gate
+# for everything else. See docs/development/engineering-guide.md.
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  - '@wailsio/runtime@3.0.0-beta.19'

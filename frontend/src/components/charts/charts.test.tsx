@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { applyChartPolicy } from "@/components/charts/EChart";
 import { SignedBarChart } from "@/components/charts/SignedBarChart";
-import { TrendChart, trendLegendLabel } from "@/components/charts/TrendChart";
+import { TrendChart, trendChartTimestamp, trendLegendLabel } from "@/components/charts/TrendChart";
 import { escapeChartText, joinTooltipLines, prefersReducedMotion } from "@/components/charts/chartTheme";
 
 describe("chartTheme helpers", () => {
@@ -17,6 +17,12 @@ describe("chartTheme helpers", () => {
 });
 
 describe("chart interactions", () => {
+  it("uses calendar timestamps for a continuous date axis", () => {
+    expect(trendChartTimestamp("2026-08-20")).toBe(Date.UTC(2026, 7, 20));
+    expect(trendChartTimestamp("2026-08-21")).toBeGreaterThan(trendChartTimestamp("2026-08-20"));
+    expect(trendChartTimestamp("2026-08-20T20:00:00Z")).toBe(Date.UTC(2026, 7, 20, 20));
+  });
+
   it("highlights the Other category on hover and click", async () => {
     const items = Array.from({ length: 8 }, (_, index) => ({
       key: `k${index}`,

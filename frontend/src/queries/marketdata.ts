@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Events } from "@wailsio/runtime";
 import { Service as MarketDataService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata";
 import type { RefreshCompletedPayload, RefreshResultDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import { callService, parseWailsError, translateWailsError } from "@/lib/wails";
-import { invalidateQuoteReads, invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
+import { invalidateMarketDataSync, invalidateQuoteReads, invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
+import { queryKeys } from "@/queries/keys";
+import type {
+  SyncJobDTO,
+  SyncPlanPreviewDTO,
+  SyncRequestDTO,
+  SyncStartResultDTO,
+} from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 
 const REFRESH_COMPLETED_EVENT = "marketdata.refresh.completed" as const;
 
@@ -133,5 +140,153 @@ export function useRefreshFX() {
 	return useAsyncRefresh<{ currencyA: string; currencyB: string }>({
 		start: (requestId, pair) => MarketDataService.StartRefreshFX(requestId, pair.currencyA, pair.currencyB),
 		invalidate: (queryClient) => invalidateRequiredFX(queryClient),
+	});
+}
+
+const SYNC_EVENTS = [
+	"marketdata.sync.started",
+	"marketdata.sync.progress",
+	"marketdata.sync.item",
+	"marketdata.sync.completed",
+] as const;
+
+// Sync completion is a workspace concern, not a concern of the page that
+// happened to start the job. Keep one event subscription alive while the
+// workspace is mounted so navigating away from Market Data cannot orphan
+// cache invalidation.
+type SyncEventClientEntry = {
+	references: number;
+	cleanups: Array<() => void>;
+	cleaned: boolean;
+};
+
+const syncEventClients = new Map<ReturnType<typeof useQueryClient>, SyncEventClientEntry>();
+
+function subscribeToSyncEvents(queryClient: ReturnType<typeof useQueryClient>): () => void {
+	let entry = syncEventClients.get(queryClient);
+	if (entry) {
+		entry.references += 1;
+	} else {
+		entry = {
+			references: 1,
+			cleaned: false,
+			cleanups: SYNC_EVENTS.map((name) =>
+			Events.On(name, () => {
+				void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
+			}),
+			),
+		};
+		syncEventClients.set(queryClient, entry);
+	}
+	const registeredEntry = entry;
+	let subscribed = true;
+	return () => {
+		if (!subscribed) return;
+		subscribed = false;
+		const current = syncEventClients.get(queryClient);
+		if (current !== registeredEntry) {
+			return;
+		}
+		current.references -= 1;
+		if (current.references <= 0) {
+			syncEventClients.delete(queryClient);
+			if (!current.cleaned) {
+				current.cleaned = true;
+				current.cleanups.forEach((cleanup) => cleanup());
+			}
+		}
+	};
+}
+
+export function emptySyncJob(job: SyncJobDTO | null | undefined): boolean {
+	return !job?.jobId;
+}
+
+export function syncJobIsRunning(job: SyncJobDTO | null | undefined): boolean {
+	return Boolean(job?.jobId) && job?.outcome === "running";
+}
+
+export function useCurrentSyncJob() {
+	const queryClient = useQueryClient();
+	const query = useQuery({
+		queryKey: queryKeys.marketdata.currentSync,
+		queryFn: async () => {
+			const job = await callService(() => MarketDataService.GetCurrentSyncJob());
+			return emptySyncJob(job) ? null : job;
+		},
+		refetchInterval: (current) => (syncJobIsRunning(current.state.data) ? 2000 : false),
+	});
+
+	useEffect(() => {
+		return subscribeToSyncEvents(queryClient);
+	}, [queryClient]);
+
+	const seenRunning = useRef(false);
+	const observedTerminal = useRef("");
+	useEffect(() => {
+		const job = query.data;
+		if (syncJobIsRunning(job)) {
+			seenRunning.current = true;
+			return;
+		}
+		if (seenRunning.current) {
+			seenRunning.current = false;
+			invalidateMarketDataSync(queryClient);
+		}
+		// A workspace observer can first see a terminal job after the page that
+		// started it has been unmounted. Compensate on the first terminal read,
+		// and use the stable sequence so polling does not invalidate forever.
+		if (job?.jobId && job.outcome !== "running") {
+			const terminalSignature = `${job.jobId}:${job.sequence}:${job.outcome}`;
+			if (observedTerminal.current !== terminalSignature) {
+				observedTerminal.current = terminalSignature;
+				invalidateMarketDataSync(queryClient);
+			}
+		}
+	}, [query.data, queryClient]);
+
+	return query;
+}
+
+/** Mount once under AppShell so sync observation survives page navigation. */
+export function MarketDataSyncWorkspaceObserver() {
+	useCurrentSyncJob();
+	return null;
+}
+
+export function usePreviewMarketDataSync() {
+	return useMutation<SyncPlanPreviewDTO, Error, SyncRequestDTO>({
+		mutationFn: (request) => callService(() => MarketDataService.PreviewMarketDataSync(request)),
+	});
+}
+
+export function useStartMarketDataSync() {
+	const queryClient = useQueryClient();
+	return useMutation<SyncStartResultDTO, Error, SyncRequestDTO>({
+		mutationFn: (request) => callService(() => MarketDataService.StartMarketDataSync(request)),
+		onSuccess: (result) => {
+			if (result.job?.jobId) {
+				queryClient.setQueryData(queryKeys.marketdata.currentSync, result.job);
+			}
+			void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
+		},
+	});
+}
+
+export function useCancelSyncJob() {
+	const queryClient = useQueryClient();
+	return useMutation<SyncJobDTO, Error, string>({
+		mutationFn: (jobId) => callService(() => MarketDataService.CancelSyncJob(jobId)),
+		onSuccess: (job) => {
+			queryClient.setQueryData(queryKeys.marketdata.currentSync, emptySyncJob(job) ? null : job);
+			void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.currentSync });
+		},
+	});
+}
+
+export function useMarketDataHealth() {
+	return useQuery({
+		queryKey: queryKeys.marketdata.health,
+		queryFn: () => callService(() => MarketDataService.ScanMarketDataHealth()),
 	});
 }

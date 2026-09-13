@@ -77,3 +77,8 @@ export function invalidateRequiredFX(queryClient: QueryClient) {
   invalidate(queryClient, queryKeys.quote.fx.preferences);
   invalidateCurrentValuation(queryClient);
 }
+
+export function invalidateMarketDataSync(queryClient: QueryClient) {
+  invalidate(queryClient, queryKeys.marketdata.all);
+  invalidateRefreshAll(queryClient);
+}
