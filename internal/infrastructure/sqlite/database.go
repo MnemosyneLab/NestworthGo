@@ -164,6 +164,9 @@ func Open(path string) (*DB, error) {
 			return closeOnError(StatusIntegrityFailed, found, err)
 		}
 	}
+	if err := ensureCurrentHistoricalResolverPolicy(context.Background(), database); err != nil {
+		return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
+	}
 	if path != ":memory:" {
 		if _, err := database.ExecContext(context.Background(), "PRAGMA journal_mode = WAL"); err != nil {
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)

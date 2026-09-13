@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-const MarketDataResolverPolicy = "household-cutoff-close-v1"
+const MarketDataResolverPolicy = "market-date-daily-summary-v1"
 
 type OracleClose struct {
 	MarketDate         string
@@ -133,7 +133,7 @@ func EvaluateMarketDataOracle(scenario OracleScenario) (OracleSlice, error) {
 		snapshots = append(snapshots, snapshot)
 	}
 	liveCutoff := scenario.Clock.Now
-	live, err := expectedSnapshot(today, liveCutoff, quantity, cash, fx, scenario.BaseCurrency, resolved, scenario.PendingMarketDates)
+	live, err := expectedLiveSnapshot(today, liveCutoff, quantity, cash, fx, scenario.BaseCurrency, resolved, scenario.PendingMarketDates)
 	if err != nil {
 		return OracleSlice{}, err
 	}
@@ -208,7 +208,16 @@ func resolveCloses(closes []OracleClose) ([]resolvedClose, error) {
 }
 
 func expectedSnapshot(localDate string, cutoff time.Time, quantity Quantity, cash Money, fx FxRate, base CurrencyCode, closes []resolvedClose, pending []string) (OracleSnapshot, error) {
+	selected, ok := latestMarketDateClose(closes, localDate)
+	return expectedSnapshotWithSelected(localDate, cutoff, quantity, cash, fx, base, selected, ok, pending)
+}
+
+func expectedLiveSnapshot(localDate string, cutoff time.Time, quantity Quantity, cash Money, fx FxRate, base CurrencyCode, closes []resolvedClose, pending []string) (OracleSnapshot, error) {
 	selected, ok := latestEligibleClose(closes, cutoff)
+	return expectedSnapshotWithSelected(localDate, cutoff, quantity, cash, fx, base, selected, ok, pending)
+}
+
+func expectedSnapshotWithSelected(localDate string, cutoff time.Time, quantity Quantity, cash Money, fx FxRate, base CurrencyCode, selected resolvedClose, ok bool, pending []string) (OracleSnapshot, error) {
 	if !ok {
 		return OracleSliceSnapshotMissing(localDate, cutoff)
 	}
@@ -269,6 +278,21 @@ func expectedSnapshot(localDate string, cutoff time.Time, quantity Quantity, cas
 		CarriedForward:     carried,
 		Quality:            quality,
 	}, nil
+}
+
+func latestMarketDateClose(closes []resolvedClose, marketDate string) (resolvedClose, bool) {
+	var selected resolvedClose
+	found := false
+	for _, item := range closes {
+		if item.MarketDate == "" || item.MarketDate > marketDate {
+			continue
+		}
+		if !found || item.MarketDate > selected.MarketDate || (item.MarketDate == selected.MarketDate && item.Revision > selected.Revision) {
+			selected = item
+			found = true
+		}
+	}
+	return selected, found
 }
 
 func OracleSliceSnapshotMissing(localDate string, cutoff time.Time) (OracleSnapshot, error) {

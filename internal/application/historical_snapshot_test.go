@@ -472,3 +472,154 @@ func TestBackdatedCashDividendAppearsInHistoricalSnapshots(t *testing.T) {
 		t.Fatalf("backdated dividend cash by date = %+v", byDate)
 	}
 }
+
+func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompleteness(t *testing.T) {
+	t.Run("complete unchanged result", func(t *testing.T) {
+		path := t.TempDir() + "/migration-complete.db"
+		database, err := sqlite.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		service := NewService(sqlite.NewRepository(database))
+		clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+		service.setClock(func() time.Time { return clock })
+		ctx := context.Background()
+		if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Migration complete", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+			t.Fatal(err)
+		}
+		bootstrap, err := service.Bootstrap(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.CreateAccount(ctx, AccountInput{
+			Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+			DefaultCurrency: "CNY", IncludeInNetWorth: true,
+			Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+			t.Fatal(err)
+		}
+		clock = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
+		first, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-01")
+		if err != nil || !appended || !first.Complete {
+			t.Fatalf("first snapshot complete=%v appended=%v err=%v", first.Complete, appended, err)
+		}
+		if _, err := database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET resolver_policy_version = 'household-cutoff-close-v1' WHERE household_id = ?`, bootstrap.Household.ID.String()); err != nil {
+			t.Fatal(err)
+		}
+		if err := database.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		reopened, err := sqlite.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reopened.Close()
+		var storedComplete int
+		var storedHash string
+		if err := reopened.SQL.QueryRowContext(ctx, `SELECT complete, content_hash FROM daily_valuation_snapshots WHERE household_id = ? AND local_date = '2026-08-01' ORDER BY revision DESC LIMIT 1`, bootstrap.Household.ID.String()).Scan(&storedComplete, &storedHash); err != nil {
+			t.Fatal(err)
+		}
+		if storedComplete != 0 || storedHash != first.ContentHash {
+			t.Fatalf("migrated snapshot complete=%d hash=%s, want incomplete %s", storedComplete, storedHash, first.ContentHash)
+		}
+
+		service = NewService(sqlite.NewRepository(reopened))
+		service.setClock(func() time.Time { return clock })
+		rebuilt, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-01")
+		if err != nil || !rebuilt.Complete {
+			t.Fatalf("rebuilt calculation complete=%v appended=%v err=%v", rebuilt.Complete, appended, err)
+		}
+		if rebuilt.ContentHash != first.ContentHash {
+			t.Fatalf("rebuilt hash=%s, want unchanged %s", rebuilt.ContentHash, first.ContentHash)
+		}
+		listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
+		if err != nil || len(listed) != 1 {
+			t.Fatalf("readback count=%d err=%v", len(listed), err)
+		}
+		if !listed[0].Complete || listed[0].ContentHash != first.ContentHash {
+			t.Fatalf("database readback = complete=%v hash=%s", listed[0].Complete, listed[0].ContentHash)
+		}
+		if appended {
+			t.Fatal("unchanged economic rebuild appended a new revision")
+		}
+	})
+
+	t.Run("incomplete rebuilt result remains incomplete", func(t *testing.T) {
+		path := t.TempDir() + "/migration-incomplete.db"
+		database, err := sqlite.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		service := NewService(sqlite.NewRepository(database))
+		clock := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+		service.setClock(func() time.Time { return clock })
+		ctx := context.Background()
+		if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Migration incomplete", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+			t.Fatal(err)
+		}
+		bootstrap, err := service.Bootstrap(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.CreateAccount(ctx, AccountInput{
+			Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+			DefaultCurrency: "CNY", IncludeInNetWorth: true,
+			Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+			t.Fatal(err)
+		}
+		clock = time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+		account, err := service.CreateAccount(ctx, AccountInput{
+			Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
+			DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true,
+			Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Unquoted", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "10"}); err != nil {
+			t.Fatal(err)
+		}
+		clock = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
+		first, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-02")
+		if err != nil || !appended || first.Complete {
+			t.Fatalf("first snapshot complete=%v appended=%v err=%v", first.Complete, appended, err)
+		}
+		if _, err := database.SQL.ExecContext(ctx, `UPDATE history_snapshot_state SET resolver_policy_version = 'household-cutoff-close-v1' WHERE household_id = ?`, bootstrap.Household.ID.String()); err != nil {
+			t.Fatal(err)
+		}
+		if err := database.Close(); err != nil {
+			t.Fatal(err)
+		}
+
+		reopened, err := sqlite.Open(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer reopened.Close()
+		service = NewService(sqlite.NewRepository(reopened))
+		service.setClock(func() time.Time { return clock })
+		rebuilt, _, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-02")
+		if err != nil || rebuilt.Complete {
+			t.Fatalf("rebuilt calculation complete=%v err=%v", rebuilt.Complete, err)
+		}
+		listed, err := service.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, time.Time{}, time.Time{})
+		if err != nil || len(listed) != 1 {
+			t.Fatalf("readback count=%d err=%v", len(listed), err)
+		}
+		if listed[0].Complete || listed[0].ContentHash != rebuilt.ContentHash {
+			t.Fatalf("incomplete readback = complete=%v hash=%s want %s", listed[0].Complete, listed[0].ContentHash, rebuilt.ContentHash)
+		}
+	})
+}

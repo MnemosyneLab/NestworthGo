@@ -118,8 +118,8 @@ func TestE2ETiingoUSManualFXRepairProbe(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertTrendAssets(t, trend, "2026-09-06", "3850.875")
-	assertTrendAssets(t, trend, "2026-09-07", "3850.875")
-	assertTrendAssets(t, trend, "2026-09-08", "3861")
+	assertTrendAssets(t, trend, "2026-09-07", "3861")
+	assertTrendAssets(t, trend, "2026-09-08", "3850.875")
 	assertTrendIncomplete(t, trend, "2026-09-09")
 
 	again, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, complete, fetchedAt))
@@ -208,6 +208,205 @@ func TestE2ERepairInterruptionRecoversFromDirtyRange(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertClosedSnapshotsMatchOracle(t, database, repo, household.ID, instrument.ID, mustOracleWithoutCorrection(t), 1)
+}
+
+func TestE2EHistoricalMarketDateCloseArrivesAfterHouseholdMidnight(t *testing.T) {
+	sgt, err := time.LoadLocation("Asia/Singapore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originClock := time.Date(2026, 9, 6, 12, 0, 0, 0, sgt)
+	repairClock := time.Date(2026, 9, 10, 0, 5, 0, 0, sgt)
+	ctx := context.Background()
+	svc, _, repo, household, instrument, owner := seedRepairWorkspace(t, originClock)
+	seedRepairPortfolio(t, svc, repo, originClock, instrument, owner)
+	svc.SetClock(func() time.Time { return repairClock })
+	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
+	complete, err := QualifyTiingoHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, complete, repairClock.UTC())); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.RebuildDirtySnapshots(ctx); err != nil {
+		t.Fatal(err)
+	}
+	snaps, err := repo.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := snapshotForDate(t, snaps, "2026-09-09")
+	if before.Complete {
+		t.Fatal("pending Sep 9 close incorrectly produced a complete snapshot")
+	}
+
+	close, err := domain.ResolveEquitySessionClose("2026-09-09", "US", domain.SessionEvidence{Kind: domain.SessionKindRegular, Timezone: domain.USEquitySessionTimezone, CloseClock: domain.USEquityRegularCloseClock})
+	if err != nil || close.Status != "mapped" {
+		t.Fatalf("Sep 9 close session = %+v err=%v", close, err)
+	}
+	householdCutoff, err := application.HouseholdCutoffAt("2026-09-09", "Asia/Singapore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !close.CloseInstant.After(householdCutoff) {
+		t.Fatalf("fixture does not exercise cross-midnight close: close=%s cutoff=%s", close.CloseInstant, householdCutoff)
+	}
+	lateClose := sqlite.InstrumentHistoryCommit{
+		HouseholdID: household.ID, InstrumentID: instrument.ID, ProviderKey: application.TiingoProviderKey,
+		ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US", Status: string(application.MappingMapped),
+		Adapter: "tiingo_eod", SourcePolicy: string(application.PriceBasisTiingoRawClose), FetchedAt: repairClock.UTC().Add(time.Hour),
+		Observations: []sqlite.InstrumentHistoryObservation{{
+			MarketDate: "2026-09-09", Value: "187", Currency: "USD", ValueEffectiveAt: close.CloseInstant,
+			Kind: string(application.InstrumentObservationClose), PriceBasis: string(application.PriceBasisTiingoRawClose), TimestampBasis: string(application.TimestampBasisSessionClose),
+		}},
+	}
+	if _, err := repo.CommitInstrumentHistory(ctx, lateClose); err != nil {
+		t.Fatal(err)
+	}
+	coverage, err := repo.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(coverage) != 1 || !containsDate(coverage[0].CloseMarketDates, "2026-09-09") || containsDate(coverage[0].UnverifiedDates, "2026-09-09") {
+		t.Fatalf("late close coverage = %+v", coverage)
+	}
+	if _, err := svc.RebuildDirtySnapshots(ctx); err != nil {
+		t.Fatal(err)
+	}
+	snaps, err = repo.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	after := snapshotForDate(t, snaps, "2026-09-09")
+	if !after.Complete || after.AssetsAmount == nil || after.AssetsAmount.CanonicalAmount() != "3874.5" {
+		t.Fatalf("rebuilt Sep 9 snapshot = %+v", after)
+	}
+	item := snapshotInstrumentItem(t, after, instrument.ID)
+	if item.NativeAmount != "1870" || item.QuoteID == nil {
+		t.Fatalf("rebuilt Sep 9 instrument item = %+v", item)
+	}
+}
+
+func TestE2EHistoricalCoverageAndCompletenessSurviveSwitchToManual(t *testing.T) {
+	sgt, err := time.LoadLocation("Asia/Singapore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	originClock := time.Date(2026, 9, 6, 12, 0, 0, 0, sgt)
+	repairClock := time.Date(2026, 9, 10, 0, 5, 0, 0, sgt)
+	switchClock := time.Date(2026, 9, 8, 12, 0, 0, 0, sgt)
+	ctx := context.Background()
+	svc, _, repo, household, instrument, owner := seedRepairWorkspace(t, originClock)
+	seedRepairPortfolio(t, svc, repo, originClock, instrument, owner)
+	svc.SetClock(func() time.Time { return repairClock })
+
+	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
+	complete, err := QualifyTiingoHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, complete, repairClock.UTC())); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.RebuildDirtySnapshots(ctx); err != nil {
+		t.Fatal(err)
+	}
+	beforeSwitch, err := repo.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	providerDay := snapshotForDate(t, beforeSwitch, "2026-09-07")
+	if !providerDay.Complete {
+		t.Fatalf("provider-priced date was incomplete before the switch: %+v", providerDay)
+	}
+	providerNative := snapshotInstrumentItem(t, providerDay, instrument.ID).NativeAmount
+
+	svc.SetClock(func() time.Time { return switchClock })
+	if err := svc.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AppendManualInstrumentQuote(ctx, instrument.ID, "200", "2026-09-08", false); err != nil {
+		t.Fatal(err)
+	}
+
+	current, err := repo.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(current) != 0 {
+		t.Fatalf("current-route coverage after manual switch = %+v, want none", current)
+	}
+	plan, err := svc.PlanMarketDataRepair(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Instruments) != 0 {
+		t.Fatalf("current sync planning after manual switch = %+v, want no provider routes", plan.Instruments)
+	}
+	historical, err := repo.ListHistoricalInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var foundProvider bool
+	for _, item := range historical {
+		if item.InstrumentID == instrument.ID && item.ProviderKey == application.TiingoProviderKey && containsDate(item.CloseMarketDates, "2026-09-04") && containsDate(item.CloseMarketDates, "2026-09-07") {
+			foundProvider = true
+		}
+	}
+	if !foundProvider {
+		t.Fatalf("historical coverage lost provider closes after manual switch: %+v", historical)
+	}
+
+	svc.SetClock(func() time.Time { return repairClock })
+	rebuiltBefore, _, err := svc.BuildDailyValuationSnapshot(ctx, "2026-09-07")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rebuiltBefore.Complete {
+		t.Fatalf("date before the switch rebuilt incomplete: %+v", rebuiltBefore)
+	}
+	beforeItem := snapshotInstrumentItem(t, rebuiltBefore, instrument.ID)
+	if beforeItem.NativeAmount != providerNative {
+		t.Fatalf("date before the switch native=%s, want provider %s", beforeItem.NativeAmount, providerNative)
+	}
+	rebuiltAfter, _, err := svc.BuildDailyValuationSnapshot(ctx, "2026-09-08")
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterItem := snapshotInstrumentItem(t, rebuiltAfter, instrument.ID)
+	if afterItem.NativeAmount != "2000" {
+		t.Fatalf("date after the switch native=%s, want manual 2000", afterItem.NativeAmount)
+	}
+	if !rebuiltAfter.Complete {
+		t.Fatalf("manual-priced date after the switch is incomplete: %+v", rebuiltAfter)
+	}
+	listed, err := repo.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	storedBefore := snapshotForDate(t, listed, "2026-09-07")
+	if !storedBefore.Complete {
+		t.Fatalf("stored date before the switch is incomplete: %+v", storedBefore)
+	}
+	if snapshotInstrumentItem(t, storedBefore, instrument.ID).NativeAmount != providerNative {
+		t.Fatalf("stored date before the switch did not keep provider pricing")
+	}
+	storedAfter := snapshotForDate(t, listed, "2026-09-08")
+	if snapshotInstrumentItem(t, storedAfter, instrument.ID).NativeAmount != "2000" || !storedAfter.Complete {
+		t.Fatalf("stored date after the switch = %+v", storedAfter)
+	}
+}
+
+func snapshotForDate(t *testing.T, snapshots []domain.DailyValuationSnapshot, date string) domain.DailyValuationSnapshot {
+	t.Helper()
+	for _, snapshot := range snapshots {
+		if snapshot.LocalDate == date {
+			return snapshot
+		}
+	}
+	t.Fatalf("missing snapshot %s", date)
+	return domain.DailyValuationSnapshot{}
 }
 
 func seedRepairWorkspace(t *testing.T, originClock time.Time) (*application.Service, *sqlite.DB, *sqlite.Repository, domain.Household, domain.Instrument, domain.MemberID) {

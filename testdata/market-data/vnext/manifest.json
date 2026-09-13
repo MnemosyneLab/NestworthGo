@@ -1,6 +1,6 @@
 {
   "id": "market-data-vnext-step-01",
-  "resolverPolicy": "household-cutoff-close-v1",
+  "resolverPolicy": "market-date-daily-summary-v1",
   "firstVerticalSlice": "e2e-tiingo-us-manual-fx-v1",
   "clock": "2026-09-10T00:05:00+08:00",
   "householdTimezone": "Asia/Singapore",

@@ -71,11 +71,13 @@ func saveDailyValuationSnapshotTx(ctx context.Context, tx *sql.Tx, snapshot doma
 		if policy == "" {
 			policy = domain.MarketDataResolverPolicy
 		}
-		// The economic result can be identical after an input generation change.
-		// Refresh its provenance nevertheless, so a successful conditional
-		// completion never leaves a current snapshot labelled with an older
-		// generation.
-		_, updateErr := tx.ExecContext(ctx, `UPDATE daily_valuation_snapshots SET input_generation = ?, resolver_policy_version = ? WHERE id = ?`, snapshot.InputGeneration, policy, existingID)
+		// The economic payload can be identical after a generation or resolver
+		// policy change. Refresh provenance and completeness anyway so a
+		// successful rebuild cannot leave a current snapshot incomplete after
+		// migration invalidation, or complete after a genuinely incomplete
+		// recalculation. Idempotency is preserved because this is an in-place
+		// update, not a new revision.
+		_, updateErr := tx.ExecContext(ctx, `UPDATE daily_valuation_snapshots SET input_generation = ?, resolver_policy_version = ?, complete = ?, component_count = ?, missing_count = ?, generation_reason = ? WHERE id = ?`, snapshot.InputGeneration, policy, boolValue(snapshot.Complete), snapshot.ComponentCount, snapshot.MissingCount, snapshot.GenerationReason, existingID)
 		return false, updateErr
 	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {

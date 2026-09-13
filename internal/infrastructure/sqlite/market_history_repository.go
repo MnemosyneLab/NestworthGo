@@ -69,6 +69,9 @@ func (r *Repository) CommitInstrumentHistory(ctx context.Context, request Instru
 				result.PersistedObservations++
 				changed = true
 			}
+			if wrote.statusReconciled {
+				changed = true
+			}
 			if wrote.newRevision {
 				result.NewRevisions++
 				changed = true
@@ -92,7 +95,7 @@ func (r *Repository) CommitInstrumentHistory(ctx context.Context, request Instru
 			result.InputGeneration = generation
 			return err
 		}
-		dirtyFrom, dirtyTo := instrumentHistoryDirtyBounds(request.Observations)
+		dirtyFrom, dirtyTo := instrumentHistoryDirtyBounds(request.Observations, request.VerifiedRanges, request.PendingRanges)
 		generation, err := bumpHistoryInputGenerationTx(ctx, tx, request.HouseholdID, dirtyFrom, dirtyTo, fetchedAt)
 		if err != nil {
 			return err
@@ -131,6 +134,9 @@ func (r *Repository) CommitFXHistory(ctx context.Context, request FXHistoryCommi
 				result.PersistedObservations++
 				changed = true
 			}
+			if wrote.statusReconciled {
+				changed = true
+			}
 			if wrote.newRevision {
 				result.NewRevisions++
 				changed = true
@@ -154,7 +160,7 @@ func (r *Repository) CommitFXHistory(ctx context.Context, request FXHistoryCommi
 			result.InputGeneration = generation
 			return err
 		}
-		dirtyFrom, dirtyTo := fxHistoryDirtyBounds(request.Observations)
+		dirtyFrom, dirtyTo := fxHistoryDirtyBounds(request.Observations, request.VerifiedRanges, request.PendingRanges)
 		generation, err := bumpHistoryInputGenerationTx(ctx, tx, request.HouseholdID, dirtyFrom, dirtyTo, fetchedAt)
 		if err != nil {
 			return err
@@ -166,9 +172,10 @@ func (r *Repository) CommitFXHistory(ctx context.Context, request FXHistoryCommi
 }
 
 type persistWrite struct {
-	persisted   bool
-	newRevision bool
-	slot        bool
+	persisted        bool
+	newRevision      bool
+	slot             bool
+	statusReconciled bool
 }
 
 func persistInstrumentObservationTx(ctx context.Context, tx *sql.Tx, request InstrumentHistoryCommit, observation InstrumentHistoryObservation, bindingRevision int, policy string, fetchedAt time.Time) (persistWrite, error) {
@@ -192,10 +199,17 @@ func persistInstrumentObservationTx(ctx context.Context, tx *sql.Tx, request Ins
 	if kind == "" {
 		kind = observationKindClose
 	}
+	statusReconciled := false
+	if kind == observationKindClose {
+		statusReconciled, err = clearDayStatusTx(ctx, tx, "instrument", request.InstrumentID.String(), request.ProviderKey, request.HouseholdID.String(), bindingRevision, policy, observation.MarketDate)
+		if err != nil {
+			return persistWrite{}, err
+		}
+	}
 	if existing, err := canonicalInstrumentSlotQuoteTx(ctx, tx, request.InstrumentID.String(), request.ProviderKey, bindingRevision, policy, observation.MarketDate, kind); err != nil {
 		return persistWrite{}, err
 	} else if existing != nil && existing.unitPrice == price.Canonical() && existing.currency == currency.String() && existing.priceBasis == observation.PriceBasis && existing.valueEffectiveAt == formatTimestamp(observation.ValueEffectiveAt) {
-		return persistWrite{}, nil
+		return persistWrite{statusReconciled: statusReconciled}, nil
 	} else if existing != nil {
 		quoteID := domain.NewInstrumentQuoteID()
 		if _, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash) VALUES(?, ?, ?, ?, 'provider', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -205,7 +219,7 @@ func persistInstrumentObservationTx(ctx context.Context, tx *sql.Tx, request Ins
 		if err := upsertInstrumentObservationSlotTx(ctx, tx, request.InstrumentID.String(), request.ProviderKey, bindingRevision, policy, observation.MarketDate, kind, quoteID.String(), fetchedAt); err != nil {
 			return persistWrite{}, err
 		}
-		return persistWrite{persisted: true, newRevision: true, slot: kind == observationKindClose}, nil
+		return persistWrite{persisted: true, newRevision: true, slot: kind == observationKindClose, statusReconciled: statusReconciled}, nil
 	}
 	quoteID := domain.NewInstrumentQuoteID()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, split_factor, dividend_cash) VALUES(?, ?, ?, ?, 'provider', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
@@ -218,7 +232,7 @@ func persistInstrumentObservationTx(ctx context.Context, tx *sql.Tx, request Ins
 			return persistWrite{}, err
 		}
 	}
-	return persistWrite{persisted: true, newRevision: true, slot: slot}, nil
+	return persistWrite{persisted: true, newRevision: true, slot: slot, statusReconciled: statusReconciled}, nil
 }
 
 func persistFXObservationTx(ctx context.Context, tx *sql.Tx, request FXHistoryCommit, observation FXHistoryObservation, policy string, fetchedAt time.Time) (persistWrite, error) {
@@ -250,10 +264,18 @@ func persistFXObservationTx(ctx context.Context, tx *sql.Tx, request FXHistoryCo
 	if kind == "" {
 		kind = observationKindDailyReference
 	}
+	statusReconciled := false
+	if kind == observationKindDailyReference {
+		targetID := base.String() + "/" + quote.String()
+		statusReconciled, err = clearDayStatusTx(ctx, tx, "fx", targetID, request.ProviderKey, request.HouseholdID.String(), 0, policy, observation.MarketDate)
+		if err != nil {
+			return persistWrite{}, err
+		}
+	}
 	if existing, err := canonicalFXSlotQuoteTx(ctx, tx, request.HouseholdID.String(), base.String(), quote.String(), request.ProviderKey, policy, observation.MarketDate, kind); err != nil {
 		return persistWrite{}, err
 	} else if existing != nil && existing.unitPrice == rate.Canonical() {
-		return persistWrite{}, nil
+		return persistWrite{statusReconciled: statusReconciled}, nil
 	} else if existing != nil {
 		quoteID := domain.NewFXQuoteID()
 		if _, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id) VALUES(?, ?, ?, ?, ?, 'provider', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -263,7 +285,7 @@ func persistFXObservationTx(ctx context.Context, tx *sql.Tx, request FXHistoryCo
 		if err := upsertFXObservationSlotTx(ctx, tx, request.HouseholdID.String(), base.String(), quote.String(), request.ProviderKey, policy, observation.MarketDate, kind, quoteID.String(), fetchedAt); err != nil {
 			return persistWrite{}, err
 		}
-		return persistWrite{persisted: true, newRevision: true, slot: kind == observationKindDailyReference}, nil
+		return persistWrite{persisted: true, newRevision: true, slot: kind == observationKindDailyReference, statusReconciled: statusReconciled}, nil
 	}
 	quoteID := domain.NewFXQuoteID()
 	if _, err := tx.ExecContext(ctx, `INSERT INTO fx_quotes(id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision) VALUES(?, ?, ?, ?, ?, 'provider', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, 1)`,
@@ -276,7 +298,7 @@ func persistFXObservationTx(ctx context.Context, tx *sql.Tx, request FXHistoryCo
 			return persistWrite{}, err
 		}
 	}
-	return persistWrite{persisted: true, newRevision: true, slot: slot}, nil
+	return persistWrite{persisted: true, newRevision: true, slot: slot, statusReconciled: statusReconciled}, nil
 }
 
 func persistInstrumentCoverageTx(ctx context.Context, tx *sql.Tx, request InstrumentHistoryCommit, bindingRevision int, policy string, fetchedAt time.Time, observed map[string]struct{}) (int, error) {
@@ -328,10 +350,27 @@ func persistInstrumentCoverageTx(ctx context.Context, tx *sql.Tx, request Instru
 func persistFXCoverageTx(ctx context.Context, tx *sql.Tx, request FXHistoryCommit, policy string, fetchedAt time.Time, observed map[string]struct{}) (int, error) {
 	targetID := request.BaseCurrency.String() + "/" + request.QuoteCurrency.String()
 	written := 0
-	if !strings.EqualFold(strings.TrimSpace(request.Status), mappingStatusMapped) {
-		return 0, nil
+	if strings.EqualFold(strings.TrimSpace(request.Status), mappingStatusMapped) {
+		for _, rng := range request.VerifiedRanges {
+			dates, err := inclusiveDates(rng)
+			if err != nil {
+				return written, err
+			}
+			for _, date := range dates {
+				if _, ok := observed[date]; ok {
+					continue
+				}
+				changed, err := upsertDayStatusTx(ctx, tx, "fx", targetID, request.ProviderKey, request.HouseholdID.String(), 0, policy, date, coverageStatusNoObservation, request.Reason, fetchedAt, request.NextCheckAt, noObservationExpiry(date, fetchedAt))
+				if err != nil {
+					return written, err
+				}
+				if changed {
+					written++
+				}
+			}
+		}
 	}
-	for _, rng := range request.VerifiedRanges {
+	for _, rng := range request.PendingRanges {
 		dates, err := inclusiveDates(rng)
 		if err != nil {
 			return written, err
@@ -340,7 +379,7 @@ func persistFXCoverageTx(ctx context.Context, tx *sql.Tx, request FXHistoryCommi
 			if _, ok := observed[date]; ok {
 				continue
 			}
-			changed, err := upsertDayStatusTx(ctx, tx, "fx", targetID, request.ProviderKey, request.HouseholdID.String(), 0, policy, date, coverageStatusNoObservation, request.Reason, fetchedAt, request.NextCheckAt, noObservationExpiry(date, fetchedAt))
+			changed, err := upsertDayStatusTx(ctx, tx, "fx", targetID, request.ProviderKey, request.HouseholdID.String(), 0, policy, date, coverageStatusPending, request.Reason, fetchedAt, request.NextCheckAt, nil)
 			if err != nil {
 				return written, err
 			}
@@ -454,6 +493,25 @@ func upsertDayStatusTx(ctx context.Context, tx *sql.Tx, targetType, targetID, pr
 	return true, nil
 }
 
+// clearDayStatusTx removes only the status for the exact canonical identity.
+// It intentionally runs in the same transaction as the observation/slot write
+// so a pending day cannot survive a successful canonical observation, and a
+// different provider, binding, policy, household, or pair is never touched.
+func clearDayStatusTx(ctx context.Context, tx *sql.Tx, targetType, targetID, providerKey, householdID string, bindingRevision int, policy, effectiveDate string) (bool, error) {
+	result, err := tx.ExecContext(ctx, `
+		DELETE FROM market_data_day_status
+		WHERE target_type = ? AND target_id = ? AND provider_key = ? AND household_id = ? AND binding_revision = ? AND source_policy_version = ? AND effective_date = ?`,
+		targetType, targetID, providerKey, householdID, bindingRevision, policy, effectiveDate)
+	if err != nil {
+		return false, err
+	}
+	removed, err := result.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return removed > 0, nil
+}
+
 func noObservationExpiry(effectiveDate string, checkedAt time.Time) *time.Time {
 	expiry, err := domain.NoObservationExpiresAt(effectiveDate, checkedAt)
 	if err != nil {
@@ -515,18 +573,28 @@ func currentInputGenerationTx(ctx context.Context, tx *sql.Tx, householdID domai
 	return int(generation.Int64), nil
 }
 
-func instrumentHistoryDirtyBounds(observations []InstrumentHistoryObservation) (string, string) {
+func instrumentHistoryDirtyBounds(observations []InstrumentHistoryObservation, ranges ...[]DateSpan) (string, string) {
 	dates := make([]string, 0, len(observations))
 	for _, observation := range observations {
 		dates = append(dates, observation.MarketDate)
 	}
+	for _, spans := range ranges {
+		for _, span := range spans {
+			dates = append(dates, span.Start, span.End)
+		}
+	}
 	return marketDateBounds(dates)
 }
 
-func fxHistoryDirtyBounds(observations []FXHistoryObservation) (string, string) {
+func fxHistoryDirtyBounds(observations []FXHistoryObservation, ranges ...[]DateSpan) (string, string) {
 	dates := make([]string, 0, len(observations))
 	for _, observation := range observations {
 		dates = append(dates, observation.MarketDate)
+	}
+	for _, spans := range ranges {
+		for _, span := range spans {
+			dates = append(dates, span.Start, span.End)
+		}
 	}
 	return marketDateBounds(dates)
 }

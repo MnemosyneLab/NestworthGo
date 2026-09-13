@@ -32,10 +32,10 @@ func TestFirstVerticalSliceOracleHasIndependentExpectedAmounts(t *testing.T) {
 	if got := snapshotByDate(t, slice, "2026-09-06"); got.EligibleMarketDate != "2026-09-04" || got.EligibleClose != "185.25" || !got.CarriedForward || got.AssetsRounded != "3850.875" {
 		t.Fatalf("Sunday snapshot = %+v", got)
 	}
-	if got := snapshotByDate(t, slice, "2026-09-07"); got.EligibleMarketDate != "2026-09-04" || got.AssetsRounded != "3850.875" {
-		t.Fatalf("Monday snapshot used a later US close: %+v", got)
+	if got := snapshotByDate(t, slice, "2026-09-07"); got.EligibleMarketDate != "2026-09-07" || got.AssetsRounded != "3861" {
+		t.Fatalf("Monday snapshot did not use the labelled US close: %+v", got)
 	}
-	if got := snapshotByDate(t, slice, "2026-09-08"); got.EligibleMarketDate != "2026-09-07" || got.EligibleClose != "186" || got.AssetsRounded != "3861" {
+	if got := snapshotByDate(t, slice, "2026-09-08"); got.EligibleMarketDate != "2026-09-08" || got.EligibleClose != "185.2500037" || got.AssetsRounded != "3850.875" {
 		t.Fatalf("Tuesday snapshot = %+v", got)
 	}
 	wednesday := snapshotByDate(t, slice, "2026-09-09")
@@ -62,7 +62,9 @@ func TestFirstVerticalSliceOracleHasIndependentExpectedAmounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	if ObservationEligible(sep9Close.CloseInstant, wednesday.CutoffAt) {
-		t.Fatal("closed Singapore Sep 9 snapshot is eligible for the later US close")
+		// ObservationEligible is intentionally a live/timestamp predicate. The
+		// historical resolver above uses the Sep 9 market-date label instead.
+		t.Fatal("live timestamp predicate incorrectly consumed a later US close")
 	}
 }
 

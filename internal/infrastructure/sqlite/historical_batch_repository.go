@@ -11,8 +11,10 @@ import (
 
 // LoadHistoricalSnapshotBatch reads every candidate needed by a bounded
 // rebuild under one SQLite read transaction. The application deliberately
-// filters the returned immutable input by each day's cutoff instead of
-// reopening a read transaction for every day.
+// filters the returned immutable portfolio/activity input by each day's
+// household cutoff while the historical resolver applies each requested
+// market-date label to its market data facts, instead of reopening a read
+// transaction for every day.
 func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdID domain.HouseholdID, cutoff time.Time) (domain.HistoricalSnapshotBatch, error) {
 	tx, err := r.database.SQL.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
 	if err != nil {
@@ -80,7 +82,7 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	if err != nil {
 		return fail(err)
 	}
-	instrumentCoverage, err := listInstrumentHistoryCoverageQuery(ctx, tx, householdID)
+	instrumentCoverage, err := listHistoricalInstrumentHistoryCoverageQuery(ctx, tx, householdID)
 	if err != nil {
 		return fail(err)
 	}

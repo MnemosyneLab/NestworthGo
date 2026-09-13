@@ -331,6 +331,231 @@ func TestFrankfurterHistoryPersistsDailyReferenceSlots(t *testing.T) {
 	}
 }
 
+func TestCanonicalInstrumentCloseReconcilesPendingCoverageIncludingIdempotentWrite(t *testing.T) {
+	ctx := context.Background()
+	_, repo, household, instrument := seedHistoryWorkspace(t)
+	fetchedAt := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
+	pending := sqlite.InstrumentHistoryCommit{
+		HouseholdID: household.ID, InstrumentID: instrument.ID, ProviderKey: application.TiingoProviderKey,
+		ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US", Status: string(application.MappingMapped),
+		Reason: "pending_publication", Adapter: "tiingo_eod", SourcePolicy: string(application.PriceBasisTiingoRawClose),
+		FetchedAt: fetchedAt, PendingRanges: []sqlite.DateSpan{{Start: "2026-09-08", End: "2026-09-08"}},
+	}
+	if _, err := repo.CommitInstrumentHistory(ctx, pending); err != nil {
+		t.Fatal(err)
+	}
+	state, err := repo.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.DirtyFrom == nil || *state.DirtyFrom != "2026-09-08" {
+		t.Fatalf("pending instrument status did not dirty the affected date: %+v", state)
+	}
+	coverage, err := repo.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(coverage) != 1 || !containsDate(coverage[0].UnverifiedDates, "2026-09-08") {
+		t.Fatalf("pending instrument coverage = %+v", coverage)
+	}
+	canonical := pending
+	canonical.PendingRanges = nil
+	canonical.Observations = []sqlite.InstrumentHistoryObservation{{
+		MarketDate: "2026-09-08", Value: "185.25", Currency: "USD",
+		ValueEffectiveAt: time.Date(2026, 9, 9, 20, 0, 0, 0, time.UTC),
+		Kind:             string(application.InstrumentObservationClose), PriceBasis: string(application.PriceBasisTiingoRawClose),
+		TimestampBasis: string(application.TimestampBasisSessionClose),
+	}}
+	if _, err := repo.CommitInstrumentHistory(ctx, canonical); err != nil {
+		t.Fatal(err)
+	}
+	coverage, err = repo.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(coverage) != 1 || !containsDate(coverage[0].CloseMarketDates, "2026-09-08") || containsDate(coverage[0].UnverifiedDates, "2026-09-08") {
+		t.Fatalf("reconciled instrument coverage = %+v", coverage)
+	}
+
+	// Recreate an obsolete pending row after the identical canonical observation;
+	// the next idempotent write must still remove it and advance dirty state.
+	if _, err := repo.CommitInstrumentHistory(ctx, pending); err != nil {
+		t.Fatal(err)
+	}
+	before, err := repo.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := repo.CommitInstrumentHistory(ctx, canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retry.Unchanged || retry.PersistedObservations != 0 {
+		t.Fatalf("idempotent reconciliation result = %+v", retry)
+	}
+	after, err := repo.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.InputGeneration <= before.InputGeneration {
+		t.Fatalf("status reconciliation did not advance generation: before=%+v after=%+v", before, after)
+	}
+	coverage, err = repo.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if containsDate(coverage[0].UnverifiedDates, "2026-09-08") {
+		t.Fatalf("idempotent canonical write left pending coverage: %+v", coverage[0])
+	}
+}
+
+func TestCanonicalFXReferenceReconcilesPendingCoverageIncludingIdempotentWrite(t *testing.T) {
+	ctx := context.Background()
+	_, repo, household, _ := seedHistoryWorkspace(t)
+	fetchedAt := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
+	pending := sqlite.FXHistoryCommit{
+		HouseholdID: household.ID, ProviderKey: application.FrankfurterProviderKey, BaseCurrency: "USD", QuoteCurrency: "SGD",
+		Status: string(application.MappingMapped), Reason: "pending_publication", Adapter: "frankfurter_v2",
+		SourcePolicy: domain.FrankfurterV2BlendedPolicy, FetchedAt: fetchedAt,
+		PendingRanges: []sqlite.DateSpan{{Start: "2026-09-08", End: "2026-09-08"}},
+	}
+	if _, err := repo.CommitFXHistory(ctx, pending); err != nil {
+		t.Fatal(err)
+	}
+	state, err := repo.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.DirtyFrom == nil || *state.DirtyFrom != "2026-09-08" {
+		t.Fatalf("pending FX status did not dirty the affected date: %+v", state)
+	}
+	coverage, err := repo.ListFXHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(coverage) != 1 || !containsDate(coverage[0].UnverifiedDates, "2026-09-08") {
+		t.Fatalf("pending FX coverage = %+v", coverage)
+	}
+	canonical := pending
+	canonical.PendingRanges = nil
+	canonical.Observations = []sqlite.FXHistoryObservation{{
+		MarketDate: "2026-09-08", Rate: "1.35", BaseCurrency: "USD", QuoteCurrency: "SGD",
+		ValueEffectiveAt: time.Date(2026, 9, 8, 23, 59, 0, 0, time.UTC), Kind: string(application.FXObservationDailyReference), TimestampBasis: string(application.TimestampBasisPolicyDerived),
+	}}
+	if _, err := repo.CommitFXHistory(ctx, canonical); err != nil {
+		t.Fatal(err)
+	}
+	coverage, err = repo.ListFXHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(coverage) != 1 || !containsDate(coverage[0].DailyReferenceDates, "2026-09-08") || containsDate(coverage[0].UnverifiedDates, "2026-09-08") {
+		t.Fatalf("reconciled FX coverage = %+v", coverage)
+	}
+	if _, err := repo.CommitFXHistory(ctx, pending); err != nil {
+		t.Fatal(err)
+	}
+	retry, err := repo.CommitFXHistory(ctx, canonical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retry.Unchanged || retry.PersistedObservations != 0 {
+		t.Fatalf("idempotent FX reconciliation result = %+v", retry)
+	}
+	coverage, err = repo.ListFXHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if containsDate(coverage[0].UnverifiedDates, "2026-09-08") {
+		t.Fatalf("idempotent canonical FX write left pending coverage: %+v", coverage[0])
+	}
+}
+
+func TestHistoricalCoverageRetainsTheEffectiveOlderBindingRevision(t *testing.T) {
+	ctx := context.Background()
+	_, repo, household, instrument := seedHistoryWorkspace(t)
+	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
+	outcome, err := QualifyTiingoHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, outcome, time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC))); err != nil {
+		t.Fatal(err)
+	}
+
+	service := application.NewService(repo)
+	if _, err := service.UpdateInstrument(ctx, instrument.ID, application.InstrumentInput{ProviderSymbol: "MSFT"}); err != nil {
+		t.Fatal(err)
+	}
+	current, err := repo.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(current) != 1 || current[0].ProviderSymbol != "MSFT" || current[0].BindingRevision != 2 || len(current[0].CloseMarketDates) != 0 {
+		t.Fatalf("current-route coverage = %+v", current)
+	}
+	historical, err := repo.ListHistoricalInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var foundOlder bool
+	for _, item := range historical {
+		if item.ProviderKey == application.TiingoProviderKey && item.ProviderSymbol == "AAPL" && item.BindingRevision == 1 && containsDate(item.CloseMarketDates, "2026-09-04") {
+			foundOlder = true
+		}
+	}
+	if !foundOlder {
+		t.Fatalf("historical coverage lost the older effective binding: %+v", historical)
+	}
+}
+
+func TestHistoricalCoverageSurvivesSwitchToManual(t *testing.T) {
+	ctx := context.Background()
+	_, repo, household, instrument := seedHistoryWorkspace(t)
+	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
+	outcome, err := QualifyTiingoHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.CommitInstrumentHistory(ctx, instrumentCommit(household, instrument, outcome, time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC))); err != nil {
+		t.Fatal(err)
+	}
+	service := application.NewService(repo)
+	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
+		t.Fatal(err)
+	}
+
+	current, err := repo.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(current) != 0 {
+		t.Fatalf("current-route coverage after manual switch = %+v, want none", current)
+	}
+	historical, err := repo.ListHistoricalInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var foundProvider bool
+	for _, item := range historical {
+		if item.InstrumentID == instrument.ID && item.ProviderKey == application.TiingoProviderKey && containsDate(item.CloseMarketDates, "2026-09-04") {
+			foundProvider = true
+		}
+	}
+	if !foundProvider {
+		t.Fatalf("historical coverage lost provider closes after manual switch: %+v", historical)
+	}
+}
+
+func containsDate(values []string, wanted string) bool {
+	for _, value := range values {
+		if value == wanted {
+			return true
+		}
+	}
+	return false
+}
+
 func TestHistoryCommitIsAtomicOnInvalidObservation(t *testing.T) {
 	ctx := context.Background()
 	database, repo, household, instrument := seedHistoryWorkspace(t)
@@ -472,6 +697,9 @@ func fxCommit(household domain.Household, outcome application.MappingOutcome[app
 	}
 	for _, rng := range outcome.Batch.VerifiedRanges {
 		commit.VerifiedRanges = append(commit.VerifiedRanges, sqlite.DateSpan{Start: string(rng.Start), End: string(rng.End)})
+	}
+	for _, rng := range outcome.Batch.PendingRanges {
+		commit.PendingRanges = append(commit.PendingRanges, sqlite.DateSpan{Start: string(rng.Start), End: string(rng.End)})
 	}
 	return commit
 }

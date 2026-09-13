@@ -542,16 +542,16 @@ Keep four separate concepts:
 
 - `effective_date` / market date: the provider's market-session or reference-date label.
 - `value_effective_at`: the actual economic timestamp represented by the value; for a finalized equity close, the session close instant.
-- `valuation_cutoff`: household-history-timezone end of day for snapshots, or backend `now` for live valuation.
+- `valuation_cutoff`: household-history-timezone end of day for transaction/position replay and backend `now` for live valuation; historical market data additionally receives the requested local market-date label.
 - `fetched_at`: ingestion time; this does not decide historical eligibility.
 
 Persist market timezone/session metadata needed to derive the effective instant. An EOD date serialized at UTC midnight is a date label, not proof that its closing price was available at midnight. Never derive household snapshot dates by copying a market-date label.
 
-A historical correction fetched later may restate history only when its economic effective instant is at or before the cutoff. A close formed after the cutoff is never eligible. Household history timezone remains authoritative; OS/display timezone changes do not reinterpret stored history.
+A historical correction fetched later may restate history when its finalized market-date label is on or before the requested historical date. Its economic timestamp may fall after household midnight because the product intentionally summarizes each market by its own labelled trading day. Household history timezone remains authoritative for transaction and position dates; OS/display timezone changes do not reinterpret stored history.
 
-The resolver's closed-day policy is **latest eligible finalized close/reference as of the household cutoff**, including carry-forward when eligible. It does not use an in-progress session's eventual close. This deliberately replaces legacy intraday-based snapshot valuation and requires a resolver-policy version and migration invalidation. A session whose close lies after the cutoff does not require a finalized close for that snapshot.
+The resolver's closed-day policy is **latest eligible finalized close/reference whose market date is on or before the requested historical date**, including carry-forward when eligible. It does not use realtime observations or an in-progress session's eventual close. This deliberately replaces the household-midnight cutoff policy and requires a resolver-policy version and migration invalidation. A market date that is not yet published or verified keeps the carried amount pending/incomplete; a verified no-observation date may carry the amount forward as complete.
 
-Example: while Singapore is on Sep 10, a Sep 9 US-session realtime value can be the newest valid live price. For the Singapore Sep 9 closed-day snapshot, the later Sep 9 US close cannot be used. Use the preceding eligible close under this policy, with provenance. Market session state and provider publication state must be determined separately from the household date.
+Example: for a Singapore Sep 9 closed-day snapshot, use the finalized US Sep 9 close once it is available, even if that close occurs on Sep 10 in Singapore. Before publication, retain the preceding eligible close but mark the snapshot pending/incomplete. Live valuation remains separate and may use the latest available realtime or close observation as of backend `now`. Market session state and provider publication state must be determined separately from the household date.
 
 No full exchange-calendar dependency is required, but an adapter must provide trustworthy session/effective-time and finalization rules. Unknown session timing or early-close handling remains uncertain; never invent a timestamp or mark coverage verified. Accept conservative delay/retry rather than false finality.
 
@@ -571,15 +571,15 @@ Acceptance includes splits, reverse splits, cash dividends and switching provide
 
 ## 11.1 Closed household dates
 
-Resolve at the household cutoff using the pricing-mode and routing revisions effective then:
+Resolve the requested historical market-date label using the pricing-mode and routing revisions effective at the household cutoff:
 
-1. Select the latest eligible canonical close (FX: daily reference) whose `value_effective_at <= cutoff`.
+1. Select the latest eligible finalized canonical close (FX: daily reference) whose `effective_date` / reference date is on or before the requested date. Provider, binding revision, source policy, currency, price basis and observation kind must match the effective route.
 2. A prior value may be carried forward; retain its effective date, observation revision and source.
-3. Missing/unverified intervening eligible sessions or provider-no-data uncertainty produce a quality issue. They must not be relabeled as verified non-trading days.
+3. Missing, unqueried or pending intervening dates produce a quality issue even when a prior value is carried forward. A verified no-observation date may carry forward without making the result incomplete.
 4. No usable value produces `missing` with a null amount, never a decimal zero.
 5. Realtime and legacy observations do not satisfy finalized historical coverage. Legacy compatibility display is separately governed by section 32.7.
 
-A finalized session whose close is after the cutoff is not eligible even if its market-date label equals the household date. A session that had ended by the cutoff but whose data is still pending publication leaves historical quality pending until verified.
+A finalized session whose close is after household midnight remains eligible when its market-date label equals the requested historical date. A session that is still pending publication, or whose date has not yet been queried, leaves historical quality pending until verified. Adapter finalization and reliable market-date labels remain required; current-day responses must not be treated as finalized merely because they were returned.
 
 ## 11.2 Live valuation
 
@@ -1206,7 +1206,7 @@ Affected dates:
 Sep 3–Sep 5
 ```
 
-Compute the affected household-cutoff range from the resolver's selected source revision, rather than copying provider dates. Stop at the next eligible canonical observation under the same effective policy; an unrelated source's observation does not terminate dependency. Missing-to-available and quality/provenance changes require invalidation even when the decimal value is unchanged.
+Compute the affected historical-date range from the resolver's selected source revision, rather than copying provider timestamps. Stop at the next eligible canonical observation under the same effective policy; an unrelated source's observation does not terminate dependency. Missing-to-available and quality/provenance changes require invalidation even when the decimal value is unchanged. Persisting a canonical observation also reconciles an obsolete pending/no-observation status for the exact household/target/provider/binding/policy/date identity in the same transaction.
 
 Extend invalidation to mode/routing/binding changes, manual corrections, base-currency changes and resolver-policy upgrades. Broad invalidation is allowed for an actual policy-wide dependency change; routine inserts must remain targeted. Snapshot D also affects Analytics using D as an opening value, including the following day's returns and enclosing aggregates. Evict backend memo and refresh frontend queries when the mutation is committed.
 
@@ -1600,13 +1600,21 @@ existing Sep 3 close = 100
 new verified Sep 3 close = 101
 ```
 
-then:
+ then:
 
 ```text
 append immutable observation revision
 advance canonical pointer + mark affected snapshots dirty in the same transaction
 rebuild affected snapshots against the committed generation
 ```
+
+When a canonical close or FX daily reference arrives for a day that has a
+pending, uncertain or other non-`no_observation` day-status row, remove only
+the exact matching status identity in that same transaction. This also applies
+when the canonical slot write is idempotent. The status transition itself is an
+input-generation and dirty-range change, even when no new observation revision
+is created. A historical rebuild reads coverage for every effective binding
+revision; the repair planner continues to plan only the current route.
 
 Identical normalized payloads for a canonical slot deduplicate without a new semantic revision. A changed value/basis/evidence creates a new observation ID/revision with `supersedes_observation_id`; retain prior revisions. A later reversion to an older value is still a new revision, not an overwrite. Snapshot quote references identify the exact immutable revision used. Canonical selection remains deterministic under retry and serialized batch commits.
 
@@ -2467,6 +2475,7 @@ The implementation should encode the following as explicit tests/invariants.
 13. Repair and normal Sync use the same planner/executor.
 14. Re-running a completed sync is idempotent.
 15. Existing unverifiable provider data is not silently relabeled as official close during migration.
+16. A canonical observation clears only the matching household/target/provider/binding/source-policy/date status; unrelated day-status identities remain untouched.
 
 ---
 
@@ -2516,7 +2525,8 @@ The implementation should encode the following as explicit tests/invariants.
 
 ## 56.5 Snapshot tests
 
-- New historical close changes the first household snapshot whose cutoff makes it eligible.
+- A finalized close changes the snapshot for its market-date label and following carried-forward dates, even when its economic timestamp is after household midnight.
+- Before that close is available, the same date carries the previous value with pending/incomplete quality; after synchronization it rebuilds with the new close and completeness.
 - New close changes following carried-forward days.
 - Next eligible canonical close under the effective policy stops the dependent snapshot range.
 - New FX history changes affected snapshots.
@@ -2626,7 +2636,7 @@ The following decisions are considered locked unless implementation uncovers a b
 26. Every observation/coverage mutation commits with its invalidation and input generation.
 27. Request TTL is separate from observation freshness.
 28. Force Recheck, expiring no-data and bounded recent-correction reconciliation are in scope.
-29. Snapshot eligibility uses economic timestamps and household cutoff, not market-date equality.
+29. Historical snapshot eligibility uses finalized market-date labels; transaction and position replay still uses the household timezone cutoff, and live valuation still uses economic timestamps.
 30. Coverage evidence, amount availability and valuation quality are independent.
 31. US routing includes listed stocks and ETFs; no currency-based market guessing.
 32. Upgrade Later preserves explicitly unverified legacy display without background downloads.
@@ -2806,7 +2816,7 @@ The version is complete when all of the following are true.
 
 ### Valuation
 
-- Closed-day snapshots use the latest eligible finalized close/reference at household cutoff.
+- Closed-day snapshots use the latest eligible finalized close/reference whose market date/reference date is on or before the requested date.
 - Live valuation uses the latest eligible realtime/close instant, independent of household date equality.
 - Prior-close fallback carries explicit source time and verification quality.
 - Missing data is not zero.
@@ -2917,7 +2927,7 @@ These are normative cases in addition to section 56. Use a fixed backend clock, 
 
 | ID | Scenario | Required result |
 |---|---|---|
-| MD-01 | Singapore midnight while US session is still active; New York DST and early-close fixtures | Live value uses latest eligible market instant. Closed snapshot never consumes a later close; uncertain timing cannot become verified coverage. |
+| MD-01 | Singapore midnight while US session is still active; New York DST and early-close fixtures | Live value uses latest eligible market instant. Historical snapshot uses the finalized close for the requested market-date even when its economic timestamp is after Singapore midnight; uncertain timing cannot become verified coverage. |
 | MD-02 | Successful empty history before EOD publication; complete, truncated and malformed responses | Pending/uncertain remain retryable; only verified finalized subranges get expiring no-data. Invalid batches leave no writes. |
 | MD-03 | Recent close correction, expired no-data, old-range Force Recheck | Bounded recheck discovers changes; unchanged content deduplicates; failed recheck preserves old usable data. |
 | MD-04 | Split/reverse split and cash dividend on Tiingo/Yahoo | Ledger quantities and price basis agree; no duplicate split/dividend effect in net worth or Analytics attribution. |
@@ -2925,7 +2935,7 @@ These are normative cases in addition to section 56. Use a fixed backend clock, 
 | MD-06 | Provider→manual→provider; Yahoo→Tiingo; corrected symbol | Historical modes/routes remain effective-dated; current manual suppresses all fetches; old binding coverage cannot satisfy new identity. |
 | MD-07 | Weekend successful latest check and repeated Sync; latest/history independent | No repeated latest request inside check TTL; quote timestamp stays unchanged; history still fetches when needed. |
 | MD-08 | Crash before/after batch commit and before rebuild/event delivery | Either no mutation or durable observations plus dirty ranges; restart local scan rediscovers unfinished repair. |
-| MD-09 | Manual edit/coverage-only update during rebuild; identical rounded totals | New generation remains dirty until rebuilt; quality and exact-value changes propagate despite equal rounded totals. |
+| MD-09 | Manual edit/coverage-only update during rebuild; pending→canonical instrument/FX status; identical rounded totals | New generation remains dirty until rebuilt; quality and exact-value changes propagate despite equal rounded totals, including idempotent canonical writes. |
 | MD-10 | Correction to snapshot D and its carried dependents | Stop at next eligible canonical dependency; invalidate next-day return and enclosing Analytics caches; unrelated snapshots stay unchanged. |
 | MD-11 | Revision 100→101→100; repeated ingestion | Old snapshot evidence still resolves to original immutable values; semantic reversions get a new revision; retries do not duplicate revisions. |
 | MD-12 | FX reciprocal, same currency, source-policy change, unsupported pair | Exact decimal inversion, identity 1 without query, version-separated coverage, actionable manual fallback; no synthesized raw reciprocal. |
@@ -2952,4 +2962,4 @@ Evidence checked during the preceding design review and incorporated in this rev
 
 - [Tiingo EOD documentation](https://www.tiingo.com/documentation/end-of-day): raw versus adjusted fields, publication and correction behavior. Verify adapter fixtures and actual entitlement during implementation; documentation is not a live capability PASS.
 - [Frankfurter v2 documentation](https://frankfurter.dev/): daily history, default blended sources and provider attribution. Pin and test the chosen source policy.
-- Existing repository contracts: household-cutoff snapshots, effective-dated instrument/FX preferences, immutable quote references, transactional history dirty marking and authoritative Analytics DTOs. Reuse and extend these boundaries rather than creating parallel authorities.
+- Existing repository contracts: household-timezone transaction/position replay, market-date historical snapshots, effective-dated instrument/FX preferences, immutable quote references, transactional history dirty marking and authoritative Analytics DTOs. Reuse and extend these boundaries rather than creating parallel authorities.

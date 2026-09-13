@@ -22,8 +22,10 @@ type historicalQuoteCache struct {
 }
 
 // BuildDailyValuationSnapshot reconstructs a closed local day from the
-// Starting point plus immutable Activities, then evaluates it with only quote
-// observations at or before that day's cutoff.
+// Starting point plus immutable Activities. Transactions and positions use the
+// household-local cutoff; daily market data is resolved by the requested local
+// market-date label so an exchange close after household midnight is still
+// eligible for that exchange's labelled trading day.
 func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate string) (domain.DailyValuationSnapshot, bool, error) {
 	var origin *domain.HistoryOrigin
 	var err error
@@ -32,9 +34,6 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	if batch, ok := ctx.Value(historicalSnapshotBatchKey{}).(*domain.HistoricalSnapshotBatch); ok && batch != nil {
 		origin = &batch.Origin
 		expectedGeneration = batch.InputGeneration
-		if batch.ResolverPolicyVersion != "" {
-			resolverPolicy = batch.ResolverPolicyVersion
-		}
 	} else {
 		origin, err = s.HistoryOrigin(ctx)
 		if err != nil {
@@ -48,9 +47,6 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 			return domain.DailyValuationSnapshot{}, false, stateErr
 		}
 		expectedGeneration = state.InputGeneration
-		if state.ResolverPolicyVersion != "" {
-			resolverPolicy = state.ResolverPolicyVersion
-		}
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {
@@ -82,6 +78,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	valuation := NewValuationService(s.repository, func() time.Time { return cutoff })
 	valuation.SetFXProviderKey(s.FXProviderKey)
 	valuation.SetHistorical(true)
+	valuation.SetHistoricalMarketDate(localDate)
 	valuedAccounts, _, err := valuation.ValueAccounts(portfolio)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err

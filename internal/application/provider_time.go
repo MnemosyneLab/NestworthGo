@@ -33,7 +33,8 @@ func NormalizeProviderObservationTime(value, now time.Time) (time.Time, error) {
 // NormalizeHistoricalObservationTime canonicalizes a provider's historical
 // economic timestamp without applying the realtime clock-skew window. A
 // correction fetched today is allowed to describe a close from years ago;
-// the historical resolver still gates it by ValueEffectiveAt and cutoff.
+// the historical resolver gates it by its finalized market-date label. The
+// household cutoff remains relevant to transaction and position replay.
 func NormalizeHistoricalObservationTime(value time.Time) (time.Time, error) {
 	if value.IsZero() || value.Before(domain.ProviderObservationEarliest()) {
 		return time.Time{}, errors.New("historical provider observation time is invalid")

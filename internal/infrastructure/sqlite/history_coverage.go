@@ -14,7 +14,24 @@ func (r *Repository) ListInstrumentHistoryCoverage(ctx context.Context, househol
 }
 
 func listInstrumentHistoryCoverageQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.InstrumentHistoryCoverage, error) {
-	rows, err := query.QueryContext(ctx, `
+	return listInstrumentHistoryCoverageForRouteSet(ctx, query, householdID, false)
+}
+
+// ListHistoricalInstrumentHistoryCoverage includes every enabled effective
+// provider-binding revision, independently of the instrument's current quote
+// source. The repair planner intentionally uses the current-route method
+// above, while historical replay needs the older route facts that were valid
+// before a symbol, provider, or source change.
+func (r *Repository) ListHistoricalInstrumentHistoryCoverage(ctx context.Context, householdID domain.HouseholdID) ([]domain.InstrumentHistoryCoverage, error) {
+	return listHistoricalInstrumentHistoryCoverageQuery(ctx, r.database.SQL, householdID)
+}
+
+func listHistoricalInstrumentHistoryCoverageQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.InstrumentHistoryCoverage, error) {
+	return listInstrumentHistoryCoverageForRouteSet(ctx, query, householdID, true)
+}
+
+func listInstrumentHistoryCoverageForRouteSet(ctx context.Context, query queryer, householdID domain.HouseholdID, includeHistoricalRoutes bool) ([]domain.InstrumentHistoryCoverage, error) {
+	statement := `
 		SELECT i.id,
 		       COALESCE(NULLIF(b.provider_key, ''), i.provider_key, ''),
 		       COALESCE(NULLIF(b.provider_symbol, ''), i.provider_symbol, ''),
@@ -35,7 +52,54 @@ func listInstrumentHistoryCoverageQuery(ctx context.Context, query queryer, hous
 		  AND b.enabled = 1
 		WHERE i.household_id = ?
 		  AND i.quote_source = 'provider'
-		ORDER BY i.id`, householdID.String())
+		ORDER BY i.id`
+	if includeHistoricalRoutes {
+		// Historical replay must keep every enabled provider route that was
+		// valid on a closed date, even after the instrument's current source
+		// switches to manual. Current-route planning above still requires
+		// quote_source='provider'. Empty provider keys are excluded so a
+		// never-bound manual instrument does not appear as a provider route.
+		statement = `
+		WITH routes AS (
+			SELECT i.id,
+			       COALESCE(NULLIF(b.provider_key, ''), i.provider_key, '') AS provider_key,
+			       COALESCE(NULLIF(b.provider_symbol, ''), i.provider_symbol, '') AS provider_symbol,
+			       COALESCE(NULLIF(b.market, ''), i.market_code, '') AS market,
+			       i.quote_currency AS quote_currency,
+			       COALESCE(b.binding_revision, 0) AS binding_revision
+			FROM instruments i
+			LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id
+			  AND b.provider_key = i.provider_key
+			  AND b.enabled = 1
+			WHERE i.household_id = ?
+			  AND COALESCE(NULLIF(b.provider_key, ''), i.provider_key, '') <> ''
+			UNION
+			SELECT i.id, b.provider_key, b.provider_symbol,
+			       COALESCE(NULLIF(b.market, ''), i.market_code, ''),
+			       i.quote_currency, b.binding_revision
+			FROM instruments i
+			JOIN instrument_provider_binding_revisions b ON b.instrument_id = i.id
+			WHERE i.household_id = ?
+			  AND b.enabled = 1
+			  AND TRIM(b.provider_key) <> ''
+		)
+		SELECT r.id, r.provider_key, r.provider_symbol, r.market, r.quote_currency, r.binding_revision,
+		       COALESCE((SELECT q.source_policy_version
+		                 FROM instrument_observation_slots s
+		                 JOIN instrument_quotes q ON q.id = s.quote_id
+		                 WHERE s.instrument_id = r.id
+		                   AND s.provider_key = r.provider_key
+		                   AND s.binding_revision = r.binding_revision
+		                   AND s.observation_kind = 'close'
+		                 ORDER BY q.fetched_at DESC LIMIT 1), '')
+		FROM routes r
+		ORDER BY r.id, r.provider_key, r.binding_revision`
+	}
+	args := []any{householdID.String()}
+	if includeHistoricalRoutes {
+		args = append(args, householdID.String())
+	}
+	rows, err := query.QueryContext(ctx, statement, args...)
 	if err != nil {
 		return nil, err
 	}

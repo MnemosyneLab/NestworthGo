@@ -45,7 +45,11 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		if err != nil {
 			return domain.PortfolioSnapshot{}, err
 		}
-		snapshot.InstrumentHistoryCoverage, err = r.repository.ListInstrumentHistoryCoverage(ctx, origin.HouseholdID)
+		if historicalCoverageRepository, ok := r.repository.(HistoricalInstrumentCoverageRepository); ok {
+			snapshot.InstrumentHistoryCoverage, err = historicalCoverageRepository.ListHistoricalInstrumentHistoryCoverage(ctx, origin.HouseholdID)
+		} else {
+			snapshot.InstrumentHistoryCoverage, err = r.repository.ListInstrumentHistoryCoverage(ctx, origin.HouseholdID)
+		}
 		if err != nil {
 			return domain.PortfolioSnapshot{}, err
 		}
@@ -335,8 +339,8 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		for _, quote := range quotes {
 			// A correction may be fetched after the household day closed while
 			// its economic effective time is historical. Keep all immutable facts
-			// here; the historical valuation resolver applies the cutoff to
-			// ValueEffectiveAt and rejects realtime/legacy observations.
+			// here; the historical valuation resolver applies the requested
+			// finalized market-date label and rejects realtime/legacy observations.
 			snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, quote)
 		}
 	}

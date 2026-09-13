@@ -40,8 +40,9 @@ func (c MarketDataClock) TodayLocal() (string, error) {
 }
 
 // HouseholdDayCutoff is the exclusive end of a closed local day: the next
-// local midnight minus one millisecond. Snapshot eligibility compares
-// economic timestamps against this instant, never market-date equality.
+// local midnight minus one millisecond. Transaction and position replay use
+// this household-local instant; historical market data uses the requested
+// finalized market-date label instead.
 func HouseholdDayCutoff(localDate, timezone string) (time.Time, error) {
 	if _, err := ParseMarketDate(localDate); err != nil {
 		return time.Time{}, err
@@ -59,7 +60,8 @@ func HouseholdDayCutoff(localDate, timezone string) (time.Time, error) {
 }
 
 // ObservationEligible reports whether an economic instant may contribute to a
-// valuation at cutoff. A close formed after the cutoff is never eligible.
+// live valuation at cutoff. Historical daily-summary valuation uses the
+// observation's finalized market-date label instead.
 func ObservationEligible(valueEffectiveAt, cutoff time.Time) bool {
 	if valueEffectiveAt.IsZero() || cutoff.IsZero() {
 		return false

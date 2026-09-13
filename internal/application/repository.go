@@ -139,6 +139,14 @@ type SnapshotRepository interface {
 	ListFXHistoryCoverage(context.Context, domain.HouseholdID) ([]domain.FXHistoryCoverage, error)
 }
 
+// HistoricalInstrumentCoverageRepository is implemented by repositories that
+// can return coverage for every effective provider-binding revision. The
+// current-route coverage method remains the planner contract; historical
+// replay needs the additional older routes for dates before a binding change.
+type HistoricalInstrumentCoverageRepository interface {
+	ListHistoricalInstrumentHistoryCoverage(context.Context, domain.HouseholdID) ([]domain.InstrumentHistoryCoverage, error)
+}
+
 // GenerationAwareSnapshotRepository makes snapshot publication conditional
 // on the generation captured by the same read used for reconstruction. The
 // optional interface keeps small in-memory test repositories source-compatible

@@ -65,6 +65,7 @@ type FXHistoryCommit struct {
 	FetchedAt      time.Time
 	Observations   []FXHistoryObservation
 	VerifiedRanges []DateSpan
+	PendingRanges  []DateSpan
 	NextCheckAt    *time.Time
 }
 

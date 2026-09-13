@@ -470,8 +470,9 @@ func nextRebuildDate(value string) (string, error) {
 }
 
 // HouseholdCutoffAt is the exclusive end of a closed local day used by
-// snapshot eligibility. Quotes are selected with ObservationEligible, never
-// by market-date equality.
+// transaction and position replay. Historical market data is selected by its
+// finalized market-date label, not by economic timestamp equality with this
+// cutoff.
 func HouseholdCutoffAt(localDate, timezone string) (time.Time, error) {
 	return domain.HouseholdDayCutoff(localDate, timezone)
 }
