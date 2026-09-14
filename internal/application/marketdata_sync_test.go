@@ -83,6 +83,49 @@ func mappedTiingoClose(date, value string) MappingOutcome[InstrumentDailyObserva
 	}
 }
 
+func mappedYahooClose(date, value string) MappingOutcome[InstrumentDailyObservation] {
+	effective := time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC)
+	return MappingOutcome[InstrumentDailyObservation]{
+		Status: MappingMapped,
+		Batch: HistoryBatch[InstrumentDailyObservation]{
+			Observations: []InstrumentDailyObservation{{
+				MarketDate:       MarketDate(date),
+				Value:            value,
+				Currency:         "USD",
+				ValueEffectiveAt: effective,
+				Kind:             InstrumentObservationClose,
+				PriceBasis:       PriceBasisYahooClose,
+				TimestampBasis:   TimestampBasisSessionClose,
+			}},
+			VerifiedRanges: []DateRange{{Start: MarketDate(date), End: MarketDate(date)}},
+			Evidence:       ResponseEvidence{Adapter: "yahoo_chart", PriceBasis: PriceBasisYahooClose, SourcePolicy: string(PriceBasisYahooClose)},
+		},
+	}
+}
+
+func mappedYahooCryptoBar(date, value string) MappingOutcome[InstrumentDailyObservation] {
+	effective := time.Date(2026, 9, 4, 23, 59, 59, 999000000, time.UTC)
+	return MappingOutcome[InstrumentDailyObservation]{
+		Status: MappingMapped,
+		Batch: HistoryBatch[InstrumentDailyObservation]{
+			Observations: []InstrumentDailyObservation{{
+				MarketDate:       MarketDate(date),
+				Value:            value,
+				Currency:         "USD",
+				ValueEffectiveAt: effective,
+				Kind:             InstrumentObservationClose,
+				PriceBasis:       PriceBasisYahooClose,
+				TimestampBasis:   TimestampBasisPolicyDerived,
+			}},
+			VerifiedRanges: []DateRange{{Start: MarketDate(date), End: MarketDate(date)}},
+			Evidence: ResponseEvidence{
+				Adapter: "yahoo_chart", PriceBasis: PriceBasisYahooClose, SourcePolicy: string(PriceBasisYahooClose),
+				TimestampBasis: TimestampBasisPolicyDerived, SessionPolicy: domain.YahooCryptoUTCDailyBarPolicy,
+			},
+		},
+	}
+}
+
 func mappedFXRate(date, rate string) MappingOutcome[FXDailyObservation] {
 	effective := time.Date(2026, 9, 6, 16, 0, 0, 0, time.UTC)
 	return MappingOutcome[FXDailyObservation]{

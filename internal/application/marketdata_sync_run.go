@@ -186,6 +186,7 @@ func (s *Service) instrumentHistoryTasksFromNeeds(needs []InstrumentRepairNeed) 
 			ProviderSymbol: need.ProviderSymbol,
 			QuoteCurrency:  need.QuoteCurrency,
 			Market:         need.Market,
+			InstrumentType: need.InstrumentType,
 		}
 		for _, rng := range CapHistoryRanges(need.FetchRanges, maxDays) {
 			tasks = append(tasks, instrumentHistoryTask{need: need, rng: rng, identity: identity})
@@ -290,6 +291,10 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 	identity := task.identity
 	if inst, lookupErr := s.repository.Instrument(ctx, job.snapshot.HouseholdID, task.need.InstrumentID); lookupErr == nil {
 		identity.QuoteCurrency = inst.QuoteCurrency
+		identity.InstrumentType = string(inst.Type)
+		if identity.Market == "" {
+			identity.Market = instrumentMarket(inst)
+		}
 	}
 	outcome, fetchErr := s.fetchInstrumentHistoryWithRetry(ctx, job, history, identity, task.rng, providerKey, stopped)
 	if aborted(ctx) {

@@ -330,6 +330,26 @@ func TestHistoricalInstrumentQuoteSelectionRequiresCanonicalProvenance(t *testin
 	}
 }
 
+func TestHistoricalInstrumentQualityMatchesYahooCryptoDailyBar(t *testing.T) {
+	yahoo := domain.InstrumentQuote{
+		PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose),
+		TimestampBasis: string(TimestampBasisPolicyDerived), SourceKey: domain.YahooFinanceProviderKey,
+	}
+	if !historicalInstrumentQualityMatches(yahoo) {
+		t.Fatal("Yahoo crypto daily bar was excluded from historical valuation")
+	}
+	unverified := yahoo
+	unverified.PriceBasis = string(PriceBasisYahooCloseUnverified)
+	if historicalInstrumentQualityMatches(unverified) {
+		t.Fatal("unverified Yahoo close participated in historical valuation")
+	}
+	realtime := yahoo
+	realtime.TimestampBasis = string(TimestampBasisUnknown)
+	if historicalInstrumentQualityMatches(realtime) {
+		t.Fatal("unknown Yahoo timestamp basis participated in historical valuation")
+	}
+}
+
 func TestHistoricalCarryForwardRequiresVerifiedCoverage(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	accountID := domain.NewAccountID()

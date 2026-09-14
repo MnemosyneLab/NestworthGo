@@ -46,6 +46,7 @@ type InstrumentMarketIdentity struct {
 	ProviderSymbol string
 	QuoteCurrency  domain.CurrencyCode
 	Market         string
+	InstrumentType string
 }
 
 // FXMarketIdentity identifies one direct native-to-quote currency request.

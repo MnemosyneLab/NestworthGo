@@ -1,0 +1,18 @@
+{
+  "chart": {
+    "result": [
+      {
+        "meta": {
+          "currency": "USD",
+          "symbol": "BTC-USD",
+          "exchangeTimezoneName": "UTC"
+        },
+        "timestamp": [1788480000],
+        "indicators": {
+          "quote": [{ "close": [64000.0] }]
+        }
+      }
+    ],
+    "error": null
+  }
+}

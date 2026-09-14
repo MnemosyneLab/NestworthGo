@@ -85,6 +85,14 @@ func TestInstrumentHistoryTasksPreserveQuoteCurrencyAndMarket(t *testing.T) {
 	if tasks[0].identity.ProviderSymbol != "600519.SS" || tasks[0].identity.QuoteCurrency != "CNY" || tasks[0].identity.Market != "CN" {
 		t.Fatalf("history task identity = %+v", tasks[0].identity)
 	}
+	need.InstrumentType = string(domain.InstrumentCrypto)
+	need.ProviderSymbol = "BTC-USD"
+	need.Market = "CRYPTO"
+	need.QuoteCurrency = "USD"
+	cryptoTasks := service.instrumentHistoryTasksFromNeeds([]InstrumentRepairNeed{need})
+	if len(cryptoTasks) != 1 || cryptoTasks[0].identity.InstrumentType != string(domain.InstrumentCrypto) || cryptoTasks[0].identity.Market != "CRYPTO" {
+		t.Fatalf("crypto history task identity = %+v", cryptoTasks)
+	}
 }
 
 func TestPlanInstrumentRepairNeedWidensOpeningAnchorSearchAndStops(t *testing.T) {
@@ -211,6 +219,7 @@ func TestPlanInstrumentHistorySyncForceRecheckAndRouting(t *testing.T) {
 	}
 
 	cnTiingo, err := applyHistorySyncPolicy(InstrumentRepairNeed{FetchRange: DateRange{Start: "2026-09-04", End: "2026-09-08"}}, domain.InstrumentHistoryCoverage{
+		InstrumentType:   "stock",
 		ProviderKey:      TiingoProviderKey,
 		ProviderSymbol:   "000001.SS",
 		Market:           "CN",
@@ -221,6 +230,45 @@ func TestPlanInstrumentHistorySyncForceRecheckAndRouting(t *testing.T) {
 	}
 	if cnTiingo.RouteStatus != domain.InstrumentRouteUnsupported || len(cnTiingo.FetchRanges) != 0 {
 		t.Fatalf("CN Tiingo should not fetch or fall back: %+v", cnTiingo)
+	}
+
+	yahooCN, err := applyHistorySyncPolicy(InstrumentRepairNeed{FetchRange: DateRange{Start: "2026-09-04", End: "2026-09-08"}}, domain.InstrumentHistoryCoverage{
+		InstrumentType: "stock",
+		ProviderKey:    domain.YahooFinanceProviderKey,
+		ProviderSymbol: "600519.SS",
+		Market:         "CN",
+	}, "2026-09-08", now, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if yahooCN.RouteStatus != domain.InstrumentRouteOK || len(yahooCN.FetchRanges) == 0 {
+		t.Fatalf("CN Yahoo stock should fetch: %+v", yahooCN)
+	}
+
+	gold, err := applyHistorySyncPolicy(InstrumentRepairNeed{FetchRange: DateRange{Start: "2026-09-04", End: "2026-09-08"}}, domain.InstrumentHistoryCoverage{
+		InstrumentType: "precious_metal",
+		ProviderKey:    domain.YahooFinanceProviderKey,
+		ProviderSymbol: "XAUUSD",
+		Market:         "US",
+	}, "2026-09-08", now, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if gold.RouteStatus != domain.InstrumentRouteUnsupported || gold.SkipReason != domain.InstrumentTypeUnsupported || len(gold.FetchRanges) != 0 {
+		t.Fatalf("precious metal must not inherit US equity repair: %+v", gold)
+	}
+
+	crypto, err := applyHistorySyncPolicy(InstrumentRepairNeed{FetchRange: DateRange{Start: "2026-09-04", End: "2026-09-08"}}, domain.InstrumentHistoryCoverage{
+		InstrumentType: "crypto",
+		ProviderKey:    domain.YahooFinanceProviderKey,
+		ProviderSymbol: "BTC-USD",
+		Market:         "US",
+	}, "2026-09-08", now, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if crypto.RouteStatus != domain.InstrumentRouteOK || len(crypto.FetchRanges) == 0 {
+		t.Fatalf("Yahoo crypto should fetch UTC daily bars: %+v", crypto)
 	}
 }
 

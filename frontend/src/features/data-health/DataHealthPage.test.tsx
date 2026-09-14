@@ -177,6 +177,56 @@ describe("DataHealthPage", () => {
     await waitFor(() => expect(startSync).toHaveBeenCalledWith({ scope: "repair_all" }));
   });
 
+  it("renders repairable Yahoo gaps without Cannot automatically repair", async () => {
+    scanHealth.mockResolvedValue({
+      healthy: false,
+      incompleteSince: "2026-09-02",
+      issueCount: 2,
+      executableCount: 1,
+      prerequisiteCount: 0,
+      snapshotDays: 0,
+      issues: [
+        {
+          id: "yahoo-msft",
+          kind: "missing_instrument_history",
+          severity: "blocking",
+          groupKey: "instrument:i2",
+          targetKey: "instrument:i2",
+          label: "Microsoft",
+          provider: "yahoo_finance",
+          instrumentId: "i2",
+          rangeStart: "2026-09-02",
+          rangeEnd: "2026-09-04",
+          action: "repair",
+          executable: true,
+        },
+        {
+          id: "gold",
+          kind: "unsupported_coverage",
+          severity: "warning",
+          groupKey: "instrument:g1",
+          targetKey: "instrument:g1",
+          label: "Gold",
+          provider: "yahoo_finance",
+          instrumentId: "g1",
+          action: "none",
+          reason: "instrument_type_unsupported",
+          executable: false,
+        },
+      ],
+    });
+    renderPage();
+    expect(await screen.findByText("Microsoft")).toBeInTheDocument();
+    expect(screen.getByText("Executable repairs")).toBeInTheDocument();
+    expect(screen.getAllByText(/yahoo_finance/).length).toBeGreaterThan(0);
+    const microsoftRow = screen.getByText("Microsoft").closest("li");
+    expect(microsoftRow).not.toHaveTextContent("Not auto-repairable");
+    expect(microsoftRow).toHaveTextContent("Included in Repair All");
+    const goldRow = screen.getByText("Gold").closest("li");
+    expect(goldRow).toHaveTextContent("Not auto-repairable");
+    expect(goldRow).toHaveTextContent("This instrument type is not supported for automatic history");
+  });
+
   it("disables Repair All when only prerequisites remain", async () => {
     scanHealth.mockResolvedValue({
       healthy: false,

@@ -6,40 +6,41 @@ import (
 )
 
 const (
-	USEquitySessionTimezone    = "America/New_York"
-	USEquityRegularCloseClock  = "16:00"
-	USEquityEarlyCloseClock    = "13:00"
-	USEquityRegularClosePolicy = "us_equity_regular_close_v1"
-	CNEquitySessionTimezone    = "Asia/Shanghai"
-	CNEquityRegularCloseClock  = "15:00"
-	CNEquityRegularClosePolicy = "cn_equity_regular_close_v1"
-	HKEquitySessionTimezone    = "Asia/Hong_Kong"
-	HKEquityRegularCloseClock  = "16:00"
-	HKEquityRegularClosePolicy = "hk_equity_regular_close_v1"
-	SGEquitySessionTimezone    = "Asia/Singapore"
-	SGEquityRegularCloseClock  = "17:00"
-	SGEquityRegularClosePolicy = "sg_equity_regular_close_v1"
-	JPEquitySessionTimezone    = "Asia/Tokyo"
-	JPEquityRegularCloseClock  = "15:30"
-	JPEquityRegularClosePolicy = "jp_equity_regular_close_v1"
-	TWEquitySessionTimezone    = "Asia/Taipei"
-	TWEquityRegularCloseClock  = "13:30"
-	TWEquityRegularClosePolicy = "tw_equity_regular_close_v1"
-	AUEquitySessionTimezone    = "Australia/Sydney"
-	AUEquityRegularCloseClock  = "16:00"
-	AUEquityRegularClosePolicy = "au_equity_regular_close_v1"
-	GBEquitySessionTimezone    = "Europe/London"
-	GBEquityRegularCloseClock  = "16:30"
-	GBEquityRegularClosePolicy = "gb_equity_regular_close_v1"
-	DEEquitySessionTimezone    = "Europe/Berlin"
-	DEEquityRegularCloseClock  = "17:30"
-	DEEquityRegularClosePolicy = "de_equity_regular_close_v1"
-	FrankfurterV2BlendedPolicy = "frankfurter-v2-blended-v1"
-	TiingoRawClosePriceBasis   = "tiingo_raw_close_v1"
-	YahooRawClosePriceBasis    = "yahoo_close_v1"
-	TiingoProviderKey          = "tiingo"
-	YahooFinanceProviderKey    = "yahoo_finance"
-	FrankfurterProviderKey     = "frankfurter"
+	USEquitySessionTimezone      = "America/New_York"
+	USEquityRegularCloseClock    = "16:00"
+	USEquityEarlyCloseClock      = "13:00"
+	USEquityRegularClosePolicy   = "us_equity_regular_close_v1"
+	CNEquitySessionTimezone      = "Asia/Shanghai"
+	CNEquityRegularCloseClock    = "15:00"
+	CNEquityRegularClosePolicy   = "cn_equity_regular_close_v1"
+	HKEquitySessionTimezone      = "Asia/Hong_Kong"
+	HKEquityRegularCloseClock    = "16:00"
+	HKEquityRegularClosePolicy   = "hk_equity_regular_close_v1"
+	SGEquitySessionTimezone      = "Asia/Singapore"
+	SGEquityRegularCloseClock    = "17:00"
+	SGEquityRegularClosePolicy   = "sg_equity_regular_close_v1"
+	JPEquitySessionTimezone      = "Asia/Tokyo"
+	JPEquityRegularCloseClock    = "15:30"
+	JPEquityRegularClosePolicy   = "jp_equity_regular_close_v1"
+	TWEquitySessionTimezone      = "Asia/Taipei"
+	TWEquityRegularCloseClock    = "13:30"
+	TWEquityRegularClosePolicy   = "tw_equity_regular_close_v1"
+	AUEquitySessionTimezone      = "Australia/Sydney"
+	AUEquityRegularCloseClock    = "16:00"
+	AUEquityRegularClosePolicy   = "au_equity_regular_close_v1"
+	GBEquitySessionTimezone      = "Europe/London"
+	GBEquityRegularCloseClock    = "16:30"
+	GBEquityRegularClosePolicy   = "gb_equity_regular_close_v1"
+	DEEquitySessionTimezone      = "Europe/Berlin"
+	DEEquityRegularCloseClock    = "17:30"
+	DEEquityRegularClosePolicy   = "de_equity_regular_close_v1"
+	FrankfurterV2BlendedPolicy   = "frankfurter-v2-blended-v1"
+	TiingoRawClosePriceBasis     = "tiingo_raw_close_v1"
+	YahooRawClosePriceBasis      = "yahoo_close_v1"
+	TiingoProviderKey            = "tiingo"
+	YahooFinanceProviderKey      = "yahoo_finance"
+	FrankfurterProviderKey       = "frankfurter"
+	YahooCryptoUTCDailyBarPolicy = "yahoo_crypto_utc_daily_bar_v1"
 )
 
 type SessionKind string
@@ -189,15 +190,7 @@ func USListedEquityMarket(market string) bool {
 // publication instant: the end of the source reference day in UTC. It is
 // not an observed publication time.
 func FrankfurterReferenceEligibleAt(referenceDate string) (time.Time, error) {
-	date, err := ParseMarketDate(referenceDate)
-	if err != nil {
-		return time.Time{}, err
-	}
-	parsed, err := time.Parse("2006-01-02", date)
-	if err != nil {
-		return time.Time{}, validation("referenceDate", "must use YYYY-MM-DD")
-	}
-	return parsed.AddDate(0, 0, 1).Add(-time.Millisecond).UTC(), nil
+	return endOfUTCCalendarDay(referenceDate, "referenceDate")
 }
 
 func OpeningAnchorLookbackWindows() []int {

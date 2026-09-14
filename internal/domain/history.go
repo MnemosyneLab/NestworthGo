@@ -286,6 +286,7 @@ type DailySnapshotState struct {
 
 type InstrumentHistoryCoverage struct {
 	InstrumentID           InstrumentID
+	InstrumentType         string
 	ProviderKey            string
 	ProviderSymbol         string
 	Market                 string

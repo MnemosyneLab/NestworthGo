@@ -45,7 +45,8 @@ func listInstrumentHistoryCoverageForRouteSet(ctx context.Context, query queryer
 		                   AND s.provider_key = COALESCE(NULLIF(b.provider_key, ''), i.provider_key, '')
 		                   AND s.binding_revision = COALESCE(b.binding_revision, 0)
 		                   AND s.observation_kind = 'close'
-		                 ORDER BY q.fetched_at DESC LIMIT 1), '')
+		                 ORDER BY q.fetched_at DESC LIMIT 1), ''),
+		       i.instrument_type
 		FROM instruments i
 		LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id
 		  AND b.provider_key = i.provider_key
@@ -66,7 +67,8 @@ func listInstrumentHistoryCoverageForRouteSet(ctx context.Context, query queryer
 			       COALESCE(NULLIF(b.provider_symbol, ''), i.provider_symbol, '') AS provider_symbol,
 			       COALESCE(NULLIF(b.market, ''), i.market_code, '') AS market,
 			       i.quote_currency AS quote_currency,
-			       COALESCE(b.binding_revision, 0) AS binding_revision
+			       COALESCE(b.binding_revision, 0) AS binding_revision,
+			       i.instrument_type AS instrument_type
 			FROM instruments i
 			LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id
 			  AND b.provider_key = i.provider_key
@@ -76,7 +78,7 @@ func listInstrumentHistoryCoverageForRouteSet(ctx context.Context, query queryer
 			UNION
 			SELECT i.id, b.provider_key, b.provider_symbol,
 			       COALESCE(NULLIF(b.market, ''), i.market_code, ''),
-			       i.quote_currency, b.binding_revision
+			       i.quote_currency, b.binding_revision, i.instrument_type
 			FROM instruments i
 			JOIN instrument_provider_binding_revisions b ON b.instrument_id = i.id
 			WHERE i.household_id = ?
@@ -91,7 +93,8 @@ func listInstrumentHistoryCoverageForRouteSet(ctx context.Context, query queryer
 		                   AND s.provider_key = r.provider_key
 		                   AND s.binding_revision = r.binding_revision
 		                   AND s.observation_kind = 'close'
-		                 ORDER BY q.fetched_at DESC LIMIT 1), '')
+		                 ORDER BY q.fetched_at DESC LIMIT 1), ''),
+		       r.instrument_type
 		FROM routes r
 		ORDER BY r.id, r.provider_key, r.binding_revision`
 	}
@@ -106,8 +109,8 @@ func listInstrumentHistoryCoverageForRouteSet(ctx context.Context, query queryer
 	seeds := make([]domain.InstrumentHistoryCoverage, 0)
 	for rows.Next() {
 		var item domain.InstrumentHistoryCoverage
-		var id, key, symbol, market, currency, policy string
-		if err := rows.Scan(&id, &key, &symbol, &market, &currency, &item.BindingRevision, &policy); err != nil {
+		var id, key, symbol, market, currency, policy, instrumentType string
+		if err := rows.Scan(&id, &key, &symbol, &market, &currency, &item.BindingRevision, &policy, &instrumentType); err != nil {
 			_ = rows.Close()
 			return nil, err
 		}
@@ -121,6 +124,7 @@ func listInstrumentHistoryCoverageForRouteSet(ctx context.Context, query queryer
 		item.ProviderSymbol = strings.TrimSpace(symbol)
 		item.Market = strings.TrimSpace(market)
 		item.QuoteCurrency = domain.CurrencyCode(currency)
+		item.InstrumentType = strings.TrimSpace(instrumentType)
 		item.SourcePolicyVersion = instrumentHistorySourcePolicy(item.ProviderKey, policy)
 		seeds = append(seeds, item)
 	}

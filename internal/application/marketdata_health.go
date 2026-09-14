@@ -301,17 +301,6 @@ func classifyInstrumentHealth(need InstrumentRepairNeed, label string, blocked m
 		return HealthIssue{}, false
 	}
 	span := firstRange(need.MissingRanges, need.FetchRanges)
-	if !instrumentHistoryAutoRepairable(provider) {
-		base.Kind = HealthKindUnsupportedCoverage
-		base.Severity = HealthSeverityWarning
-		base.Code = "unsupported_price_basis"
-		base.Reason = "unsupported_price_basis"
-		base.Action = HealthActionNone
-		base.RangeStart = string(span.Start)
-		base.RangeEnd = string(span.End)
-		base.RangeCount = max(len(need.MissingRanges), len(need.FetchRanges))
-		return base, false
-	}
 	base.Kind = HealthKindMissingInstrumentHistory
 	base.Severity = HealthSeverityBlocking
 	base.Code = "missing_history"
@@ -804,10 +793,6 @@ func missingFXDates(origin, lastFinalized string, coverage domain.FXHistoryCover
 		}
 	}
 	return missing
-}
-
-func instrumentHistoryAutoRepairable(providerKey string) bool {
-	return strings.ToLower(strings.TrimSpace(providerKey)) == TiingoProviderKey
 }
 
 func fxHistoryAutoRepairable(providerKey string) bool {

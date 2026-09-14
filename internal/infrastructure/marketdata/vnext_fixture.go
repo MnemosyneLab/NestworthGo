@@ -17,6 +17,7 @@ type vnextFixtureMeta struct {
 	Provider       string `json:"provider"`
 	Capability     string `json:"capability"`
 	ProviderSymbol string `json:"providerSymbol"`
+	InstrumentType string `json:"instrumentType"`
 	QuoteCurrency  string `json:"quoteCurrency"`
 	BaseCurrency   string `json:"baseCurrency"`
 	Market         string `json:"market"`

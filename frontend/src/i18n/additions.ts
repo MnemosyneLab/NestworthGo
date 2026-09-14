@@ -68,6 +68,14 @@ export const additionsEn = {
       manual_entry: "Enter manual data",
       none: "Not auto-repairable",
     },
+    reason: {
+      instrument_type_unsupported: "This instrument type is not supported for automatic history",
+      market_not_supported_for_session_policy: "This market has no verified session policy",
+      tiingo_us_listed_only: "Tiingo covers US-listed stocks and ETFs only",
+      history_capability_unavailable: "This provider does not offer historical prices",
+      unsupported_price_basis: "Provider history failed validation",
+      missing_history: "Historical prices are missing",
+    },
     severity: {
       blocking: "Blocking",
       warning: "Warning",
@@ -1119,6 +1127,14 @@ export const additionsZhCN = {
       manual_entry: "录入手工数据",
       none: "无法自动修复",
     },
+    reason: {
+      instrument_type_unsupported: "此标的类型不支持自动补齐历史价格",
+      market_not_supported_for_session_policy: "此市场没有已验证的交易时段策略",
+      tiingo_us_listed_only: "Tiingo 仅覆盖美国上市股票和 ETF",
+      history_capability_unavailable: "此提供方不提供历史价格",
+      unsupported_price_basis: "提供方历史数据未通过校验",
+      missing_history: "缺少历史价格",
+    },
     severity: {
       blocking: "阻断",
       warning: "警告",
@@ -2153,6 +2169,14 @@ export const additionsZhTW = {
       instrument_editor: "打開標的編輯",
       manual_entry: "錄入手動資料",
       none: "無法自動修復",
+    },
+    reason: {
+      instrument_type_unsupported: "此標的類型不支援自動補齊歷史價格",
+      market_not_supported_for_session_policy: "此市場沒有已驗證的交易時段策略",
+      tiingo_us_listed_only: "Tiingo 僅涵蓋美國上市股票和 ETF",
+      history_capability_unavailable: "此提供方不提供歷史價格",
+      unsupported_price_basis: "提供方歷史資料未通過校驗",
+      missing_history: "缺少歷史價格",
     },
     severity: {
       blocking: "阻斷",

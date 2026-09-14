@@ -11,6 +11,7 @@ import (
 
 type InstrumentRepairNeed struct {
 	InstrumentID            domain.InstrumentID
+	InstrumentType          string
 	ProviderKey             string
 	ProviderSymbol          string
 	Market                  string
@@ -89,10 +90,18 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 	}
 	for _, item := range coverage {
 		marketFinalized := finalized
-		if _, supported := domain.EquitySessionScheduleForMarket(item.Market); supported {
-			marketFinalized, err = domain.LastFinalizedEquityMarketDate(now, item.Market)
+		switch {
+		case domain.InstrumentUsesCryptoDailyBar(item.InstrumentType, item.Market):
+			marketFinalized, err = domain.LastFinalizedCryptoMarketDate(now)
 			if err != nil {
 				return HistoryRepairPlan{}, err
+			}
+		default:
+			if _, supported := domain.EquitySessionScheduleForMarket(item.Market); supported {
+				marketFinalized, err = domain.LastFinalizedEquityMarketDate(now, item.Market)
+				if err != nil {
+					return HistoryRepairPlan{}, err
+				}
 			}
 		}
 		need, planErr := planInstrumentRepairNeed(item, originDate, marketFinalized)
@@ -138,9 +147,38 @@ func (s *Service) PlanHistorySync(ctx context.Context, opts HistorySyncOptions) 
 		if enrichErr != nil {
 			return HistoryRepairPlan{}, enrichErr
 		}
-		plan.Instruments[index] = enriched
+		plan.Instruments[index] = s.applyInstrumentHistoryCapability(enriched)
 	}
 	return plan, nil
+}
+
+func (s *Service) applyInstrumentHistoryCapability(need InstrumentRepairNeed) InstrumentRepairNeed {
+	if need.RouteStatus != domain.InstrumentRouteOK {
+		return need
+	}
+	if s.providerSupportsInstrumentHistory(need.ProviderKey) {
+		return need
+	}
+	need.RouteStatus = domain.InstrumentRouteUnsupported
+	need.SkipReason = domain.HistoryCapabilityUnavailable
+	need.FetchRanges = nil
+	return need
+}
+
+func (s *Service) providerSupportsInstrumentHistory(providerKey string) bool {
+	registry := s.MarketDataRegistry()
+	if registry == nil {
+		return true
+	}
+	resolved, err := registry.Resolve(providerKey)
+	if err != nil || resolved == nil {
+		return false
+	}
+	if !resolved.Capabilities().SupportsInstrumentHistory() {
+		return false
+	}
+	_, ok := resolved.(InstrumentHistoryProvider)
+	return ok
 }
 
 func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originDate, lastFinalized string) (InstrumentRepairNeed, error) {
@@ -193,6 +231,7 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 	}
 	return InstrumentRepairNeed{
 		InstrumentID:            coverage.InstrumentID,
+		InstrumentType:          coverage.InstrumentType,
 		ProviderKey:             coverage.ProviderKey,
 		ProviderSymbol:          coverage.ProviderSymbol,
 		Market:                  coverage.Market,
@@ -262,6 +301,13 @@ func applyHistorySyncPolicy(need InstrumentRepairNeed, coverage domain.Instrumen
 	need.RouteStatus = route.Status
 	need.SkipReason = route.Reason
 	if route.Status != domain.InstrumentRouteOK {
+		need.FetchRanges = nil
+		return need, nil
+	}
+	support := domain.ResolveInstrumentHistorySupport(coverage.InstrumentType, coverage.Market, coverage.ProviderKey)
+	if support.Status != domain.InstrumentRouteOK {
+		need.RouteStatus = support.Status
+		need.SkipReason = support.Reason
 		need.FetchRanges = nil
 		return need, nil
 	}

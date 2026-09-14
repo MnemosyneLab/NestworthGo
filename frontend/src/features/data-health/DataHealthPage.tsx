@@ -37,6 +37,15 @@ function issueRange(t: (key: string, options?: Record<string, unknown>) => strin
   return t("dataHealth.range", { start: issue.rangeStart, end: issue.rangeEnd });
 }
 
+function healthIssueActionLabel(t: (key: string, options?: Record<string, unknown>) => string, issue: HealthIssueDTO): string {
+  const action = displayEnum(t, "dataHealth.action", issue.action);
+  if (issue.action !== "none" || !issue.reason) {
+    return action;
+  }
+  const reason = displayEnum(t, "dataHealth.reason", issue.reason);
+  return reason && reason !== action ? `${action} · ${reason}` : action;
+}
+
 export function DataHealthPage({
   onOpenSettings,
   onOpenMarketData,
@@ -221,7 +230,7 @@ function IssueSection({
                   <div className="flex min-w-0 flex-col gap-1">
                     <p className="font-medium text-foreground">{issue.label || issue.targetKey}</p>
                     <p className="text-sm text-muted-foreground">
-                      {[issueRange(t, issue), issue.provider, displayEnum(t, "dataHealth.action", issue.action)].filter(Boolean).join(" · ")}
+                      {[issueRange(t, issue), issue.provider, healthIssueActionLabel(t, issue)].filter(Boolean).join(" · ")}
                     </p>
                   </div>
                   {issue.action === "provider_settings" && (

@@ -198,6 +198,30 @@ func TestYahooChineseHistoryUsesChineseSessionClose(t *testing.T) {
 	}
 }
 
+func TestYahooCryptoHistoryUsesUTCDailyBarNotEquityClose(t *testing.T) {
+	meta, body := mustLoadVNext(t, "providers/yahoo/btc-usd-history.json")
+	outcome, err := QualifyYahooHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome.Status != application.MappingMapped || len(outcome.Batch.Observations) != 1 {
+		t.Fatalf("outcome = %+v", outcome)
+	}
+	observation := outcome.Batch.Observations[0]
+	if observation.MarketDate != "2026-09-04" || observation.Value != "64000" {
+		t.Fatalf("observation = %+v", observation)
+	}
+	if observation.TimestampBasis != application.TimestampBasisPolicyDerived {
+		t.Fatalf("crypto timestamp basis = %s, want policy_derived", observation.TimestampBasis)
+	}
+	if observation.ValueEffectiveAt.UTC().Format(time.RFC3339Nano) != "2026-09-04T23:59:59.999Z" {
+		t.Fatalf("crypto daily bar used an equity close: %s", observation.ValueEffectiveAt.UTC())
+	}
+	if outcome.Batch.Evidence.SessionPolicy != domain.YahooCryptoUTCDailyBarPolicy {
+		t.Fatalf("evidence = %+v", outcome.Batch.Evidence)
+	}
+}
+
 func TestYahooHistoryRequestMetaUsesMarketSpecificSession(t *testing.T) {
 	meta := yahooHistoryRequestMeta(application.InstrumentMarketIdentity{
 		ProviderSymbol: "600519.SS",
@@ -206,6 +230,18 @@ func TestYahooHistoryRequestMetaUsesMarketSpecificSession(t *testing.T) {
 	}, application.DateRange{Start: "2026-09-04", End: "2026-09-04"})
 	if meta.SessionTimezone != "Asia/Shanghai" || meta.CloseClock != "15:00" || meta.SessionPolicy != domain.CNEquityRegularClosePolicy {
 		t.Fatalf("Chinese Yahoo request session = %+v", meta)
+	}
+}
+
+func TestYahooHistoryRequestMetaUsesCryptoUTCDailyBar(t *testing.T) {
+	meta := yahooHistoryRequestMeta(application.InstrumentMarketIdentity{
+		ProviderSymbol: "BTC-USD",
+		QuoteCurrency:  "USD",
+		Market:         "US",
+		InstrumentType: "crypto",
+	}, application.DateRange{Start: "2026-09-04", End: "2026-09-04"})
+	if meta.SessionPolicy != domain.YahooCryptoUTCDailyBarPolicy || meta.SessionTimezone != "UTC" || meta.CloseClock != "" {
+		t.Fatalf("crypto Yahoo request used equity session = %+v", meta)
 	}
 }
 

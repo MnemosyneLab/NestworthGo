@@ -830,16 +830,21 @@ func historicalInstrumentQualityMatches(quote domain.InstrumentQuote) bool {
 	if priceBasis == "" || policy == "" || timestampBasis == "" || priceBasis == string(PriceBasisUnsupported) || priceBasis == string(PriceBasisYahooCloseUnverified) {
 		return false
 	}
-	if timestampBasis != string(TimestampBasisSessionClose) {
-		return false
-	}
 	switch strings.ToLower(strings.TrimSpace(quote.SourceKey)) {
 	case domain.TiingoProviderKey:
-		return priceBasis == string(PriceBasisTiingoRawClose) && policy == string(PriceBasisTiingoRawClose)
+		return timestampBasis == string(TimestampBasisSessionClose) && priceBasis == string(PriceBasisTiingoRawClose) && policy == string(PriceBasisTiingoRawClose)
 	case domain.YahooFinanceProviderKey:
-		return priceBasis == string(PriceBasisYahooClose) && policy == string(PriceBasisYahooClose)
+		if priceBasis != string(PriceBasisYahooClose) || policy != string(PriceBasisYahooClose) {
+			return false
+		}
+		switch timestampBasis {
+		case string(TimestampBasisSessionClose), string(TimestampBasisPolicyDerived):
+			return true
+		default:
+			return false
+		}
 	default:
-		return true
+		return timestampBasis == string(TimestampBasisSessionClose)
 	}
 }
 

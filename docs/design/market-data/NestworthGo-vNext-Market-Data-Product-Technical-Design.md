@@ -280,6 +280,8 @@ vNext provider strategy:
 | US equities | User-selectable: Tiingo or Yahoo Finance |
 | China equities | Yahoo Finance |
 | Other supported equity markets | Yahoo Finance |
+| Crypto (Yahoo daily bars) | Yahoo Finance UTC daily-bar policy; Tiingo is not used |
+| Precious metals, mutual funds, bonds, and other non-equity types | Manual or existing latest-only behavior; not automatic history repair |
 | FX | Frankfurter |
 | Manual instruments | No provider |
 | Manual FX | No provider |
@@ -1537,9 +1539,14 @@ Responsibilities:
 - China equities
 - Other currently supported equity markets
 - Latest quotes
-- Historical daily prices
+- Historical daily prices for stocks and ETFs on markets with a verified session policy
+- Crypto daily bars using `yahoo_crypto_utc_daily_bar_v1` (UTC calendar date, policy-derived eligibility at the end of that UTC day; not an equity exchange close)
 
 Yahoo remains the compatibility/default provider on upgrade.
+
+Data Health and Repair All treat a Yahoo route as auto-repairable when the registered adapter advertises instrument history, the instrument type/market is supported, and a binding exists. Gaps are not labelled `unsupported_price_basis` merely because the provider is Yahoo. Unsupported types (including a display name such as Gold when the configured type is `precious_metal`) and markets without a session policy remain explicit non-repairable coverage, without inventing prices or silently switching providers.
+
+Yahoo validation stays provider-specific and fail-closed: unverified adjustment basis, adjClose-only payloads, and identity/currency mismatches do not enter canonical history.
 
 ## 27.3 Frankfurter
 
