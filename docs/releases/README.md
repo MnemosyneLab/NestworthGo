@@ -1,13 +1,19 @@
 # Release Documents
 
-The first public release is `v0.3.2` (2026-09-14). The release contract below
-is the single maintained scope and acceptance document for this line, including
-the evidence boundary for gates that were not run locally.
+The current development line is `v0.3.3` / build `4`. The release contract
+below is the single maintained scope and acceptance document for this line,
+including the evidence boundary for gates that were not run locally.
 
 ## Current release
 
-- [v0.3.2 release contract](v0.3.2.md) — runtime, product scope, backup/restore,
-  CSV portability, validation, packaging, and public-distribution gates.
+- [v0.3.3 release contract](v0.3.3.md) — runtime, product scope, Market Data
+  entry flow, validation, packaging, and distribution gates.
+
+## Published history
+
+- [v0.3.2 release contract](v0.3.2.md) — first public release, including
+  runtime, product scope, backup/restore, CSV portability, validation,
+  packaging, and public-distribution evidence.
 
 ## Historical context
 

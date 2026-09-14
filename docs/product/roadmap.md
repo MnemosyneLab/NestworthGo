@@ -6,10 +6,25 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
+## 0.3.3 — Market Data entry ergonomics
+
+Status: `In progress` (current development line, build `4`).
+
+This line carries forward the published `0.3.2` desktop capability and aligns
+manual FX entry with the instrument workflow: the action lives in the Market
+Data page header and opens the form in a side panel, keeping the FX results
+area focused on saved observations.
+
+## 0.3.2 — Historical market data and Data Health
+
+Status: `Published` on 2026-09-14. See the [release contract](../releases/v0.3.2.md).
+
+This line added provider-neutral historical market data, coverage and repair
+planning, Data Health, historical providers, and resumable snapshot rebuilds.
+
 ## 0.3.1 — Insights: Return Analysis and Asset Changes
 
-Status: `In progress` (code and automated tests for the analysis kernel and
-six Insights tabs; Wails desktop smoke and named manual gates still pending).
+Status: `Superseded` by `0.3.2`.
 
 This line carries forward the local-first Wails v3 desktop and schema `9`, and
 replaces the old Analysis dashboard with Return Analysis and Asset Changes:

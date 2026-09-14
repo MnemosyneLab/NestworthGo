@@ -1,13 +1,14 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
@@ -353,7 +354,7 @@ function SavedFXRow({
   );
 }
 
-function ManualFXQuoteForm() {
+function ManualFXQuoteForm({ onSaved }: { onSaved: () => void }) {
   const { t } = useTranslation();
   const currencies = useSupportedCurrencies();
   const appendQuote = useAppendManualFXQuote();
@@ -366,50 +367,65 @@ function ManualFXQuoteForm() {
   const selectedQuoteCurrency = quoteCurrency || options[1] || options[0] || "";
   const invalidPair = !selectedBaseCurrency || !selectedQuoteCurrency || selectedBaseCurrency === selectedQuoteCurrency;
 
-  const submit = () => {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
     if (invalidPair || !rate.trim()) return;
     appendQuote.mutate({
       baseCurrency: selectedBaseCurrency,
       quoteCurrency: selectedQuoteCurrency,
       rate: rate.trim(),
       quotedAt: effectiveDate ? new Date(`${effectiveDate}T00:00:00`).toISOString() : "",
-    });
+    }, { onSuccess: onSaved });
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("marketData.manualFXTitle")}</CardTitle>
-        <p className="text-sm text-muted-foreground">{t("marketData.manualFXDescription")}</p>
-      </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="manual-fx-base">{t("marketData.baseCurrency")}</Label>
-          <NativeSelect id="manual-fx-base" value={selectedBaseCurrency} onChange={(event) => setBaseCurrency(event.target.value)}>
-            {options.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-          </NativeSelect>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="manual-fx-quote">{t("marketData.quoteCurrency")}</Label>
-          <NativeSelect id="manual-fx-quote" value={selectedQuoteCurrency} onChange={(event) => setQuoteCurrency(event.target.value)}>
-            {options.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
-          </NativeSelect>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="manual-fx-rate">{t("marketData.rate")}</Label>
-          <Input id="manual-fx-rate" inputMode="decimal" value={rate} onChange={(event) => setRate(event.target.value)} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="manual-fx-date">{t("marketData.effectiveDate")}</Label>
-          <DatePicker id="manual-fx-date" value={effectiveDate} onChange={setEffectiveDate} />
-        </div>
-        {invalidPair && <p className="text-sm text-destructive sm:col-span-2 lg:col-span-4">{t("marketData.invalidPair")}</p>}
-        {appendQuote.isError && <p role="alert" className="text-sm text-destructive sm:col-span-2 lg:col-span-4">{displayError(appendQuote.error, t("marketData.loadError"))}</p>}
-        <Button type="button" onClick={submit} disabled={appendQuote.isPending || invalidPair || !rate.trim()} className="sm:col-span-2 lg:col-span-4 lg:justify-self-start">
-          {appendQuote.isPending ? t("common.pending") : t("marketData.saveManualFX")}
-        </Button>
-      </CardContent>
-    </Card>
+    <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="manual-fx-base">{t("marketData.baseCurrency")}</Label>
+        <NativeSelect id="manual-fx-base" value={selectedBaseCurrency} onChange={(event) => setBaseCurrency(event.target.value)}>
+          {options.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+        </NativeSelect>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="manual-fx-quote">{t("marketData.quoteCurrency")}</Label>
+        <NativeSelect id="manual-fx-quote" value={selectedQuoteCurrency} onChange={(event) => setQuoteCurrency(event.target.value)}>
+          {options.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+        </NativeSelect>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="manual-fx-rate">{t("marketData.rate")}</Label>
+        <Input id="manual-fx-rate" inputMode="decimal" value={rate} onChange={(event) => setRate(event.target.value)} />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="manual-fx-date">{t("marketData.effectiveDate")}</Label>
+        <DatePicker id="manual-fx-date" value={effectiveDate} onChange={setEffectiveDate} />
+      </div>
+      {invalidPair && <p className="text-sm text-destructive">{t("marketData.invalidPair")}</p>}
+      {appendQuote.isError && <p role="alert" className="text-sm text-destructive">{displayError(appendQuote.error, t("marketData.loadError"))}</p>}
+      <Button type="submit" disabled={appendQuote.isPending || invalidPair || !rate.trim()} className="mt-auto w-full">
+        {appendQuote.isPending ? t("common.pending") : t("marketData.saveManualFX")}
+      </Button>
+    </form>
+  );
+}
+
+function ManualFXQuoteSheet() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger className={buttonVariants({ size: "sm" })}>
+        <Plus className="size-4" aria-hidden="true" /> {t("marketData.manualFXTitle")}
+      </SheetTrigger>
+      <SheetContent>
+        <SheetHeader>
+          <SheetTitle>{t("marketData.manualFXTitle")}</SheetTitle>
+          <SheetDescription>{t("marketData.manualFXDescription")}</SheetDescription>
+        </SheetHeader>
+        <ManualFXQuoteForm onSaved={() => setOpen(false)} />
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -456,7 +472,6 @@ function SavedFXRates({
           </ul>
         </section>
       )}
-      <ManualFXQuoteForm />
     </section>
   );
 }
@@ -535,7 +550,11 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
 
   return (
     <div className="flex flex-col gap-6">
-      <PageChrome pageId="market-data" title={t("nav.marketData")} />
+      <PageChrome
+        pageId="market-data"
+        title={t("nav.marketData")}
+        actions={tab === "fx" ? <ManualFXQuoteSheet /> : undefined}
+      />
       <PageIntro
         description={t("marketData.description")}
         status={<DataHealthIndicator onOpen={onOpenDataHealth} />}

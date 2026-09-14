@@ -1,9 +1,9 @@
 # Nestworth Documentation
 
-This directory is the maintained documentation surface for release `0.3.2`.
-It describes the current Wails v3 application and its product contracts; it
-does not preserve obsolete implementation branches or visual prototype
-bundles.
+This directory is the maintained documentation surface for the current
+development line `0.3.3`. It describes the current Wails v3 application and
+its product contracts; it does not preserve obsolete implementation branches
+or visual prototype bundles.
 
 ## Documentation map
 
@@ -25,7 +25,7 @@ bundles.
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
-| Release | [v0.3.2 Contract](releases/v0.3.2.md) | Scope, acceptance, and release gates for the current line |
+| Release | [v0.3.3 Contract](releases/v0.3.3.md) | Scope, acceptance, and release gates for the current line |
 
 ## Source of truth
 

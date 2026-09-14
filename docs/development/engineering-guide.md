@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-Nestworth `0.3.1` is a Go 1.26 module with a Wails v3 desktop shell and a
+Nestworth `0.3.3` is a Go 1.26 module with a Wails v3 desktop shell and a
 React + TypeScript frontend. The Go domain and application layers own
 financial validation, persistence, valuation, replay, cost basis, gains, and
 provider routing. The frontend owns presentation, interaction state,
@@ -12,7 +12,7 @@ localization, accessibility, and chart rendering.
 
 - Go 1.26 or newer;
 - Node.js with pnpm;
-- Wails CLI `v3.0.0-beta.19`;
+- Wails CLI `v3.0.0-beta.21`;
 - macOS on Apple Silicon for the primary desktop and packaging target.
 - Linux compile of `./cmd/nestworth` also needs `gcc`, `pkg-config`,
   `libgtk-4-dev`, `libwebkitgtk-6.0-dev`, and `libsoup-3.0-dev`.
@@ -40,9 +40,9 @@ expected binding file is missing.
 Run the normal automated checks with a writable cache:
 
 ```bash
-GOCACHE=/tmp/nestworth-go-0.3.1 go test ./...
-GOCACHE=/tmp/nestworth-go-0.3.1 go test -race ./...
-GOCACHE=/tmp/nestworth-go-0.3.1 go vet ./...
+GOCACHE=/tmp/nestworth-go-0.3.3 go test ./...
+GOCACHE=/tmp/nestworth-go-0.3.3 go test -race ./...
+GOCACHE=/tmp/nestworth-go-0.3.3 go vet ./...
 gofmt -l cmd internal
 go build ./cmd/nestworth
 cd frontend && pnpm run lint && pnpm run typecheck && pnpm run test
@@ -64,7 +64,7 @@ wails3 task package:release
 ```
 
 The expected output is `dist/macos/Nestworth.app` and
-`dist/macos/Nestworth-0.3.1-arm64.dmg`. Use isolated database and settings
+`dist/macos/Nestworth-0.3.3-arm64.dmg`. Use isolated database and settings
 paths for a launch smoke; never point tests at real financial data.
 
 ## Repository layout
@@ -137,8 +137,8 @@ GitHub Actions workflow `.github/workflows/check.yml` runs the same automated
 gates on `main` and pull requests: gofmt, `go test ./...`, a separate race job,
 vet, `go build ./cmd/nestworth`, frontend build/lint/typecheck/test, and
 `git diff --check`. Native `.app`/DMG packaging, signing, and notarization stay
-manual. Wails v3 is pinned at `v3.0.0-beta.19` (`@wailsio/runtime` at
-`3.0.0-beta.19`); upgrade those versions only in a dedicated change.
+manual. Wails v3 is pinned at `v3.0.0-beta.21` (`@wailsio/runtime` at
+`3.0.0-beta.21`); upgrade those versions only in a dedicated change.
 
 ## Documentation and change gate
 
@@ -147,8 +147,8 @@ changes. Maintained documentation is English. Before committing:
 
 ```bash
 gofmt -l cmd internal
-GOCACHE=/tmp/nestworth-go-0.3.1 go test ./...
-GOCACHE=/tmp/nestworth-go-0.3.1 go vet ./...
+GOCACHE=/tmp/nestworth-go-0.3.3 go test ./...
+GOCACHE=/tmp/nestworth-go-0.3.3 go vet ./...
 go build ./cmd/nestworth
 git diff --check
 ```

@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-Nestworth `0.3.1` is a local-first desktop application with a Wails v3 shell
+Nestworth `0.3.3` is a local-first desktop application with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
 provides typed domain contracts, SQLite bootstrap with current schema `10`
 (migrating schema `9` locally; schemas `6`–`8` remain blocked),

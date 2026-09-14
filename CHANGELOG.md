@@ -2,6 +2,21 @@
 
 All notable changes to Nestworth are recorded here.
 
+## [0.3.3] — Unreleased
+
+### Changed
+
+- Advanced synchronized application metadata to `v0.3.3` / build `4`.
+- Moved manual FX entry from the Market Data page body into a top-level
+  action that opens the form in a side panel, matching instrument creation.
+- Upgraded the Wails v3 Go module, runtime, bindings fallback, and local CLI to
+  `v3.0.0-beta.21`.
+
+### Verification
+
+- Release checks and remaining native/distribution gates are recorded in the
+  [v0.3.3 release contract](docs/releases/v0.3.3.md).
+
 ## [0.3.2] — 2026-09-14
 
 ### Added

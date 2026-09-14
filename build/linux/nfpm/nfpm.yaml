@@ -6,7 +6,7 @@
 name: "nestworth"
 arch: ${GOARCH}
 platform: "linux"
-version: "0.3.2"
+version: "0.3.3"
 section: "default"
 priority: "extra"
 maintainer: ${GIT_COMMITTER_NAME} <${GIT_COMMITTER_EMAIL}>
@@ -14,7 +14,7 @@ description: "A local-first personal finance desktop application for building an
 vendor: "Nestworth"
 homepage: "https://wails.io"
 license: "MIT"
-release: "3"
+release: "4"
 
 contents:
   - src: "./bin/nestworth"

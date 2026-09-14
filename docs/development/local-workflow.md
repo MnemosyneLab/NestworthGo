@@ -8,7 +8,7 @@ cross-compilation tasks for other platforms.
 
 - Go 1.26 or newer;
 - Node.js with pnpm;
-- Wails CLI `v3.0.0-beta.19` available as `wails3`;
+- Wails CLI `v3.0.0-beta.21` available as `wails3`;
 - macOS and Xcode command-line tools for native `.app` and `.dmg` packaging.
 - Linux additionally needs GCC, pkg-config, and Wails GTK/WebKit headers to
   compile `./cmd/nestworth`:
@@ -130,7 +130,7 @@ Use the root tasks for the normal arm64 flow:
 | `wails3 task build` | `bin/nestworth` | Production Go binary with embedded frontend |
 | `wails3 task package` | `bin/Nestworth.app` | Ad-hoc signed local `.app` bundle |
 | `wails3 task package:dmg` | `bin/Nestworth.dmg` | UDZO DMG with an Applications shortcut |
-| `wails3 task package:release` | `dist/macos/Nestworth.app` and `dist/macos/Nestworth-0.3.2-arm64.dmg` | Copies and verifies release-shaped local artifacts |
+| `wails3 task package:release` | `dist/macos/Nestworth.app` and `dist/macos/Nestworth-0.3.3-arm64.dmg` | Copies and verifies release-shaped local artifacts |
 
 The release task is the recommended local packaging smoke test:
 

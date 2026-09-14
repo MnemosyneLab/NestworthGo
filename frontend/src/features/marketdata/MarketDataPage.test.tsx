@@ -237,12 +237,15 @@ describe("MarketDataPage", () => {
     });
     renderPage();
     await userEvent.click(await screen.findByRole("tab", { name: "FX rates" }));
+    expect(screen.queryByLabelText("Base currency")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add manual FX quote" }));
     await waitFor(() => expect(screen.getByLabelText("Base currency")).toHaveValue("USD"));
     await userEvent.selectOptions(screen.getByLabelText("Base currency"), "SGD");
     await userEvent.selectOptions(screen.getByLabelText("Quote currency"), "USD");
     await userEvent.type(screen.getByLabelText("Rate"), "1.25");
     await userEvent.click(screen.getByRole("button", { name: "Save manual FX quote" }));
-    expect(appendManualFXQuote).toHaveBeenCalledWith("SGD", "USD", "1.25", "");
+    await waitFor(() => expect(appendManualFXQuote).toHaveBeenCalledWith("SGD", "USD", "1.25", ""));
+    expect(screen.queryByLabelText("Base currency")).not.toBeInTheDocument();
   });
 
   it("groups saved data as FX then instrument type, sorted by currency", async () => {
