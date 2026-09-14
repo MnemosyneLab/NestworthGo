@@ -26,6 +26,17 @@ pnpm --version
 wails3 version
 ```
 
+On macOS 27/Xcode 26, set `SDKROOT` to the Xcode macOS SDK for native Go
+linking if the default Command Line Tools SDK reports an unknown
+`arm64e.x1-macos` architecture:
+
+```bash
+export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+```
+
+Keep this in the shell used for `wails3 task check`, `wails3 task build`, and
+`wails3 task package:release`.
+
 ## First-time setup
 
 After cloning the repository or switching to a clean checkout, run:
@@ -119,7 +130,7 @@ Use the root tasks for the normal arm64 flow:
 | `wails3 task build` | `bin/nestworth` | Production Go binary with embedded frontend |
 | `wails3 task package` | `bin/Nestworth.app` | Ad-hoc signed local `.app` bundle |
 | `wails3 task package:dmg` | `bin/Nestworth.dmg` | UDZO DMG with an Applications shortcut |
-| `wails3 task package:release` | `dist/macos/Nestworth.app` and `dist/macos/Nestworth-0.3.1-arm64.dmg` | Copies and verifies release-shaped local artifacts |
+| `wails3 task package:release` | `dist/macos/Nestworth.app` and `dist/macos/Nestworth-0.3.2-arm64.dmg` | Copies and verifies release-shaped local artifacts |
 
 The release task is the recommended local packaging smoke test:
 

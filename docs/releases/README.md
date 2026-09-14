@@ -1,7 +1,8 @@
 # Release Documents
 
-The current release line is `0.3.2`. The release contract below is the single
-maintained scope and acceptance document for this line.
+The first public release is `v0.3.2` (2026-09-14). The release contract below
+is the single maintained scope and acceptance document for this line, including
+the evidence boundary for gates that were not run locally.
 
 ## Current release
 

@@ -1,19 +1,34 @@
 # Changelog
 
-All notable changes to Nestworth are recorded here. The project has not
-published a public distribution yet.
+All notable changes to Nestworth are recorded here.
 
-## [0.3.2] — Unreleased
+## [0.3.2] — 2026-09-14
+
+### Added
+
+- Added provider-neutral historical market data with coverage/day-status
+  tracking, correction-safe observations, resumable repair, and historical
+  snapshot rebuilds.
+- Added the unified Market Data workflow and Data Health center, including
+  local gap detection, repair planning, progress, cancellation, and explicit
+  incomplete-data states.
+- Added historical provider support for Tiingo, Yahoo instrument data, and
+  Frankfurter FX data, with deterministic fixtures and fail-closed persistence
+  for malformed or unsupported responses.
 
 ### Changed
 
 - Advanced synchronized application metadata to `v0.3.2` / build `3`.
+- Extended valuation, analytics, settings, Wails services, and frontend query
+  invalidation to consume historical market-data coverage and repair state.
 
 ### Verification
 
-- The previous `0.3.1` capability and validation scope carry forward.
-- Wails desktop smoke, real-household review, keyboard/accessibility,
-  signing, and notarization remain named unexecuted gates.
+- The v0.3.2 automated and local packaging evidence is recorded in the
+  [release contract](docs/releases/v0.3.2.md).
+- Native Wails desktop smoke, real-provider HTTP checks, Apple M3 Pro
+  performance, keyboard/accessibility review, Developer ID signing, and
+  notarization remain explicitly reported gates for this first publication.
 
 ## [0.3.1] — Unreleased
 
