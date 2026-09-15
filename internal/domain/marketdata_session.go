@@ -37,8 +37,10 @@ const (
 	FrankfurterV2BlendedPolicy   = "frankfurter-v2-blended-v1"
 	TiingoRawClosePriceBasis     = "tiingo_raw_close_v1"
 	YahooRawClosePriceBasis      = "yahoo_close_v1"
+	WorkerRawClosePriceBasis     = "worker_yahoo_close_v1"
 	TiingoProviderKey            = "tiingo"
 	YahooFinanceProviderKey      = "yahoo_finance"
+	WorkerProviderKey            = "worker"
 	FrankfurterProviderKey       = "frankfurter"
 	YahooCryptoUTCDailyBarPolicy = "yahoo_crypto_utc_daily_bar_v1"
 )

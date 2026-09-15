@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service as SettingsService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings";
-import type { SettingsDTO as Settings, TiingoKeyStatusDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
+import type { SettingsDTO as Settings, TiingoKeyStatusDTO, WorkerTokenStatusDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 
@@ -86,6 +86,30 @@ export function useDeleteTiingoAPIKey() {
     mutationFn: () => callService(() => SettingsService.DeleteTiingoAPIKey()),
     onSuccess: (status) => queryClient.setQueryData(queryKeys.settings.tiingoKey, status),
   });
+}
+
+export function useWorkerTokenStatus() {
+	return useQuery({
+		queryKey: queryKeys.settings.workerToken,
+		queryFn: () => callService(() => SettingsService.WorkerTokenStatus()),
+		staleTime: 30_000,
+	});
+}
+
+export function useSaveWorkerAPIToken() {
+	const queryClient = useQueryClient();
+	return useMutation<WorkerTokenStatusDTO, Error, string>({
+		mutationFn: (value) => callService(() => SettingsService.SaveWorkerAPIToken(value)),
+		onSuccess: (status) => queryClient.setQueryData(queryKeys.settings.workerToken, status),
+	});
+}
+
+export function useDeleteWorkerAPIToken() {
+	const queryClient = useQueryClient();
+	return useMutation<WorkerTokenStatusDTO, Error, void>({
+		mutationFn: () => callService(() => SettingsService.DeleteWorkerAPIToken()),
+		onSuccess: (status) => queryClient.setQueryData(queryKeys.settings.workerToken, status),
+	});
 }
 
 export type QuoteCacheTTL = "1h" | "3h" | "12h" | "24h";

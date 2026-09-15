@@ -126,6 +126,13 @@ func run() error {
 					}
 					return current.TiingoAPIKey, nil
 				}, nil),
+				marketdata.NewWorkerProvider(func() (marketdata.WorkerConfig, error) {
+					current, err := store.Load()
+					if err != nil {
+						return marketdata.WorkerConfig{}, err
+					}
+					return marketdata.WorkerConfig{BaseURL: current.WorkerBaseURL, APIToken: current.WorkerAPIToken}, nil
+				}, nil),
 			)
 			repo := sqlite.NewRepository(database)
 			service = nestworthapp.NewService(repo, registry)

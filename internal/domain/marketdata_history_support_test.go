@@ -22,6 +22,10 @@ func TestResolveInstrumentHistorySupportUsesTypeAndMarketNotProviderName(t *test
 	if cnYahoo.Status != InstrumentRouteOK {
 		t.Fatalf("CN Yahoo stock = %+v", cnYahoo)
 	}
+	workerCrypto := ResolveInstrumentHistorySupport("crypto", "US", WorkerProviderKey)
+	if workerCrypto.Status != InstrumentRouteOK || workerCrypto.ProviderKey != WorkerProviderKey {
+		t.Fatalf("Worker crypto = %+v", workerCrypto)
+	}
 	cryptoYahoo := ResolveInstrumentHistorySupport("crypto", "US", YahooFinanceProviderKey)
 	if cryptoYahoo.Status != InstrumentRouteOK {
 		t.Fatalf("Yahoo crypto should use UTC daily bars even when market is US: %+v", cryptoYahoo)

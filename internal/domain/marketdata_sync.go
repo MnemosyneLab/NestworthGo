@@ -38,7 +38,7 @@ func ResolveInstrumentRoute(market, preferredProvider, providerSymbol string) In
 				return InstrumentRoute{Status: InstrumentRouteBindingMissing, Reason: "binding_missing"}
 			}
 			return InstrumentRoute{ProviderKey: YahooFinanceProviderKey, Status: InstrumentRouteOK}
-		case YahooFinanceProviderKey, TiingoProviderKey:
+		case YahooFinanceProviderKey, TiingoProviderKey, WorkerProviderKey:
 			if providerSymbol == "" {
 				return InstrumentRoute{ProviderKey: preferredProvider, Status: InstrumentRouteBindingMissing, Reason: "binding_missing"}
 			}
@@ -50,13 +50,13 @@ func ResolveInstrumentRoute(market, preferredProvider, providerSymbol string) In
 	if preferredProvider == TiingoProviderKey {
 		return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "tiingo_us_listed_only"}
 	}
-	if preferredProvider != "" && preferredProvider != YahooFinanceProviderKey {
+	if preferredProvider != "" && preferredProvider != YahooFinanceProviderKey && preferredProvider != WorkerProviderKey {
 		return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "provider_not_selectable"}
 	}
 	if providerSymbol == "" || preferredProvider == "" {
 		return InstrumentRoute{ProviderKey: YahooFinanceProviderKey, Status: InstrumentRouteBindingMissing, Reason: "binding_missing"}
 	}
-	return InstrumentRoute{ProviderKey: YahooFinanceProviderKey, Status: InstrumentRouteOK}
+	return InstrumentRoute{ProviderKey: preferredProvider, Status: InstrumentRouteOK}
 }
 
 func LastNInclusiveDates(end string, n int) ([]string, error) {

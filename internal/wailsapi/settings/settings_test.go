@@ -31,7 +31,7 @@ func defaultDTO() settings.SettingsDTO {
 		DateFormat: value.DateFormat, TimeFormat: value.TimeFormat, Currency: value.Currency,
 		DecimalSeparator: value.DecimalSeparator, GroupingSeparator: value.GroupingSeparator,
 		DecimalPlaces: value.DecimalPlaces, WindowWidth: value.WindowWidth, WindowHeight: value.WindowHeight,
-		FXProvider: value.FXProvider, QuoteCacheTTL: value.QuoteCacheTTL,
+		FXProvider: value.FXProvider, QuoteCacheTTL: value.QuoteCacheTTL, WorkerBaseURL: value.WorkerBaseURL,
 	}
 }
 
@@ -164,7 +164,7 @@ func TestSettingsDTOUsesCamelCaseWireKeys(t *testing.T) {
 		t.Fatal(err)
 	}
 	encoded := string(payload)
-	for _, key := range []string{"schemaVersion", "weekStart", "dateFormat", "fxProvider", "quoteCacheTTL"} {
+	for _, key := range []string{"schemaVersion", "weekStart", "dateFormat", "fxProvider", "quoteCacheTTL", "workerBaseURL"} {
 		if !strings.Contains(encoded, `"`+key+`"`) {
 			t.Fatalf("payload = %s, missing camelCase key %q", encoded, key)
 		}
@@ -238,5 +238,47 @@ func TestGeneralSettingsSaveAndResetPreserveTiingoKey(t *testing.T) {
 	loaded, err = store.Load()
 	if err != nil || loaded.TiingoAPIKey != "keep-me" {
 		t.Fatalf("key after Reset = %q, err = %v", loaded.TiingoAPIKey, err)
+	}
+}
+
+func TestWorkerTokenConfigurationPersistsWithoutReturningTheSecret(t *testing.T) {
+	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	service := settings.NewService(store, nil)
+
+	missing, err := service.WorkerTokenStatus()
+	if err != nil || missing.Configured {
+		t.Fatalf("WorkerTokenStatus before save = %+v, err = %v", missing, err)
+	}
+	saved, err := service.SaveWorkerAPIToken("  worker-secret  ")
+	if err != nil || !saved.Configured {
+		t.Fatalf("SaveWorkerAPIToken = %+v, err = %v", saved, err)
+	}
+	encoded, err := json.Marshal(saved)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(encoded), "worker-secret") {
+		t.Fatal("Worker token leaked through the status DTO")
+	}
+	loaded, err := store.Load()
+	if err != nil || loaded.WorkerAPIToken != "worker-secret" {
+		t.Fatalf("settings token = %q, err = %v", loaded.WorkerAPIToken, err)
+	}
+
+	updated := defaultDTO()
+	updated.WorkerBaseURL = "https://worker.example"
+	if err := service.Save(updated); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	loaded, err = store.Load()
+	if err != nil || loaded.WorkerBaseURL != updated.WorkerBaseURL || loaded.WorkerAPIToken != "worker-secret" {
+		t.Fatalf("settings after Save = %+v, err = %v", loaded, err)
+	}
+	if _, err := service.Reset(); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	loaded, err = store.Load()
+	if err != nil || loaded.WorkerAPIToken != "worker-secret" || loaded.WorkerBaseURL != "" {
+		t.Fatalf("settings after Reset = %+v, err = %v", loaded, err)
 	}
 }

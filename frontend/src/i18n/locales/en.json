@@ -809,6 +809,7 @@
     "provider": {
       "frankfurter": "Frankfurter",
       "tiingo": "Tiingo",
+      "worker": "Nestworth Worker",
       "yahoo": "Yahoo Finance",
       "yahoo_finance": "Yahoo Finance"
     },

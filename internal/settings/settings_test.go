@@ -27,6 +27,8 @@ func TestStoreRoundTripUsesPrivateAtomicFile(t *testing.T) {
 	want.DecimalPlaces = 4
 	want.FXProvider = FXProviderFrankfurter
 	want.TiingoAPIKey = "test-key"
+	want.WorkerBaseURL = "https://worker.example/market"
+	want.WorkerAPIToken = "worker-token"
 
 	if err := store.Save(want); err != nil {
 		t.Fatalf("Save() error = %v", err)
@@ -154,6 +156,18 @@ func TestValidateRejectsUnsupportedCurrencyAndSeparatorCollision(t *testing.T) {
 	value.FXProvider = "yahoo_finance"
 	if err := value.Validate(); err == nil {
 		t.Fatal("Validate() error = nil for removed Yahoo FX provider")
+	}
+
+	value = Default()
+	value.WorkerBaseURL = "worker.example"
+	if err := value.Validate(); err == nil {
+		t.Fatal("Validate() error = nil for relative Worker URL")
+	}
+
+	value = Default()
+	value.WorkerBaseURL = "https://user:secret@worker.example"
+	if err := value.Validate(); err == nil {
+		t.Fatal("Validate() error = nil for credential-bearing Worker URL")
 	}
 }
 

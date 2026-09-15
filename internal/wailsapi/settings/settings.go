@@ -40,11 +40,18 @@ type SettingsDTO struct {
 	WindowHeight      float32             `json:"windowHeight"`
 	FXProvider        string              `json:"fxProvider"`
 	QuoteCacheTTL     string              `json:"quoteCacheTTL"`
+	WorkerBaseURL     string              `json:"workerBaseURL"`
 }
 
 // TiingoKeyStatusDTO exposes only whether a locally configured key exists. The
 // key itself never crosses the Wails boundary.
 type TiingoKeyStatusDTO struct {
+	Configured bool `json:"configured"`
+}
+
+// WorkerTokenStatusDTO exposes only whether the local Worker token exists.
+// The token itself never crosses the Wails boundary.
+type WorkerTokenStatusDTO struct {
 	Configured bool `json:"configured"`
 }
 
@@ -55,7 +62,7 @@ func fromSettings(value settings.Settings) SettingsDTO {
 		DateFormat: value.DateFormat, TimeFormat: value.TimeFormat, Currency: value.Currency,
 		DecimalSeparator: value.DecimalSeparator, GroupingSeparator: value.GroupingSeparator,
 		DecimalPlaces: value.DecimalPlaces, WindowWidth: value.WindowWidth, WindowHeight: value.WindowHeight,
-		FXProvider: value.FXProvider, QuoteCacheTTL: value.QuoteCacheTTL,
+		FXProvider: value.FXProvider, QuoteCacheTTL: value.QuoteCacheTTL, WorkerBaseURL: value.WorkerBaseURL,
 	}
 }
 
@@ -66,7 +73,7 @@ func (value SettingsDTO) toSettings() settings.Settings {
 		DateFormat: value.DateFormat, TimeFormat: value.TimeFormat, Currency: value.Currency,
 		DecimalSeparator: value.DecimalSeparator, GroupingSeparator: value.GroupingSeparator,
 		DecimalPlaces: value.DecimalPlaces, WindowWidth: value.WindowWidth, WindowHeight: value.WindowHeight,
-		FXProvider: value.FXProvider, QuoteCacheTTL: value.QuoteCacheTTL,
+		FXProvider: value.FXProvider, QuoteCacheTTL: value.QuoteCacheTTL, WorkerBaseURL: value.WorkerBaseURL,
 	}
 }
 
@@ -94,8 +101,32 @@ func (s *Service) DeleteTiingoAPIKey() (TiingoKeyStatusDTO, error) {
 	return s.updateTiingoAPIKey("")
 }
 
+func (s *Service) WorkerTokenStatus() (WorkerTokenStatusDTO, error) {
+	value, err := s.store.Load()
+	if err != nil {
+		return WorkerTokenStatusDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "Worker token status could not be read"})
+	}
+	return workerTokenStatus(value.WorkerAPIToken), nil
+}
+
+func (s *Service) SaveWorkerAPIToken(value string) (WorkerTokenStatusDTO, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return WorkerTokenStatusDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrValidation, Field: "worker_api_token", Message: "Worker API token is required"})
+	}
+	return s.updateWorkerAPIToken(value)
+}
+
+func (s *Service) DeleteWorkerAPIToken() (WorkerTokenStatusDTO, error) {
+	return s.updateWorkerAPIToken("")
+}
+
 func tiingoKeyStatus(value string) TiingoKeyStatusDTO {
 	return TiingoKeyStatusDTO{Configured: strings.TrimSpace(value) != ""}
+}
+
+func workerTokenStatus(value string) WorkerTokenStatusDTO {
+	return WorkerTokenStatusDTO{Configured: strings.TrimSpace(value) != ""}
 }
 
 func (s *Service) updateTiingoAPIKey(value string) (TiingoKeyStatusDTO, error) {
@@ -120,6 +151,30 @@ func (s *Service) updateTiingoAPIKey(value string) (TiingoKeyStatusDTO, error) {
 		return TiingoKeyStatusDTO{}, apierror.Wrap(err)
 	}
 	return tiingoKeyStatus(value), nil
+}
+
+func (s *Service) updateWorkerAPIToken(value string) (WorkerTokenStatusDTO, error) {
+	persist := func() error {
+		current, err := s.store.Load()
+		if err != nil {
+			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be loaded"}
+		}
+		current.WorkerAPIToken = value
+		if err := s.store.Save(current); err != nil {
+			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"}
+		}
+		return nil
+	}
+	var err error
+	if s.app == nil {
+		err = persist()
+	} else {
+		err = s.app.WithWrite(context.Background(), func(context.Context) error { return persist() })
+	}
+	if err != nil {
+		return WorkerTokenStatusDTO{}, apierror.Wrap(err)
+	}
+	return workerTokenStatus(value), nil
 }
 
 // Load returns the persisted preferences, or internal/settings' documented
@@ -158,9 +213,10 @@ func (s *Service) Save(value SettingsDTO) error {
 			s.app.SetQuoteCacheTTL(persisted.QuoteCacheTTLDuration())
 			s.app.SetUILanguage(string(persisted.Language))
 		}
-		// SettingsDTO deliberately omits the API key. General preference saves
-		// must preserve the separately managed key instead of clearing it.
+		// SettingsDTO deliberately omits provider secrets. General preference
+		// saves must preserve separately managed credentials instead of clearing them.
 		persisted.TiingoAPIKey = current.TiingoAPIKey
+		persisted.WorkerAPIToken = current.WorkerAPIToken
 		if err := s.store.Save(persisted); err != nil {
 			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"}
 		}
@@ -178,6 +234,11 @@ func (s *Service) Save(value SettingsDTO) error {
 // delegation performed by Save.
 func (s *Service) Reset() (SettingsDTO, error) {
 	defaults := settings.Default()
+	current, err := s.store.Load()
+	if err == nil {
+		defaults.TiingoAPIKey = current.TiingoAPIKey
+		defaults.WorkerAPIToken = current.WorkerAPIToken
+	}
 	if err := s.Save(fromSettings(defaults)); err != nil {
 		return SettingsDTO{}, err
 	}

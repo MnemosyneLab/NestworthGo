@@ -13,6 +13,10 @@ export function DeleteTiingoAPIKey(): $CancellablePromise<$models.TiingoKeyStatu
     return $Call.ByID(2287834341);
 }
 
+export function DeleteWorkerAPIToken(): $CancellablePromise<$models.WorkerTokenStatusDTO> {
+    return $Call.ByID(3907537255);
+}
+
 /**
  * FXProviders returns only registered providers that advertise latest-FX
  * support. Settings can therefore render the same closed list the
@@ -48,6 +52,10 @@ export function SaveTiingoAPIKey(value: string): $CancellablePromise<$models.Tii
     return $Call.ByID(452299787, value);
 }
 
+export function SaveWorkerAPIToken(value: string): $CancellablePromise<$models.WorkerTokenStatusDTO> {
+    return $Call.ByID(699901789, value);
+}
+
 /**
  * SupportedCurrencies returns the closed currency catalog from domain.
  */
@@ -57,4 +65,8 @@ export function SupportedCurrencies(): $CancellablePromise<string[] | null> {
 
 export function TiingoKeyStatus(): $CancellablePromise<$models.TiingoKeyStatusDTO> {
     return $Call.ByID(152636482);
+}
+
+export function WorkerTokenStatus(): $CancellablePromise<$models.WorkerTokenStatusDTO> {
+    return $Call.ByID(1929683320);
 }

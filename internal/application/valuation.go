@@ -843,6 +843,16 @@ func historicalInstrumentQualityMatches(quote domain.InstrumentQuote) bool {
 		default:
 			return false
 		}
+	case domain.WorkerProviderKey:
+		if priceBasis != string(PriceBasisWorkerYahooClose) || policy != string(PriceBasisWorkerYahooClose) {
+			return false
+		}
+		switch timestampBasis {
+		case string(TimestampBasisSessionClose), string(TimestampBasisPolicyDerived):
+			return true
+		default:
+			return false
+		}
 	default:
 		return timestampBasis == string(TimestampBasisSessionClose)
 	}

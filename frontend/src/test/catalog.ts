@@ -8,7 +8,7 @@ export const TEST_CATALOG: CatalogDTO = {
   instrumentTypes: ["stock", "etf"],
   institutionTypes: ["bank", "brokerage", "insurer", "exchange", "employer", "government", "other"],
   quoteSources: ["manual", "provider"],
-  instrumentProviders: ["yahoo_finance"],
+  instrumentProviders: ["yahoo_finance", "worker"],
   instrumentCountryCodes: ["AU", "CN", "EU", "GB", "HK", "JP", "SG", "TW", "US", "KR", "CH"],
   instrumentMarketCodes: ["ASX", "SSE", "SZSE", "BSE", "EURONEXT", "XETRA", "LSE", "HKEX", "TSE", "SGX", "TWSE", "NASDAQ", "NYSE", "AMEX", "KRX", "SIX"],
   accountTypes: ["cash_on_hand", "bank_account", "brokerage", "credit_card", "other"],

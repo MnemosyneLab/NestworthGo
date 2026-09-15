@@ -17,6 +17,11 @@
 !/frontend/dist/.gitkeep
 /frontend/.bindings-tmp*
 
+# Cloudflare Worker local state and secrets
+/worker/node_modules/
+/worker/.wrangler/
+/worker/.dev.vars
+
 # Go tooling
 *.test
 coverage.out

@@ -1,0 +1,23 @@
+{
+  "name": "nestworth-market-worker",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Authenticated Cloudflare Worker proxy for Nestworth market data",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "hono": "^4.9.10",
+    "yahoo-finance2": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260911.1",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "wrangler": "^4.30.0"
+  }
+}

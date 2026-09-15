@@ -40,5 +40,6 @@
   "timezone": "settings.language.timezone",
   "trackingMode": "accounts.trackingMode",
   "unitCost": "error.field.unitCost",
-  "unitPrice": "error.field.unitPrice"
+  "unitPrice": "error.field.unitPrice",
+  "worker_api_token": "settings.providers.title"
 }

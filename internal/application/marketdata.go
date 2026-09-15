@@ -17,15 +17,20 @@ const YahooFinanceProviderKey = "yahoo_finance"
 const FrankfurterProviderKey = "frankfurter"
 
 // TiingoProviderKey identifies the US-listed equity provider. It is part of
-// InstrumentProviderKeys so US bindings can select Tiingo or Yahoo.
+// InstrumentProviderKeys so bindings can select Tiingo or Yahoo.
 const TiingoProviderKey = "tiingo"
+
+// WorkerProviderKey identifies the authenticated Cloudflare Worker proxy for
+// Yahoo Finance. It is a separate selectable provider, not a replacement for
+// the native Yahoo adapter.
+const WorkerProviderKey = "worker"
 
 // InstrumentProviderKeys is the closed catalog of provider keys that can
 // bind an Instrument's quote source. Frankfurter is FX-only and is not
-// included. US instruments may use Yahoo or Tiingo; other markets stay
-// Yahoo-only at routing time.
+// included. Worker is an explicit proxy route and does not replace the native
+// Yahoo or Tiingo adapters.
 func InstrumentProviderKeys() []string {
-	return []string{YahooFinanceProviderKey, TiingoProviderKey}
+	return []string{YahooFinanceProviderKey, TiingoProviderKey, WorkerProviderKey}
 }
 
 // MarketDataCapabilities describes the deliberately small provider surface.

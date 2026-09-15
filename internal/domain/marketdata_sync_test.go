@@ -14,6 +14,10 @@ func TestResolveInstrumentRouteUSSelectableAndNoFallback(t *testing.T) {
 	if usTiingo.Status != InstrumentRouteOK || usTiingo.ProviderKey != TiingoProviderKey {
 		t.Fatalf("US Tiingo = %+v", usTiingo)
 	}
+	worker := ResolveInstrumentRoute("SG", WorkerProviderKey, "D05.SI")
+	if worker.Status != InstrumentRouteOK || worker.ProviderKey != WorkerProviderKey {
+		t.Fatalf("SG Worker = %+v", worker)
+	}
 	usDefault := ResolveInstrumentRoute("US", "", "AAPL")
 	if usDefault.Status != InstrumentRouteOK || usDefault.ProviderKey != YahooFinanceProviderKey {
 		t.Fatalf("US default = %+v, want Yahoo upgrade default", usDefault)

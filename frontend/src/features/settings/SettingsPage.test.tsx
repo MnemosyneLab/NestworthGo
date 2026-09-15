@@ -12,6 +12,9 @@ const historyOrigin = vi.fn();
 const tiingoKeyStatus = vi.fn();
 const saveTiingoAPIKey = vi.fn();
 const deleteTiingoAPIKey = vi.fn();
+const workerTokenStatus = vi.fn();
+const saveWorkerAPIToken = vi.fn();
+const deleteWorkerAPIToken = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: {
@@ -23,6 +26,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
     TiingoKeyStatus: () => tiingoKeyStatus(),
     SaveTiingoAPIKey: (...args: unknown[]) => saveTiingoAPIKey(...args),
     DeleteTiingoAPIKey: () => deleteTiingoAPIKey(),
+    WorkerTokenStatus: () => workerTokenStatus(),
+    SaveWorkerAPIToken: (...args: unknown[]) => saveWorkerAPIToken(...args),
+    DeleteWorkerAPIToken: () => deleteWorkerAPIToken(),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
@@ -80,6 +86,7 @@ const defaultSettings = {
   windowWidth: 1100,
   windowHeight: 720,
   fxProvider: "frankfurter",
+  workerBaseURL: "",
 };
 
 beforeEach(() => {
@@ -90,11 +97,17 @@ beforeEach(() => {
   tiingoKeyStatus.mockReset();
   saveTiingoAPIKey.mockReset();
   deleteTiingoAPIKey.mockReset();
+  workerTokenStatus.mockReset();
+  saveWorkerAPIToken.mockReset();
+  deleteWorkerAPIToken.mockReset();
   load.mockResolvedValue(defaultSettings);
   historyOrigin.mockResolvedValue(null);
   tiingoKeyStatus.mockResolvedValue({ configured: false });
   saveTiingoAPIKey.mockResolvedValue({ configured: true });
   deleteTiingoAPIKey.mockResolvedValue({ configured: false });
+  workerTokenStatus.mockResolvedValue({ configured: false });
+  saveWorkerAPIToken.mockResolvedValue({ configured: true });
+  deleteWorkerAPIToken.mockResolvedValue({ configured: false });
 });
 
 describe("SettingsPage", () => {
@@ -153,6 +166,18 @@ describe("SettingsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Asia/Shanghai", fxProvider: "frankfurter" }));
+  });
+
+  it("saves the Worker URL and token through their separate settings controls", async () => {
+    renderPage();
+    await screen.findByRole("form", { name: "Settings" });
+    await userEvent.type(screen.getByLabelText("Nestworth Worker URL"), "https://worker.example");
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(save).toHaveBeenCalledWith(expect.objectContaining({ workerBaseURL: "https://worker.example" }));
+
+    await userEvent.type(screen.getByLabelText("Nestworth Worker token"), "worker-secret");
+    await userEvent.click(screen.getByRole("button", { name: "Save token" }));
+    expect(saveWorkerAPIToken).toHaveBeenCalledWith("worker-secret");
   });
 
   it("notes when Settings presentation timezone differs from History Origin", async () => {
