@@ -625,18 +625,44 @@ func FromHoldings(values []domain.Holding) []HoldingDTO {
 
 // AccountCashValueDTO mirrors domain.AccountCashValue.
 type AccountCashValueDTO struct {
-	ID          string    `json:"id"`
-	AccountID   string    `json:"accountId"`
-	Amount      MoneyView `json:"amount"`
-	EffectiveAt string    `json:"effectiveAt"`
-	CreatedAt   string    `json:"createdAt"`
+	ID               string           `json:"id"`
+	AccountID        string           `json:"accountId"`
+	Amount           MoneyView        `json:"amount"`
+	EffectiveAt      string           `json:"effectiveAt"`
+	CreatedAt        string           `json:"createdAt"`
+	ObservationKind  string           `json:"observationKind"`
+	ActivityID       *string          `json:"activityId,omitempty"`
+	ActivityEffectID *string          `json:"activityEffectId,omitempty"`
+	ActivityKind     *string          `json:"activityKind,omitempty"`
+	ActivityReason   *string          `json:"activityReason,omitempty"`
+	ActivityNote     *string          `json:"activityNote,omitempty"`
+	Change           *SignedMoneyView `json:"change,omitempty"`
 }
 
 func FromAccountCashValue(value domain.AccountCashValue) AccountCashValueDTO {
-	return AccountCashValueDTO{
+	dto := AccountCashValueDTO{
 		ID: value.ID.String(), AccountID: value.AccountID.String(), Amount: FromMoney(value.Amount),
 		EffectiveAt: FormatTime(value.EffectiveAt), CreatedAt: FormatTime(value.CreatedAt),
+		ObservationKind: value.ObservationKind, Change: FromSignedMoneyPtr(value.Change),
 	}
+	if value.ActivityID != nil {
+		id := value.ActivityID.String()
+		dto.ActivityID = &id
+	}
+	if value.ActivityEffectID != nil {
+		id := value.ActivityEffectID.String()
+		dto.ActivityEffectID = &id
+	}
+	if value.ActivityKind != nil {
+		kind := value.ActivityKind.String()
+		dto.ActivityKind = &kind
+	}
+	if value.ActivityReason != nil {
+		reason := string(*value.ActivityReason)
+		dto.ActivityReason = &reason
+	}
+	dto.ActivityNote = value.ActivityNote
+	return dto
 }
 
 func FromAccountCashValues(values []domain.AccountCashValue) []AccountCashValueDTO {

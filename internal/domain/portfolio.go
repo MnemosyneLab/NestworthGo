@@ -322,11 +322,18 @@ func (h Holding) ReplaceQuantity(quantity Quantity, now time.Time) Holding {
 
 // AccountCashValue is an append-only cash observation for a Holdings Account.
 type AccountCashValue struct {
-	ID          AccountCashValueID
-	AccountID   AccountID
-	Amount      Money
-	EffectiveAt time.Time
-	CreatedAt   time.Time
+	ID               AccountCashValueID
+	AccountID        AccountID
+	Amount           Money
+	EffectiveAt      time.Time
+	CreatedAt        time.Time
+	ObservationKind  string
+	ActivityID       *ActivityID
+	ActivityEffectID *ActivityEffectID
+	ActivityKind     *ActivityKind
+	ActivityReason   *ActivityReason
+	ActivityNote     *string
+	Change           *SignedMoney
 }
 
 func NewAccountCashValue(account Account, amount Money, effectiveAt, createdAt time.Time) (AccountCashValue, error) {
@@ -339,7 +346,7 @@ func NewAccountCashValue(account Account, amount Money, effectiveAt, createdAt t
 	if amount.Currency() == "" {
 		return AccountCashValue{}, validation("amount", "currency is required")
 	}
-	return AccountCashValue{ID: NewAccountCashValueID(), AccountID: account.ID, Amount: amount, EffectiveAt: normalizeTime(effectiveAt), CreatedAt: normalizeTime(createdAt)}, nil
+	return AccountCashValue{ID: NewAccountCashValueID(), AccountID: account.ID, Amount: amount, EffectiveAt: normalizeTime(effectiveAt), CreatedAt: normalizeTime(createdAt), ObservationKind: "baseline"}, nil
 }
 
 // InstrumentQuote is immutable history. Selection is handled by the

@@ -77,6 +77,37 @@ func TestFromMoneyViewNilIsNil(t *testing.T) {
 	}
 }
 
+func TestFromAccountCashValueIncludesHistoryProvenance(t *testing.T) {
+	money, err := domain.ParseMoney("200", "SGD")
+	if err != nil {
+		t.Fatalf("ParseMoney: %v", err)
+	}
+	change, err := domain.NewSignedMoney(decimal.RequireFromString("-25"), "SGD")
+	if err != nil {
+		t.Fatalf("NewSignedMoney: %v", err)
+	}
+	activityID := domain.NewActivityID()
+	effectID := domain.NewActivityEffectID()
+	kind := domain.ActivityCashOut
+	reason := domain.ReasonFee
+	note := "Broker fee"
+	value := domain.AccountCashValue{
+		ID: domain.NewAccountCashValueID(), AccountID: domain.NewAccountID(), Amount: money,
+		ObservationKind: "event", ActivityID: &activityID, ActivityEffectID: &effectID,
+		ActivityKind: &kind, ActivityReason: &reason, ActivityNote: &note, Change: &change,
+	}
+	dto := FromAccountCashValue(value)
+	if dto.ObservationKind != "event" || dto.ActivityID == nil || *dto.ActivityID != activityID.String() || dto.ActivityEffectID == nil || *dto.ActivityEffectID != effectID.String() {
+		t.Fatalf("DTO identity = %+v", dto)
+	}
+	if dto.ActivityKind == nil || *dto.ActivityKind != string(kind) || dto.ActivityReason == nil || *dto.ActivityReason != string(reason) || dto.ActivityNote == nil || *dto.ActivityNote != note {
+		t.Fatalf("DTO activity metadata = %+v", dto)
+	}
+	if dto.Change == nil || dto.Change.Amount != "-25" || dto.Change.Currency != "SGD" {
+		t.Fatalf("DTO change = %+v, want -25 SGD", dto.Change)
+	}
+}
+
 func TestMoneyViewFromDomainMoneyView(t *testing.T) {
 	domainView := &domain.MoneyView{Amount: "1000.00", Currency: "SGD"}
 	view := FromMoneyView(domainView)

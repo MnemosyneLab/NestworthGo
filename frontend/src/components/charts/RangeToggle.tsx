@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 
 export const TREND_RANGE_LABELS: Record<string, string> = {
   "30d": "analytics.range30",
+  ytd: "analytics.rangeYtd",
   "1y": "analytics.range1year",
   all: "analytics.rangeAll",
 };

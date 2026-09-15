@@ -32,13 +32,13 @@ func TestControlledLiveProviderChecks(t *testing.T) {
 		t.Fatalf("Frankfurter history live = %+v", history)
 	}
 
-	yahoo := NewYahooChartProvider(nil)
+	yahoo := NewYahooChartProvider()
 	yahooHistory, err := yahoo.InstrumentDailyHistory(ctx, application.InstrumentMarketIdentity{ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US"}, application.DateRange{Start: "2026-09-04", End: "2026-09-08"})
 	if err != nil {
 		t.Fatalf("Yahoo history live: %v", err)
 	}
-	if len(yahooHistory.Batch.Observations) != 0 {
-		t.Fatalf("Yahoo live history invented closes: %+v", yahooHistory.Batch.Observations)
+	if yahooHistory.Status != application.MappingMapped || len(yahooHistory.Batch.Observations) == 0 {
+		t.Fatalf("Yahoo live history = %+v", yahooHistory)
 	}
 
 	if os.Getenv("TIINGO_API_KEY") == "" {

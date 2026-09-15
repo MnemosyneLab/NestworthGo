@@ -22,7 +22,7 @@ import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import type { AccountRecordDTO, AccountValuationDTO, HoldingDTO, ValuationComponentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import type { AccountCashValueDTO, AccountRecordDTO, AccountValuationDTO, HoldingDTO, ValuationComponentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import { EntityIcon } from "@/components/icons/EntityIcon";
 import {
@@ -43,6 +43,27 @@ function cashComponents(valuation?: AccountValuationDTO): ValuationComponentDTO[
     (valuation?.components ?? []).filter((component) => !component.instrumentId),
     householdCurrency,
   );
+}
+
+type AccountTranslator = (key: string, options?: Record<string, unknown>) => string;
+
+function cashActivityLabel(t: AccountTranslator, value: AccountCashValueDTO): string {
+  const kind = displayEnum(t, "history.kind", value.activityKind);
+  if (kind) {
+    return kind;
+  }
+  return value.observationKind === "event"
+    ? t("accounts.cashHistoryActivity")
+    : t("accounts.cashHistoryOpeningBalance");
+}
+
+function cashChangeLabel(value: AccountCashValueDTO): string {
+  if (!value.change) {
+    return "—";
+  }
+  const negative = value.change.amount.startsWith("-");
+  const unsignedAmount = negative ? value.change.amount.slice(1) : value.change.amount;
+  return `${negative ? "−" : "+"}${formatAmount(unsignedAmount, value.change.currency)}`;
 }
 
 function holdingRows(
@@ -391,17 +412,46 @@ export function AccountDetail({
       )}
 
       {composite && !cashValues.isError && (cashValues.data?.length ?? 0) > 0 && (
-        <Card>
+        <Card data-testid="account-cash-history">
           <CardHeader><CardTitle>{t("accounts.cashHistory")}</CardTitle></CardHeader>
           <CardContent>
-            <ul className="flex flex-col gap-2 text-sm">
-              {(cashValues.data ?? []).map((value) => (
-                <li key={value.id} className="flex items-center justify-between border-b border-border pb-2 last:border-0 last:pb-0">
-                  <time dateTime={value.effectiveAt}>{formatTimestamp(value.effectiveAt, settings.data?.timezone, i18n.language)}</time>
-                  <span>{formatAmount(value.amount.amount, value.amount.currency)}</span>
-                </li>
-              ))}
-            </ul>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[56rem] text-left text-sm">
+                <caption className="sr-only">{t("accounts.cashHistory")}</caption>
+                <thead>
+                  <tr className="border-b border-border text-muted-foreground">
+                    <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryType")}</th>
+                    <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryChange")}</th>
+                    <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryBalance")}</th>
+                    <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryCurrency")}</th>
+                    <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryEffectiveAt")}</th>
+                    <th className="py-2 font-medium">{t("accounts.cashHistoryRecordedAt")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(cashValues.data ?? []).map((value) => (
+                    <tr key={value.id} className="border-b border-border last:border-0">
+                      <td className="max-w-64 py-2 pr-4">
+                        <div className="flex flex-col">
+                          <span>{cashActivityLabel(t, value)}</span>
+                          {value.activityReason && <span className="text-xs text-muted-foreground">{displayEnum(t, "history.reason", value.activityReason)}</span>}
+                          {value.activityNote && <span className="truncate text-xs text-muted-foreground" title={value.activityNote}>{value.activityNote}</span>}
+                        </div>
+                      </td>
+                      <td className="py-2 pr-4 font-medium">{cashChangeLabel(value)}</td>
+                      <td className="py-2 pr-4 font-medium">{formatAmount(value.amount.amount, value.amount.currency)}</td>
+                      <td className="py-2 pr-4">{value.amount.currency}</td>
+                      <td className="py-2 pr-4">
+                        <time dateTime={value.effectiveAt}>{formatTimestamp(value.effectiveAt, settings.data?.timezone, i18n.language)}</time>
+                      </td>
+                      <td className="py-2 text-muted-foreground">
+                        <time dateTime={value.createdAt}>{formatTimestamp(value.createdAt, settings.data?.timezone, i18n.language)}</time>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </CardContent>
         </Card>
       )}

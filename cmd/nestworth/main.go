@@ -118,7 +118,7 @@ func run() error {
 		} else {
 			registry := nestworthapp.NewMarketDataRegistryWithDefault(nestworthapp.FrankfurterProviderKey,
 				marketdata.NewFrankfurterProvider(nil),
-				marketdata.NewYahooChartProvider(nil),
+				marketdata.NewYahooChartProvider(),
 				marketdata.NewTiingoProvider(func() (string, error) {
 					current, err := store.Load()
 					if err != nil {

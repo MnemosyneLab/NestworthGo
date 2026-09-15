@@ -454,12 +454,19 @@ func (r *Repository) AppendAccountCashValue(ctx context.Context, value domain.Ac
 }
 
 func (r *Repository) ListAccountCashValues(ctx context.Context, accountID domain.AccountID) ([]domain.AccountCashValue, error) {
-	rows, err := r.database.SQL.QueryContext(ctx, `SELECT id, account_id, amount, currency, effective_at, created_at FROM account_cash_values WHERE account_id = ? ORDER BY currency ASC, effective_at DESC, created_at DESC, id DESC`, accountID.String())
+	rows, err := r.database.SQL.QueryContext(ctx, `
+		SELECT c.id, c.account_id, c.amount, c.currency, c.effective_at, c.created_at, c.projection_kind,
+		       e.activity_id, a.kind, a.reason, a.note, e.id, e.direction, e.amount, e.currency
+		FROM account_cash_values c
+		LEFT JOIN activity_effects e ON e.id = c.activity_effect_id
+		LEFT JOIN activities a ON a.id = e.activity_id
+		WHERE c.account_id = ? AND c.projection_kind IN ('baseline', 'event')
+		ORDER BY c.effective_at DESC, c.created_at DESC, c.currency ASC, c.id DESC`, accountID.String())
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	return scanCashValues(rows)
+	return scanCashHistoryValues(rows)
 }
 
 func (r *Repository) AppendInstrumentQuote(ctx context.Context, quote domain.InstrumentQuote) error {
@@ -1119,6 +1126,115 @@ func scanCashValues(rows *sql.Rows) ([]domain.AccountCashValue, error) {
 		result = append(result, value)
 	}
 	return result, rows.Err()
+}
+
+func scanCashHistoryValues(rows *sql.Rows) ([]domain.AccountCashValue, error) {
+	var result []domain.AccountCashValue
+	for rows.Next() {
+		value, err := scanCashHistoryValue(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, value)
+	}
+	return result, rows.Err()
+}
+
+func scanCashHistoryValue(row interface{ Scan(...any) error }) (domain.AccountCashValue, error) {
+	var id, accountID, amount, currency, effectiveAt, createdAt, observationKind string
+	var activityID, activityKind, activityReason, activityNote, activityEffectID, direction, effectAmount, effectCurrency sql.NullString
+	if err := row.Scan(&id, &accountID, &amount, &currency, &effectiveAt, &createdAt, &observationKind, &activityID, &activityKind, &activityReason, &activityNote, &activityEffectID, &direction, &effectAmount, &effectCurrency); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrNotFound, Message: "cash value was not found"}
+		}
+		return domain.AccountCashValue{}, err
+	}
+	value, err := parseAccountCashValue(id, accountID, amount, currency, effectiveAt, createdAt)
+	if err != nil {
+		return domain.AccountCashValue{}, err
+	}
+	value.ObservationKind = observationKind
+	if activityID.Valid && activityID.String != "" {
+		parsed, parseErr := domain.ParseActivityID(activityID.String)
+		if parseErr != nil {
+			return domain.AccountCashValue{}, parseErr
+		}
+		value.ActivityID = &parsed
+	}
+	if activityEffectID.Valid && activityEffectID.String != "" {
+		parsed, parseErr := domain.ParseActivityEffectID(activityEffectID.String)
+		if parseErr != nil {
+			return domain.AccountCashValue{}, parseErr
+		}
+		value.ActivityEffectID = &parsed
+	}
+	if activityKind.Valid && activityKind.String != "" {
+		parsed, parseErr := domain.ParseActivityKind(activityKind.String)
+		if parseErr != nil {
+			return domain.AccountCashValue{}, parseErr
+		}
+		value.ActivityKind = &parsed
+	}
+	if activityReason.Valid && activityReason.String != "" {
+		parsed, parseErr := domain.ParseActivityReason(activityReason.String)
+		if parseErr != nil {
+			return domain.AccountCashValue{}, parseErr
+		}
+		value.ActivityReason = &parsed
+	}
+	value.ActivityNote = parseNullable(nullString(activityNote))
+	if effectAmount.Valid && effectAmount.String != "" && effectCurrency.Valid && effectCurrency.String != "" {
+		parsedCurrency, parseErr := domain.ParseCurrency(effectCurrency.String)
+		if parseErr != nil {
+			return domain.AccountCashValue{}, parseErr
+		}
+		effectMoney, parseErr := domain.ParseMoney(effectAmount.String, parsedCurrency)
+		if parseErr != nil {
+			return domain.AccountCashValue{}, parseErr
+		}
+		changeAmount := effectMoney.Amount()
+		switch direction.String {
+		case string(domain.EffectAdded):
+		case string(domain.EffectRemoved):
+			changeAmount = changeAmount.Neg()
+		default:
+			return domain.AccountCashValue{}, &domain.Error{Code: domain.ErrIntegrity, Message: "cash history effect direction is invalid"}
+		}
+		change, parseErr := domain.NewSignedMoney(changeAmount, parsedCurrency)
+		if parseErr != nil {
+			return domain.AccountCashValue{}, parseErr
+		}
+		value.Change = &change
+	}
+	return value, nil
+}
+
+func parseAccountCashValue(id, accountID, amount, currency, effectiveAt, createdAt string) (domain.AccountCashValue, error) {
+	cashID, err := domain.ParseAccountCashValueID(id)
+	if err != nil {
+		return domain.AccountCashValue{}, err
+	}
+	parsedAccount, err := domain.ParseAccountID(accountID)
+	if err != nil {
+		return domain.AccountCashValue{}, err
+	}
+	parsedCurrency, err := domain.ParseCurrency(currency)
+	if err != nil {
+		return domain.AccountCashValue{}, err
+	}
+	money, err := domain.ParseMoney(amount, parsedCurrency)
+	if err != nil {
+		return domain.AccountCashValue{}, err
+	}
+	effective, err := parsePortfolioTime(effectiveAt)
+	if err != nil {
+		return domain.AccountCashValue{}, err
+	}
+	created, err := parsePortfolioTime(createdAt)
+	if err != nil {
+		return domain.AccountCashValue{}, err
+	}
+	return domain.AccountCashValue{ID: cashID, AccountID: parsedAccount, Amount: money, EffectiveAt: effective, CreatedAt: created}, nil
 }
 
 func scanInstrumentQuote(row interface{ Scan(...any) error }) (domain.InstrumentQuote, error) {

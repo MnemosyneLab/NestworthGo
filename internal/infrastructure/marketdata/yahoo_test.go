@@ -1,282 +1,22 @@
 package marketdata
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	yfinanceclient "github.com/wnjoon/go-yfinance/pkg/client"
+	yfinancemodels "github.com/wnjoon/go-yfinance/pkg/models"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) { return f(request) }
-
-func fixtureResponse(t *testing.T, name string, status int) *http.Response {
-	t.Helper()
-	data, err := osReadFile(filepath.Join("../../../testdata/provider-fixtures/yahoo", name))
-	if err != nil {
-		t.Fatal(err)
-	}
-	return &http.Response{StatusCode: status, Body: io.NopCloser(bytes.NewReader(data)), ContentLength: int64(len(data)), Header: make(http.Header), Request: &http.Request{}}
-}
-
-var osReadFile = func(path string) ([]byte, error) { return os.ReadFile(path) }
-
-func providerWithFixture(t *testing.T, fixture string, status int, captured func(*http.Request)) *YahooChartProvider {
-	t.Helper()
-	return NewYahooChartProviderWithOptions(YahooChartProviderOptions{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			if captured != nil {
-				captured(request)
-			}
-			return fixtureResponse(t, fixture, status), nil
-		}),
-		Semaphore: make(chan struct{}, 2),
-	})
-}
-
-func TestYahooChartProviderNormalizesSanitizedFixtures(t *testing.T) {
-	regular := providerWithFixture(t, "regular-price.json", http.StatusOK, nil)
-	quote, err := regular.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-	if err != nil {
-		t.Fatalf("regular quote error: %v", err)
-	}
-	if quote.Price.Canonical() != "700.25" || quote.Currency != "USD" || quote.Delayed || quote.QuotedAt.Unix() != 1767225600 || quote.SourceKey != yahooProviderKey {
-		t.Fatalf("regular quote = %#v", quote)
-	}
-
-	fallback := providerWithFixture(t, "close-fallback.json", http.StatusOK, nil)
-	quote, err = fallback.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "ES3", QuoteCurrency: "USD"})
-	if err != nil {
-		t.Fatalf("fallback quote error: %v", err)
-	}
-	if quote.Price.Canonical() != "4.05" || !quote.Delayed || quote.QuotedAt.Unix() != 1767225600 {
-		t.Fatalf("fallback quote = %#v", quote)
-	}
-	if regular.Capabilities().LatestFX {
-		t.Fatal("Yahoo provider still advertises FX capability")
-	}
-}
-
-func TestYahooChartProviderUsesStableBrowserHeaders(t *testing.T) {
-	var captured []*http.Request
-	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			captured = append(captured, request)
-			return fixtureResponse(t, "regular-price.json", http.StatusOK), nil
-		}),
-		Semaphore: make(chan struct{}, 2),
-	})
-	if _, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"}); err != nil {
-		t.Fatalf("instrument request error: %v", err)
-	}
-	_, err := provider.LatestFX(context.Background(), application.FXMarketIdentity{BaseCurrency: "USD", QuoteCurrency: "CNY"})
-	assertProviderCode(t, err, domain.ErrUnavailable)
-	if len(captured) != 1 {
-		t.Fatalf("captured %d Yahoo requests, want Instrument only", len(captured))
-	}
-	expected := map[string]string{
-		"Accept":                    yahooAcceptHeader,
-		"Accept-Encoding":           yahooAcceptEncodingHeader,
-		"Accept-Language":           yahooAcceptLanguageHeader,
-		"Priority":                  yahooPriorityHeader,
-		"Sec-CH-UA":                 yahooSecCHUAHeader,
-		"Sec-CH-UA-Mobile":          yahooSecCHUAMobileHeader,
-		"Sec-CH-UA-Platform":        yahooSecCHUAPlatformHeader,
-		"Sec-Fetch-Dest":            yahooSecFetchDestHeader,
-		"Sec-Fetch-Mode":            yahooSecFetchModeHeader,
-		"Sec-Fetch-Site":            yahooSecFetchSiteHeader,
-		"Sec-Fetch-User":            yahooSecFetchUserHeader,
-		"Upgrade-Insecure-Requests": yahooUpgradeInsecureRequestsHeader,
-		"User-Agent":                yahooUserAgentHeader,
-	}
-	for index, request := range captured {
-		for header, want := range expected {
-			if got := request.Header.Get(header); got != want {
-				t.Errorf("request %d %s = %q, want %q", index, header, got, want)
-			}
-		}
-	}
-}
-
-func TestYahooChartProviderRejectsUnexpectedContentEncoding(t *testing.T) {
-	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			response := fixtureResponse(t, "regular-price.json", http.StatusOK)
-			response.Header.Set("Content-Encoding", "gzip")
-			response.Request = request
-			return response, nil
-		}),
-		Semaphore: make(chan struct{}, 2),
-	})
-	_, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-	assertProviderCode(t, err, domain.ErrMalformedProviderResponse)
-}
-
-func TestYahooChartProviderMapsMalformedAndStatusFixturesSafely(t *testing.T) {
-	malformed := []string{"malformed-decimal.json", "misaligned-close.json", "null-close.json", "currency-mismatch.json"}
-	for _, fixture := range malformed {
-		t.Run(fixture, func(t *testing.T) {
-			provider := providerWithFixture(t, fixture, http.StatusOK, nil)
-			_, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-			assertProviderCode(t, err, domain.ErrMalformedProviderResponse)
-			if strings.Contains(err.Error(), "not-a-decimal") || strings.Contains(err.Error(), "query1.finance") {
-				t.Fatalf("provider error leaked response details: %v", err)
-			}
-		})
-	}
-	for _, fixture := range []string{"api-error.json", "unknown-symbol.json"} {
-		t.Run(fixture, func(t *testing.T) {
-			provider := providerWithFixture(t, fixture, http.StatusOK, nil)
-			_, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-			assertProviderCode(t, err, domain.ErrUnsupportedProviderSymbol)
-		})
-	}
-	statusCases := map[string]struct {
-		status int
-		code   domain.ErrorCode
-	}{
-		"http-401.json": {http.StatusUnauthorized, domain.ErrProviderAuthentication},
-		"http-403.json": {http.StatusForbidden, domain.ErrProviderAuthentication},
-		"http-429.json": {http.StatusTooManyRequests, domain.ErrProviderRateLimit},
-		"http-500.json": {http.StatusInternalServerError, domain.ErrProviderUnavailable},
-	}
-	for fixture, expected := range statusCases {
-		t.Run(fixture, func(t *testing.T) {
-			provider := providerWithFixture(t, fixture, expected.status, nil)
-			_, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-			assertProviderCode(t, err, expected.code)
-		})
-	}
-	provider := providerWithFixture(t, "regular-price.json", http.StatusNotFound, nil)
-	_, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-	assertProviderCode(t, err, domain.ErrUnsupportedProviderSymbol)
-}
-
-func TestYahooChartProviderEscapesInstrumentSymbols(t *testing.T) {
-	var paths []string
-	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			paths = append(paths, request.URL.EscapedPath())
-			return fixtureResponse(t, "regular-price.json", http.StatusOK), nil
-		}),
-		Semaphore: make(chan struct{}, 2),
-	})
-	if _, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "A/B?C", QuoteCurrency: "USD"}); err != nil {
-		t.Fatalf("instrument request error: %v", err)
-	}
-	if len(paths) != 1 || !strings.HasSuffix(paths[0], "/A%2FB%3FC") {
-		t.Fatalf("escaped paths = %v", paths)
-	}
-}
-
-func TestYahooChartProviderEnforcesBodyLimitAndCancellation(t *testing.T) {
-	large := bytes.Repeat([]byte("x"), int(yahooMaxBodyBytes+1))
-	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(large)), ContentLength: int64(len(large)), Header: make(http.Header), Request: request}, nil
-		}),
-		Semaphore: make(chan struct{}, 2),
-	})
-	_, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-	assertProviderCode(t, err, domain.ErrMarketDataResponseTooLarge)
-	streamed := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(large)), ContentLength: -1, Header: make(http.Header), Request: request}, nil
-		}),
-		Semaphore: make(chan struct{}, 2),
-	})
-	_, err = streamed.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-	assertProviderCode(t, err, domain.ErrMarketDataResponseTooLarge)
-
-	redirect := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusFound, Body: io.NopCloser(strings.NewReader("redirect")), Header: http.Header{"Location": []string{"https://example.invalid/"}}, Request: request}, nil
-		}),
-		Semaphore: make(chan struct{}, 2),
-	})
-	_, err = redirect.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-	assertProviderCode(t, err, domain.ErrMalformedProviderResponse)
-
-	blocking := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			<-request.Context().Done()
-			return nil, request.Context().Err()
-		}),
-		Timeout:   20 * time.Millisecond,
-		Semaphore: make(chan struct{}, 2),
-	})
-	_, err = blocking.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-	assertProviderCode(t, err, domain.ErrProviderUnavailable)
-}
-
-func TestYahooChartProviderSharesTwoRequestSemaphore(t *testing.T) {
-	var mu sync.Mutex
-	active, maximum := 0, 0
-	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		mu.Lock()
-		active++
-		if active > maximum {
-			maximum = active
-		}
-		mu.Unlock()
-		time.Sleep(15 * time.Millisecond)
-		mu.Lock()
-		active--
-		mu.Unlock()
-		return fixtureResponse(t, "regular-price.json", http.StatusOK), nil
-	})
-	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{Transport: transport, Semaphore: make(chan struct{}, 2)})
-	var wait sync.WaitGroup
-	for i := 0; i < 6; i++ {
-		wait.Add(1)
-		go func() {
-			defer wait.Done()
-			_, _ = provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
-		}()
-	}
-	wait.Wait()
-	if maximum > 2 {
-		t.Fatalf("maximum concurrent requests = %d, want <= 2", maximum)
-	}
-}
-
-func TestYahooChartProviderHistoryStaysFailClosed(t *testing.T) {
-	_, body := mustLoadVNext(t, "providers/yahoo/aapl-history-split.json")
-	var captured *http.Request
-	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
-		Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
-			captured = request
-			return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(body)), ContentLength: int64(len(body)), Header: make(http.Header), Request: request}, nil
-		}),
-		Semaphore: make(chan struct{}, 2),
-	})
-	if !provider.Capabilities().InstrumentDailyHistory || provider.Capabilities().LatestFX {
-		t.Fatalf("Yahoo capabilities = %#v", provider.Capabilities())
-	}
-	outcome, err := provider.InstrumentDailyHistory(context.Background(), application.InstrumentMarketIdentity{
-		ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "AAPL", QuoteCurrency: "USD", Market: "US",
-	}, application.DateRange{Start: "2026-06-10", End: "2026-06-10"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if outcome.Status != application.MappingUnsupported || len(outcome.Batch.Observations) != 0 {
-		t.Fatalf("Yahoo history invented a close: %+v", outcome)
-	}
-	if captured == nil || captured.URL.Host != yahooChartHost || !strings.Contains(captured.URL.RawQuery, "interval=1d") || !strings.Contains(captured.URL.RawQuery, "period1=") {
-		t.Fatalf("Yahoo history request = %#v", captured)
-	}
-}
 
 func assertProviderCode(t *testing.T, err error, expected domain.ErrorCode) {
 	t.Helper()
@@ -286,5 +26,160 @@ func assertProviderCode(t *testing.T, err error, expected domain.ErrorCode) {
 	var domainErr *domain.Error
 	if !errors.As(err, &domainErr) || domainErr.Code != expected {
 		t.Fatalf("error = %#v, want code %q", err, expected)
+	}
+}
+
+type fakeYahooTicker struct {
+	quote         *yfinancemodels.Quote
+	quoteErr      error
+	bars          []yfinancemodels.Bar
+	historyErr    error
+	metadata      *yfinancemodels.ChartMeta
+	historyParams []yfinancemodels.HistoryParams
+	closed        bool
+}
+
+func (f *fakeYahooTicker) Quote() (*yfinancemodels.Quote, error) {
+	return f.quote, f.quoteErr
+}
+
+func (f *fakeYahooTicker) History(params yfinancemodels.HistoryParams) ([]yfinancemodels.Bar, error) {
+	f.historyParams = append(f.historyParams, params)
+	return f.bars, f.historyErr
+}
+
+func (f *fakeYahooTicker) GetHistoryMetadata() *yfinancemodels.ChartMeta {
+	return f.metadata
+}
+
+func (f *fakeYahooTicker) Close() { f.closed = true }
+
+func TestYahooChartProviderUsesGoYFinanceForLatestQuote(t *testing.T) {
+	quotedAt := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	ticker := &fakeYahooTicker{quote: &yfinancemodels.Quote{
+		Symbol:             "QQQ",
+		Currency:           "USD",
+		RegularMarketPrice: 700.25,
+		RegularMarketTime:  quotedAt,
+		MarketState:        "REGULAR",
+	}}
+	var requestedSymbol string
+	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
+		TickerFactory: func(symbol string) (YahooTicker, error) {
+			requestedSymbol = symbol
+			return ticker, nil
+		},
+		Now: func() time.Time { return quotedAt.Add(time.Hour) },
+	})
+
+	quote, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
+	if err != nil {
+		t.Fatalf("latest quote error: %v", err)
+	}
+	if requestedSymbol != "QQQ" || quote.Price.Canonical() != "700.25" || quote.Currency != "USD" || quote.Delayed || quote.QuotedAt.Unix() != quotedAt.Unix() || quote.SourceKey != yahooProviderKey {
+		t.Fatalf("latest quote = %#v, requested symbol = %q", quote, requestedSymbol)
+	}
+	if !ticker.closed {
+		t.Fatal("provider did not close the go-yfinance ticker")
+	}
+}
+
+func TestYahooChartProviderMapsGoYFinanceEquityHistory(t *testing.T) {
+	ticker := &fakeYahooTicker{
+		bars: []yfinancemodels.Bar{
+			{Date: time.Date(2026, 9, 8, 13, 30, 0, 0, time.UTC), Close: 700.25},
+			{Date: time.Date(2026, 9, 9, 13, 30, 0, 0, time.UTC), Close: 701.50},
+		},
+		metadata: &yfinancemodels.ChartMeta{
+			Symbol:               "QQQ",
+			Currency:             "USD",
+			ExchangeTimezoneName: "America/New_York",
+		},
+	}
+	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
+		TickerFactory: func(string) (YahooTicker, error) { return ticker, nil },
+		Now:           func() time.Time { return time.Date(2026, 9, 10, 22, 0, 0, 0, time.UTC) },
+	})
+
+	outcome, err := provider.InstrumentDailyHistory(context.Background(), application.InstrumentMarketIdentity{
+		ProviderSymbol: "QQQ",
+		QuoteCurrency:  "USD",
+		Market:         "US",
+	}, application.DateRange{Start: "2026-09-08", End: "2026-09-09"})
+	if err != nil {
+		t.Fatalf("history error: %v", err)
+	}
+	if outcome.Status != application.MappingMapped || len(outcome.Batch.Observations) != 2 {
+		t.Fatalf("history outcome = %+v", outcome)
+	}
+	if got := outcome.Batch.Observations[0]; got.MarketDate != "2026-09-08" || got.Value != "700.25" || got.ValueEffectiveAt.UTC().Format(time.RFC3339) != "2026-09-08T20:00:00Z" || got.TimestampBasis != application.TimestampBasisSessionClose {
+		t.Fatalf("first observation = %+v", got)
+	}
+	if outcome.Batch.Evidence.Adapter != "go-yfinance" || outcome.Batch.Evidence.AdapterVersion != yahooAdapterVersion {
+		t.Fatalf("history evidence = %+v", outcome.Batch.Evidence)
+	}
+	if len(ticker.historyParams) != 1 {
+		t.Fatalf("history calls = %d", len(ticker.historyParams))
+	}
+	params := ticker.historyParams[0]
+	if params.Interval != "1d" || params.Start == nil || params.End == nil || params.Start.Format("2006-01-02") != "2026-09-08" || params.End.Format("2006-01-02") != "2026-09-10" || params.AutoAdjust || params.Actions || params.Repair || params.PrePost {
+		t.Fatalf("history params = %+v", params)
+	}
+}
+
+func TestYahooChartProviderDoesNotInventMissingCryptoBars(t *testing.T) {
+	ticker := &fakeYahooTicker{
+		bars: []yfinancemodels.Bar{
+			{Date: time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC), Close: 99.25},
+			{Date: time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC), Close: 102.26},
+		},
+		metadata: &yfinancemodels.ChartMeta{Symbol: "SOL-USD", Currency: "USD"},
+	}
+	provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
+		TickerFactory: func(string) (YahooTicker, error) { return ticker, nil },
+		Now:           func() time.Time { return time.Date(2026, 9, 15, 12, 0, 0, 0, time.UTC) },
+	})
+
+	outcome, err := provider.InstrumentDailyHistory(context.Background(), application.InstrumentMarketIdentity{
+		ProviderSymbol: "SOL-USD",
+		QuoteCurrency:  "USD",
+		InstrumentType: "crypto",
+		Market:         "crypto",
+	}, application.DateRange{Start: "2026-09-13", End: "2026-09-15"})
+	if err != nil {
+		t.Fatalf("history error: %v", err)
+	}
+	if len(outcome.Batch.Observations) != 1 || outcome.Batch.Observations[0].MarketDate != "2026-09-13" {
+		t.Fatalf("history observations = %+v", outcome.Batch.Observations)
+	}
+	if len(outcome.Batch.UncertainRanges) != 1 || outcome.Batch.UncertainRanges[0].Start != "2026-09-15" || outcome.Batch.UncertainRanges[0].End != "2026-09-15" {
+		t.Fatalf("uncertain ranges = %+v", outcome.Batch.UncertainRanges)
+	}
+}
+
+func TestYahooChartProviderMapsGoYFinanceErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		code domain.ErrorCode
+	}{
+		{name: "rate limit", err: yfinanceclient.WrapRateLimitError(), code: domain.ErrProviderRateLimit},
+		{name: "authentication", err: yfinanceclient.WrapAuthError(errors.New("upstream auth")), code: domain.ErrProviderAuthentication},
+		{name: "unsupported symbol", err: yfinanceclient.WrapInvalidSymbolError("UNKNOWN"), code: domain.ErrUnsupportedProviderSymbol},
+		{name: "Yahoo chart error", err: yfinanceclient.NewChartAPIError("UNKNOWN", "Not Found", "symbol not found"), code: domain.ErrUnsupportedProviderSymbol},
+		{name: "network", err: yfinanceclient.WrapNetworkError(errors.New("upstream unavailable")), code: domain.ErrProviderUnavailable},
+		{name: "malformed response", err: yfinanceclient.WrapInvalidResponseError(errors.New("bad payload")), code: domain.ErrMalformedProviderResponse},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			provider := NewYahooChartProviderWithOptions(YahooChartProviderOptions{
+				TickerFactory: func(string) (YahooTicker, error) { return nil, test.err },
+			})
+			_, err := provider.LatestInstrument(context.Background(), application.InstrumentMarketIdentity{ProviderSymbol: "QQQ", QuoteCurrency: "USD"})
+			assertProviderCode(t, err, test.code)
+			if err != nil && strings.Contains(err.Error(), "upstream") {
+				t.Fatalf("provider error leaked upstream details: %v", err)
+			}
+		})
 	}
 }

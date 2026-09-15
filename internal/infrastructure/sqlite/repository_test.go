@@ -250,6 +250,146 @@ func newTestFXQuote(t *testing.T, householdID domain.HouseholdID, base, quote st
 	return result
 }
 
+func TestListAccountCashValuesExcludesHistoricalReplayProjections(t *testing.T) {
+	database, repository, _, account, _ := seedPortfolioRepository(t)
+	defer database.Close()
+	ctx := context.Background()
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+
+	baselineAmount, err := domain.ParseMoney("100", "CNY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline, err := domain.NewAccountCashValue(account, baselineAmount, now.Add(-2*time.Hour), now.Add(-2*time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.AppendAccountCashValue(ctx, baseline); err != nil {
+		t.Fatalf("append baseline: %v", err)
+	}
+
+	for _, projection := range []struct {
+		kind      string
+		amount    string
+		effective time.Time
+	}{
+		{kind: "event", amount: "200", effective: now.Add(-time.Hour)},
+		{kind: "replay", amount: "200", effective: now},
+	} {
+		if _, err := database.SQL.ExecContext(ctx, `INSERT INTO account_cash_values(id, account_id, amount, currency, effective_at, created_at, activity_effect_id, projection_kind) VALUES(?, ?, ?, ?, ?, ?, NULL, ?)`, domain.NewAccountCashValueID().String(), account.ID.String(), projection.amount, "CNY", formatTimestamp(projection.effective), formatTimestamp(projection.effective), projection.kind); err != nil {
+			t.Fatalf("insert %s projection: %v", projection.kind, err)
+		}
+	}
+
+	values, err := repository.ListAccountCashValues(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("list cash values: %v", err)
+	}
+	if len(values) != 2 || values[0].Amount.CanonicalAmount() != "200" || values[1].Amount.CanonicalAmount() != "100" {
+		t.Fatalf("cash history = %+v, want event and baseline only", values)
+	}
+}
+
+func TestListAccountCashValuesIncludesEventProvenance(t *testing.T) {
+	database, repository, household, account, _ := seedPortfolioRepository(t)
+	defer database.Close()
+	ctx := context.Background()
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+
+	events := []struct {
+		kind      string
+		reason    string
+		note      string
+		direction string
+		change    string
+	}{
+		{kind: "cash_in", reason: "income", note: "Salary", direction: "added", change: "100"},
+		{kind: "cash_out", reason: "fee", note: "Broker fee", direction: "removed", change: "-100"},
+	}
+	activityIDs := make([]domain.ActivityID, 0, len(events))
+	effectIDs := make([]domain.ActivityEffectID, 0, len(events))
+	for _, event := range events {
+		activityID := domain.NewActivityID()
+		effectID := domain.NewActivityEffectID()
+		activityIDs = append(activityIDs, activityID)
+		effectIDs = append(effectIDs, effectID)
+		if _, err := database.SQL.ExecContext(ctx, `INSERT INTO activities(id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate) VALUES(?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)`, activityID.String(), household.ID.String(), event.kind, event.reason, formatTimestamp(now), now.Format("2006-01-02"), formatTimestamp(now), event.note); err != nil {
+			t.Fatalf("insert activity: %v", err)
+		}
+		if _, err := database.SQL.ExecContext(ctx, `INSERT INTO activity_effects(id, activity_id, sequence, role, direction, target, classification, account_id, holding_id, instrument_id, amount, currency, quantity, cost_unit_price) VALUES(?, ?, 1, 'amount', ?, 'account_cash', ?, ?, NULL, NULL, ?, 'CNY', NULL, NULL)`, effectID.String(), activityID.String(), event.direction, event.reason, account.ID.String(), strings.TrimPrefix(event.change, "-")); err != nil {
+			t.Fatalf("insert activity effect: %v", err)
+		}
+		if _, err := database.SQL.ExecContext(ctx, `INSERT INTO account_cash_values(id, account_id, amount, currency, effective_at, created_at, activity_effect_id, projection_kind) VALUES(?, ?, '200', 'CNY', ?, ?, ?, 'event')`, domain.NewAccountCashValueID().String(), account.ID.String(), formatTimestamp(now), formatTimestamp(now), effectID.String()); err != nil {
+			t.Fatalf("insert cash event: %v", err)
+		}
+	}
+
+	values, err := repository.ListAccountCashValues(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("list cash values: %v", err)
+	}
+	if len(values) != len(events) {
+		t.Fatalf("cash history length = %d, want %d", len(values), len(events))
+	}
+	for index, event := range events {
+		var found *domain.AccountCashValue
+		for valueIndex := range values {
+			if values[valueIndex].ActivityID != nil && values[valueIndex].ActivityID.String() == activityIDs[index].String() {
+				found = &values[valueIndex]
+				break
+			}
+		}
+		if found == nil {
+			t.Fatalf("cash history does not include activity %s", activityIDs[index])
+		}
+		if found.ObservationKind != "event" || found.ActivityEffectID == nil || found.ActivityEffectID.String() != effectIDs[index].String() {
+			t.Fatalf("cash history provenance = %+v, want event/effect %s", found, effectIDs[index])
+		}
+		if found.ActivityKind == nil || string(*found.ActivityKind) != event.kind || found.ActivityReason == nil || string(*found.ActivityReason) != event.reason {
+			t.Fatalf("cash history activity metadata = %+v, want %s/%s", found, event.kind, event.reason)
+		}
+		if found.ActivityNote == nil || *found.ActivityNote != event.note || found.Change == nil || found.Change.CanonicalAmount() != event.change {
+			t.Fatalf("cash history detail = %+v, want note=%q change=%s", found, event.note, event.change)
+		}
+	}
+}
+
+func TestListAccountCashValuesOrdersByEffectiveTimeDescending(t *testing.T) {
+	database, repository, _, account, _ := seedPortfolioRepository(t)
+	defer database.Close()
+	ctx := context.Background()
+	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
+
+	rows := []struct {
+		currency   string
+		amount     string
+		effective  time.Time
+		recordedAt time.Time
+	}{
+		{currency: "USD", amount: "200", effective: now.Add(-time.Hour), recordedAt: now.Add(-time.Hour)},
+		{currency: "CNY", amount: "100", effective: now.Add(-2 * time.Hour), recordedAt: now},
+	}
+	for _, row := range rows {
+		if _, err := database.SQL.ExecContext(ctx, `INSERT INTO account_cash_values(id, account_id, amount, currency, effective_at, created_at, activity_effect_id, projection_kind) VALUES(?, ?, ?, ?, ?, ?, NULL, 'baseline')`, domain.NewAccountCashValueID().String(), account.ID.String(), row.amount, row.currency, formatTimestamp(row.effective), formatTimestamp(row.recordedAt)); err != nil {
+			t.Fatalf("insert cash value: %v", err)
+		}
+	}
+
+	values, err := repository.ListAccountCashValues(ctx, account.ID)
+	if err != nil {
+		t.Fatalf("list cash values: %v", err)
+	}
+	if len(values) != len(rows) {
+		t.Fatalf("cash history length = %d, want %d", len(values), len(rows))
+	}
+	if values[0].Amount.Currency().String() != "USD" || !values[0].EffectiveAt.Equal(rows[0].effective) {
+		t.Fatalf("first cash history row = %+v, want latest effective USD observation", values[0])
+	}
+	if values[1].Amount.Currency().String() != "CNY" || !values[1].EffectiveAt.Equal(rows[1].effective) {
+		t.Fatalf("second cash history row = %+v, want older effective CNY observation", values[1])
+	}
+}
+
 func TestPortfolioRepositoriesRejectHoldingsOnNonHoldingsAccount(t *testing.T) {
 	database, repository, household, _, _ := seedPortfolioRepository(t)
 	ctx := context.Background()

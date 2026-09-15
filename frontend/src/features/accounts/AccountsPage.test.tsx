@@ -96,6 +96,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/in
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding", () => ({
   Service: {
     HoldingsByAccounts: (...args: unknown[]) => holdingsByAccounts(...args),
+    ListAccountCashValues: (...args: unknown[]) => listAccountCashValues(...args),
     CreateHolding: (...args: unknown[]) => createHolding(...args),
     AppendAccountCashValue: (...args: unknown[]) => appendCash(...args),
     ArchiveHolding: vi.fn(),
@@ -618,6 +619,69 @@ describe("AccountsPage", () => {
     expect(screen.getByText("Stock")).toBeInTheDocument();
     expect(screen.getByText("Partial valuation")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(/Missing FX rate/);
+  });
+
+  it("shows complete cash history fields", async () => {
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    accountValuations.mockResolvedValue([{
+      account: brokerageAccount.account,
+      ownership: brokerageAccount.ownership,
+      complete: true,
+      components: [{ nativeCurrency: "SGD", nativeAmount: "200", available: true }],
+      missingInputs: [],
+      baseValue: { amount: "200", currency: "USD" },
+    }]);
+    listAccountCashValues.mockResolvedValue([{
+      id: "cash-1",
+      accountId: "brk-1",
+      amount: { amount: "200", currency: "SGD" },
+      effectiveAt: "2026-09-15T03:00:00.000Z",
+      createdAt: "2026-09-15T03:05:00.000Z",
+      observationKind: "event",
+      activityId: "activity-1",
+      activityEffectId: "effect-1",
+      activityKind: "cash_in",
+      activityReason: "income",
+      activityNote: "Salary",
+      change: { amount: "100", currency: "SGD" },
+    }, {
+      id: "cash-2",
+      accountId: "brk-1",
+      amount: { amount: "200", currency: "SGD" },
+      effectiveAt: "2026-09-15T03:00:00.000Z",
+      createdAt: "2026-09-15T03:05:00.000Z",
+      observationKind: "event",
+      activityId: "activity-2",
+      activityEffectId: "effect-2",
+      activityKind: "cash_out",
+      activityReason: "fee",
+      activityNote: "Broker fee",
+      change: { amount: "-100", currency: "SGD" },
+    }]);
+
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+
+    const history = await screen.findByTestId("account-cash-history");
+    expect(within(history).getByRole("columnheader", { name: "Type" })).toBeInTheDocument();
+    expect(within(history).getByRole("columnheader", { name: "Change" })).toBeInTheDocument();
+    expect(within(history).getByRole("columnheader", { name: "Balance" })).toBeInTheDocument();
+    expect(within(history).getByRole("columnheader", { name: "Currency" })).toBeInTheDocument();
+    expect(within(history).getByRole("columnheader", { name: "Effective at" })).toBeInTheDocument();
+    expect(within(history).getByRole("columnheader", { name: "Recorded at" })).toBeInTheDocument();
+    expect(within(history).queryByRole("columnheader", { name: "Reference" })).not.toBeInTheDocument();
+    expect(within(history).getByText("Money added")).toBeInTheDocument();
+    expect(within(history).getByText("Money removed")).toBeInTheDocument();
+    expect(within(history).getByText("Salary")).toBeInTheDocument();
+    expect(within(history).getByText("Broker fee")).toBeInTheDocument();
+    expect(history.textContent).toContain("+SGD");
+    expect(history.textContent).toContain("−SGD");
+    expect([...history.querySelectorAll("time")].map((element) => element.dateTime)).toEqual([
+      "2026-09-15T03:00:00.000Z",
+      "2026-09-15T03:05:00.000Z",
+      "2026-09-15T03:00:00.000Z",
+      "2026-09-15T03:05:00.000Z",
+    ]);
   });
 
   it("shows multi-currency cash without investment actions for cash on hand", async () => {

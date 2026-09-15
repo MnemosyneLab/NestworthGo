@@ -10,6 +10,13 @@ export interface AccountCashValueDTO {
     "amount": MoneyView;
     "effectiveAt": string;
     "createdAt": string;
+    "observationKind": string;
+    "activityId"?: string | null;
+    "activityEffectId"?: string | null;
+    "activityKind"?: string | null;
+    "activityReason"?: string | null;
+    "activityNote"?: string | null;
+    "change"?: SignedMoneyView | null;
 }
 
 /**

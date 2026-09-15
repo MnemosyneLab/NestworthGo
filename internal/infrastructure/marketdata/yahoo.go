@@ -1,6 +1,6 @@
 // Package marketdata contains the native provider adapters. Yahoo-specific
-// URLs and response fields stop in this package and never cross into domain,
-// application, SQLite, or UI code.
+// response fields stay inside this package and are normalized before they
+// reach the application or domain layers.
 package marketdata
 
 import (
@@ -9,62 +9,103 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"net/http"
-	"net/url"
+	"math"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	yfinanceclient "github.com/wnjoon/go-yfinance/pkg/client"
+	yfinancemodels "github.com/wnjoon/go-yfinance/pkg/models"
+	yfinanceticker "github.com/wnjoon/go-yfinance/pkg/ticker"
 )
 
 const (
 	yahooProviderKey    = "yahoo_finance"
-	yahooChartHost      = "query1.finance.yahoo.com"
 	yahooRequestTimeout = 8 * time.Second
-	yahooMaxBodyBytes   = int64(2 * 1024 * 1024)
-
-	// Keep this profile stable so provider behavior is reproducible across
-	// instrument and FX request tests.
-	yahooAcceptHeader = "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7"
-	// Request identity so the adapter does not need Brotli/Zstandard decoder
-	// dependencies and can enforce its bounded response contract.
-	yahooAcceptEncodingHeader          = "identity"
-	yahooAcceptLanguageHeader          = "en-US,en;q=0.9"
-	yahooPriorityHeader                = "u=0, i"
-	yahooSecCHUAHeader                 = `"Not=A?Brand";v="99", "Google Chrome";v="151", "Chromium";v="151"`
-	yahooSecCHUAMobileHeader           = "?0"
-	yahooSecCHUAPlatformHeader         = `"macOS"`
-	yahooSecFetchDestHeader            = "document"
-	yahooSecFetchModeHeader            = "navigate"
-	yahooSecFetchSiteHeader            = "none"
-	yahooSecFetchUserHeader            = "?1"
-	yahooUpgradeInsecureRequestsHeader = "1"
-	yahooUserAgentHeader               = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+	yahooAdapterVersion = "go-yfinance-v1.7.0"
 )
 
 var sharedYahooSemaphore = make(chan struct{}, 2)
 
+// YahooTicker is the small part of go-yfinance used by the application. It
+// keeps the provider testable without replacing the upstream implementation.
+type YahooTicker interface {
+	Quote() (*yfinancemodels.Quote, error)
+	History(yfinancemodels.HistoryParams) ([]yfinancemodels.Bar, error)
+	GetHistoryMetadata() *yfinancemodels.ChartMeta
+	Close()
+}
+
+// YahooTickerFactory creates one upstream ticker for one request.
+type YahooTickerFactory func(symbol string) (YahooTicker, error)
+
 type YahooChartProviderOptions struct {
-	Transport   http.RoundTripper
-	Timeout     time.Duration
-	MaxBodySize int64
-	Semaphore   chan struct{}
+	TickerFactory YahooTickerFactory
+	Semaphore     chan struct{}
+	Now           func() time.Time
 }
 
 type YahooChartProvider struct {
-	conn *providerHTTPClient
+	factory   YahooTickerFactory
+	semaphore chan struct{}
+	now       func() time.Time
 }
 
-func NewYahooChartProvider(transport http.RoundTripper) *YahooChartProvider {
-	return NewYahooChartProviderWithOptions(YahooChartProviderOptions{Transport: transport})
+type managedYahooTicker struct {
+	ticker *yfinanceticker.Ticker
+	client *yfinanceclient.Client
+}
+
+func (t *managedYahooTicker) Quote() (*yfinancemodels.Quote, error) {
+	return t.ticker.Quote()
+}
+
+func (t *managedYahooTicker) History(params yfinancemodels.HistoryParams) ([]yfinancemodels.Bar, error) {
+	return t.ticker.History(params)
+}
+
+func (t *managedYahooTicker) GetHistoryMetadata() *yfinancemodels.ChartMeta {
+	return t.ticker.GetHistoryMetadata()
+}
+
+func (t *managedYahooTicker) Close() {
+	t.ticker.Close()
+	t.client.Close()
+}
+
+func defaultYahooTickerFactory(symbol string) (YahooTicker, error) {
+	client, err := yfinanceclient.New(yfinanceclient.WithTimeout(int(yahooRequestTimeout / time.Second)))
+	if err != nil {
+		return nil, err
+	}
+	ticker, err := yfinanceticker.New(symbol, yfinanceticker.WithClient(client))
+	if err != nil {
+		client.Close()
+		return nil, err
+	}
+	return &managedYahooTicker{ticker: ticker, client: client}, nil
+}
+
+func NewYahooChartProvider() *YahooChartProvider {
+	return NewYahooChartProviderWithOptions(YahooChartProviderOptions{})
 }
 
 func NewYahooChartProviderWithOptions(options YahooChartProviderOptions) *YahooChartProvider {
-	return &YahooChartProvider{
-		conn: newProviderHTTPClient(providerHTTPOptions(options), yahooRequestTimeout, yahooMaxBodyBytes, sharedYahooSemaphore),
+	factory := options.TickerFactory
+	if factory == nil {
+		factory = defaultYahooTickerFactory
 	}
+	semaphore := options.Semaphore
+	if semaphore == nil {
+		semaphore = sharedYahooSemaphore
+	}
+	now := options.Now
+	if now == nil {
+		now = func() time.Time { return time.Now().UTC() }
+	}
+	return &YahooChartProvider{factory: factory, semaphore: semaphore, now: now}
 }
 
 func (p *YahooChartProvider) Key() string { return yahooProviderKey }
@@ -81,19 +122,16 @@ func (p *YahooChartProvider) LatestInstrument(ctx context.Context, identity appl
 	if err != nil {
 		return application.LatestInstrumentQuote{}, providerValidation("quoteCurrency", "quote currency is invalid")
 	}
-	body, err := p.fetch(ctx, identity.ProviderSymbol)
+
+	var quote *yfinancemodels.Quote
+	err = p.withTicker(ctx, identity.ProviderSymbol, func(ticker YahooTicker) error {
+		quote, err = ticker.Quote()
+		return err
+	})
 	if err != nil {
 		return application.LatestInstrumentQuote{}, err
 	}
-	normalized, err := normalizeChart(body, currency, false)
-	if err != nil {
-		return application.LatestInstrumentQuote{}, err
-	}
-	price, err := domain.ParseUnitPrice(normalized.Value)
-	if err != nil {
-		return application.LatestInstrumentQuote{}, malformedProvider()
-	}
-	return application.LatestInstrumentQuote{Price: price, Currency: currency, SourceKey: p.Key(), QuotedAt: normalized.QuotedAt, Delayed: normalized.Delayed}, nil
+	return normalizeYahooQuote(quote, identity.ProviderSymbol, currency, p.clock())
 }
 
 func (p *YahooChartProvider) LatestFX(context.Context, application.FXMarketIdentity) (application.LatestFXQuote, error) {
@@ -104,244 +142,376 @@ func (p *YahooChartProvider) InstrumentDailyHistory(ctx context.Context, identit
 	if strings.TrimSpace(identity.ProviderSymbol) == "" {
 		return application.MappingOutcome[application.InstrumentDailyObservation]{}, providerValidation("providerSymbol", "provider symbol is required")
 	}
+	if _, err := domain.ParseCurrency(identity.QuoteCurrency.String()); err != nil {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, providerValidation("quoteCurrency", "quote currency is invalid")
+	}
 	if _, err := application.InclusiveMarketDates(rng); err != nil {
 		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
 	}
-	body, err := p.fetchHistory(ctx, identity.ProviderSymbol, rng)
+
+	start, err := domain.ParseMarketDate(string(rng.Start))
 	if err != nil {
 		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
 	}
-	meta := yahooHistoryRequestMeta(identity, rng)
-	return QualifyYahooHistory(meta, body)
-}
-
-func (p *YahooChartProvider) fetchHistory(ctx context.Context, symbol string, rng application.DateRange) ([]byte, error) {
-	requestURL, err := yahooChartHistoryURL(symbol, rng)
-	if err != nil {
-		return nil, err
-	}
-	return p.conn.doFetch(ctx, requestURL, func(request *http.Request) {
-		request.Header = yahooBrowserHeaders()
-	}, classifyYahooResponse)
-}
-
-func (p *YahooChartProvider) fetch(ctx context.Context, symbol string) ([]byte, error) {
-	return p.conn.doFetch(ctx, yahooChartURL(symbol), func(request *http.Request) {
-		request.Header = yahooBrowserHeaders()
-	}, classifyYahooResponse)
-}
-
-func classifyYahooResponse(response *http.Response) error {
-	switch response.StatusCode {
-	case http.StatusUnauthorized, http.StatusForbidden:
-		return providerError(domain.ErrProviderAuthentication, "provider authentication failed")
-	case http.StatusTooManyRequests:
-		return providerError(domain.ErrProviderRateLimit, "provider rate limit reached")
-	case http.StatusNotFound:
-		return unsupportedProviderSymbol()
-	case http.StatusMovedPermanently, http.StatusFound, http.StatusSeeOther, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
-		return malformedProvider()
-	}
-	if response.StatusCode >= 500 {
-		return providerUnavailable("provider is unavailable")
-	}
-	if response.StatusCode != http.StatusOK {
-		return malformedProvider()
-	}
-	if encoding := strings.ToLower(strings.TrimSpace(response.Header.Get("Content-Encoding"))); encoding != "" && encoding != "identity" {
-		return malformedProvider()
-	}
-	return nil
-}
-
-func yahooBrowserHeaders() http.Header {
-	headers := make(http.Header, 12)
-	headers.Set("Accept", yahooAcceptHeader)
-	headers.Set("Accept-Encoding", yahooAcceptEncodingHeader)
-	headers.Set("Accept-Language", yahooAcceptLanguageHeader)
-	headers.Set("Priority", yahooPriorityHeader)
-	headers.Set("Sec-CH-UA", yahooSecCHUAHeader)
-	headers.Set("Sec-CH-UA-Mobile", yahooSecCHUAMobileHeader)
-	headers.Set("Sec-CH-UA-Platform", yahooSecCHUAPlatformHeader)
-	headers.Set("Sec-Fetch-Dest", yahooSecFetchDestHeader)
-	headers.Set("Sec-Fetch-Mode", yahooSecFetchModeHeader)
-	headers.Set("Sec-Fetch-Site", yahooSecFetchSiteHeader)
-	headers.Set("Sec-Fetch-User", yahooSecFetchUserHeader)
-	headers.Set("Upgrade-Insecure-Requests", yahooUpgradeInsecureRequestsHeader)
-	headers.Set("User-Agent", yahooUserAgentHeader)
-	return headers
-}
-
-func yahooChartURL(symbol string) *url.URL {
-	return &url.URL{
-		Scheme:   "https",
-		Host:     yahooChartHost,
-		Path:     "/v8/finance/chart/" + symbol,
-		RawPath:  "/v8/finance/chart/" + url.PathEscape(symbol),
-		RawQuery: "range=1m&interval=1d",
-	}
-}
-
-func yahooChartHistoryURL(symbol string, rng application.DateRange) (*url.URL, error) {
-	start, err := domain.ParseMarketDate(string(rng.Start))
-	if err != nil {
-		return nil, err
-	}
 	end, err := domain.ParseMarketDate(string(rng.End))
 	if err != nil {
-		return nil, err
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
 	}
 	startAt, err := time.Parse("2006-01-02", start)
 	if err != nil {
-		return nil, err
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
 	}
 	endAt, err := time.Parse("2006-01-02", end)
 	if err != nil {
-		return nil, err
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
 	}
-	query := url.Values{}
-	query.Set("interval", "1d")
-	query.Set("period1", strconv.FormatInt(startAt.UTC().Unix(), 10))
-	query.Set("period2", strconv.FormatInt(endAt.UTC().AddDate(0, 0, 1).Unix(), 10))
-	return &url.URL{
-		Scheme:   "https",
-		Host:     yahooChartHost,
-		Path:     "/v8/finance/chart/" + symbol,
-		RawPath:  "/v8/finance/chart/" + url.PathEscape(symbol),
-		RawQuery: query.Encode(),
+	endExclusive := endAt.AddDate(0, 0, 1).UTC()
+
+	var bars []yfinancemodels.Bar
+	var metadata *yfinancemodels.ChartMeta
+	err = p.withTicker(ctx, identity.ProviderSymbol, func(ticker YahooTicker) error {
+		bars, err = ticker.History(yfinancemodels.HistoryParams{
+			Interval:   "1d",
+			Start:      &startAt,
+			End:        &endExclusive,
+			PrePost:    false,
+			AutoAdjust: false,
+			Actions:    false,
+			Repair:     false,
+			KeepNA:     false,
+		})
+		if err == nil {
+			metadata = ticker.GetHistoryMetadata()
+		}
+		return err
+	})
+	if err != nil {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
+	}
+
+	return qualifyYFinanceHistory(identity, rng, bars, metadata, p.clock())
+}
+
+func (p *YahooChartProvider) withTicker(ctx context.Context, symbol string, operation func(YahooTicker) error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if p.semaphore != nil {
+		select {
+		case p.semaphore <- struct{}{}:
+			defer func() { <-p.semaphore }()
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	ticker, err := p.factory(symbol)
+	if err != nil {
+		return mapYahooLibraryError(err)
+	}
+	if ticker == nil {
+		return malformedProvider()
+	}
+	defer ticker.Close()
+	err = operation(ticker)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	return mapYahooLibraryError(err)
+}
+
+func (p *YahooChartProvider) clock() time.Time {
+	now := p.now()
+	if now.IsZero() {
+		return time.Now().UTC()
+	}
+	return now.UTC()
+}
+
+func normalizeYahooQuote(quote *yfinancemodels.Quote, expectedSymbol string, expectedCurrency domain.CurrencyCode, now time.Time) (application.LatestInstrumentQuote, error) {
+	if quote == nil {
+		return application.LatestInstrumentQuote{}, malformedProvider()
+	}
+	if actual := strings.TrimSpace(quote.Symbol); actual != "" && !strings.EqualFold(actual, strings.TrimSpace(expectedSymbol)) {
+		return application.LatestInstrumentQuote{}, malformedProvider()
+	}
+	actualCurrency, err := domain.ParseCurrency(quote.Currency)
+	if err != nil || actualCurrency != expectedCurrency {
+		return application.LatestInstrumentQuote{}, malformedProvider()
+	}
+	price, quotedAt, err := selectYahooQuote(quote)
+	if err != nil {
+		return application.LatestInstrumentQuote{}, malformedProvider()
+	}
+	normalizedAt, err := application.NormalizeProviderObservationTime(quotedAt, now)
+	if err != nil {
+		return application.LatestInstrumentQuote{}, malformedProvider()
+	}
+	return application.LatestInstrumentQuote{
+		Price:     price,
+		Currency:  expectedCurrency,
+		SourceKey: yahooProviderKey,
+		QuotedAt:  normalizedAt,
+		Delayed:   false,
 	}, nil
 }
 
-type chartEnvelope struct {
-	Chart chartPayload `json:"chart"`
+func selectYahooQuote(quote *yfinancemodels.Quote) (domain.UnitPrice, time.Time, error) {
+	state := strings.ToUpper(strings.TrimSpace(quote.MarketState))
+	var candidates []struct {
+		price float64
+		at    time.Time
+	}
+	switch state {
+	case "PRE":
+		candidates = append(candidates, struct {
+			price float64
+			at    time.Time
+		}{quote.PreMarketPrice, quote.PreMarketTime})
+	case "POST":
+		candidates = append(candidates, struct {
+			price float64
+			at    time.Time
+		}{quote.PostMarketPrice, quote.PostMarketTime})
+	}
+	candidates = append(candidates,
+		struct {
+			price float64
+			at    time.Time
+		}{quote.RegularMarketPrice, quote.RegularMarketTime},
+		struct {
+			price float64
+			at    time.Time
+		}{quote.PostMarketPrice, quote.PostMarketTime},
+		struct {
+			price float64
+			at    time.Time
+		}{quote.PreMarketPrice, quote.PreMarketTime},
+	)
+	for _, candidate := range candidates {
+		if !isUsableYahooPrice(candidate.price) || candidate.at.IsZero() {
+			continue
+		}
+		price, err := domain.ParseUnitPrice(yahooPriceLexeme(candidate.price))
+		if err != nil {
+			return domain.UnitPrice{}, time.Time{}, err
+		}
+		return price, candidate.at, nil
+	}
+	return domain.UnitPrice{}, time.Time{}, errors.New("Yahoo quote has no usable price")
 }
 
-type chartPayload struct {
-	Result []chartResult `json:"result"`
-	Error  *chartError   `json:"error"`
+func qualifyYFinanceHistory(identity application.InstrumentMarketIdentity, rng application.DateRange, bars []yfinancemodels.Bar, metadata *yfinancemodels.ChartMeta, now time.Time) (application.MappingOutcome[application.InstrumentDailyObservation], error) {
+	meta := yfinanceHistoryRequestMeta(identity, rng, now)
+	crypto := domain.InstrumentUsesCryptoDailyBar(identity.InstrumentType, identity.Market)
+	if !meta.PriceBasisVerified || meta.PriceBasis != string(application.PriceBasisYahooClose) {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUnsupported, Reason: "unsupported_price_basis"}, nil
+	}
+	if !crypto {
+		schedule, supported := domain.EquitySessionScheduleForMarket(identity.Market)
+		if !supported || meta.SessionPolicy != schedule.Policy || meta.SessionKind != string(domain.SessionKindRegular) || meta.CloseClock != schedule.CloseClock {
+			return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUnsupported, Reason: "session_policy_unverified"}, nil
+		}
+	}
+	if metadata == nil {
+		return invalidInstrumentOutcome(domain.HistoryCompleteness{Status: "invalid"}, "malformed_response"), nil
+	}
+	expectedCurrency, err := domain.ParseCurrency(identity.QuoteCurrency.String())
+	if err != nil {
+		return invalidInstrumentOutcome(domain.HistoryCompleteness{Status: "invalid"}, "quote_currency_mismatch"), nil
+	}
+	if actual := strings.TrimSpace(metadata.Symbol); actual != "" && !strings.EqualFold(actual, strings.TrimSpace(identity.ProviderSymbol)) {
+		return invalidInstrumentOutcome(domain.HistoryCompleteness{Status: "invalid"}, "provider_symbol_mismatch"), nil
+	}
+	actualCurrency, err := domain.ParseCurrency(metadata.Currency)
+	if err != nil || actualCurrency != expectedCurrency {
+		return invalidInstrumentOutcome(domain.HistoryCompleteness{Status: "invalid"}, "quote_currency_mismatch"), nil
+	}
+
+	timezone := strings.TrimSpace(metadata.ExchangeTimezoneName)
+	if crypto {
+		timezone = "UTC"
+	} else {
+		schedule, _ := domain.EquitySessionScheduleForMarket(identity.Market)
+		if timezone == "" {
+			return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUncertain, Reason: "session_timezone_unknown"}, nil
+		}
+		if timezone != schedule.Timezone {
+			return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUncertain, Reason: "session_timezone_unknown"}, nil
+		}
+	}
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUncertain, Reason: "session_timezone_unknown"}, nil
+	}
+
+	completeness, err := completenessFor(meta, false)
+	if err != nil {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
+	}
+	start, _ := domain.ParseMarketDate(string(rng.Start))
+	end, _ := domain.ParseMarketDate(string(rng.End))
+	observations := make([]application.InstrumentDailyObservation, 0, len(bars))
+	seenDates := map[string]struct{}{}
+	for _, bar := range bars {
+		if !isUsableYahooPrice(bar.Close) || bar.Date.IsZero() {
+			continue
+		}
+		marketDate := bar.Date.In(location).Format("2006-01-02")
+		if marketDate < start || marketDate > end {
+			return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUnsupported, Reason: "provider_date_outside_requested_range"}, nil
+		}
+		if _, duplicate := seenDates[marketDate]; duplicate {
+			return invalidInstrumentOutcome(completeness, "duplicate_market_date"), nil
+		}
+		seenDates[marketDate] = struct{}{}
+		if !dateInRanges(marketDate, completeness.VerifiedRanges) {
+			continue
+		}
+		price, err := domain.ParseUnitPrice(yahooPriceLexeme(bar.Close))
+		if err != nil {
+			return invalidInstrumentOutcome(completeness, "malformed_close"), nil
+		}
+		observation := application.InstrumentDailyObservation{
+			MarketDate:        application.MarketDate(marketDate),
+			Value:             price.Canonical(),
+			Currency:          expectedCurrency.String(),
+			ProviderTimestamp: bar.Date.UTC(),
+			Kind:              application.InstrumentObservationClose,
+			PriceBasis:        application.PriceBasisYahooClose,
+		}
+		if crypto {
+			observation.TimestampBasis = application.TimestampBasisPolicyDerived
+			observation.ValueEffectiveAt, err = domain.CryptoDailyBarEligibleAt(marketDate)
+		} else {
+			schedule, _ := domain.EquitySessionScheduleForMarket(identity.Market)
+			resolution, resolutionErr := domain.ResolveEquitySessionClose(marketDate, identity.Market, domain.SessionEvidence{
+				Kind:       domain.SessionKindRegular,
+				Timezone:   timezone,
+				CloseClock: schedule.CloseClock,
+				Policy:     schedule.Policy,
+			})
+			if resolutionErr != nil {
+				return application.MappingOutcome[application.InstrumentDailyObservation]{}, resolutionErr
+			}
+			if resolution.Status != "mapped" {
+				status := application.MappingUncertain
+				if resolution.Status == "unsupported" {
+					status = application.MappingUnsupported
+				}
+				return application.MappingOutcome[application.InstrumentDailyObservation]{Status: status, Reason: resolution.Reason}, nil
+			}
+			observation.TimestampBasis = application.TimestampBasisSessionClose
+			observation.ValueEffectiveAt = resolution.CloseInstant
+		}
+		if err != nil {
+			return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
+		}
+		observations = append(observations, observation)
+	}
+	if len(observations) == 0 {
+		return application.MappingOutcome[application.InstrumentDailyObservation]{Status: application.MappingUnsupported, Reason: "unsupported_price_basis"}, nil
+	}
+	status := mappingStatusFor(completeness, application.MappingMapped)
+	timestampBasis := application.TimestampBasisSessionClose
+	if crypto {
+		timestampBasis = application.TimestampBasisPolicyDerived
+	}
+	return application.MappingOutcome[application.InstrumentDailyObservation]{
+		Status: status,
+		Reason: completeness.Reason,
+		Batch: application.HistoryBatch[application.InstrumentDailyObservation]{
+			Observations:    observations,
+			VerifiedRanges:  toAppRanges(completeness.VerifiedRanges),
+			PendingRanges:   toAppRanges(completeness.PendingRanges),
+			UncertainRanges: toAppRanges(completeness.UncertainRanges),
+			Evidence: application.ResponseEvidence{
+				Adapter:         "go-yfinance",
+				AdapterVersion:  yahooAdapterVersion,
+				SourcePolicy:    string(application.PriceBasisYahooClose),
+				RequestIdentity: "yahoo-finance-history",
+				PriceBasis:      application.PriceBasisYahooClose,
+				TimestampBasis:  timestampBasis,
+				SessionPolicy:   meta.SessionPolicy,
+			},
+		},
+	}, nil
 }
 
+func yfinanceHistoryRequestMeta(identity application.InstrumentMarketIdentity, rng application.DateRange, now time.Time) vnextFixtureMeta {
+	meta := vnextFixtureMeta{
+		FixtureID:          "yahoo-finance-history",
+		Provider:           yahooProviderKey,
+		Capability:         "InstrumentDailyHistory",
+		ProviderSymbol:     identity.ProviderSymbol,
+		InstrumentType:     identity.InstrumentType,
+		QuoteCurrency:      identity.QuoteCurrency.String(),
+		Market:             identity.Market,
+		PriceBasis:         string(application.PriceBasisYahooClose),
+		PriceBasisVerified: true,
+		SessionKind:        string(domain.SessionKindRegular),
+		Clock:              now.UTC().Format(time.RFC3339),
+	}
+	meta.RequestedRange.Start = string(rng.Start)
+	meta.RequestedRange.End = string(rng.End)
+	if domain.InstrumentUsesCryptoDailyBar(identity.InstrumentType, identity.Market) {
+		meta.SessionPolicy = domain.YahooCryptoUTCDailyBarPolicy
+		meta.SessionTimezone = "UTC"
+		if finalized, err := domain.LastFinalizedCryptoMarketDate(now.UTC()); err == nil {
+			meta.LastFinalizedMarketDate = finalized
+		}
+		return meta
+	}
+	if schedule, supported := domain.EquitySessionScheduleForMarket(identity.Market); supported {
+		meta.SessionPolicy = schedule.Policy
+		meta.SessionTimezone = schedule.Timezone
+		meta.CloseClock = schedule.CloseClock
+		if finalized, err := domain.LastFinalizedEquityMarketDate(now.UTC(), identity.Market); err == nil {
+			meta.LastFinalizedMarketDate = finalized
+		}
+	}
+	return meta
+}
+
+func isUsableYahooPrice(value float64) bool {
+	return value > 0 && !math.IsNaN(value) && !math.IsInf(value, 0)
+}
+
+// go-yfinance exposes Yahoo numeric fields as float64. Format them at the
+// application's eight-decimal precision boundary before exact parsing so
+// binary floating-point tails cannot be mistaken for malformed prices.
+func yahooPriceLexeme(value float64) string {
+	return strconv.FormatFloat(value, 'f', 8, 64)
+}
+
+func mapYahooLibraryError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var chartError *yfinanceclient.ChartAPIError
+	if errors.As(err, &chartError) {
+		return unsupportedProviderSymbol()
+	}
+	switch {
+	case yfinanceclient.IsRateLimitError(err):
+		return providerError(domain.ErrProviderRateLimit, "provider rate limit reached")
+	case yfinanceclient.IsAuthError(err):
+		return providerError(domain.ErrProviderAuthentication, "provider authentication failed")
+	case yfinanceclient.IsNotFoundError(err), yfinanceclient.IsInvalidSymbolError(err), yfinanceclient.IsNoDataError(err):
+		return unsupportedProviderSymbol()
+	case yfinanceclient.IsTimeoutError(err), errors.Is(err, yfinanceclient.ErrNetwork):
+		return providerUnavailable("provider is unavailable")
+	case errors.Is(err, yfinanceclient.ErrInvalidResponse):
+		return malformedProvider()
+	default:
+		return providerUnavailable("provider is unavailable")
+	}
+}
+
+// chartError is retained for the offline Yahoo fixture qualification tests.
+// Production requests are decoded by go-yfinance.
 type chartError struct {
 	Code        string `json:"code"`
 	Description string `json:"description"`
-}
-
-type chartResult struct {
-	Meta       chartMeta       `json:"meta"`
-	Timestamp  []int64         `json:"timestamp"`
-	Indicators chartIndicators `json:"indicators"`
-}
-
-type chartMeta struct {
-	Currency           string          `json:"currency"`
-	RegularMarketPrice json.RawMessage `json:"regularMarketPrice"`
-	RegularMarketTime  *int64          `json:"regularMarketTime"`
-}
-
-type chartIndicators struct {
-	Quote []chartQuote `json:"quote"`
-}
-
-type chartQuote struct {
-	Close []json.RawMessage `json:"close"`
-}
-
-type normalizedChartQuote struct {
-	Value    string
-	QuotedAt time.Time
-	Delayed  bool
-}
-
-func normalizeChart(body []byte, expectedCurrency domain.CurrencyCode, fx bool) (normalizedChartQuote, error) {
-	return normalizeChartAt(body, expectedCurrency, fx, time.Now().UTC())
-}
-
-func normalizeChartAt(body []byte, expectedCurrency domain.CurrencyCode, fx bool, now time.Time) (normalizedChartQuote, error) {
-	var envelope chartEnvelope
-	decoder := json.NewDecoder(bytes.NewReader(body))
-	decoder.UseNumber()
-	if err := decoder.Decode(&envelope); err != nil {
-		return normalizedChartQuote{}, malformedProvider()
-	}
-	var extra any
-	if err := decoder.Decode(&extra); err != io.EOF {
-		return normalizedChartQuote{}, malformedProvider()
-	}
-	if envelope.Chart.Error != nil {
-		return normalizedChartQuote{}, unsupportedProviderSymbol()
-	}
-	if len(envelope.Chart.Result) != 1 {
-		return normalizedChartQuote{}, malformedProvider()
-	}
-	result := envelope.Chart.Result[0]
-	actualCurrency, err := domain.ParseCurrency(result.Meta.Currency)
-	if err != nil || actualCurrency != expectedCurrency {
-		return normalizedChartQuote{}, malformedProvider()
-	}
-	if raw := result.Meta.RegularMarketPrice; len(raw) > 0 && !isJSONNull(raw) {
-		lexeme, parseErr := jsonNumberLexeme(raw)
-		if parseErr != nil {
-			return normalizedChartQuote{}, malformedProvider()
-		}
-		price, priceErr := parseProviderPrice(lexeme, fx)
-		if priceErr != nil {
-			return normalizedChartQuote{}, malformedProvider()
-		}
-		if result.Meta.RegularMarketTime != nil {
-			quotedAt, timeErr := unixTimestampAt(*result.Meta.RegularMarketTime, now)
-			if timeErr != nil {
-				return normalizedChartQuote{}, malformedProvider()
-			}
-			return normalizedChartQuote{Value: price, QuotedAt: quotedAt}, nil
-		}
-	}
-	return fallbackCloseAt(result, fx, now)
-}
-
-func fallbackCloseAt(result chartResult, fx bool, now time.Time) (normalizedChartQuote, error) {
-	if len(result.Indicators.Quote) != 1 || len(result.Timestamp) == 0 || len(result.Timestamp) != len(result.Indicators.Quote[0].Close) {
-		return normalizedChartQuote{}, malformedProvider()
-	}
-	var selected string
-	var selectedAt time.Time
-	found := false
-	for index, raw := range result.Indicators.Quote[0].Close {
-		if isJSONNull(raw) {
-			continue
-		}
-		lexeme, err := jsonNumberLexeme(raw)
-		if err != nil {
-			return normalizedChartQuote{}, malformedProvider()
-		}
-		price, err := parseProviderPrice(lexeme, fx)
-		if err != nil {
-			return normalizedChartQuote{}, malformedProvider()
-		}
-		quotedAt, err := unixTimestampAt(result.Timestamp[index], now)
-		if err != nil {
-			return normalizedChartQuote{}, malformedProvider()
-		}
-		selected, selectedAt, found = price, quotedAt, true
-	}
-	if !found {
-		return normalizedChartQuote{}, malformedProvider()
-	}
-	return normalizedChartQuote{Value: selected, QuotedAt: selectedAt, Delayed: true}, nil
-}
-
-func parseProviderPrice(lexeme string, fx bool) (string, error) {
-	if fx {
-		rate, err := domain.ParseFxRate(lexeme)
-		if err != nil {
-			return "", err
-		}
-		return rate.Canonical(), nil
-	}
-	price, err := domain.ParseUnitPrice(lexeme)
-	if err != nil {
-		return "", err
-	}
-	return price.Canonical(), nil
 }
 
 func jsonNumberLexeme(raw json.RawMessage) (string, error) {
@@ -360,13 +530,6 @@ func jsonNumberLexeme(raw json.RawMessage) (string, error) {
 		return "", errors.New("financial value contains trailing data")
 	}
 	return number.String(), nil
-}
-
-func unixTimestampAt(value int64, now time.Time) (time.Time, error) {
-	if value <= 0 {
-		return time.Time{}, errors.New("timestamp is invalid")
-	}
-	return application.NormalizeProviderObservationTime(time.Unix(value, 0).UTC(), now)
 }
 
 func isJSONNull(raw json.RawMessage) bool { return strings.TrimSpace(string(raw)) == "null" }
