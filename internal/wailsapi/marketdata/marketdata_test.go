@@ -8,6 +8,7 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/marketdata"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
@@ -168,5 +169,52 @@ func TestStartRefreshAllPayloadCarriesResult(t *testing.T) {
 	}
 	if payload.RequestID != "req-3" || payload.Error != "" || payload.Result == nil {
 		t.Fatalf("payload = %+v, want RequestID=req-3, no error, and a Result", payload)
+	}
+}
+
+type yahooSearchProvider struct {
+	fakeProvider
+}
+
+func (p yahooSearchProvider) Capabilities() application.MarketDataCapabilities {
+	return application.MarketDataCapabilities{LatestInstrument: true, InstrumentSearch: true}
+}
+
+func (p yahooSearchProvider) SearchInstruments(context.Context, string, string, int) ([]application.InstrumentSearchHit, error) {
+	return []application.InstrumentSearchHit{{
+		ProviderKey: application.YahooFinanceProviderKey, ProviderSymbol: "NVDA", Name: "NVIDIA Corporation",
+		Symbol: "NVDA", Type: "stock", MarketCode: "NASDAQ", CountryCode: "US", QuoteCurrency: "USD", Exchange: "NASDAQ",
+	}}, nil
+}
+
+func TestSearchInstrumentsReturnsYahooHits(t *testing.T) {
+	registry := application.NewMarketDataRegistryWithDefault(application.YahooFinanceProviderKey, yahooSearchProvider{fakeProvider{key: application.YahooFinanceProviderKey}})
+	app := wailstest.NewService(t)
+	app.SetMarketDataRegistry(registry)
+	if err := household.NewService(app).CompleteOnboarding(context.Background(), household.CompleteOnboardingRequest{
+		HouseholdName: "H", BaseCurrency: "USD", MemberNames: []string{"Alice"},
+	}); err != nil {
+		t.Fatalf("CompleteOnboarding: %v", err)
+	}
+	service := marketdata.NewService(app, nil)
+	hits, err := service.SearchInstruments(context.Background(), "NVDA", "stock")
+	if err != nil {
+		t.Fatalf("SearchInstruments: %v", err)
+	}
+	if len(hits) != 1 || hits[0].ProviderSymbol != "NVDA" || hits[0].Name != "NVIDIA Corporation" || hits[0].MarketCode != "NASDAQ" {
+		t.Fatalf("hits = %+v", hits)
+	}
+}
+
+func TestSearchInstrumentsRejectsEmptyQuery(t *testing.T) {
+	app := onboardedAppWithProvider(t)
+	service := marketdata.NewService(app, nil)
+	_, err := service.SearchInstruments(context.Background(), "  ", "stock")
+	if err == nil {
+		t.Fatal("want a validation error for an empty query")
+	}
+	wireErr, ok := apierror.Parse(err.Error())
+	if !ok || wireErr.Code != "validation" {
+		t.Fatalf("err = %v, want validation code", err)
 	}
 }

@@ -16,6 +16,9 @@ import { displayEnum } from "@/lib/display";
 import { IconPicker } from "@/components/forms/IconPicker";
 import { INSTRUMENT_TYPE_ICONS } from "@/lib/defaultIcons";
 import { countryForMarket, marketsForCountry } from "@/lib/instrumentMarkets";
+import { isYahooSearchableInstrumentType } from "@/queries/marketdata";
+import { InstrumentYahooSearch } from "@/features/investments/InstrumentYahooSearch";
+import type { InstrumentSearchHitDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 
 const instrumentFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -33,6 +36,10 @@ const instrumentFormSchema = z.object({
 });
 
 type InstrumentFormValues = z.infer<typeof instrumentFormSchema>;
+
+function defaultQuoteSourceForType(type: string): string {
+  return isYahooSearchableInstrumentType(type) ? "provider" : "manual";
+}
 
 function marketLabel(code: string, t: (key: string, options?: Record<string, unknown>) => string): string {
   const name = displayEnum(t, "portfolio.market", code);
@@ -65,27 +72,27 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       countryCode: instrument?.countryCode ?? "",
       isin: instrument?.isin ?? "",
       note: instrument?.note ?? "",
-      quoteSource: instrument?.quoteSource ?? "manual",
+      quoteSource: instrument?.quoteSource ?? defaultQuoteSourceForType(instrument?.type ?? "stock"),
       providerKey: instrument?.providerKey ?? "",
       providerSymbol: instrument?.providerSymbol ?? "",
       iconKey: instrument?.iconKey ?? "stock",
     },
   });
   const quoteSource = useWatch({ control, name: "quoteSource" });
-  const instrumentType = useWatch({ control, name: "type" });
+  const instrumentType = useWatch({ control, name: "type" }) ?? "stock";
   const iconKey = useWatch({ control, name: "iconKey" });
   const countryCode = useWatch({ control, name: "countryCode" }) ?? "";
   const marketCode = useWatch({ control, name: "marketCode" }) ?? "";
   const [iconCustomized, setIconCustomized] = useState(Boolean(instrument));
   const householdCurrency = bootstrap.data?.household?.baseCurrency;
   const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
-  const instrumentTypes = catalog.data?.instrumentTypes ?? [];
-  const quoteSources = catalog.data?.quoteSources ?? [];
-  const instrumentProviders = catalog.data?.instrumentProviders ?? [];
-  const allMarketCodes = Array.from(new Set([...(catalog.data?.instrumentMarketCodes ?? []), ...(instrument?.marketCode ? [instrument.marketCode] : [])]));
+  const instrumentTypes = catalog.data?.instrumentTypes?.length ? catalog.data.instrumentTypes : [instrument?.type ?? "stock"];
+  const quoteSources = catalog.data?.quoteSources?.length ? catalog.data.quoteSources : ["manual", "provider"];
+  const instrumentProviders = catalog.data?.instrumentProviders?.length ? catalog.data.instrumentProviders : ["yahoo_finance"];
+  const allMarketCodes = Array.from(new Set([...(catalog.data?.instrumentMarketCodes ?? []), ...(instrument?.marketCode ? [instrument.marketCode] : []), ...(marketCode ? [marketCode] : [])]));
   const countryOptions = Array.from(new Set([...(catalog.data?.instrumentCountryCodes ?? []), ...(instrument?.countryCode ? [instrument.countryCode] : [])]));
   const marketOptions = marketsForCountry(allMarketCodes, countryCode, marketCode);
-  const defaultProviderKey = catalog.data?.instrumentProviders?.[0];
+  const defaultProviderKey = catalog.data?.instrumentProviders?.[0] ?? "yahoo_finance";
 
   useEffect(() => {
     if (instrument) return;
@@ -97,10 +104,34 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
 
   useEffect(() => {
     if (instrument) return;
+    if (!instrumentType) return;
+    setValue("quoteSource", defaultQuoteSourceForType(instrumentType));
+  }, [instrument, instrumentType, setValue]);
+
+  useEffect(() => {
+    if (instrument) return;
     if (quoteSource === "provider" && defaultProviderKey) {
       setValue("providerKey", defaultProviderKey);
     }
   }, [defaultProviderKey, instrument, quoteSource, setValue]);
+
+  const applyYahooSearchHit = (hit: InstrumentSearchHitDTO) => {
+    setValue("type", hit.type || instrumentType);
+    setValue("name", hit.name);
+    setValue("symbol", hit.symbol);
+    setValue("quoteSource", "provider");
+    setValue("providerKey", hit.providerKey || defaultProviderKey || "yahoo_finance");
+    setValue("providerSymbol", hit.providerSymbol);
+    if (hit.countryCode) {
+      setValue("countryCode", hit.countryCode);
+    }
+    if (hit.marketCode) {
+      setValue("marketCode", hit.marketCode);
+    }
+    if (hit.quoteCurrency) {
+      setValue("quoteCurrency", hit.quoteCurrency);
+    }
+  };
 
   useEffect(() => {
     if (!iconCustomized) setValue("iconKey", INSTRUMENT_TYPE_ICONS[instrumentType] ?? "investment");
@@ -145,6 +176,9 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           ))}
         </NativeSelect>
       </div>
+      {isYahooSearchableInstrumentType(instrumentType) && (
+        <InstrumentYahooSearch instrumentType={instrumentType} onSelect={applyYahooSearchHit} />
+      )}
       <IconPicker id="instrument-icon" value={iconKey} kind="instrument" onChange={(key) => { setValue("iconKey", key); setIconCustomized(true); }} />
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">

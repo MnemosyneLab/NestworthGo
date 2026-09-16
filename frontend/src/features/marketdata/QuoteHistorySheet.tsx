@@ -9,6 +9,7 @@ import { useInstrumentQuoteSeries, useFXQuoteSeries } from "@/queries/investment
 import { useCatalog } from "@/queries/catalog";
 import { useSettings } from "@/queries/settings";
 import { displayEnum } from "@/lib/display";
+import { instrumentDisplayLabel, instrumentSecondaryName } from "@/lib/instrumentDisplay";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
 import { chartTheme } from "@/components/charts/chartTheme";
@@ -49,10 +50,10 @@ export function QuoteHistorySheet({
   const theme = chartTheme();
 
   const title = target.kind === "instrument"
-    ? t("marketData.instrumentHistory", { name: target.instrument.name })
+    ? t("marketData.instrumentHistory", { name: instrumentDisplayLabel(target.instrument, target.instrument.name) })
     : t("marketData.fxHistory", { base: fxBase, quote: fxQuote });
   const description = target.kind === "instrument"
-    ? [target.instrument.symbol, target.instrument.quoteCurrency, displayEnum(t, "portfolio", target.instrument.quoteSource)].filter(Boolean).join(" · ")
+    ? [instrumentSecondaryName(target.instrument), target.instrument.quoteCurrency, displayEnum(t, "portfolio", target.instrument.quoteSource)].filter(Boolean).join(" · ")
     : `${fxBase}/${fxQuote}`;
 
   const points = series.data?.points ?? [];

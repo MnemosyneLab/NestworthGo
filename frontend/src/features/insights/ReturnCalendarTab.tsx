@@ -20,6 +20,7 @@ import { useHistoryOrigin } from "@/queries/history";
 import { useSettings } from "@/queries/settings";
 import { useInstruments } from "@/queries/investments";
 import { analysisReason } from "@/features/insights/analysisText";
+import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 
 function amountText(value?: { amount: string; currency: string } | null): string {
   if (!value) return "—";
@@ -249,7 +250,7 @@ function DaySheet({ request, date, session, onClose, onAssetChanges }: { request
 function DayDetails({ data, date, session, onAssetChanges }: { data: ReturnDayDTO; date: string; session: AnalysisSessionState; onAssetChanges?: (analysis: AnalysisNavigationContext) => void }) {
   const { t } = useTranslation();
   const instruments = useInstruments();
-  const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const instrumentNames = instrumentDisplayLabels(instruments.data ?? []);
   const amountPartial = data.amountStatus === "partial";
   const amountUnavailable = data.amountStatus === "unavailable";
   const openAssetChanges = () => onAssetChanges?.({ scope: session.scope, scopeId: session.scopeId, valuation: session.valuation, includeCash: session.includeCash, from: date, to: date, moreFilters: session.moreFilters });
@@ -263,7 +264,7 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   const origin = useHistoryOrigin();
   const settings = useSettings();
   const instruments = useInstruments();
-  const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const instrumentNames = instrumentDisplayLabels(instruments.data ?? []);
   const timeZone = origin.data?.timezone;
   const weekStartsOn = settings.data?.weekStart === "sunday" ? 0 : 1;
   const [view, setView] = useState<"month" | "year">("month");

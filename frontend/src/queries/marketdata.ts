@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Events } from "@wailsio/runtime";
 import { Service as MarketDataService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata";
-import type { RefreshCompletedPayload, RefreshResultDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
-import { callService, parseWailsError, translateWailsError } from "@/lib/wails";
-import { invalidateMarketDataSync, invalidateQuoteReads, invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
-import { queryKeys } from "@/queries/keys";
 import type {
+  InstrumentSearchHitDTO,
+  RefreshCompletedPayload,
+  RefreshResultDTO,
   SyncJobDTO,
   SyncPlanPreviewDTO,
   SyncRequestDTO,
   SyncStartResultDTO,
 } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
+import { callService, parseWailsError, translateWailsError } from "@/lib/wails";
+import { invalidateMarketDataSync, invalidateQuoteReads, invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
+import { queryKeys } from "@/queries/keys";
 
 const REFRESH_COMPLETED_EVENT = "marketdata.refresh.completed" as const;
 
@@ -288,5 +290,21 @@ export function useMarketDataHealth() {
 	return useQuery({
 		queryKey: queryKeys.marketdata.health,
 		queryFn: () => callService(() => MarketDataService.ScanMarketDataHealth()),
+	});
+}
+
+export function isYahooSearchableInstrumentType(type: string): boolean {
+	return type === "stock" || type === "etf";
+}
+
+export function useYahooInstrumentSearch(query: string, instrumentType: string) {
+	const normalizedQuery = query.trim();
+	return useQuery({
+		queryKey: queryKeys.marketdata.instrumentSearch(normalizedQuery, instrumentType),
+		queryFn: () => callService(() => MarketDataService.SearchInstruments(normalizedQuery, instrumentType)),
+		enabled: isYahooSearchableInstrumentType(instrumentType) && normalizedQuery.length >= 2,
+		staleTime: 30_000,
+		placeholderData: keepPreviousData,
+		select: (hits: InstrumentSearchHitDTO[] | null) => hits ?? [],
 	});
 }

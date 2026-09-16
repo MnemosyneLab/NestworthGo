@@ -73,6 +73,14 @@ export function ScanMarketDataHealth(): $CancellablePromise<$models.MarketDataHe
     return $Call.ByID(247455835);
 }
 
+/**
+ * SearchInstruments looks up stocks and ETFs through the native Yahoo Finance
+ * library. It is a form-assist read and does not persist anything.
+ */
+export function SearchInstruments(query: string, instrumentType: string): $CancellablePromise<$models.InstrumentSearchHitDTO[] | null> {
+    return $Call.ByID(1127653350, query, instrumentType);
+}
+
 export function SetFXProvider(key: string): $CancellablePromise<void> {
     return $Call.ByID(758763431, key);
 }

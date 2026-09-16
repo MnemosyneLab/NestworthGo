@@ -27,11 +27,15 @@ import {
 } from "@/queries/investments";
 import { useHoldingGainsByAccounts } from "@/queries/analytics";
 import { displayEnum, displayError } from "@/lib/display";
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
+import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { compareCanonical, formatAmount } from "@/lib/money";
 
 type HoldingsIndexRow = {
   id: string;
   instrument: string;
+  instrumentName?: string;
+  instrumentSymbol?: string;
   account: string;
   quantity: string;
   cost?: string;
@@ -53,7 +57,13 @@ function HoldingsIndexTable({ rows }: { rows: HoldingsIndexRow[] }) {
     () => [
       holdingsColumnHelper.accessor("instrument", {
         header: t("history.instrument"),
-        cell: (info) => info.getValue(),
+        cell: (info) => (
+          <InstrumentLabel
+            name={info.row.original.instrumentName}
+            symbol={info.row.original.instrumentSymbol}
+            fallback={info.getValue()}
+          />
+        ),
       }),
       holdingsColumnHelper.accessor("account", {
         header: t("history.accountSelect"),
@@ -238,7 +248,7 @@ function HoldingsTab() {
                     <option value="">{t("history.selectInstrument")}</option>
                     {(instruments.data ?? []).map((instrument) => (
                       <option key={instrument.id} value={instrument.id}>
-                        {instrument.name}
+                        {instrumentDisplayLabel(instrument, instrument.name)}
                       </option>
                     ))}
                   </NativeSelect>
@@ -269,7 +279,12 @@ function HoldingsTab() {
             const gain = holdingGains.byHoldingId.get(holding.id);
             return {
               id: holding.id,
-              instrument: holding.instrumentName ?? t("portfolio.unknownInstrument"),
+              instrument: instrumentDisplayLabel(
+                { name: holding.instrumentName, symbol: holding.instrumentSymbol },
+                t("portfolio.unknownInstrument"),
+              ),
+              instrumentName: holding.instrumentName,
+              instrumentSymbol: holding.instrumentSymbol,
               account: accountNameById.get(holding.accountId) ?? t("accounts.none"),
               quantity: holding.quantity,
               cost: gain?.totalCost?.amount,

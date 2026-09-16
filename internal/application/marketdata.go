@@ -34,7 +34,7 @@ func InstrumentProviderKeys() []string {
 }
 
 // MarketDataCapabilities describes the deliberately small provider surface.
-// Providers cannot imply search or historical-data support.
+// Search and history must be declared explicitly; adapters cannot imply them.
 type MarketDataCapabilities struct {
 	LatestInstrument       bool
 	LatestFX               bool
@@ -42,6 +42,31 @@ type MarketDataCapabilities struct {
 	DailyHistory           bool
 	InstrumentDailyHistory bool
 	FXDailyHistory         bool
+}
+
+func (c MarketDataCapabilities) SupportsInstrumentSearch() bool {
+	return c.InstrumentSearch
+}
+
+// InstrumentSearchHit is a provider-normalized candidate for creating an
+// Instrument. Yahoo-specific quoteType and exchange codes are mapped before
+// this type crosses the application boundary.
+type InstrumentSearchHit struct {
+	ProviderKey    string
+	ProviderSymbol string
+	Name           string
+	Symbol         string
+	Type           string
+	MarketCode     string
+	CountryCode    string
+	QuoteCurrency  string
+	Exchange       string
+}
+
+// InstrumentSearchProvider is an optional search capability. It is not part of
+// MarketDataProvider so latest-only fakes and adapters stay source compatible.
+type InstrumentSearchProvider interface {
+	SearchInstruments(ctx context.Context, query, instrumentType string, limit int) ([]InstrumentSearchHit, error)
 }
 
 // InstrumentMarketIdentity is the provider-neutral identity needed for a
@@ -172,6 +197,44 @@ func (r *MarketDataRegistry) Default() (MarketDataProvider, error) {
 		return nil, &domain.Error{Code: domain.ErrUnavailable, Field: "provider", Message: "provider is not configured"}
 	}
 	return r.Resolve(r.defaultKey)
+}
+
+const instrumentSearchQueryMaxRunes = 80
+const instrumentSearchLimit = 8
+
+// SearchInstruments looks up stocks and ETFs through the native Yahoo Finance
+// library. Other providers are not used for this form-assist path.
+func (s *Service) SearchInstruments(ctx context.Context, query, instrumentType string) ([]InstrumentSearchHit, error) {
+	query = strings.TrimSpace(query)
+	if query == "" {
+		return nil, &domain.Error{Code: domain.ErrValidation, Field: "query", Message: "search query is required"}
+	}
+	if len([]rune(query)) > instrumentSearchQueryMaxRunes {
+		return nil, &domain.Error{Code: domain.ErrValidation, Field: "query", Message: "search query is too long"}
+	}
+	parsedType, err := domain.ParseInstrumentType(instrumentType)
+	if err != nil {
+		return nil, err
+	}
+	if parsedType != domain.InstrumentStock && parsedType != domain.InstrumentETF {
+		return nil, &domain.Error{Code: domain.ErrValidation, Field: "type", Message: "search is only available for stocks and ETFs"}
+	}
+	registry := s.MarketDataRegistry()
+	if registry == nil {
+		return nil, &domain.Error{Code: domain.ErrUnavailable, Field: "provider", Message: "provider is not configured"}
+	}
+	provider, err := registry.Resolve(YahooFinanceProviderKey)
+	if err != nil {
+		return nil, err
+	}
+	if !provider.Capabilities().SupportsInstrumentSearch() {
+		return nil, &domain.Error{Code: domain.ErrUnavailable, Field: "provider", Message: "provider does not support instrument search"}
+	}
+	searcher, ok := provider.(InstrumentSearchProvider)
+	if !ok {
+		return nil, &domain.Error{Code: domain.ErrUnavailable, Field: "provider", Message: "provider does not support instrument search"}
+	}
+	return searcher.SearchInstruments(ctx, query, string(parsedType), instrumentSearchLimit)
 }
 
 // Providers returns a deterministic copy for settings and capability-aware

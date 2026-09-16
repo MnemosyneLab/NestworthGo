@@ -93,6 +93,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
     StartRefreshFX: (...args: unknown[]) => startRefresh(refreshFX)(...args as [string, ...unknown[]]),
     StartRefreshInstrument: (...args: unknown[]) => startRefresh(refreshInstrument)(...args as [string, ...unknown[]]),
     CancelRefresh: vi.fn(async () => undefined),
+    SearchInstruments: vi.fn().mockResolvedValue([]),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({

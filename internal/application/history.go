@@ -146,7 +146,11 @@ func (s *Service) StartingPointDraft(ctx context.Context) ([]domain.StartingPoin
 		if quote := selectInstrumentQuote(instrument, snapshot.InstrumentQuotes); quote != nil {
 			unitCost = quote.UnitPrice.Canonical()
 		}
-		draft = append(draft, domain.StartingPointHoldingView{HoldingID: holding.ID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Quantity: holding.Quantity.Canonical(), UnitCost: unitCost})
+		symbol := ""
+		if instrument.Symbol != nil {
+			symbol = *instrument.Symbol
+		}
+		draft = append(draft, domain.StartingPointHoldingView{HoldingID: holding.ID, InstrumentID: holding.InstrumentID, InstrumentName: domain.InstrumentDisplayLabel(instrument.Name, symbol), Currency: instrument.QuoteCurrency, Quantity: holding.Quantity.Canonical(), UnitCost: unitCost})
 	}
 	return draft, nil
 }

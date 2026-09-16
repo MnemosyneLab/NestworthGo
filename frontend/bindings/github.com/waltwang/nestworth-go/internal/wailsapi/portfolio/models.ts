@@ -64,6 +64,7 @@ export interface OverviewHoldingLabelDTO {
 export interface OverviewInstrumentLabelDTO {
     "id": string;
     "name": string;
+    "symbol"?: string;
     "quoteSource"?: string;
 }
 

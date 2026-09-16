@@ -16,6 +16,7 @@ import { analysisReason } from "@/features/insights/analysisText";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
 import { formatAmount } from "@/lib/money";
+import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
@@ -53,7 +54,7 @@ export function CategoriesTab({ session, onOpenHistory }: { session: AnalysisSes
   const accounts = useAccounts();
   const instruments = useInstruments();
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
-  const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const instrumentNames = instrumentDisplayLabels(instruments.data ?? []);
   const labelFor = (row: CategoryRowDTO) => row.accountId ? accountNames.get(row.accountId) ?? row.label : row.instrumentId ? instrumentNames.get(row.instrumentId) ?? row.label : row.key === "cash" ? t("insights.cash") : row.label;
   const data = categories.data;
   const selected = (data?.rows ?? []).find((row) => row.key === selectedKey) ?? null;

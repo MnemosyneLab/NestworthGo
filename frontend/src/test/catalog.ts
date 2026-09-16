@@ -5,12 +5,12 @@ import type { CatalogDTO } from "@/queries/catalog";
  * options so a leftover hardcoded array cannot hide behind the mock. */
 export const TEST_CATALOG: CatalogDTO = {
   currencies: ["USD", "SGD", "CNY"],
-  instrumentTypes: ["stock", "etf"],
+  instrumentTypes: ["stock", "etf", "crypto"],
   institutionTypes: ["bank", "brokerage", "insurer", "exchange", "employer", "government", "other"],
   quoteSources: ["manual", "provider"],
   instrumentProviders: ["yahoo_finance", "worker"],
   instrumentCountryCodes: ["AU", "CN", "EU", "GB", "HK", "JP", "SG", "TW", "US", "KR", "CH"],
-  instrumentMarketCodes: ["ASX", "SSE", "SZSE", "BSE", "EURONEXT", "XETRA", "LSE", "HKEX", "TSE", "SGX", "TWSE", "NASDAQ", "NYSE", "AMEX", "KRX", "SIX"],
+  instrumentMarketCodes: ["ASX", "SSE", "SZSE", "BSE", "EURONEXT", "XETRA", "LSE", "HKEX", "TSE", "SGX", "TWSE", "NASDAQ", "NYSE", "AMEX", "ARCA", "BZX", "EDGX", "IEX", "KRX", "SIX"],
   accountTypes: ["cash_on_hand", "bank_account", "brokerage", "credit_card", "other"],
   balanceSheetRoles: ["asset", "liability"],
   trackingModes: ["balance", "manual_value", "holdings"],

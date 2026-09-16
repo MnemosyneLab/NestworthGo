@@ -12,6 +12,7 @@ const updateInstrument = vi.fn();
 const archiveInstrument = vi.fn().mockResolvedValue(undefined);
 const currentInstrumentQuote = vi.fn();
 const appendManualQuote = vi.fn();
+const searchInstruments = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
   Service: {
@@ -48,6 +49,11 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ca
   const { TEST_CATALOG } = await import("@/test/catalog");
   return { Service: { Catalog: () => Promise.resolve(TEST_CATALOG) } };
 });
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
+  Service: {
+    SearchInstruments: (...args: unknown[]) => searchInstruments(...args),
+  },
+}));
 
 function renderManagement() {
   const queryClient = createTestQueryClient();
@@ -65,6 +71,8 @@ beforeEach(() => {
   archiveInstrument.mockClear();
   appendManualQuote.mockReset();
   currentInstrumentQuote.mockReset();
+  searchInstruments.mockReset();
+  searchInstruments.mockResolvedValue([]);
   appendManualQuote.mockResolvedValue({ id: "q1", instrumentId: "i1", unitPrice: "131.70" });
   currentInstrumentQuote.mockResolvedValue(null);
   listInstruments.mockResolvedValue([]);
@@ -106,10 +114,29 @@ describe("InstrumentManagement", () => {
     expect(within(stockGroup).getByText("Kweichow").compareDocumentPosition(within(stockGroup).getByText("Apple")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it("shows the ticker first and the legal name in smaller text", async () => {
+    listInstruments.mockResolvedValue([{
+      id: "i1",
+      name: "Alpha Architect 1-3 Month Box ETF",
+      symbol: "BOXX",
+      type: "etf",
+      quoteCurrency: "USD",
+      quoteSource: "provider",
+    }]);
+
+    renderManagement();
+
+    expect(await screen.findByText("BOXX")).toBeInTheDocument();
+    expect(screen.getByText("Alpha Architect 1-3 Month Box ETF")).toBeInTheDocument();
+    expect(screen.getByText("BOXX").className).toContain("font-medium");
+    expect(screen.getByText("Alpha Architect 1-3 Month Box ETF").className).toContain("text-xs");
+  });
+
   it("creates an Instrument with manual quote source", async () => {
     renderManagement();
     await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
+    await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "manual");
     await userEvent.type(within(form).getByLabelText("Name"), "NVIDIA");
     await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
 
@@ -242,6 +269,8 @@ describe("InstrumentManagement", () => {
     expect(type.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(form).getByRole("option", { name: "NASDAQ - Nasdaq" })).toBeInTheDocument();
     expect(within(form).getByRole("option", { name: "NYSE - New York" })).toBeInTheDocument();
+    expect(within(form).getByRole("option", { name: "ARCA - NYSE Arca" })).toBeInTheDocument();
+    expect(within(form).getByRole("option", { name: "BZX - Cboe BZX" })).toBeInTheDocument();
     expect(within(form).getByRole("option", { name: "HKEX - Hong Kong" })).toBeInTheDocument();
   });
 
@@ -251,7 +280,7 @@ describe("InstrumentManagement", () => {
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await waitFor(() => expect(within(form).getByLabelText("Trading market")).toBeEnabled());
     await userEvent.selectOptions(within(form).getByLabelText("Country / region"), "US");
-    expect(selectValues(within(form).getByLabelText("Trading market"))).toEqual(["", "NASDAQ", "NYSE", "AMEX"]);
+    expect(selectValues(within(form).getByLabelText("Trading market"))).toEqual(["", "NASDAQ", "NYSE", "AMEX", "ARCA", "BZX", "EDGX", "IEX"]);
     await userEvent.selectOptions(within(form).getByLabelText("Trading market"), "NASDAQ");
     expect(within(form).getByLabelText("Country / region")).toHaveValue("US");
     await userEvent.selectOptions(within(form).getByLabelText("Country / region"), "CN");
@@ -260,5 +289,131 @@ describe("InstrumentManagement", () => {
     await userEvent.selectOptions(within(form).getByLabelText("Country / region"), "");
     await userEvent.selectOptions(within(form).getByLabelText("Trading market"), "HKEX");
     expect(within(form).getByLabelText("Country / region")).toHaveValue("HK");
+  });
+
+  it("defaults stock and ETF quote source to Yahoo provider", async () => {
+    renderManagement();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await waitFor(() => {
+      expect(within(form).getByLabelText("Quote source")).toHaveValue("provider");
+      expect(within(form).getByLabelText("Provider key")).toHaveValue("yahoo_finance");
+    });
+    expect(within(form).getByLabelText("Search Yahoo")).toBeInTheDocument();
+    await userEvent.selectOptions(within(form).getByLabelText("Type"), "etf");
+    await waitFor(() => {
+      expect(within(form).getByLabelText("Quote source")).toHaveValue("provider");
+      expect(within(form).getByLabelText("Provider key")).toHaveValue("yahoo_finance");
+    });
+    await userEvent.selectOptions(within(form).getByLabelText("Type"), "crypto");
+    await waitFor(() => expect(within(form).getByLabelText("Quote source")).toHaveValue("manual"));
+    expect(within(form).queryByLabelText("Search Yahoo")).not.toBeInTheDocument();
+  });
+
+  it("fills identity fields from a Yahoo search result", async () => {
+    searchInstruments.mockResolvedValue([{
+      providerKey: "yahoo_finance",
+      providerSymbol: "NVDA",
+      name: "NVIDIA Corporation",
+      symbol: "NVDA",
+      type: "stock",
+      marketCode: "NASDAQ",
+      countryCode: "US",
+      quoteCurrency: "USD",
+      exchange: "NASDAQ",
+    }]);
+    renderManagement();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await userEvent.type(within(form).getByLabelText("Search Yahoo"), "NVDA");
+    const option = await within(form).findByRole("option", { name: "NVDA · NVIDIA Corporation · NASDAQ" });
+    await userEvent.click(option);
+    expect(within(form).getByLabelText("Name")).toHaveValue("NVIDIA Corporation");
+    expect(within(form).getByLabelText("Security symbol")).toHaveValue("NVDA");
+    expect(within(form).getByLabelText("Country / region")).toHaveValue("US");
+    expect(within(form).getByLabelText("Trading market")).toHaveValue("NASDAQ");
+    expect(within(form).getByLabelText("Currency")).toHaveValue("USD");
+    expect(within(form).getByLabelText("Quote source")).toHaveValue("provider");
+    expect(within(form).getByLabelText("Quote lookup symbol")).toHaveValue("NVDA");
+    await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
+    expect(createInstrument).toHaveBeenCalledWith(expect.objectContaining({
+      name: "NVIDIA Corporation",
+      type: "stock",
+      symbol: "NVDA",
+      marketCode: "NASDAQ",
+      countryCode: "US",
+      quoteCurrency: "USD",
+      quoteSource: "provider",
+      providerKey: "yahoo_finance",
+      providerSymbol: "NVDA",
+    }));
+  });
+
+  it("fills NYSE Arca from a Yahoo ETF search result", async () => {
+    searchInstruments.mockResolvedValue([{
+      providerKey: "yahoo_finance",
+      providerSymbol: "SPY",
+      name: "SPDR S&P 500 ETF Trust",
+      symbol: "SPY",
+      type: "etf",
+      marketCode: "ARCA",
+      countryCode: "US",
+      quoteCurrency: "USD",
+      exchange: "NYSEArca",
+    }]);
+    renderManagement();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type"), "etf");
+    await userEvent.type(within(form).getByLabelText("Search Yahoo"), "SPY");
+    await userEvent.click(await within(form).findByRole("option", { name: "SPY · SPDR S&P 500 ETF Trust · NYSEArca" }));
+    expect(within(form).getByLabelText("Trading market")).toHaveValue("ARCA");
+    expect(within(form).getByLabelText("Country / region")).toHaveValue("US");
+    expect(selectValues(within(form).getByLabelText("Trading market"))).toEqual(["", "NASDAQ", "NYSE", "AMEX", "ARCA", "BZX", "EDGX", "IEX"]);
+    await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
+    expect(createInstrument).toHaveBeenCalledWith(expect.objectContaining({
+      name: "SPDR S&P 500 ETF Trust",
+      type: "etf",
+      symbol: "SPY",
+      marketCode: "ARCA",
+      countryCode: "US",
+      quoteCurrency: "USD",
+      quoteSource: "provider",
+      providerKey: "yahoo_finance",
+      providerSymbol: "SPY",
+    }));
+  });
+
+  it("fills Cboe BZX from a Yahoo ETF search result", async () => {
+    searchInstruments.mockResolvedValue([{
+      providerKey: "yahoo_finance",
+      providerSymbol: "ARKK",
+      name: "ARK Innovation ETF",
+      symbol: "ARKK",
+      type: "etf",
+      marketCode: "BZX",
+      countryCode: "US",
+      quoteCurrency: "USD",
+      exchange: "Cboe BZX",
+    }]);
+    renderManagement();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type"), "etf");
+    await userEvent.type(within(form).getByLabelText("Search Yahoo"), "ARKK");
+    await userEvent.click(await within(form).findByRole("option", { name: "ARKK · ARK Innovation ETF · Cboe BZX" }));
+    expect(within(form).getByLabelText("Trading market")).toHaveValue("BZX");
+    expect(within(form).getByLabelText("Country / region")).toHaveValue("US");
+    await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
+    expect(createInstrument).toHaveBeenCalledWith(expect.objectContaining({
+      name: "ARK Innovation ETF",
+      type: "etf",
+      symbol: "ARKK",
+      marketCode: "BZX",
+      countryCode: "US",
+      quoteSource: "provider",
+      providerKey: "yahoo_finance",
+      providerSymbol: "ARKK",
+    }));
   });
 });

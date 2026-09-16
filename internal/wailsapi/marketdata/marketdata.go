@@ -142,6 +142,46 @@ func (s *Service) FXProviderKey() string {
 	return s.app.FXProviderKey()
 }
 
+// InstrumentSearchHitDTO is a Yahoo search candidate used to prefill the
+// Instrument form. Empty optional identity fields stay omitted so the UI can
+// keep whatever the user already typed.
+type InstrumentSearchHitDTO struct {
+	ProviderKey    string `json:"providerKey"`
+	ProviderSymbol string `json:"providerSymbol"`
+	Name           string `json:"name"`
+	Symbol         string `json:"symbol"`
+	Type           string `json:"type"`
+	MarketCode     string `json:"marketCode,omitempty"`
+	CountryCode    string `json:"countryCode,omitempty"`
+	QuoteCurrency  string `json:"quoteCurrency,omitempty"`
+	Exchange       string `json:"exchange,omitempty"`
+}
+
+func fromInstrumentSearchHit(hit application.InstrumentSearchHit) InstrumentSearchHitDTO {
+	return InstrumentSearchHitDTO{
+		ProviderKey: hit.ProviderKey, ProviderSymbol: hit.ProviderSymbol, Name: hit.Name,
+		Symbol: hit.Symbol, Type: hit.Type, MarketCode: hit.MarketCode, CountryCode: hit.CountryCode,
+		QuoteCurrency: hit.QuoteCurrency, Exchange: hit.Exchange,
+	}
+}
+
+// SearchInstruments looks up stocks and ETFs through the native Yahoo Finance
+// library. It is a form-assist read and does not persist anything.
+func (s *Service) SearchInstruments(ctx context.Context, query, instrumentType string) ([]InstrumentSearchHitDTO, error) {
+	if s.app == nil {
+		return nil, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
+	}
+	hits, err := s.app.SearchInstruments(ctx, query, instrumentType)
+	if err != nil {
+		return nil, apierror.Wrap(err)
+	}
+	result := make([]InstrumentSearchHitDTO, 0, len(hits))
+	for _, hit := range hits {
+		result = append(result, fromInstrumentSearchHit(hit))
+	}
+	return result, nil
+}
+
 // RefreshCompletedPayload is the event payload for RefreshCompletedEvent.
 // RequestID lets the frontend ignore a completion for an abandoned request
 // (the "stale completion" rule: ignore a completion for an abandoned

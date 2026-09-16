@@ -114,6 +114,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
   Service: {
     RefreshInstrument: vi.fn(),
     RefreshFX: vi.fn(),
+    SearchInstruments: vi.fn().mockResolvedValue([]),
   },
 }));
 

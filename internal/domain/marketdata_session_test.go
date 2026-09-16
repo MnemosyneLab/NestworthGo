@@ -49,3 +49,17 @@ func TestLastFinalizedEquityMarketDateUsesMarketSession(t *testing.T) {
 		t.Fatalf("LastFinalizedEquityMarketDate(%s, CN) = %q, want 2026-09-09", now.Format(time.RFC3339), got)
 	}
 }
+
+func TestUSListedEquityMarketIncludesCommonUSVenues(t *testing.T) {
+	for _, market := range []string{"NASDAQ", "NYSE", "AMEX", "ARCA", "BZX", "EDGX", "IEX", "XASE", "ARCX", "BATS", "IEXG"} {
+		if !USListedEquityMarket(market) {
+			t.Fatalf("USListedEquityMarket(%q) = false", market)
+		}
+		if _, ok := EquitySessionScheduleForMarket(market); !ok {
+			t.Fatalf("EquitySessionScheduleForMarket(%q) missing", market)
+		}
+	}
+	if USListedEquityMarket("HKEX") {
+		t.Fatal("HKEX must not be treated as a US listed equity market")
+	}
+}

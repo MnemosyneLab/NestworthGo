@@ -21,6 +21,7 @@ import {
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { displayError } from "@/lib/display";
+import { instrumentDisplayLabel, instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
@@ -88,7 +89,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
       .filter((id): id is string => Boolean(id)),
   );
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
-  const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const instrumentNames = instrumentDisplayLabels(instruments.data ?? [], t("history.unknownInstrument"));
   const holdingNames = new Map(
     Object.entries(holdings.data ?? {}).flatMap(([accountId, accountHoldings]) =>
       (accountHoldings ?? []).map((holding) => [
@@ -119,7 +120,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
           <Label htmlFor="history-filter-instrument">{t("history.filterInstrument")}</Label>
           <NativeSelect id="history-filter-instrument" value={instrumentFilter} onChange={(event) => setInstrumentFilter(event.target.value)}>
             <option value="">{t("history.filterAll")}</option>
-            {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => <option key={instrument.id} value={instrument.id}>{instrument.name}</option>)}
+            {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => <option key={instrument.id} value={instrument.id}>{instrumentDisplayLabel(instrument, instrument.name)}</option>)}
           </NativeSelect>
         </div>
         <div className="flex flex-col gap-1.5">

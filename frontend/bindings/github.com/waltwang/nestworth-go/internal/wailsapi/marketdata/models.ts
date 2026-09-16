@@ -22,6 +22,23 @@ export interface HealthIssueDTO {
     "collapsed"?: boolean;
 }
 
+/**
+ * InstrumentSearchHitDTO is a Yahoo search candidate used to prefill the
+ * Instrument form. Empty optional identity fields stay omitted so the UI can
+ * keep whatever the user already typed.
+ */
+export interface InstrumentSearchHitDTO {
+    "providerKey": string;
+    "providerSymbol": string;
+    "name": string;
+    "symbol": string;
+    "type": string;
+    "marketCode"?: string;
+    "countryCode"?: string;
+    "quoteCurrency"?: string;
+    "exchange"?: string;
+}
+
 export interface MarketDataHealthReportDTO {
     "healthy": boolean;
     "incompleteSince"?: string;

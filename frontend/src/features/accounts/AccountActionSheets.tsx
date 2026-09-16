@@ -18,6 +18,7 @@ import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { displayError } from "@/lib/display";
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { toast } from "sonner";
 import { QuoteHint } from "@/features/history/QuoteHint";
 import { formatAmount, sameCanonicalDecimal } from "@/lib/money";
@@ -266,7 +267,7 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
               <option value="">{t("history.selectEmpty")}</option>
               {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => (
                 <option key={instrument.id} value={instrument.id}>
-                  {instrument.name}
+                  {instrumentDisplayLabel(instrument, instrument.name)}
                 </option>
               ))}
             </NativeSelect>

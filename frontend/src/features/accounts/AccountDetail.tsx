@@ -20,6 +20,8 @@ import { CompositionChart } from "@/components/charts/CompositionChart";
 import { formatTimestamp } from "@/lib/time";
 import { useSettings } from "@/queries/settings";
 import { displayEnum, displayError } from "@/lib/display";
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
+import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { AccountCashValueDTO, AccountRecordDTO, AccountValuationDTO, HoldingDTO, ValuationComponentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -69,10 +71,11 @@ function cashChangeLabel(value: AccountCashValueDTO): string {
 function holdingRows(
   holdings: HoldingDTO[],
   valuation: AccountValuationDTO | undefined,
-  instruments: { id: string; name: string; type: string }[],
+  instruments: { id: string; name: string; type: string; symbol?: string | null }[],
 ): {
   holding: HoldingDTO;
   instrumentName: string;
+  instrumentSymbol?: string;
   instrumentType: string;
   instrumentActive: boolean;
   component?: ValuationComponentDTO;
@@ -88,6 +91,7 @@ function holdingRows(
       return {
         holding,
         instrumentName: component?.instrumentName || instrument?.name || holding.instrumentId,
+        instrumentSymbol: component?.instrumentSymbol || instrument?.symbol || undefined,
         instrumentType: instrument?.type ?? "",
         instrumentActive: Boolean(instrument),
         component,
@@ -96,7 +100,10 @@ function holdingRows(
   return sortByCanonicalDesc(
     rows,
     (row) => (row.component ? componentHouseholdAmount(row.component, householdCurrency) : undefined) ?? "0",
-    (left, right) => left.instrumentName.localeCompare(right.instrumentName),
+    (left, right) =>
+      instrumentDisplayLabel({ name: left.instrumentName, symbol: left.instrumentSymbol }).localeCompare(
+        instrumentDisplayLabel({ name: right.instrumentName, symbol: right.instrumentSymbol }),
+      ),
   );
 }
 
@@ -343,7 +350,9 @@ export function AccountDetail({
                   <tbody>
                     {rows.map((row) => (
                       <tr key={row.holding.id} className="border-b border-border last:border-0">
-                        <td className="py-2">{row.instrumentName}</td>
+                        <td className="py-2">
+                          <InstrumentLabel name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
+                        </td>
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
                         <td className="py-2">{formatAmount(row.holding.quantity)}</td>
                         <td className="py-2">

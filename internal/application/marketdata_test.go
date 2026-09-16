@@ -85,3 +85,66 @@ func TestInstrumentProviderKeysExcludesFXOnlyProviders(t *testing.T) {
 		}
 	}
 }
+
+type yahooSearchProvider struct {
+	deterministicProvider
+	hits  []InstrumentSearchHit
+	err   error
+	query string
+	typ   string
+	limit int
+}
+
+func (p *yahooSearchProvider) Capabilities() MarketDataCapabilities {
+	return MarketDataCapabilities{LatestInstrument: true, InstrumentSearch: true}
+}
+
+func (p *yahooSearchProvider) SearchInstruments(_ context.Context, query, instrumentType string, limit int) ([]InstrumentSearchHit, error) {
+	p.query = query
+	p.typ = instrumentType
+	p.limit = limit
+	return p.hits, p.err
+}
+
+func TestSearchInstrumentsUsesYahooProvider(t *testing.T) {
+	yahoo := &yahooSearchProvider{
+		deterministicProvider: deterministicProvider{key: YahooFinanceProviderKey},
+		hits: []InstrumentSearchHit{{
+			ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "NVDA", Name: "NVIDIA Corporation",
+			Symbol: "NVDA", Type: "stock", MarketCode: "NASDAQ", CountryCode: "US", QuoteCurrency: "USD",
+		}},
+	}
+	service := NewService(nil, NewMarketDataRegistry(yahoo, deterministicProvider{key: TiingoProviderKey}))
+	hits, err := service.SearchInstruments(context.Background(), "  NVDA  ", "stock")
+	if err != nil {
+		t.Fatalf("SearchInstruments: %v", err)
+	}
+	if yahoo.query != "NVDA" || yahoo.typ != "stock" || yahoo.limit != instrumentSearchLimit {
+		t.Fatalf("yahoo search args = query=%q type=%q limit=%d", yahoo.query, yahoo.typ, yahoo.limit)
+	}
+	if len(hits) != 1 || hits[0].ProviderSymbol != "NVDA" {
+		t.Fatalf("hits = %#v", hits)
+	}
+}
+
+func TestSearchInstrumentsRejectsUnsupportedType(t *testing.T) {
+	yahoo := &yahooSearchProvider{deterministicProvider: deterministicProvider{key: YahooFinanceProviderKey}}
+	service := NewService(nil, NewMarketDataRegistry(yahoo))
+	_, err := service.SearchInstruments(context.Background(), "BTC", "crypto")
+	var domainErr *domain.Error
+	if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrValidation || domainErr.Field != "type" {
+		t.Fatalf("err = %#v", err)
+	}
+	if yahoo.query != "" {
+		t.Fatal("crypto search should not call Yahoo")
+	}
+}
+
+func TestSearchInstrumentsRequiresYahooSearchCapability(t *testing.T) {
+	service := NewService(nil, NewMarketDataRegistry(deterministicProvider{key: YahooFinanceProviderKey}))
+	_, err := service.SearchInstruments(context.Background(), "NVDA", "stock")
+	var domainErr *domain.Error
+	if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrUnavailable {
+		t.Fatalf("err = %#v", err)
+	}
+}

@@ -11,6 +11,7 @@ import { useAssetChange, useAssetDriverDetail } from "@/queries/returnAnalysis";
 import type { AnalysisQueryRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis/models";
 import type { AssetChangeDTO, AssetChangeGroupDTO, AssetChangeRowDTO, AssetDriverDetailDTO, SignedMoneyView } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { formatAmount } from "@/lib/money";
+import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
 import { analysisReason } from "@/features/insights/analysisText";
@@ -201,7 +202,7 @@ export function ChangeDriversTab({ request, session, scope, onOpenHistory, onOpe
   const selected = rows.find((row) => row.key === selectedKey) ?? (selectedKey === "residual" ? residualRow : null) ?? null;
   if (selectedKey && !selected) setSelectedKey(null);
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
-  const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const instrumentNames = instrumentDisplayLabels(instruments.data ?? []);
   return (
     <ChangeDriversContent
       request={request}

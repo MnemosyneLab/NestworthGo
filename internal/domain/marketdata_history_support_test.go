@@ -14,6 +14,14 @@ func TestResolveInstrumentHistorySupportUsesTypeAndMarketNotProviderName(t *test
 	if usYahooETF.Status != InstrumentRouteOK {
 		t.Fatalf("US Yahoo ETF = %+v", usYahooETF)
 	}
+	arcaYahooETF := ResolveInstrumentHistorySupport("etf", "ARCA", YahooFinanceProviderKey)
+	if arcaYahooETF.Status != InstrumentRouteOK {
+		t.Fatalf("NYSE Arca Yahoo ETF = %+v", arcaYahooETF)
+	}
+	bzxTiingoETF := ResolveInstrumentHistorySupport("etf", "BZX", TiingoProviderKey)
+	if bzxTiingoETF.Status != InstrumentRouteOK {
+		t.Fatalf("Cboe BZX Tiingo ETF = %+v", bzxTiingoETF)
+	}
 	usTiingo := ResolveInstrumentHistorySupport("stock", "US", TiingoProviderKey)
 	if usTiingo.Status != InstrumentRouteOK {
 		t.Fatalf("US Tiingo stock = %+v", usTiingo)

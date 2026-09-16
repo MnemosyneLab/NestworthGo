@@ -795,6 +795,7 @@ type OverviewNamedRef struct {
 type OverviewInstrumentRef struct {
 	ID          string
 	Name        string
+	Symbol      string
 	QuoteSource QuoteSourceKind
 }
 

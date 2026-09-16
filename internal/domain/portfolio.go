@@ -178,7 +178,16 @@ func SupportedInstrumentCountryCodes() []string {
 // accepted by the app. Instrument persistence remains syntax-compatible with
 // older custom codes, while create/edit surfaces use this curated catalog.
 func SupportedInstrumentMarketCodes() []string {
-	return []string{"ASX", "SSE", "SZSE", "BSE", "EURONEXT", "XETRA", "LSE", "HKEX", "TSE", "SGX", "TWSE", "NASDAQ", "NYSE", "AMEX", "KRX", "SIX"}
+	return []string{"ASX", "SSE", "SZSE", "BSE", "EURONEXT", "XETRA", "LSE", "HKEX", "TSE", "SGX", "TWSE", "NASDAQ", "NYSE", "AMEX", "ARCA", "BZX", "EDGX", "IEX", "KRX", "SIX"}
+}
+
+// InstrumentDisplayLabel prefers a ticker when one is stored so family-facing
+// lists stay scannable. Empty symbols fall back to the legal name.
+func InstrumentDisplayLabel(name, symbol string) string {
+	if trimmed := strings.TrimSpace(symbol); trimmed != "" {
+		return trimmed
+	}
+	return strings.TrimSpace(name)
 }
 
 func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {

@@ -41,16 +41,28 @@ type YahooTicker interface {
 // YahooTickerFactory creates one upstream ticker for one request.
 type YahooTickerFactory func(symbol string) (YahooTicker, error)
 
+// YahooSearch is the small part of go-yfinance search used to suggest
+// Instrument identity fields. Tests replace it without the upstream client.
+type YahooSearch interface {
+	Quotes(query string, maxResults int) ([]yfinancemodels.SearchQuote, error)
+	Close()
+}
+
+// YahooSearchFactory creates one upstream search client for one request.
+type YahooSearchFactory func() (YahooSearch, error)
+
 type YahooChartProviderOptions struct {
 	TickerFactory YahooTickerFactory
+	SearchFactory YahooSearchFactory
 	Semaphore     chan struct{}
 	Now           func() time.Time
 }
 
 type YahooChartProvider struct {
-	factory   YahooTickerFactory
-	semaphore chan struct{}
-	now       func() time.Time
+	factory       YahooTickerFactory
+	searchFactory YahooSearchFactory
+	semaphore     chan struct{}
+	now           func() time.Time
 }
 
 type managedYahooTicker struct {
@@ -97,6 +109,10 @@ func NewYahooChartProviderWithOptions(options YahooChartProviderOptions) *YahooC
 	if factory == nil {
 		factory = defaultYahooTickerFactory
 	}
+	searchFactory := options.SearchFactory
+	if searchFactory == nil {
+		searchFactory = defaultYahooSearchFactory
+	}
 	semaphore := options.Semaphore
 	if semaphore == nil {
 		semaphore = sharedYahooSemaphore
@@ -105,13 +121,13 @@ func NewYahooChartProviderWithOptions(options YahooChartProviderOptions) *YahooC
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	return &YahooChartProvider{factory: factory, semaphore: semaphore, now: now}
+	return &YahooChartProvider{factory: factory, searchFactory: searchFactory, semaphore: semaphore, now: now}
 }
 
 func (p *YahooChartProvider) Key() string { return yahooProviderKey }
 
 func (p *YahooChartProvider) Capabilities() application.MarketDataCapabilities {
-	return application.MarketDataCapabilities{LatestInstrument: true, InstrumentDailyHistory: true}
+	return application.MarketDataCapabilities{LatestInstrument: true, InstrumentSearch: true, InstrumentDailyHistory: true}
 }
 
 func (p *YahooChartProvider) LatestInstrument(ctx context.Context, identity application.InstrumentMarketIdentity) (application.LatestInstrumentQuote, error) {
@@ -556,3 +572,4 @@ func unsupportedProviderSymbol() error {
 
 var _ application.MarketDataProvider = (*YahooChartProvider)(nil)
 var _ application.InstrumentHistoryProvider = (*YahooChartProvider)(nil)
+var _ application.InstrumentSearchProvider = (*YahooChartProvider)(nil)

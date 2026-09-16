@@ -15,6 +15,10 @@ export const INSTRUMENT_MARKET_COUNTRIES: Record<string, string> = {
   NASDAQ: "US",
   NYSE: "US",
   AMEX: "US",
+  ARCA: "US",
+  BZX: "US",
+  EDGX: "US",
+  IEX: "US",
   KRX: "KR",
   SIX: "CH",
 };

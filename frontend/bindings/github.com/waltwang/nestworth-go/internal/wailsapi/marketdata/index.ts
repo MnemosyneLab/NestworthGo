@@ -8,6 +8,7 @@ export {
 
 export type {
     HealthIssueDTO,
+    InstrumentSearchHitDTO,
     MarketDataHealthReportDTO,
     RefreshCompletedPayload,
     RefreshResultDTO,

@@ -84,17 +84,21 @@ export function useAllHoldingsFlat(accountIds: string[]) {
   const accounts = useAccounts();
   const holdingsByAccount = useHoldingsByAccounts(accountIds);
   const instruments = useInstruments();
-  const instrumentNameById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const instrumentById = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument]));
   const accountNameById = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
   const flat = Object.entries(holdingsByAccount.data ?? {}).flatMap(([accId, holdings]) =>
     (holdings ?? [])
       .filter((holding) => !holding.archivedAt)
-      .map((holding) => ({
-        ...holding,
-        accountId: accId,
-        accountName: accountNameById.get(accId),
-        instrumentName: instrumentNameById.get(holding.instrumentId),
-      })),
+      .map((holding) => {
+        const instrument = instrumentById.get(holding.instrumentId);
+        return {
+          ...holding,
+          accountId: accId,
+          accountName: accountNameById.get(accId),
+          instrumentName: instrument?.name,
+          instrumentSymbol: instrument?.symbol ?? undefined,
+        };
+      }),
   );
   return {
     data: flat,

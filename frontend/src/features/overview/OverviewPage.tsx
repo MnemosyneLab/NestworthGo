@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatAmount, formatPercent, isPositiveCanonical } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { formatTimestamp } from "@/lib/time";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
@@ -17,7 +18,7 @@ import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindin
 
 type OverviewMissingInput = MissingInputDTO & { accountName?: string; quoteSource?: string };
 type OverviewLabel = { id: string; name: string };
-type OverviewInstrumentLabel = OverviewLabel & { quoteSource?: string };
+type OverviewInstrumentLabel = OverviewLabel & { quoteSource?: string; symbol?: string };
 type OverviewHoldingLabel = OverviewLabel & { accountId: string; instrumentId: string };
 
 type OverviewReadModel = {
@@ -86,7 +87,7 @@ function missingItemLabel(
   accountNames: Map<string, string>,
 ): string {
   if (item.kind === "instrument_price") {
-    return item.instrumentName || item.instrumentSymbol || t("overview.unknownInstrument");
+    return instrumentDisplayLabel({ name: item.instrumentName, symbol: item.instrumentSymbol }, t("overview.unknownInstrument"));
   }
   if (item.kind === "fx_rate" && (item.baseCurrency || item.quoteCurrency)) {
     return `${item.baseCurrency}/${item.quoteCurrency}`;
@@ -176,7 +177,7 @@ export function OverviewPage({
   const missingValues = countMissing(missing, "account_value");
   const missingFx = countMissing(missing, "fx_rate");
   const accountNames = new Map((data.accountLabels ?? []).map((label) => [label.id, label.name]));
-  const instrumentNames = new Map((data.instrumentLabels ?? []).map((label) => [label.id, label.name]));
+  const instrumentNames = new Map((data.instrumentLabels ?? []).map((label) => [label.id, instrumentDisplayLabel(label, label.name)]));
   const quoteSourceByInstrument = new Map((data.instrumentLabels ?? []).map((label) => [label.id, label.quoteSource]));
   const holdingNames = new Map((data.holdingLabels ?? []).map((label) => [label.id, label.name]));
   const missingManualPrices = missing.filter((item) => {

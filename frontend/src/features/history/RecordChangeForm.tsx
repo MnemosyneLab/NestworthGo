@@ -28,6 +28,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
 import { displayError } from "@/lib/display";
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { formatTimestamp, localDateTimeInTimeZone, resolvedTimeZone } from "@/lib/time";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
 import { QuoteHint } from "@/features/history/QuoteHint";
@@ -381,8 +382,8 @@ function RecordChangeFormReady({
   const debtAccountOptions = debtAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
   const cashAccountOptions = cashAccountRecords.map((record) => ({ id: record.account.id, name: accountOptionName(record) }));
 
-  const holdingName = (holding: { instrumentName?: string; accountName?: string; quantity: string }) =>
-    `${holding.instrumentName ?? t("portfolio.unknownInstrument")} · ${holding.accountName ?? t("history.unknownAccount")} · ${formatAmount(holding.quantity)}`;
+  const holdingName = (holding: { instrumentName?: string; instrumentSymbol?: string | null; accountName?: string; quantity: string }) =>
+    `${instrumentDisplayLabel({ name: holding.instrumentName, symbol: holding.instrumentSymbol }, t("portfolio.unknownInstrument"))} · ${holding.accountName ?? t("history.unknownAccount")} · ${formatAmount(holding.quantity)}`;
   const holdingOptions = holdings.data.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
   const activeInstrumentIds = new Set((instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => instrument.id));
   const dividendHoldings = holdings.data.filter((holding) => {
@@ -401,7 +402,7 @@ function RecordChangeFormReady({
   const sellHoldingOptions = positiveSettlementHoldings.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
   const activeInstrumentOptions = (instruments.data ?? [])
     .filter((instrument) => !instrument.archivedAt)
-    .map((instrument) => ({ id: instrument.id, name: `${instrument.name} · ${instrument.quoteCurrency}` }));
+    .map((instrument) => ({ id: instrument.id, name: `${instrumentDisplayLabel(instrument, instrument.name)} · ${instrument.quoteCurrency}` }));
   const selectedInstrument = (instruments.data ?? []).find((instrument) => instrument.id === request.instrumentId);
   const tradeOptions = request.side === "sell" ? sellHoldingOptions : activeInstrumentOptions;
   const tradeSelection = request.side === "sell" ? request.holdingId ?? "" : request.instrumentId ?? "";

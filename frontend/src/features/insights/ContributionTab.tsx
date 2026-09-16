@@ -16,6 +16,7 @@ import { analysisReason } from "@/features/insights/analysisText";
 import { compareCanonical, divideCanonical, formatAmount, multiplyCanonical } from "@/lib/money";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
+import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 
 const returnComponentKeys: Record<string, string> = {
   price_change: "priceChange",
@@ -122,7 +123,7 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
   const accounts = useAccounts();
   const instruments = useInstruments();
   const accountNames = new Map((accounts.data ?? []).map((record) => [record.account.id, record.account.name]));
-  const instrumentNames = new Map((instruments.data ?? []).map((instrument) => [instrument.id, instrument.name]));
+  const instrumentNames = instrumentDisplayLabels(instruments.data ?? []);
   const data = contribution.data;
   const showRate = returnType === "total_return" || (returnType === "unrealized" && (data?.rows ?? []).some((row) => row.rate != null));
   const labelFor = (row: { key: string; label: string }) => contributionRowLabel(t, groupBy, row.key, row.label, accountNames, instrumentNames);

@@ -1232,10 +1232,14 @@ func (s *Service) attachOverviewHeadlines(ctx context.Context, snapshot domain.P
 	instrumentSources := make(map[domain.InstrumentID]domain.QuoteSourceKind, len(snapshot.Instruments))
 	result.InstrumentLabels = make([]domain.OverviewInstrumentRef, 0, len(snapshot.Instruments))
 	for _, instrument := range snapshot.Instruments {
-		instrumentNames[instrument.ID] = instrument.Name
+		symbol := ""
+		if instrument.Symbol != nil {
+			symbol = *instrument.Symbol
+		}
+		instrumentNames[instrument.ID] = domain.InstrumentDisplayLabel(instrument.Name, symbol)
 		instrumentSources[instrument.ID] = instrument.QuoteSource
 		result.InstrumentLabels = append(result.InstrumentLabels, domain.OverviewInstrumentRef{
-			ID: instrument.ID.String(), Name: instrument.Name, QuoteSource: instrument.QuoteSource,
+			ID: instrument.ID.String(), Name: instrument.Name, Symbol: symbol, QuoteSource: instrument.QuoteSource,
 		})
 	}
 	sort.Slice(result.InstrumentLabels, func(i, j int) bool { return result.InstrumentLabels[i].ID < result.InstrumentLabels[j].ID })

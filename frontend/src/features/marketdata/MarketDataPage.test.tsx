@@ -49,6 +49,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
     StartMarketDataSync: (request: unknown) => startSync(request),
     CancelSyncJob: (jobId: string) => cancelSyncJob(jobId),
     ScanMarketDataHealth: () => Promise.resolve({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] }),
+    SearchInstruments: vi.fn().mockResolvedValue([]),
   },
 }));
 

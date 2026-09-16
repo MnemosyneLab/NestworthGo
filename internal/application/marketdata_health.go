@@ -525,7 +525,7 @@ func (s *Service) scanValuationHealth(ctx context.Context, instruments map[strin
 				kind = HealthKindMissingManualPrice
 				executable = false
 			}
-			label := missing.InstrumentName
+			label := domain.InstrumentDisplayLabel(missing.InstrumentName, missing.InstrumentSymbol)
 			id := ""
 			if missing.InstrumentID != nil {
 				id = missing.InstrumentID.String()

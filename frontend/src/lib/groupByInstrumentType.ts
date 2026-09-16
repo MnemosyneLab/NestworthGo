@@ -1,3 +1,5 @@
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
+
 /** Matches domain.AllInstrumentTypes order. */
 export const INSTRUMENT_TYPE_ORDER = [
   "stock",
@@ -14,6 +16,7 @@ export type TypedInstrument = {
   type?: string | null;
   quoteCurrency?: string | null;
   name: string;
+  symbol?: string | null;
 };
 
 export type InstrumentTypeGroup<T> = {
@@ -36,13 +39,13 @@ function compareByCurrencyThenName(left: TypedInstrument, right: TypedInstrument
   if (currency !== 0) {
     return currency;
   }
-  return left.name.localeCompare(right.name);
+  return instrumentDisplayLabel(left).localeCompare(instrumentDisplayLabel(right));
 }
 
 /**
  * Groups instruments by type using catalog/domain order. Unknown types
  * follow known types alphabetically. Within a type, sort by quote
- * currency then name.
+ * currency then ticker (or name when no ticker is stored).
  */
 export function groupByInstrumentType<T extends TypedInstrument>(
   items: readonly T[],

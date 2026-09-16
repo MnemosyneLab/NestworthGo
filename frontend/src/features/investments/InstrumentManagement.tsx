@@ -20,6 +20,7 @@ import {
   useAppendManualInstrumentQuote,
 } from "@/queries/investments";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
+import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
@@ -145,8 +146,8 @@ function InstrumentRow({
       data-testid={rowTestId}
     >
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <EntityIcon iconKey={instrument.iconKey} kind="instrument" className="size-5 text-primary" />
-        <span className="font-medium">{instrument.name}</span>
+        <EntityIcon iconKey={instrument.iconKey} kind="instrument" className="size-5 shrink-0 self-start text-primary" />
+        <InstrumentLabel className="min-w-0" name={instrument.name} symbol={instrument.symbol} fallback={instrument.name} />
         <Badge variant="secondary">{instrument.quoteCurrency}</Badge>
         <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>
           {displayEnum(t, "portfolio", instrument.quoteSource)}
@@ -197,7 +198,9 @@ function InstrumentRow({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>{instrument.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogTitle>
-              <AlertDialogDescription>{instrument.name}</AlertDialogDescription>
+              <AlertDialogDescription>
+                <InstrumentLabel name={instrument.name} symbol={instrument.symbol} fallback={instrument.name} />
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>

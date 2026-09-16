@@ -8,6 +8,7 @@ import { useCatalog } from "@/queries/catalog";
 import { useAccounts } from "@/queries/accounts";
 import { useMembers } from "@/queries/directory";
 import { useInstruments } from "@/queries/investments";
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { useSettings } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import type { AnalysisNavigationContext } from "@/app/navigation";
@@ -74,7 +75,7 @@ export function AnalysisFilterBar({
               <FilterableSelect
                 id="analysis-scope-id"
                 value={session.scopeId}
-                options={(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => ({ value: instrument.id, label: instrument.name }))}
+                options={(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => ({ value: instrument.id, label: instrumentDisplayLabel(instrument, instrument.name) }))}
                 onValueChange={(scopeId) => update({ scopeId })}
                 placeholder={t("common.selectOption")}
                 noOptionsLabel={t("common.noMatches")}
@@ -165,7 +166,7 @@ export function AnalysisFilterBar({
             <FilterableSelect
               id="analysis-filter-instrument"
               value={typeof session.moreFilters.instrumentId === "string" ? session.moreFilters.instrumentId : ""}
-              options={[{ value: "", label: t("common.all") }, ...(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => ({ value: instrument.id, label: instrument.name }))]}
+              options={[{ value: "", label: t("common.all") }, ...(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => ({ value: instrument.id, label: instrumentDisplayLabel(instrument, instrument.name) }))]}
               onValueChange={(instrumentId) => update({ moreFilters: { instrumentId: instrumentId || undefined } })}
               placeholder={t("common.all")}
               noOptionsLabel={t("common.noMatches")}

@@ -1,5 +1,6 @@
 import type { ChartCategory } from "@/components/charts/collapseCategories";
 import { allocateShareBps, isPositiveCanonical, sortByCanonicalDesc } from "@/lib/money";
+import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import type { ValuationComponentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 export function componentHouseholdAmount(component: ValuationComponentDTO, householdCurrency: string): string | undefined {
@@ -40,7 +41,7 @@ export function accountCompositionItems(components: ValuationComponentDTO[], hou
   const shares = allocateShareBps(amounts);
   return valued.map((component, index) => ({
     key: componentKey(component),
-    label: component.instrumentName || component.nativeCurrency,
+    label: instrumentDisplayLabel({ name: component.instrumentName, symbol: component.instrumentSymbol }) || component.nativeCurrency,
     amount: amounts[index],
     shareBps: shares[index],
     nativeAmount: component.nativeAmount,

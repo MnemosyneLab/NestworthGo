@@ -73,9 +73,7 @@ type EquitySessionSchedule struct {
 
 func EquitySessionScheduleForMarket(market string) (EquitySessionSchedule, bool) {
 	switch strings.ToUpper(strings.TrimSpace(market)) {
-	case "US", "US_EQUITY", "XNYS", "XNAS", "NYSE", "NASDAQ":
-		return EquitySessionSchedule{Timezone: USEquitySessionTimezone, CloseClock: USEquityRegularCloseClock, EarlyClock: USEquityEarlyCloseClock, Policy: USEquityRegularClosePolicy}, true
-	case "AMEX", "XASE":
+	case "US", "US_EQUITY", "XNYS", "XNAS", "XASE", "ARCX", "BATS", "EDGX", "IEXG", "NYSE", "NASDAQ", "AMEX", "ARCA", "BZX", "IEX":
 		return EquitySessionSchedule{Timezone: USEquitySessionTimezone, CloseClock: USEquityRegularCloseClock, EarlyClock: USEquityEarlyCloseClock, Policy: USEquityRegularClosePolicy}, true
 	case "CN", "SSE", "SZSE", "BSE", "XSHG", "XSHE":
 		return EquitySessionSchedule{Timezone: CNEquitySessionTimezone, CloseClock: CNEquityRegularCloseClock, Policy: CNEquityRegularClosePolicy}, true
@@ -180,7 +178,7 @@ func ResolveEquitySessionClose(marketDate, market string, evidence SessionEviden
 
 func USListedEquityMarket(market string) bool {
 	switch strings.ToUpper(strings.TrimSpace(market)) {
-	case "US", "US_EQUITY", "XNYS", "XNAS", "NYSE", "NASDAQ":
+	case "US", "US_EQUITY", "XNYS", "XNAS", "XASE", "ARCX", "BATS", "EDGX", "IEXG", "NYSE", "NASDAQ", "AMEX", "ARCA", "BZX", "IEX":
 		return true
 	default:
 		return false
