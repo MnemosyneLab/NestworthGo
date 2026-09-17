@@ -91,12 +91,18 @@ export function AccountForm({
   submitLabel,
   isSubmitting,
   submissionError,
+  formId,
+  hideSubmit = false,
+  onCanSubmitChange,
 }: {
   record?: AccountRecordDTO;
   onSubmit: (request: CreateAccountRequest, extras: AccountFormExtras) => void | Promise<void>;
   submitLabel: string;
   isSubmitting: boolean;
   submissionError?: string;
+  formId?: string;
+  hideSubmit?: boolean;
+  onCanSubmitChange?: (canSubmit: boolean) => void;
 }) {
   const { t } = useTranslation();
   const members = useMembers();
@@ -106,7 +112,7 @@ export function AccountForm({
   const catalog = useCatalog();
   const bootstrap = useBootstrap();
   const isEdit = Boolean(record);
-  const [showMoreOptions, setShowMoreOptions] = useState(isEdit);
+  const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [iconCustomized, setIconCustomized] = useState(Boolean(record?.account.iconKey));
   const [iconKey, setIconKey] = useState(record?.account.iconKey ?? ACCOUNT_TYPE_ICONS.cash_on_hand);
   const initialValues = record ? valuesFromRecord(record) : emptyValues;
@@ -126,6 +132,9 @@ export function AccountForm({
   const balanceSheetRole = useWatch({ control, name: "balanceSheetRole" });
   const trackingMode = useWatch({ control, name: "trackingMode" });
   const ownerIds = useWatch({ control, name: "ownerIds" });
+  useEffect(() => {
+    onCanSubmitChange?.(!isSubmitting && ownerIds.length > 0);
+  }, [isSubmitting, ownerIds.length, onCanSubmitChange]);
   const ownershipPercentages = useWatch({ control, name: "ownershipPercentages" }) ?? [];
   const institutionId = useWatch({ control, name: "institutionId" });
   const groupId = useWatch({ control, name: "groupId" });
@@ -222,7 +231,7 @@ export function AccountForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" aria-label={t("accounts.formLabel")}>
+    <form id={formId} onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" aria-label={t("accounts.formLabel")}>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-name">{t("accounts.name")}</Label>
         <Input id="account-name" {...register("name")} />
@@ -248,50 +257,52 @@ export function AccountForm({
         </NativeSelect>
       </div>
 
-      <IconPicker id="account-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
-
-      <div className="flex flex-col gap-1.5">
-        <Label id="account-role-label">{t("accounts.balanceSheetRole")}</Label>
-        <p id="account-role" aria-labelledby="account-role-label" className="text-sm text-muted-foreground">
-          {balanceSheetRole === "liability" ? t("accounts.liability") : t("accounts.asset")}
-        </p>
-        {isEdit && <p className="text-xs text-muted-foreground">{t("accounts.roleImmutable")}</p>}
-      </div>
-
-      {trackingModeOptions.length > 1 && !isEdit && (
+      <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="account-tracking-mode">{t("accounts.trackingMethod")}</Label>
-          <NativeSelect
-            id="account-tracking-mode"
-            value={trackingMode}
-            onChange={(event) => applyCombinationDefaults(accountType, balanceSheetRole, event.target.value)}
-          >
-            {trackingModeOptions.map((mode) => (
-              <option key={mode} value={mode}>
-                {t(trackingMethodKey(mode, accountType))}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
-      )}
-      {isEdit && (
-        <div className="flex flex-col gap-1">
-          <p className="text-sm text-muted-foreground">
-            {t("accounts.trackingMethod")}: {t(trackingMethodKey(trackingMode, accountType))}
+          <Label id="account-role-label">{t("accounts.balanceSheetRole")}</Label>
+          <p id="account-role" aria-labelledby="account-role-label" className="text-sm text-muted-foreground">
+            {balanceSheetRole === "liability" ? t("accounts.liability") : t("accounts.asset")}
           </p>
-          <p className="text-xs text-muted-foreground">{t("accounts.trackingImmutable")}</p>
         </div>
-      )}
+
+        {trackingModeOptions.length > 1 && !isEdit && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="account-tracking-mode">{t("accounts.trackingMethod")}</Label>
+            <NativeSelect
+              id="account-tracking-mode"
+              value={trackingMode}
+              onChange={(event) => applyCombinationDefaults(accountType, balanceSheetRole, event.target.value)}
+            >
+              {trackingModeOptions.map((mode) => (
+                <option key={mode} value={mode}>
+                  {t(trackingMethodKey(mode, accountType))}
+                </option>
+              ))}
+            </NativeSelect>
+          </div>
+        )}
+        {isEdit && (
+          <div className="flex flex-col gap-1">
+            <p className="text-sm text-muted-foreground">
+              {t("accounts.trackingMethod")}: {t(trackingMethodKey(trackingMode, accountType))}
+            </p>
+          </div>
+        )}
+
+      </div>
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-currency">{t("accounts.currency")}</Label>
-        <NativeSelect id="account-currency" {...register("defaultCurrency")}>
-          {(currencyOptions).map((currency) => (
-            <option key={currency} value={currency}>
-              {currency}
-            </option>
-          ))}
-        </NativeSelect>
+        {isEdit ? (
+          <>
+            <Input id="account-currency" readOnly {...register("defaultCurrency")} />
+            <p className="text-xs text-muted-foreground">{t("review.currencyImmutable")}</p>
+          </>
+        ) : (
+          <NativeSelect id="account-currency" {...register("defaultCurrency")}>
+            {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+          </NativeSelect>
+        )}
       </div>
 
       {!isEdit && trackingMode !== "holdings" && (
@@ -372,6 +383,7 @@ export function AccountForm({
       </Button>
       {showMoreOptions && (
         <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">
+          <IconPicker id="account-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
           <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutions.data ?? []} emptyLabel={t("accounts.none")} kind="institution" onChange={(value) => setValue("institutionId", value)} />
           <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => setValue("groupId", value)} />
         </div>
@@ -383,9 +395,9 @@ export function AccountForm({
         </p>
       )}
 
-      <Button type="submit" disabled={isSubmitting || ownerIds.length === 0}>
-        {submitLabel}
-      </Button>
+      {!hideSubmit && (
+        <Button type="submit" disabled={isSubmitting || ownerIds.length === 0}>{submitLabel}</Button>
+      )}
     </form>
   );
 }

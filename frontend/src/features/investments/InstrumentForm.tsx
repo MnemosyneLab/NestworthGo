@@ -128,7 +128,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
     if (hit.marketCode) {
       setValue("marketCode", hit.marketCode);
     }
-    if (hit.quoteCurrency) {
+    if (!instrument && hit.quoteCurrency) {
       setValue("quoteCurrency", hit.quoteCurrency);
     }
   };
@@ -230,13 +230,16 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="instrument-currency">{t("accounts.currency")}</Label>
+          {instrument ? (
+          <>
+            <Input id="instrument-currency" readOnly {...register("quoteCurrency")} />
+            <p className="text-xs text-muted-foreground">{t("review.currencyImmutable")}</p>
+          </>
+        ) : (
           <NativeSelect id="instrument-currency" {...register("quoteCurrency")}>
-            {currencyOptions.map((currency) => (
-              <option key={currency} value={currency}>
-                {currency}
-              </option>
-            ))}
+            {currencyOptions.map((currency) => <option key={currency} value={currency}>{currency}</option>)}
           </NativeSelect>
+        )}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="instrument-quote-source">{t("portfolio.quoteSource")}</Label>

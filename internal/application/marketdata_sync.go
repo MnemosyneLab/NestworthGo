@@ -290,7 +290,7 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 	if err != nil {
 		return SyncPlanPreview{}, err
 	}
-	preview.SnapshotWorkEstimate = estimateDirtyDays(state)
+	preview.SnapshotWorkEstimate = estimateDirtyDays(state, plan)
 	return preview, nil
 }
 
@@ -341,14 +341,33 @@ func fxPreferenceMatches(preference domain.FXPreference, request SyncRequest) bo
 	return fxPairKey(preference.CurrencyA, preference.CurrencyB) == fxPairKey(requested, other)
 }
 
-func estimateDirtyDays(state domain.DailySnapshotState) int {
-	if state.DirtyFrom == nil || strings.TrimSpace(*state.DirtyFrom) == "" {
-		return 0
+// closedSnapshotRange is the shared work range for health, preview and rebuild.
+// A dirty cursor on today's open day is not repairable work yet.
+func closedSnapshotRange(state domain.DailySnapshotState, plan HistoryRepairPlan) (string, string, bool) {
+	from := ""
+	if state.DirtyFrom != nil {
+		from = strings.TrimSpace(*state.DirtyFrom)
 	}
-	from := strings.TrimSpace(*state.DirtyFrom)
-	to := from
-	if state.DirtyTo != nil && strings.TrimSpace(*state.DirtyTo) != "" {
+	if from == "" {
+		if state.LastCompletedClosedOn != nil && strings.TrimSpace(*state.LastCompletedClosedOn) != "" {
+			return "", "", false
+		}
+		from = plan.OriginLocalDate
+	}
+	if from < plan.OriginLocalDate {
+		from = plan.OriginLocalDate
+	}
+	to := plan.YesterdayLocal
+	if state.DirtyTo != nil && strings.TrimSpace(*state.DirtyTo) != "" && strings.TrimSpace(*state.DirtyTo) < to {
 		to = strings.TrimSpace(*state.DirtyTo)
+	}
+	return from, to, from != "" && to != "" && from <= to
+}
+
+func estimateDirtyDays(state domain.DailySnapshotState, plan HistoryRepairPlan) int {
+	from, to, ok := closedSnapshotRange(state, plan)
+	if !ok {
+		return 0
 	}
 	dates, err := domain.InclusiveMarketDates(from, to)
 	if err != nil {

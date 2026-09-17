@@ -356,7 +356,7 @@ func (r *Repository) UpdateAccount(ctx context.Context, account domain.Account, 
 		if err := validateAccountReferences(ctx, tx, account, nullableStringValue(currentInstitution), nullableStringValue(currentGroup)); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), accountIconValue(account.IconKey), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
 		if err != nil {
 			return err
 		}
@@ -379,7 +379,7 @@ func (r *Repository) UpdateAccountWithObservation(ctx context.Context, account d
 		if err := validateAccountReferences(ctx, tx, account, nullableStringValue(currentInstitution), nullableStringValue(currentGroup)); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), nullableString(account.IconKey), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE accounts SET institution_id = ?, group_id = ?, name = ?, account_type = ?, balance_sheet_role = ?, tracking_mode = ?, default_currency = ?, note = ?, icon_key = ?, include_in_net_worth = ?, include_in_portfolio = ?, include_in_liquid_assets = ?, opened_on = ?, closed_on = ?, sort_order = ?, updated_at = ? WHERE id = ? AND household_id = ?`, nullableID(account.InstitutionID), nullableID(account.GroupID), account.Name, account.AccountType.String(), string(account.BalanceSheetRole), string(account.TrackingMode), account.DefaultCurrency.String(), nullableString(account.Note), accountIconValue(account.IconKey), boolValue(account.IncludeInNetWorth), boolValue(account.IncludeInPortfolio), boolValue(account.IncludeInLiquidAssets), nullableString(account.OpenedOn), nullableString(account.ClosedOn), account.SortOrder, formatTimestamp(account.UpdatedAt), account.ID.String(), account.HouseholdID.String())
 		if err != nil {
 			return err
 		}
@@ -909,6 +909,17 @@ func nullableString(value *string) any {
 	}
 	return *value
 }
+
+// Account icon_key is NOT NULL in the current schema. An explicit clear is
+// represented in the domain as nil and persisted as the empty sentinel; reads
+// map that sentinel back to nil and the wire layer supplies the type default.
+func accountIconValue(value *string) any {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
 func nullableID[T ~string](value *T) any {
 	if value == nil {
 		return nil

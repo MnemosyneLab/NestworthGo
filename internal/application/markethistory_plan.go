@@ -3,7 +3,6 @@ package application
 import (
 	"context"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -410,28 +409,8 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	dirtyFrom := ""
-	if state.DirtyFrom != nil {
-		dirtyFrom = strings.TrimSpace(*state.DirtyFrom)
-	}
-	if dirtyFrom == "" {
-		return 0, nil
-	}
-	from := originDate
-	if dirtyFrom > from {
-		from = dirtyFrom
-	}
-	to := yesterday
-	if state.DirtyTo != nil && strings.TrimSpace(*state.DirtyTo) != "" && *state.DirtyTo < to {
-		to = *state.DirtyTo
-	}
-	if from < originDate {
-		from = originDate
-	}
-	if to > yesterday {
-		to = yesterday
-	}
-	if from > to {
+	from, to, ok := closedSnapshotRange(state, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday})
+	if !ok {
 		return 0, nil
 	}
 	appended := 0

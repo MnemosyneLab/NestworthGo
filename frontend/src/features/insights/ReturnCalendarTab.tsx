@@ -133,7 +133,7 @@ function Summary({ data }: { data: ReturnCalendarDTO }) {
   const amountUnavailable = summary.amountStatus === "unavailable";
   return (
     <Card>
-      <CardHeader className="gap-3">
+      <CardHeader className="px-4 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>{t("insights.summary")}</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
@@ -141,18 +141,17 @@ function Summary({ data }: { data: ReturnCalendarDTO }) {
             {partial && <Badge variant="warning">{t("insights.partial")} {coverageLabel(summary.ratedDays, summary.totalDays)}</Badge>}
           </div>
         </div>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p>
-            <p className="text-2xl font-semibold">{amountText(summary.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">{t("insights.returnRate")}</p>
-            <p className="text-2xl font-semibold">{rateText(summary.returnRate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p>
-          </div>
-        </div>
       </CardHeader>
-      <CardContent className="grid gap-3 sm:grid-cols-2">
+      <CardContent className="grid grid-cols-2 gap-3 px-4 pb-3 sm:grid-cols-4">
+        <div>
+          <p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p>
+          <p className="text-lg font-semibold">{amountText(summary.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p>
+        </div>
+        <div>
+          <p className="text-sm text-muted-foreground">{t("insights.returnRate")}</p>
+          <p className="text-lg font-semibold">{rateText(summary.returnRate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p>
+        </div>
+
         <SummaryValue label={t("insights.beginning")} value={amountText(summary.beginningInvestedValue)} />
         <SummaryValue label={t("insights.ending")} value={amountText(summary.endingInvestedValue)} />
       </CardContent>

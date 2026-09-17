@@ -217,7 +217,7 @@ beforeEach(() => {
   portfolio.mockResolvedValue({ ...emptyPortfolio });
   holdingsByAccounts.mockReset();
   holdingsByAccounts.mockResolvedValue({});
-  useUiStore.setState({ appearance: "system" });
+  useUiStore.setState({ appearance: "system", accent: "nestworth" });
   window.matchMedia =
     window.matchMedia ||
     (vi.fn().mockImplementation((query: string) => ({
@@ -373,4 +373,15 @@ describe("App shell smoke test", () => {
     expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
     expect(screen.queryByRole("form", { name: i18n.t("settings.formLabel") })).not.toBeInTheDocument();
   });
+});
+
+
+it.each(["ocean", "amber"] as const)("restores %s accent on cold load and settings reload", async (accent) => {
+  settingsLoad.mockResolvedValue({ ...defaultSettings, accent });
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  await waitFor(() => expect(document.documentElement).toHaveAttribute("data-accent", accent));
+  settingsLoad.mockResolvedValue({ ...defaultSettings, accent: "nestworth" });
+  await queryClient.invalidateQueries({ queryKey: ["settings"] });
+  await waitFor(() => expect(document.documentElement).toHaveAttribute("data-accent", "nestworth"));
 });

@@ -896,7 +896,10 @@ func (s *Service) UpdateAccount(ctx context.Context, id domain.AccountID, input 
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
-	account.ID, account.CreatedAt, account.ArchivedAt, account.IconKey = current.Account.ID, current.Account.CreatedAt, current.Account.ArchivedAt, current.Account.IconKey
+	// NewAccount supplies a creation-time default for nil icons. Updates must
+	// retain the merged icon, including a previously cleared icon when omitted.
+	account.IconKey = iconKey
+	account.ID, account.CreatedAt, account.ArchivedAt = current.Account.ID, current.Account.CreatedAt, current.Account.ArchivedAt
 	allMembers, err := s.repository.ListMembers(ctx, true)
 	if err != nil {
 		return domain.AccountRecord{}, err

@@ -63,7 +63,7 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
   return (
     <div className="flex flex-col gap-6" data-testid="portfolio-page">
       {pageChrome}
-      <PageIntro description={t("portfolio.pageDescription")} />
+      <PageIntro description={t("review.portfolioScope")} />
       <p className="text-sm text-muted-foreground">{t("portfolio.holdingsOnlyNote")}</p>
       {accounts.length === 0 ? (
         <EmptyState title={t("portfolio.emptyTitle")} description={t("portfolio.emptyDescription")} />

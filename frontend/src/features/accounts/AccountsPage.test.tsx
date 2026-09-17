@@ -1083,6 +1083,9 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
     const form = await screen.findByRole("form", { name: "Account form" });
+    expect(within(form).getByLabelText("Currency")).toHaveAttribute("readonly");
+    expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("form", form.id);
+    await userEvent.click(within(form).getByRole("button", { name: /Details/i }));
     const nameInput = within(form).getByLabelText("Name");
     const type = within(form).getByLabelText("Account type");
     const icon = within(form).getByLabelText("Choose icon");
@@ -1090,7 +1093,7 @@ describe("AccountsPage", () => {
     expect(type.compareDocumentPosition(icon) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     await userEvent.clear(nameInput);
     await userEvent.type(nameInput, "Renamed");
-    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(updateAccount).toHaveBeenCalledWith(
       "acc-1",
       expect.objectContaining({ name: "Renamed" }),
@@ -1103,8 +1106,8 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
     const form = await screen.findByRole("form", { name: "Account form" });
     await userEvent.click(within(form).getByLabelText("Alice"));
-    const saveButton = within(form).getByRole("button", { name: "Save" });
-    expect(saveButton).toBeDisabled();
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    await waitFor(() => expect(saveButton).toBeDisabled());
     await userEvent.click(saveButton);
     expect(updateAccount).not.toHaveBeenCalled();
   });
@@ -1138,7 +1141,7 @@ describe("AccountsPage", () => {
     expect(within(form).getByText("Asset")).toBeInTheDocument();
     expect(within(form).getByText(/Record cash and holdings separately/)).toBeInTheDocument();
     expect(within(form).queryByLabelText("Include in portfolio")).not.toBeInTheDocument();
-    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(updateAccount).toHaveBeenCalledWith(
       "brk-1",
       expect.objectContaining({

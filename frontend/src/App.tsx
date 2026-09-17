@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useBootstrap } from "@/queries/household";
 import { useStartup } from "@/queries/app";
 import { useSettings } from "@/queries/settings";
-import { useUiStore, type Appearance } from "@/stores/ui";
+import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
 import { targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId } from "@/app/navigation";
 import { useAnalysisStore } from "@/stores/analysis";
@@ -46,6 +46,7 @@ function App() {
   const [historyFilters, setHistoryFilters] = useState<HistoryNavigationFilters | undefined>();
   const startup = useStartup();
   const settings = useSettings({ enabled: startup.data?.available === true });
+  const setAccent = useUiStore((state) => state.setAccent);
   const setAppearance = useUiStore((state) => state.setAppearance);
   const setAnalysisFilters = useAnalysisStore((state) => state.setFilters);
   const setReturnView = useAnalysisStore((state) => state.setReturnView);
@@ -56,8 +57,9 @@ function App() {
       return;
     }
     setAppearance(settings.data.appearance as Appearance);
+    setAccent(settings.data.accent as Accent);
     setLanguage(settings.data.language);
-  }, [settings.data, setAppearance]);
+  }, [settings.data, setAppearance, setAccent]);
 
   const workspaceReady = startup.data?.available === true && Boolean(settings.data);
   const bootstrap = useBootstrap({ enabled: workspaceReady });

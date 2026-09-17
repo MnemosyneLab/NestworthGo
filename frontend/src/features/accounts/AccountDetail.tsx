@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle } from "@/components/ui/sheet";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -159,6 +159,7 @@ export function AccountDetail({
   const archiveAccount = useArchiveAccount();
   const [action, setAction] = useState<AccountAction>(null);
   const [actionHoldingId, setActionHoldingId] = useState<string>();
+  const [settingsCanSubmit, setSettingsCanSubmit] = useState(false);
   const [settingsError, setSettingsError] = useState<string | undefined>();
   const archived = Boolean(record.account.archivedAt);
   const composite = record.account.trackingMode === "holdings";
@@ -511,15 +512,18 @@ export function AccountDetail({
         }}
       >
         <SheetContent>
-          <SheetHeader>
+          <SheetHeader className="shrink-0">
             <SheetTitle>{t("accounts.settings")}</SheetTitle>
           </SheetHeader>
-          <div className="overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {archived ? (
               <p className="text-sm text-muted-foreground">{t("accounts.archivedReadOnly")}</p>
             ) : (
               <AccountForm
                 key={record.account.id}
+                formId="account-settings-form"
+                hideSubmit
+                onCanSubmitChange={setSettingsCanSubmit}
                 record={record}
                 submitLabel={t("common.save")}
                 isSubmitting={updateAccount.isPending}
@@ -560,6 +564,10 @@ export function AccountDetail({
               </AlertDialog>
             </div>
           </div>
+          <SheetFooter className="shrink-0 border-t border-border">
+            <Button type="button" variant="outline" onClick={() => setAction(null)}>{t("common.cancel")}</Button>
+            {!archived && <Button type="submit" form="account-settings-form" disabled={updateAccount.isPending || !settingsCanSubmit}>{updateAccount.isPending ? t("common.pending") : t("common.save")}</Button>}
+          </SheetFooter>
         </SheetContent>
       </Sheet>
     </div>

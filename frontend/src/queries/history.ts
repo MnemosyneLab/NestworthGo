@@ -4,7 +4,7 @@ import { Service as HistoryService } from "../../bindings/github.com/waltwang/ne
 import type { ActivityQueryRequest, ChangeCommandRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
-import { invalidateActivityChange, invalidateHistoryReads } from "@/queries/invalidation";
+import { invalidateActivityChange, invalidateHistoryReads, invalidateMarketDataSync } from "@/queries/invalidation";
 
 export function useHistoryOrigin() {
   return useQuery({
@@ -181,6 +181,9 @@ export function useRebuildHistoricalSnapshots() {
   return useMutation({
     mutationFn: ({ startDate, endDate }: { startDate: string; endDate: string }) =>
       callService(() => HistoryService.RebuildHistoricalSnapshots(startDate, endDate)),
-    onSuccess: () => invalidateHistoryReads(queryClient),
+    onSuccess: () => {
+      invalidateHistoryReads(queryClient);
+      invalidateMarketDataSync(queryClient);
+    },
   });
 }

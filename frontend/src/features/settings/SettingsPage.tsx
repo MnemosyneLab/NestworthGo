@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { useBootstrap } from "@/queries/household";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { FilterableSelect } from "@/components/ui/filterable-select";
@@ -19,7 +21,7 @@ import {
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
-import { useSettings, useSaveSettings, useResetSettings, useSupportedCurrencies, useFXProviders, useTiingoKeyStatus, useSaveTiingoAPIKey, useDeleteTiingoAPIKey, useWorkerTokenStatus, useSaveWorkerAPIToken, useDeleteWorkerAPIToken, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
+import { useSettings, useSaveSettings, useResetSettings, useFXProviders, useTiingoKeyStatus, useSaveTiingoAPIKey, useDeleteTiingoAPIKey, useWorkerTokenStatus, useSaveWorkerAPIToken, useDeleteWorkerAPIToken, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
@@ -40,7 +42,7 @@ export function SettingsPage() {
   const settings = useSettings();
   const saveSettings = useSaveSettings();
   const resetSettings = useResetSettings();
-  const currencies = useSupportedCurrencies();
+  const bootstrap = useBootstrap();
   const fxProviders = useFXProviders();
   const tiingoKeyStatus = useTiingoKeyStatus();
   const saveTiingoKey = useSaveTiingoAPIKey();
@@ -84,7 +86,6 @@ export function SettingsPage() {
     draft.appearance !== settings.data.appearance ||
     draft.accent !== settings.data.accent ||
     draft.language !== settings.data.language ||
-    draft.currency !== settings.data.currency ||
     draft.timezone !== settings.data.timezone ||
     draft.fxProvider !== settings.data.fxProvider ||
     draft.workerBaseURL !== settings.data.workerBaseURL ||
@@ -136,6 +137,7 @@ export function SettingsPage() {
       <PageIntro description={t("settings.subtitle")} />
 
       <form onSubmit={submit} className="flex max-w-2xl flex-col gap-5" aria-label={t("settings.formLabel")}>
+        <h2 className="font-medium">{t("review.displayPreferences")}</h2>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-appearance">{t("settings.appearance.mode")}</Label>
@@ -183,18 +185,9 @@ export function SettingsPage() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="settings-currency">{t("accounts.currency")}</Label>
-            <NativeSelect
-              id="settings-currency"
-              value={draft.currency}
-              onChange={(event) => update({ currency: event.target.value })}
-            >
-              {(currencies.data ?? [draft.currency]).map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency}
-                </option>
-              ))}
-            </NativeSelect>
+            <Label htmlFor="settings-currency">{t("review.householdCurrency")}</Label>
+            <Input id="settings-currency" readOnly value={bootstrap.data?.household?.baseCurrency ?? "—"} />
+            <p className="text-xs text-muted-foreground">{t("review.householdCurrencyHelp")}</p>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -218,7 +211,9 @@ export function SettingsPage() {
               </p>
             )}
           </div>
-
+        </div>
+        <h2 className="border-t border-border pt-5 font-medium">{t("settings.marketDataTitle")}</h2>
+        <div className="grid gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-fx-provider">{t("settings.providers.fxProvider")}</Label>
             <NativeSelect
@@ -251,8 +246,6 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {currencies.isError && <p className="text-sm text-warning-foreground">{t("onboarding.currencyLoadError")}</p>}
-
         {(saveSettings.isError || resetSettings.isError) && (
           <p role="alert" className="text-sm text-destructive">
             {saveSettings.isError
@@ -260,6 +253,19 @@ export function SettingsPage() {
               : displayError(resetSettings.error, t("settings.loadError"))}
           </p>
         )}
+
+        <div className="flex max-w-xl flex-col gap-1.5">
+          <Label htmlFor="settings-worker-url">{t("settings.workerBaseURL")}</Label>
+          <Input
+            id="settings-worker-url"
+            type="url"
+            autoComplete="url"
+            value={draft.workerBaseURL}
+            onChange={(event) => update({ workerBaseURL: event.target.value })}
+            placeholder={t("settings.workerBaseURLPlaceholder")}
+          />
+          <p className="text-xs text-muted-foreground">{t("settings.workerBaseURLHelp")}</p>
+        </div>
 
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={!isDirty || saveSettings.isPending}>
@@ -278,27 +284,13 @@ export function SettingsPage() {
             </Button>
           )}
         </div>
-
-        <div className="flex max-w-xl flex-col gap-1.5">
-          <Label htmlFor="settings-worker-url">{t("settings.workerBaseURL")}</Label>
-          <input
-            id="settings-worker-url"
-            type="url"
-            autoComplete="url"
-            value={draft.workerBaseURL}
-            onChange={(event) => update({ workerBaseURL: event.target.value })}
-            placeholder={t("settings.workerBaseURLPlaceholder")}
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-          <p className="text-xs text-muted-foreground">{t("settings.workerBaseURLHelp")}</p>
-        </div>
       </form>
 
       <section className="max-w-2xl rounded-lg border border-border bg-card p-5" aria-labelledby="settings-market-data-title">
         <h2 id="settings-market-data-title" className="font-medium text-foreground">
-          {t("settings.marketDataTitle")}
+          {t("review.credentialsTitle")}
         </h2>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">{t("settings.marketDataDescription")}</p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">{t("review.credentialsHelp")}</p>
         <form onSubmit={submitTiingoKey} className="mt-4 flex max-w-xl flex-col gap-2">
           <Label htmlFor="settings-tiingo-key">{t("settings.tiingoKey")}</Label>
           <div className="flex flex-col gap-2 sm:flex-row">

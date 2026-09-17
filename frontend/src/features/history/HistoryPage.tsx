@@ -1,3 +1,4 @@
+import { useMarketDataHealth } from "@/queries/marketdata";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -278,22 +279,15 @@ export function HistoryPage({ navigationFilters }: { navigationFilters?: History
   const { t } = useTranslation();
   const origin = useHistoryOrigin();
   const snapshotState = useDailySnapshotState();
+  const health = useMarketDataHealth();
+  const snapshotIssue = health.data?.issues?.find((issue) => issue.kind === "snapshot_missing" || issue.kind === "snapshot_outdated");
   const rebuildSnapshots = useRebuildHistoricalSnapshots();
   const settings = useSettings();
 
   const repairSnapshots = () => {
-    if (!origin.data) return;
-    const today = new Intl.DateTimeFormat("en-CA", { timeZone: origin.data.timezone }).format(new Date());
-    const endDate = new Date(`${today}T00:00:00Z`);
-    endDate.setUTCDate(endDate.getUTCDate() - 1);
-    const end = endDate.toISOString().slice(0, 10);
-    const startCandidate = new Date(`${end}T00:00:00Z`);
-    startCandidate.setUTCDate(startCandidate.getUTCDate() - 30);
-    const startCandidateDate = startCandidate.toISOString().slice(0, 10);
-    const originDate = new Intl.DateTimeFormat("en-CA", { timeZone: origin.data.timezone }).format(new Date(origin.data.startedAt));
-    const start = startCandidateDate < originDate
-      ? originDate
-      : startCandidateDate;
+    if (health.isError || !snapshotIssue?.executable || !snapshotIssue.rangeStart || !snapshotIssue.rangeEnd) return;
+    const start = snapshotIssue.rangeStart;
+    const end = snapshotIssue.rangeEnd;
     rebuildSnapshots.mutate({ startDate: start, endDate: end }, {
       onSuccess: (count) => toast.success(t("history.snapshotsRepaired", { count })),
       onError: (error) => toast.error(displayError(error, t("history.actionError"))),
@@ -329,14 +323,15 @@ export function HistoryPage({ navigationFilters }: { navigationFilters?: History
             <div className="flex flex-col gap-1 text-sm">
               <p className="font-medium">{t("history.snapshotHealth")}</p>
               <p className="text-muted-foreground">
-                {snapshotState.data?.dirtyFrom
-                  ? t("history.snapshotNeedsRepair", { date: snapshotState.data.dirtyFrom })
+                {health.isError ? t("review.healthFailed") : !health.data ? t("review.healthLoading") : snapshotIssue
+                  ? t("history.snapshotNeedsRepair", { date: snapshotIssue.rangeStart })
                   : snapshotState.data?.lastCompletedClosedOn
                     ? t("history.snapshotHealthyThrough", { date: snapshotState.data.lastCompletedClosedOn })
                     : t("history.snapshotNotBuilt")}
               </p>
+              {snapshotIssue && !snapshotIssue.executable && <p className="text-xs text-muted-foreground">{t("review.snapshotPrerequisite")}</p>}
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={repairSnapshots} disabled={rebuildSnapshots.isPending}>
+            <Button type="button" variant="outline" size="sm" onClick={repairSnapshots} disabled={rebuildSnapshots.isPending || health.isError || !snapshotIssue?.executable}>
               {rebuildSnapshots.isPending ? t("common.pending") : t("history.repairSnapshots")}
             </Button>
           </section>

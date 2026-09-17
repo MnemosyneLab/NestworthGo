@@ -837,5 +837,22 @@
     "blockedDescription": "Nestworth kept financial writes disabled because the local database could not be opened safely.",
     "blockedTitle": "Local database unavailable",
     "readOnly": "Business data is read-only"
+  },
+  "review": {
+    "snapshotPrerequisite": "Resolve the prerequisite issues in Data Health before rebuilding snapshots.",
+    "currencyImmutable": "Currency is fixed after creation.",
+    "householdCurrency": "Household base currency",
+    "householdCurrencyHelp": "Amounts use the household base currency or their explicitly shown original currency.",
+    "displayPreferences": "Appearance and display",
+    "credentialsTitle": "Provider credentials",
+    "credentialsHelp": "Credentials are saved separately using the buttons below.",
+    "updateLatest": "Update latest prices",
+    "syncRepair": "Sync and repair",
+    "moreActions": "More actions",
+    "currentValuationComplete": "Current valuation complete",
+    "currentValuationTitle": "Current valuation",
+    "healthLoading": "Checking historical data health…",
+    "healthFailed": "Historical data health could not be checked.",
+    "portfolioScope": "Investment holdings only · Excludes cash"
   }
 }

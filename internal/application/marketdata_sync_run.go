@@ -136,7 +136,7 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 	state, stateErr := s.repository.DailySnapshotState(ctx, household.ID)
 	dirtyLeft := false
 	if stateErr == nil {
-		dirtyLeft = state.DirtyFrom != nil && strings.TrimSpace(*state.DirtyFrom) != ""
+		_, _, dirtyLeft = closedSnapshotRange(state, plan)
 	}
 	s.syncMu.Lock()
 	committed := job.committed

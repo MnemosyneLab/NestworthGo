@@ -837,5 +837,22 @@
     "blockedDescription": "由於無法安全開啟本機資料庫，Nestworth 已停用財務資料寫入。",
     "blockedTitle": "本機資料庫無法使用",
     "readOnly": "業務資料唯讀"
+  },
+  "review": {
+    "snapshotPrerequisite": "請先在資料健康頁面處理前置問題，再重建快照。",
+    "currencyImmutable": "幣種建立後不可修改。",
+    "householdCurrency": "家庭本位幣",
+    "householdCurrencyHelp": "金額使用家庭本位幣，或明確標註的原始幣種。",
+    "displayPreferences": "外觀與顯示",
+    "credentialsTitle": "行情服務憑據",
+    "credentialsHelp": "憑據透過下方按鈕獨立儲存。",
+    "updateLatest": "更新最新行情",
+    "syncRepair": "同步並修復",
+    "moreActions": "更多操作",
+    "currentValuationComplete": "目前估值完整",
+    "currentValuationTitle": "目前估值",
+    "healthLoading": "正在檢查歷史資料健康狀態…",
+    "healthFailed": "無法檢查歷史資料健康狀態。",
+    "portfolioScope": "僅投資持倉 · 不含現金"
   }
 }

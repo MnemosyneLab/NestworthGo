@@ -185,7 +185,7 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 	report := MarketDataHealthReport{
 		CoverageThrough:         plan.LastFinalizedMarketDate,
 		LastFinalizedMarketDate: plan.LastFinalizedMarketDate,
-		SnapshotDays:            estimateDirtyDays(state),
+		SnapshotDays:            estimateDirtyDays(state, plan),
 		Issues:                  issues,
 	}
 	if !rootCause {
@@ -571,50 +571,24 @@ func (s *Service) scanValuationHealth(ctx context.Context, instruments map[strin
 }
 
 func scanSnapshotHealth(state domain.DailySnapshotState, plan HistoryRepairPlan, rootCause bool) []HealthIssue {
-	from := ""
-	if state.DirtyFrom != nil {
-		from = strings.TrimSpace(*state.DirtyFrom)
-	}
-	to := ""
-	if state.DirtyTo != nil {
-		to = strings.TrimSpace(*state.DirtyTo)
-	}
-	if from == "" && (state.LastCompletedClosedOn == nil || strings.TrimSpace(*state.LastCompletedClosedOn) == "") {
-		if plan.OriginLocalDate == "" || plan.YesterdayLocal == "" {
-			return nil
-		}
-		issue := HealthIssue{
-			ID:         "snapshot-missing",
-			Kind:       HealthKindSnapshotMissing,
-			Severity:   HealthSeverityBlocking,
-			GroupKey:   "snapshot",
-			TargetKey:  "snapshot",
-			RangeStart: plan.OriginLocalDate,
-			RangeEnd:   plan.YesterdayLocal,
-			Code:       "snapshot_missing",
-			Reason:     "snapshot_missing",
-			Action:     HealthActionRepair,
-			Executable: !rootCause,
-			Collapsed:  rootCause,
-		}
-		return []HealthIssue{issue}
-	}
-	if from == "" {
+	from, to, ok := closedSnapshotRange(state, plan)
+	if !ok {
 		return nil
 	}
-	if to == "" {
-		to = from
+	kind, code := HealthKindSnapshotOutdated, "snapshot_outdated"
+	if state.DirtyFrom == nil || strings.TrimSpace(*state.DirtyFrom) == "" {
+		kind, code = HealthKindSnapshotMissing, "snapshot_missing"
 	}
 	issue := HealthIssue{
-		ID:         "snapshot-outdated",
-		Kind:       HealthKindSnapshotOutdated,
+		ID:         strings.ReplaceAll(code, "_", "-"),
+		Kind:       kind,
 		Severity:   HealthSeverityBlocking,
 		GroupKey:   "snapshot",
 		TargetKey:  "snapshot",
 		RangeStart: from,
 		RangeEnd:   to,
-		Code:       "snapshot_outdated",
-		Reason:     "snapshot_outdated",
+		Code:       code,
+		Reason:     code,
 		Action:     HealthActionRepair,
 		Executable: !rootCause,
 		Collapsed:  rootCause,

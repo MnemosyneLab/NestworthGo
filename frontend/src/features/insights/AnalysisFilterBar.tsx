@@ -8,8 +8,9 @@ import { useCatalog } from "@/queries/catalog";
 import { useAccounts } from "@/queries/accounts";
 import { useMembers } from "@/queries/directory";
 import { useInstruments } from "@/queries/investments";
+import { displayEnum } from "@/lib/display";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
-import { useSettings } from "@/queries/settings";
+import { useBootstrap } from "@/queries/household";
 import { useHistoryOrigin } from "@/queries/history";
 import type { AnalysisNavigationContext } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
@@ -26,12 +27,20 @@ export function AnalysisFilterBar({
   onReset: () => void;
 }) {
   const { t } = useTranslation();
-  const settings = useSettings();
+  const bootstrap = useBootstrap();
   const origin = useHistoryOrigin();
   const accounts = useAccounts();
   const instruments = useInstruments();
   const catalog = useCatalog();
   const members = useMembers();
+
+  const selectedFilters = [
+    session.moreFilters.accountId && (accounts.data ?? []).find((item) => item.account.id === session.moreFilters.accountId)?.account.name,
+    session.moreFilters.currency,
+    typeof session.moreFilters.assetClass === "string" && (session.moreFilters.assetClass === "cash" ? t("insights.cash") : displayEnum(t, "enum", session.moreFilters.assetClass)),
+    session.moreFilters.memberId && (members.data ?? []).find((item) => item.id === session.moreFilters.memberId)?.name,
+    session.moreFilters.instrumentId && (instruments.data ?? []).find((item) => item.id === session.moreFilters.instrumentId)?.name,
+  ].filter((value): value is string => typeof value === "string" && value.length > 0);
 
   const update = (value: AnalysisNavigationContext) => onChange(value);
   const scope = session.scope ?? "portfolio";
@@ -41,7 +50,7 @@ export function AnalysisFilterBar({
   const toMin = session.from && (!originDate || session.from > originDate) ? session.from : originDate;
 
   return (
-    <section aria-label={t("insights.filters")} className="flex flex-col gap-4 rounded-xl border border-border bg-card/60 p-4">
+    <section aria-label={t("insights.filters")} className="flex flex-col gap-2 rounded-xl border border-border bg-card/60 p-3">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">
           <Label htmlFor="analysis-scope">{t("insights.scope")}</Label>
@@ -84,24 +93,6 @@ export function AnalysisFilterBar({
           </div>
         )}
 
-        <div className="flex min-w-36 flex-1 flex-col gap-1.5">
-          <Label htmlFor="analysis-valuation">{t("insights.valuation")}</Label>
-          <NativeSelect id="analysis-valuation" value={session.valuation} onChange={(event) => update({ valuation: event.target.value as "base" | "native" })}>
-            <option value="base">{t("insights.valuationBase", { currency: settings.data?.currency ?? "" })}</option>
-            <option value="native">{t("insights.valuationNative")}</option>
-          </NativeSelect>
-        </div>
-
-        <div className="flex min-w-36 flex-1 flex-col gap-1.5">
-          <Label htmlFor="analysis-cash">{t("insights.cash")}</Label>
-          <NativeSelect id="analysis-cash" value={session.includeCash ? "include" : "exclude"} onChange={(event) => update({ includeCash: event.target.value === "include" })}>
-            <option value="include">{t("insights.cashIncluded")}</option>
-            <option value="exclude">{t("insights.cashExcluded")}</option>
-          </NativeSelect>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">
           <Label htmlFor="analysis-from">{t("insights.from")}</Label>
           <DatePicker id="analysis-from" value={session.from} min={originDate} max={fromMax} onChange={(from) => update({ from })} placeholder={t("common.selectOption")} />
@@ -113,9 +104,29 @@ export function AnalysisFilterBar({
         <Button type="button" variant="outline" onClick={onReset}>{t("insights.reset")}</Button>
       </div>
 
-      <details className="rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
-        <summary className="cursor-pointer text-sm font-medium text-foreground">{t("insights.moreFilters")}</summary>
+      <details className="border-t border-border/70 pt-2">
+        <summary className="cursor-pointer text-sm font-medium text-foreground">{t("insights.moreFilters")}<span className="ml-2 font-normal text-muted-foreground">{[
+          session.valuation === "native" ? t("insights.valuationNative") : t("insights.valuationBase", { currency: bootstrap.data?.household?.baseCurrency ?? "—" }),
+          t(session.includeCash ? "insights.cashIncluded" : "insights.cashExcluded"),
+          ...selectedFilters,
+        ].join(" · ")}</span></summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex min-w-36 flex-1 flex-col gap-1.5">
+            <Label htmlFor="analysis-valuation">{t("insights.valuation")}</Label>
+            <NativeSelect id="analysis-valuation" value={session.valuation} onChange={(event) => update({ valuation: event.target.value as "base" | "native" })}>
+              <option value="base">{t("insights.valuationBase", { currency: bootstrap.data?.household?.baseCurrency ?? "—" })}</option>
+              <option value="native">{t("insights.valuationNative")}</option>
+            </NativeSelect>
+          </div>
+
+          <div className="flex min-w-36 flex-1 flex-col gap-1.5">
+            <Label htmlFor="analysis-cash">{t("insights.cash")}</Label>
+            <NativeSelect id="analysis-cash" value={session.includeCash ? "include" : "exclude"} onChange={(event) => update({ includeCash: event.target.value === "include" })}>
+              <option value="include">{t("insights.cashIncluded")}</option>
+              <option value="exclude">{t("insights.cashExcluded")}</option>
+            </NativeSelect>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="analysis-filter-account">{t("analytics.scopeAccount")}</Label>
             <NativeSelect

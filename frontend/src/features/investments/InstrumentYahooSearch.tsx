@@ -7,6 +7,8 @@ import { instrumentDisplayLabel, instrumentSecondaryName } from "@/lib/instrumen
 import { useYahooInstrumentSearch } from "@/queries/marketdata";
 import type { InstrumentSearchHitDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 
+const EMPTY_HITS: InstrumentSearchHitDTO[] = [];
+
 function useDebouncedValue(value: string, delayMs: number): string {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -44,7 +46,8 @@ export function InstrumentYahooSearch({
   const [activeIndex, setActiveIndex] = useState(0);
   const debouncedQuery = useDebouncedValue(query, 300);
   const search = useYahooInstrumentSearch(debouncedQuery, instrumentType);
-  const hits = search.data ?? [];
+  const hits = search.data ?? EMPTY_HITS;
+  const selectedIndex = Math.min(activeIndex, Math.max(0, hits.length - 1));
 
   useEffect(() => {
     const handlePointerDown = (event: PointerEvent) => {
@@ -55,10 +58,6 @@ export function InstrumentYahooSearch({
     document.addEventListener("pointerdown", handlePointerDown);
     return () => document.removeEventListener("pointerdown", handlePointerDown);
   }, []);
-
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [hits]);
 
   const choose = (hit: InstrumentSearchHitDTO | undefined) => {
     if (!hit) return;
@@ -98,7 +97,7 @@ export function InstrumentYahooSearch({
               setActiveIndex((index) => Math.max(0, index - 1));
             } else if (event.key === "Enter") {
               event.preventDefault();
-              choose(hits[activeIndex]);
+              choose(hits[selectedIndex]);
             } else if (event.key === "Escape") {
               event.preventDefault();
               setOpen(false);
@@ -131,8 +130,8 @@ export function InstrumentYahooSearch({
                 key={`${hit.providerSymbol}-${hit.marketCode}-${index}`}
                 role="option"
                 aria-label={hitLabel(hit)}
-                aria-selected={index === activeIndex}
-                className={cn("cursor-pointer rounded-md px-3 py-2 text-foreground", index === activeIndex && "bg-muted")}
+                aria-selected={index === selectedIndex}
+                className={cn("cursor-pointer rounded-md px-3 py-2 text-foreground", index === selectedIndex && "bg-muted")}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => choose(hit)}
                 onMouseEnter={() => setActiveIndex(index)}

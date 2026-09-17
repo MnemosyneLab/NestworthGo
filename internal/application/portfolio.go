@@ -279,6 +279,9 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	if err != nil {
 		return domain.Instrument{}, err
 	}
+	if updated.QuoteCurrency != current.QuoteCurrency {
+		return domain.Instrument{}, &domain.Error{Code: domain.ErrValidation, Field: "quoteCurrency", Message: "instrument currency is immutable after creation"}
+	}
 	updated.ID = current.ID
 	updated.CreatedAt = current.CreatedAt
 	updated.ArchivedAt = current.ArchivedAt

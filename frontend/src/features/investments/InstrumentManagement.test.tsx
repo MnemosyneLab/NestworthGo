@@ -136,6 +136,7 @@ describe("InstrumentManagement", () => {
     renderManagement();
     await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
+    expect(within(form).getByLabelText("Currency").tagName).toBe("SELECT");
     await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "manual");
     await userEvent.type(within(form).getByLabelText("Name"), "NVIDIA");
     await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
@@ -145,7 +146,7 @@ describe("InstrumentManagement", () => {
     );
   });
 
-  it("edits all Instrument identity fields", async () => {
+  it("edits Instrument identity while keeping currency read-only", async () => {
     listInstruments.mockResolvedValue([{
       id: "i1",
       householdId: "h1",
@@ -166,6 +167,8 @@ describe("InstrumentManagement", () => {
     renderManagement();
     await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
+    expect(within(form).getByLabelText("Currency")).toHaveAttribute("readonly");
+    expect(within(form).getByLabelText("Currency")).toHaveValue("USD");
     const name = within(form).getByLabelText("Name");
     await userEvent.clear(name);
     await userEvent.type(name, "NVIDIA Corp");
@@ -178,6 +181,7 @@ describe("InstrumentManagement", () => {
 
     expect(updateInstrument).toHaveBeenCalledWith("i1", expect.objectContaining({
       replace: true,
+      quoteCurrency: "USD",
       name: "NVIDIA Corp",
       symbol: "NVDA.O",
       marketCode: "SGX",
@@ -308,6 +312,20 @@ describe("InstrumentManagement", () => {
     await userEvent.selectOptions(within(form).getByLabelText("Type"), "crypto");
     await waitFor(() => expect(within(form).getByLabelText("Quote source")).toHaveValue("manual"));
     expect(within(form).queryByLabelText("Search Yahoo")).not.toBeInTheDocument();
+  });
+
+  it("keeps edit currency fixed when selecting a search result in another currency", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", type: "stock", quoteCurrency: "USD", quoteSource: "provider", providerKey: "yahoo_finance", providerSymbol: "NVDA" }]);
+    searchInstruments.mockResolvedValue([{ providerKey: "yahoo_finance", providerSymbol: "NVDA", name: "NVIDIA Corporation", symbol: "NVDA", type: "stock", marketCode: "NASDAQ", countryCode: "US", quoteCurrency: "CNY", exchange: "NASDAQ" }]);
+    renderManagement();
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await userEvent.type(within(form).getByLabelText("Search Yahoo"), "NVDA");
+    await userEvent.click(await within(form).findByRole("option", { name: "NVDA · NVIDIA Corporation · NASDAQ" }));
+    expect(within(form).getByLabelText("Currency")).toHaveValue("USD");
+    expect(within(form).getByLabelText("Currency")).toHaveAttribute("readonly");
+    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
+    expect(updateInstrument).toHaveBeenCalledWith("i1", expect.objectContaining({ quoteCurrency: "USD", name: "NVIDIA Corporation" }));
   });
 
   it("fills identity fields from a Yahoo search result", async () => {

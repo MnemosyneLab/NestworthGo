@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
+import { useUiStore } from "@/stores/ui";
 import { SettingsPage } from "./SettingsPage";
 
 const load = vi.fn();
@@ -187,4 +188,37 @@ describe("SettingsPage", () => {
     renderPage();
     expect(await screen.findByText(new RegExp(`History was started in ${origin}`))).toBeInTheDocument();
   });
+});
+
+
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/household", () => ({
+  Service: { Bootstrap: () => Promise.resolve({ household: { id: "h1", baseCurrency: "SGD" } }) },
+}));
+
+it("shows the actual household currency read-only and saves all general fields together", async () => {
+  renderPage();
+  const form = await screen.findByRole("form", { name: "Settings" });
+  const currency = within(form).getByLabelText("Household base currency");
+  await waitFor(() => expect(currency).toHaveValue("SGD"));
+  expect(currency).toHaveAttribute("readonly");
+  const url = form.querySelector<HTMLInputElement>("#settings-worker-url")!;
+  const saveButton = within(form).getByRole("button", { name: "Save changes" });
+  expect(url.compareDocumentPosition(saveButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  await userEvent.type(url, "https://quotes.example.com");
+  await userEvent.click(saveButton);
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ workerBaseURL: "https://quotes.example.com", currency: "USD" }));
+  expect(saveTiingoAPIKey).not.toHaveBeenCalled();
+  expect(saveWorkerAPIToken).not.toHaveBeenCalled();
+});
+
+it("applies the default accent when restoring preferences", async () => {
+  useUiStore.setState({ accent: "ocean" });
+  load.mockResolvedValue({ ...defaultSettings, accent: "ocean" });
+  reset.mockResolvedValue(defaultSettings);
+  renderPage();
+  await screen.findByRole("form", { name: "Settings" });
+  await userEvent.click(screen.getByRole("button", { name: "Restore defaults" }));
+  const dialog = await screen.findByRole("alertdialog");
+  await userEvent.click(within(dialog).getByRole("button", { name: "Restore defaults" }));
+  await waitFor(() => expect(useUiStore.getState().accent).toBe("nestworth"));
 });

@@ -5,13 +5,15 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import type { OverviewPage as OverviewPageComponent } from "./OverviewPage";
 
+const { scanHealth } = vi.hoisted(() => ({ scanHealth: vi.fn() }));
+
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({ Service: {} }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: { Load: () => Promise.resolve({ timezone: "UTC" }) },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
-    ScanMarketDataHealth: () => Promise.resolve({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] }),
+    ScanMarketDataHealth: () => scanHealth(),
     GetCurrentSyncJob: () => Promise.resolve({ jobId: "" }),
   },
 }));
@@ -54,6 +56,8 @@ async function renderWithMockedOverview(response: unknown, props: { onOpenDataHe
 }
 
 beforeEach(() => {
+  scanHealth.mockReset();
+  scanHealth.mockResolvedValue({ healthy: true, issueCount: 0, issues: [] });
   vi.resetModules();
 });
 
@@ -92,7 +96,7 @@ describe("OverviewPage", () => {
     expect(screen.getByText("60.0%")).toBeInTheDocument();
     expect(screen.getByText("Bob")).toBeInTheDocument();
     expect(screen.getByText("40.0%")).toBeInTheDocument();
-    expect(screen.getByText("Complete")).toBeInTheDocument();
+    expect(screen.getByText("Current valuation complete")).toBeInTheDocument();
     expect(screen.getAllByText("Cash").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Credit card").length).toBeGreaterThan(0);
     expect(screen.getByText("By account type")).toBeInTheDocument();
@@ -222,4 +226,33 @@ describe("OverviewPage", () => {
 
     expect(await screen.findByText("Moved 2 from Archived Brokerage · Archived NVIDIA to Retirement · Archived NVIDIA")).toBeInTheDocument();
   });
+});
+
+
+const completeOverview = {
+  currency: "USD", accountCount: 1, complete: true, missingInputs: [],
+  assets: "1000", liabilities: "0", netWorth: "1000", assetsByType: [],
+  liabilitiesByType: [], byMember: [], byInstitution: [], byGroup: [], byAccountType: [],
+  ...defaultHeadlines,
+};
+
+it("keeps historical issues actionable when current valuation is complete", async () => {
+  scanHealth.mockResolvedValue({ healthy: false, issueCount: 1, issues: [{ kind: "snapshot_outdated" }] });
+  const onOpenDataHealth = vi.fn();
+  await renderWithMockedOverview(completeOverview, { onOpenDataHealth });
+  expect(await screen.findByText("Current valuation complete")).toBeInTheDocument();
+  const action = await screen.findByRole("button", { name: "Fix in Data Health" });
+  expect(screen.queryByText("Nothing needs attention right now.")).not.toBeInTheDocument();
+  await userEvent.click(action);
+  expect(onOpenDataHealth).toHaveBeenCalledOnce();
+});
+
+it.each(["loading", "failed"])("does not claim all clear while health is %s", async (state) => {
+  if (state === "loading") scanHealth.mockImplementation(() => new Promise(() => {}));
+  else scanHealth.mockRejectedValue(new Error("health unavailable"));
+  await renderWithMockedOverview(completeOverview);
+  await screen.findByText("Current valuation complete");
+  const message = state === "loading" ? "Checking historical data health…" : "Historical data health could not be checked.";
+  expect((await screen.findAllByText(message)).length).toBeGreaterThan(0);
+  expect(screen.queryByText("Nothing needs attention right now.")).not.toBeInTheDocument();
 });

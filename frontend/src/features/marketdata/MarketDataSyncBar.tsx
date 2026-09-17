@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw } from "lucide-react";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { displayEnum, displayError } from "@/lib/display";
@@ -71,6 +72,7 @@ export function MarketDataSyncBar({
   const { current, preview, start, cancel, running, startScope } = useMarketDataSyncActions();
   const [previewOpen, setPreviewOpen] = useState(false);
   const [forceRecheck, setForceRecheck] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const job = current.data;
   const busy = latestRefreshing || running || preview.isPending || start.isPending;
@@ -92,18 +94,21 @@ export function MarketDataSyncBar({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        {lastUpdatedAt ? (
-          <p className="text-sm text-muted-foreground">
-            {t("marketData.dataUpdated", { time: formatTimestamp(lastUpdatedAt, settings.data?.timezone, i18n.language) })}
-          </p>
-        ) : (
-          <span />
-        )}
+      <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap gap-2">
-          <Button onClick={openPreview} disabled={busy}>
-            <RefreshCw className="size-4" aria-hidden="true" /> {preview.isPending ? t("common.pending") : t("marketData.syncData")}
+          <Button onClick={onRefreshMissing} disabled={busy}>
+            <RefreshCw className="size-4" aria-hidden="true" /> {latestRefreshing ? t("marketData.refreshing") : t("review.updateLatest")}
           </Button>
+          <Button variant="outline" onClick={openPreview} disabled={busy}>
+            <RefreshCw className="size-4" aria-hidden="true" /> {preview.isPending ? t("common.pending") : t("review.syncRepair")}
+          </Button>
+          <Popover open={moreOpen} onOpenChange={setMoreOpen}>
+            <PopoverTrigger render={<Button variant="outline" disabled={busy} />}>{t("review.moreActions")}</PopoverTrigger>
+            <PopoverContent>
+              <Button variant="ghost" onClick={() => { setMoreOpen(false); onRefreshAll(); }} disabled={busy}>{t("marketData.forceRefreshAll")}</Button>
+            </PopoverContent>
+          </Popover>
+          {latestRefreshing && <Button type="button" variant="outline" onClick={onCancelLatest}>{t("marketData.cancelRefresh")}</Button>}
           {running && (
             <>
               <Button type="button" variant="outline" onClick={() => setProgressOpen(true)}>
@@ -115,6 +120,13 @@ export function MarketDataSyncBar({
             </>
           )}
         </div>
+        {lastUpdatedAt ? (
+          <p className="text-xs text-muted-foreground">
+            {t("marketData.dataUpdated", { time: formatTimestamp(lastUpdatedAt, settings.data?.timezone, i18n.language) })}
+          </p>
+        ) : (
+          <span />
+        )}
       </div>
 
       {running && job && (
@@ -124,20 +136,6 @@ export function MarketDataSyncBar({
         </p>
       )}
       {job && job.outcome === "cancelled" && <p role="status" className="text-sm text-muted-foreground">{t("marketData.syncCancelled")}</p>}
-
-      <div className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={onRefreshMissing} disabled={busy}>
-          <RefreshCw className="size-4" aria-hidden="true" /> {latestRefreshing ? t("marketData.refreshing") : t("marketData.refreshMissingOrStale")}
-        </Button>
-        <Button variant="outline" onClick={onRefreshAll} disabled={busy}>
-          <RefreshCw className="size-4" aria-hidden="true" /> {latestRefreshing ? t("marketData.refreshing") : t("marketData.forceRefreshAll")}
-        </Button>
-        {latestRefreshing && (
-          <Button type="button" variant="outline" onClick={onCancelLatest}>
-            {t("marketData.cancelRefresh")}
-          </Button>
-        )}
-      </div>
 
       <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
         <SheetContent>

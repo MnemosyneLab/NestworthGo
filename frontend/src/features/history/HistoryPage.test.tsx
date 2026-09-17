@@ -32,6 +32,7 @@ const currentInstrumentQuote = vi.fn();
 const refreshFX = vi.fn();
 const refreshInstrument = vi.fn();
 const historyMutationAllowed = vi.fn();
+const scanHealth = vi.fn();
 const dailySnapshotState = vi.fn();
 const rebuildHistoricalSnapshots = vi.fn();
 const refreshListeners = new Map<string, (event: { data: unknown }) => void>();
@@ -90,6 +91,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/qu
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
+    ScanMarketDataHealth: () => scanHealth(),
     StartRefreshFX: (...args: unknown[]) => startRefresh(refreshFX)(...args as [string, ...unknown[]]),
     StartRefreshInstrument: (...args: unknown[]) => startRefresh(refreshInstrument)(...args as [string, ...unknown[]]),
     CancelRefresh: vi.fn(async () => undefined),
@@ -146,6 +148,8 @@ beforeEach(() => {
   refreshFX.mockReset();
   refreshInstrument.mockReset();
   historyMutationAllowed.mockReset();
+  scanHealth.mockReset();
+  scanHealth.mockResolvedValue({ issueCount: 0, issues: [] });
   dailySnapshotState.mockReset();
   rebuildHistoricalSnapshots.mockReset();
   bootstrap.mockReset();
@@ -802,4 +806,25 @@ describe("HistoryPage", () => {
     const renderedIds = within(list).getAllByRole("listitem").map((item) => item.textContent);
     expect(new Set(renderedIds).size).toBe(51);
   });
+});
+
+
+it("does not advertise today's dirty cursor as snapshot repair", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-09-01T00:00:00Z" });
+  dailySnapshotState.mockResolvedValue({ householdId: "h1", dirtyFrom: "2026-09-17", lastCompletedClosedOn: "2026-09-16" });
+  scanHealth.mockResolvedValue({ issueCount: 0, issues: [] });
+  renderPage();
+  const repair = await screen.findByRole("button", { name: "Repair snapshots" });
+  expect(repair).toBeDisabled();
+  expect(screen.queryByText(/Snapshots need repair from/)).not.toBeInTheDocument();
+});
+
+it("repairs the same closed range advertised by Data Health", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "Asia/Singapore", startedAt: "2026-09-01T00:00:00Z" });
+  scanHealth.mockResolvedValue({ issueCount: 1, issues: [{ kind: "snapshot_outdated", executable: true, rangeStart: "2026-09-02", rangeEnd: "2026-09-16" }] });
+  renderPage();
+  const repair = await screen.findByRole("button", { name: "Repair snapshots" });
+  await waitFor(() => expect(repair).toBeEnabled());
+  await userEvent.click(repair);
+  expect(rebuildHistoricalSnapshots).toHaveBeenCalledWith("2026-09-02", "2026-09-16");
 });

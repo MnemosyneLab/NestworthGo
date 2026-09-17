@@ -193,7 +193,7 @@ func run() error {
 	emitter.manager = app.Event
 	platform.setApp(app)
 
-	app.Menu.SetApplicationMenu(application.DefaultApplicationMenu())
+	configureApplicationMenu(app)
 
 	width, height := windowSizeFromSettings(preference)
 	window := app.Window.NewWithOptions(application.WebviewWindowOptions{

@@ -837,5 +837,22 @@
     "blockedDescription": "由于无法安全打开本地数据库，Nestworth 已禁用财务数据写入。",
     "blockedTitle": "本地数据库不可用",
     "readOnly": "业务数据只读"
+  },
+  "review": {
+    "snapshotPrerequisite": "请先在数据健康页面处理前置问题，再重建快照。",
+    "currencyImmutable": "币种创建后不可修改。",
+    "householdCurrency": "家庭本位币",
+    "householdCurrencyHelp": "金额使用家庭本位币，或明确标注的原始币种。",
+    "displayPreferences": "外观与显示",
+    "credentialsTitle": "行情服务凭据",
+    "credentialsHelp": "凭据通过下方按钮独立保存。",
+    "updateLatest": "更新最新行情",
+    "syncRepair": "同步并修复",
+    "moreActions": "更多操作",
+    "currentValuationComplete": "当前估值完整",
+    "currentValuationTitle": "当前估值",
+    "healthLoading": "正在检查历史数据健康状态…",
+    "healthFailed": "无法检查历史数据健康状态。",
+    "portfolioScope": "仅投资持仓 · 不含现金"
   }
 }

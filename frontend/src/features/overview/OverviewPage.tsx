@@ -1,3 +1,4 @@
+import { useMarketDataHealth } from "@/queries/marketdata";
 import { useTranslation } from "react-i18next";
 import { useOverview } from "@/queries/portfolio";
 import { useSettings } from "@/queries/settings";
@@ -115,6 +116,9 @@ export function OverviewPage({
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const overview = useOverview();
+  const health = useMarketDataHealth();
+  const healthKnown = Boolean(health.data) && !health.isError && !health.isPending;
+  const healthIssueCount = health.data?.issueCount ?? 0;
   const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} />;
 
   if (overview.isLoading) {
@@ -140,7 +144,7 @@ export function OverviewPage({
   const updatedLabel =
     overview.dataUpdatedAt > 0 ? t("overview.updatedAt", { time: formatUpdatedAt(overview.dataUpdatedAt, i18n.language, settings.data?.timezone) }) : undefined;
   const healthBadge = data.complete ? (
-    <Badge variant="success">{t("overview.healthy")}</Badge>
+    <Badge variant="success">{t("review.currentValuationComplete")}</Badge>
   ) : (
     <Badge variant="warning">{t("overview.needsAttention")}</Badge>
   );
@@ -233,7 +237,7 @@ export function OverviewPage({
         <div className="flex flex-col gap-4">
           <Card>
             <CardHeader>
-              <CardTitle>{t("overview.dataHealthTitle")}</CardTitle>
+              <CardTitle>{t("review.currentValuationTitle")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 text-sm">
               {data.complete ? (
@@ -272,10 +276,14 @@ export function OverviewPage({
               missingValues === 0 &&
               missingFx === 0 &&
               !historyNotStarted &&
-              !(historyReady && recent.length === 0) ? (
+              !(historyReady && recent.length === 0) &&
+              healthKnown && healthIssueCount === 0 ? (
                 <p className="text-sm text-muted-foreground">{t("overview.noNextSteps")}</p>
               ) : (
                 <ul className="flex flex-col gap-3">
+                  {!healthKnown && <li className="text-sm text-muted-foreground">{t(health.isError ? "review.healthFailed" : "review.healthLoading")}{health.isError && <Button type="button" variant="ghost" size="sm" onClick={() => void health.refetch()}>{t("common.retryAction")}</Button>}</li>}
+                  {healthKnown && healthIssueCount > 0 && <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{t("dataHealth.indicatorIssues", { count: healthIssueCount })}</p>{onOpenDataHealth && <Button type="button" size="sm" variant="outline" onClick={onOpenDataHealth}>{t("dataHealth.fixInDataHealth")}</Button>}</li>}
+
                   {missingManualPrices > 0 && (
                     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-foreground">{t("overview.setManualPricesNext", { count: missingManualPrices })}</p>

@@ -13,7 +13,7 @@ import {
   invalidateRequiredFX,
 } from "@/queries/invalidation";
 import { useArchiveAccount, useCreateAccount, useUpdateAccount } from "@/queries/accounts";
-import { useAppendManualInstrumentQuote, useArchiveInstrument, useCreateHolding, useCreateInstrument } from "@/queries/investments";
+import { useAppendManualInstrumentQuote, useArchiveInstrument, useUpdateInstrument, useCreateHolding, useCreateInstrument } from "@/queries/investments";
 import { useFixChange, useRecordChange, useStartHistory, useUndoChange } from "@/queries/history";
 import { useRefreshAll, useRefreshRequiredFX } from "@/queries/marketdata";
 
@@ -49,6 +49,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holdi
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument", () => ({
   Service: {
     CreateInstrument: vi.fn(async () => ({ id: "instrument-1" })),
+    UpdateInstrument: vi.fn(async () => ({ id: "instrument-1" })),
     ArchiveInstrument: vi.fn(async () => undefined),
   },
 }));
@@ -357,4 +358,27 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(refreshClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(true);
     expect(isInvalidated(refreshClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(false);
   });
+});
+
+
+it("refreshes binding-dependent reads after updating an instrument", async () => {
+  const affected = [
+    queryKeys.instruments.list(),
+    queryKeys.quote.instrument.current("instrument-1"),
+    queryKeys.quote.instrument.series("instrument-1", "30d", "all"),
+    queryKeys.overview.all,
+    queryKeys.portfolio.all,
+    queryKeys.analytics.accountGains.all,
+    queryKeys.analysis.returnCalendar({}, "2026-09"),
+    queryKeys.marketdata.health,
+    queryKeys.history.snapshotState,
+  ];
+  const unrelated = queryKeys.quote.instrument.current("instrument-2");
+  const client = clientWith(...affected, unrelated);
+  const update = renderMutation(client, useUpdateInstrument);
+  await act(async () => {
+    await update.result.current.mutateAsync({ id: "instrument-1", request: { quoteSource: "manual" } as never });
+  });
+  for (const key of affected) expect(isInvalidated(client, key), JSON.stringify(key)).toBe(true);
+  expect(isInvalidated(client, unrelated)).toBe(false);
 });

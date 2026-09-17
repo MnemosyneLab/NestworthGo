@@ -79,6 +79,16 @@ export function invalidateRequiredFX(queryClient: QueryClient) {
 }
 
 export function invalidateMarketDataSync(queryClient: QueryClient) {
+  invalidate(queryClient, queryKeys.history.snapshotState);
   invalidate(queryClient, queryKeys.marketdata.all);
   invalidateRefreshAll(queryClient);
+}
+
+/** Changing a binding/source affects both live valuation and historical coverage. */
+export function invalidateInstrumentChange(queryClient: QueryClient, instrumentId: string) {
+  invalidateInstrumentReads(queryClient);
+  invalidateInstrumentQuoteChange(queryClient, instrumentId);
+  invalidate(queryClient, queryKeys.analytics.all);
+  invalidate(queryClient, queryKeys.marketdata.all);
+  invalidate(queryClient, queryKeys.history.snapshotState);
 }

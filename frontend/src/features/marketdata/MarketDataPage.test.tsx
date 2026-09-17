@@ -7,6 +7,7 @@ import { MarketDataPage } from "./MarketDataPage";
 import { formatTimestamp } from "@/lib/time";
 
 const refreshAll = vi.fn();
+const refreshMissing = vi.fn(async () => ({ items: [] as Array<{ targetKey: string; kind: string; status: string }>, rateLimited: false }));
 const listInstruments = vi.fn();
 const currentInstrumentQuote = vi.fn();
 const currentFXQuote = vi.fn();
@@ -42,7 +43,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
   Service: {
     StartRefreshAll: (requestId: string) => startRefresh(refreshAll)(requestId),
     StartRefreshRequiredFX: (requestId: string) => startRefresh(refreshRequiredFX)(requestId),
-    StartRefreshMissingOrStale: (requestId: string) => startRefresh(refreshAll)(requestId),
+    StartRefreshMissingOrStale: (requestId: string) => startRefresh(refreshMissing)(requestId),
     CancelRefresh: () => cancelRefresh(),
     GetCurrentSyncJob: () => getCurrentSyncJob(),
     PreviewMarketDataSync: (request: unknown) => previewSync(request),
@@ -113,6 +114,7 @@ function renderPage() {
 describe("MarketDataPage", () => {
   beforeEach(() => {
     refreshAll.mockReset();
+    refreshMissing.mockClear();
     refreshRequiredFX.mockReset();
     listInstruments.mockReset();
     currentInstrumentQuote.mockReset();
@@ -297,7 +299,7 @@ describe("MarketDataPage", () => {
       createdAt: "2024-01-01T00:00:00Z",
       updatedAt: "2024-01-01T00:00:00Z",
     });
-    refreshAll.mockResolvedValue({ items: [{ targetKey: "fx:CNY/SGD", kind: "fx", status: "fetched" }], rateLimited: false });
+    refreshMissing.mockResolvedValue({ items: [{ targetKey: "fx:CNY/SGD", kind: "fx", status: "fetched" }], rateLimited: false });
 
     renderPage();
     await userEvent.click(await screen.findByRole("tab", { name: "FX rates" }));
@@ -305,7 +307,18 @@ describe("MarketDataPage", () => {
 
     expect(setFXPreference).toHaveBeenCalledWith("CNY", "SGD", "provider");
     expect(await screen.findByTestId("refresh-results")).toHaveTextContent("CNY/SGD");
-    expect(refreshAll).toHaveBeenCalledTimes(1);
+    expect(refreshMissing).toHaveBeenCalledTimes(1);
+    expect(refreshAll).not.toHaveBeenCalled();
+  });
+
+  it("updates latest prices without starting repair or forcing a refresh", async () => {
+    renderPage();
+    expect(screen.queryByRole("button", { name: /force refresh all/i })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Update latest prices" }));
+    expect(refreshMissing).toHaveBeenCalledOnce();
+    expect(refreshAll).not.toHaveBeenCalled();
+    expect(previewSync).not.toHaveBeenCalled();
+    expect(startSync).not.toHaveBeenCalled();
   });
 
   it("triggers RefreshAll and renders the per-target results", async () => {
@@ -330,7 +343,8 @@ describe("MarketDataPage", () => {
       rateLimited: false,
     });
     renderPage();
-    await userEvent.click(screen.getByRole("button", { name: /force refresh all/i }));
+    await userEvent.click(screen.getByRole("button", { name: "More actions" }));
+    await userEvent.click(await screen.findByRole("button", { name: /force refresh all/i }));
     const results = await screen.findByTestId("refresh-results");
     expect(results).toHaveTextContent("Global Equity Fund");
     expect(results).toHaveTextContent("Updated");
@@ -346,7 +360,8 @@ describe("MarketDataPage", () => {
       releaseRefresh = () => resolve({ items: [], rateLimited: false });
     }));
     renderPage();
-    await userEvent.click(screen.getByRole("button", { name: /force refresh all/i }));
+    await userEvent.click(screen.getByRole("button", { name: "More actions" }));
+    await userEvent.click(await screen.findByRole("button", { name: /force refresh all/i }));
     const cancelButton = await screen.findByRole("button", { name: "Cancel refresh" });
     await userEvent.click(cancelButton);
     expect(cancelRefresh).toHaveBeenCalledTimes(1);
@@ -359,7 +374,8 @@ describe("MarketDataPage", () => {
     listInstruments.mockResolvedValue([]);
     refreshAll.mockResolvedValue({ items: [], rateLimited: false });
     renderPage();
-    await userEvent.click(screen.getByRole("button", { name: /force refresh all/i }));
+    await userEvent.click(screen.getByRole("button", { name: "More actions" }));
+    await userEvent.click(await screen.findByRole("button", { name: /force refresh all/i }));
     expect(await screen.findByText("No saved market data needs refreshing.")).toBeInTheDocument();
   });
 
@@ -456,7 +472,7 @@ describe("MarketDataPage", () => {
   it("previews and starts a workspace sync then restores progress", async () => {
     getCurrentSyncJob.mockResolvedValue({ jobId: "" });
     renderPage();
-    await userEvent.click(await screen.findByRole("button", { name: "Sync Data" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Sync and repair" }));
     expect(await screen.findByTestId("sync-preview")).toHaveTextContent("3 estimated provider requests");
     expect(previewSync).toHaveBeenCalledWith({ scope: "repair_all", forceRecheck: false });
     await userEvent.click(screen.getByRole("button", { name: "Start sync" }));

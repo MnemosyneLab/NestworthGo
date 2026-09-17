@@ -9,6 +9,7 @@ import { callService } from "@/lib/wails";
 import { normalizeAccountIds, queryKeys } from "@/queries/keys";
 import {
   invalidateHoldingChange,
+  invalidateInstrumentChange,
   invalidateInstrumentQuoteChange,
   invalidateInstrumentReads,
   invalidateRequiredFX,
@@ -35,7 +36,7 @@ export function useUpdateInstrument() {
   return useMutation({
     mutationFn: ({ id, request }: { id: string; request: InstrumentRequest }) =>
       callService(() => InstrumentService.UpdateInstrument(id, request)),
-    onSuccess: () => invalidateInstrumentReads(queryClient),
+    onSuccess: (_data, { id }) => invalidateInstrumentChange(queryClient, id),
   });
 }
 
