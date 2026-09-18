@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Service as SettingsService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings";
-import type { SettingsDTO as Settings, TiingoKeyStatusDTO, WorkerTokenStatusDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
+import type { SettingsDTO as Settings, CoinGeckoKeyStatusDTO, TiingoKeyStatusDTO, WorkerTokenStatusDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 
@@ -124,4 +124,36 @@ export function quoteCacheTtlOf(settings: Settings): QuoteCacheTTL {
 
 export function withQuoteCacheTtl(settings: Settings, ttl: QuoteCacheTTL): Settings {
   return { ...settings, quoteCacheTTL: ttl };
+}
+
+export function useCoinGeckoKeyStatus() {
+  return useQuery({
+    queryKey: queryKeys.settings.coinGeckoKey,
+    queryFn: () => callService(() => SettingsService.CoinGeckoKeyStatus()),
+    staleTime: 30_000,
+  });
+}
+
+export function useSaveCoinGeckoAPIKey() {
+  const queryClient = useQueryClient();
+  return useMutation<CoinGeckoKeyStatusDTO, Error, string>({
+    mutationFn: (value) => callService(() => SettingsService.SaveCoinGeckoAPIKey(value)),
+    onSuccess: (status) => {
+      queryClient.setQueryData(queryKeys.settings.coinGeckoKey, status);
+      void queryClient.invalidateQueries({ queryKey: ["coingecko-currencies"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.health });
+    },
+  });
+}
+
+export function useDeleteCoinGeckoAPIKey() {
+  const queryClient = useQueryClient();
+  return useMutation<CoinGeckoKeyStatusDTO, Error, void>({
+    mutationFn: () => callService(() => SettingsService.DeleteCoinGeckoAPIKey()),
+    onSuccess: (status) => {
+      queryClient.setQueryData(queryKeys.settings.coinGeckoKey, status);
+      void queryClient.invalidateQueries({ queryKey: ["coingecko-currencies"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.marketdata.health });
+    },
+  });
 }

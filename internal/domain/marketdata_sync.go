@@ -28,6 +28,15 @@ type InstrumentRoute struct {
 func ResolveInstrumentRoute(market, preferredProvider, providerSymbol string) InstrumentRoute {
 	preferredProvider = strings.ToLower(strings.TrimSpace(preferredProvider))
 	providerSymbol = strings.TrimSpace(providerSymbol)
+	if preferredProvider == CoinGeckoProviderKey {
+		if !CryptoDailyBarMarket(market) {
+			return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "coingecko_crypto_only"}
+		}
+		if providerSymbol == "" {
+			return InstrumentRoute{ProviderKey: preferredProvider, Status: InstrumentRouteBindingMissing, Reason: "binding_missing"}
+		}
+		return InstrumentRoute{ProviderKey: preferredProvider, Status: InstrumentRouteOK}
+	}
 	if preferredProvider == FrankfurterProviderKey {
 		return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "frankfurter_is_fx_only"}
 	}

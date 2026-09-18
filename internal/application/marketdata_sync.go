@@ -242,6 +242,9 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 	instruments := filterInstrumentNeeds(plan.Instruments, request)
 	maxDays := s.historyMaxDays()
 	for _, need := range instruments {
+		if len(need.UnavailableRanges) > 0 {
+			preview.Unresolved = append(preview.Unresolved, SyncBlocker{TargetKey: instrumentTargetKey(need.InstrumentID), Code: "coingecko_history_limit_365_days", Reason: "coingecko_history_limit_365_days"})
+		}
 		if need.RouteStatus != domain.InstrumentRouteOK {
 			preview.Unresolved = append(preview.Unresolved, SyncBlocker{
 				TargetKey: instrumentTargetKey(need.InstrumentID),

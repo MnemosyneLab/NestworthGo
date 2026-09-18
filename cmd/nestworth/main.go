@@ -131,6 +131,10 @@ func run() error {
 			registry := nestworthapp.NewMarketDataRegistryWithDefault(nestworthapp.FrankfurterProviderKey,
 				marketdata.NewFrankfurterProvider(nil),
 				marketdata.NewYahooChartProvider(),
+				marketdata.NewCoinGeckoProvider(func() (string, error) {
+					current, err := store.Load()
+					return current.CoinGeckoAPIKey, err
+				}, nil),
 				marketdata.NewTiingoProvider(func() (string, error) {
 					current, err := store.Load()
 					if err != nil {

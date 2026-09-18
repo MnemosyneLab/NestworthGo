@@ -310,3 +310,68 @@ func TestLoggingPreferencesRoundTripAndReset(t *testing.T) {
 		t.Fatalf("logging reset: %+v %v", reset, err)
 	}
 }
+
+func TestCoinGeckoKeyConfigurationPersistsWithoutReturningTheSecret(t *testing.T) {
+	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	service := settings.NewService(store, nil)
+
+	missing, err := service.CoinGeckoKeyStatus()
+	if err != nil {
+		t.Fatalf("CoinGeckoKeyStatus before save: %v", err)
+	}
+	if missing.Configured {
+		t.Fatalf("missing status = %+v", missing)
+	}
+
+	saved, err := service.SaveCoinGeckoAPIKey("  session-test-key  ")
+	if err != nil {
+		t.Fatalf("SaveCoinGeckoAPIKey: %v", err)
+	}
+	if !saved.Configured {
+		t.Fatalf("saved status = %+v", saved)
+	}
+	encoded, err := json.Marshal(saved)
+	if err != nil {
+		t.Fatalf("marshal saved status: %v", err)
+	}
+	if strings.Contains(string(encoded), "session-test-key") {
+		t.Fatal("CoinGecko key leaked through the status DTO")
+	}
+
+	loaded, err := store.Load()
+	if err != nil || loaded.CoinGeckoAPIKey != "session-test-key" {
+		t.Fatalf("settings key = %q, err = %v", loaded.CoinGeckoAPIKey, err)
+	}
+
+	deleted, err := service.DeleteCoinGeckoAPIKey()
+	if err != nil {
+		t.Fatalf("DeleteCoinGeckoAPIKey: %v", err)
+	}
+	if deleted.Configured {
+		t.Fatalf("deleted status = %+v", deleted)
+	}
+}
+
+func TestGeneralSettingsSaveAndResetPreserveCoinGeckoKey(t *testing.T) {
+	store := appsettings.NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	service := settings.NewService(store, nil)
+	if _, err := service.SaveCoinGeckoAPIKey("keep-me"); err != nil {
+		t.Fatalf("SaveCoinGeckoAPIKey: %v", err)
+	}
+	updated := defaultDTO()
+	updated.Appearance = appsettings.AppearanceDark
+	if err := service.Save(updated); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	loaded, err := store.Load()
+	if err != nil || loaded.CoinGeckoAPIKey != "keep-me" {
+		t.Fatalf("key after Save = %q, err = %v", loaded.CoinGeckoAPIKey, err)
+	}
+	if _, err := service.Reset(); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+	loaded, err = store.Load()
+	if err != nil || loaded.CoinGeckoAPIKey != "keep-me" {
+		t.Fatalf("key after Reset = %q, err = %v", loaded.CoinGeckoAPIKey, err)
+	}
+}

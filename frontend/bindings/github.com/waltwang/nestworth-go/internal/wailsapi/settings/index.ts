@@ -7,6 +7,7 @@ export {
 };
 
 export type {
+    CoinGeckoKeyStatusDTO,
     SettingsDTO,
     TiingoKeyStatusDTO,
     WorkerTokenStatusDTO

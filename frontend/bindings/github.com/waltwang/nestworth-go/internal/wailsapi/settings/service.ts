@@ -9,6 +9,14 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
+export function CoinGeckoKeyStatus(): $CancellablePromise<$models.CoinGeckoKeyStatusDTO> {
+    return $Call.ByID(4152863214);
+}
+
+export function DeleteCoinGeckoAPIKey(): $CancellablePromise<$models.CoinGeckoKeyStatusDTO> {
+    return $Call.ByID(1447707263);
+}
+
 export function DeleteTiingoAPIKey(): $CancellablePromise<$models.TiingoKeyStatusDTO> {
     return $Call.ByID(2287834341);
 }
@@ -46,6 +54,10 @@ export function Reset(): $CancellablePromise<$models.SettingsDTO> {
 
 export function Save(value: $models.SettingsDTO): $CancellablePromise<void> {
     return $Call.ByID(1850635862, value);
+}
+
+export function SaveCoinGeckoAPIKey(value: string): $CancellablePromise<$models.CoinGeckoKeyStatusDTO> {
+    return $Call.ByID(1280655601, value);
 }
 
 export function SaveTiingoAPIKey(value: string): $CancellablePromise<$models.TiingoKeyStatusDTO> {

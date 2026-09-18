@@ -31,6 +31,7 @@ export const queryKeys = {
     supportedCurrencies: ["settings", "supportedCurrencies"] as const,
     fxProviders: ["settings", "fxProviders"] as const,
 		tiingoKey: ["settings", "tiingoKey"] as const,
+		coinGeckoKey: ["settings", "coinGeckoKey"] as const,
 		workerToken: ["settings", "workerToken"] as const,
   },
   directory: {

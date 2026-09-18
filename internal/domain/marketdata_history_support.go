@@ -60,6 +60,9 @@ func ResolveInstrumentHistorySupport(instrumentType, market, providerKey string)
 	if UsesMetalFuturesHistory(instrumentType, market) && provider == YahooFinanceProviderKey {
 		return InstrumentRoute{ProviderKey: provider, Status: InstrumentRouteOK}
 	}
+	if provider == CoinGeckoProviderKey && parsed != InstrumentCrypto {
+		return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "coingecko_crypto_only"}
+	}
 	switch parsed {
 	case InstrumentStock, InstrumentETF:
 		if _, ok := EquitySessionScheduleForMarket(market); !ok {
@@ -73,7 +76,7 @@ func ResolveInstrumentHistorySupport(instrumentType, market, providerKey string)
 		if provider == TiingoProviderKey {
 			return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "tiingo_us_listed_only"}
 		}
-		if provider == YahooFinanceProviderKey || provider == WorkerProviderKey || provider == "" {
+		if provider == CoinGeckoProviderKey || provider == YahooFinanceProviderKey || provider == WorkerProviderKey || provider == "" {
 			if provider == "" {
 				provider = YahooFinanceProviderKey
 			}

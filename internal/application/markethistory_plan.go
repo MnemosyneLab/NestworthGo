@@ -9,6 +9,9 @@ import (
 )
 
 type InstrumentRepairNeed struct {
+	UnavailableRanges       []DateRange
+	HistoryStartDate        string
+	LatestOnly              bool
 	InstrumentID            domain.InstrumentID
 	InstrumentType          string
 	ProviderKey             string
@@ -87,6 +90,10 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 		ResolverPolicyVersion:   domain.MarketDataResolverPolicy,
 		ManualFX:                hasManualFX(preferences),
 	}
+	starts, err := s.instrumentHistoryStarts(ctx, *origin, now)
+	if err != nil {
+		return HistoryRepairPlan{}, err
+	}
 	for _, item := range coverage {
 		marketFinalized := finalized
 		switch {
@@ -108,7 +115,17 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 				}
 			}
 		}
-		need, planErr := planInstrumentRepairNeed(item, originDate, marketFinalized)
+		start := starts[item.InstrumentID]
+		if start == "" {
+			plan.Instruments = append(plan.Instruments, InstrumentRepairNeed{
+				InstrumentID: item.InstrumentID, InstrumentType: item.InstrumentType,
+				ProviderKey: item.ProviderKey, ProviderSymbol: item.ProviderSymbol,
+				Market: item.Market, QuoteCurrency: item.QuoteCurrency,
+				LatestOnly: true, RouteStatus: domain.InstrumentRouteOK,
+			})
+			continue
+		}
+		need, planErr := planInstrumentRepairNeed(item, start, marketFinalized)
 		if planErr != nil {
 			return HistoryRepairPlan{}, planErr
 		}
@@ -142,6 +159,9 @@ func (s *Service) PlanHistorySync(ctx context.Context, opts HistorySyncOptions) 
 	}
 	now := s.clock()
 	for index, need := range plan.Instruments {
+		if need.LatestOnly {
+			continue
+		}
 		item := byID[need.InstrumentID]
 		lastFinalized := need.LastFinalizedMarketDate
 		if lastFinalized == "" {
@@ -234,6 +254,7 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 		}
 	}
 	return InstrumentRepairNeed{
+		HistoryStartDate:        originDate,
 		InstrumentID:            coverage.InstrumentID,
 		InstrumentType:          coverage.InstrumentType,
 		ProviderKey:             coverage.ProviderKey,
@@ -342,6 +363,22 @@ func applyHistorySyncPolicy(need InstrumentRepairNeed, coverage domain.Instrumen
 		}
 	}
 	need.FetchRanges = dateRangesFromDates(fetchDates)
+	if need.ProviderKey == CoinGeckoProviderKey {
+		// Demo's rolling limit is an instant. Start at the next UTC midnight
+		// to avoid a boundary request slightly older than 365 days.
+		earliest := now.UTC().AddDate(0, 0, -364).Format("2006-01-02")
+		allowed := make([]string, 0, len(fetchDates))
+		blocked := []string{}
+		for _, date := range fetchDates {
+			if date < earliest {
+				blocked = append(blocked, date)
+			} else {
+				allowed = append(allowed, date)
+			}
+		}
+		need.FetchRanges = dateRangesFromDates(allowed)
+		need.UnavailableRanges = dateRangesFromDates(blocked)
+	}
 	return need, nil
 }
 

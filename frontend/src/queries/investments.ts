@@ -31,7 +31,7 @@ export function useCreateInstrument() {
     mutationFn: (request: InstrumentRequest) => callService(() => InstrumentService.CreateInstrument(request)),
     onSuccess: async (instrument) => {
       invalidateInstrumentReads(queryClient);
-      if (instrument.metalTemplate && instrument.quoteSource === "provider") {
+      if ((instrument.metalTemplate || instrument.providerKey === "coingecko") && instrument.quoteSource === "provider") {
         // Creation remains successful when an external quote is unavailable.
         await refresh.mutateAsync(instrument.id).catch(() => undefined);
       }

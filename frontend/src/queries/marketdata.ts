@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Events } from "@wailsio/runtime";
 import { Service as MarketDataService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata";
 import type {
@@ -294,7 +294,7 @@ export function useMarketDataHealth() {
 }
 
 export function isYahooSearchableInstrumentType(type: string): boolean {
-	return type === "stock" || type === "etf";
+	return type === "stock" || type === "etf" || type === "crypto";
 }
 
 export function useYahooInstrumentSearch(query: string, instrumentType: string) {
@@ -304,7 +304,7 @@ export function useYahooInstrumentSearch(query: string, instrumentType: string) 
 		queryFn: () => callService(() => MarketDataService.SearchInstruments(normalizedQuery, instrumentType)),
 		enabled: isYahooSearchableInstrumentType(instrumentType) && normalizedQuery.length >= 2,
 		staleTime: 30_000,
-		placeholderData: keepPreviousData,
+		retry: false,
 		select: (hits: InstrumentSearchHitDTO[] | null) => hits ?? [],
 	});
 }

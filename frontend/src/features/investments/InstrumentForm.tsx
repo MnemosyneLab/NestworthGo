@@ -1,6 +1,7 @@
 import { MetalConversionDetails } from "./MetalConversionDetails";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Service as MarketDataService } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata";
 import * as InstrumentService from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument/service";
 import { callService } from "@/lib/wails";
 import { formatAmount } from "@/lib/money";
@@ -92,28 +93,39 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
   const quantityUnit = useWatch({ control, name: "quantityUnit" });
   const quoteCurrency = useWatch({ control, name: "quoteCurrency" });
   const quoteSource = useWatch({ control, name: "quoteSource" });
+  const providerKey = useWatch({ control, name: "providerKey" });
   const instrumentType = useWatch({ control, name: "type" }) ?? "stock";
   const iconKey = useWatch({ control, name: "iconKey" });
   const countryCode = useWatch({ control, name: "countryCode" }) ?? "";
   const marketCode = useWatch({ control, name: "marketCode" }) ?? "";
   const [iconCustomized, setIconCustomized] = useState(Boolean(instrument));
   const householdCurrency = bootstrap.data?.household?.baseCurrency;
-  const currencyOptions = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
+  const cryptoCurrencies = useQuery({
+    queryKey: ["coingecko-currencies"],
+    queryFn: () => callService(() => MarketDataService.CoinGeckoQuoteCurrencies()),
+    enabled: instrumentType === "crypto" && providerKey === "coingecko",
+    staleTime: 86_400_000,
+    retry: false,
+  });
+  const allCurrencies = currencies.data ?? (householdCurrency ? [householdCurrency] : []);
+  const currencyOptions = instrumentType === "crypto" && providerKey === "coingecko" && cryptoCurrencies.data?.length
+    ? allCurrencies.filter((currency) => cryptoCurrencies.data!.includes(currency))
+    : allCurrencies;
   const instrumentTypes = catalog.data?.instrumentTypes?.length ? catalog.data.instrumentTypes : [instrument?.type ?? "stock"];
   const quoteSources = catalog.data?.quoteSources?.length ? catalog.data.quoteSources : ["manual", "provider"];
   const instrumentProviders = catalog.data?.instrumentProviders?.length ? catalog.data.instrumentProviders : ["yahoo_finance"];
   const allMarketCodes = Array.from(new Set([...(catalog.data?.instrumentMarketCodes ?? []), ...(instrument?.marketCode ? [instrument.marketCode] : []), ...(marketCode ? [marketCode] : [])]));
   const countryOptions = Array.from(new Set([...(catalog.data?.instrumentCountryCodes ?? []), ...(instrument?.countryCode ? [instrument.countryCode] : [])]));
   const marketOptions = marketsForCountry(allMarketCodes, countryCode, marketCode);
-  const defaultProviderKey = catalog.data?.instrumentProviders?.[0] ?? "yahoo_finance";
+  const defaultProviderKey = instrumentType === "crypto" ? "coingecko" : catalog.data?.instrumentProviders?.[0] ?? "yahoo_finance";
 
   useEffect(() => {
     if (instrument) return;
-    const next = householdCurrency ?? currencies.data?.[0];
+    const next = instrumentType === "crypto" ? "USD" : householdCurrency ?? currencies.data?.[0];
     if (next) {
       setValue("quoteCurrency", next);
     }
-  }, [currencies.data, householdCurrency, instrument, setValue]);
+  }, [currencies.data, householdCurrency, instrument, instrumentType, setValue]);
 
   useEffect(() => {
     if (instrument) return;
@@ -157,6 +169,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
     setValue("quoteSource", "provider");
     setValue("providerKey", hit.providerKey || defaultProviderKey || "yahoo_finance");
     setValue("providerSymbol", hit.providerSymbol);
+    if (hit.type === "crypto") { setValue("countryCode", ""); setValue("isin", ""); }
     if (hit.countryCode) {
       setValue("countryCode", hit.countryCode);
     }
@@ -205,7 +218,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-type">{t("portfolio.type")}</Label>
-        <NativeSelect id="instrument-type" {...register("type")} disabled={Boolean(instrument?.metalTemplate)} onChange={(event) => { setValue("type", event.target.value); if (!instrument && metalTemplate) applyMetalTemplate(""); }}>
+        <NativeSelect id="instrument-type" {...register("type")} disabled={Boolean(instrument?.metalTemplate)} onChange={(event) => { setValue("type", event.target.value); if (!instrument && (instrumentType === "crypto" || event.target.value === "crypto")) { setValue("providerSymbol", ""); setValue("symbol", ""); setValue("countryCode", ""); setValue("marketCode", event.target.value === "crypto" ? "CRYPTO" : ""); } if (!instrument && metalTemplate) applyMetalTemplate(""); }}>
           {instrumentTypes.map((type) => (
             <option key={type} value={type}>
               {displayEnum(t, "enum", type)}
@@ -233,8 +246,9 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
         </div>
       )}
       {isYahooSearchableInstrumentType(instrumentType) && (
-        <InstrumentYahooSearch instrumentType={instrumentType} onSelect={applyYahooSearchHit} />
+        <InstrumentYahooSearch key={instrumentType} instrumentType={instrumentType} onSelect={applyYahooSearchHit} />
       )}
+      {instrumentType === "crypto" && providerKey === "coingecko" && <p className="text-xs text-muted-foreground">{t("portfolio.coinGeckoNotice")} · <a href="https://www.coingecko.com/en/api" target="_blank" rel="noreferrer" className="underline">{t("portfolio.coinGeckoAttribution")}</a></p>}
       <IconPicker id="instrument-icon" value={iconKey} kind="instrument" onChange={(key) => { setValue("iconKey", key); setIconCustomized(true); }} />
       <details open={!metalTemplate}><summary className="cursor-pointer text-sm text-muted-foreground">{t("metals.identityDetails")}</summary>
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
@@ -317,7 +331,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="instrument-provider-key">{t("portfolio.providerKey")}</Label>
             <NativeSelect id="instrument-provider-key" {...register("providerKey")}>
-              {instrumentProviders.map((provider) => (
+              {instrumentProviders.filter((provider) => provider !== "coingecko" || instrumentType === "crypto").map((provider) => (
                 <option key={provider} value={provider}>
                   {displayEnum(t, "settings.provider", provider)}
                 </option>

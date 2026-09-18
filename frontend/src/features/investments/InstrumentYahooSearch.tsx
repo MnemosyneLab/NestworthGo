@@ -24,7 +24,7 @@ function hitTicker(hit: InstrumentSearchHitDTO): string {
 
 function hitLabel(hit: InstrumentSearchHitDTO): string {
   const ticker = hitTicker(hit);
-  const venue = hit.exchange || hit.marketCode;
+  const venue = hit.providerKey === "coingecko" ? hit.providerSymbol : hit.exchange || hit.marketCode;
   const name = instrumentSecondaryName({ name: hit.name, symbol: ticker });
   return [ticker, name, venue].filter(Boolean).join(" · ");
 }
@@ -37,6 +37,7 @@ export function InstrumentYahooSearch({
   onSelect: (hit: InstrumentSearchHitDTO) => void;
 }) {
   const { t } = useTranslation();
+  const searchPrefix = instrumentType === "crypto" ? "crypto" : "yahoo";
   const rootRef = useRef<HTMLDivElement>(null);
   const generatedId = useId();
   const inputId = `instrument-yahoo-search-${generatedId}`;
@@ -70,7 +71,7 @@ export function InstrumentYahooSearch({
 
   return (
     <div className="flex flex-col gap-1.5">
-      <Label htmlFor={inputId}>{t("portfolio.yahooSearch")}</Label>
+      <Label htmlFor={inputId}>{t(`portfolio.${searchPrefix}Search`)}</Label>
       <div ref={rootRef} className="relative">
         <Input
           id={inputId}
@@ -79,7 +80,7 @@ export function InstrumentYahooSearch({
           aria-expanded={showList}
           aria-autocomplete="list"
           value={query}
-          placeholder={t("portfolio.yahooSearchPlaceholder")}
+          placeholder={t(`portfolio.${searchPrefix}SearchPlaceholder`)}
           autoComplete="off"
           onFocus={() => setOpen(true)}
           onChange={(event) => {
@@ -112,19 +113,19 @@ export function InstrumentYahooSearch({
           >
             {search.isFetching && hits.length === 0 ? (
               <li role="presentation" className="rounded-md px-3 py-2 text-muted-foreground">
-                {t("portfolio.yahooSearchSearching")}
+                {t(`portfolio.${searchPrefix}SearchSearching`)}
               </li>
             ) : search.isError ? (
               <li role="presentation" className="rounded-md px-3 py-2 text-destructive">
-                {t("portfolio.yahooSearchError")}
+                {t(`portfolio.${searchPrefix}SearchError`)}
               </li>
             ) : hits.length === 0 ? (
               <li role="option" aria-disabled="true" className="rounded-md px-3 py-2 text-muted-foreground">
-                {t("portfolio.yahooSearchNoResults")}
+                {t(`portfolio.${searchPrefix}SearchNoResults`)}
               </li>
             ) : hits.map((hit, index) => {
               const ticker = hitTicker(hit);
-              const subtitle = [instrumentSecondaryName({ name: hit.name, symbol: ticker }), hit.exchange || hit.marketCode].filter(Boolean).join(" · ");
+              const subtitle = [instrumentSecondaryName({ name: hit.name, symbol: ticker }), (hit.providerKey === "coingecko" ? hit.providerSymbol : hit.exchange || hit.marketCode)].filter(Boolean).join(" · ");
               return (
               <li
                 key={`${hit.providerSymbol}-${hit.marketCode}-${index}`}
@@ -144,7 +145,7 @@ export function InstrumentYahooSearch({
           </ul>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">{t("portfolio.yahooSearchHint")}</p>
+      <p className="text-xs text-muted-foreground">{t(`portfolio.${searchPrefix}SearchHint`)}</p>
     </div>
   );
 }

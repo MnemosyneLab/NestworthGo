@@ -68,7 +68,8 @@ export function QuoteHistorySheet({
     return key ? `${label} · ${key}` : label;
   };
 
-  const observationLabel = (point: { observationKind?: string; sourceKind: string }) => {
+  const observationLabel = (point: { observationKind?: string; sourceKind: string; sourceKey?: string }) => {
+    if (point.observationKind === "close" && point.sourceKey === "coingecko") return t("portfolio.coinGeckoDailyReference");
     const kind = point.sourceKind === "manual" ? "manual" : point.observationKind || "unknown";
     return t(`quoteDetails.kinds.${kind}`, { defaultValue: t("quoteDetails.kinds.unknown") });
   };
@@ -81,6 +82,7 @@ export function QuoteHistorySheet({
           <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
         {target.kind === "instrument" && target.instrument.metalTemplate && <p className="mt-3 text-xs text-muted-foreground">{t("metals.referenceDisclaimer")}</p>}
+        {target.kind === "instrument" && target.instrument.providerKey === "coingecko" && <p className="mt-3 text-xs text-muted-foreground">{t("portfolio.coinGeckoNotice")} · <a href="https://www.coingecko.com/en/api" target="_blank" rel="noreferrer" className="underline">{t("portfolio.coinGeckoAttribution")}</a></p>}
         <div className="flex flex-col gap-4">
           <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
           <SourceFilterToggle value={sourceFilter} onChange={setSourceFilter} />

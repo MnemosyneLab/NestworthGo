@@ -773,7 +773,16 @@
     "valuedSubtotalDescription": "家庭基礎貨幣中的完整目前價值。",
     "yahooDisclaimer": "Yahoo Finance 是非官方且無關聯關係的資料來源，資料可能變更或變得不可用。",
     "yahooDisclaimerLabel": "提供方說明",
-    "yahooFinance": "Yahoo Finance"
+    "yahooFinance": "Yahoo Finance",
+    "cryptoSearch": "搜尋加密貨幣",
+    "cryptoSearchPlaceholder": "BTC、Bitcoin、ETH…",
+    "cryptoSearchSearching": "正在搜尋 CoinGecko…",
+    "cryptoSearchError": "搜尋暫不可用，請檢查設定中的 CoinGecko API Key。",
+    "cryptoSearchNoResults": "沒有符合的幣種",
+    "cryptoSearchHint": "請核對幣種 ID，避免選到簡稱相同的其他代幣。",
+    "coinGeckoNotice": "UTC 每日參考價 · Demo 可查詢最近 365 天歷史",
+    "coinGeckoAttribution": "資料由 CoinGecko 提供",
+    "coinGeckoDailyReference": "每日參考價"
   },
   "settings": {
     "appearance": {
@@ -811,7 +820,8 @@
       "tiingo": "Tiingo",
       "worker": "Nestworth Worker",
       "yahoo": "Yahoo Finance",
-      "yahoo_finance": "Yahoo Finance"
+      "yahoo_finance": "Yahoo Finance",
+      "coingecko": "CoinGecko"
     },
     "providers": {
       "description": "選擇手動重新整理匯率時使用的提供方。投資標的重新整理仍使用各自儲存的提供方繫結。",

@@ -115,6 +115,9 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 	coveredInstruments := map[string]struct{}{}
 
 	for _, need := range plan.Instruments {
+		if need.LatestOnly {
+			continue
+		}
 		instrument := names[need.InstrumentID]
 		label := instrument.Name
 		if label == "" {
@@ -297,6 +300,16 @@ func classifyInstrumentHealth(need InstrumentRepairNeed, label string, blocked m
 		base.Action = HealthActionManualEntry
 		return base, false
 	}
+	if len(need.UnavailableRanges) > 0 && len(need.FetchRanges) == 0 {
+		base.Kind = HealthKindUnsupportedCoverage
+		base.Severity = HealthSeverityWarning
+		base.Code = "coingecko_history_limit_365_days"
+		base.Reason = base.Code
+		base.Action = HealthActionManualEntry
+		base.RangeStart = string(need.UnavailableRanges[0].Start)
+		base.RangeEnd = string(need.UnavailableRanges[len(need.UnavailableRanges)-1].End)
+		return base, false
+	}
 	if !hasInstrumentGap(need) {
 		return HealthIssue{}, false
 	}
@@ -321,24 +334,17 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 	if err != nil {
 		return nil, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "stored Household timezone is invalid"}
 	}
-	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	starts, err := s.instrumentHistoryStarts(ctx, *origin, s.clock())
 	if err != nil {
 		return nil, err
 	}
-	held := map[domain.InstrumentID]struct{}{}
-	for _, holding := range snapshot.Holdings {
-		if holding.ArchivedAt != nil {
-			continue
-		}
-		held[holding.InstrumentID] = struct{}{}
-	}
-	originDate := origin.StartedAt.In(location).Format("2006-01-02")
 	var issues []HealthIssue
 	for _, instrument := range instruments {
 		if instrument.QuoteSource != domain.QuoteSourceManual {
 			continue
 		}
-		if _, ok := held[instrument.ID]; !ok {
+		originDate := starts[instrument.ID]
+		if originDate == "" {
 			continue
 		}
 		if _, ok := covered[instrument.ID.String()]; ok {
@@ -361,7 +367,7 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 			Label:        instrument.Name,
 			InstrumentID: instrument.ID.String(),
 			RangeStart:   originDate,
-			RangeEnd:     plan.LastFinalizedMarketDate,
+			RangeEnd:     max(originDate, plan.LastFinalizedMarketDate),
 			Code:         "missing_manual_price",
 			Reason:       "opening_anchor_missing",
 			Action:       HealthActionManualEntry,

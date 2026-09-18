@@ -223,6 +223,7 @@ func (s *Service) Save(value SettingsDTO) error {
 		// SettingsDTO deliberately omits provider secrets. General preference
 		// saves must preserve separately managed credentials instead of clearing them.
 		persisted.TiingoAPIKey = current.TiingoAPIKey
+		persisted.CoinGeckoAPIKey = current.CoinGeckoAPIKey
 		persisted.WorkerAPIToken = current.WorkerAPIToken
 		if err := s.store.Save(persisted); err != nil {
 			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"}
@@ -245,6 +246,7 @@ func (s *Service) Reset() (SettingsDTO, error) {
 	current, err := s.store.Load()
 	if err == nil {
 		defaults.TiingoAPIKey = current.TiingoAPIKey
+		defaults.CoinGeckoAPIKey = current.CoinGeckoAPIKey
 		defaults.WorkerAPIToken = current.WorkerAPIToken
 	}
 	if err := s.Save(fromSettings(defaults)); err != nil {
@@ -283,4 +285,56 @@ func (s *Service) FXProviders() []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+type CoinGeckoKeyStatusDTO struct {
+	Configured bool `json:"configured"`
+}
+
+func (s *Service) CoinGeckoKeyStatus() (CoinGeckoKeyStatusDTO, error) {
+	value, err := s.store.Load()
+	if err != nil {
+		return CoinGeckoKeyStatusDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "CoinGecko key status could not be read"})
+	}
+	return coinGeckoKeyStatus(value.CoinGeckoAPIKey), nil
+}
+
+func (s *Service) SaveCoinGeckoAPIKey(value string) (CoinGeckoKeyStatusDTO, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return CoinGeckoKeyStatusDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrValidation, Field: "coingecko_api_key", Message: "CoinGecko API key is required"})
+	}
+	return s.updateCoinGeckoAPIKey(value)
+}
+
+func (s *Service) DeleteCoinGeckoAPIKey() (CoinGeckoKeyStatusDTO, error) {
+	return s.updateCoinGeckoAPIKey("")
+}
+
+func coinGeckoKeyStatus(value string) CoinGeckoKeyStatusDTO {
+	return CoinGeckoKeyStatusDTO{Configured: strings.TrimSpace(value) != ""}
+}
+
+func (s *Service) updateCoinGeckoAPIKey(value string) (CoinGeckoKeyStatusDTO, error) {
+	persist := func() error {
+		current, err := s.store.Load()
+		if err != nil {
+			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be loaded"}
+		}
+		current.CoinGeckoAPIKey = value
+		if err := s.store.Save(current); err != nil {
+			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"}
+		}
+		return nil
+	}
+	var err error
+	if s.app == nil {
+		err = persist()
+	} else {
+		err = s.app.WithWrite(context.Background(), func(context.Context) error { return persist() })
+	}
+	if err != nil {
+		return CoinGeckoKeyStatusDTO{}, apierror.Wrap(err)
+	}
+	return coinGeckoKeyStatus(value), nil
 }

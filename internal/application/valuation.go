@@ -831,6 +831,8 @@ func historicalInstrumentQualityMatches(quote domain.InstrumentQuote) bool {
 		return false
 	}
 	switch strings.ToLower(strings.TrimSpace(quote.SourceKey)) {
+	case domain.CoinGeckoProviderKey:
+		return timestampBasis == string(TimestampBasisObservedPublication) && priceBasis == domain.CoinGeckoDailyPriceBasis && policy == domain.CoinGeckoDailyPriceBasis
 	case domain.TiingoProviderKey:
 		return timestampBasis == string(TimestampBasisSessionClose) && priceBasis == string(PriceBasisTiingoRawClose) && policy == string(PriceBasisTiingoRawClose)
 	case domain.YahooFinanceProviderKey:

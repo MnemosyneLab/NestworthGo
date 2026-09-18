@@ -44,6 +44,11 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 	}
 
 	needs := filterInstrumentNeeds(plan.Instruments, request)
+	for _, need := range needs {
+		if len(need.UnavailableRanges) > 0 {
+			s.recordBlocker(job, instrumentTargetKey(need.InstrumentID), "coingecko_history_limit_365_days", "coingecko_history_limit_365_days")
+		}
+	}
 	instrumentTasks := s.instrumentHistoryTasksFromNeeds(needs)
 	fxTasks, fxBlockers := s.planFXHistoryRanges(ctx, household.ID, plan, request)
 	if request.Scope == SyncScopeInstrument {
@@ -531,6 +536,18 @@ func (s *Service) classifyProviderFetchError(ctx context.Context, job *syncJobSt
 }
 
 func (s *Service) runLatestInstrumentPhase(ctx context.Context, job *syncJobState, needs []InstrumentRepairNeed, stopped map[string]string) {
+	var targets []refreshTarget
+	for _, need := range needs {
+		if need.ProviderKey != CoinGeckoProviderKey || need.RouteStatus != domain.InstrumentRouteOK || stopped[strings.ToLower(need.ProviderKey)] != "" {
+			continue
+		}
+		instrument, err := s.repository.Instrument(ctx, job.snapshot.HouseholdID, need.InstrumentID)
+		if err == nil {
+			targets = append(targets, instrumentRefreshTarget(instrument))
+		}
+	}
+	ctx = s.withLatestBatches(ctx, targets)
+
 	for _, need := range needs {
 		if aborted(ctx) {
 			return

@@ -119,16 +119,8 @@ func TestPlanInstrumentRepairNeedWidensOpeningAnchorSearchAndStops(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if exhausted.OpeningAnchorWindowDays != 365 || exhausted.OpeningAnchorExhausted {
-		t.Fatalf("opening-anchor search state = %+v, want third 365d window", exhausted)
-	}
-	appendCoverageDates(t, &coverage.NoObservationDates, "2025-09-06", "2026-08-06")
-	exhausted, err = planInstrumentRepairNeed(coverage, "2026-09-06", "2026-09-08")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if exhausted.OpeningAnchorWindowDays != 365 || !exhausted.OpeningAnchorExhausted {
-		t.Fatalf("opening-anchor search state = %+v, want exhausted 365d window", exhausted)
+	if exhausted.OpeningAnchorWindowDays != 30 || !exhausted.OpeningAnchorExhausted {
+		t.Fatalf("opening-anchor search state = %+v, want exhausted 30d window", exhausted)
 	}
 }
 

@@ -166,8 +166,8 @@ func fromInstrumentSearchHit(hit application.InstrumentSearchHit) InstrumentSear
 	}
 }
 
-// SearchInstruments looks up stocks and ETFs through the native Yahoo Finance
-// library. It is a form-assist read and does not persist anything.
+// SearchInstruments routes stock/ETF and crypto searches to their providers.
+// It is a form-assist read and does not persist anything.
 func (s *Service) SearchInstruments(ctx context.Context, query, instrumentType string) ([]InstrumentSearchHitDTO, error) {
 	if s.app == nil {
 		return nil, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
@@ -594,4 +594,12 @@ func (s *Service) emitSyncSnapshot(event string, snapshot application.SyncJobSna
 	default:
 		s.events.Emit(SyncProgressEvent, dto)
 	}
+}
+
+func (s *Service) CoinGeckoQuoteCurrencies(ctx context.Context) ([]string, error) {
+	if s.app == nil {
+		return nil, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
+	}
+	values, err := s.app.CoinGeckoQuoteCurrencies(ctx)
+	return values, apierror.Wrap(err)
 }

@@ -179,7 +179,7 @@ func newSyncFixture(t *testing.T, providers ...MarketDataProvider) (*Service, *s
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, accountErr := service.CreateAccount(ctx, AccountInput{
+	account, accountErr := service.CreateAccount(ctx, AccountInput{
 		Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings",
 		DefaultCurrency: "USD", IncludeInNetWorth: true, IncludeInPortfolio: true,
 		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}},
@@ -203,6 +203,11 @@ func newSyncFixture(t *testing.T, providers ...MarketDataProvider) (*Service, *s
 	}
 	if _, err := service.StartHistory(ctx, "Asia/Singapore"); err != nil {
 		t.Fatal(err)
+	}
+	for _, instrument := range []domain.Instrument{first, second} {
+		if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	service.setClock(func() time.Time { return repairClock })
 	for _, provider := range providers {

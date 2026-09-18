@@ -28,6 +28,10 @@ export function CancelSyncJob(jobID: string): $CancellablePromise<$models.SyncJo
     return $Call.ByID(1970761316, jobID);
 }
 
+export function CoinGeckoQuoteCurrencies(): $CancellablePromise<string[] | null> {
+    return $Call.ByID(2012258955);
+}
+
 export function FXProviderKey(): $CancellablePromise<string> {
     return $Call.ByID(196886086);
 }
@@ -74,8 +78,8 @@ export function ScanMarketDataHealth(): $CancellablePromise<$models.MarketDataHe
 }
 
 /**
- * SearchInstruments looks up stocks and ETFs through the native Yahoo Finance
- * library. It is a form-assist read and does not persist anything.
+ * SearchInstruments routes stock/ETF and crypto searches to their providers.
+ * It is a form-assist read and does not persist anything.
  */
 export function SearchInstruments(query: string, instrumentType: string): $CancellablePromise<$models.InstrumentSearchHitDTO[] | null> {
     return $Call.ByID(1127653350, query, instrumentType);

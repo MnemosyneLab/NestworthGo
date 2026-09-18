@@ -21,7 +21,7 @@ import {
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
-import { useSettings, useSaveSettings, useResetSettings, useFXProviders, useTiingoKeyStatus, useSaveTiingoAPIKey, useDeleteTiingoAPIKey, useWorkerTokenStatus, useSaveWorkerAPIToken, useDeleteWorkerAPIToken, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
+import { useSettings, useSaveSettings, useResetSettings, useFXProviders, useCoinGeckoKeyStatus, useSaveCoinGeckoAPIKey, useDeleteCoinGeckoAPIKey, useTiingoKeyStatus, useSaveTiingoAPIKey, useDeleteTiingoAPIKey, useWorkerTokenStatus, useSaveWorkerAPIToken, useDeleteWorkerAPIToken, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
@@ -44,6 +44,9 @@ export function SettingsPage() {
   const resetSettings = useResetSettings();
   const bootstrap = useBootstrap();
   const fxProviders = useFXProviders();
+  const coinGeckoKeyStatus = useCoinGeckoKeyStatus();
+  const saveCoinGeckoKey = useSaveCoinGeckoAPIKey();
+  const deleteCoinGeckoKey = useDeleteCoinGeckoAPIKey();
   const tiingoKeyStatus = useTiingoKeyStatus();
   const saveTiingoKey = useSaveTiingoAPIKey();
   const deleteTiingoKey = useDeleteTiingoAPIKey();
@@ -55,6 +58,7 @@ export function SettingsPage() {
   const setAppearance = useUiStore((state) => state.setAppearance);
   const setAccent = useUiStore((state) => state.setAccent);
   const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
+  const [coinGeckoKey, setCoinGeckoKey] = useState("");
   const [tiingoKey, setTiingoKey] = useState("");
   const [workerToken, setWorkerToken] = useState("");
   const pageChrome = <PageChrome pageId="settings" title={t("settings.title")} />;
@@ -108,6 +112,16 @@ export function SettingsPage() {
         setDraftOverride(null);
         toast.success(t("settings.changesSaved"));
         applyLivePreferences(draft);
+      },
+    });
+  };
+
+  const submitCoinGeckoKey = (event: React.FormEvent) => {
+    event.preventDefault();
+    saveCoinGeckoKey.mutate(coinGeckoKey, {
+      onSuccess: () => {
+        setCoinGeckoKey("");
+        toast.success(t("settings.coinGeckoKeySaved"));
       },
     });
   };
@@ -301,6 +315,44 @@ export function SettingsPage() {
           {t("review.credentialsTitle")}
         </h2>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">{t("review.credentialsHelp")}</p>
+        <form onSubmit={submitCoinGeckoKey} className="mt-4 flex max-w-xl flex-col gap-2">
+          <Label htmlFor="settings-coinGecko-key">{t("settings.coinGeckoKey")}</Label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              id="settings-coinGecko-key"
+              type="password"
+              autoComplete="off"
+              value={coinGeckoKey}
+              onChange={(event) => setCoinGeckoKey(event.target.value)}
+              placeholder={t("settings.coinGeckoKeyPlaceholder")}
+              className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+            <Button type="submit" disabled={!coinGeckoKey.trim() || saveCoinGeckoKey.isPending}>
+              {saveCoinGeckoKey.isPending ? t("common.pending") : t("settings.saveCoinGeckoKey")}
+            </Button>
+          </div>
+          {coinGeckoKeyStatus.data?.configured ? (
+            <p className="text-sm text-success-foreground">{t("settings.coinGeckoKeyConfigured")}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t("settings.coinGeckoKeyMissing")}</p>
+          )}
+          {coinGeckoKeyStatus.data?.configured && (
+            <Button
+              type="button"
+              variant="outline"
+              className="self-start"
+              onClick={() => deleteCoinGeckoKey.mutate()}
+              disabled={deleteCoinGeckoKey.isPending}
+            >
+              {deleteCoinGeckoKey.isPending ? t("common.pending") : t("settings.removeCoinGeckoKey")}
+            </Button>
+          )}
+          {(saveCoinGeckoKey.isError || deleteCoinGeckoKey.isError || coinGeckoKeyStatus.isError) && (
+            <p role="alert" className="text-sm text-destructive">
+              {t("settings.coinGeckoKeyError")}
+            </p>
+          )}
+        </form>
         <form onSubmit={submitTiingoKey} className="mt-4 flex max-w-xl flex-col gap-2">
           <Label htmlFor="settings-tiingo-key">{t("settings.tiingoKey")}</Label>
           <div className="flex flex-col gap-2 sm:flex-row">

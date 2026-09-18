@@ -14,6 +14,8 @@ import (
 // avoids making UI code depend on the infrastructure adapter.
 const YahooFinanceProviderKey = "yahoo_finance"
 
+const CoinGeckoProviderKey = domain.CoinGeckoProviderKey
+
 const FrankfurterProviderKey = "frankfurter"
 
 // TiingoProviderKey identifies the US-listed equity provider. It is part of
@@ -30,7 +32,7 @@ const WorkerProviderKey = "worker"
 // included. Worker is an explicit proxy route and does not replace the native
 // Yahoo or Tiingo adapters.
 func InstrumentProviderKeys() []string {
-	return []string{YahooFinanceProviderKey, TiingoProviderKey, WorkerProviderKey}
+	return []string{YahooFinanceProviderKey, TiingoProviderKey, WorkerProviderKey, CoinGeckoProviderKey}
 }
 
 // MarketDataCapabilities describes the deliberately small provider surface.
@@ -202,8 +204,7 @@ func (r *MarketDataRegistry) Default() (MarketDataProvider, error) {
 const instrumentSearchQueryMaxRunes = 80
 const instrumentSearchLimit = 8
 
-// SearchInstruments looks up stocks and ETFs through the native Yahoo Finance
-// library. Other providers are not used for this form-assist path.
+// SearchInstruments routes stocks/ETFs to Yahoo and cryptocurrencies to CoinGecko.
 func (s *Service) SearchInstruments(ctx context.Context, query, instrumentType string) ([]InstrumentSearchHit, error) {
 	query = strings.TrimSpace(query)
 	if query == "" {
@@ -216,14 +217,18 @@ func (s *Service) SearchInstruments(ctx context.Context, query, instrumentType s
 	if err != nil {
 		return nil, err
 	}
-	if parsedType != domain.InstrumentStock && parsedType != domain.InstrumentETF {
-		return nil, &domain.Error{Code: domain.ErrValidation, Field: "type", Message: "search is only available for stocks and ETFs"}
+	if parsedType != domain.InstrumentStock && parsedType != domain.InstrumentETF && parsedType != domain.InstrumentCrypto {
+		return nil, &domain.Error{Code: domain.ErrValidation, Field: "type", Message: "search is only available for stocks, ETFs and cryptocurrencies"}
 	}
 	registry := s.MarketDataRegistry()
 	if registry == nil {
 		return nil, &domain.Error{Code: domain.ErrUnavailable, Field: "provider", Message: "provider is not configured"}
 	}
-	provider, err := registry.Resolve(YahooFinanceProviderKey)
+	key := YahooFinanceProviderKey
+	if parsedType == domain.InstrumentCrypto {
+		key = CoinGeckoProviderKey
+	}
+	provider, err := registry.Resolve(key)
 	if err != nil {
 		return nil, err
 	}
@@ -248,4 +253,23 @@ func (r *MarketDataRegistry) Providers() []MarketDataProvider {
 		return strings.ToLower(providers[i].Key()) < strings.ToLower(providers[j].Key())
 	})
 	return providers
+}
+
+// CoinGeckoQuoteCurrencies returns only locally supported fiat currencies.
+func (s *Service) CoinGeckoQuoteCurrencies(ctx context.Context) ([]string, error) {
+	registry := s.MarketDataRegistry()
+	if registry == nil {
+		return nil, &domain.Error{Code: domain.ErrUnavailable, Message: "provider is not configured"}
+	}
+	provider, err := registry.Resolve(CoinGeckoProviderKey)
+	if err != nil {
+		return nil, err
+	}
+	catalog, ok := provider.(interface {
+		SupportedQuoteCurrencies(context.Context) ([]string, error)
+	})
+	if !ok {
+		return nil, &domain.Error{Code: domain.ErrUnavailable, Message: "currency catalog is unavailable"}
+	}
+	return catalog.SupportedQuoteCurrencies(ctx)
 }

@@ -267,6 +267,14 @@ func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 	}
 	if providerSymbol != nil {
 		value := strings.ToUpper(*providerSymbol)
+		if providerKey != nil && *providerKey == CoinGeckoProviderKey {
+			if instrumentType != InstrumentCrypto {
+				return Instrument{}, validation("providerKey", "CoinGecko only supports cryptocurrencies")
+			}
+			value = strings.ToLower(*providerSymbol)
+			market := "CRYPTO"
+			marketCode = &market
+		}
 		providerSymbol = &value
 	}
 	if quoteSource == QuoteSourceProvider && (providerKey == nil || providerSymbol == nil) {

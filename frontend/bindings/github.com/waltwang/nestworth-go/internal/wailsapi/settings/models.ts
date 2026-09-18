@@ -5,6 +5,10 @@
 // @ts-ignore: Unused imports
 import * as settings$0 from "../../settings/models.js";
 
+export interface CoinGeckoKeyStatusDTO {
+    "configured": boolean;
+}
+
 /**
  * SettingsDTO is the Wails wire contract. The persisted settings.Settings
  * struct intentionally keeps its snake_case JSON tags for the on-disk format;

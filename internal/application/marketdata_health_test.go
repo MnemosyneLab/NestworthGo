@@ -325,6 +325,7 @@ func TestScanMarketDataHealthReportsTypeAndMarketCoveragePrecisely(t *testing.T)
 		t.Fatal(err)
 	}
 
+	addSyncHoldings(t, service, etf, crypto, gold, unknown)
 	report, err := service.ScanMarketDataHealth(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -374,6 +375,7 @@ func TestScanMarketDataHealthVerifiesYahooCryptoRepairClearsGap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	addSyncHoldings(t, service, crypto)
 	before, err := service.ScanMarketDataHealth(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -401,4 +403,18 @@ func issueForInstrument(report MarketDataHealthReport, instrumentID string) (Hea
 		}
 	}
 	return HealthIssue{}, false
+}
+
+func addSyncHoldings(t *testing.T, service *Service, instruments ...domain.Instrument) {
+	t.Helper()
+	ctx := context.Background()
+	accounts, err := service.ListAccounts(ctx, domain.AccountFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, instrument := range instruments {
+		if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

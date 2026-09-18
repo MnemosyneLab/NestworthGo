@@ -76,7 +76,7 @@ func TestMarketDataRegistrySupportsExplicitDefault(t *testing.T) {
 
 func TestInstrumentProviderKeysExcludesFXOnlyProviders(t *testing.T) {
 	keys := InstrumentProviderKeys()
-	if len(keys) != 3 || keys[0] != YahooFinanceProviderKey || keys[1] != TiingoProviderKey || keys[2] != WorkerProviderKey {
+	if len(keys) != 4 || keys[3] != CoinGeckoProviderKey || keys[0] != YahooFinanceProviderKey || keys[1] != TiingoProviderKey || keys[2] != WorkerProviderKey {
 		t.Fatalf("InstrumentProviderKeys() = %v, want [%s %s %s]", keys, YahooFinanceProviderKey, TiingoProviderKey, WorkerProviderKey)
 	}
 	for _, key := range keys {
@@ -130,13 +130,13 @@ func TestSearchInstrumentsUsesYahooProvider(t *testing.T) {
 func TestSearchInstrumentsRejectsUnsupportedType(t *testing.T) {
 	yahoo := &yahooSearchProvider{deterministicProvider: deterministicProvider{key: YahooFinanceProviderKey}}
 	service := NewService(nil, NewMarketDataRegistry(yahoo))
-	_, err := service.SearchInstruments(context.Background(), "BTC", "crypto")
+	_, err := service.SearchInstruments(context.Background(), "XAU", "precious_metal")
 	var domainErr *domain.Error
 	if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrValidation || domainErr.Field != "type" {
 		t.Fatalf("err = %#v", err)
 	}
 	if yahoo.query != "" {
-		t.Fatal("crypto search should not call Yahoo")
+		t.Fatal("unsupported search should not call Yahoo")
 	}
 }
 
@@ -146,5 +146,15 @@ func TestSearchInstrumentsRequiresYahooSearchCapability(t *testing.T) {
 	var domainErr *domain.Error
 	if !errors.As(err, &domainErr) || domainErr.Code != domain.ErrUnavailable {
 		t.Fatalf("err = %#v", err)
+	}
+}
+
+func TestSearchCryptoUsesCoinGecko(t *testing.T) {
+	cg := &yahooSearchProvider{deterministicProvider: deterministicProvider{key: CoinGeckoProviderKey}, hits: []InstrumentSearchHit{{ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "bitcoin", Type: "crypto"}}}
+	yahoo := &yahooSearchProvider{deterministicProvider: deterministicProvider{key: YahooFinanceProviderKey}}
+	service := NewService(nil, NewMarketDataRegistry(yahoo, cg))
+	hits, err := service.SearchInstruments(context.Background(), "BTC", "crypto")
+	if err != nil || len(hits) != 1 || cg.typ != "crypto" || yahoo.query != "" {
+		t.Fatalf("hits=%+v err=%v", hits, err)
 	}
 }

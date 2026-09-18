@@ -38,6 +38,8 @@ const (
 	TiingoRawClosePriceBasis     = "tiingo_raw_close_v1"
 	YahooRawClosePriceBasis      = "yahoo_close_v1"
 	WorkerRawClosePriceBasis     = "worker_yahoo_close_v1"
+	CoinGeckoProviderKey         = "coingecko"
+	CoinGeckoDailyPriceBasis     = "coingecko_daily_reference_v1"
 	TiingoProviderKey            = "tiingo"
 	YahooFinanceProviderKey      = "yahoo_finance"
 	WorkerProviderKey            = "worker"
@@ -194,7 +196,7 @@ func FrankfurterReferenceEligibleAt(referenceDate string) (time.Time, error) {
 }
 
 func OpeningAnchorLookbackWindows() []int {
-	return []int{7, 30, 365}
+	return []int{7, 30}
 }
 
 // LastFinalizedUSEquityMarketDate is the latest US regular-session market

@@ -41,7 +41,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: {
-    SupportedCurrencies: () => Promise.resolve(["USD"]),
+    SupportedCurrencies: () => Promise.resolve(["USD", "CNY", "SGD"]),
     Load: () => Promise.resolve({ timezone: "UTC" }),
   },
 }));
@@ -51,6 +51,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ca
 });
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
+    CoinGeckoQuoteCurrencies: () => Promise.resolve(["USD", "CNY", "SGD"]),
     SearchInstruments: (...args: unknown[]) => searchInstruments(...args),
   },
 }));
@@ -229,7 +230,7 @@ describe("InstrumentManagement", () => {
     const form = await screen.findByRole("form", { name: "Instrument form" });
     await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "provider");
     await waitFor(() => {
-      expect(selectValues(within(form).getByLabelText("Provider key"))).toEqual(TEST_CATALOG.instrumentProviders);
+      expect(selectValues(within(form).getByLabelText("Provider key"))).toEqual(TEST_CATALOG.instrumentProviders.filter((provider) => provider !== "coingecko"));
     });
     expect(within(form).queryByPlaceholderText(/yahoo_finance/i)).not.toBeInTheDocument();
   });
@@ -310,7 +311,8 @@ describe("InstrumentManagement", () => {
       expect(within(form).getByLabelText("Provider key")).toHaveValue("yahoo_finance");
     });
     await userEvent.selectOptions(within(form).getByLabelText("Type"), "crypto");
-    await waitFor(() => expect(within(form).getByLabelText("Quote source")).toHaveValue("manual"));
+    await waitFor(() => expect(within(form).getByLabelText("Quote source")).toHaveValue("provider"));
+    expect(within(form).getByLabelText("Search cryptocurrency")).toBeInTheDocument();
     expect(within(form).queryByLabelText("Search Yahoo")).not.toBeInTheDocument();
   });
 
@@ -326,6 +328,24 @@ describe("InstrumentManagement", () => {
     expect(within(form).getByLabelText("Currency")).toHaveAttribute("readonly");
     await userEvent.click(within(form).getByRole("button", { name: "Save" }));
     expect(updateInstrument).toHaveBeenCalledWith("i1", expect.objectContaining({ quoteCurrency: "USD", name: "NVIDIA Corporation" }));
+  });
+
+  it("selects CoinGecko coin IDs and a non-USD quote currency", async () => {
+    searchInstruments.mockResolvedValue([{ providerKey: "coingecko", providerSymbol: "bitcoin", name: "Bitcoin", symbol: "BTC", type: "crypto", marketCode: "CRYPTO", quoteCurrency: "USD", exchange: "CoinGecko" }]);
+    renderManagement();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type"), "crypto");
+    await userEvent.type(within(form).getByLabelText("Search cryptocurrency"), "BTC");
+    await userEvent.click(await within(form).findByRole("option", { name: "BTC · Bitcoin · bitcoin" }));
+    expect(searchInstruments).toHaveBeenCalledWith("BTC", "crypto");
+    expect(within(form).getByLabelText("Provider key")).toHaveValue("coingecko");
+    expect(within(form).getByLabelText("Quote lookup symbol")).toHaveValue("bitcoin");
+    await userEvent.selectOptions(within(form).getByLabelText("Currency"), "CNY");
+    await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
+    await waitFor(() => expect(createInstrument).toHaveBeenCalledWith(expect.objectContaining({
+      type: "crypto", name: "Bitcoin", symbol: "BTC", providerKey: "coingecko", providerSymbol: "bitcoin", quoteCurrency: "CNY",
+    })));
   });
 
   it("fills identity fields from a Yahoo search result", async () => {

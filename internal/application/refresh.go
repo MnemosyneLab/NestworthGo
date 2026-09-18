@@ -156,6 +156,7 @@ func (s *Service) RefreshRequiredFX(ctx context.Context) (RefreshResult, error) 
 
 func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) RefreshResult {
 	ctx = withMetalFetchCache(ctx)
+	ctx = s.withLatestBatches(ctx, targets)
 	result := RefreshResult{Items: make([]RefreshTargetResult, 0, len(targets))}
 	rateLimited := make(map[string]bool)
 	for _, target := range targets {
@@ -165,6 +166,9 @@ func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) R
 			continue
 		}
 		marketData := s.marketDataSnapshot(target)
+		if batch, ok := ctx.Value(latestBatchContextKey{}).(latestBatchState); ok && target.providerKey == CoinGeckoProviderKey {
+			marketData.registry = batch.registry
+		}
 		providerKey := refreshProviderKey(target, marketData)
 		if providerKey != "" && rateLimited[providerKey] {
 			result.Items = append(result.Items, RefreshTargetResult{TargetKey: target.key, Kind: target.kind, Status: RefreshSkipped, ErrorCode: domain.ErrProviderRateLimit})
@@ -253,6 +257,9 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 	}
 
 	epoch := s.refreshEpoch.Load()
+	if batch, ok := ctx.Value(latestBatchContextKey{}).(latestBatchState); ok && target.providerKey == CoinGeckoProviderKey {
+		epoch = batch.epoch
+	}
 
 	if target.kind == RefreshInstrumentTarget {
 		var quote LatestInstrumentQuote
@@ -261,7 +268,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		if target.instrument.UsesMetalConversion() {
 			quote, conversion, providerErr = s.latestMetalQuote(ctx, target.instrument, provider, true)
 		} else {
-			quote, providerErr = provider.LatestInstrument(ctx, InstrumentMarketIdentity{ProviderKey: target.providerKey, ProviderSymbol: target.providerSymbol, QuoteCurrency: target.instrument.QuoteCurrency, Market: instrumentMarket(target.instrument), InstrumentType: string(target.instrument.Type)})
+			quote, providerErr = latestInstrumentQuote(ctx, provider, InstrumentMarketIdentity{ProviderKey: target.providerKey, ProviderSymbol: target.providerSymbol, QuoteCurrency: target.instrument.QuoteCurrency, Market: instrumentMarket(target.instrument), InstrumentType: string(target.instrument.Type)})
 		}
 		if providerErr != nil {
 			return providerRefreshFailure(target, providerErr)

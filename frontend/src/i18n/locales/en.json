@@ -773,7 +773,16 @@
     "valuedSubtotalDescription": "Complete current values in the Household base currency.",
     "yahooDisclaimer": "Yahoo Finance is an unofficial, unaffiliated source. Data may change or become unavailable.",
     "yahooDisclaimerLabel": "Provider notice",
-    "yahooFinance": "Yahoo Finance"
+    "yahooFinance": "Yahoo Finance",
+    "cryptoSearch": "Search cryptocurrency",
+    "cryptoSearchPlaceholder": "BTC, Bitcoin, ETH…",
+    "cryptoSearchSearching": "Searching CoinGecko…",
+    "cryptoSearchError": "Search unavailable. Check your CoinGecko API key in Settings.",
+    "cryptoSearchNoResults": "No matching coins",
+    "cryptoSearchHint": "Choose the exact coin ID to avoid matching a different token with the same ticker.",
+    "coinGeckoNotice": "Daily UTC reference prices · Demo history: past 365 days",
+    "coinGeckoAttribution": "Data provided by CoinGecko",
+    "coinGeckoDailyReference": "Daily reference"
   },
   "settings": {
     "appearance": {
@@ -811,7 +820,8 @@
       "tiingo": "Tiingo",
       "worker": "Nestworth Worker",
       "yahoo": "Yahoo Finance",
-      "yahoo_finance": "Yahoo Finance"
+      "yahoo_finance": "Yahoo Finance",
+      "coingecko": "CoinGecko"
     },
     "providers": {
       "description": "Choose the provider used for explicit FX refreshes. Instrument refreshes keep their own saved provider binding.",

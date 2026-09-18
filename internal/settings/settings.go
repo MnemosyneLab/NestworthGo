@@ -98,6 +98,7 @@ type Settings struct {
 	WindowHeight      float32    `json:"window_height"`
 	FXProvider        string     `json:"fx_provider"`
 	QuoteCacheTTL     string     `json:"quote_cache_ttl"`
+	CoinGeckoAPIKey   string     `json:"coingecko_api_key"`
 	TiingoAPIKey      string     `json:"tiingo_api_key"`
 	WorkerBaseURL     string     `json:"worker_base_url"`
 	WorkerAPIToken    string     `json:"worker_api_token"`
@@ -416,6 +417,7 @@ func salvage(loaded, defaults Settings) Settings {
 	// The API key is intentionally opaque configuration. Preserve it exactly
 	// when loading a valid settings file; API-key mutations trim it before
 	// saving.
+	fixed.CoinGeckoAPIKey = strings.TrimSpace(fixed.CoinGeckoAPIKey)
 	fixed.TiingoAPIKey = strings.TrimSpace(fixed.TiingoAPIKey)
 	fixed.WorkerBaseURL = strings.TrimRight(strings.TrimSpace(fixed.WorkerBaseURL), "/")
 	fixed.WorkerAPIToken = strings.TrimSpace(fixed.WorkerAPIToken)
