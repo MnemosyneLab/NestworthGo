@@ -154,7 +154,7 @@ func TestReturnCalendarDoesNotTurnACompleteNoCapitalDayIntoAnIssue(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(calendar.Issues) != 0 || len(calendar.Days[0].Issues) != 0 || calendar.Days[0].Status != domain.CompletenessOK || calendar.Summary.AmountStatus != ReturnAmountComplete {
+	if calendar.Status != domain.CompletenessOK || len(calendar.Issues) != 0 || len(calendar.Days[0].Issues) != 0 || calendar.Days[0].Status != domain.CompletenessOK || calendar.Summary.AmountStatus != ReturnAmountComplete {
 		t.Fatalf("complete no-capital day = %+v", calendar)
 	}
 }

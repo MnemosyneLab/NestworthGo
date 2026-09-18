@@ -105,6 +105,12 @@ func (u analysisUniverse) classifyActivity(activity domain.Activity, daySnapshot
 		}
 		results = append(results, classifiedAnalysisEffect{activity: activity, effect: effect, component: owner, returnComponent: returnComponent, returnAmount: returnAmount, returnKnown: returnKnown, relatedHolding: relatedHolding, relatedInstrument: relatedInstrument})
 	}
+	// Internal FX transfers are neutral only at a common converted notional.
+	// The executed exchange can differ from reference FX: retain that spread
+	// on the receiving cash component instead of dropping it from the waterfall.
+	if activity.Kind == domain.ActivityFXConversion && query.Valuation == domain.ValuationBase && endpointsInUniverse(endpoints, u) {
+		results = u.attributeInternalFXDifference(activity, results)
+	}
 	_ = previousSnapshot // retained in the signature for the opening-lot bridge
 	return results, nil
 }
@@ -409,4 +415,40 @@ func activityLocalDate(activity domain.Activity, timezone string) string {
 		return activity.EffectiveAt.UTC().Format("2006-01-02")
 	}
 	return activity.EffectiveAt.In(location).Format("2006-01-02")
+}
+
+func (u analysisUniverse) attributeInternalFXDifference(activity domain.Activity, effects []classifiedAnalysisEffect) []classifiedAnalysisEffect {
+	difference := decimal.Zero
+	receiver, legs := -1, 0
+	for index, effect := range effects {
+		if !effect.neutral || effect.effect.Money == nil {
+			continue
+		}
+		if !effect.amountKnown {
+			return effects
+		}
+		legs++
+		difference = difference.Add(effect.amount)
+		if effect.effect.Direction == domain.EffectAdded {
+			receiver = index
+		}
+	}
+	if legs != 2 || receiver < 0 || difference.IsZero() {
+		return effects
+	}
+	leg := &effects[receiver]
+	leg.amount = leg.amount.Sub(difference)
+	if leg.dietzKnown {
+		leg.dietzAmount = leg.dietzAmount.Sub(difference)
+	}
+	if leg.potentialDietzKnown {
+		leg.potentialDietzAmount = leg.potentialDietzAmount.Sub(difference)
+	}
+	bucket := domain.BucketFXImpact
+	spread := classifiedAnalysisEffect{activity: activity, component: leg.component, bucket: &bucket, amount: difference, amountKnown: true}
+	if u.investmentComponentInUniverse(leg.component) {
+		component := domain.ReturnFXImpact
+		spread.returnComponent, spread.returnAmount, spread.returnKnown = &component, difference, true
+	}
+	return append(effects, spread)
 }

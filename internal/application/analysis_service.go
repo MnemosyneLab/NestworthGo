@@ -361,6 +361,24 @@ func (s *AnalysisService) loadInputs(ctx context.Context, query domain.AnalysisQ
 		}
 		instrumentQuotes = append(instrumentQuotes, quotes...)
 	}
+	if query.From == domain.LocalDate(originDate) {
+		// Value the immutable Starting point before applying any activities.
+		// Its prior-date label is an in-memory opening basis, never a stored
+		// close or a claim that we tracked the day before history began.
+		batch, loadErr := s.repository.LoadHistoricalSnapshotBatch(ctx, origin.HouseholdID, origin.StartedAt)
+		if loadErr != nil {
+			return AnalysisInputs{}, loadErr
+		}
+		batch.Activities = nil
+		openingCtx := context.WithValue(ctx, historicalSnapshotBatchKey{}, &batch)
+		openingDate := origin.StartedAt.In(location).AddDate(0, 0, -1).Format("2006-01-02")
+		builder := NewService(s.repository)
+		opening, valueErr := builder.valueHistoricalSnapshot(openingCtx, origin, origin.StartedAt, openingDate)
+		if valueErr != nil {
+			return AnalysisInputs{}, valueErr
+		}
+		snapshots = append(snapshots, opening)
+	}
 	return AnalysisInputs{Origin: *origin, Portfolio: portfolio, Snapshots: snapshots, Activities: activities, InstrumentQuotes: instrumentQuotes, FXQuotes: fxQuotes}, nil
 }
 

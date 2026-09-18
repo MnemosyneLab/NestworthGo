@@ -136,12 +136,19 @@ func finalizeAnalysisReturns(result *domain.PeriodAnalysisResult, universe analy
 			result.InvestedCapital = &beginningMoney
 		}
 	}
-	if result.Coverage.RatedDays == result.Coverage.TotalDays && result.Coverage.RatedDays > 0 {
+	// An undefined rate (zero/negative capital) does not make known amounts
+	// incomplete. Keep rate coverage separate from data completeness.
+	hasUsable, hasIncomplete := false, false
+	for _, daily := range result.DailyReturns {
+		hasUsable = hasUsable || daily.Status != domain.CompletenessUnavailable
+		hasIncomplete = hasIncomplete || daily.Status != domain.CompletenessOK
+	}
+	result.Status = domain.CompletenessUnavailable
+	if hasUsable {
 		result.Status = domain.CompletenessOK
-	} else if result.Coverage.RatedDays > 0 {
-		result.Status = domain.CompletenessPartial
-	} else {
-		result.Status = domain.CompletenessUnavailable
+		if hasIncomplete {
+			result.Status = domain.CompletenessPartial
+		}
 	}
 	if result.Coverage.RatedDays*2 >= result.Coverage.TotalDays && result.Coverage.RatedDays > 0 {
 		result.ReturnRate = &linked
@@ -242,6 +249,7 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 		legacyCapital decimal.Decimal
 		flows         []domain.DietzCapitalFlow
 		complete      bool
+		usable        bool
 	}
 	type groupDateKey struct {
 		group string
@@ -277,6 +285,7 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 		if day.Status != domain.CompletenessOK {
 			bucket.complete = false
 		}
+		bucket.usable = bucket.usable || day.Status != domain.CompletenessUnavailable
 		if day.ReturnAmount != nil {
 			bucket.amount = bucket.amount.Add(day.ReturnAmount.Amount())
 		}
@@ -321,12 +330,19 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 	for _, key := range keys {
 		group := ReturnGroup{Key: key, Coverage: domain.RateCoverage{TotalDays: result.Coverage.TotalDays}}
 		rates := make([]decimal.Decimal, 0, result.Coverage.TotalDays)
+		completeDays, usableDays := 0, 0
 		dates := datesByGroup[key]
 		if !datesOrdered[key] {
 			sort.Slice(dates, func(i, j int) bool { return dates[i] < dates[j] })
 		}
 		for _, date := range dates {
 			daily := buckets[groupDateKey{group: key, date: date}]
+			if daily.complete {
+				completeDays++
+			}
+			if daily.usable {
+				usableDays++
+			}
 			group.ReturnAmount = group.ReturnAmount.Add(daily.amount)
 			capital := daily.beginning.Add(daily.legacyCapital)
 			if len(daily.flows) > 0 {
@@ -344,13 +360,7 @@ func FoldReturnGroups(result domain.PeriodAnalysisResult, by AnalysisGroupBy) ([
 			}
 		}
 		group.Coverage.RatedDays = len(rates)
-		if group.Coverage.RatedDays == group.Coverage.TotalDays && group.Coverage.RatedDays > 0 {
-			group.Status = domain.CompletenessOK
-		} else if group.Coverage.RatedDays > 0 {
-			group.Status = domain.CompletenessPartial
-		} else {
-			group.Status = domain.CompletenessUnavailable
-		}
+		group.Status = returnGroupCompleteness(completeDays, usableDays, group.Coverage.TotalDays)
 		if len(rates)*2 >= result.Coverage.TotalDays && len(rates) > 0 {
 			rate := GeometricLink(rates)
 			group.ReturnRate = &rate
@@ -389,6 +399,9 @@ func foldReturnGroupsChronologically(result domain.PeriodAnalysisResult, by Anal
 		currentBeginning decimal.Decimal
 		currentLegacy    decimal.Decimal
 		currentComplete  bool
+		currentUsable    bool
+		completeDays     int
+		usableDays       int
 	}
 	groups := make([]groupState, 0)
 	groupIndexes := make(map[string]int)
@@ -397,6 +410,12 @@ func foldReturnGroupsChronologically(result domain.PeriodAnalysisResult, by Anal
 	finalizeDate := func() {
 		for _, index := range active {
 			group := &groups[index]
+			if group.currentComplete {
+				group.completeDays++
+			}
+			if group.currentUsable {
+				group.usableDays++
+			}
 			capital := group.currentBeginning.Add(group.currentLegacy)
 			if group.currentComplete && capital.IsPositive() {
 				group.rates = append(group.rates, group.currentAmount.Div(capital))
@@ -405,6 +424,7 @@ func foldReturnGroupsChronologically(result domain.PeriodAnalysisResult, by Anal
 			group.currentBeginning = decimal.Zero
 			group.currentLegacy = decimal.Zero
 			group.currentComplete = true
+			group.currentUsable = false
 			group.currentDate = ""
 		}
 		active = active[:0]
@@ -436,6 +456,7 @@ func foldReturnGroupsChronologically(result domain.PeriodAnalysisResult, by Anal
 		if day.Status != domain.CompletenessOK {
 			group.currentComplete = false
 		}
+		group.currentUsable = group.currentUsable || day.Status != domain.CompletenessUnavailable
 		if day.ReturnAmount != nil {
 			amount := day.ReturnAmount.Amount()
 			group.returnAmount = group.returnAmount.Add(amount)
@@ -459,12 +480,7 @@ func foldReturnGroupsChronologically(result domain.PeriodAnalysisResult, by Anal
 	for _, index := range indices {
 		group := groups[index]
 		coverage := domain.RateCoverage{RatedDays: len(group.rates), TotalDays: result.Coverage.TotalDays}
-		status := domain.CompletenessUnavailable
-		if coverage.RatedDays == coverage.TotalDays && coverage.RatedDays > 0 {
-			status = domain.CompletenessOK
-		} else if coverage.RatedDays > 0 {
-			status = domain.CompletenessPartial
-		}
+		status := returnGroupCompleteness(group.completeDays, group.usableDays, coverage.TotalDays)
 		row := ReturnGroup{Key: group.key, ReturnAmount: group.returnAmount, Coverage: coverage, Status: status}
 		if len(group.rates)*2 >= result.Coverage.TotalDays && len(group.rates) > 0 {
 			rate := GeometricLink(group.rates)
@@ -501,4 +517,14 @@ func returnGroupKey(component domain.ComponentID, by AnalysisGroupBy) string {
 	default:
 		return ""
 	}
+}
+
+func returnGroupCompleteness(complete, usable, total int) domain.Completeness {
+	if total > 0 && complete == total {
+		return domain.CompletenessOK
+	}
+	if usable > 0 {
+		return domain.CompletenessPartial
+	}
+	return domain.CompletenessUnavailable
 }

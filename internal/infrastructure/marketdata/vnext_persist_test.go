@@ -826,3 +826,88 @@ func TestProviderModeChangeKeepsPriorProviderSlots(t *testing.T) {
 		t.Fatal("Yahoo unverified closes were synthesized after a mode change")
 	}
 }
+
+func TestUnchangedHistoryRecheckAdvancesFreshnessWithoutRevision(t *testing.T) {
+	ctx := context.Background()
+	db, repo, household, instrument := seedHistoryWorkspace(t)
+	meta, body := mustLoadVNext(t, "providers/tiingo/aapl-eod-complete.json")
+	outcome, err := QualifyTiingoHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fetched := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
+	request := instrumentCommit(household, instrument, outcome, fetched)
+	// Isolate close freshness from mutable no-observation status records.
+	request.VerifiedRanges = nil
+	request.PendingRanges = nil
+	first, err := repo.CommitInstrumentHistory(ctx, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.FetchedAt = fetched.Add(25 * time.Hour)
+	second, err := repo.CommitInstrumentHistory(ctx, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !second.Unchanged || second.NewRevisions != 0 || second.InputGeneration != first.InputGeneration {
+		t.Fatalf("freshness created economic change: %+v => %+v", first, second)
+	}
+	coverage, err := repo.ListInstrumentHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range coverage {
+		for _, date := range c.CloseMarketDates {
+			if !c.CloseFetchedAt[date].Equal(request.FetchedAt) {
+				t.Fatalf("stale check time for %s: %v", date, c.CloseFetchedAt[date])
+			}
+		}
+	}
+	var original string
+	if err := db.SQL.QueryRow(`SELECT fetched_at FROM instrument_quotes WHERE instrument_id=? ORDER BY fetched_at LIMIT 1`, instrument.ID.String()).Scan(&original); err != nil {
+		t.Fatal(err)
+	}
+	if original != fetched.Format("2006-01-02T15:04:05.000Z") {
+		t.Fatalf("immutable quote changed: %s", original)
+	}
+}
+
+func TestUnchangedFXRecheckAdvancesFreshnessWithoutRevision(t *testing.T) {
+	ctx := context.Background()
+	_, repo, household, _ := seedHistoryWorkspace(t)
+	meta, body := mustLoadVNext(t, "providers/frankfurter/usd-sgd-history.json")
+	outcome, err := QualifyFrankfurterHistory(meta, body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fetched := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
+	request := fxCommit(household, outcome, fetched)
+	request.VerifiedRanges = nil
+	request.PendingRanges = nil
+	first, err := repo.CommitFXHistory(ctx, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.FetchedAt = fetched.Add(25 * time.Hour)
+	second, err := repo.CommitFXHistory(ctx, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !second.Unchanged || second.NewRevisions != 0 || second.InputGeneration != first.InputGeneration {
+		t.Fatalf("freshness created economic change: %+v => %+v", first, second)
+	}
+	coverage, err := repo.ListFXHistoryCoverage(ctx, household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(coverage) == 0 {
+		t.Fatal("missing FX coverage")
+	}
+	for _, c := range coverage {
+		for _, date := range c.DailyReferenceDates {
+			if !c.DailyReferenceFetchedAt[date].Equal(request.FetchedAt) {
+				t.Fatalf("stale FX check time for %s", date)
+			}
+		}
+	}
+}

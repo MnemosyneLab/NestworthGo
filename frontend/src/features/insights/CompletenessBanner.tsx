@@ -21,7 +21,7 @@ export function AvailabilityMarks({
   totalDays?: number;
 }) {
   const { t } = useTranslation();
-  const partial = status === "partial" || (typeof ratedDays === "number" && typeof totalDays === "number" && totalDays > 0 && ratedDays < totalDays);
+  const partial = status === "partial";
   if (!partial && !valuationForced && !missingReason) return null;
   return (
     <div className="flex flex-col gap-2">
@@ -45,7 +45,7 @@ export function CompletenessBanner({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const partial = ratedDays < totalDays || issues.length > 0;
+  const partial = issues.length > 0;
   if (!partial) return null;
 
   return (

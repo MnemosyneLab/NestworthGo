@@ -84,7 +84,7 @@ function contributionBarWidth(row: ContributionRowDTO, rows: ContributionRowDTO[
 
 function ContributionRow({ row, rows, label, showRate, onSelect }: { row: ContributionRowDTO; rows: ContributionRowDTO[]; label: string; showRate: boolean; onSelect: () => void }) {
   const { t } = useTranslation();
-  const partial = row.status === "partial" || row.ratedDays < row.totalDays;
+  const partial = row.status === "partial";
   return <li><Button type="button" variant="ghost" className="h-auto w-full justify-between gap-4 rounded-md px-3 py-2 text-left" onClick={onSelect}><span className="flex min-w-0 flex-1 items-center gap-2"><span className="h-1.5 min-w-8 max-w-40 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden="true"><span className="block h-full rounded-full bg-primary/60" style={{ width: `${contributionBarWidth(row, rows)}%` }} /></span><span className="min-w-0 truncate">{label}</span>{partial && <Badge variant="warning">{t("insights.partial")}</Badge>}</span><span className="flex shrink-0 items-center gap-4"><span>{row.amount ? amountText(row.amount) : t("insights.unavailableAmount")}</span>{showRate && <span className="w-20 text-right text-muted-foreground">{rateText(row.rate)}{coverageMark(row.ratedDays, row.totalDays)}</span>}</span></Button></li>;
 }
 

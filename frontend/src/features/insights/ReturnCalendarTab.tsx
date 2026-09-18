@@ -138,7 +138,7 @@ function Summary({ data }: { data: ReturnCalendarDTO }) {
           <CardTitle>{t("insights.summary")}</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             {data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}
-            {partial && <Badge variant="warning">{t("insights.partial")} {coverageLabel(summary.ratedDays, summary.totalDays)}</Badge>}
+            {partial && <Badge variant={data.status === "partial" ? "warning" : "secondary"} title={t("insights.rateCoverageHint")}>{t("insights.rateCoverage")} {coverageLabel(summary.ratedDays, summary.totalDays)}</Badge>}
           </div>
         </div>
       </CardHeader>
@@ -149,7 +149,7 @@ function Summary({ data }: { data: ReturnCalendarDTO }) {
         </div>
         <div>
           <p className="text-sm text-muted-foreground">{t("insights.returnRate")}</p>
-          <p className="text-lg font-semibold">{rateText(summary.returnRate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p>
+          <p className="text-lg font-semibold" title={partial ? t("insights.rateCoverageHint") : undefined}>{rateText(summary.returnRate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p>
         </div>
 
         <SummaryValue label={t("insights.beginning")} value={amountText(summary.beginningInvestedValue)} />
@@ -203,7 +203,7 @@ function DayCell({ day, date, inMonth, timeZone, onOpen }: { day?: ReturnDayDTO;
   const { t } = useTranslation();
   const future = isFuture(date, timeZone);
   const today = isToday(date, timeZone);
-  const partial = Boolean(day && (day.status === "partial" || day.ratedDays < day.totalDays));
+  const partial = Boolean(day && (day.status === "partial"));
   const amount = amountNumber(day?.returnAmount);
   const hasData = Boolean(day?.available);
   const showData = hasData && !today;

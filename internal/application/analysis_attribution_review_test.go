@@ -812,3 +812,33 @@ func TestSumReturnComponentsPropagatesOverflow(t *testing.T) {
 		t.Fatal("overflowing return components were summed as zero")
 	}
 }
+
+func TestAnalysisFXConversionExecutionSpreadReconciles(t *testing.T) {
+	h := domain.NewHouseholdID()
+	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
+	account := analysisAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
+	state := reviewChangeState(t, h, reviewAccountState(t, account, "0"))
+	state.Cash[account.ID] = map[domain.CurrencyCode]domain.Money{"USD": mustMoney(t, "100", "USD"), "SGD": mustMoney(t, "0", "SGD")}
+	activity := reviewApplyChange(t, &state, domain.FXConversionInput{HouseholdID: h, AccountID: account.ID, Sold: mustMoney(t, "100", "USD"), Bought: mustMoney(t, "138", "SGD"), EffectiveAt: time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)})
+	usdOpen := reviewFXQuote(t, h, "USD", "7", time.Date(2026, 8, 1, 23, 0, 0, 0, time.UTC))
+	usdEvent := reviewFXQuote(t, h, "USD", "7", time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC))
+	usdClose := reviewFXQuote(t, h, "USD", "7.2", time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC))
+	sgdEvent := reviewFXQuote(t, h, "SGD", "5", time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC))
+	sgdClose := reviewFXQuote(t, h, "SGD", "5.1", time.Date(2026, 8, 2, 23, 0, 0, 0, time.UTC))
+	prev := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "USD", "100", "700", nil, nil, "", usdOpen.ID.String()), analysisItem(t, account.ID, "SGD", "0", "0", nil, nil, "", ""))
+	cur := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "USD", "0", "0", nil, nil, "", usdClose.ID.String()), analysisItem(t, account.ID, "SGD", "138", "703.8", nil, nil, "", sgdClose.ID.String()))
+	input := AnalysisInputs{Origin: analysisOrigin(t, h, "UTC"), Portfolio: reviewPortfolio(household, account), Snapshots: []domain.DailyValuationSnapshot{prev, cur}, Activities: []domain.Activity{activity}, FXQuotes: []domain.FXQuote{usdOpen, usdEvent, usdClose, sgdEvent, sgdClose}}
+	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
+	if err != nil {
+		t.Fatal(err)
+	}
+	usdDay := analysisFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "USD", Cash: true})
+	if !analysisBucket(usdDay, domain.BucketExternalFlow).IsZero() || usdDay.Residual != nil {
+		t.Fatalf("USD conversion leg was not internal: %+v", usdDay)
+	}
+	sgdDay := analysisFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "SGD", Cash: true})
+	if got := analysisBucket(sgdDay, domain.BucketFXImpact); !got.Equal(decimal.RequireFromString("3.8")) {
+		t.Fatalf("SGD FX impact=%s, want 3.8 (13.8 movement minus 10 execution spread)", got)
+	}
+	reviewAssertPeriodIdentity(t, result, "703.8")
+}

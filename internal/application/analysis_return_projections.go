@@ -818,12 +818,15 @@ func returnAvailability(result domain.PeriodAnalysisResult, forced string) Analy
 		if day.Status == domain.CompletenessPartial {
 			usable, partial = true, true
 		}
+		if day.Status == domain.CompletenessUnavailable {
+			partial = true
+		}
 	}
 	status := domain.CompletenessUnavailable
 	reason := "return days are unavailable"
 	if usable {
 		status, reason = domain.CompletenessOK, ""
-		if partial || result.Coverage.RatedDays < result.Coverage.TotalDays {
+		if partial {
 			status, reason = domain.CompletenessPartial, "one or more return days are incomplete"
 		}
 	}
@@ -845,7 +848,7 @@ func groupAvailability(status domain.Completeness, coverage domain.RateCoverage,
 		if status == domain.CompletenessOK {
 			return ""
 		}
-		return "group has no complete rated days"
+		return "one or more return days are incomplete"
 	}(), ValuationForced: forcedPointer(forced)}
 }
 func gainAvailability(available bool, reason, forced string) AnalysisAvailability {

@@ -182,8 +182,8 @@ func TestAssetChangeAvailabilityIgnoresInvestmentReturnCoverage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Status == domain.CompletenessOK {
-		t.Fatalf("return status = %s, want partial or unavailable after a zero-capital day", result.Status)
+	if result.Status != domain.CompletenessOK {
+		t.Fatalf("complete amounts with zero capital must stay complete: %s", result.Status)
 	}
 	for _, day := range result.Days {
 		if day.Status != domain.CompletenessOK {

@@ -209,6 +209,11 @@ func persistInstrumentObservationTx(ctx context.Context, tx *sql.Tx, request Ins
 	if existing, err := canonicalInstrumentSlotQuoteTx(ctx, tx, request.InstrumentID.String(), request.ProviderKey, bindingRevision, policy, observation.MarketDate, kind); err != nil {
 		return persistWrite{}, err
 	} else if existing != nil && existing.unitPrice == price.Canonical() && existing.currency == currency.String() && existing.priceBasis == observation.PriceBasis && existing.valueEffectiveAt == formatTimestamp(observation.ValueEffectiveAt) {
+		// Rechecking an unchanged observation is not an economic revision, but
+		// must advance freshness or the correction planner retries forever.
+		if err := upsertInstrumentObservationSlotTx(ctx, tx, request.InstrumentID.String(), request.ProviderKey, bindingRevision, policy, observation.MarketDate, kind, existing.id, fetchedAt); err != nil {
+			return persistWrite{}, err
+		}
 		return persistWrite{statusReconciled: statusReconciled}, nil
 	} else if existing != nil {
 		quoteID := domain.NewInstrumentQuoteID()
@@ -275,6 +280,9 @@ func persistFXObservationTx(ctx context.Context, tx *sql.Tx, request FXHistoryCo
 	if existing, err := canonicalFXSlotQuoteTx(ctx, tx, request.HouseholdID.String(), base.String(), quote.String(), request.ProviderKey, policy, observation.MarketDate, kind); err != nil {
 		return persistWrite{}, err
 	} else if existing != nil && existing.unitPrice == rate.Canonical() {
+		if err := upsertFXObservationSlotTx(ctx, tx, request.HouseholdID.String(), base.String(), quote.String(), request.ProviderKey, policy, observation.MarketDate, kind, existing.id, fetchedAt); err != nil {
+			return persistWrite{}, err
+		}
 		return persistWrite{statusReconciled: statusReconciled}, nil
 	} else if existing != nil {
 		quoteID := domain.NewFXQuoteID()

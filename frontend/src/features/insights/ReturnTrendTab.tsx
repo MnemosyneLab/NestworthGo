@@ -59,7 +59,7 @@ function TrendSummary({ data }: { data: ReturnTrendDTO }) {
           <CardTitle>{t("insights.summary")}</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
             {data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}
-            {partial && <Badge variant="warning">{t("insights.partial")} {data.ratedDays}/{data.totalDays}</Badge>}
+            {partial && <Badge variant={data.status === "partial" ? "warning" : "secondary"} title={t("insights.rateCoverageHint")}>{t("insights.rateCoverage")} {data.ratedDays}/{data.totalDays}</Badge>}
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">

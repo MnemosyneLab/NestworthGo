@@ -17,84 +17,54 @@ type HistoricalReplay struct {
 }
 
 func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOrigin, cutoff time.Time) (domain.PortfolioSnapshot, error) {
-	var snapshot domain.PortfolioSnapshot
-	var originData domain.HistoryOriginData
-	var accountObservations []domain.AccountStateObservation
-	var instrumentObservations []domain.InstrumentPreferenceObservation
-	var instrumentStateObservations []domain.InstrumentStateObservation
-	var holdingStateObservations []domain.HoldingStateObservation
-	var fxObservations []domain.FXPreferenceObservation
-	var instrumentProviderBindings []domain.InstrumentProviderBindingRevision
-	var activities []domain.Activity
 	batch := r.batch
-	var err error
-	if batch != nil {
-		snapshot = batch.Portfolio
-		snapshot.InstrumentHistoryCoverage = batch.InstrumentHistoryCoverage
-		snapshot.FXHistoryCoverage = batch.FXHistoryCoverage
-		originData = batch.OriginData
-		accountObservations = batch.AccountStateObservations
-		instrumentObservations = batch.InstrumentPreferenceFacts
-		instrumentProviderBindings = batch.InstrumentProviderBindingFacts
-		instrumentStateObservations = batch.InstrumentStateObservations
-		holdingStateObservations = batch.HoldingStateObservations
-		fxObservations = batch.FXPreferenceFacts
-		activities = batch.Activities
-	} else {
-		snapshot, err = r.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	if batch == nil {
+		loaded, err := r.repository.LoadHistoricalSnapshotBatch(ctx, origin.HouseholdID, cutoff)
 		if err != nil {
 			return domain.PortfolioSnapshot{}, err
 		}
-		if historicalCoverageRepository, ok := r.repository.(HistoricalInstrumentCoverageRepository); ok {
-			snapshot.InstrumentHistoryCoverage, err = historicalCoverageRepository.ListHistoricalInstrumentHistoryCoverage(ctx, origin.HouseholdID)
-		} else {
-			snapshot.InstrumentHistoryCoverage, err = r.repository.ListInstrumentHistoryCoverage(ctx, origin.HouseholdID)
-		}
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-		snapshot.FXHistoryCoverage, err = r.repository.ListFXHistoryCoverage(ctx, origin.HouseholdID)
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-		originData, err = r.repository.HistoryOriginData(ctx, origin.ID)
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-		accountObservations, err = r.repository.ListAccountStateObservations(ctx, origin.HouseholdID)
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-		instrumentObservations, err = r.repository.ListInstrumentPreferenceObservations(ctx, origin.HouseholdID)
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-		instrumentStateObservations, err = r.repository.ListInstrumentStateObservations(ctx, origin.HouseholdID)
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-		holdingStateObservations, err = r.repository.ListHoldingStateObservations(ctx, origin.HouseholdID)
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-		fxObservations, err = r.repository.ListFXPreferenceObservations(ctx, origin.HouseholdID)
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-		activities, err = r.repository.ListActivitiesUntil(ctx, origin.HouseholdID, cutoff)
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
+		batch = &loaded
 	}
-	if batch != nil {
-		filtered := activities[:0]
-		for _, activity := range activities {
-			if !activity.EffectiveAt.After(cutoff) {
-				filtered = append(filtered, activity)
+	snapshot := batch.Portfolio
+	snapshot.InstrumentHistoryCoverage = batch.InstrumentHistoryCoverage
+	snapshot.FXHistoryCoverage = batch.FXHistoryCoverage
+	originData := batch.OriginData
+	accountObservations := batch.AccountStateObservations
+	instrumentObservations := batch.InstrumentPreferenceFacts
+	instrumentStateObservations := batch.InstrumentStateObservations
+	holdingStateObservations := batch.HoldingStateObservations
+	fxObservations := batch.FXPreferenceFacts
+	instrumentProviderBindings := batch.InstrumentProviderBindingFacts
+	// Do not filter in place: the immutable batch is reused for later days.
+	activities := make([]domain.Activity, 0, len(batch.Activities))
+	activeAccounts := map[domain.AccountID]bool{}
+	activeInstruments := map[domain.InstrumentID]bool{}
+	activeHoldings := map[domain.HoldingID]bool{}
+	for _, activity := range batch.Activities {
+		if activity.EffectiveAt.After(cutoff) {
+			continue
+		}
+		activities = append(activities, activity)
+		for _, effect := range activity.Effects {
+			if effect.AccountID != nil {
+				activeAccounts[*effect.AccountID] = true
+			}
+			if effect.InstrumentID != nil {
+				activeInstruments[*effect.InstrumentID] = true
+			}
+			if effect.HoldingID != nil {
+				activeHoldings[*effect.HoldingID] = true
 			}
 		}
-		activities = filtered
 	}
+	// A position effect also proves its parent account and instrument existed.
+	for _, holding := range snapshot.Holdings {
+		if activeHoldings[holding.ID] {
+			activeAccounts[holding.AccountID] = true
+			activeInstruments[holding.InstrumentID] = true
+		}
+	}
+	var err error
 	values := make(map[domain.AccountID]domain.Money)
 	cash := make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money)
 	quantities := make(map[domain.HoldingID]domain.Quantity)
@@ -172,10 +142,16 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	for _, record := range snapshot.Accounts {
 		state, hasOriginState := originStates[record.Account.ID]
 		_, wasPresentAtOrigin := originAccountIDs[record.Account.ID]
-		if record.Account.CreatedAt.After(cutoff) && !wasPresentAtOrigin {
+		if record.Account.CreatedAt.After(cutoff) && !wasPresentAtOrigin && !activeAccounts[record.Account.ID] {
 			continue
 		}
-		observation := latestAccountObservation(accountObservations, record.Account.ID, cutoff)
+		stateCutoff := cutoff
+		if record.Account.CreatedAt.After(cutoff) && activeAccounts[record.Account.ID] {
+			// Backdated activity proves existence; use the immutable creation
+			// baseline for settings, never later edits to the current record.
+			stateCutoff = record.Account.CreatedAt
+		}
+		observation := latestAccountObservation(accountObservations, record.Account.ID, stateCutoff)
 		if hasOriginState || observation != nil {
 			if observation != nil {
 				record.Account.IncludeInNetWorth = observation.IncludeInNetWorth
@@ -223,7 +199,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	}
 	for _, instrument := range snapshot.Instruments {
 		if instrument.CreatedAt.After(cutoff) {
-			if _, wasPresentAtOrigin := originInstrumentIDs[instrument.ID]; !wasPresentAtOrigin {
+			if _, wasPresentAtOrigin := originInstrumentIDs[instrument.ID]; !wasPresentAtOrigin && !activeInstruments[instrument.ID] {
 				continue
 			}
 		}
@@ -243,14 +219,14 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 			// Provider selection backward.
 			instrument.QuoteSource = domain.QuoteSourceManual
 		}
-		if observation := latestInstrumentObservation(instrumentObservations, instrument.ID, cutoff); observation != nil {
+		if observation := latestInstrumentObservation(instrumentObservations, instrument.ID, instrumentPreferenceCutoff(instrument, cutoff, activeInstruments[instrument.ID])); observation != nil {
 			instrument.QuoteSource = observation.SourceKind
 			instrument.PreferenceObservationID = &observation.ID
 		} else {
 			instrument.PreferenceObservationID = nil
 		}
 		if len(instrumentProviderBindings) > 0 && instrument.QuoteSource == domain.QuoteSourceProvider {
-			binding := latestInstrumentProviderBindingRevision(instrumentProviderBindings, instrument.ID, cutoff)
+			binding := latestInstrumentProviderBindingRevision(instrumentProviderBindings, instrument.ID, instrumentPreferenceCutoff(instrument, cutoff, activeInstruments[instrument.ID]))
 			if binding == nil || !binding.Enabled {
 				instrument.ProviderKey = nil
 				instrument.ProviderSymbol = nil
@@ -285,7 +261,7 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	}
 	for _, holding := range snapshot.Holdings {
 		if holding.CreatedAt.After(cutoff) {
-			if _, wasPresentAtOrigin := originHoldingIDs[holding.ID]; !wasPresentAtOrigin {
+			if _, wasPresentAtOrigin := originHoldingIDs[holding.ID]; !wasPresentAtOrigin && !activeHoldings[holding.ID] {
 				continue
 			}
 		}
@@ -325,16 +301,22 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		}
 	}
 	quoteCache := r.quotes
-	for _, instrument := range snapshot.Instruments {
-		var quotes []domain.InstrumentQuote
-		var quoteErr error
-		if quoteCache != nil {
-			quotes = quoteCache.instrumentQuotes[instrument.ID]
-		} else {
-			quotes, quoteErr = r.repository.ListInstrumentQuotes(ctx, instrument.ID)
+	if quoteCache == nil {
+		quoteCache = &historicalQuoteCache{instrumentQuotes: map[domain.InstrumentID][]domain.InstrumentQuote{}, fxQuotes: batch.FXQuoteFacts}
+		for _, quote := range batch.InstrumentQuoteFacts {
+			quoteCache.instrumentQuotes[quote.InstrumentID] = append(quoteCache.instrumentQuotes[quote.InstrumentID], quote)
 		}
-		if quoteErr != nil {
-			return domain.PortfolioSnapshot{}, quoteErr
+	}
+	for index := range snapshot.Instruments {
+		instrument := snapshot.Instruments[index]
+		quotes := quoteCache.instrumentQuotes[instrument.ID]
+		if instrument.CreatedAt.After(cutoff) && activeInstruments[instrument.ID] {
+			// Before registration there is no contemporaneous provider route.
+			// A backdated ledger fact establishes the instrument, and verified
+			// historical closes from an equivalent registered mapping can price
+			// it. Never extend a different symbol/market/currency backward.
+			instrument = backdatedInstrumentHistoryRoute(instrument, quotes, snapshot.InstrumentHistoryCoverage, instrumentProviderBindings, cutoff, origin.Timezone)
+			snapshot.Instruments[index] = instrument
 		}
 		for _, quote := range quotes {
 			// A correction may be fetched after the household day closed while
@@ -344,27 +326,8 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 			snapshot.InstrumentQuotes = append(snapshot.InstrumentQuotes, quote)
 		}
 	}
-	var fxQuotes []domain.FXQuote
-	if quoteCache != nil {
-		fxQuotes = quoteCache.fxQuotes
-	} else {
-		fxQuotes, err = r.repository.ListFXQuotes(ctx, origin.HouseholdID)
-	}
-	if err != nil {
-		return domain.PortfolioSnapshot{}, err
-	}
-	for _, quote := range fxQuotes {
-		snapshot.FXQuotes = append(snapshot.FXQuotes, quote)
-	}
-	preferences := snapshot.FXPreferences
-	if batch != nil {
-		preferences = batch.FXPreferences
-	} else {
-		preferences, err = r.repository.ListFXPreferences(ctx, origin.HouseholdID)
-		if err != nil {
-			return domain.PortfolioSnapshot{}, err
-		}
-	}
+	snapshot.FXQuotes = append(snapshot.FXQuotes, quoteCache.fxQuotes...)
+	preferences := batch.FXPreferences
 	originFXPreferences := make(map[string]domain.HistoryOriginFXPreference, len(originData.FXPreferences))
 	for _, preference := range originData.FXPreferences {
 		originFXPreferences[fxPreferenceKey(preference.CurrencyA, preference.CurrencyB)] = preference
@@ -572,4 +535,49 @@ func accountRecordByID(records []domain.AccountRecord, id domain.AccountID) (dom
 		}
 	}
 	return domain.AccountRecord{}, false
+}
+
+// Only a ledger fact can extend an entity's creation baseline backward.
+func instrumentPreferenceCutoff(instrument domain.Instrument, cutoff time.Time, hasActivity bool) time.Time {
+	if hasActivity && instrument.CreatedAt.After(cutoff) {
+		return instrument.CreatedAt
+	}
+	return cutoff
+}
+
+func backdatedInstrumentHistoryRoute(instrument domain.Instrument, quotes []domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage, bindings []domain.InstrumentProviderBindingRevision, cutoff time.Time, timezone string) domain.Instrument {
+	if instrument.QuoteSource != domain.QuoteSourceProvider || instrument.ProviderSymbol == nil || instrument.MarketCode == nil {
+		return instrument
+	}
+	location, err := time.LoadLocation(timezone)
+	if err != nil {
+		return instrument
+	}
+	marketDate := cutoff.In(location).Format("2006-01-02")
+	selected := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, quotes, coverage, marketDate, cutoff)
+	if selected.quote != nil && selected.coverageComplete {
+		return instrument
+	}
+	var chosen *domain.InstrumentProviderBindingRevision
+	for index := range bindings {
+		binding := &bindings[index]
+		if binding.InstrumentID != instrument.ID || !binding.Enabled || binding.ProviderSymbol != *instrument.ProviderSymbol || binding.Market != *instrument.MarketCode || binding.Currency != instrument.QuoteCurrency {
+			continue
+		}
+		candidate := instrument
+		candidate.ProviderKey = &binding.ProviderKey
+		candidate.ProviderBindingRevision = binding.BindingRevision
+		quote := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(candidate, quotes, coverage, marketDate, cutoff)
+		if quote.quote == nil || !quote.coverageComplete {
+			continue
+		}
+		if chosen == nil || instrumentProviderBindingLater(*chosen, *binding) {
+			chosen = binding
+		}
+	}
+	if chosen != nil {
+		instrument.ProviderKey = &chosen.ProviderKey
+		instrument.ProviderBindingRevision = chosen.BindingRevision
+	}
+	return instrument
 }

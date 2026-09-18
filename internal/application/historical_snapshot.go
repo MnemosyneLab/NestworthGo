@@ -69,9 +69,35 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 		return domain.DailyValuationSnapshot{}, false, err
 	}
 	cutoff := nextMidnight.Add(-time.Millisecond)
-	portfolio, err := s.historicalPortfolioSnapshot(ctx, origin, cutoff)
+	snapshot, err := s.valueHistoricalSnapshot(ctx, origin, cutoff, localDate)
 	if err != nil {
 		return domain.DailyValuationSnapshot{}, false, err
+	}
+	snapshot.InputGeneration = expectedGeneration
+	snapshot.ResolverPolicyVersion = resolverPolicy
+	var appended bool
+	ctx, unlock, err := s.beginWrite(ctx)
+	if err != nil {
+		return domain.DailyValuationSnapshot{}, false, err
+	}
+	if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok && expectedGeneration >= 0 {
+		appended, err = generationRepo.SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx, snapshot, s.clock(), expectedGeneration)
+	} else {
+		appended, err = s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
+	}
+	unlock()
+	if err == nil && appended {
+		s.invalidateAnalysis()
+	}
+	return snapshot, appended, err
+}
+
+// valueHistoricalSnapshot only reads facts; it also values the Starting point
+// without inserting a fictitious pre-history daily snapshot.
+func (s *Service) valueHistoricalSnapshot(ctx context.Context, origin *domain.HistoryOrigin, cutoff time.Time, localDate string) (domain.DailyValuationSnapshot, error) {
+	portfolio, err := s.historicalPortfolioSnapshot(ctx, origin, cutoff)
+	if err != nil {
+		return domain.DailyValuationSnapshot{}, err
 	}
 	// PortfolioSnapshot intentionally reports investment totals only. For a
 	// daily balance-sheet snapshot, value every account and sign liabilities.
@@ -81,7 +107,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	valuation.SetHistoricalMarketDate(localDate)
 	valuedAccounts, _, err := valuation.ValueAccounts(portfolio)
 	if err != nil {
-		return domain.DailyValuationSnapshot{}, false, err
+		return domain.DailyValuationSnapshot{}, err
 	}
 	assets, liabilities := decimal.Zero, decimal.Zero
 	complete := true
@@ -100,7 +126,7 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 			componentMissing := missingForComponent(component, account.MissingInputs)
 			item := domain.DailyValuationSnapshotItem{ID: domain.NewDailyValuationSnapshotItemID(), AccountID: account.Account.ID, HoldingID: component.HoldingID, NativeAmount: component.NativeAmount, NativeCurrency: component.NativeCurrency, Complete: component.Available && len(componentMissing) == 0, InstrumentID: component.InstrumentID, StateObservationID: component.StateObservationID, PreferenceObservationID: component.PreferenceObservationID, FXPreferenceObservationID: component.FXPreferenceObservationID}
 			if err := item.ValidateNativeAmount(); err != nil {
-				return domain.DailyValuationSnapshot{}, false, err
+				return domain.DailyValuationSnapshot{}, err
 			}
 			if component.PriceEvidence != nil && component.PriceEvidence.ObservationID != "" {
 				quoteID := component.PriceEvidence.ObservationID
@@ -113,19 +139,19 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 			if component.BaseAmountExact != "" {
 				exact, parseErr := domain.ParseNativeAmount(component.BaseAmountExact)
 				if parseErr != nil {
-					return domain.DailyValuationSnapshot{}, false, parseErr
+					return domain.DailyValuationSnapshot{}, parseErr
 				}
 				item.BaseAmountExact = exact
 				if err := item.ValidateBaseAmountExact(); err != nil {
-					return domain.DailyValuationSnapshot{}, false, err
+					return domain.DailyValuationSnapshot{}, err
 				}
 				amount, amountErr := decimal.NewFromString(exact)
 				if amountErr != nil {
-					return domain.DailyValuationSnapshot{}, false, &domain.Error{Code: domain.ErrIntegrity, Message: "historical base amount is invalid"}
+					return domain.DailyValuationSnapshot{}, &domain.Error{Code: domain.ErrIntegrity, Message: "historical base amount is invalid"}
 				}
 				rounded, roundErr := domain.NewMoney(amount, baseCurrency)
 				if roundErr != nil {
-					return domain.DailyValuationSnapshot{}, false, roundErr
+					return domain.DailyValuationSnapshot{}, roundErr
 				}
 				item.BaseAmount = &rounded
 				if component.Available {
@@ -148,33 +174,19 @@ func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate str
 	}
 	assetsMoney, err := domain.NewMoney(assets, baseCurrency)
 	if err != nil {
-		return domain.DailyValuationSnapshot{}, false, err
+		return domain.DailyValuationSnapshot{}, err
 	}
 	liabilitiesMoney, err := domain.NewMoney(liabilities, baseCurrency)
 	if err != nil {
-		return domain.DailyValuationSnapshot{}, false, err
+		return domain.DailyValuationSnapshot{}, err
 	}
 	netWorthMoney, err := domain.NewSignedMoney(assets.Sub(liabilities), baseCurrency)
 	if err != nil {
-		return domain.DailyValuationSnapshot{}, false, err
+		return domain.DailyValuationSnapshot{}, err
 	}
 	hash := snapshotContentHash(localDate, cutoff, assetsMoney, liabilitiesMoney, netWorthMoney, items)
-	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: baseCurrency, Complete: complete && eligibleMissing == 0, ComponentCount: len(items), MissingCount: eligibleMissing, GenerationReason: "manual", CreatedAt: s.clock(), InputGeneration: expectedGeneration, ResolverPolicyVersion: resolverPolicy, Items: items}
-	var appended bool
-	ctx, unlock, err := s.beginWrite(ctx)
-	if err != nil {
-		return domain.DailyValuationSnapshot{}, false, err
-	}
-	if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok && expectedGeneration >= 0 {
-		appended, err = generationRepo.SaveDailyValuationSnapshotAndMarkCompletedAtGeneration(ctx, snapshot, s.clock(), expectedGeneration)
-	} else {
-		appended, err = s.repository.SaveDailyValuationSnapshotAndMarkCompleted(ctx, snapshot, s.clock())
-	}
-	unlock()
-	if err == nil && appended {
-		s.invalidateAnalysis()
-	}
-	return snapshot, appended, err
+	snapshot := domain.DailyValuationSnapshot{ID: domain.NewDailyValuationSnapshotID(), HouseholdID: portfolio.Household.ID, LocalDate: localDate, CutoffAt: cutoff, ContentHash: hash, AssetsAmount: &assetsMoney, LiabilitiesAmount: &liabilitiesMoney, NetWorthAmount: &netWorthMoney, Currency: baseCurrency, Complete: complete && eligibleMissing == 0, ComponentCount: len(items), MissingCount: eligibleMissing, GenerationReason: "manual", CreatedAt: s.clock(), InputGeneration: 0, ResolverPolicyVersion: domain.MarketDataResolverPolicy, Items: items}
+	return snapshot, nil
 }
 
 func (s *Service) historicalPortfolioSnapshot(ctx context.Context, origin *domain.HistoryOrigin, cutoff time.Time) (domain.PortfolioSnapshot, error) {

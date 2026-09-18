@@ -175,7 +175,7 @@ func instrumentHistorySourcePolicy(providerKey, observedPolicy string) string {
 
 func listCloseMarketDates(ctx context.Context, query queryer, instrumentID, providerKey string, bindingRevision int, policy string) ([]string, map[string]time.Time, error) {
 	rows, err := query.QueryContext(ctx, `
-		SELECT s.market_date, q.fetched_at FROM instrument_observation_slots s
+		SELECT s.market_date, s.updated_at FROM instrument_observation_slots s
 		JOIN instrument_quotes q ON q.id = s.quote_id
 		WHERE s.instrument_id = ? AND s.provider_key = ? AND s.binding_revision = ? AND s.source_policy_version = ? AND s.observation_kind = ?
 		ORDER BY s.market_date`, instrumentID, providerKey, bindingRevision, policy, observationKindClose)
@@ -207,7 +207,7 @@ func (r *Repository) ListFXHistoryCoverage(ctx context.Context, householdID doma
 
 func listFXHistoryCoverageQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.FXHistoryCoverage, error) {
 	rows, err := query.QueryContext(ctx, `
-		SELECT s.base_currency, s.quote_currency, s.provider_key, s.source_policy_version, s.market_date, q.fetched_at
+		SELECT s.base_currency, s.quote_currency, s.provider_key, s.source_policy_version, s.market_date, s.updated_at
 		FROM fx_observation_slots s
 		JOIN fx_quotes q ON q.id = s.quote_id
 		WHERE s.household_id = ? AND s.observation_kind = ?

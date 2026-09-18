@@ -665,7 +665,9 @@ func finishHealthReport(report MarketDataHealthReport) MarketDataHealthReport {
 }
 
 func hasInstrumentGap(need InstrumentRepairNeed) bool {
-	return len(need.MissingRanges) > 0 || len(need.FetchRanges) > 0 || need.OpeningAnchorMissing
+	// FetchRanges also contains routine correction and expired no-observation
+	// checks. Only absent coverage or an absent anchor is a health problem.
+	return len(need.MissingRanges) > 0 || need.OpeningAnchorMissing
 }
 
 func firstRange(primary, fallback []DateRange) DateRange {
