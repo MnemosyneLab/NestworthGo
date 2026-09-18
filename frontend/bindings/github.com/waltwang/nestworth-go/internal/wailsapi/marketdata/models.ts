@@ -67,6 +67,11 @@ export interface RefreshCompletedPayload {
     "error"?: string;
 }
 
+export interface RefreshProgressPayload {
+    "requestId": string;
+    "item": SyncItemDTO;
+}
+
 /**
  * RefreshResultDTO mirrors application.RefreshResult.
  */
@@ -92,6 +97,10 @@ export interface SyncBlockerDTO {
 }
 
 export interface SyncItemDTO {
+    "label"?: string;
+    "symbol"?: string;
+    "startDate"?: string;
+    "endDate"?: string;
     "targetKey": string;
     "kind": string;
     "status": string;
@@ -100,6 +109,7 @@ export interface SyncItemDTO {
 }
 
 export interface SyncJobDTO {
+    "current"?: SyncItemDTO | null;
     "jobId": string;
     "workspaceId": string;
     "householdId": string;
@@ -123,6 +133,7 @@ export interface SyncJobDTO {
 }
 
 export interface SyncPlanPreviewDTO {
+    "items"?: SyncItemDTO[] | null;
     "asOf": string;
     "configRevision": string;
     "scope": SyncRequestDTO;

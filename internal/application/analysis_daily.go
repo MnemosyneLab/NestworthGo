@@ -752,6 +752,23 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 			expected = expected.Add(quantity)
 		}
 		if effect.activity.Kind == domain.ActivityPositionTransfer && effect.effect.Quantity != nil && effect.effect.HoldingID != nil && *effect.effect.HoldingID == *component.HoldingID {
+			// A priced adjustment establishes a new valuation segment just
+			// like a trade. Keep its notional in Adjustment and attribute only
+			// the movement after that entry to price/FX returns.
+			if effect.effect.Classification == domain.ClassificationRemeasurement && effect.effect.CostUnitPrice != nil {
+				quantity := effect.effect.Quantity.Decimal()
+				if effect.effect.Direction == domain.EffectRemoved {
+					quantity = quantity.Neg()
+				}
+				eventFX, available, conversionErr := universe.convertValuationAmount(decimal.NewFromInt(1), component.Currency, effect.activity.EffectiveAt, input, query, component.Currency)
+				if conversionErr != nil {
+					return holdingBridge{}, conversionErr
+				}
+				if !available {
+					return holdingBridge{partial: true}, nil
+				}
+				segments = append(segments, segment{quantity: quantity, price: effect.effect.CostUnitPrice.Decimal(), fx: eventFX})
+			}
 			if effect.effect.Direction == domain.EffectAdded {
 				expected = expected.Add(effect.effect.Quantity.Decimal())
 			} else if effect.effect.Classification == domain.ClassificationInternalTransfer {
@@ -763,7 +780,7 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 		}
 	}
 	quantityMismatch := expected.Sub(qc).Abs().GreaterThan(decimal.NewFromFloat(1e-8))
-	// Position adjustments carry quantity evidence but no price.  Treat the
+	// Unpriced position adjustments carry only quantity evidence. Treat the
 	// adjustment as a corporate-action restatement only when the native
 	// notional proves that quantity and price moved inversely.  Otherwise the
 	// unexplained amount remains a visible residual instead of fabricating a

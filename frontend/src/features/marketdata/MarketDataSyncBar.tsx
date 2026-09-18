@@ -1,3 +1,4 @@
+import { SyncWorkDetails } from "./SyncWorkDetails";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RefreshCw } from "lucide-react";
@@ -109,14 +110,14 @@ export function MarketDataSyncBar({
             </PopoverContent>
           </Popover>
           {latestRefreshing && <Button type="button" variant="outline" onClick={onCancelLatest}>{t("marketData.cancelRefresh")}</Button>}
-          {running && (
+          {job?.jobId && (
             <>
               <Button type="button" variant="outline" onClick={() => setProgressOpen(true)}>
                 {t("marketData.viewProgress")}
               </Button>
-              <Button type="button" variant="outline" onClick={() => job?.jobId && cancel.mutate(job.jobId)} disabled={cancel.isPending}>
+              {running && <Button type="button" variant="outline" onClick={() => job?.jobId && cancel.mutate(job.jobId)} disabled={cancel.isPending}>
                 {t("marketData.cancelSync")}
-              </Button>
+              </Button>}
             </>
           )}
         </div>
@@ -135,6 +136,7 @@ export function MarketDataSyncBar({
           {displayEnum(t, "marketData.phase", job.phase)} {t("marketData.syncProgress", { completed: job.completedTargets, total: job.targetCount })}
         </p>
       )}
+      {running && job?.current && <SyncWorkDetails current={job.current} />}
       {job && job.outcome === "cancelled" && <p role="status" className="text-sm text-muted-foreground">{t("marketData.syncCancelled")}</p>}
 
       <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
@@ -152,6 +154,7 @@ export function MarketDataSyncBar({
               <li>{t("marketData.previewSnapshots", { count: preview.data.snapshotWorkEstimate })}</li>
             </ul>
           )}
+          <SyncWorkDetails items={preview.data?.items} />
           {(preview.data?.unresolved ?? []).length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">{t("marketData.previewUnresolved")}</p>
@@ -195,6 +198,7 @@ export function MarketDataSyncBar({
               <p>{displayEnum(t, "marketData.phase", job.phase)}</p>
               <p>{t("marketData.syncProgress", { completed: job.completedTargets, total: job.targetCount })}</p>
               <p>{t("marketData.previewRequests", { count: job.estimatedRequests })}</p>
+              <SyncWorkDetails items={job.items} current={job.current} />
               {(job.blockers ?? []).length > 0 && (
                 <div>
                   <p className="font-medium">{t("marketData.previewUnresolved")}</p>

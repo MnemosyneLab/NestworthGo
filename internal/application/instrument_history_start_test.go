@@ -37,7 +37,7 @@ func TestInstrumentHistoryStartUsesOwnershipAndCorrections(t *testing.T) {
 	}
 }
 
-func TestUnusedInstrumentIsLatestOnly(t *testing.T) {
+func TestUnusedInstrumentStartsSevenDaysBeforeCreation(t *testing.T) {
 	service, _, _, _ := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
 	instrument, err := service.CreateInstrument(context.Background(), InstrumentInput{Name: "Unheld", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "UNHELD", MarketCode: "US"})
 	if err != nil {
@@ -49,13 +49,13 @@ func TestUnusedInstrumentIsLatestOnly(t *testing.T) {
 	}
 	for _, need := range plan.Instruments {
 		if need.InstrumentID == instrument.ID {
-			if !need.LatestOnly || len(need.FetchRanges) > 0 || need.OpeningAnchorMissing {
+			if need.LatestOnly || len(need.FetchRanges) == 0 || need.FetchRange.Start != "2026-09-03" {
 				t.Fatalf("unused need = %+v", need)
 			}
 			return
 		}
 	}
-	t.Fatal("latest-only target missing")
+	t.Fatal("new instrument target missing")
 }
 
 func TestCoinGeckoHistoryPlanClipsOnlyUnavailableDates(t *testing.T) {

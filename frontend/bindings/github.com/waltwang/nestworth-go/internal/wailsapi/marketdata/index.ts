@@ -11,6 +11,7 @@ export type {
     InstrumentSearchHitDTO,
     MarketDataHealthReportDTO,
     RefreshCompletedPayload,
+    RefreshProgressPayload,
     RefreshResultDTO,
     RefreshTargetResultDTO,
     SyncBlockerDTO,

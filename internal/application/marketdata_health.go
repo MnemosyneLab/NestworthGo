@@ -181,9 +181,8 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 	snapshotIssues := scanSnapshotHealth(state, plan, rootCause)
 	issues = append(issues, snapshotIssues...)
 
-	if job, ok := s.GetCurrentSyncJob(); ok {
-		issues = append(issues, scanSyncFailureHealth(job, coveredInstruments, fxCovered)...)
-	}
+	// Failed attempts remain in sync details. Current health is derived from
+	// current coverage and valuation, not an old operation's errors.
 
 	report := MarketDataHealthReport{
 		CoverageThrough:         plan.LastFinalizedMarketDate,
@@ -600,44 +599,6 @@ func scanSnapshotHealth(state domain.DailySnapshotState, plan HistoryRepairPlan,
 		Collapsed:  rootCause,
 	}
 	return []HealthIssue{issue}
-}
-
-func scanSyncFailureHealth(job SyncJobSnapshot, instruments map[string]struct{}, fxCovered map[string]struct{}) []HealthIssue {
-	if job.Outcome != SyncOutcomeFailed && job.Outcome != SyncOutcomePartial {
-		return nil
-	}
-	var issues []HealthIssue
-	seen := map[string]struct{}{}
-	for _, blocker := range job.Blockers {
-		key := blocker.TargetKey + ":" + blocker.Code
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		if strings.HasPrefix(blocker.TargetKey, "instrument:") {
-			id := strings.TrimPrefix(blocker.TargetKey, "instrument:")
-			if _, ok := instruments[id]; ok {
-				continue
-			}
-		}
-		if strings.HasPrefix(blocker.TargetKey, "fx:") {
-			pair := strings.TrimPrefix(blocker.TargetKey, "fx:")
-			if _, ok := fxCovered[pair]; ok {
-				continue
-			}
-		}
-		issues = append(issues, HealthIssue{
-			ID:        "sync-" + key,
-			Kind:      HealthKindSyncFailure,
-			Severity:  HealthSeverityWarning,
-			GroupKey:  "sync",
-			TargetKey: blocker.TargetKey,
-			Code:      blocker.Code,
-			Reason:    blocker.Reason,
-			Action:    HealthActionNone,
-		})
-	}
-	return issues
 }
 
 func finishHealthReport(report MarketDataHealthReport) MarketDataHealthReport {

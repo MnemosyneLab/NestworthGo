@@ -1,3 +1,4 @@
+import { SyncWorkDetails } from "@/features/marketdata/SyncWorkDetails";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -155,6 +156,7 @@ export function DataHealthPage({
         </Card>
       )}
 
+      {sync.current.data?.jobId && <SyncWorkDetails items={sync.current.data.items} current={running ? sync.current.data.current : undefined} />}
       <IssueSection title={t("dataHealth.executableSection")} issues={executable} t={t} onAction={runAction} />
       <IssueSection title={t("dataHealth.prerequisiteSection")} issues={prerequisites} t={t} onAction={runAction} />
       <IssueSection title={t("dataHealth.otherSection")} issues={reported} t={t} onAction={runAction} />
@@ -174,6 +176,7 @@ export function DataHealthPage({
               <li>{t("marketData.previewSnapshots", { count: sync.preview.data.snapshotWorkEstimate })}</li>
             </ul>
           )}
+          <SyncWorkDetails items={sync.preview.data?.items} />
           {(sync.preview.data?.unresolved ?? []).length > 0 && (
             <div className="flex flex-col gap-2">
               <p className="text-sm font-medium">{t("marketData.previewUnresolved")}</p>

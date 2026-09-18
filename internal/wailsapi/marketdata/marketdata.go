@@ -263,6 +263,13 @@ func (s *Service) CancelAllAndWait() {
 func (s *Service) runAsync(requestID string, run func(context.Context) (application.RefreshResult, error)) {
 	ctx, cancel := context.WithCancel(context.Background())
 	token := s.registerCancel(requestID, cancel)
+	ctx = application.WithRefreshProgress(ctx, func(item application.SyncItemProgress) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if registration, ok := s.cancels[requestID]; ok && registration.token == token {
+			s.events.Emit("marketdata.refresh.progress", RefreshProgressPayload{RequestID: requestID, Item: fromSyncItem(item)})
+		}
+	})
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
@@ -340,6 +347,10 @@ type SyncBlockerDTO struct {
 }
 
 type SyncItemDTO struct {
+	Label     string `json:"label,omitempty"`
+	Symbol    string `json:"symbol,omitempty"`
+	StartDate string `json:"startDate,omitempty"`
+	EndDate   string `json:"endDate,omitempty"`
 	TargetKey string `json:"targetKey"`
 	Kind      string `json:"kind"`
 	Status    string `json:"status"`
@@ -348,6 +359,7 @@ type SyncItemDTO struct {
 }
 
 type SyncJobDTO struct {
+	Current             *SyncItemDTO     `json:"current,omitempty"`
 	JobID               string           `json:"jobId"`
 	WorkspaceID         string           `json:"workspaceId"`
 	HouseholdID         string           `json:"householdId"`
@@ -371,6 +383,7 @@ type SyncJobDTO struct {
 }
 
 type SyncPlanPreviewDTO struct {
+	Items                 []SyncItemDTO    `json:"items,omitempty"`
 	AsOf                  string           `json:"asOf"`
 	ConfigRevision        string           `json:"configRevision"`
 	Scope                 SyncRequestDTO   `json:"scope"`
@@ -497,8 +510,12 @@ func fromSyncJob(snapshot application.SyncJobSnapshot) SyncJobDTO {
 		CommittedBatches:    snapshot.CommittedBatches,
 		ErrorCode:           snapshot.ErrorCode,
 	}
+	if snapshot.Current != nil {
+		item := fromSyncItem(*snapshot.Current)
+		dto.Current = &item
+	}
 	for _, item := range snapshot.Items {
-		dto.Items = append(dto.Items, SyncItemDTO{TargetKey: item.TargetKey, Kind: item.Kind, Status: item.Status, Detail: item.Detail, Provider: item.Provider})
+		dto.Items = append(dto.Items, fromSyncItem(item))
 	}
 	for _, blocker := range snapshot.Blockers {
 		dto.Blockers = append(dto.Blockers, SyncBlockerDTO{TargetKey: blocker.TargetKey, Code: blocker.Code, Reason: blocker.Reason})
@@ -531,6 +548,9 @@ func (s *Service) PreviewMarketDataSync(request SyncRequestDTO) (SyncPlanPreview
 		LatestInstrumentCount: preview.LatestInstrumentCount,
 		LatestFXCount:         preview.LatestFXCount,
 		FetchRanges:           preview.FetchRanges,
+	}
+	for _, item := range preview.Items {
+		dto.Items = append(dto.Items, fromSyncItem(item))
 	}
 	for _, blocker := range preview.Unresolved {
 		dto.Unresolved = append(dto.Unresolved, SyncBlockerDTO{TargetKey: blocker.TargetKey, Code: blocker.Code, Reason: blocker.Reason})
@@ -602,4 +622,13 @@ func (s *Service) CoinGeckoQuoteCurrencies(ctx context.Context) ([]string, error
 	}
 	values, err := s.app.CoinGeckoQuoteCurrencies(ctx)
 	return values, apierror.Wrap(err)
+}
+
+func fromSyncItem(item application.SyncItemProgress) SyncItemDTO {
+	return SyncItemDTO{TargetKey: item.TargetKey, Label: item.Label, Symbol: item.Symbol, StartDate: item.StartDate, EndDate: item.EndDate, Kind: item.Kind, Status: item.Status, Detail: item.Detail, Provider: item.Provider}
+}
+
+type RefreshProgressPayload struct {
+	RequestID string      `json:"requestId"`
+	Item      SyncItemDTO `json:"item"`
 }

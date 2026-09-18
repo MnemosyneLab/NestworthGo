@@ -1,3 +1,4 @@
+import { SyncWorkDetails } from "./SyncWorkDetails";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -618,6 +619,7 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
         </Tabs>
       )}
       {historyTarget ? <QuoteHistorySheet target={historyTarget} onClose={() => setHistoryTarget(null)} /> : null}
+      {latestRefreshing && <SyncWorkDetails items={activeRefresh.progress} />}
       {!activeRefresh.isError && result && (
         <RefreshResults
           result={result}

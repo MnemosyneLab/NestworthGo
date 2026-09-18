@@ -13,6 +13,7 @@ declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
             "marketdata.refresh.completed": marketdata$0.RefreshCompletedPayload;
+            "marketdata.refresh.progress": marketdata$0.RefreshProgressPayload;
             "marketdata.sync.completed": marketdata$0.SyncJobDTO;
             "marketdata.sync.item": marketdata$0.SyncJobDTO;
             "marketdata.sync.progress": marketdata$0.SyncJobDTO;

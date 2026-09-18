@@ -46,6 +46,7 @@ import (
 
 func init() {
 	application.RegisterEvent[wailsmarketdata.RefreshCompletedPayload](wailsmarketdata.RefreshCompletedEvent)
+	application.RegisterEvent[wailsmarketdata.RefreshProgressPayload]("marketdata.refresh.progress")
 	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncStartedEvent)
 	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncProgressEvent)
 	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncItemEvent)

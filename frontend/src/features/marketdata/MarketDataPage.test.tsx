@@ -140,6 +140,7 @@ describe("MarketDataPage", () => {
       latestFxCount: 1,
       snapshotWorkEstimate: 2,
       unresolved: [],
+      items: [{ targetKey: "instrument:i1", label: "Invesco NASDAQ 100 ETF", symbol: "QQQM", kind: "history_instrument", status: "planned", provider: "yahoo_finance", startDate: "2026-09-07", endDate: "2026-09-17", detail: "missing_or_recheck" }],
     });
     startSync.mockImplementation(async () => {
       const job = {
@@ -149,6 +150,7 @@ describe("MarketDataPage", () => {
         completedTargets: 1,
         targetCount: 2,
         estimatedRequests: 3,
+        current: { targetKey: "instrument:i1", label: "Invesco NASDAQ 100 ETF", symbol: "QQQM", kind: "history_instrument", status: "running", provider: "yahoo_finance", startDate: "2026-09-07", endDate: "2026-09-17" },
         scope: { scope: "repair_all" },
       };
       getCurrentSyncJob.mockResolvedValue(job);
@@ -474,11 +476,16 @@ describe("MarketDataPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: "Sync and repair" }));
     expect(await screen.findByTestId("sync-preview")).toHaveTextContent("3 estimated provider requests");
+    expect(screen.getByTestId("sync-work-details")).toHaveTextContent("QQQM");
+    expect(screen.getByTestId("sync-work-details")).toHaveTextContent("2026-09-07 → 2026-09-17");
+    expect(screen.getByTestId("sync-work-details")).toHaveTextContent("yahoo_finance");
     expect(previewSync).toHaveBeenCalledWith({ scope: "repair_all", forceRecheck: false });
     await userEvent.click(screen.getByRole("button", { name: "Start sync" }));
     expect(startSync).toHaveBeenCalledWith({ scope: "repair_all", forceRecheck: false });
     expect(await screen.findByTestId("sync-progress")).toHaveTextContent("Historical prices");
     expect(screen.getByTestId("sync-progress")).toHaveTextContent("1 / 2");
+    expect(await screen.findByTestId("sync-work-details")).toHaveTextContent("Querying");
+    expect(screen.getByTestId("sync-work-details")).toHaveTextContent("QQQM");
     await userEvent.click(screen.getByRole("button", { name: "Cancel sync" }));
     expect(cancelSyncJob).toHaveBeenCalledWith("job-1");
   });

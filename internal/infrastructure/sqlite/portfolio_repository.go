@@ -512,6 +512,12 @@ func (r *Repository) AppendProviderInstrumentQuoteIfChanged(ctx context.Context,
 			return err
 		}
 		inserted = count == 1
+		if !inserted {
+			_, err := tx.ExecContext(ctx, `UPDATE instrument_quotes SET fetched_at = ? WHERE instrument_id = ? AND source_kind = ? AND source_key = ? AND quoted_at = ? AND unit_price = ? AND currency = ? AND observation_kind = ?`, formatTimestamp(quote.CreatedAt), quote.InstrumentID.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), quote.UnitPrice.Canonical(), quote.Currency.String(), latestInstrumentObservationKind(quote.SourceKind))
+			if err != nil {
+				return err
+			}
+		}
 		if inserted {
 			if err := markQuoteHistoryDirtyTx(ctx, tx, quote.InstrumentID, quote.QuotedAt, quote.CreatedAt); err != nil {
 				return err
@@ -604,6 +610,12 @@ func (r *Repository) AppendProviderFXQuoteIfChanged(ctx context.Context, quote d
 			return err
 		}
 		inserted = count == 1
+		if !inserted {
+			_, err := tx.ExecContext(ctx, `UPDATE fx_quotes SET fetched_at = ? WHERE household_id = ? AND base_currency = ? AND quote_currency = ? AND source_kind = ? AND source_key = ? AND quoted_at = ? AND rate = ? AND observation_kind = ?`, formatTimestamp(quote.CreatedAt), quote.HouseholdID.String(), quote.BaseCurrency.String(), quote.QuoteCurrency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), quote.Rate.Canonical(), latestFXObservationKind(quote.SourceKind))
+			if err != nil {
+				return err
+			}
+		}
 		if inserted {
 			if err := markFXQuoteHistoryDirtyTx(ctx, tx, quote.HouseholdID, quote.QuotedAt, quote.CreatedAt); err != nil {
 				return err

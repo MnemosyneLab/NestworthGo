@@ -88,6 +88,10 @@ type SyncBlocker struct {
 }
 
 type SyncItemProgress struct {
+	Label     string
+	Symbol    string
+	StartDate string
+	EndDate   string
 	TargetKey string
 	Kind      string
 	Status    string
@@ -96,6 +100,7 @@ type SyncItemProgress struct {
 }
 
 type SyncJobSnapshot struct {
+	Current             *SyncItemProgress
 	JobID               string
 	WorkspaceID         string
 	HouseholdID         domain.HouseholdID
@@ -120,6 +125,10 @@ type SyncJobSnapshot struct {
 
 func (s SyncJobSnapshot) Clone() SyncJobSnapshot {
 	out := s
+	if s.Current != nil {
+		item := *s.Current
+		out.Current = &item
+	}
 	out.Items = append([]SyncItemProgress(nil), s.Items...)
 	out.Blockers = append([]SyncBlocker(nil), s.Blockers...)
 	out.Prerequisites = append([]SyncBlocker(nil), s.Prerequisites...)
@@ -131,6 +140,7 @@ func (s SyncJobSnapshot) Clone() SyncJobSnapshot {
 }
 
 type SyncPlanPreview struct {
+	Items                 []SyncItemProgress
 	AsOf                  time.Time
 	ConfigRevision        string
 	Scope                 SyncRequest
@@ -260,6 +270,9 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 		preview.InstrumentTargets++
 		preview.FetchRanges += len(capped)
 		preview.EstimatedRequestCount += len(capped)
+		for _, rng := range capped {
+			preview.Items = append(preview.Items, s.syncHistoryDetail(ctx, household.ID, instrumentTargetKey(need.InstrumentID), need.ProviderKey, rng))
+		}
 	}
 	if request.Scope != SyncScopeInstrument {
 		fxRanges, fxBlockers := s.planFXHistoryRanges(ctx, household.ID, plan, request)
@@ -267,29 +280,26 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 		preview.FXTargets = len(fxRanges)
 		preview.FetchRanges += len(fxRanges)
 		preview.EstimatedRequestCount += len(fxRanges)
-	}
-	if request.Scope != SyncScopeFX {
-		preview.LatestInstrumentCount = len(instruments)
-		preview.EstimatedRequestCount += len(instruments)
-	}
-	if request.Scope != SyncScopeInstrument {
-		prefs, prefErr := s.repository.ListFXPreferences(ctx, household.ID)
-		if prefErr != nil {
-			return SyncPlanPreview{}, prefErr
+		for _, task := range fxRanges {
+			preview.Items = append(preview.Items, s.syncHistoryDetail(ctx, household.ID, fxIdentityKey(task.identity), task.identity.ProviderKey, task.rng))
 		}
-		latestFX := 0
-		for _, preference := range prefs {
-			if preference.SourceKind != domain.QuoteSourceProvider {
-				continue
-			}
-			if request.Scope == SyncScopeFX && !fxPreferenceMatches(preference, request) {
-				continue
-			}
-			latestFX++
-		}
-		preview.LatestFXCount = latestFX
-		preview.EstimatedRequestCount += latestFX
 	}
+	targets, err := s.syncLatestTargets(ctx, request)
+	if err != nil {
+		return SyncPlanPreview{}, err
+	}
+	for _, target := range targets {
+		preview.Items = append(preview.Items, refreshDetail(target))
+		if target.skip {
+			continue
+		}
+		if target.kind == RefreshInstrumentTarget {
+			preview.LatestInstrumentCount++
+		} else {
+			preview.LatestFXCount++
+		}
+	}
+	preview.EstimatedRequestCount += s.latestRequestEstimate(targets)
 	state, err := s.repository.DailySnapshotState(ctx, household.ID)
 	if err != nil {
 		return SyncPlanPreview{}, err
@@ -631,7 +641,19 @@ func (s *Service) CancelMarketDataSyncAndWait() {
 func (s *Service) publishSync(job *syncJobState, event string, mutate func()) {
 	s.syncMu.Lock()
 	if mutate != nil {
+		before := len(job.snapshot.Items)
 		mutate()
+		if current := job.snapshot.Current; current != nil {
+			for index := before; index < len(job.snapshot.Items); index++ {
+				item := &job.snapshot.Items[index]
+				if item.TargetKey == current.TargetKey && item.Label == "" {
+					item.Label = current.Label
+					item.Symbol = current.Symbol
+					item.StartDate = current.StartDate
+					item.EndDate = current.EndDate
+				}
+			}
+		}
 	}
 	job.snapshot.Sequence++
 	snap := job.snapshot.Clone()

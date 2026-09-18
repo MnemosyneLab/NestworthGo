@@ -49,6 +49,13 @@ func (s *Service) withLatestBatches(ctx context.Context, targets []refreshTarget
 		if !ok {
 			continue
 		}
+		for _, target := range targets {
+			if !target.skip && target.providerKey == key {
+				item := refreshDetail(target)
+				item.Status = "running"
+				emitRefreshProgress(ctx, item)
+			}
+		}
 		for key, value := range batch.LatestInstruments(ctx, ids) {
 			results[key] = value
 		}

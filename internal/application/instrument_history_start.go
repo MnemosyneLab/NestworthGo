@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// History starts at economic ownership, not instrument creation or today's quantity.
+// Prefer economic ownership; creation is the fallback for never-held instruments.
 // Sold/archived holdings still need their past prices; reversed purchases do not.
 func (s *Service) instrumentHistoryStarts(ctx context.Context, origin domain.HistoryOrigin, now time.Time) (map[domain.InstrumentID]string, error) {
 	components, err := s.repository.ListHistoryOriginComponents(ctx, origin.ID)
@@ -17,7 +17,21 @@ func (s *Service) instrumentHistoryStarts(ctx context.Context, origin domain.His
 	if err != nil {
 		return nil, err
 	}
-	return instrumentHistoryStartDates(origin, components, activities)
+	starts, err := instrumentHistoryStartDates(origin, components, activities)
+	if err != nil {
+		return nil, err
+	}
+	instruments, err := s.repository.ListInstruments(ctx, origin.HouseholdID, true)
+	if err != nil {
+		return nil, err
+	}
+	location, _ := time.LoadLocation(origin.Timezone)
+	for _, instrument := range instruments {
+		if starts[instrument.ID] == "" {
+			starts[instrument.ID] = instrument.CreatedAt.In(location).Format("2006-01-02")
+		}
+	}
+	return starts, nil
 }
 
 func instrumentHistoryStartDates(origin domain.HistoryOrigin, components []domain.HistoryOriginComponent, activities []domain.Activity) (map[domain.InstrumentID]string, error) {

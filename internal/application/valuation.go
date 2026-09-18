@@ -681,9 +681,11 @@ func historicalInstrumentCoverageCompleteAtMarketDate(instrument domain.Instrume
 			if _, verifiedNoObservation := noObservation[date]; verifiedNoObservation {
 				continue
 			}
-			// A date absent from both canonical observations and an explicit
-			// no-observation result has not been queried, so carry-forward may
-			// supply an amount but cannot make the historical result complete.
+			if instrumentKnownClosedDate(item, date) || domain.InferredInstrumentClosure(item, date) {
+				continue
+			}
+			// Outside the inferred-closure interval, an absent observation
+			// still leaves the carried value incomplete.
 			return false
 		}
 		return true

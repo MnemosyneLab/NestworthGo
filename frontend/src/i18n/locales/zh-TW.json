@@ -551,7 +551,25 @@
   "marketData": {
     "fx": "匯率",
     "fxLocalFirst": "報價儲存在本機，僅在使用者明確操作時重新整理。",
-    "instruments": "投資標的"
+    "instruments": "投資標的",
+    "work": {
+      "title": "查詢明細",
+      "history_instrument": "歷史價格",
+      "history_fx": "歷史匯率",
+      "latest_instrument": "最新價格",
+      "latest_fx": "最新匯率",
+      "planned": "待查詢",
+      "running": "正在查詢",
+      "fetched": "已更新",
+      "cached": "已重用",
+      "skipped": "已略過",
+      "blocked": "受阻",
+      "failed": "失敗",
+      "rate_limited": "請求受限",
+      "missing_or_recheck": "補齊缺口或定期複查",
+      "missing_or_due": "價格缺失或已到更新時間",
+      "recently_checked": "近期已查詢，無需重複請求"
+    }
   },
   "members": {
     "createDescription": "成員用於精確所有權和分配。",

@@ -36,7 +36,7 @@ func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(firstSync.FetchRanges) != 1 || firstSync.FetchRanges[0].Start != "2026-08-30" || firstSync.FetchRanges[0].End != "2026-09-08" {
+	if len(firstSync.FetchRanges) != 1 || firstSync.FetchRanges[0].Start != "2026-08-31" || firstSync.FetchRanges[0].End != "2026-09-08" {
 		t.Fatalf("first staged fetch = %+v, want only 7d anchor window plus required interval", firstSync.FetchRanges)
 	}
 	if len(before.MissingRanges) == 0 {

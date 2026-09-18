@@ -7,6 +7,8 @@ import type {
   RefreshCompletedPayload,
   RefreshResultDTO,
   SyncJobDTO,
+  SyncItemDTO,
+  RefreshProgressPayload,
   SyncPlanPreviewDTO,
   SyncRequestDTO,
   SyncStartResultDTO,
@@ -46,6 +48,7 @@ function resultFailed(result: RefreshResultDTO): boolean {
 function useAsyncRefresh<TInput>({ start, invalidate }: AsyncRefreshOptions<TInput>) {
 	const queryClient = useQueryClient();
 	const pending = useRef<PendingRefresh | null>(null);
+	const [progress, setProgress] = useState<SyncItemDTO[]>([]);
 	const [operationStatus, setOperationStatus] = useState<RefreshOperationStatus>("idle");
 
 	const cancel = useCallback(() => {
@@ -64,8 +67,14 @@ function useAsyncRefresh<TInput>({ start, invalidate }: AsyncRefreshOptions<TInp
 	const mutation = useMutation<RefreshResultDTO | undefined, Error, TInput>({
 		mutationFn: async (input) => {
 			const requestId = crypto.randomUUID();
+			setProgress([]);
+            const stopProgress = Events.On("marketdata.refresh.progress", (event) => {
+                const payload: RefreshProgressPayload = event.data;
+                if (payload.requestId !== requestId || pending.current?.cancelled) return;
+                setProgress((items) => [...items.filter((item) => item.targetKey !== payload.item.targetKey), payload.item]);
+            });
 			const completion = new Promise<RefreshResultDTO | undefined>((resolve, reject) => {
-				const cleanup = Events.On(REFRESH_COMPLETED_EVENT, (event) => {
+				const stopCompletion = Events.On(REFRESH_COMPLETED_EVENT, (event) => {
 					const payload: RefreshCompletedPayload = event.data;
 					if (payload.requestId !== requestId || pending.current?.cancelled) return;
 					pending.current = null;
@@ -88,6 +97,7 @@ function useAsyncRefresh<TInput>({ start, invalidate }: AsyncRefreshOptions<TInp
 					setOperationStatus(resultFailed(payload.result) ? "failed" : "completed");
 					resolve(payload.result);
 				});
+				const cleanup = () => { stopProgress(); stopCompletion(); };
 				pending.current = { requestId, cleanup, resolve, reject, cancelled: false };
 			});
 			setOperationStatus("refreshing");
@@ -107,7 +117,7 @@ function useAsyncRefresh<TInput>({ start, invalidate }: AsyncRefreshOptions<TInp
 	});
 
 	useEffect(() => () => cancel(), [cancel]);
-	return { ...mutation, operationStatus, refreshing: operationStatus === "refreshing", cancel };
+	return { ...mutation, progress, operationStatus, refreshing: operationStatus === "refreshing", cancel };
 }
 
 export function useRefreshAll() {

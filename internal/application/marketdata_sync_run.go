@@ -307,7 +307,9 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 			identity.Market = instrumentMarket(inst)
 		}
 	}
-	outcome, fetchErr := s.fetchInstrumentHistoryWithRetry(ctx, job, history, identity, task.rng, providerKey, stopped)
+	s.beginSyncItem(job, s.syncHistoryDetail(ctx, job.snapshot.HouseholdID, target, providerKey, task.rng))
+	defer s.publishSync(job, SyncEventProgress, func() { job.snapshot.Current = nil })
+	outcome, fetchErr := s.fetchInstrumentHistoryWithRetry(ctx, job, history, identity, task.rng, providerKey, stopped, target)
 	if aborted(ctx) {
 		return false
 	}
@@ -389,6 +391,8 @@ func (s *Service) fetchAndCommitFXRange(ctx context.Context, job *syncJobState, 
 		s.recordBlocker(job, target, string(domain.ErrUnavailable), "fx_history_unsupported")
 		return true
 	}
+	s.beginSyncItem(job, s.syncHistoryDetail(ctx, job.snapshot.HouseholdID, target, providerKey, task.rng))
+	defer s.publishSync(job, SyncEventProgress, func() { job.snapshot.Current = nil })
 	outcome, fetchErr := s.fetchFXHistoryWithRetry(ctx, job, history, task.identity, task.rng, providerKey, stopped)
 	if aborted(ctx) {
 		return false
@@ -440,7 +444,7 @@ func (s *Service) fetchAndCommitFXRange(ctx context.Context, job *syncJobState, 
 	return true
 }
 
-func (s *Service) fetchInstrumentHistoryWithRetry(ctx context.Context, job *syncJobState, history InstrumentHistoryProvider, identity InstrumentMarketIdentity, rng DateRange, providerKey string, stopped map[string]string) (MappingOutcome[InstrumentDailyObservation], error) {
+func (s *Service) fetchInstrumentHistoryWithRetry(ctx context.Context, job *syncJobState, history InstrumentHistoryProvider, identity InstrumentMarketIdentity, rng DateRange, providerKey string, stopped map[string]string, target string) (MappingOutcome[InstrumentDailyObservation], error) {
 	var last MappingOutcome[InstrumentDailyObservation]
 	for attempt := 1; attempt <= SyncMaxTransientAttempts; attempt++ {
 		if aborted(ctx) {
@@ -450,7 +454,7 @@ func (s *Service) fetchInstrumentHistoryWithRetry(ctx context.Context, job *sync
 		if err == nil {
 			return outcome, nil
 		}
-		handle := s.classifyProviderFetchError(ctx, job, err, providerKey, instrumentTargetKeyFromIdentity(identity), stopped)
+		handle := s.classifyProviderFetchError(ctx, job, err, providerKey, target, stopped)
 		if handle == fetchStopProvider || handle == fetchFail {
 			return MappingOutcome[InstrumentDailyObservation]{}, err
 		}
@@ -458,7 +462,7 @@ func (s *Service) fetchInstrumentHistoryWithRetry(ctx context.Context, job *sync
 			return MappingOutcome[InstrumentDailyObservation]{}, ctx.Err()
 		}
 		if attempt == SyncMaxTransientAttempts {
-			s.recordBlocker(job, instrumentTargetKeyFromIdentity(identity), string(domain.ErrProviderUnavailable), "transient_retries_exhausted")
+			s.recordBlocker(job, target, string(domain.ErrProviderUnavailable), "transient_retries_exhausted")
 			return last, err
 		}
 		if sleepErr := s.sleepSync(ctx, syncBackoff(attempt)); sleepErr != nil {
@@ -536,99 +540,78 @@ func (s *Service) classifyProviderFetchError(ctx context.Context, job *syncJobSt
 }
 
 func (s *Service) runLatestInstrumentPhase(ctx context.Context, job *syncJobState, needs []InstrumentRepairNeed, stopped map[string]string) {
-	var targets []refreshTarget
-	for _, need := range needs {
-		if need.ProviderKey != CoinGeckoProviderKey || need.RouteStatus != domain.InstrumentRouteOK || stopped[strings.ToLower(need.ProviderKey)] != "" {
-			continue
-		}
-		instrument, err := s.repository.Instrument(ctx, job.snapshot.HouseholdID, need.InstrumentID)
-		if err == nil {
-			targets = append(targets, instrumentRefreshTarget(instrument))
-		}
-	}
-	ctx = s.withLatestBatches(ctx, targets)
-
-	for _, need := range needs {
-		if aborted(ctx) {
-			return
-		}
-		if need.RouteStatus != domain.InstrumentRouteOK {
-			continue
-		}
-		providerKey := strings.ToLower(need.ProviderKey)
-		if reason := stopped[providerKey]; reason != "" {
-			s.recordItem(job, instrumentTargetKey(need.InstrumentID), "instrument", "skipped", reason, providerKey)
-			continue
-		}
-		result, err := s.RefreshInstrument(ctx, need.InstrumentID)
-		if aborted(ctx) {
-			return
-		}
-		if err != nil {
-			if isWorkspaceFence(err) {
-				return
-			}
-			s.recordBlocker(job, instrumentTargetKey(need.InstrumentID), string(domain.ErrUnavailable), "latest_failed")
-			continue
-		}
-		s.applyLatestRefreshResult(job, result, stopped)
-	}
+	s.runSyncLatest(ctx, job, job.snapshot.Scope, RefreshInstrumentTarget, stopped)
 }
 
 func (s *Service) runLatestFXPhase(ctx context.Context, job *syncJobState, request SyncRequest, stopped map[string]string) {
-	prefs, err := s.repository.ListFXPreferences(ctx, job.snapshot.HouseholdID)
-	if err != nil {
-		s.recordBlocker(job, "fx", string(domain.ErrUnavailable), "fx_preferences")
-		return
-	}
-	providerKey := strings.ToLower(s.FXProviderKey())
-	for _, preference := range prefs {
-		if preference.SourceKind != domain.QuoteSourceProvider {
-			continue
-		}
-		if request.Scope == SyncScopeFX && !fxPreferenceMatches(preference, request) {
-			continue
-		}
-		if aborted(ctx) {
-			return
-		}
-		if reason := stopped[providerKey]; reason != "" {
-			s.recordItem(job, "fx:"+fxPairKey(preference.CurrencyA, preference.CurrencyB), "fx", "skipped", reason, providerKey)
-			continue
-		}
-		result, refreshErr := s.RefreshFX(ctx, preference.CurrencyA.String(), preference.CurrencyB.String())
-		if aborted(ctx) {
-			return
-		}
-		if refreshErr != nil {
-			if isWorkspaceFence(refreshErr) {
-				return
-			}
-			s.recordBlocker(job, "fx:"+fxPairKey(preference.CurrencyA, preference.CurrencyB), string(domain.ErrUnavailable), "latest_failed")
-			continue
-		}
-		s.applyLatestRefreshResult(job, result, stopped)
-	}
+	s.runSyncLatest(ctx, job, request, RefreshFXTarget, stopped)
 }
 
-func (s *Service) applyLatestRefreshResult(job *syncJobState, result RefreshResult, stopped map[string]string) {
+func (s *Service) runSyncLatest(ctx context.Context, job *syncJobState, request SyncRequest, kind RefreshTargetKind, stopped map[string]string) {
+	targets, err := s.syncLatestTargets(ctx, request)
+	if err != nil {
+		s.recordBlocker(job, "latest", string(domain.ErrUnavailable), "latest_plan_failed")
+		return
+	}
+	var selected []refreshTarget
+	for _, target := range targets {
+		if target.kind != kind {
+			continue
+		}
+		detail := refreshDetail(target)
+		if target.skip {
+			s.publishSync(job, SyncEventItem, func() { job.snapshot.Items = append(job.snapshot.Items, detail) })
+			continue
+		}
+		provider := target.providerKey
+		if provider == "" {
+			provider = s.FXProviderKey()
+		}
+		if reason := stopped[strings.ToLower(provider)]; reason != "" {
+			s.recordItem(job, target.key, string(kind), "skipped", reason, provider)
+			continue
+		}
+		selected = append(selected, target)
+	}
+	ctx = WithRefreshProgress(ctx, func(item SyncItemProgress) {
+		if item.Status == "running" {
+			s.beginSyncItem(job, item)
+		} else {
+			s.publishSync(job, SyncEventItem, func() { job.snapshot.Items = append(job.snapshot.Items, item); job.snapshot.Current = nil })
+		}
+	})
+	if aborted(ctx) {
+		return
+	}
+	result := s.refreshTargets(ctx, selected)
+	attempted := map[string]bool{}
 	for _, item := range result.Items {
-		status := string(item.Status)
+		if item.Status != RefreshSkipped {
+			attempted[item.TargetKey] = true
+		}
+	}
+	var completed []refreshTarget
+	for _, target := range selected {
+		if attempted[target.key] {
+			completed = append(completed, target)
+		}
+	}
+	s.publishSync(job, SyncEventProgress, func() { job.snapshot.CompletedRequests += s.latestRequestEstimate(completed) })
+	s.applyLatestRefreshResult(job, result)
+}
+
+func (s *Service) applyLatestRefreshResult(job *syncJobState, result RefreshResult) {
+	for _, item := range result.Items {
+		if item.Status == RefreshFailed || item.Status == RefreshRateLimited {
+			s.recordBlocker(job, item.TargetKey, string(item.ErrorCode), "latest_failed")
+		}
 		if item.Status == RefreshRateLimited {
-			stopped[strings.ToLower(item.TargetKey)] = "rate_limited"
 			s.publishSync(job, SyncEventItem, func() {
 				job.rateLimited = true
 				next := s.clock().Add(time.Hour)
 				job.snapshot.NextEligibilityAt = &next
-				job.snapshot.CompletedRequests++
-				job.snapshot.Items = append(job.snapshot.Items, SyncItemProgress{TargetKey: item.TargetKey, Kind: string(item.Kind), Status: status, Provider: string(item.ErrorCode)})
 			})
-			continue
 		}
-		s.publishSync(job, SyncEventItem, func() {
-			job.snapshot.CompletedRequests++
-			job.snapshot.Items = append(job.snapshot.Items, SyncItemProgress{TargetKey: item.TargetKey, Kind: string(item.Kind), Status: status})
-		})
 	}
 }
 
@@ -676,6 +659,12 @@ func (s *Service) jobMayWrite(job *syncJobState) bool {
 func (s *Service) recordBlocker(job *syncJobState, target, code, reason string) {
 	s.publishSync(job, SyncEventItem, func() {
 		job.snapshot.Blockers = append(job.snapshot.Blockers, SyncBlocker{TargetKey: target, Code: code, Reason: reason})
+		if current := job.snapshot.Current; current != nil && current.TargetKey == target {
+			item := *current
+			item.Status = "failed"
+			item.Detail = code
+			job.snapshot.Items = append(job.snapshot.Items, item)
+		}
 	})
 }
 
@@ -712,8 +701,4 @@ func syncBackoff(attempt int) time.Duration {
 
 func fxIdentityKey(identity FXMarketIdentity) string {
 	return "fx:" + fxPairKey(identity.BaseCurrency, identity.QuoteCurrency)
-}
-
-func instrumentTargetKeyFromIdentity(identity InstrumentMarketIdentity) string {
-	return "instrument:" + strings.TrimSpace(identity.ProviderSymbol)
 }

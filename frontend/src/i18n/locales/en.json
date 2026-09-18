@@ -551,7 +551,25 @@
   "marketData": {
     "fx": "FX rates",
     "fxLocalFirst": "Quotes are stored locally and refreshed only by explicit user action.",
-    "instruments": "Instruments"
+    "instruments": "Instruments",
+    "work": {
+      "title": "Query details",
+      "history_instrument": "Historical prices",
+      "history_fx": "Historical exchange rates",
+      "latest_instrument": "Latest price",
+      "latest_fx": "Latest exchange rate",
+      "planned": "Will query",
+      "running": "Querying",
+      "fetched": "Updated",
+      "cached": "Reused",
+      "skipped": "Skipped",
+      "blocked": "Blocked",
+      "failed": "Failed",
+      "rate_limited": "Rate limited",
+      "missing_or_recheck": "Missing data or scheduled recheck",
+      "missing_or_due": "Missing price or refresh due",
+      "recently_checked": "Recently checked; no request needed"
+    }
   },
   "members": {
     "createDescription": "Members are used for exact ownership and allocation.",

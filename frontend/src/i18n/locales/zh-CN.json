@@ -551,7 +551,25 @@
   "marketData": {
     "fx": "汇率",
     "fxLocalFirst": "报价保存在本地，仅在用户明确操作时刷新。",
-    "instruments": "投资标的"
+    "instruments": "投资标的",
+    "work": {
+      "title": "查询明细",
+      "history_instrument": "历史价格",
+      "history_fx": "历史汇率",
+      "latest_instrument": "最新价格",
+      "latest_fx": "最新汇率",
+      "planned": "待查询",
+      "running": "正在查询",
+      "fetched": "已更新",
+      "cached": "已复用",
+      "skipped": "已跳过",
+      "blocked": "受阻",
+      "failed": "失败",
+      "rate_limited": "请求受限",
+      "missing_or_recheck": "补齐缺口或定期复查",
+      "missing_or_due": "价格缺失或已到刷新时间",
+      "recently_checked": "近期已查询，无需重复请求"
+    }
   },
   "members": {
     "createDescription": "成员用于精确所有权和分配。",

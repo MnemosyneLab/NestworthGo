@@ -211,12 +211,17 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 		closes = append(closes, domain.OracleClose{MarketDate: date})
 	}
 	anchor, missing := domain.FindOpeningAnchor(originDate, closes)
-	lookbackStart := originDate
+	lookbackStart, err := openingAnchorWindowStart(originDate, 7)
+	if err != nil {
+		return InstrumentRepairNeed{}, err
+	}
 	openingWindowDays := 0
 	openingAnchorExhausted := false
 	fetchStart := lookbackStart
 	if !missing && anchor != "" {
-		fetchStart = anchor
+		if anchor < fetchStart {
+			fetchStart = anchor
+		}
 	} else {
 		windowDays, exhausted, err := nextOpeningAnchorWindow(coverage, originDate)
 		if err != nil {
@@ -249,6 +254,9 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 	}
 	missingDates := make([]string, 0)
 	for _, date := range required {
+		if instrumentKnownClosedDate(coverage, date) || domain.InferredInstrumentClosure(coverage, date) {
+			continue
+		}
 		if _, ok := covered[date]; !ok {
 			missingDates = append(missingDates, date)
 		}
@@ -273,7 +281,20 @@ func planInstrumentRepairNeed(coverage domain.InstrumentHistoryCoverage, originD
 }
 
 func nextOpeningAnchorWindow(coverage domain.InstrumentHistoryCoverage, originDate string) (int, bool, error) {
-	return nextOpeningAnchorWindowForDates(coverage.CloseMarketDates, coverage.NoObservationDates, originDate)
+	noObservation := append([]string(nil), coverage.NoObservationDates...)
+	origin, err := time.Parse("2006-01-02", originDate)
+	if err != nil {
+		return 0, false, err
+	}
+	for _, days := range domain.OpeningAnchorLookbackWindows() {
+		for offset := 1; offset <= days; offset++ {
+			date := origin.AddDate(0, 0, -offset).Format("2006-01-02")
+			if instrumentKnownClosedDate(coverage, date) {
+				noObservation = append(noObservation, date)
+			}
+		}
+	}
+	return nextOpeningAnchorWindowForDates(coverage.CloseMarketDates, noObservation, originDate)
 }
 
 func nextOpeningAnchorWindowForDates(closeDates, noObservationDates []string, originDate string) (int, bool, error) {
@@ -343,6 +364,9 @@ func applyHistorySyncPolicy(need InstrumentRepairNeed, coverage domain.Instrumen
 	fetchDates := make([]string, 0)
 	for _, date := range dates {
 		label := string(date)
+		if instrumentKnownClosedDate(coverage, label) || (!force && domain.InferredInstrumentClosure(coverage, label)) {
+			continue
+		}
 		_, hasClose := indexStrings(coverage.CloseMarketDates)[label]
 		_, hasNoObs := indexStrings(coverage.NoObservationDates)[label]
 		expires, hasExpiry := coverage.NoObservationExpiresAt[label]
@@ -362,7 +386,7 @@ func applyHistorySyncPolicy(need InstrumentRepairNeed, coverage domain.Instrumen
 			fetchDates = append(fetchDates, label)
 		}
 	}
-	need.FetchRanges = dateRangesFromDates(fetchDates)
+	need.FetchRanges = instrumentFetchRanges(coverage, fetchDates)
 	if need.ProviderKey == CoinGeckoProviderKey {
 		// Demo's rolling limit is an instant. Start at the next UTC midnight
 		// to avoid a boundary request slightly older than 365 days.
@@ -542,4 +566,44 @@ func nextRebuildDate(value string) (string, error) {
 // cutoff.
 func HouseholdCutoffAt(localDate, timezone string) (time.Time, error) {
 	return domain.HouseholdDayCutoff(localDate, timezone)
+}
+
+// Only omit dates that the supported market's calendar can establish locally.
+// Crypto trades daily; unknown markets retain the conservative fetch behavior.
+func instrumentKnownClosedDate(coverage domain.InstrumentHistoryCoverage, date string) bool {
+	if domain.InstrumentUsesCryptoDailyBar(coverage.InstrumentType, coverage.Market) {
+		return false
+	}
+	if _, supported := domain.EquitySessionScheduleForMarket(coverage.Market); !supported {
+		return false
+	}
+	parsed, err := time.Parse("2006-01-02", date)
+	return err == nil && (parsed.Weekday() == time.Saturday || parsed.Weekday() == time.Sunday)
+}
+
+// Keep one request across an intervening weekend when both sides need prices,
+// but never create a request for a weekend-only gap.
+func instrumentFetchRanges(coverage domain.InstrumentHistoryCoverage, dates []string) []DateRange {
+	ranges := dateRangesFromDates(dates)
+	var merged []DateRange
+	for _, next := range ranges {
+		if len(merged) > 0 {
+			previous := &merged[len(merged)-1]
+			end, _ := time.Parse("2006-01-02", string(previous.End))
+			start, _ := time.Parse("2006-01-02", string(next.Start))
+			bridge := true
+			for day := end.AddDate(0, 0, 1); day.Before(start); day = day.AddDate(0, 0, 1) {
+				if !instrumentKnownClosedDate(coverage, day.Format("2006-01-02")) {
+					bridge = false
+					break
+				}
+			}
+			if bridge {
+				previous.End = next.End
+				continue
+			}
+		}
+		merged = append(merged, next)
+	}
+	return merged
 }

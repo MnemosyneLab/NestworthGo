@@ -163,6 +163,9 @@ func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) R
 		if target.skip {
 			item, _ := s.refreshTarget(ctx, target, marketDataSnapshot{})
 			result.Items = append(result.Items, item)
+			detail := refreshDetail(target)
+			detail.Status = string(item.Status)
+			emitRefreshProgress(ctx, detail)
 			continue
 		}
 		marketData := s.marketDataSnapshot(target)
@@ -172,9 +175,20 @@ func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) R
 		providerKey := refreshProviderKey(target, marketData)
 		if providerKey != "" && rateLimited[providerKey] {
 			result.Items = append(result.Items, RefreshTargetResult{TargetKey: target.key, Kind: target.kind, Status: RefreshSkipped, ErrorCode: domain.ErrProviderRateLimit})
+			detail := refreshDetail(target)
+			detail.Status = "skipped"
+			detail.Detail = string(domain.ErrProviderRateLimit)
+			emitRefreshProgress(ctx, detail)
 			continue
 		}
+		detail := refreshDetail(target)
+		detail.Provider = providerKey
+		detail.Status = "running"
+		emitRefreshProgress(ctx, detail)
 		item, hitRateLimit := s.refreshTarget(ctx, target, marketData)
+		detail.Status = string(item.Status)
+		detail.Detail = string(item.ErrorCode)
+		emitRefreshProgress(ctx, detail)
 		result.Items = append(result.Items, item)
 		if hitRateLimit {
 			if providerKey != "" {
@@ -294,7 +308,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		if inserted {
 			s.invalidateAnalysis()
 		}
-		s.rememberSuccessfulCheck(target.key)
+		s.rememberSuccessfulCheck(s.refreshCacheKey(target))
 		if inserted {
 			return fetchedRefresh(target), false
 		}
@@ -332,7 +346,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 	if err := s.repriceMetalsForFX(ctx, target.householdID, target.baseCurrency, target.quoteCurrency); err != nil {
 		return failedRefresh(target, err), false
 	}
-	s.rememberSuccessfulCheck(target.key)
+	s.rememberSuccessfulCheck(s.refreshCacheKey(target))
 	if inserted {
 		return fetchedRefresh(target), false
 	}
@@ -432,7 +446,37 @@ func (s *Service) applyQuoteCache(snapshot domain.PortfolioSnapshot, targets []r
 		if targets[index].skip {
 			continue
 		}
-		lastCheck := s.lastSuccessfulCheckAt(targets[index].key)
+		target := targets[index]
+		lastCheck := s.lastSuccessfulCheckAt(s.refreshCacheKey(target))
+		// Persisted fetch times survive restarts. Observation timestamps can be old
+		// during a market closure and must not be used as request timestamps.
+		for _, quote := range snapshot.InstrumentQuotes {
+			if target.kind != RefreshInstrumentTarget || quote.InstrumentID != target.instrument.ID || quote.SourceKind != domain.QuoteSourceProvider || quote.SourceKey != target.providerKey || quote.Currency != target.instrument.QuoteCurrency {
+				continue
+			}
+			checked := quote.FetchedAt
+			if checked.IsZero() {
+				checked = quote.CreatedAt
+			}
+			if checked.Before(target.instrument.UpdatedAt) {
+				continue
+			}
+			if checked.After(lastCheck) {
+				lastCheck = checked
+			}
+		}
+		for _, quote := range snapshot.FXQuotes {
+			if target.kind != RefreshFXTarget || quote.SourceKind != domain.QuoteSourceProvider || quote.SourceKey != s.FXProviderKey() || fxPairKey(quote.BaseCurrency, quote.QuoteCurrency) != fxPairKey(target.baseCurrency, target.quoteCurrency) {
+				continue
+			}
+			checked := quote.FetchedAt
+			if checked.IsZero() {
+				checked = quote.CreatedAt
+			}
+			if checked.After(lastCheck) {
+				lastCheck = checked
+			}
+		}
 		if !domain.LatestRequestDue(lastCheck, now, ttl, false) {
 			targets[index].skip = true
 			targets[index].cached = true
@@ -594,4 +638,12 @@ func refreshErrorCode(err error) domain.ErrorCode {
 
 func malformedProviderError() error {
 	return &domain.Error{Code: domain.ErrMalformedProviderResponse, Message: "provider response is malformed"}
+}
+
+func (s *Service) refreshCacheKey(target refreshTarget) string {
+	provider := target.providerKey
+	if target.kind == RefreshFXTarget {
+		provider = s.FXProviderKey()
+	}
+	return target.key + "|" + provider + "|" + target.providerSymbol + "|" + target.instrument.UpdatedAt.Format(time.RFC3339Nano)
 }
