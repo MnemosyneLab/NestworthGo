@@ -1,3 +1,4 @@
+import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -913,7 +914,7 @@ function RecordChangeFormReady({
         <>
           <OptionSelect id="change-from-holding" label={t("history.fromHolding")} value={request.fromHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(fromHoldingId) => patch({ fromHoldingId })} />
           <OptionSelect id="change-to-holding" label={t("history.toHolding")} value={request.toHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(toHoldingId) => patch({ toHoldingId })} />
-          <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
+          <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")} {metalUnitLabel(selectedInstrument?.quantityUnit, t)}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
         </>
       )}
 
@@ -924,8 +925,8 @@ function RecordChangeFormReady({
             <label className="flex items-center gap-2 text-sm"><input type="radio" name="position-direction" checked={request.added === true} onChange={() => patch({ added: true })} /> {t("history.added")}</label>
             <label className="flex items-center gap-2 text-sm"><input type="radio" name="position-direction" checked={request.added === false} onChange={() => patch({ added: false, unitCost: "" })} /> {t("history.removed")}</label>
           </div>
-          <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
-          {request.added && <div className="flex flex-col gap-1.5"><Label htmlFor="change-unit-cost">{t("history.unitCostOptional")}</Label><Input id="change-unit-cost" inputMode="decimal" value={request.unitCost ?? ""} onChange={(event) => patch({ unitCost: event.target.value })} /></div>}
+          <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")} {metalUnitLabel(selectedInstrument?.quantityUnit, t)}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
+          {request.added && <div className="flex flex-col gap-1.5"><Label htmlFor="change-unit-cost">{t("history.unitCostOptional")} {selectedInstrument?.quoteCurrency}{metalPriceSuffix(selectedInstrument, t)}</Label><Input id="change-unit-cost" inputMode="decimal" value={request.unitCost ?? ""} onChange={(event) => patch({ unitCost: event.target.value })} /></div>}
         </>
       )}
 
@@ -968,7 +969,7 @@ function RecordChangeFormReady({
             <CalculateAmounts
               onCalculate={runTradeCalculate}
               quoteHint={
-                <QuoteHint quote={instrumentQuote.data} quoteLabel={instrumentQuote.data ? t("portfolio.latestPrice", { value: formatAmount(instrumentQuote.data.unitPrice, instrumentQuote.data.currency) }) : undefined} manual={selectedInstrument.quoteSource === "manual"} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={instrumentQuote.isLoading} error={refreshInstrument.error} />
+                <QuoteHint quote={instrumentQuote.data} quoteLabel={instrumentQuote.data ? t("portfolio.latestPrice", { value: formatAmount(instrumentQuote.data.unitPrice, instrumentQuote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} manual={selectedInstrument.quoteSource === "manual"} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={instrumentQuote.isLoading} error={refreshInstrument.error} />
               }
             />
           )}
@@ -987,7 +988,7 @@ function RecordChangeFormReady({
               }}
             />
           ) : <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>{t("accounts.createInstrument")}</Button>)}
-          <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
+          <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")} {metalUnitLabel(selectedInstrument?.quantityUnit, t)}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
           <MoneyFields prefix="change-gross" label={t("history.grossTotal")} amount={request.gross ?? ""} currency={request.grossCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency={Boolean(selectedInstrument)} onAmount={(gross) => patch({ gross })} onCurrency={selectedInstrument ? undefined : (grossCurrency) => patch({ grossCurrency })} />
           <MoneyFields prefix="change-fee" label={t("history.feeOptional")} amount={request.fee ?? ""} currency={request.feeCurrency ?? request.grossCurrency ?? defaultCurrency} currencies={currencyOptions} disabledCurrency onAmount={(fee) => patch({ fee })} />
         </>

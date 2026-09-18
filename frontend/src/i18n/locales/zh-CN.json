@@ -854,5 +854,30 @@
     "healthLoading": "正在检查历史数据健康状态…",
     "healthFailed": "无法检查历史数据健康状态。",
     "portfolioScope": "仅投资持仓 · 不含现金"
+  },
+  "metals": {
+    "template": "贵金属模板",
+    "custom": "自定义／手动填写",
+    "gold": "黄金",
+    "silver": "白银",
+    "holdingUnit": "持仓单位",
+    "gram": "克（g）",
+    "troyOunce": "金衡盎司（oz t）",
+    "g": "克",
+    "troy_oz": "金衡盎司",
+    "unitHelp": "1 金衡盎司 = 31.1034768 克。持仓数量、单位成本和报价均使用所选单位。",
+    "immutable": "创建后，模板、持仓单位和计价币种不可修改。",
+    "identityDetails": "市场与标的详细信息",
+    "loading": "正在获取参考价…",
+    "previewUnavailable": "暂无报价。可以先保存，稍后刷新。",
+    "retry": "重试报价",
+    "referenceDisclaimer": "使用期货价格参考估值，可能与实物成交价不同；历史价格可能受合约切换影响。",
+    "reference": "期货参考估值",
+    "priceUnit": "计价单位",
+    "conversion": "换算明细",
+    "original": "原始报价",
+    "exchangeRate": "美元换算汇率",
+    "rawTime": "贵金属报价时间",
+    "fxTime": "汇率时间"
   }
 }

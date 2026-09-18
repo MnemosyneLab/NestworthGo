@@ -73,6 +73,8 @@ export function invalidateRefreshAll(queryClient: QueryClient) {
 }
 
 export function invalidateRequiredFX(queryClient: QueryClient) {
+  // Metal prices can change after an FX-only refresh or preference change.
+  invalidate(queryClient, queryKeys.quote.instrument.all);
   invalidate(queryClient, queryKeys.quote.fx.all);
   invalidate(queryClient, queryKeys.quote.fx.preferences);
   invalidateCurrentValuation(queryClient);

@@ -1,3 +1,4 @@
+import { metalUnitLabel } from "@/lib/preciousMetals";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
@@ -355,7 +356,7 @@ export function AccountDetail({
                           <InstrumentLabel name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
                         </td>
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
-                        <td className="py-2">{formatAmount(row.holding.quantity)}</td>
+                        <td className="py-2">{formatAmount(row.holding.quantity)} {metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}</td>
                         <td className="py-2">
                           {row.component?.available && row.component.nativeAmount ? (
                             <ComponentAmounts

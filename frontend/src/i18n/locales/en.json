@@ -854,5 +854,30 @@
     "healthLoading": "Checking historical data health…",
     "healthFailed": "Historical data health could not be checked.",
     "portfolioScope": "Investment holdings only · Excludes cash"
+  },
+  "metals": {
+    "template": "Precious metal template",
+    "custom": "Custom / manual entry",
+    "gold": "Gold",
+    "silver": "Silver",
+    "holdingUnit": "Holding unit",
+    "gram": "Gram (g)",
+    "troyOunce": "Troy ounce (oz t)",
+    "g": "g",
+    "troy_oz": "oz t",
+    "unitHelp": "1 troy ounce = 31.1034768 grams. Quantities, unit costs and prices use this unit.",
+    "immutable": "Template, holding unit and currency are fixed after creation.",
+    "identityDetails": "Market and identity details",
+    "loading": "Fetching reference price…",
+    "previewUnavailable": "Price unavailable. You can save now and refresh later.",
+    "retry": "Retry quote",
+    "referenceDisclaimer": "Futures reference valuation; physical dealing prices may differ. Historical prices can be affected by contract rolls.",
+    "reference": "Futures reference",
+    "priceUnit": "Price unit",
+    "conversion": "Conversion details",
+    "original": "Original quote",
+    "exchangeRate": "USD exchange rate",
+    "rawTime": "Metal quote time",
+    "fxTime": "Exchange rate time"
   }
 }

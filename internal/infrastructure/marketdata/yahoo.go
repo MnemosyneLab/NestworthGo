@@ -181,6 +181,14 @@ func (p *YahooChartProvider) InstrumentDailyHistory(ctx context.Context, identit
 	if err != nil {
 		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
 	}
+	if domain.UsesMetalFuturesHistory(identity.InstrumentType, identity.Market) {
+		loc, locationErr := time.LoadLocation("America/New_York")
+		if locationErr != nil {
+			return application.MappingOutcome[application.InstrumentDailyObservation]{}, locationErr
+		}
+		startAt, _ = time.ParseInLocation("2006-01-02", start, loc)
+		endAt, _ = time.ParseInLocation("2006-01-02", end, loc)
+	}
 	endExclusive := endAt.AddDate(0, 0, 1).UTC()
 
 	var bars []yfinancemodels.Bar
@@ -205,6 +213,9 @@ func (p *YahooChartProvider) InstrumentDailyHistory(ctx context.Context, identit
 		return application.MappingOutcome[application.InstrumentDailyObservation]{}, err
 	}
 
+	if domain.UsesMetalFuturesHistory(identity.InstrumentType, identity.Market) {
+		return qualifyYahooMetalHistory(identity, rng, bars, metadata, p.clock())
+	}
 	return qualifyYFinanceHistory(identity, rng, bars, metadata, p.clock())
 }
 

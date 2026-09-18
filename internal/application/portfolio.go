@@ -19,6 +19,8 @@ type InstrumentInput struct {
 	Replace        bool
 	Name           string
 	Type           string
+	MetalTemplate  string
+	QuantityUnit   string
 	QuoteCurrency  string
 	Symbol         string
 	MarketCode     string
@@ -278,6 +280,9 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	updated, err := newInstrumentFromInput(current.HouseholdID, input, s.clock())
 	if err != nil {
 		return domain.Instrument{}, err
+	}
+	if updated.MetalTemplate != current.MetalTemplate || updated.QuantityUnit != current.QuantityUnit || (current.MetalTemplate != "" && updated.Type != current.Type) {
+		return domain.Instrument{}, &domain.Error{Code: domain.ErrValidation, Field: "quantityUnit", Message: "metal template and holding unit are immutable after creation"}
 	}
 	if updated.QuoteCurrency != current.QuoteCurrency {
 		return domain.Instrument{}, &domain.Error{Code: domain.ErrValidation, Field: "quoteCurrency", Message: "instrument currency is immutable after creation"}
@@ -767,6 +772,9 @@ func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, sou
 	if saveErr != nil {
 		return domain.FXPreference{}, saveErr
 	}
+	if err := s.repriceMetalsForFX(ctx, household.ID, a, b); err != nil {
+		return domain.FXPreference{}, err
+	}
 	s.invalidateAnalysis()
 	return preference, nil
 }
@@ -819,6 +827,9 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 	if err := s.repository.AppendFXQuote(ctx, fxQuote); err != nil {
 		return domain.FXQuote{}, err
 	}
+	if err := s.repriceMetalsForFX(ctx, household.ID, base, quoteCurrencyCode); err != nil {
+		return domain.FXQuote{}, err
+	}
 	s.invalidateAnalysis()
 	return fxQuote, nil
 }
@@ -855,13 +866,19 @@ func newInstrumentFromInput(householdID domain.HouseholdID, input InstrumentInpu
 		return domain.Instrument{}, err
 	}
 	return domain.NewInstrument(domain.InstrumentInput{
-		HouseholdID: householdID, Name: input.Name, Type: instrumentType, QuoteCurrency: quoteCurrency,
+		HouseholdID: householdID, Name: input.Name, Type: instrumentType, QuoteCurrency: quoteCurrency, MetalTemplate: input.MetalTemplate, QuantityUnit: input.QuantityUnit,
 		Symbol: optionalText(input.Symbol), MarketCode: optionalText(input.MarketCode), CountryCode: optionalText(input.CountryCode), ISIN: optionalText(input.ISIN), Note: input.Note,
 		IconKey: optionalText(input.IconKey), SortOrder: input.SortOrder, QuoteSource: quoteSource, ProviderKey: optionalText(input.ProviderKey), ProviderSymbol: optionalText(input.ProviderSymbol),
 	}, now)
 }
 
 func mergeInstrumentInput(input *InstrumentInput, current domain.Instrument) {
+	if input.MetalTemplate == "" {
+		input.MetalTemplate = current.MetalTemplate
+	}
+	if input.QuantityUnit == "" {
+		input.QuantityUnit = current.QuantityUnit
+	}
 	if input.Name == "" {
 		input.Name = current.Name
 	}

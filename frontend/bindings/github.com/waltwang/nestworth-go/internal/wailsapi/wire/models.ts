@@ -521,6 +521,8 @@ export interface InstrumentDTO {
     "householdId": string;
     "name": string;
     "type": string;
+    "metalTemplate"?: string;
+    "quantityUnit"?: string;
     "quoteCurrency": string;
     "symbol"?: string | null;
     "marketCode"?: string | null;
@@ -541,6 +543,7 @@ export interface InstrumentDTO {
  * InstrumentQuoteDTO mirrors domain.InstrumentQuote.
  */
 export interface InstrumentQuoteDTO {
+    "conversionJSON"?: string;
     "id": string;
     "instrumentId": string;
     "unitPrice": string;

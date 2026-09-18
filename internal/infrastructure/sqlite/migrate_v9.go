@@ -32,11 +32,7 @@ func migrateV9ToV10(ctx context.Context, database *sql.DB) error {
 		_ = tx.Rollback()
 		return err
 	}
-	if _, err := tx.ExecContext(ctx, fmt.Sprintf("PRAGMA user_version = %d", CurrentSchemaVersion)); err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-	if err := verifySchema(ctx, tx); err != nil {
+	if _, err := tx.ExecContext(ctx, "PRAGMA user_version = 10"); err != nil {
 		_ = tx.Rollback()
 		return err
 	}

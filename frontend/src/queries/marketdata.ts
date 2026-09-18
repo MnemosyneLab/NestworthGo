@@ -12,7 +12,7 @@ import type {
   SyncStartResultDTO,
 } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import { callService, parseWailsError, translateWailsError } from "@/lib/wails";
-import { invalidateMarketDataSync, invalidateQuoteReads, invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
+import { invalidateMarketDataSync, invalidateInstrumentQuoteChange, invalidateRefreshAll, invalidateRequiredFX } from "@/queries/invalidation";
 import { queryKeys } from "@/queries/keys";
 
 const REFRESH_COMPLETED_EVENT = "marketdata.refresh.completed" as const;
@@ -134,7 +134,7 @@ export function useRefreshMissingOrStale() {
 export function useRefreshInstrument() {
 	return useAsyncRefresh<string>({
 		start: (requestId, instrumentId) => MarketDataService.StartRefreshInstrument(requestId, instrumentId),
-		invalidate: (queryClient, instrumentId) => invalidateQuoteReads(queryClient, instrumentId),
+		invalidate: (queryClient, instrumentId) => { invalidateInstrumentQuoteChange(queryClient, instrumentId); invalidateRequiredFX(queryClient); },
 	});
 }
 

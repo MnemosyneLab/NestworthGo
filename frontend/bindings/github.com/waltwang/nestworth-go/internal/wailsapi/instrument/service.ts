@@ -25,6 +25,10 @@ export function ListInstruments(includeArchived: boolean): $CancellablePromise<w
     return $Call.ByID(3717597159, includeArchived);
 }
 
+export function PreviewMetalQuote(template: string, unit: string, currency: string): $CancellablePromise<$models.MetalQuotePreviewDTO> {
+    return $Call.ByID(3215490912, template, unit, currency);
+}
+
 export function SetInstrumentIcon(id: string, iconKey: string): $CancellablePromise<void> {
     return $Call.ByID(3109919373, id, iconKey);
 }

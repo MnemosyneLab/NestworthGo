@@ -26,6 +26,8 @@ type InstrumentRequest struct {
 	Replace        bool    `json:"replace,omitempty"`
 	Name           string  `json:"name"`
 	Type           string  `json:"type"`
+	MetalTemplate  string  `json:"metalTemplate,omitempty"`
+	QuantityUnit   string  `json:"quantityUnit,omitempty"`
 	QuoteCurrency  string  `json:"quoteCurrency"`
 	Symbol         *string `json:"symbol,omitempty"`
 	MarketCode     *string `json:"marketCode,omitempty"`
@@ -41,7 +43,7 @@ type InstrumentRequest struct {
 
 func (r InstrumentRequest) toApplicationInput() application.InstrumentInput {
 	return application.InstrumentInput{
-		Replace: r.Replace, Name: r.Name, Type: r.Type, QuoteCurrency: r.QuoteCurrency,
+		Replace: r.Replace, Name: r.Name, Type: r.Type, QuoteCurrency: r.QuoteCurrency, MetalTemplate: r.MetalTemplate, QuantityUnit: r.QuantityUnit,
 		Symbol: wire.StringFromPtr(r.Symbol), MarketCode: wire.StringFromPtr(r.MarketCode),
 		CountryCode: wire.StringFromPtr(r.CountryCode), ISIN: wire.StringFromPtr(r.ISIN),
 		Note: r.Note, IconKey: wire.StringFromPtr(r.IconKey), SortOrder: r.SortOrder,
@@ -99,4 +101,22 @@ func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id, source strin
 		return apierror.Wrap(err)
 	}
 	return apierror.Wrap(s.app.SetInstrumentQuoteSource(ctx, instrumentID, source))
+}
+
+// MetalQuotePreviewDTO includes the unit and currency so stale form responses
+// cannot be mistaken for a price for a different selection.
+type MetalQuotePreviewDTO struct {
+	UnitPrice      string `json:"unitPrice"`
+	Currency       string `json:"currency"`
+	QuantityUnit   string `json:"quantityUnit"`
+	QuotedAt       string `json:"quotedAt"`
+	ConversionJSON string `json:"conversionJSON"`
+}
+
+func (s *Service) PreviewMetalQuote(ctx context.Context, template, unit, currency string) (MetalQuotePreviewDTO, error) {
+	quote, evidence, err := s.app.PreviewMetalQuote(ctx, template, unit, currency)
+	if err != nil {
+		return MetalQuotePreviewDTO{}, apierror.Wrap(err)
+	}
+	return MetalQuotePreviewDTO{UnitPrice: quote.Price.Canonical(), Currency: quote.Currency.String(), QuantityUnit: unit, QuotedAt: wire.FormatTime(quote.QuotedAt), ConversionJSON: evidence}, nil
 }

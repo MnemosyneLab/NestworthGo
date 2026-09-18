@@ -134,6 +134,8 @@ type Instrument struct {
 	HouseholdID             HouseholdID
 	Name                    string
 	Type                    InstrumentType
+	MetalTemplate           string
+	QuantityUnit            string
 	QuoteCurrency           CurrencyCode
 	Symbol                  *string
 	MarketCode              *string
@@ -153,6 +155,8 @@ type Instrument struct {
 }
 
 type InstrumentInput struct {
+	MetalTemplate  string
+	QuantityUnit   string
 	HouseholdID    HouseholdID
 	Name           string
 	Type           InstrumentType
@@ -195,6 +199,10 @@ func InstrumentDisplayLabel(name, symbol string) string {
 func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 	name, err := validateName("name", input.Name)
 	if err != nil {
+		return Instrument{}, err
+	}
+	applyMetalTemplateDefaults(&input)
+	if err := ValidateMetalConfiguration(input); err != nil {
 		return Instrument{}, err
 	}
 	instrumentType, err := ParseInstrumentType(string(input.Type))
@@ -267,6 +275,7 @@ func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 	now = normalizeTime(now)
 	return Instrument{
 		ID: NewInstrumentID(), HouseholdID: input.HouseholdID, Name: name, Type: instrumentType,
+		MetalTemplate: input.MetalTemplate, QuantityUnit: input.QuantityUnit,
 		QuoteCurrency: currency, Symbol: symbol, MarketCode: marketCode, CountryCode: countryCode,
 		ISIN: isin, Note: note, IconKey: iconKey, SortOrder: input.SortOrder,
 		QuoteSource: quoteSource, ProviderKey: providerKey, ProviderSymbol: providerSymbol,
@@ -384,6 +393,7 @@ type InstrumentQuote struct {
 	Revision            int
 	SupersedesQuoteID   *string
 	SplitFactor         string
+	ConversionJSON      string
 	DividendCash        string
 }
 

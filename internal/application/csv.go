@@ -27,7 +27,7 @@ var AccountsCSVHeaders = []string{
 
 var HoldingsCSVHeaders = []string{
 	"account_name", "instrument_type", "instrument_name", "quantity", "quote_currency",
-	"unit_price", "quote_date", "symbol", "market_code", "country_code", "isin", "note",
+	"unit_price", "quote_date", "symbol", "market_code", "country_code", "isin", "note", "metal_template", "quantity_unit",
 }
 
 type CSVParseOptions struct {
@@ -235,6 +235,7 @@ func (s *Service) ExportHoldingsCSV(ctx context.Context, includeArchived bool) (
 			deref(item.instrument.CountryCode),
 			deref(item.instrument.ISIN),
 			deref(item.holding.Note),
+			item.instrument.MetalTemplate, item.instrument.QuantityUnit,
 		})
 	}
 	codec, err := s.requireCSV()

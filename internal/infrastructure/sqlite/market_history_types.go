@@ -22,6 +22,7 @@ type InstrumentHistoryObservation struct {
 	PriceBasis        string
 	TimestampBasis    string
 	SplitFactor       string
+	ConversionJSON    string
 	DividendCash      string
 }
 

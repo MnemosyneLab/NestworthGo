@@ -135,12 +135,15 @@ CREATE TABLE instruments (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     archived_at TEXT,
+    metal_template TEXT NOT NULL DEFAULT '',
+    quantity_unit TEXT NOT NULL DEFAULT '',
     CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL)),
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_instruments_household ON instruments(household_id);
 CREATE INDEX idx_instruments_quote_source ON instruments(household_id, quote_source, archived_at);
-CREATE UNIQUE INDEX ux_instruments_active_provider_binding ON instruments(household_id, provider_key, provider_symbol) WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL;
+CREATE UNIQUE INDEX ux_instruments_active_provider_binding ON instruments(household_id, provider_key, provider_symbol) WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL AND metal_template = '';
+CREATE UNIQUE INDEX ux_instruments_active_metal_binding ON instruments(household_id, provider_key, provider_symbol, quote_currency, quantity_unit) WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL AND metal_template <> '';
 CREATE TABLE holdings (
     id TEXT PRIMARY KEY NOT NULL,
     account_id TEXT NOT NULL,
@@ -190,6 +193,7 @@ CREATE TABLE instrument_quotes (
     supersedes_quote_id TEXT,
     split_factor TEXT,
     dividend_cash TEXT,
+    conversion_json TEXT,
     FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_instrument_quotes_latest ON instrument_quotes(instrument_id, source_kind, currency, quoted_at DESC, created_at DESC, id DESC);
@@ -597,4 +601,4 @@ CREATE TABLE market_data_day_status (
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_market_data_day_status_household ON market_data_day_status(household_id, target_type, target_id, effective_date);
-PRAGMA user_version = 10;
+PRAGMA user_version = 11;

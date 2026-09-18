@@ -10,6 +10,8 @@ export interface InstrumentRequest {
     "replace"?: boolean;
     "name": string;
     "type": string;
+    "metalTemplate"?: string;
+    "quantityUnit"?: string;
     "quoteCurrency": string;
     "symbol"?: string | null;
     "marketCode"?: string | null;
@@ -21,4 +23,16 @@ export interface InstrumentRequest {
     "quoteSource"?: string;
     "providerKey"?: string | null;
     "providerSymbol"?: string | null;
+}
+
+/**
+ * MetalQuotePreviewDTO includes the unit and currency so stale form responses
+ * cannot be mistaken for a price for a different selection.
+ */
+export interface MetalQuotePreviewDTO {
+    "unitPrice": string;
+    "currency": string;
+    "quantityUnit": string;
+    "quotedAt": string;
+    "conversionJSON": string;
 }

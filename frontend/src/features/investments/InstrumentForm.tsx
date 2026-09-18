@@ -1,4 +1,10 @@
+import { MetalConversionDetails } from "./MetalConversionDetails";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import * as InstrumentService from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument/service";
+import { callService } from "@/lib/wails";
+import { formatAmount } from "@/lib/money";
+import { metalUnitLabel } from "@/lib/preciousMetals";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -21,6 +27,8 @@ import { InstrumentYahooSearch } from "@/features/investments/InstrumentYahooSea
 import type { InstrumentSearchHitDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 
 const instrumentFormSchema = z.object({
+  metalTemplate: z.string(),
+  quantityUnit: z.string(),
   name: z.string().trim().min(1),
   type: z.string(),
   quoteCurrency: z.string().length(3),
@@ -64,6 +72,8 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
   } = useForm<InstrumentFormValues>({
     resolver: zodResolver(instrumentFormSchema),
     defaultValues: {
+      metalTemplate: instrument?.metalTemplate ?? "",
+      quantityUnit: instrument?.quantityUnit ?? "",
       name: instrument?.name ?? "",
       type: instrument?.type ?? "stock",
       quoteCurrency: instrument?.quoteCurrency ?? "CNY",
@@ -78,6 +88,9 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       iconKey: instrument?.iconKey ?? "stock",
     },
   });
+  const metalTemplate = useWatch({ control, name: "metalTemplate" });
+  const quantityUnit = useWatch({ control, name: "quantityUnit" });
+  const quoteCurrency = useWatch({ control, name: "quoteCurrency" });
   const quoteSource = useWatch({ control, name: "quoteSource" });
   const instrumentType = useWatch({ control, name: "type" }) ?? "stock";
   const iconKey = useWatch({ control, name: "iconKey" });
@@ -110,10 +123,32 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
 
   useEffect(() => {
     if (instrument) return;
-    if (quoteSource === "provider" && defaultProviderKey) {
+    if (!metalTemplate && quoteSource === "provider" && defaultProviderKey) {
       setValue("providerKey", defaultProviderKey);
     }
-  }, [defaultProviderKey, instrument, quoteSource, setValue]);
+  }, [defaultProviderKey, instrument, metalTemplate, quoteSource, setValue]);
+
+  const metalPreview = useQuery({
+    queryKey: ["metal-quote-preview", metalTemplate, quantityUnit, quoteCurrency],
+    queryFn: () => callService(() => InstrumentService.PreviewMetalQuote(metalTemplate, quantityUnit, quoteCurrency)),
+    enabled: Boolean(metalTemplate && quantityUnit && quoteCurrency && quoteSource === "provider"),
+    staleTime: 60_000,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const applyMetalTemplate = (template: string) => {
+    setValue("metalTemplate", template);
+    setValue("quantityUnit", template ? "g" : "");
+    setValue("quoteSource", template ? "provider" : "manual");
+    setValue("providerKey", template ? "yahoo_finance" : "");
+    setValue("providerSymbol", template === "gold" ? "GC=F" : template === "silver" ? "SI=F" : "");
+    setValue("symbol", "");
+    setValue("marketCode", template ? "COMEX" : "");
+    setValue("countryCode", "");
+    setValue("isin", "");
+    if (template) setValue("name", t(`metals.${template}`));
+  };
 
   const applyYahooSearchHit = (hit: InstrumentSearchHitDTO) => {
     setValue("type", hit.type || instrumentType);
@@ -140,6 +175,8 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
   const submit = (values: InstrumentFormValues) => {
     onSubmit({
       replace: Boolean(instrument),
+      metalTemplate: values.metalTemplate || undefined,
+      quantityUnit: values.quantityUnit || undefined,
       name: values.name,
       type: values.type,
       quoteCurrency: values.quoteCurrency,
@@ -149,8 +186,8 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       isin: values.isin?.trim() || undefined,
       note: values.note?.trim() || undefined,
       quoteSource: values.quoteSource,
-      providerKey: values.quoteSource === "provider" ? values.providerKey : undefined,
-      providerSymbol: values.quoteSource === "provider" ? values.providerSymbol : undefined,
+      providerKey: values.quoteSource === "provider" || values.metalTemplate ? values.providerKey : undefined,
+      providerSymbol: values.quoteSource === "provider" || values.metalTemplate ? values.providerSymbol : undefined,
       iconKey: values.iconKey,
     });
   };
@@ -168,7 +205,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-type">{t("portfolio.type")}</Label>
-        <NativeSelect id="instrument-type" {...register("type")}>
+        <NativeSelect id="instrument-type" {...register("type")} disabled={Boolean(instrument?.metalTemplate)} onChange={(event) => { setValue("type", event.target.value); if (!instrument && metalTemplate) applyMetalTemplate(""); }}>
           {instrumentTypes.map((type) => (
             <option key={type} value={type}>
               {displayEnum(t, "enum", type)}
@@ -176,14 +213,35 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           ))}
         </NativeSelect>
       </div>
+      {instrumentType === "precious_metal" && (
+        <div className="flex flex-col gap-3 rounded-md border border-border p-3">
+          <Label htmlFor="metal-template">{t("metals.template")}</Label>
+          <NativeSelect id="metal-template" value={metalTemplate} disabled={Boolean(instrument)} onChange={(event) => applyMetalTemplate(event.target.value)}>
+            <option value="">{t("metals.custom")}</option>
+            <option value="gold">{t("metals.gold")}</option>
+            <option value="silver">{t("metals.silver")}</option>
+          </NativeSelect>
+          {metalTemplate && <>
+            <Label htmlFor="metal-unit">{t("metals.holdingUnit")}</Label>
+            <NativeSelect id="metal-unit" {...register("quantityUnit")} disabled={Boolean(instrument)}>
+              <option value="g">{t("metals.gram")}</option>
+              <option value="troy_oz">{t("metals.troyOunce")}</option>
+            </NativeSelect>
+            <p className="text-xs text-muted-foreground">{t("metals.unitHelp")}</p>
+            {instrument && <p className="text-xs text-muted-foreground">{t("metals.immutable")}</p>}
+          </>}
+        </div>
+      )}
       {isYahooSearchableInstrumentType(instrumentType) && (
         <InstrumentYahooSearch instrumentType={instrumentType} onSelect={applyYahooSearchHit} />
       )}
       <IconPicker id="instrument-icon" value={iconKey} kind="instrument" onChange={(key) => { setValue("iconKey", key); setIconCustomized(true); }} />
-      <div className="grid gap-4 sm:grid-cols-2">
+      <details open={!metalTemplate}><summary className="cursor-pointer text-sm text-muted-foreground">{t("metals.identityDetails")}</summary>
+      <div className="mt-3 grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="instrument-country-code">{t("portfolio.countryCode")}</Label>
           <NativeSelect
+            disabled={Boolean(metalTemplate)}
             id="instrument-country-code"
             value={countryCode}
             onChange={(event) => {
@@ -203,6 +261,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="instrument-market-code">{t("portfolio.marketCode")}</Label>
           <NativeSelect
+            disabled={Boolean(metalTemplate)}
             id="instrument-market-code"
             value={marketCode}
             onChange={(event) => {
@@ -227,6 +286,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           <Input id="instrument-isin" {...register("isin")} />
         </div>
       </div>
+      </details>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="instrument-currency">{t("accounts.currency")}</Label>
@@ -252,7 +312,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           </NativeSelect>
         </div>
       </div>
-      {quoteSource === "provider" && (
+      {quoteSource === "provider" && !metalTemplate && (
         <>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="instrument-provider-key">{t("portfolio.providerKey")}</Label>
@@ -270,6 +330,15 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
           </div>
         </>
       )}
+      {metalTemplate && <div className="rounded-md bg-muted p-3 text-sm" aria-live="polite">
+        {quoteSource === "provider" && <>
+          <p className="font-medium">{metalPreview.isFetching ? t("metals.loading") : metalPreview.data ? `${formatAmount(metalPreview.data.unitPrice, metalPreview.data.currency)} / ${metalUnitLabel(quantityUnit, t)}` : t("metals.previewUnavailable")}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Yahoo · {metalTemplate === "gold" ? "GC=F" : "SI=F"} · USD / oz t</p>
+          {metalPreview.data && <MetalConversionDetails evidence={metalPreview.data.conversionJSON} />}
+          {metalPreview.isError && <Button type="button" size="sm" variant="ghost" onClick={() => void metalPreview.refetch()}>{t("metals.retry")}</Button>}
+        </>}
+        <p className="mt-1 text-xs text-muted-foreground">{t("metals.referenceDisclaimer")}</p>
+      </div>}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="instrument-note">{t("portfolio.note")}</Label>
         <Input id="instrument-note" {...register("note")} />

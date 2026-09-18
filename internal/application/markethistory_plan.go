@@ -90,6 +90,11 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 	for _, item := range coverage {
 		marketFinalized := finalized
 		switch {
+		case domain.UsesMetalFuturesHistory(item.InstrumentType, item.Market):
+			marketFinalized, err = domain.LastFinalizedMetalMarketDate(now)
+			if err != nil {
+				return HistoryRepairPlan{}, err
+			}
 		case domain.InstrumentUsesCryptoDailyBar(item.InstrumentType, item.Market):
 			marketFinalized, err = domain.LastFinalizedCryptoMarketDate(now)
 			if err != nil {

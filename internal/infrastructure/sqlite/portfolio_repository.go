@@ -97,7 +97,7 @@ func (r *Repository) CreateInstrument(ctx context.Context, instrument domain.Ins
 		if err := validateInstrumentBinding(instrument); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt))
+		_, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, metal_template, quantity_unit, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt))
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
@@ -116,7 +116,7 @@ func (r *Repository) CreateInstrumentWithObservation(ctx context.Context, instru
 		if observation.InstrumentID != instrument.ID || observation.SourceKind != instrument.QuoteSource || observation.ID == "" || observation.EffectiveAt.IsZero() || observation.CreatedAt.IsZero() {
 			return &domain.Error{Code: domain.ErrIntegrity, Message: "instrument creation observation does not match the Instrument"}
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, metal_template, quantity_unit, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt)); err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
 		if err := syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument); err != nil {
@@ -131,7 +131,7 @@ func (r *Repository) UpdateInstrument(ctx context.Context, instrument domain.Ins
 		if err := validateInstrumentBinding(instrument); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, metal_template = ?, quantity_unit = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
@@ -147,7 +147,7 @@ func (r *Repository) UpdateInstrumentWithObservation(ctx context.Context, instru
 		if err := validateInstrumentBinding(instrument); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
+		result, err := tx.ExecContext(ctx, `UPDATE instruments SET name = ?, instrument_type = ?, quote_currency = ?, symbol = ?, market_code = ?, country_code = ?, isin = ?, note = ?, icon_key = ?, sort_order = ?, quote_source = ?, provider_key = ?, provider_symbol = ?, metal_template = ?, quantity_unit = ?, updated_at = ? WHERE id = ? AND household_id = ?`, instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.UpdatedAt), instrument.ID.String(), instrument.HouseholdID.String())
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument")
 		}
@@ -169,9 +169,9 @@ func (r *Repository) Instrument(ctx context.Context, householdID domain.Househol
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	statement := `SELECT id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at FROM instruments WHERE id = ? AND household_id = ?`
+	statement := `SELECT id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, metal_template, quantity_unit, created_at, updated_at, archived_at FROM instruments WHERE id = ? AND household_id = ?`
 	if modern {
-		statement = `SELECT i.id, i.household_id, i.name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.id = ? AND i.household_id = ?`
+		statement = `SELECT i.id, i.household_id, i.name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.metal_template, i.quantity_unit, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.id = ? AND i.household_id = ?`
 	}
 	row := r.database.SQL.QueryRowContext(ctx, statement, id.String(), householdID.String())
 	return scanInstrumentColumns(row, modern)
@@ -188,7 +188,8 @@ func (r *Repository) SetInstrumentArchive(ctx context.Context, householdID domai
 		}
 		if !archived {
 			var providerKey, providerSymbol sql.NullString
-			if err := tx.QueryRowContext(ctx, `SELECT provider_key, provider_symbol FROM instruments WHERE id = ? AND household_id = ?`, id.String(), householdID.String()).Scan(&providerKey, &providerSymbol); err != nil {
+			var metalTemplate, quantityUnit, currency string
+			if err := tx.QueryRowContext(ctx, `SELECT provider_key, provider_symbol, metal_template, quantity_unit, quote_currency FROM instruments WHERE id = ? AND household_id = ?`, id.String(), householdID.String()).Scan(&providerKey, &providerSymbol, &metalTemplate, &quantityUnit, &currency); err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					return &domain.Error{Code: domain.ErrNotFound, Message: "instrument was not found"}
 				}
@@ -196,7 +197,7 @@ func (r *Repository) SetInstrumentArchive(ctx context.Context, householdID domai
 			}
 			if providerKey.Valid && providerSymbol.Valid {
 				var conflictID string
-				if err := tx.QueryRowContext(ctx, `SELECT id FROM instruments WHERE household_id = ? AND provider_key = ? AND provider_symbol = ? AND archived_at IS NULL AND id <> ? LIMIT 1`, householdID.String(), providerKey.String, providerSymbol.String, id.String()).Scan(&conflictID); err == nil {
+				if err := tx.QueryRowContext(ctx, `SELECT id FROM instruments WHERE household_id = ? AND provider_key = ? AND provider_symbol = ? AND archived_at IS NULL AND id <> ? AND ((metal_template = '' AND ? = '') OR (metal_template <> '' AND ? <> '' AND quantity_unit = ? AND quote_currency = ?)) LIMIT 1`, householdID.String(), providerKey.String, providerSymbol.String, id.String(), metalTemplate, metalTemplate, quantityUnit, currency).Scan(&conflictID); err == nil {
 					return &domain.Error{Code: domain.ErrConflict, Message: "an active instrument already uses this provider binding"}
 				} else if !errors.Is(err, sql.ErrNoRows) {
 					return err
@@ -495,14 +496,14 @@ func (r *Repository) AppendProviderInstrumentQuoteIfChanged(ctx context.Context,
 		if instrumentCurrency != quote.Currency.String() {
 			return &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "quote currency does not match instrument"}
 		}
-		result, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision)
-			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1
+		result, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision, conversion_json)
+			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?
 			WHERE NOT EXISTS (
 				SELECT 1 FROM instrument_quotes
-				WHERE instrument_id = ? AND unit_price = ? AND currency = ? AND source_kind = ? AND source_key = ? AND quoted_at = ? AND delayed = ?
+				WHERE instrument_id = ? AND unit_price = ? AND currency = ? AND source_kind = ? AND source_key = ? AND quoted_at = ? AND delayed = ? AND COALESCE(conversion_json, '') = ?
 			)`,
-			quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestInstrumentObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt),
-			quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), boolValue(quote.Delayed))
+			quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestInstrumentObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt), nullableEmpty(quote.ConversionJSON),
+			quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), boolValue(quote.Delayed), quote.ConversionJSON)
 		if err != nil {
 			return mapPortfolioWriteError(err, "instrument quote")
 		}
@@ -556,7 +557,7 @@ func (r *Repository) ListInstrumentQuotes(ctx context.Context, instrumentID doma
 	}
 	statement := `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed FROM instrument_quotes WHERE instrument_id = ? ORDER BY quoted_at DESC, created_at DESC, id DESC`
 	if modern {
-		statement = `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash FROM instrument_quotes WHERE instrument_id = ? ORDER BY quoted_at DESC, created_at DESC, id DESC`
+		statement = `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash, conversion_json FROM instrument_quotes WHERE instrument_id = ? ORDER BY quoted_at DESC, created_at DESC, id DESC`
 	}
 	rows, err := r.database.SQL.QueryContext(ctx, statement, instrumentID.String())
 	if err != nil {
@@ -794,9 +795,9 @@ func listInstrumentsQuery(ctx context.Context, query queryer, householdID domain
 	if err != nil {
 		return nil, err
 	}
-	statement := `SELECT id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, created_at, updated_at, archived_at FROM instruments WHERE household_id = ?`
+	statement := `SELECT id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, metal_template, quantity_unit, created_at, updated_at, archived_at FROM instruments WHERE household_id = ?`
 	if modern {
-		statement = `SELECT i.id, i.household_id, i.name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.household_id = ?`
+		statement = `SELECT i.id, i.household_id, i.name, i.instrument_type, i.quote_currency, i.symbol, i.market_code, i.country_code, i.isin, i.note, i.icon_key, i.sort_order, i.quote_source, i.provider_key, i.provider_symbol, i.metal_template, i.quantity_unit, i.created_at, i.updated_at, i.archived_at, COALESCE(b.binding_revision, 0) FROM instruments i LEFT JOIN instrument_provider_bindings b ON b.instrument_id = i.id AND b.provider_key = i.provider_key AND b.enabled = 1 WHERE i.household_id = ?`
 	}
 	if !includeArchived {
 		statement += ` AND i.archived_at IS NULL`
@@ -862,7 +863,7 @@ func listInstrumentQuotesQuery(ctx context.Context, query queryer, householdID d
 		JOIN instruments i ON i.id = q.instrument_id
 		WHERE i.household_id = ?`
 	if modern {
-		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash
+		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash, q.conversion_json
 		FROM instrument_quotes q
 		JOIN instruments i ON i.id = q.instrument_id
 		WHERE i.household_id = ?`
@@ -895,7 +896,7 @@ func listAllInstrumentQuotesQuery(ctx context.Context, query queryer, householdI
 	}
 	statement := `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`
 	if modern {
-		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`
+		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash, q.conversion_json FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`
 	}
 	rows, err := query.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
@@ -983,7 +984,8 @@ func scanInstrumentColumns(row interface{ Scan(...any) error }, withBinding bool
 	var symbol, marketCode, countryCode, isin, note, icon, quoteSource, providerKey, providerSymbol, archived sql.NullString
 	var sortOrder int
 	var bindingRevision int
-	destinations := []any{&id, &householdID, &name, &instrumentType, &quoteCurrency, &symbol, &marketCode, &countryCode, &isin, &note, &icon, &sortOrder, &quoteSource, &providerKey, &providerSymbol, &createdAt, &updatedAt, &archived}
+	var metalTemplate, quantityUnit string
+	destinations := []any{&id, &householdID, &name, &instrumentType, &quoteCurrency, &symbol, &marketCode, &countryCode, &isin, &note, &icon, &sortOrder, &quoteSource, &providerKey, &providerSymbol, &metalTemplate, &quantityUnit, &createdAt, &updatedAt, &archived}
 	if withBinding {
 		destinations = append(destinations, &bindingRevision)
 	}
@@ -1025,7 +1027,7 @@ func scanInstrumentColumns(row interface{ Scan(...any) error }, withBinding bool
 	if err != nil {
 		return domain.Instrument{}, err
 	}
-	return domain.Instrument{ID: instrumentID, HouseholdID: hID, Name: name, Type: parsedType, QuoteCurrency: currency, Symbol: parseNullable(nullString(symbol)), MarketCode: parseNullable(nullString(marketCode)), CountryCode: parseNullable(nullString(countryCode)), ISIN: parseNullable(nullString(isin)), Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), SortOrder: sortOrder, QuoteSource: source, ProviderKey: parseNullable(nullString(providerKey)), ProviderSymbol: parseNullable(nullString(providerSymbol)), ProviderBindingRevision: bindingRevision, CreatedAt: created, UpdatedAt: updated, ArchivedAt: archivedAt}, nil
+	return domain.Instrument{ID: instrumentID, HouseholdID: hID, Name: name, Type: parsedType, QuoteCurrency: currency, Symbol: parseNullable(nullString(symbol)), MarketCode: parseNullable(nullString(marketCode)), CountryCode: parseNullable(nullString(countryCode)), ISIN: parseNullable(nullString(isin)), Note: parseNullable(nullString(note)), IconKey: parseNullable(nullString(icon)), SortOrder: sortOrder, QuoteSource: source, ProviderKey: parseNullable(nullString(providerKey)), ProviderSymbol: parseNullable(nullString(providerSymbol)), ProviderBindingRevision: bindingRevision, MetalTemplate: metalTemplate, QuantityUnit: quantityUnit, CreatedAt: created, UpdatedAt: updated, ArchivedAt: archivedAt}, nil
 }
 
 func scanHolding(row interface{ Scan(...any) error }) (domain.Holding, error) {
@@ -1239,12 +1241,12 @@ func parseAccountCashValue(id, accountID, amount, currency, effectiveAt, created
 
 func scanInstrumentQuote(row interface{ Scan(...any) error }) (domain.InstrumentQuote, error) {
 	var id, instrumentID, unitPrice, currency, sourceKind, sourceKey, quotedAt, createdAt string
-	var observationKind, effectiveDate, sourcePolicy, priceBasis, timestampBasis, supersedes, splitFactor, dividendCash sql.NullString
+	var observationKind, effectiveDate, sourcePolicy, priceBasis, timestampBasis, supersedes, splitFactor, dividendCash, conversionJSON sql.NullString
 	var providerTimestamp, fetchedAt, valueEffectiveAt sql.NullString
 	var delayed int
 	var revision sql.NullInt64
 	var bindingRevision sql.NullInt64
-	if err := row.Scan(&id, &instrumentID, &unitPrice, &currency, &sourceKind, &sourceKey, &quotedAt, &createdAt, &delayed, &observationKind, &effectiveDate, &providerTimestamp, &fetchedAt, &valueEffectiveAt, &bindingRevision, &sourcePolicy, &priceBasis, &timestampBasis, &revision, &supersedes, &splitFactor, &dividendCash); err != nil {
+	if err := row.Scan(&id, &instrumentID, &unitPrice, &currency, &sourceKind, &sourceKey, &quotedAt, &createdAt, &delayed, &observationKind, &effectiveDate, &providerTimestamp, &fetchedAt, &valueEffectiveAt, &bindingRevision, &sourcePolicy, &priceBasis, &timestampBasis, &revision, &supersedes, &splitFactor, &dividendCash, &conversionJSON); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return domain.InstrumentQuote{}, &domain.Error{Code: domain.ErrNotFound, Message: "instrument quote was not found"}
 		}
@@ -1290,7 +1292,7 @@ func scanInstrumentQuote(row interface{ Scan(...any) error }) (domain.Instrument
 	if err != nil {
 		return domain.InstrumentQuote{}, err
 	}
-	return domain.InstrumentQuote{ID: quoteID, InstrumentID: parsedInstrument, UnitPrice: price, Currency: parsedCurrency, SourceKind: parsedSource, SourceKey: sourceKey, QuotedAt: quoted, CreatedAt: created, Delayed: delayed != 0, ObservationKind: nullString(observationKind), EffectiveDate: nullString(effectiveDate), ProviderTimestamp: providerTime, FetchedAt: fetched, ValueEffectiveAt: effective, BindingRevision: int(bindingRevision.Int64), SourcePolicyVersion: nullString(sourcePolicy), PriceBasis: nullString(priceBasis), TimestampBasis: nullString(timestampBasis), Revision: int(revision.Int64), SupersedesQuoteID: nullableStringPointer(supersedes), SplitFactor: nullString(splitFactor), DividendCash: nullString(dividendCash)}, nil
+	return domain.InstrumentQuote{ID: quoteID, InstrumentID: parsedInstrument, UnitPrice: price, Currency: parsedCurrency, SourceKind: parsedSource, SourceKey: sourceKey, QuotedAt: quoted, CreatedAt: created, Delayed: delayed != 0, ObservationKind: nullString(observationKind), EffectiveDate: nullString(effectiveDate), ProviderTimestamp: providerTime, FetchedAt: fetched, ValueEffectiveAt: effective, BindingRevision: int(bindingRevision.Int64), SourcePolicyVersion: nullString(sourcePolicy), PriceBasis: nullString(priceBasis), TimestampBasis: nullString(timestampBasis), Revision: int(revision.Int64), SupersedesQuoteID: nullableStringPointer(supersedes), SplitFactor: nullString(splitFactor), DividendCash: nullString(dividendCash), ConversionJSON: nullString(conversionJSON)}, nil
 }
 
 func scanInstrumentQuotes(rows *sql.Rows) ([]domain.InstrumentQuote, error) {
@@ -1591,7 +1593,7 @@ func appendInstrumentQuoteTx(ctx context.Context, tx *sql.Tx, quote domain.Instr
 	if instrumentCurrency != quote.Currency.String() {
 		return &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "quote currency does not match instrument"}
 	}
-	_, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`, quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestInstrumentObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt))
+	_, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision, conversion_json) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`, quote.ID.String(), quote.InstrumentID.String(), quote.UnitPrice.Canonical(), quote.Currency.String(), string(quote.SourceKind), quote.SourceKey, formatTimestamp(quote.QuotedAt), formatTimestamp(quote.CreatedAt), boolValue(quote.Delayed), latestInstrumentObservationKind(quote.SourceKind), formatTimestamp(quote.CreatedAt), nullableEmpty(quote.ConversionJSON))
 	return mapPortfolioWriteError(err, "instrument quote")
 }
 

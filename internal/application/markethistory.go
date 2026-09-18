@@ -97,6 +97,7 @@ type InstrumentDailyObservation struct {
 	PriceBasis        PriceBasis
 	TimestampBasis    TimestampBasis
 	SplitFactor       string
+	ConversionJSON    string
 	DividendCash      string
 }
 

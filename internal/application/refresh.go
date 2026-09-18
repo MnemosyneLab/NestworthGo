@@ -155,6 +155,7 @@ func (s *Service) RefreshRequiredFX(ctx context.Context) (RefreshResult, error) 
 }
 
 func (s *Service) refreshTargets(ctx context.Context, targets []refreshTarget) RefreshResult {
+	ctx = withMetalFetchCache(ctx)
 	result := RefreshResult{Items: make([]RefreshTargetResult, 0, len(targets))}
 	rateLimited := make(map[string]bool)
 	for _, target := range targets {
@@ -254,7 +255,14 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 	epoch := s.refreshEpoch.Load()
 
 	if target.kind == RefreshInstrumentTarget {
-		quote, providerErr := provider.LatestInstrument(ctx, InstrumentMarketIdentity{ProviderKey: target.providerKey, ProviderSymbol: target.providerSymbol, QuoteCurrency: target.instrument.QuoteCurrency, Market: instrumentMarket(target.instrument)})
+		var quote LatestInstrumentQuote
+		var conversion string
+		var providerErr error
+		if target.instrument.UsesMetalConversion() {
+			quote, conversion, providerErr = s.latestMetalQuote(ctx, target.instrument, provider, true)
+		} else {
+			quote, providerErr = provider.LatestInstrument(ctx, InstrumentMarketIdentity{ProviderKey: target.providerKey, ProviderSymbol: target.providerSymbol, QuoteCurrency: target.instrument.QuoteCurrency, Market: instrumentMarket(target.instrument), InstrumentType: string(target.instrument.Type)})
+		}
 		if providerErr != nil {
 			return providerRefreshFailure(target, providerErr)
 		}
@@ -266,6 +274,7 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		if createErr != nil {
 			return failedRefresh(target, malformedProviderError()), false
 		}
+		stored.ConversionJSON = conversion
 		var inserted bool
 		persistErr := s.persistRefreshWrite(ctx, epoch, func(ctx context.Context) error {
 			var err error
@@ -313,6 +322,9 @@ func (s *Service) refreshTarget(ctx context.Context, target refreshTarget, marke
 		s.invalidateAnalysis()
 	}
 	s.rememberProviderFXPreference(ctx, target)
+	if err := s.repriceMetalsForFX(ctx, target.householdID, target.baseCurrency, target.quoteCurrency); err != nil {
+		return failedRefresh(target, err), false
+	}
 	s.rememberSuccessfulCheck(target.key)
 	if inserted {
 		return fetchedRefresh(target), false
@@ -371,6 +383,17 @@ func refreshTargetsForSnapshot(snapshot domain.PortfolioSnapshot) []refreshTarge
 		if ok && account.Account.ArchivedAt == nil && account.Account.TrackingMode == domain.TrackingHoldings {
 			addRequiredFX(cash.Amount.Currency())
 		}
+	}
+	for _, instrument := range snapshot.Instruments {
+		if instrument.ArchivedAt != nil || !instrument.UsesMetalConversion() || instrument.QuoteSource != domain.QuoteSourceProvider || instrument.QuoteCurrency == "USD" {
+			continue
+		}
+		a, b, err := domain.NormalizeFXPair("USD", instrument.QuoteCurrency)
+		if err != nil {
+			continue
+		}
+		key := fxPairKey(a, b)
+		requiredFX[key] = refreshTarget{key: "fx:" + key, kind: RefreshFXTarget, baseCurrency: "USD", quoteCurrency: instrument.QuoteCurrency, householdID: snapshot.Household.ID}
 	}
 	preferences := make(map[string]domain.FXPreference, len(snapshot.FXPreferences))
 	for _, preference := range snapshot.FXPreferences {

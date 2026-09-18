@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useRefreshInstrument } from "@/queries/marketdata";
 import { useAccounts } from "@/queries/accounts";
 import { Service as InstrumentService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument";
 import type { InstrumentRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/instrument/models";
@@ -25,9 +26,16 @@ export function useInstruments(includeArchived = false) {
 
 export function useCreateInstrument() {
   const queryClient = useQueryClient();
+  const refresh = useRefreshInstrument();
   return useMutation({
     mutationFn: (request: InstrumentRequest) => callService(() => InstrumentService.CreateInstrument(request)),
-    onSuccess: () => invalidateInstrumentReads(queryClient),
+    onSuccess: async (instrument) => {
+      invalidateInstrumentReads(queryClient);
+      if (instrument.metalTemplate && instrument.quoteSource === "provider") {
+        // Creation remains successful when an external quote is unavailable.
+        await refresh.mutateAsync(instrument.id).catch(() => undefined);
+      }
+    },
   });
 }
 

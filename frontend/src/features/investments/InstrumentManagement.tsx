@@ -1,3 +1,5 @@
+import { MetalConversionDetails } from "./MetalConversionDetails";
+import { metalPriceSuffix } from "@/lib/preciousMetals";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -43,10 +45,12 @@ import {
 function ManualQuoteForm({
   instrumentId,
   currency,
+  quantityUnit,
   onSaved,
 }: {
   instrumentId: string;
   currency: string;
+  quantityUnit?: string;
   onSaved: () => void;
 }) {
   const { t } = useTranslation();
@@ -72,7 +76,7 @@ function ManualQuoteForm({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor={`quote-price-${instrumentId}`}>{t("portfolio.unitPrice")}</Label>
+        <Label htmlFor={`quote-price-${instrumentId}`}>{t("portfolio.unitPrice")} ({currency}{metalPriceSuffix({quantityUnit}, t)})</Label>
         <Input
           id={`quote-price-${instrumentId}`}
           value={unitPrice}
@@ -148,7 +152,8 @@ function InstrumentRow({
       <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <EntityIcon iconKey={instrument.iconKey} kind="instrument" className="size-5 shrink-0 self-start text-primary" />
         <InstrumentLabel className="min-w-0" name={instrument.name} symbol={instrument.symbol} fallback={instrument.name} />
-        <Badge variant="secondary">{instrument.quoteCurrency}</Badge>
+        <Badge variant="secondary">{instrument.quoteCurrency}{metalPriceSuffix(instrument, t)}</Badge>
+        {instrument.metalTemplate && <Badge variant="outline">{t("metals.reference")}</Badge>}
         <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>
           {displayEnum(t, "portfolio", instrument.quoteSource)}
         </Badge>
@@ -160,7 +165,7 @@ function InstrumentRow({
         ) : quote.data ? (
           <>
             <span>
-              <span className="font-medium">{t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) })}</span>
+              <span className="font-medium">{t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(instrument, t) })}</span>
               {quoteTime && (
                 <span className="ml-2 text-xs text-muted-foreground">
                   {t("portfolio.quotedAsOf", {
@@ -170,6 +175,7 @@ function InstrumentRow({
               )}
             </span>
             <QuoteQuality sourceKind={quote.data.sourceKind} sourceKey={quote.data.sourceKey} delayed={quote.data.delayed} />
+            <MetalConversionDetails evidence={quote.data.conversionJSON} />
           </>
         ) : (
           <span className="text-muted-foreground">{t("portfolio.noCurrentPrice")}</span>
@@ -391,6 +397,7 @@ export function InstrumentManagement({
                     key={`${editTarget.id}-price`}
                     instrumentId={editTarget.id}
                     currency={editTarget.quoteCurrency}
+                    quantityUnit={editTarget.quantityUnit}
                     onSaved={() => setShowPriceForm(false)}
                   />
                 </div>

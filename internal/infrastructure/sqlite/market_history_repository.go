@@ -208,7 +208,7 @@ func persistInstrumentObservationTx(ctx context.Context, tx *sql.Tx, request Ins
 	}
 	if existing, err := canonicalInstrumentSlotQuoteTx(ctx, tx, request.InstrumentID.String(), request.ProviderKey, bindingRevision, policy, observation.MarketDate, kind); err != nil {
 		return persistWrite{}, err
-	} else if existing != nil && existing.unitPrice == price.Canonical() && existing.currency == currency.String() && existing.priceBasis == observation.PriceBasis && existing.valueEffectiveAt == formatTimestamp(observation.ValueEffectiveAt) {
+	} else if existing != nil && existing.unitPrice == price.Canonical() && existing.currency == currency.String() && existing.priceBasis == observation.PriceBasis && existing.valueEffectiveAt == formatTimestamp(observation.ValueEffectiveAt) && existing.conversionJSON == observation.ConversionJSON {
 		// Rechecking an unchanged observation is not an economic revision, but
 		// must advance freshness or the correction planner retries forever.
 		if err := upsertInstrumentObservationSlotTx(ctx, tx, request.InstrumentID.String(), request.ProviderKey, bindingRevision, policy, observation.MarketDate, kind, existing.id, fetchedAt); err != nil {
@@ -217,8 +217,8 @@ func persistInstrumentObservationTx(ctx context.Context, tx *sql.Tx, request Ins
 		return persistWrite{statusReconciled: statusReconciled}, nil
 	} else if existing != nil {
 		quoteID := domain.NewInstrumentQuoteID()
-		if _, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash) VALUES(?, ?, ?, ?, 'provider', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			quoteID.String(), request.InstrumentID.String(), price.Canonical(), currency.String(), request.ProviderKey, formatTimestamp(quotedAt), formatTimestamp(fetchedAt), kind, observation.MarketDate, nullableTimeValue(observation.ProviderTimestamp), formatTimestamp(fetchedAt), formatTimestamp(observation.ValueEffectiveAt), bindingRevision, policy, observation.PriceBasis, observation.TimestampBasis, existing.revision+1, existing.id, nullableEmpty(observation.SplitFactor), nullableEmpty(observation.DividendCash)); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash, conversion_json) VALUES(?, ?, ?, ?, 'provider', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			quoteID.String(), request.InstrumentID.String(), price.Canonical(), currency.String(), request.ProviderKey, formatTimestamp(quotedAt), formatTimestamp(fetchedAt), kind, observation.MarketDate, nullableTimeValue(observation.ProviderTimestamp), formatTimestamp(fetchedAt), formatTimestamp(observation.ValueEffectiveAt), bindingRevision, policy, observation.PriceBasis, observation.TimestampBasis, existing.revision+1, existing.id, nullableEmpty(observation.SplitFactor), nullableEmpty(observation.DividendCash), nullableEmpty(observation.ConversionJSON)); err != nil {
 			return persistWrite{}, mapPortfolioWriteError(err, "instrument quote")
 		}
 		if err := upsertInstrumentObservationSlotTx(ctx, tx, request.InstrumentID.String(), request.ProviderKey, bindingRevision, policy, observation.MarketDate, kind, quoteID.String(), fetchedAt); err != nil {
@@ -227,8 +227,8 @@ func persistInstrumentObservationTx(ctx context.Context, tx *sql.Tx, request Ins
 		return persistWrite{persisted: true, newRevision: true, slot: kind == observationKindClose, statusReconciled: statusReconciled}, nil
 	}
 	quoteID := domain.NewInstrumentQuoteID()
-	if _, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, split_factor, dividend_cash) VALUES(?, ?, ?, ?, 'provider', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-		quoteID.String(), request.InstrumentID.String(), price.Canonical(), currency.String(), request.ProviderKey, formatTimestamp(quotedAt), formatTimestamp(fetchedAt), kind, observation.MarketDate, nullableTimeValue(observation.ProviderTimestamp), formatTimestamp(fetchedAt), formatTimestamp(observation.ValueEffectiveAt), bindingRevision, policy, observation.PriceBasis, observation.TimestampBasis, nullableEmpty(observation.SplitFactor), nullableEmpty(observation.DividendCash)); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, split_factor, dividend_cash, conversion_json) VALUES(?, ?, ?, ?, 'provider', ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)`,
+		quoteID.String(), request.InstrumentID.String(), price.Canonical(), currency.String(), request.ProviderKey, formatTimestamp(quotedAt), formatTimestamp(fetchedAt), kind, observation.MarketDate, nullableTimeValue(observation.ProviderTimestamp), formatTimestamp(fetchedAt), formatTimestamp(observation.ValueEffectiveAt), bindingRevision, policy, observation.PriceBasis, observation.TimestampBasis, nullableEmpty(observation.SplitFactor), nullableEmpty(observation.DividendCash), nullableEmpty(observation.ConversionJSON)); err != nil {
 		return persistWrite{}, mapPortfolioWriteError(err, "instrument quote")
 	}
 	slot := kind == observationKindClose
@@ -405,6 +405,7 @@ type slotQuote struct {
 	currency         string
 	priceBasis       string
 	valueEffectiveAt string
+	conversionJSON   string
 	revision         int
 }
 
@@ -414,11 +415,11 @@ func canonicalInstrumentSlotQuoteTx(ctx context.Context, tx *sql.Tx, instrumentI
 	}
 	var quote slotQuote
 	err := tx.QueryRowContext(ctx, `
-		SELECT q.id, q.unit_price, q.currency, COALESCE(q.price_basis, ''), COALESCE(q.value_effective_at, ''), q.revision
+		SELECT q.id, q.unit_price, q.currency, COALESCE(q.price_basis, ''), COALESCE(q.value_effective_at, ''), q.revision, COALESCE(q.conversion_json, '')
 		FROM instrument_observation_slots s
 		JOIN instrument_quotes q ON q.id = s.quote_id
 		WHERE s.instrument_id = ? AND s.provider_key = ? AND s.binding_revision = ? AND s.source_policy_version = ? AND s.market_date = ? AND s.observation_kind = ?`,
-		instrumentID, providerKey, bindingRevision, policy, marketDate, kind).Scan(&quote.id, &quote.unitPrice, &quote.currency, &quote.priceBasis, &quote.valueEffectiveAt, &quote.revision)
+		instrumentID, providerKey, bindingRevision, policy, marketDate, kind).Scan(&quote.id, &quote.unitPrice, &quote.currency, &quote.priceBasis, &quote.valueEffectiveAt, &quote.revision, &quote.conversionJSON)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

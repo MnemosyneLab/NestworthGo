@@ -1,5 +1,8 @@
 /** Shared identity fields used to render an instrument in lists and sentences. */
 export type InstrumentIdentityFields = {
+  metalTemplate?: string;
+  quantityUnit?: string;
+  quoteCurrency?: string | null;
   name?: string | null;
   symbol?: string | null;
 };
@@ -7,6 +10,9 @@ export type InstrumentIdentityFields = {
 /** Ticker when present, otherwise the saved name. Compact selects and
  * activity sentences use this so long ETF names do not dominate the UI. */
 export function instrumentDisplayLabel(instrument: InstrumentIdentityFields, fallback = ""): string {
+  if (instrument.metalTemplate) {
+    return [instrument.name || fallback, `${instrument.quoteCurrency ?? ""}/${instrument.quantityUnit === "g" ? "g" : "oz t"}`].join(" · ");
+  }
   const symbol = instrument.symbol?.trim();
   if (symbol) {
     return symbol;

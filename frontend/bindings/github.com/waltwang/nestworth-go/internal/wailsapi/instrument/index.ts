@@ -7,5 +7,6 @@ export {
 };
 
 export type {
-    InstrumentRequest
+    InstrumentRequest,
+    MetalQuotePreviewDTO
 } from "./models.js";

@@ -1,3 +1,4 @@
+import { metalPriceSuffix, metalUnitLabel } from "@/lib/preciousMetals";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -272,16 +273,16 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
               ))}
             </NativeSelect>
           </div>
-          {selectedInstrument && <QuoteHint quote={quote.data} quoteLabel={quote.data ? t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) }) : undefined} manual={selectedInstrument.quoteSource === "manual"} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={quote.isLoading} error={refreshInstrument.error} />}
+          {selectedInstrument && <QuoteHint quote={quote.data} quoteLabel={quote.data ? t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} manual={selectedInstrument.quoteSource === "manual"} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={quote.isLoading} error={refreshInstrument.error} />}
           <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>
             {t("accounts.createInstrument")}
           </Button>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="position-quantity">{t("accounts.quantity")}</Label>
+            <Label htmlFor="position-quantity">{t("accounts.quantity")} {metalUnitLabel(selectedInstrument?.quantityUnit, t)}</Label>
             <Input id="position-quantity" inputMode="decimal" value={quantity} onChange={(event) => setQuantity(event.target.value)} />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="position-unit-cost">{t("history.unitCostOptional")}</Label>
+            <Label htmlFor="position-unit-cost">{t("history.unitCostOptional")} {selectedInstrument?.quoteCurrency}{metalPriceSuffix(selectedInstrument, t)}</Label>
             <Input id="position-unit-cost" inputMode="decimal" value={unitCost} onChange={(event) => { unitCostRef.current = event.target.value; setUnitCost(event.target.value); }} />
           </div>
           {error && (

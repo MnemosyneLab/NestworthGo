@@ -63,6 +63,7 @@ func instrumentHistoryCommitFromRequest(request application.CommitInstrumentHist
 			TimestampBasis:    string(observation.TimestampBasis),
 			SplitFactor:       observation.SplitFactor,
 			DividendCash:      observation.DividendCash,
+			ConversionJSON:    observation.ConversionJSON,
 		})
 	}
 	for _, rng := range request.Outcome.Batch.VerifiedRanges {

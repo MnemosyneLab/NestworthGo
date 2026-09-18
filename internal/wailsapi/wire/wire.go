@@ -552,6 +552,8 @@ type InstrumentDTO struct {
 	HouseholdID    string  `json:"householdId"`
 	Name           string  `json:"name"`
 	Type           string  `json:"type"`
+	MetalTemplate  string  `json:"metalTemplate,omitempty"`
+	QuantityUnit   string  `json:"quantityUnit,omitempty"`
 	QuoteCurrency  string  `json:"quoteCurrency"`
 	Symbol         *string `json:"symbol,omitempty"`
 	MarketCode     *string `json:"marketCode,omitempty"`
@@ -571,7 +573,7 @@ type InstrumentDTO struct {
 func FromInstrument(value domain.Instrument) InstrumentDTO {
 	dto := InstrumentDTO{
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Name: value.Name, Type: string(value.Type),
-		QuoteCurrency: value.QuoteCurrency.String(), Symbol: value.Symbol, MarketCode: value.MarketCode,
+		QuoteCurrency: value.QuoteCurrency.String(), MetalTemplate: value.MetalTemplate, QuantityUnit: value.QuantityUnit, Symbol: value.Symbol, MarketCode: value.MarketCode,
 		CountryCode: value.CountryCode, ISIN: value.ISIN, Note: value.Note, IconKey: iconValue(value.IconKey, domain.DefaultInstrumentIcon(value.Type)), SortOrder: value.SortOrder,
 		QuoteSource: string(value.QuoteSource), ProviderKey: value.ProviderKey, ProviderSymbol: value.ProviderSymbol,
 		CreatedAt: FormatTime(value.CreatedAt), UpdatedAt: FormatTime(value.UpdatedAt), ArchivedAt: FormatTimePtr(value.ArchivedAt),
@@ -675,20 +677,21 @@ func FromAccountCashValues(values []domain.AccountCashValue) []AccountCashValueD
 
 // InstrumentQuoteDTO mirrors domain.InstrumentQuote.
 type InstrumentQuoteDTO struct {
-	ID           string `json:"id"`
-	InstrumentID string `json:"instrumentId"`
-	UnitPrice    string `json:"unitPrice"`
-	Currency     string `json:"currency"`
-	SourceKind   string `json:"sourceKind"`
-	SourceKey    string `json:"sourceKey"`
-	QuotedAt     string `json:"quotedAt"`
-	CreatedAt    string `json:"createdAt"`
-	Delayed      bool   `json:"delayed"`
+	ConversionJSON string `json:"conversionJSON,omitempty"`
+	ID             string `json:"id"`
+	InstrumentID   string `json:"instrumentId"`
+	UnitPrice      string `json:"unitPrice"`
+	Currency       string `json:"currency"`
+	SourceKind     string `json:"sourceKind"`
+	SourceKey      string `json:"sourceKey"`
+	QuotedAt       string `json:"quotedAt"`
+	CreatedAt      string `json:"createdAt"`
+	Delayed        bool   `json:"delayed"`
 }
 
 func FromInstrumentQuote(value domain.InstrumentQuote) InstrumentQuoteDTO {
 	return InstrumentQuoteDTO{
-		ID: value.ID.String(), InstrumentID: value.InstrumentID.String(), UnitPrice: value.UnitPrice.Canonical(),
+		ID: value.ID.String(), InstrumentID: value.InstrumentID.String(), UnitPrice: value.UnitPrice.Canonical(), ConversionJSON: value.ConversionJSON,
 		Currency: value.Currency.String(), SourceKind: string(value.SourceKind), SourceKey: value.SourceKey,
 		QuotedAt: FormatTime(value.QuotedAt), CreatedAt: FormatTime(value.CreatedAt), Delayed: value.Delayed,
 	}

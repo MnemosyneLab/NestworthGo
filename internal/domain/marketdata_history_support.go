@@ -57,6 +57,9 @@ func ResolveInstrumentHistorySupport(instrumentType, market, providerKey string)
 			return InstrumentRoute{ProviderKey: provider, Status: InstrumentRouteUnsupported, Reason: InstrumentTypeUnsupported}
 		}
 	}
+	if UsesMetalFuturesHistory(instrumentType, market) && provider == YahooFinanceProviderKey {
+		return InstrumentRoute{ProviderKey: provider, Status: InstrumentRouteOK}
+	}
 	switch parsed {
 	case InstrumentStock, InstrumentETF:
 		if _, ok := EquitySessionScheduleForMarket(market); !ok {

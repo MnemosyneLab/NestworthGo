@@ -11,6 +11,7 @@ import (
 )
 
 func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, request SyncRequest) {
+	ctx = withMetalFetchCache(ctx)
 	defer s.syncWG.Done()
 	defer job.cancel()
 	outcome := SyncOutcomeFailed
@@ -289,8 +290,13 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 		return true
 	}
 	identity := task.identity
+	var metal *domain.Instrument
 	if inst, lookupErr := s.repository.Instrument(ctx, job.snapshot.HouseholdID, task.need.InstrumentID); lookupErr == nil {
 		identity.QuoteCurrency = inst.QuoteCurrency
+		if inst.UsesMetalConversion() {
+			metal = &inst
+			identity.QuoteCurrency = "USD"
+		}
 		identity.InstrumentType = string(inst.Type)
 		if identity.Market == "" {
 			identity.Market = instrumentMarket(inst)
@@ -312,6 +318,15 @@ func (s *Service) fetchAndCommitInstrumentRange(ctx context.Context, job *syncJo
 		s.recordBlocker(job, target, "unsupported_price_basis", "refusing_fail_closed_history")
 		s.recordItem(job, target, "instrument", "blocked", "unsupported_price_basis", providerKey)
 		return true
+	}
+	if metal != nil {
+		var conversionErr error
+		outcome, conversionErr = s.convertMetalHistory(ctx, job, *metal, task.rng, outcome, stopped)
+		if conversionErr != nil {
+			s.recordBlocker(job, target, string(domain.ErrUnavailable), "metal_fx_history_unavailable")
+			return !aborted(ctx)
+		}
+		identity.QuoteCurrency = metal.QuoteCurrency
 	}
 	if !s.jobMayWrite(job) {
 		s.recordBlocker(job, target, string(domain.ErrBackupRestoreBusy), "workspace_fenced")

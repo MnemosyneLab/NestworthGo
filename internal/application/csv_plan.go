@@ -71,7 +71,7 @@ func (s *Service) BuildCSVImportPlan(ctx context.Context, profile string, table 
 				name := holding.InstrumentID.String()
 				for _, instrument := range instruments {
 					if instrument.ID == holding.InstrumentID {
-						name = instrument.Name
+						name = csvInstrumentIdentity(instrument.Name, instrument.MetalTemplate, instrument.QuantityUnit, instrument.QuoteCurrency.String())
 						break
 					}
 				}
@@ -121,7 +121,7 @@ func isOptionalCSVField(name string) bool {
 	switch name {
 	case "current_value", "value_date", "include_in_net_worth", "institution_name", "institution_type", "group_name",
 		"include_in_portfolio", "include_in_liquid_assets", "icon_key", "note",
-		"instrument_type", "quote_currency", "unit_price", "quote_date", "symbol", "market_code", "country_code", "isin":
+		"instrument_type", "quote_currency", "unit_price", "quote_date", "symbol", "market_code", "country_code", "isin", "metal_template", "quantity_unit":
 		return true
 	default:
 		return false
@@ -360,7 +360,10 @@ func planHoldingsCSV(plan *CSVImportPlan, household domain.Household, origin *do
 	for _, imported := range plan.Batch.Accounts {
 		accountByName[imported.Account.Name] = append(accountByName[imported.Account.Name], domain.AccountRecord{Account: imported.Account})
 	}
-	instrumentByName := uniqueNameIndex(len(instruments), func(i int) string { return instruments[i].Name })
+	instrumentByName := uniqueNameIndex(len(instruments), func(i int) string {
+		v := instruments[i]
+		return csvInstrumentIdentity(v.Name, v.MetalTemplate, v.QuantityUnit, v.QuoteCurrency.String())
+	})
 	createdInstruments := map[string]domain.Instrument{}
 	seenFile := map[string]struct{}{}
 	for i, row := range table.Rows {
@@ -391,7 +394,8 @@ func planHoldingsCSV(plan *CSVImportPlan, household domain.Household, origin *do
 			appendCSVError(plan, rowNumber, "quantity", quantityText, domain.ErrCSVRowInvalid, "quantity is not valid")
 			continue
 		}
-		dupKey := accountName + "\x00" + instrumentName
+		instrumentIdentity := csvInstrumentIdentity(instrumentName, cell(row, column, "metal_template"), cell(row, column, "quantity_unit"), strings.ToUpper(cell(row, column, "quote_currency")))
+		dupKey := accountName + "\x00" + instrumentIdentity
 		if _, exists := seenFile[dupKey]; exists {
 			appendCSVError(plan, rowNumber, "instrument_name", instrumentName, domain.ErrCSVDuplicate, "this holding already appears in the file")
 			plan.Stats.Duplicates++
@@ -404,22 +408,26 @@ func planHoldingsCSV(plan *CSVImportPlan, household domain.Household, origin *do
 		}
 		seenFile[dupKey] = struct{}{}
 		var instrument domain.Instrument
-		if ids, ok := instrumentByName[instrumentName]; ok {
+		if ids, ok := instrumentByName[instrumentIdentity]; ok {
 			if len(ids) != 1 {
 				appendCSVError(plan, rowNumber, "instrument_name", instrumentName, domain.ErrCSVReferenceUnresolved, "instrument name is ambiguous")
 				continue
 			}
 			instrument = instruments[ids[0]]
 			plan.Stats.References++
-		} else if created, ok := createdInstruments[instrumentName]; ok {
+		} else if created, ok := createdInstruments[instrumentIdentity]; ok {
 			instrument = created
 			plan.Stats.References++
 		} else {
-			created, ok := resolveNewInstrument(plan, household, origin, now, options, instruments, instrumentByName, createdInstruments, rowNumber, instrumentName, cell(row, column, "instrument_type"), cell(row, column, "quote_currency"), cell(row, column, "symbol"), cell(row, column, "market_code"), cell(row, column, "country_code"), cell(row, column, "isin"))
+			created, ok := resolveNewInstrument(plan, household, origin, now, options, instruments, instrumentByName, createdInstruments, rowNumber, instrumentName, cell(row, column, "instrument_type"), cell(row, column, "quote_currency"), cell(row, column, "symbol"), cell(row, column, "market_code"), cell(row, column, "country_code"), cell(row, column, "isin"), cell(row, column, "metal_template"), cell(row, column, "quantity_unit"))
 			if !ok {
 				continue
 			}
 			instrument = created
+		}
+		if instrument.MetalTemplate != cell(row, column, "metal_template") || instrument.QuantityUnit != cell(row, column, "quantity_unit") || (instrument.MetalTemplate != "" && instrument.QuoteCurrency.String() != strings.ToUpper(cell(row, column, "quote_currency"))) {
+			appendCSVError(plan, rowNumber, "quantity_unit", cell(row, column, "quantity_unit"), domain.ErrCSVRowInvalid, "metal template, unit and currency must match the selected instrument")
+			continue
 		}
 		var note *string
 		if noteText := cell(row, column, "note"); noteText != "" {
@@ -731,12 +739,12 @@ func resolveNewGroup(plan *CSVImportPlan, household domain.Household, now time.T
 	}
 }
 
-func resolveNewInstrument(plan *CSVImportPlan, household domain.Household, origin *domain.HistoryOrigin, now time.Time, options CSVParseOptions, instruments []domain.Instrument, byName map[string][]int, created map[string]domain.Instrument, row int, name, typeText, currencyText, symbol, market, country, isin string) (domain.Instrument, bool) {
+func resolveNewInstrument(plan *CSVImportPlan, household domain.Household, origin *domain.HistoryOrigin, now time.Time, options CSVParseOptions, instruments []domain.Instrument, byName map[string][]int, created map[string]domain.Instrument, row int, name, typeText, currencyText, symbol, market, country, isin, metalTemplate, quantityUnit string) (domain.Instrument, bool) {
 	choice := unresolvedChoice(options, "instrument", name)
 	switch strings.ToLower(choice.Action) {
 	case CSVUnresolvedMap:
 		target := strings.TrimSpace(choice.MapTo)
-		ids, ok := byName[target]
+		ids, ok := byName[csvInstrumentIdentity(target, metalTemplate, quantityUnit, strings.ToUpper(currencyText))]
 		if !ok || len(ids) != 1 {
 			appendCSVError(plan, row, "instrument_name", name, domain.ErrCSVReferenceUnresolved, "mapped instrument was not found")
 			return domain.Instrument{}, false
@@ -751,7 +759,7 @@ func resolveNewInstrument(plan *CSVImportPlan, household domain.Household, origi
 			return domain.Instrument{}, false
 		}
 		made, createErr := domain.NewInstrument(domain.InstrumentInput{
-			HouseholdID: household.ID, Name: name, Type: instrumentType, QuoteCurrency: currency,
+			HouseholdID: household.ID, Name: name, Type: instrumentType, QuoteCurrency: currency, MetalTemplate: metalTemplate, QuantityUnit: quantityUnit,
 			Symbol: optString(symbol), MarketCode: optString(market), CountryCode: optString(country), ISIN: optString(isin),
 			QuoteSource: domain.QuoteSourceManual,
 		}, now)
@@ -766,7 +774,7 @@ func resolveNewInstrument(plan *CSVImportPlan, household domain.Household, origi
 		}
 		plan.Batch.Instruments = append(plan.Batch.Instruments, imported)
 		plan.Stats.CreateInstruments++
-		created[name] = made
+		created[csvInstrumentIdentity(name, metalTemplate, quantityUnit, currency.String())] = made
 		return made, true
 	default:
 		noteUnresolved(plan, row, "instrument", "instrument_name", name)
@@ -806,4 +814,13 @@ func optString(value string) *string {
 	}
 	trimmed := strings.TrimSpace(value)
 	return &trimmed
+}
+
+// Include the economic unit in CSV identity so equal display names do not
+// merge gold grams with gold troy ounces.
+func csvInstrumentIdentity(name, template, unit, currency string) string {
+	if template == "" {
+		return name
+	}
+	return strings.Join([]string{name, template, unit, currency}, "\x00")
 }

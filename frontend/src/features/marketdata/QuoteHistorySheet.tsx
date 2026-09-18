@@ -1,3 +1,4 @@
+import { metalPriceSuffix } from "@/lib/preciousMetals";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { TrendChart } from "@/components/charts/TrendChart";
@@ -53,12 +54,13 @@ export function QuoteHistorySheet({
     ? t("marketData.instrumentHistory", { name: instrumentDisplayLabel(target.instrument, target.instrument.name) })
     : t("marketData.fxHistory", { base: fxBase, quote: fxQuote });
   const description = target.kind === "instrument"
-    ? [instrumentSecondaryName(target.instrument), target.instrument.quoteCurrency, displayEnum(t, "portfolio", target.instrument.quoteSource)].filter(Boolean).join(" · ")
+    ? [instrumentSecondaryName(target.instrument), target.instrument.quoteCurrency + metalPriceSuffix(target.instrument, t), displayEnum(t, "portfolio", target.instrument.quoteSource)].filter(Boolean).join(" · ")
     : `${fxBase}/${fxQuote}`;
 
   const points = series.data?.points ?? [];
   const observations = series.data?.observations ?? [];
   const currency = target.kind === "instrument" ? target.instrument.quoteCurrency : undefined;
+  const priceSuffix = target.kind === "instrument" ? metalPriceSuffix(target.instrument, t) : "";
   const emptyRange = !series.isLoading && !series.isError && observations.length === 0;
   const hasFactsOutsideRange = emptyRange && series.data?.outsideRange === true;
   const sourceLabel = (kind: string, key?: string) => {
@@ -78,6 +80,7 @@ export function QuoteHistorySheet({
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>{description}</SheetDescription>
         </SheetHeader>
+        {target.kind === "instrument" && target.instrument.metalTemplate && <p className="mt-3 text-xs text-muted-foreground">{t("metals.referenceDisclaimer")}</p>}
         <div className="flex flex-col gap-4">
           <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
           <SourceFilterToggle value={sourceFilter} onChange={setSourceFilter} />
@@ -129,11 +132,11 @@ export function QuoteHistorySheet({
               currency={currency ?? ""}
               height={300}
               emptyTitle={t("charts.insufficientHistory")}
-              valueFormatter={(value) => (value ? (currency ? formatAmount(value, currency) : formatAmount(value)) : t("accounts.noValue"))}
+              valueFormatter={(value) => (value ? (currency ? formatAmount(value, currency) + priceSuffix : formatAmount(value)) : t("accounts.noValue"))}
               extraTableColumns={[t("charts.quotedAt"), target.kind === "fx" ? t("charts.rate") : t("charts.price"), t("quoteDetails.type"), t("quoteDetails.effectiveDate"), t("charts.source"), t("charts.delayed")]}
               extraTableRows={observations.map((item) => [
                 formatQuotedAt(item.quotedAt, i18n.language, settings.data?.timezone),
-                currency ? formatAmount(item.value, currency) : formatAmount(item.value),
+                currency ? formatAmount(item.value, currency) + priceSuffix : formatAmount(item.value),
                 observationLabel(item),
                 item.effectiveDate || "—",
                 `${displayEnum(t, "portfolio", item.sourceKind)}${item.sourceKey ? ` · ${item.sourceKey}` : ""}`,

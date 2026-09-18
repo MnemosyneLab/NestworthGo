@@ -19,10 +19,10 @@ import (
 //go:embed schema.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 10
+const CurrentSchemaVersion = 11
 
-// supportedMigrationSourceVersion is the only older database generation that
-// Open will upgrade. Schemas 6, 7, and 8 remain blocked with zero writes.
+// Open upgrades schema 9 through 10 to 11, and schema 10 to 11.
+// Schemas 6, 7, and 8 remain blocked with zero writes.
 const supportedMigrationSourceVersion = 9
 
 type BootstrapStatus string
@@ -125,6 +125,12 @@ func Open(path string) (*DB, error) {
 	}
 	if found == supportedMigrationSourceVersion && found < CurrentSchemaVersion {
 		if err := migrateV9ToV10(context.Background(), database); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = 10
+	}
+	if found == 10 {
+		if err := migrateV10ToV11(context.Background(), database); err != nil {
 			return closeOnError(StatusUnavailable, found, err)
 		}
 		found = CurrentSchemaVersion

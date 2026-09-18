@@ -561,7 +561,7 @@ func expectedSchemaTables() map[string][]schemaColumn {
 			expectedColumn("quote_currency", "TEXT", 1, 0), expectedColumn("symbol", "TEXT", 0, 0), expectedColumn("market_code", "TEXT", 0, 0), expectedColumn("country_code", "TEXT", 0, 0),
 			expectedColumn("isin", "TEXT", 0, 0), expectedColumn("note", "TEXT", 0, 0), expectedColumn("icon_key", "TEXT", 1, 0), expectedColumn("sort_order", "INTEGER", 1, 0, "0"),
 			expectedColumn("quote_source", "TEXT", 1, 0, "'manual'"), expectedColumn("provider_key", "TEXT", 0, 0), expectedColumn("provider_symbol", "TEXT", 0, 0),
-			expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0),
+			expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("archived_at", "TEXT", 0, 0), expectedColumn("metal_template", "TEXT", 1, 0, "''"), expectedColumn("quantity_unit", "TEXT", 1, 0, "''"),
 		},
 		"holdings": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("quantity", "TEXT", 1, 0),
@@ -572,7 +572,7 @@ func expectedSchemaTables() map[string][]schemaColumn {
 		},
 		"instrument_quotes": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("unit_price", "TEXT", 1, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("source_key", "TEXT", 1, 0), expectedColumn("quoted_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("delayed", "INTEGER", 1, 0, "0"),
-			expectedColumn("observation_kind", "TEXT", 1, 0, "''"), expectedColumn("effective_date", "TEXT", 0, 0), expectedColumn("provider_timestamp", "TEXT", 0, 0), expectedColumn("fetched_at", "TEXT", 0, 0), expectedColumn("value_effective_at", "TEXT", 0, 0), expectedColumn("binding_revision", "INTEGER", 0, 0), expectedColumn("source_policy_version", "TEXT", 0, 0), expectedColumn("price_basis", "TEXT", 0, 0), expectedColumn("timestamp_basis", "TEXT", 0, 0), expectedColumn("revision", "INTEGER", 1, 0, "1"), expectedColumn("supersedes_quote_id", "TEXT", 0, 0), expectedColumn("split_factor", "TEXT", 0, 0), expectedColumn("dividend_cash", "TEXT", 0, 0),
+			expectedColumn("observation_kind", "TEXT", 1, 0, "''"), expectedColumn("effective_date", "TEXT", 0, 0), expectedColumn("provider_timestamp", "TEXT", 0, 0), expectedColumn("fetched_at", "TEXT", 0, 0), expectedColumn("value_effective_at", "TEXT", 0, 0), expectedColumn("binding_revision", "INTEGER", 0, 0), expectedColumn("source_policy_version", "TEXT", 0, 0), expectedColumn("price_basis", "TEXT", 0, 0), expectedColumn("timestamp_basis", "TEXT", 0, 0), expectedColumn("revision", "INTEGER", 1, 0, "1"), expectedColumn("supersedes_quote_id", "TEXT", 0, 0), expectedColumn("split_factor", "TEXT", 0, 0), expectedColumn("dividend_cash", "TEXT", 0, 0), expectedColumn("conversion_json", "TEXT", 0, 0),
 		},
 		"fx_quotes": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("base_currency", "TEXT", 1, 0), expectedColumn("quote_currency", "TEXT", 1, 0), expectedColumn("rate", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("source_key", "TEXT", 1, 0), expectedColumn("quoted_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("delayed", "INTEGER", 1, 0, "0"),
@@ -764,7 +764,8 @@ func expectedSchemaIndexes() []expectedIndex {
 		{table: "account_values", name: "idx_account_values_latest", columns: []expectedIndexColumn{{name: "account_id"}, {name: "effective_at", desc: 1}, {name: "created_at", desc: 1}, {name: "id", desc: 1}}},
 		{table: "instruments", name: "idx_instruments_household", columns: asc("household_id")},
 		{table: "instruments", name: "idx_instruments_quote_source", columns: asc("household_id", "quote_source", "archived_at")},
-		{table: "instruments", name: "ux_instruments_active_provider_binding", unique: 1, partial: 1, where: "WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL", columns: asc("household_id", "provider_key", "provider_symbol")},
+		{table: "instruments", name: "ux_instruments_active_provider_binding", unique: 1, partial: 1, where: "WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL AND metal_template = ''", columns: asc("household_id", "provider_key", "provider_symbol")},
+		{table: "instruments", name: "ux_instruments_active_metal_binding", unique: 1, partial: 1, where: "WHERE archived_at IS NULL AND provider_key IS NOT NULL AND provider_symbol IS NOT NULL AND metal_template <> ''", columns: asc("household_id", "provider_key", "provider_symbol", "quote_currency", "quantity_unit")},
 		{table: "holdings", name: "idx_holdings_account", columns: asc("account_id", "archived_at", "sort_order", "id")},
 		{table: "holdings", name: "idx_holdings_instrument", columns: asc("instrument_id", "archived_at")},
 		{table: "holdings", name: "ux_holdings_active_account_instrument", unique: 1, partial: 1, where: "WHERE archived_at IS NULL", columns: asc("account_id", "instrument_id")},
