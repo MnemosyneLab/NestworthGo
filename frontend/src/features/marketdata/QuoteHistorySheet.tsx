@@ -66,6 +66,11 @@ export function QuoteHistorySheet({
     return key ? `${label} · ${key}` : label;
   };
 
+  const observationLabel = (point: { observationKind?: string; sourceKind: string }) => {
+    const kind = point.sourceKind === "manual" ? "manual" : point.observationKind || "unknown";
+    return t(`quoteDetails.kinds.${kind}`, { defaultValue: t("quoteDetails.kinds.unknown") });
+  };
+
   return (
     <Sheet open onOpenChange={(open) => { if (!open) onClose(); }}>
       <SheetContent className="max-w-xl overflow-y-auto" side="right">
@@ -76,6 +81,7 @@ export function QuoteHistorySheet({
         <div className="flex flex-col gap-4">
           <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
           <SourceFilterToggle value={sourceFilter} onChange={setSourceFilter} />
+          <p className="text-sm text-muted-foreground">{t("quoteDetails.help")}</p>
           {target.kind === "fx" && (
             <>
               <p className="text-sm text-muted-foreground">{t("marketData.fxDailyReference")}</p>
@@ -115,16 +121,21 @@ export function QuoteHistorySheet({
                 pointMeta: points.map((point) => ({
                   sourceLabel: sourceLabel(point.sourceKind, point.sourceKey),
                   delayed: point.delayed,
+                  observationLabel: observationLabel(point),
+                  observationKind: point.sourceKind === "manual" ? "manual" : point.observationKind,
+                  effectiveDate: point.effectiveDate,
                 })),
               }]}
               currency={currency ?? ""}
               height={300}
               emptyTitle={t("charts.insufficientHistory")}
               valueFormatter={(value) => (value ? (currency ? formatAmount(value, currency) : formatAmount(value)) : t("accounts.noValue"))}
-              extraTableColumns={[t("charts.quotedAt"), target.kind === "fx" ? t("charts.rate") : t("charts.price"), t("charts.source"), t("charts.delayed")]}
+              extraTableColumns={[t("charts.quotedAt"), target.kind === "fx" ? t("charts.rate") : t("charts.price"), t("quoteDetails.type"), t("quoteDetails.effectiveDate"), t("charts.source"), t("charts.delayed")]}
               extraTableRows={observations.map((item) => [
                 formatQuotedAt(item.quotedAt, i18n.language, settings.data?.timezone),
                 currency ? formatAmount(item.value, currency) : formatAmount(item.value),
+                observationLabel(item),
+                item.effectiveDate || "—",
                 `${displayEnum(t, "portfolio", item.sourceKind)}${item.sourceKey ? ` · ${item.sourceKey}` : ""}`,
                 item.delayed ? t("charts.delayed") : t("charts.onTime"),
               ])}

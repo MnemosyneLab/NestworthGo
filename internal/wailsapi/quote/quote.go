@@ -102,11 +102,13 @@ func (s *Service) FXQuoteHistory(ctx context.Context) ([]wire.FXQuoteDTO, error)
 // QuoteSeriesPointDTO is one local observation in the requested display
 // direction. Value is a canonical decimal string.
 type QuoteSeriesPointDTO struct {
-	QuotedAt   string `json:"quotedAt"`
-	Value      string `json:"value"`
-	SourceKind string `json:"sourceKind"`
-	SourceKey  string `json:"sourceKey"`
-	Delayed    bool   `json:"delayed"`
+	ObservationKind string `json:"observationKind,omitempty"`
+	EffectiveDate   string `json:"effectiveDate,omitempty"`
+	QuotedAt        string `json:"quotedAt"`
+	Value           string `json:"value"`
+	SourceKind      string `json:"sourceKind"`
+	SourceKey       string `json:"sourceKey"`
+	Delayed         bool   `json:"delayed"`
 }
 
 // QuoteSeriesDTO is the bounded local quote-history read model used by
@@ -138,11 +140,13 @@ func fromQuoteSeriesPoints(values []domain.QuoteSeriesPoint) []QuoteSeriesPointD
 	result := make([]QuoteSeriesPointDTO, 0, len(values))
 	for _, point := range values {
 		result = append(result, QuoteSeriesPointDTO{
-			QuotedAt:   wire.FormatTime(point.QuotedAt),
-			Value:      point.Value,
-			SourceKind: string(point.SourceKind),
-			SourceKey:  point.SourceKey,
-			Delayed:    point.Delayed,
+			QuotedAt:        wire.FormatTime(point.QuotedAt),
+			ObservationKind: point.ObservationKind,
+			EffectiveDate:   point.EffectiveDate,
+			Value:           point.Value,
+			SourceKind:      string(point.SourceKind),
+			SourceKey:       point.SourceKey,
+			Delayed:         point.Delayed,
 		})
 	}
 	return result

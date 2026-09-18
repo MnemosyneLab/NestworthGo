@@ -13,8 +13,10 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/waltwang/nestworth-go/internal/diagnostics"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -79,6 +81,7 @@ const (
 // currency; FXProvider selects the provider used only for user-initiated FX
 // refresh.
 type Settings struct {
+	LogLevel          string     `json:"log_level,omitempty"`
 	SchemaVersion     int        `json:"schema_version"`
 	Appearance        Appearance `json:"appearance"`
 	Accent            Accent     `json:"accent"`
@@ -141,6 +144,9 @@ func Default() Settings {
 }
 
 func (s Settings) Validate() error {
+	if !diagnostics.ValidLevel(s.LogLevel) {
+		return errors.New("unsupported log level")
+	}
 	if s.SchemaVersion != CurrentSchemaVersion {
 		return fmt.Errorf("unsupported settings schema version %d", s.SchemaVersion)
 	}
@@ -268,7 +274,10 @@ func separatorValue(value string) string {
 }
 
 type Store struct {
-	Path string
+	saveMu sync.Mutex
+	Path   string
+	// ConfigureLogging is set by the desktop composition root.
+	ConfigureLogging func(string) error
 }
 
 // LoadStatus describes whether a loaded value is safe for an automatic
@@ -353,6 +362,7 @@ func (s *Store) LoadWithStatus() (Settings, LoadStatus, error) {
 // no longer discard the whole preference set.
 func salvage(loaded, defaults Settings) Settings {
 	fixed := loaded
+	fixed.LogLevel = salvageValue(fixed.LogLevel, defaults.LogLevel, diagnostics.ValidLevel)
 	fixed.Appearance = salvageValue(fixed.Appearance, defaults.Appearance, func(v Appearance) bool {
 		return oneOf(string(v), string(AppearanceSystem), string(AppearanceLight), string(AppearanceDark))
 	})
@@ -424,6 +434,7 @@ func changedFieldNames(from, to Settings) []string {
 		name     string
 		from, to any
 	}{
+		{"log_level", from.LogLevel, to.LogLevel},
 		{"appearance", from.Appearance, to.Appearance},
 		{"accent", from.Accent, to.Accent},
 		{"language", from.Language, to.Language},
@@ -451,12 +462,30 @@ func changedFieldNames(from, to Settings) []string {
 	return changed
 }
 
-func (s *Store) Save(value Settings) error {
+func (s *Store) Save(value Settings) (saveErr error) {
+	if s != nil {
+		s.saveMu.Lock()
+		defer s.saveMu.Unlock()
+	}
 	if s == nil || s.Path == "" {
 		return errors.New("settings path is empty")
 	}
 	if err := value.Validate(); err != nil {
 		return err
+	}
+	if s.ConfigureLogging != nil {
+		previous, err := s.Load()
+		if err != nil {
+			return err
+		}
+		if err := s.ConfigureLogging(value.LogLevel); err != nil {
+			return fmt.Errorf("configure file logging: %w", err)
+		}
+		defer func() {
+			if saveErr != nil {
+				_ = s.ConfigureLogging(previous.LogLevel)
+			}
+		}()
 	}
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0o700); err != nil {
 		return err
@@ -504,3 +533,5 @@ func (s Settings) QuoteCacheTTLDuration() time.Duration {
 		return 12 * time.Hour
 	}
 }
+
+func (s *Store) LogPath() string { return filepath.Join(filepath.Dir(s.Path), "logs", "nestworth.log") }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -14,7 +15,8 @@ import { useBootstrap } from "@/queries/household";
 import { useHistoryOrigin } from "@/queries/history";
 import type { AnalysisNavigationContext } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
-import { lastClosedDate } from "@/features/insights/calendar";
+import { subMonths, subDays } from "date-fns";
+import { lastClosedDate, parseYmd, ymd } from "@/features/insights/calendar";
 import { originLocalDate } from "@/features/insights/analysisRequest";
 
 export function AnalysisFilterBar({
@@ -27,6 +29,7 @@ export function AnalysisFilterBar({
   onReset: () => void;
 }) {
   const { t } = useTranslation();
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
   const bootstrap = useBootstrap();
   const origin = useHistoryOrigin();
   const accounts = useAccounts();
@@ -48,6 +51,14 @@ export function AnalysisFilterBar({
   const originDate = origin.data?.startedAt ? originLocalDate(origin.data.startedAt, origin.data.timezone) : undefined;
   const fromMax = session.to && session.to < closedDate ? session.to : closedDate;
   const toMin = session.from && (!originDate || session.from > originDate) ? session.from : originDate;
+
+  const presets = ["1w", "1m", "3m", "6m", "1y"] as const;
+  const presetRange = (preset: typeof presets[number]) => {
+    const end = parseYmd(closedDate);
+    const start = preset === "1w" ? subDays(end, 6) : subDays(subMonths(end, preset === "1y" ? 12 : Number(preset.slice(0, -1))), -1);
+    const from = ymd(start);
+    return { from: originDate && from < originDate ? originDate : from, to: closedDate };
+  };
 
   return (
     <section aria-label={t("insights.filters")} className="flex flex-col gap-2 rounded-xl border border-border bg-card/60 p-3">
@@ -104,6 +115,15 @@ export function AnalysisFilterBar({
         <Button type="button" variant="outline" onClick={onReset}>{t("insights.reset")}</Button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("rangeShortcuts.label")}>
+        <span className="mr-1 text-sm text-muted-foreground">{t("rangeShortcuts.label")}</span>
+        {presets.map((preset) => {
+          const range = presetRange(preset);
+          const active = selectedPreset === preset && session.from === range.from && session.to === range.to;
+          return <Button key={preset} type="button" size="sm" variant={active ? "default" : "outline"} aria-pressed={active} disabled={Boolean(originDate && originDate > closedDate)} onClick={() => { setSelectedPreset(preset); update(range); }}>{t(`rangeShortcuts.${preset}`)}</Button>;
+        })}
+        <span className="text-xs text-muted-foreground">{t("rangeShortcuts.help")}</span>
+      </div>
       <details className="border-t border-border/70 pt-2">
         <summary className="cursor-pointer text-sm font-medium text-foreground">{t("insights.moreFilters")}<span className="ml-2 font-normal text-muted-foreground">{[
           session.valuation === "native" ? t("insights.valuationNative") : t("insights.valuationBase", { currency: bootstrap.data?.household?.baseCurrency ?? "—" }),

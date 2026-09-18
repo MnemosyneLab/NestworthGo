@@ -6,6 +6,9 @@ import { formatAmount } from "@/lib/money";
 
 export interface TrendPointMeta {
   sourceLabel?: string;
+  observationLabel?: string;
+  observationKind?: string;
+  effectiveDate?: string;
   delayed?: boolean;
 }
 
@@ -139,6 +142,8 @@ export function TrendChart({
           const meta = seriesItem?.pointMeta?.[point.dataIndex ?? -1];
           return [
             `${point.seriesName}: ${formatValue(raw)}`,
+            meta?.observationLabel,
+            meta?.effectiveDate ? `${t("quoteDetails.effectiveDate")}: ${meta.effectiveDate}` : null,
             meta?.sourceLabel ? `${t("charts.source")}: ${meta.sourceLabel}` : null,
             meta?.delayed == null ? null : (meta.delayed ? t("charts.delayed") : t("charts.onTime")),
           ];
@@ -164,7 +169,7 @@ export function TrendChart({
           const meta = item.pointMeta?.[index];
           return {
             value: [trendChartTimestamp(dates[index]), chartNumber(value)],
-            symbol: meta?.delayed ? "diamond" : "circle",
+            symbol: meta?.observationKind === "close" || meta?.observationKind === "daily_reference" ? "rect" : meta?.observationKind === "manual" || meta?.delayed ? "diamond" : "circle",
             itemStyle: { color: meta?.sourceLabel ? sourceTint(meta.sourceLabel, theme.palette) : item.color },
           };
         }),

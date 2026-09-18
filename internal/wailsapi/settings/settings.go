@@ -6,6 +6,7 @@ package settings
 
 import (
 	"context"
+	"log/slog"
 	"sort"
 	"strings"
 
@@ -24,6 +25,8 @@ type Service struct {
 // struct intentionally keeps its snake_case JSON tags for the on-disk format;
 // it must not leak into IPC or force the frontend to maintain two key shapes.
 type SettingsDTO struct {
+	LogLevel          string              `json:"logLevel,omitempty"`
+	LogFilePath       string              `json:"logFilePath,omitempty"`
 	SchemaVersion     int                 `json:"schemaVersion"`
 	Appearance        settings.Appearance `json:"appearance"`
 	Accent            settings.Accent     `json:"accent"`
@@ -57,6 +60,7 @@ type WorkerTokenStatusDTO struct {
 
 func fromSettings(value settings.Settings) SettingsDTO {
 	return SettingsDTO{
+		LogLevel:      value.LogLevel,
 		SchemaVersion: value.SchemaVersion, Appearance: value.Appearance, Accent: value.Accent,
 		Language: value.Language, Timezone: value.Timezone, WeekStart: value.WeekStart,
 		DateFormat: value.DateFormat, TimeFormat: value.TimeFormat, Currency: value.Currency,
@@ -68,6 +72,7 @@ func fromSettings(value settings.Settings) SettingsDTO {
 
 func (value SettingsDTO) toSettings() settings.Settings {
 	return settings.Settings{
+		LogLevel:      value.LogLevel,
 		SchemaVersion: value.SchemaVersion, Appearance: value.Appearance, Accent: value.Accent,
 		Language: value.Language, Timezone: value.Timezone, WeekStart: value.WeekStart,
 		DateFormat: value.DateFormat, TimeFormat: value.TimeFormat, Currency: value.Currency,
@@ -186,7 +191,9 @@ func (s *Service) Load() (SettingsDTO, error) {
 	if err != nil {
 		return fromSettings(settings.Default()), apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be loaded"})
 	}
-	return fromSettings(value), nil
+	result := fromSettings(value)
+	result.LogFilePath = s.store.LogPath()
+	return result, nil
 }
 
 // Save validates the submitted preferences, applies an FX provider change
@@ -220,6 +227,7 @@ func (s *Service) Save(value SettingsDTO) error {
 		if err := s.store.Save(persisted); err != nil {
 			return &domain.Error{Code: domain.ErrUnavailable, Message: "settings could not be saved"}
 		}
+		slog.Info("settings saved", "log_level", persisted.LogLevel)
 		return nil
 	}
 	if s.app == nil {
@@ -242,7 +250,9 @@ func (s *Service) Reset() (SettingsDTO, error) {
 	if err := s.Save(fromSettings(defaults)); err != nil {
 		return SettingsDTO{}, err
 	}
-	return fromSettings(defaults), nil
+	result := fromSettings(defaults)
+	result.LogFilePath = s.store.LogPath()
+	return result, nil
 }
 
 // SupportedCurrencies returns the closed currency catalog from domain.

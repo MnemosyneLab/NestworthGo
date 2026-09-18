@@ -9,6 +9,7 @@ package marketdata
 
 import (
 	"context"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -266,7 +267,9 @@ func (s *Service) runAsync(requestID string, run func(context.Context) (applicat
 	go func() {
 		defer s.wg.Done()
 		defer cancel()
+		slog.Info("market data refresh started")
 		result, err := run(ctx)
+		slog.Info("market data refresh finished", "failed", err != nil, "items", len(result.Items), "rate_limited", result.RateLimited)
 		payload := RefreshCompletedPayload{RequestID: requestID, Status: "completed"}
 		if err != nil {
 			payload.Status = "failed"

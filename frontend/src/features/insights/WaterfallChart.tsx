@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { EChart, type EChartsOption } from "@/components/charts/EChart";
-import { chartNumber, chartTheme, joinTooltipLines } from "@/components/charts/chartTheme";
+import { chartNumber, chartTheme } from "@/components/charts/chartTheme";
 import { EmptyState } from "@/components/layout/PageState";
 import type { AssetChangeRowDTO, AssetChangeSummaryDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { addCanonical, compareCanonical, formatAmount } from "@/lib/money";
@@ -80,62 +79,33 @@ export function WaterfallChart({ summary, rows, labels, onSelect }: { summary: A
   if (steps.length === 0) {
     return <EmptyState title={labels.empty} />;
   }
-  const currency = steps.find((step) => step.currency)?.currency ?? "";
   const reconciled = waterfallReconciles(steps);
-  const option: EChartsOption = {
-    tooltip: {
-      trigger: "axis",
-      confine: true,
-      transitionDuration: 0,
-      formatter: (params) => {
-        const first = (Array.isArray(params) ? params[0] : params) as { dataIndex?: number };
-        const step = steps[first.dataIndex ?? -1];
-        return step ? joinTooltipLines([step.label, signedAmount(step.amount, step.currency)]) : "";
-      },
-    },
-    grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
-    xAxis: { type: "category", data: steps.map((step) => step.label), axisLabel: { color: theme.muted, interval: 0, rotate: steps.length > 7 ? 28 : 0 } },
-    yAxis: { type: "value", axisLabel: { color: theme.muted }, splitLine: { lineStyle: { color: theme.border } } },
-    series: [
-      {
-        type: "bar",
-        stack: "waterfall",
-        stackStrategy: "all",
-        silent: true,
-        itemStyle: { color: "transparent" },
-        emphasis: { disabled: true },
-        data: steps.map((step) => chartNumber(step.base) ?? 0),
-      },
-      {
-        type: "bar",
-        stack: "waterfall",
-        stackStrategy: "all",
-        emphasis: { disabled: true },
-        data: steps.map((step) => ({
-          value: chartNumber(step.span) ?? 0,
-          itemStyle: { color: step.key === "residual" ? theme.warning : (compareCanonical(step.amount, "0") < 0 ? theme.gainNegative : theme.gainPositive) },
-        })),
-      },
-    ],
-  };
+  const drivers = steps.filter((step) => step.delta);
+  const limit = Math.max(...drivers.map((step) => Math.abs(chartNumber(step.amount) ?? 0)), 1);
   const endingKnown = steps.some((step) => step.key === "ending");
   return (
     <div data-testid="asset-waterfall">
       {!endingKnown && <div role="alert" className="mb-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{t("insights.waterfallIncomplete")}</div>}
       {endingKnown && !reconciled && <div role="alert" className="mb-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{t("insights.waterfallMismatch")}</div>}
-      <EChart
-        option={option}
-        height={340}
-        ariaLabel={labels.amount}
-        summary={labels.amount}
-        dataTableLabel={t("charts.viewDataTable")}
-        dataTableColumns={[t("charts.category"), labels.amount]}
-        dataTableRows={steps.map((step) => [step.label, signedAmount(step.amount, step.currency || currency)])}
-        onSelectName={(name) => {
-          const step = steps.find((candidate) => candidate.label === name && candidate.delta);
-          if (step) onSelect?.(step.key);
-        }}
-      />
+      <p className="mb-2 text-sm text-muted-foreground">{t("changeContributions.help")}</p>
+      <div className="divide-y divide-border rounded-xl border border-border bg-card px-4">
+        {drivers.length === 0 && <p className="py-5 text-sm text-muted-foreground">{t("changeContributions.noChanges")}</p>}
+        {drivers.map((step) => {
+          const negative = compareCanonical(step.amount, "0") < 0;
+          const width = Math.abs(chartNumber(step.amount) ?? 0) / limit * 50;
+          const color = step.key === "residual" ? theme.warning : negative ? theme.gainNegative : theme.gainPositive;
+          return (
+            <button key={step.key} type="button" disabled={!onSelect} onClick={() => onSelect?.(step.key)} className="grid w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 rounded-sm py-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring enabled:hover:bg-muted/40 sm:grid-cols-[minmax(7rem,1fr)_minmax(0,2fr)_minmax(8rem,1fr)]">
+              <span className="text-sm font-medium">{step.label}</span>
+              <span className="relative col-span-2 row-start-2 h-6 sm:col-span-1 sm:row-start-auto" aria-hidden="true">
+                <span className="absolute inset-y-0 left-1/2 w-px bg-border" />
+                <span className="absolute top-1 h-4 rounded-sm" style={{ backgroundColor: color, width: `${width}%`, left: negative ? `${50 - width}%` : "50%" }} />
+              </span>
+              <span className="col-start-2 row-start-1 whitespace-nowrap text-right text-sm font-semibold tabular-nums sm:col-start-3" style={{ color }}>{signedAmount(step.amount, step.currency)}</span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

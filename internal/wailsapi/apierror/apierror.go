@@ -6,6 +6,9 @@ package apierror
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log/slog"
+	"runtime"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -50,10 +53,13 @@ func Wrap(err error) error {
 	if err == nil {
 		return nil
 	}
+	_, file, line, _ := runtime.Caller(1)
 	var domainErr *domain.Error
 	if errors.As(err, &domainErr) && domainErr != nil {
+		slog.Warn("application request failed", "code", domainErr.Code, "caller", fmt.Sprintf("%s:%d", file, line))
 		return &WireError{Code: string(domainErr.Code), Field: domainErr.Field, Message: domainErr.Message}
 	}
+	slog.Error("application request failed", "code", internalCode, "error_type", fmt.Sprintf("%T", err), "caller", fmt.Sprintf("%s:%d", file, line))
 	return &WireError{Code: internalCode, Message: "an unexpected error occurred"}
 }
 

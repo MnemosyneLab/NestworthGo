@@ -5,6 +5,46 @@
  * not silently drop them.
  */
 export const additionsEn = {
+  "diagnosticsSettings": {
+    "level": "Application file logging",
+    "path": "Log file",
+    "help": "Saved changes apply immediately. Off disables file logging. Each file is limited to 5 MB, with two older files retained. Debug includes diagnostic events for troubleshooting.",
+    "levels": {
+      "off": "Off",
+      "error": "Error",
+      "warn": "Warn",
+      "info": "Info",
+      "debug": "Debug"
+    }
+  },
+  "quoteDetails": {
+    "type": "Price type",
+    "effectiveDate": "Market / reference date",
+    "help": "Intraday quotes and daily closes are different observations. A closed market does not create a new price; historical valuations may carry forward a prior close.",
+    "kinds": {
+      "manual": "Manual price",
+      "realtime": "Intraday quote",
+      "close": "Daily close",
+      "latest": "Latest FX quote",
+      "daily_reference": "Daily reference rate",
+      "legacy": "Legacy observation (type unknown)",
+      "unknown": "Unknown type"
+    }
+  },
+  "rangeShortcuts": {
+    "label": "Quick range",
+    "1w": "Last week",
+    "1m": "1 month",
+    "3m": "3 months",
+    "6m": "6 months",
+    "1y": "1 year",
+    "help": "Through the last closed day; limited to available history."
+  },
+  "changeContributions": {
+    "noChanges": "No non-zero contributions in this period.",
+    "help": "Change contributions only: decreases to the left, increases to the right. Beginning and ending values are shown above."
+  }
+,
   nav: {
     directory: "Directory",
     instruments: "Instruments",
@@ -1092,6 +1132,46 @@ export const additionsEn = {
 };
 
 export const additionsZhCN = {
+  "diagnosticsSettings": {
+    "level": "应用文件日志",
+    "path": "日志文件",
+    "help": "保存后立即生效。关闭后停止写入日志。单个文件最多 5 MB，保留 2 个旧文件。Debug 级别包含用于排查问题的诊断事件。",
+    "levels": {
+      "off": "关闭",
+      "error": "Error",
+      "warn": "Warn",
+      "info": "Info",
+      "debug": "Debug"
+    }
+  },
+  "quoteDetails": {
+    "type": "价格类型",
+    "effectiveDate": "市场／参考日期",
+    "help": "盘中报价与日线收盘价是不同的记录。休市不会产生新的价格，历史估值可能沿用之前的收盘价。",
+    "kinds": {
+      "manual": "手工价格",
+      "realtime": "盘中报价",
+      "close": "日线收盘价",
+      "latest": "最新汇率",
+      "daily_reference": "每日参考汇率",
+      "legacy": "旧版记录（类型未知）",
+      "unknown": "类型未知"
+    }
+  },
+  "rangeShortcuts": {
+    "label": "快捷范围",
+    "1w": "最近 1 周",
+    "1m": "1 月",
+    "3m": "3 月",
+    "6m": "6 月",
+    "1y": "1 年",
+    "help": "截止到最后一个已结束的日期，起点不早于历史记录。"
+  },
+  "changeContributions": {
+    "noChanges": "本期没有非零的变动项目。",
+    "help": "仅比较各项增减：左侧为减少，右侧为增加。期初和期末价值见上方摘要。"
+  }
+,
   nav: {
     directory: "名录",
     instruments: "标的",
@@ -2163,6 +2243,46 @@ export const additionsZhCN = {
 };
 
 export const additionsZhTW = {
+  "diagnosticsSettings": {
+    "level": "應用程式檔案日誌",
+    "path": "日誌檔案",
+    "help": "儲存後立即生效。關閉後停止寫入日誌。單個檔案最多 5 MB，保留 2 個舊檔案。Debug 層級包含用於排查問題的診斷事件。",
+    "levels": {
+      "off": "關閉",
+      "error": "Error",
+      "warn": "Warn",
+      "info": "Info",
+      "debug": "Debug"
+    }
+  },
+  "quoteDetails": {
+    "type": "價格類型",
+    "effectiveDate": "市場／參考日期",
+    "help": "盤中報價與日線收盤價是不同的記錄。休市不會產生新的價格，歷史估值可能沿用之前的收盤價。",
+    "kinds": {
+      "manual": "手動價格",
+      "realtime": "盤中報價",
+      "close": "日線收盤價",
+      "latest": "最新匯率",
+      "daily_reference": "每日參考匯率",
+      "legacy": "舊版記錄（類型未知）",
+      "unknown": "類型未知"
+    }
+  },
+  "rangeShortcuts": {
+    "label": "快捷範圍",
+    "1w": "最近 1 週",
+    "1m": "1 月",
+    "3m": "3 月",
+    "6m": "6 月",
+    "1y": "1 年",
+    "help": "截止到最後一個已結束的日期，起點不早於歷史記錄。"
+  },
+  "changeContributions": {
+    "noChanges": "本期沒有非零的變動項目。",
+    "help": "僅比較各項增減：左側為減少，右側為增加。期初和期末價值見上方摘要。"
+  }
+,
   nav: {
     directory: "名錄",
     instruments: "標的",

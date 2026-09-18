@@ -83,6 +83,7 @@ export function SettingsPage() {
   }
 
   const isDirty =
+    (draft.logLevel || "off") !== (settings.data.logLevel || "off") ||
     draft.appearance !== settings.data.appearance ||
     draft.accent !== settings.data.accent ||
     draft.language !== settings.data.language ||
@@ -244,6 +245,15 @@ export function SettingsPage() {
             </NativeSelect>
             <p className="text-xs text-muted-foreground">{t("settings.quoteCacheTtlHelp")}</p>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-border pt-5">
+          <Label htmlFor="settings-log-level">{t("diagnosticsSettings.level")}</Label>
+          <NativeSelect id="settings-log-level" value={draft.logLevel || "off"} onChange={(event) => update({ logLevel: event.target.value })}>
+            {["off", "error", "warn", "info", "debug"].map((level) => <option key={level} value={level}>{t(`diagnosticsSettings.levels.${level}`)}</option>)}
+          </NativeSelect>
+          <p className="text-xs text-muted-foreground">{t("diagnosticsSettings.help")}</p>
+          {settings.data.logFilePath && <p className="break-all text-xs text-muted-foreground">{t("diagnosticsSettings.path")}: <span className="select-text font-mono">{settings.data.logFilePath}</span></p>}
         </div>
 
         {(saveSettings.isError || resetSettings.isError) && (

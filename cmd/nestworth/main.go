@@ -17,6 +17,7 @@ import (
 
 	webassets "github.com/waltwang/nestworth-go"
 	nestworthapp "github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/diagnostics"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
@@ -76,6 +77,14 @@ func main() {
 func run() error {
 	store := settings.DefaultStore()
 	preference, loadErr := store.Load()
+	logFile := diagnostics.New(store.LogPath())
+	defer logFile.Close()
+	if err := logFile.Configure(preference.LogLevel); err != nil {
+		slog.Warn("could not open application log file", "error", err)
+	}
+	slog.SetDefault(logFile.Logger())
+	store.ConfigureLogging = logFile.Configure
+	slog.Info("application starting", "version", version.Version)
 	if loadErr != nil {
 		slog.Warn("could not load saved settings; using defaults")
 	}
@@ -99,6 +108,9 @@ func run() error {
 		// backup. Load them before constructing services and the main window.
 		if refreshed, refreshErr := store.Load(); refreshErr == nil {
 			preference = refreshed
+			if err := logFile.Configure(preference.LogLevel); err != nil {
+				slog.Warn("could not apply restored log level")
+			}
 		} else {
 			slog.Warn("could not reload settings after restore reconciliation")
 		}

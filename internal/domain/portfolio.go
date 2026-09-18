@@ -101,13 +101,15 @@ func (filter QuoteSourceFilter) SourceKind() *QuoteSourceKind {
 // QuoteSeriesPoint is one locally stored observation projected for a chart or
 // data table. Value is already canonical; the frontend must not invert FX.
 type QuoteSeriesPoint struct {
-	ID         string
-	QuotedAt   time.Time
-	CreatedAt  time.Time
-	Value      string
-	SourceKind QuoteSourceKind
-	SourceKey  string
-	Delayed    bool
+	ObservationKind string
+	EffectiveDate   string
+	ID              string
+	QuotedAt        time.Time
+	CreatedAt       time.Time
+	Value           string
+	SourceKind      QuoteSourceKind
+	SourceKey       string
+	Delayed         bool
 }
 
 // QuoteSeries is the bounded local-history read model for one instrument or

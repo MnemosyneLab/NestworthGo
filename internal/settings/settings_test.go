@@ -294,3 +294,40 @@ func TestLoadSalvageLogsOmitPath(t *testing.T) {
 		t.Fatalf("settings log leaked path: %s", logged)
 	}
 }
+
+func TestLoggingConfigurationFailureDoesNotSaveSettings(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	value := Default()
+	if err := store.Save(value); err != nil {
+		t.Fatal(err)
+	}
+	store.ConfigureLogging = func(string) error { return os.ErrPermission }
+	value.LogLevel = "debug"
+	if err := store.Save(value); err == nil {
+		t.Fatal("expected logging setup error")
+	}
+	saved, err := store.Load()
+	if err != nil || saved.LogLevel != "" {
+		t.Fatalf("failed save changed preferences: %v %v", saved.LogLevel, err)
+	}
+}
+
+func TestLoggingLevelRollsBackWhenPersistenceFails(t *testing.T) {
+	store := NewStore(filepath.Join(t.TempDir(), "settings.json"))
+	var levels []string
+	store.ConfigureLogging = func(level string) error {
+		levels = append(levels, level)
+		if level == "debug" {
+			return os.Mkdir(store.Path, 0700)
+		}
+		return nil
+	}
+	value := Default()
+	value.LogLevel = "debug"
+	if err := store.Save(value); err == nil {
+		t.Fatal("expected persistence error")
+	}
+	if !reflect.DeepEqual(levels, []string{"debug", ""}) {
+		t.Fatalf("logging not restored: %v", levels)
+	}
+}

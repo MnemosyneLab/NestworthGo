@@ -270,3 +270,31 @@ The current schema must have sanitized fixtures and tests for create, reopen,
 integrity, representative business rows, and unsupported older/future versions.
 Compatibility is claimed only where the current repository has an explicit
 fixture, verification path, or migration test.
+
+## Local diagnostics and quote history metadata
+
+`SettingsDTO.logLevel` is optional for compatibility; absent/empty and `off`
+mean file logging is disabled. Accepted enabled levels are `error`, `warn`,
+`info`, and `debug`. `logFilePath` is a read-only path supplied on Load/Reset;
+Save ignores a client-supplied path. Preferences persist as `log_level` in the
+settings file. The desktop applies level changes immediately and rolls back the
+runtime level if saving fails. Logs use JSON lines at
+`<settings directory>/logs/nestworth.log`, with a 5 MiB current file and two
+rotated files, private file permissions, and no provider credentials or request
+bodies in diagnostic events. Existing settings without this field stay valid.
+These are application logs, not a capture of browser console output.
+
+`QuoteSeriesPointDTO.observationKind` and `effectiveDate` preserve stored quote
+metadata in both chart points and the complete observations list. Instrument
+kinds are `manual`, `realtime`, `close`, and `legacy`; FX kinds also include
+`latest` and `daily_reference`. An absent/legacy kind must not be inferred to be
+a live quote from its timestamp or delayed flag. Market closure is not a new
+observation kind: carry-forward belongs to historical valuation, not a fabricated
+quote-history row.
+
+Asset Changes displays the existing authoritative waterfall driver amounts as
+zero-centered contribution rows with exact amounts. Beginning/ending values
+remain in the summary; reconciliation checks remain active. Analysis range
+shortcuts end at the last closed day in the history-origin timezone and clamp
+the beginning to the history origin. Month shortcuts use calendar months and
+inclusive date endpoints.

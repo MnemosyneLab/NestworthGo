@@ -11,6 +11,8 @@ import * as settings$0 from "../../settings/models.js";
  * it must not leak into IPC or force the frontend to maintain two key shapes.
  */
 export interface SettingsDTO {
+    "logLevel"?: string;
+    "logFilePath"?: string;
     "schemaVersion": number;
     "appearance": settings$0.Appearance;
     "accent": settings$0.Accent;

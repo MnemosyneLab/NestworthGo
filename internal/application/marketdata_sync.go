@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -564,6 +565,7 @@ func (s *Service) StartMarketDataSync(ctx context.Context, request SyncRequest) 
 	started := job.snapshot.Clone()
 	s.syncWG.Add(1)
 	s.syncMu.Unlock()
+	slog.Info("market data sync started", "targets", started.TargetCount, "estimated_requests", started.EstimatedRequests)
 	if listener != nil {
 		listener(SyncEventStarted, started)
 	}
@@ -632,6 +634,14 @@ func (s *Service) publishSync(job *syncJobState, event string, mutate func()) {
 	snap := job.snapshot.Clone()
 	listener := s.syncListener
 	s.syncMu.Unlock()
+	if event == SyncEventStarted || event == SyncEventCompleted {
+		slog.Info("market data sync", "event", event, "phase", snap.Phase, "outcome", snap.Outcome, "requests", snap.CompletedRequests, "batches", snap.CommittedBatches, "snapshot_days", snap.SnapshotDaysRebuilt, "blockers", len(snap.Blockers))
+		if snap.ErrorCode != "" {
+			slog.Error("market data sync failed", "code", snap.ErrorCode)
+		}
+	} else {
+		slog.Debug("market data sync progress", "phase", snap.Phase, "requests", snap.CompletedRequests, "batches", snap.CommittedBatches)
+	}
 	if listener != nil {
 		listener(event, snap)
 	}

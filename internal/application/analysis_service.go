@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -270,7 +271,11 @@ func optionalAnalysisCurrency(value *domain.CurrencyCode) string {
 	return value.String()
 }
 
-func (s *AnalysisService) computeUncachedUniverse(ctx context.Context, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, error) {
+func (s *AnalysisService) computeUncachedUniverse(ctx context.Context, query domain.AnalysisQuery, investmentOnly bool) (result domain.PeriodAnalysisResult, resultErr error) {
+	started := time.Now()
+	defer func() {
+		slog.Debug("analysis computed", "from", query.From, "to", query.To, "scope", query.Scope.Kind, "investment_only", investmentOnly, "status", result.Status, "failed", resultErr != nil, "elapsed_ms", time.Since(started).Milliseconds())
+	}()
 	input, err := s.loadInputs(ctx, query)
 	if err != nil {
 		return domain.PeriodAnalysisResult{}, err

@@ -282,3 +282,31 @@ func TestWorkerTokenConfigurationPersistsWithoutReturningTheSecret(t *testing.T)
 		t.Fatalf("settings after Reset = %+v, err = %v", loaded, err)
 	}
 }
+
+func TestLoggingPreferencesRoundTripAndReset(t *testing.T) {
+	service := newTestService(t)
+	value, err := service.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.LogLevel != "" || !strings.HasSuffix(value.LogFilePath, filepath.Join("logs", "nestworth.log")) {
+		t.Fatalf("unexpected log defaults: %+v", value)
+	}
+	value.LogLevel = "debug"
+	value.LogFilePath = "/ignored-client-path"
+	if err := service.Save(value); err != nil {
+		t.Fatal(err)
+	}
+	saved, err := service.Load()
+	if err != nil || saved.LogLevel != "debug" || saved.LogFilePath == value.LogFilePath {
+		t.Fatalf("logging round trip: %+v %v", saved, err)
+	}
+	value.LogLevel = "invalid"
+	if err := service.Save(value); err == nil {
+		t.Fatal("accepted invalid log level")
+	}
+	reset, err := service.Reset()
+	if err != nil || reset.LogLevel != "" || reset.LogFilePath == "" {
+		t.Fatalf("logging reset: %+v %v", reset, err)
+	}
+}

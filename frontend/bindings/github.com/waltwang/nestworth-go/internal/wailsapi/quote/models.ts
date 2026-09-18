@@ -21,6 +21,8 @@ export interface QuoteSeriesDTO {
  * direction. Value is a canonical decimal string.
  */
 export interface QuoteSeriesPointDTO {
+    "observationKind"?: string;
+    "effectiveDate"?: string;
     "quotedAt": string;
     "value": string;
     "sourceKind": string;

@@ -30,13 +30,15 @@ func (s *Service) InstrumentQuoteSeries(ctx context.Context, id domain.Instrumen
 	observations := make([]domain.QuoteSeriesPoint, 0, len(quotes))
 	for _, quote := range quotes {
 		observations = append(observations, domain.QuoteSeriesPoint{
-			ID:         quote.ID.String(),
-			QuotedAt:   quote.QuotedAt,
-			CreatedAt:  quote.CreatedAt,
-			Value:      quote.UnitPrice.Canonical(),
-			SourceKind: quote.SourceKind,
-			SourceKey:  quote.SourceKey,
-			Delayed:    quote.Delayed,
+			ID:              quote.ID.String(),
+			ObservationKind: quote.ObservationKind,
+			EffectiveDate:   quote.EffectiveDate,
+			QuotedAt:        quote.QuotedAt,
+			CreatedAt:       quote.CreatedAt,
+			Value:           quote.UnitPrice.Canonical(),
+			SourceKind:      quote.SourceKind,
+			SourceKey:       quote.SourceKey,
+			Delayed:         quote.Delayed,
 		})
 	}
 	outsideRange, err := s.instrumentQuotesOutsideRange(ctx, id, trendRange, sourceFilter, location, len(observations))
@@ -77,13 +79,15 @@ func (s *Service) FXQuoteSeries(ctx context.Context, currencyA, currencyB domain
 			continue
 		}
 		observations = append(observations, domain.QuoteSeriesPoint{
-			ID:         quote.ID.String(),
-			QuotedAt:   quote.QuotedAt,
-			CreatedAt:  quote.CreatedAt,
-			Value:      value,
-			SourceKind: quote.SourceKind,
-			SourceKey:  quote.SourceKey,
-			Delayed:    quote.Delayed,
+			ID:              quote.ID.String(),
+			ObservationKind: quote.ObservationKind,
+			EffectiveDate:   quote.EffectiveDate,
+			QuotedAt:        quote.QuotedAt,
+			CreatedAt:       quote.CreatedAt,
+			Value:           value,
+			SourceKind:      quote.SourceKind,
+			SourceKey:       quote.SourceKey,
+			Delayed:         quote.Delayed,
 		})
 	}
 	sortQuoteSeriesNewestFirst(observations)
