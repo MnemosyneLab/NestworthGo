@@ -6,9 +6,15 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
+## 0.3.4 — Development baseline
+
+Status: `In progress` (current development line, build `5`). Only version
+metadata has advanced; feature scope has not been assigned. See the
+[release contract](../releases/v0.3.4.md).
+
 ## 0.3.3 — Broader market data and reliable repair
 
-Status: Approved for publication on 2026-09-19 (build `4`). See the
+Status: `Published` on 2026-09-19 (build `4`). See the
 [release contract](../releases/v0.3.3.md) for current verification.
 
 Implemented scope includes Yahoo search, an optional Worker route, CoinGecko
