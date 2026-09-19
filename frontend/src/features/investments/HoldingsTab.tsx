@@ -16,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useAccounts } from "@/queries/accounts";
@@ -151,7 +150,7 @@ function HoldingsIndexTable({ rows }: { rows: HoldingsIndexRow[] }) {
   );
 }
 
-function HoldingsTab() {
+export function HoldingsTab() {
   const { t } = useTranslation();
   const accounts = useAccounts({});
   const instruments = useInstruments();
@@ -218,9 +217,10 @@ function HoldingsTab() {
 
   return (
     <div className="flex flex-col gap-4">
+      <p className="text-sm text-muted-foreground">{t("portfolio.description")}</p>
       <p className="text-sm text-muted-foreground">{t("portfolio.holdingsIndexDescription")}</p>
       <PageChrome
-        pageId="investments"
+        pageId="portfolio"
         actions={
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger className={buttonVariants({ size: "sm" })}>
@@ -312,20 +312,6 @@ function HoldingsTab() {
           })}
         />
       )}
-    </div>
-  );
-}
-
-/** Investments is the household holdings index. Instrument identity, quotes,
- * and provider settings live on Market Data.
- */
-export function InvestmentsPage() {
-  const { t } = useTranslation();
-  return (
-    <div className="flex flex-col gap-6">
-      <PageChrome pageId="investments" title={t("nav.holdings")} />
-      <PageIntro description={t("portfolio.description")} />
-      <HoldingsTab />
     </div>
   );
 }

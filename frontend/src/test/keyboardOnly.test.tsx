@@ -307,7 +307,8 @@ describe("keyboard-only completion", () => {
     renderWithQueryClient(<SettingsPage />);
 
     const form = await screen.findByRole("form", { name: "Settings" });
-    await userEvent.tab(); // body -> Appearance select (the form's first field)
+    for (let i = 0; i < 6; i++) await userEvent.tab(); // Settings section links
+    await userEvent.tab(); // -> Appearance select
     expect(within(form).getByLabelText("Appearance")).toHaveFocus();
     // jsdom does not implement a native <select>'s own ArrowDown/typeahead
     // interaction (that behavior lives entirely in each browser's form
@@ -324,15 +325,18 @@ describe("keyboard-only completion", () => {
     expect(within(form).getByLabelText("Language")).toHaveFocus();
     await userEvent.selectOptions(within(form).getByLabelText("Language"), "en");
 
-    await userEvent.tab(); // -> Currency select (left at default)
     await userEvent.tab(); // -> Timezone combobox (left at default)
+    await userEvent.tab(); // -> Household currency (read-only)
     await userEvent.tab(); // -> FX provider select (left at default)
     await userEvent.tab(); // -> Quote cache duration select (left at default)
-    await userEvent.tab(); // -> Log level select (left at default)
-    await userEvent.tab(); // -> Worker URL input (left at default)
-    expect(within(form).getByLabelText("Nestworth Worker URL")).toHaveFocus();
-    await userEvent.tab(); // -> Save button
-    expect(within(form).getByRole("button", { name: "Save changes" })).toHaveFocus();
+    await userEvent.tab(); // -> CoinGecko key
+    await userEvent.tab(); // -> Tiingo key
+    await userEvent.tab(); // -> Worker URL input
+    expect(screen.getByLabelText("Nestworth Worker URL")).toHaveFocus();
+    // Cross the remaining credentials, data actions, diagnostics, and reset.
+    const saveButton = screen.getByRole("button", { name: "Save changes" });
+    for (let i = 0; i < 30 && document.activeElement !== saveButton; i++) await userEvent.tab();
+    expect(saveButton).toHaveFocus();
     await userEvent.keyboard("{Enter}");
 
     expect(settingsSave).toHaveBeenCalledWith(expect.objectContaining({ appearance: "light", language: "en" }));

@@ -196,10 +196,18 @@ describe("InstrumentManagement", () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "NVIDIA", quoteCurrency: "USD", quoteSource: "manual" }]);
     renderManagement();
     await screen.findByText("NVIDIA");
+    expect(screen.queryByRole("button", { name: "Archive" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await userEvent.click(screen.getByRole("button", { name: "Archive" }));
+    const cancelledDialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(cancelledDialog).getByRole("button", { name: "Cancel" }));
+    expect(archiveInstrument).not.toHaveBeenCalled();
+    expect(screen.getByRole("form", { name: "Instrument form" })).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Archive" }));
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Archive" }));
     expect(archiveInstrument).toHaveBeenCalledWith("i1", true);
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Instrument form" })).not.toBeInTheDocument());
   });
 
   it("saves a manual instrument quote from Set price", async () => {

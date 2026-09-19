@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { HoldingsTab } from "@/features/investments/HoldingsTab";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,11 +19,11 @@ import { displayEnum } from "@/lib/display";
 import { EntityIcon } from "@/components/icons/EntityIcon";
 
 /**
- * PortfolioPage is the independent household portfolio view. Totals,
+ * PortfolioOverview renders the household portfolio summary. Totals,
  * allocation, and included accounts come from PortfolioService.Portfolio;
  * this page does not convert FX or treat missing quotes as zero.
  */
-export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: string) => void } = {}) {
+function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: string) => void } = {}) {
   const { t } = useTranslation();
   const catalog = useCatalog();
   const portfolio = usePortfolio();
@@ -29,22 +31,18 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
   const [range, setRange] = useState("30d");
   const trend = usePortfolioTrend(range);
   const theme = chartTheme();
-  const pageChrome = <PageChrome pageId="portfolio" title={t("portfolio.pageTitle")} />;
 
   if (portfolio.isLoading) {
-    return <>{pageChrome}<LoadingState label={t("portfolio.loading")} /></>;
+    return <LoadingState label={t("portfolio.loading")} />;
   }
   if (portfolio.isError || !portfolio.data) {
     return (
-      <>
-        {pageChrome}
-        <ErrorState
-          title={t("portfolio.loadError")}
-          description={t("ui.state.errorDescription")}
-          onRetry={() => portfolio.refetch()}
-          retryLabel={t("common.retryAction")}
-        />
-      </>
+      <ErrorState
+        title={t("portfolio.loadError")}
+        description={t("ui.state.errorDescription")}
+        onRetry={() => portfolio.refetch()}
+        retryLabel={t("common.retryAction")}
+      />
     );
   }
 
@@ -62,7 +60,6 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
 
   return (
     <div className="flex flex-col gap-6" data-testid="portfolio-page">
-      {pageChrome}
       <PageIntro description={t("review.portfolioScope")} />
       <p className="text-sm text-muted-foreground">{t("portfolio.holdingsOnlyNote")}</p>
       {accounts.length === 0 ? (
@@ -192,6 +189,28 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
           </Card>
         </>
       )}
+    </div>
+  );
+}
+
+/** One investment workspace with separate summary and holding management views. */
+export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: string) => void } = {}) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-col gap-4">
+      <PageChrome pageId="portfolio" title={t("portfolio.pageTitle")} />
+      <Tabs defaultValue="overview">
+        <TabsList aria-label={t("portfolio.pageTitle")}>
+          <TabsTrigger value="overview">{t("nav.overview")}</TabsTrigger>
+          <TabsTrigger value="holdings">{t("nav.holdings")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview">
+          <PortfolioOverview onOpenAccount={onOpenAccount} />
+        </TabsContent>
+        <TabsContent value="holdings">
+          <HoldingsTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

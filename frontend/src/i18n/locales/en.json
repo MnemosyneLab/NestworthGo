@@ -853,7 +853,22 @@
     },
     "saveError": "Your change is active for this session, but could not be saved locally.",
     "subtitle": "Shape the way Nestworth reads and presents your household picture.",
-    "title": "Settings"
+    "title": "Settings",
+    "sections": {
+      "navigation": "Settings sections",
+      "general": "Appearance & language",
+      "market": "Market data & connections",
+      "data": "Backup & data",
+      "diagnostics": "Diagnostics",
+      "about": "About Nestworth",
+      "reset": "Restore defaults",
+      "credentialsHelp": "Configure only the services you use. Keys and tokens are saved separately using their own buttons.",
+      "unsaved": "You have unsaved preference changes.",
+      "saveHelp": "Save applies to appearance, language, market preferences, Worker URL, and diagnostics.",
+      "coinGecko": "CoinGecko",
+      "tiingo": "Tiingo",
+      "worker": "Nestworth Worker"
+    }
   },
   "snapshot": {
     "historyRebuild": "History rebuild",

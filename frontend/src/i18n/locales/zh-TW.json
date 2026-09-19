@@ -853,7 +853,22 @@
     },
     "saveError": "本次修改已生效，但無法儲存到本地。",
     "subtitle": "調整 Nestworth 展示家庭財務全貌的方式。",
-    "title": "設定"
+    "title": "設定",
+    "sections": {
+      "navigation": "設定分區",
+      "general": "外觀與語言",
+      "market": "行情與連線",
+      "data": "備份與資料",
+      "diagnostics": "診斷",
+      "about": "關於 Nestworth",
+      "reset": "恢復預設設定",
+      "credentialsHelp": "只需設定你使用的服務。金鑰和權杖透過各自的按鈕單獨儲存。",
+      "unsaved": "你有尚未儲存的偏好設定。",
+      "saveHelp": "儲存適用於外觀、語言、行情偏好、Worker 網址和診斷設定。",
+      "coinGecko": "CoinGecko",
+      "tiingo": "Tiingo",
+      "worker": "Nestworth Worker"
+    }
   },
   "snapshot": {
     "historyRebuild": "重建歷史記錄",

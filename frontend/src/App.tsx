@@ -17,7 +17,6 @@ import { MarketDataSyncWorkspaceObserver } from "@/queries/marketdata";
 
 const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
 const DirectoryPage = lazy(() => import("@/features/directory/DirectoryPage").then((module) => ({ default: module.DirectoryPage })));
-const InvestmentsPage = lazy(() => import("@/features/investments/InvestmentsPage").then((module) => ({ default: module.InvestmentsPage })));
 const MarketDataPage = lazy(() => import("@/features/marketdata/MarketDataPage").then((module) => ({ default: module.MarketDataPage })));
 const DataHealthPage = lazy(() => import("@/features/data-health/DataHealthPage").then((module) => ({ default: module.DataHealthPage })));
 const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((module) => ({ default: module.SettingsPage })));
@@ -135,11 +134,6 @@ function App() {
       {activePageId === "directory" && (
         <WorkspaceLazy>
           <DirectoryPage />
-        </WorkspaceLazy>
-      )}
-      {activePageId === "investments" && (
-        <WorkspaceLazy>
-          <InvestmentsPage />
         </WorkspaceLazy>
       )}
       {activePageId === "market-data" && (

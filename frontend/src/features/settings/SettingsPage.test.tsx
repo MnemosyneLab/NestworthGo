@@ -204,8 +204,8 @@ it("shows the actual household currency read-only and saves all general fields t
   const currency = within(form).getByLabelText("Household base currency");
   await waitFor(() => expect(currency).toHaveValue("SGD"));
   expect(currency).toHaveAttribute("readonly");
-  const url = form.querySelector<HTMLInputElement>("#settings-worker-url")!;
-  const saveButton = within(form).getByRole("button", { name: "Save changes" });
+  const url = screen.getByLabelText<HTMLInputElement>("Nestworth Worker URL");
+  const saveButton = screen.getByRole("button", { name: "Save changes" });
   expect(url.compareDocumentPosition(saveButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   await userEvent.type(url, "https://quotes.example.com");
   await userEvent.click(saveButton);
@@ -224,4 +224,16 @@ it("applies the default accent when restoring preferences", async () => {
   const dialog = await screen.findByRole("alertdialog");
   await userEvent.click(within(dialog).getByRole("button", { name: "Restore defaults" }));
   await waitFor(() => expect(useUiStore.getState().accent).toBe("nestworth"));
+});
+
+
+it("groups provider credentials with their connection settings and keeps diagnostics separate", async () => {
+  renderPage();
+  const market = await screen.findByRole("region", { name: "Market data & connections" });
+  expect(within(market).getByLabelText("Nestworth Worker URL")).toHaveAttribute("form", "settings-preferences");
+  expect(within(market).getByLabelText("Nestworth Worker token")).toBeInTheDocument();
+  const diagnostics = screen.getByRole("region", { name: "Diagnostics" });
+  expect(within(diagnostics).getByRole("combobox")).toHaveAttribute("form", "settings-preferences");
+  expect(market).not.toContainElement(within(diagnostics).getByRole("combobox"));
+  expect(document.querySelector("form form")).toBeNull();
 });

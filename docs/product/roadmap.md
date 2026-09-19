@@ -8,8 +8,8 @@ entry is not an implementation claim.
 
 ## 0.3.4 — Development baseline
 
-Status: `In progress` (current development line, build `5`). Only version
-metadata has advanced; feature scope has not been assigned. See the
+Status: `In progress` (current development line, build `5`). Settings are organized by appearance/language, market connections, data,
+diagnostics, About, and reset, with navigation and explicit save boundaries. See the
 [release contract](../releases/v0.3.4.md).
 
 ## 0.3.3 — Broader market data and reliable repair

@@ -306,7 +306,7 @@ describe("App shell smoke test", () => {
     expect(within(nav).getByRole("button", { name: i18n.t("nav.overview") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.directory") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") })).toBeInTheDocument();
-    expect(within(nav).getByRole("button", { name: i18n.t("nav.holdings") })).toBeInTheDocument();
+    expect(within(nav).queryByRole("button", { name: i18n.t("nav.holdings") })).not.toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") })).toBeInTheDocument();
 
     await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") }));
@@ -328,6 +328,21 @@ describe("App shell smoke test", () => {
     );
     expect(await screen.findByRole("alert")).toHaveTextContent(i18n.t("startup.unavailableTitle"));
     expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
+  });
+
+  it("switches between portfolio overview and holdings within one navigation entry", async () => {
+    await i18n.changeLanguage("en");
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") }));
+    expect(await screen.findByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("tab", { name: "Holdings" }));
+    expect(await screen.findByText(i18n.t("portfolio.noHoldingsAccount"))).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(i18n.t("portfolio.pageTitle"));
+    await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
+    expect(await screen.findByTestId("portfolio-page")).toBeInTheDocument();
+    expect(screen.queryByText(i18n.t("portfolio.noHoldingsAccount"))).not.toBeInTheDocument();
   });
 
   it("returns to the accounts list after opening an account from Portfolio", async () => {

@@ -125,18 +125,10 @@ function InstrumentRow({
   instrument,
   groupTestId,
   onEdit,
-  onArchive,
-  onViewHistory,
-  onSync,
-  isSyncing,
 }: {
   instrument: InstrumentDTO;
   groupTestId: string;
   onEdit: () => void;
-  onArchive: () => void;
-  onViewHistory?: () => void;
-  onSync?: () => void;
-  isSyncing?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
@@ -182,38 +174,9 @@ function InstrumentRow({
         )}
       </span>
       <span className="col-start-2 row-start-1 flex shrink-0 items-center justify-end gap-2 lg:col-start-3">
-        {onViewHistory && (
-          <Button type="button" variant="outline" size="sm" onClick={onViewHistory}>
-            {t("charts.viewHistory")}
-          </Button>
-        )}
-        {onSync && instrument.quoteSource === "provider" && !instrument.archivedAt && (
-          <Button type="button" variant="outline" size="sm" onClick={onSync} disabled={isSyncing}>
-            {isSyncing ? t("marketData.syncingInstrument") : t("marketData.syncInstrument")}
-          </Button>
-        )}
-        {!instrument.archivedAt && (
-          <Button type="button" variant="outline" size="sm" onClick={onEdit}>
-            {t("common.edit")}
-          </Button>
-        )}
-        <AlertDialog>
-          <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-            {instrument.archivedAt ? t("common.active") : t("common.archive")}
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>{instrument.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogTitle>
-              <AlertDialogDescription>
-                <InstrumentLabel name={instrument.name} symbol={instrument.symbol} fallback={instrument.name} />
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-              <AlertDialogAction onClick={onArchive}>{instrument.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+        <Button type="button" variant="outline" size="sm" onClick={onEdit}>
+          {t("common.edit")}
+        </Button>
       </span>
     </li>
   );
@@ -283,8 +246,8 @@ export function InstrumentManagement({
             <SheetTrigger className={buttonVariants({ size: "sm" })}>
               <Plus className="size-4" aria-hidden="true" /> {t("portfolio.addInstrument")}
             </SheetTrigger>
-            <SheetContent>
-              <SheetHeader>
+            <SheetContent className="overflow-y-auto overscroll-contain">
+              <SheetHeader className="shrink-0">
                 <SheetTitle>{t("portfolio.addInstrument")}</SheetTitle>
               </SheetHeader>
               <InstrumentForm
@@ -329,22 +292,11 @@ export function InstrumentManagement({
                     key={instrument.id}
                     instrument={instrument}
                     groupTestId={`${groupTestIdPrefix}-${group.key}`}
-                    onViewHistory={onViewHistory ? () => onViewHistory(instrument) : undefined}
-                    onSync={onSyncInstrument ? () => onSyncInstrument(instrument) : undefined}
-                    isSyncing={syncingInstrumentId === instrument.id}
                     onEdit={() => {
                       setShowPriceForm(false);
                       setEditTarget(instrument);
                     }}
-                    onArchive={() =>
-                      archiveInstrument.mutate(
-                        { id: instrument.id, archived: !instrument.archivedAt },
-                        {
-                          onSuccess: () => toast.success(instrument.archivedAt ? t("common.active") : t("common.archived")),
-                          onError: (error) => toast.error(displayError(error, t("portfolio.updateError"))),
-                        },
-                      )
-                    }
+
                   />
                 ))}
               </ul>
@@ -361,11 +313,55 @@ export function InstrumentManagement({
           }
         }}
       >
-        <SheetContent>
-          <SheetHeader>
+        <SheetContent className="overflow-y-auto overscroll-contain">
+          <SheetHeader className="shrink-0">
             <SheetTitle>{t("portfolio.editInstrument")}</SheetTitle>
           </SheetHeader>
           {editTarget && (
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border pb-4">
+              {onViewHistory && (
+                <Button type="button" variant="outline" size="sm" onClick={() => {
+                    setEditTarget(null);
+                    onViewHistory(editTarget);
+                  }}>
+                  {t("charts.viewHistory")}
+                </Button>
+              )}
+              {onSyncInstrument && editTarget.quoteSource === "provider" && !editTarget.archivedAt && (
+                <Button type="button" variant="outline" size="sm" onClick={() => onSyncInstrument(editTarget)} disabled={syncingInstrumentId === editTarget.id}>
+                  {syncingInstrumentId === editTarget.id ? t("marketData.syncingInstrument") : t("marketData.syncInstrument")}
+                </Button>
+              )}
+              <AlertDialog>
+                <AlertDialogTrigger disabled={archiveInstrument.isPending} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                  {editTarget.archivedAt ? t("common.active") : t("common.archive")}
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{editTarget.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      <InstrumentLabel name={editTarget.name} symbol={editTarget.symbol} fallback={editTarget.name} />
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => archiveInstrument.mutate(
+                      { id: editTarget.id, archived: !editTarget.archivedAt },
+                      {
+                        onSuccess: () => {
+                          toast.success(editTarget.archivedAt ? t("common.active") : t("common.archived"));
+                          setEditTarget(null);
+                          setShowPriceForm(false);
+                        },
+                        onError: (error) => toast.error(displayError(error, t("portfolio.updateError"))),
+                      },
+                    )}>{editTarget.archivedAt ? t("common.active") : t("common.archive")}</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
+          {editTarget && !editTarget.archivedAt && (
             <InstrumentForm
               key={editTarget.id}
               instrument={editTarget}
@@ -386,7 +382,7 @@ export function InstrumentManagement({
               }
             />
           )}
-          {editTarget && (
+          {editTarget && !editTarget.archivedAt && (
             <div className="mt-5 border-t border-border pt-5">
               <Button type="button" variant="outline" onClick={() => setShowPriceForm((value) => !value)}>
                 {t("portfolio.setPrice")}

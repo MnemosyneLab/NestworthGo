@@ -3,7 +3,7 @@ import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
-import { InvestmentsPage } from "./InvestmentsPage";
+import { HoldingsTab } from "./HoldingsTab";
 
 const listInstruments = vi.fn();
 const listAccounts = vi.fn();
@@ -57,7 +57,7 @@ function renderPage() {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <InvestmentsPage />
+      <HoldingsTab />
     </QueryClientProvider>,
   );
 }
@@ -77,7 +77,7 @@ beforeEach(() => {
   createHolding.mockResolvedValue({ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "10" });
 });
 
-describe("InvestmentsPage", () => {
+describe("HoldingsTab", () => {
   it("does not duplicate instrument management on the holdings page", async () => {
     renderPage();
     expect(await screen.findByText(/Instrument identity and quotes live on Market Data/i)).toBeInTheDocument();

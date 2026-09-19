@@ -6,8 +6,7 @@ including the evidence boundary for gates that were not run locally.
 
 ## Current release
 
-- [v0.3.4 release contract](v0.3.4.md) — unreleased development baseline;
-  feature scope has not been assigned.
+- [v0.3.4 release contract](v0.3.4.md) — unreleased settings organization and development baseline.
 
 ## Published history
 

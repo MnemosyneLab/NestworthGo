@@ -6,8 +6,13 @@ All notable changes to Nestworth are recorded here.
 
 ### Changed
 
+- Combined Portfolio and Holdings into one Portfolio page with Overview and Holdings tabs.
+
 - Advanced synchronized application metadata to `v0.3.4` / build `5`.
-- Feature scope is not yet assigned; see the [release contract](docs/releases/v0.3.4.md).
+- Reorganized Settings into appearance/language, market connections, backup/data,
+  diagnostics, About, and reset sections, with section navigation and a shared
+  preference save bar. Worker URL and token now appear together; credentials
+  retain independent save actions.
 
 ## [0.3.3] — 2026-09-19
 

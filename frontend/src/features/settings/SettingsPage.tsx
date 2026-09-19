@@ -57,6 +57,7 @@ export function SettingsPage() {
   const origin = useHistoryOrigin();
   const setAppearance = useUiStore((state) => state.setAppearance);
   const setAccent = useUiStore((state) => state.setAccent);
+  const [activeSection, setActiveSection] = useState("general");
   const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
   const [coinGeckoKey, setCoinGeckoKey] = useState("");
   const [tiingoKey, setTiingoKey] = useState("");
@@ -147,12 +148,20 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {pageChrome}
       <PageIntro description={t("settings.subtitle")} />
-
-      <form onSubmit={submit} className="flex max-w-2xl flex-col gap-5" aria-label={t("settings.formLabel")}>
-        <h2 className="font-medium">{t("review.displayPreferences")}</h2>
+      <div className="grid items-start gap-8 xl:grid-cols-[10rem_minmax(0,1fr)]">
+        <nav aria-label={t("settings.sections.navigation")} className="flex flex-wrap gap-1 xl:sticky xl:top-6 xl:flex-col">
+          {(["general", "market", "data", "diagnostics", "about", "reset"] as const).map((id) => (
+            <a key={id} href={`#settings-${id}`} onClick={() => setActiveSection(id)} aria-current={activeSection === id ? "location" : undefined} className={`rounded-md px-3 py-2 text-sm hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${activeSection === id ? "bg-muted font-medium text-foreground" : "text-muted-foreground"}`}>{t(`settings.sections.${id}`)}</a>
+          ))}
+        </nav>
+        <div className="min-w-0 max-w-3xl space-y-8">
+      <section id="settings-general" aria-labelledby="settings-general-title" className="scroll-mt-6">
+      <form id="settings-preferences" onSubmit={submit} className="space-y-5" aria-label={t("settings.formLabel")}>
+        <h2 id="settings-general-title" className="text-base font-semibold">{t("settings.sections.general")}</h2>
+        <div>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-appearance">{t("settings.appearance.mode")}</Label>
@@ -200,12 +209,6 @@ export function SettingsPage() {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="settings-currency">{t("review.householdCurrency")}</Label>
-            <Input id="settings-currency" readOnly value={bootstrap.data?.household?.baseCurrency ?? "—"} />
-            <p className="text-xs text-muted-foreground">{t("review.householdCurrencyHelp")}</p>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-timezone">{t("settings.language.timezone")}</Label>
             <FilterableSelect
               id="settings-timezone"
@@ -226,13 +229,23 @@ export function SettingsPage() {
               </p>
             )}
           </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="settings-currency">{t("review.householdCurrency")}</Label>
+            <Input id="settings-currency" readOnly value={bootstrap.data?.household?.baseCurrency ?? "—"} />
+            <p className="text-xs text-muted-foreground">{t("review.householdCurrencyHelp")}</p>
+          </div>
+
         </div>
-        <h2 className="border-t border-border pt-5 font-medium">{t("settings.marketDataTitle")}</h2>
+        </div>
+      </form>
+      </section>
+      <section id="settings-market" aria-labelledby="settings-market-title" className="scroll-mt-6 space-y-5 border-t border-border pt-6">
+        <h2 id="settings-market-title" className="text-base font-semibold">{t("settings.sections.market")}</h2>
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-fx-provider">{t("settings.providers.fxProvider")}</Label>
             <NativeSelect
-              id="settings-fx-provider"
+              id="settings-fx-provider" form="settings-preferences"
               value={draft.fxProvider}
               onChange={(event) => update({ fxProvider: event.target.value })}
             >
@@ -247,7 +260,7 @@ export function SettingsPage() {
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-quote-cache-ttl">{t("settings.quoteCacheTtl")}</Label>
             <NativeSelect
-              id="settings-quote-cache-ttl"
+              id="settings-quote-cache-ttl" form="settings-preferences"
               value={quoteCacheTtlOf(draft)}
               onChange={(event) => setDraftOverride(withQuoteCacheTtl(draft, event.target.value as QuoteCacheTTL))}
             >
@@ -261,60 +274,9 @@ export function SettingsPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 border-t border-border pt-5">
-          <Label htmlFor="settings-log-level">{t("diagnosticsSettings.level")}</Label>
-          <NativeSelect id="settings-log-level" value={draft.logLevel || "off"} onChange={(event) => update({ logLevel: event.target.value })}>
-            {["off", "error", "warn", "info", "debug"].map((level) => <option key={level} value={level}>{t(`diagnosticsSettings.levels.${level}`)}</option>)}
-          </NativeSelect>
-          <p className="text-xs text-muted-foreground">{t("diagnosticsSettings.help")}</p>
-          {settings.data.logFilePath && <p className="break-all text-xs text-muted-foreground">{t("diagnosticsSettings.path")}: <span className="select-text font-mono">{settings.data.logFilePath}</span></p>}
-        </div>
-
-        {(saveSettings.isError || resetSettings.isError) && (
-          <p role="alert" className="text-sm text-destructive">
-            {saveSettings.isError
-              ? displayError(saveSettings.error, t("settings.saveError"))
-              : displayError(resetSettings.error, t("settings.loadError"))}
-          </p>
-        )}
-
-        <div className="flex max-w-xl flex-col gap-1.5">
-          <Label htmlFor="settings-worker-url">{t("settings.workerBaseURL")}</Label>
-          <Input
-            id="settings-worker-url"
-            type="url"
-            autoComplete="url"
-            value={draft.workerBaseURL}
-            onChange={(event) => update({ workerBaseURL: event.target.value })}
-            placeholder={t("settings.workerBaseURLPlaceholder")}
-          />
-          <p className="text-xs text-muted-foreground">{t("settings.workerBaseURLHelp")}</p>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={!isDirty || saveSettings.isPending}>
-            {saveSettings.isPending ? t("common.pending") : t("settings.saveChanges")}
-          </Button>
-          {isDirty && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                setDraftOverride(null);
-                toast.success(t("settings.changesDiscarded"));
-              }}
-            >
-              {t("settings.discardChanges")}
-            </Button>
-          )}
-        </div>
-      </form>
-
-      <section className="max-w-2xl rounded-lg border border-border bg-card p-5" aria-labelledby="settings-market-data-title">
-        <h2 id="settings-market-data-title" className="font-medium text-foreground">
-          {t("review.credentialsTitle")}
-        </h2>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">{t("review.credentialsHelp")}</p>
+        <p className="text-sm text-muted-foreground">{t("settings.sections.credentialsHelp")}</p>
+        <div className="divide-y divide-border rounded-lg border border-border bg-card">
+          <div className="p-5"><h3 className="font-medium">{t("settings.sections.coinGecko")}</h3>
         <form onSubmit={submitCoinGeckoKey} className="mt-4 flex max-w-xl flex-col gap-2">
           <Label htmlFor="settings-coinGecko-key">{t("settings.coinGeckoKey")}</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -353,6 +315,8 @@ export function SettingsPage() {
             </p>
           )}
         </form>
+          </div>
+          <div className="p-5"><h3 className="font-medium">{t("settings.sections.tiingo")}</h3>
         <form onSubmit={submitTiingoKey} className="mt-4 flex max-w-xl flex-col gap-2">
           <Label htmlFor="settings-tiingo-key">{t("settings.tiingoKey")}</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -391,6 +355,21 @@ export function SettingsPage() {
             </p>
           )}
         </form>
+          </div>
+          <div className="space-y-4 p-5"><h3 className="font-medium">{t("settings.sections.worker")}</h3>
+        <div className="flex max-w-xl flex-col gap-1.5">
+          <Label htmlFor="settings-worker-url">{t("settings.workerBaseURL")}</Label>
+          <Input
+            id="settings-worker-url" form="settings-preferences"
+            type="url"
+            autoComplete="url"
+            value={draft.workerBaseURL}
+            onChange={(event) => update({ workerBaseURL: event.target.value })}
+            placeholder={t("settings.workerBaseURLPlaceholder")}
+          />
+          <p className="text-xs text-muted-foreground">{t("settings.workerBaseURLHelp")}</p>
+        </div>
+
         <form onSubmit={submitWorkerToken} className="mt-5 flex max-w-xl flex-col gap-2">
           <Label htmlFor="settings-worker-token">{t("settings.workerToken")}</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
@@ -429,8 +408,24 @@ export function SettingsPage() {
             </p>
           )}
         </form>
+          </div>
+        </div>
       </section>
+      <div id="settings-data" className="scroll-mt-6 border-t border-border pt-6"><DataManagementSection /></div>
+      <section id="settings-diagnostics" aria-labelledby="settings-diagnostics-title" className="scroll-mt-6 space-y-5 border-t border-border pt-6">
+        <h2 id="settings-diagnostics-title" className="text-base font-semibold">{t("settings.sections.diagnostics")}</h2>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="settings-log-level">{t("diagnosticsSettings.level")}</Label>
+          <NativeSelect id="settings-log-level" form="settings-preferences" value={draft.logLevel || "off"} onChange={(event) => update({ logLevel: event.target.value })}>
+            {["off", "error", "warn", "info", "debug"].map((level) => <option key={level} value={level}>{t(`diagnosticsSettings.levels.${level}`)}</option>)}
+          </NativeSelect>
+          <p className="text-xs text-muted-foreground">{t("diagnosticsSettings.help")}</p>
+          {settings.data.logFilePath && <p className="break-all text-xs text-muted-foreground">{t("diagnosticsSettings.path")}: <span className="select-text font-mono">{settings.data.logFilePath}</span></p>}
+        </div>
 
+      </section>
+      <div id="settings-about" className="scroll-mt-6 border-t border-border pt-6"><AboutPage /></div>
+      <div id="settings-reset" className="scroll-mt-6">
       <section className="max-w-2xl rounded-lg border border-destructive/30 bg-destructive/5 p-5" aria-labelledby="settings-reset-title">
         <h2 id="settings-reset-title" className="font-medium text-foreground">
           {t("settings.resetSectionTitle")}
@@ -466,10 +461,36 @@ export function SettingsPage() {
         </AlertDialog>
       </section>
 
-      <DataManagementSection />
+      </div>
+      <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3 shadow-sm">
+        <p className="max-w-sm text-xs text-muted-foreground">{t(isDirty ? "settings.sections.unsaved" : "settings.sections.saveHelp")}</p>
+        {(saveSettings.isError || resetSettings.isError) && (
+          <p role="alert" className="text-sm text-destructive">
+            {saveSettings.isError
+              ? displayError(saveSettings.error, t("settings.saveError"))
+              : displayError(resetSettings.error, t("settings.loadError"))}
+          </p>
+        )}
 
-      <div className="max-w-2xl">
-        <AboutPage />
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" form="settings-preferences" disabled={!isDirty || saveSettings.isPending}>
+            {saveSettings.isPending ? t("common.pending") : t("settings.saveChanges")}
+          </Button>
+          {isDirty && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDraftOverride(null);
+                toast.success(t("settings.changesDiscarded"));
+              }}
+            >
+              {t("settings.discardChanges")}
+            </Button>
+          )}
+        </div>
+      </div>
+        </div>
       </div>
     </div>
   );

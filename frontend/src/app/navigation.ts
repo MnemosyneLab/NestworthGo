@@ -1,11 +1,10 @@
 import type { LucideIcon } from "lucide-react";
-import { House, Wallet, ChartNoAxesCombined, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, HeartPulse } from "lucide-react";
+import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, HeartPulse } from "lucide-react";
 
 export type PageId =
   | "overview"
   | "accounts"
   | "portfolio"
-  | "investments"
   | "history"
   | "return-analysis"
   | "asset-changes"
@@ -68,7 +67,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: "accounts", translationKey: "nav.accounts", icon: Wallet },
       { id: "portfolio", translationKey: "nav.portfolio", icon: PieChart },
-      { id: "investments", translationKey: "nav.holdings", icon: ChartNoAxesCombined },
     ],
   },
   {
