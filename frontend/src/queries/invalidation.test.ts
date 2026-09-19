@@ -144,7 +144,7 @@ describe("query keys and dependency invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(false);
   });
 
-  it("refreshes Overview and current gains for FX-only refresh, not raw quote or holding lists", () => {
+  it("refreshes Overview, gains, and converted metal quotes for FX-only refresh, not holdings", () => {
     const queryClient = clientWith(
       queryKeys.overview.all,
       queryKeys.analytics.accountGains.all,
@@ -156,7 +156,7 @@ describe("query keys and dependency invalidation", () => {
 
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(false);
+    expect(isInvalidated(queryClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(false);
   });
 
@@ -346,7 +346,7 @@ describe("mutation-hook invalidation", () => {
       await fx.result.current.mutateAsync();
     });
     expect(isInvalidated(fxClient, queryKeys.overview.all)).toBe(true);
-    expect(isInvalidated(fxClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(false);
+    expect(isInvalidated(fxClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(true);
     expect(isInvalidated(fxClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(false);
 
     const refreshClient = seededClient();

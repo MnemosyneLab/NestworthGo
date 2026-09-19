@@ -1,13 +1,13 @@
 # Release Documents
 
-The current development line is `v0.3.3` / build `4`. The release contract
+The current release line is `v0.3.3` / build `4`. The release contract
 below is the single maintained scope and acceptance document for this line,
 including the evidence boundary for gates that were not run locally.
 
 ## Current release
 
 - [v0.3.3 release contract](v0.3.3.md) — runtime, product scope, Market Data
-  entry flow, validation, packaging, and distribution gates.
+  providers, metals/crypto, schema compatibility, validation, packaging, and distribution gates.
 
 ## Published history
 

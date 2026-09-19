@@ -6,14 +6,17 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
-## 0.3.3 — Market Data entry ergonomics
+## 0.3.3 — Broader market data and reliable repair
 
-Status: `In progress` (current development line, build `4`).
+Status: Approved for publication on 2026-09-19 (build `4`). See the
+[release contract](../releases/v0.3.3.md) for current verification.
 
-This line carries forward the published `0.3.2` desktop capability and aligns
-manual FX entry with the instrument workflow: the action lives in the Market
-Data page header and opens the form in a side panel, keeping the FX results
-area focused on saved observations.
+Implemented scope includes Yahoo search, an optional Worker route, CoinGecko
+crypto pricing, gold/silver templates with unit and currency conversion,
+per-instrument historical ranges, clearer repair progress, quote-history
+metadata, local diagnostics, and historical valuation/analytics fixes.
+SQLite schema 11 preserves existing custom-metal instruments during upgrade.
+Native acceptance and distribution gates are tracked separately from automated checks.
 
 ## 0.3.2 — Historical market data and Data Health
 

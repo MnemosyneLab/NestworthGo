@@ -190,3 +190,21 @@ If the development server reports that port `9245` is busy, use
 unexpected data during a smoke test, set isolated `NESTWORTH_DATABASE_PATH`
 and `NESTWORTH_SETTINGS_PATH` values; never use real financial data for a
 package check.
+
+## Preparing release archives
+
+After `wails3 task package:release`, verify the local signature and create the
+matching ZIP/checksum manifest. Substitute the release version when it changes.
+
+```bash
+codesign --verify --deep --strict dist/macos/Nestworth.app
+ditto -c -k --sequesterRsrc --keepParent dist/macos/Nestworth.app dist/macos/Nestworth-0.3.3-arm64.zip
+unzip -tq dist/macos/Nestworth-0.3.3-arm64.zip
+(cd dist/macos && shasum -a 256 Nestworth-0.3.3-arm64.dmg Nestworth-0.3.3-arm64.zip > SHA256SUMS && shasum -a 256 -c SHA256SUMS)
+```
+
+Run Go race tests after the frontend build has finished: Go embeds
+`frontend/dist`, which Vite replaces during a build. Recreate the DMG, ZIP,
+and checksums after any final signing or application changes. Keep the current
+[release contract](../releases/v0.3.3.md) with native acceptance and upgrade
+instructions alongside the release notes.

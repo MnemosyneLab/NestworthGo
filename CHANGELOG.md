@@ -2,20 +2,44 @@
 
 All notable changes to Nestworth are recorded here.
 
-## [0.3.3] — Unreleased
+## [0.3.3] — 2026-09-19
+
+### Added
+
+- Yahoo instrument search and an optional authenticated Cloudflare Worker route.
+- CoinGecko crypto search, latest prices, daily history, and local Demo-key settings.
+- Gold and silver templates with grams/troy-ounce units, backend currency conversion,
+  conversion provenance, and CSV unit metadata. Yahoo futures prices are reference estimates.
+- Quote-history observation details, configurable local diagnostics, and named
+  repair previews with current queries and completed results.
 
 ### Changed
 
-- Advanced synchronized application metadata to `v0.3.3` / build `4`.
-- Moved manual FX entry from the Market Data page body into a top-level
-  action that opens the form in a side panel, matching instrument creation.
-- Upgraded the Wails v3 Go module, runtime, bindings fallback, and local CLI to
-  `v3.0.0-beta.21`.
+- Synchronized application metadata at `v0.3.3` / build `4` and Wails `v3.0.0-beta.21`.
+- Moved manual FX entry into a header action and side panel.
+- Replaced the Yahoo adapter with go-yfinance; existing provider bindings remain explicit.
+- Unified instrument history around first effective ownership, with a seven-day
+  lead-in and creation-date fallback for never-held instruments.
+- Reused fresh successful quote checks during normal repair, including after restart;
+  explicit force refresh remains available.
+- Improved Asset Changes contribution rows and historical date-range defaults.
+- Advanced SQLite to schema `11`, preserving existing custom-metal semantics.
 
-### Verification
+### Fixed
 
-- Release checks and remaining native/distribution gates are recorded in the
-  [v0.3.3 release contract](docs/releases/v0.3.3.md).
+- Backdated valuation, historical coverage, and analytics repair regressions.
+- Stale job failures appearing as current health findings and redundant repair work
+  for inferred internal equity-market closures.
+- Release-test fixtures and assertions that still expected pre-metal schema or
+  settings without the resolved diagnostic log path.
+
+### Upgrade and verification
+
+- Schema `9` and `10` databases upgrade offline to `11`. Older-schema backup files
+  cannot be restored directly through the schema-11 restore flow; preserve the
+  original database and backup before upgrading, then create a fresh backup.
+- Current checks, artifact details, and outstanding manual/distribution gates are
+  recorded in the [v0.3.3 release contract](docs/releases/v0.3.3.md).
 
 ## [0.3.2] — 2026-09-14
 

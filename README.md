@@ -2,7 +2,7 @@
 
 Nestworth is a local-first personal finance desktop application for building
 and maintaining a personal or household balance sheet. The current development
-line is `0.3.3`: a Wails v3 desktop shell with a Go backend and a React +
+line is `0.3.3` (build `4`): a Wails v3 desktop shell with a Go backend and a React +
 TypeScript frontend.
 
 ## Current scope
@@ -17,7 +17,9 @@ The application currently provides:
   Return Analysis, and Asset Changes;
 - Settings for language, appearance, display formats, window state, and FX
   provider selection;
-- Local backup/restore and Accounts/Holdings CSV import/export.
+- Local backup/restore and Accounts/Holdings CSV import/export;
+- Gold/silver templates with explicit weight units and converted reference prices;
+- Crypto pricing through CoinGecko, instrument search, and detailed repair progress.
 
 Core browsing and editing are local and do not require registration or a
 network connection. Synchronization, direct financial integrations, and
@@ -62,7 +64,8 @@ retention, and manual accessibility review remain distribution gates.
   React Hook Form, Zod, i18next, and Apache ECharts;
 - SQLite as the local durable source of financial truth;
 - `shopspring/decimal` for exact financial arithmetic;
-- Yahoo for instrument quotes and Frankfurter for FX refresh.
+- Yahoo, Tiingo, CoinGecko, and an optional Cloudflare Worker for instrument data;
+- Frankfurter for FX refresh.
 
 The frontend renders authoritative DTOs returned by `internal/wailsapi`. It
 does not open SQLite, construct SQL, call providers, or recalculate financial
@@ -85,3 +88,11 @@ testdata/               Sanitized deterministic compatibility fixtures
 
 Read the [documentation index](docs/README.md) for the maintained project
 contracts.
+
+## Upgrading to 0.3.3
+
+Preserve a backup and a closed copy of the existing database before upgrading.
+Schema 9/10 databases migrate offline to schema 11. The restore flow requires
+a current-schema backup; create a new backup after migration. See the
+[release contract](docs/releases/v0.3.3.md) for compatibility, verification,
+and the remaining release checklist.

@@ -110,14 +110,14 @@ describe("AssetChangesPage", () => {
     expect(screen.getByText("Cash flows")).toBeInTheDocument();
     expect(screen.getByText("Market & Investment")).toBeInTheDocument();
     expect(screen.getByText("Other")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Income/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Price Change/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Dividend & Interest/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Unexplained difference/ })).toHaveClass("border-warning/40");
+    expect(within(screen.getByRole("region", { name: "Change attribution" })).getByRole("button", { name: /Income/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Change attribution" })).getByRole("button", { name: /Price Change/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Change attribution" })).getByRole("button", { name: /Dividend & Interest/ })).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Change attribution" })).getByRole("button", { name: /Unexplained difference/ })).toHaveClass("border-warning/40");
     expect(assetChange).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-01", to: "2026-09-06" }));
     await screen.findByRole("option", { name: "Brokerage" });
 
-    await user.click(screen.getByRole("button", { name: /Unexplained difference/ }));
+    await user.click(within(screen.getByRole("region", { name: "Change attribution" })).getByRole("button", { name: /Unexplained difference/ }));
     expect(await screen.findByText("Component / day")).toBeInTheDocument();
     expect(screen.getByText("account-1/holding:h1/instrument:instrument-1")).toBeInTheDocument();
     expect(screen.getByText("2026-09-02")).toBeInTheDocument();
@@ -129,7 +129,7 @@ describe("AssetChangesPage", () => {
     const user = userEvent.setup();
     const onOpenHistory = vi.fn();
     renderPage({ onOpenHistory });
-    await user.click(await screen.findByRole("button", { name: /Unexplained difference/ }));
+    await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Unexplained difference/ }));
     await user.click(await screen.findByRole("button", { name: "View in History" }));
     expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-02", to: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1" });
     expect(screen.queryByRole("button", { name: "Open Return Analysis" })).not.toBeInTheDocument();
@@ -149,7 +149,7 @@ describe("AssetChangesPage", () => {
       valuationForced: null,
     });
     renderPage({ onOpenReturnAnalysis });
-    await user.click(await screen.findByRole("button", { name: /Price Change/ }));
+    await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Price Change/ }));
     await user.click(await screen.findByRole("button", { name: "Open Return Analysis" }));
     expect(onOpenReturnAnalysis).toHaveBeenCalledWith(expect.objectContaining({
       scope: "portfolio",
@@ -174,7 +174,7 @@ describe("AssetChangesPage", () => {
       valuationForced: null,
     });
     renderPage({ onOpenReturnAnalysis });
-    await user.click(await screen.findByRole("button", { name: /Income/ }));
+    await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Income/ }));
     await waitFor(() => expect(assetDriverDetail).toHaveBeenCalledWith(expect.anything(), "income"));
     expect(screen.queryByRole("button", { name: "Open Return Analysis" })).not.toBeInTheDocument();
     expect(onOpenReturnAnalysis).not.toHaveBeenCalled();
@@ -216,7 +216,7 @@ describe("AssetChangesPage", () => {
   it("refreshes the driver sheet total from the current response", async () => {
     const user = userEvent.setup();
     const { queryClient } = renderPage();
-    await user.click(await screen.findByRole("button", { name: /Unexplained difference/ }));
+    await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Unexplained difference/ }));
     const sheet = await screen.findByRole("dialog");
     expect(sheet.querySelector(".text-2xl")).toHaveTextContent("-$5.00");
     assetChange.mockResolvedValue({

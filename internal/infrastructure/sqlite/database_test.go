@@ -420,7 +420,7 @@ func TestOpenRejectsSchema6FixtureWithoutWriting(t *testing.T) {
 		t.Fatal("schema 6 database changed after rejected open")
 	}
 	message := openErr.Error()
-	if !strings.Contains(message, "found version 6") || !strings.Contains(message, "supported version 10") || !strings.Contains(message, "new database") {
+	if !strings.Contains(message, "found version 6") || !strings.Contains(message, fmt.Sprintf("supported version %d", CurrentSchemaVersion)) || !strings.Contains(message, "new database") {
 		t.Fatalf("legacy error = %v, want found/supported versions and new-database guidance", openErr)
 	}
 }

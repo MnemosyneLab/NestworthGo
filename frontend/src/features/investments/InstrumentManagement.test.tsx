@@ -210,7 +210,7 @@ describe("InstrumentManagement", () => {
     expect(screen.queryByRole("button", { name: "Set price" })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Edit" }));
     await userEvent.click(await screen.findByRole("button", { name: "Set price" }));
-    await userEvent.type(await screen.findByLabelText("Unit price"), "131.70");
+    await userEvent.type(await screen.findByLabelText("Unit price (USD)"), "131.70");
     const priceButtons = screen.getAllByRole("button", { name: "Set price" });
     await userEvent.click(priceButtons[priceButtons.length - 1]);
     expect(appendManualQuote).toHaveBeenCalledWith("i1", "131.70", "", false);

@@ -36,12 +36,15 @@ func defaultDTO() settings.SettingsDTO {
 }
 
 func TestLoadReturnsDefaultsWhenNoFileExists(t *testing.T) {
-	service := newTestService(t)
+	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+	service := settings.NewService(appsettings.NewStore(settingsPath), wailstest.NewService(t))
+	want := defaultDTO()
+	want.LogFilePath = filepath.Join(filepath.Dir(settingsPath), "logs", "nestworth.log")
 	value, err := service.Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if value != defaultDTO() {
+	if value != want {
 		t.Fatalf("Load() = %+v, want defaults", value)
 	}
 }
@@ -88,7 +91,10 @@ func TestSaveRejectsUnsupportedFXProvider(t *testing.T) {
 }
 
 func TestResetRestoresDefaults(t *testing.T) {
-	service := newTestService(t)
+	settingsPath := filepath.Join(t.TempDir(), "settings.json")
+	service := settings.NewService(appsettings.NewStore(settingsPath), wailstest.NewService(t))
+	want := defaultDTO()
+	want.LogFilePath = filepath.Join(filepath.Dir(settingsPath), "logs", "nestworth.log")
 	updated := defaultDTO()
 	updated.Appearance = appsettings.AppearanceDark
 	if err := service.Save(updated); err != nil {
@@ -98,14 +104,14 @@ func TestResetRestoresDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reset: %v", err)
 	}
-	if reset != defaultDTO() {
+	if reset != want {
 		t.Fatalf("Reset() = %+v, want defaults", reset)
 	}
 	loaded, err := service.Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if loaded != defaultDTO() {
+	if loaded != want {
 		t.Fatalf("Load() after Reset = %+v, want defaults", loaded)
 	}
 }

@@ -1228,7 +1228,7 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Record existing position" }));
     await userEvent.selectOptions(await screen.findByLabelText("Instrument"), "i1");
-    await waitFor(() => expect(screen.getByLabelText("Unit cost (optional)")).toHaveValue("12.50"));
+    await waitFor(() => expect(screen.getByLabelText("Unit cost (optional) USD")).toHaveValue("12.50"));
   });
 
   it("opens cash dividend from a holding row with that holding preselected and submits the existing command", async () => {

@@ -8,7 +8,8 @@ that boundary remain backend-owned.
 
 The domain defines business invariants. Application use cases define commands
 and query results. The current `0.3.3` line owns one complete SQLite schema
-`10`. Schema `9` migrates to `10` on open (offline, no network). Older
+`11`. Schema `9` migrates through `10` to `11`; schema `10` migrates to
+`11` on open (offline, no network). Older
 database generations, including schemas `6`, `7`, and `8`, are rejected without
 migration. UI code
 consumes view models and must not reconstruct authoritative financial values.
@@ -34,9 +35,8 @@ recreate a user's database after an open or migration failure.
 | --- | --- |
 | Database absent | Create the current schema, verify it, then initialize settings |
 | Supported and current | Open and verify it |
-| Supported older generation (`9`) | Migrate to the current schema in one local transaction, then verify |
+| Supported older generation (`9`, `10`) | Migrate to the current schema in one local transaction, then verify |
 | Older generation (`6`–`8` and earlier) | Block startup without writes; tell the user to create a new database |
-| Newer than supported | Block business writes with a safe error |
 | Newer than supported | Block business writes with a safe error |
 | Integrity failure | Block startup; preserve the original database |
 | Path/open failure | Show an unavailable-database state |
@@ -298,3 +298,29 @@ remain in the summary; reconciliation checks remain active. Analysis range
 shortcuts end at the last closed day in the history-origin timezone and clamp
 the beginning to the history origin. Month shortcuts use calendar months and
 inclusive date endpoints.
+
+## Metals and crypto in 0.3.3
+
+Schema 11 adds optional metal-template and quantity-unit metadata. Existing
+instruments retain empty values and are not automatically rebound. Gold/silver
+use Yahoo `GC=F`/`SI=F` USD-per-troy-ounce futures references. Go converts to
+the instrument currency and divides by `31.1034768` for grams, rounding only
+at the existing unit-price boundary. Missing FX or prices remain unavailable.
+Historical conversion uses eligible historical FX, never today's rate.
+CSV preserves template/unit identity; manual prices already use the target unit.
+
+CoinGecko uses exact coin IDs separately from display tickers. Its local Demo
+key is not returned by settings DTOs. Daily points retain their UTC reference
+timestamps; the adapter enforces its 365-day Demo-history boundary and leaves
+older required gaps visible. Existing stored history and provider bindings remain intact.
+
+History starts at the first effective holding date, bounded by History Origin;
+never-held instruments fall back to creation date. Planning includes a seven-day
+lead-in and bounded opening-anchor fallback. Normal repair reuses fresh checks;
+force recheck remains explicit. Repair estimates may differ from actual requests
+because of batching, caches, retries, and conversion dependencies.
+
+Backup restore validates the current schema. Older-schema backup archives do
+not directly pass schema-11 restore validation, although supported database files
+upgrade through the normal open path. Keep originals before upgrade and create
+a fresh backup afterwards.

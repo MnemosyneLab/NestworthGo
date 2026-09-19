@@ -448,7 +448,7 @@ func seedGainSchema7Fixture(t *testing.T) *sqlite.DB {
 		_ = seed.Close()
 		t.Fatal(err)
 	}
-	if _, err := seed.Exec(`ALTER TABLE members ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'user'; ALTER TABLE instruments ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'investment';`); err != nil {
+	if _, err := seed.Exec(`ALTER TABLE members ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'user'; ALTER TABLE instruments ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'investment'; ALTER TABLE instruments ADD COLUMN metal_template TEXT NOT NULL DEFAULT ''; ALTER TABLE instruments ADD COLUMN quantity_unit TEXT NOT NULL DEFAULT '';`); err != nil {
 		_ = seed.Close()
 		t.Fatal(err)
 	}

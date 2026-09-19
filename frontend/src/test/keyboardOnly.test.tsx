@@ -328,6 +328,7 @@ describe("keyboard-only completion", () => {
     await userEvent.tab(); // -> Timezone combobox (left at default)
     await userEvent.tab(); // -> FX provider select (left at default)
     await userEvent.tab(); // -> Quote cache duration select (left at default)
+    await userEvent.tab(); // -> Log level select (left at default)
     await userEvent.tab(); // -> Worker URL input (left at default)
     expect(within(form).getByLabelText("Nestworth Worker URL")).toHaveFocus();
     await userEvent.tab(); // -> Save button
