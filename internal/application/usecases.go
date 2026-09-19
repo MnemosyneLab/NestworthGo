@@ -52,6 +52,7 @@ type ValuationUseCase interface {
 	HoldingGain(ctx context.Context, id domain.HoldingID) (domain.HoldingGainView, error)
 	AccountGain(ctx context.Context, id domain.AccountID) (domain.AccountGainView, error)
 	AccountGains(ctx context.Context, ids []domain.AccountID) ([]domain.AccountGainView, error)
+	InstrumentHoldings(ctx context.Context) ([]domain.InstrumentHoldingsView, error)
 	RealizedGain(ctx context.Context, scope domain.GainScope, trendRange domain.TrendRange) (domain.RealizedGainView, error)
 	DividendIncome(ctx context.Context, scope domain.GainScope, trendRange domain.TrendRange) (domain.DividendIncomeView, error)
 	PortfolioTrend(ctx context.Context, trendRange domain.TrendRange) (domain.PortfolioTrend, error)

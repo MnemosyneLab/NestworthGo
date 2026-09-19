@@ -7,5 +7,8 @@ export {
 };
 
 export type {
-    GainScopeRequest
+    GainScopeRequest,
+    HoldingAmountsDTO,
+    InstrumentHoldingMemberDTO,
+    InstrumentHoldingsDTO
 } from "./models.js";

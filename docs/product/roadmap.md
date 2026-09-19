@@ -9,7 +9,9 @@ entry is not an implementation claim.
 ## 0.3.4 — Development baseline
 
 Status: `In progress` (current development line, build `5`). Settings are organized by appearance/language, market connections, data,
-diagnostics, About, and reset, with navigation and explicit save boundaries. See the
+diagnostics, About, and reset, with navigation and explicit save boundaries.
+Portfolio combines overview and holdings, with backend-owned instrument totals,
+expandable account positions, and an optional zero-position filter. See the
 [release contract](../releases/v0.3.4.md).
 
 ## 0.3.3 — Broader market data and reliable repair

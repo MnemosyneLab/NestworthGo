@@ -1,3 +1,4 @@
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]) } }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -342,7 +343,7 @@ describe("App shell smoke test", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(i18n.t("portfolio.pageTitle"));
     await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
     expect(await screen.findByTestId("portfolio-page")).toBeInTheDocument();
-    expect(screen.queryByText(i18n.t("portfolio.noHoldingsAccount"))).not.toBeInTheDocument();
+    expect(screen.getByText(i18n.t("portfolio.noHoldingsAccount"))).not.toBeVisible();
   });
 
   it("returns to the accounts list after opening an account from Portfolio", async () => {

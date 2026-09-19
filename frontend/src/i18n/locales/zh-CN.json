@@ -922,5 +922,17 @@
     "exchangeRate": "美元换算汇率",
     "rawTime": "贵金属报价时间",
     "fxTime": "汇率时间"
+  },
+  "holdingsSummary": {
+    "view": "持仓视图",
+    "byInstrument": "按标的汇总",
+    "byAccount": "账户明细",
+    "showZero": "显示零持仓",
+    "noVisibleHoldings": "暂无当前持仓，可开启“显示零持仓”查看已清仓记录。",
+    "toggleAccounts": "展开 {{name}} 的账户",
+    "accountCount_one": "{{count}} 个账户",
+    "accountCount_other": "{{count}} 个账户",
+    "accountCount": "{{count}} 个账户",
+    "unitCostHint": "历史记录已启用，请按标的报价币种填写单位成本。留空时使用已保存的当前价格；没有价格时必须填写。"
   }
 }

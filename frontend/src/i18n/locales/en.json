@@ -922,5 +922,17 @@
     "exchangeRate": "USD exchange rate",
     "rawTime": "Metal quote time",
     "fxTime": "Exchange rate time"
+  },
+  "holdingsSummary": {
+    "view": "Holdings view",
+    "byInstrument": "By instrument",
+    "byAccount": "Account details",
+    "showZero": "Show zero holdings",
+    "noVisibleHoldings": "No current holdings. Enable “Show zero holdings” to see closed positions.",
+    "toggleAccounts": "Show accounts for {{name}}",
+    "accountCount_one": "{{count}} account",
+    "accountCount_other": "{{count}} accounts",
+    "accountCount": "{{count}} accounts",
+    "unitCostHint": "After history starts, enter the unit cost in the instrument’s quote currency. If left empty, the saved current price is used; when no price exists, a unit cost is required."
   }
 }

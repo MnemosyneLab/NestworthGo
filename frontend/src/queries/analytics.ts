@@ -96,3 +96,10 @@ export function useHoldingGainsByAccounts(accountIds: string[]) {
     refetch: result.refetch,
   };
 }
+
+export function useInstrumentHoldings() {
+  return useQuery({
+    queryKey: queryKeys.analytics.instrumentHoldings,
+    queryFn: () => callService(() => AnalyticsService.InstrumentHoldings()),
+  });
+}

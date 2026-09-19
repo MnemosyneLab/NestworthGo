@@ -37,6 +37,10 @@ export function HoldingGain(holdingID: string): $CancellablePromise<wire$0.Holdi
     return $Call.ByID(914769158, holdingID);
 }
 
+export function InstrumentHoldings(): $CancellablePromise<$models.InstrumentHoldingsDTO[] | null> {
+    return $Call.ByID(4105309295);
+}
+
 /**
  * RealizedGain resolves a named trend range ("30d", "ytd", "1y", "all") the same
  * way the Analytics range selector is implemented in the frontend.

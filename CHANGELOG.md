@@ -6,6 +6,12 @@ All notable changes to Nestworth are recorded here.
 
 ### Changed
 
+- Added cross-account holdings grouped by instrument, expandable account details,
+  native-currency cost/value/gain totals, and an optional zero-position filter.
+  Missing FX no longer hides valid native amounts in this view.
+- The holdings creation form accepts an explicit unit cost after history starts,
+  allowing positions without a saved current price to be recorded.
+
 - Combined Portfolio and Holdings into one Portfolio page with Overview and Holdings tabs.
 
 - Advanced synchronized application metadata to `v0.3.4` / build `5`.

@@ -78,6 +78,7 @@ export const queryKeys = {
     trend: (trendRange: string) => ["portfolio", "trend", trendRange] as const,
   },
   analytics: {
+    instrumentHoldings: ["analytics", "instrumentHoldings"] as const,
     all: ["analytics"] as const,
     realizedGain: (scope: unknown, range: unknown) => ["analytics", "realizedGain", scope, range] as const,
     dividendIncome: (scope: unknown, range: unknown) => ["analytics", "dividendIncome", scope, range] as const,

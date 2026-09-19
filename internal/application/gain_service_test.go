@@ -365,6 +365,25 @@ func TestGainServiceTransferUsesSendingCostAtTransferTime(t *testing.T) {
 	if source.AverageCost.Amount != "316.6667" || target.AverageCost.Amount != "720" {
 		t.Fatalf("transfer cost resolution used today's source cost: source=%+v target=%+v", source, target)
 	}
+	groups, err := service.InstrumentHoldings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, group := range groups {
+		for _, member := range group.Holdings {
+			if member.HoldingID == target.HoldingID {
+				found = true
+				if member.Amounts.TotalCost == nil || member.Amounts.TotalCost.Amount != target.TotalCost.Amount {
+					t.Fatalf("summary lost transfer cost: %+v", member)
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("transfer target missing from summary")
+	}
+
 }
 
 func TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX(t *testing.T) {

@@ -72,6 +72,14 @@ func TestHoldingGainAvailableAfterQuote(t *testing.T) {
 		t.Fatalf("UnrealizedGain = %+v, want 1500 (zero cost basis pre-history)", gain.UnrealizedGain)
 	}
 
+	groups, err := service.InstrumentHoldings(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(groups) != 1 || groups[0].InstrumentID != instrumentDTO.ID || len(groups[0].Holdings) != 1 || groups[0].Holdings[0].AccountID != accountRecord.Account.ID || groups[0].Amounts.CurrentValue == nil || groups[0].Amounts.CurrentValue.Amount != "1500" {
+		t.Fatalf("InstrumentHoldings: %+v", groups)
+	}
+
 	accountGain, err := service.AccountGain(ctx, accountRecord.Account.ID)
 	if err != nil {
 		t.Fatalf("AccountGain: %v", err)

@@ -148,6 +148,7 @@ describe("query keys and dependency invalidation", () => {
     const queryClient = clientWith(
       queryKeys.overview.all,
       queryKeys.analytics.accountGains.all,
+      queryKeys.analytics.instrumentHoldings,
       queryKeys.quote.instrument.current("instrument-1"),
       queryKeys.holdings.byAccounts(["account-1"]),
     );
@@ -156,6 +157,7 @@ describe("query keys and dependency invalidation", () => {
 
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.instrumentHoldings)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(false);
   });
@@ -165,6 +167,7 @@ describe("query keys and dependency invalidation", () => {
       queryKeys.overview.all,
       queryKeys.quote.instrument.current("instrument-1"),
       queryKeys.analytics.accountGains.all,
+      queryKeys.analytics.instrumentHoldings,
       queryKeys.holdings.byAccounts(["account-1"]),
     );
 
@@ -173,6 +176,7 @@ describe("query keys and dependency invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.instrumentHoldings)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(false);
   });
 
@@ -181,6 +185,7 @@ describe("query keys and dependency invalidation", () => {
       queryKeys.holdings.byAccounts(["account-1"]),
       queryKeys.overview.all,
       queryKeys.analytics.accountGains.all,
+      queryKeys.analytics.instrumentHoldings,
     );
 
     invalidateHoldingChange(queryClient, "account-1");
@@ -188,18 +193,21 @@ describe("query keys and dependency invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.holdings.byAccounts(["account-1"]))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.instrumentHoldings)).toBe(true);
   });
 
   it("invalidates the household account-gains query when affected accounts are unknown", () => {
     const queryClient = clientWith(
       queryKeys.overview.all,
       queryKeys.analytics.accountGains.all,
+      queryKeys.analytics.instrumentHoldings,
       queryKeys.analysis.returnCalendar({}, "2026-09"),
     );
 
     invalidateCurrentValuation(queryClient);
 
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.instrumentHoldings)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analysis.returnCalendar({}, "2026-09"))).toBe(true);
   });
 });
@@ -211,6 +219,7 @@ function seededClient() {
     queryKeys.overview.all,
     queryKeys.portfolio.all,
     queryKeys.analytics.accountGains.all,
+    queryKeys.analytics.instrumentHoldings,
     queryKeys.analysis.returnCalendar({}, "2026-09"),
     queryKeys.analytics.realizedGain({}, "30d"),
     queryKeys.analytics.dividendIncome({}, "30d"),
@@ -268,6 +277,7 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.portfolio.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.instrumentHoldings)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(false);
   });
 
@@ -280,6 +290,7 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analytics.instrumentHoldings)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.realizedGain({}, "30d"))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.dividendIncome({}, "30d"))).toBe(true);
 
@@ -369,6 +380,7 @@ it("refreshes binding-dependent reads after updating an instrument", async () =>
     queryKeys.overview.all,
     queryKeys.portfolio.all,
     queryKeys.analytics.accountGains.all,
+    queryKeys.analytics.instrumentHoldings,
     queryKeys.analysis.returnCalendar({}, "2026-09"),
     queryKeys.marketdata.health,
     queryKeys.history.snapshotState,

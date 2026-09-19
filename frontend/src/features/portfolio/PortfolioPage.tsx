@@ -196,10 +196,12 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
 /** One investment workspace with separate summary and holding management views. */
 export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: string) => void } = {}) {
   const { t } = useTranslation();
+  const [tab, setTab] = useState("overview");
+  const [holdingsVisited, setHoldingsVisited] = useState(false);
   return (
     <div className="flex flex-col gap-4">
       <PageChrome pageId="portfolio" title={t("portfolio.pageTitle")} />
-      <Tabs defaultValue="overview">
+      <Tabs value={tab} onValueChange={value => { setTab(String(value)); if (value === "holdings") setHoldingsVisited(true); }}>
         <TabsList aria-label={t("portfolio.pageTitle")}>
           <TabsTrigger value="overview">{t("nav.overview")}</TabsTrigger>
           <TabsTrigger value="holdings">{t("nav.holdings")}</TabsTrigger>
@@ -207,8 +209,8 @@ export function PortfolioPage({ onOpenAccount }: { onOpenAccount?: (accountId: s
         <TabsContent value="overview">
           <PortfolioOverview onOpenAccount={onOpenAccount} />
         </TabsContent>
-        <TabsContent value="holdings">
-          <HoldingsTab />
+        <TabsContent value="holdings" keepMounted>
+          {holdingsVisited && <HoldingsTab onOpenAccount={onOpenAccount} active={tab === "holdings"} />}
         </TabsContent>
       </Tabs>
     </div>

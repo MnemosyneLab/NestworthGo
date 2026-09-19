@@ -38,6 +38,7 @@ export function invalidateCurrentValuation(queryClient: QueryClient, _accountIds
   invalidate(queryClient, queryKeys.analysis.all);
   invalidateAccountReads(queryClient);
   invalidate(queryClient, queryKeys.analytics.accountGains.all);
+  invalidate(queryClient, queryKeys.analytics.instrumentHoldings);
 }
 
 export function invalidateHistoryReads(queryClient: QueryClient) {

@@ -922,5 +922,17 @@
     "exchangeRate": "美元換算匯率",
     "rawTime": "貴金屬報價時間",
     "fxTime": "匯率時間"
+  },
+  "holdingsSummary": {
+    "view": "持倉檢視",
+    "byInstrument": "按標的彙總",
+    "byAccount": "帳戶明細",
+    "showZero": "顯示零持倉",
+    "noVisibleHoldings": "暫無目前持倉，可開啟「顯示零持倉」查看已清倉記錄。",
+    "toggleAccounts": "展開 {{name}} 的帳戶",
+    "accountCount_one": "{{count}} 個帳戶",
+    "accountCount_other": "{{count}} 個帳戶",
+    "accountCount": "{{count}} 個帳戶",
+    "unitCostHint": "歷史記錄已啟用，請按標的報價幣種填寫單位成本。留空時使用已儲存的目前價格；沒有價格時必須填寫。"
   }
 }
