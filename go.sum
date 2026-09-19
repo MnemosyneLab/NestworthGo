@@ -226,8 +226,8 @@ github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD
 github.com/tarm/serial v0.0.0-20180830185346-98f6abe2eb07/go.mod h1:kDXzergiv9cbyO7IOYJZWg1U88JhDg3PB6klq9Hg2pA=
 github.com/viant/assertly v0.4.8/go.mod h1:aGifi++jvCrUaklKEKT0BU95igDNaqkvz+49uaYMPRU=
 github.com/viant/toolbox v0.24.0/go.mod h1:OxMCG57V0PXuIP2HNQrtJf2CjqdmbrOx5EkMILuUhzM=
-github.com/wailsapp/wails/v3 v3.0.0-beta.21 h1:2jc9E7eT4g3vNQIaEoRP19Uvm4LCuL9OzYPD+Uf+yYk=
-github.com/wailsapp/wails/v3 v3.0.0-beta.21/go.mod h1:/6QR46/nhGCSADHbS++XtDb9dkTnenTHlGskTPRo9S0=
+github.com/wailsapp/wails/v3 v3.0.0-beta.23 h1:kr2HH5F39pyBFF8lWI1ZtueEuwJGXxWVUAFcIEDIL9E=
+github.com/wailsapp/wails/v3 v3.0.0-beta.23/go.mod h1:/6QR46/nhGCSADHbS++XtDb9dkTnenTHlGskTPRo9S0=
 github.com/wnjoon/go-yfinance v1.7.0 h1:PtRmItTOVZ8x478vC5X/+iBWFRLoTC7T3di1P2g/Ss0=
 github.com/wnjoon/go-yfinance v1.7.0/go.mod h1:z4wXvhd7FPUsM4bHmMu8hKUoNnq8FCuzMs5z7rgOwYs=
 github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=

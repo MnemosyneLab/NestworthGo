@@ -6,6 +6,7 @@ All notable changes to Nestworth are recorded here.
 
 ### Changed
 
+- Upgraded the Wails v3 desktop shell and `@wailsio/runtime` to `v3.0.0-beta.23`.
 - Added cross-account holdings grouped by instrument, expandable account details,
   native-currency cost/value/gain totals, and an optional zero-position filter.
   Missing FX no longer hides valid native amounts in this view.
