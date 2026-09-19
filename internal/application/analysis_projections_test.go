@@ -837,3 +837,67 @@ func (r *emptyAnalysisRepository) ListActivitiesUntil(context.Context, domain.Ho
 func (r *emptyAnalysisRepository) ListFXQuotes(context.Context, domain.HouseholdID) ([]domain.FXQuote, error) {
 	return []domain.FXQuote{}, nil
 }
+
+func TestAssetChangeRateUsesBoundariesAndIncludesCashFlows(t *testing.T) {
+	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
+	for _, tc := range []struct {
+		name, beginning, change, want, reason string
+		status                                domain.Completeness
+	}{
+		{"deposit", "100", "25", "0.25", "", domain.CompletenessOK},
+		{"loss", "100", "-15", "-0.15", "", domain.CompletenessOK},
+		{"zero", "0", "25", "", "nonpositive_beginning", domain.CompletenessOK},
+		{"negative", "-100", "25", "", "nonpositive_beginning", domain.CompletenessOK},
+		{"partial", "100", "25", "", "incomplete", domain.CompletenessPartial},
+		{"unavailable", "100", "25", "", "incomplete", domain.CompletenessUnavailable},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			day := analysisTestDay(t, "2026-08-01", accountID, tc.beginning, map[domain.AttributionBucket]string{domain.BucketExternalFlow: tc.change})
+			day.Status = tc.status
+			result := domain.PeriodAnalysisResult{Query: domain.AnalysisQuery{From: "2026-08-01", To: "2026-08-01"}, Days: []domain.ComponentDay{day}}
+			drivers := foldAssetChange(result, "").Summary
+			if drivers.ChangeRateMissingReason != tc.reason {
+				t.Fatalf("reason = %q, want %q", drivers.ChangeRateMissingReason, tc.reason)
+			}
+			for _, granularity := range []AssetTrendGranularity{TrendDay, TrendWeek, TrendMonth} {
+				trend, err := foldAssetTrend(result, "", granularity, TrendNetWorth)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, summary := range []*AssetChangeSummary{&drivers, trend.ValueChange} {
+					if tc.want == "" {
+						if summary.ChangeRate != nil {
+							t.Fatal("unexpected rate", summary.ChangeRate)
+						}
+						continue
+					}
+					if summary.ChangeRate == nil || summary.ChangeRate.String() != tc.want {
+						t.Fatalf("rate = %v, want %s", summary.ChangeRate, tc.want)
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestAssetLevelChangeSeparatesAssetsAndLiabilitiesAndRejectsMissingBoundary(t *testing.T) {
+	asset := analysisTestDay(t, "2026-08-01", domain.AccountID("a"), "100", map[domain.AttributionBucket]string{domain.BucketPriceChange: "10"})
+	liability := analysisTestDay(t, "2026-08-01", domain.AccountID("b"), "-40", map[domain.AttributionBucket]string{domain.BucketLiabilityImpact: "10"})
+	result := domain.PeriodAnalysisResult{Query: domain.AnalysisQuery{From: "2026-08-01", To: "2026-08-01"}, Days: []domain.ComponentDay{asset, liability}}
+	for _, tc := range []struct {
+		metric                  AssetTrendMetric
+		beginning, ending, rate string
+	}{
+		{TrendAssets, "100", "110", "0.1"}, {TrendLiabilities, "40", "30", "-0.25"}, {TrendNetWorth, "60", "80", "0.333333333333"},
+	} {
+		summary := assetLevelSummary(result, tc.metric, "USD")
+		if summary.BeginningValue.Amount().String() != tc.beginning || summary.EndingValue.Amount().String() != tc.ending || summary.ChangeRate == nil || summary.ChangeRate.String() != tc.rate {
+			t.Fatalf("%s: unexpected summary %+v", tc.metric, summary)
+		}
+	}
+	result.Query.From = "2026-07-31"
+	summary := assetLevelSummary(result, TrendNetWorth, "USD")
+	if summary.ChangeRate != nil || summary.ChangeRateMissingReason != "missing_boundary" {
+		t.Fatalf("missing boundary summary = %+v", summary)
+	}
+}

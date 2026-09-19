@@ -45,3 +45,30 @@ it("keeps selected filters and cash scope visible when collapsed, and preserves 
   await userEvent.click(screen.getByRole("button", { name: "Reset" }));
   expect(onReset).toHaveBeenCalledOnce();
 });
+
+it("applies return presets in the shared bar without duplicate general presets", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-08T12:00:00Z"));
+  try {
+    const onChange = vi.fn();
+    render(<AnalysisFilterBar session={useAnalysisStore.getState()} returnPresets onChange={onChange} onReset={vi.fn()} />);
+    await userEvent.click(screen.getByRole("button", { name: "30D" }));
+    expect(onChange).toHaveBeenCalledWith({ from: "2026-09-08", to: "2026-10-07" });
+    expect(screen.queryByRole("button", { name: "1M" })).not.toBeInTheDocument();
+  } finally { vi.useRealTimers(); }
+});
+
+it("defaults to asset trend and resets filters without navigating away", () => {
+  expect(useAnalysisStore.getState().assetTab).toBe("trend");
+  useAnalysisStore.getState().setAssetView({ tab: "categories" });
+  useAnalysisStore.getState().setReturnView({ tab: "trend", cursor: "2026-08" });
+  useAnalysisStore.getState().setFilters({ scope: "account", scopeId: "a1", from: "2026-08-01", includeCash: false });
+  useAnalysisStore.getState().resetFilters();
+  expect(useAnalysisStore.getState()).toMatchObject({ assetTab: "categories", returnTab: "trend", returnCursor: "2026-08", scope: "portfolio", scopeId: "", from: "", includeCash: true });
+});
+
+it("shows the effective date range when no custom dates were selected", () => {
+ render(<AnalysisFilterBar session={useAnalysisStore.getState()} resolvedRange={{ from: "2026-09-02", to: "2026-09-10" }} onChange={vi.fn()} onReset={vi.fn()} />);
+ expect(screen.getByRole("button", { name: "From" })).not.toHaveTextContent("Select");
+ expect(screen.getByRole("button", { name: "To" })).not.toHaveTextContent("Select");
+});

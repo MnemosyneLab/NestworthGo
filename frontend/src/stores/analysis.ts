@@ -17,6 +17,7 @@ export interface AnalysisSessionState {
   setFilters: (filters: AnalysisNavigationContext) => void;
   setReturnView: (view: { tab?: AnalysisTab; cursor?: string }) => void;
   setAssetView: (view: { tab?: AssetChangesTab; cursor?: string }) => void;
+  resetFilters: () => void;
   reset: () => void;
 }
 
@@ -31,7 +32,7 @@ const initialSession = {
   contributionReturnType: "total_return" as const,
   returnTab: "calendar" as const,
   returnCursor: "",
-  assetTab: "drivers" as const,
+  assetTab: "trend" as const,
   assetCursor: "",
 };
 
@@ -55,6 +56,7 @@ export const useAnalysisStore = create<AnalysisSessionState>((set) => ({
     assetTab: view.tab ?? state.assetTab,
     assetCursor: view.cursor ?? state.assetCursor,
   })),
+  resetFilters: () => set(({ returnTab, returnCursor, assetTab, assetCursor }) => ({ ...initialSession, returnTab, returnCursor, assetTab, assetCursor })),
   reset: () => set(initialSession),
 }));
 

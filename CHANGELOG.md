@@ -6,6 +6,12 @@ All notable changes to Nestworth are recorded here.
 
 ### Changed
 
+- Asset Changes opens with daily Asset Trend. Trend and Change Drivers show shared
+  backend-calculated period values and percentage change, with explicit unavailable
+  reasons and a cash-flow-versus-return explanation.
+- Simplified insights controls, showed effective trend dates, unified Return Trend
+  date shortcuts, and preserved the active tab when resetting filters.
+
 - Upgraded the Wails v3 desktop shell and `@wailsio/runtime` to `v3.0.0-beta.23`.
 - Added cross-account holdings grouped by instrument, expandable account details,
   native-currency cost/value/gain totals, and an optional zero-position filter.

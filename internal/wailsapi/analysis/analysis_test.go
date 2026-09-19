@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"encoding/json"
+	"github.com/shopspring/decimal"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -140,3 +141,25 @@ func TestContributionItemDTOPreservesHistoryHintDimensions(t *testing.T) {
 }
 
 func stringPtr(value string) *string { return &value }
+
+func TestAssetChangeRateWireContractIsSharedByTrendAndDrivers(t *testing.T) {
+	rate := decimal.RequireFromString("0.123456789012")
+	summary := application.AssetChangeSummary{ChangeRate: &rate}
+	drivers := fromAssetChange(application.AssetChangeResult{Summary: summary})
+	trend := fromAssetTrend(application.AssetTrendResult{ValueChange: &summary})
+	if drivers.Summary.ChangeRate == nil || trend.ValueChange == nil || trend.ValueChange.ChangeRate == nil || *drivers.Summary.ChangeRate != "0.123456789012" || *trend.ValueChange.ChangeRate != *drivers.Summary.ChangeRate {
+		t.Fatal("rate lost at DTO boundary")
+	}
+	missing := fromAssetChangeSummary(application.AssetChangeSummary{ChangeRateMissingReason: "incomplete"})
+	encoded, err := json.Marshal(missing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var shape map[string]any
+	if err := json.Unmarshal(encoded, &shape); err != nil {
+		t.Fatal(err)
+	}
+	if value, exists := shape["changeRate"]; !exists || value != nil || shape["changeRateMissingReason"] != "incomplete" {
+		t.Fatalf("missing rate contract: %s", encoded)
+	}
+}

@@ -15,7 +15,7 @@ describe("stepsFromData", () => {
   it("keeps signed driver steps reconciled with the ending value", () => {
     const steps = stepsFromData(
       {
-        beginningValue: { amount: "100", currency: "USD" },
+        changeRate: null, beginningValue: { amount: "100", currency: "USD" },
         endingValue: { amount: "125", currency: "USD" },
         change: { amount: "25", currency: "USD" },
       },
@@ -41,7 +41,7 @@ describe("stepsFromData", () => {
   it("reports an identity mismatch instead of treating the ending bar as reconciled", () => {
     const steps = stepsFromData(
       {
-        beginningValue: { amount: "100", currency: "USD" },
+        changeRate: null, beginningValue: { amount: "100", currency: "USD" },
         endingValue: { amount: "125", currency: "USD" },
       },
       [{ key: "income", label: "Income", bucket: "income", amount: { amount: "10", currency: "USD" } }],
@@ -52,7 +52,7 @@ describe("stepsFromData", () => {
 
   it("surfaces an identity warning when the ending bar does not reconcile", () => {
     render(createElement(WaterfallChart, {
-      summary: { beginningValue: { amount: "100", currency: "USD" }, endingValue: { amount: "125", currency: "USD" } },
+      summary: { changeRate: null, beginningValue: { amount: "100", currency: "USD" }, endingValue: { amount: "125", currency: "USD" } },
       rows: [{ key: "income", label: "Income", bucket: "income", amount: { amount: "10", currency: "USD" } }],
       labels: { beginning: "Beginning", ending: "Ending", amount: "Amount", empty: "No data" },
     }));
@@ -61,13 +61,13 @@ describe("stepsFromData", () => {
 
   it("does not invent an ending bar when the ending value is unknown", () => {
     const steps = stepsFromData(
-      { beginningValue: { amount: "100", currency: "USD" } },
+      { changeRate: null, beginningValue: { amount: "100", currency: "USD" } },
       [],
       { beginning: "Beginning", ending: "Ending" },
     );
     expect(steps.map((step) => step.key)).toEqual(["beginning"]);
     render(createElement(WaterfallChart, {
-      summary: { beginningValue: { amount: "100", currency: "USD" } },
+      summary: { changeRate: null, beginningValue: { amount: "100", currency: "USD" } },
       rows: [],
       labels: { beginning: "Beginning", ending: "Ending", amount: "Amount", empty: "No data" },
     }));
@@ -77,7 +77,7 @@ describe("stepsFromData", () => {
   it("keeps signed start and end for negative and cross-zero intervals", () => {
     const negative = stepsFromData(
       {
-        beginningValue: { amount: "-100", currency: "USD" },
+        changeRate: null, beginningValue: { amount: "-100", currency: "USD" },
         endingValue: { amount: "-80", currency: "USD" },
       },
       [{ key: "income", label: "Income", bucket: "income", amount: { amount: "20", currency: "USD" } }],
@@ -93,7 +93,7 @@ describe("stepsFromData", () => {
 
     const crossZero = stepsFromData(
       {
-        beginningValue: { amount: "50", currency: "USD" },
+        changeRate: null, beginningValue: { amount: "50", currency: "USD" },
         endingValue: { amount: "-30", currency: "USD" },
       },
       [{ key: "spending", label: "Spending", bucket: "spending", amount: { amount: "-80", currency: "USD" } }],

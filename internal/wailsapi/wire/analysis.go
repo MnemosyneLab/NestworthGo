@@ -16,9 +16,11 @@ type AssetChangeDTO struct {
 }
 
 type AssetChangeSummaryDTO struct {
-	BeginningValue *SignedMoneyView `json:"beginningValue,omitempty"`
-	EndingValue    *SignedMoneyView `json:"endingValue,omitempty"`
-	Change         *SignedMoneyView `json:"change,omitempty"`
+	ChangeRate              *string          `json:"changeRate"`
+	ChangeRateMissingReason string           `json:"changeRateMissingReason,omitempty"`
+	BeginningValue          *SignedMoneyView `json:"beginningValue,omitempty"`
+	EndingValue             *SignedMoneyView `json:"endingValue,omitempty"`
+	Change                  *SignedMoneyView `json:"change,omitempty"`
 }
 
 type AssetChangeRowDTO struct {
@@ -76,15 +78,16 @@ type AssetTrendPointDTO struct {
 }
 
 type AssetTrendDTO struct {
-	Points          []AssetTrendPointDTO `json:"points"`
-	Summary         *SignedMoneyView     `json:"summary,omitempty"`
-	Rate            *string              `json:"rate"`
-	RatedDays       int                  `json:"ratedDays"`
-	TotalDays       int                  `json:"totalDays"`
-	Available       bool                 `json:"available"`
-	Status          string               `json:"status"`
-	MissingReason   string               `json:"missingReason,omitempty"`
-	ValuationForced *string              `json:"valuationForced"`
+	ValueChange     *AssetChangeSummaryDTO `json:"valueChange,omitempty"`
+	Points          []AssetTrendPointDTO   `json:"points"`
+	Summary         *SignedMoneyView       `json:"summary,omitempty"`
+	Rate            *string                `json:"rate"`
+	RatedDays       int                    `json:"ratedDays"`
+	TotalDays       int                    `json:"totalDays"`
+	Available       bool                   `json:"available"`
+	Status          string                 `json:"status"`
+	MissingReason   string                 `json:"missingReason,omitempty"`
+	ValuationForced *string                `json:"valuationForced"`
 }
 
 type CategoryRowDTO struct {

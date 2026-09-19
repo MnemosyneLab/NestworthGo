@@ -67,7 +67,7 @@ export function CategoriesTab({ session, onOpenHistory }: { session: AnalysisSes
   if (!context.rangeAvailable) return <EmptyState title={t("insights.historyInsufficient")} description={t("insights.historyInsufficientHint")} />;
 
   const toolbar = (
-    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card/60 p-4">
+    <div className="flex flex-wrap items-end gap-3">
       <div className="flex flex-col gap-1.5">
         <label htmlFor="categories-type" className="text-sm font-medium">{t("insights.categoryType")}</label>
         <NativeSelect id="categories-type" value={categoryType} onChange={(event) => { setCategoryType(event.target.value); setSelectedKey(null); }}>
@@ -94,10 +94,10 @@ export function CategoriesTab({ session, onOpenHistory }: { session: AnalysisSes
           <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} />
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
+          {data.total && <div className="mb-4">
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.total")}</p>
             <p className="mt-1 text-2xl font-semibold">{amountText(data.total)}</p>
-          </div>
+          </div>}
           <ul className="divide-y divide-border" aria-label={t("insights.categories")}>
             {(data.rows ?? []).map((row) => (
               <li key={row.key}>

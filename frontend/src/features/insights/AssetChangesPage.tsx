@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 import { PageChrome } from "@/components/layout/PageChrome";
-import { PageIntro } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalysisFilterBar } from "@/features/insights/AnalysisFilterBar";
@@ -18,7 +17,7 @@ export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOp
   const session = useAnalysisStore();
   const setFilters = useAnalysisStore((state) => state.setFilters);
   const setAssetView = useAnalysisStore((state) => state.setAssetView);
-  const reset = useAnalysisStore((state) => state.reset);
+  const reset = useAnalysisStore((state) => state.resetFilters);
   const origin = useHistoryOrigin();
   const scope = session.scope ?? "portfolio";
   const visibleMonth = currentMonth(origin.data?.timezone);
@@ -42,16 +41,15 @@ export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOp
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageChrome pageId="asset-changes" title={t("insights.assetChanges")} />
-      <PageIntro description={t("insights.assetChangesDescription")} />
       <Tabs value={session.assetTab} onValueChange={(value) => setAssetView({ tab: value as typeof session.assetTab })}>
         <TabsList>
-          <TabsTrigger value="drivers">{t("insights.drivers")}</TabsTrigger>
           <TabsTrigger value="trend">{t("insights.assetTrend")}</TabsTrigger>
+          <TabsTrigger value="drivers">{t("insights.drivers")}</TabsTrigger>
           <TabsTrigger value="categories">{t("insights.categories")}</TabsTrigger>
         </TabsList>
-        <AnalysisFilterBar session={session} onChange={setFilters} onReset={reset} />
+        <AnalysisFilterBar session={session} resolvedRange={rangeAvailable ? range : undefined} onChange={setFilters} onReset={reset} />
         <TabsContent value="drivers">{driverContent}</TabsContent>
         <TabsContent value="trend"><AssetTrendTab session={session} /></TabsContent>
         <TabsContent value="categories"><CategoriesTab session={session} onOpenHistory={onOpenHistory} /></TabsContent>

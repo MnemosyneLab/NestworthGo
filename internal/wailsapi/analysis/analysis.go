@@ -215,11 +215,7 @@ func (s *Service) CategoryDetail(ctx context.Context, request AnalysisQueryReque
 
 func fromAssetChange(value application.AssetChangeResult) AssetChangeDTO {
 	return AssetChangeDTO{
-		Summary: AssetChangeSummaryDTO{
-			BeginningValue: wire.FromSignedMoneyPtr(value.Summary.BeginningValue),
-			EndingValue:    wire.FromSignedMoneyPtr(value.Summary.EndingValue),
-			Change:         wire.FromSignedMoneyPtr(value.Summary.Change),
-		},
+		Summary:            fromAssetChangeSummary(value.Summary),
 		Available:          value.Available,
 		Status:             string(value.Status),
 		MissingReason:      value.MissingReason,
@@ -269,6 +265,10 @@ func fromDimensionAmounts(values []application.AnalysisDimensionAmount) []Analys
 
 func fromAssetTrend(value application.AssetTrendResult) AssetTrendDTO {
 	result := AssetTrendDTO{Available: value.Available, Status: string(value.Status), MissingReason: value.MissingReason, ValuationForced: value.ValuationForced, Summary: wire.FromSignedMoneyPtr(value.Summary), Rate: decimalStringPtr(value.Rate), RatedDays: value.Coverage.RatedDays, TotalDays: value.Coverage.TotalDays, Points: make([]AssetTrendPointDTO, 0, len(value.Points))}
+	if value.ValueChange != nil {
+		summary := fromAssetChangeSummary(*value.ValueChange)
+		result.ValueChange = &summary
+	}
 	for _, point := range value.Points {
 		result.Points = append(result.Points, AssetTrendPointDTO{Period: point.Period, Value: wire.FromSignedMoneyPtr(point.Value), Rate: decimalStringPtr(point.Rate), RatedDays: point.Coverage.RatedDays, TotalDays: point.Coverage.TotalDays, Available: point.Available, Status: string(point.Status), MissingReason: point.MissingReason, ValuationForced: point.ValuationForced})
 	}
@@ -292,4 +292,8 @@ func fromCategoryDetail(value application.CategoryDetailResult) CategoryDetailDT
 		result.ActivityRefs = append(result.ActivityRefs, CategoryActivityRefDTO{Date: ref.Date, ActivityID: ref.ActivityID, AccountID: ref.AccountID, HoldingID: ref.HoldingID, InstrumentID: ref.InstrumentID, Amount: wire.FromSignedMoneyPtr(ref.Amount)})
 	}
 	return result
+}
+
+func fromAssetChangeSummary(value application.AssetChangeSummary) AssetChangeSummaryDTO {
+	return AssetChangeSummaryDTO{BeginningValue: wire.FromSignedMoneyPtr(value.BeginningValue), EndingValue: wire.FromSignedMoneyPtr(value.EndingValue), Change: wire.FromSignedMoneyPtr(value.Change), ChangeRate: decimalStringPtr(value.ChangeRate), ChangeRateMissingReason: value.ChangeRateMissingReason}
 }

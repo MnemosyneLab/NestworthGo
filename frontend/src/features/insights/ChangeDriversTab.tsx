@@ -1,3 +1,4 @@
+import { AssetValueSummary } from "./AssetValueSummary";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "lucide-react";
@@ -69,19 +70,11 @@ function SummaryCard({ data, scope }: { data: AssetChangeDTO; scope: "portfolio"
             {partial && <Badge variant="warning">{t("insights.partial")}</Badge>}
           </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-3">
-          <SummaryValue label={t("insights.beginningValue")} value={amountText(data.summary.beginningValue)} />
-          <SummaryValue label={t("insights.endingValue")} value={amountText(data.summary.endingValue)} />
-          <SummaryValue label={t("insights.change")} value={amountText(data.summary.change)} emphasis />
-        </div>
+        <AssetValueSummary summary={data.summary} />
       </CardHeader>
       {partial && data.missingReason && <CardContent><p className="text-sm text-warning-foreground">{analysisReason(t, data.missingReason)}</p></CardContent>}
     </Card>
   );
-}
-
-function SummaryValue({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
-  return <div><p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p><p className={emphasis ? "mt-1 text-2xl font-semibold" : "mt-1 font-medium"}>{value}</p></div>;
 }
 
 function DriverButton({ row, onSelect }: { row: AssetChangeRowDTO; onSelect: (row: AssetChangeRowDTO) => void }) {

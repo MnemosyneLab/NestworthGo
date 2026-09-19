@@ -17,14 +17,18 @@ import type { AnalysisNavigationContext } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
 import { subMonths, subDays } from "date-fns";
 import { lastClosedDate, parseYmd, ymd } from "@/features/insights/calendar";
-import { originLocalDate } from "@/features/insights/analysisRequest";
+import { activeReturnTrendRange, returnTrendRange, originLocalDate } from "@/features/insights/analysisRequest";
 
 export function AnalysisFilterBar({
   session,
   onChange,
   onReset,
+  resolvedRange,
+  returnPresets = false,
 }: {
   session: AnalysisSessionState;
+  returnPresets?: boolean;
+  resolvedRange?: { from: string; to: string };
   onChange: (value: AnalysisNavigationContext) => void;
   onReset: () => void;
 }) {
@@ -106,21 +110,25 @@ export function AnalysisFilterBar({
 
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">
           <Label htmlFor="analysis-from">{t("insights.from")}</Label>
-          <DatePicker id="analysis-from" value={session.from} min={originDate} max={fromMax} onChange={(from) => update({ from })} placeholder={t("common.selectOption")} />
+          <DatePicker id="analysis-from" value={session.from || resolvedRange?.from || ""} min={originDate} max={fromMax} onChange={(from) => update({ from, to: session.to || resolvedRange?.to })} placeholder={t("common.selectOption")} />
         </div>
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">
           <Label htmlFor="analysis-to">{t("insights.to")}</Label>
-          <DatePicker id="analysis-to" value={session.to} min={toMin} max={closedDate} onChange={(to) => update({ to })} placeholder={t("common.selectOption")} />
+          <DatePicker id="analysis-to" value={session.to || resolvedRange?.to || ""} min={toMin} max={closedDate} onChange={(to) => update({ to, from: session.from || resolvedRange?.from })} placeholder={t("common.selectOption")} />
         </div>
         <Button type="button" variant="outline" onClick={onReset}>{t("insights.reset")}</Button>
       </div>
 
       <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("rangeShortcuts.label")}>
         <span className="mr-1 text-sm text-muted-foreground">{t("rangeShortcuts.label")}</span>
-        {presets.map((preset) => {
+        {!returnPresets && presets.map((preset) => {
           const range = presetRange(preset);
           const active = selectedPreset === preset && session.from === range.from && session.to === range.to;
           return <Button key={preset} type="button" size="sm" variant={active ? "default" : "outline"} aria-pressed={active} disabled={Boolean(originDate && originDate > closedDate)} onClick={() => { setSelectedPreset(preset); update(range); }}>{t(`rangeShortcuts.${preset}`)}</Button>;
+        })}
+        {returnPresets && (["30d", "ytd", "1y", "3y", "all"] as const).map((range) => {
+          const active = origin.data && activeReturnTrendRange(session, origin.data.startedAt, origin.data.timezone) === range;
+          return <Button key={range} type="button" size="sm" variant={active ? "default" : "outline"} aria-pressed={Boolean(active)} disabled={!origin.data || Boolean(originDate && originDate > closedDate)} onClick={() => { if (origin.data) update(returnTrendRange(range, origin.data.startedAt, origin.data.timezone)); }}>{t(`insights.range${range === "30d" ? "30d" : range === "ytd" ? "Ytd" : range === "1y" ? "1y" : range === "3y" ? "3y" : "All"}`)}</Button>;
         })}
         <span className="text-xs text-muted-foreground">{t("rangeShortcuts.help")}</span>
       </div>

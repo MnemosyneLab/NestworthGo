@@ -85,16 +85,6 @@ describe("insight tabs", () => {
     expect(await screen.findByText("Points show daily Modified Dietz rates; the linked period rate is shown in the summary.")).toBeInTheDocument();
   });
 
-  it("applies a named Return Trend range through the shared filter store", async () => {
-    vi.useFakeTimers({ toFake: ["Date"] });
-    vi.setSystemTime(new Date("2026-09-08T12:00:00Z"));
-    renderWithClient(<ConnectedReturnTrendTab />);
-    await screen.findByTestId("return-trend");
-    fireEvent.click(screen.getByRole("button", { name: "30D" }));
-    await waitFor(() => expect(returnTrend).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-08-09", to: "2026-09-07" }), "cumulative_amount"));
-    vi.useRealTimers();
-  });
-
   it("renders component-level return sources instead of holding contributors", async () => {
     renderWithClient(<ReturnTrendTab session={useAnalysisStore.getState()} />);
     await screen.findByText("Price Change");
@@ -102,11 +92,10 @@ describe("insight tabs", () => {
     expect(screen.queryByText("+100%")).not.toBeInTheDocument();
   });
 
-  it("does not mark Custom as selected when the shared range is empty", async () => {
+  it("keeps date shortcuts in the shared filter bar only", async () => {
     renderWithClient(<ConnectedReturnTrendTab />);
     await screen.findByTestId("return-trend");
-    expect(screen.getByRole("button", { name: "Custom" })).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByRole("button", { name: "Custom" })).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: "30D" })).not.toBeInTheDocument();
   });
 
   it("opens a Contribution item for the active independent view", async () => {
@@ -156,6 +145,8 @@ describe("insight tabs", () => {
   it("switches Asset Trend granularity and metric without changing shared filters", async () => {
     renderWithClient(<AssetTrendTab session={useAnalysisStore.getState()} />);
     await screen.findByTestId("asset-trend");
+    expect(screen.getByLabelText("Granularity")).toHaveValue("day");
+    expect(assetTrend).toHaveBeenCalledWith(expect.anything(), "day", "net_worth");
     fireEvent.change(screen.getByLabelText("Granularity"), { target: { value: "week" } });
     await screen.findByLabelText("Metric");
     fireEvent.change(screen.getByLabelText("Metric"), { target: { value: "return_rate" } });

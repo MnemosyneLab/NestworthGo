@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { AnalysisNavigationContext } from "@/app/navigation";
 import { PageChrome } from "@/components/layout/PageChrome";
-import { PageIntro } from "@/components/layout/PageHeader";
+import { effectiveRange } from "./analysisRequest";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AnalysisFilterBar } from "@/features/insights/AnalysisFilterBar";
 import { ReturnCalendarTab } from "@/features/insights/ReturnCalendarTab";
@@ -18,7 +18,7 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
   const session = useAnalysisStore();
   const setFilters = useAnalysisStore((state) => state.setFilters);
   const setReturnView = useAnalysisStore((state) => state.setReturnView);
-  const reset = useAnalysisStore((state) => state.reset);
+  const reset = useAnalysisStore((state) => state.resetFilters);
   const origin = useHistoryOrigin();
 
   useEffect(() => {
@@ -26,16 +26,15 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
   }, [origin.data?.timezone, origin.isLoading, session.returnCursor, setReturnView]);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <PageChrome pageId="return-analysis" title={t("insights.returnAnalysis")} />
-      <PageIntro description={t("insights.description")} />
       <Tabs value={session.returnTab} onValueChange={(value) => setReturnView({ tab: value as typeof session.returnTab })}>
         <TabsList>
           <TabsTrigger value="calendar">{t("insights.calendar")}</TabsTrigger>
           <TabsTrigger value="trend">{t("insights.trend")}</TabsTrigger>
           <TabsTrigger value="contribution">{t("insights.contribution")}</TabsTrigger>
         </TabsList>
-        <AnalysisFilterBar session={session} onChange={setFilters} onReset={reset} />
+        <AnalysisFilterBar session={session} returnPresets={session.returnTab === "trend"} resolvedRange={session.returnTab !== "calendar" ? effectiveRange(session, currentMonth(origin.data?.timezone), origin.data?.timezone, origin.data?.startedAt) : undefined} onChange={setFilters} onReset={reset} />
         <TabsContent value="calendar">
           <ReturnCalendarTab session={session} onCursorChange={(cursor) => setReturnView({ cursor })} onOpenAssetChanges={onOpenAssetChanges} />
         </TabsContent>

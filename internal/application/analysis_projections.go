@@ -36,9 +36,11 @@ type AssetChangeGroup struct {
 }
 
 type AssetChangeSummary struct {
-	BeginningValue *domain.SignedMoney
-	EndingValue    *domain.SignedMoney
-	Change         *domain.SignedMoney
+	ChangeRate              *decimal.Decimal
+	ChangeRateMissingReason string
+	BeginningValue          *domain.SignedMoney
+	EndingValue             *domain.SignedMoney
+	Change                  *domain.SignedMoney
 }
 
 type AssetChangeResult struct {
@@ -113,6 +115,7 @@ type AssetTrendPoint struct {
 }
 
 type AssetTrendResult struct {
+	ValueChange *AssetChangeSummary
 	AnalysisAvailability
 	Points   []AssetTrendPoint
 	Summary  *domain.SignedMoney
@@ -270,18 +273,7 @@ func foldAssetChange(result domain.PeriodAnalysisResult, forced string) AssetCha
 	status := availability(result, forced)
 	waterfall, currency := aggregateAssetWaterfall(result)
 
-	beginning, beginningOK := periodBeginning(result)
-	ending, endingOK := periodEnding(result)
-	summary := AssetChangeSummary{}
-	if beginningOK {
-		summary.BeginningValue = signedPointer(beginning, currency)
-	}
-	if endingOK {
-		summary.EndingValue = signedPointer(ending, currency)
-	}
-	if beginningOK && endingOK {
-		summary.Change = signedPointer(ending.Sub(beginning), currency)
-	}
+	summary := assetLevelSummary(result, TrendNetWorth, currency)
 
 	// SignedMoney is the four-decimal public contract. Round each driver only
 	// after the exact period aggregation, then distribute a rounding remainder
@@ -670,7 +662,16 @@ func foldAssetTrend(result domain.PeriodAnalysisResult, forced string, granulari
 		summary = signedPointer(flowSummary, flowCurrency)
 	}
 	status := availability(result, forced)
-	return AssetTrendResult{AnalysisAvailability: status, Points: points, Summary: summary, Coverage: result.Coverage}, nil
+	view := AssetTrendResult{AnalysisAvailability: status, Points: points, Summary: summary, Coverage: result.Coverage}
+	if isTrendLevel(metric) {
+		currency := domain.CurrencyCode("")
+		if summary != nil {
+			currency = summary.Currency()
+		}
+		change := assetLevelSummary(result, metric, currency)
+		view.ValueChange = &change
+	}
+	return view, nil
 }
 
 func foldAssetTrendRates(result domain.PeriodAnalysisResult, forced string, granularity AssetTrendGranularity) (AssetTrendResult, error) {
@@ -1183,4 +1184,62 @@ func validateCategoryType(categoryType AnalysisCategoryType) error {
 		return fmt.Errorf("unsupported analysis category: %s", categoryType)
 	}
 	return nil
+}
+
+// assetLevelSummary compares actual period boundaries, never the first and last
+// sampled chart points. Deposits/withdrawals are included; this is not a return.
+func assetLevelSummary(result domain.PeriodAnalysisResult, metric AssetTrendMetric, currency domain.CurrencyCode) AssetChangeSummary {
+	beginning, beginningOK := periodBeginning(result)
+	ending, endingOK := periodEnding(result)
+	if metric != TrendNetWorth {
+		beginning, ending = decimal.Zero, decimal.Zero
+		beginningOK, endingOK = false, false
+		level := func(value decimal.Decimal) decimal.Decimal {
+			if metric == TrendAssets && value.IsPositive() {
+				return value
+			}
+			if metric == TrendLiabilities && value.IsNegative() {
+				return value.Neg()
+			}
+			return decimal.Zero
+		}
+		for _, day := range result.Days {
+			if day.Status == domain.CompletenessUnavailable {
+				continue
+			}
+			if day.Date == result.Query.From && day.BeginningValue.Currency() != "" {
+				beginning = beginning.Add(level(day.BeginningValue.Amount()))
+				beginningOK = true
+			}
+			if day.Date == result.Query.To {
+				value, ok := trendDayValue(day, TrendNetWorth)
+				if ok {
+					ending = ending.Add(level(value.Amount()))
+					endingOK = true
+				}
+			}
+		}
+	}
+	summary := AssetChangeSummary{}
+	if beginningOK {
+		summary.BeginningValue = signedPointer(beginning, currency)
+	}
+	if endingOK {
+		summary.EndingValue = signedPointer(ending, currency)
+	}
+	if beginningOK && endingOK {
+		summary.Change = signedPointer(ending.Sub(beginning), currency)
+	}
+	switch {
+	case availability(result, "").Status != domain.CompletenessOK:
+		summary.ChangeRateMissingReason = "incomplete"
+	case !beginningOK || !endingOK || summary.BeginningValue == nil || summary.EndingValue == nil:
+		summary.ChangeRateMissingReason = "missing_boundary"
+	case !beginning.IsPositive():
+		summary.ChangeRateMissingReason = "nonpositive_beginning"
+	default:
+		rate := ending.Sub(beginning).Div(beginning).Round(12)
+		summary.ChangeRate = &rate
+	}
+	return summary
 }

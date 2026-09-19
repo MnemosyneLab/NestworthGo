@@ -198,6 +198,8 @@ export interface AssetChangeRowDTO {
 }
 
 export interface AssetChangeSummaryDTO {
+    "changeRate": string | null;
+    "changeRateMissingReason"?: string;
     "beginningValue"?: SignedMoneyView | null;
     "endingValue"?: SignedMoneyView | null;
     "change"?: SignedMoneyView | null;
@@ -224,6 +226,7 @@ export interface AssetResidualDetailDTO {
 }
 
 export interface AssetTrendDTO {
+    "valueChange"?: AssetChangeSummaryDTO | null;
     "points": AssetTrendPointDTO[] | null;
     "summary"?: SignedMoneyView | null;
     "rate": string | null;

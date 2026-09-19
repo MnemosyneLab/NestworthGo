@@ -1,3 +1,5 @@
+import { AssetValueSummary } from "./AssetValueSummary";
+import { chartTheme } from "@/components/charts/chartTheme";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,7 +41,7 @@ function trendEmpty(data: AssetTrendDTO | undefined, t: (key: string) => string)
 export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   const { t } = useTranslation();
   const settings = useSettings();
-  const [granularity, setGranularity] = useState("month");
+  const [granularity, setGranularity] = useState("day");
   const [metric, setMetric] = useState("net_worth");
   const context = useAnalysisProjectionContext(session);
   const trend = useAssetTrend(context.request, granularity, metric, context.enabled);
@@ -54,9 +56,9 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   if (!context.scopeReady) return <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />;
   if (!context.rangeAvailable) return <EmptyState title={t("insights.historyInsufficient")} description={t("insights.historyInsufficientHint")} />;
 
-  const chartValueText = (value: string | null | undefined) => metric === "return_rate" ? rateText(value) : amountText(value == null ? null : { amount: value, currency });
+  const chartValueText = (value: string | null | undefined) => metric === "return_rate" ? rateText(value) : value == null ? "—" : formatAmount(value, currency);
   const toolbar = (
-    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card/60 p-4">
+    <div className="flex flex-wrap items-end gap-3">
       <div className="flex flex-col gap-1.5"><label htmlFor="asset-trend-granularity" className="text-sm font-medium">{t("insights.granularity")}</label><NativeSelect id="asset-trend-granularity" value={granularity} onChange={(event) => setGranularity(event.target.value)}><option value="day">{t("insights.day")}</option><option value="week">{t("insights.week")}</option><option value="month">{t("insights.month")}</option></NativeSelect></div>
       <div className="flex min-w-52 flex-col gap-1.5"><label htmlFor="asset-trend-metric" className="text-sm font-medium">{t("insights.metric")}</label><NativeSelect id="asset-trend-metric" value={metric} onChange={(event) => setMetric(event.target.value)}><optgroup label={t("insights.metricAssetsGroup")}><option value="net_worth">{metricLabel(t, "net_worth")}</option><option value="assets">{metricLabel(t, "assets")}</option><option value="liabilities">{metricLabel(t, "liabilities")}</option></optgroup><optgroup label={t("insights.metricCashFlowGroup")}><option value="external_flow">{metricLabel(t, "external_flow")}</option><option value="income">{metricLabel(t, "income")}</option><option value="spending">{metricLabel(t, "spending")}</option><option value="fees">{metricLabel(t, "fees")}</option></optgroup><optgroup label={t("insights.metricPerformanceGroup")}><option value="investment_return">{metricLabel(t, "investment_return")}</option><option value="return_rate">{metricLabel(t, "return_rate")}</option><option value="dividend_interest">{metricLabel(t, "dividend_interest")}</option><option value="price_change">{metricLabel(t, "price_change")}</option><option value="fx_impact">{metricLabel(t, "fx_impact")}</option><option value="net_change">{metricLabel(t, "net_change")}</option><option value="residual">{metricLabel(t, "residual")}</option></optgroup></NativeSelect></div>
     </div>
@@ -67,14 +69,15 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
   else if (!data?.available) results = trendEmpty(data, t);
   else results = (
     <>
+      {data.valueChange && <Card><CardContent className="pt-5"><AssetValueSummary summary={data.valueChange} /></CardContent></Card>}
       <Card>
         <CardHeader className="flex-row items-center justify-between gap-3">
-          <CardTitle>{metricLabel(t, metric)}</CardTitle>
+          <div className="flex flex-wrap items-center gap-3"><CardTitle>{metricLabel(t, metric)}{metric !== "return_rate" && currency ? ` · ${currency}` : ""}</CardTitle>{toolbar}</div>
           <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} ratedDays={data.ratedDays} totalDays={data.totalDays} />
         </CardHeader>
-        <CardContent>{dates.length === 0 || values.every((value) => value == null) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "hsl(var(--chart-2))", values }]} currency={currency} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
+        <CardContent>{dates.length === 0 || values.every((value) => value == null) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: chartTheme().primary, values }]} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => `${(Number(value) * 100).toFixed(1)}%` : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
       </Card>
-      <Card>
+      {!data.valueChange && <Card>
         <CardContent className="pt-6">
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.periodValue")}</p>
@@ -82,8 +85,8 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
             {metric === "return_rate" && <p className="mt-1 text-sm text-muted-foreground">{t("insights.coverage")}: {data.ratedDays}/{data.totalDays}</p>}
           </div>
         </CardContent>
-      </Card>
+      </Card>}
     </>
   );
-  return <div className="flex flex-col gap-4" data-testid="asset-trend">{toolbar}{results}</div>;
+  return <div className="flex flex-col gap-4" data-testid="asset-trend">{!data?.available && toolbar}{results}</div>;
 }

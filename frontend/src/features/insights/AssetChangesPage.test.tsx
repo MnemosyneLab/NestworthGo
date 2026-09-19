@@ -56,6 +56,7 @@ function renderPage(props: { onOpenHistory?: (filters: { from?: string; to?: str
 describe("AssetChangesPage", () => {
   beforeEach(() => {
     useAnalysisStore.getState().reset();
+    useAnalysisStore.getState().setAssetView({ tab: "drivers" });
     useAnalysisStore.getState().setFilters({ from: "2026-09-01", to: "2026-09-06" });
     historyOrigin.mockReset();
     assetChange.mockReset();
