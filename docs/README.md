@@ -21,6 +21,7 @@ or visual prototype bundles.
 | Design | [Visual Analytics and Market History](design/visual-analytics-and-market-history.md) | Implemented chart surfaces and planned historical-series work |
 | Design | [Analytics redesign](design/analytics/analytics-redesign-architecture.md) | Return Analysis and Asset Changes kernel, projections, and golden cases |
 | Design | [Monthly review and data confidence](design/monthly-review-and-data-confidence.md) | Planned as-of review loop; not in the current release |
+| Design | [Available funds implementation plan](design/available-funds-implementation-plan.md) | Planned liquidity rules, deposits/locked products, lifecycle accounting, and implementation acceptance |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
