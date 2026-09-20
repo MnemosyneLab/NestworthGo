@@ -1,3 +1,4 @@
+import { NavigationContext } from "@/app/NavigationContext";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -157,6 +158,7 @@ describe("AssetChangesPage", () => {
     await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Unexplained difference/ }));
     await user.click(await screen.findByRole("button", { name: "View in History" }));
     expect(onOpenHistory).toHaveBeenCalledWith({ from: "2026-09-02", to: "2026-09-02", accountId: "account-1", instrumentId: "instrument-1" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Open Return Analysis" })).not.toBeInTheDocument();
   });
 
@@ -176,6 +178,7 @@ describe("AssetChangesPage", () => {
     renderPage({ onOpenReturnAnalysis });
     await user.click(await within(await screen.findByRole("region", { name: "Change attribution" })).findByRole("button", { name: /Price Change/ }));
     await user.click(await screen.findByRole("button", { name: "Open Return Analysis" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(onOpenReturnAnalysis).toHaveBeenCalledWith(expect.objectContaining({
       scope: "portfolio",
       includeCash: true,
@@ -273,4 +276,14 @@ describe("AssetChangesPage", () => {
     await queryClient.invalidateQueries({ queryKey: ["analysis"] });
     await waitFor(() => expect(screen.getByRole("dialog").querySelector(".text-2xl")).toHaveTextContent("-$10.00"));
   });
+  it("opens period-specific Data Health from a partial result", async () => {
+    useAnalysisStore.getState().setFilters({ from: "2026-09-01", to: "2026-09-06" });
+    const open = vi.fn();
+    assetChange.mockResolvedValue({ available: true, status: "partial", summary: {}, waterfall: [], groups: [] });
+    const client = createTestQueryClient();
+    render(<QueryClientProvider client={client}><NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><AssetChangesPage /></NavigationContext.Provider></QueryClientProvider>);
+    await userEvent.click(await screen.findByRole("button", { name: "View gaps for this period" }));
+    expect(open).toHaveBeenCalledWith({ page: "data-health", focus: { rangeStart: "2026-09-01", rangeEnd: "2026-09-06" } });
+  });
+
 });

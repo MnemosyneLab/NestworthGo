@@ -19,7 +19,8 @@ import { DEFAULT_ICONS, INSTITUTION_TYPE_ICONS } from "@/lib/defaultIcons";
 interface Entity { id: string; name: string; archivedAt?: string | null; iconKey: string; institutionType?: string; }
 export type DirectoryCreatePayload = { name: string; iconKey: string; institutionType?: string };
 
-export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isError, onCreate, onUpdate, onArchive, onSetIcon, onRetry, addLabel, emptyLabel, kind, institutionTypes = [] }: {
+export function DirectoryEntityList<T extends Entity>({ showArchived = false, onShowArchived, entities, isLoading, isError, onCreate, onUpdate, onArchive, onSetIcon, onRetry, addLabel, emptyLabel, kind, institutionTypes = [] }: {
+  showArchived?: boolean; onShowArchived?: (value: boolean) => void;
   entities: T[] | undefined; isLoading: boolean; isError: boolean; onCreate: (payload: DirectoryCreatePayload) => Promise<unknown>;
   onUpdate: (id: string, name: string) => Promise<unknown>; onArchive: (id: string, archived: boolean) => Promise<unknown>;
   onSetIcon: (id: string, iconKey: string) => Promise<unknown>; onRetry: () => void | Promise<unknown>;
@@ -36,6 +37,7 @@ export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isE
   const [editingName, setEditingName] = useState("");
   const [editingIcon, setEditingIcon] = useState<string>(fallback);
   const [submitting, setSubmitting] = useState(false);
+  const [archivingId, setArchivingId] = useState<string>();
   const [error, setError] = useState<string>();
   const selectedInstitutionType = institutionType || institutionTypes[0] || "";
   const createIconKey = iconCustomized || kind !== "institution"
@@ -66,7 +68,17 @@ export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isE
     finally { setSubmitting(false); }
   };
 
+  const changeArchived = async (entity: T, archived: boolean) => {
+    setArchivingId(entity.id); setError(undefined);
+    try {
+      await onArchive(entity.id, archived);
+      toast.success(t(archived ? "common.archived" : "connections.restored"));
+    } catch (cause) { setError(displayError(cause, t("directory.updateError"))); }
+    finally { setArchivingId(undefined); }
+  };
   return <div className="flex flex-col gap-4">
+    {onShowArchived && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showArchived} onChange={event => onShowArchived(event.target.checked)} />{t("accounts.showArchived")}</label>}
+    {showArchived && <p className="text-sm text-muted-foreground">{t("connections.restoreHint")}</p>}
     <Sheet open={open} onOpenChange={setOpen}><SheetTrigger className={cn(buttonVariants({}), "w-fit self-start gap-2")}><Plus className="size-4" aria-hidden="true" /> {addLabel}</SheetTrigger>
       <SheetContent><SheetHeader><SheetTitle>{addLabel}</SheetTitle></SheetHeader><form onSubmit={submitCreate} className="flex flex-col gap-4" aria-label={addLabel}>
         <div className="flex flex-col gap-1.5">
@@ -85,7 +97,7 @@ export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isE
     </Sheet>
     {isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
     {isError && <ErrorState title={t("directory.loadError")} description={t("ui.state.errorDescription")} onRetry={onRetry} retryLabel={t("common.retryAction")} />}
-    {!isLoading && !isError && entities?.length === 0 && <EmptyState title={t("directory.emptyTitle")} description={emptyLabel} />}
+    {!isLoading && !isError && entities?.length === 0 && <EmptyState title={t("directory.emptyTitle")} description={emptyLabel} action={!showArchived && onShowArchived ? <Button variant="outline" onClick={() => onShowArchived(true)}>{t("accounts.showArchived")}</Button> : undefined} />}
     {!isLoading && !isError && entities && entities.length > 0 && <ul className="flex flex-col gap-2">{entities.map((entity) => {
       const editing = editingId === entity.id; const archived = Boolean(entity.archivedAt);
       return <li key={entity.id} className="rounded-md border border-border px-3 py-3"><div className="flex flex-wrap items-center justify-between gap-3">
@@ -93,7 +105,7 @@ export function DirectoryEntityList<T extends Entity>({ entities, isLoading, isE
           {editing ? <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} className="max-w-xs" /> : <><span>{entity.name}</span>{entity.institutionType && <Badge variant="outline">{displayEnum(t, "institutionType", entity.institutionType)}</Badge>}</>}
           {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}</span>
         <span className="flex gap-2">{editing ? <Button size="sm" onClick={() => void save(entity)} disabled={submitting}>{t("common.save")}</Button> : <Button variant="outline" size="sm" onClick={() => { setEditingId(entity.id); setEditingName(entity.name); setEditingIcon(entity.iconKey); }}>{t("common.edit")}</Button>}
-          <AlertDialog><AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>{archived ? t("common.active") : t("common.archive")}</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{archived ? t("common.active") : t("common.archive")}</AlertDialogTitle><AlertDialogDescription>{entity.name}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><AlertDialogAction onClick={() => void onArchive(entity.id, !archived)}>{archived ? t("common.active") : t("common.archive")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
+          {archived ? <Button variant="outline" size="sm" disabled={Boolean(archivingId)} onClick={() => void changeArchived(entity, false)}>{archivingId === entity.id ? t("common.pending") : t("connections.restore")}</Button> : <AlertDialog><AlertDialogTrigger disabled={Boolean(archivingId)} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>{archived ? t("common.active") : t("common.archive")}</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{archived ? t("common.active") : t("common.archive")}</AlertDialogTitle><AlertDialogDescription>{entity.name}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><AlertDialogAction onClick={() => void changeArchived(entity, true)}>{archived ? t("common.active") : t("common.archive")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
         </span></div>{editing && <div className="mt-3"><IconPicker id={`${kind}-${entity.id}-icon`} value={editingIcon} kind={kind} onChange={setEditingIcon} /></div>}</li>;
     })}</ul>}
     {error && !open && <p role="alert" className="text-sm text-destructive">{error}</p>}

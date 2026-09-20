@@ -10,6 +10,7 @@ export interface HealthIssueDTO {
     "label"?: string;
     "provider"?: string;
     "instrumentId"?: string;
+    "accountId"?: string;
     "currencyA"?: string;
     "currencyB"?: string;
     "rangeStart"?: string;

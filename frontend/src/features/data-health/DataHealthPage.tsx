@@ -1,3 +1,6 @@
+import { SnapshotRepair } from "./SnapshotRepair";
+import { useObjectNavigation } from "@/app/NavigationContext";
+import type { HealthFocus } from "@/app/navigation";
 import { SyncWorkDetails } from "@/features/marketdata/SyncWorkDetails";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -14,8 +17,18 @@ import { useMarketDataHealth } from "@/queries/marketdata";
 import { useMarketDataSyncActions } from "@/features/marketdata/MarketDataSyncBar";
 import type { HealthIssueDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 
-function visibleIssues(issues: HealthIssueDTO[] | null | undefined): HealthIssueDTO[] {
-  return (issues ?? []).filter((issue) => !issue.collapsed);
+export function focusedHealthIssues(issues: HealthIssueDTO[] = [], focus?: HealthFocus): HealthIssueDTO[] {
+  return issues.filter(issue => {
+    if (!focus) return !issue.collapsed;
+    const pairMatches = !focus.currencyA ||
+      (issue.currencyA === focus.currencyA && issue.currencyB === focus.currencyB) ||
+      (issue.currencyB === focus.currencyA && issue.currencyA === focus.currencyB);
+    return (!focus.id || issue.id === focus.id) &&
+      (!focus.instrumentId || issue.instrumentId === focus.instrumentId) &&
+      (!focus.accountId || issue.accountId === focus.accountId) && pairMatches &&
+      (!focus.rangeStart || !issue.rangeEnd || issue.rangeEnd >= focus.rangeStart) &&
+      (!focus.rangeEnd || !issue.rangeStart || issue.rangeStart <= focus.rangeEnd);
+  });
 }
 
 function groupIssues(issues: HealthIssueDTO[]): { kind: string; items: HealthIssueDTO[] }[] {
@@ -48,24 +61,34 @@ function healthIssueActionLabel(t: (key: string, options?: Record<string, unknow
 }
 
 export function DataHealthPage({
+  focus,
   onOpenSettings,
   onOpenMarketData,
 }: {
+  focus?: HealthFocus;
   onOpenSettings?: () => void;
   onOpenMarketData?: () => void;
 } = {}) {
   const { t } = useTranslation();
+  const navigation = useObjectNavigation();
   const health = useMarketDataHealth();
   const sync = useMarketDataSyncActions();
+  const [snapshotFocus, setSnapshotFocus] = useState<HealthFocus>();
   const [previewOpen, setPreviewOpen] = useState(false);
   const pageChrome = <PageChrome pageId="data-health" title={t("nav.dataHealth")} />;
 
-  const issues = useMemo(() => visibleIssues(health.data?.issues), [health.data?.issues]);
-  const executable = issues.filter((issue) => issue.executable);
+  const issues = useMemo(() => focusedHealthIssues(health.data?.issues ?? [], focus), [health.data?.issues, focus]);
+  const dependencies = focus && issues.some(issue => issue.collapsed)
+    ? (health.data?.issues ?? []).filter(issue => !issue.collapsed && issue.severity === "blocking" && !issue.kind.startsWith("snapshot") && !issues.some(shown => shown.id === issue.id))
+    : [];
+
+  const executable = issues.filter((issue) => issue.executable && !issue.collapsed);
   const prerequisites = issues.filter((issue) => !issue.executable && issue.action !== "none" && issue.action !== "repair");
   const reported = issues.filter((issue) => !issue.executable && (issue.action === "none" || issue.action === "repair"));
 
   const runAction = (issue: HealthIssueDTO) => {
+    if (issue.kind.startsWith("snapshot")) { setSnapshotFocus(issue); return; }
+    if (navigation) { navigation.openHealth(issue); return; }
     if (issue.action === "provider_settings") {
       onOpenSettings?.();
       return;
@@ -143,9 +166,10 @@ export function DataHealthPage({
             </Button>
           </CardHeader>
           <CardContent className="flex flex-col gap-3 text-sm">
-            {report.snapshotDays === 0 && issues.some((issue) => issue.kind.startsWith("snapshot") && issue.collapsed) ? (
+            {issues.some((issue) => issue.kind.startsWith("snapshot") && issue.collapsed) ? (
               <p className="text-muted-foreground">{t("dataHealth.collapsedSnapshots")}</p>
             ) : null}
+            {focus && <p className="text-muted-foreground">{t("connections.globalRepairScope")}</p>}
             {running && sync.current.data ? (
               <p role="status" data-testid="data-health-sync-progress">
                 {t("marketData.syncingMarketData")} {displayEnum(t, "marketData.phase", sync.current.data.phase)}{" "}
@@ -156,15 +180,24 @@ export function DataHealthPage({
         </Card>
       )}
 
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        {focus && <p role="status">{focus.label} {focus.rangeStart} {focus.rangeEnd && `– ${focus.rangeEnd}`} · {t("connections.focusedGaps")}</p>}
+        <Button variant="outline" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>
+        {focus && !health.isFetching && issues.length === 0 && <p role="status">{t("connections.noMatchingGaps")}</p>}
+      </div>
       {sync.current.data?.jobId && <SyncWorkDetails items={sync.current.data.items} current={running ? sync.current.data.current : undefined} />}
-      <IssueSection title={t("dataHealth.executableSection")} issues={executable} t={t} onAction={runAction} />
-      <IssueSection title={t("dataHealth.prerequisiteSection")} issues={prerequisites} t={t} onAction={runAction} />
-      <IssueSection title={t("dataHealth.otherSection")} issues={reported} t={t} onAction={runAction} />
+      <IssueSection onInspect={navigation ? issue => navigation.openHealth(issue) : undefined} title={t("dataHealth.executableSection")} issues={executable} t={t} onAction={runAction} />
+      <IssueSection onInspect={navigation ? issue => navigation.openHealth(issue) : undefined} title={t("dataHealth.prerequisiteSection")} issues={prerequisites} t={t} onAction={runAction} />
+      <IssueSection onInspect={navigation ? issue => navigation.openHealth(issue) : undefined} title={t("dataHealth.otherSection")} issues={reported} t={t} onAction={runAction} />
 
+      <IssueSection onInspect={navigation ? issue => navigation.openHealth(issue) : undefined} title={t("connections.blockingDependencies")} issues={dependencies} t={t} onAction={runAction} />
+
+      {snapshotFocus && <SnapshotRepair focus={snapshotFocus} onClose={() => setSnapshotFocus(undefined)} />}
       <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
         <SheetContent>
           <SheetHeader>
             <SheetTitle>{t("dataHealth.repairTitle")}</SheetTitle>
+            {focus && <p>{t("connections.globalRepairScope")}</p>}
             <p className="text-sm text-muted-foreground">{t("dataHealth.repairDescription")}</p>
           </SheetHeader>
           {sync.preview.data && (
@@ -205,12 +238,13 @@ function IssueSection({
   title,
   issues,
   t,
-  onAction,
+  onAction, onInspect,
 }: {
   title: string;
   issues: HealthIssueDTO[];
   t: (key: string, options?: Record<string, unknown>) => string;
   onAction: (issue: HealthIssueDTO) => void;
+  onInspect?: (issue: HealthIssueDTO) => void;
 }) {
   if (issues.length === 0) {
     return null;
@@ -232,10 +266,14 @@ function IssueSection({
                 <li key={issue.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" data-testid={`health-issue-${issue.kind}`}>
                   <div className="flex min-w-0 flex-col gap-1">
                     <p className="font-medium text-foreground">{issue.label || issue.targetKey}</p>
+                    {issue.collapsed && <p className="text-sm text-warning-foreground">{t("connections.blockedIssue")}</p>}
                     <p className="text-sm text-muted-foreground">
                       {[issueRange(t, issue), issue.provider, healthIssueActionLabel(t, issue)].filter(Boolean).join(" · ")}
                     </p>
                   </div>
+                  {onInspect && (issue.instrumentId || issue.currencyA || issue.accountId) && <Button size="sm" variant="outline" onClick={() => onInspect(issue)}>{t("connections.viewGap")}</Button>}
+                  {issue.kind.startsWith("snapshot") && issue.executable && !issue.collapsed && <Button size="sm" variant="outline" onClick={() => onAction(issue)}>{t("connections.previewRepair")}</Button>}
+                  {issue.action === "account_value" && <Button size="sm" variant="outline" onClick={() => onAction(issue)}>{t("accounts.updateValue")}</Button>}
                   {issue.action === "provider_settings" && (
                     <Button type="button" size="sm" variant="outline" onClick={() => onAction(issue)}>
                       {t("dataHealth.openSettings")}

@@ -1,3 +1,4 @@
+import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { metalUnitLabel } from "@/lib/preciousMetals";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -144,12 +145,13 @@ export function AccountDetail({
   record,
   valuation,
   valuationUpdatedAt,
-  onBack,
+  onBack, updateValue = false,
 }: {
   record: AccountRecordDTO;
   valuation?: AccountValuationDTO;
   valuationUpdatedAt?: number;
   onBack: () => void;
+  updateValue?: boolean;
 }) {
   const { t, i18n } = useTranslation();
   const origin = useHistoryOrigin();
@@ -158,7 +160,7 @@ export function AccountDetail({
   const instruments = useInstruments();
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
-  const [action, setAction] = useState<AccountAction>(null);
+  const [action, setAction] = useState<AccountAction>(updateValue && !record.account.archivedAt ? record.account.trackingMode === "holdings" ? "cash" : "simple" : null);
   const [actionHoldingId, setActionHoldingId] = useState<string>();
   const [settingsCanSubmit, setSettingsCanSubmit] = useState(false);
   const [settingsError, setSettingsError] = useState<string | undefined>();
@@ -222,6 +224,7 @@ export function AccountDetail({
         title={<span className="flex min-w-0 items-center gap-2"><EntityIcon iconKey={record.account.iconKey} kind="account" className="size-5 shrink-0 text-primary" />{record.account.name}</span>}
         actions={
           <>
+            <AnalyzeMenu accountId={record.account.id} label={record.account.name} />
             <Button type="button" variant="outline" size="sm" onClick={onBack}>
               <ArrowLeft className="size-4" aria-hidden="true" /> {t("accounts.backToList")}
             </Button>
@@ -354,6 +357,7 @@ export function AccountDetail({
                       <tr key={row.holding.id} className="border-b border-border last:border-0">
                         <td className="py-2">
                           <InstrumentLabel name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
+                          <AnalyzeMenu accountId={record.account.id} instrumentId={row.holding.instrumentId} label={row.instrumentName} />
                         </td>
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
                         <td className="py-2">{formatAmount(row.holding.quantity)} {metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}</td>

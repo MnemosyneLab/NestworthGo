@@ -169,6 +169,7 @@ describe("ReturnAnalysisPage", () => {
     await user.click(screen.getByRole("button", { name: "View Asset Changes for This Day" }));
 
     expect(onOpenAssetChanges).toHaveBeenCalledWith(expect.objectContaining({ scope: "portfolio", includeCash: true, from: "2026-09-01", to: "2026-09-01" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("distinguishes a partial zero day from a complete zero day", async () => {

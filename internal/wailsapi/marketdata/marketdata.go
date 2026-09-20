@@ -413,6 +413,7 @@ type HealthIssueDTO struct {
 	Label        string `json:"label,omitempty"`
 	Provider     string `json:"provider,omitempty"`
 	InstrumentID string `json:"instrumentId,omitempty"`
+	AccountID    string `json:"accountId,omitempty"`
 	CurrencyA    string `json:"currencyA,omitempty"`
 	CurrencyB    string `json:"currencyB,omitempty"`
 	RangeStart   string `json:"rangeStart,omitempty"`
@@ -441,7 +442,7 @@ func fromHealthIssue(issue application.HealthIssue) HealthIssueDTO {
 	return HealthIssueDTO{
 		ID: issue.ID, Kind: issue.Kind, Severity: issue.Severity, GroupKey: issue.GroupKey,
 		TargetKey: issue.TargetKey, Label: issue.Label, Provider: issue.Provider,
-		InstrumentID: issue.InstrumentID, CurrencyA: issue.CurrencyA, CurrencyB: issue.CurrencyB,
+		InstrumentID: issue.InstrumentID, AccountID: issue.AccountID, CurrencyA: issue.CurrencyA, CurrencyB: issue.CurrencyB,
 		RangeStart: issue.RangeStart, RangeEnd: issue.RangeEnd, RangeCount: issue.RangeCount,
 		Code: issue.Code, Reason: issue.Reason, Action: issue.Action, Executable: issue.Executable,
 		Collapsed: issue.Collapsed,

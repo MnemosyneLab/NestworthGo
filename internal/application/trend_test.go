@@ -1,6 +1,7 @@
 package application
 
 import (
+	"github.com/shopspring/decimal"
 	"testing"
 	"time"
 
@@ -208,5 +209,36 @@ func TestNetWorthTrendRebuildsHistoryLongerThan31DaysFromLastCompleted(t *testin
 	state, err = service.DailySnapshotState(ctx, bootstrap.Household.ID)
 	if err != nil || state.LastCompletedClosedOn == nil || *state.LastCompletedClosedOn != "2026-08-01" {
 		t.Fatalf("last completed after new day = %+v err=%v, want 2026-08-01", state, err)
+	}
+}
+
+func TestNetWorthSummaryRequiresActualPeriodBoundaries(t *testing.T) {
+	currency, _ := domain.ParseCurrency("USD")
+	start, _ := domain.NewSignedMoney(decimal.NewFromInt(100), currency)
+	end, _ := domain.NewSignedMoney(decimal.NewFromInt(150), currency)
+	complete := func(value domain.SignedMoney) domain.NetWorthTrendPoint {
+		return domain.NetWorthTrendPoint{Complete: true, NetWorth: &value}
+	}
+	for _, tc := range []struct {
+		name       string
+		points     []domain.NetWorthTrendPoint
+		wantChange bool
+	}{
+		{"complete", []domain.NetWorthTrendPoint{complete(start), complete(end)}, true},
+		{"missing start", []domain.NetWorthTrendPoint{{}, complete(start), complete(end)}, false},
+		{"missing end", []domain.NetWorthTrendPoint{complete(start), complete(end), {}}, false},
+		{"interior gap", []domain.NetWorthTrendPoint{complete(start), {}, complete(end)}, true},
+		{"one observation", []domain.NetWorthTrendPoint{complete(start)}, false},
+		{"empty", nil, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, _, change, err := wealthTrendSummary(tc.points, currency)
+			if err != nil || (change != nil) != tc.wantChange {
+				t.Fatalf("change=%v err=%v", change, err)
+			}
+			if change != nil && change.CanonicalAmount() != "50" {
+				t.Fatalf("unexpected change %s", change.CanonicalAmount())
+			}
+		})
 	}
 }

@@ -1,3 +1,6 @@
+import { useObjectNavigation } from "@/app/NavigationContext";
+import type { HealthFocus } from "@/app/navigation";
+import { NetWorthTrendCard } from "./NetWorthTrendCard";
 import { useMarketDataHealth } from "@/queries/marketdata";
 import { useTranslation } from "react-i18next";
 import { useOverview } from "@/queries/portfolio";
@@ -47,12 +50,13 @@ function BreakdownList({
   title,
   description,
   items,
-  currency,
+  currency, onSelect,
 }: {
   title: string;
   description?: string;
   items: BreakdownDTO[];
   currency: string;
+  onSelect?: (item: BreakdownDTO) => void;
 }) {
   if (items.length === 0) {
     return null;
@@ -66,7 +70,7 @@ function BreakdownList({
       <CardContent className="flex flex-col gap-2">
         {items.map((item) => (
           <div key={item.key} className="flex items-center justify-between text-sm">
-            <span className="text-foreground">{item.label}</span>
+            {onSelect ? <Button variant="link" className="h-auto p-0 text-left" onClick={() => onSelect(item)}>{item.label}</Button> : <span className="text-foreground">{item.label}</span>}
             <span className="flex items-center gap-2 text-muted-foreground">
               <span>{formatAmount(item.amount, currency)}</span>
               <Badge variant="secondary">{formatPercent(item.shareBps)}</Badge>
@@ -114,6 +118,7 @@ export function OverviewPage({
   onOpenDataHealth?: () => void;
 } = {}) {
   const { t, i18n } = useTranslation();
+  const navigation = useObjectNavigation();
   const settings = useSettings();
   const overview = useOverview();
   const health = useMarketDataHealth();
@@ -195,6 +200,11 @@ export function OverviewPage({
   const recent = data.recentActivities ?? [];
   const historyReady = data.historyStarted;
   const historyNotStarted = !data.historyStarted;
+  const missingFocus = (item: OverviewMissingInput): HealthFocus => ({
+    instrumentId: item.instrumentId ?? undefined, accountId: item.kind === "account_value" ? item.accountId : undefined,
+    currencyA: item.kind === "fx_rate" ? item.baseCurrency : undefined, currencyB: item.kind === "fx_rate" ? item.quoteCurrency : undefined,
+    label: missingItemLabel(t, item, accountNames), action: item.kind === "account_value" ? "account_value" : item.quoteSource === "manual" ? "manual_entry" : "repair",
+  });
 
   return (
     <div className="flex flex-col gap-6" data-testid="overview-page">
@@ -249,7 +259,7 @@ export function OverviewPage({
                     <ul className="list-inside list-disc text-muted-foreground">
                       {missing.map((item, index) => (
                         <li key={`${item.kind}-${item.accountId}-${index}`}>
-                          {t("overview.missingInput", {
+                          {navigation ? <Button variant="link" className="h-auto p-0 text-left" onClick={() => navigation.openHealth(missingFocus(item))}>{missingItemLabel(t, item, accountNames)} · {displayEnum(t, "overview.missingKind", item.kind)}</Button> : t("overview.missingInput", {
                             label: `${missingItemLabel(t, item, accountNames)} (${displayEnum(t, "overview.missingKind", item.kind)})`,
                           })}
                         </li>
@@ -282,9 +292,10 @@ export function OverviewPage({
               ) : (
                 <ul className="flex flex-col gap-3">
                   {!healthKnown && <li className="text-sm text-muted-foreground">{t(health.isError ? "review.healthFailed" : "review.healthLoading")}{health.isError && <Button type="button" variant="ghost" size="sm" onClick={() => void health.refetch()}>{t("common.retryAction")}</Button>}</li>}
+                  {navigation && (health.data?.issues ?? []).filter(issue => !issue.collapsed).slice(0, 3).map(issue => <li key={issue.id} className="flex items-center justify-between gap-2 text-sm"><span>{issue.label || issue.targetKey} · {displayEnum(t, "dataHealth.kind", issue.kind)}</span><Button size="sm" variant="outline" onClick={() => navigation.openHealth(issue)}>{t("connections.viewGap")}</Button></li>)}
                   {healthKnown && healthIssueCount > 0 && <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{t("dataHealth.indicatorIssues", { count: healthIssueCount })}</p>{onOpenDataHealth && <Button type="button" size="sm" variant="outline" onClick={onOpenDataHealth}>{t("dataHealth.fixInDataHealth")}</Button>}</li>}
 
-                  {missingManualPrices > 0 && (
+                  {!navigation && missingManualPrices > 0 && (
                     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-foreground">{t("overview.setManualPricesNext", { count: missingManualPrices })}</p>
                       {onOpenMarketData && (
@@ -294,7 +305,7 @@ export function OverviewPage({
                       )}
                     </li>
                   )}
-                  {missingProviderPrices > 0 && (
+                  {!navigation && missingProviderPrices > 0 && (
                     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-foreground">{t("overview.refreshPricesNext", { count: missingProviderPrices })}</p>
                       {onOpenMarketData && (
@@ -304,7 +315,7 @@ export function OverviewPage({
                       )}
                     </li>
                   )}
-                  {missingFx > 0 && (
+                  {!navigation && missingFx > 0 && (
                     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-foreground">{t("overview.refreshFxNext", { count: missingFx })}</p>
                       {onOpenMarketData && (
@@ -314,7 +325,7 @@ export function OverviewPage({
                       )}
                     </li>
                   )}
-                  {missingValues > 0 && (
+                  {!navigation && missingValues > 0 && (
                     <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                       <p className="text-sm text-foreground">{t("overview.reviewValuesNext", { count: missingValues })}</p>
                       {onOpenAccounts && (
@@ -350,6 +361,8 @@ export function OverviewPage({
           </Card>
         </div>
       </div>
+
+      <NetWorthTrendCard />
 
       <div className="grid grid-cols-1 gap-4">
         {(data.assetsByType ?? []).length > 0 && (
@@ -407,20 +420,22 @@ export function OverviewPage({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <BreakdownList
             title={t("overview.byInstitution")}
+            onSelect={navigation ? item => navigation.open({ page: "accounts", filter: { dimension: "institutionId", value: item.key || "unassigned", label: item.label } }) : undefined}
             items={(data.byInstitution ?? []).map((item) => ({
               ...item,
-              label: item.label || t("overview.unassignedInstitution"),
+              label: !item.key || item.key === "unassigned" ? t("overview.unassignedInstitution") : item.label,
             }))}
             currency={currency}
           />
           <BreakdownList
             title={t("overview.byAccountType")}
+            onSelect={navigation ? item => navigation.open({ page: "accounts", filter: { dimension: "accountType", value: item.key, label: item.label } }) : undefined}
             description={t("overview.byAccountTypeHint")}
             items={(data.byAccountType ?? []).map((item) => ({ ...item, label: displayEnum(t, "enum", item.key) }))}
             currency={currency}
           />
-          <BreakdownList title={t("overview.byMember")} items={data.byMember ?? []} currency={currency} />
-          <BreakdownList title={t("overview.byGroup")} items={data.byGroup ?? []} currency={currency} />
+          <BreakdownList title={t("overview.byMember")} onSelect={navigation ? item => navigation.open({ page: "accounts", filter: { dimension: "memberId", value: item.key, label: item.label } }) : undefined} items={data.byMember ?? []} currency={currency} />
+          <BreakdownList title={t("overview.byGroup")} onSelect={navigation ? item => navigation.open({ page: "accounts", filter: { dimension: "groupId", value: item.key, label: item.label } }) : undefined} items={(data.byGroup ?? []).map(item => ({ ...item, label: !item.key || item.key === "unassigned" ? t("connections.noGroup") : item.label }))} currency={currency} />
         </div>
       </div>
 

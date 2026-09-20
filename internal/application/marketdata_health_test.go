@@ -4,8 +4,10 @@ import (
 	"context"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 type countingProvider struct {
@@ -416,5 +418,47 @@ func addSyncHoldings(t *testing.T, service *Service, instruments ...domain.Instr
 		if _, err := service.CreateHolding(ctx, HoldingInput{AccountID: accounts[0].Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1", UnitCost: "1"}); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestAccountValueHealthBeforeHistoryIsActionableAndFreshnessDoesNotExpireMoney(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "account-health", nil)
+	missing, err := service.CreateAccount(ctx, AccountInput{Name: "Unvalued home", InitialAmount: "0", AccountType: "property", TrackingMode: "manual_value", BalanceSheetRole: "asset", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	old, err := service.CreateAccount(ctx, AccountInput{Name: "Older home", AccountType: "property", TrackingMode: "manual_value", BalanceSheetRole: "asset", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Simulate a legacy/imported account whose value observation is absent.
+	database, err := sqlite.Open(service.liveDBPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if _, err := database.SQL.Exec(`DELETE FROM account_values WHERE account_id = ?`, missing.Account.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	setClock(time.Date(2027, 3, 1, 12, 0, 0, 0, time.UTC))
+	report, err := service.ScanMarketDataHealth(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundMissing, foundStale := false, false
+	for _, issue := range report.Issues {
+		if issue.AccountID == missing.Account.ID.String() && issue.Kind == HealthKindMissingAccountValue {
+			foundMissing = issue.Action == "account_value" && !issue.Executable
+		}
+		if issue.AccountID == old.Account.ID.String() && issue.Kind == HealthKindStaleAccountValue {
+			foundStale = issue.Severity == HealthSeverityWarning && !issue.Executable
+		}
+	}
+	if !foundMissing || !foundStale {
+		t.Fatalf("missing=%v stale=%v report=%+v", foundMissing, foundStale, report)
+	}
+	value, err := service.AccountValuation(ctx, old.Account.ID)
+	if err != nil || !value.Complete || value.BaseValue == nil || value.BaseValue.Amount != "1000" {
+		t.Fatalf("stale amount expired: %+v err=%v", value, err)
 	}
 }

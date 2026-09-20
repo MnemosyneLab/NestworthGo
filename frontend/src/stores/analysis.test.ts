@@ -40,3 +40,13 @@ describe("analysis session store", () => {
     });
   });
 });
+
+it("replaces unrelated filters when entering an object, while edits remain incremental", () => {
+  const store = useAnalysisStore.getState();
+  store.setFilters({ scope: "account", scopeId: "B", valuation: "native", moreFilters: { accountId: "B", memberId: "old-member", currency: "EUR" } });
+  store.replaceFilters({ scope: "instrument", scopeId: "NVDA", includeCash: false, moreFilters: { accountId: "A" }, from: "2026-01-01", to: "2026-01-31" });
+  expect(useAnalysisStore.getState()).toMatchObject({ scope: "instrument", scopeId: "NVDA", valuation: "base", includeCash: false, moreFilters: { accountId: "A" } });
+  expect(useAnalysisStore.getState().moreFilters).toEqual({ accountId: "A" });
+  store.replaceFilters({ scope: "instrument", scopeId: "NVDA" });
+  expect(useAnalysisStore.getState().moreFilters).toEqual({});
+});

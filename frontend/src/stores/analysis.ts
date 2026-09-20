@@ -14,6 +14,7 @@ export interface AnalysisSessionState {
   returnCursor: string;
   assetTab: AssetChangesTab;
   assetCursor: string;
+  replaceFilters: (filters: AnalysisNavigationContext) => void;
   setFilters: (filters: AnalysisNavigationContext) => void;
   setReturnView: (view: { tab?: AnalysisTab; cursor?: string }) => void;
   setAssetView: (view: { tab?: AssetChangesTab; cursor?: string }) => void;
@@ -38,6 +39,16 @@ const initialSession = {
 
 export const useAnalysisStore = create<AnalysisSessionState>((set) => ({
   ...initialSession,
+  replaceFilters: (filters) => set({
+    scope: filters.scope ?? initialSession.scope,
+    scopeId: filters.scopeId ?? "",
+    valuation: filters.valuation ?? "base",
+    includeCash: filters.includeCash ?? true,
+    from: filters.from ?? "",
+    to: filters.to ?? "",
+    moreFilters: { ...filters.moreFilters },
+    contributionReturnType: filters.returnType ?? "total_return",
+  }),
   setFilters: (filters) => set((state) => ({
     scope: filters.scope ?? state.scope,
     scopeId: filters.scopeId ?? state.scopeId,

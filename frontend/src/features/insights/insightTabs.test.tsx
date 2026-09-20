@@ -1,3 +1,4 @@
+import { NavigationContext } from "@/app/NavigationContext";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -220,4 +221,13 @@ describe("insight tabs", () => {
     fireEvent.change(screen.getByLabelText("Metric"), { target: { value: "return_rate" } });
     expect(await screen.findByText(/Coverage: 1\/3/)).toBeInTheDocument();
   });
+  it("opens period-specific Data Health from a partial result", async () => {
+    useAnalysisStore.getState().setFilters({ from: "2026-09-01", to: "2026-09-06" });
+    const open = vi.fn();
+    returnTrend.mockResolvedValue({ available: true, status: "partial", points: [], sources: [], ratedDays: 1, totalDays: 2 });
+    renderWithClient(<NavigationContext.Provider value={{ open, openHealth: vi.fn() }}><ReturnTrendTab session={useAnalysisStore.getState()} /></NavigationContext.Provider>);
+    fireEvent.click(await screen.findByRole("button", { name: "View gaps for this period" }));
+    expect(open).toHaveBeenCalledWith({ page: "data-health", focus: { rangeStart: "2026-09-01", rangeEnd: "2026-09-06" } });
+  });
+
 });

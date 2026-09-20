@@ -18,6 +18,8 @@ const (
 	HealthKindMissingBinding           = "missing_binding"
 	HealthKindInitialAnchorMissing     = "initial_anchor_missing"
 	HealthKindUnsupportedCoverage      = "unsupported_coverage"
+	HealthKindStaleAccountValue        = "stale_account_value"
+	HealthKindMissingAccountValue      = "missing_account_value"
 	HealthKindIncompleteValuation      = "incomplete_valuation"
 	HealthKindSnapshotMissing          = "snapshot_missing"
 	HealthKindSnapshotOutdated         = "snapshot_outdated"
@@ -45,6 +47,7 @@ type HealthIssue struct {
 	Label        string
 	Provider     string
 	InstrumentID string
+	AccountID    string
 	CurrencyA    string
 	CurrencyB    string
 	RangeStart   string
@@ -94,7 +97,11 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 			Reason:    "history_not_started",
 			Action:    HealthActionNone,
 		}
-		return finishHealthReport(MarketDataHealthReport{Issues: []HealthIssue{issue}}), nil
+		valuationIssues, err := s.scanValuationHealth(ctx, map[string]struct{}{}, map[string]struct{}{})
+		if err != nil {
+			return MarketDataHealthReport{}, err
+		}
+		return finishHealthReport(MarketDataHealthReport{Issues: append([]HealthIssue{issue}, valuationIssues...)}), nil
 	}
 
 	plan, err := s.PlanHistorySync(ctx, HistorySyncOptions{})
@@ -568,8 +575,34 @@ func (s *Service) scanValuationHealth(ctx context.Context, instruments map[strin
 				Action:     HealthActionRepair,
 				Executable: true,
 			})
+		case domain.MissingAccountValue:
+			issues = append(issues, HealthIssue{
+				ID: "account-value-" + missing.AccountID.String(), Kind: HealthKindMissingAccountValue,
+				Severity: HealthSeverityBlocking, GroupKey: "account:" + missing.AccountID.String(),
+				TargetKey: "account:" + missing.AccountID.String(), AccountID: missing.AccountID.String(),
+				Label: missing.AccountName, Code: string(missing.Kind), Reason: "missing_current_input",
+				Action: "account_value", Executable: false,
+			})
 		default:
 			continue
+		}
+	}
+	records, err := s.ListAccounts(ctx, domain.AccountFilter{})
+	if err != nil {
+		return nil, err
+	}
+	for _, record := range records {
+		if string(record.Account.TrackingMode) != "manual_value" || !record.Account.IncludeInNetWorth || record.LatestValue == nil {
+			continue
+		}
+		// A maintenance reminder, not a valuation expiry or a missing financial input.
+		if record.LatestValue.EffectiveAt.AddDate(0, 0, 180).Before(s.clock()) {
+			issues = append(issues, HealthIssue{
+				ID: "stale-account-value-" + record.Account.ID.String(), Kind: HealthKindStaleAccountValue,
+				Severity: HealthSeverityWarning, GroupKey: "account:" + record.Account.ID.String(),
+				TargetKey: "account:" + record.Account.ID.String(), AccountID: record.Account.ID.String(),
+				Label: record.Account.Name, Reason: "manual_value_older_than_180_days", Action: "account_value",
+			})
 		}
 	}
 	return issues, nil
@@ -655,7 +688,7 @@ func hasUncollapsedRootCause(issues []HealthIssue) bool {
 			continue
 		}
 		switch issue.Kind {
-		case HealthKindMissingInstrumentHistory, HealthKindMissingFXHistory, HealthKindMissingManualPrice, HealthKindMissingManualFX, HealthKindMissingProviderKey, HealthKindMissingBinding, HealthKindInitialAnchorMissing, HealthKindUnsupportedCoverage, HealthKindIncompleteValuation:
+		case HealthKindMissingAccountValue, HealthKindMissingInstrumentHistory, HealthKindMissingFXHistory, HealthKindMissingManualPrice, HealthKindMissingManualFX, HealthKindMissingProviderKey, HealthKindMissingBinding, HealthKindInitialAnchorMissing, HealthKindUnsupportedCoverage, HealthKindIncompleteValuation:
 			return true
 		}
 	}

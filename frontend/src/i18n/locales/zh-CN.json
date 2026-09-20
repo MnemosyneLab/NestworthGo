@@ -934,5 +934,58 @@
     "accountCount_other": "{{count}} 个账户",
     "accountCount": "{{count}} 个账户",
     "unitCostHint": "历史记录已启用，请按标的报价币种填写单位成本。留空时使用已保存的当前价格；没有价格时必须填写。"
+  },
+  "connections": {
+    "globalRepairScope": "修复全部会处理整个家庭，不限于当前筛选的日期或对象。确认前请检查完整任务列表。",
+    "blockingDependencies": "家庭中的其他阻断前置问题",
+    "blockedIssue": "因缺少输入或行情服务配置而受阻。请先解决前置问题，再重建快照。",
+    "noAutomaticRepair": "此覆盖范围不支持自动修复。请检查行情服务状态或支持范围；刷新当前报价不能补齐这段历史缺口。",
+    "noExecutableWork": "当前没有可执行的修复任务。请解决前置问题，或稍后重新检查覆盖情况。",
+    "viewPeriodGaps": "查看此期间的缺口",
+    "manualDateZone": "日期使用 History 账本时区（开始 History 前使用 UTC）。",
+    "noGroup": "未指定分组",
+    "analyze": "分析",
+    "analyzeObject": "分析 {{name}}",
+    "viewReturn": "查看回报",
+    "viewChanges": "查看资产变化",
+    "back": "← 返回{{page}}",
+    "restore": "恢复",
+    "restored": "已恢复，关联对象保持不变。",
+    "restoreHint": "恢复对象不会恢复关联账户，也不会修改已有所有权。",
+    "clearFilter": "清除筛选",
+    "memberScope": "与该成员相关的账户。显示整个账户金额，未按所有权份额分摊。",
+    "objectUnavailable": "该对象不可用或已归档，请返回来源页查看。",
+    "viewGap": "查看缺口",
+    "previewRepair": "预览修复",
+    "focusedGaps": "所选对象或日期的缺口",
+    "recheck": "重新检查",
+    "noMatchingGaps": "本次检查未报告匹配的缺口，请返回来源页核对最新覆盖状态。",
+    "repairScope": "修复此对象可获取的历史数据，并更新受影响快照。请核对下方实际日期。",
+    "currentVsHistory": "当前报价不会补齐历史缺口。待发布的数据需要发布后才能获取。",
+    "gapRange": "缺失期间：{{from}} 至 {{to}}",
+    "netWorthTrend": "家庭净资产趋势",
+    "netWorthNote": "以家庭本位币计算资产减负债。变化包含资金流入流出，不代表投资回报。",
+    "periodChange": "净资产变化",
+    "changeUnavailable": "暂不可计算",
+    "missingBoundary": "此期间的期初或期末数据不完整，暂不计算期间变化。",
+    "coverage": "数据覆盖",
+    "currentPoint": "当前估值",
+    "currentPointNote": "若包含今天，今天使用当前估值；此前日期使用已结束日期的快照。",
+    "gapDays": "{{count}} 天的数据不完整",
+    "rebuildSnapshots": "重建快照",
+    "snapshotNote": "使用本地已有数据重建所选日期。此操作不会获取缺失报价，也无法补出尚未发布的数据。",
+    "rebuilt": "重建完成，请返回来源页重新核对；缺少输入的日期仍可能不完整。"
+  },
+  "dataHealth": {
+    "kind": {
+      "missing_account_value": "缺少账户估值",
+      "stale_account_value": "检查较旧的手工估值"
+    },
+    "action": {
+      "account_value": "检查账户估值"
+    },
+    "reason": {
+      "manual_value_older_than_180_days": "手工估值已超过 180 天，金额仍计入估值。"
+    }
   }
 }

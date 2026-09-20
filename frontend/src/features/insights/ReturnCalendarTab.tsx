@@ -306,5 +306,5 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   } else {
     content = <CalendarEmptyState data={data} />;
   }
-  return <div className="flex flex-col gap-4">{header}{content}{view === "month" && <DaySheet request={request} date={selectedDate} session={session} onClose={() => setSelectedDate(null)} onAssetChanges={onOpenAssetChanges} />}</div>;
+  return <div className="flex flex-col gap-4">{header}{content}{view === "month" && <DaySheet request={request} date={selectedDate} session={session} onClose={() => setSelectedDate(null)} onAssetChanges={onOpenAssetChanges ? analysis => { setSelectedDate(null); onOpenAssetChanges(analysis); } : undefined} />}</div>;
 }

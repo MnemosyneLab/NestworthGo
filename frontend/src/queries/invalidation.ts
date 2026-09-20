@@ -32,6 +32,7 @@ export function invalidateQuoteReads(queryClient: QueryClient, instrumentId?: st
 }
 
 export function invalidateCurrentValuation(queryClient: QueryClient, _accountIds?: readonly string[]) {
+  invalidate(queryClient, queryKeys.marketdata.all);
   invalidate(queryClient, queryKeys.overview.all);
   invalidate(queryClient, queryKeys.portfolio.all);
   invalidate(queryClient, queryKeys.analytics.netWorthTrendPrefix);

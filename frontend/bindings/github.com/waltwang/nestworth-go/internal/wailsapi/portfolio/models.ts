@@ -9,6 +9,10 @@ import * as wire$0 from "../wire/models.js";
  * NetWorthTrendDTO mirrors domain.NetWorthTrend.
  */
 export interface NetWorthTrendDTO {
+    "startDate": string;
+    "endDate": string;
+    "complete": boolean;
+    "summaryReason"?: string;
     "range": string;
     "currency": string;
     "points": NetWorthTrendPointDTO[] | null;
@@ -21,6 +25,7 @@ export interface NetWorthTrendDTO {
  * NetWorthTrendPointDTO mirrors domain.NetWorthTrendPoint.
  */
 export interface NetWorthTrendPointDTO {
+    "current": boolean;
     "localDate": string;
     "netWorth"?: wire$0.SignedMoneyView | null;
     "assets"?: wire$0.MoneyView | null;

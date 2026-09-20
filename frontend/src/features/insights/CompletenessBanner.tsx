@@ -1,3 +1,4 @@
+import { useObjectNavigation } from "@/app/NavigationContext";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertTriangle } from "lucide-react";
@@ -45,6 +46,7 @@ export function CompletenessBanner({
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const navigation = useObjectNavigation();
   const partial = issues.length > 0;
   if (!partial) return null;
 
@@ -68,6 +70,7 @@ export function CompletenessBanner({
             {issues.map((issue) => (
               <li key={`${issue.date}-${issue.status}`} className="rounded-md border border-border px-3 py-2">
                 <div className="font-medium">{issue.date}</div>
+                {navigation && <Button size="sm" variant="link" onClick={() => { setOpen(false); navigation.open({ page: "data-health", focus: { rangeStart: issue.date, rangeEnd: issue.date } }); }}>{t("connections.viewGap")}</Button>}
                 <div className="text-muted-foreground">{analysisReason(t, issue.missingReason) ?? issue.status}</div>
               </li>
             ))}

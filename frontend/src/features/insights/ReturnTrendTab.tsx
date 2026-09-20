@@ -1,3 +1,4 @@
+import { AnalysisHealthLink } from "./AnalysisHealthLink";
 import { chartTheme } from "@/components/charts/chartTheme";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -124,6 +125,7 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
         <div className="flex flex-col gap-1.5"><label htmlFor="return-trend-display" className="text-sm font-medium">{t("insights.display")}</label><NativeSelect id="return-trend-display" value={display} onChange={(event) => setDisplay(event.target.value)}><option value="cumulative_amount">{t("insights.returnTrendCumulative")}</option><option value="linked_rate">{t("insights.returnTrendLinked")}</option><option value="period_return_amount">{t("insights.returnTrendPeriod")}</option></NativeSelect></div>
         <p className="max-w-md text-sm text-muted-foreground">{display === "linked_rate" ? t("insights.dailyRateHint") : t("insights.returnTrendHint")}</p>
       </div>
+      {data && (data.status === "partial" || data.ratedDays < data.totalDays) && <AnalysisHealthLink from={context.request.from} to={context.request.to} />}
       {results}
     </div>
   );

@@ -3,6 +3,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
+import type { HealthFocus } from "@/app/navigation";
 import { DataHealthPage } from "./DataHealthPage";
 
 const scanHealth = vi.fn();
@@ -33,7 +34,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
   Service: { Load: () => Promise.resolve({ timezone: "Asia/Singapore" }) },
 }));
 
-function renderPage(props: { onOpenSettings?: () => void; onOpenMarketData?: () => void } = {}) {
+function renderPage(props: { focus?: HealthFocus; onOpenSettings?: () => void; onOpenMarketData?: () => void } = {}) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
@@ -266,3 +267,16 @@ describe("DataHealthPage", () => {
     expect(startSync).not.toHaveBeenCalled();
   });
 });
+
+ it("keeps a focused blocked snapshot visible with prerequisites outside its dates", async () => {
+   scanHealth.mockResolvedValue({ healthy: false, issueCount: 1, issues: [
+     { id: "snap", kind: "snapshot_outdated", severity: "blocking", targetKey: "snapshot", collapsed: true, executable: false, action: "repair", rangeStart: "2026-08-01", rangeEnd: "2026-09-01" },
+     { id: "price", kind: "missing_manual_price", severity: "blocking", targetKey: "instrument:A", label: "Manual A", instrumentId: "A", collapsed: false, executable: false, action: "manual_entry", rangeStart: "2026-08-01", rangeEnd: "2026-08-02" },
+   ] });
+   renderPage({ focus: { rangeStart: "2026-09-01", rangeEnd: "2026-09-01" } });
+   expect(await screen.findByTestId("health-issue-snapshot_outdated")).toBeInTheDocument();
+   expect(await screen.findByText("Manual A")).toBeInTheDocument();
+   expect(screen.queryByRole("button", { name: "Preview repair" })).not.toBeInTheDocument();
+   expect(screen.getByTestId("repair-all")).toBeDisabled();
+   expect(screen.getByText(/Repair all covers the entire household/)).toBeInTheDocument();
+ });

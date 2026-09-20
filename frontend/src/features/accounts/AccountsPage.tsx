@@ -1,7 +1,8 @@
+import type { AccountListFocus } from "@/app/navigation";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -25,9 +26,11 @@ import { EntityIcon } from "@/components/icons/EntityIcon";
  * detail in the same workspace. Create uses the institution-first wizard.
  */
 export function AccountsPage({
+  navigationFilter, onClearFilter, updateValue,
   selectedAccountId,
   onSelectAccount,
 }: {
+  navigationFilter?: AccountListFocus; onClearFilter?: () => void; updateValue?: boolean;
   selectedAccountId?: string | null;
   onSelectAccount?: (id: string | null) => void;
 } = {}) {
@@ -42,8 +45,9 @@ export function AccountsPage({
     setInternalSelectedId(id);
   };
   const [showArchived, setShowArchived] = useState(false);
-  const accounts = useAccounts({ includeArchived: showArchived });
-  const valuations = useAccountValuations({ includeArchived: showArchived });
+  const filter = { includeArchived: showArchived || Boolean(selectedId), ...(!selectedId && navigationFilter && navigationFilter.value !== "unassigned" ? { [navigationFilter.dimension]: navigationFilter.value } : {}) };
+  const accounts = useAccounts(filter);
+  const valuations = useAccountValuations(filter);
   const createAccount = useCreateAccount();
   const [createOpen, setCreateOpen] = useState(false);
   const [operation, setOperation] = useState<"create" | null>(null);
@@ -55,8 +59,8 @@ export function AccountsPage({
   );
   const selectedRecord = (accounts.data ?? []).find((record) => record.account.id === selectedId) ?? null;
   const grouped = useMemo(
-    () => groupAccounts(accounts.data ?? [], valuations.data ?? []),
-    [accounts.data, valuations.data],
+    () => groupAccounts((accounts.data ?? []).filter(record => !navigationFilter || navigationFilter.value !== "unassigned" || (navigationFilter.dimension === "institutionId" ? !record.account.institutionId : navigationFilter.dimension === "groupId" ? !record.account.groupId : true)), valuations.data ?? []),
+    [accounts.data, valuations.data, navigationFilter],
   );
 
   const saveCreate = async (request: CreateAccountRequest, extras: AccountFormExtras) => {
@@ -78,6 +82,8 @@ export function AccountsPage({
   if (selectedRecord) {
     return (
       <AccountDetail
+        key={selectedRecord.account.id}
+        updateValue={updateValue}
         record={selectedRecord}
         valuation={valuationByAccountId.get(selectedRecord.account.id)}
         valuationUpdatedAt={valuations.dataUpdatedAt}
@@ -125,6 +131,8 @@ export function AccountsPage({
         }
       />
 
+      {navigationFilter && <div className="flex flex-wrap items-center gap-2 text-sm" role="status"><Badge variant="secondary">{navigationFilter.label}</Badge><Button variant="ghost" size="sm" onClick={onClearFilter}>{t("connections.clearFilter")}</Button>{navigationFilter.dimension === "memberId" && <p>{t("connections.memberScope")}</p>}</div>}
+      {selectedId && !accounts.isLoading && !accounts.isError && !selectedRecord && <p role="status">{t("connections.objectUnavailable")}</p>}
       {accounts.isLoading && <LoadingState label={t("ui.state.loadingPage")} />}
       {accounts.isError && (
         <ErrorState
@@ -135,11 +143,11 @@ export function AccountsPage({
         />
       )}
 
-      {!accounts.isLoading && !accounts.isError && accounts.data && accounts.data.length === 0 && (
+      {!accounts.isLoading && !accounts.isError && accounts.data && grouped.length === 0 && (
         <EmptyState title={t("accounts.emptyTitle")} description={t("accounts.emptyDescription")} />
       )}
 
-      {!accounts.isLoading && !accounts.isError && accounts.data && accounts.data.length > 0 && (
+      {!accounts.isLoading && !accounts.isError && accounts.data && grouped.length > 0 && (
         <div className="flex flex-col gap-6" data-testid="accounts-table">
           <span className="sr-only">{t("accounts.tableLabel")}</span>
           {grouped.map((group) => (

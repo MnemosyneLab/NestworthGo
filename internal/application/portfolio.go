@@ -707,7 +707,7 @@ func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID 
 	if err != nil {
 		return domain.InstrumentQuote{}, err
 	}
-	when, err := parsePortfolioTimestamp(quotedAt, s.clock())
+	when, err := s.parseManualQuoteTimestamp(ctx, quotedAt)
 	if err != nil {
 		return domain.InstrumentQuote{}, err
 	}
@@ -815,7 +815,7 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 	if err != nil {
 		return domain.FXQuote{}, err
 	}
-	when, err := parsePortfolioTimestamp(quotedAt, s.clock())
+	when, err := s.parseManualQuoteTimestamp(ctx, quotedAt)
 	if err != nil {
 		return domain.FXQuote{}, err
 	}
@@ -945,6 +945,31 @@ func holdingFromSnapshot(snapshot domain.PortfolioSnapshot, id domain.HoldingID)
 		}
 	}
 	return domain.Holding{}, false
+}
+
+// Date-only manual observations use the immutable History timezone (UTC before History).
+// Explicit RFC3339 timestamps retain their instant; an empty input still means now.
+func (s *Service) parseManualQuoteTimestamp(ctx context.Context, value string) (time.Time, error) {
+	value = strings.TrimSpace(value)
+	if len(value) != len("2006-01-02") {
+		return parsePortfolioTimestamp(value, s.clock())
+	}
+	origin, err := s.HistoryOrigin(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	location := time.UTC
+	if origin != nil {
+		location, err = time.LoadLocation(origin.Timezone)
+		if err != nil {
+			return time.Time{}, err
+		}
+	}
+	parsed, err := time.ParseInLocation("2006-01-02", value, location)
+	if err != nil || parsed.In(location).Format("2006-01-02") != value {
+		return time.Time{}, &domain.Error{Code: domain.ErrValidation, Field: "quotedAt", Message: "must be a valid date in the History timezone"}
+	}
+	return parsed.UTC(), nil
 }
 
 func parsePortfolioTimestamp(value string, fallback time.Time) (time.Time, error) {

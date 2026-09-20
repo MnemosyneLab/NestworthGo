@@ -1,3 +1,4 @@
+import { AnalysisHealthLink } from "./AnalysisHealthLink";
 import { AssetValueSummary } from "./AssetValueSummary";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -238,6 +239,7 @@ function ChangeDriversContent({ request, session, scope, result, rows, groups, r
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-4" data-testid="change-drivers">
+      {result.status === "partial" && <AnalysisHealthLink from={request.from} to={request.to} />}
       <SummaryCard data={result} scope={scope} />
       <WaterfallChart summary={result.summary} rows={rows} onSelect={(key) => setSelectedKey(key)} labels={{ beginning: t("insights.beginningValue"), ending: t("insights.endingValue"), amount: t("insights.amount"), empty: t("insights.noAssetChangeData") }} />
       <section className="flex flex-col gap-3" aria-label={t("insights.attribution")}>
@@ -249,7 +251,7 @@ function ChangeDriversContent({ request, session, scope, result, rows, groups, r
           </Button>
         )}
       </section>
-      <DriverDetailSheet request={request} session={session} selected={selected} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} onOpenReturnAnalysis={onOpenReturnAnalysis} onClose={() => setSelectedKey(null)} />
+      <DriverDetailSheet request={request} session={session} selected={selected} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory ? filters => { setSelectedKey(null); onOpenHistory(filters); } : undefined} onOpenReturnAnalysis={onOpenReturnAnalysis ? analysis => { setSelectedKey(null); onOpenReturnAnalysis(analysis); } : undefined} onClose={() => setSelectedKey(null)} />
     </div>
   );
 }

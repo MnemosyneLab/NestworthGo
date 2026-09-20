@@ -5,6 +5,8 @@ cursor:
 
 # Nestworth 下一步功能设想
 
+> 2026-09-20：第 1、8、9、12 条已落地首版；具体行为、范围和验证边界见 [实现说明](household-navigation-and-health.md)。下文保留提出需求时的背景。
+
 这份清单对照当前产品表面（Overview、Accounts、Portfolio、History、Return Analysis、Asset Changes、Directory、Market Data、Data Health、Settings）和已有设计，尤其是 `docs/product/product-vision.md`、`docs/architecture/domain-model.md`、`docs/design/monthly-review-and-data-confidence.md`。它不是既有 roadmap 的复述，也不把“字段或 API 已经存在”写成“功能基本做完”。
 
 今天的 Nestworth 已经能维护一份家庭资产负债表：账户与持仓、多币种估值、不可变 History、Dietz 收益、归因瀑布、显式行情同步。下一步的杠杆，是让用户信任眼前的数、少在页面间迷路、补上每天会卡死的录入缺口。任何一条如果还缺统计口径、历史数据规则或产品边界，都先写清楚，再谈实现。

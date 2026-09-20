@@ -1,3 +1,4 @@
+import type { HealthFocus } from "@/app/navigation";
 import { metalPriceSuffix } from "@/lib/preciousMetals";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -29,17 +30,18 @@ function formatQuotedAt(value: string, language: string, timezone?: string): str
 }
 
 export function QuoteHistorySheet({
-  target,
+  target, focus,
   onClose,
 }: {
   target: QuoteHistoryTarget;
+  focus?: HealthFocus;
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const catalog = useCatalog();
   const settings = useSettings();
   const ranges = catalog.data?.trendRanges ?? ["30d", "ytd", "1y", "all"];
-  const [range, setRange] = useState("30d");
+  const [range, setRange] = useState(focus?.rangeStart ? "all" : "30d");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [swapped, setSwapped] = useState(false);
   const instrumentId = target.kind === "instrument" ? target.instrument.id : "";
@@ -80,6 +82,7 @@ export function QuoteHistorySheet({
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           <SheetDescription>{description}</SheetDescription>
+          {focus?.rangeStart && <p className="text-sm" role="status">{t("connections.gapRange", { from: focus.rangeStart, to: focus.rangeEnd || focus.rangeStart })}</p>}
         </SheetHeader>
         {target.kind === "instrument" && target.instrument.metalTemplate && <p className="mt-3 text-xs text-muted-foreground">{t("metals.referenceDisclaimer")}</p>}
         {target.kind === "instrument" && target.instrument.providerKey === "coingecko" && <p className="mt-3 text-xs text-muted-foreground">{t("portfolio.coinGeckoNotice")} · <a href="https://www.coingecko.com/en/api" target="_blank" rel="noreferrer" className="underline">{t("portfolio.coinGeckoAttribution")}</a></p>}

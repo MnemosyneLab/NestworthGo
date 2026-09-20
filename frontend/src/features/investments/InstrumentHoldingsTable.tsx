@@ -1,3 +1,4 @@
+import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { Fragment, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronRight, ArrowDown, ArrowUp } from "lucide-react";
@@ -54,6 +55,7 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount }: { groups: Ins
           {expanded.has(row.id) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
         </button>}
         <InstrumentLabel name={row.group.name} symbol={row.group.symbol} fallback={row.group.name} />
+        <AnalyzeMenu instrumentId={row.group.instrumentId} accountId={row.accountId} label={row.group.name} />
         {row.group.archived && <Badge variant="secondary">{t("common.archived")}</Badge>}
       </div>
     </td>

@@ -50,7 +50,7 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 			return domain.NetWorthTrend{}, err
 		}
 		point := domain.NetWorthTrendPoint{
-			LocalDate: window.todayKey, Complete: current.Complete,
+			LocalDate: window.todayKey, Complete: current.Complete, Current: true,
 			MissingCount: len(current.MissingInputs), Status: domain.TrendPointIncomplete,
 		}
 		if current.Complete {
@@ -80,7 +80,20 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 	if err != nil {
 		return domain.NetWorthTrend{}, err
 	}
-	return domain.NetWorthTrend{Range: trendRange, Currency: window.currency, Points: points, Start: start, End: end, Change: change}, nil
+	complete := true
+	for _, point := range points {
+		if !point.Complete {
+			complete = false
+		}
+	}
+	reason := ""
+	if len(points) < 2 {
+		reason = "insufficient_history"
+	} else if start == nil || end == nil {
+		reason = "missing_boundary"
+	}
+	return domain.NetWorthTrend{Range: trendRange, Currency: window.currency, Points: points, Start: start, End: end, Change: change,
+		StartDate: points[0].LocalDate, EndDate: points[len(points)-1].LocalDate, Complete: complete, SummaryReason: reason}, nil
 }
 
 func (s *Service) PortfolioTrend(ctx context.Context, trendRange domain.TrendRange) (domain.PortfolioTrend, error) {
@@ -221,20 +234,17 @@ func trendSince(trendRange domain.TrendRange, today, origin time.Time) (time.Tim
 }
 
 func wealthTrendSummary(points []domain.NetWorthTrendPoint, currency domain.CurrencyCode) (*domain.SignedMoney, *domain.SignedMoney, *domain.SignedMoney, error) {
+	if len(points) == 0 {
+		return nil, nil, nil, nil
+	}
 	var start, end *domain.SignedMoney
-	for _, point := range points {
-		if point.NetWorth != nil {
-			start = point.NetWorth
-			break
-		}
+	if points[0].Complete {
+		start = points[0].NetWorth
 	}
-	for index := len(points) - 1; index >= 0; index-- {
-		if points[index].NetWorth != nil {
-			end = points[index].NetWorth
-			break
-		}
+	if points[len(points)-1].Complete {
+		end = points[len(points)-1].NetWorth
 	}
-	if start == nil || end == nil {
+	if len(points) < 2 || start == nil || end == nil {
 		return start, end, nil, nil
 	}
 	change, err := domain.NewSignedMoney(end.Amount().Sub(start.Amount()), currency)

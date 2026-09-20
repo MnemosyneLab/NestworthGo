@@ -114,7 +114,7 @@ export function CategoriesTab({ session, onOpenHistory }: { session: AnalysisSes
       <Sheet open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelectedKey(null); }}>
         <SheetContent side="right">
           <SheetHeader><SheetTitle>{selected ? labelFor(selected) : t("insights.categoryDetail")}</SheetTitle></SheetHeader>
-          {detail.isLoading ? <LoadingState label={t("insights.loading")} /> : detail.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => detail.refetch()} retryLabel={t("common.retryAction")} /> : detail.data ? <DetailContent data={detail.data} total={selected?.amount} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} /> : <EmptyState title={t("insights.noRecords")} />}
+          {detail.isLoading ? <LoadingState label={t("insights.loading")} /> : detail.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => detail.refetch()} retryLabel={t("common.retryAction")} /> : detail.data ? <DetailContent data={detail.data} total={selected?.amount} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory ? filters => { setSelectedKey(null); onOpenHistory(filters); } : undefined} /> : <EmptyState title={t("insights.noRecords")} />}
         </SheetContent>
       </Sheet>
     </>

@@ -1,3 +1,4 @@
+import type { HealthFocus } from "@/app/navigation";
 import { MetalConversionDetails } from "./MetalConversionDetails";
 import { metalPriceSuffix } from "@/lib/preciousMetals";
 import { useMemo, useState } from "react";
@@ -46,24 +47,25 @@ function ManualQuoteForm({
   instrumentId,
   currency,
   quantityUnit,
-  onSaved,
+  onSaved, initialDate,
 }: {
   instrumentId: string;
   currency: string;
   quantityUnit?: string;
   onSaved: () => void;
+  initialDate?: string;
 }) {
   const { t } = useTranslation();
   const appendQuote = useAppendManualInstrumentQuote();
   const [unitPrice, setUnitPrice] = useState("");
-  const [quotedAt, setQuotedAt] = useState("");
+  const [quotedAt, setQuotedAt] = useState(initialDate ?? "");
 
   const submit = () => {
     if (!unitPrice.trim()) {
       return;
     }
     appendQuote.mutate(
-      { instrumentId, unitPrice: unitPrice.trim(), quotedAt: quotedAt ? new Date(`${quotedAt}T00:00:00`).toISOString() : "" },
+      { instrumentId, unitPrice: unitPrice.trim(), quotedAt: quotedAt },
       {
         onSuccess: () => {
           toast.success(t("portfolio.priceSaved"));
@@ -88,6 +90,7 @@ function ManualQuoteForm({
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`quote-date-${instrumentId}`}>{t("portfolio.quotedAt")}</Label>
         <DatePicker id={`quote-date-${instrumentId}`} value={quotedAt} onChange={setQuotedAt} />
+        <p className="text-xs text-muted-foreground">{t("connections.manualDateZone")}</p>
       </div>
       {appendQuote.isError && (
         <p role="alert" className="text-sm text-destructive">
@@ -183,6 +186,7 @@ function InstrumentRow({
 }
 
 export function InstrumentManagement({
+  focus,
   pageId,
   active,
   enableSearch = false,
@@ -191,6 +195,7 @@ export function InstrumentManagement({
   onSyncInstrument,
   syncingInstrumentId,
 }: {
+  focus?: HealthFocus;
   pageId: string;
   active: boolean;
   enableSearch?: boolean;
@@ -205,12 +210,14 @@ export function InstrumentManagement({
   const updateInstrument = useUpdateInstrument();
   const archiveInstrument = useArchiveInstrument();
   const [open, setOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<InstrumentDTO | null>(null);
-  const [showPriceForm, setShowPriceForm] = useState(false);
+  const [editSelection, setEditTarget] = useState<InstrumentDTO | null>();
+  const editTarget = editSelection === undefined && (focus?.action === "manual_entry" || focus?.action === "instrument_editor")
+    ? instruments.data?.find(item => item.id === focus.instrumentId) ?? null : editSelection ?? null;
+  const [showPriceForm, setShowPriceForm] = useState(focus?.action === "manual_entry");
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
-    const items = instruments.data ?? [];
+    const items = (instruments.data ?? []).filter(item => !focus?.instrumentId || item.id === focus.instrumentId);
     const needle = query.trim().toLowerCase();
     if (!needle) {
       return items;
@@ -219,7 +226,7 @@ export function InstrumentManagement({
       const haystack = [instrument.name, instrument.symbol, instrument.providerSymbol, instrument.quoteCurrency].filter(Boolean).join(" ").toLowerCase();
       return haystack.includes(needle);
     });
-  }, [instruments.data, query]);
+  }, [instruments.data, query, focus]);
 
   if (instruments.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
@@ -316,6 +323,7 @@ export function InstrumentManagement({
         <SheetContent className="overflow-y-auto overscroll-contain">
           <SheetHeader className="shrink-0">
             <SheetTitle>{t("portfolio.editInstrument")}</SheetTitle>
+            {focus && <p className="text-sm">{focus.label} {focus.rangeStart} {focus.rangeEnd}</p>}
           </SheetHeader>
           {editTarget && (
             <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border pb-4">
@@ -391,6 +399,7 @@ export function InstrumentManagement({
                 <div className="mt-4">
                   <ManualQuoteForm
                     key={`${editTarget.id}-price`}
+                    initialDate={focus?.rangeStart}
                     instrumentId={editTarget.id}
                     currency={editTarget.quoteCurrency}
                     quantityUnit={editTarget.quantityUnit}

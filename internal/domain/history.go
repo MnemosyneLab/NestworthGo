@@ -346,6 +346,7 @@ const (
 )
 
 type NetWorthTrendPoint struct {
+	Current      bool
 	LocalDate    string
 	NetWorth     *SignedMoney
 	Assets       *Money
@@ -356,12 +357,16 @@ type NetWorthTrendPoint struct {
 }
 
 type NetWorthTrend struct {
-	Range    TrendRange
-	Currency CurrencyCode
-	Points   []NetWorthTrendPoint
-	Start    *SignedMoney
-	End      *SignedMoney
-	Change   *SignedMoney
+	StartDate     string
+	EndDate       string
+	Complete      bool
+	SummaryReason string
+	Range         TrendRange
+	Currency      CurrencyCode
+	Points        []NetWorthTrendPoint
+	Start         *SignedMoney
+	End           *SignedMoney
+	Change        *SignedMoney
 }
 
 type PortfolioTrendPoint struct {

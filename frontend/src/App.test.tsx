@@ -400,3 +400,26 @@ it.each(["ocean", "amber"] as const)("restores %s accent on cold load and settin
   await queryClient.invalidateQueries({ queryKey: ["settings"] });
   await waitFor(() => expect(document.documentElement).toHaveAttribute("data-accent", "nestworth"));
 });
+
+it("returns from account analysis with the source archive filter and scroll position intact", async () => {
+  await i18n.changeLanguage("en");
+  listAccounts.mockResolvedValue([checkingAccount]);
+  accountValuations.mockResolvedValue([checkingValuation]);
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  await userEvent.click(within(nav).getByRole("button", { name: "Accounts" }));
+  await userEvent.click(await screen.findByRole("checkbox", { name: "Show archived" }));
+  await userEvent.click(await screen.findByRole("button", { name: /Checking.*Bank account/ }));
+  await screen.findByTestId("account-detail");
+  const main = document.getElementById("main-content")!;
+  main.scrollTop = 170;
+  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Analyze Checking" }), "return-analysis");
+  expect(await screen.findByRole("button", { name: "← Back to Accounts" })).toBeVisible();
+  expect(screen.getByTestId("account-detail")).not.toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));
+  await waitFor(() => expect(main.scrollTop).toBe(170));
+  expect(screen.getByTestId("account-detail")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
+  expect(screen.getByRole("checkbox", { name: "Show archived" })).toBeChecked();
+});

@@ -35,11 +35,34 @@ export interface HistoryNavigationFilters {
   to?: string;
 }
 
+export interface HealthFocus {
+  id?: string;
+  instrumentId?: string;
+  accountId?: string;
+  currencyA?: string;
+  currencyB?: string;
+  rangeStart?: string;
+  rangeEnd?: string;
+  label?: string;
+  reason?: string;
+  action?: string;
+  kind?: string;
+  executable?: boolean;
+}
+
+export interface AccountListFocus {
+  dimension: "institutionId" | "accountType" | "memberId" | "groupId";
+  value: string;
+  label: string;
+}
+
 export type NavigationTarget =
   | { page: "return-analysis"; tab?: AnalysisTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "asset-changes"; tab?: AssetChangesTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "history"; filters?: HistoryNavigationFilters }
-  | { page: Exclude<PageId, "return-analysis" | "asset-changes" | "history"> };
+  | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean }
+  | { page: "market-data" | "data-health"; focus?: HealthFocus }
+  | { page: Exclude<PageId, "return-analysis" | "asset-changes" | "history" | "accounts" | "market-data" | "data-health"> };
 
 /**
  * NavItem is the top-level navigation model. `translationKey` looks up the

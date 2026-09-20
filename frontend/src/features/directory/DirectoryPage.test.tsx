@@ -134,3 +134,17 @@ describe("DirectoryPage", () => {
     expect(updateMember).toHaveBeenCalledWith("m1", "Alicia");
   });
 });
+
+it("shows and restores an archived member without changing ownership", async () => {
+  listMembers.mockImplementation((includeArchived: boolean) => Promise.resolve(includeArchived
+    ? [{ id: "m1", name: "Alice", iconKey: "user", archivedAt: "2026-01-01" }] : []));
+  renderPage();
+  await screen.findByRole("checkbox", { name: "Show archived" });
+  expect(screen.queryByText("Alice")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("checkbox", { name: "Show archived" }));
+  expect(await screen.findByText("Alice")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Restore" }));
+  expect(archiveMember).toHaveBeenCalledWith("m1", false);
+  expect(updateMember).not.toHaveBeenCalled();
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+});

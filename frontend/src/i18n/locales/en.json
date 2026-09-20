@@ -934,5 +934,58 @@
     "accountCount_other": "{{count}} accounts",
     "accountCount": "{{count}} accounts",
     "unitCostHint": "After history starts, enter the unit cost in the instrument’s quote currency. If left empty, the saved current price is used; when no price exists, a unit cost is required."
+  },
+  "connections": {
+    "globalRepairScope": "Repair all covers the entire household, not just these filtered dates or objects. Review the full work list before confirming.",
+    "blockingDependencies": "Other blocking prerequisites in this household",
+    "blockedIssue": "Blocked by missing inputs or provider configuration. Resolve the prerequisites before rebuilding snapshots.",
+    "noAutomaticRepair": "Automatic repair is unavailable for this coverage. Check the provider status or supported coverage; refreshing current quotes cannot fill this historical gap.",
+    "noExecutableWork": "No executable repair work is available. Resolve the prerequisites or check coverage again later.",
+    "viewPeriodGaps": "View gaps for this period",
+    "manualDateZone": "Dates use the History timezone (UTC before History starts).",
+    "noGroup": "No group",
+    "analyze": "Analyze",
+    "analyzeObject": "Analyze {{name}}",
+    "viewReturn": "View return",
+    "viewChanges": "View asset changes",
+    "back": "← Back to {{page}}",
+    "restore": "Restore",
+    "restored": "Restored. Related objects are unchanged.",
+    "restoreHint": "Restoring an item does not restore related accounts or change existing ownership.",
+    "clearFilter": "Clear filter",
+    "memberScope": "Accounts associated with this member. Values are whole-account amounts, not ownership shares.",
+    "objectUnavailable": "This object is unavailable or archived. Return to the source to review it.",
+    "viewGap": "View gap",
+    "previewRepair": "Preview repair",
+    "focusedGaps": "Gaps for the selected object or dates",
+    "recheck": "Check again",
+    "noMatchingGaps": "No matching gaps were reported by this scan. Check the source view for its latest coverage.",
+    "repairScope": "Repairs this object’s available history and updates affected snapshots. Review the exact dates below.",
+    "currentVsHistory": "A current quote does not fill historical gaps. Data awaiting publication can only be fetched once available.",
+    "gapRange": "Missing period: {{from}} – {{to}}",
+    "netWorthTrend": "Household net worth trend",
+    "netWorthNote": "Assets minus liabilities in the household base currency. Changes include money moving in and out; they are not investment returns.",
+    "periodChange": "Net worth change",
+    "changeUnavailable": "Not available",
+    "missingBoundary": "The start or end of this period has incomplete data. No period change is calculated.",
+    "coverage": "Data coverage",
+    "currentPoint": "Current valuation",
+    "currentPointNote": "Today, when present, uses current valuation. Earlier dates use closed-day snapshots.",
+    "gapDays": "{{count}} days have incomplete data",
+    "rebuildSnapshots": "Rebuild snapshots",
+    "snapshotNote": "Rebuilds the selected dates from locally available inputs. This does not fetch missing prices or make unpublished data available.",
+    "rebuilt": "Rebuild finished. Check the source view again; missing inputs may still leave dates incomplete."
+  },
+  "dataHealth": {
+    "kind": {
+      "missing_account_value": "Missing account value",
+      "stale_account_value": "Review older manual valuation"
+    },
+    "action": {
+      "account_value": "Review account value"
+    },
+    "reason": {
+      "manual_value_older_than_180_days": "Manual valuation is over 180 days old; its amount remains included."
+    }
   }
 }

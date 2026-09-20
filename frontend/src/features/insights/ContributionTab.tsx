@@ -197,7 +197,7 @@ export function ContributionTab({ session, onOpenHistory }: { session: AnalysisS
       <Sheet open={Boolean(selected)} onOpenChange={(open) => { if (!open) setSelectedKey(null); }}>
         <SheetContent side="right">
           <SheetHeader><SheetTitle>{selected ? labelFor(selected) : t("insights.contributionDetail")}</SheetTitle></SheetHeader>
-          {item.isLoading ? <LoadingState label={t("insights.loading")} /> : item.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => item.refetch()} retryLabel={t("common.retryAction")} /> : item.data ? <ItemDetail data={item.data} returnType={returnType} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory} /> : <EmptyState title={t("insights.noContributionData")} />}
+          {item.isLoading ? <LoadingState label={t("insights.loading")} /> : item.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => item.refetch()} retryLabel={t("common.retryAction")} /> : item.data ? <ItemDetail data={item.data} returnType={returnType} accountNames={accountNames} instrumentNames={instrumentNames} onOpenHistory={onOpenHistory ? filters => { setSelectedKey(null); onOpenHistory(filters); } : undefined} /> : <EmptyState title={t("insights.noContributionData")} />}
         </SheetContent>
       </Sheet>
     </>

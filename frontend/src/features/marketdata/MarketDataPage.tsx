@@ -1,3 +1,5 @@
+import type { HealthFocus } from "@/app/navigation";
+import { FocusedRepair } from "./FocusedRepair";
 import { SyncWorkDetails } from "./SyncWorkDetails";
 import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -355,15 +357,15 @@ function SavedFXRow({
   );
 }
 
-function ManualFXQuoteForm({ onSaved }: { onSaved: () => void }) {
+function ManualFXQuoteForm({ onSaved, focus }: { onSaved: () => void; focus?: HealthFocus }) {
   const { t } = useTranslation();
   const currencies = useSupportedCurrencies();
   const appendQuote = useAppendManualFXQuote();
   const options = currencies.data ?? [];
-  const [baseCurrency, setBaseCurrency] = useState("");
-  const [quoteCurrency, setQuoteCurrency] = useState("");
+  const [baseCurrency, setBaseCurrency] = useState(focus?.currencyA ?? "");
+  const [quoteCurrency, setQuoteCurrency] = useState(focus?.currencyB ?? "");
   const [rate, setRate] = useState("");
-  const [effectiveDate, setEffectiveDate] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState(focus?.rangeStart ?? "");
   const selectedBaseCurrency = baseCurrency || options[0] || "";
   const selectedQuoteCurrency = quoteCurrency || options[1] || options[0] || "";
   const invalidPair = !selectedBaseCurrency || !selectedQuoteCurrency || selectedBaseCurrency === selectedQuoteCurrency;
@@ -375,7 +377,7 @@ function ManualFXQuoteForm({ onSaved }: { onSaved: () => void }) {
       baseCurrency: selectedBaseCurrency,
       quoteCurrency: selectedQuoteCurrency,
       rate: rate.trim(),
-      quotedAt: effectiveDate ? new Date(`${effectiveDate}T00:00:00`).toISOString() : "",
+      quotedAt: effectiveDate,
     }, { onSuccess: onSaved });
   };
 
@@ -400,6 +402,7 @@ function ManualFXQuoteForm({ onSaved }: { onSaved: () => void }) {
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="manual-fx-date">{t("marketData.effectiveDate")}</Label>
         <DatePicker id="manual-fx-date" value={effectiveDate} onChange={setEffectiveDate} />
+        <p className="text-xs text-muted-foreground">{t("connections.manualDateZone")}</p>
       </div>
       {invalidPair && <p className="text-sm text-destructive">{t("marketData.invalidPair")}</p>}
       {appendQuote.isError && <p role="alert" className="text-sm text-destructive">{displayError(appendQuote.error, t("marketData.loadError"))}</p>}
@@ -410,7 +413,7 @@ function ManualFXQuoteForm({ onSaved }: { onSaved: () => void }) {
   );
 }
 
-function ManualFXQuoteSheet() {
+function ManualFXQuoteSheet({ focus }: { focus?: HealthFocus }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
@@ -424,7 +427,7 @@ function ManualFXQuoteSheet() {
           <SheetTitle>{t("marketData.manualFXTitle")}</SheetTitle>
           <SheetDescription>{t("marketData.manualFXDescription")}</SheetDescription>
         </SheetHeader>
-        <ManualFXQuoteForm onSaved={() => setOpen(false)} />
+        <ManualFXQuoteForm focus={focus} onSaved={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );
@@ -479,7 +482,7 @@ function SavedFXRates({
 
 /** MarketDataPage merges instrument management and FX rates onto one
  * destination, with Sync Data progress restored from the in-process job. */
-export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => void } = {}) {
+export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?: () => void; focus?: HealthFocus } = {}) {
   const { t } = useTranslation();
   const instruments = useInstruments();
   const fxPreferences = useFXPreferences();
@@ -488,7 +491,7 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
   const refreshMissingOrStale = useRefreshMissingOrStale();
   const setFXPreference = useSetFXPreference();
   const sync = useMarketDataSyncActions();
-  const [tab, setTab] = useState("instruments");
+  const [tab, setTab] = useState(focus?.currencyA ? "fx" : "instruments");
   const [lastRefresh, setLastRefresh] = useState<"all" | "missing" | null>(null);
   const [result, setResult] = useState<RefreshResultDTO | undefined>();
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | undefined>();
@@ -554,12 +557,27 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
       <PageChrome
         pageId="market-data"
         title={t("nav.marketData")}
-        actions={tab === "fx" ? <ManualFXQuoteSheet /> : undefined}
+        actions={tab === "fx" ? <ManualFXQuoteSheet focus={focus} /> : undefined}
       />
       <PageIntro
         description={t("marketData.description")}
         status={<DataHealthIndicator onOpen={onOpenDataHealth} />}
       />
+      {focus && <section className="flex flex-col gap-2 rounded-lg border border-border p-4" aria-label={t("connections.viewGap")}>
+        <p className="font-medium">{focus.label || focus.instrumentId || `${focus.currencyA}/${focus.currencyB}`}</p>
+        <p className="text-sm">{focus.rangeStart} {focus.rangeEnd && `– ${focus.rangeEnd}`} {focus.reason && displayEnum(t, "dataHealth.reason", focus.reason)}</p>
+        <p className="text-sm text-muted-foreground">{t("connections.currentVsHistory")}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" disabled={Boolean(focus.instrumentId && !instruments.data?.some(item => item.id === focus.instrumentId))} onClick={() => {
+            const instrument = instruments.data?.find(item => item.id === focus.instrumentId);
+            if (instrument) setHistoryTarget({ kind: "instrument", instrument });
+            else if (focus.currencyA && focus.currencyB) setHistoryTarget({ kind: "fx", currencyA: focus.currencyA, currencyB: focus.currencyB });
+          }}>{t("charts.viewHistory")}</Button>
+          {(focus.executable !== false && (focus.action === "repair" || !focus.action)) && <FocusedRepair focus={focus} />}
+          {focus.executable === false && focus.action === "none" && <p role="status">{t("connections.noAutomaticRepair")}</p>}
+        </div>
+        {focus.instrumentId && !instruments.isLoading && !instruments.isError && !instruments.data?.some(item => item.id === focus.instrumentId) && <p role="status">{t("connections.objectUnavailable")}</p>}
+      </section>}
       <MarketDataSyncBar
         latestRefreshing={latestRefreshing || setFXPreference.isPending}
         onRefreshMissing={runRefreshMissingOrStale}
@@ -598,6 +616,7 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
           </TabsList>
           <TabsContent value="instruments">
             <InstrumentManagement
+              focus={focus}
               pageId="market-data"
               active={tab === "instruments"}
               enableSearch
@@ -609,7 +628,7 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
           </TabsContent>
           <TabsContent value="fx">
             <SavedFXRates
-              fxPairs={fxPairs}
+              fxPairs={focus?.currencyA && focus.currencyB ? [{ currencyA: focus.currencyA, currencyB: focus.currencyB }] : fxPairs}
               fxPreferences={preferenceList}
               onConfigureFX={configureFX}
               configuringPair={configuringPair}
@@ -618,7 +637,7 @@ export function MarketDataPage({ onOpenDataHealth }: { onOpenDataHealth?: () => 
           </TabsContent>
         </Tabs>
       )}
-      {historyTarget ? <QuoteHistorySheet target={historyTarget} onClose={() => setHistoryTarget(null)} /> : null}
+      {historyTarget ? <QuoteHistorySheet focus={focus} target={historyTarget} onClose={() => setHistoryTarget(null)} /> : null}
       {latestRefreshing && <SyncWorkDetails items={activeRefresh.progress} />}
       {!activeRefresh.isError && result && (
         <RefreshResults

@@ -144,6 +144,7 @@ func (s *Service) Portfolio(ctx context.Context, request account.AccountFilterRe
 
 // NetWorthTrendPointDTO mirrors domain.NetWorthTrendPoint.
 type NetWorthTrendPointDTO struct {
+	Current      bool                  `json:"current"`
 	LocalDate    string                `json:"localDate"`
 	NetWorth     *wire.SignedMoneyView `json:"netWorth,omitempty"`
 	Assets       *wire.MoneyView       `json:"assets,omitempty"`
@@ -155,12 +156,16 @@ type NetWorthTrendPointDTO struct {
 
 // NetWorthTrendDTO mirrors domain.NetWorthTrend.
 type NetWorthTrendDTO struct {
-	Range    string                  `json:"range"`
-	Currency string                  `json:"currency"`
-	Points   []NetWorthTrendPointDTO `json:"points"`
-	Start    *wire.SignedMoneyView   `json:"start,omitempty"`
-	End      *wire.SignedMoneyView   `json:"end,omitempty"`
-	Change   *wire.SignedMoneyView   `json:"change,omitempty"`
+	StartDate     string                  `json:"startDate"`
+	EndDate       string                  `json:"endDate"`
+	Complete      bool                    `json:"complete"`
+	SummaryReason string                  `json:"summaryReason,omitempty"`
+	Range         string                  `json:"range"`
+	Currency      string                  `json:"currency"`
+	Points        []NetWorthTrendPointDTO `json:"points"`
+	Start         *wire.SignedMoneyView   `json:"start,omitempty"`
+	End           *wire.SignedMoneyView   `json:"end,omitempty"`
+	Change        *wire.SignedMoneyView   `json:"change,omitempty"`
 }
 
 func fromNetWorthTrend(result domain.NetWorthTrend) NetWorthTrendDTO {
@@ -168,6 +173,7 @@ func fromNetWorthTrend(result domain.NetWorthTrend) NetWorthTrendDTO {
 	for _, point := range result.Points {
 		points = append(points, NetWorthTrendPointDTO{
 			LocalDate:    point.LocalDate,
+			Current:      point.Current,
 			NetWorth:     wire.FromSignedMoneyPtr(point.NetWorth),
 			Assets:       wire.FromMoneyPtr(point.Assets),
 			Liabilities:  wire.FromMoneyPtr(point.Liabilities),
@@ -183,6 +189,7 @@ func fromNetWorthTrend(result domain.NetWorthTrend) NetWorthTrendDTO {
 	}
 	return NetWorthTrendDTO{
 		Range: string(result.Range), Currency: result.Currency.String(), Points: points,
+		StartDate: result.StartDate, EndDate: result.EndDate, Complete: result.Complete, SummaryReason: result.SummaryReason,
 		Start: wire.FromSignedMoneyPtr(result.Start), End: wire.FromSignedMoneyPtr(result.End), Change: change,
 	}
 }
