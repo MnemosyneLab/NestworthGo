@@ -17,7 +17,7 @@ or visual prototype bundles.
 | Architecture | [Data and Application Contracts](architecture/data-and-ipc-contracts.md) | SQLite, transactions, serialization, recovery, and providers |
 | Design | [Account Container Interaction](design/account-container-interaction.md) | Current Account creation, detail, action, and accessibility behavior |
 | Design | [History and Form Defaults](design/history-and-form-defaults-ux.md) | Current history, picker, calculation, and form-state behavior |
-| Design | [Backup, Restore, and CSV Portability](design/backup-restore-and-csv-portability.md) | Implemented backup, restore, and CSV workflows |
+| Design | [Backup, Restore, and JSON Export](design/backup-restore-and-json-export.md) | Implemented backup, restore, and JSON export |
 | Design | [Visual Analytics and Market History](design/visual-analytics-and-market-history.md) | Implemented chart surfaces and planned historical-series work |
 | Design | [Analytics redesign](design/analytics/analytics-redesign-architecture.md) | Return Analysis and Asset Changes kernel, projections, and golden cases |
 | Design | [Monthly review and data confidence](design/monthly-review-and-data-confidence.md) | Planned as-of review loop; not in the current release |

@@ -68,7 +68,7 @@ func holdWrite(t *testing.T, service *Service) (release func()) {
 func TestWithExclusiveRejectsOverlap(t *testing.T) {
 	service, ctx, _, _ := newOnboardedService(t, "exclusive", []string{"Alice"})
 	release := holdExclusive(t, service, ExclusiveBackup)
-	if err := service.WithExclusive(ctx, ExclusiveCSV, func(context.Context) error { return nil }); !isBackupRestoreBusy(err) {
+	if err := service.WithExclusive(ctx, ExclusiveBackup, func(context.Context) error { return nil }); !isBackupRestoreBusy(err) {
 		t.Fatalf("overlapping exclusive = %v, want backup_restore_busy", err)
 	}
 	release()
@@ -147,43 +147,6 @@ func TestExclusiveRestoreRejectsMutationBeforeDatabaseClose(t *testing.T) {
 	}
 	if err := <-done; err != nil {
 		t.Fatal(err)
-	}
-}
-
-func TestCSVCommitAndOrdinaryWriteAreMutuallyExclusive(t *testing.T) {
-	service, ctx, _, _ := newOnboardedService(t, "exclusive-csv", []string{"Alice"})
-	table := parseCSVTable(t, "account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-08-01,Alice:100%\n")
-	plan, err := service.BuildCSVImportPlan(ctx, CSVProfileAccounts, table, nil, CSVParseOptions{DateFormat: CSVDateISO, DecimalSep: ".", GroupingSep: "none"}, nil)
-	if err != nil || len(plan.Errors) != 0 {
-		t.Fatalf("plan err=%v errors=%+v", err, plan.Errors)
-	}
-
-	releaseWrite := holdWrite(t, service)
-	csvDone := make(chan error, 1)
-	go func() {
-		_, commitErr := service.CommitCSVImport(ctx, plan)
-		csvDone <- commitErr
-	}()
-	select {
-	case commitErr := <-csvDone:
-		t.Fatalf("CSV commit finished while an ordinary write was held: %v", commitErr)
-	case <-time.After(50 * time.Millisecond):
-	}
-	if _, err := service.CreateGroup(ctx, "Blocked"); !isBackupRestoreBusy(err) {
-		t.Fatalf("overlapping ordinary write = %v, want backup_restore_busy", err)
-	}
-	releaseWrite()
-	select {
-	case commitErr := <-csvDone:
-		if commitErr != nil {
-			t.Fatalf("CSV commit: %v", commitErr)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("CSV commit did not obtain the exclusive gate")
-	}
-	records, err := service.ListAccounts(ctx, domain.AccountFilter{})
-	if err != nil || len(records) != 1 {
-		t.Fatalf("imported accounts = %+v, err=%v", records, err)
 	}
 }
 

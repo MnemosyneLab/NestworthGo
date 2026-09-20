@@ -4,7 +4,7 @@
 - Status: **Planned**. This document is not an implementation claim.
 - Prerequisite: Insights (Return Analysis and Asset Changes) is in use, correctness regressions stay covered by tests, and the named desktop gates on the current release line are closed or explicitly accepted
 - Scope: a personal, local-first monthly maintenance loop. It does not add multi-user, cloud, or commercial requirements.
-- Companions: [Analytics architecture](analytics/analytics-redesign-architecture.md), [Backup, restore, and CSV](backup-restore-and-csv-portability.md), [Product vision](../product/product-vision.md)
+- Companions: [Analytics architecture](analytics/analytics-redesign-architecture.md), [Backup, restore, and JSON export](backup-restore-and-json-export.md), [Product vision](../product/product-vision.md)
 
 Insights answers what happened. This increment helps the user finish a trustworthy maintenance pass:
 
@@ -14,7 +14,7 @@ The first version is not a mandatory month-end task, not daily bookkeeping, and 
 
 ## 1. What to add
 
-Reuse the analysis kernel, History Origin / closed-day snapshots, existing Preview/Record/Fix paths, backup status, and create-only Accounts/Holdings CSV. Do not add a second financial engine. Bank-statement matching is a later, separate plan.
+Reuse the analysis kernel, History Origin / closed-day snapshots, existing Preview/Record/Fix paths, backup status, and structured JSON export. Do not add a second financial engine. Bank-statement matching is a later, separate plan.
 
 New capabilities:
 
@@ -167,7 +167,7 @@ A spanning fixture includes two currencies, cash, the same instrument in two acc
 
 Not delivery criteria for this increment. Priority depends on the largest friction after one real monthly review.
 
-- **Institution import and matching** when manual statements dominate time. Keep current Accounts/Holdings CSV create-only. Fuzzy matches are candidates, never silent merges.
+- **Institution import and matching** when manual statements dominate time. JSON export is outbound only; any future institution importer needs a separate contract. Fuzzy matches are candidates, never silent merges.
 - **Asset usability** (ready cash, needs sale, locked, not for sale) as user-set attributes that do not change book value.
 - **Deterministic monthly summary** from Go amounts and coverage, with residuals and partial periods kept. Optional Markdown export; no LLM.
 - **Search and saved views** for scope and period, separate from review evidence and Insights session filters.

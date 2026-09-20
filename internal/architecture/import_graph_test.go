@@ -34,12 +34,10 @@ func TestImportGraph(t *testing.T) {
 	assertNoImports(t, dataDir, "internal/wailsapi/data", []string{
 		"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite",
 		"github.com/waltwang/nestworth-go/internal/infrastructure/backup",
-		"github.com/waltwang/nestworth-go/internal/infrastructure/csvcodec",
 	})
 	assertNoImports(t, recoveryDir, "internal/wailsapi/recovery", []string{
 		"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite",
 		"github.com/waltwang/nestworth-go/internal/infrastructure/backup",
-		"github.com/waltwang/nestworth-go/internal/infrastructure/csvcodec",
 	})
 }
 

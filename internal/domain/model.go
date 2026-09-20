@@ -57,15 +57,6 @@ const (
 	ErrBackupRestoreBusy           ErrorCode = "backup_restore_busy"
 	ErrBackupRestoreSwapFailed     ErrorCode = "backup_restore_swap_failed"
 	ErrBackupRestoreRollbackFailed ErrorCode = "backup_restore_rollback_failed"
-	ErrCSVInvalidEncoding          ErrorCode = "csv_invalid_encoding"
-	ErrCSVInvalidFormat            ErrorCode = "csv_invalid_format"
-	ErrCSVMappingRequired          ErrorCode = "csv_mapping_required"
-	ErrCSVMappingConflict          ErrorCode = "csv_mapping_conflict"
-	ErrCSVRowInvalid               ErrorCode = "csv_row_invalid"
-	ErrCSVReferenceUnresolved      ErrorCode = "csv_reference_unresolved"
-	ErrCSVDuplicate                ErrorCode = "csv_duplicate"
-	ErrCSVLimitExceeded            ErrorCode = "csv_limit_exceeded"
-	ErrCSVCommitFailed             ErrorCode = "csv_commit_failed"
 )
 
 // Error is safe to expose to the UI; database details stay below this boundary.

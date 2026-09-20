@@ -17,7 +17,7 @@ The application currently provides:
   Return Analysis, and Asset Changes;
 - Settings for language, appearance, display formats, window state, and FX
   provider selection;
-- Local backup/restore and Accounts/Holdings CSV import/export;
+- Local backup/restore and structured JSON data export;
 - Gold/silver templates with explicit weight units and converted reference prices;
 - Crypto pricing through CoinGecko, instrument search, and detailed repair progress.
 

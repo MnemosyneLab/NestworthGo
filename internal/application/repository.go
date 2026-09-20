@@ -17,7 +17,7 @@ type Repository interface {
 	HistoryRepository
 	SnapshotRepository
 	DatabaseAdminRepository
-	CSVImportRepository
+	ExportRepository
 }
 
 // DirectoryRepository owns Household, Members, Institutions, Groups, and
@@ -166,7 +166,7 @@ type DatabaseAdminRepository interface {
 	PreviewCounts(context.Context) (accounts, holdings, activities int, err error)
 }
 
-// CSVImportRepository writes a create-only import plan in one transaction.
-type CSVImportRepository interface {
-	CommitCSVImport(context.Context, domain.CSVImportBatch) error
+// ExportRepository captures export facts and calculation inputs in one read transaction.
+type ExportRepository interface {
+	ReadExportSnapshot(context.Context) (domain.ExportSnapshot, error)
 }

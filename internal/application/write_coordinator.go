@@ -16,7 +16,6 @@ type ExclusiveKind string
 const (
 	ExclusiveBackup  ExclusiveKind = "backup"
 	ExclusiveRestore ExclusiveKind = "restore"
-	ExclusiveCSV     ExclusiveKind = "csv"
 )
 
 type writePermitKey struct{}
@@ -33,8 +32,8 @@ type writePermit struct {
 //  2. Service.changeMu (ledger read-modify-write only)
 //  3. SQLite transaction
 //
-// Ordinary mutations enter through WithWrite / beginWrite. Backup, Restore,
-// and CSV commit enter through WithExclusive. Starting exclusive work fences
+// Ordinary mutations enter through WithWrite / beginWrite. Backup and restore
+// enter through WithExclusive. Starting exclusive work fences
 // in-flight refresh persistence by incrementing Service.refreshEpoch so a
 // late provider result cannot write after exclusive work has begun.
 type WriteCoordinator struct {
@@ -49,7 +48,7 @@ func (c *WriteCoordinator) init() {
 }
 
 func backupRestoreBusy() error {
-	return &domain.Error{Code: domain.ErrBackupRestoreBusy, Message: "a backup, restore, or import is already in progress"}
+	return &domain.Error{Code: domain.ErrBackupRestoreBusy, Message: "a backup or restore is already in progress"}
 }
 
 func permitFrom(ctx context.Context) *writePermit {
@@ -177,8 +176,8 @@ func (s *Service) WithWrite(ctx context.Context, fn func(context.Context) error)
 	return fn(ctx)
 }
 
-// WithExclusive runs fn with the exclusive permit used by backup, Restore,
-// and CSV commit. A second exclusive caller receives backup_restore_busy.
+// WithExclusive runs fn with the exclusive permit used by backup and restore
+// operations. A second exclusive caller receives backup_restore_busy.
 // In-flight ordinary writers are allowed to finish; new ordinary writers
 // receive backup_restore_busy without waiting on SQLite's busy timeout.
 func (s *Service) WithExclusive(ctx context.Context, kind ExclusiveKind, fn func(context.Context) error) error {

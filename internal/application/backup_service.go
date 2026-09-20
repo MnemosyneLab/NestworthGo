@@ -95,30 +95,6 @@ func (s *Service) LastBackupStatus() (BackupStatus, bool, error) {
 	return status, true, nil
 }
 
-func (s *Service) ExportCSVBytes(ctx context.Context, profile string, includeArchived bool) ([]byte, int, error) {
-	codec, err := s.requireCSV()
-	if err != nil {
-		return nil, 0, err
-	}
-	var data []byte
-	switch strings.ToLower(profile) {
-	case CSVProfileAccounts:
-		data, err = s.ExportAccountsCSV(ctx, includeArchived)
-	case CSVProfileHoldings:
-		data, err = s.ExportHoldingsCSV(ctx, includeArchived)
-	default:
-		return nil, 0, &domain.Error{Code: domain.ErrCSVInvalidFormat, Message: "CSV profile is not supported"}
-	}
-	if err != nil {
-		return nil, 0, err
-	}
-	table, err := codec.Parse(data, ',')
-	if err != nil {
-		return nil, 0, err
-	}
-	return data, len(table.Rows), nil
-}
-
 func (s *Service) WriteExportFile(path string, data []byte) error {
 	runtime, err := s.requireBackup()
 	if err != nil {

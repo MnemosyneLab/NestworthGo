@@ -194,7 +194,6 @@ func run() error {
 	var dataService *wailsdata.Service
 	if service != nil {
 		dataService = wailsdata.NewService(service, store, platform, marketdataService)
-		defer dataService.Shutdown()
 	}
 	app := application.New(application.Options{
 		Name:        version.Name,

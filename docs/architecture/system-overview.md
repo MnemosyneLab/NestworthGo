@@ -9,7 +9,7 @@ provides typed domain contracts, SQLite bootstrap with current schema `10`
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
 currency decomposition, Return Analysis, Asset Changes, exact valuation, explicit
-Yahoo/Frankfurter refresh routing, local backup/restore, and CSV portability.
+Yahoo/Frankfurter refresh routing, local backup/restore, and structured JSON export.
 The React UI renders application results through `internal/wailsapi` DTOs; it
 does not open SQLite, call HTTP, or recalculate financial totals.
 

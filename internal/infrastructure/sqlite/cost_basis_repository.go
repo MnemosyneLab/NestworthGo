@@ -158,11 +158,15 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 	return event, nil
 }
 func (r *Repository) StartingPointCost(ctx context.Context, holdingID domain.HoldingID, filter domain.CostBasisReadFilter) (*domain.UnitPrice, error) {
+	return startingPointCostQuery(ctx, r.database.SQL, holdingID, filter.IncludeArchivedHoldings)
+}
+
+func startingPointCostQuery(ctx context.Context, query queryer, holdingID domain.HoldingID, includeArchivedHoldings bool) (*domain.UnitPrice, error) {
 	archiveClause := " AND h.archived_at IS NULL"
-	if filter.IncludeArchivedHoldings {
+	if includeArchivedHoldings {
 		archiveClause = ""
 	}
-	rows, err := r.database.SQL.QueryContext(ctx, `
+	rows, err := query.QueryContext(ctx, `
 		SELECT c.quantity, c.unit_cost
 		FROM history_origin_components c
 		JOIN history_origins o ON o.id = c.origin_id

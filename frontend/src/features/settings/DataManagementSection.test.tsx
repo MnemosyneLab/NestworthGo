@@ -1,27 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { DataManagementSection } from "./DataManagementSection";
 
-const lastBackupStatus = vi.fn();
-const selectCSV = vi.fn();
-const previewCSV = vi.fn();
-const confirmCSV = vi.fn();
-const cancelCSV = vi.fn();
-
+const exportJSON = vi.fn();
+const success = vi.fn();
+const errorToast = vi.fn();
+vi.mock("sonner", () => ({ toast: { success: (...args: unknown[]) => success(...args), error: (...args: unknown[]) => errorToast(...args) } }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/data", () => ({
   Service: {
-    LastBackupStatus: () => lastBackupStatus(),
+    LastBackupStatus: () => Promise.resolve({ available: false }),
     CreateBackup: () => Promise.resolve({ cancelled: true }),
-    ExportCSV: () => Promise.resolve({ cancelled: true }),
-    SelectCSV: (...args: unknown[]) => selectCSV(...args),
-    PreviewCSV: (...args: unknown[]) => previewCSV(...args),
-    ConfirmCSV: (...args: unknown[]) => confirmCSV(...args),
-    CancelCSV: (...args: unknown[]) => cancelCSV(...args),
-    CommitCSV: () => Promise.resolve({ createAccounts: 0, createHoldings: 0 }),
-    DownloadCSVErrors: () => Promise.resolve({ cancelled: true }),
+    ExportJSON: () => exportJSON(),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery", () => ({
@@ -30,51 +22,38 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/re
     ConfirmRestore: () => Promise.resolve({ restartRequired: false }),
   },
 }));
-
 function renderSection() {
-  const queryClient = createTestQueryClient({ retry: false });
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <DataManagementSection />
-    </QueryClientProvider>,
-  );
+  return render(<QueryClientProvider client={createTestQueryClient({ retry: false })}><DataManagementSection /></QueryClientProvider>);
 }
-
-beforeEach(() => {
-  lastBackupStatus.mockReset();
-  selectCSV.mockReset();
-  previewCSV.mockReset();
-  confirmCSV.mockReset();
-  cancelCSV.mockReset();
-  lastBackupStatus.mockResolvedValue({ available: false });
-});
-
-describe("DataManagementSection CSV mapping", () => {
-  it("keeps Accounts mapping after a Holdings file is added", async () => {
-    selectCSV
-      .mockResolvedValueOnce({
-        cancelled: false,
-        token: "csv-1",
-        profile: "accounts",
-        delimiter: "comma",
-        headers: ["account_name", "account_type", "balance_sheet_role", "tracking_mode", "currency", "current_value", "value_date", "ownership"],
-      })
-      .mockResolvedValueOnce({
-        cancelled: false,
-        token: "csv-1",
-        profile: "holdings",
-        delimiter: "comma",
-        headers: ["account_name", "instrument_type", "instrument_name", "quantity", "quote_currency"],
-      });
+beforeEach(() => { exportJSON.mockReset(); success.mockReset(); errorToast.mockReset(); });
+describe("Data export", () => {
+  it("exports directly and prevents duplicate exports while saving", async () => {
+    let finish!: (result: { fileName: string; cancelled: boolean }) => void;
+    exportJSON.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
     renderSection();
-    await userEvent.click(await screen.findByRole("button", { name: "Import / Export CSV" }));
-    const dialog = await screen.findByRole("alertdialog");
-    await userEvent.click(within(dialog).getByRole("button", { name: /Import · Accounts/ }));
-    expect(await within(dialog).findByLabelText("account_name")).toHaveValue("account_name");
-    await userEvent.click(within(dialog).getByRole("button", { name: "Holdings" }));
-    expect(await within(dialog).findByLabelText("instrument_name")).toHaveValue("instrument_name");
-    await userEvent.selectOptions(within(dialog).getByLabelText("Column mapping"), "accounts");
-    expect(within(dialog).getByLabelText("account_name")).toHaveValue("account_name");
-    expect(within(dialog).queryByLabelText("instrument_name")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back up data" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restore from backup" })).toBeInTheDocument();
+    expect(screen.queryByText(/CSV/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Export data" }));
+    expect(screen.getByRole("button", { name: "Exporting…" })).toBeDisabled();
+    expect(exportJSON).toHaveBeenCalledTimes(1);
+    await act(async () => finish({ cancelled: false, fileName: "Nestworth.nestworth.json" }));
+    await waitFor(() => expect(success).toHaveBeenCalledWith("Exported to Nestworth.nestworth.json"));
+    expect(screen.getByRole("button", { name: "Export data" })).toBeEnabled();
+  });
+  it("does not report success for a cancelled save", async () => {
+    exportJSON.mockResolvedValue({ cancelled: true });
+    renderSection();
+    await userEvent.click(screen.getByRole("button", { name: "Export data" }));
+    await waitFor(() => expect(exportJSON).toHaveBeenCalledTimes(1));
+    expect(success).not.toHaveBeenCalled();
+  });
+  it("reports a failed export and permits retry", async () => {
+    exportJSON.mockRejectedValue(new Error("Cannot save export"));
+    renderSection();
+    await userEvent.click(screen.getByRole("button", { name: "Export data" }));
+    await waitFor(() => expect(errorToast).toHaveBeenCalled());
+    expect(success).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Export data" })).toBeEnabled();
   });
 });

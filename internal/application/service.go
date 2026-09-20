@@ -23,7 +23,6 @@ type Service struct {
 	stateMu       sync.RWMutex
 	now           func() time.Time
 	marketData    MarketDataRegistryPort
-	csvCodec      CSVCodecPort
 	backup        BackupRuntime
 	liveDBPath    string
 	fxProviderKey string
@@ -34,9 +33,6 @@ type Service struct {
 
 	writes       WriteCoordinator
 	refreshEpoch atomic.Uint64
-
-	csvMu       sync.Mutex
-	csvSessions map[string]*csvImportSession
 
 	lastSuccessfulCheck map[string]time.Time
 
@@ -51,7 +47,7 @@ type Service struct {
 }
 
 func NewService(repository Repository, registries ...MarketDataRegistryPort) *Service {
-	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, csvSessions: map[string]*csvImportSession{}, lastSuccessfulCheck: map[string]time.Time{}, syncJobs: map[string]*syncJobState{}}
+	service := &Service{repository: repository, now: time.Now, quoteCacheTTL: 12 * time.Hour, lastSuccessfulCheck: map[string]time.Time{}, syncJobs: map[string]*syncJobState{}}
 	service.writes.init()
 	service.valuation = NewValuationService(repository, service.clock)
 	service.gain = NewGainService(repository, service.clock)

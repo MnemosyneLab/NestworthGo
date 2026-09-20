@@ -48,7 +48,7 @@ Compatibility is rechecked on the writable connection before schema or business 
 The current schema implements Household, Member, Institution, Group,
 Account, Ownership, Account Value, Instrument, Holding, Account
 Cash Value, Instrument Quote, FX Quote, FX Preference, History Origin, Activity,
-snapshot, and dirty-state persistence. Local backup/restore and CSV import/export
+snapshot, and dirty-state persistence. Local backup/restore and JSON export
 are application-owned sidecar and file workflows; they do not add business schema
 tables.
 
@@ -203,7 +203,7 @@ Named ranges such as `30d` and `ytd` are UI presets that clamp to History
 Origin; they are not a second query language. Range readers are the canonical
 path for custom dates.
 
-## Backup, restore, and CSV IPC
+## Backup, restore, and JSON export IPC
 
 `RecoveryService` is always bound, including when the business database could
 not be opened. `DataService` is bound only when a live database session exists.
@@ -212,9 +212,9 @@ Backup writes a `.nestworth-backup` ZIP (`manifest.json`, `database.sqlite`,
 `settings.json`) using `VACUUM INTO`, then stores a filename-only summary in
 `.nestworth-backup-status.json` next to the live database. Restore verifies the
 package, replaces the live SQLite file group through a journaled swap, quits,
-and finishes verification on the next launch. CSV import/export is create-only
-for Accounts and Holdings, with preview and an all-or-nothing commit. CSV is
-not a backup substitute.
+and finishes verification on the next launch. JSON export exposes the complete
+structured business dataset and a derived current summary through `DataService.ExportJSON()`. It has no import path and is not a
+backup substitute. See the [export contract](../design/json-export-format.md).
 
 ## Account persistence and recovery details
 
@@ -241,11 +241,9 @@ backup has the fixed members `manifest.json`, `database.sqlite`, and
 checksums, schema, foreign keys, and integrity before replacement. Restore uses
 a journaled file-group swap and rolls back an incomplete replacement. The
 Tiingo key follows the local settings JSON backup/restore policy and is not
-stored in SQLite. CSV
-Accounts and Holdings imports are create-only: mapping and preview happen
-before one atomic commit, and observation dates remain explicit input rather
-than silently using the current time. The detailed user flow and stable error
-surface live in [Backup, restore, and CSV portability](../design/backup-restore-and-csv-portability.md).
+stored in SQLite. JSON export reads the complete dataset and summary inputs from
+one read transaction, excludes settings and credentials, and writes a versioned
+file atomically. See [Backup, restore, and JSON export](../design/backup-restore-and-json-export.md).
 
 ## Error contract
 
@@ -258,7 +256,6 @@ Application errors should be grouped into stable categories such as:
 - invalid Activity, insufficient balance/quantity, or correction conflict
 - unavailable provider, rate limit, malformed provider response
 - backup format, checksum, schema, restore confirmation, and restore swap
-- CSV encoding, mapping, row, duplicate, limit, and commit failures
 - internal error
 
 Detailed database/driver errors stay in local diagnostics. They must not be
@@ -307,7 +304,7 @@ use Yahoo `GC=F`/`SI=F` USD-per-troy-ounce futures references. Go converts to
 the instrument currency and divides by `31.1034768` for grams, rounding only
 at the existing unit-price boundary. Missing FX or prices remain unavailable.
 Historical conversion uses eligible historical FX, never today's rate.
-CSV preserves template/unit identity; manual prices already use the target unit.
+JSON export preserves template/unit identity; manual prices already use the target unit.
 
 CoinGecko uses exact coin IDs separately from display tickers. Its local Demo
 key is not returned by settings DTOs. Daily points retain their UTC reference

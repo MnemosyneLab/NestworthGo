@@ -7,48 +7,16 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as application$0 from "../../application/models.js";
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as $models from "./models.js";
-
-export function CancelCSV(token: string): $CancellablePromise<void> {
-    return $Call.ByID(3543466074, token);
-}
-
-export function CommitCSV(token: string): $CancellablePromise<application$0.CSVPreviewStats> {
-    return $Call.ByID(3351620791, token);
-}
-
-export function ConfirmCSV(token: string): $CancellablePromise<$models.CSVConfirmDTO> {
-    return $Call.ByID(1210802520, token);
-}
 
 export function CreateBackup(): $CancellablePromise<$models.BackupResultDTO> {
     return $Call.ByID(1821922794);
 }
 
-export function DownloadCSVErrors(token: string): $CancellablePromise<$models.CSVErrorFileDTO> {
-    return $Call.ByID(675505175, token);
-}
-
-export function ExportCSV(profile: string, includeArchived: boolean): $CancellablePromise<$models.CSVExportResultDTO> {
-    return $Call.ByID(2071441958, profile, includeArchived);
+export function ExportJSON(): $CancellablePromise<$models.ExportResultDTO> {
+    return $Call.ByID(3983426512);
 }
 
 export function LastBackupStatus(): $CancellablePromise<$models.BackupStatusDTO> {
     return $Call.ByID(3491009104);
-}
-
-export function PreviewCSV(request: $models.CSVOptionsRequest): $CancellablePromise<$models.CSVPreviewDTO> {
-    return $Call.ByID(4256978828, request);
-}
-
-export function SelectCSV(profile: string, sessionToken: string): $CancellablePromise<$models.CSVFileDTO> {
-    return $Call.ByID(2017694592, profile, sessionToken);
-}
-
-export function Shutdown(): $CancellablePromise<void> {
-    return $Call.ByID(4210966938);
 }

@@ -54,8 +54,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/da
   Service: {
     LastBackupStatus: () => Promise.resolve({ available: false }),
     CreateBackup: () => Promise.resolve({ cancelled: true }),
-    ExportCSV: () => Promise.resolve({ cancelled: true }),
-    SelectCSV: () => Promise.resolve({ cancelled: true }),
+    ExportJSON: () => Promise.resolve({ cancelled: true }),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery", () => ({
@@ -149,7 +148,7 @@ describe("SettingsPage", () => {
     expect(await screen.findByRole("heading", { name: "Data management" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Back up data" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Restore from backup" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Import / Export CSV" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export data" })).toBeInTheDocument();
   });
 
   it("renders appearance and language options from the catalog only", async () => {

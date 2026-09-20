@@ -6,6 +6,11 @@ All notable changes to Nestworth are recorded here.
 
 ### Changed
 
+- Replaced CSV import/export with a versioned JSON export for external apps and
+  scripts. Includes archived entities, full business and market history, and a
+  current balance/holding/cost summary with explicit missing-value states.
+  Removed CSV import and mapping; backup and restore remain the recovery path.
+
 - Asset Changes opens with daily Asset Trend. Trend and Change Drivers show shared
   backend-calculated period values and percentage change, with explicit unavailable
   reasons and a cash-flow-versus-return explanation.

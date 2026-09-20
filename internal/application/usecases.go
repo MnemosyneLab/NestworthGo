@@ -87,20 +87,13 @@ type HistoryService interface {
 	FixChange(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (domain.ChangePreview, error)
 }
 
-// ImportExportService is the backup and CSV orchestration use case.
-type ImportExportService interface {
+// DataExportService is the backup and JSON export orchestration use case.
+type DataExportService interface {
 	CreateBackup(ctx context.Context, destPath string, settingsJSON []byte) (BackupCreateResult, error)
 	DefaultBackupFileName() string
 	LastBackupStatus() (BackupStatus, bool, error)
-	ExportCSVBytes(ctx context.Context, profile string, includeArchived bool) ([]byte, int, error)
+	ExportJSONBytes(ctx context.Context) ([]byte, error)
 	WriteExportFile(path string, data []byte) error
-	SelectCSV(profile, sessionToken, fileName string, data []byte) (CSVFileSelection, error)
-	PreviewCSV(ctx context.Context, request CSVPreviewRequest) (CSVPreviewView, error)
-	ConfirmCSV(token string) error
-	CommitCSV(ctx context.Context, token string) (CSVPreviewStats, error)
-	CSVErrorReport(token string) ([]byte, error)
-	CancelCSV(token string)
-	ShutdownCSV()
 }
 
 // RecoveryService is the Restore inspect/confirm use case. It is implemented
@@ -112,11 +105,11 @@ type RecoveryService interface {
 }
 
 var (
-	_ DirectoryService    = (*Service)(nil)
-	_ LedgerService       = (*Service)(nil)
-	_ ValuationUseCase    = (*Service)(nil)
-	_ AnalysisUseCase     = (*Service)(nil)
-	_ HistoryService      = (*Service)(nil)
-	_ ImportExportService = (*Service)(nil)
-	_ RecoveryService     = (*Recovery)(nil)
+	_ DirectoryService  = (*Service)(nil)
+	_ LedgerService     = (*Service)(nil)
+	_ ValuationUseCase  = (*Service)(nil)
+	_ AnalysisUseCase   = (*Service)(nil)
+	_ HistoryService    = (*Service)(nil)
+	_ DataExportService = (*Service)(nil)
+	_ RecoveryService   = (*Recovery)(nil)
 )

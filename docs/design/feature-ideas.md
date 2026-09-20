@@ -115,7 +115,7 @@ cursor:
 
 ### 15. 导出 History 与 Insights，而不只是账户表
 
-**今天：** CSV 出得去的是账户和持仓快照。Activities、归因瀑布、收益日历都没有导出。备份是整库二进制，不适合贴进表格。
+**今天：** JSON 可导出账户、持仓定义、完整业务历史、行情和当前状态摘要。归因瀑布、收益日历尚无专用报表导出。备份用于整库恢复。
 
 **仍待设计：** 导出必须带 scope、显示货币、计算口径、完整性（complete / partial / unavailable）。缺数不能被写成 0。这不是报税底稿。
 
@@ -228,7 +228,7 @@ cursor:
 
 ### 4. 导入真实流水：统一模板，而不是 Record API 的批包装
 
-**今天：** CSV 只能创建 Accounts 和 Holdings。History 要一条条 `buy` / `sell` / `cash_in` / `cash_dividend` / `cash_transfer`…… Preview、Record、Fix、Undo、请求级幂等已经是完整契约。备份能带走全部 activities，表格进不来。
+**今天：** 已移除 CSV，JSON 仅支持导出。History 要一条条 `buy` / `sell` / `cash_in` / `cash_dividend` / `cash_transfer`…… Preview、Record、Fix、Undo、请求级幂等已经是完整契约。备份能带走全部 activities，表格进不来。
 
 **仍待设计（导入是新设计，不是现有 Record 的 for 循环）：**
 
@@ -379,7 +379,7 @@ cursor:
 
 ### 20. 流动性：先定义口径，再谈应急月数
 
-**今天：** `includeInLiquidAssets` 已按账户类型给默认值，写入 schema 和 CSV，但没有任何页面汇总它。账户级布尔值表达不了一笔账户里同时有现金、股票和锁定期。
+**今天：** `includeInLiquidAssets` 已按账户类型给默认值，写入 schema 和 JSON 导出，但没有任何页面汇总它。账户级布尔值表达不了一笔账户里同时有现金、股票和锁定期。
 
 **仍待设计：** “能用的钱”要先有命名口径（哪些现金、哪些持仓要卖、哪些锁定）。应急月数还依赖可靠的必要支出基数——Categories 里的 spending 不是自动的“生活必需”。账户级 flag 不能表达账户内部结构。
 

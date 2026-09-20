@@ -8,13 +8,12 @@ import (
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
-	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
-func TestBackupAndCSVImportWithoutWails(t *testing.T) {
-	service, ctx := newWiredService(t, "backup-csv-ports", []string{"Alice"})
+func TestBackupWithoutWails(t *testing.T) {
+	service, ctx := newWiredService(t, "backup-ports", []string{"Alice"})
 	dest := filepath.Join(t.TempDir(), "household.nestworth-backup")
 	created, err := service.CreateBackup(ctx, dest, []byte("{}\n"))
 	if err != nil {
@@ -31,34 +30,6 @@ func TestBackupAndCSVImportWithoutWails(t *testing.T) {
 		t.Fatalf("status available=%v err=%v %+v", available, err, status)
 	}
 
-	csv := []byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-08-01,Alice:100%\n")
-	selected, err := service.SelectCSV(application.CSVProfileAccounts, "", "accounts.csv", csv)
-	if err != nil {
-		t.Fatal(err)
-	}
-	preview, err := service.PreviewCSV(ctx, application.CSVPreviewRequest{
-		Token: selected.Token, Profile: application.CSVProfileAccounts, DateFormat: application.CSVDateISO, DecimalSep: ".", GroupingSep: "none",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !preview.CanCommit {
-		t.Fatalf("preview errors: %+v", preview.Errors)
-	}
-	if err := service.ConfirmCSV(selected.Token); err != nil {
-		t.Fatal(err)
-	}
-	stats, err := service.CommitCSV(ctx, selected.Token)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if stats.CreateAccounts != 1 {
-		t.Fatalf("stats = %+v", stats)
-	}
-	accounts, err := service.ListAccounts(ctx, domain.AccountFilter{})
-	if err != nil || len(accounts) != 1 || accounts[0].Account.Name != "Checking" {
-		t.Fatalf("accounts = %+v err=%v", accounts, err)
-	}
 }
 
 func TestRestorePreviewExpiresAndDeletesStagedFile(t *testing.T) {

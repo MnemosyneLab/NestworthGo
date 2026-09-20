@@ -2,12 +2,12 @@ package data
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/waltwang/nestworth-go/internal/application"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/waltwang/nestworth-go/internal/application"
-	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/native"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
@@ -33,17 +33,6 @@ func TestCreateBackupCancel(t *testing.T) {
 	}
 }
 
-func TestSelectCSVCancel(t *testing.T) {
-	service := NewService(nil, nil, memoryDialogs{}, nil)
-	result, err := service.SelectCSV("accounts", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.Cancelled {
-		t.Fatal("empty open path should cancel")
-	}
-}
-
 func TestLastBackupStatusMissing(t *testing.T) {
 	service := NewService(nil, nil, nil, nil)
 	status, err := service.LastBackupStatus()
@@ -55,106 +44,59 @@ func TestLastBackupStatusMissing(t *testing.T) {
 	}
 }
 
-func TestCommitCSVRequiresPreviewAndConfirm(t *testing.T) {
+func TestExportJSONCancelAndReplaceDeclined(t *testing.T) {
 	app := wailstest.NewService(t)
-	if err := app.CompleteOnboarding(context.Background(), application.OnboardingInput{
-		HouseholdName: "H", BaseCurrency: "CNY", MemberNames: []string{"Alice"},
-	}); err != nil {
+	service := NewService(app, nil, memoryDialogs{}, nil)
+	result, err := service.ExportJSON()
+	if err != nil || !result.Cancelled {
+		t.Fatalf("cancel = %+v, %v", result, err)
+	}
+	path := filepath.Join(t.TempDir(), "existing.json")
+	if err := os.WriteFile(path, []byte("keep me"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(t.TempDir(), "accounts.csv")
-	if err := os.WriteFile(path, []byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nChecking,bank_account,asset,balance,CNY,10,2026-08-01,Alice:100%\n"), 0o600); err != nil {
-		t.Fatal(err)
+	service.dialogs = memoryDialogs{save: path}
+	result, err = service.ExportJSON()
+	if err != nil || !result.Cancelled {
+		t.Fatalf("decline = %+v, %v", result, err)
 	}
-	service := NewService(app, nil, memoryDialogs{open: path}, native.NoopRefresh{})
-	selected, err := service.SelectCSV("accounts", "")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := service.CommitCSV(selected.Token); err == nil {
-		t.Fatal("commit without preview should fail")
-	}
-	preview, err := service.PreviewCSV(CSVOptionsRequest{
-		Token: selected.Token, Profile: "accounts", DateFormat: "iso", DecimalSep: ".", GroupingSep: "none",
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !preview.CanCommit {
-		t.Fatalf("preview errors: %+v", preview.Errors)
-	}
-	if _, err := service.CommitCSV(selected.Token); err == nil {
-		t.Fatal("commit without confirm should fail")
-	}
-	if _, err := service.ConfirmCSV(selected.Token); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := service.CommitCSV(selected.Token); err != nil {
-		t.Fatal(err)
+	data, _ := os.ReadFile(path)
+	if string(data) != "keep me" {
+		t.Fatal("declined export replaced the existing file")
 	}
 }
 
-func TestPreviewCSVKeepsAccountsErrorsForSharedSession(t *testing.T) {
+func TestExportJSONWritesStructuredFile(t *testing.T) {
 	app := wailstest.NewService(t)
-	if err := app.CompleteOnboarding(context.Background(), application.OnboardingInput{
-		HouseholdName: "H", BaseCurrency: "CNY", MemberNames: []string{"Alice"},
-	}); err != nil {
+	if err := app.CompleteOnboarding(context.Background(), application.OnboardingInput{HouseholdName: "Export", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := app.CreateAccount(context.Background(), application.AccountInput{
-		Name: "Broker", AccountType: string(domain.TypeBrokerage), BalanceSheetRole: string(domain.RoleAsset),
-		TrackingMode: string(domain.TrackingHoldings), DefaultCurrency: "CNY", IncludeInNetWorth: true,
-		OwnerIDs: []domain.MemberID{mustMemberID(t, app)},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	accountsPath := filepath.Join(t.TempDir(), "accounts.csv")
-	if err := os.WriteFile(accountsPath, []byte("account_name,account_type,balance_sheet_role,tracking_mode,currency,current_value,value_date,ownership\nBroken,not-a-type,asset,balance,CNY,10,2026-08-01,Alice:100%\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	holdingsPath := filepath.Join(t.TempDir(), "holdings.csv")
-	if err := os.WriteFile(holdingsPath, []byte("account_name,instrument_type,instrument_name,quantity,quote_currency,unit_price,quote_date\nBroker,etf,QQQ,10,USD,400.12,2026-08-01\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	service := NewService(app, nil, memoryDialogs{open: accountsPath}, native.NoopRefresh{})
-	selected, err := service.SelectCSV("accounts", "")
+	path := filepath.Join(t.TempDir(), "export")
+	service := NewService(app, nil, memoryDialogs{save: path}, nil)
+	result, err := service.ExportJSON()
 	if err != nil {
 		t.Fatal(err)
 	}
-	service.dialogs = memoryDialogs{open: holdingsPath}
-	if _, err := service.SelectCSV("holdings", selected.Token); err != nil {
-		t.Fatal(err)
+	if result.Cancelled || result.FileName != "export.nestworth.json" {
+		t.Fatalf("result = %+v", result)
 	}
-	preview, err := service.PreviewCSV(CSVOptionsRequest{
-		Token: selected.Token, Profile: "holdings", DateFormat: "iso", DecimalSep: ".", GroupingSep: "none",
-		Unresolved: []application.CSVUnresolvedAction{{Kind: "instrument", Name: "QQQ", Action: application.CSVUnresolvedCreate}},
-	})
+	path += ".nestworth.json"
+	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if preview.CanCommit || len(preview.Errors) == 0 {
-		t.Fatalf("expected aggregated accounts errors, got %+v", preview)
+	var doc struct {
+		Format        string `json:"format"`
+		FormatVersion int    `json:"formatVersion"`
 	}
-	accountsPreview, err := service.PreviewCSV(CSVOptionsRequest{
-		Token: selected.Token, Profile: "accounts", DateFormat: "iso", DecimalSep: ".", GroupingSep: "none",
-		Unresolved: []application.CSVUnresolvedAction{{Kind: "instrument", Name: "QQQ", Action: "create"}},
-	})
-	if err != nil {
+	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if len(accountsPreview.Headers) == 0 || accountsPreview.Headers[0] != "account_name" || len(accountsPreview.PreviewRows) == 0 || accountsPreview.PreviewRows[0][0] != "Broken" {
-		t.Fatalf("accounts preview used the wrong file rows: %+v", accountsPreview)
+	if doc.Format != "com.nestworth.export" || doc.FormatVersion != 1 {
+		t.Fatalf("document = %+v", doc)
 	}
-	if _, err := service.ConfirmCSV(selected.Token); err == nil {
-		t.Fatal("confirm with errors should fail")
+	info, _ := os.Stat(path)
+	if info.Mode().Perm() != 0600 {
+		t.Fatalf("permissions = %v", info.Mode())
 	}
-}
-
-func mustMemberID(t *testing.T, app *application.Service) domain.MemberID {
-	t.Helper()
-	bootstrap, err := app.Bootstrap(context.Background())
-	if err != nil || len(bootstrap.Members) == 0 {
-		t.Fatalf("bootstrap: %v", err)
-	}
-	return bootstrap.Members[0].ID
 }

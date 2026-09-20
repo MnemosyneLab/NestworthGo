@@ -110,8 +110,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/data"
   Service: {
     LastBackupStatus: () => Promise.resolve({ available: false }),
     CreateBackup: () => Promise.resolve({ cancelled: true }),
-    ExportCSV: () => Promise.resolve({ cancelled: true }),
-    SelectCSV: () => Promise.resolve({ cancelled: true }),
+    ExportJSON: () => Promise.resolve({ cancelled: true }),
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery", () => ({
