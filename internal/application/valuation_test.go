@@ -324,7 +324,7 @@ func TestHistoricalInstrumentQuoteSelectionRequiresCanonicalProvenance(t *testin
 		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("186"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-04", ValueEffectiveAt: validEffective, BindingRevision: 2, PriceBasis: string(PriceBasisTiingoRawClose), SourcePolicyVersion: string(PriceBasisTiingoRawClose), TimestampBasis: string(TimestampBasisSessionClose)},
 		{ID: domain.NewInstrumentQuoteID(), InstrumentID: instrumentID, UnitPrice: price("10000"), Currency: "USD", SourceKind: domain.QuoteSourceProvider, SourceKey: provider, ObservationKind: string(InstrumentObservationLegacy), QuotedAt: cutoff.Add(-time.Hour)},
 	}
-	selected := selectHistoricalInstrumentQuote(instrument, quotes, cutoff)
+	selected := selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, quotes, nil, cutoff.UTC().Format("2006-01-02"), cutoff).quote
 	if selected == nil || selected.UnitPrice.Canonical() != "186" {
 		t.Fatalf("selected historical quote = %+v", selected)
 	}
@@ -472,7 +472,7 @@ func TestHistoricalFXQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
 		{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: rate("1.35"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationDailyReference), EffectiveDate: "2026-09-04", ValueEffectiveAt: effective, SourcePolicyVersion: "old-policy", TimestampBasis: string(TimestampBasisPolicyDerived)},
 		{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: rate("1.351"), SourceKind: domain.QuoteSourceProvider, SourceKey: domain.FrankfurterProviderKey, ObservationKind: string(FXObservationDailyReference), EffectiveDate: "2026-09-04", ValueEffectiveAt: effective, SourcePolicyVersion: domain.FrankfurterV2BlendedPolicy, TimestampBasis: string(TimestampBasisPolicyDerived)},
 	}
-	selected := selectHistoricalFXQuote(preference, quotes, "USD", "SGD", domain.FrankfurterProviderKey, cutoff)
+	selected := selectHistoricalFXQuoteAtMarketDate(preference, quotes, "USD", "SGD", domain.FrankfurterProviderKey, cutoff.UTC().Format("2006-01-02"), cutoff)
 	if selected == nil || selected.Rate.Canonical() != "1.351" {
 		t.Fatalf("selected historical FX quote = %+v", selected)
 	}

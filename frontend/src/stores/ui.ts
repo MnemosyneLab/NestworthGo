@@ -6,7 +6,6 @@ export type Accent = "nestworth" | "ocean" | "amber";
 interface UiState {
   sidebarCollapsed: boolean;
   toggleSidebar: () => void;
-  setSidebarCollapsed: (collapsed: boolean) => void;
 
   /** Local UI-only view of the appearance/accent preference; SettingsService
    * owns the persisted value. Zustand contains frontend-only UI state, never
@@ -26,7 +25,6 @@ interface UiState {
 export const useUiStore = create<UiState>((set) => ({
   sidebarCollapsed: false,
   toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
   appearance: "system",
   setAppearance: (appearance) => set({ appearance }),

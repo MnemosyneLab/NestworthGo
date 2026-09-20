@@ -17,7 +17,6 @@ type ActivityCorrectionGroupID string
 type HistoryOriginID string
 type HistoryOriginComponentID string
 type AccountStateObservationID string
-type AccountOwnershipObservationID string
 type InstrumentStateObservationID string
 type HoldingStateObservationID string
 type InstrumentPreferenceObservationID string
@@ -62,7 +61,6 @@ func (id ActivityCorrectionGroupID) String() string         { return string(id) 
 func (id HistoryOriginID) String() string                   { return string(id) }
 func (id HistoryOriginComponentID) String() string          { return string(id) }
 func (id AccountStateObservationID) String() string         { return string(id) }
-func (id AccountOwnershipObservationID) String() string     { return string(id) }
 func (id InstrumentStateObservationID) String() string      { return string(id) }
 func (id HoldingStateObservationID) String() string         { return string(id) }
 func (id InstrumentPreferenceObservationID) String() string { return string(id) }

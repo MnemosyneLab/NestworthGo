@@ -562,14 +562,6 @@ func selectInstrumentQuote(instrument domain.Instrument, quotes []domain.Instrum
 	return selected
 }
 
-func selectHistoricalInstrumentQuote(instrument domain.Instrument, quotes []domain.InstrumentQuote, cutoff time.Time) *domain.InstrumentQuote {
-	return selectHistoricalInstrumentQuoteAtMarketDate(instrument, quotes, nil, cutoff.UTC().Format("2006-01-02"), cutoff)
-}
-
-func selectHistoricalInstrumentQuoteAtMarketDate(instrument domain.Instrument, quotes []domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage, marketDate string, cutoff time.Time) *domain.InstrumentQuote {
-	return selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, quotes, coverage, marketDate, cutoff).quote
-}
-
 type historicalInstrumentSelection struct {
 	quote            *domain.InstrumentQuote
 	coverageComplete bool
@@ -756,10 +748,6 @@ func selectFXQuote(preference domain.FXPreference, quotes []domain.FXQuote, nati
 		}
 	}
 	return selected
-}
-
-func selectHistoricalFXQuote(preference domain.FXPreference, quotes []domain.FXQuote, native, householdBase domain.CurrencyCode, providerKey string, cutoff time.Time) *domain.FXQuote {
-	return selectHistoricalFXQuoteAtMarketDate(preference, quotes, native, householdBase, providerKey, cutoff.UTC().Format("2006-01-02"), cutoff)
 }
 
 func selectHistoricalFXQuoteAtMarketDate(preference domain.FXPreference, quotes []domain.FXQuote, native, householdBase domain.CurrencyCode, providerKey, marketDate string, cutoff time.Time) *domain.FXQuote {

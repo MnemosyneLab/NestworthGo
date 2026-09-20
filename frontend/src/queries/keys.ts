@@ -35,7 +35,6 @@ export const queryKeys = {
 		workerToken: ["settings", "workerToken"] as const,
   },
   directory: {
-    all: ["directory"] as const,
     entity: (entity: "members" | "institutions" | "groups") => ["directory", entity] as const,
     members: (includeArchived = false) => ["directory", "members", { includeArchived }] as const,
     institutions: (includeArchived = false) => ["directory", "institutions", { includeArchived }] as const,
@@ -80,8 +79,6 @@ export const queryKeys = {
   analytics: {
     instrumentHoldings: ["analytics", "instrumentHoldings"] as const,
     all: ["analytics"] as const,
-    realizedGain: (scope: unknown, range: unknown) => ["analytics", "realizedGain", scope, range] as const,
-    dividendIncome: (scope: unknown, range: unknown) => ["analytics", "dividendIncome", scope, range] as const,
     accountGains: {
       all: ["analytics", "accountGains"] as const,
     },
@@ -112,14 +109,12 @@ export const queryKeys = {
     snapshotState: ["history", "snapshotState"] as const,
     startingPointDraft: ["history", "startingPointDraft"] as const,
     activity: (activityId: string) => ["history", "activity", activityId] as const,
-    activities: (limit: number) => ["history", "activities", limit] as const,
     activityPage: (request: unknown) => ["history", "activityPage", request] as const,
   },
   marketdata: {
     all: ["marketdata"] as const,
     currentSync: ["marketdata", "currentSync"] as const,
     health: ["marketdata", "health"] as const,
-    job: (jobId: string) => ["marketdata", "job", jobId] as const,
     instrumentSearch: (query: string, instrumentType: string) => ["marketdata", "instrumentSearch", query, instrumentType] as const,
   },
 } as const;

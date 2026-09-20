@@ -115,7 +115,7 @@ describe("query keys and dependency invalidation", () => {
   it("keeps Start History inside the History namespace", () => {
     const queryClient = clientWith(
       queryKeys.history.origin,
-      queryKeys.history.activities(50),
+      queryKeys.history.activityPage({ limit: 50 }),
       queryKeys.overview.all,
       queryKeys.accounts.list(),
     );
@@ -123,7 +123,7 @@ describe("query keys and dependency invalidation", () => {
     invalidateHistoryReads(queryClient);
 
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.history.activities(50))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.history.activityPage({ limit: 50 }))).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(false);
     expect(isInvalidated(queryClient, queryKeys.accounts.list())).toBe(false);
   });
@@ -221,13 +221,13 @@ function seededClient() {
     queryKeys.analytics.accountGains.all,
     queryKeys.analytics.instrumentHoldings,
     queryKeys.analysis.returnCalendar({}, "2026-09"),
-    queryKeys.analytics.realizedGain({}, "30d"),
-    queryKeys.analytics.dividendIncome({}, "30d"),
+    queryKeys.analysis.returnTrend({}, "cumulative_amount"),
+    queryKeys.analysis.contribution({}, "total_return", "instrument", "amount_desc"),
     queryKeys.holdings.byAccounts(["account-1"]),
     queryKeys.instruments.list(),
     queryKeys.quote.instrument.current("instrument-1"),
     queryKeys.history.origin,
-    queryKeys.history.activities(50),
+    queryKeys.history.activityPage({ limit: 50 }),
   );
 }
 
@@ -291,8 +291,8 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.accountGains.all)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analytics.instrumentHoldings)).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.realizedGain({}, "30d"))).toBe(true);
-    expect(isInvalidated(queryClient, queryKeys.analytics.dividendIncome({}, "30d"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analysis.returnTrend({}, "cumulative_amount"))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.analysis.contribution({}, "total_return", "instrument", "amount_desc"))).toBe(true);
 
     const undoClient = seededClient();
     const undo = renderMutation(undoClient, useUndoChange);
