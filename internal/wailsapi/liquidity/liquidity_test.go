@@ -53,7 +53,7 @@ func TestLiquidityOverviewAndProductLifecycle(t *testing.T) {
 		Kind: "open",
 		Open: &application.OpenProductCommand{
 			AccountID: record.Account.ID, Currency: "USD", Principal: "100000", EffectiveAt: "2026-09-20T04:00:00Z",
-			Terms: application.ProductTermsInput{Kind: "term_deposit", Name: "Deposit D1", StartOn: "2026-09-20", MaturityOn: &maturity, InterestMode: "none"},
+			Terms:  application.ProductTermsInput{Kind: "term_deposit", Name: "Deposit D1", StartOn: "2026-09-20", MaturityOn: &maturity, InterestMode: "none"},
 			Policy: application.ProductPolicyInput{AccessKind: "on_date", UnlockOn: &maturity, EarlyKind: "not_allowed", SettlementDays: &zero, DayBasis: &calendar},
 		},
 	})
@@ -68,7 +68,7 @@ func TestLiquidityOverviewAndProductLifecycle(t *testing.T) {
 			Kind: "open",
 			Open: &application.OpenProductCommand{
 				AccountID: record.Account.ID, Currency: "USD", Principal: "100000", EffectiveAt: "2026-09-20T04:00:00Z",
-				Terms: application.ProductTermsInput{Kind: "term_deposit", Name: "Deposit D1", StartOn: "2026-09-20", MaturityOn: &maturity, InterestMode: "none"},
+				Terms:  application.ProductTermsInput{Kind: "term_deposit", Name: "Deposit D1", StartOn: "2026-09-20", MaturityOn: &maturity, InterestMode: "none"},
 				Policy: application.ProductPolicyInput{AccessKind: "on_date", UnlockOn: &maturity, EarlyKind: "not_allowed", SettlementDays: &zero, DayBasis: &calendar},
 			},
 		},

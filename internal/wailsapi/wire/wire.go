@@ -879,17 +879,17 @@ func FromDividendDetail(value *domain.DividendDetail) *DividendDetailDTO {
 
 // ActivityDTO mirrors domain.Activity.
 type ActivityDTO struct {
-	ID                 string              `json:"id"`
-	HouseholdID        string              `json:"householdId"`
-	Kind               string              `json:"kind"`
-	Reason             string              `json:"reason"`
-	EffectiveAt        string              `json:"effectiveAt"`
-	EffectiveLocalDate string              `json:"effectiveLocalDate"`
-	CreatedAt          string              `json:"createdAt"`
-	Note               *string             `json:"note,omitempty"`
-	ReversesActivityID *string             `json:"reversesActivityId,omitempty"`
-	CorrectionGroupID  *string             `json:"correctionGroupId,omitempty"`
-	TransactionFXRate  *string             `json:"transactionFxRate,omitempty"`
+	ID                 string                     `json:"id"`
+	HouseholdID        string                     `json:"householdId"`
+	Kind               string                     `json:"kind"`
+	Reason             string                     `json:"reason"`
+	EffectiveAt        string                     `json:"effectiveAt"`
+	EffectiveLocalDate string                     `json:"effectiveLocalDate"`
+	CreatedAt          string                     `json:"createdAt"`
+	Note               *string                    `json:"note,omitempty"`
+	ReversesActivityID *string                    `json:"reversesActivityId,omitempty"`
+	CorrectionGroupID  *string                    `json:"correctionGroupId,omitempty"`
+	TransactionFXRate  *string                    `json:"transactionFxRate,omitempty"`
 	TradeDetail        *TradeDetailDTO            `json:"tradeDetail,omitempty"`
 	DividendDetail     *DividendDetailDTO         `json:"dividendDetail,omitempty"`
 	ProductContext     *ProductActivityContextDTO `json:"productContext,omitempty"`

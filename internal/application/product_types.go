@@ -46,15 +46,15 @@ type OpenProductCommand struct {
 }
 
 type RecordExistingProductCommand struct {
-	AccountID            string             `json:"accountId"`
-	Currency             string             `json:"currency"`
-	Principal            string             `json:"principal"`
-	TotalCostBasis       string             `json:"totalCostBasis"`
-	CurrentValue         string             `json:"currentValue"`
-	CashExcludesProduct  bool               `json:"cashExcludesProduct"`
-	EffectiveAt          string             `json:"effectiveAt"`
-	Terms                ProductTermsInput  `json:"terms"`
-	Policy               ProductPolicyInput `json:"policy"`
+	AccountID           string             `json:"accountId"`
+	Currency            string             `json:"currency"`
+	Principal           string             `json:"principal"`
+	TotalCostBasis      string             `json:"totalCostBasis"`
+	CurrentValue        string             `json:"currentValue"`
+	CashExcludesProduct bool               `json:"cashExcludesProduct"`
+	EffectiveAt         string             `json:"effectiveAt"`
+	Terms               ProductTermsInput  `json:"terms"`
+	Policy              ProductPolicyInput `json:"policy"`
 }
 
 type ReceiveInterestCommand struct {
@@ -76,11 +76,11 @@ type SettleProductCommand struct {
 }
 
 type RenewProductCommand struct {
-	Settle      SettleProductCommand `json:"settle"`
-	Principal   string               `json:"principal"`
-	OpeningFee  *string              `json:"openingFee"`
-	Terms       ProductTermsInput    `json:"terms"`
-	Policy      ProductPolicyInput   `json:"policy"`
+	Settle     SettleProductCommand `json:"settle"`
+	Principal  string               `json:"principal"`
+	OpeningFee *string              `json:"openingFee"`
+	Terms      ProductTermsInput    `json:"terms"`
+	Policy     ProductPolicyInput   `json:"policy"`
 }
 
 type UndoProductCommand struct {
@@ -88,44 +88,44 @@ type UndoProductCommand struct {
 }
 
 type ProductCommand struct {
-	Kind            domain.ProductOperationKind    `json:"kind"`
-	Open            *OpenProductCommand            `json:"open,omitempty"`
-	RecordExisting  *RecordExistingProductCommand  `json:"recordExisting,omitempty"`
-	ReceiveInterest *ReceiveInterestCommand        `json:"receiveInterest,omitempty"`
-	Settle          *SettleProductCommand          `json:"settle,omitempty"`
-	Renew           *RenewProductCommand           `json:"renew,omitempty"`
-	Undo            *UndoProductCommand            `json:"undo,omitempty"`
+	Kind            domain.ProductOperationKind   `json:"kind"`
+	Open            *OpenProductCommand           `json:"open,omitempty"`
+	RecordExisting  *RecordExistingProductCommand `json:"recordExisting,omitempty"`
+	ReceiveInterest *ReceiveInterestCommand       `json:"receiveInterest,omitempty"`
+	Settle          *SettleProductCommand         `json:"settle,omitempty"`
+	Renew           *RenewProductCommand          `json:"renew,omitempty"`
+	Undo            *UndoProductCommand           `json:"undo,omitempty"`
 }
 
 type ProductOperationPreview struct {
-	Kind               domain.ProductOperationKind
-	NormalizedJSON     string
-	PayloadSHA256      string
-	ReviewedStateHash  string
-	LocalDate          string
-	Timezone           string
-	Warnings           []string
-	Assumptions        []string
-	MissingFields      []string
-	Activities         []domain.ChangePreview
-	CashBefore         []domain.Money
-	CashAfter          []domain.Money
-	ProductBefore      *domain.Money
-	ProductAfter       *domain.Money
-	NetWorthKnown      bool
+	Kind                domain.ProductOperationKind
+	NormalizedJSON      string
+	PayloadSHA256       string
+	ReviewedStateHash   string
+	LocalDate           string
+	Timezone            string
+	Warnings            []string
+	Assumptions         []string
+	MissingFields       []string
+	Activities          []domain.ChangePreview
+	CashBefore          []domain.Money
+	CashAfter           []domain.Money
+	ProductBefore       *domain.Money
+	ProductAfter        *domain.Money
+	NetWorthKnown       bool
 	ReservationReleases []domain.LiquidityReservationID
-	DraftProductIDs    []domain.ProductContractID
+	DraftProductIDs     []domain.ProductContractID
 }
 
 type ProductOperationReceipt struct {
-	OperationID        domain.ProductOperationID
-	Kind               domain.ProductOperationKind
-	ProductIDs         []domain.ProductContractID
-	ActivityIDs        []domain.ActivityID
-	QuoteIDs           []domain.InstrumentQuoteID
-	CashAfter          []domain.Money
-	Replayed           bool
-	CreatedAt          time.Time
+	OperationID domain.ProductOperationID
+	Kind        domain.ProductOperationKind
+	ProductIDs  []domain.ProductContractID
+	ActivityIDs []domain.ActivityID
+	QuoteIDs    []domain.InstrumentQuoteID
+	CashAfter   []domain.Money
+	Replayed    bool
+	CreatedAt   time.Time
 }
 
 type ProductOperationPage struct {
@@ -134,16 +134,16 @@ type ProductOperationPage struct {
 }
 
 type ProductDetail struct {
-	Contract           domain.ProductContract
-	Policy             domain.LiquidityPolicy
-	CurrentValue       *domain.Money
-	CurrentCostBasis   *domain.Money
-	DisplayState       domain.ProductDisplayState
-	Reservations       []domain.LiquidityReservation
-	PredecessorID      *domain.ProductContractID
-	SuccessorID        *domain.ProductContractID
-	PermittedActions   []string
-	DisabledReasons    map[string]string
+	Contract         domain.ProductContract
+	Policy           domain.LiquidityPolicy
+	CurrentValue     *domain.Money
+	CurrentCostBasis *domain.Money
+	DisplayState     domain.ProductDisplayState
+	Reservations     []domain.LiquidityReservation
+	PredecessorID    *domain.ProductContractID
+	SuccessorID      *domain.ProductContractID
+	PermittedActions []string
+	DisabledReasons  map[string]string
 }
 
 type LiquidityOverviewQuery struct {
@@ -152,9 +152,9 @@ type LiquidityOverviewQuery struct {
 }
 
 type SavePolicyInput struct {
-	Source            domain.LiquiditySourceRef
-	ExpectedRevision  int
-	Policy            ProductPolicyInput
+	Source           domain.LiquiditySourceRef
+	ExpectedRevision int
+	Policy           ProductPolicyInput
 }
 
 type SaveReservationInput struct {
@@ -173,20 +173,20 @@ type UpdateProductTermsInput struct {
 }
 
 type AppendProductValuationInput struct {
-	ProductID   domain.ProductContractID
-	Amount      string
-	ObservedAt  string
-	MutationID  string
+	ProductID  domain.ProductContractID
+	Amount     string
+	ObservedAt string
+	MutationID string
 }
 
 type productReceiptEvidence struct {
-	Receipt           ProductOperationReceipt     `json:"receipt"`
-	BeforeContracts   []domain.ProductContract    `json:"beforeContracts"`
-	AfterContracts    []domain.ProductContract    `json:"afterContracts"`
-	BeforePolicies    []domain.LiquidityPolicy    `json:"beforePolicies"`
-	AfterPolicies     []domain.LiquidityPolicy    `json:"afterPolicies"`
+	Receipt            ProductOperationReceipt       `json:"receipt"`
+	BeforeContracts    []domain.ProductContract      `json:"beforeContracts"`
+	AfterContracts     []domain.ProductContract      `json:"afterContracts"`
+	BeforePolicies     []domain.LiquidityPolicy      `json:"beforePolicies"`
+	AfterPolicies      []domain.LiquidityPolicy      `json:"afterPolicies"`
 	BeforeReservations []domain.LiquidityReservation `json:"beforeReservations"`
-	CommandSHA        string                      `json:"commandSha"`
-	ReviewedStateHash string                      `json:"reviewedStateHash"`
-	LocalDate         string                      `json:"localDate"`
+	CommandSHA         string                        `json:"commandSha"`
+	ReviewedStateHash  string                        `json:"reviewedStateHash"`
+	LocalDate          string                        `json:"localDate"`
 }

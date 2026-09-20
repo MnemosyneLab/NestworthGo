@@ -80,10 +80,10 @@ func ParseProductContractState(value string) (ProductContractState, error) {
 type InterestMode string
 
 const (
-	InterestNone                  InterestMode = "none"
-	InterestManualMaturityAmount  InterestMode = "manual_maturity_amount"
-	InterestSimpleAct365          InterestMode = "simple_act_365"
-	InterestSimpleAct360          InterestMode = "simple_act_360"
+	InterestNone                 InterestMode = "none"
+	InterestManualMaturityAmount InterestMode = "manual_maturity_amount"
+	InterestSimpleAct365         InterestMode = "simple_act_365"
+	InterestSimpleAct360         InterestMode = "simple_act_360"
 )
 
 func ParseInterestMode(value string) (InterestMode, error) {
@@ -103,11 +103,11 @@ func AllInterestModes() []InterestMode {
 type ProductDisplayState string
 
 const (
-	ProductDisplayLocked          ProductDisplayState = "locked"
-	ProductDisplayRedeemable      ProductDisplayState = "redeemable"
-	ProductDisplayDueUnconfirmed  ProductDisplayState = "due_unconfirmed"
-	ProductDisplaySettled         ProductDisplayState = "settled"
-	ProductDisplayCancelled       ProductDisplayState = "cancelled"
+	ProductDisplayLocked         ProductDisplayState = "locked"
+	ProductDisplayRedeemable     ProductDisplayState = "redeemable"
+	ProductDisplayDueUnconfirmed ProductDisplayState = "due_unconfirmed"
+	ProductDisplaySettled        ProductDisplayState = "settled"
+	ProductDisplayCancelled      ProductDisplayState = "cancelled"
 )
 
 // AnnualRate is a canonical decimal ratio in [0, 1] with at most eight
@@ -162,29 +162,29 @@ func (r AnnualRate) Canonical() string {
 // ProductContract is the persisted metadata for one managed product. Principal,
 // owner account, currency, and original start date are immutable after create.
 type ProductContract struct {
-	ID                   ProductContractID
-	HouseholdID          HouseholdID
-	AccountID            AccountID
-	HoldingID            HoldingID
-	InstrumentID         InstrumentID
-	Kind                 ProductKind
-	Name                 string
-	Note                 *string
-	Currency             CurrencyCode
-	Principal            Money
-	StartOn              string
-	MaturityOn           *string
-	InterestMode         InterestMode
-	AnnualRate           *AnnualRate
-	MaturityInterest     *Money
+	ID                    ProductContractID
+	HouseholdID           HouseholdID
+	AccountID             AccountID
+	HoldingID             HoldingID
+	InstrumentID          InstrumentID
+	Kind                  ProductKind
+	Name                  string
+	Note                  *string
+	Currency              CurrencyCode
+	Principal             Money
+	StartOn               string
+	MaturityOn            *string
+	InterestMode          InterestMode
+	AnnualRate            *AnnualRate
+	MaturityInterest      *Money
 	InterestPaidThroughOn *string
-	RenewedFromID        *ProductContractID
-	State                ProductContractState
-	OpenedOperationID    ProductOperationID
-	ClosedOperationID    *ProductOperationID
-	Revision             int
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
+	RenewedFromID         *ProductContractID
+	State                 ProductContractState
+	OpenedOperationID     ProductOperationID
+	ClosedOperationID     *ProductOperationID
+	Revision              int
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
 }
 
 type ProductContractInput struct {

@@ -71,24 +71,24 @@ func ParseProductActivityPurpose(value string) (ProductActivityPurpose, error) {
 // ProductActivityContext associates a ledger Activity with a managed product
 // operation. Readers populate it by joining operation-activity links.
 type ProductActivityContext struct {
-	OperationID ProductOperationID
-	ProductID   ProductContractID
-	Purpose     ProductActivityPurpose
-	HoldingID   HoldingID
+	OperationID  ProductOperationID
+	ProductID    ProductContractID
+	Purpose      ProductActivityPurpose
+	HoldingID    HoldingID
 	InstrumentID InstrumentID
-	ProductKind ProductKind
+	ProductKind  ProductKind
 }
 
 type ProductOperation struct {
-	ID                 ProductOperationID
-	HouseholdID        HouseholdID
-	Kind               ProductOperationKind
-	PayloadSHA256      string
-	RequestVersion     int
-	RequestJSON        string
-	ResultJSON         string
-	EffectiveAt        time.Time
-	CreatedAt          time.Time
+	ID                  ProductOperationID
+	HouseholdID         HouseholdID
+	Kind                ProductOperationKind
+	PayloadSHA256       string
+	RequestVersion      int
+	RequestJSON         string
+	ResultJSON          string
+	EffectiveAt         time.Time
+	CreatedAt           time.Time
 	ReversesOperationID *ProductOperationID
 }
 
@@ -107,11 +107,11 @@ type ProductOperationActivity struct {
 }
 
 type ProductOperationReservation struct {
-	OperationID          ProductOperationID
-	ReservationID        LiquidityReservationID
-	PreviousReleasedAt   *time.Time
-	ResultingReleasedAt  *time.Time
-	ResultingRevision    int
+	OperationID         ProductOperationID
+	ReservationID       LiquidityReservationID
+	PreviousReleasedAt  *time.Time
+	ResultingReleasedAt *time.Time
+	ResultingRevision   int
 }
 
 type LiquiditySnapshot struct {

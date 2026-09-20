@@ -10,13 +10,13 @@ import (
 // ProductCommandRequest is the tagged union the frontend submits for every
 // product lifecycle action. Exactly one payload must match Kind.
 type ProductCommandRequest struct {
-	Kind            string                          `json:"kind"`
-	Open            *application.OpenProductCommand `json:"open,omitempty"`
+	Kind            string                                    `json:"kind"`
+	Open            *application.OpenProductCommand           `json:"open,omitempty"`
 	RecordExisting  *application.RecordExistingProductCommand `json:"recordExisting,omitempty"`
-	ReceiveInterest *application.ReceiveInterestCommand `json:"receiveInterest,omitempty"`
-	Settle          *application.SettleProductCommand `json:"settle,omitempty"`
-	Renew           *application.RenewProductCommand `json:"renew,omitempty"`
-	Undo            *application.UndoProductCommand `json:"undo,omitempty"`
+	ReceiveInterest *application.ReceiveInterestCommand       `json:"receiveInterest,omitempty"`
+	Settle          *application.SettleProductCommand         `json:"settle,omitempty"`
+	Renew           *application.RenewProductCommand          `json:"renew,omitempty"`
+	Undo            *application.UndoProductCommand           `json:"undo,omitempty"`
 }
 
 func (r ProductCommandRequest) toApplication() (application.ProductCommand, error) {
@@ -146,8 +146,8 @@ func (r SourceRefDTO) toDomain() (domain.LiquiditySourceRef, error) {
 }
 
 type SavePolicyRequest struct {
-	Source           SourceRefDTO                  `json:"sourceRef"`
-	ExpectedRevision int                           `json:"expectedRevision"`
+	Source           SourceRefDTO                   `json:"sourceRef"`
+	ExpectedRevision int                            `json:"expectedRevision"`
 	Policy           application.ProductPolicyInput `json:"policy"`
 }
 
@@ -170,9 +170,9 @@ type ReleaseReservationRequest struct {
 }
 
 type UpdateProductTermsRequest struct {
-	ProductID        string                        `json:"productId"`
-	ExpectedRevision int                           `json:"expectedRevision"`
-	Terms            application.ProductTermsInput `json:"terms"`
+	ProductID        string                         `json:"productId"`
+	ExpectedRevision int                            `json:"expectedRevision"`
+	Terms            application.ProductTermsInput  `json:"terms"`
 	Policy           application.ProductPolicyInput `json:"policy"`
 }
 

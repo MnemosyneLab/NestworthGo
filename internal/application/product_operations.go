@@ -14,25 +14,25 @@ import (
 )
 
 type productPlan struct {
-	state        domain.ChangeState
-	previews     []domain.ChangePreview
-	instruments  []domain.Instrument
-	observations []domain.InstrumentPreferenceObservation
-	holdings     []domain.Holding
-	quotes       []domain.InstrumentQuote
-	contracts    []domain.ProductContract
-	policies     []domain.LiquidityPolicy
-	productLinks []domain.ProductOperationProduct
-	activityLinks []domain.ProductOperationActivity
+	state            domain.ChangeState
+	previews         []domain.ChangePreview
+	instruments      []domain.Instrument
+	observations     []domain.InstrumentPreferenceObservation
+	holdings         []domain.Holding
+	quotes           []domain.InstrumentQuote
+	contracts        []domain.ProductContract
+	policies         []domain.LiquidityPolicy
+	productLinks     []domain.ProductOperationProduct
+	activityLinks    []domain.ProductOperationActivity
 	reservationLinks []domain.ProductOperationReservation
-	beforeContracts []domain.ProductContract
-	afterContracts  []domain.ProductContract
-	productIDs   []domain.ProductContractID
-	quoteIDs     []domain.InstrumentQuoteID
-	releaseIDs   []domain.LiquidityReservationID
-	warnings     []string
-	effectiveAt  time.Time
-	reverses     *domain.ProductOperationID
+	beforeContracts  []domain.ProductContract
+	afterContracts   []domain.ProductContract
+	productIDs       []domain.ProductContractID
+	quoteIDs         []domain.InstrumentQuoteID
+	releaseIDs       []domain.LiquidityReservationID
+	warnings         []string
+	effectiveAt      time.Time
+	reverses         *domain.ProductOperationID
 }
 
 func (s *Service) PreviewProductOperation(ctx context.Context, command ProductCommand) (ProductOperationPreview, error) {
@@ -294,9 +294,9 @@ func (s *Service) planOpen(ctx context.Context, origin *domain.HistoryOrigin, sn
 		state: state, previews: []domain.ChangePreview{buy}, instruments: []domain.Instrument{instrument},
 		observations: []domain.InstrumentPreferenceObservation{observation}, holdings: []domain.Holding{holding},
 		quotes: []domain.InstrumentQuote{quote}, contracts: []domain.ProductContract{contract}, policies: []domain.LiquidityPolicy{policy},
-		productLinks: []domain.ProductOperationProduct{{OperationID: operationID, ProductID: productID, Role: domain.ProductRoleOpened}},
+		productLinks:  []domain.ProductOperationProduct{{OperationID: operationID, ProductID: productID, Role: domain.ProductRoleOpened}},
 		activityLinks: []domain.ProductOperationActivity{{OperationID: operationID, ActivityID: buy.Activity.ID, Sequence: 1, Purpose: domain.ProductPurposeAcquisition, ProductID: productID}},
-		productIDs: []domain.ProductContractID{productID}, quoteIDs: []domain.InstrumentQuoteID{quote.ID},
+		productIDs:    []domain.ProductContractID{productID}, quoteIDs: []domain.InstrumentQuoteID{quote.ID},
 		afterContracts: []domain.ProductContract{contract}, effectiveAt: effectiveAt,
 	}
 	_ = ctx
@@ -406,9 +406,9 @@ func (s *Service) planRecordExisting(ctx context.Context, origin *domain.History
 		state: state, previews: []domain.ChangePreview{adjustment}, instruments: []domain.Instrument{instrument},
 		observations: []domain.InstrumentPreferenceObservation{observation}, holdings: []domain.Holding{holding},
 		quotes: []domain.InstrumentQuote{quote}, contracts: []domain.ProductContract{contract}, policies: []domain.LiquidityPolicy{policy},
-		productLinks: []domain.ProductOperationProduct{{OperationID: operationID, ProductID: productID, Role: domain.ProductRoleOpened}},
+		productLinks:  []domain.ProductOperationProduct{{OperationID: operationID, ProductID: productID, Role: domain.ProductRoleOpened}},
 		activityLinks: []domain.ProductOperationActivity{{OperationID: operationID, ActivityID: adjustment.Activity.ID, Sequence: 1, Purpose: domain.ProductPurposeExistingPosition, ProductID: productID}},
-		productIDs: []domain.ProductContractID{productID}, quoteIDs: []domain.InstrumentQuoteID{quote.ID},
+		productIDs:    []domain.ProductContractID{productID}, quoteIDs: []domain.InstrumentQuoteID{quote.ID},
 		afterContracts: []domain.ProductContract{contract}, effectiveAt: effectiveAt,
 		warnings: []string{"Recorded assets increase by the product value. Account cash is unchanged."},
 	}, nil
@@ -469,9 +469,9 @@ func (s *Service) planReceiveInterest(ctx context.Context, origin *domain.Histor
 	_ = snapshot
 	return productPlan{
 		state: state, previews: []domain.ChangePreview{preview}, contracts: []domain.ProductContract{updated},
-		productLinks: []domain.ProductOperationProduct{{OperationID: operationID, ProductID: productID, Role: domain.ProductRoleIncome}},
+		productLinks:  []domain.ProductOperationProduct{{OperationID: operationID, ProductID: productID, Role: domain.ProductRoleIncome}},
 		activityLinks: []domain.ProductOperationActivity{{OperationID: operationID, ActivityID: preview.Activity.ID, Sequence: 1, Purpose: domain.ProductPurposeInterest, ProductID: productID}},
-		productIDs: []domain.ProductContractID{productID}, beforeContracts: []domain.ProductContract{before},
+		productIDs:    []domain.ProductContractID{productID}, beforeContracts: []domain.ProductContract{before},
 		afterContracts: []domain.ProductContract{updated}, effectiveAt: effectiveAt,
 	}, nil
 }
@@ -570,7 +570,7 @@ func (s *Service) planSettle(ctx context.Context, origin *domain.HistoryOrigin, 
 	_ = renewedFrom
 	return productPlan{
 		state: state, previews: previews, contracts: []domain.ProductContract{updated},
-		productLinks: []domain.ProductOperationProduct{{OperationID: operationID, ProductID: productID, Role: domain.ProductRoleSettled}},
+		productLinks:  []domain.ProductOperationProduct{{OperationID: operationID, ProductID: productID, Role: domain.ProductRoleSettled}},
 		activityLinks: activityLinks, reservationLinks: reservationLinks, productIDs: []domain.ProductContractID{productID},
 		releaseIDs: releaseIDs, beforeContracts: []domain.ProductContract{before}, afterContracts: []domain.ProductContract{updated},
 		effectiveAt: effectiveAt,
@@ -604,16 +604,16 @@ func (s *Service) planRenew(ctx context.Context, origin *domain.HistoryOrigin, s
 		openPlan.activityLinks[index].OperationID = operationID
 	}
 	plan := productPlan{
-		state: openPlan.state,
-		previews: append(append([]domain.ChangePreview{}, settlePlan.previews...), openPlan.previews...),
+		state:       openPlan.state,
+		previews:    append(append([]domain.ChangePreview{}, settlePlan.previews...), openPlan.previews...),
 		instruments: openPlan.instruments, observations: openPlan.observations, holdings: openPlan.holdings, quotes: openPlan.quotes,
-		contracts: append(append([]domain.ProductContract{}, settlePlan.contracts...), openPlan.contracts...),
-		policies: openPlan.policies,
-		productLinks: append(settlePlan.productLinks, openPlan.productLinks...),
-		activityLinks: append(settlePlan.activityLinks, openPlan.activityLinks...),
+		contracts:        append(append([]domain.ProductContract{}, settlePlan.contracts...), openPlan.contracts...),
+		policies:         openPlan.policies,
+		productLinks:     append(settlePlan.productLinks, openPlan.productLinks...),
+		activityLinks:    append(settlePlan.activityLinks, openPlan.activityLinks...),
 		reservationLinks: settlePlan.reservationLinks,
-		productIDs: append(settlePlan.productIDs, openPlan.productIDs...),
-		quoteIDs: openPlan.quoteIDs, releaseIDs: settlePlan.releaseIDs,
+		productIDs:       append(settlePlan.productIDs, openPlan.productIDs...),
+		quoteIDs:         openPlan.quoteIDs, releaseIDs: settlePlan.releaseIDs,
 		beforeContracts: settlePlan.beforeContracts, afterContracts: append(append([]domain.ProductContract{}, settlePlan.contracts...), openPlan.contracts...),
 		effectiveAt: settlePlan.effectiveAt,
 	}
@@ -810,7 +810,7 @@ func (s *Service) reviewedStateHash(snapshot domain.PortfolioSnapshot, command P
 	}
 	sort.Strings(payload.Holdings)
 	for _, contract := range plan.beforeContracts {
-			payload.Contracts = append(payload.Contracts, contract.ID.String()+":"+strconv.Itoa(contract.Revision))
+		payload.Contracts = append(payload.Contracts, contract.ID.String()+":"+strconv.Itoa(contract.Revision))
 	}
 	sort.Strings(payload.Contracts)
 	for _, quote := range snapshot.InstrumentQuotes {
@@ -971,4 +971,3 @@ func mustLocation(name string) *time.Location {
 	}
 	return zone
 }
-

@@ -587,7 +587,7 @@ func (s *Service) AppendProductValuation(ctx context.Context, input AppendProduc
 	now := s.clock()
 	operation := domain.ProductOperation{
 		ID: operationID, HouseholdID: household.ID, Kind: domain.ProductOpValueObservation,
-		PayloadSHA256: hashBytes([]byte(input.ProductID.String() + ":" + input.Amount + ":" + input.ObservedAt)),
+		PayloadSHA256:  hashBytes([]byte(input.ProductID.String() + ":" + input.Amount + ":" + input.ObservedAt)),
 		RequestVersion: domain.ProductRequestVersion, RequestJSON: `{"kind":"value_observation"}`, ResultJSON: `{"quoteId":"` + quote.ID.String() + `"}`,
 		EffectiveAt: observedAt, CreatedAt: now,
 	}

@@ -144,11 +144,11 @@ func EvaluateLiquidity(query LiquidityQuery, sources []LiquiditySource, reservat
 		return LiquidityOverview{}, err
 	}
 	overview := LiquidityOverview{
-		AsOf:        query.AsOf,
-		LocalDate:   localDate,
-		Timezone:    timezone,
+		AsOf:         query.AsOf,
+		LocalDate:    localDate,
+		Timezone:     timezone,
 		BaseCurrency: query.BaseCurrency,
-		Assumptions: []LiquidityAssumption{AssumptionCurrentPricesAndFX, AssumptionAssetsOnly, AssumptionOutstandingDebtOmitted},
+		Assumptions:  []LiquidityAssumption{AssumptionCurrentPricesAndFX, AssumptionAssetsOnly, AssumptionOutstandingDebtOmitted},
 	}
 	activeBySource := map[string]Money{}
 	for _, reservation := range reservations {
@@ -614,12 +614,12 @@ func applyReservation(net, requested Money) (applied, unreserved, shortfall Mone
 func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourceResult, convert ConvertToBase) (LiquidityBucket, error) {
 	bucket := LiquidityBucket{HorizonOn: horizon, Status: StatusComplete}
 	type nativeAcc struct {
-		knownAvailable decimal.Decimal
-		knownReserve   decimal.Decimal
+		knownAvailable  decimal.Decimal
+		knownReserve    decimal.Decimal
 		knownUnreserved decimal.Decimal
-		complete       bool
-		hasKnown       bool
-		unknown        bool
+		complete        bool
+		hasKnown        bool
+		unknown         bool
 	}
 	native := map[CurrencyCode]*nativeAcc{}
 	baseKnown := decimal.Zero
