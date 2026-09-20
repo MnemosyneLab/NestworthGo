@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,8 +19,8 @@ import {
   useSaveReservation,
 } from "@/queries/liquidity";
 import { defaultProductPolicy, emptyTerms } from "@/features/liquidity/productPolicy";
-import type { LiquiditySourceDTO, ProductCommandRequest, ProductDetailDTO, ProductOperationPreviewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
-import type { ProductPolicyInput, ProductTermsInput } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import type { LiquiditySourceDTO, ProductCommandRequest, ProductOperationPreviewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
+import type { ProductPolicyInput, ProductTermsInput, SettleProductCommand } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import type { MoneyView } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 export function moneyText(value: MoneyView | null | undefined, unknown: string): string {
@@ -42,24 +42,13 @@ export function PolicySheet({
   const { t } = useTranslation();
   const save = useSavePolicy();
   const reset = useResetPolicy();
-  const [accessKind, setAccessKind] = useState("on_request");
-  const [unlockOn, setUnlockOn] = useState("");
-  const [settlementDays, setSettlementDays] = useState("0");
-  const [dayBasis, setDayBasis] = useState("calendar");
-  const [normalExitFee, setNormalExitFee] = useState("0");
-  const [earlyKind, setEarlyKind] = useState("not_allowed");
+  const [accessKind, setAccessKind] = useState(source?.policy?.accessKind ?? "on_request");
+  const [unlockOn, setUnlockOn] = useState(source?.policy?.unlockOn ?? "");
+  const [settlementDays, setSettlementDays] = useState(String(source?.policy?.settlementDays ?? 0));
+  const [dayBasis, setDayBasis] = useState(source?.policy?.dayBasis ?? "calendar");
+  const [normalExitFee, setNormalExitFee] = useState(source?.policy?.normalExitFee?.amount ?? "0");
+  const [earlyKind, setEarlyKind] = useState(source?.policy?.earlyKind ?? "not_allowed");
   const [error, setError] = useState<string>();
-  useEffect(() => {
-    if (!source?.policy) {
-      return;
-    }
-    setAccessKind(source.policy.accessKind);
-    setUnlockOn(source.policy.unlockOn ?? "");
-    setSettlementDays(String(source.policy.settlementDays ?? 0));
-    setDayBasis(source.policy.dayBasis ?? "calendar");
-    setNormalExitFee(source.policy.normalExitFee?.amount ?? "0");
-    setEarlyKind(source.policy.earlyKind);
-  }, [source]);
   if (!source) {
     return null;
   }
@@ -344,19 +333,20 @@ export function ProductDetailSheet({
       return null;
     }
     if (action === "settle") {
-      const settle = product.kind === "term_deposit"
-        ? { productId: product.id, returnedPrincipal: amount, interest, fee, effectiveAt: "", releaseReservationIds: [] }
+      const settle: SettleProductCommand = product.kind === "term_deposit"
+        ? { productId: product.id, returnedPrincipal: amount, interest, fee, grossProceeds: null, effectiveAt: "", releaseReservationIds: [] }
         : { productId: product.id, grossProceeds: amount, fee, effectiveAt: "", releaseReservationIds: [], returnedPrincipal: null, interest: null };
       return { kind: "settle", settle };
     }
     if (action === "renew") {
       const terms = { ...emptyTerms(product.kind as "term_deposit" | "locked_product"), name: newName || product.name, startOn: product.startOn, maturityOn: newMaturity || null, interestMode: product.interestMode };
+      const settle: SettleProductCommand = product.kind === "term_deposit"
+        ? { productId: product.id, returnedPrincipal: amount, interest, fee, grossProceeds: null, effectiveAt: "", releaseReservationIds: [] }
+        : { productId: product.id, grossProceeds: amount, fee, effectiveAt: "", releaseReservationIds: [], returnedPrincipal: null, interest: null };
       return {
         kind: "renew",
         renew: {
-          settle: product.kind === "term_deposit"
-            ? { productId: product.id, returnedPrincipal: amount, interest, fee, effectiveAt: "", releaseReservationIds: [] }
-            : { productId: product.id, grossProceeds: amount, fee, effectiveAt: "", releaseReservationIds: [], returnedPrincipal: null, interest: null },
+          settle,
           principal: newPrincipal,
           openingFee: "0",
           terms,
@@ -483,5 +473,3 @@ export function ProductDetailSheet({
     </Sheet>
   );
 }
-
-export type ProductListItem = ProductDetailDTO;

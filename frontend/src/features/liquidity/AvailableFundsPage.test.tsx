@@ -157,17 +157,22 @@ describe("AvailableFundsPage", () => {
     }));
     renderPage();
     expect(await screen.findByText("Due, receipt unconfirmed")).toBeInTheDocument();
-    const row = screen.getByText("Due deposit").closest("tr");
+    const row = screen.getAllByText("Due deposit")[0].closest("tr");
     expect(row).toBeTruthy();
-    expect(within(row as HTMLElement).getAllByText("Unknown").length).toBeGreaterThan(0);
+    expect(within(row!).getAllByText("Unknown").length).toBeGreaterThan(0);
     expect(screen.getByText("Due deposit is due. Receipt is unconfirmed.")).toBeInTheDocument();
   });
 
   it("retries after a load failure", async () => {
-    overview.mockRejectedValueOnce(new Error("unavailable"));
+    overview.mockRejectedValue(new Error("unavailable"));
+    const queryClient = createTestQueryClient({ retry: false });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AvailableFundsPage />
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load available funds.");
     overview.mockResolvedValue(fixtureOverview({ sources: [] }));
-    renderPage();
-    expect(await screen.findByText("Could not load available funds.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByText("No assets to evaluate")).toBeInTheDocument();
   });

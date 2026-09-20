@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,16 +104,6 @@ export function AvailableFundsPage({
   const [reservationSource, setReservationSource] = useState<LiquiditySourceDTO | null>(null);
   const [productFormAccountId, setProductFormAccountId] = useState<string | null>(accountId ?? null);
   const [detailProductId, setDetailProductId] = useState<string | null>(productId ?? null);
-  useEffect(() => {
-    if (productId) {
-      setDetailProductId(productId);
-    }
-  }, [productId]);
-  useEffect(() => {
-    if (accountId) {
-      setProductFormAccountId(accountId);
-    }
-  }, [accountId]);
   const overview = useLiquidityOverview({
     customHorizonOn: customDate || null,
     includeEarlyWithdrawal: includeEarly,
@@ -346,7 +336,7 @@ export function AvailableFundsPage({
         </Card>
       )}
 
-      <PolicySheet source={policySource} open={Boolean(policySource)} onOpenChange={(open) => { if (!open) setPolicySource(null); }} />
+      <PolicySheet key={policySource?.sourceKey ?? "policy"} source={policySource} open={Boolean(policySource)} onOpenChange={(open) => { if (!open) setPolicySource(null); }} />
       <ReservationSheet source={reservationSource} open={Boolean(reservationSource)} onOpenChange={(open) => { if (!open) setReservationSource(null); }} />
       {productFormAccountId && (
         <ProductFormSheet

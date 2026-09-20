@@ -184,7 +184,7 @@ function App() {
       {retained("available-funds") && (
         <div hidden={activePageId !== "available-funds"}>
         <WorkspaceLazy>
-          <AvailableFundsPage productId={liquidityProductId} accountId={liquidityAccountId} />
+          <AvailableFundsPage key={`${liquidityProductId ?? ""}:${liquidityAccountId ?? ""}`} productId={liquidityProductId} accountId={liquidityAccountId} />
         </WorkspaceLazy>
         </div>
       )}

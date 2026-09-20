@@ -101,10 +101,12 @@ export function useAppendProductValuation() {
   return useMutation({
     mutationFn: (request: AppendProductValuationRequest) => {
       const payload = JSON.stringify({ ...request, mutationId: "" });
-      if (!slot.current || slot.current.payload !== payload) {
-        slot.current = { payload, id: request.mutationId.trim() || crypto.randomUUID() };
+      let current = slot.current;
+      if (!current || current.payload !== payload) {
+        current = { payload, id: request.mutationId.trim() || crypto.randomUUID() };
+        slot.current = current;
       }
-      return callService(() => LiquidityService.AppendProductValuation({ ...request, mutationId: slot.current.id }));
+      return callService(() => LiquidityService.AppendProductValuation({ ...request, mutationId: current.id }));
     },
     onSuccess: () => {
       slot.current = null;
@@ -125,10 +127,12 @@ export function useRecordProductOperation() {
   return useMutation({
     mutationFn: (request: RecordProductOperationRequest) => {
       const payload = JSON.stringify({ ...request, mutationId: "" });
-      if (!slot.current || slot.current.payload !== payload) {
-        slot.current = { payload, id: request.mutationId.trim() || crypto.randomUUID() };
+      let current = slot.current;
+      if (!current || current.payload !== payload) {
+        current = { payload, id: request.mutationId.trim() || crypto.randomUUID() };
+        slot.current = current;
       }
-      return callService(() => LiquidityService.RecordProductOperation({ ...request, mutationId: slot.current.id }));
+      return callService(() => LiquidityService.RecordProductOperation({ ...request, mutationId: current.id }));
     },
     onSuccess: () => {
       slot.current = null;

@@ -1,4 +1,4 @@
-import type { ProductPolicyInput, ProductTermsInput } from "../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import type { ProductPolicyInput, ProductTermsInput } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 
 export function emptyTerms(kind: "term_deposit" | "locked_product"): ProductTermsInput {
   return {

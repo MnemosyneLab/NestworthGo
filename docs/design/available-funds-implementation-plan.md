@@ -1,12 +1,12 @@
 # Available Funds, Term Deposits, and Locked Products
 
 - **Owner:** Walt / Nestworth product
-- **Status:** Planned; implementation specification, not implemented behavior
+- **Status:** Implemented on `cursor/available-funds-8542`; automated gates pass on the Linux worker; native macOS walkthrough remains unavailable
 - **Design date:** 2026-09-20
 - **Verified code baseline:** `980151c`
 - **Audience:** An implementation agent working sequentially through small, verifiable tasks
 - **Scope:** Desktop-only Wails feature, including persistence, accounting, forecasts, UI, export, and tests
-- **Validation boundary:** Repository inspection informed this plan. No feature code, migration, prototype, or acceptance test has been implemented or run for this feature.
+- **Validation boundary:** Automated Go and frontend gates have been run on this implementation. Native macOS walkthrough (section 17) was not available on the Linux cloud worker.
 
 ## 1. Objective and decisions
 
@@ -910,6 +910,8 @@ Started from `origin/main` at `5486c22` (plan document). Verified code baseline 
 5. **`ListOperations` cursor** is `createdAtRFC3339Nano|id`. Invalid cursors are validation errors.
 6. **Known totals must not become zero** when an input is missing. UI and evaluators keep null MoneyView fields and `partial`/`unavailable` status.
 7. **Renewal is one operation**, not a settle plus a separate open.
+8. **React Compiler lint `react-hooks/set-state-in-effect`** forbids syncing navigation/source props into form state with `useEffect`. `AvailableFundsPage` remounts on `productId`/`accountId` via a React `key`; `PolicySheet` initializes from the current source and remounts on `sourceKey`.
+9. **Generated `SettleProductCommand` fields are required** in TypeScript. Settle and renew commands always send `grossProceeds` / `returnedPrincipal` / `interest` / `fee`, using `null` for unused fields rather than omitting them.
 
 ### Native gate
 
