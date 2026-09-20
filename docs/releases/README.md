@@ -1,16 +1,18 @@
 # Release Documents
 
-The current published line is `v0.3.4` / build `5`. The release contract
+The current development line is `v0.3.5` / build `6`. The release contract
 below is the single maintained scope and acceptance document for this line,
 including the evidence boundary for gates that were not run locally.
 
 ## Current release
 
-- [v0.3.4 release contract](v0.3.4.md) — portfolio/holdings, settings, insights,
-  JSON export, validation, packaging, and distribution gates.
+- [v0.3.5 release contract](v0.3.5.md) — unreleased development baseline;
+  feature scope has not been assigned.
 
 ## Published history
 
+- [v0.3.4 release contract](v0.3.4.md) — portfolio/holdings, settings, insights,
+  JSON export, validation, packaging, and distribution gates.
 - [v0.3.3 release contract](v0.3.3.md) — market-data providers, metals/crypto,
   schema compatibility, validation, packaging, and distribution gates.
 - [v0.3.2 release contract](v0.3.2.md) — first public release, including

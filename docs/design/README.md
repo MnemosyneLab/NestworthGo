@@ -13,7 +13,7 @@ the startup/onboarding gates are defined by
 - [Backup, restore, and JSON export](backup-restore-and-json-export.md) — Implemented local backup, restore, and complete structured data export.
 - [Visual analytics and market history](visual-analytics-and-market-history.md) — Implemented chart and local quote-history surfaces, with external historical-series work still planned.
 - [Analytics redesign architecture](analytics/analytics-redesign-architecture.md) — Return Analysis and Asset Changes: kernel, projections, golden cases. Product and [wireframe](analytics/analytics-wireframes.md) companions live in the same folder. Desktop smoke is still pending.
-- [Monthly review and data confidence](monthly-review-and-data-confidence.md) — Planned local month-end review loop. Not part of `0.3.4`.
+- [Monthly review and data confidence](monthly-review-and-data-confidence.md) — Planned local month-end review loop. Not part of `0.3.5`.
 
 ## Current screen map
 

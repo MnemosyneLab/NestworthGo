@@ -6,6 +6,12 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
+## 0.3.5 — Development baseline
+
+Status: `In progress` (current development line, build `6`). Only version
+metadata has advanced; feature scope has not been assigned. See the
+[release contract](../releases/v0.3.5.md).
+
 ## 0.3.4 — Portfolio, settings, and insights closeout
 
 Status: `Published` on 2026-09-20 (build `5`). See the

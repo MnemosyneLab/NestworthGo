@@ -130,7 +130,7 @@ Use the root tasks for the normal arm64 flow:
 | `wails3 task build` | `bin/nestworth` | Production Go binary with embedded frontend |
 | `wails3 task package` | `bin/Nestworth.app` | Ad-hoc signed local `.app` bundle |
 | `wails3 task package:dmg` | `bin/Nestworth.dmg` | UDZO DMG with an Applications shortcut |
-| `wails3 task package:release` | `dist/macos/Nestworth.app` and `dist/macos/Nestworth-0.3.4-arm64.dmg` | Copies and verifies release-shaped local artifacts |
+| `wails3 task package:release` | `dist/macos/Nestworth.app` and `dist/macos/Nestworth-0.3.5-arm64.dmg` | Copies and verifies release-shaped local artifacts |
 
 The release task is the recommended local packaging smoke test:
 
@@ -198,13 +198,13 @@ matching ZIP/checksum manifest. Substitute the release version when it changes.
 
 ```bash
 codesign --verify --deep --strict dist/macos/Nestworth.app
-ditto -c -k --sequesterRsrc --keepParent dist/macos/Nestworth.app dist/macos/Nestworth-0.3.4-arm64.zip
-unzip -tq dist/macos/Nestworth-0.3.4-arm64.zip
-(cd dist/macos && shasum -a 256 Nestworth-0.3.4-arm64.dmg Nestworth-0.3.4-arm64.zip > SHA256SUMS && shasum -a 256 -c SHA256SUMS)
+ditto -c -k --sequesterRsrc --keepParent dist/macos/Nestworth.app dist/macos/Nestworth-0.3.5-arm64.zip
+unzip -tq dist/macos/Nestworth-0.3.5-arm64.zip
+(cd dist/macos && shasum -a 256 Nestworth-0.3.5-arm64.dmg Nestworth-0.3.5-arm64.zip > SHA256SUMS && shasum -a 256 -c SHA256SUMS)
 ```
 
 Run Go race tests after the frontend build has finished: Go embeds
 `frontend/dist`, which Vite replaces during a build. Recreate the DMG, ZIP,
 and checksums after any final signing or application changes. Keep the current
-[release contract](../releases/v0.3.4.md) with native acceptance and upgrade
+[release contract](../releases/v0.3.5.md) with native acceptance and upgrade
 instructions alongside the release notes.

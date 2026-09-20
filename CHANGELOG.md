@@ -2,6 +2,13 @@
 
 All notable changes to Nestworth are recorded here.
 
+## [0.3.5] — Unreleased
+
+### Changed
+
+- Advanced synchronized application metadata to `v0.3.5` / build `6`.
+- Feature scope is not yet assigned; see the [release contract](docs/releases/v0.3.5.md).
+
 ## [0.3.4] — 2026-09-20
 
 ### Changed

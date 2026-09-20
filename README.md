@@ -1,8 +1,8 @@
 # Nestworth
 
 Nestworth is a local-first personal finance desktop application for building
-and maintaining a personal or household balance sheet. The current published
-line is `0.3.4` (build `5`): a Wails v3 desktop shell with a Go backend and a
+and maintaining a personal or household balance sheet. The current development
+line is `0.3.5` (build `6`, unreleased): a Wails v3 desktop shell with a Go backend and a
 React + TypeScript frontend.
 
 ## Current scope
@@ -53,7 +53,7 @@ wails3 task package:release
 ```
 
 The release output is `dist/macos/Nestworth.app` and
-`dist/macos/Nestworth-0.3.4-arm64.dmg`. Signing, notarization, artifact
+`dist/macos/Nestworth-0.3.5-arm64.dmg`. Signing, notarization, artifact
 retention, and manual accessibility review remain distribution gates.
 
 ## Technology
