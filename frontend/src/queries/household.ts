@@ -4,8 +4,6 @@ import type { CompleteOnboardingRequest } from "../../bindings/github.com/waltwa
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 
-export const bootstrapQueryKey = queryKeys.household.bootstrap;
-
 /**
  * useBootstrap is the app's single source of truth for "has onboarding
  * completed yet." App.tsx uses `data.household === null` to decide

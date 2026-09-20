@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 // changes the popup's position and enter/exit animation.
 const Sheet = BaseDialog.Root;
 const SheetTrigger = BaseDialog.Trigger;
-const SheetClose = BaseDialog.Close;
 
 type Side = "right" | "left";
 
@@ -65,4 +64,4 @@ function SheetDescription({ className, ...props }: React.ComponentProps<typeof B
   return <BaseDialog.Description className={cn("text-sm text-muted-foreground", className)} {...props} />;
 }
 
-export { Sheet, SheetTrigger, SheetClose, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription };
+export { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetFooter, SheetTitle, SheetDescription };

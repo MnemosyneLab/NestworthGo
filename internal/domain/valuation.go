@@ -110,14 +110,6 @@ type ValuationComponent struct {
 	Available                 bool
 }
 
-type ValuationResult struct {
-	Native        *MoneyView
-	Base          *MoneyView
-	Complete      bool
-	Components    []ValuationComponent
-	MissingInputs []MissingInputView
-}
-
 type AccountValuation struct {
 	Account         Account
 	Ownership       Ownership

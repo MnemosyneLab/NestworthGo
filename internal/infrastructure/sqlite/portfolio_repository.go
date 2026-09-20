@@ -987,10 +987,6 @@ func listFXPreferencesQuery(ctx context.Context, query queryer, householdID doma
 	return scanFXPreferences(rows)
 }
 
-func scanInstrument(row interface{ Scan(...any) error }) (domain.Instrument, error) {
-	return scanInstrumentColumns(row, false)
-}
-
 func scanInstrumentColumns(row interface{ Scan(...any) error }, withBinding bool) (domain.Instrument, error) {
 	var id, householdID, name, instrumentType, quoteCurrency, createdAt, updatedAt string
 	var symbol, marketCode, countryCode, isin, note, icon, quoteSource, providerKey, providerSymbol, archived sql.NullString

@@ -18,10 +18,6 @@ func computeAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.P
 	return computeAnalysisForValuationUniverse(input, query, false)
 }
 
-func computeInvestmentAnalysis(input AnalysisInputs, query domain.AnalysisQuery) (domain.PeriodAnalysisResult, error) {
-	return computeAnalysisForValuationUniverse(input, query, true)
-}
-
 func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.AnalysisQuery, investmentOnly bool) (domain.PeriodAnalysisResult, error) {
 	if err := query.Validate(); err != nil {
 		return domain.PeriodAnalysisResult{}, err

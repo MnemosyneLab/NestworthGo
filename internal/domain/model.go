@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
@@ -78,14 +77,6 @@ func (e *Error) Error() string {
 
 func validation(field, message string) error {
 	return &Error{Code: ErrValidation, Field: field, Message: message}
-}
-
-func notFound(entity string) error {
-	return &Error{Code: ErrNotFound, Message: entity + " was not found"}
-}
-
-func conflict(message string) error {
-	return &Error{Code: ErrConflict, Message: message}
 }
 
 func newID() string {
@@ -175,19 +166,7 @@ func parseID[T ~string](value, field string) (T, error) {
 	return T(value), nil
 }
 
-var timestampLayout = "2006-01-02T15:04:05.000Z07:00"
-
 func normalizeTime(value time.Time) time.Time { return value.UTC().Truncate(time.Millisecond) }
-func formatTime(value time.Time) string       { return normalizeTime(value).Format(timestampLayout) }
-
-func parseTime(value string) (time.Time, error) {
-	parsed, err := time.Parse(time.RFC3339Nano, value)
-	if err != nil {
-		return time.Time{}, validation("timestamp", "must be an RFC 3339 timestamp")
-	}
-	return normalizeTime(parsed), nil
-}
-
 func validateName(field, value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -454,7 +433,6 @@ func EqualOwnership(memberIDs []MemberID) (Ownership, error) {
 }
 
 func (o Ownership) Shares() []OwnershipShare { return append([]OwnershipShare(nil), o.shares...) }
-func (o Ownership) IsShared() bool           { return len(o.shares) > 1 }
 
 var percentPattern = regexp.MustCompile(`^(0|[1-9][0-9]{0,2})(\.[0-9]{1,2})?%?$`)
 
@@ -731,30 +709,6 @@ func (a Account) SignedAmount(value Money) (decimal.Decimal, error) {
 	return value.Amount(), nil
 }
 
-func (o Ownership) sorted() []OwnershipShare {
-	result := o.Shares()
-	sort.Slice(result, func(i, j int) bool { return result[i].MemberID < result[j].MemberID })
-	return result
-}
-
-// OverviewTotals is the backend-owned authoritative result.
-type OverviewTotals struct {
-	AccountCount int
-	Assets       Money
-	Liabilities  Money
-	NetWorth     decimal.Decimal
-}
-
-func (a Account) ValidateValue(value Money) error {
-	if a.TrackingMode == TrackingHoldings {
-		return validation("trackingMode", "account values are not valid for Holdings accounts")
-	}
-	if value.Currency() != a.DefaultCurrency {
-		return validation("amount", "currency must match account currency")
-	}
-	return nil
-}
-
 // AccountRecord combines an Account with the immutable ownership and latest
 // current-value observation needed by application read models.
 type AccountRecord struct {
@@ -838,10 +792,6 @@ func ParseOwnershipScope(value string) (OwnershipScope, error) {
 	default:
 		return "", validation("ownershipScope", "is not supported")
 	}
-}
-
-func AllOwnershipScopes() []OwnershipScope {
-	return []OwnershipScope{OwnershipAny, OwnershipSole, OwnershipShared}
 }
 
 type AccountFilter struct {

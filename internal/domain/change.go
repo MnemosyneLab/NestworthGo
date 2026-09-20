@@ -37,9 +37,6 @@ func NewHistoryOriginComponentID() HistoryOriginComponentID { return HistoryOrig
 func NewAccountStateObservationID() AccountStateObservationID {
 	return AccountStateObservationID(newID())
 }
-func NewAccountOwnershipObservationID() AccountOwnershipObservationID {
-	return AccountOwnershipObservationID(newID())
-}
 func NewInstrumentStateObservationID() InstrumentStateObservationID {
 	return InstrumentStateObservationID(newID())
 }
@@ -100,9 +97,6 @@ func ParseHistoryOriginComponentID(value string) (HistoryOriginComponentID, erro
 func ParseAccountStateObservationID(value string) (AccountStateObservationID, error) {
 	return parseHistoryID[AccountStateObservationID](value, "accountStateObservationId")
 }
-func ParseAccountOwnershipObservationID(value string) (AccountOwnershipObservationID, error) {
-	return parseHistoryID[AccountOwnershipObservationID](value, "accountOwnershipObservationId")
-}
 func ParseInstrumentStateObservationID(value string) (InstrumentStateObservationID, error) {
 	return parseHistoryID[InstrumentStateObservationID](value, "instrumentStateObservationId")
 }
@@ -114,9 +108,6 @@ func ParseInstrumentPreferenceObservationID(value string) (InstrumentPreferenceO
 }
 func ParseFXPreferenceObservationID(value string) (FXPreferenceObservationID, error) {
 	return parseHistoryID[FXPreferenceObservationID](value, "fxPreferenceObservationId")
-}
-func ParseHoldingQuantityValueID(value string) (HoldingQuantityValueID, error) {
-	return parseHistoryID[HoldingQuantityValueID](value, "holdingQuantityValueId")
 }
 func ParseDailyValuationSnapshotID(value string) (DailyValuationSnapshotID, error) {
 	return parseHistoryID[DailyValuationSnapshotID](value, "dailyValuationSnapshotId")
@@ -153,14 +144,6 @@ func ParseActivityKind(value string) (ActivityKind, error) {
 		return kind, nil
 	default:
 		return "", validation("kind", "is not supported")
-	}
-}
-
-func AllActivityKinds() []ActivityKind {
-	return []ActivityKind{
-		ActivityCashIn, ActivityCashOut, ActivityCashDividend, ActivityCashTransfer, ActivityFXConversion,
-		ActivityPositionTransfer, ActivityBuy, ActivitySell, ActivityValueUpdate,
-		ActivityDebtDraw, ActivityDebtPayment, ActivityReversal,
 	}
 }
 
@@ -303,16 +286,6 @@ type ActivityEffect struct {
 	Money          *Money
 	Quantity       *Quantity
 	CostUnitPrice  *UnitPrice
-}
-
-func (e ActivityEffect) Magnitude() string {
-	if e.Money != nil {
-		return e.Money.CanonicalAmount()
-	}
-	if e.Quantity != nil {
-		return e.Quantity.Canonical()
-	}
-	return "0"
 }
 
 func (e ActivityEffect) Validate() error {
@@ -1543,8 +1516,4 @@ func ResolveLocalDateTime(date, clock, timezone string) (time.Time, error) {
 		return time.Time{}, changeError(ErrInvalidChangeTime, "time", "local time is ambiguous in the selected timezone")
 	}
 	return normalizeTime(candidates[0]), nil
-}
-
-func ResolveLocalTime(date, clock, timezone string) (time.Time, error) {
-	return ResolveLocalDateTime(date, clock, timezone)
 }

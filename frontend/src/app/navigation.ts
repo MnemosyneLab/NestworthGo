@@ -121,8 +121,6 @@ export const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
-export const NAV_ITEMS: NavItem[] = NAV_GROUPS.flatMap((group) => group.items);
-
 export const DEFAULT_PAGE_ID = "overview";
 
 export function targetForPage(page: PageId): NavigationTarget {

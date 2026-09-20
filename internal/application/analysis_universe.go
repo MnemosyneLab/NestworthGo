@@ -1,7 +1,6 @@
 package application
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -300,11 +299,4 @@ func componentAssetClass(component domain.ComponentID, accounts map[domain.Accou
 func (u analysisUniverse) componentInUniverse(component domain.ComponentID) bool {
 	_, ok := u.componentKeys[component.Key()]
 	return ok
-}
-
-func (u analysisUniverse) ensureComponentCurrency(component domain.ComponentID) (domain.ComponentID, error) {
-	if component.Currency == "" {
-		return component, fmt.Errorf("component %s has no currency", component.Key())
-	}
-	return component, nil
 }

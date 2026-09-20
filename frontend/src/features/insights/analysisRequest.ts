@@ -42,10 +42,6 @@ export function effectiveRange(state: Pick<AnalysisSessionState, "from" | "to">,
   }, startedAt, timeZone);
 }
 
-export function yearRange(year: number, timeZone?: string, startedAt?: string): { from: string; to: string } {
-  return periodRange({ from: "", to: "" }, `${year}-01-01`, `${year}-12-31`, timeZone, startedAt);
-}
-
 function addDays(value: string, amount: number): string {
   const date = parseYmd(value);
   date.setDate(date.getDate() + amount);

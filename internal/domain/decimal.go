@@ -126,8 +126,6 @@ func NewFxRate(value decimal.Decimal) (FxRate, error) {
 	return FxRate{value: value}, nil
 }
 
-func NewFXRate(value decimal.Decimal) (FxRate, error) { return NewFxRate(value) }
-
 func (r FxRate) Decimal() decimal.Decimal { return r.value }
 func (r FxRate) Amount() decimal.Decimal  { return r.value }
 func (r FxRate) Canonical() string        { return canonicalDecimal(r.value) }
@@ -167,10 +165,6 @@ func DivideByFxRate(value decimal.Decimal, rate FxRate) (decimal.Decimal, error)
 		return decimal.Zero, validation("fxRate", "must be greater than zero")
 	}
 	return checkedIntermediate(value.Div(rate.value))
-}
-
-func (r FxRate) Inverse() (FxRate, error) {
-	return NewFxRate(decimal.NewFromInt(1).Div(r.value))
 }
 
 func validateBoundedDecimal(field string, value, maximum decimal.Decimal, maxIntegerDigits, maxScale int, positive bool) error {

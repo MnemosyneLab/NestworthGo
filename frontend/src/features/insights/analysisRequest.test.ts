@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { activeReturnTrendRange, effectiveRange, periodRange, returnTrendRange, yearRange } from "./analysisRequest";
+import { activeReturnTrendRange, effectiveRange, periodRange, returnTrendRange } from "./analysisRequest";
 
 describe("analysis request ranges", () => {
   it("intersects year and month cards with an explicit session date range", () => {
@@ -14,7 +14,7 @@ describe("analysis request ranges", () => {
     expect(effectiveRange({ from: "2025-03-15", to: "2025-10-20" }, "2025-04", "UTC")).toEqual({ from: "2025-03-15", to: "2025-10-20" });
     expect(effectiveRange({ from: "2025-03-15", to: "" }, "2025-04", "UTC")).toEqual({ from: "2025-03-15", to: "2025-04-30" });
     expect(effectiveRange({ from: "", to: "2025-04-20" }, "2025-04", "UTC")).toEqual({ from: "2025-04-01", to: "2025-04-20" });
-    expect(yearRange(2025, "UTC")).toEqual({ from: "2025-01-01", to: "2025-12-31" });
+    expect(periodRange({ from: "", to: "" }, "2025-01-01", "2025-12-31", "UTC")).toEqual({ from: "2025-01-01", to: "2025-12-31" });
   });
 
   it("derives named Return Trend ranges from the closed Origin-local day", () => {
@@ -40,7 +40,7 @@ describe("analysis request ranges", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date("2026-09-08T12:00:00Z"));
     expect(effectiveRange({ from: "", to: "" }, "2026-09", "UTC", "2026-09-03T00:00:00Z")).toEqual({ from: "2026-09-03", to: "2026-09-07" });
-    expect(yearRange(2026, "UTC", "2026-09-03T00:00:00Z")).toEqual({ from: "2026-09-03", to: "2026-09-07" });
+    expect(periodRange({ from: "", to: "" }, "2026-01-01", "2026-12-31", "UTC", "2026-09-03T00:00:00Z")).toEqual({ from: "2026-09-03", to: "2026-09-07" });
     expect(effectiveRange({ from: "", to: "" }, "2026-08", "UTC", "2026-09-03T00:00:00Z")).toEqual({ from: "2026-09-03", to: "2026-08-31" });
     vi.useRealTimers();
   });

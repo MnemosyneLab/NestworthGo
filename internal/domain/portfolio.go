@@ -291,8 +291,6 @@ func NewInstrument(input InstrumentInput, now time.Time) (Instrument, error) {
 	}, nil
 }
 
-func (i Instrument) UsesProvider() bool { return i.QuoteSource == QuoteSourceProvider }
-
 // Holding stores the current quantity, not an activity or trade history.
 type Holding struct {
 	ID           HoldingID

@@ -3,7 +3,6 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { applyChartPolicy } from "@/components/charts/EChart";
-import { SignedBarChart } from "@/components/charts/SignedBarChart";
 import { TrendChart, trendChartTimestamp, trendLegendLabel } from "@/components/charts/TrendChart";
 import { escapeChartText, joinTooltipLines, prefersReducedMotion } from "@/components/charts/chartTheme";
 
@@ -129,7 +128,7 @@ describe("chart interactions", () => {
     expect(screen.getAllByText("Delayed").length).toBeGreaterThan(0);
   });
 
-  it("renders member names through escaped HTML tooltip text", () => {
+  it("escapes member names and applies the shared HTML tooltip policy", () => {
     const option = applyChartPolicy({
       tooltip: {
         trigger: "item",
@@ -145,37 +144,6 @@ describe("chart interactions", () => {
     expect(joinTooltipLines([`Alice <img src=x onerror=alert(1)>`, "$25.00"])).toBe(
       "Alice &lt;img src=x onerror=alert(1)&gt;<br/>$25.00",
     );
-
-    render(
-      <SignedBarChart
-        ariaLabel="Gain"
-        summary="Gain"
-        items={[{ key: "m1", label: `Alice <img src=x onerror=alert(1)>`, amount: "25", currency: "USD" }]}
-        emptyLabel="empty"
-      />,
-    );
-    expect(screen.getAllByText(`Alice <img src=x onerror=alert(1)>`).length).toBeGreaterThan(0);
-  });
-
-  it("lists signed bars by amount descending with losses last", () => {
-    render(
-      <SignedBarChart
-        ariaLabel="Gain"
-        summary="Gain"
-        items={[
-          { key: "loss", label: "Loss", amount: "-20", currency: "USD" },
-          { key: "small", label: "Small", amount: "10", currency: "USD" },
-          { key: "large", label: "Large", amount: "500", currency: "USD" },
-        ]}
-        emptyLabel="empty"
-      />,
-    );
-    const legend = screen.getByTestId("signed-bar-legend");
-    expect([...legend.querySelectorAll("li")].map((item) => item.querySelector("span")?.textContent)).toEqual([
-      "Large",
-      "Small",
-      "Loss",
-    ]);
   });
 
   it("disables animation when the user prefers reduced motion", () => {

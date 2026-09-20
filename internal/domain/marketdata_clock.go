@@ -78,17 +78,6 @@ func ParseMarketDate(value string) (string, error) {
 	return trimmed, nil
 }
 
-func CompareMarketDate(a, b string) int {
-	switch {
-	case a < b:
-		return -1
-	case a > b:
-		return 1
-	default:
-		return 0
-	}
-}
-
 func InclusiveMarketDates(start, end string) ([]string, error) {
 	startDate, err := ParseMarketDate(start)
 	if err != nil {

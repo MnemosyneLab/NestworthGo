@@ -575,10 +575,6 @@ type historicalInstrumentSelection struct {
 	coverageComplete bool
 }
 
-func selectHistoricalInstrumentQuoteWithCoverage(instrument domain.Instrument, quotes []domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage, cutoff time.Time) historicalInstrumentSelection {
-	return selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument, quotes, coverage, cutoff.UTC().Format("2006-01-02"), cutoff)
-}
-
 func selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument domain.Instrument, quotes []domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage, marketDate string, cutoff time.Time) historicalInstrumentSelection {
 	marketDate = strings.TrimSpace(marketDate)
 	if marketDate == "" && !cutoff.IsZero() {
@@ -636,10 +632,6 @@ func selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument domain.I
 	return selection
 }
 
-func historicalInstrumentCoverageComplete(instrument domain.Instrument, quote domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage, cutoff time.Time) bool {
-	return historicalInstrumentCoverageCompleteAtMarketDate(instrument, quote, coverage, cutoff.UTC().Format("2006-01-02"))
-}
-
 func historicalInstrumentCoverageCompleteAtMarketDate(instrument domain.Instrument, quote domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage, marketDate string) bool {
 	if instrument.ProviderKey == nil || strings.TrimSpace(*instrument.ProviderKey) == "" || instrument.ProviderBindingRevision <= 0 {
 		return false
@@ -691,10 +683,6 @@ func historicalInstrumentCoverageCompleteAtMarketDate(instrument domain.Instrume
 		return true
 	}
 	return false
-}
-
-func historicalFXCoverageComplete(snapshot domain.PortfolioSnapshot, quote domain.FXQuote, cutoff time.Time) bool {
-	return historicalFXCoverageCompleteAtMarketDate(snapshot, quote, cutoff.UTC().Format("2006-01-02"))
 }
 
 func historicalFXCoverageCompleteAtMarketDate(snapshot domain.PortfolioSnapshot, quote domain.FXQuote, marketDate string) bool {

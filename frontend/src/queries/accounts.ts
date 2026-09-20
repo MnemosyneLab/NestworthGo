@@ -62,15 +62,6 @@ export function useArchiveAccount() {
   });
 }
 
-export function useSetAccountIcon() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, iconKey }: { id: string; iconKey: string }) =>
-      callService(() => AccountService.SetAccountIcon(id, iconKey)),
-    onSuccess: (_data, variables) => invalidateAccountChange(queryClient, variables.id),
-  });
-}
-
 export function useAppendAccountValue() {
   const queryClient = useQueryClient();
   return useMutation({

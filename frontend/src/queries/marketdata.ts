@@ -127,13 +127,6 @@ export function useRefreshAll() {
 	});
 }
 
-export function useRefreshRequiredFX() {
-	return useAsyncRefresh<void>({
-		start: (requestId) => MarketDataService.StartRefreshRequiredFX(requestId),
-		invalidate: (queryClient) => invalidateRequiredFX(queryClient),
-	});
-}
-
 export function useRefreshMissingOrStale() {
 	return useAsyncRefresh<void>({
 		start: (requestId) => MarketDataService.StartRefreshMissingOrStale(requestId),

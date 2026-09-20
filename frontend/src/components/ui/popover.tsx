@@ -4,7 +4,6 @@ import { cn } from "@/lib/utils";
 
 const Popover = BasePopover.Root;
 const PopoverTrigger = BasePopover.Trigger;
-const PopoverClose = BasePopover.Close;
 
 function PopoverContent({
   className,
@@ -33,4 +32,4 @@ function PopoverContent({
   );
 }
 
-export { Popover, PopoverTrigger, PopoverClose, PopoverContent };
+export { Popover, PopoverTrigger, PopoverContent };

@@ -991,18 +991,6 @@ func trendDayAmount(day domain.ComponentDay, metric AssetTrendMetric) (decimal.D
 	return assetBucketAmount(day, bucket)
 }
 
-func sumDayBuckets(day domain.ComponentDay, wanted map[domain.AttributionBucket]bool) (domain.SignedMoney, bool) {
-	amount, currency, found := sumDayBucketAmounts(day, wanted)
-	if !found {
-		return domain.SignedMoney{}, false
-	}
-	result, err := domain.NewSignedMoney(amount, currency)
-	if err != nil {
-		return domain.SignedMoney{}, false
-	}
-	return result, true
-}
-
 func sumDayBucketAmounts(day domain.ComponentDay, wanted map[domain.AttributionBucket]bool) (decimal.Decimal, domain.CurrencyCode, bool) {
 	amount := decimal.Zero
 	var currency domain.CurrencyCode
@@ -1165,13 +1153,6 @@ func sortedDimensionAmounts(values map[string]AnalysisDimensionAmount) []Analysi
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Key < result[j].Key })
 	return result
-}
-
-func decimalValue(value *domain.SignedMoney) decimal.Decimal {
-	if value == nil {
-		return decimal.Zero
-	}
-	return value.Amount()
 }
 
 func signedPointer(value decimal.Decimal, currency domain.CurrencyCode) *domain.SignedMoney {

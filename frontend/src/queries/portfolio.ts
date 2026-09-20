@@ -3,8 +3,6 @@ import { Service as PortfolioService } from "../../bindings/github.com/waltwang/
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 
-export const overviewQueryKey = queryKeys.overview.all;
-
 /** useOverview loads the Overview page's data through PortfolioService,
  * with no account filter (the whole-Household view). */
 export function useOverview() {

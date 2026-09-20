@@ -46,13 +46,6 @@ export function useStartHistory() {
   });
 }
 
-export function useListActivities(limit = 50) {
-  return useQuery({
-    queryKey: queryKeys.history.activities(limit),
-    queryFn: () => callService(() => HistoryService.ListActivities(limit)),
-  });
-}
-
 export function useActivity(activityId: string) {
   return useQuery({
     queryKey: queryKeys.history.activity(activityId),

@@ -76,7 +76,3 @@ export function isToday(date: string, timeZone?: string): boolean {
 export function isFuture(date: string, timeZone?: string): boolean {
   return date > ymdInTimeZone(new Date(), timeZone);
 }
-
-export function isCurrentYear(month: string): boolean {
-  return Number(month.slice(0, 4)) === new Date().getFullYear();
-}

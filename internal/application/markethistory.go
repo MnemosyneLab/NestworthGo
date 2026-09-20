@@ -169,10 +169,6 @@ func (c MarketDataCapabilities) SupportsInstrumentHistory() bool {
 	return c.InstrumentDailyHistory
 }
 
-func (c MarketDataCapabilities) SupportsFXHistory() bool {
-	return c.FXDailyHistory
-}
-
 func SourcePolicyVersion(evidence ResponseEvidence) string {
 	if policy := strings.TrimSpace(evidence.SourcePolicy); policy != "" {
 		return policy

@@ -195,22 +195,6 @@ func DefaultBalanceSheetRole(accountType AccountType) (BalanceSheetRole, bool) {
 	return found, found != ""
 }
 
-func TrackingModesFor(accountType AccountType, role BalanceSheetRole) []TrackingMode {
-	modes := make([]TrackingMode, 0, 3)
-	seen := map[TrackingMode]struct{}{}
-	for _, combination := range legalAccountCombinations {
-		if combination.AccountType != accountType || combination.BalanceSheetRole != role {
-			continue
-		}
-		if _, exists := seen[combination.TrackingMode]; exists {
-			continue
-		}
-		seen[combination.TrackingMode] = struct{}{}
-		modes = append(modes, combination.TrackingMode)
-	}
-	return modes
-}
-
 func SuggestedInclusion(accountType AccountType, tracking TrackingMode) InclusionDefaults {
 	defaults := InclusionDefaults{IncludeInNetWorth: true}
 	switch accountType {

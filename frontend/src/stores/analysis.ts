@@ -70,5 +70,3 @@ export const useAnalysisStore = create<AnalysisSessionState>((set) => ({
   resetFilters: () => set(({ returnTab, returnCursor, assetTab, assetCursor }) => ({ ...initialSession, returnTab, returnCursor, assetTab, assetCursor })),
   reset: () => set(initialSession),
 }));
-
-export const analysisSessionStore = useAnalysisStore;

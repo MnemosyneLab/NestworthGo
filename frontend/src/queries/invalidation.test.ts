@@ -15,7 +15,7 @@ import {
 import { useArchiveAccount, useCreateAccount, useUpdateAccount } from "@/queries/accounts";
 import { useAppendManualInstrumentQuote, useArchiveInstrument, useUpdateInstrument, useCreateHolding, useCreateInstrument } from "@/queries/investments";
 import { useFixChange, useRecordChange, useStartHistory, useUndoChange } from "@/queries/history";
-import { useRefreshAll, useRefreshRequiredFX } from "@/queries/marketdata";
+import { useRefreshAll, useRefreshFX } from "@/queries/marketdata";
 
 const refreshHarness = vi.hoisted(() => {
   const listeners = new Map<string, (event: { data: unknown }) => void>();
@@ -71,7 +71,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/histo
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
     StartRefreshAll: refreshHarness.start,
-    StartRefreshRequiredFX: refreshHarness.start,
+    StartRefreshFX: refreshHarness.start,
     CancelRefresh: refreshHarness.cancel,
   },
 }));
@@ -352,9 +352,9 @@ describe("mutation-hook invalidation", () => {
 
   it("refreshes FX-only and Refresh All through their mutation hooks", async () => {
     const fxClient = seededClient();
-    const fx = renderMutation(fxClient, useRefreshRequiredFX);
+    const fx = renderMutation(fxClient, useRefreshFX);
     await act(async () => {
-      await fx.result.current.mutateAsync();
+      await fx.result.current.mutateAsync({ currencyA: "USD", currencyB: "SGD" });
     });
     expect(isInvalidated(fxClient, queryKeys.overview.all)).toBe(true);
     expect(isInvalidated(fxClient, queryKeys.quote.instrument.current("instrument-1"))).toBe(true);
