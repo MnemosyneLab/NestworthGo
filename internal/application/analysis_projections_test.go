@@ -72,16 +72,17 @@ func TestAssetChangeGroupsKeepResidualAsItsOwnOtherRow(t *testing.T) {
 
 func TestAssetChangeGroupsSeparateCashFlowsFromMarketAndInvestment(t *testing.T) {
 	values := map[domain.AttributionBucket]string{
-		domain.BucketExternalFlow:     "1",
-		domain.BucketIncome:           "2",
-		domain.BucketSpending:         "-3",
-		domain.BucketDividendInterest: "4",
-		domain.BucketPriceChange:      "5",
-		domain.BucketFXImpact:         "-2",
-		domain.BucketFee:              "-7",
-		domain.BucketLiabilityImpact:  "8",
-		domain.BucketAdjustment:       "9",
-		domain.BucketResidual:         "-17",
+		domain.BucketExternalFlow:       "1",
+		domain.BucketIncome:             "2",
+		domain.BucketSpending:           "-3",
+		domain.BucketDividendInterest:   "4",
+		domain.BucketPriceChange:        "5",
+		domain.BucketFXImpact:           "-2",
+		domain.BucketFXConversionSpread: "-1",
+		domain.BucketFee:                "-6",
+		domain.BucketLiabilityImpact:    "8",
+		domain.BucketAdjustment:         "9",
+		domain.BucketResidual:           "-17",
 	}
 	waterfall := make(map[domain.AttributionBucket]decimal.Decimal, len(values))
 	for bucket, value := range values {
@@ -93,7 +94,7 @@ func TestAssetChangeGroupsSeparateCashFlowsFromMarketAndInvestment(t *testing.T)
 	}
 	want := map[string][]domain.AttributionBucket{
 		"cash":   {domain.BucketExternalFlow, domain.BucketIncome, domain.BucketSpending},
-		"market": {domain.BucketDividendInterest, domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFee},
+		"market": {domain.BucketDividendInterest, domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFXConversionSpread, domain.BucketFee},
 		"other":  {domain.BucketLiabilityImpact, domain.BucketAdjustment, domain.BucketResidual},
 	}
 	for _, group := range groups {

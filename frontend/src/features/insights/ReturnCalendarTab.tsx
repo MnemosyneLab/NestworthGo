@@ -180,6 +180,7 @@ function componentLabel(t: (key: string) => string, component: string): string {
   const key = ({
     price_change: "priceChange",
     fx_impact: "fxImpact",
+    fx_conversion_spread: "fxConversionSpread",
     dividend_interest: "dividendInterest",
     investment_fee: "investmentFee",
     cash_fx_impact: "cashFxImpact",

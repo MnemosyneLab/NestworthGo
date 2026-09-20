@@ -444,10 +444,10 @@ func (u analysisUniverse) attributeInternalFXDifference(activity domain.Activity
 	if leg.potentialDietzKnown {
 		leg.potentialDietzAmount = leg.potentialDietzAmount.Sub(difference)
 	}
-	bucket := domain.BucketFXImpact
+	bucket := domain.BucketFXConversionSpread
 	spread := classifiedAnalysisEffect{activity: activity, component: leg.component, bucket: &bucket, amount: difference, amountKnown: true}
 	if u.investmentComponentInUniverse(leg.component) {
-		component := domain.ReturnFXImpact
+		component := domain.ReturnFXConversionSpread
 		spread.returnComponent, spread.returnAmount, spread.returnKnown = &component, difference, true
 	}
 	return append(effects, spread)

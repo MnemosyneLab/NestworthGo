@@ -145,25 +145,27 @@ type ResolvedAnalysisContext struct {
 type AttributionBucket string
 
 const (
-	BucketExternalFlow     AttributionBucket = "external_flow"
-	BucketIncome           AttributionBucket = "income"
-	BucketSpending         AttributionBucket = "spending"
-	BucketDividendInterest AttributionBucket = "dividend_interest"
-	BucketPriceChange      AttributionBucket = "price_change"
-	BucketFXImpact         AttributionBucket = "fx_impact"
-	BucketFee              AttributionBucket = "fee"
-	BucketLiabilityImpact  AttributionBucket = "liability_impact"
-	BucketAdjustment       AttributionBucket = "adjustment"
-	BucketResidual         AttributionBucket = "residual"
+	BucketExternalFlow       AttributionBucket = "external_flow"
+	BucketIncome             AttributionBucket = "income"
+	BucketSpending           AttributionBucket = "spending"
+	BucketDividendInterest   AttributionBucket = "dividend_interest"
+	BucketPriceChange        AttributionBucket = "price_change"
+	BucketFXImpact           AttributionBucket = "fx_impact"
+	BucketFXConversionSpread AttributionBucket = "fx_conversion_spread"
+	BucketFee                AttributionBucket = "fee"
+	BucketLiabilityImpact    AttributionBucket = "liability_impact"
+	BucketAdjustment         AttributionBucket = "adjustment"
+	BucketResidual           AttributionBucket = "residual"
 )
 
 type ReturnComponent string
 
 const (
-	ReturnPriceChange      ReturnComponent = "price_change"
-	ReturnFXImpact         ReturnComponent = "fx_impact"
-	ReturnDividendInterest ReturnComponent = "dividend_interest"
-	ReturnInvestmentFee    ReturnComponent = "investment_fee"
+	ReturnPriceChange        ReturnComponent = "price_change"
+	ReturnFXImpact           ReturnComponent = "fx_impact"
+	ReturnFXConversionSpread ReturnComponent = "fx_conversion_spread"
+	ReturnDividendInterest   ReturnComponent = "dividend_interest"
+	ReturnInvestmentFee      ReturnComponent = "investment_fee"
 )
 
 type DietzCapitalFlow struct {

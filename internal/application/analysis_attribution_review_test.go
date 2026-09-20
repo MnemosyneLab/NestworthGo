@@ -837,8 +837,74 @@ func TestAnalysisFXConversionExecutionSpreadReconciles(t *testing.T) {
 		t.Fatalf("USD conversion leg was not internal: %+v", usdDay)
 	}
 	sgdDay := analysisFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "SGD", Cash: true})
-	if got := analysisBucket(sgdDay, domain.BucketFXImpact); !got.Equal(decimal.RequireFromString("3.8")) {
-		t.Fatalf("SGD FX impact=%s, want 3.8 (13.8 movement minus 10 execution spread)", got)
+	if got := analysisBucket(sgdDay, domain.BucketFXImpact); !got.Equal(decimal.RequireFromString("13.8")) {
+		t.Fatalf("SGD holding FX impact=%s, want 13.8", got)
+	}
+	if got := analysisBucket(sgdDay, domain.BucketFXConversionSpread); !got.Equal(decimal.RequireFromString("-10")) {
+		t.Fatalf("SGD conversion spread=%s, want -10", got)
 	}
 	reviewAssertPeriodIdentity(t, result, "703.8")
+}
+
+// A flat market rate must leave only execution spread; subsequent FX movement
+// belongs to holding-period FX, and both still reconcile to the account value.
+func TestAnalysisCNYConversionSeparatesSpreadFromHoldingFX(t *testing.T) {
+	for _, tc := range []struct{ name, bought, closeRate, ending, spread, holding string }{
+		{"flat market", "1481.48", "6.7", "9925.916", "-74.084", "0"},
+		{"market moves", "1481.48", "6.8", "10074.064", "-74.084", "148.148"},
+		{"favourable execution", "1500", "6.7", "10050", "50", "0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := domain.NewHouseholdID()
+			household := &domain.Household{ID: h, BaseCurrency: "CNY"}
+			account := analysisAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
+			state := reviewChangeState(t, h, reviewAccountState(t, account, "0"))
+			state.Cash[account.ID] = map[domain.CurrencyCode]domain.Money{"CNY": mustMoney(t, "10000", "CNY"), "USD": mustMoney(t, "0", "USD")}
+			at := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+			activity := reviewApplyChange(t, &state, domain.FXConversionInput{HouseholdID: h, AccountID: account.ID, Sold: mustMoney(t, "10000", "CNY"), Bought: mustMoney(t, tc.bought, "USD"), EffectiveAt: at})
+			event := reviewFXQuote(t, h, "USD", "6.7", at)
+			close := reviewFXQuote(t, h, "USD", tc.closeRate, at.Add(11*time.Hour))
+			prev := analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "10000", "10000", nil, nil, "", ""), analysisItem(t, account.ID, "USD", "0", "0", nil, nil, "", ""))
+			cur := analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "0", "0", nil, nil, "", ""), analysisItem(t, account.ID, "USD", tc.bought, tc.ending, nil, nil, "", close.ID.String()))
+			input := AnalysisInputs{Origin: analysisOrigin(t, h, "UTC"), Portfolio: reviewPortfolio(household, account), Snapshots: []domain.DailyValuationSnapshot{prev, cur}, Activities: []domain.Activity{activity}, FXQuotes: []domain.FXQuote{event, close}}
+			result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
+			if err != nil {
+				t.Fatal(err)
+			}
+			day := analysisFindDay(t, result, domain.ComponentID{AccountID: account.ID, Currency: "USD", Cash: true})
+			for bucket, want := range map[domain.AttributionBucket]string{domain.BucketFXImpact: tc.holding, domain.BucketFXConversionSpread: tc.spread} {
+				if got := analysisBucket(day, bucket); !got.Equal(decimal.RequireFromString(want)) {
+					t.Fatalf("%s=%s, want %s", bucket, got, want)
+				}
+			}
+			if got := day.ReturnComponents[domain.ReturnFXConversionSpread].Amount(); !got.Equal(decimal.RequireFromString(tc.spread)) {
+				t.Fatalf("return spread=%s", got)
+			}
+			if got := day.ReturnComponents[domain.ReturnFXImpact].Amount(); !got.Equal(decimal.RequireFromString(tc.holding)) {
+				t.Fatalf("return holding FX=%s", got)
+			}
+			detail := foldAssetDriverDetail(result, "", string(domain.BucketFXConversionSpread))
+			if len(detail.ByInstrument) != 1 || detail.ByInstrument[0].Key != "cash" || detail.ByInstrument[0].InstrumentID != "" {
+				t.Fatalf("cash dimension=%+v", detail.ByInstrument)
+			}
+			if len(detail.ByAccount) != 1 || detail.ByAccount[0].AccountID != account.ID.String() {
+				t.Fatalf("account dimension=%+v", detail.ByAccount)
+			}
+			if !detail.ByAccount[0].Amount.Amount().Equal(decimal.RequireFromString(tc.spread).RoundBank(assetProjectionPrecision)) {
+				t.Fatalf("account spread=%s", detail.ByAccount[0].Amount.Amount())
+			}
+			change := foldAssetChange(result, "")
+			total := decimal.Zero
+			for _, row := range change.Waterfall {
+				total = total.Add(row.Amount.Amount())
+			}
+			if !total.Equal(change.Summary.Change.Amount()) {
+				t.Fatalf("waterfall=%s, summary=%s", total, change.Summary.Change.Amount())
+			}
+			if _, err := foldAssetTrend(result, "", TrendDay, TrendFXConversionSpread); err != nil {
+				t.Fatal(err)
+			}
+			reviewAssertPeriodIdentity(t, result, tc.ending)
+		})
+	}
 }

@@ -79,6 +79,7 @@ function sourceLabel(t: (key: string) => string, key: string): string {
   const labels: Record<string, string> = {
     price_change: "components.priceChange",
     fx_impact: "components.fxImpact",
+    fx_conversion_spread: "components.fxConversionSpread",
     dividend_interest: "components.dividendInterest",
     investment_fee: "components.investmentFee",
   };

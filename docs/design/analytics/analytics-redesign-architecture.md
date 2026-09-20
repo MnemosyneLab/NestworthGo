@@ -110,6 +110,7 @@ EndingValue - BeginningValue
   + DividendInterest
   + PriceChange
   + FXImpact
+  + FXConversionSpread
   + Fees
   + LiabilityImpact
   + Adjustments
@@ -171,6 +172,7 @@ InvestmentReturn =
     ReturnPriceChange
   + ReturnDividendInterest
   + ReturnFXImpact           // 0 in native valuation
+  + ReturnFXConversionSpread // base valuation, both conversion legs in scope
   + ReturnInvestmentFee      // signed; a commission of −20 is added as −20
 ```
 
@@ -486,6 +488,7 @@ type ReturnComponent string
 const (
     ReturnPriceChange       ReturnComponent = "price_change"
     ReturnFXImpact          ReturnComponent = "fx_impact"
+    ReturnFXConversionSpread ReturnComponent = "fx_conversion_spread"
     ReturnDividendInterest  ReturnComponent = "dividend_interest"
     ReturnInvestmentFee     ReturnComponent = "investment_fee"
 )
@@ -704,6 +707,7 @@ const (
     BucketDividendInterest  AttributionBucket = "dividend_interest"
     BucketPriceChange       AttributionBucket = "price_change"
     BucketFXImpact          AttributionBucket = "fx_impact"
+    BucketFXConversionSpread AttributionBucket = "fx_conversion_spread"
     BucketFee               AttributionBucket = "fee"
     BucketLiabilityImpact   AttributionBucket = "liability_impact"
     BucketAdjustment        AttributionBucket = "adjustment"
@@ -1099,7 +1103,8 @@ The product design, the wireframes, and this document have drifted into several 
 | Bucket | `spending` | Spending | 支出 |
 | Bucket | `dividend_interest` | Dividend & Interest | 股息与利息 |
 | Bucket | `price_change` | Price Change | 价格变动 |
-| Bucket | `fx_impact` | FX Impact | 汇率影响 |
+| Bucket | `fx_impact` | Holding-period FX change | 持有期汇率变动 |
+| Bucket | `fx_conversion_spread` | FX conversion spread | 兑换价差 |
 | Bucket | `fee` | Fees | 费用 |
 | Bucket | `liability_impact` | Liability Impact | 负债影响 |
 | Bucket | `adjustment` | Adjustments | 手动调整 |
@@ -1115,3 +1120,20 @@ Notes:
 - **Gain** for the cost-basis views (Realized Gain, Unrealized Gain), **Return** for the Dietz views. Do not mix "Realized Return" and "Realized Gain".
 - **External Flows** everywhere in UI. `ExternalToScopeFlows` is engine prose for the identity term; `BucketExternalFlow` is the identifier. Not "Inflow", not "External Cash Flow".
 - `P&L` never appears in UI copy. It appears in §8 only as the name of a native intermediate quantity.
+
+### FX conversion spread and holding-period FX
+
+`fx_conversion_spread` is the bought leg's base value minus the sold leg's
+base value, using reference FX at the conversion event. It is attributed to the
+receiving cash component/account when both legs are in scope and their base
+values are known. Explicit fees remain in `fee` / `investment_fee`. This split
+also applies to investment returns when cash is included. Native valuation does
+not calculate a cross-currency spread, and missing FX must not fabricate one.
+
+`fx_impact` contains only holding-period revaluation from the existing cash and
+investment bridges. Both components are included in investment-return totals,
+asset-change groups and trend/category folds. For 10,000 CNY converted to
+1,481.48 USD at a reference 6.70 CNY/USD, spread is -74.084 CNY. With a closing
+reference rate of 6.80, holding FX is +148.148 CNY; combined change is +74.064 CNY.
+Cash detail uses key `cash` with no instrument ID. Existing recorded activities
+are reclassified at analysis time; no history rewrite or database migration is needed.

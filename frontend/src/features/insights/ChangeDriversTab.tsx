@@ -19,7 +19,7 @@ import { analysisReason } from "@/features/insights/analysisText";
 import type { AnalysisNavigationContext, HistoryNavigationFilters } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
 
-const RETURN_DRIVER_BUCKETS = new Set(["price_change", "dividend_interest", "fx_impact", "fee"]);
+const RETURN_DRIVER_BUCKETS = new Set(["price_change", "dividend_interest", "fx_impact", "fx_conversion_spread", "fee"]);
 
 function contributionReturnType(bucket: string): NonNullable<AnalysisNavigationContext["returnType"]> {
   return bucket === "dividend_interest" ? "dividend_interest" : "total_return";
@@ -43,6 +43,7 @@ function driverLabel(t: (key: string) => string, bucket: string, fallback: strin
     dividend_interest: "components.dividendInterest",
     price_change: "components.priceChange",
     fx_impact: "components.fxImpact",
+    fx_conversion_spread: "components.fxConversionSpread",
     fee: "components.investmentFee",
     liability_impact: "liabilityImpact",
     adjustment: "adjustments",
@@ -146,6 +147,8 @@ function DriverDetailContent({ data, request, session, selected, isResidual, acc
         <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.total")}</p>
         <p className="mt-1 text-2xl font-semibold">{amountText(selected?.amount)}</p>
       </div>
+      {selected?.bucket === "fx_conversion_spread" && <p className="text-sm text-muted-foreground">{t("insights.fxConversionSpreadHelp")}</p>}
+      {selected?.bucket === "fx_impact" && <p className="text-sm text-muted-foreground">{t("insights.fxHoldingImpactHelp")}</p>}
       {data.valuationForced && <Badge variant="warning">{t("insights.valuationForced")}</Badge>}
       {data.status === "partial" && <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground"><AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />{analysisReason(t, data.missingReason) ?? t("insights.partial")}</div>}
       {isResidual && data.residualDetails && data.residualDetails.length > 0 ? (

@@ -6,6 +6,9 @@ All notable changes to Nestworth are recorded here.
 
 ### Changed
 
+- Separated FX conversion spread from holding-period FX changes in Asset Changes
+  and Return Analysis, with consistent trend totals and cash/account breakdowns.
+
 - Replaced CSV import/export with a versioned JSON export for external apps and
   scripts. Includes archived entities, full business and market history, and a
   current balance/holding/cost summary with explicit missing-value states.

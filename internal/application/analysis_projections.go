@@ -90,20 +90,21 @@ const (
 type AssetTrendMetric string
 
 const (
-	TrendNetWorth         AssetTrendMetric = "net_worth"
-	TrendAssets           AssetTrendMetric = "assets"
-	TrendLiabilities      AssetTrendMetric = "liabilities"
-	TrendIncome           AssetTrendMetric = "income"
-	TrendSpending         AssetTrendMetric = "spending"
-	TrendFees             AssetTrendMetric = "fees"
-	TrendDividendInterest AssetTrendMetric = "dividend_interest"
-	TrendExternalFlow     AssetTrendMetric = "external_flow"
-	TrendPriceChange      AssetTrendMetric = "price_change"
-	TrendFXImpact         AssetTrendMetric = "fx_impact"
-	TrendInvestmentReturn AssetTrendMetric = "investment_return"
-	TrendReturnRate       AssetTrendMetric = "return_rate"
-	TrendNetChange        AssetTrendMetric = "net_change"
-	TrendResidual         AssetTrendMetric = "residual"
+	TrendNetWorth           AssetTrendMetric = "net_worth"
+	TrendAssets             AssetTrendMetric = "assets"
+	TrendLiabilities        AssetTrendMetric = "liabilities"
+	TrendIncome             AssetTrendMetric = "income"
+	TrendSpending           AssetTrendMetric = "spending"
+	TrendFees               AssetTrendMetric = "fees"
+	TrendDividendInterest   AssetTrendMetric = "dividend_interest"
+	TrendExternalFlow       AssetTrendMetric = "external_flow"
+	TrendPriceChange        AssetTrendMetric = "price_change"
+	TrendFXImpact           AssetTrendMetric = "fx_impact"
+	TrendFXConversionSpread AssetTrendMetric = "fx_conversion_spread"
+	TrendInvestmentReturn   AssetTrendMetric = "investment_return"
+	TrendReturnRate         AssetTrendMetric = "return_rate"
+	TrendNetChange          AssetTrendMetric = "net_change"
+	TrendResidual           AssetTrendMetric = "residual"
 )
 
 type AssetTrendPoint struct {
@@ -413,7 +414,7 @@ func foldAssetGroups(waterfall map[domain.AttributionBucket]decimal.Decimal, cur
 	}
 	defs := []groupDef{
 		{key: "cash", label: "Cash flows", buckets: []domain.AttributionBucket{domain.BucketExternalFlow, domain.BucketIncome, domain.BucketSpending}},
-		{key: "market", label: "Market & investment", buckets: []domain.AttributionBucket{domain.BucketDividendInterest, domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFee}},
+		{key: "market", label: "Market & investment", buckets: []domain.AttributionBucket{domain.BucketDividendInterest, domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFXConversionSpread, domain.BucketFee}},
 		{key: "other", label: "Other", buckets: []domain.AttributionBucket{domain.BucketLiabilityImpact, domain.BucketAdjustment, domain.BucketResidual}},
 	}
 	groups := make([]AssetChangeGroup, 0, len(defs))
@@ -491,7 +492,11 @@ func foldAssetDriverDetail(result domain.PeriodAnalysisResult, forced, driverKey
 	}
 	instrumentRows := make(map[string]AnalysisDimensionAmount, len(byInstrument))
 	for key, amount := range byInstrument {
-		instrumentRows[key] = AnalysisDimensionAmount{Key: key, Label: key, InstrumentID: key, Amount: signedPointer(amount, currency)}
+		instrumentID := key
+		if key == "cash" {
+			instrumentID = ""
+		}
+		instrumentRows[key] = AnalysisDimensionAmount{Key: key, Label: key, InstrumentID: instrumentID, Amount: signedPointer(amount, currency)}
 	}
 	accountRows := make(map[string]AnalysisDimensionAmount, len(byAccount))
 	for key, amount := range byAccount {
@@ -974,7 +979,7 @@ func trendDayValue(day domain.ComponentDay, metric AssetTrendMetric) (domain.Sig
 
 func trendDayAmount(day domain.ComponentDay, metric AssetTrendMetric) (decimal.Decimal, domain.CurrencyCode, bool) {
 	if metric == TrendInvestmentReturn {
-		return sumDayBucketAmounts(day, map[domain.AttributionBucket]bool{domain.BucketPriceChange: true, domain.BucketFXImpact: true, domain.BucketDividendInterest: true})
+		return sumDayBucketAmounts(day, map[domain.AttributionBucket]bool{domain.BucketPriceChange: true, domain.BucketFXImpact: true, domain.BucketFXConversionSpread: true, domain.BucketDividendInterest: true})
 	}
 	if metric == TrendNetChange {
 		return sumDayBucketAmounts(day, allAssetBuckets())
@@ -1065,6 +1070,8 @@ func trendMetricBucket(metric AssetTrendMetric) (domain.AttributionBucket, bool)
 		return domain.BucketPriceChange, true
 	case TrendFXImpact:
 		return domain.BucketFXImpact, true
+	case TrendFXConversionSpread:
+		return domain.BucketFXConversionSpread, true
 	case TrendResidual:
 		return domain.BucketResidual, true
 	default:
@@ -1083,7 +1090,7 @@ func categoryBuckets(categoryType AnalysisCategoryType) map[domain.AttributionBu
 	case CategoryDividendInterest:
 		return map[domain.AttributionBucket]bool{domain.BucketDividendInterest: true}
 	case CategoryInvestmentReturn:
-		return map[domain.AttributionBucket]bool{domain.BucketPriceChange: true, domain.BucketFXImpact: true}
+		return map[domain.AttributionBucket]bool{domain.BucketPriceChange: true, domain.BucketFXImpact: true, domain.BucketFXConversionSpread: true}
 	default:
 		return map[domain.AttributionBucket]bool{}
 	}
@@ -1129,7 +1136,7 @@ func allAssetBuckets() map[domain.AttributionBucket]bool {
 }
 
 func orderedBuckets() []domain.AttributionBucket {
-	return []domain.AttributionBucket{domain.BucketExternalFlow, domain.BucketIncome, domain.BucketSpending, domain.BucketDividendInterest, domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFee, domain.BucketLiabilityImpact, domain.BucketAdjustment, domain.BucketResidual}
+	return []domain.AttributionBucket{domain.BucketExternalFlow, domain.BucketIncome, domain.BucketSpending, domain.BucketDividendInterest, domain.BucketPriceChange, domain.BucketFXImpact, domain.BucketFXConversionSpread, domain.BucketFee, domain.BucketLiabilityImpact, domain.BucketAdjustment, domain.BucketResidual}
 }
 
 func isAssetBucket(bucket domain.AttributionBucket) bool {
@@ -1143,7 +1150,7 @@ func isAssetBucket(bucket domain.AttributionBucket) bool {
 
 func assetBucketLabel(bucket domain.AttributionBucket) string {
 	labels := map[domain.AttributionBucket]string{
-		domain.BucketExternalFlow: "External flows", domain.BucketIncome: "Income", domain.BucketSpending: "Spending", domain.BucketDividendInterest: "Dividend & interest", domain.BucketPriceChange: "Price change", domain.BucketFXImpact: "FX impact", domain.BucketFee: "Fees", domain.BucketLiabilityImpact: "Liability impact", domain.BucketAdjustment: "Adjustments", domain.BucketResidual: "Unexplained difference",
+		domain.BucketExternalFlow: "External flows", domain.BucketIncome: "Income", domain.BucketSpending: "Spending", domain.BucketDividendInterest: "Dividend & interest", domain.BucketPriceChange: "Price change", domain.BucketFXImpact: "Holding-period FX change", domain.BucketFXConversionSpread: "FX conversion spread", domain.BucketFee: "Fees", domain.BucketLiabilityImpact: "Liability impact", domain.BucketAdjustment: "Adjustments", domain.BucketResidual: "Unexplained difference",
 	}
 	if label, ok := labels[bucket]; ok {
 		return label

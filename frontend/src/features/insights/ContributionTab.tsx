@@ -21,6 +21,7 @@ import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 const returnComponentKeys: Record<string, string> = {
   price_change: "priceChange",
   fx_impact: "fxImpact",
+  fx_conversion_spread: "fxConversionSpread",
   dividend_interest: "dividendInterest",
   investment_fee: "investmentFee",
   cash_fx_impact: "cashFxImpact",

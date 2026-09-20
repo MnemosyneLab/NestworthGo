@@ -101,6 +101,30 @@ describe("AssetChangesPage", () => {
 
   afterEach(() => cleanup());
 
+  it.each([
+    ["fx_conversion_spread", "FX conversion spread", /actual conversion amounts/],
+    ["fx_impact", "Holding-period FX change", /while holding foreign-currency cash/],
+  ])("explains %s separately with cash and account attribution", async (bucket, label, explanation) => {
+    const user = userEvent.setup();
+    const rows = [
+      { key: "fx_conversion_spread", bucket: "fx_conversion_spread", label: "spread", amount: { amount: "-74.084", currency: "CNY" } },
+      { key: "fx_impact", bucket: "fx_impact", label: "FX", amount: { amount: "148.148", currency: "CNY" } },
+    ];
+    assetChange.mockResolvedValue({ summary: { beginningValue: { amount: "10000", currency: "CNY" }, endingValue: { amount: "10074.064", currency: "CNY" }, change: { amount: "74.064", currency: "CNY" } }, waterfall: rows, groups: [{ key: "market", label: "Market", rows, amount: { amount: "74.064", currency: "CNY" } }], available: true, status: "ok" });
+    assetDriverDetail.mockResolvedValue({ driverKey: bucket, byInstrument: [{ key: "cash", label: "cash", amount: rows[0].amount }], byAccount: [{ key: "account-1", accountId: "account-1", label: "account-1", amount: rows[0].amount }], available: true, status: "ok" });
+    renderPage({ onOpenReturnAnalysis: vi.fn() });
+    const region = await screen.findByRole("region", { name: "Change attribution" });
+    expect(within(region).getByRole("button", { name: /FX conversion spread/ })).toBeInTheDocument();
+    expect(within(region).getByRole("button", { name: /Holding-period FX change/ })).toBeInTheDocument();
+    await user.click(within(region).getByRole("button", { name: new RegExp(label) }));
+    const sheet = await screen.findByRole("dialog");
+    expect(await within(sheet).findByText(explanation)).toBeInTheDocument();
+    expect(within(sheet).getByText("Cash")).toBeInTheDocument();
+    expect(await within(sheet).findByText("Brokerage")).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Open Return Analysis" })).toBeInTheDocument();
+    expect(assetDriverDetail).toHaveBeenCalledWith(expect.anything(), bucket);
+  });
+
   it("renders a reconciling summary, waterfall, grouped drivers, and residual detail", async () => {
     const user = userEvent.setup();
     renderPage();
