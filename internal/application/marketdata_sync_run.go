@@ -144,6 +144,22 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 	if stateErr == nil {
 		_, _, dirtyLeft = closedSnapshotRange(state, plan)
 	}
+	// Finishing a rebuild is not proof that its valuation inputs were complete.
+	if stateErr != nil {
+		s.recordBlocker(job, "snapshots", string(domain.ErrHistoryUpdateFailed), "snapshot_verification_failed")
+	} else {
+		snapshots, verifyErr := s.repository.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
+		if verifyErr != nil {
+			s.recordBlocker(job, "snapshots", string(domain.ErrHistoryUpdateFailed), "snapshot_verification_failed")
+		} else {
+			for _, snapshot := range snapshots {
+				if snapshot.LocalDate >= plan.OriginLocalDate && snapshot.LocalDate <= plan.YesterdayLocal && !snapshot.Complete {
+					s.recordBlocker(job, "snapshots", string(domain.ErrHistoryUpdateFailed), "snapshot_incomplete")
+					break
+				}
+			}
+		}
+	}
 	s.syncMu.Lock()
 	committed := job.committed
 	blockers := len(job.snapshot.Blockers)

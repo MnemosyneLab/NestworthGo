@@ -479,3 +479,18 @@ func BenchmarkAnalysisServiceComputeUpperBound(b *testing.B) {
 		}
 	}
 }
+
+func TestReturnSummaryOmitsIncompleteEndingInvestment(t *testing.T) {
+	instrumentID := domain.NewInstrumentID()
+	component := domain.ComponentID{AccountID: domain.NewAccountID(), InstrumentID: &instrumentID, Currency: "USD"}
+	known := domain.ComponentDay{Date: "2026-09-19", Component: component, EndingValue: testReturnMoney(t, "33711.56"), Status: domain.CompletenessOK}
+	unknown := domain.ComponentDay{Date: "2026-09-19", Component: component, Status: domain.CompletenessPartial}
+	result := domain.PeriodAnalysisResult{Query: testReturnQuery("2026-09-18", "2026-09-19"), Days: []domain.ComponentDay{known, unknown}, DailyReturns: []domain.DailyReturn{{Date: "2026-09-19", Status: domain.CompletenessPartial}}}
+	if got := periodEndingValue(result); got != nil {
+		t.Fatalf("partial component sum exposed as ending investment: %s", got.Amount())
+	}
+	result.Days = []domain.ComponentDay{known}
+	if got := periodEndingValue(result); got == nil || got.Amount().String() != "33711.56" {
+		t.Fatalf("known ending lost: %+v", got)
+	}
+}

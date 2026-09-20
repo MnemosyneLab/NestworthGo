@@ -896,8 +896,11 @@ func periodBeginning(result domain.PeriodAnalysisResult) (decimal.Decimal, bool)
 	amount := decimal.Zero
 	has := false
 	for _, day := range result.Days {
-		if day.Date != result.Query.From || day.Status == domain.CompletenessUnavailable || day.BeginningValue.Currency() == "" {
+		if day.Date != result.Query.From {
 			continue
+		}
+		if day.Status == domain.CompletenessUnavailable || day.BeginningValue.Currency() == "" {
+			return decimal.Zero, false
 		}
 		amount = amount.Add(day.BeginningValue.Amount())
 		has = true
@@ -909,8 +912,11 @@ func periodEnding(result domain.PeriodAnalysisResult) (decimal.Decimal, bool) {
 	amount := decimal.Zero
 	has := false
 	for _, day := range result.Days {
-		if day.Date != result.Query.To || day.Status == domain.CompletenessUnavailable {
+		if day.Date != result.Query.To {
 			continue
+		}
+		if day.Status == domain.CompletenessUnavailable || (day.EndingValue.Currency() == "" && day.BeginningValue.Currency() == "") {
+			return decimal.Zero, false
 		}
 		value := day.EndingValue.Amount()
 		if day.EndingValue.Currency() == "" {

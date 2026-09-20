@@ -903,8 +903,11 @@ func periodEndingValue(result domain.PeriodAnalysisResult) *domain.SignedMoney {
 	total := decimal.Zero
 	hasEnding := false
 	for _, day := range result.Days {
-		if day.Date != date || !returnEligibleComponent(day.Component, result.Query.IncludeCash) || day.EndingValue.Currency() == "" {
+		if day.Date != date || !returnEligibleComponent(day.Component, result.Query.IncludeCash) {
 			continue
+		}
+		if day.EndingValue.Currency() == "" || day.Status == domain.CompletenessUnavailable {
+			return nil
 		}
 		total = total.Add(day.EndingValue.Amount())
 		hasEnding = true

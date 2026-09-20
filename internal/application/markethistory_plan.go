@@ -568,11 +568,14 @@ func HouseholdCutoffAt(localDate, timezone string) (time.Time, error) {
 	return domain.HouseholdDayCutoff(localDate, timezone)
 }
 
-// Only omit dates that the supported market's calendar can establish locally.
+// Only omit dates established by a supported market's daily-reference calendar.
 // Crypto trades daily; unknown markets retain the conservative fetch behavior.
 func instrumentKnownClosedDate(coverage domain.InstrumentHistoryCoverage, date string) bool {
 	if domain.InstrumentUsesCryptoDailyBar(coverage.InstrumentType, coverage.Market) {
 		return false
+	}
+	if domain.MetalDailyReferenceClosedDate(coverage.InstrumentType, coverage.Market, coverage.ProviderSymbol, date) {
+		return true
 	}
 	if _, supported := domain.EquitySessionScheduleForMarket(coverage.Market); !supported {
 		return false

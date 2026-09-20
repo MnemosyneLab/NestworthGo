@@ -901,3 +901,20 @@ func TestAssetLevelChangeSeparatesAssetsAndLiabilitiesAndRejectsMissingBoundary(
 		t.Fatalf("missing boundary summary = %+v", summary)
 	}
 }
+
+func TestIncompleteBoundaryDoesNotBecomePartialNetWorth(t *testing.T) {
+	query := domain.AnalysisQuery{From: "2026-09-18", To: "2026-09-19"}
+	known := analysisTestDay(t, query.To, domain.NewAccountID(), "33711.56", nil)
+	known.EndingValue = analysisSignedTestMoney(t, "33711.56")
+	missing := domain.ComponentDay{Date: query.To, Status: domain.CompletenessPartial}
+	result := domain.PeriodAnalysisResult{Query: query, Days: []domain.ComponentDay{known, missing}}
+	summary := foldAssetChange(result, "").Summary
+	if summary.EndingValue != nil || summary.Change != nil || summary.ChangeRate != nil {
+		t.Fatalf("incomplete holdings exposed as net worth: %+v", summary)
+	}
+	result.Query.From = query.To
+	summary = foldAssetChange(result, "").Summary
+	if summary.BeginningValue != nil {
+		t.Fatal("incomplete opening value exposed as total")
+	}
+}

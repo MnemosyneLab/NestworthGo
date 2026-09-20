@@ -573,3 +573,34 @@ func (p testHistoryPersist) PersistFXHistory(ctx context.Context, request Commit
 	}
 	return CommitHistoryResult{PersistedObservations: result.PersistedObservations, NewRevisions: result.NewRevisions, CoverageDays: result.CoverageDays, CanonicalSlots: result.CanonicalSlots, InputGeneration: result.InputGeneration, Unchanged: result.Unchanged}, nil
 }
+
+func TestSyncReportsIncompleteSnapshotsAfterRebuild(t *testing.T) {
+	service, repo, _, _ := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
+	if _, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll}); err != nil {
+		t.Fatal(err)
+	}
+	result := waitSyncTerminal(t, service)
+	if result.Outcome != SyncOutcomePartial {
+		t.Fatalf("outcome = %s", result.Outcome)
+	}
+	found := false
+	for _, blocker := range result.Blockers {
+		if blocker.Reason == "snapshot_incomplete" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("missing snapshot completeness blocker: %+v", result.Blockers)
+	}
+	household, err := repo.Household(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	state, err := repo.DailySnapshotState(context.Background(), household.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if state.DirtyFrom != nil {
+		t.Fatal("fixture must complete the rebuild while retaining incomplete valuations")
+	}
+}

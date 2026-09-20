@@ -107,3 +107,14 @@ func LastFinalizedMetalMarketDate(now time.Time) (string, error) {
 	}
 	return now.In(loc).AddDate(0, 0, -1).Format("2006-01-02"), nil
 }
+
+// MetalDailyReferenceClosedDate describes GC/SI trade-date labels, not wall-clock
+// trading hours. Sunday evening trading belongs to Monday's trade date. Do not
+// generalize this rule to other COMEX contracts or infer weekday holidays.
+func MetalDailyReferenceClosedDate(instrumentType, market, symbol, date string) bool {
+	if !UsesMetalFuturesHistory(instrumentType, market) || (symbol != "GC=F" && symbol != "SI=F") {
+		return false
+	}
+	day, err := time.Parse("2006-01-02", date)
+	return err == nil && (day.Weekday() == time.Saturday || day.Weekday() == time.Sunday)
+}

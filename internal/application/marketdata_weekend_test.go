@@ -115,3 +115,39 @@ func TestHistoricalValuationAcceptsInferredHolidayWithoutFuturePrice(t *testing.
 		t.Fatal("another binding's later close must not close this gap")
 	}
 }
+
+func TestMetalWeekendCarryAndRepairAgree(t *testing.T) {
+	for _, symbol := range []string{"GC=F", "SI=F"} {
+		t.Run(symbol, func(t *testing.T) {
+			provider := YahooFinanceProviderKey
+			inst := domain.Instrument{ID: domain.NewInstrumentID(), ProviderKey: &provider, ProviderBindingRevision: 1}
+			quote := domain.InstrumentQuote{InstrumentID: inst.ID, EffectiveDate: "2026-09-18", SourcePolicyVersion: "policy"}
+			now := time.Date(2026, 9, 20, 2, 0, 0, 0, time.UTC)
+			coverage := domain.InstrumentHistoryCoverage{InstrumentID: inst.ID, InstrumentType: "precious_metal", Market: "COMEX", ProviderSymbol: symbol, ProviderKey: provider, BindingRevision: 1, SourcePolicyVersion: "policy", CloseMarketDates: []string{"2026-09-18"}, CloseFetchedAt: map[string]time.Time{"2026-09-18": now}}
+			for _, date := range []string{"2026-09-19", "2026-09-20"} {
+				if !historicalInstrumentCoverageCompleteAtMarketDate(inst, quote, []domain.InstrumentHistoryCoverage{coverage}, date) {
+					t.Fatalf("%s: Friday reference should cover weekend", date)
+				}
+			}
+			if historicalInstrumentCoverageCompleteAtMarketDate(inst, quote, []domain.InstrumentHistoryCoverage{coverage}, "2026-09-21") {
+				t.Fatal("missing Monday close must remain incomplete")
+			}
+			for _, force := range []bool{false, true} {
+				need := InstrumentRepairNeed{FetchRange: DateRange{Start: "2026-09-19", End: "2026-09-20"}}
+				planned, err := applyHistorySyncPolicy(need, coverage, "2026-09-20", now, force)
+				if err != nil || len(planned.FetchRanges) != 0 {
+					t.Fatalf("weekend-only fetch: %+v %v", planned, err)
+				}
+			}
+			coverage.UnverifiedDates = []string{"2026-09-19"}
+			if historicalInstrumentCoverageCompleteAtMarketDate(inst, quote, []domain.InstrumentHistoryCoverage{coverage}, "2026-09-19") {
+				t.Fatal("explicit unverified evidence must not be overridden")
+			}
+			coverage.UnverifiedDates = nil
+			coverage.ProviderSymbol = "UNKNOWN"
+			if historicalInstrumentCoverageCompleteAtMarketDate(inst, quote, []domain.InstrumentHistoryCoverage{coverage}, "2026-09-19") {
+				t.Fatal("unknown futures must not inherit GC/SI calendar")
+			}
+		})
+	}
+}

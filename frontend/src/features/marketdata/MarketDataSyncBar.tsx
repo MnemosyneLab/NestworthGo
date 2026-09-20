@@ -160,7 +160,7 @@ export function MarketDataSyncBar({
               <p className="text-sm font-medium">{t("marketData.previewUnresolved")}</p>
               <ul className="flex flex-col gap-1 text-sm text-muted-foreground">
                 {(preview.data?.unresolved ?? []).map((item) => (
-                  <li key={`${item.targetKey}-${item.code}`}>{t("marketData.blocker", { target: item.targetKey, reason: item.reason || item.code })}</li>
+                  <li key={`${item.targetKey}-${item.code}`}>{t("marketData.blocker", { target: item.targetKey === "snapshots" ? t("marketData.snapshotTarget") : item.targetKey, reason: item.reason === "snapshot_incomplete" ? t("marketData.snapshotIncomplete") : item.reason === "snapshot_verification_failed" ? t("marketData.snapshotVerificationFailed") : item.reason || item.code })}</li>
                 ))}
               </ul>
             </div>
@@ -204,7 +204,7 @@ export function MarketDataSyncBar({
                   <p className="font-medium">{t("marketData.previewUnresolved")}</p>
                   <ul>
                     {(job.blockers ?? []).map((item) => (
-                      <li key={`${item.targetKey}-${item.code}`}>{t("marketData.blocker", { target: item.targetKey, reason: item.reason || item.code })}</li>
+                      <li key={`${item.targetKey}-${item.code}`}>{t("marketData.blocker", { target: item.targetKey === "snapshots" ? t("marketData.snapshotTarget") : item.targetKey, reason: item.reason === "snapshot_incomplete" ? t("marketData.snapshotIncomplete") : item.reason === "snapshot_verification_failed" ? t("marketData.snapshotVerificationFailed") : item.reason || item.code })}</li>
                     ))}
                   </ul>
                 </div>
