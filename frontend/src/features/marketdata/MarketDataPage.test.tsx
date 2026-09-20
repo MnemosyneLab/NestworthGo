@@ -14,7 +14,6 @@ const currentInstrumentQuote = vi.fn();
 const currentFXQuote = vi.fn();
 const listFXPreferences = vi.fn();
 const setFXPreference = vi.fn();
-const refreshRequiredFX = vi.fn();
 const instrumentQuoteSeries = vi.fn();
 const fxQuoteSeries = vi.fn();
 const overview = vi.fn();
@@ -43,7 +42,6 @@ vi.mock("@wailsio/runtime", () => ({
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
     StartRefreshAll: (requestId: string) => startRefresh(refreshAll)(requestId),
-    StartRefreshRequiredFX: (requestId: string) => startRefresh(refreshRequiredFX)(requestId),
     StartRefreshMissingOrStale: (requestId: string) => startRefresh(refreshMissing)(requestId),
     CancelRefresh: () => cancelRefresh(),
     GetCurrentSyncJob: () => getCurrentSyncJob(),
@@ -116,7 +114,6 @@ describe("MarketDataPage", () => {
   beforeEach(() => {
     refreshAll.mockReset();
     refreshMissing.mockClear();
-    refreshRequiredFX.mockReset();
     listInstruments.mockReset();
     currentInstrumentQuote.mockReset();
     currentFXQuote.mockReset();
@@ -325,7 +322,7 @@ describe("MarketDataPage", () => {
     expect(startSync).not.toHaveBeenCalled();
   });
 
-  it("triggers RefreshAll and renders the per-target results", async () => {
+  it("triggers StartRefreshAll and renders the per-target results", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "Global Equity Fund" }]);
     currentInstrumentQuote.mockResolvedValue({
       id: "q1",

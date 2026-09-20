@@ -33,34 +33,6 @@ func (s *Service) CurrentInstrumentQuote(ctx context.Context, instrumentID strin
 	return wire.FromInstrumentQuotePtr(quote), nil
 }
 
-func (s *Service) InstrumentQuoteHistory(ctx context.Context, instrumentID string) ([]wire.InstrumentQuoteDTO, error) {
-	// Deprecated: use InstrumentQuoteSeries for product charts. This remains a
-	// raw history endpoint for export/debug consumers.
-	id, err := domain.ParseInstrumentID(instrumentID)
-	if err != nil {
-		return nil, apierror.Wrap(err)
-	}
-	quotes, err := s.app.InstrumentQuoteHistory(ctx, id)
-	if err != nil {
-		return nil, apierror.Wrap(err)
-	}
-	return wire.FromInstrumentQuotes(quotes), nil
-}
-
-func (s *Service) SaveManualInstrumentQuote(ctx context.Context, instrumentID, unitPrice, quotedAt string) (wire.InstrumentQuoteDTO, error) {
-	// Deprecated: use AppendManualInstrumentQuote. Saving an observation does
-	// not select the manual quote source; call InstrumentService.SetInstrumentQuoteSource explicitly.
-	id, err := domain.ParseInstrumentID(instrumentID)
-	if err != nil {
-		return wire.InstrumentQuoteDTO{}, apierror.Wrap(err)
-	}
-	quote, err := s.app.SaveManualInstrumentQuote(ctx, id, unitPrice, quotedAt)
-	if err != nil {
-		return wire.InstrumentQuoteDTO{}, apierror.Wrap(err)
-	}
-	return wire.FromInstrumentQuote(quote), nil
-}
-
 func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID, unitPrice, quotedAt string, delayed bool) (wire.InstrumentQuoteDTO, error) {
 	id, err := domain.ParseInstrumentID(instrumentID)
 	if err != nil {
@@ -87,16 +59,6 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB strin
 		return nil, apierror.Wrap(err)
 	}
 	return wire.FromFXQuotePtr(quote), nil
-}
-
-func (s *Service) FXQuoteHistory(ctx context.Context) ([]wire.FXQuoteDTO, error) {
-	// Deprecated: use FXQuoteSeries for product charts. This remains a raw
-	// history endpoint for export/debug consumers.
-	quotes, err := s.app.FXQuoteHistory(ctx)
-	if err != nil {
-		return nil, apierror.Wrap(err)
-	}
-	return wire.FromFXQuotes(quotes), nil
 }
 
 // QuoteSeriesPointDTO is one local observation in the requested display
@@ -186,16 +148,6 @@ func (s *Service) FXQuoteSeries(ctx context.Context, currencyA, currencyB, trend
 		return QuoteSeriesDTO{}, apierror.Wrap(err)
 	}
 	return fromQuoteSeries(result), nil
-}
-
-func (s *Service) SaveManualFXQuote(ctx context.Context, baseCurrency, quoteCurrency, rate, quotedAt string) (wire.FXQuoteDTO, error) {
-	// Deprecated: use AppendManualFXQuote. Appending a quote does not change
-	// the preferred source; SetFXPreference is the explicit preference command.
-	quote, err := s.app.SaveManualFXQuote(ctx, baseCurrency, quoteCurrency, rate, quotedAt)
-	if err != nil {
-		return wire.FXQuoteDTO{}, apierror.Wrap(err)
-	}
-	return wire.FromFXQuote(quote), nil
 }
 
 func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCurrency, rate, quotedAt string) (wire.FXQuoteDTO, error) {

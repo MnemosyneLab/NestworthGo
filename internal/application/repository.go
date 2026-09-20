@@ -72,7 +72,6 @@ type PortfolioRepository interface {
 	Instrument(context.Context, domain.HouseholdID, domain.InstrumentID) (domain.Instrument, error)
 	ListInstruments(context.Context, domain.HouseholdID, bool) ([]domain.Instrument, error)
 	SetInstrumentArchive(context.Context, domain.HouseholdID, domain.InstrumentID, bool, time.Time) error
-	SetInstrumentIcon(context.Context, domain.HouseholdID, domain.InstrumentID, string, time.Time) error
 	SetInstrumentQuoteSource(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, time.Time) error
 	SetInstrumentQuoteSourceWithObservation(context.Context, domain.HouseholdID, domain.InstrumentID, domain.QuoteSourceKind, domain.InstrumentPreferenceObservation) error
 	CreateHolding(context.Context, domain.Holding) error

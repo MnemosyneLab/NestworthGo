@@ -7,6 +7,5 @@ export {
 };
 
 export type {
-    CreateHoldingRequest,
-    UpdateHoldingRequest
+    CreateHoldingRequest
 } from "./models.js";

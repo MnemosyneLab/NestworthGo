@@ -12,15 +12,3 @@ export interface CreateHoldingRequest {
     "note"?: string | null;
     "sortOrder"?: number;
 }
-
-/**
- * UpdateHoldingRequest is the metadata-only update contract. Quantity is
- * intentionally absent: financial quantity changes use the dedicated
- * pre-history compatibility method or HistoryService.RecordChange.
- */
-export interface UpdateHoldingRequest {
-    "note"?: string | null;
-    "noteSet"?: boolean;
-    "sortOrder"?: number;
-    "sortOrderSet"?: boolean;
-}

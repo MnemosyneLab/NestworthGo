@@ -305,10 +305,14 @@ func TestAppendAccountValueAndValuation(t *testing.T) {
 	if value.Amount.Amount != "1200.5" {
 		t.Fatalf("Amount = %q, want 1200.5 (canonical, trailing zero trimmed)", value.Amount.Amount)
 	}
-	valuation, err := service.AccountValuation(ctx, record.Account.ID)
+	valuations, err := service.AccountValuations(ctx, account.AccountFilterRequest{})
 	if err != nil {
-		t.Fatalf("AccountValuation: %v", err)
+		t.Fatalf("AccountValuations: %v", err)
 	}
+	if len(valuations) != 1 || valuations[0].Account.ID != record.Account.ID {
+		t.Fatalf("valuations = %+v, want the created account", valuations)
+	}
+	valuation := valuations[0]
 	if valuation.BaseValue == nil || valuation.BaseValue.Amount != "1200.5" {
 		t.Fatalf("BaseValue = %+v, want 1200.5", valuation.BaseValue)
 	}
@@ -317,12 +321,12 @@ func TestAppendAccountValueAndValuation(t *testing.T) {
 	}
 }
 
-func TestAccountValuationNotFound(t *testing.T) {
+func TestAccountValuationsEmptyPortfolio(t *testing.T) {
 	app, _ := onboardedApp(t)
 	service := account.NewService(app)
-	_, err := service.AccountValuation(context.Background(), "00000000-0000-7000-8000-000000000000")
-	if err == nil {
-		t.Fatal("want an error for an unknown account")
+	values, err := service.AccountValuations(context.Background(), account.AccountFilterRequest{})
+	if err != nil || len(values) != 0 {
+		t.Fatalf("AccountValuations = %+v, %v; want empty portfolio", values, err)
 	}
 }
 

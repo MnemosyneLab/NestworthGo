@@ -263,19 +263,6 @@ func (s *Service) AppendAccountValue(ctx context.Context, id, amount, effectiveA
 	return wire.FromAccountValue(value), nil
 }
 
-func (s *Service) AccountValuation(ctx context.Context, id string) (wire.AccountValuationDTO, error) {
-	// Deprecated: use AccountValuations for the batch valuation read path.
-	accountID, err := domain.ParseAccountID(id)
-	if err != nil {
-		return wire.AccountValuationDTO{}, apierror.Wrap(err)
-	}
-	valuation, err := s.app.AccountValuation(ctx, accountID)
-	if err != nil {
-		return wire.AccountValuationDTO{}, apierror.Wrap(err)
-	}
-	return wire.FromAccountValuation(valuation), nil
-}
-
 func (s *Service) AccountValuations(ctx context.Context, request AccountFilterRequest) ([]wire.AccountValuationDTO, error) {
 	filter, err := request.ToDomain()
 	if err != nil {
@@ -286,12 +273,4 @@ func (s *Service) AccountValuations(ctx context.Context, request AccountFilterRe
 		return nil, apierror.Wrap(err)
 	}
 	return wire.FromAccountValuations(valuations), nil
-}
-
-func (s *Service) SetAccountIcon(ctx context.Context, id, iconKey string) error {
-	accountID, err := domain.ParseAccountID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetAccountIcon(ctx, accountID, iconKey))
 }

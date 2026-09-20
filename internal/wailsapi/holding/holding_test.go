@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/holding"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/household"
@@ -61,9 +62,10 @@ func TestCreateAndListHolding(t *testing.T) {
 	if created.Quantity != "10" {
 		t.Fatalf("Quantity = %q, want 10", created.Quantity)
 	}
-	list, err := service.ListHoldings(ctx, fx.accountID, false)
+	grouped, err := service.HoldingsByAccounts(ctx, []string{fx.accountID})
+	list := grouped[fx.accountID]
 	if err != nil {
-		t.Fatalf("ListHoldings: %v", err)
+		t.Fatalf("HoldingsByAccounts: %v", err)
 	}
 	if len(list) != 1 || list[0].ID != created.ID {
 		t.Fatalf("list = %+v", list)
@@ -81,15 +83,15 @@ func TestUpdateHoldingQuantityAndNote(t *testing.T) {
 		t.Fatalf("CreateHolding: %v", err)
 	}
 	note := "core position"
-	updated, err := service.UpdateHoldingQuantity(ctx, created.ID, "15")
+	updated, err := fx.app.UpdateHoldingQuantity(ctx, domain.HoldingID(created.ID), "15")
 	if err != nil {
 		t.Fatalf("UpdateHoldingQuantity: %v", err)
 	}
-	updated, err = service.UpdateHolding(ctx, created.ID, holding.UpdateHoldingRequest{Note: &note, NoteSet: true})
+	updated, err = fx.app.UpdateHolding(ctx, domain.HoldingID(created.ID), application.HoldingUpdateInput{Note: &note, NoteSet: true})
 	if err != nil {
 		t.Fatalf("UpdateHolding metadata: %v", err)
 	}
-	if updated.Quantity != "15" || updated.Note == nil || *updated.Note != "core position" {
+	if updated.Quantity.Canonical() != "15" || updated.Note == nil || *updated.Note != "core position" {
 		t.Fatalf("updated = %+v", updated)
 	}
 }
@@ -122,7 +124,7 @@ func TestArchiveHoldingRequiresZeroQuantityAfterHistoryStarts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
 	}
-	if err := service.ArchiveHolding(ctx, created.ID, true); err != nil {
+	if err := fx.app.ArchiveHolding(ctx, domain.HoldingID(created.ID), true); err != nil {
 		t.Fatalf("ArchiveHolding: %v", err)
 	}
 }

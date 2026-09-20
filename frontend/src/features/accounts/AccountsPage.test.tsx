@@ -36,7 +36,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ac
     CreateAccount: (...args: unknown[]) => createAccount(...args),
     UpdateAccount: (...args: unknown[]) => updateAccount(...args),
     ArchiveAccount: (...args: unknown[]) => archiveAccount(...args),
-    SetAccountIcon: vi.fn(),
     AppendAccountValue: (...args: unknown[]) => appendValue(...args),
     ListAccountCashValues: (...args: unknown[]) => listAccountCashValues(...args),
   },
@@ -77,7 +76,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     StartHistory: (...args: unknown[]) => startHistory(...args),
     StartHistoryWithCosts: vi.fn(),
     StartingPointDraft: () => Promise.resolve([]),
-    ListActivities: () => Promise.resolve([]),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
     PreviewFixChange: vi.fn(),
     RecordChange: (...args: unknown[]) => recordChange(...args),
@@ -99,7 +97,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
     ListAccountCashValues: (...args: unknown[]) => listAccountCashValues(...args),
     CreateHolding: (...args: unknown[]) => createHolding(...args),
     AppendAccountCashValue: (...args: unknown[]) => appendCash(...args),
-    ArchiveHolding: vi.fn(),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
@@ -112,8 +109,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/qu
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
-    RefreshInstrument: vi.fn(),
-    RefreshFX: vi.fn(),
     SearchInstruments: vi.fn().mockResolvedValue([]),
   },
 }));

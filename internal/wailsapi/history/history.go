@@ -49,11 +49,6 @@ func (s *Service) HistoryOrigin(ctx context.Context) (*HistoryOriginDTO, error) 
 	return &dto, nil
 }
 
-func (s *Service) HistoryStarted(ctx context.Context) (bool, error) {
-	started, err := s.app.HistoryStarted(ctx)
-	return started, apierror.Wrap(err)
-}
-
 func (s *Service) StartHistory(ctx context.Context, timezone string) (HistoryOriginDTO, error) {
 	origin, err := s.app.StartHistory(ctx, timezone)
 	if err != nil {
@@ -143,12 +138,6 @@ func (s *Service) RecordChange(ctx context.Context, request ChangeCommandRequest
 	return s.commitChangeRequest(ctx, request)
 }
 
-// CommitChange is kept as a wire alias of RecordChange for old clients.
-// Deprecated: use RecordChange. Application code has a single write path.
-func (s *Service) CommitChange(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
-	return s.commitChangeRequest(ctx, request)
-}
-
 func (s *Service) commitChangeRequest(ctx context.Context, request ChangeCommandRequest) (wire.ChangePreviewDTO, error) {
 	householdID, originTimezone, err := s.resolveHistoryContext(ctx)
 	if err != nil {
@@ -229,14 +218,6 @@ func (s *Service) FixChange(ctx context.Context, activityID string, replacement 
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}
 	return wire.FromChangePreview(preview), nil
-}
-
-func (s *Service) ListActivities(ctx context.Context, limit int) ([]wire.ActivityDTO, error) {
-	activities, err := s.app.ListActivities(ctx, limit)
-	if err != nil {
-		return nil, apierror.Wrap(err)
-	}
-	return wire.FromActivities(activities), nil
 }
 
 func (s *Service) Activity(ctx context.Context, activityID string) (wire.ActivityDTO, error) {
@@ -334,94 +315,6 @@ func (s *Service) DailySnapshotState(ctx context.Context, _ string) (DailySnapsh
 		return DailySnapshotStateDTO{}, apierror.Wrap(err)
 	}
 	return DailySnapshotStateDTO{HouseholdID: state.HouseholdID.String(), DirtyFrom: state.DirtyFrom, LastCompletedClosedOn: state.LastCompletedClosedOn}, nil
-}
-
-func (s *Service) CompleteDailySnapshotRange(ctx context.Context, _, targetDate string) error {
-	id, err := s.resolveHouseholdID(ctx)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.CompleteDailySnapshotRange(ctx, id, targetDate))
-}
-
-// DailyValuationSnapshotItemDTO is one reconstructed component. Simple
-// Account items carry classificationBasis=current-metadata-derived because
-// the bucket name comes from current account_type, not a historical type
-// observation. Composite cash/instrument items omit that field.
-type DailyValuationSnapshotItemDTO struct {
-	ID                  string          `json:"id"`
-	AccountID           string          `json:"accountId"`
-	HoldingID           *string         `json:"holdingId,omitempty"`
-	InstrumentID        *string         `json:"instrumentId,omitempty"`
-	NativeAmount        string          `json:"nativeAmount,omitempty"`
-	NativeCurrency      string          `json:"nativeCurrency,omitempty"`
-	BaseAmount          *wire.MoneyView `json:"baseAmount,omitempty"`
-	Complete            bool            `json:"complete"`
-	MissingReason       *string         `json:"missingReason,omitempty"`
-	ClassificationBasis string          `json:"classificationBasis,omitempty"`
-}
-
-// DailyValuationSnapshotDTO mirrors domain.DailyValuationSnapshot totals
-// plus the per-item results that carry Simple classification provenance.
-type DailyValuationSnapshotDTO struct {
-	ID                string                          `json:"id"`
-	HouseholdID       string                          `json:"householdId"`
-	LocalDate         string                          `json:"localDate"`
-	CutoffAt          string                          `json:"cutoffAt"`
-	Revision          int                             `json:"revision"`
-	AssetsAmount      *wire.MoneyView                 `json:"assetsAmount,omitempty"`
-	LiabilitiesAmount *wire.MoneyView                 `json:"liabilitiesAmount,omitempty"`
-	NetWorthAmount    *wire.SignedMoneyView           `json:"netWorthAmount,omitempty"`
-	Currency          string                          `json:"currency"`
-	Complete          bool                            `json:"complete"`
-	ComponentCount    int                             `json:"componentCount"`
-	MissingCount      int                             `json:"missingCount"`
-	GenerationReason  string                          `json:"generationReason"`
-	CreatedAt         string                          `json:"createdAt"`
-	Items             []DailyValuationSnapshotItemDTO `json:"items"`
-}
-
-func fromDailyValuationSnapshotItem(item domain.DailyValuationSnapshotItem) DailyValuationSnapshotItemDTO {
-	dto := DailyValuationSnapshotItemDTO{
-		ID: item.ID.String(), AccountID: item.AccountID.String(), NativeAmount: item.NativeAmount,
-		Complete: item.Complete, MissingReason: item.MissingReason, ClassificationBasis: item.ClassificationBasis.String(),
-		BaseAmount: wire.FromMoneyPtr(item.BaseAmount),
-	}
-	if item.NativeCurrency != "" {
-		dto.NativeCurrency = item.NativeCurrency.String()
-	}
-	if item.HoldingID != nil {
-		id := item.HoldingID.String()
-		dto.HoldingID = &id
-	}
-	if item.InstrumentID != nil {
-		id := item.InstrumentID.String()
-		dto.InstrumentID = &id
-	}
-	return dto
-}
-
-func fromDailyValuationSnapshot(value domain.DailyValuationSnapshot) DailyValuationSnapshotDTO {
-	items := make([]DailyValuationSnapshotItemDTO, 0, len(value.Items))
-	for _, item := range value.Items {
-		items = append(items, fromDailyValuationSnapshotItem(item))
-	}
-	return DailyValuationSnapshotDTO{
-		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), LocalDate: value.LocalDate,
-		CutoffAt: wire.FormatTime(value.CutoffAt), Revision: value.Revision,
-		AssetsAmount: wire.FromMoneyPtr(value.AssetsAmount), LiabilitiesAmount: wire.FromMoneyPtr(value.LiabilitiesAmount),
-		NetWorthAmount: wire.FromSignedMoneyPtr(value.NetWorthAmount), Currency: value.Currency.String(), Complete: value.Complete,
-		ComponentCount: value.ComponentCount, MissingCount: value.MissingCount, GenerationReason: value.GenerationReason,
-		CreatedAt: wire.FormatTime(value.CreatedAt), Items: items,
-	}
-}
-
-func (s *Service) BuildDailyValuationSnapshot(ctx context.Context, localDate string) (DailyValuationSnapshotDTO, bool, error) {
-	snapshot, created, err := s.app.BuildDailyValuationSnapshot(ctx, localDate)
-	if err != nil {
-		return DailyValuationSnapshotDTO{}, false, apierror.Wrap(err)
-	}
-	return fromDailyValuationSnapshot(snapshot), created, nil
 }
 
 func (s *Service) RebuildHistoricalSnapshots(ctx context.Context, startDate, endDate string) (int, error) {

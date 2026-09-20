@@ -32,40 +32,12 @@ export function CoinGeckoQuoteCurrencies(): $CancellablePromise<string[] | null>
     return $Call.ByID(2012258955);
 }
 
-export function FXProviderKey(): $CancellablePromise<string> {
-    return $Call.ByID(196886086);
-}
-
 export function GetCurrentSyncJob(): $CancellablePromise<$models.SyncJobDTO> {
     return $Call.ByID(1063436565);
 }
 
-export function GetSyncJob(jobID: string): $CancellablePromise<$models.SyncJobDTO> {
-    return $Call.ByID(785822122, jobID);
-}
-
 export function PreviewMarketDataSync(request: $models.SyncRequestDTO): $CancellablePromise<$models.SyncPlanPreviewDTO> {
     return $Call.ByID(844179907, request);
-}
-
-export function RefreshAll(): $CancellablePromise<$models.RefreshResultDTO> {
-    return $Call.ByID(929934818);
-}
-
-export function RefreshFX(currencyA: string, currencyB: string): $CancellablePromise<$models.RefreshResultDTO> {
-    return $Call.ByID(1061472273, currencyA, currencyB);
-}
-
-export function RefreshInstrument(instrumentID: string): $CancellablePromise<$models.RefreshResultDTO> {
-    return $Call.ByID(2683911434, instrumentID);
-}
-
-export function RefreshMissingOrStale(): $CancellablePromise<$models.RefreshResultDTO> {
-    return $Call.ByID(3219501745);
-}
-
-export function RefreshRequiredFX(): $CancellablePromise<$models.RefreshResultDTO> {
-    return $Call.ByID(1206509500);
 }
 
 /**
@@ -83,10 +55,6 @@ export function ScanMarketDataHealth(): $CancellablePromise<$models.MarketDataHe
  */
 export function SearchInstruments(query: string, instrumentType: string): $CancellablePromise<$models.InstrumentSearchHitDTO[] | null> {
     return $Call.ByID(1127653350, query, instrumentType);
-}
-
-export function SetFXProvider(key: string): $CancellablePromise<void> {
-    return $Call.ByID(758763431, key);
 }
 
 export function StartMarketDataSync(request: $models.SyncRequestDTO): $CancellablePromise<$models.SyncStartResultDTO> {
@@ -111,8 +79,4 @@ export function StartRefreshInstrument(requestID: string, instrumentID: string):
 
 export function StartRefreshMissingOrStale(requestID: string): $CancellablePromise<void> {
     return $Call.ByID(4113174669, requestID);
-}
-
-export function StartRefreshRequiredFX(requestID: string): $CancellablePromise<void> {
-    return $Call.ByID(1828580296, requestID);
 }

@@ -1,10 +1,5 @@
-// Package marketdata adapts internal/application.Service's provider
-// refresh surface (RefreshAll, RefreshMissingOrStale, RefreshRequiredFX, RefreshInstrument,
-// RefreshFX, SetFXProvider, FXProviderKey) for the Wails IPC boundary.
-//
-// StartXxx/CancelRefresh is the FE-facing cancellable, event-streamed design.
-// Synchronous methods remain for backend/internal callers and compatibility;
-// they are not the frontend refresh contract.
+// Package marketdata exposes asynchronous, cancellable provider refresh jobs
+// and their progress events through the Wails IPC boundary.
 package marketdata
 
 import (
@@ -81,66 +76,6 @@ func fromRefreshResult(value application.RefreshResult) RefreshResultDTO {
 		items = append(items, RefreshTargetResultDTO{TargetKey: item.TargetKey, Kind: string(item.Kind), Status: string(item.Status), ErrorCode: string(item.ErrorCode)})
 	}
 	return RefreshResultDTO{Items: items, RateLimited: value.RateLimited}
-}
-
-func (s *Service) RefreshAll(ctx context.Context) (RefreshResultDTO, error) {
-	// Deprecated for frontend callers: use StartRefreshAll and the completion
-	// event so a long-running operation can be cancelled and observed.
-	result, err := s.app.RefreshAll(ctx)
-	if err != nil {
-		return RefreshResultDTO{}, apierror.Wrap(err)
-	}
-	return fromRefreshResult(result), nil
-}
-
-func (s *Service) RefreshMissingOrStale(ctx context.Context) (RefreshResultDTO, error) {
-	// Deprecated for frontend callers: use StartRefreshMissingOrStale.
-	result, err := s.app.RefreshMissingOrStale(ctx)
-	if err != nil {
-		return RefreshResultDTO{}, apierror.Wrap(err)
-	}
-	return fromRefreshResult(result), nil
-}
-
-func (s *Service) RefreshRequiredFX(ctx context.Context) (RefreshResultDTO, error) {
-	// Deprecated for frontend callers: use StartRefreshRequiredFX.
-	result, err := s.app.RefreshRequiredFX(ctx)
-	if err != nil {
-		return RefreshResultDTO{}, apierror.Wrap(err)
-	}
-	return fromRefreshResult(result), nil
-}
-
-func (s *Service) RefreshInstrument(ctx context.Context, instrumentID string) (RefreshResultDTO, error) {
-	// Deprecated for frontend callers: use StartRefreshInstrument.
-	id, err := domain.ParseInstrumentID(instrumentID)
-	if err != nil {
-		return RefreshResultDTO{}, apierror.Wrap(err)
-	}
-	result, err := s.app.RefreshInstrument(ctx, id)
-	if err != nil {
-		return RefreshResultDTO{}, apierror.Wrap(err)
-	}
-	return fromRefreshResult(result), nil
-}
-
-func (s *Service) RefreshFX(ctx context.Context, currencyA, currencyB string) (RefreshResultDTO, error) {
-	// Deprecated for frontend callers: use StartRefreshFX.
-	result, err := s.app.RefreshFX(ctx, currencyA, currencyB)
-	if err != nil {
-		return RefreshResultDTO{}, apierror.Wrap(err)
-	}
-	return fromRefreshResult(result), nil
-}
-
-func (s *Service) SetFXProvider(key string) error {
-	// Deprecated for frontend callers: SettingsService.Save is the canonical
-	// provider-configuration path.
-	return apierror.Wrap(s.app.SetFXProvider(key))
-}
-
-func (s *Service) FXProviderKey() string {
-	return s.app.FXProviderKey()
 }
 
 // InstrumentSearchHitDTO is a Yahoo search candidate used to prefill the
@@ -302,10 +237,6 @@ func (s *Service) StartRefreshAll(requestID string) {
 
 func (s *Service) StartRefreshMissingOrStale(requestID string) {
 	s.runAsync(requestID, s.app.RefreshMissingOrStale)
-}
-
-func (s *Service) StartRefreshRequiredFX(requestID string) {
-	s.runAsync(requestID, s.app.RefreshRequiredFX)
 }
 
 func (s *Service) StartRefreshInstrument(requestID, instrumentID string) {
@@ -577,17 +508,6 @@ func (s *Service) GetCurrentSyncJob() (SyncJobDTO, error) {
 	snapshot, ok := s.app.GetCurrentSyncJob()
 	if !ok {
 		return SyncJobDTO{}, nil
-	}
-	return fromSyncJob(snapshot), nil
-}
-
-func (s *Service) GetSyncJob(jobID string) (SyncJobDTO, error) {
-	if s.app == nil {
-		return SyncJobDTO{}, nil
-	}
-	snapshot, ok := s.app.GetSyncJob(jobID)
-	if !ok {
-		return SyncJobDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrNotFound, Message: "sync job was not found"})
 	}
 	return fromSyncJob(snapshot), nil
 }

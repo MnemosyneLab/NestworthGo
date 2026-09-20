@@ -29,14 +29,6 @@ export function PreviewMetalQuote(template: string, unit: string, currency: stri
     return $Call.ByID(3215490912, template, unit, currency);
 }
 
-export function SetInstrumentIcon(id: string, iconKey: string): $CancellablePromise<void> {
-    return $Call.ByID(3109919373, id, iconKey);
-}
-
-export function SetInstrumentQuoteSource(id: string, source: string): $CancellablePromise<void> {
-    return $Call.ByID(2859585421, id, source);
-}
-
 export function UpdateInstrument(id: string, request: $models.InstrumentRequest): $CancellablePromise<wire$0.InstrumentDTO> {
     return $Call.ByID(3318596211, id, request);
 }

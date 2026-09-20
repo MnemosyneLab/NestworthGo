@@ -22,7 +22,7 @@ export interface AccountCashValueDTO {
 /**
  * AccountDTO mirrors domain.Account. It is shared by the account service
  * (owns Account CRUD) and the portfolio/analytics services (which embed it
- * inside read models such as AccountValuationDTO/AccountGainDTO), so it
+ * inside read models such as AccountValuationDTO), so it
  * lives here rather than being duplicated per service.
  */
 export interface AccountDTO {
@@ -46,20 +46,6 @@ export interface AccountDTO {
     "createdAt": string;
     "updatedAt": string;
     "archivedAt"?: string | null;
-}
-
-/**
- * AccountGainDTO mirrors domain.AccountGainView.
- */
-export interface AccountGainDTO {
-    "accountId": string;
-    "holdings": HoldingGainDTO[] | null;
-    "totalCost"?: MoneyView | null;
-    "currentValue"?: MoneyView | null;
-    "realizedGain"?: SignedMoneyView | null;
-    "unrealizedGain"?: SignedMoneyView | null;
-    "available": boolean;
-    "missingReason"?: string;
 }
 
 /**
@@ -425,17 +411,6 @@ export interface FXQuoteDTO {
     "delayed": boolean;
 }
 
-/**
- * GainGroupDTO mirrors domain.GainGroupView.
- */
-export interface GainGroupDTO {
-    "key": string;
-    "label": string;
-    "gain": SignedMoneyView;
-    "available": boolean;
-    "missingReason"?: string;
-}
-
 export interface GroupDTO {
     "id": string;
     "name": string;
@@ -461,30 +436,6 @@ export interface HoldingDTO {
     "createdAt": string;
     "updatedAt": string;
     "archivedAt"?: string | null;
-}
-
-/**
- * HoldingGainDTO mirrors domain.HoldingGainView.
- */
-export interface HoldingGainDTO {
-    "holdingId": string;
-    "accountId": string;
-    "instrumentId": string;
-    "instrumentName": string;
-    "instrumentSymbol"?: string;
-    "quantity": string;
-    "averageCost": MoneyView;
-    "totalCost": MoneyView;
-    "totalCostBase"?: MoneyView | null;
-    "currentValue"?: MoneyView | null;
-    "currentValueBase"?: MoneyView | null;
-    "realizedGain": SignedMoneyView;
-    "unrealizedGain"?: SignedMoneyView | null;
-    "unrealizedGainBase"?: SignedMoneyView | null;
-    "instrumentMovement"?: SignedMoneyView | null;
-    "currencyMovement"?: SignedMoneyView | null;
-    "available": boolean;
-    "missingReason"?: string;
 }
 
 /**
@@ -616,20 +567,6 @@ export interface QuoteEvidenceDTO {
     "quotedAt": string;
     "freshness": string;
     "delayed": boolean;
-}
-
-/**
- * RealizedGainDTO mirrors domain.RealizedGainView.
- */
-export interface RealizedGainDTO {
-    "from": string;
-    "to": string;
-    "currency"?: string;
-    "total"?: SignedMoneyView | null;
-    "byInstrument": GainGroupDTO[] | null;
-    "byAccount": GainGroupDTO[] | null;
-    "available": boolean;
-    "missingReason"?: string;
 }
 
 export interface ReturnCalendarDTO {

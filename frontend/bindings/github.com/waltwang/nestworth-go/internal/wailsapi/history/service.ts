@@ -17,22 +17,6 @@ export function Activity(activityID: string): $CancellablePromise<wire$0.Activit
     return $Call.ByID(537140027, activityID);
 }
 
-export function BuildDailyValuationSnapshot(localDate: string): $CancellablePromise<[$models.DailyValuationSnapshotDTO, boolean]> {
-    return $Call.ByID(1332356346, localDate);
-}
-
-/**
- * CommitChange is kept as a wire alias of RecordChange for old clients.
- * Deprecated: use RecordChange. Application code has a single write path.
- */
-export function CommitChange(request: $models.ChangeCommandRequest): $CancellablePromise<wire$0.ChangePreviewDTO> {
-    return $Call.ByID(37311191, request);
-}
-
-export function CompleteDailySnapshotRange($0: string, targetDate: string): $CancellablePromise<void> {
-    return $Call.ByID(2319076695, $0, targetDate);
-}
-
 export function DailySnapshotState($0: string): $CancellablePromise<$models.DailySnapshotStateDTO> {
     return $Call.ByID(3301983652, $0);
 }
@@ -47,14 +31,6 @@ export function HistoryMutationAllowed(): $CancellablePromise<void> {
 
 export function HistoryOrigin(): $CancellablePromise<$models.HistoryOriginDTO | null> {
     return $Call.ByID(4016513528);
-}
-
-export function HistoryStarted(): $CancellablePromise<boolean> {
-    return $Call.ByID(3006043135);
-}
-
-export function ListActivities(limit: number): $CancellablePromise<wire$0.ActivityDTO[] | null> {
-    return $Call.ByID(3769045223, limit);
 }
 
 export function ListActivityPage(request: $models.ActivityQueryRequest): $CancellablePromise<wire$0.ActivityPageDTO> {

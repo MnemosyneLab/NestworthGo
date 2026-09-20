@@ -14,7 +14,5 @@ export type {
     ActivityQueryRequest,
     ChangeCommandRequest,
     DailySnapshotStateDTO,
-    DailyValuationSnapshotDTO,
-    DailyValuationSnapshotItemDTO,
     HistoryOriginDTO
 } from "./models.js";

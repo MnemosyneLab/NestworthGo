@@ -99,7 +99,7 @@ func TestArchiveInstrument(t *testing.T) {
 	}
 }
 
-func TestSetInstrumentQuoteSourceInvalid(t *testing.T) {
+func TestUpdateInstrumentQuoteSourceInvalid(t *testing.T) {
 	service := onboardedService(t)
 	ctx := context.Background()
 	created, err := service.CreateInstrument(ctx, instrument.InstrumentRequest{
@@ -108,7 +108,7 @@ func TestSetInstrumentQuoteSourceInvalid(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
-	err = service.SetInstrumentQuoteSource(ctx, created.ID, "not-a-source")
+	_, err = service.UpdateInstrument(ctx, created.ID, instrument.InstrumentRequest{QuoteSource: "not-a-source"})
 	if err == nil {
 		t.Fatal("want a validation error for an unsupported quote source")
 	}

@@ -322,12 +322,6 @@ func (s *Service) ArchiveInstrument(ctx context.Context, id domain.InstrumentID,
 	return err
 }
 
-func (s *Service) SetInstrumentIcon(ctx context.Context, id domain.InstrumentID, iconKey string) error {
-	return s.setIcon(ctx, iconKey, func(householdID domain.HouseholdID, normalized string, now time.Time) error {
-		return s.repository.SetInstrumentIcon(ctx, householdID, id, normalized, now)
-	})
-}
-
 func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.InstrumentID, source string) error {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
@@ -724,12 +718,6 @@ func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID 
 	return quote, nil
 }
 
-func (s *Service) SaveManualInstrumentQuote(ctx context.Context, instrumentID domain.InstrumentID, unitPrice, quotedAt string) (domain.InstrumentQuote, error) {
-	// Deprecated: use AppendManualInstrumentQuote. Save is retained as a
-	// compatibility alias and intentionally has the same append-only semantics.
-	return s.AppendManualInstrumentQuote(ctx, instrumentID, unitPrice, quotedAt, false)
-}
-
 func (s *Service) SetFXPreference(ctx context.Context, currencyA, currencyB, source string) (domain.FXPreference, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
@@ -832,12 +820,6 @@ func (s *Service) AppendManualFXQuote(ctx context.Context, baseCurrency, quoteCu
 	}
 	s.invalidateAnalysis()
 	return fxQuote, nil
-}
-
-func (s *Service) SaveManualFXQuote(ctx context.Context, baseCurrency, quoteCurrency, rate, quotedAt string) (domain.FXQuote, error) {
-	// Deprecated: use AppendManualFXQuote. Save is retained as a compatibility
-	// alias and intentionally has the same append-only semantics.
-	return s.AppendManualFXQuote(ctx, baseCurrency, quoteCurrency, rate, quotedAt)
 }
 
 func (s *Service) portfolioSnapshot(ctx context.Context) (domain.PortfolioSnapshot, *domain.Household, error) {

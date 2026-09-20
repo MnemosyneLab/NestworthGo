@@ -24,10 +24,6 @@ export function AppendAccountCashValue(accountID: string, amount: string, curren
     return $Call.ByID(2810686086, accountID, amount, currency, effectiveAt);
 }
 
-export function ArchiveHolding(id: string, archived: boolean): $CancellablePromise<void> {
-    return $Call.ByID(2096620566, id, archived);
-}
-
 export function CreateHolding(request: $models.CreateHoldingRequest): $CancellablePromise<wire$0.HoldingDTO> {
     return $Call.ByID(1487305998, request);
 }
@@ -43,22 +39,4 @@ export function HoldingsByAccounts(accountIDs: string[] | null): $CancellablePro
 
 export function ListAccountCashValues(accountID: string): $CancellablePromise<wire$0.AccountCashValueDTO[] | null> {
     return $Call.ByID(28387767, accountID);
-}
-
-export function ListHoldings(accountID: string, includeArchived: boolean): $CancellablePromise<wire$0.HoldingDTO[] | null> {
-    return $Call.ByID(1117849871, accountID, includeArchived);
-}
-
-export function UpdateHolding(id: string, request: $models.UpdateHoldingRequest): $CancellablePromise<wire$0.HoldingDTO> {
-    return $Call.ByID(4282570637, id, request);
-}
-
-/**
- * UpdateHoldingQuantity is retained for pre-history compatibility only; once
- * history has started, the application layer rejects it and the frontend
- * must use HistoryService.RecordChange with a position adjustment.
- * Deprecated: use HistoryService.RecordChange after history starts.
- */
-export function UpdateHoldingQuantity(id: string, quantity: string): $CancellablePromise<wire$0.HoldingDTO> {
-    return $Call.ByID(758418768, id, quantity);
 }

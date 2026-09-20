@@ -230,10 +230,6 @@ func (r *Repository) SetInstrumentArchive(ctx context.Context, householdID domai
 	})
 }
 
-func (r *Repository) SetInstrumentIcon(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID, iconKey string, now time.Time) error {
-	return r.setIconReference(ctx, "instruments", householdID.String(), id.String(), iconKey, now)
-}
-
 func (r *Repository) SetInstrumentQuoteSource(ctx context.Context, householdID domain.HouseholdID, id domain.InstrumentID, source domain.QuoteSourceKind, now time.Time) error {
 	parsedSource, err := domain.ParseQuoteSourceKind(string(source))
 	if err != nil {

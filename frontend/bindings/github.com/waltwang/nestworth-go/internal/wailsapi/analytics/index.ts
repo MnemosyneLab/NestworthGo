@@ -7,7 +7,6 @@ export {
 };
 
 export type {
-    GainScopeRequest,
     HoldingAmountsDTO,
     InstrumentHoldingMemberDTO,
     InstrumentHoldingsDTO

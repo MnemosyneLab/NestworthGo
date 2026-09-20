@@ -89,33 +89,19 @@ func onboardedAppWithProvider(t *testing.T) *application.Service {
 
 func TestSetAndGetFXProvider(t *testing.T) {
 	app := onboardedAppWithProvider(t)
-	service := marketdata.NewService(app, nil)
-	if err := service.SetFXProvider("frankfurter"); err != nil {
+	if err := app.SetFXProvider("frankfurter"); err != nil {
 		t.Fatalf("SetFXProvider: %v", err)
 	}
-	if key := service.FXProviderKey(); key != "frankfurter" {
+	if key := app.FXProviderKey(); key != "frankfurter" {
 		t.Fatalf("FXProviderKey = %q, want frankfurter", key)
 	}
 }
 
 func TestSetFXProviderUnknownKey(t *testing.T) {
 	app := onboardedAppWithProvider(t)
-	service := marketdata.NewService(app, nil)
-	err := service.SetFXProvider("does-not-exist")
+	err := app.SetFXProvider("does-not-exist")
 	if err == nil {
 		t.Fatal("want an error for an unregistered provider key")
-	}
-}
-
-func TestRefreshAllWithNoTargetsIsEmptyNotError(t *testing.T) {
-	app := onboardedAppWithProvider(t)
-	service := marketdata.NewService(app, nil)
-	result, err := service.RefreshAll(context.Background())
-	if err != nil {
-		t.Fatalf("RefreshAll: %v", err)
-	}
-	if len(result.Items) != 0 {
-		t.Fatalf("Items = %+v, want empty (no accounts/instruments to refresh)", result.Items)
 	}
 }
 
@@ -167,7 +153,7 @@ func TestStartRefreshAllPayloadCarriesResult(t *testing.T) {
 	if !ok {
 		t.Fatalf("event data = %#v, want marketdata.RefreshCompletedPayload", data)
 	}
-	if payload.RequestID != "req-3" || payload.Error != "" || payload.Result == nil {
+	if payload.RequestID != "req-3" || payload.Error != "" || payload.Result == nil || len(payload.Result.Items) != 0 {
 		t.Fatalf("payload = %+v, want RequestID=req-3, no error, and a Result", payload)
 	}
 }

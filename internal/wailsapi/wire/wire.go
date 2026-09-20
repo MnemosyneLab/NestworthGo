@@ -281,7 +281,7 @@ func ToOwnershipShares(values []OwnershipShareDTO) ([]domain.OwnershipShare, err
 
 // AccountDTO mirrors domain.Account. It is shared by the account service
 // (owns Account CRUD) and the portfolio/analytics services (which embed it
-// inside read models such as AccountValuationDTO/AccountGainDTO), so it
+// inside read models such as AccountValuationDTO), so it
 // lives here rather than being duplicated per service.
 type AccountDTO struct {
 	ID                    string  `json:"id"`
@@ -705,14 +705,6 @@ func FromInstrumentQuotePtr(value *domain.InstrumentQuote) *InstrumentQuoteDTO {
 	return &dto
 }
 
-func FromInstrumentQuotes(values []domain.InstrumentQuote) []InstrumentQuoteDTO {
-	result := make([]InstrumentQuoteDTO, 0, len(values))
-	for _, value := range values {
-		result = append(result, FromInstrumentQuote(value))
-	}
-	return result
-}
-
 // FXQuoteDTO mirrors domain.FXQuote.
 type FXQuoteDTO struct {
 	ID            string `json:"id"`
@@ -743,14 +735,6 @@ func FromFXQuotePtr(value *domain.FXQuote) *FXQuoteDTO {
 	return &dto
 }
 
-func FromFXQuotes(values []domain.FXQuote) []FXQuoteDTO {
-	result := make([]FXQuoteDTO, 0, len(values))
-	for _, value := range values {
-		result = append(result, FromFXQuote(value))
-	}
-	return result
-}
-
 // FXPreferenceDTO mirrors domain.FXPreference.
 type FXPreferenceDTO struct {
 	HouseholdID string `json:"householdId"`
@@ -774,132 +758,6 @@ func FromFXPreferences(values []domain.FXPreference) []FXPreferenceDTO {
 		result = append(result, FromFXPreference(value))
 	}
 	return result
-}
-
-// HoldingGainDTO mirrors domain.HoldingGainView.
-type HoldingGainDTO struct {
-	HoldingID          string           `json:"holdingId"`
-	AccountID          string           `json:"accountId"`
-	InstrumentID       string           `json:"instrumentId"`
-	InstrumentName     string           `json:"instrumentName"`
-	InstrumentSymbol   string           `json:"instrumentSymbol,omitempty"`
-	Quantity           string           `json:"quantity"`
-	AverageCost        MoneyView        `json:"averageCost"`
-	TotalCost          MoneyView        `json:"totalCost"`
-	TotalCostBase      *MoneyView       `json:"totalCostBase,omitempty"`
-	CurrentValue       *MoneyView       `json:"currentValue,omitempty"`
-	CurrentValueBase   *MoneyView       `json:"currentValueBase,omitempty"`
-	RealizedGain       SignedMoneyView  `json:"realizedGain"`
-	UnrealizedGain     *SignedMoneyView `json:"unrealizedGain,omitempty"`
-	UnrealizedGainBase *SignedMoneyView `json:"unrealizedGainBase,omitempty"`
-	InstrumentMovement *SignedMoneyView `json:"instrumentMovement,omitempty"`
-	CurrencyMovement   *SignedMoneyView `json:"currencyMovement,omitempty"`
-	Available          bool             `json:"available"`
-	MissingReason      string           `json:"missingReason,omitempty"`
-}
-
-func FromHoldingGain(value domain.HoldingGainView) HoldingGainDTO {
-	return HoldingGainDTO{
-		HoldingID: value.HoldingID.String(), AccountID: value.AccountID.String(), InstrumentID: value.InstrumentID.String(),
-		InstrumentName: value.InstrumentName, InstrumentSymbol: value.InstrumentSymbol, Quantity: value.Quantity,
-		AverageCost:   MoneyView{Amount: value.AverageCost.Amount, Currency: value.AverageCost.Currency.String()},
-		TotalCost:     MoneyView{Amount: value.TotalCost.Amount, Currency: value.TotalCost.Currency.String()},
-		TotalCostBase: FromMoneyView(value.TotalCostBase), CurrentValue: FromMoneyView(value.CurrentValue),
-		CurrentValueBase: FromMoneyView(value.CurrentValueBase),
-		RealizedGain:     SignedMoneyView{Amount: value.RealizedGain.Amount, Currency: value.RealizedGain.Currency.String()},
-		UnrealizedGain:   FromSignedMoneyView(value.UnrealizedGain), UnrealizedGainBase: FromSignedMoneyView(value.UnrealizedGainBase),
-		InstrumentMovement: FromSignedMoneyView(value.InstrumentMovement), CurrencyMovement: FromSignedMoneyView(value.CurrencyMovement),
-		Available: value.Available, MissingReason: value.MissingReason,
-	}
-}
-
-func FromHoldingGains(values []domain.HoldingGainView) []HoldingGainDTO {
-	result := make([]HoldingGainDTO, 0, len(values))
-	for _, value := range values {
-		result = append(result, FromHoldingGain(value))
-	}
-	return result
-}
-
-// AccountGainDTO mirrors domain.AccountGainView.
-type AccountGainDTO struct {
-	AccountID      string           `json:"accountId"`
-	Holdings       []HoldingGainDTO `json:"holdings"`
-	TotalCost      *MoneyView       `json:"totalCost,omitempty"`
-	CurrentValue   *MoneyView       `json:"currentValue,omitempty"`
-	RealizedGain   *SignedMoneyView `json:"realizedGain,omitempty"`
-	UnrealizedGain *SignedMoneyView `json:"unrealizedGain,omitempty"`
-	Available      bool             `json:"available"`
-	MissingReason  string           `json:"missingReason,omitempty"`
-}
-
-func FromAccountGain(value domain.AccountGainView) AccountGainDTO {
-	return AccountGainDTO{
-		AccountID: value.AccountID.String(), Holdings: FromHoldingGains(value.Holdings),
-		TotalCost: FromMoneyView(value.TotalCost), CurrentValue: FromMoneyView(value.CurrentValue),
-		RealizedGain: FromSignedMoneyView(value.RealizedGain), UnrealizedGain: FromSignedMoneyView(value.UnrealizedGain),
-		Available: value.Available, MissingReason: value.MissingReason,
-	}
-}
-
-func FromAccountGains(values []domain.AccountGainView) []AccountGainDTO {
-	result := make([]AccountGainDTO, 0, len(values))
-	for _, value := range values {
-		result = append(result, FromAccountGain(value))
-	}
-	return result
-}
-
-// GainGroupDTO mirrors domain.GainGroupView.
-type GainGroupDTO struct {
-	Key           string          `json:"key"`
-	Label         string          `json:"label"`
-	Gain          SignedMoneyView `json:"gain"`
-	Available     bool            `json:"available"`
-	MissingReason string          `json:"missingReason,omitempty"`
-}
-
-func FromGainGroup(value domain.GainGroupView) GainGroupDTO {
-	return GainGroupDTO{
-		Key: value.Key, Label: value.Label, Gain: SignedMoneyView{Amount: value.Gain.Amount, Currency: value.Gain.Currency.String()},
-		Available: value.Available, MissingReason: value.MissingReason,
-	}
-}
-
-func FromGainGroups(values []domain.GainGroupView) []GainGroupDTO {
-	result := make([]GainGroupDTO, 0, len(values))
-	for _, value := range values {
-		result = append(result, FromGainGroup(value))
-	}
-	return result
-}
-
-// RealizedGainDTO mirrors domain.RealizedGainView.
-type RealizedGainDTO struct {
-	From          string           `json:"from"`
-	To            string           `json:"to"`
-	Currency      string           `json:"currency,omitempty"`
-	Total         *SignedMoneyView `json:"total,omitempty"`
-	ByInstrument  []GainGroupDTO   `json:"byInstrument"`
-	ByAccount     []GainGroupDTO   `json:"byAccount"`
-	Available     bool             `json:"available"`
-	MissingReason string           `json:"missingReason,omitempty"`
-}
-
-func FromRealizedGain(value domain.RealizedGainView) RealizedGainDTO {
-	return RealizedGainDTO{
-		From: value.From, To: value.To, Currency: value.Currency.String(), Total: FromSignedMoneyView(value.Total),
-		ByInstrument: FromGainGroups(value.ByInstrument), ByAccount: FromGainGroups(value.ByAccount),
-		Available: value.Available, MissingReason: value.MissingReason,
-	}
-}
-
-func FromDividendIncome(value domain.DividendIncomeView) RealizedGainDTO {
-	return RealizedGainDTO{
-		From: value.From, To: value.To, Currency: value.Currency.String(), Total: FromSignedMoneyView(value.Total),
-		ByInstrument: FromGainGroups(value.ByInstrument), ByAccount: FromGainGroups(value.ByAccount),
-		Available: value.Available, MissingReason: value.MissingReason,
-	}
 }
 
 // StartingPointHoldingDTO mirrors domain.StartingPointHoldingView.

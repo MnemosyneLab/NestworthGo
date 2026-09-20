@@ -151,7 +151,6 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfoli
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
     HistoryOrigin: () => Promise.resolve({ id: "origin-1", timezone: "UTC" }),
-    ListActivities: () => Promise.resolve([]),
   },
 }));
 

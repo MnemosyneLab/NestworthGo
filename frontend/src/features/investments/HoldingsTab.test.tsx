@@ -25,11 +25,10 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
   Service: {
     HoldingsByAccounts: (...args: unknown[]) => holdingsByAccounts(...args),
     CreateHolding: (...args: unknown[]) => createHolding(...args),
-    ArchiveHolding: vi.fn(),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
-  Service: { InstrumentHoldings: (...args: unknown[]) => instrumentHoldings(...args), AccountGain: vi.fn(), RealizedGain: vi.fn(), HoldingGain: vi.fn() },
+  Service: { InstrumentHoldings: (...args: unknown[]) => instrumentHoldings(...args) },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
   Service: {

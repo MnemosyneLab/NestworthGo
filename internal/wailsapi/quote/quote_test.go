@@ -10,7 +10,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
 
-func TestSaveAndReadManualInstrumentQuote(t *testing.T) {
+func TestAppendAndReadManualInstrumentQuote(t *testing.T) {
 	app := wailstest.NewService(t)
 	ctx := context.Background()
 	if err := household.NewService(app).CompleteOnboarding(ctx, household.CompleteOnboardingRequest{
@@ -25,9 +25,9 @@ func TestSaveAndReadManualInstrumentQuote(t *testing.T) {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
 	service := quote.NewService(app)
-	saved, err := service.SaveManualInstrumentQuote(ctx, created.ID, "131.70", "2026-01-15T00:00:00.000Z")
+	saved, err := service.AppendManualInstrumentQuote(ctx, created.ID, "131.70", "2026-01-15T00:00:00.000Z", false)
 	if err != nil {
-		t.Fatalf("SaveManualInstrumentQuote: %v", err)
+		t.Fatalf("AppendManualInstrumentQuote: %v", err)
 	}
 	if saved.UnitPrice != "131.7" {
 		t.Fatalf("UnitPrice = %q, want 131.7", saved.UnitPrice)
@@ -39,11 +39,11 @@ func TestSaveAndReadManualInstrumentQuote(t *testing.T) {
 	if current == nil || current.UnitPrice != "131.7" {
 		t.Fatalf("current = %+v, want 131.7", current)
 	}
-	history, err := service.InstrumentQuoteHistory(ctx, created.ID)
+	history, err := service.InstrumentQuoteSeries(ctx, created.ID, "all", "all")
 	if err != nil {
-		t.Fatalf("InstrumentQuoteHistory: %v", err)
+		t.Fatalf("InstrumentQuoteSeries: %v", err)
 	}
-	if len(history) != 1 {
+	if len(history.Observations) != 1 {
 		t.Fatalf("history = %+v, want one entry", history)
 	}
 }
@@ -88,9 +88,9 @@ func TestFXPreferenceAndManualFXQuote(t *testing.T) {
 	if preference.SourceKind != "manual" {
 		t.Fatalf("preference = %+v", preference)
 	}
-	saved, err := service.SaveManualFXQuote(ctx, "SGD", "USD", "0.74", "2026-01-15T00:00:00.000Z")
+	saved, err := service.AppendManualFXQuote(ctx, "SGD", "USD", "0.74", "2026-01-15T00:00:00.000Z")
 	if err != nil {
-		t.Fatalf("SaveManualFXQuote: %v", err)
+		t.Fatalf("AppendManualFXQuote: %v", err)
 	}
 	if saved.Rate != "0.74" {
 		t.Fatalf("Rate = %q, want 0.74", saved.Rate)
@@ -126,11 +126,11 @@ func TestInstrumentAndFXQuoteSeriesAreLocalAndDirectional(t *testing.T) {
 		t.Fatalf("CreateInstrument: %v", err)
 	}
 	service := quote.NewService(app)
-	if _, err := service.SaveManualInstrumentQuote(ctx, created.ID, "131.70", "2026-08-20T00:00:00.000Z"); err != nil {
-		t.Fatalf("SaveManualInstrumentQuote: %v", err)
+	if _, err := service.AppendManualInstrumentQuote(ctx, created.ID, "131.70", "2026-08-20T00:00:00.000Z", false); err != nil {
+		t.Fatalf("AppendManualInstrumentQuote: %v", err)
 	}
-	if _, err := service.SaveManualFXQuote(ctx, "USD", "CNY", "7", "2026-08-20T00:00:00.000Z"); err != nil {
-		t.Fatalf("SaveManualFXQuote: %v", err)
+	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "7", "2026-08-20T00:00:00.000Z"); err != nil {
+		t.Fatalf("AppendManualFXQuote: %v", err)
 	}
 
 	instrumentSeries, err := service.InstrumentQuoteSeries(ctx, created.ID, "all", "all")

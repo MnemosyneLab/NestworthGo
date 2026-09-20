@@ -55,7 +55,6 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/accou
     CreateAccount: (...args: unknown[]) => createAccount(...args),
     UpdateAccount: vi.fn(),
     ArchiveAccount: vi.fn(),
-    SetAccountIcon: vi.fn(),
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/directory", () => ({
@@ -72,7 +71,6 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/histo
     StartHistory: vi.fn(),
     StartHistoryWithCosts: vi.fn(),
     StartingPointDraft: () => Promise.resolve([]),
-    ListActivities: () => listActivities(),
     ListActivityPage: (...args: unknown[]) => listActivityPage(...args),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
     PreviewFixChange: vi.fn(),

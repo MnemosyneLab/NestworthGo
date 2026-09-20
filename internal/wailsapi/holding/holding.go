@@ -40,59 +40,6 @@ func (s *Service) CreateHolding(ctx context.Context, request CreateHoldingReques
 	return wire.FromHolding(holding), nil
 }
 
-// UpdateHoldingRequest is the metadata-only update contract. Quantity is
-// intentionally absent: financial quantity changes use the dedicated
-// pre-history compatibility method or HistoryService.RecordChange.
-type UpdateHoldingRequest struct {
-	Note         *string `json:"note,omitempty"`
-	NoteSet      bool    `json:"noteSet,omitempty"`
-	SortOrder    int     `json:"sortOrder,omitempty"`
-	SortOrderSet bool    `json:"sortOrderSet,omitempty"`
-}
-
-func (s *Service) UpdateHolding(ctx context.Context, id string, request UpdateHoldingRequest) (wire.HoldingDTO, error) {
-	holdingID, err := domain.ParseHoldingID(id)
-	if err != nil {
-		return wire.HoldingDTO{}, apierror.Wrap(err)
-	}
-	holding, err := s.app.UpdateHolding(ctx, holdingID, application.HoldingUpdateInput{
-		Note: request.Note, NoteSet: request.NoteSet,
-		SortOrder: request.SortOrder, SortOrderSet: request.SortOrderSet,
-	})
-	if err != nil {
-		return wire.HoldingDTO{}, apierror.Wrap(err)
-	}
-	return wire.FromHolding(holding), nil
-}
-
-// UpdateHoldingQuantity is retained for pre-history compatibility only; once
-// history has started, the application layer rejects it and the frontend
-// must use HistoryService.RecordChange with a position adjustment.
-// Deprecated: use HistoryService.RecordChange after history starts.
-func (s *Service) UpdateHoldingQuantity(ctx context.Context, id, quantity string) (wire.HoldingDTO, error) {
-	holdingID, err := domain.ParseHoldingID(id)
-	if err != nil {
-		return wire.HoldingDTO{}, apierror.Wrap(err)
-	}
-	holding, err := s.app.UpdateHoldingQuantity(ctx, holdingID, quantity)
-	if err != nil {
-		return wire.HoldingDTO{}, apierror.Wrap(err)
-	}
-	return wire.FromHolding(holding), nil
-}
-
-func (s *Service) ListHoldings(ctx context.Context, accountID string, includeArchived bool) ([]wire.HoldingDTO, error) {
-	parsedAccountID, err := domain.ParseAccountID(accountID)
-	if err != nil {
-		return nil, apierror.Wrap(err)
-	}
-	holdings, err := s.app.ListHoldings(ctx, parsedAccountID, includeArchived)
-	if err != nil {
-		return nil, apierror.Wrap(err)
-	}
-	return wire.FromHoldings(holdings), nil
-}
-
 // HoldingsByAccounts loads holdings for several accounts in one call,
 // returned as a map keyed by account ID string (JSON object keys must be
 // strings; domain.AccountID already is one).
@@ -114,14 +61,6 @@ func (s *Service) HoldingsByAccounts(ctx context.Context, accountIDs []string) (
 		result[accountID.String()] = wire.FromHoldings(holdings)
 	}
 	return result, nil
-}
-
-func (s *Service) ArchiveHolding(ctx context.Context, id string, archived bool) error {
-	holdingID, err := domain.ParseHoldingID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.ArchiveHolding(ctx, holdingID, archived))
 }
 
 // AppendAccountCashValue is the cash baseline/import entry point before

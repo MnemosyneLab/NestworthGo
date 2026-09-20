@@ -5,15 +5,6 @@
 // @ts-ignore: Unused imports
 import * as wire$0 from "../wire/models.js";
 
-/**
- * GainScopeRequest mirrors domain.GainScope: an empty request is the explicit
- * portfolio scope; setting AccountID or InstrumentID narrows the calculation.
- */
-export interface GainScopeRequest {
-    "accountId"?: string | null;
-    "instrumentId"?: string | null;
-}
-
 export interface HoldingAmountsDTO {
     "quantity": string;
     "totalCost"?: wire$0.MoneyView | null;

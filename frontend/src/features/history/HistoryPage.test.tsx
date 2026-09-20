@@ -56,7 +56,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     StartHistory: (...args: unknown[]) => startHistory(...args),
     StartHistoryWithCosts: (...args: unknown[]) => startHistoryWithCosts(...args),
     StartingPointDraft: () => startingPointDraft(),
-    ListActivities: () => listActivities(),
     Activity: (...args: unknown[]) => getActivity(...args),
     ListActivityPage: (...args: unknown[]) => listActivityPage(...args),
     PreviewChange: (...args: unknown[]) => previewChange(...args),

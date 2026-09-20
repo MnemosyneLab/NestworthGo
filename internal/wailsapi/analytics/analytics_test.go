@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/account"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -53,12 +54,11 @@ func TestHoldingGainAvailableAfterQuote(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
 	}
-	if _, err := quote.NewService(app).SaveManualInstrumentQuote(ctx, instrumentDTO.ID, "150", "2026-01-15T00:00:00.000Z"); err != nil {
-		t.Fatalf("SaveManualInstrumentQuote: %v", err)
+	if _, err := quote.NewService(app).AppendManualInstrumentQuote(ctx, instrumentDTO.ID, "150", "2026-01-15T00:00:00.000Z", false); err != nil {
+		t.Fatalf("AppendManualInstrumentQuote: %v", err)
 	}
 
-	service := analytics.NewService(app)
-	gain, err := service.HoldingGain(ctx, holdingDTO.ID)
+	gain, err := app.HoldingGain(ctx, domain.HoldingID(holdingDTO.ID))
 	if err != nil {
 		t.Fatalf("HoldingGain: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestHoldingGainAvailableAfterQuote(t *testing.T) {
 		t.Fatalf("UnrealizedGain = %+v, want 1500 (zero cost basis pre-history)", gain.UnrealizedGain)
 	}
 
-	groups, err := service.InstrumentHoldings(ctx)
+	groups, err := analytics.NewService(app).InstrumentHoldings(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func TestHoldingGainAvailableAfterQuote(t *testing.T) {
 		t.Fatalf("InstrumentHoldings: %+v", groups)
 	}
 
-	accountGain, err := service.AccountGain(ctx, accountRecord.Account.ID)
+	accountGain, err := app.AccountGain(ctx, domain.AccountID(accountRecord.Account.ID))
 	if err != nil {
 		t.Fatalf("AccountGain: %v", err)
 	}
@@ -88,15 +88,15 @@ func TestHoldingGainAvailableAfterQuote(t *testing.T) {
 		t.Fatalf("Holdings = %+v, want 1", accountGain.Holdings)
 	}
 
-	batch, err := service.AccountGains(ctx)
+	batch, err := app.AccountGains(ctx, nil)
 	if err != nil {
 		t.Fatalf("AccountGains: %v", err)
 	}
-	if len(batch) != 1 || len(batch[0].Holdings) != 1 || batch[0].AccountID != accountRecord.Account.ID {
+	if len(batch) != 1 || len(batch[0].Holdings) != 1 || batch[0].AccountID.String() != accountRecord.Account.ID {
 		t.Fatalf("AccountGains = %+v, want one account matching AccountGain", batch)
 	}
 
-	realized, err := service.RealizedGainInRange(ctx, analytics.GainScopeRequest{}, "2000-01-01", "2030-01-01")
+	realized, err := app.RealizedGainInRange(ctx, domain.GainScope{}, "2000-01-01", "2030-01-01")
 	if err != nil {
 		t.Fatalf("RealizedGainInRange: %v", err)
 	}
@@ -113,8 +113,7 @@ func TestHoldingGainNotFound(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("CompleteOnboarding: %v", err)
 	}
-	service := analytics.NewService(app)
-	_, err := service.HoldingGain(ctx, "00000000-0000-7000-8000-000000000000")
+	_, err := app.HoldingGain(ctx, "00000000-0000-7000-8000-000000000000")
 	if err == nil {
 		t.Fatal("want an error for an unknown holding")
 	}
@@ -152,8 +151,8 @@ func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateHolding: %v", err)
 	}
-	if _, err := quote.NewService(app).SaveManualInstrumentQuote(ctx, instrumentDTO.ID, "150", "2026-01-15T00:00:00.000Z"); err != nil {
-		t.Fatalf("SaveManualInstrumentQuote: %v", err)
+	if _, err := quote.NewService(app).AppendManualInstrumentQuote(ctx, instrumentDTO.ID, "150", "2026-01-15T00:00:00.000Z", false); err != nil {
+		t.Fatalf("AppendManualInstrumentQuote: %v", err)
 	}
 	historyService := history.NewService(app)
 	if _, err := historyService.StartHistory(ctx, "UTC"); err != nil {
@@ -165,15 +164,14 @@ func TestDividendIncomeIndependentOfRealizedGain(t *testing.T) {
 		t.Fatalf("RecordChange: %v", err)
 	}
 
-	service := analytics.NewService(app)
-	income, err := service.DividendIncomeInRange(ctx, analytics.GainScopeRequest{}, "2000-01-01", "2030-01-01")
+	income, err := app.DividendIncomeInRange(ctx, domain.GainScope{}, "2000-01-01", "2030-01-01")
 	if err != nil {
 		t.Fatalf("DividendIncomeInRange: %v", err)
 	}
 	if !income.Available || len(income.ByInstrument) != 1 || income.ByInstrument[0].Gain.Amount != "25" {
 		t.Fatalf("DividendIncomeInRange = %+v", income)
 	}
-	realized, err := service.RealizedGainInRange(ctx, analytics.GainScopeRequest{}, "2000-01-01", "2030-01-01")
+	realized, err := app.RealizedGainInRange(ctx, domain.GainScope{}, "2000-01-01", "2030-01-01")
 	if err != nil {
 		t.Fatalf("RealizedGainInRange: %v", err)
 	}
@@ -190,8 +188,7 @@ func TestRealizedGainInvalidDateRange(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("CompleteOnboarding: %v", err)
 	}
-	service := analytics.NewService(app)
-	_, err := service.RealizedGainInRange(ctx, analytics.GainScopeRequest{}, "2030-01-01", "2000-01-01")
+	_, err := app.RealizedGainInRange(ctx, domain.GainScope{}, "2030-01-01", "2000-01-01")
 	if err == nil {
 		t.Fatal("want a validation error when from is after to")
 	}

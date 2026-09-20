@@ -13,10 +13,6 @@ import * as wire$0 from "../wire/models.js";
 // @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
-export function AccountValuation(id: string): $CancellablePromise<wire$0.AccountValuationDTO> {
-    return $Call.ByID(491368181, id);
-}
-
 export function AccountValuations(request: $models.AccountFilterRequest): $CancellablePromise<wire$0.AccountValuationDTO[] | null> {
     return $Call.ByID(2700983538, request);
 }
@@ -35,10 +31,6 @@ export function CreateAccount(request: $models.CreateAccountRequest): $Cancellab
 
 export function ListAccounts(request: $models.AccountFilterRequest): $CancellablePromise<wire$0.AccountRecordDTO[] | null> {
     return $Call.ByID(1600073255, request);
-}
-
-export function SetAccountIcon(id: string, iconKey: string): $CancellablePromise<void> {
-    return $Call.ByID(3400625073, id, iconKey);
 }
 
 export function UpdateAccount(id: string, request: $models.UpdateAccountRequest): $CancellablePromise<wire$0.AccountRecordDTO> {

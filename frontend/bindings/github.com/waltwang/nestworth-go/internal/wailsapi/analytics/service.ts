@@ -7,48 +7,8 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as wire$0 from "../wire/models.js";
-
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore: Unused imports
 import * as $models from "./models.js";
-
-export function AccountGain(accountID: string): $CancellablePromise<wire$0.AccountGainDTO> {
-    return $Call.ByID(494440758, accountID);
-}
-
-export function AccountGains(): $CancellablePromise<wire$0.AccountGainDTO[] | null> {
-    return $Call.ByID(2848763807);
-}
-
-/**
- * DividendIncome resolves a named trend range ("30d", "ytd", "1y", "all") the same
- * way the Analytics range selector is implemented in the frontend.
- */
-export function DividendIncome(scope: $models.GainScopeRequest, trendRange: string): $CancellablePromise<wire$0.RealizedGainDTO> {
-    return $Call.ByID(790201502, scope, trendRange);
-}
-
-export function DividendIncomeInRange(scope: $models.GainScopeRequest, $from: string, to: string): $CancellablePromise<wire$0.RealizedGainDTO> {
-    return $Call.ByID(3039681646, scope, $from, to);
-}
-
-export function HoldingGain(holdingID: string): $CancellablePromise<wire$0.HoldingGainDTO> {
-    return $Call.ByID(914769158, holdingID);
-}
 
 export function InstrumentHoldings(): $CancellablePromise<$models.InstrumentHoldingsDTO[] | null> {
     return $Call.ByID(4105309295);
-}
-
-/**
- * RealizedGain resolves a named trend range ("30d", "ytd", "1y", "all") the same
- * way the Analytics range selector is implemented in the frontend.
- */
-export function RealizedGain(scope: $models.GainScopeRequest, trendRange: string): $CancellablePromise<wire$0.RealizedGainDTO> {
-    return $Call.ByID(3757463531, scope, trendRange);
-}
-
-export function RealizedGainInRange(scope: $models.GainScopeRequest, $from: string, to: string): $CancellablePromise<wire$0.RealizedGainDTO> {
-    return $Call.ByID(3640365453, scope, $from, to);
 }

@@ -47,9 +47,9 @@ func TestMarketDataSyncPreviewStartGetAndEvents(t *testing.T) {
 	}
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		job, err := service.GetSyncJob(start.Job.JobID)
-		if err != nil {
-			t.Fatal(err)
+		job, found := app.GetSyncJob(start.Job.JobID)
+		if !found {
+			t.Fatal("started job not found in application state")
 		}
 		if job.Outcome != "" && job.Outcome != application.SyncOutcomeRunning {
 			break

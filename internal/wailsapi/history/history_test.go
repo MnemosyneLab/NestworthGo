@@ -75,13 +75,6 @@ func newFixture(t *testing.T) fixture {
 
 func TestHistoryOriginStartedByOnboarding(t *testing.T) {
 	fx := newFixture(t)
-	started, err := fx.service.HistoryStarted(context.Background())
-	if err != nil {
-		t.Fatalf("HistoryStarted: %v", err)
-	}
-	if !started {
-		t.Fatal("HistoryStarted = false, want true (onboarding supplied a timezone)")
-	}
 	origin, err := fx.service.HistoryOrigin(context.Background())
 	if err != nil {
 		t.Fatalf("HistoryOrigin: %v", err)
@@ -184,15 +177,16 @@ func TestChangeCommandUnionRoundTripsEveryKind(t *testing.T) {
 		Principal: "100", PrincipalCurrency: "USD", InterestOrFee: "10", InterestOrFeeCurrency: "USD",
 	})
 
-	activities, err := fx.service.ListActivities(ctx, 0)
+	page, err := fx.service.ListActivityPage(ctx, history.ActivityQueryRequest{Limit: 100})
+	activities := page.Activities
 	if err != nil {
-		t.Fatalf("ListActivities: %v", err)
+		t.Fatalf("ListActivityPage: %v", err)
 	}
 	// 12 recorded activities: the eleven domain.PreviewChange command kinds
 	// plus one extra money_added call (funding the Brokerage cash
 	// sub-ledger) needed to make the fx_conversion/trade commands valid.
 	if len(activities) != 12 {
-		t.Fatalf("ListActivities returned %d activities, want 12", len(activities))
+		t.Fatalf("ListActivityPage returned %d activities, want 12", len(activities))
 	}
 	var listedTrade *wire.ActivityDTO
 	var listedDividend *wire.ActivityDTO
@@ -205,10 +199,10 @@ func TestChangeCommandUnionRoundTripsEveryKind(t *testing.T) {
 		}
 	}
 	if listedTrade == nil || listedTrade.TradeDetail.HoldingID != holdingAID {
-		t.Fatalf("ListActivities omitted TradeDetail on the buy: %+v", activities)
+		t.Fatalf("ListActivityPage omitted TradeDetail on the buy: %+v", activities)
 	}
 	if listedDividend == nil || listedDividend.DividendDetail.HoldingID != holdingAID {
-		t.Fatalf("ListActivities omitted DividendDetail: %+v", activities)
+		t.Fatalf("ListActivityPage omitted DividendDetail: %+v", activities)
 	}
 }
 
@@ -220,9 +214,10 @@ func TestPreviewChangeDoesNotCommit(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("PreviewChange: %v", err)
 	}
-	activities, err := fx.service.ListActivities(ctx, 0)
+	page, err := fx.service.ListActivityPage(ctx, history.ActivityQueryRequest{Limit: 100})
+	activities := page.Activities
 	if err != nil {
-		t.Fatalf("ListActivities: %v", err)
+		t.Fatalf("ListActivityPage: %v", err)
 	}
 	if len(activities) != 0 {
 		t.Fatalf("PreviewChange committed %d activities, want 0", len(activities))
@@ -306,9 +301,9 @@ func TestPreviewFixChangeMatchesFixChange(t *testing.T) {
 		Kind: history.ChangeMoneyAdded, AccountID: fx.checkingID, Amount: "1200", Currency: "USD", Reason: "contribution",
 	}
 
-	before, err := fx.service.ListActivities(ctx, 100)
+	before, err := fx.service.ListActivityPage(ctx, history.ActivityQueryRequest{Limit: 100})
 	if err != nil {
-		t.Fatalf("ListActivities before preview: %v", err)
+		t.Fatalf("ListActivityPage before preview: %v", err)
 	}
 	preview, err := fx.service.PreviewFixChange(ctx, recorded.Activity.ID, replacement)
 	if err != nil {
@@ -317,12 +312,12 @@ func TestPreviewFixChangeMatchesFixChange(t *testing.T) {
 	if len(preview.Resulting) != 1 || preview.Resulting[0].Amount != "1200" {
 		t.Fatalf("PreviewFixChange.Resulting = %+v, want 1200 (checking started at 0)", preview.Resulting)
 	}
-	after, err := fx.service.ListActivities(ctx, 100)
+	after, err := fx.service.ListActivityPage(ctx, history.ActivityQueryRequest{Limit: 100})
 	if err != nil {
-		t.Fatalf("ListActivities after preview: %v", err)
+		t.Fatalf("ListActivityPage after preview: %v", err)
 	}
-	if len(after) != len(before) {
-		t.Fatalf("PreviewFixChange must not commit anything; activity count went from %d to %d", len(before), len(after))
+	if len(after.Activities) != len(before.Activities) {
+		t.Fatalf("PreviewFixChange must not commit anything; activity count went from %d to %d", len(before.Activities), len(after.Activities))
 	}
 
 	fixed, err := fx.service.FixChange(ctx, recorded.Activity.ID, replacement)
@@ -394,7 +389,7 @@ func TestListActivityPageInstrumentFilter(t *testing.T) {
 	}
 }
 
-func TestDailySnapshotStateAndBuild(t *testing.T) {
+func TestDailySnapshotStateAndRebuild(t *testing.T) {
 	fx := newFixture(t)
 	ctx := context.Background()
 	bootstrap, err := household.NewService(fx.app).Bootstrap(ctx)
@@ -408,19 +403,9 @@ func TestDailySnapshotStateAndBuild(t *testing.T) {
 	if state.HouseholdID != bootstrap.Household.ID {
 		t.Fatalf("HouseholdID = %q, want %q", state.HouseholdID, bootstrap.Household.ID)
 	}
-	// BuildDailyValuationSnapshot only accepts an already-closed local day
-	// strictly after the Starting point. Since this test cannot control
-	// application.Service's clock from outside the application package
-	// (setClock is unexported; internal/application's own tests use it,
-	// but this is an external wailsapi test), every candidate date is
-	// either "today" (not yet closed) or before the Starting point (which
-	// this fixture set to "now" via onboarding). This test therefore
-	// verifies the adapter's error-wrapping wiring for "today" rather than
-	// a happy-path build; the happy path is exercised by
-	// internal/application's own BuildDailyValuationSnapshot tests, which
-	// this migration must not duplicate or weaken.
+	// The remaining rebuild endpoint must still reject the current, open day.
 	today := time.Now().UTC().Format("2006-01-02")
-	_, _, err = fx.service.BuildDailyValuationSnapshot(ctx, today)
+	_, err = fx.service.RebuildHistoricalSnapshots(ctx, today, today)
 	if err == nil {
 		t.Fatal("want an error for a not-yet-closed local day")
 	}

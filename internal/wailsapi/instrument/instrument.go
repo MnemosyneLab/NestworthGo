@@ -87,22 +87,6 @@ func (s *Service) ArchiveInstrument(ctx context.Context, id string, archived boo
 	return apierror.Wrap(s.app.ArchiveInstrument(ctx, instrumentID, archived))
 }
 
-func (s *Service) SetInstrumentIcon(ctx context.Context, id, iconKey string) error {
-	instrumentID, err := domain.ParseInstrumentID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetInstrumentIcon(ctx, instrumentID, iconKey))
-}
-
-func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id, source string) error {
-	instrumentID, err := domain.ParseInstrumentID(id)
-	if err != nil {
-		return apierror.Wrap(err)
-	}
-	return apierror.Wrap(s.app.SetInstrumentQuoteSource(ctx, instrumentID, source))
-}
-
 // MetalQuotePreviewDTO includes the unit and currency so stale form responses
 // cannot be mistaken for a price for a different selection.
 type MetalQuotePreviewDTO struct {

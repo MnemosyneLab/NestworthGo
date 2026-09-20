@@ -29,16 +29,8 @@ export function CurrentInstrumentQuote(instrumentID: string): $CancellablePromis
     return $Call.ByID(762255110, instrumentID);
 }
 
-export function FXQuoteHistory(): $CancellablePromise<wire$0.FXQuoteDTO[] | null> {
-    return $Call.ByID(3834427764);
-}
-
 export function FXQuoteSeries(currencyA: string, currencyB: string, trendRange: string, sourceFilter: string): $CancellablePromise<$models.QuoteSeriesDTO> {
     return $Call.ByID(290670193, currencyA, currencyB, trendRange, sourceFilter);
-}
-
-export function InstrumentQuoteHistory(instrumentID: string): $CancellablePromise<wire$0.InstrumentQuoteDTO[] | null> {
-    return $Call.ByID(84672795, instrumentID);
 }
 
 export function InstrumentQuoteSeries(instrumentID: string, trendRange: string, sourceFilter: string): $CancellablePromise<$models.QuoteSeriesDTO> {
@@ -47,14 +39,6 @@ export function InstrumentQuoteSeries(instrumentID: string, trendRange: string, 
 
 export function ListFXPreferences(): $CancellablePromise<wire$0.FXPreferenceDTO[] | null> {
     return $Call.ByID(4067275526);
-}
-
-export function SaveManualFXQuote(baseCurrency: string, quoteCurrency: string, rate: string, quotedAt: string): $CancellablePromise<wire$0.FXQuoteDTO> {
-    return $Call.ByID(2708514109, baseCurrency, quoteCurrency, rate, quotedAt);
-}
-
-export function SaveManualInstrumentQuote(instrumentID: string, unitPrice: string, quotedAt: string): $CancellablePromise<wire$0.InstrumentQuoteDTO> {
-    return $Call.ByID(88695484, instrumentID, unitPrice, quotedAt);
 }
 
 export function SetFXPreference(currencyA: string, currencyB: string, source: string): $CancellablePromise<wire$0.FXPreferenceDTO> {
