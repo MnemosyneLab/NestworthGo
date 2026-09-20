@@ -7,7 +7,7 @@ that boundary remain backend-owned.
 ## Ownership of contracts
 
 The domain defines business invariants. Application use cases define commands
-and query results. The current `0.3.3` line owns one complete SQLite schema
+and query results. The current `0.3.4` line owns one complete SQLite schema
 `11`. Schema `9` migrates through `10` to `11`; schema `10` migrates to
 `11` on open (offline, no network). Older
 database generations, including schemas `6`, `7`, and `8`, are rejected without
@@ -76,9 +76,9 @@ or network dependency.
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the current `schema.sql` and
-documented here without duplicating SQL. The current supported schema is `10`.
-Schema `9` is the only older generation that migrates; future and older schema
-generations are blocked before business or settings writes.
+documented here without duplicating SQL. The current supported schema is `11`.
+Schemas `9` and `10` migrate; future and older schema generations are blocked
+before business or settings writes.
 
 ## Transaction guarantees
 
@@ -296,7 +296,7 @@ shortcuts end at the last closed day in the history-origin timezone and clamp
 the beginning to the history origin. Month shortcuts use calendar months and
 inclusive date endpoints.
 
-## Metals and crypto in 0.3.3
+## Metals and crypto
 
 Schema 11 adds optional metal-template and quantity-unit metadata. Existing
 instruments retain empty values and are not automatically rebound. Gold/silver

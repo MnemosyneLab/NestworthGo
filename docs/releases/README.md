@@ -1,12 +1,13 @@
 # Release Documents
 
-The current development line is `v0.3.4` / build `5`. The release contract
+The current published line is `v0.3.4` / build `5`. The release contract
 below is the single maintained scope and acceptance document for this line,
 including the evidence boundary for gates that were not run locally.
 
 ## Current release
 
-- [v0.3.4 release contract](v0.3.4.md) — unreleased settings organization and development baseline.
+- [v0.3.4 release contract](v0.3.4.md) — portfolio/holdings, settings, insights,
+  JSON export, validation, packaging, and distribution gates.
 
 ## Published history
 

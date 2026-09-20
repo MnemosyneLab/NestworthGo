@@ -1,7 +1,7 @@
 # Nestworth Documentation
 
 This directory is the maintained documentation surface for the current
-development line `0.3.4`. It describes the current Wails v3 application and
+published line `0.3.4`. It describes the current Wails v3 application and
 its product contracts; it does not preserve obsolete implementation branches
 or visual prototype bundles.
 

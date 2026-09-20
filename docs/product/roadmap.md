@@ -6,13 +6,15 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
-## 0.3.4 — Development baseline
+## 0.3.4 — Portfolio, settings, and insights closeout
 
-Status: `In progress` (current development line, build `5`). Settings are organized by appearance/language, market connections, data,
-diagnostics, About, and reset, with navigation and explicit save boundaries.
-Portfolio combines overview and holdings, with backend-owned instrument totals,
-expandable account positions, and an optional zero-position filter. See the
-[release contract](../releases/v0.3.4.md).
+Status: `Published` on 2026-09-20 (build `5`). See the
+[release contract](../releases/v0.3.4.md) for current verification.
+
+Implemented scope includes a combined Portfolio page, cross-account holdings,
+reorganized Settings, insights trend/driver summaries, versioned JSON export,
+and Wails `v3.0.0-beta.23`. SQLite schema remains `11`. Native acceptance and
+distribution gates are tracked separately from automated checks.
 
 ## 0.3.3 — Broader market data and reliable repair
 

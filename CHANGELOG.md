@@ -2,38 +2,41 @@
 
 All notable changes to Nestworth are recorded here.
 
-## [0.3.4] — Unreleased
+## [0.3.4] — 2026-09-20
 
 ### Changed
 
 - Separated FX conversion spread from holding-period FX changes in Asset Changes
   and Return Analysis, with consistent trend totals and cash/account breakdowns.
-
 - Replaced CSV import/export with a versioned JSON export for external apps and
   scripts. Includes archived entities, full business and market history, and a
   current balance/holding/cost summary with explicit missing-value states.
   Removed CSV import and mapping; backup and restore remain the recovery path.
-
 - Asset Changes opens with daily Asset Trend. Trend and Change Drivers show shared
   backend-calculated period values and percentage change, with explicit unavailable
   reasons and a cash-flow-versus-return explanation.
 - Simplified insights controls, showed effective trend dates, unified Return Trend
   date shortcuts, and preserved the active tab when resetting filters.
-
 - Upgraded the Wails v3 desktop shell and `@wailsio/runtime` to `v3.0.0-beta.23`.
 - Added cross-account holdings grouped by instrument, expandable account details,
   native-currency cost/value/gain totals, and an optional zero-position filter.
   Missing FX no longer hides valid native amounts in this view.
 - The holdings creation form accepts an explicit unit cost after history starts,
   allowing positions without a saved current price to be recorded.
-
 - Combined Portfolio and Holdings into one Portfolio page with Overview and Holdings tabs.
-
 - Advanced synchronized application metadata to `v0.3.4` / build `5`.
 - Reorganized Settings into appearance/language, market connections, backup/data,
   diagnostics, About, and reset sections, with section navigation and a shared
   preference save bar. Worker URL and token now appear together; credentials
   retain independent save actions.
+
+### Upgrade and verification
+
+- SQLite schema remains `11`. Schema `9` and `10` databases still upgrade offline
+  to `11`. Preserve the original database and backup before upgrading, then create
+  a fresh backup after a successful open.
+- Current checks, artifact details, and outstanding manual/distribution gates are
+  recorded in the [v0.3.4 release contract](docs/releases/v0.3.4.md).
 
 ## [0.3.3] — 2026-09-19
 
