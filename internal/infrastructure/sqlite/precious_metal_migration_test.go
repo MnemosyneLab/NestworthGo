@@ -22,6 +22,12 @@ func TestV10MetalMigrationPreservesLegacyConfiguration(t *testing.T) {
 	legacy = strings.ReplaceAll(legacy, "    metal_template TEXT NOT NULL DEFAULT '',\n", "")
 	legacy = strings.ReplaceAll(legacy, "    quantity_unit TEXT NOT NULL DEFAULT '',\n", "")
 	legacy = strings.ReplaceAll(legacy, "    conversion_json TEXT,\n", "")
+	if idx := strings.Index(legacy, "CREATE TABLE product_operations"); idx >= 0 {
+		end := strings.Index(legacy, "PRAGMA user_version")
+		if end > idx {
+			legacy = legacy[:idx] + "PRAGMA user_version = 10;\n"
+		}
+	}
 	lines := strings.Split(legacy, "\n")
 	kept := lines[:0]
 	for _, line := range lines {
@@ -29,7 +35,7 @@ func TestV10MetalMigrationPreservesLegacyConfiguration(t *testing.T) {
 			continue
 		}
 		line = strings.ReplaceAll(line, " AND metal_template = ''", "")
-		line = strings.ReplaceAll(line, "PRAGMA user_version = 11;", "PRAGMA user_version = 10;")
+		line = strings.ReplaceAll(line, "PRAGMA user_version = 12;", "PRAGMA user_version = 10;")
 		kept = append(kept, line)
 	}
 	if _, err := db.Exec(strings.Join(kept, "\n")); err != nil {
@@ -42,6 +48,9 @@ func TestV10MetalMigrationPreservesLegacyConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := migrateV10ToV11(context.Background(), db); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateV11ToV12(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
 	if err := verifySchema(context.Background(), db); err != nil {

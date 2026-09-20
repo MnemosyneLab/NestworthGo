@@ -56,6 +56,13 @@ const (
 	ErrBackupRestoreBusy           ErrorCode = "backup_restore_busy"
 	ErrBackupRestoreSwapFailed     ErrorCode = "backup_restore_swap_failed"
 	ErrBackupRestoreRollbackFailed ErrorCode = "backup_restore_rollback_failed"
+	ErrStalePreview                ErrorCode = "stale_preview"
+	ErrRevisionConflict            ErrorCode = "revision_conflict"
+	ErrManagedPosition             ErrorCode = "managed_position_conflict"
+	ErrUnsupportedPartialOperation ErrorCode = "unsupported_partial_operation"
+	ErrUnresolvedReservationRelease ErrorCode = "unresolved_reservation_release"
+	ErrReceiptPending              ErrorCode = "receipt_pending"
+	ErrUnsafeUndo                  ErrorCode = "unsafe_undo"
 )
 
 // Error is safe to expose to the UI; database details stay below this boundary.

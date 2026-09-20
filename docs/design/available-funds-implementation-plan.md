@@ -806,60 +806,60 @@ Work sequentially. Keep each phase buildable; use local tests before proceeding.
 
 ### Phase 0 — Baseline and implementation log
 
-- [ ] Record HEAD, status, schema/export versions, and the exact existing command/valuation paths.
-- [ ] Preserve unrelated changes, including the brainstorming document.
-- [ ] Create a short implementation progress section at the end of this document, recording decisions that differ from this plan and why.
-- [ ] Run the current baseline checks once; record existing failures distinctly.
+- [x] Record HEAD, status, schema/export versions, and the exact existing command/valuation paths.
+- [x] Preserve unrelated changes, including the brainstorming document.
+- [x] Create a short implementation progress section at the end of this document, recording decisions that differ from this plan and why.
+- [x] Run the current baseline checks once; record existing failures distinctly.
 
 ### Phase 1 — Pure domain and golden cases
 
-- [ ] Implement source references, policies, reservations, product contract validation, calendar arithmetic, and route evaluation.
-- [ ] Implement exact interest/cost calculations and nullable completeness rules.
-- [ ] Pass L01–L06 with deterministic fixtures before adding UI.
+- [x] Implement source references, policies, reservations, product contract validation, calendar arithmetic, and route evaluation.
+- [x] Implement exact interest/cost calculations and nullable completeness rules.
+- [x] Pass L01–L06 with deterministic fixtures before adding UI.
 
 ### Phase 2 — Persistence and migration
 
-- [ ] Add ports, tables, indexes, schema verification, migration, and consistent reads.
-- [ ] Fix the migration-chain version trap described above.
-- [ ] Add export v2 facts and backup verification coverage now, not as cleanup after UI.
-- [ ] Pass schema/migration/round-trip tests; database creation and existing test fixtures still work.
+- [x] Add ports, tables, indexes, schema verification, migration, and consistent reads.
+- [x] Fix the migration-chain version trap described above.
+- [x] Add export v2 facts and backup verification coverage now, not as cleanup after UI.
+- [x] Pass schema/migration/round-trip tests; database creation and existing test fixtures still work.
 
 ### Phase 3 — Atomic product lifecycle
 
-- [ ] Implement Preview/Record and transaction-local acquisition, existing-position, income, settlement, and renewal recipes.
-- [ ] Implement idempotency, stale-preview rejection, reservation release, and guarded grouped undo.
-- [ ] Guard all general mutation paths and managed-instrument quote/source paths.
-- [ ] Pass B/C/E accounting and transaction failure tests before exposing user actions.
+- [x] Implement Preview/Record and transaction-local acquisition, existing-position, income, settlement, and renewal recipes.
+- [x] Implement idempotency, stale-preview rejection, reservation release, and guarded grouped undo.
+- [x] Guard all general mutation paths and managed-instrument quote/source paths.
+- [x] Pass B/C/E accounting and transaction failure tests before exposing user actions.
 
 ### Phase 4 — Valuation, analysis, and history
 
-- [ ] Hydrate product context consistently across all Activity readers and reversals.
-- [ ] Attribute product interest to its holding/instrument exactly once.
-- [ ] Verify historical snapshots, current values, gain, scope filtering, and FX behavior.
-- [ ] Build liquidity snapshots through current valuation/FX helpers and pass A/D/missing-input cases.
+- [x] Hydrate product context consistently across all Activity readers and reversals.
+- [x] Attribute product interest to its holding/instrument exactly once.
+- [x] Verify historical snapshots, current values, gain, scope filtering, and FX behavior.
+- [x] Build liquidity snapshots through current valuation/FX helpers and pass A/D/missing-input cases.
 
 ### Phase 5 — Wails and query layer
 
-- [ ] Expose only the APIs specified above, with typed requests and output DTOs.
-- [ ] Register the service correctly; regenerate bindings through maintained commands.
-- [ ] Add query keys, hooks, invalidation, day rollover, and IPC tests.
-- [ ] Do not manually patch generated TypeScript bindings or revive retired APIs.
+- [x] Expose only the APIs specified above, with typed requests and output DTOs.
+- [x] Register the service correctly; regenerate bindings through maintained commands.
+- [x] Add query keys, hooks, invalidation, day rollover, and IPC tests.
+- [x] Do not manually patch generated TypeScript bindings or revive retired APIs.
 
 ### Phase 6 — UI flows
 
-- [ ] Available Funds page, Overview card, source-rule and reservation editors.
-- [ ] Account products section, product details, opening/existing-position forms.
-- [ ] Valuation, interest receipt, full settlement, renewal, and grouped undo flows.
-- [ ] Due reminders, incomplete states, localization, and keyboard coverage.
-- [ ] Remove conflicting generic product actions while preserving ordinary investment-product behavior.
+- [x] Available Funds page, Overview card, source-rule and reservation editors.
+- [x] Account products section, product details, opening/existing-position forms.
+- [x] Valuation, interest receipt, full settlement, renewal, and grouped undo flows.
+- [x] Due reminders, incomplete states, localization, and keyboard coverage.
+- [x] Remove conflicting generic product actions while preserving ordinary investment-product behavior.
 
 ### Phase 7 — Acceptance and documentation
 
-- [ ] Run the complete automated gate once all changes are integrated.
+- [x] Run the complete automated gate once all changes are integrated.
 - [ ] Run isolated native acceptance and reopen the app to check persistence.
-- [ ] Update affected domain/IPC/export docs to implemented behavior; keep exclusions explicit.
-- [ ] Report tests actually run, native evidence, remaining limitations, and working-tree/commit state accurately.
-- [ ] No release, push, live-bank connection, or changes to real household data are implied by this plan.
+- [x] Update affected domain/IPC/export docs to implemented behavior; keep exclusions explicit.
+- [x] Report tests actually run, native evidence, remaining limitations, and working-tree/commit state accurately.
+- [x] No release, push, live-bank connection, or changes to real household data are implied by this plan.
 
 ## 17. Validation commands and native walkthrough
 
@@ -899,4 +899,18 @@ The user can give the implementing agent this prompt:
 
 ## 19. Implementation progress
 
-Not started. All phase checkboxes above are intentionally unchecked.
+Started from `origin/main` at `5486c22` (plan document). Verified code baseline referenced by the plan: `980151c`. Branch: `cursor/available-funds-8542`. Schema 11 → 12; JSON export 1 → 2.
+
+### Conflicts with current code (resolved using financial invariants)
+
+1. **SQLite must not import `application`.** Snapshot/bundle/evidence types live in `internal/domain` (`LiquiditySnapshot`, `ProductBundle`, `ProductOperationEvidence`) so persistence can return them without an import cycle with application tests.
+2. **Assumed bank-cash / cash-on-hand missing fee.** Default assumed `on_request` policy now attaches a known-zero exit fee (`origin=assumed`) when native currency is known. Explicit policies still treat a nil fee as unknown (L05). This is disclosed assumption, not silent substitution of a missing user input.
+3. **Do not chain public `CreateInstrument` / `RecordChange` / `AppendManualQuote` inside product transactions.** Product recipes use transaction-local acquisition.
+4. **Retired Wails APIs around `980151c` were not restored.** Liquidity is a new `internal/wailsapi/liquidity` service; bindings are generated, not hand-patched.
+5. **`ListOperations` cursor** is `createdAtRFC3339Nano|id`. Invalid cursors are validation errors.
+6. **Known totals must not become zero** when an input is missing. UI and evaluators keep null MoneyView fields and `partial`/`unavailable` status.
+7. **Renewal is one operation**, not a settle plus a separate open.
+
+### Native gate
+
+Linux cloud worker cannot run the macOS native walkthrough in section 17 (seeded DB, restart persistence, keyboard-only native, three-locale native inspect, in-app backup restore). Automated Go/frontend gates are the acceptance evidence on this worker. Native items remain unchecked.

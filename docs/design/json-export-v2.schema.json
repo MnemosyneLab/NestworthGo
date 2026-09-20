@@ -1,0 +1,2338 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nestworth:export:v2",
+  "title": "Nestworth structured data export v2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "formatVersion",
+    "exportedAt",
+    "appVersion",
+    "appBuild",
+    "timezone",
+    "facts",
+    "currentState"
+  ],
+  "properties": {
+    "format": {
+      "const": "com.nestworth.export"
+    },
+    "formatVersion": {
+      "const": 2
+    },
+    "exportedAt": {
+      "type": "string"
+    },
+    "appVersion": {
+      "type": "string"
+    },
+    "appBuild": {
+      "type": "string"
+    },
+    "timezone": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "facts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "directory",
+        "history",
+        "marketData",
+        "liquidity"
+      ],
+      "properties": {
+        "directory": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "households",
+            "members",
+            "institutions",
+            "groups",
+            "accounts",
+            "ownership",
+            "instruments",
+            "holdings"
+          ],
+          "properties": {
+            "households": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "name",
+                  "baseCurrency",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "baseCurrency": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "members": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "name",
+                  "note",
+                  "sortOrder",
+                  "createdAt",
+                  "updatedAt",
+                  "archivedAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sortOrder": {
+                    "type": "integer"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "institutions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "name",
+                  "institutionType",
+                  "countryCode",
+                  "website",
+                  "note",
+                  "sortOrder",
+                  "createdAt",
+                  "updatedAt",
+                  "archivedAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "institutionType": {
+                    "type": "string"
+                  },
+                  "countryCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "website": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sortOrder": {
+                    "type": "integer"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "name",
+                  "color",
+                  "description",
+                  "sortOrder",
+                  "createdAt",
+                  "updatedAt",
+                  "archivedAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "description": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sortOrder": {
+                    "type": "integer"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "accounts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "institutionId",
+                  "groupId",
+                  "name",
+                  "accountType",
+                  "balanceSheetRole",
+                  "trackingMode",
+                  "defaultCurrency",
+                  "note",
+                  "includeInNetWorth",
+                  "includeInPortfolio",
+                  "includeInLiquidAssets",
+                  "openedOn",
+                  "closedOn",
+                  "sortOrder",
+                  "createdAt",
+                  "updatedAt",
+                  "archivedAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "institutionId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "groupId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "accountType": {
+                    "type": "string"
+                  },
+                  "balanceSheetRole": {
+                    "type": "string"
+                  },
+                  "trackingMode": {
+                    "type": "string"
+                  },
+                  "defaultCurrency": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "includeInNetWorth": {
+                    "type": "boolean"
+                  },
+                  "includeInPortfolio": {
+                    "type": "boolean"
+                  },
+                  "includeInLiquidAssets": {
+                    "type": "boolean"
+                  },
+                  "openedOn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "closedOn": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sortOrder": {
+                    "type": "integer"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "ownership": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "accountId",
+                  "memberId",
+                  "shareBps"
+                ],
+                "properties": {
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "memberId": {
+                    "type": "string"
+                  },
+                  "shareBps": {
+                    "type": "integer"
+                  }
+                }
+              }
+            },
+            "instruments": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "name",
+                  "instrumentType",
+                  "quoteCurrency",
+                  "symbol",
+                  "marketCode",
+                  "countryCode",
+                  "isin",
+                  "note",
+                  "sortOrder",
+                  "quoteSource",
+                  "providerKey",
+                  "providerSymbol",
+                  "createdAt",
+                  "updatedAt",
+                  "archivedAt",
+                  "metalTemplate",
+                  "quantityUnit"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "instrumentType": {
+                    "type": "string"
+                  },
+                  "quoteCurrency": {
+                    "type": "string"
+                  },
+                  "symbol": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "marketCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "countryCode": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "isin": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sortOrder": {
+                    "type": "integer"
+                  },
+                  "quoteSource": {
+                    "type": "string"
+                  },
+                  "providerKey": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "providerSymbol": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "metalTemplate": {
+                    "type": "string"
+                  },
+                  "quantityUnit": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "holdings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "accountId",
+                  "instrumentId",
+                  "note",
+                  "sortOrder",
+                  "createdAt",
+                  "updatedAt",
+                  "archivedAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sortOrder": {
+                    "type": "integer"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "history": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "origins",
+            "openingPositions",
+            "openingAccountStates",
+            "openingOwnership",
+            "openingInstrumentPreferences",
+            "openingFXPreferences",
+            "activities",
+            "effects",
+            "trades",
+            "dividends",
+            "corrections",
+            "accountStates",
+            "accountStateOwnership",
+            "instrumentStates",
+            "holdingStates",
+            "instrumentPreferences",
+            "fxPreferences",
+            "balanceBaselines",
+            "cashBaselines",
+            "quantityBaselines"
+          ],
+          "properties": {
+            "origins": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "timezone",
+                  "startedAt",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "timezone": {
+                    "type": "string"
+                  },
+                  "startedAt": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "openingPositions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "originId",
+                  "componentKind",
+                  "accountId",
+                  "holdingId",
+                  "instrumentId",
+                  "amount",
+                  "currency",
+                  "quantity",
+                  "createdAt",
+                  "unitCost"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "originId": {
+                    "type": "string"
+                  },
+                  "componentKind": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "holdingId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "instrumentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "currency": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "quantity": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "unitCost": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "openingAccountStates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "originId",
+                  "accountId",
+                  "archivedAt",
+                  "includeInNetWorth",
+                  "includeInPortfolio",
+                  "includeInLiquidAssets",
+                  "createdAt"
+                ],
+                "properties": {
+                  "originId": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "includeInNetWorth": {
+                    "type": "boolean"
+                  },
+                  "includeInPortfolio": {
+                    "type": "boolean"
+                  },
+                  "includeInLiquidAssets": {
+                    "type": "boolean"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "openingOwnership": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "originId",
+                  "accountId",
+                  "memberId",
+                  "shareBps"
+                ],
+                "properties": {
+                  "originId": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "memberId": {
+                    "type": "string"
+                  },
+                  "shareBps": {
+                    "type": "integer"
+                  }
+                }
+              }
+            },
+            "openingInstrumentPreferences": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "originId",
+                  "instrumentId",
+                  "sourceKind",
+                  "createdAt"
+                ],
+                "properties": {
+                  "originId": {
+                    "type": "string"
+                  },
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "sourceKind": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "openingFXPreferences": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "originId",
+                  "currencyA",
+                  "currencyB",
+                  "sourceKind",
+                  "createdAt"
+                ],
+                "properties": {
+                  "originId": {
+                    "type": "string"
+                  },
+                  "currencyA": {
+                    "type": "string"
+                  },
+                  "currencyB": {
+                    "type": "string"
+                  },
+                  "sourceKind": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "activities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "kind",
+                  "reason",
+                  "effectiveAt",
+                  "effectiveLocalDate",
+                  "createdAt",
+                  "note",
+                  "reversesActivityId",
+                  "correctionGroupId",
+                  "transactionFxRate"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "effectiveLocalDate": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "reversesActivityId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "correctionGroupId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "transactionFxRate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "effects": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "activityId",
+                  "sequence",
+                  "role",
+                  "direction",
+                  "target",
+                  "classification",
+                  "accountId",
+                  "holdingId",
+                  "instrumentId",
+                  "amount",
+                  "currency",
+                  "quantity",
+                  "costUnitPrice"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "activityId": {
+                    "type": "string"
+                  },
+                  "sequence": {
+                    "type": "integer"
+                  },
+                  "role": {
+                    "type": "string"
+                  },
+                  "direction": {
+                    "type": "string"
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "classification": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "holdingId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "instrumentId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "amount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "currency": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "quantity": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "costUnitPrice": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "trades": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "activityId",
+                  "side",
+                  "instrumentId",
+                  "holdingId",
+                  "quantity",
+                  "grossAmount",
+                  "grossCurrency",
+                  "unitPrice",
+                  "feeAmount",
+                  "feeCurrency"
+                ],
+                "properties": {
+                  "activityId": {
+                    "type": "string"
+                  },
+                  "side": {
+                    "type": "string"
+                  },
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "holdingId": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "string"
+                  },
+                  "grossAmount": {
+                    "type": "string"
+                  },
+                  "grossCurrency": {
+                    "type": "string"
+                  },
+                  "unitPrice": {
+                    "type": "string"
+                  },
+                  "feeAmount": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "feeCurrency": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "dividends": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "activityId",
+                  "holdingId",
+                  "instrumentId",
+                  "amount",
+                  "currency"
+                ],
+                "properties": {
+                  "activityId": {
+                    "type": "string"
+                  },
+                  "holdingId": {
+                    "type": "string"
+                  },
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "corrections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "originalActivityId",
+                  "replacementActivityId",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "originalActivityId": {
+                    "type": "string"
+                  },
+                  "replacementActivityId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "accountStates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "accountId",
+                  "effectiveAt",
+                  "archivedAt",
+                  "includeInNetWorth",
+                  "includeInPortfolio",
+                  "includeInLiquidAssets",
+                  "activityId",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "includeInNetWorth": {
+                    "type": "boolean"
+                  },
+                  "includeInPortfolio": {
+                    "type": "boolean"
+                  },
+                  "includeInLiquidAssets": {
+                    "type": "boolean"
+                  },
+                  "activityId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "accountStateOwnership": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "observationId",
+                  "memberId",
+                  "shareBps"
+                ],
+                "properties": {
+                  "observationId": {
+                    "type": "string"
+                  },
+                  "memberId": {
+                    "type": "string"
+                  },
+                  "shareBps": {
+                    "type": "integer"
+                  }
+                }
+              }
+            },
+            "instrumentStates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "instrumentId",
+                  "effectiveAt",
+                  "archivedAt",
+                  "activityId",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "activityId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "holdingStates": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "holdingId",
+                  "effectiveAt",
+                  "archivedAt",
+                  "activityId",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "holdingId": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "archivedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "activityId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "instrumentPreferences": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "instrumentId",
+                  "sourceKind",
+                  "effectiveAt",
+                  "activityId",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "sourceKind": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "activityId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "fxPreferences": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "currencyA",
+                  "currencyB",
+                  "sourceKind",
+                  "effectiveAt",
+                  "activityId",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "currencyA": {
+                    "type": "string"
+                  },
+                  "currencyB": {
+                    "type": "string"
+                  },
+                  "sourceKind": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "activityId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "balanceBaselines": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "accountId",
+                  "valueKind",
+                  "amount",
+                  "currency",
+                  "effectiveAt",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "valueKind": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "cashBaselines": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "accountId",
+                  "amount",
+                  "currency",
+                  "effectiveAt",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "accountId": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "quantityBaselines": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "holdingId",
+                  "quantity",
+                  "effectiveAt",
+                  "createdAt"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "holdingId": {
+                    "type": "string"
+                  },
+                  "quantity": {
+                    "type": "string"
+                  },
+                  "effectiveAt": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "marketData": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "instrumentQuotes",
+            "fxQuotes",
+            "fxPreferences",
+            "providerBindings",
+            "providerBindingHistory",
+            "instrumentObservationSlots",
+            "fxObservationSlots",
+            "coverage"
+          ],
+          "properties": {
+            "instrumentQuotes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "instrumentId",
+                  "unitPrice",
+                  "currency",
+                  "sourceKind",
+                  "sourceKey",
+                  "quotedAt",
+                  "createdAt",
+                  "delayed",
+                  "observationKind",
+                  "effectiveDate",
+                  "providerTimestamp",
+                  "fetchedAt",
+                  "valueEffectiveAt",
+                  "bindingRevision",
+                  "sourcePolicyVersion",
+                  "priceBasis",
+                  "timestampBasis",
+                  "revision",
+                  "supersedesQuoteId",
+                  "splitFactor",
+                  "dividendCash",
+                  "conversion"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "unitPrice": {
+                    "type": "string"
+                  },
+                  "currency": {
+                    "type": "string"
+                  },
+                  "sourceKind": {
+                    "type": "string"
+                  },
+                  "sourceKey": {
+                    "type": "string"
+                  },
+                  "quotedAt": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "delayed": {
+                    "type": "boolean"
+                  },
+                  "observationKind": {
+                    "type": "string"
+                  },
+                  "effectiveDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "providerTimestamp": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "fetchedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "valueEffectiveAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "bindingRevision": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "sourcePolicyVersion": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "priceBasis": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "timestampBasis": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "revision": {
+                    "type": "integer"
+                  },
+                  "supersedesQuoteId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "splitFactor": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dividendCash": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "conversion": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "policy",
+                          "symbol",
+                          "rawPrice",
+                          "rawCurrency",
+                          "rawUnit",
+                          "rawQuotedAt",
+                          "fxRate",
+                          "fxSource",
+                          "fxQuotedAt",
+                          "currency",
+                          "unit"
+                        ],
+                        "properties": {
+                          "policy": {
+                            "type": "string"
+                          },
+                          "symbol": {
+                            "type": "string"
+                          },
+                          "rawPrice": {
+                            "type": "string"
+                          },
+                          "rawCurrency": {
+                            "type": "string"
+                          },
+                          "rawUnit": {
+                            "type": "string"
+                          },
+                          "rawQuotedAt": {
+                            "type": "string"
+                          },
+                          "fxRate": {
+                            "type": "string"
+                          },
+                          "fxSource": {
+                            "type": "string"
+                          },
+                          "fxQuotedAt": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "unit": {
+                            "type": "string"
+                          }
+                        }
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              }
+            },
+            "fxQuotes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "householdId",
+                  "baseCurrency",
+                  "quoteCurrency",
+                  "rate",
+                  "sourceKind",
+                  "sourceKey",
+                  "quotedAt",
+                  "createdAt",
+                  "delayed",
+                  "observationKind",
+                  "effectiveDate",
+                  "fetchedAt",
+                  "valueEffectiveAt",
+                  "sourcePolicyVersion",
+                  "timestampBasis",
+                  "revision",
+                  "supersedesQuoteId"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "baseCurrency": {
+                    "type": "string"
+                  },
+                  "quoteCurrency": {
+                    "type": "string"
+                  },
+                  "rate": {
+                    "type": "string"
+                  },
+                  "sourceKind": {
+                    "type": "string"
+                  },
+                  "sourceKey": {
+                    "type": "string"
+                  },
+                  "quotedAt": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "delayed": {
+                    "type": "boolean"
+                  },
+                  "observationKind": {
+                    "type": "string"
+                  },
+                  "effectiveDate": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "fetchedAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "valueEffectiveAt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "sourcePolicyVersion": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "timestampBasis": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "revision": {
+                    "type": "integer"
+                  },
+                  "supersedesQuoteId": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            },
+            "fxPreferences": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "householdId",
+                  "currencyA",
+                  "currencyB",
+                  "sourceKind",
+                  "createdAt",
+                  "updatedAt"
+                ],
+                "properties": {
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "currencyA": {
+                    "type": "string"
+                  },
+                  "currencyB": {
+                    "type": "string"
+                  },
+                  "sourceKind": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "providerBindings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "instrumentId",
+                  "providerKey",
+                  "providerSymbol",
+                  "market",
+                  "currency",
+                  "enabled",
+                  "createdAt",
+                  "updatedAt",
+                  "bindingRevision",
+                  "effectiveFrom"
+                ],
+                "properties": {
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "providerKey": {
+                    "type": "string"
+                  },
+                  "providerSymbol": {
+                    "type": "string"
+                  },
+                  "market": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "currency": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  },
+                  "bindingRevision": {
+                    "type": "integer"
+                  },
+                  "effectiveFrom": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "providerBindingHistory": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "instrumentId",
+                  "providerKey",
+                  "bindingRevision",
+                  "providerSymbol",
+                  "market",
+                  "currency",
+                  "enabled",
+                  "effectiveFrom",
+                  "createdAt"
+                ],
+                "properties": {
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "providerKey": {
+                    "type": "string"
+                  },
+                  "bindingRevision": {
+                    "type": "integer"
+                  },
+                  "providerSymbol": {
+                    "type": "string"
+                  },
+                  "market": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "currency": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "effectiveFrom": {
+                    "type": "string"
+                  },
+                  "createdAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "instrumentObservationSlots": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "instrumentId",
+                  "providerKey",
+                  "bindingRevision",
+                  "sourcePolicyVersion",
+                  "marketDate",
+                  "observationKind",
+                  "quoteId",
+                  "updatedAt"
+                ],
+                "properties": {
+                  "instrumentId": {
+                    "type": "string"
+                  },
+                  "providerKey": {
+                    "type": "string"
+                  },
+                  "bindingRevision": {
+                    "type": "integer"
+                  },
+                  "sourcePolicyVersion": {
+                    "type": "string"
+                  },
+                  "marketDate": {
+                    "type": "string"
+                  },
+                  "observationKind": {
+                    "type": "string"
+                  },
+                  "quoteId": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "fxObservationSlots": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "householdId",
+                  "baseCurrency",
+                  "quoteCurrency",
+                  "providerKey",
+                  "sourcePolicyVersion",
+                  "marketDate",
+                  "observationKind",
+                  "quoteId",
+                  "updatedAt"
+                ],
+                "properties": {
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "baseCurrency": {
+                    "type": "string"
+                  },
+                  "quoteCurrency": {
+                    "type": "string"
+                  },
+                  "providerKey": {
+                    "type": "string"
+                  },
+                  "sourcePolicyVersion": {
+                    "type": "string"
+                  },
+                  "marketDate": {
+                    "type": "string"
+                  },
+                  "observationKind": {
+                    "type": "string"
+                  },
+                  "quoteId": {
+                    "type": "string"
+                  },
+                  "updatedAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "coverage": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "targetType",
+                  "targetId",
+                  "providerKey",
+                  "householdId",
+                  "bindingRevision",
+                  "sourcePolicyVersion",
+                  "effectiveDate",
+                  "status",
+                  "reason",
+                  "checkedAt"
+                ],
+                "properties": {
+                  "targetType": {
+                    "type": "string"
+                  },
+                  "targetId": {
+                    "type": "string"
+                  },
+                  "providerKey": {
+                    "type": "string"
+                  },
+                  "householdId": {
+                    "type": "string"
+                  },
+                  "bindingRevision": {
+                    "type": "integer"
+                  },
+                  "sourcePolicyVersion": {
+                    "type": "string"
+                  },
+                  "effectiveDate": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "checkedAt": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "liquidity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contracts",
+            "policies",
+            "reservations",
+            "operations",
+            "operationProducts",
+            "operationActivities",
+            "operationReservations"
+          ],
+          "properties": {
+            "contracts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "policies": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "reservations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "operationProducts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "operationActivities": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "operationReservations": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "currentState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "derived",
+        "asOf",
+        "baseCurrency",
+        "fxProvider",
+        "accounts",
+        "holdings"
+      ],
+      "properties": {
+        "derived": {
+          "const": true
+        },
+        "asOf": {
+          "type": "string"
+        },
+        "baseCurrency": {
+          "type": "string"
+        },
+        "fxProvider": {
+          "type": "string"
+        },
+        "accounts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/accountState"
+          }
+        },
+        "holdings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/holdingState"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "money": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "amount",
+        "currency"
+      ],
+      "properties": {
+        "amount": {
+          "type": "string",
+          "pattern": "^-?[0-9]+(?:\\.[0-9]+)?$"
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        }
+      }
+    },
+    "missingInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "instrumentId",
+        "baseCurrency",
+        "quoteCurrency"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "instrumentId": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "baseCurrency": {
+          "type": "string"
+        },
+        "quoteCurrency": {
+          "type": "string"
+        }
+      }
+    },
+    "accountState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accountId",
+        "archived",
+        "balance",
+        "cash",
+        "valuedSubtotal",
+        "complete",
+        "missingInputs"
+      ],
+      "properties": {
+        "accountId": {
+          "type": "string"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "balance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cash": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/money"
+          }
+        },
+        "valuedSubtotal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "complete": {
+          "type": "boolean"
+        },
+        "missingInputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/missingInput"
+          }
+        }
+      }
+    },
+    "holdingState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holdingId",
+        "accountId",
+        "instrumentId",
+        "archived",
+        "quantity",
+        "averageUnitCost",
+        "costBasis",
+        "costStatus",
+        "nativeValue",
+        "baseValue",
+        "valuationComplete",
+        "missingInputs"
+      ],
+      "properties": {
+        "holdingId": {
+          "type": "string"
+        },
+        "accountId": {
+          "type": "string"
+        },
+        "instrumentId": {
+          "type": "string"
+        },
+        "archived": {
+          "type": "boolean"
+        },
+        "quantity": {
+          "type": "string"
+        },
+        "averageUnitCost": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "costBasis": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "costStatus": {
+          "enum": [
+            "complete",
+            "unavailable"
+          ]
+        },
+        "nativeValue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "baseValue": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/money"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "valuationComplete": {
+          "type": "boolean"
+        },
+        "missingInputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/missingInput"
+          }
+        }
+      }
+    }
+  }
+}

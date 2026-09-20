@@ -18,6 +18,8 @@ type Repository interface {
 	SnapshotRepository
 	DatabaseAdminRepository
 	ExportRepository
+	LiquidityRepository
+	ProductRepository
 }
 
 // DirectoryRepository owns Household, Members, Institutions, Groups, and
@@ -160,4 +162,27 @@ type DatabaseAdminRepository interface {
 // ExportRepository captures export facts and calculation inputs in one read transaction.
 type ExportRepository interface {
 	ReadExportSnapshot(context.Context) (domain.ExportSnapshot, error)
+}
+
+type LiquidityRepository interface {
+	ReadLiquiditySnapshot(context.Context) (domain.LiquiditySnapshot, error)
+	SaveLiquidityPolicy(context.Context, domain.LiquidityPolicy) error
+	DeleteLiquidityPolicy(context.Context, domain.LiquidityPolicyID, int) error
+	SaveLiquidityReservation(context.Context, domain.LiquidityReservation) error
+	ListLiquidityPolicies(context.Context, domain.HouseholdID) ([]domain.LiquidityPolicy, error)
+	ListLiquidityReservations(context.Context, domain.HouseholdID, bool) ([]domain.LiquidityReservation, error)
+}
+
+type ProductRepository interface {
+	LookupProductOperation(context.Context, domain.HouseholdID, domain.ProductOperationID) (*domain.ProductOperation, error)
+	ProductOperationEvidence(context.Context, domain.HouseholdID, domain.ProductOperationID) (domain.ProductOperationEvidence, error)
+	CommitProductBundle(context.Context, domain.ProductBundle) error
+	SaveProductContract(context.Context, domain.ProductContract) error
+	Product(context.Context, domain.HouseholdID, domain.ProductContractID) (domain.ProductContract, error)
+	ListProducts(context.Context, domain.HouseholdID, *domain.AccountID, bool) ([]domain.ProductContract, error)
+	ListProductOperations(context.Context, domain.HouseholdID, domain.ProductContractID, int, string) ([]domain.ProductOperation, error)
+	ProductByHolding(context.Context, domain.HoldingID) (*domain.ProductContract, error)
+	ProductByInstrument(context.Context, domain.InstrumentID) (*domain.ProductContract, error)
+	ProductActivityContext(context.Context, domain.ActivityID) (*domain.ProductActivityContext, error)
+	ListProductActivityContexts(context.Context, domain.HouseholdID) (map[domain.ActivityID]domain.ProductActivityContext, error)
 }

@@ -77,6 +77,12 @@ func verifyCanonicalNumericText(ctx context.Context, query schemaQuery) error {
 	if err := verifyParsedTextColumn(ctx, query, `SELECT base_amount FROM daily_valuation_snapshot_items WHERE base_amount IS NOT NULL AND base_amount != ''`, "baseAmount", parseStoredNativeAmount); err != nil {
 		return err
 	}
+	if err := verifyMoneyPairs(ctx, query, `SELECT principal, currency FROM product_contracts`, "amount", false); err != nil {
+		return err
+	}
+	if err := verifyMoneyPairs(ctx, query, `SELECT amount, currency FROM liquidity_reservations`, "amount", false); err != nil {
+		return err
+	}
 	return nil
 }
 

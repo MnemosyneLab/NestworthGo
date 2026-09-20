@@ -200,6 +200,28 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery
   },
 }));
 
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
+  Service: {
+    Overview: () => Promise.resolve({
+      asOf: "",
+      localDate: "2026-09-20",
+      timezone: "UTC",
+      baseCurrency: "USD",
+      assumptions: [],
+      buckets: [
+        { horizonOn: "2026-09-20", status: "unavailable", fullAvailable: null, knownAvailableSubtotal: null, appliedReserveSubtotal: null, fullUnreserved: null, knownUnreservedSubtotal: null, unknownSourceCount: 0, excludedSourceCount: 0, estimatedSourceCount: 0, nativeCurrencyGroups: [], warnings: [] },
+        { horizonOn: "2026-09-27", status: "unavailable", fullAvailable: null, knownAvailableSubtotal: null, appliedReserveSubtotal: null, fullUnreserved: null, knownUnreservedSubtotal: null, unknownSourceCount: 0, excludedSourceCount: 0, estimatedSourceCount: 0, nativeCurrencyGroups: [], warnings: [] },
+        { horizonOn: "2026-10-20", status: "unavailable", fullAvailable: null, knownAvailableSubtotal: null, appliedReserveSubtotal: null, fullUnreserved: null, knownUnreservedSubtotal: null, unknownSourceCount: 0, excludedSourceCount: 0, estimatedSourceCount: 0, nativeCurrencyGroups: [], warnings: [] },
+      ],
+      sources: [],
+      unresolvedReservations: [],
+    }),
+    ListProducts: () => Promise.resolve([]),
+    Product: vi.fn(),
+    ListOperations: vi.fn(),
+  },
+}));
+
 beforeEach(() => {
   queryClient.clear();
   startup.mockReset();
@@ -304,6 +326,7 @@ describe("App shell smoke test", () => {
     const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
     expect(within(nav).getByRole("button", { name: i18n.t("nav.overview") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.directory") })).toBeInTheDocument();
+    expect(within(nav).getByRole("button", { name: i18n.t("nav.availableFunds") })).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.portfolio") })).toBeInTheDocument();
     expect(within(nav).queryByRole("button", { name: i18n.t("nav.holdings") })).not.toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: i18n.t("nav.dataHealth") })).toBeInTheDocument();
@@ -342,6 +365,15 @@ describe("App shell smoke test", () => {
     await userEvent.click(screen.getByRole("tab", { name: "Overview" }));
     expect(await screen.findByTestId("portfolio-page")).toBeInTheDocument();
     expect(screen.getByText(i18n.t("portfolio.noHoldingsAccount"))).not.toBeVisible();
+  });
+
+  it("opens the Available funds page from the workspace nav", async () => {
+    await i18n.changeLanguage("en");
+    render(<AppProviders><App /></AppProviders>);
+    await screen.findByTestId("overview-net-worth");
+    const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+    await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.availableFunds") }));
+    expect(await screen.findByTestId("available-funds-page")).toBeInTheDocument();
   });
 
   it("returns to the accounts list after opening an account from Portfolio", async () => {

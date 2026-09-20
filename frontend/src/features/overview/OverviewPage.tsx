@@ -18,6 +18,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { activitySentence } from "@/features/history/activitySentence";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { DataHealthIndicator } from "@/features/data-health/DataHealthIndicator";
+import { OverviewLiquidityCard } from "@/features/liquidity/OverviewLiquidityCard";
 import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 type OverviewMissingInput = MissingInputDTO & { accountName?: string; quoteSource?: string };
@@ -245,6 +246,7 @@ export function OverviewPage({
         </Card>
 
         <div className="flex flex-col gap-4">
+          <OverviewLiquidityCard />
           <Card>
             <CardHeader>
               <CardTitle>{t("review.currentValuationTitle")}</CardTitle>

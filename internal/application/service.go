@@ -1011,6 +1011,11 @@ func (s *Service) ArchiveAccount(ctx context.Context, id domain.AccountID, archi
 	if current == nil {
 		return &domain.Error{Code: domain.ErrNotFound, Message: "account was not found"}
 	}
+	if archived {
+		if err := s.rejectArchiveAccountWithProducts(ctx, household.ID, id); err != nil {
+			return err
+		}
+	}
 	now := s.clock()
 	if archived {
 		current.Account.ArchivedAt = &now

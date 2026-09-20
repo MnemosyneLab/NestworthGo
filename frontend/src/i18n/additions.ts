@@ -1,3 +1,5 @@
+import { availableFundsEn, availableFundsZhCN, availableFundsZhTW } from "./availableFunds";
+
 /**
  * Frontend-only i18next keys that have no generated service counterpart.
  * Members, Institutions, and Groups share one "Directory" destination. Keep
@@ -53,6 +55,7 @@ export const additionsEn = {
     assetChanges: "Asset Changes",
     dataHealth: "Data Health",
     holdings: "Holdings",
+    availableFunds: "Available funds",
   },
   navGroups: {
     portfolio: "Portfolio",
@@ -61,6 +64,7 @@ export const additionsEn = {
     manage: "Manage",
     settings: "Settings",
   },
+  availableFunds: availableFundsEn,
   dataHealth: {
     description: "Diagnose incomplete market data locally. Providers are contacted only after you confirm Repair All.",
     healthyTitle: "All data is healthy",
@@ -1150,6 +1154,7 @@ export const additionsZhCN = {
     assetChanges: "资产变动",
     dataHealth: "数据健康",
     holdings: "持仓",
+    availableFunds: "可用资金",
   },
   navGroups: {
     portfolio: "投资组合",
@@ -1158,6 +1163,7 @@ export const additionsZhCN = {
     manage: "管理",
     settings: "设置",
   },
+  availableFunds: availableFundsZhCN,
   dataHealth: {
     description: "在本地诊断不完整的市场数据。只有在你确认全部修复后，才会联系数据提供方。",
     healthyTitle: "数据全部健康",
@@ -2231,6 +2237,7 @@ export const additionsZhTW = {
     assetChanges: "資產變動",
     dataHealth: "資料健康",
     holdings: "持倉",
+    availableFunds: "可用資金",
   },
   navGroups: {
     portfolio: "投資組合",
@@ -2239,6 +2246,7 @@ export const additionsZhTW = {
     manage: "管理",
     settings: "設定",
   },
+  availableFunds: availableFundsZhTW,
   dataHealth: {
     description: "在本機診斷不完整的市場資料。只有在你確認全部修復後，才會聯繫資料提供方。",
     healthyTitle: "資料全部健康",

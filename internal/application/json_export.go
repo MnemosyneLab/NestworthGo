@@ -12,7 +12,7 @@ import (
 )
 
 const ExportFormat = "com.nestworth.export"
-const ExportFormatVersion = 1
+const ExportFormatVersion = 2
 
 type ExportDocument struct {
 	Format        string             `json:"format"`

@@ -71,4 +71,12 @@ describe("InstrumentHoldingsTable", () => {
     expect(values()[1]).toBe("$900.00");
     expect(names()[3]).toBe("AAPLMissing");
   });
+  it("labels managed product quantity as one contract", () => {
+    const group = fixture();
+    group.instrumentId = "product-1";
+    group.name = "Term deposit";
+    group.amounts = amounts("1", "100000");
+    render(<InstrumentHoldingsTable groups={[group]} managedInstrumentIds={new Set(["product-1"])} />);
+    expect(screen.getByTestId("holdings-table")).toHaveTextContent("1 contract");
+  });
 });

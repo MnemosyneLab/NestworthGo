@@ -97,9 +97,8 @@ func (r *Repository) CreateInstrument(ctx context.Context, instrument domain.Ins
 		if err := validateInstrumentBinding(instrument); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, metal_template, quantity_unit, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt))
-		if err != nil {
-			return mapPortfolioWriteError(err, "instrument")
+		if err := insertInstrumentTx(ctx, tx, instrument); err != nil {
+			return err
 		}
 		return syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument)
 	})
@@ -116,8 +115,8 @@ func (r *Repository) CreateInstrumentWithObservation(ctx context.Context, instru
 		if observation.InstrumentID != instrument.ID || observation.SourceKind != instrument.QuoteSource || observation.ID == "" || observation.EffectiveAt.IsZero() || observation.CreatedAt.IsZero() {
 			return &domain.Error{Code: domain.ErrIntegrity, Message: "instrument creation observation does not match the Instrument"}
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, metal_template, quantity_unit, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt)); err != nil {
-			return mapPortfolioWriteError(err, "instrument")
+		if err := insertInstrumentTx(ctx, tx, instrument); err != nil {
+			return err
 		}
 		if err := syncInstrumentBindingFromInstrumentTx(ctx, tx, instrument); err != nil {
 			return err
@@ -726,6 +725,11 @@ func validateInstrumentBinding(instrument domain.Instrument) error {
 		return &domain.Error{Code: domain.ErrValidation, Field: "provider", Message: "provider key and symbol are required when Provider is selected"}
 	}
 	return nil
+}
+
+func insertInstrumentTx(ctx context.Context, tx *sql.Tx, instrument domain.Instrument) error {
+	_, err := tx.ExecContext(ctx, `INSERT INTO instruments(id, household_id, name, instrument_type, quote_currency, symbol, market_code, country_code, isin, note, icon_key, sort_order, quote_source, provider_key, provider_symbol, metal_template, quantity_unit, created_at, updated_at, archived_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, instrument.ID.String(), instrument.HouseholdID.String(), instrument.Name, string(instrument.Type), instrument.QuoteCurrency.String(), nullableString(instrument.Symbol), nullableString(instrument.MarketCode), nullableString(instrument.CountryCode), nullableString(instrument.ISIN), nullableString(instrument.Note), nullableString(instrument.IconKey), instrument.SortOrder, string(instrument.QuoteSource), nullableString(instrument.ProviderKey), nullableString(instrument.ProviderSymbol), instrument.MetalTemplate, instrument.QuantityUnit, formatTimestamp(instrument.CreatedAt), formatTimestamp(instrument.UpdatedAt), nullableTime(instrument.ArchivedAt))
+	return mapPortfolioWriteError(err, "instrument")
 }
 
 func insertHolding(ctx context.Context, tx *sql.Tx, holding domain.Holding) error {

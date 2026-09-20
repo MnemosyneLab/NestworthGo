@@ -92,7 +92,7 @@ func TestExportJSONWritesStructuredFile(t *testing.T) {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc.Format != "com.nestworth.export" || doc.FormatVersion != 1 {
+	if doc.Format != "com.nestworth.export" || doc.FormatVersion != 2 {
 		t.Fatalf("document = %+v", doc)
 	}
 	info, _ := os.Stat(path)

@@ -94,7 +94,9 @@ func TestWrapPreservesEveryDomainErrorCode(t *testing.T) {
 		domain.ErrInvalidChangeTime, domain.ErrNoChange, domain.ErrInsufficientBalance,
 		domain.ErrInsufficientQuantity, domain.ErrAlreadyUndone, domain.ErrCannotFixChange,
 		domain.ErrTransferMismatch, domain.ErrInvalidTrade, domain.ErrHistoryUpdateFailed,
-		domain.ErrCostBasisRequired,
+		domain.ErrCostBasisRequired, domain.ErrStalePreview, domain.ErrRevisionConflict,
+		domain.ErrManagedPosition, domain.ErrUnsupportedPartialOperation, domain.ErrUnresolvedReservationRelease,
+		domain.ErrReceiptPending, domain.ErrUnsafeUndo,
 	}
 	for _, code := range codes {
 		wrapped := Wrap(&domain.Error{Code: code, Message: "message"})

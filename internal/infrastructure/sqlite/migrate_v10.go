@@ -24,8 +24,5 @@ func migrateV10ToV11(ctx context.Context, db *sql.DB) error {
 			return err
 		}
 	}
-	if err := verifySchema(ctx, tx); err != nil {
-		return err
-	}
 	return tx.Commit()
 }

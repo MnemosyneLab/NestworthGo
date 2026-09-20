@@ -14,14 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useSettings } from "@/queries/settings";
-import {
-  useInstruments,
+import { useInstruments,
   useCreateInstrument,
   useUpdateInstrument,
   useArchiveInstrument,
   useCurrentInstrumentQuote,
   useAppendManualInstrumentQuote,
 } from "@/queries/investments";
+import { useProducts } from "@/queries/liquidity";
+import { useObjectNavigation } from "@/app/NavigationContext";
 import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { displayEnum, displayError } from "@/lib/display";
@@ -128,10 +129,12 @@ function InstrumentRow({
   instrument,
   groupTestId,
   onEdit,
+  productKind,
 }: {
   instrument: InstrumentDTO;
   groupTestId: string;
   onEdit: () => void;
+  productKind?: string;
 }) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
@@ -149,6 +152,7 @@ function InstrumentRow({
         <InstrumentLabel className="min-w-0" name={instrument.name} symbol={instrument.symbol} fallback={instrument.name} />
         <Badge variant="secondary">{instrument.quoteCurrency}{metalPriceSuffix(instrument, t)}</Badge>
         {instrument.metalTemplate && <Badge variant="outline">{t("metals.reference")}</Badge>}
+        {productKind && <Badge variant="outline">{displayEnum(t, "availableFunds", productKind === "term_deposit" ? "termDeposit" : "lockedProduct")}</Badge>}
         <Badge variant={instrument.quoteSource === "manual" ? "outline" : "success"}>
           {displayEnum(t, "portfolio", instrument.quoteSource)}
         </Badge>
@@ -205,7 +209,9 @@ export function InstrumentManagement({
   syncingInstrumentId?: string;
 }) {
   const { t } = useTranslation();
+  const navigation = useObjectNavigation();
   const instruments = useInstruments();
+  const products = useProducts({ includeClosed: true });
   const createInstrument = useCreateInstrument();
   const updateInstrument = useUpdateInstrument();
   const archiveInstrument = useArchiveInstrument();
@@ -215,6 +221,11 @@ export function InstrumentManagement({
     ? instruments.data?.find(item => item.id === focus.instrumentId) ?? null : editSelection ?? null;
   const [showPriceForm, setShowPriceForm] = useState(focus?.action === "manual_entry");
   const [query, setQuery] = useState("");
+  const productByInstrument = useMemo(
+    () => new Map((products.data ?? []).map((detail) => [detail.product.instrumentId, detail.product])),
+    [products.data],
+  );
+  const managedProduct = editTarget ? productByInstrument.get(editTarget.id) : undefined;
 
   const filtered = useMemo(() => {
     const items = (instruments.data ?? []).filter(item => !focus?.instrumentId || item.id === focus.instrumentId);
@@ -299,6 +310,7 @@ export function InstrumentManagement({
                     key={instrument.id}
                     instrument={instrument}
                     groupTestId={`${groupTestIdPrefix}-${group.key}`}
+                    productKind={productByInstrument.get(instrument.id)?.kind}
                     onEdit={() => {
                       setShowPriceForm(false);
                       setEditTarget(instrument);
@@ -335,7 +347,7 @@ export function InstrumentManagement({
                   {t("charts.viewHistory")}
                 </Button>
               )}
-              {onSyncInstrument && editTarget.quoteSource === "provider" && !editTarget.archivedAt && (
+              {onSyncInstrument && editTarget.quoteSource === "provider" && !editTarget.archivedAt && !managedProduct && (
                 <Button type="button" variant="outline" size="sm" onClick={() => onSyncInstrument(editTarget)} disabled={syncingInstrumentId === editTarget.id}>
                   {syncingInstrumentId === editTarget.id ? t("marketData.syncingInstrument") : t("marketData.syncInstrument")}
                 </Button>
@@ -369,7 +381,19 @@ export function InstrumentManagement({
               </AlertDialog>
             </div>
           )}
-          {editTarget && !editTarget.archivedAt && (
+          {editTarget && !editTarget.archivedAt && managedProduct && (
+            <div className="flex flex-col gap-3 text-sm">
+              <p>{displayEnum(t, "availableFunds", managedProduct.kind === "term_deposit" ? "termDeposit" : "lockedProduct")}</p>
+              <p className="text-muted-foreground">{t("availableFunds.managedInstrumentHint")}</p>
+              {navigation && (
+                <Button type="button" onClick={() => {
+                  setEditTarget(null);
+                  navigation.open({ page: "available-funds", productId: managedProduct.id });
+                }}>{t("availableFunds.openPage")}</Button>
+              )}
+            </div>
+          )}
+          {editTarget && !editTarget.archivedAt && !managedProduct && (
             <InstrumentForm
               key={editTarget.id}
               instrument={editTarget}
@@ -390,7 +414,7 @@ export function InstrumentManagement({
               }
             />
           )}
-          {editTarget && !editTarget.archivedAt && (
+          {editTarget && !editTarget.archivedAt && !managedProduct && (
             <div className="mt-5 border-t border-border pt-5">
               <Button type="button" variant="outline" onClick={() => setShowPriceForm((value) => !value)}>
                 {t("portfolio.setPrice")}

@@ -112,6 +112,16 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
     SearchInstruments: vi.fn().mockResolvedValue([]),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
+  Service: {
+    Overview: () => Promise.resolve({ asOf: "", localDate: "2026-09-20", timezone: "UTC", baseCurrency: "USD", assumptions: [], buckets: [], sources: [], unresolvedReservations: [] }),
+    ListProducts: () => Promise.resolve([]),
+    Product: vi.fn(),
+    ListOperations: vi.fn(),
+    PreviewProductOperation: vi.fn(),
+    RecordProductOperation: vi.fn(),
+  },
+}));
 
 function renderPage() {
   const queryClient = createTestQueryClient();

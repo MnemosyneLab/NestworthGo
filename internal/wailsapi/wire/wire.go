@@ -890,17 +890,37 @@ type ActivityDTO struct {
 	ReversesActivityID *string             `json:"reversesActivityId,omitempty"`
 	CorrectionGroupID  *string             `json:"correctionGroupId,omitempty"`
 	TransactionFXRate  *string             `json:"transactionFxRate,omitempty"`
-	TradeDetail        *TradeDetailDTO     `json:"tradeDetail,omitempty"`
-	DividendDetail     *DividendDetailDTO  `json:"dividendDetail,omitempty"`
-	Resulting          []EndpointViewDTO   `json:"resulting,omitempty"`
-	Effects            []ActivityEffectDTO `json:"effects"`
+	TradeDetail        *TradeDetailDTO            `json:"tradeDetail,omitempty"`
+	DividendDetail     *DividendDetailDTO         `json:"dividendDetail,omitempty"`
+	ProductContext     *ProductActivityContextDTO `json:"productContext,omitempty"`
+	Resulting          []EndpointViewDTO          `json:"resulting,omitempty"`
+	Effects            []ActivityEffectDTO        `json:"effects"`
+}
+
+type ProductActivityContextDTO struct {
+	OperationID  string `json:"operationId"`
+	ProductID    string `json:"productId"`
+	Purpose      string `json:"purpose"`
+	HoldingID    string `json:"holdingId"`
+	InstrumentID string `json:"instrumentId"`
+	ProductKind  string `json:"productKind"`
+}
+
+func FromProductActivityContext(value *domain.ProductActivityContext) *ProductActivityContextDTO {
+	if value == nil {
+		return nil
+	}
+	return &ProductActivityContextDTO{
+		OperationID: value.OperationID.String(), ProductID: value.ProductID.String(), Purpose: string(value.Purpose),
+		HoldingID: value.HoldingID.String(), InstrumentID: value.InstrumentID.String(), ProductKind: string(value.ProductKind),
+	}
 }
 
 func FromActivity(value domain.Activity) ActivityDTO {
 	dto := ActivityDTO{
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Kind: string(value.Kind), Reason: string(value.Reason),
 		EffectiveAt: FormatTime(value.EffectiveAt), EffectiveLocalDate: value.EffectiveLocalDate, CreatedAt: FormatTime(value.CreatedAt),
-		Note: value.Note, TradeDetail: FromTradeDetail(value.TradeDetail), DividendDetail: FromDividendDetail(value.DividendDetail), Resulting: FromEndpointViews(value.Resulting), Effects: FromActivityEffects(value.Effects),
+		Note: value.Note, TradeDetail: FromTradeDetail(value.TradeDetail), DividendDetail: FromDividendDetail(value.DividendDetail), ProductContext: FromProductActivityContext(value.ProductContext), Resulting: FromEndpointViews(value.Resulting), Effects: FromActivityEffects(value.Effects),
 	}
 	if value.ReversesActivityID != nil {
 		id := value.ReversesActivityID.String()

@@ -46,6 +46,13 @@ var exportQueries = []struct{ section, name, query string }{
 	{"marketData", "instrumentObservationSlots", `SELECT instrument_id AS instrumentId, provider_key AS providerKey, binding_revision AS bindingRevision, source_policy_version AS sourcePolicyVersion, market_date AS marketDate, observation_kind AS observationKind, quote_id AS quoteId, updated_at AS updatedAt FROM instrument_observation_slots ORDER BY 1, 2, 3, 4, 5, 6, 7, 8`},
 	{"marketData", "fxObservationSlots", `SELECT household_id AS householdId, base_currency AS baseCurrency, quote_currency AS quoteCurrency, provider_key AS providerKey, source_policy_version AS sourcePolicyVersion, market_date AS marketDate, observation_kind AS observationKind, quote_id AS quoteId, updated_at AS updatedAt FROM fx_observation_slots ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9`},
 	{"marketData", "coverage", `SELECT target_type AS targetType, target_id AS targetId, provider_key AS providerKey, household_id AS householdId, binding_revision AS bindingRevision, source_policy_version AS sourcePolicyVersion, effective_date AS effectiveDate, status AS status, reason AS reason, checked_at AS checkedAt FROM market_data_day_status ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10`},
+	{"liquidity", "contracts", `SELECT id AS id, household_id AS householdId, account_id AS accountId, holding_id AS holdingId, instrument_id AS instrumentId, kind AS kind, name AS name, note AS note, currency AS currency, principal AS principal, start_on AS startOn, maturity_on AS maturityOn, interest_mode AS interestMode, annual_rate AS annualRate, maturity_interest AS maturityInterest, interest_paid_through_on AS interestPaidThroughOn, renewed_from_id AS renewedFromId, state AS state, opened_operation_id AS openedOperationId, closed_operation_id AS closedOperationId, revision AS revision, created_at AS createdAt, updated_at AS updatedAt FROM product_contracts ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23`},
+	{"liquidity", "policies", `SELECT id AS id, household_id AS householdId, source_kind AS sourceKind, account_id AS accountId, holding_id AS holdingId, currency AS currency, access_kind AS accessKind, unlock_on AS unlockOn, settlement_days AS settlementDays, day_basis AS dayBasis, receipt_on_override AS receiptOnOverride, accessible_amount_cap AS accessibleAmountCap, normal_exit_fee AS normalExitFee, early_kind AS earlyKind, early_settlement_days AS earlySettlementDays, early_day_basis AS earlyDayBasis, early_fee AS earlyFee, early_amount_mode AS earlyAmountMode, early_gross_amount AS earlyGrossAmount, confirmed_at AS confirmedAt, note AS note, revision AS revision, created_at AS createdAt, updated_at AS updatedAt FROM liquidity_policies ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24`},
+	{"liquidity", "reservations", `SELECT id AS id, household_id AS householdId, source_kind AS sourceKind, account_id AS accountId, holding_id AS holdingId, currency AS currency, label AS label, amount AS amount, revision AS revision, created_at AS createdAt, updated_at AS updatedAt, released_at AS releasedAt FROM liquidity_reservations ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12`},
+	{"liquidity", "operations", `SELECT id AS id, household_id AS householdId, kind AS kind, payload_sha256 AS payloadSha256, request_version AS requestVersion, request_json AS requestJson, result_json AS resultJson, effective_at AS effectiveAt, created_at AS createdAt, reverses_operation_id AS reversesOperationId FROM product_operations ORDER BY 1, 2, 3, 4, 5, 6, 7, 8, 9, 10`},
+	{"liquidity", "operationProducts", `SELECT operation_id AS operationId, product_id AS productId, role AS role FROM product_operation_products ORDER BY 1, 2, 3`},
+	{"liquidity", "operationActivities", `SELECT operation_id AS operationId, activity_id AS activityId, sequence AS sequence, purpose AS purpose, product_id AS productId FROM product_operation_activities ORDER BY 1, 2, 3, 4, 5`},
+	{"liquidity", "operationReservations", `SELECT operation_id AS operationId, reservation_id AS reservationId, previous_released_at AS previousReleasedAt, resulting_released_at AS resultingReleasedAt, resulting_revision AS resultingRevision FROM product_operation_reservations ORDER BY 1, 2, 3, 4, 5`},
 }
 
 func (r *Repository) ReadExportSnapshot(ctx context.Context) (domain.ExportSnapshot, error) {
@@ -66,7 +73,7 @@ func (r *Repository) ReadExportSnapshot(ctx context.Context) (domain.ExportSnaps
 
 func readExportSnapshot(ctx context.Context, tx *sql.Tx) (domain.ExportSnapshot, error) {
 	result := domain.ExportSnapshot{Facts: domain.ExportFacts{
-		Directory: domain.ExportDatasets{}, History: domain.ExportDatasets{}, MarketData: domain.ExportDatasets{},
+		Directory: domain.ExportDatasets{}, History: domain.ExportDatasets{}, MarketData: domain.ExportDatasets{}, Liquidity: domain.ExportDatasets{},
 	}, CostEvents: map[domain.HoldingID][]domain.CostBasisEvent{}, StartingCosts: map[domain.HoldingID]*domain.UnitPrice{}}
 	// This first SELECT establishes the snapshot shared by all subsequent reads.
 	portfolio, err := readPortfolioSnapshotQuery(ctx, tx, domain.AccountFilter{IncludeArchived: true})
@@ -86,6 +93,8 @@ func readExportSnapshot(ctx context.Context, tx *sql.Tx) (domain.ExportSnapshot,
 			result.Facts.History[spec.name] = records
 		case "marketData":
 			result.Facts.MarketData[spec.name] = records
+		case "liquidity":
+			result.Facts.Liquidity[spec.name] = records
 		}
 	}
 	for _, holding := range portfolio.Holdings {

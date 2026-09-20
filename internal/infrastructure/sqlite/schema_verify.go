@@ -596,6 +596,27 @@ func expectedSchemaTables() map[string][]schemaColumn {
 		"fx_preferences": {
 			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("currency_a", "TEXT", 1, 2), expectedColumn("currency_b", "TEXT", 1, 3), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0),
 		},
+		"product_operations": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("kind", "TEXT", 1, 0), expectedColumn("payload_sha256", "TEXT", 1, 0), expectedColumn("request_version", "INTEGER", 1, 0), expectedColumn("request_json", "TEXT", 1, 0), expectedColumn("result_json", "TEXT", 1, 0), expectedColumn("effective_at", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("reverses_operation_id", "TEXT", 0, 0),
+		},
+		"product_contracts": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("holding_id", "TEXT", 1, 0), expectedColumn("instrument_id", "TEXT", 1, 0), expectedColumn("kind", "TEXT", 1, 0), expectedColumn("name", "TEXT", 1, 0), expectedColumn("note", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("principal", "TEXT", 1, 0), expectedColumn("start_on", "TEXT", 1, 0), expectedColumn("maturity_on", "TEXT", 0, 0), expectedColumn("interest_mode", "TEXT", 1, 0), expectedColumn("annual_rate", "TEXT", 0, 0), expectedColumn("maturity_interest", "TEXT", 0, 0), expectedColumn("interest_paid_through_on", "TEXT", 0, 0), expectedColumn("renewed_from_id", "TEXT", 0, 0), expectedColumn("state", "TEXT", 1, 0), expectedColumn("opened_operation_id", "TEXT", 1, 0), expectedColumn("closed_operation_id", "TEXT", 0, 0), expectedColumn("revision", "INTEGER", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0),
+		},
+		"liquidity_policies": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 0, 0), expectedColumn("access_kind", "TEXT", 1, 0), expectedColumn("unlock_on", "TEXT", 0, 0), expectedColumn("settlement_days", "INTEGER", 0, 0), expectedColumn("day_basis", "TEXT", 0, 0), expectedColumn("receipt_on_override", "TEXT", 0, 0), expectedColumn("accessible_amount_cap", "TEXT", 0, 0), expectedColumn("normal_exit_fee", "TEXT", 0, 0), expectedColumn("early_kind", "TEXT", 1, 0), expectedColumn("early_settlement_days", "INTEGER", 0, 0), expectedColumn("early_day_basis", "TEXT", 0, 0), expectedColumn("early_fee", "TEXT", 0, 0), expectedColumn("early_amount_mode", "TEXT", 0, 0), expectedColumn("early_gross_amount", "TEXT", 0, 0), expectedColumn("confirmed_at", "TEXT", 0, 0), expectedColumn("note", "TEXT", 0, 0), expectedColumn("revision", "INTEGER", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0),
+		},
+		"liquidity_reservations": {
+			expectedColumn("id", "TEXT", 1, 1), expectedColumn("household_id", "TEXT", 1, 0), expectedColumn("source_kind", "TEXT", 1, 0), expectedColumn("account_id", "TEXT", 1, 0), expectedColumn("holding_id", "TEXT", 0, 0), expectedColumn("currency", "TEXT", 1, 0), expectedColumn("label", "TEXT", 1, 0), expectedColumn("amount", "TEXT", 1, 0), expectedColumn("revision", "INTEGER", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0), expectedColumn("released_at", "TEXT", 0, 0),
+		},
+		"product_operation_products": {
+			expectedColumn("operation_id", "TEXT", 1, 1), expectedColumn("product_id", "TEXT", 1, 2), expectedColumn("role", "TEXT", 1, 3),
+		},
+		"product_operation_activities": {
+			expectedColumn("operation_id", "TEXT", 1, 1), expectedColumn("activity_id", "TEXT", 1, 2), expectedColumn("sequence", "INTEGER", 1, 0), expectedColumn("purpose", "TEXT", 1, 0), expectedColumn("product_id", "TEXT", 1, 0),
+		},
+		"product_operation_reservations": {
+			expectedColumn("operation_id", "TEXT", 1, 1), expectedColumn("reservation_id", "TEXT", 1, 2), expectedColumn("previous_released_at", "TEXT", 0, 0), expectedColumn("resulting_released_at", "TEXT", 0, 0), expectedColumn("resulting_revision", "INTEGER", 1, 0),
+		},
 	}
 }
 
@@ -741,6 +762,12 @@ func expectedSchemaChecks() map[string][]string {
 		"fx_preferences":                        {"CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]')", "CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(currency_a < currency_b)"},
 		"activities":                            {"CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal'))"},
 		"activity_dividend_details":             {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"product_operations":                    {"CHECK(kind IN ('open','record_existing','receive_interest','settle','renew','undo','value_observation'))", "CHECK(request_version = 1)"},
+		"product_contracts":                     {"CHECK(kind IN ('term_deposit','locked_product'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(interest_mode IN ('none','manual_maturity_amount','simple_act_365','simple_act_360'))", "CHECK(state IN ('open','settled','cancelled'))", "CHECK(revision >= 1)"},
+		"liquidity_policies":                    {"CHECK(source_kind IN ('account_value','account_cash','holding'))", "CHECK(access_kind IN ('on_request','on_date','unknown','excluded'))", "CHECK(early_kind IN ('not_allowed','allowed','unknown'))"},
+		"liquidity_reservations":                {"CHECK(source_kind IN ('account_value','account_cash','holding'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
+		"product_operation_products":            {"CHECK(role IN ('opened','settled','income','reopened','cancelled','valued'))"},
+		"product_operation_activities":          {"CHECK(purpose IN ('acquisition','existing_position','redemption','interest','reversal'))"},
 	}
 }
 
@@ -777,6 +804,18 @@ func expectedSchemaIndexes() []expectedIndex {
 		{table: "instrument_observation_slots", name: "idx_instrument_observation_slots_quote", columns: asc("quote_id")},
 		{table: "fx_observation_slots", name: "idx_fx_observation_slots_quote", columns: asc("quote_id")},
 		{table: "market_data_day_status", name: "idx_market_data_day_status_household", columns: asc("household_id", "target_type", "target_id", "effective_date")},
+		{table: "product_operations", name: "ux_product_operations_reverses", unique: 1, partial: 1, where: "WHERE reverses_operation_id IS NOT NULL", columns: asc("reverses_operation_id")},
+		{table: "product_operations", name: "idx_product_operations_household", columns: asc("household_id", "created_at", "id")},
+		{table: "product_contracts", name: "ux_product_contracts_holding", unique: 1, columns: asc("holding_id")},
+		{table: "product_contracts", name: "ux_product_contracts_instrument", unique: 1, columns: asc("instrument_id")},
+		{table: "product_contracts", name: "idx_product_contracts_account", columns: asc("account_id", "state")},
+		{table: "product_contracts", name: "idx_product_contracts_household", columns: asc("household_id", "state")},
+		{table: "liquidity_policies", name: "ux_liquidity_policies_account_value", unique: 1, partial: 1, where: "WHERE source_kind = 'account_value'", columns: asc("account_id")},
+		{table: "liquidity_policies", name: "ux_liquidity_policies_account_cash", unique: 1, partial: 1, where: "WHERE source_kind = 'account_cash'", columns: asc("account_id", "currency")},
+		{table: "liquidity_policies", name: "ux_liquidity_policies_holding", unique: 1, partial: 1, where: "WHERE source_kind = 'holding'", columns: asc("holding_id")},
+		{table: "liquidity_reservations", name: "idx_liquidity_reservations_source", columns: asc("source_kind", "account_id", "holding_id", "currency")},
+		{table: "product_operation_products", name: "idx_product_operation_products_product", columns: asc("product_id", "operation_id")},
+		{table: "product_operation_activities", name: "ux_product_operation_activities_activity", unique: 1, columns: asc("activity_id")},
 	}
 }
 
@@ -810,5 +849,27 @@ func expectedSchemaForeignKeys() []expectedForeignKey {
 		{table: "market_data_day_status", refTable: "households", from: "household_id", to: "id", onDelete: "CASCADE"},
 		{table: "fx_preferences", refTable: "households", from: "household_id", to: "id", onDelete: "CASCADE"},
 		{table: "daily_valuation_snapshot_items", refTable: "fx_preference_observations", from: "fx_preference_observation_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_operations", refTable: "households", from: "household_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_operations", refTable: "product_operations", from: "reverses_operation_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_contracts", refTable: "households", from: "household_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_contracts", refTable: "accounts", from: "account_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_contracts", refTable: "holdings", from: "holding_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_contracts", refTable: "instruments", from: "instrument_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_contracts", refTable: "product_contracts", from: "renewed_from_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_contracts", refTable: "product_operations", from: "opened_operation_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_contracts", refTable: "product_operations", from: "closed_operation_id", to: "id", onDelete: "RESTRICT"},
+		{table: "liquidity_policies", refTable: "households", from: "household_id", to: "id", onDelete: "RESTRICT"},
+		{table: "liquidity_policies", refTable: "accounts", from: "account_id", to: "id", onDelete: "RESTRICT"},
+		{table: "liquidity_policies", refTable: "holdings", from: "holding_id", to: "id", onDelete: "RESTRICT"},
+		{table: "liquidity_reservations", refTable: "households", from: "household_id", to: "id", onDelete: "RESTRICT"},
+		{table: "liquidity_reservations", refTable: "accounts", from: "account_id", to: "id", onDelete: "RESTRICT"},
+		{table: "liquidity_reservations", refTable: "holdings", from: "holding_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_operation_products", refTable: "product_operations", from: "operation_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_operation_products", refTable: "product_contracts", from: "product_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_operation_activities", refTable: "product_operations", from: "operation_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_operation_activities", refTable: "activities", from: "activity_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_operation_activities", refTable: "product_contracts", from: "product_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_operation_reservations", refTable: "product_operations", from: "operation_id", to: "id", onDelete: "RESTRICT"},
+		{table: "product_operation_reservations", refTable: "liquidity_reservations", from: "reservation_id", to: "id", onDelete: "RESTRICT"},
 	}
 }

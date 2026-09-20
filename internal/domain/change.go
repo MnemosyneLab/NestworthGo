@@ -245,6 +245,7 @@ type Activity struct {
 	DividendDetail     *DividendDetail
 	Resulting          []EndpointView
 	Effects            []ActivityEffect
+	ProductContext     *ProductActivityContext
 }
 
 type ActivityCursor struct {

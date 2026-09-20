@@ -20,3 +20,11 @@ describe("analysis navigation", () => {
     expect(target.analysis?.scopeId).toBe("qqq");
   });
 });
+
+describe("available funds navigation", () => {
+  it("places Available funds after Accounts in the workspace group", () => {
+    const workspace = NAV_GROUPS.find((group) => group.id === "workspace");
+    expect(workspace?.items.map((item) => item.id)).toEqual(["accounts", "available-funds", "portfolio"]);
+    expect(targetForPage("available-funds")).toEqual({ page: "available-funds" });
+  });
+});

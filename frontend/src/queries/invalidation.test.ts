@@ -210,6 +210,19 @@ describe("query keys and dependency invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.analytics.instrumentHoldings)).toBe(true);
     expect(isInvalidated(queryClient, queryKeys.analysis.returnCalendar({}, "2026-09"))).toBe(true);
   });
+
+  it("invalidates liquidity reads with current valuation", () => {
+    const queryClient = clientWith(
+      queryKeys.liquidity.overview("", false),
+      queryKeys.liquidity.products("", false),
+      queryKeys.overview.all,
+    );
+
+    invalidateCurrentValuation(queryClient);
+
+    expect(isInvalidated(queryClient, queryKeys.liquidity.overview("", false))).toBe(true);
+    expect(isInvalidated(queryClient, queryKeys.liquidity.products("", false))).toBe(true);
+  });
 });
 
 function seededClient() {
