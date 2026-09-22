@@ -96,7 +96,7 @@ func listProductContractsQuery(ctx context.Context, query queryer, householdID d
 }
 
 func listLiquidityPoliciesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.LiquidityPolicy, error) {
-	rows, err := query.QueryContext(ctx, `SELECT id, household_id, source_kind, account_id, holding_id, currency, access_kind, unlock_on, settlement_days, day_basis, receipt_on_override, accessible_amount_cap, normal_exit_fee, early_kind, early_settlement_days, early_day_basis, early_fee, early_amount_mode, early_gross_amount, confirmed_at, note, revision, created_at, updated_at FROM liquidity_policies WHERE household_id = ? ORDER BY created_at, id`, householdID.String())
+	rows, err := query.QueryContext(ctx, `SELECT p.id, p.household_id, p.source_kind, p.account_id, p.holding_id, p.currency, p.access_kind, p.unlock_on, p.settlement_days, p.day_basis, p.receipt_on_override, p.accessible_amount_cap, p.normal_exit_fee, p.early_kind, p.early_settlement_days, p.early_day_basis, p.early_fee, p.early_amount_mode, p.early_gross_amount, p.confirmed_at, p.note, p.revision, p.created_at, p.updated_at, CASE p.source_kind WHEN 'account_cash' THEN p.currency WHEN 'account_value' THEN a.default_currency WHEN 'holding' THEN i.quote_currency END FROM liquidity_policies p JOIN accounts a ON a.id = p.account_id LEFT JOIN holdings h ON h.id = p.holding_id LEFT JOIN instruments i ON i.id = h.instrument_id WHERE p.household_id = ? ORDER BY p.created_at, p.id`, householdID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,8 @@ func scanLiquidityPolicy(row scanner) (domain.LiquidityPolicy, error) {
 	var holdingID, currency, unlockOn, dayBasis, receiptOverride, cap, fee, earlyBasis, earlyFee, earlyMode, earlyGross, confirmedAt, note sql.NullString
 	var settlement, earlySettlement sql.NullInt64
 	var revision int
-	if err := row.Scan(&id, &householdID, &sourceKind, &accountID, &holdingID, &currency, &accessKind, &unlockOn, &settlement, &dayBasis, &receiptOverride, &cap, &fee, &earlyKind, &earlySettlement, &earlyBasis, &earlyFee, &earlyMode, &earlyGross, &confirmedAt, &note, &revision, &createdAt, &updatedAt); err != nil {
+	var amountCurrency string
+	if err := row.Scan(&id, &householdID, &sourceKind, &accountID, &holdingID, &currency, &accessKind, &unlockOn, &settlement, &dayBasis, &receiptOverride, &cap, &fee, &earlyKind, &earlySettlement, &earlyBasis, &earlyFee, &earlyMode, &earlyGross, &confirmedAt, &note, &revision, &createdAt, &updatedAt, &amountCurrency); err != nil {
 		return domain.LiquidityPolicy{}, err
 	}
 	parsedID, err := domain.ParseLiquidityPolicyID(id)
@@ -235,9 +236,9 @@ func scanLiquidityPolicy(row scanner) (domain.LiquidityPolicy, error) {
 		}
 		policy.ConfirmedAt = &parsed
 	}
-	currencyCode := domain.CurrencyCode("")
-	if source.Currency != nil {
-		currencyCode = *source.Currency
+	currencyCode, err := domain.ParseCurrency(amountCurrency)
+	if err != nil {
+		return domain.LiquidityPolicy{}, err
 	}
 	if cap.Valid {
 		money, err := domain.ParseMoney(cap.String, currencyCode)
@@ -247,21 +248,21 @@ func scanLiquidityPolicy(row scanner) (domain.LiquidityPolicy, error) {
 		policy.AccessibleAmountCap = &money
 	}
 	if fee.Valid {
-		money, err := domain.ParseMoney(fee.String, currencyOrUSD(currencyCode))
+		money, err := domain.ParseMoney(fee.String, currencyCode)
 		if err != nil {
 			return domain.LiquidityPolicy{}, err
 		}
 		policy.NormalExitFee = &money
 	}
 	if earlyFee.Valid {
-		money, err := domain.ParseMoney(earlyFee.String, currencyOrUSD(currencyCode))
+		money, err := domain.ParseMoney(earlyFee.String, currencyCode)
 		if err != nil {
 			return domain.LiquidityPolicy{}, err
 		}
 		policy.EarlyFee = &money
 	}
 	if earlyGross.Valid {
-		money, err := domain.ParseMoney(earlyGross.String, currencyOrUSD(currencyCode))
+		money, err := domain.ParseMoney(earlyGross.String, currencyCode)
 		if err != nil {
 			return domain.LiquidityPolicy{}, err
 		}
@@ -357,11 +358,4 @@ func nullableEarlyMode(value *domain.EarlyAmountMode) any {
 		return nil
 	}
 	return string(*value)
-}
-
-func currencyOrUSD(value domain.CurrencyCode) domain.CurrencyCode {
-	if value == "" {
-		return "USD"
-	}
-	return value
 }

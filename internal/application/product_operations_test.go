@@ -108,7 +108,7 @@ func TestFixtureCRenewalAtomicAndRetry(t *testing.T) {
 		Settle:    SettleProductCommand{ProductID: openReceipt.ProductIDs[0].String(), ReturnedPrincipal: strPtr("100000"), Interest: strPtr("1000"), EffectiveAt: "2026-09-20T04:00:00Z"},
 		Principal: "100500",
 		Terms:     ProductTermsInput{Kind: "term_deposit", Name: "Deposit D2", StartOn: "2026-09-20", MaturityOn: strPtr("2027-03-20"), InterestMode: "none"},
-		Policy:    depositPolicy(),
+		Policy:    depositPolicyForMaturity("2027-03-20"),
 	}}
 	renewPreview, err := service.PreviewProductOperation(ctx, renewCmd)
 	if err != nil {
@@ -174,7 +174,7 @@ func TestFixtureCRenewalFaultInjectionRollsBack(t *testing.T) {
 		Settle:    SettleProductCommand{ProductID: openReceipt.ProductIDs[0].String(), ReturnedPrincipal: strPtr("100000"), Interest: strPtr("1000"), EffectiveAt: "2026-09-20T04:00:00Z"},
 		Principal: "100500",
 		Terms:     ProductTermsInput{Kind: "term_deposit", Name: "Deposit D2", StartOn: "2026-09-20", MaturityOn: strPtr("2027-03-20"), InterestMode: "none"},
-		Policy:    depositPolicy(),
+		Policy:    depositPolicyForMaturity("2027-03-20"),
 	}}
 	renewPreview, err := service.PreviewProductOperation(ctx, renewCmd)
 	if err != nil {
@@ -378,7 +378,7 @@ func TestUndoRenewalCancelsSuccessor(t *testing.T) {
 		Settle:    SettleProductCommand{ProductID: openReceipt.ProductIDs[0].String(), ReturnedPrincipal: strPtr("100000"), Interest: strPtr("1000"), EffectiveAt: "2026-09-20T04:00:00Z"},
 		Principal: "100500",
 		Terms:     ProductTermsInput{Kind: "term_deposit", Name: "Deposit D2", StartOn: "2026-09-20", MaturityOn: strPtr("2027-03-20"), InterestMode: "none"},
-		Policy:    depositPolicy(),
+		Policy:    depositPolicyForMaturity("2027-03-20"),
 	}}
 	renewPreview, err := service.PreviewProductOperation(ctx, renewCmd)
 	if err != nil {
@@ -1048,4 +1048,10 @@ func TestAssumedBankCashIsAvailableToday(t *testing.T) {
 		t.Fatal("cash source missing")
 	}
 	assertBucket(t, overview, "2026-09-20", "10000", "0", "10000")
+}
+
+func depositPolicyForMaturity(date string) ProductPolicyInput {
+	policy := depositPolicy()
+	policy.UnlockOn = strPtr(date)
+	return policy
 }

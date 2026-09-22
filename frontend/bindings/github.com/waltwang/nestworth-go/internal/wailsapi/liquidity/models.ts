@@ -187,6 +187,9 @@ export interface ProductOperationPageDTO {
 }
 
 export interface ProductOperationPreviewDTO {
+    "effectiveAt": string;
+    "netWorthDelta": wire$0.SignedMoneyView | null;
+    "reservationReleaseDetails": ReservationDTO[] | null;
     "kind": string;
     "normalizedJson": string;
     "payloadSha256": string;

@@ -185,3 +185,15 @@ func (s *Service) RecordProductOperation(ctx context.Context, request RecordProd
 	}
 	return fromReceipt(receipt), nil
 }
+
+func (s *Service) ListReservations(ctx context.Context) ([]ReservationDTO, error) {
+	reservations, err := s.app.ListLiquidityReservations(ctx)
+	if err != nil {
+		return nil, apierror.Wrap(err)
+	}
+	result := make([]ReservationDTO, 0, len(reservations))
+	for _, r := range reservations {
+		result = append(result, fromReservation(r))
+	}
+	return result, nil
+}

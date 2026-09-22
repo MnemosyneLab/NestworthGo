@@ -167,23 +167,26 @@ type ProductDetailDTO struct {
 }
 
 type ProductOperationPreviewDTO struct {
-	Kind                string                  `json:"kind"`
-	NormalizedJSON      string                  `json:"normalizedJson"`
-	PayloadSHA256       string                  `json:"payloadSha256"`
-	ReviewedStateHash   string                  `json:"reviewedStateHash"`
-	LocalDate           string                  `json:"localDate"`
-	Timezone            string                  `json:"timezone"`
-	Warnings            []string                `json:"warnings"`
-	Assumptions         []string                `json:"assumptions"`
-	MissingFields       []string                `json:"missingFields"`
-	Activities          []wire.ChangePreviewDTO `json:"activities"`
-	CashBefore          []wire.MoneyView        `json:"cashBefore"`
-	CashAfter           []wire.MoneyView        `json:"cashAfter"`
-	ProductBefore       *wire.MoneyView         `json:"productBefore"`
-	ProductAfter        *wire.MoneyView         `json:"productAfter"`
-	NetWorthKnown       bool                    `json:"netWorthKnown"`
-	ReservationReleases []string                `json:"reservationReleases"`
-	DraftProductIDs     []string                `json:"draftProductIds"`
+	EffectiveAt               string                  `json:"effectiveAt"`
+	NetWorthDelta             *wire.SignedMoneyView   `json:"netWorthDelta"`
+	ReservationReleaseDetails []ReservationDTO        `json:"reservationReleaseDetails"`
+	Kind                      string                  `json:"kind"`
+	NormalizedJSON            string                  `json:"normalizedJson"`
+	PayloadSHA256             string                  `json:"payloadSha256"`
+	ReviewedStateHash         string                  `json:"reviewedStateHash"`
+	LocalDate                 string                  `json:"localDate"`
+	Timezone                  string                  `json:"timezone"`
+	Warnings                  []string                `json:"warnings"`
+	Assumptions               []string                `json:"assumptions"`
+	MissingFields             []string                `json:"missingFields"`
+	Activities                []wire.ChangePreviewDTO `json:"activities"`
+	CashBefore                []wire.MoneyView        `json:"cashBefore"`
+	CashAfter                 []wire.MoneyView        `json:"cashAfter"`
+	ProductBefore             *wire.MoneyView         `json:"productBefore"`
+	ProductAfter              *wire.MoneyView         `json:"productAfter"`
+	NetWorthKnown             bool                    `json:"netWorthKnown"`
+	ReservationReleases       []string                `json:"reservationReleases"`
+	DraftProductIDs           []string                `json:"draftProductIds"`
 }
 
 type ProductOperationReceiptDTO struct {
@@ -409,7 +412,12 @@ func fromPreview(value application.ProductOperationPreview) ProductOperationPrev
 	for _, id := range value.DraftProductIDs {
 		drafts = append(drafts, id.String())
 	}
+	details := make([]ReservationDTO, 0, len(value.ReservationReleaseDetails))
+	for _, r := range value.ReservationReleaseDetails {
+		details = append(details, fromReservation(r))
+	}
 	return ProductOperationPreviewDTO{
+		EffectiveAt: wire.FormatTime(value.EffectiveAt), NetWorthDelta: wire.FromSignedMoneyPtr(value.NetWorthDelta), ReservationReleaseDetails: details,
 		Kind: string(value.Kind), NormalizedJSON: value.NormalizedJSON, PayloadSHA256: value.PayloadSHA256,
 		ReviewedStateHash: value.ReviewedStateHash, LocalDate: value.LocalDate, Timezone: value.Timezone,
 		Warnings: emptyStrings(value.Warnings), Assumptions: emptyStrings(value.Assumptions), MissingFields: emptyStrings(value.MissingFields),

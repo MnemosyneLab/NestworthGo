@@ -50,7 +50,18 @@ export function useProduct(productId: string, enabled = true) {
 export function useProductOperations(productId: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.liquidity.operations(productId),
-    queryFn: () => callService(() => LiquidityService.ListOperations({ productId, limit: 25 })),
+    queryFn: async () => {
+      const first = await callService(() => LiquidityService.ListOperations({ productId, limit: 25 }));
+      const operations = [...(first.operations ?? [])];
+      let cursor = first.next;
+      while (cursor) {
+        const nextCursor = cursor;
+        const page = await callService(() => LiquidityService.ListOperations({ productId, limit: 25, cursor: nextCursor }));
+        operations.push(...(page.operations ?? []));
+        cursor = page.next;
+      }
+      return { ...first, operations, next: null };
+    },
     enabled: enabled && Boolean(productId),
   });
 }
@@ -140,4 +151,8 @@ export function useRecordProductOperation() {
       invalidateLiquidityReads(queryClient);
     },
   });
+}
+
+export function useReservations(enabled = true) {
+  return useQuery({ queryKey: [...queryKeys.liquidity.all,"reservations"], queryFn: () => callService(() => LiquidityService.ListReservations()), enabled });
 }

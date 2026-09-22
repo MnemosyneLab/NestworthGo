@@ -20,6 +20,7 @@ type ProductTermsInput struct {
 }
 
 type ProductPolicyInput struct {
+	AccessibleAmountCap *string `json:"accessibleAmountCap"`
 	AccessKind          string  `json:"accessKind"`
 	UnlockOn            *string `json:"unlockOn"`
 	SettlementDays      *int    `json:"settlementDays"`
@@ -36,13 +37,15 @@ type ProductPolicyInput struct {
 }
 
 type OpenProductCommand struct {
-	AccountID   string             `json:"accountId"`
-	Currency    string             `json:"currency"`
-	Principal   string             `json:"principal"`
-	OpeningFee  *string            `json:"openingFee"`
-	EffectiveAt string             `json:"effectiveAt"`
-	Terms       ProductTermsInput  `json:"terms"`
-	Policy      ProductPolicyInput `json:"policy"`
+	EffectiveLocalDate string             `json:"effectiveLocalDate,omitempty"`
+	EffectiveLocalTime string             `json:"effectiveLocalTime,omitempty"`
+	AccountID          string             `json:"accountId"`
+	Currency           string             `json:"currency"`
+	Principal          string             `json:"principal"`
+	OpeningFee         *string            `json:"openingFee"`
+	EffectiveAt        string             `json:"effectiveAt"`
+	Terms              ProductTermsInput  `json:"terms"`
+	Policy             ProductPolicyInput `json:"policy"`
 }
 
 type RecordExistingProductCommand struct {
@@ -58,6 +61,8 @@ type RecordExistingProductCommand struct {
 }
 
 type ReceiveInterestCommand struct {
+	EffectiveLocalDate    string  `json:"effectiveLocalDate,omitempty"`
+	EffectiveLocalTime    string  `json:"effectiveLocalTime,omitempty"`
 	ProductID             string  `json:"productId"`
 	Amount                string  `json:"amount"`
 	EffectiveAt           string  `json:"effectiveAt"`
@@ -66,6 +71,8 @@ type ReceiveInterestCommand struct {
 }
 
 type SettleProductCommand struct {
+	EffectiveLocalDate    string   `json:"effectiveLocalDate,omitempty"`
+	EffectiveLocalTime    string   `json:"effectiveLocalTime,omitempty"`
 	ProductID             string   `json:"productId"`
 	ReturnedPrincipal     *string  `json:"returnedPrincipal"`
 	Interest              *string  `json:"interest"`
@@ -98,23 +105,26 @@ type ProductCommand struct {
 }
 
 type ProductOperationPreview struct {
-	Kind                domain.ProductOperationKind
-	NormalizedJSON      string
-	PayloadSHA256       string
-	ReviewedStateHash   string
-	LocalDate           string
-	Timezone            string
-	Warnings            []string
-	Assumptions         []string
-	MissingFields       []string
-	Activities          []domain.ChangePreview
-	CashBefore          []domain.Money
-	CashAfter           []domain.Money
-	ProductBefore       *domain.Money
-	ProductAfter        *domain.Money
-	NetWorthKnown       bool
-	ReservationReleases []domain.LiquidityReservationID
-	DraftProductIDs     []domain.ProductContractID
+	EffectiveAt               time.Time
+	NetWorthDelta             *domain.SignedMoney
+	ReservationReleaseDetails []domain.LiquidityReservation
+	Kind                      domain.ProductOperationKind
+	NormalizedJSON            string
+	PayloadSHA256             string
+	ReviewedStateHash         string
+	LocalDate                 string
+	Timezone                  string
+	Warnings                  []string
+	Assumptions               []string
+	MissingFields             []string
+	Activities                []domain.ChangePreview
+	CashBefore                []domain.Money
+	CashAfter                 []domain.Money
+	ProductBefore             *domain.Money
+	ProductAfter              *domain.Money
+	NetWorthKnown             bool
+	ReservationReleases       []domain.LiquidityReservationID
+	DraftProductIDs           []domain.ProductContractID
 }
 
 type ProductOperationReceipt struct {

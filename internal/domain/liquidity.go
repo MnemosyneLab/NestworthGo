@@ -510,13 +510,44 @@ func (p LiquidityPolicy) actionEligibleOn(today string, early bool, contract *Pr
 	}
 }
 
+// ValidateProductDates checks the joint contract/policy invariants at write and restore boundaries.
+func (p LiquidityPolicy) ValidateProductDates(kind ProductKind, maturity *string) error {
+	if kind == ProductTermDeposit && (maturity == nil || p.UnlockOn == nil || *p.UnlockOn != *maturity) {
+		return validation("unlockOn", "must equal deposit maturity")
+	}
+	if maturity != nil && p.UnlockOn != nil {
+		if *p.UnlockOn > *maturity {
+			return validation("unlockOn", "cannot follow maturity")
+		}
+	}
+	if p.ReceiptOnOverride != nil {
+		if maturity != nil && *p.ReceiptOnOverride < *maturity {
+			return validation("receiptOnOverride", "cannot precede maturity")
+		}
+		if p.UnlockOn != nil && *p.ReceiptOnOverride < *p.UnlockOn {
+			return validation("receiptOnOverride", "cannot precede unlock")
+		}
+	}
+	return nil
+}
+
 func (p LiquidityPolicy) receiptOn(today string, early bool, contract *ProductContract) (*string, []LiquidityAssumption, error) {
+	// A maturity is a scheduled receipt, not a fresh redemption request each day.
+	if !early && contract != nil && contract.MaturityOn != nil {
+		today = *contract.MaturityOn
+	}
 	if !early && p.ReceiptOnOverride != nil {
 		override, err := ParseCivilDate("receiptOnOverride", *p.ReceiptOnOverride)
 		if err != nil {
 			return nil, nil, err
 		}
-		eligible, _, err := p.actionEligibleOn(today, false, contract)
+		// An exact scheduled receipt stays fixed after its date passes. Validate
+		// against contractual eligibility, not a new request made today.
+		anchor := override
+		if contract != nil && contract.MaturityOn != nil {
+			anchor = *contract.MaturityOn
+		}
+		eligible, _, err := p.actionEligibleOn(anchor, false, contract)
 		if err == nil && compareCivilDates(override, eligible) < 0 {
 			return nil, nil, validation("receiptOnOverride", "cannot precede action eligibility")
 		}

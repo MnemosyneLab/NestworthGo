@@ -231,8 +231,13 @@ func policyFromInput(household domain.HouseholdID, source domain.LiquiditySource
 	if err != nil {
 		return domain.LiquidityPolicy{}, err
 	}
+	cap, err := parseOptionalMoney("accessibleAmountCap", input.AccessibleAmountCap, currency)
+	if err != nil {
+		return domain.LiquidityPolicy{}, err
+	}
 	policy := domain.LiquidityPolicy{
-		ID: domain.NewLiquidityPolicyID(), HouseholdID: household, Source: source,
+		AccessibleAmountCap: cap,
+		ID:                  domain.NewLiquidityPolicyID(), HouseholdID: household, Source: source,
 		AccessKind: access, UnlockOn: input.UnlockOn, SettlementDays: input.SettlementDays, DayBasis: dayBasis,
 		ReceiptOnOverride: input.ReceiptOnOverride, NormalExitFee: fee, EarlyKind: early,
 		EarlySettlementDays: input.EarlySettlementDays, EarlyDayBasis: earlyBasis, EarlyFee: earlyFee,
@@ -257,13 +262,14 @@ func contractPolicyForOpen(household domain.HouseholdID, accountID domain.Accoun
 		copy := *maturity
 		input.UnlockOn = &copy
 	}
-	if input.SettlementDays == nil {
-		zero := 0
-		input.SettlementDays = &zero
-		calendar := domain.DayBasisCalendar
-		input.DayBasis = (*string)(&[]string{string(calendar)}[0])
+	policy, err := policyFromInput(household, source, input, currency, true, now)
+	if err != nil {
+		return domain.LiquidityPolicy{}, err
 	}
-	return policyFromInput(household, source, input, currency, true, now)
+	if err := policy.ValidateProductDates(kind, maturity); err != nil {
+		return domain.LiquidityPolicy{}, err
+	}
+	return policy, nil
 }
 
 func moneyPtr(value domain.Money) *domain.Money { return &value }
@@ -280,4 +286,22 @@ func decimalZero() decimal.Decimal { return decimal.Zero }
 func hashBytes(value []byte) string {
 	sum := sha256.Sum256(value)
 	return hex.EncodeToString(sum[:])
+}
+
+func resolveProductEffectiveTime(timestamp, date, clock string, origin *domain.HistoryOrigin, now time.Time) (string, error) {
+	if date == "" && clock == "" {
+		return timestamp, nil
+	}
+	if timestamp != "" {
+		return "", &domain.Error{Code: domain.ErrValidation, Field: "effectiveAt", Message: "use either local time or timestamp"}
+	}
+	when, err := domain.ResolveLocalDateTime(date, clock, origin.Timezone)
+	if err != nil {
+		return "", err
+	}
+	value := when.UTC().Format(time.RFC3339Nano)
+	if _, err = parseEffectiveAt(value, origin, now); err != nil {
+		return "", err
+	}
+	return value, nil
 }

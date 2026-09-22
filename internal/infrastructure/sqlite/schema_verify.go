@@ -102,6 +102,9 @@ func verifySchema(ctx context.Context, query schemaQuery) error {
 	if err := verifyCanonicalNumericText(ctx, query); err != nil {
 		return err
 	}
+	if err := verifyProductIntegrity(ctx, query); err != nil {
+		return err
+	}
 	if err := verifySnapshotProvenance(ctx, query); err != nil {
 		return err
 	}

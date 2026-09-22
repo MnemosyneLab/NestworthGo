@@ -131,9 +131,27 @@ func (r *Repository) ProductOperationEvidence(ctx context.Context, householdID d
 	return evidence, reservationRows.Err()
 }
 
-func (r *Repository) SaveProductContract(ctx context.Context, contract domain.ProductContract) error {
+func (r *Repository) SaveProductTerms(ctx context.Context, contract domain.ProductContract, policy domain.LiquidityPolicy, expectedPolicyRevision int) error {
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		return upsertProductContractTx(ctx, tx, contract)
+		var revision int
+		if err := tx.QueryRowContext(ctx, `SELECT revision FROM product_contracts WHERE id = ? AND household_id = ?`, contract.ID.String(), contract.HouseholdID.String()).Scan(&revision); err != nil {
+			return err
+		}
+		if revision != contract.Revision-1 {
+			return &domain.Error{Code: domain.ErrRevisionConflict, Message: "product revision does not match"}
+		}
+		var policyRevision int
+		err := tx.QueryRowContext(ctx, `SELECT revision FROM liquidity_policies WHERE holding_id = ? AND household_id = ?`, contract.HoldingID.String(), contract.HouseholdID.String()).Scan(&policyRevision)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if policyRevision != expectedPolicyRevision {
+			return &domain.Error{Code: domain.ErrRevisionConflict, Message: "policy revision does not match"}
+		}
+		if err := upsertProductContractTx(ctx, tx, contract); err != nil {
+			return err
+		}
+		return upsertLiquidityPolicyTx(ctx, tx, policy)
 	})
 }
 
@@ -369,8 +387,16 @@ func (r *Repository) CommitProductBundle(ctx context.Context, bundle domain.Prod
 			if _, err := tx.ExecContext(ctx, `INSERT INTO product_operation_reservations(operation_id, reservation_id, previous_released_at, resulting_released_at, resulting_revision) VALUES(?, ?, ?, ?, ?)`, link.OperationID.String(), link.ReservationID.String(), nullableTime(link.PreviousReleasedAt), nullableTime(link.ResultingReleasedAt), link.ResultingRevision); err != nil {
 				return err
 			}
-			if _, err := tx.ExecContext(ctx, `UPDATE liquidity_reservations SET released_at = ?, revision = ?, updated_at = ? WHERE id = ?`, nullableTime(link.ResultingReleasedAt), link.ResultingRevision, formatTimestamp(bundle.AsOf), link.ReservationID.String()); err != nil {
+			result, err := tx.ExecContext(ctx, `UPDATE liquidity_reservations SET released_at = ?, revision = ?, updated_at = ? WHERE id = ? AND household_id = ? AND revision = ? AND released_at IS ?`, nullableTime(link.ResultingReleasedAt), link.ResultingRevision, formatTimestamp(bundle.AsOf), link.ReservationID.String(), bundle.Operation.HouseholdID.String(), link.ResultingRevision-1, nullableTime(link.PreviousReleasedAt))
+			if err != nil {
 				return err
+			}
+			count, err := result.RowsAffected()
+			if err != nil {
+				return err
+			}
+			if count != 1 {
+				return &domain.Error{Code: domain.ErrRevisionConflict, Field: "reservationId", Message: "reservation changed since the operation was prepared"}
 			}
 		}
 		return failProductCommit("complete")

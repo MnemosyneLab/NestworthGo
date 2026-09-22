@@ -36,6 +36,12 @@ type productPlan struct {
 }
 
 func (s *Service) PreviewProductOperation(ctx context.Context, command ProductCommand) (ProductOperationPreview, error) {
+	// Hold the ledger coordinator while collecting the plan and its dependencies.
+	// This read-only operation must not hash newer reservation facts than it shows.
+	if permit := permitFrom(ctx); permit == nil || !permit.ledger {
+		s.changeMu.Lock()
+		defer s.changeMu.Unlock()
+	}
 	normalized, payloadSHA, err := normalizeProductCommand(command)
 	if err != nil {
 		return ProductOperationPreview{}, err
@@ -56,16 +62,37 @@ func (s *Service) PreviewProductOperation(ctx context.Context, command ProductCo
 	if err != nil {
 		return ProductOperationPreview{}, err
 	}
-	reviewed, err := s.reviewedStateHash(snapshot, command, payloadSHA, localDate, plan)
+	reviewed, err := s.reviewedStateHash(ctx, snapshot, command, payloadSHA, localDate, plan)
 	if err != nil {
 		return ProductOperationPreview{}, err
 	}
 	cashBefore, cashAfter := collectCash(state, plan.state, plan)
+	productBefore, productAfter, err := s.productPreviewValues(snapshot, plan)
+	if err != nil {
+		return ProductOperationPreview{}, err
+	}
+	delta, err := productNetWorthDelta(productBefore, productAfter, cashBefore, cashAfter)
+	if err != nil {
+		return ProductOperationPreview{}, err
+	}
+	releases, err := s.repository.ListLiquidityReservations(ctx, origin.HouseholdID, true)
+	if err != nil {
+		return ProductOperationPreview{}, err
+	}
+	releaseDetails := []domain.LiquidityReservation{}
+	for _, r := range releases {
+		for _, id := range plan.releaseIDs {
+			if r.ID == id {
+				releaseDetails = append(releaseDetails, r)
+			}
+		}
+	}
 	return ProductOperationPreview{
 		Kind: command.Kind, NormalizedJSON: normalized, PayloadSHA256: payloadSHA,
 		ReviewedStateHash: reviewed, LocalDate: localDate, Timezone: origin.Timezone,
 		Warnings: plan.warnings, Activities: plan.previews, CashBefore: cashBefore, CashAfter: cashAfter,
 		ReservationReleases: plan.releaseIDs, DraftProductIDs: plan.productIDs,
+		ProductBefore: productBefore, ProductAfter: productAfter, NetWorthKnown: delta != nil, NetWorthDelta: delta, EffectiveAt: plan.effectiveAt, ReservationReleaseDetails: releaseDetails,
 	}, nil
 }
 
@@ -118,7 +145,7 @@ func (s *Service) RecordProductOperation(ctx context.Context, command ProductCom
 	if err != nil {
 		return ProductOperationReceipt{}, err
 	}
-	currentHash, err := s.reviewedStateHash(snapshot, command, payloadSHA, localDate, plan)
+	currentHash, err := s.reviewedStateHash(ctx, snapshot, command, payloadSHA, localDate, plan)
 	if err != nil {
 		return ProductOperationReceipt{}, err
 	}
@@ -211,6 +238,11 @@ func (s *Service) buildProductPlan(ctx context.Context, origin *domain.HistoryOr
 }
 
 func (s *Service) planOpen(ctx context.Context, origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot, state domain.ChangeState, input OpenProductCommand, operationID domain.ProductOperationID, now time.Time) (productPlan, error) {
+	resolved, resolveErr := resolveProductEffectiveTime(input.EffectiveAt, input.EffectiveLocalDate, input.EffectiveLocalTime, origin, now)
+	if resolveErr != nil {
+		return productPlan{}, resolveErr
+	}
+	input.EffectiveAt = resolved
 	accountID, err := domain.ParseAccountID(input.AccountID)
 	if err != nil {
 		return productPlan{}, err
@@ -422,6 +454,11 @@ func (s *Service) planRecordExisting(ctx context.Context, origin *domain.History
 }
 
 func (s *Service) planReceiveInterest(ctx context.Context, origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot, state domain.ChangeState, input ReceiveInterestCommand, operationID domain.ProductOperationID, now time.Time) (productPlan, error) {
+	resolved, resolveErr := resolveProductEffectiveTime(input.EffectiveAt, input.EffectiveLocalDate, input.EffectiveLocalTime, origin, now)
+	if resolveErr != nil {
+		return productPlan{}, resolveErr
+	}
+	input.EffectiveAt = resolved
 	productID, contract, err := s.loadOpenProduct(ctx, origin.HouseholdID, input.ProductID)
 	if err != nil {
 		return productPlan{}, err
@@ -495,6 +532,11 @@ func (s *Service) planReceiveInterest(ctx context.Context, origin *domain.Histor
 }
 
 func (s *Service) planSettle(ctx context.Context, origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot, state domain.ChangeState, input SettleProductCommand, operationID domain.ProductOperationID, now time.Time, renewedFrom *domain.ProductContractID) (productPlan, error) {
+	resolved, resolveErr := resolveProductEffectiveTime(input.EffectiveAt, input.EffectiveLocalDate, input.EffectiveLocalTime, origin, now)
+	if resolveErr != nil {
+		return productPlan{}, resolveErr
+	}
+	input.EffectiveAt = resolved
 	productID, contract, err := s.loadOpenProduct(ctx, origin.HouseholdID, input.ProductID)
 	if err != nil {
 		return productPlan{}, err
@@ -602,7 +644,7 @@ func (s *Service) planRenew(ctx context.Context, origin *domain.HistoryOrigin, s
 	}
 	openInput := OpenProductCommand{
 		AccountID: settlePlan.contracts[0].AccountID.String(), Currency: settlePlan.contracts[0].Currency.String(),
-		Principal: input.Principal, OpeningFee: input.OpeningFee, EffectiveAt: input.Settle.EffectiveAt,
+		Principal: input.Principal, OpeningFee: input.OpeningFee, EffectiveAt: settlePlan.effectiveAt.UTC().Format(time.RFC3339Nano),
 		Terms: input.Terms, Policy: input.Policy,
 	}
 	openPlan, err := s.planOpen(ctx, origin, snapshot, settlePlan.state, openInput, operationID, now)
@@ -657,8 +699,9 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	if err != nil {
 		return productPlan{}, err
 	}
+	currentContracts := []domain.ProductContract{}
 	for _, productID := range uniqueProductIDs(evidence.Products) {
-		ops, err := s.repository.ListProductOperations(ctx, origin.HouseholdID, productID, 100, "")
+		ops, err := s.productHistoryForUndo(ctx, origin.HouseholdID, productID)
 		if err != nil {
 			return productPlan{}, err
 		}
@@ -669,7 +712,8 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 		if err != nil {
 			return productPlan{}, err
 		}
-		if !revisionMatches(stored.AfterContracts, current) {
+		currentContracts = append(currentContracts, current)
+		if !revisionMatchesAfterReversals(stored.AfterContracts, current, ops) {
 			return productPlan{}, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "productId", Message: "later contract or policy edits block undo"}
 		}
 	}
@@ -708,7 +752,19 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 		return productPlan{}, err
 	}
 	reservationLinks := make([]domain.ProductOperationReservation, 0, len(evidence.Reservations))
+	reservations, err := s.repository.ListLiquidityReservations(ctx, origin.HouseholdID, true)
+	if err != nil {
+		return productPlan{}, err
+	}
+	byID := make(map[domain.LiquidityReservationID]domain.LiquidityReservation, len(reservations))
+	for _, reservation := range reservations {
+		byID[reservation.ID] = reservation
+	}
 	for _, link := range evidence.Reservations {
+		current, ok := byID[link.ReservationID]
+		if !ok || current.Revision != link.ResultingRevision || !sameOptionalTime(current.ReleasedAt, link.ResultingReleasedAt) {
+			return productPlan{}, &domain.Error{Code: domain.ErrUnsafeUndo, Field: "reservationId", Message: "later reservation edits block undo"}
+		}
 		reservationLinks = append(reservationLinks, domain.ProductOperationReservation{
 			OperationID: operationID, ReservationID: link.ReservationID,
 			PreviousReleasedAt: link.ResultingReleasedAt, ResultingReleasedAt: link.PreviousReleasedAt,
@@ -730,7 +786,7 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	return productPlan{
 		state: working, previews: previews, contracts: restored, productLinks: productLinks, activityLinks: activityLinks,
 		reservationLinks: reservationLinks, productIDs: uniqueProductIDs(evidence.Products),
-		beforeContracts: stored.AfterContracts, afterContracts: restored, effectiveAt: now, reverses: &targetID,
+		beforeContracts: currentContracts, afterContracts: restored, effectiveAt: now, reverses: &targetID,
 	}, nil
 }
 
@@ -875,14 +931,16 @@ func (s *Service) reservationReleases(ctx context.Context, householdID domain.Ho
 	return links, ids, nil
 }
 
-func (s *Service) reviewedStateHash(snapshot domain.PortfolioSnapshot, command ProductCommand, payloadSHA, localDate string, plan productPlan) (string, error) {
+func (s *Service) reviewedStateHash(ctx context.Context, snapshot domain.PortfolioSnapshot, command ProductCommand, payloadSHA, localDate string, plan productPlan) (string, error) {
 	type fact struct {
-		LocalDate  string   `json:"localDate"`
-		CommandSHA string   `json:"commandSha"`
-		Cash       []string `json:"cash"`
-		Holdings   []string `json:"holdings"`
-		Contracts  []string `json:"contracts"`
-		Quotes     []string `json:"quotes"`
+		LocalDate    string                        `json:"localDate"`
+		CommandSHA   string                        `json:"commandSha"`
+		Cash         []string                      `json:"cash"`
+		Holdings     []string                      `json:"holdings"`
+		Contracts    []string                      `json:"contracts"`
+		Quotes       []string                      `json:"quotes"`
+		Reservations []domain.LiquidityReservation `json:"reservations"`
+		Policies     []domain.LiquidityPolicy      `json:"policies"`
 	}
 	payload := fact{LocalDate: localDate, CommandSHA: payloadSHA}
 	for _, values := range snapshot.CashValues {
@@ -901,6 +959,33 @@ func (s *Service) reviewedStateHash(snapshot domain.PortfolioSnapshot, command P
 		payload.Quotes = append(payload.Quotes, quote.InstrumentID.String()+":"+quote.ID.String())
 	}
 	sort.Strings(payload.Quotes)
+	if len(plan.beforeContracts) > 0 {
+		household := plan.beforeContracts[0].HouseholdID
+		keys := map[string]bool{}
+		for _, c := range plan.beforeContracts {
+			keys[domain.HoldingSourceRef(c.AccountID, c.HoldingID).Key()] = true
+		}
+		reservations, err := s.repository.ListLiquidityReservations(ctx, household, true)
+		if err != nil {
+			return "", err
+		}
+		for _, r := range reservations {
+			if keys[r.Source.Key()] {
+				payload.Reservations = append(payload.Reservations, r)
+			}
+		}
+		policies, err := s.repository.ListLiquidityPolicies(ctx, household)
+		if err != nil {
+			return "", err
+		}
+		for _, p := range policies {
+			if keys[p.Source.Key()] {
+				payload.Policies = append(payload.Policies, p)
+			}
+		}
+		sort.Slice(payload.Reservations, func(i, j int) bool { return payload.Reservations[i].ID.String() < payload.Reservations[j].ID.String() })
+		sort.Slice(payload.Policies, func(i, j int) bool { return payload.Policies[i].ID.String() < payload.Policies[j].ID.String() })
+	}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
@@ -946,28 +1031,31 @@ func normalizeProductCommand(command ProductCommand) (string, string, error) {
 }
 
 func collectCash(before, after domain.ChangeState, plan productPlan) (cashBefore, cashAfter []domain.Money) {
-	seen := map[domain.AccountID]struct{}{}
-	for _, contract := range append(plan.beforeContracts, plan.contracts...) {
-		seen[contract.AccountID] = struct{}{}
+	type endpoint struct {
+		account  domain.AccountID
+		currency domain.CurrencyCode
 	}
-	if plan.OpenAccountID() != "" {
-		seen[plan.OpenAccountID()] = struct{}{}
+	seen := map[endpoint]bool{}
+	for _, contracts := range [][]domain.ProductContract{plan.beforeContracts, plan.contracts} {
+		for _, c := range contracts {
+			seen[endpoint{c.AccountID, c.Currency}] = true
+		}
 	}
-	for accountID := range seen {
-		currency := domain.CurrencyCode("")
-		if values := after.Cash[accountID]; len(values) > 0 {
-			for code := range values {
-				currency = code
-				break
-			}
+	endpoints := make([]endpoint, 0, len(seen))
+	for e := range seen {
+		endpoints = append(endpoints, e)
+	}
+	sort.Slice(endpoints, func(i, j int) bool {
+		if endpoints[i].account != endpoints[j].account {
+			return endpoints[i].account.String() < endpoints[j].account.String()
 		}
-		if currency == "" {
-			continue
-		}
-		if money, err := currentCashAmount(before, accountID, currency); err == nil {
+		return endpoints[i].currency < endpoints[j].currency
+	})
+	for _, e := range endpoints {
+		if money, err := currentCashAmount(before, e.account, e.currency); err == nil {
 			cashBefore = append(cashBefore, money)
 		}
-		if money, err := currentCashAmount(after, accountID, currency); err == nil {
+		if money, err := currentCashAmount(after, e.account, e.currency); err == nil {
 			cashAfter = append(cashAfter, money)
 		}
 	}
@@ -1012,7 +1100,7 @@ func uniqueProductIDs(links []domain.ProductOperationProduct) []domain.ProductCo
 
 func isLatestActiveOperation(ops []domain.ProductOperation, id domain.ProductOperationID) bool {
 	for _, operation := range ops {
-		if reversedBy(ops, operation.ID) {
+		if operation.ReversesOperationID != nil || reversedBy(ops, operation.ID) {
 			continue
 		}
 		return operation.ID == id
@@ -1054,4 +1142,73 @@ func mustLocation(name string) *time.Location {
 		return time.UTC
 	}
 	return zone
+}
+
+func sameOptionalTime(left, right *time.Time) bool {
+	if left == nil || right == nil {
+		return left == nil && right == nil
+	}
+	return left.Equal(*right)
+}
+
+// Follow only recorded restoration edges. An intervening edit has no edge,
+// even if it happens to leave the same business values, and still blocks undo.
+func revisionMatchesAfterReversals(after []domain.ProductContract, current domain.ProductContract, ops []domain.ProductOperation) bool {
+	byID := make(map[domain.ProductOperationID]domain.ProductOperation, len(ops))
+	for _, op := range ops {
+		byID[op.ID] = op
+	}
+	for attempts := 0; attempts <= len(ops); attempts++ {
+		if revisionMatches(after, current) {
+			return true
+		}
+		advanced := false
+		for _, op := range ops {
+			if op.ReversesOperationID == nil {
+				continue
+			}
+			restored, err := receiptEvidenceJSON(op.ResultJSON)
+			if err != nil || !revisionMatches(restored.AfterContracts, current) {
+				continue
+			}
+			original, ok := byID[*op.ReversesOperationID]
+			if !ok {
+				return false
+			}
+			before, err := receiptEvidenceJSON(original.ResultJSON)
+			if err != nil {
+				return false
+			}
+			for _, contract := range before.BeforeContracts {
+				if contract.ID == current.ID && contract.Revision < current.Revision {
+					current = contract
+					advanced = true
+					break
+				}
+			}
+			if advanced {
+				break
+			}
+		}
+		if !advanced {
+			return false
+		}
+	}
+	return false
+}
+
+func (s *Service) productHistoryForUndo(ctx context.Context, householdID domain.HouseholdID, productID domain.ProductContractID) ([]domain.ProductOperation, error) {
+	var history []domain.ProductOperation
+	cursor := ""
+	for {
+		page, err := s.repository.ListProductOperations(ctx, householdID, productID, 100, cursor)
+		if err != nil {
+			return nil, err
+		}
+		history = append(history, page...)
+		if len(page) < 100 {
+			return history, nil
+		}
+		cursor = encodeProductOperationCursor(page[len(page)-1])
+	}
 }

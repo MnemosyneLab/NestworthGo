@@ -133,11 +133,13 @@ export function cashVersusProceeds(
       continue;
     }
     const result = resultForHorizon(source, horizonOn);
-    if (!result?.selectedRoute) {
-      continue;
+    const action = result?.selectedRoute?.actionRequired ?? source.normalRoute?.actionRequired;
+    const isCash = action ? action === "none" || action === "withdraw" : source.sourceRef.kind !== "holding";
+    if (!result || result.status !== "complete") {
+      if (isCash) cashKnown = false;
+      else proceedsKnown = false;
     }
-    const action = result.selectedRoute.actionRequired ?? "none";
-    const isCash = action === "none" || action === "withdraw";
+    if (!result?.selectedRoute) continue;
     const net = result.netBase ?? result.netNative;
     if (!net) {
       if (isCash) {

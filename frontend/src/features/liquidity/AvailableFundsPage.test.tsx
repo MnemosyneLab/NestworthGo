@@ -199,3 +199,28 @@ describe("AvailableFundsPage", () => {
     expect(screen.getByTestId("horizon-2026-09-27")).toHaveAttribute("aria-pressed", "true");
   });
 });
+
+it("shows requested, applied and shortfall reservations separately", async () => {
+  const data = fixtureOverview();
+  const cash = data.sources![0];
+  cash.reservationRequested = money("12000");
+  cash.bucketResults![0].appliedReserveNative = money("10000");
+  cash.bucketResults![0].reserveShortfallNative = money("2000");
+  overview.mockResolvedValue(data);
+  renderPage();
+  const row = (await screen.findAllByText("Bank cash")).map((node) => node.closest("tr")).find(Boolean)!;
+  expect(within(row).getByText("Requested: $12,000.00")).toBeInTheDocument();
+  expect(within(row).getByText("Applied: $10,000.00")).toBeInTheDocument();
+  expect(within(row).getByText("Shortfall: $2,000.00")).toBeInTheDocument();
+});
+
+it("explains reservations that do not apply by the selected horizon", async () => {
+  const data = fixtureOverview();
+  data.sources![0].reservationRequested = money("2000");
+  data.sources![0].bucketResults![0].selectedRoute = null;
+  data.sources![0].bucketResults![0].netNative = null;
+  data.sources![0].bucketResults![0].appliedReserveNative = null;
+  overview.mockResolvedValue(data);
+  renderPage();
+  expect(await screen.findByText("Not applied by this date: $2,000.00")).toBeInTheDocument();
+});

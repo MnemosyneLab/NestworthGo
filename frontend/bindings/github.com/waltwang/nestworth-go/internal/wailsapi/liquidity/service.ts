@@ -21,6 +21,10 @@ export function ListProducts(request: $models.ListProductsRequest): $Cancellable
     return $Call.ByID(841124278, request);
 }
 
+export function ListReservations(): $CancellablePromise<$models.ReservationDTO[] | null> {
+    return $Call.ByID(2217556709);
+}
+
 export function Overview(request: $models.OverviewRequest): $CancellablePromise<$models.LiquidityOverviewDTO> {
     return $Call.ByID(1188744533, request);
 }

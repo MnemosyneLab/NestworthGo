@@ -57,6 +57,7 @@ type LiquidityRoute struct {
 }
 
 type LiquidityBucketResult struct {
+	nativeStatus           CompletenessStatus
 	HorizonOn              string
 	SelectedRoute          *LiquidityRoute
 	NetNative              *Money
@@ -161,7 +162,7 @@ func EvaluateLiquidity(query LiquidityQuery, sources []LiquiditySource, reservat
 		key := reservation.Source.Key()
 		found := false
 		for _, source := range sources {
-			if source.Ref.Key() == key && !source.Archived && !source.Liability && !source.QuantityZero {
+			if source.Ref.Key() == key && !source.Archived && !source.Liability && !source.QuantityZero && (source.CurrentNativeValue == nil || source.CurrentNativeValue.Amount().IsPositive()) {
 				found = true
 				break
 			}
@@ -279,8 +280,7 @@ func evaluateSource(query LiquidityQuery, today string, horizons []string, sourc
 		}
 		result.EarlyRoute = early
 	}
-	due := source.Managed && source.Contract != nil && source.Contract.State == ProductStateOpen &&
-		normal != nil && normal.ReceiptOn != nil && compareCivilDates(*normal.ReceiptOn, today) <= 0
+	due := productReceiptUnconfirmed(source.Contract, policy, today, normal)
 	result.DueUnconfirmed = due
 	result.DisplayState = deriveDisplayState(source, policy, today, due, normal)
 	if due {
@@ -293,6 +293,23 @@ func evaluateSource(query LiquidityQuery, today string, horizons []string, sourc
 		result.BucketResults = append(result.BucketResults, bucket)
 	}
 	return result, nil
+}
+
+// ProductAvailabilityState shares the overview's timing rules with product detail.
+func ProductAvailabilityState(contract ProductContract, policy LiquidityPolicy, today string) (ProductDisplayState, error) {
+	source := LiquiditySource{Managed: true, Contract: &contract}
+	normal, err := buildNormalRoute(today, source, policy)
+	if err != nil {
+		return "", err
+	}
+	return deriveDisplayState(source, policy, today, productReceiptUnconfirmed(&contract, policy, today, normal), normal), nil
+}
+
+func productReceiptUnconfirmed(contract *ProductContract, policy LiquidityPolicy, today string, normal *LiquidityRoute) bool {
+	return contract != nil && contract.State == ProductStateOpen &&
+		(contract.MaturityOn != nil || policy.ReceiptOnOverride != nil) &&
+		policy.AccessKind != AccessUnknown && policy.AccessKind != AccessExcluded &&
+		normal != nil && normal.ReceiptOn != nil && compareCivilDates(*normal.ReceiptOn, today) <= 0
 }
 
 func deriveDisplayState(source LiquiditySource, policy LiquidityPolicy, today string, due bool, normal *LiquidityRoute) ProductDisplayState {
@@ -392,18 +409,13 @@ func buildEarlyRoute(today string, source LiquiditySource, policy LiquidityPolic
 	if policy.EarlyKind == EarlyNotAllowed {
 		return nil, nil
 	}
-	route := &LiquidityRoute{Kind: RouteEarly, Status: StatusComplete, AmountBasis: "current_value", ActionRequired: "early_withdrawal"}
-	if policy.EarlyKind == EarlyUnknown {
-		route.Status = StatusUnavailable
-		route.MissingReasons = []string{"early access is unknown"}
-		route.Assumptions = []LiquidityAssumption{AssumptionUnknownEarly}
-		return route, nil
-	}
 	if source.Managed && source.Contract != nil && source.Contract.Kind == ProductTermDeposit && source.Contract.MaturityOn != nil {
 		if compareCivilDates(today, *source.Contract.MaturityOn) >= 0 {
 			return nil, nil
 		}
 	}
+	route := &LiquidityRoute{Kind: RouteEarly, Status: StatusComplete, AmountBasis: "current_value", ActionRequired: "early_withdrawal"}
+
 	eligible, assumptions, err := policy.actionEligibleOn(today, true, source.Contract)
 	if err != nil {
 		route.Status = StatusUnavailable
@@ -416,6 +428,13 @@ func buildEarlyRoute(today string, source LiquiditySource, policy LiquidityPolic
 		}
 	}
 	route.EligibleOn = &eligible
+	if policy.EarlyKind == EarlyUnknown {
+		route.Status = StatusUnavailable
+		route.MissingReasons = []string{"early access is unknown"}
+		route.Assumptions = []LiquidityAssumption{AssumptionUnknownEarly}
+		return route, nil
+	}
+
 	receipt, receiptAssumptions, err := policy.receiptOn(today, true, source.Contract)
 	if err != nil {
 		route.Status = StatusPartial
@@ -523,6 +542,9 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 	var selected *LiquidityRoute
 	unknownEligible := false
 	for _, candidate := range candidates {
+		if candidate.EligibleOn != nil && *candidate.EligibleOn > horizon {
+			continue
+		}
 		if candidate.ReceiptOn == nil {
 			if candidate.Status != StatusComplete {
 				unknownEligible = true
@@ -584,6 +606,15 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 		result.UnreservedNative = &unreserved
 		result.ReserveShortfallNative = &zero
 	}
+
+	if unknownEligible {
+		result.Status = StatusPartial
+		result.Reasons = append(result.Reasons, "another eligible alternative has unknown proceeds")
+	}
+	if selected.Status != StatusComplete && result.Status == StatusComplete {
+		result.Status = selected.Status
+	}
+	result.nativeStatus = result.Status
 	if convert != nil && selected.NetNative != nil {
 		if converted, ok, err := convert(*selected.NetNative); err == nil && ok {
 			result.NetBase = converted
@@ -591,13 +622,6 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 			result.Status = StatusPartial
 			result.Reasons = append(result.Reasons, "base FX is missing")
 		}
-	}
-	if unknownEligible {
-		result.Status = StatusPartial
-		result.Reasons = append(result.Reasons, "another eligible alternative has unknown proceeds")
-	}
-	if selected.Status != StatusComplete && result.Status == StatusComplete {
-		result.Status = selected.Status
 	}
 	return result
 }
@@ -661,11 +685,8 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 			bucket.EstimatedSourceCount++
 		}
 		if row.NetNative == nil {
-			if source.NormalRoute != nil && source.NormalRoute.ReceiptOn != nil && compareCivilDates(*source.NormalRoute.ReceiptOn, horizon) > 0 && !source.DueUnconfirmed {
-				// Locked until after this horizon does not make the bucket incomplete.
-				continue
-			}
-			if source.DueUnconfirmed {
+			if row.Status == StatusComplete {
+				// No eligible route is a known zero only when the row proves it.
 				continue
 			}
 			bucket.UnknownSourceCount++
@@ -683,7 +704,7 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 		if row.UnreservedNative != nil {
 			acc.knownUnreserved = acc.knownUnreserved.Add(row.UnreservedNative.Amount())
 		}
-		if row.Status != StatusComplete {
+		if !nativeResultComplete(*row) {
 			acc.complete = false
 			baseComplete = false
 			if row.Status == StatusUnavailable || row.Status == StatusPartial {
@@ -772,6 +793,7 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 		sumAvailable := decimal.Zero
 		sumReserve := decimal.Zero
 		convertedOK := true
+		hasConvertedAmount := false
 		for _, source := range sources {
 			if source.Excluded {
 				continue
@@ -794,6 +816,7 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 				convertedOK = false
 				continue
 			}
+			hasConvertedAmount = true
 			sumAvailable = sumAvailable.Add(*converted)
 			if row.AppliedReserveNative != nil {
 				convertedReserve, ok, err := convert(*row.AppliedReserveNative)
@@ -805,7 +828,7 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 				}
 			}
 		}
-		if !sumAvailable.IsZero() || convertedOK {
+		if hasConvertedAmount || (!baseHasKnown && !baseUnknown) {
 			available, err := displayMoney(sumAvailable, base)
 			if err != nil {
 				return LiquidityBucket{}, err
@@ -948,4 +971,12 @@ func assertCumulativeMonotonic(buckets []LiquidityBucket) error {
 		}
 	}
 	return nil
+}
+
+// Native completeness is captured before base FX conversion.
+func nativeResultComplete(row LiquidityBucketResult) bool {
+	if row.nativeStatus != "" {
+		return row.nativeStatus == StatusComplete
+	}
+	return row.Status == StatusComplete
 }

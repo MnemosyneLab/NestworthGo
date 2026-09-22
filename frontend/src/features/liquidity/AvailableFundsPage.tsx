@@ -1,3 +1,4 @@
+import { ReservationManager } from "./ReservationManager";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ import { PageIntro } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { useAccounts } from "@/queries/accounts";
 import { useLiquidityOverview } from "@/queries/liquidity";
-import { PolicySheet, ProductDetailSheet, ProductFormSheet, ReservationSheet, moneyText } from "@/features/liquidity/ProductSheets";
+import { PolicySheet, ProductDetailSheet, ProductFormSheet,  moneyText } from "@/features/liquidity/ProductSheets";
 import { canHoldProducts } from "@/features/liquidity/productPolicy";
 import {
   actionRequiredLabel,
@@ -82,6 +83,9 @@ function HorizonCard({
       {bucket.status === "partial" && bucket.knownAvailableSubtotal && currencyMode === "base" && (
         <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.partial")}: {formatKnownOrUnknown(bucket.knownAvailableSubtotal, unknown)}</p>
       )}
+      {currencyMode === "native" && (bucket.nativeCurrencyGroups ?? []).filter((group) => group.status === "partial" && group.knownAvailableSubtotal).map((group) => (
+        <p key={group.currency} className="mt-1 text-xs text-muted-foreground">{t("availableFunds.partial")}: {formatKnownOrUnknown(group.knownAvailableSubtotal, unknown)}</p>
+      ))}
       <p className="mt-3 text-xs text-muted-foreground">{t("availableFunds.cashAccessible")}: {breakdown.cash}</p>
       <p className="text-xs text-muted-foreground">{t("availableFunds.estimatedProceeds")}: {breakdown.proceeds}</p>
     </button>
@@ -101,6 +105,7 @@ export function AvailableFundsPage({
   const [currencyMode, setCurrencyMode] = useState<CurrencyMode>("base");
   const [filter, setFilter] = useState<SourceFilter>("all");
   const [policySource, setPolicySource] = useState<LiquiditySourceDTO | null>(null);
+  const [manageReservations,setManageReservations] = useState(false);
   const [reservationSource, setReservationSource] = useState<LiquiditySourceDTO | null>(null);
   const [productFormAccountId, setProductFormAccountId] = useState<string | null>(accountId ?? null);
   const [detailProductId, setDetailProductId] = useState<string | null>(productId ?? null);
@@ -142,6 +147,7 @@ export function AvailableFundsPage({
             />
             {t("availableFunds.considerEarly")}
           </label>
+          <Button type="button" size="sm" variant="outline" onClick={() => { setReservationSource(null); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button>
           {eligibleAccounts.length > 0 && (
             <Button type="button" size="sm" onClick={() => setProductFormAccountId(eligibleAccounts[0].account.id)}>
               {t("availableFunds.addProduct")}
@@ -289,13 +295,22 @@ export function AvailableFundsPage({
                       <td className="px-3 py-2">{moneyText(source.currentNativeValue, unknown)}</td>
                       <td className="px-3 py-2">{route?.receiptOn ?? t("availableFunds.unknownAmount")}</td>
                       <td className="px-3 py-2">{moneyText(route?.feeNative, unknown)}</td>
-                      <td className="px-3 py-2">{moneyText(result?.appliedReserveNative, unknown)}</td>
+                      <td className="px-3 py-2">
+                        <div>{t("availableFunds.appliedReserve")}: {moneyText(result?.appliedReserveNative, unknown)}</div>
+                        <div className="text-xs text-muted-foreground">{t("availableFunds.requestedReserve")}: {moneyText(source.reservationRequested, unknown)}</div>
+                        {result?.reserveShortfallNative && !/^0(?:\.0+)?$/.test(result.reserveShortfallNative.amount) && (
+                          <div className="text-xs text-amber-700 dark:text-amber-400">{t("availableFunds.reserveShortfall")}: {moneyText(result.reserveShortfallNative, unknown)}</div>
+                        )}
+                        {!result?.selectedRoute && source.reservationRequested && !/^0(?:\.0+)?$/.test(source.reservationRequested.amount) && (
+                          <div className="text-xs text-muted-foreground">{t("availableFunds.reserveNotApplied")}: {moneyText(source.reservationRequested, unknown)}</div>
+                        )}
+                      </td>
                       <td className="px-3 py-2">{source.dueUnconfirmed ? unknown : moneyText(result?.unreservedNative, unknown)}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
                           <span>{actionRequiredLabel(t, route?.actionRequired)}</span>
                           <Button type="button" size="sm" variant="ghost" onClick={() => setPolicySource(source)}>{t("availableFunds.editSource")}</Button>
-                          <Button type="button" size="sm" variant="ghost" onClick={() => setReservationSource(source)}>{t("availableFunds.addReservation")}</Button>
+                          <Button type="button" size="sm" variant="ghost" onClick={() => { setReservationSource(source); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button>
                           {source.productId && (
                             <Button type="button" size="sm" variant="outline" onClick={() => setDetailProductId(source.productId)}>
                               {t("availableFunds.products")}
@@ -319,7 +334,7 @@ export function AvailableFundsPage({
           </CardHeader>
           <CardContent className="text-sm">
             {(data.unresolvedReservations ?? []).map((item) => (
-              <p key={item.reservation.id}>{item.reservation.label}: {formatKnownOrUnknown(item.reservation.amount, unknown)} · {item.reason}</p>
+              <p key={item.reservation.id}>{item.reservation.label}: {formatKnownOrUnknown(item.reservation.amount, unknown)} · {item.reason} <Button variant="link" onClick={() => { setReservationSource(null); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button></p>
             ))}
           </CardContent>
         </Card>
@@ -337,7 +352,7 @@ export function AvailableFundsPage({
       )}
 
       <PolicySheet key={policySource?.sourceKey ?? "policy"} source={policySource} open={Boolean(policySource)} onOpenChange={(open) => { if (!open) setPolicySource(null); }} />
-      <ReservationSheet key={reservationSource?.sourceKey ?? "reservation"} source={reservationSource} open={Boolean(reservationSource)} onOpenChange={(open) => { if (!open) setReservationSource(null); }} />
+      <ReservationManager key={reservationSource?.sourceKey ?? "reservation"} source={reservationSource} sources={sources} open={manageReservations} onOpenChange={(open) => { setManageReservations(open); if (!open) setReservationSource(null); }} />
       {productFormAccountId && (
         <ProductFormSheet
           accountId={productFormAccountId}

@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"time"
 
@@ -236,24 +237,13 @@ func (s *Service) productDetail(ctx context.Context, householdID domain.Househol
 			}
 		}
 	}
-	display := domain.ProductDisplaySettled
-	switch contract.State {
-	case domain.ProductStateCancelled:
-		display = domain.ProductDisplayCancelled
-	case domain.ProductStateOpen:
-		display = domain.ProductDisplayLocked
-		if policy.UnlockOn != nil {
-			localDate, _, err := domain.LocalCivilDate(s.clock(), timezoneOrUTC(snapshot.Origin))
-			if err != nil {
-				return ProductDetail{}, err
-			}
-			if compareCivil(localDate, *policy.UnlockOn) >= 0 {
-				display = domain.ProductDisplayRedeemable
-			}
-			if contract.MaturityOn != nil && compareCivil(localDate, *contract.MaturityOn) >= 0 {
-				display = domain.ProductDisplayDueUnconfirmed
-			}
-		}
+	localDate, _, err := domain.LocalCivilDate(s.clock(), timezoneOrUTC(snapshot.Origin))
+	if err != nil {
+		return ProductDetail{}, err
+	}
+	display, err := domain.ProductAvailabilityState(contract, policy, localDate)
+	if err != nil {
+		return ProductDetail{}, err
 	}
 	disabled := map[string]string{}
 	actions := []string{}
@@ -483,6 +473,7 @@ func (s *Service) UpdateProductTerms(ctx context.Context, input UpdateProductTer
 	if contract.Revision != input.ExpectedRevision {
 		return ProductDetail{}, &domain.Error{Code: domain.ErrRevisionConflict, Field: "expectedRevision", Message: "product revision does not match"}
 	}
+	before := contract
 	if contract.State != domain.ProductStateOpen && input.Terms.Name == "" {
 		return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Field: "productId", Message: "settled contracts only accept name and note edits"}
 	}
@@ -491,7 +482,9 @@ func (s *Service) UpdateProductTerms(ctx context.Context, input UpdateProductTer
 		return ProductDetail{}, err
 	}
 	now := s.clock()
-	contract.Kind = kind
+	if kind != contract.Kind || input.Terms.StartOn != contract.StartOn {
+		return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Field: "terms", Message: "product kind and start date are immutable"}
+	}
 	if input.Terms.Name != "" {
 		contract.Name = input.Terms.Name
 	}
@@ -521,10 +514,48 @@ func (s *Service) UpdateProductTerms(ctx context.Context, input UpdateProductTer
 		policy.CreatedAt = existing.CreatedAt
 		policy.Revision = existing.Revision + 1
 	}
-	if err := s.repository.SaveProductContract(ctx, contract); err != nil {
-		return ProductDetail{}, err
+	expectedPolicyRevision := 0
+	if existing != nil {
+		expectedPolicyRevision = existing.Revision
 	}
-	if err := s.repository.SaveLiquidityPolicy(ctx, policy); err != nil {
+	if before.State != domain.ProductStateOpen {
+		if existing == nil {
+			return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Message: "closed product policy is missing"}
+		}
+		candidate := before
+		candidate.MaturityOn = input.Terms.MaturityOn
+		candidate.InterestMode = mode
+		candidate.AnnualRate = rate
+		if rate != nil && before.AnnualRate != nil && rate.Canonical() == before.AnnualRate.Canonical() {
+			candidate.AnnualRate = before.AnnualRate
+		}
+		candidate.MaturityInterest = maturityInterest
+		if sameMoneyValue(maturityInterest, before.MaturityInterest) {
+			candidate.MaturityInterest = before.MaturityInterest
+		}
+		candidate.InterestPaidThroughOn = paidThrough
+		oldPolicy := *existing
+		policy.UpdatedAt = oldPolicy.UpdatedAt
+		policy.Revision = oldPolicy.Revision
+		policy.ConfirmedAt = oldPolicy.ConfirmedAt
+		if sameMoneyValue(policy.NormalExitFee, oldPolicy.NormalExitFee) {
+			policy.NormalExitFee = oldPolicy.NormalExitFee
+		}
+		if sameMoneyValue(policy.EarlyFee, oldPolicy.EarlyFee) {
+			policy.EarlyFee = oldPolicy.EarlyFee
+		}
+		if sameMoneyValue(policy.EarlyGrossAmount, oldPolicy.EarlyGrossAmount) {
+			policy.EarlyGrossAmount = oldPolicy.EarlyGrossAmount
+		}
+		if sameMoneyValue(policy.AccessibleAmountCap, oldPolicy.AccessibleAmountCap) {
+			policy.AccessibleAmountCap = oldPolicy.AccessibleAmountCap
+		}
+		if !reflect.DeepEqual(candidate, before) || !reflect.DeepEqual(policy, oldPolicy) {
+			return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Field: "terms", Message: "closed contracts only accept name and note edits"}
+		}
+		policy = oldPolicy
+	}
+	if err := s.repository.SaveProductTerms(ctx, contract, policy, expectedPolicyRevision); err != nil {
 		return ProductDetail{}, err
 	}
 	return s.productDetail(ctx, household.ID, contract)
@@ -651,4 +682,19 @@ func (s *Service) policyBySource(ctx context.Context, householdID domain.Househo
 		}
 	}
 	return nil, nil
+}
+
+func (s *Service) ListLiquidityReservations(ctx context.Context) ([]domain.LiquidityReservation, error) {
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return s.repository.ListLiquidityReservations(ctx, household.ID, true)
+}
+
+func sameMoneyValue(a, b *domain.Money) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Currency() == b.Currency() && a.Amount().Equal(b.Amount())
 }
