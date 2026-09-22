@@ -42,11 +42,15 @@ func (s *Service) productPreviewValues(snapshot domain.PortfolioSnapshot, plan p
 			if !ok || c.NativeAmount == "" {
 				return nil, nil
 			}
-			m, err := domain.ParseMoney(c.NativeAmount, c.NativeCurrency)
+			raw, err := domain.ParseNativeAmount(c.NativeAmount)
 			if err != nil {
 				return nil, err
 			}
-			total = total.Add(m.Amount())
+			amount, err := decimal.NewFromString(raw)
+			if err != nil {
+				return nil, err
+			}
+			total = total.Add(amount)
 		}
 		m, err := domain.NewMoney(total, currency)
 		return &m, err

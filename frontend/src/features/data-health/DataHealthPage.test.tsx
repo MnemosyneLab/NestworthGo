@@ -63,6 +63,19 @@ describe("DataHealthPage", () => {
     startSync.mockResolvedValue({ job: { jobId: "job-1", outcome: "running", phase: "plan", completedTargets: 0, targetCount: 1 }, attached: false, conflict: false });
   });
 
+  it("shows pending daily references for the focused date without offering premature repair", async () => {
+    scanHealth.mockResolvedValue({ healthy:false, incompleteSince:"2026-09-21", coverageThrough:"2026-09-21", lastFinalizedMarketDate:"2026-09-21", issueCount:1, executableCount:0, prerequisiteCount:0, snapshotDays:0,
+      issues:[{id:"pending-gold",kind:"history_pending",severity:"warning",targetKey:"instrument:gold",instrumentId:"gold",label:"Gold",provider:"yahoo_finance",rangeStart:"2026-09-21",rangeEnd:"2026-09-21",action:"none",executable:false,reason:"daily_reference_pending",nextCheckAt:"2026-09-22T12:00:00+08:00"}] });
+    renderPage({focus:{rangeStart:"2026-09-21",rangeEnd:"2026-09-21"}});
+    expect(await screen.findByText("Waiting for daily reference")).toBeInTheDocument();
+    expect(screen.getByText(/Daily reference is not yet finalized/)).toBeInTheDocument();
+    expect(screen.getByText(/2026-09-22 12:00:00\+08:00/)).toBeInTheDocument();
+    expect(screen.queryByText("All data is healthy")).not.toBeInTheDocument();
+    expect(screen.getByTestId("repair-all")).toBeDisabled();
+    expect(previewSync).not.toHaveBeenCalled();
+    expect(startSync).not.toHaveBeenCalled();
+  });
+
   it("opens with a local scan and does not start provider work", async () => {
     scanHealth.mockResolvedValue({
       healthy: true,

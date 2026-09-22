@@ -98,11 +98,12 @@ func liquiditySourceFromComponent(account domain.AccountValuation, component dom
 		PriceEvidence: component.PriceEvidence, FXEvidence: component.FXEvidence,
 	}
 	if component.NativeAmount != "" {
-		money, err := domain.ParseMoney(component.NativeAmount, component.NativeCurrency)
+		money, err := displayNativeValuation(component.NativeAmount, component.NativeCurrency)
 		if err != nil {
 			return domain.LiquiditySource{}, err
 		}
 		source.CurrentNativeValue = &money
+		source.CurrentNativeAmount = component.NativeAmount
 	}
 	if component.HoldingID != nil {
 		source.Ref = domain.HoldingSourceRef(account.Account.ID, *component.HoldingID)
@@ -229,7 +230,7 @@ func (s *Service) productDetail(ctx context.Context, householdID domain.Househol
 	for _, account := range valued {
 		for _, component := range account.Components {
 			if component.HoldingID != nil && *component.HoldingID == contract.HoldingID && component.NativeAmount != "" {
-				money, err := domain.ParseMoney(component.NativeAmount, component.NativeCurrency)
+				money, err := displayNativeValuation(component.NativeAmount, component.NativeCurrency)
 				if err != nil {
 					return ProductDetail{}, err
 				}
@@ -697,4 +698,18 @@ func sameMoneyValue(a, b *domain.Money) bool {
 		return a == nil && b == nil
 	}
 	return a.Currency() == b.Currency() && a.Amount().Equal(b.Amount())
+}
+
+// Native valuations are quantity × price (up to sixteen fractional digits).
+// Money here is a display projection; liquidity sources retain the exact input.
+func displayNativeValuation(raw string, currency domain.CurrencyCode) (domain.Money, error) {
+	canonical, err := domain.ParseNativeAmount(raw)
+	if err != nil {
+		return domain.Money{}, err
+	}
+	amount, err := decimal.NewFromString(canonical)
+	if err != nil {
+		return domain.Money{}, err
+	}
+	return domain.NewMoney(amount, currency)
 }

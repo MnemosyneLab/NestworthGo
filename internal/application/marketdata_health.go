@@ -21,6 +21,8 @@ const (
 	HealthKindStaleAccountValue        = "stale_account_value"
 	HealthKindMissingAccountValue      = "missing_account_value"
 	HealthKindIncompleteValuation      = "incomplete_valuation"
+	HealthKindHistoryPending           = "history_pending"
+	HealthKindSnapshotIncomplete       = "snapshot_incomplete"
 	HealthKindSnapshotMissing          = "snapshot_missing"
 	HealthKindSnapshotOutdated         = "snapshot_outdated"
 	HealthKindSyncFailure              = "sync_failure"
@@ -58,6 +60,7 @@ type HealthIssue struct {
 	Action       string
 	Executable   bool
 	Collapsed    bool
+	NextCheckAt  string
 }
 
 // MarketDataHealthReport is the local Data Health scan result. ScanMarketDataHealth
@@ -180,10 +183,35 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 	}
 	issues = append(issues, valuationIssues...)
 
+	storedIssues, err := s.incompleteSnapshotHealth(ctx, origin, plan, names)
+	if err != nil {
+		return MarketDataHealthReport{}, err
+	}
+	for _, issue := range storedIssues {
+		// Keep the precise snapshot date, and retain existing actionable root causes.
+		for _, existing := range issues {
+			if issue.Kind == HealthKindSnapshotIncomplete && issue.InstrumentID != "" && existing.InstrumentID == issue.InstrumentID && existing.RangeStart <= issue.RangeStart && existing.RangeEnd >= issue.RangeEnd && existing.Severity == HealthSeverityBlocking {
+				issue.Collapsed = true
+				break
+			}
+		}
+		issues = append(issues, issue)
+	}
 	rootCause := hasUncollapsedRootCause(issues)
 	state, err := s.repository.DailySnapshotState(ctx, household.ID)
 	if err != nil {
 		return MarketDataHealthReport{}, err
+	}
+	// The existing dirty-range issue already covers ready dates in that range.
+	if from, to, ok := closedSnapshotRange(state, plan); ok {
+		filtered := issues[:0]
+		for _, issue := range issues {
+			if issue.Reason == "snapshot_inputs_ready" && issue.RangeStart >= from && issue.RangeStart <= to {
+				continue
+			}
+			filtered = append(filtered, issue)
+		}
+		issues = filtered
 	}
 	snapshotIssues := scanSnapshotHealth(state, plan, rootCause)
 	issues = append(issues, snapshotIssues...)
@@ -199,6 +227,12 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 	}
 	if !rootCause {
 		report.SnapshotDays = countedSnapshotDays(snapshotIssues)
+		for _, date := range readySnapshotDates(storedIssues) {
+			from, to, ok := closedSnapshotRange(state, plan)
+			if !ok || date < from || date > to {
+				report.SnapshotDays++
+			}
+		}
 	} else {
 		report.SnapshotDays = 0
 	}
@@ -688,7 +722,7 @@ func hasUncollapsedRootCause(issues []HealthIssue) bool {
 			continue
 		}
 		switch issue.Kind {
-		case HealthKindMissingAccountValue, HealthKindMissingInstrumentHistory, HealthKindMissingFXHistory, HealthKindMissingManualPrice, HealthKindMissingManualFX, HealthKindMissingProviderKey, HealthKindMissingBinding, HealthKindInitialAnchorMissing, HealthKindUnsupportedCoverage, HealthKindIncompleteValuation:
+		case HealthKindHistoryPending, HealthKindSnapshotIncomplete, HealthKindMissingAccountValue, HealthKindMissingInstrumentHistory, HealthKindMissingFXHistory, HealthKindMissingManualPrice, HealthKindMissingManualFX, HealthKindMissingProviderKey, HealthKindMissingBinding, HealthKindInitialAnchorMissing, HealthKindUnsupportedCoverage, HealthKindIncompleteValuation:
 			return true
 		}
 	}

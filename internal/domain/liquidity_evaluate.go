@@ -9,25 +9,26 @@ import (
 
 // LiquiditySource is one current-valuation component fed into availability.
 type LiquiditySource struct {
-	Ref                LiquiditySourceRef
-	AccountID          AccountID
-	ProductID          *ProductContractID
-	DisplayName        string
-	NativeCurrency     CurrencyCode
-	CurrentNativeValue *Money
-	ValueAsOf          *time.Time
-	PriceEvidence      *QuoteEvidenceView
-	FXEvidence         *QuoteEvidenceView
-	IncludeInNetWorth  bool
-	Archived           bool
-	Liability          bool
-	QuantityZero       bool
-	AccountType        AccountType
-	TrackingMode       TrackingMode
-	InstrumentType     *InstrumentType
-	Managed            bool
-	Contract           *ProductContract
-	ExplicitPolicy     *LiquidityPolicy
+	Ref                 LiquiditySourceRef
+	AccountID           AccountID
+	ProductID           *ProductContractID
+	DisplayName         string
+	NativeCurrency      CurrencyCode
+	CurrentNativeValue  *Money
+	CurrentNativeAmount string // Exact valuation; CurrentNativeValue is its display projection.
+	ValueAsOf           *time.Time
+	PriceEvidence       *QuoteEvidenceView
+	FXEvidence          *QuoteEvidenceView
+	IncludeInNetWorth   bool
+	Archived            bool
+	Liability           bool
+	QuantityZero        bool
+	AccountType         AccountType
+	TrackingMode        TrackingMode
+	InstrumentType      *InstrumentType
+	Managed             bool
+	Contract            *ProductContract
+	ExplicitPolicy      *LiquidityPolicy
 }
 
 type LiquidityQuery struct {
@@ -39,10 +40,12 @@ type LiquidityQuery struct {
 }
 
 // ConvertToBase converts a native amount using the same eligible current FX
-// path as valuation. A nil result means the FX observation is missing.
+// path as valuation. Conversion must be linear under a fixed FX snapshot.
+// A nil result means the FX observation is missing.
 type ConvertToBase func(amount Money) (*decimal.Decimal, bool, error)
 
 type LiquidityRoute struct {
+	netExact       *decimal.Decimal
 	Kind           RouteKind
 	EligibleOn     *string
 	ReceiptOn      *string
@@ -57,6 +60,8 @@ type LiquidityRoute struct {
 }
 
 type LiquidityBucketResult struct {
+	netExact               *decimal.Decimal
+	reserveExact           *decimal.Decimal
 	nativeStatus           CompletenessStatus
 	HorizonOn              string
 	SelectedRoute          *LiquidityRoute
@@ -151,6 +156,13 @@ func EvaluateLiquidity(query LiquidityQuery, sources []LiquiditySource, reservat
 		BaseCurrency: query.BaseCurrency,
 		Assumptions:  []LiquidityAssumption{AssumptionCurrentPricesAndFX, AssumptionAssetsOnly, AssumptionOutstandingDebtOmitted},
 	}
+	for _, source := range sources {
+		if source.CurrentNativeAmount != "" {
+			if _, err := ParseNativeAmount(source.CurrentNativeAmount); err != nil {
+				return LiquidityOverview{}, err
+			}
+		}
+	}
 	activeBySource := map[string]Money{}
 	for _, reservation := range reservations {
 		if err := reservation.Validate(); err != nil {
@@ -162,7 +174,7 @@ func EvaluateLiquidity(query LiquidityQuery, sources []LiquiditySource, reservat
 		key := reservation.Source.Key()
 		found := false
 		for _, source := range sources {
-			if source.Ref.Key() == key && !source.Archived && !source.Liability && !source.QuantityZero && (source.CurrentNativeValue == nil || source.CurrentNativeValue.Amount().IsPositive()) {
+			if source.Ref.Key() == key && !source.Archived && !source.Liability && !source.QuantityZero && liquiditySourcePositiveOrUnknown(source) {
 				found = true
 				break
 			}
@@ -380,7 +392,7 @@ func buildNormalRoute(today string, source LiquiditySource, policy LiquidityPoli
 	if source.Managed && source.Contract != nil && source.Contract.Kind == ProductTermDeposit {
 		route.Assumptions = appendUniqueAssumption(route.Assumptions, AssumptionForecastInterest)
 	}
-	net, feeUnknown, feeExceeds, err := applyFee(*gross, policy.NormalExitFee)
+	net, exact, feeUnknown, feeExceeds, err := applyLiquidityFee(source, policy, basis, *gross, policy.NormalExitFee)
 	if err != nil {
 		return nil, err
 	}
@@ -392,6 +404,7 @@ func buildNormalRoute(today string, source LiquiditySource, policy LiquidityPoli
 	}
 	route.FeeNative = policy.NormalExitFee
 	route.NetNative = net
+	route.netExact = exact
 	if feeExceeds {
 		route.Assumptions = appendUniqueAssumption(route.Assumptions, AssumptionFeeExceedsGross)
 	}
@@ -455,7 +468,7 @@ func buildEarlyRoute(today string, source LiquiditySource, policy LiquidityPolic
 	}
 	route.GrossNative = gross
 	route.AmountBasis = basis
-	net, feeUnknown, feeExceeds, err := applyFee(*gross, policy.EarlyFee)
+	net, exact, feeUnknown, feeExceeds, err := applyLiquidityFee(source, policy, basis, *gross, policy.EarlyFee)
 	if err != nil {
 		return nil, err
 	}
@@ -467,6 +480,7 @@ func buildEarlyRoute(today string, source LiquiditySource, policy LiquidityPolic
 	}
 	route.FeeNative = policy.EarlyFee
 	route.NetNative = net
+	route.netExact = exact
 	if feeExceeds {
 		route.Assumptions = appendUniqueAssumption(route.Assumptions, AssumptionFeeExceedsGross)
 	}
@@ -514,22 +528,6 @@ func earlyGross(source LiquiditySource, policy LiquidityPolicy) (*Money, string,
 	return &gross, "current_value", nil
 }
 
-func applyFee(gross Money, fee *Money) (*Money, bool, bool, error) {
-	if fee == nil || fee.Currency() != gross.Currency() {
-		return nil, true, false, nil
-	}
-	diff := gross.Amount().Sub(fee.Amount())
-	exceeds := diff.IsNegative()
-	if exceeds {
-		diff = decimal.Zero
-	}
-	net, err := NewMoney(diff, gross.Currency())
-	if err != nil {
-		return nil, false, exceeds, err
-	}
-	return &net, false, exceeds, nil
-}
-
 func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due bool, requestedReserve Money, convert ConvertToBase) LiquidityBucketResult {
 	result := LiquidityBucketResult{HorizonOn: horizon, Status: StatusComplete}
 	candidates := make([]*LiquidityRoute, 0, 2)
@@ -562,11 +560,11 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 			selected = candidate
 			continue
 		}
-		if candidate.NetNative.Amount().GreaterThan(selected.NetNative.Amount()) {
+		if routeNativeExact(candidate).GreaterThan(routeNativeExact(selected)) {
 			selected = candidate
 			continue
 		}
-		if candidate.NetNative.Amount().Equal(selected.NetNative.Amount()) {
+		if routeNativeExact(candidate).Equal(routeNativeExact(selected)) {
 			if candidate.Kind == RouteNormal && selected.Kind != RouteNormal {
 				selected = candidate
 				continue
@@ -586,6 +584,8 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 	copyRoute := *selected
 	result.SelectedRoute = &copyRoute
 	result.NetNative = selected.NetNative
+	exactNet := routeNativeExact(selected)
+	result.netExact = &exactNet
 	if requestedReserve.Currency() != "" && selected.NetNative != nil && requestedReserve.Currency() != selected.NetNative.Currency() {
 		result.Status = StatusPartial
 		result.Reasons = append(result.Reasons, "reservation currency does not match the source")
@@ -595,7 +595,8 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 		result.UnreservedNative = &unreserved
 		result.ReserveShortfallNative = &zero
 	} else if requestedReserve.Currency() != "" && selected.NetNative != nil {
-		applied, unreserved, shortfall := applyReservation(*selected.NetNative, requestedReserve)
+		applied, unreserved, shortfall, exactReserve := applyLiquidityReservation(exactNet, selected.NetNative.Currency(), requestedReserve)
+		result.reserveExact = &exactReserve
 		result.AppliedReserveNative = &applied
 		result.UnreservedNative = &unreserved
 		result.ReserveShortfallNative = &shortfall
@@ -616,7 +617,7 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 	}
 	result.nativeStatus = result.Status
 	if convert != nil && selected.NetNative != nil {
-		if converted, ok, err := convert(*selected.NetNative); err == nil && ok {
+		if converted, ok, err := convertLiquidityExact(convert, exactNet, selected.NetNative.Currency()); err == nil && ok {
 			result.NetBase = converted
 		} else {
 			result.Status = StatusPartial
@@ -624,23 +625,6 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 		}
 	}
 	return result
-}
-
-func applyReservation(net, requested Money) (applied, unreserved, shortfall Money) {
-	if requested.Currency() == "" || requested.IsZero() {
-		zero, _ := NewMoney(decimal.Zero, net.Currency())
-		return zero, net, zero
-	}
-	if requested.Amount().LessThanOrEqual(net.Amount()) {
-		unreservedAmount := net.Amount().Sub(requested.Amount())
-		unreserved, _ = NewMoney(unreservedAmount, net.Currency())
-		zero, _ := NewMoney(decimal.Zero, net.Currency())
-		return requested, unreserved, zero
-	}
-	shortfallAmount := requested.Amount().Sub(net.Amount())
-	shortfall, _ = NewMoney(shortfallAmount, net.Currency())
-	zero, _ := NewMoney(decimal.Zero, net.Currency())
-	return net, zero, shortfall
 }
 
 func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourceResult, convert ConvertToBase) (LiquidityBucket, error) {
@@ -697,12 +681,12 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 			continue
 		}
 		acc.hasKnown = true
-		acc.knownAvailable = acc.knownAvailable.Add(row.NetNative.Amount())
+		acc.knownAvailable = acc.knownAvailable.Add(bucketNativeExact(row))
 		if row.AppliedReserveNative != nil {
-			acc.knownReserve = acc.knownReserve.Add(row.AppliedReserveNative.Amount())
+			acc.knownReserve = acc.knownReserve.Add(bucketReserveExact(row))
 		}
 		if row.UnreservedNative != nil {
-			acc.knownUnreserved = acc.knownUnreserved.Add(row.UnreservedNative.Amount())
+			acc.knownUnreserved = acc.knownUnreserved.Add(bucketNativeExact(row).Sub(bucketReserveExact(row)))
 		}
 		if !nativeResultComplete(*row) {
 			acc.complete = false
@@ -713,15 +697,15 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 			}
 		}
 		baseHasKnown = true
-		baseKnown = baseKnown.Add(row.NetNative.Amount())
+		baseKnown = baseKnown.Add(bucketNativeExact(row))
 		if row.AppliedReserveNative != nil {
-			baseReserve = baseReserve.Add(row.AppliedReserveNative.Amount())
+			baseReserve = baseReserve.Add(bucketReserveExact(row))
 		}
 		if row.UnreservedNative != nil {
-			baseUnreserved = baseUnreserved.Add(row.UnreservedNative.Amount())
+			baseUnreserved = baseUnreserved.Add(bucketNativeExact(row).Sub(bucketReserveExact(row)))
 		}
 		if convert != nil {
-			if converted, ok, err := convert(*row.NetNative); err != nil {
+			if converted, ok, err := convertLiquidityExact(convert, bucketNativeExact(row), row.NetNative.Currency()); err != nil {
 				return LiquidityBucket{}, err
 			} else if !ok {
 				baseFXMissing = true
@@ -781,7 +765,7 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 	sameCurrency := len(groups) == 1 && groups[0].Currency == base
 	multiNative := false
 	for _, group := range groups {
-		if group.Currency != base && group.KnownAvailableSubtotal != nil && !group.KnownAvailableSubtotal.IsZero() {
+		if group.Currency != base && !native[group.Currency].knownAvailable.IsZero() {
 			multiNative = true
 		}
 	}
@@ -808,7 +792,7 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 			if row == nil || row.NetNative == nil {
 				continue
 			}
-			converted, ok, err := convert(*row.NetNative)
+			converted, ok, err := convertLiquidityExact(convert, bucketNativeExact(row), row.NetNative.Currency())
 			if err != nil {
 				return LiquidityBucket{}, err
 			}
@@ -819,7 +803,7 @@ func aggregateBucket(horizon string, base CurrencyCode, sources []LiquiditySourc
 			hasConvertedAmount = true
 			sumAvailable = sumAvailable.Add(*converted)
 			if row.AppliedReserveNative != nil {
-				convertedReserve, ok, err := convert(*row.AppliedReserveNative)
+				convertedReserve, ok, err := convertLiquidityExact(convert, bucketReserveExact(row), row.AppliedReserveNative.Currency())
 				if err != nil {
 					return LiquidityBucket{}, err
 				}
