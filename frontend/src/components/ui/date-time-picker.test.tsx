@@ -21,6 +21,32 @@ function renderDatePicker(settings: { weekStart: string; dateFormat: string }, o
 }
 
 describe("DatePicker and TimePicker", () => {
+  it("can select and clear a future contract date without changing its civil date", async () => {
+    const onChange = vi.fn();
+    const year = new Date().getFullYear() + 1;
+    const value = `${year}-09-20`;
+    const client = createTestQueryClient();
+    client.setQueryData(settingsQueryKey, { weekStart: "monday", dateFormat: "iso" });
+    const { container } = render(<QueryClientProvider client={client}><DatePicker id="contract-date" allowFuture clearable value={value} onChange={onChange} aria-invalid aria-describedby="date-error" /></QueryClientProvider>);
+    const trigger = container.querySelector("#contract-date") as HTMLElement;
+    expect(trigger).toHaveAttribute("aria-invalid", "true");
+    await userEvent.click(trigger);
+    const calendar = await screen.findByRole("grid");
+    const nextDay = calendar.querySelector(`[data-day="${year}-09-21"] button`) as HTMLElement;
+    await userEvent.click(nextDay);
+    expect(onChange).toHaveBeenCalledWith(`${year}-09-21`);
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(onChange).toHaveBeenLastCalledWith("");
+  });
+
+  it("can clear a chosen time to restore the optional empty state", async () => {
+    const onChange = vi.fn();
+    render(<TimePicker value="12:30" clearable onChange={onChange} />);
+    await userEvent.click(screen.getByRole("button", { name: "12:30" }));
+    await userEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(onChange).toHaveBeenCalledWith("");
+  });
   it("uses weekStart and dateFormat settings and disables dates outside min/max", async () => {
     renderDatePicker({ weekStart: "sunday", dateFormat: "day-first" });
 

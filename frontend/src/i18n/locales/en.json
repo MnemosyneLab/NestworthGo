@@ -61,6 +61,7 @@
     "name": "Nestworth"
   },
   "common": {
+    "clearSelection": "Clear selection",
     "active": "Active",
     "add": "Add",
     "archive": "Archive",
@@ -936,6 +937,10 @@
     "unitCostHint": "After history starts, enter the unit cost in the instrument’s quote currency. If left empty, the saved current price is used; when no price exists, a unit cost is required."
   },
   "connections": {
+    "actions": "Actions",
+    "actionsFor": "Actions for {{name}}",
+    "accountReturns": "Return analysis",
+    "accountChanges": "Asset changes",
     "globalRepairScope": "Repair all covers the entire household, not just these filtered dates or objects. Review the full work list before confirming.",
     "blockingDependencies": "Other blocking prerequisites in this household",
     "blockedIssue": "Blocked by missing inputs or provider configuration. Resolve the prerequisites before rebuilding snapshots.",

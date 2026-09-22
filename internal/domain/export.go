@@ -9,6 +9,7 @@ type ExportFacts struct {
 	Directory  ExportDatasets `json:"directory"`
 	History    ExportDatasets `json:"history"`
 	MarketData ExportDatasets `json:"marketData"`
+	Liquidity  ExportDatasets `json:"liquidity"`
 }
 
 // ExportSnapshot is an internal read model, not a serialization of domain types.

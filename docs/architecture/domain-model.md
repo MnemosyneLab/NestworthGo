@@ -344,3 +344,20 @@ quote, Activity, origin, and sign semantics. A pending item is not a financial
 fact before posting. Average-cost results remain derived interpretations of
 immutable Activity and Starting Point evidence; they never become imported
 transactions or mutable Holding state.
+
+
+## Managed-product integrity
+
+Product contracts describe forecasts; persisted holdings and cash remain the
+valuation components. Preview valuation uses those same components before and
+after planned operations, and preserves unknown prices. Contract kind and start
+date are immutable. Once settled or cancelled, only the contract name and note
+may change; liquidity rules and forecast terms remain unchanged.
+
+Ordinary liquidity sources support a nullable accessible-amount cap, including
+an explicit zero. Reservations are independent records with revision-checked
+editing/release. Product previews depend on the related reservation and policy
+facts; grouped undo additionally checks that reservation state still matches its
+operation evidence. Backup/live-open validation verifies managed products and
+liquidity metadata against their owning accounts, holdings, instruments and
+operation evidence rather than relying on foreign keys alone.

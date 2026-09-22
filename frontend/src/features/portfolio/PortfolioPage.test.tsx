@@ -23,6 +23,12 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ca
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
   Service: { ListAccounts: () => listAccounts() },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
+  Service: { ListProducts: () => Promise.resolve([]), Overview: vi.fn() },
+}));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({
+  Service: { InstrumentHoldings: () => Promise.resolve([]) },
+}));
 
 function renderPage(onOpenAccount?: (id: string) => void) {
   const queryClient = createTestQueryClient();

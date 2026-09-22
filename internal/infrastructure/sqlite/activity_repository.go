@@ -319,6 +319,9 @@ func hydrateActivities(ctx context.Context, query queryer, activities []domain.A
 	if err := attachActivityDividendDetails(ctx, query, activities); err != nil {
 		return err
 	}
+	if err := attachProductActivityContexts(ctx, query, activities); err != nil {
+		return err
+	}
 	return attachActivityResulting(ctx, query, activities)
 }
 
@@ -427,6 +430,36 @@ func attachActivityDividendDetails(ctx context.Context, query queryer, activitie
 			continue
 		}
 		activities[index].DividendDetail = detail
+	}
+	return rows.Err()
+}
+
+func attachProductActivityContexts(ctx context.Context, query queryer, activities []domain.Activity) error {
+	if len(activities) == 0 {
+		return nil
+	}
+	clause, args := sqlInArgs(activityIDs(activities))
+	rows, err := query.QueryContext(ctx, `SELECT a.activity_id, a.operation_id, a.product_id, a.purpose, c.holding_id, c.instrument_id, c.kind FROM product_operation_activities a JOIN product_contracts c ON c.id = a.product_id WHERE a.activity_id IN (`+clause+`)`, args...)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	indexByID := activityIndexByID(activities)
+	for rows.Next() {
+		var activityID, operationID, productID, purpose, holdingID, instrumentID, kind string
+		if err := rows.Scan(&activityID, &operationID, &productID, &purpose, &holdingID, &instrumentID, &kind); err != nil {
+			return err
+		}
+		context, err := productActivityContextFromParts(operationID, productID, purpose, holdingID, instrumentID, kind)
+		if err != nil {
+			return err
+		}
+		index, ok := indexByID[activityID]
+		if !ok {
+			continue
+		}
+		copy := context
+		activities[index].ProductContext = &copy
 	}
 	return rows.Err()
 }

@@ -21,6 +21,7 @@ export interface HealthIssueDTO {
     "action": string;
     "executable": boolean;
     "collapsed"?: boolean;
+    "nextCheckAt"?: string;
 }
 
 /**

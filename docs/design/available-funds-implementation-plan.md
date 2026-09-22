@@ -1,12 +1,12 @@
 # Available Funds, Term Deposits, and Locked Products
 
 - **Owner:** Walt / Nestworth product
-- **Status:** Planned; implementation specification, not implemented behavior
+- **Status:** Implemented on `cursor/available-funds-8542`; automated gates pass on the Linux worker; native macOS walkthrough remains unavailable
 - **Design date:** 2026-09-20
 - **Verified code baseline:** `980151c`
 - **Audience:** An implementation agent working sequentially through small, verifiable tasks
 - **Scope:** Desktop-only Wails feature, including persistence, accounting, forecasts, UI, export, and tests
-- **Validation boundary:** Repository inspection informed this plan. No feature code, migration, prototype, or acceptance test has been implemented or run for this feature.
+- **Validation boundary:** Automated Go and frontend gates have been run on this implementation. Native macOS walkthrough (section 17) was not available on the Linux cloud worker.
 
 ## 1. Objective and decisions
 
@@ -806,60 +806,60 @@ Work sequentially. Keep each phase buildable; use local tests before proceeding.
 
 ### Phase 0 — Baseline and implementation log
 
-- [ ] Record HEAD, status, schema/export versions, and the exact existing command/valuation paths.
-- [ ] Preserve unrelated changes, including the brainstorming document.
-- [ ] Create a short implementation progress section at the end of this document, recording decisions that differ from this plan and why.
-- [ ] Run the current baseline checks once; record existing failures distinctly.
+- [x] Record HEAD, status, schema/export versions, and the exact existing command/valuation paths.
+- [x] Preserve unrelated changes, including the brainstorming document.
+- [x] Create a short implementation progress section at the end of this document, recording decisions that differ from this plan and why.
+- [x] Run the current baseline checks once; record existing failures distinctly.
 
 ### Phase 1 — Pure domain and golden cases
 
-- [ ] Implement source references, policies, reservations, product contract validation, calendar arithmetic, and route evaluation.
-- [ ] Implement exact interest/cost calculations and nullable completeness rules.
-- [ ] Pass L01–L06 with deterministic fixtures before adding UI.
+- [x] Implement source references, policies, reservations, product contract validation, calendar arithmetic, and route evaluation.
+- [x] Implement exact interest/cost calculations and nullable completeness rules.
+- [x] Pass L01–L06 with deterministic fixtures before adding UI.
 
 ### Phase 2 — Persistence and migration
 
-- [ ] Add ports, tables, indexes, schema verification, migration, and consistent reads.
-- [ ] Fix the migration-chain version trap described above.
-- [ ] Add export v2 facts and backup verification coverage now, not as cleanup after UI.
-- [ ] Pass schema/migration/round-trip tests; database creation and existing test fixtures still work.
+- [x] Add ports, tables, indexes, schema verification, migration, and consistent reads.
+- [x] Fix the migration-chain version trap described above.
+- [x] Add export v2 facts and backup verification coverage now, not as cleanup after UI.
+- [x] Pass schema/migration/round-trip tests; database creation and existing test fixtures still work.
 
 ### Phase 3 — Atomic product lifecycle
 
-- [ ] Implement Preview/Record and transaction-local acquisition, existing-position, income, settlement, and renewal recipes.
-- [ ] Implement idempotency, stale-preview rejection, reservation release, and guarded grouped undo.
-- [ ] Guard all general mutation paths and managed-instrument quote/source paths.
-- [ ] Pass B/C/E accounting and transaction failure tests before exposing user actions.
+- [x] Implement Preview/Record and transaction-local acquisition, existing-position, income, settlement, and renewal recipes.
+- [x] Implement idempotency, stale-preview rejection, reservation release, and guarded grouped undo.
+- [x] Guard all general mutation paths and managed-instrument quote/source paths.
+- [x] Pass B/C/E accounting and transaction failure tests before exposing user actions.
 
 ### Phase 4 — Valuation, analysis, and history
 
-- [ ] Hydrate product context consistently across all Activity readers and reversals.
-- [ ] Attribute product interest to its holding/instrument exactly once.
-- [ ] Verify historical snapshots, current values, gain, scope filtering, and FX behavior.
-- [ ] Build liquidity snapshots through current valuation/FX helpers and pass A/D/missing-input cases.
+- [x] Hydrate product context consistently across all Activity readers and reversals.
+- [x] Attribute product interest to its holding/instrument exactly once.
+- [x] Verify historical snapshots, current values, gain, scope filtering, and FX behavior.
+- [x] Build liquidity snapshots through current valuation/FX helpers and pass A/D/missing-input cases.
 
 ### Phase 5 — Wails and query layer
 
-- [ ] Expose only the APIs specified above, with typed requests and output DTOs.
-- [ ] Register the service correctly; regenerate bindings through maintained commands.
-- [ ] Add query keys, hooks, invalidation, day rollover, and IPC tests.
-- [ ] Do not manually patch generated TypeScript bindings or revive retired APIs.
+- [x] Expose only the APIs specified above, with typed requests and output DTOs.
+- [x] Register the service correctly; regenerate bindings through maintained commands.
+- [x] Add query keys, hooks, invalidation, day rollover, and IPC tests.
+- [x] Do not manually patch generated TypeScript bindings or revive retired APIs.
 
 ### Phase 6 — UI flows
 
-- [ ] Available Funds page, Overview card, source-rule and reservation editors.
-- [ ] Account products section, product details, opening/existing-position forms.
-- [ ] Valuation, interest receipt, full settlement, renewal, and grouped undo flows.
-- [ ] Due reminders, incomplete states, localization, and keyboard coverage.
-- [ ] Remove conflicting generic product actions while preserving ordinary investment-product behavior.
+- [x] Available Funds page, Overview card, source-rule and reservation editors.
+- [x] Account products section, product details, opening/existing-position forms.
+- [x] Valuation, interest receipt, full settlement, renewal, and grouped undo flows.
+- [x] Due reminders, incomplete states, localization, and keyboard coverage.
+- [x] Remove conflicting generic product actions while preserving ordinary investment-product behavior.
 
 ### Phase 7 — Acceptance and documentation
 
-- [ ] Run the complete automated gate once all changes are integrated.
+- [x] Run the complete automated gate once all changes are integrated.
 - [ ] Run isolated native acceptance and reopen the app to check persistence.
-- [ ] Update affected domain/IPC/export docs to implemented behavior; keep exclusions explicit.
-- [ ] Report tests actually run, native evidence, remaining limitations, and working-tree/commit state accurately.
-- [ ] No release, push, live-bank connection, or changes to real household data are implied by this plan.
+- [x] Update affected domain/IPC/export docs to implemented behavior; keep exclusions explicit.
+- [x] Report tests actually run, native evidence, remaining limitations, and working-tree/commit state accurately.
+- [x] No release, push, live-bank connection, or changes to real household data are implied by this plan.
 
 ## 17. Validation commands and native walkthrough
 
@@ -899,4 +899,54 @@ The user can give the implementing agent this prompt:
 
 ## 19. Implementation progress
 
-Not started. All phase checkboxes above are intentionally unchecked.
+Started from `origin/main` at `5486c22` (plan document). Verified code baseline referenced by the plan: `980151c`. Branch: `cursor/available-funds-8542`. Schema 11 → 12; JSON export 1 → 2.
+
+### Conflicts with current code (resolved using financial invariants)
+
+1. **SQLite must not import `application`.** Snapshot/bundle/evidence types live in `internal/domain` (`LiquiditySnapshot`, `ProductBundle`, `ProductOperationEvidence`) so persistence can return them without an import cycle with application tests.
+2. **Assumed bank-cash / cash-on-hand missing fee.** Default assumed `on_request` policy now attaches a known-zero exit fee (`origin=assumed`) when native currency is known. Explicit policies still treat a nil fee as unknown (L05). This is disclosed assumption, not silent substitution of a missing user input.
+3. **Do not chain public `CreateInstrument` / `RecordChange` / `AppendManualQuote` inside product transactions.** Product recipes use transaction-local acquisition.
+4. **Retired Wails APIs around `980151c` were not restored.** Liquidity is a new `internal/wailsapi/liquidity` service; bindings are generated, not hand-patched.
+5. **`ListOperations` cursor** is `createdAtRFC3339Nano|id`. Invalid cursors are validation errors.
+6. **Known totals must not become zero** when an input is missing. UI and evaluators keep null MoneyView fields and `partial`/`unavailable` status.
+7. **Renewal is one operation**, not a settle plus a separate open.
+8. **React Compiler lint `react-hooks/set-state-in-effect`** forbids syncing navigation/source props into form state with `useEffect`. `AvailableFundsPage` remounts on `productId`/`accountId` via a React `key`; `PolicySheet` initializes from the current source and remounts on `sourceKey`.
+9. **Generated `SettleProductCommand` fields are required** in TypeScript. Settle and renew commands always send `grossProceeds` / `returnedPrincipal` / `interest` / `fee`, using `null` for unused fields rather than omitting them.
+
+### Native gate
+
+Linux cloud worker cannot run the macOS native walkthrough in section 17 (seeded DB, restart persistence, keyboard-only native, three-locale native inspect, in-app backup restore). Automated Go/frontend gates are the acceptance evidence on this worker. Native items remain unchecked.
+
+### P1 review remediation — 2026-09-22
+
+The seven P1 findings from review of `faae4ed` are addressed:
+
+1. Policy monetary amounts resolve their currency from the source account/instrument when read from SQLite, including existing rows; source identity remains unchanged.
+2. Maturity receipts stay anchored to the contractual date plus settlement lag. On-request products without a scheduled receipt are not automatically overdue. Product detail and overview share the timing-state calculation.
+3. Aggregation respects row completeness and distinguishes an unknown amount from a known zero, including unknown early-access routes.
+4. Contract and policy edits commit together, with revision checks and transaction rollback on either write failure.
+5. Grouped undo rejects subsequently edited reservations; commit also compares reservation revision and released state, rolling back the entire operation on conflict.
+6. Renewal exposes new dates, complete interest terms, opening fee, and access rules through shared fields. ACT/365, ACT/360, and manual-interest renewal have regression coverage.
+7. Managed-product editing uses `UpdateProductTerms`; creation, renewal, and rule editing expose normal/early settlement, fees, mandatory lock, and revised receipt inputs while preserving unknown values.
+
+Regression coverage is in `internal/domain/liquidity_regression_test.go`, `internal/application/product_regression_test.go`, and `frontend/src/features/liquidity/ProductSheets.test.tsx`. It includes non-USD round trips, overdue/override timing, unknown versus zero, database failure injection, reservation concurrency, renewal, and form routing.
+
+Validation on the macOS workspace: the section 17 `wails3 task check` command passed (Go tests/vet/build, generated-binding check, frontend build/lint/typecheck, 58 frontend test files / 431 tests, and whitespace check). Native walkthrough, restart/restore, and keyboard/locale acceptance were not run in this remediation. The nine P2 review findings remain outside this P1-only change; this is not full design acceptance.
+
+### P2 review remediation — 2026-09-22
+
+All nine P2 findings from the same review are addressed:
+
+- **F08:** Reviewed-state hashes include the related reservation records and policies. Preview collection is serialized with ledger mutations without disabling read-only preview during backup. Reservation changes require a new preview.
+- **F09:** Cash previews and receipts use the operation's account/currency endpoints in stable order; they never pick an arbitrary balance from the account's currency map.
+- **F10:** Live open and read-only backup verification share product/source ownership, currency, lifecycle quantity, private instrument, renewal lineage, operation evidence and domain-validation checks. Corruption fixtures exercise both open paths; renewed/undone snapshots are verified and reopened in isolation.
+- **F11:** Nullable `accessibleAmountCap` is wired through application input, Wails bindings, persistence and the ordinary-source editor. Null removes the cap; zero and positive limits are explicit. Managed products reject caps.
+- **F12:** All-source and source-specific reservation management show active/released records and expose revision-checked editing/release. Unresolved reservations have a route to management and release.
+- **F13:** Open/settle/interest/renew forms accept actual local date/time in History Origin's timezone. Backend resolution preserves Origin/future/chronology checks and rejects DST gaps/ambiguities. Renewal uses the same resolved instant for both legs; record-existing remains a present-time record.
+- **F14:** Creation/record-existing allow contract-currency selection, showing authoritative cash components for that currency without implicit FX conversion.
+- **F15:** Server-side previews value affected holdings before/after and expose signed net-worth impact, resolved time and reservation-release details. The UI displays these alongside activities, gross/fee/interest details and warnings. Missing valuations remain unknown.
+- **F16:** Contract kind/start identity cannot change. Closed contracts permit name/note edits only, preserving rules and forecast terms; the UI exposes only those metadata fields when closed.
+
+Regression coverage is in `internal/application/product_p2_test.go` and the extended `frontend/src/features/liquidity/ProductSheets.test.tsx`, alongside the earlier P1 tests. Generated Wails bindings and the domain/IPC contract documentation are updated. Native walkthrough and full design acceptance remain separate from automated checks.
+
+Final P2 validation: `SDKROOT="$(xcrun --sdk macosx --show-sdk-path)" GOCACHE=/tmp/nestworth-review-gocache wails3 task check` passed on the macOS workspace after the final code changes (Go tests/vet/build, generated bindings, frontend build/lint/typecheck, 58 frontend test files / 435 tests, `git diff --check`). Additional regressions confirm equivalent decimal terms are accepted for closed metadata edits, and restored snapshots preserve cash/valuation facts and available-funds results. Native GUI/restart/keyboard/locale walkthrough was not run. No commit, push or release was performed.

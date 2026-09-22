@@ -318,6 +318,75 @@ force recheck remains explicit. Repair estimates may differ from actual requests
 because of batching, caches, retries, and conversion dependencies.
 
 Backup restore validates the current schema. Older-schema backup archives do
-not directly pass schema-11 restore validation, although supported database files
+not directly pass schema-12 restore validation, although supported database files
 upgrade through the normal open path. Keep originals before upgrade and create
 a fresh backup afterwards.
+
+
+## Available-funds product contracts
+
+The liquidity Wails service exposes `ListReservations` for the current household,
+including active and released rows. Reservation edits/releases carry their ID and
+expected revision; unresolved sources can still have their reservations released.
+`ProductPolicyInput.accessibleAmountCap` is a nullable native-currency amount for
+ordinary sources: null removes the cap, zero is an explicit zero limit. Managed
+products reject caps. Product identity (including kind/start date) is immutable;
+closed contracts accept name/note edits only and preserve policy revisions.
+
+Open, settle and interest commands accept `effectiveLocalDate` and
+`effectiveLocalTime` together as an alternative to `effectiveAt`. The application
+resolves them in History Origin's timezone and rejects missing pairs, DST gaps or
+ambiguities, dates before Origin, future dates, and invalid product chronology.
+Renewal uses one resolved timestamp for redemption and acquisition. Recording an
+existing product remains a present-time recording operation.
+
+Product previews include affected cash balances in the contract currency,
+`productBefore`, `productAfter`, signed `netWorthDelta`, `netWorthKnown`, resolved
+`effectiveAt`, and `reservationReleaseDetails`. A product operation is confined to
+one account/currency, including renewal and grouped undo. Product amounts use the
+portfolio valuation authority; absent prices remain null. The impact is the net
+change in affected cash plus product value, not a second household valuation.
+Reviewed-state hashes include related reservation facts and policy revisions as
+well as cash, holdings, contracts, quote evidence and local date. Editing these
+facts requires a new preview.
+
+Live database open and read-only backup verification share schema-12 product
+integrity checks: private holding/instrument ownership and currency, lifecycle
+quantity 1/0, operation ownership/currency, renewal lineage, policy/reservation
+source consistency, and domain term/policy validation. These checks do not repair
+corrupt data or change the backup/export format.
+
+### Data Health and incomplete daily snapshots
+
+A completed snapshot build cursor does not imply complete valuation. The local
+health scan checks the latest persisted snapshot revisions and re-evaluates
+incomplete dates against current local facts, without contacting providers.
+For a metal daily reference that has not reached its finalization boundary,
+`history_pending` identifies the instrument and affected date;
+`HealthIssueDTO.nextCheckAt` is the earliest next check in the History timezone
+(RFC3339 with offset), not a guarantee of provider publication. Pending data is
+non-executable and prevents an "all healthy" result. Finalized missing data
+continues through the normal history-repair workflow.
+
+When current inputs can fully value a previously incomplete snapshot, Data
+Health exposes an executable snapshot rebuild even if its dirty marker is
+absent. Repair preview and execution both include these recoverable dates;
+publication still uses the existing input-generation checks. Coverage-only
+updates remain valuation inputs: they invalidate snapshots even when no price
+observation changes. Return totals stay partial until the rebuilt snapshot is
+complete.
+
+Available-funds calculations accept valuation `NativeAmount` values with up to
+16 fractional digits. Current-value routes retain this precision through fees,
+reservations, route selection, aggregation, and FX conversion. `Money` fields in
+liquidity and product-detail responses are rounded display projections; they do
+not replace the exact valuation input. User-entered monetary amounts retain the
+existing four-fractional-digit validation contract.
+
+Liquidity read DTOs use `displayState: needs_info` for unknown access rules or
+missing receipt timing, distinct from a confirmed lock. Consumers must render a
+request to complete the rules, not “no action”. Product preview warnings use
+stable localization codes (`existing_position_increases_assets`) rather than
+English prose. History uses `Activity.productContext.productId` to open product
+management; its generic correction/undo controls do not apply to product-linked
+activities, including product interest entries.

@@ -3,7 +3,8 @@ import { format, isValid } from "date-fns";
 import { enUS, zhCN, zhTW, type Locale } from "date-fns/locale";
 import { CalendarIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import type { AriaAttributes } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useSettings } from "@/queries/settings";
@@ -56,6 +57,9 @@ export function DatePicker({
   max,
   disabled = false,
   placeholder,
+  allowFuture = false,
+  clearable = false,
+  ...aria
 }: {
   id?: string;
   value: string;
@@ -64,7 +68,9 @@ export function DatePicker({
   max?: string;
   disabled?: boolean;
   placeholder?: string;
-}) {
+  allowFuture?: boolean;
+  clearable?: boolean;
+} & Pick<AriaAttributes, "aria-invalid" | "aria-describedby">) {
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const [open, setOpen] = useState(false);
@@ -74,7 +80,7 @@ export function DatePicker({
     () => parseYmd(min) ?? new Date(new Date().getFullYear() - 50, 0),
     [min],
   );
-  const endMonth = useMemo(() => parseYmd(max) ?? new Date(), [max]);
+  const endMonth = useMemo(() => parseYmd(max) ?? (allowFuture ? new Date(new Date().getFullYear() + 50, 11) : new Date()), [max, allowFuture]);
   const disabledMatcher = useMemo(() => {
     const before = min ? parseYmd(min) : undefined;
     const after = max ? parseYmd(max) : undefined;
@@ -96,9 +102,10 @@ export function DatePicker({
         id={id}
         type="button"
         disabled={disabled}
+        {...aria}
         className={cn(
           buttonVariants({ variant: "outline" }),
-          "w-full justify-start font-normal",
+          "w-full shrink-0 justify-start font-normal",
           !selected && "text-muted-foreground",
         )}
       >
@@ -127,6 +134,7 @@ export function DatePicker({
           startMonth={startMonth}
           endMonth={endMonth}
         />
+        {clearable && value && <Button type="button" variant="ghost" className="m-2" onClick={() => { onChange(""); setOpen(false); }}>{t("common.clearSelection")}</Button>}
       </PopoverContent>
     </Popover>
   );

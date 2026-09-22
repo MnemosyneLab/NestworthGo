@@ -116,6 +116,15 @@ func (u analysisUniverse) classifyActivity(activity domain.Activity, daySnapshot
 }
 
 func (u analysisUniverse) returnAssociation(activity domain.Activity, effect domain.ActivityEffect, component domain.ComponentID) (*domain.ReturnComponent, *domain.HoldingID, *domain.InstrumentID, bool) {
+	if activity.ProductContext != nil {
+		purpose := activity.ProductContext.Purpose
+		if purpose == domain.ProductPurposeInterest || (purpose == domain.ProductPurposeReversal && effect.Classification == domain.ClassificationIncome) {
+			holding := activity.ProductContext.HoldingID
+			instrument := activity.ProductContext.InstrumentID
+			returnComponent := domain.ReturnDividendInterest
+			return &returnComponent, &holding, &instrument, true
+		}
+	}
 	if activity.Kind == domain.ActivityCashIn && activity.Reason == domain.ReasonInterest && component.Cash {
 		returnComponent := domain.ReturnDividendInterest
 		return &returnComponent, nil, nil, true

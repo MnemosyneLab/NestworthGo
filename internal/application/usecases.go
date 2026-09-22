@@ -104,6 +104,21 @@ type RecoveryService interface {
 	Shutdown()
 }
 
+type LiquidityService interface {
+	LiquidityOverview(context.Context, LiquidityOverviewQuery) (domain.LiquidityOverview, error)
+	Product(context.Context, domain.ProductContractID) (ProductDetail, error)
+	ListProducts(context.Context, *domain.AccountID, bool) ([]ProductDetail, error)
+	ListProductOperations(context.Context, domain.ProductContractID, string, int) (ProductOperationPage, error)
+	PreviewProductOperation(context.Context, ProductCommand) (ProductOperationPreview, error)
+	RecordProductOperation(context.Context, ProductCommand, string, string) (ProductOperationReceipt, error)
+	SaveLiquidityPolicy(context.Context, SavePolicyInput) (domain.LiquidityPolicy, error)
+	ResetLiquidityPolicy(context.Context, domain.LiquiditySourceRef, int) error
+	SaveLiquidityReservation(context.Context, SaveReservationInput) (domain.LiquidityReservation, error)
+	ReleaseLiquidityReservation(context.Context, domain.LiquidityReservationID, int) (domain.LiquidityReservation, error)
+	UpdateProductTerms(context.Context, UpdateProductTermsInput) (ProductDetail, error)
+	AppendProductValuation(context.Context, AppendProductValuationInput) (ProductDetail, error)
+}
+
 var (
 	_ DirectoryService  = (*Service)(nil)
 	_ LedgerService     = (*Service)(nil)
@@ -111,5 +126,6 @@ var (
 	_ AnalysisUseCase   = (*Service)(nil)
 	_ HistoryService    = (*Service)(nil)
 	_ DataExportService = (*Service)(nil)
+	_ LiquidityService  = (*Service)(nil)
 	_ RecoveryService   = (*Recovery)(nil)
 )

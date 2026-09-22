@@ -26,6 +26,7 @@ const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then(
 const HistoryPage = lazy(() => import("@/features/history/HistoryPage").then((module) => ({ default: module.HistoryPage })));
 const ReturnAnalysisPage = lazy(() => import("@/features/insights/ReturnAnalysisPage").then((module) => ({ default: module.ReturnAnalysisPage })));
 const AssetChangesPage = lazy(() => import("@/features/insights/AssetChangesPage").then((module) => ({ default: module.AssetChangesPage })));
+const AvailableFundsPage = lazy(() => import("@/features/liquidity/AvailableFundsPage").then((module) => ({ default: module.AvailableFundsPage })));
 
 function WorkspaceLazy({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
@@ -50,6 +51,8 @@ function App() {
   const [updateValue, setUpdateValue] = useState(false);
   const [healthFocus, setHealthFocus] = useState<HealthFocus>();
   const [marketFocus, setMarketFocus] = useState<HealthFocus>();
+  const [liquidityProductId, setLiquidityProductId] = useState<string | undefined>();
+  const [liquidityAccountId, setLiquidityAccountId] = useState<string | undefined>();
   const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters }>>([]);
   const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null } | null>(null);
   useEffect(() => {
@@ -118,6 +121,10 @@ function App() {
     }
     if (navigation.page === "market-data") setMarketFocus(navigation.focus);
     if (navigation.page === "data-health") setHealthFocus(navigation.focus);
+    if (navigation.page === "available-funds") {
+      setLiquidityProductId(navigation.productId);
+      setLiquidityAccountId(navigation.accountId);
+    }
     if (navigation.page === "history") {
       setHistoryFilters(navigation.filters);
     }
@@ -157,7 +164,7 @@ function App() {
     <NavigationContext.Provider value={{ open, openHealth }}>
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data}>
       <MarketDataSyncWorkspaceObserver />
-      {trail.length > 0 && <Button variant="ghost" className="mb-4" onClick={back}>{t("connections.back", { page: t(`nav.${({ "data-health": "dataHealth", "market-data": "marketData", "return-analysis": "returnAnalysis", "asset-changes": "assetChanges" } as Record<string, string>)[trail[trail.length - 1].page] ?? trail[trail.length - 1].page}`) })}</Button>}
+      {trail.length > 0 && <Button variant="ghost" className="mb-4" onClick={back}>{t("connections.back", { page: t(`nav.${({ "data-health": "dataHealth", "market-data": "marketData", "return-analysis": "returnAnalysis", "asset-changes": "assetChanges", "available-funds": "availableFunds" } as Record<string, string>)[trail[trail.length - 1].page] ?? trail[trail.length - 1].page}`) })}</Button>}
       {retained("overview") && (
         <div hidden={activePageId !== "overview"}>
         <OverviewPage
@@ -172,6 +179,13 @@ function App() {
       {retained("accounts") && (
         <div hidden={activePageId !== "accounts"}>
         <AccountsPage navigationFilter={accountFilter} onClearFilter={() => setAccountFilter(undefined)} updateValue={updateValue} selectedAccountId={selectedAccountId} onSelectAccount={setSelectedAccountId} />
+        </div>
+      )}
+      {retained("available-funds") && (
+        <div hidden={activePageId !== "available-funds"}>
+        <WorkspaceLazy>
+          <AvailableFundsPage key={`${liquidityProductId ?? ""}:${liquidityAccountId ?? ""}`} productId={liquidityProductId} accountId={liquidityAccountId} />
+        </WorkspaceLazy>
         </div>
       )}
       {retained("portfolio") && (

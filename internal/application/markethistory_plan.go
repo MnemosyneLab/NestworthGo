@@ -476,10 +476,26 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	from, to, ok := closedSnapshotRange(state, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday})
-	if !ok {
-		return 0, nil
+	// Recover ready but incomplete snapshots even if an older build cleared
+	// the dirty cursor. Rebuilding still uses the generation-aware publisher.
+	incompleteIssues, err := s.incompleteSnapshotHealth(ctx, origin, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday}, nil)
+	if err != nil {
+		return 0, err
 	}
 	appended := 0
+	for _, date := range readySnapshotDates(incompleteIssues) {
+		if ok && date >= from && date <= to {
+			continue
+		}
+		count, err := s.RebuildHistoricalSnapshots(ctx, date, date)
+		appended += count
+		if err != nil {
+			return appended, err
+		}
+	}
+	if !ok {
+		return appended, nil
+	}
 	for chunkStart := from; chunkStart <= to; {
 		end := chunkStart
 		var err error

@@ -827,3 +827,20 @@ it("repairs the same closed range advertised by Data Health", async () => {
   await userEvent.click(repair);
   expect(rebuildHistoricalSnapshots).toHaveBeenCalledWith("2026-09-02", "2026-09-16");
 });
+
+vi.mock("@/features/liquidity/ProductSheets", () => ({
+  ProductDetailSheet: ({ productId }: { productId: string }) => <div data-testid="managed-product">{productId}</div>,
+}));
+
+it("routes product activities to product management instead of generic fix or undo", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  listActivities.mockResolvedValue([{ id: "managed", kind: "cash_in", reason: "interest", effectiveLocalDate: "2026-09-22", effects: [], productContext: { productId: "deposit-1", operationId: "operation-1", purpose: "interest" } }]);
+  renderPage();
+  const list = await screen.findByTestId("activity-list");
+  expect(within(list).queryByRole("button", { name: "Fix" })).not.toBeInTheDocument();
+  expect(within(list).queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+  await userEvent.click(within(list).getByRole("button", { name: "Manage product operation" }));
+  expect(await screen.findByTestId("managed-product")).toHaveTextContent("deposit-1");
+  expect(previewFixChange).not.toHaveBeenCalled();
+  expect(undoChange).not.toHaveBeenCalled();
+});

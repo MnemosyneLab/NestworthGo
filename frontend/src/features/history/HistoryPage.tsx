@@ -35,6 +35,7 @@ import { StartHistoryForm } from "@/features/history/StartHistoryForm";
 import { activityToInitialCommand } from "@/features/history/activityToCommand";
 import { activitySentence } from "@/features/history/activitySentence";
 import { ActivityDetailSheet } from "@/features/history/ActivityDetailSheet";
+import { ProductDetailSheet } from "@/features/liquidity/ProductSheets";
 import { DatePicker } from "@/components/ui/date-picker";
 import { resolvedTimeZone } from "@/lib/time";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -51,6 +52,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
   const origin = useHistoryOrigin();
   const undoChange = useUndoChange();
   const [open, setOpen] = useState(false);
+  const [productTarget, setProductTarget] = useState<string | null>(null);
   const [fixTarget, setFixTarget] = useState<ActivityDTO | null>(null);
   const [detailTarget, setDetailTarget] = useState<ActivityDTO | null>(null);
   const [kindFilter, setKindFilter] = useState(navigationFilters?.kinds?.[0] ?? "");
@@ -182,7 +184,8 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
                   <Button variant="outline" size="sm" onClick={() => setDetailTarget(activity)}>
                     {t("common.details")}
                   </Button>
-                  {canModify && (
+                  {activity.productContext && <Button variant="outline" size="sm" onClick={() => setProductTarget(activity.productContext!.productId)}>{t("availableFunds.manageProductOperation")}</Button>}
+                  {canModify && !activity.productContext && (
                     <>
                       <Button variant="outline" size="sm" onClick={() => setFixTarget(activity)}>
                         {t("history.fixAction")}
@@ -255,6 +258,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
           </div>
         </SheetContent>
       </Sheet>
+      {productTarget && <ProductDetailSheet key={productTarget} productId={productTarget} open onOpenChange={(next) => { if (!next) setProductTarget(null); }} />}
       <ActivityDetailSheet
         activity={detailTarget}
         timezone={origin.data?.timezone}

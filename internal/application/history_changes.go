@@ -67,6 +67,9 @@ func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) 
 	if bootstrap.Household == nil {
 		return domain.ChangePreview{}, onboardingRequired()
 	}
+	if err := s.rejectManagedActivity(ctx, activityID); err != nil {
+		return domain.ChangePreview{}, err
+	}
 	activity, err := s.repository.Activity(ctx, bootstrap.Household.ID, activityID)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -118,6 +121,9 @@ func (s *Service) fixChangePreview(ctx context.Context, activityID domain.Activi
 	}
 	if bootstrap.Household == nil {
 		return domain.ChangePreview{}, domain.ChangePreview{}, onboardingRequired()
+	}
+	if err := s.rejectManagedActivity(ctx, activityID); err != nil {
+		return domain.ChangePreview{}, domain.ChangePreview{}, err
 	}
 	activity, err := s.repository.Activity(ctx, bootstrap.Household.ID, activityID)
 	if err != nil {

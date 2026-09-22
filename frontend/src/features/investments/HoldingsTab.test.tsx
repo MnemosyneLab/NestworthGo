@@ -53,6 +53,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: { SupportedCurrencies: () => Promise.resolve(["USD"]) },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
+  Service: { ListProducts: () => Promise.resolve([]), Overview: vi.fn() },
+}));
 
 function renderPage() {
   const queryClient = createTestQueryClient();

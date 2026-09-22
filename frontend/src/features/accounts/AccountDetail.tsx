@@ -14,6 +14,9 @@ import { AccountForm, type AccountFormExtras } from "@/features/accounts/Account
 import { AccountActionSheet, type AccountAction } from "@/features/accounts/AccountActionSheets";
 import { useAccountCashValues, useArchiveAccount, useUpdateAccount, toUpdateAccountRequest } from "@/queries/accounts";
 import { useHoldingsByAccounts, useInstruments } from "@/queries/investments";
+import { AccountProductsSection } from "@/features/liquidity/AccountProductsSection";
+import { canHoldProducts } from "@/features/liquidity/productPolicy";
+import { useProducts } from "@/queries/liquidity";
 import { useHistoryOrigin } from "@/queries/history";
 import { formatAmount, sortByCanonicalDesc } from "@/lib/money";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
@@ -158,6 +161,7 @@ export function AccountDetail({
   const settings = useSettings();
   const holdingsQuery = useHoldingsByAccounts([record.account.id]);
   const instruments = useInstruments();
+  const productsQuery = useProducts({ accountId: record.account.id, includeClosed: true }, canHoldProducts(record.account));
   const updateAccount = useUpdateAccount();
   const archiveAccount = useArchiveAccount();
   const [action, setAction] = useState<AccountAction>(updateValue && !record.account.archivedAt ? record.account.trackingMode === "holdings" ? "cash" : "simple" : null);
@@ -175,12 +179,17 @@ export function AccountDetail({
     () => holdingRows(holdingsQuery.data?.[record.account.id] ?? [], valuation, instruments.data ?? []),
     [holdingsQuery.data, record.account.id, valuation, instruments.data],
   );
+  const managedHoldingIds = useMemo(
+    () => new Set((productsQuery.data ?? []).map((detail) => detail.product.holdingId)),
+    [productsQuery.data],
+  );
+  const investmentRows = rows.filter((row) => !managedHoldingIds.has(row.holding.id));
+  const dividendHoldingsAvailable = investmentRows.some((row) => row.instrumentActive);
   const householdCurrency = valuation?.baseValue?.currency ?? "";
   const compositionItems = useMemo(
     () => (composite && householdCurrency ? accountCompositionItems(valuation?.components ?? [], householdCurrency) : []),
     [composite, householdCurrency, valuation?.components],
   );
-  const dividendHoldingsAvailable = rows.some((row) => row.instrumentActive);
 
   const displayMoney = accountDisplayMoney(record, valuation);
   const titleAmount = displayMoney.primary
@@ -224,7 +233,7 @@ export function AccountDetail({
         title={<span className="flex min-w-0 items-center gap-2"><EntityIcon iconKey={record.account.iconKey} kind="account" className="size-5 shrink-0 text-primary" />{record.account.name}</span>}
         actions={
           <>
-            <AnalyzeMenu accountId={record.account.id} label={record.account.name} />
+            <AnalyzeMenu inline accountId={record.account.id} label={record.account.name} />
             <Button type="button" variant="outline" size="sm" onClick={onBack}>
               <ArrowLeft className="size-4" aria-hidden="true" /> {t("accounts.backToList")}
             </Button>
@@ -338,7 +347,7 @@ export function AccountDetail({
               <CardTitle>{t("accounts.investments")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              {rows.length === 0 ? (
+              {investmentRows.length === 0 ? (
                 <EmptyState title={t("accounts.noHoldings")} description={t("accounts.buyInvestment")} />
               ) : (
                 <table className="w-full text-left text-sm">
@@ -349,18 +358,17 @@ export function AccountDetail({
                       <th className="py-2 font-medium">{t("accounts.instrumentType")}</th>
                       <th className="py-2 font-medium">{t("accounts.quantity")}</th>
                       <th className="py-2 font-medium">{t("accounts.marketValue")}</th>
-                      {!readOnly && <th className="py-2 font-medium"><span className="sr-only">{t("accounts.cashDividend")}</span></th>}
+                      <th className="py-2 text-right font-medium">{t("connections.actions")}</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row) => (
+                    {investmentRows.map((row) => (
                       <tr key={row.holding.id} className="border-b border-border last:border-0">
                         <td className="py-2">
                           <InstrumentLabel name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
-                          <AnalyzeMenu accountId={record.account.id} instrumentId={row.holding.instrumentId} label={row.instrumentName} />
                         </td>
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
-                        <td className="py-2">{formatAmount(row.holding.quantity)} {metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}</td>
+                        <td className="py-2">{row.instrumentType === "bank_investment_product" ? t("availableFunds.contractQuantity") : `${formatAmount(row.holding.quantity)} ${metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}`}</td>
                         <td className="py-2">
                           {row.component?.available && row.component.nativeAmount ? (
                             <ComponentAmounts
@@ -372,23 +380,14 @@ export function AccountDetail({
                             t("accounts.missingPrice")
                           )}
                         </td>
-                        {!readOnly && (
-                          <td className="py-2 text-right">
-                            {row.instrumentActive ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setActionHoldingId(row.holding.id);
-                                  setAction("dividend");
-                                }}
-                              >
-                                {t("accounts.cashDividend")}
-                              </Button>
-                            ) : null}
-                          </td>
-                        )}
+                        <td className="py-2 text-right">
+                          <AnalyzeMenu accountId={record.account.id} instrumentId={row.holding.instrumentId} label={row.instrumentName}
+                            onDividend={!readOnly && row.instrumentActive ? () => {
+                              setActionHoldingId(row.holding.id);
+                              setAction("dividend");
+                            } : undefined}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -399,7 +398,7 @@ export function AccountDetail({
                   <Button type="button" onClick={() => setAction("buy")}>
                     {t("accounts.buyInvestment")}
                   </Button>
-                  {rows.length > 0 && (
+                  {investmentRows.length > 0 && (
                     <Button type="button" variant="outline" onClick={() => setAction("sell")}>
                       {t("accounts.sellInvestment")}
                     </Button>
@@ -425,6 +424,11 @@ export function AccountDetail({
           </Card>}
         </div>
       )}
+
+      <AccountProductsSection
+        record={record}
+        cashAmount={cash.find((component) => component.nativeCurrency === record.account.defaultCurrency)?.nativeAmount}
+      />
 
       {composite && !cashValues.isError && (cashValues.data?.length ?? 0) > 0 && (
         <Card data-testid="account-cash-history">

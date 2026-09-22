@@ -112,6 +112,16 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
     SearchInstruments: vi.fn().mockResolvedValue([]),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
+  Service: {
+    Overview: () => Promise.resolve({ asOf: "", localDate: "2026-09-20", timezone: "UTC", baseCurrency: "USD", assumptions: [], buckets: [], sources: [], unresolvedReservations: [] }),
+    ListProducts: () => Promise.resolve([]),
+    Product: vi.fn(),
+    ListOperations: vi.fn(),
+    PreviewProductOperation: vi.fn(),
+    RecordProductOperation: vi.fn(),
+  },
+}));
 
 function renderPage() {
   const queryClient = createTestQueryClient();
@@ -1256,7 +1266,8 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     const holdingRow = (await screen.findByText("XYZ Fund")).closest("tr");
     expect(holdingRow).not.toBeNull();
-    await userEvent.click(within(holdingRow as HTMLElement).getByRole("button", { name: "Cash dividend" }));
+    await userEvent.click(within(holdingRow as HTMLElement).getByRole("button", { name: /Actions for/ }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Cash dividend" }));
     const form = await screen.findByRole("form", { name: "Record change" });
     expect(within(form).queryByLabelText("Holding")).not.toBeInTheDocument();
     await userEvent.type(within(form).getByLabelText("Amount"), "25");

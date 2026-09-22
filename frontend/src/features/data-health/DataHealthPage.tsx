@@ -266,6 +266,7 @@ function IssueSection({
                 <li key={issue.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" data-testid={`health-issue-${issue.kind}`}>
                   <div className="flex min-w-0 flex-col gap-1">
                     <p className="font-medium text-foreground">{issue.label || issue.targetKey}</p>
+                    {issue.nextCheckAt && <p className="text-sm text-muted-foreground">{t("dataHealth.nextCheckAt", { time: issue.nextCheckAt.replace("T", " ") })}</p>}
                     {issue.collapsed && <p className="text-sm text-warning-foreground">{t("connections.blockedIssue")}</p>}
                     <p className="text-sm text-muted-foreground">
                       {[issueRange(t, issue), issue.provider, healthIssueActionLabel(t, issue)].filter(Boolean).join(" · ")}
