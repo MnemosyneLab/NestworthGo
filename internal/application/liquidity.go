@@ -302,9 +302,9 @@ func (s *Service) SaveLiquidityPolicy(ctx context.Context, input SavePolicyInput
 	if err != nil {
 		return domain.LiquidityPolicy{}, err
 	}
-	currency := household.BaseCurrency
-	if input.Source.Currency != nil {
-		currency = *input.Source.Currency
+	currency, err := s.liquiditySourceCurrency(ctx, household.ID, input.Source)
+	if err != nil {
+		return domain.LiquidityPolicy{}, err
 	}
 	policy, err := policyFromInput(household.ID, input.Source, input.Policy, currency, false, s.clock())
 	if err != nil {
@@ -374,9 +374,9 @@ func (s *Service) SaveLiquidityReservation(ctx context.Context, input SaveReserv
 	if err := input.Source.Validate(); err != nil {
 		return domain.LiquidityReservation{}, err
 	}
-	currency := household.BaseCurrency
-	if input.Source.Currency != nil {
-		currency = *input.Source.Currency
+	currency, err := s.liquiditySourceCurrency(ctx, household.ID, input.Source)
+	if err != nil {
+		return domain.LiquidityReservation{}, err
 	}
 	amount, err := parseRequiredMoney("amount", input.Amount, currency)
 	if err != nil {
@@ -549,6 +549,10 @@ func (s *Service) AppendProductValuation(ctx context.Context, input AppendProduc
 	if stored, err := s.repository.LookupProductOperation(ctx, household.ID, operationID); err != nil {
 		return ProductDetail{}, err
 	} else if stored != nil {
+		expected := hashBytes([]byte(input.ProductID.String() + ":" + input.Amount + ":" + input.ObservedAt))
+		if stored.Kind != domain.ProductOpValueObservation || stored.PayloadSHA256 != expected {
+			return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Field: "mutationId", Message: "this mutation ID was already used with a different command"}
+		}
 		return s.Product(ctx, input.ProductID)
 	}
 	contract, err := s.repository.Product(ctx, household.ID, input.ProductID)
@@ -599,6 +603,40 @@ func (s *Service) AppendProductValuation(ctx context.Context, input AppendProduc
 	}
 	s.invalidateAnalysis()
 	return s.productDetail(ctx, household.ID, contract)
+}
+
+func (s *Service) liquiditySourceCurrency(ctx context.Context, householdID domain.HouseholdID, source domain.LiquiditySourceRef) (domain.CurrencyCode, error) {
+	switch source.Kind {
+	case domain.SourceAccountCash:
+		if source.Currency == nil {
+			return "", &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "is required for an account cash source"}
+		}
+		return *source.Currency, nil
+	case domain.SourceAccountValue:
+		record, err := s.repository.AccountRecord(ctx, householdID, source.AccountID)
+		if err != nil {
+			return "", err
+		}
+		return record.Account.DefaultCurrency, nil
+	case domain.SourceHolding:
+		if source.HoldingID == nil {
+			return "", &domain.Error{Code: domain.ErrValidation, Field: "holdingId", Message: "is required for a holding source"}
+		}
+		holding, err := s.repository.Holding(ctx, *source.HoldingID)
+		if err != nil {
+			return "", err
+		}
+		if holding.AccountID != source.AccountID {
+			return "", &domain.Error{Code: domain.ErrValidation, Field: "accountId", Message: "does not own this holding"}
+		}
+		instrument, err := s.repository.Instrument(ctx, householdID, holding.InstrumentID)
+		if err != nil {
+			return "", err
+		}
+		return instrument.QuoteCurrency, nil
+	default:
+		return "", &domain.Error{Code: domain.ErrValidation, Field: "sourceKind", Message: "is not a supported liquidity source"}
+	}
 }
 
 func (s *Service) policyBySource(ctx context.Context, householdID domain.HouseholdID, source domain.LiquiditySourceRef) (*domain.LiquidityPolicy, error) {

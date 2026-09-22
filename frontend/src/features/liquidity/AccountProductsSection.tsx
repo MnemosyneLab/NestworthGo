@@ -105,7 +105,7 @@ export function AccountProductsSection({
           open={openForm}
           onOpenChange={setOpenForm}
         />
-        <ProductDetailSheet productId={productId} open={Boolean(productId)} onOpenChange={(open) => { if (!open) setProductId(null); }} />
+        <ProductDetailSheet key={productId ?? "product"} productId={productId} open={Boolean(productId)} onOpenChange={(open) => { if (!open) setProductId(null); }} />
       </CardContent>
     </Card>
   );

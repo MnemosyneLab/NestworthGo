@@ -337,7 +337,7 @@ export function AvailableFundsPage({
       )}
 
       <PolicySheet key={policySource?.sourceKey ?? "policy"} source={policySource} open={Boolean(policySource)} onOpenChange={(open) => { if (!open) setPolicySource(null); }} />
-      <ReservationSheet source={reservationSource} open={Boolean(reservationSource)} onOpenChange={(open) => { if (!open) setReservationSource(null); }} />
+      <ReservationSheet key={reservationSource?.sourceKey ?? "reservation"} source={reservationSource} open={Boolean(reservationSource)} onOpenChange={(open) => { if (!open) setReservationSource(null); }} />
       {productFormAccountId && (
         <ProductFormSheet
           accountId={productFormAccountId}
@@ -346,7 +346,7 @@ export function AvailableFundsPage({
           onOpenChange={(open) => { if (!open) setProductFormAccountId(null); }}
         />
       )}
-      <ProductDetailSheet productId={detailProductId} open={Boolean(detailProductId)} onOpenChange={(open) => { if (!open) setDetailProductId(null); }} />
+      <ProductDetailSheet key={detailProductId ?? "product"} productId={detailProductId} open={Boolean(detailProductId)} onOpenChange={(open) => { if (!open) setDetailProductId(null); }} />
     </div>
   );
 }

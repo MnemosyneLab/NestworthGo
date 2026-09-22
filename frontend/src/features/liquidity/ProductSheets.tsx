@@ -325,24 +325,30 @@ export function ProductDetailSheet({
   const [newPrincipal, setNewPrincipal] = useState("");
   const [newName, setNewName] = useState("");
   const [newMaturity, setNewMaturity] = useState("");
+  const [paidThrough, setPaidThrough] = useState("");
+  const [remainingInterest, setRemainingInterest] = useState("");
   const [reviewed, setReviewed] = useState<ProductOperationPreviewDTO | null>(null);
   const [error, setError] = useState<string>();
   const product = detail.data?.product;
+  const releaseIds = useMemo(
+    () => (detail.data?.reservations ?? []).filter((reservation) => !reservation.releasedAt).map((reservation) => reservation.id),
+    [detail.data?.reservations],
+  );
   const command = useMemo((): ProductCommandRequest | null => {
     if (!product || !action) {
       return null;
     }
     if (action === "settle") {
       const settle: SettleProductCommand = product.kind === "term_deposit"
-        ? { productId: product.id, returnedPrincipal: amount, interest, fee, grossProceeds: null, effectiveAt: "", releaseReservationIds: [] }
-        : { productId: product.id, grossProceeds: amount, fee, effectiveAt: "", releaseReservationIds: [], returnedPrincipal: null, interest: null };
+        ? { productId: product.id, returnedPrincipal: amount, interest, fee, grossProceeds: null, effectiveAt: "", releaseReservationIds: releaseIds }
+        : { productId: product.id, grossProceeds: amount, fee, effectiveAt: "", releaseReservationIds: releaseIds, returnedPrincipal: null, interest: null };
       return { kind: "settle", settle };
     }
     if (action === "renew") {
       const terms = { ...emptyTerms(product.kind as "term_deposit" | "locked_product"), name: newName || product.name, startOn: product.startOn, maturityOn: newMaturity || null, interestMode: product.interestMode };
       const settle: SettleProductCommand = product.kind === "term_deposit"
-        ? { productId: product.id, returnedPrincipal: amount, interest, fee, grossProceeds: null, effectiveAt: "", releaseReservationIds: [] }
-        : { productId: product.id, grossProceeds: amount, fee, effectiveAt: "", releaseReservationIds: [], returnedPrincipal: null, interest: null };
+        ? { productId: product.id, returnedPrincipal: amount, interest, fee, grossProceeds: null, effectiveAt: "", releaseReservationIds: releaseIds }
+        : { productId: product.id, grossProceeds: amount, fee, effectiveAt: "", releaseReservationIds: releaseIds, returnedPrincipal: null, interest: null };
       return {
         kind: "renew",
         renew: {
@@ -355,7 +361,7 @@ export function ProductDetailSheet({
       };
     }
     if (action === "interest") {
-      return { kind: "receive_interest", receiveInterest: { productId: product.id, amount, effectiveAt: "", interestPaidThroughOn: null, remainingInterest: null } };
+      return { kind: "receive_interest", receiveInterest: { productId: product.id, amount, effectiveAt: "", interestPaidThroughOn: paidThrough || null, remainingInterest: remainingInterest || null } };
     }
     if (action === "undo") {
       const latest = operations.data?.operations?.[0];
@@ -365,7 +371,7 @@ export function ProductDetailSheet({
       return { kind: "undo", undo: { operationId: latest.id } };
     }
     return null;
-  }, [action, amount, fee, interest, newMaturity, newName, newPrincipal, operations.data?.operations, product]);
+  }, [action, amount, fee, interest, newMaturity, newName, newPrincipal, operations.data?.operations, paidThrough, product, releaseIds, remainingInterest]);
   if (!productId) {
     return null;
   }
@@ -406,6 +412,21 @@ export function ProductDetailSheet({
                     <Label htmlFor="actual-fee">{t("availableFunds.fee")}</Label>
                     <Input id="actual-fee" value={fee} onChange={(event) => setFee(event.target.value)} />
                   </>
+                )}
+                {action === "interest" && (product.interestMode === "simple_act_365" || product.interestMode === "simple_act_360") && (
+                  <>
+                    <Label htmlFor="paid-through">{t("availableFunds.interestPaidThrough")}</Label>
+                    <Input id="paid-through" type="date" value={paidThrough} onChange={(event) => setPaidThrough(event.target.value)} />
+                  </>
+                )}
+                {action === "interest" && product.interestMode === "manual_maturity_amount" && (
+                  <>
+                    <Label htmlFor="remaining-interest">{t("availableFunds.remainingInterest")}</Label>
+                    <Input id="remaining-interest" value={remainingInterest} onChange={(event) => setRemainingInterest(event.target.value)} />
+                  </>
+                )}
+                {action !== "interest" && releaseIds.length > 0 && (
+                  <p className="text-sm text-muted-foreground">{t("availableFunds.settleReleasesReservations")}</p>
                 )}
                 {action === "renew" && (
                   <>

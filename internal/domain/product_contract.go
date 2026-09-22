@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"strings"
 	"time"
 
@@ -185,6 +186,150 @@ type ProductContract struct {
 	Revision              int
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
+}
+
+// MarshalJSON persists exact principal, interest, and rate text. The domain
+// values are unexported, so the default encoding would store empty objects and
+// undo would restore a zero principal.
+func (c ProductContract) MarshalJSON() ([]byte, error) {
+	payload := productContractJSON{
+		ID: c.ID.String(), HouseholdID: c.HouseholdID.String(), AccountID: c.AccountID.String(),
+		HoldingID: c.HoldingID.String(), InstrumentID: c.InstrumentID.String(), Kind: string(c.Kind),
+		Name: c.Name, Note: c.Note, Currency: c.Currency.String(), Principal: c.Principal.CanonicalAmount(),
+		StartOn: c.StartOn, MaturityOn: c.MaturityOn, InterestMode: string(c.InterestMode),
+		InterestPaidThroughOn: c.InterestPaidThroughOn, State: string(c.State),
+		OpenedOperationID: c.OpenedOperationID.String(), Revision: c.Revision, CreatedAt: c.CreatedAt, UpdatedAt: c.UpdatedAt,
+	}
+	if c.AnnualRate != nil {
+		rate := c.AnnualRate.Canonical()
+		payload.AnnualRate = &rate
+	}
+	if c.MaturityInterest != nil {
+		amount := c.MaturityInterest.CanonicalAmount()
+		payload.MaturityInterest = &amount
+	}
+	if c.RenewedFromID != nil {
+		id := c.RenewedFromID.String()
+		payload.RenewedFromID = &id
+	}
+	if c.ClosedOperationID != nil {
+		id := c.ClosedOperationID.String()
+		payload.ClosedOperationID = &id
+	}
+	return json.Marshal(payload)
+}
+
+func (c *ProductContract) UnmarshalJSON(raw []byte) error {
+	var payload productContractJSON
+	if err := json.Unmarshal(raw, &payload); err != nil {
+		return err
+	}
+	id, err := ParseProductContractID(payload.ID)
+	if err != nil {
+		return err
+	}
+	householdID, err := ParseHouseholdID(payload.HouseholdID)
+	if err != nil {
+		return err
+	}
+	accountID, err := ParseAccountID(payload.AccountID)
+	if err != nil {
+		return err
+	}
+	holdingID, err := ParseHoldingID(payload.HoldingID)
+	if err != nil {
+		return err
+	}
+	instrumentID, err := ParseInstrumentID(payload.InstrumentID)
+	if err != nil {
+		return err
+	}
+	kind, err := ParseProductKind(payload.Kind)
+	if err != nil {
+		return err
+	}
+	currency, err := ParseCurrency(payload.Currency)
+	if err != nil {
+		return err
+	}
+	principal, err := ParseMoney(payload.Principal, currency)
+	if err != nil {
+		return err
+	}
+	mode, err := ParseInterestMode(payload.InterestMode)
+	if err != nil {
+		return err
+	}
+	state, err := ParseProductContractState(payload.State)
+	if err != nil {
+		return err
+	}
+	openedID, err := ParseProductOperationID(payload.OpenedOperationID)
+	if err != nil {
+		return err
+	}
+	restored := ProductContract{
+		ID: id, HouseholdID: householdID, AccountID: accountID, HoldingID: holdingID, InstrumentID: instrumentID,
+		Kind: kind, Name: payload.Name, Note: payload.Note, Currency: currency, Principal: principal, StartOn: payload.StartOn,
+		MaturityOn: payload.MaturityOn, InterestMode: mode, InterestPaidThroughOn: payload.InterestPaidThroughOn,
+		State: state, OpenedOperationID: openedID, Revision: payload.Revision, CreatedAt: payload.CreatedAt, UpdatedAt: payload.UpdatedAt,
+	}
+	if payload.AnnualRate != nil {
+		rate, err := ParseAnnualRateRatio(*payload.AnnualRate)
+		if err != nil {
+			return err
+		}
+		restored.AnnualRate = &rate
+	}
+	if payload.MaturityInterest != nil {
+		interest, err := ParseMoney(*payload.MaturityInterest, currency)
+		if err != nil {
+			return err
+		}
+		restored.MaturityInterest = &interest
+	}
+	if payload.RenewedFromID != nil {
+		renewed, err := ParseProductContractID(*payload.RenewedFromID)
+		if err != nil {
+			return err
+		}
+		restored.RenewedFromID = &renewed
+	}
+	if payload.ClosedOperationID != nil {
+		closed, err := ParseProductOperationID(*payload.ClosedOperationID)
+		if err != nil {
+			return err
+		}
+		restored.ClosedOperationID = &closed
+	}
+	*c = restored
+	return nil
+}
+
+type productContractJSON struct {
+	ID                    string    `json:"id"`
+	HouseholdID           string    `json:"householdId"`
+	AccountID             string    `json:"accountId"`
+	HoldingID             string    `json:"holdingId"`
+	InstrumentID          string    `json:"instrumentId"`
+	Kind                  string    `json:"kind"`
+	Name                  string    `json:"name"`
+	Note                  *string   `json:"note,omitempty"`
+	Currency              string    `json:"currency"`
+	Principal             string    `json:"principal"`
+	StartOn               string    `json:"startOn"`
+	MaturityOn            *string   `json:"maturityOn,omitempty"`
+	InterestMode          string    `json:"interestMode"`
+	AnnualRate            *string   `json:"annualRate,omitempty"`
+	MaturityInterest      *string   `json:"maturityInterest,omitempty"`
+	InterestPaidThroughOn *string   `json:"interestPaidThroughOn,omitempty"`
+	RenewedFromID         *string   `json:"renewedFromId,omitempty"`
+	State                 string    `json:"state"`
+	OpenedOperationID     string    `json:"openedOperationId"`
+	ClosedOperationID     *string   `json:"closedOperationId,omitempty"`
+	Revision              int       `json:"revision"`
+	CreatedAt             time.Time `json:"createdAt"`
+	UpdatedAt             time.Time `json:"updatedAt"`
 }
 
 type ProductContractInput struct {

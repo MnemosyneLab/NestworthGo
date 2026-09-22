@@ -285,6 +285,237 @@ func TestLiquidityOverviewUsesValuationSnapshot(t *testing.T) {
 	}
 }
 
+func TestUndoOpeningCancelsContract(t *testing.T) {
+	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, service, ctx, "150000")
+	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000", EffectiveAt: "2026-09-20T04:00:00Z",
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Deposit D1", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	preview, err := service.PreviewProductOperation(ctx, openCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	openID := domain.NewProductOperationID()
+	receipt, err := service.RecordProductOperation(ctx, openCmd, openID.String(), preview.ReviewedStateHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	undoCmd := ProductCommand{Kind: domain.ProductOpUndo, Undo: &UndoProductCommand{OperationID: openID.String()}}
+	undoPreview, err := service.PreviewProductOperation(ctx, undoCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RecordProductOperation(ctx, undoCmd, domain.NewProductOperationID().String(), undoPreview.ReviewedStateHash); err != nil {
+		t.Fatalf("undo open: %v", err)
+	}
+	assertCash(t, service, ctx, account, "150000")
+	cancelled, err := service.Product(ctx, receipt.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.Contract.State != domain.ProductStateCancelled {
+		t.Fatalf("state = %s", cancelled.Contract.State)
+	}
+	interest := ProductCommand{Kind: domain.ProductOpReceiveInterest, ReceiveInterest: &ReceiveInterestCommand{
+		ProductID: receipt.ProductIDs[0].String(), Amount: "10", EffectiveAt: "2026-09-20T04:00:00Z",
+	}}
+	if _, err := service.PreviewProductOperation(ctx, interest); err == nil {
+		t.Fatal("cancelled contract accepted interest")
+	}
+}
+
+func TestUndoOpeningBlockedByActiveReservation(t *testing.T) {
+	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, service, ctx, "150000")
+	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000", EffectiveAt: "2026-09-20T04:00:00Z",
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Deposit D1", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	preview, err := service.PreviewProductOperation(ctx, openCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	openID := domain.NewProductOperationID()
+	receipt, err := service.RecordProductOperation(ctx, openCmd, openID.String(), preview.ReviewedStateHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	product, err := service.Product(ctx, receipt.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.SaveLiquidityReservation(ctx, SaveReservationInput{
+		Source: domain.HoldingSourceRef(product.Contract.AccountID, product.Contract.HoldingID), Label: "Tax", Amount: "100",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	undoCmd := ProductCommand{Kind: domain.ProductOpUndo, Undo: &UndoProductCommand{OperationID: openID.String()}}
+	if _, err := service.PreviewProductOperation(ctx, undoCmd); err == nil || err.(*domain.Error).Code != domain.ErrUnsafeUndo {
+		t.Fatalf("undo with reservation error = %v", err)
+	}
+}
+
+func TestUndoRenewalCancelsSuccessor(t *testing.T) {
+	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, service, ctx, "150000")
+	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000", EffectiveAt: "2026-09-20T04:00:00Z",
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Deposit D1", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	preview, err := service.PreviewProductOperation(ctx, openCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	openReceipt, err := service.RecordProductOperation(ctx, openCmd, domain.NewProductOperationID().String(), preview.ReviewedStateHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renewCmd := ProductCommand{Kind: domain.ProductOpRenew, Renew: &RenewProductCommand{
+		Settle:    SettleProductCommand{ProductID: openReceipt.ProductIDs[0].String(), ReturnedPrincipal: strPtr("100000"), Interest: strPtr("1000"), EffectiveAt: "2026-09-20T04:00:00Z"},
+		Principal: "100500",
+		Terms:     ProductTermsInput{Kind: "term_deposit", Name: "Deposit D2", StartOn: "2026-09-20", MaturityOn: strPtr("2027-03-20"), InterestMode: "none"},
+		Policy:    depositPolicy(),
+	}}
+	renewPreview, err := service.PreviewProductOperation(ctx, renewCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	renewID := domain.NewProductOperationID()
+	renewReceipt, err := service.RecordProductOperation(ctx, renewCmd, renewID.String(), renewPreview.ReviewedStateHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	undoCmd := ProductCommand{Kind: domain.ProductOpUndo, Undo: &UndoProductCommand{OperationID: renewID.String()}}
+	undoPreview, err := service.PreviewProductOperation(ctx, undoCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.RecordProductOperation(ctx, undoCmd, domain.NewProductOperationID().String(), undoPreview.ReviewedStateHash); err != nil {
+		t.Fatalf("undo renewal: %v", err)
+	}
+	assertCash(t, service, ctx, account, "50000")
+	predecessor, err := service.Product(ctx, renewReceipt.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	successor, err := service.Product(ctx, renewReceipt.ProductIDs[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if predecessor.Contract.State != domain.ProductStateOpen || successor.Contract.State != domain.ProductStateCancelled {
+		t.Fatalf("predecessor=%s successor=%s", predecessor.Contract.State, successor.Contract.State)
+	}
+}
+
+func TestRecordExistingRejectsBackdatedObservation(t *testing.T) {
+	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, service, ctx, "150000")
+	cmd := ProductCommand{Kind: domain.ProductOpRecordExisting, RecordExisting: &RecordExistingProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "20000", CurrentValue: "20000", TotalCostBasis: "20000",
+		CashExcludesProduct: true, EffectiveAt: "2026-01-01T00:00:00Z",
+		Terms:  ProductTermsInput{Kind: "term_deposit", Name: "Existing", StartOn: "2025-01-01", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	if _, err := service.PreviewProductOperation(ctx, cmd); err == nil {
+		t.Fatal("backdated existing-position observation accepted")
+	}
+}
+
+func TestInterestPaidThroughCannotBeFuture(t *testing.T) {
+	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, service, ctx, "150000")
+	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "100000", EffectiveAt: "2026-09-20T04:00:00Z",
+		Terms: ProductTermsInput{Kind: "term_deposit", Name: "Deposit D1", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"),
+			InterestMode: "simple_act_365", AnnualRatePercent: strPtr("2.5"), InterestPaidThroughOn: strPtr("2026-09-20")},
+		Policy: depositPolicy(),
+	}}
+	preview, err := service.PreviewProductOperation(ctx, openCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := service.RecordProductOperation(ctx, openCmd, domain.NewProductOperationID().String(), preview.ReviewedStateHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	interest := ProductCommand{Kind: domain.ProductOpReceiveInterest, ReceiveInterest: &ReceiveInterestCommand{
+		ProductID: receipt.ProductIDs[0].String(), Amount: "10", EffectiveAt: "2026-09-20T04:00:00Z", InterestPaidThroughOn: strPtr("2026-10-01"),
+	}}
+	if _, err := service.PreviewProductOperation(ctx, interest); err == nil {
+		t.Fatal("future paid-through date accepted")
+	}
+}
+
+func TestHoldingReservationUsesInstrumentCurrency(t *testing.T) {
+	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	bootstrap, err := service.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	account, err := service.CreateAccount(ctx, AccountInput{Name: "CNY Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendAccountCashValue(ctx, account.Account.ID, "150000", "CNY", ""); err != nil {
+		t.Fatal(err)
+	}
+	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.Account.ID.String(), Currency: "CNY", Principal: "100000", EffectiveAt: "2026-09-20T04:00:00Z",
+		Terms:  ProductTermsInput{Kind: "locked_product", Name: "CNY Lock", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	preview, err := service.PreviewProductOperation(ctx, openCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := service.RecordProductOperation(ctx, openCmd, domain.NewProductOperationID().String(), preview.ReviewedStateHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	product, err := service.Product(ctx, receipt.ProductIDs[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	reservation, err := service.SaveLiquidityReservation(ctx, SaveReservationInput{
+		Source: domain.HoldingSourceRef(product.Contract.AccountID, product.Contract.HoldingID), Label: "Tax", Amount: "100",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reservation.Currency.String() != "CNY" {
+		t.Fatalf("reservation currency = %s", reservation.Currency)
+	}
+}
+
+func TestValuationMutationConflictsWhenAmountChanges(t *testing.T) {
+	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
+	account := seedHoldingsCash(t, service, ctx, "20000")
+	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
+		AccountID: account.String(), Currency: "USD", Principal: "10000", EffectiveAt: "2026-09-20T04:00:00Z",
+		Terms:  ProductTermsInput{Kind: "locked_product", Name: "Lock", StartOn: "2026-09-20", InterestMode: "none"},
+		Policy: depositPolicy(),
+	}}
+	preview, err := service.PreviewProductOperation(ctx, openCmd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := service.RecordProductOperation(ctx, openCmd, domain.NewProductOperationID().String(), preview.ReviewedStateHash)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutationID := domain.NewProductOperationID().String()
+	if _, err := service.AppendProductValuation(ctx, AppendProductValuationInput{ProductID: receipt.ProductIDs[0], Amount: "11000", ObservedAt: "2026-09-20T04:00:00Z", MutationID: mutationID}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AppendProductValuation(ctx, AppendProductValuationInput{ProductID: receipt.ProductIDs[0], Amount: "12000", ObservedAt: "2026-09-20T04:00:00Z", MutationID: mutationID}); err == nil || err.(*domain.Error).Code != domain.ErrConflict {
+		t.Fatalf("changed valuation mutation error = %v", err)
+	}
+}
+
 func TestRecordExistingRequiresAcknowledgementAndCost(t *testing.T) {
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")

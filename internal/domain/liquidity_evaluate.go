@@ -496,7 +496,7 @@ func earlyGross(source LiquiditySource, policy LiquidityPolicy) (*Money, string,
 }
 
 func applyFee(gross Money, fee *Money) (*Money, bool, bool, error) {
-	if fee == nil {
+	if fee == nil || fee.Currency() != gross.Currency() {
 		return nil, true, false, nil
 	}
 	diff := gross.Amount().Sub(fee.Amount())
@@ -564,7 +564,15 @@ func selectRouteForHorizon(horizon string, source LiquiditySourceResult, due boo
 	copyRoute := *selected
 	result.SelectedRoute = &copyRoute
 	result.NetNative = selected.NetNative
-	if requestedReserve.Currency() != "" && selected.NetNative != nil {
+	if requestedReserve.Currency() != "" && selected.NetNative != nil && requestedReserve.Currency() != selected.NetNative.Currency() {
+		result.Status = StatusPartial
+		result.Reasons = append(result.Reasons, "reservation currency does not match the source")
+		zero, _ := NewMoney(decimal.Zero, selected.NetNative.Currency())
+		unreserved := *selected.NetNative
+		result.AppliedReserveNative = &zero
+		result.UnreservedNative = &unreserved
+		result.ReserveShortfallNative = &zero
+	} else if requestedReserve.Currency() != "" && selected.NetNative != nil {
 		applied, unreserved, shortfall := applyReservation(*selected.NetNative, requestedReserve)
 		result.AppliedReserveNative = &applied
 		result.UnreservedNative = &unreserved

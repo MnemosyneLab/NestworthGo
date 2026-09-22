@@ -122,7 +122,10 @@ func (s *Service) RecordProductOperation(ctx context.Context, command ProductCom
 	if err != nil {
 		return ProductOperationReceipt{}, err
 	}
-	if strings.TrimSpace(reviewedStateHash) != "" && currentHash != strings.TrimSpace(reviewedStateHash) {
+	if strings.TrimSpace(reviewedStateHash) == "" {
+		return ProductOperationReceipt{}, &domain.Error{Code: domain.ErrValidation, Field: "reviewedStateHash", Message: "is required"}
+	}
+	if currentHash != strings.TrimSpace(reviewedStateHash) {
 		return ProductOperationReceipt{}, &domain.Error{Code: domain.ErrStalePreview, Field: "reviewedStateHash", Message: "preview is stale; request a new preview"}
 	}
 	now := s.clock()
@@ -338,10 +341,14 @@ func (s *Service) planRecordExisting(ctx context.Context, origin *domain.History
 	}
 	effectiveAt := now.UTC()
 	if strings.TrimSpace(input.EffectiveAt) != "" {
-		effectiveAt, err = parseEffectiveAt(input.EffectiveAt, origin, now)
-		if err != nil {
-			return productPlan{}, err
+		parsed, parseErr := parseEffectiveAt(input.EffectiveAt, origin, now)
+		if parseErr != nil {
+			return productPlan{}, parseErr
 		}
+		if !parsed.Equal(now.UTC()) {
+			return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "effectiveAt", Message: "recording an existing product uses the recording time; the contract start date is descriptive only"}
+		}
+		effectiveAt = parsed
 	}
 	record, ok := accountFromState(snapshot, accountID)
 	if !ok {
@@ -452,7 +459,18 @@ func (s *Service) planReceiveInterest(ctx context.Context, origin *domain.Histor
 		if input.InterestPaidThroughOn == nil {
 			return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "interestPaidThroughOn", Message: "is required after a simple-interest receipt"}
 		}
-		updated.InterestPaidThroughOn = input.InterestPaidThroughOn
+		paidThrough, err := domain.ParseCivilDate("interestPaidThroughOn", *input.InterestPaidThroughOn)
+		if err != nil {
+			return productPlan{}, err
+		}
+		localDate, _, err := domain.LocalCivilDate(now, origin.Timezone)
+		if err != nil {
+			return productPlan{}, err
+		}
+		if compareCivil(paidThrough, localDate) > 0 {
+			return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "interestPaidThroughOn", Message: "must not be after today"}
+		}
+		updated.InterestPaidThroughOn = &paidThrough
 	case domain.InterestManualMaturityAmount:
 		remaining, err := parseOptionalMoney("remainingInterest", input.RemainingInterest, contract.Currency)
 		if err != nil {
@@ -685,13 +703,9 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 			Purpose: domain.ProductPurposeReversal, ProductID: link.ProductID,
 		})
 	}
-	restored := stored.BeforeContracts
-	for index := range restored {
-		restored[index].UpdatedAt = now
-		if restored[index].State == domain.ProductStateOpen {
-			restored[index].ClosedOperationID = nil
-		}
-		restored[index].Revision++
+	restored, err := s.contractsAfterUndo(ctx, origin.HouseholdID, stored, operationID, now)
+	if err != nil {
+		return productPlan{}, err
 	}
 	reservationLinks := make([]domain.ProductOperationReservation, 0, len(evidence.Reservations))
 	for _, link := range evidence.Reservations {
@@ -703,8 +717,11 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	}
 	productLinks := make([]domain.ProductOperationProduct, 0, len(evidence.Products))
 	for _, link := range evidence.Products {
-		role := domain.ProductRoleCancelled
-		if link.Role == domain.ProductRoleSettled {
+		role := link.Role
+		switch link.Role {
+		case domain.ProductRoleOpened:
+			role = domain.ProductRoleCancelled
+		case domain.ProductRoleSettled:
 			role = domain.ProductRoleReopened
 		}
 		productLinks = append(productLinks, domain.ProductOperationProduct{OperationID: operationID, ProductID: link.ProductID, Role: role})
@@ -715,6 +732,73 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 		reservationLinks: reservationLinks, productIDs: uniqueProductIDs(evidence.Products),
 		beforeContracts: stored.AfterContracts, afterContracts: restored, effectiveAt: now, reverses: &targetID,
 	}, nil
+}
+
+func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.HouseholdID, stored productReceiptEvidence, operationID domain.ProductOperationID, now time.Time) ([]domain.ProductContract, error) {
+	beforeByID := map[domain.ProductContractID]domain.ProductContract{}
+	for _, contract := range stored.BeforeContracts {
+		beforeByID[contract.ID] = contract
+	}
+	restored := make([]domain.ProductContract, 0, len(stored.BeforeContracts)+len(stored.AfterContracts))
+	seen := map[domain.ProductContractID]struct{}{}
+	for _, before := range stored.BeforeContracts {
+		current, err := s.repository.Product(ctx, householdID, before.ID)
+		if err != nil {
+			return nil, err
+		}
+		next := before
+		next.UpdatedAt = now
+		if next.State == domain.ProductStateOpen {
+			next.ClosedOperationID = nil
+		}
+		next.Revision = current.Revision + 1
+		if err := next.Validate(); err != nil {
+			return nil, err
+		}
+		restored = append(restored, next)
+		seen[next.ID] = struct{}{}
+	}
+	for _, created := range stored.AfterContracts {
+		if _, ok := beforeByID[created.ID]; ok {
+			continue
+		}
+		if _, ok := seen[created.ID]; ok {
+			continue
+		}
+		current, err := s.repository.Product(ctx, householdID, created.ID)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.rejectActiveReservations(ctx, householdID, current); err != nil {
+			return nil, err
+		}
+		next := current
+		next.State = domain.ProductStateCancelled
+		closed := operationID
+		next.ClosedOperationID = &closed
+		next.Revision = current.Revision + 1
+		next.UpdatedAt = now
+		if err := next.Validate(); err != nil {
+			return nil, err
+		}
+		restored = append(restored, next)
+		seen[next.ID] = struct{}{}
+	}
+	return restored, nil
+}
+
+func (s *Service) rejectActiveReservations(ctx context.Context, householdID domain.HouseholdID, contract domain.ProductContract) error {
+	reservations, err := s.repository.ListLiquidityReservations(ctx, householdID, false)
+	if err != nil {
+		return err
+	}
+	sourceKey := domain.HoldingSourceRef(contract.AccountID, contract.HoldingID).Key()
+	for _, reservation := range reservations {
+		if reservation.Source.Key() == sourceKey && reservation.Active() {
+			return &domain.Error{Code: domain.ErrUnsafeUndo, Field: "reservationId", Message: "release active reservations before undoing the opening"}
+		}
+	}
+	return nil
 }
 
 func (s *Service) loadOpenProduct(ctx context.Context, householdID domain.HouseholdID, raw string) (domain.ProductContractID, domain.ProductContract, error) {
