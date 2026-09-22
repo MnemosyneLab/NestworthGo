@@ -41,3 +41,10 @@ it("never substitutes native money for missing base FX", () => {
   eur.bucketResults![0].netBase = null;
   expect(cashVersusProceeds([eur], horizon, "Unknown", "USD").cash).toBe("Unknown");
 });
+
+it("does not classify an unknown holding's placeholder action as cash", () => {
+  const holding = cash("unavailable", null);
+  holding.sourceRef.kind = "holding";
+  holding.normalRoute!.actionRequired = "none";
+  expect(cashVersusProceeds([cash("complete", "100"), holding], horizon, "Unknown", "USD")).toEqual({cash:"$100.00", proceeds:"Unknown"});
+});

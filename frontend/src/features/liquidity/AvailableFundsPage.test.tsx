@@ -147,11 +147,24 @@ describe("AvailableFundsPage", () => {
       ],
     }));
     renderPage();
-    expect(await screen.findByTestId("horizon-available-2026-09-20")).toHaveTextContent("Unknown");
+    expect(await screen.findByTestId("horizon-available-2026-09-20")).toHaveTextContent("$10,000.00");
     expect(screen.getByTestId("horizon-available-2026-09-20")).not.toHaveTextContent("$0.00");
-    expect(screen.getByText(/Partial: \$10,000.00/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Known amounts only;/)).toHaveLength(3);
     await userEvent.selectOptions(screen.getByLabelText("Currency display"), "native");
     expect(screen.getByTestId("horizon-available-2026-09-20")).toHaveTextContent("€100.00");
+  });
+
+  it("keeps secondary row actions in a menu", async () => {
+    overview.mockResolvedValue(fixtureOverview());
+    renderPage();
+    await screen.findByTestId("available-funds-page");
+    expect(screen.queryByRole("button", { name: "Edit source rules" })).not.toBeInTheDocument();
+    const row = screen.getAllByText("Bank cash")[0].closest("tr")!;
+    await userEvent.click(within(row).getByRole("button", { name: /Actions for/ }));
+    expect(await screen.findByRole("menuitem", { name: "Manage reservations" })).toBeVisible();
+    await userEvent.click(screen.getByRole("menuitem", { name: "Edit source rules" }));
+    expect(await screen.findByRole("dialog")).toBeVisible();
+    expect(screen.queryByRole("menuitem")).not.toBeInTheDocument();
   });
 
   it("keeps due-unconfirmed sources out of spendable unreserved amounts", async () => {

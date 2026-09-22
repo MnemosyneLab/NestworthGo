@@ -56,20 +56,18 @@ beforeEach(() => {
 });
 
 describe("product P1 regression flows", () => {
-  it.each(["simple_act_365", "simple_act_360", "manual_maturity_amount"])("previews and records renewal with full %s terms", async (mode) => {
-    api.Product.mockResolvedValue({ product: product(mode), reservations: [], permittedActions: ["renew"], disabledReasons: {} });
+  it("confirms receipt independently without offering renewal", async () => {
     const user = userEvent.setup();
     show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
-    await user.click(await screen.findByRole("button", { name: "Confirm receipt and renew" }));
-    change("Returned principal", "100000"); change("Interest received", "1000"); change("New principal", "100000"); change("Opening fee", "10");
-    expect(screen.getByLabelText("Start date")).toHaveValue("");
-    change("Start date", "2026-09-20"); change("Maturity date", "2027-09-20");
-    if (mode.startsWith("simple_")) expect(screen.getByLabelText("Annual rate (%)")).toHaveValue("2.5");
-    else expect(screen.getByLabelText("Unpaid maturity interest")).toHaveValue("2500");
+    await user.click(await screen.findByRole("button", { name: "Confirm receipt" }));
+    expect(screen.queryByRole("button", { name: "Confirm receipt and renew" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("New principal")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Returned principal")).toHaveValue("100000");
+    change("Interest received", "1000");
     await user.click(screen.getByRole("button", { name: "Preview" }));
     await waitFor(() => expect(api.PreviewProductOperation).toHaveBeenCalledOnce());
     const sent = api.PreviewProductOperation.mock.calls[0][0];
-    expect(sent.renew).toMatchObject({ principal: "100000", openingFee: "10", terms: { startOn: "2026-09-20", maturityOn: "2027-09-20", interestMode: mode, annualRate: null, annualRatePercent: mode.startsWith("simple_") ? "2.5" : null, maturityInterest: mode === "manual_maturity_amount" ? "2500" : null, interestPaidThroughOn: null }, policy: { accessKind: "on_date", unlockOn: "2027-09-20" } });
+    expect(sent).toMatchObject({ kind: "settle", settle: { productId: "product", returnedPrincipal: "100000", interest: "1000", fee: "0" } });
     await user.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(api.RecordProductOperation).toHaveBeenCalledOnce());
     expect(api.RecordProductOperation.mock.calls[0][0]).toMatchObject({ command: sent, reviewedStateHash: "reviewed" });
@@ -90,6 +88,7 @@ describe("product P1 regression flows", () => {
   it("allows ordinary early access inputs and preserves unknown normal timing and fee", async () => {
     const user = userEvent.setup();
     show(<PolicySheet source={source(false)} open onOpenChange={vi.fn()} />);
+    await user.click(screen.getByText("Advanced settings · timing, fees and limits"));
     change("Settlement days", ""); change("Normal exit fee", "");
     await user.selectOptions(screen.getByLabelText("Early withdrawal"), "allowed");
     change("Early settlement days", "2");
@@ -276,4 +275,47 @@ it("clears monetary input when changing the operation type", async () => {
   change("Returned principal", "100000");
   await userEvent.click(screen.getByRole("button", {name: "Record interest received"}));
   expect(screen.getByLabelText("Interest received")).toHaveValue("");
+});
+
+it("saves a preset for an assumed policy as a first explicit rule", async () => {
+  const asset = source(false);
+  asset.policyOrigin = "assumed";
+  asset.policy!.revision = 1;
+  show(<PolicySheet source={asset} open onOpenChange={vi.fn()} />);
+  await userEvent.click(screen.getByRole("radio", {name: /Available soon/}));
+  await userEvent.click(screen.getByRole("button", {name: "Save policy"}));
+  await waitFor(() => expect(api.SavePolicy).toHaveBeenCalledWith(expect.objectContaining({expectedRevision:0, policy:expect.objectContaining({accessKind:"on_request", settlementDays:1, dayBasis:"weekdays", normalExitFee:"0"})})));
+});
+
+ it("opens a deposit using just principal and dates with simple defaults", async () => {
+  show(<ProductFormSheet accountId="account" currency="EUR" open onOpenChange={vi.fn()} />);
+  change("Principal", "500"); change("Start date", "2026-09-20"); change("Maturity date", "2027-09-20");
+  expect(screen.getByLabelText("Settlement days")).not.toBeVisible();
+  expect(screen.getByLabelText("Opening fee")).not.toBeVisible();
+  expect(screen.getByLabelText("Allow early withdrawal")).not.toBeChecked();
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(api.PreviewProductOperation).toHaveBeenCalledOnce());
+  expect(api.PreviewProductOperation.mock.calls[0][0].open).toMatchObject({
+    principal: "500", currency: "EUR", openingFee: "0",
+    terms: { name: "Term deposit", startOn: "2026-09-20", maturityOn: "2027-09-20", interestMode: "none" },
+    policy: { accessKind: "on_date", unlockOn: "2027-09-20", settlementDays: 0, normalExitFee: "0", earlyKind: "not_allowed" },
+  });
+});
+
+it("preserves advanced deposit rules while changing the maturity date", async () => {
+  const existing = product("simple_act_360");
+  existing.policy.settlementDays = 2;
+  existing.policy.normalExitFee = money("12");
+  api.Product.mockResolvedValue({ product: existing, reservations: [], permittedActions: [], disabledReasons: {} });
+  show(<PolicySheet source={source(true)} open onOpenChange={vi.fn()} />);
+  await screen.findByLabelText("Maturity date");
+  expect(screen.getByLabelText("Annual rate (%)")).toHaveValue("2.5");
+  expect(screen.getByLabelText("Settlement days")).not.toBeVisible();
+  change("Maturity date", "2027-10-20");
+  await userEvent.click(screen.getByRole("button", { name: "Save policy" }));
+  await waitFor(() => expect(api.UpdateProductTerms).toHaveBeenCalledOnce());
+  expect(api.UpdateProductTerms.mock.calls[0][0]).toMatchObject({
+    terms: { interestMode: "simple_act_360", annualRatePercent: "2.5", maturityOn: "2027-10-20" },
+    policy: { settlementDays: 2, normalExitFee: "12", unlockOn: "2027-10-20" },
+  });
 });

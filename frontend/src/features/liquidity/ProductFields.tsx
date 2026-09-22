@@ -46,8 +46,8 @@ export function ProductTermsFields({ value, onChange, editing = false, invalidFi
   </fieldset>;
 }
 
-export function ProductPolicyFields({ value, onChange, termDeposit = false, ordinary = false }: {
-  value: ProductPolicyInput; onChange: (value: ProductPolicyInput) => void; termDeposit?: boolean; ordinary?: boolean;
+export function ProductPolicyFields({ value, onChange, termDeposit = false, ordinary = false, hideEarlyGross = false }: {
+  value: ProductPolicyInput; onChange: (value: ProductPolicyInput) => void; termDeposit?: boolean; ordinary?: boolean; hideEarlyGross?: boolean;
 }) {
   const { t } = useTranslation();
   const id = useId();
@@ -97,7 +97,7 @@ export function ProductPolicyFields({ value, onChange, termDeposit = false, ordi
       <NativeSelect id={`${id}-early-mode`} value={value.earlyAmountMode ?? "current_value"} onChange={(e) => onChange({ ...value, earlyAmountMode: e.target.value, earlyGrossAmount: null })}>
         <option value="current_value">{t("availableFunds.currentContractValue")}</option><option value="fixed_gross">{t("availableFunds.earlyGross")}</option>
       </NativeSelect>
-      {value.earlyAmountMode === "fixed_gross" && <>
+      {value.earlyAmountMode === "fixed_gross" && !hideEarlyGross && <>
         <Label htmlFor={`${id}-gross`}>{t("availableFunds.earlyGross")}</Label>
         <Input id={`${id}-gross`} inputMode="decimal" value={value.earlyGrossAmount ?? ""} onChange={(e) => onChange({ ...value, earlyGrossAmount: e.target.value || null })} />
       </>}

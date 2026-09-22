@@ -1,3 +1,4 @@
+import { DepositFields } from "./DepositFields";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
@@ -5,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { displayError } from "@/lib/display";
+import { formatAmount } from "@/lib/money";
 import { useProduct, useUpdateProductTerms } from "@/queries/liquidity";
 import { ProductPolicyFields, ProductTermsFields } from "./ProductFields";
 import { policyForTerms, policyFromDTO, termsFromProduct } from "./productPolicy";
@@ -34,8 +36,11 @@ function ProductEditForm({ product, onSaved }: { product: ProductDTO; onSaved: (
   const policy = product.state === "open" ? policyForTerms(terms, rules) : rules;
   return <div className="flex flex-col gap-4">
     {product.state === "open" ? <>
-      <ProductTermsFields value={terms} onChange={setTerms} editing />
-      <ProductPolicyFields value={policy} onChange={setRules} termDeposit={terms.kind === "term_deposit"} />
+      <p>{t("availableFunds.principal")}: {formatAmount(product.principal.amount, product.principal.currency)}</p>
+      {terms.kind === "term_deposit" ? <DepositFields terms={terms} policy={policy} principal={product.principal.amount} onTermsChange={setTerms} onPolicyChange={setRules} editing /> : <>
+        <ProductTermsFields value={terms} onChange={setTerms} editing />
+        <ProductPolicyFields value={policy} onChange={setRules} />
+      </>}
     </> : <>
       <p>{t("availableFunds.closedMetadataOnly")}</p>
       <Label htmlFor="closed-name">{t("availableFunds.name")}</Label><Input id="closed-name" value={terms.name} onChange={(e) => setTerms({ ...terms, name:e.target.value })} />

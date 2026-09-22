@@ -1,3 +1,4 @@
+import { ActionMenu } from "@/components/ui/action-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DatePicker } from "@/components/ui/date-picker";
 import { sourceName } from "./sourceName";
@@ -20,7 +21,6 @@ import {
   actionRequiredLabel,
   bucketForHorizon,
   cashVersusProceeds,
-  completenessLabel,
   formatKnownOrUnknown,
   remindersFor,
   resultForHorizon,
@@ -30,16 +30,6 @@ import {
   type SourceFilter,
 } from "@/features/liquidity/liquidityDisplay";
 import type { LiquidityBucketDTO, LiquiditySourceDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
-
-function completenessVariant(status: string): "success" | "warning" | "destructive" {
-  if (status === "complete") {
-    return "success";
-  }
-  if (status === "partial") {
-    return "warning";
-  }
-  return "destructive";
-}
 
 function HorizonCard({
   label,
@@ -59,15 +49,18 @@ function HorizonCard({
   currencyMode: CurrencyMode;
 }) {
   const { t } = useTranslation();
+  const incomplete = currencyMode === "native"
+    ? !(bucket.nativeCurrencyGroups?.length) || bucket.nativeCurrencyGroups.some((group) => !group.fullAvailable || !group.fullUnreserved)
+    : !bucket.fullAvailable || !bucket.fullUnreserved;
   const available = currencyMode === "native"
-    ? (bucket.nativeCurrencyGroups ?? []).map((group) => formatKnownOrUnknown(group.fullAvailable, unknown)).join(" · ") || unknown
-    : formatKnownOrUnknown(bucket.fullAvailable, unknown);
+    ? (bucket.nativeCurrencyGroups ?? []).map((group) => formatKnownOrUnknown(group.fullAvailable ?? group.knownAvailableSubtotal, unknown)).join(" · ") || unknown
+    : formatKnownOrUnknown(bucket.fullAvailable ?? bucket.knownAvailableSubtotal, unknown);
   const reserved = currencyMode === "native"
     ? (bucket.nativeCurrencyGroups ?? []).map((group) => formatKnownOrUnknown(group.appliedReserveSubtotal, unknown)).join(" · ") || unknown
     : formatKnownOrUnknown(bucket.appliedReserveSubtotal, unknown);
   const unreserved = currencyMode === "native"
-    ? (bucket.nativeCurrencyGroups ?? []).map((group) => formatKnownOrUnknown(group.fullUnreserved, unknown)).join(" · ") || unknown
-    : formatKnownOrUnknown(bucket.fullUnreserved, unknown);
+    ? (bucket.nativeCurrencyGroups ?? []).map((group) => formatKnownOrUnknown(group.fullUnreserved ?? group.knownUnreservedSubtotal, unknown)).join(" · ") || unknown
+    : formatKnownOrUnknown(bucket.fullUnreserved ?? bucket.knownUnreservedSubtotal, unknown);
   const breakdown = cashVersusProceeds(sources, bucket.horizonOn, unknown, bucket.fullAvailable?.currency ?? bucket.knownAvailableSubtotal?.currency ?? "USD", currencyMode);
   return (
     <button
@@ -81,13 +74,7 @@ function HorizonCard({
       <p className="mt-2 text-2xl font-semibold" data-testid={`horizon-available-${bucket.horizonOn}`}>{available}</p>
       <p className="mt-1 text-sm text-muted-foreground">{t("availableFunds.reserved")}: {reserved}</p>
       <p className="text-sm text-muted-foreground">{t("availableFunds.unreserved")}: {unreserved}</p>
-      <Badge className="mt-2" variant={completenessVariant(bucket.status)}>{completenessLabel(t, bucket.status)}</Badge>
-      {bucket.status === "partial" && bucket.knownAvailableSubtotal && currencyMode === "base" && (
-        <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.partial")}: {formatKnownOrUnknown(bucket.knownAvailableSubtotal, unknown)}</p>
-      )}
-      {currencyMode === "native" && (bucket.nativeCurrencyGroups ?? []).filter((group) => group.status === "partial" && group.knownAvailableSubtotal).map((group) => (
-        <p key={group.currency} className="mt-1 text-xs text-muted-foreground">{t("availableFunds.partial")}: {formatKnownOrUnknown(group.knownAvailableSubtotal, unknown)}</p>
-      ))}
+      {incomplete && <p className="mt-2 text-xs text-muted-foreground">{t("availableFunds.incompleteAmount")}</p>}
       <p className="mt-3 text-xs text-muted-foreground">{t("availableFunds.cashAccessible")}: {breakdown.cash}</p>
       <p className="text-xs text-muted-foreground">{t("availableFunds.estimatedProceeds")}: {breakdown.proceeds}</p>
     </button>
@@ -196,7 +183,6 @@ export function AvailableFundsPage({
       />
       <p className="text-sm text-muted-foreground">{t("availableFunds.cumulativeHint")}</p>
       <p className="text-sm text-muted-foreground">{t("availableFunds.assetsOnly")}</p>
-      <p className="text-sm text-muted-foreground">{t("availableFunds.notSafeToSpend")}</p>
 
       {sources.length === 0 ? (
         <EmptyState title={t("availableFunds.emptyTitle")} description={t("availableFunds.emptyDescription")} />
@@ -224,7 +210,7 @@ export function AvailableFundsPage({
             </div>
           </div>
           {allExcluded && <EmptyState title={t("availableFunds.allExcludedTitle")} description={t("availableFunds.assetsOnly")} />}
-          {!allExcluded && allLocked && <EmptyState title={t("availableFunds.allLockedTitle")} description={t("availableFunds.notSafeToSpend")} />}
+          {!allExcluded && allLocked && <EmptyState title={t("availableFunds.allLockedTitle")} />}
           {selectedBucket?.status !== "complete" && !allExcluded && (
             <p role="status" className="text-sm text-warning-foreground">{t("availableFunds.needsInfoTitle")}</p>
           )}
@@ -310,15 +296,17 @@ export function AvailableFundsPage({
                       </td>
                       <td className="px-3 py-2">{source.dueUnconfirmed ? unknown : moneyText(result?.unreservedNative, unknown)}</td>
                       <td className="px-3 py-2">
-                        <div className="flex flex-wrap gap-2">
-                          <span>{source.displayState === "needs_info" ? t("availableFunds.completeRules") : actionRequiredLabel(t, route?.actionRequired)}</span>
-                          <Button type="button" size="sm" variant="ghost" onClick={() => setPolicySource(source)}>{t("availableFunds.editSource")}</Button>
-                          <Button type="button" size="sm" variant="ghost" onClick={() => { setReservationSource(source); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button>
-                          {source.productId && (
-                            <Button type="button" size="sm" variant="outline" onClick={() => setDetailProductId(source.productId)}>
-                              {t("availableFunds.products")}
-                            </Button>
-                          )}
+                        <div className="flex items-center justify-between gap-2 whitespace-nowrap">
+                          {source.displayState === "needs_info" ? (
+                            <Button type="button" size="sm" variant="link" className="px-0" onClick={() => setPolicySource(source)}>{t("availableFunds.completeRules")}</Button>
+                          ) : source.productId ? (
+                            <Button type="button" size="sm" variant="link" className="px-0" onClick={() => setDetailProductId(source.productId)}>{t("availableFunds.products")}</Button>
+                          ) : <span className="text-sm text-muted-foreground">{actionRequiredLabel(t, route?.actionRequired)}</span>}
+                          <ActionMenu label={t("connections.actionsFor", { name: `${sourceName(t, source)} · ${source.nativeCurrency}` })} items={[
+                            ...(source.displayState === "needs_info" ? [] : [{ id: "rules", label: t("availableFunds.editSource"), onSelect: () => setPolicySource(source) }]),
+                            { id: "reservations", label: t("availableFunds.manageReservations"), onSelect: () => { setReservationSource(source); setManageReservations(true); } },
+                            ...(source.productId && source.displayState === "needs_info" ? [{ id: "product", label: t("availableFunds.products"), onSelect: () => setDetailProductId(source.productId) }] : []),
+                          ]} />
                         </div>
                       </td>
                     </tr>

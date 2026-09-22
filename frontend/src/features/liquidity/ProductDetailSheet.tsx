@@ -3,7 +3,6 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { defaultProductPolicy, emptyTerms, policyForTerms, termsFromProduct } from "@/features/liquidity/productPolicy";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
@@ -18,11 +17,10 @@ import {
 } from "@/queries/liquidity";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { ProductPolicyInput, ProductTermsInput, SettleProductCommand } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
+import type { SettleProductCommand } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import type { ProductCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import { moneyText, productStateLabel } from "./liquidityDisplay";
 import { ProductEditSheet } from "./ProductEditSheet";
-import { ProductPolicyFields, ProductTermsFields } from "./ProductFields";
 import { ProductPreview } from "./ProductPreview";
 import { ProductTimeFields, type ProductLocalTime } from "./ProductTimeFields";
 import { useReviewedCommand } from "./useReviewedCommand";
@@ -46,14 +44,10 @@ export function ProductDetailSheet({
   const record = useRecordProductOperation();
   const valuation = useAppendProductValuation();
   const release = useReleaseReservation();
-  const [action, setAction] = useState<"settle" | "renew" | "interest" | "value" | "undo" | null>(null);
+  const [action, setAction] = useState<"settle" | "interest" | "value" | "undo" | null>(null);
   const [amount, setAmount] = useState("");
   const [interest, setInterest] = useState("0");
   const [fee, setFee] = useState("0");
-  const [newPrincipal, setNewPrincipal] = useState("");
-  const [newTerms, setNewTerms] = useState<ProductTermsInput>(() => emptyTerms("term_deposit"));
-  const [newPolicy, setNewPolicy] = useState<ProductPolicyInput>(() => defaultProductPolicy(null));
-  const [newOpeningFee, setNewOpeningFee] = useState("0");
   const [editTerms, setEditTerms] = useState(false);
   const [paidThrough, setPaidThrough] = useState("");
   const [remainingInterest, setRemainingInterest] = useState("");
@@ -73,21 +67,6 @@ export function ProductDetailSheet({
         : { productId: product.id, grossProceeds: amount, fee, effectiveAt: "", ...localTime, releaseReservationIds: releaseIds, returnedPrincipal: null, interest: null };
       return { kind: "settle", settle };
     }
-    if (action === "renew") {
-      const settle: SettleProductCommand = product.kind === "term_deposit"
-        ? { productId: product.id, returnedPrincipal: amount, interest, fee, grossProceeds: null, effectiveAt: "", ...localTime, releaseReservationIds: releaseIds }
-        : { productId: product.id, grossProceeds: amount, fee, effectiveAt: "", ...localTime, releaseReservationIds: releaseIds, returnedPrincipal: null, interest: null };
-      return {
-        kind: "renew",
-        renew: {
-          settle,
-          principal: newPrincipal,
-          openingFee: newOpeningFee,
-          terms: newTerms,
-          policy: policyForTerms(newTerms, newPolicy),
-        },
-      };
-    }
     if (action === "interest") {
       return { kind: "receive_interest", receiveInterest: { productId: product.id, amount, effectiveAt: "", ...localTime, interestPaidThroughOn: paidThrough || null, remainingInterest: remainingInterest || null } };
     }
@@ -101,19 +80,18 @@ export function ProductDetailSheet({
       return { kind: "undo", undo: { operationId: latest.id } };
     }
     return null;
-  }, [action, amount, fee, interest, localTime, newOpeningFee, newPolicy, newPrincipal, newTerms, operations.data?.operations, paidThrough, product, releaseIds, remainingInterest]);
+  }, [action, amount, fee, interest, localTime, operations.data?.operations, paidThrough, product, releaseIds, remainingInterest]);
   const { reviewed, setReviewed } = useReviewedCommand(command);
   function beginAction(next: typeof action) {
     setAction(next);
     setReviewed(null);
     setError(undefined);
-    setAmount("");
+    setAmount(next === "settle" && product?.kind === "term_deposit" ? product.principal.amount : "");
     setInterest("0");
     setFee("0");
     setLocalTime({});
     setPaidThrough("");
     setRemainingInterest("");
-    setNewPrincipal("");
   }
   if (!productId) {
     return null;
@@ -137,16 +115,11 @@ export function ProductDetailSheet({
             <fieldset disabled={record.isPending || valuation.isPending} className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" onClick={() => setEditTerms(true)}>{t("availableFunds.editTerms")}</Button>
               {(detail.data?.permittedActions ?? []).includes("settle") && <Button type="button" onClick={() => { beginAction("settle"); }}>{t("availableFunds.confirmReceipt")}</Button>}
-              {(detail.data?.permittedActions ?? []).includes("renew") && <Button type="button" variant="outline" onClick={() => {
-                setNewTerms({ ...termsFromProduct(product), startOn: "", maturityOn: null, interestPaidThroughOn: null });
-                setNewPolicy(defaultProductPolicy(null)); setNewOpeningFee("0");
-                beginAction("renew");
-              }}>{t("availableFunds.confirmAndRenew")}</Button>}
               {(detail.data?.permittedActions ?? []).includes("receive_interest") && <Button type="button" variant="outline" onClick={() => { beginAction("interest"); }}>{t("availableFunds.receiveInterest")}</Button>}
               {product.kind === "locked_product" && product.state === "open" && <Button type="button" variant="outline" onClick={() => { beginAction("value"); }}>{t("availableFunds.updateValuation")}</Button>}
               <Button type="button" variant="ghost" onClick={() => { beginAction("undo"); }}>{t("availableFunds.groupedUndo")}</Button>
             </fieldset>
-            {action === "settle" || action === "renew" || action === "interest" ? (
+            {action === "settle" || action === "interest" ? (
               <div className="flex flex-col gap-2">
                 <ProductTimeFields value={localTime} onChange={(next) => { setLocalTime(next); setReviewed(null); }} timezone={history.data?.timezone} />
                 <Label htmlFor="actual-amount">{action === "interest" ? t("availableFunds.interestReceived") : product.kind === "term_deposit" ? t("availableFunds.returnedPrincipal") : t("availableFunds.grossProceeds")}</Label>
@@ -178,16 +151,6 @@ export function ProductDetailSheet({
                 {action !== "interest" && releaseIds.length > 0 && (
                   <p className="text-sm text-muted-foreground">{t("availableFunds.settleReleasesReservations")}</p>
                 )}
-                {action === "renew" && (
-                  <>
-                    <Label htmlFor="new-principal">{t("availableFunds.newPrincipal")}</Label>
-                    <Input id="new-principal" value={newPrincipal} onChange={(event) => setNewPrincipal(event.target.value)} />
-                    <Label htmlFor="new-opening-fee">{t("availableFunds.openingFee")}</Label>
-                    <Input id="new-opening-fee" value={newOpeningFee} onChange={(event) => setNewOpeningFee(event.target.value)} />
-                    <ProductTermsFields value={newTerms} onChange={(next) => { setNewTerms(next); setReviewed(null); }} />
-                    <ProductPolicyFields value={policyForTerms(newTerms, newPolicy)} onChange={(next) => { setNewPolicy(next); setReviewed(null); }} termDeposit={newTerms.kind === "term_deposit"} />
-                  </>
-                )}
               </div>
             ) : null}
             {action === "value" && (
@@ -198,7 +161,7 @@ export function ProductDetailSheet({
             )}
             {reviewed && <ProductPreview preview={reviewed} />}
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-            {(action === "settle" || action === "renew" || action === "interest" || action === "undo") && command && (
+            {(action === "settle" || action === "interest" || action === "undo") && command && (
               <div className="flex gap-2">
                 <Button type="button" variant="outline" disabled={preview.isPending || record.isPending} onClick={() => {
                   setError(undefined);

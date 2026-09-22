@@ -1,3 +1,4 @@
+import { productActivityText } from "./productActivityText";
 import { displayEnum } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
 import type { ActivityDTO, ActivityEffectDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -46,10 +47,11 @@ export function activitySentence(
   const holdingName = (effect: ActivityEffectDTO | undefined) =>
     (effect?.holdingId ? holdings.get(effect.holdingId) : undefined) || instrumentName(effect?.instrumentId);
 
-  const core = coreSentence(t, activity, effects, accountName, instrumentName, holdingName);
+  const product = productActivityText(t, activity, accounts, instruments);
+  const core = product?.sentence ?? coreSentence(t, activity, effects, accountName, instrumentName, holdingName);
   const fee = feeLabel(activity, effects);
   const sentence = fee && !activity.reversesActivityId ? t("history.sentence.withFee", { sentence: core, fee }) : core;
-  const skipReason = activity.kind === "buy" || activity.kind === "sell" || activity.kind === "cash_dividend";
+  const skipReason = Boolean(product) || activity.kind === "buy" || activity.kind === "sell" || activity.kind === "cash_dividend";
   const reason = activity.reason ? displayEnum(t, "history.reason", activity.reason) : "";
   if (!skipReason && reason && activity.reason !== "other") {
     return t("history.sentence.withReason", { sentence, reason });

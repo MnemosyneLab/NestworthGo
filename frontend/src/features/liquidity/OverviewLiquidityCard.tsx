@@ -54,18 +54,19 @@ export function OverviewLiquidityCard() {
           <div>
             <p className="text-sm text-muted-foreground">{t("availableFunds.overviewToday")}</p>
             <p className="break-words text-xl font-semibold" data-testid="overview-liquidity-today">
-              {formatKnownOrUnknown(today?.fullUnreserved, unknown)}
+              {formatKnownOrUnknown(today?.fullUnreserved ?? today?.knownUnreservedSubtotal, unknown)}
             </p>
+            {!today?.fullUnreserved && <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.incompleteAmount")}</p>}
           </div>
           <div>
             <p className="text-sm text-muted-foreground">{t("availableFunds.overview30")}</p>
             <p className="break-words text-xl font-semibold" data-testid="overview-liquidity-30">
-              {formatKnownOrUnknown(month?.fullUnreserved, unknown)}
+              {formatKnownOrUnknown(month?.fullUnreserved ?? month?.knownUnreservedSubtotal, unknown)}
             </p>
+            {!month?.fullUnreserved && <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.incompleteAmount")}</p>}
           </div>
         </div>
-        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-          <p className="text-xs text-muted-foreground">{t("availableFunds.notSafeToSpend")}</p>
+        <div className="mt-auto flex justify-end border-t border-border pt-3">
           {navigation && (
             <Button type="button" size="sm" variant="link" className="h-auto p-0" onClick={() => navigation.open({ page: "available-funds" })}>
               {t("availableFunds.openPage")}

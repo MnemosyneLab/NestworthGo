@@ -122,8 +122,9 @@ export function cashVersusProceeds(
   for (const source of sources) {
     if (source.excluded) continue;
     const result = resultForHorizon(source, horizonOn);
-    const action = result?.selectedRoute?.actionRequired ?? source.normalRoute?.actionRequired;
-    const isCash = action ? action === "none" || action === "withdraw" : source.sourceRef.kind !== "holding";
+    // Incomplete routes still carry the placeholder action "none". Classify
+    // by the actual source, so an unknown holding never becomes cash.
+    const isCash = source.sourceRef.kind !== "holding";
     const group = isCash ? cash : proceeds;
     // Partial results may also have unknown alternative routes. Do not infer
     // completeness from the presence of one known native amount.
