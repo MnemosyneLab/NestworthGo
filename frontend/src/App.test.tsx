@@ -445,7 +445,7 @@ it("returns from account analysis with the source archive filter and scroll posi
   await screen.findByTestId("account-detail");
   const main = document.getElementById("main-content")!;
   main.scrollTop = 170;
-  await userEvent.selectOptions(screen.getByRole("combobox", { name: "Analyze Checking" }), "return-analysis");
+  await userEvent.click(screen.getByRole("button", { name: "Return analysis" }));
   expect(await screen.findByRole("button", { name: "← Back to Accounts" })).toBeVisible();
   expect(screen.getByTestId("account-detail")).not.toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "← Back to Accounts" }));

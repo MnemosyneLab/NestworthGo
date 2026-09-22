@@ -382,3 +382,11 @@ reservations, route selection, aggregation, and FX conversion. `Money` fields in
 liquidity and product-detail responses are rounded display projections; they do
 not replace the exact valuation input. User-entered monetary amounts retain the
 existing four-fractional-digit validation contract.
+
+Liquidity read DTOs use `displayState: needs_info` for unknown access rules or
+missing receipt timing, distinct from a confirmed lock. Consumers must render a
+request to complete the rules, not “no action”. Product preview warnings use
+stable localization codes (`existing_position_increases_assets`) rather than
+English prose. History uses `Activity.productContext.productId` to open product
+management; its generic correction/undo controls do not apply to product-linked
+activities, including product interest entries.

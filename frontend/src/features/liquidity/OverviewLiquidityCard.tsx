@@ -42,32 +42,36 @@ export function OverviewLiquidityCard() {
   const month = overview.data.buckets?.[2];
   const status = today?.status ?? "unavailable";
   return (
-    <Card data-testid="overview-liquidity-card">
-      <CardHeader>
+    <Card className="flex flex-col" data-testid="overview-liquidity-card">
+      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle>{t("availableFunds.pageTitle")}</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div>
-          <p className="text-sm text-muted-foreground">{t("availableFunds.overviewToday")}</p>
-          <p className="text-xl font-semibold" data-testid="overview-liquidity-today">
-            {formatKnownOrUnknown(today?.fullUnreserved, unknown)}
-          </p>
-        </div>
-        <div>
-          <p className="text-sm text-muted-foreground">{t("availableFunds.overview30")}</p>
-          <p className="text-lg font-medium" data-testid="overview-liquidity-30">
-            {formatKnownOrUnknown(month?.fullUnreserved, unknown)}
-          </p>
-        </div>
         <Badge variant={status === "complete" ? "success" : status === "partial" ? "warning" : "destructive"}>
           {completenessLabel(t, status)}
         </Badge>
-        <p className="text-xs text-muted-foreground">{t("availableFunds.notSafeToSpend")}</p>
-        {navigation && (
-          <Button type="button" size="sm" variant="outline" onClick={() => navigation.open({ page: "available-funds" })}>
-            {t("availableFunds.openPage")}
-          </Button>
-        )}
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-5">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-4">
+          <div>
+            <p className="text-sm text-muted-foreground">{t("availableFunds.overviewToday")}</p>
+            <p className="break-words text-xl font-semibold" data-testid="overview-liquidity-today">
+              {formatKnownOrUnknown(today?.fullUnreserved, unknown)}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">{t("availableFunds.overview30")}</p>
+            <p className="break-words text-xl font-semibold" data-testid="overview-liquidity-30">
+              {formatKnownOrUnknown(month?.fullUnreserved, unknown)}
+            </p>
+          </div>
+        </div>
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+          <p className="text-xs text-muted-foreground">{t("availableFunds.notSafeToSpend")}</p>
+          {navigation && (
+            <Button type="button" size="sm" variant="link" className="h-auto p-0" onClick={() => navigation.open({ page: "available-funds" })}>
+              {t("availableFunds.openPage")}
+            </Button>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

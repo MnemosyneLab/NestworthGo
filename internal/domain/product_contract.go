@@ -104,6 +104,7 @@ func AllInterestModes() []InterestMode {
 type ProductDisplayState string
 
 const (
+	ProductDisplayNeedsInfo      ProductDisplayState = "needs_info"
 	ProductDisplayLocked         ProductDisplayState = "locked"
 	ProductDisplayRedeemable     ProductDisplayState = "redeemable"
 	ProductDisplayDueUnconfirmed ProductDisplayState = "due_unconfirmed"

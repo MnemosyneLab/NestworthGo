@@ -1266,7 +1266,8 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     const holdingRow = (await screen.findByText("XYZ Fund")).closest("tr");
     expect(holdingRow).not.toBeNull();
-    await userEvent.click(within(holdingRow as HTMLElement).getByRole("button", { name: "Cash dividend" }));
+    await userEvent.click(within(holdingRow as HTMLElement).getByRole("button", { name: /Actions for/ }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Cash dividend" }));
     const form = await screen.findByRole("form", { name: "Record change" });
     expect(within(form).queryByLabelText("Holding")).not.toBeInTheDocument();
     await userEvent.type(within(form).getByLabelText("Amount"), "25");

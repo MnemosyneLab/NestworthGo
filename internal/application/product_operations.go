@@ -54,11 +54,13 @@ func (s *Service) PreviewProductOperation(ctx context.Context, command ProductCo
 	if err != nil {
 		return ProductOperationPreview{}, err
 	}
-	localDate, _, err := domain.LocalCivilDate(s.clock(), origin.Timezone)
+	// Resolve "now" against the same instant used by domain change validation.
+	// A later clock read would make a default effective time appear in the future.
+	localDate, _, err := domain.LocalCivilDate(state.Now, origin.Timezone)
 	if err != nil {
 		return ProductOperationPreview{}, err
 	}
-	plan, err := s.buildProductPlan(ctx, origin, snapshot, state, command, domain.NewProductOperationID(), s.clock())
+	plan, err := s.buildProductPlan(ctx, origin, snapshot, state, command, domain.NewProductOperationID(), state.Now)
 	if err != nil {
 		return ProductOperationPreview{}, err
 	}
@@ -137,11 +139,11 @@ func (s *Service) RecordProductOperation(ctx context.Context, command ProductCom
 	if err != nil {
 		return ProductOperationReceipt{}, err
 	}
-	localDate, _, err := domain.LocalCivilDate(s.clock(), origin.Timezone)
+	localDate, _, err := domain.LocalCivilDate(state.Now, origin.Timezone)
 	if err != nil {
 		return ProductOperationReceipt{}, err
 	}
-	plan, err := s.buildProductPlan(ctx, origin, snapshot, state, command, operationID, s.clock())
+	plan, err := s.buildProductPlan(ctx, origin, snapshot, state, command, operationID, state.Now)
 	if err != nil {
 		return ProductOperationReceipt{}, err
 	}
@@ -449,7 +451,7 @@ func (s *Service) planRecordExisting(ctx context.Context, origin *domain.History
 		activityLinks: []domain.ProductOperationActivity{{OperationID: operationID, ActivityID: adjustment.Activity.ID, Sequence: 1, Purpose: domain.ProductPurposeExistingPosition, ProductID: productID}},
 		productIDs:    []domain.ProductContractID{productID}, quoteIDs: []domain.InstrumentQuoteID{quote.ID},
 		afterContracts: []domain.ProductContract{contract}, effectiveAt: effectiveAt,
-		warnings: []string{"Recorded assets increase by the product value. Account cash is unchanged."},
+		warnings: []string{"existing_position_increases_assets"},
 	}, nil
 }
 

@@ -85,3 +85,19 @@ func TestLiquidityExactValuationRespectsCapAndMissingFX(t *testing.T) {
 		}
 	}
 }
+
+func TestLiquidityUnknownAccessNeedsInformationRatherThanLocked(t *testing.T) {
+	query, sources, _ := fixtureA(t)
+	source := sources[3]
+	source.ExplicitPolicy = nil
+	overview, err := EvaluateLiquidity(query, []LiquiditySource{source}, nil, identityFX(query.BaseCurrency))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if overview.Sources[0].DisplayState != ProductDisplayNeedsInfo {
+		t.Fatalf("state = %s", overview.Sources[0].DisplayState)
+	}
+	if overview.Buckets[0].FullAvailable != nil {
+		t.Fatal("unknown access must not become a known amount")
+	}
+}

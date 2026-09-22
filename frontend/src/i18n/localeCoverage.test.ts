@@ -192,8 +192,10 @@ describe("i18next locale coverage", () => {
 
   it("fieldLabelKeys (error field -> i18next key map) covers a key for every field used across the ported error.field.* namespace", () => {
     const fieldLabelValues = Object.values(fieldLabelKeysEn as Record<string, string>);
-    const translationKeys = new Set(flattenKeys(en));
-    const missingTargets = fieldLabelValues.filter((targetKey) => !translationKeys.has(targetKey));
-    expect(missingTargets).toEqual([]);
+    for (const tree of [deepMerge(en, additionsEn), deepMerge(zhCN, additionsZhCN), deepMerge(zhTW, additionsZhTW)]) {
+      const translationKeys = new Set(flattenKeys(tree));
+      const missingTargets = fieldLabelValues.filter((targetKey) => !translationKeys.has(targetKey));
+      expect(missingTargets).toEqual([]);
+    }
   });
 });

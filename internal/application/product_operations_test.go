@@ -547,6 +547,36 @@ func TestRecordExistingRequiresAcknowledgementAndCost(t *testing.T) {
 	}
 }
 
+func TestProductRecordingUsesOnePlanningTimeWithAdvancingClock(t *testing.T) {
+	for _, kind := range []domain.ProductOperationKind{domain.ProductOpOpen, domain.ProductOpRecordExisting} {
+		t.Run(string(kind), func(t *testing.T) {
+			now := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
+			service, ctx := newProductTestService(t, now)
+			account := seedHoldingsCash(t, service, ctx, "150000")
+			service.setClock(func() time.Time { now = now.Add(time.Millisecond); return now })
+			terms := ProductTermsInput{Kind: "term_deposit", Name: "Advancing clock", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"}
+			command := ProductCommand{Kind: kind}
+			if kind == domain.ProductOpOpen {
+				command.Open = &OpenProductCommand{AccountID: account.String(), Currency: "USD", Principal: "1000", Terms: terms, Policy: depositPolicy()}
+			} else {
+				command.RecordExisting = &RecordExistingProductCommand{AccountID: account.String(), Currency: "USD", Principal: "1000", CurrentValue: "1000", TotalCostBasis: "1000", CashExcludesProduct: true, Terms: terms, Policy: depositPolicy()}
+			}
+			preview, err := service.PreviewProductOperation(ctx, command)
+			if err != nil {
+				t.Fatalf("preview: %v", err)
+			}
+			if _, err := service.RecordProductOperation(ctx, command, domain.NewProductOperationID().String(), preview.ReviewedStateHash); err != nil {
+				t.Fatalf("record: %v", err)
+			}
+			if kind == domain.ProductOpOpen {
+				assertCash(t, service, ctx, account, "149000")
+			} else {
+				assertCash(t, service, ctx, account, "150000")
+			}
+		})
+	}
+}
+
 func newProductTestService(t *testing.T, clock time.Time) (*Service, context.Context) {
 	t.Helper()
 	return newProductTestServiceTZ(t, clock, "UTC")

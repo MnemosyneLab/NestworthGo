@@ -1,10 +1,12 @@
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { DatePicker } from "@/components/ui/date-picker";
+import { sourceName } from "./sourceName";
 import { ReservationManager } from "./ReservationManager";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { PageChrome } from "@/components/layout/PageChrome";
@@ -66,7 +68,7 @@ function HorizonCard({
   const unreserved = currencyMode === "native"
     ? (bucket.nativeCurrencyGroups ?? []).map((group) => formatKnownOrUnknown(group.fullUnreserved, unknown)).join(" · ") || unknown
     : formatKnownOrUnknown(bucket.fullUnreserved, unknown);
-  const breakdown = cashVersusProceeds(sources, bucket.horizonOn, unknown, bucket.fullAvailable?.currency ?? bucket.knownAvailableSubtotal?.currency ?? "USD");
+  const breakdown = cashVersusProceeds(sources, bucket.horizonOn, unknown, bucket.fullAvailable?.currency ?? bucket.knownAvailableSubtotal?.currency ?? "USD", currencyMode);
   return (
     <button
       type="button"
@@ -107,6 +109,7 @@ export function AvailableFundsPage({
   const [policySource, setPolicySource] = useState<LiquiditySourceDTO | null>(null);
   const [manageReservations,setManageReservations] = useState(false);
   const [reservationSource, setReservationSource] = useState<LiquiditySourceDTO | null>(null);
+  const [chooseAccount, setChooseAccount] = useState(false);
   const [productFormAccountId, setProductFormAccountId] = useState<string | null>(accountId ?? null);
   const [detailProductId, setDetailProductId] = useState<string | null>(productId ?? null);
   const overview = useLiquidityOverview({
@@ -149,7 +152,7 @@ export function AvailableFundsPage({
           </label>
           <Button type="button" size="sm" variant="outline" onClick={() => { setReservationSource(null); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button>
           {eligibleAccounts.length > 0 && (
-            <Button type="button" size="sm" onClick={() => setProductFormAccountId(eligibleAccounts[0].account.id)}>
+            <Button type="button" size="sm" onClick={() => { if (eligibleAccounts.length === 1) setProductFormAccountId(eligibleAccounts[0].account.id); else setChooseAccount(true); }}>
               {t("availableFunds.addProduct")}
             </Button>
           )}
@@ -210,7 +213,7 @@ export function AvailableFundsPage({
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="custom-horizon">{t("availableFunds.customDate")}</Label>
-              <Input id="custom-horizon" type="date" value={customDate} onChange={(event) => { setCustomDate(event.target.value); setSelectedHorizon(event.target.value || undefined); }} />
+              <DatePicker clearable allowFuture id="custom-horizon" value={customDate} onChange={(next) => { setCustomDate(next); setSelectedHorizon(next || undefined); }} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="currency-mode">{t("availableFunds.currencyDisplay")}</Label>
@@ -287,7 +290,7 @@ export function AvailableFundsPage({
                       <td className="px-3 py-2">{accountNames.get(source.accountId) ?? source.displayName}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-col gap-1">
-                          <span>{source.displayName}</span>
+                          <span>{sourceName(t, source)}</span>
                           <span className="text-xs text-muted-foreground">{sourceStateLabel(t, source)}</span>
                           {source.dueUnconfirmed && <Badge variant="warning">{t("availableFunds.dueUnconfirmed")}</Badge>}
                         </div>
@@ -308,7 +311,7 @@ export function AvailableFundsPage({
                       <td className="px-3 py-2">{source.dueUnconfirmed ? unknown : moneyText(result?.unreservedNative, unknown)}</td>
                       <td className="px-3 py-2">
                         <div className="flex flex-wrap gap-2">
-                          <span>{actionRequiredLabel(t, route?.actionRequired)}</span>
+                          <span>{source.displayState === "needs_info" ? t("availableFunds.completeRules") : actionRequiredLabel(t, route?.actionRequired)}</span>
                           <Button type="button" size="sm" variant="ghost" onClick={() => setPolicySource(source)}>{t("availableFunds.editSource")}</Button>
                           <Button type="button" size="sm" variant="ghost" onClick={() => { setReservationSource(source); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button>
                           {source.productId && (
@@ -334,7 +337,7 @@ export function AvailableFundsPage({
           </CardHeader>
           <CardContent className="text-sm">
             {(data.unresolvedReservations ?? []).map((item) => (
-              <p key={item.reservation.id}>{item.reservation.label}: {formatKnownOrUnknown(item.reservation.amount, unknown)} · {item.reason} <Button variant="link" onClick={() => { setReservationSource(null); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button></p>
+              <p key={item.reservation.id}>{item.reservation.label}: {formatKnownOrUnknown(item.reservation.amount, unknown)} · {t("availableFunds.unresolvedSource")} <Button variant="link" onClick={() => { setReservationSource(null); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button></p>
             ))}
           </CardContent>
         </Card>
@@ -346,15 +349,20 @@ export function AvailableFundsPage({
             <CardTitle>{t("availableFunds.assumptions")}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
-            {(data.assumptions ?? []).map((assumption) => <p key={assumption}>{assumption}</p>)}
+            {(data.assumptions ?? []).map((assumption) => <p key={assumption}>{t(`availableFunds.${assumption}`, { defaultValue: t("availableFunds.missingInputs") })}</p>)}
           </CardContent>
         </Card>
       )}
 
       <PolicySheet key={policySource?.sourceKey ?? "policy"} source={policySource} open={Boolean(policySource)} onOpenChange={(open) => { if (!open) setPolicySource(null); }} />
       <ReservationManager key={reservationSource?.sourceKey ?? "reservation"} source={reservationSource} sources={sources} open={manageReservations} onOpenChange={(open) => { setManageReservations(open); if (!open) setReservationSource(null); }} />
+      <Sheet open={chooseAccount} onOpenChange={setChooseAccount}><SheetContent><SheetHeader><SheetTitle>{t("availableFunds.chooseAccount")}</SheetTitle></SheetHeader>
+        {eligibleAccounts.map(({ account }) => <Button key={account.id} variant="outline" onClick={() => { setChooseAccount(false); setProductFormAccountId(account.id); }}>{account.name}</Button>)}
+      </SheetContent></Sheet>
       {productFormAccountId && (
         <ProductFormSheet
+          key={productFormAccountId}
+          accountName={accountNames.get(productFormAccountId)}
           accountId={productFormAccountId}
           currency={(accounts.data ?? []).find((record) => record.account.id === productFormAccountId)?.account.defaultCurrency ?? data.baseCurrency}
           open={Boolean(productFormAccountId)}

@@ -1,13 +1,14 @@
+import { productStateLabel } from "./liquidityDisplay";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState, LoadingState } from "@/components/layout/PageState";
+import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { formatAmount } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import { useProducts } from "@/queries/liquidity";
-import { canHoldProducts } from "@/features/liquidity/productPolicy";
+import { canViewProducts, canHoldProducts } from "@/features/liquidity/productPolicy";
 import { ProductDetailSheet, ProductFormSheet, moneyText } from "@/features/liquidity/ProductSheets";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -26,7 +27,7 @@ export function AccountProductsSection({
   const [productId, setProductId] = useState<string | null>(null);
   const eligible = canHoldProducts(record.account);
 
-  if (!eligible) {
+  if (!canViewProducts(record.account)) {
     return (
       <Card data-testid="account-products">
         <CardHeader>
@@ -48,12 +49,14 @@ export function AccountProductsSection({
     return <LoadingState label={t("ui.state.loadingPage")} />;
   }
 
+  if (products.isError) return <ErrorState title={t("availableFunds.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void products.refetch()} retryLabel={t("common.retryAction")} />;
+
   const items = products.data ?? [];
   return (
     <Card data-testid="account-products">
       <CardHeader className="flex flex-row items-start justify-between gap-3">
         <CardTitle>{t("availableFunds.products")}</CardTitle>
-        {!record.account.archivedAt && (
+        {eligible && (
           <Button type="button" size="sm" onClick={() => setOpenForm(true)}>{t("availableFunds.addProduct")}</Button>
         )}
       </CardHeader>
@@ -89,7 +92,7 @@ export function AccountProductsSection({
                     <td className="py-2">{product.maturityOn ?? product.policy.unlockOn ?? t("availableFunds.unknownAmount")}</td>
                     <td className="py-2">
                       <Badge variant={product.displayState === "due_unconfirmed" ? "warning" : "secondary"}>
-                        {displayEnum(t, "availableFunds", product.displayState === "due_unconfirmed" ? "stateDue" : product.displayState === "locked" ? "stateLocked" : product.displayState === "redeemable" ? "stateRedeemable" : product.displayState === "settled" ? "stateSettled" : "stateCancelled")}
+                        {productStateLabel(t, product.displayState)}
                       </Badge>
                     </td>
                   </tr>
@@ -98,13 +101,14 @@ export function AccountProductsSection({
             </tbody>
           </table>
         )}
-        <ProductFormSheet
+        {openForm && <ProductFormSheet
           accountId={record.account.id}
+          accountName={record.account.name}
           currency={record.account.defaultCurrency}
           cashAmount={cashAmount}
           open={openForm}
           onOpenChange={setOpenForm}
-        />
+        />}
         <ProductDetailSheet key={productId ?? "product"} productId={productId} open={Boolean(productId)} onOpenChange={(open) => { if (!open) setProductId(null); }} />
       </CardContent>
     </Card>

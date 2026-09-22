@@ -342,8 +342,8 @@ func deriveDisplayState(source LiquiditySource, policy LiquidityPolicy, today st
 	if normal != nil && normal.EligibleOn != nil && compareCivilDates(today, *normal.EligibleOn) < 0 {
 		return ProductDisplayLocked
 	}
-	if policy.AccessKind == AccessUnknown {
-		return ProductDisplayLocked
+	if policy.AccessKind == AccessUnknown || normal == nil || normal.ReceiptOn == nil {
+		return ProductDisplayNeedsInfo
 	}
 	return ProductDisplayRedeemable
 }

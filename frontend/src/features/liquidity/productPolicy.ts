@@ -37,10 +37,13 @@ export function defaultProductPolicy(maturityOn: string | null): ProductPolicyIn
 }
 
 export function canHoldProducts(account: { trackingMode: string; balanceSheetRole: string; accountType: string; archivedAt?: string | null }): boolean {
+  return canViewProducts(account) && !account.archivedAt;
+}
+
+export function canViewProducts(account: { trackingMode: string; balanceSheetRole: string; accountType: string }): boolean {
   return account.trackingMode === "holdings"
     && account.balanceSheetRole === "asset"
-    && account.accountType !== "cash_on_hand"
-    && !account.archivedAt;
+    && account.accountType !== "cash_on_hand";
 }
 
 export function policyForTerms(terms: ProductTermsInput, policy: ProductPolicyInput): ProductPolicyInput {

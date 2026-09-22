@@ -22,6 +22,6 @@ export function ProductPreview({ preview }: { preview: ProductOperationPreviewDT
       {a.activity.dividendDetail && <p>{t("availableFunds.interestReceived")}: {money(a.activity.dividendDetail.amount)}</p>}
       {(a.effects ?? []).filter((e) => e.money).map((e) => <p key={e.id}>{t(e.direction === "added" ? "history.detailAmountAdded" : "history.detailAmountRemoved")} · {money(e.money)}</p>)}
     </div>)}
-    {[...(preview.warnings ?? []), ...(preview.assumptions ?? []), ...(preview.missingFields ?? [])].map((text,i) => <p key={`${i}:${text}`}>{text}</p>)}
+    {[...(preview.warnings ?? []), ...(preview.assumptions ?? []), ...(preview.missingFields ?? [])].map((text,i) => <p key={`${i}:${text}`}>{t(`availableFunds.${text}`, { defaultValue: t("availableFunds.missingInputs") })}</p>)}
   </div>;
 }

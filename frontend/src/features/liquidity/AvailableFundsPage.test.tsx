@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -34,8 +34,10 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ac
 }));
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
-  Service: { Load: () => Promise.resolve({ timezone: "Asia/Singapore" }) },
+  Service: { Load: () => Promise.resolve({ timezone: "Asia/Singapore" }), SupportedCurrencies: () => Promise.resolve(["USD", "EUR"]) },
 }));
+
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: () => Promise.resolve({ timezone: "Asia/Singapore" }) } }));
 
 function money(amount: string, currency = "USD") {
   return { amount, currency };
@@ -112,6 +114,20 @@ describe("AvailableFundsPage", () => {
     listAccounts.mockResolvedValue([]);
   });
 
+  it("requires a choice between eligible accounts and names the chosen account", async () => {
+    overview.mockResolvedValue(fixtureOverview());
+    listAccounts.mockResolvedValue(["Bank A", "Bank B"].map((name, index) => ({ account: {
+      id: `acc-${index + 1}`, name, defaultCurrency: "USD", trackingMode: "holdings", balanceSheetRole: "asset", accountType: "bank", archivedAt: null,
+    } })));
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", {name: "Add product"}));
+    expect(await screen.findByRole("heading", {name: "Choose an account"})).toBeVisible();
+    expect(screen.queryByLabelText("Principal")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", {name: "Bank B"}));
+    expect(await screen.findByText("Account: Bank B")).toBeVisible();
+    expect(screen.getByLabelText("Principal")).toBeVisible();
+  });
+
   it("renders the empty state without inventing zero totals", async () => {
     overview.mockResolvedValue(fixtureOverview({ sources: [], buckets: [
       { horizonOn: "2026-09-20", status: "unavailable", fullAvailable: null, knownAvailableSubtotal: null, appliedReserveSubtotal: null, fullUnreserved: null, knownUnreservedSubtotal: null, unknownSourceCount: 0, excludedSourceCount: 0, estimatedSourceCount: 0, nativeCurrencyGroups: [], warnings: [] },
@@ -184,7 +200,10 @@ describe("AvailableFundsPage", () => {
     expect(overview).toHaveBeenCalledWith({ customHorizonOn: undefined, includeEarlyWithdrawal: false });
     await userEvent.click(screen.getByLabelText("Consider early withdrawal"));
     expect(overview).toHaveBeenCalledWith({ customHorizonOn: undefined, includeEarlyWithdrawal: true });
-    fireEvent.change(screen.getByLabelText("Custom date"), { target: { value: "2026-11-01" } });
+    await userEvent.click(screen.getByLabelText("Custom date"));
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /year/i }), "2026");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: /month/i }), "10");
+    await userEvent.click(screen.getByRole("grid").querySelector('[data-day="2026-11-01"] button') as HTMLElement);
     expect(overview.mock.calls.some((call) => call[0].customHorizonOn === "2026-11-01" && call[0].includeEarlyWithdrawal === true)).toBe(true);
   });
 

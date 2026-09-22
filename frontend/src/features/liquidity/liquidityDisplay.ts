@@ -1,6 +1,5 @@
 import { displayEnum } from "@/lib/display";
 import { addCanonical, formatAmount } from "@/lib/money";
-import { moneyText } from "@/features/liquidity/ProductSheets";
 import type {
   BucketResultDTO,
   LiquidityBucketDTO,
@@ -53,7 +52,13 @@ export function sourceStateLabel(t: Translator, source: LiquiditySourceDTO): str
   if (source.excluded) {
     return t("availableFunds.filterExcluded");
   }
-  switch (source.displayState) {
+  return productStateLabel(t, source.displayState);
+}
+
+export function productStateLabel(t: Translator, state: string): string {
+  switch (state) {
+    case "needs_info":
+      return t("availableFunds.filterNeedsInfo");
     case "due_unconfirmed":
       return t("availableFunds.stateDue");
     case "locked":
@@ -65,7 +70,7 @@ export function sourceStateLabel(t: Translator, source: LiquiditySourceDTO): str
     case "cancelled":
       return t("availableFunds.stateCancelled");
     default:
-      return displayEnum(t, "availableFunds", source.displayState);
+      return displayEnum(t, "availableFunds", state);
   }
 }
 
@@ -78,7 +83,7 @@ export function resultForHorizon(source: LiquiditySourceDTO, horizonOn: string):
 }
 
 export function displayMoney(value: MoneyView | null | undefined, unknown: string): string {
-  return moneyText(value, unknown);
+  return formatKnownOrUnknown(value, unknown);
 }
 
 export function formatKnownOrUnknown(value: MoneyView | null | undefined, unknown: string): string {
@@ -95,7 +100,7 @@ export function sourceMatchesFilter(source: LiquiditySourceDTO, horizonOn: strin
     case "available":
       return !source.excluded && Boolean(result?.selectedRoute) && result?.status !== "unavailable";
     case "locked":
-      return !source.excluded && (source.displayState === "locked" || !result?.selectedRoute);
+      return !source.excluded && (source.displayState === "locked" || (!needsInfo && !result?.selectedRoute));
     case "needs_info":
       return needsInfo;
     case "excluded":
@@ -105,68 +110,44 @@ export function sourceMatchesFilter(source: LiquiditySourceDTO, horizonOn: strin
   }
 }
 
-function accumulateGroup(
-  current: MoneyView | null,
-  next: MoneyView,
-): { value: MoneyView | null; mixed: boolean } {
-  if (!current) {
-    return { value: next, mixed: false };
-  }
-  if (current.currency !== next.currency) {
-    return { value: current, mixed: true };
-  }
-  return { value: { amount: addCanonical(current.amount, next.amount), currency: current.currency }, mixed: false };
-}
-
 export function cashVersusProceeds(
   sources: LiquiditySourceDTO[],
   horizonOn: string,
   unknown: string,
   zeroCurrency: string,
+  currencyMode: CurrencyMode = "base",
 ): { cash: string; proceeds: string } {
-  let cashKnown = true;
-  let proceedsKnown = true;
-  let cashAmount: MoneyView | null = null;
-  let proceedsAmount: MoneyView | null = null;
+  const cash = { known: true, amounts: new Map<string, string>() };
+  const proceeds = { known: true, amounts: new Map<string, string>() };
   for (const source of sources) {
-    if (source.excluded) {
-      continue;
-    }
+    if (source.excluded) continue;
     const result = resultForHorizon(source, horizonOn);
     const action = result?.selectedRoute?.actionRequired ?? source.normalRoute?.actionRequired;
     const isCash = action ? action === "none" || action === "withdraw" : source.sourceRef.kind !== "holding";
-    if (!result || result.status !== "complete") {
-      if (isCash) cashKnown = false;
-      else proceedsKnown = false;
-    }
+    const group = isCash ? cash : proceeds;
+    // Partial results may also have unknown alternative routes. Do not infer
+    // completeness from the presence of one known native amount.
+    if (!result || result.status !== "complete") group.known = false;
     if (!result?.selectedRoute) continue;
-    const net = result.netBase ?? result.netNative;
+    const net = currencyMode === "native" ? result.netNative : result.netBase;
     if (!net) {
-      if (isCash) {
-        cashKnown = false;
-      } else {
-        proceedsKnown = false;
-      }
+      group.known = false;
       continue;
     }
-    if (isCash) {
-      const grouped = accumulateGroup(cashAmount, net);
-      cashAmount = grouped.value;
-      if (grouped.mixed) {
-        cashKnown = false;
-      }
-    } else {
-      const grouped = accumulateGroup(proceedsAmount, net);
-      proceedsAmount = grouped.value;
-      if (grouped.mixed) {
-        proceedsKnown = false;
-      }
-    }
+    group.amounts.set(net.currency, addCanonical(group.amounts.get(net.currency) ?? "0", net.amount));
   }
-  return {
-    cash: cashKnown ? formatKnownOrUnknown(cashAmount ?? { amount: "0", currency: zeroCurrency }, unknown) : unknown,
-    proceeds: proceedsKnown ? formatKnownOrUnknown(proceedsAmount ?? { amount: "0", currency: zeroCurrency }, unknown) : unknown,
+  const render = (group: typeof cash) => {
+    if (!group.known) return unknown;
+    if (group.amounts.size === 0) {
+      const currencies = currencyMode === "native"
+        ? [...new Set(sources.filter((source) => !source.excluded).map((source) => source.nativeCurrency).filter(Boolean))].sort()
+        : [zeroCurrency];
+      return (currencies.length ? currencies : [zeroCurrency]).map((currency) => formatAmount("0", currency)).join(" · ");
+    }
+    return [...group.amounts].sort(([a], [b]) => a.localeCompare(b))
+      .map(([currency, amount]) => formatAmount(amount, currency)).join(" · ");
   };
+  return { cash: render(cash), proceeds: render(proceeds) };
 }
 
 export type Reminder = { id: string; productId?: string; text: string };
@@ -197,4 +178,8 @@ export function remindersFor(overview: LiquidityOverviewDTO, t: Translator): Rem
     });
   }
   return reminders;
+}
+
+export function moneyText(value: MoneyView | null | undefined, unknown: string): string {
+  return formatKnownOrUnknown(value, unknown);
 }

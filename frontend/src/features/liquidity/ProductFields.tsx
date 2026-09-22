@@ -1,3 +1,4 @@
+import { DatePicker } from "@/components/ui/date-picker";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
@@ -5,8 +6,8 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import type { ProductPolicyInput, ProductTermsInput } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 
-export function ProductTermsFields({ value, onChange, editing = false }: {
-  value: ProductTermsInput; onChange: (value: ProductTermsInput) => void; editing?: boolean;
+export function ProductTermsFields({ value, onChange, editing = false, invalidField, errorId }: {
+  value: ProductTermsInput; onChange: (value: ProductTermsInput) => void; editing?: boolean; invalidField?: string; errorId?: string;
 }) {
   const { t } = useTranslation();
   const id = useId();
@@ -14,11 +15,11 @@ export function ProductTermsFields({ value, onChange, editing = false }: {
   return <fieldset className="flex flex-col gap-2">
     <legend className="mb-2 font-medium">{t("availableFunds.contractTerms")}</legend>
     <Label htmlFor={`${id}-name`}>{t("availableFunds.name")}</Label>
-    <Input id={`${id}-name`} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} />
+    <Input aria-invalid={invalidField === "name"} aria-describedby={invalidField === "name" ? errorId : undefined} id={`${id}-name`} value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} />
     <Label htmlFor={`${id}-start`}>{t("availableFunds.startOn")}</Label>
-    <Input id={`${id}-start`} type="date" disabled={editing} value={value.startOn} onChange={(e) => onChange({ ...value, startOn: e.target.value })} />
+    <DatePicker clearable allowFuture aria-invalid={invalidField === "startOn"} aria-describedby={invalidField === "startOn" ? errorId : undefined} id={`${id}-start`} disabled={editing} value={value.startOn} onChange={(next) => onChange({ ...value, startOn: next })} />
     <Label htmlFor={`${id}-maturity`}>{t("availableFunds.maturityOn")}</Label>
-    <Input id={`${id}-maturity`} type="date" value={value.maturityOn ?? ""} onChange={(e) => onChange({ ...value, maturityOn: e.target.value || null })} />
+    <DatePicker clearable allowFuture aria-invalid={invalidField === "maturityOn"} aria-describedby={invalidField === "maturityOn" ? errorId : undefined} id={`${id}-maturity`} value={value.maturityOn ?? ""} onChange={(next) => onChange({ ...value, maturityOn: next || null })} />
     {value.kind === "term_deposit" && <>
       <Label htmlFor={`${id}-interest`}>{t("availableFunds.interestMode")}</Label>
       <NativeSelect id={`${id}-interest`} value={value.interestMode} onChange={(e) => onChange({ ...value, interestMode: e.target.value, annualRate: null, annualRatePercent: null, maturityInterest: null, interestPaidThroughOn: null })}>
@@ -32,7 +33,7 @@ export function ProductTermsFields({ value, onChange, editing = false }: {
         <Input id={`${id}-rate`} inputMode="decimal" value={value.annualRatePercent ?? ""} onChange={(e) => onChange({ ...value, annualRate: null, annualRatePercent: e.target.value || null })} />
         {editing && <>
           <Label htmlFor={`${id}-paid`}>{t("availableFunds.interestPaidThrough")}</Label>
-          <Input id={`${id}-paid`} type="date" value={value.interestPaidThroughOn ?? ""} onChange={(e) => onChange({ ...value, interestPaidThroughOn: e.target.value || null })} />
+          <DatePicker clearable allowFuture id={`${id}-paid`} value={value.interestPaidThroughOn ?? ""} onChange={(next) => onChange({ ...value, interestPaidThroughOn: next || null })} />
         </>}
       </>}
       {value.interestMode === "manual_maturity_amount" && <>
@@ -66,7 +67,7 @@ export function ProductPolicyFields({ value, onChange, termDeposit = false, ordi
     </NativeSelect>
     {(value.accessKind === "on_date" || value.accessKind === "on_request") && <>
       <Label htmlFor={`${id}-unlock`}>{t("availableFunds.unlockOn")}</Label>
-      <Input id={`${id}-unlock`} type="date" disabled={termDeposit} value={value.unlockOn ?? ""} onChange={(e) => onChange({ ...value, unlockOn: e.target.value || null })} />
+      <DatePicker clearable allowFuture id={`${id}-unlock`} disabled={termDeposit} value={value.unlockOn ?? ""} onChange={(next) => onChange({ ...value, unlockOn: next || null })} />
     </>}
     <Label htmlFor={`${id}-days`}>{t("availableFunds.settlementDays")}</Label>
     <Input id={`${id}-days`} type="number" min={0} max={365} value={value.settlementDays ?? ""} onChange={(e) => onChange({ ...value, settlementDays: e.target.value === "" ? null : Number(e.target.value), dayBasis: value.dayBasis ?? "calendar" })} />
@@ -75,7 +76,7 @@ export function ProductPolicyFields({ value, onChange, termDeposit = false, ordi
       <option value="calendar">{t("availableFunds.calendar")}</option><option value="weekdays">{t("availableFunds.weekdays")}</option>
     </NativeSelect>
     <Label htmlFor={`${id}-receipt`}>{t("availableFunds.receiptOverride")}</Label>
-    <Input id={`${id}-receipt`} type="date" value={value.receiptOnOverride ?? ""} onChange={(e) => onChange({ ...value, receiptOnOverride: e.target.value || null })} />
+    <DatePicker clearable allowFuture id={`${id}-receipt`} value={value.receiptOnOverride ?? ""} onChange={(next) => onChange({ ...value, receiptOnOverride: next || null })} />
     <Label htmlFor={`${id}-fee`}>{t("availableFunds.normalExitFee")}</Label>
     <Input id={`${id}-fee`} inputMode="decimal" value={value.normalExitFee ?? ""} onChange={(e) => onChange({ ...value, normalExitFee: e.target.value || null })} />
     <p className="text-xs text-muted-foreground">{t("availableFunds.unknownPolicyInputs")}</p>

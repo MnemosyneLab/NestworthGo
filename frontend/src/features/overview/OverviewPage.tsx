@@ -201,6 +201,7 @@ export function OverviewPage({
   const recent = data.recentActivities ?? [];
   const historyReady = data.historyStarted;
   const historyNotStarted = !data.historyStarted;
+  const noNextSteps = missingManualPrices === 0 && missingProviderPrices === 0 && missingValues === 0 && missingFx === 0 && !historyNotStarted && !(historyReady && recent.length === 0) && healthKnown && healthIssueCount === 0;
   const missingFocus = (item: OverviewMissingInput): HealthFocus => ({
     instrumentId: item.instrumentId ?? undefined, accountId: item.kind === "account_value" ? item.accountId : undefined,
     currencyA: item.kind === "fx_rate" ? item.baseCurrency : undefined, currencyB: item.kind === "fx_rate" ? item.quoteCurrency : undefined,
@@ -212,7 +213,7 @@ export function OverviewPage({
       {pageChrome}
       <PageIntro description={t("overview.description")} status={headerStatus} />
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.9fr)]">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card className="relative overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-brand-from to-brand-to" aria-hidden="true" />
           <CardHeader>
@@ -245,124 +246,124 @@ export function OverviewPage({
           </CardContent>
         </Card>
 
-        <div className="flex flex-col gap-4">
-          <OverviewLiquidityCard />
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("review.currentValuationTitle")}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3 text-sm">
-              {data.complete ? (
-                <p className="text-muted-foreground">{t("overview.dataHealthComplete")}</p>
-              ) : (
-                <div role="alert" className="flex flex-col gap-3">
-                  <p className="text-warning-foreground">{t("overview.dataHealthIncomplete", { count: missing.length })}</p>
-                  {missing.length > 0 && (
-                    <ul className="list-inside list-disc text-muted-foreground">
-                      {missing.map((item, index) => (
-                        <li key={`${item.kind}-${item.accountId}-${index}`}>
-                          {navigation ? <Button variant="link" className="h-auto p-0 text-left" onClick={() => navigation.openHealth(missingFocus(item))}>{missingItemLabel(t, item, accountNames)} · {displayEnum(t, "overview.missingKind", item.kind)}</Button> : t("overview.missingInput", {
-                            label: `${missingItemLabel(t, item, accountNames)} (${displayEnum(t, "overview.missingKind", item.kind)})`,
-                          })}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  {onOpenDataHealth && (
-                    <Button type="button" size="sm" variant="outline" onClick={onOpenDataHealth}>
-                      {t("dataHealth.fixInDataHealth")}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("overview.nextStepsTitle")}</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {missingManualPrices === 0 &&
-              missingProviderPrices === 0 &&
-              missingValues === 0 &&
-              missingFx === 0 &&
-              !historyNotStarted &&
-              !(historyReady && recent.length === 0) &&
-              healthKnown && healthIssueCount === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("overview.noNextSteps")}</p>
-              ) : (
-                <ul className="flex flex-col gap-3">
-                  {!healthKnown && <li className="text-sm text-muted-foreground">{t(health.isError ? "review.healthFailed" : "review.healthLoading")}{health.isError && <Button type="button" variant="ghost" size="sm" onClick={() => void health.refetch()}>{t("common.retryAction")}</Button>}</li>}
-                  {navigation && (health.data?.issues ?? []).filter(issue => !issue.collapsed).slice(0, 3).map(issue => <li key={issue.id} className="flex items-center justify-between gap-2 text-sm"><span>{issue.label || issue.targetKey} · {displayEnum(t, "dataHealth.kind", issue.kind)}</span><Button size="sm" variant="outline" onClick={() => navigation.openHealth(issue)}>{t("connections.viewGap")}</Button></li>)}
-                  {healthKnown && healthIssueCount > 0 && <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{t("dataHealth.indicatorIssues", { count: healthIssueCount })}</p>{onOpenDataHealth && <Button type="button" size="sm" variant="outline" onClick={onOpenDataHealth}>{t("dataHealth.fixInDataHealth")}</Button>}</li>}
-
-                  {!navigation && missingManualPrices > 0 && (
-                    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-foreground">{t("overview.setManualPricesNext", { count: missingManualPrices })}</p>
-                      {onOpenMarketData && (
-                        <Button type="button" size="sm" variant="outline" onClick={onOpenMarketData}>
-                          {t("overview.openMarketData")}
-                        </Button>
-                      )}
-                    </li>
-                  )}
-                  {!navigation && missingProviderPrices > 0 && (
-                    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-foreground">{t("overview.refreshPricesNext", { count: missingProviderPrices })}</p>
-                      {onOpenMarketData && (
-                        <Button type="button" size="sm" variant="outline" onClick={onOpenMarketData}>
-                          {t("overview.openMarketData")}
-                        </Button>
-                      )}
-                    </li>
-                  )}
-                  {!navigation && missingFx > 0 && (
-                    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-foreground">{t("overview.refreshFxNext", { count: missingFx })}</p>
-                      {onOpenMarketData && (
-                        <Button type="button" size="sm" variant="outline" onClick={onOpenMarketData}>
-                          {t("overview.openMarketData")}
-                        </Button>
-                      )}
-                    </li>
-                  )}
-                  {!navigation && missingValues > 0 && (
-                    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-foreground">{t("overview.reviewValuesNext", { count: missingValues })}</p>
-                      {onOpenAccounts && (
-                        <Button type="button" size="sm" variant="outline" onClick={onOpenAccounts}>
-                          {t("overview.openAccounts")}
-                        </Button>
-                      )}
-                    </li>
-                  )}
-                  {historyNotStarted && (
-                    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-foreground">{t("overview.startHistoryNext")}</p>
-                      {onOpenHistory && (
-                        <Button type="button" size="sm" variant="outline" onClick={onOpenHistory}>
-                          {t("overview.openHistory")}
-                        </Button>
-                      )}
-                    </li>
-                  )}
-                  {historyReady && recent.length === 0 && (
-                    <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="text-sm text-foreground">{t("overview.recordChangeNext")}</p>
-                      {onOpenHistory && (
-                        <Button type="button" size="sm" variant="outline" onClick={onOpenHistory}>
-                          {t("overview.openHistory")}
-                        </Button>
-                      )}
-                    </li>
-                  )}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <OverviewLiquidityCard />
       </div>
+
+      {data.complete && noNextSteps ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-xl border border-border bg-card/50 px-5 py-3 text-sm text-muted-foreground">
+          <p>{t("overview.dataHealthComplete")}</p>
+          <p>{t("overview.noNextSteps")}</p>
+        </div>
+      ) : <div className="grid items-start gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("review.currentValuationTitle")}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3 text-sm">
+            {data.complete ? (
+              <p className="text-muted-foreground">{t("overview.dataHealthComplete")}</p>
+            ) : (
+              <div role="alert" className="flex flex-col gap-3">
+                <p className="text-warning-foreground">{t("overview.dataHealthIncomplete", { count: missing.length })}</p>
+                {missing.length > 0 && (
+                  <ul className="list-inside list-disc text-muted-foreground">
+                    {missing.map((item, index) => (
+                      <li key={`${item.kind}-${item.accountId}-${index}`}>
+                        {navigation ? <Button variant="link" className="h-auto p-0 text-left" onClick={() => navigation.openHealth(missingFocus(item))}>{missingItemLabel(t, item, accountNames)} · {displayEnum(t, "overview.missingKind", item.kind)}</Button> : t("overview.missingInput", {
+                          label: `${missingItemLabel(t, item, accountNames)} (${displayEnum(t, "overview.missingKind", item.kind)})`,
+                        })}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {onOpenDataHealth && (
+                  <Button type="button" size="sm" variant="outline" onClick={onOpenDataHealth}>
+                    {t("dataHealth.fixInDataHealth")}
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("overview.nextStepsTitle")}</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
+            {noNextSteps ? (
+              <p className="text-sm text-muted-foreground">{t("overview.noNextSteps")}</p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {!healthKnown && <li className="text-sm text-muted-foreground">{t(health.isError ? "review.healthFailed" : "review.healthLoading")}{health.isError && <Button type="button" variant="ghost" size="sm" onClick={() => void health.refetch()}>{t("common.retryAction")}</Button>}</li>}
+                {navigation && (health.data?.issues ?? []).filter(issue => !issue.collapsed).slice(0, 3).map(issue => <li key={issue.id} className="flex items-center justify-between gap-2 text-sm"><span>{issue.label || issue.targetKey} · {displayEnum(t, "dataHealth.kind", issue.kind)}</span><Button size="sm" variant="outline" onClick={() => navigation.openHealth(issue)}>{t("connections.viewGap")}</Button></li>)}
+                {healthKnown && healthIssueCount > 0 && <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm">{t("dataHealth.indicatorIssues", { count: healthIssueCount })}</p>{onOpenDataHealth && <Button type="button" size="sm" variant="outline" onClick={onOpenDataHealth}>{t("dataHealth.fixInDataHealth")}</Button>}</li>}
+
+                {!navigation && missingManualPrices > 0 && (
+                  <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-foreground">{t("overview.setManualPricesNext", { count: missingManualPrices })}</p>
+                    {onOpenMarketData && (
+                      <Button type="button" size="sm" variant="outline" onClick={onOpenMarketData}>
+                        {t("overview.openMarketData")}
+                      </Button>
+                    )}
+                  </li>
+                )}
+                {!navigation && missingProviderPrices > 0 && (
+                  <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-foreground">{t("overview.refreshPricesNext", { count: missingProviderPrices })}</p>
+                    {onOpenMarketData && (
+                      <Button type="button" size="sm" variant="outline" onClick={onOpenMarketData}>
+                        {t("overview.openMarketData")}
+                      </Button>
+                    )}
+                  </li>
+                )}
+                {!navigation && missingFx > 0 && (
+                  <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-foreground">{t("overview.refreshFxNext", { count: missingFx })}</p>
+                    {onOpenMarketData && (
+                      <Button type="button" size="sm" variant="outline" onClick={onOpenMarketData}>
+                        {t("overview.openMarketData")}
+                      </Button>
+                    )}
+                  </li>
+                )}
+                {!navigation && missingValues > 0 && (
+                  <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-foreground">{t("overview.reviewValuesNext", { count: missingValues })}</p>
+                    {onOpenAccounts && (
+                      <Button type="button" size="sm" variant="outline" onClick={onOpenAccounts}>
+                        {t("overview.openAccounts")}
+                      </Button>
+                    )}
+                  </li>
+                )}
+                {historyNotStarted && (
+                  <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-foreground">{t("overview.startHistoryNext")}</p>
+                    {onOpenHistory && (
+                      <Button type="button" size="sm" variant="outline" onClick={onOpenHistory}>
+                        {t("overview.openHistory")}
+                      </Button>
+                    )}
+                  </li>
+                )}
+                {historyReady && recent.length === 0 && (
+                  <li className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-foreground">{t("overview.recordChangeNext")}</p>
+                    {onOpenHistory && (
+                      <Button type="button" size="sm" variant="outline" onClick={onOpenHistory}>
+                        {t("overview.openHistory")}
+                      </Button>
+                    )}
+                  </li>
+                )}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>}
 
       <NetWorthTrendCard />
 
