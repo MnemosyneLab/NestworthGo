@@ -477,10 +477,7 @@ func foldAssetDriverDetail(result domain.PeriodAnalysisResult, forced, driverKey
 		accountKey := component.AccountID.String()
 		byAccount[accountKey] = byAccount[accountKey].Add(amount)
 
-		instrumentKey := "cash"
-		if component.InstrumentID != nil {
-			instrumentKey = component.InstrumentID.String()
-		}
+		instrumentKey := analysisInstrumentGroupKey(component)
 		byInstrument[instrumentKey] = byInstrument[instrumentKey].Add(amount)
 	}
 	if target, ok := roundedWaterfall[bucket]; ok {
@@ -493,7 +490,7 @@ func foldAssetDriverDetail(result domain.PeriodAnalysisResult, forced, driverKey
 	instrumentRows := make(map[string]AnalysisDimensionAmount, len(byInstrument))
 	for key, amount := range byInstrument {
 		instrumentID := key
-		if key == "cash" {
+		if key == "cash" || strings.HasPrefix(key, "cash:") {
 			instrumentID = ""
 		}
 		instrumentRows[key] = AnalysisDimensionAmount{Key: key, Label: key, InstrumentID: instrumentID, Amount: signedPointer(amount, currency)}

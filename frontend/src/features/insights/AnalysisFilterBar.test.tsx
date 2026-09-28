@@ -46,15 +46,16 @@ it("keeps selected filters and cash scope visible when collapsed, and preserves 
   expect(onReset).toHaveBeenCalledOnce();
 });
 
-it("applies return presets in the shared bar without duplicate general presets", async () => {
+it("uses the same day and week presets for return analysis", async () => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-10-08T12:00:00Z"));
   try {
     const onChange = vi.fn();
     render(<AnalysisFilterBar session={useAnalysisStore.getState()} returnPresets onChange={onChange} onReset={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "30D" }));
-    expect(onChange).toHaveBeenCalledWith({ from: "2026-09-08", to: "2026-10-07" });
-    expect(screen.queryByRole("button", { name: "1M" })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Last week" }));
+    expect(onChange).toHaveBeenCalledWith({ from: "2026-10-01", to: "2026-10-07" });
+    expect(screen.getByRole("button", { name: "1D" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "YTD" })).not.toBeInTheDocument();
   } finally { vi.useRealTimers(); }
 });
 

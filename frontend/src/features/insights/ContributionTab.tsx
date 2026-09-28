@@ -12,7 +12,7 @@ import type { AnalysisSessionState } from "@/stores/analysis";
 import type { HistoryNavigationFilters } from "@/app/navigation";
 import { useAnalysisProjectionContext } from "@/features/insights/analysisProjectionContext";
 import { AvailabilityMarks } from "@/features/insights/CompletenessBanner";
-import { analysisReason } from "@/features/insights/analysisText";
+import { analysisCashLabel, analysisReason } from "@/features/insights/analysisText";
 import { compareCanonical, divideCanonical, formatAmount, multiplyCanonical } from "@/lib/money";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
@@ -58,7 +58,7 @@ function componentLabel(t: (key: string) => string, key: string): string {
 
 function contributionRowLabel(t: (key: string) => string, groupBy: string, key: string, label: string, accountNames: Map<string, string>, instrumentNames: Map<string, string>): string {
   if (groupBy === "account") return accountNames.get(key) ?? label;
-  if (groupBy === "instrument") return instrumentNames.get(key) ?? label;
+  if (groupBy === "instrument") return analysisCashLabel(t, key) ?? instrumentNames.get(key) ?? label;
   return key === "cash" ? t("insights.cash") : key;
 }
 

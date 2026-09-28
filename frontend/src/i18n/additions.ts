@@ -34,6 +34,11 @@ export const additionsEn = {
     }
   },
   "rangeShortcuts": {
+    "1d": "1D",
+    "previous": "Previous period",
+    "next": "Next period",
+    "navigate": "Move between periods",
+    "baseline": "Zero marks the start of the selected period, before the first day’s return.",
     "label": "Quick range",
     "1w": "Last week",
     "1m": "1 month",
@@ -339,6 +344,7 @@ export const additionsEn = {
     },
   },
   common: {
+    units: "units",
     actions: "Actions",
     confirm: "Confirm",
     current: "Current",
@@ -718,6 +724,7 @@ export const additionsEn = {
     noActivityDescription: "Record the first balance, transfer, or investment change to begin the timeline.",
     emptyResult: "No result to preview.",
     unitCostOptional: "Unit cost (optional)",
+    unitCostFormat: "Enter a non-negative decimal with up to 12 integer digits and 8 decimal places, without commas or leading zeros. Leave blank if unknown.",
     added: "Added",
     removed: "Removed",
     addedRemovedHint: "Added or removed",
@@ -1159,6 +1166,11 @@ export const additionsZhCN = {
     }
   },
   "rangeShortcuts": {
+    "1d": "1 天",
+    "previous": "上一周期",
+    "next": "下一周期",
+    "navigate": "切换周期",
+    "baseline": "零点表示区间开始前的基准，第一天的收益从此开始累计。",
     "label": "快捷范围",
     "1w": "最近 1 周",
     "1m": "1 月",
@@ -1464,6 +1476,7 @@ export const additionsZhCN = {
     },
   },
   common: {
+    units: "份",
     actions: "操作",
     confirm: "确认",
     current: "当前",
@@ -1838,6 +1851,7 @@ export const additionsZhCN = {
     noActivityDescription: "记录第一笔余额、转账或投资变化，开始建立时间线。",
     emptyResult: "没有可预览的结果。",
     unitCostOptional: "单位成本（可选）",
+    unitCostFormat: "请输入非负数字，整数最多 12 位、小数最多 8 位，不含千位逗号或多余的前导零。未知时可留空。",
     added: "增加",
     removed: "减少",
     addedRemovedHint: "增加或减少",
@@ -2268,6 +2282,11 @@ export const additionsZhTW = {
     }
   },
   "rangeShortcuts": {
+    "1d": "1 天",
+    "previous": "上一週期",
+    "next": "下一週期",
+    "navigate": "切換週期",
+    "baseline": "零點表示區間開始前的基準，第一天的收益從此開始累計。",
     "label": "快捷範圍",
     "1w": "最近 1 週",
     "1m": "1 月",
@@ -2573,6 +2592,7 @@ export const additionsZhTW = {
     },
   },
   common: {
+    units: "份",
     actions: "操作",
     confirm: "確認",
     current: "目前",
@@ -2947,6 +2967,7 @@ export const additionsZhTW = {
     noActivityDescription: "記錄第一筆餘額、轉帳或投資變更，開始建立時間線。",
     emptyResult: "沒有可預覽的結果。",
     unitCostOptional: "單位成本（可選）",
+    unitCostFormat: "請輸入非負數字，整數最多 12 位、小數最多 8 位，不含千位逗號或多餘的前導零。未知時可留空。",
     added: "增加",
     removed: "減少",
     addedRemovedHint: "增加或減少",

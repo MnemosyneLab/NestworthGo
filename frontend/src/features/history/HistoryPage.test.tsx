@@ -182,6 +182,24 @@ beforeEach(() => {
 });
 
 describe("HistoryPage", () => {
+  it("reuses date shortcuts and moves periods through today in the history timezone", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-27T17:00:00Z"));
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "Asia/Singapore", startedAt: "2026-09-01T00:00:00+08:00" });
+    try {
+      renderPage({ accountId: "acc-1" });
+      await userEvent.click(await screen.findByRole("button", { name: "Last week" }));
+      await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ accountId: "acc-1", fromLocalDate: "2026-09-22", toLocalDate: "2026-09-28" })));
+      await userEvent.click(await screen.findByRole("button", { name: "Previous period" }));
+      await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ fromLocalDate: "2026-09-15", toLocalDate: "2026-09-21" })));
+      await userEvent.click(await screen.findByRole("button", { name: "Next period" }));
+      await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ fromLocalDate: "2026-09-22", toLocalDate: "2026-09-28" })));
+      expect(await screen.findByRole("button", { name: "Next period" })).toBeDisabled();
+      await userEvent.click(screen.getByRole("button", { name: "1D" }));
+      await waitFor(() => expect(listActivityPage).toHaveBeenLastCalledWith(expect.objectContaining({ fromLocalDate: "2026-09-28", toLocalDate: "2026-09-28" })));
+    } finally { vi.useRealTimers(); }
+  });
+
   it("applies navigation filters from another page", async () => {
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     listInstruments.mockResolvedValue([{ id: "instrument-1", name: "ETF", archivedAt: null }]);
@@ -299,6 +317,67 @@ describe("HistoryPage", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
     expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ kind: "money_added", currency: "SGD" }));
     expect(previewChange.mock.calls[0][0].currency).not.toBe("CNY");
+  });
+
+  it("validates adjustment unit costs before IPC and accepts an exact eight-place correction", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockResolvedValue([{ id: "i1", name: "QQQM", quoteCurrency: "USD" }]);
+    holdingsByAccounts.mockResolvedValue({
+      "acc-1": [{ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "3" }],
+    });
+    previewChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangePositionAdjustment);
+    await userEvent.selectOptions(within(form).getByLabelText("Holding"), "h1");
+    await userEvent.type(within(form).getByLabelText("Quantity"), "7");
+    const cost = within(form).getByLabelText(/Unit cost/);
+    const previewButton = within(form).getByRole("button", { name: "Preview" });
+    for (const invalid of ["296.6742857142857", "-1", "1e2", "1,000", "01", "1000000000000"]) {
+      await userEvent.clear(cost);
+      await userEvent.type(cost, invalid);
+      expect(cost).toHaveAttribute("aria-invalid", "true");
+      expect(within(form).getByRole("alert")).toHaveTextContent("8 decimal places");
+      expect(previewButton).toBeDisabled();
+      await userEvent.click(previewButton);
+    }
+    expect(previewChange).not.toHaveBeenCalled();
+    for (const valid of ["0", "117.513", "999999999999.99999999", ""]) {
+      await userEvent.clear(cost);
+      if (valid) await userEvent.type(cost, valid);
+      expect(cost).toHaveAttribute("aria-invalid", "false");
+      expect(previewButton).toBeEnabled();
+    }
+    await userEvent.type(cost, "296.67428571");
+    await userEvent.click(previewButton);
+    expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ unitCost: "296.67428571", quantity: "7" }));
+  });
+
+  it("clears a failed adjustment preview when the cost is corrected", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockResolvedValue([{ id: "i1", name: "QQQM", quoteCurrency: "USD" }]);
+    holdingsByAccounts.mockResolvedValue({
+      "acc-1": [{ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "3" }],
+    });
+    previewChange.mockRejectedValueOnce(new Error(JSON.stringify({ code: "validation", field: "unitPrice", message: "must be a canonical non-negative decimal with up to eight fractional digits" })));
+    previewChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangePositionAdjustment);
+    await userEvent.selectOptions(within(form).getByLabelText("Holding"), "h1");
+    await userEvent.type(within(form).getByLabelText("Quantity"), "7");
+    const cost = within(form).getByLabelText(/Unit cost/);
+    await userEvent.type(cost, "295");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(await within(form).findByRole("alert")).toHaveTextContent("This value is not valid.");
+    await userEvent.clear(cost);
+    await userEvent.type(cost, "295.378");
+    expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(await within(form).findByRole("button", { name: "Confirm" })).toBeEnabled();
+    expect(previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ unitCost: "295.378" }));
   });
 
   it("previews a cash dividend against a holding", async () => {
@@ -441,6 +520,59 @@ describe("HistoryPage", () => {
     expect(within(form).getByLabelText("Gross total")).not.toHaveAttribute("disabled");
     await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
     expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ gross: "1234.56", grossCurrency: "EUR" }));
+  });
+
+  it.each(["USD", "SGD"])("clears trade amounts when switching instruments to %s and recalculates from the new quote", async (currency) => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    listInstruments.mockResolvedValue([
+      { id: "boxx", name: "BOXX", quoteCurrency: "USD", quoteSource: "manual" },
+      { id: "qqqm", name: "QQQM", quoteCurrency: currency, quoteSource: "manual" },
+    ]);
+    listAccounts.mockResolvedValue([{ account: { id: "brokerage-1", name: "Brokerage", trackingMode: "holdings" }, ownership: [], latestValue: null }]);
+    holdingsByAccounts.mockResolvedValue({ "brokerage-1": [
+      { id: "h-boxx", accountId: "brokerage-1", instrumentId: "boxx", quantity: "48" },
+      { id: "h-qqqm", accountId: "brokerage-1", instrumentId: "qqqm", quantity: "10" },
+    ] });
+    currentInstrumentQuote.mockImplementation(async (id: string) => ({
+      id: `quote-${id}`, instrumentId: id, unitPrice: id === "boxx" ? "118" : "305",
+      currency: id === "boxx" ? "USD" : currency, quotedAt: "2026-08-23T00:00:00Z",
+    }));
+    previewChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
+    const instrument = within(form).getByLabelText("Instrument");
+    const quantity = within(form).getByLabelText("Quantity");
+    const gross = within(form).getByLabelText("Gross total");
+    const fee = within(form).getByLabelText("Fee (optional)");
+    await userEvent.selectOptions(instrument, "boxx");
+    await userEvent.type(quantity, "2");
+    await userEvent.click(within(form).getByRole("button", { name: "Calculate" }));
+    await waitFor(() => expect(gross).toHaveValue("236"));
+    await userEvent.type(fee, "1");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(await within(form).findByRole("button", { name: "Confirm" })).toBeEnabled();
+
+    await userEvent.selectOptions(instrument, "qqqm");
+    expect(quantity).toHaveValue("");
+    expect(gross).toHaveValue("");
+    expect(fee).toHaveValue("");
+    expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(within(form).getByRole("button", { name: "Preview" })).toBeDisabled();
+    expect(within(form).getByLabelText("Settlement account")).toHaveValue("brokerage-1");
+    await userEvent.type(quantity, "3");
+    await userEvent.click(within(form).getByRole("button", { name: "Calculate" }));
+    await waitFor(() => expect(gross).toHaveValue("915"));
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    expect(previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ instrumentId: "qqqm", holdingId: "h-qqqm", quantity: "3", gross: "915", grossCurrency: currency, fee: "", feeCurrency: currency }));
+
+    await userEvent.clear(gross);
+    await userEvent.type(gross, "900");
+    await userEvent.selectOptions(instrument, "boxx");
+    expect(quantity).toHaveValue("");
+    expect(gross).toHaveValue("");
   });
 
   it("preserves a manually overridden trade gross when quantity changes", async () => {

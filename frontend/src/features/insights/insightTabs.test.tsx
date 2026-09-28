@@ -41,7 +41,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/in
   Service: { ListInstruments: () => Promise.resolve([{ id: "instrument-1", name: "QQQ", archivedAt: null }]) },
 }));
 vi.mock("@/components/charts/TrendChart", () => ({
-  TrendChart: () => <div data-testid="trend-chart" />,
+  TrendChart: ({ dates, series }: { dates: string[]; series: { values: string[] }[] }) => <div data-testid="trend-chart" data-dates={JSON.stringify(dates)} data-values={JSON.stringify(series[0].values)} />,
 }));
 
 function renderWithClient(child: ReactNode) {
@@ -86,6 +86,13 @@ describe("insight tabs", () => {
     expect(await screen.findByText("Points show daily Modified Dietz rates; the linked period rate is shown in the summary.")).toBeInTheDocument();
   });
 
+  it("prepends a zero baseline without removing the first day return", async () => {
+    renderWithClient(<ReturnTrendTab session={useAnalysisStore.getState()} />);
+    const chart = await screen.findByTestId("trend-chart");
+    expect(chart).toHaveAttribute("data-dates", JSON.stringify(["2026-08-31", "2026-09-01"]));
+    expect(chart).toHaveAttribute("data-values", JSON.stringify(["0", "2"]));
+  });
+
   it("renders component-level return sources instead of holding contributors", async () => {
     renderWithClient(<ReturnTrendTab session={useAnalysisStore.getState()} />);
     await screen.findByText("Price Change");
@@ -107,6 +114,20 @@ describe("insight tabs", () => {
     expect(await screen.findByText("Price Change")).toBeInTheDocument();
     expect(await screen.findByText("Brokerage")).toBeInTheDocument();
     expect(contributionItem).toHaveBeenCalledWith(expect.anything(), "total_return", "instrument", "instrument-1");
+  });
+
+  it("shows separate cash currencies and opens only the selected cash contribution", async () => {
+    contribution.mockResolvedValue({ returnType: "total_return", groupBy: "instrument", rows: [
+      { key: "cash:USD", label: "cash:USD", amount: { amount: "3.94", currency: "CNY" }, ratedDays: 1, totalDays: 1, ...available },
+      { key: "cash:SGD", label: "cash:SGD", amount: { amount: "0.84", currency: "CNY" }, ratedDays: 1, totalDays: 1, ...available },
+    ], ratedDays: 1, totalDays: 1, ...available });
+    contributionItem.mockResolvedValue({ key: "cash:SGD", label: "cash:SGD", amount: { amount: "0.84", currency: "CNY" }, ratedDays: 1, totalDays: 1,
+      components: [], byAccount: [], historyHint: { from: "2026-09-01", to: "2026-09-01" }, ...available });
+    renderWithClient(<ContributionTab session={useAnalysisStore.getState()} />);
+    expect(await screen.findByRole("button", { name: /Cash · USD/ })).toHaveTextContent("3.94");
+    fireEvent.click(await screen.findByRole("button", { name: /Cash · SGD/ }));
+    expect(await screen.findByRole("heading", { name: "Cash · SGD" })).toBeInTheDocument();
+    await waitFor(() => expect(contributionItem).toHaveBeenCalledWith(expect.anything(), "total_return", "instrument", "cash:SGD"));
   });
 
   it("opens History from a contribution item with date and scope filters and empty kinds", async () => {

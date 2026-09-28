@@ -149,9 +149,34 @@ describe("AvailableFundsPage", () => {
     renderPage();
     expect(await screen.findByTestId("horizon-available-2026-09-20")).toHaveTextContent("$8,000.00");
     expect(screen.getByTestId("horizon-available-2026-09-20")).not.toHaveTextContent("$0.00");
-    expect(screen.getAllByText(/Known amounts only;/)).toHaveLength(3);
-    await userEvent.selectOptions(screen.getByLabelText("Summary currency"), "native");
-    expect(screen.getByTestId("horizon-available-2026-09-20")).toHaveTextContent("€100.00");
+    expect(within(screen.getByTestId("funds-comparison")).getAllByText(/Known amounts only;/)).toHaveLength(3);
+    expect(screen.queryByLabelText("Summary currency")).not.toBeInTheDocument();
+    expect(screen.getAllByText("€100.00").length).toBeGreaterThan(0);
+  });
+
+  it("shows base totals and native details while preserving missing currencies as unknown", async () => {
+    const data = fixtureOverview();
+    data.buckets!.forEach((bucket, index) => {
+      bucket.nativeCurrencyGroups = ["USD", "SGD"].filter(currency => index !== 1 || currency !== "SGD").map(currency => ({
+        currency, status: "complete", fullAvailable: money(String(100 + index), currency),
+        knownAvailableSubtotal: money(String(100 + index), currency), appliedReserveSubtotal: money("0", currency),
+        fullUnreserved: money(String(100 + index), currency), knownUnreservedSubtotal: money(String(100 + index), currency),
+      }));
+    });
+    overview.mockResolvedValue(data);
+    renderPage();
+    await screen.findByTestId("funds-comparison");
+    expect(screen.queryByLabelText("Summary currency")).not.toBeInTheDocument();
+    const breakdown = screen.getByRole("table", { name: "Selected date breakdown" });
+    expect(within(breakdown).getByRole("rowheader", { name: "SGD" })).toBeInTheDocument();
+    expect(screen.getByTestId("horizon-available-2026-09-20")).toHaveTextContent("$8,000.00");
+    await userEvent.click(screen.getByTestId("horizon-2026-09-27"));
+    expect(screen.getByTestId("horizon-2026-09-27")).toHaveAttribute("aria-pressed", "true");
+
+    expect(screen.getByTestId("horizon-2026-09-20")).toHaveAttribute("aria-pressed", "false");
+    const sgdRow = within(breakdown).getByRole("rowheader", { name: "SGD" }).closest("tr")!;
+    expect(sgdRow).toHaveTextContent("Unknown");
+    expect(sgdRow).not.toHaveTextContent("0.00");
   });
 
   it("keeps secondary row actions in a menu", async () => {

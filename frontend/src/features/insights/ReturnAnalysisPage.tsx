@@ -28,13 +28,13 @@ export function ReturnAnalysisPage({ onOpenAssetChanges, onOpenHistory }: { onOp
   return (
     <div className="flex flex-col gap-4">
       <PageChrome pageId="return-analysis" title={t("insights.returnAnalysis")} />
-      <Tabs value={session.returnTab} onValueChange={(value) => setReturnView({ tab: value as typeof session.returnTab })}>
-        <TabsList>
+      <Tabs className="flex flex-col gap-4" value={session.returnTab} onValueChange={(value) => setReturnView({ tab: value as typeof session.returnTab })}>
+        <TabsList className="self-start">
           <TabsTrigger value="calendar">{t("insights.calendar")}</TabsTrigger>
           <TabsTrigger value="trend">{t("insights.trend")}</TabsTrigger>
           <TabsTrigger value="contribution">{t("insights.contribution")}</TabsTrigger>
         </TabsList>
-        <AnalysisFilterBar session={session} returnPresets={session.returnTab === "trend"} resolvedRange={session.returnTab !== "calendar" ? effectiveRange(session, currentMonth(origin.data?.timezone), origin.data?.timezone, origin.data?.startedAt) : undefined} onChange={setFilters} onReset={reset} />
+        <AnalysisFilterBar session={session} resolvedRange={effectiveRange(session, session.returnTab === "calendar" ? session.returnCursor || currentMonth(origin.data?.timezone) : currentMonth(origin.data?.timezone), origin.data?.timezone, origin.data?.startedAt)} onChange={(filters) => { setFilters(filters); if (filters.to) setReturnView({ cursor: filters.to.slice(0, 7) }); }} onReset={reset} />
         <TabsContent value="calendar">
           <ReturnCalendarTab session={session} onCursorChange={(cursor) => setReturnView({ cursor })} onOpenAssetChanges={onOpenAssetChanges} />
         </TabsContent>

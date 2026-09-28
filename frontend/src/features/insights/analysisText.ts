@@ -28,3 +28,9 @@ export function analysisReason(t: (key: string) => string, reason?: string | nul
   const key = reasonKeys[reason.trim().toLowerCase()];
   return key ? t(`insights.analysisReasons.${key}`) : reason;
 }
+
+export function analysisCashLabel(t: (key: string) => string, key: string): string | undefined {
+  if (key === "cash") return t("insights.cash");
+  if (/^cash:[A-Z]{3}$/.test(key)) return `${t("insights.cash")} · ${key.slice(5)}`;
+  return undefined;
+}

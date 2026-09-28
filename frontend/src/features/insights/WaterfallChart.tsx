@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { chartNumber, chartTheme } from "@/components/charts/chartTheme";
 import { EmptyState } from "@/components/layout/PageState";
 import type { AssetChangeRowDTO, AssetChangeSummaryDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
-import { addCanonical, compareCanonical, formatAmount } from "@/lib/money";
+import { addCanonical, compareCanonical, currencyFractionDigits, formatAmount, multiplyCanonical } from "@/lib/money";
 
 interface WaterfallStep {
   key: string;
@@ -69,7 +69,13 @@ function waterfallReconciles(steps: WaterfallStep[]): boolean {
   if (!beginning || !ending) return false;
   const lastDriver = [...steps].reverse().find((step) => step.delta);
   const running = lastDriver?.end ?? beginning.end;
-  return ending.currency === (lastDriver?.currency ?? beginning.currency) && compareCanonical(running, ending.end) === 0;
+  if (steps.some((step) => step.currency !== ending.currency)) return false;
+  const negativeEnding = ending.end.startsWith("-") ? ending.end.slice(1) : `-${ending.end}`;
+  const difference = addCanonical(running, negativeEnding);
+  // Keep the four-decimal amounts, but only warn about a difference that is
+  // nonzero at the currency's display precision. Round the difference itself
+  // so an insignificant remainder across a rounding boundary does not warn.
+  return multiplyCanonical(difference, "1", currencyFractionDigits(ending.currency)) === "0";
 }
 
 export function WaterfallChart({ summary, rows, labels, onSelect }: { summary: AssetChangeSummaryDTO; rows: AssetChangeRowDTO[]; labels: { beginning: string; ending: string; amount: string; empty: string }; onSelect?: (key: string) => void }) {

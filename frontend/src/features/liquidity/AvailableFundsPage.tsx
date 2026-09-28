@@ -1,3 +1,4 @@
+import { FundsComparison } from "./FundsComparison";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -9,7 +10,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { NativeSelect } from "@/components/ui/select";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { PageIntro } from "@/components/layout/PageHeader";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -18,72 +18,15 @@ import { useLiquidityOverview } from "@/queries/liquidity";
 import { PolicySheet, ProductDetailSheet, ProductFormSheet,  moneyText } from "@/features/liquidity/ProductSheets";
 import { canHoldProducts } from "@/features/liquidity/productPolicy";
 import {
-  actionRequiredLabel,
   bucketForHorizon,
-  cashVersusProceeds,
   formatKnownOrUnknown,
   remindersFor,
   resultForHorizon,
   sourceMatchesFilter,
   sourceStateLabel,
-  type CurrencyMode,
   type SourceFilter,
 } from "@/features/liquidity/liquidityDisplay";
-import type { LiquidityBucketDTO, LiquiditySourceDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
-
-function HorizonCard({
-  label,
-  bucket,
-  selected,
-  onSelect,
-  unknown,
-  sources,
-  currencyMode,
-}: {
-  label: string;
-  bucket: LiquidityBucketDTO;
-  selected: boolean;
-  onSelect: () => void;
-  unknown: string;
-  sources: LiquiditySourceDTO[];
-  currencyMode: CurrencyMode;
-}) {
-  const { t } = useTranslation();
-  const incomplete = currencyMode === "native"
-    ? !(bucket.nativeCurrencyGroups?.length) || bucket.nativeCurrencyGroups.some((group) => !group.fullAvailable || !group.fullUnreserved)
-    : !bucket.fullAvailable || !bucket.fullUnreserved;
-  const available = currencyMode === "native"
-    ? (bucket.nativeCurrencyGroups ?? []).map((group) => formatKnownOrUnknown(group.fullAvailable ?? group.knownAvailableSubtotal, unknown)).join(" · ") || unknown
-    : formatKnownOrUnknown(bucket.fullAvailable ?? bucket.knownAvailableSubtotal, unknown);
-  const reserved = currencyMode === "native"
-    ? (bucket.nativeCurrencyGroups ?? []).map((group) => formatKnownOrUnknown(group.appliedReserveSubtotal, unknown)).join(" · ") || unknown
-    : formatKnownOrUnknown(bucket.appliedReserveSubtotal, unknown);
-  const unreserved = currencyMode === "native"
-    ? (bucket.nativeCurrencyGroups ?? []).map((group) => formatKnownOrUnknown(group.fullUnreserved ?? group.knownUnreservedSubtotal, unknown)).join(" · ") || unknown
-    : formatKnownOrUnknown(bucket.fullUnreserved ?? bucket.knownUnreservedSubtotal, unknown);
-  const breakdown = cashVersusProceeds(sources, bucket.horizonOn, unknown, bucket.fullAvailable?.currency ?? bucket.knownAvailableSubtotal?.currency ?? "USD", currencyMode);
-  return (
-    <button
-      type="button"
-      aria-pressed={selected}
-      onClick={onSelect}
-      className={`rounded-xl border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${selected ? "border-primary bg-primary/5" : "border-border bg-card"}`}
-      data-testid={`horizon-${bucket.horizonOn}`}
-    >
-      <p className="text-sm font-medium">{label}</p>
-      <p className="mt-2 break-words text-2xl font-semibold" data-testid={`horizon-available-${bucket.horizonOn}`}>{unreserved}</p>
-      <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.spendableHint")}</p>
-      {(currencyMode === "native" ? bucket.nativeCurrencyGroups?.some((group) => group.appliedReserveSubtotal && !/^0(?:\.0+)?$/.test(group.appliedReserveSubtotal.amount)) : bucket.appliedReserveSubtotal && !/^0(?:\.0+)?$/.test(bucket.appliedReserveSubtotal.amount)) && (
-        <p className="mt-2 text-xs text-muted-foreground">{t("availableFunds.reserveBreakdown", { total: available, reserved })}</p>
-      )}
-      {incomplete && <p className="mt-2 text-xs text-muted-foreground">{t("availableFunds.incompleteAmount")}</p>}
-      <div className="mt-3 border-t border-border/60 pt-2 text-xs text-muted-foreground">
-        <p>{t("availableFunds.cashAccessible")}: {breakdown.cash}</p>
-        <p>{t("availableFunds.estimatedProceeds")}: {breakdown.proceeds}</p>
-      </div>
-    </button>
-  );
-}
+import type { LiquiditySourceDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
 export function AvailableFundsPage({
   productId,
@@ -95,7 +38,6 @@ export function AvailableFundsPage({
   const { t } = useTranslation();
   const [includeEarly, setIncludeEarly] = useState(false);
   const [customDate, setCustomDate] = useState("");
-  const [currencyMode, setCurrencyMode] = useState<CurrencyMode>("base");
   const [filter, setFilter] = useState<SourceFilter>("all");
   const [policySource, setPolicySource] = useState<LiquiditySourceDTO | null>(null);
   const [manageReservations,setManageReservations] = useState(false);
@@ -176,31 +118,15 @@ export function AvailableFundsPage({
           </p>
         }
       />
-      <p className="text-sm text-muted-foreground">{t("availableFunds.cumulativeHint")}</p>
 
       {sources.length === 0 ? (
         <EmptyState title={t("availableFunds.emptyTitle")} description={t("availableFunds.emptyDescription")} />
       ) : (
         <>
-          <div className="grid gap-3 md:grid-cols-3" role="group" aria-label={t("availableFunds.selectHorizon")}>
-            {today && <HorizonCard label={t("availableFunds.today")} bucket={today} selected={horizonOn === today.horizonOn} onSelect={() => setSelectedHorizon(today.horizonOn)} unknown={unknown} sources={sources} currencyMode={currencyMode} />}
-            {week && <HorizonCard label={t("availableFunds.within7")} bucket={week} selected={horizonOn === week.horizonOn} onSelect={() => setSelectedHorizon(week.horizonOn)} unknown={unknown} sources={sources} currencyMode={currencyMode} />}
-            {month && <HorizonCard label={t("availableFunds.within30")} bucket={month} selected={horizonOn === month.horizonOn} onSelect={() => setSelectedHorizon(month.horizonOn)} unknown={unknown} sources={sources} currencyMode={currencyMode} />}
-          </div>
-          {custom && (
-            <HorizonCard label={t("availableFunds.customDate")} bucket={custom} selected={horizonOn === custom.horizonOn} onSelect={() => setSelectedHorizon(custom.horizonOn)} unknown={unknown} sources={sources} currencyMode={currencyMode} />
-          )}
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="custom-horizon">{t("availableFunds.customDate")}</Label>
               <DatePicker clearable allowFuture min={data.localDate} id="custom-horizon" value={customDate} onChange={(next) => { setCustomDate(next); setSelectedHorizon(next || undefined); }} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="currency-mode">{t("availableFunds.currencyDisplay")}</Label>
-              <NativeSelect id="currency-mode" value={currencyMode} onChange={(event) => setCurrencyMode(event.target.value as CurrencyMode)}>
-                <option value="base">{t("availableFunds.base")}</option>
-                <option value="native">{t("availableFunds.native")}</option>
-              </NativeSelect>
             </div>
             <label className="flex min-h-9 items-center gap-2 text-sm">
               <input type="checkbox" checked={includeEarly} onChange={(event) => setIncludeEarly(event.target.checked)} />
@@ -208,6 +134,16 @@ export function AvailableFundsPage({
             </label>
             <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => { setReservationSource(null); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button>
           </div>
+          <FundsComparison
+            horizons={[
+              ...(today ? [{ label: t("availableFunds.today"), bucket: today }] : []),
+              ...(week ? [{ label: t("availableFunds.within7"), bucket: week }] : []),
+              ...(month ? [{ label: t("availableFunds.within30"), bucket: month }] : []),
+              ...(custom && ![today, week, month].some(bucket => bucket?.horizonOn === custom.horizonOn) ? [{ label: t("availableFunds.customDate"), bucket: custom }] : []),
+            ]}
+            selected={horizonOn} onSelect={setSelectedHorizon} sources={sources}
+            baseCurrency={data.baseCurrency}
+          />
           {overview.isPlaceholderData && <p role="status" className="text-sm text-muted-foreground">{t("availableFunds.updatingEstimate")}</p>}
           {allExcluded && <EmptyState title={t("availableFunds.allExcludedTitle")} description={t("availableFunds.assetsOnly")} />}
           {!allExcluded && allLocked && <EmptyState title={t("availableFunds.allLockedTitle")} />}
@@ -258,7 +194,7 @@ export function AvailableFundsPage({
                   <th className="px-3 py-2 font-medium">{t("availableFunds.currentValue")}</th>
                   <th className="px-3 py-2 font-medium">{t("availableFunds.expectedAccess")}</th>
                   <th className="px-3 py-2 font-medium">{t("availableFunds.availableAfterReserve")}</th>
-                  <th className="px-3 py-2 font-medium">{t("availableFunds.nextAction")}</th>
+                  <th className="w-0 px-3 py-2"><span className="sr-only">{t("common.actions")}</span></th>
                 </tr>
               </thead>
               <tbody>
@@ -302,16 +238,14 @@ export function AvailableFundsPage({
                         </details>}
                       </td>
                       <td className="px-3 py-2">
-                        <div className="flex items-center justify-between gap-2 whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-2 whitespace-nowrap">
                           {source.displayState === "needs_info" ? (
                             <Button type="button" size="sm" variant="link" className="px-0" onClick={() => setPolicySource(source)}>{t("availableFunds.completeRules")}</Button>
-                          ) : source.productId ? (
-                            <Button type="button" size="sm" variant="link" className="px-0" onClick={() => setDetailProductId(source.productId)}>{t("availableFunds.products")}</Button>
-                          ) : <span className="text-sm text-muted-foreground">{actionRequiredLabel(t, route?.actionRequired)}</span>}
+                          ) : null}
                           <ActionMenu label={t("connections.actionsFor", { name: `${sourceName(t, source)} · ${source.nativeCurrency}` })} items={[
                             ...(source.displayState === "needs_info" ? [] : [{ id: "rules", label: t("availableFunds.editSource"), onSelect: () => setPolicySource(source) }]),
                             { id: "reservations", label: t("availableFunds.manageReservations"), onSelect: () => { setReservationSource(source); setManageReservations(true); } },
-                            ...(source.productId && source.displayState === "needs_info" ? [{ id: "product", label: t("availableFunds.products"), onSelect: () => setDetailProductId(source.productId) }] : []),
+                            ...(source.productId ? [{ id: "product", label: t("availableFunds.products"), onSelect: () => setDetailProductId(source.productId) }] : []),
                           ]} />
                         </div>
                       </td>

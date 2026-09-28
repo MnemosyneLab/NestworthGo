@@ -1,9 +1,9 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNetWorthTrend, type AnalyticsTrendRange } from "@/queries/analytics";
+import { useNetWorthTrend } from "@/queries/analytics";
 import { useObjectNavigation } from "@/app/NavigationContext";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { RangeToggle } from "@/components/charts/RangeToggle";
+import { DateRangeControl } from "@/components/charts/DateRangeControl";
+import { useTrendDateRange } from "@/components/charts/useTrendDateRange";
 import { TrendChart } from "@/components/charts/TrendChart";
 import { chartTheme } from "@/components/charts/chartTheme";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
@@ -12,14 +12,14 @@ import { formatAmount } from "@/lib/money";
 
 export function NetWorthTrendCard() {
   const { t } = useTranslation();
-  const [range, setRange] = useState<AnalyticsTrendRange>("30d");
-  const trend = useNetWorthTrend({ kind: "trend", value: range });
+  const range = useTrendDateRange();
+  const trend = useNetWorthTrend({ kind: "trend", value: range.queryRange });
   const navigation = useObjectNavigation();
   const data = trend.data;
   const points = data?.points ?? [];
   const gaps = points.filter(point => !point.complete);
   return <Card><CardHeader><CardTitle>{t("connections.netWorthTrend")}</CardTitle></CardHeader><CardContent className="flex flex-col gap-4">
-    <RangeToggle ranges={["30d", "ytd", "1y", "all"]} value={range} onChange={value => setRange(value as AnalyticsTrendRange)} label={t("analytics.range")} />
+    <DateRangeControl {...range} />
     <p className="text-sm text-muted-foreground">{t("connections.netWorthNote")}</p>
     {trend.isLoading ? <LoadingState label={t("ui.state.loadingPage")} /> : trend.isError ? <ErrorState title={t("overview.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void trend.refetch()} retryLabel={t("common.retryAction")} /> : <>
       <p className="text-sm">{data?.startDate} {data?.endDate && `– ${data.endDate}`}</p>

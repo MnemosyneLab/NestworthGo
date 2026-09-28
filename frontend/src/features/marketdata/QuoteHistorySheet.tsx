@@ -3,12 +3,13 @@ import { metalPriceSuffix } from "@/lib/preciousMetals";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { TrendChart } from "@/components/charts/TrendChart";
-import { RangeToggle, SourceFilterToggle } from "@/components/charts/RangeToggle";
+import { SourceFilterToggle } from "@/components/charts/RangeToggle";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
 import { useInstrumentQuoteSeries, useFXQuoteSeries } from "@/queries/investments";
-import { useCatalog } from "@/queries/catalog";
+import { DateRangeControl } from "@/components/charts/DateRangeControl";
+import { useTrendDateRange } from "@/components/charts/useTrendDateRange";
 import { useSettings } from "@/queries/settings";
 import { displayEnum } from "@/lib/display";
 import { instrumentDisplayLabel, instrumentSecondaryName } from "@/lib/instrumentDisplay";
@@ -38,17 +39,15 @@ export function QuoteHistorySheet({
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
-  const catalog = useCatalog();
   const settings = useSettings();
-  const ranges = catalog.data?.trendRanges ?? ["30d", "ytd", "1y", "all"];
-  const [range, setRange] = useState(focus?.rangeStart ? "all" : "30d");
+  const range = useTrendDateRange(focus?.rangeStart && focus.rangeEnd ? { from: focus.rangeStart, to: focus.rangeEnd } : undefined, true);
   const [sourceFilter, setSourceFilter] = useState("all");
   const [swapped, setSwapped] = useState(false);
   const instrumentId = target.kind === "instrument" ? target.instrument.id : "";
   const fxBase = target.kind === "fx" ? (swapped ? target.currencyB : target.currencyA) : "";
   const fxQuote = target.kind === "fx" ? (swapped ? target.currencyA : target.currencyB) : "";
-  const instrumentSeries = useInstrumentQuoteSeries(instrumentId, range, sourceFilter, target.kind === "instrument");
-  const fxSeries = useFXQuoteSeries(fxBase, fxQuote, range, sourceFilter, target.kind === "fx");
+  const instrumentSeries = useInstrumentQuoteSeries(instrumentId, range.queryRange, sourceFilter, target.kind === "instrument");
+  const fxSeries = useFXQuoteSeries(fxBase, fxQuote, range.queryRange, sourceFilter, target.kind === "fx");
   const series = target.kind === "instrument" ? instrumentSeries : fxSeries;
   const theme = chartTheme();
 
@@ -87,7 +86,7 @@ export function QuoteHistorySheet({
         {target.kind === "instrument" && target.instrument.metalTemplate && <p className="mt-3 text-xs text-muted-foreground">{t("metals.referenceDisclaimer")}</p>}
         {target.kind === "instrument" && target.instrument.providerKey === "coingecko" && <p className="mt-3 text-xs text-muted-foreground">{t("portfolio.coinGeckoNotice")} · <a href="https://www.coingecko.com/en/api" target="_blank" rel="noreferrer" className="underline">{t("portfolio.coinGeckoAttribution")}</a></p>}
         <div className="flex flex-col gap-4">
-          <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
+          <DateRangeControl {...range} />
           <SourceFilterToggle value={sourceFilter} onChange={setSourceFilter} />
           <p className="text-sm text-muted-foreground">{t("quoteDetails.help")}</p>
           {target.kind === "fx" && (
@@ -111,7 +110,7 @@ export function QuoteHistorySheet({
             <EmptyState
               title={hasFactsOutsideRange ? t("charts.rangeEmpty") : t("charts.noLocalHistory")}
               action={hasFactsOutsideRange ? (
-                <Button type="button" variant="outline" size="sm" onClick={() => setRange("all")}>
+                <Button type="button" variant="outline" size="sm" onClick={() => range.onChange({ from: range.min, to: range.max })}>
                   {t("charts.showAllRange")}
                 </Button>
               ) : undefined}

@@ -677,13 +677,6 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 	if previous.NativeAmount == "" || current.NativeAmount == "" {
 		return holdingBridge{partial: true}, nil
 	}
-	openQuote := universe.quoteForItem(previous, input.InstrumentQuotes, previousCutoff)
-	closeQuote := universe.quoteForItem(current, input.InstrumentQuotes, currentCutoff)
-	if closeQuote == nil {
-		// A closed position with no closing quote still has unaccounted price
-		// movement between the opening mark and the disposal.
-		return holdingBridge{partial: true}, nil
-	}
 	opening, err := decimal.NewFromString(previous.NativeAmount)
 	if err != nil {
 		return holdingBridge{}, err
@@ -691,6 +684,20 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 	closing, err := decimal.NewFromString(current.NativeAmount)
 	if err != nil {
 		return holdingBridge{}, err
+	}
+	// Complete zero valuations without daily activity have no market exposure,
+	// including days before the first purchase. They do not require a quote.
+	// Keep active days on the normal path: a same-day buy/sell can start and end
+	// at zero while still contributing a price return.
+	if opening.IsZero() && closing.IsZero() && len(effects) == 0 {
+		return holdingBridge{}, nil
+	}
+	openQuote := universe.quoteForItem(previous, input.InstrumentQuotes, previousCutoff)
+	closeQuote := universe.quoteForItem(current, input.InstrumentQuotes, currentCutoff)
+	if closeQuote == nil {
+		// A closed position with no closing quote still has unaccounted price
+		// movement between the opening mark and the disposal.
+		return holdingBridge{partial: true}, nil
 	}
 	q0 := decimal.Zero
 	if openQuote != nil {

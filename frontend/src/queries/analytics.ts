@@ -4,7 +4,7 @@ import { Service as PortfolioService } from "../../bindings/github.com/waltwang/
 import { callService } from "@/lib/wails";
 import { queryKeys } from "@/queries/keys";
 
-export type AnalyticsTrendRange = "30d" | "ytd" | "1y" | "all";
+export type AnalyticsTrendRange = "30d" | "ytd" | "1y" | "all" | `${string}:${string}`;
 export type AnalyticsRange =
   | { kind: "trend"; value: AnalyticsTrendRange }
   | { kind: "custom"; from: string; to: string };

@@ -44,7 +44,7 @@ func (s *Service) NetWorthTrend(ctx context.Context, trendRange domain.TrendRang
 			MissingCount: snapshot.MissingCount,
 		})
 	}
-	if window.todayKey != "" {
+	if window.todayKey != "" && window.includeCurrent {
 		current, err := s.Overview(ctx, domain.AccountFilter{})
 		if err != nil {
 			return domain.NetWorthTrend{}, err
@@ -117,7 +117,7 @@ func (s *Service) PortfolioTrend(ctx context.Context, trendRange domain.TrendRan
 			points = append(points, point)
 		}
 	}
-	if window.todayKey != "" {
+	if window.todayKey != "" && window.includeCurrent {
 		current, err := s.Portfolio(ctx, domain.AccountFilter{})
 		if err != nil {
 			return domain.PortfolioTrend{}, err
@@ -150,9 +150,10 @@ func (s *Service) PortfolioTrend(ctx context.Context, trendRange domain.TrendRan
 }
 
 type closedTrendWindow struct {
-	currency  domain.CurrencyCode
-	todayKey  string
-	snapshots []domain.DailyValuationSnapshot
+	includeCurrent bool
+	currency       domain.CurrencyCode
+	todayKey       string
+	snapshots      []domain.DailyValuationSnapshot
 }
 
 func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.TrendRange) (*closedTrendWindow, error) {
@@ -167,7 +168,7 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	if err != nil {
 		return nil, err
 	}
-	window := &closedTrendWindow{currency: bootstrap.Household.BaseCurrency}
+	window := &closedTrendWindow{currency: bootstrap.Household.BaseCurrency, includeCurrent: true}
 	if origin == nil {
 		return window, nil
 	}
@@ -179,6 +180,10 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	year, month, day := nowLocal.Date()
 	today := time.Date(year, month, day, 0, 0, 0, 0, location)
 	window.todayKey = today.Format("2006-01-02")
+	customFrom, customTo, custom := trendRange.DateBounds()
+	if custom {
+		window.includeCurrent = customFrom <= window.todayKey && customTo >= window.todayKey
+	}
 	originDate := origin.StartedAt.In(location).Format("2006-01-02")
 	if originDate >= window.todayKey {
 		return window, nil
@@ -206,6 +211,9 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	first := since.In(location)
 	first = time.Date(first.Year(), first.Month(), first.Day(), 0, 0, 0, 0, location)
 	last := today.AddDate(0, 0, -1)
+	if custom && customTo < last.Format("2006-01-02") {
+		last, _ = time.ParseInLocation("2006-01-02", customTo, location)
+	}
 	for cursor := first; !cursor.After(last); cursor = cursor.AddDate(0, 0, 1) {
 		key := cursor.Format("2006-01-02")
 		if snapshot, ok := byDate[key]; ok {
@@ -219,6 +227,9 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 }
 
 func trendSince(trendRange domain.TrendRange, today, origin time.Time) (time.Time, error) {
+	if from, _, ok := trendRange.DateBounds(); ok {
+		return time.ParseInLocation("2006-01-02", from, today.Location())
+	}
 	switch trendRange {
 	case domain.Trend30Days:
 		return today.AddDate(0, 0, -29), nil

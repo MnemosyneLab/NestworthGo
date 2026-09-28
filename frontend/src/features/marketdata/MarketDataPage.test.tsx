@@ -448,7 +448,7 @@ describe("MarketDataPage", () => {
     await userEvent.click(await screen.findByRole("tab", { name: "FX rates" }));
     await userEvent.click(await screen.findByRole("button", { name: "View history" }));
     expect(await screen.findByRole("heading", { name: "CNY/USD rate history" })).toBeInTheDocument();
-    expect(fxQuoteSeries).toHaveBeenCalledWith("CNY", "USD", "30d", "all");
+    expect(fxQuoteSeries).toHaveBeenCalledWith("CNY", "USD", expect.stringMatching(/^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/), "all");
     await userEvent.click(screen.getByText("View data table"));
     expect(screen.getByText("Provider · frankfurter")).toBeInTheDocument();
     expect(screen.getAllByText("Delayed").length).toBeGreaterThan(0);
@@ -456,7 +456,7 @@ describe("MarketDataPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Swap direction" }));
     expect(await screen.findByRole("heading", { name: "USD/CNY rate history" })).toBeInTheDocument();
-    expect(fxQuoteSeries).toHaveBeenCalledWith("USD", "CNY", "30d", "all");
+    expect(fxQuoteSeries).toHaveBeenCalledWith("USD", "CNY", expect.stringMatching(/^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/), "all");
     expect(fxQuoteSeries.mock.calls[0]?.slice(0, 2)).toEqual(["CNY", "USD"]);
     expect(fxQuoteSeries.mock.calls[1]?.slice(0, 2)).toEqual(["USD", "CNY"]);
     expect(screen.getAllByText(/daily reference rates/i).length).toBeGreaterThan(0);

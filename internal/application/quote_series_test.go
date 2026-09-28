@@ -228,3 +228,11 @@ func quoteSeriesUnitPrice(t *testing.T, value string) domain.UnitPrice {
 	}
 	return price
 }
+
+func TestExplicitQuoteRangeUsesLocalDayBounds(t *testing.T) {
+	location, _ := time.LoadLocation("Asia/Singapore")
+	query := quoteHistoryQuery(domain.TrendRange("2026-09-21:2026-09-27"), domain.QuoteSourceFilter("all"), time.Now(), location, "", "")
+	if query.From == nil || query.To == nil || query.From.UTC().Format(time.RFC3339Nano) != "2026-09-20T16:00:00Z" || query.To.UTC().Format(time.RFC3339Nano) != "2026-09-27T15:59:59.999999999Z" {
+		t.Fatalf("wrong interval: %+v", query)
+	}
+}

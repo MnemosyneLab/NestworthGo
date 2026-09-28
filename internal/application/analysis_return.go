@@ -505,10 +505,7 @@ func returnGroupKey(component domain.ComponentID, by AnalysisGroupBy) string {
 	case GroupByCurrency:
 		return component.Currency.String()
 	case GroupByInstrument:
-		if component.InstrumentID == nil {
-			return domain.BucketCash
-		}
-		return component.InstrumentID.String()
+		return analysisInstrumentGroupKey(component)
 	case GroupByAssetClass:
 		if component.AssetClass != "" {
 			return component.AssetClass
@@ -517,6 +514,18 @@ func returnGroupKey(component domain.ComponentID, by AnalysisGroupBy) string {
 	default:
 		return ""
 	}
+}
+
+// Cash has no instrument ID. Its native currency identifies the cash sleeve,
+// independently of the currency used to display the contribution amount.
+func analysisInstrumentGroupKey(component domain.ComponentID) string {
+	if component.InstrumentID != nil {
+		return component.InstrumentID.String()
+	}
+	if component.Currency != "" {
+		return domain.BucketCash + ":" + component.Currency.String()
+	}
+	return domain.BucketCash
 }
 
 func returnGroupCompleteness(complete, usable, total int) domain.Completeness {

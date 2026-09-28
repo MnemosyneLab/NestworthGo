@@ -153,8 +153,20 @@ describe("ReturnAnalysisPage", () => {
     useAnalysisStore.getState().setFilters({ from: "2026-01-01", to: "2026-12-31" });
     renderPage();
     await screen.findByText("September 2026");
-    await user.click(screen.getByRole("button", { name: "Next" }));
-    expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-01-01", to: "2026-09-06" }), "2026-10", "day");
+    await user.click(screen.getByRole("button", { name: "Previous" }));
+    expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-08-01", to: "2026-08-31" }), "2026-08", "day");
+  });
+
+  it("loads the whole visible month while keeping a separate selected-range summary", async () => {
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
+    useAnalysisStore.getState().setFilters({ from: "2026-09-02", to: "2026-09-03" });
+    renderPage();
+    await screen.findByText("Partial coverage");
+    expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-01", to: "2026-09-06" }), "2026-09", "day");
+    expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-02", to: "2026-09-03" }), "", "day");
+    expect(screen.getByTestId("return-day-2026-09-01")).toHaveTextContent("+$1.00");
+    expect(screen.getByTestId("return-day-2026-09-01")).not.toHaveAttribute("data-selected");
+    expect(screen.getByTestId("return-day-2026-09-02")).toHaveAttribute("data-selected", "true");
   });
 
   it("opens the day sheet and carries the day and session into Asset Changes", async () => {

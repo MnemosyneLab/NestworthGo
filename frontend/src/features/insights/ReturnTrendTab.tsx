@@ -1,3 +1,5 @@
+import { addDays } from "date-fns";
+import { parseYmd, ymd } from "./calendar";
 import { AnalysisHealthLink } from "./AnalysisHealthLink";
 import { chartTheme } from "@/components/charts/chartTheme";
 import { useMemo, useState } from "react";
@@ -97,8 +99,15 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   const chartPoints = useMemo(() => (data?.points ?? []).filter((point) => display === "linked_rate" ? point.rate != null : point.value != null), [data?.points, display]);
   const currency = data?.amount?.currency ?? chartPoints.find((point) => point.value?.currency)?.value?.currency ?? "";
   const chartAmountText = (value: string | null | undefined) => amountText(value == null ? null : { amount: value, currency });
-  const chartValues = useMemo(() => (data?.points ?? []).map((point) => display === "linked_rate" ? point.rate : point.value?.amount ?? null), [data?.points, display]);
-  const dates = useMemo(() => (data?.points ?? []).map((point) => point.date), [data?.points]);
+  const hasBaseline = display === "cumulative_amount" && Boolean(data?.points?.length);
+  const chartValues = useMemo(() => {
+    const values = (data?.points ?? []).map(point => display === "linked_rate" ? point.rate : point.value?.amount ?? null);
+    return hasBaseline ? ["0", ...values] : values;
+  }, [data?.points, display, hasBaseline]);
+  const dates = useMemo(() => {
+    const values = (data?.points ?? []).map(point => point.date);
+    return hasBaseline ? [ymd(addDays(parseYmd(context.request.from), -1)), ...values] : values;
+  }, [data?.points, hasBaseline, context.request.from]);
 
   if (context.origin.isLoading) return <LoadingState label={t("insights.loading")} />;
   if (context.origin.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => context.origin.refetch()} retryLabel={t("common.retryAction")} />;
@@ -113,7 +122,7 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   else results = (
     <>
       <TrendSummary data={data} />
-      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent><TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: chartTheme().primary, values: chartValues }]} height={280} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} axisValueFormatter={display === "linked_rate" ? rateAxisText : undefined} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display)]} extraTableRows={dates.map((date, index) => [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index])])} /></CardContent></Card>}
+      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent>{hasBaseline && <p className="mb-3 text-xs text-muted-foreground">{t("rangeShortcuts.baseline")}</p>}<TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: chartTheme().primary, values: chartValues }]} height={280} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} axisValueFormatter={display === "linked_rate" ? rateAxisText : undefined} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display)]} extraTableRows={dates.map((date, index) => [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index])])} /></CardContent></Card>}
       {(data.sources ?? []).length > 0 && <Card><CardHeader><CardTitle>{t("insights.returnSources")}</CardTitle></CardHeader><CardContent><ul className="flex flex-col gap-2 text-sm">{(data.sources ?? []).map((source) => <li key={source.key} className="flex items-center gap-3"><span className="min-w-0 flex-1 truncate">{sourceLabel(t, source.key)}</span><span className="shrink-0">{amountText(source.amount)}</span><span className="w-16 shrink-0 text-right text-muted-foreground">{source.share == null ? "—" : shareText(source.share)}</span></li>)}</ul></CardContent></Card>}
       <Button type="button" variant="ghost" className="self-start" onClick={() => setDisplay("cumulative_amount")} hidden={display === "cumulative_amount"}>{t("insights.resetDisplay")}</Button>
     </>

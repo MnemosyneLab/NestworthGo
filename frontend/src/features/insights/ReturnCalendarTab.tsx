@@ -200,7 +200,7 @@ function ContributorList({ values, title, instrumentNames = new Map() }: { value
   return <div className="mt-3 border-t border-border pt-3"><p className="mb-2 text-sm font-medium">{title}</p><ul className="flex flex-col gap-2 text-sm">{values.slice(0, 5).map((item) => <li key={item.key} className="flex justify-between gap-3"><span className="truncate">{contributorLabel(t, item, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></li>)}</ul></div>;
 }
 
-function DayCell({ day, date, inMonth, timeZone, onOpen }: { day?: ReturnDayDTO; date: string; inMonth: boolean; timeZone?: string; onOpen: (date: string) => void }) {
+function DayCell({ day, date, inMonth, timeZone, onOpen, selected = false }: { selected?: boolean; day?: ReturnDayDTO; date: string; inMonth: boolean; timeZone?: string; onOpen: (date: string) => void }) {
   const { t } = useTranslation();
   const future = isFuture(date, timeZone);
   const today = isToday(date, timeZone);
@@ -211,7 +211,7 @@ function DayCell({ day, date, inMonth, timeZone, onOpen }: { day?: ReturnDayDTO;
   const amountPartial = day?.amountStatus === "partial";
   const amountUnavailable = day?.amountStatus === "unavailable";
   return (
-    <div data-testid={`return-day-${date}`} className={cn("group relative min-h-28 rounded-lg border border-border p-2 transition-colors", !inMonth && "border-transparent bg-muted/20 opacity-45", inMonth && hasData && !today && amount >= 0.005 && "bg-success/8", inMonth && hasData && !today && amount <= -0.005 && "bg-destructive/7", (future || today) && "opacity-60")}>
+    <div data-testid={`return-day-${date}`} data-selected={selected || undefined} className={cn("data-[selected=true]:ring-2 data-[selected=true]:ring-primary/40 group relative min-h-28 rounded-lg border border-border p-2 transition-colors", !inMonth && "border-transparent bg-muted/20 opacity-45", inMonth && hasData && !today && amount >= 0.005 && "bg-success/8", inMonth && hasData && !today && amount <= -0.005 && "bg-destructive/7", (future || today) && "opacity-60")}>
       <button type="button" disabled={!inMonth || future || today || !day} onClick={() => onOpen(date)} className="flex min-h-24 w-full flex-col items-start gap-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
         <span className="flex w-full items-center justify-between text-xs font-medium"><span>{Number(date.slice(-2))}</span>{today && <span className="text-[0.65rem] text-muted-foreground">{t("insights.today")}</span>}</span>
         {day && showData ? <><span className="mt-2 text-sm font-semibold" title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</span></> : <span className="mt-2 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span>}
@@ -227,12 +227,12 @@ function DayCell({ day, date, inMonth, timeZone, onOpen }: { day?: ReturnDayDTO;
   );
 }
 
-function MonthGrid({ data, month, timeZone, weekStartsOn, onOpen }: { data?: ReturnCalendarDTO; month: string; timeZone?: string; weekStartsOn: 0 | 1; onOpen: (date: string) => void }) {
+function MonthGrid({ data, month, timeZone, weekStartsOn, onOpen, selection }: { selection?: { from: string; to: string }; data?: ReturnCalendarDTO; month: string; timeZone?: string; weekStartsOn: 0 | 1; onOpen: (date: string) => void }) {
   const { i18n } = useTranslation();
   const cells = useMemo(() => new Map((data?.cells ?? []).map((day) => [day.date, day])), [data?.cells]);
   const firstWeekday = new Date(2024, 0, weekStartsOn === 0 ? 7 : 1);
   const weekdays = Array.from({ length: 7 }, (_, index) => { const date = new Date(firstWeekday); date.setDate(firstWeekday.getDate() + index); return date.toLocaleDateString(i18n.language, { weekday: "short" }); });
-  return <div className="grid grid-cols-7 gap-1.5">{weekdays.map((day) => <div key={day} className="px-2 py-1 text-center text-xs font-medium text-muted-foreground">{day}</div>)}{monthDays(month, weekStartsOn).map((cell) => <DayCell key={cell.date} {...cell} day={cells.get(cell.date)} timeZone={timeZone} onOpen={onOpen} />)}</div>;
+  return <div className="grid grid-cols-7 gap-1.5">{weekdays.map((day) => <div key={day} className="px-2 py-1 text-center text-xs font-medium text-muted-foreground">{day}</div>)}{monthDays(month, weekStartsOn).map((cell) => <DayCell key={cell.date} selected={Boolean(selection?.from && selection?.to && cell.date >= selection.from && cell.date <= selection.to)} {...cell} day={cells.get(cell.date)} timeZone={timeZone} onOpen={onOpen} />)}</div>;
 }
 
 function YearGrid({ dataByMonth, year, onOpenMonth }: { dataByMonth: Map<string, MonthReturnSummary>; year: number; onOpenMonth: (month: string) => void }) {
@@ -271,7 +271,7 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const visibleMonth = session.returnCursor || currentMonth(timeZone);
   const year = Number(visibleMonth.slice(0, 4));
-  const range = view === "year" ? periodRange(session, `${year}-01-01`, `${year}-12-31`, timeZone, origin.data?.startedAt) : effectiveRange(session, visibleMonth, timeZone, origin.data?.startedAt);
+  const range = view === "year" ? periodRange({ from: "", to: "" }, `${year}-01-01`, `${year}-12-31`, timeZone, origin.data?.startedAt) : effectiveRange({ from: "", to: "" }, visibleMonth, timeZone, origin.data?.startedAt);
   const request = analysisRequest(session, range.from, range.to);
   const visibleMonthIsFuture = isFuture(`${visibleMonth}-01`, timeZone);
   const originReady = !origin.isLoading && !origin.isError && Boolean(origin.data?.timezone);
@@ -282,6 +282,15 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   const loading = origin.isLoading || (view === "year" ? yearSummaryQuery.isLoading : monthQuery.isLoading);
   const error = view === "year" ? yearSummaryQuery.isError : monthQuery.isError;
   const data = view === "year" ? yearSummaryQuery.data : monthQuery.data;
+  const selectedRange = effectiveRange(session, visibleMonth, timeZone, origin.data?.startedAt);
+  const hasSelection = Boolean(session.from && session.to);
+  const selectedQuery = useReturnCalendar(analysisRequest(session, selectedRange.from, selectedRange.to), "", originReady && scopeReady && hasSelection && selectedRange.from <= selectedRange.to);
+  const summaryData = hasSelection ? selectedQuery.data : data;
+  const summary = hasSelection && selectedQuery.isLoading ? <LoadingState label={t("insights.loading")} /> : hasSelection && selectedQuery.isError ? <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => selectedQuery.refetch()} retryLabel={t("common.retryAction")} /> : summaryData ? <>
+    <p className="text-xs text-muted-foreground">{hasSelection ? `${selectedRange.from} – ${selectedRange.to}` : `${range.from} – ${range.to}`}</p>
+    <CompletenessBanner issues={summaryData.issues ?? []} ratedDays={summaryData.summary.ratedDays} totalDays={summaryData.summary.totalDays} />
+    <Summary data={summaryData} />
+  </> : null;
   const yearData = useMemo(() => aggregateYearMonths(data, year), [data, year]);
 
   const move = (amount: number) => onCursorChange(view === "year" ? `${year + amount}-01` : addMonths(visibleMonth, amount));
@@ -298,11 +307,11 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   } else if (error) {
     content = <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => { void (view === "year" ? yearSummaryQuery.refetch() : monthQuery.refetch()); }} retryLabel={t("common.retryAction")} />;
   } else if (view === "year") {
-    content = data?.available ? <><CompletenessBanner issues={data.issues ?? []} ratedDays={data.summary.ratedDays} totalDays={data.summary.totalDays} /><Summary data={data} /><YearGrid year={year} dataByMonth={yearData} onOpenMonth={(month) => { onCursorChange(month); setView("month"); }} /></> : <CalendarEmptyState data={data} />;
+    content = data?.available ? <>{summary}<YearGrid year={year} dataByMonth={yearData} onOpenMonth={(month) => { onCursorChange(month); setView("month"); }} /></> : <CalendarEmptyState data={data} />;
   } else if (!monthRangeAvailable || visibleMonthIsFuture) {
-    content = <MonthGrid data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} />;
+    content = <MonthGrid selection={hasSelection ? selectedRange : undefined} data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} />;
   } else if (data?.available) {
-    content = <><CompletenessBanner issues={data.issues ?? []} ratedDays={data.summary.ratedDays} totalDays={data.summary.totalDays} /><Summary data={data} /><MonthGrid data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} /><ContributorList values={data.topContributors} title={t("insights.contributors")} instrumentNames={instrumentNames} /></>;
+    content = <>{summary}<MonthGrid selection={hasSelection ? selectedRange : undefined} data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} /><ContributorList values={summaryData?.topContributors} title={t("insights.contributors")} instrumentNames={instrumentNames} /></>;
   } else {
     content = <CalendarEmptyState data={data} />;
   }

@@ -10,10 +10,10 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { TrendChart } from "@/components/charts/TrendChart";
-import { RangeToggle } from "@/components/charts/RangeToggle";
 import { chartTheme } from "@/components/charts/chartTheme";
 import { usePortfolio, usePortfolioTrend } from "@/queries/portfolio";
-import { useCatalog } from "@/queries/catalog";
+import { DateRangeControl } from "@/components/charts/DateRangeControl";
+import { useTrendDateRange } from "@/components/charts/useTrendDateRange";
 import { formatAmount, sortByCanonicalDesc } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
 import { EntityIcon } from "@/components/icons/EntityIcon";
@@ -25,11 +25,9 @@ import { EntityIcon } from "@/components/icons/EntityIcon";
  */
 function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: string) => void } = {}) {
   const { t } = useTranslation();
-  const catalog = useCatalog();
   const portfolio = usePortfolio();
-  const ranges = catalog.data?.trendRanges ?? ["30d", "ytd", "1y", "all"];
-  const [range, setRange] = useState("30d");
-  const trend = usePortfolioTrend(range);
+  const range = useTrendDateRange();
+  const trend = usePortfolioTrend(range.queryRange);
   const theme = chartTheme();
 
   if (portfolio.isLoading) {
@@ -117,7 +115,7 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
               <CardTitle>{t("portfolio.trend")}</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <RangeToggle ranges={ranges} value={range} onChange={setRange} label={t("analytics.range")} />
+              <DateRangeControl {...range} />
               {trend.isError ? (
                 <ErrorState
                   title={t("portfolio.loadError")}

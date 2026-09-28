@@ -43,8 +43,8 @@ export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOp
   return (
     <div className="flex flex-col gap-4">
       <PageChrome pageId="asset-changes" title={t("insights.assetChanges")} />
-      <Tabs value={session.assetTab} onValueChange={(value) => setAssetView({ tab: value as typeof session.assetTab })}>
-        <TabsList>
+      <Tabs className="flex flex-col gap-4" value={session.assetTab} onValueChange={(value) => setAssetView({ tab: value as typeof session.assetTab })}>
+        <TabsList className="self-start">
           <TabsTrigger value="trend">{t("insights.assetTrend")}</TabsTrigger>
           <TabsTrigger value="drivers">{t("insights.drivers")}</TabsTrigger>
           <TabsTrigger value="categories">{t("insights.categories")}</TabsTrigger>

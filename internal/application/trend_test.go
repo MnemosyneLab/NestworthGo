@@ -242,3 +242,36 @@ func TestNetWorthSummaryRequiresActualPeriodBoundaries(t *testing.T) {
 		})
 	}
 }
+
+func TestExplicitTrendWindowExcludesCurrentAndLaterDays(t *testing.T) {
+	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-explicit", []string{"Owner"})
+	setClock(time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC))
+	if _, err := service.CreateAccount(ctx, AccountInput{
+		Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
+		DefaultCurrency: "CNY", IncludeInNetWorth: true,
+		Ownership: []domain.OwnershipShare{{MemberID: bootstrap.Members[0].ID, ShareBPS: domain.TotalOwnershipBPS}}, InitialAmount: "100",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	setClock(time.Date(2026, 9, 10, 12, 0, 0, 0, time.UTC))
+	r := domain.TrendRange("2026-09-03:2026-09-05")
+	result, err := service.NetWorthTrend(ctx, r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Points) != 3 || result.Points[0].LocalDate != "2026-09-03" || result.Points[2].LocalDate != "2026-09-05" {
+		t.Fatalf("unexpected points: %+v", result.Points)
+	}
+	for _, point := range result.Points {
+		if point.Current {
+			t.Fatal("included current point in past interval")
+		}
+	}
+	window, err := service.closedTrendWindow(ctx, r)
+	if err != nil || window.includeCurrent || len(window.snapshots) != 3 {
+		t.Fatalf("window: %+v %v", window, err)
+	}
+}

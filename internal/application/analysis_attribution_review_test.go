@@ -884,7 +884,7 @@ func TestAnalysisCNYConversionSeparatesSpreadFromHoldingFX(t *testing.T) {
 				t.Fatalf("return holding FX=%s", got)
 			}
 			detail := foldAssetDriverDetail(result, "", string(domain.BucketFXConversionSpread))
-			if len(detail.ByInstrument) != 1 || detail.ByInstrument[0].Key != "cash" || detail.ByInstrument[0].InstrumentID != "" {
+			if len(detail.ByInstrument) != 1 || detail.ByInstrument[0].Key != "cash:USD" || detail.ByInstrument[0].InstrumentID != "" {
 				t.Fatalf("cash dimension=%+v", detail.ByInstrument)
 			}
 			if len(detail.ByAccount) != 1 || detail.ByAccount[0].AccountID != account.ID.String() {

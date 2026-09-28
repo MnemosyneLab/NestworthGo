@@ -139,6 +139,13 @@ func quoteHistoryQuery(trendRange domain.TrendRange, sourceFilter domain.QuoteSo
 	if location == nil {
 		location = time.UTC
 	}
+	if fromDate, toDate, ok := trendRange.DateBounds(); ok {
+		from, _ := time.ParseInLocation("2006-01-02", fromDate, location)
+		to, _ := time.ParseInLocation("2006-01-02", toDate, location)
+		to = to.AddDate(0, 0, 1).Add(-time.Nanosecond)
+		query.From, query.To = &from, &to
+		return query
+	}
 	localNow := now.In(location)
 	year, month, day := localNow.Date()
 	today := time.Date(year, month, day, 0, 0, 0, 0, location)
@@ -198,9 +205,15 @@ func chartQuotePoints(observations []domain.QuoteSeriesPoint, trendRange domain.
 		location = time.UTC
 	}
 	selected := map[string]domain.QuoteSeriesPoint{}
+	keepIntraday := trendRange == domain.Trend30Days
+	if from, to, ok := trendRange.DateBounds(); ok {
+		start, _ := time.Parse("2006-01-02", from)
+		end, _ := time.Parse("2006-01-02", to)
+		keepIntraday = end.Sub(start) <= 31*24*time.Hour
+	}
 	for _, observation := range observations {
 		key := observation.QuotedAt.UTC().Format(time.RFC3339Nano)
-		if trendRange != domain.Trend30Days {
+		if !keepIntraday {
 			key = observation.QuotedAt.In(location).Format("2006-01-02")
 		}
 		current, exists := selected[key]

@@ -16,7 +16,7 @@ import { formatAmount } from "@/lib/money";
 import { instrumentDisplayLabels } from "@/lib/instrumentDisplay";
 import { useAccounts } from "@/queries/accounts";
 import { useInstruments } from "@/queries/investments";
-import { analysisReason } from "@/features/insights/analysisText";
+import { analysisCashLabel, analysisReason } from "@/features/insights/analysisText";
 import type { AnalysisNavigationContext, HistoryNavigationFilters } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
 
@@ -158,7 +158,7 @@ function DriverDetailContent({ data, request, session, selected, isResidual, acc
           <ul className="flex flex-col gap-2 text-sm">{data.residualDetails.map((item) => <li key={`${item.date}-${item.componentKey}`} className="rounded-md border border-warning/40 bg-warning/5 px-3 py-2"><div className="flex justify-between gap-3"><span className="truncate">{residualLabel(t, item, accountNames, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></div><p className="mt-1 text-xs text-muted-foreground">{item.date}</p><details className="mt-1 text-xs text-muted-foreground"><summary className="cursor-pointer">{t("insights.internalReference")}</summary><code className="mt-1 block break-all">{item.componentKey}</code></details>{onOpenHistory && <Button type="button" variant="link" size="sm" className="mt-1 h-auto px-0" onClick={() => onOpenHistory({ from: item.date, to: item.date, accountId: item.accountId || undefined, instrumentId: item.instrumentId || undefined })}>{t("insights.viewInHistory")}</Button>}</li>)}</ul>
         </div>
       ) : null}
-      <DimensionList title={t("insights.byInstrument")} rows={data.byInstrument} labelFor={(row) => row.instrumentId ? instrumentNames.get(row.instrumentId) ?? row.label : row.key === "cash" ? t("insights.cash") : row.label} />
+      <DimensionList title={t("insights.byInstrument")} rows={data.byInstrument} labelFor={(row) => row.instrumentId ? instrumentNames.get(row.instrumentId) ?? row.label : analysisCashLabel(t, row.key) ?? row.label} />
       <DimensionList title={t("insights.byAccount")} rows={data.byAccount} labelFor={(row) => row.accountId ? accountNames.get(row.accountId) ?? row.label : row.key === "cash" ? t("insights.cash") : row.label} />
       {!isResidual && (!data.byInstrument?.length && !data.byAccount?.length) && <EmptyState title={t("insights.noDriverDetails")} />}
       {openReturnAnalysis && selected && (

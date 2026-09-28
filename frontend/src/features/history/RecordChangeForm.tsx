@@ -338,6 +338,10 @@ function RecordChangeFormReady({
       return { ...current, ...next };
     });
     setPreviewResult(null);
+    if (preview.isError) preview.reset();
+    if (previewFix.isError) previewFix.reset();
+    if (record.isError) record.reset();
+    if (fix.isError) fix.reset();
   };
 
   const setAutomatic = (field: keyof ChangeCommandRequest, value: string) => {
@@ -410,6 +414,16 @@ function RecordChangeFormReady({
 
   const matchingHoldingId = (accountId: string, instrumentId: string) =>
     holdings.data.find((holding) => holding.accountId === accountId && holding.instrumentId === instrumentId)?.id ?? "";
+
+  const selectTradeInstrument = (instrumentId: string, holdingId: string, currency: string) => {
+    patch({
+      instrumentId,
+      holdingId,
+      grossCurrency: currency,
+      feeCurrency: currency,
+      ...(instrumentId !== request.instrumentId ? { quantity: "", gross: "", fee: "" } : {}),
+    });
+  };
 
   const kind = request.kind;
   const showReason = kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved || kind === ChangeCommandKind.ChangeValueUpdate;
@@ -559,7 +573,10 @@ function RecordChangeFormReady({
         return false;
     }
   })();
-  const canPreview = hasRequiredFields && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
+  // Match domain.ParseUnitPrice without rounding or converting through Number.
+  const unitCostInvalid = kind === ChangeCommandKind.ChangePositionAdjustment && request.added &&
+    Boolean(request.unitCost) && !/^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$/.test(request.unitCost ?? "");
+  const canPreview = hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
     const sameCurrencyTransfer =
@@ -926,7 +943,15 @@ function RecordChangeFormReady({
             <label className="flex items-center gap-2 text-sm"><input type="radio" name="position-direction" checked={request.added === false} onChange={() => patch({ added: false, unitCost: "" })} /> {t("history.removed")}</label>
           </div>
           <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")} {metalUnitLabel(selectedInstrument?.quantityUnit, t)}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
-          {request.added && <div className="flex flex-col gap-1.5"><Label htmlFor="change-unit-cost">{t("history.unitCostOptional")} {selectedInstrument?.quoteCurrency}{metalPriceSuffix(selectedInstrument, t)}</Label><Input id="change-unit-cost" inputMode="decimal" value={request.unitCost ?? ""} onChange={(event) => patch({ unitCost: event.target.value })} /></div>}
+          {request.added && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="change-unit-cost">{t("history.unitCostOptional")} {selectedInstrument?.quoteCurrency}{metalPriceSuffix(selectedInstrument, t)}</Label>
+              <Input id="change-unit-cost" inputMode="decimal" value={request.unitCost ?? ""} onChange={(event) => patch({ unitCost: event.target.value })} aria-invalid={Boolean(unitCostInvalid)} aria-describedby="change-unit-cost-help" />
+              <p id="change-unit-cost-help" role={unitCostInvalid ? "alert" : undefined} className={unitCostInvalid ? "text-sm text-destructive" : "text-sm text-muted-foreground"}>
+                {t("history.unitCostFormat")}
+              </p>
+            </div>
+          )}
         </>
       )}
 
@@ -957,12 +982,12 @@ function RecordChangeFormReady({
               if (request.side === "sell") {
                 const holding = holdings.data.find((candidate) => candidate.id === selection);
                 const instrument = (instruments.data ?? []).find((candidate) => candidate.id === holding?.instrumentId);
-                patch({ holdingId: selection, instrumentId: holding?.instrumentId ?? "", grossCurrency: instrument?.quoteCurrency ?? defaultCurrency, feeCurrency: instrument?.quoteCurrency ?? defaultCurrency }, ["gross"]);
+                selectTradeInstrument(holding?.instrumentId ?? "", selection, instrument?.quoteCurrency ?? defaultCurrency);
                 return;
               }
               const instrument = (instruments.data ?? []).find((candidate) => candidate.id === selection);
               const currency = instrument?.quoteCurrency ?? defaultCurrency;
-              patch({ instrumentId: selection, holdingId: matchingHoldingId(request.settlementAccountId ?? "", selection), grossCurrency: currency, feeCurrency: currency }, ["gross"]);
+              selectTradeInstrument(selection, matchingHoldingId(request.settlementAccountId ?? "", selection), currency);
             }}
           />
           {selectedInstrument && (
@@ -981,7 +1006,7 @@ function RecordChangeFormReady({
                 createInstrument.mutate(instrumentRequest, {
                   onSuccess: (created) => {
                     const currency = created.quoteCurrency ?? defaultCurrency;
-                    patch({ instrumentId: created.id, holdingId: matchingHoldingId(request.settlementAccountId ?? "", created.id), grossCurrency: currency, feeCurrency: currency }, ["gross"]);
+                    selectTradeInstrument(created.id, matchingHoldingId(request.settlementAccountId ?? "", created.id), currency);
                     setCreatingInstrument(false);
                   },
                 });

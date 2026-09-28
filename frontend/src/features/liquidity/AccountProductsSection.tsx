@@ -73,7 +73,6 @@ export function AccountProductsSection({
                 <th className="py-2 font-medium">{t("availableFunds.principal")}</th>
                 <th className="py-2 font-medium">{t("availableFunds.currentContractValue")}</th>
                 <th className="py-2 font-medium">{t("availableFunds.maturityOn")}</th>
-                <th className="py-2 font-medium">{t("availableFunds.nextAction")}</th>
               </tr>
             </thead>
             <tbody>
@@ -85,16 +84,13 @@ export function AccountProductsSection({
                       <Button type="button" variant="link" className="h-auto p-0" onClick={() => setProductId(product.id)}>
                         {product.name}
                       </Button>
+                      <Badge className="ml-2" variant={product.displayState === "due_unconfirmed" ? "warning" : "secondary"}>{productStateLabel(t, product.displayState)}</Badge>
                     </td>
                     <td className="py-2">{displayEnum(t, "availableFunds", product.kind === "term_deposit" ? "termDeposit" : "lockedProduct")}</td>
                     <td className="py-2">{formatAmount(product.principal.amount, product.principal.currency)}</td>
                     <td className="py-2">{moneyText(product.currentValue, t("availableFunds.unknownAmount"))}</td>
                     <td className="py-2">{product.maturityOn ?? product.policy.unlockOn ?? t("availableFunds.unknownAmount")}</td>
-                    <td className="py-2">
-                      <Badge variant={product.displayState === "due_unconfirmed" ? "warning" : "secondary"}>
-                        {productStateLabel(t, product.displayState)}
-                      </Badge>
-                    </td>
+
                   </tr>
                 );
               })}

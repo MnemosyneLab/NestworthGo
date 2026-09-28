@@ -50,6 +50,52 @@ describe("stepsFromData", () => {
     expect(waterfallReconciles(steps)).toBe(false);
   });
 
+  it("does not warn about the four-decimal rounding difference in asset changes", () => {
+    render(createElement(WaterfallChart, {
+      summary: {
+        changeRate: null,
+        beginningValue: { amount: "45910.6839", currency: "CNY" },
+        endingValue: { amount: "45944.9771", currency: "CNY" },
+        change: { amount: "34.2932", currency: "CNY" },
+      },
+      rows: [
+        { key: "price_change", label: "Price change", bucket: "price_change", amount: { amount: "9.9587", currency: "CNY" } },
+        { key: "fx_impact", label: "Holding-period FX change", bucket: "fx_impact", amount: { amount: "24.3344", currency: "CNY" } },
+      ],
+      labels: { beginning: "Beginning", ending: "Ending", amount: "Amount", empty: "No data" },
+    }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["100.0049", "100.005", "CNY", true],
+    ["100.005", "100.0049", "CNY", true],
+    ["100", "100.0049", "CNY", true],
+    ["100", "100.0051", "CNY", false],
+    ["100", "100.01", "CNY", false],
+    ["100.01", "100", "CNY", false],
+    ["100", "100.4", "JPY", true],
+    ["100", "101", "JPY", false],
+    ["9007199254740993.0001", "9007199254740993.01", "CNY", false],
+    ["-100.005", "-100.0049", "CNY", true],
+  ])("checks the difference between %s and %s at %s display precision", (beginning, ending, currency, reconciles) => {
+    const steps = stepsFromData(
+      { changeRate: null, beginningValue: { amount: beginning, currency }, endingValue: { amount: ending, currency } },
+      [],
+      { beginning: "Beginning", ending: "Ending" },
+    );
+    expect(waterfallReconciles(steps)).toBe(reconciles);
+  });
+
+  it("does not reconcile equal numbers in different currencies", () => {
+    const steps = stepsFromData(
+      { changeRate: null, beginningValue: { amount: "100", currency: "CNY" }, endingValue: { amount: "100", currency: "USD" } },
+      [],
+      { beginning: "Beginning", ending: "Ending" },
+    );
+    expect(waterfallReconciles(steps)).toBe(false);
+  });
+
   it("surfaces an identity warning when the ending bar does not reconcile", () => {
     render(createElement(WaterfallChart, {
       summary: { changeRate: null, beginningValue: { amount: "100", currency: "USD" }, endingValue: { amount: "125", currency: "USD" } },

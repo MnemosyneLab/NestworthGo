@@ -368,7 +368,7 @@ export function AccountDetail({
                           <InstrumentLabel name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
                         </td>
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
-                        <td className="py-2">{row.instrumentType === "bank_investment_product" ? t("availableFunds.contractQuantity") : `${formatAmount(row.holding.quantity)} ${metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}`}</td>
+                        <td className="py-2">{row.instrumentType === "bank_investment_product" ? `${formatAmount(row.holding.quantity)} ${t("common.units")}` : `${formatAmount(row.holding.quantity)} ${metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}`}</td>
                         <td className="py-2">
                           {row.component?.available && row.component.nativeAmount ? (
                             <ComponentAmounts

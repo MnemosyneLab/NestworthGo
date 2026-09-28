@@ -329,8 +329,26 @@ func ParseTrendRange(value string) (TrendRange, error) {
 	case Trend30Days, TrendYearToDate, TrendOneYear, TrendAllTime:
 		return trendRange, nil
 	default:
+		if _, _, ok := trendRange.DateBounds(); ok {
+			return trendRange, nil
+		}
 		return "", validation("range", "trend range is not supported")
 	}
+}
+
+// DateBounds decodes an explicit inclusive civil-date interval. Named ranges
+// remain supported for existing clients; date controls use YYYY-MM-DD:YYYY-MM-DD.
+func (r TrendRange) DateBounds() (string, string, bool) {
+	parts := strings.Split(string(r), ":")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	from, e1 := time.Parse("2006-01-02", parts[0])
+	to, e2 := time.Parse("2006-01-02", parts[1])
+	if e1 != nil || e2 != nil || from.After(to) || from.Year() < 1 {
+		return "", "", false
+	}
+	return parts[0], parts[1], true
 }
 
 func AllTrendRanges() []TrendRange {

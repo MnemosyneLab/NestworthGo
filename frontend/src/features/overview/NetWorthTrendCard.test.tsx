@@ -3,6 +3,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NavigationContext } from "@/app/NavigationContext";
 import { NetWorthTrendCard } from "./NetWorthTrendCard";
+vi.mock("@/queries/history", () => ({ useHistoryOrigin: () => ({ data: { startedAt: "2026-01-01", timezone: "UTC" } }) }));
+vi.mock("@/queries/settings", () => ({ useSettings: () => ({ data: { timezone: "UTC" } }) }));
 vi.mock("@/queries/analytics", () => ({ useNetWorthTrend: () => ({ data: {
   currency: "USD", startDate: "2026-01-01", endDate: "2026-01-03", summaryReason: "missing_boundary", complete: false,
   points: [{ localDate: "2026-01-01", complete: false }, { localDate: "2026-01-02", complete: true, netWorth: { amount: "100", currency: "USD" } }, { localDate: "2026-01-03", complete: true, netWorth: { amount: "150", currency: "USD" } }],

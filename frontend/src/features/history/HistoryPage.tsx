@@ -1,3 +1,6 @@
+import { DateRangeControl } from "@/components/charts/DateRangeControl";
+import { originLocalDate } from "@/features/insights/analysisRequest";
+import { ymdInTimeZone } from "@/features/insights/calendar";
 import { useMarketDataHealth } from "@/queries/marketdata";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -60,6 +63,8 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
   const [instrumentFilter, setInstrumentFilter] = useState(navigationFilters?.instrumentId ?? "");
   const [fromLocalDate, setFromLocalDate] = useState(navigationFilters?.from ?? "");
   const [toLocalDate, setToLocalDate] = useState(navigationFilters?.to ?? "");
+  const today = ymdInTimeZone(new Date(), origin.data?.timezone);
+  const originDate = origin.data?.startedAt ? originLocalDate(origin.data.startedAt, origin.data.timezone) : undefined;
   const originalActivity = useActivity(detailTarget?.reversesActivityId ?? "");
   const activities = useActivityPage({
     accountId: accountFilter || undefined,
@@ -104,37 +109,50 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="grid gap-3 rounded-lg border border-border bg-card p-3 sm:grid-cols-2 lg:grid-cols-4" aria-label={t("history.filterLabel")}>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="history-filter-kind">{t("history.filterKind")}</Label>
-          <NativeSelect id="history-filter-kind" value={kindFilter} onChange={(event) => setKindFilter(event.target.value)}>
-            <option value="">{t("history.filterAll")}</option>
-            {ACTIVITY_KINDS.map((kind) => <option key={kind} value={kind}>{t(`history.kind.${kind}`)}</option>)}
-          </NativeSelect>
+      <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4" aria-label={t("history.filterLabel")}>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="history-filter-kind">{t("history.filterKind")}</Label>
+            <NativeSelect id="history-filter-kind" value={kindFilter} onChange={(event) => setKindFilter(event.target.value)}>
+              <option value="">{t("history.filterAll")}</option>
+              {ACTIVITY_KINDS.map((kind) => <option key={kind} value={kind}>{t(`history.kind.${kind}`)}</option>)}
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="history-filter-account">{t("history.filterAccount")}</Label>
+            <NativeSelect id="history-filter-account" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
+              <option value="">{t("history.filterAll")}</option>
+              {(accounts.data ?? []).filter((record) => !record.account.archivedAt).map((record) => <option key={record.account.id} value={record.account.id}>{record.account.name}</option>)}
+            </NativeSelect>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="history-filter-instrument">{t("history.filterInstrument")}</Label>
+            <NativeSelect id="history-filter-instrument" value={instrumentFilter} onChange={(event) => setInstrumentFilter(event.target.value)}>
+              <option value="">{t("history.filterAll")}</option>
+              {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => <option key={instrument.id} value={instrument.id}>{instrumentDisplayLabel(instrument, instrument.name)}</option>)}
+            </NativeSelect>
+          </div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="history-filter-account">{t("history.filterAccount")}</Label>
-          <NativeSelect id="history-filter-account" value={accountFilter} onChange={(event) => setAccountFilter(event.target.value)}>
-            <option value="">{t("history.filterAll")}</option>
-            {(accounts.data ?? []).filter((record) => !record.account.archivedAt).map((record) => <option key={record.account.id} value={record.account.id}>{record.account.name}</option>)}
-          </NativeSelect>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="history-filter-from">{t("history.filterFrom")}</Label>
+            <DatePicker id="history-filter-from" value={fromLocalDate} clearable min={originDate} max={toLocalDate || today} onChange={setFromLocalDate} />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="history-filter-to">{t("history.filterTo")}</Label>
+            <DatePicker id="history-filter-to" value={toLocalDate} clearable min={fromLocalDate || originDate} max={today} onChange={setToLocalDate} />
+          </div>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="history-filter-instrument">{t("history.filterInstrument")}</Label>
-          <NativeSelect id="history-filter-instrument" value={instrumentFilter} onChange={(event) => setInstrumentFilter(event.target.value)}>
-            <option value="">{t("history.filterAll")}</option>
-            {(instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => <option key={instrument.id} value={instrument.id}>{instrumentDisplayLabel(instrument, instrument.name)}</option>)}
-          </NativeSelect>
+        <div className="border-t border-border pt-3">
+          <DateRangeControl
+            value={{ from: fromLocalDate || originDate || "", to: toLocalDate || today }}
+            min={originDate}
+            max={today}
+            disabled={!originDate}
+            onChange={({ from, to }) => { setFromLocalDate(from); setToLocalDate(to); }}
+          />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="history-filter-from">{t("history.filterFrom")}</Label>
-          <DatePicker id="history-filter-from" value={fromLocalDate} onChange={setFromLocalDate} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="history-filter-to">{t("history.filterTo")}</Label>
-          <DatePicker id="history-filter-to" value={toLocalDate} onChange={setToLocalDate} />
-        </div>
-        {(kindFilter || accountFilter || instrumentFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" className="self-end sm:col-span-2 lg:col-span-4 lg:justify-self-end" onClick={() => { setKindFilter(""); setAccountFilter(""); setInstrumentFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
+        {(kindFilter || accountFilter || instrumentFilter || fromLocalDate || toLocalDate) && <Button type="button" variant="ghost" size="sm" className="self-end" onClick={() => { setKindFilter(""); setAccountFilter(""); setInstrumentFilter(""); setFromLocalDate(""); setToLocalDate(""); }}>{t("history.filterClear")}</Button>}
       </section>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground">{t("history.activityKind")}</p>
