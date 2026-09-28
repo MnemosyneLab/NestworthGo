@@ -195,8 +195,10 @@ func (r *Repository) ListProductOperations(ctx context.Context, householdID doma
 	if limit <= 0 {
 		limit = 25
 	}
-	if limit > 100 {
-		limit = 100
+	// The application returns at most 100 rows, with one extra row to determine
+	// whether it should return a next-page cursor.
+	if limit > 101 {
+		limit = 101
 	}
 	query := `SELECT o.id, o.household_id, o.kind, o.payload_sha256, o.request_version, o.request_json, o.result_json, o.effective_at, o.created_at, o.reverses_operation_id FROM product_operations o JOIN product_operation_products p ON p.operation_id = o.id WHERE o.household_id = ? AND p.product_id = ?`
 	args := []any{householdID.String(), productID.String()}

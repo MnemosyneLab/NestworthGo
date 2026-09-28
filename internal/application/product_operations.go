@@ -509,6 +509,9 @@ func (s *Service) planReceiveInterest(ctx context.Context, origin *domain.Histor
 		if compareCivil(paidThrough, localDate) > 0 {
 			return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "interestPaidThroughOn", Message: "must not be after today"}
 		}
+		if contract.InterestPaidThroughOn != nil && compareCivil(paidThrough, *contract.InterestPaidThroughOn) < 0 {
+			return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "interestPaidThroughOn", Message: "must not precede the previously paid-through date"}
+		}
 		updated.InterestPaidThroughOn = &paidThrough
 	case domain.InterestManualMaturityAmount:
 		remaining, err := parseOptionalMoney("remainingInterest", input.RemainingInterest, contract.Currency)
@@ -703,7 +706,7 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	}
 	currentContracts := []domain.ProductContract{}
 	for _, productID := range uniqueProductIDs(evidence.Products) {
-		ops, err := s.productHistoryForUndo(ctx, origin.HouseholdID, productID)
+		ops, err := s.productOperationHistory(ctx, origin.HouseholdID, productID)
 		if err != nil {
 			return productPlan{}, err
 		}
@@ -879,7 +882,7 @@ func (s *Service) rejectStaleFinancialTime(ctx context.Context, householdID doma
 	if err != nil {
 		return err
 	}
-	ops, err := s.repository.ListProductOperations(ctx, householdID, productID, 100, "")
+	ops, err := s.productOperationHistory(ctx, householdID, productID)
 	if err != nil {
 		return err
 	}
@@ -1199,7 +1202,7 @@ func revisionMatchesAfterReversals(after []domain.ProductContract, current domai
 	return false
 }
 
-func (s *Service) productHistoryForUndo(ctx context.Context, householdID domain.HouseholdID, productID domain.ProductContractID) ([]domain.ProductOperation, error) {
+func (s *Service) productOperationHistory(ctx context.Context, householdID domain.HouseholdID, productID domain.ProductContractID) ([]domain.ProductOperation, error) {
 	var history []domain.ProductOperation
 	cursor := ""
 	for {

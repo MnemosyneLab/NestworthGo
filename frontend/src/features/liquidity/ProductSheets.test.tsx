@@ -8,9 +8,9 @@ import { ReservationSheet, PolicySheet, ProductDetailSheet, ProductFormSheet } f
 import type { LiquiditySourceDTO, ProductDTO, ProductOperationPreviewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
 // Product command contracts are tested here; real picker interactions have separate coverage.
-vi.mock("@/components/ui/date-picker", () => ({ DatePicker: (props: { id?: string; value: string; disabled?: boolean; onChange: (value: string) => void; "aria-invalid"?: boolean; "aria-describedby"?: string }) => <input id={props.id} value={props.value} disabled={props.disabled} aria-invalid={props["aria-invalid"]} aria-describedby={props["aria-describedby"]} type="date" onChange={(event) => props.onChange(event.target.value)} /> }));
+vi.mock("@/components/ui/date-picker", () => ({ DatePicker: (props: { id?: string; value: string; min?: string; max?: string; disabled?: boolean; onChange: (value: string) => void; "aria-invalid"?: boolean; "aria-describedby"?: string }) => <input id={props.id} value={props.value} min={props.min} max={props.max} disabled={props.disabled} aria-invalid={props["aria-invalid"]} aria-describedby={props["aria-describedby"]} type="date" onChange={(event) => props.onChange(event.target.value)} /> }));
 vi.mock("@/components/ui/time-picker", () => ({ TimePicker: (props: { id?: string; value: string; disabled?: boolean; onChange: (value: string) => void }) => <input id={props.id} value={props.value} disabled={props.disabled} type="time" onChange={(event) => props.onChange(event.target.value)} /> }));
-const api = vi.hoisted(() => ({ Product: vi.fn(), ListOperations: vi.fn(), PreviewProductOperation: vi.fn(), RecordProductOperation: vi.fn(), UpdateProductTerms: vi.fn(), SavePolicy: vi.fn(), ResetPolicy: vi.fn(), ListReservations:vi.fn(), SaveReservation:vi.fn(), ReleaseReservation:vi.fn() }));
+const api = vi.hoisted(() => ({ Product: vi.fn(), ListOperations: vi.fn(), PreviewProductOperation: vi.fn(), RecordProductOperation: vi.fn(), UpdateProductTerms: vi.fn(), AppendProductValuation: vi.fn(), SavePolicy: vi.fn(), ResetPolicy: vi.fn(), ListReservations:vi.fn(), SaveReservation:vi.fn(), ReleaseReservation:vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({ Service: api }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({ Service: { HistoryOrigin: () => Promise.resolve({ timezone: "Asia/Singapore" }) } }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({ Service: { AccountValuations: () => Promise.resolve([{account:{id:"account"}, components:[{nativeAmount:"777",nativeCurrency:"EUR"},{nativeAmount:"5000",nativeCurrency:"USD"}]}]) } }));
@@ -104,7 +104,7 @@ describe("product P1 regression flows", () => {
   it("opens locked products with separate lock, maturity, settlement, and fee rules", async () => {
     const user = userEvent.setup();
     show(<ProductFormSheet accountId="account" currency="EUR" open onOpenChange={vi.fn()} />);
-    await user.selectOptions(screen.getByLabelText("Asset"), "locked_product");
+    await user.selectOptions(screen.getByLabelText("Product type"), "locked_product");
     change("Name", "Locked fund"); change("Principal", "1000"); change("Start date", "2026-09-20"); change("Maturity date", "2027-09-20");
     await user.selectOptions(screen.getByLabelText("Access"), "on_date");
     change("Unlock date", "2027-03-20"); change("Settlement days", "3"); change("Normal exit fee", "10");
@@ -200,7 +200,7 @@ it("identifies required product fields and cash-exclusion confirmation before pr
   expect(screen.getByRole("alert")).toHaveTextContent("Start date: complete this field.");
   expect(screen.getByLabelText("Start date")).toHaveAttribute("aria-invalid", "true");
   change("Start date", "2026-09-20"); change("Maturity date", "2027-09-20");
-  await user.selectOptions(screen.getByRole("combobox", { name: "Add product" }), "record_existing"); change("Cost", "1000");
+  await user.selectOptions(screen.getByRole("combobox", { name: "Entry method" }), "record_existing"); change("Cost", "1000");
   await user.click(screen.getByRole("button", { name: "Preview" }));
   expect(screen.getByRole("alert")).toHaveTextContent("Confirm that account cash excludes this product");
   expect(api.PreviewProductOperation).not.toHaveBeenCalled();
@@ -213,11 +213,10 @@ it("lets global reservation management choose a source and save the first reserv
   const user = userEvent.setup();
   const asset = source(false);
   show(<ReservationManager sources={[asset]} source={null} open onOpenChange={vi.fn()} />);
-  expect(await screen.findByText("No reservations yet. Choose a source above to add one.")).toBeVisible();
-  expect(screen.getByRole("button", { name: "Add reservation" })).toBeDisabled();
+  await user.click(await screen.findByRole("button", { name: "Add reservation" }));
+  expect(screen.getAllByRole("dialog")).toHaveLength(1);
   await user.selectOptions(screen.getByLabelText("Reservation source"), asset.sourceKey);
-  await user.click(screen.getByRole("button", { name: "Add reservation" }));
-  change("Label", "Bills"); change("Amount", "100");
+  change("Purpose", "Bills"); change("Amount", "100");
   await user.click(screen.getByRole("button", { name: "Confirm" }));
   await waitFor(() => expect(api.SaveReservation).toHaveBeenCalledWith(expect.objectContaining({ sourceRef: asset.sourceRef, label: "Bills", amount: "100" })));
 });
@@ -226,7 +225,7 @@ describe("Pending command protection", () => {
   it("submits a new reservation only once while saving", async () => {
     api.SaveReservation.mockReturnValue(new Promise(() => {}));
     show(<ReservationSheet source={source(false)} open onOpenChange={vi.fn()} />);
-    change("Label", "Rent"); change("Amount", "100");
+    change("Purpose", "Rent"); change("Amount", "100");
     await userEvent.dblClick(screen.getByRole("button", { name: "Confirm" }));
     expect(api.SaveReservation).toHaveBeenCalledTimes(1);
     expect(api.SaveReservation.mock.calls.every(([request]) => request.id === undefined)).toBe(true);
@@ -248,18 +247,25 @@ describe("Pending command protection", () => {
 
 it("reports reservation release failures and allows retry after completion", async () => {
   let rejectRelease!: (reason: Error) => void;
+  const onOpenChange = vi.fn();
   api.ReleaseReservation.mockReturnValueOnce(new Promise((_, reject) => { rejectRelease = reject; }));
   api.Product.mockResolvedValue({product: product(), reservations: [{id: "reserve", revision: 1, label: "Rent", amount: money("100"), releasedAt: null}], permittedActions: [], disabledReasons: {}});
-  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  show(<ProductDetailSheet productId="product" open onOpenChange={onOpenChange} />);
   const release = await screen.findByRole("button", {name: "Release reservation"});
   await userEvent.dblClick(release);
   expect(api.ReleaseReservation).toHaveBeenCalledOnce();
   expect(release).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await userEvent.keyboard("{Escape}");
+  expect(onOpenChange).not.toHaveBeenCalled();
   await act(async () => rejectRelease(new Error("Release failed")));
   expect(await screen.findByRole("alert")).toHaveTextContent("An unexpected error occurred.");
   await waitFor(() => expect(release).toBeEnabled());
   await userEvent.click(release);
   await waitFor(() => expect(api.ReleaseReservation).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(release).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(onOpenChange).toHaveBeenCalledWith(false);
 });
 
 it("formats product operation timestamps in the History timezone", async () => {
@@ -318,4 +324,184 @@ it("preserves advanced deposit rules while changing the maturity date", async ()
     terms: { interestMode: "simple_act_360", annualRatePercent: "2.5", maturityOn: "2027-10-20" },
     policy: { settlementDays: 2, normalExitFee: "12", unlockOn: "2027-10-20" },
   });
+});
+
+it("requires visible value and cost when recording an existing locked product", async () => {
+  const user = userEvent.setup();
+  show(<ProductFormSheet accountId="account" currency="EUR" open onOpenChange={vi.fn()} />);
+  await user.selectOptions(screen.getByLabelText("Product type"), "locked_product");
+  await user.selectOptions(screen.getByRole("combobox", { name: "Entry method" }), "record_existing");
+  change("Name", "Existing fund"); change("Principal", "1000"); change("Start date", "2026-01-01");
+  expect(screen.getByLabelText("Current value")).toBeVisible();
+  expect(screen.getByLabelText("Cost")).toBeVisible();
+  await user.click(screen.getByRole("checkbox", { name: "The cash balance shown in this account excludes this product." }));
+  await user.click(screen.getByRole("button", { name: "Preview" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Current value: complete this field.");
+  expect(screen.getByLabelText("Current value")).toHaveFocus();
+  expect(api.PreviewProductOperation).not.toHaveBeenCalled();
+  change("Current value", "950");
+  await user.click(screen.getByRole("button", { name: "Preview" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Cost: complete this field.");
+  expect(screen.getByLabelText("Cost")).toHaveFocus();
+  change("Cost", "1010");
+  await user.click(screen.getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(api.PreviewProductOperation).toHaveBeenCalledWith(expect.objectContaining({ recordExisting: expect.objectContaining({ principal: "1000", currentValue: "950", totalCostBasis: "1010" }) })));
+});
+
+it("preserves an existing deposit's early withdrawal rules when toggled off and on", async () => {
+  const existing = product();
+  existing.policy = { ...existing.policy, earlyKind: "allowed", earlyAmountMode: "fixed_gross", earlyGrossAmount: money("97000"), earlyFee: money("15"), earlySettlementDays: 3, earlyDayBasis: "weekdays" };
+  api.Product.mockResolvedValue({ product: existing, reservations: [], permittedActions: [], disabledReasons: {} });
+  show(<PolicySheet source={source(true)} open onOpenChange={vi.fn()} />);
+  const toggle = await screen.findByRole("checkbox", { name: "Allow early withdrawal" });
+  await userEvent.click(toggle);
+  await userEvent.click(toggle);
+  expect(screen.getByLabelText("Early gross amount")).toHaveValue("97000");
+  await userEvent.click(screen.getByRole("button", { name: "Save policy" }));
+  await waitFor(() => expect(api.UpdateProductTerms).toHaveBeenCalledWith(expect.objectContaining({ policy: expect.objectContaining({ earlyKind: "allowed", earlyGrossAmount: "97000", earlyFee: "15", earlySettlementDays: 3, earlyDayBasis: "weekdays" }) })));
+});
+
+it("shows the exact undo target and marks reversed operations in history", async () => {
+  api.ListOperations.mockResolvedValue({ operations: [
+    { id: "undo-income", kind: "undo", effectiveAt: "2026-09-21T04:00:00Z", reversesOperationId: "income" },
+    { id: "income", kind: "receive_interest", effectiveAt: "2026-09-20T04:00:00Z", reversesOperationId: null },
+    { id: "opening", kind: "open", effectiveAt: "2026-01-01T04:00:00Z", reversesOperationId: null },
+  ], next: null });
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Grouped undo" }));
+  expect(screen.getByText("Reversed")).toBeVisible();
+  expect(screen.getByText(/Undo: Opened · Jan 1, 2026, 12:00 PM/)).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("button", { name: "Preview" })).not.toBeInTheDocument();
+  expect(api.RecordProductOperation).not.toHaveBeenCalled();
+});
+
+it("offers valuation correction instead of an undo that the backend cannot perform", async () => {
+  api.Product.mockResolvedValue({ product: { ...product("none"), kind: "locked_product" }, reservations: [], permittedActions: [], disabledReasons: {} });
+  api.ListOperations.mockResolvedValue({ operations: [
+    { id: "valuation", kind: "value_observation", effectiveAt: "2026-09-20T04:00:00Z", reversesOperationId: null },
+    { id: "opening", kind: "open", effectiveAt: "2026-01-01T04:00:00Z", reversesOperationId: null },
+  ], next: null });
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  expect(await screen.findByText("The latest entry is a valuation update. Correct it by updating the valuation.")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Grouped undo" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Update current valuation" }));
+  expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+  expect(screen.getByText("Record the current value of the whole product. Account cash is unchanged.")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(api.AppendProductValuation).not.toHaveBeenCalled();
+});
+
+it("shows contract dates and rate without requiring the edit form", async () => {
+  show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+  expect(await screen.findByText("Maturity date")).toBeVisible();
+  expect(screen.getByText("2026-09-20")).toBeVisible();
+  expect(screen.getByText("Annual rate (%)")).toBeVisible();
+  expect(screen.getByText("2.5")).toBeVisible();
+  expect(screen.getByText("Original terms")).toBeVisible();
+  expect(screen.queryByRole("button", { name: "Grouped undo" })).not.toBeInTheDocument();
+  expect(screen.queryByText("Reservations")).not.toBeInTheDocument();
+});
+
+it("holds the submitted values steady while a product operation is saving", async () => {
+  let finish!: (value: { operationId: string }) => void;
+  api.RecordProductOperation.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+  const onOpenChange = vi.fn();
+  show(<ProductDetailSheet productId="product" open onOpenChange={onOpenChange} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Confirm receipt" }));
+  change("Interest received", "1000");
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Confirm" })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  expect(screen.getByLabelText("Returned principal")).toBeDisabled();
+  expect(screen.getByLabelText("Interest received")).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await userEvent.keyboard("{Escape}");
+  expect(onOpenChange).not.toHaveBeenCalled();
+  await act(async () => finish({ operationId: "receipt" }));
+  await waitFor(() => expect(screen.queryByLabelText("Returned principal")).not.toBeInTheDocument());
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(onOpenChange).toHaveBeenCalledWith(false);
+});
+
+it("keeps a new product form open during recording and allows retry after failure", async () => {
+  let rejectRecord!: (reason: Error) => void;
+  api.RecordProductOperation.mockReturnValueOnce(new Promise((_, reject) => { rejectRecord = reject; }));
+  const onOpenChange = vi.fn();
+  show(<ProductFormSheet accountId="account" currency="EUR" open onOpenChange={onOpenChange} />);
+  change("Principal", "500"); change("Start date", "2026-09-20"); change("Maturity date", "2027-09-20");
+  await userEvent.click(screen.getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Confirm" })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await userEvent.keyboard("{Escape}");
+  expect(onOpenChange).not.toHaveBeenCalled();
+  expect(api.RecordProductOperation).toHaveBeenCalledOnce();
+  await act(async () => rejectRecord(new Error("Recording failed")));
+  expect(await screen.findByRole("alert")).toBeVisible();
+  expect(screen.getByLabelText("Principal")).toHaveValue("500");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Confirm" })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(api.RecordProductOperation).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
+});
+
+it("keeps product edits open during saving and releases the close guard after failure", async () => {
+  let rejectSave!: (reason: Error) => void;
+  api.UpdateProductTerms.mockReturnValueOnce(new Promise((_, reject) => { rejectSave = reject; }));
+  const onOpenChange = vi.fn();
+  show(<PolicySheet source={source(true)} open onOpenChange={onOpenChange} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Save policy" }));
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await userEvent.keyboard("{Escape}");
+  expect(onOpenChange).not.toHaveBeenCalled();
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+  await act(async () => rejectSave(new Error("Saving failed")));
+  expect(await screen.findByRole("alert")).toBeVisible();
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save policy" })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(onOpenChange).toHaveBeenCalledWith(false);
+});
+
+it("keeps valuation updates open until the result arrives and permits retry", async () => {
+  let rejectValuation!: (reason: Error) => void;
+  api.AppendProductValuation.mockReturnValueOnce(new Promise((_, reject) => { rejectValuation = reject; }));
+  api.AppendProductValuation.mockResolvedValue({ product: { ...product("none"), kind: "locked_product" } });
+  api.Product.mockResolvedValue({ product: { ...product("none"), kind: "locked_product" }, reservations: [], permittedActions: [], disabledReasons: {} });
+  const onOpenChange = vi.fn();
+  show(<ProductDetailSheet productId="product" open onOpenChange={onOpenChange} />);
+  await userEvent.click(await screen.findByRole("button", { name: "Update current valuation" }));
+  change("Current value", "99000");
+  await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await userEvent.keyboard("{Escape}");
+  expect(onOpenChange).not.toHaveBeenCalled();
+  await act(async () => rejectValuation(new Error("Valuation failed")));
+  expect(await screen.findByRole("alert")).toBeVisible();
+  expect(screen.getByLabelText("Current value")).toHaveValue("99000");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Confirm" })).toBeEnabled());
+  await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(api.AppendProductValuation).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.queryByLabelText("Current value")).not.toBeInTheDocument());
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(onOpenChange).toHaveBeenCalledWith(false);
+});
+
+it("bounds new interest periods by the previous receipt, maturity, and the History timezone today", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-09-19T20:00:00Z"));
+  try {
+    const existing = product();
+    existing.interestPaidThroughOn = "2026-08-01";
+    existing.maturityOn = "2026-09-30";
+    api.Product.mockResolvedValue({ product: existing, reservations: [], permittedActions: ["receive_interest"], disabledReasons: {} });
+    show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Record interest received" }));
+    expect(screen.getByLabelText("Interest paid through")).toHaveAttribute("min", "2026-08-01");
+    expect(screen.getByLabelText("Interest paid through")).toHaveAttribute("max", "2026-09-20");
+    expect(screen.getByLabelText("Local date")).toHaveAttribute("max", "2026-09-20");
+  } finally {
+    vi.useRealTimers();
+  }
 });

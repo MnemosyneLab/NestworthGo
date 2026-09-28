@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef } from "react";
 import { Service as LiquidityService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity";
 import type {
@@ -26,6 +26,7 @@ export function useLiquidityOverview(request: OverviewRequest, enabled = true) {
       includeEarlyWithdrawal: request.includeEarlyWithdrawal,
     })),
     enabled,
+    placeholderData: keepPreviousData,
     refetchOnWindowFocus: true,
     refetchInterval: 60_000,
   });

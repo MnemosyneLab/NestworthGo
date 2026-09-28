@@ -71,12 +71,16 @@ function HorizonCard({
       data-testid={`horizon-${bucket.horizonOn}`}
     >
       <p className="text-sm font-medium">{label}</p>
-      <p className="mt-2 text-2xl font-semibold" data-testid={`horizon-available-${bucket.horizonOn}`}>{available}</p>
-      <p className="mt-1 text-sm text-muted-foreground">{t("availableFunds.reserved")}: {reserved}</p>
-      <p className="text-sm text-muted-foreground">{t("availableFunds.unreserved")}: {unreserved}</p>
+      <p className="mt-2 break-words text-2xl font-semibold" data-testid={`horizon-available-${bucket.horizonOn}`}>{unreserved}</p>
+      <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.spendableHint")}</p>
+      {(currencyMode === "native" ? bucket.nativeCurrencyGroups?.some((group) => group.appliedReserveSubtotal && !/^0(?:\.0+)?$/.test(group.appliedReserveSubtotal.amount)) : bucket.appliedReserveSubtotal && !/^0(?:\.0+)?$/.test(bucket.appliedReserveSubtotal.amount)) && (
+        <p className="mt-2 text-xs text-muted-foreground">{t("availableFunds.reserveBreakdown", { total: available, reserved })}</p>
+      )}
       {incomplete && <p className="mt-2 text-xs text-muted-foreground">{t("availableFunds.incompleteAmount")}</p>}
-      <p className="mt-3 text-xs text-muted-foreground">{t("availableFunds.cashAccessible")}: {breakdown.cash}</p>
-      <p className="text-xs text-muted-foreground">{t("availableFunds.estimatedProceeds")}: {breakdown.proceeds}</p>
+      <div className="mt-3 border-t border-border/60 pt-2 text-xs text-muted-foreground">
+        <p>{t("availableFunds.cashAccessible")}: {breakdown.cash}</p>
+        <p>{t("availableFunds.estimatedProceeds")}: {breakdown.proceeds}</p>
+      </div>
     </button>
   );
 }
@@ -121,7 +125,7 @@ export function AvailableFundsPage({
   const unknown = t("availableFunds.unknownAmount");
   const allExcluded = sources.length > 0 && sources.every((source) => source.excluded);
   const selectedBucket = data ? bucketForHorizon(data, horizonOn) : undefined;
-  const allLocked = Boolean(selectedBucket && selectedBucket.status === "complete" && !selectedBucket.fullAvailable && !selectedBucket.knownAvailableSubtotal && sources.some((source) => !source.excluded));
+  const allLocked = sources.some((source) => !source.excluded) && sources.every((source) => source.excluded || (resultForHorizon(source, horizonOn)?.status === "complete" && !resultForHorizon(source, horizonOn)?.selectedRoute));
 
   const pageChrome = (
     <PageChrome
@@ -129,15 +133,6 @@ export function AvailableFundsPage({
       title={t("availableFunds.pageTitle")}
       actions={
         <>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={includeEarly}
-              onChange={(event) => setIncludeEarly(event.target.checked)}
-            />
-            {t("availableFunds.considerEarly")}
-          </label>
-          <Button type="button" size="sm" variant="outline" onClick={() => { setReservationSource(null); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button>
           {eligibleAccounts.length > 0 && (
             <Button type="button" size="sm" onClick={() => { if (eligibleAccounts.length === 1) setProductFormAccountId(eligibleAccounts[0].account.id); else setChooseAccount(true); }}>
               {t("availableFunds.addProduct")}
@@ -171,7 +166,7 @@ export function AvailableFundsPage({
   const custom = buckets.find((bucket) => customDate && bucket.horizonOn === customDate);
 
   return (
-    <div className="flex flex-col gap-6" data-testid="available-funds-page">
+    <div className="flex flex-col gap-5" aria-busy={overview.isFetching} data-testid="available-funds-page">
       {pageChrome}
       <PageIntro
         description={t("availableFunds.description")}
@@ -182,7 +177,6 @@ export function AvailableFundsPage({
         }
       />
       <p className="text-sm text-muted-foreground">{t("availableFunds.cumulativeHint")}</p>
-      <p className="text-sm text-muted-foreground">{t("availableFunds.assetsOnly")}</p>
 
       {sources.length === 0 ? (
         <EmptyState title={t("availableFunds.emptyTitle")} description={t("availableFunds.emptyDescription")} />
@@ -199,7 +193,7 @@ export function AvailableFundsPage({
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="custom-horizon">{t("availableFunds.customDate")}</Label>
-              <DatePicker clearable allowFuture id="custom-horizon" value={customDate} onChange={(next) => { setCustomDate(next); setSelectedHorizon(next || undefined); }} />
+              <DatePicker clearable allowFuture min={data.localDate} id="custom-horizon" value={customDate} onChange={(next) => { setCustomDate(next); setSelectedHorizon(next || undefined); }} />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="currency-mode">{t("availableFunds.currencyDisplay")}</Label>
@@ -208,7 +202,13 @@ export function AvailableFundsPage({
                 <option value="native">{t("availableFunds.native")}</option>
               </NativeSelect>
             </div>
+            <label className="flex min-h-9 items-center gap-2 text-sm">
+              <input type="checkbox" checked={includeEarly} onChange={(event) => setIncludeEarly(event.target.checked)} />
+              {t("availableFunds.considerEarly")}
+            </label>
+            <Button type="button" size="sm" variant="outline" className="ml-auto" onClick={() => { setReservationSource(null); setManageReservations(true); }}>{t("availableFunds.manageReservations")}</Button>
           </div>
+          {overview.isPlaceholderData && <p role="status" className="text-sm text-muted-foreground">{t("availableFunds.updatingEstimate")}</p>}
           {allExcluded && <EmptyState title={t("availableFunds.allExcludedTitle")} description={t("availableFunds.assetsOnly")} />}
           {!allExcluded && allLocked && <EmptyState title={t("availableFunds.allLockedTitle")} />}
           {selectedBucket?.status !== "complete" && !allExcluded && (
@@ -248,53 +248,59 @@ export function AvailableFundsPage({
             ))}
           </div>
 
+          <p className="text-sm text-muted-foreground">{t("availableFunds.sourceHorizon", { date: horizonOn })}</p>
           <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[56rem] text-left text-sm" data-testid="liquidity-source-table">
+            <table className="w-full min-w-[38rem] text-left text-sm" data-testid="liquidity-source-table">
               <caption className="sr-only">{t("availableFunds.sourceTable")}</caption>
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">{t("availableFunds.account")}</th>
                   <th className="px-3 py-2 font-medium">{t("availableFunds.asset")}</th>
                   <th className="px-3 py-2 font-medium">{t("availableFunds.currentValue")}</th>
                   <th className="px-3 py-2 font-medium">{t("availableFunds.expectedAccess")}</th>
-                  <th className="px-3 py-2 font-medium">{t("availableFunds.cost")}</th>
-                  <th className="px-3 py-2 font-medium">{t("availableFunds.reserved")}</th>
-                  <th className="px-3 py-2 font-medium">{t("availableFunds.unreserved")}</th>
+                  <th className="px-3 py-2 font-medium">{t("availableFunds.availableAfterReserve")}</th>
                   <th className="px-3 py-2 font-medium">{t("availableFunds.nextAction")}</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleSources.length === 0 ? (
                   <tr>
-                    <td className="px-3 py-6 text-muted-foreground" colSpan={8}>{t("availableFunds.noSources")}</td>
+                    <td className="px-3 py-6 text-muted-foreground" colSpan={5}>{t("availableFunds.noSources")}</td>
                   </tr>
                 ) : visibleSources.map((source) => {
                   const result = resultForHorizon(source, horizonOn);
-                  const route = result?.selectedRoute ?? (includeEarly ? source.earlyRoute : source.normalRoute);
+                  const route = result?.selectedRoute ?? (includeEarly ? source.earlyRoute ?? source.normalRoute : source.normalRoute);
+                  const hasReserve = !/^0(?:\.0+)?$/.test(source.reservationRequested.amount);
+                  const unavailableByDate = result?.status === "complete" && !result.selectedRoute;
                   return (
-                    <tr key={source.sourceKey} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2">{accountNames.get(source.accountId) ?? source.displayName}</td>
+                    <tr key={source.sourceKey} className="border-b border-border align-top last:border-0">
                       <td className="px-3 py-2">
-                        <div className="flex flex-col gap-1">
-                          <span>{sourceName(t, source)}</span>
+                        <div className="flex max-w-64 flex-col gap-1 break-words">
+                          <span className="font-medium">{sourceName(t, source)}</span>
+                          <span className="text-xs text-muted-foreground">{accountNames.get(source.accountId) ?? source.displayName}</span>
                           <span className="text-xs text-muted-foreground">{sourceStateLabel(t, source)}</span>
                           {source.dueUnconfirmed && <Badge variant="warning">{t("availableFunds.dueUnconfirmed")}</Badge>}
                         </div>
                       </td>
-                      <td className="px-3 py-2">{moneyText(source.currentNativeValue, unknown)}</td>
-                      <td className="px-3 py-2">{route?.receiptOn ?? t("availableFunds.unknownAmount")}</td>
-                      <td className="px-3 py-2">{moneyText(route?.feeNative, unknown)}</td>
+                      <td className="whitespace-nowrap px-3 py-2">{moneyText(source.currentNativeValue, unknown)}</td>
                       <td className="px-3 py-2">
-                        <div>{t("availableFunds.appliedReserve")}: {moneyText(result?.appliedReserveNative, unknown)}</div>
-                        <div className="text-xs text-muted-foreground">{t("availableFunds.requestedReserve")}: {moneyText(source.reservationRequested, unknown)}</div>
+                        <p className="whitespace-nowrap">{source.excluded ? "—" : route?.receiptOn ?? unknown}</p>
+                        {!source.excluded && route && (!route.feeNative || !/^0(?:\.0+)?$/.test(route.feeNative.amount)) && <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.cost")}: {moneyText(route.feeNative, unknown)}</p>}
+                      </td>
+                      <td className="px-3 py-2">
+                        <p className={unavailableByDate || source.excluded ? "text-xs text-muted-foreground" : "whitespace-nowrap font-medium"}>
+                          {source.excluded ? t("availableFunds.filterExcluded") : source.dueUnconfirmed ? t("availableFunds.dueUnconfirmed") : unavailableByDate ? t("availableFunds.notAvailableByDate") : moneyText(result?.unreservedNative, unknown)}
+                        </p>
+                        {hasReserve && <details className="mt-1 text-xs text-muted-foreground">
+                          <summary className="cursor-pointer">{t("availableFunds.requestedReserve")}: {moneyText(source.reservationRequested, unknown)}</summary>
+                          {result?.selectedRoute && <div>{t("availableFunds.appliedReserve")}: {moneyText(result?.appliedReserveNative, unknown)}</div>}
                         {result?.reserveShortfallNative && !/^0(?:\.0+)?$/.test(result.reserveShortfallNative.amount) && (
                           <div className="text-xs text-amber-700 dark:text-amber-400">{t("availableFunds.reserveShortfall")}: {moneyText(result.reserveShortfallNative, unknown)}</div>
                         )}
-                        {!result?.selectedRoute && source.reservationRequested && !/^0(?:\.0+)?$/.test(source.reservationRequested.amount) && (
+                        {!result?.selectedRoute && (
                           <div className="text-xs text-muted-foreground">{t("availableFunds.reserveNotApplied")}: {moneyText(source.reservationRequested, unknown)}</div>
                         )}
+                        </details>}
                       </td>
-                      <td className="px-3 py-2">{source.dueUnconfirmed ? unknown : moneyText(result?.unreservedNative, unknown)}</td>
                       <td className="px-3 py-2">
                         <div className="flex items-center justify-between gap-2 whitespace-nowrap">
                           {source.displayState === "needs_info" ? (
@@ -331,19 +337,16 @@ export function AvailableFundsPage({
         </Card>
       )}
 
-      {(data.assumptions ?? []).length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("availableFunds.assumptions")}</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
+      <details className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+          <summary className="cursor-pointer font-medium">{t("availableFunds.assumptions")}</summary>
+          <div className="mt-3 flex flex-col gap-2">
+            <p>{t("availableFunds.assetsOnly")}</p>
             {(data.assumptions ?? []).map((assumption) => <p key={assumption}>{t(`availableFunds.${assumption}`, { defaultValue: t("availableFunds.missingInputs") })}</p>)}
-          </CardContent>
-        </Card>
-      )}
+          </div>
+      </details>
 
       <PolicySheet key={policySource?.sourceKey ?? "policy"} source={policySource} open={Boolean(policySource)} onOpenChange={(open) => { if (!open) setPolicySource(null); }} />
-      <ReservationManager key={reservationSource?.sourceKey ?? "reservation"} source={reservationSource} sources={sources} open={manageReservations} onOpenChange={(open) => { setManageReservations(open); if (!open) setReservationSource(null); }} />
+      {manageReservations && <ReservationManager key={reservationSource?.sourceKey ?? "reservation"} source={reservationSource} sources={sources} accountNames={Object.fromEntries(accountNames)} open={manageReservations} onOpenChange={(open) => { setManageReservations(open); if (!open) setReservationSource(null); }} />}
       <Sheet open={chooseAccount} onOpenChange={setChooseAccount}><SheetContent><SheetHeader><SheetTitle>{t("availableFunds.chooseAccount")}</SheetTitle></SheetHeader>
         {eligibleAccounts.map(({ account }) => <Button key={account.id} variant="outline" onClick={() => { setChooseAccount(false); setProductFormAccountId(account.id); }}>{account.name}</Button>)}
       </SheetContent></Sheet>

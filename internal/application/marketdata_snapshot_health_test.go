@@ -145,3 +145,37 @@ func TestIncompleteMetalSnapshotHealthLifecycle(t *testing.T) {
 		t.Fatal("repair diagnosis unexpectedly contacted provider")
 	}
 }
+
+func TestIncompleteCashSnapshotHealthIdentifiesEachCurrency(t *testing.T) {
+	now := time.Date(2026, 9, 18, 4, 0, 0, 0, time.UTC)
+	service, ctx := newProductTestServiceTZ(t, now, "Asia/Singapore")
+	service.setClock(func() time.Time { return now })
+	account := seedHoldingsCash(t, service, ctx, "1000")
+	for _, currency := range []string{"EUR", "SGD"} {
+		if _, err := service.AppendAccountCashValue(ctx, account, "100", currency, ""); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now = now.AddDate(0, 0, 2)
+	if _, err := service.RebuildHistoricalSnapshots(ctx, "2026-09-18", "2026-09-19"); err != nil {
+		t.Fatal(err)
+	}
+	origin, err := service.HistoryOrigin(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	issues, err := service.incompleteSnapshotHealth(ctx, origin, HistoryRepairPlan{OriginLocalDate: "2026-09-18", YesterdayLocal: "2026-09-19"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	labels := map[string]int{}
+	for _, issue := range issues {
+		if issue.AccountID != account.String() || issue.InstrumentID != "" || issue.Kind != HealthKindSnapshotIncomplete || issue.Executable {
+			t.Fatalf("unexpected cash issue: %+v", issue)
+		}
+		labels[issue.Label]++
+	}
+	if labels["USD"] != 2 || labels["EUR"] != 2 || labels["SGD"] != 2 || len(issues) != 6 {
+		t.Fatalf("cash snapshot issues should identify each currency on both days: %+v", issues)
+	}
+}

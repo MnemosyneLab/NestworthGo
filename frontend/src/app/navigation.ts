@@ -49,6 +49,8 @@ export interface HealthFocus {
   action?: string;
   kind?: string;
   executable?: boolean;
+  // Original component label for a grouped snapshot range; separate from its display title.
+  snapshotComponentLabel?: string;
 }
 
 export interface AccountListFocus {

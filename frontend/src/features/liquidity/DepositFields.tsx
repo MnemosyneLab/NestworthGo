@@ -35,20 +35,20 @@ export function DepositFields({ terms, policy, principal, onTermsChange, onPolic
     </NativeSelect>
     {simple && <>
       <Label htmlFor={`${id}-rate`}>{t("availableFunds.annualRatePercent")}</Label>
-      <Input id={`${id}-rate`} inputMode="decimal" value={terms.annualRatePercent ?? ""} onChange={(e) => onTermsChange({ ...terms, annualRate: null, annualRatePercent: e.target.value || null })} />
+      <Input id={`${id}-rate`} inputMode="decimal" value={terms.annualRatePercent ?? ""} onChange={(e) => onTermsChange({ ...terms, annualRate: null, annualRatePercent: e.target.value || null })} {...invalid("annualRatePercent")} />
     </>}
     {terms.interestMode === "manual_maturity_amount" && <>
       <Label htmlFor={`${id}-interest-amount`}>{t("availableFunds.maturityInterest")}</Label>
-      <Input id={`${id}-interest-amount`} inputMode="decimal" value={terms.maturityInterest ?? ""} onChange={(e) => onTermsChange({ ...terms, maturityInterest: e.target.value || null })} />
+      <Input id={`${id}-interest-amount`} inputMode="decimal" value={terms.maturityInterest ?? ""} onChange={(e) => onTermsChange({ ...terms, maturityInterest: e.target.value || null })} {...invalid("maturityInterest")} />
     </>}
     <label className="flex items-center gap-2 text-sm">
-      <input type="checkbox" checked={policy.earlyKind === "allowed"} onChange={(e) => onPolicyChange({ ...policy, earlyKind: e.target.checked ? "allowed" : "not_allowed", ...(e.target.checked ? { earlyAmountMode: "fixed_gross", earlyGrossAmount: principal || null, earlyFee: "0", earlySettlementDays: 0, earlyDayBasis: "calendar" } : {}) })} />
+      <input type="checkbox" checked={policy.earlyKind === "allowed"} onChange={(e) => onPolicyChange({ ...policy, earlyKind: e.target.checked ? "allowed" : "not_allowed", ...(e.target.checked && policy.earlyAmountMode == null ? { earlyAmountMode: "fixed_gross", earlyGrossAmount: principal || null, earlyFee: "0", earlySettlementDays: 0, earlyDayBasis: "calendar" } : {}) })} />
       {t("availableFunds.depositEarly")}
     </label>
     {policy.earlyKind === "allowed" && <>
       {policy.earlyAmountMode === "fixed_gross" && <>
         <Label htmlFor={`${id}-early-gross`}>{t("availableFunds.earlyGross")}</Label>
-        <Input id={`${id}-early-gross`} inputMode="decimal" value={policy.earlyGrossAmount ?? ""} onChange={(e) => onPolicyChange({ ...policy, earlyGrossAmount: e.target.value || null })} />
+        <Input id={`${id}-early-gross`} inputMode="decimal" value={policy.earlyGrossAmount ?? ""} onChange={(e) => onPolicyChange({ ...policy, earlyGrossAmount: e.target.value || null })} {...invalid("earlyGrossAmount")} />
       </>}
       <p className="text-xs text-muted-foreground">{t("availableFunds.depositEarlyHelp")}</p>
     </>}

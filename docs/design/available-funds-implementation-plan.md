@@ -608,23 +608,30 @@ Navigation label: **Available funds / 可用资金**. Place after Overview or Ac
 Layout:
 
 ```text
-Available funds                         [Configure availability]
-As of … · Household timezone …          [Consider early withdrawal]
+Available funds                         [Add product]
+As of … · Household timezone …
 
 [ Today ]       [ Within 7 days ]       [ Within 30 days ]
-Each: Available · Reserved · Unreserved · completeness indicator
+Each: Available after reservations · completeness indicator
+Show total / reserved only when a reservation applies.
 
-Custom date [date picker]               Currency display [Base / Native]
+Custom date [today or later]            Summary currency [Base / Native]
+[Consider early withdrawal]            [Manage reservations]
 
 Upcoming availability / Due, receipt unconfirmed
 
 Assets [All | Available by date | Locked | Needs information | Excluded]
-Account | Asset | Current value | Expected access | Cost | Reserved | Unreserved
+Asset + account | Current value | Expected access | Available by date | Next action
+Rows use each asset's native currency. Nonzero costs appear inline; reservation details expand on demand.
 
-Unresolved reservations / Assumptions and omitted costs
+Unresolved reservations / Expandable assumptions and omitted costs
 ```
 
 Cards are cumulative; explicitly say they must not be added together. Selecting a card changes the row horizon. Distinguish **cash already accessible** from **estimated proceeds requiring a sale/redemption** in each card's breakdown.
+
+The page and Overview use the same after-reservation headline. A complete source with no route by the selected date says **Not available by this date**, while missing evidence stays unknown. Filtering by availability uses the selected horizon. Retain the prior view with an explicit updating message while estimates refresh, preserving keyboard focus.
+
+Reservations are optional. Create and edit in one sheet with source, purpose, amount and currency; validate fields inline, allow keyboard submission, and protect pending writes. Keep released records collapsed. Never delete or silently release existing reservations during this simplification.
 
 Use semantic tables, explicit incomplete badges and reason text, keyboard-accessible dialogs, focus restoration, and all existing locales (`en`, `zh-CN`, `zh-TW`). Do not rely on color or tooltips alone. Native currency mode groups currencies and never adds unlike currencies.
 
@@ -635,6 +642,7 @@ Loading, load failure with retry, no assets, all locked, all excluded, partial F
 - Account detail adds **Deposits and products**, with current value, principal, maturity/unlock date, and status.
 - Product detail owns terms, normal/early availability, reservations, valuation history, and grouped financial operations.
 - Product forms use principal/value language; hide internal quantity=1 and private-instrument mechanics.
+- Existing locked products require visible current value and cost inputs; deposits can use principal as the stated default. Detail shows dates, interest terms and the specific operation selected for undo. Keep ledger entries and optional transaction timing collapsed; core before/after money remains visible.
 - Existing Portfolio/Market Data rows remain correctly valued but route managed-product edits to product detail. Show the contract subtype label rather than offering generic symbol/provider editing.
 - Existing holdings tables can label the quantity cell “1 contract” for managed positions; normal securities retain current quantity behavior.
 - Do not list a managed product twice as both a new asset and its backing holding.

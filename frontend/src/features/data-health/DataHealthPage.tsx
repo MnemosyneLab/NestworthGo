@@ -14,6 +14,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { displayEnum, displayError } from "@/lib/display";
 import { useMarketDataHealth } from "@/queries/marketdata";
+import { useAccounts } from "@/queries/accounts";
 import { useMarketDataSyncActions } from "@/features/marketdata/MarketDataSyncBar";
 import type { HealthIssueDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 
@@ -23,22 +24,61 @@ export function focusedHealthIssues(issues: HealthIssueDTO[] = [], focus?: Healt
     const pairMatches = !focus.currencyA ||
       (issue.currencyA === focus.currencyA && issue.currencyB === focus.currencyB) ||
       (issue.currencyB === focus.currencyA && issue.currencyA === focus.currencyB);
+    const componentMatches = focus.snapshotComponentLabel === undefined ||
+      (issue.kind === "snapshot_incomplete" && (issue.label ?? "") === focus.snapshotComponentLabel &&
+        Boolean(issue.instrumentId) === Boolean(focus.instrumentId) && issue.reason === focus.reason);
     return (!focus.id || issue.id === focus.id) &&
       (!focus.instrumentId || issue.instrumentId === focus.instrumentId) &&
-      (!focus.accountId || issue.accountId === focus.accountId) && pairMatches &&
+      (!focus.accountId || issue.accountId === focus.accountId) && pairMatches && componentMatches &&
       (!focus.rangeStart || !issue.rangeEnd || issue.rangeEnd >= focus.rangeStart) &&
       (!focus.rangeEnd || !issue.rangeStart || issue.rangeStart <= focus.rangeEnd);
   });
 }
 
-function groupIssues(issues: HealthIssueDTO[]): { kind: string; items: HealthIssueDTO[] }[] {
+type DisplayHealthIssue = HealthIssueDTO & { combined?: boolean };
+
+// Snapshot findings arrive per component and day. Only merge adjacent days for
+// the same component and diagnosis, so a displayed range never hides a healthy day.
+function compactSnapshotIssues(issues: HealthIssueDTO[]): DisplayHealthIssue[] {
+  const components = new Map<string, HealthIssueDTO[]>();
+  for (const issue of issues) {
+    const identity = JSON.stringify([issue.accountId, issue.instrumentId, issue.label, issue.currencyA, issue.currencyB, issue.targetKey, issue.provider, issue.reason, issue.action, issue.executable, issue.collapsed]);
+    const items = components.get(identity) ?? [];
+    items.push(issue);
+    components.set(identity, items);
+  }
+  return [...components.values()].flatMap((items) => {
+    const combined: DisplayHealthIssue[] = [];
+    for (const issue of [...items].sort((a, b) => (a.rangeStart ?? "").localeCompare(b.rangeStart ?? ""))) {
+      const previous = combined[combined.length - 1];
+      const previousEnd = previous?.rangeEnd ?? previous?.rangeStart;
+      const adjacent = previousEnd && issue.rangeStart && Date.parse(`${issue.rangeStart}T00:00:00Z`) - Date.parse(`${previousEnd}T00:00:00Z`) === 86_400_000;
+      if (previous && adjacent) {
+        previous.rangeEnd = issue.rangeEnd ?? issue.rangeStart;
+        previous.rangeCount = (previous.rangeCount ?? 1) + (issue.rangeCount ?? 1);
+        previous.combined = true;
+      } else {
+        combined.push({ ...issue });
+      }
+    }
+    return combined;
+  });
+}
+
+function groupIssues(issues: HealthIssueDTO[]): { kind: string; items: DisplayHealthIssue[]; count: number }[] {
   const groups = new Map<string, HealthIssueDTO[]>();
   for (const issue of issues) {
     const items = groups.get(issue.kind) ?? [];
     items.push(issue);
     groups.set(issue.kind, items);
   }
-  return [...groups.entries()].map(([kind, items]) => ({ kind, items }));
+  return [...groups.entries()].map(([kind, items]) => ({ kind, count: items.length, items: kind === "snapshot_incomplete" ? compactSnapshotIssues(items) : items }));
+}
+
+function healthIssueLabel(t: (key: string, options?: Record<string, unknown>) => string, issue: HealthIssueDTO, accountNames: Record<string, string>): string {
+  const label = issue.label || (issue.currencyA ? [issue.currencyA, issue.currencyB].filter(Boolean).join(" / ") : undefined) || (issue.kind.startsWith("snapshot") ? t("dataHealth.snapshotTarget") : issue.targetKey);
+  if (!issue.kind.startsWith("snapshot") || !issue.accountId) return label;
+  return `${accountNames[issue.accountId] ?? t("dataHealth.unknownAccount")} · ${label}`;
 }
 
 function issueRange(t: (key: string, options?: Record<string, unknown>) => string, issue: HealthIssueDTO): string | undefined {
@@ -72,6 +112,8 @@ export function DataHealthPage({
   const { t } = useTranslation();
   const navigation = useObjectNavigation();
   const health = useMarketDataHealth();
+  const accounts = useAccounts({ includeArchived: true });
+  const accountNames = useMemo(() => Object.fromEntries((accounts.data ?? []).map(({ account }) => [account.id, account.name])), [accounts.data]);
   const sync = useMarketDataSyncActions();
   const [snapshotFocus, setSnapshotFocus] = useState<HealthFocus>();
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -85,6 +127,10 @@ export function DataHealthPage({
   const executable = issues.filter((issue) => issue.executable && !issue.collapsed);
   const prerequisites = issues.filter((issue) => !issue.executable && issue.action !== "none" && issue.action !== "repair");
   const reported = issues.filter((issue) => !issue.executable && (issue.action === "none" || issue.action === "repair"));
+  const inspectIssue = navigation ? (issue: HealthFocus) => {
+    if (issue.kind?.startsWith("snapshot")) navigation.open({ page: "data-health", focus: issue });
+    else navigation.openHealth(issue);
+  } : undefined;
 
   const runAction = (issue: HealthIssueDTO) => {
     if (issue.kind.startsWith("snapshot")) { setSnapshotFocus(issue); return; }
@@ -186,11 +232,11 @@ export function DataHealthPage({
         {focus && !health.isFetching && issues.length === 0 && <p role="status">{t("connections.noMatchingGaps")}</p>}
       </div>
       {sync.current.data?.jobId && <SyncWorkDetails items={sync.current.data.items} current={running ? sync.current.data.current : undefined} />}
-      <IssueSection onInspect={navigation ? issue => navigation.openHealth(issue) : undefined} title={t("dataHealth.executableSection")} issues={executable} t={t} onAction={runAction} />
-      <IssueSection onInspect={navigation ? issue => navigation.openHealth(issue) : undefined} title={t("dataHealth.prerequisiteSection")} issues={prerequisites} t={t} onAction={runAction} />
-      <IssueSection onInspect={navigation ? issue => navigation.openHealth(issue) : undefined} title={t("dataHealth.otherSection")} issues={reported} t={t} onAction={runAction} />
+      <IssueSection accountNames={accountNames} onInspect={inspectIssue} title={t("dataHealth.executableSection")} issues={executable} t={t} onAction={runAction} />
+      <IssueSection accountNames={accountNames} onInspect={inspectIssue} title={t("dataHealth.prerequisiteSection")} issues={prerequisites} t={t} onAction={runAction} />
+      <IssueSection accountNames={accountNames} onInspect={inspectIssue} title={t("dataHealth.otherSection")} issues={reported} t={t} onAction={runAction} />
 
-      <IssueSection onInspect={navigation ? issue => navigation.openHealth(issue) : undefined} title={t("connections.blockingDependencies")} issues={dependencies} t={t} onAction={runAction} />
+      <IssueSection accountNames={accountNames} onInspect={inspectIssue} title={t("connections.blockingDependencies")} issues={dependencies} t={t} onAction={runAction} />
 
       {snapshotFocus && <SnapshotRepair focus={snapshotFocus} onClose={() => setSnapshotFocus(undefined)} />}
       <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
@@ -237,14 +283,16 @@ export function DataHealthPage({
 function IssueSection({
   title,
   issues,
+  accountNames,
   t,
   onAction, onInspect,
 }: {
   title: string;
   issues: HealthIssueDTO[];
+  accountNames: Record<string, string>;
   t: (key: string, options?: Record<string, unknown>) => string;
   onAction: (issue: HealthIssueDTO) => void;
-  onInspect?: (issue: HealthIssueDTO) => void;
+  onInspect?: (issue: HealthFocus) => void;
 }) {
   if (issues.length === 0) {
     return null;
@@ -257,22 +305,23 @@ function IssueSection({
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2">
               <span>{displayEnum(t, "dataHealth.kind", group.kind)}</span>
-              <Badge variant="secondary">{group.items.length}</Badge>
+              <Badge variant="secondary">{group.count}</Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
+            {group.kind === "snapshot_incomplete" && <p className="mb-4 text-sm text-muted-foreground">{t("dataHealth.snapshotIncompleteHelp")}</p>}
             <ul className="flex flex-col gap-3">
               {group.items.map((issue) => (
                 <li key={issue.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" data-testid={`health-issue-${issue.kind}`}>
                   <div className="flex min-w-0 flex-col gap-1">
-                    <p className="font-medium text-foreground">{issue.label || issue.targetKey}</p>
+                    <p className="font-medium text-foreground">{healthIssueLabel(t, issue, accountNames)}</p>
                     {issue.nextCheckAt && <p className="text-sm text-muted-foreground">{t("dataHealth.nextCheckAt", { time: issue.nextCheckAt.replace("T", " ") })}</p>}
                     {issue.collapsed && <p className="text-sm text-warning-foreground">{t("connections.blockedIssue")}</p>}
                     <p className="text-sm text-muted-foreground">
-                      {[issueRange(t, issue), issue.provider, healthIssueActionLabel(t, issue)].filter(Boolean).join(" · ")}
+                      {[issueRange(t, issue), issue.combined ? t("dataHealth.snapshotAffectedDays", { count: issue.rangeCount }) : undefined, issue.provider, healthIssueActionLabel(t, issue)].filter(Boolean).join(" · ")}
                     </p>
                   </div>
-                  {onInspect && (issue.instrumentId || issue.currencyA || issue.accountId) && <Button size="sm" variant="outline" onClick={() => onInspect(issue)}>{t("connections.viewGap")}</Button>}
+                  {onInspect && (issue.instrumentId || issue.currencyA || issue.accountId) && <Button size="sm" variant="outline" onClick={() => onInspect({ ...issue, id: issue.combined ? "" : issue.id, label: healthIssueLabel(t, issue, accountNames), snapshotComponentLabel: issue.kind === "snapshot_incomplete" ? issue.label ?? "" : undefined })}>{t("connections.viewGap")}</Button>}
                   {issue.kind.startsWith("snapshot") && issue.executable && !issue.collapsed && <Button size="sm" variant="outline" onClick={() => onAction(issue)}>{t("connections.previewRepair")}</Button>}
                   {issue.action === "account_value" && <Button size="sm" variant="outline" onClick={() => onAction(issue)}>{t("accounts.updateValue")}</Button>}
                   {issue.action === "provider_settings" && (

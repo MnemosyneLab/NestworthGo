@@ -48,3 +48,12 @@ it("does not classify an unknown holding's placeholder action as cash", () => {
   holding.normalRoute!.actionRequired = "none";
   expect(cashVersusProceeds([cash("complete", "100"), holding], horizon, "Unknown", "USD")).toEqual({cash:"$100.00", proceeds:"Unknown"});
 });
+
+it("filters by the selected horizon rather than a product's current locked state", () => {
+  const source = { ...cash("complete", "100"), displayState: "locked", reasons: [] } as LiquiditySourceDTO;
+  expect(sourceMatchesFilter(source, horizon, "available")).toBe(true);
+  expect(sourceMatchesFilter(source, horizon, "locked")).toBe(false);
+  source.excluded = true;
+  source.reasons = ["excluded_by_policy"];
+  expect(sourceMatchesFilter(source, horizon, "needs_info")).toBe(false);
+});

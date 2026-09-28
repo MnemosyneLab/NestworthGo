@@ -73,6 +73,12 @@ func applyLiquidityReservation(net decimal.Decimal, currency CurrencyCode, reque
 // Convert one native unit to retain its full rate, then apply it to the exact
 // valuation. Passing the rounded Money projection would lose precision twice.
 func convertLiquidityExact(convert ConvertToBase, amount decimal.Decimal, currency CurrencyCode) (*decimal.Decimal, bool, error) {
+	// A proven zero stays zero in every currency. Looking up a unit rate here
+	// would incorrectly turn empty cash or fully restricted proceeds into a gap.
+	if amount.IsZero() {
+		zero := decimal.Zero
+		return &zero, true, nil
+	}
 	unit, err := NewMoney(decimal.NewFromInt(1), currency)
 	if err != nil {
 		return nil, false, err

@@ -1,16 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import type { HealthFocus } from "@/app/navigation";
-import { DataHealthPage } from "./DataHealthPage";
+import { NavigationContext, type ObjectNavigation } from "@/app/NavigationContext";
+import { DataHealthPage, focusedHealthIssues } from "./DataHealthPage";
+import type { HealthIssueDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 
 const scanHealth = vi.fn();
 const previewSync = vi.fn();
 const startSync = vi.fn();
 const getCurrentSyncJob = vi.fn(async () => ({ jobId: "" }));
 const refreshAll = vi.fn();
+const listAccounts = vi.fn();
 
 vi.mock("@wailsio/runtime", () => ({
   Events: {
@@ -34,11 +37,15 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
   Service: { Load: () => Promise.resolve({ timezone: "Asia/Singapore" }) },
 }));
 
-function renderPage(props: { focus?: HealthFocus; onOpenSettings?: () => void; onOpenMarketData?: () => void } = {}) {
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account", () => ({
+  Service: { ListAccounts: (filter: unknown) => listAccounts(filter) },
+}));
+
+function renderPage(props: { focus?: HealthFocus; onOpenSettings?: () => void; onOpenMarketData?: () => void } = {}, navigation: ObjectNavigation | null = null) {
   const queryClient = createTestQueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
-      <DataHealthPage {...props} />
+      <NavigationContext.Provider value={navigation}><DataHealthPage {...props} /></NavigationContext.Provider>
     </QueryClientProvider>,
   );
 }
@@ -50,6 +57,8 @@ describe("DataHealthPage", () => {
     startSync.mockReset();
     getCurrentSyncJob.mockReset();
     refreshAll.mockReset();
+    listAccounts.mockReset();
+    listAccounts.mockResolvedValue([{ account: { id: "broker", name: "Family brokerage" } }, { account: { id: "archived", name: "Previous bank", archivedAt: "2026-09-21T00:00:00Z" } }]);
     getCurrentSyncJob.mockResolvedValue({ jobId: "" });
     previewSync.mockResolvedValue({
       estimatedRequestCount: 4,
@@ -293,3 +302,84 @@ describe("DataHealthPage", () => {
    expect(screen.getByTestId("repair-all")).toBeDisabled();
    expect(screen.getByText(/Repair all covers the entire household/)).toBeInTheDocument();
  });
+
+describe("Snapshot issue context", () => {
+  beforeEach(() => {
+    listAccounts.mockResolvedValue([{ account: { id: "broker", name: "Family brokerage" } }, { account: { id: "archived", name: "Previous bank", archivedAt: "2026-09-21T00:00:00Z" } }]);
+    getCurrentSyncJob.mockResolvedValue({ jobId: "" });
+  });
+
+  it("identifies account and currency, combines only matching adjacent dates, and preserves inspection scope", async () => {
+    const issue = (id: string, accountId: string, currency: string, date: string, reason = "snapshot_incomplete") => ({
+      id, kind: "snapshot_incomplete", severity: "warning", groupKey: "snapshot", targetKey: "snapshot", accountId,
+      label: currency, rangeStart: date, rangeEnd: date, rangeCount: 1, reason, action: "none", executable: false,
+    });
+    const issues = [
+      issue("usd-18", "broker", "USD", "2026-09-18"), issue("usd-19", "broker", "USD", "2026-09-19"), issue("usd-21", "broker", "USD", "2026-09-21"),
+      issue("sgd-18", "broker", "SGD", "2026-09-18"), issue("sgd-19", "broker", "SGD", "2026-09-19"),
+      issue("old-18", "archived", "USD", "2026-09-18"), issue("old-19", "archived", "USD", "2026-09-19"),
+      issue("reason-18", "broker", "USD", "2026-09-18", "missing_current_input"),
+    ];
+    scanHealth.mockResolvedValue({ healthy: false, issueCount: 8, executableCount: 0, prerequisiteCount: 0, snapshotDays: 3, issues });
+    const navigation = { open: vi.fn(), openHealth: vi.fn() };
+    renderPage({}, navigation);
+    const rows = await screen.findAllByTestId("health-issue-snapshot_incomplete");
+    await waitFor(() => expect(rows).toHaveLength(5));
+    expect(screen.getByText("8")).toBeInTheDocument();
+    expect(screen.getByText("Family brokerage · SGD")).toBeInTheDocument();
+    expect(screen.getByText("Previous bank · USD")).toBeInTheDocument();
+    expect(screen.queryByText("snapshot", { exact: true })).not.toBeInTheDocument();
+    const first = rows[0];
+    expect(first).toHaveTextContent("Family brokerage · USD");
+    expect(first).toHaveTextContent("2026-09-18–2026-09-19");
+    expect(first).toHaveTextContent("2 affected days");
+    await userEvent.click(within(first).getByRole("button", { name: "View gap" }));
+    expect(navigation.open).toHaveBeenCalledWith({ page: "data-health", focus: expect.objectContaining({ accountId: "broker", rangeStart: "2026-09-18", rangeEnd: "2026-09-19", id: "", label: "Family brokerage · USD", snapshotComponentLabel: "USD" }) });
+    expect(navigation.openHealth).not.toHaveBeenCalled();
+    expect(listAccounts).toHaveBeenCalledWith(expect.objectContaining({ includeArchived: true }));
+    expect(issues[0].rangeEnd).toBe("2026-09-18");
+  });
+
+  it("uses a translated name for household snapshot issues without an account", async () => {
+    scanHealth.mockResolvedValue({ healthy: false, issueCount: 1, executableCount: 0, prerequisiteCount: 0, snapshotDays: 1, issues: [
+      { id: "snapshot", kind: "snapshot_incomplete", severity: "warning", targetKey: "snapshot", groupKey: "snapshot", rangeStart: "2026-09-18", rangeEnd: "2026-09-18", action: "none", executable: false },
+    ] });
+    renderPage();
+    expect(await screen.findByText("Household valuation snapshot")).toBeVisible();
+    expect(screen.queryByText("snapshot", { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByTestId("repair-all")).toBeDisabled();
+  });
+
+  it("keeps a grouped cash focus on its currency and dates without including other assets", async () => {
+    const issue = (id: string, label: string, date: string, instrumentId?: string): HealthIssueDTO => ({
+      id, kind: "snapshot_incomplete", severity: "warning", groupKey: "snapshot", targetKey: "snapshot", accountId: "broker",
+      label, instrumentId, rangeStart: date, rangeEnd: date, rangeCount: 1, action: "none", executable: false,
+    });
+    const issues = [
+      issue("sgd-18", "SGD", "2026-09-18"), issue("sgd-19", "SGD", "2026-09-19"), issue("sgd-21", "SGD", "2026-09-21"),
+      issue("usd-18", "USD", "2026-09-18"), issue("stock-18", "Equity fund", "2026-09-18", "fund"),
+      issue("same-name-stock", "SGD", "2026-09-18", "other-fund"),
+      { ...issue("other-kind", "SGD", "2026-09-18"), kind: "incomplete_valuation" },
+      { ...issue("other-reason", "SGD", "2026-09-18"), reason: "missing_current_input" },
+      { ...issue("other-account", "SGD", "2026-09-18"), accountId: "archived" },
+    ];
+    scanHealth.mockResolvedValue({ healthy: false, issueCount: issues.length, executableCount: 0, prerequisiteCount: 0, snapshotDays: 3, issues });
+    const navigation = { open: vi.fn(), openHealth: vi.fn() };
+    const page = renderPage({}, navigation);
+    const rows = await screen.findAllByTestId("health-issue-snapshot_incomplete");
+    const groupedRow = rows.find((row) => row.textContent?.includes("2 affected days"))!;
+    await userEvent.click(within(groupedRow).getByRole("button", { name: "View gap" }));
+    const focus = navigation.open.mock.calls[0][0].focus as HealthFocus;
+    expect(focus.snapshotComponentLabel).toBe("SGD");
+    expect(focus.label).toBe("Family brokerage · SGD");
+    expect(focusedHealthIssues(issues, focus).map((item) => item.id)).toEqual(["sgd-18", "sgd-19"]);
+    page.unmount();
+    renderPage({ focus });
+    const focusedRows = await screen.findAllByTestId("health-issue-snapshot_incomplete");
+    expect(focusedRows).toHaveLength(1);
+    expect(focusedRows[0]).toHaveTextContent("Family brokerage · SGD");
+    expect(focusedRows[0]).toHaveTextContent("2026-09-18–2026-09-19");
+    expect(screen.queryByText("Family brokerage · USD")).not.toBeInTheDocument();
+    expect(screen.queryByText("Family brokerage · Equity fund")).not.toBeInTheDocument();
+  });
+});

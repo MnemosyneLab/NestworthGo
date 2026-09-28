@@ -101,3 +101,33 @@ func TestLiquidityUnknownAccessNeedsInformationRatherThanLocked(t *testing.T) {
 		t.Fatal("unknown access must not become a known amount")
 	}
 }
+
+func TestLiquidityKnownZeroProceedsDoNotRequireFX(t *testing.T) {
+	for _, scenario := range []string{"empty_cash", "fully_restricted", "fee_exceeds_value"} {
+		t.Run(scenario, func(t *testing.T) {
+			query, sources, _ := fixtureA(t)
+			query.BaseCurrency = "CNY"
+			source := sources[0]
+			source.CurrentNativeAmount = "100"
+			source.CurrentNativeValue = moneyPtr(t, "100", "USD")
+			switch scenario {
+			case "empty_cash":
+				source.CurrentNativeAmount = "0"
+				source.CurrentNativeValue = moneyPtr(t, "0", "USD")
+			case "fully_restricted":
+				source.ExplicitPolicy.AccessibleAmountCap = moneyPtr(t, "0", "USD")
+			case "fee_exceeds_value":
+				source.ExplicitPolicy.NormalExitFee = moneyPtr(t, "101", "USD")
+			}
+			overview, err := EvaluateLiquidity(query, []LiquiditySource{source}, nil, identityFX("CNY"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, bucket := range overview.Buckets {
+				if bucket.Status != StatusComplete || bucket.FullAvailable == nil || !bucket.FullAvailable.IsZero() || len(bucket.Warnings) != 0 {
+					t.Fatalf("known zero proceeds reported as missing FX: %+v", bucket)
+				}
+			}
+		})
+	}
+}

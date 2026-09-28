@@ -46,7 +46,7 @@ func (s *Service) incompleteSnapshotHealth(ctx context.Context, origin *domain.H
 			if item.Complete {
 				continue
 			}
-			issue := HealthIssue{ID: fmt.Sprintf("snapshot-incomplete-%s-%d", snapshot.LocalDate, index), Kind: HealthKindSnapshotIncomplete, Severity: HealthSeverityWarning, TargetKey: "snapshot", GroupKey: "snapshot", AccountID: item.AccountID.String(), RangeStart: snapshot.LocalDate, RangeEnd: snapshot.LocalDate, RangeCount: 1, Code: "snapshot_incomplete", Reason: "snapshot_incomplete", Action: HealthActionNone}
+			issue := HealthIssue{ID: fmt.Sprintf("snapshot-incomplete-%s-%d", snapshot.LocalDate, index), Kind: HealthKindSnapshotIncomplete, Severity: HealthSeverityWarning, TargetKey: "snapshot", GroupKey: "snapshot", AccountID: item.AccountID.String(), Label: item.NativeCurrency.String(), RangeStart: snapshot.LocalDate, RangeEnd: snapshot.LocalDate, RangeCount: 1, Code: "snapshot_incomplete", Reason: "snapshot_incomplete", Action: HealthActionNone}
 			if item.InstrumentID != nil {
 				id := *item.InstrumentID
 				issue.InstrumentID = id.String()

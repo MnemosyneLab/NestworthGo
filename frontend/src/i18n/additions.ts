@@ -66,6 +66,10 @@ export const additionsEn = {
   },
   availableFunds: availableFundsEn,
   dataHealth: {
+    snapshotTarget: "Household valuation snapshot",
+    snapshotIncompleteHelp: "Review the missing account values, prices or exchange rates for these periods. Rebuild snapshots after the required data is available.",
+    snapshotAffectedDays: "{{count}} affected days",
+    unknownAccount: "Account unavailable",
     description: "Diagnose incomplete market data locally. Providers are contacted only after you confirm Repair All.",
     healthyTitle: "All data is healthy",
     healthyDescription: "Market data is complete through {{date}}. Required valuations are available and snapshots are current.",
@@ -1187,6 +1191,10 @@ export const additionsZhCN = {
   },
   availableFunds: availableFundsZhCN,
   dataHealth: {
+    snapshotTarget: "家庭估值快照",
+    snapshotIncompleteHelp: "请查看这些时段缺失的账户估值、价格或汇率。补齐所需数据后再重建快照。",
+    snapshotAffectedDays: "影响 {{count}} 天",
+    unknownAccount: "账户不可用",
     description: "在本地诊断不完整的市场数据。只有在你确认全部修复后，才会联系数据提供方。",
     healthyTitle: "数据全部健康",
     healthyDescription: "市场数据已完整至 {{date}}。所需估值可用，快照也是最新的。",
@@ -2292,6 +2300,10 @@ export const additionsZhTW = {
   },
   availableFunds: availableFundsZhTW,
   dataHealth: {
+    snapshotTarget: "家庭估值快照",
+    snapshotIncompleteHelp: "請查看這些時段缺失的帳戶估值、價格或匯率。補齊所需資料後再重建快照。",
+    snapshotAffectedDays: "影響 {{count}} 天",
+    unknownAccount: "帳戶不可用",
     description: "在本機診斷不完整的市場資料。只有在你確認全部修復後，才會聯繫資料提供方。",
     healthyTitle: "資料全部健康",
     healthyDescription: "市場資料已完整至 {{date}}。所需估值可用，快照也是最新的。",

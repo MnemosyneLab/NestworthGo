@@ -52,6 +52,9 @@ export function sourceStateLabel(t: Translator, source: LiquiditySourceDTO): str
   if (source.excluded) {
     return t("availableFunds.filterExcluded");
   }
+  if (source.displayState === "redeemable" && !source.productId) {
+    return t(source.sourceRef.kind === "holding" ? "availableFunds.assetRedeemable" : "availableFunds.cashReady");
+  }
   return productStateLabel(t, source.displayState);
 }
 
@@ -95,12 +98,12 @@ export function formatKnownOrUnknown(value: MoneyView | null | undefined, unknow
 
 export function sourceMatchesFilter(source: LiquiditySourceDTO, horizonOn: string, filter: SourceFilter): boolean {
   const result = resultForHorizon(source, horizonOn);
-  const needsInfo = result?.status === "partial" || result?.status === "unavailable" || Boolean((source.reasons ?? []).length);
+  const needsInfo = !source.excluded && (result?.status === "partial" || result?.status === "unavailable" || Boolean((source.reasons ?? []).length));
   switch (filter) {
     case "available":
       return !source.excluded && Boolean(result?.selectedRoute) && result?.status !== "unavailable";
     case "locked":
-      return !source.excluded && (source.displayState === "locked" || (!needsInfo && !result?.selectedRoute));
+      return !source.excluded && !source.dueUnconfirmed && !needsInfo && result?.status === "complete" && !result.selectedRoute;
     case "needs_info":
       return needsInfo;
     case "excluded":

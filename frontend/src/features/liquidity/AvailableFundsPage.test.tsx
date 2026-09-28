@@ -147,10 +147,10 @@ describe("AvailableFundsPage", () => {
       ],
     }));
     renderPage();
-    expect(await screen.findByTestId("horizon-available-2026-09-20")).toHaveTextContent("$10,000.00");
+    expect(await screen.findByTestId("horizon-available-2026-09-20")).toHaveTextContent("$8,000.00");
     expect(screen.getByTestId("horizon-available-2026-09-20")).not.toHaveTextContent("$0.00");
     expect(screen.getAllByText(/Known amounts only;/)).toHaveLength(3);
-    await userEvent.selectOptions(screen.getByLabelText("Currency display"), "native");
+    await userEvent.selectOptions(screen.getByLabelText("Summary currency"), "native");
     expect(screen.getByTestId("horizon-available-2026-09-20")).toHaveTextContent("€100.00");
   });
 
@@ -185,10 +185,11 @@ describe("AvailableFundsPage", () => {
       buckets: [{ horizonOn: "2026-09-20", status: "complete", fullAvailable: money("0"), knownAvailableSubtotal: money("0"), appliedReserveSubtotal: money("0"), fullUnreserved: money("0"), knownUnreservedSubtotal: money("0"), unknownSourceCount: 0, excludedSourceCount: 0, estimatedSourceCount: 0, nativeCurrencyGroups: [], warnings: [] }],
     }));
     renderPage();
-    expect(await screen.findByText("Due, receipt unconfirmed")).toBeInTheDocument();
+    expect((await screen.findAllByText("Due, receipt unconfirmed")).length).toBeGreaterThan(0);
     const row = screen.getAllByText("Due deposit")[0].closest("tr");
     expect(row).toBeTruthy();
-    expect(within(row!).getAllByText("Unknown").length).toBeGreaterThan(0);
+    expect(within(row!).getAllByText("Due, receipt unconfirmed").length).toBeGreaterThan(0);
+    expect(within(row!).queryByText("$0.00")).not.toBeInTheDocument();
     expect(screen.getByText("Due deposit is due. Receipt is unconfirmed.")).toBeInTheDocument();
   });
 
@@ -242,6 +243,7 @@ it("shows requested, applied and shortfall reservations separately", async () =>
   renderPage();
   const row = (await screen.findAllByText("Bank cash")).map((node) => node.closest("tr")).find(Boolean)!;
   expect(within(row).getByText("Requested: $12,000.00")).toBeInTheDocument();
+  await userEvent.click(within(row).getByText("Requested: $12,000.00"));
   expect(within(row).getByText("Applied: $10,000.00")).toBeInTheDocument();
   expect(within(row).getByText("Shortfall: $2,000.00")).toBeInTheDocument();
 });
@@ -254,5 +256,27 @@ it("explains reservations that do not apply by the selected horizon", async () =
   data.sources![0].bucketResults![0].appliedReserveNative = null;
   overview.mockResolvedValue(data);
   renderPage();
-  expect(await screen.findByText("Not applied by this date: $2,000.00")).toBeInTheDocument();
+  await userEvent.click(await screen.findByText("Requested: $2,000.00"));
+  expect(screen.getByText("Not applied by this date: $2,000.00")).toBeVisible();
+});
+
+it("shows a known future lock clearly and keeps the normal route when early access is absent", async () => {
+  const data = fixtureOverview();
+  const asset = data.sources![0];
+  asset.displayState = "locked";
+  asset.normalRoute!.receiptOn = "2026-09-27";
+  asset.earlyRoute = null;
+  asset.bucketResults![0] = { ...asset.bucketResults![0], selectedRoute: null, netNative: null, unreservedNative: null, appliedReserveNative: null };
+  overview.mockResolvedValue(data);
+  renderPage();
+  const row = (await screen.findAllByText("Bank cash"))[0].closest("tr")!;
+  expect(within(row).getByText("Not available by this date")).toBeVisible();
+  expect(within(row).queryByText("Unknown")).not.toBeInTheDocument();
+  expect(within(row).queryByText(/Requested:/)).not.toBeInTheDocument();
+  await userEvent.click(screen.getByLabelText("Consider early withdrawal"));
+  expect(within(row).getByText("2026-09-27")).toBeVisible();
+  await userEvent.click(screen.getByTestId("horizon-2026-09-27"));
+  expect(within(row).getByText("$8,000.00")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", {name: "Locked"}));
+  expect(screen.getByText("No sources match this filter.")).toBeVisible();
 });
