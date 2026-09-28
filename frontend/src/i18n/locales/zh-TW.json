@@ -61,6 +61,7 @@
     "name": "Nestworth"
   },
   "common": {
+    "clearSelection": "清除選擇",
     "active": "啟用",
     "add": "新增",
     "archive": "封存",
@@ -936,6 +937,10 @@
     "unitCostHint": "歷史記錄已啟用，請按標的報價幣種填寫單位成本。留空時使用已儲存的目前價格；沒有價格時必須填寫。"
   },
   "connections": {
+    "actions": "操作",
+    "actionsFor": "{{name}}的操作",
+    "accountReturns": "收益分析",
+    "accountChanges": "資產變動",
     "globalRepairScope": "修復全部會處理整個家庭，不限於目前篩選的日期或物件。確認前請檢查完整工作清單。",
     "blockingDependencies": "家庭中的其他阻斷前置問題",
     "blockedIssue": "因缺少輸入或行情服務設定而受阻。請先解決前置問題，再重建快照。",

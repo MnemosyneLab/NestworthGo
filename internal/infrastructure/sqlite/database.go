@@ -19,10 +19,10 @@ import (
 //go:embed schema.sql
 var schemaFS embed.FS
 
-const CurrentSchemaVersion = 11
+const CurrentSchemaVersion = 12
 
-// Open upgrades schema 9 through 10 to 11, and schema 10 to 11.
-// Schemas 6, 7, and 8 remain blocked with zero writes.
+// Open upgrades schema 9 through 12. Schemas 6, 7, and 8 remain blocked with
+// zero writes. After v10→v11 the found version is 11, then v11→v12 runs.
 const supportedMigrationSourceVersion = 9
 
 type BootstrapStatus string
@@ -131,6 +131,12 @@ func Open(path string) (*DB, error) {
 	}
 	if found == 10 {
 		if err := migrateV10ToV11(context.Background(), database); err != nil {
+			return closeOnError(StatusUnavailable, found, err)
+		}
+		found = 11
+	}
+	if found == 11 {
+		if err := migrateV11ToV12(context.Background(), database); err != nil {
 			return closeOnError(StatusUnavailable, found, err)
 		}
 		found = CurrentSchemaVersion

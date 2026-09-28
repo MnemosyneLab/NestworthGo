@@ -13,7 +13,7 @@ import type { HoldingAmountsDTO, InstrumentHoldingsDTO } from "../../../bindings
 type SortKey = "name" | "account" | "quantity" | "totalCost" | "currentValue" | "unrealizedGain";
 type Row = { id: string; group: InstrumentHoldingsDTO; amounts: HoldingAmountsDTO; accountId?: string; accountName?: string };
 
-export function InstrumentHoldingsTable({ groups, onOpenAccount }: { groups: InstrumentHoldingsDTO[]; onOpenAccount?: (id: string) => void }) {
+export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrumentIds }: { groups: InstrumentHoldingsDTO[]; onOpenAccount?: (id: string) => void; managedInstrumentIds?: ReadonlySet<string> }) {
   const { t, i18n } = useTranslation();
   const [view, setView] = useState("instrument");
   const [showZero, setShowZero] = useState(false);
@@ -60,7 +60,7 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount }: { groups: Ins
       </div>
     </td>
     <td className="px-3 py-3">{row.accountId ? <button type="button" className="text-primary underline-offset-4 hover:underline focus-visible:underline" onClick={() => onOpenAccount?.(row.accountId!)}>{row.accountName}</button> : t("holdingsSummary.accountCount", { count: new Set((row.group.holdings ?? []).map(member => member.accountId)).size })}</td>
-    <td className="px-3 py-3 whitespace-nowrap">{formatAmount(row.amounts.quantity)} {metalUnitLabel(row.group.quantityUnit, t) || row.group.quantityUnit}</td>
+    <td className="px-3 py-3 whitespace-nowrap">{managedInstrumentIds?.has(row.group.instrumentId) ? t("availableFunds.contractQuantity") : `${formatAmount(row.amounts.quantity)} ${metalUnitLabel(row.group.quantityUnit, t) || row.group.quantityUnit}`}</td>
     <td className="px-3 py-3 whitespace-nowrap">{money(row.amounts, "totalCost")}</td>
     <td className="px-3 py-3 whitespace-nowrap">{money(row.amounts, "currentValue")}</td>
     <td className="px-3 py-3 whitespace-nowrap">{money(row.amounts, "unrealizedGain")}</td>

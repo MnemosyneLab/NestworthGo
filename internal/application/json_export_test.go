@@ -20,7 +20,7 @@ func decodeExport(t *testing.T, service *Service) ExportDocument {
 	if err := json.Unmarshal(data, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc.Format != ExportFormat || doc.FormatVersion != 1 || !doc.CurrentState.Derived {
+	if doc.Format != ExportFormat || doc.FormatVersion != ExportFormatVersion || !doc.CurrentState.Derived {
 		t.Fatalf("metadata = %+v", doc)
 	}
 	for _, forbidden := range []string{"apiKey", "database.sqlite", "mutationKeys", "dailySnapshots", "projectionKind", "iconKey"} {
@@ -178,7 +178,7 @@ func TestJSONExportStableEmptyCollectionsAndNoWrites(t *testing.T) {
 	if err := json.Unmarshal(first, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if doc.CurrentState.Accounts == nil || doc.CurrentState.Holdings == nil || doc.Facts.History["activities"] == nil || doc.Facts.MarketData["instrumentQuotes"] == nil {
+	if doc.CurrentState.Accounts == nil || doc.CurrentState.Holdings == nil || doc.Facts.History["activities"] == nil || doc.Facts.MarketData["instrumentQuotes"] == nil || doc.Facts.Liquidity["contracts"] == nil || doc.Facts.Liquidity["operations"] == nil {
 		t.Fatal("empty collection encoded as null")
 	}
 	after, err := service.CurrentDatabasePreview(ctx)

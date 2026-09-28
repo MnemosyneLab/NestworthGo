@@ -19,6 +19,7 @@ import { useInstrumentHoldings } from "@/queries/analytics";
 import { displayError } from "@/lib/display";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { InstrumentHoldingsTable } from "./InstrumentHoldingsTable";
+import { useProducts } from "@/queries/liquidity";
 
 export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: (id: string) => void; active?: boolean }) {
   const { t } = useTranslation();
@@ -37,8 +38,9 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
     (record) => record.account.trackingMode === "holdings" && record.account.accountType !== "cash_on_hand" && !record.account.archivedAt,
   );
   const holdings = useInstrumentHoldings();
+  const products = useProducts({ includeClosed: true });
 
-  if (accounts.isLoading || instruments.isLoading || holdings.isLoading || origin.isLoading) {
+  if (accounts.isLoading || instruments.isLoading || holdings.isLoading || origin.isLoading || products.isLoading) {
     return <LoadingState label={t("portfolio.loading")} />;
   }
 
@@ -52,6 +54,7 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
           void instruments.refetch();
           void holdings.refetch();
           void origin.refetch();
+          void products.refetch();
         }}
         retryLabel={t("common.retryAction")}
       />
@@ -117,7 +120,7 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
                   <Label htmlFor="holding-instrument">{t("history.instrument")}</Label>
                   <NativeSelect id="holding-instrument" value={instrumentId} onChange={(event) => setInstrumentId(event.target.value)}>
                     <option value="">{t("history.selectInstrument")}</option>
-                    {(instruments.data ?? []).map((instrument) => (
+                    {(instruments.data ?? []).filter((instrument) => !(products.data ?? []).some((detail) => detail.product.instrumentId === instrument.id)).map((instrument) => (
                       <option key={instrument.id} value={instrument.id}>
                         {instrumentDisplayLabel(instrument, instrument.name)}
                       </option>
@@ -152,7 +155,7 @@ export function HoldingsTab({ onOpenAccount, active = true }: { onOpenAccount?: 
       {allHoldings.length === 0 ? (
         <EmptyState title={t("portfolio.noHoldings")} description={t("portfolio.noHoldingsDescription")} />
       ) : (
-        <InstrumentHoldingsTable groups={allHoldings} onOpenAccount={onOpenAccount} />
+        <InstrumentHoldingsTable groups={allHoldings} onOpenAccount={onOpenAccount} managedInstrumentIds={new Set((products.data ?? []).map((detail) => detail.product.instrumentId))} />
       )}
     </div>
   );

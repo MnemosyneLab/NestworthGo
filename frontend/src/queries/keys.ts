@@ -117,4 +117,13 @@ export const queryKeys = {
     health: ["marketdata", "health"] as const,
     instrumentSearch: (query: string, instrumentType: string) => ["marketdata", "instrumentSearch", query, instrumentType] as const,
   },
+  liquidity: {
+    all: ["liquidity"] as const,
+    overview: (customHorizonOn: string, includeEarlyWithdrawal: boolean) =>
+      ["liquidity", "overview", { customHorizonOn, includeEarlyWithdrawal }] as const,
+    products: (accountId: string, includeClosed: boolean) =>
+      ["liquidity", "products", { accountId, includeClosed }] as const,
+    product: (productId: string) => ["liquidity", "product", productId] as const,
+    operations: (productId: string) => ["liquidity", "operations", productId] as const,
+  },
 } as const;

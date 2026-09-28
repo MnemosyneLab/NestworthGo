@@ -55,6 +55,13 @@ export const errorCodesEn: ErrorCodeCatalog = {
   backup_restore_busy: "A backup or restore is already in progress.",
   backup_restore_swap_failed: "The current database could not be replaced.",
   backup_restore_rollback_failed: "Restore could not be completed and the previous database could not be recovered.",
+  stale_preview: "This preview is out of date. Request a new preview before recording.",
+  revision_conflict: "This record was changed. Reload and try again.",
+  managed_position_conflict: "This position is managed by a product contract. Use the product operation instead.",
+  unsupported_partial_operation: "Partial product operations are not supported.",
+  unresolved_reservation_release: "Active reservations must be released before this product can settle.",
+  receipt_pending: "Receipt is due and still unconfirmed.",
+  unsafe_undo: "This grouped product operation cannot be undone safely.",
   internal: "An unexpected error occurred.",
 };
 
@@ -100,6 +107,13 @@ export const errorCodesZhCN: ErrorCodeCatalog = {
   backup_restore_busy: "备份或恢复正在进行中。",
   backup_restore_swap_failed: "无法替换当前数据库。",
   backup_restore_rollback_failed: "恢复未能完成，且无法还原恢复前的数据库。",
+  stale_preview: "预览已过期。请重新预览后再确认。",
+  revision_conflict: "该记录已被更改。请刷新后重试。",
+  managed_position_conflict: "该持仓由产品合约管理。请使用产品操作。",
+  unsupported_partial_operation: "不支持部分产品操作。",
+  unresolved_reservation_release: "结算前必须先释放有效预留。",
+  receipt_pending: "到期款项尚未确认入账。",
+  unsafe_undo: "该分组产品操作无法安全撤销。",
   internal: "发生了意外错误。",
 };
 
@@ -145,5 +159,12 @@ export const errorCodesZhTW: ErrorCodeCatalog = {
   backup_restore_busy: "備份或還原正在進行中。",
   backup_restore_swap_failed: "無法取代目前資料庫。",
   backup_restore_rollback_failed: "還原未能完成，且無法復原還原前的資料庫。",
+  stale_preview: "預覽已過期。請重新預覽後再確認。",
+  revision_conflict: "此記錄已被更改。請重新載入後再試。",
+  managed_position_conflict: "此持倉由產品合約管理。請使用產品操作。",
+  unsupported_partial_operation: "不支援部分產品操作。",
+  unresolved_reservation_release: "結算前必須先釋放有效預留。",
+  receipt_pending: "到期款項尚未確認入帳。",
+  unsafe_undo: "此分組產品操作無法安全撤銷。",
   internal: "發生了意外的錯誤。",
 };

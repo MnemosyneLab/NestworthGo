@@ -111,6 +111,7 @@ export interface ActivityDTO {
     "transactionFxRate"?: string | null;
     "tradeDetail"?: TradeDetailDTO | null;
     "dividendDetail"?: DividendDetailDTO | null;
+    "productContext"?: ProductActivityContextDTO | null;
     "resulting"?: EndpointViewDTO[] | null;
     "effects": ActivityEffectDTO[] | null;
 }
@@ -555,6 +556,15 @@ export interface MoneyView {
 export interface OwnershipShareDTO {
     "memberId": string;
     "shareBps": number;
+}
+
+export interface ProductActivityContextDTO {
+    "operationId": string;
+    "productId": string;
+    "purpose": string;
+    "holdingId": string;
+    "instrumentId": string;
+    "productKind": string;
 }
 
 /**

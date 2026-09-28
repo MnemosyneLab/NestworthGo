@@ -47,6 +47,7 @@ export type {
     MissingInputDTO,
     MoneyView,
     OwnershipShareDTO,
+    ProductActivityContextDTO,
     QuoteEvidenceDTO,
     ReturnCalendarDTO,
     ReturnCalendarSummaryDTO,

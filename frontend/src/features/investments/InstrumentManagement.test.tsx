@@ -55,6 +55,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
     SearchInstruments: (...args: unknown[]) => searchInstruments(...args),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
+  Service: { ListProducts: () => Promise.resolve([]), Overview: vi.fn() },
+}));
 
 function renderManagement() {
   const queryClient = createTestQueryClient();

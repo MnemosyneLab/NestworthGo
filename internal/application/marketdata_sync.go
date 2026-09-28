@@ -305,6 +305,22 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 		return SyncPlanPreview{}, err
 	}
 	preview.SnapshotWorkEstimate = estimateDirtyDays(state, plan)
+	origin, err := s.HistoryOrigin(ctx)
+	if err != nil {
+		return SyncPlanPreview{}, err
+	}
+	if origin != nil {
+		issues, err := s.incompleteSnapshotHealth(ctx, origin, plan, nil)
+		if err != nil {
+			return SyncPlanPreview{}, err
+		}
+		from, to, ok := closedSnapshotRange(state, plan)
+		for _, date := range readySnapshotDates(issues) {
+			if !ok || date < from || date > to {
+				preview.SnapshotWorkEstimate++
+			}
+		}
+	}
 	return preview, nil
 }
 

@@ -1,4 +1,4 @@
-# Nestworth JSON export, version 1
+# Nestworth JSON export, version 2
 
 ## Purpose
 
@@ -9,11 +9,13 @@ it never fetches missing history. Secrets, settings, local paths, UI icon keys,
 logs, daily valuation caches, mutation keys, and retry scheduling are not exported.
 User-authored text is not redacted.
 
-The normative field/type inventory is [JSON Schema](json-export-v1.schema.json).
-`format` is `com.nestworth.export`; `formatVersion` is `1`, independent of the DB
+The normative field/type inventory is [JSON Schema](json-export-v2.schema.json).
+`format` is `com.nestworth.export`; `formatVersion` is `2`, independent of the DB
 schema. Consumers must reject unsupported versions. A breaking field, type, or
 semantic change requires a new format version. The application version/build are
 informational. IDs are preserved strings; resolve references by ID, never by name.
+Version 1 remains documented by [json-export-v1.schema.json](json-export-v1.schema.json)
+for older files; current Nestworth writes version 2.
 
 ## Representation
 
@@ -57,6 +59,13 @@ what was available locally at export, not a guarantee of complete market history
 Metal quotes include a normalized `conversion` object, with source price, unit,
 FX rate and timestamps. Unknown fields in stored conversion evidence are excluded.
 
+`facts.liquidity` contains persisted available-funds metadata: product contracts,
+liquidity policies, reservations (including released rows), product operations,
+and operation links to products, activities, and reservations. Released, cancelled,
+and reversed records are included. Quote and Activity financial facts stay in
+`marketData` and `history`; they are not duplicated inside each product. Current
+derived availability totals are not exported as facts. Mutation keys remain excluded.
+
 ## Derived current state
 
 `currentState.derived` is always true. `accounts` contains **every** account, including
@@ -92,7 +101,7 @@ from decimal import Decimal
 with open("Nestworth.nestworth.json", encoding="utf-8") as source:
     data = json.load(source)
 assert data["format"] == "com.nestworth.export"
-assert data["formatVersion"] == 1
+assert data["formatVersion"] == 2
 instruments = {item["id"]: item for item in data["facts"]["directory"]["instruments"]}
 for holding in data["currentState"]["holdings"]:
     if holding["archived"]:

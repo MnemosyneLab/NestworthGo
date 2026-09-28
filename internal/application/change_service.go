@@ -68,6 +68,9 @@ func (s *Service) changeStateFrom(origin *domain.HistoryOrigin, snapshot domain.
 }
 
 func (s *Service) PreviewChange(ctx context.Context, command any) (domain.ChangePreview, error) {
+	if err := s.rejectManagedCommand(ctx, command); err != nil {
+		return domain.ChangePreview{}, err
+	}
 	state, err := s.changeState(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -99,6 +102,9 @@ func (s *Service) RecordChangeWithMutation(ctx context.Context, command any, mut
 		return domain.ChangePreview{}, err
 	} else if replay != nil {
 		return *replay, nil
+	}
+	if err := s.rejectManagedCommand(ctx, command); err != nil {
+		return domain.ChangePreview{}, err
 	}
 	return s.recordChangeLocked(ctx, command, key)
 }

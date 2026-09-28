@@ -61,6 +61,9 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/in
     ArchiveInstrument: vi.fn(),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
+  Service: { ListProducts: () => Promise.resolve([]), Overview: vi.fn() },
+}));
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", () => ({
   Service: {

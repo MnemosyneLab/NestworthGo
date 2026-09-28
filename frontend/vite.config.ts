@@ -20,6 +20,8 @@ function preserveDistGitkeep() {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  // Pre-bundle the lazily loaded action menu before the desktop page connects.
+  optimizeDeps: { include: ["@base-ui/react/menu"] },
   server: {
     host: "127.0.0.1",
     port: Number(process.env.WAILS_VITE_PORT) || 9245,

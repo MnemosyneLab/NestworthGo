@@ -274,6 +274,9 @@ func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, 
 	if err != nil {
 		return domain.Instrument{}, err
 	}
+	if err := s.rejectManagedInstrument(ctx, id); err != nil {
+		return domain.Instrument{}, err
+	}
 	if !input.Replace {
 		mergeInstrumentInput(&input, current)
 	}
@@ -315,6 +318,9 @@ func (s *Service) ArchiveInstrument(ctx context.Context, id domain.InstrumentID,
 	if err != nil {
 		return err
 	}
+	if err := s.rejectManagedInstrument(ctx, id); err != nil {
+		return err
+	}
 	err = s.repository.SetInstrumentArchive(ctx, household.ID, id, archived, s.clock())
 	if err == nil {
 		s.invalidateAnalysis()
@@ -330,6 +336,9 @@ func (s *Service) SetInstrumentQuoteSource(ctx context.Context, id domain.Instru
 	defer unlock()
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
+		return err
+	}
+	if err := s.rejectManagedInstrument(ctx, id); err != nil {
 		return err
 	}
 	parsed, err := domain.ParseQuoteSourceKind(source)
@@ -414,6 +423,9 @@ func (s *Service) CreateHolding(ctx context.Context, input HoldingInput) (domain
 	}
 	if instrument.ArchivedAt != nil {
 		return domain.Holding{}, &domain.Error{Code: domain.ErrValidation, Field: "instrumentId", Message: "instrument is archived"}
+	}
+	if err := s.rejectManagedInstrument(ctx, instrumentID); err != nil {
+		return domain.Holding{}, err
 	}
 	holding, err := domain.NewHoldingForAccount(account.Account, instrument, quantity, input.Note, input.SortOrder, s.clock())
 	if err != nil {
@@ -566,6 +578,9 @@ func (s *Service) ArchiveHolding(ctx context.Context, id domain.HoldingID, archi
 	if household == nil {
 		return onboardingRequired()
 	}
+	if err := s.rejectManagedHolding(ctx, id); err != nil {
+		return err
+	}
 	origin, originErr := s.repository.HistoryOrigin(ctx, household.ID)
 	if originErr != nil {
 		return originErr
@@ -696,6 +711,9 @@ func (s *Service) AppendManualInstrumentQuote(ctx context.Context, instrumentID 
 	}
 	if instrument.ArchivedAt != nil {
 		return domain.InstrumentQuote{}, &domain.Error{Code: domain.ErrValidation, Field: "instrumentId", Message: "instrument is archived"}
+	}
+	if err := s.rejectManagedInstrument(ctx, instrumentID); err != nil {
+		return domain.InstrumentQuote{}, err
 	}
 	price, err := domain.ParseUnitPrice(unitPrice)
 	if err != nil {

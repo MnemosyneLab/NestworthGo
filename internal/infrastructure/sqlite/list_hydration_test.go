@@ -37,8 +37,8 @@ func TestListActivityPageHydrationQueryCountIsBounded(t *testing.T) {
 	if len(page.Activities) != rows {
 		t.Fatalf("page size = %d, want %d", len(page.Activities), rows)
 	}
-	if counter.queries > 5 {
-		t.Fatalf("ListActivityPage query count = %d, want at most 1 parent + 4 batched child queries", counter.queries)
+	if counter.queries > 6 {
+		t.Fatalf("ListActivityPage query count = %d, want at most 1 parent + 5 batched child queries", counter.queries)
 	}
 	if page.Activities[0].Effects == nil || page.Activities[rows-1].Effects == nil {
 		t.Fatalf("effects were not hydrated: first=%+v last=%+v", page.Activities[0].Effects, page.Activities[rows-1].Effects)

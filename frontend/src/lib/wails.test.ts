@@ -51,3 +51,7 @@ describe("translateWailsError", () => {
     expect(message).toContain(":");
   });
 });
+
+it.each([["startOn", "Start date"], ["maturityOn", "Maturity date"], ["earlyFee", "Early fee"]])("labels product validation field %s", (field, label) => {
+  expect(translateWailsError({ code: "validation", field, message: "invalid" })).toContain(label);
+});

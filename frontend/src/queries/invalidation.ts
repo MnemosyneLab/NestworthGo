@@ -31,6 +31,11 @@ export function invalidateQuoteReads(queryClient: QueryClient, instrumentId?: st
   invalidate(queryClient, instrumentId ? queryKeys.quote.instrument.current(instrumentId) : queryKeys.quote.all);
 }
 
+export function invalidateLiquidityReads(queryClient: QueryClient) {
+  invalidate(queryClient, queryKeys.liquidity.all);
+  invalidate(queryClient, queryKeys.overview.all);
+}
+
 export function invalidateCurrentValuation(queryClient: QueryClient, _accountIds?: readonly string[]) {
   invalidate(queryClient, queryKeys.marketdata.all);
   invalidate(queryClient, queryKeys.overview.all);
@@ -40,6 +45,7 @@ export function invalidateCurrentValuation(queryClient: QueryClient, _accountIds
   invalidateAccountReads(queryClient);
   invalidate(queryClient, queryKeys.analytics.accountGains.all);
   invalidate(queryClient, queryKeys.analytics.instrumentHoldings);
+  invalidate(queryClient, queryKeys.liquidity.all);
 }
 
 export function invalidateHistoryReads(queryClient: QueryClient) {

@@ -1,3 +1,4 @@
+import { productActivityText } from "./productActivityText";
 import { displayEnum } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
@@ -63,6 +64,7 @@ function ActivityDetailBody({
   t: Translator;
 }) {
   const sentence = activitySentence(t, activity, accounts, instruments, holdings);
+  const product = productActivityText(t, activity, accounts, instruments);
   const detail = activity.tradeDetail;
   const effects = activity.effects ?? [];
   const byRole = (role: string) => effects.find((effect) => effect.role === role);
@@ -76,12 +78,18 @@ function ActivityDetailBody({
 
   return (
     <div className="flex flex-col gap-4 text-sm">
-      <p><span className="text-muted-foreground">{t("history.detailKind")}</span><span className="ml-2">{displayEnum(t, "history.kind", activity.kind)}</span></p>
+      <p><span className="text-muted-foreground">{t("history.detailKind")}</span><span className="ml-2">{product?.label ?? displayEnum(t, "history.kind", activity.kind)}</span></p>
       <p><span className="text-muted-foreground">{t("history.detailLocalDateTime")}</span><span className="ml-2">{formatTimestamp(activity.effectiveAt, timezone)}</span></p>
       {timezone && <p><span className="text-muted-foreground">{t("history.detailTimezone")}</span><span className="ml-2">{timezone}</span></p>}
       <p><span className="text-muted-foreground">{t("history.detailSentence")}</span><span className="ml-2">{sentence}</span></p>
 
-      {(activity.kind === "buy" || activity.kind === "sell") && (
+      {product && <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+        <p>{t("history.detailAccount")}: {product.account}</p>
+        <p>{t("history.detailInstrument")}: {product.instrument}</p>
+        {product.showAmount && <p>{product.amountLabel}: {product.amount}</p>}
+        {detail?.fee && !activity.reversesActivityId && <p>{t("history.fee")}: {moneyText(detail.fee.amount, detail.fee.currency)}</p>}
+      </div>}
+      {!product && (activity.kind === "buy" || activity.kind === "sell") && (
         <div className="flex flex-col gap-1 rounded-md border border-border p-3">
           <p>{t("history.detailAccount")}: {accountName(t, principal, accounts)}</p>
           <p>{t("history.detailInstrument")}: {(detail?.instrumentId ? instruments.get(detail.instrumentId) : undefined) ?? t("history.unknownInstrument")}</p>
@@ -92,14 +100,14 @@ function ActivityDetailBody({
           {detail?.fee && <p>{t("history.fee")}: {moneyText(detail.fee.amount, detail.fee.currency)}</p>}
         </div>
       )}
-      {(activity.kind === "cash_in" || activity.kind === "cash_out") && (
+      {!product && (activity.kind === "cash_in" || activity.kind === "cash_out") && (
         <div className="flex flex-col gap-1 rounded-md border border-border p-3">
           <p>{t("history.detailAccount")}: {accountName(t, firstMoney, accounts)}</p>
           {firstMoney?.money && <p>{t("history.amount")}: {moneyText(firstMoney.money.amount, firstMoney.money.currency)}</p>}
           {activity.reason && <p>{t("history.reasonLabel")}: {displayEnum(t, "history.reason", activity.reason)}</p>}
         </div>
       )}
-      {activity.kind === "cash_dividend" && (
+      {!product && activity.kind === "cash_dividend" && (
         <div className="flex flex-col gap-1 rounded-md border border-border p-3">
           <p>{t("history.detailAccount")}: {accountName(t, effects[0], accounts)}</p>
           <p>{t("history.detailInstrument")}: {(activity.dividendDetail?.instrumentId ? instruments.get(activity.dividendDetail.instrumentId) : undefined) ?? t("history.unknownInstrument")}</p>
@@ -121,7 +129,7 @@ function ActivityDetailBody({
           {fee?.money && <p>{t("history.fee")}: {moneyText(fee.money.amount, fee.money.currency)}</p>}
         </div>
       )}
-      {activity.kind === "position_transfer" && (
+      {!product && activity.kind === "position_transfer" && (
         <div className="flex flex-col gap-1 rounded-md border border-border p-3">
           <p>{t("history.detailChangeType")}: {t(from && to ? "history.detailPositionTransfer" : "history.detailPositionAdjustment")}</p>
           {from && to ? (

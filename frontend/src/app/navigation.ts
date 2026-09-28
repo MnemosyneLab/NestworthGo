@@ -1,9 +1,10 @@
 import type { LucideIcon } from "lucide-react";
-import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, HeartPulse } from "lucide-react";
+import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, HeartPulse, Banknote } from "lucide-react";
 
 export type PageId =
   | "overview"
   | "accounts"
+  | "available-funds"
   | "portfolio"
   | "history"
   | "return-analysis"
@@ -48,6 +49,8 @@ export interface HealthFocus {
   action?: string;
   kind?: string;
   executable?: boolean;
+  // Original component label for a grouped snapshot range; separate from its display title.
+  snapshotComponentLabel?: string;
 }
 
 export interface AccountListFocus {
@@ -62,7 +65,8 @@ export type NavigationTarget =
   | { page: "history"; filters?: HistoryNavigationFilters }
   | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean }
   | { page: "market-data" | "data-health"; focus?: HealthFocus }
-  | { page: Exclude<PageId, "return-analysis" | "asset-changes" | "history" | "accounts" | "market-data" | "data-health"> };
+  | { page: "available-funds"; productId?: string; accountId?: string }
+  | { page: Exclude<PageId, "return-analysis" | "asset-changes" | "history" | "accounts" | "market-data" | "data-health" | "available-funds"> };
 
 /**
  * NavItem is the top-level navigation model. `translationKey` looks up the
@@ -89,6 +93,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: "workspace",
     items: [
       { id: "accounts", translationKey: "nav.accounts", icon: Wallet },
+      { id: "available-funds", translationKey: "nav.availableFunds", icon: Banknote },
       { id: "portfolio", translationKey: "nav.portfolio", icon: PieChart },
     ],
   },
@@ -127,5 +132,6 @@ export function targetForPage(page: PageId): NavigationTarget {
   if (page === "return-analysis") return { page };
   if (page === "asset-changes") return { page };
   if (page === "history") return { page };
+  if (page === "available-funds") return { page };
   return { page };
 }

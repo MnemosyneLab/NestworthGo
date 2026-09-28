@@ -18,11 +18,13 @@ export function TimePicker({
   value,
   onChange,
   disabled = false,
+  clearable = false,
 }: {
   id?: string;
   value: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  clearable?: boolean;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -41,7 +43,7 @@ export function TimePicker({
         id={id}
         type="button"
         disabled={disabled}
-        className={cn(buttonVariants({ variant: "outline" }), "w-full justify-start font-normal", !value && "text-muted-foreground")}
+        className={cn(buttonVariants({ variant: "outline" }), "w-full shrink-0 justify-start font-normal", !value && "text-muted-foreground")}
       >
         <Clock className="size-4" aria-hidden="true" />
         {value || t("history.selectEmpty")}
@@ -79,6 +81,7 @@ export function TimePicker({
             ))}
           </ul>
         </div>
+        {clearable && value && <Button type="button" variant="ghost" onClick={() => { onChange(""); setOpen(false); }}>{t("common.clearSelection")}</Button>}
       </PopoverContent>
     </Popover>
   );

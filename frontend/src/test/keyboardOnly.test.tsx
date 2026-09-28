@@ -117,6 +117,12 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recov
     ConfirmRestore: () => Promise.resolve({ restartRequired: false }),
   },
 }));
+vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
+  Service: {
+    Overview: () => Promise.resolve({ asOf: "", localDate: "2026-09-20", timezone: "UTC", baseCurrency: "USD", assumptions: [], buckets: [], sources: [], unresolvedReservations: [] }),
+    ListProducts: () => Promise.resolve([]),
+  },
+}));
 
 function renderWithQueryClient(element: React.ReactElement) {
   const queryClient = createTestQueryClient();

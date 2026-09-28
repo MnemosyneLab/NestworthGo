@@ -17,6 +17,25 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
     GetCurrentSyncJob: () => Promise.resolve({ jobId: "" }),
   },
 }));
+vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
+  Service: {
+    Overview: () => Promise.resolve({
+      asOf: "",
+      localDate: "2026-09-20",
+      timezone: "UTC",
+      baseCurrency: "USD",
+      assumptions: [],
+      buckets: [
+        { horizonOn: "2026-09-20", status: "unavailable", fullAvailable: null, knownAvailableSubtotal: null, appliedReserveSubtotal: null, fullUnreserved: null, knownUnreservedSubtotal: null, unknownSourceCount: 0, excludedSourceCount: 0, estimatedSourceCount: 0, nativeCurrencyGroups: [], warnings: [] },
+        { horizonOn: "2026-09-27", status: "unavailable", fullAvailable: null, knownAvailableSubtotal: null, appliedReserveSubtotal: null, fullUnreserved: null, knownUnreservedSubtotal: null, unknownSourceCount: 0, excludedSourceCount: 0, estimatedSourceCount: 0, nativeCurrencyGroups: [], warnings: [] },
+        { horizonOn: "2026-10-20", status: "unavailable", fullAvailable: null, knownAvailableSubtotal: null, appliedReserveSubtotal: null, fullUnreserved: null, knownUnreservedSubtotal: null, unknownSourceCount: 0, excludedSourceCount: 0, estimatedSourceCount: 0, nativeCurrencyGroups: [], warnings: [] },
+      ],
+      sources: [],
+      unresolvedReservations: [],
+    }),
+    ListProducts: () => Promise.resolve([]),
+  },
+}));
 vi.mock("@wailsio/runtime", () => ({
   Events: { On: () => () => undefined },
 }));

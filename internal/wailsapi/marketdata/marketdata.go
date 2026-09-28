@@ -355,6 +355,7 @@ type HealthIssueDTO struct {
 	Action       string `json:"action"`
 	Executable   bool   `json:"executable"`
 	Collapsed    bool   `json:"collapsed,omitempty"`
+	NextCheckAt  string `json:"nextCheckAt,omitempty"`
 }
 
 type MarketDataHealthReportDTO struct {
@@ -376,7 +377,7 @@ func fromHealthIssue(issue application.HealthIssue) HealthIssueDTO {
 		InstrumentID: issue.InstrumentID, AccountID: issue.AccountID, CurrencyA: issue.CurrencyA, CurrencyB: issue.CurrencyB,
 		RangeStart: issue.RangeStart, RangeEnd: issue.RangeEnd, RangeCount: issue.RangeCount,
 		Code: issue.Code, Reason: issue.Reason, Action: issue.Action, Executable: issue.Executable,
-		Collapsed: issue.Collapsed,
+		Collapsed: issue.Collapsed, NextCheckAt: issue.NextCheckAt,
 	}
 }
 

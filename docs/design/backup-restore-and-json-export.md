@@ -1,7 +1,7 @@
 # Backup, Restore, and JSON Export
 
 - Status: **Implemented**
-- Database: SQLite schema `11`
+- Database: SQLite schema `12`
 - Platform: Wails v3
 - Companion: [JSON export format](json-export-format.md)
 
@@ -239,12 +239,12 @@ leaves the application in a safe blocked state and does not claim restore succes
 
 ## 6. JSON export
 
-The [version 1 contract](json-export-format.md) and its
-[JSON Schema](json-export-v1.schema.json) define the public export independently
+The [version 2 contract](json-export-format.md) and its
+[JSON Schema](json-export-v2.schema.json) define the public export independently
 of SQLite schema versions and frontend DTOs. The export includes reference data,
 opening positions, business history, effective configuration history, market
-observations, and a derived current-state summary. Runtime caches and secrets are
-excluded. Missing financial inputs remain explicit null values and status flags.
+observations, persisted liquidity/product facts, and a derived current-state summary.
+Runtime caches and secrets are excluded. Missing financial inputs remain explicit null values and status flags.
 
 ## 7. Error and privacy boundaries
 

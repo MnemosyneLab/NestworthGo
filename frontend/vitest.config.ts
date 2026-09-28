@@ -10,6 +10,9 @@ export default defineConfig({
     },
   },
   test: {
+    // Keep concurrent jsdom/React renders bounded so short interaction
+    // deadlines remain reliable on machines with many logical CPUs.
+    maxWorkers: 4,
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: true,
