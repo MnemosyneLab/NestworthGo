@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"strings"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -71,12 +72,54 @@ func (s *Service) PreviewChange(ctx context.Context, command any) (domain.Change
 	if err := s.rejectManagedCommand(ctx, command); err != nil {
 		return domain.ChangePreview{}, err
 	}
-	state, err := s.changeState(ctx)
+	origin, snapshot, err := s.loadChangeContext(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	state, err := s.changeStateFrom(origin, snapshot)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	state, command, _, err = s.prepareChangeHolding(snapshot, state, command)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
 	preview, _, err := s.prepareRecordedChange(ctx, state, command)
 	return preview, err
+}
+
+// PreviewChangeGuarded returns a process-local state token with the preview.
+// The read is serialized with application writes so the token and preview
+// describe the same ledger state. The caller must bind the reviewed command
+// to this token before offering it for confirmation.
+func (s *Service) PreviewChangeGuarded(ctx context.Context, command any) (domain.ChangePreview, string, error) {
+	return s.PreviewChangeGuardedWith(ctx, func(context.Context) (any, error) { return command, nil })
+}
+
+// PreviewChangeGuardedWith also resolves the command while holding the read
+// gate. This matters when command construction reads the history timezone or
+// other application state that a concurrent restore could replace.
+func (s *Service) PreviewChangeGuardedWith(ctx context.Context, build func(context.Context) (any, error)) (domain.ChangePreview, string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if build == nil {
+		return domain.ChangePreview{}, "", &domain.Error{Code: domain.ErrValidation, Field: "command", Message: "command builder is required"}
+	}
+	unlock, err := s.beginPreviewRead(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, "", err
+	}
+	defer unlock()
+	command, err := build(ctx)
+	if err != nil {
+		return domain.ChangePreview{}, "", err
+	}
+	preview, err := s.PreviewChange(ctx, command)
+	if err != nil {
+		return domain.ChangePreview{}, "", err
+	}
+	return preview, s.writes.previewToken(), nil
 }
 
 // RecordChange re-loads the current state before building and committing the
@@ -90,6 +133,17 @@ func (s *Service) RecordChange(ctx context.Context, command any) (domain.ChangeP
 // and older callers. The same ID plus the same payload hash replays the
 // original Activity; the same ID with a different hash returns conflict.
 func (s *Service) RecordChangeWithMutation(ctx context.Context, command any, mutationID, payloadHash string) (domain.ChangePreview, error) {
+	return s.recordChangeWithMutation(ctx, command, mutationID, payloadHash, "", false)
+}
+
+// RecordChangeGuarded commits only while the state seen by a guarded preview
+// is still current. A persisted mutation is replayed before the token check,
+// so a retry after a completed write also works after a process restart.
+func (s *Service) RecordChangeGuarded(ctx context.Context, command any, mutationID, payloadHash, expectedToken string) (domain.ChangePreview, error) {
+	return s.recordChangeWithMutation(ctx, command, mutationID, payloadHash, expectedToken, true)
+}
+
+func (s *Service) recordChangeWithMutation(ctx context.Context, command any, mutationID, payloadHash, expectedToken string, guarded bool) (domain.ChangePreview, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -103,6 +157,17 @@ func (s *Service) RecordChangeWithMutation(ctx context.Context, command any, mut
 		return domain.ChangePreview{}, err
 	} else if replay != nil {
 		return *replay, nil
+	}
+	if guarded {
+		if key == nil {
+			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrValidation, Field: "mutationId", Message: "is required"}
+		}
+		if strings.TrimSpace(expectedToken) == "" {
+			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrValidation, Field: "previewToken", Message: "is required"}
+		}
+		if s.writes.previewToken() != expectedToken {
+			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrStalePreview, Field: "previewToken", Message: "preview is stale; request a new preview"}
+		}
 	}
 	if err := s.rejectManagedCommand(ctx, command); err != nil {
 		return domain.ChangePreview{}, err
@@ -122,46 +187,64 @@ func (s *Service) recordChangeLocked(ctx context.Context, command any, key *doma
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	if trade, ok := command.(domain.TradeInput); ok && trade.HoldingID == "" {
-		for _, existing := range snapshot.Holdings {
-			if existing.ArchivedAt == nil && existing.AccountID == trade.SettlementAccountID && existing.InstrumentID == trade.InstrumentID {
-				trade.HoldingID = existing.ID
-				return s.commitChangeLocked(ctx, state, trade, key)
-			}
-		}
-		if trade.Side != domain.TradeBuy {
-			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrInvalidTrade, Field: "holdingId", Message: "a Holding is required when selling"}
-		}
-		accountRecord, accountOK := accountFromSnapshot(snapshot, trade.SettlementAccountID)
-		if !accountOK {
-			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrNotFound, Field: "settlementAccountId", Message: "Account was not found"}
-		}
-		instrument, instrumentOK := instrumentFromSnapshot(snapshot, trade.InstrumentID)
-		if !instrumentOK {
-			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrNotFound, Field: "instrumentId", Message: "Instrument was not found"}
-		}
-		zero, zeroErr := domain.ParseQuantity("0")
-		if zeroErr != nil {
-			return domain.ChangePreview{}, zeroErr
-		}
-		holding, holdingErr := domain.NewHoldingForAccount(accountRecord.Account, instrument, zero, nil, 0, s.clock())
-		if holdingErr != nil {
-			return domain.ChangePreview{}, holdingErr
-		}
-		state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}
-		trade.HoldingID = holding.ID
-		preview, commit, previewErr := s.prepareRecordedChange(ctx, state, trade)
+	state, command, newHolding, err := s.prepareChangeHolding(snapshot, state, command)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if newHolding != nil {
+		preview, commit, previewErr := s.prepareRecordedChange(ctx, state, command)
 		if previewErr != nil {
 			return domain.ChangePreview{}, previewErr
 		}
 		commit.Mutation = key
-		if commitErr := s.repository.CreateHoldingWithActivity(ctx, holding, commit, s.clock()); commitErr != nil {
+		if commitErr := s.repository.CreateHoldingWithActivity(ctx, *newHolding, commit, s.clock()); commitErr != nil {
 			return domain.ChangePreview{}, commitErr
 		}
 		s.invalidateAnalysis()
 		return preview, nil
 	}
 	return s.commitChangeLocked(ctx, state, command, key)
+}
+
+// prepareTradeHolding makes the first-buy Holding visible to historical
+// replay. Preview uses it only in memory; record persists it with the Activity
+// in one repository transaction.
+func (s *Service) prepareTradeHolding(snapshot domain.PortfolioSnapshot, state domain.ChangeState, command any) (domain.ChangeState, any, *domain.Holding, error) {
+	trade, ok := command.(domain.TradeInput)
+	if !ok || trade.HoldingID != "" {
+		return state, command, nil, nil
+	}
+	for _, existing := range snapshot.Holdings {
+		if existing.ArchivedAt == nil && existing.AccountID == trade.SettlementAccountID && existing.InstrumentID == trade.InstrumentID {
+			trade.HoldingID = existing.ID
+			return state, trade, nil, nil
+		}
+	}
+	if trade.Side != domain.TradeBuy {
+		return state, command, nil, &domain.Error{Code: domain.ErrInvalidTrade, Field: "holdingId", Message: "a Holding is required when selling"}
+	}
+	accountRecord, accountOK := accountFromSnapshot(snapshot, trade.SettlementAccountID)
+	if !accountOK {
+		return state, command, nil, &domain.Error{Code: domain.ErrNotFound, Field: "settlementAccountId", Message: "Account was not found"}
+	}
+	instrument, instrumentOK := instrumentFromSnapshot(snapshot, trade.InstrumentID)
+	if !instrumentOK {
+		return state, command, nil, &domain.Error{Code: domain.ErrNotFound, Field: "instrumentId", Message: "Instrument was not found"}
+	}
+	if instrument.ArchivedAt != nil {
+		return state, command, nil, &domain.Error{Code: domain.ErrConflict, Field: "instrumentId", Message: "Instrument is archived"}
+	}
+	zero, err := domain.ParseQuantity("0")
+	if err != nil {
+		return state, command, nil, err
+	}
+	holding, err := domain.NewHoldingForAccount(accountRecord.Account, instrument, zero, nil, 0, s.clock())
+	if err != nil {
+		return state, command, nil, err
+	}
+	state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}
+	trade.HoldingID = holding.ID
+	return state, trade, &holding, nil
 }
 
 // commitChangeLocked previews the command against the given state and commits

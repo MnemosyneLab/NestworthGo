@@ -13,6 +13,9 @@ import (
 
 func TestMarketDataSyncPreviewStartGetAndEvents(t *testing.T) {
 	app := wailstest.NewService(t)
+	// The fixture closes SQLite at cleanup; let any asynchronous sync worker
+	// stop before that happens, including when an assertion fails early.
+	t.Cleanup(app.CancelMarketDataSyncAndWait)
 	if err := household.NewService(app).CompleteOnboarding(context.Background(), household.CompleteOnboardingRequest{
 		HouseholdName: "Sync", BaseCurrency: "SGD", MemberNames: []string{"Owner"}, Timezone: "Asia/Singapore",
 	}); err != nil {
@@ -35,19 +38,26 @@ func TestMarketDataSyncPreviewStartGetAndEvents(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if attached.Job.JobID != start.Job.JobID {
-		t.Fatalf("expected attach or same completed job, got %+v", attached)
+	if attached.Job.JobID == start.Job.JobID {
+		if !attached.Attached {
+			t.Fatalf("same running job should attach, got %+v", attached)
+		}
+	} else {
+		first, found := app.GetSyncJob(start.Job.JobID)
+		if !found || first.Outcome == application.SyncOutcomeRunning || attached.Attached {
+			t.Fatalf("new job requires completed predecessor, first=%+v found=%t next=%+v", first, found, attached)
+		}
 	}
 	current, err := service.GetCurrentSyncJob()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if current.JobID != "" && current.JobID != start.Job.JobID {
-		t.Fatalf("current job %s, start %s", current.JobID, start.Job.JobID)
+	if current.JobID != attached.Job.JobID {
+		t.Fatalf("current job %s, latest start %s", current.JobID, attached.Job.JobID)
 	}
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		job, found := app.GetSyncJob(start.Job.JobID)
+		job, found := app.GetSyncJob(attached.Job.JobID)
 		if !found {
 			t.Fatal("started job not found in application state")
 		}

@@ -37,6 +37,15 @@ func (s *Service) replayActivityMutation(ctx context.Context, key *domain.Activi
 	if bootstrap.Household == nil {
 		return nil, onboardingRequired()
 	}
+	if batchRepo, ok := s.repository.(ChangeBatchRepository); ok {
+		batch, err := batchRepo.LookupChangeBatch(ctx, bootstrap.Household.ID, key.ID)
+		if err != nil {
+			return nil, err
+		}
+		if batch != nil {
+			return nil, &domain.Error{Code: domain.ErrConflict, Field: "mutationId", Message: "this mutation ID was already used for a batch"}
+		}
+	}
 	stored, err := s.repository.LookupActivityMutation(ctx, bootstrap.Household.ID, key.ID)
 	if err != nil {
 		return nil, err

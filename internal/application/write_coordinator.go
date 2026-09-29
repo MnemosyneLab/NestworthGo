@@ -2,9 +2,11 @@ package application
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
+	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
@@ -41,10 +43,15 @@ type WriteCoordinator struct {
 	cond      *sync.Cond
 	exclusive bool
 	writers   int
+	// revision changes after every outer write permit, including failed writes.
+	// The nonce makes preview tokens invalid after a process restart.
+	revision uint64
+	nonce    string
 }
 
 func (c *WriteCoordinator) init() {
 	c.cond = sync.NewCond(&c.mu)
+	c.nonce = uuid.NewString()
 }
 
 func backupRestoreBusy() error {
@@ -85,9 +92,26 @@ func (c *WriteCoordinator) acquireWrite() error {
 
 func (c *WriteCoordinator) releaseWrite() {
 	c.mu.Lock()
+	c.revision++
 	c.writers--
 	c.cond.Broadcast()
 	c.mu.Unlock()
+}
+
+// releasePreviewRead frees a write-coordinator slot without marking a
+// mutation. Preview reads need the same exclusion as writes for a coherent
+// snapshot, but must not invalidate their own tokens.
+func (c *WriteCoordinator) releasePreviewRead() {
+	c.mu.Lock()
+	c.writers--
+	c.cond.Broadcast()
+	c.mu.Unlock()
+}
+
+func (c *WriteCoordinator) previewToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.nonce + ":" + strconv.FormatUint(c.revision, 10)
 }
 
 func (c *WriteCoordinator) acquireExclusive(epoch *atomic.Uint64) error {
@@ -110,9 +134,25 @@ func (c *WriteCoordinator) acquireExclusive(epoch *atomic.Uint64) error {
 
 func (c *WriteCoordinator) releaseExclusive() {
 	c.mu.Lock()
+	c.revision++
 	c.exclusive = false
 	c.cond.Broadcast()
 	c.mu.Unlock()
+}
+
+// beginPreviewRead serializes a read of all facts needed for a ledger preview
+// with application writes. A caller already holding a permit stays reentrant.
+func (s *Service) beginPreviewRead(ctx context.Context) (func(), error) {
+	if permitFrom(ctx) != nil {
+		return func() {}, nil
+	}
+	if _, ok := exclusiveKindFrom(ctx); ok {
+		return func() {}, nil
+	}
+	if err := s.writes.acquireWrite(); err != nil {
+		return nil, err
+	}
+	return s.writes.releasePreviewRead, nil
 }
 
 func (s *Service) beginWrite(ctx context.Context) (context.Context, func(), error) {

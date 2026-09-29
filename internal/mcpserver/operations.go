@@ -103,6 +103,13 @@ func (s *Service) RecentOperations() ([]OperationSummary, error) {
 	return ops, nil
 }
 func (s *Service) execute(ctx context.Context, id, tool string, input any, fn func(context.Context) (any, error)) (any, error) {
+	return s.executeWithRecovery(ctx, id, tool, input, false, fn)
+}
+
+// Recovery is allowed only for callbacks whose business write and idempotency
+// key commit in the same database transaction (ledger plans). Directory writes
+// retain their conservative unknown-outcome behavior.
+func (s *Service) executeWithRecovery(ctx context.Context, id, tool string, input any, recoverable bool, fn func(context.Context) (any, error)) (any, error) {
 	path, err := s.operationPath(id)
 	if err != nil {
 		return nil, err
@@ -118,6 +125,7 @@ func (s *Service) execute(ctx context.Context, id, tool string, input any, fn fu
 	if err = ctx.Err(); err != nil {
 		return nil, err
 	}
+	createdAt := time.Now().UTC().Format(time.RFC3339Nano)
 	if prior, readErr := s.GetOperation(id); readErr == nil {
 		if prior.Tool != tool || prior.Hash != hash {
 			return nil, fail("conflict", "operationId was already used with different arguments")
@@ -128,14 +136,17 @@ func (s *Service) execute(ctx context.Context, id, tool string, input any, fn fu
 		if prior.Status == "failed" {
 			return nil, prior.Error
 		}
-		return nil, fail("operation_outcome_unknown", "Previous execution may have committed. Inspect current data and the operation receipt before creating a new operation.")
+		if !recoverable {
+			return nil, fail("operation_outcome_unknown", "Previous execution may have committed. Inspect current data and the operation receipt before creating a new operation.")
+		}
+		createdAt = prior.CreatedAt
 	} else {
 		var wire *apierror.WireError
 		if !errors.As(readErr, &wire) || wire.Code != "not_found" {
 			return nil, readErr
 		}
 	}
-	op := Operation{ID: id, Tool: tool, Hash: hash, Status: "pending", CreatedAt: time.Now().UTC().Format(time.RFC3339Nano)}
+	op := Operation{ID: id, Tool: tool, Hash: hash, Status: "pending", CreatedAt: createdAt}
 	if err = s.writePrivate(path, op); err != nil {
 		return nil, err
 	}

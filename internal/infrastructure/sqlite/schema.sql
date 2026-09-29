@@ -527,6 +527,15 @@ CREATE TABLE activity_mutation_keys (
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
     FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
 );
+CREATE TABLE change_batch_mutation_keys (
+    household_id TEXT NOT NULL,
+    mutation_id TEXT NOT NULL,
+    payload_sha256 TEXT NOT NULL,
+    activity_ids TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(household_id, mutation_id),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT
+);
 CREATE TABLE instrument_provider_bindings (
     instrument_id TEXT NOT NULL,
     provider_key TEXT NOT NULL,

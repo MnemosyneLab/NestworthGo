@@ -38,6 +38,30 @@ describe("AgentSection", () => {
     await user.click(screen.getByRole("button", { name: "Enable MCP" }));
     await waitFor(() => expect(enable).toHaveBeenCalledWith("directory_write"));
   });
+  it("offers ledger recording only when explicitly selected before enabling MCP", async () => {
+    const user = userEvent.setup(); mount();
+    await screen.findByRole("button", { name: "Enable MCP" });
+    expect(screen.getByLabelText("Agent permissions")).toHaveValue("read_only");
+    await user.selectOptions(screen.getByLabelText("Agent permissions"), "ledger_write");
+    expect(screen.getByText(/The agent previews before committing/)).toBeInTheDocument();
+    expect(screen.getByText(/This does not place brokerage orders/)).toBeInTheDocument();
+    expect(enable).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Enable MCP" }));
+    await waitFor(() => expect(enable).toHaveBeenCalledWith("ledger_write"));
+  });
+  it.each(["read_only", "directory_write"])("keeps a running %s credential at its permission until applied", async (initialMode) => {
+    status.mockResolvedValue({ ...on, mode: initialMode });
+    const user = userEvent.setup(); mount();
+    await screen.findByText("MCP is running on this computer");
+    expect(screen.getByLabelText("Agent permissions")).toHaveValue(initialMode);
+    expect(screen.queryByRole("button", { name: "Apply permissions" })).not.toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText("Agent permissions"), "ledger_write");
+    expect(enable).not.toHaveBeenCalled();
+    expect(screen.getByText(/Applying changes replaces the access token/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Apply permissions" }));
+    await waitFor(() => expect(enable).toHaveBeenCalledWith("ledger_write"));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Apply permissions" })).not.toBeInTheDocument());
+  });
   it("reports failed activation without displaying connection credentials", async () => {
     enable.mockRejectedValue(new Error("activation failed"));
     const user = userEvent.setup(); mount();

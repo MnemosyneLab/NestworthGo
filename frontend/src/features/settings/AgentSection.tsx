@@ -68,9 +68,10 @@ export function AgentSection() {
           <NativeSelect id="agent-mode" className="w-full sm:w-auto sm:min-w-48" value={selected} disabled={busy} aria-describedby="agent-permission-help" onChange={(event) => setMode(event.target.value)}>
             <option value="read_only">{t("agent.readOnly")}</option>
             <option value="directory_write">{t("agent.directoryWrite")}</option>
+            <option value="ledger_write">{t("agent.ledgerWrite")}</option>
           </NativeSelect>
         </div>
-        <p id="agent-permission-help" className="max-w-2xl text-sm leading-6 text-muted-foreground">{t(selected === "directory_write" ? "agent.writeHelp" : "agent.readHelp")}</p>
+        <p id="agent-permission-help" className="max-w-2xl text-sm leading-6 text-muted-foreground">{t(selected === "ledger_write" ? "agent.ledgerHelp" : selected === "directory_write" ? "agent.writeHelp" : "agent.readHelp")}</p>
         {permissionChanged && <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-muted-foreground">{t("agent.permissionChangeHelp")}</p>
           <Button type="button" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Enable(selected)))}>{t("agent.apply")}</Button>

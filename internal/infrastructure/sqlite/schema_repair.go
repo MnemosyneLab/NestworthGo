@@ -20,6 +20,15 @@ const (
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT,
     FOREIGN KEY(activity_id) REFERENCES activities(id) ON DELETE RESTRICT
 )`
+	changeBatchMutationKeysCreateSQL = `CREATE TABLE IF NOT EXISTS change_batch_mutation_keys (
+    household_id TEXT NOT NULL,
+    mutation_id TEXT NOT NULL,
+    payload_sha256 TEXT NOT NULL,
+    activity_ids TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(household_id, mutation_id),
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT
+)`
 )
 
 // repairV9CashOnHandHoldingsCheck is the one approved exception to schema v9's
@@ -38,6 +47,14 @@ func ensureActivityMutationKeysTable(ctx context.Context, database *sql.DB) erro
 		return fmt.Errorf("database is not open")
 	}
 	_, err := database.ExecContext(ctx, activityMutationKeysCreateSQL)
+	return err
+}
+
+func ensureChangeBatchMutationKeysTable(ctx context.Context, database *sql.DB) error {
+	if database == nil {
+		return fmt.Errorf("database is not open")
+	}
+	_, err := database.ExecContext(ctx, changeBatchMutationKeysCreateSQL)
 	return err
 }
 

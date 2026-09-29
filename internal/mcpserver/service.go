@@ -28,6 +28,7 @@ import (
 const ChangedEvent = "agent.data.changed"
 const ReadOnly = "read_only"
 const DirectoryWrite = "directory_write"
+const LedgerWrite = "ledger_write"
 
 type Config struct {
 	Enabled    bool   `json:"enabled"`
@@ -99,7 +100,7 @@ func (s *Service) Resume() error {
 		s.lastError = "invalid_configuration"
 		return err
 	}
-	if config.Mode != ReadOnly && config.Mode != DirectoryWrite {
+	if config.Mode != ReadOnly && config.Mode != DirectoryWrite && config.Mode != LedgerWrite {
 		s.lastError = "invalid_configuration"
 		return fmt.Errorf("invalid agent mode")
 	}
@@ -117,7 +118,7 @@ func (s *Service) Resume() error {
 func (s *Service) Enable(mode string) (Status, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if mode != ReadOnly && mode != DirectoryWrite {
+	if mode != ReadOnly && mode != DirectoryWrite && mode != LedgerWrite {
 		return s.statusLocked(), fmt.Errorf("invalid agent permission")
 	}
 	if s.server != nil && s.config.Mode == mode {

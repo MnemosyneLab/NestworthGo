@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -18,62 +19,125 @@ func (r *Repository) CommitActivityBatch(ctx context.Context, commits []domain.A
 		return &domain.Error{Code: domain.ErrInvalidChange, Field: "activities", Message: "at least one activity is required"}
 	}
 	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		var originTimezone string
-		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, commits[0].Activity.HouseholdID.String()).Scan(&originTimezone); err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
-			}
+		return commitActivityBatchTx(ctx, tx, commits, asOf)
+	})
+}
+
+func commitActivityBatchTx(ctx context.Context, tx *sql.Tx, commits []domain.ActivityCommit, asOf time.Time) error {
+	var originTimezone string
+	if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, commits[0].Activity.HouseholdID.String()).Scan(&originTimezone); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before recording a change"}
+		}
+		return err
+	}
+	for _, commit := range commits {
+		if commit.Activity.HouseholdID != commits[0].Activity.HouseholdID {
+			return &domain.Error{Code: domain.ErrInvalidChange, Field: "householdId", Message: "an activity batch must belong to one Household"}
+		}
+		if err := commitActivityTx(ctx, tx, commit, asOf); err != nil {
 			return err
 		}
-		for _, commit := range commits {
-			if commit.Activity.HouseholdID != commits[0].Activity.HouseholdID {
-				return &domain.Error{Code: domain.ErrInvalidChange, Field: "householdId", Message: "an activity batch must belong to one Household"}
-			}
-			if err := commitActivityTx(ctx, tx, commit, asOf); err != nil {
-				return err
-			}
-			if err := markHistoryDirtyTx(ctx, tx, commit.Activity.HouseholdID, commit.Activity.EffectiveLocalDate, originTimezone, asOf); err != nil {
-				return err
-			}
+		if err := markHistoryDirtyTx(ctx, tx, commit.Activity.HouseholdID, commit.Activity.EffectiveLocalDate, originTimezone, asOf); err != nil {
+			return err
 		}
-		// Corrections have a bounded rebuild range through the last closed day.
-		for _, commit := range commits {
-			if commit.Activity.CorrectionGroupID == nil {
+	}
+	// Corrections have a bounded rebuild range through the last closed day.
+	for _, commit := range commits {
+		if commit.Activity.CorrectionGroupID == nil {
+			continue
+		}
+		location, err := time.LoadLocation(originTimezone)
+		if err != nil {
+			return err
+		}
+		yesterday := asOf.In(location).AddDate(0, 0, -1).Format("2006-01-02")
+		if _, err := tx.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_to = CASE WHEN dirty_to IS NULL OR dirty_to < ? THEN ? ELSE dirty_to END WHERE household_id=? AND dirty_from IS NOT NULL`, yesterday, yesterday, commit.Activity.HouseholdID.String()); err != nil {
+			return err
+		}
+		break
+	}
+	for _, inverse := range commits {
+		if inverse.Activity.CorrectionGroupID == nil || inverse.Activity.ReversesActivityID == nil {
+			continue
+		}
+		for _, replacement := range commits {
+			if replacement.Activity.CorrectionGroupID == nil || *replacement.Activity.CorrectionGroupID != *inverse.Activity.CorrectionGroupID || replacement.Activity.ReversesActivityID != nil {
 				continue
 			}
-			location, err := time.LoadLocation(originTimezone)
-			if err != nil {
-				return err
-			}
-			yesterday := asOf.In(location).AddDate(0, 0, -1).Format("2006-01-02")
-			if _, err := tx.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_to = CASE WHEN dirty_to IS NULL OR dirty_to < ? THEN ? ELSE dirty_to END WHERE household_id=? AND dirty_from IS NOT NULL`, yesterday, yesterday, commit.Activity.HouseholdID.String()); err != nil {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO activity_correction_groups(id, household_id, original_activity_id, replacement_activity_id, created_at) VALUES(?, ?, ?, ?, ?)`, inverse.Activity.CorrectionGroupID.String(), inverse.Activity.HouseholdID.String(), inverse.Activity.ReversesActivityID.String(), replacement.Activity.ID.String(), formatTimestamp(asOf)); err != nil {
 				return err
 			}
 			break
 		}
-		for _, inverse := range commits {
-			if inverse.Activity.CorrectionGroupID == nil || inverse.Activity.ReversesActivityID == nil {
-				continue
-			}
-			for _, replacement := range commits {
-				if replacement.Activity.CorrectionGroupID == nil || *replacement.Activity.CorrectionGroupID != *inverse.Activity.CorrectionGroupID || replacement.Activity.ReversesActivityID != nil {
-					continue
-				}
-				if _, err := tx.ExecContext(ctx, `INSERT INTO activity_correction_groups(id, household_id, original_activity_id, replacement_activity_id, created_at) VALUES(?, ?, ?, ?, ?)`, inverse.Activity.CorrectionGroupID.String(), inverse.Activity.HouseholdID.String(), inverse.Activity.ReversesActivityID.String(), replacement.Activity.ID.String(), formatTimestamp(asOf)); err != nil {
-					return err
-				}
-				break
+	}
+	for _, commit := range commits {
+		for _, projection := range commit.Replay {
+			if err := rebuildActivityProjectionTx(ctx, tx, projection); err != nil {
+				return err
 			}
 		}
-		for _, commit := range commits {
-			for _, projection := range commit.Replay {
-				if err := rebuildActivityProjectionTx(ctx, tx, projection); err != nil {
-					return err
-				}
+	}
+	return nil
+}
+
+// CommitChangeBatch stores new Holdings, all Activities, rebuilt projections,
+// and the durable retry receipt together. Any error rolls all of them back.
+func (r *Repository) CommitChangeBatch(ctx context.Context, holdings []domain.Holding, commits []domain.ActivityCommit, key domain.ActivityMutation, asOf time.Time) error {
+	if len(commits) == 0 || len(commits) > 100 {
+		return &domain.Error{Code: domain.ErrValidation, Field: "commands", Message: "provide 1 to 100 changes"}
+	}
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
+		for _, holding := range holdings {
+			if err := validateHoldingReferences(ctx, tx, holding.AccountID, holding.InstrumentID, nil); err != nil {
+				return err
+			}
+			if err := insertHolding(ctx, tx, holding); err != nil {
+				return err
 			}
 		}
-		return nil
+		if err := commitActivityBatchTx(ctx, tx, commits, asOf); err != nil {
+			return err
+		}
+		ids := make([]string, len(commits))
+		for i, commit := range commits {
+			ids[i] = commit.Activity.ID.String()
+		}
+		encoded, err := json.Marshal(ids)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, `INSERT INTO change_batch_mutation_keys(household_id, mutation_id, payload_sha256, activity_ids, created_at) VALUES(?, ?, ?, ?, ?)`, commits[0].Activity.HouseholdID.String(), key.ID.String(), key.PayloadSHA256, string(encoded), formatTimestamp(asOf))
+		return err
 	})
+}
+
+func (r *Repository) LookupChangeBatch(ctx context.Context, householdID domain.HouseholdID, mutationID domain.MutationID) (*domain.ChangeBatchMutationRecord, error) {
+	var payloadHash, idsJSON, createdAt string
+	err := r.database.SQL.QueryRowContext(ctx, `SELECT payload_sha256, activity_ids, created_at FROM change_batch_mutation_keys WHERE household_id = ? AND mutation_id = ?`, householdID.String(), mutationID.String()).Scan(&payloadHash, &idsJSON, &createdAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var rawIDs []string
+	if err := json.Unmarshal([]byte(idsJSON), &rawIDs); err != nil {
+		return nil, err
+	}
+	ids := make([]domain.ActivityID, len(rawIDs))
+	for i, raw := range rawIDs {
+		id, err := domain.ParseActivityID(raw)
+		if err != nil {
+			return nil, err
+		}
+		ids[i] = id
+	}
+	created, err := time.Parse(time.RFC3339Nano, createdAt)
+	if err != nil {
+		return nil, err
+	}
+	return &domain.ChangeBatchMutationRecord{HouseholdID: householdID, ID: mutationID, PayloadSHA256: payloadHash, ActivityIDs: ids, CreatedAt: created.UTC()}, nil
 }
 
 func commitActivityTx(ctx context.Context, tx *sql.Tx, commit domain.ActivityCommit, asOf time.Time) error {

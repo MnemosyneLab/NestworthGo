@@ -12,6 +12,9 @@ func configurationKey(path string) string {
 	if filepath.Base(path) == "connection.json" {
 		return "mcp.connection"
 	}
+	if filepath.Base(filepath.Dir(path)) == "plans" {
+		return "mcp.plan." + strings.TrimSuffix(filepath.Base(path), ".json")
+	}
 	return "mcp.operation." + strings.TrimSuffix(filepath.Base(path), ".json")
 }
 func (s *Service) readPrivate(path string) ([]byte, error) {

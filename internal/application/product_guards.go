@@ -30,6 +30,8 @@ func (s *Service) rejectManagedInstrument(ctx context.Context, instrumentID doma
 
 func (s *Service) rejectManagedCommand(ctx context.Context, command any) error {
 	switch input := command.(type) {
+	case domain.PositionImportInput:
+		return s.rejectManagedInstrument(ctx, input.InstrumentID)
 	case domain.TradeInput:
 		if input.HoldingID != "" {
 			if err := s.rejectManagedHolding(ctx, input.HoldingID); err != nil {

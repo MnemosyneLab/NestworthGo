@@ -692,12 +692,15 @@ func historySchemaColumns() map[string][]schemaColumn {
 		"activity_mutation_keys": {
 			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("mutation_id", "TEXT", 1, 2), expectedColumn("payload_sha256", "TEXT", 1, 0), expectedColumn("activity_id", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
 		},
+		"change_batch_mutation_keys": {
+			expectedColumn("household_id", "TEXT", 1, 1), expectedColumn("mutation_id", "TEXT", 1, 2), expectedColumn("payload_sha256", "TEXT", 1, 0), expectedColumn("activity_ids", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0),
+		},
 	}
 }
 
 func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 	for table, columns := range historySchemaColumns() {
-		if table == "activity_mutation_keys" {
+		if table == "activity_mutation_keys" || table == "change_batch_mutation_keys" {
 			exists, err := schemaTableExists(ctx, query, table)
 			if err != nil {
 				return err
@@ -708,10 +711,11 @@ func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 			if err := verifyTable(ctx, query, table, columns); err != nil {
 				return err
 			}
-			for _, foreignKey := range []expectedForeignKey{
-				{table: "activity_mutation_keys", refTable: "households", from: "household_id", to: "id", onDelete: "RESTRICT"},
-				{table: "activity_mutation_keys", refTable: "activities", from: "activity_id", to: "id", onDelete: "RESTRICT"},
-			} {
+			foreignKeys := []expectedForeignKey{{table: table, refTable: "households", from: "household_id", to: "id", onDelete: "RESTRICT"}}
+			if table == "activity_mutation_keys" {
+				foreignKeys = append(foreignKeys, expectedForeignKey{table: table, refTable: "activities", from: "activity_id", to: "id", onDelete: "RESTRICT"})
+			}
+			for _, foreignKey := range foreignKeys {
 				if err := verifyForeignKeys(ctx, query, foreignKey); err != nil {
 					return err
 				}
