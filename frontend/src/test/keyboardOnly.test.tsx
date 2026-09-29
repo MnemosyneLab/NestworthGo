@@ -337,8 +337,6 @@ describe("keyboard-only completion", () => {
     await userEvent.tab(); // -> Quote cache duration select (left at default)
     await userEvent.tab(); // -> CoinGecko key
     await userEvent.tab(); // -> Tiingo key
-    await userEvent.tab(); // -> Worker URL input
-    expect(screen.getByLabelText("Nestworth Worker URL")).toHaveFocus();
     // Cross the remaining credentials, data actions, diagnostics, and reset.
     const saveButton = screen.getByRole("button", { name: "Save changes" });
     for (let i = 0; i < 30 && document.activeElement !== saveButton; i++) await userEvent.tab();

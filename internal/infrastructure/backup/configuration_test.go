@@ -31,7 +31,7 @@ func TestV12BackupMigratesDurableSettingsAndRestoresDatabaseAuthority(t *testing
 	legacy := settings.Default()
 	legacy.Currency = "SGD"
 	legacy.Timezone = "Asia/Singapore"
-	legacy.WorkerAPIToken = "backup-token"
+	legacy.TiingoAPIKey = "backup-key"
 	legacy.Appearance = settings.AppearanceDark
 	config, err := json.Marshal(legacy)
 	if err != nil {
@@ -54,7 +54,7 @@ func TestV12BackupMigratesDurableSettingsAndRestoresDatabaseAuthority(t *testing
 	// The local JSON must not override the restored DB, even when restoring format.
 	store := settings.NewStore(filepath.Join(dir, "settings.json"))
 	local := settings.Default()
-	local.WorkerAPIToken = "local-token"
+	local.TiingoAPIKey = "local-key"
 	if err := store.Save(local); err != nil {
 		t.Fatal(err)
 	}
@@ -74,14 +74,14 @@ func TestV12BackupMigratesDurableSettingsAndRestoresDatabaseAuthority(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Currency != legacy.Currency || got.Timezone != legacy.Timezone || got.WorkerAPIToken != legacy.WorkerAPIToken || got.Appearance != legacy.Appearance {
+	if got.Currency != legacy.Currency || got.Timezone != legacy.Timezone || got.TiingoAPIKey != legacy.TiingoAPIKey || got.Appearance != legacy.Appearance {
 		t.Fatal("backup settings not restored")
 	}
 	if err := os.Remove(store.Path); err != nil {
 		t.Fatal(err)
 	}
 	got, err = store.Load()
-	if err != nil || got.WorkerAPIToken != legacy.WorkerAPIToken {
-		t.Fatal("restored token depended on JSON", err)
+	if err != nil || got.TiingoAPIKey != legacy.TiingoAPIKey {
+		t.Fatal("restored key depended on JSON", err)
 	}
 }

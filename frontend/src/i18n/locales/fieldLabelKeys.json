@@ -41,7 +41,6 @@
   "trackingMode": "accounts.trackingMode",
   "unitCost": "error.field.unitCost",
   "unitPrice": "error.field.unitPrice",
-  "worker_api_token": "settings.providers.title",
   "startOn": "availableFunds.startOn",
   "maturityOn": "availableFunds.maturityOn",
   "principal": "availableFunds.principal",

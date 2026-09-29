@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
@@ -100,8 +99,6 @@ type Settings struct {
 	QuoteCacheTTL     string     `json:"quote_cache_ttl"`
 	CoinGeckoAPIKey   string     `json:"coingecko_api_key"`
 	TiingoAPIKey      string     `json:"tiingo_api_key"`
-	WorkerBaseURL     string     `json:"worker_base_url"`
-	WorkerAPIToken    string     `json:"worker_api_token"`
 }
 
 // Minimum and maximum window dimensions accepted from a persisted settings
@@ -210,21 +207,6 @@ func (s Settings) Validate() error {
 	}
 	if !oneOf(ttl, QuoteCacheTTL1h, QuoteCacheTTL3h, QuoteCacheTTL12h, QuoteCacheTTL24h) {
 		return fmt.Errorf("unsupported quote cache ttl %q", s.QuoteCacheTTL)
-	}
-	if err := validateWorkerBaseURL(s.WorkerBaseURL); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateWorkerBaseURL(value string) error {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return nil
-	}
-	parsed, err := url.Parse(value)
-	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return fmt.Errorf("worker base URL must be an absolute http(s) URL without credentials or query parameters")
 	}
 	return nil
 }
@@ -464,8 +446,6 @@ func salvage(loaded, defaults Settings) Settings {
 	// saving.
 	fixed.CoinGeckoAPIKey = strings.TrimSpace(fixed.CoinGeckoAPIKey)
 	fixed.TiingoAPIKey = strings.TrimSpace(fixed.TiingoAPIKey)
-	fixed.WorkerBaseURL = strings.TrimRight(strings.TrimSpace(fixed.WorkerBaseURL), "/")
-	fixed.WorkerAPIToken = strings.TrimSpace(fixed.WorkerAPIToken)
 	return fixed
 }
 
@@ -497,8 +477,6 @@ func changedFieldNames(from, to Settings) []string {
 		{"window_height", from.WindowHeight, to.WindowHeight},
 		{"fx_provider", from.FXProvider, to.FXProvider},
 		{"quote_cache_ttl", from.QuoteCacheTTL, to.QuoteCacheTTL},
-		{"worker_base_url", from.WorkerBaseURL, to.WorkerBaseURL},
-		{"worker_api_token", from.WorkerAPIToken, to.WorkerAPIToken},
 	}
 	var changed []string
 	for _, field := range fields {

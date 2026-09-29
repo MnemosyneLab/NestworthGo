@@ -168,8 +168,6 @@ func instrumentHistorySourcePolicy(providerKey, observedPolicy string) string {
 		return domain.TiingoRawClosePriceBasis
 	case domain.YahooFinanceProviderKey:
 		return domain.YahooRawClosePriceBasis
-	case domain.WorkerProviderKey:
-		return domain.WorkerRawClosePriceBasis
 	default:
 		return strings.TrimSpace(observedPolicy)
 	}

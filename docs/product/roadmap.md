@@ -27,8 +27,8 @@ distribution gates are tracked separately from automated checks.
 Status: `Published` on 2026-09-19 (build `4`). See the
 [release contract](../releases/v0.3.3.md) for current verification.
 
-Implemented scope includes Yahoo search, an optional Worker route, CoinGecko
-crypto pricing, gold/silver templates with unit and currency conversion,
+Implemented scope includes Yahoo search, CoinGecko crypto pricing,
+gold/silver templates with unit and currency conversion,
 per-instrument historical ranges, clearer repair progress, quote-history
 metadata, local diagnostics, and historical valuation/analytics fixes.
 SQLite schema 11 preserves existing custom-metal instruments during upgrade.

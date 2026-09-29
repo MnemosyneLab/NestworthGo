@@ -47,7 +47,7 @@ func ResolveInstrumentRoute(market, preferredProvider, providerSymbol string) In
 				return InstrumentRoute{Status: InstrumentRouteBindingMissing, Reason: "binding_missing"}
 			}
 			return InstrumentRoute{ProviderKey: YahooFinanceProviderKey, Status: InstrumentRouteOK}
-		case YahooFinanceProviderKey, TiingoProviderKey, WorkerProviderKey:
+		case YahooFinanceProviderKey, TiingoProviderKey:
 			if providerSymbol == "" {
 				return InstrumentRoute{ProviderKey: preferredProvider, Status: InstrumentRouteBindingMissing, Reason: "binding_missing"}
 			}
@@ -59,7 +59,7 @@ func ResolveInstrumentRoute(market, preferredProvider, providerSymbol string) In
 	if preferredProvider == TiingoProviderKey {
 		return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "tiingo_us_listed_only"}
 	}
-	if preferredProvider != "" && preferredProvider != YahooFinanceProviderKey && preferredProvider != WorkerProviderKey {
+	if preferredProvider != "" && preferredProvider != YahooFinanceProviderKey {
 		return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "provider_not_selectable"}
 	}
 	if providerSymbol == "" || preferredProvider == "" {

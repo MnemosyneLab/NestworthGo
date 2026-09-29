@@ -112,7 +112,7 @@ func TestHealthDoesNotReportRoutineRechecksAsMissing(t *testing.T) {
 
 func TestBackdatedHistoryRouteRequiresEquivalentMappingAndVerifiedClose(t *testing.T) {
 	id := domain.NewInstrumentID()
-	provider, symbol, market := domain.WorkerProviderKey, "QQQM", "NASDAQ"
+	provider, symbol, market := domain.YahooFinanceProviderKey, "QQQM", "NASDAQ"
 	instrument := domain.Instrument{ID: id, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderSymbol: &symbol, MarketCode: &market, ProviderBindingRevision: 1}
 	cutoff := time.Date(2026, 9, 14, 15, 59, 59, 0, time.UTC)
 	binding := domain.InstrumentProviderBindingRevision{InstrumentID: id, ProviderKey: domain.TiingoProviderKey, ProviderSymbol: symbol, Market: market, Currency: "USD", BindingRevision: 1, Enabled: true, EffectiveFrom: cutoff.Add(24 * time.Hour)}

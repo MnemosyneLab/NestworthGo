@@ -43,8 +43,7 @@ All notable changes to Nestworth are recorded here.
 - Advanced synchronized application metadata to `v0.3.4` / build `5`.
 - Reorganized Settings into appearance/language, market connections, backup/data,
   diagnostics, About, and reset sections, with section navigation and a shared
-  preference save bar. Worker URL and token now appear together; credentials
-  retain independent save actions.
+  preference save bar; credentials retain independent save actions.
 
 ### Upgrade and verification
 
@@ -58,7 +57,7 @@ All notable changes to Nestworth are recorded here.
 
 ### Added
 
-- Yahoo instrument search and an optional authenticated Cloudflare Worker route.
+- Yahoo instrument search.
 - CoinGecko crypto search, latest prices, daily history, and local Demo-key settings.
 - Gold and silver templates with grams/troy-ounce units, backend currency conversion,
   conversion provenance, and CSV unit metadata. Yahoo futures prices are reference estimates.

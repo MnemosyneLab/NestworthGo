@@ -24,12 +24,10 @@ type durableSettings struct {
 	QuoteCacheTTL   string `json:"quote_cache_ttl"`
 	CoinGeckoAPIKey string `json:"coingecko_api_key"`
 	TiingoAPIKey    string `json:"tiingo_api_key"`
-	WorkerBaseURL   string `json:"worker_base_url"`
-	WorkerAPIToken  string `json:"worker_api_token"`
 }
 
 func durable(value Settings) durableSettings {
-	return durableSettings{value.Currency, value.Timezone, value.FXProvider, value.QuoteCacheTTL, value.CoinGeckoAPIKey, value.TiingoAPIKey, value.WorkerBaseURL, value.WorkerAPIToken}
+	return durableSettings{value.Currency, value.Timezone, value.FXProvider, value.QuoteCacheTTL, value.CoinGeckoAPIKey, value.TiingoAPIKey}
 }
 func (d durableSettings) apply(value *Settings) {
 	value.Currency = d.Currency
@@ -38,8 +36,6 @@ func (d durableSettings) apply(value *Settings) {
 	value.QuoteCacheTTL = d.QuoteCacheTTL
 	value.CoinGeckoAPIKey = d.CoinGeckoAPIKey
 	value.TiingoAPIKey = d.TiingoAPIKey
-	value.WorkerBaseURL = d.WorkerBaseURL
-	value.WorkerAPIToken = d.WorkerAPIToken
 }
 
 // PresentationJSON is deliberately an allowlist. Adding a new secret to Settings

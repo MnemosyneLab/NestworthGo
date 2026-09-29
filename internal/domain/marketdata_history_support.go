@@ -76,7 +76,7 @@ func ResolveInstrumentHistorySupport(instrumentType, market, providerKey string)
 		if provider == TiingoProviderKey {
 			return InstrumentRoute{Status: InstrumentRouteUnsupported, Reason: "tiingo_us_listed_only"}
 		}
-		if provider == CoinGeckoProviderKey || provider == YahooFinanceProviderKey || provider == WorkerProviderKey || provider == "" {
+		if provider == CoinGeckoProviderKey || provider == YahooFinanceProviderKey || provider == "" {
 			if provider == "" {
 				provider = YahooFinanceProviderKey
 			}

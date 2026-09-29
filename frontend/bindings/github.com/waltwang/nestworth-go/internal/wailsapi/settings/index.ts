@@ -9,6 +9,5 @@ export {
 export type {
     CoinGeckoKeyStatusDTO,
     SettingsDTO,
-    TiingoKeyStatusDTO,
-    WorkerTokenStatusDTO
+    TiingoKeyStatusDTO
 } from "./models.js";

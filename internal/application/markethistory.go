@@ -27,7 +27,6 @@ type PriceBasis string
 const (
 	PriceBasisTiingoRawClose       PriceBasis = "tiingo_raw_close_v1"
 	PriceBasisYahooClose           PriceBasis = domain.YahooRawClosePriceBasis
-	PriceBasisWorkerYahooClose     PriceBasis = domain.WorkerRawClosePriceBasis
 	PriceBasisYahooCloseUnverified PriceBasis = "yahoo_close_unverified"
 	PriceBasisUnsupported          PriceBasis = "unsupported"
 )

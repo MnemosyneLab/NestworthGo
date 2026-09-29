@@ -32,7 +32,6 @@ export const queryKeys = {
     fxProviders: ["settings", "fxProviders"] as const,
 		tiingoKey: ["settings", "tiingoKey"] as const,
 		coinGeckoKey: ["settings", "coinGeckoKey"] as const,
-		workerToken: ["settings", "workerToken"] as const,
   },
   directory: {
     entity: (entity: "members" | "institutions" | "groups") => ["directory", entity] as const,

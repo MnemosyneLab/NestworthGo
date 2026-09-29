@@ -26,8 +26,6 @@ func TestSQLiteSettingsSurviveMissingCorruptAndStaleJSON(t *testing.T) {
 	want.Appearance = settings.AppearanceDark
 	want.TiingoAPIKey = "tiingo-private"
 	want.CoinGeckoAPIKey = "gecko-private"
-	want.WorkerAPIToken = "worker-private"
-	want.WorkerBaseURL = "https://worker.example"
 	if err := store.Save(want); err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +41,7 @@ func TestSQLiteSettingsSurviveMissingCorruptAndStaleJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{"currency", "timezone", "api_key", "token", "worker_base_url", "fx_provider"} {
+	for _, key := range []string{"currency", "timezone", "api_key", "fx_provider"} {
 		if strings.Contains(string(raw), key) {
 			t.Fatalf("JSON contains durable field %s", key)
 		}
@@ -74,7 +72,7 @@ func TestSQLiteSettingsSurviveMissingCorruptAndStaleJSON(t *testing.T) {
 			t.Fatal("JSON not rebuilt", err)
 		}
 	}
-	got.WorkerAPIToken = ""
+	got.TiingoAPIKey = ""
 	if err := store.Save(got); err != nil {
 		t.Fatal(err)
 	}
@@ -86,8 +84,8 @@ func TestSQLiteSettingsSurviveMissingCorruptAndStaleJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err = reopened.Load()
-	if err != nil || got.WorkerAPIToken != "" {
-		t.Fatal("stale JSON resurrected revoked token", err)
+	if err != nil || got.TiingoAPIKey != "" {
+		t.Fatal("stale JSON resurrected revoked key", err)
 	}
 }
 

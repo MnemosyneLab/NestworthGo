@@ -21,7 +21,7 @@ import {
 import { PageIntro } from "@/components/layout/PageHeader";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
-import { useSettings, useSaveSettings, useResetSettings, useFXProviders, useCoinGeckoKeyStatus, useSaveCoinGeckoAPIKey, useDeleteCoinGeckoAPIKey, useTiingoKeyStatus, useSaveTiingoAPIKey, useDeleteTiingoAPIKey, useWorkerTokenStatus, useSaveWorkerAPIToken, useDeleteWorkerAPIToken, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
+import { useSettings, useSaveSettings, useResetSettings, useFXProviders, useCoinGeckoKeyStatus, useSaveCoinGeckoAPIKey, useDeleteCoinGeckoAPIKey, useTiingoKeyStatus, useSaveTiingoAPIKey, useDeleteTiingoAPIKey, quoteCacheTtlOf, withQuoteCacheTtl, type QuoteCacheTTL } from "@/queries/settings";
 import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
@@ -62,9 +62,6 @@ export function SettingsPage() {
   const tiingoKeyStatus = useTiingoKeyStatus();
   const saveTiingoKey = useSaveTiingoAPIKey();
   const deleteTiingoKey = useDeleteTiingoAPIKey();
-  const workerTokenStatus = useWorkerTokenStatus();
-  const saveWorkerToken = useSaveWorkerAPIToken();
-  const deleteWorkerToken = useDeleteWorkerAPIToken();
   const catalog = useCatalog();
   const origin = useHistoryOrigin();
   const setAppearance = useUiStore((state) => state.setAppearance);
@@ -88,7 +85,6 @@ export function SettingsPage() {
   const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
   const [coinGeckoKey, setCoinGeckoKey] = useState("");
   const [tiingoKey, setTiingoKey] = useState("");
-  const [workerToken, setWorkerToken] = useState("");
   const pageChrome = <PageChrome pageId="settings" title={t("settings.title")} />;
 
   if (settings.isLoading) {
@@ -121,7 +117,6 @@ export function SettingsPage() {
     draft.language !== settings.data.language ||
     draft.timezone !== settings.data.timezone ||
     draft.fxProvider !== settings.data.fxProvider ||
-    draft.workerBaseURL !== settings.data.workerBaseURL ||
     quoteCacheTtlOf(draft) !== quoteCacheTtlOf(settings.data);
   const update = (patch: Partial<Settings>) => {
     setDraftOverride((current) => ({ ...(current ?? settings.data), ...patch }));
@@ -160,16 +155,6 @@ export function SettingsPage() {
       onSuccess: () => {
         setTiingoKey("");
         toast.success(t("settings.tiingoKeySaved"));
-      },
-    });
-  };
-
-  const submitWorkerToken = (event: React.FormEvent) => {
-    event.preventDefault();
-    saveWorkerToken.mutate(workerToken, {
-      onSuccess: () => {
-        setWorkerToken("");
-        toast.success(t("settings.workerTokenSaved"));
       },
     });
   };
@@ -396,59 +381,6 @@ export function SettingsPage() {
           {(saveTiingoKey.isError || deleteTiingoKey.isError || tiingoKeyStatus.isError) && (
             <p role="alert" className="text-sm text-destructive">
               {t("settings.tiingoKeyError")}
-            </p>
-          )}
-        </form>
-          </div>
-          <div className="space-y-4 p-5"><h3 className="font-medium">{t("settings.sections.worker")}</h3>
-        <div className="flex max-w-xl flex-col gap-1.5">
-          <Label htmlFor="settings-worker-url">{t("settings.workerBaseURL")}</Label>
-          <Input
-            id="settings-worker-url" form="settings-preferences"
-            type="url"
-            autoComplete="url"
-            value={draft.workerBaseURL}
-            onChange={(event) => update({ workerBaseURL: event.target.value })}
-            placeholder={t("settings.workerBaseURLPlaceholder")}
-          />
-          <p className="text-xs text-muted-foreground">{t("settings.workerBaseURLHelp")}</p>
-        </div>
-
-        <form onSubmit={submitWorkerToken} className="mt-5 flex max-w-xl flex-col gap-2">
-          <Label htmlFor="settings-worker-token">{t("settings.workerToken")}</Label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              id="settings-worker-token"
-              type="password"
-              autoComplete="off"
-              value={workerToken}
-              onChange={(event) => setWorkerToken(event.target.value)}
-              placeholder={t("settings.workerTokenPlaceholder")}
-              className="min-w-0 flex-1"
-            />
-            <Button type="submit" disabled={!workerToken.trim() || saveWorkerToken.isPending}>
-              {saveWorkerToken.isPending ? t("common.pending") : t("settings.saveWorkerToken")}
-            </Button>
-          </div>
-          {workerTokenStatus.data?.configured ? (
-            <p className="text-sm text-success-foreground">{t("settings.workerTokenConfigured")}</p>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("settings.workerTokenMissing")}</p>
-          )}
-          {workerTokenStatus.data?.configured && (
-            <Button
-              type="button"
-              variant="outline"
-              className="self-start"
-              onClick={() => deleteWorkerToken.mutate()}
-              disabled={deleteWorkerToken.isPending}
-            >
-              {deleteWorkerToken.isPending ? t("common.pending") : t("settings.removeWorkerToken")}
-            </Button>
-          )}
-          {(saveWorkerToken.isError || deleteWorkerToken.isError || workerTokenStatus.isError) && (
-            <p role="alert" className="text-sm text-destructive">
-              {t("settings.workerTokenError")}
             </p>
           )}
         </form>

@@ -64,7 +64,7 @@ retention, and manual accessibility review remain distribution gates.
   React Hook Form, Zod, i18next, and Apache ECharts;
 - SQLite as the local durable source of financial truth;
 - `shopspring/decimal` for exact financial arithmetic;
-- Yahoo, Tiingo, CoinGecko, and an optional Cloudflare Worker for instrument data;
+- Yahoo, Tiingo, and CoinGecko for instrument data;
 - Frankfurter for FX refresh.
 
 The frontend renders authoritative DTOs returned by `internal/wailsapi`. It

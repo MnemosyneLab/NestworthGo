@@ -4,7 +4,7 @@
 
 - **范围**：对 Nestworth-go（Wails v3 桌面应用：Go + SQLite 为权威源，React/TypeScript 前端）做只读全应用复查。对照当前源码与 2026-09-17 之后的提交（HEAD `cdd4eab`，2026-09-19：Insights UX、Wails beta.23、instrument holdings 聚合、设置/导航精简、v0.3.4、CoinGecko、贵金属模板、历史修复、市场数据 repair details）。不把 `frontend/bindings` 当作手写缺陷。
 - **方法**：以 `codegraph_explore` 与源码阅读为主；对照 `docs/architecture/`、`docs/product/`、`docs/handoffs/`、`docs/reviews/2026-09-19-insights-ux.md` 作定向，不以文档为真理。已跑两组聚焦测试作证据，未跑全量 `go test ./...`、未跑 `wails3 task check`。
-- **明确未执行**：原生窗口/菜单、活体行情（Yahoo/Tiingo/CoinGecko/Frankfurter/Worker）、打包/签名/公证、打开含真实家庭数据的 Nestworth 实例。
+- **明确未执行**：原生窗口/菜单、活体行情（Yahoo/Tiingo/CoinGecko/Frankfurter）、打包/签名/公证、打开含真实家庭数据的 Nestworth 实例。
 - **计数**：P0 **0** · P1 **2** · P2 **5** · P3 **9** · 待验证 **4**
 
 **最重要的 5 项：**
@@ -12,7 +12,7 @@
 - **多币种现金的 `Complete` 串扰**：`missingForComponent` 把同一账户上所有 `InstrumentID == nil` 的缺失（FX / 历史覆盖）套到每一笔现金成分上。已估值的本位币现金会被标成不完整，Insights 按成分丢弃该金额，而快照表头仍计入 `Available` 金额。
 - **CSV 导入后前端缓存不全失效**：`useCommitCSV` 未失效 `analysis` / `history` / `analytics.instrumentHoldings` / quotes。Portfolio Holdings 用 `keepMounted` + `useInstrumentHoldings`，导入后持仓汇总与 Insights 会显示旧数据。
 - **设置精简后日历偏好不可改**：`weekStart` / `dateFormat` 仍驱动 DatePicker 与 Insights 收益率日历，但 Settings UI 已无编辑入口。
-- **备份包密钥与静默丢 settings**：`CreateBackup` 把完整 settings（含 Tiingo/CoinGecko/Worker 密钥）写入备份；Load/Marshal 失败时静默写成 `{}`，恢复后偏好与密钥丢失且无错误。
+- **备份包密钥与静默丢 settings**：`CreateBackup` 把完整 settings（含 Tiingo/CoinGecko 密钥）写入备份；Load/Marshal 失败时静默写成 `{}`，恢复后偏好与密钥丢失且无错误。
 - **贵金属最新价缓存持锁跨 HTTP**：`latestMetalQuote` 在 `metalFetchCache.mu` 持有期间调用 `provider.LatestInstrument`，同一次刷新里黄金/白银会串行卡住。
 
 ## 严重程度说明
@@ -116,17 +116,11 @@
 
 #### [P2] 备份写入完整密钥，且 settings 序列化失败时静默变成空对象
 
-- **现状 / 证据**：`internal/wailsapi/data/data.go` `CreateBackup` L99–105：`store.Load()` 或 `json.Marshal` 失败时保持 `settingsJSON := []byte("{}\n")`，不返回错误。成功时 Marshal 的是完整 `settings.Settings`（`internal/settings/settings.go` L101–104 含 `coingecko_api_key` / `tiingo_api_key` / `worker_api_token`）。IPC `Settings.Load` 则刻意不把密钥送到前端（`TiingoKeyStatusDTO.Configured` 等）。Settings UI 有 `settings.data.backupSensitive` 文案。
+- **现状 / 证据**：`internal/wailsapi/data/data.go` `CreateBackup` L99–105：`store.Load()` 或 `json.Marshal` 失败时保持 `settingsJSON := []byte("{}\n")`，不返回错误。成功时 Marshal 的是完整 `settings.Settings`（`internal/settings/settings.go` L101–104 含 `coingecko_api_key` / `tiingo_api_key`）。IPC `Settings.Load` 则刻意不把密钥送到前端（`TiingoKeyStatusDTO.Configured` 等）。Settings UI 有 `settings.data.backupSensitive` 文案。
 - **影响**：
   1. 备份文件是含密钥的明文包；拷贝/云同步备份等于拷贝全部行情凭证。这与「Load 不跨 IPC 传密钥」的边界不一致。
-  2. Load/编码失败时备份仍显示成功，恢复后 settings 为空：FX 提供方、Worker URL、语言、密钥全部丢失，用户只会看到「验证 ok」。
+  2. Load/编码失败时备份仍显示成功，恢复后 settings 为空：FX 提供方、语言、密钥全部丢失，用户只会看到「验证 ok」。
 - **建议**：序列化失败应让备份失败；备份内密钥需与产品安全说明一致（本地明文可接受，但不要静默丢包）。不要在失败时用 `{}` 顶替。
-
-#### [P3] Worker Base URL 允许 `http`
-
-- **现状 / 证据**：`internal/infrastructure/marketdata/worker.go` `configured`（L267）接受 `https` 与 `http`。Token 以 Bearer 发出。
-- **影响**：用户若填内网/本机 http URL，token 明文出站。本地桌面、用户自填，不是远程注入。仍弱于「只允许 https」。
-- **建议**：默认拒绝 http，或明确开发开关。
 
 #### [P3] `LogFilePath` 经 Settings DTO 暴露
 
@@ -185,7 +179,7 @@
   - `GOCACHE=/tmp/nestworth-review-gocache go test ./internal/application -count=1 -timeout 120s -run 'TestInstrumentCurrencyImmutable|TestAccountSettingsSave|TestSnapshotHealthAndPreview|TestRebuildHistoricalSnapshotsInvalidStart'` → **ok**
   - `GOCACHE=/tmp/nestworth-review-gocache go test ./internal/infrastructure/marketdata -count=1 -timeout 60s -run 'TestCoinGecko'` → **ok**
 - 未打开原生 Nestworth 窗口，未点选真实家庭数据库。
-- 未请求 Yahoo / Tiingo / CoinGecko / Frankfurter / Worker 活体行情。
+- 未请求 Yahoo / Tiingo / CoinGecko / Frankfurter 活体行情。
 - 未做打包、公证、签名、菜单/托盘、VoiceOver、多窗口。
 - 未做贷款摊销/转账的独立手工场景（源码抽查未见与本次 P1 同级的不变量破坏；不声称该子系统无缺陷）。
 - 生成 bindings 未当作手写问题。

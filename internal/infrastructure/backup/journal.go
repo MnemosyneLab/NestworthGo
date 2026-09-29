@@ -278,7 +278,6 @@ func MergeSettings(current, backup settings.Settings, chrome, format, routing bo
 	if routing {
 		merged.FXProvider = backup.FXProvider
 		merged.QuoteCacheTTL = backup.QuoteCacheTTL
-		merged.WorkerBaseURL = backup.WorkerBaseURL
 	}
 	return merged
 }

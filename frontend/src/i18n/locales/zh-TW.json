@@ -847,7 +847,6 @@
     "provider": {
       "frankfurter": "Frankfurter",
       "tiingo": "Tiingo",
-      "worker": "Nestworth Worker",
       "yahoo": "Yahoo Finance",
       "yahoo_finance": "Yahoo Finance",
       "coingecko": "CoinGecko"
@@ -875,10 +874,9 @@
       "reset": "恢復預設設定",
       "credentialsHelp": "只需設定你使用的服務。金鑰和權杖透過各自的按鈕單獨儲存。",
       "unsaved": "你有尚未儲存的偏好設定。",
-      "saveHelp": "儲存適用於外觀、語言、行情偏好、Worker 網址和診斷設定。",
+      "saveHelp": "儲存適用於外觀、語言、行情偏好和診斷設定。",
       "coinGecko": "CoinGecko",
       "tiingo": "Tiingo",
-      "worker": "Nestworth Worker",
       "agent": "AI / MCP"
     }
   },

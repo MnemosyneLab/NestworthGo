@@ -33,7 +33,6 @@ export interface SettingsDTO {
     "windowHeight": number;
     "fxProvider": string;
     "quoteCacheTTL": string;
-    "workerBaseURL": string;
 }
 
 /**
@@ -41,13 +40,5 @@ export interface SettingsDTO {
  * key itself never crosses the Wails boundary.
  */
 export interface TiingoKeyStatusDTO {
-    "configured": boolean;
-}
-
-/**
- * WorkerTokenStatusDTO exposes only whether the local Worker token exists.
- * The token itself never crosses the Wails boundary.
- */
-export interface WorkerTokenStatusDTO {
     "configured": boolean;
 }

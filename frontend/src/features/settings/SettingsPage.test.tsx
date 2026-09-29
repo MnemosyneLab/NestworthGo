@@ -13,9 +13,6 @@ const historyOrigin = vi.fn();
 const tiingoKeyStatus = vi.fn();
 const saveTiingoAPIKey = vi.fn();
 const deleteTiingoAPIKey = vi.fn();
-const workerTokenStatus = vi.fn();
-const saveWorkerAPIToken = vi.fn();
-const deleteWorkerAPIToken = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings", () => ({
   Service: {
@@ -30,9 +27,6 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
     TiingoKeyStatus: () => tiingoKeyStatus(),
     SaveTiingoAPIKey: (...args: unknown[]) => saveTiingoAPIKey(...args),
     DeleteTiingoAPIKey: () => deleteTiingoAPIKey(),
-    WorkerTokenStatus: () => workerTokenStatus(),
-    SaveWorkerAPIToken: (...args: unknown[]) => saveWorkerAPIToken(...args),
-    DeleteWorkerAPIToken: () => deleteWorkerAPIToken(),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
@@ -89,7 +83,6 @@ const defaultSettings = {
   windowWidth: 1100,
   windowHeight: 720,
   fxProvider: "frankfurter",
-  workerBaseURL: "",
 };
 
 beforeEach(() => {
@@ -100,17 +93,11 @@ beforeEach(() => {
   tiingoKeyStatus.mockReset();
   saveTiingoAPIKey.mockReset();
   deleteTiingoAPIKey.mockReset();
-  workerTokenStatus.mockReset();
-  saveWorkerAPIToken.mockReset();
-  deleteWorkerAPIToken.mockReset();
   load.mockResolvedValue(defaultSettings);
   historyOrigin.mockResolvedValue(null);
   tiingoKeyStatus.mockResolvedValue({ configured: false });
   saveTiingoAPIKey.mockResolvedValue({ configured: true });
   deleteTiingoAPIKey.mockResolvedValue({ configured: false });
-  workerTokenStatus.mockResolvedValue({ configured: false });
-  saveWorkerAPIToken.mockResolvedValue({ configured: true });
-  deleteWorkerAPIToken.mockResolvedValue({ configured: false });
 });
 
 describe("SettingsPage", () => {
@@ -171,18 +158,6 @@ describe("SettingsPage", () => {
     expect(save).toHaveBeenCalledWith(expect.objectContaining({ timezone: "Asia/Shanghai", fxProvider: "frankfurter" }));
   });
 
-  it("saves the Worker URL and token through their separate settings controls", async () => {
-    renderPage();
-    await screen.findByRole("form", { name: "Settings" });
-    await userEvent.type(screen.getByLabelText("Nestworth Worker URL"), "https://worker.example");
-    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    expect(save).toHaveBeenCalledWith(expect.objectContaining({ workerBaseURL: "https://worker.example" }));
-
-    await userEvent.type(screen.getByLabelText("Nestworth Worker token"), "worker-secret");
-    await userEvent.click(screen.getByRole("button", { name: "Save token" }));
-    expect(saveWorkerAPIToken).toHaveBeenCalledWith("worker-secret");
-  });
-
   it("notes when Settings presentation timezone differs from History Origin", async () => {
     const presentation = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const origin = presentation === "UTC" ? "Asia/Tokyo" : "UTC";
@@ -203,14 +178,11 @@ it("shows the actual household currency read-only and saves all general fields t
   const currency = within(form).getByLabelText("Household base currency");
   await waitFor(() => expect(currency).toHaveValue("SGD"));
   expect(currency).toHaveAttribute("readonly");
-  const url = screen.getByLabelText<HTMLInputElement>("Nestworth Worker URL");
+  await userEvent.selectOptions(within(form).getByLabelText("Appearance"), "dark");
   const saveButton = screen.getByRole("button", { name: "Save changes" });
-  expect(url.compareDocumentPosition(saveButton) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  await userEvent.type(url, "https://quotes.example.com");
   await userEvent.click(saveButton);
-  expect(save).toHaveBeenCalledWith(expect.objectContaining({ workerBaseURL: "https://quotes.example.com", currency: "USD" }));
+  expect(save).toHaveBeenCalledWith(expect.objectContaining({ appearance: "dark", currency: "USD" }));
   expect(saveTiingoAPIKey).not.toHaveBeenCalled();
-  expect(saveWorkerAPIToken).not.toHaveBeenCalled();
 });
 
 it("applies the default accent when restoring preferences", async () => {
@@ -229,8 +201,6 @@ it("applies the default accent when restoring preferences", async () => {
 it("groups provider credentials with their connection settings and keeps diagnostics separate", async () => {
   renderPage();
   const market = await screen.findByRole("region", { name: "Market data & connections" });
-  expect(within(market).getByLabelText("Nestworth Worker URL")).toHaveAttribute("form", "settings-preferences");
-  expect(within(market).getByLabelText("Nestworth Worker token")).toBeInTheDocument();
   const diagnostics = screen.getByRole("region", { name: "Diagnostics" });
   expect(within(diagnostics).getByRole("combobox")).toHaveAttribute("form", "settings-preferences");
   expect(market).not.toContainElement(within(diagnostics).getByRole("combobox"));

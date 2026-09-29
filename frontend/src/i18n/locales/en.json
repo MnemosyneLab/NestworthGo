@@ -847,7 +847,6 @@
     "provider": {
       "frankfurter": "Frankfurter",
       "tiingo": "Tiingo",
-      "worker": "Nestworth Worker",
       "yahoo": "Yahoo Finance",
       "yahoo_finance": "Yahoo Finance",
       "coingecko": "CoinGecko"
@@ -875,10 +874,9 @@
       "reset": "Restore defaults",
       "credentialsHelp": "Configure only the services you use. Keys and tokens are saved separately using their own buttons.",
       "unsaved": "You have unsaved preference changes.",
-      "saveHelp": "Save applies to appearance, language, market preferences, Worker URL, and diagnostics.",
+      "saveHelp": "Save applies to appearance, language, market preferences, and diagnostics.",
       "coinGecko": "CoinGecko",
       "tiingo": "Tiingo",
-      "worker": "Nestworth Worker",
       "agent": "AI / MCP"
     }
   },
