@@ -6,6 +6,7 @@ All notable changes to Nestworth are recorded here.
 
 ### Changed
 
+- Upgraded the Wails v3 desktop shell and `@wailsio/runtime` to `v3.0.0-beta.26`.
 - Advanced synchronized application metadata to `v0.3.5` / build `6`.
 - Feature scope is not yet assigned; see the [release contract](docs/releases/v0.3.5.md).
 
