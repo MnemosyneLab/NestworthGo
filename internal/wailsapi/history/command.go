@@ -249,6 +249,9 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID, originTi
 		return domain.FXConversionInput{HouseholdID: householdID, AccountID: accountID, Sold: sold, Bought: bought, Fee: fee, EffectiveAt: effectiveAt, Note: r.Note}, nil
 
 	case ChangePositionTransfer:
+		if r.ToHoldingID != "" && r.ToAccountID != "" {
+			return nil, &domain.Error{Code: domain.ErrValidation, Field: "toAccountId", Message: "provide exactly one of toAccountId or toHoldingId"}
+		}
 		fromHoldingID, err := domain.ParseHoldingID(r.FromHoldingID)
 		if err != nil {
 			return nil, err

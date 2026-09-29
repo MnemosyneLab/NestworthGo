@@ -371,6 +371,24 @@ func TestPreviewPositionTransferRejectsDestinationOverflow(t *testing.T) {
 	}
 }
 
+func TestPreviewPositionTransferRejectsTwoDestinations(t *testing.T) {
+	state, _, _, fromID, toID := changeTestState(t)
+	to := state.Holdings[toID]
+	to.AccountID = NewAccountID()
+	state.Holdings[toID] = to
+	quantity, err := ParseQuantity("1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = PreviewChange(state, PositionTransferInput{
+		HouseholdID: state.HouseholdID, FromHoldingID: fromID,
+		ToHoldingID: toID, ToAccountID: &to.AccountID, Quantity: quantity,
+	})
+	if typed, ok := err.(*Error); !ok || typed.Code != ErrValidation {
+		t.Fatalf("two matching destinations = %v, want validation", err)
+	}
+}
+
 func findAccount(state ChangeState, name string) AccountID {
 	for id, account := range state.Accounts {
 		if account.Name == name {

@@ -405,6 +405,30 @@ func (s *Service) ArchiveMember(ctx context.Context, id domain.MemberID, archive
 	if err != nil {
 		return err
 	}
+	if archived {
+		members, err := s.repository.ListMembers(ctx, true)
+		if err != nil {
+			return err
+		}
+		active := make(map[domain.MemberID]bool, len(members))
+		for _, member := range members {
+			active[member.ID] = member.ArchivedAt == nil && member.ID != id
+		}
+		accounts, err := s.repository.ListAccountRecords(ctx, household.ID, domain.AccountFilter{})
+		if err != nil {
+			return err
+		}
+		for _, account := range accounts {
+			ownedByMember, hasActiveOwner := false, false
+			for _, share := range account.Ownership.Shares() {
+				ownedByMember = ownedByMember || share.MemberID == id
+				hasActiveOwner = hasActiveOwner || active[share.MemberID]
+			}
+			if ownedByMember && !hasActiveOwner {
+				return &domain.Error{Code: domain.ErrConflict, Field: "memberId", Message: "member owns a live account with no other active owner"}
+			}
+		}
+	}
 	err = s.repository.SetMemberArchive(ctx, household.ID, id, archived, s.clock())
 	if err == nil {
 		s.invalidateAnalysis()

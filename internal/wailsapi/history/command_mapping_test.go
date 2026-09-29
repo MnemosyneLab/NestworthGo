@@ -119,6 +119,36 @@ func TestToCommandAcceptsEveryChangeCommandKind(t *testing.T) {
 	}
 }
 
+func TestPositionTransferCommandRequiresExactlyOneDestination(t *testing.T) {
+	base := ChangeCommandRequest{Kind: ChangePositionTransfer, FromHoldingID: domain.NewHoldingID().String(), Quantity: "1"}
+	for _, testCase := range []struct {
+		name      string
+		holdingID string
+		accountID string
+		valid     bool
+	}{
+		{name: "both", holdingID: domain.NewHoldingID().String(), accountID: domain.NewAccountID().String()},
+		{name: "neither"},
+		{name: "holding", holdingID: domain.NewHoldingID().String(), valid: true},
+		{name: "account", accountID: domain.NewAccountID().String(), valid: true},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := base
+			request.ToHoldingID, request.ToAccountID = testCase.holdingID, testCase.accountID
+			_, err := request.ToCommand(domain.NewHouseholdID())
+			if testCase.valid && err != nil {
+				t.Fatalf("valid destination rejected: %v", err)
+			}
+			if !testCase.valid {
+				domainErr, ok := err.(*domain.Error)
+				if !ok || domainErr.Code != domain.ErrValidation {
+					t.Fatalf("invalid destination = %v, want validation", err)
+				}
+			}
+		})
+	}
+}
+
 func TestToCommandMoneyRemovedCarriesHoldingAssociation(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	accountID := domain.NewAccountID()

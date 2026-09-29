@@ -104,10 +104,16 @@ func fromInstrumentSearchHit(hit application.InstrumentSearchHit) InstrumentSear
 // SearchInstruments routes stock/ETF and crypto searches to their providers.
 // It is a form-assist read and does not persist anything.
 func (s *Service) SearchInstruments(ctx context.Context, query, instrumentType string) ([]InstrumentSearchHitDTO, error) {
-	if s.app == nil {
+	return SearchInstruments(ctx, s.app, query, instrumentType)
+}
+
+// SearchInstruments is the runtime-free search adapter. It preserves the desktop
+// sync listener; constructing a second event-owning service would replace it.
+func SearchInstruments(ctx context.Context, app *application.Service, query, instrumentType string) ([]InstrumentSearchHitDTO, error) {
+	if app == nil {
 		return nil, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
 	}
-	hits, err := s.app.SearchInstruments(ctx, query, instrumentType)
+	hits, err := app.SearchInstruments(ctx, query, instrumentType)
 	if err != nil {
 		return nil, apierror.Wrap(err)
 	}
@@ -381,7 +387,8 @@ func fromHealthIssue(issue application.HealthIssue) HealthIssueDTO {
 	}
 }
 
-func fromHealthReport(report application.MarketDataHealthReport) MarketDataHealthReportDTO {
+// HealthReportDTO shares the Data Health wire format without installing an event listener.
+func HealthReportDTO(report application.MarketDataHealthReport) MarketDataHealthReportDTO {
 	dto := MarketDataHealthReportDTO{
 		Healthy: report.Healthy, IncompleteSince: report.IncompleteSince, CoverageThrough: report.CoverageThrough,
 		LastFinalizedMarketDate: report.LastFinalizedMarketDate, IssueCount: report.IssueCount,
@@ -405,7 +412,7 @@ func (s *Service) ScanMarketDataHealth() (MarketDataHealthReportDTO, error) {
 	if err != nil {
 		return MarketDataHealthReportDTO{}, apierror.Wrap(err)
 	}
-	return fromHealthReport(report), nil
+	return HealthReportDTO(report), nil
 }
 
 func fromSyncRequest(dto SyncRequestDTO) application.SyncRequest {
@@ -418,7 +425,8 @@ func fromSyncRequest(dto SyncRequestDTO) application.SyncRequest {
 	}
 }
 
-func fromSyncJob(snapshot application.SyncJobSnapshot) SyncJobDTO {
+// SyncSnapshotDTO converts a detached job snapshot for UI and MCP callers.
+func SyncSnapshotDTO(snapshot application.SyncJobSnapshot) SyncJobDTO {
 	dto := SyncJobDTO{
 		JobID:        snapshot.JobID,
 		WorkspaceID:  snapshot.WorkspaceID,
@@ -470,6 +478,11 @@ func (s *Service) PreviewMarketDataSync(request SyncRequestDTO) (SyncPlanPreview
 	if err != nil {
 		return SyncPlanPreviewDTO{}, apierror.Wrap(err)
 	}
+	return SyncPreviewDTO(preview), nil
+}
+
+// SyncPreviewDTO shares the repair plan representation across transports.
+func SyncPreviewDTO(preview application.SyncPlanPreview) SyncPlanPreviewDTO {
 	dto := SyncPlanPreviewDTO{
 		AsOf:                  preview.AsOf.UTC().Format(time.RFC3339),
 		ConfigRevision:        preview.ConfigRevision,
@@ -488,7 +501,7 @@ func (s *Service) PreviewMarketDataSync(request SyncRequestDTO) (SyncPlanPreview
 	for _, blocker := range preview.Unresolved {
 		dto.Unresolved = append(dto.Unresolved, SyncBlockerDTO{TargetKey: blocker.TargetKey, Code: blocker.Code, Reason: blocker.Reason})
 	}
-	return dto, nil
+	return dto
 }
 
 func (s *Service) StartMarketDataSync(request SyncRequestDTO) (SyncStartResultDTO, error) {
@@ -499,7 +512,7 @@ func (s *Service) StartMarketDataSync(request SyncRequestDTO) (SyncStartResultDT
 	if err != nil {
 		return SyncStartResultDTO{}, apierror.Wrap(err)
 	}
-	return SyncStartResultDTO{Job: fromSyncJob(result.Job), Attached: result.Attached, Conflict: result.Conflict, Reason: result.Reason}, nil
+	return SyncStartResultDTO{Job: SyncSnapshotDTO(result.Job), Attached: result.Attached, Conflict: result.Conflict, Reason: result.Reason}, nil
 }
 
 func (s *Service) GetCurrentSyncJob() (SyncJobDTO, error) {
@@ -510,7 +523,7 @@ func (s *Service) GetCurrentSyncJob() (SyncJobDTO, error) {
 	if !ok {
 		return SyncJobDTO{}, nil
 	}
-	return fromSyncJob(snapshot), nil
+	return SyncSnapshotDTO(snapshot), nil
 }
 
 func (s *Service) CancelSyncJob(jobID string) (SyncJobDTO, error) {
@@ -521,11 +534,11 @@ func (s *Service) CancelSyncJob(jobID string) (SyncJobDTO, error) {
 	if !ok {
 		return SyncJobDTO{}, nil
 	}
-	return fromSyncJob(snapshot), nil
+	return SyncSnapshotDTO(snapshot), nil
 }
 
 func (s *Service) emitSyncSnapshot(event string, snapshot application.SyncJobSnapshot) {
-	dto := fromSyncJob(snapshot)
+	dto := SyncSnapshotDTO(snapshot)
 	switch event {
 	case application.SyncEventStarted:
 		s.events.Emit(SyncStartedEvent, dto)

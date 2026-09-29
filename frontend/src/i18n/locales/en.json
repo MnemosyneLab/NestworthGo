@@ -1015,7 +1015,7 @@
     "directoryWrite": "Read and maintain directories",
     "ledgerWrite": "Read, maintain directories and record activity",
     "writeHelp": "Read data and create, edit or archive members, institutions, groups, accounts and instruments without another App confirmation. This permission does not allow ledger entries or balance changes.",
-    "ledgerHelp": "Also allows recording income, expenses, trades, transfers, FX, dividends and debt activity; importing existing positions; posting atomic batches; transferring positions; reconciling current balances, quantities and total costs; and undoing or correcting activity. The agent previews before committing, without per-action confirmation in the App. This does not place brokerage orders.",
+    "ledgerHelp": "Also allows recording income, expenses, trades, transfers, FX, dividends and debt activity; importing existing positions; posting atomic batches; transferring positions; reconciling current balances, quantities and total costs; and undoing or correcting activity. The agent previews before committing, without per-action confirmation in the App. This permission also allows fetching prices and exchange rates from configured providers and rebuilding historical snapshots to repair data health issues. This does not place brokerage orders.",
     "readHelp": "Allows directory, current valuation, activity history and closed-day period analysis queries. The agent cannot change data.",
     "apply": "Apply permissions",
     "enable": "Enable MCP",

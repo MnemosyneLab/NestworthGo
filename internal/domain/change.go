@@ -1155,6 +1155,9 @@ func buildFXConversion(state ChangeState, input FXConversionInput) (ChangePrevie
 }
 
 func buildPositionTransfer(state ChangeState, input PositionTransferInput) (ChangePreview, error) {
+	if (input.ToHoldingID == "") == (input.ToAccountID == nil) {
+		return ChangePreview{}, changeError(ErrValidation, "toAccountId", "provide exactly one of toAccountId or toHoldingId")
+	}
 	if input.FromHoldingID == input.ToHoldingID {
 		return ChangePreview{}, changeError(ErrTransferMismatch, "toHoldingId", "destination Holding must differ from source")
 	}

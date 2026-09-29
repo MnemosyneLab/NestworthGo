@@ -10,6 +10,9 @@ import (
 // When that account has no position yet, the returned zero-quantity Holding is
 // persisted with the transfer Activity in the caller's transaction.
 func (s *Service) preparePositionTransfer(ctx context.Context, snapshot domain.PortfolioSnapshot, state domain.ChangeState, input domain.PositionTransferInput) (domain.ChangeState, any, *domain.Holding, error) {
+	if input.ToHoldingID != "" && input.ToAccountID != nil {
+		return state, nil, nil, &domain.Error{Code: domain.ErrValidation, Field: "toAccountId", Message: "provide exactly one of toAccountId or toHoldingId"}
+	}
 	if input.ToHoldingID != "" {
 		return state, input, nil, nil
 	}
@@ -49,6 +52,7 @@ func (s *Service) preparePositionTransfer(ctx context.Context, snapshot domain.P
 				return state, nil, nil, err
 			}
 			input.ToHoldingID = existing.ID
+			input.ToAccountID = nil
 			return state, input, nil, nil
 		}
 	}
@@ -65,5 +69,6 @@ func (s *Service) preparePositionTransfer(ctx context.Context, snapshot domain.P
 		InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero,
 	}
 	input.ToHoldingID = holding.ID
+	input.ToAccountID = nil
 	return state, input, &holding, nil
 }
