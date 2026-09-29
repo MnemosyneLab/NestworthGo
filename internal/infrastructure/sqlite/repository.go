@@ -330,17 +330,29 @@ func (r *Repository) CreateAccountWithHistory(ctx context.Context, account domai
 		if err := appendAccountStateObservationTx(ctx, tx, observation); err != nil {
 			return err
 		}
-		if commit == nil {
-			return nil
-		}
-		if err := commitActivityTx(ctx, tx, *commit, asOf); err != nil {
-			return err
+		if commit != nil {
+			if err := commitActivityTx(ctx, tx, *commit, asOf); err != nil {
+				return err
+			}
+			for _, projection := range commit.Replay {
+				if err := rebuildActivityProjectionTx(ctx, tx, projection); err != nil {
+					return err
+				}
+			}
 		}
 		var timezone string
 		if err := tx.QueryRowContext(ctx, `SELECT timezone FROM history_origins WHERE household_id = ?`, account.HouseholdID.String()).Scan(&timezone); err != nil {
 			return err
 		}
-		return markHistoryDirtyTx(ctx, tx, account.HouseholdID, commit.Activity.EffectiveLocalDate, timezone, asOf)
+		location, err := time.LoadLocation(timezone)
+		if err != nil {
+			return &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "stored Household timezone is invalid"}
+		}
+		observationDate := observation.EffectiveAt.In(location).Format("2006-01-02")
+		if commit != nil && commit.Activity.EffectiveLocalDate < observationDate {
+			observationDate = commit.Activity.EffectiveLocalDate
+		}
+		return markHistoryDirtyTx(ctx, tx, account.HouseholdID, observationDate, timezone, asOf)
 	})
 }
 
@@ -574,7 +586,7 @@ func loadOwnership(ctx context.Context, query queryer, householdID domain.Househ
 }
 
 func loadLatestValues(ctx context.Context, query queryer, householdID domain.HouseholdID) (map[domain.AccountID]*domain.AccountValue, error) {
-	rows, err := query.QueryContext(ctx, `SELECT av.id, av.account_id, av.value_kind, av.amount, av.currency, av.effective_at, av.created_at FROM account_values av JOIN accounts a ON a.id = av.account_id WHERE a.household_id = ? AND NOT EXISTS (SELECT 1 FROM account_values newer WHERE newer.account_id = av.account_id AND (newer.effective_at > av.effective_at OR (newer.effective_at = av.effective_at AND newer.created_at > av.created_at) OR (newer.effective_at = av.effective_at AND newer.created_at = av.created_at AND newer.id > av.id)))`, householdID.String())
+	rows, err := query.QueryContext(ctx, `SELECT av.id, av.account_id, av.value_kind, av.amount, av.currency, av.effective_at, av.created_at FROM account_values av JOIN accounts a ON a.id = av.account_id WHERE a.household_id = ? AND NOT EXISTS (SELECT 1 FROM account_values newer WHERE newer.account_id = av.account_id AND (newer.effective_at > av.effective_at OR (newer.effective_at = av.effective_at AND newer.created_at > av.created_at) OR (newer.effective_at = av.effective_at AND newer.created_at = av.created_at AND newer.rowid > av.rowid)))`, householdID.String())
 	if err != nil {
 		return nil, err
 	}

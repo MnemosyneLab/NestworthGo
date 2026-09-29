@@ -35,3 +35,11 @@ export function useConfirmRestore() {
 export function useExportJSON() {
   return useMutation({ mutationFn: () => callService(() => DataService.ExportJSON()) });
 }
+
+export function useRebuildDerivedData() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => callService(() => DataService.RebuildDerivedData()),
+    onSuccess: () => void queryClient.invalidateQueries(),
+  });
+}

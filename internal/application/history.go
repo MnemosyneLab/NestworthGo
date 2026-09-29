@@ -2,6 +2,8 @@ package application
 
 import (
 	"context"
+	"strings"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -31,10 +33,57 @@ func (s *Service) StartHistory(ctx context.Context, timezone string) (domain.His
 	return s.StartHistoryWithCosts(ctx, timezone, nil)
 }
 
+// historyStartInstant resolves an explicitly chosen day in the immutable
+// History timezone. The empty date keeps the legacy start-at-now behavior.
+func historyStartInstant(startDate, timezone string, now time.Time) (time.Time, error) {
+	if strings.TrimSpace(startDate) == "" {
+		return now, nil
+	}
+	location, err := time.LoadLocation(strings.TrimSpace(timezone))
+	if err != nil {
+		return time.Time{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone must be a valid IANA timezone"}
+	}
+	day := strings.TrimSpace(startDate)
+	if len(day) != len("2006-01-02") || day > now.In(location).Format("2006-01-02") {
+		return time.Time{}, &domain.Error{Code: domain.ErrValidation, Field: "startDate", Message: "start date must be a valid day no later than today"}
+	}
+	start, err := domain.ResolveLocalDateTime(day, "00:00", timezone)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return start, nil
+}
+
+func snapshotHasStartingAssets(snapshot domain.PortfolioSnapshot) bool {
+	for _, record := range snapshot.Accounts {
+		if record.LatestValue != nil && !record.LatestValue.Amount.IsZero() {
+			return true
+		}
+	}
+	for _, cash := range snapshot.CashValues {
+		if !cash.Amount.IsZero() {
+			return true
+		}
+	}
+	for _, holding := range snapshot.Holdings {
+		if !holding.Quantity.IsZero() {
+			return true
+		}
+	}
+	return false
+}
+
 // StartHistoryWithCosts captures the selected current state with optional
 // per-Holding cost overrides. A missing override keeps the selected current
 // quote as the default, preserving the original StartHistory contract.
 func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, costOverrides map[domain.HoldingID]string) (domain.HistoryOrigin, error) {
+	return s.StartHistoryOnDate(ctx, timezone, "", costOverrides)
+}
+
+// StartHistoryOnDate allows a past empty starting point. Existing balances or
+// positions can only be captured at the current instant, since they do not
+// establish what was held on a date in the past.
+func (s *Service) StartHistoryOnDate(ctx context.Context, timezone, startDate string, costOverrides map[domain.HoldingID]string) (domain.HistoryOrigin, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.HistoryOrigin{}, err
@@ -48,11 +97,26 @@ func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, co
 		return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrConflict, Message: "complete onboarding first"}
 	}
 	now := s.clock()
-	origin, err := domain.NewHistoryOrigin(bootstrap.Household.ID, timezone, now, now)
+	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
 	if err != nil {
 		return domain.HistoryOrigin{}, err
 	}
-	snapshot, err := s.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	startedAt, err := historyStartInstant(startDate, timezone, now)
+	if err != nil {
+		return domain.HistoryOrigin{}, err
+	}
+	if startedAt.Before(now) && snapshotHasStartingAssets(snapshot) {
+		location, locationErr := time.LoadLocation(strings.TrimSpace(timezone))
+		if locationErr != nil {
+			return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone must be a valid IANA timezone"}
+		}
+		if strings.TrimSpace(startDate) != "" && strings.TrimSpace(startDate) == now.In(location).Format("2006-01-02") {
+			startedAt = now
+		} else {
+			return domain.HistoryOrigin{}, &domain.Error{Code: domain.ErrConflict, Field: "startDate", Message: "a past start requires zero account balances, cash, and holdings"}
+		}
+	}
+	origin, err := domain.NewHistoryOrigin(bootstrap.Household.ID, timezone, startedAt, now)
 	if err != nil {
 		return domain.HistoryOrigin{}, err
 	}

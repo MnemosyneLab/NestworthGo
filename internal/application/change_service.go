@@ -75,7 +75,8 @@ func (s *Service) PreviewChange(ctx context.Context, command any) (domain.Change
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	return domain.PreviewChange(state, command)
+	preview, _, err := s.prepareRecordedChange(ctx, state, command)
+	return preview, err
 }
 
 // RecordChange re-loads the current state before building and committing the
@@ -149,11 +150,12 @@ func (s *Service) recordChangeLocked(ctx context.Context, command any, key *doma
 		}
 		state.Holdings[holding.ID] = domain.ChangeHoldingState{ID: holding.ID, AccountID: holding.AccountID, InstrumentID: holding.InstrumentID, InstrumentName: instrument.Name, Currency: instrument.QuoteCurrency, Current: zero, CostBasisAvailable: false}
 		trade.HoldingID = holding.ID
-		preview, previewErr := domain.PreviewChange(state, trade)
+		preview, commit, previewErr := s.prepareRecordedChange(ctx, state, trade)
 		if previewErr != nil {
 			return domain.ChangePreview{}, previewErr
 		}
-		if commitErr := s.repository.CreateHoldingWithActivity(ctx, holding, domain.ActivityCommit{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting, Mutation: key}, s.clock()); commitErr != nil {
+		commit.Mutation = key
+		if commitErr := s.repository.CreateHoldingWithActivity(ctx, holding, commit, s.clock()); commitErr != nil {
 			return domain.ChangePreview{}, commitErr
 		}
 		s.invalidateAnalysis()
@@ -165,11 +167,12 @@ func (s *Service) recordChangeLocked(ctx context.Context, command any, key *doma
 // commitChangeLocked previews the command against the given state and commits
 // it; the caller must hold s.changeMu.
 func (s *Service) commitChangeLocked(ctx context.Context, state domain.ChangeState, command any, key *domain.ActivityMutation) (domain.ChangePreview, error) {
-	preview, err := domain.PreviewChange(state, command)
+	preview, commit, err := s.prepareRecordedChange(ctx, state, command)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{{Activity: preview.Activity, Effects: preview.Effects, Resulting: preview.Resulting, Mutation: key}}, s.clock()); err != nil {
+	commit.Mutation = key
+	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{commit}, s.clock()); err != nil {
 		return domain.ChangePreview{}, err
 	}
 	s.invalidateAnalysis()

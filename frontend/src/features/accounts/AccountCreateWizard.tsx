@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -9,6 +10,8 @@ import { useMembers, useInstitutions, useGroups, useCreateInstitution } from "@/
 import { useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { useBootstrap } from "@/queries/household";
+import { useHistoryOrigin } from "@/queries/history";
+import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import { displayEnum, displayError } from "@/lib/display";
 import {
@@ -67,6 +70,9 @@ export function AccountCreateWizard({
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
   const bootstrap = useBootstrap();
+  const origin = useHistoryOrigin();
+  const originDate = origin.data ? localDateInTimeZone(origin.data.timezone, new Date(origin.data.startedAt)) : undefined;
+  const today = origin.data ? localDateInTimeZone(origin.data.timezone) : undefined;
   const createInstitution = useCreateInstitution();
 
   const combinations = catalog.data?.accountCombinations ?? [];
@@ -90,6 +96,8 @@ export function AccountCreateWizard({
   const [name, setName] = useState("");
   const [defaultCurrency, setDefaultCurrency] = useState("");
   const [initialAmount, setInitialAmount] = useState("");
+  const [openedOn, setOpenedOn] = useState("");
+  const [openedOnError, setOpenedOnError] = useState(false);
   const [ownerIds, setOwnerIds] = useState<string[]>([]);
   const [ownershipPercentages, setOwnershipPercentages] = useState<string[]>([]);
   const [useCustomPercentages, setUseCustomPercentages] = useState(false);
@@ -214,6 +222,11 @@ export function AccountCreateWizard({
     if (ownerIds.length === 0) {
       return;
     }
+    if (openedOn && (!originDate || !today || openedOn < originDate || openedOn > today)) {
+      setOpenedOnError(true);
+      return;
+    }
+    setOpenedOnError(false);
     setNameError(undefined);
     setStep("review");
   };
@@ -240,6 +253,7 @@ export function AccountCreateWizard({
       groupId: selectedGroupId || undefined,
       iconKey: iconKey || undefined,
       initialAmount: resolvedTracking === "holdings" ? "" : initialAmount || "0",
+      openedOn: openedOn || undefined,
     };
     void onSubmit(request, {});
   };
@@ -464,6 +478,14 @@ export function AccountCreateWizard({
               <Input id="account-initial-amount" inputMode="decimal" value={initialAmount} onChange={(event) => setInitialAmount(event.target.value)} placeholder="0" />
             </div>
           )}
+          {origin.data && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="account-opened-on">{t("accounts.openedOn")}</Label>
+              <DatePicker id="account-opened-on" min={originDate} max={today} value={openedOn} clearable onChange={(value) => { setOpenedOn(value); setOpenedOnError(false); }} aria-invalid={openedOnError} />
+              <p className="text-xs text-muted-foreground">{t("accounts.openedOnHistoryHelp")}</p>
+              {openedOnError && <p role="alert" className="text-xs text-destructive">{t("accounts.openedOnHistoryError")}</p>}
+            </div>
+          )}
           <OwnershipFields
             idPrefix="wizard-owner"
             members={members.data ?? []}
@@ -501,6 +523,8 @@ export function AccountCreateWizard({
             </p>
             <p className="mt-1">{name}</p>
             <p className="mt-2">{t(trackingMethodKey(resolvedTracking, resolvedType))}</p>
+            {openedOn && <p className="mt-1">{t("accounts.openedOn")}: {openedOn}</p>}
+            {resolvedTracking !== "holdings" && <p className="mt-1">{t("accounts.amount")}: {initialAmount || "0"} {currencyValue}</p>}
             <p className="text-muted-foreground">{t("accounts.reviewTrackingImmutable")}</p>
           </div>
           {submissionError && (

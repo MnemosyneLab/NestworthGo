@@ -14,6 +14,7 @@ const updateAccount = vi.fn();
 const archiveAccount = vi.fn().mockResolvedValue(undefined);
 const historyOrigin = vi.fn();
 const startHistory = vi.fn();
+const startHistoryOnDate = vi.fn();
 const listInstruments = vi.fn();
 const createInstrument = vi.fn();
 const holdingsByAccounts = vi.fn();
@@ -74,6 +75,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
   Service: {
     HistoryOrigin: () => historyOrigin(),
     StartHistory: (...args: unknown[]) => startHistory(...args),
+    StartHistoryOnDate: (...args: unknown[]) => startHistoryOnDate(...args),
     StartHistoryWithCosts: vi.fn(),
     StartingPointDraft: () => Promise.resolve([]),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
@@ -189,6 +191,7 @@ beforeEach(() => {
   archiveAccount.mockClear();
   historyOrigin.mockReset();
   startHistory.mockReset();
+  startHistoryOnDate.mockReset();
   listInstruments.mockReset();
   createInstrument.mockReset();
   holdingsByAccounts.mockReset();
@@ -218,6 +221,7 @@ beforeEach(() => {
   updateAccount.mockResolvedValue(emptyAccount);
   historyOrigin.mockResolvedValue(null);
   startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
   settingsLoad.mockResolvedValue({ timezone: "system", fxProvider: "frankfurter" });
   listInstruments.mockResolvedValue([]);
   holdingsByAccounts.mockResolvedValue({});
@@ -348,6 +352,37 @@ describe("AccountsPage", () => {
         initialAmount: "500",
       }),
     );
+  });
+
+  it("selects and clears an optional opening date in the account wizard", async () => {
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone, startedAt: "2020-01-01T00:00:00Z" });
+    renderPage();
+    await screen.findByText("Checking");
+    await userEvent.click(screen.getByText("Add account"));
+    const form = await screen.findByRole("form", { name: "Create account" });
+    await continueWizard(form, 3);
+    await userEvent.type(within(form).getByLabelText("Name"), "Dated Savings");
+    await userEvent.click(within(form).getByLabelText("Alice"));
+
+    const openedOn = within(form).getByLabelText("Opened on");
+    expect(openedOn).toHaveTextContent("Select a date");
+    const today = localDateInTimeZone(timezone)!;
+    const selected = `${today.slice(0, 7)}-01`;
+    await userEvent.click(openedOn);
+    let calendar = await screen.findByRole("grid");
+    await userEvent.click(calendar.querySelector(`[data-day="${selected}"] button`) as HTMLElement);
+    expect(openedOn).toHaveTextContent(selected);
+    await userEvent.click(openedOn);
+    await userEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+    expect(openedOn).toHaveTextContent("Select a date");
+    await userEvent.click(openedOn);
+    calendar = await screen.findByRole("grid");
+    await userEvent.click(calendar.querySelector(`[data-day="${selected}"] button`) as HTMLElement);
+
+    await continueWizard(form, 1);
+    await userEvent.click(within(form).getByRole("button", { name: "Add account" }));
+    expect(createAccount).toHaveBeenCalledWith(expect.objectContaining({ name: "Dated Savings", openedOn: selected }));
   });
 
   it("preselects the lowest-order active directory entries and submits both IDs", async () => {
@@ -883,13 +918,14 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Buy investment" }));
     expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
-    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
+    expect(screen.getByLabelText("Start date")).toHaveTextContent(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
     const timezone = await screen.findByLabelText("Timezone");
     expect(timezone).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
     expect(timezone).toHaveAttribute("readonly");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
     expect(await screen.findByLabelText("Instrument")).toBeInTheDocument();
-    expect(startHistory).toHaveBeenCalledWith(Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const resolvedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(startHistoryOnDate).toHaveBeenCalledWith(resolvedTimezone, localDateInTimeZone(resolvedTimezone), null);
     expect(historyOrigin).toHaveBeenCalled();
     expect(recordChange).not.toHaveBeenCalled();
   });
@@ -1067,7 +1103,7 @@ describe("AccountsPage", () => {
 
     await userEvent.click(await screen.findByRole("button", { name: "Buy investment" }));
     expect(await screen.findByText("Start history to continue")).toBeInTheDocument();
-    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
+    expect(screen.getByLabelText("Start date")).toHaveTextContent(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
     const timezone = screen.getByLabelText("Timezone");
     expect(timezone).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
     expect(timezone).toHaveAttribute("readonly");

@@ -358,6 +358,11 @@ func (r *Repository) CommitProductBundle(ctx context.Context, bundle domain.Prod
 			if err := commitActivityTx(ctx, tx, commit, bundle.AsOf); err != nil {
 				return err
 			}
+			for _, projection := range commit.Replay {
+				if err := rebuildActivityProjectionTx(ctx, tx, projection); err != nil {
+					return err
+				}
+			}
 			if err := markHistoryDirtyTx(ctx, tx, commit.Activity.HouseholdID, commit.Activity.EffectiveLocalDate, originTimezone, bundle.AsOf); err != nil {
 				return err
 			}

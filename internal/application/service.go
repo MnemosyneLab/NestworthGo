@@ -219,10 +219,11 @@ func (s *Service) Household(ctx context.Context) (domain.Household, error) {
 }
 
 type OnboardingInput struct {
-	HouseholdName string
-	BaseCurrency  string
-	MemberNames   []string
-	Timezone      string
+	HouseholdName    string
+	BaseCurrency     string
+	MemberNames      []string
+	Timezone         string
+	HistoryStartDate string
 }
 
 func (s *Service) ListMembers(ctx context.Context, includeArchived bool) ([]domain.Member, error) {
@@ -267,6 +268,9 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 		members = append(members, member)
 	}
 	if strings.TrimSpace(input.Timezone) == "" {
+		if strings.TrimSpace(input.HistoryStartDate) != "" {
+			return &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "timezone is required for a chosen history start date"}
+		}
 		if err := s.repository.CreateOnboarding(ctx, household, members); err != nil {
 			return err
 		}
@@ -276,7 +280,12 @@ func (s *Service) CompleteOnboarding(ctx context.Context, input OnboardingInput)
 		s.invalidateAnalysis()
 		return nil
 	}
-	origin, err := domain.NewHistoryOrigin(household.ID, input.Timezone, s.clock(), s.clock())
+	now := s.clock()
+	startedAt, err := historyStartInstant(input.HistoryStartDate, input.Timezone, now)
+	if err != nil {
+		return err
+	}
+	origin, err := domain.NewHistoryOrigin(household.ID, input.Timezone, startedAt, now)
 	if err != nil {
 		return err
 	}
@@ -691,9 +700,24 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	if err != nil {
 		return domain.AccountRecord{}, err
 	}
+	createdEffectiveAt := account.CreatedAt
+	if origin != nil && account.OpenedOn != nil {
+		createdEffectiveAt, err = historyStartInstant(*account.OpenedOn, origin.Timezone, account.CreatedAt)
+		if err != nil {
+			return domain.AccountRecord{}, err
+		}
+		if createdEffectiveAt.Before(origin.StartedAt) {
+			location, _ := time.LoadLocation(origin.Timezone)
+			if *account.OpenedOn == origin.StartedAt.In(location).Format("2006-01-02") {
+				createdEffectiveAt = origin.StartedAt
+			} else {
+				return domain.AccountRecord{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "openedOn", Message: "account opening cannot precede the Starting point"}
+			}
+		}
+	}
 	var value *domain.AccountValue
 	if initial != nil {
-		created, valueErr := domain.NewAccountValue(account, *initial, s.clock(), s.clock())
+		created, valueErr := domain.NewAccountValue(account, *initial, createdEffectiveAt, account.CreatedAt)
 		if valueErr != nil {
 			return domain.AccountRecord{}, valueErr
 		}
@@ -709,7 +733,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 	creationObservation := domain.AccountStateObservation{
 		ID:                    domain.NewAccountStateObservationID(),
 		AccountID:             account.ID,
-		EffectiveAt:           account.CreatedAt,
+		EffectiveAt:           createdEffectiveAt,
 		ArchivedAt:            account.ArchivedAt,
 		IncludeInNetWorth:     account.IncludeInNetWorth,
 		IncludeInPortfolio:    account.IncludeInPortfolio,
@@ -729,7 +753,7 @@ func (s *Service) CreateAccount(ctx context.Context, input AccountInput) (domain
 		return domain.AccountRecord{}, zeroErr
 	}
 	state := domain.ChangeState{HouseholdID: account.HouseholdID, OriginAt: origin.StartedAt, Timezone: origin.Timezone, Now: s.clock(), Accounts: map[domain.AccountID]domain.ChangeAccountState{account.ID: {ID: account.ID, Name: account.Name, Currency: account.DefaultCurrency, Mode: account.TrackingMode, Liability: account.IsLiability(), Current: zero}}, Cash: make(map[domain.AccountID]map[domain.CurrencyCode]domain.Money), Holdings: make(map[domain.HoldingID]domain.ChangeHoldingState)}
-	preview, previewErr := domain.PreviewChange(state, domain.MoneyAddedInput{HouseholdID: account.HouseholdID, AccountID: account.ID, Amount: *historyInitial, Reason: domain.ReasonContribution, EffectiveAt: account.CreatedAt})
+	preview, previewErr := domain.PreviewChange(state, domain.MoneyAddedInput{HouseholdID: account.HouseholdID, AccountID: account.ID, Amount: *historyInitial, Reason: domain.ReasonContribution, EffectiveAt: createdEffectiveAt})
 	if previewErr != nil {
 		return domain.AccountRecord{}, previewErr
 	}

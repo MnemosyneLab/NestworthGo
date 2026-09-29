@@ -176,6 +176,9 @@ describe("keyboard-only completion", () => {
     await userEvent.tab(); // -> base currency select (left at its default)
     expect(screen.getByLabelText(/base currency/i)).toHaveFocus();
 
+    await userEvent.tab(); // -> optional earlier History start (left unchecked)
+    expect(screen.getByRole("checkbox", { name: "Start recording from an earlier date" })).toHaveFocus();
+
     await userEvent.tab(); // -> member 1 name input
     expect(screen.getByLabelText("Member 1 name")).toHaveFocus();
     await userEvent.keyboard("Alice");

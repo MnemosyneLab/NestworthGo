@@ -6,6 +6,7 @@ import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { Plus, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -18,6 +19,8 @@ import { useCatalog } from "@/queries/catalog";
 import { languageOptionKey, setLanguage } from "@/i18n";
 import { displayError } from "@/lib/display";
 import { translateWailsError, type WireError } from "@/lib/wails";
+import { resolvedTimeZone } from "@/lib/time";
+import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import { Language } from "../../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
 
 const onboardingSchema = z.object({
@@ -37,9 +40,8 @@ type OnboardingFormValues = z.infer<typeof onboardingSchema>;
 /**
  * OnboardingPage implements the "Household creation, base currency, first
  * Members" flow end to end through HouseholdService. Language is chosen here
- * so the form can be completed before Settings exists. Timezone is left empty
- * on CompleteOnboardingRequest: history has not started yet; Starting Point
- * is a separate flow.
+ * so the form can be completed before Settings exists. The optional historical
+ * start creates a zero-asset History Origin in the same onboarding transaction.
  */
 export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {}) {
   const { t } = useTranslation();
@@ -49,6 +51,10 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
   const saveSettings = useSaveSettings();
   const completeOnboarding = useCompleteOnboarding();
   const [language, setLanguagePreference] = useState<Language>(settings.data?.language ?? Language.LanguageSystem);
+  const [startHistorical, setStartHistorical] = useState(false);
+  const [historyDate, setHistoryDate] = useState("");
+  const historyTimezone = resolvedTimeZone(settings.data?.timezone);
+  const today = localDateInTimeZone(historyTimezone);
 
   useEffect(() => {
     if (settings.data?.language) {
@@ -94,6 +100,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
         householdName: values.householdName,
         baseCurrency: values.baseCurrency,
         memberNames: values.memberNames.map((member) => member.name.trim()).filter(Boolean),
+        ...(startHistorical ? { timezone: historyTimezone, historyStartDate: historyDate || today } : {}),
       },
       { onSuccess: onCompleted },
     );
@@ -173,6 +180,21 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
                   ))}
                 </NativeSelect>
                 <p className="text-xs leading-5 text-muted-foreground">{t("onboarding.baseCurrencyHint")}</p>
+              </div>
+
+              <div className="flex flex-col gap-2 rounded-xl border border-border p-4">
+                <label className="flex items-center gap-2 text-sm font-medium">
+                  <input type="checkbox" checked={startHistorical} onChange={(event) => setStartHistorical(event.target.checked)} />
+                  {t("onboarding.historicalStart")}
+                </label>
+                <p className="text-xs leading-5 text-muted-foreground">{t("onboarding.historicalStartHelp")}</p>
+                {startHistorical && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="onboarding-history-date">{t("history.startDate")}</Label>
+                    <DatePicker id="onboarding-history-date" value={historyDate || today || ""} max={today} onChange={setHistoryDate} />
+                    <p className="text-xs text-muted-foreground">{t("onboarding.historicalTimezone", { timezone: historyTimezone })}</p>
+                  </div>
+                )}
               </div>
 
               <fieldset className="flex flex-col gap-2">

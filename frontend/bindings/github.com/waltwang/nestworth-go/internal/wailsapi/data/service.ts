@@ -7,6 +7,10 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as application$0 from "../../application/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
 
 export function CreateBackup(): $CancellablePromise<$models.BackupResultDTO> {
@@ -19,4 +23,11 @@ export function ExportJSON(): $CancellablePromise<$models.ExportResultDTO> {
 
 export function LastBackupStatus(): $CancellablePromise<$models.BackupStatusDTO> {
     return $Call.ByID(3491009104);
+}
+
+/**
+ * RebuildDerivedData preserves input facts and atomically replaces calculations.
+ */
+export function RebuildDerivedData(): $CancellablePromise<application$0.DerivedDataRebuildResult> {
+    return $Call.ByID(4075816420);
 }

@@ -402,3 +402,30 @@ stable localization codes (`existing_position_increases_assets`) rather than
 English prose. History uses `Activity.productContext.productId` to open product
 management; its generic correction/undo controls do not apply to product-linked
 activities, including product interest entries.
+
+### Full derived-data rebuild
+
+`DataService.RebuildDerivedData` replays the complete ledger from the immutable
+History Origin through the current time. It holds the application write gate,
+loads one consistent historical input batch, validates every intermediate balance
+and quantity, and computes every closed local day's valuation before publication.
+A single SQLite transaction replaces current replay projections, repairs event
+projections, updates holding quantities, replaces daily snapshot revisions and
+items, and resets snapshot completion state. An input-generation check prevents
+publishing a stale batch. A failed calculation or transaction leaves the previous
+results in place. Analysis caches are invalidated after publication; gain and
+return views are calculated from the rebuilt inputs when read.
+
+Activities, correction links, opening balances, account and instrument
+observations, product operations, prices, FX observations, coverage evidence,
+settings and credentials remain intact. A `value_update` event balance is the
+persisted absolute amount entered by the user, so it is retained as an input; its
+relative effect is recalculated against the preceding balance. Missing prices or
+FX remain missing rather than being invented by a rebuild. Today's valuation is
+live; closed-day snapshots end yesterday in the History timezone.
+
+Historical entry is validated at its effective time and then replayed through
+later events before committing. The preview shows the event-time result; current
+projections contain the final replayed result. A later absolute balance
+observation remains fixed. Inserting an entry that makes a later balance or
+quantity invalid fails without writing the entry.

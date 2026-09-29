@@ -152,3 +152,13 @@ func (s *Service) ExportJSON() (ExportResultDTO, error) {
 	}
 	return ExportResultDTO{FileName: filepath.Base(path)}, nil
 }
+
+// RebuildDerivedData preserves input facts and atomically replaces calculations.
+func (s *Service) RebuildDerivedData(ctx context.Context) (application.DerivedDataRebuildResult, error) {
+	if s.app == nil {
+		return application.DerivedDataRebuildResult{}, apierror.Wrap(&domain.Error{Code: domain.ErrUnavailable, Message: "database is not available"})
+	}
+	s.refresh.CancelAllAndWait()
+	result, err := s.app.RebuildDerivedData(ctx)
+	return result, apierror.Wrap(err)
+}

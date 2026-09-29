@@ -57,10 +57,11 @@ func (s *Service) Bootstrap(ctx context.Context) (BootstrapResult, error) {
 // CompleteOnboardingRequest is the Onboarding form's submitted shape. An
 // empty Timezone means "history not started yet".
 type CompleteOnboardingRequest struct {
-	HouseholdName string   `json:"householdName"`
-	BaseCurrency  string   `json:"baseCurrency"`
-	MemberNames   []string `json:"memberNames"`
-	Timezone      string   `json:"timezone,omitempty"`
+	HouseholdName    string   `json:"householdName"`
+	BaseCurrency     string   `json:"baseCurrency"`
+	MemberNames      []string `json:"memberNames"`
+	Timezone         string   `json:"timezone,omitempty"`
+	HistoryStartDate string   `json:"historyStartDate,omitempty"`
 }
 
 // CompleteOnboarding creates the singleton Household, its base currency,
@@ -68,10 +69,11 @@ type CompleteOnboardingRequest struct {
 // already exists.
 func (s *Service) CompleteOnboarding(ctx context.Context, request CompleteOnboardingRequest) error {
 	err := s.app.CompleteOnboarding(ctx, application.OnboardingInput{
-		HouseholdName: request.HouseholdName,
-		BaseCurrency:  request.BaseCurrency,
-		MemberNames:   request.MemberNames,
-		Timezone:      request.Timezone,
+		HouseholdName:    request.HouseholdName,
+		BaseCurrency:     request.BaseCurrency,
+		MemberNames:      request.MemberNames,
+		Timezone:         request.Timezone,
+		HistoryStartDate: request.HistoryStartDate,
 	})
 	return apierror.Wrap(err)
 }

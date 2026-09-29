@@ -6,6 +6,7 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { selectValues } from "@/test/catalog";
 import i18n from "@/i18n";
 import { OnboardingPage } from "./OnboardingPage";
+import { localDateInTimeZone } from "@/features/history/historyStartDate";
 
 const inspectBackup = vi.fn();
 const confirmRestore = vi.fn();
@@ -107,6 +108,28 @@ describe("OnboardingPage", () => {
         expect.objectContaining({ householdName: "The Tans", memberNames: ["Alice"] }),
       ),
     );
+  });
+
+  it("passes an explicitly selected past History start and timezone into onboarding", async () => {
+    renderPage();
+    const form = screen.getByRole("form", { name: "Onboarding" });
+    await userEvent.type(within(form).getByLabelText(/household name/i), "The Tans");
+    await userEvent.type(within(form).getByLabelText("Member 1 name"), "Alice");
+    await userEvent.click(within(form).getByRole("checkbox", { name: "Start recording from an earlier date" }));
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const today = localDateInTimeZone(timezone)!;
+    const selected = `${today.slice(0, 7)}-01`;
+    await userEvent.click(within(form).getByLabelText("Start date"));
+    const calendar = await screen.findByRole("grid");
+    await userEvent.click(calendar.querySelector(`[data-day="${selected}"] button`) as HTMLElement);
+    await userEvent.click(within(form).getByRole("button", { name: /get started/i }));
+
+    expect(completeOnboarding).toHaveBeenCalledWith(expect.objectContaining({
+      householdName: "The Tans",
+      memberNames: ["Alice"],
+      timezone,
+      historyStartDate: selected,
+    }));
   });
 
   it("allows removing a member row once more than one exists", async () => {

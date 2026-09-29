@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LoadingState } from "@/components/layout/PageState";
@@ -30,7 +31,9 @@ export function StartHistoryForm({
   const draft = useStartingPointDraft();
   const settings = useSettings();
   const timezone = resolvedTimeZone(settings.data?.timezone);
-  const startDate = localDateInTimeZone(timezone);
+  const today = localDateInTimeZone(timezone);
+  const [selectedDate, setSelectedDate] = useState("");
+  const startDate = selectedDate || today;
   const holdings = draft.data ?? [];
   const [unitCosts, setUnitCosts] = useState<Record<string, string>>({});
 
@@ -47,7 +50,7 @@ export function StartHistoryForm({
         ? undefined
         : Object.fromEntries(holdings.map((holding) => [holding.holdingId, costFor(holding.holdingId, holding.unitCost).trim()]));
     startHistory.mutate(
-      { timezone, costOverrides },
+      { timezone, startDate, costOverrides },
       {
         onSuccess: (nextOrigin) => {
           toast.success(t("history.started"));
@@ -77,14 +80,15 @@ export function StartHistoryForm({
       </div>
       <div className="flex flex-col gap-1.5 text-left">
         <Label htmlFor="history-start-date">{t("history.startDate")}</Label>
-        <Input
+        <DatePicker
           id="history-start-date"
-          data-testid="history-start-date"
-          value={startDate ?? t("history.startDateUnknown")}
-          readOnly
+          value={startDate ?? ""}
+          max={today}
+          onChange={setSelectedDate}
+          aria-describedby="history-start-date-help"
         />
         <p id="history-start-date-help" className="text-xs leading-5 text-muted-foreground">
-          {t("history.startDateHelp")}
+          {today ? t("history.startDateHelp") : t("history.startDateUnknown")}
         </p>
       </div>
       {draft.isLoading && <LoadingState label={t("history.startLoading")} />}
@@ -121,7 +125,7 @@ export function StartHistoryForm({
             {t("common.cancel")}
           </Button>
         )}
-        <Button type="button" onClick={submit} disabled={startHistory.isPending || settings.isLoading || draft.isLoading || missingCost}>
+        <Button type="button" onClick={submit} disabled={startHistory.isPending || settings.isLoading || draft.isLoading || missingCost || !startDate}>
           {startHistory.isPending ? t("common.pending") : t("history.startButton")}
         </Button>
       </div>

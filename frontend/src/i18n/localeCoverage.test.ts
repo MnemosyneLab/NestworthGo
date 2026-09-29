@@ -5,6 +5,7 @@ import zhTW from "./locales/zh-TW.json";
 import fieldLabelKeysEn from "./locales/fieldLabelKeys.json";
 import { errorCodesEn, errorCodesZhCN, errorCodesZhTW } from "./errorCodes";
 import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
+import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
 import { deepMerge } from "./deepMerge";
 
 /**
@@ -155,6 +156,10 @@ describe("i18next locale coverage", () => {
 
   it("the additions.ts catalog has identical keys across en/zh-CN/zh-TW", () => {
     assertSameKeySet("additions", additionsEn, { "zh-CN": additionsZhCN, "zh-TW": additionsZhTW });
+  });
+
+  it("the rebuild data catalog has identical keys across en/zh-CN/zh-TW", () => {
+    assertSameKeySet("rebuildData", rebuildDataEn, { "zh-CN": rebuildDataZhCN, "zh-TW": rebuildDataZhTW });
   });
 
   it("contains the Insights vocabulary in every locale", () => {

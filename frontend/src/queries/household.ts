@@ -23,6 +23,7 @@ export function useCompleteOnboarding() {
     mutationFn: (request: CompleteOnboardingRequest) => callService(() => HouseholdService.CompleteOnboarding(request)),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.household.bootstrap });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.history.origin });
     },
   });
 }

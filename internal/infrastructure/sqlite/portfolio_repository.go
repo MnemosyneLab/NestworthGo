@@ -319,6 +319,11 @@ func (r *Repository) CreateHoldingWithActivity(ctx context.Context, holding doma
 		if err := commitActivityTx(ctx, tx, commit, asOf); err != nil {
 			return err
 		}
+		for _, projection := range commit.Replay {
+			if err := rebuildActivityProjectionTx(ctx, tx, projection); err != nil {
+				return err
+			}
+		}
 		return markHistoryDirtyTx(ctx, tx, commit.Activity.HouseholdID, commit.Activity.EffectiveLocalDate, timezone, asOf)
 	})
 }
@@ -855,7 +860,7 @@ func listCashValuesQuery(ctx context.Context, query queryer, householdID domain.
 			WHERE newer.account_id = c.account_id AND newer.currency = c.currency
 			AND (newer.effective_at > c.effective_at
 				OR (newer.effective_at = c.effective_at AND newer.created_at > c.created_at)
-				OR (newer.effective_at = c.effective_at AND newer.created_at = c.created_at AND newer.id > c.id))
+				OR (newer.effective_at = c.effective_at AND newer.created_at = c.created_at AND newer.rowid > c.rowid))
 		)
 		ORDER BY c.account_id ASC, c.currency ASC, c.effective_at DESC, c.created_at DESC, c.id DESC`, householdID.String())
 	if err != nil {

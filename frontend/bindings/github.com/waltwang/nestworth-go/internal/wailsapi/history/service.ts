@@ -66,6 +66,14 @@ export function StartHistory(timezone: string): $CancellablePromise<$models.Hist
 }
 
 /**
+ * StartHistoryOnDate creates an empty historical starting point on the chosen
+ * local day. Existing balances and holdings are still captured at the present.
+ */
+export function StartHistoryOnDate(timezone: string, startDate: string, costOverrides: { [_ in string]?: string } | null): $CancellablePromise<$models.HistoryOriginDTO> {
+    return $Call.ByID(901063555, timezone, startDate, costOverrides);
+}
+
+/**
  * StartHistoryWithCosts's costOverrides map is keyed by domain.HoldingID in
  * Go; JSON object keys must be strings, so the wire shape is a plain
  * map[string]string keyed by the Holding ID string, parsed here.

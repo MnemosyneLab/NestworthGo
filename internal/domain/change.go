@@ -245,7 +245,9 @@ type Activity struct {
 	DividendDetail     *DividendDetail
 	Resulting          []EndpointView
 	Effects            []ActivityEffect
-	ProductContext     *ProductActivityContext
+	// RecordedEffects retains raw magnitudes when economic replay normalizes effects.
+	RecordedEffects []ActivityEffect `json:"-"`
+	ProductContext  *ProductActivityContext
 }
 
 type ActivityCursor struct {

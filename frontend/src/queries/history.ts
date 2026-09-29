@@ -38,10 +38,12 @@ export function useStartingPointDraft(enabled = true) {
 export function useStartHistory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ timezone, costOverrides }: { timezone: string; costOverrides?: Record<string, string> }) =>
-      costOverrides
-        ? callService(() => HistoryService.StartHistoryWithCosts(timezone, costOverrides))
-        : callService(() => HistoryService.StartHistory(timezone)),
+    mutationFn: ({ timezone, startDate, costOverrides }: { timezone: string; startDate?: string; costOverrides?: Record<string, string> }) =>
+      startDate
+        ? callService(() => HistoryService.StartHistoryOnDate(timezone, startDate, costOverrides ?? null))
+        : costOverrides
+          ? callService(() => HistoryService.StartHistoryWithCosts(timezone, costOverrides))
+          : callService(() => HistoryService.StartHistory(timezone)),
     onSuccess: () => invalidateHistoryReads(queryClient),
   });
 }

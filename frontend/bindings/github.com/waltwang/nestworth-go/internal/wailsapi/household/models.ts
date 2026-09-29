@@ -26,4 +26,5 @@ export interface CompleteOnboardingRequest {
     "baseCurrency": string;
     "memberNames": string[] | null;
     "timezone"?: string;
+    "historyStartDate"?: string;
 }

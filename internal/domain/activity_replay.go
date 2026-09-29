@@ -24,7 +24,10 @@ func ReplayMoneyEffects(activities []Activity, components []HistoryOriginCompone
 	result := make([]Activity, 0, len(activities))
 	prior := map[ActivityID][]ActivityEffect{}
 	for _, a := range activities {
-		a.Effects = append([]ActivityEffect{}, a.Effects...)
+		if a.RecordedEffects == nil {
+			a.RecordedEffects = append([]ActivityEffect{}, a.Effects...)
+		}
+		a.Effects = append([]ActivityEffect{}, a.RecordedEffects...)
 		if a.ReversesActivityID != nil {
 			if original, ok := prior[*a.ReversesActivityID]; ok {
 				if len(original) == 0 {

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -13,6 +14,8 @@ import { useMembers, useInstitutions, useGroups } from "@/queries/directory";
 import { useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { useBootstrap } from "@/queries/household";
+import { useHistoryOrigin } from "@/queries/history";
+import { localDateInTimeZone } from "@/features/history/historyStartDate";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { displayEnum } from "@/lib/display";
@@ -27,6 +30,7 @@ const accountFormSchema = z.object({
   trackingMode: z.string(),
   defaultCurrency: z.string().length(3),
   initialAmount: z.string().optional(),
+  openedOn: z.string().optional(),
   ownerIds: z.array(z.string()).min(1),
   ownershipPercentages: z.array(z.string()).optional(),
   institutionId: z.string().optional(),
@@ -50,6 +54,7 @@ const emptyValues: AccountFormValues = {
   trackingMode: "balance",
   defaultCurrency: "CNY",
   initialAmount: "",
+  openedOn: "",
   ownerIds: [],
   ownershipPercentages: [],
   institutionId: "",
@@ -70,6 +75,7 @@ function valuesFromRecord(record: AccountRecordDTO): AccountFormValues {
     trackingMode: record.account.trackingMode,
     defaultCurrency: record.account.defaultCurrency,
     initialAmount: "",
+    openedOn: record.account.openedOn ?? "",
     ownerIds,
     ownershipPercentages: equal ? [] : percentages,
     institutionId: record.account.institutionId ?? "",
@@ -111,6 +117,9 @@ export function AccountForm({
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
   const bootstrap = useBootstrap();
+  const origin = useHistoryOrigin();
+  const originDate = origin.data ? localDateInTimeZone(origin.data.timezone, new Date(origin.data.startedAt)) : undefined;
+  const today = origin.data ? localDateInTimeZone(origin.data.timezone) : undefined;
   const isEdit = Boolean(record);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [iconCustomized, setIconCustomized] = useState(Boolean(record?.account.iconKey));
@@ -226,6 +235,7 @@ export function AccountForm({
       groupId: values.groupId || undefined,
       iconKey: iconKey || undefined,
       initialAmount: isEdit || values.trackingMode === "holdings" ? "" : values.initialAmount || "0",
+      openedOn: !isEdit && values.openedOn ? values.openedOn : undefined,
     };
     onSubmit(request, {});
   };
@@ -309,6 +319,20 @@ export function AccountForm({
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="account-initial-amount">{t("accounts.amount")}</Label>
           <Input id="account-initial-amount" inputMode="decimal" {...register("initialAmount")} placeholder="0" />
+        </div>
+      )}
+
+      {!isEdit && origin.data && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="account-opened-on">{t("accounts.openedOn")}</Label>
+          <Controller
+            name="openedOn"
+            control={control}
+            render={({ field }) => (
+              <DatePicker id="account-opened-on" min={originDate} max={today} value={field.value ?? ""} onChange={field.onChange} clearable />
+            )}
+          />
+          <p className="text-xs text-muted-foreground">{t("accounts.openedOnHistoryHelp")}</p>
         </div>
       )}
 

@@ -149,7 +149,8 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	for _, record := range snapshot.Accounts {
 		state, hasOriginState := originStates[record.Account.ID]
 		_, wasPresentAtOrigin := originAccountIDs[record.Account.ID]
-		if record.Account.CreatedAt.After(cutoff) && !wasPresentAtOrigin && !activeAccounts[record.Account.ID] {
+		openingObservation := latestAccountObservation(accountObservations, record.Account.ID, cutoff)
+		if record.Account.CreatedAt.After(cutoff) && !wasPresentAtOrigin && !activeAccounts[record.Account.ID] && openingObservation == nil {
 			continue
 		}
 		stateCutoff := cutoff

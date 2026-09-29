@@ -13,6 +13,7 @@ const { bootstrap } = vi.hoisted(() => ({ bootstrap: vi.fn() }));
 const historyOrigin = vi.fn();
 const startHistory = vi.fn();
 const startHistoryWithCosts = vi.fn();
+const startHistoryOnDate = vi.fn();
 const startingPointDraft = vi.fn();
 const listActivities = vi.fn();
 const listActivityPage = vi.fn();
@@ -56,6 +57,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     HistoryOrigin: () => historyOrigin(),
     StartHistory: (...args: unknown[]) => startHistory(...args),
     StartHistoryWithCosts: (...args: unknown[]) => startHistoryWithCosts(...args),
+    StartHistoryOnDate: (...args: unknown[]) => startHistoryOnDate(...args),
     StartingPointDraft: () => startingPointDraft(),
     Activity: (...args: unknown[]) => getActivity(...args),
     ListActivityPage: (...args: unknown[]) => listActivityPage(...args),
@@ -128,6 +130,7 @@ beforeEach(() => {
   historyOrigin.mockReset();
   startHistory.mockReset();
   startHistoryWithCosts.mockReset();
+  startHistoryOnDate.mockReset();
   startingPointDraft.mockReset();
   listActivities.mockReset();
   listActivityPage.mockReset();
@@ -235,21 +238,38 @@ describe("HistoryPage", () => {
     historyOrigin.mockResolvedValue(null);
     renderPage();
     expect(await screen.findByRole("heading", { name: "Start history" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
+    expect(screen.getByLabelText("Start date")).toHaveTextContent(localDateInTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ?? "");
   });
 
   it("starts history with the resolved settings timezone", async () => {
     historyOrigin.mockResolvedValue(null);
-    startHistory.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     renderPage();
     const timezoneInput = await screen.findByLabelText("Timezone");
     expect(timezoneInput).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
     expect(timezoneInput).toHaveAttribute("readonly");
     const resolvedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    expect(screen.getByLabelText("Start date")).toHaveValue(localDateInTimeZone(resolvedTimezone) ?? "");
+    expect(screen.getByLabelText("Start date")).toHaveTextContent(localDateInTimeZone(resolvedTimezone) ?? "");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
-    expect(startHistory).toHaveBeenCalledWith(resolvedTimezone);
+    expect(startHistoryOnDate).toHaveBeenCalledWith(resolvedTimezone, localDateInTimeZone(resolvedTimezone), null);
+    expect(startHistory).not.toHaveBeenCalled();
     expect(startHistoryWithCosts).not.toHaveBeenCalled();
+  });
+
+  it("starts History on the selected earlier date", async () => {
+    historyOrigin.mockResolvedValue(null);
+    startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    renderPage();
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const today = localDateInTimeZone(timezone)!;
+    const selected = `${today.slice(0, 7)}-01`;
+    await userEvent.click(await screen.findByLabelText("Start date"));
+    const calendar = await screen.findByRole("grid");
+    await userEvent.click(calendar.querySelector(`[data-day="${selected}"] button`) as HTMLElement);
+    await userEvent.click(screen.getByRole("button", { name: "Start history" }));
+
+    expect(startHistoryOnDate).toHaveBeenCalledWith(timezone, selected, null);
+    expect(startHistory).not.toHaveBeenCalled();
   });
 
   it("starts history with unit costs when holdings already exist", async () => {
@@ -257,7 +277,7 @@ describe("HistoryPage", () => {
     startingPointDraft.mockResolvedValue([
       { holdingId: "h1", instrumentId: "i1", instrumentName: "Vanguard S&P 500 ETF", currency: "USD", quantity: "100", unitCost: "" },
     ]);
-    startHistoryWithCosts.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+    startHistoryOnDate.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
     renderPage();
     const timezoneInput = await screen.findByLabelText("Timezone");
     expect(timezoneInput).toHaveValue(Intl.DateTimeFormat().resolvedOptions().timeZone);
@@ -265,7 +285,9 @@ describe("HistoryPage", () => {
     const costInput = await screen.findByLabelText(/Vanguard S&P 500 ETF/);
     await userEvent.type(costInput, "430.25");
     await userEvent.click(screen.getByRole("button", { name: "Start history" }));
-    expect(startHistoryWithCosts).toHaveBeenCalledWith(Intl.DateTimeFormat().resolvedOptions().timeZone, { h1: "430.25" });
+    const resolvedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    expect(startHistoryOnDate).toHaveBeenCalledWith(resolvedTimezone, localDateInTimeZone(resolvedTimezone), { h1: "430.25" });
+    expect(startHistoryWithCosts).not.toHaveBeenCalled();
     expect(startHistory).not.toHaveBeenCalled();
   });
 

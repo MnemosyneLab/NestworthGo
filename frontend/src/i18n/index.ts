@@ -6,6 +6,7 @@ import zhCN from "./locales/zh-CN.json";
 import zhTW from "./locales/zh-TW.json";
 import { errorCodesEn, errorCodesZhCN, errorCodesZhTW } from "./errorCodes";
 import { additionsEn, additionsZhCN, additionsZhTW } from "./additions";
+import { rebuildDataEn, rebuildDataZhCN, rebuildDataZhTW } from "./rebuildData";
 import { deepMerge } from "./deepMerge";
 
 // The supported locales are English, Simplified Chinese, and Traditional
@@ -17,9 +18,9 @@ export const DEFAULT_LANGUAGE: SupportedLanguage = "en";
 
 void i18n.use(initReactI18next).init({
   resources: {
-    en: { translation: deepMerge(en, additionsEn), errorCode: errorCodesEn },
-    "zh-CN": { translation: deepMerge(zhCN, additionsZhCN), errorCode: errorCodesZhCN },
-    "zh-TW": { translation: deepMerge(zhTW, additionsZhTW), errorCode: errorCodesZhTW },
+    en: { translation: deepMerge(deepMerge(en, additionsEn), rebuildDataEn), errorCode: errorCodesEn },
+    "zh-CN": { translation: deepMerge(deepMerge(zhCN, additionsZhCN), rebuildDataZhCN), errorCode: errorCodesZhCN },
+    "zh-TW": { translation: deepMerge(deepMerge(zhTW, additionsZhTW), rebuildDataZhTW), errorCode: errorCodesZhTW },
   },
   lng: DEFAULT_LANGUAGE,
   fallbackLng: DEFAULT_LANGUAGE,

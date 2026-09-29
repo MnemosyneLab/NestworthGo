@@ -194,8 +194,9 @@ keyboard-accessible select. `system` resolves to the browser/system IANA zone.
 Ordinary display timestamps, including quote times, use this presentation zone.
 
 History Origin owns the ledger timezone after History starts. Start History shows
-the resolved Settings timezone and start date read-only; it does not edit an
-existing Origin. History displays the Origin timezone, and Record change resolves
+the resolved Settings timezone read-only and lets users choose a start date
+no later than today. A past date requires zero balances and holdings; an existing
+Origin remains immutable. History displays the Origin timezone, and Record change resolves
 its local date and time in that zone. Changing Settings later changes ordinary
 presentation timestamps but never rewrites historical local dates.
 
@@ -279,3 +280,19 @@ rules. [Data and Application Contracts](../architecture/data-and-ipc-contracts.m
 owns persistence, provider refresh, DTO, recovery, and error boundaries. When
 copy and implementation disagree, current code and tests determine the
 implemented behavior; this document is updated to describe that behavior.
+
+## Rebuild and historical setup
+
+Settings → Data management offers **Recalculate all results**. While running, the
+button is disabled. Completion reports the history date range, the number of
+closed days rebuilt, and any days still missing valuation inputs. Errors remain
+visible and the action can be retried. The rebuild preserves all entered facts
+and publishes the replacement results atomically.
+
+A new, empty household may choose a past local date as its History Origin during
+onboarding or when starting history. Existing nonzero assets can only be captured
+at the present time; they do not establish past balances. After an empty past
+start, users create accounts on their opening dates and enter dated transactions.
+Account creation retains today's audit timestamp separately from its effective
+opening observation. Closed-day snapshots can then be rebuilt from those facts
+and the available historical prices and exchange rates.

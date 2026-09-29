@@ -61,6 +61,12 @@ func (s *Service) StartHistory(ctx context.Context, timezone string) (HistoryOri
 // Go; JSON object keys must be strings, so the wire shape is a plain
 // map[string]string keyed by the Holding ID string, parsed here.
 func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, costOverrides map[string]string) (HistoryOriginDTO, error) {
+	return s.StartHistoryOnDate(ctx, timezone, "", costOverrides)
+}
+
+// StartHistoryOnDate creates an empty historical starting point on the chosen
+// local day. Existing balances and holdings are still captured at the present.
+func (s *Service) StartHistoryOnDate(ctx context.Context, timezone, startDate string, costOverrides map[string]string) (HistoryOriginDTO, error) {
 	parsed := make(map[domain.HoldingID]string, len(costOverrides))
 	for id, cost := range costOverrides {
 		holdingID, err := domain.ParseHoldingID(id)
@@ -69,7 +75,7 @@ func (s *Service) StartHistoryWithCosts(ctx context.Context, timezone string, co
 		}
 		parsed[holdingID] = cost
 	}
-	origin, err := s.app.StartHistoryWithCosts(ctx, timezone, parsed)
+	origin, err := s.app.StartHistoryOnDate(ctx, timezone, startDate, parsed)
 	if err != nil {
 		return HistoryOriginDTO{}, apierror.Wrap(err)
 	}
