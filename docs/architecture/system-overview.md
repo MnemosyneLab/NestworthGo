@@ -4,8 +4,8 @@
 
 Nestworth `0.3.5` is a local-first desktop application with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
-provides typed domain contracts, SQLite bootstrap with current schema `11`
-(migrating schemas `9` and `10` locally; schemas `6`–`8` remain blocked),
+provides typed domain contracts, SQLite bootstrap with current schema `13`
+(migrating schemas `9` through `12` locally; schemas `6`–`8` remain blocked),
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
 currency decomposition, Return Analysis, Asset Changes, exact valuation, explicit
@@ -94,7 +94,7 @@ flowchart TD
     Blocked --> Error["Keep business writes unavailable"]
 ```
 
-The compatibility inspection, schema verification, and blocked-startup paths are implemented in `internal/infrastructure/sqlite`. Non-empty older databases are rejected without writes, and unsupported future versions are rejected before schema writes. The application then bootstraps the active Household, opens onboarding when needed, and renders the live Overview, Investments, Return Analysis, and Asset Changes views.
+The compatibility inspection, schema verification, and blocked-startup paths are implemented in `internal/infrastructure/sqlite`. Unsupported older databases are rejected without writes, and future versions are rejected before schema writes. The application then bootstraps the active Household, opens onboarding when needed, and renders the live Overview, Investments, Return Analysis, and Asset Changes views.
 
 ## State ownership
 
@@ -104,8 +104,8 @@ The compatibility inspection, schema verification, and blocked-startup paths are
 | Financial calculations | Go domain/application services |
 | Navigation and filters | React page state |
 | Form input | Feature-owned React forms and Zod validation |
-| Language, appearance, and FX route | Local JSON settings plus i18next/theme store and application provider selection |
-| Tiingo API key | Local settings JSON (mode 0600); not SQLite |
+| Language, appearance, formatting, window size | Disposable local JSON preferences |
+| Currency, timezone, providers, credentials, MCP configuration and receipts | SQLite app_configuration; secrets excluded from household JSON exports |
 | Chart geometry | UI-only rendering model derived from authoritative results |
 
 The UI must not optimistically invent financial totals. After a mutation it
@@ -116,7 +116,7 @@ reloads the authoritative application result.
 | Area | Choice | Boundary |
 | --- | --- | --- |
 | Language | Go 1.26 | Application, domain, and infrastructure code |
-| Persistence | SQLite, verified schema 10 (schema 9 migrates locally) | Local durable source of truth |
+| Persistence | SQLite, verified schema 13 (schemas 9–12 migrate locally) | Local durable source of truth |
 | Decimal arithmetic | shopspring/decimal-backed domain Money | No binary floating point for financial values |
 | Charts | Apache ECharts | Rendering only; no financial calculations |
 | Desktop shell | Wails v3 | Bound Go services + embedded React frontend |
@@ -134,9 +134,12 @@ Dependency versions are owned by `go.mod` and `go.sum`, not duplicated here.
   needed for the requested refresh. Balances and other display values may cross
   the local boundary only as explicit DTO fields; notes, credentials, raw
   database data, and raw provider payloads do not become user-facing data.
-- Tiingo API keys are stored in the local settings JSON and are exposed to the
-  frontend only through a redacted configured/not-configured status. The key
-  is never copied into SQLite rows or logs.
+- Provider credentials are stored in SQLite and exposed to the frontend only
+  through a redacted configured/not-configured status. They are never logged.
+  Full database backups include credentials. Legacy settings and MCP JSON files
+  migrate automatically before their durable fields are removed. Once migrated,
+  missing or malformed preferences JSON is rebuilt using UI defaults; SQLite
+  retains currency, timezone, provider configuration, credentials, and MCP state.
 - Provider integrations are explicit adapters with safe failure behavior and
   no startup dependency. Yahoo supplies instrument quotes and Frankfurter
   supplies FX refresh.

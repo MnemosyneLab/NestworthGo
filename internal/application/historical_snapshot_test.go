@@ -58,7 +58,7 @@ func TestExactSubCentComponentsAgreeAcrossLiveSnapshotReloadAndTrends(t *testing
 	if err != nil || !appended {
 		t.Fatalf("BuildDailyValuationSnapshot: appended=%v err=%v", appended, err)
 	}
-	if !strings.HasPrefix(snapshot.ContentHash, "v2:") {
+	if !strings.HasPrefix(snapshot.ContentHash, snapshotContentHashVersion+":") {
 		t.Fatalf("content hash = %q, want v2 prefix", snapshot.ContentHash)
 	}
 	if snapshot.NetWorthAmount == nil || snapshot.NetWorthAmount.CanonicalAmount() != "0.0001" || snapshot.AssetsAmount == nil || snapshot.AssetsAmount.CanonicalAmount() != "0.0001" {
@@ -127,7 +127,7 @@ func TestLegacySnapshotHashRebuildsAppendOnlyV2Revision(t *testing.T) {
 	}
 	clock = time.Date(2026, 8, 3, 12, 0, 0, 0, time.UTC)
 	first, appended, err := service.BuildDailyValuationSnapshot(ctx, "2026-08-01")
-	if err != nil || !appended || !strings.HasPrefix(first.ContentHash, "v2:") {
+	if err != nil || !appended || !strings.HasPrefix(first.ContentHash, snapshotContentHashVersion+":") {
 		t.Fatalf("first snapshot hash=%q appended=%v err=%v", first.ContentHash, appended, err)
 	}
 	if _, err := database.SQL.Exec(`UPDATE daily_valuation_snapshots SET content_hash = 'legacy-unversioned' WHERE id = ?`, first.ID.String()); err != nil {
@@ -141,7 +141,7 @@ func TestLegacySnapshotHashRebuildsAppendOnlyV2Revision(t *testing.T) {
 	if err := database.SQL.QueryRow(`SELECT COUNT(*), (SELECT content_hash FROM daily_valuation_snapshots WHERE household_id = ? AND local_date = '2026-08-01' ORDER BY revision DESC LIMIT 1) FROM daily_valuation_snapshots WHERE household_id = ? AND local_date = '2026-08-01'`, bootstrap.Household.ID.String(), bootstrap.Household.ID.String()).Scan(&revisions, &latestHash); err != nil {
 		t.Fatal(err)
 	}
-	if revisions != 2 || !strings.HasPrefix(latestHash, "v2:") {
+	if revisions != 2 || !strings.HasPrefix(latestHash, snapshotContentHashVersion+":") {
 		t.Fatalf("revisions=%d latestHash=%q, want append-only v2 revision", revisions, latestHash)
 	}
 	var activities int

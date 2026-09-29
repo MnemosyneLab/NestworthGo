@@ -77,14 +77,14 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 	if len(events) != 3 {
 		t.Fatalf("cost-basis events = %d, want sell, transfer-out, and Fix replacement buy", len(events))
 	}
-	if events[0].Kind != domain.CostBasisSell || events[0].UnitPrice == nil || events[0].UnitPrice.Canonical() != "130" || events[0].Fee == nil || events[0].Fee.CanonicalAmount() != "1" {
-		t.Fatalf("sell event = %+v", events[0])
+	if events[1].Kind != domain.CostBasisSell || events[1].UnitPrice == nil || events[1].UnitPrice.Canonical() != "130" || events[1].Fee == nil || events[1].Fee.CanonicalAmount() != "1" {
+		t.Fatalf("sell event = %+v", events[1])
 	}
-	if events[1].Kind != domain.CostBasisTransferOut || events[1].Quantity.Canonical() != "1" {
-		t.Fatalf("transfer-out event = %+v", events[1])
+	if events[2].Kind != domain.CostBasisTransferOut || events[2].Quantity.Canonical() != "1" {
+		t.Fatalf("transfer-out event = %+v", events[2])
 	}
-	if events[2].Kind != domain.CostBasisBuy || events[2].UnitPrice == nil || events[2].UnitPrice.Canonical() != "115" {
-		t.Fatalf("replacement buy event = %+v", events[2])
+	if events[0].Kind != domain.CostBasisBuy || events[0].UnitPrice == nil || events[0].UnitPrice.Canonical() != "115" {
+		t.Fatalf("replacement buy event = %+v", events[0])
 	}
 
 	holding053 := domain.HoldingID("00000000-0000-4000-8000-000000000053")

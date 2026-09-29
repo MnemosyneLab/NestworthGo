@@ -20,7 +20,7 @@ import { AccountProductsSection } from "@/features/liquidity/AccountProductsSect
 import { canHoldProducts } from "@/features/liquidity/productPolicy";
 import { useProducts } from "@/queries/liquidity";
 import { useHistoryOrigin } from "@/queries/history";
-import { formatAmount, sortByCanonicalDesc } from "@/lib/money";
+import { compareCanonical, formatAmount, sortByCanonicalDesc } from "@/lib/money";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
 import { accountCompositionItems, componentHouseholdAmount, sortValuationComponents } from "@/features/accounts/accountComposition";
 import { CompositionChart } from "@/components/charts/CompositionChart";
@@ -185,8 +185,9 @@ export function AccountDetail({
     () => new Set((productsQuery.data ?? []).map((detail) => detail.product.holdingId)),
     [productsQuery.data],
   );
-  const investmentRows = rows.filter((row) => !managedHoldingIds.has(row.holding.id));
-  const dividendHoldingsAvailable = investmentRows.some((row) => row.instrumentActive);
+  const investmentHoldings = rows.filter((row) => !managedHoldingIds.has(row.holding.id));
+  const investmentRows = investmentHoldings.filter((row) => compareCanonical(row.holding.quantity, "0") !== 0);
+  const dividendHoldingsAvailable = investmentHoldings.some((row) => row.instrumentActive);
   const householdCurrency = valuation?.baseValue?.currency ?? "";
   const compositionItems = useMemo(
     () => (composite && householdCurrency ? accountCompositionItems(valuation?.components ?? [], householdCurrency) : []),

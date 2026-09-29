@@ -586,12 +586,7 @@ func topReturnContributors(result domain.PeriodAnalysisResult, forced string) ([
 	for _, group := range groups {
 		contributors = append(contributors, ReturnContributor{Key: group.Key, Label: group.Key, Amount: signedPointer(group.ReturnAmount, currency), Rate: group.ReturnRate, Coverage: group.Coverage})
 	}
-	sort.SliceStable(contributors, func(i, j int) bool {
-		return signedAmountGreater(contributors[i].Amount, contributors[j].Amount)
-	})
-	if len(contributors) > 5 {
-		contributors = contributors[:5]
-	}
+	sortReturnContributorsByMagnitude(contributors)
 	return contributors, nil
 }
 
@@ -679,10 +674,24 @@ func returnContributorsFromAmounts(amounts map[string]decimal.Decimal, currency 
 	for key, amount := range amounts {
 		contributors = append(contributors, ReturnContributor{Key: key, Label: key, Amount: signedPointer(amount, currency), Coverage: coverage})
 	}
-	sort.SliceStable(contributors, func(i, j int) bool {
-		return signedAmountGreater(contributors[i].Amount, contributors[j].Amount)
-	})
+	sortReturnContributorsByMagnitude(contributors)
 	return contributors
+}
+
+func sortReturnContributorsByMagnitude(contributors []ReturnContributor) {
+	sort.Slice(contributors, func(i, j int) bool {
+		left, right := contributors[i].Amount, contributors[j].Amount
+		if left == nil || right == nil {
+			if left == nil && right == nil {
+				return contributors[i].Key < contributors[j].Key
+			}
+			return left != nil
+		}
+		if comparison := left.Amount().Abs().Cmp(right.Amount().Abs()); comparison != 0 {
+			return comparison > 0
+		}
+		return contributors[i].Key < contributors[j].Key
+	})
 }
 
 func projectDividendContribution(result domain.PeriodAnalysisResult, forced string, groupBy ContributionGroupBy, ordering ContributionSort) (ContributionResult, error) {

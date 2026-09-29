@@ -378,7 +378,14 @@ type ChangePreview struct {
 // ActivityCommit is the unit used by the repository's atomic write path. A
 // batch is useful for corrections, where the inverse and replacement are both
 // evidence and must either be persisted together or not at all.
+// ActivityProjection is a derived event balance rebuilt after a historical fix.
+type ActivityProjection struct {
+	Activity  Activity
+	Resulting []EndpointView
+}
+
 type ActivityCommit struct {
+	Replay    []ActivityProjection
 	Activity  Activity
 	Effects   []ActivityEffect
 	Resulting []EndpointView

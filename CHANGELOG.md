@@ -4,6 +4,14 @@ All notable changes to Nestworth are recorded here.
 
 ## [0.3.5] — Unreleased
 
+### Added
+
+- Local MCP connection in Settings with read-only or directory-maintenance
+  permission, revocable credentials, current account/holding queries, and
+  member/institution/group/account/instrument tools. Writes return durable
+  operation receipts and refresh the desktop. Trading, period analysis and
+  reconciliation tools remain planned; see the [MCP delivery plan](docs/development/mcp.md).
+
 ### Changed
 
 - Upgraded the Wails v3 desktop shell and `@wailsio/runtime` to `v3.0.0-beta.26`.

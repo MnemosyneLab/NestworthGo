@@ -179,7 +179,14 @@ export function TrendChart({
             itemStyle: { color: meta?.sourceLabel ? sourceTint(meta.sourceLabel, theme.palette) : resolveSeriesColor(item.color) },
           };
         }),
-        emphasis: { focus: "series" as const, scale: 1.4 },
+        // ECharts cannot brighten CSS OKLCH colors. Explicit emphasis colors
+        // keep the stroke/fill visible when its automatic color lift fails.
+        emphasis: {
+          focus: "series" as const,
+          scale: 1.4,
+          lineStyle: { color: resolveSeriesColor(item.color), width: 2.5, opacity: 1 },
+          areaStyle: { color: resolveSeriesColor(item.color), opacity: 0.1 },
+        },
         connectNulls: false,
         showSymbol: dates.length < 24 || showSourceMarks,
         lineStyle: { color: resolveSeriesColor(item.color), width: 2.5 },

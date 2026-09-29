@@ -184,6 +184,41 @@ describe("ReturnAnalysisPage", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
+  it("shows six largest absolute day contributors and sums the remainder", async () => {
+    const user = userEvent.setup();
+    const amounts = [
+      ["Gold CNY", "-328.5725"], ["BOXX", "259.851"], ["Gold USD", "-92.2521"],
+      ["NVDA", "76.2728"], ["ES3", "7.279"], ["cash:SGD", "3.9335"], ["Silver", "-0.651"],
+    ];
+    returnDay.mockResolvedValue({
+      date: "2026-09-01",
+      returnAmount: { amount: "-74.1393", currency: "USD" },
+      amountStatus: "complete",
+      returnRate: "-0.0016135066203864",
+      composition: [],
+      contributors: amounts.map(([key, amount]) => ({ key, label: key, amount: { amount, currency: "USD" }, rate: null, ratedDays: 1, totalDays: 1 })),
+      ratedDays: 1,
+      totalDays: 1,
+      issues: [],
+      available: true,
+      status: "ok",
+      valuationForced: null,
+    });
+    useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
+    renderPage();
+
+    await screen.findByText("Partial coverage");
+    await user.click(within(screen.getByTestId("return-day-2026-09-01")).getByRole("button"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Gold CNY")).toBeInTheDocument();
+    expect(within(dialog).getByText("BOXX")).toBeInTheDocument();
+    expect(within(dialog).getByText("Gold USD")).toBeInTheDocument();
+    expect(within(dialog).getByText("cash:SGD")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Silver")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("Other").parentElement).toHaveTextContent("-$0.65");
+    expect(within(dialog).getByText("Return amount").parentElement).toHaveTextContent("-$74.14");
+  });
+
   it("distinguishes a partial zero day from a complete zero day", async () => {
     useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });
     renderPage();

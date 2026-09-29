@@ -310,7 +310,7 @@ describe("keyboard-only completion", () => {
     renderWithQueryClient(<SettingsPage />);
 
     const form = await screen.findByRole("form", { name: "Settings" });
-    for (let i = 0; i < 6; i++) await userEvent.tab(); // Settings section links
+    for (let i = 0; i < within(screen.getByRole("navigation", { name: "Settings sections" })).getAllByRole("link").length; i++) await userEvent.tab(); // Settings section links
     await userEvent.tab(); // -> Appearance select
     expect(within(form).getByLabelText("Appearance")).toHaveFocus();
     // jsdom does not implement a native <select>'s own ArrowDown/typeahead

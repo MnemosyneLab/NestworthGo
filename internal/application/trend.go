@@ -381,7 +381,17 @@ func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, yeste
 	}
 	for _, snapshot := range snapshots {
 		if snapshotHashNeedsRebuild(snapshot.ContentHash) {
-			originCopy := startDate
+			origin, originErr := s.HistoryOrigin(ctx)
+			if originErr != nil {
+				return originErr
+			}
+			location, locationErr := time.LoadLocation(origin.Timezone)
+			if locationErr != nil {
+				return locationErr
+			}
+			originCopy := origin.StartedAt.In(location).Format("2006-01-02")
+			startDate = originCopy
+			yesterday = s.clock().In(location).AddDate(0, 0, -1).Format("2006-01-02")
 			state.DirtyFrom = &originCopy
 			break
 		}
@@ -411,5 +421,10 @@ func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, yeste
 		}
 		cursor = chunkEnd.AddDate(0, 0, 1)
 	}
-	return nil
+	return s.WithWrite(ctx, func(ctx context.Context) error {
+		if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok {
+			return generationRepo.CompleteDailySnapshotRangeAtGeneration(ctx, household.ID, yesterday, s.clock(), state.InputGeneration)
+		}
+		return s.repository.CompleteDailySnapshotRange(ctx, household.ID, yesterday, s.clock())
+	})
 }

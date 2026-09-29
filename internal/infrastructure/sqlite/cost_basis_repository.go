@@ -22,13 +22,13 @@ func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID doma
 	if includeArchivedHoldings {
 		archiveClause = ""
 	}
-	rows, err := query.QueryContext(ctx, `
+	rows, err := query.QueryContext(ctx, correctedActivityCTE+`
 		SELECT e.activity_id, a.effective_at, a.created_at, a.kind, a.reason,
 		       e.direction, e.role, e.classification, e.quantity, e.cost_unit_price,
 		       t.side, t.unit_price, t.gross_currency, t.fee_amount, t.fee_currency,
 		       source_effect.holding_id
 		FROM activity_effects e
-		JOIN activities a ON a.id = e.activity_id
+		JOIN economic_activities a ON a.id = e.activity_id
 		JOIN holdings h ON h.id = e.holding_id
 		JOIN accounts owner_account ON owner_account.id = h.account_id
 		LEFT JOIN activity_trade_details t ON t.activity_id = a.id
@@ -42,7 +42,7 @@ func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID doma
 		  AND a.household_id = owner_account.household_id
 		  AND a.reverses_activity_id IS NULL
 		  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = a.id)`+archiveClause+`
-		ORDER BY a.effective_at ASC, a.created_at ASC, a.id ASC, e.sequence ASC`, holdingID.String())
+		ORDER BY a.effective_at ASC, a.created_at ASC, a.ordering_id ASC, e.sequence ASC`, holdingID.String())
 	if err != nil {
 		return nil, err
 	}

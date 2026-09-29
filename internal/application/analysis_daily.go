@@ -146,6 +146,15 @@ func snapshotItemsByComponent(snapshot domain.DailyValuationSnapshot, accounts m
 
 func buildComponentDay(date string, component domain.ComponentID, previous, current domain.DailyValuationSnapshotItem, previousSnapshot, currentSnapshot domain.DailyValuationSnapshot, hasPrevious, hasCurrent bool, effects []classifiedAnalysisEffect, input AnalysisInputs, query domain.AnalysisQuery, universe analysisUniverse) (domain.ComponentDay, error) {
 	day := domain.ComponentDay{Date: domain.LocalDate(date), Component: component, AssetBuckets: make(map[domain.AttributionBucket]domain.SignedMoney), AssetBucketExact: make(map[domain.AttributionBucket]decimal.Decimal), ReturnComponents: make(map[domain.ReturnComponent]domain.SignedMoney), DietzCapitalFlows: make([]domain.DietzCapitalFlow, 0), AttributedEffects: make([]domain.AttributedEffect, 0), Status: domain.CompletenessOK}
+	account := universe.accounts[component.AccountID]
+	// A complete snapshot before an account existed legitimately omits it.
+	// Existing rows always win, including backdated activity and missing values.
+	if hasPrevious && previousSnapshot.Complete && previous.AccountID == "" && accountAbsentBeforeCreation(account, previousSnapshot.CutoffAt, input) {
+		previous = zeroValuationItem(component, current)
+	}
+	if hasCurrent && currentSnapshot.Complete && current.AccountID == "" && accountAbsentBeforeCreation(account, currentSnapshot.CutoffAt, input) {
+		current = zeroValuationItem(component, previous)
+	}
 	// A trade can create a holding component, close it, or create a foreign
 	// cash sleeve on the same day. The snapshot legitimately omits a zero
 	// balance component at one side of that boundary, but dropping the whole
@@ -177,7 +186,6 @@ func buildComponentDay(date string, component domain.ComponentID, previous, curr
 		}
 		return day, nil
 	}
-	account := universe.accounts[component.AccountID]
 	baseCurrency := input.Portfolio.Household.BaseCurrency
 	begin, beginOK, err := snapshotItemValue(previous, account, query.Valuation, baseCurrency)
 	if err != nil {
@@ -377,6 +385,40 @@ func componentHasActivityInRange(component domain.ComponentID, activities []doma
 		}
 	}
 	return false
+}
+
+func accountAbsentBeforeCreation(account domain.Account, cutoff time.Time, input AnalysisInputs) bool {
+	if cutoff.IsZero() || account.CreatedAt.IsZero() || !account.CreatedAt.After(cutoff) {
+		return false
+	}
+	for _, snapshot := range input.Snapshots {
+		if snapshot.CutoffAt.After(cutoff) {
+			continue
+		}
+		for _, item := range snapshot.Items {
+			if item.AccountID == account.ID {
+				return false
+			}
+		}
+	}
+	for _, activity := range input.Activities {
+		if activity.EffectiveAt.After(cutoff) {
+			continue
+		}
+		for _, effect := range activity.Effects {
+			if effect.AccountID != nil && *effect.AccountID == account.ID {
+				return false
+			}
+			if effect.HoldingID != nil {
+				for _, holding := range input.Portfolio.Holdings {
+					if holding.ID == *effect.HoldingID && holding.AccountID == account.ID {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return true
 }
 
 func componentEffectMatches(component domain.ComponentID, effect domain.ActivityEffect) bool {
@@ -774,7 +816,7 @@ func computeHoldingBridge(component domain.ComponentID, previous, current domain
 			}
 			if effect.effect.Direction == domain.EffectAdded {
 				expected = expected.Add(effect.effect.Quantity.Decimal())
-			} else if effect.effect.Classification == domain.ClassificationInternalTransfer {
+			} else if effect.effect.Classification == domain.ClassificationInternalTransfer || (effect.effect.CostUnitPrice == nil && effect.bucket != nil && *effect.bucket == domain.BucketAdjustment && effect.amountKnown) {
 				expected = expected.Sub(effect.effect.Quantity.Decimal())
 				transferredOut = transferredOut.Add(effect.effect.Quantity.Decimal())
 			} else {

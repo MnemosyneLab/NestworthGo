@@ -127,13 +127,13 @@ func TestNetWorthTrendDoesNotPlotIncompleteSnapshotAsZero(t *testing.T) {
 	for _, snapshot := range []domain.DailyValuationSnapshot{
 		{
 			ID: domain.NewDailyValuationSnapshotID(), HouseholdID: bootstrap.Household.ID, LocalDate: "2026-08-01",
-			CutoffAt: time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC).Add(-time.Millisecond), ContentHash: "v2:test-incomplete",
+			CutoffAt: time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC).Add(-time.Millisecond), ContentHash: snapshotContentHashVersion + ":test-incomplete",
 			AssetsAmount: &zero, LiabilitiesAmount: &zero, NetWorthAmount: &zeroSigned, Currency: "CNY",
 			Complete: false, ComponentCount: 1, MissingCount: 1, GenerationReason: "test", CreatedAt: time.Now().UTC(),
 		},
 		{
 			ID: domain.NewDailyValuationSnapshotID(), HouseholdID: bootstrap.Household.ID, LocalDate: "2026-08-02",
-			CutoffAt: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC).Add(-time.Millisecond), ContentHash: "v2:test-complete",
+			CutoffAt: time.Date(2026, 8, 3, 0, 0, 0, 0, time.UTC).Add(-time.Millisecond), ContentHash: snapshotContentHashVersion + ":test-complete",
 			AssetsAmount: &assets, LiabilitiesAmount: &zero, NetWorthAmount: &netWorth, Currency: "CNY",
 			Complete: true, ComponentCount: 1, CreatedAt: time.Now().UTC(),
 		},

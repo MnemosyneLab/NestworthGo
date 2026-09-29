@@ -627,6 +627,24 @@ describe("AccountsPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent(/Missing FX rate/);
   });
 
+  it("hides zero positions while keeping dividend entry available", async () => {
+    listAccounts.mockResolvedValue([brokerageAccount]);
+    holdingsByAccounts.mockResolvedValue({ "brk-1": [
+      { id: "zero", accountId: "brk-1", instrumentId: "closed", quantity: "0.00000000" },
+      { id: "tiny", accountId: "brk-1", instrumentId: "active", quantity: "0.00000001" },
+    ] });
+    listInstruments.mockResolvedValue([
+      { id: "closed", name: "Closed position", type: "stock", quoteCurrency: "USD" },
+      { id: "active", name: "Small position", type: "stock", quoteCurrency: "USD" },
+    ]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+    const layout = within(await screen.findByTestId("account-cash-holdings-layout"));
+    expect(await layout.findByText("Small position")).toBeInTheDocument();
+    expect(layout.queryByText("Closed position")).not.toBeInTheDocument();
+    expect(layout.getByRole("button", { name: "Cash dividend" })).toBeEnabled();
+  });
+
   it("shows complete cash history fields", async () => {
     listAccounts.mockResolvedValue([brokerageAccount]);
     accountValuations.mockResolvedValue([{

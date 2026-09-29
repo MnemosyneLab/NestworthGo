@@ -103,63 +103,34 @@ func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) 
 	return preview, nil
 }
 
-// fixChangePreview computes the inverse-then-replace ChangePreview a Fix
-// produces, without committing anything: it inverts the original
-// Activity's effects against the *current* ChangeState (mirroring
-// FixChange's own state derivation) and previews the replacement command
-// against that inverted state. Both FixChange (which commits the result)
-// and PreviewFixChange (which is read-only, for the Fix form's "preview
-// before confirm" step) share this so the two never compute different
-// numbers for the same input — the bug this fixes is that a plain
-// PreviewChange call (ignoring the original Activity entirely) previews
-// against the state *after* the original effect already applied, double
-// counting it once Confirm actually inverts and replaces.
-func (s *Service) fixChangePreview(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (inverse, replacement domain.ChangePreview, err error) {
+// fixChangePlan validates the original and reconstructs the corrected timeline.
+// Preview and commit share this calculation, including subsequent events.
+func (s *Service) fixChangePlan(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (correctionPlan, error) {
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, err
+		return correctionPlan{}, err
 	}
 	if bootstrap.Household == nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, onboardingRequired()
+		return correctionPlan{}, onboardingRequired()
 	}
 	if err := s.rejectManagedActivity(ctx, activityID); err != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, err
+		return correctionPlan{}, err
 	}
 	activity, err := s.repository.Activity(ctx, bootstrap.Household.ID, activityID)
 	if err != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, err
+		return correctionPlan{}, err
 	}
 	if activity.ReversesActivityID != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "a reversal cannot be fixed directly"}
+		return correctionPlan{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "a reversal cannot be fixed directly"}
 	}
 	hasReversal, err := s.repository.ActivityHasReversal(ctx, bootstrap.Household.ID, activityID)
 	if err != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, err
+		return correctionPlan{}, err
 	}
 	if hasReversal {
-		return domain.ChangePreview{}, domain.ChangePreview{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "an already corrected change cannot be fixed again"}
+		return correctionPlan{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "an already corrected change cannot be fixed again"}
 	}
-	effects, err := s.repository.ActivityEffects(ctx, activityID)
-	if err != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, err
-	}
-	state, err := s.changeState(ctx)
-	if err != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, err
-	}
-	inverse, err = domain.InverseChange(state, activity, effects)
-	if err != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, err
-	}
-	stateAfterInverse, _, err := domain.ApplyEffects(state, inverse.Effects)
-	if err != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, err
-	}
-	replacement, err = domain.PreviewChange(stateAfterInverse, replacementCommand)
-	if err != nil {
-		return domain.ChangePreview{}, domain.ChangePreview{}, err
-	}
-	return inverse, replacement, nil
+	return s.replayCorrection(ctx, activity, replacementCommand)
 }
 
 // PreviewFixChange is FixChange's read-only counterpart: it returns the
@@ -173,11 +144,11 @@ func (s *Service) PreviewFixChange(ctx context.Context, activityID domain.Activi
 		return domain.ChangePreview{}, err
 	}
 	defer unlock()
-	_, replacement, err := s.fixChangePreview(ctx, activityID, replacementCommand)
+	plan, err := s.fixChangePlan(ctx, activityID, replacementCommand)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	return replacement, nil
+	return plan.replacement, nil
 }
 
 func (s *Service) FixChange(ctx context.Context, activityID domain.ActivityID, replacementCommand any) (domain.ChangePreview, error) {
@@ -200,24 +171,41 @@ func (s *Service) FixChangeWithMutation(ctx context.Context, activityID domain.A
 	if replay, err := s.replayActivityMutation(ctx, key); err != nil {
 		return domain.ChangePreview{}, err
 	} else if replay != nil {
-		return *replay, nil
+		return *replay, s.rebuildCorrectionSnapshots(ctx, replay.Activity.EffectiveLocalDate)
 	}
-	inverse, replacement, err := s.fixChangePreview(ctx, activityID, replacementCommand)
+	plan, err := s.fixChangePlan(ctx, activityID, replacementCommand)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
+	inverse, replacement := plan.inverse, plan.replacement
 	groupID := domain.NewActivityCorrectionGroupID()
 	inverse.Activity.CorrectionGroupID = &groupID
 	replacement.Activity.CorrectionGroupID = &groupID
 	asOf := s.clock()
 	if err := s.repository.CommitActivityBatch(ctx, []domain.ActivityCommit{
 		{Activity: inverse.Activity, Effects: inverse.Effects, Resulting: inverse.Resulting},
-		{Activity: replacement.Activity, Effects: replacement.Effects, Resulting: replacement.Resulting, Mutation: key},
+		{Activity: replacement.Activity, Effects: replacement.Effects, Resulting: plan.current, Mutation: key, Replay: plan.projections},
 	}, asOf); err != nil {
 		return domain.ChangePreview{}, err
 	}
 	s.invalidateAnalysis()
-	return replacement, nil
+	return replacement, s.rebuildCorrectionSnapshots(ctx, replacement.Activity.EffectiveLocalDate)
+}
+
+func (s *Service) rebuildCorrectionSnapshots(ctx context.Context, from string) error {
+	origin, err := s.HistoryOrigin(ctx)
+	if err != nil {
+		return err
+	}
+	location, err := time.LoadLocation(origin.Timezone)
+	if err != nil {
+		return err
+	}
+	yesterday := s.clock().In(location).AddDate(0, 0, -1).Format("2006-01-02")
+	if err := s.ensureClosedDaySnapshots(ctx, from, yesterday); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *Service) appendObservationTime(origin *domain.HistoryOrigin, effectiveAt, createdAt time.Time) (time.Time, time.Time, error) {

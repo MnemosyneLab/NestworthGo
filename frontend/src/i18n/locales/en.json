@@ -597,6 +597,11 @@
     "settings": "Settings"
   },
   "onboarding": {
+    "restoreTitle": "Already have a backup?",
+    "restoreHelp": "Choose a .nestworth-backup file from your previous computer to restore your household, history, and important settings. You do not need to create a household first.",
+    "restoreDescription": "Restore this backup, then reopen Nestworth to continue with your existing data.",
+    "restoreAcknowledge": "I want to use the data from this backup.",
+    "restoreConfirm": "Restore and quit",
     "addMember": "Add member",
     "baseCurrency": "Base currency",
     "create": "Create Household",
@@ -871,7 +876,8 @@
       "saveHelp": "Save applies to appearance, language, market preferences, Worker URL, and diagnostics.",
       "coinGecko": "CoinGecko",
       "tiingo": "Tiingo",
-      "worker": "Nestworth Worker"
+      "worker": "Nestworth Worker",
+      "agent": "AI / MCP"
     }
   },
   "snapshot": {
@@ -995,5 +1001,48 @@
     "reason": {
       "manual_value_older_than_180_days": "Manual valuation is over 180 days old; its amount remains included."
     }
+  },
+  "agent": {
+    "title": "AI / MCP",
+    "description": "Connect your local AI agent to query accounts, holdings and manage household records.",
+    "loading": "Loading connection status…",
+    "running": "MCP is running on this computer",
+    "stopped": "MCP is off",
+    "endpoint": "Endpoint",
+    "instance": "Instance ID",
+    "permission": "Agent permissions",
+    "readOnly": "Read only",
+    "directoryWrite": "Read and maintain directories",
+    "writeHelp": "Read data and create, edit or archive members, institutions, groups, accounts and instruments without another App confirmation. Trading and balance changes are not available yet.",
+    "readHelp": "Allows directory and current valuation queries. The agent cannot change data.",
+    "apply": "Apply permissions",
+    "enable": "Enable MCP",
+    "disable": "Disable and revoke access",
+    "showConnection": "Show connection configuration",
+    "secretHelp": "Contains an access token. Copy this configuration to your local agent and keep it private.",
+    "connectionLabel": "MCP connection configuration",
+    "copy": "Copy configuration",
+    "copied": "Copied",
+    "copyFailed": "Could not copy. Select the configuration and copy it manually.",
+    "hide": "Hide configuration",
+    "recent": "Recent agent operations",
+    "noOperations": "No agent writes yet.",
+    "errors": {
+      "configuration_unavailable": "The connection configuration could not be read or saved.",
+      "invalid_configuration": "The saved configuration is invalid. Enable MCP to create a new connection.",
+      "port_unavailable": "The configured port is already in use or unavailable. Close the other instance and try again.",
+      "database_unavailable": "The household database is unavailable.",
+      "server_stopped": "The MCP server stopped. Enable it again to reconnect."
+    },
+    "operationStatus": {
+      "succeeded": "Completed",
+      "failed": "Failed",
+      "unknown": "Outcome unknown — check data",
+      "pending": "In progress"
+    },
+    "localConnection": "Local connection",
+    "connectionDetails": "Connection details",
+    "permissionChangeHelp": "Applying changes replaces the access token. Update your agent’s connection configuration afterward.",
+    "keepOpen": "Keep Nestworth open while your agent is connected."
   }
 }

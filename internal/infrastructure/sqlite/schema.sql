@@ -736,4 +736,6 @@ CREATE TABLE product_operation_reservations (
     FOREIGN KEY(operation_id) REFERENCES product_operations(id) ON DELETE RESTRICT,
     FOREIGN KEY(reservation_id) REFERENCES liquidity_reservations(id) ON DELETE RESTRICT
 );
-PRAGMA user_version = 12;
+PRAGMA user_version = 13;
+
+CREATE TABLE app_configuration (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);

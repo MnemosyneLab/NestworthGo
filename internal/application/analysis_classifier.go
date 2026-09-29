@@ -57,13 +57,20 @@ func (u analysisUniverse) classifyActivity(activity domain.Activity, daySnapshot
 			if err != nil {
 				return nil, err
 			}
+			carryingRemoval := false
 			if activity.Kind == domain.ActivityPositionTransfer && effect.Classification == domain.ClassificationRemeasurement && effect.CostUnitPrice == nil {
-				// A quantity-only adjustment is not a monetary leg.  Its quantity is
-				// consumed by the holding bridge (for a proven split) or surfaced as
-				// a residual (for an unpriced/manual discrepancy).
-				amount, known = decimal.Zero, false
+				carryingRemoval = u.isCarryingValueRemoval(activity, effect, component, startItems, endItems, previousSnapshot, daySnapshot, input)
+				// Only a supported removal has a known carrying value. Other
+				// quantity-only changes remain a proven split or a visible residual.
+				if !carryingRemoval {
+					amount, known = decimal.Zero, false
+				}
 			}
 			bucket := assetBucketFor(activity, effect, component, insideCount, len(endpoints), u.accounts)
+			if carryingRemoval {
+				adjustment := domain.BucketAdjustment
+				bucket = &adjustment
+			}
 			neutral := bucket == nil && endpointsInUniverse(endpoints, u)
 			signedAmount := signedDirection(effect.Direction, amount)
 			if account, ok := u.accounts[component.AccountID]; ok && account.IsLiability() && effect.Target == domain.EffectTargetAccountValue {
@@ -113,6 +120,34 @@ func (u analysisUniverse) classifyActivity(activity domain.Activity, daySnapshot
 	}
 	_ = previousSnapshot // retained in the signature for the opening-lot bridge
 	return results, nil
+}
+
+// An explicit reconciliation can remove a known portion of the opening book
+// value without proceeds. Preserve split detection and leave unsupported
+// quantity discrepancies incomplete instead of inventing an acquisition price.
+func (u analysisUniverse) isCarryingValueRemoval(activity domain.Activity, effect domain.ActivityEffect, component domain.ComponentID, startItems, endItems map[string]domain.DailyValuationSnapshotItem, previous *domain.DailyValuationSnapshot, current domain.DailyValuationSnapshot, input AnalysisInputs) bool {
+	if activity.Reason != domain.ReasonReconciliation || effect.Direction != domain.EffectRemoved || effect.Quantity == nil || previous == nil {
+		return false
+	}
+	start, end := startItems[component.Key()], endItems[component.Key()]
+	if !start.Complete || !end.Complete {
+		return false
+	}
+	openQuote := u.quoteForItem(start, input.InstrumentQuotes, previous.CutoffAt)
+	closeQuote := u.quoteForItem(end, input.InstrumentQuotes, current.CutoffAt)
+	if openQuote == nil || closeQuote == nil {
+		return false
+	}
+	q0, err := inferredQuantity(start, openQuote)
+	if err != nil || q0.IsZero() || effect.Quantity.Decimal().GreaterThan(q0) {
+		return false
+	}
+	qc, err := inferredQuantity(end, closeQuote)
+	if err != nil {
+		return false
+	}
+	effects := []classifiedAnalysisEffect{{activity: activity, effect: effect}}
+	return !corporateActionRestatement(component, effects, q0, qc, openQuote.UnitPrice.Decimal(), closeQuote.UnitPrice.Decimal())
 }
 
 func (u analysisUniverse) returnAssociation(activity domain.Activity, effect domain.ActivityEffect, component domain.ComponentID) (*domain.ReturnComponent, *domain.HoldingID, *domain.InstrumentID, bool) {
@@ -401,7 +436,11 @@ func (u analysisUniverse) effectAmount(activity domain.Activity, effect domain.A
 			if err != nil || !available {
 				return decimal.Zero, available, err
 			}
-			endQuantity, err := inferredQuantity(item, u.quoteForItem(item, input.InstrumentQuotes, cutoff))
+			quote := u.quoteForItem(item, input.InstrumentQuotes, cutoff)
+			if quote == nil {
+				return decimal.Zero, false, nil
+			}
+			endQuantity, err := inferredQuantity(item, quote)
 			if err != nil || endQuantity.IsZero() {
 				return value, true, err
 			}

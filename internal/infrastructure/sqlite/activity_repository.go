@@ -209,6 +209,9 @@ func listActivityPageQuery(ctx context.Context, db queryer, householdID domain.H
 		limit = 100
 	}
 	statement := `SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM activities WHERE household_id = ?`
+	if query.ExcludeReversed {
+		statement = correctedActivityCTE + strings.Replace(statement, "FROM activities", "FROM economic_activities AS activities", 1)
+	}
 	args := []any{householdID.String()}
 	if query.AccountID != nil {
 		statement += ` AND EXISTS (SELECT 1 FROM activity_effects filter_effect WHERE filter_effect.activity_id = activities.id AND filter_effect.account_id = ?)`
@@ -284,7 +287,7 @@ func (r *Repository) ListActivitiesUntil(ctx context.Context, householdID domain
 }
 
 func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) ([]domain.Activity, error) {
-	rows, err := query.QueryContext(ctx, `SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM activities WHERE household_id = ? AND effective_at <= ? ORDER BY effective_at ASC, created_at ASC, id ASC`, householdID.String(), formatTimestamp(cutoff))
+	rows, err := query.QueryContext(ctx, correctedActivityCTE+`SELECT id, household_id, kind, reason, effective_at, effective_local_date, created_at, note, reverses_activity_id, correction_group_id, transaction_fx_rate FROM economic_activities WHERE household_id = ? AND effective_at <= ? ORDER BY effective_at ASC, created_at ASC, ordering_id ASC`, householdID.String(), formatTimestamp(cutoff))
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +309,20 @@ func listActivitiesUntilQuery(ctx context.Context, query queryer, householdID do
 	if err := hydrateActivities(ctx, query, activities); err != nil {
 		return nil, err
 	}
-	return activities, nil
+	// Use the same adjusted balance deltas for snapshots and analysis.
+	var originID string
+	err = query.QueryRowContext(ctx, `SELECT id FROM history_origins WHERE household_id=?`, householdID.String()).Scan(&originID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return activities, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	components, err := listHistoryOriginComponentsQuery(ctx, query, domain.HistoryOriginID(originID))
+	if err != nil {
+		return nil, err
+	}
+	return domain.ReplayMoneyEffects(activities, components)
 }
 
 func hydrateActivities(ctx context.Context, query queryer, activities []domain.Activity) error {

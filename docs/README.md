@@ -24,6 +24,7 @@ or visual prototype bundles.
 | Design | [Available funds implementation plan](design/available-funds-implementation-plan.md) | Planned liquidity rules, deposits/locked products, lifecycle accounting, and implementation acceptance |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
+| Development | [Local MCP](development/mcp.md) | Agent connection, permissions, implemented tools, and staged delivery |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
 | Release | [v0.3.5 Contract](releases/v0.3.5.md) | Scope, acceptance, and release gates for the current line |

@@ -219,15 +219,37 @@ func finalizeVerified(liveDBPath string, journal Journal, store *settings.Store)
 	if journal.StagingName != "" {
 		_ = os.Remove(filepath.Join(dir, journal.StagingName))
 	}
-	if store != nil && journal.SettingsJSON != "" && (journal.RestoreChrome || journal.RestoreFormat || journal.RestoreRouting) {
-		current, loadErr := store.Load()
-		if loadErr == nil {
-			var backupSettings settings.Settings
-			if json.Unmarshal([]byte(journal.SettingsJSON), &backupSettings) == nil {
-				merged := MergeSettings(current, backupSettings, journal.RestoreChrome, journal.RestoreFormat, journal.RestoreRouting)
-				if merged.Validate() == nil {
-					_ = store.Save(merged)
-				}
+	if store != nil {
+		db, err := sqlite.Open(liveDBPath)
+		if err != nil {
+			return err
+		}
+		defer db.Close()
+		restored := settings.NewStore(store.Path)
+		if err := restored.Attach(sqlite.NewConfigurationRepository(db)); err != nil {
+			return err
+		}
+		if journal.SettingsJSON != "" && (journal.RestoreChrome || journal.RestoreFormat || journal.RestoreRouting) {
+			current, err := restored.Load()
+			if err != nil {
+				return err
+			}
+			backupSettings := current
+			if err := json.Unmarshal([]byte(journal.SettingsJSON), &backupSettings); err != nil {
+				return err
+			}
+			// Durable configuration always comes from the restored database.
+			presentation, err := settings.PresentationJSON(backupSettings)
+			if err != nil {
+				return err
+			}
+			backupSettings = current
+			if err := json.Unmarshal(presentation, &backupSettings); err != nil {
+				return err
+			}
+			merged := MergeSettings(current, backupSettings, journal.RestoreChrome, journal.RestoreFormat, false)
+			if err := restored.Save(merged); err != nil {
+				return err
 			}
 		}
 	}

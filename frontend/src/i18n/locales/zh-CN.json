@@ -597,6 +597,11 @@
     "settings": "设置"
   },
   "onboarding": {
+    "restoreTitle": "已有备份？",
+    "restoreHelp": "选择旧电脑上的 .nestworth-backup 文件，恢复家庭、历史记录和重要设置，无需先创建家庭。",
+    "restoreDescription": "恢复此备份后，请重新打开 Nestworth，继续使用原有数据。",
+    "restoreAcknowledge": "我希望使用此备份中的数据。",
+    "restoreConfirm": "恢复并退出",
     "addMember": "添加成员",
     "baseCurrency": "基础货币",
     "create": "创建家庭",
@@ -871,7 +876,8 @@
       "saveHelp": "保存适用于外观、语言、行情偏好、Worker 地址和诊断设置。",
       "coinGecko": "CoinGecko",
       "tiingo": "Tiingo",
-      "worker": "Nestworth Worker"
+      "worker": "Nestworth Worker",
+      "agent": "AI / MCP"
     }
   },
   "snapshot": {
@@ -995,5 +1001,48 @@
     "reason": {
       "manual_value_older_than_180_days": "手工估值已超过 180 天，金额仍计入估值。"
     }
+  },
+  "agent": {
+    "title": "AI / MCP",
+    "description": "连接本地 AI Agent，查询账户与持仓，管理家庭资料。",
+    "loading": "正在读取连接状态…",
+    "running": "MCP 已在本机运行",
+    "stopped": "MCP 已关闭",
+    "endpoint": "连接地址",
+    "instance": "实例编号",
+    "permission": "Agent 权限",
+    "readOnly": "只读",
+    "directoryWrite": "查询与资料维护",
+    "writeHelp": "允许查询数据，以及新增、编辑或归档成员、机构、分组、账户和投资标的，无需逐次确认。暂不支持交易与余额变更。",
+    "readHelp": "允许查询基础资料和当前估值，不能修改数据。",
+    "apply": "应用权限",
+    "enable": "开启 MCP",
+    "disable": "关闭并撤销访问",
+    "showConnection": "显示连接配置",
+    "secretHelp": "配置包含访问凭据，复制到本地 Agent 即可，请勿分享。",
+    "connectionLabel": "MCP 连接配置",
+    "copy": "复制配置",
+    "copied": "已复制",
+    "copyFailed": "复制失败，请选中配置后手动复制。",
+    "hide": "隐藏配置",
+    "recent": "最近的 Agent 操作",
+    "noOperations": "暂无 Agent 写入记录。",
+    "errors": {
+      "configuration_unavailable": "无法读取或保存连接配置。",
+      "invalid_configuration": "已保存的配置无效，请开启 MCP 以创建新连接。",
+      "port_unavailable": "配置的端口被占用或不可用，请关闭其他实例后重试。",
+      "database_unavailable": "家庭数据库不可用。",
+      "server_stopped": "MCP 服务已停止，请重新开启。"
+    },
+    "operationStatus": {
+      "succeeded": "已完成",
+      "failed": "失败",
+      "unknown": "结果未确认，请检查数据",
+      "pending": "执行中"
+    },
+    "localConnection": "本地连接",
+    "connectionDetails": "连接详情",
+    "permissionChangeHelp": "应用后将更换访问凭据，请同步更新 Agent 的连接配置。",
+    "keepOpen": "连接期间请保持 Nestworth 运行。"
   }
 }

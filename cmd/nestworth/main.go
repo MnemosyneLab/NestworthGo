@@ -23,9 +23,11 @@ import (
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"github.com/waltwang/nestworth-go/internal/mcpserver"
 	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/version"
 	wailsaccount "github.com/waltwang/nestworth-go/internal/wailsapi/account"
+	wailsagent "github.com/waltwang/nestworth-go/internal/wailsapi/agent"
 	wailsanalysis "github.com/waltwang/nestworth-go/internal/wailsapi/analysis"
 	wailsanalytics "github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	wailsapp "github.com/waltwang/nestworth-go/internal/wailsapi/app"
@@ -46,6 +48,7 @@ import (
 )
 
 func init() {
+	application.RegisterEvent[bool](mcpserver.ChangedEvent)
 	application.RegisterEvent[wailsmarketdata.RefreshCompletedPayload](wailsmarketdata.RefreshCompletedEvent)
 	application.RegisterEvent[wailsmarketdata.RefreshProgressPayload]("marketdata.refresh.progress")
 	application.RegisterEvent[wailsmarketdata.SyncJobDTO](wailsmarketdata.SyncStartedEvent)
@@ -118,6 +121,12 @@ func run() error {
 		}
 		var databaseErr error
 		database, databaseErr = sqlite.Open(databasePath)
+		if databaseErr == nil {
+			databaseErr = store.Attach(sqlite.NewConfigurationRepository(database))
+			if databaseErr == nil {
+				preference, databaseErr = store.Load()
+			}
+		}
 		if databaseErr != nil {
 			var bootstrap *sqlite.BootstrapError
 			if errors.As(databaseErr, &bootstrap) {
@@ -196,10 +205,17 @@ func run() error {
 	if service != nil {
 		dataService = wailsdata.NewService(service, store, platform, marketdataService)
 	}
+	var agentServer *mcpserver.Service
+	registered := services(service, store, recoveryService, dataService, marketdataService, appService)
+	if service != nil {
+		agentServer = mcpserver.New(service, mcpserver.Directory(store.Path, databasePath), func() { emitter.Emit(mcpserver.ChangedEvent, true) }, sqlite.NewConfigurationRepository(database))
+		defer agentServer.Close()
+		registered = append(registered, application.NewService(wailsagent.NewService(agentServer)))
+	}
 	app := application.New(application.Options{
 		Name:        version.Name,
 		Description: version.Description,
-		Services:    services(service, store, recoveryService, dataService, marketdataService, appService),
+		Services:    registered,
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(webassets.Dist),
 		},
@@ -209,6 +225,11 @@ func run() error {
 	})
 	emitter.manager = app.Event
 	platform.setApp(app)
+	if agentServer != nil {
+		if err := agentServer.Resume(); err != nil {
+			slog.Warn("agent server did not start; review AI / MCP settings")
+		}
+	}
 
 	configureApplicationMenu(app)
 

@@ -1,7 +1,7 @@
 # Backup, Restore, and JSON Export
 
 - Status: **Implemented**
-- Database: SQLite schema `12`
+- Database: SQLite schema `13`
 - Platform: Wails v3
 - Companion: [JSON export format](json-export-format.md)
 
@@ -86,18 +86,25 @@ Rules:
 
 ### 3.2 Settings included in a backup
 
-The settings member contains only recoverable user preferences. Restore presents
-three independent categories:
+The settings member contains only disposable preferences. Restore offers:
 
 - `chrome`: window size, appearance, accent, and interface language;
-- `format`: display currency, grouping and decimal format, timezone, week start,
-  and date/time format;
-- `routing`: FX provider and quote-cache TTL.
+- `format`: grouping and decimal format, week start, and date/time format.
 
-All categories default to preserving the current settings. A user may explicitly
-select categories to restore. The selection is written to the restore journal
-and is merged into the live `settings.json` only after the journal reaches
-`verified`. A rollback never changes the pre-restore settings.
+Currency, timezone, provider configuration, API keys, and MCP connection state
+and receipts are stored in SQLite and always follow the restored database.
+The preference categories default to preserving current values and are merged
+only after the restored database verifies. A rollback leaves preferences intact.
+Schema 12 packages remain readable: extraction upgrades a verified temporary
+copy and migrates its legacy settings before replacing the live database.
+
+### Restore during first launch
+
+The onboarding page offers “Restore from backup” before creating a household.
+It uses the same preview, validation, confirmation, and restart flow as Settings.
+It works both with no existing database and with the empty database created by
+first launch. Important settings and credentials follow the restored database;
+appearance and format preferences remain optional.
 
 ### 3.3 Backup creation
 

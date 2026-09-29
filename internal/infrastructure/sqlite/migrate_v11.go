@@ -16,9 +16,6 @@ func migrateV11ToV12(ctx context.Context, db *sql.DB) error {
 			return err
 		}
 	}
-	if err := verifySchema(ctx, tx); err != nil {
-		return err
-	}
 	return tx.Commit()
 }
 

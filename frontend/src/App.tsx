@@ -16,6 +16,7 @@ import { useAnalysisStore } from "@/stores/analysis";
 import { Button } from "@/components/ui/button";
 import { NavigationContext } from "@/app/NavigationContext";
 import type { HealthFocus, AccountListFocus } from "@/app/navigation";
+import { AgentWorkspaceObserver } from "@/queries/agent";
 import { MarketDataSyncWorkspaceObserver } from "@/queries/marketdata";
 
 const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
@@ -164,6 +165,7 @@ function App() {
     <NavigationContext.Provider value={{ open, openHealth }}>
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data}>
       <MarketDataSyncWorkspaceObserver />
+      <AgentWorkspaceObserver />
       {trail.length > 0 && <Button variant="ghost" className="mb-4" onClick={back}>{t("connections.back", { page: t(`nav.${({ "data-health": "dataHealth", "market-data": "marketData", "return-analysis": "returnAnalysis", "asset-changes": "assetChanges", "available-funds": "availableFunds" } as Record<string, string>)[trail[trail.length - 1].page] ?? trail[trail.length - 1].page}`) })}</Button>}
       {retained("overview") && (
         <div hidden={activePageId !== "overview"}>

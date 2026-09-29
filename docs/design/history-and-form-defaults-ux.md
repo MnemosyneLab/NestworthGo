@@ -208,8 +208,10 @@ Record change uses a calendar popover and a separate 24-hour time picker:
 - A new Record defaults to the current time in the Origin timezone and rejects
   dates before the Origin or after now.
 - Fix shows the original effective timestamp read-only and submits no original
-  timestamp. The reversal and replacement occur at now; copying the old time
-  would rewrite historical replay before the correction happened.
+  timestamp. The backend resolves the original effective time, including correction chains.
+  The correction is recorded now but replaces the original in financial replay.
+  Preview shows the corrected event-time result; later balances, costs, and
+  closed-day snapshots are rebuilt through yesterday, and today uses live valuation.
 - Cash reconciliation and Simple value updates retain their current now-based
   behavior.
 

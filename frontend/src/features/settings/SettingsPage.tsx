@@ -25,6 +25,7 @@ import { useSettings, useSaveSettings, useResetSettings, useFXProviders, useCoin
 import { useHistoryOrigin } from "@/queries/history";
 import { useCatalog } from "@/queries/catalog";
 import { AboutPage } from "@/features/about/AboutPage";
+import { AgentSection } from "@/features/settings/AgentSection";
 import { DataManagementSection } from "@/features/settings/DataManagementSection";
 import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
 import { setLanguage, languageOptionKey } from "@/i18n";
@@ -37,7 +38,7 @@ import { resolvedTimeZone, timeZoneOptions } from "@/lib/time";
  * only returns to the last loaded/saved snapshot; Restore defaults is the
  * separate destructive operation and always asks for confirmation.
  */
-const SECTION_IDS = ["general", "market", "data", "diagnostics", "about", "reset"] as const;
+const SECTION_IDS = ["general", "market", "agent", "data", "diagnostics", "about", "reset"] as const;
 const ACCENT_ORDER = ["indigo", "lavender", "mint", "sky", "peach"] as const;
 // Fixed preview colors so every accent stays visible regardless of the active theme.
 const ACCENT_SWATCH: Record<(typeof ACCENT_ORDER)[number], string> = {
@@ -454,6 +455,7 @@ export function SettingsPage() {
           </div>
         </div>
       </section>
+      <AgentSection />
       <div id="settings-data" className="scroll-mt-6 border-t border-border pt-6"><DataManagementSection /></div>
       <section id="settings-diagnostics" aria-labelledby="settings-diagnostics-title" className="scroll-mt-6 space-y-5 border-t border-border pt-6">
         <h2 id="settings-diagnostics-title" className="text-base font-semibold">{t("settings.sections.diagnostics")}</h2>

@@ -90,6 +90,18 @@ before business or settings writes.
 - Unknown targets return a stable not-found error and write nothing.
 - Append-only observations never overwrite prior financial evidence.
 - Posted Activities are immutable; reversal and correction append linked records.
+- Financial reads resolve corrections to the original transaction's time and
+  ordering position. Original and correction-reversal records remain in the audit
+  history but do not count as additional financial events. This applies to legacy
+  corrections and correction chains as well.
+- Fix validates the complete later timeline before committing. Invalid later
+  balances or quantities reject the fix without writes. Derived event balances
+  are rebuilt in the correction transaction. Closed-day snapshots are rebuilt
+  in bounded batches, preserving earlier revisions; generation checks prevent
+  a concurrent write from marking stale results complete. Snapshot hash v3
+  invalidates older replay results. Today remains a live valuation.
+- Later absolute balance observations retain their recorded amount; their
+  adjustment delta is recalculated from the corrected preceding balance.
 - Record, Commit, and Fix Activity commands accept an optional client-generated
   `mutationId`. The same ID with the same payload returns the original result;
   the same ID with a different payload returns `conflict`. Empty IDs remain

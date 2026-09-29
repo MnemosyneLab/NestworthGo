@@ -1,3 +1,4 @@
+import { RestoreBackupButton } from "@/features/backup/RestoreBackupButton";
 import { useEffect, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -134,6 +135,11 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
               <p className="pt-1">{t("onboarding.nextStep")}</p>
             </li>
           </ul>
+          <section className="flex flex-col items-start gap-3 rounded-2xl border bg-card p-4" aria-label={t("onboarding.restoreTitle")}>
+            <h2 className="font-semibold">{t("onboarding.restoreTitle")}</h2>
+            <p className="text-sm text-muted-foreground">{t("onboarding.restoreHelp")}</p>
+            <RestoreBackupButton onboarding disabled={completeOnboarding.isPending || saveSettings.isPending} />
+          </section>
         </section>
 
         <Card className="w-full rounded-3xl shadow-lg">

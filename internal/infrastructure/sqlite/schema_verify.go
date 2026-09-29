@@ -524,6 +524,7 @@ func expectedColumn(name, typeName string, notNull, primaryKey int, defaultVal .
 
 func expectedSchemaTables() map[string][]schemaColumn {
 	return map[string][]schemaColumn{
+		"app_configuration": {{"key", "TEXT", 1, "", 1}, {"value", "TEXT", 1, "", 0}},
 		"households": {
 			expectedColumn("id", "TEXT", 1, 1), expectedColumn("singleton_key", "INTEGER", 1, 0, "1"), expectedColumn("name", "TEXT", 1, 0),
 			expectedColumn("base_currency", "TEXT", 1, 0), expectedColumn("created_at", "TEXT", 1, 0), expectedColumn("updated_at", "TEXT", 1, 0),

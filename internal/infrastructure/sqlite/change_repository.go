@@ -36,6 +36,21 @@ func (r *Repository) CommitActivityBatch(ctx context.Context, commits []domain.A
 				return err
 			}
 		}
+		// Corrections have a bounded rebuild range through the last closed day.
+		for _, commit := range commits {
+			if commit.Activity.CorrectionGroupID == nil {
+				continue
+			}
+			location, err := time.LoadLocation(originTimezone)
+			if err != nil {
+				return err
+			}
+			yesterday := asOf.In(location).AddDate(0, 0, -1).Format("2006-01-02")
+			if _, err := tx.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_to = CASE WHEN dirty_to IS NULL OR dirty_to < ? THEN ? ELSE dirty_to END WHERE household_id=? AND dirty_from IS NOT NULL`, yesterday, yesterday, commit.Activity.HouseholdID.String()); err != nil {
+				return err
+			}
+			break
+		}
 		for _, inverse := range commits {
 			if inverse.Activity.CorrectionGroupID == nil || inverse.Activity.ReversesActivityID == nil {
 				continue
@@ -48,6 +63,13 @@ func (r *Repository) CommitActivityBatch(ctx context.Context, commits []domain.A
 					return err
 				}
 				break
+			}
+		}
+		for _, commit := range commits {
+			for _, projection := range commit.Replay {
+				if err := rebuildActivityProjectionTx(ctx, tx, projection); err != nil {
+					return err
+				}
 			}
 		}
 		return nil
@@ -295,4 +317,24 @@ func nullableMoneyAmount(value *domain.Money) any {
 		return nil
 	}
 	return value.CanonicalAmount()
+}
+
+// Event projections are derived balances, not audit facts. Replay updates them
+// atomically with the correction; current replay rows retain the final balance.
+func rebuildActivityProjectionTx(ctx context.Context, tx *sql.Tx, projection domain.ActivityProjection) error {
+	for _, view := range projection.Resulting {
+		var err error
+		switch view.Target {
+		case domain.EffectTargetAccountValue:
+			_, err = tx.ExecContext(ctx, `UPDATE account_values SET amount=? WHERE account_id=? AND currency=? AND projection_kind='event' AND activity_effect_id IN (SELECT id FROM activity_effects WHERE activity_id=?)`, view.Amount, view.AccountID.String(), view.Currency.String(), projection.Activity.ID.String())
+		case domain.EffectTargetAccountCash:
+			_, err = tx.ExecContext(ctx, `UPDATE account_cash_values SET amount=? WHERE account_id=? AND currency=? AND projection_kind='event' AND activity_effect_id IN (SELECT id FROM activity_effects WHERE activity_id=?)`, view.Amount, view.AccountID.String(), view.Currency.String(), projection.Activity.ID.String())
+		case domain.EffectTargetHoldingQuantity:
+			_, err = tx.ExecContext(ctx, `UPDATE holding_quantity_values SET quantity=? WHERE holding_id=? AND projection_kind='event' AND activity_effect_id IN (SELECT id FROM activity_effects WHERE activity_id=?)`, view.Quantity, view.HoldingID.String(), projection.Activity.ID.String())
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

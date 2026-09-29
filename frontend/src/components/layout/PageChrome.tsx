@@ -35,7 +35,7 @@ export function PageChrome({
   const content = (
     <>
       {title !== undefined && <h1 className="min-w-0 max-w-full truncate text-base font-semibold tracking-tight text-foreground">{title}</h1>}
-      {actions && <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex max-w-full flex-wrap items-center gap-2 [&_button]:h-9 [&_button]:rounded-xl [&_button]:px-4 [&_button]:py-2 [&_button]:text-sm">{actions}</div>}
     </>
   );
 

@@ -12,6 +12,7 @@ import type * as marketdata$0 from "../../../../waltwang/nestworth-go/internal/w
 declare module "@wailsio/runtime" {
     namespace Events {
         interface CustomEvents {
+            "agent.data.changed": boolean;
             "marketdata.refresh.completed": marketdata$0.RefreshCompletedPayload;
             "marketdata.refresh.progress": marketdata$0.RefreshProgressPayload;
             "marketdata.sync.completed": marketdata$0.SyncJobDTO;

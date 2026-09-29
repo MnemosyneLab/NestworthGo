@@ -1,6 +1,4 @@
-// Package settings contains user-facing preferences. These preferences are
-// deliberately kept outside the financial database so the presentation layer
-// can evolve without changing business persistence.
+// Package settings combines durable SQLite configuration with disposable UI preferences.
 package settings
 
 import (
@@ -286,8 +284,9 @@ func separatorValue(value string) string {
 }
 
 type Store struct {
-	saveMu sync.Mutex
-	Path   string
+	saveMu     sync.Mutex
+	repository ConfigurationRepository
+	Path       string
 	// ConfigureLogging is set by the desktop composition root.
 	ConfigureLogging func(string) error
 }
@@ -328,6 +327,43 @@ func (s *Store) Load() (Settings, error) {
 // Callers that persist automatically must not replace the source file when
 // status is LoadStatusRecovered; an explicit settings Save or Reset may do so.
 func (s *Store) LoadWithStatus() (Settings, LoadStatus, error) {
+	if s == nil {
+		return Default(), LoadStatusRecovered, errors.New("settings store is missing")
+	}
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
+	return s.loadCombined()
+}
+
+func (s *Store) loadCombined() (Settings, LoadStatus, error) {
+	value, status, err := s.loadFile()
+	if s.repository == nil {
+		return value, status, err
+	}
+	raw, found, dbErr := s.repository.LoadConfiguration(durableSettingsKey)
+	if dbErr != nil {
+		return value, status, dbErr
+	}
+	if !found {
+		return value, status, errors.New("application settings are missing")
+	}
+	var d durableSettings
+	if json.Unmarshal(raw, &d) != nil {
+		return value, status, errors.New("stored application settings are invalid")
+	}
+	d.apply(&value)
+	if validationErr := value.Validate(); validationErr != nil {
+		return value, status, errors.New("stored application settings are invalid")
+	}
+	if err != nil || status != LoadStatusClean {
+		if writeErr := s.writeFile(value); writeErr == nil {
+			status = LoadStatusClean
+		}
+	}
+	return value, status, nil
+}
+
+func (s *Store) loadFile() (Settings, LoadStatus, error) {
 	defaults := Default()
 	if s == nil || s.Path == "" {
 		return defaults, LoadStatusRecovered, errors.New("settings path is empty")
@@ -341,7 +377,7 @@ func (s *Store) LoadWithStatus() (Settings, LoadStatus, error) {
 		return defaults, LoadStatusRecovered, err
 	}
 
-	var loaded Settings
+	loaded := Default()
 	if err := json.Unmarshal(data, &loaded); err != nil {
 		// Settings are presentation-only. A malformed file must not strand the
 		// frontend in its startup loading state; use safe defaults while keeping
@@ -485,7 +521,7 @@ func (s *Store) Save(value Settings) (saveErr error) {
 		return err
 	}
 	if s.ConfigureLogging != nil {
-		previous, err := s.Load()
+		previous, _, err := s.loadCombined()
 		if err != nil {
 			return err
 		}
@@ -498,11 +534,30 @@ func (s *Store) Save(value Settings) (saveErr error) {
 			}
 		}()
 	}
+	if s.repository != nil {
+		data, err := json.Marshal(durable(value))
+		if err != nil {
+			return err
+		}
+		if err = s.repository.SaveConfiguration(durableSettingsKey, data); err != nil {
+			return err
+		}
+	}
+	return s.writeFile(value)
+}
+
+func (s *Store) writeFile(value Settings) error {
 	if err := os.MkdirAll(filepath.Dir(s.Path), 0o700); err != nil {
 		return err
 	}
 
-	data, err := json.MarshalIndent(value, "", "  ")
+	var data []byte
+	var err error
+	if s.repository != nil {
+		data, err = PresentationJSON(value)
+	} else {
+		data, err = json.MarshalIndent(value, "", "  ")
+	}
 	if err != nil {
 		return err
 	}

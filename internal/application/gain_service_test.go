@@ -362,8 +362,8 @@ func TestGainServiceTransferUsesSendingCostAtTransferTime(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if source.AverageCost.Amount != "316.6667" || target.AverageCost.Amount != "720" {
-		t.Fatalf("transfer cost resolution used today's source cost: source=%+v target=%+v", source, target)
+	if source.AverageCost.Amount != "478" || target.AverageCost.Amount != "478" {
+		t.Fatalf("transfer cost did not include the backdated correction: source=%+v target=%+v", source, target)
 	}
 	groups, err := service.InstrumentHoldings(ctx)
 	if err != nil {

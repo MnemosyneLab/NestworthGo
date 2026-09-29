@@ -27,7 +27,12 @@ export function NetWorthTrendCard() {
       <TrendChart ariaLabel={t("connections.netWorthTrend")} summary={t("connections.netWorthNote")} dates={points.map(point => point.localDate)}
         series={[{ key: "netWorth", name: t("overview.netWorth"), color: "var(--color-primary)", values: points.map(point => point.complete ? point.netWorth?.amount : null) }]}
         currency={data?.currency ?? ""} height={280} emptyTitle={t("charts.insufficientHistory")}
-        extraTableColumns={[t("connections.coverage")]} extraTableRows={points.map(point => [t(point.current ? "connections.currentPoint" : point.complete ? "overview.healthy" : "overview.needsAttention")])} />
+        extraTableColumns={[t("charts.date"), t("overview.netWorth"), t("overview.assets"), t("overview.liabilities"), t("connections.coverage")]}
+        extraTableRows={points.map(point => [
+          point.localDate,
+          ...[point.netWorth, point.assets, point.liabilities].map(value => point.complete && value ? formatAmount(value.amount, value.currency) : t("accounts.noValue")),
+          t(point.current ? "connections.currentPoint" : point.complete ? "overview.healthy" : "overview.needsAttention"),
+        ])} />
       {points.length > 0 && <p className="text-xs text-muted-foreground">{t("connections.currentPointNote")}</p>}
       {gaps.length > 0 && <details><summary className="cursor-pointer text-sm">{t("connections.gapDays", { count: gaps.length })}</summary><ul className="mt-2 flex max-h-48 flex-col gap-1 overflow-y-auto">{gaps.map(point => <li key={point.localDate}><Button variant="link" size="sm" disabled={!navigation} onClick={() => navigation?.open({ page: "data-health", focus: { rangeStart: point.localDate, rangeEnd: point.localDate } })}>{point.localDate} · {t("connections.viewGap")}</Button></li>)}</ul></details>}
     </>}

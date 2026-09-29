@@ -202,7 +202,13 @@ function contributorLabel(t: (key: string) => string, item: ReturnContributorDTO
 function ContributorList({ values, title, instrumentNames = new Map() }: { values: ReturnContributorDTO[] | null | undefined; title: string; instrumentNames?: Map<string, string> }) {
   const { t } = useTranslation();
   if (!values || values.length === 0) return null;
-  return <div className="mt-3 border-t border-border pt-3"><p className="mb-2 text-sm font-medium">{title}</p><ul className="flex flex-col gap-2 text-sm">{values.slice(0, 5).map((item) => <li key={item.key} className="flex justify-between gap-3"><span className="truncate">{contributorLabel(t, item, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></li>)}</ul></div>;
+  const visible = values.slice(0, 6);
+  const remaining = values.slice(6);
+  const currency = remaining[0]?.amount?.currency;
+  const otherAmount = currency && remaining.every(item => item.amount?.currency === currency)
+    ? { amount: remaining.reduce((sum, item) => addCanonical(sum, item.amount!.amount), "0"), currency }
+    : null;
+  return <div className="mt-3 border-t border-border pt-3"><p className="mb-2 text-sm font-medium">{title}</p><ul className="flex flex-col gap-2 text-sm">{visible.map((item) => <li key={item.key} className="flex justify-between gap-3"><span className="truncate">{contributorLabel(t, item, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></li>)}{remaining.length > 0 && <li className="flex justify-between gap-3"><span className="truncate">{t("insights.other")}</span><span className="shrink-0">{amountText(otherAmount)}</span></li>}</ul></div>;
 }
 
 function DayCell({ day, date, inMonth, timeZone, onOpen, selected = false, column = 0, row = 0 }: { column?: number; row?: number; selected?: boolean; day?: ReturnDayDTO; date: string; inMonth: boolean; timeZone?: string; onOpen: (date: string) => void }) {

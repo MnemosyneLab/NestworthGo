@@ -2,7 +2,6 @@ package data
 
 import (
 	"context"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -99,7 +98,7 @@ func (s *Service) CreateBackup() (BackupResultDTO, error) {
 	settingsJSON := []byte("{}\n")
 	if s.store != nil {
 		if current, loadErr := s.store.Load(); loadErr == nil {
-			if encoded, encodeErr := json.Marshal(current); encodeErr == nil {
+			if encoded, encodeErr := settings.PresentationJSON(current); encodeErr == nil {
 				settingsJSON = append(encoded, '\n')
 			}
 		}

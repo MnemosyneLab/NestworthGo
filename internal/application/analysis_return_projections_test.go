@@ -236,6 +236,35 @@ func TestContributionSortingHandlesUnavailableAmounts(t *testing.T) {
 	}
 }
 
+func TestReturnContributorsKeepLargestGainsAndLossesWithoutTruncation(t *testing.T) {
+	amounts := []string{"259.851", "76.2728", "7.279", "3.9335", "-0.651", "-92.2521", "-328.5725"}
+	byKey := make(map[string]decimal.Decimal, len(amounts))
+	days := make([]domain.ComponentDay, 0, len(amounts))
+	for _, amount := range amounts {
+		byKey[amount] = decimal.RequireFromString(amount)
+		days = append(days, returnProjectionDay(t, domain.NewInstrumentID(), "100", amount))
+	}
+	want := []string{"-328.5725", "259.851", "-92.2521", "76.2728", "7.279", "3.9335", "-0.651"}
+	check := func(name string, contributors []ReturnContributor) {
+		t.Helper()
+		if len(contributors) != len(want) {
+			t.Fatalf("%s returned %d contributors, want %d", name, len(contributors), len(want))
+		}
+		for index, amount := range want {
+			if contributors[index].Amount == nil || contributors[index].Amount.CanonicalAmount() != amount {
+				t.Fatalf("%s contributor %d = %+v, want %s", name, index, contributors[index], amount)
+			}
+		}
+	}
+	check("day", returnContributorsFromAmounts(byKey, "USD", domain.RateCoverage{TotalDays: 1}))
+	result := domain.PeriodAnalysisResult{Query: testReturnQuery("2026-08-01", "2026-08-01"), Days: days}
+	monthly, err := topReturnContributors(result, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	check("period", monthly)
+}
+
 func TestContributionItemTotalReturnCompositionUsesReturnComponents(t *testing.T) {
 	instrumentID := domain.NewInstrumentID()
 	holdingA, holdingB := domain.NewHoldingID(), domain.NewHoldingID()

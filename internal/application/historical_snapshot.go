@@ -198,7 +198,9 @@ func (s *Service) historicalPortfolioSnapshot(ctx context.Context, origin *domai
 	return HistoricalReplay{repository: s.repository, batch: batch, quotes: quotes}.Snapshot(ctx, origin, cutoff)
 }
 
-const snapshotContentHashVersion = "v2"
+// v3 replays corrections at the original transaction time. Older snapshots
+// are rebuilt append-only so existing erroneous daily gains do not survive.
+const snapshotContentHashVersion = "v3"
 
 func snapshotContentHash(localDate string, cutoff time.Time, assets, liabilities domain.Money, netWorth domain.SignedMoney, items []domain.DailyValuationSnapshotItem) string {
 	sort.Slice(items, func(i, j int) bool {

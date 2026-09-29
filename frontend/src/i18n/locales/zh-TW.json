@@ -597,6 +597,11 @@
     "settings": "設定"
   },
   "onboarding": {
+    "restoreTitle": "已有備份？",
+    "restoreHelp": "選擇舊電腦上的 .nestworth-backup 檔案，還原家庭、歷史紀錄和重要設定，無需先建立家庭。",
+    "restoreDescription": "還原此備份後，請重新開啟 Nestworth，繼續使用原有資料。",
+    "restoreAcknowledge": "我希望使用此備份中的資料。",
+    "restoreConfirm": "還原並結束",
     "addMember": "新增成員",
     "baseCurrency": "基礎貨幣",
     "create": "建立家庭",
@@ -871,7 +876,8 @@
       "saveHelp": "儲存適用於外觀、語言、行情偏好、Worker 網址和診斷設定。",
       "coinGecko": "CoinGecko",
       "tiingo": "Tiingo",
-      "worker": "Nestworth Worker"
+      "worker": "Nestworth Worker",
+      "agent": "AI / MCP"
     }
   },
   "snapshot": {
@@ -995,5 +1001,48 @@
     "reason": {
       "manual_value_older_than_180_days": "手動估值已超過 180 天，金額仍計入估值。"
     }
+  },
+  "agent": {
+    "title": "AI / MCP",
+    "description": "連接本機 AI Agent，查詢帳戶與持倉，管理家庭資料。",
+    "loading": "正在讀取連接狀態…",
+    "running": "MCP 已在本機執行",
+    "stopped": "MCP 已關閉",
+    "endpoint": "連接位址",
+    "instance": "實例編號",
+    "permission": "Agent 權限",
+    "readOnly": "唯讀",
+    "directoryWrite": "查詢與資料維護",
+    "writeHelp": "允許查詢資料，以及新增、編輯或封存成員、機構、分組、帳戶和投資標的，無需逐次確認。暫不支援交易與餘額變更。",
+    "readHelp": "允許查詢基本資料和目前估值，不能修改資料。",
+    "apply": "套用權限",
+    "enable": "開啟 MCP",
+    "disable": "關閉並撤銷存取",
+    "showConnection": "顯示連接設定",
+    "secretHelp": "設定包含存取憑證，複製到本機 Agent 即可，請勿分享。",
+    "connectionLabel": "MCP 連接設定",
+    "copy": "複製設定",
+    "copied": "已複製",
+    "copyFailed": "複製失敗，請選取設定後手動複製。",
+    "hide": "隱藏設定",
+    "recent": "最近的 Agent 操作",
+    "noOperations": "暫無 Agent 寫入記錄。",
+    "errors": {
+      "configuration_unavailable": "無法讀取或儲存連接設定。",
+      "invalid_configuration": "已儲存的設定無效，請開啟 MCP 以建立新連接。",
+      "port_unavailable": "設定的連接埠已被佔用或無法使用，請關閉其他實例後重試。",
+      "database_unavailable": "家庭資料庫無法使用。",
+      "server_stopped": "MCP 服務已停止，請重新開啟。"
+    },
+    "operationStatus": {
+      "succeeded": "已完成",
+      "failed": "失敗",
+      "unknown": "結果未確認，請檢查資料",
+      "pending": "執行中"
+    },
+    "localConnection": "本機連接",
+    "connectionDetails": "連接詳情",
+    "permissionChangeHelp": "套用後將更換存取憑證，請同步更新 Agent 的連接設定。",
+    "keepOpen": "連接期間請保持 Nestworth 執行。"
   }
 }
