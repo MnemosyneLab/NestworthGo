@@ -60,6 +60,24 @@ func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) 
 		return domain.ChangePreview{}, err
 	}
 	defer unlock()
+	preview, err := s.undoChangePlan(ctx, activityID)
+	if err != nil {
+		return domain.ChangePreview{}, err
+	}
+	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.clock()); err != nil {
+		return domain.ChangePreview{}, err
+	}
+	s.invalidateAnalysis()
+	return preview, nil
+}
+
+// undoChangePlan validates the target and computes a reversal against today's
+// state. Unlike a historical fix, it does not replay later activities.
+func (s *Service) undoChangePlan(ctx context.Context, activityID domain.ActivityID) (domain.ChangePreview, error) {
+	return s.undoChangePlanAt(ctx, activityID, time.Time{})
+}
+
+func (s *Service) undoChangePlanAt(ctx context.Context, activityID domain.ActivityID, effectiveAt time.Time) (domain.ChangePreview, error) {
 	bootstrap, err := s.Bootstrap(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -92,14 +110,27 @@ func (s *Service) UndoChange(ctx context.Context, activityID domain.ActivityID) 
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
+	if !effectiveAt.IsZero() {
+		effectiveAt = effectiveAt.UTC()
+		if effectiveAt.Before(state.OriginAt.UTC()) || effectiveAt.After(state.Now.UTC()) {
+			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrInvalidChangeTime, Field: "effectiveAt", Message: "reversal time must be within the history interval"}
+		}
+	}
 	preview, err := domain.InverseChange(state, activity, effects)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	if err := s.repository.CommitActivity(ctx, preview.Activity, preview.Effects, preview.Resulting, s.clock()); err != nil {
+	if err := s.rejectDependentHoldingUndo(ctx, activity, effects, state.Now); err != nil {
 		return domain.ChangePreview{}, err
 	}
-	s.invalidateAnalysis()
+	if !effectiveAt.IsZero() {
+		location, err := time.LoadLocation(state.Timezone)
+		if err != nil {
+			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Field: "timezone", Message: "history timezone is invalid"}
+		}
+		preview.Activity.EffectiveAt = effectiveAt
+		preview.Activity.EffectiveLocalDate = effectiveAt.In(location).Format("2006-01-02")
+	}
 	return preview, nil
 }
 
@@ -116,9 +147,29 @@ func (s *Service) fixChangePlan(ctx context.Context, activityID domain.ActivityI
 	if err := s.rejectManagedActivity(ctx, activityID); err != nil {
 		return correctionPlan{}, err
 	}
+	if err := s.rejectManagedCommand(ctx, replacementCommand); err != nil {
+		return correctionPlan{}, err
+	}
+	// Historical replay cannot introduce a new Holding. Unlike an ordinary
+	// change, the correction batch has no Holding creation step.
+	switch input := replacementCommand.(type) {
+	case domain.PositionImportInput:
+		return correctionPlan{}, &domain.Error{Code: domain.ErrCannotFixChange, Field: "command", Message: "a position import cannot replace a change"}
+	case domain.PositionTransferInput:
+		if input.ToHoldingID == "" {
+			return correctionPlan{}, &domain.Error{Code: domain.ErrCannotFixChange, Field: "toHoldingId", Message: "a historical transfer correction requires an existing destination Holding"}
+		}
+	case domain.TradeInput:
+		if input.HoldingID == "" {
+			return correctionPlan{}, &domain.Error{Code: domain.ErrCannotFixChange, Field: "holdingId", Message: "a historical trade correction requires an existing Holding"}
+		}
+	}
 	activity, err := s.repository.Activity(ctx, bootstrap.Household.ID, activityID)
 	if err != nil {
 		return correctionPlan{}, err
+	}
+	if activity.Kind == domain.ActivityCostAdjustment {
+		return correctionPlan{}, &domain.Error{Code: domain.ErrCannotFixChange, Field: "activityId", Message: "reconcile total cost again to correct a cost adjustment"}
 	}
 	if activity.ReversesActivityID != nil {
 		return correctionPlan{}, &domain.Error{Code: domain.ErrCannotFixChange, Message: "a reversal cannot be fixed directly"}
@@ -173,6 +224,10 @@ func (s *Service) FixChangeWithMutation(ctx context.Context, activityID domain.A
 	} else if replay != nil {
 		return *replay, s.rebuildCorrectionSnapshots(ctx, replay.Activity.EffectiveLocalDate)
 	}
+	return s.fixChangeLocked(ctx, activityID, replacementCommand, key)
+}
+
+func (s *Service) fixChangeLocked(ctx context.Context, activityID domain.ActivityID, replacementCommand any, key *domain.ActivityMutation) (domain.ChangePreview, error) {
 	plan, err := s.fixChangePlan(ctx, activityID, replacementCommand)
 	if err != nil {
 		return domain.ChangePreview{}, err

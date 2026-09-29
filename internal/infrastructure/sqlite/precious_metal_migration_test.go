@@ -56,6 +56,9 @@ func TestV10MetalMigrationPreservesLegacyConfiguration(t *testing.T) {
 	if err := migrateV12ToV13(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
+	if err := migrateV13ToV14(context.Background(), db); err != nil {
+		t.Fatal(err)
+	}
 	if err := verifySchema(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}

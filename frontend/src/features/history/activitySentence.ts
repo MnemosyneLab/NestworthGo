@@ -129,6 +129,13 @@ function coreSentence(
       }
       return t("history.sentence.converted", { sold, bought, account: accountName(from ?? to) });
     }
+    case "cost_adjustment": {
+      const effect = effects.find((item) => item.target === "holding_cost");
+      return t("history.sentence.updatedCost", {
+        holding: holdingName(effect),
+        cost: effect?.costUnitPrice ? formatAmount(effect.costUnitPrice) : "—",
+      });
+    }
     case "value_update": {
       const resulting = activityResultingAmount(activity);
       if (resulting) {

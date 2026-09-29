@@ -485,24 +485,29 @@ func attachActivityResulting(ctx context.Context, query queryer, activities []do
 		return nil
 	}
 	clause, args := sqlInArgs(activityIDs(activities))
-	unionArgs := make([]any, 0, len(args)*3)
+	unionArgs := make([]any, 0, len(args)*4)
 	unionArgs = append(unionArgs, args...)
 	unionArgs = append(unionArgs, args...)
 	unionArgs = append(unionArgs, args...)
-	rows, err := query.QueryContext(ctx, `SELECT e.activity_id, e.target, e.account_id, e.holding_id, av.amount, av.currency, ''
+	unionArgs = append(unionArgs, args...)
+	rows, err := query.QueryContext(ctx, `SELECT e.activity_id, e.target, e.account_id, e.holding_id, av.amount, av.currency, '', ''
 FROM activity_effects e
 JOIN account_values av ON av.activity_effect_id = e.id AND av.projection_kind = 'event'
 WHERE e.activity_id IN (`+clause+`)
 UNION ALL
-SELECT e.activity_id, e.target, e.account_id, e.holding_id, ac.amount, ac.currency, ''
+SELECT e.activity_id, e.target, e.account_id, e.holding_id, ac.amount, ac.currency, '', ''
 FROM activity_effects e
 JOIN account_cash_values ac ON ac.activity_effect_id = e.id AND ac.projection_kind = 'event'
 WHERE e.activity_id IN (`+clause+`)
 UNION ALL
-SELECT e.activity_id, e.target, e.account_id, e.holding_id, '', '', hq.quantity
+SELECT e.activity_id, e.target, e.account_id, e.holding_id, '', '', hq.quantity, ''
 FROM activity_effects e
 JOIN holding_quantity_values hq ON hq.activity_effect_id = e.id AND hq.projection_kind = 'event'
-WHERE e.activity_id IN (`+clause+`)`, unionArgs...)
+WHERE e.activity_id IN (`+clause+`)
+UNION ALL
+SELECT e.activity_id, e.target, e.account_id, e.holding_id, '', '', '', e.cost_unit_price
+FROM activity_effects e
+WHERE e.activity_id IN (`+clause+`) AND e.target = 'holding_cost'`, unionArgs...)
 	if err != nil {
 		return err
 	}
@@ -510,11 +515,11 @@ WHERE e.activity_id IN (`+clause+`)`, unionArgs...)
 	indexByID := activityIndexByID(activities)
 	for rows.Next() {
 		var activityID, target string
-		var accountID, holdingID, amount, currency, quantity sql.NullString
-		if err := rows.Scan(&activityID, &target, &accountID, &holdingID, &amount, &currency, &quantity); err != nil {
+		var accountID, holdingID, amount, currency, quantity, costUnitPrice sql.NullString
+		if err := rows.Scan(&activityID, &target, &accountID, &holdingID, &amount, &currency, &quantity, &costUnitPrice); err != nil {
 			return err
 		}
-		view, parseErr := parseEndpointView(target, accountID, holdingID, amount, currency, quantity)
+		view, parseErr := parseEndpointView(target, accountID, holdingID, amount, currency, quantity, costUnitPrice)
 		if parseErr != nil {
 			return parseErr
 		}
@@ -579,8 +584,15 @@ func parseDividendDetail(holdingID, instrumentID, amount, currency string) (*dom
 	return &domain.DividendDetail{HoldingID: parsedHolding, InstrumentID: parsedInstrument, Amount: parsedAmount}, nil
 }
 
-func parseEndpointView(target string, accountID, holdingID, amount, currency, quantity sql.NullString) (domain.EndpointView, error) {
+func parseEndpointView(target string, accountID, holdingID, amount, currency, quantity, costUnitPrice sql.NullString) (domain.EndpointView, error) {
 	view := domain.EndpointView{Target: domain.EffectTarget(target), Amount: amount.String, Quantity: quantity.String, Currency: domain.CurrencyCode(currency.String)}
+	if costUnitPrice.Valid && costUnitPrice.String != "" {
+		parsed, err := domain.ParseUnitPrice(costUnitPrice.String)
+		if err != nil {
+			return domain.EndpointView{}, err
+		}
+		view.CostUnitPrice = &parsed
+	}
 	if accountID.Valid && accountID.String != "" {
 		parsed, parseErr := domain.ParseAccountID(accountID.String)
 		if parseErr != nil {

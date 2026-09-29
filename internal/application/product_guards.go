@@ -45,8 +45,12 @@ func (s *Service) rejectManagedCommand(ctx context.Context, command any) error {
 		if err := s.rejectManagedHolding(ctx, input.FromHoldingID); err != nil {
 			return err
 		}
-		return s.rejectManagedHolding(ctx, input.ToHoldingID)
+		if input.ToHoldingID != "" {
+			return s.rejectManagedHolding(ctx, input.ToHoldingID)
+		}
 	case domain.PositionAdjustmentInput:
+		return s.rejectManagedHolding(ctx, input.HoldingID)
+	case domain.PositionCostAdjustmentInput:
 		return s.rejectManagedHolding(ctx, input.HoldingID)
 	case domain.CashDividendInput:
 		return s.rejectManagedHolding(ctx, input.HoldingID)

@@ -165,6 +165,9 @@ func commitActivityTx(ctx context.Context, tx *sql.Tx, commit domain.ActivityCom
 			return err
 		}
 		switch effect.Target {
+		case domain.EffectTargetHoldingCost:
+			// The immutable effect is the cost fact. Cost has no quantity or
+			// cash projection, and replay reads its target unit cost directly.
 		case domain.EffectTargetAccountValue:
 			if effect.AccountID == nil || effect.Money == nil {
 				return &domain.Error{Code: domain.ErrIntegrity, Message: "Account value effect is incomplete"}
@@ -272,7 +275,7 @@ func validateActiveEffectTargetTx(ctx context.Context, tx *sql.Tx, householdID d
 		if archived.Valid {
 			return &domain.Error{Code: domain.ErrConflict, Field: "accountId", Message: "Account is archived"}
 		}
-	case domain.EffectTargetHoldingQuantity:
+	case domain.EffectTargetHoldingQuantity, domain.EffectTargetHoldingCost:
 		if effect.HoldingID == nil {
 			return &domain.Error{Code: domain.ErrIntegrity, Message: "Holding effect is missing its Holding"}
 		}

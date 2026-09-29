@@ -37,6 +37,9 @@ func (u analysisUniverse) classifyActivity(activity domain.Activity, daySnapshot
 	}
 	endpoints := make([]domain.ComponentID, 0, len(activity.Effects))
 	for _, effect := range activity.Effects {
+		if effect.Target == domain.EffectTargetHoldingCost {
+			continue
+		}
 		component, ok := componentForEffect(effect, u.accounts, u.holdings, u.instruments)
 		if ok {
 			endpoints = append(endpoints, component)
@@ -50,6 +53,9 @@ func (u analysisUniverse) classifyActivity(activity domain.Activity, daySnapshot
 	}
 	results := make([]classifiedAnalysisEffect, 0, len(activity.Effects))
 	for _, effect := range activity.Effects {
+		if effect.Target == domain.EffectTargetHoldingCost {
+			continue
+		}
 		component, ok := componentForEffect(effect, u.accounts, u.holdings, u.instruments)
 		inside := ok && u.componentInUniverse(component)
 		if inside {

@@ -1,13 +1,20 @@
 package application
 
-import "github.com/waltwang/nestworth-go/internal/domain"
+import (
+	"context"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
+)
 
 // prepareChangeHolding adds a draft zero-quantity Holding to the preview state
 // for changes that introduce a position. The caller persists that Holding and
 // the resulting Activity in one transaction after validating the preview.
-func (s *Service) prepareChangeHolding(snapshot domain.PortfolioSnapshot, state domain.ChangeState, command any) (domain.ChangeState, any, *domain.Holding, error) {
+func (s *Service) prepareChangeHolding(ctx context.Context, snapshot domain.PortfolioSnapshot, state domain.ChangeState, command any) (domain.ChangeState, any, *domain.Holding, error) {
 	if input, ok := command.(domain.PositionImportInput); ok {
 		return s.preparePositionImport(snapshot, state, input)
+	}
+	if input, ok := command.(domain.PositionTransferInput); ok {
+		return s.preparePositionTransfer(ctx, snapshot, state, input)
 	}
 	return s.prepareTradeHolding(snapshot, state, command)
 }

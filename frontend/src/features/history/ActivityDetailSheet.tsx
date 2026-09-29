@@ -32,6 +32,9 @@ function effectLine(
       : effect.instrumentId
         ? (instruments.get(effect.instrumentId) ?? t("history.unknownInstrument"))
         : "";
+  if (effect.target === "holding_cost") {
+    return `${target} · ${t("history.unitCost")}: ${effect.costUnitPrice ? formatAmount(effect.costUnitPrice) : "—"}`;
+  }
   const direction = effect.direction === "added" ? "Added" : effect.direction === "removed" ? "Removed" : "";
   const amount = effect.money
     ? `${t(direction ? `history.detailAmount${direction}` : "history.amount")}: ${moneyText(effect.money.amount, effect.money.currency)}`
@@ -89,6 +92,9 @@ function ActivityDetailBody({
         {product.showAmount && <p>{product.amountLabel}: {product.amount}</p>}
         {detail?.fee && !activity.reversesActivityId && <p>{t("history.fee")}: {moneyText(detail.fee.amount, detail.fee.currency)}</p>}
       </div>}
+      {activity.kind === "cost_adjustment" && (
+        <p className="rounded-2xl bg-muted/50 p-4">{t("history.costAdjustmentHelp")}</p>
+      )}
       {!product && (activity.kind === "buy" || activity.kind === "sell") && (
         <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailAccount")}: {accountName(t, principal, accounts)}</p>

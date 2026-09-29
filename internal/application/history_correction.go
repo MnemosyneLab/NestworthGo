@@ -140,6 +140,9 @@ func previewCorrectionAt(state domain.ChangeState, command any, at time.Time) (d
 	case domain.PositionAdjustmentInput:
 		input.EffectiveAt = at
 		command = input
+	case domain.PositionCostAdjustmentInput:
+		input.EffectiveAt = at
+		command = input
 	case domain.TradeInput:
 		input.EffectiveAt = at
 		command = input

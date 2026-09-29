@@ -158,7 +158,7 @@ func (s *Service) prepareChangeBatch(ctx context.Context, commands []any) ([]dom
 				return nil, nil, nil, &domain.Error{Code: domain.ErrInvalidChange, Message: "the batch would invalidate an earlier balance or holding quantity"}
 			}
 		}
-		state, command, newHolding, err := s.prepareChangeHolding(snapshot, state, original)
+		state, command, newHolding, err := s.prepareChangeHolding(ctx, snapshot, state, original)
 		if err != nil {
 			return nil, nil, nil, batchCommandError(index, err)
 		}

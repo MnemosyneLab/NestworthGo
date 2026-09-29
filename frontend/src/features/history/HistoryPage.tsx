@@ -203,7 +203,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
               </h3>
               <ul className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
                 {group.items.map((activity) => {
-                  const canModify = !activity.reversesActivityId && !reversedActivityIds.has(activity.id);
+                  const canModify = activity.kind !== "cost_adjustment" && !activity.reversesActivityId && !reversedActivityIds.has(activity.id);
                   const summary = activitySentence(t, activity, accountNames, instrumentNames, holdingNames);
                   const style = activityStyle(activity.kind);
                   const menuItems = canModify && !activity.productContext

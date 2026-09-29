@@ -768,7 +768,7 @@ func expectedSchemaChecks() map[string][]string {
 		"instrument_provider_binding_revisions": {"CHECK(enabled IN (0,1))"},
 		"fx_observation_slots":                  {"CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]')"},
 		"fx_preferences":                        {"CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]')", "CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]')", "CHECK(source_kind IN ('manual','provider'))", "CHECK(currency_a < currency_b)"},
-		"activities":                            {"CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal'))"},
+		"activities":                            {"CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','cost_adjustment','buy','sell','value_update','debt_draw','debt_payment','reversal'))"},
 		"activity_dividend_details":             {"CHECK(currency GLOB '[A-Z][A-Z][A-Z]')"},
 		"product_operations":                    {"CHECK(kind IN ('open','record_existing','receive_interest','settle','renew','undo','value_observation'))", "CHECK(request_version = 1)"},
 		"product_contracts":                     {"CHECK(kind IN ('term_deposit','locked_product'))", "CHECK(currency GLOB '[A-Z][A-Z][A-Z]')", "CHECK(interest_mode IN ('none','manual_maturity_amount','simple_act_365','simple_act_360'))", "CHECK(state IN ('open','settled','cancelled'))", "CHECK(revision >= 1)"},

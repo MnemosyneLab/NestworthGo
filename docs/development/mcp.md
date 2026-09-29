@@ -1,25 +1,36 @@
 # Local MCP integration
 
 Owner: Nestworth application maintainers. Scope: the local desktop agent boundary.
-Status: directory maintenance, single-record and atomic batch ledger preview/commit, existing-position imports, and period queries implemented; reconciliation remains planned. Native UI and external-agent
-acceptance remain separate from automated integration tests.
+Status: **Development complete (2026-09-29)** for the user-approved scope:
+directory maintenance, daily and atomic batch ledger operations, position imports
+and transfers, period analysis and contribution drilldown, current balance,
+quantity and total-cost reconciliation, pure cost corrections, and guarded
+activity undo/fix. End-to-end native UI and external-agent acceptance is assigned
+by the user to other testers; it is not a remaining development gate.
 
 ## Delivery plan
 
 The agreed scope is a complete business entry point: directory maintenance,
 daily ledger operations, queries/analysis, and reconciliation/corrections.
-Implementation is delivered in reviewable stages.
+The user confirmed completion after the following final three items:
+
+- [x] Target total-cost reconciliation and pure cost correction.
+- [x] Position transfers with cost preservation and atomic destination creation.
+- [x] Return contribution queries and detail drilldown.
+
+This development plan is complete. Receipt/plan cleanup, combined directory and
+ledger transactions, and broader frontend/MCP parity are separate follow-ups.
 
 | Stage | Scope | Status |
 | --- | --- | --- |
 | 1 | Local transport, credentials, permission modes, directory/account/instrument maintenance, current queries, UI refresh, write receipts | Implemented; validation below |
-| 2 | Income/expense, buys/sells, transfers/FX, dividends/debt, existing holdings, preview/commit, atomic batches | Implemented; ledger batches include first buys and existing-position imports |
-| 3 | Period income/expense, asset changes, investment returns, contribution, historical detail and quality | Period summary and activity detail implemented; dedicated contribution tools pending |
-| 4 | Target-state balance/quantity/cost reconciliation, pure cost correction, safe undo/fix | Pending |
+| 2 | Income/expense, buys/sells, transfers/FX, dividends/debt, existing holdings, preview/commit, atomic batches | Implemented, including atomic batches and position transfers |
+| 3 | Period income/expense, asset changes, investment returns, contribution, historical detail and quality | Implemented, including contribution grouping, pagination and detail tools |
+| 4 | Target-state balance/quantity/cost reconciliation, pure cost correction, safe undo/fix | Implemented, including distinct cost correction events |
 
 Permissions are explicit and household-wide. `read_only` registers only queries;
 `directory_write` adds directory mutations; `ledger_write` adds daily ledger
-preview/commit and includes directory maintenance. Existing installations retain
+preview/commit, reconciliation and corrections, and includes directory maintenance. Existing installations retain
 their selected permission. Account creation still permits only an empty/zero
 initial amount. Enable ledger permission explicitly to record subsequent funding.
 
@@ -91,7 +102,7 @@ With `ledger_write`, use:
 
 Supported kinds are `money_added`, `money_removed`, `trade` (`buy`/`sell`),
 `cash_dividend`, `cash_transfer`, `fx_conversion`, `debt_draw`, `debt_payment`,
-and `position_import` (details below).
+`position_transfer`, and `position_import` (details below).
 Amounts, quantities and fees are decimal strings. For a trade, `gross` is the
 **total consideration**, with a separate optional fee; it is not a unit price.
 First buys create their holding and update settlement cash in one transaction.
@@ -123,8 +134,95 @@ include them; credential-free household JSON exports do not.
 
 Each single commit is one complete business operation, including its cash/position
 legs. Multiple independent tool calls are not an atomic batch; use the tools
-below when a group must succeed together. Position transfers/adjustments and
-target-state reconciliation remain outside this tool set.
+below when a group must succeed together. Target quantity/cost adjustments
+use the reconciliation tools.
+
+## Reconciliation and corrections
+
+`preview_reconciliation` takes `{ "targets": [ ... ] }` with 1 to 100 current
+endpoints. Use either:
+
+- `{ "accountId": "<UUID>", "targetBalance": "1250", "currency": "USD" }`:
+  a simple account's balance, or a holdings account's cash in that currency.
+- `{ "holdingId": "<UUID>", "targetQuantity": "12", "unitCost": "25" }`:
+  a holding quantity. An increase requires the original per-unit cost of the
+  **added quantity**; a decrease preserves existing average cost and must omit
+  `unitCost`. These adjustments have no cash leg or sale proceeds.
+
+The server resolves targets under the preview gate, freezes the current time,
+and returns the requested `targets`, exact `commands`, and their `previews`. `commit_reconciliation`
+uses the usual operation envelope and commits the stored adjustments atomically.
+It never recomputes differences from a later balance. Duplicate endpoints,
+unchanged targets, archived/managed holdings, unsupported currencies, and missing
+cost basis fail without posting any target. This is current-state reconciliation;
+historical statement dates are not supported.
+
+For a **pure cost correction**, use:
+
+```json
+{ "holdingId": "<UUID>", "totalCost": "300", "currency": "USD" }
+```
+
+This creates a distinct `cost_adjustment` activity with a `holding_cost` effect,
+without cash movement or a quantity change. The currency must match the
+instrument. `totalCost` is the cost of the entire remaining position. To reconcile
+quantity and cost together, include `targetQuantity`; do not also provide
+`unitCost`. A combined target can produce a quantity adjustment followed by a
+cost correction, both in the same transaction. The expanded plan is limited to
+100 commands. A nonzero cost requires a positive position quantity.
+
+Average unit cost uses the existing eight-decimal precision. The server checks
+that multiplying it by the target quantity reproduces the requested total at
+stored money precision; an unrepresentable target is rejected. Corrections take
+effect at preview time and apply to subsequent sale/transfer cost calculations.
+Earlier realized gains are not rewritten by a current cost target. To change an
+erroneous historical trade, use the historical fix workflow instead.
+
+Generic undo/fix is not offered for a cost-adjustment record; submit a new target
+cost to correct it again. The frontend displays its cost effect in activity
+history. SQLite schema v14 preserves these events in backups and JSON export;
+existing v13 databases are migrated when opened for writing.
+
+`preview_correction` takes `activityId` and one of:
+
+- `action: "fix"`, with a complete `replacement` ledger command. Omit timestamps
+  and mutation IDs: the original effective time is preserved. Trades require
+  an explicit existing `holdingId`; `position_import` cannot be a replacement.
+  The server replaces the historical economic record, preserves correction
+  audit links, and replays later records. A dependent invalid balance or quantity
+  rejects the entire correction.
+- `action: "undo"`, without `replacement`. This records an inverse at the
+  preview time, affecting that day's reports while preserving prior history.
+  It checks current balances and quantities before accepting the reversal.
+  A later quantity event on the same holding blocks undo to protect cost-basis
+  history; use a historical fix for such a dependency.
+
+For a fix, `preview.resulting` describes the state just after the historical
+replacement, rather than today's balance. Read current valuations after commit.
+Inspect `preview` and submit only `planId` through `commit_correction`. Already
+reversed/corrected activities and managed products are rejected. Corrections use
+an atomic database mutation receipt; retries return the original activity even
+with a new operation ID or after expiry/restart. A post-commit snapshot refresh
+failure remains recoverable by retrying the same operation and plan.
+
+All four plan types are distinct: use the matching commit tool. The usual
+expiry, stale-state, provisional-ID and receipt recovery rules apply.
+
+## Position transfers
+
+Use `preview_change` or `preview_batch` with `kind: "position_transfer"`,
+`fromHoldingId`, `quantity`, and exactly one destination:
+
+- `toHoldingId`: an existing holding of the same instrument in another account.
+- `toAccountId`: resolve that account's holding of the source instrument, or
+  create it atomically with the transfer if it does not exist.
+
+No cash moves and no sale/income is recorded. The transferred units carry their
+source cost at the effective time, including any earlier cost corrections.
+A later correction does not change a transfer dated before it. Standard
+preview/stale/idempotency rules apply. In a batch, later trades can resolve a
+newly created destination by its account/instrument pair. For historical fixes,
+supply explicit existing holding IDs; a fix cannot introduce a new holding.
 
 ## Atomic batches and existing positions
 
@@ -221,20 +319,75 @@ change. Ledger batches use the atomic database boundary described above. Directo
 mutations remain individual operations. There is no automatic
 rollback or receipt expiry in stage 1; receipt storage grows with writes.
 
-## Later-stage acceptance
+## Return attribution and drilldown
+
+All permission modes expose these read tools, reusing the frontend's analysis
+adapters and the same inclusive closed-day `query` shape as `analyze_period`:
+
+- `list_contributions`: group returns by `instrument`, `account`, `currency`, or
+  `asset_class`. Supply `returnType` (`total_return`, `realized`, `unrealized`, or
+  `dividend_interest`), optional ordering and offset/limit (up to 100 rows).
+- `get_contribution_item`: use an exact row key with the same query, return type,
+  and grouping to inspect components, account breakdown and related-history hints.
+- `get_return_day`: inspect one date's amount, rate, composition, contributors,
+  coverage and valuation issues; the date must be within the query range.
+- `get_asset_driver_detail`: inspect one `analyze_period.assetChange` bucket and
+  its underlying instruments/accounts/residual sources.
+
+Follow history hints with `list_activities` and `get_activity` for original
+records. Preserve nullable amounts, availability and coverage fields. The
+existing analysis backend reports unrealized contribution as unavailable; MCP
+preserves that limitation rather than inventing an attribution. Analysis reads
+can materialize snapshots and invalidate an outstanding preview, so query first.
+
+## Acceptance criteria
 
 - Income/expense excludes own-account transfers and investment principal flows.
 - Trades update settlement cash, quantity, fees/cost and realized gain together.
 - Existing-holding import does not imply cash funding or a new purchase.
 - Period queries resolve household history timezone and disclose coverage gaps.
-- Reconciliation takes target quantity/total cost; it does not infer a trade.
-- Pure cost corrections and batches combining directory creation with ledger
-  writes require additional domain support.
+- Reconciliation takes current target balances, quantities and total costs
+  without inferring a trade; cost-only corrections leave cash/quantity unchanged.
+- Directory creation combined atomically with ledger writes, and plan/receipt
+  retention cleanup, are follow-up extensions outside this completed scope.
 - Preview plans bind to current data and reject stale concurrent edits.
 - Validate against isolated databases and copied real data, never mutate the
   user's live ledger as an implementation test.
 
 ## Validation
+
+Final scope verification on 2026-09-29:
+
+- Full `go test ./...`: passed. Existing macOS deployment-target linker warnings
+  remain. Targeted cost tests also pass after the final generic-fix guard.
+- Focused race tests cover cost corrections, transfers, attribution and v13→v14
+  migration: passed. Static `go vet` for the touched Go layers also passed.
+- Frontend typecheck and lint passed; focused history/settings tests passed.
+  Wails bindings were regenerated for the added cost-preview field and the
+  generated-bindings consistency check passed.
+- Migration regression preserves prior activity/effect/projection/mutation
+  records. Cost tests verify unchanged cash/quantity, corrected subsequent sale
+  gains, inherited transfer basis, preserved acquisition FX provenance, and no
+  spurious asset-change flow. Export retains the cost effect and cost-basis event.
+- External-agent and native UI acceptance is handed off to the user's testers.
+  All automated ledger tests used temporary databases; no live ledger was changed.
+
+Reconciliation/correction extension verification on 2026-09-29:
+
+- Full `go test ./...`, focused application/MCP race tests, and `go vet` for
+  application/MCP/SQLite: passed. Desktop compilation still emits existing
+  macOS deployment-target linker warnings.
+- Frontend `tsc --noEmit` and six settings permission tests: passed.
+- Temporary-database HTTP tests verify current targets, original-date fixes,
+  frozen-time reversals, stale/expired plans, mode gating and receipt recovery.
+- Cost assertions cover added quantity and reductions; unavailable balances or
+  costs and archived/managed holdings are rejected. A later holding trade blocks
+  an unsafe undo without changing cash, quantity or activities.
+- Fault injection verifies rollback of both correction activities and the
+  mutation key, and recovery after a committed correction whose snapshot
+  refresh returned a domain error.
+- Native UI, external-agent acceptance and copied-real-data checks were not run
+  for this extension. No live ledger was modified.
 
 Batch/import extension verification on 2026-09-29:
 

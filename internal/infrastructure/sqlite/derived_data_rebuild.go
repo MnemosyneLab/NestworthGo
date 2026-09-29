@@ -116,6 +116,9 @@ func replaceEventProjectionTx(ctx context.Context, tx *sql.Tx, projection domain
 		effects = projection.Activity.RecordedEffects
 	}
 	for _, effect := range effects {
+		if effect.Target == domain.EffectTargetHoldingCost {
+			continue
+		}
 		var sourceCount int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM activity_effects e JOIN activities a ON a.id = e.activity_id WHERE e.id = ? AND a.id = ? AND a.household_id = ?`, effect.ID.String(), projection.Activity.ID.String(), projection.Activity.HouseholdID.String()).Scan(&sourceCount); err != nil {
 			return err

@@ -305,7 +305,7 @@ CREATE TABLE history_origin_fx_preferences (
 CREATE TABLE activities (
     id TEXT PRIMARY KEY NOT NULL,
     household_id TEXT NOT NULL,
-    kind TEXT NOT NULL CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','buy','sell','value_update','debt_draw','debt_payment','reversal')),
+    kind TEXT NOT NULL CHECK(kind IN ('cash_in','cash_out','cash_dividend','cash_transfer','fx_conversion','position_transfer','cost_adjustment','buy','sell','value_update','debt_draw','debt_payment','reversal')),
     reason TEXT NOT NULL,
     effective_at TEXT NOT NULL,
     effective_local_date TEXT NOT NULL,
@@ -325,7 +325,7 @@ CREATE TABLE activity_effects (
     sequence INTEGER NOT NULL CHECK(sequence > 0),
     role TEXT NOT NULL,
     direction TEXT NOT NULL CHECK(direction IN ('added','removed')),
-    target TEXT NOT NULL CHECK(target IN ('account_value','account_cash','holding_quantity')),
+    target TEXT NOT NULL CHECK(target IN ('account_value','account_cash','holding_quantity','holding_cost')),
     classification TEXT NOT NULL,
     account_id TEXT,
     holding_id TEXT,
@@ -339,7 +339,8 @@ CREATE TABLE activity_effects (
     FOREIGN KEY(instrument_id) REFERENCES instruments(id) ON DELETE RESTRICT,
     UNIQUE(activity_id, sequence),
     CHECK((target IN ('account_value','account_cash') AND account_id IS NOT NULL AND amount IS NOT NULL AND currency IS NOT NULL AND quantity IS NULL) OR
-          (target = 'holding_quantity' AND holding_id IS NOT NULL AND instrument_id IS NOT NULL AND quantity IS NOT NULL AND amount IS NULL AND currency IS NULL))
+          (target = 'holding_quantity' AND holding_id IS NOT NULL AND instrument_id IS NOT NULL AND quantity IS NOT NULL AND amount IS NULL AND currency IS NULL) OR
+          (target = 'holding_cost' AND account_id IS NULL AND holding_id IS NOT NULL AND instrument_id IS NOT NULL AND quantity IS NULL AND amount IS NULL AND currency IS NULL AND cost_unit_price IS NOT NULL))
 );
 CREATE INDEX idx_activity_effects_activity ON activity_effects(activity_id, sequence);
 CREATE INDEX idx_activity_effects_account ON activity_effects(account_id, activity_id, sequence);
@@ -745,6 +746,6 @@ CREATE TABLE product_operation_reservations (
     FOREIGN KEY(operation_id) REFERENCES product_operations(id) ON DELETE RESTRICT,
     FOREIGN KEY(reservation_id) REFERENCES liquidity_reservations(id) ON DELETE RESTRICT
 );
-PRAGMA user_version = 13;
+PRAGMA user_version = 14;
 
 CREATE TABLE app_configuration (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);

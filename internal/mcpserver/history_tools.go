@@ -117,4 +117,5 @@ func (s *Service) historyTools(server *mcp.Server) {
 		}
 		return result, nil
 	})
+	s.attributionTools(server, analysisService)
 }

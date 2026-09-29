@@ -73,8 +73,5 @@ func migrateV12ToV13(ctx context.Context, db *sql.DB) error {
 	if _, err = tx.ExecContext(ctx, `CREATE TABLE app_configuration (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL); PRAGMA user_version = 13;`); err != nil {
 		return err
 	}
-	if err = verifySchema(ctx, tx); err != nil {
-		return err
-	}
 	return tx.Commit()
 }

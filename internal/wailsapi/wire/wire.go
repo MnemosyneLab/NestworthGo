@@ -947,17 +947,22 @@ func FromActivities(values []domain.Activity) []ActivityDTO {
 
 // EndpointViewDTO mirrors domain.EndpointView.
 type EndpointViewDTO struct {
-	Target    string  `json:"target"`
-	AccountID *string `json:"accountId,omitempty"`
-	HoldingID *string `json:"holdingId,omitempty"`
-	Name      string  `json:"name"`
-	Amount    string  `json:"amount,omitempty"`
-	Quantity  string  `json:"quantity,omitempty"`
-	Currency  string  `json:"currency,omitempty"`
+	CostUnitPrice *string `json:"costUnitPrice,omitempty"`
+	Target        string  `json:"target"`
+	AccountID     *string `json:"accountId,omitempty"`
+	HoldingID     *string `json:"holdingId,omitempty"`
+	Name          string  `json:"name"`
+	Amount        string  `json:"amount,omitempty"`
+	Quantity      string  `json:"quantity,omitempty"`
+	Currency      string  `json:"currency,omitempty"`
 }
 
 func FromEndpointView(value domain.EndpointView) EndpointViewDTO {
 	dto := EndpointViewDTO{Target: string(value.Target), Name: value.Name, Amount: value.Amount, Quantity: value.Quantity, Currency: value.Currency.String()}
+	if value.CostUnitPrice != nil {
+		cost := value.CostUnitPrice.Canonical()
+		dto.CostUnitPrice = &cost
+	}
 	if value.AccountID != nil {
 		id := value.AccountID.String()
 		dto.AccountID = &id

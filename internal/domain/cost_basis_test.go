@@ -72,6 +72,24 @@ func TestReplayCostBasisHandlesAllQuantityEventKinds(t *testing.T) {
 	}
 }
 
+func TestReplayCostAdjustmentChangesLaterRealizedGainWithoutMovingQuantity(t *testing.T) {
+	zero := mustQuantity(t, "0")
+	result, err := ReplayCostBasis(nil, []CostBasisEvent{
+		{Kind: CostBasisBuy, Quantity: mustQuantity(t, "10"), UnitPrice: unitPricePointer(t, "25")},
+		{Kind: CostBasisCostAdjustment, Quantity: zero, UnitCost: unitPricePointer(t, "30")},
+		{Kind: CostBasisSell, Quantity: mustQuantity(t, "2"), UnitPrice: unitPricePointer(t, "40"), Currency: CurrencyCode("USD")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Current.Quantity.Canonical() != "8" || result.Current.AverageUnitCost.Canonical() != "30" || result.Realized[0].RealizedGain.CanonicalAmount() != "20" {
+		t.Fatalf("replayed cost correction = %+v", result)
+	}
+	if _, err := ReplayCostBasis(nil, []CostBasisEvent{{Kind: CostBasisCostAdjustment, Quantity: zero, UnitCost: unitPricePointer(t, "30")}}); err == nil {
+		t.Fatal("accepted cost correction without a positive position")
+	}
+}
+
 func TestReplayCostBasisExcludesReversedPairsAndKeepsFixReplacement(t *testing.T) {
 	startingCost := mustUnitPrice(t, "80")
 	originalID := ActivityID("original-buy")

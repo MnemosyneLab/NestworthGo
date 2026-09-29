@@ -83,6 +83,8 @@ func commandEffectiveTime(command any) time.Time {
 		return input.EffectiveAt
 	case domain.PositionAdjustmentInput:
 		return input.EffectiveAt
+	case domain.PositionCostAdjustmentInput:
+		return input.EffectiveAt
 	case domain.PositionImportInput:
 		return input.EffectiveAt
 	case domain.TradeInput:

@@ -375,6 +375,7 @@ export interface DividendDetailDTO {
  * EndpointViewDTO mirrors domain.EndpointView.
  */
 export interface EndpointViewDTO {
+    "costUnitPrice"?: string | null;
     "target": string;
     "accountId"?: string | null;
     "holdingId"?: string | null;

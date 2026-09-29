@@ -253,15 +253,29 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID, originTi
 		if err != nil {
 			return nil, err
 		}
-		toHoldingID, err := domain.ParseHoldingID(r.ToHoldingID)
-		if err != nil {
-			return nil, err
+		var toHoldingID domain.HoldingID
+		if r.ToHoldingID != "" {
+			toHoldingID, err = domain.ParseHoldingID(r.ToHoldingID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var toAccountID *domain.AccountID
+		if r.ToAccountID != "" {
+			parsed, err := domain.ParseAccountID(r.ToAccountID)
+			if err != nil {
+				return nil, err
+			}
+			toAccountID = &parsed
+		}
+		if toHoldingID == "" && toAccountID == nil {
+			return nil, &domain.Error{Code: domain.ErrValidation, Field: "toAccountId", Message: "provide toAccountId or toHoldingId"}
 		}
 		quantity, err := domain.ParseQuantity(r.Quantity)
 		if err != nil {
 			return nil, err
 		}
-		return domain.PositionTransferInput{HouseholdID: householdID, FromHoldingID: fromHoldingID, ToHoldingID: toHoldingID, Quantity: quantity, EffectiveAt: effectiveAt, Note: r.Note}, nil
+		return domain.PositionTransferInput{HouseholdID: householdID, FromHoldingID: fromHoldingID, ToHoldingID: toHoldingID, ToAccountID: toAccountID, Quantity: quantity, EffectiveAt: effectiveAt, Note: r.Note}, nil
 
 	case ChangePositionAdjustment:
 		holdingID, err := domain.ParseHoldingID(r.HoldingID)

@@ -688,6 +688,9 @@ func (g *GainService) acquisitionFXRate(ctx context.Context, snapshot domain.Por
 			effectiveAt = origin.StartedAt
 		}
 		switch event.Kind {
+		case domain.CostBasisCostAdjustment:
+			// A corrected native cost does not represent a new acquisition or
+			// currency exchange. Keep the existing acquisition FX provenance.
 		case domain.CostBasisStartingPoint, domain.CostBasisBuy, domain.CostBasisAdjustmentIn:
 			rate, ok := g.fxRateAtOrBefore(snapshot, fxQuotes, native, effectiveAt)
 			if !ok {

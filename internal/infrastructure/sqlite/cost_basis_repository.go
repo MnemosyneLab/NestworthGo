@@ -38,7 +38,7 @@ func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID doma
 		 AND source_effect.direction = 'removed'
 		 AND source_effect.role = 'transfer_from'
 		WHERE e.holding_id = ?
-		  AND e.target = 'holding_quantity'
+		  AND e.target IN ('holding_quantity', 'holding_cost')
 		  AND a.household_id = owner_account.household_id
 		  AND a.reverses_activity_id IS NULL
 		  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = a.id)`+archiveClause+`
@@ -80,7 +80,11 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 	if err != nil {
 		return domain.CostBasisEvent{}, err
 	}
-	parsedQuantity, err := domain.ParseQuantity(quantity.String)
+	quantityText := quantity.String
+	if !quantity.Valid && activityKind == string(domain.ActivityCostAdjustment) {
+		quantityText = "0"
+	}
+	parsedQuantity, err := domain.ParseQuantity(quantityText)
 	if err != nil {
 		return domain.CostBasisEvent{}, err
 	}
@@ -101,6 +105,11 @@ func scanCostBasisEvent(scanner interface{ Scan(...any) error }) (domain.CostBas
 	}
 
 	switch activityKind {
+	case string(domain.ActivityCostAdjustment):
+		if role.String != string(domain.EffectRoleCost) || direction.String != string(domain.EffectAdded) || !costUnitPrice.Valid || quantity.Valid {
+			return domain.CostBasisEvent{}, &domain.Error{Code: domain.ErrIntegrity, Message: "cost adjustment effect is invalid"}
+		}
+		event.Kind = domain.CostBasisCostAdjustment
 	case string(domain.ActivityBuy), string(domain.ActivitySell):
 		if !side.Valid || !unitPrice.Valid || !grossCurrency.Valid {
 			return domain.CostBasisEvent{}, &domain.Error{Code: domain.ErrIntegrity, Message: "trade cost-basis event is missing its Trade detail"}

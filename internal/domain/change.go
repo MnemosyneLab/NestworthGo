@@ -123,6 +123,7 @@ const (
 	ActivityCashTransfer     ActivityKind = "cash_transfer"
 	ActivityFXConversion     ActivityKind = "fx_conversion"
 	ActivityPositionTransfer ActivityKind = "position_transfer"
+	ActivityCostAdjustment   ActivityKind = "cost_adjustment"
 	ActivityBuy              ActivityKind = "buy"
 	ActivitySell             ActivityKind = "sell"
 	ActivityValueUpdate      ActivityKind = "value_update"
@@ -137,7 +138,7 @@ func ParseActivityKind(value string) (ActivityKind, error) {
 	kind := ActivityKind(strings.TrimSpace(value))
 	switch kind {
 	case ActivityCashIn, ActivityCashOut, ActivityCashDividend, ActivityCashTransfer, ActivityFXConversion,
-		ActivityPositionTransfer, ActivityBuy, ActivitySell, ActivityValueUpdate,
+		ActivityPositionTransfer, ActivityCostAdjustment, ActivityBuy, ActivitySell, ActivityValueUpdate,
 		ActivityDebtDraw, ActivityDebtPayment, ActivityReversal:
 		return kind, nil
 	default:
@@ -205,6 +206,7 @@ const (
 	EffectTargetAccountValue    EffectTarget = "account_value"
 	EffectTargetAccountCash     EffectTarget = "account_cash"
 	EffectTargetHoldingQuantity EffectTarget = "holding_quantity"
+	EffectTargetHoldingCost     EffectTarget = "holding_cost"
 )
 
 type EffectDirection string
@@ -224,6 +226,7 @@ const (
 	EffectRoleFee          EffectRole = "fee"
 	EffectRoleQuantity     EffectRole = "quantity"
 	EffectRoleDebt         EffectRole = "debt"
+	EffectRoleCost         EffectRole = "cost"
 )
 
 // Activity is immutable business evidence. Effects are stored separately in
@@ -296,6 +299,12 @@ func (e ActivityEffect) Validate() error {
 	if e.Direction != EffectAdded && e.Direction != EffectRemoved {
 		return changeError(ErrInvalidChange, "effect", "effect direction is invalid")
 	}
+	if e.Target == EffectTargetHoldingCost {
+		if e.Direction != EffectAdded || e.Role != EffectRoleCost || e.Classification != ClassificationRemeasurement || e.HoldingID == nil || e.InstrumentID == nil || e.AccountID != nil || e.Money != nil || e.Quantity != nil || e.CostUnitPrice == nil {
+			return changeError(ErrInvalidChange, "effect", "Holding cost effect requires a Holding, Instrument, and target unit cost")
+		}
+		return nil
+	}
 	if e.Money != nil && e.Quantity != nil {
 		return changeError(ErrInvalidChange, "effect", "effect cannot contain both Money and Quantity")
 	}
@@ -360,13 +369,14 @@ type ChangeState struct {
 }
 
 type EndpointView struct {
-	Target    EffectTarget
-	AccountID *AccountID
-	HoldingID *HoldingID
-	Name      string
-	Amount    string
-	Quantity  string
-	Currency  CurrencyCode
+	Target        EffectTarget
+	AccountID     *AccountID
+	HoldingID     *HoldingID
+	CostUnitPrice *UnitPrice
+	Name          string
+	Amount        string
+	Quantity      string
+	Currency      CurrencyCode
 }
 
 type ChangePreview struct {
@@ -468,6 +478,7 @@ type PositionTransferInput struct {
 	HouseholdID   HouseholdID
 	FromHoldingID HoldingID
 	ToHoldingID   HoldingID
+	ToAccountID   *AccountID
 	Quantity      Quantity
 	EffectiveAt   time.Time
 	Note          *string
@@ -483,6 +494,17 @@ type PositionAdjustmentInput struct {
 	Quantity    Quantity
 	Added       bool
 	UnitCost    *UnitPrice
+	EffectiveAt time.Time
+	Note        *string
+}
+
+// PositionCostAdjustmentInput sets the average cost of an existing positive
+// Holding without changing quantity or cash. It is built from a reconciled
+// total cost after the application layer validates currency and precision.
+type PositionCostAdjustmentInput struct {
+	HouseholdID HouseholdID
+	HoldingID   HoldingID
+	UnitCost    UnitPrice
 	EffectiveAt time.Time
 	Note        *string
 }
@@ -586,6 +608,8 @@ func PreviewChange(state ChangeState, command any) (ChangePreview, error) {
 		return buildPositionTransfer(state, input)
 	case PositionAdjustmentInput:
 		return buildPositionAdjustment(state, input)
+	case PositionCostAdjustmentInput:
+		return buildPositionCostAdjustment(state, input)
 	case TradeInput:
 		return buildTrade(state, input)
 	case ValueUpdateInput:
@@ -611,6 +635,16 @@ func ApplyEffects(state ChangeState, effects []ActivityEffect) (ChangeState, []E
 			return ChangeState{}, nil, err
 		}
 		var view EndpointView
+		if effect.Target == EffectTargetHoldingCost {
+			holding, ok := state.Holdings[*effect.HoldingID]
+			if !ok || holding.InstrumentID != *effect.InstrumentID || holding.Current.IsZero() {
+				return ChangeState{}, nil, changeError(ErrInvalidChange, "effect", "cost correction requires a positive matching Holding")
+			}
+			holdingID := holding.ID
+			view = EndpointView{Target: EffectTargetHoldingCost, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: holding.Current.Canonical(), CostUnitPrice: effect.CostUnitPrice}
+			views = upsertEndpointView(views, view)
+			continue
+		}
 		if effect.Money != nil {
 			if effect.AccountID == nil {
 				return ChangeState{}, nil, changeError(ErrInvalidChange, "effect", "money effect requires an Account")
@@ -706,6 +740,9 @@ func upsertEndpointView(views []EndpointView, candidate EndpointView) []Endpoint
 }
 
 func InverseChange(state ChangeState, original Activity, effects []ActivityEffect) (ChangePreview, error) {
+	if original.Kind == ActivityCostAdjustment {
+		return ChangePreview{}, &Error{Code: ErrCannotFixChange, Message: "reconcile total cost again to correct a cost adjustment"}
+	}
 	activity, err := state.newActivity(original.HouseholdID, ActivityReversal, ReasonOther, state.Now, nil)
 	if err != nil {
 		return ChangePreview{}, err
@@ -1118,6 +1155,9 @@ func buildFXConversion(state ChangeState, input FXConversionInput) (ChangePrevie
 }
 
 func buildPositionTransfer(state ChangeState, input PositionTransferInput) (ChangePreview, error) {
+	if input.FromHoldingID == input.ToHoldingID {
+		return ChangePreview{}, changeError(ErrTransferMismatch, "toHoldingId", "destination Holding must differ from source")
+	}
 	from, err := state.holding(input.FromHoldingID, input.HouseholdID)
 	if err != nil {
 		return ChangePreview{}, err
@@ -1125,6 +1165,12 @@ func buildPositionTransfer(state ChangeState, input PositionTransferInput) (Chan
 	to, err := state.holding(input.ToHoldingID, input.HouseholdID)
 	if err != nil {
 		return ChangePreview{}, err
+	}
+	if from.AccountID == to.AccountID {
+		return ChangePreview{}, changeError(ErrTransferMismatch, "toHoldingId", "position transfer requires a different destination Account")
+	}
+	if input.ToAccountID != nil && to.AccountID != *input.ToAccountID {
+		return ChangePreview{}, changeError(ErrTransferMismatch, "toAccountId", "destination Account does not match the Holding")
 	}
 	if from.InstrumentID != to.InstrumentID {
 		return ChangePreview{}, changeError(ErrTransferMismatch, "instrumentId", "position transfer requires the same Instrument")
@@ -1194,6 +1240,28 @@ func buildPositionAdjustment(state ChangeState, input PositionAdjustmentInput) (
 		preview.DerivedUnitPrice = input.UnitCost
 	}
 	return preview, nil
+}
+
+func buildPositionCostAdjustment(state ChangeState, input PositionCostAdjustmentInput) (ChangePreview, error) {
+	holding, err := state.holding(input.HoldingID, input.HouseholdID)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	if holding.Current.IsZero() {
+		return ChangePreview{}, changeError(ErrCostBasisRequired, "holdingId", "cost correction requires a positive Holding quantity")
+	}
+	if _, err := ParseUnitPrice(input.UnitCost.Canonical()); err != nil {
+		return ChangePreview{}, err
+	}
+	activity, err := state.newActivity(input.HouseholdID, ActivityCostAdjustment, ReasonReconciliation, input.EffectiveAt, input.Note)
+	if err != nil {
+		return ChangePreview{}, err
+	}
+	holdingID, instrumentID := holding.ID, holding.InstrumentID
+	effect := ActivityEffect{ID: NewActivityEffectID(), ActivityID: activity.ID, Sequence: 1, Role: EffectRoleCost, Direction: EffectAdded, Target: EffectTargetHoldingCost, Classification: ClassificationRemeasurement, HoldingID: &holdingID, InstrumentID: &instrumentID, CostUnitPrice: &input.UnitCost}
+	activity.Effects = []ActivityEffect{effect}
+	view := EndpointView{Target: EffectTargetHoldingCost, HoldingID: &holdingID, Name: holding.InstrumentName, Quantity: holding.Current.Canonical(), CostUnitPrice: &input.UnitCost}
+	return ChangePreview{Activity: activity, Effects: activity.Effects, Resulting: []EndpointView{view}, DerivedUnitPrice: &input.UnitCost}, nil
 }
 
 func buildTrade(state ChangeState, input TradeInput) (ChangePreview, error) {

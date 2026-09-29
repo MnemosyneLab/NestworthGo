@@ -80,7 +80,7 @@ func (s *Service) PreviewChange(ctx context.Context, command any) (domain.Change
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	state, command, _, err = s.prepareChangeHolding(snapshot, state, command)
+	state, command, _, err = s.prepareChangeHolding(ctx, snapshot, state, command)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
@@ -187,7 +187,7 @@ func (s *Service) recordChangeLocked(ctx context.Context, command any, key *doma
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}
-	state, command, newHolding, err := s.prepareChangeHolding(snapshot, state, command)
+	state, command, newHolding, err := s.prepareChangeHolding(ctx, snapshot, state, command)
 	if err != nil {
 		return domain.ChangePreview{}, err
 	}

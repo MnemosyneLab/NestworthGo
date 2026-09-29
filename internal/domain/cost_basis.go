@@ -11,21 +11,23 @@ import (
 type CostBasisEventKind string
 
 const (
-	CostBasisStartingPoint CostBasisEventKind = "starting_point"
-	CostBasisBuy           CostBasisEventKind = "buy"
-	CostBasisSell          CostBasisEventKind = "sell"
-	CostBasisTransferIn    CostBasisEventKind = "transfer_in"
-	CostBasisTransferOut   CostBasisEventKind = "transfer_out"
-	CostBasisAdjustmentIn  CostBasisEventKind = "adjustment_in"
-	CostBasisAdjustmentOut CostBasisEventKind = "adjustment_out"
+	CostBasisStartingPoint  CostBasisEventKind = "starting_point"
+	CostBasisBuy            CostBasisEventKind = "buy"
+	CostBasisSell           CostBasisEventKind = "sell"
+	CostBasisTransferIn     CostBasisEventKind = "transfer_in"
+	CostBasisTransferOut    CostBasisEventKind = "transfer_out"
+	CostBasisAdjustmentIn   CostBasisEventKind = "adjustment_in"
+	CostBasisAdjustmentOut  CostBasisEventKind = "adjustment_out"
+	CostBasisCostAdjustment CostBasisEventKind = "cost_adjustment"
 )
 
 // CostBasisEvent is one Holding-scoped event in replay order. A StartingPoint
 // event carries the captured quantity; startingCost is passed separately to
 // ReplayCostBasis to keep the public function aligned with the release
 // contract. UnitCost is accepted on the StartingPoint event as a convenient
-// serialized form and is otherwise used for TransferIn/AdjustmentIn and for a
-// fee-adjusted Buy acquisition cost. UnitPrice is the price-only trade price. Currency is required for a Sell so a signed realized
+// serialized form and is otherwise used for TransferIn/AdjustmentIn,
+// CostAdjustment, and a fee-adjusted Buy acquisition cost. UnitPrice is the
+// price-only trade price. Currency is required for a Sell so a signed realized
 // amount can retain its settlement currency.
 type CostBasisEvent struct {
 	ActivityID         ActivityID
@@ -179,6 +181,11 @@ func ReplayCostBasis(startingCost *UnitPrice, events []CostBasisEvent) (CostBasi
 				return CostBasisResult{}, err
 			}
 			hasCost = !result.Current.Quantity.IsZero()
+		case CostBasisCostAdjustment:
+			if !hasCost || result.Current.Quantity.IsZero() || event.UnitCost == nil || !event.Quantity.IsZero() {
+				return CostBasisResult{}, invalidCostBasis("unitCost", "cost adjustment requires a positive Holding and target unit cost")
+			}
+			result.Current.AverageUnitCost = *event.UnitCost
 		default:
 			return CostBasisResult{}, invalidCostBasis("kind", "cost-basis event kind is not supported")
 		}

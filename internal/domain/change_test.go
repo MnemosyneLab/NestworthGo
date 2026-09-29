@@ -356,6 +356,7 @@ func TestPreviewPositionTransferRejectsDestinationOverflow(t *testing.T) {
 	}
 	holding := state.Holdings[toID]
 	holding.Current = maxQty
+	holding.AccountID = NewAccountID()
 	state.Holdings[toID] = holding
 	quantity, err := ParseQuantity("0.00000001")
 	if err != nil {

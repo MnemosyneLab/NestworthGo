@@ -99,7 +99,7 @@ func TestHistoryToolsPageFilterAndDetail(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Tools) != 3 {
+	if len(listed.Tools) != 7 {
 		t.Fatalf("history tool count = %d", len(listed.Tools))
 	}
 	for _, tool := range listed.Tools {

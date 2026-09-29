@@ -15,6 +15,7 @@ const catalog: Record<string, string> = {
   "history.sentence.reversal": "Reversed a previous change",
   "history.sentence.withFee": "{{sentence}} (Fee {{fee}})",
   "history.sentence.withReason": "{{sentence}} ({{reason}})",
+  "history.sentence.updatedCost": "Set {{holding}} unit cost to {{cost}}",
   "history.sentence.updatedValue": "Updated {{account}} to {{amount}}",
   "history.reason.reconciliation": "Reconciliation",
   "history.unknownAccount": "an account",
@@ -33,6 +34,15 @@ function t(key: string, options?: Record<string, unknown>): string {
 describe("activitySentence", () => {
   const accounts = new Map([["acc-1", "Checking"], ["acc-2", "Savings"]]);
   const instruments = new Map([["i1", "NVIDIA"]]);
+
+  it("describes cost correction without implying a trade or quantity movement", () => {
+    const activity = {
+      kind: "cost_adjustment",
+      reason: "reconciliation",
+      effects: [{ target: "holding_cost", holdingId: "h1", instrumentId: "i1", costUnitPrice: "30" }],
+    } as unknown as ActivityDTO;
+    expect(activitySentence(t, activity, accounts, instruments)).toBe("Set NVIDIA unit cost to 30 (Reconciliation)");
+  });
 
   it("describes money added in one sentence", () => {
     const activity = {
