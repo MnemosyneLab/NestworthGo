@@ -9,7 +9,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { useAccounts, useAccountValuations, useCreateAccount } from "@/queries/accounts";
 import { AccountCreateWizard } from "@/features/accounts/AccountCreateWizard";
 import { AccountDetail } from "@/features/accounts/AccountDetail";
-import { formatAmount } from "@/lib/money";
+import { addCanonical, formatAmount } from "@/lib/money";
+import { MoneyText } from "@/components/ui/money-text";
+import { accountTypeStyle, TONE_CLASSES } from "@/lib/tone";
 import { accountDisplayMoney } from "@/features/accounts/accountDisplayMoney";
 import { displayEnum, displayError } from "@/lib/display";
 import { PageIntro } from "@/components/layout/PageHeader";
@@ -93,6 +95,22 @@ export function AccountsPage({
   }
 
   const createSubmitting = createAccount.isPending || operation === "create";
+  // Subtotal only when every account in the group has a base-currency value; a partial sum would look complete.
+  const groupSubtotal = (records: typeof grouped[number]["records"]): string | undefined => {
+    if (records.length < 2) return undefined;
+    let sum = "0";
+    let currency = "";
+    for (const record of records) {
+      const base = valuationByAccountId.get(record.account.id)?.baseValue;
+      if (!base) return undefined;
+      currency = currency || base.currency;
+      if (base.currency !== currency) return undefined;
+      const next = addCanonical(sum, base.amount);
+      if (!next) return undefined;
+      sum = next;
+    }
+    return currency ? formatAmount(sum, currency) : undefined;
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -110,11 +128,11 @@ export function AccountsPage({
             <SheetTrigger className={cn(buttonVariants(), "gap-2")}>
               <Plus className="size-4" aria-hidden="true" /> {t("accounts.create")}
             </SheetTrigger>
-            <SheetContent>
+            <SheetContent size="lg">
               <SheetHeader>
                 <SheetTitle>{t("accounts.createTitle")}</SheetTitle>
               </SheetHeader>
-              <div className="overflow-y-auto">
+              <div>
                 <AccountCreateWizard isSubmitting={createSubmitting} submissionError={createError} onSubmit={saveCreate} />
               </div>
             </SheetContent>
@@ -152,10 +170,17 @@ export function AccountsPage({
           <span className="sr-only">{t("accounts.tableLabel")}</span>
           {grouped.map((group) => (
             <section key={group.key} className="flex flex-col gap-2">
-              <h2 className="text-sm font-medium text-muted-foreground">
-                {group.key === "unassigned" ? t("accounts.unassignedInstitution") : group.label}
-              </h2>
-              <ul className="overflow-hidden rounded-lg border border-border">
+              <div className="flex items-baseline justify-between gap-3 px-1">
+                <h2 className="text-sm font-semibold text-foreground">
+                  {group.key === "unassigned" ? t("accounts.unassignedInstitution") : group.label}
+                </h2>
+                {groupSubtotal(group.records) && (
+                  <span className="num text-xs font-medium text-muted-foreground" data-testid={`accounts-group-subtotal-${group.key}`}>
+                    {groupSubtotal(group.records)}
+                  </span>
+                )}
+              </div>
+              <ul className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
                 {group.records.map((record) => {
                   const valuation = valuationByAccountId.get(record.account.id);
                   const displayMoney = accountDisplayMoney(record, valuation);
@@ -180,12 +205,17 @@ export function AccountsPage({
                     <li key={record.account.id} className="border-b border-border last:border-0">
                       <button
                         type="button"
-                        className="flex w-full items-start justify-between gap-3 px-3 py-3 text-left hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
                         onClick={() => setSelectedId(record.account.id)}
                       >
-                        <EntityIcon iconKey={record.account.iconKey} kind="account" className="mt-0.5 size-5 text-primary" />
+                        <span
+                          aria-hidden="true"
+                          className={cn("inline-flex size-10 shrink-0 items-center justify-center rounded-xl [&_svg]:size-5", TONE_CLASSES[accountTypeStyle(record.account.accountType).tone].soft, TONE_CLASSES[accountTypeStyle(record.account.accountType).tone].text)}
+                        >
+                          <EntityIcon iconKey={record.account.iconKey} kind="account" className="size-5" />
+                        </span>
                         <span className="flex min-w-0 flex-1 flex-col gap-1">
-                          <span className="flex flex-wrap items-center gap-2 font-medium">
+                          <span className="flex flex-wrap items-center gap-2 font-semibold">
                             {record.account.name}
                             <Badge variant="outline">{displayEnum(t, "enum", record.account.accountType)}</Badge>
                             {record.account.archivedAt && <Badge variant="secondary">{t("common.archived")}</Badge>}
@@ -195,9 +225,9 @@ export function AccountsPage({
                           </span>
                           <span className="text-xs text-muted-foreground">{completeness}</span>
                         </span>
-                        <span className="flex shrink-0 flex-col items-end text-sm font-medium">
-                          <span>{value}</span>
-                          {secondary && <span className="text-xs font-normal text-muted-foreground">{secondary}</span>}
+                        <span className="flex shrink-0 flex-col items-end">
+                          <MoneyText size="md">{value}</MoneyText>
+                          {secondary && <MoneyText tone="muted" className="text-xs font-normal">{secondary}</MoneyText>}
                         </span>
                       </button>
                     </li>

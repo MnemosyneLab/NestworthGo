@@ -33,9 +33,11 @@ const (
 type Accent string
 
 const (
-	AccentNestworth = Accent("nestworth")
-	AccentOcean     = Accent("ocean")
-	AccentAmber     = Accent("amber")
+	AccentIndigo   = Accent("indigo")
+	AccentLavender = Accent("lavender")
+	AccentMint     = Accent("mint")
+	AccentSky      = Accent("sky")
+	AccentPeach    = Accent("peach")
 )
 
 type Language string
@@ -126,7 +128,7 @@ func Default() Settings {
 	return Settings{
 		SchemaVersion:     CurrentSchemaVersion,
 		Appearance:        AppearanceSystem,
-		Accent:            AccentNestworth,
+		Accent:            AccentIndigo,
 		Language:          LanguageSystem,
 		Timezone:          TimezoneSystem,
 		WeekStart:         WeekStartMonday,
@@ -154,7 +156,7 @@ func (s Settings) Validate() error {
 	if !oneOf(string(s.Appearance), string(AppearanceSystem), string(AppearanceLight), string(AppearanceDark)) {
 		return fmt.Errorf("unsupported appearance %q", s.Appearance)
 	}
-	if !oneOf(string(s.Accent), string(AccentNestworth), string(AccentOcean), string(AccentAmber)) {
+	if !validAccent(s.Accent) {
 		return fmt.Errorf("unsupported accent %q", s.Accent)
 	}
 	if !oneOf(string(s.Language), string(LanguageSystem), string(LanguageEnglish), string(LanguageZhCN), string(LanguageZhTW)) {
@@ -260,7 +262,16 @@ func AllLanguages() []Language {
 }
 
 func AllAccents() []Accent {
-	return []Accent{AccentNestworth, AccentOcean, AccentAmber}
+	return []Accent{AccentIndigo, AccentLavender, AccentMint, AccentSky, AccentPeach}
+}
+
+func validAccent(value Accent) bool {
+	for _, accent := range AllAccents() {
+		if value == accent {
+			return true
+		}
+	}
+	return false
 }
 
 func validCurrency(value string) bool {
@@ -367,9 +378,7 @@ func salvage(loaded, defaults Settings) Settings {
 	fixed.Appearance = salvageValue(fixed.Appearance, defaults.Appearance, func(v Appearance) bool {
 		return oneOf(string(v), string(AppearanceSystem), string(AppearanceLight), string(AppearanceDark))
 	})
-	fixed.Accent = salvageValue(fixed.Accent, defaults.Accent, func(v Accent) bool {
-		return oneOf(string(v), string(AccentNestworth), string(AccentOcean), string(AccentAmber))
-	})
+	fixed.Accent = salvageValue(fixed.Accent, defaults.Accent, validAccent)
 	fixed.Language = salvageValue(fixed.Language, defaults.Language, func(v Language) bool {
 		return oneOf(string(v), string(LanguageSystem), string(LanguageEnglish), string(LanguageZhCN), string(LanguageZhTW))
 	})

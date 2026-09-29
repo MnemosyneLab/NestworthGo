@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ActionMenu } from "@/components/ui/action-menu";
+import { IconTile } from "@/components/ui/icon-tile";
+import { activityStyle } from "@/lib/activityStyle";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   AlertDialog,
@@ -20,7 +23,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -57,6 +59,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
   const [open, setOpen] = useState(false);
   const [productTarget, setProductTarget] = useState<string | null>(null);
   const [fixTarget, setFixTarget] = useState<ActivityDTO | null>(null);
+  const [undoTarget, setUndoTarget] = useState<ActivityDTO | null>(null);
   const [detailTarget, setDetailTarget] = useState<ActivityDTO | null>(null);
   const [kindFilter, setKindFilter] = useState(navigationFilters?.kinds?.[0] ?? "");
   const [accountFilter, setAccountFilter] = useState(navigationFilters?.accountId ?? "");
@@ -107,9 +110,17 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
     ),
   );
 
+  // Group the flat, newest-first timeline by local date for scanning.
+  const activityGroups: Array<{ date: string; items: typeof activityList }> = [];
+  for (const activity of activityList) {
+    const last = activityGroups[activityGroups.length - 1];
+    if (last && last.date === activity.effectiveLocalDate) last.items.push(activity);
+    else activityGroups.push({ date: activity.effectiveLocalDate, items: [activity] });
+  }
+
   return (
     <div className="flex flex-col gap-4">
-      <section className="flex flex-col gap-4 rounded-xl border border-border bg-card p-4" aria-label={t("history.filterLabel")}>
+      <section className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4" aria-label={t("history.filterLabel")}>
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="history-filter-kind">{t("history.filterKind")}</Label>
@@ -160,14 +171,14 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
           pageId="history"
           actions={
             <Sheet open={open} onOpenChange={setOpen}>
-              <SheetTrigger className={cn(buttonVariants({ size: "sm" }), "gap-2")}>
+              <SheetTrigger className={cn(buttonVariants(), "gap-2")}>
                 <Plus className="size-4" aria-hidden="true" /> {t("history.recordButton")}
               </SheetTrigger>
-              <SheetContent>
+              <SheetContent size="lg">
                 <SheetHeader>
                   <SheetTitle>{t("history.formLabel")}</SheetTitle>
                 </SheetHeader>
-                <div className="overflow-y-auto">
+                <div>
                   <RecordChangeForm
                     onRecorded={() => {
                       toast.success(t("history.recorded"));
@@ -184,61 +195,54 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
       {activityList.length === 0 ? (
         <EmptyState title={t("history.noActivityYet")} description={t("history.noActivityDescription")} />
       ) : (
-        <ul className="flex flex-col gap-2" data-testid="activity-list" aria-label={t("history.activityKind")}>
-          {activityList.map((activity) => {
-            const canModify = !activity.reversesActivityId && !reversedActivityIds.has(activity.id);
-            const summary = activitySentence(t, activity, accountNames, instrumentNames, holdingNames);
-            return (
-              <li key={activity.id} className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border px-3 py-3 text-sm">
-                <div className="flex min-w-0 flex-1 flex-col gap-1">
-                  <p className="font-medium text-foreground">{summary}</p>
-                  <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
-                    <time dateTime={activity.effectiveAt}>{activity.effectiveLocalDate}</time>
-                    {activity.reversesActivityId && <Badge variant="secondary">{t("history.reversal")}</Badge>}
-                    {activity.correctionGroupId && !activity.reversesActivityId && <Badge variant="secondary">{t("history.corrected")}</Badge>}
-                  </div>
-                </div>
-                <span className="flex shrink-0 items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setDetailTarget(activity)}>
-                    {t("common.details")}
-                  </Button>
-                  {activity.productContext && <Button variant="outline" size="sm" onClick={() => setProductTarget(activity.productContext!.productId)}>{t("availableFunds.manageProductOperation")}</Button>}
-                  {canModify && !activity.productContext && (
-                    <>
-                      <Button variant="outline" size="sm" onClick={() => setFixTarget(activity)}>
-                        {t("history.fixAction")}
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
-                          {t("history.undoAction")}
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>{t("history.undoTitle")}</AlertDialogTitle>
-                            <AlertDialogDescription>{t("history.undoDescription")}</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() =>
-                                undoChange.mutate(activity.id, {
-                                  onSuccess: () => toast.success(t("history.undone")),
-                                  onError: (error) => toast.error(displayError(error, t("history.actionError"))),
-                                })
-                              }
-                            >
-                              {t("history.undoAction")}
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </>
-                  )}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="flex flex-col gap-6" data-testid="activity-list" aria-label={t("history.activityKind")}>
+          {activityGroups.map((group) => (
+            <section key={group.date} className="flex flex-col gap-2">
+              <h3 className="num px-1 text-xs font-semibold text-muted-foreground">
+                <time dateTime={group.items[0].effectiveAt}>{group.date}</time>
+              </h3>
+              <ul className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+                {group.items.map((activity) => {
+                  const canModify = !activity.reversesActivityId && !reversedActivityIds.has(activity.id);
+                  const summary = activitySentence(t, activity, accountNames, instrumentNames, holdingNames);
+                  const style = activityStyle(activity.kind);
+                  const menuItems = canModify && !activity.productContext
+                    ? [
+                        { id: "fix", label: t("history.fixAction"), onSelect: () => setFixTarget(activity) },
+                        { id: "undo", label: t("history.undoAction"), onSelect: () => setUndoTarget(activity) },
+                      ]
+                    : [];
+                  return (
+                    <li key={activity.id} className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary/5">
+                      <IconTile icon={style.icon} tone={style.tone} />
+                      <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <p className="font-semibold text-foreground">{summary}</p>
+                        {(activity.reversesActivityId || activity.correctionGroupId) && (
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            {activity.reversesActivityId && <Badge variant="secondary">{t("history.reversal")}</Badge>}
+                            {activity.correctionGroupId && !activity.reversesActivityId && <Badge variant="secondary">{t("history.corrected")}</Badge>}
+                          </div>
+                        )}
+                      </div>
+                      <span className="flex shrink-0 items-center gap-1">
+                        {/* The Details button stretches over the whole row so the entire row opens the detail sheet. */}
+                        <Button variant="ghost" size="sm" className="after:absolute after:inset-0 after:rounded-none focus-visible:ring-inset" onClick={() => setDetailTarget(activity)}>
+                          {t("common.details")}
+                        </Button>
+                        {activity.productContext && <Button variant="outline" size="sm" className="relative z-10" onClick={() => setProductTarget(activity.productContext!.productId)}>{t("availableFunds.manageProductOperation")}</Button>}
+                        {menuItems.length > 0 && (
+                          <span className="relative z-10">
+                            <ActionMenu label={t("common.actions")} items={menuItems} />
+                          </span>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
       {activities.hasNextPage && (
         <Button
@@ -255,12 +259,35 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
         </Button>
       )}
 
+      <AlertDialog open={undoTarget !== null} onOpenChange={(next) => { if (!next) setUndoTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("history.undoTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("history.undoDescription")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!undoTarget) return;
+                undoChange.mutate(undoTarget.id, {
+                  onSuccess: () => toast.success(t("history.undone")),
+                  onError: (error) => toast.error(displayError(error, t("history.actionError"))),
+                });
+              }}
+            >
+              {t("history.undoAction")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Sheet open={fixTarget !== null} onOpenChange={(next) => !next && setFixTarget(null)}>
-        <SheetContent>
+        <SheetContent size="lg">
           <SheetHeader>
             <SheetTitle>{t("history.fixTitle")}</SheetTitle>
           </SheetHeader>
-          <div className="overflow-y-auto">
+          <div>
             {fixTarget && (
               <RecordChangeForm
                 key={fixTarget.id}
@@ -341,7 +368,7 @@ export function HistoryPage({ navigationFilters }: { navigationFilters?: History
             </p>
           )}
           <Timeline key={JSON.stringify(navigationFilters ?? {})} navigationFilters={navigationFilters} />
-          <section className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/30 px-3 py-3" aria-label={t("history.snapshotHealth")}>
+          <section className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-muted/40 px-4 py-3" aria-label={t("history.snapshotHealth")}>
             <div className="flex flex-col gap-1 text-sm">
               <p className="font-medium">{t("history.snapshotHealth")}</p>
               <p className="text-muted-foreground">

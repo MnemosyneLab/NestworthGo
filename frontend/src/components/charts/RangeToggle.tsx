@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 
 export const TREND_RANGE_LABELS: Record<string, string> = {
   "1d": "rangeShortcuts.1d",
@@ -34,13 +34,13 @@ export function RangeToggle({
 }) {
   const { t } = useTranslation();
   return (
-    <div className="flex flex-wrap items-center gap-1 rounded-lg bg-muted p-1" role="group" aria-label={label}>
-      {ranges.map((id) => (
-        <Button key={id} type="button" variant={value === id ? "default" : "ghost"} aria-pressed={value === id} disabled={disabled} size="sm" onClick={() => onChange(id)}>
-          {t(TREND_RANGE_LABELS[id] ?? id)}
-        </Button>
-      ))}
-    </div>
+    <SegmentedControl
+      label={label}
+      value={value}
+      onChange={onChange}
+      disabled={disabled}
+      options={ranges.map((id) => ({ value: id, label: t(TREND_RANGE_LABELS[id] ?? id) }))}
+    />
   );
 }
 
@@ -54,12 +54,11 @@ export function SourceFilterToggle({
   const { t } = useTranslation();
   const filters = ["all", "manual", "provider"];
   return (
-    <div className="flex flex-wrap items-center gap-2" role="group" aria-label={t("charts.sourceFilter")}>
-      {filters.map((id) => (
-        <Button key={id} type="button" variant={value === id ? "default" : "ghost"} aria-pressed={value === id} size="sm" onClick={() => onChange(id)}>
-          {t(SOURCE_FILTER_LABELS[id] ?? id)}
-        </Button>
-      ))}
-    </div>
+    <SegmentedControl
+      label={t("charts.sourceFilter")}
+      value={value}
+      onChange={onChange}
+      options={filters.map((id) => ({ value: id, label: t(SOURCE_FILTER_LABELS[id] ?? id) }))}
+    />
   );
 }

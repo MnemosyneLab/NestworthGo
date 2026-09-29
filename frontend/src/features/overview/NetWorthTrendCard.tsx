@@ -5,7 +5,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { DateRangeControl } from "@/components/charts/DateRangeControl";
 import { useTrendDateRange } from "@/components/charts/useTrendDateRange";
 import { TrendChart } from "@/components/charts/TrendChart";
-import { chartTheme } from "@/components/charts/chartTheme";
 import { ErrorState, LoadingState } from "@/components/layout/PageState";
 import { Button } from "@/components/ui/button";
 import { formatAmount } from "@/lib/money";
@@ -23,10 +22,10 @@ export function NetWorthTrendCard() {
     <p className="text-sm text-muted-foreground">{t("connections.netWorthNote")}</p>
     {trend.isLoading ? <LoadingState label={t("ui.state.loadingPage")} /> : trend.isError ? <ErrorState title={t("overview.loadError")} description={t("ui.state.errorDescription")} onRetry={() => void trend.refetch()} retryLabel={t("common.retryAction")} /> : <>
       <p className="text-sm">{data?.startDate} {data?.endDate && `– ${data.endDate}`}</p>
-      <p className="text-lg font-semibold">{t("connections.periodChange")}: {data?.change ? formatAmount(data.change.amount, data.change.currency) : t("connections.changeUnavailable")}</p>
+      <p className="num text-lg font-bold">{t("connections.periodChange")}: {data?.change ? formatAmount(data.change.amount, data.change.currency) : t("connections.changeUnavailable")}</p>
       {!data?.change && <p className="text-sm text-muted-foreground">{t(data?.summaryReason === "missing_boundary" ? "connections.missingBoundary" : "charts.insufficientHistory")}</p>}
       <TrendChart ariaLabel={t("connections.netWorthTrend")} summary={t("connections.netWorthNote")} dates={points.map(point => point.localDate)}
-        series={[{ key: "netWorth", name: t("overview.netWorth"), color: chartTheme().primary, values: points.map(point => point.complete ? point.netWorth?.amount : null) }]}
+        series={[{ key: "netWorth", name: t("overview.netWorth"), color: "var(--color-primary)", values: points.map(point => point.complete ? point.netWorth?.amount : null) }]}
         currency={data?.currency ?? ""} height={280} emptyTitle={t("charts.insufficientHistory")}
         extraTableColumns={[t("connections.coverage")]} extraTableRows={points.map(point => [t(point.current ? "connections.currentPoint" : point.complete ? "overview.healthy" : "overview.needsAttention")])} />
       {points.length > 0 && <p className="text-xs text-muted-foreground">{t("connections.currentPointNote")}</p>}

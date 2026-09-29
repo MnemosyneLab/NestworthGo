@@ -151,7 +151,7 @@ function InstrumentRefreshRow({
   const quote = useCurrentInstrumentQuote(instrumentId);
 
   return (
-    <li className="flex flex-col gap-1 rounded-md border border-border px-3 py-3 text-sm">
+    <li className="flex flex-col gap-1 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-xs">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="flex items-center gap-2 font-medium text-foreground">
           <EntityIcon iconKey={instrument?.iconKey} kind="instrument" />
@@ -186,7 +186,7 @@ function FxRefreshRow({
   const quote = useCurrentFXQuote(currencyA, currencyB);
 
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 rounded-md border border-border px-3 py-3 text-sm">
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-3 gap-y-1 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-xs">
       <div className="col-span-2 row-start-1 flex min-w-0 items-center justify-between gap-2">
         <span className="font-medium text-foreground">{pair}</span>
         <span className="flex shrink-0 items-center gap-2">
@@ -245,7 +245,7 @@ function RefreshResults({
           })}
         </p>
       )}
-      {result.rateLimited && <p className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{t("marketData.rateLimited")}</p>}
+      {result.rateLimited && <p className="rounded-xl border border-warning/40 bg-warning/10 p-3 text-sm text-warning-foreground">{t("marketData.rateLimited")}</p>}
       {items.length === 0 ? (
         <EmptyState title={t("marketData.noTargets")} description={t("marketData.description")} />
       ) : (
@@ -273,7 +273,7 @@ function RefreshResults({
                 isConfiguring={Boolean(pairFromTargetKey(item.targetKey) && configuringPair === fxPairKey(pairFromTargetKey(item.targetKey)!.currencyA, pairFromTargetKey(item.targetKey)!.currencyB))}
               />
             ) : (
-              <li key={`${item.kind}-${item.targetKey}`} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-3 text-sm">
+              <li key={`${item.kind}-${item.targetKey}`} className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-xs">
                 <span>{displayEnum(t, "marketData.target", item.kind)}</span>
                 <Badge variant={STATUS_VARIANT[item.status] ?? "secondary"}>{displayEnum(t, "marketData.status", item.status)}</Badge>
               </li>
@@ -303,7 +303,7 @@ function SavedFXRow({
   const quote = useCurrentFXQuote(pair.currencyA, pair.currencyB);
 
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-md border border-border px-3 py-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(0,auto)_auto]" data-testid={`saved-fx-${fxPairKey(pair.currencyA, pair.currencyB)}`}>
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-xs lg:grid-cols-[minmax(0,1fr)_minmax(0,auto)_auto]" data-testid={`saved-fx-${fxPairKey(pair.currencyA, pair.currencyB)}`}>
       <span className="flex min-w-0 flex-wrap items-center gap-2">
         <span className="font-medium">{pair.currencyA}/{pair.currencyB}</span>
         <Badge variant={!preference ? "warning" : "secondary"}>{fxSourceLabel(t, preference, settings.data?.fxProvider)}</Badge>
@@ -326,7 +326,7 @@ function SavedFXRow({
             <span className="flex flex-wrap items-center justify-end gap-1 text-xs text-muted-foreground">
               {quote.data.delayed ? <Badge variant="warning">{t("charts.delayed")}</Badge> : null}
               {quote.data.sourceKind ? <span>{displayEnum(t, "portfolio", quote.data.sourceKind)}</span> : null}
-              {quote.data.sourceKey ? <span>· {quote.data.sourceKey}</span> : null}
+              {quote.data.sourceKey && quote.data.sourceKey !== quote.data.sourceKind ? <span>· {quote.data.sourceKey}</span> : null}
             </span>
           </>
         ) : (
@@ -456,7 +456,7 @@ function SavedFXRates({
         <p className="text-sm text-muted-foreground">{t("marketData.fxDailyReference")}</p>
       </div>
       {sortedFxPairs.length === 0 ? (
-        <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">{t("marketData.noSavedData")}</p>
+        <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">{t("marketData.noSavedData")}</p>
       ) : (
         <section className="flex flex-col gap-2" data-testid="market-data-group-fx">
           <ul className="flex flex-col gap-2">
@@ -563,7 +563,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
         description={t("marketData.description")}
         status={<DataHealthIndicator onOpen={onOpenDataHealth} />}
       />
-      {focus && <section className="flex flex-col gap-2 rounded-lg border border-border p-4" aria-label={t("connections.viewGap")}>
+      {focus && <section className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4" aria-label={t("connections.viewGap")}>
         <p className="font-medium">{focus.label || focus.instrumentId || `${focus.currencyA}/${focus.currencyB}`}</p>
         <p className="text-sm">{focus.rangeStart} {focus.rangeEnd && `– ${focus.rangeEnd}`} {focus.reason && displayEnum(t, "dataHealth.reason", focus.reason)}</p>
         <p className="text-sm text-muted-foreground">{t("connections.currentVsHistory")}</p>
@@ -650,7 +650,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
         />
       )}
       {!activeRefresh.isError && !result && (
-        <p className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">{t("marketData.explicitNotice")}</p>
+        <p className="rounded-xl bg-muted/50 p-3 text-sm text-muted-foreground">{t("marketData.explicitNotice")}</p>
       )}
     </div>
   );

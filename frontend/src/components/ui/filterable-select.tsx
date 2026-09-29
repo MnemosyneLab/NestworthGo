@@ -74,7 +74,7 @@ export function FilterableSelect({
         aria-expanded={open}
         aria-autocomplete="list"
         className={cn(
-          "flex h-9 w-full rounded-lg border border-border bg-card px-3 py-1 text-sm text-foreground shadow-xs transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50",
+          "flex h-9 w-full rounded-xl border border-border bg-card px-3 py-1 text-sm text-foreground shadow-xs transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:cursor-not-allowed disabled:opacity-50",
           className,
         )}
         value={open ? query : selected?.label ?? value}
@@ -115,7 +115,7 @@ export function FilterableSelect({
         <ul
           id={listboxId}
           role="listbox"
-          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-lg border border-border bg-card p-1 text-sm shadow-lg"
+          className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-border bg-card p-1 text-sm shadow-lg"
         >
           {filtered.length === 0 ? (
             <li role="option" aria-disabled="true" className="rounded-md px-3 py-2 text-muted-foreground">
@@ -128,8 +128,8 @@ export function FilterableSelect({
               aria-selected={option.value === value}
               aria-disabled={option.disabled || undefined}
               className={cn(
-                "cursor-pointer rounded-md px-3 py-2 text-foreground",
-                index === activeIndex && "bg-muted",
+                "cursor-pointer rounded-lg px-3 py-2 text-foreground",
+                index === activeIndex && "bg-primary/10",
                 option.disabled && "cursor-not-allowed opacity-50",
               )}
               onMouseDown={(event) => event.preventDefault()}

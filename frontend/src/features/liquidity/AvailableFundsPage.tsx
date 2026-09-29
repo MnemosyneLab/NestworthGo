@@ -76,7 +76,7 @@ export function AvailableFundsPage({
       actions={
         <>
           {eligibleAccounts.length > 0 && (
-            <Button type="button" size="sm" onClick={() => { if (eligibleAccounts.length === 1) setProductFormAccountId(eligibleAccounts[0].account.id); else setChooseAccount(true); }}>
+            <Button type="button" onClick={() => { if (eligibleAccounts.length === 1) setProductFormAccountId(eligibleAccounts[0].account.id); else setChooseAccount(true); }}>
               {t("availableFunds.addProduct")}
             </Button>
           )}
@@ -185,15 +185,15 @@ export function AvailableFundsPage({
           </div>
 
           <p className="text-sm text-muted-foreground">{t("availableFunds.sourceHorizon", { date: horizonOn })}</p>
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="overflow-x-auto rounded-2xl border border-border">
             <table className="w-full min-w-[38rem] text-left text-sm" data-testid="liquidity-source-table">
               <caption className="sr-only">{t("availableFunds.sourceTable")}</caption>
               <thead>
-                <tr className="border-b border-border bg-muted/40 text-muted-foreground">
-                  <th className="px-3 py-2 font-medium">{t("availableFunds.asset")}</th>
-                  <th className="px-3 py-2 font-medium">{t("availableFunds.currentValue")}</th>
-                  <th className="px-3 py-2 font-medium">{t("availableFunds.expectedAccess")}</th>
-                  <th className="px-3 py-2 font-medium">{t("availableFunds.availableAfterReserve")}</th>
+                <tr className="border-b border-border bg-muted/50 text-muted-foreground">
+                  <th className="px-3 py-2.5 font-semibold">{t("availableFunds.asset")}</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">{t("availableFunds.currentValue")}</th>
+                  <th className="px-3 py-2.5 font-semibold">{t("availableFunds.expectedAccess")}</th>
+                  <th className="px-3 py-2.5 text-right font-semibold">{t("availableFunds.availableAfterReserve")}</th>
                   <th className="w-0 px-3 py-2"><span className="sr-only">{t("common.actions")}</span></th>
                 </tr>
               </thead>
@@ -208,7 +208,7 @@ export function AvailableFundsPage({
                   const hasReserve = !/^0(?:\.0+)?$/.test(source.reservationRequested.amount);
                   const unavailableByDate = result?.status === "complete" && !result.selectedRoute;
                   return (
-                    <tr key={source.sourceKey} className="border-b border-border align-top last:border-0">
+                    <tr key={source.sourceKey} className="border-b border-border align-top transition-colors last:border-0 hover:bg-muted/40">
                       <td className="px-3 py-2">
                         <div className="flex max-w-64 flex-col gap-1 break-words">
                           <span className="font-medium">{sourceName(t, source)}</span>
@@ -217,12 +217,12 @@ export function AvailableFundsPage({
                           {source.dueUnconfirmed && <Badge variant="warning">{t("availableFunds.dueUnconfirmed")}</Badge>}
                         </div>
                       </td>
-                      <td className="whitespace-nowrap px-3 py-2">{moneyText(source.currentNativeValue, unknown)}</td>
+                      <td className="num whitespace-nowrap px-3 py-2 text-right">{moneyText(source.currentNativeValue, unknown)}</td>
                       <td className="px-3 py-2">
                         <p className="whitespace-nowrap">{source.excluded ? "—" : route?.receiptOn ?? unknown}</p>
                         {!source.excluded && route && (!route.feeNative || !/^0(?:\.0+)?$/.test(route.feeNative.amount)) && <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.cost")}: {moneyText(route.feeNative, unknown)}</p>}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className="num px-3 py-2 text-right">
                         <p className={unavailableByDate || source.excluded ? "text-xs text-muted-foreground" : "whitespace-nowrap font-medium"}>
                           {source.excluded ? t("availableFunds.filterExcluded") : source.dueUnconfirmed ? t("availableFunds.dueUnconfirmed") : unavailableByDate ? t("availableFunds.notAvailableByDate") : moneyText(result?.unreservedNative, unknown)}
                         </p>
@@ -230,7 +230,7 @@ export function AvailableFundsPage({
                           <summary className="cursor-pointer">{t("availableFunds.requestedReserve")}: {moneyText(source.reservationRequested, unknown)}</summary>
                           {result?.selectedRoute && <div>{t("availableFunds.appliedReserve")}: {moneyText(result?.appliedReserveNative, unknown)}</div>}
                         {result?.reserveShortfallNative && !/^0(?:\.0+)?$/.test(result.reserveShortfallNative.amount) && (
-                          <div className="text-xs text-amber-700 dark:text-amber-400">{t("availableFunds.reserveShortfall")}: {moneyText(result.reserveShortfallNative, unknown)}</div>
+                          <div className="text-xs text-warning-foreground">{t("availableFunds.reserveShortfall")}: {moneyText(result.reserveShortfallNative, unknown)}</div>
                         )}
                         {!result?.selectedRoute && (
                           <div className="text-xs text-muted-foreground">{t("availableFunds.reserveNotApplied")}: {moneyText(source.reservationRequested, unknown)}</div>

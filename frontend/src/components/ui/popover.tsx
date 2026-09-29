@@ -19,7 +19,7 @@ function PopoverContent({
       <BasePopover.Positioner side={side} align={align} sideOffset={sideOffset} className="z-50">
         <BasePopover.Popup
           className={cn(
-            "z-50 origin-[var(--transform-origin)] rounded-lg border border-border bg-card p-2 text-foreground shadow-lg outline-none",
+            "z-50 origin-[var(--transform-origin)] rounded-xl border border-border bg-card p-2 text-foreground shadow-lg outline-none",
             "data-[starting-style]:scale-95 data-[starting-style]:opacity-0 data-[ending-style]:scale-95 data-[ending-style]:opacity-0",
             className,
           )}

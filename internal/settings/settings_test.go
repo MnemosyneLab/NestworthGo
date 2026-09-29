@@ -16,7 +16,7 @@ func TestStoreRoundTripUsesPrivateAtomicFile(t *testing.T) {
 	store := NewStore(path)
 	want := Default()
 	want.Appearance = AppearanceDark
-	want.Accent = AccentOcean
+	want.Accent = AccentSky
 	want.Language = LanguageZhTW
 	want.Timezone = "Asia/Taipei"
 	want.DateFormat = DateFormatLocalized

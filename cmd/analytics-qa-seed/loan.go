@@ -268,7 +268,7 @@ func writeLoanSettings(report *Report, base string, cfg loanConfig) {
 	settings := map[string]any{
 		"schema_version":     1,
 		"appearance":         "system",
-		"accent":             "nestworth",
+		"accent":             "indigo",
 		"language":           "en",
 		"timezone":           "system",
 		"week_start":         cfg.WeekStart,

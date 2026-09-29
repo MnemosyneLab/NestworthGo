@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 export type Appearance = "system" | "light" | "dark";
-export type Accent = "nestworth" | "ocean" | "amber";
+export type Accent = "indigo" | "lavender" | "mint" | "sky" | "peach";
 
 interface UiState {
   sidebarCollapsed: boolean;
@@ -28,6 +28,6 @@ export const useUiStore = create<UiState>((set) => ({
 
   appearance: "system",
   setAppearance: (appearance) => set({ appearance }),
-  accent: "nestworth",
+  accent: "indigo",
   setAccent: (accent) => set({ accent }),
 }));

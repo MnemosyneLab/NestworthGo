@@ -132,7 +132,7 @@ function renderWithQueryClient(element: React.ReactElement) {
 const defaultSettings = {
   schema_version: 1,
   appearance: "system",
-  accent: "nestworth",
+  accent: "indigo",
   language: "en",
   timezone: "system",
   weekStart: "monday",
@@ -274,7 +274,7 @@ describe("keyboard-only completion", () => {
     await userEvent.keyboard("{Enter}"); // opens the Sheet
 
     const form = await screen.findByRole("form", { name: "Record change" });
-    const kindSelect = within(form).getByLabelText("Type of change");
+    const kindSelect = within(form).getByRole("radio", { checked: true });
     kindSelect.focus(); // stands in for the Sheet's own focus-trap (see file header)
 
     await userEvent.tab(); // -> Account select (kind left at its default: "Money added")

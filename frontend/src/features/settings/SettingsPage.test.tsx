@@ -76,7 +76,7 @@ function renderPage() {
 const defaultSettings = {
   schema_version: 1,
   appearance: "system",
-  accent: "nestworth",
+  accent: "indigo",
   language: "en",
   timezone: "system",
   weekStart: "monday",
@@ -214,15 +214,15 @@ it("shows the actual household currency read-only and saves all general fields t
 });
 
 it("applies the default accent when restoring preferences", async () => {
-  useUiStore.setState({ accent: "ocean" });
-  load.mockResolvedValue({ ...defaultSettings, accent: "ocean" });
+  useUiStore.setState({ accent: "mint" });
+  load.mockResolvedValue({ ...defaultSettings, accent: "mint" });
   reset.mockResolvedValue(defaultSettings);
   renderPage();
   await screen.findByRole("form", { name: "Settings" });
   await userEvent.click(screen.getByRole("button", { name: "Restore defaults" }));
   const dialog = await screen.findByRole("alertdialog");
   await userEvent.click(within(dialog).getByRole("button", { name: "Restore defaults" }));
-  await waitFor(() => expect(useUiStore.getState().accent).toBe("nestworth"));
+  await waitFor(() => expect(useUiStore.getState().accent).toBe("indigo"));
 });
 
 

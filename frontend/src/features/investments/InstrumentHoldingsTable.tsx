@@ -60,10 +60,10 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
       </div>
     </td>
     <td className="px-3 py-3">{row.accountId ? <button type="button" className="text-primary underline-offset-4 hover:underline focus-visible:underline" onClick={() => onOpenAccount?.(row.accountId!)}>{row.accountName}</button> : t("holdingsSummary.accountCount", { count: new Set((row.group.holdings ?? []).map(member => member.accountId)).size })}</td>
-    <td className="px-3 py-3 whitespace-nowrap">{managedInstrumentIds?.has(row.group.instrumentId) ? t("availableFunds.contractQuantity") : `${formatAmount(row.amounts.quantity)} ${metalUnitLabel(row.group.quantityUnit, t) || row.group.quantityUnit}`}</td>
-    <td className="px-3 py-3 whitespace-nowrap">{money(row.amounts, "totalCost")}</td>
-    <td className="px-3 py-3 whitespace-nowrap">{money(row.amounts, "currentValue")}</td>
-    <td className="px-3 py-3 whitespace-nowrap">{money(row.amounts, "unrealizedGain")}</td>
+    <td className="num px-3 py-3 text-right whitespace-nowrap">{managedInstrumentIds?.has(row.group.instrumentId) ? t("availableFunds.contractQuantity") : `${formatAmount(row.amounts.quantity)} ${metalUnitLabel(row.group.quantityUnit, t) || row.group.quantityUnit}`}</td>
+    <td className="num px-3 py-3 text-right whitespace-nowrap">{money(row.amounts, "totalCost")}</td>
+    <td className="num px-3 py-3 text-right whitespace-nowrap">{money(row.amounts, "currentValue")}</td>
+    <td className="num px-3 py-3 text-right whitespace-nowrap">{money(row.amounts, "unrealizedGain")}</td>
   </>;
   const columns: { key: SortKey; label: string }[] = [
     { key: "name", label: t("history.instrument") }, { key: "account", label: t("history.accountSelect") },
@@ -76,16 +76,16 @@ export function InstrumentHoldingsTable({ groups, onOpenAccount, managedInstrume
         <Button size="sm" variant={view === "instrument" ? "default" : "outline"} aria-pressed={view === "instrument"} onClick={() => setView("instrument")}>{t("holdingsSummary.byInstrument")}</Button>
         <Button size="sm" variant={view === "account" ? "default" : "outline"} aria-pressed={view === "account"} onClick={() => setView("account")}>{t("holdingsSummary.byAccount")}</Button>
       </div>
-      <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={showZero} onChange={e => setShowZero(e.target.checked)} />{t("holdingsSummary.showZero")}</label>
+      <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 rounded accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" checked={showZero} onChange={e => setShowZero(e.target.checked)} />{t("holdingsSummary.showZero")}</label>
     </div>
-    {rows.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{t("holdingsSummary.noVisibleHoldings")}</p> : <div className="overflow-x-auto rounded-lg border border-border">
+    {rows.length === 0 ? <p className="py-8 text-center text-sm text-muted-foreground">{t("holdingsSummary.noVisibleHoldings")}</p> : <div className="overflow-x-auto rounded-2xl border border-border">
       <table className="w-full min-w-[48rem] text-left text-sm" data-testid="holdings-table">
         <caption className="sr-only">{t("portfolio.holdingsTableLabel")}</caption>
-        <thead><tr className="border-b border-border bg-muted/40">{columns.map(column => <th key={column.key} className="px-3 py-2 font-medium text-muted-foreground" aria-sort={sort.key === column.key ? sort.desc ? "descending" : "ascending" : "none"}>
-          {column.key === "account" && view === "instrument" ? column.label : <button type="button" className="inline-flex items-center gap-1" onClick={() => setSort(previous => ({ key: column.key, desc: previous.key === column.key ? !previous.desc : false }))}>{column.label}{sort.key === column.key && (sort.desc ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />)}</button>}
+        <thead><tr className="border-b border-border bg-muted/50">{columns.map(column => <th key={column.key} className={`px-3 py-2.5 font-semibold text-muted-foreground ${["quantity", "totalCost", "currentValue", "unrealizedGain"].includes(column.key) ? "text-right" : ""}`} aria-sort={sort.key === column.key ? sort.desc ? "descending" : "ascending" : "none"}>
+          {column.key === "account" && view === "instrument" ? column.label : <button type="button" className="inline-flex items-center gap-1 rounded-md hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50" onClick={() => setSort(previous => ({ key: column.key, desc: previous.key === column.key ? !previous.desc : false }))}>{column.label}{sort.key === column.key && (sort.desc ? <ArrowDown className="size-3" /> : <ArrowUp className="size-3" />)}</button>}
         </th>)}</tr></thead>
         <tbody>{rows.map(row => <Fragment key={row.id}>
-          <tr className="border-b border-border last:border-0">{cells(row)}</tr>
+          <tr className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">{cells(row)}</tr>
           {view === "instrument" && expanded.has(row.id) && (row.group.holdings ?? []).map(member => <tr key={member.holdingId} className="border-b border-border bg-muted/20 last:border-0">{cells({ id: member.holdingId, group: row.group, amounts: member.amounts, accountId: member.accountId, accountName: member.accountName }, true)}</tr>)}
         </Fragment>)}</tbody>
       </table>

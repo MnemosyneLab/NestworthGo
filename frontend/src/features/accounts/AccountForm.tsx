@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { IconPicker } from "@/components/forms/IconPicker";
 import { EntitySelect } from "@/components/forms/EntitySelect";
-import { EntityIcon } from "@/components/icons/EntityIcon";
 import { useMembers, useInstitutions, useGroups } from "@/queries/directory";
 import { useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
@@ -19,6 +18,7 @@ import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nes
 import { displayEnum } from "@/lib/display";
 import { compatibleAccountTypes, ownershipShares, trackingMethodKey } from "@/features/accounts/accountCatalog";
 import { ACCOUNT_TYPE_ICONS } from "@/lib/defaultIcons";
+import { OwnershipFields } from "@/features/accounts/OwnershipFields";
 
 const accountFormSchema = z.object({
   name: z.string().trim().min(1),
@@ -312,56 +312,21 @@ export function AccountForm({
         </div>
       )}
 
-      <fieldset className="flex flex-col gap-2">
-        <legend className="text-sm font-medium">{t("accounts.owner")}</legend>
-        <p className="text-xs text-muted-foreground">{t("accounts.ownershipHint")}</p>
-        {(members.data ?? []).map((member) => {
-          const index = ownerIds.indexOf(member.id);
-          const checked = index !== -1;
-          return (
-            <div key={member.id} className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id={`owner-${member.id}`}
-                checked={checked}
-                onChange={() => toggleOwner(member.id)}
-                className="size-4"
-              />
-              <Label htmlFor={`owner-${member.id}`} className="flex-1 font-normal">
-                <span className="flex items-center gap-2"><EntityIcon iconKey={member.iconKey} kind="member" />{member.name}</span>
-              </Label>
-              {useCustomPercentages && checked && (
-                <Input
-                  aria-label={t("accounts.ownershipPercentageFor", { name: member.name })}
-                  className="w-20"
-                  value={ownershipPercentages[index] ?? ""}
-                  onChange={(event) => {
-                    const next = [...ownershipPercentages];
-                    next[index] = event.target.value;
-                    setValue("ownershipPercentages", next);
-                  }}
-                  placeholder="%"
-                />
-              )}
-            </div>
-          );
-        })}
-        {ownerIds.length > 1 && (
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={useCustomPercentages}
-              onChange={(event) => setUseCustomPercentages(event.target.checked)}
-            />
-            {t("accounts.ownershipSharePlaceholder")}
-          </label>
-        )}
-        {errors.ownerIds && (
-          <p role="alert" className="text-xs text-destructive">
-            {t("error.ownership.atLeastOneOwner")}
-          </p>
-        )}
-      </fieldset>
+      <OwnershipFields
+        idPrefix="owner"
+        members={members.data ?? []}
+        ownerIds={ownerIds}
+        onToggleOwner={toggleOwner}
+        useCustomPercentages={useCustomPercentages}
+        onUseCustomPercentagesChange={setUseCustomPercentages}
+        percentages={ownershipPercentages}
+        onPercentageChange={(index, value) => {
+          const next = [...ownershipPercentages];
+          next[index] = value;
+          setValue("ownershipPercentages", next);
+        }}
+        showError={Boolean(errors.ownerIds)}
+      />
 
       <div className="flex flex-col gap-2">
         <label className="flex items-center gap-2 text-sm">

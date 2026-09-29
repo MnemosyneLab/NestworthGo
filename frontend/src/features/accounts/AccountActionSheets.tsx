@@ -93,12 +93,12 @@ export function AccountActionSheet({
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent>
+      <SheetContent size="lg">
         <SheetHeader>
           <SheetTitle>{waitingForHistory ? t("accounts.historyRequiredTitle") : title}</SheetTitle>
           {waitingForHistory && <SheetDescription>{t("accounts.historyRequiredDescription")}</SheetDescription>}
         </SheetHeader>
-        <div className="overflow-y-auto">
+        <div>
           {waitingForHistory ? (
             <StartHistoryForm
               compact

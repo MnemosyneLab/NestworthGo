@@ -6,6 +6,7 @@ import { createTestQueryClient } from "@/test/queryClient";
 import { paginateActivityPage } from "@/test/activityPage";
 import { HistoryPage } from "./HistoryPage";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
+import i18n from "@/i18n";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 
 const { bootstrap } = vi.hoisted(() => ({ bootstrap: vi.fn() }));
@@ -329,7 +330,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangePositionAdjustment);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangePositionAdjustment}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Holding"), "h1");
     await userEvent.type(within(form).getByLabelText("Quantity"), "7");
     const cost = within(form).getByLabelText(/Unit cost/);
@@ -365,7 +366,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangePositionAdjustment);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangePositionAdjustment}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Holding"), "h1");
     await userEvent.type(within(form).getByLabelText("Quantity"), "7");
     const cost = within(form).getByLabelText(/Unit cost/);
@@ -401,7 +402,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeCashDividend);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeCashDividend}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Holding"), "holding-1");
     await userEvent.type(within(form).getByLabelText("Amount"), "25");
     await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
@@ -450,7 +451,7 @@ describe("HistoryPage", () => {
 
     await userEvent.click(screen.getByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeCashDividend);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeCashDividend}`) }));
     const holdingSelect = within(form).getByLabelText("Holding");
     expect(within(holdingSelect).getByRole("option", { name: /Apple/ })).toBeInTheDocument();
     expect(within(holdingSelect).queryByRole("option", { name: /NVIDIA/ })).not.toBeInTheDocument();
@@ -478,7 +479,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
     await within(form).findByRole("option", { name: /NVIDIA/ });
     await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
     await userEvent.selectOptions(within(form).getByLabelText("Instrument"), "instrument-1");
@@ -510,7 +511,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
     await userEvent.selectOptions(within(form).getByLabelText("Instrument"), "instrument-1");
     await userEvent.type(within(form).getByLabelText("Quantity"), "10");
@@ -541,7 +542,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
     const instrument = within(form).getByLabelText("Instrument");
     const quantity = within(form).getByLabelText("Quantity");
@@ -585,7 +586,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
     await userEvent.selectOptions(within(form).getByLabelText("Instrument"), "instrument-1");
     await userEvent.type(within(form).getByLabelText("Quantity"), "10");
@@ -614,7 +615,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeFXConversion);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeFXConversion}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Account"), "brokerage-1");
     const currencies = within(form).getAllByLabelText("Currency");
     await userEvent.selectOptions(currencies[0], "USD");
@@ -647,7 +648,8 @@ describe("HistoryPage", () => {
     await userEvent.click(await within(list).findByRole("button", { name: "Details" }));
     expect(await screen.findByText("Local date and time")).toBeInTheDocument();
     await userEvent.keyboard("{Escape}");
-    await userEvent.click(await within(list).findByRole("button", { name: "Undo" }));
+    await userEvent.click(await within(list).findByRole("button", { name: "Actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Undo" }));
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: "Undo" }));
     expect(undoChange).toHaveBeenCalledWith("a1");
@@ -732,7 +734,8 @@ describe("HistoryPage", () => {
 
     renderPage();
     const list = await screen.findByTestId("activity-list");
-    await userEvent.click(await within(list).findByRole("button", { name: "Fix" }));
+    await userEvent.click(await within(list).findByRole("button", { name: "Actions" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Fix" }));
 
     const form = await screen.findByRole("form", { name: "Record change" });
     expect(within(form).getByLabelText("Account")).toHaveValue("acc-1");
@@ -765,9 +768,8 @@ describe("HistoryPage", () => {
     const list = await screen.findByTestId("activity-list");
     const items = await within(list).findAllByRole("listitem");
     expect(items).toHaveLength(2);
-    expect(within(items[0]).queryByRole("button", { name: "Fix" })).not.toBeInTheDocument();
-    expect(within(items[0]).queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
-    expect(within(items[1]).queryByRole("button", { name: "Fix" })).not.toBeInTheDocument();
+    expect(within(items[0]).queryByRole("button", { name: "Actions" })).not.toBeInTheDocument();
+    expect(within(items[1]).queryByRole("button", { name: "Actions" })).not.toBeInTheDocument();
   });
 
   it("uses a currency select from the supported catalog instead of free text", async () => {
@@ -810,7 +812,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeFXConversion);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeFXConversion}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Account"), "brokerage-1");
     const currencies = within(form).getAllByLabelText("Currency");
     await userEvent.selectOptions(currencies[0], "USD");
@@ -828,7 +830,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeFXConversion);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeFXConversion}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Account"), "brokerage-1");
     await userEvent.type(within(form).getByLabelText("Sold"), "100");
     await userEvent.type(within(form).getByLabelText("Fee"), "1.50");
@@ -869,7 +871,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeTrade);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeTrade}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Settlement account"), "brokerage-1");
     await userEvent.selectOptions(within(form).getByLabelText("Side"), "sell");
     expect(within(form).queryByRole("button", { name: "Create instrument" })).not.toBeInTheDocument();
@@ -892,7 +894,7 @@ describe("HistoryPage", () => {
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
     const form = await screen.findByRole("form", { name: "Record change" });
-    await userEvent.selectOptions(within(form).getByLabelText("Type of change"), ChangeCommandKind.ChangeValueUpdate);
+    await userEvent.click(within(form).getByRole("radio", { name: i18n.t(`history.kind.${ChangeCommandKind.ChangeValueUpdate}`) }));
     await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
     expect(within(form).getByLabelText("New value")).toHaveValue("1000");
     expect(within(form).getByRole("button", { name: "Preview" })).toBeDisabled();
@@ -969,8 +971,7 @@ it("routes product activities to product management instead of generic fix or un
   listActivities.mockResolvedValue([{ id: "managed", kind: "cash_in", reason: "interest", effectiveLocalDate: "2026-09-22", effects: [], productContext: { productId: "deposit-1", operationId: "operation-1", purpose: "interest" } }]);
   renderPage();
   const list = await screen.findByTestId("activity-list");
-  expect(within(list).queryByRole("button", { name: "Fix" })).not.toBeInTheDocument();
-  expect(within(list).queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
+  expect(within(list).queryByRole("button", { name: "Actions" })).not.toBeInTheDocument();
   await userEvent.click(within(list).getByRole("button", { name: "Manage product operation" }));
   expect(await screen.findByTestId("managed-product")).toHaveTextContent("deposit-1");
   expect(previewFixChange).not.toHaveBeenCalled();

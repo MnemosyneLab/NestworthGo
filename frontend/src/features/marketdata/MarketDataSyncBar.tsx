@@ -100,13 +100,11 @@ export function MarketDataSyncBar({
           <Button onClick={onRefreshMissing} disabled={busy}>
             <RefreshCw className="size-4" aria-hidden="true" /> {latestRefreshing ? t("marketData.refreshing") : t("review.updateLatest")}
           </Button>
-          <Button variant="outline" onClick={openPreview} disabled={busy}>
-            <RefreshCw className="size-4" aria-hidden="true" /> {preview.isPending ? t("common.pending") : t("review.syncRepair")}
-          </Button>
           <Popover open={moreOpen} onOpenChange={setMoreOpen}>
-            <PopoverTrigger render={<Button variant="outline" disabled={busy} />}>{t("review.moreActions")}</PopoverTrigger>
-            <PopoverContent>
-              <Button variant="ghost" onClick={() => { setMoreOpen(false); onRefreshAll(); }} disabled={busy}>{t("marketData.forceRefreshAll")}</Button>
+            <PopoverTrigger render={<Button variant="outline" disabled={busy} />}>{preview.isPending ? t("common.pending") : t("review.moreActions")}</PopoverTrigger>
+            <PopoverContent className="flex min-w-48 flex-col gap-1">
+              <Button variant="ghost" className="justify-start" onClick={() => { setMoreOpen(false); openPreview(); }} disabled={busy}>{t("review.syncRepair")}</Button>
+              <Button variant="ghost" className="justify-start" onClick={() => { setMoreOpen(false); onRefreshAll(); }} disabled={busy}>{t("marketData.forceRefreshAll")}</Button>
             </PopoverContent>
           </Popover>
           {latestRefreshing && <Button type="button" variant="outline" onClick={onCancelLatest}>{t("marketData.cancelRefresh")}</Button>}
@@ -168,6 +166,7 @@ export function MarketDataSyncBar({
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
+              className="size-4 rounded accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
               checked={forceRecheck}
               onChange={(event) => {
                 const next = event.target.checked;

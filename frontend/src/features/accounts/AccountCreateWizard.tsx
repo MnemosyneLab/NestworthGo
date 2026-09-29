@@ -25,6 +25,9 @@ import {
 } from "@/features/accounts/accountCatalog";
 import { ACCOUNT_TYPE_ICONS, INSTITUTION_TYPE_ICONS } from "@/lib/defaultIcons";
 import { EntityIcon } from "@/components/icons/EntityIcon";
+import { Stepper } from "@/components/ui/stepper";
+import { OwnershipFields } from "@/features/accounts/OwnershipFields";
+import { accountTypeStyle, TONE_CLASSES } from "@/lib/tone";
 import { EntitySelect } from "@/components/forms/EntitySelect";
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
 
@@ -251,14 +254,19 @@ export function AccountCreateWizard({
       <button
         key={type}
         type="button"
-        className={`rounded-md border px-3 py-2 text-left text-sm ${selected ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border"}`}
+        className={`flex items-start gap-3 rounded-2xl border p-3 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${selected ? "border-primary bg-primary/8 ring-1 ring-primary/30" : "border-border bg-card hover:border-primary/40 hover:bg-primary/5"}`}
         aria-label={displayEnum(t, "enum", type)}
         aria-pressed={selected}
         onClick={() => applyType(type)}
       >
-        <span className="flex items-center gap-2 font-medium"><EntityIcon iconKey={ACCOUNT_TYPE_ICONS[type]} kind="account" />{displayEnum(t, "enum", type)}</span>
-        <span className="mt-1 block text-xs text-muted-foreground">
-          {t("accounts.supportedTrackingMethods", { methods })}
+        <span aria-hidden="true" className={`inline-flex size-10 shrink-0 items-center justify-center rounded-xl [&_svg]:size-5 ${TONE_CLASSES[accountTypeStyle(type).tone].soft} ${TONE_CLASSES[accountTypeStyle(type).tone].text}`}>
+          <EntityIcon iconKey={ACCOUNT_TYPE_ICONS[type]} kind="account" />
+        </span>
+        <span className="min-w-0">
+          <span className="block font-semibold">{displayEnum(t, "enum", type)}</span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            {t("accounts.supportedTrackingMethods", { methods })}
+          </span>
         </span>
       </button>
     );
@@ -266,6 +274,12 @@ export function AccountCreateWizard({
 
   return (
     <div className="flex flex-col gap-5" role="form" aria-label={t("accounts.wizardLabel")} data-testid={`account-wizard-${step}`}>
+      <Stepper
+        showLabels={false}
+        label={t("accounts.wizardLabel")}
+        steps={[t("accounts.stepInstitution"), t("accounts.stepType"), t("accounts.stepDetails"), t("accounts.stepReview")]}
+        current={step === "institution" ? 0 : step === "type" || step === "tracking" ? 1 : step === "details" ? 2 : 3}
+      />
       {step === "institution" && (
         <div className="flex flex-col gap-4">
           <div>
@@ -275,7 +289,7 @@ export function AccountCreateWizard({
           <div className="flex flex-col gap-2" role="listbox" aria-label={t("nav.institutions")}>
             <button
               type="button"
-              className={`rounded-md border px-3 py-2 text-left text-sm ${selectedInstitutionId === "" && !showNewInstitution ? "border-primary bg-primary/10" : "border-border"}`}
+              className={`rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${selectedInstitutionId === "" && !showNewInstitution ? "border-primary bg-primary/8 ring-1 ring-primary/30" : "border-border bg-card hover:border-primary/40"}`}
               aria-selected={selectedInstitutionId === "" && !showNewInstitution}
               onClick={() => {
                 setInstitutionTouched(true);
@@ -289,7 +303,7 @@ export function AccountCreateWizard({
               <button
                 key={institution.id}
                 type="button"
-                className={`rounded-md border px-3 py-2 text-left text-sm ${selectedInstitutionId === institution.id && !showNewInstitution ? "border-primary bg-primary/10" : "border-border"}`}
+                className={`rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition-colors ${selectedInstitutionId === institution.id && !showNewInstitution ? "border-primary bg-primary/8 ring-1 ring-primary/30" : "border-border bg-card hover:border-primary/40"}`}
                 aria-selected={selectedInstitutionId === institution.id && !showNewInstitution}
                 onClick={() => {
                   setInstitutionTouched(true);
@@ -450,41 +464,20 @@ export function AccountCreateWizard({
               <Input id="account-initial-amount" inputMode="decimal" value={initialAmount} onChange={(event) => setInitialAmount(event.target.value)} placeholder="0" />
             </div>
           )}
-          <fieldset className="flex flex-col gap-2">
-            <legend className="text-sm font-medium">{t("accounts.owner")}</legend>
-            <p className="text-xs text-muted-foreground">{t("accounts.ownershipHint")}</p>
-            {(members.data ?? []).map((member) => {
-              const index = ownerIds.indexOf(member.id);
-              const checked = index !== -1;
-              return (
-                <div key={member.id} className="flex items-center gap-2">
-                  <input type="checkbox" id={`wizard-owner-${member.id}`} checked={checked} onChange={() => toggleOwner(member.id)} className="size-4" />
-                  <Label htmlFor={`wizard-owner-${member.id}`} className="flex-1 font-normal">
-                    <span className="flex items-center gap-2"><EntityIcon iconKey={member.iconKey} kind="member" />{member.name}</span>
-                  </Label>
-                  {useCustomPercentages && checked && (
-                    <Input
-                      aria-label={t("accounts.ownershipPercentageFor", { name: member.name })}
-                      className="w-20"
-                      value={ownershipPercentages[index] ?? ""}
-                      onChange={(event) => {
-                        const next = [...ownershipPercentages];
-                        next[index] = event.target.value;
-                        setOwnershipPercentages(next);
-                      }}
-                      placeholder="%"
-                    />
-                  )}
-                </div>
-              );
-            })}
-            {ownerIds.length > 1 && (
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input type="checkbox" checked={useCustomPercentages} onChange={(event) => setUseCustomPercentages(event.target.checked)} />
-                {t("accounts.ownershipSharePlaceholder")}
-              </label>
-            )}
-          </fieldset>
+          <OwnershipFields
+            idPrefix="wizard-owner"
+            members={members.data ?? []}
+            ownerIds={ownerIds}
+            onToggleOwner={toggleOwner}
+            useCustomPercentages={useCustomPercentages}
+            onUseCustomPercentagesChange={setUseCustomPercentages}
+            percentages={ownershipPercentages}
+            onPercentageChange={(index, value) => {
+              const next = [...ownershipPercentages];
+              next[index] = value;
+              setOwnershipPercentages(next);
+            }}
+          />
           <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setShowMoreSettings((value) => !value)} aria-expanded={showMoreSettings}>
             {t("accounts.moreSettings")}
           </Button>

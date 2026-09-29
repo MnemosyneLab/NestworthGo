@@ -16,6 +16,7 @@ import { analysisRequest, effectiveRange, periodRange } from "@/features/insight
 import { addMonths, currentMonth, isFuture, isToday, lastClosedDate, monthDays, monthLabel, yearLabel, yearMonths } from "@/features/insights/calendar";
 import { addCanonical, formatAmount, multiplyCanonical } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { signToneClass } from "@/components/ui/money-text";
 import { useHistoryOrigin } from "@/queries/history";
 import { useSettings } from "@/queries/settings";
 import { useInstruments } from "@/queries/investments";
@@ -145,22 +146,26 @@ function Summary({ data }: { data: ReturnCalendarDTO }) {
       <CardContent className="grid grid-cols-2 gap-3 px-4 pb-3 sm:grid-cols-4">
         <div>
           <p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p>
-          <p className="text-lg font-semibold">{amountText(summary.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p>
+          <p className={cn("num text-lg font-semibold", signToneClass(summary.returnAmount?.amount))}>{amountText(summary.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p>
         </div>
         <div>
           <p className="text-sm text-muted-foreground">{t("insights.returnRate")}</p>
-          <p className="text-lg font-semibold" title={partial ? t("insights.rateCoverageHint") : undefined}>{rateText(summary.returnRate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p>
+          <p className={cn("num text-lg font-semibold", signToneClass(summary.returnRate))} title={partial ? t("insights.rateCoverageHint") : undefined}>{rateText(summary.returnRate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p>
         </div>
 
-        <SummaryValue label={t("insights.beginning")} value={amountText(summary.beginningInvestedValue)} />
-        <SummaryValue label={t("insights.ending")} value={amountText(summary.endingInvestedValue)} />
+        <SummaryValue label={t("insights.beginning")} value={balanceText(summary.beginningInvestedValue)} />
+        <SummaryValue label={t("insights.ending")} value={balanceText(summary.endingInvestedValue)} />
       </CardContent>
     </Card>
   );
 }
 
 function SummaryValue({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-1 font-medium">{value}</p></div>;
+  return <div><p className="text-sm text-muted-foreground">{label}</p><p className="num text-lg font-semibold">{value}</p></div>;
+}
+
+function balanceText(value?: { amount: string; currency: string } | null): string {
+  return value ? formatAmount(value.amount, value.currency) : "—";
 }
 
 function CompositionList({ values, title }: { values: ReturnComponentAmountDTO[] | null | undefined; title: string }) {
@@ -200,7 +205,7 @@ function ContributorList({ values, title, instrumentNames = new Map() }: { value
   return <div className="mt-3 border-t border-border pt-3"><p className="mb-2 text-sm font-medium">{title}</p><ul className="flex flex-col gap-2 text-sm">{values.slice(0, 5).map((item) => <li key={item.key} className="flex justify-between gap-3"><span className="truncate">{contributorLabel(t, item, instrumentNames)}</span><span className="shrink-0">{amountText(item.amount)}</span></li>)}</ul></div>;
 }
 
-function DayCell({ day, date, inMonth, timeZone, onOpen, selected = false }: { selected?: boolean; day?: ReturnDayDTO; date: string; inMonth: boolean; timeZone?: string; onOpen: (date: string) => void }) {
+function DayCell({ day, date, inMonth, timeZone, onOpen, selected = false, column = 0, row = 0 }: { column?: number; row?: number; selected?: boolean; day?: ReturnDayDTO; date: string; inMonth: boolean; timeZone?: string; onOpen: (date: string) => void }) {
   const { t } = useTranslation();
   const future = isFuture(date, timeZone);
   const today = isToday(date, timeZone);
@@ -211,13 +216,13 @@ function DayCell({ day, date, inMonth, timeZone, onOpen, selected = false }: { s
   const amountPartial = day?.amountStatus === "partial";
   const amountUnavailable = day?.amountStatus === "unavailable";
   return (
-    <div data-testid={`return-day-${date}`} data-selected={selected || undefined} className={cn("data-[selected=true]:ring-2 data-[selected=true]:ring-primary/40 group relative min-h-28 rounded-lg border border-border p-2 transition-colors", !inMonth && "border-transparent bg-muted/20 opacity-45", inMonth && hasData && !today && amount >= 0.005 && "bg-success/8", inMonth && hasData && !today && amount <= -0.005 && "bg-destructive/7", (future || today) && "opacity-60")}>
+    <div data-testid={`return-day-${date}`} data-selected={selected || undefined} className={cn("data-[selected=true]:ring-2 data-[selected=true]:ring-primary/40 group relative min-h-28 rounded-xl border border-border p-2 transition-colors hover:border-primary/40", !inMonth && "border-transparent bg-muted/20 opacity-45", inMonth && hasData && !today && amount >= 0.005 && "bg-gain-positive/14", inMonth && hasData && !today && amount <= -0.005 && "bg-gain-negative/14", (future || today) && "opacity-60")}>
       <button type="button" disabled={!inMonth || future || today || !day} onClick={() => onOpen(date)} className="flex min-h-24 w-full flex-col items-start gap-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
         <span className="flex w-full items-center justify-between text-xs font-medium"><span>{Number(date.slice(-2))}</span>{today && <span className="text-[0.65rem] text-muted-foreground">{t("insights.today")}</span>}</span>
-        {day && showData ? <><span className="mt-2 text-sm font-semibold" title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</span></> : <span className="mt-2 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span>}
+        {day && showData ? <><span className={cn("num mt-2 text-sm font-semibold", (day.returnRate ?? "").startsWith("-") ? "text-gain-negative" : amount > 0 && "text-gain-positive")} title={partial ? `${t("insights.partial")} ${coverageLabel(day.ratedDays, day.totalDays)}` : undefined}>{rateText(day.returnRate)}{partial && <sup className="ml-0.5 text-warning-foreground">◇</sup>}</span><span className="text-xs text-muted-foreground">{amountText(day.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</span></> : <span className="mt-2 text-xs text-muted-foreground">{today ? t("insights.todayMuted") : future ? "—" : t("insights.noData")}</span>}
       </button>
       {day && showData && day.composition && day.composition.length > 0 && (
-        <div className="pointer-events-none invisible absolute left-2 top-full z-20 mt-1 w-64 rounded-lg border border-border bg-card p-3 text-xs shadow-lg group-hover:visible group-focus-within:visible">
+        <div className={cn("pointer-events-none invisible absolute z-20 w-64 max-w-[calc(100vw-3rem)] rounded-xl border border-border bg-card p-3 text-xs shadow-lg group-hover:visible group-focus-within:visible", column >= 4 ? "right-2" : "left-2", row >= 3 ? "bottom-full mb-1" : "top-full mt-1")}>
           <p className="font-medium">{date}</p>
           <p className="mt-1 text-muted-foreground">{t("insights.returnAmount")}: {amountText(day.returnAmount)}</p>
           <CompositionList values={day.composition} title={t("insights.composition")} />
@@ -232,7 +237,7 @@ function MonthGrid({ data, month, timeZone, weekStartsOn, onOpen, selection }: {
   const cells = useMemo(() => new Map((data?.cells ?? []).map((day) => [day.date, day])), [data?.cells]);
   const firstWeekday = new Date(2024, 0, weekStartsOn === 0 ? 7 : 1);
   const weekdays = Array.from({ length: 7 }, (_, index) => { const date = new Date(firstWeekday); date.setDate(firstWeekday.getDate() + index); return date.toLocaleDateString(i18n.language, { weekday: "short" }); });
-  return <div className="grid grid-cols-7 gap-1.5">{weekdays.map((day) => <div key={day} className="px-2 py-1 text-center text-xs font-medium text-muted-foreground">{day}</div>)}{monthDays(month, weekStartsOn).map((cell) => <DayCell key={cell.date} selected={Boolean(selection?.from && selection?.to && cell.date >= selection.from && cell.date <= selection.to)} {...cell} day={cells.get(cell.date)} timeZone={timeZone} onOpen={onOpen} />)}</div>;
+  return <div className="grid grid-cols-7 gap-1.5">{weekdays.map((day) => <div key={day} className="px-2 py-1 text-center text-xs font-medium text-muted-foreground">{day}</div>)}{monthDays(month, weekStartsOn).map((cell, index) => <DayCell key={cell.date} column={index % 7} row={Math.floor(index / 7)} selected={Boolean(selection?.from && selection?.to && cell.date >= selection.from && cell.date <= selection.to)} {...cell} day={cells.get(cell.date)} timeZone={timeZone} onOpen={onOpen} />)}</div>;
 }
 
 function YearGrid({ dataByMonth, year, onOpenMonth }: { dataByMonth: Map<string, MonthReturnSummary>; year: number; onOpenMonth: (month: string) => void }) {
@@ -254,7 +259,7 @@ function DayDetails({ data, date, session, onAssetChanges }: { data: ReturnDayDT
   const amountPartial = data.amountStatus === "partial";
   const amountUnavailable = data.amountStatus === "unavailable";
   const openAssetChanges = () => onAssetChanges?.({ scope: session.scope, scopeId: session.scopeId, valuation: session.valuation, includeCash: session.includeCash, from: date, to: date, moreFilters: session.moreFilters });
-  return <div className="flex flex-col gap-4 overflow-y-auto"><div><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
+  return <div className="flex flex-col gap-4 overflow-y-auto"><div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.returnAmount)}{(amountPartial || amountUnavailable) && <><sup className="ml-1 text-warning-foreground" title={t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}>◇</sup><span className="sr-only">{t(amountPartial ? "insights.amountPartial" : "insights.amountUnavailable")}</span></>}</p><p className="text-sm text-muted-foreground">{rateText(data.returnRate)}{data.ratedDays < data.totalDays && ` ◇ ${coverageLabel(data.ratedDays, data.totalDays)}`}</p></div><CompositionList values={data.composition} title={t("insights.composition")} /><ContributorList values={data.contributors} title={t("insights.contributors")} instrumentNames={instrumentNames} />{data.issues?.length ? <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">{data.issues.map((issue) => <p key={`${issue.date}-${issue.status}`}>{analysisReason(t, issue.missingReason) ?? issue.status}</p>)}</div> : null}<Button type="button" variant="outline" disabled={!onAssetChanges} onClick={openAssetChanges}>{t("insights.viewAssetChanges")}</Button></div>;
 }
 
 export { aggregateMonth, aggregateYearMonths };
@@ -294,7 +299,7 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   const yearData = useMemo(() => aggregateYearMonths(data, year), [data, year]);
 
   const move = (amount: number) => onCursorChange(view === "year" ? `${year + amount}-01` : addMonths(visibleMonth, amount));
-  const header = <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="icon" aria-label={t("insights.previous")} onClick={() => move(-1)}><ChevronLeft aria-hidden="true" /></Button><h2 className="min-w-44 text-center text-lg font-semibold">{view === "year" ? yearLabel(year, i18n.language) : monthLabel(visibleMonth, i18n.language)}</h2><Button type="button" variant="outline" size="icon" aria-label={t("insights.next")} onClick={() => move(1)}><ChevronRight aria-hidden="true" /></Button><Button type="button" variant="ghost" onClick={() => onCursorChange(currentMonth(timeZone))}>{t("insights.today")}</Button></div><div className="flex items-center gap-1 rounded-lg bg-muted p-1"><Button type="button" size="sm" variant={view === "month" ? "default" : "ghost"} onClick={() => setView("month")}>{t("insights.month")}</Button><Button type="button" size="sm" variant={view === "year" ? "default" : "ghost"} onClick={() => setView("year")}>{t("insights.year")}</Button></div></div>;
+  const header = <div className="flex flex-wrap items-center justify-between gap-3"><div className="flex items-center gap-2"><Button type="button" variant="outline" size="icon" aria-label={t("insights.previous")} onClick={() => move(-1)}><ChevronLeft aria-hidden="true" /></Button><h2 className="min-w-44 text-center text-lg font-semibold">{view === "year" ? yearLabel(year, i18n.language) : monthLabel(visibleMonth, i18n.language)}</h2><Button type="button" variant="outline" size="icon" aria-label={t("insights.next")} onClick={() => move(1)}><ChevronRight aria-hidden="true" /></Button><Button type="button" variant="ghost" onClick={() => onCursorChange(currentMonth(timeZone))}>{t("insights.today")}</Button></div><div className="flex items-center gap-1 rounded-full bg-muted p-1"><Button type="button" size="sm" variant={view === "month" ? "default" : "ghost"} aria-pressed={view === "month"} onClick={() => setView("month")}>{t("insights.month")}</Button><Button type="button" size="sm" variant={view === "year" ? "default" : "ghost"} aria-pressed={view === "year"} onClick={() => setView("year")}>{t("insights.year")}</Button></div></div>;
   let content: ReactNode;
   if (loading) {
     content = <LoadingState label={t("insights.loading")} />;

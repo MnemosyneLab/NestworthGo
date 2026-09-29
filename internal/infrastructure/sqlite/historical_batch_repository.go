@@ -42,6 +42,10 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	if err != nil {
 		return fail(err)
 	}
+	zeroBaselines, err := listZeroAccountBaselines(ctx, tx, householdID, origin.StartedAt)
+	if err != nil {
+		return fail(err)
+	}
 	accountObservations, err := listAccountStateObservationsQuery(ctx, tx, householdID)
 	if err != nil {
 		return fail(err)
@@ -101,6 +105,7 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 		return domain.HistoricalSnapshotBatch{}, err
 	}
 	return domain.HistoricalSnapshotBatch{
+		ZeroAccountBaselines:           zeroBaselines,
 		Origin:                         origin,
 		OriginData:                     originData,
 		Portfolio:                      portfolio,
@@ -119,4 +124,44 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 		InputGeneration:                generation,
 		ResolverPolicyVersion:          resolverPolicy.String,
 	}, nil
+}
+
+// Only explicit zero baselines can seed post-origin accounts. Nonzero initial
+// funding is already represented by activities; replay projections are not facts.
+func listZeroAccountBaselines(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, origin time.Time) ([]domain.AccountValue, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT av.account_id, av.currency, av.effective_at
+ FROM account_values av JOIN accounts a ON a.id = av.account_id
+ WHERE a.household_id = ? AND a.created_at >= ?
+ AND av.projection_kind = 'baseline' AND av.activity_effect_id IS NULL AND av.amount = '0'
+ AND NOT EXISTS (SELECT 1 FROM account_values earlier WHERE earlier.account_id = av.account_id
+ AND (earlier.created_at < av.created_at OR (earlier.created_at = av.created_at AND earlier.id < av.id)))`, householdID.String(), origin.UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []domain.AccountValue
+	for rows.Next() {
+		var accountID, currency, effectiveAt string
+		if err := rows.Scan(&accountID, &currency, &effectiveAt); err != nil {
+			return nil, err
+		}
+		id, err := domain.ParseAccountID(accountID)
+		if err != nil {
+			return nil, err
+		}
+		code, err := domain.ParseCurrency(currency)
+		if err != nil {
+			return nil, err
+		}
+		amount, err := domain.ParseMoney("0", code)
+		if err != nil {
+			return nil, err
+		}
+		effective, err := time.Parse(time.RFC3339Nano, effectiveAt)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, domain.AccountValue{AccountID: id, Amount: amount, EffectiveAt: effective})
+	}
+	return result, rows.Err()
 }

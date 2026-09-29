@@ -87,6 +87,13 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 			}
 		}
 	}
+	// Preserve a recorded zero at creation without treating missing balances as
+	// zero or importing today's value into a closed day. Apply activities after it.
+	for _, baseline := range batch.ZeroAccountBaselines {
+		if _, present := values[baseline.AccountID]; !present && !baseline.EffectiveAt.After(cutoff) {
+			values[baseline.AccountID] = baseline.Amount
+		}
+	}
 	for _, activity := range activities {
 		for _, effect := range activity.Effects {
 			if effect.Money != nil && effect.AccountID != nil {

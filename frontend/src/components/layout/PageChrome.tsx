@@ -34,8 +34,8 @@ export function PageChrome({
   const context = useContext(PageChromeContext);
   const content = (
     <>
-      {title !== undefined && <h1 className="min-w-0 truncate text-base font-semibold tracking-tight text-foreground">{title}</h1>}
-      {actions && <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div>}
+      {title !== undefined && <h1 className="min-w-0 max-w-full truncate text-base font-semibold tracking-tight text-foreground">{title}</h1>}
+      {actions && <div className="flex max-w-full flex-wrap items-center gap-2">{actions}</div>}
     </>
   );
 

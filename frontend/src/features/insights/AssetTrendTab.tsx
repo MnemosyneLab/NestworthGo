@@ -1,5 +1,4 @@
 import { AssetValueSummary } from "./AssetValueSummary";
-import { chartTheme } from "@/components/charts/chartTheme";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,12 +74,12 @@ export function AssetTrendTab({ session }: { session: AnalysisSessionState }) {
           <div className="flex flex-wrap items-center gap-3"><CardTitle>{metricLabel(t, metric)}{metric !== "return_rate" && currency ? ` · ${currency}` : ""}</CardTitle>{toolbar}</div>
           <AvailabilityMarks status={data.status} missingReason={data.missingReason} valuationForced={data.valuationForced} ratedDays={data.ratedDays} totalDays={data.totalDays} />
         </CardHeader>
-        <CardContent>{dates.length === 0 || values.every((value) => value == null) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: chartTheme().primary, values }]} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => `${(Number(value) * 100).toFixed(1)}%` : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
+        <CardContent>{dates.length === 0 || values.every((value) => value == null) ? <EmptyState title={t("charts.insufficientHistory")} /> : <TrendChart ariaLabel={metricLabel(t, metric)} summary={t("insights.assetTrendChartSummary")} dates={dates} series={[{ key: metric, name: metricLabel(t, metric), color: "var(--color-primary)", values }]} height={280} currency={currency} axisValueFormatter={metric === "return_rate" ? (value) => `${(Number(value) * 100).toFixed(1)}%` : undefined} valueFormatter={chartValueText} emptyTitle={t("charts.insufficientHistory")} />}</CardContent>
       </Card>
       {!data.valueChange && <Card>
         <CardContent className="pt-6">
           <div>
-            <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.periodValue")}</p>
+            <p className="text-sm text-muted-foreground">{t("insights.periodValue")}</p>
             <p className="mt-1 text-2xl font-semibold">{metric === "return_rate" ? rateText(data.rate) : amountText(data.summary)}</p>
             {metric === "return_rate" && <p className="mt-1 text-sm text-muted-foreground">{t("insights.coverage")}: {data.ratedDays}/{data.totalDays}</p>}
           </div>

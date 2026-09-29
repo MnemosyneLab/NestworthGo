@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
+import { notifyThemeChange } from "@/components/charts/chartTheme";
 
 function systemPrefersDark(): boolean {
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches ?? false;
@@ -9,6 +10,7 @@ function applyThemeClass(appearance: Appearance, accent: Accent) {
   const isDark = appearance === "dark" || (appearance === "system" && systemPrefersDark());
   document.documentElement.classList.toggle("dark", isDark);
   document.documentElement.setAttribute("data-accent", accent);
+  notifyThemeChange();
 }
 
 /**

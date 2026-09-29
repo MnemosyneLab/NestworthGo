@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ActionMenu } from "@/components/ui/action-menu";
+import { MoneyText } from "@/components/ui/money-text";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetHeader, SheetFooter, SheetTitle } from "@/components/ui/sheet";
 import { PageIntro } from "@/components/layout/PageHeader";
@@ -132,8 +134,8 @@ function ComponentAmounts({
   const showHousehold = Boolean(householdAmount && component.nativeCurrency !== householdCurrency);
   return (
     <span className="flex flex-col items-end">
-      <span>{native}</span>
-      {showHousehold && <span className="text-xs font-normal text-muted-foreground">{householdAmount}</span>}
+      <span className="num font-semibold">{native}</span>
+      {showHousehold && <span className="num text-xs font-normal text-muted-foreground">{householdAmount}</span>}
     </span>
   );
 }
@@ -247,7 +249,7 @@ export function AccountDetail({
         description={`${institutionLabel} · ${displayEnum(t, "enum", record.account.accountType)}`}
         status={
           <>
-            <p className="text-2xl font-semibold tracking-tight">{titleAmount}</p>
+            <MoneyText size="lg" className="tracking-tight">{titleAmount}</MoneyText>
             {titleSecondary && <p className="text-sm text-muted-foreground">{titleSecondary}</p>}
             <Badge variant={valuation?.complete ? "success" : "warning"}>{completeness}</Badge>
             {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}
@@ -261,7 +263,7 @@ export function AccountDetail({
         {record.account.includeInNetWorth ? t("accounts.includedInNetWorth") : t("accounts.excludedFromNetWorth")}
       </p>
       {archived && (
-        <p role="status" className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+        <p role="status" className="rounded-xl border border-border bg-muted/60 px-4 py-2.5 text-sm">
           {t("accounts.archivedReadOnly")}
         </p>
       )}
@@ -332,12 +334,13 @@ export function AccountDetail({
                   <Button type="button" variant="outline" onClick={() => setAction("deposit")}>
                     {t("accounts.depositOrWithdraw")}
                   </Button>
-                  <Button type="button" variant="outline" onClick={() => setAction("fx")}>
-                    {t("accounts.convert")}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={() => setAction("transfer")}>
-                    {t("accounts.transfer")}
-                  </Button>
+                  <ActionMenu
+                    label={t("review.moreActions")}
+                    items={[
+                      { id: "fx", label: t("accounts.convert"), onSelect: () => setAction("fx") },
+                      { id: "transfer", label: t("accounts.transfer"), onSelect: () => setAction("transfer") },
+                    ]}
+                  />
                 </div>
               )}
             </CardContent>
@@ -356,8 +359,8 @@ export function AccountDetail({
                     <tr className="border-b border-border text-muted-foreground">
                       <th className="py-2 font-medium">{t("history.instrument")}</th>
                       <th className="py-2 font-medium">{t("accounts.instrumentType")}</th>
-                      <th className="py-2 font-medium">{t("accounts.quantity")}</th>
-                      <th className="py-2 font-medium">{t("accounts.marketValue")}</th>
+                      <th className="py-2 text-right font-medium">{t("accounts.quantity")}</th>
+                      <th className="py-2 text-right font-medium">{t("accounts.marketValue")}</th>
                       <th className="py-2 text-right font-medium">{t("connections.actions")}</th>
                     </tr>
                   </thead>
@@ -368,8 +371,8 @@ export function AccountDetail({
                           <InstrumentLabel name={row.instrumentName} symbol={row.instrumentSymbol} fallback={row.instrumentName} />
                         </td>
                         <td className="py-2">{row.instrumentType ? displayEnum(t, "enum", row.instrumentType) : t("accounts.noValue")}</td>
-                        <td className="py-2">{row.instrumentType === "bank_investment_product" ? `${formatAmount(row.holding.quantity)} ${t("common.units")}` : `${formatAmount(row.holding.quantity)} ${metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}`}</td>
-                        <td className="py-2">
+                        <td className="num py-2 text-right">{row.instrumentType === "bank_investment_product" ? `${formatAmount(row.holding.quantity)} ${t("common.units")}` : `${formatAmount(row.holding.quantity)} ${metalUnitLabel(instruments.data?.find((instrument) => instrument.id === row.holding.instrumentId)?.quantityUnit, t)}`}</td>
+                        <td className="py-2 text-right">
                           {row.component?.available && row.component.nativeAmount ? (
                             <ComponentAmounts
                               component={row.component}
@@ -435,16 +438,16 @@ export function AccountDetail({
           <CardHeader><CardTitle>{t("accounts.cashHistory")}</CardTitle></CardHeader>
           <CardContent>
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[56rem] text-left text-sm">
+              <table className="w-full text-left text-sm">
                 <caption className="sr-only">{t("accounts.cashHistory")}</caption>
                 <thead>
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryType")}</th>
                     <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryChange")}</th>
                     <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryBalance")}</th>
-                    <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryCurrency")}</th>
+                    <th className="hidden py-2 pr-4 font-medium md:table-cell">{t("accounts.cashHistoryCurrency")}</th>
                     <th className="py-2 pr-4 font-medium">{t("accounts.cashHistoryEffectiveAt")}</th>
-                    <th className="py-2 font-medium">{t("accounts.cashHistoryRecordedAt")}</th>
+                    <th className="hidden py-2 font-medium lg:table-cell">{t("accounts.cashHistoryRecordedAt")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -457,13 +460,13 @@ export function AccountDetail({
                           {value.activityNote && <span className="truncate text-xs text-muted-foreground" title={value.activityNote}>{value.activityNote}</span>}
                         </div>
                       </td>
-                      <td className="py-2 pr-4 font-medium">{cashChangeLabel(value)}</td>
-                      <td className="py-2 pr-4 font-medium">{formatAmount(value.amount.amount, value.amount.currency)}</td>
-                      <td className="py-2 pr-4">{value.amount.currency}</td>
+                      <td className="num py-2 pr-4 font-medium">{cashChangeLabel(value)}</td>
+                      <td className="num py-2 pr-4 font-medium">{formatAmount(value.amount.amount, value.amount.currency)}</td>
+                      <td className="hidden py-2 pr-4 md:table-cell">{value.amount.currency}</td>
                       <td className="py-2 pr-4">
                         <time dateTime={value.effectiveAt}>{formatTimestamp(value.effectiveAt, settings.data?.timezone, i18n.language)}</time>
                       </td>
-                      <td className="py-2 text-muted-foreground">
+                      <td className="hidden py-2 text-muted-foreground lg:table-cell">
                         <time dateTime={value.createdAt}>{formatTimestamp(value.createdAt, settings.data?.timezone, i18n.language)}</time>
                       </td>
                     </tr>
@@ -520,11 +523,11 @@ export function AccountDetail({
           if (open) setSettingsError(undefined);
         }}
       >
-        <SheetContent>
+        <SheetContent size="lg">
           <SheetHeader className="shrink-0">
             <SheetTitle>{t("accounts.settings")}</SheetTitle>
           </SheetHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div>
             {archived ? (
               <p className="text-sm text-muted-foreground">{t("accounts.archivedReadOnly")}</p>
             ) : (

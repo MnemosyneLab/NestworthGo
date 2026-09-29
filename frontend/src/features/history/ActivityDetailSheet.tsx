@@ -77,20 +77,20 @@ function ActivityDetailBody({
   const firstMoney = effects.find((effect) => effect.money);
 
   return (
-    <div className="flex flex-col gap-4 text-sm">
+    <div className="num flex flex-col gap-4 text-sm">
       <p><span className="text-muted-foreground">{t("history.detailKind")}</span><span className="ml-2">{product?.label ?? displayEnum(t, "history.kind", activity.kind)}</span></p>
       <p><span className="text-muted-foreground">{t("history.detailLocalDateTime")}</span><span className="ml-2">{formatTimestamp(activity.effectiveAt, timezone)}</span></p>
       {timezone && <p><span className="text-muted-foreground">{t("history.detailTimezone")}</span><span className="ml-2">{timezone}</span></p>}
       <p><span className="text-muted-foreground">{t("history.detailSentence")}</span><span className="ml-2">{sentence}</span></p>
 
-      {product && <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+      {product && <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
         <p>{t("history.detailAccount")}: {product.account}</p>
         <p>{t("history.detailInstrument")}: {product.instrument}</p>
         {product.showAmount && <p>{product.amountLabel}: {product.amount}</p>}
         {detail?.fee && !activity.reversesActivityId && <p>{t("history.fee")}: {moneyText(detail.fee.amount, detail.fee.currency)}</p>}
       </div>}
       {!product && (activity.kind === "buy" || activity.kind === "sell") && (
-        <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailAccount")}: {accountName(t, principal, accounts)}</p>
           <p>{t("history.detailInstrument")}: {(detail?.instrumentId ? instruments.get(detail.instrumentId) : undefined) ?? t("history.unknownInstrument")}</p>
           <p>{t("history.detailSide")}: {displayEnum(t, "history", detail?.side ?? activity.kind)}</p>
@@ -101,28 +101,28 @@ function ActivityDetailBody({
         </div>
       )}
       {!product && (activity.kind === "cash_in" || activity.kind === "cash_out") && (
-        <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailAccount")}: {accountName(t, firstMoney, accounts)}</p>
           {firstMoney?.money && <p>{t("history.amount")}: {moneyText(firstMoney.money.amount, firstMoney.money.currency)}</p>}
           {activity.reason && <p>{t("history.reasonLabel")}: {displayEnum(t, "history.reason", activity.reason)}</p>}
         </div>
       )}
       {!product && activity.kind === "cash_dividend" && (
-        <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailAccount")}: {accountName(t, effects[0], accounts)}</p>
           <p>{t("history.detailInstrument")}: {(activity.dividendDetail?.instrumentId ? instruments.get(activity.dividendDetail.instrumentId) : undefined) ?? t("history.unknownInstrument")}</p>
           {activity.dividendDetail?.amount && <p>{t("history.amount")}: {moneyText(activity.dividendDetail.amount.amount, activity.dividendDetail.amount.currency)}</p>}
         </div>
       )}
       {activity.kind === "cash_transfer" && (
-        <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailFrom")}: {accountName(t, from, accounts)} {from?.money ? moneyText(from.money.amount, from.money.currency) : ""}</p>
           <p>{t("history.detailTo")}: {accountName(t, to, accounts)} {to?.money ? moneyText(to.money.amount, to.money.currency) : ""}</p>
           {fee?.money && <p>{t("history.fee")}: {moneyText(fee.money.amount, fee.money.currency)}</p>}
         </div>
       )}
       {activity.kind === "fx_conversion" && (
-        <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailSold")}: {from?.money ? moneyText(from.money.amount, from.money.currency) : ""}</p>
           <p>{t("history.detailBought")}: {to?.money ? moneyText(to.money.amount, to.money.currency) : ""}</p>
           {activity.transactionFxRate && <p>{t("history.detailRate")}: {activity.transactionFxRate}</p>}
@@ -130,7 +130,7 @@ function ActivityDetailBody({
         </div>
       )}
       {!product && activity.kind === "position_transfer" && (
-        <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailChangeType")}: {t(from && to ? "history.detailPositionTransfer" : "history.detailPositionAdjustment")}</p>
           {from && to ? (
             <>
@@ -148,7 +148,7 @@ function ActivityDetailBody({
         </div>
       )}
       {(activity.kind === "debt_draw" || activity.kind === "debt_payment") && (
-        <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailDebtAccount")}: {accountName(t, debt, accounts)}</p>
           <p>{t("history.detailCashAccount")}: {accountName(t, principal, accounts)}</p>
           {principal?.money && <p>{t("history.detailPrincipal")}: {moneyText(principal.money.amount, principal.money.currency)}</p>}
@@ -156,14 +156,14 @@ function ActivityDetailBody({
         </div>
       )}
       {activity.kind === "value_update" && (
-        <div className="flex flex-col gap-1 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailAccount")}: {accountName(t, effects[0], accounts)}</p>
           {effects[0]?.money && <p>{t("history.detailDelta")}: {moneyText(effects[0].money.amount, effects[0].money.currency)}</p>}
           {activity.reason && <p>{t("history.reasonLabel")}: {displayEnum(t, "history.reason", activity.reason)}</p>}
         </div>
       )}
       {activity.kind === "reversal" && (
-        <div className="flex flex-col gap-2 rounded-md border border-border p-3">
+        <div className="flex flex-col gap-2 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailOriginalActivity")}: {originalActivityLoading ? t("history.detailOriginalActivityLoading") : originalActivity ? activitySentence(t, originalActivity, accounts, instruments, holdings) : t("history.detailOriginalActivityUnavailable")}</p>
           <p>{t("history.detailReversalDirection")}: {t("history.detailOppositeDirection")}</p>
           <div>
@@ -175,7 +175,7 @@ function ActivityDetailBody({
         </div>
       )}
       {!SPECIALIZED_KINDS.has(activity.kind) && (
-        <ul className="flex list-disc flex-col gap-1 rounded-md border border-border p-3 pl-8">
+        <ul className="flex list-disc flex-col gap-1 rounded-2xl bg-muted/50 p-4 pl-9">
           {effects.map((effect, index) => <li key={effect.id || index}>{effectLine(t, effect, accounts, instruments, holdings)}</li>)}
         </ul>
       )}
@@ -203,9 +203,9 @@ export function ActivityDetailSheet({
 }) {
   return (
     <Sheet open={activity !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent>
+      <SheetContent size="lg">
         <SheetHeader><SheetTitle>{t("common.details")}</SheetTitle></SheetHeader>
-        <div className="overflow-y-auto">
+        <div>
           {activity && <ActivityDetailBody activity={activity} originalActivity={originalActivity} originalActivityLoading={originalActivityLoading} timezone={timezone} accounts={accounts} instruments={instruments} holdings={holdings} t={t} />}
         </div>
       </SheetContent>

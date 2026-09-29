@@ -17,6 +17,7 @@ import { useMarketDataHealth } from "@/queries/marketdata";
 import { useAccounts } from "@/queries/accounts";
 import { useMarketDataSyncActions } from "@/features/marketdata/MarketDataSyncBar";
 import type { HealthIssueDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
+import { healthIssueLabel } from "./healthIssueLabel";
 
 export function focusedHealthIssues(issues: HealthIssueDTO[] = [], focus?: HealthFocus): HealthIssueDTO[] {
   return issues.filter(issue => {
@@ -34,6 +35,13 @@ export function focusedHealthIssues(issues: HealthIssueDTO[] = [], focus?: Healt
       (!focus.rangeEnd || !issue.rangeStart || issue.rangeStart <= focus.rangeEnd);
   });
 }
+
+// Severity is also spelled out in text (action/reason), so color only reinforces it.
+const SEVERITY_BORDER: Record<string, string> = {
+  blocking: "border-destructive",
+  warning: "border-warning",
+  info: "border-data-remote",
+};
 
 type DisplayHealthIssue = HealthIssueDTO & { combined?: boolean };
 
@@ -73,12 +81,6 @@ function groupIssues(issues: HealthIssueDTO[]): { kind: string; items: DisplayHe
     groups.set(issue.kind, items);
   }
   return [...groups.entries()].map(([kind, items]) => ({ kind, count: items.length, items: kind === "snapshot_incomplete" ? compactSnapshotIssues(items) : items }));
-}
-
-function healthIssueLabel(t: (key: string, options?: Record<string, unknown>) => string, issue: HealthIssueDTO, accountNames: Record<string, string>): string {
-  const label = issue.label || (issue.currencyA ? [issue.currencyA, issue.currencyB].filter(Boolean).join(" / ") : undefined) || (issue.kind.startsWith("snapshot") ? t("dataHealth.snapshotTarget") : issue.targetKey);
-  if (!issue.kind.startsWith("snapshot") || !issue.accountId) return label;
-  return `${accountNames[issue.accountId] ?? t("dataHealth.unknownAccount")} · ${label}`;
 }
 
 function issueRange(t: (key: string, options?: Record<string, unknown>) => string, issue: HealthIssueDTO): string | undefined {
@@ -195,7 +197,12 @@ export function DataHealthPage({
       <PageIntro description={t("dataHealth.description")} />
 
       {report.healthy ? (
-        <EmptyState title={t("dataHealth.healthyTitle")} description={t("dataHealth.healthyDescription", { date: report.coverageThrough || report.lastFinalizedMarketDate })} />
+        <EmptyState
+          variant="success"
+          title={t("dataHealth.healthyTitle")}
+          description={t("dataHealth.healthyDescription", { date: report.coverageThrough || report.lastFinalizedMarketDate })}
+          action={!focus && <Button variant="outline" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>}
+        />
       ) : (
         <Card>
           <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
@@ -226,11 +233,11 @@ export function DataHealthPage({
         </Card>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 text-sm">
+      {(!report.healthy || focus) && <div className="flex flex-wrap items-center gap-2 text-sm">
         {focus && <p role="status">{focus.label} {focus.rangeStart} {focus.rangeEnd && `– ${focus.rangeEnd}`} · {t("connections.focusedGaps")}</p>}
-        <Button variant="outline" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>
+        <Button variant="ghost" size="sm" onClick={() => void health.refetch()} disabled={health.isFetching}>{t("connections.recheck")}</Button>
         {focus && !health.isFetching && issues.length === 0 && <p role="status">{t("connections.noMatchingGaps")}</p>}
-      </div>
+      </div>}
       {sync.current.data?.jobId && <SyncWorkDetails items={sync.current.data.items} current={running ? sync.current.data.current : undefined} />}
       <IssueSection accountNames={accountNames} onInspect={inspectIssue} title={t("dataHealth.executableSection")} issues={executable} t={t} onAction={runAction} />
       <IssueSection accountNames={accountNames} onInspect={inspectIssue} title={t("dataHealth.prerequisiteSection")} issues={prerequisites} t={t} onAction={runAction} />
@@ -310,9 +317,9 @@ function IssueSection({
           </CardHeader>
           <CardContent>
             {group.kind === "snapshot_incomplete" && <p className="mb-4 text-sm text-muted-foreground">{t("dataHealth.snapshotIncompleteHelp")}</p>}
-            <ul className="flex flex-col gap-3">
+            <ul className="flex flex-col gap-2">
               {group.items.map((issue) => (
-                <li key={issue.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between" data-testid={`health-issue-${issue.kind}`}>
+                <li key={issue.id} className={`flex flex-col gap-2 rounded-xl border-l-4 bg-muted/40 px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${SEVERITY_BORDER[issue.severity] ?? "border-border"}`} data-testid={`health-issue-${issue.kind}`}>
                   <div className="flex min-w-0 flex-col gap-1">
                     <p className="font-medium text-foreground">{healthIssueLabel(t, issue, accountNames)}</p>
                     {issue.nextCheckAt && <p className="text-sm text-muted-foreground">{t("dataHealth.nextCheckAt", { time: issue.nextCheckAt.replace("T", " ") })}</p>}

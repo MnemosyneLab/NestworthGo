@@ -53,14 +53,14 @@ export function OverviewLiquidityCard() {
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-4">
           <div>
             <p className="text-sm text-muted-foreground">{t("availableFunds.overviewToday")}</p>
-            <p className="break-words text-xl font-semibold" data-testid="overview-liquidity-today">
+            <p className="num break-words text-2xl font-bold tracking-tight" data-testid="overview-liquidity-today">
               {formatKnownOrUnknown(today?.fullUnreserved ?? today?.knownUnreservedSubtotal, unknown)}
             </p>
             {!today?.fullUnreserved && <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.incompleteAmount")}</p>}
           </div>
           <div>
             <p className="text-sm text-muted-foreground">{t("availableFunds.overview30")}</p>
-            <p className="break-words text-xl font-semibold" data-testid="overview-liquidity-30">
+            <p className="num break-words text-2xl font-bold tracking-tight" data-testid="overview-liquidity-30">
               {formatKnownOrUnknown(month?.fullUnreserved ?? month?.knownUnreservedSubtotal, unknown)}
             </p>
             {!month?.fullUnreserved && <p className="mt-1 text-xs text-muted-foreground">{t("availableFunds.incompleteAmount")}</p>}

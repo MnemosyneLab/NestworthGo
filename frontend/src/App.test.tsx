@@ -65,7 +65,7 @@ const checkingValuation = {
 const defaultSettings = {
   schema_version: 1,
   appearance: "system",
-  accent: "nestworth",
+  accent: "indigo",
   language: "en",
   timezone: "system",
   weekStart: "monday",
@@ -238,7 +238,7 @@ beforeEach(() => {
   portfolio.mockResolvedValue({ ...emptyPortfolio });
   holdingsByAccounts.mockReset();
   holdingsByAccounts.mockResolvedValue({});
-  useUiStore.setState({ appearance: "system", accent: "nestworth" });
+  useUiStore.setState({ appearance: "system", accent: "indigo" });
   window.matchMedia =
     window.matchMedia ||
     (vi.fn().mockImplementation((query: string) => ({
@@ -422,14 +422,14 @@ describe("App shell smoke test", () => {
 });
 
 
-it.each(["ocean", "amber"] as const)("restores %s accent on cold load and settings reload", async (accent) => {
+it.each(["lavender", "mint", "sky", "peach"] as const)("restores %s accent on cold load and settings reload", async (accent) => {
   settingsLoad.mockResolvedValue({ ...defaultSettings, accent });
   render(<AppProviders><App /></AppProviders>);
   await screen.findByTestId("overview-net-worth");
   await waitFor(() => expect(document.documentElement).toHaveAttribute("data-accent", accent));
-  settingsLoad.mockResolvedValue({ ...defaultSettings, accent: "nestworth" });
+  settingsLoad.mockResolvedValue({ ...defaultSettings, accent: "indigo" });
   await queryClient.invalidateQueries({ queryKey: ["settings"] });
-  await waitFor(() => expect(document.documentElement).toHaveAttribute("data-accent", "nestworth"));
+  await waitFor(() => expect(document.documentElement).toHaveAttribute("data-accent", "indigo"));
 });
 
 it("returns from account analysis with the source archive filter and scroll position intact", async () => {

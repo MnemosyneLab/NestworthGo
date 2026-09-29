@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
-import { chartNumber, chartTheme, joinTooltipLines } from "@/components/charts/chartTheme";
+import { chartNumber, chartTheme, cssColor, useThemeVersion, joinTooltipLines } from "@/components/charts/chartTheme";
 import { collapseChartCategories, type ChartCategory } from "@/components/charts/collapseCategories";
 import { Badge } from "@/components/ui/badge";
 import { formatAmount, formatPercent } from "@/lib/money";
@@ -50,6 +50,8 @@ export function CompositionChart({
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const [focusedKey, setFocusedKey] = useState<string | null>(null);
+  useThemeVersion();
+  const sliceGap = cssColor("--color-card", "#ffffff");
   const themePalette = chartTheme().palette;
   const themePaletteKey = themePalette.join("\u0000");
   const slices = useMemo(() => collapseChartCategories(items).map((item) => (
@@ -88,11 +90,12 @@ export function CompositionChart({
             itemStyle: { color: palette[index % palette.length] },
           })),
           label: { show: false },
-          emphasis: { disabled: true },
+          emphasis: { scale: true, scaleSize: 4 },
+          itemStyle: { borderColor: sliceGap, borderWidth: 2, borderRadius: 4 },
         },
       ],
     };
-  }, [currency, slices, themePaletteKey, title]);
+  }, [currency, slices, themePaletteKey, sliceGap, title]);
 
   if (slices.length === 0) {
     return null;
@@ -146,7 +149,7 @@ export function CompositionChart({
             data-testid={`composition-slice-${slice.key}`}
             aria-pressed={activeKey === slice.key}
             className={cn(
-              "flex items-center justify-between rounded-md px-2 py-1.5 text-left text-sm",
+              "flex items-center justify-between rounded-xl px-2.5 py-2 text-left text-sm transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
               activeKey === slice.key && "bg-muted ring-2 ring-primary/40",
             )}
             onClick={() => setSelectedKey((current) => (current === slice.key ? null : slice.key))}
@@ -156,7 +159,7 @@ export function CompositionChart({
             onBlur={() => setFocusedKey(null)}
           >
             <span className="text-foreground">{slice.label}</span>
-            <span className="flex items-center gap-2 text-muted-foreground">
+            <span className="num flex items-center gap-2 text-muted-foreground">
               <span className="flex flex-col items-end">
                 {distinctNative(slice, currency) && slice.nativeAmount && slice.nativeCurrency && (
                   <span data-testid={`composition-native-${slice.key}`}>{formatAmount(slice.nativeAmount, slice.nativeCurrency)}</span>

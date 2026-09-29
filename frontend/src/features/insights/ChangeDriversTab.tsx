@@ -145,7 +145,7 @@ function DriverDetailContent({ data, request, session, selected, isResidual, acc
   return (
     <div className="flex flex-col gap-5 overflow-y-auto">
       <div>
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.total")}</p>
+        <p className="text-sm text-muted-foreground">{t("insights.total")}</p>
         <p className="mt-1 text-2xl font-semibold">{amountText(selected?.amount)}</p>
       </div>
       {selected?.bucket === "fx_conversion_spread" && <p className="text-sm text-muted-foreground">{t("insights.fxConversionSpreadHelp")}</p>}

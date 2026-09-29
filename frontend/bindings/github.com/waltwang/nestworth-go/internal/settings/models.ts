@@ -7,9 +7,11 @@ export enum Accent {
      */
     $zero = "",
 
-    AccentNestworth = "nestworth",
-    AccentOcean = "ocean",
-    AccentAmber = "amber",
+    AccentIndigo = "indigo",
+    AccentLavender = "lavender",
+    AccentMint = "mint",
+    AccentSky = "sky",
+    AccentPeach = "peach",
 };
 
 export enum Appearance {

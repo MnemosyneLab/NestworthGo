@@ -90,7 +90,7 @@ export function ProductFormSheet({
       if (!next) setReviewed(null);
       onOpenChange(next);
     }}>
-      <SheetContent className="overflow-y-auto" onChangeCapture={() => setReviewed(null)}>
+      <SheetContent size="lg" onChangeCapture={() => setReviewed(null)}>
         <SheetHeader>
           <SheetTitle>{t("availableFunds.addProduct")}</SheetTitle>
         </SheetHeader>

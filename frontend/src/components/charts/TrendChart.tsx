@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { EChart, type EChartsOption } from "@/components/charts/EChart";
-import { chartNumber, chartTheme, joinTooltipLines } from "@/components/charts/chartTheme";
+import { chartNumber, chartTheme, resolveSeriesColor, useThemeVersion, joinTooltipLines } from "@/components/charts/chartTheme";
 import { EmptyState } from "@/components/layout/PageState";
 import { formatAmount } from "@/lib/money";
 
@@ -111,6 +111,7 @@ export function TrendChart({
   extraTableRows,
 }: TrendChartProps) {
   const { t, i18n } = useTranslation();
+  useThemeVersion();
   const theme = chartTheme();
   const formatValue = valueFormatter ?? ((value: string | null | undefined) => (value ? formatAmount(value, currency) : t("accounts.noValue")));
 
@@ -119,8 +120,12 @@ export function TrendChart({
   }
 
   const option: EChartsOption = {
-    color: series.map((item) => item.color),
+    color: series.map((item) => resolveSeriesColor(item.color)),
+    // ECharts 6 moved the default legend to the bottom, where it collides with the time axis.
     legend: {
+      top: 0,
+      left: 0,
+      icon: "roundRect",
       data: series.map((item) => item.name),
       textStyle: { color: theme.foreground },
       formatter: (name) => {
@@ -151,6 +156,7 @@ export function TrendChart({
         return joinTooltipLines([date, ...lines]);
       },
     },
+    grid: { left: 8, right: 16, top: 44, bottom: 8, containLabel: true },
     xAxis: {
       type: "time",
       axisLabel: {
@@ -159,7 +165,7 @@ export function TrendChart({
         formatter: (value) => formatTrendChartDate(value, i18n.language),
       },
     },
-    yAxis: { type: "value", axisLabel: { color: theme.muted, ...(axisValueFormatter ? { formatter: axisValueFormatter } : {}) }, splitLine: { lineStyle: { color: theme.border } } },
+    yAxis: { type: "value", scale: true, axisLabel: { color: theme.muted, ...(axisValueFormatter ? { formatter: axisValueFormatter } : {}) }, splitLine: { lineStyle: { color: theme.border } } },
     series: series.map((item) => {
       const showSourceMarks = (item.pointMeta ?? []).some((meta) => meta?.sourceLabel || meta?.delayed);
       return {
@@ -170,14 +176,15 @@ export function TrendChart({
           return {
             value: [trendChartTimestamp(dates[index]), chartNumber(value)],
             symbol: meta?.observationKind === "close" || meta?.observationKind === "daily_reference" ? "rect" : meta?.observationKind === "manual" || meta?.delayed ? "diamond" : "circle",
-            itemStyle: { color: meta?.sourceLabel ? sourceTint(meta.sourceLabel, theme.palette) : item.color },
+            itemStyle: { color: meta?.sourceLabel ? sourceTint(meta.sourceLabel, theme.palette) : resolveSeriesColor(item.color) },
           };
         }),
-        emphasis: { disabled: true },
+        emphasis: { focus: "series" as const, scale: 1.4 },
         connectNulls: false,
         showSymbol: dates.length < 24 || showSourceMarks,
-        lineStyle: { color: item.color, width: 2 },
-        itemStyle: { color: item.color },
+        lineStyle: { color: resolveSeriesColor(item.color), width: 2.5 },
+        ...(series.length === 1 ? { areaStyle: { color: resolveSeriesColor(item.color), opacity: 0.1 } } : {}),
+        itemStyle: { color: resolveSeriesColor(item.color) },
       };
     }),
   };

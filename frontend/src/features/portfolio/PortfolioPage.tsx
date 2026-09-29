@@ -10,7 +10,7 @@ import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { TrendChart } from "@/components/charts/TrendChart";
-import { chartTheme } from "@/components/charts/chartTheme";
+import { chartTheme, useThemeVersion } from "@/components/charts/chartTheme";
 import { usePortfolio, usePortfolioTrend } from "@/queries/portfolio";
 import { DateRangeControl } from "@/components/charts/DateRangeControl";
 import { useTrendDateRange } from "@/components/charts/useTrendDateRange";
@@ -28,6 +28,7 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
   const portfolio = usePortfolio();
   const range = useTrendDateRange();
   const trend = usePortfolioTrend(range.queryRange);
+  useThemeVersion();
   const theme = chartTheme();
 
   if (portfolio.isLoading) {

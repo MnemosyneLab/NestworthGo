@@ -103,7 +103,7 @@ export function ProductDetailSheet({
   if (editTerms) return <ProductEditSheet productId={productId} open={open} onOpenChange={(next) => { if (!next) setEditTerms(false); }} />;
   return (
     <Sheet open={open} onOpenChange={(next) => { if (!isSaving) onOpenChange(next); }}>
-      <SheetContent className="overflow-y-auto" onChangeCapture={() => setReviewed(null)}>
+      <SheetContent size="lg" onChangeCapture={() => setReviewed(null)}>
         <SheetHeader>
           <SheetTitle>{product?.name ?? t("availableFunds.products")}</SheetTitle>
         </SheetHeader>

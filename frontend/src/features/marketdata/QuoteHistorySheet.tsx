@@ -15,7 +15,7 @@ import { displayEnum } from "@/lib/display";
 import { instrumentDisplayLabel, instrumentSecondaryName } from "@/lib/instrumentDisplay";
 import { formatAmount } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
-import { chartTheme } from "@/components/charts/chartTheme";
+import { chartTheme, useThemeVersion } from "@/components/charts/chartTheme";
 import type { InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 export type QuoteHistoryTarget =
@@ -49,6 +49,7 @@ export function QuoteHistorySheet({
   const instrumentSeries = useInstrumentQuoteSeries(instrumentId, range.queryRange, sourceFilter, target.kind === "instrument");
   const fxSeries = useFXQuoteSeries(fxBase, fxQuote, range.queryRange, sourceFilter, target.kind === "fx");
   const series = target.kind === "instrument" ? instrumentSeries : fxSeries;
+  useThemeVersion();
   const theme = chartTheme();
 
   const title = target.kind === "instrument"
@@ -143,7 +144,7 @@ export function QuoteHistorySheet({
                 currency ? formatAmount(item.value, currency) + priceSuffix : formatAmount(item.value),
                 observationLabel(item),
                 item.effectiveDate || "—",
-                `${displayEnum(t, "portfolio", item.sourceKind)}${item.sourceKey ? ` · ${item.sourceKey}` : ""}`,
+                `${displayEnum(t, "portfolio", item.sourceKind)}${item.sourceKey && item.sourceKey !== item.sourceKind ? ` · ${item.sourceKey}` : ""}`,
                 item.delayed ? t("charts.delayed") : t("charts.onTime"),
               ])}
             />

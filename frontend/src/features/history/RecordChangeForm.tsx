@@ -25,6 +25,9 @@ import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { ChangeCommandKind, type ChangeCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { HistoryOriginDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { AccountRecordDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
+import { ChoiceGrid } from "@/components/ui/choice-grid";
+import { activityStyle } from "@/lib/activityStyle";
+import { FieldError } from "@/components/ui/field-error";
 import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
@@ -54,6 +57,21 @@ const KINDS: ChangeCommandKind[] = [
   ChangeCommandKind.ChangeDebtDraw,
   ChangeCommandKind.ChangeDebtPayment,
 ];
+
+/** Maps each change command to the activity-kind styling used in the timeline. */
+const KIND_ACTIVITY_STYLE: Partial<Record<ChangeCommandKind, string>> = {
+  [ChangeCommandKind.ChangeMoneyAdded]: "cash_in",
+  [ChangeCommandKind.ChangeMoneyRemoved]: "cash_out",
+  [ChangeCommandKind.ChangeCashDividend]: "cash_dividend",
+  [ChangeCommandKind.ChangeCashTransfer]: "cash_transfer",
+  [ChangeCommandKind.ChangeFXConversion]: "fx_conversion",
+  [ChangeCommandKind.ChangePositionTransfer]: "position_transfer",
+  [ChangeCommandKind.ChangePositionAdjustment]: "value_update",
+  [ChangeCommandKind.ChangeTrade]: "buy",
+  [ChangeCommandKind.ChangeValueUpdate]: "value_update",
+  [ChangeCommandKind.ChangeDebtDraw]: "debt_draw",
+  [ChangeCommandKind.ChangeDebtPayment]: "debt_payment",
+};
 
 type NamedOption = { id: string; name: string };
 
@@ -765,32 +783,27 @@ function RecordChangeFormReady({
   return (
     <div className="flex flex-col gap-4" role="form" aria-label={t("history.formLabel")}>
       {!lock?.hideKind && (
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="change-kind">{t("history.changeType")}</Label>
-          <NativeSelect
-            id="change-kind"
-            value={kind}
-            onChange={(event) => {
-              const nextKind = event.target.value as ChangeCommandKind;
-              const next = emptyChangeRequest(nextKind, defaultCurrency);
-              const locked = {
-                ...next,
-                accountId: lock?.accountId ?? next.accountId,
-                settlementAccountId: lock?.settlementAccountId ?? next.settlementAccountId,
-                fromAccountId: lock?.accountId && nextKind === ChangeCommandKind.ChangeCashTransfer ? lock.accountId : next.fromAccountId,
-              };
-              resetAutomaticTracking(locked);
-              setRequest(locked);
-              setPreviewResult(null);
-            }}
-          >
-            {KINDS.map((value) => (
-              <option key={value} value={value}>
-                {t(`history.kind.${value}`)}
-              </option>
-            ))}
-          </NativeSelect>
-        </div>
+        <ChoiceGrid
+          label={t("history.changeType")}
+          value={kind}
+          options={KINDS.map((value) => {
+            const style = activityStyle(KIND_ACTIVITY_STYLE[value]);
+            return { value, label: t(`history.kind.${value}`), icon: style.icon, tone: style.tone };
+          })}
+          onChange={(value) => {
+            const nextKind = value as ChangeCommandKind;
+            const next = emptyChangeRequest(nextKind, defaultCurrency);
+            const locked = {
+              ...next,
+              accountId: lock?.accountId ?? next.accountId,
+              settlementAccountId: lock?.settlementAccountId ?? next.settlementAccountId,
+              fromAccountId: lock?.accountId && nextKind === ChangeCommandKind.ChangeCashTransfer ? lock.accountId : next.fromAccountId,
+            };
+            resetAutomaticTracking(locked);
+            setRequest(locked);
+            setPreviewResult(null);
+          }}
+        />
       )}
 
       {(kind === ChangeCommandKind.ChangeMoneyAdded || kind === ChangeCommandKind.ChangeMoneyRemoved) && (
@@ -1053,15 +1066,15 @@ function RecordChangeFormReady({
       ) : (
         <div className="flex flex-col gap-1.5"><Label htmlFor="change-original-effective-at">{t("history.originalEffectiveAt")}</Label><Input id="change-original-effective-at" readOnly value={originalEffectiveAt ? formatTimestamp(originalEffectiveAt, effectiveOrigin?.timezone) : ""} /><p className="text-xs text-muted-foreground">{t("history.fixTimestampHelp")}</p></div>
       )}
-      {timeError && <p role="alert" className="text-sm text-destructive">{timeError}</p>}
+      <FieldError>{timeError}</FieldError>
 
       <div className="flex flex-col gap-1.5"><Label htmlFor="change-note">{t("history.note")}</Label><Input id="change-note" value={request.note ?? ""} onChange={(event) => patch({ note: event.target.value || null })} placeholder={t("history.notePlaceholder")} /></div>
 
       {(accounts.isError || instruments.isError || holdings.isError) && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive"><span>{t("history.dependenciesError")}</span><Button type="button" variant="outline" size="sm" onClick={() => void Promise.all([accounts.refetch(), instruments.refetch(), holdings.refetch()])}>{t("common.retryAction")}</Button></div>}
       {mutationAllowed.isError && <p role="alert" className="text-sm text-destructive">{t("history.mutationUnavailable")}</p>}
-      {error && <p role="alert" className="text-sm text-destructive">{displayError(error, t("history.actionError"))}</p>}
+      <FieldError className="text-sm">{error ? displayError(error, t("history.actionError")) : undefined}</FieldError>
 
-      {previewResult && <div role="status" className="flex flex-col gap-1 rounded-md border border-border bg-muted p-3 text-sm"><p className="font-medium">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
+      {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
 
       <div className="flex gap-2">
         {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : t("common.confirm")}</Button>}

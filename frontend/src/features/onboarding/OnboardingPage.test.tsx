@@ -13,7 +13,7 @@ const saveSettings = vi.fn().mockResolvedValue(undefined);
 const defaultSettings = {
   schema_version: 1,
   appearance: "system",
-  accent: "nestworth",
+  accent: "indigo",
   language: "en",
   timezone: "system",
   weekStart: "monday",

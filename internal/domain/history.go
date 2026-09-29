@@ -256,6 +256,7 @@ func (item DailyValuationSnapshotItem) ValidateBaseAmountExact() error {
 // cutoff while the repository guarantees that all fields came from one read
 // transaction.
 type HistoricalSnapshotBatch struct {
+	ZeroAccountBaselines           []AccountValue
 	Origin                         HistoryOrigin
 	OriginData                     HistoryOriginData
 	Portfolio                      PortfolioSnapshot

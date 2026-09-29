@@ -10,6 +10,7 @@ import { NativeSelect } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { TONE_CLASSES, toneForKey } from "@/lib/tone";
 import { displayEnum, displayError } from "@/lib/display";
 import { IconPicker } from "@/components/forms/IconPicker";
 import { EntityIcon, type EntityIconKind } from "@/components/icons/EntityIcon";
@@ -100,9 +101,10 @@ export function DirectoryEntityList<T extends Entity>({ showArchived = false, on
     {!isLoading && !isError && entities?.length === 0 && <EmptyState title={t("directory.emptyTitle")} description={emptyLabel} action={!showArchived && onShowArchived ? <Button variant="outline" onClick={() => onShowArchived(true)}>{t("accounts.showArchived")}</Button> : undefined} />}
     {!isLoading && !isError && entities && entities.length > 0 && <ul className="flex flex-col gap-2">{entities.map((entity) => {
       const editing = editingId === entity.id; const archived = Boolean(entity.archivedAt);
-      return <li key={entity.id} className="rounded-md border border-border px-3 py-3"><div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-2 text-sm"><EntityIcon iconKey={entity.iconKey} kind={kind} className="size-5 text-primary" />
-          {editing ? <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} className="max-w-xs" /> : <><span>{entity.name}</span>{entity.institutionType && <Badge variant="outline">{displayEnum(t, "institutionType", entity.institutionType)}</Badge>}</>}
+      const tone = TONE_CLASSES[toneForKey(entity.id)];
+      return <li key={entity.id} className={cn("rounded-2xl border border-border bg-card px-4 py-3 shadow-xs", archived && "opacity-75")}><div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-3 text-sm"><span aria-hidden="true" className={cn("inline-flex size-9 shrink-0 items-center justify-center rounded-xl", tone.soft, tone.text)}><EntityIcon iconKey={entity.iconKey} kind={kind} className="size-5" /></span>
+          {editing ? <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} className="max-w-xs" /> : <><span className="font-semibold text-foreground">{entity.name}</span>{entity.institutionType && <Badge variant="outline">{displayEnum(t, "institutionType", entity.institutionType)}</Badge>}</>}
           {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}</span>
         <span className="flex gap-2">{editing ? <Button size="sm" onClick={() => void save(entity)} disabled={submitting}>{t("common.save")}</Button> : <Button variant="outline" size="sm" onClick={() => { setEditingId(entity.id); setEditingName(entity.name); setEditingIcon(entity.iconKey); }}>{t("common.edit")}</Button>}
           {archived ? <Button variant="outline" size="sm" disabled={Boolean(archivingId)} onClick={() => void changeArchived(entity, false)}>{archivingId === entity.id ? t("common.pending") : t("connections.restore")}</Button> : <AlertDialog><AlertDialogTrigger disabled={Boolean(archivingId)} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>{archived ? t("common.active") : t("common.archive")}</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{archived ? t("common.active") : t("common.archive")}</AlertDialogTitle><AlertDialogDescription>{entity.name}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><AlertDialogAction onClick={() => void changeArchived(entity, true)}>{archived ? t("common.active") : t("common.archive")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}

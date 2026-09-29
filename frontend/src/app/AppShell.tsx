@@ -2,19 +2,35 @@ import * as React from "react";
 import { useTranslation } from "react-i18next";
 import { PanelLeftClose, PanelLeftOpen, Moon, Sun, Monitor } from "lucide-react";
 import { NAV_GROUPS, DEFAULT_PAGE_ID, targetForPage, type NavigationTarget, type PageId } from "@/app/navigation";
+import { TONE_CLASSES, type Tone } from "@/lib/tone";
 import { useUiStore, type Appearance } from "@/stores/ui";
 import { useTheme } from "@/hooks/useTheme";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { SUPPORTED_LANGUAGES, languageOptionKey, setLanguage } from "@/i18n";
-import { useAppInfo } from "@/queries/app";
 import { useSaveSettings } from "@/queries/settings";
 import { BrandLockup } from "@/components/brand/BrandLockup";
 import { displayError } from "@/lib/display";
 import { toast } from "sonner";
 import type { SettingsDTO as Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { PageChromeProvider } from "@/components/layout/PageChrome";
+
+/** Each destination keeps its own hue so the sidebar reads as colorful landmarks, not a gray list. */
+const PAGE_TONE: Record<PageId, Tone> = {
+  overview: 8,
+  accounts: 1,
+  "available-funds": 2,
+  portfolio: 5,
+  history: 6,
+  "return-analysis": 7,
+  "asset-changes": 3,
+  directory: 4,
+  "market-data": 1,
+  "data-health": 3,
+  settings: 5,
+};
 
 const APPEARANCE_ICONS: Record<Appearance, React.ComponentType<{ className?: string }>> = {
   system: Monitor,
@@ -51,7 +67,7 @@ function LanguageSwitcher({ language, disabled, onChange }: { language: string; 
   return (
     <NativeSelect
       aria-label={t("settings.language.language")}
-      className="h-8 px-2 text-xs"
+      className="h-9 rounded-full border-transparent bg-muted px-3 text-xs font-medium shadow-none hover:bg-primary/10"
       value={language === "system" ? i18nInstance.language : language}
       onChange={(event) => onChange(event.target.value)}
       disabled={disabled}
@@ -80,11 +96,13 @@ export interface AppShellProps {
 export function AppShell({ activePageId, onNavigate, settings, children }: AppShellProps) {
   const { t } = useTranslation();
   useTheme();
-  const collapsed = useUiStore((state) => state.sidebarCollapsed);
-  const toggleSidebar = useUiStore((state) => state.toggleSidebar);
-  // Exercises the queries/ -> lib/wails.callService -> generated-binding
-  // pipeline end to end inside the real app shell.
-  const appInfo = useAppInfo();
+  const storedCollapsed = useUiStore((state) => state.sidebarCollapsed);
+  const toggleStoredSidebar = useUiStore((state) => state.toggleSidebar);
+  // Narrow windows start with the icon rail; expanding there is temporary and does not change the saved preference.
+  const narrow = useMediaQuery("(max-width: 959px)");
+  const [narrowExpanded, setNarrowExpanded] = React.useState(false);
+  const collapsed = narrow ? !narrowExpanded : storedCollapsed;
+  const toggleSidebar = narrow ? () => setNarrowExpanded((value) => !value) : toggleStoredSidebar;
   const saveSettings = useSaveSettings();
   const setAppearance = useUiStore((state) => state.setAppearance);
   const [pageBarTarget, setPageBarTarget] = React.useState<HTMLDivElement | null>(null);
@@ -111,8 +129,8 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
       <div className="fixed inset-0 flex min-h-0 min-w-0 overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
-          "flex shrink-0 flex-col border-r border-border bg-card/80 backdrop-blur-sm transition-[width] duration-150",
-          collapsed ? "w-14" : "w-56",
+          "flex shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200 ease-out",
+          collapsed ? "w-16" : "w-60",
         )}
       >
         <div className={cn("flex px-3", collapsed ? "flex-col items-center gap-2 py-3" : "h-14 items-center justify-between")}>
@@ -121,11 +139,11 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
             {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </Button>
         </div>
-        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-2" aria-label={t("ui.navigation.main")}>
+        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 pb-3" aria-label={t("ui.navigation.main")}>
           {NAV_GROUPS.map((group) => (
             <div key={group.id} className="flex flex-col gap-1">
               {!collapsed && group.translationKey && (
-                <p className="px-2 pb-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                <p className="px-3 pb-1 text-xs font-semibold text-muted-foreground">
                   {t(group.translationKey)}
                 </p>
               )}
@@ -137,41 +155,36 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
                   <button
                     key={item.id}
                     type="button"
-                    onClick={() => onNavigate(targetForPage(item.id))}
+                    onClick={() => { setNarrowExpanded(false); onNavigate(targetForPage(item.id)); }}
                     aria-label={label}
                     title={collapsed ? label : undefined}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-2 rounded-lg px-2 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-                      active
-                        ? "bg-gradient-to-r from-primary to-primary/85 text-primary-foreground shadow-sm"
-                        : "text-foreground hover:bg-muted",
-                      collapsed && "justify-center",
+                      "group flex items-center gap-3 rounded-xl px-2 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+                      active ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      collapsed && "justify-center px-1",
                     )}
                   >
-                    <Icon className="size-4 shrink-0" aria-hidden="true" />
-                    {!collapsed && <span>{label}</span>}
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors",
+                        active ? cn(TONE_CLASSES[PAGE_TONE[item.id]].solid, "text-background") : cn(TONE_CLASSES[PAGE_TONE[item.id]].soft, TONE_CLASSES[PAGE_TONE[item.id]].text),
+                      )}
+                    >
+                      <Icon className="size-4" />
+                    </span>
+                    {!collapsed && <span className="truncate">{label}</span>}
                   </button>
                 );
               })}
             </div>
           ))}
         </nav>
-        {!collapsed && (
-          <div className="px-3 py-2 text-xs text-muted-foreground">
-            {appInfo.data
-              ? appInfo.data.version.startsWith("v")
-                ? appInfo.data.version
-                : `v${appInfo.data.version}`
-              : appInfo.isError
-                ? ""
-                : "…"}
-          </div>
-        )}
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-        <header className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card/60 px-4 py-2 backdrop-blur-sm sm:flex-nowrap sm:gap-3">
-          <div ref={setPageBarTarget} className="order-1 flex min-w-0 basis-full items-center gap-3 sm:flex-1 sm:basis-auto" />
+        <header className="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border bg-card/80 px-4 py-2 backdrop-blur-md sm:flex-nowrap sm:gap-3">
+          <div ref={setPageBarTarget} className="order-1 flex min-w-0 basis-full flex-wrap items-center gap-x-3 gap-y-2 sm:flex-1 sm:basis-auto" />
           <div className="order-2 ml-auto flex shrink-0 items-center gap-2">
             <LanguageSwitcher
               language={settings.language}
@@ -185,8 +198,8 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
             />
           </div>
         </header>
-        <main id="main-content" className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto p-6 sm:p-8">
-          <div className="mx-auto min-w-0 w-full max-w-7xl">{children}</div>
+        <main id="main-content" className="min-h-0 min-w-0 flex-1 overscroll-y-contain overflow-x-hidden overflow-y-auto bg-[radial-gradient(48rem_20rem_at_100%_0%,var(--color-surface-tint),transparent)] p-6 sm:p-8">
+          <div className="page-stage mx-auto min-w-0 w-full max-w-7xl">{children}</div>
         </main>
       </div>
       </div>

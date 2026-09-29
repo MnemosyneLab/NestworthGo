@@ -116,7 +116,7 @@ function QuoteQuality({
 }) {
   const { t } = useTranslation();
   const source = sourceKind ? displayEnum(t, "portfolio", sourceKind) : "";
-  const label = sourceKey ? `${source} · ${sourceKey}` : source;
+  const label = sourceKey && sourceKey !== sourceKind ? `${source} · ${sourceKey}` : source;
   return (
     <span className="flex flex-wrap items-center justify-end gap-1 text-xs text-muted-foreground">
       {delayed ? <Badge variant="warning">{t("charts.delayed")}</Badge> : null}
@@ -261,7 +261,7 @@ export function InstrumentManagement({
         enabled={active}
         actions={
           <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger className={buttonVariants({ size: "sm" })}>
+            <SheetTrigger className={buttonVariants()}>
               <Plus className="size-4" aria-hidden="true" /> {t("portfolio.addInstrument")}
             </SheetTrigger>
             <SheetContent className="overflow-y-auto overscroll-contain">

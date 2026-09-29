@@ -168,23 +168,23 @@ export function EChart({
       {summary && <figcaption id={summaryId} className="sr-only">{summary}</figcaption>}
       {dataTableLabel && dataTableColumns && dataTableRows && (
         <details className="relative z-10">
-          <summary className="cursor-pointer text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+          <summary className="cursor-pointer rounded-lg text-sm text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
             {dataTableLabel}
           </summary>
           <div className="mt-2 overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border">
+            <table className="num w-full text-left text-sm">
+              <thead className="sticky top-0 bg-card">
+                <tr className="border-b border-border text-muted-foreground">
                   {dataTableColumns.map((column) => (
-                    <th key={column} className="px-2 py-1 font-medium">{column}</th>
+                    <th key={column} className="px-2 py-1.5 font-medium">{column}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {dataTableRows.map((row, index) => (
-                  <tr key={`${row.join("-")}-${index}`} className="border-b border-border last:border-0">
+                  <tr key={`${row.join("-")}-${index}`} className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">
                     {row.map((cell, cellIndex) => (
-                      <td key={`${cell}-${cellIndex}`} className="px-2 py-1">{cell}</td>
+                      <td key={`${cell}-${cellIndex}`} className="px-2 py-1.5">{cell}</td>
                     ))}
                   </tr>
                 ))}

@@ -1,3 +1,5 @@
+import * as React from "react";
+
 export function cssColor(variable: string, fallback: string): string {
   if (typeof document === "undefined") {
     return fallback;
@@ -6,27 +8,61 @@ export function cssColor(variable: string, fallback: string): string {
   return value || fallback;
 }
 
+export const THEME_CHANGE_EVENT = "nestworth:theme-change";
+
+function subscribeThemeChange(callback: () => void): () => void {
+  window.addEventListener(THEME_CHANGE_EVENT, callback);
+  return () => window.removeEventListener(THEME_CHANGE_EVENT, callback);
+}
+
+let themeVersion = 0;
+function getThemeVersion(): number {
+  return themeVersion;
+}
+
+/** Bumps the shared theme version. Called by useTheme after the theme class or accent changes. */
+export function notifyThemeChange(): void {
+  themeVersion += 1;
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(THEME_CHANGE_EVENT));
+  }
+}
+
+/**
+ * Re-renders the calling component whenever the appearance or accent changes,
+ * so chart options that resolve CSS variables at render time stay in sync.
+ */
+export function useThemeVersion(): number {
+  return React.useSyncExternalStore(subscribeThemeChange, getThemeVersion, getThemeVersion);
+}
+
+/** Resolves a `var(--token)` series color to its current computed value; other strings pass through. */
+export function resolveSeriesColor(color: string): string {
+  const match = /^var\((--[\w-]+)\)$/.exec(color);
+  return match ? cssColor(match[1], color) : color;
+}
+
 export function chartTheme() {
   return {
-    foreground: cssColor("--color-foreground", "#2a2f3a"),
-    muted: cssColor("--color-muted-foreground", "#6b7280"),
-    border: cssColor("--color-border", "#d7dbe7"),
-    primary: cssColor("--color-primary", "#5b5bd6"),
-    accent: cssColor("--color-accent", "#3aa8b8"),
-    success: cssColor("--color-success", "#2f9e5c"),
-    destructive: cssColor("--color-destructive", "#c4473a"),
-    warning: cssColor("--color-warning", "#c9a227"),
-    gainPositive: cssColor("--color-gain-positive", "#2f9e5c"),
-    gainNegative: cssColor("--color-gain-negative", "#c4473a"),
+    foreground: cssColor("--color-foreground", "#2a3a3d"),
+    muted: cssColor("--color-muted-foreground", "#5f7276"),
+    border: cssColor("--color-border", "#d9e6e5"),
+    primary: cssColor("--color-primary", "#1f8a80"),
+    accent: cssColor("--color-accent", "#f0a04b"),
+    success: cssColor("--color-success", "#2f9e6a"),
+    destructive: cssColor("--color-destructive", "#e0523f"),
+    warning: cssColor("--color-warning", "#e8b83a"),
+    gainPositive: cssColor("--color-gain-positive", "#2f9e6a"),
+    gainNegative: cssColor("--color-gain-negative", "#e0523f"),
     palette: [
-      cssColor("--color-primary", "#5b5bd6"),
-      cssColor("--color-accent", "#3aa8b8"),
-      cssColor("--color-success", "#2f9e5c"),
-      cssColor("--color-brand-from", "#5d5de0"),
-      cssColor("--color-brand-to", "#8a5fd6"),
-      cssColor("--color-data-remote", "#4d8fb5"),
-      cssColor("--color-data-manual", "#6b5bd6"),
-      cssColor("--color-warning", "#c9a227"),
+      cssColor("--color-brand-from", "#2fa596"),
+      cssColor("--color-cat-1", "#4f8ff0"),
+      cssColor("--color-cat-6", "#f0a04b"),
+      cssColor("--color-cat-5", "#9a7be0"),
+      cssColor("--color-cat-7", "#e0559f"),
+      cssColor("--color-cat-4", "#f0d040"),
+      cssColor("--color-cat-8", "#4aa0b8"),
+      cssColor("--color-cat-3", "#f0665a"),
     ],
   };
 }

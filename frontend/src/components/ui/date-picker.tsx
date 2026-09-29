@@ -110,7 +110,7 @@ export function DatePicker({
         )}
       >
         <CalendarIcon className="size-4" aria-hidden="true" />
-        {selected ? displayDate(selected, settings.data?.dateFormat, i18n.language) : (placeholder ?? t("history.selectEmpty"))}
+        {selected ? displayDate(selected, settings.data?.dateFormat, i18n.language) : (placeholder ?? t("common.selectDate"))}
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar

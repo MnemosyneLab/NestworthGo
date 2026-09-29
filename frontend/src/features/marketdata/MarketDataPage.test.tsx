@@ -478,6 +478,7 @@ describe("MarketDataPage", () => {
   it("previews and starts a workspace sync then restores progress", async () => {
     getCurrentSyncJob.mockResolvedValue({ jobId: "" });
     renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "More actions" }));
     await userEvent.click(await screen.findByRole("button", { name: "Sync and repair" }));
     expect(await screen.findByTestId("sync-preview")).toHaveTextContent("3 estimated provider requests");
     expect(screen.getByTestId("sync-work-details")).toHaveTextContent("QQQM");

@@ -1,5 +1,6 @@
 import { DateRangeControl } from "@/components/charts/DateRangeControl";
 import { useTranslation } from "react-i18next";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
@@ -38,13 +39,15 @@ export function AnalysisFilterBar({
   const catalog = useCatalog();
   const members = useMembers();
 
-  const selectedFilters = [
-    session.moreFilters.accountId && (accounts.data ?? []).find((item) => item.account.id === session.moreFilters.accountId)?.account.name,
-    session.moreFilters.currency,
-    typeof session.moreFilters.assetClass === "string" && (session.moreFilters.assetClass === "cash" ? t("insights.cash") : displayEnum(t, "enum", session.moreFilters.assetClass)),
-    session.moreFilters.memberId && (members.data ?? []).find((item) => item.id === session.moreFilters.memberId)?.name,
-    session.moreFilters.instrumentId && (instruments.data ?? []).find((item) => item.id === session.moreFilters.instrumentId)?.name,
-  ].filter((value): value is string => typeof value === "string" && value.length > 0);
+  // Each active "more filter" as a removable chip; the same labels feed the collapsed summary.
+  const filterChips = ([
+    ["accountId", session.moreFilters.accountId && (accounts.data ?? []).find((item) => item.account.id === session.moreFilters.accountId)?.account.name],
+    ["currency", session.moreFilters.currency],
+    ["assetClass", typeof session.moreFilters.assetClass === "string" && (session.moreFilters.assetClass === "cash" ? t("insights.cash") : displayEnum(t, "enum", session.moreFilters.assetClass))],
+    ["memberId", session.moreFilters.memberId && (members.data ?? []).find((item) => item.id === session.moreFilters.memberId)?.name],
+    ["instrumentId", session.moreFilters.instrumentId && (instruments.data ?? []).find((item) => item.id === session.moreFilters.instrumentId)?.name],
+  ] as Array<[string, unknown]>).filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].length > 0);
+  const selectedFilters = filterChips.map(([, label]) => label);
 
   const update = (value: AnalysisNavigationContext) => onChange(value);
   const scope = session.scope ?? "portfolio";
@@ -54,7 +57,7 @@ export function AnalysisFilterBar({
   const toMin = session.from && (!originDate || session.from > originDate) ? session.from : originDate;
 
   return (
-    <section aria-label={t("insights.filters")} className="flex flex-col gap-4 rounded-xl border border-border bg-card/60 p-3">
+    <section aria-label={t("insights.filters")} className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-xs">
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex min-w-40 flex-1 flex-col gap-1.5">
           <Label htmlFor="analysis-scope">{t("insights.scope")}</Label>
@@ -109,12 +112,29 @@ export function AnalysisFilterBar({
       </div>
 
       <DateRangeControl value={{ from: session.from || resolvedRange?.from || "", to: session.to || resolvedRange?.to || closedDate }} min={originDate} max={closedDate} disabled={!origin.data} onChange={update} />
-      <details className="border-t border-border/70 pt-2">
-        <summary className="cursor-pointer text-sm font-medium text-foreground">{t("insights.moreFilters")}<span className="ml-2 font-normal text-muted-foreground">{[
+      <details className="group border-t border-border/70 pt-3">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-lg px-1 text-sm font-semibold text-foreground marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 [&::-webkit-details-marker]:hidden">{t("insights.moreFilters")}<span className="ml-2 font-normal text-muted-foreground">{[
           session.valuation === "native" ? t("insights.valuationNative") : t("insights.valuationBase", { currency: bootstrap.data?.household?.baseCurrency ?? "—" }),
           t(session.includeCash ? "insights.cashIncluded" : "insights.cashExcluded"),
           ...selectedFilters,
         ].join(" · ")}</span></summary>
+        {filterChips.length > 0 && (
+          <ul className="mt-3 flex flex-wrap gap-2" aria-label={t("insights.moreFilters")}>
+            {filterChips.map(([key, label]) => (
+              <li key={key}>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full bg-primary/12 px-3 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+                  aria-label={`${t("connections.clearFilter")}: ${label}`}
+                  onClick={() => update({ moreFilters: { [key]: undefined } })}
+                >
+                  {label}
+                  <X className="size-3" aria-hidden="true" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="flex min-w-36 flex-1 flex-col gap-1.5">
             <Label htmlFor="analysis-valuation">{t("insights.valuation")}</Label>
@@ -163,7 +183,7 @@ export function AnalysisFilterBar({
             >
               <option value="">{t("common.all")}</option>
               <option value="cash">{t("insights.cash")}</option>
-              {(catalog.data?.instrumentTypes ?? []).map((assetClass) => <option key={assetClass} value={assetClass}>{assetClass}</option>)}
+              {(catalog.data?.instrumentTypes ?? []).map((assetClass) => <option key={assetClass} value={assetClass}>{displayEnum(t, "enum", assetClass)}</option>)}
             </NativeSelect>
           </div>
           <div className="flex flex-col gap-1.5">

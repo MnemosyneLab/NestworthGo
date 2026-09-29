@@ -3,13 +3,14 @@ import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BrandLockup } from "@/components/brand/BrandLockup";
+import { IconTile } from "@/components/ui/icon-tile";
 import { useCompleteOnboarding } from "@/queries/household";
 import { useSaveSettings, useSettings, useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
@@ -98,7 +99,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
   };
 
   return (
-    <main className="min-h-[100dvh] bg-background px-6 py-10 text-foreground sm:px-10 sm:py-16">
+    <main className="min-h-[100dvh] bg-[radial-gradient(60rem_30rem_at_10%_-10%,color-mix(in_oklab,var(--color-cat-1)_14%,transparent),transparent),radial-gradient(50rem_28rem_at_100%_0%,color-mix(in_oklab,var(--color-cat-5)_12%,transparent),transparent)] bg-background px-6 py-10 text-foreground sm:px-10 sm:py-16">
       <div className="mx-auto mb-6 flex w-full max-w-5xl items-center justify-end gap-2">
         <Label htmlFor="onboarding-language">{t("settings.language.language")}</Label>
         <NativeSelect
@@ -123,13 +124,19 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
             <h1 className="max-w-lg text-3xl font-semibold tracking-tight sm:text-4xl">{t("onboarding.title")}</h1>
             <p className="max-w-xl text-base leading-7 text-muted-foreground">{t("onboarding.valueProposition")}</p>
           </div>
-          <div className="flex max-w-xl flex-col gap-3 rounded-lg border border-border bg-card/70 p-4 text-sm leading-6 text-muted-foreground">
-            <p>{t("onboarding.privacyNote")}</p>
-            <p>{t("onboarding.nextStep")}</p>
-          </div>
+          <ul className="flex max-w-xl flex-col gap-3 text-sm leading-6 text-muted-foreground">
+            <li className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 shadow-xs">
+              <IconTile icon={ShieldCheck} tone={1} />
+              <p className="pt-1">{t("onboarding.privacyNote")}</p>
+            </li>
+            <li className="flex items-start gap-3 rounded-2xl border border-border bg-card p-4 shadow-xs">
+              <IconTile icon={Sparkles} tone={5} />
+              <p className="pt-1">{t("onboarding.nextStep")}</p>
+            </li>
+          </ul>
         </section>
 
-        <Card className="w-full shadow-md">
+        <Card className="w-full rounded-3xl shadow-lg">
           <CardHeader>
             <CardTitle>{t("onboarding.title")}</CardTitle>
             <CardDescription>{t("onboarding.description")}</CardDescription>

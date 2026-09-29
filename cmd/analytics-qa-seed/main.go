@@ -901,7 +901,7 @@ func main() {
 	settings := map[string]any{
 		"schema_version":     1,
 		"appearance":         "system",
-		"accent":             "nestworth",
+		"accent":             "indigo",
 		"language":           "en",
 		"timezone":           "system",
 		"week_start":         "monday",

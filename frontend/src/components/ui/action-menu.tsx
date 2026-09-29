@@ -15,9 +15,9 @@ export function ActionMenu({ label, items }: { label: string; items: ActionMenuI
       </Menu.Trigger>
       <Menu.Portal>
         <Menu.Positioner sideOffset={4} align="end" className="z-50">
-          <Menu.Popup className="min-w-44 rounded-lg border border-border bg-card p-1 text-foreground shadow-lg outline-none">
+          <Menu.Popup className="min-w-44 rounded-xl border border-border bg-card p-1 text-foreground shadow-lg outline-none">
             {items.map((item) => (
-              <Menu.Item key={item.id} className="cursor-default rounded-md px-3 py-2 text-sm outline-none data-[highlighted]:bg-muted" onClick={() => {
+              <Menu.Item key={item.id} className="cursor-default rounded-lg px-3 py-2 text-sm outline-none data-[highlighted]:bg-primary/10" onClick={() => {
                 setOpen(false);
                 item.onSelect();
               }}>{item.label}</Menu.Item>

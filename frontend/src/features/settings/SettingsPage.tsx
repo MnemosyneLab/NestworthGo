@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,17 @@ import { resolvedTimeZone, timeZoneOptions } from "@/lib/time";
  * only returns to the last loaded/saved snapshot; Restore defaults is the
  * separate destructive operation and always asks for confirmation.
  */
+const SECTION_IDS = ["general", "market", "data", "diagnostics", "about", "reset"] as const;
+const ACCENT_ORDER = ["indigo", "lavender", "mint", "sky", "peach"] as const;
+// Fixed preview colors so every accent stays visible regardless of the active theme.
+const ACCENT_SWATCH: Record<(typeof ACCENT_ORDER)[number], string> = {
+  indigo: "bg-[oklch(55%_0.19_268)]",
+  lavender: "bg-[oklch(64%_0.15_300)]",
+  mint: "bg-[oklch(60%_0.12_180)]",
+  sky: "bg-[oklch(62%_0.16_250)]",
+  peach: "bg-[oklch(72%_0.15_45)]",
+};
+
 export function SettingsPage() {
   const { t } = useTranslation();
   const settings = useSettings();
@@ -58,6 +69,21 @@ export function SettingsPage() {
   const setAppearance = useUiStore((state) => state.setAppearance);
   const setAccent = useUiStore((state) => state.setAccent);
   const [activeSection, setActiveSection] = useState("general");
+  const ready = Boolean(settings.data);
+  useEffect(() => {
+    if (!ready || typeof IntersectionObserver === "undefined") {
+      return;
+    }
+    const targets = SECTION_IDS.map((id) => document.getElementById(`settings-${id}`)).filter((node): node is HTMLElement => node !== null);
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+      if (visible) {
+        setActiveSection(visible.target.id.replace("settings-", ""));
+      }
+    }, { rootMargin: "-10% 0px -70% 0px" });
+    targets.forEach((node) => observer.observe(node));
+    return () => observer.disconnect();
+  }, [ready]);
   const [draftOverride, setDraftOverride] = useState<Settings | null>(null);
   const [coinGeckoKey, setCoinGeckoKey] = useState("");
   const [tiingoKey, setTiingoKey] = useState("");
@@ -153,11 +179,11 @@ export function SettingsPage() {
       <PageIntro description={t("settings.subtitle")} />
       <div className="grid items-start gap-8 xl:grid-cols-[10rem_minmax(0,1fr)]">
         <nav aria-label={t("settings.sections.navigation")} className="flex flex-wrap gap-1 xl:sticky xl:top-6 xl:flex-col">
-          {(["general", "market", "data", "diagnostics", "about", "reset"] as const).map((id) => (
-            <a key={id} href={`#settings-${id}`} onClick={() => setActiveSection(id)} aria-current={activeSection === id ? "location" : undefined} className={`rounded-md px-3 py-2 text-sm hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${activeSection === id ? "bg-muted font-medium text-foreground" : "text-muted-foreground"}`}>{t(`settings.sections.${id}`)}</a>
+          {SECTION_IDS.map((id) => (
+            <a key={id} href={`#settings-${id}`} onClick={() => setActiveSection(id)} aria-current={activeSection === id ? "location" : undefined} className={`rounded-xl px-3 py-2 text-sm transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${activeSection === id ? "bg-primary/12 font-semibold text-primary" : "text-muted-foreground"}`}>{t(`settings.sections.${id}`)}</a>
           ))}
         </nav>
-        <div className="min-w-0 max-w-3xl space-y-8">
+        <div className="min-w-0 max-w-3xl space-y-8 pb-4">
       <section id="settings-general" aria-labelledby="settings-general-title" className="scroll-mt-6">
       <form id="settings-preferences" onSubmit={submit} className="space-y-5" aria-label={t("settings.formLabel")}>
         <h2 id="settings-general-title" className="text-base font-semibold">{t("settings.sections.general")}</h2>
@@ -180,17 +206,34 @@ export function SettingsPage() {
 
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-accent">{t("settings.appearance.accent")}</Label>
-            <NativeSelect
-              id="settings-accent"
-              value={draft.accent}
-              onChange={(event) => update({ accent: event.target.value as Settings["accent"] })}
-            >
-              {(catalog.data?.accents ?? []).map((accent) => (
-                <option key={accent} value={accent}>
-                  {t(`option.accent.${accent}`)}
-                </option>
-              ))}
-            </NativeSelect>
+            <div className="flex items-center gap-3">
+              <NativeSelect
+                id="settings-accent"
+                className="min-w-0 flex-1"
+                value={draft.accent}
+                onChange={(event) => update({ accent: event.target.value as Settings["accent"] })}
+              >
+                {(catalog.data?.accents ?? []).map((accent) => (
+                  <option key={accent} value={accent}>
+                    {t(`option.accent.${accent}`)}
+                  </option>
+                ))}
+              </NativeSelect>
+              {/* Pointer shortcut only; the select above is the accessible control. */}
+              <div className="flex shrink-0 items-center gap-2" aria-hidden="true">
+                {ACCENT_ORDER.map((accent) => (
+                  <button
+                    key={accent}
+                    type="button"
+                    tabIndex={-1}
+                    data-testid={`accent-swatch-${accent}`}
+                    title={t(`option.accent.${accent}`)}
+                    onClick={() => update({ accent: accent as Settings["accent"] })}
+                    className={`size-7 shrink-0 cursor-pointer rounded-full ring-offset-2 ring-offset-background transition-transform hover:scale-110 ${ACCENT_SWATCH[accent]} ${draft.accent === accent ? "ring-2 ring-primary" : ""}`}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -275,19 +318,19 @@ export function SettingsPage() {
         </div>
 
         <p className="text-sm text-muted-foreground">{t("settings.sections.credentialsHelp")}</p>
-        <div className="divide-y divide-border rounded-lg border border-border bg-card">
+        <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
           <div className="p-5"><h3 className="font-medium">{t("settings.sections.coinGecko")}</h3>
         <form onSubmit={submitCoinGeckoKey} className="mt-4 flex max-w-xl flex-col gap-2">
           <Label htmlFor="settings-coinGecko-key">{t("settings.coinGeckoKey")}</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <input
+            <Input
               id="settings-coinGecko-key"
               type="password"
               autoComplete="off"
               value={coinGeckoKey}
               onChange={(event) => setCoinGeckoKey(event.target.value)}
               placeholder={t("settings.coinGeckoKeyPlaceholder")}
-              className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="min-w-0 flex-1"
             />
             <Button type="submit" disabled={!coinGeckoKey.trim() || saveCoinGeckoKey.isPending}>
               {saveCoinGeckoKey.isPending ? t("common.pending") : t("settings.saveCoinGeckoKey")}
@@ -320,14 +363,14 @@ export function SettingsPage() {
         <form onSubmit={submitTiingoKey} className="mt-4 flex max-w-xl flex-col gap-2">
           <Label htmlFor="settings-tiingo-key">{t("settings.tiingoKey")}</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <input
+            <Input
               id="settings-tiingo-key"
               type="password"
               autoComplete="off"
               value={tiingoKey}
               onChange={(event) => setTiingoKey(event.target.value)}
               placeholder={t("settings.tiingoKeyPlaceholder")}
-              className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="min-w-0 flex-1"
             />
             <Button type="submit" disabled={!tiingoKey.trim() || saveTiingoKey.isPending}>
               {saveTiingoKey.isPending ? t("common.pending") : t("settings.saveTiingoKey")}
@@ -373,14 +416,14 @@ export function SettingsPage() {
         <form onSubmit={submitWorkerToken} className="mt-5 flex max-w-xl flex-col gap-2">
           <Label htmlFor="settings-worker-token">{t("settings.workerToken")}</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
-            <input
+            <Input
               id="settings-worker-token"
               type="password"
               autoComplete="off"
               value={workerToken}
               onChange={(event) => setWorkerToken(event.target.value)}
               placeholder={t("settings.workerTokenPlaceholder")}
-              className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="min-w-0 flex-1"
             />
             <Button type="submit" disabled={!workerToken.trim() || saveWorkerToken.isPending}>
               {saveWorkerToken.isPending ? t("common.pending") : t("settings.saveWorkerToken")}
@@ -426,13 +469,13 @@ export function SettingsPage() {
       </section>
       <div id="settings-about" className="scroll-mt-6 border-t border-border pt-6"><AboutPage /></div>
       <div id="settings-reset" className="scroll-mt-6">
-      <section className="max-w-2xl rounded-lg border border-destructive/30 bg-destructive/5 p-5" aria-labelledby="settings-reset-title">
+      <section className="max-w-2xl rounded-2xl border border-destructive/30 bg-destructive/5 p-5" aria-labelledby="settings-reset-title">
         <h2 id="settings-reset-title" className="font-medium text-foreground">
           {t("settings.resetSectionTitle")}
         </h2>
         <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">{t("settings.resetSectionDescription")}</p>
         <AlertDialog>
-          <AlertDialogTrigger className="mt-4 rounded-md border border-destructive/40 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/10">
+          <AlertDialogTrigger className="mt-4 rounded-xl border border-destructive/40 px-3 py-2 text-sm font-medium text-destructive transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive/50">
             {t("settings.resetSectionTitle")}
           </AlertDialogTrigger>
           <AlertDialogContent>
@@ -462,7 +505,7 @@ export function SettingsPage() {
       </section>
 
       </div>
-      <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-background p-3 shadow-sm">
+      <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur">
         <p className="max-w-sm text-xs text-muted-foreground">{t(isDirty ? "settings.sections.unsaved" : "settings.sections.saveHelp")}</p>
         {(saveSettings.isError || resetSettings.isError) && (
           <p role="alert" className="text-sm text-destructive">

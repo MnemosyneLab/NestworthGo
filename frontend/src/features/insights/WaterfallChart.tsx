@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { chartNumber, chartTheme } from "@/components/charts/chartTheme";
+import { chartNumber, chartTheme, useThemeVersion } from "@/components/charts/chartTheme";
 import { EmptyState } from "@/components/layout/PageState";
 import type { AssetChangeRowDTO, AssetChangeSummaryDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { addCanonical, compareCanonical, currencyFractionDigits, formatAmount, multiplyCanonical } from "@/lib/money";
@@ -80,6 +80,7 @@ function waterfallReconciles(steps: WaterfallStep[]): boolean {
 
 export function WaterfallChart({ summary, rows, labels, onSelect }: { summary: AssetChangeSummaryDTO; rows: AssetChangeRowDTO[]; labels: { beginning: string; ending: string; amount: string; empty: string }; onSelect?: (key: string) => void }) {
   const { t } = useTranslation();
+  useThemeVersion();
   const theme = chartTheme();
   const steps = useMemo(() => stepsFromData(summary, rows, labels), [labels, rows, summary]);
   if (steps.length === 0) {

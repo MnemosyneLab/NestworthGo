@@ -1,7 +1,6 @@
 import { addDays } from "date-fns";
 import { parseYmd, ymd } from "./calendar";
 import { AnalysisHealthLink } from "./AnalysisHealthLink";
-import { chartTheme } from "@/components/charts/chartTheme";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +14,8 @@ import type { AnalysisSessionState } from "@/stores/analysis";
 import type { ReturnTrendDTO, SignedMoneyView } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { useAnalysisProjectionContext } from "@/features/insights/analysisProjectionContext";
 import { formatAmount } from "@/lib/money";
+import { cn } from "@/lib/utils";
+import { signToneClass } from "@/components/ui/money-text";
 
 function amountText(value?: SignedMoneyView | null): string {
   if (!value) return "—";
@@ -65,8 +66,8 @@ function TrendSummary({ data }: { data: ReturnTrendDTO }) {
           </div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <div><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.returnAmount")}</p><p className="mt-1 text-2xl font-semibold">{amountText(data.amount)}</p></div>
-          <div><p className="text-xs uppercase tracking-wide text-muted-foreground">{t("insights.returnRate")}</p><p className="mt-1 text-2xl font-semibold">{rateText(data.rate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p></div>
+          <div><p className="text-sm text-muted-foreground">{t("insights.returnAmount")}</p><p className={cn("num mt-1 text-2xl font-semibold", signToneClass(data.amount?.amount))}>{amountText(data.amount)}</p></div>
+          <div><p className="text-sm text-muted-foreground">{t("insights.returnRate")}</p><p className={cn("num mt-1 text-2xl font-semibold", signToneClass(data.rate))}>{rateText(data.rate)}{partial && <sup className="ml-1 text-warning-foreground">◇</sup>}</p></div>
         </div>
       </CardHeader>
     </Card>
@@ -122,7 +123,7 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   else results = (
     <>
       <TrendSummary data={data} />
-      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent>{hasBaseline && <p className="mb-3 text-xs text-muted-foreground">{t("rangeShortcuts.baseline")}</p>}<TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: chartTheme().primary, values: chartValues }]} height={280} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} axisValueFormatter={display === "linked_rate" ? rateAxisText : undefined} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display)]} extraTableRows={dates.map((date, index) => [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index])])} /></CardContent></Card>}
+      {chartPoints.length === 0 ? <EmptyState title={t("charts.insufficientHistory")} description={t("insights.dailyRateHint")} /> : <Card><CardHeader><CardTitle>{displayLabel(t, display)}</CardTitle></CardHeader><CardContent>{hasBaseline && <p className="mb-3 text-xs text-muted-foreground">{t("rangeShortcuts.baseline")}</p>}<TrendChart ariaLabel={displayLabel(t, display)} summary={t("insights.returnTrendChartSummary")} dates={dates} series={[{ key: display, name: displayLabel(t, display), color: "var(--color-primary)", values: chartValues }]} height={280} currency={currency} valueFormatter={display === "linked_rate" ? rateText : chartAmountText} axisValueFormatter={display === "linked_rate" ? rateAxisText : undefined} emptyTitle={t("charts.insufficientHistory")} extraTableColumns={[t("charts.date"), displayLabel(t, display)]} extraTableRows={dates.map((date, index) => [date, display === "linked_rate" ? rateText(chartValues[index]) : chartAmountText(chartValues[index])])} /></CardContent></Card>}
       {(data.sources ?? []).length > 0 && <Card><CardHeader><CardTitle>{t("insights.returnSources")}</CardTitle></CardHeader><CardContent><ul className="flex flex-col gap-2 text-sm">{(data.sources ?? []).map((source) => <li key={source.key} className="flex items-center gap-3"><span className="min-w-0 flex-1 truncate">{sourceLabel(t, source.key)}</span><span className="shrink-0">{amountText(source.amount)}</span><span className="w-16 shrink-0 text-right text-muted-foreground">{source.share == null ? "—" : shareText(source.share)}</span></li>)}</ul></CardContent></Card>}
       <Button type="button" variant="ghost" className="self-start" onClick={() => setDisplay("cumulative_amount")} hidden={display === "cumulative_amount"}>{t("insights.resetDisplay")}</Button>
     </>
