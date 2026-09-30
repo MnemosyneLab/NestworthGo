@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/benbjohnson/litestream"
 	"github.com/superfly/ltx"
+	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
@@ -443,6 +446,312 @@ func TestFailedStopResumesOldWorkerWithoutFalseConfirmation(t *testing.T) {
 			if err := candidate.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='after-failed-stop'`).Scan(&value); err != nil || value != "new" {
 				t.Fatalf("resumed stream missed write: %s %v", value, err)
 			}
+		})
+	}
+}
+
+func TestTargetSwapClearsOldEvidenceAndUnavailableSaveKeepsCredentials(t *testing.T) {
+	m, db, _ := fixture(t)
+	if err := m.Configure(context.Background(), testUpdate(true)); err != nil {
+		t.Fatal(err)
+	}
+	first := waitState(t, m, "recent-backup-confirmed")
+	old, _, _ := m.store.load()
+	m.database = nil
+	changed := testUpdate(true)
+	changed.AccessKeyID, changed.SecretAccessKey = "different-access", "different-secret"
+	if err := m.Configure(context.Background(), changed); err == nil {
+		t.Fatal("enabled unavailable database")
+	}
+	got, _, _ := m.store.load()
+	m.database = db
+	if got != old {
+		t.Fatal("failed save replaced stored pair")
+	}
+	changed.Enabled, changed.Bucket = false, "another-bucket"
+	if err := m.Configure(context.Background(), changed); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := m.View()
+	if after.LastSuccessfulBackup != "" || after.LastAttempt != "" || after.StreamID != "" {
+		t.Fatal("new target showed old target evidence")
+	}
+	if err := m.Configure(context.Background(), Update{Enabled: true, AccountID: changed.AccountID, Bucket: changed.Bucket}); err != nil {
+		t.Fatal(err)
+	}
+	next := waitState(t, m, "recent-backup-confirmed")
+	if next.StreamID == first.StreamID {
+		t.Fatal("changed target reused stream")
+	}
+}
+func TestCloudStageRejectsEveryUnsupportedSchemaAndMissingRequirement(t *testing.T) {
+	for _, version := range []int{0, 9, 10, 11, 12, 13, 14, 16} {
+		t.Run(fmt.Sprint(version), func(t *testing.T) {
+			m, db, _ := fixture(t)
+			if _, err := db.SQL.Exec(fmt.Sprintf("PRAGMA user_version=%d", version)); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.Configure(context.Background(), testUpdate(true)); err != nil {
+				t.Fatal(err)
+			}
+			waitState(t, m, "recent-backup-confirmed")
+			points, err := m.RecoveryPoints(context.Background())
+			if err != nil || len(points) == 0 {
+				t.Fatalf("no candidate %v", err)
+			}
+			if _, err := m.Stage(context.Background(), points[0]); err == nil {
+				t.Fatal("accepted unsupported schema")
+			}
+			var current int
+			if err := db.SQL.QueryRow("PRAGMA user_version").Scan(&current); err != nil || current != version {
+				t.Fatal("stage changed current database")
+			}
+			if _, err := db.SQL.Exec("PRAGMA user_version=15"); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+	t.Run("required-table", func(t *testing.T) {
+		m, db, _ := fixture(t)
+		if _, err := db.SQL.Exec("DROP TABLE app_configuration"); err != nil {
+			t.Fatal(err)
+		}
+		if err := m.Configure(context.Background(), testUpdate(true)); err != nil {
+			t.Fatal(err)
+		}
+		waitState(t, m, "recent-backup-confirmed")
+		points, err := m.RecoveryPoints(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := m.Stage(context.Background(), points[0]); err == nil {
+			t.Fatal("accepted incomplete schema 15")
+		}
+	})
+}
+func TestCloudCandidateThroughExplicitJournalInstallAndRollback(t *testing.T) {
+	for _, rollback := range []bool{false, true} {
+		t.Run(fmt.Sprintf("rollback=%t", rollback), func(t *testing.T) {
+			m, db, _ := fixture(t)
+			ctx := context.Background()
+			if _, err := db.SQL.Exec(`INSERT INTO app_configuration(key,value) VALUES('restore-value','backed-up')`); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.Configure(ctx, testUpdate(true)); err != nil {
+				t.Fatal(err)
+			}
+			stream := waitState(t, m, "recent-backup-confirmed").StreamID
+			points, err := m.RecoveryPoints(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			candidate, err := m.Stage(ctx, points[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(filepath.Dir(candidate))
+			data, err := os.ReadFile(candidate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			pkg := backup.Package{Manifest: backup.NewManifest(time.Now(), data, []byte("{}\n"), sqlite.EntityCounts{}), Database: data, Settings: []byte("{}\n")}
+			source := filepath.Join(filepath.Dir(candidate), "candidate.nestworth-backup")
+			if err := backup.WritePackage(source, pkg); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.SQL.Exec(`UPDATE app_configuration SET value='original-local' WHERE key='restore-value'`); err != nil {
+				t.Fatal(err)
+			}
+			app := application.NewService(sqlite.NewRepository(db))
+			recovery := application.NewRecovery(m.path, backup.NewRuntime(), app)
+			recovery.SetBeforeRestore(m.PauseForRestore)
+			defer recovery.Shutdown()
+			preview, err := recovery.InspectBackup(ctx, source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := recovery.ConfirmRestore(ctx, application.RestoreConfirmInput{Token: preview.Token, Confirmation: "WRONG", Acknowledged: true}); err == nil {
+				t.Fatal("installed without confirmation")
+			}
+			v, _ := m.View()
+			if !v.Enabled {
+				t.Fatal("unconfirmed preview paused backup")
+			}
+			// Cancellation removes its staged session and does not touch local records.
+			recovery.Shutdown()
+			var original string
+			if err := db.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='restore-value'`).Scan(&original); err != nil || original != "original-local" {
+				t.Fatal("preview changed local records")
+			}
+			preview, err = recovery.InspectBackup(ctx, source)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := recovery.ConfirmRestore(ctx, application.RestoreConfirmInput{Token: preview.Token, Confirmation: "RESTORE", Acknowledged: true})
+			if err != nil || !result.RestartRequired {
+				t.Fatalf("install %+v %v", result, err)
+			}
+			journal, err := backup.ReadJournal(m.path)
+			if err != nil || journal.State != backup.StateReplacementInstalled {
+				t.Fatalf("journal %+v %v", journal, err)
+			}
+			safety := filepath.Join(filepath.Dir(m.path), journal.SafetyName)
+			if _, err := os.Stat(safety); err != nil {
+				t.Fatal("original safety file missing")
+			}
+			if rollback {
+				if err := os.WriteFile(m.path, []byte("invalid replacement"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := backup.ReconcileOnStartup(m.path, nil); err != nil {
+				t.Fatal(err)
+			}
+			restored, err := sqlite.Open(m.path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer restored.Close()
+			var value string
+			if err := restored.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='restore-value'`).Scan(&value); err != nil {
+				t.Fatal(err)
+			}
+			want := "backed-up"
+			if rollback {
+				want = "original-local"
+			}
+			if value != want {
+				t.Fatalf("restore=%q want %q", value, want)
+			}
+			if err := m.Close(ctx); err != nil {
+				t.Fatal(err)
+			}
+			restarted, err := New(m.path, restored)
+			if err != nil {
+				t.Fatal(err)
+			}
+			restarted.factory = m.factory
+			restarted.interval = time.Hour
+			defer restarted.Close(ctx)
+			v, _ = restarted.View()
+			if v.Enabled {
+				t.Fatal("restore automatically resumed remote stream")
+			}
+			if err := restarted.Configure(ctx, Update{Enabled: true, AccountID: v.AccountID, Bucket: v.Bucket}); err != nil {
+				t.Fatal(err)
+			}
+			next := waitState(t, restarted, "recent-backup-confirmed")
+			if next.StreamID == stream {
+				t.Fatal("restored database overwrote remote history")
+			}
+		})
+	}
+}
+
+// A noncooperative implementation cannot be made deadline-safe by abandoning
+// a goroutine. The manager waits for it, then closes; the test releases and
+// joins it so no background operation survives test or database teardown.
+type noncooperativeBackend struct {
+	backend
+	entered, release chan struct{}
+}
+
+func (b noncooperativeBackend) client(stream string) litestream.ReplicaClient {
+	return &noncooperativeClient{ReplicaClient: b.backend.client(stream), entered: b.entered, release: b.release}
+}
+
+type noncooperativeClient struct {
+	litestream.ReplicaClient
+	entered, release chan struct{}
+}
+
+func (c *noncooperativeClient) LTXFiles(ctx context.Context, level int, seek ltx.TXID, metadata bool) (ltx.FileIterator, error) {
+	select {
+	case c.entered <- struct{}{}:
+	default:
+	}
+	<-c.release
+	return nil, errors.New("backend ignored cancellation until explicitly released")
+}
+func TestNoncooperativeBackendIsJoinedBeforeDatabaseClose(t *testing.T) {
+	m, db, root := fixture(t)
+	entered, release := make(chan struct{}, 1), make(chan struct{})
+	m.factory = func(config) backend { return noncooperativeBackend{fileBackend{root}, entered, release} }
+	if err := m.Configure(context.Background(), testUpdate(true)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		close(release)
+		t.Fatal("not entered")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- m.Close(ctx) }()
+	select {
+	case err := <-done:
+		close(release)
+		t.Fatalf("abandoned blocked backend: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(release)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("did not close after backend returned")
+	}
+	if err := db.Verify(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestConfigurationPersistenceFailureKeepsOldPairAndResumesBackup(t *testing.T) {
+	for _, operation := range []string{"configure", "restore-pause"} {
+		t.Run(operation, func(t *testing.T) {
+			m, db, _ := fixture(t)
+			if err := m.Configure(context.Background(), testUpdate(true)); err != nil {
+				t.Fatal(err)
+			}
+			waitState(t, m, "recent-backup-confirmed")
+			old, _, _ := m.store.load()
+			if _, err := m.store.db.Exec(`CREATE TRIGGER reject_disabled BEFORE UPDATE ON backup_local WHEN json_extract(NEW.config,'$.Enabled')=0 BEGIN SELECT RAISE(FAIL,'simulated disk write failure'); END`); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			if operation == "configure" {
+				update := testUpdate(false)
+				update.Bucket = "changed-target"
+				update.AccessKeyID = "replacement-access"
+				update.SecretAccessKey = "replacement-secret"
+				err = m.Configure(context.Background(), update)
+			} else {
+				err = m.PauseForRestore(context.Background())
+			}
+			if err == nil {
+				t.Fatal("simulated save succeeded")
+			}
+			got, _, err := m.store.load()
+			if err != nil || got != old {
+				t.Fatal("failed save changed credential pair/config")
+			}
+			m.op.Lock()
+			running := m.workerDone != nil && !m.restorePaused
+			m.op.Unlock()
+			if !running {
+				t.Fatal("failed persistence stopped old enabled backup")
+			}
+			if _, err := db.SQL.Exec(`INSERT INTO app_configuration(key,value) VALUES('after-save-failure','local')`); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.BackupNow(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			waitState(t, m, "recent-backup-confirmed")
 		})
 	}
 }

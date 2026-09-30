@@ -16,7 +16,17 @@ func AcquireInstanceLock(path string) (func() error, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return nil, err
 	}
-	lockPath := path + ".instance-lock"
+	canonical, err := filepath.EvalSymlinks(path)
+	if errors.Is(err, os.ErrNotExist) {
+		parent, parentErr := filepath.EvalSymlinks(filepath.Dir(path))
+		if parentErr != nil {
+			return nil, parentErr
+		}
+		canonical = filepath.Join(parent, filepath.Base(path))
+	} else if err != nil {
+		return nil, err
+	}
+	lockPath := canonical + ".instance-lock"
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, err

@@ -223,7 +223,7 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 		if !closedHandles && resume {
 			// A canceled drain has not touched the library handles. Keep the old
 			// enabled configuration running after the failed change/restore pause.
-			m.launchWorkerLocked(0)
+			m.launchWorkerLocked(m.interval)
 		} else if closedHandles {
 			m.replicaDB, m.replicaStore = nil, nil
 			m.initialized = false
@@ -272,8 +272,13 @@ func (m *Manager) Configure(ctx context.Context, u Update) error {
 	err = m.store.save(c, m.status)
 	m.statusMu.Unlock()
 	if err != nil {
+		m.statusMu.Lock()
+		m.status = oldStatus
+		m.statusMu.Unlock()
 		if old.Enabled {
-			_ = m.startLocked(ctx, old)
+			retryCtx, cancel := contextTimeout(context.Background())
+			_ = m.startLocked(retryCtx, old)
+			cancel()
 		}
 		return err
 	}
@@ -383,20 +388,30 @@ func (m *Manager) PauseForRestore(ctx context.Context) error {
 	if m.closed {
 		return ErrDisabled
 	}
-	if err := m.stopLocked(ctx, true); err != nil {
-		return err
-	}
-	c, _, err := m.store.load()
+	c, previous, err := m.store.load()
 	if err != nil {
 		return err
 	}
+	if err := m.stopLocked(ctx, true); err != nil {
+		return err
+	}
+	old := c
 	c.Enabled = false
 	m.statusMu.Lock()
-	defer m.statusMu.Unlock()
 	m.status.State = "disabled"
 	m.status.RestoreState = "installing"
 	m.status.StreamID = ""
-	if err := m.store.save(c, m.status); err != nil {
+	err = m.store.save(c, m.status)
+	if err != nil {
+		m.status = previous
+	}
+	m.statusMu.Unlock()
+	if err != nil {
+		if old.Enabled {
+			retryCtx, cancel := contextTimeout(context.Background())
+			_ = m.startLocked(retryCtx, old)
+			cancel()
+		}
 		return err
 	}
 	m.restorePaused = true
