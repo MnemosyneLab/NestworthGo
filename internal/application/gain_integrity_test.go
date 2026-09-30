@@ -53,8 +53,8 @@ func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
 	}
 }
 
-func TestLegacyFixtureSupportsRepositoryGainReads(t *testing.T) {
-	database := seedGainSchema7Fixture(t)
+func TestCurrentFixtureSupportsRepositoryGainReads(t *testing.T) {
+	database := seedGainCurrentFixture(t)
 	defer database.Close()
 	repository := sqlite.NewRepository(database)
 	ctx := context.Background()
@@ -63,7 +63,7 @@ func TestLegacyFixtureSupportsRepositoryGainReads(t *testing.T) {
 		t.Fatal(err)
 	}
 	if snapshot.Household == nil || len(snapshot.Accounts) == 0 {
-		t.Fatal("schema 7 fixture has no Household or accounts")
+		t.Fatal("current fixture has no Household or accounts")
 	}
 	gain := NewGainService(repository, func() time.Time { return time.Date(2026, 1, 8, 0, 0, 0, 0, time.UTC) })
 	for _, account := range snapshot.Accounts {

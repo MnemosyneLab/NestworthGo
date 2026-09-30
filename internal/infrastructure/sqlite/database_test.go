@@ -41,7 +41,7 @@ func TestOpenCreatesAndVerifiesCurrentDatabase(t *testing.T) {
 		t.Fatalf("check media table: %v", err)
 	}
 	if mediaTables != 0 {
-		t.Fatal("schema v8 unexpectedly contains media_assets")
+		t.Fatal("current schema unexpectedly contains media_assets")
 	}
 	for _, entity := range []struct{ table, column string }{
 		{"members", "icon_key"}, {"institutions", "icon_key"}, {"account_groups", "icon_key"}, {"accounts", "icon_key"}, {"instruments", "icon_key"}, {"institutions", "institution_type"},
@@ -72,6 +72,9 @@ func TestOpenReopensCurrentDatabaseWithoutMigrationStatus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := first.SQL.Exec(`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('00000000-0000-4000-8000-000000000001','Preserved household','USD','2026-09-01T00:00:00Z','2026-09-01T00:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
 	if err := first.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -80,6 +83,10 @@ func TestOpenReopensCurrentDatabaseWithoutMigrationStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer reopened.Close()
+	var name string
+	if err := reopened.SQL.QueryRow(`SELECT name FROM households`).Scan(&name); err != nil || name != "Preserved household" {
+		t.Fatalf("reopened household = %q, error = %v", name, err)
+	}
 	if reopened.Status != StatusReady {
 		t.Fatalf("reopen status = %q, want ready", reopened.Status)
 	}
@@ -500,162 +507,6 @@ func TestOpenRejectsSchema8FixtureWithoutWriting(t *testing.T) {
 	}
 	if string(before) != string(after) {
 		t.Fatal("schema 8 database changed after rejected open")
-	}
-}
-
-func TestOpenMigratesSchema9FixtureWithoutNetwork(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "schema9.db")
-	schema, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "schema9", "schema9.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	data, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "schema9", "schema9-data.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	seed, err := sql.Open("sqlite", path+"?_pragma=foreign_keys%3d1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := seed.Exec(string(schema)); err != nil {
-		_ = seed.Close()
-		t.Fatal(err)
-	}
-	if _, err := seed.Exec(string(data)); err != nil {
-		_ = seed.Close()
-		t.Fatal(err)
-	}
-	var version int
-	if err := seed.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
-		_ = seed.Close()
-		t.Fatal(err)
-	}
-	if version != 9 {
-		_ = seed.Close()
-		t.Fatalf("fixture version = %d, want 9", version)
-	}
-	if err := seed.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	database, err := Open(path)
-	if err != nil {
-		t.Fatalf("Open schema 9: %v", err)
-	}
-	defer database.Close()
-	if err := database.SQL.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
-		t.Fatal(err)
-	}
-	if version != CurrentSchemaVersion {
-		t.Fatalf("migrated version = %d, want %d", version, CurrentSchemaVersion)
-	}
-
-	var manualKind, providerKind, archivedKind string
-	if err := database.SQL.QueryRow(`SELECT observation_kind FROM instrument_quotes WHERE id = '00000000-0000-4000-8000-000000000020'`).Scan(&manualKind); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.SQL.QueryRow(`SELECT observation_kind FROM instrument_quotes WHERE id = '00000000-0000-4000-8000-000000000021'`).Scan(&providerKind); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.SQL.QueryRow(`SELECT observation_kind FROM instrument_quotes WHERE id = '00000000-0000-4000-8000-000000000022'`).Scan(&archivedKind); err != nil {
-		t.Fatal(err)
-	}
-	if manualKind != "manual" || providerKind != "legacy" || archivedKind != "legacy" {
-		t.Fatalf("observation kinds manual=%s provider=%s archived=%s", manualKind, providerKind, archivedKind)
-	}
-
-	var closeSlots int
-	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_observation_slots`).Scan(&closeSlots); err != nil {
-		t.Fatal(err)
-	}
-	if closeSlots != 0 {
-		t.Fatal("legacy provider quotes filled canonical close slots")
-	}
-
-	var bindings int
-	if err := database.SQL.QueryRow(`SELECT COUNT(*) FROM instrument_provider_bindings`).Scan(&bindings); err != nil {
-		t.Fatal(err)
-	}
-	if bindings != 2 {
-		t.Fatalf("bindings = %d, want 2 including archived", bindings)
-	}
-	var archivedBinding string
-	if err := database.SQL.QueryRow(`SELECT provider_symbol FROM instrument_provider_bindings WHERE instrument_id = '00000000-0000-4000-8000-000000000012'`).Scan(&archivedBinding); err != nil {
-		t.Fatal(err)
-	}
-	if archivedBinding != "OLD" {
-		t.Fatalf("archived binding = %s", archivedBinding)
-	}
-
-	var snapshotCount int
-	var contentHash string
-	if err := database.SQL.QueryRow(`SELECT COUNT(*), MAX(content_hash) FROM daily_valuation_snapshots`).Scan(&snapshotCount, &contentHash); err != nil {
-		t.Fatal(err)
-	}
-	if snapshotCount != 1 || contentHash != "legacy-snapshot-v9" {
-		t.Fatalf("legacy snapshot was rewritten: count=%d hash=%s", snapshotCount, contentHash)
-	}
-
-	var dirtyFrom, policy string
-	var generation int
-	if err := database.SQL.QueryRow(`SELECT dirty_from, input_generation, resolver_policy_version FROM history_snapshot_state WHERE household_id = '00000000-0000-4000-8000-000000000001'`).Scan(&dirtyFrom, &generation, &policy); err != nil {
-		t.Fatal(err)
-	}
-	if dirtyFrom != "2026-09-01" || generation != 1 || policy != domain.MarketDataResolverPolicy {
-		t.Fatalf("dirty state dirty_from=%s generation=%d policy=%s", dirtyFrom, generation, policy)
-	}
-
-	var providerKey, providerSymbol string
-	if err := database.SQL.QueryRow(`SELECT provider_key, provider_symbol FROM instruments WHERE id = '00000000-0000-4000-8000-000000000011'`).Scan(&providerKey, &providerSymbol); err != nil {
-		t.Fatal(err)
-	}
-	if providerKey != "yahoo_finance" || providerSymbol != "AAPL" {
-		t.Fatal("migration removed legacy instrument provider columns")
-	}
-
-	var manualFX, providerFX string
-	if err := database.SQL.QueryRow(`SELECT observation_kind FROM fx_quotes WHERE id = '00000000-0000-4000-8000-000000000030'`).Scan(&manualFX); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.SQL.QueryRow(`SELECT observation_kind FROM fx_quotes WHERE id = '00000000-0000-4000-8000-000000000031'`).Scan(&providerFX); err != nil {
-		t.Fatal(err)
-	}
-	if manualFX != "manual" || providerFX != "legacy" {
-		t.Fatalf("FX observation kinds manual=%s provider=%s", manualFX, providerFX)
-	}
-	if err := database.Verify(context.Background()); err != nil {
-		t.Fatalf("Verify after migration: %v", err)
-	}
-}
-
-func TestOpenRewritesLegacyCashOnHandHoldingsCheck(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "repair.db")
-	first, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := context.Background()
-	if err := rewriteAccountsCheckFragment(ctx, first.SQL, cashOnHandBalanceOrHoldingsCheck, cashOnHandBalanceOnlyCheck); err != nil {
-		t.Fatalf("install legacy check: %v", err)
-	}
-	if got := accountsCreateSQL(t, first.SQL); !schemaSQLContains(got, cashOnHandBalanceOnlyCheck) {
-		t.Fatalf("legacy check missing from setup: %s", got)
-	}
-	if err := first.Close(); err != nil {
-		t.Fatal(err)
-	}
-
-	reopened, err := Open(path)
-	if err != nil {
-		t.Fatalf("Open after legacy check: %v", err)
-	}
-	defer reopened.Close()
-	got := accountsCreateSQL(t, reopened.SQL)
-	if !schemaSQLContains(got, cashOnHandBalanceOrHoldingsCheck) {
-		t.Fatalf("reopened accounts check = %s, want holdings allowed", got)
-	}
-	if schemaSQLContains(got, cashOnHandBalanceOnlyCheck) {
-		t.Fatalf("reopened accounts check still has the legacy fragment: %s", got)
 	}
 }
 

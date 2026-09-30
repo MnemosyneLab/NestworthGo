@@ -99,12 +99,11 @@ This does not enable MCP or grant permission; connect through the App's
 **Settings → AI / MCP** separately. Maintainers can build the independent bundle
 with `python3 tools/package-nestworth-skill.py`; no skill is installed by a build.
 
-## Upgrading to 0.3.4
+## Database support
 
-Preserve a backup and a closed copy of the existing database before upgrading.
-Schema 9/10 databases migrate offline to schema 11. The restore flow requires
-a current-schema backup; create a new backup after migration. CSV import and
-export are no longer available; use backup/restore for recovery and the
-versioned JSON export for external copies. See the
-[release contract](docs/releases/v0.3.4.md) for compatibility, verification,
-and the remaining release checklist.
+The app creates and opens only the current SQLite schema (15). Existing files
+with older, unversioned, or future schemas are rejected without migration,
+deletion, or recreation. Backups must contain the current schema and pass
+read-only integrity verification before restore. CSV import and export are no
+longer available; use backup/restore for recovery and the versioned JSON export
+for external copies.

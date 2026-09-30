@@ -114,10 +114,12 @@ results to stable wire DTOs without embedding business rules.
 ## Persistence and settings
 
 The current SQLite schema is verified before business writes. Startup enables
-foreign keys, checks structural integrity, and blocks unsupported future or
-invalid databases without partial writes. Settings live separately in a
-schema-versioned JSON file and contain presentation preferences plus explicit
-FX-provider routing.
+foreign keys and checks structural integrity. Only schema 15 is accepted;
+older, unversioned, future, or invalid databases are rejected without migration,
+deletion, recreation, or partial writes. Missing current tables and old
+constraints fail verification rather than being repaired. Durable settings and
+provider credentials live in SQLite; the separate versioned JSON file stores
+presentation preferences.
 
 ## Validation strategy
 

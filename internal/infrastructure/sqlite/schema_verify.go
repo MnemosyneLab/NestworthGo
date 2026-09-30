@@ -376,10 +376,10 @@ func verifyTable(ctx context.Context, query schemaQuery, table string, expected 
 }
 
 func verifyAcceptedCashOnHandCheck(definition string) error {
-	if schemaSQLContains(definition, "CHECK(("+cashOnHandBalanceOnlyCheck) || schemaSQLContains(definition, "CHECK(("+cashOnHandBalanceOrHoldingsCheck) {
+	if schemaSQLContains(definition, "CHECK((account_type = 'cash_on_hand' AND balance_sheet_role = 'asset' AND tracking_mode IN ('balance','holdings')") {
 		return nil
 	}
-	return fmt.Errorf("table accounts is missing a recognized v9 cash_on_hand tracking check")
+	return fmt.Errorf("table accounts is missing a current cash_on_hand tracking check")
 }
 
 func verifyIndex(ctx context.Context, query schemaQuery, expected expectedIndex) error {
@@ -707,13 +707,6 @@ func historySchemaColumns() map[string][]schemaColumn {
 func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 	for table, columns := range historySchemaColumns() {
 		if table == "activity_mutation_keys" || table == "change_batch_mutation_keys" {
-			exists, err := schemaTableExists(ctx, query, table)
-			if err != nil {
-				return err
-			}
-			if !exists {
-				continue
-			}
 			if err := verifyTable(ctx, query, table, columns); err != nil {
 				return err
 			}
@@ -747,17 +740,6 @@ func verifyHistorySchema(ctx context.Context, query schemaQuery) error {
 		}
 	}
 	return nil
-}
-
-func schemaTableExists(ctx context.Context, query schemaQuery, table string) (bool, error) {
-	var objectType string
-	if err := query.QueryRowContext(ctx, `SELECT type FROM sqlite_master WHERE name = ?`, table).Scan(&objectType); err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
-	}
-	return objectType == "table", nil
 }
 
 func expectedSchemaChecks() map[string][]string {

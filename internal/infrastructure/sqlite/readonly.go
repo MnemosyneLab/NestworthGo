@@ -13,7 +13,7 @@ import (
 )
 
 // OpenReadOnlyForVerify opens an existing SQLite file without creating a
-// schema, running v9 repair, enabling WAL, or creating parent directories.
+// schema, enabling WAL, or creating parent directories.
 // It is the only supported way to inspect a backup snapshot or a restored
 // candidate before treating it as the live database.
 func OpenReadOnlyForVerify(path string) (*DB, error) {

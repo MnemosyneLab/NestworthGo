@@ -4,10 +4,7 @@ import "github.com/waltwang/nestworth-go/internal/domain"
 
 // Keep separate daily, realtime and converted candidates. Cutting everything
 // down to one timestamp per source discards data needed to resolve overlays.
-func currentQuoteCandidateColumns(kind string, modern bool) string {
-	if !modern {
-		return `'latest' AS selection_kind, '' AS selection_group, q.quoted_at AS selection_at, '' AS selection_tie_at, 0 AS selection_revision`
-	}
+func currentQuoteCandidateColumns(kind string) string {
 	dailyKind := "close"
 	if kind == "fx" {
 		dailyKind = "daily_reference"
@@ -25,7 +22,7 @@ func currentQuoteCandidateColumns(kind string, modern bool) string {
 		CASE WHEN ` + converted + ` THEN COALESCE(q.revision, 1) ELSE 0 END AS selection_revision`
 }
 
-// CASE protects legacy malformed or empty conversion JSON from json_extract.
+// CASE protects malformed or empty conversion JSON from json_extract.
 func metalRawQuoteKeySQL(alias string) string {
 	return `CASE WHEN json_valid(` + alias + `.conversion_json) THEN CASE WHEN json_extract(` + alias + `.conversion_json, '$.policy') = '` + domain.MetalConversionPolicy + `' THEN COALESCE(json_extract(` + alias + `.conversion_json, '$.rawQuotedAt'), '') ELSE '' END ELSE '' END`
 }

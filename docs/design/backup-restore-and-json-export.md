@@ -1,7 +1,7 @@
 # Backup, Restore, and JSON Export
 
 - Status: **Implemented**
-- Database: SQLite schema `13`
+- Database: SQLite schema `15`
 - Platform: Wails v3
 - Companion: [JSON export format](json-export-format.md)
 
@@ -59,7 +59,7 @@ The manifest includes at least:
   "app_name": "Nestworth",
   "app_version": "0.3.1",
   "app_build": "2",
-  "schema_version": 9,
+  "schema_version": 15,
   "created_at": "2026-09-01T00:00:00Z",
   "members": {
     "database.sqlite": {"sha256": "...", "size_bytes": 0},
@@ -95,8 +95,9 @@ Currency, timezone, provider configuration, API keys, and MCP connection state
 and receipts are stored in SQLite and always follow the restored database.
 The preference categories default to preserving current values and are merged
 only after the restored database verifies. A rollback leaves preferences intact.
-Schema 12 packages remain readable: extraction upgrades a verified temporary
-copy and migrates its legacy settings before replacing the live database.
+Only current-schema packages are readable. Older, unversioned, and future
+database schemas are rejected without upgrading the extracted copy or replacing
+the live database.
 
 ### Restore during first launch
 
@@ -134,12 +135,12 @@ balances, quantities, notes, Account names, and raw exported values.
 
 Restore always starts in a dedicated read-only/query-only path. It must not use
 a normal `Open` path that creates a schema, changes directories, enables WAL,
-or repairs schema-9 constraints. The verifier checks, in order:
+or modifies schema constraints. The verifier checks, in order:
 
 1. The container can be read and has the fixed member set.
 2. `format_version` is supported.
 3. Manifest fields, checksums, sizes, and member order match the payload.
-4. The database is schema `9` and passes current table, column, index, and
+4. The database is schema `15` and passes current table, column, index, and
    constraint verification.
 5. `foreign_key_check`, `integrity_check`, and required domain invariants pass.
 6. The database can be reopened read-only and representative Household,
@@ -235,7 +236,7 @@ The implementation requirements are:
 | Journal state | Live path | Safety group | Startup action |
 | --- | --- | --- | --- |
 | `prepared` | Exists | Any | Keep live, delete staging, and do not create a new database |
-| `prepared` | Missing | Exists | Restore safety; do not create an empty schema-9 database |
+| `prepared` | Missing | Exists | Restore safety; do not create an empty database |
 | `original-renamed` | Missing | Exists | Restore safety |
 | `original-renamed` | Exists | Exists | Treat as `replacement-installed`; read-only verify live, otherwise preserve a failed copy and restore safety |
 | `replacement-installed` | Exists | Exists | Read-only verify live, otherwise preserve a failed copy and restore safety |

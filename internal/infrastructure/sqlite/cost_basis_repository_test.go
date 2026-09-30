@@ -15,22 +15,24 @@ type countingQueryer struct {
 	queries int
 }
 
-func seedSchema7Fixture(t *testing.T, path string) *DB {
+func seedCurrentGainFixture(t *testing.T, path string) *DB {
 	t.Helper()
-	scriptPath := filepath.Join("..", "..", "..", "testdata", "schema7", "schema7-fixture.sql")
-	script, err := os.ReadFile(scriptPath)
+	database, err := Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	seed, err := sql.Open("sqlite", path)
+	t.Cleanup(func() { database.Close() })
+	script, err := os.ReadFile(filepath.Join("..", "..", "..", "testdata", "current", "gain-data.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.Exec(string(script)); err != nil {
-		_ = seed.Close()
+	if _, err := database.SQL.Exec(string(script)); err != nil {
 		t.Fatal(err)
 	}
-	return &DB{SQL: seed, Path: path, Status: StatusReady}
+	if err := database.Verify(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	return database
 }
 
 func (q *countingQueryer) QueryContext(ctx context.Context, statement string, args ...any) (*sql.Rows, error) {
@@ -40,7 +42,7 @@ func (q *countingQueryer) QueryContext(ctx context.Context, statement string, ar
 
 func TestCostBasisEventsUseOneBoundedQueryForAllEvents(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bounded-cost-basis.db")
-	database := seedSchema7Fixture(t, path)
+	database := seedCurrentGainFixture(t, path)
 	defer database.Close()
 	counter := &countingQueryer{queryer: database.SQL}
 	events, err := listCostBasisEventsQuery(context.Background(), counter, domain.HoldingID("00000000-0000-4000-8000-000000000050"), false)
@@ -57,7 +59,7 @@ func TestCostBasisEventsUseOneBoundedQueryForAllEvents(t *testing.T) {
 
 func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cost-basis.db")
-	database := seedSchema7Fixture(t, path)
+	database := seedCurrentGainFixture(t, path)
 	defer database.Close()
 	repository := NewRepository(database)
 	ctx := context.Background()
@@ -122,7 +124,7 @@ func TestCostBasisRepositoryReturnsOrderedNonReversedEventsAndCosts(t *testing.T
 
 func TestCostBasisRepositoryExcludesArchivedHoldingUnlessRequested(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "archived-cost-basis.db")
-	database := seedSchema7Fixture(t, path)
+	database := seedCurrentGainFixture(t, path)
 	defer database.Close()
 	if _, err := database.SQL.Exec(`UPDATE holdings SET archived_at = '2026-08-24T00:00:00.000Z' WHERE id = '00000000-0000-4000-8000-000000000050'`); err != nil {
 		t.Fatal(err)

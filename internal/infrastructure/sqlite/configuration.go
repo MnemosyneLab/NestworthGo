@@ -1,7 +1,6 @@
 package sqlite
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 )
@@ -63,15 +62,4 @@ func (r *ConfigurationRepository) CoreSettings() (string, string, error) {
 		return "", "", err
 	}
 	return currency, timezone, nil
-}
-func migrateV12ToV13(ctx context.Context, db *sql.DB) error {
-	tx, err := db.BeginTx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	if _, err = tx.ExecContext(ctx, `CREATE TABLE app_configuration (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL); PRAGMA user_version = 13;`); err != nil {
-		return err
-	}
-	return tx.Commit()
 }

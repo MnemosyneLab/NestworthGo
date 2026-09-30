@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"database/sql"
 	"os"
 	"path/filepath"
 	"testing"
@@ -348,7 +347,7 @@ func TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain(t *testing.T) {
 }
 
 func TestGainServiceTransferUsesSendingCostAtTransferTime(t *testing.T) {
-	database := seedGainSchema7Fixture(t)
+	database := seedGainCurrentFixture(t)
 	defer database.Close()
 	repository := sqlite.NewRepository(database)
 	service := NewGainService(repository, func() time.Time { return time.Date(2026, time.January, 8, 0, 0, 0, 0, time.UTC) })
@@ -451,27 +450,25 @@ func TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX(t *testing.
 	}
 }
 
-func seedGainSchema7Fixture(t *testing.T) *sqlite.DB {
+func seedGainCurrentFixture(t *testing.T) *sqlite.DB {
 	t.Helper()
-	scriptPath := filepath.Join("..", "..", "testdata", "schema7", "schema7-fixture.sql")
-	script, err := os.ReadFile(scriptPath)
-	if err != nil {
-		t.Fatal(err)
-	}
 	path := filepath.Join(t.TempDir(), "gain-fixture.db")
-	seed, err := sql.Open("sqlite", path)
+	database, err := sqlite.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.Exec(string(script)); err != nil {
-		_ = seed.Close()
+	t.Cleanup(func() { database.Close() })
+	script, err := os.ReadFile(filepath.Join("..", "..", "testdata", "current", "gain-data.sql"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := seed.Exec(`ALTER TABLE members ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'user'; ALTER TABLE instruments ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'investment'; ALTER TABLE instruments ADD COLUMN metal_template TEXT NOT NULL DEFAULT ''; ALTER TABLE instruments ADD COLUMN quantity_unit TEXT NOT NULL DEFAULT '';`); err != nil {
-		_ = seed.Close()
+	if _, err := database.SQL.Exec(string(script)); err != nil {
 		t.Fatal(err)
 	}
-	return &sqlite.DB{SQL: seed, Path: path, Status: sqlite.StatusReady}
+	if err := database.Verify(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	return database
 }
 
 func TestDividendIncomeAggregatesIndependentlyOfRealizedGain(t *testing.T) {

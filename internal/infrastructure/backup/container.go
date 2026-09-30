@@ -16,7 +16,6 @@ import (
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
-	"github.com/waltwang/nestworth-go/internal/settings"
 	"github.com/waltwang/nestworth-go/internal/version"
 )
 
@@ -214,7 +213,7 @@ func ReadPackage(path string) (Package, error) {
 	if manifest.FormatVersion != FormatVersion {
 		return Package{}, &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "backup format is not supported"}
 	}
-	if manifest.SchemaVersion != sqlite.CurrentSchemaVersion && manifest.SchemaVersion != 12 {
+	if manifest.SchemaVersion != sqlite.CurrentSchemaVersion {
 		return Package{}, &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "backup schema is not supported"}
 	}
 	if err := verifyMember(manifest, MemberDatabase, contents[MemberDatabase]); err != nil {
@@ -261,6 +260,9 @@ func DefaultBackupFileName(now time.Time) string {
 }
 
 func ExtractDatabase(pkg Package, dest string) error {
+	if pkg.Manifest.SchemaVersion != sqlite.CurrentSchemaVersion {
+		return &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: "backup schema is not supported"}
+	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
 		return &domain.Error{Code: domain.ErrUnavailable, Message: "restore directory could not be created"}
 	}
@@ -293,26 +295,6 @@ func ExtractDatabase(pkg Package, dest string) error {
 		return &domain.Error{Code: domain.ErrUnavailable, Message: "restore staging file could not be installed"}
 	}
 	_ = syncDir(filepath.Dir(dest))
-	if pkg.Manifest.SchemaVersion == 12 {
-		// Upgrade only the checksum-verified extracted copy, never the archive.
-		db, err := sqlite.Open(dest)
-		if err != nil {
-			return err
-		}
-		defer db.Close()
-		dir, err := os.MkdirTemp(filepath.Dir(dest), ".legacy-settings-*")
-		if err != nil {
-			return err
-		}
-		defer os.RemoveAll(dir)
-		path := filepath.Join(dir, "settings.json")
-		if err := os.WriteFile(path, pkg.Settings, 0o600); err != nil {
-			return err
-		}
-		if err := settings.NewStore(path).Attach(sqlite.NewConfigurationRepository(db)); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

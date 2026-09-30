@@ -5,7 +5,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// Shared by live open, migrations and read-only backup verification.
+// Shared by live open and read-only backup verification.
 func verifyProductIntegrity(ctx context.Context, query schemaQuery) error {
 	checks := []struct{ sql, message string }{
 		{`SELECT COUNT(*) FROM product_operations WHERE NOT json_valid(result_json) OR NOT json_valid(request_json)`, "product operation evidence is invalid JSON"},

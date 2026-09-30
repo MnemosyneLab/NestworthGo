@@ -8,10 +8,9 @@ that boundary remain backend-owned.
 
 The domain defines business invariants. Application use cases define commands
 and query results. The current `0.3.5` line owns one complete SQLite schema
-`11`. Schema `9` migrates through `10` to `11`; schema `10` migrates to
-`11` on open (offline, no network). Older
-database generations, including schemas `6`, `7`, and `8`, are rejected without
-migration. UI code
+`15`. Only newly initialized or validated current-schema databases are accepted.
+Older, unversioned, and future databases are rejected without persistent writes,
+migration, deletion, or recreation. UI code
 consumes view models and must not reconstruct authoritative financial values.
 
 The repository contains the Go implementation of the Household balance-sheet,
@@ -27,21 +26,22 @@ startup verifies `foreign_key_check` and `integrity_check`.
 
 The database path, schema version, and integrity failures are surfaced through
 safe startup states. The application does not silently delete, replace, or
-recreate a user's database after an open or migration failure.
+recreate a user's database after an open failure.
 
-## Migration compatibility state machine
+## Database acceptance state machine
 
 | Condition | Required behavior |
 | --- | --- |
 | Database absent | Create the current schema, verify it, then initialize settings |
 | Supported and current | Open and verify it |
-| Supported older generation (`9`, `10`) | Migrate to the current schema in one local transaction, then verify |
-| Older generation (`6`–`8` and earlier) | Block startup without writes; tell the user to create a new database |
-| Newer than supported | Block business writes with a safe error |
+| Any older or unversioned generation | Block startup without writes; tell the user to create a new database |
+| Newer than supported | Block startup without writes with a safe error |
 | Integrity failure | Block startup; preserve the original database |
 | Path/open failure | Show an unavailable-database state |
 
-Compatibility is rechecked on the writable connection before schema or business writes. Older and unsupported future databases receive zero persistent application writes.
+Existing files are checked through a read-only connection before writable open.
+The version is rechecked before schema or business writes. Older and unsupported
+future databases receive zero persistent application writes.
 
 ## Persistence responsibilities
 
@@ -76,8 +76,8 @@ or network dependency.
 | Application Settings | Singleton presentation preferences and selected FX provider |
 
 Physical table names and indexes are defined by the current `schema.sql` and
-documented here without duplicating SQL. The current supported schema is `11`.
-Schemas `9` and `10` migrate; future and older schema generations are blocked
+documented here without duplicating SQL. The current supported schema is `15`.
+Every other schema generation is blocked
 before business or settings writes.
 
 ## Transaction guarantees
@@ -114,7 +114,7 @@ dirty `input_generation` / `resolver_policy_version` columns. Historical
 instrument and FX batches persist in one transaction with invalidation; fail-
 closed Tiingo mappings (invalid, unsupported, adjClose-only, malformed) write
 nothing. Existing latest and manual quotes remain `realtime`/`latest` and
-`manual`; migrated unverifiable provider quotes are `legacy` and do not fill
+`manual`; unverifiable provider observations do not fill
 close slots.
 
 ## Tiingo API key configuration
@@ -235,7 +235,7 @@ The Account row persists `account_type`, `balance_sheet_role`,
 compatibility inclusion fields. The schema CHECK expresses the legal triple,
 not merely independent enum membership. `balance_sheet_role` and
 `tracking_mode` are immutable after creation; an `account_type` update is
-accepted only when the existing role and tracking mode remain a legal schema-9
+accepted only when the existing role and tracking mode remain a legal current-schema
 combination. Holdings and Account Cash rows belong only to Holdings Accounts;
 Account Value rows belong only to Simple Accounts. There is no `SubAccount`
 table or compatibility alias for the removed category fields.
@@ -243,9 +243,8 @@ table or compatibility alias for the removed category fields.
 Schema verification runs integrity, foreign-key, ownership, combination, and
 component-shape checks before business reads or writes. A rejected older,
 future, or structurally invalid database receives no persistent application
-writes. The only supported schema-9 adjustment is a lossless widening of the
-`cash_on_hand` combination CHECK when the existing database is otherwise schema
-9 and valid.
+writes. Missing required tables and old constraints fail verification; startup
+does not repair the schema.
 
 Recovery and portability are file workflows rather than business tables. A
 backup has the fixed members `manifest.json`, `database.sqlite`, and
@@ -329,10 +328,9 @@ lead-in and bounded opening-anchor fallback. Normal repair reuses fresh checks;
 force recheck remains explicit. Repair estimates may differ from actual requests
 because of batching, caches, retries, and conversion dependencies.
 
-Backup restore validates the current schema. Older-schema backup archives do
-not directly pass schema-12 restore validation, although supported database files
-upgrade through the normal open path. Keep originals before upgrade and create
-a fresh backup afterwards.
+Backup restore validates the current schema. Older, unversioned, and future
+backup databases are rejected before replacing the live database. There is no
+archive upgrade path.
 
 
 ## Available-funds product contracts
@@ -362,7 +360,7 @@ Reviewed-state hashes include related reservation facts and policy revisions as
 well as cash, holdings, contracts, quote evidence and local date. Editing these
 facts requires a new preview.
 
-Live database open and read-only backup verification share schema-12 product
+Live database open and read-only backup verification share current-schema product
 integrity checks: private holding/instrument ownership and currency, lifecycle
 quantity 1/0, operation ownership/currency, renewal lineage, policy/reservation
 source consistency, and domain term/policy validation. These checks do not repair

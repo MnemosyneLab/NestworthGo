@@ -21,9 +21,6 @@ var schemaFS embed.FS
 
 const CurrentSchemaVersion = 15
 
-// Open upgrades schemas 9 through 15. Schemas 6, 7, and 8 remain blocked with zero writes.
-const supportedMigrationSourceVersion = 9
-
 type BootstrapStatus string
 
 const (
@@ -103,6 +100,26 @@ func Open(path string) (*DB, error) {
 	if err != nil {
 		return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Err: err}
 	}
+	// Inspect existing files before opening a writable connection. Every existing
+	// database, including version zero, must already use the current schema.
+	if existed {
+		probe, err := sql.Open("sqlite", path+"?mode=ro&_pragma=query_only%3d1")
+		if err != nil {
+			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: err}
+		}
+		found, readErr := readVersion(probe)
+		closeErr := probe.Close()
+		if readErr != nil || closeErr != nil {
+			return nil, &BootstrapError{Status: StatusUnavailable, Supported: CurrentSchemaVersion, Path: path, Err: errors.Join(readErr, closeErr)}
+		}
+		if found != CurrentSchemaVersion {
+			status := StatusLegacyDatabase
+			if found > CurrentSchemaVersion {
+				status = StatusUnsupportedFuture
+			}
+			return nil, &BootstrapError{Status: status, Found: found, Supported: CurrentSchemaVersion, Path: path}
+		}
+	}
 	dsn := path + "?_txlock=immediate&_pragma=busy_timeout%3d5000&_pragma=foreign_keys%3d1"
 	database, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -122,43 +139,7 @@ func Open(path string) (*DB, error) {
 	if found > CurrentSchemaVersion {
 		return closeOnError(StatusUnsupportedFuture, found, nil)
 	}
-	if found == supportedMigrationSourceVersion && found < CurrentSchemaVersion {
-		if err := migrateV9ToV10(context.Background(), database); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 10
-	}
-	if found == 10 {
-		if err := migrateV10ToV11(context.Background(), database); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 11
-	}
-	if found == 11 {
-		if err := migrateV11ToV12(context.Background(), database); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 12
-	}
-	if found == 12 {
-		if err := migrateV12ToV13(context.Background(), database); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 13
-	}
-	if found == 13 {
-		if err := migrateV13ToV14(context.Background(), database); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = 14
-	}
-	if found == 14 {
-		if err := migrateV14ToV15(context.Background(), database); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		found = CurrentSchemaVersion
-	}
-	if existed && fileSize(path) > 0 && found < CurrentSchemaVersion {
+	if found < CurrentSchemaVersion && existed {
 		return closeOnError(StatusLegacyDatabase, found, nil)
 	}
 	if found == 0 {
@@ -183,15 +164,6 @@ func Open(path string) (*DB, error) {
 			return closeOnError(StatusUnavailable, CurrentSchemaVersion, err)
 		}
 	} else {
-		if err := repairV9CashOnHandHoldingsCheck(context.Background(), database); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		if err := ensureActivityMutationKeysTable(context.Background(), database); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
-		if err := ensureChangeBatchMutationKeysTable(context.Background(), database); err != nil {
-			return closeOnError(StatusUnavailable, found, err)
-		}
 		if err := verifySchema(context.Background(), database); err != nil {
 			return closeOnError(StatusIntegrityFailed, found, err)
 		}
@@ -274,14 +246,6 @@ func readVersion(database *sql.DB) (int, error) {
 		return 0, err
 	}
 	return version, nil
-}
-
-func fileSize(path string) int64 {
-	info, err := os.Stat(path)
-	if err != nil {
-		return 0
-	}
-	return info.Size()
 }
 
 // restrictLiveDatabaseFiles enforces 0600 on the live database and its

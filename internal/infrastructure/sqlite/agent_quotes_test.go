@@ -2,10 +2,7 @@ package sqlite
 
 import (
 	"context"
-	"database/sql"
 	"errors"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -167,58 +164,5 @@ func TestAgentQuoteBatchRollbackAndEffectiveDateDirty(t *testing.T) {
 	var dirtyFrom string
 	if err := database.SQL.QueryRowContext(ctx, `SELECT dirty_from FROM history_snapshot_state WHERE household_id = ?`, household.ID.String()).Scan(&dirtyFrom); err != nil || dirtyFrom != "2026-09-28" {
 		t.Fatalf("dirty range began %q, want effective date: %v", dirtyFrom, err)
-	}
-}
-
-func TestV14ToV15PreservesQuoteSourceData(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "v14-agent-migration.db")
-	schema, err := schemaFS.ReadFile("schema.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	legacy := strings.Replace(legacyV14QuoteSourceSchema(string(schema)), "PRAGMA user_version = 15", "PRAGMA user_version = 14", 1)
-	seed, err := sql.Open("sqlite", path+"?_pragma=foreign_keys%3d1")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := seed.Exec(legacy); err != nil {
-		t.Fatal(err)
-	}
-	const h = "00000000-0000-4000-8000-000000000001"
-	const i = "00000000-0000-4000-8000-000000000002"
-	const q = "00000000-0000-4000-8000-000000000003"
-	const stamp = "2026-09-28T00:00:00Z"
-	for _, statement := range []string{
-		`INSERT INTO households(id,name,base_currency,created_at,updated_at) VALUES('` + h + `','Home','USD','` + stamp + `','` + stamp + `')`,
-		`INSERT INTO instruments(id,household_id,name,instrument_type,quote_currency,icon_key,quote_source,created_at,updated_at) VALUES('` + i + `','` + h + `','Fund','etf','USD','investment','manual','` + stamp + `','` + stamp + `')`,
-		`INSERT INTO instrument_quotes(id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at) VALUES('` + q + `','` + i + `','123.45','USD','manual','manual','` + stamp + `','` + stamp + `')`,
-	} {
-		if _, err := seed.Exec(statement); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if err := seed.Close(); err != nil {
-		t.Fatal(err)
-	}
-	opened, err := Open(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer opened.Close()
-	if err := opened.Verify(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	var price string
-	if err := opened.SQL.QueryRow(`SELECT unit_price FROM instrument_quotes WHERE id = ?`, q).Scan(&price); err != nil || price != "123.45" {
-		t.Fatalf("migrated quote: %q %v", price, err)
-	}
-	if _, err := opened.SQL.Exec(`UPDATE instruments SET quote_source = 'agent' WHERE id = ?`, i); err != nil {
-		t.Fatalf("agent source CHECK not widened: %v", err)
-	}
-	if _, err := opened.SQL.Exec(`INSERT INTO instrument_quotes(id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at) VALUES(?,?,'125','USD','agent','agent',?,?)`, domain.NewInstrumentQuoteID().String(), i, stamp, stamp); err != nil {
-		t.Fatalf("agent quote CHECK not widened: %v", err)
-	}
-	if err := opened.Verify(context.Background()); err != nil {
-		t.Fatal(err)
 	}
 }
