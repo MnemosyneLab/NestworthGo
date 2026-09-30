@@ -18,6 +18,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	appversion "github.com/waltwang/nestworth-go/internal/version"
 )
 
 func fixture(t *testing.T) (*Manager, *sqlite.DB, string) {
@@ -137,8 +138,8 @@ func TestFileBackupRestoreDisableAndIsolatedRestart(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(filepath.Dir(staged))
-	verified, err := sqlite.OpenReadOnlyForVerify(staged)
+	defer os.RemoveAll(filepath.Dir(staged.Path))
+	verified, err := sqlite.OpenReadOnlyForVerify(staged.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -436,8 +437,8 @@ func TestFailedStopResumesOldWorkerWithoutFalseConfirmation(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.RemoveAll(filepath.Dir(staged))
-			candidate, err := sqlite.OpenReadOnlyForVerify(staged)
+			defer os.RemoveAll(filepath.Dir(staged.Path))
+			candidate, err := sqlite.OpenReadOnlyForVerify(staged.Path)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -549,13 +550,13 @@ func TestCloudCandidateThroughExplicitJournalInstallAndRollback(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			defer os.RemoveAll(filepath.Dir(candidate))
-			data, err := os.ReadFile(candidate)
+			defer os.RemoveAll(filepath.Dir(candidate.Path))
+			data, err := os.ReadFile(candidate.Path)
 			if err != nil {
 				t.Fatal(err)
 			}
 			pkg := backup.Package{Manifest: backup.NewManifest(time.Now(), data, []byte("{}\n"), sqlite.EntityCounts{}), Database: data, Settings: []byte("{}\n")}
-			source := filepath.Join(filepath.Dir(candidate), "candidate.nestworth-backup")
+			source := filepath.Join(filepath.Dir(candidate.Path), "candidate.nestworth-backup")
 			if err := backup.WritePackage(source, pkg); err != nil {
 				t.Fatal(err)
 			}
@@ -837,5 +838,84 @@ func TestShutdownDrainsApplicationWriterBeforeFinalRemoteConfirmation(t *testing
 	var value string
 	if err := verified.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='last-shutdown-write'`).Scan(&value); err != nil || value != "last-value" {
 		t.Fatalf("final backup missed committed writer: %q %v", value, err)
+	}
+}
+
+func TestStreamIdentityIsRequiredForRecoveryAndNeverOverwritten(t *testing.T) {
+	m, db, root := fixture(t)
+	ctx := context.Background()
+	if err := m.Configure(ctx, testUpdate(true)); err != nil {
+		t.Fatal(err)
+	}
+	stream := waitState(t, m, "recent-backup-confirmed").StreamID
+	b := fileBackend{root: root}
+	info, err := b.identity(ctx, stream)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.AppID != appversion.AppID || info.AppVersion != strings.TrimPrefix(appversion.Version, "v") || info.AppBuild != appversion.Build || info.Schema != 15 {
+		t.Fatal("source identity incorrect")
+	}
+	if err := b.ensureIdentity(ctx, info); err != nil {
+		t.Fatal(err)
+	}
+	conflicting := info
+	conflicting.StartedAt = time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)
+	if err := b.ensureIdentity(ctx, conflicting); err == nil {
+		t.Fatal("co-wrote different stream ownership")
+	}
+	points, err := m.RecoveryPoints(ctx)
+	if err != nil || len(points) == 0 {
+		t.Fatal("marked stream not listed")
+	}
+	candidate, err := m.Stage(ctx, points[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(filepath.Dir(candidate.Path))
+	if candidate.AppVersion != info.AppVersion || candidate.AppBuild != info.AppBuild {
+		t.Fatal("candidate lost source metadata")
+	}
+	path := filepath.Join(root, filepath.FromSlash(stream), identityFile)
+	original, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(original), "local-test-access") || strings.Contains(string(original), "local-test-secret") {
+		t.Fatal("identity contains credential")
+	}
+	for _, kind := range []string{"other-app", "future-schema", "wrong-stream"} {
+		invalid := info
+		switch kind {
+		case "other-app":
+			invalid.AppID = "other.app"
+		case "future-schema":
+			invalid.Schema = 16
+		case "wrong-stream":
+			invalid.StreamID = conflicting.StreamID + "-wrong"
+		}
+		data, _ := json.Marshal(invalid)
+		if err := os.WriteFile(path, data, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := m.Stage(ctx, points[0]); err == nil {
+			t.Fatalf("accepted %s", kind)
+		}
+		if err := db.Verify(ctx); err != nil {
+			t.Fatal("failed identity changed local database")
+		}
+	}
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := m.Stage(ctx, points[0]); err == nil {
+		t.Fatal("accepted unmarked stream")
+	}
+	unmarked, err := m.RecoveryPoints(ctx)
+	if err != nil || len(unmarked) != 0 {
+		t.Fatal("unmarked stream listed")
+	}
+	if err := os.WriteFile(path, original, 0600); err != nil {
+		t.Fatal(err)
 	}
 }

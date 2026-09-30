@@ -95,10 +95,11 @@ func (s *Service) InspectRestore(ctx context.Context, p infra.RecoveryPoint) (re
 	if s.manager == nil || s.inspector == nil {
 		return recovery.RestorePreviewDTO{}, safe(infra.ErrUnavailable)
 	}
-	path, err := s.manager.Stage(ctx, p)
+	candidate, err := s.manager.Stage(ctx, p)
 	if err != nil {
 		return recovery.RestorePreviewDTO{}, safe(err)
 	}
+	path := candidate.Path
 	defer os.RemoveAll(filepath.Dir(path))
 	verified, err := sqlite.OpenReadOnlyForVerify(path)
 	if err != nil {
@@ -118,8 +119,8 @@ func (s *Service) InspectRestore(ctx context.Context, p infra.RecoveryPoint) (re
 		return recovery.RestorePreviewDTO{}, safe(infra.ErrUnavailable)
 	}
 	pkg := backup.Package{Manifest: backup.NewManifest(time.Now().UTC(), data, []byte("{}\n"), counts), Database: data, Settings: []byte("{}\n")}
-	pkg.Manifest.AppVersion = ""
-	pkg.Manifest.AppBuild = ""
+	pkg.Manifest.AppVersion = candidate.AppVersion
+	pkg.Manifest.AppBuild = candidate.AppBuild
 	if captured, parseErr := time.Parse(time.RFC3339Nano, p.CapturedAt); parseErr == nil {
 		pkg.Manifest.CreatedAt = captured.UTC().Format(time.RFC3339Nano)
 	}

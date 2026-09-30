@@ -17,21 +17,23 @@ import (
 // Built-in monitors/retention are off: no library goroutine can outlive a
 // canceled operation or close a DB after a caller's timeout has returned.
 type Manager struct {
-	op            sync.Mutex
-	store         *configStore
-	database      *sqlite.DB
-	path          string
-	factory       func(config) backend
-	workerCancel  context.CancelFunc
-	workerDone    chan struct{}
-	replicaDB     *litestream.DB
-	replicaStore  *litestream.Store
-	initialized   bool
-	statusMu      sync.Mutex
-	status        status
-	interval      time.Duration
-	closed        bool
-	restorePaused bool
+	op             sync.Mutex
+	store          *configStore
+	database       *sqlite.DB
+	path           string
+	factory        func(config) backend
+	workerCancel   context.CancelFunc
+	workerDone     chan struct{}
+	replicaDB      *litestream.DB
+	replicaStore   *litestream.Store
+	initialized    bool
+	identity       streamIdentity
+	replicaBackend backend
+	statusMu       sync.Mutex
+	status         status
+	interval       time.Duration
+	closed         bool
+	restorePaused  bool
 }
 
 func New(path string, database *sqlite.DB) (*Manager, error) {
@@ -99,7 +101,9 @@ func (m *Manager) startLocked(ctx context.Context, c config) error {
 	d := litestream.NewDB(m.path)
 	d.SetMetaPath(filepath.Join(filepath.Dir(m.path), ".nestworth-replication", stringsForPath(stream)))
 	d.MonitorInterval = 0
-	client := m.factory(c).client(stream)
+	m.replicaBackend = m.factory(c)
+	m.identity = newIdentity(stream)
+	client := m.replicaBackend.client(stream)
 	client.SetLogger(quietLogger)
 	d.Replica = litestream.NewReplicaWithClient(d, client)
 	d.Replica.MonitorEnabled = false
@@ -156,19 +160,22 @@ func (m *Manager) sync(ctx context.Context) error {
 	// the application pool to reopen. The callback never borrows app SQL.
 	var err error
 	if !m.initialized {
-		err = m.database.DrainForReplication(syncCtx, func() error {
-			if err := m.replicaDB.Sync(syncCtx); err != nil {
-				cleanupCtx, stop := context.WithCancel(context.Background())
-				stop()
-				_ = m.replicaDB.Close(cleanupCtx)
-				if openErr := m.replicaDB.Open(); openErr != nil {
-					return openErr
+		err = m.replicaBackend.ensureIdentity(syncCtx, m.identity)
+		if err == nil {
+			err = m.database.DrainForReplication(syncCtx, func() error {
+				if err := m.replicaDB.Sync(syncCtx); err != nil {
+					cleanupCtx, stop := context.WithCancel(context.Background())
+					stop()
+					_ = m.replicaDB.Close(cleanupCtx)
+					if openErr := m.replicaDB.Open(); openErr != nil {
+						return openErr
+					}
+					return err
 				}
-				return err
-			}
-			m.initialized = true
-			return nil
-		})
+				m.initialized = true
+				return nil
+			})
+		}
 	}
 	if err == nil {
 		err = m.replicaDB.SyncAndWait(syncCtx)
@@ -346,38 +353,44 @@ func (m *Manager) RecoveryPoints(ctx context.Context) ([]RecoveryPoint, error) {
 	defer cancel()
 	return recoveryPoints(listCtx, m.factory(c))
 }
-func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (string, error) {
+func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error) {
 	m.op.Lock()
 	defer m.op.Unlock()
 	c, _, err := m.store.load()
 	if err != nil {
-		return "", err
+		return Candidate{}, err
 	}
 	if c.AccountID == "" || c.Bucket == "" || c.AccessKeyID == "" || c.SecretAccessKey == "" {
-		return "", ErrConfiguration
+		return Candidate{}, ErrConfiguration
 	}
 	m.setStatus(func(s *status) { s.RestoreState = "preparing" })
 	dir, err := os.MkdirTemp(filepath.Dir(m.path), ".nestworth-cloud-restore-")
 	if err != nil {
-		return "", ErrUnavailable
+		return Candidate{}, ErrUnavailable
 	}
 	destination := filepath.Join(dir, "candidate.db")
 	stageCtx, cancel := contextTimeout(ctx)
 	defer cancel()
+	info, identityErr := m.factory(c).identity(stageCtx, p.StreamID)
+	if identityErr != nil {
+		os.RemoveAll(dir)
+		m.setStatus(func(s *status) { s.RestoreState = "error" })
+		return Candidate{}, ErrUnavailable
+	}
 	if err := restorePoint(stageCtx, m.factory(c), p, destination); err != nil {
 		os.RemoveAll(dir)
 		m.setStatus(func(s *status) { s.RestoreState = "error" })
-		return "", err
+		return Candidate{}, err
 	}
 	verified, err := sqlite.OpenReadOnlyForVerify(destination)
 	if err != nil {
 		os.RemoveAll(dir)
 		m.setStatus(func(s *status) { s.RestoreState = "error" })
-		return "", err
+		return Candidate{}, err
 	}
 	verified.Close()
 	m.setStatus(func(s *status) { s.RestoreState = "preview" })
-	return destination, nil
+	return Candidate{Path: destination, AppVersion: info.AppVersion, AppBuild: info.AppBuild}, nil
 }
 
 // PauseForRestore is called inside the exclusive restore operation before

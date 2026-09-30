@@ -2,6 +2,7 @@ package continuousbackup
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -29,6 +30,8 @@ var quietLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 type backend interface {
 	client(string) litestream.ReplicaClient
 	streams(context.Context) ([]string, error)
+	identity(context.Context, string) (streamIdentity, error)
+	ensureIdentity(context.Context, streamIdentity) error
 }
 type r2Backend struct{ c config }
 
@@ -44,10 +47,13 @@ func (b r2Backend) client(stream string) litestream.ReplicaClient {
 	c.SetLogger(quietLogger)
 	return c
 }
+func (b r2Backend) sdk() *awss3.Client {
+	return awss3.NewFromConfig(aws.Config{Region: "auto", RequestChecksumCalculation: aws.RequestChecksumCalculationWhenRequired, ResponseChecksumValidation: aws.ResponseChecksumValidationWhenRequired, Credentials: credentials.NewStaticCredentialsProvider(b.c.AccessKeyID, b.c.SecretAccessKey, ""), HTTPClient: &http.Client{Timeout: operationTimeout}, RetryMaxAttempts: 1}, func(o *awss3.Options) { o.BaseEndpoint = aws.String(endpoint(b.c)); o.UsePathStyle = true })
+}
 func (b r2Backend) streams(ctx context.Context) ([]string, error) {
 	// Use explicit credentials, TLS verification and a bounded client. Never use
 	// the user's AWS environment/profile as a fallback for missing R2 keys.
-	c := awss3.NewFromConfig(aws.Config{Region: "auto", Credentials: credentials.NewStaticCredentialsProvider(b.c.AccessKeyID, b.c.SecretAccessKey, ""), HTTPClient: &http.Client{Timeout: operationTimeout}, RetryMaxAttempts: 1}, func(o *awss3.Options) { o.BaseEndpoint = aws.String(endpoint(b.c)); o.UsePathStyle = true })
+	c := b.sdk()
 	list := func(prefix string) ([]string, error) {
 		pager := awss3.NewListObjectsV2Paginator(c, &awss3.ListObjectsV2Input{Bucket: aws.String(b.c.Bucket), Prefix: aws.String(prefix), Delimiter: aws.String("/")})
 		var out []string
@@ -148,6 +154,12 @@ func recoveryPoints(ctx context.Context, b backend) ([]RecoveryPoint, error) {
 	}
 	out := []RecoveryPoint{}
 	for _, stream := range streams {
+		if _, err := b.identity(ctx, stream); err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, ErrUnavailable
+		}
 		c := b.client(stream)
 		c.SetLogger(quietLogger)
 		itr, err := c.LTXFiles(ctx, 0, 0, true)
@@ -181,6 +193,9 @@ func recoveryPoints(ctx context.Context, b backend) ([]RecoveryPoint, error) {
 func restorePoint(ctx context.Context, b backend, p RecoveryPoint, destination string) error {
 	if !validStream(p.StreamID) {
 		return ErrConfiguration
+	}
+	if _, err := b.identity(ctx, p.StreamID); err != nil {
+		return ErrUnavailable
 	}
 	txid, err := ltx.ParseTXID(p.TXID)
 	if err != nil || txid == 0 {

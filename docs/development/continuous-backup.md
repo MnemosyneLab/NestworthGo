@@ -23,6 +23,12 @@ There is no new credential API in MCP or the portable Nestworth user skill.
 A fresh random stream is created at each app start or reconfiguration, under
 `nestworth/v1/<backup-id>/<stream-id>`. No two runs continue the same stream.
 This deliberately avoids making an unproved continuation/ownership claim.
+Each stream has a small `stream.json` containing application ID, source version/
+build, schema and stream ID. It contains no credentials. Conditional creation
+refuses an existing different identity. Listing/restore require this identity
+and full candidate verification; unmarked prototype streams cannot be restored
+through the UI. The record does not represent remote backup success. R2
+conditional creation is supported by the [S3 API](https://developers.cloudflare.com/r2/api/s3/api/).
 An OS instance lock is acquired before startup journal reconciliation or opening
 SQLite. It fences duplicate processes using the same database path locally.
 The lock is released by the OS after a crash; its file can remain.
