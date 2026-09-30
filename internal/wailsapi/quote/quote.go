@@ -66,6 +66,8 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB strin
 type QuoteSeriesPointDTO struct {
 	ObservationKind string `json:"observationKind,omitempty"`
 	EffectiveDate   string `json:"effectiveDate,omitempty"`
+	PriceBasis      string `json:"priceBasis,omitempty"`
+	TimestampBasis  string `json:"timestampBasis,omitempty"`
 	QuotedAt        string `json:"quotedAt"`
 	Value           string `json:"value"`
 	SourceKind      string `json:"sourceKind"`
@@ -105,6 +107,8 @@ func fromQuoteSeriesPoints(values []domain.QuoteSeriesPoint) []QuoteSeriesPointD
 			QuotedAt:        wire.FormatTime(point.QuotedAt),
 			ObservationKind: point.ObservationKind,
 			EffectiveDate:   point.EffectiveDate,
+			PriceBasis:      point.PriceBasis,
+			TimestampBasis:  point.TimestampBasis,
 			Value:           point.Value,
 			SourceKind:      string(point.SourceKind),
 			SourceKey:       point.SourceKey,

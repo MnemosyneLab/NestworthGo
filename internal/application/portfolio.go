@@ -247,13 +247,13 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domai
 	for index := range quotes {
 		quote := &quotes[index]
 		quoteA, quoteB, normalizeErr := domain.NormalizeFXPair(quote.BaseCurrency, quote.QuoteCurrency)
-		if normalizeErr != nil || quote.SourceKind != preference.SourceKind || quoteA != a || quoteB != b {
+		if normalizeErr != nil || !quoteSourceAllowed(preference.SourceKind, quote.SourceKind) || quoteA != a || quoteB != b {
 			continue
 		}
-		if preference.SourceKind == domain.QuoteSourceProvider && providerKey != "" && strings.ToLower(strings.TrimSpace(quote.SourceKey)) != providerKey {
+		if quote.SourceKind == domain.QuoteSourceProvider && providerKey != "" && strings.ToLower(strings.TrimSpace(quote.SourceKey)) != providerKey {
 			continue
 		}
-		if selected == nil || quoteLater(quote.QuotedAt, quote.CreatedAt, quote.ID.String(), selected.QuotedAt, selected.CreatedAt, selected.ID.String()) {
+		if selected == nil || currentFXQuoteLater(*quote, *selected) {
 			selected = quote
 		}
 	}

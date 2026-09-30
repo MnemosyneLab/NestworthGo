@@ -582,13 +582,13 @@ func fxRateAt(quotes []domain.FXQuote, preferences []domain.FXPreference, househ
 	var selected *domain.FXQuote
 	for index := range quotes {
 		quote := &quotes[index]
-		if quote.HouseholdID != householdID || quote.QuotedAt.After(cutoff) || (preferred != "" && quote.SourceKind != preferred) {
+		if quote.HouseholdID != householdID || quote.QuotedAt.After(cutoff) || (preferred != "" && !quoteSourceAllowed(preferred, quote.SourceKind)) {
 			continue
 		}
 		if !((quote.BaseCurrency == native && quote.QuoteCurrency == base) || (quote.BaseCurrency == base && quote.QuoteCurrency == native)) {
 			continue
 		}
-		if selected == nil || quote.QuotedAt.After(selected.QuotedAt) || (quote.QuotedAt.Equal(selected.QuotedAt) && quote.CreatedAt.After(selected.CreatedAt)) {
+		if selected == nil || currentFXQuoteLater(*quote, *selected) {
 			selected = quote
 		}
 	}
@@ -619,7 +619,7 @@ func (u analysisUniverse) quoteForItem(item domain.DailyValuationSnapshotItem, q
 		if quote.InstrumentID != *item.InstrumentID || quote.QuotedAt.After(cutoff) {
 			continue
 		}
-		if selected == nil || quote.QuotedAt.After(selected.QuotedAt) || (quote.QuotedAt.Equal(selected.QuotedAt) && quote.CreatedAt.After(selected.CreatedAt)) {
+		if selected == nil || currentInstrumentQuoteLater(*quote, *selected) {
 			selected = quote
 		}
 	}

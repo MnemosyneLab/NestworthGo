@@ -402,7 +402,7 @@ func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accou
 		historyCoverageComplete = selection.coverageComplete
 	}
 	if quote == nil {
-		return domain.ValuationComponent{AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, PreferenceObservationID: instrument.PreferenceObservationID, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteCurrency: instrument.QuoteCurrency}}, nil
+		return domain.ValuationComponent{AccountID: accountID, HoldingID: &holding.ID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, PreferenceObservationID: instrument.PreferenceObservationID, NativeCurrency: instrument.QuoteCurrency, Available: false}, []domain.MissingInputView{{Kind: domain.MissingInstrumentPrice, AccountID: accountID, InstrumentID: &id, InstrumentName: name, InstrumentSymbol: symbol, QuoteSource: instrument.QuoteSource, QuoteCurrency: instrument.QuoteCurrency}}, nil
 	}
 	native, err := holding.Quantity.Multiply(quote.UnitPrice)
 	if err != nil {
@@ -463,7 +463,7 @@ func (v *ValuationService) valueNative(snapshot domain.PortfolioSnapshot, accoun
 	missingInputs := make([]domain.MissingInputView, 0)
 	if v.historical && currency != snapshot.Household.BaseCurrency {
 		quote := v.selectFXQuote(snapshot, snapshot.FXQuotes, currency, nil)
-		if quote != nil && quote.SourceKind == domain.QuoteSourceProvider && !historicalFXCoverageCompleteAtMarketDate(snapshot, *quote, v.historicalDate()) {
+		if quote != nil && !historicalFXCoverageCompleteAtMarketDate(snapshot, *quote, v.historicalDate()) {
 			missingInputs = append(missingInputs, domain.MissingInputView{Kind: domain.MissingHistoryCoverage, AccountID: accountID, InstrumentID: cloneInstrumentID(instrumentID), QuoteSource: quote.SourceKind, BaseCurrency: snapshot.Household.BaseCurrency, QuoteCurrency: currency})
 		}
 	}
@@ -477,7 +477,7 @@ func (v *ValuationService) convert(snapshot domain.PortfolioSnapshot, accountID 
 	}
 	quote := v.selectFXQuote(snapshot, snapshot.FXQuotes, currency, nil)
 	if quote == nil {
-		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
+		return decimal.Zero, nil, &domain.MissingInputView{Kind: domain.MissingFXRate, AccountID: accountID, QuoteSource: implicitFXPreference(snapshot, currency).SourceKind, BaseCurrency: baseCurrency, QuoteCurrency: currency}, nil
 	}
 	var converted decimal.Decimal
 	var err error
@@ -552,14 +552,57 @@ func selectInstrumentQuote(instrument domain.Instrument, quotes []domain.Instrum
 	var selected *domain.InstrumentQuote
 	for index := range quotes {
 		quote := &quotes[index]
-		if quote.InstrumentID != instrument.ID || quote.SourceKind != instrument.QuoteSource || quote.Currency != instrument.QuoteCurrency {
+		if quote.InstrumentID != instrument.ID || !quoteSourceAllowed(instrument.QuoteSource, quote.SourceKind) || quote.Currency != instrument.QuoteCurrency {
 			continue
 		}
-		if selected == nil || quoteLater(quote.QuotedAt, quote.CreatedAt, quote.ID.String(), selected.QuotedAt, selected.CreatedAt, selected.ID.String()) {
+		if selected == nil || currentInstrumentQuoteLater(*quote, *selected) {
 			selected = quote
 		}
 	}
 	return selected
+}
+
+// Agent observations can supplement a saved provider or manual preference.
+// Selecting Agent as the preference makes it the only eligible source.
+func quoteSourceAllowed(preference, source domain.QuoteSourceKind) bool {
+	if source == domain.QuoteSourceAgent {
+		return true
+	}
+	return preference == source
+}
+
+func currentQuoteLater(source domain.QuoteSourceKind, quotedAt, createdAt time.Time, id string, otherSource domain.QuoteSourceKind, otherQuotedAt, otherCreatedAt time.Time, otherID string) bool {
+	if !quotedAt.Equal(otherQuotedAt) {
+		return quotedAt.After(otherQuotedAt)
+	}
+	if source != otherSource && (source == domain.QuoteSourceAgent || otherSource == domain.QuoteSourceAgent) {
+		return source == domain.QuoteSourceAgent
+	}
+	return quoteLater(quotedAt, createdAt, id, otherQuotedAt, otherCreatedAt, otherID)
+}
+
+func currentInstrumentQuoteLater(candidate, selected domain.InstrumentQuote) bool {
+	if candidate.ObservationKind == string(InstrumentObservationClose) && selected.ObservationKind == string(InstrumentObservationClose) && candidate.EffectiveDate != "" && selected.EffectiveDate != "" {
+		if candidate.EffectiveDate != selected.EffectiveDate {
+			return candidate.EffectiveDate > selected.EffectiveDate
+		}
+		if candidate.SourceKind != selected.SourceKind && (candidate.SourceKind == domain.QuoteSourceAgent || selected.SourceKind == domain.QuoteSourceAgent) {
+			return candidate.SourceKind == domain.QuoteSourceAgent
+		}
+	}
+	return currentQuoteLater(candidate.SourceKind, candidate.QuotedAt, candidate.CreatedAt, candidate.ID.String(), selected.SourceKind, selected.QuotedAt, selected.CreatedAt, selected.ID.String())
+}
+
+func currentFXQuoteLater(candidate, selected domain.FXQuote) bool {
+	if candidate.ObservationKind == string(FXObservationDailyReference) && selected.ObservationKind == string(FXObservationDailyReference) && candidate.EffectiveDate != "" && selected.EffectiveDate != "" {
+		if candidate.EffectiveDate != selected.EffectiveDate {
+			return candidate.EffectiveDate > selected.EffectiveDate
+		}
+		if candidate.SourceKind != selected.SourceKind && (candidate.SourceKind == domain.QuoteSourceAgent || selected.SourceKind == domain.QuoteSourceAgent) {
+			return candidate.SourceKind == domain.QuoteSourceAgent
+		}
+	}
+	return currentQuoteLater(candidate.SourceKind, candidate.QuotedAt, candidate.CreatedAt, candidate.ID.String(), selected.SourceKind, selected.QuotedAt, selected.CreatedAt, selected.ID.String())
 }
 
 type historicalInstrumentSelection struct {
@@ -578,8 +621,15 @@ func selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument domain.I
 		if quote.InstrumentID != instrument.ID || quote.Currency != instrument.QuoteCurrency {
 			continue
 		}
-		if instrument.QuoteSource == domain.QuoteSourceManual {
+		if !quoteSourceAllowed(instrument.QuoteSource, quote.SourceKind) {
+			continue
+		}
+		if quote.SourceKind == domain.QuoteSourceManual {
 			if quote.SourceKind != domain.QuoteSourceManual || (quote.ObservationKind != "" && quote.ObservationKind != string(InstrumentObservationManual)) {
+				continue
+			}
+		} else if quote.SourceKind == domain.QuoteSourceAgent {
+			if quote.ObservationKind != string(InstrumentObservationClose) || quote.ValueEffectiveAt.IsZero() || strings.TrimSpace(quote.EffectiveDate) == "" || quote.EffectiveDate > marketDate || !historicalAgentInstrumentQualityMatches(*quote) {
 				continue
 			}
 		} else {
@@ -613,15 +663,103 @@ func selectHistoricalInstrumentQuoteWithCoverageAtMarketDate(instrument domain.I
 				selectedEffective = selected.QuotedAt
 			}
 		}
-		if selected == nil || (quote.SourceKind == domain.QuoteSourceProvider && historicalMarketDateQuoteLater(*quote, *selected)) || (quote.SourceKind == domain.QuoteSourceManual && historicalQuoteLater(*quote, *selected, effective, selectedEffective)) {
+		if selected == nil || historicalInstrumentQuoteLater(*quote, *selected, marketDate, effective, selectedEffective) {
 			selected = quote
 		}
 	}
 	selection := historicalInstrumentSelection{quote: selected, coverageComplete: true}
-	if selected != nil && instrument.QuoteSource == domain.QuoteSourceProvider {
-		selection.coverageComplete = historicalInstrumentCoverageCompleteAtMarketDate(instrument, *selected, coverage, marketDate)
+	if selected != nil {
+		switch selected.SourceKind {
+		case domain.QuoteSourceProvider:
+			selection.coverageComplete = historicalInstrumentCoverageCompleteAtMarketDate(instrument, *selected, coverage, marketDate)
+		case domain.QuoteSourceAgent:
+			selection.coverageComplete = agentInstrumentCarryComplete(*selected, agentInstrumentClosureCoverage(instrument, quotes, coverage), marketDate)
+		}
 	}
 	return selection
+}
+
+func agentInstrumentClosureCoverage(instrument domain.Instrument, quotes []domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage) domain.InstrumentHistoryCoverage {
+	result := domain.InstrumentHistoryCoverage{InstrumentID: instrument.ID, InstrumentType: string(instrument.Type), Market: instrumentMarket(instrument)}
+	if instrument.ProviderSymbol != nil {
+		result.ProviderSymbol = *instrument.ProviderSymbol
+	}
+	for _, quote := range quotes {
+		if quote.InstrumentID == instrument.ID && quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(InstrumentObservationClose) && !quote.ValueEffectiveAt.IsZero() && quote.EffectiveDate != "" && historicalAgentInstrumentQualityMatches(quote) {
+			result.CloseMarketDates = append(result.CloseMarketDates, quote.EffectiveDate)
+		}
+	}
+	if instrument.QuoteSource == domain.QuoteSourceProvider && instrument.ProviderKey != nil {
+		for _, item := range coverage {
+			if item.InstrumentID == instrument.ID && strings.EqualFold(item.ProviderKey, *instrument.ProviderKey) && item.BindingRevision == instrument.ProviderBindingRevision {
+				result.CloseMarketDates = append(result.CloseMarketDates, item.CloseMarketDates...)
+				result.NoObservationDates = append(result.NoObservationDates, item.NoObservationDates...)
+				result.UnverifiedDates = append(result.UnverifiedDates, item.UnverifiedDates...)
+			}
+		}
+	}
+	return result
+}
+
+func agentInstrumentCarryComplete(selected domain.InstrumentQuote, closure domain.InstrumentHistoryCoverage, marketDate string) bool {
+	if selected.EffectiveDate == marketDate {
+		return true
+	}
+	// NAV is published for its own date. A previous NAV can value the position,
+	// but it does not establish coverage of another day.
+	if selected.PriceBasis != "agent_raw_close_v1" {
+		return false
+	}
+	dates, err := domain.InclusiveMarketDates(selected.EffectiveDate, marketDate)
+	if err != nil {
+		return false
+	}
+	closes := indexStrings(closure.CloseMarketDates)
+	noObservation := indexStrings(closure.NoObservationDates)
+	for _, date := range dates {
+		label := string(date)
+		if label == selected.EffectiveDate {
+			continue
+		}
+		if _, ok := closes[label]; ok {
+			continue
+		}
+		if _, ok := noObservation[label]; ok {
+			continue
+		}
+		if instrumentKnownClosedDate(closure, label) || domain.InferredInstrumentClosure(closure, label) {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
+func historicalAgentInstrumentQualityMatches(quote domain.InstrumentQuote) bool {
+	return strings.TrimSpace(quote.SourcePolicyVersion) != "" && strings.TrimSpace(quote.PriceBasis) != "" && strings.TrimSpace(quote.TimestampBasis) != ""
+}
+
+func historicalInstrumentQuoteLater(candidate, selected domain.InstrumentQuote, marketDate string, candidateEffective, selectedEffective time.Time) bool {
+	if candidate.SourceKind == domain.QuoteSourceAgent && candidate.EffectiveDate == marketDate && (selected.SourceKind != domain.QuoteSourceAgent || selected.EffectiveDate != marketDate) {
+		return true
+	}
+	if selected.SourceKind == domain.QuoteSourceAgent && selected.EffectiveDate == marketDate && (candidate.SourceKind != domain.QuoteSourceAgent || candidate.EffectiveDate != marketDate) {
+		return false
+	}
+	if candidate.SourceKind == domain.QuoteSourceManual || selected.SourceKind == domain.QuoteSourceManual {
+		if !candidateEffective.Equal(selectedEffective) {
+			return candidateEffective.After(selectedEffective)
+		}
+	} else if candidate.EffectiveDate != selected.EffectiveDate {
+		return candidate.EffectiveDate > selected.EffectiveDate
+	}
+	if candidate.SourceKind != selected.SourceKind && (candidate.SourceKind == domain.QuoteSourceAgent || selected.SourceKind == domain.QuoteSourceAgent) {
+		return candidate.SourceKind == domain.QuoteSourceAgent
+	}
+	if candidate.SourceKind == domain.QuoteSourceManual {
+		return historicalQuoteLater(candidate, selected, candidateEffective, selectedEffective)
+	}
+	return historicalMarketDateQuoteLater(candidate, selected)
 }
 
 func historicalInstrumentCoverageCompleteAtMarketDate(instrument domain.Instrument, quote domain.InstrumentQuote, coverage []domain.InstrumentHistoryCoverage, marketDate string) bool {
@@ -678,6 +816,9 @@ func historicalInstrumentCoverageCompleteAtMarketDate(instrument domain.Instrume
 }
 
 func historicalFXCoverageCompleteAtMarketDate(snapshot domain.PortfolioSnapshot, quote domain.FXQuote, marketDate string) bool {
+	if quote.SourceKind == domain.QuoteSourceAgent {
+		return quote.EffectiveDate == marketDate
+	}
 	if quote.SourceKind != domain.QuoteSourceProvider || quote.SourcePolicyVersion == "" {
 		return quote.SourceKind == domain.QuoteSourceManual
 	}
@@ -731,19 +872,19 @@ func selectFXQuote(preference domain.FXPreference, quotes []domain.FXQuote, nati
 	var selected *domain.FXQuote
 	for index := range quotes {
 		quote := &quotes[index]
-		if quote.HouseholdID != preference.HouseholdID || quote.SourceKind != preference.SourceKind {
+		if quote.HouseholdID != preference.HouseholdID || !quoteSourceAllowed(preference.SourceKind, quote.SourceKind) {
 			continue
 		}
 		if cutoff != nil && quote.QuotedAt.After(*cutoff) {
 			continue
 		}
-		if preference.SourceKind == domain.QuoteSourceProvider && providerKey != "" && strings.ToLower(strings.TrimSpace(quote.SourceKey)) != providerKey {
+		if quote.SourceKind == domain.QuoteSourceProvider && providerKey != "" && strings.ToLower(strings.TrimSpace(quote.SourceKey)) != providerKey {
 			continue
 		}
 		if !((quote.BaseCurrency == native && quote.QuoteCurrency == householdBase) || (quote.BaseCurrency == householdBase && quote.QuoteCurrency == native)) {
 			continue
 		}
-		if selected == nil || quoteLater(quote.QuotedAt, quote.CreatedAt, quote.ID.String(), selected.QuotedAt, selected.CreatedAt, selected.ID.String()) {
+		if selected == nil || currentFXQuoteLater(*quote, *selected) {
 			selected = quote
 		}
 	}
@@ -762,8 +903,15 @@ func selectHistoricalFXQuoteAtMarketDate(preference domain.FXPreference, quotes 
 		if quote.HouseholdID != preference.HouseholdID || !((quote.BaseCurrency == native && quote.QuoteCurrency == householdBase) || (quote.BaseCurrency == householdBase && quote.QuoteCurrency == native)) {
 			continue
 		}
-		if preference.SourceKind == domain.QuoteSourceManual {
+		if !quoteSourceAllowed(preference.SourceKind, quote.SourceKind) {
+			continue
+		}
+		if quote.SourceKind == domain.QuoteSourceManual {
 			if quote.SourceKind != domain.QuoteSourceManual || (quote.ObservationKind != "" && quote.ObservationKind != string(FXObservationManual)) {
+				continue
+			}
+		} else if quote.SourceKind == domain.QuoteSourceAgent {
+			if quote.ObservationKind != string(FXObservationDailyReference) || strings.TrimSpace(quote.EffectiveDate) == "" || quote.EffectiveDate > marketDate || quote.ValueEffectiveAt.IsZero() || strings.TrimSpace(quote.SourcePolicyVersion) == "" || strings.TrimSpace(quote.TimestampBasis) == "" {
 				continue
 			}
 		} else {
@@ -794,11 +942,34 @@ func selectHistoricalFXQuoteAtMarketDate(preference domain.FXPreference, quotes 
 				selectedEffective = selected.QuotedAt
 			}
 		}
-		if selected == nil || (quote.SourceKind == domain.QuoteSourceProvider && historicalMarketDateFXQuoteLater(*quote, *selected)) || (quote.SourceKind == domain.QuoteSourceManual && historicalFXQuoteLater(*quote, *selected, effective, selectedEffective)) {
+		if selected == nil || historicalFXQuoteLaterWithAgent(*quote, *selected, marketDate, effective, selectedEffective) {
 			selected = quote
 		}
 	}
 	return selected
+}
+
+func historicalFXQuoteLaterWithAgent(candidate, selected domain.FXQuote, marketDate string, candidateEffective, selectedEffective time.Time) bool {
+	if candidate.SourceKind == domain.QuoteSourceAgent && candidate.EffectiveDate == marketDate && (selected.SourceKind != domain.QuoteSourceAgent || selected.EffectiveDate != marketDate) {
+		return true
+	}
+	if selected.SourceKind == domain.QuoteSourceAgent && selected.EffectiveDate == marketDate && (candidate.SourceKind != domain.QuoteSourceAgent || candidate.EffectiveDate != marketDate) {
+		return false
+	}
+	if candidate.SourceKind == domain.QuoteSourceManual || selected.SourceKind == domain.QuoteSourceManual {
+		if !candidateEffective.Equal(selectedEffective) {
+			return candidateEffective.After(selectedEffective)
+		}
+	} else if candidate.EffectiveDate != selected.EffectiveDate {
+		return candidate.EffectiveDate > selected.EffectiveDate
+	}
+	if candidate.SourceKind != selected.SourceKind && (candidate.SourceKind == domain.QuoteSourceAgent || selected.SourceKind == domain.QuoteSourceAgent) {
+		return candidate.SourceKind == domain.QuoteSourceAgent
+	}
+	if candidate.SourceKind == domain.QuoteSourceManual {
+		return historicalFXQuoteLater(candidate, selected, candidateEffective, selectedEffective)
+	}
+	return historicalMarketDateFXQuoteLater(candidate, selected)
 }
 
 func historicalInstrumentQualityMatches(quote domain.InstrumentQuote) bool {

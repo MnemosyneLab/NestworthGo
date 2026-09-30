@@ -561,9 +561,13 @@ func (r *Repository) ListInstrumentQuotes(ctx context.Context, instrumentID doma
 	if err != nil {
 		return nil, err
 	}
-	statement := `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed FROM instrument_quotes WHERE instrument_id = ? ORDER BY quoted_at DESC, created_at DESC, id DESC`
+	statement := `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed FROM instrument_quotes WHERE instrument_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = instrument_quotes.id) ORDER BY quoted_at DESC, created_at DESC, id DESC`
 	if modern {
-		statement = `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash, conversion_json FROM instrument_quotes WHERE instrument_id = ? ORDER BY quoted_at DESC, created_at DESC, id DESC`
+		statement = `SELECT id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, provider_timestamp, fetched_at, value_effective_at, binding_revision, source_policy_version, price_basis, timestamp_basis, revision, supersedes_quote_id, split_factor, dividend_cash, conversion_json FROM instrument_quotes WHERE instrument_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = instrument_quotes.id) ORDER BY quoted_at DESC, created_at DESC, id DESC`
+	}
+	statement, err = agentQuoteFilterForSchema(ctx, r.database.SQL, statement)
+	if err != nil {
+		return nil, err
 	}
 	rows, err := r.database.SQL.QueryContext(ctx, statement, instrumentID.String())
 	if err != nil {
@@ -660,9 +664,13 @@ func (r *Repository) ListFXQuotes(ctx context.Context, householdID domain.Househ
 	if err != nil {
 		return nil, err
 	}
-	statement := `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`
+	statement := `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'fx' AND withdrawn.target_quote_id = fx_quotes.id) ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`
 	if modern {
-		statement = `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id FROM fx_quotes WHERE household_id = ? ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`
+		statement = `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id FROM fx_quotes WHERE household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'fx' AND withdrawn.target_quote_id = fx_quotes.id) ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`
+	}
+	statement, err = agentQuoteFilterForSchema(ctx, r.database.SQL, statement)
+	if err != nil {
+		return nil, err
 	}
 	rows, err := r.database.SQL.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
@@ -878,22 +886,27 @@ func listInstrumentQuotesQuery(ctx context.Context, query queryer, householdID d
 	statement := `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed
 		FROM instrument_quotes q
 		JOIN instruments i ON i.id = q.instrument_id
-		WHERE i.household_id = ?`
+		WHERE i.household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = q.id)`
 	if modern {
 		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash, q.conversion_json
 		FROM instrument_quotes q
 		JOIN instruments i ON i.id = q.instrument_id
-		WHERE i.household_id = ?`
+		WHERE i.household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = q.id)`
 	}
 	statement += `
 		AND NOT EXISTS (
 			SELECT 1 FROM instrument_quotes newer
 			WHERE newer.instrument_id = q.instrument_id AND newer.source_kind = q.source_kind AND newer.currency = q.currency
+			AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = newer.id)
 			AND (newer.quoted_at > q.quoted_at
 				OR (newer.quoted_at = q.quoted_at AND newer.created_at > q.created_at)
 				OR (newer.quoted_at = q.quoted_at AND newer.created_at = q.created_at AND newer.id > q.id))
 		)
 		ORDER BY q.instrument_id ASC, q.source_kind ASC, q.currency ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`
+	statement, err = agentQuoteFilterForSchema(ctx, query, statement)
+	if err != nil {
+		return nil, err
+	}
 	rows, err := query.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
 		return nil, err
@@ -911,9 +924,13 @@ func listAllInstrumentQuotesQuery(ctx context.Context, query queryer, householdI
 	if err != nil {
 		return nil, err
 	}
-	statement := `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`
+	statement := `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = q.id) ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`
 	if modern {
-		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash, q.conversion_json FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`
+		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash, q.conversion_json FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id WHERE i.household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = q.id) ORDER BY q.instrument_id, q.quoted_at, q.created_at, q.id`
+	}
+	statement, err = agentQuoteFilterForSchema(ctx, query, statement)
+	if err != nil {
+		return nil, err
 	}
 	rows, err := query.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
@@ -935,14 +952,14 @@ func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID dom
 	if modern {
 		columns += ", q.observation_kind, q.effective_date, q.fetched_at, q.value_effective_at, q.source_policy_version, q.timestamp_basis, q.revision, q.supersedes_quote_id"
 	}
-	rows, err := query.QueryContext(ctx, `WITH candidates AS (
+	statement := `WITH candidates AS (
 			SELECT q.*,
 				CASE WHEN q.base_currency < q.quote_currency THEN q.base_currency ELSE q.quote_currency END AS currency_a,
 				CASE WHEN q.base_currency < q.quote_currency THEN q.quote_currency ELSE q.base_currency END AS currency_b
 			FROM fx_quotes q
-			WHERE q.household_id = ?
+			WHERE q.household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'fx' AND withdrawn.target_quote_id = q.id)
 		)
-		SELECT `+columns+`
+		SELECT ` + columns + `
 		FROM candidates q
 		WHERE NOT EXISTS (
 			SELECT 1 FROM candidates newer
@@ -951,7 +968,12 @@ func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID dom
 				OR (newer.quoted_at = q.quoted_at AND newer.created_at > q.created_at)
 				OR (newer.quoted_at = q.quoted_at AND newer.created_at = q.created_at AND newer.id > q.id))
 		)
-		ORDER BY q.currency_a ASC, q.currency_b ASC, q.source_kind ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`, householdID.String())
+		ORDER BY q.currency_a ASC, q.currency_b ASC, q.source_kind ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`
+	statement, err = agentQuoteFilterForSchema(ctx, query, statement)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := query.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -968,9 +990,13 @@ func listAllFXQuotesQuery(ctx context.Context, query queryer, householdID domain
 	if err != nil {
 		return nil, err
 	}
-	statement := `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? ORDER BY base_currency, quote_currency, quoted_at, created_at, id`
+	statement := `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed FROM fx_quotes WHERE household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'fx' AND withdrawn.target_quote_id = fx_quotes.id) ORDER BY base_currency, quote_currency, quoted_at, created_at, id`
 	if modern {
-		statement = `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id FROM fx_quotes WHERE household_id = ? ORDER BY base_currency, quote_currency, quoted_at, created_at, id`
+		statement = `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id FROM fx_quotes WHERE household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'fx' AND withdrawn.target_quote_id = fx_quotes.id) ORDER BY base_currency, quote_currency, quoted_at, created_at, id`
+	}
+	statement, err = agentQuoteFilterForSchema(ctx, query, statement)
+	if err != nil {
+		return nil, err
 	}
 	rows, err := query.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
@@ -981,6 +1007,22 @@ func listAllFXQuotesQuery(ctx context.Context, query queryer, householdID domain
 		return scanFXQuotes(rows)
 	}
 	return scanLegacyFXQuotes(rows)
+}
+
+// Older read-only fixture databases can have the quote metadata columns but
+// predate Agent quote audit records. Their quote selection stays unchanged.
+func agentQuoteFilterForSchema(ctx context.Context, query queryer, statement string) (string, error) {
+	available, err := schemaTableExists(ctx, query, "agent_quote_records")
+	if err != nil || available {
+		return statement, err
+	}
+	for _, kind := range []string{"instrument", "fx"} {
+		for _, alias := range []string{"instrument_quotes", "fx_quotes", "q", "newer"} {
+			filter := "AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = '" + kind + "' AND withdrawn.target_quote_id = " + alias + ".id)"
+			statement = strings.ReplaceAll(statement, filter, "")
+		}
+	}
+	return statement, nil
 }
 
 func listFXPreferencesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.FXPreference, error) {

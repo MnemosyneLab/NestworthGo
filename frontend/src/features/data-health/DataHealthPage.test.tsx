@@ -85,6 +85,18 @@ describe("DataHealthPage", () => {
     expect(startSync).not.toHaveBeenCalled();
   });
 
+  it("explains Agent quote gaps without offering manual entry or provider repair", async () => {
+    scanHealth.mockResolvedValue({
+      healthy: false, issueCount: 1, executableCount: 0, prerequisiteCount: 1, snapshotDays: 0,
+      issues: [{ id: "agent-1", kind: "missing_agent_price", severity: "blocking", targetKey: "instrument:i1", instrumentId: "i1", label: "Private Fund", action: "none", executable: false, reason: "agent_data_required" }],
+    });
+    renderPage();
+    const issue = await screen.findByTestId("health-issue-missing_agent_price");
+    expect(issue).toHaveTextContent("Ask your Agent to supply this quote through MCP.");
+    expect(within(issue).queryByRole("button", { name: "Add manual data" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("repair-all")).toBeDisabled();
+  });
+
   it("opens with a local scan and does not start provider work", async () => {
     scanHealth.mockResolvedValue({
       healthy: true,

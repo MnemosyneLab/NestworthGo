@@ -273,7 +273,7 @@ function ExistingPositionForm({ record, onDone }: { record: AccountRecordDTO; on
               ))}
             </NativeSelect>
           </div>
-          {selectedInstrument && <QuoteHint quote={quote.data} quoteLabel={quote.data ? t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} manual={selectedInstrument.quoteSource === "manual"} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={quote.isLoading} error={refreshInstrument.error} />}
+          {selectedInstrument && <QuoteHint quote={quote.data} quoteLabel={quote.data ? t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} sourceKind={selectedInstrument.quoteSource} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={quote.isLoading} error={refreshInstrument.error} />}
           <Button type="button" variant="ghost" size="sm" className="self-start" onClick={() => setCreatingInstrument(true)}>
             {t("accounts.createInstrument")}
           </Button>

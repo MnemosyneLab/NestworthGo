@@ -408,6 +408,9 @@ export interface FXQuoteDTO {
     "rate": string;
     "sourceKind": string;
     "sourceKey": string;
+    "observationKind"?: string;
+    "effectiveDate"?: string;
+    "timestampBasis"?: string;
     "quotedAt": string;
     "createdAt": string;
     "delayed": boolean;
@@ -506,6 +509,10 @@ export interface InstrumentQuoteDTO {
     "currency": string;
     "sourceKind": string;
     "sourceKey": string;
+    "observationKind"?: string;
+    "effectiveDate"?: string;
+    "priceBasis"?: string;
+    "timestampBasis"?: string;
     "quotedAt": string;
     "createdAt": string;
     "delayed": boolean;

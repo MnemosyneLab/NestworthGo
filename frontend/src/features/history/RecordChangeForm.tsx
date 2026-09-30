@@ -873,7 +873,7 @@ function RecordChangeFormReady({
                 <QuoteHint
                   quote={transferFXQuote.data}
                   quoteLabel={transferFXQuote.data ? t("marketData.latestRate", { base: transferFXQuote.data.baseCurrency, rate: formatAmount(transferFXQuote.data.rate), quote: transferFXQuote.data.quoteCurrency }) : undefined}
-                  manual={(fxPreferences.data ?? []).find((preference) => [preference.currencyA, preference.currencyB].sort().join("/") === [request.sentCurrency, request.receivedCurrency].sort().join("/"))?.sourceKind === "manual"}
+                  sourceKind={(fxPreferences.data ?? []).find((preference) => [preference.currencyA, preference.currencyB].sort().join("/") === [request.sentCurrency, request.receivedCurrency].sort().join("/"))?.sourceKind}
                   onUpdate={updateTransferFX}
                   isUpdating={setFXPreference.isPending || refreshFX.isPending}
                   loading={transferFXQuote.isLoading}
@@ -927,7 +927,7 @@ function RecordChangeFormReady({
                 <QuoteHint
                   quote={fxQuote.data}
                   quoteLabel={fxQuote.data ? t("marketData.latestRate", { base: fxQuote.data.baseCurrency, rate: formatAmount(fxQuote.data.rate), quote: fxQuote.data.quoteCurrency }) : undefined}
-                  manual={fxPreference?.sourceKind === "manual"}
+                  sourceKind={fxPreference?.sourceKind}
                   onUpdate={updateFX}
                   isUpdating={setFXPreference.isPending || refreshFX.isPending}
                   loading={fxQuote.isLoading}
@@ -1007,7 +1007,7 @@ function RecordChangeFormReady({
             <CalculateAmounts
               onCalculate={runTradeCalculate}
               quoteHint={
-                <QuoteHint quote={instrumentQuote.data} quoteLabel={instrumentQuote.data ? t("portfolio.latestPrice", { value: formatAmount(instrumentQuote.data.unitPrice, instrumentQuote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} manual={selectedInstrument.quoteSource === "manual"} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={instrumentQuote.isLoading} error={refreshInstrument.error} />
+                <QuoteHint quote={instrumentQuote.data} quoteLabel={instrumentQuote.data ? t("portfolio.latestPrice", { value: formatAmount(instrumentQuote.data.unitPrice, instrumentQuote.data.currency) + metalPriceSuffix(selectedInstrument, t) }) : undefined} sourceKind={selectedInstrument.quoteSource} onUpdate={() => refreshInstrument.mutate(selectedInstrument.id)} isUpdating={refreshInstrument.isPending} loading={instrumentQuote.isLoading} error={refreshInstrument.error} />
               }
             />
           )}

@@ -434,8 +434,42 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 	if err != nil {
 		return nil, []SyncBlocker{{TargetKey: "fx", Code: string(domain.ErrUnavailable), Reason: "fx_preferences"}}
 	}
+	hasProviderPreference := false
+	for _, preference := range prefs {
+		if preference.SourceKind == domain.QuoteSourceProvider {
+			hasProviderPreference = true
+			break
+		}
+	}
+	if !hasProviderPreference {
+		return nil, nil
+	}
 	providerKey := s.FXProviderKey()
 	if providerKey == "" {
+		if !request.ForceRecheck {
+			agentDates, agentErr := s.agentFXDailyDates(ctx, householdID)
+			if agentErr == nil {
+				required, dateErr := domain.InclusiveMarketDates(plan.OriginLocalDate, plan.LastFinalizedMarketDate)
+				if dateErr == nil {
+					allCovered := true
+					for _, preference := range prefs {
+						if preference.SourceKind != domain.QuoteSourceProvider || (request.Scope == SyncScopeFX && !fxPreferenceMatches(preference, request)) {
+							continue
+						}
+						covered := indexStrings(agentDates[fxPairKey(preference.CurrencyA, preference.CurrencyB)])
+						for _, date := range required {
+							if !hasString(covered, string(date)) {
+								allCovered = false
+								break
+							}
+						}
+					}
+					if allCovered {
+						return nil, nil
+					}
+				}
+			}
+		}
 		return nil, []SyncBlocker{{TargetKey: "fx", Code: string(domain.ErrUnavailable), Reason: "provider_not_configured"}}
 	}
 	maxDays := s.historyMaxDays()
@@ -449,6 +483,10 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 	coverage, err := s.repository.ListFXHistoryCoverage(ctx, householdID)
 	if err != nil {
 		return nil, []SyncBlocker{{TargetKey: "fx", Code: string(domain.ErrUnavailable), Reason: "fx_coverage"}}
+	}
+	agentDates, err := s.agentFXDailyDates(ctx, householdID)
+	if err != nil {
+		return nil, []SyncBlocker{{TargetKey: "fx", Code: string(domain.ErrUnavailable), Reason: "agent_fx_coverage"}}
 	}
 	byPair := make(map[string]domain.FXHistoryCoverage, len(coverage))
 	for _, item := range coverage {
@@ -464,6 +502,8 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 			continue
 		}
 		item := byPair[fxPairKey(preference.CurrencyA, preference.CurrencyB)]
+		pair := fxPairKey(preference.CurrencyA, preference.CurrencyB)
+		item.DailyReferenceDates = append(item.DailyReferenceDates, agentDates[pair]...)
 		start := origin
 		closes := make([]domain.OracleClose, 0, len(item.DailyReferenceDates))
 		for _, date := range item.DailyReferenceDates {
@@ -491,10 +531,17 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 			continue
 		}
 		closeSet := indexStrings(item.DailyReferenceDates)
+		agentCloseSet := indexStrings(agentDates[pair])
+		if request.ForceRecheck {
+			closeSet = indexStrings(byPair[pair].DailyReferenceDates)
+		}
 		noObsSet := indexStrings(item.NoObservationDates)
 		fetchDates := make([]string, 0)
 		for _, date := range dates {
 			label := string(date)
+			if !request.ForceRecheck && hasString(agentCloseSet, label) {
+				continue
+			}
 			decision := domain.DecideHistoryFetch(domain.HistoryFetchInput{
 				Date: label, LastFinalized: end, Now: s.clock(), ForceRecheck: request.ForceRecheck,
 				HasClose: hasString(closeSet, label), CloseFetchedAt: item.DailyReferenceFetchedAt[label],
@@ -514,6 +561,21 @@ func (s *Service) planFXHistoryRanges(ctx context.Context, householdID domain.Ho
 		}
 	}
 	return tasks, blockers
+}
+
+func (s *Service) agentFXDailyDates(ctx context.Context, householdID domain.HouseholdID) (map[string][]string, error) {
+	quotes, err := s.repository.ListFXQuotes(ctx, householdID)
+	if err != nil {
+		return nil, err
+	}
+	byPair := make(map[string][]string)
+	for _, quote := range quotes {
+		if quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(FXObservationDailyReference) && quote.EffectiveDate != "" && quote.SourcePolicyVersion != "" {
+			pair := fxPairKey(quote.BaseCurrency, quote.QuoteCurrency)
+			byPair[pair] = append(byPair[pair], quote.EffectiveDate)
+		}
+	}
+	return byPair, nil
 }
 
 func fxSourcePolicy(providerKey string) string {

@@ -129,7 +129,7 @@ CREATE TABLE instruments (
     note TEXT,
     icon_key TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
-    quote_source TEXT NOT NULL DEFAULT 'manual' CHECK(quote_source IN ('manual','provider')),
+    quote_source TEXT NOT NULL DEFAULT 'manual' CHECK(quote_source IN ('manual','provider','agent')),
     provider_key TEXT,
     provider_symbol TEXT,
     created_at TEXT NOT NULL,
@@ -137,7 +137,7 @@ CREATE TABLE instruments (
     archived_at TEXT,
     metal_template TEXT NOT NULL DEFAULT '',
     quantity_unit TEXT NOT NULL DEFAULT '',
-    CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL)),
+    CHECK(quote_source <> 'provider' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL)),
     FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE CASCADE
 );
 CREATE INDEX idx_instruments_household ON instruments(household_id);
@@ -175,7 +175,7 @@ CREATE TABLE instrument_quotes (
     instrument_id TEXT NOT NULL,
     unit_price TEXT NOT NULL,
     currency TEXT NOT NULL CHECK(currency GLOB '[A-Z][A-Z][A-Z]'),
-    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider')),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
     source_key TEXT NOT NULL,
     quoted_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
@@ -203,7 +203,7 @@ CREATE TABLE fx_quotes (
     base_currency TEXT NOT NULL CHECK(base_currency GLOB '[A-Z][A-Z][A-Z]'),
     quote_currency TEXT NOT NULL CHECK(quote_currency GLOB '[A-Z][A-Z][A-Z]'),
     rate TEXT NOT NULL,
-    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider')),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
     source_key TEXT NOT NULL,
     quoted_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
@@ -224,7 +224,7 @@ CREATE TABLE fx_preferences (
     household_id TEXT NOT NULL,
     currency_a TEXT NOT NULL CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]'),
     currency_b TEXT NOT NULL CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]'),
-    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider')),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     PRIMARY KEY(household_id, currency_a, currency_b),
@@ -287,7 +287,7 @@ CREATE TABLE history_origin_ownership (
 CREATE TABLE history_origin_instrument_preferences (
     origin_id TEXT NOT NULL,
     instrument_id TEXT NOT NULL,
-    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider')),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
     created_at TEXT NOT NULL,
     PRIMARY KEY(origin_id, instrument_id),
     FOREIGN KEY(origin_id) REFERENCES history_origins(id) ON DELETE RESTRICT,
@@ -297,7 +297,7 @@ CREATE TABLE history_origin_fx_preferences (
     origin_id TEXT NOT NULL,
     currency_a TEXT NOT NULL CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]'),
     currency_b TEXT NOT NULL CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]'),
-    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider')),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
     created_at TEXT NOT NULL,
     PRIMARY KEY(origin_id, currency_a, currency_b),
     FOREIGN KEY(origin_id) REFERENCES history_origins(id) ON DELETE RESTRICT
@@ -417,7 +417,7 @@ CREATE TABLE account_state_ownership (
 CREATE TABLE instrument_preference_observations (
     id TEXT PRIMARY KEY NOT NULL,
     instrument_id TEXT NOT NULL,
-    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider')),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
     effective_at TEXT NOT NULL,
     activity_id TEXT,
     created_at TEXT NOT NULL,
@@ -430,7 +430,7 @@ CREATE TABLE fx_preference_observations (
     household_id TEXT NOT NULL,
     currency_a TEXT NOT NULL CHECK(currency_a GLOB '[A-Z][A-Z][A-Z]'),
     currency_b TEXT NOT NULL CHECK(currency_b GLOB '[A-Z][A-Z][A-Z]'),
-    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider')),
+    source_kind TEXT NOT NULL CHECK(source_kind IN ('manual','provider','agent')),
     effective_at TEXT NOT NULL,
     activity_id TEXT,
     created_at TEXT NOT NULL,
@@ -746,6 +746,34 @@ CREATE TABLE product_operation_reservations (
     FOREIGN KEY(operation_id) REFERENCES product_operations(id) ON DELETE RESTRICT,
     FOREIGN KEY(reservation_id) REFERENCES liquidity_reservations(id) ON DELETE RESTRICT
 );
-PRAGMA user_version = 14;
+CREATE TABLE agent_quote_batches (
+    request_key TEXT PRIMARY KEY NOT NULL,
+    household_id TEXT NOT NULL,
+    payload_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT
+);
+CREATE INDEX idx_agent_quote_batches_household ON agent_quote_batches(household_id, created_at);
+CREATE TABLE agent_quote_records (
+    id TEXT PRIMARY KEY NOT NULL,
+    request_key TEXT NOT NULL,
+    household_id TEXT NOT NULL,
+    target_type TEXT NOT NULL CHECK(target_type IN ('instrument','fx')),
+    operation TEXT NOT NULL CHECK(operation IN ('append','correct','retract')),
+    quote_id TEXT,
+    target_quote_id TEXT,
+    source_title TEXT NOT NULL CHECK(length(trim(source_title)) > 0),
+    source_url TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    CHECK((operation = 'append' AND quote_id IS NOT NULL AND target_quote_id IS NULL) OR
+          (operation = 'correct' AND quote_id IS NOT NULL AND target_quote_id IS NOT NULL) OR
+          (operation = 'retract' AND quote_id IS NULL AND target_quote_id IS NOT NULL)),
+    FOREIGN KEY(request_key) REFERENCES agent_quote_batches(request_key) ON DELETE RESTRICT,
+    FOREIGN KEY(household_id) REFERENCES households(id) ON DELETE RESTRICT
+);
+CREATE UNIQUE INDEX ux_agent_quote_records_quote ON agent_quote_records(target_type, quote_id) WHERE quote_id IS NOT NULL;
+CREATE UNIQUE INDEX ux_agent_quote_records_target ON agent_quote_records(target_type, target_quote_id) WHERE target_quote_id IS NOT NULL;
+CREATE INDEX idx_agent_quote_records_household ON agent_quote_records(household_id, created_at, id);
+PRAGMA user_version = 15;
 
 CREATE TABLE app_configuration (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);

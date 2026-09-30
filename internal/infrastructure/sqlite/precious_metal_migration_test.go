@@ -18,7 +18,7 @@ func TestV10MetalMigrationPreservesLegacyConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacy := string(schema)
+	legacy := legacyV14QuoteSourceSchema(string(schema))
 	legacy = strings.ReplaceAll(legacy, "    metal_template TEXT NOT NULL DEFAULT '',\n", "")
 	legacy = strings.ReplaceAll(legacy, "    quantity_unit TEXT NOT NULL DEFAULT '',\n", "")
 	legacy = strings.ReplaceAll(legacy, "    conversion_json TEXT,\n", "")
@@ -57,6 +57,9 @@ func TestV10MetalMigrationPreservesLegacyConfiguration(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := migrateV13ToV14(context.Background(), db); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrateV14ToV15(context.Background(), db); err != nil {
 		t.Fatal(err)
 	}
 	if err := verifySchema(context.Background(), db); err != nil {

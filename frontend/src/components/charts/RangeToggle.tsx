@@ -17,6 +17,7 @@ export const SOURCE_FILTER_LABELS: Record<string, string> = {
   all: "charts.sourceAll",
   manual: "charts.sourceManual",
   provider: "charts.sourceProvider",
+  agent: "charts.sourceAgent",
 };
 
 export function RangeToggle({
@@ -52,7 +53,7 @@ export function SourceFilterToggle({
   onChange: (value: string) => void;
 }) {
   const { t } = useTranslation();
-  const filters = ["all", "manual", "provider"];
+  const filters = ["all", "manual", "provider", "agent"];
   return (
     <SegmentedControl
       label={t("charts.sourceFilter")}

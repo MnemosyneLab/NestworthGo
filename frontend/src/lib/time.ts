@@ -52,3 +52,15 @@ export function formatTimestamp(value: string | number | Date, timezone: string 
     return parsed.toISOString();
   }
 }
+
+/** Date-labelled quotes have a source date, but no observed time of day. */
+export function formatQuoteAsOf(
+  quote: { quotedAt: string; effectiveDate?: string; timestampBasis?: string },
+  timezone: string | undefined,
+  language = i18n.language || "en",
+): string {
+  if (quote.timestampBasis === "date_label" && /^\d{4}-\d{2}-\d{2}$/.test(quote.effectiveDate ?? "")) {
+    return quote.effectiveDate!;
+  }
+  return formatTimestamp(quote.quotedAt, timezone, language);
+}

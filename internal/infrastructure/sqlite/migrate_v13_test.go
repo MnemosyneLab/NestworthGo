@@ -17,10 +17,11 @@ func TestV13CostMigrationPreservesActivitiesEffectsAndReceipts(t *testing.T) {
 		t.Fatal(err)
 	}
 	legacy := string(schema)
+	legacy = legacyV14QuoteSourceSchema(legacy)
 	legacy = strings.Replace(legacy, "'position_transfer','cost_adjustment','buy'", "'position_transfer','buy'", 1)
 	legacy = strings.Replace(legacy, "'holding_quantity','holding_cost'", "'holding_quantity'", 1)
 	legacy = strings.Replace(legacy, " OR\n          (target = 'holding_cost' AND account_id IS NULL AND holding_id IS NOT NULL AND instrument_id IS NOT NULL AND quantity IS NULL AND amount IS NULL AND currency IS NULL AND cost_unit_price IS NOT NULL)", "", 1)
-	legacy = strings.Replace(legacy, "PRAGMA user_version = 14", "PRAGMA user_version = 13", 1)
+	legacy = strings.Replace(legacy, "PRAGMA user_version = 15", "PRAGMA user_version = 13", 1)
 	seed, err := sql.Open("sqlite", path+"?_pragma=foreign_keys%3d1")
 	if err != nil {
 		t.Fatal(err)

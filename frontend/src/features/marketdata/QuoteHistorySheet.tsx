@@ -14,21 +14,13 @@ import { useSettings } from "@/queries/settings";
 import { displayEnum } from "@/lib/display";
 import { instrumentDisplayLabel, instrumentSecondaryName } from "@/lib/instrumentDisplay";
 import { formatAmount } from "@/lib/money";
-import { formatTimestamp } from "@/lib/time";
+import { formatQuoteAsOf } from "@/lib/time";
 import { chartTheme, useThemeVersion } from "@/components/charts/chartTheme";
 import type { InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 export type QuoteHistoryTarget =
   | { kind: "instrument"; instrument: InstrumentDTO }
   | { kind: "fx"; currencyA: string; currencyB: string };
-
-function formatQuotedAt(value: string, language: string, timezone?: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return formatTimestamp(parsed, timezone, language);
-}
 
 export function QuoteHistorySheet({
   target, focus,
@@ -67,10 +59,11 @@ export function QuoteHistorySheet({
   const hasFactsOutsideRange = emptyRange && series.data?.outsideRange === true;
   const sourceLabel = (kind: string, key?: string) => {
     const label = displayEnum(t, "portfolio", kind);
-    return key ? `${label} · ${key}` : label;
+    return key && key !== kind ? `${label} · ${key}` : label;
   };
 
-  const observationLabel = (point: { observationKind?: string; sourceKind: string; sourceKey?: string }) => {
+  const observationLabel = (point: { observationKind?: string; sourceKind: string; sourceKey?: string; priceBasis?: string }) => {
+    if (point.priceBasis === "agent_unit_nav_v1") return t("quoteDetails.kinds.nav");
     if (point.observationKind === "close" && point.sourceKey === "coingecko") return t("portfolio.coinGeckoDailyReference");
     const kind = point.sourceKind === "manual" ? "manual" : point.observationKind || "unknown";
     return t(`quoteDetails.kinds.${kind}`, { defaultValue: t("quoteDetails.kinds.unknown") });
@@ -120,7 +113,7 @@ export function QuoteHistorySheet({
             <TrendChart
               ariaLabel={title}
               summary={title}
-              dates={points.map((point) => point.quotedAt)}
+              dates={points.map((point) => point.timestampBasis === "date_label" && point.effectiveDate ? point.effectiveDate : point.quotedAt)}
               series={[{
                 key: "value",
                 name: target.kind === "fx" ? t("charts.rate") : t("charts.price"),
@@ -140,7 +133,7 @@ export function QuoteHistorySheet({
               valueFormatter={(value) => (value ? (currency ? formatAmount(value, currency) + priceSuffix : formatAmount(value)) : t("accounts.noValue"))}
               extraTableColumns={[t("charts.quotedAt"), target.kind === "fx" ? t("charts.rate") : t("charts.price"), t("quoteDetails.type"), t("quoteDetails.effectiveDate"), t("charts.source"), t("charts.delayed")]}
               extraTableRows={observations.map((item) => [
-                formatQuotedAt(item.quotedAt, i18n.language, settings.data?.timezone),
+                formatQuoteAsOf(item, settings.data?.timezone, i18n.language),
                 currency ? formatAmount(item.value, currency) + priceSuffix : formatAmount(item.value),
                 observationLabel(item),
                 item.effectiveDate || "—",

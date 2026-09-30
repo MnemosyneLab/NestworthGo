@@ -230,7 +230,7 @@ describe("MarketDataPage", () => {
     expect(within(savedFX).getByRole("button", { name: "View history" }).parentElement).toHaveClass("row-start-1");
     expect(savedData).toHaveTextContent("CNY/SGD");
     expect(savedData).toHaveTextContent("1 CNY = 0.19 SGD");
-    expect(savedData).toHaveTextContent("daily reference");
+    expect(savedData).toHaveTextContent("recorded quote dates");
     expect(savedData).toHaveTextContent(formatTimestamp("2024-01-01T00:00:00Z", "Pacific/Auckland", "en"));
   });
 
@@ -315,6 +315,34 @@ describe("MarketDataPage", () => {
     expect(refreshAll).not.toHaveBeenCalled();
   });
 
+  it("selects Agent for an FX pair without triggering provider refresh", async () => {
+    overview.mockResolvedValue({ missingInputs: [{ kind: "fx_rate", baseCurrency: "CNY", quoteCurrency: "SGD" }] });
+    setFXPreference.mockResolvedValue({ currencyA: "CNY", currencyB: "SGD", sourceKind: "agent" });
+    renderPage();
+    await userEvent.click(await screen.findByRole("tab", { name: "FX rates" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Use Agent" }));
+    expect(setFXPreference).toHaveBeenCalledWith("CNY", "SGD", "agent");
+    expect(refreshMissing).not.toHaveBeenCalled();
+  });
+
+  it("shows the Agent source and the quote's actual date", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "Private Fund", type: "stock", quoteCurrency: "USD", quoteSource: "agent" }]);
+    currentInstrumentQuote.mockResolvedValue({
+      id: "q1", instrumentId: "i1", unitPrice: "12.5", currency: "USD", sourceKind: "agent", sourceKey: "agent",
+      quotedAt: "2026-09-23T16:00:00Z", effectiveDate: "2026-09-24", timestampBasis: "date_label",
+      createdAt: "2026-09-29T00:00:00Z", delayed: false,
+    });
+    renderPage();
+    const row = await screen.findByTestId("saved-instrument-i1");
+    expect(row).toHaveTextContent("Agent supplied");
+    await waitFor(() => expect(row).toHaveTextContent("as of 2026-09-24"));
+    expect(row).not.toHaveTextContent(formatTimestamp("2026-09-23T16:00:00Z", "Pacific/Auckland", "en"));
+    expect(row).not.toHaveTextContent(formatTimestamp("2026-09-29T00:00:00Z", "Pacific/Auckland", "en"));
+    await userEvent.click(within(row).getByRole("button", { name: "Edit" }));
+    expect(screen.queryByRole("button", { name: "Set price" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Sync" })).not.toBeInTheDocument();
+  });
+
   it("updates latest prices without starting repair or forcing a refresh", async () => {
     renderPage();
     expect(screen.queryByRole("button", { name: /force refresh all/i })).not.toBeInTheDocument();
@@ -392,6 +420,28 @@ describe("MarketDataPage", () => {
     expect(await screen.findByText("No local history is saved yet.")).toBeInTheDocument();
   });
 
+  it("filters local quote history to Agent observations", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "Private Fund", type: "stock", quoteCurrency: "USD", quoteSource: "agent" }]);
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: "View history" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Agent supplied" }));
+    await waitFor(() => expect(instrumentQuoteSeries).toHaveBeenCalledWith("i1", expect.any(String), "agent"));
+  });
+
+  it("labels Agent unit NAV history by source date", async () => {
+    listInstruments.mockResolvedValue([{ id: "i1", name: "Private Fund", type: "mutual_fund", quoteCurrency: "USD", quoteSource: "agent" }]);
+    const point = { quotedAt: "2026-09-27T16:00:00Z", effectiveDate: "2026-09-28", timestampBasis: "date_label", observationKind: "close", priceBasis: "agent_unit_nav_v1", value: "1.0197", sourceKind: "agent", sourceKey: "agent", delayed: false };
+    instrumentQuoteSeries.mockResolvedValue({ range: "30d", points: [point], observations: [point], outsideRange: false });
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    await userEvent.click(await screen.findByRole("button", { name: "View history" }));
+    await userEvent.click(await screen.findByText("View data table"));
+    expect(screen.getByText("Unit NAV")).toBeInTheDocument();
+    expect(screen.getAllByText("2026-09-28").length).toBeGreaterThan(0);
+    expect(screen.queryByText(formatTimestamp("2026-09-27T16:00:00Z", "Pacific/Auckland", "en"))).not.toBeInTheDocument();
+  });
+
   it("offers show-all when local facts exist outside the selected range", async () => {
     listInstruments.mockResolvedValue([{ id: "i1", name: "Global Equity Fund", quoteCurrency: "USD", quoteSource: "provider" }]);
     instrumentQuoteSeries.mockResolvedValue({ range: "30d", points: [], observations: [], outsideRange: true });
@@ -459,7 +509,7 @@ describe("MarketDataPage", () => {
     expect(fxQuoteSeries).toHaveBeenCalledWith("USD", "CNY", expect.stringMatching(/^\d{4}-\d{2}-\d{2}:\d{4}-\d{2}-\d{2}$/), "all");
     expect(fxQuoteSeries.mock.calls[0]?.slice(0, 2)).toEqual(["CNY", "USD"]);
     expect(fxQuoteSeries.mock.calls[1]?.slice(0, 2)).toEqual(["USD", "CNY"]);
-    expect(screen.getAllByText(/daily reference rates/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/recorded quote dates/i).length).toBeGreaterThan(0);
   });
 
   it("filters instruments by search without dropping management actions", async () => {

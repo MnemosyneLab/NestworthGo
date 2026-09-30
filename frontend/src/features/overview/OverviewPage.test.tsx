@@ -205,6 +205,19 @@ describe("OverviewPage", () => {
     expect(screen.queryByText("1 instrument needs a manual price.")).not.toBeInTheDocument();
   });
 
+  it("asks for Agent data without describing it as manual or provider refresh", async () => {
+    await renderWithMockedOverview({
+      currency: "USD", accountCount: 1, complete: false,
+      missingInputs: [{ kind: "instrument_price", accountId: "acc-1", instrumentId: "i1", instrumentName: "Private Fund", quoteSource: "agent" }],
+      assets: "0", liabilities: "0", netWorth: "0", assetsByType: [], liabilitiesByType: [],
+      byMember: [], byInstitution: [], byGroup: [], ...defaultHeadlines,
+      instrumentLabels: [{ id: "i1", name: "Private Fund", quoteSource: "agent" }], recentActivities: [],
+    });
+    expect(await screen.findByText("1 instrument needs an Agent price.")).toBeInTheDocument();
+    expect(screen.queryByText(/manual price/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/price needs a refresh/)).not.toBeInTheDocument();
+  });
+
   it("uses archived account, instrument, and holding names in a recent position transfer", async () => {
     await renderWithMockedOverview({
       currency: "USD",

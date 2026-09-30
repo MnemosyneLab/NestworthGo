@@ -112,7 +112,7 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
     ? allCurrencies.filter((currency) => cryptoCurrencies.data!.includes(currency))
     : allCurrencies;
   const instrumentTypes = catalog.data?.instrumentTypes?.length ? catalog.data.instrumentTypes : [instrument?.type ?? "stock"];
-  const quoteSources = catalog.data?.quoteSources?.length ? catalog.data.quoteSources : ["manual", "provider"];
+  const quoteSources = catalog.data?.quoteSources?.length ? catalog.data.quoteSources : ["manual", "provider", "agent"];
   const instrumentProviders = catalog.data?.instrumentProviders?.length ? catalog.data.instrumentProviders : ["yahoo_finance"];
   const allMarketCodes = Array.from(new Set([...(catalog.data?.instrumentMarketCodes ?? []), ...(instrument?.marketCode ? [instrument.marketCode] : []), ...(marketCode ? [marketCode] : [])]));
   const countryOptions = Array.from(new Set([...(catalog.data?.instrumentCountryCodes ?? []), ...(instrument?.countryCode ? [instrument.countryCode] : [])]));
@@ -186,6 +186,11 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
   }, [iconCustomized, instrumentType, setValue]);
 
   const submit = (values: InstrumentFormValues) => {
+    // Keep an existing provider binding when Agent is selected so the user can
+    // switch back later. A new Agent-only instrument needs no provider binding.
+    const includeProvider = values.quoteSource === "provider" ||
+      (values.quoteSource === "agent" && Boolean(instrument?.providerKey)) ||
+      (values.quoteSource === "manual" && Boolean(values.metalTemplate));
     onSubmit({
       replace: Boolean(instrument),
       metalTemplate: values.metalTemplate || undefined,
@@ -199,8 +204,8 @@ export function InstrumentForm({ instrument, onSubmit, isSubmitting, submissionE
       isin: values.isin?.trim() || undefined,
       note: values.note?.trim() || undefined,
       quoteSource: values.quoteSource,
-      providerKey: values.quoteSource === "provider" || values.metalTemplate ? values.providerKey : undefined,
-      providerSymbol: values.quoteSource === "provider" || values.metalTemplate ? values.providerSymbol : undefined,
+      providerKey: includeProvider ? values.providerKey : undefined,
+      providerSymbol: includeProvider ? values.providerSymbol : undefined,
       iconKey: values.iconKey,
     });
   };

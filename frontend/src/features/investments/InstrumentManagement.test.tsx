@@ -150,6 +150,36 @@ describe("InstrumentManagement", () => {
     );
   });
 
+  it("creates an Agent-only instrument without an external provider", async () => {
+    renderManagement();
+    await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    expect(selectValues(within(form).getByLabelText("Quote source"))).toEqual(TEST_CATALOG.quoteSources);
+    await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "agent");
+    expect(within(form).queryByLabelText("Provider key")).not.toBeInTheDocument();
+    await userEvent.type(within(form).getByLabelText("Name"), "Private Fund");
+    await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
+    expect(createInstrument).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Private Fund", quoteSource: "agent", providerKey: undefined, providerSymbol: undefined,
+    }));
+  });
+
+  it("retains a provider binding when an existing instrument selects Agent", async () => {
+    listInstruments.mockResolvedValue([{
+      id: "i1", name: "NVIDIA", type: "stock", quoteCurrency: "USD", quoteSource: "provider",
+      providerKey: "yahoo_finance", providerSymbol: "NVDA",
+    }]);
+    renderManagement();
+    await userEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    const form = await screen.findByRole("form", { name: "Instrument form" });
+    await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "agent");
+    expect(within(form).queryByLabelText("Provider key")).not.toBeInTheDocument();
+    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
+    expect(updateInstrument).toHaveBeenCalledWith("i1", expect.objectContaining({
+      quoteSource: "agent", providerKey: "yahoo_finance", providerSymbol: "NVDA",
+    }));
+  });
+
   it("edits Instrument identity while keeping currency read-only", async () => {
     listInstruments.mockResolvedValue([{
       id: "i1",

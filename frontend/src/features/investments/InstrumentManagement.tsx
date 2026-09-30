@@ -27,7 +27,7 @@ import { InstrumentForm } from "@/features/investments/InstrumentForm";
 import { InstrumentLabel } from "@/components/forms/InstrumentLabel";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
-import { formatTimestamp } from "@/lib/time";
+import { formatQuoteAsOf } from "@/lib/time";
 import { groupByInstrumentType } from "@/lib/groupByInstrumentType";
 import { cn } from "@/lib/utils";
 import { EntityIcon } from "@/components/icons/EntityIcon";
@@ -139,7 +139,6 @@ function InstrumentRow({
   const { t, i18n } = useTranslation();
   const settings = useSettings();
   const quote = useCurrentInstrumentQuote(instrument.id);
-  const quoteTime = quote.data?.quotedAt ?? quote.data?.createdAt;
   const rowTestId = groupTestId.startsWith("market-data-group-") ? `saved-instrument-${instrument.id}` : undefined;
 
   return (
@@ -165,10 +164,10 @@ function InstrumentRow({
           <>
             <span>
               <span className="font-medium">{t("portfolio.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) + metalPriceSuffix(instrument, t) })}</span>
-              {quoteTime && (
+              {quote.data.quotedAt && (
                 <span className="ml-2 text-xs text-muted-foreground">
                   {t("portfolio.quotedAsOf", {
-                    time: formatTimestamp(quoteTime, settings.data?.timezone, i18n.language),
+                    time: formatQuoteAsOf(quote.data, settings.data?.timezone, i18n.language),
                   })}
                 </span>
               )}
@@ -414,7 +413,7 @@ export function InstrumentManagement({
               }
             />
           )}
-          {editTarget && !editTarget.archivedAt && !managedProduct && (
+          {editTarget && !editTarget.archivedAt && !managedProduct && editTarget.quoteSource !== "agent" && (
             <div className="mt-5 border-t border-border pt-5">
               <Button type="button" variant="outline" onClick={() => setShowPriceForm((value) => !value)}>
                 {t("portfolio.setPrice")}

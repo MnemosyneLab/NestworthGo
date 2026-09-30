@@ -1,24 +1,43 @@
 package backup
 
 import (
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/settings"
+	_ "modernc.org/sqlite"
 )
 
 func TestV12BackupMigratesDurableSettingsAndRestoresDatabaseAuthority(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "legacy.db")
-	db, err := sqlite.Open(path)
+	schema, err := os.ReadFile(filepath.Join("..", "sqlite", "schema.sql"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.SQL.Exec("DROP TABLE app_configuration; PRAGMA user_version=12;"); err != nil {
+	legacySchema := string(schema)
+	auditStart := strings.Index(legacySchema, "CREATE TABLE agent_quote_batches (")
+	auditEnd := strings.Index(legacySchema, "PRAGMA user_version = 15;")
+	if auditStart < 0 || auditEnd <= auditStart {
+		t.Fatal("current schema is missing the Agent quote audit block")
+	}
+	legacySchema = legacySchema[:auditStart] + legacySchema[auditEnd:]
+	legacySchema = strings.ReplaceAll(legacySchema, "CHECK(source_kind IN ('manual','provider','agent'))", "CHECK(source_kind IN ('manual','provider'))")
+	legacySchema = strings.ReplaceAll(legacySchema, "CHECK(quote_source IN ('manual','provider','agent'))", "CHECK(quote_source IN ('manual','provider'))")
+	legacySchema = strings.ReplaceAll(legacySchema, "CHECK(quote_source <> 'provider' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL))", "CHECK(quote_source = 'manual' OR (provider_key IS NOT NULL AND provider_symbol IS NOT NULL))")
+	legacySchema = strings.Replace(legacySchema, "PRAGMA user_version = 15;", "PRAGMA user_version = 12;", 1)
+	legacySchema = strings.Replace(legacySchema, "CREATE TABLE app_configuration (key TEXT PRIMARY KEY NOT NULL, value TEXT NOT NULL);", "", 1)
+	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys%3d1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(legacySchema); err != nil {
 		t.Fatal(err)
 	}
 	if err := db.Close(); err != nil {

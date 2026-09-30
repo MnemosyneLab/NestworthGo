@@ -7,7 +7,7 @@ export const TEST_CATALOG: CatalogDTO = {
   currencies: ["USD", "SGD", "CNY"],
   instrumentTypes: ["stock", "etf", "crypto"],
   institutionTypes: ["bank", "brokerage", "insurer", "exchange", "employer", "government", "other"],
-  quoteSources: ["manual", "provider"],
+  quoteSources: ["manual", "provider", "agent"],
   instrumentProviders: ["yahoo_finance", "coingecko"],
   instrumentCountryCodes: ["AU", "CN", "EU", "GB", "HK", "JP", "SG", "TW", "US", "KR", "CH"],
   instrumentMarketCodes: ["ASX", "SSE", "SZSE", "BSE", "EURONEXT", "XETRA", "LSE", "HKEX", "TSE", "SGX", "TWSE", "NASDAQ", "NYSE", "AMEX", "ARCA", "BZX", "EDGX", "IEX", "KRX", "SIX"],

@@ -94,6 +94,9 @@ function issueRange(t: (key: string, options?: Record<string, unknown>) => strin
 }
 
 function healthIssueActionLabel(t: (key: string, options?: Record<string, unknown>) => string, issue: HealthIssueDTO): string {
+  if (issue.kind === "missing_agent_price" || issue.kind === "missing_agent_fx") {
+    return t("dataHealth.agentEntry");
+  }
   const action = displayEnum(t, "dataHealth.action", issue.action);
   if (issue.action !== "none" || !issue.reason) {
     return action;
@@ -341,7 +344,7 @@ function IssueSection({
                       {t("dataHealth.openInstrument")}
                     </Button>
                   )}
-                  {issue.action === "manual_entry" && (
+                  {issue.action === "manual_entry" && issue.kind !== "missing_agent_price" && issue.kind !== "missing_agent_fx" && (
                     <Button type="button" size="sm" variant="outline" onClick={() => onAction(issue)}>
                       {t("dataHealth.addManual")}
                     </Button>

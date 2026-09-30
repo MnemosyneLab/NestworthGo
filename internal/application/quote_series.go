@@ -33,6 +33,8 @@ func (s *Service) InstrumentQuoteSeries(ctx context.Context, id domain.Instrumen
 			ID:              quote.ID.String(),
 			ObservationKind: quote.ObservationKind,
 			EffectiveDate:   quote.EffectiveDate,
+			PriceBasis:      quote.PriceBasis,
+			TimestampBasis:  quote.TimestampBasis,
 			QuotedAt:        quote.QuotedAt,
 			CreatedAt:       quote.CreatedAt,
 			Value:           quote.UnitPrice.Canonical(),
@@ -82,6 +84,7 @@ func (s *Service) FXQuoteSeries(ctx context.Context, currencyA, currencyB domain
 			ID:              quote.ID.String(),
 			ObservationKind: quote.ObservationKind,
 			EffectiveDate:   quote.EffectiveDate,
+			TimestampBasis:  quote.TimestampBasis,
 			QuotedAt:        quote.QuotedAt,
 			CreatedAt:       quote.CreatedAt,
 			Value:           value,
@@ -215,9 +218,14 @@ func chartQuotePoints(observations []domain.QuoteSeriesPoint, trendRange domain.
 		key := observation.QuotedAt.UTC().Format(time.RFC3339Nano)
 		if !keepIntraday {
 			key = observation.QuotedAt.In(location).Format("2006-01-02")
+			if observation.EffectiveDate != "" {
+				key = observation.EffectiveDate
+			}
+		} else if observation.EffectiveDate != "" && (observation.ObservationKind == string(InstrumentObservationClose) || observation.ObservationKind == string(FXObservationDailyReference)) {
+			key = "daily:" + observation.EffectiveDate
 		}
 		current, exists := selected[key]
-		if !exists || quoteLater(observation.QuotedAt, observation.CreatedAt, observation.ID, current.QuotedAt, current.CreatedAt, current.ID) {
+		if !exists || chartPointLater(observation, current) {
 			selected[key] = observation
 		}
 	}
@@ -237,8 +245,17 @@ func chartQuotePoints(observations []domain.QuoteSeriesPoint, trendRange domain.
 	return points
 }
 
+func chartPointLater(candidate, selected domain.QuoteSeriesPoint) bool {
+	dailyCandidate := candidate.ObservationKind == string(InstrumentObservationClose) || candidate.ObservationKind == string(FXObservationDailyReference)
+	dailySelected := selected.ObservationKind == string(InstrumentObservationClose) || selected.ObservationKind == string(FXObservationDailyReference)
+	if dailyCandidate && dailySelected && candidate.EffectiveDate == selected.EffectiveDate && candidate.SourceKind != selected.SourceKind && (candidate.SourceKind == domain.QuoteSourceAgent || selected.SourceKind == domain.QuoteSourceAgent) {
+		return candidate.SourceKind == domain.QuoteSourceAgent
+	}
+	return currentQuoteLater(candidate.SourceKind, candidate.QuotedAt, candidate.CreatedAt, candidate.ID, selected.SourceKind, selected.QuotedAt, selected.CreatedAt, selected.ID)
+}
+
 func sortQuoteSeriesNewestFirst(points []domain.QuoteSeriesPoint) {
 	sort.SliceStable(points, func(i, j int) bool {
-		return quoteLater(points[i].QuotedAt, points[i].CreatedAt, points[i].ID, points[j].QuotedAt, points[j].CreatedAt, points[j].ID)
+		return currentQuoteLater(points[i].SourceKind, points[i].QuotedAt, points[i].CreatedAt, points[i].ID, points[j].SourceKind, points[j].QuotedAt, points[j].CreatedAt, points[j].ID)
 	})
 }

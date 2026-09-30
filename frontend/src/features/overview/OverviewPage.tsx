@@ -235,25 +235,29 @@ export function OverviewPage({
   const instrumentNames = new Map((data.instrumentLabels ?? []).map((label) => [label.id, instrumentDisplayLabel(label, label.name)]));
   const quoteSourceByInstrument = new Map((data.instrumentLabels ?? []).map((label) => [label.id, label.quoteSource]));
   const holdingNames = new Map((data.holdingLabels ?? []).map((label) => [label.id, label.name]));
+  const missingPriceSource = (item: OverviewMissingInput) => item.quoteSource || (item.instrumentId ? quoteSourceByInstrument.get(item.instrumentId) : undefined);
   const missingManualPrices = missing.filter((item) => {
     if (item.kind !== "instrument_price") {
       return false;
     }
-    const source = item.quoteSource || (item.instrumentId ? quoteSourceByInstrument.get(item.instrumentId) : undefined);
-    return source !== "provider";
+    const source = missingPriceSource(item);
+    return source !== "provider" && source !== "agent";
   }).length;
-  const missingProviderPrices = missingPrices - missingManualPrices;
+  const missingAgentPrices = missing.filter((item) => item.kind === "instrument_price" && missingPriceSource(item) === "agent").length;
+  const missingProviderPrices = missingPrices - missingManualPrices - missingAgentPrices;
   const recent = data.recentActivities ?? [];
   const hasLiabilities = isPositiveCanonical(data.liabilities);
   const showLiabilityComposition = hasLiabilities && (data.liabilitiesByType ?? []).length > 0;
   const showAssetComposition = (data.assetsByType ?? []).length > 0;
   const historyReady = data.historyStarted;
   const historyNotStarted = !data.historyStarted;
-  const noNextSteps = missingManualPrices === 0 && missingProviderPrices === 0 && missingValues === 0 && missingFx === 0 && !historyNotStarted && !(historyReady && recent.length === 0) && healthKnown && healthIssueCount === 0;
+  const noNextSteps = missingManualPrices === 0 && missingAgentPrices === 0 && missingProviderPrices === 0 && missingValues === 0 && missingFx === 0 && !historyNotStarted && !(historyReady && recent.length === 0) && healthKnown && healthIssueCount === 0;
   const missingFocus = (item: OverviewMissingInput): HealthFocus => ({
     instrumentId: item.instrumentId ?? undefined, accountId: item.kind === "account_value" ? item.accountId : undefined,
     currencyA: item.kind === "fx_rate" ? item.baseCurrency : undefined, currencyB: item.kind === "fx_rate" ? item.quoteCurrency : undefined,
-    label: missingItemLabel(t, item, accountNames), action: item.kind === "account_value" ? "account_value" : item.quoteSource === "manual" ? "manual_entry" : "repair",
+    label: missingItemLabel(t, item, accountNames),
+    kind: item.kind === "instrument_price" && missingPriceSource(item) === "agent" ? "missing_agent_price" : undefined,
+    action: item.kind === "account_value" ? "account_value" : missingPriceSource(item) === "agent" ? "none" : missingPriceSource(item) === "manual" ? "manual_entry" : "repair",
   });
 
   const todoRows: React.ReactNode[] = [];
@@ -280,6 +284,9 @@ export function OverviewPage({
   if (!navigation) {
     if (missingManualPrices > 0) {
       todoRows.push(<TodoRow key="manual-prices" icon={PencilLine} tone={6} text={t("overview.setManualPricesNext", { count: missingManualPrices })} actionLabel={t("overview.openMarketData")} onAction={onOpenMarketData} />);
+    }
+    if (missingAgentPrices > 0) {
+      todoRows.push(<TodoRow key="agent-prices" icon={PencilLine} tone={6} text={t("overview.setAgentPricesNext", { count: missingAgentPrices })} actionLabel={t("overview.openMarketData")} onAction={onOpenMarketData} />);
     }
     if (missingProviderPrices > 0) {
       todoRows.push(<TodoRow key="provider-prices" icon={TrendingUp} tone={1} text={t("overview.refreshPricesNext", { count: missingProviderPrices })} actionLabel={t("overview.openMarketData")} onAction={onOpenMarketData} />);

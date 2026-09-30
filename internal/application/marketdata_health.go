@@ -14,6 +14,8 @@ const (
 	HealthKindMissingFXHistory         = "missing_fx_history"
 	HealthKindMissingManualPrice       = "missing_manual_price"
 	HealthKindMissingManualFX          = "missing_manual_fx"
+	HealthKindMissingAgentPrice        = "missing_agent_price"
+	HealthKindMissingAgentFX           = "missing_agent_fx"
 	HealthKindMissingProviderKey       = "missing_provider_key"
 	HealthKindMissingBinding           = "missing_binding"
 	HealthKindInitialAnchorMissing     = "initial_anchor_missing"
@@ -380,7 +382,7 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 	}
 	var issues []HealthIssue
 	for _, instrument := range instruments {
-		if instrument.QuoteSource != domain.QuoteSourceManual {
+		if instrument.QuoteSource != domain.QuoteSourceManual && instrument.QuoteSource != domain.QuoteSourceAgent {
 			continue
 		}
 		originDate := starts[instrument.ID]
@@ -393,6 +395,53 @@ func (s *Service) scanManualInstrumentHealth(ctx context.Context, origin *domain
 		quotes, err := s.repository.ListInstrumentQuotes(ctx, instrument.ID)
 		if err != nil {
 			return nil, err
+		}
+		if instrument.QuoteSource == domain.QuoteSourceAgent {
+			byDate := make(map[string]domain.InstrumentQuote)
+			for _, quote := range quotes {
+				if quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(InstrumentObservationClose) && !quote.ValueEffectiveAt.IsZero() && historicalAgentInstrumentQualityMatches(quote) && quote.EffectiveDate != "" {
+					if current, ok := byDate[quote.EffectiveDate]; !ok || historicalMarketDateQuoteLater(quote, current) {
+						byDate[quote.EffectiveDate] = quote
+					}
+				}
+			}
+			agentDates := make([]string, 0, len(byDate))
+			for date := range byDate {
+				agentDates = append(agentDates, date)
+			}
+			sort.Strings(agentDates)
+			closure := agentInstrumentClosureCoverage(instrument, quotes, nil)
+			if plan.YesterdayLocal < originDate {
+				continue
+			}
+			required, dateErr := domain.InclusiveMarketDates(originDate, plan.YesterdayLocal)
+			if dateErr != nil {
+				return nil, dateErr
+			}
+			missing := make([]string, 0)
+			var selected *domain.InstrumentQuote
+			cursor := 0
+			for _, date := range required {
+				for cursor < len(agentDates) && agentDates[cursor] <= string(date) {
+					quote := byDate[agentDates[cursor]]
+					selected = &quote
+					cursor++
+				}
+				if selected == nil || !agentInstrumentCarryComplete(*selected, closure, string(date)) {
+					missing = append(missing, date)
+				}
+			}
+			if len(missing) == 0 {
+				continue
+			}
+			covered[instrument.ID.String()] = struct{}{}
+			issues = append(issues, HealthIssue{
+				ID: "agent-" + instrument.ID.String(), Kind: HealthKindMissingAgentPrice, Severity: HealthSeverityBlocking,
+				GroupKey: instrumentTargetKey(instrument.ID), TargetKey: instrumentTargetKey(instrument.ID), Label: instrument.Name,
+				InstrumentID: instrument.ID.String(), RangeStart: missing[0], RangeEnd: missing[len(missing)-1],
+				RangeCount: len(dateRangesFromDates(missing)), Code: HealthKindMissingAgentPrice, Reason: "agent_data_required", Action: HealthActionNone,
+			})
+			continue
 		}
 		if hasQuoteOnOrBefore(quotes, originDate, location) {
 			continue
@@ -451,6 +500,39 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 	for _, preference := range prefs {
 		pair := fxPairKey(preference.CurrencyA, preference.CurrencyB)
 		label := pair
+		if preference.SourceKind == domain.QuoteSourceAgent {
+			agentDates := make(map[string]struct{})
+			for _, quote := range quotes {
+				if quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(FXObservationDailyReference) && fxPairKey(quote.BaseCurrency, quote.QuoteCurrency) == pair && quote.EffectiveDate != "" {
+					agentDates[quote.EffectiveDate] = struct{}{}
+				}
+			}
+			if plan.YesterdayLocal < plan.OriginLocalDate {
+				continue
+			}
+			required, dateErr := domain.InclusiveMarketDates(plan.OriginLocalDate, plan.YesterdayLocal)
+			if dateErr != nil {
+				return nil, covered, dateErr
+			}
+			missing := make([]string, 0)
+			for _, date := range required {
+				if _, ok := agentDates[date]; !ok {
+					missing = append(missing, date)
+				}
+			}
+			if len(missing) == 0 {
+				continue
+			}
+			covered[pair] = struct{}{}
+			issues = append(issues, HealthIssue{
+				ID: "agent-fx-" + pair, Kind: HealthKindMissingAgentFX, Severity: HealthSeverityBlocking,
+				GroupKey: "fx:" + pair, TargetKey: "fx:" + pair, Label: label,
+				CurrencyA: preference.CurrencyA.String(), CurrencyB: preference.CurrencyB.String(),
+				RangeStart: missing[0], RangeEnd: missing[len(missing)-1], RangeCount: len(dateRangesFromDates(missing)),
+				Code: HealthKindMissingAgentFX, Reason: "agent_data_required", Action: HealthActionNone,
+			})
+			continue
+		}
 		if preference.SourceKind == domain.QuoteSourceManual {
 			if hasFXQuoteOnOrBefore(quotes, preference.CurrencyA, preference.CurrencyB, plan.OriginLocalDate, location) {
 				continue
@@ -473,24 +555,12 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 			})
 			continue
 		}
-		if providerKey == "" {
-			covered[pair] = struct{}{}
-			issues = append(issues, HealthIssue{
-				ID:        "fx-provider-" + pair,
-				Kind:      HealthKindMissingProviderKey,
-				Severity:  HealthSeverityBlocking,
-				GroupKey:  "fx_provider",
-				TargetKey: "fx:" + pair,
-				Label:     label,
-				CurrencyA: preference.CurrencyA.String(),
-				CurrencyB: preference.CurrencyB.String(),
-				Code:      string(domain.ErrUnavailable),
-				Reason:    "provider_not_configured",
-				Action:    HealthActionProviderSettings,
-			})
-			continue
-		}
 		item := coverageByPair[pair]
+		for _, quote := range quotes {
+			if quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(FXObservationDailyReference) && fxPairKey(quote.BaseCurrency, quote.QuoteCurrency) == pair && quote.EffectiveDate != "" {
+				item.DailyReferenceDates = append(item.DailyReferenceDates, quote.EffectiveDate)
+			}
+		}
 		missing := missingFXDates(plan.OriginLocalDate, plan.LastFinalizedMarketDate, item)
 		anchorCloses := make([]domain.OracleClose, 0, len(item.DailyReferenceDates))
 		for _, date := range item.DailyReferenceDates {
@@ -502,6 +572,16 @@ func (s *Service) scanFXHealth(ctx context.Context, householdID domain.Household
 			return nil, covered, anchorErr
 		}
 		if len(missing) == 0 && !anchorMissing {
+			continue
+		}
+		if providerKey == "" {
+			covered[pair] = struct{}{}
+			issues = append(issues, HealthIssue{
+				ID: "fx-provider-" + pair, Kind: HealthKindMissingProviderKey, Severity: HealthSeverityBlocking,
+				GroupKey: "fx_provider", TargetKey: "fx:" + pair, Label: label,
+				CurrencyA: preference.CurrencyA.String(), CurrencyB: preference.CurrencyB.String(),
+				Code: string(domain.ErrUnavailable), Reason: "provider_not_configured", Action: HealthActionProviderSettings,
+			})
 			continue
 		}
 		ranges := dateRangesFromDates(missing)
@@ -570,6 +650,10 @@ func (s *Service) scanValuationHealth(ctx context.Context, instruments map[strin
 				action = HealthActionManualEntry
 				kind = HealthKindMissingManualPrice
 				executable = false
+			} else if missing.QuoteSource == domain.QuoteSourceAgent {
+				action = HealthActionNone
+				kind = HealthKindMissingAgentPrice
+				executable = false
 			}
 			label := domain.InstrumentDisplayLabel(missing.InstrumentName, missing.InstrumentSymbol)
 			id := ""
@@ -595,9 +679,16 @@ func (s *Service) scanValuationHealth(ctx context.Context, instruments map[strin
 				continue
 			}
 			fxCovered[pair] = struct{}{}
+			kind, action, executable := HealthKindIncompleteValuation, HealthActionRepair, true
+			switch missing.QuoteSource {
+			case domain.QuoteSourceManual:
+				kind, action, executable = HealthKindMissingManualFX, HealthActionManualEntry, false
+			case domain.QuoteSourceAgent:
+				kind, action, executable = HealthKindMissingAgentFX, HealthActionNone, false
+			}
 			issues = append(issues, HealthIssue{
 				ID:         "valuation-fx-" + pair,
-				Kind:       HealthKindIncompleteValuation,
+				Kind:       kind,
 				Severity:   HealthSeverityBlocking,
 				GroupKey:   "fx:" + pair,
 				TargetKey:  "fx:" + pair,
@@ -606,8 +697,8 @@ func (s *Service) scanValuationHealth(ctx context.Context, instruments map[strin
 				CurrencyB:  missing.QuoteCurrency.String(),
 				Code:       string(missing.Kind),
 				Reason:     "missing_current_input",
-				Action:     HealthActionRepair,
-				Executable: true,
+				Action:     action,
+				Executable: executable,
 			})
 		case domain.MissingAccountValue:
 			issues = append(issues, HealthIssue{
@@ -722,7 +813,7 @@ func hasUncollapsedRootCause(issues []HealthIssue) bool {
 			continue
 		}
 		switch issue.Kind {
-		case HealthKindHistoryPending, HealthKindSnapshotIncomplete, HealthKindMissingAccountValue, HealthKindMissingInstrumentHistory, HealthKindMissingFXHistory, HealthKindMissingManualPrice, HealthKindMissingManualFX, HealthKindMissingProviderKey, HealthKindMissingBinding, HealthKindInitialAnchorMissing, HealthKindUnsupportedCoverage, HealthKindIncompleteValuation:
+		case HealthKindHistoryPending, HealthKindSnapshotIncomplete, HealthKindMissingAccountValue, HealthKindMissingInstrumentHistory, HealthKindMissingFXHistory, HealthKindMissingManualPrice, HealthKindMissingManualFX, HealthKindMissingAgentPrice, HealthKindMissingAgentFX, HealthKindMissingProviderKey, HealthKindMissingBinding, HealthKindInitialAnchorMissing, HealthKindUnsupportedCoverage, HealthKindIncompleteValuation:
 			return true
 		}
 	}
@@ -755,10 +846,10 @@ func hasQuoteOnOrBefore(quotes []domain.InstrumentQuote, originDate string, loca
 		location = time.UTC
 	}
 	for _, quote := range quotes {
-		if quote.QuotedAt.IsZero() {
-			continue
+		if quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(InstrumentObservationClose) && historicalAgentInstrumentQualityMatches(quote) && quote.EffectiveDate != "" && quote.EffectiveDate <= originDate {
+			return true
 		}
-		if quote.QuotedAt.In(location).Format("2006-01-02") <= originDate {
+		if quote.SourceKind == domain.QuoteSourceManual && !quote.QuotedAt.IsZero() && quote.QuotedAt.In(location).Format("2006-01-02") <= originDate {
 			return true
 		}
 	}
@@ -774,10 +865,10 @@ func hasFXQuoteOnOrBefore(quotes []domain.FXQuote, currencyA, currencyB domain.C
 		if fxPairKey(quote.BaseCurrency, quote.QuoteCurrency) != want {
 			continue
 		}
-		if quote.QuotedAt.IsZero() {
-			continue
+		if quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(FXObservationDailyReference) && quote.EffectiveDate != "" && quote.EffectiveDate <= originDate {
+			return true
 		}
-		if quote.QuotedAt.In(location).Format("2006-01-02") <= originDate {
+		if quote.SourceKind == domain.QuoteSourceManual && !quote.QuotedAt.IsZero() && quote.QuotedAt.In(location).Format("2006-01-02") <= originDate {
 			return true
 		}
 	}

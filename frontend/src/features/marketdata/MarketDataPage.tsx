@@ -26,10 +26,11 @@ import {
   useSetFXPreference,
 } from "@/queries/investments";
 import { useSettings, useSupportedCurrencies } from "@/queries/settings";
+import { useCatalog } from "@/queries/catalog";
 import { useOverview } from "@/queries/portfolio";
 import { displayEnum, displayError } from "@/lib/display";
 import { formatAmount } from "@/lib/money";
-import { formatTimestamp } from "@/lib/time";
+import { formatQuoteAsOf, formatTimestamp } from "@/lib/time";
 import { sortFxPairs } from "@/lib/groupByInstrumentType";
 import type { RefreshResultDTO, RefreshTargetResultDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata/models";
 import type { FXPreferenceDTO, InstrumentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -130,14 +131,6 @@ function skipReasonText(t: (key: string, options?: Record<string, unknown>) => s
   return t("marketData.skipped");
 }
 
-function formatQuotedAt(value: string, language: string, timezone?: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-  return formatTimestamp(parsed, timezone, language);
-}
-
 function InstrumentRefreshRow({
   item,
   instrument,
@@ -162,7 +155,7 @@ function InstrumentRefreshRow({
       <p className="text-muted-foreground">
         {quote.data ? t("marketData.latestPrice", { value: formatAmount(quote.data.unitPrice, quote.data.currency) }) : t("marketData.noQuoteYet")}
       </p>
-      {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}</p>}
+      {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuoteAsOf(quote.data, settings.data?.timezone, i18n.language) })}</p>}
       {item.status === "skipped" && <p className="text-xs text-muted-foreground">{skipReasonText(t, item, "instrument")}</p>}
     </li>
   );
@@ -202,7 +195,7 @@ function FxRefreshRow({
             ? t("marketData.latestRate", { base: quote.data.baseCurrency, rate: formatAmount(quote.data.rate), quote: quote.data.quoteCurrency })
             : t("marketData.noQuoteYet")}
         </p>
-        {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}</p>}
+        {quote.data && <p className="text-xs text-muted-foreground">{t("marketData.quotedAsOf", { time: formatQuoteAsOf(quote.data, settings.data?.timezone, i18n.language) })}</p>}
         {item.status === "skipped" && <p className="text-xs text-muted-foreground">{skipReasonText(t, item, "fx")}</p>}
       </div>
     </li>
@@ -261,9 +254,7 @@ function RefreshResults({
               <FxRefreshRow
                 key={`${item.kind}-${item.targetKey}`}
                 item={item}
-                configured={Boolean(
-                  pairFromTargetKey(item.targetKey) && preferenceForPair(fxPreferences, pairFromTargetKey(item.targetKey)!)?.sourceKind === "provider",
-                )}
+                configured={Boolean(pairFromTargetKey(item.targetKey) && preferenceForPair(fxPreferences, pairFromTargetKey(item.targetKey)!))}
                 onConfigure={() => {
                   const pair = pairFromTargetKey(item.targetKey);
                   if (pair) {
@@ -288,12 +279,14 @@ function RefreshResults({
 function SavedFXRow({
   pair,
   preference,
+  quoteSources,
   onConfigure,
   isConfiguring,
   onViewHistory,
 }: {
   pair: FxPair;
   preference?: FXPreferenceDTO;
+  quoteSources: string[];
   onConfigure: (source?: string) => void;
   isConfiguring: boolean;
   onViewHistory: () => void;
@@ -321,7 +314,7 @@ function SavedFXRow({
               })}
             </span>
             <span className="text-xs text-muted-foreground">
-              {t("marketData.quotedAsOf", { time: formatQuotedAt(quote.data.quotedAt, i18n.language, settings.data?.timezone) })}
+              {t("marketData.quotedAsOf", { time: formatQuoteAsOf(quote.data, settings.data?.timezone, i18n.language) })}
             </span>
             <span className="flex flex-wrap items-center justify-end gap-1 text-xs text-muted-foreground">
               {quote.data.delayed ? <Badge variant="warning">{t("charts.delayed")}</Badge> : null}
@@ -341,13 +334,17 @@ function SavedFXRow({
             disabled={isConfiguring}
             onChange={(event) => onConfigure(event.target.value)}
           >
-            <option value="provider">{t("portfolio.provider")}</option>
-            <option value="manual">{t("portfolio.manual")}</option>
+            {quoteSources.map((source) => <option key={source} value={source}>{displayEnum(t, "portfolio", source)}</option>)}
           </NativeSelect>
         ) : (
-          <Button variant="outline" size="sm" onClick={() => onConfigure("provider")} disabled={isConfiguring}>
-            {isConfiguring ? t("marketData.configuringFX") : t("marketData.configureFX")}
-          </Button>
+          <>
+            <Button variant="outline" size="sm" onClick={() => onConfigure("provider")} disabled={isConfiguring}>
+              {isConfiguring ? t("marketData.configuringFX") : t("marketData.configureFX")}
+            </Button>
+            {quoteSources.includes("agent") && <Button variant="outline" size="sm" onClick={() => onConfigure("agent")} disabled={isConfiguring}>
+              {isConfiguring ? t("marketData.configuringFX") : t("marketData.configureAgentFX")}
+            </Button>}
+          </>
         )}
         <Button type="button" variant="outline" size="sm" onClick={onViewHistory}>
           {t("charts.viewHistory")}
@@ -436,12 +433,14 @@ function ManualFXQuoteSheet({ focus }: { focus?: HealthFocus }) {
 function SavedFXRates({
   fxPairs,
   fxPreferences,
+  quoteSources,
   onConfigureFX,
   configuringPair,
   onViewHistory,
 }: {
   fxPairs: FxPair[];
   fxPreferences: FXPreferenceDTO[];
+  quoteSources: string[];
   onConfigureFX: (pair: FxPair, source?: string) => void;
   configuringPair?: string;
   onViewHistory: (target: QuoteHistoryTarget) => void;
@@ -467,6 +466,7 @@ function SavedFXRates({
                   key={key}
                   pair={pair}
                   preference={preferenceForPair(fxPreferences, pair)}
+                  quoteSources={quoteSources}
                   onConfigure={(source) => onConfigureFX(pair, source)}
                   isConfiguring={configuringPair === key}
                   onViewHistory={() => onViewHistory({ kind: "fx", currencyA: pair.currencyA, currencyB: pair.currencyB })}
@@ -486,6 +486,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
   const { t } = useTranslation();
   const instruments = useInstruments();
   const fxPreferences = useFXPreferences();
+  const catalog = useCatalog();
   const overview = useOverview();
   const refreshAll = useRefreshAll();
   const refreshMissingOrStale = useRefreshMissingOrStale();
@@ -551,6 +552,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
   const fxPairs = collectFxPairs(fxPreferences.data, overview.data?.missingInputs, result);
   const instrumentList = instruments.data ?? [];
   const preferenceList = fxPreferences.data ?? [];
+  const quoteSources = catalog.data?.quoteSources?.length ? catalog.data.quoteSources : ["manual", "provider", "agent"];
 
   return (
     <div className="flex flex-col gap-6">
@@ -567,6 +569,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
         <p className="font-medium">{focus.label || focus.instrumentId || `${focus.currencyA}/${focus.currencyB}`}</p>
         <p className="text-sm">{focus.rangeStart} {focus.rangeEnd && `– ${focus.rangeEnd}`} {focus.reason && displayEnum(t, "dataHealth.reason", focus.reason)}</p>
         <p className="text-sm text-muted-foreground">{t("connections.currentVsHistory")}</p>
+        {(focus.kind === "missing_agent_price" || focus.kind === "missing_agent_fx") && <p className="text-sm text-muted-foreground">{t("dataHealth.agentEntry")}</p>}
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" disabled={Boolean(focus.instrumentId && !instruments.data?.some(item => item.id === focus.instrumentId))} onClick={() => {
             const instrument = instruments.data?.find(item => item.id === focus.instrumentId);
@@ -630,6 +633,7 @@ export function MarketDataPage({ onOpenDataHealth, focus }: { onOpenDataHealth?:
             <SavedFXRates
               fxPairs={focus?.currencyA && focus.currencyB ? [{ currencyA: focus.currencyA, currencyB: focus.currencyB }] : fxPairs}
               fxPreferences={preferenceList}
+              quoteSources={quoteSources}
               onConfigureFX={configureFX}
               configuringPair={configuringPair}
               onViewHistory={setHistoryTarget}

@@ -87,15 +87,22 @@ func (s *Service) latestMetalQuote(ctx context.Context, instrument domain.Instru
 		if prefErr != nil {
 			return LatestInstrumentQuote{}, "", prefErr
 		}
-		manual := false
+		localOnly := false
 		for _, preference := range preferences {
 			a, b, _ := domain.NormalizeFXPair("USD", instrument.QuoteCurrency)
 			if preference.CurrencyA == a && preference.CurrencyB == b {
-				manual = preference.SourceKind == domain.QuoteSourceManual
+				localOnly = preference.SourceKind != domain.QuoteSourceProvider
 				break
 			}
 		}
-		if !manual && persistFX {
+		storedFX, storedErr := s.CurrentFXQuote(ctx, "USD", instrument.QuoteCurrency)
+		if storedErr != nil {
+			return LatestInstrumentQuote{}, "", storedErr
+		}
+		if storedFX != nil && storedFX.SourceKind == domain.QuoteSourceAgent && !storedFX.QuotedAt.After(s.clock()) && !domain.LatestRequestDue(storedFX.QuotedAt, s.clock(), s.QuoteCacheTTL(), false) {
+			localOnly = true
+		}
+		if !localOnly && persistFX {
 			result, refreshErr := s.RefreshFX(context.WithValue(ctx, metalFXDependencyKey{}, true), "USD", instrument.QuoteCurrency.String())
 			if refreshErr != nil {
 				return LatestInstrumentQuote{}, "", refreshErr
@@ -107,8 +114,7 @@ func (s *Service) latestMetalQuote(ctx context.Context, instrument domain.Instru
 			}
 		}
 		var fx *domain.FXQuote
-		var fxErr error
-		if !manual && !persistFX {
+		if !localOnly && !persistFX {
 			registry := s.MarketDataRegistry()
 			provider, resolveErr := registry.Resolve(s.FXProviderKey())
 			if resolveErr != nil {
@@ -124,10 +130,13 @@ func (s *Service) latestMetalQuote(ctx context.Context, instrument domain.Instru
 			}
 			fx = &domain.FXQuote{BaseCurrency: quote.BaseCurrency, QuoteCurrency: quote.QuoteCurrency, Rate: quote.Rate, QuotedAt: at, SourceKey: quote.SourceKey, Delayed: quote.Delayed}
 		} else {
-			fx, fxErr = s.CurrentFXQuote(ctx, "USD", instrument.QuoteCurrency)
-		}
-		if fxErr != nil {
-			return LatestInstrumentQuote{}, "", fxErr
+			fx = storedFX
+			if !localOnly && persistFX {
+				fx, err = s.CurrentFXQuote(ctx, "USD", instrument.QuoteCurrency)
+				if err != nil {
+					return LatestInstrumentQuote{}, "", err
+				}
+			}
 		}
 		if fx == nil {
 			return LatestInstrumentQuote{}, "", &domain.Error{Code: domain.ErrUnavailable, Field: "fxRate", Message: "metal conversion requires a USD exchange rate"}
@@ -182,24 +191,33 @@ func (s *Service) convertMetalHistory(ctx context.Context, job *syncJobState, in
 		if err != nil {
 			return outcome, err
 		}
-		manual := false
+		preferenceSource := domain.QuoteSourceProvider
 		a, b, _ := domain.NormalizeFXPair("USD", instrument.QuoteCurrency)
 		for _, pref := range preferences {
 			if pref.CurrencyA == a && pref.CurrencyB == b {
-				manual = pref.SourceKind == domain.QuoteSourceManual
+				preferenceSource = pref.SourceKind
+				break
 			}
 		}
-		if manual {
-			quotes, err := s.repository.ListFXQuotes(ctx, instrument.HouseholdID)
-			if err != nil {
-				return outcome, err
-			}
-			for _, q := range quotes {
-				if q.SourceKind == domain.QuoteSourceManual && ((q.BaseCurrency == "USD" && q.QuoteCurrency == instrument.QuoteCurrency) || (q.QuoteCurrency == "USD" && q.BaseCurrency == instrument.QuoteCurrency)) {
+		quotes, err := s.repository.ListFXQuotes(ctx, instrument.HouseholdID)
+		if err != nil {
+			return outcome, err
+		}
+		for _, q := range quotes {
+			if q.SourceKind != domain.QuoteSourceProvider && quoteSourceAllowed(preferenceSource, q.SourceKind) && ((q.BaseCurrency == "USD" && q.QuoteCurrency == instrument.QuoteCurrency) || (q.QuoteCurrency == "USD" && q.BaseCurrency == instrument.QuoteCurrency)) {
+				if q.SourceKind != domain.QuoteSourceAgent || q.ObservationKind == string(FXObservationDailyReference) {
 					fxQuotes = append(fxQuotes, q)
 				}
 			}
-		} else {
+		}
+		localCoversAll := len(outcome.Batch.Observations) > 0
+		for _, observation := range outcome.Batch.Observations {
+			if metalHistoricalFXQuote(fxQuotes, observation) == nil {
+				localCoversAll = false
+				break
+			}
+		}
+		if preferenceSource == domain.QuoteSourceProvider && !localCoversAll {
 			provider, err := s.MarketDataRegistry().Resolve(s.FXProviderKey())
 			if err != nil {
 				return outcome, err
@@ -228,7 +246,7 @@ func (s *Service) convertMetalHistory(ctx context.Context, job *syncJobState, in
 				if err != nil {
 					return outcome, err
 				}
-				fxQuotes = append(fxQuotes, domain.FXQuote{BaseCurrency: "USD", QuoteCurrency: instrument.QuoteCurrency, Rate: rate, QuotedAt: observation.ValueEffectiveAt, SourceKey: provider.Key()})
+				fxQuotes = append(fxQuotes, domain.FXQuote{BaseCurrency: "USD", QuoteCurrency: instrument.QuoteCurrency, Rate: rate, SourceKind: domain.QuoteSourceProvider, QuotedAt: observation.ValueEffectiveAt, EffectiveDate: string(observation.MarketDate), SourceKey: provider.Key()})
 			}
 		}
 	}
@@ -245,16 +263,7 @@ func (s *Service) convertMetalHistory(ctx context.Context, job *syncJobState, in
 		var at *time.Time
 		source := ""
 		if instrument.QuoteCurrency != "USD" {
-			var selected *domain.FXQuote
-			for i := range fxQuotes {
-				q := &fxQuotes[i]
-				if q.QuotedAt.After(observation.ValueEffectiveAt) || observation.ValueEffectiveAt.Sub(q.QuotedAt) > 7*24*time.Hour {
-					continue
-				}
-				if selected == nil || q.QuotedAt.After(selected.QuotedAt) || (q.QuotedAt.Equal(selected.QuotedAt) && q.CreatedAt.After(selected.CreatedAt)) {
-					selected = q
-				}
-			}
+			selected := metalHistoricalFXQuote(fxQuotes, *observation)
 			if selected == nil {
 				return outcome, &domain.Error{Code: domain.ErrUnavailable, Field: "fxRate", Message: "historical USD exchange rate missing"}
 			}
@@ -274,6 +283,24 @@ func (s *Service) convertMetalHistory(ctx context.Context, job *syncJobState, in
 		observation.Currency = instrument.QuoteCurrency.String()
 	}
 	return outcome, nil
+}
+
+func metalHistoricalFXQuote(quotes []domain.FXQuote, observation InstrumentDailyObservation) *domain.FXQuote {
+	var selected *domain.FXQuote
+	for index := range quotes {
+		quote := &quotes[index]
+		exactAgent := quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(FXObservationDailyReference) && quote.EffectiveDate == string(observation.MarketDate)
+		if quote.SourceKind == domain.QuoteSourceAgent && !exactAgent {
+			continue
+		}
+		if !exactAgent && (quote.QuotedAt.After(observation.ValueEffectiveAt) || observation.ValueEffectiveAt.Sub(quote.QuotedAt) > 7*24*time.Hour) {
+			continue
+		}
+		if selected == nil || (exactAgent && selected.SourceKind != domain.QuoteSourceAgent) || (exactAgent == (selected.SourceKind == domain.QuoteSourceAgent) && currentQuoteLater(quote.SourceKind, quote.QuotedAt, quote.CreatedAt, quote.ID.String(), selected.SourceKind, selected.QuotedAt, selected.CreatedAt, selected.ID.String())) {
+			selected = quote
+		}
+	}
+	return selected
 }
 
 type metalFXDependencyKey struct{}

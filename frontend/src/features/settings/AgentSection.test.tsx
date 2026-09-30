@@ -43,7 +43,7 @@ describe("AgentSection", () => {
     await screen.findByRole("button", { name: "Enable MCP" });
     expect(screen.getByLabelText("Agent permissions")).toHaveValue("read_only");
     await user.selectOptions(screen.getByLabelText("Agent permissions"), "ledger_write");
-    expect(screen.getByText(/The agent previews before committing/)).toBeInTheDocument();
+    expect(screen.getByText(/For ledger records, the agent previews before committing/)).toBeInTheDocument();
     expect(screen.getByText(/This does not place brokerage orders/)).toBeInTheDocument();
     expect(enable).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Enable MCP" }));

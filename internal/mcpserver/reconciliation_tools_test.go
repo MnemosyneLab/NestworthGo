@@ -276,7 +276,7 @@ func TestReconciliationRejectsStaleExpiredAndWrongPlanType(t *testing.T) {
 			t.Fatalf("%s accepted reconciliation plan: %s", name, code)
 		}
 	}
-	single := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.savings, "amount": "1", "currency": "USD", "reason": "income"})
+	single := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.savings, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-29T12:00:00Z"})
 	if code := ledgerErrorCode(t, c, "commit_reconciliation", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": single["planId"]}}); code != "validation" {
 		t.Fatalf("reconciliation accepted change plan: %s", code)
 	}

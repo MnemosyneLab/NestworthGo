@@ -451,7 +451,16 @@ func (s *Service) applyQuoteCache(snapshot domain.PortfolioSnapshot, targets []r
 		// Persisted fetch times survive restarts. Observation timestamps can be old
 		// during a market closure and must not be used as request timestamps.
 		for _, quote := range snapshot.InstrumentQuotes {
-			if target.kind != RefreshInstrumentTarget || quote.InstrumentID != target.instrument.ID || quote.SourceKind != domain.QuoteSourceProvider || quote.SourceKey != target.providerKey || quote.Currency != target.instrument.QuoteCurrency {
+			if target.kind != RefreshInstrumentTarget || quote.InstrumentID != target.instrument.ID || quote.Currency != target.instrument.QuoteCurrency {
+				continue
+			}
+			if quote.SourceKind == domain.QuoteSourceAgent {
+				if quote.QuotedAt.After(lastCheck) && !quote.QuotedAt.After(now) {
+					lastCheck = quote.QuotedAt
+				}
+				continue
+			}
+			if quote.SourceKind != domain.QuoteSourceProvider || quote.SourceKey != target.providerKey {
 				continue
 			}
 			checked := quote.FetchedAt
@@ -466,7 +475,16 @@ func (s *Service) applyQuoteCache(snapshot domain.PortfolioSnapshot, targets []r
 			}
 		}
 		for _, quote := range snapshot.FXQuotes {
-			if target.kind != RefreshFXTarget || quote.SourceKind != domain.QuoteSourceProvider || quote.SourceKey != s.FXProviderKey() || fxPairKey(quote.BaseCurrency, quote.QuoteCurrency) != fxPairKey(target.baseCurrency, target.quoteCurrency) {
+			if target.kind != RefreshFXTarget || fxPairKey(quote.BaseCurrency, quote.QuoteCurrency) != fxPairKey(target.baseCurrency, target.quoteCurrency) {
+				continue
+			}
+			if quote.SourceKind == domain.QuoteSourceAgent {
+				if quote.QuotedAt.After(lastCheck) && !quote.QuotedAt.After(now) {
+					lastCheck = quote.QuotedAt
+				}
+				continue
+			}
+			if quote.SourceKind != domain.QuoteSourceProvider || quote.SourceKey != s.FXProviderKey() {
 				continue
 			}
 			checked := quote.FetchedAt

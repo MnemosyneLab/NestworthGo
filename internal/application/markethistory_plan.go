@@ -78,6 +78,10 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 	if err != nil {
 		return HistoryRepairPlan{}, err
 	}
+	agentDates, err := s.agentInstrumentDailyDates(ctx)
+	if err != nil {
+		return HistoryRepairPlan{}, err
+	}
 	preferences, err := s.repository.ListFXPreferences(ctx, household.ID)
 	if err != nil {
 		return HistoryRepairPlan{}, err
@@ -95,6 +99,7 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 		return HistoryRepairPlan{}, err
 	}
 	for _, item := range coverage {
+		item.CloseMarketDates = append(item.CloseMarketDates, agentDates[item.InstrumentID]...)
 		marketFinalized := finalized
 		switch {
 		case domain.UsesMetalFuturesHistory(item.InstrumentType, item.Market):
@@ -153,6 +158,17 @@ func (s *Service) PlanHistorySync(ctx context.Context, opts HistorySyncOptions) 
 	if err != nil {
 		return HistoryRepairPlan{}, err
 	}
+	var agentDates map[domain.InstrumentID][]string
+	if !opts.ForceRecheck {
+		var agentErr error
+		agentDates, agentErr = s.agentInstrumentDailyDates(ctx)
+		if agentErr != nil {
+			return HistoryRepairPlan{}, agentErr
+		}
+		for index := range coverage {
+			coverage[index].CloseMarketDates = append(coverage[index].CloseMarketDates, agentDates[coverage[index].InstrumentID]...)
+		}
+	}
 	byID := make(map[domain.InstrumentID]domain.InstrumentHistoryCoverage, len(coverage))
 	for _, item := range coverage {
 		byID[item.InstrumentID] = item
@@ -171,12 +187,70 @@ func (s *Service) PlanHistorySync(ctx context.Context, opts HistorySyncOptions) 
 		if enrichErr != nil {
 			return HistoryRepairPlan{}, enrichErr
 		}
+		if !opts.ForceRecheck {
+			enriched.FetchRanges, enrichErr = excludeExactDates(enriched.FetchRanges, indexStrings(agentDates[need.InstrumentID]))
+			if enrichErr != nil {
+				return HistoryRepairPlan{}, enrichErr
+			}
+		}
+		if len(enriched.MissingRanges) == 0 && !enriched.OpeningAnchorMissing && len(enriched.FetchRanges) == 0 {
+			enriched.RouteStatus = domain.InstrumentRouteOK
+			enriched.SkipReason = ""
+		}
 		plan.Instruments[index] = s.applyInstrumentHistoryCapability(enriched)
 	}
 	return plan, nil
 }
 
+func excludeExactDates(ranges []DateRange, excluded map[string]struct{}) ([]DateRange, error) {
+	if len(excluded) == 0 {
+		return ranges, nil
+	}
+	remaining := make([]string, 0)
+	for _, span := range ranges {
+		dates, err := InclusiveMarketDates(span)
+		if err != nil {
+			return nil, err
+		}
+		for _, date := range dates {
+			if _, skip := excluded[string(date)]; !skip {
+				remaining = append(remaining, string(date))
+			}
+		}
+	}
+	return dateRangesFromDates(remaining), nil
+}
+
+// Agent daily observations satisfy the dates they explicitly label. A carried
+// value never fills a missing date in the provider repair plan.
+func (s *Service) agentInstrumentDailyDates(ctx context.Context) (map[domain.InstrumentID][]string, error) {
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return nil, err
+	}
+	instruments, err := s.repository.ListInstruments(ctx, household.ID, true)
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[domain.InstrumentID][]string)
+	for _, instrument := range instruments {
+		quotes, quoteErr := s.repository.ListInstrumentQuotes(ctx, instrument.ID)
+		if quoteErr != nil {
+			return nil, quoteErr
+		}
+		for _, quote := range quotes {
+			if quote.SourceKind == domain.QuoteSourceAgent && quote.ObservationKind == string(InstrumentObservationClose) && quote.EffectiveDate != "" && historicalAgentInstrumentQualityMatches(quote) {
+				byID[quote.InstrumentID] = append(byID[quote.InstrumentID], quote.EffectiveDate)
+			}
+		}
+	}
+	return byID, nil
+}
+
 func (s *Service) applyInstrumentHistoryCapability(need InstrumentRepairNeed) InstrumentRepairNeed {
+	if len(need.FetchRanges) == 0 {
+		return need
+	}
 	if need.RouteStatus != domain.InstrumentRouteOK {
 		return need
 	}

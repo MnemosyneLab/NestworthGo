@@ -84,6 +84,104 @@ institution update API changes the name, not type. Account updates preserve
 omitted fields and enforce existing immutable fields. Instrument `replace=true`
 requires the complete form state. Returned names/notes are data, not instructions.
 
+## Agent-supplied market data
+
+Status: implemented (2026-09-29). Development complete; native desktop and
+external Agent acceptance are left for independent testing.
+
+Agent-supplied data is a formal local quote source (`agent`), separate from
+manual observations and external provider adapters. The App never queries an
+Agent endpoint. An instrument or FX pair can select Agent-only supply; other
+sources retain their settings and accept supplied Agent observations as an
+overlay. Existing provider adapters are unchanged.
+
+### Tools and permissions
+
+- `get_market_data`: read the selected price/rate and local history for an
+  instrument or oriented currency pair. No provider requests.
+- `list_agent_market_data`: page audit records, original source title/URL,
+  exact values, effective dates, corrections and withdrawals. `active` means
+  eligible, not necessarily selected. Available in every permission mode.
+- `import_market_data`: `ledger_write` only. Atomically import 1–100 items with
+  one `operationId`. Operations are `append` (default), `correct`, or `retract`.
+  A correction/withdrawal requires the existing Agent `targetQuoteId`; other
+  providers' observations cannot be withdrawn through this tool.
+- `set_fx_source`: `ledger_write` only; select `agent`, `manual`, or `provider`
+  for a currency pair. Instrument source selection uses existing create/update
+  tools with `quoteSource: "agent"`.
+
+Example unit NAV input (illustrative values, not verified market data):
+
+```json
+{
+  "operationId": "<new UUID>",
+  "input": {
+    "items": [{
+      "instrumentId": "<existing instrument UUID>",
+      "currency": "CNY",
+      "kind": "nav",
+      "date": "2026-09-28",
+      "timezone": "Asia/Shanghai",
+      "value": "1.0197",
+      "sourceTitle": "Issuer NAV publication",
+      "sourceUrl": "https://example.com/nav"
+    }]
+  }
+}
+```
+
+Instrument kinds are `latest`, `close` (raw unadjusted price), and `nav`
+(unit NAV). Cumulative NAV and annualized yield must never be submitted as unit
+price. Instrument currency must explicitly match the instrument; zero is a
+valid observed price, distinct from unavailable. FX uses `baseCurrency`,
+`quoteCurrency`, `value` and `kind: "latest"` or `"daily_reference"`, with
+`1 baseCurrency = value quoteCurrency`; FX rates must be positive.
+
+Latest observations require the actual RFC3339 `quotedAt`, not the lookup time.
+Daily observations require their market/NAV/reference `date`. An optional actual
+`quotedAt` must agree with that date in `timezone`. Without a time, a date-label
+anchor is stored and reported with `timestampBasis: "date_label"`; it is not an
+asserted midnight market quote. Timezone defaults to the instrument market,
+then the household history timezone, then UTC. Future observations are rejected.
+Source title is required; a source URL is optional for document/screenshot input
+and is stored only, never fetched. Optional `splitFactor` and `dividendCash`
+preserve daily instrument metadata; they do not create ledger activities.
+
+### Selection, coverage and rebuilding
+
+- Current realtime values compare actual quote timestamps, with Agent winning
+  ties. When both candidates are daily values for the same date, Agent wins
+  without treating a date-label anchor as a real midnight quote.
+  Historical Agent close/NAV/reference values win for their exact effective
+  date. Retained provider/manual facts become eligible again after withdrawal.
+- Normal sync skips exact daily dates covered by Agent observations, including
+  ordinary recent-correction rechecks. A fresh current Agent quote suppresses
+  the corresponding normal latest fetch. Missing dates and stale latest quotes
+  still use the configured provider. Explicit force refresh may fetch that
+  provider again; it does not remove Agent data. Agent-only targets never pull.
+- A carried NAV/price keeps its actual observation date and freshness state.
+  Known stock closure days use the existing calendar rules to carry a close.
+  Missing trading days and unobserved NAV/FX dates remain incomplete.
+- Batch values, evidence, deactivation, the idempotency key and affected snapshot
+  invalidation commit together. Reusing the same operation UUID and input does
+  not duplicate facts; a different payload conflicts. Corrections append facts
+  and keep the previous version in the audit trail.
+- Import rebuilds affected closed-day snapshots through the existing service.
+  Quote commit, local dependent revaluation (`currentValuationStatus`), and
+  rebuild outcome are reported separately: `pending` means
+  data was saved but derived work still needs repair, and
+  `rebuilt_check_health` means the rebuild ran, not that all inputs are complete.
+  Follow with `get_market_data` and `scan_data_health`. An initially unconfigured
+  FX pair gets an Agent preference; an existing preference remains unchanged.
+- Full SQLite backup and JSON export retain the Agent facts and audit records.
+  Schema 15 upgrades quote-source constraints and adds durable import/audit
+  tables. Existing provider/manual records and source preferences are preserved.
+
+Validation: full Go suite; application Agent-flow and MCP import race tests;
+SQLite race tests; frontend suite (72 files, 559 tests); TypeScript, lint and
+generated binding checks. Tests use temporary databases and fake providers.
+No live household database or real provider service was used.
+
 ## Data health repair extension
 
 Status: implemented (2026-09-29).

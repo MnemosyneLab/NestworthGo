@@ -38,19 +38,20 @@ func AllInstrumentTypes() []InstrumentType {
 	}
 }
 
-// QuoteSourceKind is explicit. There is no implicit fallback between Manual
-// and Provider observations.
+// QuoteSourceKind identifies the persisted source of a quote and a selected
+// source preference. The selection policy is applied by the application.
 type QuoteSourceKind string
 
 const (
 	QuoteSourceManual   QuoteSourceKind = "manual"
 	QuoteSourceProvider QuoteSourceKind = "provider"
+	QuoteSourceAgent    QuoteSourceKind = "agent"
 )
 
 func ParseQuoteSourceKind(value string) (QuoteSourceKind, error) {
 	source := QuoteSourceKind(strings.TrimSpace(value))
 	switch source {
-	case QuoteSourceManual, QuoteSourceProvider:
+	case QuoteSourceManual, QuoteSourceProvider, QuoteSourceAgent:
 		return source, nil
 	default:
 		return "", validation("sourceKind", "is not supported")
@@ -58,18 +59,18 @@ func ParseQuoteSourceKind(value string) (QuoteSourceKind, error) {
 }
 
 func AllQuoteSourceKinds() []QuoteSourceKind {
-	return []QuoteSourceKind{QuoteSourceManual, QuoteSourceProvider}
+	return []QuoteSourceKind{QuoteSourceManual, QuoteSourceProvider, QuoteSourceAgent}
 }
 
 // QuoteSourceFilter is the chart-facing source selector. Empty and "all"
-// both mean every locally stored fact; manual and provider keep their
-// existing QuoteSourceKind meaning.
+// both mean every locally stored fact; each named filter selects one source.
 type QuoteSourceFilter string
 
 const (
 	QuoteSourceFilterAll      QuoteSourceFilter = "all"
 	QuoteSourceFilterManual   QuoteSourceFilter = "manual"
 	QuoteSourceFilterProvider QuoteSourceFilter = "provider"
+	QuoteSourceFilterAgent    QuoteSourceFilter = "agent"
 )
 
 func ParseQuoteSourceFilter(value string) (QuoteSourceFilter, error) {
@@ -78,7 +79,7 @@ func ParseQuoteSourceFilter(value string) (QuoteSourceFilter, error) {
 		return QuoteSourceFilterAll, nil
 	}
 	switch filter {
-	case QuoteSourceFilterAll, QuoteSourceFilterManual, QuoteSourceFilterProvider:
+	case QuoteSourceFilterAll, QuoteSourceFilterManual, QuoteSourceFilterProvider, QuoteSourceFilterAgent:
 		return filter, nil
 	default:
 		return "", validation("sourceFilter", "quote source filter is not supported")
@@ -93,6 +94,9 @@ func (filter QuoteSourceFilter) SourceKind() *QuoteSourceKind {
 	case QuoteSourceFilterProvider:
 		kind := QuoteSourceProvider
 		return &kind
+	case QuoteSourceFilterAgent:
+		kind := QuoteSourceAgent
+		return &kind
 	default:
 		return nil
 	}
@@ -103,6 +107,8 @@ func (filter QuoteSourceFilter) SourceKind() *QuoteSourceKind {
 type QuoteSeriesPoint struct {
 	ObservationKind string
 	EffectiveDate   string
+	PriceBasis      string
+	TimestampBasis  string
 	ID              string
 	QuotedAt        time.Time
 	CreatedAt       time.Time
@@ -540,7 +546,7 @@ func normalizeQuoteSource(source QuoteSourceKind, sourceKey string) (QuoteSource
 			sourceKey = string(QuoteSourceManual)
 		}
 	} else if sourceKey == "" {
-		return "", "", validation("sourceKey", "is required for provider observations")
+		return "", "", validation("sourceKey", "is required for non-manual observations")
 	}
 	if len([]rune(sourceKey)) > 64 {
 		return "", "", validation("sourceKey", "must be 64 characters or fewer")

@@ -23,6 +23,8 @@ export interface QuoteSeriesDTO {
 export interface QuoteSeriesPointDTO {
     "observationKind"?: string;
     "effectiveDate"?: string;
+    "priceBasis"?: string;
+    "timestampBasis"?: string;
     "quotedAt": string;
     "value": string;
     "sourceKind": string;

@@ -677,22 +677,27 @@ func FromAccountCashValues(values []domain.AccountCashValue) []AccountCashValueD
 
 // InstrumentQuoteDTO mirrors domain.InstrumentQuote.
 type InstrumentQuoteDTO struct {
-	ConversionJSON string `json:"conversionJSON,omitempty"`
-	ID             string `json:"id"`
-	InstrumentID   string `json:"instrumentId"`
-	UnitPrice      string `json:"unitPrice"`
-	Currency       string `json:"currency"`
-	SourceKind     string `json:"sourceKind"`
-	SourceKey      string `json:"sourceKey"`
-	QuotedAt       string `json:"quotedAt"`
-	CreatedAt      string `json:"createdAt"`
-	Delayed        bool   `json:"delayed"`
+	ConversionJSON  string `json:"conversionJSON,omitempty"`
+	ID              string `json:"id"`
+	InstrumentID    string `json:"instrumentId"`
+	UnitPrice       string `json:"unitPrice"`
+	Currency        string `json:"currency"`
+	SourceKind      string `json:"sourceKind"`
+	SourceKey       string `json:"sourceKey"`
+	ObservationKind string `json:"observationKind,omitempty"`
+	EffectiveDate   string `json:"effectiveDate,omitempty"`
+	PriceBasis      string `json:"priceBasis,omitempty"`
+	TimestampBasis  string `json:"timestampBasis,omitempty"`
+	QuotedAt        string `json:"quotedAt"`
+	CreatedAt       string `json:"createdAt"`
+	Delayed         bool   `json:"delayed"`
 }
 
 func FromInstrumentQuote(value domain.InstrumentQuote) InstrumentQuoteDTO {
 	return InstrumentQuoteDTO{
 		ID: value.ID.String(), InstrumentID: value.InstrumentID.String(), UnitPrice: value.UnitPrice.Canonical(), ConversionJSON: value.ConversionJSON,
 		Currency: value.Currency.String(), SourceKind: string(value.SourceKind), SourceKey: value.SourceKey,
+		ObservationKind: value.ObservationKind, EffectiveDate: value.EffectiveDate, PriceBasis: value.PriceBasis, TimestampBasis: value.TimestampBasis,
 		QuotedAt: FormatTime(value.QuotedAt), CreatedAt: FormatTime(value.CreatedAt), Delayed: value.Delayed,
 	}
 }
@@ -707,23 +712,27 @@ func FromInstrumentQuotePtr(value *domain.InstrumentQuote) *InstrumentQuoteDTO {
 
 // FXQuoteDTO mirrors domain.FXQuote.
 type FXQuoteDTO struct {
-	ID            string `json:"id"`
-	HouseholdID   string `json:"householdId"`
-	BaseCurrency  string `json:"baseCurrency"`
-	QuoteCurrency string `json:"quoteCurrency"`
-	Rate          string `json:"rate"`
-	SourceKind    string `json:"sourceKind"`
-	SourceKey     string `json:"sourceKey"`
-	QuotedAt      string `json:"quotedAt"`
-	CreatedAt     string `json:"createdAt"`
-	Delayed       bool   `json:"delayed"`
+	ID              string `json:"id"`
+	HouseholdID     string `json:"householdId"`
+	BaseCurrency    string `json:"baseCurrency"`
+	QuoteCurrency   string `json:"quoteCurrency"`
+	Rate            string `json:"rate"`
+	SourceKind      string `json:"sourceKind"`
+	SourceKey       string `json:"sourceKey"`
+	ObservationKind string `json:"observationKind,omitempty"`
+	EffectiveDate   string `json:"effectiveDate,omitempty"`
+	TimestampBasis  string `json:"timestampBasis,omitempty"`
+	QuotedAt        string `json:"quotedAt"`
+	CreatedAt       string `json:"createdAt"`
+	Delayed         bool   `json:"delayed"`
 }
 
 func FromFXQuote(value domain.FXQuote) FXQuoteDTO {
 	return FXQuoteDTO{
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), BaseCurrency: value.BaseCurrency.String(),
 		QuoteCurrency: value.QuoteCurrency.String(), Rate: value.Rate.Canonical(), SourceKind: string(value.SourceKind),
-		SourceKey: value.SourceKey, QuotedAt: FormatTime(value.QuotedAt), CreatedAt: FormatTime(value.CreatedAt), Delayed: value.Delayed,
+		SourceKey: value.SourceKey, ObservationKind: value.ObservationKind, EffectiveDate: value.EffectiveDate, TimestampBasis: value.TimestampBasis,
+		QuotedAt: FormatTime(value.QuotedAt), CreatedAt: FormatTime(value.CreatedAt), Delayed: value.Delayed,
 	}
 }
 
