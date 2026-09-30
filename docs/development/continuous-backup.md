@@ -57,7 +57,11 @@ close continues touching SQLite. A failed drain during configuration change
 or restore pause retains the old configuration, resumes its worker, and shows
 retrying instead of a stale confirmation. Shutdown does not resume a worker.
 
-Shutdown stops the worker, attempts final remote confirmation with the shutdown
+Shutdown first permanently fences/drains application write permits, cancels
+and joins market-data workers, then closes/drains MCP. This uses the central
+write coordinator without holding `changeMu` or the SQLite pool slot while
+joining workers; it also works after restore retained its exclusive permit.
+Backup shutdown stops its worker, attempts final remote confirmation with the shutdown
 context, then performs synchronous cleanup with a separate five-second drain
 context. Network operations use ten-second contexts. This is bounded for the
 context-aware file/S3 clients; a backend that ignores cancellation can block

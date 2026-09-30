@@ -232,6 +232,17 @@ func run() error {
 		defer agentServer.Close()
 		registered = append(registered, application.NewService(wailsagent.NewService(agentServer)))
 	}
+	// Runs before MCP/recovery/backup cleanup (defers are LIFO). Fence and
+	// drain business writers, then cancel/join provider workers before final
+	// remote backup confirmation and any database descriptor close.
+	defer func() {
+		if service != nil {
+			service.QuiesceWritesForShutdown()
+		}
+		if marketdataService != nil {
+			marketdataService.CancelAllAndWait()
+		}
+	}()
 	app := application.New(application.Options{
 		Name:        version.Name,
 		Description: version.Description,
