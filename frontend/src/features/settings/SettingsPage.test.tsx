@@ -206,3 +206,5 @@ it("groups provider credentials with their connection settings and keeps diagnos
   expect(market).not.toContainElement(within(diagnostics).getByRole("combobox"));
   expect(document.querySelector("form form")).toBeNull();
 });
+
+vi.mock("@/features/settings/ContinuousBackupSection", () => ({ ContinuousBackupSection: () => null }));

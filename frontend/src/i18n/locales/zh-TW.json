@@ -1046,5 +1046,60 @@
     "connectionDetails": "連接詳情",
     "permissionChangeHelp": "套用後將更換存取憑證，請同步更新 Agent 的連接設定。",
     "keepOpen": "連接期間請保持 Nestworth 執行。"
+  },
+  "cloudBackup": {
+    "title": "連續備份",
+    "description": "Nestworth 執行期間，將本機資料備份至 Cloudflare R2。預設關閉；結束應用程式後停止備份。",
+    "sensitive": "備份包含家庭資料庫，包括現有行情提供商金鑰和 AI / MCP 設定。R2 憑證僅保存在獨立的本機備份設定資料庫中，以明文保存並使用私有檔案權限。",
+    "form": "連續備份設定",
+    "enable": "啟用連續備份",
+    "account": "R2 帳戶 ID",
+    "bucket": "儲存貯體名稱",
+    "access": "Access Key ID",
+    "secret": "Secret Access Key",
+    "removePair": "移除 R2 憑證組",
+    "pairHelp": "兩個憑證需一起替換。空白輸入保留已存金鑰。移除將關閉備份，但不會刪除遠端歷史。",
+    "save": "儲存備份設定",
+    "test": "測試已儲存的連線",
+    "now": "立即備份",
+    "status": "狀態",
+    "lastSuccess": "上次成功備份",
+    "lastAttempt": "上次嘗試",
+    "never": "尚無記錄",
+    "successHelp": "此時間表示一次已完成、經遠端確認的備份。此後的寫入可能仍在等待擷取。",
+    "connectionPassed": "儲存貯體清單讀取成功。連線檢查不代表備份成功，也不確認寫入權限。",
+    "saved": "備份設定已儲存",
+    "error": "操作未完成。請檢查已儲存的設定、憑證組及網路連線後重試。本機記錄仍可使用。",
+    "unavailable": "連續備份設定無法使用。",
+    "recovery": "雲端復原",
+    "recoveryHelp": "選擇備份串流和復原點，檢查候選資料後明確確認。復原會取代本機記錄並保留安全副本。僅支援結構 15。每個備份串流顯示最近最多 100 個復原點；遠端歷史保留。",
+    "list": "列出復原點",
+    "empty": "未找到復原點。未復原任何資料。",
+    "point": "復原點",
+    "select": "選擇復原點",
+    "preview": "預覽復原",
+    "restorePaused": "連續備份將暫停。重新啟動並檢查復原的記錄後，可重新啟用，以開始獨立的新備份串流。",
+    "states": {
+      "disabled": "已關閉",
+      "preparing": "準備中",
+      "backing-up": "備份中",
+      "recent-backup-confirmed": "最近備份已確認",
+      "retrying": "正在重試",
+      "error": "需要處理"
+    },
+    "restoreDescription": "已下載的候選備份將取代本機記錄。安裝後 Nestworth 將結束；重新開啟以驗證還原資料。未儲存的表單內容將遺失。",
+    "restoreStates": {
+      "downloading": "正在下載還原候選備份",
+      "preview": "候選備份已就緒，請檢查預覽",
+      "installing": "正在安裝還原資料並準備結束",
+      "error": "還原需要處理"
+    }
+  },
+  "secretField": {
+    "configured": "已設定金鑰",
+    "replace": "替換",
+    "remove": "移除",
+    "show": "顯示新輸入",
+    "hide": "隱藏新輸入"
   }
 }

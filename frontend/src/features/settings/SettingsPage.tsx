@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SecretField } from "./SecretField";
+import { ContinuousBackupSection } from "./ContinuousBackupSection";
 import { useBootstrap } from "@/queries/household";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
@@ -307,37 +309,14 @@ export function SettingsPage() {
         <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card shadow-xs">
           <div className="p-5"><h3 className="font-medium">{t("settings.sections.coinGecko")}</h3>
         <form onSubmit={submitCoinGeckoKey} className="mt-4 flex max-w-xl flex-col gap-2">
-          <Label htmlFor="settings-coinGecko-key">{t("settings.coinGeckoKey")}</Label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              id="settings-coinGecko-key"
-              type="password"
-              autoComplete="off"
-              value={coinGeckoKey}
-              onChange={(event) => setCoinGeckoKey(event.target.value)}
-              placeholder={t("settings.coinGeckoKeyPlaceholder")}
-              className="min-w-0 flex-1"
-            />
-            <Button type="submit" disabled={!coinGeckoKey.trim() || saveCoinGeckoKey.isPending}>
-              {saveCoinGeckoKey.isPending ? t("common.pending") : t("settings.saveCoinGeckoKey")}
-            </Button>
-          </div>
+          <SecretField key={saveCoinGeckoKey.isSuccess ? saveCoinGeckoKey.submittedAt : "coinGecko"} id="settings-coinGecko-key" label={t("settings.coinGeckoKey")} hasValue={Boolean(coinGeckoKeyStatus.data?.configured)} value={coinGeckoKey} onChange={setCoinGeckoKey} disabled={saveCoinGeckoKey.isPending || deleteCoinGeckoKey.isPending} onRemove={() => deleteCoinGeckoKey.mutate()} removeLabel={t("settings.removeCoinGeckoKey")} />
+          <Button type="submit" disabled={!coinGeckoKey.trim() || saveCoinGeckoKey.isPending}>{saveCoinGeckoKey.isPending ? t("common.pending") : t("settings.saveCoinGeckoKey")}</Button>
           {coinGeckoKeyStatus.data?.configured ? (
             <p className="text-sm text-success-foreground">{t("settings.coinGeckoKeyConfigured")}</p>
           ) : (
             <p className="text-sm text-muted-foreground">{t("settings.coinGeckoKeyMissing")}</p>
           )}
-          {coinGeckoKeyStatus.data?.configured && (
-            <Button
-              type="button"
-              variant="outline"
-              className="self-start"
-              onClick={() => deleteCoinGeckoKey.mutate()}
-              disabled={deleteCoinGeckoKey.isPending}
-            >
-              {deleteCoinGeckoKey.isPending ? t("common.pending") : t("settings.removeCoinGeckoKey")}
-            </Button>
-          )}
+
           {(saveCoinGeckoKey.isError || deleteCoinGeckoKey.isError || coinGeckoKeyStatus.isError) && (
             <p role="alert" className="text-sm text-destructive">
               {t("settings.coinGeckoKeyError")}
@@ -347,37 +326,14 @@ export function SettingsPage() {
           </div>
           <div className="p-5"><h3 className="font-medium">{t("settings.sections.tiingo")}</h3>
         <form onSubmit={submitTiingoKey} className="mt-4 flex max-w-xl flex-col gap-2">
-          <Label htmlFor="settings-tiingo-key">{t("settings.tiingoKey")}</Label>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Input
-              id="settings-tiingo-key"
-              type="password"
-              autoComplete="off"
-              value={tiingoKey}
-              onChange={(event) => setTiingoKey(event.target.value)}
-              placeholder={t("settings.tiingoKeyPlaceholder")}
-              className="min-w-0 flex-1"
-            />
-            <Button type="submit" disabled={!tiingoKey.trim() || saveTiingoKey.isPending}>
-              {saveTiingoKey.isPending ? t("common.pending") : t("settings.saveTiingoKey")}
-            </Button>
-          </div>
+          <SecretField key={saveTiingoKey.isSuccess ? saveTiingoKey.submittedAt : "tiingo"} id="settings-tiingo-key" label={t("settings.tiingoKey")} hasValue={Boolean(tiingoKeyStatus.data?.configured)} value={tiingoKey} onChange={setTiingoKey} disabled={saveTiingoKey.isPending || deleteTiingoKey.isPending} onRemove={() => deleteTiingoKey.mutate()} removeLabel={t("settings.removeTiingoKey")} />
+          <Button type="submit" disabled={!tiingoKey.trim() || saveTiingoKey.isPending}>{saveTiingoKey.isPending ? t("common.pending") : t("settings.saveTiingoKey")}</Button>
           {tiingoKeyStatus.data?.configured ? (
             <p className="text-sm text-success-foreground">{t("settings.tiingoKeyConfigured")}</p>
           ) : (
             <p className="text-sm text-muted-foreground">{t("settings.tiingoKeyMissing")}</p>
           )}
-          {tiingoKeyStatus.data?.configured && (
-            <Button
-              type="button"
-              variant="outline"
-              className="self-start"
-              onClick={() => deleteTiingoKey.mutate()}
-              disabled={deleteTiingoKey.isPending}
-            >
-              {deleteTiingoKey.isPending ? t("common.pending") : t("settings.removeTiingoKey")}
-            </Button>
-          )}
+
           {(saveTiingoKey.isError || deleteTiingoKey.isError || tiingoKeyStatus.isError) && (
             <p role="alert" className="text-sm text-destructive">
               {t("settings.tiingoKeyError")}
@@ -388,7 +344,7 @@ export function SettingsPage() {
         </div>
       </section>
       <AgentSection />
-      <div id="settings-data" className="scroll-mt-6 border-t border-border pt-6"><DataManagementSection /></div>
+      <div id="settings-data" className="scroll-mt-6 space-y-8 border-t border-border pt-6"><DataManagementSection /><ContinuousBackupSection /></div>
       <section id="settings-diagnostics" aria-labelledby="settings-diagnostics-title" className="scroll-mt-6 space-y-5 border-t border-border pt-6">
         <h2 id="settings-diagnostics-title" className="text-base font-semibold">{t("settings.sections.diagnostics")}</h2>
         <div className="flex flex-col gap-2">

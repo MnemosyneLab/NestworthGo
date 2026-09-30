@@ -10,6 +10,7 @@ import { LoadingState } from "@/components/layout/PageState";
 import { parseWailsError, translateWailsError, type WireError } from "@/lib/wails";
 import { useInspectBackup, useConfirmRestore } from "@/queries/data";
 import { displayError } from "@/lib/display";
+import { ContinuousBackupSection } from "@/features/settings/ContinuousBackupSection";
 import { toast } from "sonner";
 
 type BlockedStartup = Omit<StartupDTO, "foundSchemaVersion" | "supportedSchemaVersion"> & {
@@ -153,6 +154,7 @@ export function BlockedStartupPage({ startup, failure }: { startup?: BlockedStar
             </div>
           ) : null}
           {restarting ? <p className="text-sm">{t("settings.data.restoreRestart")}</p> : null}
+        <details className="border-t pt-4"><summary className="cursor-pointer font-medium">{t("cloudBackup.recovery")}</summary><div className="pt-4"><ContinuousBackupSection /></div></details>
         </CardContent>
       </Card>
     </main>
