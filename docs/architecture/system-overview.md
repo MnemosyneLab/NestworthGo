@@ -2,14 +2,15 @@
 
 ## Current baseline
 
-Nestworth `0.3.5` is a local-first desktop application with a Wails v3 shell
+Nestworth `0.3.6` (unreleased, build 7) is a local-first desktop application with a Wails v3 shell
 (Go backend plus a React TypeScript frontend). The current implementation
 provides typed domain contracts, SQLite bootstrap with current schema `15`
 (rejecting every other schema without migration or writes),
 onboarding, multi-currency Accounts, Instruments, Holdings, immutable
 Activities, replay, historical snapshots, History, average-cost gain replay,
 currency decomposition, Return Analysis, Asset Changes, exact valuation, explicit
-Yahoo/Frankfurter refresh routing, local backup/restore, and structured JSON export.
+Yahoo/Frankfurter refresh routing, local and opt-in R2 backup/recovery, and
+structured JSON export.
 The React UI renders application results through `internal/wailsapi` DTOs; it
 does not open SQLite, call HTTP, or recalculate financial totals.
 
@@ -159,3 +160,16 @@ boundaries:
 - Return Analysis and Asset Changes remain a read-only interpretation of the ledger.
 - Historical facts are appended or explicitly corrected, never silently edited.
 - Compatibility checks occur before business writes; this generation does not migrate older databases.
+
+## Continuous backup lifecycle
+
+`internal/infrastructure/continuousbackup` owns a pinned embedded Litestream
+adapter and a single cancelable worker. Its independent `backup_config.db`
+holds R2 configuration, identity and status, so status writes do not generate
+business backup traffic. A local process lock precedes journal recovery/open.
+Initialization failure and library close paths drain the sole app SQLite pool
+slot before descriptor cleanup. Ordinary incremental sync proceeds alongside
+local operations after initialization. UI operations are bound explicitly;
+cloud credentials/recovery are not MCP tools. Restore reuses the existing
+exclusive application write gate and journal path, persists backup disabled,
+and requires restart. See [lifecycle and reliability details](../development/continuous-backup.md).

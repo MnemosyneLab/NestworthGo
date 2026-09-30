@@ -2,7 +2,38 @@
 
 All notable changes to Nestworth are recorded here.
 
-## [0.3.5] — Unreleased
+## [0.3.6] — Unreleased
+
+### Added
+
+- App-owned continuous SQLite backup to Cloudflare R2, off by default, with
+  explicit configuration, connection testing, remote-confirmed backup status,
+  manual backup and recovery-point listing.
+- Explicit cloud recovery through schema-15 validation, preview, confirmation,
+  safety copies and the existing atomic installation/startup journal. Backup
+  remains paused after restore; re-enabling creates a fresh stream.
+- Shared secret fields for provider keys and R2 credentials: fixed masks,
+  replacement, explicit removal and visibility for newly typed input only.
+
+### Changed
+
+- Advanced synchronized development metadata to v0.3.6 / build 7.
+- Embedded Litestream v0.5.17 and matching modernc SQLite v1.49.1; the business
+  schema remains 15 and no schema migration is added.
+- R2 credentials and backup status live in a separate private local
+  `backup_config.db`. Existing provider and AI/MCP settings remain in the
+  business database and are included in backup.
+
+### Boundaries
+
+- Backup runs only while the app runs, on one machine. There is no multi-device
+  synchronization, cloud writer election or daemon. Each start creates a fresh
+  isolated stream; disabling never deletes remote history.
+- Live R2 and native Mac acceptance remain pending. Published v0.3.5 tags and
+  assets are unchanged. See the [release contract](docs/releases/v0.3.6.md) and
+  [backup implementation notes](docs/development/continuous-backup.md).
+
+## [0.3.5] — 2026-09-30
 
 ### Added
 
@@ -39,8 +70,8 @@ All notable changes to Nestworth are recorded here.
   place brokerage orders. Direct bank/brokerage integration, synchronization,
   cloud backup (including Litestream/R2), and background refresh are not
   implemented in this release line.
-- v0.3.5 remains unreleased until the acceptance gates in the
-  [release contract](docs/releases/v0.3.5.md) are complete.
+- v0.3.5 was published at commit `0a4639deed01198233284d8baf184f23954d8b45`.
+  Its [release contract](docs/releases/v0.3.5.md) retains the historical gate record.
 
 ## [0.3.4] — 2026-09-20
 

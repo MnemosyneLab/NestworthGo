@@ -204,14 +204,14 @@ standalone skill bundle/checksum, then builds the app and arm64 DMG/ZIP on macOS
     git status --short
     git rev-parse HEAD
     wails3 task check
-    GOCACHE=/tmp/nestworth-go-0.3.5 go test -race ./...
+    GOCACHE=/tmp/nestworth-go-0.3.6 go test -race ./...
     wails3 task package:release
 
 Default outputs:
 
     dist/macos/Nestworth.app
-    dist/macos/Nestworth-0.3.5-arm64.dmg
-    dist/macos/Nestworth-0.3.5-arm64.zip
+    dist/macos/Nestworth-0.3.6-arm64.dmg
+    dist/macos/Nestworth-0.3.6-arm64.zip
     dist/macos/SHA256SUMS
     dist/skills/nestworth-skill.tar.gz
     dist/skills/nestworth-skill.tar.gz.sha256
@@ -227,16 +227,16 @@ Run a launch smoke directly from the packaged app with fresh temporary data.
 Direct executable launch passes the environment variables used by the app;
 do not use an existing installation or the default user data path.
 
-    SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nestworth-v0.3.5.XXXXXX")"
+    SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nestworth-v0.3.6.XXXXXX")"
     mkdir -p "$SMOKE_ROOT/dmg"
     APP="dist/macos/Nestworth.app"
-    DMG="dist/macos/Nestworth-0.3.5-arm64.dmg"
+    DMG="dist/macos/Nestworth-0.3.6-arm64.dmg"
     hdiutil attach -readonly -nobrowse -mountpoint "$SMOKE_ROOT/dmg" "$DMG"
     codesign --verify --deep --strict "$SMOKE_ROOT/dmg/Nestworth.app"
     DMG_APP="$SMOKE_ROOT/dmg/Nestworth.app"
     test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$DMG_APP/Contents/Info.plist")" = "com.nestworth.app"
-    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$DMG_APP/Contents/Info.plist")" = "0.3.5"
-    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$DMG_APP/Contents/Info.plist")" = "6"
+    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$DMG_APP/Contents/Info.plist")" = "0.3.6"
+    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$DMG_APP/Contents/Info.plist")" = "7"
     test "$(lipo -archs "$DMG_APP/Contents/MacOS/Nestworth")" = "arm64"
     codesign --verify --deep --strict "$DMG_APP"
     hdiutil detach "$SMOKE_ROOT/dmg"
@@ -265,17 +265,17 @@ again. Do not rerun `wails3 task package:release` or
 apply an ad-hoc signature. The archive-only sequence is to copy the final app
 to both `bin/Nestworth.app` and `dist/macos/Nestworth.app`, run
 `wails3 task darwin:create:dmg`, copy `bin/Nestworth.dmg` to
-`dist/macos/Nestworth-0.3.5-arm64.dmg`, recreate the ZIP with
-`/usr/bin/ditto -c -k --sequesterRsrc --keepParent dist/macos/Nestworth.app dist/macos/Nestworth-0.3.5-arm64.zip`,
+`dist/macos/Nestworth-0.3.6-arm64.dmg`, recreate the ZIP with
+`/usr/bin/ditto -c -k --sequesterRsrc --keepParent dist/macos/Nestworth.app dist/macos/Nestworth-0.3.6-arm64.zip`,
 regenerate the manifest, and run `wails3 task darwin:verify:package`. Replace
 only the task-generated app bundle paths, and ensure they are not symlinks.
 Both app copies must come from the same signed/stapled bundle. Regenerate
-`SHA256SUMS` with `shasum -a 256 Nestworth-0.3.5-arm64.dmg
-Nestworth-0.3.5-arm64.zip > SHA256SUMS` from `dist/macos`, then verify it. The package task's usual ad-hoc
+`SHA256SUMS` with `shasum -a 256 Nestworth-0.3.6-arm64.dmg
+Nestworth-0.3.6-arm64.zip > SHA256SUMS` from `dist/macos`, then verify it. The package task's usual ad-hoc
 signature is for local launch only. Capture the exact source SHA and artifact
 checksums; build and publish from one unchanged source commit. A successful
 task does not establish accessibility, Gatekeeper, live provider, or minimum
 macOS version acceptance.
 
-See the [v0.3.5 release contract](../releases/v0.3.5.md) for the release
+See the [v0.3.6 release contract](../releases/v0.3.6.md) for the release
 checklist and evidence status.

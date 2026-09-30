@@ -427,3 +427,18 @@ later events before committing. The preview shows the event-time result; current
 projections contain the final replayed result. A later absolute balance
 observation remains fixed. Inserting an entry that makes a later balance or
 quantity invalid fails without writing the entry.
+
+## Continuous backup configuration and status
+
+Business schema stays at 15; old, unversioned and future backups are rejected.
+The separate private `backup_config.db` is excluded from business backup and
+exports. R2 credential updates save the complete pair with configuration
+atomically; blank means keep, removal is explicit. Outbound DTOs contain a
+configured boolean and no raw keys. Existing provider/AI/MCP configuration
+remains in the business database and is included in backup.
+
+The UI service exposes status, configuration, connection check, manual backup,
+recovery listing, staged preview and explicit confirmation. Last attempt and
+last successful remote-confirmed backup are distinct; a captured LTX equality
+is not a claim that later business writes have been scanned. These operations
+are not exposed through MCP. See [continuous backup](../development/continuous-backup.md).

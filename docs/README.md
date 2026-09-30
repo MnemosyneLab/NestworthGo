@@ -1,7 +1,7 @@
 # Nestworth Documentation
 
 This directory is the maintained documentation surface for the current
-development line `0.3.5`. It describes the current Wails v3 application and
+development line `0.3.6` (unreleased, build 7). It describes the current Wails v3 application and
 its product contracts; it does not preserve obsolete implementation branches
 or visual prototype bundles.
 
@@ -28,7 +28,7 @@ or visual prototype bundles.
 | Development | [Local MCP](development/mcp.md) | Loopback transport, permission modes, implemented query and write tools, and safety boundaries |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
-| Release | [v0.3.5 Contract](releases/v0.3.5.md) | Scope, acceptance, and release gates for the current line |
+| Release | [v0.3.6 Contract](releases/v0.3.6.md) | Scope, acceptance, and release gates for the current line |
 | QA | [QA Archive](qa/README.md) | Selected historical verification reports; current release gates remain in the release contract |
 
 ## Source of truth
