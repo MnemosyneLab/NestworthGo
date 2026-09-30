@@ -52,7 +52,12 @@ func (e *fakeEmitter) Emit(name string, data any) {
 		data any
 	}{name, data})
 	e.mu.Unlock()
-	e.notify <- struct{}{}
+	// Notifications only wake waiters; the complete event history lives above.
+	// Coalesce pending wakeups so an unread notification cannot block a worker.
+	select {
+	case e.notify <- struct{}{}:
+	default:
+	}
 }
 
 func (e *fakeEmitter) waitForEvent(t *testing.T) {
@@ -72,6 +77,45 @@ func (e *fakeEmitter) last() (string, any) {
 	}
 	last := e.events[len(e.events)-1]
 	return last.name, last.data
+}
+
+func TestFakeEmitterRetainsEventsWithoutDrainingNotifications(t *testing.T) {
+	emitter := newFakeEmitter()
+	eventCount := 2*cap(emitter.notify) + 1
+	done := make(chan struct{})
+	go func() {
+		for index := 0; index < eventCount; index++ {
+			emitter.Emit(marketdata.SyncProgressEvent, index)
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("event capture blocked on unconsumed notifications")
+	}
+
+	if len(emitter.events) != eventCount {
+		t.Fatalf("captured %d events, want %d", len(emitter.events), eventCount)
+	}
+	for index, event := range emitter.events {
+		if event.name != marketdata.SyncProgressEvent || event.data != index {
+			t.Fatalf("event %d = %+v, want progress payload %d", index, event, index)
+		}
+	}
+
+	// A burst still wakes a waiter, and draining the notifications allows the
+	// next event to wake another waiter.
+	emitter.waitForEvent(t)
+	for len(emitter.notify) > 0 {
+		<-emitter.notify
+	}
+	emitter.Emit(marketdata.SyncCompletedEvent, eventCount)
+	emitter.waitForEvent(t)
+	name, data := emitter.last()
+	if name != marketdata.SyncCompletedEvent || data != eventCount {
+		t.Fatalf("last event = %s %v, want completion payload %d", name, data, eventCount)
+	}
 }
 
 func onboardedAppWithProvider(t *testing.T) *application.Service {
