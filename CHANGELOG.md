@@ -6,17 +6,41 @@ All notable changes to Nestworth are recorded here.
 
 ### Added
 
-- Local MCP connection in Settings with read-only or directory-maintenance
-  permission, revocable credentials, current account/holding queries, and
-  member/institution/group/account/instrument tools. Writes return durable
-  operation receipts and refresh the desktop. Trading, period analysis and
-  reconciliation tools remain planned; see the [MCP delivery plan](docs/development/mcp.md).
+- Household Overview and Data Health improvements, including clearer household
+  trends, breakdown navigation, missing-input actions, and repair progress.
+- Available Funds estimates with source-specific access rules and reservations,
+  plus managed term deposits and locked products. Product operations include
+  previews, explicit receipts/redemptions, renewal, and guarded grouped undo.
+- Local MCP read, directory-maintenance, and ledger-writing modes. The tools
+  cover account and directory queries, ledger entries and atomic batches,
+  position import/transfer, contribution analysis, reconciliation, historical
+  corrections, data-health repair, and Agent-supplied market data.
+- Agent-supplied instrument and FX observations as a local quote source. The
+  App does not query an Agent endpoint.
 
 ### Changed
 
-- Upgraded the Wails v3 desktop shell and `@wailsio/runtime` to `v3.0.0-beta.26`.
-- Advanced synchronized application metadata to `v0.3.5` / build `6`.
-- Feature scope is not yet assigned; see the [release contract](docs/releases/v0.3.5.md).
+- Upgraded the Wails v3 desktop shell and @wailsio/runtime to v3.0.0-beta.26.
+- Advanced synchronized application metadata to v0.3.5 / build 6.
+- SQLite schema 15 is the only schema accepted for existing databases. This
+  line does not migrate the schema-11 database from v0.3.4.
+- Removed the Cloudflare Worker market-data provider. Quote and history refresh
+  remains explicit and uses the configured local provider adapters.
+- The macOS release task now prepares a metadata-preserving arm64 ZIP, DMG
+  checksums, and the standalone Nestworth skill bundle plus its checksum.
+
+### Compatibility and boundaries
+
+- New databases use schema 15. Existing databases or backup files with older,
+  unversioned, or future schemas are rejected without migration or recreation.
+  Preserve the original database and backup; do not delete them to resolve an
+  incompatibility. JSON export is not a restorable backup.
+- The MCP listener is local loopback only. It does not provide a cloud relay or
+  place brokerage orders. Direct bank/brokerage integration, synchronization,
+  cloud backup (including Litestream/R2), and background refresh are not
+  implemented in this release line.
+- v0.3.5 remains unreleased until the acceptance gates in the
+  [release contract](docs/releases/v0.3.5.md) are complete.
 
 ## [0.3.4] — 2026-09-20
 

@@ -29,6 +29,7 @@ or visual prototype bundles.
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
 | Release | [v0.3.5 Contract](releases/v0.3.5.md) | Scope, acceptance, and release gates for the current line |
+| QA | [QA Archive](qa/README.md) | Selected historical verification reports; current release gates remain in the release contract |
 
 ## Source of truth
 

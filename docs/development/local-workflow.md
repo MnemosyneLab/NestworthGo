@@ -130,7 +130,7 @@ Use the root tasks for the normal arm64 flow:
 | `wails3 task build` | `bin/nestworth` | Production Go binary with embedded frontend |
 | `wails3 task package` | `bin/Nestworth.app` | Ad-hoc signed local `.app` bundle |
 | `wails3 task package:dmg` | `bin/Nestworth.dmg` | UDZO DMG with an Applications shortcut |
-| `wails3 task package:release` | `dist/macos/Nestworth.app` and `dist/macos/Nestworth-0.3.5-arm64.dmg` | Copies and verifies release-shaped local artifacts |
+| `wails3 task package:release` | `dist/macos/Nestworth.app`, versioned arm64 DMG/ZIP, `SHA256SUMS`, and the standalone skill bundle plus checksum | Builds and verifies local release-shaped outputs |
 
 The release task is the recommended local packaging smoke test:
 
@@ -191,20 +191,74 @@ unexpected data during a smoke test, set isolated `NESTWORTH_DATABASE_PATH`
 and `NESTWORTH_SETTINGS_PATH` values; never use real financial data for a
 package check.
 
-## Preparing release archives
+## Release artifacts and isolated Mac acceptance
 
-After `wails3 task package:release`, verify the local signature and create the
-matching ZIP/checksum manifest. Substitute the release version when it changes.
+Run the full gate on the exact reviewed source commit before packaging. The
+root release task runs the user-skill checker and installer tests, creates the
+standalone skill bundle/checksum, then builds the app and arm64 DMG/ZIP on macOS.
 
-```bash
-codesign --verify --deep --strict dist/macos/Nestworth.app
-ditto -c -k --sequesterRsrc --keepParent dist/macos/Nestworth.app dist/macos/Nestworth-0.3.5-arm64.zip
-unzip -tq dist/macos/Nestworth-0.3.5-arm64.zip
-(cd dist/macos && shasum -a 256 Nestworth-0.3.5-arm64.dmg Nestworth-0.3.5-arm64.zip > SHA256SUMS && shasum -a 256 -c SHA256SUMS)
-```
+    git status --short
+    git rev-parse HEAD
+    wails3 task check
+    GOCACHE=/tmp/nestworth-go-0.3.5 go test -race ./...
+    wails3 task package:release
 
-Run Go race tests after the frontend build has finished: Go embeds
-`frontend/dist`, which Vite replaces during a build. Recreate the DMG, ZIP,
-and checksums after any final signing or application changes. Keep the current
-[release contract](../releases/v0.3.5.md) with native acceptance and upgrade
-instructions alongside the release notes.
+Default outputs:
+
+    dist/macos/Nestworth.app
+    dist/macos/Nestworth-0.3.5-arm64.dmg
+    dist/macos/Nestworth-0.3.5-arm64.zip
+    dist/macos/SHA256SUMS
+    dist/skills/nestworth-skill.tar.gz
+    dist/skills/nestworth-skill.tar.gz.sha256
+
+The release task verifies app ID, version, build, arm64 architecture, native
+icon, ad-hoc signature, DMG readability, ZIP contents and DMG/ZIP checksums.
+The standalone skill task checks its adjacent checksum. The ZIP is created
+with ditto's resource-fork, extended-attribute and ACL preservation options.
+Neither archive includes a household database, settings file, logs, credentials
+or user profile. Do not place local data under dist.
+
+Run a launch smoke directly from the packaged app with fresh temporary data.
+Direct executable launch passes the environment variables used by the app;
+do not use an existing installation or the default user data path.
+
+    SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nestworth-v0.3.5.XXXXXX")"
+    mkdir -p "$SMOKE_ROOT/dmg"
+    APP="dist/macos/Nestworth.app"
+    DMG="dist/macos/Nestworth-0.3.5-arm64.dmg"
+    hdiutil attach -readonly -nobrowse -mountpoint "$SMOKE_ROOT/dmg" "$DMG"
+    codesign --verify --deep --strict "$SMOKE_ROOT/dmg/Nestworth.app"
+    DMG_APP="$SMOKE_ROOT/dmg/Nestworth.app"
+    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$DMG_APP/Contents/Info.plist")" = "com.nestworth.app"
+    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$DMG_APP/Contents/Info.plist")" = "0.3.5"
+    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$DMG_APP/Contents/Info.plist")" = "6"
+    test "$(lipo -archs "$DMG_APP/Contents/MacOS/Nestworth")" = "arm64"
+    codesign --verify --deep --strict "$DMG_APP"
+    hdiutil detach "$SMOKE_ROOT/dmg"
+    NESTWORTH_DATABASE_PATH="$SMOKE_ROOT/household.db" \
+    NESTWORTH_SETTINGS_PATH="$SMOKE_ROOT/settings.json" \
+    "$APP/Contents/MacOS/Nestworth"
+
+Quit the app, launch the same executable again with the same temporary
+database/settings paths, and verify the test household persists. Close the app
+before removing only this run's temporary directory:
+
+    rm -rf "$SMOKE_ROOT"
+
+The task verifies the ZIP by extracting it to its own temporary directory and
+checking the extracted app's identity, version, build, arm64 architecture, and
+signature. Verify downloadable manifests separately:
+
+    (cd dist/macos && shasum -a 256 -c SHA256SUMS)
+    (cd dist/skills && shasum -a 256 -c nestworth-skill.tar.gz.sha256)
+
+If Developer ID signing or notarization is required, perform it through the
+approved Mac signing setup and regenerate the ZIP and checksums after signing.
+The package task's ad-hoc signature is for local launch only. Capture the exact
+source SHA and artifact checksums; build and publish from one unchanged source
+commit. A successful task does not establish accessibility, Gatekeeper, live
+provider, or minimum macOS version acceptance.
+
+See the [v0.3.5 release contract](../releases/v0.3.5.md) for the release
+checklist and evidence status.

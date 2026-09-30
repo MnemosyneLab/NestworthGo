@@ -51,15 +51,20 @@ Build the canonical desktop binary:
 wails3 task build
 ```
 
-Build and verify the local macOS application and arm64 DMG:
+Build and verify the local arm64 macOS application, DMG, ZIP, checksum
+manifest, and standalone user-skill bundle:
 
 ```bash
 wails3 task package:release
 ```
 
-The release output is `dist/macos/Nestworth.app` and
-`dist/macos/Nestworth-0.3.5-arm64.dmg`. Signing, notarization, artifact
-retention, and manual accessibility review remain distribution gates.
+The default outputs are `dist/macos/Nestworth.app`,
+`dist/macos/Nestworth-0.3.5-arm64.dmg`,
+`dist/macos/Nestworth-0.3.5-arm64.zip`, `dist/macos/SHA256SUMS`,
+`dist/skills/nestworth-skill.tar.gz`, and its `.sha256` file. The app is
+ad-hoc signed for local launch. Developer ID signing, notarization, artifact
+retention, native acceptance, and manual accessibility review remain separate
+distribution gates.
 
 ## Technology
 

@@ -63,9 +63,10 @@ Build and verify the primary-target package:
 wails3 task package:release
 ```
 
-The expected output is `dist/macos/Nestworth.app` and
-`dist/macos/Nestworth-0.3.5-arm64.dmg`. Use isolated database and settings
-paths for a launch smoke; never point tests at real financial data.
+The expected outputs are `dist/macos/Nestworth.app`, the versioned arm64
+DMG and ZIP, `dist/macos/SHA256SUMS`, and the standalone skill bundle with
+its checksum. Use isolated database and settings paths for a launch smoke;
+never point tests at real financial data.
 
 ## Repository layout
 

@@ -89,10 +89,14 @@ tasks:
       - task: darwin:package:dmg
 
   package:release:
-    summary: Builds and verifies the local macOS app and arm64 DMG artifacts
+    summary: Builds and verifies arm64 macOS artifacts and the standalone skill bundle
     platforms: [darwin]
     cmds:
+      - task: skill:package
       - task: darwin:package:release
+        vars:
+          ARCH: arm64
+      - cd dist/skills && shasum -a 256 -c nestworth-skill.tar.gz.sha256
 
   run:
     summary: Runs the application

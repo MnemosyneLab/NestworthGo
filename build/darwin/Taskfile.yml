@@ -126,6 +126,8 @@ tasks:
     summary: Packages the application into a `.app` bundle
     deps:
       - task: build
+        vars:
+          ARCH: '{{.ARCH}}'
     cmds:
       - task: create:app:bundle
 
@@ -140,33 +142,51 @@ tasks:
     summary: Packages the application into a styled `.dmg`
     deps:
       - task: package
+        vars:
+          ARCH: '{{.ARCH}}'
     cmds:
       - task: create:dmg
 
   package:release:
-    summary: Copies the unsigned .app and DMG into dist/macos and verifies metadata
+    summary: Creates arm64 app, versioned DMG and metadata-preserving ZIP, then verifies artifacts
+    platforms: [darwin]
     deps:
       - task: package:dmg
+        vars:
+          ARCH: arm64
     cmds:
       - mkdir -p dist/macos
-      - rm -rf "dist/macos/{{.BUNDLE_NAME}}.app" "dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.dmg"
-      - cp -R "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" "dist/macos/{{.BUNDLE_NAME}}.app"
+      - rm -rf "dist/macos/{{.BUNDLE_NAME}}.app"
+      - rm -f "dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.dmg" "dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.zip" "dist/macos/SHA256SUMS"
+      - /usr/bin/ditto --rsrc --extattr --acl "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" "dist/macos/{{.BUNDLE_NAME}}.app"
       - |
+        set -euo pipefail
+        COPIED=false
         for candidate in "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.dmg" "{{.BIN_DIR}}/{{.APP_NAME}}.dmg"; do
           if [ -f "$candidate" ]; then
             cp "$candidate" "dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.dmg"
+            COPIED=true
             break
           fi
         done
+        test "$COPIED" = "true"
+      - /usr/bin/ditto -c -k --sequesterRsrc --keepParent "dist/macos/{{.BUNDLE_NAME}}.app" "dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.zip"
+      - |
+        set -euo pipefail
+        cd dist/macos
+        shasum -a 256 "{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.dmg" "{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.zip" > SHA256SUMS
+        shasum -a 256 -c SHA256SUMS
       - task: verify:package
 
   verify:package:
-    summary: Checks bundle ID, version, build, architecture, native icon, and DMG readability
+    summary: Checks app identity, version, build, arm64 architecture, signature, DMG, ZIP, and checksums
+    platforms: [darwin]
     cmds:
       - |
         set -euo pipefail
         APP="dist/macos/{{.BUNDLE_NAME}}.app"
         DMG="dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.dmg"
+        ZIP="dist/macos/{{.BUNDLE_NAME}}-{{.APP_VERSION}}-arm64.zip"
         PLIST="$APP/Contents/Info.plist"
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$PLIST")" = "com.nestworth.app"
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleName' "$PLIST")" = "{{.BUNDLE_NAME}}"
@@ -174,9 +194,33 @@ tasks:
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$PLIST")" = "{{.APP_BUILD}}"
         cmp -s "{{.NATIVE_ICNS}}" "$APP/Contents/Resources/icon.icns"
         test "$(lipo -archs "$APP/Contents/MacOS/{{.BUNDLE_NAME}}")" = "arm64"
+        codesign --verify --deep --strict "$APP"
         test -f "$DMG"
         hdiutil imageinfo "$DMG" >/dev/null
-        echo "Verified $APP and $DMG (ad-hoc signed for local launch; Developer ID/notarization remain open)."
+        VERIFY_TMP="$(mktemp -d)"
+        trap 'hdiutil detach "$VERIFY_TMP/dmg" >/dev/null 2>&1 || true; rm -rf "$VERIFY_TMP"' EXIT
+        DMG_MOUNT="$VERIFY_TMP/dmg"
+        mkdir -p "$DMG_MOUNT"
+        hdiutil attach -readonly -nobrowse -mountpoint "$DMG_MOUNT" "$DMG" >/dev/null
+        DMG_APP="$DMG_MOUNT/{{.BUNDLE_NAME}}.app"
+        test -d "$DMG_APP"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$DMG_APP/Contents/Info.plist")" = "com.nestworth.app"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$DMG_APP/Contents/Info.plist")" = "{{.APP_VERSION}}"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$DMG_APP/Contents/Info.plist")" = "{{.APP_BUILD}}"
+        test "$(lipo -archs "$DMG_APP/Contents/MacOS/{{.BUNDLE_NAME}}")" = "arm64"
+        codesign --verify --deep --strict "$DMG_APP"
+        hdiutil detach "$DMG_MOUNT" >/dev/null
+        unzip -tq "$ZIP" >/dev/null
+        /usr/bin/ditto -x -k "$ZIP" "$VERIFY_TMP"
+        EXTRACTED="$VERIFY_TMP/{{.BUNDLE_NAME}}.app"
+        test -d "$EXTRACTED"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$EXTRACTED/Contents/Info.plist")" = "com.nestworth.app"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$EXTRACTED/Contents/Info.plist")" = "{{.APP_VERSION}}"
+        test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$EXTRACTED/Contents/Info.plist")" = "{{.APP_BUILD}}"
+        test "$(lipo -archs "$EXTRACTED/Contents/MacOS/{{.BUNDLE_NAME}}")" = "arm64"
+        codesign --verify --deep --strict "$EXTRACTED"
+        (cd dist/macos && shasum -a 256 -c SHA256SUMS)
+        echo "Verified $APP, versioned DMG and metadata-preserving ZIP (ad-hoc signed for local launch; Developer ID/notarization remain open)."
 
   create:dmg:
     summary: Creates a UDZO DMG with an Applications shortcut
@@ -187,7 +231,7 @@ tasks:
         STAGING="{{.BIN_DIR}}/dmg-root"
         rm -rf "$STAGING"
         mkdir -p "$STAGING"
-        cp -R "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" "$STAGING/{{.BUNDLE_NAME}}.app"
+        /usr/bin/ditto --rsrc --extattr --acl "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" "$STAGING/{{.BUNDLE_NAME}}.app"
         ln -s /Applications "$STAGING/Applications"
         cp "{{.NATIVE_ICNS}}" "$STAGING/.VolumeIcon.icns"
         if command -v SetFile >/dev/null 2>&1; then
