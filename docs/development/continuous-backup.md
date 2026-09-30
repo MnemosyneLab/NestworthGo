@@ -37,6 +37,14 @@ it does not write an object, prove upload permission, or set a successful backup
 time. Backend/provider errors are replaced with generic summaries, without
 credentials, responses, SQL or paths.
 
+Lazy Litestream initialization also runs inside the drain adapter: its remote
+L0 query occurs after acquiring a read lock, and initialization errors close
+SQLite descriptors. The initial `DB.Sync` and all failure cleanup finish while
+application queries are queued; retries use freshly reset library handles.
+After initialization succeeds, ordinary incremental sync does not reserve the
+application pool slot. Initialization can briefly delay local queries, up to
+the operation timeout; there is no callback that borrows that slot recursively.
+
 Disable and target changes first cancel and join the worker. Litestream must
 not close POSIX descriptors while app SQLite connections exist. The narrow
 SQLite adapter reserves the sole pool slot, waits for active rows/transactions,
@@ -45,7 +53,9 @@ queries remain queued until `driver.ErrBadConn` releases the slot for a fresh
 connection. The sql.DB and repository references stay stable. The adapter
 relies on the pinned driver's idempotent Close and the pool's one-connection
 limit; both are covered by tests. It never returns while a timed-out background
-close continues touching SQLite.
+close continues touching SQLite. A failed drain during configuration change
+or restore pause retains the old configuration, resumes its worker, and shows
+retrying instead of a stale confirmation. Shutdown does not resume a worker.
 
 Shutdown stops the worker, attempts final remote confirmation with the shutdown
 context, then performs synchronous cleanup with a separate five-second drain

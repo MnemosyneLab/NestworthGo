@@ -26,6 +26,7 @@ type Manager struct {
 	workerDone    chan struct{}
 	replicaDB     *litestream.DB
 	replicaStore  *litestream.Store
+	initialized   bool
 	statusMu      sync.Mutex
 	status        status
 	interval      time.Duration
@@ -119,31 +120,59 @@ func (m *Manager) startLocked(ctx context.Context, c config) error {
 	m.replicaDB = d
 	m.replicaStore = store
 	m.setStatus(func(s *status) { s.State = "preparing"; s.StreamID = stream; s.ErrorSummary = "" })
-	workerCtx, workerCancel := context.WithCancel(context.Background())
-	m.workerCancel = workerCancel
-	m.workerDone = make(chan struct{})
+	m.initialized = false
+	m.launchWorkerLocked(0)
+	return nil
+}
+
+// launchWorkerLocked resumes an existing stream without recreating its handles.
+func (m *Manager) launchWorkerLocked(delay time.Duration) {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	m.workerCancel, m.workerDone = cancel, done
 	go func() {
-		defer close(m.workerDone)
-		timer := time.NewTimer(0)
+		defer close(done)
+		timer := time.NewTimer(delay)
 		defer timer.Stop()
 		for {
 			select {
-			case <-workerCtx.Done():
+			case <-ctx.Done():
 				return
 			case <-timer.C:
-				m.sync(workerCtx)
+				m.sync(ctx)
 				timer.Reset(m.interval)
 			}
 		}
 	}()
-	return nil
 }
 func stringsForPath(stream string) string { return filepath.FromSlash(stream) }
 func (m *Manager) sync(ctx context.Context) error {
 	syncCtx, cancel := contextTimeout(ctx)
 	defer cancel()
 	m.setStatus(func(s *status) { s.State = "backing-up"; s.LastAttempt = time.Now().UTC().Format(time.RFC3339Nano) })
-	err := m.replicaDB.SyncAndWait(syncCtx)
+	// Lazy init can close SQLite descriptors on any failure, including remote
+	// listing errors after acquireReadLock. Drain before every initialization
+	// attempt; if Sync fails, close/reset the library handles before allowing
+	// the application pool to reopen. The callback never borrows app SQL.
+	var err error
+	if !m.initialized {
+		err = m.database.DrainForReplication(syncCtx, func() error {
+			if err := m.replicaDB.Sync(syncCtx); err != nil {
+				cleanupCtx, stop := context.WithCancel(context.Background())
+				stop()
+				_ = m.replicaDB.Close(cleanupCtx)
+				if openErr := m.replicaDB.Open(); openErr != nil {
+					return openErr
+				}
+				return err
+			}
+			m.initialized = true
+			return nil
+		})
+	}
+	if err == nil {
+		err = m.replicaDB.SyncAndWait(syncCtx)
+	}
 	if err == nil {
 		st, checkErr := m.replicaDB.SyncStatus(syncCtx)
 		if checkErr != nil || !st.InSync {
@@ -171,14 +200,16 @@ func (m *Manager) pauseWorkerLocked() {
 		m.workerCancel = nil
 	}
 }
-func (m *Manager) stopLocked(ctx context.Context) error {
+func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 	m.pauseWorkerLocked()
 	if m.replicaStore == nil {
 		return nil
 	}
 	// Cleanup is synchronous. A timed-out goroutine is never left accessing
 	// SQLite. All operations are stopped before reserving/closing the pool slot.
+	closedHandles := false
 	closeStore := func() error {
+		closedHandles = true
 		closeCtx, cancel := context.WithCancel(ctx)
 		cancel() // no remote writes during disable/target swap
 		err := m.replicaStore.Close(closeCtx)
@@ -188,10 +219,26 @@ func (m *Manager) stopLocked(ctx context.Context) error {
 		return err
 	}
 	if err := m.database.DrainForReplication(ctx, closeStore); err != nil {
+		m.setStatus(func(s *status) { s.State = "retrying"; s.ErrorSummary = ErrUnavailable.Error() })
+		if !closedHandles && resume {
+			// A canceled drain has not touched the library handles. Keep the old
+			// enabled configuration running after the failed change/restore pause.
+			m.launchWorkerLocked(0)
+		} else if closedHandles {
+			m.replicaDB, m.replicaStore = nil, nil
+			m.initialized = false
+			c, _, loadErr := m.store.load()
+			if resume && loadErr == nil && c.Enabled && !m.closed && !m.restorePaused {
+				retryCtx, cancel := contextTimeout(context.Background())
+				_ = m.startLocked(retryCtx, c)
+				cancel()
+			}
+		}
 		return ErrUnavailable
 	}
 	m.replicaDB = nil
 	m.replicaStore = nil
+	m.initialized = false
 	return nil
 }
 func (m *Manager) Configure(ctx context.Context, u Update) error {
@@ -200,7 +247,7 @@ func (m *Manager) Configure(ctx context.Context, u Update) error {
 	if m.closed || m.restorePaused {
 		return ErrDisabled
 	}
-	old, _, err := m.store.load()
+	old, oldStatus, err := m.store.load()
 	if err != nil {
 		return err
 	}
@@ -208,7 +255,10 @@ func (m *Manager) Configure(ctx context.Context, u Update) error {
 	if err != nil {
 		return err
 	}
-	if err := m.stopLocked(ctx); err != nil {
+	if c.Enabled && (m.database == nil || m.database.SQL == nil) {
+		return ErrUnavailable
+	}
+	if err := m.stopLocked(ctx, true); err != nil {
 		return err
 	}
 	m.statusMu.Lock()
@@ -228,7 +278,22 @@ func (m *Manager) Configure(ctx context.Context, u Update) error {
 		return err
 	}
 	if c.Enabled {
-		return m.startLocked(ctx, c)
+		if err := m.startLocked(ctx, c); err != nil {
+			m.statusMu.Lock()
+			m.status = oldStatus
+			m.status.State, m.status.StreamID = "disabled", ""
+			rollbackErr := m.store.save(old, m.status)
+			m.statusMu.Unlock()
+			if rollbackErr != nil {
+				return ErrUnavailable
+			}
+			if old.Enabled {
+				retryCtx, cancel := contextTimeout(context.Background())
+				_ = m.startLocked(retryCtx, old)
+				cancel()
+			}
+			return err
+		}
 	}
 	return nil
 }
@@ -241,22 +306,7 @@ func (m *Manager) BackupNow(ctx context.Context) error {
 	// Avoid overlap with the scheduled call; keep the same stream open.
 	m.pauseWorkerLocked()
 	err := m.sync(ctx)
-	workerCtx, cancel := context.WithCancel(context.Background())
-	m.workerCancel = cancel
-	m.workerDone = make(chan struct{})
-	go func() {
-		defer close(m.workerDone)
-		ticker := time.NewTicker(m.interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-workerCtx.Done():
-				return
-			case <-ticker.C:
-				m.sync(workerCtx)
-			}
-		}
-	}()
+	m.launchWorkerLocked(m.interval)
 	return err
 }
 func (m *Manager) TestConnection(ctx context.Context) error {
@@ -333,7 +383,7 @@ func (m *Manager) PauseForRestore(ctx context.Context) error {
 	if m.closed {
 		return ErrDisabled
 	}
-	if err := m.stopLocked(ctx); err != nil {
+	if err := m.stopLocked(ctx, true); err != nil {
 		return err
 	}
 	c, _, err := m.store.load()
@@ -364,7 +414,7 @@ func (m *Manager) Close(ctx context.Context) error {
 	}
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	err := m.stopLocked(cleanupCtx)
+	err := m.stopLocked(cleanupCtx, false)
 	// If draining fails, retain handles/config and let process teardown close
 	// them. Never close the DB behind an in-flight operation.
 	if err != nil {

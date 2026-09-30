@@ -299,3 +299,150 @@ func TestRestorePausePersistsDisabledAndNotFoundIsFailure(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// This gate is reached by pinned Litestream init after acquireReadLock and
+// before its descriptor-closing error defer. Application transactions must
+// never overlap it, including failed initialization and subsequent retries.
+type initFaultBackend struct {
+	backend
+	entered, release chan struct{}
+	fail             *atomic.Bool
+}
+
+func (b initFaultBackend) client(stream string) litestream.ReplicaClient {
+	return &initFaultClient{ReplicaClient: b.backend.client(stream), gate: b}
+}
+
+type initFaultClient struct {
+	litestream.ReplicaClient
+	gate initFaultBackend
+}
+
+func (c *initFaultClient) LTXFiles(ctx context.Context, level int, seek ltx.TXID, metadata bool) (ltx.FileIterator, error) {
+	if c.gate.fail.Load() {
+		select {
+		case c.gate.entered <- struct{}{}:
+		default:
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-c.gate.release:
+		}
+		return nil, errors.New("offline or permission denied")
+	}
+	return c.ReplicaClient.LTXFiles(ctx, level, seek, metadata)
+}
+func TestInitializationFailureDrainsApplicationTransactionsAndRetries(t *testing.T) {
+	m, db, root := fixture(t)
+	fail := &atomic.Bool{}
+	fail.Store(true)
+	entered, release := make(chan struct{}, 1), make(chan struct{}, 1)
+	m.factory = func(config) backend { return initFaultBackend{fileBackend{root}, entered, release, fail} }
+	if err := m.Configure(context.Background(), testUpdate(true)); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("init remote listing not reached")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	if tx, err := db.SQL.BeginTx(ctx, nil); err == nil {
+		tx.Rollback()
+		t.Fatal("app transaction overlapped descriptor-closing initialization")
+	}
+	release <- struct{}{}
+	v := waitState(t, m, "retrying")
+	if v.LastSuccessfulBackup != "" {
+		t.Fatal("failed init claimed success")
+	}
+	tx, err := db.SQL.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`INSERT INTO app_configuration(key,value) VALUES('init-failure-write','committed')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	fail.Store(false)
+	if err := m.BackupNow(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	waitState(t, m, "recent-backup-confirmed")
+	if err := db.Verify(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+}
+func TestFailedStopResumesOldWorkerWithoutFalseConfirmation(t *testing.T) {
+	for _, operation := range []string{"configure", "restore-pause"} {
+		t.Run(operation, func(t *testing.T) {
+			m, db, _ := fixture(t)
+			if err := m.Configure(context.Background(), testUpdate(true)); err != nil {
+				t.Fatal(err)
+			}
+			initial := waitState(t, m, "recent-backup-confirmed")
+			conn, err := db.SQL.Conn(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+			defer cancel()
+			if operation == "configure" {
+				err = m.Configure(ctx, testUpdate(false))
+			} else {
+				err = m.PauseForRestore(ctx)
+			}
+			if err == nil {
+				conn.Close()
+				t.Fatal("occupied pool did not fail drain")
+			}
+			v, _ := m.View()
+			if !v.Enabled || v.State == "recent-backup-confirmed" || v.LastSuccessfulBackup != initial.LastSuccessfulBackup {
+				t.Fatalf("false status after failed drain: %+v", v)
+			}
+			// Use the borrowed connection so the resumed worker cannot take the slot
+			// before this write. Its next capture must include this committed change.
+			if _, err := conn.ExecContext(context.Background(), `INSERT INTO app_configuration(key,value) VALUES('after-failed-stop','new')`); err != nil {
+				t.Fatal(err)
+			}
+			conn.Close()
+			m.op.Lock()
+			resumed := m.workerDone != nil
+			m.op.Unlock()
+			if !resumed {
+				t.Fatal("failed stop left enabled backup without worker")
+			}
+			// Sync may have captured before this transaction committed; a
+			// confirmation only promises its captured LTX, not every later write.
+			if err := m.BackupNow(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			next := waitState(t, m, "recent-backup-confirmed")
+			if next.StreamID != initial.StreamID || next.LastSuccessfulBackup == initial.LastSuccessfulBackup {
+				t.Fatal("old stream did not resume")
+			}
+			points, err := m.RecoveryPoints(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			staged, err := m.Stage(context.Background(), points[0])
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(filepath.Dir(staged))
+			candidate, err := sqlite.OpenReadOnlyForVerify(staged)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer candidate.Close()
+			var value string
+			if err := candidate.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='after-failed-stop'`).Scan(&value); err != nil || value != "new" {
+				t.Fatalf("resumed stream missed write: %s %v", value, err)
+			}
+		})
+	}
+}
