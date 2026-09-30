@@ -147,6 +147,13 @@ func run() error {
 				slog.Error("could not open the local database; the application will start with recovery available")
 				startupErr = &domain.Error{Code: domain.ErrDatabaseUnavailable, Field: "database", Message: "the local database could not be opened"}
 			}
+			// A settings/attachment error can happen after sqlite.Open has
+			// succeeded. Blocked-startup recovery has no application session
+			// hooks, so retain no partially opened business connection.
+			if database != nil {
+				_ = database.Close()
+				database = nil
+			}
 		} else {
 			registry := nestworthapp.NewMarketDataRegistryWithDefault(nestworthapp.FrankfurterProviderKey,
 				marketdata.NewFrankfurterProvider(nil),
