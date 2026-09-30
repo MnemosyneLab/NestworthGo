@@ -138,11 +138,15 @@ The release task is the recommended local packaging smoke test:
 wails3 task package:release
 ```
 
-The equivalent explicit platform task is:
+When only the macOS artifacts are needed, run the Darwin platform task:
 
 ```bash
 wails3 task darwin:package:release
 ```
+
+This platform task does not run the standalone skill checks or create the skill
+archive/checksum. The root `package:release` task includes those skill steps
+before invoking the Darwin packaging task.
 
 The generated `.app` receives an ad-hoc signature so it can be launched
 locally. This does not satisfy Developer ID signing, notarization, or public
@@ -253,12 +257,25 @@ signature. Verify downloadable manifests separately:
     (cd dist/macos && shasum -a 256 -c SHA256SUMS)
     (cd dist/skills && shasum -a 256 -c nestworth-skill.tar.gz.sha256)
 
-If Developer ID signing or notarization is required, perform it through the
-approved Mac signing setup and regenerate the ZIP and checksums after signing.
-The package task's ad-hoc signature is for local launch only. Capture the exact
-source SHA and artifact checksums; build and publish from one unchanged source
-commit. A successful task does not establish accessibility, Gatekeeper, live
-provider, or minimum macOS version acceptance.
+If Developer ID signing or notarization is required, complete signing and
+stapling on the final `.app`, then rebuild both the DMG and ZIP from that same
+signed/stapled bundle, regenerate SHA256SUMS, and run the package verifier
+again. Do not rerun `wails3 task package:release` or
+`wails3 task darwin:package:release` after signing: they rebuild the app and
+apply an ad-hoc signature. The archive-only sequence is to copy the final app
+to both `bin/Nestworth.app` and `dist/macos/Nestworth.app`, run
+`wails3 task darwin:create:dmg`, copy `bin/Nestworth.dmg` to
+`dist/macos/Nestworth-0.3.5-arm64.dmg`, recreate the ZIP with
+`/usr/bin/ditto -c -k --sequesterRsrc --keepParent dist/macos/Nestworth.app dist/macos/Nestworth-0.3.5-arm64.zip`,
+regenerate the manifest, and run `wails3 task darwin:verify:package`. Replace
+only the task-generated app bundle paths, and ensure they are not symlinks.
+Both app copies must come from the same signed/stapled bundle. Regenerate
+`SHA256SUMS` with `shasum -a 256 Nestworth-0.3.5-arm64.dmg
+Nestworth-0.3.5-arm64.zip > SHA256SUMS` from `dist/macos`, then verify it. The package task's usual ad-hoc
+signature is for local launch only. Capture the exact source SHA and artifact
+checksums; build and publish from one unchanged source commit. A successful
+task does not establish accessibility, Gatekeeper, live provider, or minimum
+macOS version acceptance.
 
 See the [v0.3.5 release contract](../releases/v0.3.5.md) for the release
 checklist and evidence status.

@@ -195,6 +195,24 @@ tasks:
         cmp -s "{{.NATIVE_ICNS}}" "$APP/Contents/Resources/icon.icns"
         test "$(lipo -archs "$APP/Contents/MacOS/{{.BUNDLE_NAME}}")" = "arm64"
         codesign --verify --deep --strict "$APP"
+        verify_bundle_payload() {
+          candidate="$1"
+          test -d "$candidate"
+          test ! -L "$candidate"
+          for relpath in "Contents/MacOS/{{.BUNDLE_NAME}}" "Contents/Info.plist" "Contents/Resources/icon.icns"; do
+            test -f "$candidate/$relpath"
+            test ! -L "$candidate/$relpath"
+            cmp -s "$APP/$relpath" "$candidate/$relpath"
+          done
+          cmp -s "{{.NATIVE_ICNS}}" "$candidate/Contents/Resources/icon.icns"
+          if [ -f "$APP/Contents/Resources/Assets.car" ]; then
+            test -f "$candidate/Contents/Resources/Assets.car"
+            test ! -L "$candidate/Contents/Resources/Assets.car"
+            cmp -s "$APP/Contents/Resources/Assets.car" "$candidate/Contents/Resources/Assets.car"
+          else
+            test ! -e "$candidate/Contents/Resources/Assets.car"
+          fi
+        }
         test -f "$DMG"
         hdiutil imageinfo "$DMG" >/dev/null
         VERIFY_TMP="$(mktemp -d)"
@@ -208,6 +226,7 @@ tasks:
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$DMG_APP/Contents/Info.plist")" = "{{.APP_VERSION}}"
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$DMG_APP/Contents/Info.plist")" = "{{.APP_BUILD}}"
         test "$(lipo -archs "$DMG_APP/Contents/MacOS/{{.BUNDLE_NAME}}")" = "arm64"
+        verify_bundle_payload "$DMG_APP"
         codesign --verify --deep --strict "$DMG_APP"
         hdiutil detach "$DMG_MOUNT" >/dev/null
         unzip -tq "$ZIP" >/dev/null
@@ -218,6 +237,7 @@ tasks:
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$EXTRACTED/Contents/Info.plist")" = "{{.APP_VERSION}}"
         test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$EXTRACTED/Contents/Info.plist")" = "{{.APP_BUILD}}"
         test "$(lipo -archs "$EXTRACTED/Contents/MacOS/{{.BUNDLE_NAME}}")" = "arm64"
+        verify_bundle_payload "$EXTRACTED"
         codesign --verify --deep --strict "$EXTRACTED"
         (cd dist/macos && shasum -a 256 -c SHA256SUMS)
         echo "Verified $APP, versioned DMG and metadata-preserving ZIP (ad-hoc signed for local launch; Developer ID/notarization remain open)."
@@ -241,18 +261,130 @@ tasks:
         rm -rf "$STAGING"
 
   create:app:bundle:
-    summary: Creates an `.app` bundle
+    summary: Creates a clean `.app` bundle in the repository build directory
     cmds:
-      - mkdir -p "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/MacOS"
-      - mkdir -p "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources"
-      - cp "{{.NATIVE_ICNS}}" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources/icon.icns"
       - |
-        if [ -f build/darwin/Assets.car ]; then
-          cp build/darwin/Assets.car "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources"
+        set -eu
+        REPO_ROOT="$(pwd -P)"
+        case "{{.BIN_DIR}}" in
+          /*) BIN_REQUEST="{{.BIN_DIR}}" ;;
+          *) BIN_REQUEST="$REPO_ROOT/{{.BIN_DIR}}" ;;
+        esac
+        while [ "$BIN_REQUEST" != "/" ] && [ "${BIN_REQUEST%/}" != "$BIN_REQUEST" ]; do
+          BIN_REQUEST="${BIN_REQUEST%/}"
+        done
+        case "$BIN_REQUEST/" in
+          "$REPO_ROOT/"*) ;;
+          *)
+            echo "Refusing build directory outside the repository: $BIN_REQUEST" >&2
+            exit 1
+            ;;
+        esac
+        if [ -L "$BIN_REQUEST" ]; then
+          echo "Refusing symlinked build directory: $BIN_REQUEST" >&2
+          exit 1
         fi
-      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/MacOS/{{.BUNDLE_NAME}}"
-      - cp build/darwin/Info.plist "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents"
-      - task: '{{if eq OS "darwin"}}codesign:adhoc{{else}}codesign:skip{{end}}'
+        if [ ! -d "$BIN_REQUEST" ]; then
+          BIN_PARENT="$(dirname "$BIN_REQUEST")"
+          if [ ! -d "$BIN_PARENT" ]; then
+            echo "Build directory parent must already exist: $BIN_PARENT" >&2
+            exit 1
+          fi
+          PARENT_PHYS="$(cd "$BIN_PARENT" && pwd -P)"
+          case "$PARENT_PHYS/" in
+            "$REPO_ROOT/"*) ;;
+            *)
+              echo "Refusing build directory through an external parent: $PARENT_PHYS" >&2
+              exit 1
+              ;;
+          esac
+          mkdir "$BIN_REQUEST"
+        fi
+        BIN_PHYS="$(cd "$BIN_REQUEST" && pwd -P)"
+        if [ "$BIN_PHYS" = "$REPO_ROOT" ]; then
+          echo "Refusing to use the repository root as the build output directory" >&2
+          exit 1
+        fi
+        case "$BIN_PHYS/" in
+          "$REPO_ROOT/"*) ;;
+          *)
+            echo "Refusing build directory outside the repository: $BIN_PHYS" >&2
+            exit 1
+            ;;
+        esac
+        case "{{.BUNDLE_NAME}}" in
+          ""|"."|".."|*/*)
+            echo "Invalid application bundle name" >&2
+            exit 1
+            ;;
+        esac
+
+        TARGET="$BIN_PHYS/{{.BUNDLE_NAME}}.app"
+        APP_EXEC="$BIN_PHYS/{{.APP_NAME}}"
+        if [ -L "$TARGET" ] || { [ -e "$TARGET" ] && [ ! -d "$TARGET" ]; }; then
+          echo "Refusing symlink or non-directory app target: $TARGET" >&2
+          exit 1
+        fi
+        if [ -L "$APP_EXEC" ] || [ ! -f "$APP_EXEC" ]; then
+          echo "Expected a regular build executable at $APP_EXEC" >&2
+          exit 1
+        fi
+
+        STAGE_ROOT="$(mktemp -d "$BIN_PHYS/.{{.BUNDLE_NAME}}.app-stage.XXXXXX")"
+        STAGED="$STAGE_ROOT/{{.BUNDLE_NAME}}.app"
+        PREVIOUS="$STAGE_ROOT/previous.app"
+        HAD_OLD=0
+        SWAPPED=0
+        KEEP_STAGE=0
+        cleanup() {
+          if [ "$SWAPPED" -eq 0 ] && [ "$HAD_OLD" -eq 1 ]; then
+            if [ ! -e "$TARGET" ] && [ ! -L "$TARGET" ] && [ -d "$PREVIOUS" ] && [ ! -L "$PREVIOUS" ]; then
+              mv "$PREVIOUS" "$TARGET" || KEEP_STAGE=1
+            else
+              echo "Previous app bundle preserved at $PREVIOUS because it could not be safely restored" >&2
+              KEEP_STAGE=1
+            fi
+          fi
+          if [ "$KEEP_STAGE" -eq 0 ]; then
+            rm -rf "$STAGE_ROOT"
+          fi
+        }
+        trap cleanup EXIT
+
+        mkdir -p "$STAGED/Contents/MacOS" "$STAGED/Contents/Resources"
+        cp "{{.NATIVE_ICNS}}" "$STAGED/Contents/Resources/icon.icns"
+        if [ -f build/darwin/Assets.car ]; then
+          cp build/darwin/Assets.car "$STAGED/Contents/Resources/Assets.car"
+        fi
+        cp "$APP_EXEC" "$STAGED/Contents/MacOS/{{.BUNDLE_NAME}}"
+        cp build/darwin/Info.plist "$STAGED/Contents/Info.plist"
+        if [ "{{OS}}" = "darwin" ]; then
+          codesign --force --deep --sign - "$STAGED"
+        else
+          echo "Skipping codesign (not available on {{OS}}). Sign the .app on macOS before distribution."
+        fi
+
+        if [ -L "$TARGET" ] || { [ -e "$TARGET" ] && [ ! -d "$TARGET" ]; }; then
+          echo "Refusing symlink or non-directory app target: $TARGET" >&2
+          exit 1
+        fi
+        if [ -e "$TARGET" ]; then
+          mv "$TARGET" "$PREVIOUS"
+          HAD_OLD=1
+        fi
+        if [ -e "$TARGET" ] || [ -L "$TARGET" ]; then
+          echo "App target appeared during replacement; refusing to overwrite: $TARGET" >&2
+          exit 1
+        fi
+        if ! mv "$STAGED" "$TARGET"; then
+          echo "Could not move staged app bundle into place: $TARGET" >&2
+          exit 1
+        fi
+        SWAPPED=1
+        if [ "$HAD_OLD" -eq 1 ]; then
+          rm -rf "$PREVIOUS"
+          HAD_OLD=0
+        fi
 
   codesign:adhoc:
     summary: Ad-hoc signs the app bundle (macOS only)
