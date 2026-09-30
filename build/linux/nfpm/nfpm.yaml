@@ -14,7 +14,7 @@ description: "A local-first personal finance desktop application for building an
 vendor: "Nestworth"
 homepage: "https://wails.io"
 license: "MIT"
-release: "4"
+release: "7"
 
 contents:
   - src: "./bin/nestworth"

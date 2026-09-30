@@ -33,16 +33,19 @@ Unicode true
 ####
 ## Include the wails tools
 ####
+!ifndef INFO_APPBUILD
+    !define INFO_APPBUILD "7"
+!endif
 !include "wails_tools.nsh"
 
 # The version information for this two must consist of 4 parts
-VIProductVersion "${INFO_PRODUCTVERSION}.0"
-VIFileVersion    "${INFO_PRODUCTVERSION}.0"
+VIProductVersion "${INFO_PRODUCTVERSION}.${INFO_APPBUILD}"
+VIFileVersion    "${INFO_PRODUCTVERSION}.${INFO_APPBUILD}"
 
 VIAddVersionKey "CompanyName"     "${INFO_COMPANYNAME}"
 VIAddVersionKey "FileDescription" "${INFO_PRODUCTNAME} Installer"
 VIAddVersionKey "ProductVersion"  "${INFO_PRODUCTVERSION}"
-VIAddVersionKey "FileVersion"     "${INFO_PRODUCTVERSION}"
+VIAddVersionKey "FileVersion"     "${INFO_PRODUCTVERSION}.${INFO_APPBUILD}"
 VIAddVersionKey "LegalCopyright"  "${INFO_COPYRIGHT}"
 VIAddVersionKey "ProductName"     "${INFO_PRODUCTNAME}"
 
