@@ -7,23 +7,28 @@ React + TypeScript frontend.
 
 ## Current scope
 
-The application currently provides:
+Nestworth provides a local household balance sheet with:
 
-- Household onboarding and a local SQLite business database;
-- Accounts, Members, Institutions, Groups, Instruments, and Holdings;
-- Multi-currency valuation with explicit user-triggered market-data refresh;
-- Immutable financial changes, History Origin, replay, snapshots, and History;
+- Household Overview, net-worth history, account and ownership breakdowns, and
+  actionable Data Health for missing valuation or market-history inputs;
+- Members, Institutions, Groups, Accounts, Instruments, Holdings, multi-currency
+  cash, and a local activity ledger with History and correction/reversal flows;
 - Average-cost basis, realized/unrealized gain, currency decomposition,
-  Return Analysis, and Asset Changes;
-- Settings for language, appearance, display formats, window state, and FX
-  provider selection;
-- Local backup/restore and structured JSON data export;
-- Gold/silver templates with explicit weight units and converted reference prices;
-- Crypto pricing through CoinGecko, instrument search, and detailed repair progress.
+  Return Analysis, Asset Changes, and contribution detail;
+- Available Funds estimates with source-specific access rules and reservations,
+  plus managed term deposits and locked products with explicit valuation,
+  receipt, redemption, renewal, and undo workflows;
+- Local price/history sources for Yahoo, Tiingo, CoinGecko and Agent-supplied
+  observations, plus Frankfurter FX; external refresh is user-triggered;
+- Local SQLite backup/restore and versioned JSON export for external tools;
+  JSON export is not a restorable backup;
+- A loopback MCP interface with read-only, directory-maintenance, and
+  ledger-writing permission modes, and an optional Nestworth skill for Codex.
 
-Core browsing and editing are local and do not require registration or a
-network connection. Synchronization, direct financial integrations, and
-background refresh remain deferred.
+Core browsing and editing work locally without registration. The app does not
+place brokerage orders. Cloud backup (including Litestream/R2), synchronization,
+direct bank/brokerage integrations, and background refresh are not implemented
+in this release line.
 
 ## Run locally
 
@@ -46,15 +51,20 @@ Build the canonical desktop binary:
 wails3 task build
 ```
 
-Build and verify the local macOS application and arm64 DMG:
+Build and verify the local arm64 macOS application, DMG, ZIP, checksum
+manifest, and standalone user-skill bundle:
 
 ```bash
 wails3 task package:release
 ```
 
-The release output is `dist/macos/Nestworth.app` and
-`dist/macos/Nestworth-0.3.5-arm64.dmg`. Signing, notarization, artifact
-retention, and manual accessibility review remain distribution gates.
+The default outputs are `dist/macos/Nestworth.app`,
+`dist/macos/Nestworth-0.3.5-arm64.dmg`,
+`dist/macos/Nestworth-0.3.5-arm64.zip`, `dist/macos/SHA256SUMS`,
+`dist/skills/nestworth-skill.tar.gz`, and its `.sha256` file. The app is
+ad-hoc signed for local launch. Developer ID signing, notarization, artifact
+retention, native acceptance, and manual accessibility review remain separate
+distribution gates.
 
 ## Technology
 
@@ -101,9 +111,10 @@ with `python3 tools/package-nestworth-skill.py`; no skill is installed by a buil
 
 ## Database support
 
-The app creates and opens only the current SQLite schema (15). Existing files
-with older, unversioned, or future schemas are rejected without migration,
-deletion, or recreation. Backups must contain the current schema and pass
-read-only integrity verification before restore. CSV import and export are no
-longer available; use backup/restore for recovery and the versioned JSON export
-for external copies.
+The app creates new databases with SQLite schema 15 and opens existing
+databases only when they already use schema 15. The schema-11 database from
+v0.3.4 is not automatically upgraded; older, unversioned, or future schemas are
+rejected without migration, deletion, or recreation. Preserve the original
+database and backup. A restore accepts only a current-schema backup that passes
+read-only verification. JSON export is a structured external copy, not a
+restorable backup. CSV import and export are no longer available.

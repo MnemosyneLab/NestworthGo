@@ -14,7 +14,8 @@ the startup/onboarding gates are defined by
 - [Visual analytics and market history](visual-analytics-and-market-history.md) — Implemented chart and local quote-history surfaces, with external historical-series work still planned.
 - [Analytics redesign architecture](analytics/analytics-redesign-architecture.md) — Return Analysis and Asset Changes: kernel, projections, golden cases. Product and [wireframe](analytics/analytics-wireframes.md) companions live in the same folder. Desktop smoke is still pending.
 - [Monthly review and data confidence](monthly-review-and-data-confidence.md) — Planned local month-end review loop. Not part of `0.3.5`.
-- [Available funds implementation plan](available-funds-implementation-plan.md) — Available Funds page, term deposits, locked products, atomic lifecycle operations, and staged implementation/acceptance checklist. Implemented on this branch; native macOS walkthrough remains a separate gate.
+- [Available Funds, Term Deposits, and Locked Products](available-funds.md) — Implemented liquidity estimates, source rules, reservations, explicit contract lifecycle operations, and exclusions.
+- [Household navigation and actionable Data Health](household-navigation-and-health.md) — Implemented household navigation, trend completeness and repair-entry behavior.
 
 ## Current screen map
 

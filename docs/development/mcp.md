@@ -183,7 +183,7 @@ preserve daily instrument metadata; they do not create ledger activities.
   Follow with `get_market_data` and `scan_data_health`. An initially unconfigured
   FX pair gets an Agent preference; an existing preference remains unchanged.
 - Full SQLite backup and JSON export retain the Agent facts and audit records.
-  Schema 15 upgrades quote-source constraints and adds durable import/audit
+  Schema 15 stores the quote-source constraints and durable import/audit
   tables. Existing provider/manual records and source preferences are preserved.
 
 Validation: full Go suite; application Agent-flow and MCP import race tests;
@@ -351,8 +351,12 @@ erroneous historical trade, use the historical fix workflow instead.
 
 Generic undo/fix is not offered for a cost-adjustment record; submit a new target
 cost to correct it again. The frontend displays its cost effect in activity
-history. SQLite schema v14 preserves these events in backups and JSON export;
-existing v13 databases are migrated when opened for writing.
+history. Schema 15 is the current and only supported schema for existing
+databases. Existing files are probed read-only and rejected without modification
+if they are not schema 15; this includes the schema-11 database from v0.3.4,
+older, unversioned, and future schemas. There is no automatic schema migration.
+This cost-adjustment event is preserved in full SQLite backups and versioned
+household JSON exports.
 
 `preview_correction` takes `activityId` and one of:
 
@@ -446,10 +450,10 @@ rejected: this operation does not add to or reconcile an existing quantity.
 Archived and managed-product instruments are also rejected. It can be used with
 single preview/commit or inside an atomic batch.
 
-The additive `change_batch_mutation_keys` table follows the existing mutation
-key repair path: opening an older writable database adds it without changing
-existing facts or the schema version. Read-only verification accepts older schema-v13 backups without creating a
-table; the existing restrictions on read-only v9–v12 backups are unchanged. Full SQLite backups preserve batch receipts;
+Batch retries use the `change_batch_mutation_keys` table in supported schema-15
+databases. Existing databases must already use schema 15: older databases and
+backup files, including schema-v13 files, are rejected without adding a table
+or changing the file. Full SQLite backups preserve batch receipts;
 credential-free household JSON exports exclude retry bookkeeping.
 
 ## Historical queries

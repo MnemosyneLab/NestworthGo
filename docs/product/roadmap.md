@@ -6,11 +6,19 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
-## 0.3.5 — Development baseline
+## 0.3.5 — Household liquidity and agent workflows
 
-Status: `In progress` (current development line, build `6`). Only version
-metadata has advanced; feature scope has not been assigned. See the
-[release contract](../releases/v0.3.5.md).
+Status: Release preparation (unreleased, build 6). The current tree includes
+household overview and Data Health improvements, Available Funds with
+reservations and managed deposits/locked products, expanded local MCP ledger,
+analysis, correction and repair tools, Agent-supplied market data, and the
+Wails v3.0.0-beta.26 upgrade. SQLite schema 15 is current. See the
+[release contract](../releases/v0.3.5.md) for compatibility, scope and pending
+acceptance gates.
+
+Schema 11 databases from v0.3.4 are not upgraded by this line. Cloud backup
+(including Litestream/R2), synchronization, direct bank/brokerage connections
+and background refresh remain deferred.
 
 ## 0.3.4 — Portfolio, settings, and insights closeout
 

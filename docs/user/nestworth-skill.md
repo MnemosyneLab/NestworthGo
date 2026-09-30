@@ -121,8 +121,10 @@ python3 tools/package-nestworth-skill.py
 
 Equivalent tasks are `wails3 task skill:check` and `wails3 task skill:package`.
 Packaging writes `dist/skills/nestworth-skill.tar.gz` and its `.sha256`, with
-reproducible contents. It does not install anything. Upload **both** unchanged
-assets to the intended App release; verify skill version/content when updating.
+reproducible contents. It does not install anything. The Mac release task also
+runs this package step and verifies the adjacent checksum. Upload **both**
+unchanged assets to the intended App release; verify skill version/content
+when updating.
 
 MCP argument examples are exercised by `go test ./internal/mcpserver -run Skill`
 against temporary databases and loopback HTTP. These tests validate examples and

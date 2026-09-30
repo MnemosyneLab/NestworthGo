@@ -22,13 +22,14 @@ or visual prototype bundles.
 | Design | [Visual Analytics and Market History](design/visual-analytics-and-market-history.md) | Implemented chart surfaces and planned historical-series work |
 | Design | [Analytics redesign](design/analytics/analytics-redesign-architecture.md) | Return Analysis and Asset Changes kernel, projections, and golden cases |
 | Design | [Monthly review and data confidence](design/monthly-review-and-data-confidence.md) | Planned as-of review loop; not in the current release |
-| Design | [Available funds implementation plan](design/available-funds-implementation-plan.md) | Planned liquidity rules, deposits/locked products, lifecycle accounting, and implementation acceptance |
+| Design | [Available Funds, Term Deposits, and Locked Products](design/available-funds.md) | Implemented liquidity estimates, reservations, explicit product operations, and current limits |
 | Development | [Engineering Guide](development/engineering-guide.md) | Setup, code rules, tests, packaging, and documentation maintenance |
 | Development | [Local Development and Packaging](development/local-workflow.md) | Clean-checkout setup, Wails dev, bindings, app/DMG builds, and release smoke |
-| Development | [Local MCP](development/mcp.md) | Agent connection, permissions, implemented tools, and staged delivery |
+| Development | [Local MCP](development/mcp.md) | Loopback transport, permission modes, implemented query and write tools, and safety boundaries |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
 | Release | [v0.3.5 Contract](releases/v0.3.5.md) | Scope, acceptance, and release gates for the current line |
+| QA | [QA Archive](qa/README.md) | Selected historical verification reports; current release gates remain in the release contract |
 
 ## Source of truth
 

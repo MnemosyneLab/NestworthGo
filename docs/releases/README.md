@@ -1,13 +1,13 @@
 # Release Documents
 
-The current development line is `v0.3.5` / build `6`. The release contract
-below is the single maintained scope and acceptance document for this line,
-including the evidence boundary for gates that were not run locally.
+The current unreleased candidate is v0.3.5 / build 6. The release contract
+below owns its scope, schema compatibility, release evidence, and outstanding
+native/distribution gates.
 
 ## Current release
 
-- [v0.3.5 release contract](v0.3.5.md) — unreleased development baseline;
-  feature scope has not been assigned.
+- [v0.3.5 release contract](v0.3.5.md) — unreleased candidate with household
+  liquidity and MCP/agent workflows; CI and native acceptance remain pending.
 
 ## Published history
 
