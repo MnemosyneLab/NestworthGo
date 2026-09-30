@@ -22,6 +22,11 @@ func TestMarketDataSyncPreviewStartGetAndEvents(t *testing.T) {
 		t.Fatal(err)
 	}
 	emitter := newFakeEmitter()
+	// This test reads the event history directly. Saturate the wakeup channel
+	// to ensure neither starting nor finishing a sync depends on draining it.
+	for index := 0; index < cap(emitter.notify); index++ {
+		emitter.notify <- struct{}{}
+	}
 	service := marketdata.NewService(app, emitter)
 	preview, err := service.PreviewMarketDataSync(marketdata.SyncRequestDTO{Scope: "repair_all"})
 	if err != nil {
@@ -56,26 +61,65 @@ func TestMarketDataSyncPreviewStartGetAndEvents(t *testing.T) {
 		t.Fatalf("current job %s, latest start %s", current.JobID, attached.Job.JobID)
 	}
 	deadline := time.Now().Add(3 * time.Second)
+	completed := false
 	for time.Now().Before(deadline) {
 		job, found := app.GetSyncJob(attached.Job.JobID)
 		if !found {
 			t.Fatal("started job not found in application state")
 		}
 		if job.Outcome != "" && job.Outcome != application.SyncOutcomeRunning {
+			if job.Outcome != application.SyncOutcomeSucceeded {
+				t.Fatalf("sync did not succeed: %+v", job)
+			}
+			completed = true
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	gotStarted := false
-	emitter.mu.Lock()
-	for _, event := range emitter.events {
-		if event.name == marketdata.SyncStartedEvent {
-			gotStarted = true
-		}
+	if !completed {
+		t.Fatal("sync did not complete before the deadline")
 	}
-	emitter.mu.Unlock()
-	if !gotStarted {
-		t.Fatal("missing marketdata.sync.started")
+	// A terminal snapshot becomes visible before its listener returns. Join
+	// the worker so all events are recorded and cleanup is known to return.
+	app.CancelMarketDataSyncAndWait()
+	jobs := map[string][]marketdata.SyncJobDTO{start.Job.JobID: nil, attached.Job.JobID: nil}
+	emitter.mu.Lock()
+	defer emitter.mu.Unlock()
+	for _, event := range emitter.events {
+		payload, ok := event.data.(marketdata.SyncJobDTO)
+		if !ok {
+			t.Fatalf("event %s has unexpected payload: %#v", event.name, event.data)
+		}
+		snapshots, known := jobs[payload.JobID]
+		if !known {
+			t.Fatalf("event %s refers to unknown job %s", event.name, payload.JobID)
+		}
+		if payload.Sequence != len(snapshots)+1 {
+			t.Fatalf("job %s event sequence = %d, want %d", payload.JobID, payload.Sequence, len(snapshots)+1)
+		}
+		wantEvent := marketdata.SyncProgressEvent
+		if len(snapshots) == 0 {
+			wantEvent = marketdata.SyncStartedEvent
+		} else if payload.Outcome != application.SyncOutcomeRunning {
+			wantEvent = marketdata.SyncCompletedEvent
+		}
+		if event.name != wantEvent {
+			t.Fatalf("job %s sequence %d event = %s, want %s", payload.JobID, payload.Sequence, event.name, wantEvent)
+		}
+		jobs[payload.JobID] = append(snapshots, payload)
+	}
+	for jobID, snapshots := range jobs {
+		job, found := app.GetSyncJob(jobID)
+		if !found || job.Outcome != application.SyncOutcomeSucceeded {
+			t.Fatalf("job %s did not succeed: %+v found=%t", jobID, job, found)
+		}
+		if len(snapshots) != job.Sequence {
+			t.Fatalf("job %s captured %d events, want %d", jobID, len(snapshots), job.Sequence)
+		}
+		last := snapshots[len(snapshots)-1]
+		if last.Outcome != job.Outcome || last.Phase != job.Phase {
+			t.Fatalf("job %s completion event = %+v, want phase %s outcome %s", jobID, last, job.Phase, job.Outcome)
+		}
 	}
 }
 
