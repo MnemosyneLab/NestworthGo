@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -21,6 +22,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/appports"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/backup"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/marketdata"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 	"github.com/waltwang/nestworth-go/internal/mcpserver"
@@ -32,6 +34,7 @@ import (
 	wailsanalytics "github.com/waltwang/nestworth-go/internal/wailsapi/analytics"
 	wailsapp "github.com/waltwang/nestworth-go/internal/wailsapi/app"
 	wailscatalog "github.com/waltwang/nestworth-go/internal/wailsapi/catalog"
+	wailsbackup "github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup"
 	wailsdata "github.com/waltwang/nestworth-go/internal/wailsapi/data"
 	wailsdirectory "github.com/waltwang/nestworth-go/internal/wailsapi/directory"
 	wailshistory "github.com/waltwang/nestworth-go/internal/wailsapi/history"
@@ -95,6 +98,12 @@ func run() error {
 	}
 
 	databasePath := defaultDatabasePath()
+	unlockInstance, lockErr := backup.AcquireInstanceLock(databasePath)
+	if lockErr != nil {
+		slog.Error("could not acquire the local database instance lock")
+		return lockErr
+	}
+	defer unlockInstance()
 	var database *sqlite.DB
 	defer func() {
 		if database != nil {
@@ -192,6 +201,23 @@ func run() error {
 		appService = wailsapp.NewServiceWithSchema(startupErr, foundSchema, supportedSchema)
 	}
 	recoveryUseCase := nestworthapp.NewRecovery(databasePath, backup.NewRuntime(), service)
+	cloudBackup, cloudErr := continuousbackup.New(databasePath, database)
+	if cloudErr != nil {
+		slog.Warn("continuous backup configuration is unavailable")
+	}
+	if cloudBackup != nil {
+		recoveryUseCase.SetBeforeRestore(cloudBackup.PauseForRestore)
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			if cloudBackup.Close(ctx) != nil {
+				slog.Warn("continuous backup shutdown was incomplete")
+			}
+		}()
+		if err := cloudBackup.Start(context.Background()); err != nil {
+			slog.Warn("continuous backup did not start; local app remains available")
+		}
+	}
 	recoveryService := wailsrecovery.NewService(recoveryUseCase, platform, platform, refreshGate(marketdataService))
 	defer recoveryService.Shutdown()
 	var dataService *wailsdata.Service
@@ -200,6 +226,7 @@ func run() error {
 	}
 	var agentServer *mcpserver.Service
 	registered := services(service, store, recoveryService, dataService, marketdataService, appService)
+	registered = append(registered, application.NewService(wailsbackup.NewService(cloudBackup, service, recoveryUseCase, recoveryService)))
 	if service != nil {
 		agentServer = mcpserver.New(service, mcpserver.Directory(store.Path, databasePath), func() { emitter.Emit(mcpserver.ChangedEvent, true) }, sqlite.NewConfigurationRepository(database))
 		defer agentServer.Close()

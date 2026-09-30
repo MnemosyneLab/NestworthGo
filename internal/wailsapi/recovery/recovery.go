@@ -68,6 +68,10 @@ func (s *Service) InspectBackup() (RestorePreviewDTO, error) {
 	if err != nil {
 		return RestorePreviewDTO{}, apierror.Wrap(err)
 	}
+	return PreviewDTO(preview), nil
+}
+
+func PreviewDTO(preview application.RestorePreview) RestorePreviewDTO {
 	return RestorePreviewDTO{
 		Token: preview.Token, FileName: preview.FileName, CreatedAt: preview.CreatedAt,
 		AppVersion: preview.AppVersion, AppBuild: preview.AppBuild, SchemaVersion: preview.SchemaVersion,
@@ -76,7 +80,7 @@ func (s *Service) InspectBackup() (RestorePreviewDTO, error) {
 		CurrentHousehold: preview.CurrentHousehold, CurrentCurrency: preview.CurrentCurrency, CurrentAccounts: preview.CurrentAccounts,
 		CurrentHoldings: preview.CurrentHoldings, CurrentActivities: preview.CurrentActivities,
 		SettingsReadable: preview.SettingsReadable, HasOpenSession: preview.HasOpenSession,
-	}, nil
+	}
 }
 
 type RestoreConfirmRequest struct {
