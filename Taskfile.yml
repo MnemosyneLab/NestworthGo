@@ -18,6 +18,19 @@ includes:
   linux: ./build/linux/Taskfile.yml
 
 tasks:
+  skill:check:
+    summary: Validates the portable Nestworth skill and isolated installer tests
+    cmds:
+      - python3 tools/check-nestworth-skill.py
+      - python3 -m unittest discover -s tools/tests -v
+
+  skill:package:
+    summary: Packages the user skill and installer without installing it
+    deps:
+      - skill:check
+    cmds:
+      - python3 tools/package-nestworth-skill.py
+
   setup:
     summary: Sets up Go and frontend dependencies and generates Wails bindings
     desc: |

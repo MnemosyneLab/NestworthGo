@@ -21,6 +21,10 @@
 *.test
 coverage.out
 
+# Skill validation/packaging helpers
+__pycache__/
+*.pyc
+
 # Taskfile / Wails checksum cache
 .task/
 

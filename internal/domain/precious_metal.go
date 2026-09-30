@@ -1,14 +1,29 @@
 package domain
 
 import (
-	"github.com/shopspring/decimal"
+	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 const TroyOunceGrams = "31.1034768"
 const MetalConversionPolicy = "metal_usd_troy_ounce_v1"
 const MetalFuturesMarket = "COMEX"
+
+// MetalConversionRawQuotedAt identifies the immutable raw observation behind
+// a converted price. FX recalculations are versions of that observation.
+func MetalConversionRawQuotedAt(value string) (time.Time, bool) {
+	var evidence struct {
+		Policy      string    `json:"policy"`
+		RawQuotedAt time.Time `json:"rawQuotedAt"`
+	}
+	if json.Unmarshal([]byte(value), &evidence) != nil || evidence.Policy != MetalConversionPolicy || evidence.RawQuotedAt.IsZero() {
+		return time.Time{}, false
+	}
+	return evidence.RawQuotedAt, true
+}
 
 func MetalProviderSymbol(template string) string {
 	switch template {

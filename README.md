@@ -89,6 +89,16 @@ testdata/               Sanitized deterministic compatibility fixtures
 Read the [documentation index](docs/README.md) for the maintained project
 contracts.
 
+## Use with Codex
+
+The optional [Nestworth skill](docs/user/nestworth-skill.md) guides a local Codex
+client through the App's MCP for accounts, investments, recording transactions,
+reconciliation, data health and analysis. Install/update from a checkout with
+`bash tools/install-nestworth-skill.sh`, or use a standalone release skill bundle.
+This does not enable MCP or grant permission; connect through the App's
+**Settings → AI / MCP** separately. Maintainers can build the independent bundle
+with `python3 tools/package-nestworth-skill.py`; no skill is installed by a build.
+
 ## Upgrading to 0.3.4
 
 Preserve a backup and a closed copy of the existing database before upgrading.

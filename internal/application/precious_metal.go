@@ -25,6 +25,17 @@ type metalConversionEvidence struct {
 }
 
 type metalCacheKey struct{}
+
+// Retained conversion evidence is useful history, but cannot supply a current
+// local-currency price after its last eligible exchange rate is withdrawn.
+func convertedMetalRequiresFX(instrument domain.Instrument, quote *domain.InstrumentQuote) bool {
+	if quote == nil || !instrument.UsesMetalConversion() || instrument.QuoteCurrency == "USD" || quote.SourceKind != domain.QuoteSourceProvider {
+		return false
+	}
+	_, converted := domain.MetalConversionRawQuotedAt(quote.ConversionJSON)
+	return converted
+}
+
 type metalLatestResult struct {
 	quote LatestInstrumentQuote
 	err   error
@@ -344,7 +355,7 @@ func (s *Service) repriceMetalsForFX(ctx context.Context, householdID domain.Hou
 			return err
 		}
 		var evidence metalConversionEvidence
-		found := false
+		var selection currentQuoteSelection[*domain.InstrumentQuote]
 		for _, quote := range quotes {
 			if quote.SourceKind != domain.QuoteSourceProvider || quote.ConversionJSON == "" {
 				continue
@@ -355,11 +366,17 @@ func (s *Service) repriceMetalsForFX(ctx context.Context, householdID domain.Hou
 			if evidence.Policy != domain.MetalConversionPolicy || evidence.Symbol != domain.MetalProviderSymbol(instrument.MetalTemplate) {
 				continue
 			}
-			found = true
-			break
+			// An FX timestamp must not make an older raw metal observation win.
+			order := instrumentQuoteOrder(quote)
+			order.date, order.rawAt = "", evidence.RawQuotedAt
+			selection.add(&quote, order)
 		}
-		if !found {
+		selected := selection.selected()
+		if selected == nil {
 			continue
+		}
+		if err := json.Unmarshal([]byte(selected.ConversionJSON), &evidence); err != nil {
+			return err
 		}
 		raw, err := domain.ParseUnitPrice(evidence.RawPrice)
 		if err != nil {

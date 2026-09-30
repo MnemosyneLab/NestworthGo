@@ -178,3 +178,43 @@ func TestAgentStockClosedDaysCarryCompleteButMissingTradingDayDoesNot(t *testing
 		t.Fatalf("NAV carry should remain incomplete on missing date: %+v", selection)
 	}
 }
+
+func TestAgentMixedDailyAndRealtimeSelectionIsOrderIndependent(t *testing.T) {
+	day := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
+	id := domain.NewInstrumentID()
+	householdID := domain.NewHouseholdID()
+	instrument := domain.Instrument{ID: id, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider}
+	preference := domain.FXPreference{HouseholdID: householdID, SourceKind: domain.QuoteSourceProvider}
+	points := []domain.QuoteSeriesPoint{
+		{ID: "agent-close", SourceKind: domain.QuoteSourceAgent, ObservationKind: "close", EffectiveDate: "2026-09-20", QuotedAt: day, Value: "10"},
+		{ID: "provider-close", SourceKind: domain.QuoteSourceProvider, ObservationKind: "close", EffectiveDate: "2026-09-20", QuotedAt: day.Add(16 * time.Hour), Value: "11"},
+		{ID: "provider-realtime", SourceKind: domain.QuoteSourceProvider, ObservationKind: "realtime", QuotedAt: day.Add(12 * time.Hour), Value: "12"},
+	}
+	quotes := make([]domain.InstrumentQuote, 3)
+	fx := make([]domain.FXQuote, 3)
+	for n, point := range points {
+		price, _ := domain.ParseUnitPrice(point.Value)
+		rate, _ := domain.ParseFxRate(point.Value)
+		quotes[n] = domain.InstrumentQuote{ID: domain.NewInstrumentQuoteID(), InstrumentID: id, Currency: "USD", UnitPrice: price, SourceKind: point.SourceKind, ObservationKind: point.ObservationKind, EffectiveDate: point.EffectiveDate, QuotedAt: point.QuotedAt}
+		kind := string(FXObservationLatest)
+		if point.EffectiveDate != "" {
+			kind = string(FXObservationDailyReference)
+		}
+		fx[n] = domain.FXQuote{ID: domain.NewFXQuoteID(), HouseholdID: householdID, BaseCurrency: "USD", QuoteCurrency: "SGD", Rate: rate, SourceKind: point.SourceKind, ObservationKind: kind, EffectiveDate: point.EffectiveDate, QuotedAt: point.QuotedAt}
+	}
+	for _, order := range [][3]int{{0, 1, 2}, {0, 2, 1}, {1, 0, 2}, {1, 2, 0}, {2, 0, 1}, {2, 1, 0}} {
+		orderedQuotes := []domain.InstrumentQuote{quotes[order[0]], quotes[order[1]], quotes[order[2]]}
+		if got := selectInstrumentQuote(instrument, orderedQuotes); got == nil || got.ID != quotes[2].ID {
+			t.Fatalf("order %v selected instrument %+v", order, got)
+		}
+		orderedFX := []domain.FXQuote{fx[order[0]], fx[order[1]], fx[order[2]]}
+		if got := selectFXQuote(preference, orderedFX, "USD", "SGD", "", nil); got == nil || got.ID != fx[2].ID {
+			t.Fatalf("order %v selected FX %+v", order, got)
+		}
+		orderedPoints := []domain.QuoteSeriesPoint{points[order[0]], points[order[1]], points[order[2]]}
+		got := chartQuotePoints(orderedPoints, domain.TrendOneYear, time.UTC)
+		if len(got) != 1 || got[0].ID != points[2].ID {
+			t.Fatalf("order %v selected chart %+v", order, got)
+		}
+	}
+}

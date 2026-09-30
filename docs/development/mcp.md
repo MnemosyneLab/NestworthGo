@@ -149,11 +149,20 @@ preserve daily instrument metadata; they do not create ledger activities.
 
 ### Selection, coverage and rebuilding
 
-- Current realtime values compare actual quote timestamps, with Agent winning
-  ties. When both candidates are daily values for the same date, Agent wins
-  without treating a date-label anchor as a real midnight quote.
+- Current selection first resolves daily observations by effective date (Agent
+  wins for the same date), and separately selects the latest realtime value.
+  Those winners compare actual quote timestamps, with Agent winning ties.
+  Daily date-label anchors retain their original timestamp. The portfolio and
+  direct quote APIs use the same candidates and selection rules.
   Historical Agent close/NAV/reference values win for their exact effective
   date. Retained provider/manual facts become eligible again after withdrawal.
+- Date-range charts filter daily NAV/close/reference values by `effectiveDate`,
+  including when the observation timezone differs from the household timezone.
+  Realtime values and explicit timestamp queries keep instant-based bounds.
+- Metal conversion revisions retain the original raw observation and FX times.
+  Withdrawing an FX quote appends a recalculation using the fallback rate, even
+  when that rate has an older timestamp or restores a previously saved value.
+  Without an eligible fallback rate, current converted prices are unavailable.
 - Normal sync skips exact daily dates covered by Agent observations, including
   ordinary recent-correction rechecks. A fresh current Agent quote suppresses
   the corresponding normal latest fetch. Missing dates and stale latest quotes

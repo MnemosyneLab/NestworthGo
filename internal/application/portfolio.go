@@ -37,8 +37,11 @@ type InstrumentInput struct {
 // QuoteHistoryQuery keeps local quote-history reads bounded and deterministic
 // without exposing repository SQL details to the UI.
 type QuoteHistoryQuery struct {
-	From       *time.Time
-	To         *time.Time
+	From *time.Time
+	To   *time.Time
+	// Civil-date bounds apply to daily observations; intraday data keeps From/To.
+	FromDate   string
+	ToDate     string
 	SourceKind *domain.QuoteSourceKind
 	CurrencyA  domain.CurrencyCode
 	CurrencyB  domain.CurrencyCode
@@ -106,7 +109,17 @@ func (s *Service) CurrentInstrumentQuote(ctx context.Context, id domain.Instrume
 	if err != nil {
 		return nil, err
 	}
-	return selectInstrumentQuote(instrument, quotes), nil
+	quote := selectInstrumentQuote(instrument, quotes)
+	if convertedMetalRequiresFX(instrument, quote) {
+		fx, err := s.CurrentFXQuote(ctx, "USD", instrument.QuoteCurrency)
+		if err != nil {
+			return nil, err
+		}
+		if fx == nil {
+			return nil, nil
+		}
+	}
+	return quote, nil
 }
 
 // InstrumentQuoteHistory returns the locally persisted quote facts for one
@@ -158,10 +171,7 @@ func filterInstrumentQuoteHistory(quotes []domain.InstrumentQuote, query QuoteHi
 		if query.SourceKind != nil && quote.SourceKind != *query.SourceKind {
 			continue
 		}
-		if query.From != nil && quote.QuotedAt.Before(*query.From) {
-			continue
-		}
-		if query.To != nil && quote.QuotedAt.After(*query.To) {
+		if !quoteHistoryContains(quote.QuotedAt, quote.EffectiveDate, query) {
 			continue
 		}
 		filtered = append(filtered, quote)
@@ -195,10 +205,7 @@ func filterFXQuoteHistory(quotes []domain.FXQuote, query QuoteHistoryQuery) []do
 		if query.SourceKind != nil && quote.SourceKind != *query.SourceKind {
 			continue
 		}
-		if query.From != nil && quote.QuotedAt.Before(*query.From) {
-			continue
-		}
-		if query.To != nil && quote.QuotedAt.After(*query.To) {
+		if !quoteHistoryContains(quote.QuotedAt, quote.EffectiveDate, query) {
 			continue
 		}
 		filtered = append(filtered, quote)
@@ -210,6 +217,13 @@ func filterFXQuoteHistory(quotes []domain.FXQuote, query QuoteHistoryQuery) []do
 		filtered = filtered[:query.Limit]
 	}
 	return filtered
+}
+
+func quoteHistoryContains(quotedAt time.Time, effectiveDate string, query QuoteHistoryQuery) bool {
+	if effectiveDate != "" && (query.FromDate != "" || query.ToDate != "") {
+		return (query.FromDate == "" || effectiveDate >= query.FromDate) && (query.ToDate == "" || effectiveDate <= query.ToDate)
+	}
+	return (query.From == nil || !quotedAt.Before(*query.From)) && (query.To == nil || !quotedAt.After(*query.To))
 }
 
 // CurrentFXQuote selects the latest local quote for the configured source of
@@ -243,7 +257,7 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domai
 		return nil, err
 	}
 	providerKey := s.FXProviderKey()
-	var selected *domain.FXQuote
+	var selection currentQuoteSelection[*domain.FXQuote]
 	for index := range quotes {
 		quote := &quotes[index]
 		quoteA, quoteB, normalizeErr := domain.NormalizeFXPair(quote.BaseCurrency, quote.QuoteCurrency)
@@ -253,11 +267,9 @@ func (s *Service) CurrentFXQuote(ctx context.Context, currencyA, currencyB domai
 		if quote.SourceKind == domain.QuoteSourceProvider && providerKey != "" && strings.ToLower(strings.TrimSpace(quote.SourceKey)) != providerKey {
 			continue
 		}
-		if selected == nil || currentFXQuoteLater(*quote, *selected) {
-			selected = quote
-		}
+		selection.add(quote, fxQuoteOrder(*quote))
 	}
-	return selected, nil
+	return selection.selected(), nil
 }
 
 func (s *Service) UpdateInstrument(ctx context.Context, id domain.InstrumentID, input InstrumentInput) (domain.Instrument, error) {

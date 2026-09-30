@@ -1,0 +1,6 @@
+interface:
+  display_name: "Nestworth"
+  short_description: "Manage your Nestworth ledger through local MCP"
+  default_prompt: "Use $nestworth to help me maintain my accounts and investments in the running Nestworth App."
+policy:
+  allow_implicit_invocation: true

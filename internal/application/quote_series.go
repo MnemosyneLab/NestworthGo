@@ -31,6 +31,8 @@ func (s *Service) InstrumentQuoteSeries(ctx context.Context, id domain.Instrumen
 	for _, quote := range quotes {
 		observations = append(observations, domain.QuoteSeriesPoint{
 			ID:              quote.ID.String(),
+			Revision:        quote.Revision,
+			ConversionJSON:  quote.ConversionJSON,
 			ObservationKind: quote.ObservationKind,
 			EffectiveDate:   quote.EffectiveDate,
 			PriceBasis:      quote.PriceBasis,
@@ -147,6 +149,7 @@ func quoteHistoryQuery(trendRange domain.TrendRange, sourceFilter domain.QuoteSo
 		to, _ := time.ParseInLocation("2006-01-02", toDate, location)
 		to = to.AddDate(0, 0, 1).Add(-time.Nanosecond)
 		query.From, query.To = &from, &to
+		query.FromDate, query.ToDate = fromDate, toDate
 		return query
 	}
 	localNow := now.In(location)
@@ -156,12 +159,15 @@ func quoteHistoryQuery(trendRange domain.TrendRange, sourceFilter domain.QuoteSo
 	case domain.Trend30Days:
 		from := today.AddDate(0, 0, -29)
 		query.From = &from
+		query.FromDate = from.Format(time.DateOnly)
 	case domain.TrendYearToDate:
 		from := time.Date(today.Year(), time.January, 1, 0, 0, 0, 0, location)
 		query.From = &from
+		query.FromDate = from.Format(time.DateOnly)
 	case domain.TrendOneYear:
 		from := today.AddDate(0, 0, -364)
 		query.From = &from
+		query.FromDate = from.Format(time.DateOnly)
 	}
 	return query
 }
@@ -207,7 +213,7 @@ func chartQuotePoints(observations []domain.QuoteSeriesPoint, trendRange domain.
 	if location == nil {
 		location = time.UTC
 	}
-	selected := map[string]domain.QuoteSeriesPoint{}
+	selected := map[string]*currentQuoteSelection[domain.QuoteSeriesPoint]{}
 	keepIntraday := trendRange == domain.Trend30Days
 	if from, to, ok := trendRange.DateBounds(); ok {
 		start, _ := time.Parse("2006-01-02", from)
@@ -224,14 +230,16 @@ func chartQuotePoints(observations []domain.QuoteSeriesPoint, trendRange domain.
 		} else if observation.EffectiveDate != "" && (observation.ObservationKind == string(InstrumentObservationClose) || observation.ObservationKind == string(FXObservationDailyReference)) {
 			key = "daily:" + observation.EffectiveDate
 		}
-		current, exists := selected[key]
-		if !exists || chartPointLater(observation, current) {
-			selected[key] = observation
+		group := selected[key]
+		if group == nil {
+			group = &currentQuoteSelection[domain.QuoteSeriesPoint]{}
+			selected[key] = group
 		}
+		group.add(observation, chartQuoteOrder(observation))
 	}
 	points := make([]domain.QuoteSeriesPoint, 0, len(selected))
-	for _, point := range selected {
-		points = append(points, point)
+	for _, group := range selected {
+		points = append(points, group.selected())
 	}
 	sort.Slice(points, func(i, j int) bool {
 		if !points[i].QuotedAt.Equal(points[j].QuotedAt) {
@@ -243,15 +251,6 @@ func chartQuotePoints(observations []domain.QuoteSeriesPoint, trendRange domain.
 		return points[i].ID < points[j].ID
 	})
 	return points
-}
-
-func chartPointLater(candidate, selected domain.QuoteSeriesPoint) bool {
-	dailyCandidate := candidate.ObservationKind == string(InstrumentObservationClose) || candidate.ObservationKind == string(FXObservationDailyReference)
-	dailySelected := selected.ObservationKind == string(InstrumentObservationClose) || selected.ObservationKind == string(FXObservationDailyReference)
-	if dailyCandidate && dailySelected && candidate.EffectiveDate == selected.EffectiveDate && candidate.SourceKind != selected.SourceKind && (candidate.SourceKind == domain.QuoteSourceAgent || selected.SourceKind == domain.QuoteSourceAgent) {
-		return candidate.SourceKind == domain.QuoteSourceAgent
-	}
-	return currentQuoteLater(candidate.SourceKind, candidate.QuotedAt, candidate.CreatedAt, candidate.ID, selected.SourceKind, selected.QuotedAt, selected.CreatedAt, selected.ID)
 }
 
 func sortQuoteSeriesNewestFirst(points []domain.QuoteSeriesPoint) {

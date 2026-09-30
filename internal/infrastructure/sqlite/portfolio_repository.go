@@ -496,6 +496,17 @@ func (r *Repository) AppendProviderInstrumentQuoteIfChanged(ctx context.Context,
 		if instrumentCurrency != quote.Currency.String() {
 			return &domain.Error{Code: domain.ErrValidation, Field: "currency", Message: "quote currency does not match instrument"}
 		}
+		if rawAt, converted := domain.MetalConversionRawQuotedAt(quote.ConversionJSON); converted {
+			var err error
+			inserted, err = appendConvertedInstrumentQuoteTx(ctx, tx, quote, rawAt)
+			if err != nil {
+				return err
+			}
+			if inserted {
+				return markQuoteHistoryDirtyTx(ctx, tx, quote.InstrumentID, quote.QuotedAt, quote.CreatedAt)
+			}
+			return nil
+		}
 		result, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id, instrument_id, unit_price, currency, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, fetched_at, revision, conversion_json)
 			SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?
 			WHERE NOT EXISTS (
@@ -883,26 +894,20 @@ func listInstrumentQuotesQuery(ctx context.Context, query queryer, householdID d
 	if err != nil {
 		return nil, err
 	}
-	statement := `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed
-		FROM instrument_quotes q
-		JOIN instruments i ON i.id = q.instrument_id
-		WHERE i.household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = q.id)`
+	columns := "q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed"
 	if modern {
-		statement = `SELECT q.id, q.instrument_id, q.unit_price, q.currency, q.source_kind, q.source_key, q.quoted_at, q.created_at, q.delayed, q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash, q.conversion_json
-		FROM instrument_quotes q
-		JOIN instruments i ON i.id = q.instrument_id
-		WHERE i.household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = q.id)`
+		columns += ", q.observation_kind, q.effective_date, q.provider_timestamp, q.fetched_at, q.value_effective_at, q.binding_revision, q.source_policy_version, q.price_basis, q.timestamp_basis, q.revision, q.supersedes_quote_id, q.split_factor, q.dividend_cash, q.conversion_json"
 	}
-	statement += `
-		AND NOT EXISTS (
-			SELECT 1 FROM instrument_quotes newer
-			WHERE newer.instrument_id = q.instrument_id AND newer.source_kind = q.source_kind AND newer.currency = q.currency
-			AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = newer.id)
-			AND (newer.quoted_at > q.quoted_at
-				OR (newer.quoted_at = q.quoted_at AND newer.created_at > q.created_at)
-				OR (newer.quoted_at = q.quoted_at AND newer.created_at = q.created_at AND newer.id > q.id))
-		)
-		ORDER BY q.instrument_id ASC, q.source_kind ASC, q.currency ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`
+	statement := `WITH candidates AS (
+ SELECT q.*, ` + currentQuoteCandidateColumns("instrument", modern) + `
+ FROM instrument_quotes q JOIN instruments i ON i.id = q.instrument_id
+ WHERE i.household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'instrument' AND withdrawn.target_quote_id = q.id)
+ ) SELECT ` + columns + ` FROM candidates q
+ WHERE NOT EXISTS (SELECT 1 FROM candidates newer
+ WHERE newer.instrument_id = q.instrument_id AND newer.source_kind = q.source_kind AND newer.currency = q.currency
+ AND newer.selection_kind = q.selection_kind AND newer.selection_group = q.selection_group
+ AND (` + currentQuoteCandidateLaterSQL + `))
+ ORDER BY q.instrument_id, q.source_kind, q.currency, q.quoted_at DESC, q.created_at DESC, q.id DESC`
 	statement, err = agentQuoteFilterForSchema(ctx, query, statement)
 	if err != nil {
 		return nil, err
@@ -953,22 +958,17 @@ func listLatestFXQuotesQuery(ctx context.Context, query queryer, householdID dom
 		columns += ", q.observation_kind, q.effective_date, q.fetched_at, q.value_effective_at, q.source_policy_version, q.timestamp_basis, q.revision, q.supersedes_quote_id"
 	}
 	statement := `WITH candidates AS (
-			SELECT q.*,
-				CASE WHEN q.base_currency < q.quote_currency THEN q.base_currency ELSE q.quote_currency END AS currency_a,
-				CASE WHEN q.base_currency < q.quote_currency THEN q.quote_currency ELSE q.base_currency END AS currency_b
-			FROM fx_quotes q
-			WHERE q.household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'fx' AND withdrawn.target_quote_id = q.id)
-		)
-		SELECT ` + columns + `
-		FROM candidates q
-		WHERE NOT EXISTS (
-			SELECT 1 FROM candidates newer
-			WHERE newer.household_id = q.household_id AND newer.currency_a = q.currency_a AND newer.currency_b = q.currency_b AND newer.source_kind = q.source_kind
-			AND (newer.quoted_at > q.quoted_at
-				OR (newer.quoted_at = q.quoted_at AND newer.created_at > q.created_at)
-				OR (newer.quoted_at = q.quoted_at AND newer.created_at = q.created_at AND newer.id > q.id))
-		)
-		ORDER BY q.currency_a ASC, q.currency_b ASC, q.source_kind ASC, q.quoted_at DESC, q.created_at DESC, q.id DESC`
+ SELECT q.*, ` + currentQuoteCandidateColumns("fx", modern) + `,
+ CASE WHEN q.base_currency < q.quote_currency THEN q.base_currency ELSE q.quote_currency END AS currency_a,
+ CASE WHEN q.base_currency < q.quote_currency THEN q.quote_currency ELSE q.base_currency END AS currency_b
+ FROM fx_quotes q WHERE q.household_id = ?
+ AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'fx' AND withdrawn.target_quote_id = q.id)
+ ) SELECT ` + columns + ` FROM candidates q
+ WHERE NOT EXISTS (SELECT 1 FROM candidates newer
+ WHERE newer.currency_a = q.currency_a AND newer.currency_b = q.currency_b AND newer.source_kind = q.source_kind
+ AND newer.selection_kind = q.selection_kind AND newer.selection_group = q.selection_group
+ AND (` + currentQuoteCandidateLaterSQL + `))
+ ORDER BY q.currency_a, q.currency_b, q.source_kind, q.quoted_at DESC, q.created_at DESC, q.id DESC`
 	statement, err = agentQuoteFilterForSchema(ctx, query, statement)
 	if err != nil {
 		return nil, err
