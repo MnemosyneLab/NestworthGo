@@ -57,10 +57,10 @@ The manifest includes at least:
   "format_version": 1,
   "backup_kind": "full",
   "app_name": "Nestworth",
-  "app_version": "0.3.1",
-  "app_build": "2",
+  "app_version": "0.3.5",
+  "app_build": "6",
   "schema_version": 15,
-  "created_at": "2026-09-01T00:00:00Z",
+  "created_at": "2026-09-30T00:00:00Z",
   "members": {
     "database.sqlite": {"sha256": "...", "size_bytes": 0},
     "settings.json": {"sha256": "...", "size_bytes": 0}
