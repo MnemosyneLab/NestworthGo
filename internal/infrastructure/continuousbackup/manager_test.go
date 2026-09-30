@@ -755,3 +755,87 @@ func TestConfigurationPersistenceFailureKeepsOldPairAndResumesBackup(t *testing.
 		})
 	}
 }
+
+func TestShutdownDrainsApplicationWriterBeforeFinalRemoteConfirmation(t *testing.T) {
+	m, db, root := fixture(t)
+	ctx := context.Background()
+	if err := m.Configure(ctx, testUpdate(true)); err != nil {
+		t.Fatal(err)
+	}
+	waitState(t, m, "recent-backup-confirmed")
+	app := application.NewService(sqlite.NewRepository(db))
+	entered, release := make(chan struct{}), make(chan struct{})
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
+	writerDone := make(chan error, 1)
+	go func() {
+		writerDone <- app.WithWrite(ctx, func(ctx context.Context) error {
+			tx, err := db.SQL.BeginTx(ctx, nil)
+			if err != nil {
+				return err
+			}
+			defer tx.Rollback()
+			if _, err := tx.ExecContext(ctx, `INSERT INTO app_configuration(key,value) VALUES('last-shutdown-write','last-value')`); err != nil {
+				return err
+			}
+			close(entered)
+			<-release
+			return tx.Commit()
+		})
+	}()
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("writer not entered")
+	}
+	closed := make(chan error, 1)
+	go func() {
+		app.QuiesceWritesForShutdown()
+		shutdownCtx, cancel := context.WithTimeout(ctx, time.Second)
+		defer cancel()
+		closed <- m.Close(shutdownCtx)
+	}()
+	select {
+	case err := <-closed:
+		t.Fatalf("closed before active write committed: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+	close(release)
+	if err := <-writerDone; err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-closed:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("shutdown failed to drain")
+	}
+	if err := db.Verify(ctx); err != nil {
+		t.Fatal(err)
+	}
+	b := fileBackend{root: root}
+	points, err := recoveryPoints(ctx, b)
+	if err != nil || len(points) < 2 {
+		t.Fatalf("final confirmation missing: %v %v", points, err)
+	}
+	candidate := filepath.Join(t.TempDir(), "final.sqlite")
+	if err := restorePoint(ctx, b, points[0], candidate); err != nil {
+		t.Fatal(err)
+	}
+	verified, err := sqlite.OpenReadOnlyForVerify(candidate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer verified.Close()
+	var value string
+	if err := verified.SQL.QueryRow(`SELECT value FROM app_configuration WHERE key='last-shutdown-write'`).Scan(&value); err != nil || value != "last-value" {
+		t.Fatalf("final backup missed committed writer: %q %v", value, err)
+	}
+}
