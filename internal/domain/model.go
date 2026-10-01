@@ -319,7 +319,14 @@ func NewSignedMoney(value decimal.Decimal, currency CurrencyCode) (SignedMoney, 
 	if value.Abs().GreaterThan(maxMoney) {
 		return SignedMoney{}, &Error{Code: ErrDecimalOverflow, Field: "amount", Message: "amount is outside the supported range"}
 	}
-	value = value.RoundBank(4)
+	// At most four fractional digits need only an exact rescale. RoundBank
+	// also computes a remainder and checks ties, allocating big integers even
+	// when rounding cannot change the amount. Keep the same -4 exponent.
+	if value.Exponent() >= -4 {
+		value = value.Round(4)
+	} else {
+		value = value.RoundBank(4)
+	}
 	return SignedMoney{amount: value, currency: canonicalCurrency}, nil
 }
 

@@ -111,7 +111,10 @@ type ComponentID struct {
 type Components []ComponentID
 
 func (id ComponentID) Key() string {
-	parts := []string{id.AccountID.String()}
+	// There are at most four parts. Keep the temporary slice on the stack
+	// instead of growing it for every snapshot and component-day lookup.
+	var storage [4]string
+	parts := append(storage[:0], id.AccountID.String())
 	if id.HoldingID != nil {
 		parts = append(parts, "holding:"+id.HoldingID.String())
 	} else if id.Cash {
