@@ -99,7 +99,8 @@ func computeAnalysisForValuationUniverse(input AnalysisInputs, query domain.Anal
 			effectsByComponent[effect.component.Key()] = append(effectsByComponent[effect.component.Key()], effect)
 		}
 		for _, component := range valuationComponents {
-			day, err := buildComponentDay(localDate, component, previousItems[component.Key()], endItems[component.Key()], previousSnapshot, daySnapshot, hasPrevious, hasDay, effectsByComponent[component.Key()], input, query, universe)
+			key := component.Key()
+			day, err := buildComponentDay(localDate, component, previousItems[key], endItems[key], previousSnapshot, daySnapshot, hasPrevious, hasDay, effectsByComponent[key], input, query, universe)
 			if err != nil {
 				return domain.PeriodAnalysisResult{}, err
 			}
@@ -544,9 +545,8 @@ func sumReturnComponents(components map[domain.ReturnComponent]domain.SignedMone
 
 func residualTolerance(currency domain.CurrencyCode, beginning decimal.Decimal) decimal.Decimal {
 	places := domain.CurrencyFractionDigits(currency)
-	minor := decimal.New(1, int32(-places))
-	floor := minor.Mul(decimal.NewFromInt(2))
-	relative := beginning.Abs().Mul(decimal.NewFromFloat(1e-9))
+	floor := decimal.New(2, int32(-places))
+	relative := beginning.Abs().Mul(decimal.New(1, -9))
 	if relative.GreaterThan(floor) {
 		return relative
 	}
