@@ -12,7 +12,7 @@ import type { ReturnCalendarDTO, ReturnComponentAmountDTO, ReturnContributorDTO,
 import type { AnalysisNavigationContext } from "@/app/navigation";
 import type { AnalysisSessionState } from "@/stores/analysis";
 import { CompletenessBanner } from "@/features/insights/CompletenessBanner";
-import { analysisRequest, effectiveRange, periodRange } from "@/features/insights/analysisRequest";
+import { analysisRequest, currentMonthAwaitingClose, effectiveRange, periodRange } from "@/features/insights/analysisRequest";
 import { addMonths, currentMonth, isFuture, isToday, lastClosedDate, monthDays, monthLabel, yearLabel, yearMonths } from "@/features/insights/calendar";
 import { addCanonical, formatAmount, multiplyCanonical } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -320,7 +320,10 @@ export function ReturnCalendarTab({ session, onCursorChange, onOpenAssetChanges 
   } else if (view === "year") {
     content = data?.available ? <>{summary}<YearGrid year={year} dataByMonth={yearData} onOpenMonth={(month) => { onCursorChange(month); setView("month"); }} /></> : <CalendarEmptyState data={data} />;
   } else if (!monthRangeAvailable || visibleMonthIsFuture) {
-    content = <MonthGrid selection={hasSelection ? selectedRange : undefined} data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} />;
+    content = <>
+      {currentMonthAwaitingClose(session, visibleMonth, timeZone, origin.data?.startedAt) && <EmptyState title={t("insights.currentMonthUnclosed")} description={t("insights.currentMonthUnclosedHint")} />}
+      <MonthGrid selection={hasSelection ? selectedRange : undefined} data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} />
+    </>;
   } else if (data?.available) {
     content = <>{summary}<MonthGrid selection={hasSelection ? selectedRange : undefined} data={data} month={visibleMonth} timeZone={timeZone} weekStartsOn={weekStartsOn} onOpen={setSelectedDate} /><ContributorList values={summaryData?.topContributors} title={t("insights.contributors")} instrumentNames={instrumentNames} /></>;
   } else {

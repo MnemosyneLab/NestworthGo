@@ -6,7 +6,7 @@ import { AnalysisFilterBar } from "@/features/insights/AnalysisFilterBar";
 import { ChangeDriversTab } from "@/features/insights/ChangeDriversTab";
 import { AssetTrendTab } from "@/features/insights/AssetTrendTab";
 import { CategoriesTab } from "@/features/insights/CategoriesTab";
-import { analysisRequest, effectiveRange } from "@/features/insights/analysisRequest";
+import { analysisRequest, currentMonthAwaitingClose, effectiveRange } from "@/features/insights/analysisRequest";
 import { currentMonth } from "@/features/insights/calendar";
 import { useAnalysisStore } from "@/stores/analysis";
 import { useHistoryOrigin } from "@/queries/history";
@@ -25,6 +25,7 @@ export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOp
   const request = analysisRequest(session, range.from, range.to);
   const scopeReady = scope === "portfolio" || Boolean(session.scopeId);
   const rangeAvailable = range.from <= range.to;
+  const awaitingClose = currentMonthAwaitingClose(session, visibleMonth, origin.data?.timezone, origin.data?.startedAt);
 
   const driverContent = origin.isLoading ? (
     <LoadingState label={t("insights.loading")} />
@@ -35,7 +36,7 @@ export function AssetChangesPage({ onOpenHistory, onOpenReturnAnalysis }: { onOp
   ) : !scopeReady ? (
     <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />
   ) : !rangeAvailable ? (
-    <EmptyState title={t("insights.noAssetChangeData")} description={t("insights.noAssetChangeDataHint")} />
+    <EmptyState title={t(awaitingClose ? "insights.currentMonthUnclosed" : "insights.noAssetChangeData")} description={t(awaitingClose ? "insights.currentMonthUnclosedHint" : "insights.noAssetChangeDataHint")} />
   ) : (
     <ChangeDriversTab request={request} session={session} scope={scope} onOpenHistory={onOpenHistory} onOpenReturnAnalysis={onOpenReturnAnalysis} />
   );

@@ -26,7 +26,7 @@ export function DateRangeControl({ value, min, max, onChange, disabled = false }
     <RangeToggle ranges={DATE_PRESETS} value={active ?? ""} disabled={disabled || Boolean(min && min > max)} onChange={preset => change(presetRange(preset as DatePreset, max, min), preset as DatePreset)} label={t("rangeShortcuts.label")} />
     <div className="flex items-center gap-1 rounded-lg border border-border bg-card p-1" role="group" aria-label={t("rangeShortcuts.navigate")}>
       <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={t("rangeShortcuts.previous")} disabled={disabled || !valid || active === "all" || Boolean(min && previous.to < min)} onClick={() => change(previous, active)}><ChevronLeft className="h-4 w-4" /></Button>
-      <span className="px-2 text-xs tabular-nums text-muted-foreground">{active === "all" ? t("analytics.rangeAll") : value.from === value.to ? value.from : `${value.from} – ${value.to}`}</span>
+      <span className="px-2 text-xs tabular-nums text-muted-foreground">{!valid ? t("common.selectOption") : active === "all" ? t("analytics.rangeAll") : value.from === value.to ? value.from : `${value.from} – ${value.to}`}</span>
       <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={t("rangeShortcuts.next")} disabled={disabled || !valid || active === "all" || next.from > max} onClick={() => change(next, active)}><ChevronRight className="h-4 w-4" /></Button>
     </div>
   </div>;

@@ -135,6 +135,26 @@ describe("ReturnAnalysisPage", () => {
     vi.useRealTimers();
   });
 
+  it("keeps the month-start calendar muted and hides the reversed filter range", async () => {
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+    renderPage();
+    expect(await screen.findByText("No closed dates in the current month yet.")).toBeInTheDocument();
+    expect(returnCalendar).not.toHaveBeenCalled();
+    expect(returnDay).not.toHaveBeenCalled();
+    const today = screen.getByTestId("return-day-2026-10-01");
+    expect(today).toHaveTextContent("Today is not closed yet");
+    expect(within(today).getByRole("button")).toBeDisabled();
+    expect(today).not.toHaveTextContent("0%");
+    expect(screen.queryByText("2026-10-01 – 2026-09-30")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("From")).not.toHaveTextContent("2026-10-01");
+    expect(screen.getByLabelText("To")).not.toHaveTextContent("2026-09-30");
+    expect(useAnalysisStore.getState()).toMatchObject({ from: "", to: "", returnCursor: "2026-10" });
+    await userEvent.setup().click(screen.getByRole("button", { name: "Previous" }));
+    await waitFor(() => expect(returnCalendar).toHaveBeenCalledWith(expect.objectContaining({ from: "2026-09-01", to: "2026-09-30" }), "2026-09", "day"));
+    expect(screen.queryByText("No closed dates in the current month yet.")).not.toBeInTheDocument();
+  });
+
   it("marks partial coverage and opens the period issues list", async () => {
     const user = userEvent.setup();
     useAnalysisStore.getState().setReturnView({ cursor: "2026-09" });

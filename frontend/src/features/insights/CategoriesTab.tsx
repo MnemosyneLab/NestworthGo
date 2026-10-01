@@ -64,7 +64,7 @@ export function CategoriesTab({ session, onOpenHistory }: { session: AnalysisSes
   if (context.origin.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => context.origin.refetch()} retryLabel={t("common.retryAction")} />;
   if (!context.origin.data) return <EmptyState title={t("insights.noOrigin")} description={t("insights.noOriginHint")} />;
   if (!context.scopeReady) return <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />;
-  if (!context.rangeAvailable) return <EmptyState title={t("insights.historyInsufficient")} description={t("insights.historyInsufficientHint")} />;
+  if (!context.rangeAvailable) return <EmptyState title={t(context.awaitingClose ? "insights.currentMonthUnclosed" : "insights.historyInsufficient")} description={t(context.awaitingClose ? "insights.currentMonthUnclosedHint" : "insights.historyInsufficientHint")} />;
 
   const toolbar = (
     <div className="flex flex-wrap items-end gap-3">

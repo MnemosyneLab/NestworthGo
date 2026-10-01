@@ -114,7 +114,7 @@ export function ReturnTrendTab({ session }: { session: AnalysisSessionState }) {
   if (context.origin.isError) return <ErrorState title={t("insights.error")} description={t("ui.state.errorDescription")} onRetry={() => context.origin.refetch()} retryLabel={t("common.retryAction")} />;
   if (!originData) return <EmptyState title={t("insights.noOrigin")} description={t("insights.noOriginHint")} />;
   if (!context.scopeReady) return <EmptyState title={t("insights.scopeRequired")} description={t("insights.scopeRequiredHint")} />;
-  if (!context.rangeAvailable) return <EmptyState title={t("insights.historyInsufficient")} description={t("insights.historyInsufficientHint")} />;
+  if (!context.rangeAvailable) return <EmptyState title={t(context.awaitingClose ? "insights.currentMonthUnclosed" : "insights.historyInsufficient")} description={t(context.awaitingClose ? "insights.currentMonthUnclosedHint" : "insights.historyInsufficientHint")} />;
 
   let results;
   if (trend.isLoading) results = <LoadingState label={t("insights.loading")} />;

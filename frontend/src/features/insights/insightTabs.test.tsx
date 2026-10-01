@@ -59,6 +59,8 @@ const available = { available: true, status: "ok", valuationForced: null };
 
 describe("insight tabs", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-07T12:00:00Z"));
     useAnalysisStore.getState().reset();
     historyOrigin.mockReset();
     historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
@@ -77,6 +79,39 @@ describe("insight tabs", () => {
   });
 
   afterEach(() => { cleanup(); vi.useRealTimers(); });
+
+  it.each([
+    ["Return Trend", ReturnTrendTab, returnTrend],
+    ["Contribution", ContributionTab, contribution],
+    ["Asset Trend", AssetTrendTab, assetTrend],
+    ["Categories", CategoriesTab, categories],
+  ])("explains the unclosed current month in %s without querying", async (_name, Tab, query) => {
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+    renderWithClient(<Tab session={useAnalysisStore.getState()} />);
+    expect(await screen.findByText("No closed dates in the current month yet.")).toBeInTheDocument();
+    expect(screen.getByText("Today is still open. Choose an earlier period or return after the first day has closed.")).toBeInTheDocument();
+    expect(query).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("trend-chart")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["2026-09-30T12:00:00Z", "2026-09-01", "2026-09-29"],
+    ["2026-10-02T12:00:00Z", "2026-10-01", "2026-10-01"],
+  ])("queries only closed current-month dates at %s", async (instant, from, to) => {
+    vi.setSystemTime(new Date(instant));
+    renderWithClient(<ReturnTrendTab session={useAnalysisStore.getState()} />);
+    await screen.findByTestId("return-trend");
+    expect(returnTrend).toHaveBeenCalledWith(expect.objectContaining({ from, to }), "cumulative_amount");
+    expect(useAnalysisStore.getState()).toMatchObject({ from: "", to: "" });
+  });
+
+  it("keeps insufficient history distinct from an unclosed month", async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-09-07T00:00:00Z" });
+    renderWithClient(<ReturnTrendTab session={useAnalysisStore.getState()} />);
+    expect(await screen.findByText("Not enough historical data to calculate returns.")).toBeInTheDocument();
+    expect(screen.queryByText("No closed dates in the current month yet.")).not.toBeInTheDocument();
+    expect(returnTrend).not.toHaveBeenCalled();
+  });
 
   it("keeps Return Trend displays separate and sends linked_rate to Wails", async () => {
     renderWithClient(<ConnectedReturnTrendTab />);
