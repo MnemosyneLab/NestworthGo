@@ -1,7 +1,38 @@
-import { describe, expect, it, vi } from "vitest";
-import { activeReturnTrendRange, effectiveRange, periodRange, returnTrendRange } from "./analysisRequest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { currentMonth } from "./calendar";
+import { activeReturnTrendRange, currentMonthAwaitingClose, effectiveRange, periodRange, returnTrendRange } from "./analysisRequest";
 
 describe("analysis request ranges", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-07T12:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it.each([
+    ["2026-09-30T12:00:00Z", "UTC", "2026-09-01", "2026-09-29", false],
+    ["2026-10-01T12:00:00Z", "UTC", "2026-10-01", "2026-09-30", true],
+    ["2026-10-02T12:00:00Z", "UTC", "2026-10-01", "2026-10-01", false],
+    ["2026-11-01T12:00:00Z", "UTC", "2026-11-01", "2026-10-31", true],
+    ["2027-01-01T00:00:00Z", "UTC", "2027-01-01", "2026-12-31", true],
+    ["2026-09-30T16:00:00Z", "Asia/Singapore", "2026-10-01", "2026-09-30", true],
+    ["2026-10-01T00:00:00Z", "America/Los_Angeles", "2026-09-01", "2026-09-29", false],
+    ["2027-01-01T00:00:00Z", "America/Los_Angeles", "2026-12-01", "2026-12-30", false],
+    ["2026-12-31T16:00:00Z", "Asia/Singapore", "2027-01-01", "2026-12-31", true],
+  ])("uses closed local dates at %s in %s", (instant, timeZone, from, to, awaiting) => {
+    vi.setSystemTime(new Date(instant));
+    const state = { from: "", to: "" };
+    const month = currentMonth(timeZone);
+    expect(effectiveRange(state, month, timeZone, "2026-01-01T00:00:00Z")).toEqual({ from, to });
+    expect(currentMonthAwaitingClose(state, month, timeZone, "2026-01-01T00:00:00Z")).toBe(awaiting);
+  });
+
+  it("does not label explicit filters, other months, or future Origin as an unclosed current month", () => {
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+    expect(currentMonthAwaitingClose({ from: "2026-10-01", to: "2026-10-01" }, "2026-10", "UTC")).toBe(false);
+    expect(currentMonthAwaitingClose({ from: "", to: "" }, "2026-09", "UTC")).toBe(false);
+    expect(currentMonthAwaitingClose({ from: "", to: "" }, "2026-10", "UTC", "2026-10-02T00:00:00Z")).toBe(false);
+  });
   it("intersects year and month cards with an explicit session date range", () => {
     const state = { from: "2025-03-15", to: "2025-10-20" };
 

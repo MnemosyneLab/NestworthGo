@@ -1,6 +1,6 @@
 import type { AnalysisQueryRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis/models";
 import type { AnalysisSessionState } from "@/stores/analysis";
-import { lastClosedDate, parseYmd, ymd, ymdInTimeZone } from "@/features/insights/calendar";
+import { currentMonth, lastClosedDate, parseYmd, ymd, ymdInTimeZone } from "@/features/insights/calendar";
 
 export type ReturnTrendRange = "30d" | "ytd" | "1y" | "3y" | "all" | "custom";
 
@@ -40,6 +40,15 @@ export function effectiveRange(state: Pick<AnalysisSessionState, "from" | "to">,
     from: state.from || monthStartValue,
     to: state.to || monthEndValue,
   }, startedAt, timeZone);
+}
+
+/** Only the implicit current month on its first local day has no closed dates.
+ * Explicit filters and History Origin gaps retain their own empty states. */
+export function currentMonthAwaitingClose(state: Pick<AnalysisSessionState, "from" | "to">, month: string, timeZone?: string, startedAt?: string): boolean {
+  const monthStart = `${month}-01`;
+  return !state.from && !state.to && month === currentMonth(timeZone)
+    && lastClosedDate(timeZone) < monthStart
+    && (!startedAt || originLocalDate(startedAt, timeZone) <= monthStart);
 }
 
 function addDays(value: string, amount: number): string {

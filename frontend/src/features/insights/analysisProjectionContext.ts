@@ -1,6 +1,6 @@
 import type { AnalysisQueryRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analysis/models";
 import type { AnalysisSessionState } from "@/stores/analysis";
-import { analysisRequest, effectiveRange } from "@/features/insights/analysisRequest";
+import { analysisRequest, currentMonthAwaitingClose, effectiveRange } from "@/features/insights/analysisRequest";
 import { currentMonth } from "@/features/insights/calendar";
 import { useHistoryOrigin } from "@/queries/history";
 
@@ -10,6 +10,7 @@ export function useAnalysisProjectionContext(session: AnalysisSessionState): {
   scopeReady: boolean;
   rangeAvailable: boolean;
   enabled: boolean;
+  awaitingClose: boolean;
 } {
   const origin = useHistoryOrigin();
   const visibleMonth = currentMonth(origin.data?.timezone);
@@ -18,5 +19,6 @@ export function useAnalysisProjectionContext(session: AnalysisSessionState): {
   const scopeReady = session.scope === "portfolio" || Boolean(session.scopeId);
   const rangeAvailable = range.from <= range.to;
   const enabled = !origin.isLoading && !origin.isError && Boolean(origin.data?.timezone) && scopeReady && rangeAvailable;
-  return { request, origin, scopeReady, rangeAvailable, enabled };
+  const awaitingClose = currentMonthAwaitingClose(session, visibleMonth, origin.data?.timezone, origin.data?.startedAt);
+  return { awaitingClose, request, origin, scopeReady, rangeAvailable, enabled };
 }

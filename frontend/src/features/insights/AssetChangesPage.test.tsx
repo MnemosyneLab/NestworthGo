@@ -100,7 +100,7 @@ describe("AssetChangesPage", () => {
     });
   });
 
-  afterEach(() => cleanup());
+  afterEach(() => { cleanup(); vi.useRealTimers(); });
 
   it.each([
     ["fx_conversion_spread", "FX conversion spread", /actual conversion amounts/],
@@ -125,6 +125,18 @@ describe("AssetChangesPage", () => {
     expect(await within(sheet).findByText("Brokerage")).toBeInTheDocument();
     expect(within(sheet).getByRole("button", { name: "Open Return Analysis" })).toBeInTheDocument();
     expect(assetDriverDetail).toHaveBeenCalledWith(expect.anything(), bucket);
+  });
+
+  it("explains the unclosed default month without requesting change drivers", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-01T12:00:00Z"));
+    useAnalysisStore.getState().setFilters({ from: "", to: "" });
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+    renderPage();
+    expect(await screen.findByText("No closed dates in the current month yet.")).toBeInTheDocument();
+    expect(assetChange).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("From")).not.toHaveTextContent("2026-10-01");
+    expect(screen.getByLabelText("To")).not.toHaveTextContent("2026-09-30");
   });
 
   it("renders a reconciling summary, waterfall, grouped drivers, and residual detail", async () => {

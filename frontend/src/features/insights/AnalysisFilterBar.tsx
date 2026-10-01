@@ -23,7 +23,7 @@ export function AnalysisFilterBar({
   session,
   onChange,
   onReset,
-  resolvedRange,
+  resolvedRange: requestedRange,
 }: {
   session: AnalysisSessionState;
   returnPresets?: boolean;
@@ -32,6 +32,7 @@ export function AnalysisFilterBar({
   onReset: () => void;
 }) {
   const { t } = useTranslation();
+  const resolvedRange = requestedRange && requestedRange.from <= requestedRange.to ? requestedRange : undefined;
   const bootstrap = useBootstrap();
   const origin = useHistoryOrigin();
   const accounts = useAccounts();

@@ -84,6 +84,8 @@ describe("i18next locale coverage", () => {
     "insights.noInvestments",
     "insights.noInvestmentAssets",
     "insights.noInvestmentAssetsHint",
+    "insights.currentMonthUnclosed",
+    "insights.currentMonthUnclosedHint",
     "insights.historyInsufficient",
     "insights.historyInsufficientHint",
     "insights.noOrigin",
