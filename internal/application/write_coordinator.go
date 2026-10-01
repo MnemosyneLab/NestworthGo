@@ -39,10 +39,11 @@ type writePermit struct {
 // in-flight refresh persistence by incrementing Service.refreshEpoch so a
 // late provider result cannot write after exclusive work has begun.
 type WriteCoordinator struct {
-	mu        sync.Mutex
-	cond      *sync.Cond
-	exclusive bool
-	writers   int
+	mu           sync.Mutex
+	cond         *sync.Cond
+	exclusive    bool
+	shuttingDown bool
+	writers      int
 	// revision changes after every outer write permit, including failed writes.
 	// The nonce makes preview tokens invalid after a process restart.
 	revision uint64
@@ -77,7 +78,7 @@ func exclusiveKindFrom(ctx context.Context) (ExclusiveKind, bool) {
 func (c *WriteCoordinator) acquireWrite() error {
 	c.mu.Lock()
 	for {
-		if c.exclusive {
+		if c.exclusive || c.shuttingDown {
 			c.mu.Unlock()
 			return backupRestoreBusy()
 		}
@@ -116,7 +117,7 @@ func (c *WriteCoordinator) previewToken() string {
 
 func (c *WriteCoordinator) acquireExclusive(epoch *atomic.Uint64) error {
 	c.mu.Lock()
-	if c.exclusive {
+	if c.exclusive || c.shuttingDown {
 		c.mu.Unlock()
 		return backupRestoreBusy()
 	}
@@ -269,4 +270,21 @@ func (s *Service) persistRefreshWrite(ctx context.Context, epoch uint64, persist
 		return backupRestoreBusy()
 	}
 	return persist(ctx)
+}
+
+// QuiesceWritesForShutdown permanently rejects new write permits and drains
+// existing writers. It also fences late provider results before their workers
+// are canceled/joined. It does not take changeMu or borrow a SQLite connection,
+// so it remains safe after a restore retained its exclusive permit and mutex.
+// Call only after the host has committed to exiting; there is no resume path.
+func (s *Service) QuiesceWritesForShutdown() {
+	c := &s.writes
+	c.mu.Lock()
+	c.shuttingDown = true
+	s.refreshEpoch.Add(1)
+	c.cond.Broadcast()
+	for c.writers > 0 {
+		c.cond.Wait()
+	}
+	c.mu.Unlock()
 }

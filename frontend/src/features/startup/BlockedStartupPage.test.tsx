@@ -35,3 +35,5 @@ describe("BlockedStartupPage", () => {
     expect(alert).not.toHaveTextContent("sqlite");
   });
 });
+
+vi.mock("@/features/settings/ContinuousBackupSection", () => ({ ContinuousBackupSection: () => null }));

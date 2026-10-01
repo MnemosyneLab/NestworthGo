@@ -2,7 +2,7 @@
 
 Nestworth is a local-first personal finance desktop application for building
 and maintaining a personal or household balance sheet. The current development
-line is `0.3.5` (build `6`, unreleased): a Wails v3 desktop shell with a Go backend and a
+line is `0.3.6` (build `7`, unreleased): a Wails v3 desktop shell with a Go backend and a
 React + TypeScript frontend.
 
 ## Current scope
@@ -22,13 +22,17 @@ Nestworth provides a local household balance sheet with:
   observations, plus Frankfurter FX; external refresh is user-triggered;
 - Local SQLite backup/restore and versioned JSON export for external tools;
   JSON export is not a restorable backup;
+- Optional continuous SQLite backup to Cloudflare R2 while the app runs, with
+  remote-confirmed status and explicit recovery; see the
+  [backup notes](docs/development/continuous-backup.md) before enabling;
 - A loopback MCP interface with read-only, directory-maintenance, and
   ledger-writing permission modes, and an optional Nestworth skill for Codex.
 
 Core browsing and editing work locally without registration. The app does not
-place brokerage orders. Cloud backup (including Litestream/R2), synchronization,
-direct bank/brokerage integrations, and background refresh are not implemented
-in this release line.
+place brokerage orders. Multi-device synchronization, direct bank/brokerage
+integrations and automatic market-data refresh remain outside this release.
+Continuous backup is off by default; live R2 and native Mac acceptance remain
+pending for v0.3.6.
 
 ## Run locally
 
@@ -59,8 +63,8 @@ wails3 task package:release
 ```
 
 The default outputs are `dist/macos/Nestworth.app`,
-`dist/macos/Nestworth-0.3.5-arm64.dmg`,
-`dist/macos/Nestworth-0.3.5-arm64.zip`, `dist/macos/SHA256SUMS`,
+`dist/macos/Nestworth-0.3.6-arm64.dmg`,
+`dist/macos/Nestworth-0.3.6-arm64.zip`, `dist/macos/SHA256SUMS`,
 `dist/skills/nestworth-skill.tar.gz`, and its `.sha256` file. The app is
 ad-hoc signed for local launch. Developer ID signing, notarization, artifact
 retention, native acceptance, and manual accessibility review remain separate

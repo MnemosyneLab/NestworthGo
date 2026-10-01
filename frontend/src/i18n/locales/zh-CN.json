@@ -1046,5 +1046,60 @@
     "connectionDetails": "连接详情",
     "permissionChangeHelp": "应用后将更换访问凭据，请同步更新 Agent 的连接配置。",
     "keepOpen": "连接期间请保持 Nestworth 运行。"
+  },
+  "cloudBackup": {
+    "title": "连续备份",
+    "description": "Nestworth 运行期间，将本机数据备份至 Cloudflare R2。默认关闭；退出应用后停止备份。",
+    "sensitive": "备份包含家庭数据库，包括现有行情提供商密钥和 AI / MCP 设置。R2 凭据仅保存在独立的本地备份配置数据库中，以明文保存并使用私有文件权限。",
+    "form": "连续备份设置",
+    "enable": "启用连续备份",
+    "account": "R2 账户 ID",
+    "bucket": "存储桶名称",
+    "access": "Access Key ID",
+    "secret": "Secret Access Key",
+    "removePair": "移除 R2 凭据对",
+    "pairHelp": "两个凭据需一起替换。空白输入保留已存密钥。移除将关闭备份，但不会删除远程历史。",
+    "save": "保存备份设置",
+    "test": "测试已保存的连接",
+    "now": "立即备份",
+    "status": "状态",
+    "lastSuccess": "上次成功备份",
+    "lastAttempt": "上次尝试",
+    "never": "尚无记录",
+    "successHelp": "此时间表示一次已完成、经远程确认的备份。此后的写入可能仍在等待捕获。",
+    "connectionPassed": "存储桶列表读取成功。连接检查不代表备份成功，也不确认写入权限。",
+    "saved": "备份设置已保存",
+    "error": "操作未完成。请检查已保存的设置、凭据对及网络连接后重试。本地记录仍可使用。",
+    "unavailable": "连续备份配置不可用。",
+    "recovery": "云端恢复",
+    "recoveryHelp": "选择备份流和恢复点，检查候选数据后明确确认。恢复会替换本地记录并保留安全副本。仅支持架构 15。每个备份流显示最近最多 100 个恢复点；远程历史保留。",
+    "list": "列出恢复点",
+    "empty": "未找到恢复点。未恢复任何数据。",
+    "point": "恢复点",
+    "select": "选择恢复点",
+    "preview": "预览恢复",
+    "restorePaused": "连续备份将暂停。重启并检查恢复的记录后，可重新启用，以开始独立的新备份流。",
+    "states": {
+      "disabled": "已关闭",
+      "preparing": "准备中",
+      "backing-up": "备份中",
+      "recent-backup-confirmed": "最近备份已确认",
+      "retrying": "正在重试",
+      "error": "需要处理"
+    },
+    "restoreDescription": "已下载的候选备份将替换本地记录。安装后 Nestworth 将退出；重新打开以验证恢复的数据。未保存的表单内容将丢失。",
+    "restoreStates": {
+      "downloading": "正在下载恢复候选备份",
+      "preview": "候选备份已就绪，请检查预览",
+      "installing": "正在安装恢复数据并准备退出",
+      "error": "恢复需要处理"
+    }
+  },
+  "secretField": {
+    "configured": "已配置密钥",
+    "replace": "替换",
+    "remove": "移除",
+    "show": "显示新输入",
+    "hide": "隐藏新输入"
   }
 }

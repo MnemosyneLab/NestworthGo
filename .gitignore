@@ -16,6 +16,7 @@
 /frontend/dist/*
 !/frontend/dist/.gitkeep
 /frontend/.bindings-tmp*
+/frontend/bindings/
 
 # Go tooling
 *.test

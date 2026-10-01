@@ -265,3 +265,20 @@ excludes application settings, credentials, local paths, UI icon references, log
 mutation deduplication records, daily valuation caches, and scheduling state.
 User-authored notes and names are preserved verbatim. Backup's existing settings
 policy remains unchanged.
+
+## Continuous backup in unreleased v0.3.6
+
+Settings also offers opt-in app-running SQLite backup to Cloudflare R2, plus
+explicit stream/recovery-point selection. Cloud recovery downloads a separate
+candidate, verifies schema 15 and all current requirements, then feeds the
+existing preview/confirmation/journal installation described above. It keeps
+an original safety copy and pauses backup until restart and explicit re-enable.
+Cloud recovery does not restore separate local UI preferences or R2 credentials.
+
+Existing provider and AI/MCP settings are included in the backed-up business
+DB. R2 keys/status stay in private local `backup_config.db`; the UI never
+receives stored secret values. Both old provider keys and R2 keys use fixed
+masks, replace/remove controls and visibility only for newly typed input.
+Connection-test success is distinct from last successful backup. There is no
+multi-device synchronization or daemon, and disable never deletes history.
+See [implementation and pending acceptance](../development/continuous-backup.md).

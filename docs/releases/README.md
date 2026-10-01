@@ -1,15 +1,17 @@
 # Release Documents
 
-The current unreleased candidate is v0.3.5 / build 6. The release contract
+The current unreleased candidate is v0.3.6 / build 7. The release contract
 below owns its scope, schema compatibility, release evidence, and outstanding
 native/distribution gates.
 
 ## Current release
 
-- [v0.3.5 release contract](v0.3.5.md) — unreleased candidate with household
-  liquidity and MCP/agent workflows; CI and native acceptance remain pending.
+- [v0.3.6 release contract](v0.3.6.md) — unreleased continuous backup and explicit recovery.
 
 ## Published history
+
+- [v0.3.5 release contract](v0.3.5.md) — published household liquidity and
+  MCP/agent workflows; historical preparation evidence retained.
 
 - [v0.3.4 release contract](v0.3.4.md) — portfolio/holdings, settings, insights,
   JSON export, validation, packaging, and distribution gates.

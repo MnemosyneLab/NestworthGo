@@ -1046,5 +1046,60 @@
     "connectionDetails": "Connection details",
     "permissionChangeHelp": "Applying changes replaces the access token. Update your agent’s connection configuration afterward.",
     "keepOpen": "Keep Nestworth open while your agent is connected."
+  },
+  "cloudBackup": {
+    "title": "Continuous backup",
+    "description": "Back up this machine to Cloudflare R2 while Nestworth is running. Off by default; closing the app stops backup.",
+    "sensitive": "Backups contain the household database, including existing provider keys and AI / MCP settings. R2 credentials stay in the separate local backup configuration database, stored as plaintext with private file permissions.",
+    "form": "Continuous backup settings",
+    "enable": "Enable continuous backup",
+    "account": "R2 account ID",
+    "bucket": "Bucket name",
+    "access": "Access Key ID",
+    "secret": "Secret Access Key",
+    "removePair": "Remove R2 credential pair",
+    "pairHelp": "Replace both credentials together. Blank inputs keep stored keys. Remove disables backup and never deletes remote history.",
+    "save": "Save backup settings",
+    "test": "Test saved connection",
+    "now": "Back up now",
+    "status": "Status",
+    "lastSuccess": "Last successful backup",
+    "lastAttempt": "Last attempt",
+    "never": "None yet",
+    "successHelp": "This time records a completed, remote-confirmed backup attempt. Later writes may still be awaiting capture.",
+    "connectionPassed": "The bucket can be listed. This connection check does not confirm a backup or write permission.",
+    "saved": "Backup settings saved",
+    "error": "The operation did not complete. Check the saved settings, credential pair and network connection, then retry. Local records remain available.",
+    "unavailable": "Continuous backup configuration is unavailable.",
+    "recovery": "Cloud recovery",
+    "recoveryHelp": "Choose a stream and recovery point, inspect the candidate, then confirm explicitly. Recovery replaces local records and keeps a safety copy. Only schema 15 is supported. Listing shows up to 100 recent points per stream; remote history is retained.",
+    "list": "List recovery points",
+    "empty": "No recovery points found. Nothing was restored.",
+    "point": "Recovery point",
+    "select": "Choose a recovery point",
+    "preview": "Preview recovery",
+    "restorePaused": "Continuous backup will be paused. After restarting and reviewing the restored records, enable it to begin a new isolated stream.",
+    "states": {
+      "disabled": "Disabled",
+      "preparing": "Preparing",
+      "backing-up": "Backing up",
+      "recent-backup-confirmed": "Recent backup confirmed",
+      "retrying": "Retrying",
+      "error": "Needs attention"
+    },
+    "restoreDescription": "The downloaded candidate will replace local records. Nestworth will quit after installation; reopen it to verify the restored data. Unsaved forms will be lost.",
+    "restoreStates": {
+      "downloading": "Downloading recovery candidate",
+      "preview": "Recovery candidate ready for inspection",
+      "installing": "Installing recovery and preparing to quit",
+      "error": "Recovery needs attention"
+    }
+  },
+  "secretField": {
+    "configured": "Stored secret configured",
+    "replace": "Replace",
+    "remove": "Remove",
+    "show": "Show new input",
+    "hide": "Hide new input"
   }
 }

@@ -65,10 +65,11 @@ type pendingRestore struct {
 // Recovery owns backup inspect/confirm sessions and restore orchestration.
 // It can run without a live *Service so blocked startup can still Restore.
 type Recovery struct {
-	liveDBPath string
-	backup     BackupRuntime
-	app        *Service
-	now        func() time.Time
+	liveDBPath    string
+	backup        BackupRuntime
+	app           *Service
+	now           func() time.Time
+	beforeRestore func(context.Context) error
 
 	mu      sync.Mutex
 	pending map[string]pendingRestore
@@ -83,6 +84,10 @@ func NewRecovery(liveDBPath string, runtime BackupRuntime, app *Service) *Recove
 		pending:    map[string]pendingRestore{},
 	}
 }
+
+// SetBeforeRestore connects app-owned replication shutdown to both local and
+// cloud restores. It runs after candidate validation and explicit confirmation.
+func (r *Recovery) SetBeforeRestore(fn func(context.Context) error) { r.beforeRestore = fn }
 
 func (r *Recovery) InspectBackup(ctx context.Context, sourcePath string) (RestorePreview, error) {
 	if r == nil || r.backup == nil {
@@ -175,7 +180,7 @@ func (r *Recovery) ConfirmRestore(ctx context.Context, input RestoreConfirmInput
 	}
 	classes := RestoreClasses{Chrome: input.RestoreChrome, Format: input.RestoreFormat, Routing: input.RestoreRouting}
 	if r.app == nil {
-		err := r.backup.InstallRestore(ctx, r.liveDBPath, pkg, RestoreHooks{}, classes, r.clock())
+		err := r.backup.InstallRestore(ctx, r.liveDBPath, pkg, RestoreHooks{Quiesce: r.beforeRestore}, classes, r.clock())
 		if err != nil {
 			return RestoreResult{}, err
 		}
@@ -193,7 +198,12 @@ func (r *Recovery) ConfirmRestore(ctx context.Context, input RestoreConfirmInput
 		sessionClosed := false
 		hooks := RestoreHooks{}
 		r.app.LockWrites()
-		hooks.Quiesce = func(context.Context) error { return nil }
+		hooks.Quiesce = func(ctx context.Context) error {
+			if r.beforeRestore != nil {
+				return r.beforeRestore(ctx)
+			}
+			return nil
+		}
 		hooks.Checkpoint = r.app.CheckpointWAL
 		hooks.Close = func() error {
 			closeErr := r.app.CloseDatabase()

@@ -6,19 +6,29 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
+## 0.3.6 — Continuous backup and explicit disaster recovery
+
+Status: Unreleased, build 7. App-running SQLite backup to R2 is off by default.
+Configuration/status are local and separate from the schema-15 business DB.
+Recovery stages and verifies a candidate before explicit installation, retaining
+an original safety copy and startup rollback. Each start/re-enable uses an
+isolated stream. Shared secret inputs expose fixed masks and new input only.
+Live R2 and native Mac acceptance remain pending; see the
+[release contract](../releases/v0.3.6.md).
+
 ## 0.3.5 — Household liquidity and agent workflows
 
-Status: Release preparation (unreleased, build 6). The current tree includes
+Status: Published on 2026-09-30 (build 6). This release includes
 household overview and Data Health improvements, Available Funds with
 reservations and managed deposits/locked products, expanded local MCP ledger,
 analysis, correction and repair tools, Agent-supplied market data, and the
 Wails v3.0.0-beta.26 upgrade. SQLite schema 15 is current. See the
-[release contract](../releases/v0.3.5.md) for compatibility, scope and pending
-acceptance gates.
+[release contract](../releases/v0.3.5.md) for compatibility, scope and historical
+preparation evidence.
 
-Schema 11 databases from v0.3.4 are not upgraded by this line. Cloud backup
-(including Litestream/R2), synchronization, direct bank/brokerage connections
-and background refresh remain deferred.
+Schema 11 databases from v0.3.4 are not upgraded by this line. Cloud backup was deferred in v0.3.5; v0.3.6 adds explicit opt-in backup.
+Synchronization, direct bank/brokerage connections and automatic market-data
+refresh remain deferred.
 
 ## 0.3.4 — Portfolio, settings, and insights closeout
 
