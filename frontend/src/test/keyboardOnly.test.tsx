@@ -91,7 +91,7 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/setti
     Load: () => settingsLoad(),
     Save: (...args: unknown[]) => settingsSave(...args),
     Reset: vi.fn(),
-    SupportedCurrencies: () => Promise.resolve(["USD", "SGD"]),
+    SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]),
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
@@ -175,6 +175,7 @@ describe("keyboard-only completion", () => {
 
     await userEvent.tab(); // -> base currency select (left at its default)
     expect(screen.getByLabelText(/base currency/i)).toHaveFocus();
+    expect(screen.getByLabelText(/base currency/i)).toHaveValue("CNY");
 
     await userEvent.tab(); // -> optional earlier History start (left unchecked)
     expect(screen.getByRole("checkbox", { name: "Start recording from an earlier date" })).toHaveFocus();
@@ -191,7 +192,7 @@ describe("keyboard-only completion", () => {
     await userEvent.keyboard("{Enter}");
 
     expect(completeOnboarding).toHaveBeenCalledWith(
-      expect.objectContaining({ householdName: "The Tans", memberNames: ["Alice"] }),
+      expect.objectContaining({ householdName: "The Tans", baseCurrency: "CNY", memberNames: ["Alice"] }),
     );
   });
 
