@@ -106,3 +106,10 @@ it.each(["en", "zh-CN", "zh-TW"])("localizes the bank category and inheritance a
   await userEvent.type(screen.getByLabelText(i18n.t("icons.search")), "Bank of America");
   expect(screen.getAllByRole("button").some((button) => button.textContent?.includes("bankofamerica"))).toBe(true);
 });
+
+
+it.each(["__proto__", "constructor", "bank-logo:unknown"])("falls back safely for unknown stored ID %s", (key) => {
+  const { container } = render(<EntityIcon iconKey={key} kind="account" />);
+  expect(container.querySelector(".lucide-wallet")).toBeInTheDocument();
+  expect(hasIcon(key)).toBe(false);
+});
