@@ -17,23 +17,25 @@ import (
 // Built-in monitors/retention are off: no library goroutine can outlive a
 // canceled operation or close a DB after a caller's timeout has returned.
 type Manager struct {
-	op             sync.Mutex
-	store          *configStore
-	database       *sqlite.DB
-	path           string
-	factory        func(config) backend
-	workerCancel   context.CancelFunc
-	workerDone     chan struct{}
-	replicaDB      *litestream.DB
-	replicaStore   *litestream.Store
-	initialized    bool
-	identity       streamIdentity
-	replicaBackend backend
-	statusMu       sync.Mutex
-	status         status
-	interval       time.Duration
-	closed         bool
-	restorePaused  bool
+	op                sync.Mutex
+	store             *configStore
+	database          *sqlite.DB
+	path              string
+	factory           func(config) backend
+	workerCancel      context.CancelFunc
+	workerDone        chan struct{}
+	replicaDB         *litestream.DB
+	replicaStore      *litestream.Store
+	initialized       bool
+	lastSyncSucceeded bool
+	identity          streamIdentity
+	replicaBackend    backend
+	replicaConfig     config
+	statusMu          sync.Mutex
+	status            status
+	interval          time.Duration
+	closed            bool
+	restorePaused     bool
 }
 
 func New(path string, database *sqlite.DB) (*Manager, error) {
@@ -103,6 +105,10 @@ func (m *Manager) startLocked(ctx context.Context, c config) error {
 	d.MonitorInterval = 0
 	m.replicaBackend = m.factory(c)
 	m.identity = newIdentity(stream)
+	m.replicaConfig = c
+	if err := m.store.createStream(c, m.identity); err != nil {
+		return err
+	}
 	client := m.replicaBackend.client(stream)
 	client.SetLogger(quietLogger)
 	d.Replica = litestream.NewReplicaWithClient(d, client)
@@ -151,6 +157,7 @@ func (m *Manager) launchWorkerLocked(delay time.Duration) {
 }
 func stringsForPath(stream string) string { return filepath.FromSlash(stream) }
 func (m *Manager) sync(ctx context.Context) error {
+	m.lastSyncSucceeded = false
 	syncCtx, cancel := contextTimeout(ctx)
 	defer cancel()
 	m.setStatus(func(s *status) { s.State = "backing-up"; s.LastAttempt = time.Now().UTC().Format(time.RFC3339Nano) })
@@ -197,6 +204,7 @@ func (m *Manager) sync(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	m.lastSyncSucceeded = true
 	return nil
 }
 func (m *Manager) pauseWorkerLocked() {
@@ -215,11 +223,30 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 	// Cleanup is synchronous. A timed-out goroutine is never left accessing
 	// SQLite. All operations are stopped before reserving/closing the pool slot.
 	closedHandles := false
+	var confirmed time.Time
+	var finalTXID string
 	closeStore := func() error {
 		closedHandles = true
-		closeCtx, cancel := context.WithCancel(ctx)
-		cancel() // no remote writes during disable/target swap
+		finalCtx, stopFinal := context.WithTimeout(ctx, 500*time.Millisecond)
+		defer stopFinal()
+		// Application queries are drained, and the replication worker is joined.
+		// Confirm the final snapshot without borrowing the reserved app pool slot.
+		if m.initialized && m.lastSyncSucceeded && ctx.Err() == nil {
+			if err := m.replicaDB.SyncAndWait(finalCtx); err == nil {
+				if st, err := m.replicaDB.SyncStatus(finalCtx); err == nil && st.InSync {
+					confirmed, finalTXID = time.Now().UTC(), st.RemoteTXID.String()
+				}
+			}
+		}
+		closeCtx, cancel := context.WithCancel(finalCtx)
+		if confirmed.IsZero() {
+			cancel()
+		}
 		err := m.replicaStore.Close(closeCtx)
+		cancel()
+		if err != nil || ctx.Err() != nil {
+			confirmed = time.Time{}
+		}
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil
 		}
@@ -242,6 +269,11 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 			}
 		}
 		return ErrUnavailable
+	}
+	// Closure errors (even cancellation) never create a seal. A failed ledger
+	// write also leaves the stream protected; it must not break shutdown.
+	if !confirmed.IsZero() {
+		_ = m.store.seal(m.replicaConfig, m.identity, finalTXID, confirmed)
 	}
 	m.replicaDB = nil
 	m.replicaStore = nil

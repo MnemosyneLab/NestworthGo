@@ -27,7 +27,14 @@ Each stream has a small `stream.json` containing application ID, source version/
 build, schema and stream ID. It contains no credentials. Conditional creation
 refuses an existing different identity. Listing/restore require this identity
 and full candidate verification; unmarked prototype streams cannot be restored
-through the UI. The record does not represent remote backup success. R2
+through the UI. The record does not represent remote backup success. A separate target-scoped
+local stream ledger records ownership before the worker starts. It records a
+seal only after the worker is joined, the application SQLite connection is
+drained, a final snapshot is remotely confirmed, and Litestream closes
+successfully. The optional sealing attempt has a 500 ms budget; failure or
+cancellation leaves the stream unsealed and protected. Crash-abandoned open
+rows are never promoted on restart. Sealing evidence does not change the
+global last-successful-backup status. R2
 conditional creation is supported by the [S3 API](https://developers.cloudflare.com/r2/api/s3/api/).
 An OS instance lock is acquired before startup journal reconciliation or opening
 SQLite. It fences duplicate processes using the same database path locally.
