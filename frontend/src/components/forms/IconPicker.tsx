@@ -47,15 +47,15 @@ export function IconPicker({ id, value, onChange, kind, inheritIconKey }: {
         </summary>
         {open && (
           <div className="border-t border-border p-3">
-            <div className="mb-3 flex flex-col gap-2">
-              {canChooseBank && <><Label htmlFor={`${id}-category`}>{t("icons.categoryLabel")}</Label>
-                <NativeSelect id={`${id}-category`} value={category} onChange={(event) => setCategory(event.target.value)}>
-                  <option value="generic">{t("icons.genericIcons")}</option>
-                  <option value="bank">{t("icons.category.bankLogos")}</option>
-                </NativeSelect></>}
+            {canChooseBank && <div className="mb-3 flex flex-col gap-2">
+              <Label htmlFor={`${id}-category`}>{t("icons.categoryLabel")}</Label>
+              <NativeSelect id={`${id}-category`} value={category} onChange={(event) => setCategory(event.target.value)}>
+                <option value="generic">{t("icons.genericIcons")}</option>
+                <option value="bank">{t("icons.category.bankLogos")}</option>
+              </NativeSelect>
               <Label htmlFor={`${id}-search`}>{t("icons.search")}</Label>
               <Input id={`${id}-search`} type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
-            </div>
+            </div>}
             <div className="max-h-72 overflow-y-auto">
               {!groups.some((group) => group.choices.length) && <p role="status" className="py-4 text-sm text-muted-foreground">{t("icons.noResults")}</p>}
               {groups.filter((group) => group.choices.length).map((group) => (

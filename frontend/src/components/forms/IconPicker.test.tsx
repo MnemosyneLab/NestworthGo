@@ -93,6 +93,7 @@ it("does not offer bank categories on unrelated entities and never uses an unkno
   const { container } = render(<IconPicker id="member-icon" kind="member" value="bank-logo:../../remote" onChange={() => undefined} />);
   await userEvent.click(screen.getByLabelText("Choose icon"));
   expect(screen.queryByLabelText("Icon category")).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Search icons")).not.toBeInTheDocument();
   expect(container.querySelector("img")).not.toBeInTheDocument();
 });
 
