@@ -17,6 +17,8 @@ import (
 // Built-in monitors/retention are off: no library goroutine can outlive a
 // canceled operation or close a DB after a caller's timeout has returned.
 type Manager struct {
+	retentionPreview  *retentionPlan
+	previewPins       map[string]bool
 	op                sync.Mutex
 	store             *configStore
 	database          *sqlite.DB
@@ -48,7 +50,7 @@ func New(path string, database *sqlite.DB) (*Manager, error) {
 		s.db.Close()
 		return nil, err
 	}
-	m := &Manager{store: s, database: database, path: path, status: st, interval: 5 * time.Second, factory: func(c config) backend { return r2Backend{c: c} }}
+	m := &Manager{previewPins: map[string]bool{}, store: s, database: database, path: path, status: st, interval: 5 * time.Second, factory: func(c config) backend { return r2Backend{c: c} }}
 	// Persisted status is historical evidence, never a live success indication.
 	m.status.State = "disabled"
 	m.status.ErrorSummary = ""
@@ -283,6 +285,7 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 func (m *Manager) Configure(ctx context.Context, u Update) error {
 	m.op.Lock()
 	defer m.op.Unlock()
+	m.retentionPreview = nil
 	if m.closed || m.restorePaused {
 		return ErrDisabled
 	}
@@ -383,7 +386,11 @@ func (m *Manager) RecoveryPoints(ctx context.Context) ([]RecoveryPoint, error) {
 	}
 	listCtx, cancel := contextTimeout(ctx)
 	defer cancel()
-	return recoveryPoints(listCtx, m.factory(c))
+	records, err := m.store.streams(c)
+	if err != nil {
+		return nil, err
+	}
+	return recoveryPoints(listCtx, recoveryBackend{backend: m.factory(c), records: records})
 }
 func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error) {
 	m.op.Lock()
@@ -394,6 +401,13 @@ func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error)
 	}
 	if c.AccountID == "" || c.Bucket == "" || c.AccessKeyID == "" || c.SecretAccessKey == "" {
 		return Candidate{}, ErrConfiguration
+	}
+	records, err := m.store.streams(c)
+	if err != nil {
+		return Candidate{}, err
+	}
+	if r, ok := records[p.StreamID]; ok && (r.State == "deleting" || r.State == "deleted") {
+		return Candidate{}, ErrUnavailable
 	}
 	m.setStatus(func(s *status) { s.RestoreState = "preparing" })
 	dir, err := os.MkdirTemp(filepath.Dir(m.path), ".nestworth-cloud-restore-")
@@ -421,6 +435,8 @@ func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error)
 		return Candidate{}, err
 	}
 	verified.Close()
+	m.previewPins[p.StreamID] = true
+	m.retentionPreview = nil
 	m.setStatus(func(s *status) { s.RestoreState = "preview" })
 	return Candidate{Path: destination, AppVersion: info.AppVersion, AppBuild: info.AppBuild}, nil
 }
