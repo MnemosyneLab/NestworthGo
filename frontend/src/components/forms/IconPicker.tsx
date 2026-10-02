@@ -33,7 +33,12 @@ export function IconPicker({ id, value, onChange, kind, inheritIconKey }: {
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{t("common.icon")}</Label>
       <details className="rounded-md border border-border bg-background" open={open} onKeyDown={(event) => {
-        if (event.key === "Escape") { event.preventDefault(); setOpen(false); trigger.current?.focus(); }
+        if (open && event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          setOpen(false);
+          trigger.current?.focus();
+        }
       }}>
         <summary ref={trigger} id={id} aria-label={t("common.chooseIcon")} aria-expanded={open}
           className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
