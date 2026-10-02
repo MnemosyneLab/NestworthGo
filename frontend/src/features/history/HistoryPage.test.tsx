@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { act, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -999,3 +999,79 @@ it("routes product activities to product management instead of generic fix or un
   expect(previewFixChange).not.toHaveBeenCalled();
   expect(undoChange).not.toHaveBeenCalled();
 });
+
+
+// NW-001: the confirmation must belong to the exact command that was reviewed.
+for (const correcting of [false, true]) {
+  it(`rejects an obsolete ${correcting ? "Fix" : "Record"} preview and freezes confirmation input`, async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+    const previewCall = correcting ? previewFixChange : previewChange;
+    const recordCall = correcting ? fixChange : recordChange;
+    let resolvePreview!: (value: unknown) => void;
+    let resolveRecord!: (value: unknown) => void;
+    previewCall.mockImplementation(() => new Promise((resolve) => { resolvePreview = resolve; }));
+    recordCall.mockImplementation(() => new Promise((resolve) => { resolveRecord = resolve; }));
+    if (correcting) listActivities.mockResolvedValue([{
+      id: "a1", kind: "cash_in", effectiveLocalDate: "2026-01-01", reason: "contribution",
+      effects: [{ role: "amount", direction: "added", target: "account_value", accountId: "acc-1", money: { amount: "100", currency: "USD" } }],
+    }]);
+    renderPage();
+    if (correcting) {
+      const list = await screen.findByTestId("activity-list");
+      await userEvent.click(await within(list).findByRole("button", { name: "Actions" }));
+      await userEvent.click(await screen.findByRole("menuitem", { name: "Fix" }));
+    } else await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    if (!correcting) {
+      await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+      await userEvent.type(within(form).getByLabelText("Amount"), "100");
+    }
+    const amount = within(form).getByLabelText("Amount");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewCall).toHaveBeenCalledTimes(1));
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "200");
+    await act(async () => resolvePreview({ resulting: [{ name: "OBSOLETE", amount: "1100", currency: "USD" }] }));
+    const nextPreview = await within(form).findByRole("button", { name: "Preview" });
+    expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(within(form).queryByText(/OBSOLETE/)).not.toBeInTheDocument();
+    await userEvent.click(nextPreview);
+    await act(async () => resolvePreview({ resulting: [{ name: "CURRENT", amount: "1200", currency: "USD" }] }));
+    await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(recordCall).toHaveBeenCalledTimes(1));
+    expect(amount).toBeDisabled();
+    const submitted = recordCall.mock.calls[0][correcting ? 1 : 0];
+    expect(submitted.amount).toBe("200");
+    await userEvent.type(amount, "9");
+    expect(submitted.amount).toBe("200");
+    await act(async () => resolveRecord({ activity: {}, effects: [], resulting: [] }));
+  });
+}
+
+it("does not attach an old preview to a closed and reopened form", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  const resolvePreviews: ((value: unknown) => void)[] = [];
+  previewChange.mockImplementation(() => new Promise((resolve) => { resolvePreviews.push(resolve); }));
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+  let form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+  await userEvent.type(within(form).getByLabelText("Amount"), "100");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewChange).toHaveBeenCalled());
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("form", { name: "Record change" })).not.toBeInTheDocument());
+  await userEvent.click(screen.getByRole("button", { name: /record change/i }));
+  form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+  await userEvent.type(within(form).getByLabelText("Amount"), "200");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(resolvePreviews).toHaveLength(2));
+  await act(async () => resolvePreviews[1]({ resulting: [{ name: "NEW SESSION", amount: "1200", currency: "USD" }] }));
+  expect(await within(form).findByRole("button", { name: "Confirm" })).toBeEnabled();
+  await act(async () => resolvePreviews[0]({ resulting: [{ name: "OLD SESSION", amount: "1100", currency: "USD" }] }));
+  expect(within(form).getByRole("button", { name: "Confirm" })).toBeEnabled();
+  expect(within(form).getByRole("status")).toHaveTextContent("NEW SESSION");
+  expect(within(form).queryByText(/OLD SESSION/)).not.toBeInTheDocument();
+});
+

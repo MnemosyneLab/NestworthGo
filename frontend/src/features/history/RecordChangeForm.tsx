@@ -330,7 +330,9 @@ function RecordChangeFormReady({
         )
       : {},
   );
-  const [previewResult, setPreviewResult] = useState<EndpointViewDTO[] | null>(null);
+  const [reviewed, setReviewed] = useState<{ key: string; command: ChangeCommandRequest; resulting: EndpointViewDTO[] } | null>(null);
+  const previewSequence = useRef(0);
+  const clearPreview = () => { previewSequence.current += 1; setReviewed(null); };
 
   const markAutomaticFields = (current: ChangeCommandRequest, fields: string[]) => {
     fields.forEach((field) => {
@@ -341,6 +343,7 @@ function RecordChangeFormReady({
   };
 
   const patch = (next: Partial<ChangeCommandRequest>, automaticFields: string[] = []) => {
+    if (record.isPending || fix.isPending) return;
     setRequest((current) => {
       markAutomaticFields(current, automaticFields);
       Object.keys(next).forEach((field) => {
@@ -355,7 +358,7 @@ function RecordChangeFormReady({
       });
       return { ...current, ...next };
     });
-    setPreviewResult(null);
+    clearPreview();
     if (preview.isError) preview.reset();
     if (previewFix.isError) previewFix.reset();
     if (record.isError) record.reset();
@@ -611,26 +614,37 @@ function RecordChangeFormReady({
     };
   };
 
+  const commandKey = JSON.stringify(buildRequest());
+  const currentReview = reviewed?.key === commandKey ? reviewed : null;
+  const previewResult = currentReview?.resulting ?? null;
+
   const runPreview = () => {
     if (!canPreview) {
       return;
     }
-    const command = buildRequest();
+    const command = Object.freeze(buildRequest());
+    const key = JSON.stringify(command);
+    const sequence = ++previewSequence.current;
+    const accept = (result: { resulting: EndpointViewDTO[] }) => {
+      if (sequence === previewSequence.current) setReviewed({ key, command, resulting: result.resulting });
+    };
     if (fixActivityId) {
-      previewFix.mutate({ activityId: fixActivityId, replacement: command }, { onSuccess: (result) => setPreviewResult(result.resulting) });
+      previewFix.mutate({ activityId: fixActivityId, replacement: command }, { onSuccess: accept });
       return;
     }
-    preview.mutate(command, { onSuccess: (result) => setPreviewResult(result.resulting) });
+    preview.mutate(command, { onSuccess: accept });
   };
 
   const runConfirm = () => {
-    const command = buildRequest();
+    if (!currentReview || record.isPending || fix.isPending) return;
+    // Confirm the immutable command that produced the visible preview.
+    const command = currentReview.command;
     if (fixActivityId) {
       fix.mutate(
         { activityId: fixActivityId, replacement: command },
         {
           onSuccess: () => {
-            setPreviewResult(null);
+            clearPreview();
             onRecorded();
           },
         },
@@ -639,7 +653,7 @@ function RecordChangeFormReady({
     }
     record.mutate(command, {
       onSuccess: () => {
-        setPreviewResult(null);
+        clearPreview();
         setRequest(emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, defaultCurrency));
         onRecorded();
       },
@@ -781,7 +795,8 @@ function RecordChangeFormReady({
   };
 
   return (
-    <div className="flex flex-col gap-4" role="form" aria-label={t("history.formLabel")}>
+    <div role="form" aria-label={t("history.formLabel")}>
+      <fieldset className="flex min-w-0 flex-col gap-4" disabled={confirmPending}>
       {!lock?.hideKind && (
         <ChoiceGrid
           label={t("history.changeType")}
@@ -801,7 +816,7 @@ function RecordChangeFormReady({
             };
             resetAutomaticTracking(locked);
             setRequest(locked);
-            setPreviewResult(null);
+            clearPreview();
           }}
         />
       )}
@@ -1079,6 +1094,7 @@ function RecordChangeFormReady({
       <div className="flex gap-2">
         {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : t("common.confirm")}</Button>}
       </div>
+      </fieldset>
     </div>
   );
 }
