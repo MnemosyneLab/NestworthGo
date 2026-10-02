@@ -470,7 +470,8 @@
       "currency": "Currencies",
       "general": "General",
       "investment": "Investment & markets",
-      "protection": "Protection & planning"
+      "protection": "Protection & planning",
+      "bankLogos": "Bank & financial logos"
     },
     "chart": "Financial chart",
     "circleCheck": "Verified",
@@ -507,7 +508,7 @@
     "receivable": "Receivable",
     "retirement": "Retirement",
     "savings": "Savings",
-    "search": "Search",
+    "search": "Search icons",
     "settings": "Settings",
     "shield": "Protection",
     "shieldPlus": "Extended protection",
@@ -525,7 +526,12 @@
     "landmark": "Government building",
     "car": "Vehicle",
     "gem": "Collectible",
-    "pieChart": "Portfolio allocation"
+    "pieChart": "Portfolio allocation",
+    "categoryLabel": "Icon category",
+    "genericIcons": "Generic icons",
+    "noResults": "No matching icons",
+    "inheritInstitution": "Use institution icon",
+    "inheritHint": "Follows the institution icon. Without an institution, uses the account type icon."
   },
   "directory": {
     "createError": "The item could not be created",

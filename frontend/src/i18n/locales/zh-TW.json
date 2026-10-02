@@ -470,7 +470,8 @@
       "currency": "貨幣",
       "general": "通用",
       "investment": "投資與市場",
-      "protection": "保障與規劃"
+      "protection": "保障與規劃",
+      "bankLogos": "銀行與金融機構標誌"
     },
     "chart": "財務圖表",
     "circleCheck": "已確認",
@@ -507,7 +508,7 @@
     "receivable": "應收款",
     "retirement": "退休",
     "savings": "儲蓄",
-    "search": "搜尋",
+    "search": "搜尋圖示",
     "settings": "設定",
     "shield": "保障",
     "shieldPlus": "加強保障",
@@ -525,7 +526,12 @@
     "landmark": "政府建築",
     "car": "車輛",
     "gem": "收藏品",
-    "pieChart": "資產配置"
+    "pieChart": "資產配置",
+    "categoryLabel": "圖示類別",
+    "genericIcons": "通用圖示",
+    "noResults": "沒有相符的圖示",
+    "inheritInstitution": "使用機構圖示",
+    "inheritHint": "跟隨所屬機構的圖示。未選擇機構時使用帳戶類型圖示。"
   },
   "directory": {
     "createError": "無法建立此項目",

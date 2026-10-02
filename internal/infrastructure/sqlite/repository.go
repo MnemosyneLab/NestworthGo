@@ -924,7 +924,7 @@ func nullableString(value *string) any {
 
 // Account icon_key is NOT NULL in the current schema. An explicit clear is
 // represented in the domain as nil and persisted as the empty sentinel; reads
-// map that sentinel back to nil and the wire layer supplies the type default.
+// map that sentinel back to nil. The UI resolves the institution/type fallback.
 func accountIconValue(value *string) any {
 	if value == nil {
 		return ""

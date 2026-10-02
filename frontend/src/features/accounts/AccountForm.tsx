@@ -20,7 +20,7 @@ import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang
 import type { AccountRecordDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import { displayEnum } from "@/lib/display";
 import { compatibleAccountTypes, ownershipShares, trackingMethodKey } from "@/features/accounts/accountCatalog";
-import { ACCOUNT_TYPE_ICONS } from "@/lib/defaultIcons";
+import { resolveAccountIcon } from "@/lib/accountIcons";
 import { OwnershipFields } from "@/features/accounts/OwnershipFields";
 
 const accountFormSchema = z.object({
@@ -113,6 +113,7 @@ export function AccountForm({
   const { t } = useTranslation();
   const members = useMembers();
   const institutions = useInstitutions();
+  const iconInstitutions = useInstitutions(true);
   const groups = useGroups();
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
@@ -122,8 +123,7 @@ export function AccountForm({
   const today = origin.data ? localDateInTimeZone(origin.data.timezone) : undefined;
   const isEdit = Boolean(record);
   const [showMoreOptions, setShowMoreOptions] = useState(false);
-  const [iconCustomized, setIconCustomized] = useState(Boolean(record?.account.iconKey));
-  const [iconKey, setIconKey] = useState(record?.account.iconKey ?? ACCOUNT_TYPE_ICONS.cash_on_hand);
+  const [iconKey, setIconKey] = useState(record?.account.iconKey ?? "");
   const initialValues = record ? valuesFromRecord(record) : emptyValues;
   const [useCustomPercentages, setUseCustomPercentages] = useState(
     (initialValues.ownershipPercentages ?? []).length > 0,
@@ -194,9 +194,6 @@ export function AccountForm({
     setValue("accountType", nextType);
     setValue("balanceSheetRole", role);
     setValue("trackingMode", tracking);
-    if (!isEdit && !iconCustomized) {
-      setIconKey(ACCOUNT_TYPE_ICONS[nextType] ?? "account");
-    }
     if (!isEdit && match) {
       setValue("includeInNetWorth", match.includeInNetWorth, { shouldDirty: true, shouldTouch: true });
       setValue("includeInPortfolio", match.includeInPortfolio, { shouldDirty: true, shouldTouch: true });
@@ -233,7 +230,7 @@ export function AccountForm({
       ownership: ownershipShares(values.ownerIds, values.ownershipPercentages, useCustomPercentages),
       institutionId: values.institutionId || undefined,
       groupId: values.groupId || undefined,
-      iconKey: iconKey || undefined,
+      iconKey,
       initialAmount: isEdit || values.trackingMode === "holdings" ? "" : values.initialAmount || "0",
       openedOn: !isEdit && values.openedOn ? values.openedOn : undefined,
     };
@@ -372,7 +369,7 @@ export function AccountForm({
       </Button>
       {showMoreOptions && (
         <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">
-          <IconPicker id="account-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
+          <IconPicker id="account-icon" value={iconKey} kind="account" onChange={setIconKey} inheritIconKey={resolveAccountIcon({ accountType, institutionId }, iconInstitutions.data)} />
           <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutions.data ?? []} emptyLabel={t("accounts.none")} kind="institution" onChange={(value) => setValue("institutionId", value)} />
           <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => setValue("groupId", value)} />
         </div>

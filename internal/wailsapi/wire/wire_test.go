@@ -204,3 +204,15 @@ func TestStringPtrRoundTrip(t *testing.T) {
 		t.Fatalf("StringFromPtr(&hello) must be \"hello\"")
 	}
 }
+
+func TestAccountWirePreservesInheritanceAndExplicitIcons(t *testing.T) {
+	for _, key := range []string{"", "wallet", "bank-logo:icbc", "unknown-legacy"} {
+		account := domain.Account{AccountType: domain.TypeBankAccount, IconKey: &key}
+		if got := FromAccount(account).IconKey; got != key {
+			t.Fatalf("icon = %q, want %q", got, key)
+		}
+	}
+	if got := FromAccount(domain.Account{AccountType: domain.TypeBankAccount}).IconKey; got != "" {
+		t.Fatalf("inherited icon replaced by %q", got)
+	}
+}

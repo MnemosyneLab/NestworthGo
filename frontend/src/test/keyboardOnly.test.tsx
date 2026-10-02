@@ -223,6 +223,8 @@ describe("keyboard-only completion", () => {
     await userEvent.keyboard("New Savings");
 
     await userEvent.tab(); // -> icon picker
+    await userEvent.tab(); // -> explicit inheritance/reset control
+    expect(within(form).getByRole("button", { name: "Use institution icon" })).toHaveFocus();
     await userEvent.tab(); // -> currency select
     await userEvent.tab(); // -> initial value input
     expect(within(form).getByLabelText("Initial value")).toHaveFocus();

@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { AccountCashValueDTO, AccountRecordDTO, AccountValuationDTO, HoldingDTO, ValuationComponentDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
-import { EntityIcon } from "@/components/icons/EntityIcon";
+import { AccountIcon } from "@/components/icons/AccountIcon";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -233,7 +233,7 @@ export function AccountDetail({
     <div className="flex flex-col gap-6" data-testid="account-detail">
       <PageChrome
         pageId="accounts"
-        title={<span className="flex min-w-0 items-center gap-2"><EntityIcon iconKey={record.account.iconKey} kind="account" className="size-5 shrink-0 text-primary" />{record.account.name}</span>}
+        title={<span className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-5 shrink-0 text-primary" />{record.account.name}</span>}
         actions={
           <>
             <AnalyzeMenu inline accountId={record.account.id} label={record.account.name} />

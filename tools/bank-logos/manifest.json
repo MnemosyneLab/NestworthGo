@@ -1,0 +1,3654 @@
+{
+  "repository": "https://github.com/icongo/bank-logos",
+  "revision": "ffca539a043900fbf2a4fd6a5d32f1706ae5dfd1",
+  "assets": [
+    {
+      "key": "bank-logo:abchina-rect",
+      "source": "logos/abchina-rect.svg",
+      "originalSha256": "1176b226eb7a88cf92eadfaf24cc02cf667592d89d1f8f5abd50951b31f2797a",
+      "sha256": "fe7f238354c19958edb8ded2cf38fc0bcc73eec97bc767a74d5183eac7e490b4"
+    },
+    {
+      "key": "bank-logo:abchina",
+      "source": "logos/abchina.svg",
+      "originalSha256": "dcf14824c1e897f53f4fa3d8a77379b28c9f44bc44f95e7c0130bcd89229796b",
+      "sha256": "a91d032542fba5b9c95667305b54edb242d17a55a077de193bf12d7f97ae89de"
+    },
+    {
+      "key": "bank-logo:abnamro-rect",
+      "source": "logos/abnamro-rect.svg",
+      "originalSha256": "280a46080356ab4f24acb001338023f96e8f65aa2c2e8f8e9d84d22b5f122724",
+      "sha256": "ec1346bca98d5325aa84c035141aa410db42f709fe8c9742ed348877e2abac79"
+    },
+    {
+      "key": "bank-logo:abnamro",
+      "source": "logos/abnamro.svg",
+      "originalSha256": "d9fdbc2620bb4bcd35433d493c73baa3a0740cac714c7b4ce0814fd53ac72685",
+      "sha256": "95c3833e7221e09dc74fc12de17ca6b1f6747775809e212ffac312134d607caa"
+    },
+    {
+      "key": "bank-logo:anz-rect",
+      "source": "logos/anz-rect.svg",
+      "originalSha256": "825afc8c62a6b3282f69ed8d66b7d8f510683abd025dd0be21eede3eb39a0860",
+      "sha256": "2ca4f60a218a7acfe39297b6c28840473054d790c6f192a3dd336c8237f660a6"
+    },
+    {
+      "key": "bank-logo:anz",
+      "source": "logos/anz.svg",
+      "originalSha256": "dca7e00ef7999713982d098e10a5ea93e7fd48537270fb3cd67a3a2f884b37d3",
+      "sha256": "1068cc7ca50b2c3ffeee3b9daf5657f50cfdbcf449299dc5b3e7c0f5968be03c"
+    },
+    {
+      "key": "bank-logo:bangkokbank-rect",
+      "source": "logos/bangkokbank-rect.svg",
+      "originalSha256": "ce57f5ee7a0c1cb403a8190205d5dfee9509d2e775ea82483ace3c8b39c19df5",
+      "sha256": "3ffa1cf64bf501aa8dffc44958364ea7cc25c589005355cb092629235d03cda7"
+    },
+    {
+      "key": "bank-logo:bangkokbank",
+      "source": "logos/bangkokbank.svg",
+      "originalSha256": "cfac2e13567fdcc56cca8b6396f9cd3b3bb4855ecf9d6fb784eed1caeb8c5c4a",
+      "sha256": "67580495ebf154b18cc93d7f82ef8a4b8166cb648f25452d022cf3d4e69355fb"
+    },
+    {
+      "key": "bank-logo:bankcomm-rect",
+      "source": "logos/bankcomm-rect.svg",
+      "originalSha256": "6fa1f6837abc0302add8cdab8f776c2e724e6d5702700da9edd1a99145b6b49d",
+      "sha256": "300d476bbb7fb39e8d0c3ebf9fa0f19690202d8738abad354d30df743ab2e9f9"
+    },
+    {
+      "key": "bank-logo:bankcomm",
+      "source": "logos/bankcomm.svg",
+      "originalSha256": "eecb0eaf3e7cfe5030de390caf81646b5eba18f476f37789f700a284ebeba9ea",
+      "sha256": "c41ba119fbe98395396f810d17be6a5e4240ed8c28b5ddca723c2d0eb78c8056"
+    },
+    {
+      "key": "bank-logo:bankcz-rect",
+      "source": "logos/bankcz-rect.svg",
+      "originalSha256": "e3a56a8170105dae5272d03a89a1b31cea3b5a1e9fdc3f6c92eac5e8a29464c3",
+      "sha256": "ff2f5f0f7dfc445b5ff674d85fd911caafd6c3d1312ece50fdaa32edb6d782dc"
+    },
+    {
+      "key": "bank-logo:bankcz",
+      "source": "logos/bankcz.svg",
+      "originalSha256": "9dbd9958cca4866d549c170eeb3fc510dd02acc75a6ed6a5a8195a3beac3f921",
+      "sha256": "b0e1bda721c30bf8421d9eee1b14ecee9bc5c14c9c8dcbe2a2c67300e6cdac3b"
+    },
+    {
+      "key": "bank-logo:bankgy-rect",
+      "source": "logos/bankgy-rect.svg",
+      "originalSha256": "e3e7477a19d4820bba6349d85e5786fb1710d21bc0268d810f2b8ec4675c0f92",
+      "sha256": "192c22797bad9c7986c26877e35c243b2a46ebbf7ec45cc557c2f96fa392c2f0"
+    },
+    {
+      "key": "bank-logo:bankgy",
+      "source": "logos/bankgy.svg",
+      "originalSha256": "93ebc5be9b92d93976d5221cf2724f3ce00e5ac24bf5ef2d9c0817024e16009b",
+      "sha256": "fd8ebc7609f463c23679166d5da9a4162ba60c255685f8c53a29933ab0214781"
+    },
+    {
+      "key": "bank-logo:bankofamerica-rect",
+      "source": "logos/bankofamerica-rect.svg",
+      "originalSha256": "79410756416c38e37809e294da779a60f5a08c13cb8057686c4b14b33e4a64c8",
+      "sha256": "0229d5854dbac02bc5d9ce66416def19a643ab755423df96245e6b3a211b619d"
+    },
+    {
+      "key": "bank-logo:bankofamerica",
+      "source": "logos/bankofamerica.svg",
+      "originalSha256": "b018aa5b3278ca23379cb4158f6e37d874cb85148193b5e32410992dba9da872",
+      "sha256": "66d58d436daecbf8d09dcdf35b64783f97181bd6c734be9a5eaabfa4d3ca674e"
+    },
+    {
+      "key": "bank-logo:bankofas-rect",
+      "source": "logos/bankofas-rect.svg",
+      "originalSha256": "666118c754b006aa3704cbe685892be99596fa66980b18fbc198aff71ba0da8d",
+      "sha256": "c392f1f740730ee3abce5e1d3d571006bfa31c2b2bd7ffb8fa1631a7348b8fe8"
+    },
+    {
+      "key": "bank-logo:bankofas",
+      "source": "logos/bankofas.svg",
+      "originalSha256": "2eca382cf382a21978a4f6a8cdfcdb6b69fe15a20607299840a819d195b5f627",
+      "sha256": "a371cb86e1df8c1071360b2d9cac627dd68cd6d75c9a4072f4c456faa455fd76"
+    },
+    {
+      "key": "bank-logo:bankofbbg-rect",
+      "source": "logos/bankofbbg-rect.svg",
+      "originalSha256": "a9b3e3236d56e7d173148f6bf35050d580706bdcde50f46a2313be22a1445e31",
+      "sha256": "fa51f49f1379f5ded74bc16402f150a4fb2ef09303b02426fb5dc21833a5e362"
+    },
+    {
+      "key": "bank-logo:bankofbbg",
+      "source": "logos/bankofbbg.svg",
+      "originalSha256": "0f9b1fa6ffaba2448a39e7af17b5892b4035cb2153bec51d34fb77f66a8d2ce9",
+      "sha256": "616e439540f6a669a99d9f5c174fad0e466fa169c8d94e1e45bd5f2bcf3d09c3"
+    },
+    {
+      "key": "bank-logo:bankofbeijing-rect",
+      "source": "logos/bankofbeijing-rect.svg",
+      "originalSha256": "dcda0eac0ed7093de81104081eed2054562f25b47fff695adc8475d7df321117",
+      "sha256": "7baacdc76eb3211d7c912e99e8f0bcdc894bba44c4c78f99a643157f25682a4f"
+    },
+    {
+      "key": "bank-logo:bankofbeijing",
+      "source": "logos/bankofbeijing.svg",
+      "originalSha256": "3c11a61589979b84b2551169dd22c773a3ec5be46ecf73d5f3c6079d72bd7d8c",
+      "sha256": "fcf2f9bab93eaef1e1b568cbb27f589c987a2026f6cc1e856b36b79f62c9f900"
+    },
+    {
+      "key": "bank-logo:bankofdl-rect",
+      "source": "logos/bankofdl-rect.svg",
+      "originalSha256": "a59579f489a11c2ab1e2e287b906bbfde3d2369dfdbd1bcba698ed8b3c060010",
+      "sha256": "69d8439e90c8de96b00ec1053ce28b1e916eb8665a83590a4a0c532aae721f88"
+    },
+    {
+      "key": "bank-logo:bankofdl",
+      "source": "logos/bankofdl.svg",
+      "originalSha256": "445b88d3e5f0b04cbbb6aa444f79f4f44681d797f27a938addd191428962cef4",
+      "sha256": "e5d5bd8b08e014b52d15eb5dc6f33185b93799a43065bd7ea71b001ca8b73966"
+    },
+    {
+      "key": "bank-logo:bankoffs-rect",
+      "source": "logos/bankoffs-rect.svg",
+      "originalSha256": "327988a45cbeca712ec644c0f4d04fed2463fc440ab01517b4255e48de87ef20",
+      "sha256": "45b943f4dbc7461161696b517146f963444a6b2a1cf530be6d75c68eb4507feb"
+    },
+    {
+      "key": "bank-logo:bankoffs",
+      "source": "logos/bankoffs.svg",
+      "originalSha256": "3a70b75f1d5f2ff81d595c2862a5d0a66034ce3cddf41a2e1be5c3c8e62805ec",
+      "sha256": "5b9a1cf5b1daea3a91e3c49f14697618282a5059d1d127d12c1553079bffe8b7"
+    },
+    {
+      "key": "bank-logo:bankofhld-rect",
+      "source": "logos/bankofhld-rect.svg",
+      "originalSha256": "452fb0e888095f40a7666a808637f4372cef6914cca91b888f40180db3bcc991",
+      "sha256": "264a1b8cd3590ff04dbb6073b11b25136cbaba35775e2b99b6447d874b3da090"
+    },
+    {
+      "key": "bank-logo:bankofhld",
+      "source": "logos/bankofhld.svg",
+      "originalSha256": "9b15f60d96af6d38adce587f3e5f7d173b648f259b178405087e1e4e1eefe98a",
+      "sha256": "ac132f884bb3050da9353b7de49a7b2ceda91b72dbfe9fce7d4779acbd4c7a16"
+    },
+    {
+      "key": "bank-logo:bankofnx-rect",
+      "source": "logos/bankofnx-rect.svg",
+      "originalSha256": "22333f44618d53b1cfa3c48ae4cf9caf89154010501844e87a19ee63dc25f48a",
+      "sha256": "25d91460330f61419d204e1255d9ac0e529c75d9bc89cd67870a54fe032cef2f"
+    },
+    {
+      "key": "bank-logo:bankofnx",
+      "source": "logos/bankofnx.svg",
+      "originalSha256": "ce29ef616e7756e7733542d1c463d59ad1d71e6816c57dccb981b6e930e718b8",
+      "sha256": "3d97b1a69de12fb9dc7df4e7a9f6854fd25300061b16daadef7e8f7ee1a5a9d2"
+    },
+    {
+      "key": "bank-logo:bankofpj-rect",
+      "source": "logos/bankofpj-rect.svg",
+      "originalSha256": "47ab12fcd9e010522642df6d98bd380436385404ad48b1babf152c67e17282be",
+      "sha256": "e0146522a617289069ed7e11aaea48003cba0968a82d346912013554aa73d5f6"
+    },
+    {
+      "key": "bank-logo:bankofpj",
+      "source": "logos/bankofpj.svg",
+      "originalSha256": "5d4e316b73875530e7c1c9c5449aa9dd4be967af76ba15e2a96ab5c6b7b7ac01",
+      "sha256": "feeabb7e001e15b82ad8e7b938d4d01be14d73e8cd3b4f06afb7015dfe0c4e33"
+    },
+    {
+      "key": "bank-logo:bankofrizhao-rect",
+      "source": "logos/bankofrizhao-rect.svg",
+      "originalSha256": "41d48a5b25c26fca6d8318dc1d73495281154975d2b18137ebeaad76863b54b9",
+      "sha256": "806aca5c7c9c061acccd628540796e7b488260010da7e6fbae3c821c8d68eae8"
+    },
+    {
+      "key": "bank-logo:bankofrizhao",
+      "source": "logos/bankofrizhao.svg",
+      "originalSha256": "e35b6cc69d75b80bbf62e827a510e446653ab991a7dd4dbeb8bf0b6514374da9",
+      "sha256": "9316ca6944b0a8f5333b187546c6b0c25f413087dc97b050ef1119073a433478"
+    },
+    {
+      "key": "bank-logo:bankoftianjin-rect",
+      "source": "logos/bankoftianjin-rect.svg",
+      "originalSha256": "4348f4445d9ea16f8b6c9676296912720c46507ae0cc7afc0a7b2fb4b39890b4",
+      "sha256": "7723c5fbe3ce6ac0ac02784047856889fc7abbf873d043303922bdf0f1269509"
+    },
+    {
+      "key": "bank-logo:bankoftianjin",
+      "source": "logos/bankoftianjin.svg",
+      "originalSha256": "2b1f4413322d1ca9f1685c9a165f4fad245e2527a8e4d397b01f49698264b302",
+      "sha256": "f2432dafe9a25b116d847f47c0522b1170375fbd9cd0bfc4bceb119adf322a22"
+    },
+    {
+      "key": "bank-logo:bankoftieling-rect",
+      "source": "logos/bankoftieling-rect.svg",
+      "originalSha256": "182b3c0a80c6c793f27e25f6409ca850207f88b04c3f1cb5420b6739c52462c4",
+      "sha256": "ec61683f7e0d0dba731c3796b671a808ee185e97eedda6ae13e85d91deb20e52"
+    },
+    {
+      "key": "bank-logo:bankoftieling",
+      "source": "logos/bankoftieling.svg",
+      "originalSha256": "d922cbc84bee31f2ce2d24aee7cf48a281cca4f2b7fbff89e83b1616bb3be740",
+      "sha256": "d1b5a5d61b40cf82052f70cde5a2e7d210b64c34591399f83576f53287a10f91"
+    },
+    {
+      "key": "bank-logo:bankofyk-rect",
+      "source": "logos/bankofyk-rect.svg",
+      "originalSha256": "00504916629d81d5884676f2d47b5dc4cb255dd1ce9742329ebbcd4a865ca8b2",
+      "sha256": "8307aa4e4dc729990af6563965da269a14ed588e215ae3285eebc95a70432743"
+    },
+    {
+      "key": "bank-logo:bankofyk",
+      "source": "logos/bankofyk.svg",
+      "originalSha256": "3b5001e03599616748ad94997c71acc176a0ec93c3790bd8831299bd69cd7a58",
+      "sha256": "3367fb8adeee289a8036e6427b005ec058710f9349fb767754aedac89fcc49fd"
+    },
+    {
+      "key": "bank-logo:bankqh-rect",
+      "source": "logos/bankqh-rect.svg",
+      "originalSha256": "3d5631ab9dd66f18a5dc6ede6353d0e7087c29a3362f72131dd3ff22042b6350",
+      "sha256": "6089a8123f8f0bb85aaae23df973b4a0e0012a54ccb1b2618049be1b42e0918d"
+    },
+    {
+      "key": "bank-logo:bankqh",
+      "source": "logos/bankqh.svg",
+      "originalSha256": "8bcecbae8765f99403bad049947c20fd908c9d58638f6c37989df08286775e5f",
+      "sha256": "2b65b081b47dccd4453e2799a91ade8a699c717b5d2d6f418145789c5382e965"
+    },
+    {
+      "key": "bank-logo:bankwf-rect",
+      "source": "logos/bankwf-rect.svg",
+      "originalSha256": "1e60df792efe1fba8c776080aa3dddfd37ad3b3ca22d1dd7a900004dbc430101",
+      "sha256": "64cdc7e7e6a8a5b4935fe046bea4816abc3c530fedfb055164a88731f3981b77"
+    },
+    {
+      "key": "bank-logo:bankwf",
+      "source": "logos/bankwf.svg",
+      "originalSha256": "9de2b6662ea65c383d56178d00c9708f00b882997ccd587c953e8e1947b9a9e3",
+      "sha256": "03694906b1fb7454880476d52a3ec09e09aa9eb633816f497afafcbc8d23c1ca"
+    },
+    {
+      "key": "bank-logo:bankyellowriver-rect",
+      "source": "logos/bankyellowriver-rect.svg",
+      "originalSha256": "b56e30212f50f05c5fdf224ecfdb00967fc2b3b66b2b57c5708a7050518d4dce",
+      "sha256": "35ff18635241b574ef113b5f8c409e7a16f3471e45194ea3ce1597c1ceaaf1f1"
+    },
+    {
+      "key": "bank-logo:bankyellowriver",
+      "source": "logos/bankyellowriver.svg",
+      "originalSha256": "f8fc81425212fdb089d86aebfbe9dfd2c837626e604d5114d8678ab743ef41ee",
+      "sha256": "30e7e320d64860c9125f85d83a1fb6b387aceb1065fdd286d3bf8cab6eba9beb"
+    },
+    {
+      "key": "bank-logo:barclays-rect",
+      "source": "logos/barclays-rect.svg",
+      "originalSha256": "f7c3b0c77dedd8933e2dfe7378cb597e3a76e98cfaaca89b7709f25c50d1c136",
+      "sha256": "7eb412550c448763117db8c6ac46fd21570c586a6f027d6fa51810194b282afc"
+    },
+    {
+      "key": "bank-logo:barclays",
+      "source": "logos/barclays.svg",
+      "originalSha256": "83a053a2342086fb7e52e5df3b47362bb35db356071d9793bb76f909a4f7c22e",
+      "sha256": "d91d3d81c6a4eeeada5eceadf8cdbaa73f38b4e48bccccf0736dfe49367a5572"
+    },
+    {
+      "key": "bank-logo:bcm-rect",
+      "source": "logos/bcm-rect.svg",
+      "originalSha256": "e86cec28e90f1b4d1ef87a251ac2e72afa78e684b8abadfcd52e105aa1c1bf0a",
+      "sha256": "a9f80dc3d62be3da7915a92ac85816be64aa2744e17ededcd558642cc377fd60"
+    },
+    {
+      "key": "bank-logo:bcm",
+      "source": "logos/bcm.svg",
+      "originalSha256": "04499d8ef06b227c04210cf5dde07215fecb12c9d30f3ffd83c048eebf1bdf7a",
+      "sha256": "667f534ce337d8de7c4207b82fa96c5c7c5076b796ccbbc0362165b50303b0d1"
+    },
+    {
+      "key": "bank-logo:bd-bank-rect",
+      "source": "logos/bd-bank-rect.svg",
+      "originalSha256": "75d8ec06cbbf199b98ccd40f2fa93eda6d0dfc2fbf09040ff9ef8071a4f35efa",
+      "sha256": "0724ed618e442a6c933f326127da1b29e78e56a6cd555236422be9a99bcbfcd7"
+    },
+    {
+      "key": "bank-logo:bd-bank",
+      "source": "logos/bd-bank.svg",
+      "originalSha256": "b7c4606bbcc306e103eb691d49f92b5e6b5e168f29a62ec90c52c6d0d40ab479",
+      "sha256": "d67401bf39b4dbc0e3f0328a93b39f30a163273f356e417500a7d3cf7eb6ee07"
+    },
+    {
+      "key": "bank-logo:bgzchina-rect",
+      "source": "logos/bgzchina-rect.svg",
+      "originalSha256": "b859a542e8ba3ecad7b6f5d6091e24f8637f5955147d9b482ef71cdb7fa7b0b7",
+      "sha256": "c74e1701dd4f15f35fa302849103f957631a3151278df674eafa01edf4c62956"
+    },
+    {
+      "key": "bank-logo:bgzchina",
+      "source": "logos/bgzchina.svg",
+      "originalSha256": "bcb5173a1c66de431d4ea025de1dbb50606eeae7ec2e17df3415e87f215560d5",
+      "sha256": "b82ba8f7800cf4c59d529f5e583001767a58919204dff61a901b7e208acda1f1"
+    },
+    {
+      "key": "bank-logo:bjrcb-rect",
+      "source": "logos/bjrcb-rect.svg",
+      "originalSha256": "df7095b5bd0326a0894c092262c0fdcd253d80db149c7c3b697744f8c89f1b5a",
+      "sha256": "2b26cae33ac79a1814a032858188250a37afd8f4c95fc4d719c846a5037319fd"
+    },
+    {
+      "key": "bank-logo:bjrcb",
+      "source": "logos/bjrcb.svg",
+      "originalSha256": "df072ba46b74e15bf6a32585f398fb2fdc9e1da796fe8ec0c2b3132d558e1d55",
+      "sha256": "970130a2819b9b32aded3c4dcd3ee7ef998ae3b19b53af342f17d5ed6d4b3825"
+    },
+    {
+      "key": "bank-logo:bmo-rect",
+      "source": "logos/bmo-rect.svg",
+      "originalSha256": "1488f0234cfbb8bf4b54607b0c9b45b78458ade27da39f9a5e7bc7a759dd6907",
+      "sha256": "d45196e1bfd51c09cb683166bba146968d5a6262b55ea22ff2703ed49d5ecb8a"
+    },
+    {
+      "key": "bank-logo:bmo",
+      "source": "logos/bmo.svg",
+      "originalSha256": "fda35db806c38ab2c2d367cc56117591a970cbc17b175bcf22264f9987d02a8c",
+      "sha256": "802c7cdd6ff0cf6aee6485ae90e4d7acfc20d4365bd3c0329213b5685200d678"
+    },
+    {
+      "key": "bank-logo:boc-rect",
+      "source": "logos/boc-rect.svg",
+      "originalSha256": "521bb1790360e95e9f45a6bba9e414acfe8d53be96f3df695ad3015309efdc4d",
+      "sha256": "fa9a764b5e4a76d54be73f684e22796df7226f48149a721be567566aa6b1650a"
+    },
+    {
+      "key": "bank-logo:boc",
+      "source": "logos/boc.svg",
+      "originalSha256": "8b180a467a7e33bb3260e4099f5410f9d54fa0d00001b879185ba30ca385081b",
+      "sha256": "a829f03e6694338e3e035e998112c552144acb58ac95b22d4fec5bce074f69a6"
+    },
+    {
+      "key": "bank-logo:bocd-rect",
+      "source": "logos/bocd-rect.svg",
+      "originalSha256": "5f46bd75425e5569c8841639cc4a771b7612b7768651fa40fbe90a2c901c4eac",
+      "sha256": "93193337be2092d4e78483e4f0244fb6e4d0fbcf920625a69e3c61ddc55b623c"
+    },
+    {
+      "key": "bank-logo:bocd",
+      "source": "logos/bocd.svg",
+      "originalSha256": "397718dc37fd634fd69c8f3ffd3958c88a6c17b889aaec4b7bd6bb1344454c70",
+      "sha256": "ff4ede11064419b2f14e98580fa1cd8600643b3e138f54a2d7a940e470e6895f"
+    },
+    {
+      "key": "bank-logo:bohuihe-rect",
+      "source": "logos/bohuihe-rect.svg",
+      "originalSha256": "a87a4ffdccad7e1a9949a9a0e2d1f5405d0d91e3d0cc02206a2d9503b6f89315",
+      "sha256": "fa0303befc31e73f4eb667fb9cff6bf95234c45341d839de745c9f7059991c3c"
+    },
+    {
+      "key": "bank-logo:bohuihe",
+      "source": "logos/bohuihe.svg",
+      "originalSha256": "9bda9fe08f64ca19b5ec558e3c74f83d751f58d8e7b6d6d87637e7bc29aa0cd4",
+      "sha256": "15380760b4e2add33d72557c73d99a3de1fcdc50e8b499feeea39ff0f40eab2c"
+    },
+    {
+      "key": "bank-logo:bolz-rect",
+      "source": "logos/bolz-rect.svg",
+      "originalSha256": "ef3ef5d6914e143094939154d0ceda79af9e698f973050a4815bb1cad693b334",
+      "sha256": "dd363eaf2a081d1618c5739482328859219a4d02b3ce2f8b19486ea02d49f5ba"
+    },
+    {
+      "key": "bank-logo:bolz",
+      "source": "logos/bolz.svg",
+      "originalSha256": "dde548a98a25a693f9d185392896792741f82153b6ae153c409c49714dead0e9",
+      "sha256": "ddfcee1147ba6ccc90e9087c05c3c135e9f188e5a41915b44504fcaef4b2a88e"
+    },
+    {
+      "key": "bank-logo:bosc-rect",
+      "source": "logos/bosc-rect.svg",
+      "originalSha256": "3b454e30d96bb0d5a385687cf2e84127256477976df694a352f561d79e25e806",
+      "sha256": "a3fd909c4ae30587f509274d9b2e67fdb3c68629f207b6a990973248d2c2f527"
+    },
+    {
+      "key": "bank-logo:bosc",
+      "source": "logos/bosc.svg",
+      "originalSha256": "9889adf66a2b9a5c0893963a7356ef5972818a858d6a25d44454b5983dacb54a",
+      "sha256": "9c6dc48b068cafae8cb08e503d12515a3a0fa4edfdd1973c792594fc6f0cee01"
+    },
+    {
+      "key": "bank-logo:boy-rect",
+      "source": "logos/boy-rect.svg",
+      "originalSha256": "fb373ff67d2fdab0f9bfc4ab4f092eef145154d04ab433280f326cec3dcd00ba",
+      "sha256": "2a967c08a7c8879bea954bd6c1e561c5a1b9d34300072369074b40ba9cdd20d0"
+    },
+    {
+      "key": "bank-logo:boy",
+      "source": "logos/boy.svg",
+      "originalSha256": "970db001f4a0de13b46eb1a051d9d5e0723366db9817b93b800a2faf9f577b91",
+      "sha256": "182ce0c34bc3f02ed5542555e907bed39a18fc8d3cced65a8e9f335bcb67ea44"
+    },
+    {
+      "key": "bank-logo:cathaybk-rect",
+      "source": "logos/cathaybk-rect.svg",
+      "originalSha256": "dbf82b07a77b60ce95d6730891764a2e2fbae1fdee4d71870f4a4da4c0450fcb",
+      "sha256": "7b155edc3ac797fc1ab469732f0210dfdf72ce19cf2e1f9635b71ba3f0fc746a"
+    },
+    {
+      "key": "bank-logo:cathaybk",
+      "source": "logos/cathaybk.svg",
+      "originalSha256": "3bff5511f2d1eee89d2a6fa082ed7fbd4c43c5c7a5ce68e57f703e50f70e9bea",
+      "sha256": "32e03205b80d5894c92752e64eaad82cbca1d87aae0478861b100f4b7192c4df"
+    },
+    {
+      "key": "bank-logo:cbhb-rect",
+      "source": "logos/cbhb-rect.svg",
+      "originalSha256": "f763631b4dbcecea699ab6092bb01f4ca08de1db85653981fb7bc9aa5739fadb",
+      "sha256": "9459d66c0d7601f76e5d2e0fb31a02471f94d0eb43940f596cbd36697aa89daf"
+    },
+    {
+      "key": "bank-logo:cbhb",
+      "source": "logos/cbhb.svg",
+      "originalSha256": "720bf2843ac824e83eb3eac1c2fe3e84b8ac0e5797694adf52a4112b9226ca57",
+      "sha256": "5471ca8556814bd018cb820948d02f666f47766e0d5d9153e58e4ab0c6c32b8f"
+    },
+    {
+      "key": "bank-logo:ccabchina-rect",
+      "source": "logos/ccabchina-rect.svg",
+      "originalSha256": "44b3a9f8bbd860cd6badd71ee7076d112a3c3d345dab8da1371a8a8bffe59668",
+      "sha256": "1e1e85f2d7f5f877932ccfaf8a8e2df629f31d6d976457a066522fb8fe613b11"
+    },
+    {
+      "key": "bank-logo:ccabchina",
+      "source": "logos/ccabchina.svg",
+      "originalSha256": "7e1d723e6aeafbfb5e7bcafdaa97f02dac87b61aa7cab4957c5f770ec5555d2c",
+      "sha256": "eacf54241af5b2b367227adb166a6ca971ed5064d11a8e3b14589a513e9eb4cd"
+    },
+    {
+      "key": "bank-logo:ccb-rect",
+      "source": "logos/ccb-rect.svg",
+      "originalSha256": "e95762dd36b78cfadc0e035566504e9fd29a1c71c82009d3daf9f94d71386350",
+      "sha256": "1fadbe70400e6dfbdfad40022017ec11c37d74bebdd01cfb48bff93936acef0c"
+    },
+    {
+      "key": "bank-logo:ccb",
+      "source": "logos/ccb.svg",
+      "originalSha256": "5ab2848a3f855611ce06bf2bb24f2e34b96e9e3918c9cf3fc37478ed23de85ac",
+      "sha256": "a6e2e37dc43d40d7f2825f4b43f3c4cd97e402e5c10438c922556a34df651c9b"
+    },
+    {
+      "key": "bank-logo:ccqtgb-rect",
+      "source": "logos/ccqtgb-rect.svg",
+      "originalSha256": "6ee7383a014dd6e37274372e6981880ec3a942abfe5fc794ffccc77f66a2e8c4",
+      "sha256": "4e2a6b008192ae3ecb716a464891bbd85c551bf07eaf335406431e07fb72b7b3"
+    },
+    {
+      "key": "bank-logo:ccqtgb",
+      "source": "logos/ccqtgb.svg",
+      "originalSha256": "b0cbbfd6c604cfb333080c107838758e6d821a7373f0cab2f5469e3ce74f08a5",
+      "sha256": "e7312c511501b56312f424c4d0126a5bb197572d03193d45b30e630782980d31"
+    },
+    {
+      "key": "bank-logo:cdb-rect",
+      "source": "logos/cdb-rect.svg",
+      "originalSha256": "ba825048fd26f026d14048c26208e14aad2dda4a2924225a2e3e15a23a90580d",
+      "sha256": "4a177862174313b47d9ce965bc0af0af76a2e133a9f4a3764d1545ceb8e7ceee"
+    },
+    {
+      "key": "bank-logo:cdb",
+      "source": "logos/cdb.svg",
+      "originalSha256": "3b18242a0a8d28c416de0e561aa5513bbe0f763c6619e70a7599b37cd3ca5f0c",
+      "sha256": "5ea01e4e566454fb008d59574c27bab036510337dc4b44895dd66e3371cd0357"
+    },
+    {
+      "key": "bank-logo:cebbank-rect",
+      "source": "logos/cebbank-rect.svg",
+      "originalSha256": "7541efb680d58327caafaf0eaa7ed634c1d2f53de48afd4682756b5ba908fee7",
+      "sha256": "5e7bf7042dcbafc86bdc6719df1ec7eeb05ba8a2bc01ed41a37b5c7e2da8ee14"
+    },
+    {
+      "key": "bank-logo:cebbank",
+      "source": "logos/cebbank.svg",
+      "originalSha256": "8ef6c01d72a73f4fd92bf0d98ce67ff022439cbabff12cee75f920a7fb0de4e9",
+      "sha256": "ef01da8f6c04345b9991e3ea3d34ca8950e23596c07eedb7e4b76515aa889cfe"
+    },
+    {
+      "key": "bank-logo:cgbchina-rect",
+      "source": "logos/cgbchina-rect.svg",
+      "originalSha256": "6edd150fade4b8b6743efcf476d0eeb022a08e1e369fbb6564654dc8974c9d2b",
+      "sha256": "1aa88b1836ceb0bbedbae0fd1ff86ff0594ad5917edc9519e60043c1ed0812f5"
+    },
+    {
+      "key": "bank-logo:cgbchina",
+      "source": "logos/cgbchina.svg",
+      "originalSha256": "cb35bbd11f74023a5713ac92067c12fc922f7a3b382fc79cc71b95fe14465cc8",
+      "sha256": "5bde0bf1be620e692f169dae3bb4db0c1a03eb923d436dac85e05c6899870476"
+    },
+    {
+      "key": "bank-logo:chengdebank-rect",
+      "source": "logos/chengdebank-rect.svg",
+      "originalSha256": "2b7ef1577f53f0f82ed65b69afe3490af3539f3ea3da42c1b0e89c0909d3b2ef",
+      "sha256": "7cb2c3f01b48b8f00426a20bab1e4ac08041e0aae54bd6f75bf29d4c03fd9f10"
+    },
+    {
+      "key": "bank-logo:chengdebank",
+      "source": "logos/chengdebank.svg",
+      "originalSha256": "e421a55ded28571b8dcc864f7e86225f5fd72369448e82a7a1070f1158a99912",
+      "sha256": "ab08e4b09cca29ab2f4f6ceb4c01dd031e3ce0d43af3cfbc4971b862a37d8985"
+    },
+    {
+      "key": "bank-logo:china-cba-rect",
+      "source": "logos/china-cba-rect.svg",
+      "originalSha256": "e8e4cca9714d64144413ea4e6aa9c485aa0027c1b385dbea58907d4117ff55f6",
+      "sha256": "40634d2989e664ccbe72ffdbfea476689d4cc558a73c96092630d938d712418c"
+    },
+    {
+      "key": "bank-logo:china-cba",
+      "source": "logos/china-cba.svg",
+      "originalSha256": "4882443b36570082bcbd797cd08af0b33756d15820cdafdd3efeeb6764099815",
+      "sha256": "3eec7f2c24423ce931be5bc8c614b1ac65e349a3ccb6a9ee34a34a31c2c5efad"
+    },
+    {
+      "key": "bank-logo:chinadb-rect",
+      "source": "logos/chinadb-rect.svg",
+      "originalSha256": "e31de909dc6d13f4b0444ea982cb70e1309bfde60e66646ca36c795e86cadc96",
+      "sha256": "9f6a3af2fce4e4325060d4f259be941f0c9a37d2bad29d966680190f91e06487"
+    },
+    {
+      "key": "bank-logo:chinadb",
+      "source": "logos/chinadb.svg",
+      "originalSha256": "26dbbd57dfa8dfb2e72ea5c6bc855cdc75857f702d78b8f13b1f129d4f0ec9d0",
+      "sha256": "82acb61e0804667f18dfeac7f40e68ef0ed5b0bde0c5b29e2ca97b0d4401048e"
+    },
+    {
+      "key": "bank-logo:cib-rect",
+      "source": "logos/cib-rect.svg",
+      "originalSha256": "347a95cc36c071d24fcc0dabb67487c2b8c5e3f5ca09a2e549ec45ba145f612e",
+      "sha256": "2c7b45f625181cc9fba3bd1ccdf05db72c7c45b44883c7a6cc8d7f386ab490be"
+    },
+    {
+      "key": "bank-logo:cib",
+      "source": "logos/cib.svg",
+      "originalSha256": "ad71339eed296e2ce4b25e2472797a07f9d883db3756b03079a90f24d30ed694",
+      "sha256": "ef3e71d0e4aabeec04349f22535fd9bf7b4780084dfd8b360f57198d9a6c0e1d"
+    },
+    {
+      "key": "bank-logo:citibank-rect",
+      "source": "logos/citibank-rect.svg",
+      "originalSha256": "cb168fd259d5c5a3ec8e1151382e0688ed294eb607b0502dfff33c025015fb97",
+      "sha256": "00b6caa0cb171b435a25070b46e2c0d533e981b83cab14f1cf92c3eaba3d9462"
+    },
+    {
+      "key": "bank-logo:citibank",
+      "source": "logos/citibank.svg",
+      "originalSha256": "583b3b75b72aa731404ebdd0d99211869bf6ef66331698755db3e9b99bb6bb4f",
+      "sha256": "b96761b3c3f418031464499df296673747b9c822c4d1cdddbf89a2b9248e04c3"
+    },
+    {
+      "key": "bank-logo:citicbank-rect",
+      "source": "logos/citicbank-rect.svg",
+      "originalSha256": "71c9d58020b25f5e7668cf9704321631b9728743eba59355554ddbffbb92377f",
+      "sha256": "f2dae0a9ffe982480fe7dedef08d7373413b31ca99ca9213cebe34781809fc8d"
+    },
+    {
+      "key": "bank-logo:citicbank",
+      "source": "logos/citicbank.svg",
+      "originalSha256": "ff890648fd9b2c28921b62e25563bad9460540aa71292b1b6141b31c1b570c85",
+      "sha256": "465c4b27ff2aeec9252643d8635b7424af8a51164126fe79bb7c006aa931f986"
+    },
+    {
+      "key": "bank-logo:cjccb-rect",
+      "source": "logos/cjccb-rect.svg",
+      "originalSha256": "bcf639e50603a89cd47e96a1512733052d09adc82b8b8c96e71b3345209f11e3",
+      "sha256": "1b9cfb6d246b8d5633eedcecf5b6149640bd27400066b2c53c9b06a48b23914f"
+    },
+    {
+      "key": "bank-logo:cjccb",
+      "source": "logos/cjccb.svg",
+      "originalSha256": "9dd6a8c37fce3f87ca98644be16cb067744ed798ff38a2db2b2238192084aea2",
+      "sha256": "4167096e5f355f52dece345126bc2e06878bb0b32f6b591bd2e799f5ff2eecb3"
+    },
+    {
+      "key": "bank-logo:cmbc-rect",
+      "source": "logos/cmbc-rect.svg",
+      "originalSha256": "5cf02212314a35611e021c83a67be7fb0f2214f87eb0c938ae18748d182b14aa",
+      "sha256": "02dc013bb458d1c4b2c7ece7a81958725a0a9235dc71fe8ef38b3091d57d35ca"
+    },
+    {
+      "key": "bank-logo:cmbc",
+      "source": "logos/cmbc.svg",
+      "originalSha256": "7901ff919c0507b2e3f8197c872c13eb77c448d5f99d1ba712e3c0a817bc0fa5",
+      "sha256": "4676d33f0e5ec205c786a2c8540dfc3a9b95c1ad671f4397a1bb996dc001ba2d"
+    },
+    {
+      "key": "bank-logo:cmbchina-rect",
+      "source": "logos/cmbchina-rect.svg",
+      "originalSha256": "1c9b6e27461eaa5060b118ba7960ed7e7a780928c745833c2ba34eb9b22c437b",
+      "sha256": "e450d5c853e03a8241b84af74c3d65582826199d599aa20952675ff209b24e9f"
+    },
+    {
+      "key": "bank-logo:cmbchina",
+      "source": "logos/cmbchina.svg",
+      "originalSha256": "99849751ffe83da61f4e214a397532a257b7d9cc714c461c4f842e38ace6cf35",
+      "sha256": "700e171ed7215b1210b59d4db69bdf559f5e5ca9e7f7113598de767e5c572c4f"
+    },
+    {
+      "key": "bank-logo:cmbcn-rect",
+      "source": "logos/cmbcn-rect.svg",
+      "originalSha256": "0ab6c5815830ea681951bb982d820d4d2a8235575520689aee6c2cd1b84867be",
+      "sha256": "47f77aef1607f408d2d3ac8f146da1d042decb736d428fcae52b8394a36ff2c8"
+    },
+    {
+      "key": "bank-logo:cmbcn",
+      "source": "logos/cmbcn.svg",
+      "originalSha256": "5fd72ed577d6ac9c6e4df32fe0067b011fbfbdf7644e16c0d6938332f0a9e364",
+      "sha256": "ebecd8e90694ec7a9790700855e67383b6be56e1c066eb8dc11a0e35bd0031e3"
+    },
+    {
+      "key": "bank-logo:cqcbank-rect",
+      "source": "logos/cqcbank-rect.svg",
+      "originalSha256": "9f57c8e32fc958c5e882338e43f84903b210761c4ef176b1296b4ba6158093aa",
+      "sha256": "19935494a4f3b13ab14d27dd3876b36176fcbd6296267e069809dd151201f312"
+    },
+    {
+      "key": "bank-logo:cqcbank",
+      "source": "logos/cqcbank.svg",
+      "originalSha256": "2ae1c667db1885f1afa2d3aa7db682510d1e6765345c45426b6ef40247489d67",
+      "sha256": "7843ce05ef19ddc4c227bfa534a3853334cb6a1ad744b2eadffcd208c152189d"
+    },
+    {
+      "key": "bank-logo:cqrcb-rect",
+      "source": "logos/cqrcb-rect.svg",
+      "originalSha256": "6b19e9779acfa93b5dca0f5903a232e6f60af852fdb794d1b6c7e29612ec6d3f",
+      "sha256": "ba985abec0cdef52c428c28512011846eeba9d285a46c3438363174dedb6fe22"
+    },
+    {
+      "key": "bank-logo:cqrcb",
+      "source": "logos/cqrcb.svg",
+      "originalSha256": "c20509643d4bd7197d42bc006253cfbdf8f3d2480f15f60bb5c8e2be284089d5",
+      "sha256": "a013354727ec04ea10e10d59818c66562650d06337dff17c11a5b207758e7c19"
+    },
+    {
+      "key": "bank-logo:crbank-rect",
+      "source": "logos/crbank-rect.svg",
+      "originalSha256": "b57d66fb0a6acf6e18188715b78ee85af3714ab9c8525d7e88f30dbc06ec54c4",
+      "sha256": "15f55d2069844156b947119d02204c0ce52a12d06e9e6dc3b5e0268a400f6a89"
+    },
+    {
+      "key": "bank-logo:crbank",
+      "source": "logos/crbank.svg",
+      "originalSha256": "9591ebc40fdd5a7bdbe7652489a9f032638ba3a202a919a13400599a54d66ce6",
+      "sha256": "55ab29de02b901c4cecd245b42301871b29b783d2b7aaceb1a56969576d75569"
+    },
+    {
+      "key": "bank-logo:cscb-rect",
+      "source": "logos/cscb-rect.svg",
+      "originalSha256": "cad58ee32945b0a05254e029c364be02bf32f6c5cab251d81b0cb171cf49f712",
+      "sha256": "48b45305da10ab00746af9c53a588c8dc1247d179c51dd1dfebfd4e51cc589f0"
+    },
+    {
+      "key": "bank-logo:cscb",
+      "source": "logos/cscb.svg",
+      "originalSha256": "502e832a38d19865db1a6d98cad5ba6ba72cecea250a9c0d91691c3bfee189ef",
+      "sha256": "72b6689a2a0919e71b92ae8012a6d52b9972207901bd10775169443f3744875a"
+    },
+    {
+      "key": "bank-logo:csrc-rect",
+      "source": "logos/csrc-rect.svg",
+      "originalSha256": "18310b9c20e9e6abbdc80f69be5f22c461c8ec2299e630459dff1a0cbdefea20",
+      "sha256": "c34351166873b4b8ea2fe1e79e4a9e60026cd94411f9b02771219d361f746189"
+    },
+    {
+      "key": "bank-logo:csrc",
+      "source": "logos/csrc.svg",
+      "originalSha256": "1710fc3536aa77bac2c7ddc0d70a5f72383a52a2b6540fe4c0f7dc765529528d",
+      "sha256": "35ff4b3f4cc5155a43305567b6db30e1aa853770b260b9e0f42f2d29f1225876"
+    },
+    {
+      "key": "bank-logo:csrcbank-rect",
+      "source": "logos/csrcbank-rect.svg",
+      "originalSha256": "c8d2a1af1fbe9227a3acdedbab993221ab9b5eb499dec6cd8a6d66a4dd453fb9",
+      "sha256": "c88725db351854d8c0aa3ecd013babd2ae9e0e5381149bce0e5a68ec711b1796"
+    },
+    {
+      "key": "bank-logo:csrcbank",
+      "source": "logos/csrcbank.svg",
+      "originalSha256": "07c95e4f49b3ecaefabf1286c35ab26a57524894fc62330f0a08817e38cef2fb",
+      "sha256": "5df773f67fb826df82e5b3180e8d37819a30a0d37e48fbf2acda176268f48cf3"
+    },
+    {
+      "key": "bank-logo:csxbank-rect",
+      "source": "logos/csxbank-rect.svg",
+      "originalSha256": "64e4a360a0f47bda36403606029e1b7dc42c52b60479ec33bcff347755edff85",
+      "sha256": "ca8bdd38c0c69a605cb8fe4b98515d3dce1774bca40ed8dd0d7df54924aa1551"
+    },
+    {
+      "key": "bank-logo:csxbank",
+      "source": "logos/csxbank.svg",
+      "originalSha256": "b5084988780ade8a53502bb8d8bd4dff44be46919d0abd9953622b0ce19eec52",
+      "sha256": "0e8279b4bc29a9a7a9260515492f0247920a03874b22ffc6779fffb75233a725"
+    },
+    {
+      "key": "bank-logo:cycb-rect",
+      "source": "logos/cycb-rect.svg",
+      "originalSha256": "28b99166207b66f70c0defb296c120313801902d113f7f3e133c2ac09cbec1ab",
+      "sha256": "88d7e95e30afa402590b520a95fe771f35dbdaa917c1c19a4ec7585242ddd17b"
+    },
+    {
+      "key": "bank-logo:cycb",
+      "source": "logos/cycb.svg",
+      "originalSha256": "b7a45675ce2269695d438479ca22fe55a91f85e41cd11dd7ee5fbd1aca284709",
+      "sha256": "a9fe7af48d519903617870ad6c2bd3644a447c478c79c50b212ed2c9b8d357d2"
+    },
+    {
+      "key": "bank-logo:czbank-rect",
+      "source": "logos/czbank-rect.svg",
+      "originalSha256": "05409cbf88fd33389f741664db966e2184b2eedbaf37962c91e4454395f66b99",
+      "sha256": "ad085881ba6ccf1b119ce648596f7d4faca6aba8cd358aac9a8f33356e2c5a41"
+    },
+    {
+      "key": "bank-logo:czbank",
+      "source": "logos/czbank.svg",
+      "originalSha256": "79eaa6e9eedba3a494378ff903f024c6b66b2017c05d3be88fb480abc4048e9a",
+      "sha256": "98d2b98f3ac1575f52ccb1be8e02fb50ef059e72181a78d81d9201c30e95624a"
+    },
+    {
+      "key": "bank-logo:czcb-rect",
+      "source": "logos/czcb-rect.svg",
+      "originalSha256": "71f762fb28ce904f79d1760ca6c01063e16d3d1557e5b6cd05a8209bf00df7e7",
+      "sha256": "02367a27c32544076ef7883f12487518edfbf433d7d2ebbea630472144ddb55f"
+    },
+    {
+      "key": "bank-logo:czcb",
+      "source": "logos/czcb.svg",
+      "originalSha256": "1600ec2509bab9ba8bc04306ba6c1b3751a96e4d212184db167dd5ef1ba0a501",
+      "sha256": "389654ca73b1f21b51cfb9b9836feedc6a34beb4cd7d078f8a678edf4f91f948"
+    },
+    {
+      "key": "bank-logo:dahsing-rect",
+      "source": "logos/dahsing-rect.svg",
+      "originalSha256": "10ff5cae6f9a21b96e9d4d227f994f56ddc4ed46249e8fb9001add25fc5b7a40",
+      "sha256": "8963de7667383575d829a2797003ab97bac238997397c841518bcc2f833b10e8"
+    },
+    {
+      "key": "bank-logo:dahsing",
+      "source": "logos/dahsing.svg",
+      "originalSha256": "9c8cadc2e1d039c272fb1f33f98e208e13f587b960ffe70b8e8511e20ecbe962",
+      "sha256": "0b7d5e219699afc530a3eb511dbdc8e5499fa5eb9fa523e38318570cd2e5eaed"
+    },
+    {
+      "key": "bank-logo:dandongbank-rect",
+      "source": "logos/dandongbank-rect.svg",
+      "originalSha256": "37e86a1116c13a3a5b886a24a33d6cad713e70891ef893943a67b0377d8c0bfc",
+      "sha256": "c49501093bff9bdee4a911a42ef514b6411746e78451ee2edcb39b033f0d4a02"
+    },
+    {
+      "key": "bank-logo:dandongbank",
+      "source": "logos/dandongbank.svg",
+      "originalSha256": "46b87ac342a2f178777ad9f61e0566f7f2593ca79fe47d8a69384ec73c54044f",
+      "sha256": "6d5e3810f8d66d07dfa92c33fe68ca3e7f6d7351635dfbbe85cd52903c08468a"
+    },
+    {
+      "key": "bank-logo:dbs-rect",
+      "source": "logos/dbs-rect.svg",
+      "originalSha256": "cbb24bdbea7013e2e6b870d2e9b1f0e711e512e106216236b35a0a1128768ad5",
+      "sha256": "0f00e7211d8bc97f172d00f89f138ec5df7cc98376056467e05a55470b16f74f"
+    },
+    {
+      "key": "bank-logo:dbs",
+      "source": "logos/dbs.svg",
+      "originalSha256": "b2dfc9449e5e4b1174d62a03672085298ee024c2bea9beace10fa9ca8d452fe7",
+      "sha256": "e222c604267a44f89dca00371aeefb0657b7eb6f723bd317fb07df2624e27607"
+    },
+    {
+      "key": "bank-logo:dongguanbank-rect",
+      "source": "logos/dongguanbank-rect.svg",
+      "originalSha256": "6a0740f9f48334de456d03a133850e7b4091b2864caa81115c2c8fb8713badca",
+      "sha256": "2b1c009e5e9c3e9fbf2d582247d3dc6ab35eb11d3f79009c68c7c3fe81e443f7"
+    },
+    {
+      "key": "bank-logo:dongguanbank",
+      "source": "logos/dongguanbank.svg",
+      "originalSha256": "75e138af6e299f93e665724dcc2e7cc0f1ea6d7483999a2eab02aab6e38b2a01",
+      "sha256": "84427d779e25189512986505e5abed272024f2dd403fc4c56b0a0c176d24a0e3"
+    },
+    {
+      "key": "bank-logo:drcbank-rect",
+      "source": "logos/drcbank-rect.svg",
+      "originalSha256": "b730edffc3d389dc19c3399b16034bd05734cb00820446ce3000494d5c481212",
+      "sha256": "539e2e81c29cffd299cc19e85aa003f614fee3be855f76e28d19c6a71130d032"
+    },
+    {
+      "key": "bank-logo:drcbank",
+      "source": "logos/drcbank.svg",
+      "originalSha256": "b09a82cbca04a82b336027aba25f7f7974a327144fff3fa1f609cf28d58fa022",
+      "sha256": "a62e1fd65fd03de6d6cab3aa757c725060770e532d61d835aab0ce26fca09e1f"
+    },
+    {
+      "key": "bank-logo:dyccb-rect",
+      "source": "logos/dyccb-rect.svg",
+      "originalSha256": "2236f1395f028b9e52490d5fff0a38e3edc9d9931ca77791e8705093bb705a81",
+      "sha256": "694b21512a9c0e85e1cdd412bfa64e0d13b3efe7fa3aec916af33ef9690f6fea"
+    },
+    {
+      "key": "bank-logo:dyccb",
+      "source": "logos/dyccb.svg",
+      "originalSha256": "0ba3c1d383f19df85757084249f918e8cdd02b10155cc960ca73f466949b129a",
+      "sha256": "101d85ea7728aac246193b07a1baa35e012a7b3b6b09cc91e1251c874a7dc6d6"
+    },
+    {
+      "key": "bank-logo:dzbchina-rect",
+      "source": "logos/dzbchina-rect.svg",
+      "originalSha256": "95be78597f922fb7d1b7024a2f136b42673eed215c1ecb2fdba2c34653713457",
+      "sha256": "572d48c98227cae0cf0a0727f0e7b39ebabeb15a95198aaf4f8eb380eaf6f75a"
+    },
+    {
+      "key": "bank-logo:dzbchina",
+      "source": "logos/dzbchina.svg",
+      "originalSha256": "4fb2f95ac107c535292fab28d0f8614243ec39806f2e7dbcd8a17aa0a8c05209",
+      "sha256": "c31dd54c331315c32fe50e5f047ee1a396a6644ff67b5616a0b15673f1eab456"
+    },
+    {
+      "key": "bank-logo:dzccb-rect",
+      "source": "logos/dzccb-rect.svg",
+      "originalSha256": "7fe5002fa0d1669289a6a5e7dbad49be0f190f0af4446db3e3adebd4dbe79d09",
+      "sha256": "23c1d468a56245ee675fc954d4bdc98477fd85cf78013817028cfc64cd0cf834"
+    },
+    {
+      "key": "bank-logo:dzccb",
+      "source": "logos/dzccb.svg",
+      "originalSha256": "31519cc840e4633c117a882dd07113cc1babe1cf5b1f51daa89c33f52009393a",
+      "sha256": "8076d367504b3ff4cf2188eb7519d7dd1b39c8ef3c1b5f90628a44c726ab69ca"
+    },
+    {
+      "key": "bank-logo:eastwestbank-rect",
+      "source": "logos/eastwestbank-rect.svg",
+      "originalSha256": "affe41eb54db9545203716943e395f25b905d35f0ebc6ea3ddd2947f12b95cfb",
+      "sha256": "86ce0bd954073c2316a99fa75b533065b8dfb99c9f7e3833b038986de1601d38"
+    },
+    {
+      "key": "bank-logo:eastwestbank",
+      "source": "logos/eastwestbank.svg",
+      "originalSha256": "14dcb2c526e2400ee979f4391a158d50142987a43077376599896b87c773dc12",
+      "sha256": "0d950440a70612246398d327b0f3aaeda2f191785827682e75ddd0c62edf0c6e"
+    },
+    {
+      "key": "bank-logo:eximbank-rect",
+      "source": "logos/eximbank-rect.svg",
+      "originalSha256": "1281bd0dca0aea5e1314d75d650f1424e9fb9e16c13ed61d0b331b3a51780d70",
+      "sha256": "3074278f004c31c02e952150ddc72ebd31846e209fb70ca0b88847d30554f553"
+    },
+    {
+      "key": "bank-logo:eximbank",
+      "source": "logos/eximbank.svg",
+      "originalSha256": "0cad854d16a982b23a548ca787c8265d4c5e0cb83b045baebe744f3f64db07f1",
+      "sha256": "11f5389572485f99cd7ba1a5cc31e01e09022c7e5e496f4d90fe988731fbcaba"
+    },
+    {
+      "key": "bank-logo:firstbank-rect",
+      "source": "logos/firstbank-rect.svg",
+      "originalSha256": "ff0869cf9e09cd210d9d71b9f99f8f292f63daa52f6ee9c88b9292b51900533b",
+      "sha256": "7c67a0c8b26b2152d3bc927887ff1eac2f5eec99d2df12b55ee1152842c4948e"
+    },
+    {
+      "key": "bank-logo:firstbank",
+      "source": "logos/firstbank.svg",
+      "originalSha256": "dee4d3872c5e2761df0053c8460dcf8a141d00646ba4731e5155ca30464e0d5c",
+      "sha256": "014148e5c05aa96bdae9243d04bd06f5629cb046b7213db2b653904420640804"
+    },
+    {
+      "key": "bank-logo:fjhxbank-rect",
+      "source": "logos/fjhxbank-rect.svg",
+      "originalSha256": "234611748c0f89c5ec2cb78345ec80598fddbb705a4f049bc8454d0d84e09967",
+      "sha256": "d65d42c76accaddcd0f8b89f7b7aea8bab1d7ffc88185e606e8fc7730ce7bb0e"
+    },
+    {
+      "key": "bank-logo:fjhxbank",
+      "source": "logos/fjhxbank.svg",
+      "originalSha256": "69fa4acf1c2da0230de0d8a03f77d17f27deb2e0fdb51797f5510c9961011b26",
+      "sha256": "900b8321ac379ea21381e4d8a2f0958a7b83d16e3983bb3422a9c9c877af9c02"
+    },
+    {
+      "key": "bank-logo:foshanbank-rect",
+      "source": "logos/foshanbank-rect.svg",
+      "originalSha256": "febd1082cb925542d4a8ce339061b48865d79fe7b8ec539f990d137534374cf2",
+      "sha256": "fd0bbd816203b75552653e105764e814db43a7ffe42fd1119390d19aa630900c"
+    },
+    {
+      "key": "bank-logo:foshanbank",
+      "source": "logos/foshanbank.svg",
+      "originalSha256": "e9815f68d2c8be6df448335e8e6e770545d67cd22393afcfe543d679e0f18c5b",
+      "sha256": "ba9b13e3a5c99bf46fa511c44a4a750bbd2672a5cb8a11880d0a7b898ef6b8de"
+    },
+    {
+      "key": "bank-logo:fubonchina-rect",
+      "source": "logos/fubonchina-rect.svg",
+      "originalSha256": "ea5dc6fc6092aece63bc8adce1492f1e147c26b0faa110134b38f9e6e4a449de",
+      "sha256": "7cfa27cb8fc47e3de37e731e048fb062526635614a63c4f97addee01308b5738"
+    },
+    {
+      "key": "bank-logo:fubonchina",
+      "source": "logos/fubonchina.svg",
+      "originalSha256": "5182690e545e66f04658928f5c52656784c33d289a8a0fbe0862d59710989bc9",
+      "sha256": "f59959d18041607b564be1106a1d791915b2a005e3e93c417b797d21bfbec345"
+    },
+    {
+      "key": "bank-logo:fudian-rect",
+      "source": "logos/fudian-rect.svg",
+      "originalSha256": "ee654196d58665c782958ff69c94f4d669be6750209e83bb3590e0d870d0602f",
+      "sha256": "5440bf9d53a3c553ce32526cac300101c409a61960113c292548ba08ed22bf64"
+    },
+    {
+      "key": "bank-logo:fudian",
+      "source": "logos/fudian.svg",
+      "originalSha256": "6c90857df6c613e9d9e92a7c785e685408539dabf55f55a68342ea6287251e8f",
+      "sha256": "5d2b0d7518805a44943475ca34e0bee9b18b69b382a4dad9dda9bccb8fbc95bf"
+    },
+    {
+      "key": "bank-logo:fuxinbank-rect",
+      "source": "logos/fuxinbank-rect.svg",
+      "originalSha256": "10cf3c05a2cb36d46b730ad9bf863cf5e73c2a41b85ad1077ff9a5fb0884a478",
+      "sha256": "2d3832406c4f636bc400c2f8c018cb007ad3efdb862276ad2c102d13a2e62e19"
+    },
+    {
+      "key": "bank-logo:fuxinbank",
+      "source": "logos/fuxinbank.svg",
+      "originalSha256": "87167aa2756f82fccabf8340ee79cebd9b61d38edd8128cac7b2d4e03736bf4f",
+      "sha256": "f1b212e697a991204e1277554eca7af40fc14a840b3f3cc70a3910409a800748"
+    },
+    {
+      "key": "bank-logo:gdnybank-rect",
+      "source": "logos/gdnybank-rect.svg",
+      "originalSha256": "a06f763ac03f65180719cb05987bdd7e9cd3eb8987edec0b248ea4a7269198a0",
+      "sha256": "84eccae89d1f8d0d3915744508ff92db31257c347e7bfa9a9f13036df63349b4"
+    },
+    {
+      "key": "bank-logo:gdnybank",
+      "source": "logos/gdnybank.svg",
+      "originalSha256": "76515bc4443445b2b808879f08e9ed46700c1f5a11141769cf0d5ed8dd8a9dba",
+      "sha256": "c3aa4c1db72d2715087f1a950b27104404baa31237468c66dd1408d43ac41709"
+    },
+    {
+      "key": "bank-logo:ghbank-rect",
+      "source": "logos/ghbank-rect.svg",
+      "originalSha256": "6f7476d430899e044edac4689b44026cc6e6aba360390106e4a427ac561f66f4",
+      "sha256": "fdcf50cb8df8e8678ca5b6b791dcbf776597c31154bb64adb3642557df2b5f8f"
+    },
+    {
+      "key": "bank-logo:ghbank",
+      "source": "logos/ghbank.svg",
+      "originalSha256": "4587978cf85689cf09e7ab8804095ef17b331a305b02b90df1833be4c47d36a5",
+      "sha256": "58f52d927ac6a5ee33bf7d40fa8454f9901ec4a7ff2a6a07300dde003d9e8d38"
+    },
+    {
+      "key": "bank-logo:grcbank-rect",
+      "source": "logos/grcbank-rect.svg",
+      "originalSha256": "5049323c1749938881dd09428023ceb4d1489d2915cb6bfc6723355d3ebac7ba",
+      "sha256": "55451d1baf9b3db929d26410690484d6344fa6684c1907c32309396f366351df"
+    },
+    {
+      "key": "bank-logo:grcbank",
+      "source": "logos/grcbank.svg",
+      "originalSha256": "9495bbc44637543af1db2357483843efe4d9a12fb2a1b35d97de1a9b49ffb6ee",
+      "sha256": "aff227ffe9237fcad8519eb579c71689a571ed664c81b1ad77362d6774e30eb4"
+    },
+    {
+      "key": "bank-logo:gsbankchina-rect",
+      "source": "logos/gsbankchina-rect.svg",
+      "originalSha256": "07f67a32136f6de7c786815b6b53064c0dacd895c58dc5c2b4c720ebdc161a25",
+      "sha256": "43f243766426116ece061f5d0a91aa2c4be427df446d5ebfbcc470c5d65b3f9b"
+    },
+    {
+      "key": "bank-logo:gsbankchina",
+      "source": "logos/gsbankchina.svg",
+      "originalSha256": "8908dad82a532482731d2b671bf70db15ab44a8acf3694bea09b99e3f5180221",
+      "sha256": "56df45b1678575c509f52faaf23265e47e5454ff330be27317d2a2bcd9793bbf"
+    },
+    {
+      "key": "bank-logo:guilinbank-rect",
+      "source": "logos/guilinbank-rect.svg",
+      "originalSha256": "cec217a5057262b2a053927dff0d7d561bb11a67b182faaf0f85999e10b3a165",
+      "sha256": "b804ff7e1084982e81b824b4269774e44ef3fcfb03b111e453e689f4a0c51ef9"
+    },
+    {
+      "key": "bank-logo:guilinbank",
+      "source": "logos/guilinbank.svg",
+      "originalSha256": "a6a8d4d82ce43ab237d1fff1299910293c7be8ee8daf11cee646e2937450e482",
+      "sha256": "3c3bd3729a15ad38faf9f4d45a64af655fc5471b25d428ae5383822ac1389f43"
+    },
+    {
+      "key": "bank-logo:gx966888-rect",
+      "source": "logos/gx966888-rect.svg",
+      "originalSha256": "cd361bc2b2019ec9823b405a8b3dbf3974975cd40c35f6ceb9e8fd2e1c312936",
+      "sha256": "3a79833c98b13781accf7a898113775a6c69ce2796617a938875f2bad9272c28"
+    },
+    {
+      "key": "bank-logo:gx966888",
+      "source": "logos/gx966888.svg",
+      "originalSha256": "e4b4daf351da6b64bb8682d266f2a3aa8a6df22f8e923c4d62b25af89ab0c160",
+      "sha256": "85e1f7a14bad729a980034acf11fe8a3c14743747f241183a3122e351971f3c8"
+    },
+    {
+      "key": "bank-logo:gzcb-rect",
+      "source": "logos/gzcb-rect.svg",
+      "originalSha256": "8ffa9c4c4c8bab177bb2de42a8d49e110961d60700293d8a870e8b3270076aa5",
+      "sha256": "8e07afac226bd95f53ed79215d82106006c90ad4bee98a7a95b26a8d3abdc78e"
+    },
+    {
+      "key": "bank-logo:gzcb",
+      "source": "logos/gzcb.svg",
+      "originalSha256": "f9881f0d4b8cc2f3c960153b869276378482ad70250f9cbdd99bb4527159b017",
+      "sha256": "879c31b5a18db8f2419b96d265effe58f1541ea37858e11c34e95264d665fd78"
+    },
+    {
+      "key": "bank-logo:gzccb-rect",
+      "source": "logos/gzccb-rect.svg",
+      "originalSha256": "cb443336793d58b09bce1e193a13f33eb5efa42a6df03420234b768a6a82386b",
+      "sha256": "c52d6b8a8f4e72b4ac792fcfeef3ea71fe9701764986c87426bbeae7dd910f76"
+    },
+    {
+      "key": "bank-logo:gzccb",
+      "source": "logos/gzccb.svg",
+      "originalSha256": "40b8ddec1c73afa361658e460cbb52d4aed37ae609c78f8d8b881358e610000d",
+      "sha256": "b5e6a07f640df915162f8552b6a4641d92ff864da5cfe75215b4136aef078343"
+    },
+    {
+      "key": "bank-logo:hanabank-rect",
+      "source": "logos/hanabank-rect.svg",
+      "originalSha256": "df55aa74a541c07c82a6a3c187b7be13ad8560b9a0acc5ea72d0d4b1fc3cc6ab",
+      "sha256": "d82b28f7e032e9974e1fb5b347d6b7466bf84a54abd057462f21d8d67d4d7902"
+    },
+    {
+      "key": "bank-logo:hanabank",
+      "source": "logos/hanabank.svg",
+      "originalSha256": "7f5989b5dfb07fba6281005fd2ca8181702bac01f19fcbf927abb7ddb2e48181",
+      "sha256": "7f21521ebf564dfbea3b359bcc428578e9170aa55399c1e6ca749e9189aaa38f"
+    },
+    {
+      "key": "bank-logo:hangseng-rect",
+      "source": "logos/hangseng-rect.svg",
+      "originalSha256": "63f3b16cb0b4d22dd9e27852f200f42a7da8385ff7701368c82c1cceb5fc3c17",
+      "sha256": "081eaf6ec9ce0c8dce5801aa1fbb247b4b6503c8566505ab9779b31ad5844c59"
+    },
+    {
+      "key": "bank-logo:hangseng",
+      "source": "logos/hangseng.svg",
+      "originalSha256": "40afc0fdeb64913e3f4cad9f260ac5321cf6c7609f37fcf79ac581b98804092a",
+      "sha256": "995bad1021d9fe413e38a5d337ca14d5bc840c3a67445c35a5f625df5908eb04"
+    },
+    {
+      "key": "bank-logo:hdcb-rect",
+      "source": "logos/hdcb-rect.svg",
+      "originalSha256": "48446d55a1901b037fbfe35bb2fa4a98dc3dc7a66eae491a7df804db98c6f628",
+      "sha256": "4d2678aad009b662c1494b79efa47cedfe75165e0a87a4671a9cf62d85b30751"
+    },
+    {
+      "key": "bank-logo:hdcb",
+      "source": "logos/hdcb.svg",
+      "originalSha256": "8e235cfd4dc88515a56d17889e3a69e9ff535371bc96a65d7414a9e34658d50b",
+      "sha256": "d8e8798911f4a178634ab4a9890633d396b5ec9abbc6d2f7080516eabe33418c"
+    },
+    {
+      "key": "bank-logo:hebbank-rect",
+      "source": "logos/hebbank-rect.svg",
+      "originalSha256": "37bb194f8ec1fc0e703b89118f3d481044d41f1b55326571d3dd12d26f9d0fb7",
+      "sha256": "1e1bfa3e412d5dcf59cbfd653433f20fa1358ab0068e7fdced3a537d8276e5a6"
+    },
+    {
+      "key": "bank-logo:hebbank",
+      "source": "logos/hebbank.svg",
+      "originalSha256": "21e9a75e011fbe42a5ba26d6e2c5ed2f558d0e2dea00122f764bcf5971512e3c",
+      "sha256": "9882628a992c08ecb3dcf56a86839d6156d64fd117e6d2f3986d51e27a615747"
+    },
+    {
+      "key": "bank-logo:hfbank-rect",
+      "source": "logos/hfbank-rect.svg",
+      "originalSha256": "32328f09fb80ca8fc7946477f70cb4855420e1de78ab80d25ce5f07a14224688",
+      "sha256": "214a1e9c246468dde7970dd45c7bc615e169815f59affd311fe3eb161b9b8099"
+    },
+    {
+      "key": "bank-logo:hfbank",
+      "source": "logos/hfbank.svg",
+      "originalSha256": "23f138e3bfd2b7d276ea2ae70015cced41318192775773e74cfe70180f24aee0",
+      "sha256": "7f88cd3274048e808e58b53cceba0d04da01f8a0e73c9b9a2edf6db05a4edf34"
+    },
+    {
+      "key": "bank-logo:hfrcbc-rect",
+      "source": "logos/hfrcbc-rect.svg",
+      "originalSha256": "7ffc42d4c534c64c552d0e5736ffa7d5a7194865bc2a9ab475dbff468b917437",
+      "sha256": "18d51c51b857dd1facc7f7e08ce6a99841b594bddd3835ee6891e11bebb05259"
+    },
+    {
+      "key": "bank-logo:hfrcbc",
+      "source": "logos/hfrcbc.svg",
+      "originalSha256": "4f7bea4df2eee13fbf54026b18945eca6addd77acf4da1efaac6369412cbf9b6",
+      "sha256": "6d8ef1187ddd52b0bffdde37194899a6ff8b4c3be4d5b6bc6e65508b06b2287f"
+    },
+    {
+      "key": "bank-logo:hkbchina-rect",
+      "source": "logos/hkbchina-rect.svg",
+      "originalSha256": "2c70ead2277912c3328d8f9f09453d86ecd4d2020195baa2eaf9f4cf3b25a2f9",
+      "sha256": "90d1cafde6740754cbbe8d7b11efb3c6ff91dc11f9d9b8f89954ad17459f1e56"
+    },
+    {
+      "key": "bank-logo:hkbchina",
+      "source": "logos/hkbchina.svg",
+      "originalSha256": "ef47d72476ad1fcee20beacd6baafccbce0f86dafe600a5231cbf9e3bc76f57f",
+      "sha256": "54f38f74acb37e3cb3354bdfdc241dcbb1c6a92c3b92979941c9129ead7657a8"
+    },
+    {
+      "key": "bank-logo:hkbea-rect",
+      "source": "logos/hkbea-rect.svg",
+      "originalSha256": "e8193e425130777c1faae7a684de75a9b5070163aa777e65c49a5c71ae51c27b",
+      "sha256": "7f5de202cac901357edd221fc6aba6fcd5b71adb990999c06f8a0bc4cd1aba69"
+    },
+    {
+      "key": "bank-logo:hkbea",
+      "source": "logos/hkbea.svg",
+      "originalSha256": "d267b17a9de50027b5ec1912b0d483fb56087fb546e04d783ca3b61226b12bc4",
+      "sha256": "e50a7bbbbf1f9231aa20009234426ada66964bb5a928ec0f36acc2e39a3ad242"
+    },
+    {
+      "key": "bank-logo:hnnxs-rect",
+      "source": "logos/hnnxs-rect.svg",
+      "originalSha256": "88753a7e0dfa5767c1001db93f07d43a2c5f552f8dafbbede3334347c28afccd",
+      "sha256": "757e01143f3e671271e195b5e6f380574b59be50def2502b9a06dd3ac6c6350e"
+    },
+    {
+      "key": "bank-logo:hnnxs",
+      "source": "logos/hnnxs.svg",
+      "originalSha256": "be1d1e92c14ac107021258d3751499ae68169c83ca74fbd8469f6818a0fbd5f7",
+      "sha256": "62a4cf3d5115216196c6b954baf7ac43412161e2136a2ac1b34fe3da8cea6f3e"
+    },
+    {
+      "key": "bank-logo:hrbb-rect",
+      "source": "logos/hrbb-rect.svg",
+      "originalSha256": "47e5fa4b3f91362eb31811aed662cd3a570bc71068a4eaa5e9f8cecb60d699db",
+      "sha256": "0823a855ef19785d5b8cad867825579641a56002885f1e06bb4053f1cb978b77"
+    },
+    {
+      "key": "bank-logo:hrbb",
+      "source": "logos/hrbb.svg",
+      "originalSha256": "6249baef476bb9859cae6cc3d9ef789cba8de767b0c03311edca41fb92dd68e2",
+      "sha256": "a891aceea32b49ce18912905b2f3788ccb374ccdb4ea8edc6cc5483ccfd38e4e"
+    },
+    {
+      "key": "bank-logo:hrxjbank-rect",
+      "source": "logos/hrxjbank-rect.svg",
+      "originalSha256": "48c150188a573e5add14771d3003964c224e1f3364817bc12bd5ba7cce780b27",
+      "sha256": "2e55b094ef73d543e21efef298a8832dfe15579ccdf7420d4fd01045d67af43c"
+    },
+    {
+      "key": "bank-logo:hrxjbank",
+      "source": "logos/hrxjbank.svg",
+      "originalSha256": "e1312e54cd15ed32b3fe1b5f3f14cc0fee961d0cf2ab0985812cead1224f66b9",
+      "sha256": "7b3899726076cf97603d52bcde195be761bae1f5a7b0d01d0c2c19cdcd03f56b"
+    },
+    {
+      "key": "bank-logo:hsbank-rect",
+      "source": "logos/hsbank-rect.svg",
+      "originalSha256": "db7cba86960732ebac66b5fd4add3262313d352ddc251e4396532f45dd51615c",
+      "sha256": "197a7b4f54411366ada436212854de0db20875c4115494e57f618864179d7eba"
+    },
+    {
+      "key": "bank-logo:hsbank",
+      "source": "logos/hsbank.svg",
+      "originalSha256": "efd596f0aa35e1a7d9504db1421d1057734a73a5639855bb89bd253966da7fb4",
+      "sha256": "f6d6ae70757f018e57f3f03157d452153552d30d1e069cc08a5cb3145d1485fd"
+    },
+    {
+      "key": "bank-logo:hsbc-rect",
+      "source": "logos/hsbc-rect.svg",
+      "originalSha256": "d706f850293612273712b0a903106d456b9370a2a15a16063728a9441679659e",
+      "sha256": "fd5cbd6e42b65693020a3d5d9599eaaf94e72d5d65819292df94ce4fd059c988"
+    },
+    {
+      "key": "bank-logo:hsbc",
+      "source": "logos/hsbc.svg",
+      "originalSha256": "76dcb728af365bacfd0f76970d0369a63066389979c319c41021fb04382d2ef0",
+      "sha256": "77d31dd096dfa843840a4333aac47b3d4575843e6b6d038524524cbc565cb2ad"
+    },
+    {
+      "key": "bank-logo:hubeibank-rect",
+      "source": "logos/hubeibank-rect.svg",
+      "originalSha256": "74442ad8519c64b2ffd5d7572aa595c7612010ed2c9f06854dd1e2358133bd39",
+      "sha256": "8748e1c9e4e0f0993884aa64cf2a09566455d6de0540c0198810c101679fc873"
+    },
+    {
+      "key": "bank-logo:hubeibank",
+      "source": "logos/hubeibank.svg",
+      "originalSha256": "4bea789a91a121916ed22ba25d56a9689e3a127a399d4a5358804a37da0758a8",
+      "sha256": "db1e870739a2dcd3dffe7755f23bf8abeec552ab64fb579d46a37edd58307aa3"
+    },
+    {
+      "key": "bank-logo:hxb-rect",
+      "source": "logos/hxb-rect.svg",
+      "originalSha256": "73eda23a1c81eb7b3bae1bd5f33ff895b312a42899d015753b6d7db530b61c13",
+      "sha256": "914401e5580914af2e8ad03cae52d8bcf3633c64030549964ea5945ea11f34d7"
+    },
+    {
+      "key": "bank-logo:hxb",
+      "source": "logos/hxb.svg",
+      "originalSha256": "709916ec2236cf57a898acf90abaa9ed1098954a63eb69bd85253533571ea42a",
+      "sha256": "4f8465ce435eaecf76afe5463c99c471490bd0ad8428179e125e52e24af3dd36"
+    },
+    {
+      "key": "bank-logo:hzbank-rect",
+      "source": "logos/hzbank-rect.svg",
+      "originalSha256": "1d1806d5a783c2f53b1a27d0ee240f946cb1269d70322c91cfd240df3eda1448",
+      "sha256": "b1cb75c8a34b766320458c19d2c467d00a0dc670b561411adde9d2bcc6590c99"
+    },
+    {
+      "key": "bank-logo:hzbank",
+      "source": "logos/hzbank.svg",
+      "originalSha256": "9baa0c61b91ee927ee9371a740e3c2c999ed11aed0cc4a60ebceb6772e4b3040",
+      "sha256": "64a808e71fd027861bab97fbb4347355e484e0719e95e15ca30716ec05aea982"
+    },
+    {
+      "key": "bank-logo:hzccb-rect",
+      "source": "logos/hzccb-rect.svg",
+      "originalSha256": "ad69f7dc55860b06b6f834de4d8cca4a954f7d488d7367e77778632282e5ec57",
+      "sha256": "83224a834f4103c09bda5aa39365170d0135a1eec1953f699d621c3fb987e58d"
+    },
+    {
+      "key": "bank-logo:hzccb",
+      "source": "logos/hzccb.svg",
+      "originalSha256": "b68255af7dd6fca43179786c496ebead3292490c56315882acff632c5cd98da7",
+      "sha256": "65a874ccf8e54b8da72a6e34c411e303e1278ceb32e7295b358f1c159833427f"
+    },
+    {
+      "key": "bank-logo:hznsyh-rect",
+      "source": "logos/hznsyh-rect.svg",
+      "originalSha256": "7484e04f5b33307acc6b84bcb34b2175f6135f9cf5ba82b6039c31a2d70d2ce6",
+      "sha256": "0960c80eea5a968090972716f6bc110eb8bd9209b6e61ad67423e1e52d98cfc4"
+    },
+    {
+      "key": "bank-logo:hznsyh",
+      "source": "logos/hznsyh.svg",
+      "originalSha256": "133caafa9c03970a79694eb5d058322a341301e57f73c539d0ff834a2ac42b01",
+      "sha256": "ee83030bf34348eca80c941becb331ad14ee938b7ddef7f292795c84a5f9b431"
+    },
+    {
+      "key": "bank-logo:ibk-rect",
+      "source": "logos/ibk-rect.svg",
+      "originalSha256": "91f4cdca8a9f185e1ffc7427dbb2a453fd3b8a3c240158cb7a86c3866c5f9065",
+      "sha256": "7eb7910de6bba30c8e5be7eee4d13a705587dca29dea3935153d1fb1ab8da165"
+    },
+    {
+      "key": "bank-logo:ibk",
+      "source": "logos/ibk.svg",
+      "originalSha256": "d76389f6b73d0a6e2f638ba788fee0939aa43c08b07aa2948bac6b748484ca28",
+      "sha256": "d2bfbdbcd66008b5018ebb1e52b94e34b572f156c52274e868aeae361789d0d2"
+    },
+    {
+      "key": "bank-logo:icbc-rect",
+      "source": "logos/icbc-rect.svg",
+      "originalSha256": "b39ab756454e0213782123a09aa3e5979907a93fc1ca4cfec466b4c1f402e43b",
+      "sha256": "e4f0033b21e0131ea4c95f8af5ad0bfd11a18453ec42bf97fe889025258bf75f"
+    },
+    {
+      "key": "bank-logo:icbc",
+      "source": "logos/icbc.svg",
+      "originalSha256": "b6263dabba64c95a98f3acc032cabc3872e6ddec75de11a33f024f14dd07e009",
+      "sha256": "23e82643b4c245a383e3f914f1b88546099282904f509b4454597e52a657fc76"
+    },
+    {
+      "key": "bank-logo:jhccb-rect",
+      "source": "logos/jhccb-rect.svg",
+      "originalSha256": "a080fe3114194937cb1715edee3058bc6df976ddea1ca0f1438d809345dba999",
+      "sha256": "2e1f61c742920419ac144f652282258fab72ebc69ac1e2ded51bcf0ad718ec0e"
+    },
+    {
+      "key": "bank-logo:jhccb",
+      "source": "logos/jhccb.svg",
+      "originalSha256": "97894a7c185413d9d3c80472428b87618c53f8f6048c563dddb910d0457191a2",
+      "sha256": "f19182ddae6c55c98be020e28fb14463d2ed49ed4a0df42bb1fba7d3ee06b470"
+    },
+    {
+      "key": "bank-logo:jhrcbank-rect",
+      "source": "logos/jhrcbank-rect.svg",
+      "originalSha256": "98fad44ec06526bf78fc73eb09acee3f4931b48cbb23a6d5a77f5051fc9632d3",
+      "sha256": "f8ede24f399a3b91b29b840d50cf0568b620e8c0ac4e26c2a7f76ef0556b2f94"
+    },
+    {
+      "key": "bank-logo:jhrcbank",
+      "source": "logos/jhrcbank.svg",
+      "originalSha256": "7068ec5207c13468c2d05293e128abc3e8da0849cc63459ed5c1f8d71e3ffb8c",
+      "sha256": "31e7ba6d0412a43661968e25a43a714842ee66a02f22b5d4fb20b850c341523a"
+    },
+    {
+      "key": "bank-logo:jinzhoubank-rect",
+      "source": "logos/jinzhoubank-rect.svg",
+      "originalSha256": "91df85f7c2dd6fe6eda5feed77b8e7493fb0c8a76fed8fd62c50dde94566e230",
+      "sha256": "6d52fe8c1c04b5b8b7bb575e6f7d7d363548df5a87d9080e37f323f92423748f"
+    },
+    {
+      "key": "bank-logo:jinzhoubank",
+      "source": "logos/jinzhoubank.svg",
+      "originalSha256": "964b599cf02f35469265237d1b5beab0d6ac60d31897855bfec966ee2df0346e",
+      "sha256": "8d1467cf6de0e041f2ae862a77cc5b679e832ee7e83e8f55496a4530ffa3a789"
+    },
+    {
+      "key": "bank-logo:jjbank-rect",
+      "source": "logos/jjbank-rect.svg",
+      "originalSha256": "abecb6863a908bfc2f8d06e83bcf0f211da206b98b91dac3553f3066239d7de2",
+      "sha256": "4af5dd9d1d3e19f824fe27bb82f6684a08768bf20d66a8896ea4399c01278911"
+    },
+    {
+      "key": "bank-logo:jjbank",
+      "source": "logos/jjbank.svg",
+      "originalSha256": "8f291a2037d2058584200345507ccfc5cc7d030aa040505a03ffdeecaa77afc0",
+      "sha256": "511cb03d51a73ae99ad7737e30cd08b9bdf73a1b85afdf7aa513339dddb79354"
+    },
+    {
+      "key": "bank-logo:jjccb-rect",
+      "source": "logos/jjccb-rect.svg",
+      "originalSha256": "eb0c2112702508f6089556a0ab09738c9aa8f84f797f900bf7db2bab36262c08",
+      "sha256": "e820a05f3609da6000721c03cfa5e97a3bf14200a4d74de3aa1fa43b5680b97b"
+    },
+    {
+      "key": "bank-logo:jjccb",
+      "source": "logos/jjccb.svg",
+      "originalSha256": "ca5fc4ec74e990ada4bf8cc6f2e6da932c060fb0be9a7758e4b52fbf58cbce3a",
+      "sha256": "0c3726846e37b240e38d39fe70fad029faa0c0c65a65a11e28390c994e4bf08b"
+    },
+    {
+      "key": "bank-logo:jlbank-rect",
+      "source": "logos/jlbank-rect.svg",
+      "originalSha256": "f446bd6586b7e646be105fd58c38c5e4aff02c58686bffff585bed56bb12abf8",
+      "sha256": "cce6b158d2a6d782caf301662b8d601f773f96e87059bfb1db3e734c084f83df"
+    },
+    {
+      "key": "bank-logo:jlbank",
+      "source": "logos/jlbank.svg",
+      "originalSha256": "7d04600e258ae9ba282f18e2b706f7a8101af2dac9b95269d48748751cdb757f",
+      "sha256": "b03eab6bb87a6cf2a86ea16aa0f58853af3195edfbeb89d34902d70b0407726f"
+    },
+    {
+      "key": "bank-logo:jmrcb-rect",
+      "source": "logos/jmrcb-rect.svg",
+      "originalSha256": "2005b33ba5581c3eef172aceaa349b72aaaa5373390bbb73863b7c633d8296d3",
+      "sha256": "179a6f7bcf8e845115a039977a2fae1006be9ec1f32766f0decc288642daef54"
+    },
+    {
+      "key": "bank-logo:jmrcb",
+      "source": "logos/jmrcb.svg",
+      "originalSha256": "cab90cddd272029a522a71e51bedee1fba66037c7c215c226c76e1a3d9cf2f96",
+      "sha256": "f3503ca8be5c52ecac31e6ccc1e0ba3befaebbe6d6f0d42b5192e3cd709261d5"
+    },
+    {
+      "key": "bank-logo:jn-bank-rect",
+      "source": "logos/jn-bank-rect.svg",
+      "originalSha256": "c3e6321f3ade584bc04a19b8641ef40bd904e07fdaad08d769762e1e12dd78bd",
+      "sha256": "cff4d248ab623e78ffb8f877caefe102ad7d97f9590e7c2ff306706ffe0b4c3a"
+    },
+    {
+      "key": "bank-logo:jn-bank",
+      "source": "logos/jn-bank.svg",
+      "originalSha256": "11a6ad6c33f3335960c33e4db6b19642e7d9f2f121eab8d4e9d03147ef2798e2",
+      "sha256": "441a0fbafd8753171610d11765f2bedda9ca261e8a3958fb33cf1a13914785da"
+    },
+    {
+      "key": "bank-logo:jnbank-rect",
+      "source": "logos/jnbank-rect.svg",
+      "originalSha256": "4c64d379bb86d94532ed21b5d674adcd91ff4145cbed46000f7a2eed20b740c7",
+      "sha256": "368bc7779612e086397a84432a44a251e4242d90e2804aec05b0a2899f1311d8"
+    },
+    {
+      "key": "bank-logo:jnbank",
+      "source": "logos/jnbank.svg",
+      "originalSha256": "5d702f3d6334296034fe7d675467213a9dacda5b8d233e397cecd81d3e3ff9e6",
+      "sha256": "db9e9520df5d47c62a2b8406902aa14fbf040b38128990f2a6b13164d1e6c1f9"
+    },
+    {
+      "key": "bank-logo:jpmorganchina-rect",
+      "source": "logos/jpmorganchina-rect.svg",
+      "originalSha256": "8c22f9875c5e942df55f96bd0b22aa5cf2266ce5497992cbfba9ea28c0ee27f1",
+      "sha256": "c2439f4483069f15c474e4a0ddb68c59b678d5b948e5297846e799fce518f22f"
+    },
+    {
+      "key": "bank-logo:jpmorganchina",
+      "source": "logos/jpmorganchina.svg",
+      "originalSha256": "e90e9d3ed440d9e2eb270989997750e74a4b6df303fc27c2e7026527d61f9c43",
+      "sha256": "5dbdb68ba4c519bd21babfc58848ef0034303b3d8a104758bb219e3be864bc2a"
+    },
+    {
+      "key": "bank-logo:jrnsh-rect",
+      "source": "logos/jrnsh-rect.svg",
+      "originalSha256": "98fad44ec06526bf78fc73eb09acee3f4931b48cbb23a6d5a77f5051fc9632d3",
+      "sha256": "f8ede24f399a3b91b29b840d50cf0568b620e8c0ac4e26c2a7f76ef0556b2f94"
+    },
+    {
+      "key": "bank-logo:jrnsh",
+      "source": "logos/jrnsh.svg",
+      "originalSha256": "7c447f7c048a282c98d95b058e3b377789a1aebca162f081e58a7dbe9563f1d3",
+      "sha256": "e7ed8daf212de2ae83556d1cf9d5602039b7fb847923c878735ee297de5dcf13"
+    },
+    {
+      "key": "bank-logo:jsbchina-rect",
+      "source": "logos/jsbchina-rect.svg",
+      "originalSha256": "9ca601202dceb72920dbc71960c1bf04ca38e58e0903db89bce4153c47a55fdc",
+      "sha256": "1877b350b1c6779b54a778cd3df28655f7bc4b96bf423fef0cdfc55d69798b21"
+    },
+    {
+      "key": "bank-logo:jsbchina",
+      "source": "logos/jsbchina.svg",
+      "originalSha256": "77eee3f3f36adee62ddf9e25a8b3b329796457f28461aec8db0d947464807196",
+      "sha256": "d7f00b1d532022f5bd15dc6215b77afcaf1811b9f910da545e57b897f00f4f0d"
+    },
+    {
+      "key": "bank-logo:jshbank-rect",
+      "source": "logos/jshbank-rect.svg",
+      "originalSha256": "be2c8914d87d41585fba5e9b15aad01717699ffacd6dcf33be09f033af1069b5",
+      "sha256": "657086284ea9b2a829d804e1729fe57fec2d45d5d0b8cf1237743acb43f29e11"
+    },
+    {
+      "key": "bank-logo:jshbank",
+      "source": "logos/jshbank.svg",
+      "originalSha256": "9df74ee75096502ecf096bd45ddd58e134e39cfa2c2a4fd486bfc6cf24ee6013",
+      "sha256": "5d2274b0257be7c16e18f5f9bd03fb580dd3777303ae908a9b060154281b2fc9"
+    },
+    {
+      "key": "bank-logo:jsyxrcb-rect",
+      "source": "logos/jsyxrcb-rect.svg",
+      "originalSha256": "f30f69815dd3774793a06aae4b0895fff18b6802b3d2cb7d4a7dec92b855da75",
+      "sha256": "08514478a8df73e1a4eb305726761bd1dfc088a3ad393553996921a241e6b419"
+    },
+    {
+      "key": "bank-logo:jsyxrcb",
+      "source": "logos/jsyxrcb.svg",
+      "originalSha256": "a0d1f7048ec22d0c1b77b83252158e59d22a57861f889ec5a41655634ee336e6",
+      "sha256": "6966cd13bc91f8a74015bad497207baceba9cdcfa2c4a8b350d0edd478aee94d"
+    },
+    {
+      "key": "bank-logo:jtnsh-rect",
+      "source": "logos/jtnsh-rect.svg",
+      "originalSha256": "4e23d2337adbdde47db14f40d46c458ea64f72ac01cb4a9c7ef6204569cc4c41",
+      "sha256": "7ab26bebcc57b0ca2e503c309cafa5869dcea524aa15cf5667b1d41f141e1115"
+    },
+    {
+      "key": "bank-logo:jtnsh",
+      "source": "logos/jtnsh.svg",
+      "originalSha256": "faa145b9a023e11729fcaa975a0dc663c5874305dac17338ed24da100a185cf9",
+      "sha256": "91ce0001f9011941618340d6680c0ba0820965011ebf8b983764361ecdc63aba"
+    },
+    {
+      "key": "bank-logo:jx-bank-rect",
+      "source": "logos/jx-bank-rect.svg",
+      "originalSha256": "c26c13df4fd8859cc4f58a29f66cb790ae3b4a2558c94d6b237724221a73ac84",
+      "sha256": "478fe7ce04fcd1053c43d6a593eabb451330c894e22d152294c41a3d195cf6fa"
+    },
+    {
+      "key": "bank-logo:jx-bank",
+      "source": "logos/jx-bank.svg",
+      "originalSha256": "b2e40bfdd9015e82deacb60dd29f9bde01bee074dbd93c4fcc571fad316e436a",
+      "sha256": "67c418eb2d122e0d5e77a3af9a010cf7d2583e8cc129fd2762099c617ef3b3cc"
+    },
+    {
+      "key": "bank-logo:jybank-rect",
+      "source": "logos/jybank-rect.svg",
+      "originalSha256": "1e03eb97e506ad6ca7db5acb72c802baa091ef0b25a4049141d0d29793b0c862",
+      "sha256": "997e0a829ea4e1ddb0f8ab6730f85ab5c6416baed91444aa3a9393c018c43529"
+    },
+    {
+      "key": "bank-logo:jybank",
+      "source": "logos/jybank.svg",
+      "originalSha256": "5214761fb4e6adbcd1ee21f6cf0a3e71b54ba7818743e0a202951e9832cecce3",
+      "sha256": "fe0364ce7fd3f7aa62233315f806c7034ce4de884d37317bbe9ab54dd6a60ee0"
+    },
+    {
+      "key": "bank-logo:kbstarchina-rect",
+      "source": "logos/kbstarchina-rect.svg",
+      "originalSha256": "a3200b45a0e0644142361307988fa411870fc68d72782b5aa42e7b07c3fcecf8",
+      "sha256": "fc0224e5418341a956491bea19f65d622986a588c29c5e90c0d3aa44836cc112"
+    },
+    {
+      "key": "bank-logo:kbstarchina",
+      "source": "logos/kbstarchina.svg",
+      "originalSha256": "6160a2fbff34c5c7e68a5b743b29c337f7b74ba9049b419a7f8b384de6b77dce",
+      "sha256": "70a8bd2854c41164a3f34b163a90e23fc3434f9a28d3da2d7a3899f5b97e938e"
+    },
+    {
+      "key": "bank-logo:klb-rect",
+      "source": "logos/klb-rect.svg",
+      "originalSha256": "39b7c3511ef82c52d797749503388a2d41d3c7ce64ea2ac2f446af5a4960fa2e",
+      "sha256": "1d11c2f9e007cd52b6fa35324a6f53d1b5a55fae836735ce307582632e970639"
+    },
+    {
+      "key": "bank-logo:klb",
+      "source": "logos/klb.svg",
+      "originalSha256": "5c11e9e7976ca1500c24537639997a5cc40c7dce77bd85aa62342ca38d843ef8",
+      "sha256": "b3539fa7b29d6c1db6cf8895dd5c8b1a4e0c992042cb1b414def2187f941f542"
+    },
+    {
+      "key": "bank-logo:ksrcb-rect",
+      "source": "logos/ksrcb-rect.svg",
+      "originalSha256": "db1915c2ac20629a75cccf64969282ae431815e6a84de5c5c41eaee0c6ba5509",
+      "sha256": "c234b69812bfc73a7e0eea3f98d62ed874b9c2bb1abf19c290653ac0a28ba2e4"
+    },
+    {
+      "key": "bank-logo:ksrcb",
+      "source": "logos/ksrcb.svg",
+      "originalSha256": "a5828002dc319a7925f637a445b675dc4f868ff371160a92bc57e0ba5dcd1987",
+      "sha256": "6161187aede8379446e89542bcf2f1d473ff9a766e4ca5e24598965b95397833"
+    },
+    {
+      "key": "bank-logo:lccb-rect",
+      "source": "logos/lccb-rect.svg",
+      "originalSha256": "7ba2b7903a12f4f15559d60806cf9e56ecc8b44cadc9a426becdeae2de91efc6",
+      "sha256": "34239da8434e9c03e8c5d6afc95eb7ccb5d57235dd232096e3c125f1a0206a08"
+    },
+    {
+      "key": "bank-logo:lccb",
+      "source": "logos/lccb.svg",
+      "originalSha256": "9bd5aad0fcb8d4c9d8737934950cd60109eb4ccf0ec0bdf7fc305809ca3712f4",
+      "sha256": "18062d124ad17cd824e2455f86ad25978565203a6594b81c38ba9c49af7bf82a"
+    },
+    {
+      "key": "bank-logo:lj-bank-rect",
+      "source": "logos/lj-bank-rect.svg",
+      "originalSha256": "5eda5aa6245b8ea53f239b5f1368f9134ec1d555d54d8eb0fe89751e373dfe45",
+      "sha256": "143513718719822ef3968d8ce91ab9ab8ea1b3917d9ad1397882ebfc3745bc39"
+    },
+    {
+      "key": "bank-logo:lj-bank",
+      "source": "logos/lj-bank.svg",
+      "originalSha256": "8909f4a4b379b833133035bed88a843b9a66290b7fb72fe96f48841bd35235b5",
+      "sha256": "1b1e99675e00dd6454efb3987665497a06e8d4d207d3ae8bba5edc4d60625462"
+    },
+    {
+      "key": "bank-logo:lqrcb-rect",
+      "source": "logos/lqrcb-rect.svg",
+      "originalSha256": "93f1a12dd4e71e299f7b04b2ab9c2c10e5b3c5941ca4fa8a90e98388315df25c",
+      "sha256": "31fd3e70fb5715e6a1711a7feaba31b6ec7d23cb728ec11cefcb97329284eb86"
+    },
+    {
+      "key": "bank-logo:lqrcb",
+      "source": "logos/lqrcb.svg",
+      "originalSha256": "904ac8598e3a74a33adc45950cf8b3468b1713f9e64dfd694e47fba2d4b5ee16",
+      "sha256": "838a71029c339e75bffa28ea4d5c860b188f71d86c4b49b5b844d509ba9f8b51"
+    },
+    {
+      "key": "bank-logo:lsbankchina-rect",
+      "source": "logos/lsbankchina-rect.svg",
+      "originalSha256": "551e0219b700ec813fca57cf92832fa333ebae4e56a7e182c2d8cb193e219132",
+      "sha256": "cda13b2a835f9aa2ba05491b9abbedbcb886a16bac5f4d7896e3690aa15ae9c7"
+    },
+    {
+      "key": "bank-logo:lsbankchina",
+      "source": "logos/lsbankchina.svg",
+      "originalSha256": "dc56ca23ef62b4550fa05e18884da46a5e46e9ce52563b4585ab7f3b0a195bff",
+      "sha256": "238d0d8ba02b0dd153f515dafa8de5053fe1cb5ef9a477684e0a45fe9a75f169"
+    },
+    {
+      "key": "bank-logo:lsbchina-rect",
+      "source": "logos/lsbchina-rect.svg",
+      "originalSha256": "0760d65fdff6571c21ef0d7c544e788a2debf3521df5a25e9cafff075d6e91cb",
+      "sha256": "e01a03b3cba869e98cbb57913b117c2dde947e35eca5da42f71e737c5731f7ec"
+    },
+    {
+      "key": "bank-logo:lsbchina",
+      "source": "logos/lsbchina.svg",
+      "originalSha256": "a6d32d012526c39636ceb36dbc5beb4cf710a10eb0c64b52d695cd17a3c4f47f",
+      "sha256": "057b70263c8d00b3b4b54a68e1a13e8bda6d3b059b81cd47001b8d58cdb0e9e8"
+    },
+    {
+      "key": "bank-logo:lsccb-rect",
+      "source": "logos/lsccb-rect.svg",
+      "originalSha256": "a428c4460fcab84a6197e726c60aab30a64f5145105479fe58cd26bf341304b0",
+      "sha256": "8c7947909e89e2529ed3ee974635c9b6058eed19e2ecd5b5085aabcc19fed804"
+    },
+    {
+      "key": "bank-logo:lsccb",
+      "source": "logos/lsccb.svg",
+      "originalSha256": "5bf3e0c20f537bbe73c0156abba471f60268568f97388f90edae39a3ffd2490e",
+      "sha256": "271e5f3ad62bb6d98485aa37061ae32b6ccf48bd21a880dcb9cb1f1540e3aa3b"
+    },
+    {
+      "key": "bank-logo:luoyang-szgold-rect",
+      "source": "logos/luoyang-szgold-rect.svg",
+      "originalSha256": "4c2b083e626a930ae0a02e38a02c776b032e03a3793cf95ec0b0fcfe946aeb83",
+      "sha256": "058227c0324d5ebf87c443b2b7334982225ca1fb2ec5891f9267dbb9556e721d"
+    },
+    {
+      "key": "bank-logo:luoyang-szgold",
+      "source": "logos/luoyang-szgold.svg",
+      "originalSha256": "e1d0d19a68d7abe7267ef161540a2bff12461454f0cafc6dbcff165d9cc87393",
+      "sha256": "0c5a9f51fadb13b2e6ec6e8872c7fee0707b11517980c846b06cf5039051fa96"
+    },
+    {
+      "key": "bank-logo:lygdfrcb-rect",
+      "source": "logos/lygdfrcb-rect.svg",
+      "originalSha256": "98fad44ec06526bf78fc73eb09acee3f4931b48cbb23a6d5a77f5051fc9632d3",
+      "sha256": "f8ede24f399a3b91b29b840d50cf0568b620e8c0ac4e26c2a7f76ef0556b2f94"
+    },
+    {
+      "key": "bank-logo:lygdfrcb",
+      "source": "logos/lygdfrcb.svg",
+      "originalSha256": "573a9f746577b8285931205b1f54eb1c0463d05695c0c7ae7854a92f09bb29a2",
+      "sha256": "584196816466c6d0c6943f62b33d03c419edc21b85a03482c53276530ea27019"
+    },
+    {
+      "key": "bank-logo:lzbank-rect",
+      "source": "logos/lzbank-rect.svg",
+      "originalSha256": "b76fbae895ca8cd8f0fbe7309ada5e26c11931c13360f4cc8687ca8e3e31af7b",
+      "sha256": "7e1df85b409fc8f3f8066c3a14eb2f6a50b109910b5b5283547f14c5acc5aa1d"
+    },
+    {
+      "key": "bank-logo:lzbank",
+      "source": "logos/lzbank.svg",
+      "originalSha256": "5c5f478a84648bde789e1858860a5e7dc35506cf4aa5e8860ccf76fcd60e2ae8",
+      "sha256": "702d2789fbc1c9e3126f556b796da6e4ff64a0990d4f510a2a4a36da753a7f96"
+    },
+    {
+      "key": "bank-logo:lzccb-rect",
+      "source": "logos/lzccb-rect.svg",
+      "originalSha256": "4db8bd305c0d4f43a84b90c00b62d8f591cf2ccb545859ae4ab1fde842465f0d",
+      "sha256": "752323d18a58ebf23e5216092120fc71b1f79f775a864e8b1875db2f4ed1321f"
+    },
+    {
+      "key": "bank-logo:lzccb",
+      "source": "logos/lzccb.svg",
+      "originalSha256": "aa62b60e18e98030621c040b8c4809a2d706473ec4214bb292c7e85a8caf2bfb",
+      "sha256": "19f4dbdfcda5c2b946410366938ce7ec8a9582890b62e93e126407a42ae7fa9d"
+    },
+    {
+      "key": "bank-logo:masrcb-rect",
+      "source": "logos/masrcb-rect.svg",
+      "originalSha256": "c4cf0eb1970dff1d37825888150324a7968e905191b68178c07a3f8de1fd2cc5",
+      "sha256": "d68415e45495212bb88cc79f83d09fc6361392b393b262ed9bffe717d3f96d40"
+    },
+    {
+      "key": "bank-logo:masrcb",
+      "source": "logos/masrcb.svg",
+      "originalSha256": "6782feea5056a187ae1dc85776632023618a39a01f9a901c36813f8925e722f4",
+      "sha256": "fb0975b154914da3e520ab0fb7a0dd3dff31f70bf8a87421d8d83a1d37f9a087"
+    },
+    {
+      "key": "bank-logo:maybank-rect",
+      "source": "logos/maybank-rect.svg",
+      "originalSha256": "711f2ab90cea9e1c53dd7a540f8f459fc33098c02a69c3bfdf6a2ad646c890f7",
+      "sha256": "f92936a8d0dbc5c181ca0f37a33421de39dedf68e344dd982d8a224b5d68a141"
+    },
+    {
+      "key": "bank-logo:maybank",
+      "source": "logos/maybank.svg",
+      "originalSha256": "acf3044a63eeb8cf276efea3e86086f74f6056e0e4c1480c7c2106167dbe75a3",
+      "sha256": "f6366abd4266e64a8003b2868d47c70eb79f3d444eaa18344fb04dd579ea119f"
+    },
+    {
+      "key": "bank-logo:megabank-rect",
+      "source": "logos/megabank-rect.svg",
+      "originalSha256": "e5d12918e7cc97fe2ada493d3ea9864b478bc55291b599ce47138cf81765d597",
+      "sha256": "08479bfb6c6ea82cb4db1c81fdb86389e42d134599b20e8e7448f670e04276d4"
+    },
+    {
+      "key": "bank-logo:megabank",
+      "source": "logos/megabank.svg",
+      "originalSha256": "740e5e7f6e40408712e0809a2e0788e504c0b88f02782fcc55455df8ea405389",
+      "sha256": "b0afdd0eb5ec10edc8751f0dbd4eac88883eb725272598f082a56f37d9851bfa"
+    },
+    {
+      "key": "bank-logo:meigin-rect",
+      "source": "logos/meigin-rect.svg",
+      "originalSha256": "725407686ecdbc8227d9d386fec146445c74fcb13132b57e7932739f33a6f0f7",
+      "sha256": "c4c316fee30180d042807e1bb0bd4776e48fa12d2ffe48a15cfbc8b407af7944"
+    },
+    {
+      "key": "bank-logo:meigin",
+      "source": "logos/meigin.svg",
+      "originalSha256": "bb4f5bd666f7d534f331d5549c0983d9810b388ee0bdd481e25a58f3d76e7fb6",
+      "sha256": "e06b84f8af445557948bfe4432af36204572914a7960db9a98d886ffffaf89ed"
+    },
+    {
+      "key": "bank-logo:mintaibank-rect",
+      "source": "logos/mintaibank-rect.svg",
+      "originalSha256": "6b776790b11f6a730f531fdba01ebd137b05660f0a6335c5f2466c28224ae47e",
+      "sha256": "5edcb3bf49589e7879ca62d8dbc8ab014db2130c8de756939bd265807a513c3a"
+    },
+    {
+      "key": "bank-logo:mintaibank",
+      "source": "logos/mintaibank.svg",
+      "originalSha256": "ff40f5f00a0cf32eaa5a8ccb7334bd1aef5bf6a97ea888a4f19bbc4942c5db09",
+      "sha256": "8e422b3b1e440d3b9eff4d3d1987ffef77252b87bcee23fed3771e0d7b880e4e"
+    },
+    {
+      "key": "bank-logo:mufg-rect",
+      "source": "logos/mufg-rect.svg",
+      "originalSha256": "20437b2aa81220e1e701bdd54867903f02752914aa85b416fa6cf38a253cc5ea",
+      "sha256": "4d3d17032ff7c10aaedb5382310b742e42e7741e9112a5463365c7c7b5da367c"
+    },
+    {
+      "key": "bank-logo:mufg",
+      "source": "logos/mufg.svg",
+      "originalSha256": "36f6871eafb7acc97b680934206172fc89d34316b65166062c4917a38bb4c02f",
+      "sha256": "2eddaa5890d587a9e7cf561d03faceece9eb218cb494361dde8cfe2903a8d283"
+    },
+    {
+      "key": "bank-logo:mycc-rect",
+      "source": "logos/mycc-rect.svg",
+      "originalSha256": "2ef481156faa7329e6c1e488945a50763596719b34b03cef338a6a6ce657c741",
+      "sha256": "d738907f3360783ecc0f7ff0700f9c61c5bcf8610e26b6adaeef629f92e6bff3"
+    },
+    {
+      "key": "bank-logo:mycc",
+      "source": "logos/mycc.svg",
+      "originalSha256": "c77565274f60e47bfb8156b1b9a91ffb24e2dd464bafcf351256cbfc10df2fc2",
+      "sha256": "74d4b62aae963615a07a640c56d93df02bbc61ce76a6fa3b080cc6ed4a0a810c"
+    },
+    {
+      "key": "bank-logo:nanhaibank-rect",
+      "source": "logos/nanhaibank-rect.svg",
+      "originalSha256": "48cb43a0933c091fc40c61a53fc316746866581a07732c7d6d81a63fde1391e4",
+      "sha256": "7a8c8336a0d2f33d0381f78c15ef3a854862a3a861a143119499d2867f324243"
+    },
+    {
+      "key": "bank-logo:nanhaibank",
+      "source": "logos/nanhaibank.svg",
+      "originalSha256": "1d6854933a718364e61196b17dcba827f7a882b313c4dd91b1f8b056da8b8345",
+      "sha256": "cd711ce00d9ab6bc6e7324caf2f47f917264ea7b305382dd77056af510b31e01"
+    },
+    {
+      "key": "bank-logo:nbcb-rect",
+      "source": "logos/nbcb-rect.svg",
+      "originalSha256": "3f3c043b7c172a3ef5ddbe60fcfc5cce72fad3b60f48a6e3cfece55c064566ce",
+      "sha256": "e19978f321104101d322607732f9c3a93dc703961485e43b6d39d414cff52db3"
+    },
+    {
+      "key": "bank-logo:nbcb",
+      "source": "logos/nbcb.svg",
+      "originalSha256": "e973138ca4e854854e8fa98d9e710adb82743ead653200b94c22995c44c4bafb",
+      "sha256": "b15501bcd7e7cc4271610731b81a51c5265906f0c4821bd36033663714be7a8b"
+    },
+    {
+      "key": "bank-logo:ncbank-rect",
+      "source": "logos/ncbank-rect.svg",
+      "originalSha256": "c84be087116501ccb3f0187882653b0953a341e01ca727141a559f04d83809db",
+      "sha256": "6fe9c4061423b69d77ac3700141549e4de602e600e2ee037ebbba357612f0aa3"
+    },
+    {
+      "key": "bank-logo:ncbank",
+      "source": "logos/ncbank.svg",
+      "originalSha256": "44fc66a75552c683f14371e48ca7f2f69036a1f58615551004ee31b2e198cab2",
+      "sha256": "3d003fdde01da85780e57a72e8eb08f0c594a0ce3966a01316b37be0144df3f7"
+    },
+    {
+      "key": "bank-logo:ncbchina-rect",
+      "source": "logos/ncbchina-rect.svg",
+      "originalSha256": "b1bcb66dd746c3b5de27812c793145e8a5a41410e8f56d0c2d38c9fc8fc77b8d",
+      "sha256": "7cc81d847ee373dcca24ab96664fe25174cf6553be1702d35a2e44310f063bad"
+    },
+    {
+      "key": "bank-logo:ncbchina",
+      "source": "logos/ncbchina.svg",
+      "originalSha256": "b2810eff69440c31bb542e972a575faf1fab7a879659f25e0b30ccbc16e498db",
+      "sha256": "137d2983a1ee02af9191c3c8a9da0fabf4f3632e5a3bc41bd03991acb8ddb511"
+    },
+    {
+      "key": "bank-logo:njcb-rect",
+      "source": "logos/njcb-rect.svg",
+      "originalSha256": "a829f0c8a4209fb4263d38411d5b289961c15b6be4e90e076d21199de279eef6",
+      "sha256": "e0fbe079766072cc0bc5870c71919b8f5ccad5e8b9a90d213f1b7b2c7e6cc267"
+    },
+    {
+      "key": "bank-logo:njcb",
+      "source": "logos/njcb.svg",
+      "originalSha256": "87e17d4d93dba45230009fb0a04218aad012d109add892159a4ccacc4c79883e",
+      "sha256": "5dd993dd9f9c2a9d888bbeb3b700b34609f0a91e48c9059fcde23b5b0c8ca1ca"
+    },
+    {
+      "key": "bank-logo:norincogroup-rect",
+      "source": "logos/norincogroup-rect.svg",
+      "originalSha256": "33f410022a81d36d20e4e569478435fd7519d00c46c241fdcf2467d50bd54d16",
+      "sha256": "ca01ac576823d68f0be8dda3eb7d3b1b2cd18b38410605e4d69992063ce2d7ca"
+    },
+    {
+      "key": "bank-logo:norincogroup",
+      "source": "logos/norincogroup.svg",
+      "originalSha256": "e7ce1a82fb4b533ca18b95023f2726a2eb3227bf06562e1c36173625c42ef0c5",
+      "sha256": "57fbed9bb908ec9c3f6b131b5fc9249ad6d404b2c485822b400b872480c59aa8"
+    },
+    {
+      "key": "bank-logo:o-bank-rect",
+      "source": "logos/o-bank-rect.svg",
+      "originalSha256": "006a781ab85dc1d2fabfa3f49b69b63fe936970c065cfd8511247897db4b851b",
+      "sha256": "e45fd6fd4036ba9b47c5cea24749d3b8cc315fff966d550c3e30ed74bad2e704"
+    },
+    {
+      "key": "bank-logo:o-bank",
+      "source": "logos/o-bank.svg",
+      "originalSha256": "399de0bf873488022ff89830520dc3acf6594e41f404404652aae919e00fe7aa",
+      "sha256": "c200529de2fcc1e373f402bbde812b9fb714cf1750a51549d5fd91676146de70"
+    },
+    {
+      "key": "bank-logo:ocbc-rect",
+      "source": "logos/ocbc-rect.svg",
+      "originalSha256": "81a8371165201dacc4780ea18e97c9ce8a7793fba875666b057321fb469c8e35",
+      "sha256": "31325263e564f25e8920c3a4a582b34c9bf89062a8596efdc2fda668d328d129"
+    },
+    {
+      "key": "bank-logo:ocbc",
+      "source": "logos/ocbc.svg",
+      "originalSha256": "b42058901db67217c6afefe813355f62f23372b7d2c88c184d04339548dfc11b",
+      "sha256": "b414bdf046b237c095da734aad20613e614455a49cb6f4590717a9a35c2aa12b"
+    },
+    {
+      "key": "bank-logo:ordosbank-rect",
+      "source": "logos/ordosbank-rect.svg",
+      "originalSha256": "784bce469fffaee95e6a253d9395717c7e832ec45ec16ae058b2bee7c8914edc",
+      "sha256": "61ade75a64083b305a3fa37c5c627ac9ad8f3e63e61ce1c5be0a5d61b9b38453"
+    },
+    {
+      "key": "bank-logo:ordosbank",
+      "source": "logos/ordosbank.svg",
+      "originalSha256": "c54b066087ed20f2156be457a7b20bde3efe1208d2d257e123bc60ffa392b3fc",
+      "sha256": "9e18d0625c7d07e15a9501b8afcf1b16f47438d1abdfd732b93d85f5de735630"
+    },
+    {
+      "key": "bank-logo:pbc-rect",
+      "source": "logos/pbc-rect.svg",
+      "originalSha256": "8e503ee311cda89cef4dd3379746e79fe869bf71f17f7962ea9ef60479074903",
+      "sha256": "5dfd74c5e76176d21360a5dce323986b616cf2fdb369fd0a0096a3692a008ff9"
+    },
+    {
+      "key": "bank-logo:pbc",
+      "source": "logos/pbc.svg",
+      "originalSha256": "dd87d44e7fdf33f0c0fe037b1f57542ae12423d4093450833021a1958e5c8704",
+      "sha256": "f96076f537f1890272377d4c40d53de8a8073914cec8b6f80985a723520b042f"
+    },
+    {
+      "key": "bank-logo:pingan-rect",
+      "source": "logos/pingan-rect.svg",
+      "originalSha256": "134be5286dfdef3941da51c04ae679d7798e19a1828095abda37ca337bc3f1bd",
+      "sha256": "8d0689b8ff08ef05e5195b62a56b9abc47efbb7ca4c5026f391a0a2235f612be"
+    },
+    {
+      "key": "bank-logo:pingan",
+      "source": "logos/pingan.svg",
+      "originalSha256": "9895dc82620dd206d376ccae674ca7673996aa7c7744e3e676a0ee0bc65c057d",
+      "sha256": "bfce426d2bb24c4ed7b333cfb9c8765aeca05d0866b10b64ba63abd728e30a40"
+    },
+    {
+      "key": "bank-logo:psbc-rect",
+      "source": "logos/psbc-rect.svg",
+      "originalSha256": "52ba6ec2c7dc30302a7318cbe790927e882def90c51d9c4cb9b98a1bf3b25eea",
+      "sha256": "216941eb9da8954401c3f23be9054595fec426b2a97cb963c3832f502582c225"
+    },
+    {
+      "key": "bank-logo:psbc",
+      "source": "logos/psbc.svg",
+      "originalSha256": "00e33c73917db5ada2e60decb3930313893f011d289a8c14b85341dbeb8bf7f0",
+      "sha256": "b7eac9351b66a7304af006ea26e99c16d8a237a3974fece5d4062ead647025bb"
+    },
+    {
+      "key": "bank-logo:qdccb-rect",
+      "source": "logos/qdccb-rect.svg",
+      "originalSha256": "1a88b4258af2730bd16f2cd5595c4e197f45dc40f4181a1c5a6832d8f43e84d6",
+      "sha256": "2402c5a04455b71de6e14814b0360dde2e384332cec2d5fb535b26b99f4fb95c"
+    },
+    {
+      "key": "bank-logo:qdccb",
+      "source": "logos/qdccb.svg",
+      "originalSha256": "74bb189b700ac8cc533264c824d4e2f3aca4bac07c089ad3d0a74fb6b7d6fb67",
+      "sha256": "2ba56fdc8e34630b531a4189cf19ace7682ec547a5a49535aedd968027369e60"
+    },
+    {
+      "key": "bank-logo:qhdbank-rect",
+      "source": "logos/qhdbank-rect.svg",
+      "originalSha256": "0dcf7f4c4ee13e6a68d02198e4e27f6d5d7790a346677c6012e5d001b0591a54",
+      "sha256": "053111f13069212fe5131b39cdd480b775c205a521420c633adbd6e8b624ffaf"
+    },
+    {
+      "key": "bank-logo:qhdbank",
+      "source": "logos/qhdbank.svg",
+      "originalSha256": "a3df3403b10da67f3fd72bce74e9b3b8360ba9c939f4ac5fc988635fa95f6ea4",
+      "sha256": "fbc6ef9f85b5e2e6acfbe857df0174724881ae09b5859d6c0c9e05c748db8bf1"
+    },
+    {
+      "key": "bank-logo:qingbank-rect",
+      "source": "logos/qingbank-rect.svg",
+      "originalSha256": "9083a3d38530e0602e923d05e2a25234ca561d7341bae0f2c38f0adf908d809f",
+      "sha256": "48d4106012a3b54ccfef1ce47e35ab801e554d1231731630863db216b94fd69c"
+    },
+    {
+      "key": "bank-logo:qingbank",
+      "source": "logos/qingbank.svg",
+      "originalSha256": "a5ee97264f741a374c4427b90d9c2c7ae90d8916ac068143238ca1aec4bb93d6",
+      "sha256": "a9b8efda544804013a5331c158c3d008ebf48f8619229e1841a7879f0c452f0c"
+    },
+    {
+      "key": "bank-logo:qjccb-rect",
+      "source": "logos/qjccb-rect.svg",
+      "originalSha256": "c4226573dc1190e4c398de64cebde1fe0b1920954f6f7d6f960e9c9158cc5b98",
+      "sha256": "d0b0dafee9d85bb1b2bd016fcc7d4e20f71eef548a0105e6183acb4829971752"
+    },
+    {
+      "key": "bank-logo:qjccb",
+      "source": "logos/qjccb.svg",
+      "originalSha256": "9c6742bcd3755b9c8600577f56570fdd56130b40262ba6e023cf957f683d977f",
+      "sha256": "15a7bb801d1aca88d1d0667e89a657c2f1399f17c65aa601767e7618fa9dfcfa"
+    },
+    {
+      "key": "bank-logo:qlbchina-rect",
+      "source": "logos/qlbchina-rect.svg",
+      "originalSha256": "3229dcadd16d481c64d5259847847182d35ad3661111e733009daa6b988e7d31",
+      "sha256": "912408577c720c97889852dd62920c0fc411415c65b0b95645e8191324c427d7"
+    },
+    {
+      "key": "bank-logo:qlbchina",
+      "source": "logos/qlbchina.svg",
+      "originalSha256": "9b48a40dca5b7014ffb2cdcc1fed4bb5ad2d837fd7c810dbe877e06d842b814a",
+      "sha256": "8c9b8cc733a126da182b58fe62ed37880375230dcb35aaa92108fc254d9f0885"
+    },
+    {
+      "key": "bank-logo:qsbank-rect",
+      "source": "logos/qsbank-rect.svg",
+      "originalSha256": "07584bd430ac208c32406a15d4163cc871bf729b1e801d0010566e4f75edf871",
+      "sha256": "af1c0a269e478afef36341669577a39773e38058287780599398c6b6bac75444"
+    },
+    {
+      "key": "bank-logo:qsbank",
+      "source": "logos/qsbank.svg",
+      "originalSha256": "d5d9fdb1be9efcd98fa7826def8915d1fe05e5ca4974ee4234de14d5d895bbfd",
+      "sha256": "7fbc070033ea10aeba792a343e787600eb9dea7216657308c1b0f52f2b3104cb"
+    },
+    {
+      "key": "bank-logo:qzccbank-rect",
+      "source": "logos/qzccbank-rect.svg",
+      "originalSha256": "c3d5af15989b35c879de89ddcc666912237c22aa58cb95e05f672c999383b6b2",
+      "sha256": "40ae97ab15ce9ceb0ba6abe9e3f9659cdd4a0aa88b03d1c6ba10d01275a2cd38"
+    },
+    {
+      "key": "bank-logo:qzccbank",
+      "source": "logos/qzccbank.svg",
+      "originalSha256": "cb67cb658f99938bbec1f4eab56bc9e655dae6fa565a5fdb5ad6a3e20256b6c8",
+      "sha256": "59cc994c573cd0863ea8c2e8edd1063534eb471c1f51c1f2a1910adae875240b"
+    },
+    {
+      "key": "bank-logo:rbcroyalbank-rect",
+      "source": "logos/rbcroyalbank-rect.svg",
+      "originalSha256": "d1b95ed6f1421d90cecaa11e108a3b233295d502926899381ee4a2e4c7e96795",
+      "sha256": "1db49f8e32130c0090ab05f0851a7e37710c632a80b9be6434ef9bc259258c33"
+    },
+    {
+      "key": "bank-logo:rbcroyalbank",
+      "source": "logos/rbcroyalbank.svg",
+      "originalSha256": "371c3a6a8fc489a2b0765e751af047940fae87c2f7280086d4be282361ccba12",
+      "sha256": "a07c9b01ff4b6f45d7266f9f41434fad5e7199e609a2c448f79cd3063ab6ca5f"
+    },
+    {
+      "key": "bank-logo:sc-rect",
+      "source": "logos/sc-rect.svg",
+      "originalSha256": "cdf07d7cc2142af0cde1b6a5a71cdb5eb0a123b28f0c52243e924c4d4f1f4de2",
+      "sha256": "f4b6ca64fbed54eae4b29d19d53ca0d491f17994a1aedc324137a0c9d5ca0a1f"
+    },
+    {
+      "key": "bank-logo:sc",
+      "source": "logos/sc.svg",
+      "originalSha256": "e7adaaef990ab201d78423cd2b8898b5173f1cf6e1ee1cc0a53e6e42a5d0139c",
+      "sha256": "1674d699438d8cce234251af2ab41c676909b27dbbbac25cb1addf5a848b5aa1"
+    },
+    {
+      "key": "bank-logo:scnhh-rect",
+      "source": "logos/scnhh-rect.svg",
+      "originalSha256": "e0c79c473f7a2d2af73d8c20e2eeea45ba3aadf37adda5f76455faa8b457f80d",
+      "sha256": "b67c3771d7ec33935a33518d76cc3b70e819722e26b3b8b908cffb348ae5912d"
+    },
+    {
+      "key": "bank-logo:scnhh",
+      "source": "logos/scnhh.svg",
+      "originalSha256": "c6e387046169bad39054328e7f7afe2aac5e15cd1992654cc2458aaf5517c5cb",
+      "sha256": "d93455dae8a99caa9eb8564a6dd345f00c2aef7e4e84c4f430eddf8fe6cabff3"
+    },
+    {
+      "key": "bank-logo:scotiabank-rect",
+      "source": "logos/scotiabank-rect.svg",
+      "originalSha256": "804c823c622e3447ca070f44eb2f0abf744e666868adce64aec4075ff049fa2d",
+      "sha256": "67046ba5d126bc76bda4eb373b624ee18ff0976784c01fe2e4d906f5325106de"
+    },
+    {
+      "key": "bank-logo:scotiabank",
+      "source": "logos/scotiabank.svg",
+      "originalSha256": "3812d740f86f48a811f1451b8e796e349fa98ced79b4d78abcfbfbba4320b8eb",
+      "sha256": "fd81ca831f9bbdb33ecb5616430faeec80ad176424c980f7cc79a9a624c1a5e6"
+    },
+    {
+      "key": "bank-logo:sdebank-rect",
+      "source": "logos/sdebank-rect.svg",
+      "originalSha256": "4d127e3055e83dac2d2fb1c0dd15e8eb0772909e4f3776c59298b5375155d05b",
+      "sha256": "716798fcb43b6b15537e1fde586a9e5978b0ce97ef3f583018ca021211212686"
+    },
+    {
+      "key": "bank-logo:sdebank",
+      "source": "logos/sdebank.svg",
+      "originalSha256": "1bfd0d4018cefcb3a32c6917ee31cd0ea4dafa7fc28f5ea6ff0fbb7fe240d4fd",
+      "sha256": "195b85ffe087e0af46e867d8d22fe8bea9ec8b70eac3a16994b1d057db29bf83"
+    },
+    {
+      "key": "bank-logo:sdnxs-rect",
+      "source": "logos/sdnxs-rect.svg",
+      "originalSha256": "b80215aa682c7508f1d5634889efe8434f9fbe25cc9b5567cc07a2d5859e7928",
+      "sha256": "921f911ac0c3c2e0fdf22e5ece243436b048f0f9a6b8d461d7a419eb0fd87252"
+    },
+    {
+      "key": "bank-logo:sdnxs",
+      "source": "logos/sdnxs.svg",
+      "originalSha256": "9b2e71fbf3a5c79ea7bedf1ab26d5fb1050c9793530ef474028f8edc14a71287",
+      "sha256": "13fcd51feed8f8d3e00bd51be6815c80b490e47771bca0b9e7d206c64bdc1a6f"
+    },
+    {
+      "key": "bank-logo:sgb-rect",
+      "source": "logos/sgb-rect.svg",
+      "originalSha256": "832f00070fd7e8e67782437b3a9afe424dab5f92b1e640859bbeaa22f6d28ae5",
+      "sha256": "3ea86fd6bcc0061fe17363ef3eb0bf3570b83c6d0e3e8c8df49e5676652c8125"
+    },
+    {
+      "key": "bank-logo:sgb",
+      "source": "logos/sgb.svg",
+      "originalSha256": "9e7011fb9ff8aabf1ea84d429bb57f13ee5188cd2a4550774caa0eeaa2696a79",
+      "sha256": "a480dcc5db9c41984702765be36c4e1198ef8bb3e6fd9439ba48ff2c53efedd8"
+    },
+    {
+      "key": "bank-logo:shengjingbank-rect",
+      "source": "logos/shengjingbank-rect.svg",
+      "originalSha256": "957428718bc130504fee73b6d536e062d7dfcfefae0be97c5d4f015619b3b465",
+      "sha256": "50ea57134fd25aae6892bce8d0026cb15d08dbbd55f16b93c2594e00f5c3b342"
+    },
+    {
+      "key": "bank-logo:shengjingbank",
+      "source": "logos/shengjingbank.svg",
+      "originalSha256": "a76613c3adab74a4b267af8178a5efe009f0ade3142e8b34b9b8bc6cf2f53859",
+      "sha256": "4675bff676af0341e3f826a9cec0d8cdbf167afe2b69b9e845cd4f2e01999dbf"
+    },
+    {
+      "key": "bank-logo:sinopac-rect",
+      "source": "logos/sinopac-rect.svg",
+      "originalSha256": "7880e2069b004b3a9ef24915a0ea37bd4946227d3870998118ce4027fe95198a",
+      "sha256": "18f21f5fd84ce5d2d5b812a1848bfad464626c3cf7931ef5de42e2c9cbea7dbb"
+    },
+    {
+      "key": "bank-logo:sinopac",
+      "source": "logos/sinopac.svg",
+      "originalSha256": "9efb4ef0189c67bcf2cfdd6c15f925166c4f53fe90e6cdf7290e1bbe83995102",
+      "sha256": "c23bb6975d0ae3180b2176282513891898ac3e0abf46bd40e7e9f40c8d1c0945"
+    },
+    {
+      "key": "bank-logo:snccb-rect",
+      "source": "logos/snccb-rect.svg",
+      "originalSha256": "42b968d97e9db41e15e9a56afdfc7a6e6bbab476baaa60a399a296502596f4d6",
+      "sha256": "172b5060093699f9b3a246d29c1fdb18399c13cbd2fcbab4c874875cd6216a26"
+    },
+    {
+      "key": "bank-logo:snccb",
+      "source": "logos/snccb.svg",
+      "originalSha256": "a45435d8948e424c1b230f3fedf5339cd98c5ef1d7d8fd935920d02bf9716816",
+      "sha256": "1727f6396e7f16f01ad721d03585810c6f25c474f532025545bbde2c3ce1b03b"
+    },
+    {
+      "key": "bank-logo:societegenerale-rect",
+      "source": "logos/societegenerale-rect.svg",
+      "originalSha256": "69d72699c21470e365ab556e56ef13f700c52c582bfc6f3947c8e0a270153727",
+      "sha256": "59988586a0759c93dc39da16a4c527862219cd9acfbe4153a0a636f3ccf66edb"
+    },
+    {
+      "key": "bank-logo:societegenerale",
+      "source": "logos/societegenerale.svg",
+      "originalSha256": "8948f20a0d62ad048c7b338c78cd8e7bff82a0baeb673bc53af1ffc1c28607aa",
+      "sha256": "b3a0a5a1ff4368fb8d69f74c1f0599ae473d44d7539dbf37845647914fc5b3f1"
+    },
+    {
+      "key": "bank-logo:spdb-rect",
+      "source": "logos/spdb-rect.svg",
+      "originalSha256": "5f7b40df6ec9ed437d44aef42291e442063fd97176416de37293ea2845c01f50",
+      "sha256": "4f75f9cfcaa021996236a59161648925618c41170d3a1a66200b71894922ee87"
+    },
+    {
+      "key": "bank-logo:spdb",
+      "source": "logos/spdb.svg",
+      "originalSha256": "5afff5eb05ed4e6905d723f7505f514040afb4880463065cee31c0758bcbae48",
+      "sha256": "f45df1a7a982d88f7e15a4dcc04aa4b6ff2a5516979636e831d2d9bc0328f055"
+    },
+    {
+      "key": "bank-logo:srbank-rect",
+      "source": "logos/srbank-rect.svg",
+      "originalSha256": "c08bc880b9005ee36baf170cff0e280e4e5554454d2929d736d103aed2b15d4d",
+      "sha256": "a8a53c8b09e140053edcf0ee9cf2562e52a3dc13dabb05961f76faf4b3d6d6fa"
+    },
+    {
+      "key": "bank-logo:srbank",
+      "source": "logos/srbank.svg",
+      "originalSha256": "8ff68bfbbcaff6c6329a3e28f0f2a380803e93d28df6f69c618376aab54fe2fa",
+      "sha256": "7b4f6edcd97ce7762ed6f33486fc6b9e9b5a3ee557d56f1cb75c301e4235a2c4"
+    },
+    {
+      "key": "bank-logo:srcb-rect",
+      "source": "logos/srcb-rect.svg",
+      "originalSha256": "ec49824f3d63b583ba45d1ca418abbda1412de63f59dd6ed831ec0a04d5250ac",
+      "sha256": "f2cbe7a7757cbda26b448416b646aa4a3d53b11bd0fa93dcd7474e50149ab50e"
+    },
+    {
+      "key": "bank-logo:srcb",
+      "source": "logos/srcb.svg",
+      "originalSha256": "daeea224260edeec0550c6b43cbe9e071932000c6499c576501a56b1f405a20c",
+      "sha256": "f413df934375b4685f5d52145248a3baa65d44414e84bc59ec791052beee3dbd"
+    },
+    {
+      "key": "bank-logo:suzhoubank-rect",
+      "source": "logos/suzhoubank-rect.svg",
+      "originalSha256": "4ebc6204631426021c8bc0104f43f85a56cd12949f97cd6699b903a1c0a3fcf9",
+      "sha256": "7b2922bdcc6eaf84f22cadfda36601857852802dfc38b3fcddcf581ab000d859"
+    },
+    {
+      "key": "bank-logo:suzhoubank",
+      "source": "logos/suzhoubank.svg",
+      "originalSha256": "11565dd7fb4a0d38f08e23e72fc3751e022d06835a486e54011bb4ee942e7199",
+      "sha256": "9f2abaa11ddc897ffd74a444192e1d549d38122247d1032b5f1a830455d55359"
+    },
+    {
+      "key": "bank-logo:sxccb-rect",
+      "source": "logos/sxccb-rect.svg",
+      "originalSha256": "9c0ace76bcb23d205ed4189e86fc24f6cec5d7175567a4bf7b84ee84edd69cc9",
+      "sha256": "e240a9030d21703c4898a0c340707ff16460a8eeb9853fb7f50c93caa221530f"
+    },
+    {
+      "key": "bank-logo:sxccb",
+      "source": "logos/sxccb.svg",
+      "originalSha256": "472e22dfb8116a183a273f544650c7226fa0f2a83b4b97957c24e0da859a3ee9",
+      "sha256": "985888f7e428560d67d82d11a33f0f445d2f9abd1d3754ed8073be9e76947ecb"
+    },
+    {
+      "key": "bank-logo:syrcb-rect",
+      "source": "logos/syrcb-rect.svg",
+      "originalSha256": "16277a84df74778f1d5b9d81338af8cc49c22c2ee767ce5b6fab36efdbad3596",
+      "sha256": "aba49f01f14c197e579288d8e75761f44a33daa66e9493c3bcafcae3d1b14674"
+    },
+    {
+      "key": "bank-logo:syrcb",
+      "source": "logos/syrcb.svg",
+      "originalSha256": "91730a03ee282ee15eab1efffc339468ac1f9d4dfa7456f45ecf0cfea5d4a87d",
+      "sha256": "b23cb3f3605dc0dac3e0f66cfa0c453cd36ed18392927675155215384f9319f6"
+    },
+    {
+      "key": "bank-logo:szsccb-rect",
+      "source": "logos/szsccb-rect.svg",
+      "originalSha256": "995abd182ac3ac30bad55e20f81646167f7d159b25dcce787f0df375fb812af1",
+      "sha256": "92bba941ef23fa8df29bbf6dbd0bbefb3e03d35dcd28615cd653cae90a437f44"
+    },
+    {
+      "key": "bank-logo:szsccb",
+      "source": "logos/szsccb.svg",
+      "originalSha256": "f248c0625bf92dbad287f129ceab08c476062f934e176b0d4c4a57f21746f9e8",
+      "sha256": "f320328c4db552abf7f7f47d57c4159dcb27b4666037b982685828204e6ae002"
+    },
+    {
+      "key": "bank-logo:taccb-rect",
+      "source": "logos/taccb-rect.svg",
+      "originalSha256": "48df0c0419a0af2c0eeb4ef5439269831eb750c7fdcb31ffd4618cce5fb4d9ae",
+      "sha256": "96115b8afbd2247e581b17b3bc75b1f30d0245038da0303f4a54305bdbaeb339"
+    },
+    {
+      "key": "bank-logo:taccb",
+      "source": "logos/taccb.svg",
+      "originalSha256": "9e1aac62c348c057e28674260b849a898f85ddd6403e031e401807df91bac3f8",
+      "sha256": "37261b0c67f8479a2bdaf5897bcecdd3b099d317df59e40975e952ad54378d8f"
+    },
+    {
+      "key": "bank-logo:tcb-bank-rect",
+      "source": "logos/tcb-bank-rect.svg",
+      "originalSha256": "48201329ea999c601d37fd5d4c3c7e6018dcc6802a4467a39e92726d4b776ea8",
+      "sha256": "74d1b07d2700a983d32901c26fd993e1d600f7abb7f2f80a056745918bde101d"
+    },
+    {
+      "key": "bank-logo:tcb-bank",
+      "source": "logos/tcb-bank.svg",
+      "originalSha256": "1ca6641cbf93a1053929880ae0041ad0806a71cf878c9308cf43487f118f140e",
+      "sha256": "4d013f27bd0873bbafa987e50e52710015fa2e25ae98fb914e2f1d83cb981d77"
+    },
+    {
+      "key": "bank-logo:tf-rect",
+      "source": "logos/tf-rect.svg",
+      "originalSha256": "5c8f59a6715374d3f48d2049d3ecc87b0511bd4df53f07bcc43a43bf2db60d7b",
+      "sha256": "d7e02ca66cb8b742dd2d078a52bec1c48138933c3aba7f029840ba9763fe5e49"
+    },
+    {
+      "key": "bank-logo:tf",
+      "source": "logos/tf.svg",
+      "originalSha256": "61bcedce5a49f591245bb815ce403681f0226efc4d8ea072f2728b841f28f372",
+      "sha256": "5628e7ffdf8cfa09ce8d49f3bb80426d21607f0ea32edeac82fb57d795a8533f"
+    },
+    {
+      "key": "bank-logo:tjbhb-rect",
+      "source": "logos/tjbhb-rect.svg",
+      "originalSha256": "653e74bf819c9b8275f9b19d0e7978545a1f569e75186ff040b8fba0b1de8b0b",
+      "sha256": "59fbbdf2ccdcad34056425630c3629d3a2a7c5e26102fbe3772521ab764019d0"
+    },
+    {
+      "key": "bank-logo:tjbhb",
+      "source": "logos/tjbhb.svg",
+      "originalSha256": "cdb1c7395fde1f5a6d2edef5f04366feb1a6c2b4274b9e18610e7b429c663149",
+      "sha256": "317871e79c9433d34e516efb72bbe4e657e4215b3f5c4ef787bb3c57f4571015"
+    },
+    {
+      "key": "bank-logo:trcbank-rect",
+      "source": "logos/trcbank-rect.svg",
+      "originalSha256": "83c298c85d2ab6bffdcb95e8c373c1cc3864e24d7dfb5288d9621fcfedc374b9",
+      "sha256": "c40eae9d9a6908e2713665e455a2d57db1f26d3bc585fd12d1a460ba99747d74"
+    },
+    {
+      "key": "bank-logo:trcbank",
+      "source": "logos/trcbank.svg",
+      "originalSha256": "9f4947e9edb83c9746269ca1e6ceb5bf2b994713c3b61b1346821dc9526b80d2",
+      "sha256": "2b7c0f6df4f5d0b28d560974df2e2ba876699eff0c3ae35643e0f1171233ae54"
+    },
+    {
+      "key": "bank-logo:ts-bank-rect",
+      "source": "logos/ts-bank-rect.svg",
+      "originalSha256": "c05c8f058d0959815024b08412949be1047408f56ce9071d6e1a7e253fb980d7",
+      "sha256": "038405f2466abe2a1d3f9ded57fac3485e5432bedca40f77295c7294b9521937"
+    },
+    {
+      "key": "bank-logo:ts-bank",
+      "source": "logos/ts-bank.svg",
+      "originalSha256": "56774140b631d2434b407e403e992bc9ded9248650fb5a3f00c99c584f20164f",
+      "sha256": "ba090f447f59f936d34a08385d8e950454dcb6fe6d962a0eeea759811013f509"
+    },
+    {
+      "key": "bank-logo:ubs-rect",
+      "source": "logos/ubs-rect.svg",
+      "originalSha256": "0135956a9387f72b266dee085029792a624070d093a3b44407a433e69ec840ab",
+      "sha256": "d2e705b13182942ebc03c32bd9097f9ee1dda4cc972c0188ca7754b3cc95cbe0"
+    },
+    {
+      "key": "bank-logo:ubs",
+      "source": "logos/ubs.svg",
+      "originalSha256": "b97f455542952e288a12f0d43347ce9a807d10f0883793cc04cedeeba7c2fa8e",
+      "sha256": "300d059abeb43dd426f327be3d7b1f49f452984d699f52f5131075878ea997c2"
+    },
+    {
+      "key": "bank-logo:uccb-rect",
+      "source": "logos/uccb-rect.svg",
+      "originalSha256": "9b70615536a74968c9570066e8e7444087f5ceddca15f58fe072c4b732fbff73",
+      "sha256": "b97948c636b4882d8bba33bb963a64312eb899198378f47f67f54c99bd1a0bf8"
+    },
+    {
+      "key": "bank-logo:uccb",
+      "source": "logos/uccb.svg",
+      "originalSha256": "faeebd6acf1b7186283646164c85447f66d6a43e04c90839226253e130a3a824",
+      "sha256": "75605cfac5173ce7a7a510af866a566e7d234e8d910912aa701b79eddc51b338"
+    },
+    {
+      "key": "bank-logo:uobchina-rect",
+      "source": "logos/uobchina-rect.svg",
+      "originalSha256": "ac75bb01e7fa5afa4f90f9a819842a7d0db00ef4bae6e64ed3864e247d8bf8cd",
+      "sha256": "7b41ed0f1ec47a8f7da00a7dbeac6a871d66f952bcb2cdb2d2cda6929d7f4546"
+    },
+    {
+      "key": "bank-logo:uobchina",
+      "source": "logos/uobchina.svg",
+      "originalSha256": "da11ff4674a118fc2d98ecd81660be5725a121a5c27c9f64c91d8519aa80a22a",
+      "sha256": "5cc0984c32f86853b786655941d804651407d639455add969e1159cc171fd998"
+    },
+    {
+      "key": "bank-logo:urcb-rect",
+      "source": "logos/urcb-rect.svg",
+      "originalSha256": "93f1a12dd4e71e299f7b04b2ab9c2c10e5b3c5941ca4fa8a90e98388315df25c",
+      "sha256": "31fd3e70fb5715e6a1711a7feaba31b6ec7d23cb728ec11cefcb97329284eb86"
+    },
+    {
+      "key": "bank-logo:urcb",
+      "source": "logos/urcb.svg",
+      "originalSha256": "44ea6c6be25c2a0d1f5587618cf998174e9254b814d9dca3296142dc18b12d4f",
+      "sha256": "b0f54092ff82fc56fa2d6307509d3aa0288acf84ab773901bee2bcf5739507e7"
+    },
+    {
+      "key": "bank-logo:whrcbank-rect",
+      "source": "logos/whrcbank-rect.svg",
+      "originalSha256": "a06017afb943dda34a3ddd07fb606ee457aabc46365920e34ab2670c96babf94",
+      "sha256": "166d1f31d0ad52c9c914f8ffdd78d333e837701f701188741b663ddf364e6ee2"
+    },
+    {
+      "key": "bank-logo:whrcbank",
+      "source": "logos/whrcbank.svg",
+      "originalSha256": "f6edf760a9186bb40ee64e342d9c8559e613b276be358b4682ee5ae0f024b738",
+      "sha256": "dabe145b187d9f7569c8a8f6daab68a630171bce50e023bc1df905d76825477c"
+    },
+    {
+      "key": "bank-logo:wrcb-rect",
+      "source": "logos/wrcb-rect.svg",
+      "originalSha256": "ec11fa0e1c912eacb31a3d6314ae11a230d181ef3b9f656fc7d2ebc39adf97b0",
+      "sha256": "eabd05389c2900330fb480db1595a0bb9d46d1bbe0933f961429055274618651"
+    },
+    {
+      "key": "bank-logo:wrcb",
+      "source": "logos/wrcb.svg",
+      "originalSha256": "2d31811868f53af99b714180e9c296680feff1ee3e0182dc3d29a3bec52f5139",
+      "sha256": "95cee84ebfff48bc7c3802b917c3353a71b4e227b70b3bafcce1a51cf3cb9ae1"
+    },
+    {
+      "key": "bank-logo:wuhaicb-rect",
+      "source": "logos/wuhaicb-rect.svg",
+      "originalSha256": "165509254b9dc9a8ec0ec815a7de1c00a07bec32a8bdb41f5625802388887096",
+      "sha256": "ccc8ff6b149afbe420c40ecc9445c8744ed9085013fdc917cb1111e7296bad5a"
+    },
+    {
+      "key": "bank-logo:wuhaicb",
+      "source": "logos/wuhaicb.svg",
+      "originalSha256": "ce28e7c485e6cf5de72dced25991dca45a9614fd67c7dfbc74dd3aaed156d008",
+      "sha256": "b00b8febf8c898cc249bb92595ac2fab4ba7ebc3f96c0abd6c89ca5b0afa853a"
+    },
+    {
+      "key": "bank-logo:wzcb-rect",
+      "source": "logos/wzcb-rect.svg",
+      "originalSha256": "4f2698680a306d644cff084cdb2ad802ed35e3c44673d1de1a61ee94a6d43607",
+      "sha256": "79d1e844a2b3300866fe1ed13b609998642227b17881dd523c91d673e300cb1a"
+    },
+    {
+      "key": "bank-logo:wzcb",
+      "source": "logos/wzcb.svg",
+      "originalSha256": "86710f25c17af73e35720625ee5762547f4bcc7c2d37db02a9f35a80181634ba",
+      "sha256": "a12b51a45ae9e073a515159cbb95135d080fe9604fad63b8867d6808da33693d"
+    },
+    {
+      "key": "bank-logo:xacbank-rect",
+      "source": "logos/xacbank-rect.svg",
+      "originalSha256": "cf7254237951b327667d419155b0008579aa1fd9f558f143844eb6e784bb78d4",
+      "sha256": "76a4782b995fff7a803b3a2c2c69eaf6869927b1344fbd7c5f48a0b0844e3072"
+    },
+    {
+      "key": "bank-logo:xacbank",
+      "source": "logos/xacbank.svg",
+      "originalSha256": "1d95871ddebbba7062ecbafb8585a4dc06164ea4824563696960fe7ab614c4ab",
+      "sha256": "ff22afdd6c1aa0381b0542ba90428d2a228ee078c3d3225c348f0ae6975375a4"
+    },
+    {
+      "key": "bank-logo:xib-rect",
+      "source": "logos/xib-rect.svg",
+      "originalSha256": "8339ede934ceaf18c244d04ed29e15a5c2c2d9b2d2c021d85bdcd0b0190835e0",
+      "sha256": "528b8f94c6839bd83b2883555baf77c1c361ddbd9fea3d4b7a3c64c63eb246fa"
+    },
+    {
+      "key": "bank-logo:xib",
+      "source": "logos/xib.svg",
+      "originalSha256": "caa62563b03e3ca71adf23c9764149d0006a10d3ab5a03302e82c82434681b60",
+      "sha256": "cd76be8f8884f9a87ae1842af64d4df8da3c9d957b5a20e9e39f1f481c7da1c3"
+    },
+    {
+      "key": "bank-logo:xjkccb-rect",
+      "source": "logos/xjkccb-rect.svg",
+      "originalSha256": "f818a3473235e435da89ef37d52e62a72c58a8a7b24b1e4f047b6e84c6a4bd16",
+      "sha256": "1d436870dc35f68fab4821b46b2587b3061b0bfb515d9e2ed05ec74bc394ff5e"
+    },
+    {
+      "key": "bank-logo:xjkccb",
+      "source": "logos/xjkccb.svg",
+      "originalSha256": "efe6bb97da04cbcd6b14e4ab59c569e23e622d57817f05a441ce7202ce852e29",
+      "sha256": "41e3fc3fc98cc7736c19a0e4de683740223d01c78e2455a1baef14465563e3b1"
+    },
+    {
+      "key": "bank-logo:xmbankonline-rect",
+      "source": "logos/xmbankonline-rect.svg",
+      "originalSha256": "fa3f5e08c5ba37361a5c9d7910f801a35e27cd78c28ca3e829814c43a30982fb",
+      "sha256": "2a68fb0bb3c0a0e205023079ee01d4344e77fa2387758885665bd6d59437a845"
+    },
+    {
+      "key": "bank-logo:xmbankonline",
+      "source": "logos/xmbankonline.svg",
+      "originalSha256": "d97f350f89506302b09480373d6704199433e6fd5057fa9d27558ad27342973b",
+      "sha256": "fd642ddf662e8e654cd9ad67a9c1b84bc723fb33eedb2a73aec4555185e47328"
+    },
+    {
+      "key": "bank-logo:xynsh-rect",
+      "source": "logos/xynsh-rect.svg",
+      "originalSha256": "1f30984a3f7e384c06f6c1c3e0823c29ec4d5ad4fa53e8add0b90b689329e7f6",
+      "sha256": "6b10875a8413d5cb4fe6640fa884c0433211d59a534e24beadd5e9d3e9933a88"
+    },
+    {
+      "key": "bank-logo:xynsh",
+      "source": "logos/xynsh.svg",
+      "originalSha256": "a1e02d763696ab3def1de7a7bd5085a8038aefcbd9e4428ddeac6e5db31962ad",
+      "sha256": "80c8fae3db8b06c0ec632d91ddd84c4ff06c9b81894bdcfe39222fc8498579f1"
+    },
+    {
+      "key": "bank-logo:yamaguchibank-rect",
+      "source": "logos/yamaguchibank-rect.svg",
+      "originalSha256": "b00de577ad4b37d5c57745a7b7aea0be0ea885fdd10101a356621c1c2d5fdc6e",
+      "sha256": "30d228510d42209c57e62012eff784c23b0b43efcd68d1b5119f9c6f296dbef9"
+    },
+    {
+      "key": "bank-logo:yamaguchibank",
+      "source": "logos/yamaguchibank.svg",
+      "originalSha256": "10fef9b7a7eda3fe273be3efa71086c64bc14b3e6e48d8ea521306c70a114cc1",
+      "sha256": "a5df21ff7a7d2f31eec29550f56ab559ccd6f3b0882ed46a810fd92e83b6535c"
+    },
+    {
+      "key": "bank-logo:yantaibank-rect",
+      "source": "logos/yantaibank-rect.svg",
+      "originalSha256": "e712925662d50dfa97d9b5561fa898b7f01cb4bfa5195670119f695cf9e3f883",
+      "sha256": "e5394e80517c080c629d78110abc2925f37a99bf5cc6bfcded6bb7fbaed78550"
+    },
+    {
+      "key": "bank-logo:yantaibank",
+      "source": "logos/yantaibank.svg",
+      "originalSha256": "bb6579bb1a80d7ee776633fbcf6e5b9ebb0ad9fad4e84580744e7c53aed4cbae",
+      "sha256": "31e51aac3947a414fa6ae569bf4ee8ed1e5b613658f7eac8e1972c09ec009333"
+    },
+    {
+      "key": "bank-logo:z-bank-rect",
+      "source": "logos/z-bank-rect.svg",
+      "originalSha256": "26cc65dbf6f06e86e3dceab2a37b01efc651cee7afefd096d417fb3313af0899",
+      "sha256": "2222d3bac0b5efdc68b9ed2b4bacbf1d56391a5ea08d0c8a54db54323ed59b1d"
+    },
+    {
+      "key": "bank-logo:z-bank",
+      "source": "logos/z-bank.svg",
+      "originalSha256": "251cc608702b30306eeb8420b6b184c9367763c8df76d5dac35e50684c4aacd5",
+      "sha256": "d0120abee6904fe2ce985898231d05fdf45e39b76c633f2553d64b06de986893"
+    },
+    {
+      "key": "bank-logo:zaozhuangbank-rect",
+      "source": "logos/zaozhuangbank-rect.svg",
+      "originalSha256": "ef23dd626b6e2e69b82cd11c7d625ff371b2675a7332d0c8d687a52469b7d145",
+      "sha256": "f75a9aa72202dfab6ee96ff37a98947d02c6461470be95f83a9444c6c1eaa875"
+    },
+    {
+      "key": "bank-logo:zaozhuangbank",
+      "source": "logos/zaozhuangbank.svg",
+      "originalSha256": "990c3abb97e5f8540d65966701897b308f9873f376749716717672227efb483d",
+      "sha256": "2a2ab4abd2565efb45baba0fa3e4318baa7bd9945ca1bf3b6270801c9c00af1e"
+    },
+    {
+      "key": "bank-logo:zgbank-rect",
+      "source": "logos/zgbank-rect.svg",
+      "originalSha256": "2c089fca1d83c46133df587e27c8514e83e7890f96e32400d30f8b1dc9f098d6",
+      "sha256": "39f6447d3effcec1c53c5865246c1b7f851e14a9426a05f05c1ddeced06688b6"
+    },
+    {
+      "key": "bank-logo:zgbank",
+      "source": "logos/zgbank.svg",
+      "originalSha256": "2ae3ea39eeb2f3d1163d52852f98a5277a2aad89742b98880a1e122862c0a3c9",
+      "sha256": "7e6ba11995b481295d41c59080ae6c26023b0aa3cda1a4a977c839fe8280a655"
+    },
+    {
+      "key": "bank-logo:zhnsb-rect",
+      "source": "logos/zhnsb-rect.svg",
+      "originalSha256": "8352e5a12efe568e44f048ab9d31e99b7a9f80979a9ded705f4a539fc44a22e0",
+      "sha256": "db6b3546ca4c3f829c0232f108a28ec1aaec5f88afc961c0a69b319bacc5dce5"
+    },
+    {
+      "key": "bank-logo:zhnsb",
+      "source": "logos/zhnsb.svg",
+      "originalSha256": "00b637302f223c0eaaedf59f3f21e5eed5e95597d0c0f7ef6903ddb90f5889af",
+      "sha256": "8b5943df25c080308be3392f3b527606964f7b3bcb69084d90d3f268c4acdf42"
+    },
+    {
+      "key": "bank-logo:zj96596-rect",
+      "source": "logos/zj96596-rect.svg",
+      "originalSha256": "93f1a12dd4e71e299f7b04b2ab9c2c10e5b3c5941ca4fa8a90e98388315df25c",
+      "sha256": "31fd3e70fb5715e6a1711a7feaba31b6ec7d23cb728ec11cefcb97329284eb86"
+    },
+    {
+      "key": "bank-logo:zj96596",
+      "source": "logos/zj96596.svg",
+      "originalSha256": "bac18cb891f6dc77a0cd0168f2a8188723df0913f5e315e13a99eeb2cff78a39",
+      "sha256": "8e436833bac0a12c0b49ba9d0c0754e9c8983aae2959758a82e9762d2d0e3dab"
+    },
+    {
+      "key": "bank-logo:zjtlcb-rect",
+      "source": "logos/zjtlcb-rect.svg",
+      "originalSha256": "09d57849616d8205d451a965f516611754916eb60162e73318d8d75d26b48a3b",
+      "sha256": "54b0f22098cec51a7a2cb8a5571e9c9b136fa5f72029c2d6831b97a71485fc94"
+    },
+    {
+      "key": "bank-logo:zjtlcb",
+      "source": "logos/zjtlcb.svg",
+      "originalSha256": "8c202206799b037d12e378fb125294500a5bf3a7aca9527d2b19bbaf6c8b28c2",
+      "sha256": "66caf5bad9e1cdfe34168039b7e6ffac51be27246931fc0fa77f5dcce6eb8e82"
+    },
+    {
+      "key": "bank-logo:zsebank-rect",
+      "source": "logos/zsebank-rect.svg",
+      "originalSha256": "8c7549bd990de328289448c8bdf991f1e28a7574c055420c015ff2cd883f5828",
+      "sha256": "607f005af0d9a0935cf43a9b198740cc76469aa49083f6db7d82e63ff7b3d612"
+    },
+    {
+      "key": "bank-logo:zsebank",
+      "source": "logos/zsebank.svg",
+      "originalSha256": "9bad68b377c9101b47f50ed1f3ab9c9dce6340d38d1b254329111c885ae06da8",
+      "sha256": "068acd3d95c14bf3c33beafa67c2dad70a90834dcfbc231cf0a0b7fd3d7b4597"
+    },
+    {
+      "key": "bank-logo:zxbk-rect",
+      "source": "logos/zxbk-rect.svg",
+      "originalSha256": "71ca4180f6c4ca8036c67f129a0fc2be9e78eff84ff286a19139ff3376a9cac1",
+      "sha256": "52793f6467b63d6a78327c212b3c2809af87a61daaeb1c334e26e37222b1caad"
+    },
+    {
+      "key": "bank-logo:zxbk",
+      "source": "logos/zxbk.svg",
+      "originalSha256": "e17de40ce836b27806528337b18dbcaca410ff7357a4b940b3cd89ad6eac0bc1",
+      "sha256": "9618955c8333af6a4d181eae97e666808c7e7f67960009fc4b24a6154991a66c"
+    },
+    {
+      "key": "bank-logo:zybank-rect",
+      "source": "logos/zybank-rect.svg",
+      "originalSha256": "7ff96e5389d39061f2ee2d843adc49223f87b3703f29f3b98e55f5c3ed0a13bf",
+      "sha256": "5e5c9ccace02c91517836818d3af305a86b15fcfdc44972a5ebcd723749f7cd4"
+    },
+    {
+      "key": "bank-logo:zybank",
+      "source": "logos/zybank.svg",
+      "originalSha256": "ca92514287f4e6a3c6ac18aae5dab506dac18bceac04f2a75a996c2e3bc45fe6",
+      "sha256": "add1c8ac1ee4d3dcee7806303608cea35309a609b29caa3d3c268e22c4dd5e0b"
+    },
+    {
+      "key": "bank-logo:zzbank-rect",
+      "source": "logos/zzbank-rect.svg",
+      "originalSha256": "730da93d57e61eaeca15b537c669f768466c13fa26e85785a6a91bf677e23874",
+      "sha256": "487783d364d8e421acaa5a761536caaf06f294951aad3a01882d7b75f39499ed"
+    },
+    {
+      "key": "bank-logo:zzbank",
+      "source": "logos/zzbank.svg",
+      "originalSha256": "7b80402bee5b44154c0d5f771b2e4d21dc25470faece50fabc12bc93d5a557df",
+      "sha256": "733eb9430be26ce13f74d31a24ccb5058bc0d0cced4e5decbc58b606a282d40a"
+    },
+    {
+      "key": "bank-logo:other-bcc409771cf5fd6f",
+      "source": "other/!凉山商业银行.svg",
+      "originalSha256": "68e5e9a78d59fd2e2ba5c723cd74ff30a7f6585cbf6eee88d3307bde66d8ea73",
+      "sha256": "9f68ddb8abba9d998a092c5f5777e18a0ed6574ae99a70d5191df4736b3fff62"
+    },
+    {
+      "key": "bank-logo:other-98f3b258afee03e7",
+      "source": "other/!凉山商业银行logo.svg",
+      "originalSha256": "2662e92cf37325ee31c42e099e6ed82c89155aa1cc02a607b96d20ac3e842d2f",
+      "sha256": "53c21f29601901d33eb0e771414fa4bdd206975835293ea9cce70969d03cc0cf"
+    },
+    {
+      "key": "bank-logo:other-7a46771e41d8570b",
+      "source": "other/!深圳农商.svg",
+      "originalSha256": "594c3e3c0268a637becd74fa65860eb5e65bb118b3dccd504b094a1f221cbff7",
+      "sha256": "87b16bf1bd472ef7fc0994e13d51ed6cdcf908e4847bf54f6fb57682bac8f7cc"
+    },
+    {
+      "key": "bank-logo:other-5f0412205a7f1b70",
+      "source": "other/!深圳农商logo.svg",
+      "originalSha256": "be427efa6252eb1062c9d1350ea4dba5c4bab45b1b6943f496545e1e963784aa",
+      "sha256": "f9d4d9ed57447b396466dd24c02904db3a7d25dce8d2ed0cc664b6d89add9884"
+    },
+    {
+      "key": "bank-logo:other-2ecb69d553dd4b68",
+      "source": "other/三井住友银行.svg",
+      "originalSha256": "661aea231bb533e924473f0fd6971343134340dfdb2c8b76f15f8bb7a3409dfd",
+      "sha256": "1da9765832e35459c5ab4009508d8e0f61118ea6b3bfb6deb60e8e23e27b6dd6"
+    },
+    {
+      "key": "bank-logo:other-1181f2133027aac3",
+      "source": "other/三井住友银行logo.svg",
+      "originalSha256": "a865785d771b731e4942cabf59c5f6cae4ddb5eb76fcc7d92b49c1c7b001b908",
+      "sha256": "93ad1c0dfda2ce0f0485d611b84277977322f338e632c8b29da364de188bfb56"
+    },
+    {
+      "key": "bank-logo:other-fc6e4aa0bd23ec11",
+      "source": "other/三和银行.svg",
+      "originalSha256": "ae7f4d50c90d2105150bebfab3b663e8e48982907b69d8cf52926d96cd7cc47b",
+      "sha256": "fc2d17b4ba90508353f3a0d7d4368d53cf9ef0ba611b3c2f88981f53fbcd039d"
+    },
+    {
+      "key": "bank-logo:other-867410548c07b7ac",
+      "source": "other/三和银行logo.svg",
+      "originalSha256": "f7f9473c46c294b4b07af37989811fe8f98c6c224df0c8303c5536e8a2e1b038",
+      "sha256": "7eb569f951ea733df2102707358c5c3056cdd97164b7fd8031666c0a32f4137e"
+    },
+    {
+      "key": "bank-logo:other-f87e37b1d2250ee9",
+      "source": "other/三菱UFJ银行（日联）.svg",
+      "originalSha256": "7d7ed41dc1ae4511862df37b96f75ed5533c475aa4d50c5489c6300e1bc9cdca",
+      "sha256": "4905781f2bf7387a3650094b32b4056b713b7e20d484f84357caec320477748d"
+    },
+    {
+      "key": "bank-logo:other-2ab547f4285d2862",
+      "source": "other/三菱UFJ银行（日联）logo.svg",
+      "originalSha256": "a95863a1d955e131e6f8a05392a3325d4d3a8066648f26ba807e46cded1d9dad",
+      "sha256": "7ae271b904c7245349a0462775a49c65bbc6ebe0efdcd8f38eae22d837fb6f4a"
+    },
+    {
+      "key": "bank-logo:other-1fe9a1904939f9cb",
+      "source": "other/中信嘉华银行.svg",
+      "originalSha256": "79cdf9fb876504a1dc2eb8f7bb4d7b47a758148f3cde993ceb2a04d76b68c103",
+      "sha256": "6732dca383306b5a63aa11ffa9bc02b7c288b37b72f0bbca3a1b44488a690cff"
+    },
+    {
+      "key": "bank-logo:other-13a045ede7f5559c",
+      "source": "other/中信嘉华银行logo_.svg",
+      "originalSha256": "14e6d0c9048e2744b334cb3416927adaf932a742bd2548daf94cb6a5d4bb1806",
+      "sha256": "74a9ebae93810432b24438510481fde016691a99c6fc145f59b5620ec816aaba"
+    },
+    {
+      "key": "bank-logo:other-43dbd30f00479fa6",
+      "source": "other/中华开发工业银行.svg",
+      "originalSha256": "498789415ff30ad8cfbcdc9a2e49e4a5b9c6289da87c74ad10ddf04556486248",
+      "sha256": "ff3a6816dd003dd664dce14eecb11161a658883cf4d0c27c82a478598b7c9dfa"
+    },
+    {
+      "key": "bank-logo:other-fdffe1d299521aec",
+      "source": "other/中华开发工业银行logo.svg",
+      "originalSha256": "da29c59706442f8a8c9f40712f59e5e578cc3af0492197e11470e98d3d08cac8",
+      "sha256": "f5f56b5c8d91c74b66d9ab05a61d72c15b4b05207e541114ee5306110042ed63"
+    },
+    {
+      "key": "bank-logo:other-9b76cf1fd95c8938",
+      "source": "other/中国信托.svg",
+      "originalSha256": "f1475521eefbbd748ddf42bd4a33ec060206299b501c9eb9f13058400328c4f8",
+      "sha256": "f8c4a47fcb69826c451c41088dbe3e4044e27787d3672e68a6115caa3cf09ece"
+    },
+    {
+      "key": "bank-logo:other-4b06a56180379167",
+      "source": "other/中国信托logo.svg",
+      "originalSha256": "2bcaf5655d1258b1a57d941e22cec69f18b50adfd3f17daddb6b9203e63528e0",
+      "sha256": "0e04a24eee3e16be2d614d7df574f43ee224f9586f9cfc23bd98472aa121f3da"
+    },
+    {
+      "key": "bank-logo:other-0756c79e692c5bcf",
+      "source": "other/中国银行业监督.svg",
+      "originalSha256": "9fc4e2ce403fdbf2dc5105adbc9eae4f826f3eb9c8bab56bdb9b775b097254ca",
+      "sha256": "07a4aa4b006e22954d312b600c8c81f7fd19dbd791835b9e92e858aa09677114"
+    },
+    {
+      "key": "bank-logo:other-86d85e03ebef1213",
+      "source": "other/中国银行业监督logo.svg",
+      "originalSha256": "5889f059c02c8fe3a5740e5c4745f5733f9025a3e7ce53f8087168a10f6ee69f",
+      "sha256": "a3651306bcaeea658cb79ee36d0081e7b1703ca49973e7e33a30b09534cb600f"
+    },
+    {
+      "key": "bank-logo:other-622133a6fc163ebc",
+      "source": "other/云南红塔银行.svg",
+      "originalSha256": "71d6d0ffd39840216fdf18dbb6a7f6ed4e649904fc1cdfc070ea27d408f45df1",
+      "sha256": "d2ea1d3b0e91900e6fe41a8744aab0a27e3c018ed74cbc4192ae5b56b6950cd9"
+    },
+    {
+      "key": "bank-logo:other-bd813517abaa418c",
+      "source": "other/云南红塔银行logo.svg",
+      "originalSha256": "6202168041831927957d8978ef60eb369d447cc0a4d1e11496086f05cdd7a1cc",
+      "sha256": "453f00cfa6a9db75287a4afe940cf905217efb2129333d0841017e289a704605"
+    },
+    {
+      "key": "bank-logo:other-e218e0324974eb18",
+      "source": "other/伊川农商.svg",
+      "originalSha256": "d4eeadc48883936a1e80557fd7ea214231648ab55623b8b374b2b937b997760d",
+      "sha256": "59bc0e5fec0cfa245f93899fcf2aae1e3b94bb98236ac979de205e9f5b773192"
+    },
+    {
+      "key": "bank-logo:other-dcffafadef2d32cd",
+      "source": "other/伊川农商logo.svg",
+      "originalSha256": "f3317bfee671f61eb46df63588be11969c4c389ed211b146b4f358aa47a9a786",
+      "sha256": "16f6a84372e65f14340ceb75bd780886498828d81c15ac175c5767a2a0a1af29"
+    },
+    {
+      "key": "bank-logo:other-69b8aea022223b00",
+      "source": "other/信阳银行.svg",
+      "originalSha256": "cebe6527510df76380fdeaa31576404ff09c08424af0ccb1c85886a23c79821f",
+      "sha256": "cb60fe4b08b798015fb06198a9d51da86bb9b3529288b3a0db5219d1d98d7e8a"
+    },
+    {
+      "key": "bank-logo:other-e30ea0526a9252c8",
+      "source": "other/信阳银行logo.svg",
+      "originalSha256": "f17cf13f4d0a13e539d6241932d6ef391dda498dcfebcf56ab03171e33fc4267",
+      "sha256": "4fb92f3cc7b6a6815b883aaa955ee91033c4a5877b1b378005f5ffd3502cae17"
+    },
+    {
+      "key": "bank-logo:other-8adf12defb425d80",
+      "source": "other/包商银行.svg",
+      "originalSha256": "7f33cd27be00e8abbba2398100bbf977434ea8eca0b8222fb293c3b0a9e58d47",
+      "sha256": "2b82c6ef349d57c6246254276e9d4891e97cb6d55a0f9ceb8107f0de1ae6e736"
+    },
+    {
+      "key": "bank-logo:other-783858878530428e",
+      "source": "other/包商银行logo.svg",
+      "originalSha256": "9aa17a48899aace70e6703802998ac2774947026793aa4fca1147a020b71ffec",
+      "sha256": "d475a9837b252011f589cff767541824295ae1e2c15d6264452f5642ce5ea4e6"
+    },
+    {
+      "key": "bank-logo:other-f646736e535df49b",
+      "source": "other/北京顺义银座村镇银行.svg",
+      "originalSha256": "a135c086e075eb04f50b65b8ebf126df147c2da0180ef7e9926da8ad5afa053d",
+      "sha256": "6fe23839b96a5a98270c7732e80e8b18ee886147b35882b8f33587929b9f6764"
+    },
+    {
+      "key": "bank-logo:other-975dec5f3157cd75",
+      "source": "other/北京顺义银座村镇银行logo.svg",
+      "originalSha256": "29a22b7ea670ae088cd896637e01631fbb9b6fb5d783446e93d70184ef181b24",
+      "sha256": "e868548702518208e2190ffa89d310c77cb4a072e3af594a5ed3506c37632b29"
+    },
+    {
+      "key": "bank-logo:other-3766e9fd94e96f7b",
+      "source": "other/北欧斯安银行.svg",
+      "originalSha256": "1ee6cafb127c01ba321fe3980a9a26604c0054445b63d8b7153f6c6c291bd046",
+      "sha256": "7cf3e4d699bb14be8fc63091e87c760c27311a25a6ec5e67eab739ff8f267900"
+    },
+    {
+      "key": "bank-logo:other-2d4da19113ea3693",
+      "source": "other/北欧斯安银行logo.svg",
+      "originalSha256": "b2ba1b4bb72631b1df72494b63ac1c5d46412c7eda98bc311d5e19760885da23",
+      "sha256": "c00ecc960a3a28ee77fbef631abeb1f7ca27ed0350af27b38d6fdb8395f9bf4c"
+    },
+    {
+      "key": "bank-logo:other-a207f2394b837d03",
+      "source": "other/南通农商银行.svg",
+      "originalSha256": "929ecaab012d6b120e62e09b2f5c3f2cd4f3d3b663ba17ea743c9b9103a8da11",
+      "sha256": "6e1c83e19018ceec848d2f51b1b6b055e6bcf6859e1a97ec78dac093ffff1c11"
+    },
+    {
+      "key": "bank-logo:other-61b8491164c6cd49",
+      "source": "other/南通农商银行logo.svg",
+      "originalSha256": "e4f8588d3fb716f2926efb01379b8fa23369b05dbeda2b28685f1a3f73ae5673",
+      "sha256": "6f966fc165435d3c50ae3ac5d8751defe9c04ac2b3b5808a764dd6e52910ab7a"
+    },
+    {
+      "key": "bank-logo:other-60719aaebaf31b76",
+      "source": "other/南阳银行.svg",
+      "originalSha256": "6846ded8e9224a1f5a5e0a4810b397e04454144c078d34b7b0de8a46fe71ef3f",
+      "sha256": "ac38301bd8678404a6ec842623736c51a90449592437f719a3a7a05fc39a4196"
+    },
+    {
+      "key": "bank-logo:other-6c99c7b386642cbb",
+      "source": "other/南阳银行logo.svg",
+      "originalSha256": "37ab9e6b8b342824c00147c4ba63b128ca34eea1a80188a6c2b384a30594b8af",
+      "sha256": "ac0b23a79cb0fb2536b51e45b574c10479fc3798a0de0b8f252104d9fe428b28"
+    },
+    {
+      "key": "bank-logo:other-1e274032def917e1",
+      "source": "other/台州农村合作银行.svg",
+      "originalSha256": "5bdbf52fa337a8412032831dc985c9d49958ef6bba1aca0c08ad464c42619860",
+      "sha256": "4f5a4f4bf66824edcb9704936aad990d2bd66086fdfa43360e1514ff436f9c3e"
+    },
+    {
+      "key": "bank-logo:other-cc1d803646df94ab",
+      "source": "other/台州农村合作银行logo.svg",
+      "originalSha256": "93f1a12dd4e71e299f7b04b2ab9c2c10e5b3c5941ca4fa8a90e98388315df25c",
+      "sha256": "31fd3e70fb5715e6a1711a7feaba31b6ec7d23cb728ec11cefcb97329284eb86"
+    },
+    {
+      "key": "bank-logo:other-24fb7ff4e3b4bc80",
+      "source": "other/台州银行.svg",
+      "originalSha256": "64217798c305082e468c55a0d5161974a9ebf2451aa1b60b327225400beecf4a",
+      "sha256": "f6c2e8552238eb3f5b644f048842c3150da7b480ef6908f076b6e632a689970e"
+    },
+    {
+      "key": "bank-logo:other-0f90fa4e942c3cd8",
+      "source": "other/台州银行logo.svg",
+      "originalSha256": "26fd2ac30506efa038556ee70073e4438a9e49a077cd7491b84f4f484942b00d",
+      "sha256": "c5f819381112e6fe32eb22e7437f05a4b2b3b65f029e2977f6bcc77be07c532b"
+    },
+    {
+      "key": "bank-logo:other-d7968d8cb4f944f6",
+      "source": "other/台湾中小企业银行.svg",
+      "originalSha256": "9a84318c5d3004511658a9479b02fc44d8facb10764f0b49ffe9aee9c23ecdc2",
+      "sha256": "0bddccab4da42c86b3a189a55c657157e7de40855b7f4da404191e50ffbcc65d"
+    },
+    {
+      "key": "bank-logo:other-27fed81bcb64cd0a",
+      "source": "other/台湾中小企业银行logo.svg",
+      "originalSha256": "6bc7d45d676053bab886e4483ae039b3d1bf32d7d16874894fb3730261a23407",
+      "sha256": "fa05b6c1299bc1e7675edfe459c4e4537dbd430367bfc9c51015cc73f0bad8f4"
+    },
+    {
+      "key": "bank-logo:other-d46fd317282edad8",
+      "source": "other/台湾土地银行.svg",
+      "originalSha256": "a5c772808363281c30dd9a9995145691f4ffe5859be9fe31b3354ace53a513e2",
+      "sha256": "cf10dc831120f6fd409615330452aab9fcfc6e6fd295866cb7bc1fdc83da9aed"
+    },
+    {
+      "key": "bank-logo:other-0ac0e42d7f6649e2",
+      "source": "other/台湾土地银行logo.svg",
+      "originalSha256": "cf29539cfa010a4e962cc65a9f017b80f60277335fb1aa33298a3558dd139100",
+      "sha256": "4f55f34c6ea3948dcc52a4b7516d71c107f627f0362de2205448eaf08e07a306"
+    },
+    {
+      "key": "bank-logo:other-7670117de3982717",
+      "source": "other/台湾玉山银行.svg",
+      "originalSha256": "c46ee71d5776239cc25c2e4b2922a5aaa251d5612ac1e710fbd7140f0a64ca83",
+      "sha256": "76df7013d6f5f2b3e422c5f594416154e23006619addd63002fc06a28942697d"
+    },
+    {
+      "key": "bank-logo:other-d4ec6206a468f957",
+      "source": "other/台湾玉山银行logo.svg",
+      "originalSha256": "9c4226224d1b3ee514dc4d32e1a0c9274e41042fad46883c312632f818fc1cfe",
+      "sha256": "6ae12c38f7f784cb71131fe6d51f08c7cdfb5cbe6d8f8fe0d2dafef849d894b6"
+    },
+    {
+      "key": "bank-logo:other-70e8262dd9482192",
+      "source": "other/台湾银行.svg",
+      "originalSha256": "af153f82d974258bb52b3026be5d09016f3922d36a4b7e0a9c6e3af780d3692a",
+      "sha256": "1cf3cc36fb8b8e514335aac858c8df6dff07c707dc673c3ce890fd079f95a079"
+    },
+    {
+      "key": "bank-logo:other-938665c2ba4697aa",
+      "source": "other/台湾银行logo.svg",
+      "originalSha256": "020a60dc4bab82c3d381e08900be4cbe1e761e58f9a3d8c41b378f377981917f",
+      "sha256": "cdf5565777f57dead1dbf94aa8c60bca44f9a581fb426001dd42ab0d020f36a1"
+    },
+    {
+      "key": "bank-logo:other-7e9b3de5fe696ec3",
+      "source": "other/吴江农商.svg",
+      "originalSha256": "430cae7407d8ce3cea3b5516d314e2c057e3329fab67d80afb76909c86ec4b19",
+      "sha256": "594a51ce117be36cdc19ece9c7cc9cca5d7cff625bdffcf0c8a945f3f6c6dd35"
+    },
+    {
+      "key": "bank-logo:other-7c8bce6fcc7f7270",
+      "source": "other/吴江农商logo.svg",
+      "originalSha256": "a200b1eb768e67c982b054d6711cdd5b0a3b348c1c034abde82eeb952d7344dd",
+      "sha256": "12596700bc492249542de8428c72486b27879f9de6905eecef0b9f3211a387a2"
+    },
+    {
+      "key": "bank-logo:other-7bad70c12201bdff",
+      "source": "other/周口银行.svg",
+      "originalSha256": "b7a4a4e29a5688802505129d9606d1029ae1118a1c4dd0baa2f432b037894a88",
+      "sha256": "4944b80e6c8765ba28fe96ae0d935035ce8283b9e8a4bf7ae8bfcf55fbdd1298"
+    },
+    {
+      "key": "bank-logo:other-2d87a58a2fa44a38",
+      "source": "other/周口银行logo.svg",
+      "originalSha256": "2c10c5d2f04c37f1818966333529433c165ad07ef264f87a303aa47b326d1116",
+      "sha256": "394cf337ffd9bd2738529b4b9294d7fe96d4e97fc3c46a7091b7046be58575a8"
+    },
+    {
+      "key": "bank-logo:other-25ab3d0288a522c0",
+      "source": "other/哈密市商业银行.svg",
+      "originalSha256": "ecbe2317435e7062f3712d9bd3e227209bfade414d0343d06d512ca7dd575f2b",
+      "sha256": "445369c29ff3293830e95db169626ab8ad41170c77a1fbe9c50d2a2d85512f78"
+    },
+    {
+      "key": "bank-logo:other-890fed918138ff49",
+      "source": "other/哈密市商业银行logo.svg",
+      "originalSha256": "559b28be055e4512b9732314982b18cb6bdccf37ae22ab739b2010024f5b0b76",
+      "sha256": "67d8cd15a5e39047db3bea94a053ff9874cbf8b824d6f9c07c1f52586f98aa24"
+    },
+    {
+      "key": "bank-logo:other-24061f524bc6041a",
+      "source": "other/商丘市商业银行.svg",
+      "originalSha256": "68169785218eced7464fc184b4c0d32dc9c02f4e0e1d8119b494d3bcab88d8a2",
+      "sha256": "7c78dcfb4e955e704d3c41071a38086f7cbc77bf213de0d2b01e8f98f5b83855"
+    },
+    {
+      "key": "bank-logo:other-edd1ebcbf6913b90",
+      "source": "other/商丘市商业银行logo.svg",
+      "originalSha256": "478361bf7890f246db643b702e4d0b54022013fe3a7966cfe4e8f11cf7da4377",
+      "sha256": "e7e1dc84929f75925cd0b066207bafbfeab6fdaa3810b67119dbea0865413001"
+    },
+    {
+      "key": "bank-logo:other-f08b036148d5897c",
+      "source": "other/大同银行.svg",
+      "originalSha256": "0134e084011061c49ce3cac65cff7f79655509769389c68eb3a5bf1739ff75b2",
+      "sha256": "0cd75f820f74ea1adde3c03614daa53b3be3f0d0a37d06772f3d80d57b921161"
+    },
+    {
+      "key": "bank-logo:other-ea362d7036bf4b2f",
+      "source": "other/大同银行logo.svg",
+      "originalSha256": "e212b9499ea2fdb5adc0b53f981ebe29c79396f1019a42d6a52c7300c91e6e07",
+      "sha256": "562dda9fd0871096fc9444be777eafc822076a705449e34cd5d31a536c4707ac"
+    },
+    {
+      "key": "bank-logo:other-475bbbc14690517d",
+      "source": "other/大庆市商业银行.svg",
+      "originalSha256": "fed9b881993d0b7fdd9646adfd881bc7693e873d199aa1a201f653a59fc06c23",
+      "sha256": "879e951cb6761c2a5bc8d96f84c299cffed71f35aef012f83507c0b79d5a8b7c"
+    },
+    {
+      "key": "bank-logo:other-0c6d9a3ae9625e6d",
+      "source": "other/大庆市商业银行logo.svg",
+      "originalSha256": "35c0715c00d74b028756476e67e297a1bad9f2b6c0d53faf4ea1bab9a370077d",
+      "sha256": "d6893a6133dc607bd061014025e7e7e7a05eb68f90ed6217e803b3984b04c419"
+    },
+    {
+      "key": "bank-logo:other-d6ade8fae3cfd7db",
+      "source": "other/太仓农商.svg",
+      "originalSha256": "fa0739b097cf3934325493ff6f8995d802fc7a217c7cef377f232002af7f5307",
+      "sha256": "a72e7ce5fd237398d36abd8903de3d648c17234e24b122396a40e8bcea75983c"
+    },
+    {
+      "key": "bank-logo:other-b01595b5024c55f8",
+      "source": "other/太仓农商logo.svg",
+      "originalSha256": "ba494969a9afb8e699b218b369d7caf33038fb3e7efb0a7f99c115405d07ae72",
+      "sha256": "877b7b81ef0aca5dfb7e2a4c9ca2caa1333537fdb8e40206d7285c5f5a255348"
+    },
+    {
+      "key": "bank-logo:other-012575bcc4b2ba39",
+      "source": "other/威海商业银行.svg",
+      "originalSha256": "b34525dfd64304370658eb9b5843028ecf79c09b0a619a72b8b22116893cc51a",
+      "sha256": "5039c85dee060c57b61b61ab65e8994639cb1fe686bfe55862d29f33400df37c"
+    },
+    {
+      "key": "bank-logo:other-afca31c13b7fafef",
+      "source": "other/威海商业银行logo.svg",
+      "originalSha256": "d4e8ab5fd393ec9ac3b5f0348560877e336f1f1652aeacf6f0c383740127c6f4",
+      "sha256": "0d3e93c5a230fa6037960715ae0ad5d440d56635984aa3ea7ff331aeb6d9c73f"
+    },
+    {
+      "key": "bank-logo:other-58e933f7fc174d45",
+      "source": "other/安阳银行.svg",
+      "originalSha256": "65ea94c1d8d04da357ebfc104708ac0cc070f56ce493bf3e65580315229a1adf",
+      "sha256": "40b3d8b10ab968aa05f70ac9f11863cefd5d4bd9feec414070d307639e9b5fad"
+    },
+    {
+      "key": "bank-logo:other-91fd9d6822a02eee",
+      "source": "other/安阳银行logo.svg",
+      "originalSha256": "749d71ba1f9b1efcf1eac459a5cebdc283b7a3e536972eab7f78f71d2b97248c",
+      "sha256": "5b554fd009ee8191ec4cf8351509ace8d2bec80d35f78684e63c24924b389925"
+    },
+    {
+      "key": "bank-logo:other-792930b28c8668db",
+      "source": "other/安顺市商业银行.svg",
+      "originalSha256": "47ebefa2348435373aab9351c4dbee98990b2c9ed4a89a0e452b40e0af967ec8",
+      "sha256": "ac7a370df6258e67b161a5c9c47d82b2be7d57f9388fe36988a8034aed072950"
+    },
+    {
+      "key": "bank-logo:other-e7f6ed7cfef3ca54",
+      "source": "other/安顺市商业银行logo.svg",
+      "originalSha256": "423854f5ddb279ed80e5adb46e8daabe41b77cf57e99d21b600b43f1c4ab3fe4",
+      "sha256": "9dbc165e8e92641cfd697b4a1dd90981dd1cd8e8711c1c0cefaddfd72f2e8b6f"
+    },
+    {
+      "key": "bank-logo:other-ddeaf46c13ae1522",
+      "source": "other/宜宾商业银行.svg",
+      "originalSha256": "e23a8f164724a15126a7240c39c9982ccc932238a845f73b69cad9950eaf0815",
+      "sha256": "85b438f25aa7510b4c581b9f6a4809a0711734165318eef75e19fc96e77663f8"
+    },
+    {
+      "key": "bank-logo:other-539d91d0e4426d5f",
+      "source": "other/宜宾商业银行logo.svg",
+      "originalSha256": "f9d3af30d412770c43e946b7a87b23beb4b10c593bdceda5972a94c749e12c5d",
+      "sha256": "e9aadfb15774b1b5df151d220ba1e6a8c1071b2e40f3ca115d8005f841bb970a"
+    },
+    {
+      "key": "bank-logo:other-a28f893846abb365",
+      "source": "other/平顶山银行.svg",
+      "originalSha256": "cd32fcfa85e3f75c037abf3b9dec1b558baf1ceba7e7fb2fc47198cbb4cb0d1c",
+      "sha256": "7d094d9dc319d0ed9ef032847338df5156feae5ce1da762ec034856ab35da165"
+    },
+    {
+      "key": "bank-logo:other-8468c903bc70d184",
+      "source": "other/平顶山银行logo.svg",
+      "originalSha256": "b686203fc39b09c2c24736ac27a4a91206815607d8820aab57ff97f8724fa372",
+      "sha256": "4033ffe493c969919eefa5b4b5a68359a624d9b7ce06f7a53a388bebd5be7a57"
+    },
+    {
+      "key": "bank-logo:other-99c0e6ec0ef5acf5",
+      "source": "other/广东揭阳农商.svg",
+      "originalSha256": "27d38c0d75ea39ca60ba6a70fc05ea0b93689ba9827f446a9344148530eef2f9",
+      "sha256": "12ce390a5bfeb72493cfdc64d4cc6c416fd95dd116b8569eb332bc1231064afc"
+    },
+    {
+      "key": "bank-logo:other-bca051ab93f4e29b",
+      "source": "other/广东揭阳农商logo.svg",
+      "originalSha256": "a904a3aae8d7f67e8aea69eee340dabcf4b8f504fca7e08a97d0a3d9043a1687",
+      "sha256": "a129cf7b6ca83861d57046cdd28df891301511b027157285b572327192bb342b"
+    },
+    {
+      "key": "bank-logo:other-448e0e7b1c6185d6",
+      "source": "other/开封市商业银行.svg",
+      "originalSha256": "e42c35dbcf5ea2df98d149995e7f4ba28e69814e2adbc6597b1713932870a007",
+      "sha256": "88ec8c8a2db751ef24f34ba30c88d67c13dcfba9f189088d4d44c7045d5dc848"
+    },
+    {
+      "key": "bank-logo:other-416b2b4739659b35",
+      "source": "other/开封市商业银行logo.svg",
+      "originalSha256": "1e2011bd6b848de7348da15a322e81c88013ec59cbcd6270d35c4f20bb9545cf",
+      "sha256": "1dd2673ba44026f8b91f60554e9dd72f89cb6b5efef8d7f6c00fbf8bdc34986a"
+    },
+    {
+      "key": "bank-logo:other-5d7834248b84a6ea",
+      "source": "other/张家口银行.svg",
+      "originalSha256": "566a4637ff10b714c302125f332067f19c187c7a813403599e4b9e658895d051",
+      "sha256": "7afc5d091cc637d933ae0bf3de1435c63f8331e8e7a59a815e68d4f1c3e717bc"
+    },
+    {
+      "key": "bank-logo:other-f4612c33fd2f4488",
+      "source": "other/张家口银行logo.svg",
+      "originalSha256": "cbbe662598d84eb14bd56279125c26554d388582ca87e4b209ef79077163e5fb",
+      "sha256": "ce58a0643f5e2e84df342e288d806c69ef8cd56fe1cb9367e61364e07791f1c6"
+    },
+    {
+      "key": "bank-logo:other-e7135b5f95a5e517",
+      "source": "other/张家港农商.svg",
+      "originalSha256": "530a5ecbcd2e3f9670ab60dc4b2205334a2d8ab017382a5d717ec16a018912d8",
+      "sha256": "0acedccc05d2dd92e3e297ef97e809729ee795cc2faa1f902a0d365b06397d30"
+    },
+    {
+      "key": "bank-logo:other-2ad771929c501b49",
+      "source": "other/张家港农商logo.svg",
+      "originalSha256": "b1d9efd06f65ae0da8d0ae934449e6adac3b8b1e024e0dfc41f242cbbc97ce49",
+      "sha256": "dde31798f9ea477cb73835b2a2c9c36c6f4098fb20a166bf081976e2e08a24aa"
+    },
+    {
+      "key": "bank-logo:other-049cd958886aaa7c",
+      "source": "other/德累斯顿银行.svg",
+      "originalSha256": "50c1750867f9809c758cc6180cc803616e97d9321dd8fc58fa8022d2cecb602b",
+      "sha256": "e90c656899640df388e72cc07ec358f4dd0417c7d61d816fae1a970a2c80402f"
+    },
+    {
+      "key": "bank-logo:other-7f7626241aaa1bfc",
+      "source": "other/德累斯顿银行logo.svg",
+      "originalSha256": "725f2a94547a207882fb3d37bb34b60b03a5736291a9d5058ac25978b0608d19",
+      "sha256": "9fd0040c79e22f60ed9c18d670b716cacb5d2720c80e3fa80a16d46f29b6196a"
+    },
+    {
+      "key": "bank-logo:other-565e66f41628d1ff",
+      "source": "other/摩根士丹利国际银行.svg",
+      "originalSha256": "b7853371b7147ae269625dc130844abf56e8cb2d0e3dfee150fb0444722cdc13",
+      "sha256": "939f543846e9d41a09fa625e5a04908d985f3d54fa4f1c7b6b4423865f705abe"
+    },
+    {
+      "key": "bank-logo:other-877ec968cbc837d6",
+      "source": "other/摩根士丹利国际银行logo.svg",
+      "originalSha256": "f22f911a9e1ae3269fd9d612c10e176290474a8dc0832f146466afb77b1e779b",
+      "sha256": "6896704d8b61b249e0e3087b6b7f2516923a0fcc6290229ed404e344a27894aa"
+    },
+    {
+      "key": "bank-logo:other-5c43ad341e1518cf",
+      "source": "other/攀枝花市商业银行.svg",
+      "originalSha256": "cb6b56500613d304a139c075c2bc79d4b42d2da9d3e63c740b77a8aed2b23187",
+      "sha256": "3318bdd6214235d528aaf133804f510e6d1534041e52712b5ce4b115c0e17bb1"
+    },
+    {
+      "key": "bank-logo:other-933f9c440c95d28c",
+      "source": "other/攀枝花市商业银行logo.svg",
+      "originalSha256": "b48830be82c4768718a54acf44bc9090f83cf44e657de02fbf1513393ded4a4c",
+      "sha256": "95d39d1868457736379638dab13b96019f0c6ed339851dfe85e3d5c3d2c86028"
+    },
+    {
+      "key": "bank-logo:other-bda36ee6769eb5b3",
+      "source": "other/新乡银行.svg",
+      "originalSha256": "49ec98a56a77c189a695608d31c50ca5b8a0dc440b6bc328190d49d48dc12832",
+      "sha256": "ae9ffeedbcd97bbee07350ae8393ea707f77938f8f32eab73c4ec2b90022a09a"
+    },
+    {
+      "key": "bank-logo:other-ad83b66d020188da",
+      "source": "other/新乡银行logo.svg",
+      "originalSha256": "765682d51e3600e842384101c569a8d2a19a88fc290a90f80fd42a69a14d39ad",
+      "sha256": "7272b02f0ced0d182abbbff7d1c1b139cfb1713ba2c7dd1656392f8833c0e930"
+    },
+    {
+      "key": "bank-logo:other-23d1fd864217e30b",
+      "source": "other/新会农商.svg",
+      "originalSha256": "aa2ad8ce9e9b47e80a29dbfea65cb48981cc821e1dfadeb03d574c8034a5c678",
+      "sha256": "a091d68503f01870077c9eead75119739646eab4dcfd31e633a4c5f4e4fb7582"
+    },
+    {
+      "key": "bank-logo:other-21e8f0b16849d484",
+      "source": "other/新会农商logo.svg",
+      "originalSha256": "6e8591756c26b303c553b0db64ce68978c7eb0d9ffab18146aa3bed66e658dcb",
+      "sha256": "690049ce8f674a388a76198aa3f9a72277ee5710553b6e232ab7fa6b84f6f65c"
+    },
+    {
+      "key": "bank-logo:other-a37b09969c4def76",
+      "source": "other/新韩银行.svg",
+      "originalSha256": "c1592c7077cc8a8aefc233c2c7ec245c6e04200f84ac9b0e3fbae0a53df6601c",
+      "sha256": "7aa7b782c2381e7609e68b234b4590ab5495c416ad0415a8b7e51e7a8e3ee988"
+    },
+    {
+      "key": "bank-logo:other-f8896d150db6c158",
+      "source": "other/新韩银行logo.svg",
+      "originalSha256": "ba669d6b6bbe1c8dc426590abd8af216ce6a24aa4c0f92b6a700e2aedca32483",
+      "sha256": "1511201cdf4b409abcc5fc5cdbbac6df4bdaec9680dbaf3b17c3f947cff4e11b"
+    },
+    {
+      "key": "bank-logo:other-5536ed3d1cdc614f",
+      "source": "other/晋城银行.svg",
+      "originalSha256": "02663f042d943067e2a6b0db6584353a25ee84e8c986e51141ff57de49039971",
+      "sha256": "8bd5d930634ac12109c0f896d98aa18abb8e7719ea80af8061eaf9d14ed35e4f"
+    },
+    {
+      "key": "bank-logo:other-34b7daf8bfd9cb9b",
+      "source": "other/晋城银行logo.svg",
+      "originalSha256": "1e9bffcc5ea937f94492b68a67a5fc7af2e76027b88a2a0369bd071e0d119fe4",
+      "sha256": "40a569cbfe9091ae7469b93d5b3de6ab91b6c81e5ec8aa2fe03e5d5b1db39f5b"
+    },
+    {
+      "key": "bank-logo:other-7799b271750c4c7e",
+      "source": "other/景德镇商业银行.svg",
+      "originalSha256": "ac7fdb21bafcd765d3b7b0a1864608b1cc9e571a5f19dd684a7981c583afd11a",
+      "sha256": "c6d74254a49e866e1b27aa234d59fa65fef447ab1f3261e0735a8159606e8047"
+    },
+    {
+      "key": "bank-logo:other-a5ed56847f0bdcde",
+      "source": "other/景德镇商业银行logo.svg",
+      "originalSha256": "8a21bc6784ef375b58c817b6244cc207861281fe365dcba0da9983f9d81b0f9e",
+      "sha256": "f78811120d6a6c1777b5008dde104b6bf3edbaed18c82611c7347ca1fc4ceaf7"
+    },
+    {
+      "key": "bank-logo:other-9b042ece3a6be876",
+      "source": "other/栾川农商.svg",
+      "originalSha256": "7eeca83771327deba62c27e9fdaa691476b4edc3e28bedd454ca5316df078018",
+      "sha256": "73cee6a1500713d57f0fd22743ee9fda119297deb3f5138bd8f38ac89c3ee6be"
+    },
+    {
+      "key": "bank-logo:other-3837c4f2fc76f381",
+      "source": "other/栾川农商logo.svg",
+      "originalSha256": "264aa7b4951f99450c2bcc10369b213a570c5a65578f3bc3ea15f0423b335e44",
+      "sha256": "c5b9ef42724ca1ff65f19bc769a724933e1e0321beec681414050cb3b5b63165"
+    },
+    {
+      "key": "bank-logo:other-3ddacecb38915ca2",
+      "source": "other/比利时银行.svg",
+      "originalSha256": "90f629b92a5065ddd7f8b3f2de6c0815351ca606d0526bb41a29cc8670776cfd",
+      "sha256": "c9378d1217d26cd8d071d496c9903fbf66c6f33f371177f1c8b69ed109901a44"
+    },
+    {
+      "key": "bank-logo:other-d1810f2b12287ee8",
+      "source": "other/比利时银行logo.svg",
+      "originalSha256": "80fa5bd9bd8cfaf0339dd5a9e7fbe5235481a582dbe3f6e07ecadcfd5d9eb823",
+      "sha256": "d5bba668ff3e9b16d2127d79ef8e72d2088534e6ad60f46a11ed817e289c500a"
+    },
+    {
+      "key": "bank-logo:other-ef54057e124253ca",
+      "source": "other/江苏兴化农商.svg",
+      "originalSha256": "9e2bb8379c70e28f3d4a941f2e529167ed49bbdfd3b680c7656fdb4e8df1e49f",
+      "sha256": "1b96b7aca03608b48ec87f84a979dc409d3eff8876574ecbf02e34145f32864f"
+    },
+    {
+      "key": "bank-logo:other-c44a48c744ef200f",
+      "source": "other/江苏兴化农商logo.svg",
+      "originalSha256": "7b61251bcb78c241591e4d2e113a1d986cb4a810d46bcb21ab324d2f1002c162",
+      "sha256": "f90aa691f9ebc56b0e4122458d8424d3386c43ab28c3e1ae12cb70de9742a068"
+    },
+    {
+      "key": "bank-logo:other-145422c53964058c",
+      "source": "other/江苏如皋农商.svg",
+      "originalSha256": "f74fdcdeb59beb6b1f796db3e8dc45dc862db7cb8a56b4b476a5684d1ca67a0b",
+      "sha256": "3d16a2831c4f67f6dedd7742cbab4a0817b93dbf40347cb36e77df9c33623885"
+    },
+    {
+      "key": "bank-logo:other-c3a8b3ce751dbfdc",
+      "source": "other/江苏如皋农商logo.svg",
+      "originalSha256": "7b72cf07ded1cc82fe015ccd6cd2bf69f3b8738ca13e3b8175e9ee16ce334057",
+      "sha256": "908df9193954121f5876c0517750292121d2ec1ca07bf78080d5704637a1b14b"
+    },
+    {
+      "key": "bank-logo:other-9eef0c44aedd06c2",
+      "source": "other/江苏扬州农商.svg",
+      "originalSha256": "0bc024258cdaf46a9920b6b265807523457dfbadb9528e2ead2784460fb17a33",
+      "sha256": "beb590f89775c74659d530267048ffeb33367d5737738fd61a7819e4f91dcc88"
+    },
+    {
+      "key": "bank-logo:other-d8445693cc9b7577",
+      "source": "other/江苏扬州农商logo.svg",
+      "originalSha256": "35f5f1e6541a2727b3782a075ccf038860c52c9438762dde12868ef7bd06987a",
+      "sha256": "98646d3e90f28a7acb301057676af02e07d6742229de8fd471f51b03de26a16a"
+    },
+    {
+      "key": "bank-logo:other-5385b2b8b27088d5",
+      "source": "other/江门融合农商.svg",
+      "originalSha256": "42f090d4d78cf9266add98df5bfd8509f2c431b2a07c67507621828e8d2de8ca",
+      "sha256": "ebf4c359cd36d8a9ffb4c01f8a6e7ab33756c82dc5810df56a242542e7e9a7be"
+    },
+    {
+      "key": "bank-logo:other-7d2f709417035968",
+      "source": "other/江门融合农商logo.svg",
+      "originalSha256": "5bfeee490df2437f1ac30c7c1f1c8427f0685110f420b32fbb8017a17f25d320",
+      "sha256": "42ab4bdba96ddac34adaca1832f4519d957c14e25de020624b9322ea5684d41d"
+    },
+    {
+      "key": "bank-logo:other-44f70b88ae6e563c",
+      "source": "other/池州九华农商.svg",
+      "originalSha256": "3b3309cc1e546a26ea3c6990e2233ea63d86527d69aa21e3e86422461216d698",
+      "sha256": "5ffec43f7110a55cd8de355dcdc510ed33adcb6c24a9aa8efa5a78ec6ea2a2db"
+    },
+    {
+      "key": "bank-logo:other-76710c7beac6304f",
+      "source": "other/池州九华农商logo.svg",
+      "originalSha256": "2a6f8a7c50512faccc0033ea491d6064ceb428ff4e4764b979ca35d52ad5c8c2",
+      "sha256": "48fc0cdbdc5f510c5675a4d25900aacb9a8ab64c025169f00f2842b6f48a358e"
+    },
+    {
+      "key": "bank-logo:other-9b1c382f70c72eb1",
+      "source": "other/沧州融信农商.svg",
+      "originalSha256": "4bb2e977f311b3ce0a7a2b612e1f345b04132764744876f2174410b68f5ee90f",
+      "sha256": "97f232f397421e4dcb39c3f9cd5ae958d6fd5748fcde023b60a835b6404f911a"
+    },
+    {
+      "key": "bank-logo:other-da93aa6ae8e1ace6",
+      "source": "other/沧州融信农商logo.svg",
+      "originalSha256": "9af2d11f367503a42bb5694b779a4bb9c24b985db224eaaff0c32604186a4ed1",
+      "sha256": "b81212c9b75c53fe96ab526701bc6ad4eabb1d1f7580d0ce74db72dff2a0d5d5"
+    },
+    {
+      "key": "bank-logo:other-8cae3618c56b8b82",
+      "source": "other/法国巴黎银行.svg",
+      "originalSha256": "02fa485ba383115303aed42191150be16850ab807bdb440401b588cd481316de",
+      "sha256": "f9bb777d339668bd978167ffbd5257cea8c0b20ae9a4fac5c14fd866eddf018a"
+    },
+    {
+      "key": "bank-logo:other-1d5c08d912d8159d",
+      "source": "other/法国巴黎银行logo.svg",
+      "originalSha256": "faed76be65b2aa0f51fa3e4f46a5c9bc809cb9f18d7ab6c1834b566ef7d71266",
+      "sha256": "279b361f99bbf336ff61ce0f475722b940a5c81c4745e4cc3911471923c8d620"
+    },
+    {
+      "key": "bank-logo:other-b252782666bbde14",
+      "source": "other/法国汇理银行.svg",
+      "originalSha256": "0875edd1f0f7b86e6f4d9f8134c59e8352ee0d027682e1a24bb01b457a65727d",
+      "sha256": "add50a75c000b8c4a14ed87fd98ee0e0465c2500dc5a518a73cabe2196fedecb"
+    },
+    {
+      "key": "bank-logo:other-f7ab7ea6077ba321",
+      "source": "other/法国汇理银行logo.svg",
+      "originalSha256": "ed5279701ead959a4b63b1f00d9984ce6f36b88991d30d7ae3c107f03f2822ae",
+      "sha256": "fba18a628fa84e5ef418601e6f4fb6b33a0d18d3356c9e7567a7df24c2b3d005"
+    },
+    {
+      "key": "bank-logo:other-aa6e25d69c9be8f3",
+      "source": "other/法国里昂信贷银行.svg",
+      "originalSha256": "e8b952fb079fd9abcdfb9f47b3eb1f9b2ae43ed0fcd16e379d1282e0e0126560",
+      "sha256": "37dc7ca721e4641b41d8dfba98d97f87fc3dd9feb8e583ee9a749c6d641b1ed2"
+    },
+    {
+      "key": "bank-logo:other-869672d4bc030b21",
+      "source": "other/法国里昂信贷银行logo.svg",
+      "originalSha256": "aee1960dcea1a1b3be47638a39e4cd3f56ad567e5f19830bc60ed9c6bef8e0cd",
+      "sha256": "f11c3d0181062d090e9a2e3afbc9c957fd4271025a3aed64829fbc3b6e035353"
+    },
+    {
+      "key": "bank-logo:other-ef0255e8beee9896",
+      "source": "other/波士顿银行.svg",
+      "originalSha256": "4776d22e85bb50a2dfe8b93c54c9c7681a4706c556c7a2ca59a7131c8e074eaa",
+      "sha256": "199ce5a17ebbf57a278e080993df428b40dbcf6363312bfa0466a72f781ba20f"
+    },
+    {
+      "key": "bank-logo:other-515a2a602e0bd251",
+      "source": "other/波士顿银行logo.svg",
+      "originalSha256": "63416d076fda88da57988914f4ad929d3a96a0df157400b2ff598a53d5a67a7d",
+      "sha256": "e9acccf0e151951572c2df041344b481b6c8d933e3557061705738446352d35a"
+    },
+    {
+      "key": "bank-logo:other-a4cdc7fd85763da5",
+      "source": "other/泰州农村商业银行.svg",
+      "originalSha256": "8be6d28263ab786ea182f765a43bbead1c5632fed715d039406f4228e79a365f",
+      "sha256": "64df7a0a008c6bd288778113452712e663c6d5e39438885aee49b7712488e9c9"
+    },
+    {
+      "key": "bank-logo:other-760288c1828bffaf",
+      "source": "other/泰州农村商业银行logo.svg",
+      "originalSha256": "184e4d585070d1895c893c4e46524ca001148fefaee8693bb1946ca948e479e9",
+      "sha256": "d40a3203d1a61129a6561e0e23749b46a3ef7c5072df1060cb6793b9bd2d05b1"
+    },
+    {
+      "key": "bank-logo:other-2aa69a449dea1251",
+      "source": "other/洪都农商.svg",
+      "originalSha256": "853f097c6177b87ca1f93a3845670c50768dd3a148c67fb124aa6aff928bbf85",
+      "sha256": "c7f80391d4942724acee6bb491f5913a15eddca2d836c9fc23d5d95a7cda044e"
+    },
+    {
+      "key": "bank-logo:other-b838b7dd9683f83d",
+      "source": "other/洪都农商logo.svg",
+      "originalSha256": "ae5a081b4074c72d0da5acf240501901a5467d033e6362370bd2d74cf03352fc",
+      "sha256": "898d010666aaf3d3d9b2a329a6f2ce0b5aa473ee530318917359bb78462382b4"
+    },
+    {
+      "key": "bank-logo:other-a43ec54f7721deb9",
+      "source": "other/浦发硅谷银行.svg",
+      "originalSha256": "448b7bbb01ddd40b4e9a2cf30102016e84abec128d23f0b2d90023a2af33cf89",
+      "sha256": "07bfa26da1cbfb07378c7b71a5def4a726417305ce5d7abf5fd2b7c40c03da39"
+    },
+    {
+      "key": "bank-logo:other-d65f868df65b20f4",
+      "source": "other/浦发硅谷银行logo.svg",
+      "originalSha256": "5a0b3ed2e489cad8f715b009352a8c787c9988a87807cf267fe446f02746f80d",
+      "sha256": "b57846820910f1c6c6b0bfd2e3cb31fb4dba0d8b55b520fa08d19415eab2ac97"
+    },
+    {
+      "key": "bank-logo:other-08352da8a5fadc89",
+      "source": "other/深证商业银行.svg",
+      "originalSha256": "c9dd335ff67e11a026ae9e6ebd6193ad9703c3ae62248160877434272a471249",
+      "sha256": "dc53d62e1127ba565ff4bd465c64f3a727c433d15a7bb4c1f8da38b60e772d0c"
+    },
+    {
+      "key": "bank-logo:other-c091f709ee03374a",
+      "source": "other/深证市商业银行.svg",
+      "originalSha256": "3b4a2343bec3f7b8953bc5118b7813303db3f4a73f38d29a6cce4508ec9b6077",
+      "sha256": "10f0f11c66f404cad7b0dc0bb86fb1926b5789e8ab0d105a58b81af52206cd4b"
+    },
+    {
+      "key": "bank-logo:other-ceac1cec72010f33",
+      "source": "other/湖南华容农商.svg",
+      "originalSha256": "9ba848a542f8538c628fdf04719aaa89920aeb5ce0482279bbb791f791d910a0",
+      "sha256": "b0c14e62683a7e243c6879aa648865aee6bf5454309f7cec3d0d8f84a2dafcfa"
+    },
+    {
+      "key": "bank-logo:other-87633f387ac57da1",
+      "source": "other/湖南华容农商logo.svg",
+      "originalSha256": "d83f93e8bf260bd9b0cf1248f8b6da400311f23c5e9ce5f31f6028bdeebf3c51",
+      "sha256": "6f86cea3775cef9bf8c719f9378931cc44c9e246fdc2e8de64e9daa30a8035f8"
+    },
+    {
+      "key": "bank-logo:other-906e3fe0bd8436c1",
+      "source": "other/湖州市商业银行.svg",
+      "originalSha256": "98b77bbdd38fa8fb8ea90fb3e9b7646cfaedfd934c7c24b383c9045d057e09fa",
+      "sha256": "661f6d22d46509022dd0fc5d5b3c4a4938f6577efc5438b2f4572d01bbba0a96"
+    },
+    {
+      "key": "bank-logo:other-0cef20abb7e8ecef",
+      "source": "other/湖州市商业银行logo.svg",
+      "originalSha256": "471688b4d78f102c0e2bb7e7e4170f205df5e363514f0a012fb5fdb7f89d37a1",
+      "sha256": "7b3ad9b92f66d3ddb7f475234f60ec2fc3fc35b2acc0256e7518a3bdd74692fc"
+    },
+    {
+      "key": "bank-logo:other-ef974897c94204e3",
+      "source": "other/湖滨农商.svg",
+      "originalSha256": "d578708fa267fbe2138bf54b9a33f3d487a004480de5cd1053fed2109c06ed9f",
+      "sha256": "3e35fff7866a47d194e7916036db023cf5793838b42338fbf889abd6621edbac"
+    },
+    {
+      "key": "bank-logo:other-4b1e8e299e459788",
+      "source": "other/湖滨农商logo.svg",
+      "originalSha256": "264aa7b4951f99450c2bcc10369b213a570c5a65578f3bc3ea15f0423b335e44",
+      "sha256": "c5b9ef42724ca1ff65f19bc769a724933e1e0321beec681414050cb3b5b63165"
+    },
+    {
+      "key": "bank-logo:other-be8ba160eab42223",
+      "source": "other/焦作市商业银行.svg",
+      "originalSha256": "4913bbe9604c27a9063b792467f8df4e4590e05e82b57506ab6c97aee9535d03",
+      "sha256": "7fa8eafacee6520f2b0473b2a4e44c464fd9de71848d32f386616b246b7e483a"
+    },
+    {
+      "key": "bank-logo:other-a2e7b75c8d603aac",
+      "source": "other/焦作市商业银行logo.svg",
+      "originalSha256": "9b6ef15370b319e9a127cd9a1b7b229d85476488b91b68dfa24bbb9b5446f3c1",
+      "sha256": "832614bf191ade852b780ff6f4d8ac8c8aedfa7601f638a19cc6cd0942e18a52"
+    },
+    {
+      "key": "bank-logo:other-4a32e618ee73a61c",
+      "source": "other/瑞典银行.svg",
+      "originalSha256": "19731913b8cb8a1b6be6f2f167d17f76d44d54a7d0f7c9fa8dbea46a5931e38b",
+      "sha256": "cf0f98e48ad3c9b09cfd6a94a79fc724fac186ed96a7eb31f3f15b1f9f47dfc3"
+    },
+    {
+      "key": "bank-logo:other-26a59e3aafd71ae6",
+      "source": "other/瑞典银行logo.svg",
+      "originalSha256": "3296e98921fe851dc4c341199635bc4f010eaa014f21124ee830affb9c44898f",
+      "sha256": "4ca78010b991bef1fb2400a6763d2f395bd4f9f0c919e5d80c9f43e9ca798ecb"
+    },
+    {
+      "key": "bank-logo:other-295f9ce181409a48",
+      "source": "other/瑞穗实业银行.svg",
+      "originalSha256": "10626fa2e82af3ebc00ca2385470c6812c18064833541e636482a9307b31303d",
+      "sha256": "c0e7ab473e223ab42c0eec89e4a740e78358f2a22f7c001b0518a5cdedafb948"
+    },
+    {
+      "key": "bank-logo:other-ce9bc9e56ac24a60",
+      "source": "other/瑞穗实业银行logo.svg",
+      "originalSha256": "189ce4bd67de9825ca5c2686423b56bbfca6d9442c3affca2e705a52ac10fc36",
+      "sha256": "ce21f5530df1820bbc522ec39e5db24e6087b850fc88d4c789c0721b7ce5fb95"
+    },
+    {
+      "key": "bank-logo:other-6f3476556e8722ea",
+      "source": "other/紫金农商.svg",
+      "originalSha256": "618aec12768448128b52fc482735192b4ad089a42f774cbd2cf40650aed624d0",
+      "sha256": "6688eff66cce01042618fb5a0c38daf409ffe1244eaab2179bd21054e3c3ac00"
+    },
+    {
+      "key": "bank-logo:other-fb8c9ea4369becae",
+      "source": "other/紫金农商logo.svg",
+      "originalSha256": "b9c1fe6af1db7d4f7999c3c15f528ced4509936937e5c0b7a154e00f56778377",
+      "sha256": "01ddfb1760d676139784a91283490e283b9e3a5825009eadeeec0f1bfe967f38"
+    },
+    {
+      "key": "bank-logo:other-088414290a2bc530",
+      "source": "other/芜湖扬子农商.svg",
+      "originalSha256": "749ae375361596677460946b8cc94f6b4732e5bbd386f49ae328e6aa286017d2",
+      "sha256": "b6a32dcb73d35fbc09e83f2942da7b2ad9b03dd575b0788205089cc2b2357005"
+    },
+    {
+      "key": "bank-logo:other-40560499ed20fb1d",
+      "source": "other/芜湖扬子农商logo.svg",
+      "originalSha256": "6b7752078efbce9c35feaaa3265a5e0c34ab082e483468e1dabf731cf3c023e9",
+      "sha256": "747deffa294a7d70765d6a24c4cb4fff491a38c6db1e5d5dd56ad6427646f69c"
+    },
+    {
+      "key": "bank-logo:other-a1ffa1f1a9e376d0",
+      "source": "other/苏格兰皇家银行.svg",
+      "originalSha256": "4187b34978cc14b434c04ff6a189100880527c81fd5229ebdf7504a4bdeaaf3e",
+      "sha256": "d18281d10efec88274311f16d8d729d00e4afcdd9fb5069367695e68bf2d8ad4"
+    },
+    {
+      "key": "bank-logo:other-669a5984f4c20412",
+      "source": "other/苏格兰皇家银行logo.svg",
+      "originalSha256": "ce1d4a72d2833988ddfa66d99458ceaca8fe73a20a535fb820837e5463c0a0d1",
+      "sha256": "7b2c6ccf86a6315ec27f447666b943c7c3513bb8d3851cb4dd698c73bc6b0819"
+    },
+    {
+      "key": "bank-logo:other-ad95aeb69cf14d91",
+      "source": "other/菲律宾首都银行.svg",
+      "originalSha256": "66bd186e10be62b3ebe3e3173e7ad4da13eb9e536c34c2d0c72744ec6a69acdc",
+      "sha256": "8e4f32b794aea019126606ae391ca2772969d58ea296899c1b6b5ac4e0afbb0c"
+    },
+    {
+      "key": "bank-logo:other-5d375b5b88ed6369",
+      "source": "other/菲律宾首都银行logo.svg",
+      "originalSha256": "b7ca00d2b2d997a154f34da48bec53c40fbe9bd713d17320dfb2c790bdde596f",
+      "sha256": "095048759067d094c63650e414588a76d2723f95397714ea27f9f40a70ced4bb"
+    },
+    {
+      "key": "bank-logo:other-0a7101460832376e",
+      "source": "other/萧山农村合作银行.svg",
+      "originalSha256": "5e244a0abe9bdcbbf7be8b5707d60301379fe4223149b3761d29d49ecea3295a",
+      "sha256": "3b75b4763cdc0e2ec1d29638058df409e356d77ad655b347f093753a219d03ad"
+    },
+    {
+      "key": "bank-logo:other-aec8cbf68829456e",
+      "source": "other/萧山农村合作银行logo.svg",
+      "originalSha256": "ae66e7dac8a62f29e2a54a5c703221b1076bb7e06b888bdf7951c26c6ec57996",
+      "sha256": "7c44f6ba43df5aa891d6c635899b84b8e37bf9dc8fe3172a048936a4bbe5aaba"
+    },
+    {
+      "key": "bank-logo:other-c30b45cbcd18458f",
+      "source": "other/西藏银行.svg",
+      "originalSha256": "099b0a199f496bb04e184545fb53855857cb1bc403a362fb8e7ee0937e7626d9",
+      "sha256": "26588eee830047eb267f6dd1eeebf00c5f9d9349ac17247be03c8e198a875a0a"
+    },
+    {
+      "key": "bank-logo:other-5158af3341c50b24",
+      "source": "other/西藏银行logo.svg",
+      "originalSha256": "9a9aca8945f6018ca7429e06f6ebd92c3368e60cc49addd1da26b13aa506f030",
+      "sha256": "5b3d7a55c647ffc818d321753e46014a18cc5bc61ac8b6046dbbeb9313269d40"
+    },
+    {
+      "key": "bank-logo:other-ddbfa37dde630c4c",
+      "source": "other/许昌银行.svg",
+      "originalSha256": "83f66a31078dec2e01a666c888faec54752c9403135d3913a4a2129ed47324d8",
+      "sha256": "14301cf7ffc3ac96f33d261c8ffae0a0029d153bd0f75d440aaf92a9c90e2be8"
+    },
+    {
+      "key": "bank-logo:other-ff6a52aafc9061c7",
+      "source": "other/许昌银行logo.svg",
+      "originalSha256": "6fe1e27fa883f8bc0fc227858e8561e2c06191977d2a7a62fe219cf477a0fba9",
+      "sha256": "124b2017a11d68a863ecddda906505766912776bb69d1671f350ca5f6ca0dfe0"
+    },
+    {
+      "key": "bank-logo:other-cff8cf30ba6ee85c",
+      "source": "other/许昌魏都农商.svg",
+      "originalSha256": "2a0e7ce26b1991786357c1f10207d95663b7d2981081b33f481c983c72c2c9d2",
+      "sha256": "48d477e33b5f22e4530d6e1431deebb70e0e93f349afd7ce62ce7e874b7f3aa9"
+    },
+    {
+      "key": "bank-logo:other-faef2482143ad5ed",
+      "source": "other/许昌魏都农商logo.svg",
+      "originalSha256": "264aa7b4951f99450c2bcc10369b213a570c5a65578f3bc3ea15f0423b335e44",
+      "sha256": "c5b9ef42724ca1ff65f19bc769a724933e1e0321beec681414050cb3b5b63165"
+    },
+    {
+      "key": "bank-logo:other-047ec9d93df66e13",
+      "source": "other/路程农村合作银行.svg",
+      "originalSha256": "8c895de65262903399af18027ee1059caae6386bf378d7de8cc4d8c937d3d255",
+      "sha256": "5db50d6e362a84e2c51e36ad04840f1b74e401053ee03d61ff95c5eaac46a68d"
+    },
+    {
+      "key": "bank-logo:other-efd3d593683d92e8",
+      "source": "other/路程农村合作银行logo.svg",
+      "originalSha256": "93f1a12dd4e71e299f7b04b2ab9c2c10e5b3c5941ca4fa8a90e98388315df25c",
+      "sha256": "31fd3e70fb5715e6a1711a7feaba31b6ec7d23cb728ec11cefcb97329284eb86"
+    },
+    {
+      "key": "bank-logo:other-5250766b78408e75",
+      "source": "other/辽阳银行.svg",
+      "originalSha256": "399a86c5be3180ec01b2de7ad5657ec421e752c9f9c4caa8b62eef97d1276e94",
+      "sha256": "04ecdc921aae02d71bbdd6cb4ae8374064310a7991f82794735b8cd966053d3b"
+    },
+    {
+      "key": "bank-logo:other-fda7ed62f8bb1de4",
+      "source": "other/辽阳银行logo.svg",
+      "originalSha256": "5e7e2cad9369e2446483a1e833f62876eab4268630b6e7c713bd5cb6abad4266",
+      "sha256": "92549fc6f281c0fcbf55ebc33e46b48279724a4a8aa665cc1775a3f15faa7fce"
+    },
+    {
+      "key": "bank-logo:other-eafb626369764bdf",
+      "source": "other/邢台银行.svg",
+      "originalSha256": "648b1c443ec944eef93284c68e4d318d33bd47c3ed8aebd2ded0f18ec37f97d0",
+      "sha256": "47df05c95d2c5008efc46b823a2d43bb2ad6e562b6bf5e87e6bd03433803f3d2"
+    },
+    {
+      "key": "bank-logo:other-c3dc7f89a78a1dac",
+      "source": "other/邢台银行logo.svg",
+      "originalSha256": "2994f648e9b11ef76973ada9ec01c4754843c4a52a5b6ff923f63ca63b973866",
+      "sha256": "216dc15078210569c47f9f8adacc7fc5b3d41cd4468b7f1510b881754b8d80fb"
+    },
+    {
+      "key": "bank-logo:other-9d2a14d796de2638",
+      "source": "other/鄞州银行.svg",
+      "originalSha256": "a4e73733788f60e9a9389fa4e208a6d88c7c61f61fb12dc591b71a08408e3d3d",
+      "sha256": "1108e206315a765ebdc2c6683888d60ff5a5ba3665b1b968f0b0782c0183ee21"
+    },
+    {
+      "key": "bank-logo:other-61e48f0f6ce42ca4",
+      "source": "other/鄞州银行logo.svg",
+      "originalSha256": "ff2ab215be3c47a524cc141f175d0b17363151356b7c1481031d17dfa2c18e02",
+      "sha256": "175a4315931f261c7f8396fa1b3b7ffebf3475cc94524dfbc49b472384a47a5d"
+    },
+    {
+      "key": "bank-logo:other-23a4941d8f9585a1",
+      "source": "other/长城华西logo.svg",
+      "originalSha256": "6f32992802755574602e55b5223efbfad91944405f9115588f58637726121c02",
+      "sha256": "51ef43189865267d9b0ee55cd1e998657a27bddbe4de79ea287873d29e0c7150"
+    },
+    {
+      "key": "bank-logo:other-cd0d4ed6c753fb99",
+      "source": "other/长城华西银行.svg",
+      "originalSha256": "d2181358f4c3b4907c386a06bebd9a569fcc22053fc34df013121ce8a88e4b26",
+      "sha256": "7b9074f472a7ec7223760aa4b5d3ea687224c4b6c1c09fef7a10fd6c070b8398"
+    },
+    {
+      "key": "bank-logo:other-6e3c4cec2f7e4cac",
+      "source": "other/长春农商.svg",
+      "originalSha256": "cf3ba2b8ee623edeb096e8294dba895d1f4aa28015578a03ba6bd3d677a82a6b",
+      "sha256": "6a8ecc06cc3d13f351c14a6fcaff7b2afa2f88a0b2a96290e2dd3e66e53afa9a"
+    },
+    {
+      "key": "bank-logo:other-37a8b3b01d87639e",
+      "source": "other/长春农商logo.svg",
+      "originalSha256": "dc27bde70e6de5960118a41f4f90344ae9da3e6240c8d6530bec0f33a7eea85e",
+      "sha256": "cb9cde5566aa768f9277c53f412b172a3a1b01605ddcf4748f9fea00d8f42f36"
+    },
+    {
+      "key": "bank-logo:other-41cbba6cd061659f",
+      "source": "other/长治银行.svg",
+      "originalSha256": "fb6529ddf45c9b53996d508974dffa374eb814266e6914e512762c331d4c4382",
+      "sha256": "680cc2134236adad823a2132e503dec67642e93502d1b1a531d5f4c893ea8b72"
+    },
+    {
+      "key": "bank-logo:other-c8870d8bb7cdec29",
+      "source": "other/长治银行logo.svg",
+      "originalSha256": "494b4c78950ff21e52cdce93e727d95890b7f3cc8af51a323a0007fd8dd968ad",
+      "sha256": "8301969d300372dbefe5f53df0f6bad32c690d277b2947e81afdb5c3fea91620"
+    },
+    {
+      "key": "bank-logo:other-e50efc51365dac00",
+      "source": "other/阳泉市商业银行.svg",
+      "originalSha256": "d363e82b84618568404a62f6ac8f3a88ff5366fe2bc60b16799266e78e006858",
+      "sha256": "7733bc8ee1d4d40478b47cf4dd046fc06b77f14af1a9c62fe629cfc600a62862"
+    },
+    {
+      "key": "bank-logo:other-9cf376b284b20b40",
+      "source": "other/阳泉市商业银行logo.svg",
+      "originalSha256": "9e3183f908e438463e2c5cb0c82028d9dd3c257853b467f9b0db8cefab89c68a",
+      "sha256": "9b4ab8f8fedfcc244ce530097a927dc8fbeaf5010ab81b7d0222316e3759e4c4"
+    },
+    {
+      "key": "bank-logo:other-e43d4e4c4c5d8e87",
+      "source": "other/陆丰农村信用社.svg",
+      "originalSha256": "5a2e0bad956730707b23b91e6a54c87be6c2a1a49bf7e3c09859a14716f55227",
+      "sha256": "69adda659b9c8bff34950a099a52350be3b9e3da344ab732cd9e01ea38de4c2a"
+    },
+    {
+      "key": "bank-logo:other-15f5a812266d1265",
+      "source": "other/陆丰农村信用社logo.svg",
+      "originalSha256": "a715bf81b4944a99c7af01612f6e05845b0b138545a002cec93d37f74f543aef",
+      "sha256": "c9a1784a8dd371d96c90354f36e3bf231c46e82362cb328bf4c6bd153e372a50"
+    },
+    {
+      "key": "bank-logo:other-9e463ceab90032d7",
+      "source": "other/雅安市商业银行.svg",
+      "originalSha256": "e39ee3c594691295aaa1f70e79b047551a4d4c37b96dd5065c430dc5e3422f57",
+      "sha256": "50f582b460d3c62149908f1f76cb8c401c709b32b49b04ee48cce68796862f0d"
+    },
+    {
+      "key": "bank-logo:other-c65de1f8e235fd1f",
+      "source": "other/雅安市商业银行logo.svg",
+      "originalSha256": "4d20c558c617c392a3d98cfe7c9db569d354bd4ecd60922a2589c56105b8f64c",
+      "sha256": "c2fc0519d843c8f74711f39129004a8cbf6fcd32a19b1bdd22a95208a6002804"
+    },
+    {
+      "key": "bank-logo:other-cc341f9626292040",
+      "source": "other/韩国友利银行.svg",
+      "originalSha256": "9a99af04895ea336b08d1e1c2868262ed9bad940e7392d97d16eea35a2a1fdfd",
+      "sha256": "6812d43928aa3e9467d4a33cfff2f2062189415274279c64753b4b87f999983e"
+    },
+    {
+      "key": "bank-logo:other-020df119adfa152d",
+      "source": "other/韩国友利银行logo.svg",
+      "originalSha256": "0c60ace1417dc5fc3a206b89b47842d1e32edffbdc9c2828e8e3889648152e89",
+      "sha256": "982a79b8777ecc28c548103038f02dc281a5956f35421d1683a83e551515d5d3"
+    },
+    {
+      "key": "bank-logo:other-76102eb6a3cd4132",
+      "source": "other/韩国外换银行.svg",
+      "originalSha256": "5a0037216613c2aadf5bf87565cdc2372d3b2bab4b9adf944e12af7791c7a4d0",
+      "sha256": "baba9064c9f64c119c71f2e2a58cb504bd80a9745daf8cd55f2a134f1fd51849"
+    },
+    {
+      "key": "bank-logo:other-cefb6d251be9480d",
+      "source": "other/韩国外换银行logo.svg",
+      "originalSha256": "e51f5b3ec43599c23dcf239e6801fb38a5fb8f79664b99d604790301e6f39bf4",
+      "sha256": "05e00f071ec1b5c9bdcf03c6bdcfd65cc913999964e9e102ba2ace62f49a94bf"
+    },
+    {
+      "key": "bank-logo:other-9f6b8637f648f6cd",
+      "source": "other/香港交易所.svg",
+      "originalSha256": "8f33dbf9477f2c51a71ca994fdcfd326684f8d5600f20b1f88e063cf00685080",
+      "sha256": "ac8b7aba5a2cbedcf010ee8f27ec541978aba6a9745433738027f5150bddd303"
+    },
+    {
+      "key": "bank-logo:other-80b38100b1dd3691",
+      "source": "other/香港交易所logo.svg",
+      "originalSha256": "7365b605ed4388fe303e5c2169cb9683935224dbd3d8f809119ad992eba556a9",
+      "sha256": "dd23a38586a5622e388ba3a9ce86382fe56eaad4b786b5e0e3e0a9f8c5d52338"
+    },
+    {
+      "key": "bank-logo:other-903d9dad9fc42d4f",
+      "source": "other/高明农商.svg",
+      "originalSha256": "49eacb506c237b89b5929dc604c63900793f99e136bfd1ae8ccf01a9b48daf3a",
+      "sha256": "37b4c23b2235a8460f97d0cddc2f06d27a2fc79020d3bf43dd71ecb42b0509cd"
+    },
+    {
+      "key": "bank-logo:other-f9c3f9c6dc14e3ed",
+      "source": "other/高明农商logo.svg",
+      "originalSha256": "5a3c9fa566c2aac986d1533d493e57cd36d303d1167c1fe9557a70519c0bc0b9",
+      "sha256": "fc752f2ce617e1f85c0c1872d40eb5b9f4c560411e680cf478706dfb1a99ffbe"
+    },
+    {
+      "key": "bank-logo:other-fea240b5e11eb29d",
+      "source": "other/鹤壁银行.svg",
+      "originalSha256": "b28ceefcfd043de50e18c689e92a86c719b16bc12a9074a63372845f68899b84",
+      "sha256": "9600f05596b525ed6e0d4c8119db3123e7d71ae0a38bc4f30dc42b78f5ad51aa"
+    },
+    {
+      "key": "bank-logo:other-5bb869758e5a31cd",
+      "source": "other/鹤壁银行logo.svg",
+      "originalSha256": "7971eace5dfc090454de8b43f64b62940a09ca60449ed786da88f86d951121c6",
+      "sha256": "91af3dc0d7d69f24239fa06ed8d36c4db72415b368fb512ec0949f1b2faef2df"
+    }
+  ]
+}

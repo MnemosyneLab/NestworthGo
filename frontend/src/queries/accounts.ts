@@ -105,7 +105,7 @@ export function toUpdateAccountRequest(request: CreateAccountRequest): UpdateAcc
     note: request.note,
     noteSet: request.note !== undefined,
     iconKey: request.iconKey ?? "",
-    iconKeySet: Boolean(request.iconKey),
+    iconKeySet: request.iconKey !== undefined,
     includeInNetWorth: request.includeInNetWorth,
     includeInPortfolio: request.includeInPortfolio,
     includeInLiquidAssets: request.includeInLiquidAssets,

@@ -470,7 +470,8 @@
       "currency": "货币",
       "general": "通用",
       "investment": "投资与市场",
-      "protection": "保障与规划"
+      "protection": "保障与规划",
+      "bankLogos": "银行与金融机构标志"
     },
     "chart": "财务图表",
     "circleCheck": "已确认",
@@ -507,7 +508,7 @@
     "receivable": "应收款",
     "retirement": "退休",
     "savings": "储蓄",
-    "search": "搜索",
+    "search": "搜索图标",
     "settings": "设置",
     "shield": "保障",
     "shieldPlus": "增强保障",
@@ -525,7 +526,12 @@
     "landmark": "政府建筑",
     "car": "车辆",
     "gem": "收藏品",
-    "pieChart": "资产配置"
+    "pieChart": "资产配置",
+    "categoryLabel": "图标类别",
+    "genericIcons": "通用图标",
+    "noResults": "没有匹配的图标",
+    "inheritInstitution": "使用机构图标",
+    "inheritHint": "跟随所属机构的图标。未选择机构时使用账户类型图标。"
   },
   "directory": {
     "createError": "无法创建此项目",

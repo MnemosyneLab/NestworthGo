@@ -118,8 +118,11 @@ var supportedIconKeys = map[string]struct{}{
 }
 
 func SupportedIconKeys() []string {
-	result := make([]string, 0, len(supportedIconKeys))
+	result := make([]string, 0, len(supportedIconKeys)+len(bankLogoKeys))
 	for key := range supportedIconKeys {
+		result = append(result, key)
+	}
+	for key := range bankLogoKeys {
 		result = append(result, key)
 	}
 	sort.Strings(result)
@@ -131,7 +134,9 @@ func ValidateIconKey(value string) error {
 	if value == "" {
 		return nil
 	}
-	if _, ok := supportedIconKeys[value]; !ok {
+	_, generic := supportedIconKeys[value]
+	_, bankLogo := bankLogoKeys[value]
+	if !generic && !bankLogo {
 		return validation("iconKey", "unsupported icon")
 	}
 	return nil

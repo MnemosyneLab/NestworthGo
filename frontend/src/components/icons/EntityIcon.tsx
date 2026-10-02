@@ -6,6 +6,7 @@ import {
   PieChart, PoundSterling, ReceiptText, Search, Settings, Shield, ShieldPlus, Target, TrendingUp,
   TriangleAlert, Upload, UserRound, Wallet,
 } from "lucide-react";
+import { bankLogo, bankLogoUrl } from "@/lib/bankLogos";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, LucideIcon> = {
@@ -36,8 +37,12 @@ const KIND_FALLBACKS: Record<EntityIconKind, string> = {
 };
 
 export function EntityIcon({ iconKey, kind, className, label }: { iconKey?: string | null; kind: EntityIconKind; className?: string; label?: string }) {
-  const Icon = ICONS[iconKey ?? ""] ?? ICONS[KIND_FALLBACKS[kind]];
+  const logo = bankLogo(iconKey);
+  if (logo) return <img src={bankLogoUrl(logo.file)} alt={label ?? ""} aria-hidden={label ? undefined : true}
+    className={cn("size-4 shrink-0 rounded-sm bg-white object-contain p-0.5", className)} loading="lazy" draggable={false} />;
+  const key = iconKey ?? "";
+  const Icon = Object.prototype.hasOwnProperty.call(ICONS, key) ? ICONS[key] : ICONS[KIND_FALLBACKS[kind]];
   return <Icon className={cn("size-4 shrink-0", className)} aria-hidden={label ? undefined : "true"} aria-label={label} />;
 }
 
-export function hasIcon(key: string): boolean { return Boolean(ICONS[key]); }
+export function hasIcon(key: string): boolean { return Object.prototype.hasOwnProperty.call(ICONS, key) || Boolean(bankLogo(key)); }

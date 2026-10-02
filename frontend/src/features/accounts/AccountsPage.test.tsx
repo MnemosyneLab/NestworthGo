@@ -343,6 +343,7 @@ describe("AccountsPage", () => {
     expect(createAccount).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "New Savings",
+        iconKey: "",
         accountType: "bank_account",
         trackingMode: "balance",
         ownership: [
@@ -1392,4 +1393,43 @@ describe("AccountsPage", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(recordChange).toHaveBeenCalled());
   });
+});
+
+it("edits a logo override, then explicitly resets it to inheritance", async () => {
+  const record = { ...emptyAccount, account: { ...emptyAccount.account, iconKey: "bank-logo:icbc", institutionId: "cmb" } };
+  listAccounts.mockResolvedValue([record]);
+  updateAccount.mockResolvedValue(record);
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+  const form = await screen.findByRole("form", { name: "Account form" });
+  await userEvent.click(within(form).getByRole("button", { name: /Details/i }));
+  expect(within(form).getByLabelText("Choose icon").querySelector("img")).toHaveAttribute("src", "/bank-logos/icbc.svg");
+  await userEvent.click(within(form).getByRole("button", { name: "Use institution icon" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(updateAccount).toHaveBeenCalledWith("acc-1", expect.objectContaining({ iconKey: "", iconKeySet: true }));
+});
+
+it.each(["search", "result"])("Escape from icon %s closes only the picker and preserves the account Sheet", async (focusTarget) => {
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+  const form = await screen.findByRole("form", { name: "Account form" });
+  await userEvent.click(within(form).getByRole("button", { name: /Details/i }));
+  await userEvent.clear(within(form).getByLabelText("Name"));
+  await userEvent.type(within(form).getByLabelText("Name"), "Unsaved account name");
+  const trigger = within(form).getByLabelText("Choose icon");
+  await userEvent.click(trigger);
+  await userEvent.selectOptions(within(form).getByLabelText("Icon category"), "bank");
+  await userEvent.type(within(form).getByLabelText("Search icons"), "icbc");
+  if (focusTarget === "result") within(form).getByRole("button", { name: "中国工商银行 (icbc)" }).focus();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.getByRole("form", { name: "Account form" })).toBeInTheDocument();
+  expect(within(form).getByLabelText("Name")).toHaveValue("Unsaved account name");
+  expect(trigger).toHaveAttribute("aria-expanded", "false");
+  expect(trigger).toHaveFocus();
+  expect(updateAccount).not.toHaveBeenCalled();
+  // Once the picker is closed, Escape keeps the Sheet's normal dismissal behavior.
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByRole("form", { name: "Account form" })).not.toBeInTheDocument();
 });

@@ -42,8 +42,8 @@ func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
 	if group.IconKey == nil || *group.IconKey != domain.DefaultGroupIcon {
 		t.Fatalf("group icon = %#v, want %q", group.IconKey, domain.DefaultGroupIcon)
 	}
-	if withRefs.Account.IconKey == nil || *withRefs.Account.IconKey != domain.DefaultAccountIcon(domain.TypeBankAccount) {
-		t.Fatalf("account icon = %#v, want %q", withRefs.Account.IconKey, domain.DefaultAccountIcon(domain.TypeBankAccount))
+	if withRefs.Account.IconKey != nil && *withRefs.Account.IconKey != "" {
+		t.Fatalf("new account should inherit its institution icon, got %#v", withRefs.Account.IconKey)
 	}
 	if err := service.SetInstitutionIcon(ctx, institution.ID, "home"); err != nil {
 		t.Fatalf("institution icon: %v", err)
