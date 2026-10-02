@@ -1,0 +1,54 @@
+"""Verify vendored artwork and fail-closed SVG screening without network access."""
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import re
+import unittest
+
+ROOT = Path(__file__).resolve().parents[2]
+spec = importlib.util.spec_from_file_location('bank_logos', ROOT / 'tools/bank-logos/import_logos.py')
+logos = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(logos)
+
+
+class BankLogoTests(unittest.TestCase):
+    def test_catalog_provenance_and_backend_allowlist(self):
+        manifest = json.loads((ROOT / 'tools/bank-logos/manifest.json').read_text())
+        catalog = json.loads((ROOT / 'frontend/src/lib/bankLogos.json').read_text())
+        directory = ROOT / 'frontend/public/bank-logos'
+        self.assertEqual(manifest['revision'], logos.REVISION)
+        self.assertEqual(len(catalog), 608)
+        self.assertEqual(len(list(directory.glob('*.svg'))), 608)
+        self.assertEqual(len({x['key'] for x in catalog}), 608)
+        self.assertEqual({x['key'] for x in catalog}, {x['key'] for x in manifest['assets']})
+        backend = (ROOT / 'internal/domain/bank_logos_generated.go').read_text()
+        self.assertEqual(set(re.findall(r'"(bank-logo:[^"]+)"', backend)), {x['key'] for x in catalog})
+        hashes = {x['key']: x['sha256'] for x in manifest['assets']}
+        for entry in catalog:
+            self.assertRegex(entry['file'], r'^[a-z0-9-]+\.svg$')
+            raw = (directory / entry['file']).read_text()
+            self.assertEqual(logos.sanitize_svg(raw), raw)
+            self.assertEqual(hashlib.sha256(raw.encode()).hexdigest(), hashes[entry['key']])
+            self.assertTrue(entry['name'])
+            self.assertTrue(entry['aliases'])
+        self.assertIn('Copyright (c) 2022 IconGo', (directory / 'LICENSE').read_text())
+
+    def test_unsafe_svg_is_rejected(self):
+        bad = [
+            '<script>alert(1)</script>', '<foreignObject/>', '<image href="https://example.com/x"/>',
+            '<use href="#x"/>', '<animate attributeName="fill"/>', '<style>@import "https://example.com";</style>',
+            '<path d="M0 0" onload="alert(1)"/>', '<path d="M0 0" fill="url(https://example.com)"/>',
+            '<path d="M0 0" style="fill:red"/>', '<path d="M0 0" xmlns="urn:evil"/>',
+        ]
+        for contents in bad:
+            with self.subTest(contents=contents), self.assertRaises(ValueError):
+                logos.sanitize_svg(f'<svg xmlns="{logos.SVG}" viewBox="0 0 10 10">{contents}</svg>')
+        for raw in [
+            '<!DOCTYPE svg [<!ENTITY x SYSTEM "file:///etc/passwd">]><svg/>',
+            f'<svg xmlns="{logos.SVG}" viewBox="0 0 0 10"><path d="M0 0"/></svg>',
+            f'<svg xmlns="{logos.SVG}" viewBox="0 0 nan 10"><path d="M0 0"/></svg>',
+            f'<svg xmlns="{logos.SVG}" viewBox="0 0 10 10" onload="alert(1)"><path d="M0 0"/></svg>',
+        ]:
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                logos.sanitize_svg(raw)

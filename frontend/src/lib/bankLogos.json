@@ -1,0 +1,5474 @@
+[
+  {
+    "key": "bank-logo:abchina-rect",
+    "name": "中国农业银行 (abchina-rect)",
+    "aliases": [
+      "abchina-rect",
+      "中国农业银行"
+    ],
+    "file": "abchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:abchina",
+    "name": "中国农业银行 (abchina)",
+    "aliases": [
+      "abchina",
+      "中国农业银行"
+    ],
+    "file": "abchina.svg"
+  },
+  {
+    "key": "bank-logo:abnamro-rect",
+    "name": "荷兰银行 (abnamro-rect)",
+    "aliases": [
+      "abnamro-rect",
+      "荷兰银行"
+    ],
+    "file": "abnamro-rect.svg"
+  },
+  {
+    "key": "bank-logo:abnamro",
+    "name": "荷兰银行 (abnamro)",
+    "aliases": [
+      "abnamro",
+      "荷兰银行"
+    ],
+    "file": "abnamro.svg"
+  },
+  {
+    "key": "bank-logo:anz-rect",
+    "name": "澳新银行 (anz-rect)",
+    "aliases": [
+      "anz-rect",
+      "澳新银行"
+    ],
+    "file": "anz-rect.svg"
+  },
+  {
+    "key": "bank-logo:anz",
+    "name": "澳新银行 (anz)",
+    "aliases": [
+      "anz",
+      "澳新银行"
+    ],
+    "file": "anz.svg"
+  },
+  {
+    "key": "bank-logo:bangkokbank-rect",
+    "name": "盘谷银行 (bangkokbank-rect)",
+    "aliases": [
+      "bangkokbank-rect",
+      "盘谷银行"
+    ],
+    "file": "bangkokbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:bangkokbank",
+    "name": "盘谷银行 (bangkokbank)",
+    "aliases": [
+      "bangkokbank",
+      "盘谷银行"
+    ],
+    "file": "bangkokbank.svg"
+  },
+  {
+    "key": "bank-logo:bankcomm-rect",
+    "name": "交通银行 (bankcomm-rect)",
+    "aliases": [
+      "bankcomm-rect",
+      "交通银行"
+    ],
+    "file": "bankcomm-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankcomm",
+    "name": "交通银行 (bankcomm)",
+    "aliases": [
+      "bankcomm",
+      "交通银行"
+    ],
+    "file": "bankcomm.svg"
+  },
+  {
+    "key": "bank-logo:bankcz-rect",
+    "name": "沧州银行 (bankcz-rect)",
+    "aliases": [
+      "bankcz-rect",
+      "沧州银行"
+    ],
+    "file": "bankcz-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankcz",
+    "name": "沧州银行 (bankcz)",
+    "aliases": [
+      "bankcz",
+      "沧州银行"
+    ],
+    "file": "bankcz.svg"
+  },
+  {
+    "key": "bank-logo:bankgy-rect",
+    "name": "贵阳银行 (bankgy-rect)",
+    "aliases": [
+      "bankgy-rect",
+      "贵阳银行"
+    ],
+    "file": "bankgy-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankgy",
+    "name": "贵阳银行 (bankgy)",
+    "aliases": [
+      "bankgy",
+      "贵阳银行"
+    ],
+    "file": "bankgy.svg"
+  },
+  {
+    "key": "bank-logo:bankofamerica-rect",
+    "name": "美国银行 (bankofamerica-rect)",
+    "aliases": [
+      "bankofamerica-rect",
+      "美国银行"
+    ],
+    "file": "bankofamerica-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofamerica",
+    "name": "美国银行 (bankofamerica)",
+    "aliases": [
+      "bankofamerica",
+      "美国银行"
+    ],
+    "file": "bankofamerica.svg"
+  },
+  {
+    "key": "bank-logo:bankofas-rect",
+    "name": "鞍山银行 (bankofas-rect)",
+    "aliases": [
+      "bankofas-rect",
+      "鞍山银行"
+    ],
+    "file": "bankofas-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofas",
+    "name": "鞍山银行 (bankofas)",
+    "aliases": [
+      "bankofas",
+      "鞍山银行"
+    ],
+    "file": "bankofas.svg"
+  },
+  {
+    "key": "bank-logo:bankofbbg-rect",
+    "name": "广西北部湾银行 (bankofbbg-rect)",
+    "aliases": [
+      "bankofbbg-rect",
+      "广西北部湾银行"
+    ],
+    "file": "bankofbbg-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofbbg",
+    "name": "广西北部湾银行 (bankofbbg)",
+    "aliases": [
+      "bankofbbg",
+      "广西北部湾银行"
+    ],
+    "file": "bankofbbg.svg"
+  },
+  {
+    "key": "bank-logo:bankofbeijing-rect",
+    "name": "北京银行 (bankofbeijing-rect)",
+    "aliases": [
+      "bankofbeijing-rect",
+      "北京银行"
+    ],
+    "file": "bankofbeijing-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofbeijing",
+    "name": "北京银行 (bankofbeijing)",
+    "aliases": [
+      "bankofbeijing",
+      "北京银行"
+    ],
+    "file": "bankofbeijing.svg"
+  },
+  {
+    "key": "bank-logo:bankofdl-rect",
+    "name": "大连银行 (bankofdl-rect)",
+    "aliases": [
+      "bankofdl-rect",
+      "大连银行"
+    ],
+    "file": "bankofdl-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofdl",
+    "name": "大连银行 (bankofdl)",
+    "aliases": [
+      "bankofdl",
+      "大连银行"
+    ],
+    "file": "bankofdl.svg"
+  },
+  {
+    "key": "bank-logo:bankoffs-rect",
+    "name": "抚顺银行 (bankoffs-rect)",
+    "aliases": [
+      "bankoffs-rect",
+      "抚顺银行"
+    ],
+    "file": "bankoffs-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankoffs",
+    "name": "抚顺银行 (bankoffs)",
+    "aliases": [
+      "bankoffs",
+      "抚顺银行"
+    ],
+    "file": "bankoffs.svg"
+  },
+  {
+    "key": "bank-logo:bankofhld-rect",
+    "name": "葫芦岛银行 (bankofhld-rect)",
+    "aliases": [
+      "bankofhld-rect",
+      "葫芦岛银行"
+    ],
+    "file": "bankofhld-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofhld",
+    "name": "葫芦岛银行 (bankofhld)",
+    "aliases": [
+      "bankofhld",
+      "葫芦岛银行"
+    ],
+    "file": "bankofhld.svg"
+  },
+  {
+    "key": "bank-logo:bankofnx-rect",
+    "name": "宁夏银行 (bankofnx-rect)",
+    "aliases": [
+      "bankofnx-rect",
+      "宁夏银行"
+    ],
+    "file": "bankofnx-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofnx",
+    "name": "宁夏银行 (bankofnx)",
+    "aliases": [
+      "bankofnx",
+      "宁夏银行"
+    ],
+    "file": "bankofnx.svg"
+  },
+  {
+    "key": "bank-logo:bankofpj-rect",
+    "name": "盘锦银行 (bankofpj-rect)",
+    "aliases": [
+      "bankofpj-rect",
+      "盘锦银行"
+    ],
+    "file": "bankofpj-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofpj",
+    "name": "盘锦银行 (bankofpj)",
+    "aliases": [
+      "bankofpj",
+      "盘锦银行"
+    ],
+    "file": "bankofpj.svg"
+  },
+  {
+    "key": "bank-logo:bankofrizhao-rect",
+    "name": "日照银行 (bankofrizhao-rect)",
+    "aliases": [
+      "bankofrizhao-rect",
+      "日照银行"
+    ],
+    "file": "bankofrizhao-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofrizhao",
+    "name": "日照银行 (bankofrizhao)",
+    "aliases": [
+      "bankofrizhao",
+      "日照银行"
+    ],
+    "file": "bankofrizhao.svg"
+  },
+  {
+    "key": "bank-logo:bankoftianjin-rect",
+    "name": "天津农商 (bankoftianjin-rect)",
+    "aliases": [
+      "bankoftianjin-rect",
+      "天津农商"
+    ],
+    "file": "bankoftianjin-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankoftianjin",
+    "name": "天津农商 (bankoftianjin)",
+    "aliases": [
+      "bankoftianjin",
+      "天津农商"
+    ],
+    "file": "bankoftianjin.svg"
+  },
+  {
+    "key": "bank-logo:bankoftieling-rect",
+    "name": "铁岭银行 (bankoftieling-rect)",
+    "aliases": [
+      "bankoftieling-rect",
+      "铁岭银行"
+    ],
+    "file": "bankoftieling-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankoftieling",
+    "name": "铁岭银行 (bankoftieling)",
+    "aliases": [
+      "bankoftieling",
+      "铁岭银行"
+    ],
+    "file": "bankoftieling.svg"
+  },
+  {
+    "key": "bank-logo:bankofyk-rect",
+    "name": "营口银行 (bankofyk-rect)",
+    "aliases": [
+      "bankofyk-rect",
+      "营口银行"
+    ],
+    "file": "bankofyk-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankofyk",
+    "name": "营口银行 (bankofyk)",
+    "aliases": [
+      "bankofyk",
+      "营口银行"
+    ],
+    "file": "bankofyk.svg"
+  },
+  {
+    "key": "bank-logo:bankqh-rect",
+    "name": "青海银行 (bankqh-rect)",
+    "aliases": [
+      "bankqh-rect",
+      "青海银行"
+    ],
+    "file": "bankqh-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankqh",
+    "name": "青海银行 (bankqh)",
+    "aliases": [
+      "bankqh",
+      "青海银行"
+    ],
+    "file": "bankqh.svg"
+  },
+  {
+    "key": "bank-logo:bankwf-rect",
+    "name": "潍坊银行 (bankwf-rect)",
+    "aliases": [
+      "bankwf-rect",
+      "潍坊银行"
+    ],
+    "file": "bankwf-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankwf",
+    "name": "潍坊银行 (bankwf)",
+    "aliases": [
+      "bankwf",
+      "潍坊银行"
+    ],
+    "file": "bankwf.svg"
+  },
+  {
+    "key": "bank-logo:bankyellowriver-rect",
+    "name": "黄河农商 (bankyellowriver-rect)",
+    "aliases": [
+      "bankyellowriver-rect",
+      "黄河农商"
+    ],
+    "file": "bankyellowriver-rect.svg"
+  },
+  {
+    "key": "bank-logo:bankyellowriver",
+    "name": "黄河农商 (bankyellowriver)",
+    "aliases": [
+      "bankyellowriver",
+      "黄河农商"
+    ],
+    "file": "bankyellowriver.svg"
+  },
+  {
+    "key": "bank-logo:barclays-rect",
+    "name": "巴克莱银行 (barclays-rect)",
+    "aliases": [
+      "barclays-rect",
+      "巴克莱银行"
+    ],
+    "file": "barclays-rect.svg"
+  },
+  {
+    "key": "bank-logo:barclays",
+    "name": "巴克莱银行 (barclays)",
+    "aliases": [
+      "barclays",
+      "巴克莱银行"
+    ],
+    "file": "barclays.svg"
+  },
+  {
+    "key": "bank-logo:bcm-rect",
+    "name": "澳门商业银行 (bcm-rect)",
+    "aliases": [
+      "bcm-rect",
+      "澳门商业银行"
+    ],
+    "file": "bcm-rect.svg"
+  },
+  {
+    "key": "bank-logo:bcm",
+    "name": "澳门商业银行 (bcm)",
+    "aliases": [
+      "bcm",
+      "澳门商业银行"
+    ],
+    "file": "bcm.svg"
+  },
+  {
+    "key": "bank-logo:bd-bank-rect",
+    "name": "保定银行 (bd-bank-rect)",
+    "aliases": [
+      "bd-bank-rect",
+      "保定银行"
+    ],
+    "file": "bd-bank-rect.svg"
+  },
+  {
+    "key": "bank-logo:bd-bank",
+    "name": "保定银行 (bd-bank)",
+    "aliases": [
+      "bd-bank",
+      "保定银行"
+    ],
+    "file": "bd-bank.svg"
+  },
+  {
+    "key": "bank-logo:bgzchina-rect",
+    "name": "贵州银行 (bgzchina-rect)",
+    "aliases": [
+      "bgzchina-rect",
+      "贵州银行"
+    ],
+    "file": "bgzchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:bgzchina",
+    "name": "贵州银行 (bgzchina)",
+    "aliases": [
+      "bgzchina",
+      "贵州银行"
+    ],
+    "file": "bgzchina.svg"
+  },
+  {
+    "key": "bank-logo:bjrcb-rect",
+    "name": "北京农商银行 (bjrcb-rect)",
+    "aliases": [
+      "bjrcb-rect",
+      "北京农商银行"
+    ],
+    "file": "bjrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:bjrcb",
+    "name": "北京农商银行 (bjrcb)",
+    "aliases": [
+      "bjrcb",
+      "北京农商银行"
+    ],
+    "file": "bjrcb.svg"
+  },
+  {
+    "key": "bank-logo:bmo-rect",
+    "name": "蒙特利尔银行 (bmo-rect)",
+    "aliases": [
+      "bmo-rect",
+      "蒙特利尔银行"
+    ],
+    "file": "bmo-rect.svg"
+  },
+  {
+    "key": "bank-logo:bmo",
+    "name": "蒙特利尔银行 (bmo)",
+    "aliases": [
+      "bmo",
+      "蒙特利尔银行"
+    ],
+    "file": "bmo.svg"
+  },
+  {
+    "key": "bank-logo:boc-rect",
+    "name": "中国银行 (boc-rect)",
+    "aliases": [
+      "boc-rect",
+      "中国银行"
+    ],
+    "file": "boc-rect.svg"
+  },
+  {
+    "key": "bank-logo:boc",
+    "name": "中国银行 (boc)",
+    "aliases": [
+      "boc",
+      "中国银行"
+    ],
+    "file": "boc.svg"
+  },
+  {
+    "key": "bank-logo:bocd-rect",
+    "name": "成都银行 (bocd-rect)",
+    "aliases": [
+      "bocd-rect",
+      "成都银行"
+    ],
+    "file": "bocd-rect.svg"
+  },
+  {
+    "key": "bank-logo:bocd",
+    "name": "成都银行 (bocd)",
+    "aliases": [
+      "bocd",
+      "成都银行"
+    ],
+    "file": "bocd.svg"
+  },
+  {
+    "key": "bank-logo:bohuihe-rect",
+    "name": "汇和银行 (bohuihe-rect)",
+    "aliases": [
+      "bohuihe-rect",
+      "汇和银行"
+    ],
+    "file": "bohuihe-rect.svg"
+  },
+  {
+    "key": "bank-logo:bohuihe",
+    "name": "汇和银行 (bohuihe)",
+    "aliases": [
+      "bohuihe",
+      "汇和银行"
+    ],
+    "file": "bohuihe.svg"
+  },
+  {
+    "key": "bank-logo:bolz-rect",
+    "name": "柳州银行 (bolz-rect)",
+    "aliases": [
+      "bolz-rect",
+      "柳州银行"
+    ],
+    "file": "bolz-rect.svg"
+  },
+  {
+    "key": "bank-logo:bolz",
+    "name": "柳州银行 (bolz)",
+    "aliases": [
+      "bolz",
+      "柳州银行"
+    ],
+    "file": "bolz.svg"
+  },
+  {
+    "key": "bank-logo:bosc-rect",
+    "name": "上海银行 (bosc-rect)",
+    "aliases": [
+      "bosc-rect",
+      "上海银行"
+    ],
+    "file": "bosc-rect.svg"
+  },
+  {
+    "key": "bank-logo:bosc",
+    "name": "上海银行 (bosc)",
+    "aliases": [
+      "bosc",
+      "上海银行"
+    ],
+    "file": "bosc.svg"
+  },
+  {
+    "key": "bank-logo:boy-rect",
+    "name": "横滨银行 (boy-rect)",
+    "aliases": [
+      "boy-rect",
+      "横滨银行"
+    ],
+    "file": "boy-rect.svg"
+  },
+  {
+    "key": "bank-logo:boy",
+    "name": "横滨银行 (boy)",
+    "aliases": [
+      "boy",
+      "横滨银行"
+    ],
+    "file": "boy.svg"
+  },
+  {
+    "key": "bank-logo:cathaybk-rect",
+    "name": "国泰世华银行 (cathaybk-rect)",
+    "aliases": [
+      "cathaybk-rect",
+      "国泰世华银行"
+    ],
+    "file": "cathaybk-rect.svg"
+  },
+  {
+    "key": "bank-logo:cathaybk",
+    "name": "国泰世华银行 (cathaybk)",
+    "aliases": [
+      "cathaybk",
+      "国泰世华银行"
+    ],
+    "file": "cathaybk.svg"
+  },
+  {
+    "key": "bank-logo:cbhb-rect",
+    "name": "渤海银行 (cbhb-rect)",
+    "aliases": [
+      "cbhb-rect",
+      "渤海银行"
+    ],
+    "file": "cbhb-rect.svg"
+  },
+  {
+    "key": "bank-logo:cbhb",
+    "name": "渤海银行 (cbhb)",
+    "aliases": [
+      "cbhb",
+      "渤海银行"
+    ],
+    "file": "cbhb.svg"
+  },
+  {
+    "key": "bank-logo:ccabchina-rect",
+    "name": "大同银行 (ccabchina-rect)",
+    "aliases": [
+      "ccabchina-rect",
+      "大同银行"
+    ],
+    "file": "ccabchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:ccabchina",
+    "name": "大同银行 (ccabchina)",
+    "aliases": [
+      "ccabchina",
+      "大同银行"
+    ],
+    "file": "ccabchina.svg"
+  },
+  {
+    "key": "bank-logo:ccb-rect",
+    "name": "中国建设银行 (ccb-rect)",
+    "aliases": [
+      "ccb-rect",
+      "中国建设银行"
+    ],
+    "file": "ccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:ccb",
+    "name": "中国建设银行 (ccb)",
+    "aliases": [
+      "ccb",
+      "中国建设银行"
+    ],
+    "file": "ccb.svg"
+  },
+  {
+    "key": "bank-logo:ccqtgb-rect",
+    "name": "重庆三峡银行 (ccqtgb-rect)",
+    "aliases": [
+      "ccqtgb-rect",
+      "重庆三峡银行"
+    ],
+    "file": "ccqtgb-rect.svg"
+  },
+  {
+    "key": "bank-logo:ccqtgb",
+    "name": "重庆三峡银行 (ccqtgb)",
+    "aliases": [
+      "ccqtgb",
+      "重庆三峡银行"
+    ],
+    "file": "ccqtgb.svg"
+  },
+  {
+    "key": "bank-logo:cdb-rect",
+    "name": "国家开发银行 (cdb-rect)",
+    "aliases": [
+      "cdb-rect",
+      "国家开发银行"
+    ],
+    "file": "cdb-rect.svg"
+  },
+  {
+    "key": "bank-logo:cdb",
+    "name": "国家开发银行 (cdb)",
+    "aliases": [
+      "cdb",
+      "国家开发银行"
+    ],
+    "file": "cdb.svg"
+  },
+  {
+    "key": "bank-logo:cebbank-rect",
+    "name": "中国光大银行 (cebbank-rect)",
+    "aliases": [
+      "cebbank-rect",
+      "中国光大银行"
+    ],
+    "file": "cebbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:cebbank",
+    "name": "中国光大银行 (cebbank)",
+    "aliases": [
+      "cebbank",
+      "中国光大银行"
+    ],
+    "file": "cebbank.svg"
+  },
+  {
+    "key": "bank-logo:cgbchina-rect",
+    "name": "广发银行 (cgbchina-rect)",
+    "aliases": [
+      "cgbchina-rect",
+      "广发银行"
+    ],
+    "file": "cgbchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:cgbchina",
+    "name": "广发银行 (cgbchina)",
+    "aliases": [
+      "cgbchina",
+      "广发银行"
+    ],
+    "file": "cgbchina.svg"
+  },
+  {
+    "key": "bank-logo:chengdebank-rect",
+    "name": "承德银行 (chengdebank-rect)",
+    "aliases": [
+      "chengdebank-rect",
+      "承德银行"
+    ],
+    "file": "chengdebank-rect.svg"
+  },
+  {
+    "key": "bank-logo:chengdebank",
+    "name": "承德银行 (chengdebank)",
+    "aliases": [
+      "chengdebank",
+      "承德银行"
+    ],
+    "file": "chengdebank.svg"
+  },
+  {
+    "key": "bank-logo:china-cba-rect",
+    "name": "中国银行业协会 (china-cba-rect)",
+    "aliases": [
+      "china-cba-rect",
+      "中国银行业协会"
+    ],
+    "file": "china-cba-rect.svg"
+  },
+  {
+    "key": "bank-logo:china-cba",
+    "name": "中国银行业协会 (china-cba)",
+    "aliases": [
+      "china-cba",
+      "中国银行业协会"
+    ],
+    "file": "china-cba.svg"
+  },
+  {
+    "key": "bank-logo:chinadb-rect",
+    "name": "德意志银行 (chinadb-rect)",
+    "aliases": [
+      "chinadb-rect",
+      "德意志银行"
+    ],
+    "file": "chinadb-rect.svg"
+  },
+  {
+    "key": "bank-logo:chinadb",
+    "name": "德意志银行 (chinadb)",
+    "aliases": [
+      "chinadb",
+      "德意志银行"
+    ],
+    "file": "chinadb.svg"
+  },
+  {
+    "key": "bank-logo:cib-rect",
+    "name": "兴业银行 (cib-rect)",
+    "aliases": [
+      "cib-rect",
+      "兴业银行"
+    ],
+    "file": "cib-rect.svg"
+  },
+  {
+    "key": "bank-logo:cib",
+    "name": "兴业银行 (cib)",
+    "aliases": [
+      "cib",
+      "兴业银行"
+    ],
+    "file": "cib.svg"
+  },
+  {
+    "key": "bank-logo:citibank-rect",
+    "name": "花旗银行 (citibank-rect)",
+    "aliases": [
+      "citibank-rect",
+      "花旗银行"
+    ],
+    "file": "citibank-rect.svg"
+  },
+  {
+    "key": "bank-logo:citibank",
+    "name": "花旗银行 (citibank)",
+    "aliases": [
+      "citibank",
+      "花旗银行"
+    ],
+    "file": "citibank.svg"
+  },
+  {
+    "key": "bank-logo:citicbank-rect",
+    "name": "中信银行 (citicbank-rect)",
+    "aliases": [
+      "citicbank-rect",
+      "中信银行"
+    ],
+    "file": "citicbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:citicbank",
+    "name": "中信银行 (citicbank)",
+    "aliases": [
+      "citicbank",
+      "中信银行"
+    ],
+    "file": "citicbank.svg"
+  },
+  {
+    "key": "bank-logo:cjccb-rect",
+    "name": "江苏长江商业银行 (cjccb-rect)",
+    "aliases": [
+      "cjccb-rect",
+      "江苏长江商业银行"
+    ],
+    "file": "cjccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:cjccb",
+    "name": "江苏长江商业银行 (cjccb)",
+    "aliases": [
+      "cjccb",
+      "江苏长江商业银行"
+    ],
+    "file": "cjccb.svg"
+  },
+  {
+    "key": "bank-logo:cmbc-rect",
+    "name": "中国民生银行 (cmbc-rect)",
+    "aliases": [
+      "cmbc-rect",
+      "中国民生银行"
+    ],
+    "file": "cmbc-rect.svg"
+  },
+  {
+    "key": "bank-logo:cmbc",
+    "name": "中国民生银行 (cmbc)",
+    "aliases": [
+      "cmbc",
+      "中国民生银行"
+    ],
+    "file": "cmbc.svg"
+  },
+  {
+    "key": "bank-logo:cmbchina-rect",
+    "name": "招商银行 (cmbchina-rect)",
+    "aliases": [
+      "cmbchina-rect",
+      "招商银行"
+    ],
+    "file": "cmbchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:cmbchina",
+    "name": "招商银行 (cmbchina)",
+    "aliases": [
+      "cmbchina",
+      "招商银行"
+    ],
+    "file": "cmbchina.svg"
+  },
+  {
+    "key": "bank-logo:cmbcn-rect",
+    "name": "华商银行 (cmbcn-rect)",
+    "aliases": [
+      "cmbcn-rect",
+      "华商银行"
+    ],
+    "file": "cmbcn-rect.svg"
+  },
+  {
+    "key": "bank-logo:cmbcn",
+    "name": "华商银行 (cmbcn)",
+    "aliases": [
+      "cmbcn",
+      "华商银行"
+    ],
+    "file": "cmbcn.svg"
+  },
+  {
+    "key": "bank-logo:cqcbank-rect",
+    "name": "重庆银行 (cqcbank-rect)",
+    "aliases": [
+      "cqcbank-rect",
+      "重庆银行"
+    ],
+    "file": "cqcbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:cqcbank",
+    "name": "重庆银行 (cqcbank)",
+    "aliases": [
+      "cqcbank",
+      "重庆银行"
+    ],
+    "file": "cqcbank.svg"
+  },
+  {
+    "key": "bank-logo:cqrcb-rect",
+    "name": "重庆农商 (cqrcb-rect)",
+    "aliases": [
+      "cqrcb-rect",
+      "重庆农商"
+    ],
+    "file": "cqrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:cqrcb",
+    "name": "重庆农商 (cqrcb)",
+    "aliases": [
+      "cqrcb",
+      "重庆农商"
+    ],
+    "file": "cqrcb.svg"
+  },
+  {
+    "key": "bank-logo:crbank-rect",
+    "name": "华润银行 (crbank-rect)",
+    "aliases": [
+      "crbank-rect",
+      "华润银行"
+    ],
+    "file": "crbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:crbank",
+    "name": "华润银行 (crbank)",
+    "aliases": [
+      "crbank",
+      "华润银行"
+    ],
+    "file": "crbank.svg"
+  },
+  {
+    "key": "bank-logo:cscb-rect",
+    "name": "长沙银行 (cscb-rect)",
+    "aliases": [
+      "cscb-rect",
+      "长沙银行"
+    ],
+    "file": "cscb-rect.svg"
+  },
+  {
+    "key": "bank-logo:cscb",
+    "name": "长沙银行 (cscb)",
+    "aliases": [
+      "cscb",
+      "长沙银行"
+    ],
+    "file": "cscb.svg"
+  },
+  {
+    "key": "bank-logo:csrc-rect",
+    "name": "证监会 (csrc-rect)",
+    "aliases": [
+      "csrc-rect",
+      "证监会"
+    ],
+    "file": "csrc-rect.svg"
+  },
+  {
+    "key": "bank-logo:csrc",
+    "name": "证监会 (csrc)",
+    "aliases": [
+      "csrc",
+      "证监会"
+    ],
+    "file": "csrc.svg"
+  },
+  {
+    "key": "bank-logo:csrcbank-rect",
+    "name": "常熟农商 (csrcbank-rect)",
+    "aliases": [
+      "csrcbank-rect",
+      "常熟农商"
+    ],
+    "file": "csrcbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:csrcbank",
+    "name": "常熟农商 (csrcbank)",
+    "aliases": [
+      "csrcbank",
+      "常熟农商"
+    ],
+    "file": "csrcbank.svg"
+  },
+  {
+    "key": "bank-logo:csxbank-rect",
+    "name": "三湘银行 (csxbank-rect)",
+    "aliases": [
+      "csxbank-rect",
+      "三湘银行"
+    ],
+    "file": "csxbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:csxbank",
+    "name": "三湘银行 (csxbank)",
+    "aliases": [
+      "csxbank",
+      "三湘银行"
+    ],
+    "file": "csxbank.svg"
+  },
+  {
+    "key": "bank-logo:cycb-rect",
+    "name": "朝阳银行 (cycb-rect)",
+    "aliases": [
+      "cycb-rect",
+      "朝阳银行"
+    ],
+    "file": "cycb-rect.svg"
+  },
+  {
+    "key": "bank-logo:cycb",
+    "name": "朝阳银行 (cycb)",
+    "aliases": [
+      "cycb",
+      "朝阳银行"
+    ],
+    "file": "cycb.svg"
+  },
+  {
+    "key": "bank-logo:czbank-rect",
+    "name": "浙商银行 (czbank-rect)",
+    "aliases": [
+      "czbank-rect",
+      "浙商银行"
+    ],
+    "file": "czbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:czbank",
+    "name": "浙商银行 (czbank)",
+    "aliases": [
+      "czbank",
+      "浙商银行"
+    ],
+    "file": "czbank.svg"
+  },
+  {
+    "key": "bank-logo:czcb-rect",
+    "name": "浙江稠州商业银行 (czcb-rect)",
+    "aliases": [
+      "czcb-rect",
+      "浙江稠州商业银行"
+    ],
+    "file": "czcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:czcb",
+    "name": "浙江稠州商业银行 (czcb)",
+    "aliases": [
+      "czcb",
+      "浙江稠州商业银行"
+    ],
+    "file": "czcb.svg"
+  },
+  {
+    "key": "bank-logo:dahsing-rect",
+    "name": "大新银行 (dahsing-rect)",
+    "aliases": [
+      "dahsing-rect",
+      "大新银行"
+    ],
+    "file": "dahsing-rect.svg"
+  },
+  {
+    "key": "bank-logo:dahsing",
+    "name": "大新银行 (dahsing)",
+    "aliases": [
+      "dahsing",
+      "大新银行"
+    ],
+    "file": "dahsing.svg"
+  },
+  {
+    "key": "bank-logo:dandongbank-rect",
+    "name": "丹东银行 (dandongbank-rect)",
+    "aliases": [
+      "dandongbank-rect",
+      "丹东银行"
+    ],
+    "file": "dandongbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:dandongbank",
+    "name": "丹东银行 (dandongbank)",
+    "aliases": [
+      "dandongbank",
+      "丹东银行"
+    ],
+    "file": "dandongbank.svg"
+  },
+  {
+    "key": "bank-logo:dbs-rect",
+    "name": "星展银行 (dbs-rect)",
+    "aliases": [
+      "dbs-rect",
+      "星展银行"
+    ],
+    "file": "dbs-rect.svg"
+  },
+  {
+    "key": "bank-logo:dbs",
+    "name": "星展银行 (dbs)",
+    "aliases": [
+      "dbs",
+      "星展银行"
+    ],
+    "file": "dbs.svg"
+  },
+  {
+    "key": "bank-logo:dongguanbank-rect",
+    "name": "东莞银行 (dongguanbank-rect)",
+    "aliases": [
+      "dongguanbank-rect",
+      "东莞银行"
+    ],
+    "file": "dongguanbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:dongguanbank",
+    "name": "东莞银行 (dongguanbank)",
+    "aliases": [
+      "dongguanbank",
+      "东莞银行"
+    ],
+    "file": "dongguanbank.svg"
+  },
+  {
+    "key": "bank-logo:drcbank-rect",
+    "name": "东莞农商 (drcbank-rect)",
+    "aliases": [
+      "drcbank-rect",
+      "东莞农商"
+    ],
+    "file": "drcbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:drcbank",
+    "name": "东莞农商 (drcbank)",
+    "aliases": [
+      "drcbank",
+      "东莞农商"
+    ],
+    "file": "drcbank.svg"
+  },
+  {
+    "key": "bank-logo:dyccb-rect",
+    "name": "东营银行 (dyccb-rect)",
+    "aliases": [
+      "dyccb-rect",
+      "东营银行"
+    ],
+    "file": "dyccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:dyccb",
+    "name": "东营银行 (dyccb)",
+    "aliases": [
+      "dyccb",
+      "东营银行"
+    ],
+    "file": "dyccb.svg"
+  },
+  {
+    "key": "bank-logo:dzbchina-rect",
+    "name": "德州银行 (dzbchina-rect)",
+    "aliases": [
+      "dzbchina-rect",
+      "德州银行"
+    ],
+    "file": "dzbchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:dzbchina",
+    "name": "德州银行 (dzbchina)",
+    "aliases": [
+      "dzbchina",
+      "德州银行"
+    ],
+    "file": "dzbchina.svg"
+  },
+  {
+    "key": "bank-logo:dzccb-rect",
+    "name": "达州银行 (dzccb-rect)",
+    "aliases": [
+      "dzccb-rect",
+      "达州银行"
+    ],
+    "file": "dzccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:dzccb",
+    "name": "达州银行 (dzccb)",
+    "aliases": [
+      "dzccb",
+      "达州银行"
+    ],
+    "file": "dzccb.svg"
+  },
+  {
+    "key": "bank-logo:eastwestbank-rect",
+    "name": "华美银行 (eastwestbank-rect)",
+    "aliases": [
+      "eastwestbank-rect",
+      "华美银行"
+    ],
+    "file": "eastwestbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:eastwestbank",
+    "name": "华美银行 (eastwestbank)",
+    "aliases": [
+      "eastwestbank",
+      "华美银行"
+    ],
+    "file": "eastwestbank.svg"
+  },
+  {
+    "key": "bank-logo:eximbank-rect",
+    "name": "中国进出口银行 (eximbank-rect)",
+    "aliases": [
+      "eximbank-rect",
+      "中国进出口银行"
+    ],
+    "file": "eximbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:eximbank",
+    "name": "中国进出口银行 (eximbank)",
+    "aliases": [
+      "eximbank",
+      "中国进出口银行"
+    ],
+    "file": "eximbank.svg"
+  },
+  {
+    "key": "bank-logo:firstbank-rect",
+    "name": "第一银行 (firstbank-rect)",
+    "aliases": [
+      "firstbank-rect",
+      "第一银行"
+    ],
+    "file": "firstbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:firstbank",
+    "name": "第一银行 (firstbank)",
+    "aliases": [
+      "firstbank",
+      "第一银行"
+    ],
+    "file": "firstbank.svg"
+  },
+  {
+    "key": "bank-logo:fjhxbank-rect",
+    "name": "福建海峡银行 (fjhxbank-rect)",
+    "aliases": [
+      "fjhxbank-rect",
+      "福建海峡银行"
+    ],
+    "file": "fjhxbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:fjhxbank",
+    "name": "福建海峡银行 (fjhxbank)",
+    "aliases": [
+      "fjhxbank",
+      "福建海峡银行"
+    ],
+    "file": "fjhxbank.svg"
+  },
+  {
+    "key": "bank-logo:foshanbank-rect",
+    "name": "佛山农商 (foshanbank-rect)",
+    "aliases": [
+      "foshanbank-rect",
+      "佛山农商"
+    ],
+    "file": "foshanbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:foshanbank",
+    "name": "佛山农商 (foshanbank)",
+    "aliases": [
+      "foshanbank",
+      "佛山农商"
+    ],
+    "file": "foshanbank.svg"
+  },
+  {
+    "key": "bank-logo:fubonchina-rect",
+    "name": "富邦华一银行 (fubonchina-rect)",
+    "aliases": [
+      "fubonchina-rect",
+      "富邦华一银行"
+    ],
+    "file": "fubonchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:fubonchina",
+    "name": "富邦华一银行 (fubonchina)",
+    "aliases": [
+      "fubonchina",
+      "富邦华一银行"
+    ],
+    "file": "fubonchina.svg"
+  },
+  {
+    "key": "bank-logo:fudian-rect",
+    "name": "富滇银行 (fudian-rect)",
+    "aliases": [
+      "fudian-rect",
+      "富滇银行"
+    ],
+    "file": "fudian-rect.svg"
+  },
+  {
+    "key": "bank-logo:fudian",
+    "name": "富滇银行 (fudian)",
+    "aliases": [
+      "fudian",
+      "富滇银行"
+    ],
+    "file": "fudian.svg"
+  },
+  {
+    "key": "bank-logo:fuxinbank-rect",
+    "name": "阜新银行 (fuxinbank-rect)",
+    "aliases": [
+      "fuxinbank-rect",
+      "阜新银行"
+    ],
+    "file": "fuxinbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:fuxinbank",
+    "name": "阜新银行 (fuxinbank)",
+    "aliases": [
+      "fuxinbank",
+      "阜新银行"
+    ],
+    "file": "fuxinbank.svg"
+  },
+  {
+    "key": "bank-logo:gdnybank-rect",
+    "name": "广东南粤银行 (gdnybank-rect)",
+    "aliases": [
+      "gdnybank-rect",
+      "广东南粤银行"
+    ],
+    "file": "gdnybank-rect.svg"
+  },
+  {
+    "key": "bank-logo:gdnybank",
+    "name": "广东南粤银行 (gdnybank)",
+    "aliases": [
+      "gdnybank",
+      "广东南粤银行"
+    ],
+    "file": "gdnybank.svg"
+  },
+  {
+    "key": "bank-logo:ghbank-rect",
+    "name": "广东华兴银行 (ghbank-rect)",
+    "aliases": [
+      "ghbank-rect",
+      "广东华兴银行"
+    ],
+    "file": "ghbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:ghbank",
+    "name": "广东华兴银行 (ghbank)",
+    "aliases": [
+      "ghbank",
+      "广东华兴银行"
+    ],
+    "file": "ghbank.svg"
+  },
+  {
+    "key": "bank-logo:grcbank-rect",
+    "name": "广东农商 (grcbank-rect)",
+    "aliases": [
+      "grcbank-rect",
+      "广东农商"
+    ],
+    "file": "grcbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:grcbank",
+    "name": "广东农商 (grcbank)",
+    "aliases": [
+      "grcbank",
+      "广东农商"
+    ],
+    "file": "grcbank.svg"
+  },
+  {
+    "key": "bank-logo:gsbankchina-rect",
+    "name": "甘肃银行 (gsbankchina-rect)",
+    "aliases": [
+      "gsbankchina-rect",
+      "甘肃银行"
+    ],
+    "file": "gsbankchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:gsbankchina",
+    "name": "甘肃银行 (gsbankchina)",
+    "aliases": [
+      "gsbankchina",
+      "甘肃银行"
+    ],
+    "file": "gsbankchina.svg"
+  },
+  {
+    "key": "bank-logo:guilinbank-rect",
+    "name": "桂林银行 (guilinbank-rect)",
+    "aliases": [
+      "guilinbank-rect",
+      "桂林银行"
+    ],
+    "file": "guilinbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:guilinbank",
+    "name": "桂林银行 (guilinbank)",
+    "aliases": [
+      "guilinbank",
+      "桂林银行"
+    ],
+    "file": "guilinbank.svg"
+  },
+  {
+    "key": "bank-logo:gx966888-rect",
+    "name": "广西农村信用社 (gx966888-rect)",
+    "aliases": [
+      "gx966888-rect",
+      "广西农村信用社"
+    ],
+    "file": "gx966888-rect.svg"
+  },
+  {
+    "key": "bank-logo:gx966888",
+    "name": "广西农村信用社 (gx966888)",
+    "aliases": [
+      "gx966888",
+      "广西农村信用社"
+    ],
+    "file": "gx966888.svg"
+  },
+  {
+    "key": "bank-logo:gzcb-rect",
+    "name": "广州银行 (gzcb-rect)",
+    "aliases": [
+      "gzcb-rect",
+      "广州银行"
+    ],
+    "file": "gzcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:gzcb",
+    "name": "广州银行 (gzcb)",
+    "aliases": [
+      "gzcb",
+      "广州银行"
+    ],
+    "file": "gzcb.svg"
+  },
+  {
+    "key": "bank-logo:gzccb-rect",
+    "name": "赣州银行 (gzccb-rect)",
+    "aliases": [
+      "gzccb-rect",
+      "赣州银行"
+    ],
+    "file": "gzccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:gzccb",
+    "name": "赣州银行 (gzccb)",
+    "aliases": [
+      "gzccb",
+      "赣州银行"
+    ],
+    "file": "gzccb.svg"
+  },
+  {
+    "key": "bank-logo:hanabank-rect",
+    "name": "韩亚银行 (hanabank-rect)",
+    "aliases": [
+      "hanabank-rect",
+      "韩亚银行"
+    ],
+    "file": "hanabank-rect.svg"
+  },
+  {
+    "key": "bank-logo:hanabank",
+    "name": "韩亚银行 (hanabank)",
+    "aliases": [
+      "hanabank",
+      "韩亚银行"
+    ],
+    "file": "hanabank.svg"
+  },
+  {
+    "key": "bank-logo:hangseng-rect",
+    "name": "恒生银行 (hangseng-rect)",
+    "aliases": [
+      "hangseng-rect",
+      "恒生银行"
+    ],
+    "file": "hangseng-rect.svg"
+  },
+  {
+    "key": "bank-logo:hangseng",
+    "name": "恒生银行 (hangseng)",
+    "aliases": [
+      "hangseng",
+      "恒生银行"
+    ],
+    "file": "hangseng.svg"
+  },
+  {
+    "key": "bank-logo:hdcb-rect",
+    "name": "邯郸银行 (hdcb-rect)",
+    "aliases": [
+      "hdcb-rect",
+      "邯郸银行"
+    ],
+    "file": "hdcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:hdcb",
+    "name": "邯郸银行 (hdcb)",
+    "aliases": [
+      "hdcb",
+      "邯郸银行"
+    ],
+    "file": "hdcb.svg"
+  },
+  {
+    "key": "bank-logo:hebbank-rect",
+    "name": "河北银行 (hebbank-rect)",
+    "aliases": [
+      "hebbank-rect",
+      "河北银行"
+    ],
+    "file": "hebbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:hebbank",
+    "name": "河北银行 (hebbank)",
+    "aliases": [
+      "hebbank",
+      "河北银行"
+    ],
+    "file": "hebbank.svg"
+  },
+  {
+    "key": "bank-logo:hfbank-rect",
+    "name": "恒丰银行 (hfbank-rect)",
+    "aliases": [
+      "hfbank-rect",
+      "恒丰银行"
+    ],
+    "file": "hfbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:hfbank",
+    "name": "恒丰银行 (hfbank)",
+    "aliases": [
+      "hfbank",
+      "恒丰银行"
+    ],
+    "file": "hfbank.svg"
+  },
+  {
+    "key": "bank-logo:hfrcbc-rect",
+    "name": "合肥科技农商 (hfrcbc-rect)",
+    "aliases": [
+      "hfrcbc-rect",
+      "合肥科技农商"
+    ],
+    "file": "hfrcbc-rect.svg"
+  },
+  {
+    "key": "bank-logo:hfrcbc",
+    "name": "合肥科技农商 (hfrcbc)",
+    "aliases": [
+      "hfrcbc",
+      "合肥科技农商"
+    ],
+    "file": "hfrcbc.svg"
+  },
+  {
+    "key": "bank-logo:hkbchina-rect",
+    "name": "汉口银行 (hkbchina-rect)",
+    "aliases": [
+      "hkbchina-rect",
+      "汉口银行"
+    ],
+    "file": "hkbchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:hkbchina",
+    "name": "汉口银行 (hkbchina)",
+    "aliases": [
+      "hkbchina",
+      "汉口银行"
+    ],
+    "file": "hkbchina.svg"
+  },
+  {
+    "key": "bank-logo:hkbea-rect",
+    "name": "东亚银行 (hkbea-rect)",
+    "aliases": [
+      "hkbea-rect",
+      "东亚银行"
+    ],
+    "file": "hkbea-rect.svg"
+  },
+  {
+    "key": "bank-logo:hkbea",
+    "name": "东亚银行 (hkbea)",
+    "aliases": [
+      "hkbea",
+      "东亚银行"
+    ],
+    "file": "hkbea.svg"
+  },
+  {
+    "key": "bank-logo:hnnxs-rect",
+    "name": "湖南省农村信用社 (hnnxs-rect)",
+    "aliases": [
+      "hnnxs-rect",
+      "湖南省农村信用社"
+    ],
+    "file": "hnnxs-rect.svg"
+  },
+  {
+    "key": "bank-logo:hnnxs",
+    "name": "湖南省农村信用社 (hnnxs)",
+    "aliases": [
+      "hnnxs",
+      "湖南省农村信用社"
+    ],
+    "file": "hnnxs.svg"
+  },
+  {
+    "key": "bank-logo:hrbb-rect",
+    "name": "哈尔滨银行 (hrbb-rect)",
+    "aliases": [
+      "hrbb-rect",
+      "哈尔滨银行"
+    ],
+    "file": "hrbb-rect.svg"
+  },
+  {
+    "key": "bank-logo:hrbb",
+    "name": "哈尔滨银行 (hrbb)",
+    "aliases": [
+      "hrbb",
+      "哈尔滨银行"
+    ],
+    "file": "hrbb.svg"
+  },
+  {
+    "key": "bank-logo:hrxjbank-rect",
+    "name": "华融湘江银行 (hrxjbank-rect)",
+    "aliases": [
+      "hrxjbank-rect",
+      "华融湘江银行"
+    ],
+    "file": "hrxjbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:hrxjbank",
+    "name": "华融湘江银行 (hrxjbank)",
+    "aliases": [
+      "hrxjbank",
+      "华融湘江银行"
+    ],
+    "file": "hrxjbank.svg"
+  },
+  {
+    "key": "bank-logo:hsbank-rect",
+    "name": "徽商银行 (hsbank-rect)",
+    "aliases": [
+      "hsbank-rect",
+      "徽商银行"
+    ],
+    "file": "hsbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:hsbank",
+    "name": "徽商银行 (hsbank)",
+    "aliases": [
+      "hsbank",
+      "徽商银行"
+    ],
+    "file": "hsbank.svg"
+  },
+  {
+    "key": "bank-logo:hsbc-rect",
+    "name": "汇丰银行 (hsbc-rect)",
+    "aliases": [
+      "hsbc-rect",
+      "汇丰银行"
+    ],
+    "file": "hsbc-rect.svg"
+  },
+  {
+    "key": "bank-logo:hsbc",
+    "name": "汇丰银行 (hsbc)",
+    "aliases": [
+      "hsbc",
+      "汇丰银行"
+    ],
+    "file": "hsbc.svg"
+  },
+  {
+    "key": "bank-logo:hubeibank-rect",
+    "name": "湖北银行 (hubeibank-rect)",
+    "aliases": [
+      "hubeibank-rect",
+      "湖北银行"
+    ],
+    "file": "hubeibank-rect.svg"
+  },
+  {
+    "key": "bank-logo:hubeibank",
+    "name": "湖北银行 (hubeibank)",
+    "aliases": [
+      "hubeibank",
+      "湖北银行"
+    ],
+    "file": "hubeibank.svg"
+  },
+  {
+    "key": "bank-logo:hxb-rect",
+    "name": "华夏银行 (hxb-rect)",
+    "aliases": [
+      "hxb-rect",
+      "华夏银行"
+    ],
+    "file": "hxb-rect.svg"
+  },
+  {
+    "key": "bank-logo:hxb",
+    "name": "华夏银行 (hxb)",
+    "aliases": [
+      "hxb",
+      "华夏银行"
+    ],
+    "file": "hxb.svg"
+  },
+  {
+    "key": "bank-logo:hzbank-rect",
+    "name": "杭州银行 (hzbank-rect)",
+    "aliases": [
+      "hzbank-rect",
+      "杭州银行"
+    ],
+    "file": "hzbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:hzbank",
+    "name": "杭州银行 (hzbank)",
+    "aliases": [
+      "hzbank",
+      "杭州银行"
+    ],
+    "file": "hzbank.svg"
+  },
+  {
+    "key": "bank-logo:hzccb-rect",
+    "name": "湖州银行 (hzccb-rect)",
+    "aliases": [
+      "hzccb-rect",
+      "湖州银行"
+    ],
+    "file": "hzccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:hzccb",
+    "name": "湖州银行 (hzccb)",
+    "aliases": [
+      "hzccb",
+      "湖州银行"
+    ],
+    "file": "hzccb.svg"
+  },
+  {
+    "key": "bank-logo:hznsyh-rect",
+    "name": "惠州农商 (hznsyh-rect)",
+    "aliases": [
+      "hznsyh-rect",
+      "惠州农商"
+    ],
+    "file": "hznsyh-rect.svg"
+  },
+  {
+    "key": "bank-logo:hznsyh",
+    "name": "惠州农商 (hznsyh)",
+    "aliases": [
+      "hznsyh",
+      "惠州农商"
+    ],
+    "file": "hznsyh.svg"
+  },
+  {
+    "key": "bank-logo:ibk-rect",
+    "name": "韩国企业银行 (ibk-rect)",
+    "aliases": [
+      "ibk-rect",
+      "韩国企业银行"
+    ],
+    "file": "ibk-rect.svg"
+  },
+  {
+    "key": "bank-logo:ibk",
+    "name": "韩国企业银行 (ibk)",
+    "aliases": [
+      "ibk",
+      "韩国企业银行"
+    ],
+    "file": "ibk.svg"
+  },
+  {
+    "key": "bank-logo:icbc-rect",
+    "name": "中国工商银行 (icbc-rect)",
+    "aliases": [
+      "icbc-rect",
+      "中国工商银行"
+    ],
+    "file": "icbc-rect.svg"
+  },
+  {
+    "key": "bank-logo:icbc",
+    "name": "中国工商银行 (icbc)",
+    "aliases": [
+      "icbc",
+      "中国工商银行"
+    ],
+    "file": "icbc.svg"
+  },
+  {
+    "key": "bank-logo:jhccb-rect",
+    "name": "金华银行 (jhccb-rect)",
+    "aliases": [
+      "jhccb-rect",
+      "金华银行"
+    ],
+    "file": "jhccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:jhccb",
+    "name": "金华银行 (jhccb)",
+    "aliases": [
+      "jhccb",
+      "金华银行"
+    ],
+    "file": "jhccb.svg"
+  },
+  {
+    "key": "bank-logo:jhrcbank-rect",
+    "name": "建湖农商 (jhrcbank-rect)",
+    "aliases": [
+      "jhrcbank-rect",
+      "建湖农商"
+    ],
+    "file": "jhrcbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:jhrcbank",
+    "name": "建湖农商 (jhrcbank)",
+    "aliases": [
+      "jhrcbank",
+      "建湖农商"
+    ],
+    "file": "jhrcbank.svg"
+  },
+  {
+    "key": "bank-logo:jinzhoubank-rect",
+    "name": "锦州银行 (jinzhoubank-rect)",
+    "aliases": [
+      "jinzhoubank-rect",
+      "锦州银行"
+    ],
+    "file": "jinzhoubank-rect.svg"
+  },
+  {
+    "key": "bank-logo:jinzhoubank",
+    "name": "锦州银行 (jinzhoubank)",
+    "aliases": [
+      "jinzhoubank",
+      "锦州银行"
+    ],
+    "file": "jinzhoubank.svg"
+  },
+  {
+    "key": "bank-logo:jjbank-rect",
+    "name": "江苏靖江农商 (jjbank-rect)",
+    "aliases": [
+      "jjbank-rect",
+      "江苏靖江农商"
+    ],
+    "file": "jjbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:jjbank",
+    "name": "江苏靖江农商 (jjbank)",
+    "aliases": [
+      "jjbank",
+      "江苏靖江农商"
+    ],
+    "file": "jjbank.svg"
+  },
+  {
+    "key": "bank-logo:jjccb-rect",
+    "name": "九江银行 (jjccb-rect)",
+    "aliases": [
+      "jjccb-rect",
+      "九江银行"
+    ],
+    "file": "jjccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:jjccb",
+    "name": "九江银行 (jjccb)",
+    "aliases": [
+      "jjccb",
+      "九江银行"
+    ],
+    "file": "jjccb.svg"
+  },
+  {
+    "key": "bank-logo:jlbank-rect",
+    "name": "吉林银行 (jlbank-rect)",
+    "aliases": [
+      "jlbank-rect",
+      "吉林银行"
+    ],
+    "file": "jlbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:jlbank",
+    "name": "吉林银行 (jlbank)",
+    "aliases": [
+      "jlbank",
+      "吉林银行"
+    ],
+    "file": "jlbank.svg"
+  },
+  {
+    "key": "bank-logo:jmrcb-rect",
+    "name": "江门农商 (jmrcb-rect)",
+    "aliases": [
+      "jmrcb-rect",
+      "江门农商"
+    ],
+    "file": "jmrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:jmrcb",
+    "name": "江门农商 (jmrcb)",
+    "aliases": [
+      "jmrcb",
+      "江门农商"
+    ],
+    "file": "jmrcb.svg"
+  },
+  {
+    "key": "bank-logo:jn-bank-rect",
+    "name": "济宁银行 (jn-bank-rect)",
+    "aliases": [
+      "jn-bank-rect",
+      "济宁银行"
+    ],
+    "file": "jn-bank-rect.svg"
+  },
+  {
+    "key": "bank-logo:jn-bank",
+    "name": "济宁银行 (jn-bank)",
+    "aliases": [
+      "jn-bank",
+      "济宁银行"
+    ],
+    "file": "jn-bank.svg"
+  },
+  {
+    "key": "bank-logo:jnbank-rect",
+    "name": "合肥科技农商 (jnbank-rect)",
+    "aliases": [
+      "jnbank-rect",
+      "合肥科技农商"
+    ],
+    "file": "jnbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:jnbank",
+    "name": "合肥科技农商 (jnbank)",
+    "aliases": [
+      "jnbank",
+      "合肥科技农商"
+    ],
+    "file": "jnbank.svg"
+  },
+  {
+    "key": "bank-logo:jpmorganchina-rect",
+    "name": "摩根大通银行 (jpmorganchina-rect)",
+    "aliases": [
+      "jpmorganchina-rect",
+      "摩根大通银行"
+    ],
+    "file": "jpmorganchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:jpmorganchina",
+    "name": "摩根大通银行 (jpmorganchina)",
+    "aliases": [
+      "jpmorganchina",
+      "摩根大通银行"
+    ],
+    "file": "jpmorganchina.svg"
+  },
+  {
+    "key": "bank-logo:jrnsh-rect",
+    "name": "江苏句容农商 (jrnsh-rect)",
+    "aliases": [
+      "jrnsh-rect",
+      "江苏句容农商"
+    ],
+    "file": "jrnsh-rect.svg"
+  },
+  {
+    "key": "bank-logo:jrnsh",
+    "name": "江苏句容农商 (jrnsh)",
+    "aliases": [
+      "jrnsh",
+      "江苏句容农商"
+    ],
+    "file": "jrnsh.svg"
+  },
+  {
+    "key": "bank-logo:jsbchina-rect",
+    "name": "江苏银行 (jsbchina-rect)",
+    "aliases": [
+      "jsbchina-rect",
+      "江苏银行"
+    ],
+    "file": "jsbchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:jsbchina",
+    "name": "江苏银行 (jsbchina)",
+    "aliases": [
+      "jsbchina",
+      "江苏银行"
+    ],
+    "file": "jsbchina.svg"
+  },
+  {
+    "key": "bank-logo:jshbank-rect",
+    "name": "晋商银行 (jshbank-rect)",
+    "aliases": [
+      "jshbank-rect",
+      "晋商银行"
+    ],
+    "file": "jshbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:jshbank",
+    "name": "晋商银行 (jshbank)",
+    "aliases": [
+      "jshbank",
+      "晋商银行"
+    ],
+    "file": "jshbank.svg"
+  },
+  {
+    "key": "bank-logo:jsyxrcb-rect",
+    "name": "江苏宜兴农商 (jsyxrcb-rect)",
+    "aliases": [
+      "jsyxrcb-rect",
+      "江苏宜兴农商"
+    ],
+    "file": "jsyxrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:jsyxrcb",
+    "name": "江苏宜兴农商 (jsyxrcb)",
+    "aliases": [
+      "jsyxrcb",
+      "江苏宜兴农商"
+    ],
+    "file": "jsyxrcb.svg"
+  },
+  {
+    "key": "bank-logo:jtnsh-rect",
+    "name": "九台农商 (jtnsh-rect)",
+    "aliases": [
+      "jtnsh-rect",
+      "九台农商"
+    ],
+    "file": "jtnsh-rect.svg"
+  },
+  {
+    "key": "bank-logo:jtnsh",
+    "name": "九台农商 (jtnsh)",
+    "aliases": [
+      "jtnsh",
+      "九台农商"
+    ],
+    "file": "jtnsh.svg"
+  },
+  {
+    "key": "bank-logo:jx-bank-rect",
+    "name": "江西银行 (jx-bank-rect)",
+    "aliases": [
+      "jx-bank-rect",
+      "江西银行"
+    ],
+    "file": "jx-bank-rect.svg"
+  },
+  {
+    "key": "bank-logo:jx-bank",
+    "name": "江西银行 (jx-bank)",
+    "aliases": [
+      "jx-bank",
+      "江西银行"
+    ],
+    "file": "jx-bank.svg"
+  },
+  {
+    "key": "bank-logo:jybank-rect",
+    "name": "江阴农商 (jybank-rect)",
+    "aliases": [
+      "jybank-rect",
+      "江阴农商"
+    ],
+    "file": "jybank-rect.svg"
+  },
+  {
+    "key": "bank-logo:jybank",
+    "name": "江阴农商 (jybank)",
+    "aliases": [
+      "jybank",
+      "江阴农商"
+    ],
+    "file": "jybank.svg"
+  },
+  {
+    "key": "bank-logo:kbstarchina-rect",
+    "name": "韩国国民银行 (kbstarchina-rect)",
+    "aliases": [
+      "kbstarchina-rect",
+      "韩国国民银行"
+    ],
+    "file": "kbstarchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:kbstarchina",
+    "name": "韩国国民银行 (kbstarchina)",
+    "aliases": [
+      "kbstarchina",
+      "韩国国民银行"
+    ],
+    "file": "kbstarchina.svg"
+  },
+  {
+    "key": "bank-logo:klb-rect",
+    "name": "昆仑银行 (klb-rect)",
+    "aliases": [
+      "klb-rect",
+      "昆仑银行"
+    ],
+    "file": "klb-rect.svg"
+  },
+  {
+    "key": "bank-logo:klb",
+    "name": "昆仑银行 (klb)",
+    "aliases": [
+      "klb",
+      "昆仑银行"
+    ],
+    "file": "klb.svg"
+  },
+  {
+    "key": "bank-logo:ksrcb-rect",
+    "name": "昆山农商 (ksrcb-rect)",
+    "aliases": [
+      "ksrcb-rect",
+      "昆山农商"
+    ],
+    "file": "ksrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:ksrcb",
+    "name": "昆山农商 (ksrcb)",
+    "aliases": [
+      "ksrcb",
+      "昆山农商"
+    ],
+    "file": "ksrcb.svg"
+  },
+  {
+    "key": "bank-logo:lccb-rect",
+    "name": "廊坊银行 (lccb-rect)",
+    "aliases": [
+      "lccb-rect",
+      "廊坊银行"
+    ],
+    "file": "lccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:lccb",
+    "name": "廊坊银行 (lccb)",
+    "aliases": [
+      "lccb",
+      "廊坊银行"
+    ],
+    "file": "lccb.svg"
+  },
+  {
+    "key": "bank-logo:lj-bank-rect",
+    "name": "龙江银行 (lj-bank-rect)",
+    "aliases": [
+      "lj-bank-rect",
+      "龙江银行"
+    ],
+    "file": "lj-bank-rect.svg"
+  },
+  {
+    "key": "bank-logo:lj-bank",
+    "name": "龙江银行 (lj-bank)",
+    "aliases": [
+      "lj-bank",
+      "龙江银行"
+    ],
+    "file": "lj-bank.svg"
+  },
+  {
+    "key": "bank-logo:lqrcb-rect",
+    "name": "路桥农村合作银行 (lqrcb-rect)",
+    "aliases": [
+      "lqrcb-rect",
+      "路桥农村合作银行"
+    ],
+    "file": "lqrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:lqrcb",
+    "name": "路桥农村合作银行 (lqrcb)",
+    "aliases": [
+      "lqrcb",
+      "路桥农村合作银行"
+    ],
+    "file": "lqrcb.svg"
+  },
+  {
+    "key": "bank-logo:lsbankchina-rect",
+    "name": "莱商银行 (lsbankchina-rect)",
+    "aliases": [
+      "lsbankchina-rect",
+      "莱商银行"
+    ],
+    "file": "lsbankchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:lsbankchina",
+    "name": "莱商银行 (lsbankchina)",
+    "aliases": [
+      "lsbankchina",
+      "莱商银行"
+    ],
+    "file": "lsbankchina.svg"
+  },
+  {
+    "key": "bank-logo:lsbchina-rect",
+    "name": "临商银行 (lsbchina-rect)",
+    "aliases": [
+      "lsbchina-rect",
+      "临商银行"
+    ],
+    "file": "lsbchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:lsbchina",
+    "name": "临商银行 (lsbchina)",
+    "aliases": [
+      "lsbchina",
+      "临商银行"
+    ],
+    "file": "lsbchina.svg"
+  },
+  {
+    "key": "bank-logo:lsccb-rect",
+    "name": "乐山市商业银行 (lsccb-rect)",
+    "aliases": [
+      "lsccb-rect",
+      "乐山市商业银行"
+    ],
+    "file": "lsccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:lsccb",
+    "name": "乐山市商业银行 (lsccb)",
+    "aliases": [
+      "lsccb",
+      "乐山市商业银行"
+    ],
+    "file": "lsccb.svg"
+  },
+  {
+    "key": "bank-logo:luoyang-szgold-rect",
+    "name": "洛阳银行 (luoyang-szgold-rect)",
+    "aliases": [
+      "luoyang-szgold-rect",
+      "洛阳银行"
+    ],
+    "file": "luoyang-szgold-rect.svg"
+  },
+  {
+    "key": "bank-logo:luoyang-szgold",
+    "name": "洛阳银行 (luoyang-szgold)",
+    "aliases": [
+      "luoyang-szgold",
+      "洛阳银行"
+    ],
+    "file": "luoyang-szgold.svg"
+  },
+  {
+    "key": "bank-logo:lygdfrcb-rect",
+    "name": "连云港东方农商 (lygdfrcb-rect)",
+    "aliases": [
+      "lygdfrcb-rect",
+      "连云港东方农商"
+    ],
+    "file": "lygdfrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:lygdfrcb",
+    "name": "连云港东方农商 (lygdfrcb)",
+    "aliases": [
+      "lygdfrcb",
+      "连云港东方农商"
+    ],
+    "file": "lygdfrcb.svg"
+  },
+  {
+    "key": "bank-logo:lzbank-rect",
+    "name": "兰州银行 (lzbank-rect)",
+    "aliases": [
+      "lzbank-rect",
+      "兰州银行"
+    ],
+    "file": "lzbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:lzbank",
+    "name": "兰州银行 (lzbank)",
+    "aliases": [
+      "lzbank",
+      "兰州银行"
+    ],
+    "file": "lzbank.svg"
+  },
+  {
+    "key": "bank-logo:lzccb-rect",
+    "name": "泸州银行 (lzccb-rect)",
+    "aliases": [
+      "lzccb-rect",
+      "泸州银行"
+    ],
+    "file": "lzccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:lzccb",
+    "name": "泸州银行 (lzccb)",
+    "aliases": [
+      "lzccb",
+      "泸州银行"
+    ],
+    "file": "lzccb.svg"
+  },
+  {
+    "key": "bank-logo:masrcb-rect",
+    "name": "马鞍山农商 (masrcb-rect)",
+    "aliases": [
+      "masrcb-rect",
+      "马鞍山农商"
+    ],
+    "file": "masrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:masrcb",
+    "name": "马鞍山农商 (masrcb)",
+    "aliases": [
+      "masrcb",
+      "马鞍山农商"
+    ],
+    "file": "masrcb.svg"
+  },
+  {
+    "key": "bank-logo:maybank-rect",
+    "name": "马来亚银行 (maybank-rect)",
+    "aliases": [
+      "maybank-rect",
+      "马来亚银行"
+    ],
+    "file": "maybank-rect.svg"
+  },
+  {
+    "key": "bank-logo:maybank",
+    "name": "马来亚银行 (maybank)",
+    "aliases": [
+      "maybank",
+      "马来亚银行"
+    ],
+    "file": "maybank.svg"
+  },
+  {
+    "key": "bank-logo:megabank-rect",
+    "name": "兆丰国际商业银行 (megabank-rect)",
+    "aliases": [
+      "megabank-rect",
+      "兆丰国际商业银行"
+    ],
+    "file": "megabank-rect.svg"
+  },
+  {
+    "key": "bank-logo:megabank",
+    "name": "兆丰国际商业银行 (megabank)",
+    "aliases": [
+      "megabank",
+      "兆丰国际商业银行"
+    ],
+    "file": "megabank.svg"
+  },
+  {
+    "key": "bank-logo:meigin-rect",
+    "name": "名古屋银行 (meigin-rect)",
+    "aliases": [
+      "meigin-rect",
+      "名古屋银行"
+    ],
+    "file": "meigin-rect.svg"
+  },
+  {
+    "key": "bank-logo:meigin",
+    "name": "名古屋银行 (meigin)",
+    "aliases": [
+      "meigin",
+      "名古屋银行"
+    ],
+    "file": "meigin.svg"
+  },
+  {
+    "key": "bank-logo:mintaibank-rect",
+    "name": "浙江民泰商行 (mintaibank-rect)",
+    "aliases": [
+      "mintaibank-rect",
+      "浙江民泰商行"
+    ],
+    "file": "mintaibank-rect.svg"
+  },
+  {
+    "key": "bank-logo:mintaibank",
+    "name": "浙江民泰商行 (mintaibank)",
+    "aliases": [
+      "mintaibank",
+      "浙江民泰商行"
+    ],
+    "file": "mintaibank.svg"
+  },
+  {
+    "key": "bank-logo:mufg-rect",
+    "name": "东京三菱银行 (mufg-rect)",
+    "aliases": [
+      "mufg-rect",
+      "东京三菱银行"
+    ],
+    "file": "mufg-rect.svg"
+  },
+  {
+    "key": "bank-logo:mufg",
+    "name": "东京三菱银行 (mufg)",
+    "aliases": [
+      "mufg",
+      "东京三菱银行"
+    ],
+    "file": "mufg.svg"
+  },
+  {
+    "key": "bank-logo:mycc-rect",
+    "name": "绵阳商业银行 (mycc-rect)",
+    "aliases": [
+      "mycc-rect",
+      "绵阳商业银行"
+    ],
+    "file": "mycc-rect.svg"
+  },
+  {
+    "key": "bank-logo:mycc",
+    "name": "绵阳商业银行 (mycc)",
+    "aliases": [
+      "mycc",
+      "绵阳商业银行"
+    ],
+    "file": "mycc.svg"
+  },
+  {
+    "key": "bank-logo:nanhaibank-rect",
+    "name": "南海农商 (nanhaibank-rect)",
+    "aliases": [
+      "nanhaibank-rect",
+      "南海农商"
+    ],
+    "file": "nanhaibank-rect.svg"
+  },
+  {
+    "key": "bank-logo:nanhaibank",
+    "name": "南海农商 (nanhaibank)",
+    "aliases": [
+      "nanhaibank",
+      "南海农商"
+    ],
+    "file": "nanhaibank.svg"
+  },
+  {
+    "key": "bank-logo:nbcb-rect",
+    "name": "宁波银行 (nbcb-rect)",
+    "aliases": [
+      "nbcb-rect",
+      "宁波银行"
+    ],
+    "file": "nbcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:nbcb",
+    "name": "宁波银行 (nbcb)",
+    "aliases": [
+      "nbcb",
+      "宁波银行"
+    ],
+    "file": "nbcb.svg"
+  },
+  {
+    "key": "bank-logo:ncbank-rect",
+    "name": "宁波通商银行 (ncbank-rect)",
+    "aliases": [
+      "ncbank-rect",
+      "宁波通商银行"
+    ],
+    "file": "ncbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:ncbank",
+    "name": "宁波通商银行 (ncbank)",
+    "aliases": [
+      "ncbank",
+      "宁波通商银行"
+    ],
+    "file": "ncbank.svg"
+  },
+  {
+    "key": "bank-logo:ncbchina-rect",
+    "name": "南洋商业银行 (ncbchina-rect)",
+    "aliases": [
+      "ncbchina-rect",
+      "南洋商业银行"
+    ],
+    "file": "ncbchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:ncbchina",
+    "name": "南洋商业银行 (ncbchina)",
+    "aliases": [
+      "ncbchina",
+      "南洋商业银行"
+    ],
+    "file": "ncbchina.svg"
+  },
+  {
+    "key": "bank-logo:njcb-rect",
+    "name": "南京银行 (njcb-rect)",
+    "aliases": [
+      "njcb-rect",
+      "南京银行"
+    ],
+    "file": "njcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:njcb",
+    "name": "南京银行 (njcb)",
+    "aliases": [
+      "njcb",
+      "南京银行"
+    ],
+    "file": "njcb.svg"
+  },
+  {
+    "key": "bank-logo:norincogroup-rect",
+    "name": "中国银行业协会 (norincogroup-rect)",
+    "aliases": [
+      "norincogroup-rect",
+      "中国银行业协会"
+    ],
+    "file": "norincogroup-rect.svg"
+  },
+  {
+    "key": "bank-logo:norincogroup",
+    "name": "中国银行业协会 (norincogroup)",
+    "aliases": [
+      "norincogroup",
+      "中国银行业协会"
+    ],
+    "file": "norincogroup.svg"
+  },
+  {
+    "key": "bank-logo:o-bank-rect",
+    "name": "王道银行 (o-bank-rect)",
+    "aliases": [
+      "o-bank-rect",
+      "王道银行"
+    ],
+    "file": "o-bank-rect.svg"
+  },
+  {
+    "key": "bank-logo:o-bank",
+    "name": "王道银行 (o-bank)",
+    "aliases": [
+      "o-bank",
+      "王道银行"
+    ],
+    "file": "o-bank.svg"
+  },
+  {
+    "key": "bank-logo:ocbc-rect",
+    "name": "华侨永亨银行 (ocbc-rect)",
+    "aliases": [
+      "ocbc-rect",
+      "华侨永亨银行"
+    ],
+    "file": "ocbc-rect.svg"
+  },
+  {
+    "key": "bank-logo:ocbc",
+    "name": "华侨永亨银行 (ocbc)",
+    "aliases": [
+      "ocbc",
+      "华侨永亨银行"
+    ],
+    "file": "ocbc.svg"
+  },
+  {
+    "key": "bank-logo:ordosbank-rect",
+    "name": "鄂尔多斯银行 (ordosbank-rect)",
+    "aliases": [
+      "ordosbank-rect",
+      "鄂尔多斯银行"
+    ],
+    "file": "ordosbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:ordosbank",
+    "name": "鄂尔多斯银行 (ordosbank)",
+    "aliases": [
+      "ordosbank",
+      "鄂尔多斯银行"
+    ],
+    "file": "ordosbank.svg"
+  },
+  {
+    "key": "bank-logo:pbc-rect",
+    "name": "中国人民银行 (pbc-rect)",
+    "aliases": [
+      "pbc-rect",
+      "中国人民银行"
+    ],
+    "file": "pbc-rect.svg"
+  },
+  {
+    "key": "bank-logo:pbc",
+    "name": "中国人民银行 (pbc)",
+    "aliases": [
+      "pbc",
+      "中国人民银行"
+    ],
+    "file": "pbc.svg"
+  },
+  {
+    "key": "bank-logo:pingan-rect",
+    "name": "平安银行 (pingan-rect)",
+    "aliases": [
+      "pingan-rect",
+      "平安银行"
+    ],
+    "file": "pingan-rect.svg"
+  },
+  {
+    "key": "bank-logo:pingan",
+    "name": "平安银行 (pingan)",
+    "aliases": [
+      "pingan",
+      "平安银行"
+    ],
+    "file": "pingan.svg"
+  },
+  {
+    "key": "bank-logo:psbc-rect",
+    "name": "中国邮政储蓄银行 (psbc-rect)",
+    "aliases": [
+      "psbc-rect",
+      "中国邮政储蓄银行"
+    ],
+    "file": "psbc-rect.svg"
+  },
+  {
+    "key": "bank-logo:psbc",
+    "name": "中国邮政储蓄银行 (psbc)",
+    "aliases": [
+      "psbc",
+      "中国邮政储蓄银行"
+    ],
+    "file": "psbc.svg"
+  },
+  {
+    "key": "bank-logo:qdccb-rect",
+    "name": "青岛银行 (qdccb-rect)",
+    "aliases": [
+      "qdccb-rect",
+      "青岛银行"
+    ],
+    "file": "qdccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:qdccb",
+    "name": "青岛银行 (qdccb)",
+    "aliases": [
+      "qdccb",
+      "青岛银行"
+    ],
+    "file": "qdccb.svg"
+  },
+  {
+    "key": "bank-logo:qhdbank-rect",
+    "name": "秦皇岛银行 (qhdbank-rect)",
+    "aliases": [
+      "qhdbank-rect",
+      "秦皇岛银行"
+    ],
+    "file": "qhdbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:qhdbank",
+    "name": "秦皇岛银行 (qhdbank)",
+    "aliases": [
+      "qhdbank",
+      "秦皇岛银行"
+    ],
+    "file": "qhdbank.svg"
+  },
+  {
+    "key": "bank-logo:qingbank-rect",
+    "name": "清远农商 (qingbank-rect)",
+    "aliases": [
+      "qingbank-rect",
+      "清远农商"
+    ],
+    "file": "qingbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:qingbank",
+    "name": "清远农商 (qingbank)",
+    "aliases": [
+      "qingbank",
+      "清远农商"
+    ],
+    "file": "qingbank.svg"
+  },
+  {
+    "key": "bank-logo:qjccb-rect",
+    "name": "曲靖市商业银行 (qjccb-rect)",
+    "aliases": [
+      "qjccb-rect",
+      "曲靖市商业银行"
+    ],
+    "file": "qjccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:qjccb",
+    "name": "曲靖市商业银行 (qjccb)",
+    "aliases": [
+      "qjccb",
+      "曲靖市商业银行"
+    ],
+    "file": "qjccb.svg"
+  },
+  {
+    "key": "bank-logo:qlbchina-rect",
+    "name": "齐鲁银行 (qlbchina-rect)",
+    "aliases": [
+      "qlbchina-rect",
+      "齐鲁银行"
+    ],
+    "file": "qlbchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:qlbchina",
+    "name": "齐鲁银行 (qlbchina)",
+    "aliases": [
+      "qlbchina",
+      "齐鲁银行"
+    ],
+    "file": "qlbchina.svg"
+  },
+  {
+    "key": "bank-logo:qsbank-rect",
+    "name": "齐商银行 (qsbank-rect)",
+    "aliases": [
+      "qsbank-rect",
+      "齐商银行"
+    ],
+    "file": "qsbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:qsbank",
+    "name": "齐商银行 (qsbank)",
+    "aliases": [
+      "qsbank",
+      "齐商银行"
+    ],
+    "file": "qsbank.svg"
+  },
+  {
+    "key": "bank-logo:qzccbank-rect",
+    "name": "泉州银行 (qzccbank-rect)",
+    "aliases": [
+      "qzccbank-rect",
+      "泉州银行"
+    ],
+    "file": "qzccbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:qzccbank",
+    "name": "泉州银行 (qzccbank)",
+    "aliases": [
+      "qzccbank",
+      "泉州银行"
+    ],
+    "file": "qzccbank.svg"
+  },
+  {
+    "key": "bank-logo:rbcroyalbank-rect",
+    "name": "加拿大皇家银行 (rbcroyalbank-rect)",
+    "aliases": [
+      "rbcroyalbank-rect",
+      "加拿大皇家银行"
+    ],
+    "file": "rbcroyalbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:rbcroyalbank",
+    "name": "加拿大皇家银行 (rbcroyalbank)",
+    "aliases": [
+      "rbcroyalbank",
+      "加拿大皇家银行"
+    ],
+    "file": "rbcroyalbank.svg"
+  },
+  {
+    "key": "bank-logo:sc-rect",
+    "name": "枣庄银行 (sc-rect)",
+    "aliases": [
+      "sc-rect",
+      "枣庄银行"
+    ],
+    "file": "sc-rect.svg"
+  },
+  {
+    "key": "bank-logo:sc",
+    "name": "枣庄银行 (sc)",
+    "aliases": [
+      "sc",
+      "枣庄银行"
+    ],
+    "file": "sc.svg"
+  },
+  {
+    "key": "bank-logo:scnhh-rect",
+    "name": "安徽舒城农村商业银行 (scnhh-rect)",
+    "aliases": [
+      "scnhh-rect",
+      "安徽舒城农村商业银行"
+    ],
+    "file": "scnhh-rect.svg"
+  },
+  {
+    "key": "bank-logo:scnhh",
+    "name": "安徽舒城农村商业银行 (scnhh)",
+    "aliases": [
+      "scnhh",
+      "安徽舒城农村商业银行"
+    ],
+    "file": "scnhh.svg"
+  },
+  {
+    "key": "bank-logo:scotiabank-rect",
+    "name": "加拿大丰业银行 (scotiabank-rect)",
+    "aliases": [
+      "scotiabank-rect",
+      "加拿大丰业银行"
+    ],
+    "file": "scotiabank-rect.svg"
+  },
+  {
+    "key": "bank-logo:scotiabank",
+    "name": "加拿大丰业银行 (scotiabank)",
+    "aliases": [
+      "scotiabank",
+      "加拿大丰业银行"
+    ],
+    "file": "scotiabank.svg"
+  },
+  {
+    "key": "bank-logo:sdebank-rect",
+    "name": "顺德农商 (sdebank-rect)",
+    "aliases": [
+      "sdebank-rect",
+      "顺德农商"
+    ],
+    "file": "sdebank-rect.svg"
+  },
+  {
+    "key": "bank-logo:sdebank",
+    "name": "顺德农商 (sdebank)",
+    "aliases": [
+      "sdebank",
+      "顺德农商"
+    ],
+    "file": "sdebank.svg"
+  },
+  {
+    "key": "bank-logo:sdnxs-rect",
+    "name": "山东省农村信用社 (sdnxs-rect)",
+    "aliases": [
+      "sdnxs-rect",
+      "山东省农村信用社"
+    ],
+    "file": "sdnxs-rect.svg"
+  },
+  {
+    "key": "bank-logo:sdnxs",
+    "name": "山东省农村信用社 (sdnxs)",
+    "aliases": [
+      "sdnxs",
+      "山东省农村信用社"
+    ],
+    "file": "sdnxs.svg"
+  },
+  {
+    "key": "bank-logo:sgb-rect",
+    "name": "中德住房储蓄银行 (sgb-rect)",
+    "aliases": [
+      "sgb-rect",
+      "中德住房储蓄银行"
+    ],
+    "file": "sgb-rect.svg"
+  },
+  {
+    "key": "bank-logo:sgb",
+    "name": "中德住房储蓄银行 (sgb)",
+    "aliases": [
+      "sgb",
+      "中德住房储蓄银行"
+    ],
+    "file": "sgb.svg"
+  },
+  {
+    "key": "bank-logo:shengjingbank-rect",
+    "name": "盛京银行 (shengjingbank-rect)",
+    "aliases": [
+      "shengjingbank-rect",
+      "盛京银行"
+    ],
+    "file": "shengjingbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:shengjingbank",
+    "name": "盛京银行 (shengjingbank)",
+    "aliases": [
+      "shengjingbank",
+      "盛京银行"
+    ],
+    "file": "shengjingbank.svg"
+  },
+  {
+    "key": "bank-logo:sinopac-rect",
+    "name": "永丰银行 (sinopac-rect)",
+    "aliases": [
+      "sinopac-rect",
+      "永丰银行"
+    ],
+    "file": "sinopac-rect.svg"
+  },
+  {
+    "key": "bank-logo:sinopac",
+    "name": "永丰银行 (sinopac)",
+    "aliases": [
+      "sinopac",
+      "永丰银行"
+    ],
+    "file": "sinopac.svg"
+  },
+  {
+    "key": "bank-logo:snccb-rect",
+    "name": "遂宁银行 (snccb-rect)",
+    "aliases": [
+      "snccb-rect",
+      "遂宁银行"
+    ],
+    "file": "snccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:snccb",
+    "name": "遂宁银行 (snccb)",
+    "aliases": [
+      "snccb",
+      "遂宁银行"
+    ],
+    "file": "snccb.svg"
+  },
+  {
+    "key": "bank-logo:societegenerale-rect",
+    "name": "法兴银行 (societegenerale-rect)",
+    "aliases": [
+      "societegenerale-rect",
+      "法兴银行"
+    ],
+    "file": "societegenerale-rect.svg"
+  },
+  {
+    "key": "bank-logo:societegenerale",
+    "name": "法兴银行 (societegenerale)",
+    "aliases": [
+      "societegenerale",
+      "法兴银行"
+    ],
+    "file": "societegenerale.svg"
+  },
+  {
+    "key": "bank-logo:spdb-rect",
+    "name": "浦发银行 (spdb-rect)",
+    "aliases": [
+      "spdb-rect",
+      "浦发银行"
+    ],
+    "file": "spdb-rect.svg"
+  },
+  {
+    "key": "bank-logo:spdb",
+    "name": "浦发银行 (spdb)",
+    "aliases": [
+      "spdb",
+      "浦发银行"
+    ],
+    "file": "spdb.svg"
+  },
+  {
+    "key": "bank-logo:srbank-rect",
+    "name": "上饶银行 (srbank-rect)",
+    "aliases": [
+      "srbank-rect",
+      "上饶银行"
+    ],
+    "file": "srbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:srbank",
+    "name": "上饶银行 (srbank)",
+    "aliases": [
+      "srbank",
+      "上饶银行"
+    ],
+    "file": "srbank.svg"
+  },
+  {
+    "key": "bank-logo:srcb-rect",
+    "name": "上海农商 (srcb-rect)",
+    "aliases": [
+      "srcb-rect",
+      "上海农商"
+    ],
+    "file": "srcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:srcb",
+    "name": "上海农商 (srcb)",
+    "aliases": [
+      "srcb",
+      "上海农商"
+    ],
+    "file": "srcb.svg"
+  },
+  {
+    "key": "bank-logo:suzhoubank-rect",
+    "name": "苏州银行 (suzhoubank-rect)",
+    "aliases": [
+      "suzhoubank-rect",
+      "苏州银行"
+    ],
+    "file": "suzhoubank-rect.svg"
+  },
+  {
+    "key": "bank-logo:suzhoubank",
+    "name": "苏州银行 (suzhoubank)",
+    "aliases": [
+      "suzhoubank",
+      "苏州银行"
+    ],
+    "file": "suzhoubank.svg"
+  },
+  {
+    "key": "bank-logo:sxccb-rect",
+    "name": "绍兴银行 (sxccb-rect)",
+    "aliases": [
+      "sxccb-rect",
+      "绍兴银行"
+    ],
+    "file": "sxccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:sxccb",
+    "name": "绍兴银行 (sxccb)",
+    "aliases": [
+      "sxccb",
+      "绍兴银行"
+    ],
+    "file": "sxccb.svg"
+  },
+  {
+    "key": "bank-logo:syrcb-rect",
+    "name": "江苏射阳农商银行 (syrcb-rect)",
+    "aliases": [
+      "syrcb-rect",
+      "江苏射阳农商银行"
+    ],
+    "file": "syrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:syrcb",
+    "name": "江苏射阳农商银行 (syrcb)",
+    "aliases": [
+      "syrcb",
+      "江苏射阳农商银行"
+    ],
+    "file": "syrcb.svg"
+  },
+  {
+    "key": "bank-logo:szsccb-rect",
+    "name": "石嘴山银行 (szsccb-rect)",
+    "aliases": [
+      "szsccb-rect",
+      "石嘴山银行"
+    ],
+    "file": "szsccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:szsccb",
+    "name": "石嘴山银行 (szsccb)",
+    "aliases": [
+      "szsccb",
+      "石嘴山银行"
+    ],
+    "file": "szsccb.svg"
+  },
+  {
+    "key": "bank-logo:taccb-rect",
+    "name": "泰安银行 (taccb-rect)",
+    "aliases": [
+      "taccb-rect",
+      "泰安银行"
+    ],
+    "file": "taccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:taccb",
+    "name": "泰安银行 (taccb)",
+    "aliases": [
+      "taccb",
+      "泰安银行"
+    ],
+    "file": "taccb.svg"
+  },
+  {
+    "key": "bank-logo:tcb-bank-rect",
+    "name": "合作金库银行 (tcb-bank-rect)",
+    "aliases": [
+      "tcb-bank-rect",
+      "合作金库银行"
+    ],
+    "file": "tcb-bank-rect.svg"
+  },
+  {
+    "key": "bank-logo:tcb-bank",
+    "name": "合作金库银行 (tcb-bank)",
+    "aliases": [
+      "tcb-bank",
+      "合作金库银行"
+    ],
+    "file": "tcb-bank.svg"
+  },
+  {
+    "key": "bank-logo:tf-rect",
+    "name": "四川天府银行 (tf-rect)",
+    "aliases": [
+      "tf-rect",
+      "四川天府银行"
+    ],
+    "file": "tf-rect.svg"
+  },
+  {
+    "key": "bank-logo:tf",
+    "name": "四川天府银行 (tf)",
+    "aliases": [
+      "tf",
+      "四川天府银行"
+    ],
+    "file": "tf.svg"
+  },
+  {
+    "key": "bank-logo:tjbhb-rect",
+    "name": "天津滨海农商 (tjbhb-rect)",
+    "aliases": [
+      "tjbhb-rect",
+      "天津滨海农商"
+    ],
+    "file": "tjbhb-rect.svg"
+  },
+  {
+    "key": "bank-logo:tjbhb",
+    "name": "天津滨海农商 (tjbhb)",
+    "aliases": [
+      "tjbhb",
+      "天津滨海农商"
+    ],
+    "file": "tjbhb.svg"
+  },
+  {
+    "key": "bank-logo:trcbank-rect",
+    "name": "天津农商 (trcbank-rect)",
+    "aliases": [
+      "trcbank-rect",
+      "天津农商"
+    ],
+    "file": "trcbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:trcbank",
+    "name": "天津农商 (trcbank)",
+    "aliases": [
+      "trcbank",
+      "天津农商"
+    ],
+    "file": "trcbank.svg"
+  },
+  {
+    "key": "bank-logo:ts-bank-rect",
+    "name": "唐山银行 (ts-bank-rect)",
+    "aliases": [
+      "ts-bank-rect",
+      "唐山银行"
+    ],
+    "file": "ts-bank-rect.svg"
+  },
+  {
+    "key": "bank-logo:ts-bank",
+    "name": "唐山银行 (ts-bank)",
+    "aliases": [
+      "ts-bank",
+      "唐山银行"
+    ],
+    "file": "ts-bank.svg"
+  },
+  {
+    "key": "bank-logo:ubs-rect",
+    "name": "瑞士银行 (ubs-rect)",
+    "aliases": [
+      "ubs-rect",
+      "瑞士银行"
+    ],
+    "file": "ubs-rect.svg"
+  },
+  {
+    "key": "bank-logo:ubs",
+    "name": "瑞士银行 (ubs)",
+    "aliases": [
+      "ubs",
+      "瑞士银行"
+    ],
+    "file": "ubs.svg"
+  },
+  {
+    "key": "bank-logo:uccb-rect",
+    "name": "乌鲁木齐商业银行 (uccb-rect)",
+    "aliases": [
+      "uccb-rect",
+      "乌鲁木齐商业银行"
+    ],
+    "file": "uccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:uccb",
+    "name": "乌鲁木齐商业银行 (uccb)",
+    "aliases": [
+      "uccb",
+      "乌鲁木齐商业银行"
+    ],
+    "file": "uccb.svg"
+  },
+  {
+    "key": "bank-logo:uobchina-rect",
+    "name": "大华银行 (uobchina-rect)",
+    "aliases": [
+      "uobchina-rect",
+      "大华银行"
+    ],
+    "file": "uobchina-rect.svg"
+  },
+  {
+    "key": "bank-logo:uobchina",
+    "name": "大华银行 (uobchina)",
+    "aliases": [
+      "uobchina",
+      "大华银行"
+    ],
+    "file": "uobchina.svg"
+  },
+  {
+    "key": "bank-logo:urcb-rect",
+    "name": "杭州联合银行 (urcb-rect)",
+    "aliases": [
+      "urcb-rect",
+      "杭州联合银行"
+    ],
+    "file": "urcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:urcb",
+    "name": "杭州联合银行 (urcb)",
+    "aliases": [
+      "urcb",
+      "杭州联合银行"
+    ],
+    "file": "urcb.svg"
+  },
+  {
+    "key": "bank-logo:whrcbank-rect",
+    "name": "武汉农商 (whrcbank-rect)",
+    "aliases": [
+      "whrcbank-rect",
+      "武汉农商"
+    ],
+    "file": "whrcbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:whrcbank",
+    "name": "武汉农商 (whrcbank)",
+    "aliases": [
+      "whrcbank",
+      "武汉农商"
+    ],
+    "file": "whrcbank.svg"
+  },
+  {
+    "key": "bank-logo:wrcb-rect",
+    "name": "无锡农商 (wrcb-rect)",
+    "aliases": [
+      "wrcb-rect",
+      "无锡农商"
+    ],
+    "file": "wrcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:wrcb",
+    "name": "无锡农商 (wrcb)",
+    "aliases": [
+      "wrcb",
+      "无锡农商"
+    ],
+    "file": "wrcb.svg"
+  },
+  {
+    "key": "bank-logo:wuhaicb-rect",
+    "name": "乌海银行 (wuhaicb-rect)",
+    "aliases": [
+      "wuhaicb-rect",
+      "乌海银行"
+    ],
+    "file": "wuhaicb-rect.svg"
+  },
+  {
+    "key": "bank-logo:wuhaicb",
+    "name": "乌海银行 (wuhaicb)",
+    "aliases": [
+      "wuhaicb",
+      "乌海银行"
+    ],
+    "file": "wuhaicb.svg"
+  },
+  {
+    "key": "bank-logo:wzcb-rect",
+    "name": "温州银行 (wzcb-rect)",
+    "aliases": [
+      "wzcb-rect",
+      "温州银行"
+    ],
+    "file": "wzcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:wzcb",
+    "name": "温州银行 (wzcb)",
+    "aliases": [
+      "wzcb",
+      "温州银行"
+    ],
+    "file": "wzcb.svg"
+  },
+  {
+    "key": "bank-logo:xacbank-rect",
+    "name": "西安银行 (xacbank-rect)",
+    "aliases": [
+      "xacbank-rect",
+      "西安银行"
+    ],
+    "file": "xacbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:xacbank",
+    "name": "西安银行 (xacbank)",
+    "aliases": [
+      "xacbank",
+      "西安银行"
+    ],
+    "file": "xacbank.svg"
+  },
+  {
+    "key": "bank-logo:xib-rect",
+    "name": "厦门国际银行 (xib-rect)",
+    "aliases": [
+      "xib-rect",
+      "厦门国际银行"
+    ],
+    "file": "xib-rect.svg"
+  },
+  {
+    "key": "bank-logo:xib",
+    "name": "厦门国际银行 (xib)",
+    "aliases": [
+      "xib",
+      "厦门国际银行"
+    ],
+    "file": "xib.svg"
+  },
+  {
+    "key": "bank-logo:xjkccb-rect",
+    "name": "库尔勒市商业银行 (xjkccb-rect)",
+    "aliases": [
+      "xjkccb-rect",
+      "库尔勒市商业银行"
+    ],
+    "file": "xjkccb-rect.svg"
+  },
+  {
+    "key": "bank-logo:xjkccb",
+    "name": "库尔勒市商业银行 (xjkccb)",
+    "aliases": [
+      "xjkccb",
+      "库尔勒市商业银行"
+    ],
+    "file": "xjkccb.svg"
+  },
+  {
+    "key": "bank-logo:xmbankonline-rect",
+    "name": "浙江农村信用社联合社 (xmbankonline-rect)",
+    "aliases": [
+      "xmbankonline-rect",
+      "浙江农村信用社联合社"
+    ],
+    "file": "xmbankonline-rect.svg"
+  },
+  {
+    "key": "bank-logo:xmbankonline",
+    "name": "浙江农村信用社联合社 (xmbankonline)",
+    "aliases": [
+      "xmbankonline",
+      "浙江农村信用社联合社"
+    ],
+    "file": "xmbankonline.svg"
+  },
+  {
+    "key": "bank-logo:xynsh-rect",
+    "name": "新沂农商 (xynsh-rect)",
+    "aliases": [
+      "xynsh-rect",
+      "新沂农商"
+    ],
+    "file": "xynsh-rect.svg"
+  },
+  {
+    "key": "bank-logo:xynsh",
+    "name": "新沂农商 (xynsh)",
+    "aliases": [
+      "xynsh",
+      "新沂农商"
+    ],
+    "file": "xynsh.svg"
+  },
+  {
+    "key": "bank-logo:yamaguchibank-rect",
+    "name": "山口银行 (yamaguchibank-rect)",
+    "aliases": [
+      "yamaguchibank-rect",
+      "山口银行"
+    ],
+    "file": "yamaguchibank-rect.svg"
+  },
+  {
+    "key": "bank-logo:yamaguchibank",
+    "name": "山口银行 (yamaguchibank)",
+    "aliases": [
+      "yamaguchibank",
+      "山口银行"
+    ],
+    "file": "yamaguchibank.svg"
+  },
+  {
+    "key": "bank-logo:yantaibank-rect",
+    "name": "烟台银行 (yantaibank-rect)",
+    "aliases": [
+      "yantaibank-rect",
+      "烟台银行"
+    ],
+    "file": "yantaibank-rect.svg"
+  },
+  {
+    "key": "bank-logo:yantaibank",
+    "name": "烟台银行 (yantaibank)",
+    "aliases": [
+      "yantaibank",
+      "烟台银行"
+    ],
+    "file": "yantaibank.svg"
+  },
+  {
+    "key": "bank-logo:z-bank-rect",
+    "name": "武汉众邦银行 (z-bank-rect)",
+    "aliases": [
+      "z-bank-rect",
+      "武汉众邦银行"
+    ],
+    "file": "z-bank-rect.svg"
+  },
+  {
+    "key": "bank-logo:z-bank",
+    "name": "武汉众邦银行 (z-bank)",
+    "aliases": [
+      "z-bank",
+      "武汉众邦银行"
+    ],
+    "file": "z-bank.svg"
+  },
+  {
+    "key": "bank-logo:zaozhuangbank-rect",
+    "name": "枣庄银行 (zaozhuangbank-rect)",
+    "aliases": [
+      "zaozhuangbank-rect",
+      "枣庄银行"
+    ],
+    "file": "zaozhuangbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:zaozhuangbank",
+    "name": "枣庄银行 (zaozhuangbank)",
+    "aliases": [
+      "zaozhuangbank",
+      "枣庄银行"
+    ],
+    "file": "zaozhuangbank.svg"
+  },
+  {
+    "key": "bank-logo:zgbank-rect",
+    "name": "自贡银行 (zgbank-rect)",
+    "aliases": [
+      "zgbank-rect",
+      "自贡银行"
+    ],
+    "file": "zgbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:zgbank",
+    "name": "自贡银行 (zgbank)",
+    "aliases": [
+      "zgbank",
+      "自贡银行"
+    ],
+    "file": "zgbank.svg"
+  },
+  {
+    "key": "bank-logo:zhnsb-rect",
+    "name": "珠海农商银行 (zhnsb-rect)",
+    "aliases": [
+      "zhnsb-rect",
+      "珠海农商银行"
+    ],
+    "file": "zhnsb-rect.svg"
+  },
+  {
+    "key": "bank-logo:zhnsb",
+    "name": "珠海农商银行 (zhnsb)",
+    "aliases": [
+      "zhnsb",
+      "珠海农商银行"
+    ],
+    "file": "zhnsb.svg"
+  },
+  {
+    "key": "bank-logo:zj96596-rect",
+    "name": "浙江农村信用社联合社 (zj96596-rect)",
+    "aliases": [
+      "zj96596-rect",
+      "浙江农村信用社联合社"
+    ],
+    "file": "zj96596-rect.svg"
+  },
+  {
+    "key": "bank-logo:zj96596",
+    "name": "浙江农村信用社联合社 (zj96596)",
+    "aliases": [
+      "zj96596",
+      "浙江农村信用社联合社"
+    ],
+    "file": "zj96596.svg"
+  },
+  {
+    "key": "bank-logo:zjtlcb-rect",
+    "name": "泰隆银行 (zjtlcb-rect)",
+    "aliases": [
+      "zjtlcb-rect",
+      "泰隆银行"
+    ],
+    "file": "zjtlcb-rect.svg"
+  },
+  {
+    "key": "bank-logo:zjtlcb",
+    "name": "泰隆银行 (zjtlcb)",
+    "aliases": [
+      "zjtlcb",
+      "泰隆银行"
+    ],
+    "file": "zjtlcb.svg"
+  },
+  {
+    "key": "bank-logo:zsebank-rect",
+    "name": "中山农商 (zsebank-rect)",
+    "aliases": [
+      "zsebank-rect",
+      "中山农商"
+    ],
+    "file": "zsebank-rect.svg"
+  },
+  {
+    "key": "bank-logo:zsebank",
+    "name": "中山农商 (zsebank)",
+    "aliases": [
+      "zsebank",
+      "中山农商"
+    ],
+    "file": "zsebank.svg"
+  },
+  {
+    "key": "bank-logo:zxbk-rect",
+    "name": "正信银行 (zxbk-rect)",
+    "aliases": [
+      "zxbk-rect",
+      "正信银行"
+    ],
+    "file": "zxbk-rect.svg"
+  },
+  {
+    "key": "bank-logo:zxbk",
+    "name": "正信银行 (zxbk)",
+    "aliases": [
+      "zxbk",
+      "正信银行"
+    ],
+    "file": "zxbk.svg"
+  },
+  {
+    "key": "bank-logo:zybank-rect",
+    "name": "中原银行 (zybank-rect)",
+    "aliases": [
+      "zybank-rect",
+      "中原银行"
+    ],
+    "file": "zybank-rect.svg"
+  },
+  {
+    "key": "bank-logo:zybank",
+    "name": "中原银行 (zybank)",
+    "aliases": [
+      "zybank",
+      "中原银行"
+    ],
+    "file": "zybank.svg"
+  },
+  {
+    "key": "bank-logo:zzbank-rect",
+    "name": "郑州银行 (zzbank-rect)",
+    "aliases": [
+      "zzbank-rect",
+      "郑州银行"
+    ],
+    "file": "zzbank-rect.svg"
+  },
+  {
+    "key": "bank-logo:zzbank",
+    "name": "郑州银行 (zzbank)",
+    "aliases": [
+      "zzbank",
+      "郑州银行"
+    ],
+    "file": "zzbank.svg"
+  },
+  {
+    "key": "bank-logo:other-bcc409771cf5fd6f",
+    "name": "!凉山商业银行",
+    "aliases": [
+      "!凉山商业银行",
+      "!凉山商业银行"
+    ],
+    "file": "other-bcc409771cf5fd6f.svg"
+  },
+  {
+    "key": "bank-logo:other-98f3b258afee03e7",
+    "name": "!凉山商业银行logo",
+    "aliases": [
+      "!凉山商业银行logo",
+      "!凉山商业银行logo"
+    ],
+    "file": "other-98f3b258afee03e7.svg"
+  },
+  {
+    "key": "bank-logo:other-7a46771e41d8570b",
+    "name": "!深圳农商",
+    "aliases": [
+      "!深圳农商",
+      "!深圳农商"
+    ],
+    "file": "other-7a46771e41d8570b.svg"
+  },
+  {
+    "key": "bank-logo:other-5f0412205a7f1b70",
+    "name": "!深圳农商logo",
+    "aliases": [
+      "!深圳农商logo",
+      "!深圳农商logo"
+    ],
+    "file": "other-5f0412205a7f1b70.svg"
+  },
+  {
+    "key": "bank-logo:other-2ecb69d553dd4b68",
+    "name": "三井住友银行",
+    "aliases": [
+      "三井住友银行",
+      "三井住友银行"
+    ],
+    "file": "other-2ecb69d553dd4b68.svg"
+  },
+  {
+    "key": "bank-logo:other-1181f2133027aac3",
+    "name": "三井住友银行logo",
+    "aliases": [
+      "三井住友银行logo",
+      "三井住友银行logo"
+    ],
+    "file": "other-1181f2133027aac3.svg"
+  },
+  {
+    "key": "bank-logo:other-fc6e4aa0bd23ec11",
+    "name": "三和银行",
+    "aliases": [
+      "三和银行",
+      "三和银行"
+    ],
+    "file": "other-fc6e4aa0bd23ec11.svg"
+  },
+  {
+    "key": "bank-logo:other-867410548c07b7ac",
+    "name": "三和银行logo",
+    "aliases": [
+      "三和银行logo",
+      "三和银行logo"
+    ],
+    "file": "other-867410548c07b7ac.svg"
+  },
+  {
+    "key": "bank-logo:other-f87e37b1d2250ee9",
+    "name": "三菱UFJ银行（日联）",
+    "aliases": [
+      "三菱UFJ银行（日联）",
+      "三菱UFJ银行（日联）"
+    ],
+    "file": "other-f87e37b1d2250ee9.svg"
+  },
+  {
+    "key": "bank-logo:other-2ab547f4285d2862",
+    "name": "三菱UFJ银行（日联）logo",
+    "aliases": [
+      "三菱UFJ银行（日联）logo",
+      "三菱UFJ银行（日联）logo"
+    ],
+    "file": "other-2ab547f4285d2862.svg"
+  },
+  {
+    "key": "bank-logo:other-1fe9a1904939f9cb",
+    "name": "中信嘉华银行",
+    "aliases": [
+      "中信嘉华银行",
+      "中信嘉华银行"
+    ],
+    "file": "other-1fe9a1904939f9cb.svg"
+  },
+  {
+    "key": "bank-logo:other-13a045ede7f5559c",
+    "name": "中信嘉华银行logo_",
+    "aliases": [
+      "中信嘉华银行logo_",
+      "中信嘉华银行logo_"
+    ],
+    "file": "other-13a045ede7f5559c.svg"
+  },
+  {
+    "key": "bank-logo:other-43dbd30f00479fa6",
+    "name": "中华开发工业银行",
+    "aliases": [
+      "中华开发工业银行",
+      "中华开发工业银行"
+    ],
+    "file": "other-43dbd30f00479fa6.svg"
+  },
+  {
+    "key": "bank-logo:other-fdffe1d299521aec",
+    "name": "中华开发工业银行logo",
+    "aliases": [
+      "中华开发工业银行logo",
+      "中华开发工业银行logo"
+    ],
+    "file": "other-fdffe1d299521aec.svg"
+  },
+  {
+    "key": "bank-logo:other-9b76cf1fd95c8938",
+    "name": "中国信托",
+    "aliases": [
+      "中国信托",
+      "中国信托"
+    ],
+    "file": "other-9b76cf1fd95c8938.svg"
+  },
+  {
+    "key": "bank-logo:other-4b06a56180379167",
+    "name": "中国信托logo",
+    "aliases": [
+      "中国信托logo",
+      "中国信托logo"
+    ],
+    "file": "other-4b06a56180379167.svg"
+  },
+  {
+    "key": "bank-logo:other-0756c79e692c5bcf",
+    "name": "中国银行业监督",
+    "aliases": [
+      "中国银行业监督",
+      "中国银行业监督"
+    ],
+    "file": "other-0756c79e692c5bcf.svg"
+  },
+  {
+    "key": "bank-logo:other-86d85e03ebef1213",
+    "name": "中国银行业监督logo",
+    "aliases": [
+      "中国银行业监督logo",
+      "中国银行业监督logo"
+    ],
+    "file": "other-86d85e03ebef1213.svg"
+  },
+  {
+    "key": "bank-logo:other-622133a6fc163ebc",
+    "name": "云南红塔银行",
+    "aliases": [
+      "云南红塔银行",
+      "云南红塔银行"
+    ],
+    "file": "other-622133a6fc163ebc.svg"
+  },
+  {
+    "key": "bank-logo:other-bd813517abaa418c",
+    "name": "云南红塔银行logo",
+    "aliases": [
+      "云南红塔银行logo",
+      "云南红塔银行logo"
+    ],
+    "file": "other-bd813517abaa418c.svg"
+  },
+  {
+    "key": "bank-logo:other-e218e0324974eb18",
+    "name": "伊川农商",
+    "aliases": [
+      "伊川农商",
+      "伊川农商"
+    ],
+    "file": "other-e218e0324974eb18.svg"
+  },
+  {
+    "key": "bank-logo:other-dcffafadef2d32cd",
+    "name": "伊川农商logo",
+    "aliases": [
+      "伊川农商logo",
+      "伊川农商logo"
+    ],
+    "file": "other-dcffafadef2d32cd.svg"
+  },
+  {
+    "key": "bank-logo:other-69b8aea022223b00",
+    "name": "信阳银行",
+    "aliases": [
+      "信阳银行",
+      "信阳银行"
+    ],
+    "file": "other-69b8aea022223b00.svg"
+  },
+  {
+    "key": "bank-logo:other-e30ea0526a9252c8",
+    "name": "信阳银行logo",
+    "aliases": [
+      "信阳银行logo",
+      "信阳银行logo"
+    ],
+    "file": "other-e30ea0526a9252c8.svg"
+  },
+  {
+    "key": "bank-logo:other-8adf12defb425d80",
+    "name": "包商银行",
+    "aliases": [
+      "包商银行",
+      "包商银行"
+    ],
+    "file": "other-8adf12defb425d80.svg"
+  },
+  {
+    "key": "bank-logo:other-783858878530428e",
+    "name": "包商银行logo",
+    "aliases": [
+      "包商银行logo",
+      "包商银行logo"
+    ],
+    "file": "other-783858878530428e.svg"
+  },
+  {
+    "key": "bank-logo:other-f646736e535df49b",
+    "name": "北京顺义银座村镇银行",
+    "aliases": [
+      "北京顺义银座村镇银行",
+      "北京顺义银座村镇银行"
+    ],
+    "file": "other-f646736e535df49b.svg"
+  },
+  {
+    "key": "bank-logo:other-975dec5f3157cd75",
+    "name": "北京顺义银座村镇银行logo",
+    "aliases": [
+      "北京顺义银座村镇银行logo",
+      "北京顺义银座村镇银行logo"
+    ],
+    "file": "other-975dec5f3157cd75.svg"
+  },
+  {
+    "key": "bank-logo:other-3766e9fd94e96f7b",
+    "name": "北欧斯安银行",
+    "aliases": [
+      "北欧斯安银行",
+      "北欧斯安银行"
+    ],
+    "file": "other-3766e9fd94e96f7b.svg"
+  },
+  {
+    "key": "bank-logo:other-2d4da19113ea3693",
+    "name": "北欧斯安银行logo",
+    "aliases": [
+      "北欧斯安银行logo",
+      "北欧斯安银行logo"
+    ],
+    "file": "other-2d4da19113ea3693.svg"
+  },
+  {
+    "key": "bank-logo:other-a207f2394b837d03",
+    "name": "南通农商银行",
+    "aliases": [
+      "南通农商银行",
+      "南通农商银行"
+    ],
+    "file": "other-a207f2394b837d03.svg"
+  },
+  {
+    "key": "bank-logo:other-61b8491164c6cd49",
+    "name": "南通农商银行logo",
+    "aliases": [
+      "南通农商银行logo",
+      "南通农商银行logo"
+    ],
+    "file": "other-61b8491164c6cd49.svg"
+  },
+  {
+    "key": "bank-logo:other-60719aaebaf31b76",
+    "name": "南阳银行",
+    "aliases": [
+      "南阳银行",
+      "南阳银行"
+    ],
+    "file": "other-60719aaebaf31b76.svg"
+  },
+  {
+    "key": "bank-logo:other-6c99c7b386642cbb",
+    "name": "南阳银行logo",
+    "aliases": [
+      "南阳银行logo",
+      "南阳银行logo"
+    ],
+    "file": "other-6c99c7b386642cbb.svg"
+  },
+  {
+    "key": "bank-logo:other-1e274032def917e1",
+    "name": "台州农村合作银行",
+    "aliases": [
+      "台州农村合作银行",
+      "台州农村合作银行"
+    ],
+    "file": "other-1e274032def917e1.svg"
+  },
+  {
+    "key": "bank-logo:other-cc1d803646df94ab",
+    "name": "台州农村合作银行logo",
+    "aliases": [
+      "台州农村合作银行logo",
+      "台州农村合作银行logo"
+    ],
+    "file": "other-cc1d803646df94ab.svg"
+  },
+  {
+    "key": "bank-logo:other-24fb7ff4e3b4bc80",
+    "name": "台州银行",
+    "aliases": [
+      "台州银行",
+      "台州银行"
+    ],
+    "file": "other-24fb7ff4e3b4bc80.svg"
+  },
+  {
+    "key": "bank-logo:other-0f90fa4e942c3cd8",
+    "name": "台州银行logo",
+    "aliases": [
+      "台州银行logo",
+      "台州银行logo"
+    ],
+    "file": "other-0f90fa4e942c3cd8.svg"
+  },
+  {
+    "key": "bank-logo:other-d7968d8cb4f944f6",
+    "name": "台湾中小企业银行",
+    "aliases": [
+      "台湾中小企业银行",
+      "台湾中小企业银行"
+    ],
+    "file": "other-d7968d8cb4f944f6.svg"
+  },
+  {
+    "key": "bank-logo:other-27fed81bcb64cd0a",
+    "name": "台湾中小企业银行logo",
+    "aliases": [
+      "台湾中小企业银行logo",
+      "台湾中小企业银行logo"
+    ],
+    "file": "other-27fed81bcb64cd0a.svg"
+  },
+  {
+    "key": "bank-logo:other-d46fd317282edad8",
+    "name": "台湾土地银行",
+    "aliases": [
+      "台湾土地银行",
+      "台湾土地银行"
+    ],
+    "file": "other-d46fd317282edad8.svg"
+  },
+  {
+    "key": "bank-logo:other-0ac0e42d7f6649e2",
+    "name": "台湾土地银行logo",
+    "aliases": [
+      "台湾土地银行logo",
+      "台湾土地银行logo"
+    ],
+    "file": "other-0ac0e42d7f6649e2.svg"
+  },
+  {
+    "key": "bank-logo:other-7670117de3982717",
+    "name": "台湾玉山银行",
+    "aliases": [
+      "台湾玉山银行",
+      "台湾玉山银行"
+    ],
+    "file": "other-7670117de3982717.svg"
+  },
+  {
+    "key": "bank-logo:other-d4ec6206a468f957",
+    "name": "台湾玉山银行logo",
+    "aliases": [
+      "台湾玉山银行logo",
+      "台湾玉山银行logo"
+    ],
+    "file": "other-d4ec6206a468f957.svg"
+  },
+  {
+    "key": "bank-logo:other-70e8262dd9482192",
+    "name": "台湾银行",
+    "aliases": [
+      "台湾银行",
+      "台湾银行"
+    ],
+    "file": "other-70e8262dd9482192.svg"
+  },
+  {
+    "key": "bank-logo:other-938665c2ba4697aa",
+    "name": "台湾银行logo",
+    "aliases": [
+      "台湾银行logo",
+      "台湾银行logo"
+    ],
+    "file": "other-938665c2ba4697aa.svg"
+  },
+  {
+    "key": "bank-logo:other-7e9b3de5fe696ec3",
+    "name": "吴江农商",
+    "aliases": [
+      "吴江农商",
+      "吴江农商"
+    ],
+    "file": "other-7e9b3de5fe696ec3.svg"
+  },
+  {
+    "key": "bank-logo:other-7c8bce6fcc7f7270",
+    "name": "吴江农商logo",
+    "aliases": [
+      "吴江农商logo",
+      "吴江农商logo"
+    ],
+    "file": "other-7c8bce6fcc7f7270.svg"
+  },
+  {
+    "key": "bank-logo:other-7bad70c12201bdff",
+    "name": "周口银行",
+    "aliases": [
+      "周口银行",
+      "周口银行"
+    ],
+    "file": "other-7bad70c12201bdff.svg"
+  },
+  {
+    "key": "bank-logo:other-2d87a58a2fa44a38",
+    "name": "周口银行logo",
+    "aliases": [
+      "周口银行logo",
+      "周口银行logo"
+    ],
+    "file": "other-2d87a58a2fa44a38.svg"
+  },
+  {
+    "key": "bank-logo:other-25ab3d0288a522c0",
+    "name": "哈密市商业银行",
+    "aliases": [
+      "哈密市商业银行",
+      "哈密市商业银行"
+    ],
+    "file": "other-25ab3d0288a522c0.svg"
+  },
+  {
+    "key": "bank-logo:other-890fed918138ff49",
+    "name": "哈密市商业银行logo",
+    "aliases": [
+      "哈密市商业银行logo",
+      "哈密市商业银行logo"
+    ],
+    "file": "other-890fed918138ff49.svg"
+  },
+  {
+    "key": "bank-logo:other-24061f524bc6041a",
+    "name": "商丘市商业银行",
+    "aliases": [
+      "商丘市商业银行",
+      "商丘市商业银行"
+    ],
+    "file": "other-24061f524bc6041a.svg"
+  },
+  {
+    "key": "bank-logo:other-edd1ebcbf6913b90",
+    "name": "商丘市商业银行logo",
+    "aliases": [
+      "商丘市商业银行logo",
+      "商丘市商业银行logo"
+    ],
+    "file": "other-edd1ebcbf6913b90.svg"
+  },
+  {
+    "key": "bank-logo:other-f08b036148d5897c",
+    "name": "大同银行",
+    "aliases": [
+      "大同银行",
+      "大同银行"
+    ],
+    "file": "other-f08b036148d5897c.svg"
+  },
+  {
+    "key": "bank-logo:other-ea362d7036bf4b2f",
+    "name": "大同银行logo",
+    "aliases": [
+      "大同银行logo",
+      "大同银行logo"
+    ],
+    "file": "other-ea362d7036bf4b2f.svg"
+  },
+  {
+    "key": "bank-logo:other-475bbbc14690517d",
+    "name": "大庆市商业银行",
+    "aliases": [
+      "大庆市商业银行",
+      "大庆市商业银行"
+    ],
+    "file": "other-475bbbc14690517d.svg"
+  },
+  {
+    "key": "bank-logo:other-0c6d9a3ae9625e6d",
+    "name": "大庆市商业银行logo",
+    "aliases": [
+      "大庆市商业银行logo",
+      "大庆市商业银行logo"
+    ],
+    "file": "other-0c6d9a3ae9625e6d.svg"
+  },
+  {
+    "key": "bank-logo:other-d6ade8fae3cfd7db",
+    "name": "太仓农商",
+    "aliases": [
+      "太仓农商",
+      "太仓农商"
+    ],
+    "file": "other-d6ade8fae3cfd7db.svg"
+  },
+  {
+    "key": "bank-logo:other-b01595b5024c55f8",
+    "name": "太仓农商logo",
+    "aliases": [
+      "太仓农商logo",
+      "太仓农商logo"
+    ],
+    "file": "other-b01595b5024c55f8.svg"
+  },
+  {
+    "key": "bank-logo:other-012575bcc4b2ba39",
+    "name": "威海商业银行",
+    "aliases": [
+      "威海商业银行",
+      "威海商业银行"
+    ],
+    "file": "other-012575bcc4b2ba39.svg"
+  },
+  {
+    "key": "bank-logo:other-afca31c13b7fafef",
+    "name": "威海商业银行logo",
+    "aliases": [
+      "威海商业银行logo",
+      "威海商业银行logo"
+    ],
+    "file": "other-afca31c13b7fafef.svg"
+  },
+  {
+    "key": "bank-logo:other-58e933f7fc174d45",
+    "name": "安阳银行",
+    "aliases": [
+      "安阳银行",
+      "安阳银行"
+    ],
+    "file": "other-58e933f7fc174d45.svg"
+  },
+  {
+    "key": "bank-logo:other-91fd9d6822a02eee",
+    "name": "安阳银行logo",
+    "aliases": [
+      "安阳银行logo",
+      "安阳银行logo"
+    ],
+    "file": "other-91fd9d6822a02eee.svg"
+  },
+  {
+    "key": "bank-logo:other-792930b28c8668db",
+    "name": "安顺市商业银行",
+    "aliases": [
+      "安顺市商业银行",
+      "安顺市商业银行"
+    ],
+    "file": "other-792930b28c8668db.svg"
+  },
+  {
+    "key": "bank-logo:other-e7f6ed7cfef3ca54",
+    "name": "安顺市商业银行logo",
+    "aliases": [
+      "安顺市商业银行logo",
+      "安顺市商业银行logo"
+    ],
+    "file": "other-e7f6ed7cfef3ca54.svg"
+  },
+  {
+    "key": "bank-logo:other-ddeaf46c13ae1522",
+    "name": "宜宾商业银行",
+    "aliases": [
+      "宜宾商业银行",
+      "宜宾商业银行"
+    ],
+    "file": "other-ddeaf46c13ae1522.svg"
+  },
+  {
+    "key": "bank-logo:other-539d91d0e4426d5f",
+    "name": "宜宾商业银行logo",
+    "aliases": [
+      "宜宾商业银行logo",
+      "宜宾商业银行logo"
+    ],
+    "file": "other-539d91d0e4426d5f.svg"
+  },
+  {
+    "key": "bank-logo:other-a28f893846abb365",
+    "name": "平顶山银行",
+    "aliases": [
+      "平顶山银行",
+      "平顶山银行"
+    ],
+    "file": "other-a28f893846abb365.svg"
+  },
+  {
+    "key": "bank-logo:other-8468c903bc70d184",
+    "name": "平顶山银行logo",
+    "aliases": [
+      "平顶山银行logo",
+      "平顶山银行logo"
+    ],
+    "file": "other-8468c903bc70d184.svg"
+  },
+  {
+    "key": "bank-logo:other-99c0e6ec0ef5acf5",
+    "name": "广东揭阳农商",
+    "aliases": [
+      "广东揭阳农商",
+      "广东揭阳农商"
+    ],
+    "file": "other-99c0e6ec0ef5acf5.svg"
+  },
+  {
+    "key": "bank-logo:other-bca051ab93f4e29b",
+    "name": "广东揭阳农商logo",
+    "aliases": [
+      "广东揭阳农商logo",
+      "广东揭阳农商logo"
+    ],
+    "file": "other-bca051ab93f4e29b.svg"
+  },
+  {
+    "key": "bank-logo:other-448e0e7b1c6185d6",
+    "name": "开封市商业银行",
+    "aliases": [
+      "开封市商业银行",
+      "开封市商业银行"
+    ],
+    "file": "other-448e0e7b1c6185d6.svg"
+  },
+  {
+    "key": "bank-logo:other-416b2b4739659b35",
+    "name": "开封市商业银行logo",
+    "aliases": [
+      "开封市商业银行logo",
+      "开封市商业银行logo"
+    ],
+    "file": "other-416b2b4739659b35.svg"
+  },
+  {
+    "key": "bank-logo:other-5d7834248b84a6ea",
+    "name": "张家口银行",
+    "aliases": [
+      "张家口银行",
+      "张家口银行"
+    ],
+    "file": "other-5d7834248b84a6ea.svg"
+  },
+  {
+    "key": "bank-logo:other-f4612c33fd2f4488",
+    "name": "张家口银行logo",
+    "aliases": [
+      "张家口银行logo",
+      "张家口银行logo"
+    ],
+    "file": "other-f4612c33fd2f4488.svg"
+  },
+  {
+    "key": "bank-logo:other-e7135b5f95a5e517",
+    "name": "张家港农商",
+    "aliases": [
+      "张家港农商",
+      "张家港农商"
+    ],
+    "file": "other-e7135b5f95a5e517.svg"
+  },
+  {
+    "key": "bank-logo:other-2ad771929c501b49",
+    "name": "张家港农商logo",
+    "aliases": [
+      "张家港农商logo",
+      "张家港农商logo"
+    ],
+    "file": "other-2ad771929c501b49.svg"
+  },
+  {
+    "key": "bank-logo:other-049cd958886aaa7c",
+    "name": "德累斯顿银行",
+    "aliases": [
+      "德累斯顿银行",
+      "德累斯顿银行"
+    ],
+    "file": "other-049cd958886aaa7c.svg"
+  },
+  {
+    "key": "bank-logo:other-7f7626241aaa1bfc",
+    "name": "德累斯顿银行logo",
+    "aliases": [
+      "德累斯顿银行logo",
+      "德累斯顿银行logo"
+    ],
+    "file": "other-7f7626241aaa1bfc.svg"
+  },
+  {
+    "key": "bank-logo:other-565e66f41628d1ff",
+    "name": "摩根士丹利国际银行",
+    "aliases": [
+      "摩根士丹利国际银行",
+      "摩根士丹利国际银行"
+    ],
+    "file": "other-565e66f41628d1ff.svg"
+  },
+  {
+    "key": "bank-logo:other-877ec968cbc837d6",
+    "name": "摩根士丹利国际银行logo",
+    "aliases": [
+      "摩根士丹利国际银行logo",
+      "摩根士丹利国际银行logo"
+    ],
+    "file": "other-877ec968cbc837d6.svg"
+  },
+  {
+    "key": "bank-logo:other-5c43ad341e1518cf",
+    "name": "攀枝花市商业银行",
+    "aliases": [
+      "攀枝花市商业银行",
+      "攀枝花市商业银行"
+    ],
+    "file": "other-5c43ad341e1518cf.svg"
+  },
+  {
+    "key": "bank-logo:other-933f9c440c95d28c",
+    "name": "攀枝花市商业银行logo",
+    "aliases": [
+      "攀枝花市商业银行logo",
+      "攀枝花市商业银行logo"
+    ],
+    "file": "other-933f9c440c95d28c.svg"
+  },
+  {
+    "key": "bank-logo:other-bda36ee6769eb5b3",
+    "name": "新乡银行",
+    "aliases": [
+      "新乡银行",
+      "新乡银行"
+    ],
+    "file": "other-bda36ee6769eb5b3.svg"
+  },
+  {
+    "key": "bank-logo:other-ad83b66d020188da",
+    "name": "新乡银行logo",
+    "aliases": [
+      "新乡银行logo",
+      "新乡银行logo"
+    ],
+    "file": "other-ad83b66d020188da.svg"
+  },
+  {
+    "key": "bank-logo:other-23d1fd864217e30b",
+    "name": "新会农商",
+    "aliases": [
+      "新会农商",
+      "新会农商"
+    ],
+    "file": "other-23d1fd864217e30b.svg"
+  },
+  {
+    "key": "bank-logo:other-21e8f0b16849d484",
+    "name": "新会农商logo",
+    "aliases": [
+      "新会农商logo",
+      "新会农商logo"
+    ],
+    "file": "other-21e8f0b16849d484.svg"
+  },
+  {
+    "key": "bank-logo:other-a37b09969c4def76",
+    "name": "新韩银行",
+    "aliases": [
+      "新韩银行",
+      "新韩银行"
+    ],
+    "file": "other-a37b09969c4def76.svg"
+  },
+  {
+    "key": "bank-logo:other-f8896d150db6c158",
+    "name": "新韩银行logo",
+    "aliases": [
+      "新韩银行logo",
+      "新韩银行logo"
+    ],
+    "file": "other-f8896d150db6c158.svg"
+  },
+  {
+    "key": "bank-logo:other-5536ed3d1cdc614f",
+    "name": "晋城银行",
+    "aliases": [
+      "晋城银行",
+      "晋城银行"
+    ],
+    "file": "other-5536ed3d1cdc614f.svg"
+  },
+  {
+    "key": "bank-logo:other-34b7daf8bfd9cb9b",
+    "name": "晋城银行logo",
+    "aliases": [
+      "晋城银行logo",
+      "晋城银行logo"
+    ],
+    "file": "other-34b7daf8bfd9cb9b.svg"
+  },
+  {
+    "key": "bank-logo:other-7799b271750c4c7e",
+    "name": "景德镇商业银行",
+    "aliases": [
+      "景德镇商业银行",
+      "景德镇商业银行"
+    ],
+    "file": "other-7799b271750c4c7e.svg"
+  },
+  {
+    "key": "bank-logo:other-a5ed56847f0bdcde",
+    "name": "景德镇商业银行logo",
+    "aliases": [
+      "景德镇商业银行logo",
+      "景德镇商业银行logo"
+    ],
+    "file": "other-a5ed56847f0bdcde.svg"
+  },
+  {
+    "key": "bank-logo:other-9b042ece3a6be876",
+    "name": "栾川农商",
+    "aliases": [
+      "栾川农商",
+      "栾川农商"
+    ],
+    "file": "other-9b042ece3a6be876.svg"
+  },
+  {
+    "key": "bank-logo:other-3837c4f2fc76f381",
+    "name": "栾川农商logo",
+    "aliases": [
+      "栾川农商logo",
+      "栾川农商logo"
+    ],
+    "file": "other-3837c4f2fc76f381.svg"
+  },
+  {
+    "key": "bank-logo:other-3ddacecb38915ca2",
+    "name": "比利时银行",
+    "aliases": [
+      "比利时银行",
+      "比利时银行"
+    ],
+    "file": "other-3ddacecb38915ca2.svg"
+  },
+  {
+    "key": "bank-logo:other-d1810f2b12287ee8",
+    "name": "比利时银行logo",
+    "aliases": [
+      "比利时银行logo",
+      "比利时银行logo"
+    ],
+    "file": "other-d1810f2b12287ee8.svg"
+  },
+  {
+    "key": "bank-logo:other-ef54057e124253ca",
+    "name": "江苏兴化农商",
+    "aliases": [
+      "江苏兴化农商",
+      "江苏兴化农商"
+    ],
+    "file": "other-ef54057e124253ca.svg"
+  },
+  {
+    "key": "bank-logo:other-c44a48c744ef200f",
+    "name": "江苏兴化农商logo",
+    "aliases": [
+      "江苏兴化农商logo",
+      "江苏兴化农商logo"
+    ],
+    "file": "other-c44a48c744ef200f.svg"
+  },
+  {
+    "key": "bank-logo:other-145422c53964058c",
+    "name": "江苏如皋农商",
+    "aliases": [
+      "江苏如皋农商",
+      "江苏如皋农商"
+    ],
+    "file": "other-145422c53964058c.svg"
+  },
+  {
+    "key": "bank-logo:other-c3a8b3ce751dbfdc",
+    "name": "江苏如皋农商logo",
+    "aliases": [
+      "江苏如皋农商logo",
+      "江苏如皋农商logo"
+    ],
+    "file": "other-c3a8b3ce751dbfdc.svg"
+  },
+  {
+    "key": "bank-logo:other-9eef0c44aedd06c2",
+    "name": "江苏扬州农商",
+    "aliases": [
+      "江苏扬州农商",
+      "江苏扬州农商"
+    ],
+    "file": "other-9eef0c44aedd06c2.svg"
+  },
+  {
+    "key": "bank-logo:other-d8445693cc9b7577",
+    "name": "江苏扬州农商logo",
+    "aliases": [
+      "江苏扬州农商logo",
+      "江苏扬州农商logo"
+    ],
+    "file": "other-d8445693cc9b7577.svg"
+  },
+  {
+    "key": "bank-logo:other-5385b2b8b27088d5",
+    "name": "江门融合农商",
+    "aliases": [
+      "江门融合农商",
+      "江门融合农商"
+    ],
+    "file": "other-5385b2b8b27088d5.svg"
+  },
+  {
+    "key": "bank-logo:other-7d2f709417035968",
+    "name": "江门融合农商logo",
+    "aliases": [
+      "江门融合农商logo",
+      "江门融合农商logo"
+    ],
+    "file": "other-7d2f709417035968.svg"
+  },
+  {
+    "key": "bank-logo:other-44f70b88ae6e563c",
+    "name": "池州九华农商",
+    "aliases": [
+      "池州九华农商",
+      "池州九华农商"
+    ],
+    "file": "other-44f70b88ae6e563c.svg"
+  },
+  {
+    "key": "bank-logo:other-76710c7beac6304f",
+    "name": "池州九华农商logo",
+    "aliases": [
+      "池州九华农商logo",
+      "池州九华农商logo"
+    ],
+    "file": "other-76710c7beac6304f.svg"
+  },
+  {
+    "key": "bank-logo:other-9b1c382f70c72eb1",
+    "name": "沧州融信农商",
+    "aliases": [
+      "沧州融信农商",
+      "沧州融信农商"
+    ],
+    "file": "other-9b1c382f70c72eb1.svg"
+  },
+  {
+    "key": "bank-logo:other-da93aa6ae8e1ace6",
+    "name": "沧州融信农商logo",
+    "aliases": [
+      "沧州融信农商logo",
+      "沧州融信农商logo"
+    ],
+    "file": "other-da93aa6ae8e1ace6.svg"
+  },
+  {
+    "key": "bank-logo:other-8cae3618c56b8b82",
+    "name": "法国巴黎银行",
+    "aliases": [
+      "法国巴黎银行",
+      "法国巴黎银行"
+    ],
+    "file": "other-8cae3618c56b8b82.svg"
+  },
+  {
+    "key": "bank-logo:other-1d5c08d912d8159d",
+    "name": "法国巴黎银行logo",
+    "aliases": [
+      "法国巴黎银行logo",
+      "法国巴黎银行logo"
+    ],
+    "file": "other-1d5c08d912d8159d.svg"
+  },
+  {
+    "key": "bank-logo:other-b252782666bbde14",
+    "name": "法国汇理银行",
+    "aliases": [
+      "法国汇理银行",
+      "法国汇理银行"
+    ],
+    "file": "other-b252782666bbde14.svg"
+  },
+  {
+    "key": "bank-logo:other-f7ab7ea6077ba321",
+    "name": "法国汇理银行logo",
+    "aliases": [
+      "法国汇理银行logo",
+      "法国汇理银行logo"
+    ],
+    "file": "other-f7ab7ea6077ba321.svg"
+  },
+  {
+    "key": "bank-logo:other-aa6e25d69c9be8f3",
+    "name": "法国里昂信贷银行",
+    "aliases": [
+      "法国里昂信贷银行",
+      "法国里昂信贷银行"
+    ],
+    "file": "other-aa6e25d69c9be8f3.svg"
+  },
+  {
+    "key": "bank-logo:other-869672d4bc030b21",
+    "name": "法国里昂信贷银行logo",
+    "aliases": [
+      "法国里昂信贷银行logo",
+      "法国里昂信贷银行logo"
+    ],
+    "file": "other-869672d4bc030b21.svg"
+  },
+  {
+    "key": "bank-logo:other-ef0255e8beee9896",
+    "name": "波士顿银行",
+    "aliases": [
+      "波士顿银行",
+      "波士顿银行"
+    ],
+    "file": "other-ef0255e8beee9896.svg"
+  },
+  {
+    "key": "bank-logo:other-515a2a602e0bd251",
+    "name": "波士顿银行logo",
+    "aliases": [
+      "波士顿银行logo",
+      "波士顿银行logo"
+    ],
+    "file": "other-515a2a602e0bd251.svg"
+  },
+  {
+    "key": "bank-logo:other-a4cdc7fd85763da5",
+    "name": "泰州农村商业银行",
+    "aliases": [
+      "泰州农村商业银行",
+      "泰州农村商业银行"
+    ],
+    "file": "other-a4cdc7fd85763da5.svg"
+  },
+  {
+    "key": "bank-logo:other-760288c1828bffaf",
+    "name": "泰州农村商业银行logo",
+    "aliases": [
+      "泰州农村商业银行logo",
+      "泰州农村商业银行logo"
+    ],
+    "file": "other-760288c1828bffaf.svg"
+  },
+  {
+    "key": "bank-logo:other-2aa69a449dea1251",
+    "name": "洪都农商",
+    "aliases": [
+      "洪都农商",
+      "洪都农商"
+    ],
+    "file": "other-2aa69a449dea1251.svg"
+  },
+  {
+    "key": "bank-logo:other-b838b7dd9683f83d",
+    "name": "洪都农商logo",
+    "aliases": [
+      "洪都农商logo",
+      "洪都农商logo"
+    ],
+    "file": "other-b838b7dd9683f83d.svg"
+  },
+  {
+    "key": "bank-logo:other-a43ec54f7721deb9",
+    "name": "浦发硅谷银行",
+    "aliases": [
+      "浦发硅谷银行",
+      "浦发硅谷银行"
+    ],
+    "file": "other-a43ec54f7721deb9.svg"
+  },
+  {
+    "key": "bank-logo:other-d65f868df65b20f4",
+    "name": "浦发硅谷银行logo",
+    "aliases": [
+      "浦发硅谷银行logo",
+      "浦发硅谷银行logo"
+    ],
+    "file": "other-d65f868df65b20f4.svg"
+  },
+  {
+    "key": "bank-logo:other-08352da8a5fadc89",
+    "name": "深证商业银行",
+    "aliases": [
+      "深证商业银行",
+      "深证商业银行"
+    ],
+    "file": "other-08352da8a5fadc89.svg"
+  },
+  {
+    "key": "bank-logo:other-c091f709ee03374a",
+    "name": "深证市商业银行",
+    "aliases": [
+      "深证市商业银行",
+      "深证市商业银行"
+    ],
+    "file": "other-c091f709ee03374a.svg"
+  },
+  {
+    "key": "bank-logo:other-ceac1cec72010f33",
+    "name": "湖南华容农商",
+    "aliases": [
+      "湖南华容农商",
+      "湖南华容农商"
+    ],
+    "file": "other-ceac1cec72010f33.svg"
+  },
+  {
+    "key": "bank-logo:other-87633f387ac57da1",
+    "name": "湖南华容农商logo",
+    "aliases": [
+      "湖南华容农商logo",
+      "湖南华容农商logo"
+    ],
+    "file": "other-87633f387ac57da1.svg"
+  },
+  {
+    "key": "bank-logo:other-906e3fe0bd8436c1",
+    "name": "湖州市商业银行",
+    "aliases": [
+      "湖州市商业银行",
+      "湖州市商业银行"
+    ],
+    "file": "other-906e3fe0bd8436c1.svg"
+  },
+  {
+    "key": "bank-logo:other-0cef20abb7e8ecef",
+    "name": "湖州市商业银行logo",
+    "aliases": [
+      "湖州市商业银行logo",
+      "湖州市商业银行logo"
+    ],
+    "file": "other-0cef20abb7e8ecef.svg"
+  },
+  {
+    "key": "bank-logo:other-ef974897c94204e3",
+    "name": "湖滨农商",
+    "aliases": [
+      "湖滨农商",
+      "湖滨农商"
+    ],
+    "file": "other-ef974897c94204e3.svg"
+  },
+  {
+    "key": "bank-logo:other-4b1e8e299e459788",
+    "name": "湖滨农商logo",
+    "aliases": [
+      "湖滨农商logo",
+      "湖滨农商logo"
+    ],
+    "file": "other-4b1e8e299e459788.svg"
+  },
+  {
+    "key": "bank-logo:other-be8ba160eab42223",
+    "name": "焦作市商业银行",
+    "aliases": [
+      "焦作市商业银行",
+      "焦作市商业银行"
+    ],
+    "file": "other-be8ba160eab42223.svg"
+  },
+  {
+    "key": "bank-logo:other-a2e7b75c8d603aac",
+    "name": "焦作市商业银行logo",
+    "aliases": [
+      "焦作市商业银行logo",
+      "焦作市商业银行logo"
+    ],
+    "file": "other-a2e7b75c8d603aac.svg"
+  },
+  {
+    "key": "bank-logo:other-4a32e618ee73a61c",
+    "name": "瑞典银行",
+    "aliases": [
+      "瑞典银行",
+      "瑞典银行"
+    ],
+    "file": "other-4a32e618ee73a61c.svg"
+  },
+  {
+    "key": "bank-logo:other-26a59e3aafd71ae6",
+    "name": "瑞典银行logo",
+    "aliases": [
+      "瑞典银行logo",
+      "瑞典银行logo"
+    ],
+    "file": "other-26a59e3aafd71ae6.svg"
+  },
+  {
+    "key": "bank-logo:other-295f9ce181409a48",
+    "name": "瑞穗实业银行",
+    "aliases": [
+      "瑞穗实业银行",
+      "瑞穗实业银行"
+    ],
+    "file": "other-295f9ce181409a48.svg"
+  },
+  {
+    "key": "bank-logo:other-ce9bc9e56ac24a60",
+    "name": "瑞穗实业银行logo",
+    "aliases": [
+      "瑞穗实业银行logo",
+      "瑞穗实业银行logo"
+    ],
+    "file": "other-ce9bc9e56ac24a60.svg"
+  },
+  {
+    "key": "bank-logo:other-6f3476556e8722ea",
+    "name": "紫金农商",
+    "aliases": [
+      "紫金农商",
+      "紫金农商"
+    ],
+    "file": "other-6f3476556e8722ea.svg"
+  },
+  {
+    "key": "bank-logo:other-fb8c9ea4369becae",
+    "name": "紫金农商logo",
+    "aliases": [
+      "紫金农商logo",
+      "紫金农商logo"
+    ],
+    "file": "other-fb8c9ea4369becae.svg"
+  },
+  {
+    "key": "bank-logo:other-088414290a2bc530",
+    "name": "芜湖扬子农商",
+    "aliases": [
+      "芜湖扬子农商",
+      "芜湖扬子农商"
+    ],
+    "file": "other-088414290a2bc530.svg"
+  },
+  {
+    "key": "bank-logo:other-40560499ed20fb1d",
+    "name": "芜湖扬子农商logo",
+    "aliases": [
+      "芜湖扬子农商logo",
+      "芜湖扬子农商logo"
+    ],
+    "file": "other-40560499ed20fb1d.svg"
+  },
+  {
+    "key": "bank-logo:other-a1ffa1f1a9e376d0",
+    "name": "苏格兰皇家银行",
+    "aliases": [
+      "苏格兰皇家银行",
+      "苏格兰皇家银行"
+    ],
+    "file": "other-a1ffa1f1a9e376d0.svg"
+  },
+  {
+    "key": "bank-logo:other-669a5984f4c20412",
+    "name": "苏格兰皇家银行logo",
+    "aliases": [
+      "苏格兰皇家银行logo",
+      "苏格兰皇家银行logo"
+    ],
+    "file": "other-669a5984f4c20412.svg"
+  },
+  {
+    "key": "bank-logo:other-ad95aeb69cf14d91",
+    "name": "菲律宾首都银行",
+    "aliases": [
+      "菲律宾首都银行",
+      "菲律宾首都银行"
+    ],
+    "file": "other-ad95aeb69cf14d91.svg"
+  },
+  {
+    "key": "bank-logo:other-5d375b5b88ed6369",
+    "name": "菲律宾首都银行logo",
+    "aliases": [
+      "菲律宾首都银行logo",
+      "菲律宾首都银行logo"
+    ],
+    "file": "other-5d375b5b88ed6369.svg"
+  },
+  {
+    "key": "bank-logo:other-0a7101460832376e",
+    "name": "萧山农村合作银行",
+    "aliases": [
+      "萧山农村合作银行",
+      "萧山农村合作银行"
+    ],
+    "file": "other-0a7101460832376e.svg"
+  },
+  {
+    "key": "bank-logo:other-aec8cbf68829456e",
+    "name": "萧山农村合作银行logo",
+    "aliases": [
+      "萧山农村合作银行logo",
+      "萧山农村合作银行logo"
+    ],
+    "file": "other-aec8cbf68829456e.svg"
+  },
+  {
+    "key": "bank-logo:other-c30b45cbcd18458f",
+    "name": "西藏银行",
+    "aliases": [
+      "西藏银行",
+      "西藏银行"
+    ],
+    "file": "other-c30b45cbcd18458f.svg"
+  },
+  {
+    "key": "bank-logo:other-5158af3341c50b24",
+    "name": "西藏银行logo",
+    "aliases": [
+      "西藏银行logo",
+      "西藏银行logo"
+    ],
+    "file": "other-5158af3341c50b24.svg"
+  },
+  {
+    "key": "bank-logo:other-ddbfa37dde630c4c",
+    "name": "许昌银行",
+    "aliases": [
+      "许昌银行",
+      "许昌银行"
+    ],
+    "file": "other-ddbfa37dde630c4c.svg"
+  },
+  {
+    "key": "bank-logo:other-ff6a52aafc9061c7",
+    "name": "许昌银行logo",
+    "aliases": [
+      "许昌银行logo",
+      "许昌银行logo"
+    ],
+    "file": "other-ff6a52aafc9061c7.svg"
+  },
+  {
+    "key": "bank-logo:other-cff8cf30ba6ee85c",
+    "name": "许昌魏都农商",
+    "aliases": [
+      "许昌魏都农商",
+      "许昌魏都农商"
+    ],
+    "file": "other-cff8cf30ba6ee85c.svg"
+  },
+  {
+    "key": "bank-logo:other-faef2482143ad5ed",
+    "name": "许昌魏都农商logo",
+    "aliases": [
+      "许昌魏都农商logo",
+      "许昌魏都农商logo"
+    ],
+    "file": "other-faef2482143ad5ed.svg"
+  },
+  {
+    "key": "bank-logo:other-047ec9d93df66e13",
+    "name": "路程农村合作银行",
+    "aliases": [
+      "路程农村合作银行",
+      "路程农村合作银行"
+    ],
+    "file": "other-047ec9d93df66e13.svg"
+  },
+  {
+    "key": "bank-logo:other-efd3d593683d92e8",
+    "name": "路程农村合作银行logo",
+    "aliases": [
+      "路程农村合作银行logo",
+      "路程农村合作银行logo"
+    ],
+    "file": "other-efd3d593683d92e8.svg"
+  },
+  {
+    "key": "bank-logo:other-5250766b78408e75",
+    "name": "辽阳银行",
+    "aliases": [
+      "辽阳银行",
+      "辽阳银行"
+    ],
+    "file": "other-5250766b78408e75.svg"
+  },
+  {
+    "key": "bank-logo:other-fda7ed62f8bb1de4",
+    "name": "辽阳银行logo",
+    "aliases": [
+      "辽阳银行logo",
+      "辽阳银行logo"
+    ],
+    "file": "other-fda7ed62f8bb1de4.svg"
+  },
+  {
+    "key": "bank-logo:other-eafb626369764bdf",
+    "name": "邢台银行",
+    "aliases": [
+      "邢台银行",
+      "邢台银行"
+    ],
+    "file": "other-eafb626369764bdf.svg"
+  },
+  {
+    "key": "bank-logo:other-c3dc7f89a78a1dac",
+    "name": "邢台银行logo",
+    "aliases": [
+      "邢台银行logo",
+      "邢台银行logo"
+    ],
+    "file": "other-c3dc7f89a78a1dac.svg"
+  },
+  {
+    "key": "bank-logo:other-9d2a14d796de2638",
+    "name": "鄞州银行",
+    "aliases": [
+      "鄞州银行",
+      "鄞州银行"
+    ],
+    "file": "other-9d2a14d796de2638.svg"
+  },
+  {
+    "key": "bank-logo:other-61e48f0f6ce42ca4",
+    "name": "鄞州银行logo",
+    "aliases": [
+      "鄞州银行logo",
+      "鄞州银行logo"
+    ],
+    "file": "other-61e48f0f6ce42ca4.svg"
+  },
+  {
+    "key": "bank-logo:other-23a4941d8f9585a1",
+    "name": "长城华西logo",
+    "aliases": [
+      "长城华西logo",
+      "长城华西logo"
+    ],
+    "file": "other-23a4941d8f9585a1.svg"
+  },
+  {
+    "key": "bank-logo:other-cd0d4ed6c753fb99",
+    "name": "长城华西银行",
+    "aliases": [
+      "长城华西银行",
+      "长城华西银行"
+    ],
+    "file": "other-cd0d4ed6c753fb99.svg"
+  },
+  {
+    "key": "bank-logo:other-6e3c4cec2f7e4cac",
+    "name": "长春农商",
+    "aliases": [
+      "长春农商",
+      "长春农商"
+    ],
+    "file": "other-6e3c4cec2f7e4cac.svg"
+  },
+  {
+    "key": "bank-logo:other-37a8b3b01d87639e",
+    "name": "长春农商logo",
+    "aliases": [
+      "长春农商logo",
+      "长春农商logo"
+    ],
+    "file": "other-37a8b3b01d87639e.svg"
+  },
+  {
+    "key": "bank-logo:other-41cbba6cd061659f",
+    "name": "长治银行",
+    "aliases": [
+      "长治银行",
+      "长治银行"
+    ],
+    "file": "other-41cbba6cd061659f.svg"
+  },
+  {
+    "key": "bank-logo:other-c8870d8bb7cdec29",
+    "name": "长治银行logo",
+    "aliases": [
+      "长治银行logo",
+      "长治银行logo"
+    ],
+    "file": "other-c8870d8bb7cdec29.svg"
+  },
+  {
+    "key": "bank-logo:other-e50efc51365dac00",
+    "name": "阳泉市商业银行",
+    "aliases": [
+      "阳泉市商业银行",
+      "阳泉市商业银行"
+    ],
+    "file": "other-e50efc51365dac00.svg"
+  },
+  {
+    "key": "bank-logo:other-9cf376b284b20b40",
+    "name": "阳泉市商业银行logo",
+    "aliases": [
+      "阳泉市商业银行logo",
+      "阳泉市商业银行logo"
+    ],
+    "file": "other-9cf376b284b20b40.svg"
+  },
+  {
+    "key": "bank-logo:other-e43d4e4c4c5d8e87",
+    "name": "陆丰农村信用社",
+    "aliases": [
+      "陆丰农村信用社",
+      "陆丰农村信用社"
+    ],
+    "file": "other-e43d4e4c4c5d8e87.svg"
+  },
+  {
+    "key": "bank-logo:other-15f5a812266d1265",
+    "name": "陆丰农村信用社logo",
+    "aliases": [
+      "陆丰农村信用社logo",
+      "陆丰农村信用社logo"
+    ],
+    "file": "other-15f5a812266d1265.svg"
+  },
+  {
+    "key": "bank-logo:other-9e463ceab90032d7",
+    "name": "雅安市商业银行",
+    "aliases": [
+      "雅安市商业银行",
+      "雅安市商业银行"
+    ],
+    "file": "other-9e463ceab90032d7.svg"
+  },
+  {
+    "key": "bank-logo:other-c65de1f8e235fd1f",
+    "name": "雅安市商业银行logo",
+    "aliases": [
+      "雅安市商业银行logo",
+      "雅安市商业银行logo"
+    ],
+    "file": "other-c65de1f8e235fd1f.svg"
+  },
+  {
+    "key": "bank-logo:other-cc341f9626292040",
+    "name": "韩国友利银行",
+    "aliases": [
+      "韩国友利银行",
+      "韩国友利银行"
+    ],
+    "file": "other-cc341f9626292040.svg"
+  },
+  {
+    "key": "bank-logo:other-020df119adfa152d",
+    "name": "韩国友利银行logo",
+    "aliases": [
+      "韩国友利银行logo",
+      "韩国友利银行logo"
+    ],
+    "file": "other-020df119adfa152d.svg"
+  },
+  {
+    "key": "bank-logo:other-76102eb6a3cd4132",
+    "name": "韩国外换银行",
+    "aliases": [
+      "韩国外换银行",
+      "韩国外换银行"
+    ],
+    "file": "other-76102eb6a3cd4132.svg"
+  },
+  {
+    "key": "bank-logo:other-cefb6d251be9480d",
+    "name": "韩国外换银行logo",
+    "aliases": [
+      "韩国外换银行logo",
+      "韩国外换银行logo"
+    ],
+    "file": "other-cefb6d251be9480d.svg"
+  },
+  {
+    "key": "bank-logo:other-9f6b8637f648f6cd",
+    "name": "香港交易所",
+    "aliases": [
+      "香港交易所",
+      "香港交易所"
+    ],
+    "file": "other-9f6b8637f648f6cd.svg"
+  },
+  {
+    "key": "bank-logo:other-80b38100b1dd3691",
+    "name": "香港交易所logo",
+    "aliases": [
+      "香港交易所logo",
+      "香港交易所logo"
+    ],
+    "file": "other-80b38100b1dd3691.svg"
+  },
+  {
+    "key": "bank-logo:other-903d9dad9fc42d4f",
+    "name": "高明农商",
+    "aliases": [
+      "高明农商",
+      "高明农商"
+    ],
+    "file": "other-903d9dad9fc42d4f.svg"
+  },
+  {
+    "key": "bank-logo:other-f9c3f9c6dc14e3ed",
+    "name": "高明农商logo",
+    "aliases": [
+      "高明农商logo",
+      "高明农商logo"
+    ],
+    "file": "other-f9c3f9c6dc14e3ed.svg"
+  },
+  {
+    "key": "bank-logo:other-fea240b5e11eb29d",
+    "name": "鹤壁银行",
+    "aliases": [
+      "鹤壁银行",
+      "鹤壁银行"
+    ],
+    "file": "other-fea240b5e11eb29d.svg"
+  },
+  {
+    "key": "bank-logo:other-5bb869758e5a31cd",
+    "name": "鹤壁银行logo",
+    "aliases": [
+      "鹤壁银行logo",
+      "鹤壁银行logo"
+    ],
+    "file": "other-5bb869758e5a31cd.svg"
+  }
+]
