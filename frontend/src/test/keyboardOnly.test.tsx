@@ -293,9 +293,15 @@ describe("keyboard-only completion", () => {
 
     await userEvent.tab(); // -> currency select (left at its default: USD)
     await userEvent.tab(); // -> reason select (default: Other)
-    await userEvent.tab(); // -> note input
     await userEvent.tab(); // -> effective date
+    expect(within(form).getByLabelText("Local date")).toHaveFocus();
     await userEvent.tab(); // -> effective time
+    expect(within(form).getByLabelText("Local time")).toHaveFocus();
+    await userEvent.tab(); // -> recapture the exact current time
+    expect(within(form).getByRole("button", { name: "Use current time" })).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.tab(); // -> note input
+    expect(within(form).getByLabelText("Note")).toHaveFocus();
     await userEvent.tab(); // -> Preview button
     const previewOrConfirm = within(form).getByRole("button", { name: "Preview" });
     expect(previewOrConfirm).toHaveFocus();
