@@ -650,8 +650,12 @@ func (r *Repository) AppendFXQuoteAndSelectManual(ctx context.Context, quote dom
 }
 
 func (r *Repository) ListFXQuotes(ctx context.Context, householdID domain.HouseholdID) ([]domain.FXQuote, error) {
+	return listFXQuotesQuery(ctx, r.database.SQL, householdID)
+}
+
+func listFXQuotesQuery(ctx context.Context, query queryer, householdID domain.HouseholdID) ([]domain.FXQuote, error) {
 	statement := `SELECT id, household_id, base_currency, quote_currency, rate, source_kind, source_key, quoted_at, created_at, delayed, observation_kind, effective_date, fetched_at, value_effective_at, source_policy_version, timestamp_basis, revision, supersedes_quote_id FROM fx_quotes WHERE household_id = ? AND NOT EXISTS (SELECT 1 FROM agent_quote_records withdrawn WHERE withdrawn.target_type = 'fx' AND withdrawn.target_quote_id = fx_quotes.id) ORDER BY base_currency ASC, quote_currency ASC, quoted_at DESC, created_at DESC, id DESC`
-	rows, err := r.database.SQL.QueryContext(ctx, statement, householdID.String())
+	rows, err := query.QueryContext(ctx, statement, householdID.String())
 	if err != nil {
 		return nil, err
 	}

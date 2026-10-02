@@ -11,7 +11,8 @@ import (
 // InstrumentHoldings reads one snapshot and shares the cost replay across all
 // members, including transfer sources outside the visible account scope.
 func (g *GainService) InstrumentHoldings(ctx context.Context) ([]domain.InstrumentHoldingsView, error) {
-	snapshot, err := g.repository.ReadPortfolioSnapshot(ctx, domain.AccountFilter{IncludeArchived: true})
+	inputs, err := g.repository.ReadGainSnapshot(ctx)
+	snapshot := inputs.Portfolio
 	if err != nil {
 		return nil, err
 	}
@@ -30,11 +31,9 @@ func (g *GainService) InstrumentHoldings(ctx context.Context) ([]domain.Instrume
 	for _, instrument := range snapshot.Instruments {
 		instruments[instrument.ID] = instrument
 	}
-	fx, origin, err := g.gainFXInputs(ctx, snapshot)
-	if err != nil {
-		return nil, err
-	}
-	replay := newCostBasisReplayContext(g.repository, snapshot.Holdings)
+	fx, origin := inputs.HistoricalFXQuotes, snapshot.Origin
+	replay := newGainSnapshotReplay(inputs)
+
 	indices := map[domain.InstrumentID]int{}
 	exact := make(map[domain.HoldingID]*exactHoldingGain)
 	for _, holding := range snapshot.Holdings {

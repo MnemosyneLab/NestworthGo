@@ -14,9 +14,9 @@ type holdingsSnapshotCounter struct {
 	reads int
 }
 
-func (r *holdingsSnapshotCounter) ReadPortfolioSnapshot(ctx context.Context, filter domain.AccountFilter) (domain.PortfolioSnapshot, error) {
+func (r *holdingsSnapshotCounter) ReadGainSnapshot(ctx context.Context) (domain.GainSnapshot, error) {
 	r.reads++
-	return r.Repository.ReadPortfolioSnapshot(ctx, filter)
+	return r.Repository.ReadGainSnapshot(ctx)
 }
 
 func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
