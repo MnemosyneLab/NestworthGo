@@ -1,6 +1,6 @@
 import { RestoreBackupButton } from "@/features/backup/RestoreBackupButton";
 import { useEffect, useState } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
@@ -94,7 +94,10 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
   });
   const { fields, append, remove } = useFieldArray({ control, name: "memberNames" });
 
+  const baseCurrency = useWatch({ control, name: "baseCurrency" });
+  const currencyReady = Boolean(currencies.data?.includes(baseCurrency));
   const onSubmit = (values: OnboardingFormValues) => {
+    if (!currencies.data?.includes(values.baseCurrency)) return;
     completeOnboarding.mutate(
       {
         householdName: values.householdName,
@@ -169,16 +172,17 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
 
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="baseCurrency">{t("settings.household.baseCurrency")}</Label>
-                <NativeSelect
+                <Controller name="baseCurrency" control={control} render={({ field }) => <NativeSelect
                   id="baseCurrency"
-                  {...register("baseCurrency")}
+                  {...field}
+                  disabled={!currencies.data?.length || completeOnboarding.isPending}
                 >
                   {(currencies.data ?? []).map((currency) => (
                     <option key={currency} value={currency}>
                       {currency}
                     </option>
                   ))}
-                </NativeSelect>
+                </NativeSelect>} />
                 <p className="text-xs leading-5 text-muted-foreground">{t("onboarding.baseCurrencyHint")}</p>
               </div>
 
@@ -258,7 +262,7 @@ export function OnboardingPage({ onCompleted }: { onCompleted?: () => void } = {
                 </p>
               )}
 
-              <Button type="submit" disabled={completeOnboarding.isPending}>
+              <Button type="submit" disabled={completeOnboarding.isPending || !currencyReady}>
                 {completeOnboarding.isPending ? t("common.pending") : t("onboarding.complete")}
               </Button>
             </form>
