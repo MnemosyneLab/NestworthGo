@@ -1137,3 +1137,129 @@ it.each([false, true])("fixes an existing investment transfer with an existing t
   expect(previewChange).not.toHaveBeenCalled();
   expect(recordChange).not.toHaveBeenCalled();
 });
+
+async function openTimedCashForm() {
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+  await userEvent.type(within(form).getByLabelText("Amount"), "1");
+  return form;
+}
+
+async function selectManualMinute(form: HTMLElement, minute: string) {
+  await userEvent.click(within(form).getByLabelText("Local time"));
+  const lists = await screen.findAllByRole("list", { name: "Local time" });
+  await userEvent.click(within(lists[1]).getByRole("button", { name: minute }));
+  await userEvent.keyboard("{Escape}");
+}
+
+it.each([
+  ["UTC", "45.000", "12:34"], ["Asia/Shanghai", "45.000", "20:34"],
+  ["UTC", "00.123", "12:34"], ["Asia/Shanghai", "00.123", "20:34"],
+])("freezes the exact default time after a partial-minute origin (%s %s)", async (timezone, seconds, localTime) => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  const captured = "2026-10-02T12:34:50.789Z";
+  vi.setSystemTime(new Date(captured));
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone, startedAt: `2026-10-02T12:34:${seconds}Z` });
+  previewChange.mockResolvedValue({ resulting: [{ name: "Checking", amount: "1", currency: "USD" }] });
+  recordChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+  try {
+    const form = await openTimedCashForm();
+    expect(within(form).getByLabelText("Local time")).toHaveTextContent(localTime);
+    vi.setSystemTime(new Date("2026-10-02T12:35:55.999Z"));
+    await userEvent.type(within(form).getByLabelText("Note"), "Waited across a minute");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ effectiveAt: captured, effectiveLocalDate: "", effectiveLocalTime: "" })));
+    expect(within(form).getByText(/Captured time:/)).toHaveTextContent(`${localTime}:50.789`);
+    const reviewed = previewChange.mock.calls[0][0];
+    vi.setSystemTime(new Date("2026-10-02T12:36:01.000Z"));
+    await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(recordChange).toHaveBeenCalledWith({ ...reviewed, mutationId: expect.any(String) }));
+  } finally { vi.useRealTimers(); }
+});
+
+it.each([
+  ["UTC", "45.000", false], ["Asia/Shanghai", "00.123", false],
+  ["UTC", "00.000", true], ["Asia/Shanghai", "00.000", true],
+])("validates manual origin-minute precision (%s %s allowed=%s)", async (timezone, seconds, allowed) => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-02T12:34:50.789Z"));
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone, startedAt: `2026-10-02T12:34:${seconds}Z` });
+  previewChange.mockResolvedValue({ resulting: [] });
+  try {
+    const form = await openTimedCashForm();
+    // Selecting the same displayed minute is still an explicit manual edit.
+    await selectManualMinute(form, "34");
+    const button = within(form).getByRole("button", { name: "Preview" });
+    if (!allowed) {
+      expect(button).toBeDisabled();
+      expect(within(form).getByText(/This minute starts before the Starting point/)).toBeInTheDocument();
+      expect(previewChange).not.toHaveBeenCalled();
+      vi.setSystemTime(new Date("2026-10-02T12:35:10.000Z"));
+      await selectManualMinute(form, "35");
+    }
+    await userEvent.click(button);
+    await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ effectiveAt: "", effectiveLocalDate: "2026-10-02", effectiveLocalTime: `${timezone === "UTC" ? "12" : "20"}:${allowed ? "34" : "35"}` })));
+  } finally { vi.useRealTimers(); }
+});
+
+it("invalidates a delayed preview when recapturing within the same minute and captures afresh on reopen", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-02T12:34:50.789Z"));
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-10-02T12:34:45.123Z" });
+  const resolvePreviews: ((value: unknown) => void)[] = [];
+  previewChange.mockImplementation(() => new Promise(resolve => resolvePreviews.push(resolve)));
+  try {
+    let form = await openTimedCashForm();
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(resolvePreviews).toHaveLength(1));
+    vi.setSystemTime(new Date("2026-10-02T12:34:55.123Z"));
+    await userEvent.click(within(form).getByRole("button", { name: "Use current time" }));
+    await act(async () => resolvePreviews[0]({ resulting: [{ name: "STALE", amount: "1" }] }));
+    expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    await userEvent.click(await within(form).findByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ effectiveAt: "2026-10-02T12:34:55.123Z" })));
+    await act(async () => resolvePreviews[1]({ resulting: [] }));
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Record change" })).not.toBeInTheDocument());
+    vi.setSystemTime(new Date("2026-10-02T12:35:01.234Z"));
+    await userEvent.click(screen.getByRole("button", { name: /record change/i }));
+    form = await screen.findByRole("form", { name: "Record change" });
+    await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+    await userEvent.type(within(form).getByLabelText("Amount"), "2");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ effectiveAt: "2026-10-02T12:35:01.234Z" })));
+    await act(async () => resolvePreviews[2]({ resulting: [] }));
+  } finally { vi.useRealTimers(); }
+});
+
+it("keeps captured time across kind changes and invalidates a pending preview when editing the date", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-10-02T12:34:50.789Z"));
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-10-01T00:00:00.000Z" });
+  const resolvePreviews: ((value: unknown) => void)[] = [];
+  previewChange.mockImplementation(() => new Promise(resolve => resolvePreviews.push(resolve)));
+  try {
+    const form = await openTimedCashForm();
+    vi.setSystemTime(new Date("2026-10-02T12:35:55.999Z"));
+    await userEvent.click(within(form).getByRole("radio", { name: "Money removed" }));
+    await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+    await userEvent.type(within(form).getByLabelText("Amount"), "1");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "money_removed", effectiveAt: "2026-10-02T12:34:50.789Z", effectiveLocalDate: "", effectiveLocalTime: "" })));
+    await userEvent.click(within(form).getByLabelText("Local date"));
+    const calendar = await screen.findByRole("grid");
+    await userEvent.click(calendar.querySelector('[data-day="2026-10-01"] button') as HTMLElement);
+    await act(async () => resolvePreviews[0]({ resulting: [{ name: "OLD DATE", amount: "1" }] }));
+    expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(within(form).getByText(/Manual time in UTC/)).toBeInTheDocument();
+    await userEvent.click(await within(form).findByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ effectiveAt: "", effectiveLocalDate: "2026-10-01", effectiveLocalTime: "12:34" })));
+    await act(async () => resolvePreviews[1]({ resulting: [] }));
+    await userEvent.click(within(form).getByRole("button", { name: "Use current time" }));
+    await userEvent.click(await within(form).findByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ effectiveAt: "2026-10-02T12:35:55.999Z", effectiveLocalDate: "", effectiveLocalTime: "" })));
+    await act(async () => resolvePreviews[2]({ resulting: [] }));
+  } finally { vi.useRealTimers(); }
+});

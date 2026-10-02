@@ -33,7 +33,7 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
 import { displayError } from "@/lib/display";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
-import { formatTimestamp, localDateTimeInTimeZone, resolvedTimeZone } from "@/lib/time";
+import { formatExactTimestamp, formatTimestamp, hasSubMinuteTime, localDateTimeInTimeZone, resolvedTimeZone } from "@/lib/time";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
 import { QuoteHint } from "@/features/history/QuoteHint";
 import {
@@ -532,17 +532,25 @@ function RecordChangeFormReady({
     if (fixActivityId || request.effectiveLocalDate || request.effectiveLocalTime || !effectiveOrigin) {
       return;
     }
-    const local = localDateTimeInTimeZone(effectiveOrigin.timezone);
+    const captured = request.effectiveAt ? new Date(request.effectiveAt) : new Date();
+    const local = localDateTimeInTimeZone(effectiveOrigin.timezone, captured);
     if (local) {
-      // Fix forms show the original event time read-only; new forms default once from the origin.
+      // Capture once, including seconds/milliseconds. Display fields are editable
+      // minute values; their handlers explicitly switch to manual time.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setRequest((current) => ({ ...current, effectiveLocalDate: local.date, effectiveLocalTime: local.time, effectiveAt: "" }));
+      setRequest((current) => current.effectiveLocalDate || current.effectiveLocalTime ? current : ({ ...current, effectiveLocalDate: local.date, effectiveLocalTime: local.time, effectiveAt: captured.toISOString() }));
     }
-  }, [effectiveOrigin, fixActivityId, request.effectiveLocalDate, request.effectiveLocalTime]);
+  }, [effectiveOrigin, fixActivityId, request.effectiveAt, request.effectiveLocalDate, request.effectiveLocalTime]);
 
   const originZone = resolvedTimeZone(effectiveOrigin?.timezone || settings.data?.timezone);
   const originLocal = effectiveOrigin ? localDateTimeInTimeZone(originZone, new Date(effectiveOrigin.startedAt)) : undefined;
   const nowLocal = localDateTimeInTimeZone(originZone);
+  const exactTime = !fixActivityId && Boolean(request.effectiveAt);
+  const captureCurrentTime = () => {
+    const captured = new Date();
+    const local = localDateTimeInTimeZone(originZone, captured);
+    if (local) patch({ effectiveAt: captured.toISOString(), effectiveLocalDate: local.date, effectiveLocalTime: local.time });
+  };
   const localDate = request.effectiveLocalDate ?? "";
   const localTime = request.effectiveLocalTime ?? "";
   const localPairPresent = Boolean(localDate && localTime);
@@ -550,6 +558,10 @@ function RecordChangeFormReady({
   const localPairKey = localPairPresent ? timeKey(localDate, localTime) : "";
   const timeError = fixActivityId
     ? undefined
+    : exactTime
+      ? effectiveOrigin && new Date(request.effectiveAt!).getTime() < new Date(effectiveOrigin.startedAt).getTime()
+        ? t("history.effectiveDateTimeBeforeOrigin")
+        : undefined
     : localPairPartial
       ? t("history.effectiveDateTimeTogether")
       : !localPairPresent
@@ -558,6 +570,8 @@ function RecordChangeFormReady({
           ? t("history.effectiveDateTimeInvalid")
           : originLocal && localPairKey < timeKey(originLocal.date, originLocal.time)
             ? t("history.effectiveDateTimeBeforeOrigin")
+            : originLocal && localPairKey === timeKey(originLocal.date, originLocal.time) && hasSubMinuteTime(effectiveOrigin!.startedAt, originZone)
+              ? t("history.effectiveMinuteBeforeOrigin", { time: formatExactTimestamp(effectiveOrigin!.startedAt, originZone) })
             : nowLocal && localPairKey > timeKey(nowLocal.date, nowLocal.time)
               ? t("history.effectiveDateTimeFuture")
               : undefined;
@@ -624,9 +638,9 @@ function RecordChangeFormReady({
       receivedCurrency: sameCurrencyTransfer ? request.sentCurrency : request.receivedCurrency,
       feeCurrency: request.feeCurrency || request.soldCurrency || request.grossCurrency || request.sentCurrency,
       interestOrFeeCurrency: request.interestOrFeeCurrency || request.principalCurrency,
-      effectiveLocalDate: fixActivityId ? "" : request.effectiveLocalDate,
-      effectiveLocalTime: fixActivityId ? "" : request.effectiveLocalTime,
-      effectiveAt: "",
+      effectiveLocalDate: fixActivityId || exactTime ? "" : request.effectiveLocalDate,
+      effectiveLocalTime: fixActivityId || exactTime ? "" : request.effectiveLocalTime,
+      effectiveAt: exactTime ? request.effectiveAt : "",
     };
   };
 
@@ -826,6 +840,9 @@ function RecordChangeFormReady({
             const next = emptyChangeRequest(nextKind, defaultCurrency);
             const locked = {
               ...next,
+              effectiveAt: request.effectiveAt,
+              effectiveLocalDate: request.effectiveLocalDate,
+              effectiveLocalTime: request.effectiveLocalTime,
               accountId: lock?.accountId ?? next.accountId,
               settlementAccountId: lock?.settlementAccountId ?? next.settlementAccountId,
               fromAccountId: lock?.accountId && nextKind === ChangeCommandKind.ChangeCashTransfer ? lock.accountId : next.fromAccountId,
@@ -1092,7 +1109,10 @@ function RecordChangeFormReady({
               <TimePicker id="change-effective-time" value={localTime} onChange={(effectiveLocalTime) => patch({ effectiveLocalTime, effectiveAt: "" })} />
             </div>
           </div>
-          <p className="text-xs text-muted-foreground">{t("history.effectiveDateTimeHelp", { timezone: originZone })}</p>
+          <p className="text-xs text-muted-foreground">{exactTime
+            ? t("history.effectiveExactTimeHelp", { time: formatExactTimestamp(request.effectiveAt!, originZone), timezone: originZone })
+            : t("history.effectiveManualTimeHelp", { timezone: originZone })}</p>
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={captureCurrentTime}>{t("history.useCurrentTime")}</Button>
         </>
       ) : (
         <div className="flex flex-col gap-1.5"><Label htmlFor="change-original-effective-at">{t("history.originalEffectiveAt")}</Label><Input id="change-original-effective-at" readOnly value={originalEffectiveAt ? formatTimestamp(originalEffectiveAt, effectiveOrigin?.timezone) : ""} /><p className="text-xs text-muted-foreground">{t("history.fixTimestampHelp")}</p></div>
