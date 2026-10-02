@@ -121,9 +121,13 @@ unsealed streams can also accumulate indefinitely.
 
 Retention enumerates every object page under the exact configured BackupID,
 with no delimiter, stream cap or recovery-point cap. It accepts only canonical
-stream UUID paths, `stream.json`, and phase-one L0 filenames. Unexpected paths,
-duplicate keys, missing/changed owned identities or changed target inventories
-abort the operation. Other BackupIDs are outside cleanup's listing and deletion
+stream UUID paths, `stream.json`, and phase-one L0 filenames. The pinned
+Litestream v0.5.17 adapters use different layouts: S3 writes
+`<stream>/0000/<minTXID>-<maxTXID>.ltx`; the synthetic file backend writes
+`<stream>/ltx/0/<minTXID>-<maxTXID>.ltx`. Validation accepts these exact forms
+with canonical nonzero TXID ranges, never other levels or arbitrary subpaths.
+Unexpected paths, duplicate keys, missing/changed owned identities or changed
+target inventories abort the operation. Other BackupIDs are outside cleanup's listing and deletion
 scope. The recovery UI still limits discovery to 100 recent L0 points per stream
 and 512 streams; those display limits are not used by cleanup.
 
@@ -177,8 +181,14 @@ remains available during remote work. The UI exposes Stop for backend-running
 work, including automatic cleanup and navigation back to Settings during a
 manual run; mutation serialization still uses the existing operation lock.
 
-Only synthetic file storage and fake S3 request interfaces are used by automated
-tests. Coverage includes full pagination, current/two-survivor/legacy/foreign/
+Only synthetic file storage, fake S3 request interfaces and a loopback S3
+endpoint are used by automated tests. The pinned S3 replica client actually
+uploads fixture LTX files to that endpoint; the captured keys feed retention
+preview, survivor restoration and metadata-last cleanup. Retained streams are
+restored again after cleanup. S3 recovery timestamps come from the adapter's
+LTX timestamp metadata (tested with a differing LIST LastModified), while
+retention age continues to come solely from the local seal. Coverage includes
+full pagination, current/two-survivor/legacy/foreign/
 crash protections, post-cleanup restoration of retained data, denied deletes,
 partial outcomes and lost checkpoints, restart/resumption, stale preview and
 concurrent configuration/restore/shutdown, redacted errors, and repeated,

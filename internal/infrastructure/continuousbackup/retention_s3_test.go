@@ -233,11 +233,163 @@ func TestPinnedS3WriterActiveRetentionPreview(t *testing.T) {
 	if dataObjects == 0 {
 		t.Fatal("no S3 PUT captured")
 	}
+	for _, enabled := range []bool{false, true} {
+		if enabled {
+			activateCleanup(t, m)
+		}
+		p, err := m.PreviewRetention(context.Background(), 30)
+		if err != nil {
+			t.Fatalf("active-only S3 preview must be readable (cleanup enabled=%t): %v", enabled, err)
+		}
+		if p.Ready || p.EligibleBytes != 0 || p.ScannedBytes == 0 || len(p.Items) != 1 || p.Items[0].Reason != "current" || p.Items[0].Eligible {
+			t.Fatalf("active stream not protected: %+v", p)
+		}
+	}
+}
+
+func TestPinnedS3RetentionSurvivorsCleanupAndTimestamps(t *testing.T) {
+	m, c, root, streams := sealedFixture(t, 3)
+	b, state := uploadS3Fixture(t, m, c, root, streams)
+	activateCleanup(t, m)
 	p, err := m.PreviewRetention(context.Background(), 30)
 	if err != nil {
-		t.Fatalf("active-only S3 preview must be readable: %v", err)
+		t.Fatal(err)
 	}
-	if p.Ready || p.EligibleBytes != 0 || p.ScannedBytes == 0 || len(p.Items) != 1 || p.Items[0].Reason != "current" || p.Items[0].Eligible {
-		t.Fatalf("active stream not protected: %+v", p)
+	if !p.Ready || p.EligibleBytes == 0 || len(p.Items) != 3 {
+		t.Fatalf("no S3 survivors: %+v", p)
+	}
+	for _, item := range p.Items {
+		if item.StreamID == streams[0] {
+			if !item.Eligible || item.Reason != "expired-sealed" {
+				t.Fatalf("seal age ignored: %+v", item)
+			}
+		} else if item.Eligible || item.Reason != "verified-survivor" {
+			t.Fatalf("survivor not verified: %+v", item)
+		}
+	}
+	// S3 HEAD metadata is the LTX capture time; LIST LastModified deliberately
+	// differs. Recovery uses the pinned adapter's metadata, retention uses seals.
+	points, err := m.RecoveryPoints(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(points) == 0 {
+		t.Fatal("no S3 recovery points")
+	}
+	state.mu.Lock()
+	for _, point := range points {
+		found := false
+		for key, o := range state.objects {
+			if strings.HasPrefix(key, remotePrefix+point.StreamID+"/0000/") && strings.HasSuffix(key, "-"+point.TXID+".ltx") {
+				if point.CapturedAt != o.timestamp || point.CapturedAt == "2020-01-01T00:00:00Z" {
+					t.Errorf("capture metadata lost: got %s want %s", point.CapturedAt, o.timestamp)
+				}
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("recovery key mismatch: %+v", point)
+		}
+	}
+	state.mu.Unlock()
+	if _, err = m.ExecuteRetention(context.Background(), CleanupRequest{Token: p.Token, Acknowledged: true}); err != nil {
+		t.Fatal(err)
+	}
+	state.mu.Lock()
+	deleted := append([]string(nil), state.deleted...)
+	state.mu.Unlock()
+	if len(deleted) < 2 || deleted[len(deleted)-1] != remotePrefix+streams[0]+"/"+identityFile {
+		t.Fatalf("metadata not last: %v", deleted)
+	}
+	for _, key := range deleted {
+		if !strings.HasPrefix(key, remotePrefix+streams[0]+"/") {
+			t.Fatalf("protected stream deleted: %s", key)
+		}
+	}
+	records, err := m.store.streams(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if records[streams[0]].State != "deleted" {
+		t.Fatal("missing completion tombstone")
+	}
+	for _, stream := range streams[1:] {
+		if err := m.verifySurvivor(context.Background(), b, records[stream]); err != nil {
+			t.Fatalf("retained S3 stream cannot restore: %v", err)
+		}
+	}
+}
+
+func TestRetentionObjectLayoutsFailClosed(t *testing.T) {
+	m, c, root, streams := sealedFixture(t, 1)
+	b, state := uploadS3Fixture(t, m, c, root, streams)
+	const name = "0000000000000001-000000000000000a.ltx"
+	base := remotePrefix + streams[0] + "/"
+	for _, suffix := range []string{"0000/" + name, "ltx/0/" + name, identityFile} {
+		if got, err := objectStream(c.BackupID, base+suffix); err != nil || got != streams[0] {
+			t.Fatalf("legitimate layout rejected: %s %v", suffix, err)
+		}
+	}
+	invalid := []string{
+		"0001/" + name, "000a/" + name, "0/" + name, "00000/" + name,
+		"ltx/1/" + name, "ltx/0000/" + name, "ltx/0/extra/" + name, "0000/extra/" + name,
+		"0000/../" + name, "0000//" + name, "0000/" + name + "/extra", "0000/" + name + "/",
+		"0000/0000000000000000-0000000000000001.ltx",
+		"0000/000000000000000a-0000000000000001.ltx",
+		"0000/0000000000000001-000000000000000A.ltx",
+		"0000/1-a.ltx", "0000/" + name + ".tmp", "0000/stream.json", "stream.json/extra", "unknown",
+	}
+	keys := make([]string, 0, len(invalid)+4)
+	for _, suffix := range invalid {
+		keys = append(keys, base+suffix)
+	}
+	keys = append(keys, remotePrefix+"not-an-owner/"+strings.Split(streams[0], "/")[1]+"/0000/"+name,
+		remotePrefix+c.BackupID+"-other/"+strings.Split(streams[0], "/")[1]+"/0000/"+name,
+		remotePrefix+c.BackupID+"/not-a-stream/0000/"+name,
+		remotePrefix+c.BackupID+"/AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA/0000/"+name,
+		"/"+base+"0000/"+name)
+	for _, key := range keys {
+		t.Run(strings.TrimPrefix(key, base), func(t *testing.T) {
+			o := storedObject{Key: key, Size: 1, ETag: "synthetic"}
+			if _, err := objectStream(c.BackupID, key); err == nil {
+				t.Fatal("unknown path accepted")
+			}
+			if _, err := groupInventory(c.BackupID, []storedObject{o}); err == nil {
+				t.Fatal("inventory accepted unknown path")
+			}
+			if err := b.deleteObject(context.Background(), o); err == nil {
+				t.Fatal("delete accepted unknown path")
+			}
+			state.mu.Lock()
+			state.objects[key] = contractObject{data: []byte("x"), etag: "synthetic"}
+			state.mu.Unlock()
+			_, err := m.PreviewRetention(context.Background(), 30)
+			if strings.HasPrefix(key, remotePrefix+c.BackupID+"/") {
+				if err == nil {
+					t.Fatal("preview accepted unknown path inside its target")
+				}
+			} else if err != nil {
+				t.Fatal("object outside the exact target affected preview")
+			}
+			state.mu.Lock()
+			delete(state.objects, key)
+			state.mu.Unlock()
+		})
+	}
+	valid := storedObject{Key: base + "0000/" + name, Size: 1, ETag: "synthetic"}
+	if _, err := groupInventory(c.BackupID, []storedObject{valid, valid}); err == nil {
+		t.Fatal("duplicate accepted")
+	}
+	valid.ETag = ""
+	if _, err := groupInventory(c.BackupID, []storedObject{valid}); err == nil {
+		t.Fatal("empty ETag accepted")
+	}
+	if err := b.deleteObject(context.Background(), valid); err == nil {
+		t.Fatal("delete accepted empty ETag")
+	}
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	if len(state.deleted) != 0 {
+		t.Fatal("invalid inventory caused deletion")
 	}
 }
