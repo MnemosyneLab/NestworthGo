@@ -411,6 +411,11 @@ function RecordChangeFormReady({
   const holdingName = (holding: { instrumentName?: string; instrumentSymbol?: string | null; accountName?: string; quantity: string }) =>
     `${instrumentDisplayLabel({ name: holding.instrumentName, symbol: holding.instrumentSymbol }, t("portfolio.unknownInstrument"))} · ${holding.accountName ?? t("history.unknownAccount")} · ${formatAmount(holding.quantity)}`;
   const holdingOptions = holdings.data.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
+  const transferSource = holdings.data.find((holding) => holding.id === request.fromHoldingId);
+  // Existing Fix requests identify the old destination holding; new commands use
+  // the account boundary so the backend can atomically create a missing position.
+  const transferTargetAccountId = request.toAccountId || holdings.data.find((holding) => holding.id === request.toHoldingId)?.accountId || "";
+  const transferTargetOptions = investmentAccountOptions.filter((account) => account.id !== transferSource?.accountId);
   const activeInstrumentIds = new Set((instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => instrument.id));
   const dividendHoldings = holdings.data.filter((holding) => {
     if (lock?.holdingId) {
@@ -580,7 +585,7 @@ function RecordChangeFormReady({
       case ChangeCommandKind.ChangeFXConversion:
         return Boolean(request.accountId && request.sold?.trim() && request.bought?.trim() && request.soldCurrency && request.boughtCurrency && request.soldCurrency !== request.boughtCurrency);
       case ChangeCommandKind.ChangePositionTransfer:
-        return Boolean(request.fromHoldingId && request.toHoldingId && request.fromHoldingId !== request.toHoldingId && request.quantity?.trim());
+        return Boolean(transferSource && transferTargetOptions.some((account) => account.id === transferTargetAccountId) && request.quantity?.trim());
       case ChangeCommandKind.ChangePositionAdjustment:
         return Boolean(request.holdingId && request.quantity?.trim());
       case ChangeCommandKind.ChangeTrade:
@@ -604,6 +609,7 @@ function RecordChangeFormReady({
       kind === ChangeCommandKind.ChangeCashTransfer && Boolean(request.sentCurrency) && request.sentCurrency === request.receivedCurrency;
     return {
       ...request,
+      ...(kind === ChangeCommandKind.ChangePositionTransfer ? { toAccountId: transferTargetAccountId, toHoldingId: "" } : {}),
       received: sameCurrencyTransfer ? request.sent : request.received,
       receivedCurrency: sameCurrencyTransfer ? request.sentCurrency : request.receivedCurrency,
       feeCurrency: request.feeCurrency || request.soldCurrency || request.grossCurrency || request.sentCurrency,
@@ -958,7 +964,7 @@ function RecordChangeFormReady({
       {kind === ChangeCommandKind.ChangePositionTransfer && (
         <>
           <OptionSelect id="change-from-holding" label={t("history.fromHolding")} value={request.fromHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(fromHoldingId) => patch({ fromHoldingId })} />
-          <OptionSelect id="change-to-holding" label={t("history.toHolding")} value={request.toHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(toHoldingId) => patch({ toHoldingId })} />
+          <AccountSelect id="change-to-account" label={t("history.toAccount")} value={transferTargetAccountId} accounts={transferTargetOptions} onChange={(toAccountId) => patch({ toAccountId, toHoldingId: "" })} />
           <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")} {metalUnitLabel(selectedInstrument?.quantityUnit, t)}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
         </>
       )}

@@ -1075,3 +1075,28 @@ it("does not attach an old preview to a closed and reopened form", async () => {
   expect(within(form).queryByText(/OLD SESSION/)).not.toBeInTheDocument();
 });
 
+it.each([false, true])("transfers a position using toAccountId (target already holds instrument: %s)", async (hasTargetHolding) => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([
+    { account: { id: "from", name: "Source Brokerage", trackingMode: "holdings", defaultCurrency: "USD", balanceSheetRole: "asset" }, ownership: [] },
+    { account: { id: "to", name: "Empty Brokerage", trackingMode: "holdings", defaultCurrency: "USD", balanceSheetRole: "asset" }, ownership: [] },
+  ]);
+  listInstruments.mockResolvedValue([{ id: "i1", name: "ETF", quoteCurrency: "USD", quoteSource: "manual", archivedAt: null }]);
+  holdingsByAccounts.mockResolvedValue({ from: [{ id: "h1", instrumentId: "i1", quantity: "10" }], to: hasTargetHolding ? [{ id: "h2", instrumentId: "i1", quantity: "5" }] : [] });
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.click(within(form).getByRole("radio", { name: "Investment transfer" }));
+  const from = form.querySelector<HTMLSelectElement>("#change-from-holding")!;
+  const to = form.querySelector<HTMLSelectElement>("#change-to-account")!;
+  await waitFor(() => expect(from.options.length).toBe(hasTargetHolding ? 3 : 2));
+  await userEvent.selectOptions(from, "h1");
+  expect(to).not.toBeNull();
+  expect(Array.from(to.options).some((o) => o.text.includes("Empty Brokerage"))).toBe(true);
+  expect(Array.from(to.options).some((o) => o.value === "from")).toBe(false);
+  await userEvent.selectOptions(to, "to");
+  previewChange.mockResolvedValue({ resulting: [] });
+  await userEvent.type(within(form).getByLabelText(/Quantity/), "1");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ fromHoldingId: "h1", toAccountId: "to", toHoldingId: "", quantity: "1" })));
+});
