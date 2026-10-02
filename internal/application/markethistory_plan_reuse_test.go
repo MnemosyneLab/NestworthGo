@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -222,6 +223,55 @@ func TestHistoryPlanReusePreservesReadErrors(t *testing.T) {
 		got, err := s.PlanHistorySync(context.Background(), opts)
 		if want == nil || err == nil || err.Error() != want.Error() || !reflect.DeepEqual(got, HistoryRepairPlan{}) {
 			t.Fatalf("force=%v malformed quote: got %+v %v want %v", force, got, err, want)
+		}
+	}
+}
+
+type cancelAfterPlanningReadsRepository struct {
+	Repository
+	cancel          context.CancelFunc
+	instrumentReads int
+}
+
+func (r *cancelAfterPlanningReadsRepository) ListInstruments(ctx context.Context, id domain.HouseholdID, archived bool) ([]domain.Instrument, error) {
+	instruments, err := r.Repository.ListInstruments(ctx, id, archived)
+	if err != nil {
+		return nil, err
+	}
+	r.instrumentReads++
+	if r.instrumentReads == 2 {
+		// Agent dates read instruments first; history starts read them last.
+		// Cancel after that successful read, before initial CPU planning ends.
+		r.cancel()
+	}
+	return instruments, nil
+}
+
+func TestHistoryPlanCancellationAfterInitialReads(t *testing.T) {
+	s, _ := marketReadFixture(t, 3, 1)
+	repo := s.repository
+	for _, force := range []bool{false, true} {
+		for _, reference := range []bool{false, true} {
+			t.Run(fmt.Sprintf("force=%v/reference=%v", force, reference), func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+				wrapped := &cancelAfterPlanningReadsRepository{Repository: repo, cancel: cancel}
+				s.repository = wrapped
+				opts := HistorySyncOptions{ForceRecheck: force}
+				var got HistoryRepairPlan
+				var err error
+				if reference {
+					got, err = legacyPlanHistorySync(s, ctx, opts)
+				} else {
+					got, err = s.PlanHistorySync(ctx, opts)
+				}
+				if wrapped.instrumentReads != 2 || !errors.Is(ctx.Err(), context.Canceled) {
+					t.Fatalf("cancellation did not reach the CPU planning boundary: reads=%d err=%v", wrapped.instrumentReads, ctx.Err())
+				}
+				if !errors.Is(err, context.Canceled) || !reflect.DeepEqual(got, HistoryRepairPlan{}) {
+					t.Fatalf("cancelled planning returned %+v, %v", got, err)
+				}
+			})
 		}
 	}
 }

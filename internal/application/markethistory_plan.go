@@ -161,6 +161,11 @@ func (s *Service) PlanHistorySync(ctx context.Context, opts HistorySyncOptions) 
 	if err != nil {
 		return HistoryRepairPlan{}, err
 	}
+	// The former second repository read also checked cancellation after the
+	// initial CPU planning. Preserve that boundary when reusing its inputs.
+	if err := ctx.Err(); err != nil {
+		return HistoryRepairPlan{}, err
+	}
 	plan.ForceRecheck = opts.ForceRecheck
 	coverage := inputs.coverage
 	var agentDates map[domain.InstrumentID][]string
