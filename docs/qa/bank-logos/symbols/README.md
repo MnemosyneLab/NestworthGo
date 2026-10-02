@@ -10,8 +10,8 @@ Base UI `Sheet`; no personal ledger or external provider was used.
 The side-by-side examples retain the same 20px and 32px sample slots to show
 artwork improvement independently of slot size. Actual account list/detail
 and institution list slots are now 32px; selected picker previews are 36px and
-choices 48px. Wordmarks such as Citi remain proportionate when no standalone
-symbol is supplied. Both themes use a small white surface for brand contrast.
+choices 48px. Already-saved wordmarks such as Citi remain proportionate, but are hidden
+from new choices. Both themes use a small white surface for brand contrast.
 
 ## Evidence
 
@@ -91,10 +91,29 @@ StanChart, 中銀香港 and BOCHK. The BOCHK selection uses its own ID and label
 - [Standard Chartered / StanChart](search-standard-chartered.png)
 - [BOCHK independent identity](search-bochk.png)
 
-Final local checks: 641/641 frontend tests, 19 Python checks, TypeScript, lint
+Final local checks: 642/642 frontend tests, 19 Python checks, TypeScript, lint
 and production build passed. Full `go test ./...` and `go vet ./...` passed
 with `CGO_ENABLED=0` and the environment's `server` build tag. Native-CGO local
 checks need GTK/WebKit development libraries; native-dependency test/race CI
 status is available on PR #26. The final catalog has 305 presentations and 610
 bank IDs after the regional additions; earlier 304/608 figures above describe
 the initial bank phase.
+
+## Final symbol-only selection rule
+
+New selection now contains **272 verified graphic/monogram choices**. The 33
+wordmark presentations are historical-display compatibility only, not picker
+results. Their original IDs, assets and saved previews remain valid. A user can
+explicitly switch to a generic icon; opening/searching does not alter settings.
+Stylized standalone emblems such as Beijing Bank's B and Ningxia Bank's N remain
+selectable. Lettering is not mechanically removed from the artwork.
+
+- [Light desktop: hidden wordmark / unique SC choice](symbol-only-light-1000.png)
+- [Dark desktop](symbol-only-dark-1000.png)
+- [Light narrow](symbol-only-light-390.png) · [Dark narrow](symbol-only-dark-390.png)
+
+All four browser configurations verified that saved `bank-logo:citibank` still
+renders, searching citibank offers no new wordmark choice, and old
+`bank-logo:sc` selects the single Standard Chartered result. New and old SC IDs
+never create duplicate entries. `symbol-only-review.tsx/html` and
+`symbol-only.cjs` reproduce this with the same temporary-harness procedure.

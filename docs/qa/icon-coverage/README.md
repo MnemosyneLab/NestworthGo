@@ -22,7 +22,7 @@ in [the bank regression evidence](../bank-logos/symbols/README.md).
 The Library upload helper is unavailable in this executor (HTTP 401); these
 images are committed for review rather than claiming a successful Library save.
 
-Validation: 641/641 full frontend tests, 96 focused tests, 19 Python checks,
+Validation: 642/642 full frontend tests, 96 focused tests, 19 Python checks,
 Go domain/application tests, TypeScript, ESLint and production build passed.
 Build still reports >500KB chunks. The initial bank head passed both GitHub
 test/race jobs; updated-head CI is reported on the draft PR.

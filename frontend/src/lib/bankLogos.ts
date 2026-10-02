@@ -4,7 +4,9 @@ import presentations from "./bankLogoPresentation.json";
 
 // Keep the full original catalog for validation and old persisted IDs.
 export const BANK_LOGOS = [...logos, ...regional];
-export const BANK_LOGO_CHOICES = presentations;
+// Wordmarks remain resolvable for saved settings, but are not new choices.
+export const BANK_LOGO_PRESENTATIONS = presentations;
+export const BANK_LOGO_CHOICES = presentations.filter(logo => logo.kind === "symbol");
 const byKey = new Map(BANK_LOGOS.map((logo) => [logo.key, logo]));
 const displayByKey = new Map(presentations.flatMap((logo) =>
   [logo.key, ...logo.legacyKeys].map((key) => [key, logo] as const)));

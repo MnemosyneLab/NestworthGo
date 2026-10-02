@@ -59,12 +59,16 @@ Lookup must succeed in the fixed catalog before a local asset URL is used.
 Unknown IDs use the existing generic fallback. Logos have a small white
 backplate in both themes so source black/colored artwork remains legible;
 SVG backgrounds stay as supplied and no artwork is stretched or recolored.
-The picker uses 304 reviewed presentations rather than exposing both variants.
+The picker offers 272 reviewed symbol-only choices rather than exposing both variants.
 `tools/bank-logos/presentation.json` explicitly groups all 608 original IDs;
 `frontend/src/lib/bankLogoPresentation.json` is the generated display catalog.
-Most groups use a symbol. The 33 groups whose compact source still includes
-lettering retain one wordmark fallback rather than losing that institution.
-Monograms and stylized letters that form the brand symbol remain intact.
+The 33 groups whose compact source still includes wordmarks are hidden from new
+selection. Their original IDs and display assets remain supported for saved
+settings; users can deliberately select a generic icon instead. No bank record
+or saved setting is removed or silently rewritten.
+Monograms and stylized letters that form the brand symbol remain intact, such
+as the Beijing Bank B emblem and Ningxia Bank N. This is visual classification,
+not an ASCII-letter or filename-suffix filter.
 The `other/` pairs are explicitly reviewed: filename suffixes alone are not
 reliable (for example, the Shenzhen Commercial and Great Wall West China
 pairs put the symbol first). Search retains names and aliases from both sources.
@@ -109,7 +113,8 @@ ledger, provider credentials or R2 account is used.
 
 ## Regional identity and search corrections
 
-The final catalog has 305 choices covering 610 valid bank IDs. Postal Savings
+The final resolver has 305 presentations covering 610 valid bank IDs, while
+the new-choice catalog exposes only its 272 symbol entries. Postal Savings
 also matches 邮储/郵儲 and its traditional full name. The pinned upstream calls
 `sc/sc-rect` “枣庄银行” despite showing Standard Chartered's old mark; its
 presentation now uses the verified 2021 symbol and the independent descriptive
