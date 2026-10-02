@@ -55,3 +55,29 @@ The capture script renders both viewport sizes and themes. Capture `before`
 from a checkout of `58e1630` with the same temporary harness, then run
 `compare.cjs` to assemble the two comparison images. Remove both temporary
 frontend harness files after reviewing; they are not production routes.
+
+## Real directory-edit regression follow-up
+
+The earlier Sheet-only component check did **not** cover institution editing:
+`DirectoryEntityList` edits an institution inline. It had neither a Cancel
+control nor an Escape handler after its picker closed. This explains the user's
+second-Escape failure; it was not a Base UI portal/focus bug.
+
+The actual `DirectoryPage` was reproduced in Chromium in zh-CN with seeded
+TanStack Query data. Real keyboard events left the inline editor open before
+this fix and dismissed it after it. The row now owns second-Escape cancellation,
+adds Cancel, discards only unsaved edits, and restores focus to its Edit button.
+The first Escape remains owned by the picker and preserves the draft.
+
+- [Actual directory before: second Escape leaves editor open](real-directory-escape-before.png)
+- [Actual directory after: second Escape cancels edit](real-directory-escape-after.png)
+- [First Escape after selection retains institution draft](directory-first-escape-selected.png)
+- [Actual AccountForm in Sheet retains draft on first Escape](account-first-escape-selected.png)
+
+`flow-review.tsx` renders the real DirectoryPage and AccountForm, with only data
+queries seeded; it does not replace their UI or event handlers. Temporarily copy
+it and `flow-review.html` into the corresponding frontend locations, then run
+`real-flow.cjs` with the same Playwright setup above. It uses browser keyboard
+input from search, result focus, and after selection, plus Cancel/reopen for both
+flows. No manually dispatched DOM events are used. Account edit is a Sheet;
+institution edit is inline. Native Wails remains an outstanding acceptance step.
