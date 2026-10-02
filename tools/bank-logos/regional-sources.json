@@ -1,0 +1,16 @@
+{
+  "standardChartered": {
+    "source": "https://commons.wikimedia.org/wiki/File:Standard_Chartered_Logo_(2021,_Logo_only).svg",
+    "officialReference": "https://av.sc.com/assets/global/images/components/header/standard-chartered-logo.svg",
+    "license": "PD-textlogo (Commons declaration); trademark rights reserved",
+    "sourceSha256": "3444fded06c7cfab6a50001e065945e0dfb8ddc0321afc80c8d1a448ab2d446d",
+    "sha256": "404fc7bbb66d29248c38b32c4b458e3f1e47a825806fb3bc91e0028aed592f02",
+    "processing": "Retain source paths and solid fills; remove editor metadata and empty defs. Display uses padded path bounds."
+  },
+  "bochk": {
+    "officialReference": "https://bochk.com/dam/bochk/desktop/top/aboutus/notice/2026/20260102_Statement_EN.pdf",
+    "source": "icongo/bank-logos logos/boc-rect.svg",
+    "license": "MIT (vendored source); trademark rights reserved",
+    "processing": "Reuse reviewed BOC round emblem with an independent BOCHK identity and aliases."
+  }
+}

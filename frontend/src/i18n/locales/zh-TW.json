@@ -471,7 +471,10 @@
       "general": "通用",
       "investment": "投資與市場",
       "protection": "保障與規劃",
-      "bankLogos": "銀行與金融機構標誌"
+      "bankLogos": "銀行與金融機構標誌",
+      "assets": "實物資產",
+      "liabilities": "負債與應收",
+      "digital": "數位資產"
     },
     "chart": "財務圖表",
     "circleCheck": "已確認",
@@ -528,10 +531,22 @@
     "gem": "收藏品",
     "pieChart": "資產配置",
     "categoryLabel": "圖示類別",
-    "genericIcons": "通用圖示",
+    "genericIcons": "通用與數位資產圖標",
     "noResults": "沒有相符的圖示",
     "inheritInstitution": "使用機構圖示",
-    "inheritHint": "跟隨所屬機構的圖示。未選擇機構時使用帳戶類型圖示。"
+    "inheritHint": "跟隨所屬機構的圖示。未選擇機構時使用帳戶類型圖示。",
+    "fund": "基金 / ETF",
+    "bond": "債券",
+    "termDeposit": "定期存款",
+    "lending": "借貸",
+    "land": "土地",
+    "commercialProperty": "商業地產",
+    "collectible": "收藏品",
+    "digitalAsset": "數位資產",
+    "cryptoBTC": "比特幣（BTC 標誌）",
+    "cryptoETH": "以太坊（ETH 標誌）",
+    "cryptoSOL": "Solana（SOL 標誌）",
+    "cryptoUSDC": "USD Coin（USDC 標誌）"
   },
   "directory": {
     "createError": "無法建立此項目",

@@ -59,8 +59,43 @@ Lookup must succeed in the fixed catalog before a local asset URL is used.
 Unknown IDs use the existing generic fallback. Logos have a small white
 backplate in both themes so source black/colored artwork remains legible;
 SVG backgrounds stay as supplied and no artwork is stretched or recolored.
-Some wordmark variants contain substantial source whitespace and are less
-legible at 20px; the corresponding compact `-rect` marks are also selectable.
+The picker offers 272 reviewed symbol-only choices rather than exposing both variants.
+`tools/bank-logos/presentation.json` explicitly groups all 608 original IDs;
+`frontend/src/lib/bankLogoPresentation.json` is the generated display catalog.
+The 33 groups whose compact source still includes wordmarks are hidden from new
+selection. Their original IDs and display assets remain supported for saved
+settings; users can deliberately select a generic icon instead. No bank record
+or saved setting is removed or silently rewritten.
+Monograms and stylized letters that form the brand symbol remain intact, such
+as the Beijing Bank B emblem and Ningxia Bank N. This is visual classification,
+not an ASCII-letter or filename-suffix filter.
+The `other/` pairs are explicitly reviewed: filename suffixes alone are not
+reliable (for example, the Shenzhen Commercial and Great Wall West China
+pairs put the symbol first). Search retains names and aliases from both sources.
+
+Old saved IDs resolve to the preferred presentation and show its selected state,
+but are never rewritten by rendering or opening the picker. Only an explicit
+selection changes an override. The original catalog, source assets, Go allowlist,
+snapshot behavior and schema remain unchanged.
+
+Display assets under `bank-logos/display/` preserve every original path and paint;
+only the viewBox changes. Chromium path bounds exclude a first white backplate
+covering the source canvas (within 1% for source rounding), include all foreground
+paths, and add 3.5% breathing room on each side. This removes blank canvas without
+stretching, recoloring, or cropping foreground artwork. A white backplate remains
+in both themes. No runtime measurement or SVG injection is used by the app.
+
+Regenerate after reviewing any source change (Playwright is a development-only
+tool, not an application dependency):
+
+```sh
+NODE_PATH=/path/to/playwright/node_modules node tools/bank-logos/build_presentation.cjs
+```
+
+Set `CHROMIUM_PATH` if Chromium is not at `/usr/bin/chromium`. Re-run this after
+importing the upstream catalog. Picker marks are 48px, selected previews 36px,
+and account/institution list and detail slots 32px; wider wordmarks retain their
+natural proportions with `object-contain`.
 The image payload is outside the JS bundle and picker images load lazily.
 
 ## Verification
@@ -75,3 +110,22 @@ Chromium component review checks all 608 images for successful decoding and
 keyboard override/reset, plus light/dark screenshots. This is frontend browser
 verification with synthetic state, not native macOS/Wails acceptance. No real
 ledger, provider credentials or R2 account is used.
+
+## Regional identity and search corrections
+
+The final resolver has 305 presentations covering 610 valid bank IDs, while
+the new-choice catalog exposes only its 272 symbol entries. Postal Savings
+also matches 邮储/郵儲 and its traditional full name. The pinned upstream calls
+`sc/sc-rect` “枣庄银行” despite showing Standard Chartered's old mark; its
+presentation now uses the verified 2021 symbol and the independent descriptive
+ID `bank-logo:standard-chartered`, retaining both old sc IDs as aliases. The
+incorrect bank name is not retained as a search alias. StanChart and 渣打 match.
+
+`bank-logo:bochk` is a separate Bank of China (Hong Kong) identity; it never
+aliases the mainland BOC ID. Its round emblem matches the official 2026 BOCHK
+header and reuses the existing MIT-sourced path. The Standard Chartered asset
+comes from Commons' logo-only extraction of the official SVG, with PD-textlogo
+and trademark notices recorded separately from icongo MIT in NOTICE.md.
+See `regional-sources.json` for exact references, hashes and processing, and
+`regionalBankLogos.json` for identity/alias overrides. No new bank is inferred
+from an account name or ticker.

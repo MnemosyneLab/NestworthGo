@@ -57,16 +57,16 @@ it("selects a searched logo by keyboard, keeps its colors in dark mode, and rese
   try {
     render(<InheritedPicker />);
     const trigger = screen.getByLabelText("Choose icon");
-    expect(trigger.querySelector("img")).toHaveAttribute("src", "/bank-logos/icbc.svg");
+    expect(trigger.querySelector("img")).toHaveAttribute("src", "/bank-logos/display/icbc-rect.svg");
     trigger.focus();
     await userEvent.keyboard("{Enter}");
     await userEvent.selectOptions(screen.getByLabelText("Icon category"), "bank");
     await userEvent.type(screen.getByLabelText("Search icons"), "boc");
-    const logo = screen.getByRole("button", { name: "中国银行 (boc)" });
+    const logo = screen.getByRole("button", { name: "中国银行" });
     logo.focus();
     await userEvent.keyboard(" ");
     expect(logo).toHaveAttribute("aria-pressed", "true");
-    expect(trigger.querySelector("img")).toHaveAttribute("src", "/bank-logos/boc.svg");
+    expect(trigger.querySelector("img")).toHaveAttribute("src", "/bank-logos/display/boc-rect.svg");
     expect(trigger.querySelector("img")).toHaveClass("object-contain", "bg-white");
     await userEvent.keyboard("{Escape}");
     expect(trigger).toHaveFocus();
@@ -75,7 +75,7 @@ it("selects a searched logo by keyboard, keeps its colors in dark mode, and rese
     reset.focus();
     await userEvent.keyboard("{Enter}");
     expect(reset).toHaveAttribute("aria-pressed", "true");
-    expect(trigger.querySelector("img")).toHaveAttribute("src", "/bank-logos/icbc.svg");
+    expect(trigger.querySelector("img")).toHaveAttribute("src", "/bank-logos/display/icbc-rect.svg");
   } finally { document.documentElement.classList.remove("dark"); }
 });
 
@@ -93,8 +93,8 @@ it("does not offer bank categories on unrelated entities and never uses an unkno
   const { container } = render(<IconPicker id="member-icon" kind="member" value="bank-logo:../../remote" onChange={() => undefined} />);
   await userEvent.click(screen.getByLabelText("Choose icon"));
   expect(screen.queryByLabelText("Icon category")).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("Search icons")).not.toBeInTheDocument();
-  expect(container.querySelector("img")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Search icons")).toBeInTheDocument();
+  expect(container.querySelector("summary img")).not.toBeInTheDocument();
 });
 
 
@@ -105,7 +105,7 @@ it.each(["en", "zh-CN", "zh-TW"])("localizes the bank category and inheritance a
   await userEvent.click(screen.getByLabelText(i18n.t("common.chooseIcon")));
   await userEvent.selectOptions(screen.getByLabelText(i18n.t("icons.categoryLabel")), "bank");
   await userEvent.type(screen.getByLabelText(i18n.t("icons.search")), "Bank of America");
-  expect(screen.getAllByRole("button").some((button) => button.textContent?.includes("bankofamerica"))).toBe(true);
+  expect(screen.getAllByRole("button").some((button) => button.textContent?.includes("美国银行"))).toBe(true);
 });
 
 
@@ -113,4 +113,40 @@ it.each(["__proto__", "constructor", "bank-logo:unknown"])("falls back safely fo
   const { container } = render(<EntityIcon iconKey={key} kind="account" />);
   expect(container.querySelector(".lucide-wallet")).toBeInTheDocument();
   expect(hasIcon(key)).toBe(false);
+});
+
+it("shows a legacy wordmark selection as its symbol without emitting a migration", async () => {
+  const changes: string[] = [];
+  await i18n.changeLanguage("en");
+  render(<IconPicker id="legacy" kind="institution" value="bank-logo:icbc" onChange={key => changes.push(key)} />);
+  await userEvent.click(screen.getByLabelText("Choose icon"));
+  await userEvent.type(screen.getByLabelText("Search icons"), "icbc");
+  const choices = screen.getAllByRole("button");
+  expect(choices).toHaveLength(1);
+  expect(choices[0]).toHaveAttribute("aria-pressed", "true");
+  expect(choices[0]).toHaveTextContent("中国工商银行");
+  expect(changes).toEqual([]);
+  await userEvent.click(choices[0]);
+  expect(changes).toEqual(["bank-logo:icbc-rect"]);
+});
+
+it.each(["member", "group", "instrument"] as const)("offers branded digital assets for %s with keyboard selection", async (kind) => {
+  await i18n.changeLanguage("en");
+  const changes: string[] = [];
+  render(<IconPicker id="digital" kind={kind} value="bitcoin" onChange={key => changes.push(key)} />);
+  await userEvent.click(screen.getByLabelText("Choose icon"));
+  await userEvent.type(screen.getByLabelText("Search icons"), "以太坊");
+  const result = screen.getByRole("button", {name:"Ethereum (ETH logo)"});
+  expect(result.querySelector("img")).toHaveAttribute("src", "/crypto-logos/eth.svg");
+  result.focus(); await userEvent.keyboard("{Enter}{Escape}");
+  expect(changes).toEqual(["crypto-logo:eth"]);
+  expect(screen.getByLabelText("Choose icon")).toHaveFocus();
+});
+
+it.each(["Bond", "债券", "債券"])("searches generic labels across locales: %s", async (query) => {
+  await i18n.changeLanguage("en");
+  render(<IconPicker id="bond" kind="instrument" value="bond" onChange={() => undefined} />);
+  await userEvent.click(screen.getByLabelText("Choose icon"));
+  await userEvent.type(screen.getByLabelText("Search icons"), query);
+  expect(screen.getByRole("button", {name:"Bond"})).toHaveAttribute("aria-pressed", "true");
 });

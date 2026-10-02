@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { TONE_CLASSES, toneForKey } from "@/lib/tone";
 import { displayEnum, displayError } from "@/lib/display";
 import { IconPicker } from "@/components/forms/IconPicker";
+import { bankLogo } from "@/lib/bankLogos";
 import { EntityIcon, type EntityIconKind } from "@/components/icons/EntityIcon";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
 import { DEFAULT_ICONS, INSTITUTION_TYPE_ICONS } from "@/lib/defaultIcons";
@@ -34,6 +35,8 @@ export function DirectoryEntityList<T extends Entity>({ showArchived = false, on
   const [institutionType, setInstitutionType] = useState(institutionTypes[0] ?? "");
   const [iconKey, setIconKey] = useState<string>(fallback);
   const [iconCustomized, setIconCustomized] = useState(false);
+  const editButtons = useRef(new Map<string, HTMLButtonElement>());
+  const restoreEditFocus = useRef<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
   const [editingIcon, setEditingIcon] = useState<string>(fallback);
@@ -56,6 +59,18 @@ export function DirectoryEntityList<T extends Entity>({ showArchived = false, on
       toast.success(t("directory.entityCreated", { name: trimmed }));
     } catch (cause) { setError(displayError(cause, t("directory.createError"))); }
     finally { setSubmitting(false); }
+  };
+
+  useLayoutEffect(() => {
+    if (!editingId && restoreEditFocus.current) {
+      editButtons.current.get(restoreEditFocus.current)?.focus();
+      restoreEditFocus.current = null;
+    }
+  }, [editingId]);
+
+  const cancelEdit = (id: string) => {
+    restoreEditFocus.current = id;
+    setEditingId(null); setEditingName(""); setEditingIcon(fallback); setError(undefined);
   };
 
   const save = async (entity: T) => {
@@ -102,11 +117,17 @@ export function DirectoryEntityList<T extends Entity>({ showArchived = false, on
     {!isLoading && !isError && entities && entities.length > 0 && <ul className="flex flex-col gap-2">{entities.map((entity) => {
       const editing = editingId === entity.id; const archived = Boolean(entity.archivedAt);
       const tone = TONE_CLASSES[toneForKey(entity.id)];
-      return <li key={entity.id} className={cn("rounded-2xl border border-border bg-card px-4 py-3 shadow-xs", archived && "opacity-75")}><div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-3 text-sm"><span aria-hidden="true" className={cn("inline-flex size-9 shrink-0 items-center justify-center rounded-xl", tone.soft, tone.text)}><EntityIcon iconKey={entity.iconKey} kind={kind} className="size-5" /></span>
-          {editing ? <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} className="max-w-xs" /> : <><span className="font-semibold text-foreground">{entity.name}</span>{entity.institutionType && <Badge variant="outline">{displayEnum(t, "institutionType", entity.institutionType)}</Badge>}</>}
+      return <li key={entity.id} onKeyDown={(event) => {
+        // The directory editor is inline, not a Sheet. The picker consumes the
+        // first Escape; the closed picker's Escape reaches this owner.
+        if (editing && !submitting && event.key === "Escape" && !event.defaultPrevented && event.currentTarget.contains(event.target as Node)) {
+          event.preventDefault(); event.stopPropagation(); cancelEdit(entity.id);
+        }
+      }} className={cn("rounded-2xl border border-border bg-card px-4 py-3 shadow-xs", archived && "opacity-75")}><div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="flex min-w-0 items-center gap-3 text-sm"><span aria-hidden="true" className={cn("inline-flex size-9 shrink-0 items-center justify-center rounded-xl", !bankLogo(entity.iconKey) && tone.soft, tone.text)}><EntityIcon iconKey={entity.iconKey} kind={kind} className={bankLogo(entity.iconKey) ? "size-8" : "size-5"} /></span>
+          {editing ? <Input aria-label={t(`directory.nameLabel.${kind}`)} value={editingName} onChange={(event) => setEditingName(event.target.value)} className="max-w-xs" /> : <><span className="font-semibold text-foreground">{entity.name}</span>{entity.institutionType && <Badge variant="outline">{displayEnum(t, "institutionType", entity.institutionType)}</Badge>}</>}
           {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}</span>
-        <span className="flex gap-2">{editing ? <Button size="sm" onClick={() => void save(entity)} disabled={submitting}>{t("common.save")}</Button> : <Button variant="outline" size="sm" onClick={() => { setEditingId(entity.id); setEditingName(entity.name); setEditingIcon(entity.iconKey); }}>{t("common.edit")}</Button>}
+        <span className="flex gap-2">{editing ? <><Button size="sm" onClick={() => void save(entity)} disabled={submitting}>{t("common.save")}</Button><Button variant="outline" size="sm" disabled={submitting} onClick={() => cancelEdit(entity.id)}>{t("common.cancel")}</Button></> : <Button ref={(node) => { if (node) editButtons.current.set(entity.id, node); else editButtons.current.delete(entity.id); }} variant="outline" size="sm" onClick={() => { setEditingId(entity.id); setEditingName(entity.name); setEditingIcon(entity.iconKey); }}>{t("common.edit")}</Button>}
           {archived ? <Button variant="outline" size="sm" disabled={Boolean(archivingId)} onClick={() => void changeArchived(entity, false)}>{archivingId === entity.id ? t("common.pending") : t("connections.restore")}</Button> : <AlertDialog><AlertDialogTrigger disabled={Boolean(archivingId)} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>{archived ? t("common.active") : t("common.archive")}</AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{archived ? t("common.active") : t("common.archive")}</AlertDialogTitle><AlertDialogDescription>{entity.name}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel><AlertDialogAction onClick={() => void changeArchived(entity, true)}>{archived ? t("common.active") : t("common.archive")}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>}
         </span></div>{editing && <div className="mt-3"><IconPicker id={`${kind}-${entity.id}-icon`} value={editingIcon} kind={kind} onChange={setEditingIcon} /></div>}</li>;
     })}</ul>}

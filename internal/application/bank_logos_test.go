@@ -18,7 +18,7 @@ func TestBankIconsSurviveEditsExportAndSnapshotReopen(t *testing.T) {
 		t.Fatal(err)
 	}
 	ids := map[string]domain.AccountID{}
-	for _, key := range []string{"", "wallet", "bank-logo:boc"} {
+	for _, key := range []string{"", "wallet", "bank-logo:boc", "bank-logo:bochk", "bank-logo:standard-chartered", "fund", "bond", "term-deposit", "lending", "land", "commercial-property", "collectible", "digital-asset", "crypto-logo:btc", "crypto-logo:eth", "crypto-logo:sol", "crypto-logo:usdc"} {
 		a, err := s.CreateAccount(ctx, AccountInput{Name: "Test " + key, AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "0", InstitutionID: institution.ID.String(), IconKey: key, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 		if err != nil {
 			t.Fatal(err)
@@ -79,7 +79,7 @@ func TestBankIconsSurviveEditsExportAndSnapshotReopen(t *testing.T) {
 	}
 	assertIcons(s)
 	exported := decodeExport(t, s)
-	if len(exported.Facts.Directory["accounts"]) != 3 {
+	if len(exported.Facts.Directory["accounts"]) != len(ids) {
 		t.Fatal("missing exported accounts")
 	}
 	// Version 2 intentionally excludes UI icons; keep that export contract.

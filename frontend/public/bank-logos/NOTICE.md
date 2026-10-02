@@ -16,3 +16,17 @@ their respective owners. Inclusion does not imply affiliation or endorsement.
 See tools/bank-logos/manifest.json in the source distribution for per-file
 source paths and original/sanitized SHA-256 hashes and import_logos.py for
 the reproducible offline importer.
+
+Regional additions and identity corrections (license stated per asset):
+standard-chartered.svg (not covered by icongo MIT above): Standard Chartered Logo (2021, Logo only), retrieved
+2026-10-02 from Wikimedia Commons; Commons declares PD-textlogo and notes
+trademark restrictions. Original author: Standard Chartered. All source paths
+and colors retained; editor metadata removed and display canvas normalized.
+https://commons.wikimedia.org/wiki/File:Standard_Chartered_Logo_(2021,_Logo_only).svg
+Official reference:
+https://av.sc.com/assets/global/images/components/header/standard-chartered-logo.svg
+
+BOCHK uses the existing MIT-sourced boc-rect.svg round emblem under a separate
+catalog identity, verified against Bank of China (Hong Kong)'s official header:
+https://bochk.com/dam/bochk/desktop/top/aboutus/notice/2026/20260102_Statement_EN.pdf
+Trademark rights remain with the respective banks; no affiliation implied.

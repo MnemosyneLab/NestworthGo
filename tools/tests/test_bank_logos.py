@@ -19,7 +19,7 @@ class BankLogoTests(unittest.TestCase):
         directory = ROOT / 'frontend/public/bank-logos'
         self.assertEqual(manifest['revision'], logos.REVISION)
         self.assertEqual(len(catalog), 608)
-        self.assertEqual(len(list(directory.glob('*.svg'))), 608)
+        self.assertEqual(len(list(directory.glob('*.svg'))), 609)
         self.assertEqual(len({x['key'] for x in catalog}), 608)
         self.assertEqual({x['key'] for x in catalog}, {x['key'] for x in manifest['assets']})
         backend = (ROOT / 'internal/domain/bank_logos_generated.go').read_text()
@@ -33,6 +33,45 @@ class BankLogoTests(unittest.TestCase):
             self.assertTrue(entry['name'])
             self.assertTrue(entry['aliases'])
         self.assertIn('Copyright (c) 2022 IconGo', (directory / 'LICENSE').read_text())
+
+    def test_display_assets_only_change_canvas_and_cover_all_saved_ids(self):
+        import xml.etree.ElementTree as ET
+        import math
+        catalog = json.loads((ROOT / 'frontend/src/lib/bankLogos.json').read_text())
+        reviewed = json.loads((ROOT / 'tools/bank-logos/presentation.json').read_text())
+        display = json.loads((ROOT / 'frontend/src/lib/bankLogoPresentation.json').read_text())
+        regional = json.loads((ROOT / 'frontend/src/lib/regionalBankLogos.json').read_text())
+        replaced = {key for item in regional for key in item['legacyKeys']}
+        reviewed = [item for item in reviewed if item['key'] not in replaced] + [{k: item[k] for k in ('key', 'legacyKeys', 'kind')} for item in regional]
+        catalog += regional
+        self.assertEqual(len(display), 305)
+        keys = [key for item in display for key in [item['key'], *item['legacyKeys']]]
+        self.assertEqual(len(keys), len(set(keys)))
+        self.assertEqual(set(keys), {item['key'] for item in catalog})
+        original = {item['key']: item for item in catalog}
+        for choice, review in zip(display, reviewed):
+            self.assertEqual({k: choice[k] for k in review}, review)
+            self.assertIn(choice['kind'], ['symbol', 'wordmark'])
+            path = ROOT / 'frontend/public/bank-logos' / choice['file']
+            raw = path.read_text()
+            self.assertEqual(logos.sanitize_svg(raw), raw)
+            before = ET.parse(ROOT / 'frontend/public/bank-logos' / original[choice['key']]['file']).getroot()
+            after = ET.fromstring(raw)
+            self.assertEqual([node.attrib for node in before], [node.attrib for node in after])
+            box = [float(n) for n in after.attrib['viewBox'].split()]
+            self.assertTrue(all(math.isfinite(n) for n in box))
+            self.assertTrue(box[2] > 0 and box[3] > 0)
+            self.assertTrue(choice['name'])
+
+    def test_regional_source_hash_and_identity(self):
+        sources = json.loads((ROOT / 'tools/bank-logos/regional-sources.json').read_text())
+        raw = (ROOT / 'frontend/public/bank-logos/standard-chartered.svg').read_text()
+        self.assertEqual(logos.sanitize_svg(raw), raw)
+        self.assertEqual(hashlib.sha256(raw.encode()).hexdigest(), sources['standardChartered']['sha256'])
+        self.assertIn('PD-textlogo', sources['standardChartered']['license'])
+        regional = json.loads((ROOT / 'frontend/src/lib/regionalBankLogos.json').read_text())
+        self.assertEqual({item['key'] for item in regional}, {'bank-logo:standard-chartered', 'bank-logo:bochk'})
+        self.assertEqual(regional[1]['legacyKeys'], [])
 
     def test_unsafe_svg_is_rejected(self):
         bad = [

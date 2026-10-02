@@ -12,7 +12,7 @@ describe("account icon resolution", () => {
     expect(resolveAccountIcon({ ...account, institutionId: "missing" }, institutions)).toBe("bank");
   });
   it("preserves explicit generic, logo, and unknown IDs rather than silently rewriting them", () => {
-    for (const iconKey of ["wallet", "bank-logo:boc", "legacy-unknown"]) {
+    for (const iconKey of ["wallet", "bank-logo:boc", "crypto-logo:eth", "bond", "legacy-unknown"]) {
       expect(resolveAccountIcon({ iconKey, accountType: "bank_account", institutionId: "a" }, institutions)).toBe(iconKey);
     }
   });

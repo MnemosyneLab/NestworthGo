@@ -11,6 +11,7 @@ const updateMember = vi.fn();
 const archiveMember = vi.fn().mockResolvedValue(undefined);
 const setMemberIcon = vi.fn().mockResolvedValue(undefined);
 const createInstitution = vi.fn();
+const listInstitutions = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/directory", () => ({
   Service: {
@@ -19,7 +20,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/di
     UpdateMember: (...args: unknown[]) => updateMember(...args),
     ArchiveMember: (...args: unknown[]) => archiveMember(...args),
     SetMemberIcon: (...args: unknown[]) => setMemberIcon(...args),
-    ListInstitutions: () => Promise.resolve([]),
+    ListInstitutions: () => listInstitutions(),
     ListGroups: () => Promise.resolve([]),
     CreateInstitution: (...args: unknown[]) => createInstitution(...args),
     CreateGroup: vi.fn(),
@@ -52,6 +53,7 @@ beforeEach(() => {
   archiveMember.mockClear();
   setMemberIcon.mockClear();
   createInstitution.mockReset();
+  listInstitutions.mockResolvedValue([]);
   listMembers.mockResolvedValue([{ id: "m1", name: "Alice", iconKey: "user" }]);
   createMember.mockResolvedValue({ id: "m2", name: "Bob", iconKey: "user" });
   createInstitution.mockResolvedValue({ id: "i1", name: "Acme", institutionType: "insurer", iconKey: "shield-plus" });
@@ -147,4 +149,31 @@ it("shows and restores an archived member without changing ownership", async () 
   expect(archiveMember).toHaveBeenCalledWith("m1", false);
   expect(updateMember).not.toHaveBeenCalled();
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+});
+
+it.each(["search", "result"])("cancels the real inline editor on second Escape from %s and can reopen", async (target) => {
+  listInstitutions.mockResolvedValue([{id:"cmb", name:"招商银行", institutionType:"bank", iconKey:"bank-logo:cmbchina"}]);
+  renderPage();
+  await userEvent.click(screen.getByRole("tab", {name:"Institutions"}));
+  await screen.findByText("招商银行");
+  await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+  const name = screen.getByLabelText("Institution name");
+  await userEvent.clear(name);
+  await userEvent.type(name, "Unsaved name");
+  const trigger = screen.getByLabelText("Choose icon");
+  await userEvent.click(trigger);
+  await userEvent.type(screen.getByLabelText("Search icons"), "cmbchina");
+  const result = screen.getByRole("button", { name: "招商银行" });
+  if (target === "result") { await userEvent.click(result); result.focus(); }
+  else screen.getByLabelText("Search icons").focus();
+  await userEvent.keyboard("{Escape}");
+  expect(name).toHaveValue("Unsaved name");
+  expect(trigger).toHaveFocus();
+  await userEvent.keyboard("{Escape}");
+  expect(screen.queryByLabelText("Institution name")).not.toBeInTheDocument();
+  expect(updateMember).not.toHaveBeenCalled();
+  await userEvent.click(screen.getByRole("button", { name: "Edit" }));
+  expect(screen.getByLabelText("Institution name")).toHaveValue("招商银行");
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByLabelText("Institution name")).not.toBeInTheDocument();
 });

@@ -210,9 +210,9 @@ export function AccountsPage({
                       >
                         <span
                           aria-hidden="true"
-                          className={cn("inline-flex size-10 shrink-0 items-center justify-center rounded-xl [&_svg]:size-5", TONE_CLASSES[accountTypeStyle(record.account.accountType).tone].soft, TONE_CLASSES[accountTypeStyle(record.account.accountType).tone].text)}
+                          className={cn("inline-flex size-10 shrink-0 items-center justify-center rounded-xl [&:has(img)]:bg-transparent [&_svg]:size-5", TONE_CLASSES[accountTypeStyle(record.account.accountType).tone].soft, TONE_CLASSES[accountTypeStyle(record.account.accountType).tone].text)}
                         >
-                          <AccountIcon account={record.account} className="size-5" />
+                          <AccountIcon account={record.account} className="size-8" />
                         </span>
                         <span className="flex min-w-0 flex-1 flex-col gap-1">
                           <span className="flex flex-wrap items-center gap-2 font-semibold">
