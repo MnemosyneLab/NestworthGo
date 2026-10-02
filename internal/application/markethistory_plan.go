@@ -48,43 +48,55 @@ type HistorySyncOptions struct {
 // PlanMarketDataRepair builds the coverage/gap and opening-anchor plan for
 // the current household without performing provider HTTP.
 func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, error) {
+	plan, _, err := s.planMarketDataRepair(ctx)
+	return plan, err
+}
+
+// Keep the local coverage facts within one planning call. These are not cached
+// across requests: a later scan must observe imports, withdrawals and rechecks.
+type historyRepairInputs struct {
+	coverage   []domain.InstrumentHistoryCoverage
+	agentDates map[domain.InstrumentID][]string
+}
+
+func (s *Service) planMarketDataRepair(ctx context.Context) (HistoryRepairPlan, historyRepairInputs, error) {
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
-		return HistoryRepairPlan{}, err
+		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
 	origin, err := s.HistoryOrigin(ctx)
 	if err != nil {
-		return HistoryRepairPlan{}, err
+		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
 	if origin == nil {
-		return HistoryRepairPlan{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before planning market-data repair"}
+		return HistoryRepairPlan{}, historyRepairInputs{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "start history before planning market-data repair"}
 	}
 	location, err := time.LoadLocation(origin.Timezone)
 	if err != nil {
-		return HistoryRepairPlan{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "stored Household timezone is invalid"}
+		return HistoryRepairPlan{}, historyRepairInputs{}, &domain.Error{Code: domain.ErrHistoryTimezoneRequired, Message: "stored Household timezone is invalid"}
 	}
 	now := s.clock()
 	today := now.In(location).Format("2006-01-02")
 	yesterday, err := previousLocalDate(today)
 	if err != nil {
-		return HistoryRepairPlan{}, err
+		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
 	originDate := origin.StartedAt.In(location).Format("2006-01-02")
 	finalized, err := domain.LastFinalizedUSEquityMarketDate(now)
 	if err != nil {
-		return HistoryRepairPlan{}, err
+		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
 	coverage, err := s.repository.ListInstrumentHistoryCoverage(ctx, household.ID)
 	if err != nil {
-		return HistoryRepairPlan{}, err
+		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
 	agentDates, err := s.agentInstrumentDailyDates(ctx)
 	if err != nil {
-		return HistoryRepairPlan{}, err
+		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
 	preferences, err := s.repository.ListFXPreferences(ctx, household.ID)
 	if err != nil {
-		return HistoryRepairPlan{}, err
+		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
 	plan := HistoryRepairPlan{
 		HouseholdID:             household.ID,
@@ -96,7 +108,7 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 	}
 	starts, err := s.instrumentHistoryStarts(ctx, *origin, now)
 	if err != nil {
-		return HistoryRepairPlan{}, err
+		return HistoryRepairPlan{}, historyRepairInputs{}, err
 	}
 	for _, item := range coverage {
 		item.CloseMarketDates = append(item.CloseMarketDates, agentDates[item.InstrumentID]...)
@@ -105,18 +117,18 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 		case domain.UsesMetalFuturesHistory(item.InstrumentType, item.Market):
 			marketFinalized, err = domain.LastFinalizedMetalMarketDate(now)
 			if err != nil {
-				return HistoryRepairPlan{}, err
+				return HistoryRepairPlan{}, historyRepairInputs{}, err
 			}
 		case domain.InstrumentUsesCryptoDailyBar(item.InstrumentType, item.Market):
 			marketFinalized, err = domain.LastFinalizedCryptoMarketDate(now)
 			if err != nil {
-				return HistoryRepairPlan{}, err
+				return HistoryRepairPlan{}, historyRepairInputs{}, err
 			}
 		default:
 			if _, supported := domain.EquitySessionScheduleForMarket(item.Market); supported {
 				marketFinalized, err = domain.LastFinalizedEquityMarketDate(now, item.Market)
 				if err != nil {
-					return HistoryRepairPlan{}, err
+					return HistoryRepairPlan{}, historyRepairInputs{}, err
 				}
 			}
 		}
@@ -132,12 +144,12 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 		}
 		need, planErr := planInstrumentRepairNeed(item, start, marketFinalized)
 		if planErr != nil {
-			return HistoryRepairPlan{}, planErr
+			return HistoryRepairPlan{}, historyRepairInputs{}, planErr
 		}
 		need.LastFinalizedMarketDate = marketFinalized
 		plan.Instruments = append(plan.Instruments, need)
 	}
-	return plan, nil
+	return plan, historyRepairInputs{coverage: coverage, agentDates: agentDates}, nil
 }
 
 // PlanHistorySync overlays historical routing, negative-cache expiry,
@@ -145,26 +157,15 @@ func (s *Service) PlanMarketDataRepair(ctx context.Context) (HistoryRepairPlan, 
 // Current manual instruments are already omitted from coverage. It does not
 // perform provider HTTP.
 func (s *Service) PlanHistorySync(ctx context.Context, opts HistorySyncOptions) (HistoryRepairPlan, error) {
-	plan, err := s.PlanMarketDataRepair(ctx)
+	plan, inputs, err := s.planMarketDataRepair(ctx)
 	if err != nil {
 		return HistoryRepairPlan{}, err
 	}
 	plan.ForceRecheck = opts.ForceRecheck
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		return HistoryRepairPlan{}, err
-	}
-	coverage, err := s.repository.ListInstrumentHistoryCoverage(ctx, household.ID)
-	if err != nil {
-		return HistoryRepairPlan{}, err
-	}
+	coverage := inputs.coverage
 	var agentDates map[domain.InstrumentID][]string
 	if !opts.ForceRecheck {
-		var agentErr error
-		agentDates, agentErr = s.agentInstrumentDailyDates(ctx)
-		if agentErr != nil {
-			return HistoryRepairPlan{}, agentErr
-		}
+		agentDates = inputs.agentDates
 		for index := range coverage {
 			coverage[index].CloseMarketDates = append(coverage[index].CloseMarketDates, agentDates[coverage[index].InstrumentID]...)
 		}
