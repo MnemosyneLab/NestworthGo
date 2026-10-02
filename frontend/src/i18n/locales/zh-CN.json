@@ -471,7 +471,10 @@
       "general": "通用",
       "investment": "投资与市场",
       "protection": "保障与规划",
-      "bankLogos": "银行与金融机构标志"
+      "bankLogos": "银行与金融机构标志",
+      "assets": "实物资产",
+      "liabilities": "负债与应收",
+      "digital": "数字资产"
     },
     "chart": "财务图表",
     "circleCheck": "已确认",
@@ -528,10 +531,22 @@
     "gem": "收藏品",
     "pieChart": "资产配置",
     "categoryLabel": "图标类别",
-    "genericIcons": "通用图标",
+    "genericIcons": "通用与数字资产图标",
     "noResults": "没有匹配的图标",
     "inheritInstitution": "使用机构图标",
-    "inheritHint": "跟随所属机构的图标。未选择机构时使用账户类型图标。"
+    "inheritHint": "跟随所属机构的图标。未选择机构时使用账户类型图标。",
+    "fund": "基金 / ETF",
+    "bond": "债券",
+    "termDeposit": "定期存款",
+    "lending": "借贷",
+    "land": "土地",
+    "commercialProperty": "商业地产",
+    "collectible": "收藏品",
+    "digitalAsset": "数字资产",
+    "cryptoBTC": "比特币（BTC 标志）",
+    "cryptoETH": "以太坊（ETH 标志）",
+    "cryptoSOL": "Solana（SOL 标志）",
+    "cryptoUSDC": "USD Coin（USDC 标志）"
   },
   "directory": {
     "createError": "无法创建此项目",

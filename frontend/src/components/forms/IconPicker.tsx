@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/select";
-import { ICON_CATALOG, iconChoicesByCategory } from "@/lib/iconCatalog";
+import { ICON_CATALOG, iconChoice, iconChoicesByCategory } from "@/lib/iconCatalog";
 import { BANK_LOGO_CHOICES, bankLogo, bankLogoPresentation } from "@/lib/bankLogos";
 import { EntityIcon, type EntityIconKind } from "@/components/icons/EntityIcon";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ export function IconPicker({ id, value, onChange, kind, inheritIconKey }: {
   kind: EntityIconKind;
   inheritIconKey?: string;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState(bankLogo(value || inheritIconKey) ? "bank" : "generic");
   const [search, setSearch] = useState("");
@@ -26,9 +26,10 @@ export function IconPicker({ id, value, onChange, kind, inheritIconKey }: {
   const selectedLabel = !value && canInherit ? t("icons.inheritInstitution") : bankLogoPresentation(value)?.name ?? (selected ? t(selected.labelKey) : t("common.chooseIcon"));
   const normalizeSearch = (text: string) => text.normalize("NFKC").toLocaleLowerCase().replace(/[\s_-]+/g, "");
   const query = normalizeSearch(search);
+  const translatedLabels = (key: string) => ["en", "zh-CN", "zh-TW"].map(language => i18n.getFixedT(language)(iconChoice(key)?.labelKey ?? key)).join(" ");
   const groups = category === "bank" && canChooseBank
     ? [{ categoryKey: "icons.category.bankLogos", choices: BANK_LOGO_CHOICES.filter((logo) => [logo.name, ...logo.aliases].some((text) => normalizeSearch(text).includes(query))).map((logo) => ({ key: logo.key, label: logo.name })) }]
-    : iconChoicesByCategory().map((group) => ({ categoryKey: group.categoryKey, choices: group.choices.map((choice) => ({ key: choice.key, label: t(choice.labelKey) })).filter((choice) => normalizeSearch(`${choice.label} ${choice.key}`).includes(query)) }));
+    : iconChoicesByCategory().map((group) => ({ categoryKey: group.categoryKey, choices: group.choices.map((choice) => ({ key: choice.key, label: t(choice.labelKey) })).filter((choice) => normalizeSearch(`${choice.label} ${choice.key} ${translatedLabels(choice.key)}`).includes(query)) }));
   return (
     <div className="flex flex-col gap-1.5">
       <Label htmlFor={id}>{t("common.icon")}</Label>
@@ -47,20 +48,21 @@ export function IconPicker({ id, value, onChange, kind, inheritIconKey }: {
             if (event.key !== "Enter" && event.key !== " ") return;
             event.preventDefault(); setOpen((value) => !value);
           }}>
-          <EntityIcon iconKey={value || inheritIconKey} kind={kind} className={bankLogo(value || inheritIconKey) ? "size-9" : "size-5 text-primary"} />
+          <EntityIcon iconKey={value || inheritIconKey} kind={kind} className={(bankLogo(value || inheritIconKey) || iconChoice(value || inheritIconKey)?.file) ? "size-9" : "size-5 text-primary"} />
           <span>{selectedLabel}</span>
         </summary>
         {open && (
           <div className="border-t border-border p-3">
-            {canChooseBank && <div className="mb-3 flex flex-col gap-2">
+            <div className="mb-3 flex flex-col gap-2">
+              {canChooseBank && <>
               <Label htmlFor={`${id}-category`}>{t("icons.categoryLabel")}</Label>
               <NativeSelect id={`${id}-category`} value={category} onChange={(event) => setCategory(event.target.value)}>
                 <option value="generic">{t("icons.genericIcons")}</option>
                 <option value="bank">{t("icons.category.bankLogos")}</option>
-              </NativeSelect>
+              </NativeSelect></>}
               <Label htmlFor={`${id}-search`}>{t("icons.search")}</Label>
               <Input id={`${id}-search`} type="search" value={search} onChange={(event) => setSearch(event.target.value)} />
-            </div>}
+            </div>
             <div className="max-h-72 overflow-y-auto">
               {!groups.some((group) => group.choices.length) && <p role="status" className="py-4 text-sm text-muted-foreground">{t("icons.noResults")}</p>}
               {groups.filter((group) => group.choices.length).map((group) => (
@@ -70,7 +72,7 @@ export function IconPicker({ id, value, onChange, kind, inheritIconKey }: {
                     {group.choices.map((choice) => (
                       <button key={choice.key} type="button" aria-pressed={(bankLogoPresentation(value)?.key ?? value) === choice.key} onClick={() => onChange(choice.key)}
                         className={cn("flex min-h-16 flex-col items-center justify-center gap-1 rounded-md border border-transparent px-1 py-2 text-center text-xs hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50", (bankLogoPresentation(value)?.key ?? value) === choice.key && "border-primary bg-primary/10 text-primary")}>
-                        <EntityIcon iconKey={choice.key} kind={kind} className={category === "bank" ? "size-12" : "size-5"} />
+                        <EntityIcon iconKey={choice.key} kind={kind} className={category === "bank" ? "size-12" : "size-6"} />
                         <span className="break-words">{choice.label}</span>
                       </button>
                     ))}

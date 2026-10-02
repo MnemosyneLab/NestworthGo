@@ -154,16 +154,16 @@ it("shows and restores an archived member without changing ownership", async () 
 it.each(["search", "result"])("cancels the real inline editor on second Escape from %s and can reopen", async (target) => {
   listInstitutions.mockResolvedValue([{id:"cmb", name:"招商银行", institutionType:"bank", iconKey:"bank-logo:cmbchina"}]);
   renderPage();
-  await userEvent.click(screen.getByRole("tab", {name:"Institutions", exact:true}));
+  await userEvent.click(screen.getByRole("tab", {name:"Institutions"}));
   await screen.findByText("招商银行");
-  await userEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+  await userEvent.click(screen.getByRole("button", { name: "Edit" }));
   const name = screen.getByLabelText("Institution name");
   await userEvent.clear(name);
   await userEvent.type(name, "Unsaved name");
   const trigger = screen.getByLabelText("Choose icon");
   await userEvent.click(trigger);
   await userEvent.type(screen.getByLabelText("Search icons"), "cmbchina");
-  const result = screen.getByRole("button", { name: "招商银行", exact: true });
+  const result = screen.getByRole("button", { name: "招商银行" });
   if (target === "result") { await userEvent.click(result); result.focus(); }
   else screen.getByLabelText("Search icons").focus();
   await userEvent.keyboard("{Escape}");
@@ -172,8 +172,8 @@ it.each(["search", "result"])("cancels the real inline editor on second Escape f
   await userEvent.keyboard("{Escape}");
   expect(screen.queryByLabelText("Institution name")).not.toBeInTheDocument();
   expect(updateMember).not.toHaveBeenCalled();
-  await userEvent.click(screen.getByRole("button", { name: "Edit", exact: true }));
+  await userEvent.click(screen.getByRole("button", { name: "Edit" }));
   expect(screen.getByLabelText("Institution name")).toHaveValue("招商银行");
-  await userEvent.click(screen.getByRole("button", { name: "Cancel", exact: true }));
+  await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(screen.queryByLabelText("Institution name")).not.toBeInTheDocument();
 });

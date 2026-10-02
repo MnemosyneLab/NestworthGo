@@ -1,0 +1,31 @@
+{
+  "repository": "https://github.com/spothq/cryptocurrency-icons",
+  "revision": "1a63530be6e374711a8554f31b17e4cb92c25fa5",
+  "license": "CC0-1.0",
+  "assets": [
+    {
+      "key": "crypto-logo:btc",
+      "source": "svg/color/btc.svg",
+      "file": "btc.svg",
+      "sha256": "5a8131ecdf855b12cb56080aeeeefea266976529c45b2d58c284a13b7519f4ca"
+    },
+    {
+      "key": "crypto-logo:eth",
+      "source": "svg/color/eth.svg",
+      "file": "eth.svg",
+      "sha256": "1f94df8533f61806f7b17eaf9cd28678cdba66e1d82a9ca8f9fb38d35a907e9c"
+    },
+    {
+      "key": "crypto-logo:sol",
+      "source": "svg/color/sol.svg",
+      "file": "sol.svg",
+      "sha256": "94e47e7c108a338cc4a79b82673d66cfbadfcf4c934ccb9c2ca8f13e8ea7dbb2"
+    },
+    {
+      "key": "crypto-logo:usdc",
+      "source": "svg/color/usdc.svg",
+      "file": "usdc.svg",
+      "sha256": "7281e8cadfe9abc14e98b15b05cdc24cc24d68533a51e746141d4d98f2ca2bc8"
+    }
+  ]
+}

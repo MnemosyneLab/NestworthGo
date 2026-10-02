@@ -93,8 +93,8 @@ it("does not offer bank categories on unrelated entities and never uses an unkno
   const { container } = render(<IconPicker id="member-icon" kind="member" value="bank-logo:../../remote" onChange={() => undefined} />);
   await userEvent.click(screen.getByLabelText("Choose icon"));
   expect(screen.queryByLabelText("Icon category")).not.toBeInTheDocument();
-  expect(screen.queryByLabelText("Search icons")).not.toBeInTheDocument();
-  expect(container.querySelector("img")).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Search icons")).toBeInTheDocument();
+  expect(container.querySelector("summary img")).not.toBeInTheDocument();
 });
 
 
@@ -128,4 +128,25 @@ it("shows a legacy wordmark selection as its symbol without emitting a migration
   expect(changes).toEqual([]);
   await userEvent.click(choices[0]);
   expect(changes).toEqual(["bank-logo:icbc-rect"]);
+});
+
+it.each(["member", "group", "instrument"] as const)("offers branded digital assets for %s with keyboard selection", async (kind) => {
+  await i18n.changeLanguage("en");
+  const changes: string[] = [];
+  render(<IconPicker id="digital" kind={kind} value="bitcoin" onChange={key => changes.push(key)} />);
+  await userEvent.click(screen.getByLabelText("Choose icon"));
+  await userEvent.type(screen.getByLabelText("Search icons"), "以太坊");
+  const result = screen.getByRole("button", {name:"Ethereum (ETH logo)"});
+  expect(result.querySelector("img")).toHaveAttribute("src", "/crypto-logos/eth.svg");
+  result.focus(); await userEvent.keyboard("{Enter}{Escape}");
+  expect(changes).toEqual(["crypto-logo:eth"]);
+  expect(screen.getByLabelText("Choose icon")).toHaveFocus();
+});
+
+it.each(["Bond", "债券", "債券"])("searches generic labels across locales: %s", async (query) => {
+  await i18n.changeLanguage("en");
+  render(<IconPicker id="bond" kind="instrument" value="bond" onChange={() => undefined} />);
+  await userEvent.click(screen.getByLabelText("Choose icon"));
+  await userEvent.type(screen.getByLabelText("Search icons"), query);
+  expect(screen.getByRole("button", {name:"Bond"})).toHaveAttribute("aria-pressed", "true");
 });

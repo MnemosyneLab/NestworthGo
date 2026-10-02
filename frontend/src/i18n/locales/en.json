@@ -471,7 +471,10 @@
       "general": "General",
       "investment": "Investment & markets",
       "protection": "Protection & planning",
-      "bankLogos": "Bank & financial logos"
+      "bankLogos": "Bank & financial logos",
+      "assets": "Physical assets",
+      "liabilities": "Liabilities & receivables",
+      "digital": "Digital assets"
     },
     "chart": "Financial chart",
     "circleCheck": "Verified",
@@ -528,10 +531,22 @@
     "gem": "Collectible",
     "pieChart": "Portfolio allocation",
     "categoryLabel": "Icon category",
-    "genericIcons": "Generic icons",
+    "genericIcons": "Icons & digital assets",
     "noResults": "No matching icons",
     "inheritInstitution": "Use institution icon",
-    "inheritHint": "Follows the institution icon. Without an institution, uses the account type icon."
+    "inheritHint": "Follows the institution icon. Without an institution, uses the account type icon.",
+    "fund": "Fund / ETF",
+    "bond": "Bond",
+    "termDeposit": "Term deposit",
+    "lending": "Lending",
+    "land": "Land",
+    "commercialProperty": "Commercial property",
+    "collectible": "Collectibles",
+    "digitalAsset": "Digital assets",
+    "cryptoBTC": "Bitcoin (BTC logo)",
+    "cryptoETH": "Ethereum (ETH logo)",
+    "cryptoSOL": "Solana (SOL logo)",
+    "cryptoUSDC": "USD Coin (USDC logo)"
   },
   "directory": {
     "createError": "The item could not be created",
