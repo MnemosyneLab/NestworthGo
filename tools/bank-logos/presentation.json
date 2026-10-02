@@ -1,0 +1,2130 @@
+[
+  {
+    "key": "bank-logo:abchina-rect",
+    "legacyKeys": [
+      "bank-logo:abchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:abnamro-rect",
+    "legacyKeys": [
+      "bank-logo:abnamro"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:anz-rect",
+    "legacyKeys": [
+      "bank-logo:anz"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bangkokbank-rect",
+    "legacyKeys": [
+      "bank-logo:bangkokbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankcomm-rect",
+    "legacyKeys": [
+      "bank-logo:bankcomm"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankcz-rect",
+    "legacyKeys": [
+      "bank-logo:bankcz"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankgy-rect",
+    "legacyKeys": [
+      "bank-logo:bankgy"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofamerica-rect",
+    "legacyKeys": [
+      "bank-logo:bankofamerica"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofas-rect",
+    "legacyKeys": [
+      "bank-logo:bankofas"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofbbg-rect",
+    "legacyKeys": [
+      "bank-logo:bankofbbg"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofbeijing-rect",
+    "legacyKeys": [
+      "bank-logo:bankofbeijing"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofdl-rect",
+    "legacyKeys": [
+      "bank-logo:bankofdl"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankoffs-rect",
+    "legacyKeys": [
+      "bank-logo:bankoffs"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofhld-rect",
+    "legacyKeys": [
+      "bank-logo:bankofhld"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofnx-rect",
+    "legacyKeys": [
+      "bank-logo:bankofnx"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofpj-rect",
+    "legacyKeys": [
+      "bank-logo:bankofpj"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofrizhao-rect",
+    "legacyKeys": [
+      "bank-logo:bankofrizhao"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankoftianjin-rect",
+    "legacyKeys": [
+      "bank-logo:bankoftianjin"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankoftieling-rect",
+    "legacyKeys": [
+      "bank-logo:bankoftieling"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankofyk-rect",
+    "legacyKeys": [
+      "bank-logo:bankofyk"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankqh-rect",
+    "legacyKeys": [
+      "bank-logo:bankqh"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankwf-rect",
+    "legacyKeys": [
+      "bank-logo:bankwf"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bankyellowriver-rect",
+    "legacyKeys": [
+      "bank-logo:bankyellowriver"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:barclays-rect",
+    "legacyKeys": [
+      "bank-logo:barclays"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bcm-rect",
+    "legacyKeys": [
+      "bank-logo:bcm"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bd-bank-rect",
+    "legacyKeys": [
+      "bank-logo:bd-bank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bgzchina-rect",
+    "legacyKeys": [
+      "bank-logo:bgzchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bjrcb-rect",
+    "legacyKeys": [
+      "bank-logo:bjrcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bmo-rect",
+    "legacyKeys": [
+      "bank-logo:bmo"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:boc-rect",
+    "legacyKeys": [
+      "bank-logo:boc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bocd-rect",
+    "legacyKeys": [
+      "bank-logo:bocd"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bohuihe-rect",
+    "legacyKeys": [
+      "bank-logo:bohuihe"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bolz-rect",
+    "legacyKeys": [
+      "bank-logo:bolz"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:bosc-rect",
+    "legacyKeys": [
+      "bank-logo:bosc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:boy-rect",
+    "legacyKeys": [
+      "bank-logo:boy"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cathaybk-rect",
+    "legacyKeys": [
+      "bank-logo:cathaybk"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cbhb-rect",
+    "legacyKeys": [
+      "bank-logo:cbhb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ccabchina-rect",
+    "legacyKeys": [
+      "bank-logo:ccabchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ccb-rect",
+    "legacyKeys": [
+      "bank-logo:ccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ccqtgb-rect",
+    "legacyKeys": [
+      "bank-logo:ccqtgb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cdb-rect",
+    "legacyKeys": [
+      "bank-logo:cdb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cebbank-rect",
+    "legacyKeys": [
+      "bank-logo:cebbank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:cgbchina-rect",
+    "legacyKeys": [
+      "bank-logo:cgbchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:chengdebank-rect",
+    "legacyKeys": [
+      "bank-logo:chengdebank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:china-cba-rect",
+    "legacyKeys": [
+      "bank-logo:china-cba"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:chinadb-rect",
+    "legacyKeys": [
+      "bank-logo:chinadb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cib-rect",
+    "legacyKeys": [
+      "bank-logo:cib"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:citibank-rect",
+    "legacyKeys": [
+      "bank-logo:citibank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:citicbank-rect",
+    "legacyKeys": [
+      "bank-logo:citicbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cjccb-rect",
+    "legacyKeys": [
+      "bank-logo:cjccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cmbc-rect",
+    "legacyKeys": [
+      "bank-logo:cmbc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cmbchina-rect",
+    "legacyKeys": [
+      "bank-logo:cmbchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cmbcn-rect",
+    "legacyKeys": [
+      "bank-logo:cmbcn"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cqcbank-rect",
+    "legacyKeys": [
+      "bank-logo:cqcbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cqrcb-rect",
+    "legacyKeys": [
+      "bank-logo:cqrcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:crbank-rect",
+    "legacyKeys": [
+      "bank-logo:crbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cscb-rect",
+    "legacyKeys": [
+      "bank-logo:cscb"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:csrc-rect",
+    "legacyKeys": [
+      "bank-logo:csrc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:csrcbank-rect",
+    "legacyKeys": [
+      "bank-logo:csrcbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:csxbank-rect",
+    "legacyKeys": [
+      "bank-logo:csxbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:cycb-rect",
+    "legacyKeys": [
+      "bank-logo:cycb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:czbank-rect",
+    "legacyKeys": [
+      "bank-logo:czbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:czcb-rect",
+    "legacyKeys": [
+      "bank-logo:czcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:dahsing-rect",
+    "legacyKeys": [
+      "bank-logo:dahsing"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:dandongbank-rect",
+    "legacyKeys": [
+      "bank-logo:dandongbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:dbs-rect",
+    "legacyKeys": [
+      "bank-logo:dbs"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:dongguanbank-rect",
+    "legacyKeys": [
+      "bank-logo:dongguanbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:drcbank-rect",
+    "legacyKeys": [
+      "bank-logo:drcbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:dyccb-rect",
+    "legacyKeys": [
+      "bank-logo:dyccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:dzbchina-rect",
+    "legacyKeys": [
+      "bank-logo:dzbchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:dzccb-rect",
+    "legacyKeys": [
+      "bank-logo:dzccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:eastwestbank-rect",
+    "legacyKeys": [
+      "bank-logo:eastwestbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:eximbank-rect",
+    "legacyKeys": [
+      "bank-logo:eximbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:firstbank-rect",
+    "legacyKeys": [
+      "bank-logo:firstbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:fjhxbank-rect",
+    "legacyKeys": [
+      "bank-logo:fjhxbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:foshanbank-rect",
+    "legacyKeys": [
+      "bank-logo:foshanbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:fubonchina-rect",
+    "legacyKeys": [
+      "bank-logo:fubonchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:fudian-rect",
+    "legacyKeys": [
+      "bank-logo:fudian"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:fuxinbank-rect",
+    "legacyKeys": [
+      "bank-logo:fuxinbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:gdnybank-rect",
+    "legacyKeys": [
+      "bank-logo:gdnybank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ghbank-rect",
+    "legacyKeys": [
+      "bank-logo:ghbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:grcbank-rect",
+    "legacyKeys": [
+      "bank-logo:grcbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:gsbankchina-rect",
+    "legacyKeys": [
+      "bank-logo:gsbankchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:guilinbank-rect",
+    "legacyKeys": [
+      "bank-logo:guilinbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:gx966888-rect",
+    "legacyKeys": [
+      "bank-logo:gx966888"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:gzcb-rect",
+    "legacyKeys": [
+      "bank-logo:gzcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:gzccb-rect",
+    "legacyKeys": [
+      "bank-logo:gzccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hanabank-rect",
+    "legacyKeys": [
+      "bank-logo:hanabank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hangseng-rect",
+    "legacyKeys": [
+      "bank-logo:hangseng"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hdcb-rect",
+    "legacyKeys": [
+      "bank-logo:hdcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hebbank-rect",
+    "legacyKeys": [
+      "bank-logo:hebbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hfbank-rect",
+    "legacyKeys": [
+      "bank-logo:hfbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hfrcbc-rect",
+    "legacyKeys": [
+      "bank-logo:hfrcbc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hkbchina-rect",
+    "legacyKeys": [
+      "bank-logo:hkbchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hkbea-rect",
+    "legacyKeys": [
+      "bank-logo:hkbea"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hnnxs-rect",
+    "legacyKeys": [
+      "bank-logo:hnnxs"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hrbb-rect",
+    "legacyKeys": [
+      "bank-logo:hrbb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hrxjbank-rect",
+    "legacyKeys": [
+      "bank-logo:hrxjbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hsbank-rect",
+    "legacyKeys": [
+      "bank-logo:hsbank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:hsbc-rect",
+    "legacyKeys": [
+      "bank-logo:hsbc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hubeibank-rect",
+    "legacyKeys": [
+      "bank-logo:hubeibank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hxb-rect",
+    "legacyKeys": [
+      "bank-logo:hxb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hzbank-rect",
+    "legacyKeys": [
+      "bank-logo:hzbank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:hzccb-rect",
+    "legacyKeys": [
+      "bank-logo:hzccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:hznsyh-rect",
+    "legacyKeys": [
+      "bank-logo:hznsyh"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ibk-rect",
+    "legacyKeys": [
+      "bank-logo:ibk"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:icbc-rect",
+    "legacyKeys": [
+      "bank-logo:icbc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jhccb-rect",
+    "legacyKeys": [
+      "bank-logo:jhccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jhrcbank-rect",
+    "legacyKeys": [
+      "bank-logo:jhrcbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jinzhoubank-rect",
+    "legacyKeys": [
+      "bank-logo:jinzhoubank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jjbank-rect",
+    "legacyKeys": [
+      "bank-logo:jjbank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:jjccb-rect",
+    "legacyKeys": [
+      "bank-logo:jjccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jlbank-rect",
+    "legacyKeys": [
+      "bank-logo:jlbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jmrcb-rect",
+    "legacyKeys": [
+      "bank-logo:jmrcb"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:jn-bank-rect",
+    "legacyKeys": [
+      "bank-logo:jn-bank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jnbank-rect",
+    "legacyKeys": [
+      "bank-logo:jnbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jpmorganchina-rect",
+    "legacyKeys": [
+      "bank-logo:jpmorganchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jrnsh-rect",
+    "legacyKeys": [
+      "bank-logo:jrnsh"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jsbchina-rect",
+    "legacyKeys": [
+      "bank-logo:jsbchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jshbank-rect",
+    "legacyKeys": [
+      "bank-logo:jshbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jsyxrcb-rect",
+    "legacyKeys": [
+      "bank-logo:jsyxrcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jtnsh-rect",
+    "legacyKeys": [
+      "bank-logo:jtnsh"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jx-bank-rect",
+    "legacyKeys": [
+      "bank-logo:jx-bank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:jybank-rect",
+    "legacyKeys": [
+      "bank-logo:jybank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:kbstarchina-rect",
+    "legacyKeys": [
+      "bank-logo:kbstarchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:klb-rect",
+    "legacyKeys": [
+      "bank-logo:klb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ksrcb-rect",
+    "legacyKeys": [
+      "bank-logo:ksrcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:lccb-rect",
+    "legacyKeys": [
+      "bank-logo:lccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:lj-bank-rect",
+    "legacyKeys": [
+      "bank-logo:lj-bank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:lqrcb-rect",
+    "legacyKeys": [
+      "bank-logo:lqrcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:lsbankchina-rect",
+    "legacyKeys": [
+      "bank-logo:lsbankchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:lsbchina-rect",
+    "legacyKeys": [
+      "bank-logo:lsbchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:lsccb-rect",
+    "legacyKeys": [
+      "bank-logo:lsccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:luoyang-szgold-rect",
+    "legacyKeys": [
+      "bank-logo:luoyang-szgold"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:lygdfrcb-rect",
+    "legacyKeys": [
+      "bank-logo:lygdfrcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:lzbank-rect",
+    "legacyKeys": [
+      "bank-logo:lzbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:lzccb-rect",
+    "legacyKeys": [
+      "bank-logo:lzccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:masrcb-rect",
+    "legacyKeys": [
+      "bank-logo:masrcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:maybank-rect",
+    "legacyKeys": [
+      "bank-logo:maybank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:megabank-rect",
+    "legacyKeys": [
+      "bank-logo:megabank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:meigin-rect",
+    "legacyKeys": [
+      "bank-logo:meigin"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:mintaibank-rect",
+    "legacyKeys": [
+      "bank-logo:mintaibank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:mufg-rect",
+    "legacyKeys": [
+      "bank-logo:mufg"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:mycc-rect",
+    "legacyKeys": [
+      "bank-logo:mycc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:nanhaibank-rect",
+    "legacyKeys": [
+      "bank-logo:nanhaibank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:nbcb-rect",
+    "legacyKeys": [
+      "bank-logo:nbcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ncbank-rect",
+    "legacyKeys": [
+      "bank-logo:ncbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ncbchina-rect",
+    "legacyKeys": [
+      "bank-logo:ncbchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:njcb-rect",
+    "legacyKeys": [
+      "bank-logo:njcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:norincogroup-rect",
+    "legacyKeys": [
+      "bank-logo:norincogroup"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:o-bank-rect",
+    "legacyKeys": [
+      "bank-logo:o-bank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:ocbc-rect",
+    "legacyKeys": [
+      "bank-logo:ocbc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ordosbank-rect",
+    "legacyKeys": [
+      "bank-logo:ordosbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:pbc-rect",
+    "legacyKeys": [
+      "bank-logo:pbc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:pingan-rect",
+    "legacyKeys": [
+      "bank-logo:pingan"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:psbc-rect",
+    "legacyKeys": [
+      "bank-logo:psbc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:qdccb-rect",
+    "legacyKeys": [
+      "bank-logo:qdccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:qhdbank-rect",
+    "legacyKeys": [
+      "bank-logo:qhdbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:qingbank-rect",
+    "legacyKeys": [
+      "bank-logo:qingbank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:qjccb-rect",
+    "legacyKeys": [
+      "bank-logo:qjccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:qlbchina-rect",
+    "legacyKeys": [
+      "bank-logo:qlbchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:qsbank-rect",
+    "legacyKeys": [
+      "bank-logo:qsbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:qzccbank-rect",
+    "legacyKeys": [
+      "bank-logo:qzccbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:rbcroyalbank-rect",
+    "legacyKeys": [
+      "bank-logo:rbcroyalbank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:sc-rect",
+    "legacyKeys": [
+      "bank-logo:sc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:scnhh-rect",
+    "legacyKeys": [
+      "bank-logo:scnhh"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:scotiabank-rect",
+    "legacyKeys": [
+      "bank-logo:scotiabank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:sdebank-rect",
+    "legacyKeys": [
+      "bank-logo:sdebank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:sdnxs-rect",
+    "legacyKeys": [
+      "bank-logo:sdnxs"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:sgb-rect",
+    "legacyKeys": [
+      "bank-logo:sgb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:shengjingbank-rect",
+    "legacyKeys": [
+      "bank-logo:shengjingbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:sinopac-rect",
+    "legacyKeys": [
+      "bank-logo:sinopac"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:snccb-rect",
+    "legacyKeys": [
+      "bank-logo:snccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:societegenerale-rect",
+    "legacyKeys": [
+      "bank-logo:societegenerale"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:spdb-rect",
+    "legacyKeys": [
+      "bank-logo:spdb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:srbank-rect",
+    "legacyKeys": [
+      "bank-logo:srbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:srcb-rect",
+    "legacyKeys": [
+      "bank-logo:srcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:suzhoubank-rect",
+    "legacyKeys": [
+      "bank-logo:suzhoubank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:sxccb-rect",
+    "legacyKeys": [
+      "bank-logo:sxccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:syrcb-rect",
+    "legacyKeys": [
+      "bank-logo:syrcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:szsccb-rect",
+    "legacyKeys": [
+      "bank-logo:szsccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:taccb-rect",
+    "legacyKeys": [
+      "bank-logo:taccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:tcb-bank-rect",
+    "legacyKeys": [
+      "bank-logo:tcb-bank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:tf-rect",
+    "legacyKeys": [
+      "bank-logo:tf"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:tjbhb-rect",
+    "legacyKeys": [
+      "bank-logo:tjbhb"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:trcbank-rect",
+    "legacyKeys": [
+      "bank-logo:trcbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ts-bank-rect",
+    "legacyKeys": [
+      "bank-logo:ts-bank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:ubs-rect",
+    "legacyKeys": [
+      "bank-logo:ubs"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:uccb-rect",
+    "legacyKeys": [
+      "bank-logo:uccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:uobchina-rect",
+    "legacyKeys": [
+      "bank-logo:uobchina"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:urcb-rect",
+    "legacyKeys": [
+      "bank-logo:urcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:whrcbank-rect",
+    "legacyKeys": [
+      "bank-logo:whrcbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:wrcb-rect",
+    "legacyKeys": [
+      "bank-logo:wrcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:wuhaicb-rect",
+    "legacyKeys": [
+      "bank-logo:wuhaicb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:wzcb-rect",
+    "legacyKeys": [
+      "bank-logo:wzcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:xacbank-rect",
+    "legacyKeys": [
+      "bank-logo:xacbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:xib-rect",
+    "legacyKeys": [
+      "bank-logo:xib"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:xjkccb-rect",
+    "legacyKeys": [
+      "bank-logo:xjkccb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:xmbankonline-rect",
+    "legacyKeys": [
+      "bank-logo:xmbankonline"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:xynsh-rect",
+    "legacyKeys": [
+      "bank-logo:xynsh"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:yamaguchibank-rect",
+    "legacyKeys": [
+      "bank-logo:yamaguchibank"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:yantaibank-rect",
+    "legacyKeys": [
+      "bank-logo:yantaibank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:z-bank-rect",
+    "legacyKeys": [
+      "bank-logo:z-bank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:zaozhuangbank-rect",
+    "legacyKeys": [
+      "bank-logo:zaozhuangbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:zgbank-rect",
+    "legacyKeys": [
+      "bank-logo:zgbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:zhnsb-rect",
+    "legacyKeys": [
+      "bank-logo:zhnsb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:zj96596-rect",
+    "legacyKeys": [
+      "bank-logo:zj96596"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:zjtlcb-rect",
+    "legacyKeys": [
+      "bank-logo:zjtlcb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:zsebank-rect",
+    "legacyKeys": [
+      "bank-logo:zsebank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:zxbk-rect",
+    "legacyKeys": [
+      "bank-logo:zxbk"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:zybank-rect",
+    "legacyKeys": [
+      "bank-logo:zybank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:zzbank-rect",
+    "legacyKeys": [
+      "bank-logo:zzbank"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-98f3b258afee03e7",
+    "legacyKeys": [
+      "bank-logo:other-bcc409771cf5fd6f"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-5f0412205a7f1b70",
+    "legacyKeys": [
+      "bank-logo:other-7a46771e41d8570b"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-1181f2133027aac3",
+    "legacyKeys": [
+      "bank-logo:other-2ecb69d553dd4b68"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-867410548c07b7ac",
+    "legacyKeys": [
+      "bank-logo:other-fc6e4aa0bd23ec11"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-2ab547f4285d2862",
+    "legacyKeys": [
+      "bank-logo:other-f87e37b1d2250ee9"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-13a045ede7f5559c",
+    "legacyKeys": [
+      "bank-logo:other-1fe9a1904939f9cb"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-fdffe1d299521aec",
+    "legacyKeys": [
+      "bank-logo:other-43dbd30f00479fa6"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-4b06a56180379167",
+    "legacyKeys": [
+      "bank-logo:other-9b76cf1fd95c8938"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-86d85e03ebef1213",
+    "legacyKeys": [
+      "bank-logo:other-0756c79e692c5bcf"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-bd813517abaa418c",
+    "legacyKeys": [
+      "bank-logo:other-622133a6fc163ebc"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-dcffafadef2d32cd",
+    "legacyKeys": [
+      "bank-logo:other-e218e0324974eb18"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-e30ea0526a9252c8",
+    "legacyKeys": [
+      "bank-logo:other-69b8aea022223b00"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-783858878530428e",
+    "legacyKeys": [
+      "bank-logo:other-8adf12defb425d80"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-975dec5f3157cd75",
+    "legacyKeys": [
+      "bank-logo:other-f646736e535df49b"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-2d4da19113ea3693",
+    "legacyKeys": [
+      "bank-logo:other-3766e9fd94e96f7b"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-61b8491164c6cd49",
+    "legacyKeys": [
+      "bank-logo:other-a207f2394b837d03"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-6c99c7b386642cbb",
+    "legacyKeys": [
+      "bank-logo:other-60719aaebaf31b76"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-cc1d803646df94ab",
+    "legacyKeys": [
+      "bank-logo:other-1e274032def917e1"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-0f90fa4e942c3cd8",
+    "legacyKeys": [
+      "bank-logo:other-24fb7ff4e3b4bc80"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-27fed81bcb64cd0a",
+    "legacyKeys": [
+      "bank-logo:other-d7968d8cb4f944f6"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-0ac0e42d7f6649e2",
+    "legacyKeys": [
+      "bank-logo:other-d46fd317282edad8"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-d4ec6206a468f957",
+    "legacyKeys": [
+      "bank-logo:other-7670117de3982717"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-938665c2ba4697aa",
+    "legacyKeys": [
+      "bank-logo:other-70e8262dd9482192"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-7c8bce6fcc7f7270",
+    "legacyKeys": [
+      "bank-logo:other-7e9b3de5fe696ec3"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-2d87a58a2fa44a38",
+    "legacyKeys": [
+      "bank-logo:other-7bad70c12201bdff"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-890fed918138ff49",
+    "legacyKeys": [
+      "bank-logo:other-25ab3d0288a522c0"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-edd1ebcbf6913b90",
+    "legacyKeys": [
+      "bank-logo:other-24061f524bc6041a"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-ea362d7036bf4b2f",
+    "legacyKeys": [
+      "bank-logo:other-f08b036148d5897c"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-0c6d9a3ae9625e6d",
+    "legacyKeys": [
+      "bank-logo:other-475bbbc14690517d"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-b01595b5024c55f8",
+    "legacyKeys": [
+      "bank-logo:other-d6ade8fae3cfd7db"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-afca31c13b7fafef",
+    "legacyKeys": [
+      "bank-logo:other-012575bcc4b2ba39"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-91fd9d6822a02eee",
+    "legacyKeys": [
+      "bank-logo:other-58e933f7fc174d45"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-e7f6ed7cfef3ca54",
+    "legacyKeys": [
+      "bank-logo:other-792930b28c8668db"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-539d91d0e4426d5f",
+    "legacyKeys": [
+      "bank-logo:other-ddeaf46c13ae1522"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-8468c903bc70d184",
+    "legacyKeys": [
+      "bank-logo:other-a28f893846abb365"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-bca051ab93f4e29b",
+    "legacyKeys": [
+      "bank-logo:other-99c0e6ec0ef5acf5"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-416b2b4739659b35",
+    "legacyKeys": [
+      "bank-logo:other-448e0e7b1c6185d6"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-f4612c33fd2f4488",
+    "legacyKeys": [
+      "bank-logo:other-5d7834248b84a6ea"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-2ad771929c501b49",
+    "legacyKeys": [
+      "bank-logo:other-e7135b5f95a5e517"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-7f7626241aaa1bfc",
+    "legacyKeys": [
+      "bank-logo:other-049cd958886aaa7c"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-877ec968cbc837d6",
+    "legacyKeys": [
+      "bank-logo:other-565e66f41628d1ff"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-933f9c440c95d28c",
+    "legacyKeys": [
+      "bank-logo:other-5c43ad341e1518cf"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-ad83b66d020188da",
+    "legacyKeys": [
+      "bank-logo:other-bda36ee6769eb5b3"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-21e8f0b16849d484",
+    "legacyKeys": [
+      "bank-logo:other-23d1fd864217e30b"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-f8896d150db6c158",
+    "legacyKeys": [
+      "bank-logo:other-a37b09969c4def76"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-34b7daf8bfd9cb9b",
+    "legacyKeys": [
+      "bank-logo:other-5536ed3d1cdc614f"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-a5ed56847f0bdcde",
+    "legacyKeys": [
+      "bank-logo:other-7799b271750c4c7e"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-3837c4f2fc76f381",
+    "legacyKeys": [
+      "bank-logo:other-9b042ece3a6be876"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-d1810f2b12287ee8",
+    "legacyKeys": [
+      "bank-logo:other-3ddacecb38915ca2"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-c44a48c744ef200f",
+    "legacyKeys": [
+      "bank-logo:other-ef54057e124253ca"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-c3a8b3ce751dbfdc",
+    "legacyKeys": [
+      "bank-logo:other-145422c53964058c"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-d8445693cc9b7577",
+    "legacyKeys": [
+      "bank-logo:other-9eef0c44aedd06c2"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-7d2f709417035968",
+    "legacyKeys": [
+      "bank-logo:other-5385b2b8b27088d5"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-76710c7beac6304f",
+    "legacyKeys": [
+      "bank-logo:other-44f70b88ae6e563c"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-da93aa6ae8e1ace6",
+    "legacyKeys": [
+      "bank-logo:other-9b1c382f70c72eb1"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-1d5c08d912d8159d",
+    "legacyKeys": [
+      "bank-logo:other-8cae3618c56b8b82"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-f7ab7ea6077ba321",
+    "legacyKeys": [
+      "bank-logo:other-b252782666bbde14"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-869672d4bc030b21",
+    "legacyKeys": [
+      "bank-logo:other-aa6e25d69c9be8f3"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-515a2a602e0bd251",
+    "legacyKeys": [
+      "bank-logo:other-ef0255e8beee9896"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-760288c1828bffaf",
+    "legacyKeys": [
+      "bank-logo:other-a4cdc7fd85763da5"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-b838b7dd9683f83d",
+    "legacyKeys": [
+      "bank-logo:other-2aa69a449dea1251"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-d65f868df65b20f4",
+    "legacyKeys": [
+      "bank-logo:other-a43ec54f7721deb9"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-08352da8a5fadc89",
+    "legacyKeys": [
+      "bank-logo:other-c091f709ee03374a"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-87633f387ac57da1",
+    "legacyKeys": [
+      "bank-logo:other-ceac1cec72010f33"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-0cef20abb7e8ecef",
+    "legacyKeys": [
+      "bank-logo:other-906e3fe0bd8436c1"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-4b1e8e299e459788",
+    "legacyKeys": [
+      "bank-logo:other-ef974897c94204e3"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-a2e7b75c8d603aac",
+    "legacyKeys": [
+      "bank-logo:other-be8ba160eab42223"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-26a59e3aafd71ae6",
+    "legacyKeys": [
+      "bank-logo:other-4a32e618ee73a61c"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-ce9bc9e56ac24a60",
+    "legacyKeys": [
+      "bank-logo:other-295f9ce181409a48"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-fb8c9ea4369becae",
+    "legacyKeys": [
+      "bank-logo:other-6f3476556e8722ea"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-40560499ed20fb1d",
+    "legacyKeys": [
+      "bank-logo:other-088414290a2bc530"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-669a5984f4c20412",
+    "legacyKeys": [
+      "bank-logo:other-a1ffa1f1a9e376d0"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-5d375b5b88ed6369",
+    "legacyKeys": [
+      "bank-logo:other-ad95aeb69cf14d91"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-aec8cbf68829456e",
+    "legacyKeys": [
+      "bank-logo:other-0a7101460832376e"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-5158af3341c50b24",
+    "legacyKeys": [
+      "bank-logo:other-c30b45cbcd18458f"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-ff6a52aafc9061c7",
+    "legacyKeys": [
+      "bank-logo:other-ddbfa37dde630c4c"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-faef2482143ad5ed",
+    "legacyKeys": [
+      "bank-logo:other-cff8cf30ba6ee85c"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-efd3d593683d92e8",
+    "legacyKeys": [
+      "bank-logo:other-047ec9d93df66e13"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-fda7ed62f8bb1de4",
+    "legacyKeys": [
+      "bank-logo:other-5250766b78408e75"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-c3dc7f89a78a1dac",
+    "legacyKeys": [
+      "bank-logo:other-eafb626369764bdf"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-61e48f0f6ce42ca4",
+    "legacyKeys": [
+      "bank-logo:other-9d2a14d796de2638"
+    ],
+    "kind": "wordmark"
+  },
+  {
+    "key": "bank-logo:other-23a4941d8f9585a1",
+    "legacyKeys": [
+      "bank-logo:other-cd0d4ed6c753fb99"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-37a8b3b01d87639e",
+    "legacyKeys": [
+      "bank-logo:other-6e3c4cec2f7e4cac"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-c8870d8bb7cdec29",
+    "legacyKeys": [
+      "bank-logo:other-41cbba6cd061659f"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-9cf376b284b20b40",
+    "legacyKeys": [
+      "bank-logo:other-e50efc51365dac00"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-15f5a812266d1265",
+    "legacyKeys": [
+      "bank-logo:other-e43d4e4c4c5d8e87"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-c65de1f8e235fd1f",
+    "legacyKeys": [
+      "bank-logo:other-9e463ceab90032d7"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-020df119adfa152d",
+    "legacyKeys": [
+      "bank-logo:other-cc341f9626292040"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-cefb6d251be9480d",
+    "legacyKeys": [
+      "bank-logo:other-76102eb6a3cd4132"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-80b38100b1dd3691",
+    "legacyKeys": [
+      "bank-logo:other-9f6b8637f648f6cd"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-f9c3f9c6dc14e3ed",
+    "legacyKeys": [
+      "bank-logo:other-903d9dad9fc42d4f"
+    ],
+    "kind": "symbol"
+  },
+  {
+    "key": "bank-logo:other-5bb869758e5a31cd",
+    "legacyKeys": [
+      "bank-logo:other-fea240b5e11eb29d"
+    ],
+    "kind": "symbol"
+  }
+]
