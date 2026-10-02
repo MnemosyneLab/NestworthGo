@@ -343,6 +343,7 @@ describe("AccountsPage", () => {
     expect(createAccount).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "New Savings",
+        iconKey: "",
         accountType: "bank_account",
         trackingMode: "balance",
         ownership: [
@@ -1392,4 +1393,19 @@ describe("AccountsPage", () => {
     await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
     await waitFor(() => expect(recordChange).toHaveBeenCalled());
   });
+});
+
+it("edits a logo override, then explicitly resets it to inheritance", async () => {
+  const record = { ...emptyAccount, account: { ...emptyAccount.account, iconKey: "bank-logo:icbc", institutionId: "cmb" } };
+  listAccounts.mockResolvedValue([record]);
+  updateAccount.mockResolvedValue(record);
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
+  const form = await screen.findByRole("form", { name: "Account form" });
+  await userEvent.click(within(form).getByRole("button", { name: /Details/i }));
+  expect(within(form).getByLabelText("Choose icon").querySelector("img")).toHaveAttribute("src", "/bank-logos/icbc.svg");
+  await userEvent.click(within(form).getByRole("button", { name: "Use institution icon" }));
+  await userEvent.click(screen.getByRole("button", { name: "Save" }));
+  expect(updateAccount).toHaveBeenCalledWith("acc-1", expect.objectContaining({ iconKey: "", iconKeySet: true }));
 });

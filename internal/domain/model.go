@@ -597,7 +597,8 @@ func NewAccount(input AccountInput, now time.Time) (Account, Ownership, *Money, 
 	if err != nil {
 		return Account{}, Ownership{}, nil, err
 	}
-	iconKey, err := normalizedIconKey(input.IconKey, DefaultAccountIcon(input.AccountType))
+	// The existing empty sentinel means inherit; explicit choices remain overrides.
+	iconKey, err := normalizedIconKey(input.IconKey, "")
 	if err != nil {
 		return Account{}, Ownership{}, nil, err
 	}

@@ -41,7 +41,7 @@ A Member represents a person used in Ownership and allocation views. A Household
 
 ### Institution
 
-An Institution identifies where an Account is held. Its required type is Bank, Brokerage, Insurer, Exchange, Employer, Government, or Other. It is optional and organizational; it does not own the Account or determine its currency. Its validated built-in icon defaults from that type.
+An Institution identifies where an Account is held. Its required type is Bank, Brokerage, Insurer, Exchange, Employer, Government, or Other. It is optional and organizational; it does not own the Account or determine its currency. Its validated built-in icon defaults from that type; it may also use a bundled `bank-logo:` ID.
 
 ### Group
 
@@ -49,7 +49,7 @@ A Group is an optional Household-defined classification such as Emergency Fund, 
 
 ### Account
 
-An Account is the unit shown in the balance sheet. It has one `account_type`, one `balance_sheet_role`, one immutable `tracking_mode` after creation, one default currency, exact Ownership, optional Institution and Group references, a validated built-in icon key that defaults from account type, inclusion flags, lifecycle dates, and, for Balance and Manual Value modes, an append-only sequence of Account Values.
+An Account is the unit shown in the balance sheet. It has one `account_type`, one `balance_sheet_role`, one immutable `tracking_mode` after creation, one default currency, exact Ownership, optional Institution and Group references, an optional validated icon override (generic or bundled bank logo), inclusion flags, lifecycle dates, and, for Balance and Manual Value modes, an append-only sequence of Account Values.
 
 `account_type` names the real-world container. `balance_sheet_role` is the persistent asset or liability side and is immutable after create. `tracking_mode` is immutable after create. Type may be edited only when the new type remains legal with the frozen role and tracking. Create and update share one closed combination table.
 
@@ -361,3 +361,18 @@ facts; grouped undo additionally checks that reservation state still matches its
 operation evidence. Backup/live-open validation verifies managed products and
 liquidity metadata against their owning accounts, holdings, instruments and
 operation evidence rather than relying on foreign keys alone.
+
+### Institution and account icons
+
+An account with no explicit icon inherits its institution's current icon. With
+no institution (or an unavailable institution), it uses the account-type icon.
+The existing empty `accounts.icon_key` sentinel represents inheritance; schema
+15 and existing stored choices are unchanged. The wire DTO preserves the empty
+value so edit forms can distinguish inheritance from an override. Selecting
+“Use institution icon” explicitly clears the override; changing an institution
+or its icon never rewrites accounts. All account renderers resolve the live
+institution directory, including archived institutions. Generic icons remain
+available, including the account-type choices.
+
+See [bundled bank logos](../development/bank-logos.md) for source provenance,
+security screening, rendering and verification.

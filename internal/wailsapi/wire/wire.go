@@ -311,7 +311,7 @@ func FromAccount(value domain.Account) AccountDTO {
 		ID: value.ID.String(), HouseholdID: value.HouseholdID.String(), Name: value.Name,
 		AccountType: value.AccountType.String(), BalanceSheetRole: string(value.BalanceSheetRole),
 		TrackingMode: string(value.TrackingMode), DefaultCurrency: value.DefaultCurrency.String(),
-		Note: value.Note, IconKey: iconValue(value.IconKey, domain.DefaultAccountIcon(value.AccountType)), IncludeInNetWorth: value.IncludeInNetWorth,
+		Note: value.Note, IconKey: iconValue(value.IconKey, ""), IncludeInNetWorth: value.IncludeInNetWorth,
 		IncludeInPortfolio: value.IncludeInPortfolio, IncludeInLiquidAssets: value.IncludeInLiquidAssets,
 		OpenedOn: value.OpenedOn, ClosedOn: value.ClosedOn, SortOrder: value.SortOrder,
 		CreatedAt: FormatTime(value.CreatedAt), UpdatedAt: FormatTime(value.UpdatedAt),

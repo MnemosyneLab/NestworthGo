@@ -21,7 +21,7 @@ import { toast } from "sonner";
 import type { CreateAccountRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/account/models";
 import type { AccountFormExtras } from "@/features/accounts/AccountForm";
 import { groupAccounts } from "@/features/accounts/accountGroups";
-import { EntityIcon } from "@/components/icons/EntityIcon";
+import { AccountIcon } from "@/components/icons/AccountIcon";
 
 /**
  * AccountsPage is the real-world account list. Clicking a row opens Account
@@ -212,7 +212,7 @@ export function AccountsPage({
                           aria-hidden="true"
                           className={cn("inline-flex size-10 shrink-0 items-center justify-center rounded-xl [&_svg]:size-5", TONE_CLASSES[accountTypeStyle(record.account.accountType).tone].soft, TONE_CLASSES[accountTypeStyle(record.account.accountType).tone].text)}
                         >
-                          <EntityIcon iconKey={record.account.iconKey} kind="account" className="size-5" />
+                          <AccountIcon account={record.account} className="size-5" />
                         </span>
                         <span className="flex min-w-0 flex-1 flex-col gap-1">
                           <span className="flex flex-wrap items-center gap-2 font-semibold">

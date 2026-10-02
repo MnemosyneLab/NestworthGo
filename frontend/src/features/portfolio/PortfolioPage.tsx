@@ -16,7 +16,7 @@ import { DateRangeControl } from "@/components/charts/DateRangeControl";
 import { useTrendDateRange } from "@/components/charts/useTrendDateRange";
 import { formatAmount, sortByCanonicalDesc } from "@/lib/money";
 import { displayEnum } from "@/lib/display";
-import { EntityIcon } from "@/components/icons/EntityIcon";
+import { AccountIcon } from "@/components/icons/AccountIcon";
 
 /**
  * PortfolioOverview renders the household portfolio summary. Totals,
@@ -157,7 +157,7 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
                 return (
                   <div key={valuation.account.id} className="flex items-center justify-between gap-3 text-sm">
                     <div className="flex min-w-0 items-center gap-2">
-                      <EntityIcon iconKey={valuation.account.iconKey} kind="account" className="size-5 text-primary" />
+                      <AccountIcon account={valuation.account} className="size-5 text-primary" />
                       <div className="flex min-w-0 flex-col gap-1">
                       {onOpenAccount ? (
                         <Button

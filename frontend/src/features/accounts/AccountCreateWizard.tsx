@@ -27,6 +27,7 @@ import {
   trackingPrompt,
 } from "@/features/accounts/accountCatalog";
 import { ACCOUNT_TYPE_ICONS, INSTITUTION_TYPE_ICONS } from "@/lib/defaultIcons";
+import { resolveAccountIcon } from "@/lib/accountIcons";
 import { EntityIcon } from "@/components/icons/EntityIcon";
 import { Stepper } from "@/components/ui/stepper";
 import { OwnershipFields } from "@/features/accounts/OwnershipFields";
@@ -107,8 +108,7 @@ export function AccountCreateWizard({
   const [groupId, setGroupId] = useState("");
   const [institutionTouched, setInstitutionTouched] = useState(false);
   const [groupTouched, setGroupTouched] = useState(false);
-  const [iconKey, setIconKey] = useState("cash");
-  const [iconCustomized, setIconCustomized] = useState(false);
+  const [iconKey, setIconKey] = useState("");
   const [showMoreSettings, setShowMoreSettings] = useState(false);
   const [nameError, setNameError] = useState<string | undefined>();
   const [trackingError, setTrackingError] = useState<string | undefined>();
@@ -131,7 +131,6 @@ export function AccountCreateWizard({
     const nextPrompt = trackingPrompt(combinations, nextType, nextRole);
     const match = matchingCombination(combinations, nextType, nextRole, nextPrompt.defaultMode) ?? combinations.find((item) => item.accountType === nextType);
     setAccountType(nextType);
-    if (!iconCustomized) setIconKey(ACCOUNT_TYPE_ICONS[nextType] ?? "account");
     setRole(nextRole);
     setTrackingMode(nextPrompt.defaultMode);
     setTrackingError(undefined);
@@ -251,7 +250,7 @@ export function AccountCreateWizard({
       ownership: ownershipShares(ownerIds, ownershipPercentages, useCustomPercentages),
       institutionId: selectedInstitutionId || undefined,
       groupId: selectedGroupId || undefined,
-      iconKey: iconKey || undefined,
+      iconKey,
       initialAmount: resolvedTracking === "holdings" ? "" : initialAmount || "0",
       openedOn: openedOn || undefined,
     };
@@ -461,7 +460,7 @@ export function AccountCreateWizard({
               </p>
             )}
           </div>
-          <IconPicker id="wizard-icon" value={iconKey} kind="account" onChange={(key) => { setIconKey(key); setIconCustomized(true); }} />
+          <IconPicker id="wizard-icon" value={iconKey} kind="account" onChange={setIconKey} inheritIconKey={resolveAccountIcon({ accountType, institutionId: selectedInstitutionId }, institutions.data)} />
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="account-currency">{t("accounts.currency")}</Label>
             <NativeSelect id="account-currency" value={currencyValue} onChange={(event) => setDefaultCurrency(event.target.value)}>
