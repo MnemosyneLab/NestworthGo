@@ -224,6 +224,7 @@ func (m *Manager) scanRetentionLocked(ctx context.Context, c config, days int) (
 	return retentionPlan{View: view, Config: c, Days: days, Objects: objects, Records: records, Fingerprint: inventoryFingerprint(current, objects, records)}, nil
 }
 func (m *Manager) PreviewRetention(ctx context.Context, days int) (RetentionPreview, error) {
+	generation := m.cleanupEpoch()
 	m.op.Lock()
 	defer m.op.Unlock()
 	if m.closed || m.restorePaused {
@@ -239,7 +240,7 @@ func (m *Manager) PreviewRetention(ctx context.Context, days int) (RetentionPrev
 	if c.AccountID == "" || c.Bucket == "" || c.AccessKeyID == "" || c.SecretAccessKey == "" {
 		return RetentionPreview{}, ErrConfiguration
 	}
-	scanCtx, cancel := m.cleanupContext(ctx)
+	scanCtx, cancel := m.cleanupContext(ctx, generation)
 	defer cancel()
 	plan, err := m.scanRetentionLocked(scanCtx, c, days)
 	if err != nil {

@@ -102,18 +102,38 @@ func (m *Manager) ConfigureRetention(u RetentionUpdate) (RetentionStatus, error)
 func (m *Manager) CancelCleanup() {
 	m.cleanupControl.Lock()
 	defer m.cleanupControl.Unlock()
+	m.cleanupGeneration++
 	if m.cleanupCancel != nil {
 		m.cleanupCancel()
 	}
 }
-func (m *Manager) cleanupContext(ctx context.Context) (context.Context, func()) {
+func (m *Manager) cleanupEpoch() uint64 {
+	m.cleanupControl.Lock()
+	defer m.cleanupControl.Unlock()
+	return m.cleanupGeneration
+}
+func (m *Manager) cleanupContext(ctx context.Context, generation uint64) (context.Context, func()) {
 	ctx, cancel := context.WithTimeout(ctx, cleanupTimeout)
 	m.cleanupControl.Lock()
 	m.cleanupCancel = cancel
+	if generation != m.cleanupGeneration {
+		cancel()
+	}
 	m.cleanupControl.Unlock()
-	return ctx, func() { cancel(); m.cleanupControl.Lock(); m.cleanupCancel = nil; m.cleanupControl.Unlock() }
+	stopShutdown := context.AfterFunc(m.cleanupBackground, cancel)
+	if m.cleanupBackground.Err() != nil {
+		cancel()
+	}
+	return ctx, func() {
+		stopShutdown()
+		cancel()
+		m.cleanupControl.Lock()
+		m.cleanupCancel = nil
+		m.cleanupControl.Unlock()
+	}
 }
 func (m *Manager) ExecuteRetention(ctx context.Context, u CleanupRequest) (RetentionStatus, error) {
+	generation := m.cleanupEpoch()
 	m.op.Lock()
 	defer m.op.Unlock()
 	if m.closed || m.restorePaused {
@@ -139,7 +159,7 @@ func (m *Manager) ExecuteRetention(ctx context.Context, u CleanupRequest) (Reten
 	if err != nil || time.Since(scanned) < 0 || time.Since(scanned) > previewLifetime {
 		return r, ErrStalePreview
 	}
-	runCtx, stop := m.cleanupContext(ctx)
+	runCtx, stop := m.cleanupContext(ctx, generation)
 	defer stop()
 	r.LastAttempt = time.Now().UTC().Format(time.RFC3339Nano)
 	r.ErrorSummary = ""
@@ -347,6 +367,7 @@ func (m *Manager) startCleanupSchedulerLocked() {
 	}()
 }
 func (m *Manager) backgroundCleanup() {
+	generation := m.cleanupEpoch()
 	m.op.Lock()
 	defer m.op.Unlock()
 	// Do not race a user reviewing an unexpired cleanup preview. The user
@@ -381,7 +402,7 @@ func (m *Manager) backgroundCleanup() {
 	if m.store.writeRetention(c, r) != nil {
 		return
 	}
-	ctx, stop := m.cleanupContext(m.cleanupBackground)
+	ctx, stop := m.cleanupContext(m.cleanupBackground, generation)
 	defer stop()
 	p, err := m.scanRetentionLocked(ctx, c, r.Days)
 	if err == nil {

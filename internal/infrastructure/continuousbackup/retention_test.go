@@ -424,3 +424,44 @@ func TestBackgroundDefersWhileCleanupPreviewIsOpen(t *testing.T) {
 		t.Fatal("expired preview prevented next automatic run")
 	}
 }
+
+func TestCancellationDuringCleanupSetupIsNotLost(t *testing.T) {
+	m, _, root, _ := sealedFixture(t, 3)
+	activateCleanup(t, m)
+	p, err := m.PreviewRetention(context.Background(), 30)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := &cleanupFault{fileBackend: fileBackend{root}}
+	m.factory = func(config) backend { return b }
+	// Pause configuration loading after Execute acquires op but before it can
+	// register its I/O cancellation context. No timing-dependent remote fake.
+	m.store.mu.Lock()
+	done := make(chan error, 1)
+	go func() {
+		_, err := m.ExecuteRetention(context.Background(), CleanupRequest{Token: p.Token, Acknowledged: true})
+		done <- err
+	}()
+	deadline := time.Now().Add(time.Second)
+	for m.op.TryLock() {
+		m.op.Unlock()
+		if time.Now().After(deadline) {
+			m.store.mu.Unlock()
+			t.Fatal("cleanup did not enter")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	m.CancelCleanup()
+	m.store.mu.Unlock()
+	select {
+	case err = <-done:
+		if err == nil {
+			t.Fatal("setup cancellation was lost")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("canceled setup did not return")
+	}
+	if len(b.deleted) != 0 {
+		t.Fatal("deleted after stop requested during setup")
+	}
+}

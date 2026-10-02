@@ -17,6 +17,7 @@ import (
 // Built-in monitors/retention are off: no library goroutine can outlive a
 // canceled operation or close a DB after a caller's timeout has returned.
 type Manager struct {
+	cleanupGeneration uint64
 	cleanupControl    sync.Mutex
 	cleanupCancel     context.CancelFunc
 	cleanupBackground context.Context

@@ -289,3 +289,37 @@ func TestR2DeleteChecksObjectAndNeverDropsPrecondition(t *testing.T) {
 		})
 	}
 }
+
+func TestRecoveryPointOrderUsesTimeNotVariableWidthFractions(t *testing.T) {
+	b := fileBackend{root: t.TempDir()}
+	stream := uuid.NewString() + "/" + uuid.NewString()
+	if err := b.ensureIdentity(context.Background(), newIdentity(stream)); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(b.root, filepath.FromSlash(stream), "ltx", "0")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for i, fraction := range []string{".1Z", ".11Z", ".11Z"} {
+		p := filepath.Join(dir, fmt.Sprintf("%016x-%016x.ltx", i+1, i+1))
+		if err := os.WriteFile(p, []byte("listing fixture"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		ts, err := time.Parse(time.RFC3339Nano, "2026-10-02T00:00:00"+fraction)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(p, ts, ts); err != nil {
+			t.Fatal(err)
+		}
+	}
+	points, err := recoveryPoints(context.Background(), b)
+	if err != nil || len(points) != 3 {
+		t.Fatalf("listing failed: %v", err)
+	}
+	for i, p := range points {
+		if p.TXID != fmt.Sprintf("%016x", 3-i) {
+			t.Fatalf("point order: %+v", points)
+		}
+	}
+}
