@@ -53,6 +53,25 @@ export function formatTimestamp(value: string | number | Date, timezone: string 
   }
 }
 
+/** Exact form timestamps must show the precision retained by the submitted command. */
+export function formatExactTimestamp(value: string, timezone: string, language = i18n.language || "en"): string {
+  const instant = new Date(value);
+  const milliseconds = String(instant.getUTCMilliseconds()).padStart(3, "0");
+  return new Intl.DateTimeFormat(language, {
+    timeZone: resolvedTimeZone(timezone), year: "numeric", month: "short", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(instant).map((part) => part.type === "second" ? `${part.value}.${milliseconds}` : part.value).join("");
+}
+
+/** Inspect local seconds, including historical zones with second-based offsets. */
+export function hasSubMinuteTime(value: string, timezone: string): boolean {
+  const instant = new Date(value);
+  // Zone offsets do not change the fractional second; local whole seconds can differ.
+  return instant.getUTCMilliseconds() !== 0 || new Intl.DateTimeFormat("en", {
+    timeZone: resolvedTimeZone(timezone), second: "2-digit",
+  }).formatToParts(instant).some((part) => part.type === "second" && Number(part.value) !== 0);
+}
+
 /** Date-labelled quotes have a source date, but no observed time of day. */
 export function formatQuoteAsOf(
   quote: { quotedAt: string; effectiveDate?: string; timestampBasis?: string },
