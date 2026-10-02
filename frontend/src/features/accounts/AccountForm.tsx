@@ -111,10 +111,10 @@ export function AccountForm({
   onCanSubmitChange?: (canSubmit: boolean) => void;
 }) {
   const { t } = useTranslation();
-  const members = useMembers();
-  const institutions = useInstitutions();
+  const members = useMembers(Boolean(record));
+  const institutions = useInstitutions(Boolean(record));
   const iconInstitutions = useInstitutions(true);
-  const groups = useGroups();
+  const groups = useGroups(Boolean(record));
   const currencies = useSupportedCurrencies();
   const catalog = useCatalog();
   const bootstrap = useBootstrap();
@@ -125,6 +125,13 @@ export function AccountForm({
   const [showMoreOptions, setShowMoreOptions] = useState(false);
   const [iconKey, setIconKey] = useState(record?.account.iconKey ?? "");
   const initialValues = record ? valuesFromRecord(record) : emptyValues;
+  // Retained references remain editable; unrelated archived entries cannot be added.
+  const retainedOwners = new Set(record?.ownership?.map((share) => share.memberId) ?? []);
+  const markArchived = <T extends { name: string; archivedAt?: string | null }>(item: T): T =>
+    item.archivedAt ? { ...item, name: `${item.name} (${t("common.archived")})` } : item;
+  const ownerOptions = (members.data ?? []).filter((member) => !member.archivedAt || retainedOwners.has(member.id)).map(markArchived);
+  const institutionOptions = (institutions.data ?? []).filter((item) => !item.archivedAt || item.id === record?.account.institutionId).map(markArchived);
+  const groupOptions = (groups.data ?? []).filter((item) => !item.archivedAt || item.id === record?.account.groupId).map(markArchived);
   const [useCustomPercentages, setUseCustomPercentages] = useState(
     (initialValues.ownershipPercentages ?? []).length > 0,
   );
@@ -335,7 +342,7 @@ export function AccountForm({
 
       <OwnershipFields
         idPrefix="owner"
-        members={members.data ?? []}
+        members={ownerOptions}
         ownerIds={ownerIds}
         onToggleOwner={toggleOwner}
         useCustomPercentages={useCustomPercentages}
@@ -370,8 +377,8 @@ export function AccountForm({
       {showMoreOptions && (
         <div id="account-more-options" className="flex flex-col gap-3 rounded-md border border-border p-3">
           <IconPicker id="account-icon" value={iconKey} kind="account" onChange={setIconKey} inheritIconKey={resolveAccountIcon({ accountType, institutionId }, iconInstitutions.data)} />
-          <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutions.data ?? []} emptyLabel={t("accounts.none")} kind="institution" onChange={(value) => setValue("institutionId", value)} />
-          <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groups.data ?? []} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => setValue("groupId", value)} />
+          <EntitySelect id="account-institution" label={t("nav.institutions")} value={institutionId ?? ""} options={institutionOptions} emptyLabel={t("accounts.none")} kind="institution" onChange={(value) => setValue("institutionId", value)} />
+          <EntitySelect id="account-group" label={t("nav.groups")} value={groupId ?? ""} options={groupOptions} emptyLabel={t("accounts.none")} kind="group" onChange={(value) => setValue("groupId", value)} />
         </div>
       )}
 
