@@ -91,6 +91,10 @@ func openConfig(path string) (*configStore, error) {
 		return nil, ErrUnavailable
 	}
 	s := &configStore{db: db}
+	if err := s.initLedger(); err != nil {
+		db.Close()
+		return nil, err
+	}
 	c := config{BackupID: uuid.NewString()}
 	cb, _ := json.Marshal(c)
 	sb, _ := json.Marshal(status{State: "disabled"})

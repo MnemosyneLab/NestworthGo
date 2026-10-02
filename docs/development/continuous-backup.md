@@ -27,7 +27,14 @@ Each stream has a small `stream.json` containing application ID, source version/
 build, schema and stream ID. It contains no credentials. Conditional creation
 refuses an existing different identity. Listing/restore require this identity
 and full candidate verification; unmarked prototype streams cannot be restored
-through the UI. The record does not represent remote backup success. R2
+through the UI. The record does not represent remote backup success. A separate target-scoped
+local stream ledger records ownership before the worker starts. It records a
+seal only after the worker is joined, the application SQLite connection is
+drained, a final snapshot is remotely confirmed, and Litestream closes
+successfully. The optional sealing attempt has a 500 ms budget; failure or
+cancellation leaves the stream unsealed and protected. Crash-abandoned open
+rows are never promoted on restart. Sealing evidence does not change the
+global last-successful-backup status. R2
 conditional creation is supported by the [S3 API](https://developers.cloudflare.com/r2/api/s3/api/).
 An OS instance lock is acquired before startup journal reconciliation or opening
 SQLite. It fences duplicate processes using the same database path locally.
@@ -51,7 +58,7 @@ After initialization succeeds, ordinary incremental sync does not reserve the
 application pool slot. Initialization can briefly delay local queries, up to
 the operation timeout; there is no callback that borrows that slot recursively.
 
-Disable and target changes first cancel and join the worker. Litestream must
+Disable and target changes first cancel cleanup and join the replication worker. Litestream must
 not close POSIX descriptors while app SQLite connections exist. The narrow
 SQLite adapter reserves the sole pool slot, waits for active rows/transactions,
 closes the pinned modernc driver handle, then closes the Litestream store. New
@@ -86,11 +93,96 @@ pause replication and persist backup disabled before installation. Restart and
 explicit re-enable produce a fresh isolated stream. Failed operations never
 turn into an automatic restore of a valid local database.
 
-Remote history is retained: v1 has no automatic retention or compaction.
-Storage/object counts grow with activity and with fresh baseline streams. The
-UI listing is limited to 100 recent L0 points per stream and 512 streams; these
-limits do not delete history. No retention deletion permission is needed by
-this implementation.
+## Optional history retention (phase one)
+
+Cleanup is **off by default**, preserving permanent remote retention. Settings →
+Continuous backup → History retention offers 30 or 90 days. Enabling cleanup,
+changing its enabled retention period, and executing a manual cleanup require
+an explicit irreversible-deletion acknowledgment. Turning cleanup off never
+deletes anything. A preview is read-only and works while cleanup is off.
+
+Ownership lives only in `backup_config.db`, scoped to the normalized R2 account,
+bucket, stable BackupID and exact stream UUID. Existing remote identities are
+not adopted into the ledger. Legacy, foreign, unknown and crash-abandoned
+streams remain protected. The current stream and the newest two sealed streams
+are protected. On each scan those two streams must actually restore to private
+temporary databases and pass the existing schema-15, integrity and foreign-key
+verification. If either fails, cleanup is skipped; an older unverified stream
+is never substituted. Temporary verification files are removed on completion,
+failure or cancellation. Verification honors cancellation without weakening
+schema checks.
+
+Age is based on the locally recorded final confirmed backup/sealing time, not
+`StartedAt`, remote object ages or global last-successful-backup status. Only
+whole expired sealed streams are eligible; individual L0 files are never aged
+out. There is no compaction, calendar thinning or periodic stream rotation.
+A long-running current stream has **no hard storage bound**. Protected and
+unsealed streams can also accumulate indefinitely.
+
+Retention enumerates every object page under the exact configured BackupID,
+with no delimiter, stream cap or recovery-point cap. It accepts only canonical
+stream UUID paths, `stream.json`, and phase-one L0 filenames. Unexpected paths,
+duplicate keys, missing/changed owned identities or changed target inventories
+abort the operation. Other BackupIDs are outside cleanup's listing and deletion
+scope. The recovery UI still limits discovery to 100 recent L0 points per stream
+and 512 streams; those display limits are not used by cleanup.
+
+The preview shows scanned and eligible bytes, scan time, eligible stream IDs
+and protection reasons. Manual preview tokens are single-use and expire after
+15 minutes; automatic cleanup defers while a preview is unexpired. Execution repeats inventory, identity, actual survivor restoration
+and protection checks; changed configurations, survivor sets, candidate sets or
+inventories require a new preview. Application restore, target changes and
+cleanup share the manager operation lock. A successfully staged recovery
+candidate pins its source stream for the rest of the app session, including
+when the user closes the preview; this deliberately favors preservation.
+
+Before removing any object, the control database durably records `deleting`
+and the exact key/size/ETag manifest. Recovery discovery and staging reject
+local deleting/deleted streams, including stale recovery-point requests. The
+manifest is immutable during deletion. A separate small progress row is
+checkpointed after 128 new deletions or one second, with the final partial batch
+flushed on ordinary cancellation/error. A process crash can lose the last batch;
+full remote inventory reconciles those absent objects without replaying a write
+for each. Resumption iterates only remaining objects and never serializes the
+full manifest for a progress checkpoint. A lost response or process interruption
+can leave a partial stream; retries use the persisted manifest and only accept
+an unchanged subset of its objects. Data objects go first, `stream.json` last.
+The final inventory must confirm absence before the ledger becomes `deleted`.
+Unknown/new/changed objects stop resumption. Completed tombstones retain
+ownership information, but discard the no-longer-needed object manifest.
+
+R2 requests use the configured static credentials and exact bucket/key.
+Deletion first checks size and ETag with conditional HEAD and sends `If-Match`
+on DELETE; failures never cause a retry without the precondition. Cloudflare's
+[S3 compatibility table](https://developers.cloudflare.com/r2/api/s3/api/)
+documents conditional HEAD, but does not explicitly document DELETE conditional
+headers. Isolated live acceptance must establish their behavior; this code does
+not claim to provide remote writer fencing. No other app, lifecycle rule or
+external writer should modify locally owned stream prefixes during cleanup.
+The control ledger must not be cloned to a second active writer. Live R2
+behavior and deletion permissions were not tested with real credentials.
+
+Background work starts on a timer one minute after manager startup, outside the
+startup critical path. It checks eligibility hourly, with at most one attempt
+per 24 hours persisted **before** network I/O, including failed attempts. Safe
+resumption occurs on a later daily attempt or an explicitly confirmed manual
+run. Operations have a five-minute budget. Configuration changes, restore and
+shutdown cancel cleanup before acquiring the operation lock; shutdown cancels the
+scheduler, serializes control-database closure, and waits for scheduler exit
+before returning. There is no daemon when the app
+is closed. Cleanup results, errors and timestamps are stored separately from
+backup status; cleanup never creates a successful-backup claim. Status polling
+uses control-database reads and a separately locked live running flag, so it
+remains available during remote work. The UI exposes Stop for backend-running
+work, including automatic cleanup and navigation back to Settings during a
+manual run; mutation serialization still uses the existing operation lock.
+
+Only synthetic file storage and fake S3 request interfaces are used by automated
+tests. Coverage includes full pagination, current/two-survivor/legacy/foreign/
+crash protections, post-cleanup restoration of retained data, denied deletes,
+partial outcomes and lost checkpoints, restart/resumption, stale preview and
+concurrent configuration/restore/shutdown, redacted errors, and repeated,
+interrupted, keyboard-only and localized UI flows.
 
 ## R2 setup and later acceptance
 

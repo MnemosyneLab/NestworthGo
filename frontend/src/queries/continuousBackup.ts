@@ -27,3 +27,23 @@ export function useInspectCloudRestore() {
 export function useConfirmCloudRestore() {
   return useMutation({ mutationFn: (input: RestoreConfirmRequest) => callService(() => Service.ConfirmRestore(input)) });
 }
+
+export function useRetentionStatus(scope: string) {
+  return useQuery({ queryKey: [...key, "retention", scope], queryFn: () => callService(() => Service.RetentionStatus()), retry: false, refetchInterval: 5000 });
+}
+export function useConfigureRetention() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (input: { enabled: boolean; days: number; acknowledged: boolean }) => callService(() => Service.ConfigureRetention(input)), onSettled: () => void client.invalidateQueries({ queryKey: key }) });
+}
+export function usePreviewRetention() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (days: number) => callService(() => Service.PreviewRetention(days)), onSettled: () => void client.invalidateQueries({ queryKey: [...key, "retention"] }) });
+}
+export function useExecuteRetention() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (token: string) => callService(() => Service.ExecuteRetention({ token, acknowledged: true })), onSettled: () => { client.setQueryData([...key, "recoveryPoints"], []); void client.invalidateQueries({ queryKey: key }); } });
+}
+export function useCancelCleanup() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: () => callService(() => Service.CancelCleanup()), onSettled: () => void client.invalidateQueries({ queryKey: [...key, "retention"] }) });
+}

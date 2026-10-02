@@ -5,7 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { ContinuousBackupSection } from "./ContinuousBackupSection";
 
-const api = vi.hoisted(() => ({ Status: vi.fn(), Configure: vi.fn(), TestConnection: vi.fn(), BackupNow: vi.fn(), RecoveryPoints: vi.fn(), InspectRestore: vi.fn(), ConfirmRestore: vi.fn() }));
+const api = vi.hoisted(() => ({ Status: vi.fn(), Configure: vi.fn(), TestConnection: vi.fn(), BackupNow: vi.fn(), RecoveryPoints: vi.fn(), InspectRestore: vi.fn(), ConfirmRestore: vi.fn(), RetentionStatus: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup", () => ({ Service: api }));
 const initial = { enabled: false, accountID: "a".repeat(32), bucket: "test-bucket", credentialsConfigured: false, backupID: "owner", state: "disabled", streamID: "", lastAttempt: "", lastSuccessfulBackup: "", errorSummary: "", restoreState: "" };
 const point = { streamID: "owner/stream", txID: "0000000000000001", capturedAt: "2026-09-30T12:00:00Z" };
@@ -18,6 +18,7 @@ function renderSection(configured = false) {
 beforeEach(() => {
   Object.values(api).forEach((mock) => mock.mockReset());
   api.Configure.mockImplementation(async (input) => ({ ...initial, enabled: input.enabled, accountID: input.accountID, bucket: input.bucket, credentialsConfigured: !input.removeCredentials, state: input.enabled ? "preparing" : "disabled" }));
+  api.RetentionStatus.mockResolvedValue({ enabled: false, days: 30, scannedAt: "", scannedBytes: 0, eligibleBytes: 0, lastAttempt: "", lastCleanup: "", result: "", errorSummary: "" });
   api.TestConnection.mockResolvedValue(undefined);
   api.BackupNow.mockResolvedValue(undefined);
   api.RecoveryPoints.mockResolvedValue([point]);

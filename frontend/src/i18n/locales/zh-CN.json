@@ -1101,5 +1101,48 @@
     "remove": "移除",
     "show": "显示新输入",
     "hide": "隐藏新输入"
+  },
+  "retention": {
+    "title": "历史保留",
+    "description": "默认永久保留备份。可选清理仅删除超过保留期限的完整已封存备份流。当前备份流和两个已通过恢复验证的封存备份流始终受保护。仅在应用打开时清理；长期运行的当前备份流没有存储容量上限。",
+    "enable": "启用历史清理",
+    "period": "已封存历史保留期限",
+    "days": "{{count}} 天",
+    "apply": "应用保留期限",
+    "preview": "预览清理",
+    "clean": "立即清理",
+    "stop": "停止清理",
+    "scan": "已扫描：{{scanned}} 字节 · 可清理：{{eligible}} 字节 · {{time}}",
+    "last": "上次清理：{{time}} · {{result}}",
+    "error": "清理未能安全完成。请刷新预览并检查连接和删除权限。备份状态单独显示。",
+    "insufficient": "在两个已封存备份流成功恢复并通过验证之前，将跳过清理。",
+    "empty": "此备份目标中没有备份流。",
+    "candidates": "待删除和受保护的备份流",
+    "bytes": "字节",
+    "warning": "删除是永久性的，无法撤销。清理会重新检查目标和受保护副本，然后删除符合条件的完整备份流。未完成的清理可能在后续尝试中继续。仅在接受失去较早恢复历史时启用。",
+    "acknowledge": "我了解较早的备份历史将被永久删除。",
+    "confirmEnable": "启用清理",
+    "confirmDelete": "永久删除符合条件的历史",
+    "results": {
+      "none": "尚未运行",
+      "running": "进行中",
+      "completed": "已完成",
+      "skipped": "已跳过",
+      "stopped": "已安全停止"
+    },
+    "reasons": {
+      "current": "受保护：当前备份流",
+      "restore-preview": "受保护：本次会话中的恢复预览",
+      "unknown-owner": "受保护：旧版或所有权未知",
+      "unsealed": "受保护：未封存或意外中断",
+      "deleted": "删除已完成",
+      "verified-survivor": "受保护：已恢复并验证的保留副本",
+      "unreliable-seal": "受保护：封存时间不可靠",
+      "missing-data": "受保护：缺少数据",
+      "insufficient-survivors": "受保护：已验证的保留副本不足两个",
+      "within-retention": "受保护：仍在保留期限内",
+      "expired-sealed": "可清理：已过期的封存备份流",
+      "resume-deletion": "可清理：继续中断的删除"
+    }
   }
 }

@@ -17,23 +17,35 @@ import (
 // Built-in monitors/retention are off: no library goroutine can outlive a
 // canceled operation or close a DB after a caller's timeout has returned.
 type Manager struct {
-	op             sync.Mutex
-	store          *configStore
-	database       *sqlite.DB
-	path           string
-	factory        func(config) backend
-	workerCancel   context.CancelFunc
-	workerDone     chan struct{}
-	replicaDB      *litestream.DB
-	replicaStore   *litestream.Store
-	initialized    bool
-	identity       streamIdentity
-	replicaBackend backend
-	statusMu       sync.Mutex
-	status         status
-	interval       time.Duration
-	closed         bool
-	restorePaused  bool
+	cleanupGeneration uint64
+	cleanupTarget     string
+	cleanupControl    sync.Mutex
+	cleanupCancel     context.CancelFunc
+	cleanupBackground context.Context
+	cleanupStop       context.CancelFunc
+	cleanupStarted    bool
+	cleanupDone       chan struct{}
+	retentionPreview  *retentionPlan
+	previewPins       map[string]bool
+	op                sync.Mutex
+	store             *configStore
+	database          *sqlite.DB
+	path              string
+	factory           func(config) backend
+	workerCancel      context.CancelFunc
+	workerDone        chan struct{}
+	replicaDB         *litestream.DB
+	replicaStore      *litestream.Store
+	initialized       bool
+	lastSyncSucceeded bool
+	identity          streamIdentity
+	replicaBackend    backend
+	replicaConfig     config
+	statusMu          sync.Mutex
+	status            status
+	interval          time.Duration
+	closed            bool
+	restorePaused     bool
 }
 
 func New(path string, database *sqlite.DB) (*Manager, error) {
@@ -41,12 +53,14 @@ func New(path string, database *sqlite.DB) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, st, err := s.load()
+	c, st, err := s.load()
 	if err != nil {
 		s.db.Close()
 		return nil, err
 	}
-	m := &Manager{store: s, database: database, path: path, status: st, interval: 5 * time.Second, factory: func(c config) backend { return r2Backend{c: c} }}
+	m := &Manager{previewPins: map[string]bool{}, store: s, database: database, path: path, status: st, interval: 5 * time.Second, factory: func(c config) backend { return r2Backend{c: c} }}
+	m.cleanupBackground, m.cleanupStop = context.WithCancel(context.Background())
+	m.cleanupDone = make(chan struct{})
 	// Persisted status is historical evidence, never a live success indication.
 	m.status.State = "disabled"
 	m.status.ErrorSummary = ""
@@ -55,6 +69,11 @@ func New(path string, database *sqlite.DB) (*Manager, error) {
 	if err := s.writeStatus(m.status); err != nil {
 		s.db.Close()
 		return nil, err
+	}
+	if r, err := s.retention(c); err == nil && r.Result == "running" {
+		r.Result = "stopped"
+		r.ErrorSummary = ErrRetention.Error()
+		_ = s.writeRetention(c, r)
 	}
 	return m, nil
 }
@@ -74,6 +93,7 @@ func (m *Manager) setStatus(fn func(*status)) error {
 func (m *Manager) Start(ctx context.Context) error {
 	m.op.Lock()
 	defer m.op.Unlock()
+	m.startCleanupSchedulerLocked()
 	if m.closed || m.restorePaused {
 		return ErrDisabled
 	}
@@ -103,6 +123,10 @@ func (m *Manager) startLocked(ctx context.Context, c config) error {
 	d.MonitorInterval = 0
 	m.replicaBackend = m.factory(c)
 	m.identity = newIdentity(stream)
+	m.replicaConfig = c
+	if err := m.store.createStream(c, m.identity); err != nil {
+		return err
+	}
 	client := m.replicaBackend.client(stream)
 	client.SetLogger(quietLogger)
 	d.Replica = litestream.NewReplicaWithClient(d, client)
@@ -151,6 +175,7 @@ func (m *Manager) launchWorkerLocked(delay time.Duration) {
 }
 func stringsForPath(stream string) string { return filepath.FromSlash(stream) }
 func (m *Manager) sync(ctx context.Context) error {
+	m.lastSyncSucceeded = false
 	syncCtx, cancel := contextTimeout(ctx)
 	defer cancel()
 	m.setStatus(func(s *status) { s.State = "backing-up"; s.LastAttempt = time.Now().UTC().Format(time.RFC3339Nano) })
@@ -197,6 +222,7 @@ func (m *Manager) sync(ctx context.Context) error {
 	}); err != nil {
 		return err
 	}
+	m.lastSyncSucceeded = true
 	return nil
 }
 func (m *Manager) pauseWorkerLocked() {
@@ -215,11 +241,30 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 	// Cleanup is synchronous. A timed-out goroutine is never left accessing
 	// SQLite. All operations are stopped before reserving/closing the pool slot.
 	closedHandles := false
+	var confirmed time.Time
+	var finalTXID string
 	closeStore := func() error {
 		closedHandles = true
-		closeCtx, cancel := context.WithCancel(ctx)
-		cancel() // no remote writes during disable/target swap
+		finalCtx, stopFinal := context.WithTimeout(ctx, 500*time.Millisecond)
+		defer stopFinal()
+		// Application queries are drained, and the replication worker is joined.
+		// Confirm the final snapshot without borrowing the reserved app pool slot.
+		if m.initialized && m.lastSyncSucceeded && ctx.Err() == nil {
+			if err := m.replicaDB.SyncAndWait(finalCtx); err == nil {
+				if st, err := m.replicaDB.SyncStatus(finalCtx); err == nil && st.InSync {
+					confirmed, finalTXID = time.Now().UTC(), st.RemoteTXID.String()
+				}
+			}
+		}
+		closeCtx, cancel := context.WithCancel(finalCtx)
+		if confirmed.IsZero() {
+			cancel()
+		}
 		err := m.replicaStore.Close(closeCtx)
+		cancel()
+		if err != nil || ctx.Err() != nil || finalCtx.Err() != nil {
+			confirmed = time.Time{}
+		}
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return nil
 		}
@@ -243,14 +288,21 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 		}
 		return ErrUnavailable
 	}
+	// Closure errors (even cancellation) never create a seal. A failed ledger
+	// write also leaves the stream protected; it must not break shutdown.
+	if !confirmed.IsZero() {
+		_ = m.store.seal(m.replicaConfig, m.identity, finalTXID, confirmed)
+	}
 	m.replicaDB = nil
 	m.replicaStore = nil
 	m.initialized = false
 	return nil
 }
 func (m *Manager) Configure(ctx context.Context, u Update) error {
+	m.CancelCleanup()
 	m.op.Lock()
 	defer m.op.Unlock()
+	m.retentionPreview = nil
 	if m.closed || m.restorePaused {
 		return ErrDisabled
 	}
@@ -351,7 +403,11 @@ func (m *Manager) RecoveryPoints(ctx context.Context) ([]RecoveryPoint, error) {
 	}
 	listCtx, cancel := contextTimeout(ctx)
 	defer cancel()
-	return recoveryPoints(listCtx, m.factory(c))
+	records, err := m.store.streams(c)
+	if err != nil {
+		return nil, err
+	}
+	return recoveryPoints(listCtx, recoveryBackend{backend: m.factory(c), records: records})
 }
 func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error) {
 	m.op.Lock()
@@ -362,6 +418,13 @@ func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error)
 	}
 	if c.AccountID == "" || c.Bucket == "" || c.AccessKeyID == "" || c.SecretAccessKey == "" {
 		return Candidate{}, ErrConfiguration
+	}
+	records, err := m.store.streams(c)
+	if err != nil {
+		return Candidate{}, err
+	}
+	if r, ok := records[p.StreamID]; ok && (r.State == "deleting" || r.State == "deleted") {
+		return Candidate{}, ErrUnavailable
 	}
 	m.setStatus(func(s *status) { s.RestoreState = "preparing" })
 	dir, err := os.MkdirTemp(filepath.Dir(m.path), ".nestworth-cloud-restore-")
@@ -389,6 +452,8 @@ func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error)
 		return Candidate{}, err
 	}
 	verified.Close()
+	m.previewPins[p.StreamID] = true
+	m.retentionPreview = nil
 	m.setStatus(func(s *status) { s.RestoreState = "preview" })
 	return Candidate{Path: destination, AppVersion: info.AppVersion, AppBuild: info.AppBuild}, nil
 }
@@ -396,6 +461,7 @@ func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error)
 // PauseForRestore is called inside the exclusive restore operation before
 // checkpoint/close. Persist disabled before installation, including crash paths.
 func (m *Manager) PauseForRestore(ctx context.Context) error {
+	m.CancelCleanup()
 	m.op.Lock()
 	defer m.op.Unlock()
 	if m.closed {
@@ -431,8 +497,16 @@ func (m *Manager) PauseForRestore(ctx context.Context) error {
 	return nil
 }
 func (m *Manager) Close(ctx context.Context) error {
+	m.cleanupStop()
+	m.CancelCleanup()
 	m.op.Lock()
-	defer m.op.Unlock()
+	defer func() {
+		started := m.cleanupStarted
+		m.op.Unlock()
+		if started {
+			<-m.cleanupDone
+		}
+	}()
 	if m.closed {
 		return nil
 	}

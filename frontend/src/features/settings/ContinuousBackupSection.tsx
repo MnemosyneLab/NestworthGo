@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { HistoryRetentionSection } from "./HistoryRetentionSection";
 import { SecretField } from "./SecretField";
 import { useContinuousBackup, useConfigureBackup, useTestBackupConnection, useBackupNow, useCloudRecoveryPoints, useInspectCloudRestore, useConfirmCloudRestore } from "@/queries/continuousBackup";
 import type { Update } from "../../../bindings/github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup/models";
@@ -27,7 +28,9 @@ export function ContinuousBackupSection() {
   const [confirmation, setConfirmation] = useState("");
   const [acknowledged, setAcknowledged] = useState(false);
   const [restarting, setRestarting] = useState(false);
-  const busy = save.isPending || test.isPending || backup.isPending || inspect.isPending || restore.isPending || restarting || points.isFetching;
+  const [retentionBusy, setRetentionBusy] = useState(false);
+  const externalBusy = save.isPending || test.isPending || backup.isPending || inspect.isPending || restore.isPending || restarting || points.isFetching;
+  const busy = externalBusy || retentionBusy;
   const current = status.data;
   if (status.isLoading) return <p>{t("ui.state.loadingPage")}</p>;
   if (!current) return <div role="alert"><p>{t("cloudBackup.unavailable")}</p><Button type="button" variant="outline" onClick={() => status.refetch()}>{t("common.retryAction")}</Button></div>;
@@ -72,6 +75,7 @@ export function ContinuousBackupSection() {
       {save.isSuccess && <p>{t("cloudBackup.saved")}</p>}
     </div>
     {(save.isError || test.isError || backup.isError || inspect.isError || restore.isError || current.errorSummary) && <p role="alert" className="text-sm text-destructive">{t("cloudBackup.error")}</p>}
+    <HistoryRetentionSection key={`${current.accountID}/${current.bucket}/${current.backupID}`} scope={`${current.accountID}/${current.bucket}/${current.backupID}`} disabled={externalBusy || dirty || open || !current.credentialsConfigured} onBusyChange={setRetentionBusy} />
     <div className="space-y-3 border-t pt-4">
       <h3 className="font-medium">{t("cloudBackup.recovery")}</h3>
       <p className="text-sm text-muted-foreground">{t("cloudBackup.recoveryHelp")}</p>

@@ -183,10 +183,17 @@ func recoveryPoints(ctx context.Context, b backend) ([]RecoveryPoint, error) {
 	}
 	sort.Slice(out, func(i, j int) bool {
 		a, b := out[i], out[j]
-		if a.CapturedAt == b.CapturedAt && a.StreamID == b.StreamID {
-			return a.TXID > b.TXID
+		// RFC3339Nano removes trailing fractional zeros, so string order can
+		// place .1Z after .11Z and offer an older point as the newest backup.
+		at, _ := time.Parse(time.RFC3339Nano, a.CapturedAt)
+		bt, _ := time.Parse(time.RFC3339Nano, b.CapturedAt)
+		if at.Equal(bt) {
+			if a.StreamID == b.StreamID {
+				return a.TXID > b.TXID
+			}
+			return a.StreamID > b.StreamID
 		}
-		return a.CapturedAt > b.CapturedAt
+		return at.After(bt)
 	})
 	return out, nil
 }
