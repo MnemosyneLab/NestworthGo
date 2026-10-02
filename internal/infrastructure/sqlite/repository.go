@@ -585,8 +585,17 @@ func loadOwnership(ctx context.Context, query queryer, householdID domain.Househ
 	return result, rows.Err()
 }
 
+// Start from accounts so each indexed lookup seeks its latest timestamp group
+// instead of checking every historical value for a newer sibling. Preserve insertion
+// order for timestamp ties: the index's id ordering is not the tie-breaker.
+const latestAccountValuesQuery = `SELECT av.id, av.account_id, av.value_kind, av.amount, av.currency, av.effective_at, av.created_at
+	FROM accounts a JOIN account_values av ON av.rowid = (
+		SELECT latest.rowid FROM account_values latest WHERE latest.account_id = a.id
+		ORDER BY latest.effective_at DESC, latest.created_at DESC, latest.rowid DESC LIMIT 1
+	) WHERE a.household_id = ?`
+
 func loadLatestValues(ctx context.Context, query queryer, householdID domain.HouseholdID) (map[domain.AccountID]*domain.AccountValue, error) {
-	rows, err := query.QueryContext(ctx, `SELECT av.id, av.account_id, av.value_kind, av.amount, av.currency, av.effective_at, av.created_at FROM account_values av JOIN accounts a ON a.id = av.account_id WHERE a.household_id = ? AND NOT EXISTS (SELECT 1 FROM account_values newer WHERE newer.account_id = av.account_id AND (newer.effective_at > av.effective_at OR (newer.effective_at = av.effective_at AND newer.created_at > av.created_at) OR (newer.effective_at = av.effective_at AND newer.created_at = av.created_at AND newer.rowid > av.rowid)))`, householdID.String())
+	rows, err := query.QueryContext(ctx, latestAccountValuesQuery, householdID.String())
 	if err != nil {
 		return nil, err
 	}
