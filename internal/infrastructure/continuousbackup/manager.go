@@ -385,29 +385,40 @@ func (m *Manager) TestConnection(ctx context.Context) error {
 	}
 	checkCtx, cancel := contextTimeout(ctx)
 	defer cancel()
-	_, err = m.factory(c).streams(checkCtx)
+	err = m.factory(c).probe(checkCtx)
 	if err != nil {
 		return ErrUnavailable
 	}
 	return nil
 }
-func (m *Manager) RecoveryPoints(ctx context.Context) ([]RecoveryPoint, error) {
+func (m *Manager) RecoveryPointPage(ctx context.Context, cursor string) (RecoveryPointPage, error) {
 	m.op.Lock()
 	defer m.op.Unlock()
 	c, _, err := m.store.load()
 	if err != nil {
-		return nil, err
+		return RecoveryPointPage{}, err
 	}
 	if c.AccountID == "" || c.Bucket == "" || c.AccessKeyID == "" || c.SecretAccessKey == "" {
-		return nil, ErrConfiguration
+		return RecoveryPointPage{}, ErrConfiguration
 	}
 	listCtx, cancel := contextTimeout(ctx)
 	defer cancel()
 	records, err := m.store.streams(c)
 	if err != nil {
-		return nil, err
+		return RecoveryPointPage{}, err
 	}
-	return recoveryPoints(listCtx, recoveryBackend{backend: m.factory(c), records: records})
+	token, err := decodeRecoveryCursor(cursor, c)
+	if err != nil {
+		return RecoveryPointPage{}, err
+	}
+	page, err := readRecoveryPage(listCtx, m.factory(c), token, records)
+	if err != nil {
+		return RecoveryPointPage{}, err
+	}
+	if page.NextCursor != "" {
+		page.NextCursor = encodeRecoveryCursor(page.NextCursor, c)
+	}
+	return page, nil
 }
 func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error) {
 	m.op.Lock()

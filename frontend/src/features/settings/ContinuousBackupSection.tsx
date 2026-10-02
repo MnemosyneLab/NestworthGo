@@ -16,7 +16,7 @@ export function ContinuousBackupSection() {
   const save = useConfigureBackup();
   const test = useTestBackupConnection();
   const backup = useBackupNow();
-  const points = useCloudRecoveryPoints();
+  const points = useCloudRecoveryPoints(JSON.stringify([status.data?.accountID, status.data?.bucket, status.data?.backupID]));
   const inspect = useInspectCloudRestore();
   const restore = useConfirmCloudRestore();
   const [draft, setDraft] = useState<Partial<Update> | null>(null);
@@ -42,7 +42,7 @@ export function ContinuousBackupSection() {
   const input = (removeCredentials = false): Update => ({ enabled: removeCredentials ? false : enabled, accountID, bucket, accessKeyID: removeCredentials ? "" : access, secretAccessKey: removeCredentials ? "" : secret, removeCredentials });
   const partialPair = (access.trim() === "") !== (secret.trim() === "");
   const persist = (removeCredentials = false) => { if (busy || (!removeCredentials && partialPair)) return; save.mutate(input(removeCredentials), { onSuccess: () => { setDraft(null); setAccess(""); setSecret(""); setSecretGeneration((value) => value + 1); test.reset(); setSelection(""); inspect.reset(); } }); };
-  const point = points.data?.find((item) => `${item.streamID}:${item.txID}` === selection);
+  const point = points.points.find((item) => `${item.streamID}:${item.txID}` === selection);
   const preview = inspect.data;
   const timestamp = (value: string) => value ? new Date(value).toLocaleString() : t("cloudBackup.never");
   const ready = Boolean(preview?.token) && acknowledged && confirmation.trim().toLowerCase() === "restore";
@@ -80,14 +80,19 @@ export function ContinuousBackupSection() {
       <h3 className="font-medium">{t("cloudBackup.recovery")}</h3>
       <p className="text-sm text-muted-foreground">{t("cloudBackup.recoveryHelp")}</p>
       {restoreState && <p role="status" aria-live="polite">{t(`cloudBackup.restoreStates.${restoreState}`)}</p>}
-      <Button type="button" variant="outline" onClick={() => { setSelection(""); void points.refetch(); }} disabled={busy || points.isFetching || !current.credentialsConfigured || dirty}>{t("cloudBackup.list")}</Button>
+      <Button type="button" variant="outline" onClick={() => { setSelection(""); void points.restart(); }} disabled={busy || points.isFetching || !current.credentialsConfigured || dirty}>{t("cloudBackup.list")}</Button>
       {points.isError && <p role="alert">{t("cloudBackup.error")}</p>}
-      {points.isSuccess && points.data?.length === 0 && <p>{t("cloudBackup.empty")}</p>}
-      {(points.data?.length ?? 0) > 0 && <div className="space-y-2">
+      {points.hasNextPage && <div className="space-y-2">
+        <p className="text-sm text-muted-foreground">{t("cloudBackup.moreHelp")}</p>
+        <Button type="button" variant="outline" onClick={() => void points.fetchNextPage()} disabled={busy || dirty}>{t("cloudBackup.loadMore")}</Button>
+      </div>}
+      {points.points.length > 0 && <p className="text-sm text-muted-foreground">{t("cloudBackup.loadedOnly")}</p>}
+      {points.isSuccess && points.points.length === 0 && !points.hasNextPage && <p>{t("cloudBackup.empty")}</p>}
+      {points.points.length > 0 && <div className="space-y-2">
         <Label htmlFor="backup-recovery-point">{t("cloudBackup.point")}</Label>
         <NativeSelect id="backup-recovery-point" value={selection} onChange={(event) => setSelection(event.target.value)} disabled={busy}>
           <option value="">{t("cloudBackup.select")}</option>
-          {points.data?.map((item) => <option key={`${item.streamID}:${item.txID}`} value={`${item.streamID}:${item.txID}`}>{timestamp(item.capturedAt)} · {item.streamID} · {item.txID}</option>)}
+          {points.points.map((item) => <option key={`${item.streamID}:${item.txID}`} value={`${item.streamID}:${item.txID}`}>{timestamp(item.capturedAt)} · {item.streamID} · {item.txID}</option>)}
         </NativeSelect>
         <Button type="button" variant="outline" disabled={busy || !point} onClick={() => { if (point) inspect.mutate(point, { onSuccess: () => { setConfirmation(""); setAcknowledged(false); setOpen(true); } }); }}>{t("cloudBackup.preview")}</Button>
       </div>}
