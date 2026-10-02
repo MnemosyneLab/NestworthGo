@@ -1101,5 +1101,48 @@
     "remove": "Remove",
     "show": "Show new input",
     "hide": "Hide new input"
+  },
+  "retention": {
+    "title": "History retention",
+    "description": "Keep backups forever by default. Optional cleanup removes whole sealed streams older than the selected period. The current stream and two restore-verified sealed streams stay protected. Cleanup runs only while the app is open; a long-running current stream has no hard storage limit.",
+    "enable": "Enable history cleanup",
+    "period": "Keep sealed history for",
+    "days": "{{count}} days",
+    "apply": "Apply retention period",
+    "preview": "Preview cleanup",
+    "clean": "Clean up now",
+    "stop": "Stop cleanup",
+    "scan": "Scanned: {{scanned}} bytes · Eligible: {{eligible}} bytes · {{time}}",
+    "last": "Last cleanup: {{time}} · {{result}}",
+    "error": "Cleanup could not finish safely. Refresh the preview and check the connection and delete permission. Backup status is separate.",
+    "insufficient": "Cleanup is skipped until two sealed streams can be restored and verified.",
+    "empty": "No streams found in this backup target.",
+    "candidates": "Deletion candidates and protected streams",
+    "bytes": "bytes",
+    "warning": "Deletion is permanent and cannot be undone. Cleanup deletes eligible whole backup streams after rechecking the target and protected copies. Partial cleanup may finish on a later attempt. Only enable this if you accept losing older recovery history.",
+    "acknowledge": "I understand older backup history will be permanently deleted.",
+    "confirmEnable": "Enable cleanup",
+    "confirmDelete": "Permanently delete eligible history",
+    "results": {
+      "none": "Not run",
+      "running": "In progress",
+      "completed": "Completed",
+      "skipped": "Skipped",
+      "stopped": "Stopped safely"
+    },
+    "reasons": {
+      "current": "Protected: current stream",
+      "restore-preview": "Protected: recovery preview in this session",
+      "unknown-owner": "Protected: legacy or unknown ownership",
+      "unsealed": "Protected: unsealed or interrupted stream",
+      "deleted": "Deletion complete",
+      "verified-survivor": "Protected: restored and verified survivor",
+      "unreliable-seal": "Protected: sealing time is unreliable",
+      "missing-data": "Protected: missing data",
+      "insufficient-survivors": "Protected: fewer than two verified survivors",
+      "within-retention": "Protected: within retention period",
+      "expired-sealed": "Eligible: expired sealed stream",
+      "resume-deletion": "Eligible: resume interrupted deletion"
+    }
   }
 }

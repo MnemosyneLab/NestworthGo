@@ -82,6 +82,10 @@ func (s *configStore) seal(c config, identity streamIdentity, txid string, confi
 	if !ok || r.Identity != identity || r.State != "open" || txid == "" || confirmed.IsZero() {
 		return ErrUnavailable
 	}
+	started, err := time.Parse(time.RFC3339Nano, identity.StartedAt)
+	if err != nil || confirmed.Before(started) {
+		return ErrUnavailable
+	}
 	r.State = "sealed"
 	r.SealedAt = confirmed.UTC().Format(time.RFC3339Nano)
 	r.FinalTXID = txid

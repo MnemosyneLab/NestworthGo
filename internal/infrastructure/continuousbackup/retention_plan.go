@@ -134,7 +134,7 @@ func (m *Manager) verifySurvivor(ctx context.Context, b backend, r streamRecord)
 	if err = restorePoint(ctx, b, RecoveryPoint{StreamID: r.Identity.StreamID, TXID: r.FinalTXID}, destination); err != nil {
 		return ErrUnavailable
 	}
-	db, err := sqlite.OpenReadOnlyForVerify(destination)
+	db, err := sqlite.OpenReadOnlyForVerifyContext(ctx, destination)
 	if err != nil {
 		return ErrUnavailable
 	}
@@ -239,11 +239,21 @@ func (m *Manager) PreviewRetention(ctx context.Context, days int) (RetentionPrev
 	if c.AccountID == "" || c.Bucket == "" || c.AccessKeyID == "" || c.SecretAccessKey == "" {
 		return RetentionPreview{}, ErrConfiguration
 	}
-	scanCtx, cancel := context.WithTimeout(ctx, cleanupTimeout)
+	scanCtx, cancel := m.cleanupContext(ctx)
 	defer cancel()
 	plan, err := m.scanRetentionLocked(scanCtx, c, days)
 	if err != nil {
 		return RetentionPreview{}, ErrUnavailable
+	}
+	r, err := m.store.retention(c)
+	if err != nil {
+		return RetentionPreview{}, err
+	}
+	r.ScannedAt = plan.View.ScannedAt
+	r.ScannedBytes = plan.View.ScannedBytes
+	r.EligibleBytes = plan.View.EligibleBytes
+	if err = m.store.writeRetention(c, r); err != nil {
+		return RetentionPreview{}, err
 	}
 	m.retentionPreview = &plan
 	return plan.View, nil

@@ -1101,5 +1101,48 @@
     "remove": "移除",
     "show": "顯示新輸入",
     "hide": "隱藏新輸入"
+  },
+  "retention": {
+    "title": "歷史保留",
+    "description": "預設永久保留備份。選擇性清理僅刪除超過保留期限的完整已封存備份串流。目前備份串流和兩個已通過還原驗證的封存備份串流始終受保護。僅在應用程式開啟時清理；長期執行的目前備份串流沒有儲存容量上限。",
+    "enable": "啟用歷史清理",
+    "period": "已封存歷史保留期限",
+    "days": "{{count}} 天",
+    "apply": "套用保留期限",
+    "preview": "預覽清理",
+    "clean": "立即清理",
+    "stop": "停止清理",
+    "scan": "已掃描：{{scanned}} 位元組 · 可清理：{{eligible}} 位元組 · {{time}}",
+    "last": "上次清理：{{time}} · {{result}}",
+    "error": "清理未能安全完成。請重新整理預覽並檢查連線和刪除權限。備份狀態分開顯示。",
+    "insufficient": "在兩個已封存備份串流成功還原並通過驗證之前，將略過清理。",
+    "empty": "此備份目標中沒有備份串流。",
+    "candidates": "待刪除和受保護的備份串流",
+    "bytes": "位元組",
+    "warning": "刪除是永久性的，無法復原。清理會重新檢查目標和受保護副本，然後刪除符合條件的完整備份串流。未完成的清理可能在後續嘗試中繼續。僅在接受失去較早還原歷史時啟用。",
+    "acknowledge": "我了解較早的備份歷史將被永久刪除。",
+    "confirmEnable": "啟用清理",
+    "confirmDelete": "永久刪除符合條件的歷史",
+    "results": {
+      "none": "尚未執行",
+      "running": "進行中",
+      "completed": "已完成",
+      "skipped": "已略過",
+      "stopped": "已安全停止"
+    },
+    "reasons": {
+      "current": "受保護：目前備份串流",
+      "restore-preview": "受保護：本次工作階段中的還原預覽",
+      "unknown-owner": "受保護：舊版或擁有權未知",
+      "unsealed": "受保護：未封存或意外中斷",
+      "deleted": "刪除已完成",
+      "verified-survivor": "受保護：已還原並驗證的保留副本",
+      "unreliable-seal": "受保護：封存時間不可靠",
+      "missing-data": "受保護：缺少資料",
+      "insufficient-survivors": "受保護：已驗證的保留副本不足兩個",
+      "within-retention": "受保護：仍在保留期限內",
+      "expired-sealed": "可清理：已過期的封存備份串流",
+      "resume-deletion": "可清理：繼續中斷的刪除"
+    }
   }
 }

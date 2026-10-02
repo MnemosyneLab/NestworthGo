@@ -80,7 +80,23 @@ func (b r2Backend) deleteObject(ctx context.Context, o storedObject) error {
 	if _, err := objectStream(b.c.BackupID, o.Key); err != nil || o.ETag == "" {
 		return ErrUnavailable
 	}
-	_, err := b.sdk().DeleteObject(ctx, &awss3.DeleteObjectInput{Bucket: aws.String(b.c.Bucket), Key: aws.String(o.Key), IfMatch: aws.String(o.ETag)})
+	return deleteMatchedObject(ctx, b.sdk(), b.c.Bucket, o)
+}
+
+type objectDeleter interface {
+	HeadObject(context.Context, *awss3.HeadObjectInput, ...func(*awss3.Options)) (*awss3.HeadObjectOutput, error)
+	DeleteObject(context.Context, *awss3.DeleteObjectInput, ...func(*awss3.Options)) (*awss3.DeleteObjectOutput, error)
+}
+
+func deleteMatchedObject(ctx context.Context, client objectDeleter, bucket string, o storedObject) error {
+	// R2 documents conditional HEAD. Also send the DELETE precondition, but
+	// never retry without it when a provider rejects it. Sealed streams have no
+	// local writer; this is not a cross-machine fencing protocol.
+	head, err := client.HeadObject(ctx, &awss3.HeadObjectInput{Bucket: aws.String(bucket), Key: aws.String(o.Key), IfMatch: aws.String(o.ETag)})
+	if err != nil || head == nil || aws.ToString(head.ETag) != o.ETag || aws.ToInt64(head.ContentLength) != o.Size {
+		return ErrUnavailable
+	}
+	_, err = client.DeleteObject(ctx, &awss3.DeleteObjectInput{Bucket: aws.String(bucket), Key: aws.String(o.Key), IfMatch: aws.String(o.ETag)})
 	if err != nil {
 		return ErrUnavailable
 	}

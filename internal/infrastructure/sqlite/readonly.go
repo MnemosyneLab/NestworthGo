@@ -17,6 +17,12 @@ import (
 // It is the only supported way to inspect a backup snapshot or a restored
 // candidate before treating it as the live database.
 func OpenReadOnlyForVerify(path string) (*DB, error) {
+	return OpenReadOnlyForVerifyContext(context.Background(), path)
+}
+
+// OpenReadOnlyForVerifyContext uses the same nondestructive verifier while
+// allowing background retention work to yield to shutdown or configuration.
+func OpenReadOnlyForVerifyContext(ctx context.Context, path string) (*DB, error) {
 	if strings.TrimSpace(path) == "" {
 		return nil, &domain.Error{Code: domain.ErrBackupInvalidFormat, Message: "database path is empty"}
 	}
@@ -38,7 +44,8 @@ func OpenReadOnlyForVerify(path string) (*DB, error) {
 	database.SetMaxOpenConns(1)
 	database.SetMaxIdleConns(1)
 	database.SetConnMaxLifetime(0)
-	found, err := readVersion(database)
+	var found int
+	err = database.QueryRowContext(ctx, "PRAGMA user_version").Scan(&found)
 	if err != nil {
 		_ = database.Close()
 		return nil, &domain.Error{Code: domain.ErrBackupIntegrityFailed, Message: "database could not be read"}
@@ -48,7 +55,7 @@ func OpenReadOnlyForVerify(path string) (*DB, error) {
 		return nil, &domain.Error{Code: domain.ErrBackupSchemaUnsupported, Message: fmt.Sprintf("database schema version is %d, want %d", found, CurrentSchemaVersion)}
 	}
 	db := &DB{SQL: database, Path: path, Status: StatusReady}
-	if err := verifySchema(context.Background(), database); err != nil {
+	if err := verifySchema(ctx, database); err != nil {
 		_ = database.Close()
 		return nil, &domain.Error{Code: domain.ErrBackupIntegrityFailed, Message: "database failed integrity verification"}
 	}

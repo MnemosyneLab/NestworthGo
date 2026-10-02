@@ -126,6 +126,9 @@ func sealedFixture(t *testing.T, n int) (*Manager, config, string, []string) {
 	m, _, root := fixture(t)
 	streams := []string{}
 	for i := 0; i < n; i++ {
+		if _, err := m.database.SQL.Exec(`INSERT INTO app_configuration(key,value) VALUES('retention-fixture',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, fmt.Sprint(i)); err != nil {
+			t.Fatal(err)
+		}
 		if err := m.Configure(context.Background(), testUpdate(true)); err != nil {
 			t.Fatal(err)
 		}
@@ -235,5 +238,54 @@ func TestDeletingStreamExcludedFromRecoveryAndStaging(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), c.SecretAccessKey) {
 		t.Fatal("secret in error")
+	}
+}
+
+type fakeObjectDelete struct {
+	t               *testing.T
+	expected        storedObject
+	changed, denied bool
+	calls           int
+}
+
+func (f *fakeObjectDelete) HeadObject(_ context.Context, in *awss3.HeadObjectInput, _ ...func(*awss3.Options)) (*awss3.HeadObjectOutput, error) {
+	if aws.ToString(in.Bucket) != "test-bucket" || aws.ToString(in.Key) != f.expected.Key || aws.ToString(in.IfMatch) != f.expected.ETag {
+		f.t.Fatal("HEAD scope/precondition missing")
+	}
+	etag := f.expected.ETag
+	if f.changed {
+		etag = "different"
+	}
+	return &awss3.HeadObjectOutput{ETag: aws.String(etag), ContentLength: aws.Int64(f.expected.Size)}, nil
+}
+func (f *fakeObjectDelete) DeleteObject(_ context.Context, in *awss3.DeleteObjectInput, _ ...func(*awss3.Options)) (*awss3.DeleteObjectOutput, error) {
+	f.calls++
+	if aws.ToString(in.Bucket) != "test-bucket" || aws.ToString(in.Key) != f.expected.Key || aws.ToString(in.IfMatch) != f.expected.ETag {
+		f.t.Fatal("DELETE scope/precondition missing")
+	}
+	if f.denied {
+		return nil, errors.New("secret-provider-response")
+	}
+	return &awss3.DeleteObjectOutput{}, nil
+}
+func TestR2DeleteChecksObjectAndNeverDropsPrecondition(t *testing.T) {
+	o := storedObject{Key: remotePrefix + uuid.NewString() + "/" + uuid.NewString() + "/stream.json", Size: 100, ETag: `"expected"`}
+	for _, mode := range []string{"success", "changed", "denied"} {
+		t.Run(mode, func(t *testing.T) {
+			f := &fakeObjectDelete{t: t, expected: o, changed: mode == "changed", denied: mode == "denied"}
+			err := deleteMatchedObject(context.Background(), f, "test-bucket", o)
+			if mode == "success" && err != nil {
+				t.Fatal(err)
+			}
+			if mode != "success" && (err == nil || strings.Contains(err.Error(), "secret")) {
+				t.Fatal("unsafe failure")
+			}
+			if mode == "changed" && f.calls != 0 {
+				t.Fatal("deleted changed object")
+			}
+			if f.calls > 1 {
+				t.Fatal("retried without precondition")
+			}
+		})
 	}
 }

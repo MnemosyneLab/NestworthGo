@@ -137,3 +137,37 @@ func (s *Service) ConfirmRestore(request recovery.RestoreConfirmRequest) (recove
 	}
 	return s.recovery.ConfirmRestore(request)
 }
+
+func (s *Service) RetentionStatus() (infra.RetentionStatus, error) {
+	if s.manager == nil {
+		return infra.RetentionStatus{}, safe(infra.ErrUnavailable)
+	}
+	v, err := s.manager.RetentionStatus()
+	return v, safe(err)
+}
+func (s *Service) ConfigureRetention(u infra.RetentionUpdate) (infra.RetentionStatus, error) {
+	if s.manager == nil {
+		return infra.RetentionStatus{}, safe(infra.ErrUnavailable)
+	}
+	v, err := s.manager.ConfigureRetention(u)
+	return v, safe(err)
+}
+func (s *Service) PreviewRetention(ctx context.Context, days int) (infra.RetentionPreview, error) {
+	if s.manager == nil {
+		return infra.RetentionPreview{}, safe(infra.ErrUnavailable)
+	}
+	v, err := s.manager.PreviewRetention(ctx, days)
+	return v, safe(err)
+}
+func (s *Service) ExecuteRetention(ctx context.Context, u infra.CleanupRequest) (infra.RetentionStatus, error) {
+	if s.manager == nil {
+		return infra.RetentionStatus{}, safe(infra.ErrUnavailable)
+	}
+	v, err := s.manager.ExecuteRetention(ctx, u)
+	return v, safe(err)
+}
+func (s *Service) CancelCleanup() {
+	if s.manager != nil {
+		s.manager.CancelCleanup()
+	}
+}

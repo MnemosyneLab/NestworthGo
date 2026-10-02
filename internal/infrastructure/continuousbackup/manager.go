@@ -17,6 +17,12 @@ import (
 // Built-in monitors/retention are off: no library goroutine can outlive a
 // canceled operation or close a DB after a caller's timeout has returned.
 type Manager struct {
+	cleanupControl    sync.Mutex
+	cleanupCancel     context.CancelFunc
+	cleanupBackground context.Context
+	cleanupStop       context.CancelFunc
+	cleanupStarted    bool
+	cleanupDone       chan struct{}
 	retentionPreview  *retentionPlan
 	previewPins       map[string]bool
 	op                sync.Mutex
@@ -45,12 +51,14 @@ func New(path string, database *sqlite.DB) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, st, err := s.load()
+	c, st, err := s.load()
 	if err != nil {
 		s.db.Close()
 		return nil, err
 	}
 	m := &Manager{previewPins: map[string]bool{}, store: s, database: database, path: path, status: st, interval: 5 * time.Second, factory: func(c config) backend { return r2Backend{c: c} }}
+	m.cleanupBackground, m.cleanupStop = context.WithCancel(context.Background())
+	m.cleanupDone = make(chan struct{})
 	// Persisted status is historical evidence, never a live success indication.
 	m.status.State = "disabled"
 	m.status.ErrorSummary = ""
@@ -59,6 +67,11 @@ func New(path string, database *sqlite.DB) (*Manager, error) {
 	if err := s.writeStatus(m.status); err != nil {
 		s.db.Close()
 		return nil, err
+	}
+	if r, err := s.retention(c); err == nil && r.Result == "running" {
+		r.Result = "stopped"
+		r.ErrorSummary = ErrRetention.Error()
+		_ = s.writeRetention(c, r)
 	}
 	return m, nil
 }
@@ -78,6 +91,7 @@ func (m *Manager) setStatus(fn func(*status)) error {
 func (m *Manager) Start(ctx context.Context) error {
 	m.op.Lock()
 	defer m.op.Unlock()
+	m.startCleanupSchedulerLocked()
 	if m.closed || m.restorePaused {
 		return ErrDisabled
 	}
@@ -246,7 +260,7 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 		}
 		err := m.replicaStore.Close(closeCtx)
 		cancel()
-		if err != nil || ctx.Err() != nil {
+		if err != nil || ctx.Err() != nil || finalCtx.Err() != nil {
 			confirmed = time.Time{}
 		}
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -283,6 +297,7 @@ func (m *Manager) stopLocked(ctx context.Context, resume bool) error {
 	return nil
 }
 func (m *Manager) Configure(ctx context.Context, u Update) error {
+	m.CancelCleanup()
 	m.op.Lock()
 	defer m.op.Unlock()
 	m.retentionPreview = nil
@@ -444,6 +459,7 @@ func (m *Manager) Stage(ctx context.Context, p RecoveryPoint) (Candidate, error)
 // PauseForRestore is called inside the exclusive restore operation before
 // checkpoint/close. Persist disabled before installation, including crash paths.
 func (m *Manager) PauseForRestore(ctx context.Context) error {
+	m.CancelCleanup()
 	m.op.Lock()
 	defer m.op.Unlock()
 	if m.closed {
@@ -479,8 +495,16 @@ func (m *Manager) PauseForRestore(ctx context.Context) error {
 	return nil
 }
 func (m *Manager) Close(ctx context.Context) error {
+	m.cleanupStop()
+	m.CancelCleanup()
 	m.op.Lock()
-	defer m.op.Unlock()
+	defer func() {
+		started := m.cleanupStarted
+		m.op.Unlock()
+		if started {
+			<-m.cleanupDone
+		}
+	}()
 	if m.closed {
 		return nil
 	}
