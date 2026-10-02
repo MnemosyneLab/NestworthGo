@@ -8,11 +8,11 @@ import { HistoryRetentionSection } from "./HistoryRetentionSection";
 
 const api = vi.hoisted(() => ({ RetentionStatus: vi.fn(), ConfigureRetention: vi.fn(), PreviewRetention: vi.fn(), ExecuteRetention: vi.fn(), CancelCleanup: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup", () => ({ Service: api }));
-const initial = { enabled: false, days: 30, scannedAt: "", scannedBytes: 0, eligibleBytes: 0, lastAttempt: "", lastCleanup: "", result: "", errorSummary: "" };
+const initial = { enabled: false, running: false, days: 30, scannedAt: "", scannedBytes: 0, eligibleBytes: 0, lastAttempt: "", lastCleanup: "", result: "", errorSummary: "" };
 const plan = { token: "one-use-token", scannedAt: "2026-10-01T12:00:00Z", scannedBytes: 900, eligibleBytes: 100, ready: true, items: [{ streamID: "old", sealedAt: "", bytes: 100, eligible: true, reason: "expired-sealed" }, { streamID: "current", sealedAt: "", bytes: 800, eligible: false, reason: "current" }] };
 const busy = vi.fn();
-function mount(enabled = false) {
-  api.RetentionStatus.mockResolvedValue({ ...initial, enabled });
+function mount(enabled = false, running = false) {
+  api.RetentionStatus.mockResolvedValue({ ...initial, enabled, running });
   const client = createTestQueryClient({ retry: false });
   return render(<QueryClientProvider client={client}><HistoryRetentionSection scope="test-target" disabled={false} onBusyChange={busy} /></QueryClientProvider>);
 }
@@ -29,6 +29,48 @@ async function showPreview(user: ReturnType<typeof userEvent.setup>) {
   await screen.findByRole("list", { name: "Deletion candidates and protected streams" });
 }
 describe("history retention", () => {
+  it("shows and cancels backend background work without a local pending mutation", async () => {
+    const user = userEvent.setup(); mount(true, true);
+    api.CancelCleanup.mockImplementation(async () => { api.RetentionStatus.mockResolvedValue({ ...initial, enabled: true, result: "stopped" }); });
+    await screen.findByRole("button", { name: "Stop cleanup" });
+    expect(screen.getByRole("button", { name: "Preview cleanup" })).toBeDisabled();
+    expect(api.ExecuteRetention).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Stop cleanup" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Stop cleanup" })).not.toBeInTheDocument());
+    expect(screen.getByRole("button", { name: "Preview cleanup" })).toBeEnabled();
+    expect(api.CancelCleanup).toHaveBeenCalledOnce();
+  });
+  it("recovers Stop after navigation remount during manual cleanup", async () => {
+    const user = userEvent.setup();
+    let serverStatus = { ...initial, enabled: true };
+    api.RetentionStatus.mockImplementation(async () => serverStatus);
+    let reject!: (error: Error) => void;
+    api.ExecuteRetention.mockImplementation(() => {
+      serverStatus = { ...serverStatus, running: true, result: "running" };
+      return new Promise((_, fail) => { reject = fail; });
+    });
+    const client = createTestQueryClient({ retry: false });
+    const section = () => <QueryClientProvider client={client}><HistoryRetentionSection scope="test-target" disabled={false} onBusyChange={busy} /></QueryClientProvider>;
+    const first = render(section());
+    await showPreview(user);
+    await user.click(screen.getByRole("button", { name: "Clean up now" }));
+    await user.click(screen.getByLabelText("I understand older backup history will be permanently deleted."));
+    await user.click(screen.getByRole("button", { name: "Permanently delete eligible history" }));
+    expect(api.ExecuteRetention).toHaveBeenCalledOnce();
+    first.unmount();
+    render(section());
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    await screen.findByRole("button", { name: "Stop cleanup" });
+    expect(screen.getByRole("button", { name: "Preview cleanup" })).toBeDisabled();
+    api.CancelCleanup.mockImplementation(async () => {
+      serverStatus = { ...serverStatus, running: false, result: "stopped" };
+      reject(new Error("canceled"));
+    });
+    await user.click(screen.getByRole("button", { name: "Stop cleanup" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Stop cleanup" })).not.toBeInTheDocument());
+    expect(api.ExecuteRetention).toHaveBeenCalledOnce();
+    expect(api.CancelCleanup).toHaveBeenCalledOnce();
+  });
   it("starts off, requires warning acknowledgment, and cancellation never enables cleanup", async () => {
     const user = userEvent.setup(); mount();
     const toggle = await screen.findByLabelText("Enable history cleanup");

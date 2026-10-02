@@ -1,6 +1,7 @@
 package continuousbackup
 
 import (
+	"database/sql"
 	"encoding/json"
 	"strings"
 	"time"
@@ -27,7 +28,8 @@ func targetKey(c config) string {
 }
 func (s *configStore) initLedger() error {
 	_, err := s.db.Exec(`CREATE TABLE IF NOT EXISTS backup_streams (target TEXT NOT NULL, stream TEXT NOT NULL, record TEXT NOT NULL, PRIMARY KEY(target,stream));
- CREATE TABLE IF NOT EXISTS backup_retention (target TEXT PRIMARY KEY, record TEXT NOT NULL)`)
+ CREATE TABLE IF NOT EXISTS backup_retention (target TEXT PRIMARY KEY, record TEXT NOT NULL);
+ CREATE TABLE IF NOT EXISTS backup_stream_progress (target TEXT NOT NULL, stream TEXT NOT NULL, deleted_objects INTEGER NOT NULL CHECK(deleted_objects >= 0), PRIMARY KEY(target,stream))`)
 	if err != nil {
 		return ErrUnavailable
 	}
@@ -42,7 +44,7 @@ func (s *configStore) createStream(c config, identity streamIdentity) error {
 	return nil
 }
 func (s *configStore) streams(c config) (map[string]streamRecord, error) {
-	rows, err := s.db.Query(`SELECT stream,record FROM backup_streams WHERE target=?`, targetKey(c))
+	rows, err := s.db.Query(`SELECT s.stream,s.record,p.deleted_objects FROM backup_streams s LEFT JOIN backup_stream_progress p ON p.target=s.target AND p.stream=s.stream WHERE s.target=?`, targetKey(c))
 	if err != nil {
 		return nil, ErrUnavailable
 	}
@@ -51,8 +53,14 @@ func (s *configStore) streams(c config) (map[string]streamRecord, error) {
 	for rows.Next() {
 		var stream, data string
 		var r streamRecord
-		if rows.Scan(&stream, &data) != nil || json.Unmarshal([]byte(data), &r) != nil || r.Identity.StreamID != stream {
+		var completed sql.NullInt64
+		if rows.Scan(&stream, &data, &completed) != nil || json.Unmarshal([]byte(data), &r) != nil || r.Identity.StreamID != stream {
 			return nil, ErrUnavailable
+		}
+		// Older deleting rows keep their manifest/counter in record. New
+		// checkpoints are tiny independent rows; never rewrite that manifest.
+		if completed.Valid && completed.Int64 > int64(r.DeletedObjects) {
+			r.DeletedObjects = int(completed.Int64)
 		}
 		result[stream] = r
 	}
@@ -90,4 +98,20 @@ func (s *configStore) seal(c config, identity streamIdentity, txid string, confi
 	r.SealedAt = confirmed.UTC().Format(time.RFC3339Nano)
 	r.FinalTXID = txid
 	return s.writeStream(c, r)
+}
+
+// checkpointStream stores only monotonic advisory progress. Resume safety still
+// comes from matching the complete immutable manifest against remote inventory,
+// including objects deleted before a lost response or an uncommitted checkpoint.
+func (s *configStore) checkpointStream(c config, stream string, completed int) error {
+	if completed < 0 {
+		return ErrUnavailable
+	}
+	_, err := s.db.Exec(`INSERT INTO backup_stream_progress(target,stream,deleted_objects) VALUES(?,?,?)
+ ON CONFLICT(target,stream) DO UPDATE SET deleted_objects=excluded.deleted_objects
+ WHERE excluded.deleted_objects>backup_stream_progress.deleted_objects`, targetKey(c), stream, completed)
+	if err != nil {
+		return ErrUnavailable
+	}
+	return nil
 }

@@ -44,5 +44,6 @@ export function useExecuteRetention() {
   return useMutation({ mutationFn: (token: string) => callService(() => Service.ExecuteRetention({ token, acknowledged: true })), onSettled: () => { client.setQueryData([...key, "recoveryPoints"], []); void client.invalidateQueries({ queryKey: key }); } });
 }
 export function useCancelCleanup() {
-  return useMutation({ mutationFn: () => callService(() => Service.CancelCleanup()) });
+  const client = useQueryClient();
+  return useMutation({ mutationFn: () => callService(() => Service.CancelCleanup()), onSettled: () => void client.invalidateQueries({ queryKey: [...key, "retention"] }) });
 }

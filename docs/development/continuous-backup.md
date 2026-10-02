@@ -138,8 +138,13 @@ when the user closes the preview; this deliberately favors preservation.
 
 Before removing any object, the control database durably records `deleting`
 and the exact key/size/ETag manifest. Recovery discovery and staging reject
-local deleting/deleted streams, including stale recovery-point requests. Each
-successful deletion is checkpointed. A lost response or process interruption
+local deleting/deleted streams, including stale recovery-point requests. The
+manifest is immutable during deletion. A separate small progress row is
+checkpointed after 128 new deletions or one second, with the final partial batch
+flushed on ordinary cancellation/error. A process crash can lose the last batch;
+full remote inventory reconciles those absent objects without replaying a write
+for each. Resumption iterates only remaining objects and never serializes the
+full manifest for a progress checkpoint. A lost response or process interruption
 can leave a partial stream; retries use the persisted manifest and only accept
 an unchanged subset of its objects. Data objects go first, `stream.json` last.
 The final inventory must confirm absence before the ledger becomes `deleted`.
@@ -166,7 +171,11 @@ shutdown cancel cleanup before acquiring the operation lock; shutdown cancels th
 scheduler, serializes control-database closure, and waits for scheduler exit
 before returning. There is no daemon when the app
 is closed. Cleanup results, errors and timestamps are stored separately from
-backup status; cleanup never creates a successful-backup claim.
+backup status; cleanup never creates a successful-backup claim. Status polling
+uses control-database reads and a separately locked live running flag, so it
+remains available during remote work. The UI exposes Stop for backend-running
+work, including automatic cleanup and navigation back to Settings during a
+manual run; mutation serialization still uses the existing operation lock.
 
 Only synthetic file storage and fake S3 request interfaces are used by automated
 tests. Coverage includes full pagination, current/two-survivor/legacy/foreign/

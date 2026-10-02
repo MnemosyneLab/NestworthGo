@@ -240,7 +240,7 @@ func (m *Manager) PreviewRetention(ctx context.Context, days int) (RetentionPrev
 	if c.AccountID == "" || c.Bucket == "" || c.AccessKeyID == "" || c.SecretAccessKey == "" {
 		return RetentionPreview{}, ErrConfiguration
 	}
-	scanCtx, cancel := m.cleanupContext(ctx, generation)
+	scanCtx, cancel := m.cleanupContext(ctx, generation, targetKey(c))
 	defer cancel()
 	plan, err := m.scanRetentionLocked(scanCtx, c, days)
 	if err != nil {

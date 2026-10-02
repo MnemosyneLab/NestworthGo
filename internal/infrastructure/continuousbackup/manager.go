@@ -18,6 +18,7 @@ import (
 // canceled operation or close a DB after a caller's timeout has returned.
 type Manager struct {
 	cleanupGeneration uint64
+	cleanupTarget     string
 	cleanupControl    sync.Mutex
 	cleanupCancel     context.CancelFunc
 	cleanupBackground context.Context

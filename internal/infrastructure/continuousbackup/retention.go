@@ -14,6 +14,7 @@ var ErrRetention = errors.New("cleanup stopped safely; refresh the preview and c
 var ErrStalePreview = errors.New("cleanup preview has changed or expired; preview again")
 
 type RetentionStatus struct {
+	Running       bool   `json:"running"`
 	Enabled       bool   `json:"enabled"`
 	Days          int    `json:"days"`
 	ScannedAt     string `json:"scannedAt"`
@@ -47,6 +48,7 @@ func (s *configStore) retention(c config) (RetentionStatus, error) {
 	return r, nil
 }
 func (s *configStore) writeRetention(c config, r RetentionStatus) error {
+	r.Running = false // Running is process state, never a persisted success claim.
 	data, _ := json.Marshal(r)
 	_, err := s.db.Exec(`INSERT INTO backup_retention(target,record) VALUES(?,?) ON CONFLICT(target) DO UPDATE SET record=excluded.record`, targetKey(c), string(data))
 	if err != nil {
@@ -55,16 +57,20 @@ func (s *configStore) writeRetention(c config, r RetentionStatus) error {
 	return nil
 }
 func (m *Manager) RetentionStatus() (RetentionStatus, error) {
-	m.op.Lock()
-	defer m.op.Unlock()
-	if m.closed {
-		return RetentionStatus{}, ErrDisabled
-	}
+	// Reads must remain available while op serializes remote cleanup/restore.
+	// The control DB is independent of remote I/O; Close produces a safe error.
 	c, _, err := m.store.load()
 	if err != nil {
 		return RetentionStatus{}, err
 	}
-	return m.store.retention(c)
+	r, err := m.store.retention(c)
+	if err != nil {
+		return r, err
+	}
+	m.cleanupControl.Lock()
+	r.Running = m.cleanupCancel != nil && m.cleanupTarget == targetKey(c)
+	m.cleanupControl.Unlock()
+	return r, nil
 }
 func (m *Manager) ConfigureRetention(u RetentionUpdate) (RetentionStatus, error) {
 	m.CancelCleanup()
@@ -112,10 +118,11 @@ func (m *Manager) cleanupEpoch() uint64 {
 	defer m.cleanupControl.Unlock()
 	return m.cleanupGeneration
 }
-func (m *Manager) cleanupContext(ctx context.Context, generation uint64) (context.Context, func()) {
+func (m *Manager) cleanupContext(ctx context.Context, generation uint64, target string) (context.Context, func()) {
 	ctx, cancel := context.WithTimeout(ctx, cleanupTimeout)
 	m.cleanupControl.Lock()
 	m.cleanupCancel = cancel
+	m.cleanupTarget = target
 	if generation != m.cleanupGeneration {
 		cancel()
 	}
@@ -129,6 +136,7 @@ func (m *Manager) cleanupContext(ctx context.Context, generation uint64) (contex
 		cancel()
 		m.cleanupControl.Lock()
 		m.cleanupCancel = nil
+		m.cleanupTarget = ""
 		m.cleanupControl.Unlock()
 	}
 }
@@ -159,7 +167,7 @@ func (m *Manager) ExecuteRetention(ctx context.Context, u CleanupRequest) (Reten
 	if err != nil || time.Since(scanned) < 0 || time.Since(scanned) > previewLifetime {
 		return r, ErrStalePreview
 	}
-	runCtx, stop := m.cleanupContext(ctx, generation)
+	runCtx, stop := m.cleanupContext(ctx, generation, targetKey(c))
 	defer stop()
 	r.LastAttempt = time.Now().UTC().Format(time.RFC3339Nano)
 	r.ErrorSummary = ""
@@ -267,73 +275,99 @@ func (m *Manager) executePlanLocked(ctx context.Context, c config, p retentionPl
 	}
 	return nil
 }
-func (m *Manager) deleteStreamLocked(ctx context.Context, c config, storage retentionBackend, r streamRecord, present []storedObject) error {
-	expected := map[string]storedObject{}
+
+// Bounded scalar checkpoints avoid rewriting the immutable manifest per object.
+// The final partial batch is flushed on cancellation/error; a process crash can
+// lose that batch, which the next complete remote inventory reconciles safely.
+const deletionCheckpointBatch = 128
+const deletionCheckpointInterval = time.Second
+
+func (m *Manager) deleteStreamLocked(ctx context.Context, c config, storage retentionBackend, r streamRecord, present []storedObject) (result error) {
+	expected := make(map[string]storedObject, len(r.Objects))
+	var metadata storedObject
 	for _, o := range r.Objects {
 		stream, err := objectStream(c.BackupID, o.Key)
 		if err != nil || stream != r.Identity.StreamID || expected[o.Key].Key != "" {
 			return ErrRetention
 		}
 		expected[o.Key] = o
-	}
-	if len(expected) == 0 {
-		return ErrRetention
-	}
-	remaining := map[string]storedObject{}
-	for _, o := range present {
-		if expected[o.Key] != o {
-			return ErrRetention
-		}
-		remaining[o.Key] = o
-	}
-	// Process L0 objects first, then stream.json. Missing objects are checkpoints
-	// from a previous interrupted request, including a lost delete response.
-	ordered := []storedObject{}
-	var metadata storedObject
-	for _, o := range r.Objects {
 		if strings.HasSuffix(o.Key, "/"+identityFile) {
 			metadata = o
-		} else {
+		}
+	}
+	if len(expected) == 0 || metadata.Key == "" {
+		return ErrRetention
+	}
+	remaining := make(map[string]bool, len(present))
+	ordered := make([]storedObject, 0, len(present))
+	for _, o := range present {
+		if expected[o.Key] != o || remaining[o.Key] {
+			return ErrRetention
+		}
+		remaining[o.Key] = true
+		if o.Key != metadata.Key {
 			ordered = append(ordered, o)
 		}
 	}
-	if metadata.Key == "" {
-		return ErrRetention
+	if remaining[metadata.Key] {
+		ordered = append(ordered, metadata)
 	}
-	ordered = append(ordered, metadata)
-	r.DeletedObjects = 0
+	// Missing objects are already complete, including lost-response deletes. Do
+	// not walk them again or write one checkpoint for each on every retry.
+	r.DeletedObjects = len(expected) - len(present)
+	pending := 0
+	checkpointFailed := false
+	lastCheckpoint := time.Now()
+	checkpoint := func() error {
+		if pending == 0 || checkpointFailed {
+			return nil
+		}
+		if err := m.store.checkpointStream(c, r.Identity.StreamID, r.DeletedObjects); err != nil {
+			checkpointFailed = true
+			return ErrRetention
+		}
+		pending = 0
+		lastCheckpoint = time.Now()
+		return nil
+	}
+	defer func() {
+		if err := checkpoint(); err != nil {
+			result = err
+		}
+	}()
 	for _, o := range ordered {
 		if ctx.Err() != nil {
 			return ErrRetention
 		}
-		if _, exists := remaining[o.Key]; exists {
-			// Before removing metadata, list the exact target again. New or changed
-			// objects abort, preserving the identity for inspection and safe retries.
-			if o.Key == metadata.Key {
-				all, err := storage.inventory(ctx, c.BackupID)
-				if err != nil {
-					return ErrRetention
-				}
-				groups, err := groupInventory(c.BackupID, all)
-				if err != nil {
-					return ErrRetention
-				}
-				items := groups[r.Identity.StreamID]
-				if len(items) != 1 || items[0] != metadata {
-					return ErrRetention
-				}
+		if o.Key == metadata.Key {
+			all, err := storage.inventory(ctx, c.BackupID)
+			if err != nil {
+				return ErrRetention
 			}
-			if err := storage.deleteObject(ctx, o); err != nil {
+			groups, err := groupInventory(c.BackupID, all)
+			if err != nil {
+				return ErrRetention
+			}
+			items := groups[r.Identity.StreamID]
+			if len(items) != 1 || items[0] != metadata {
 				return ErrRetention
 			}
 		}
-		r.DeletedObjects++
-		if err := m.store.writeStream(c, r); err != nil {
+		if err := storage.deleteObject(ctx, o); err != nil {
 			return ErrRetention
 		}
+		r.DeletedObjects++
+		pending++
+		if pending >= deletionCheckpointBatch || time.Since(lastCheckpoint) >= deletionCheckpointInterval {
+			if err := checkpoint(); err != nil {
+				return err
+			}
+		}
 	}
-	// Confirm absence before declaring completion; interrupted verification is
-	// resumed from the durable deleting row and original object snapshot.
+	if err := checkpoint(); err != nil {
+		return err
+	}
+	// Confirm absence before the small final tombstone replaces the manifest.
 	all, err := storage.inventory(ctx, c.BackupID)
 	if err != nil {
 		return ErrRetention
@@ -343,7 +377,7 @@ func (m *Manager) deleteStreamLocked(ctx context.Context, c config, storage rete
 		return ErrRetention
 	}
 	r.State = "deleted"
-	r.Objects = nil // the tombstone remains; the finished object manifest is no longer needed
+	r.Objects = nil
 	return m.store.writeStream(c, r)
 }
 func (m *Manager) startCleanupSchedulerLocked() {
@@ -402,7 +436,7 @@ func (m *Manager) backgroundCleanup() {
 	if m.store.writeRetention(c, r) != nil {
 		return
 	}
-	ctx, stop := m.cleanupContext(m.cleanupBackground, generation)
+	ctx, stop := m.cleanupContext(m.cleanupBackground, generation, targetKey(c))
 	defer stop()
 	p, err := m.scanRetentionLocked(ctx, c, r.Days)
 	if err == nil {

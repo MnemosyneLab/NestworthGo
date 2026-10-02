@@ -373,7 +373,9 @@ func TestDurableDeletingCheckpointFailureNeverLosesOwnership(t *testing.T) {
 					t.Fatal(err)
 				}
 			} else {
-				b.afterDelete = func() { _, _ = m.store.db.Exec(trigger) }
+				b.afterDelete = func() {
+					_, _ = m.store.db.Exec(`CREATE TRIGGER reject_deleting BEFORE INSERT ON backup_stream_progress BEGIN SELECT RAISE(FAIL,'simulated full disk'); END`)
+				}
 			}
 			if _, err := runCleanup(t, m); err == nil {
 				t.Fatal("disk failure ignored")

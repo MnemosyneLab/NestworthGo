@@ -16,7 +16,7 @@ export function HistoryRetentionSection({ scope, disabled, onBusyChange }: { sco
   const [selectedDays, setSelectedDays] = useState<number | null>(null);
   const [dialog, setDialog] = useState<"enable" | "execute" | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
-  const busy = configure.isPending || preview.isPending || execute.isPending;
+  const busy = configure.isPending || preview.isPending || execute.isPending || Boolean(status.data?.running);
   useEffect(() => { onBusyChange(busy); return () => onBusyChange(false); }, [busy, onBusyChange]);
   const current = status.data;
   const days = selectedDays ?? current?.days ?? 30;
@@ -37,7 +37,7 @@ export function HistoryRetentionSection({ scope, disabled, onBusyChange }: { sco
         {days !== current.days && <Button variant="outline" disabled={disabled || busy} onClick={() => { if (current.enabled) open("enable"); else configure.mutate({ enabled: false, days, acknowledged: false }, { onSuccess: reset }); }}>{t("retention.apply")}</Button>}
         <Button variant="outline" disabled={disabled || busy} onClick={() => { execute.reset(); preview.mutate(days); }}>{t("retention.preview")}</Button>
         <Button variant="outline" disabled={disabled || busy || !ready} onClick={() => open("execute")}>{t("retention.clean")}</Button>
-        {(preview.isPending || execute.isPending) && <Button variant="outline" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t("retention.stop")}</Button>}
+        {(current.running || preview.isPending || execute.isPending) && <Button variant="outline" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t("retention.stop")}</Button>}
       </div>
       <div role="status" aria-live="polite" className="space-y-1 text-sm">
         {busy && <p>{t("common.pending")}</p>}
@@ -53,7 +53,7 @@ export function HistoryRetentionSection({ scope, disabled, onBusyChange }: { sco
     <AlertDialog open={dialog !== null} onOpenChange={(value) => { if (!value && !busy) { setDialog(null); setAcknowledged(false); } }}>
       <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t(dialog === "execute" ? "retention.clean" : "retention.enable")}</AlertDialogTitle><AlertDialogDescription>{t("retention.warning")}</AlertDialogDescription></AlertDialogHeader>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={acknowledged} disabled={busy} onChange={(event) => setAcknowledged(event.target.checked)} />{t("retention.acknowledge")}</label>
-        <AlertDialogFooter>{execute.isPending && <Button variant="outline" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t("retention.stop")}</Button>}<AlertDialogCancel disabled={busy}>{t("common.cancel")}</AlertDialogCancel><Button disabled={!acknowledged || busy || disabled} onClick={() => {
+        <AlertDialogFooter>{(execute.isPending || current?.running) && <Button variant="outline" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t("retention.stop")}</Button>}<AlertDialogCancel disabled={busy}>{t("common.cancel")}</AlertDialogCancel><Button disabled={!acknowledged || busy || disabled} onClick={() => {
           if (!acknowledged || busy || disabled) return;
           if (dialog === "enable") configure.mutate({ enabled: true, days, acknowledged: true }, { onSuccess: reset });
           else if (dialog === "execute" && plan && ready) execute.mutate(plan.token, { onSettled: reset });
