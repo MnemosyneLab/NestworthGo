@@ -67,11 +67,20 @@ func objectStream(owner, key string) (string, error) {
 	if len(parts) == 2 && parts[1] == identityFile {
 		return owner + "/" + parts[0], nil
 	}
-	if len(parts) != 4 || parts[1] != "ltx" || parts[2] != "0" {
+	// Litestream v0.5.17's S3 adapter uses %04x levels directly under
+	// the stream; its file adapter uses ltx/<decimal level>. Accept only
+	// their exact L0 forms, not arbitrary directories or compacted levels.
+	var filename string
+	switch {
+	case len(parts) == 3 && parts[1] == "0000":
+		filename = parts[2]
+	case len(parts) == 4 && parts[1] == "ltx" && parts[2] == "0":
+		filename = parts[3]
+	default:
 		return "", ErrUnavailable
 	}
-	min, max, err := ltx.ParseFilename(parts[3])
-	if err != nil || min == 0 || max < min || ltx.FormatFilename(min, max) != parts[3] {
+	min, max, err := ltx.ParseFilename(filename)
+	if err != nil || min == 0 || max < min || ltx.FormatFilename(min, max) != filename {
 		return "", ErrUnavailable
 	}
 	return owner + "/" + parts[0], nil
