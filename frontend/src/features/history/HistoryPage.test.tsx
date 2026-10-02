@@ -1100,3 +1100,40 @@ it.each([false, true])("transfers a position using toAccountId (target already h
   await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
   await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ fromHoldingId: "h1", toAccountId: "to", toHoldingId: "", quantity: "1" })));
 });
+
+it.each([false, true])("fixes an existing investment transfer with an existing target holding (change target: %s)", async (changeTarget) => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue(["from", "to", "other", "empty", "wrong"].map((id) => ({ account: { id, name: `${id} Brokerage`, accountType: "brokerage", trackingMode: "holdings", defaultCurrency: "USD", balanceSheetRole: "asset" }, ownership: [] })));
+  listInstruments.mockResolvedValue([{ id: "i1", name: "ETF", quoteCurrency: "USD", archivedAt: null }, { id: "i2", name: "Other ETF", quoteCurrency: "USD", archivedAt: null }]);
+  holdingsByAccounts.mockResolvedValue({ from: [{ id: "h1", instrumentId: "i1", quantity: "8" }], to: [{ id: "h2", instrumentId: "i1", quantity: "2" }], other: [{ id: "h3", instrumentId: "i1", quantity: "0" }], empty: [], wrong: [{ id: "h4", instrumentId: "i2", quantity: "1" }] });
+  listActivities.mockResolvedValue([{
+    id: "transfer-1", kind: "position_transfer", effectiveLocalDate: "2026-01-02", note: "Original transfer",
+    effects: [
+      { role: "transfer_from", direction: "removed", target: "holding_quantity", accountId: "from", holdingId: "h1", instrumentId: "i1", quantity: "2" },
+      { role: "transfer_to", direction: "added", target: "holding_quantity", accountId: "to", holdingId: "h2", instrumentId: "i1", quantity: "2" },
+    ],
+  }]);
+  previewFixChange.mockResolvedValue({ resulting: [{ name: "ETF", quantity: "3" }] });
+  fixChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+  renderPage();
+  const list = await screen.findByTestId("activity-list");
+  await userEvent.click(await within(list).findByRole("button", { name: "Actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Fix" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  const target = form.querySelector<HTMLSelectElement>("#change-to-account")!;
+  await waitFor(() => expect(target).toHaveValue("to"));
+  if (changeTarget) await userEvent.selectOptions(target, "other");
+  await userEvent.clear(within(form).getByLabelText(/Quantity/));
+  await userEvent.type(within(form).getByLabelText(/Quantity/), "3");
+  await userEvent.clear(within(form).getByLabelText("Note"));
+  await userEvent.type(within(form).getByLabelText("Note"), "Corrected transfer");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewFixChange).toHaveBeenCalledWith("transfer-1", expect.objectContaining({ fromHoldingId: "h1", toHoldingId: changeTarget ? "h3" : "h2", toAccountId: "", quantity: "3", note: "Corrected transfer" })));
+  const reviewed = previewFixChange.mock.calls[0][1];
+  expect(Array.from(target.options).map((option) => option.value)).not.toEqual(expect.arrayContaining(["empty"]));
+  expect(Array.from(target.options).map((option) => option.value)).not.toEqual(expect.arrayContaining(["wrong"]));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(fixChange).toHaveBeenCalledWith("transfer-1", { ...reviewed, mutationId: expect.any(String) }));
+  expect(previewChange).not.toHaveBeenCalled();
+  expect(recordChange).not.toHaveBeenCalled();
+});

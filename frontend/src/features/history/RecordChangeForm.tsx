@@ -415,7 +415,13 @@ function RecordChangeFormReady({
   // Existing Fix requests identify the old destination holding; new commands use
   // the account boundary so the backend can atomically create a missing position.
   const transferTargetAccountId = request.toAccountId || holdings.data.find((holding) => holding.id === request.toHoldingId)?.accountId || "";
-  const transferTargetOptions = investmentAccountOptions.filter((account) => account.id !== transferSource?.accountId);
+  // Historical replay can change to an existing destination, but cannot create
+  // a holding. Preserve that contract separately from new account-based transfers.
+  const transferTargetHoldingId = holdings.data.find((holding) => holding.accountId === transferTargetAccountId && holding.instrumentId === transferSource?.instrumentId)?.id ?? "";
+  const transferTargetOptions = investmentAccountOptions.filter((account) =>
+    account.id !== transferSource?.accountId &&
+    (!fixActivityId || holdings.data.some((holding) => holding.accountId === account.id && holding.instrumentId === transferSource?.instrumentId)),
+  );
   const activeInstrumentIds = new Set((instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => instrument.id));
   const dividendHoldings = holdings.data.filter((holding) => {
     if (lock?.holdingId) {
@@ -609,7 +615,11 @@ function RecordChangeFormReady({
       kind === ChangeCommandKind.ChangeCashTransfer && Boolean(request.sentCurrency) && request.sentCurrency === request.receivedCurrency;
     return {
       ...request,
-      ...(kind === ChangeCommandKind.ChangePositionTransfer ? { toAccountId: transferTargetAccountId, toHoldingId: "" } : {}),
+      ...(kind === ChangeCommandKind.ChangePositionTransfer
+        ? fixActivityId
+          ? { toAccountId: "", toHoldingId: transferTargetHoldingId }
+          : { toAccountId: transferTargetAccountId, toHoldingId: "" }
+        : {}),
       received: sameCurrencyTransfer ? request.sent : request.received,
       receivedCurrency: sameCurrencyTransfer ? request.sentCurrency : request.receivedCurrency,
       feeCurrency: request.feeCurrency || request.soldCurrency || request.grossCurrency || request.sentCurrency,
