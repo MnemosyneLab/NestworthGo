@@ -157,7 +157,7 @@ function PortfolioOverview({ onOpenAccount }: { onOpenAccount?: (accountId: stri
                 return (
                   <div key={valuation.account.id} className="flex items-center justify-between gap-3 text-sm">
                     <div className="flex min-w-0 items-center gap-2">
-                      <AccountIcon account={valuation.account} className="size-5 text-primary" />
+                      <AccountIcon account={valuation.account} className="size-8 text-primary" />
                       <div className="flex min-w-0 flex-col gap-1">
                       {onOpenAccount ? (
                         <Button

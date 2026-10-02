@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { TONE_CLASSES, toneForKey } from "@/lib/tone";
 import { displayEnum, displayError } from "@/lib/display";
 import { IconPicker } from "@/components/forms/IconPicker";
+import { bankLogo } from "@/lib/bankLogos";
 import { EntityIcon, type EntityIconKind } from "@/components/icons/EntityIcon";
 import { ErrorState, EmptyState, LoadingState } from "@/components/layout/PageState";
 import { DEFAULT_ICONS, INSTITUTION_TYPE_ICONS } from "@/lib/defaultIcons";
@@ -103,7 +104,7 @@ export function DirectoryEntityList<T extends Entity>({ showArchived = false, on
       const editing = editingId === entity.id; const archived = Boolean(entity.archivedAt);
       const tone = TONE_CLASSES[toneForKey(entity.id)];
       return <li key={entity.id} className={cn("rounded-2xl border border-border bg-card px-4 py-3 shadow-xs", archived && "opacity-75")}><div className="flex flex-wrap items-center justify-between gap-3">
-        <span className="flex min-w-0 items-center gap-3 text-sm"><span aria-hidden="true" className={cn("inline-flex size-9 shrink-0 items-center justify-center rounded-xl", tone.soft, tone.text)}><EntityIcon iconKey={entity.iconKey} kind={kind} className="size-5" /></span>
+        <span className="flex min-w-0 items-center gap-3 text-sm"><span aria-hidden="true" className={cn("inline-flex size-9 shrink-0 items-center justify-center rounded-xl", !bankLogo(entity.iconKey) && tone.soft, tone.text)}><EntityIcon iconKey={entity.iconKey} kind={kind} className={bankLogo(entity.iconKey) ? "size-8" : "size-5"} /></span>
           {editing ? <Input value={editingName} onChange={(event) => setEditingName(event.target.value)} className="max-w-xs" /> : <><span className="font-semibold text-foreground">{entity.name}</span>{entity.institutionType && <Badge variant="outline">{displayEnum(t, "institutionType", entity.institutionType)}</Badge>}</>}
           {archived && <Badge variant="secondary">{t("common.archived")}</Badge>}</span>
         <span className="flex gap-2">{editing ? <Button size="sm" onClick={() => void save(entity)} disabled={submitting}>{t("common.save")}</Button> : <Button variant="outline" size="sm" onClick={() => { setEditingId(entity.id); setEditingName(entity.name); setEditingIcon(entity.iconKey); }}>{t("common.edit")}</Button>}

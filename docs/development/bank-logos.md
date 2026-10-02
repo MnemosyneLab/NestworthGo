@@ -59,8 +59,39 @@ Lookup must succeed in the fixed catalog before a local asset URL is used.
 Unknown IDs use the existing generic fallback. Logos have a small white
 backplate in both themes so source black/colored artwork remains legible;
 SVG backgrounds stay as supplied and no artwork is stretched or recolored.
-Some wordmark variants contain substantial source whitespace and are less
-legible at 20px; the corresponding compact `-rect` marks are also selectable.
+The picker uses 304 reviewed presentations rather than exposing both variants.
+`tools/bank-logos/presentation.json` explicitly groups all 608 original IDs;
+`frontend/src/lib/bankLogoPresentation.json` is the generated display catalog.
+Most groups use a symbol. The 33 groups whose compact source still includes
+lettering retain one wordmark fallback rather than losing that institution.
+Monograms and stylized letters that form the brand symbol remain intact.
+The `other/` pairs are explicitly reviewed: filename suffixes alone are not
+reliable (for example, the Shenzhen Commercial and Great Wall West China
+pairs put the symbol first). Search retains names and aliases from both sources.
+
+Old saved IDs resolve to the preferred presentation and show its selected state,
+but are never rewritten by rendering or opening the picker. Only an explicit
+selection changes an override. The original catalog, source assets, Go allowlist,
+snapshot behavior and schema remain unchanged.
+
+Display assets under `bank-logos/display/` preserve every original path and paint;
+only the viewBox changes. Chromium path bounds exclude a first white backplate
+covering the source canvas (within 1% for source rounding), include all foreground
+paths, and add 3.5% breathing room on each side. This removes blank canvas without
+stretching, recoloring, or cropping foreground artwork. A white backplate remains
+in both themes. No runtime measurement or SVG injection is used by the app.
+
+Regenerate after reviewing any source change (Playwright is a development-only
+tool, not an application dependency):
+
+```sh
+NODE_PATH=/path/to/playwright/node_modules node tools/bank-logos/build_presentation.cjs
+```
+
+Set `CHROMIUM_PATH` if Chromium is not at `/usr/bin/chromium`. Re-run this after
+importing the upstream catalog. Picker marks are 48px, selected previews 36px,
+and account/institution list and detail slots 32px; wider wordmarks retain their
+natural proportions with `object-contain`.
 The image payload is outside the JS bundle and picker images load lazily.
 
 ## Verification

@@ -233,7 +233,7 @@ export function AccountDetail({
     <div className="flex flex-col gap-6" data-testid="account-detail">
       <PageChrome
         pageId="accounts"
-        title={<span className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-5 shrink-0 text-primary" />{record.account.name}</span>}
+        title={<span className="flex min-w-0 items-center gap-2"><AccountIcon account={record.account} className="size-8 shrink-0 text-primary" />{record.account.name}</span>}
         actions={
           <>
             <AnalyzeMenu inline accountId={record.account.id} label={record.account.name} />

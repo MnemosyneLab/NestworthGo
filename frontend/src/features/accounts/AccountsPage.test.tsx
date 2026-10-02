@@ -1404,7 +1404,7 @@ it("edits a logo override, then explicitly resets it to inheritance", async () =
   await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
   const form = await screen.findByRole("form", { name: "Account form" });
   await userEvent.click(within(form).getByRole("button", { name: /Details/i }));
-  expect(within(form).getByLabelText("Choose icon").querySelector("img")).toHaveAttribute("src", "/bank-logos/icbc.svg");
+  expect(within(form).getByLabelText("Choose icon").querySelector("img")).toHaveAttribute("src", "/bank-logos/display/icbc-rect.svg");
   await userEvent.click(within(form).getByRole("button", { name: "Use institution icon" }));
   await userEvent.click(screen.getByRole("button", { name: "Save" }));
   expect(updateAccount).toHaveBeenCalledWith("acc-1", expect.objectContaining({ iconKey: "", iconKeySet: true }));
@@ -1422,7 +1422,7 @@ it.each(["search", "result"])("Escape from icon %s closes only the picker and pr
   await userEvent.click(trigger);
   await userEvent.selectOptions(within(form).getByLabelText("Icon category"), "bank");
   await userEvent.type(within(form).getByLabelText("Search icons"), "icbc");
-  if (focusTarget === "result") within(form).getByRole("button", { name: "中国工商银行 (icbc)" }).focus();
+  if (focusTarget === "result") within(form).getByRole("button", { name: "中国工商银行" }).focus();
   await userEvent.keyboard("{Escape}");
   expect(screen.getByRole("form", { name: "Account form" })).toBeInTheDocument();
   expect(within(form).getByLabelText("Name")).toHaveValue("Unsaved account name");

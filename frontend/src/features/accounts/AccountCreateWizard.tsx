@@ -324,7 +324,7 @@ export function AccountCreateWizard({
                   setShowNewInstitution(false);
                 }}
               >
-                <span className="flex items-center gap-2"><EntityIcon iconKey={institution.iconKey} kind="institution" />{institution.name}</span>
+                <span className="flex items-center gap-2"><EntityIcon iconKey={institution.iconKey} kind="institution" className="size-7" />{institution.name}</span>
               </button>
             ))}
             <button
