@@ -3,10 +3,12 @@ package application
 import (
 	"context"
 	"fmt"
-	"github.com/waltwang/nestworth-go/internal/domain"
-	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
+	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
 )
 
 type gainInterleavedSnapshot struct {
@@ -151,32 +153,80 @@ func TestEveryGainEntryUsesOnlyOneMaterializedSnapshot(t *testing.T) {
 }
 
 func TestGainSnapshotRepresentative500Positions(t *testing.T) {
-	app, ctx, b, _ := newOnboardedService(t, "gain-snapshot-scale", []string{"Owner"})
+	seedStart := time.Now()
+	path := filepath.Join(t.TempDir(), "gain-snapshot-scale.db")
+	db, err := sqlite.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	app := NewService(sqlite.NewRepository(db))
+	wireTestPorts(app, path)
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	app.setClock(func() time.Time { return now })
+	ctx := context.Background()
+	if err := app.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Test", BaseCurrency: "CNY", MemberNames: []string{"Owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	b, err := app.Bootstrap(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
 	a, err := app.CreateAccount(ctx, AccountInput{Name: "Scale", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	var first domain.HoldingID
-	now := app.clock().UTC().Format(time.RFC3339)
-	for n := 0; n < 500; n++ {
-		i, e := app.CreateInstrument(ctx, InstrumentInput{Name: fmt.Sprintf("Synthetic %d", n), Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
-		if e != nil {
-			t.Fatal(e)
+	// Create one complete template through production APIs. Bulk-copy the other
+	// 499 pre-history positions in one transaction: the test measures gain reads,
+	// not repeated instrument-creation portfolio scans or per-row disk commits.
+	instrument, err := app.CreateInstrument(ctx, InstrumentInput{Name: "Synthetic 0", Type: "stock", QuoteCurrency: "CNY", QuoteSource: "manual"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	position, err := app.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	first := position.ID
+	quote, err := app.AppendManualInstrumentQuote(ctx, instrument.ID, "80.12345678", now.Format(time.RFC3339), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	for n := 1; n < 500; n++ {
+		instrumentID, holdingID := domain.NewInstrumentID().String(), domain.NewHoldingID().String()
+		if _, err := tx.ExecContext(ctx, `INSERT INTO instruments(id,household_id,name,instrument_type,quote_currency,quote_source,icon_key,created_at,updated_at)
+   SELECT ?,household_id,?,instrument_type,quote_currency,quote_source,icon_key,created_at,updated_at FROM instruments WHERE id=?`, instrumentID, fmt.Sprintf("Synthetic %d", n), instrument.ID.String()); err != nil {
+			t.Fatal(err)
 		}
-		h, e := app.CreateHolding(ctx, HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "1"})
-		if e != nil {
-			t.Fatal(e)
+		if _, err := tx.ExecContext(ctx, `INSERT INTO holdings(id,account_id,instrument_id,quantity,created_at,updated_at)
+   SELECT ?,account_id,?,quantity,created_at,updated_at FROM holdings WHERE id=?`, holdingID, instrumentID, first.String()); err != nil {
+			t.Fatal(err)
 		}
-		if n == 0 {
-			first = h.ID
+		if _, err := tx.ExecContext(ctx, `INSERT INTO instrument_quotes(id,instrument_id,unit_price,currency,source_kind,source_key,quoted_at,created_at,delayed,observation_kind,fetched_at,revision)
+   SELECT ?,?,unit_price,currency,source_kind,source_key,quoted_at,created_at,delayed,observation_kind,fetched_at,revision FROM instrument_quotes WHERE id=?`, domain.NewInstrumentQuoteID().String(), instrumentID, quote.ID.String()); err != nil {
+			t.Fatal(err)
 		}
-		if _, e = app.AppendManualInstrumentQuote(ctx, i.ID, "80.12345678", now, false); e != nil {
-			t.Fatal(e)
-		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
 	}
 	if _, err = app.StartHistory(ctx, "UTC"); err != nil {
 		t.Fatal(err)
 	}
+	// StartHistory remains the production operation for all 500 opening costs.
+	var costCount int
+	if err := db.SQL.QueryRowContext(ctx, `SELECT COUNT(*) FROM history_origin_components WHERE component_kind='holding_quantity' AND quantity='1' AND unit_cost='80.12345678'`).Scan(&costCount); err != nil {
+		t.Fatal(err)
+	}
+	if costCount != 500 {
+		t.Fatalf("opening costs=%d, want 500", costCount)
+	}
+	t.Logf("500-position fixture including history seeded in %s", time.Since(seedStart))
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	start := time.Now()
