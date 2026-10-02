@@ -36,6 +36,7 @@ func (g *GainService) InstrumentHoldings(ctx context.Context) ([]domain.Instrume
 	}
 	replay := newCostBasisReplayContext(g.repository, snapshot.Holdings)
 	indices := map[domain.InstrumentID]int{}
+	exact := make(map[domain.HoldingID]*exactHoldingGain)
 	for _, holding := range snapshot.Holdings {
 		accountName, included := accounts[holding.AccountID]
 		if !included || holding.ArchivedAt != nil {
@@ -45,7 +46,9 @@ func (g *GainService) InstrumentHoldings(ctx context.Context) ([]domain.Instrume
 		if !ok {
 			return nil, &domain.Error{Code: domain.ErrIntegrity, Message: "holding instrument is missing"}
 		}
-		gain, err := g.holdingGain(ctx, snapshot, holding, instrument, replay, fx, origin)
+		amountsExact := &exactHoldingGain{}
+		gain, err := g.holdingGain(ctx, snapshot, holding, instrument, replay, fx, origin, amountsExact)
+		exact[holding.ID] = amountsExact
 		if err != nil {
 			return nil, err
 		}
@@ -76,7 +79,7 @@ func (g *GainService) InstrumentHoldings(ctx context.Context) ([]domain.Instrume
 			}
 			return a.HoldingID.String() < b.HoldingID.String()
 		})
-		group.Amounts, err = aggregateHoldingAmounts(group.Holdings, group.QuoteCurrency)
+		group.Amounts, err = aggregateHoldingAmounts(group.Holdings, group.QuoteCurrency, exact)
 		if err != nil {
 			return nil, err
 		}
@@ -90,23 +93,23 @@ func (g *GainService) InstrumentHoldings(ctx context.Context) ([]domain.Instrume
 	return groups, nil
 }
 
-func aggregateHoldingAmounts(members []domain.InstrumentHoldingMember, currency domain.CurrencyCode) (domain.HoldingAmounts, error) {
+func aggregateHoldingAmounts(members []domain.InstrumentHoldingMember, currency domain.CurrencyCode, exact map[domain.HoldingID]*exactHoldingGain) (domain.HoldingAmounts, error) {
 	result := domain.HoldingAmounts{}
 	quantity, cost, value, gain := decimal.Zero, decimal.Zero, decimal.Zero, decimal.Zero
 	costComplete, valueComplete, gainComplete := true, true, true
-	add := func(total *decimal.Decimal, amount string, actual domain.CurrencyCode) error {
+	add := func(total *decimal.Decimal, amount decimal.Decimal, actual domain.CurrencyCode) error {
 		if actual != currency {
 			return &domain.Error{Code: domain.ErrIntegrity, Message: "holding amounts have inconsistent currencies"}
 		}
-		number, err := decimal.NewFromString(amount)
-		if err != nil {
-			return err
-		}
-		*total = total.Add(number)
+		*total = total.Add(amount)
 		return nil
 	}
 	for _, member := range members {
 		a := member.Amounts
+		precise, ok := exact[member.HoldingID]
+		if !ok {
+			return result, &domain.Error{Code: domain.ErrIntegrity, Message: "exact holding amounts are missing"}
+		}
 		q, err := decimal.NewFromString(a.Quantity)
 		if err != nil {
 			return result, err
@@ -115,19 +118,19 @@ func aggregateHoldingAmounts(members []domain.InstrumentHoldingMember, currency 
 		if a.TotalCost == nil {
 			costComplete = false
 			result.CostMissingReason = a.CostMissingReason
-		} else if err := add(&cost, a.TotalCost.Amount, a.TotalCost.Currency); err != nil {
+		} else if err := add(&cost, precise.Cost, a.TotalCost.Currency); err != nil {
 			return result, err
 		}
 		if a.CurrentValue == nil {
 			valueComplete = false
 			result.ValueMissingReason = a.ValueMissingReason
-		} else if err := add(&value, a.CurrentValue.Amount, a.CurrentValue.Currency); err != nil {
+		} else if err := add(&value, precise.Value, a.CurrentValue.Currency); err != nil {
 			return result, err
 		}
 		if a.UnrealizedGain == nil {
 			gainComplete = false
 			result.GainMissingReason = a.GainMissingReason
-		} else if err := add(&gain, a.UnrealizedGain.Amount, a.UnrealizedGain.Currency); err != nil {
+		} else if err := add(&gain, precise.Unrealized, a.UnrealizedGain.Currency); err != nil {
 			return result, err
 		}
 	}

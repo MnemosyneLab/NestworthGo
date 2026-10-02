@@ -47,7 +47,7 @@ func (g *GainService) HoldingGain(ctx context.Context, holdingID domain.HoldingI
 		return domain.HoldingGainView{}, err
 	}
 	replay := newCostBasisReplayContext(g.repository, snapshot.Holdings)
-	return g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin)
+	return g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin, nil)
 }
 
 func (g *GainService) AccountGain(ctx context.Context, accountID domain.AccountID) (domain.AccountGainView, error) {
@@ -108,6 +108,7 @@ func (g *GainService) AccountGains(ctx context.Context, accountIDs []domain.Acco
 
 func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot domain.PortfolioSnapshot, accountID domain.AccountID, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin) (domain.AccountGainView, error) {
 	result := domain.AccountGainView{AccountID: accountID, Holdings: make([]domain.HoldingGainView, 0), Available: true}
+	exact := make(map[domain.HoldingID]*exactHoldingGain)
 	for _, holding := range snapshot.Holdings {
 		if holding.AccountID != accountID || holding.ArchivedAt != nil {
 			continue
@@ -116,7 +117,9 @@ func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot doma
 		if !ok {
 			continue
 		}
-		view, viewErr := g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin)
+		amounts := &exactHoldingGain{}
+		view, viewErr := g.holdingGain(ctx, snapshot, holding, instrument, replay, fxQuotes, origin, amounts)
+		exact[holding.ID] = amounts
 		if viewErr != nil {
 			return domain.AccountGainView{}, viewErr
 		}
@@ -131,7 +134,7 @@ func (g *GainService) accountGainFromSnapshot(ctx context.Context, snapshot doma
 	sort.Slice(result.Holdings, func(i, j int) bool {
 		return result.Holdings[i].HoldingID.String() < result.Holdings[j].HoldingID.String()
 	})
-	return g.accountTotals(snapshot, result)
+	return g.accountTotals(snapshot, result, exact)
 }
 
 // RealizedGainInRange returns realized gains in the inclusive local-date
@@ -223,7 +226,7 @@ func (g *GainService) RealizedGainInRange(ctx context.Context, scope domain.Gain
 	if err != nil {
 		return domain.RealizedGainView{}, err
 	}
-	result.Total, err = totalFromGainGroups(result.ByInstrument, snapshot.Household.BaseCurrency)
+	result.Total, err = totalFromGainGroups(byInstrument, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return domain.RealizedGainView{}, err
 	}
@@ -341,7 +344,7 @@ func (g *GainService) DividendIncomeInRange(ctx context.Context, scope domain.Ga
 	if err != nil {
 		return domain.DividendIncomeView{}, err
 	}
-	result.Total, err = totalFromGainGroups(result.ByInstrument, snapshot.Household.BaseCurrency)
+	result.Total, err = totalFromGainGroups(byInstrument, snapshot.Household.BaseCurrency)
 	if err != nil {
 		return domain.DividendIncomeView{}, err
 	}
@@ -465,18 +468,14 @@ func groupForAccount(groups map[domain.AccountID]*gainGroupAccumulator, id domai
 	return group
 }
 
-func totalFromGainGroups(groups []domain.GainGroupView, currency domain.CurrencyCode) (*domain.SignedMoneyView, error) {
+func totalFromGainGroups[K comparable](groups map[K]*gainGroupAccumulator, currency domain.CurrencyCode) (*domain.SignedMoneyView, error) {
 	sum := decimal.Zero
 	hasAvailable := false
 	for _, group := range groups {
 		if !group.Available {
 			continue
 		}
-		amount, err := decimal.NewFromString(group.Gain.Amount)
-		if err != nil {
-			return nil, &domain.Error{Code: domain.ErrIntegrity, Field: "amount", Message: "stored gain amount is invalid"}
-		}
-		sum = sum.Add(amount)
+		sum = sum.Add(group.Total)
 		hasAvailable = true
 	}
 	if !hasAvailable && len(groups) > 0 {
@@ -509,7 +508,18 @@ func finishGainGroups[K comparable](groups map[K]*gainGroupAccumulator, currency
 	return result, nil
 }
 
-func (g *GainService) holdingGain(ctx context.Context, snapshot domain.PortfolioSnapshot, holding domain.Holding, instrument domain.Instrument, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin) (domain.HoldingGainView, error) {
+// exactHoldingGain is internal calculation data, never a wire/view value.
+// Aggregation uses these decimals rather than reparsing rounded MoneyViews.
+type exactHoldingGain struct {
+	Cost, Value, Unrealized             decimal.Decimal
+	CostBase, ValueBase, UnrealizedBase decimal.Decimal
+	Realized                            decimal.Decimal
+}
+
+func (g *GainService) holdingGain(ctx context.Context, snapshot domain.PortfolioSnapshot, holding domain.Holding, instrument domain.Instrument, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin, exact *exactHoldingGain) (domain.HoldingGainView, error) {
+	if exact == nil {
+		exact = &exactHoldingGain{}
+	}
 	result, err := replay.replay(ctx, holding.ID, nil)
 	if err != nil {
 		return domain.HoldingGainView{}, err
@@ -521,6 +531,10 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 	total, err := holding.Quantity.Multiply(result.Current.AverageUnitCost)
 	if err != nil {
 		return domain.HoldingGainView{}, err
+	}
+	exact.Cost = total
+	for _, sale := range result.Realized {
+		exact.Realized = exact.Realized.Add(sale.RealizedGain.Amount())
 	}
 	totalView, err := moneyView(total, instrument.QuoteCurrency)
 	if err != nil {
@@ -564,6 +578,8 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 	if err != nil {
 		return domain.HoldingGainView{}, err
 	}
+	exact.Value = current
+	exact.Unrealized = current.Sub(total)
 	currentView, err := moneyView(current, instrument.QuoteCurrency)
 	if err != nil {
 		return domain.HoldingGainView{}, err
@@ -588,6 +604,7 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 	if err != nil {
 		return domain.HoldingGainView{}, err
 	}
+	exact.ValueBase = currentBase
 	view.CurrentValueBase = &currentBaseView
 	decomposition, decompositionErr := g.decomposeHolding(ctx, snapshot, holding, instrument, result, replay, fxQuotes, origin)
 	if decompositionErr != nil {
@@ -598,6 +615,8 @@ func (g *GainService) holdingGain(ctx context.Context, snapshot domain.Portfolio
 		view.MissingReason = decomposition.MissingReason
 		return view, nil
 	}
+	exact.CostBase = decomposition.exactCostBase
+	exact.UnrealizedBase = decomposition.exactUnrealized
 	view.TotalCostBase = &decomposition.CostBase
 	view.UnrealizedGainBase = &decomposition.UnrealizedGain
 	view.InstrumentMovement = &decomposition.InstrumentMovement
@@ -618,12 +637,13 @@ func (g *GainService) gainFXInputs(ctx context.Context, snapshot domain.Portfoli
 }
 
 type holdingDecomposition struct {
-	Available          bool
-	MissingReason      string
-	CostBase           domain.MoneyView
-	UnrealizedGain     domain.SignedMoneyView
-	InstrumentMovement domain.SignedMoneyView
-	CurrencyMovement   domain.SignedMoneyView
+	exactCostBase, exactUnrealized decimal.Decimal
+	Available                      bool
+	MissingReason                  string
+	CostBase                       domain.MoneyView
+	UnrealizedGain                 domain.SignedMoneyView
+	InstrumentMovement             domain.SignedMoneyView
+	CurrencyMovement               domain.SignedMoneyView
 }
 
 func (g *GainService) decomposeHolding(ctx context.Context, snapshot domain.PortfolioSnapshot, holding domain.Holding, instrument domain.Instrument, replayResult domain.CostBasisResult, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin) (holdingDecomposition, error) {
@@ -672,7 +692,7 @@ func (g *GainService) decomposeHolding(ctx context.Context, snapshot domain.Port
 	if err != nil {
 		return holdingDecomposition{}, err
 	}
-	return holdingDecomposition{Available: true, CostBase: costView, UnrealizedGain: unrealizedView, InstrumentMovement: instrumentView, CurrencyMovement: currencyView}, nil
+	return holdingDecomposition{exactCostBase: baseCost, exactUnrealized: unrealized, Available: true, CostBase: costView, UnrealizedGain: unrealizedView, InstrumentMovement: instrumentView, CurrencyMovement: currencyView}, nil
 }
 
 func (g *GainService) acquisitionFXRate(ctx context.Context, snapshot domain.PortfolioSnapshot, native domain.CurrencyCode, startingCost *domain.UnitPrice, events []domain.CostBasisEvent, replay *costBasisReplayContext, fxQuotes []domain.FXQuote, origin *domain.HistoryOrigin) (decimal.Decimal, bool) {
@@ -758,7 +778,7 @@ func signedMoneyViewPointer(value decimal.Decimal, currency domain.CurrencyCode)
 	return &view
 }
 
-func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result domain.AccountGainView) (domain.AccountGainView, error) {
+func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result domain.AccountGainView, exact map[domain.HoldingID]*exactHoldingGain) (domain.AccountGainView, error) {
 	if snapshot.Household == nil {
 		return result, nil
 	}
@@ -770,16 +790,13 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 	hasRealized := true
 	hasCurrent := true
 	for _, holding := range result.Holdings {
+		amounts := exact[holding.HoldingID]
 		if holding.TotalCostBase == nil {
 			hasTotalCost = false
 		} else {
-			cost, costErr := decimal.NewFromString(holding.TotalCostBase.Amount)
-			if costErr != nil {
-				return domain.AccountGainView{}, &domain.Error{Code: domain.ErrIntegrity, Field: "amount", Message: "gain amount is invalid"}
-			}
-			totalCost = totalCost.Add(cost)
+			totalCost = totalCost.Add(amounts.CostBase)
 		}
-		gain, gainErr := convertSignedGain(g.valuation, snapshot, result.AccountID, holding.RealizedGain)
+		gain, gainErr := convertSignedGain(g.valuation, snapshot, result.AccountID, domain.SignedMoneyView{Amount: amounts.Realized.String(), Currency: holding.RealizedGain.Currency})
 		if gainErr != nil {
 			if isGainUnavailable(gainErr) {
 				hasRealized = false
@@ -793,16 +810,8 @@ func (g *GainService) accountTotals(snapshot domain.PortfolioSnapshot, result do
 			hasCurrent = false
 			continue
 		}
-		value, valueErr := decimal.NewFromString(holding.CurrentValueBase.Amount)
-		if valueErr != nil {
-			return domain.AccountGainView{}, &domain.Error{Code: domain.ErrIntegrity, Field: "amount", Message: "gain amount is invalid"}
-		}
-		unreal, unrealErr := decimal.NewFromString(holding.UnrealizedGainBase.Amount)
-		if unrealErr != nil {
-			return domain.AccountGainView{}, &domain.Error{Code: domain.ErrIntegrity, Field: "amount", Message: "gain amount is invalid"}
-		}
-		currentValue = currentValue.Add(value)
-		unrealized = unrealized.Add(unreal)
+		currentValue = currentValue.Add(amounts.ValueBase)
+		unrealized = unrealized.Add(amounts.UnrealizedBase)
 	}
 	base := snapshot.Household.BaseCurrency
 	if hasTotalCost {
