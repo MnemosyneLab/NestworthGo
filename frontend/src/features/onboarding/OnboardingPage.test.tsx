@@ -188,7 +188,7 @@ it("keeps the displayed and submitted currency aligned after delayed options", a
   await waitFor(() => expect(supportedCurrencies).toHaveBeenCalled());
   expect(screen.getByRole("button", { name: /get started/i })).toBeDisabled();
   await act(async () => resolveCurrencies(["AUD", "CNY", "USD"]));
-  expect(screen.getByLabelText("Base currency")).toHaveValue("CNY");
+  await waitFor(() => expect(screen.getByLabelText("Base currency")).toHaveValue("CNY"));
   await userEvent.type(screen.getByLabelText(/household name/i), "Synthetic");
   await userEvent.type(screen.getByLabelText("Member 1 name"), "Owner");
   await userEvent.click(screen.getByRole("button", { name: /get started/i }));
