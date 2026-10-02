@@ -81,3 +81,20 @@ it and `flow-review.html` into the corresponding frontend locations, then run
 input from search, result focus, and after selection, plus Cancel/reopen for both
 flows. No manually dispatched DOM events are used. Account edit is a Sheet;
 institution edit is inline. Native Wails remains an outstanding acceptance step.
+
+## Regional search and final checks
+
+Real browser search returned one correct bank for each of 邮储, 郵儲, 渣打,
+StanChart, 中銀香港 and BOCHK. The BOCHK selection uses its own ID and label.
+
+- [Postal Savings short alias](search-postal.png)
+- [Standard Chartered / StanChart](search-standard-chartered.png)
+- [BOCHK independent identity](search-bochk.png)
+
+Final local checks: 641/641 frontend tests, 19 Python checks, TypeScript, lint
+and production build passed. Full `go test ./...` and `go vet ./...` passed
+with `CGO_ENABLED=0` and the environment's `server` build tag. Native-CGO local
+checks need GTK/WebKit development libraries; native-dependency test/race CI
+status is available on PR #26. The final catalog has 305 presentations and 610
+bank IDs after the regional additions; earlier 304/608 figures above describe
+the initial bank phase.

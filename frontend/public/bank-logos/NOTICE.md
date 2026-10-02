@@ -17,8 +17,8 @@ See tools/bank-logos/manifest.json in the source distribution for per-file
 source paths and original/sanitized SHA-256 hashes and import_logos.py for
 the reproducible offline importer.
 
-Regional additions (not covered by the icongo MIT attribution above):
-standard-chartered.svg: Standard Chartered Logo (2021, Logo only), retrieved
+Regional additions and identity corrections (license stated per asset):
+standard-chartered.svg (not covered by icongo MIT above): Standard Chartered Logo (2021, Logo only), retrieved
 2026-10-02 from Wikimedia Commons; Commons declares PD-textlogo and notes
 trademark restrictions. Original author: Standard Chartered. All source paths
 and colors retained; editor metadata removed and display canvas normalized.
