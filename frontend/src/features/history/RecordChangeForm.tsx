@@ -625,8 +625,8 @@ function RecordChangeFormReady({
     const command = Object.freeze(buildRequest());
     const key = JSON.stringify(command);
     const sequence = ++previewSequence.current;
-    const accept = (result: { resulting: EndpointViewDTO[] }) => {
-      if (sequence === previewSequence.current) setReviewed({ key, command, resulting: result.resulting });
+    const accept = (result: { resulting: EndpointViewDTO[] | null }) => {
+      if (sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting } : null);
     };
     if (fixActivityId) {
       previewFix.mutate({ activityId: fixActivityId, replacement: command }, { onSuccess: accept });
