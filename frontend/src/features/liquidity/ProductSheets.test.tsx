@@ -505,3 +505,44 @@ it("bounds new interest periods by the previous receipt, maturity, and the Histo
     vi.useRealTimers();
   }
 });
+
+
+it("shows and focuses the required paid-through date when adding annual interest to a deposit", async () => {
+  api.Product.mockResolvedValue({ product: product("none"), reservations: [], permittedActions: [], disabledReasons: {} });
+  api.UpdateProductTerms.mockRejectedValueOnce(new Error(JSON.stringify({ code: "validation", field: "interestPaidThroughOn", message: "is required" })));
+  const closed = vi.fn();
+  const user = userEvent.setup();
+  show(<PolicySheet source={source(true)} open onOpenChange={closed} />);
+  await user.selectOptions(await screen.findByLabelText("Interest (optional)"), "rate");
+  change("Annual rate (%)", "3.5");
+  const paid = screen.getByLabelText("Interest paid through");
+  expect(paid.closest("details")).toBeNull();
+  expect(paid).toHaveValue("");
+  await user.click(screen.getByRole("button", { name: "Save policy" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Interest paid through");
+  expect(paid).toHaveAttribute("aria-invalid", "true");
+  expect(paid).toHaveFocus();
+  expect(closed).not.toHaveBeenCalled();
+  expect(api.UpdateProductTerms.mock.calls[0][0].terms.interestPaidThroughOn).toBeNull();
+  change("Interest paid through", "2026-02-01");
+  await user.click(screen.getByRole("button", { name: "Save policy" }));
+  await waitFor(() => expect(api.UpdateProductTerms).toHaveBeenCalledTimes(2));
+  expect(api.UpdateProductTerms.mock.calls[1][0].terms).toMatchObject({ annualRatePercent: "3.5", interestPaidThroughOn: "2026-02-01" });
+  await waitFor(() => expect(closed).toHaveBeenCalledWith(false));
+});
+
+it("retains an explicitly entered paid-through date across interest mode switches", async () => {
+  const user = userEvent.setup();
+  show(<PolicySheet source={source(true)} open onOpenChange={vi.fn()} />);
+  const interest = await screen.findByLabelText("Interest (optional)");
+  change("Interest paid through", "2026-02-01");
+  await user.selectOptions(interest, "none");
+  expect(screen.queryByLabelText("Interest paid through")).not.toBeInTheDocument();
+  await user.selectOptions(interest, "rate");
+  expect(screen.getByLabelText("Interest paid through")).toHaveValue("2026-02-01");
+  change("Annual rate (%)", "3.5");
+  await user.selectOptions(screen.getByLabelText("Interest year basis (days)"), "simple_act_360");
+  await user.click(screen.getByRole("button", { name: "Save policy" }));
+  await waitFor(() => expect(api.UpdateProductTerms).toHaveBeenCalledOnce());
+  expect(api.UpdateProductTerms.mock.calls[0][0].terms).toMatchObject({ interestMode: "simple_act_360", interestPaidThroughOn: "2026-02-01" });
+});

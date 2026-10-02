@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,8 @@ export function DepositFields({ terms, policy, principal, onTermsChange, onPolic
   const { t } = useTranslation();
   const id = useId();
   const simple = terms.interestMode.startsWith("simple_act_");
+  // Remember only an explicit date; switching modes must not invent paid interest.
+  const paidThrough = useRef(terms.interestPaidThroughOn);
   const invalid = (field: string) => ({ "aria-invalid": invalidField === field, "aria-describedby": invalidField === field ? errorId : undefined });
   return <div className="flex flex-col gap-3">
     <div className="grid grid-cols-2 gap-3">
@@ -28,7 +30,7 @@ export function DepositFields({ terms, policy, principal, onTermsChange, onPolic
       </div>
     </div>
     <Label htmlFor={`${id}-interest`}>{t("availableFunds.depositInterest")}</Label>
-    <NativeSelect id={`${id}-interest`} value={simple ? "rate" : terms.interestMode} onChange={(e) => onTermsChange({ ...terms, interestMode: e.target.value === "rate" ? "simple_act_365" : e.target.value, annualRate: null, annualRatePercent: null, maturityInterest: null, interestPaidThroughOn: null })}>
+    <NativeSelect id={`${id}-interest`} value={simple ? "rate" : terms.interestMode} onChange={(e) => onTermsChange({ ...terms, interestMode: e.target.value === "rate" ? "simple_act_365" : e.target.value, annualRate: null, annualRatePercent: null, maturityInterest: null, interestPaidThroughOn: e.target.value === "rate" ? paidThrough.current : null })}>
       <option value="none">{t("availableFunds.depositInterestLater")}</option>
       <option value="rate">{t("availableFunds.annualRatePercent")}</option>
       <option value="manual_maturity_amount">{t("availableFunds.maturityInterest")}</option>
@@ -36,6 +38,14 @@ export function DepositFields({ terms, policy, principal, onTermsChange, onPolic
     {simple && <>
       <Label htmlFor={`${id}-rate`}>{t("availableFunds.annualRatePercent")}</Label>
       <Input id={`${id}-rate`} inputMode="decimal" value={terms.annualRatePercent ?? ""} onChange={(e) => onTermsChange({ ...terms, annualRate: null, annualRatePercent: e.target.value || null })} {...invalid("annualRatePercent")} />
+      {editing && <>
+        <Label htmlFor={`${id}-paid`}>{t("availableFunds.interestPaidThrough")}</Label>
+        <DatePicker clearable allowFuture id={`${id}-paid`} min={terms.startOn} max={terms.maturityOn ?? undefined} value={terms.interestPaidThroughOn ?? ""} onChange={(interestPaidThroughOn) => {
+          paidThrough.current = interestPaidThroughOn || null;
+          onTermsChange({ ...terms, interestPaidThroughOn: paidThrough.current });
+        }} {...invalid("interestPaidThroughOn")} aria-describedby={[`${id}-paid-help`, invalidField === "interestPaidThroughOn" ? errorId : undefined].filter(Boolean).join(" ")} />
+        <p id={`${id}-paid-help`} className="text-xs text-muted-foreground">{t("availableFunds.interestPaidThroughHelp")}</p>
+      </>}
     </>}
     {terms.interestMode === "manual_maturity_amount" && <>
       <Label htmlFor={`${id}-interest-amount`}>{t("availableFunds.maturityInterest")}</Label>
@@ -62,10 +72,6 @@ export function DepositFields({ terms, policy, principal, onTermsChange, onPolic
           <NativeSelect id={`${id}-basis`} value={terms.interestMode} onChange={(e) => onTermsChange({ ...terms, interestMode: e.target.value })}>
             <option value="simple_act_365">365</option><option value="simple_act_360">360</option>
           </NativeSelect>
-          {editing && <>
-            <Label htmlFor={`${id}-paid`}>{t("availableFunds.interestPaidThrough")}</Label>
-            <DatePicker clearable allowFuture id={`${id}-paid`} value={terms.interestPaidThroughOn ?? ""} onChange={(interestPaidThroughOn) => onTermsChange({ ...terms, interestPaidThroughOn: interestPaidThroughOn || null })} />
-          </>}
         </>}
         <Label htmlFor={`${id}-note`}>{t("availableFunds.contractNote")}</Label>
         <Input id={`${id}-note`} value={terms.note ?? ""} onChange={(e) => onTermsChange({ ...terms, note: e.target.value || null })} />
