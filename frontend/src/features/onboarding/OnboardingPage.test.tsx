@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -8,6 +8,7 @@ import i18n from "@/i18n";
 import { OnboardingPage } from "./OnboardingPage";
 import { localDateInTimeZone } from "@/features/history/historyStartDate";
 
+const supportedCurrencies = vi.fn();
 const inspectBackup = vi.fn();
 const confirmRestore = vi.fn();
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery", () => ({
@@ -41,7 +42,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/se
   Service: {
     Load: () => Promise.resolve(defaultSettings),
     Save: (value: unknown) => saveSettings(value),
-    SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]),
+    SupportedCurrencies: () => supportedCurrencies(),
   },
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
@@ -59,6 +60,7 @@ function renderPage() {
 }
 
 beforeEach(async () => {
+  supportedCurrencies.mockReset().mockResolvedValue(["USD", "SGD", "CNY"]);
   inspectBackup.mockReset().mockResolvedValue({ cancelled: true });
   confirmRestore.mockReset().mockResolvedValue({ restartRequired: true });
   completeOnboarding.mockClear();
@@ -176,4 +178,38 @@ it("keeps onboarding available when backup selection is cancelled", async () => 
   expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: /get started/i })).toBeEnabled();
   expect(confirmRestore).not.toHaveBeenCalled();
+});
+
+
+it("keeps the displayed and submitted currency aligned after delayed options", async () => {
+  let resolveCurrencies!: (value: string[]) => void;
+  supportedCurrencies.mockImplementation(() => new Promise((resolve) => { resolveCurrencies = resolve; }));
+  renderPage();
+  await waitFor(() => expect(supportedCurrencies).toHaveBeenCalled());
+  expect(screen.getByRole("button", { name: /get started/i })).toBeDisabled();
+  await act(async () => resolveCurrencies(["AUD", "CNY", "USD"]));
+  await waitFor(() => expect(screen.getByLabelText("Base currency")).toHaveValue("CNY"));
+  await userEvent.type(screen.getByLabelText(/household name/i), "Synthetic");
+  await userEvent.type(screen.getByLabelText("Member 1 name"), "Owner");
+  await userEvent.click(screen.getByRole("button", { name: /get started/i }));
+  await waitFor(() => expect(completeOnboarding).toHaveBeenCalledWith(expect.objectContaining({ baseCurrency: "CNY" })));
+});
+
+
+it("submits an explicitly selected nondefault currency", async () => {
+  renderPage();
+  await screen.findByRole("option", { name: "USD" });
+  await userEvent.selectOptions(screen.getByLabelText("Base currency"), "USD");
+  await userEvent.type(screen.getByLabelText(/household name/i), "Synthetic");
+  await userEvent.type(screen.getByLabelText("Member 1 name"), "Owner");
+  await userEvent.click(screen.getByRole("button", { name: /get started/i }));
+  await waitFor(() => expect(completeOnboarding).toHaveBeenCalledWith(expect.objectContaining({ baseCurrency: "USD" })));
+});
+
+it("does not create a household when currencies could not be loaded", async () => {
+  supportedCurrencies.mockRejectedValue(new Error("offline"));
+  renderPage();
+  await waitFor(() => expect(supportedCurrencies).toHaveBeenCalled());
+  expect(screen.getByRole("button", { name: /get started/i })).toBeDisabled();
+  expect(completeOnboarding).not.toHaveBeenCalled();
 });

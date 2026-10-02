@@ -1114,7 +1114,10 @@
       "preview": "Recovery candidate ready for inspection",
       "installing": "Installing recovery and preparing to quit",
       "error": "Recovery needs attention"
-    }
+    },
+    "loadMore": "Load more recovery points",
+    "moreHelp": "More storage history remains to be checked. Continue even if this page contains no recovery points.",
+    "loadedOnly": "Only loaded recovery points are shown. Refresh to discover newly added backups."
   },
   "secretField": {
     "configured": "Stored secret configured",

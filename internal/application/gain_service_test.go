@@ -840,9 +840,9 @@ type snapshotCountRepository struct {
 	count int
 }
 
-func (r *snapshotCountRepository) ReadPortfolioSnapshot(ctx context.Context, filter domain.AccountFilter) (domain.PortfolioSnapshot, error) {
+func (r *snapshotCountRepository) ReadGainSnapshot(ctx context.Context) (domain.GainSnapshot, error) {
 	r.count++
-	return r.Repository.ReadPortfolioSnapshot(ctx, filter)
+	return r.Repository.ReadGainSnapshot(ctx)
 }
 
 func TestAccountGainsReadsOneSnapshotForManyAccounts(t *testing.T) {
@@ -901,7 +901,7 @@ func TestAccountGainsReadsOneSnapshotForManyAccounts(t *testing.T) {
 		t.Fatal(err)
 	}
 	if counter.count != 1 {
-		t.Fatalf("ReadPortfolioSnapshot count = %d, want 1 for household AccountGains", counter.count)
+		t.Fatalf("ReadGainSnapshot count = %d, want 1 for household AccountGains", counter.count)
 	}
 	if len(views) != 2 {
 		t.Fatalf("AccountGains = %d views, want 2 accounts", len(views))

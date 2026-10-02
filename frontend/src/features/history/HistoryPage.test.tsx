@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { act, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -998,4 +998,142 @@ it("routes product activities to product management instead of generic fix or un
   expect(await screen.findByTestId("managed-product")).toHaveTextContent("deposit-1");
   expect(previewFixChange).not.toHaveBeenCalled();
   expect(undoChange).not.toHaveBeenCalled();
+});
+
+
+// NW-001: the confirmation must belong to the exact command that was reviewed.
+for (const correcting of [false, true]) {
+  it(`rejects an obsolete ${correcting ? "Fix" : "Record"} preview and freezes confirmation input`, async () => {
+    historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+    const previewCall = correcting ? previewFixChange : previewChange;
+    const recordCall = correcting ? fixChange : recordChange;
+    let resolvePreview!: (value: unknown) => void;
+    let resolveRecord!: (value: unknown) => void;
+    previewCall.mockImplementation(() => new Promise((resolve) => { resolvePreview = resolve; }));
+    recordCall.mockImplementation(() => new Promise((resolve) => { resolveRecord = resolve; }));
+    if (correcting) listActivities.mockResolvedValue([{
+      id: "a1", kind: "cash_in", effectiveLocalDate: "2026-01-01", reason: "contribution",
+      effects: [{ role: "amount", direction: "added", target: "account_value", accountId: "acc-1", money: { amount: "100", currency: "USD" } }],
+    }]);
+    renderPage();
+    if (correcting) {
+      const list = await screen.findByTestId("activity-list");
+      await userEvent.click(await within(list).findByRole("button", { name: "Actions" }));
+      await userEvent.click(await screen.findByRole("menuitem", { name: "Fix" }));
+    } else await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+    const form = await screen.findByRole("form", { name: "Record change" });
+    if (!correcting) {
+      await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+      await userEvent.type(within(form).getByLabelText("Amount"), "100");
+    }
+    const amount = within(form).getByLabelText("Amount");
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewCall).toHaveBeenCalledTimes(1));
+    await userEvent.clear(amount);
+    await userEvent.type(amount, "200");
+    await act(async () => resolvePreview({ resulting: [{ name: "OBSOLETE", amount: "1100", currency: "USD" }] }));
+    const nextPreview = await within(form).findByRole("button", { name: "Preview" });
+    expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+    expect(within(form).queryByText(/OBSOLETE/)).not.toBeInTheDocument();
+    await userEvent.click(nextPreview);
+    await act(async () => resolvePreview({ resulting: [{ name: "CURRENT", amount: "1200", currency: "USD" }] }));
+    await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(recordCall).toHaveBeenCalledTimes(1));
+    expect(amount).toBeDisabled();
+    const submitted = recordCall.mock.calls[0][correcting ? 1 : 0];
+    expect(submitted.amount).toBe("200");
+    await userEvent.type(amount, "9");
+    expect(submitted.amount).toBe("200");
+    await act(async () => resolveRecord({ activity: {}, effects: [], resulting: [] }));
+  });
+}
+
+it("does not attach an old preview to a closed and reopened form", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  const resolvePreviews: ((value: unknown) => void)[] = [];
+  previewChange.mockImplementation(() => new Promise((resolve) => { resolvePreviews.push(resolve); }));
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+  let form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+  await userEvent.type(within(form).getByLabelText("Amount"), "100");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewChange).toHaveBeenCalled());
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("form", { name: "Record change" })).not.toBeInTheDocument());
+  await userEvent.click(screen.getByRole("button", { name: /record change/i }));
+  form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.selectOptions(within(form).getByLabelText("Account"), "acc-1");
+  await userEvent.type(within(form).getByLabelText("Amount"), "200");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(resolvePreviews).toHaveLength(2));
+  await act(async () => resolvePreviews[1]({ resulting: [{ name: "NEW SESSION", amount: "1200", currency: "USD" }] }));
+  expect(await within(form).findByRole("button", { name: "Confirm" })).toBeEnabled();
+  await act(async () => resolvePreviews[0]({ resulting: [{ name: "OLD SESSION", amount: "1100", currency: "USD" }] }));
+  expect(within(form).getByRole("button", { name: "Confirm" })).toBeEnabled();
+  expect(within(form).getByRole("status")).toHaveTextContent("NEW SESSION");
+  expect(within(form).queryByText(/OLD SESSION/)).not.toBeInTheDocument();
+});
+
+it.each([false, true])("transfers a position using toAccountId (target already holds instrument: %s)", async (hasTargetHolding) => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue([
+    { account: { id: "from", name: "Source Brokerage", trackingMode: "holdings", defaultCurrency: "USD", balanceSheetRole: "asset" }, ownership: [] },
+    { account: { id: "to", name: "Empty Brokerage", trackingMode: "holdings", defaultCurrency: "USD", balanceSheetRole: "asset" }, ownership: [] },
+  ]);
+  listInstruments.mockResolvedValue([{ id: "i1", name: "ETF", quoteCurrency: "USD", quoteSource: "manual", archivedAt: null }]);
+  holdingsByAccounts.mockResolvedValue({ from: [{ id: "h1", instrumentId: "i1", quantity: "10" }], to: hasTargetHolding ? [{ id: "h2", instrumentId: "i1", quantity: "5" }] : [] });
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.click(within(form).getByRole("radio", { name: "Investment transfer" }));
+  const from = form.querySelector<HTMLSelectElement>("#change-from-holding")!;
+  const to = form.querySelector<HTMLSelectElement>("#change-to-account")!;
+  await waitFor(() => expect(from.options.length).toBe(hasTargetHolding ? 3 : 2));
+  await userEvent.selectOptions(from, "h1");
+  expect(to).not.toBeNull();
+  expect(Array.from(to.options).some((o) => o.text.includes("Empty Brokerage"))).toBe(true);
+  expect(Array.from(to.options).some((o) => o.value === "from")).toBe(false);
+  await userEvent.selectOptions(to, "to");
+  previewChange.mockResolvedValue({ resulting: [] });
+  await userEvent.type(within(form).getByLabelText(/Quantity/), "1");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewChange).toHaveBeenCalledWith(expect.objectContaining({ fromHoldingId: "h1", toAccountId: "to", toHoldingId: "", quantity: "1" })));
+});
+
+it.each([false, true])("fixes an existing investment transfer with an existing target holding (change target: %s)", async (changeTarget) => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listAccounts.mockResolvedValue(["from", "to", "other", "empty", "wrong"].map((id) => ({ account: { id, name: `${id} Brokerage`, accountType: "brokerage", trackingMode: "holdings", defaultCurrency: "USD", balanceSheetRole: "asset" }, ownership: [] })));
+  listInstruments.mockResolvedValue([{ id: "i1", name: "ETF", quoteCurrency: "USD", archivedAt: null }, { id: "i2", name: "Other ETF", quoteCurrency: "USD", archivedAt: null }]);
+  holdingsByAccounts.mockResolvedValue({ from: [{ id: "h1", instrumentId: "i1", quantity: "8" }], to: [{ id: "h2", instrumentId: "i1", quantity: "2" }], other: [{ id: "h3", instrumentId: "i1", quantity: "0" }], empty: [], wrong: [{ id: "h4", instrumentId: "i2", quantity: "1" }] });
+  listActivities.mockResolvedValue([{
+    id: "transfer-1", kind: "position_transfer", effectiveLocalDate: "2026-01-02", note: "Original transfer",
+    effects: [
+      { role: "transfer_from", direction: "removed", target: "holding_quantity", accountId: "from", holdingId: "h1", instrumentId: "i1", quantity: "2" },
+      { role: "transfer_to", direction: "added", target: "holding_quantity", accountId: "to", holdingId: "h2", instrumentId: "i1", quantity: "2" },
+    ],
+  }]);
+  previewFixChange.mockResolvedValue({ resulting: [{ name: "ETF", quantity: "3" }] });
+  fixChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
+  renderPage();
+  const list = await screen.findByTestId("activity-list");
+  await userEvent.click(await within(list).findByRole("button", { name: "Actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Fix" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  const target = form.querySelector<HTMLSelectElement>("#change-to-account")!;
+  await waitFor(() => expect(target).toHaveValue("to"));
+  if (changeTarget) await userEvent.selectOptions(target, "other");
+  await userEvent.clear(within(form).getByLabelText(/Quantity/));
+  await userEvent.type(within(form).getByLabelText(/Quantity/), "3");
+  await userEvent.clear(within(form).getByLabelText("Note"));
+  await userEvent.type(within(form).getByLabelText("Note"), "Corrected transfer");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewFixChange).toHaveBeenCalledWith("transfer-1", expect.objectContaining({ fromHoldingId: "h1", toHoldingId: changeTarget ? "h3" : "h2", toAccountId: "", quantity: "3", note: "Corrected transfer" })));
+  const reviewed = previewFixChange.mock.calls[0][1];
+  expect(Array.from(target.options).map((option) => option.value)).not.toEqual(expect.arrayContaining(["empty"]));
+  expect(Array.from(target.options).map((option) => option.value)).not.toEqual(expect.arrayContaining(["wrong"]));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(fixChange).toHaveBeenCalledWith("transfer-1", { ...reviewed, mutationId: expect.any(String) }));
+  expect(previewChange).not.toHaveBeenCalled();
+  expect(recordChange).not.toHaveBeenCalled();
 });

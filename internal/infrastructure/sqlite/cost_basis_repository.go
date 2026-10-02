@@ -9,20 +9,7 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// ListCostBasisEvents returns one bounded, Holding-scoped read. Transfer-in
-// events retain the source Holding ID; GainService resolves that source's
-// historical average before calling the pure replay function. Pass
-// IncludeArchivedHoldings to replay sold-then-archived positions.
-func (r *Repository) ListCostBasisEvents(ctx context.Context, holdingID domain.HoldingID, filter domain.CostBasisReadFilter) ([]domain.CostBasisEvent, error) {
-	return listCostBasisEventsQuery(ctx, r.database.SQL, holdingID, filter.IncludeArchivedHoldings)
-}
-
-func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID domain.HoldingID, includeArchivedHoldings bool) ([]domain.CostBasisEvent, error) {
-	archiveClause := " AND h.archived_at IS NULL"
-	if includeArchivedHoldings {
-		archiveClause = ""
-	}
-	rows, err := query.QueryContext(ctx, correctedActivityCTE+`
+const costBasisEventsSelect = `
 		SELECT e.activity_id, a.effective_at, a.created_at, a.kind, a.reason,
 		       e.direction, e.role, e.classification, e.quantity, e.cost_unit_price,
 		       t.side, t.unit_price, t.gross_currency, t.fee_amount, t.fee_currency,
@@ -36,13 +23,29 @@ func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID doma
 		  ON source_effect.activity_id = e.activity_id
 		 AND source_effect.target = 'holding_quantity'
 		 AND source_effect.direction = 'removed'
-		 AND source_effect.role = 'transfer_from'
-		WHERE e.holding_id = ?
+		 AND source_effect.role = 'transfer_from'`
+const validCostBasisEvents = `
 		  AND e.target IN ('holding_quantity', 'holding_cost')
 		  AND a.household_id = owner_account.household_id
 		  AND a.reverses_activity_id IS NULL
-		  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = a.id)`+archiveClause+`
-		ORDER BY a.effective_at ASC, a.created_at ASC, a.ordering_id ASC, e.sequence ASC`, holdingID.String())
+		  AND NOT EXISTS (SELECT 1 FROM activities reversal WHERE reversal.reverses_activity_id = a.id)`
+const costBasisEventOrder = `
+		ORDER BY a.effective_at ASC, a.created_at ASC, a.ordering_id ASC, e.sequence ASC`
+
+// ListCostBasisEvents returns one bounded, Holding-scoped read. Transfer-in
+// events retain the source Holding ID; GainService resolves that source's
+// historical average before calling the pure replay function. Pass
+// IncludeArchivedHoldings to replay sold-then-archived positions.
+func (r *Repository) ListCostBasisEvents(ctx context.Context, holdingID domain.HoldingID, filter domain.CostBasisReadFilter) ([]domain.CostBasisEvent, error) {
+	return listCostBasisEventsQuery(ctx, r.database.SQL, holdingID, filter.IncludeArchivedHoldings)
+}
+
+func listCostBasisEventsQuery(ctx context.Context, query queryer, holdingID domain.HoldingID, includeArchivedHoldings bool) ([]domain.CostBasisEvent, error) {
+	archiveClause := " AND h.archived_at IS NULL"
+	if includeArchivedHoldings {
+		archiveClause = ""
+	}
+	rows, err := query.QueryContext(ctx, correctedActivityCTE+costBasisEventsSelect+` WHERE e.holding_id = ?`+validCostBasisEvents+archiveClause+costBasisEventOrder, holdingID.String())
 	if err != nil {
 		return nil, err
 	}

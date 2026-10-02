@@ -128,8 +128,34 @@ Litestream v0.5.17 adapters use different layouts: S3 writes
 with canonical nonzero TXID ranges, never other levels or arbitrary subpaths.
 Unexpected paths, duplicate keys, missing/changed owned identities or changed
 target inventories abort the operation. Other BackupIDs are outside cleanup's listing and deletion
-scope. The recovery UI still limits discovery to 100 recent L0 points per stream
-and 512 streams; those display limits are not used by cleanup.
+scope. Recovery discovery is a separate, explicitly paginated read contract;
+its per-request budget does not constrain retention enumeration.
+
+### Recovery discovery pages
+
+`RecoveryPointPage(cursor)` returns `{ points, nextCursor }`. Each UI action
+reads at most 20 objects under the fixed `nestworth/v1/` prefix (one flat S3
+LIST, no delimiter), validates the identities of candidate streams and reads
+L0 timestamp metadata. The worst case is **41 remote requests**: one LIST,
+20 identity GETs and 20 timestamp HEADs; SDK retries are disabled and the
+operation has a 10-second context deadline. The saved-connection probe is a
+separate single LIST with `MaxKeys=1`, regardless of history size.
+
+The opaque continuation is versioned and bound to the target, credentials and
+recovery prefix. Invalid or mismatched cursors fail before remote I/O. A page
+may contain no recovery points while still returning `nextCursor` (for example,
+a page of metadata or non-L0 objects); the UI keeps the continue action visible.
+There is no lifetime limit on streams or points per stream, and no background
+loop that follows all pages automatically. A failed next-page request retains
+the loaded selection and can retry the same cursor. Changing saved configuration
+clears the traversal. Refresh resets it and reads exactly one first page.
+
+Pages follow storage-key traversal; only loaded points are sorted by capture
+time. The first page is **not** advertised as the globally newest history.
+Concurrent additions may require a fresh traversal. Repeated continuations are
+rejected rather than silently ending a partial listing. The UI does not install
+a restore or delete history while listing. Full traversal collectors exist only
+in integration tests, not in the Wails production API.
 
 The preview shows scanned and eligible bytes, scan time, eligible stream IDs
 and protection reasons. Manual preview tokens are single-use and expire after

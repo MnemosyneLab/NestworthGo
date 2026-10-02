@@ -2,7 +2,6 @@ package continuousbackup
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -29,7 +28,9 @@ var quietLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 type backend interface {
 	client(string) litestream.ReplicaClient
-	streams(context.Context) ([]string, error)
+	recoveryObjects(context.Context, string) (recoveryObjectPage, error)
+	recoveryTime(context.Context, recoveryObject) (time.Time, error)
+	probe(context.Context) error
 	identity(context.Context, string) (streamIdentity, error)
 	ensureIdentity(context.Context, streamIdentity) error
 }
@@ -49,53 +50,6 @@ func (b r2Backend) client(stream string) litestream.ReplicaClient {
 }
 func (b r2Backend) sdk() *awss3.Client {
 	return awss3.NewFromConfig(aws.Config{Region: "auto", RequestChecksumCalculation: aws.RequestChecksumCalculationWhenRequired, ResponseChecksumValidation: aws.ResponseChecksumValidationWhenRequired, Credentials: credentials.NewStaticCredentialsProvider(b.c.AccessKeyID, b.c.SecretAccessKey, ""), HTTPClient: &http.Client{Timeout: operationTimeout}, RetryMaxAttempts: 1}, func(o *awss3.Options) { o.BaseEndpoint = aws.String(endpoint(b.c)); o.UsePathStyle = true })
-}
-func (b r2Backend) streams(ctx context.Context) ([]string, error) {
-	// Use explicit credentials, TLS verification and a bounded client. Never use
-	// the user's AWS environment/profile as a fallback for missing R2 keys.
-	c := b.sdk()
-	list := func(prefix string) ([]string, error) {
-		pager := awss3.NewListObjectsV2Paginator(c, &awss3.ListObjectsV2Input{Bucket: aws.String(b.c.Bucket), Prefix: aws.String(prefix), Delimiter: aws.String("/")})
-		var out []string
-		for pager.HasMorePages() {
-			page, err := pager.NextPage(ctx)
-			if err != nil {
-				return nil, ErrUnavailable
-			}
-			for _, p := range page.CommonPrefixes {
-				out = append(out, aws.ToString(p.Prefix))
-				if len(out) > 512 {
-					return nil, ErrUnavailable
-				}
-			}
-		}
-		return out, nil
-	}
-	owners, err := list(remotePrefix)
-	if err != nil {
-		return nil, err
-	}
-	var streams []string
-	for _, owner := range owners {
-		if !validUUID(strings.TrimSuffix(strings.TrimPrefix(owner, remotePrefix), "/")) {
-			continue
-		}
-		children, err := list(owner)
-		if err != nil {
-			return nil, err
-		}
-		for _, child := range children {
-			stream := strings.TrimSuffix(strings.TrimPrefix(child, remotePrefix), "/")
-			if validStream(stream) {
-				streams = append(streams, stream)
-			}
-		}
-		if len(streams) > 512 {
-			return nil, ErrUnavailable
-		}
-	}
-	sort.Strings(streams)
-	return streams, nil
 }
 
 // fileBackend is used only by local integration tests; there is no UI/MCP
@@ -147,56 +101,6 @@ type RecoveryPoint struct {
 	CapturedAt string `json:"capturedAt"`
 }
 
-func recoveryPoints(ctx context.Context, b backend) ([]RecoveryPoint, error) {
-	streams, err := b.streams(ctx)
-	if err != nil {
-		return nil, ErrUnavailable
-	}
-	out := []RecoveryPoint{}
-	for _, stream := range streams {
-		if _, err := b.identity(ctx, stream); err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				continue
-			}
-			return nil, ErrUnavailable
-		}
-		c := b.client(stream)
-		c.SetLogger(quietLogger)
-		itr, err := c.LTXFiles(ctx, 0, 0, true)
-		if err != nil {
-			return nil, ErrUnavailable
-		}
-		// Preserve all remote history, but bound each stream's UI listing to the
-		// latest 100 captured L0 recovery points. No compaction/retention in v1.
-		points := []RecoveryPoint{}
-		for itr.Next() {
-			info := itr.Item()
-			points = append(points, RecoveryPoint{StreamID: stream, TXID: info.MaxTXID.String(), CapturedAt: info.CreatedAt.UTC().Format(time.RFC3339Nano)})
-			if len(points) > 100 {
-				points = points[1:]
-			}
-		}
-		if err := itr.Close(); err != nil {
-			return nil, ErrUnavailable
-		}
-		out = append(out, points...)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		a, b := out[i], out[j]
-		// RFC3339Nano removes trailing fractional zeros, so string order can
-		// place .1Z after .11Z and offer an older point as the newest backup.
-		at, _ := time.Parse(time.RFC3339Nano, a.CapturedAt)
-		bt, _ := time.Parse(time.RFC3339Nano, b.CapturedAt)
-		if at.Equal(bt) {
-			if a.StreamID == b.StreamID {
-				return a.TXID > b.TXID
-			}
-			return a.StreamID > b.StreamID
-		}
-		return at.After(bt)
-	})
-	return out, nil
-}
 func restorePoint(ctx context.Context, b backend, p RecoveryPoint, destination string) error {
 	if !validStream(p.StreamID) {
 		return ErrConfiguration

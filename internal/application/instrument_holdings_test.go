@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"github.com/shopspring/decimal"
 	"testing"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -13,9 +14,9 @@ type holdingsSnapshotCounter struct {
 	reads int
 }
 
-func (r *holdingsSnapshotCounter) ReadPortfolioSnapshot(ctx context.Context, filter domain.AccountFilter) (domain.PortfolioSnapshot, error) {
+func (r *holdingsSnapshotCounter) ReadGainSnapshot(ctx context.Context) (domain.GainSnapshot, error) {
 	r.reads++
-	return r.Repository.ReadPortfolioSnapshot(ctx, filter)
+	return r.Repository.ReadGainSnapshot(ctx)
 }
 
 func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
@@ -131,9 +132,13 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 
 func TestAggregateHoldingAmountsIndependentCompleteness(t *testing.T) {
 	usd := domain.CurrencyCode("USD")
-	first := domain.InstrumentHoldingMember{Amounts: domain.HoldingAmounts{Quantity: "0.1", TotalCost: &domain.MoneyView{Amount: "20", Currency: usd}, CurrentValue: &domain.MoneyView{Amount: "10", Currency: usd}, UnrealizedGain: &domain.SignedMoneyView{Amount: "-10", Currency: usd}}}
-	second := domain.InstrumentHoldingMember{Amounts: domain.HoldingAmounts{Quantity: "0.2", TotalCost: &domain.MoneyView{Amount: "40", Currency: usd}, CurrentValue: &domain.MoneyView{Amount: "20", Currency: usd}, UnrealizedGain: &domain.SignedMoneyView{Amount: "-20", Currency: usd}}}
-	result, err := aggregateHoldingAmounts([]domain.InstrumentHoldingMember{first, second}, usd)
+	first := domain.InstrumentHoldingMember{HoldingID: "first", Amounts: domain.HoldingAmounts{Quantity: "0.1", TotalCost: &domain.MoneyView{Amount: "20", Currency: usd}, CurrentValue: &domain.MoneyView{Amount: "10", Currency: usd}, UnrealizedGain: &domain.SignedMoneyView{Amount: "-10", Currency: usd}}}
+	second := domain.InstrumentHoldingMember{HoldingID: "second", Amounts: domain.HoldingAmounts{Quantity: "0.2", TotalCost: &domain.MoneyView{Amount: "40", Currency: usd}, CurrentValue: &domain.MoneyView{Amount: "20", Currency: usd}, UnrealizedGain: &domain.SignedMoneyView{Amount: "-20", Currency: usd}}}
+	exact := map[domain.HoldingID]*exactHoldingGain{
+		"first":  {Cost: decimal.NewFromInt(20), Value: decimal.NewFromInt(10), Unrealized: decimal.NewFromInt(-10)},
+		"second": {Cost: decimal.NewFromInt(40), Value: decimal.NewFromInt(20), Unrealized: decimal.NewFromInt(-20)},
+	}
+	result, err := aggregateHoldingAmounts([]domain.InstrumentHoldingMember{first, second}, usd, exact)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +149,7 @@ func TestAggregateHoldingAmountsIndependentCompleteness(t *testing.T) {
 	second.Amounts.CostMissingReason = "unavailable"
 	second.Amounts.UnrealizedGain = nil
 	second.Amounts.GainMissingReason = "unavailable"
-	result, err = aggregateHoldingAmounts([]domain.InstrumentHoldingMember{first, second}, usd)
+	result, err = aggregateHoldingAmounts([]domain.InstrumentHoldingMember{first, second}, usd, exact)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -152,7 +157,7 @@ func TestAggregateHoldingAmountsIndependentCompleteness(t *testing.T) {
 		t.Fatalf("partial totals: %+v", result)
 	}
 	second.Amounts.CurrentValue = &domain.MoneyView{Amount: "20", Currency: "CNY"}
-	if _, err = aggregateHoldingAmounts([]domain.InstrumentHoldingMember{first, second}, usd); err == nil {
+	if _, err = aggregateHoldingAmounts([]domain.InstrumentHoldingMember{first, second}, usd, exact); err == nil {
 		t.Fatal("mixed currencies accepted")
 	}
 }

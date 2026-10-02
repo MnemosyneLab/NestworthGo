@@ -81,11 +81,11 @@ func (s *Service) BackupNow(ctx context.Context) error {
 	}
 	return safe(s.manager.BackupNow(ctx))
 }
-func (s *Service) RecoveryPoints(ctx context.Context) ([]infra.RecoveryPoint, error) {
+func (s *Service) RecoveryPointPage(ctx context.Context, cursor string) (infra.RecoveryPointPage, error) {
 	if s.manager == nil {
-		return nil, safe(infra.ErrUnavailable)
+		return infra.RecoveryPointPage{}, safe(infra.ErrUnavailable)
 	}
-	points, err := s.manager.RecoveryPoints(ctx)
+	points, err := s.manager.RecoveryPointPage(ctx, cursor)
 	return points, safe(err)
 }
 

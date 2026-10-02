@@ -262,22 +262,3 @@ func (m *Manager) PreviewRetention(ctx context.Context, days int) (RetentionPrev
 
 // Hide durable tombstones before identity reads or LTX discovery. The same
 // check in Stage blocks callers holding an old recovery-point DTO.
-type recoveryBackend struct {
-	backend
-	records map[string]streamRecord
-}
-
-func (b recoveryBackend) streams(ctx context.Context) ([]string, error) {
-	streams, err := b.backend.streams(ctx)
-	if err != nil {
-		return nil, err
-	}
-	result := []string{}
-	for _, stream := range streams {
-		r := b.records[stream]
-		if r.State != "deleting" && r.State != "deleted" {
-			result = append(result, stream)
-		}
-	}
-	return result, nil
-}

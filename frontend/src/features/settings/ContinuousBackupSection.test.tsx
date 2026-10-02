@@ -5,7 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { ContinuousBackupSection } from "./ContinuousBackupSection";
 
-const api = vi.hoisted(() => ({ Status: vi.fn(), Configure: vi.fn(), TestConnection: vi.fn(), BackupNow: vi.fn(), RecoveryPoints: vi.fn(), InspectRestore: vi.fn(), ConfirmRestore: vi.fn(), RetentionStatus: vi.fn() }));
+const api = vi.hoisted(() => ({ Status: vi.fn(), Configure: vi.fn(), TestConnection: vi.fn(), BackupNow: vi.fn(), RecoveryPointPage: vi.fn(), InspectRestore: vi.fn(), ConfirmRestore: vi.fn(), RetentionStatus: vi.fn() }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/continuousbackup", () => ({ Service: api }));
 const initial = { enabled: false, accountID: "a".repeat(32), bucket: "test-bucket", credentialsConfigured: false, backupID: "owner", state: "disabled", streamID: "", lastAttempt: "", lastSuccessfulBackup: "", errorSummary: "", restoreState: "" };
 const point = { streamID: "owner/stream", txID: "0000000000000001", capturedAt: "2026-09-30T12:00:00Z" };
@@ -21,7 +21,7 @@ beforeEach(() => {
   api.RetentionStatus.mockResolvedValue({ enabled: false, days: 30, scannedAt: "", scannedBytes: 0, eligibleBytes: 0, lastAttempt: "", lastCleanup: "", result: "", errorSummary: "" });
   api.TestConnection.mockResolvedValue(undefined);
   api.BackupNow.mockResolvedValue(undefined);
-  api.RecoveryPoints.mockResolvedValue([point]);
+  api.RecoveryPointPage.mockResolvedValue({ points: [point], nextCursor: "" });
   api.InspectRestore.mockResolvedValue(preview);
   api.ConfirmRestore.mockResolvedValue({ restartRequired: true });
 });
@@ -105,15 +105,84 @@ describe("continuous backup settings", () => {
   });
   it("treats empty or failed discovery as no restoration", async () => {
     const user = userEvent.setup();
-    api.RecoveryPoints.mockResolvedValue([]);
+    api.RecoveryPointPage.mockResolvedValue({ points: [], nextCursor: "" });
     renderSection(true);
     await user.click(await screen.findByRole("button", { name: "List recovery points" }));
     await screen.findByText("No recovery points found. Nothing was restored.");
     expect(api.InspectRestore).not.toHaveBeenCalled();
     expect(api.ConfirmRestore).not.toHaveBeenCalled();
-    api.RecoveryPoints.mockRejectedValue(new Error("offline"));
+    api.RecoveryPointPage.mockRejectedValue(new Error("offline"));
     await user.click(screen.getByRole("button", { name: "List recovery points" }));
     await screen.findByRole("alert");
     expect(api.ConfirmRestore).not.toHaveBeenCalled();
   });
+});
+
+it("continues empty pages and retains loaded selection across a later-page failure and retry", async () => {
+  const user = userEvent.setup();
+  const second = { ...point, txID: "0000000000000002", capturedAt: "2026-09-30T13:00:00Z" };
+  api.RecoveryPointPage.mockResolvedValueOnce({ points: [], nextCursor: "cursor-1" })
+    .mockResolvedValueOnce({ points: [point], nextCursor: "cursor-2" })
+    .mockRejectedValueOnce(new Error("temporary failure"))
+    .mockResolvedValueOnce({ points: [second], nextCursor: "" });
+  renderSection(true);
+  await user.click(await screen.findByRole("button", { name: "List recovery points" }));
+  await screen.findByRole("button", { name: "Load more recovery points" });
+  expect(screen.queryByText("No recovery points found. Nothing was restored.")).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Load more recovery points" }));
+  const select = await screen.findByLabelText("Recovery point");
+  await user.selectOptions(select, `${point.streamID}:${point.txID}`);
+  await user.click(screen.getByRole("button", { name: "Load more recovery points" }));
+  await screen.findByRole("alert");
+  expect(select).toHaveValue(`${point.streamID}:${point.txID}`);
+  expect(screen.getByRole("button", { name: "Preview recovery" })).toBeEnabled();
+  await user.click(screen.getByRole("button", { name: "Load more recovery points" }));
+  await waitFor(() => expect(select.querySelectorAll("option")).toHaveLength(3));
+  expect(select).toHaveValue(`${point.streamID}:${point.txID}`);
+  expect(screen.queryByRole("button", { name: "Load more recovery points" })).not.toBeInTheDocument();
+  expect(api.RecoveryPointPage.mock.calls.map(([cursor]) => cursor)).toEqual(["", "cursor-1", "cursor-2", "cursor-2"]);
+
+  // Refresh must fetch only the first page, not refetch every previously loaded page.
+  api.RecoveryPointPage.mockResolvedValueOnce({ points: [second], nextCursor: "" });
+  await user.click(screen.getByRole("button", { name: "List recovery points" }));
+  await waitFor(() => expect(api.RecoveryPointPage).toHaveBeenCalledTimes(5));
+  await waitFor(() => expect(screen.getByLabelText("Recovery point").querySelectorAll("option")).toHaveLength(2));
+  expect(api.RecoveryPointPage).toHaveBeenLastCalledWith("");
+  expect(screen.getByLabelText("Recovery point")).toHaveValue("");
+});
+
+it("drops recovery pages when saved target or credentials change", async () => {
+  const user = userEvent.setup();
+  api.RecoveryPointPage.mockResolvedValue({ points: [point], nextCursor: "cursor-1" });
+  renderSection(true);
+  await user.click(await screen.findByRole("button", { name: "List recovery points" }));
+  await screen.findByLabelText("Recovery point");
+  await user.clear(screen.getByLabelText("Bucket name"));
+  await user.type(screen.getByLabelText("Bucket name"), "different-bucket");
+  await user.click(screen.getByRole("button", { name: "Save backup settings" }));
+  await waitFor(() => expect(api.Configure).toHaveBeenCalled());
+  await waitFor(() => expect(screen.queryByLabelText("Recovery point")).not.toBeInTheDocument());
+  expect(screen.queryByRole("button", { name: "Load more recovery points" })).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "List recovery points" }));
+  await screen.findByLabelText("Recovery point");
+  expect(api.RecoveryPointPage).toHaveBeenLastCalledWith("");
+  const replace = screen.getAllByRole("button", { name: "Replace" });
+  await user.click(replace[0]);
+  await user.click(replace[1]);
+  await user.type(screen.getByLabelText("Access Key ID"), "replacement-access");
+  await user.type(screen.getByLabelText("Secret Access Key"), "replacement-secret");
+  await user.click(screen.getByRole("button", { name: "Save backup settings" }));
+  await waitFor(() => expect(api.Configure).toHaveBeenCalledTimes(2));
+  await waitFor(() => expect(screen.queryByLabelText("Recovery point")).not.toBeInTheDocument());
+});
+
+it("rejects a repeated continuation while retaining the previous page", async () => {
+  const user = userEvent.setup();
+  api.RecoveryPointPage.mockResolvedValue({ points: [point], nextCursor: "same-cursor" });
+  renderSection(true);
+  await user.click(await screen.findByRole("button", { name: "List recovery points" }));
+  await user.click(await screen.findByRole("button", { name: "Load more recovery points" }));
+  await screen.findByRole("alert");
+  expect(screen.getByLabelText("Recovery point").querySelectorAll("option")).toHaveLength(2);
+  expect(api.RecoveryPointPage).toHaveBeenCalledTimes(2);
 });

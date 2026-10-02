@@ -330,7 +330,9 @@ function RecordChangeFormReady({
         )
       : {},
   );
-  const [previewResult, setPreviewResult] = useState<EndpointViewDTO[] | null>(null);
+  const [reviewed, setReviewed] = useState<{ key: string; command: ChangeCommandRequest; resulting: EndpointViewDTO[] } | null>(null);
+  const previewSequence = useRef(0);
+  const clearPreview = () => { previewSequence.current += 1; setReviewed(null); };
 
   const markAutomaticFields = (current: ChangeCommandRequest, fields: string[]) => {
     fields.forEach((field) => {
@@ -341,6 +343,7 @@ function RecordChangeFormReady({
   };
 
   const patch = (next: Partial<ChangeCommandRequest>, automaticFields: string[] = []) => {
+    if (record.isPending || fix.isPending) return;
     setRequest((current) => {
       markAutomaticFields(current, automaticFields);
       Object.keys(next).forEach((field) => {
@@ -355,7 +358,7 @@ function RecordChangeFormReady({
       });
       return { ...current, ...next };
     });
-    setPreviewResult(null);
+    clearPreview();
     if (preview.isError) preview.reset();
     if (previewFix.isError) previewFix.reset();
     if (record.isError) record.reset();
@@ -408,6 +411,17 @@ function RecordChangeFormReady({
   const holdingName = (holding: { instrumentName?: string; instrumentSymbol?: string | null; accountName?: string; quantity: string }) =>
     `${instrumentDisplayLabel({ name: holding.instrumentName, symbol: holding.instrumentSymbol }, t("portfolio.unknownInstrument"))} · ${holding.accountName ?? t("history.unknownAccount")} · ${formatAmount(holding.quantity)}`;
   const holdingOptions = holdings.data.map((holding) => ({ id: holding.id, name: holdingName(holding) }));
+  const transferSource = holdings.data.find((holding) => holding.id === request.fromHoldingId);
+  // Existing Fix requests identify the old destination holding; new commands use
+  // the account boundary so the backend can atomically create a missing position.
+  const transferTargetAccountId = request.toAccountId || holdings.data.find((holding) => holding.id === request.toHoldingId)?.accountId || "";
+  // Historical replay can change to an existing destination, but cannot create
+  // a holding. Preserve that contract separately from new account-based transfers.
+  const transferTargetHoldingId = holdings.data.find((holding) => holding.accountId === transferTargetAccountId && holding.instrumentId === transferSource?.instrumentId)?.id ?? "";
+  const transferTargetOptions = investmentAccountOptions.filter((account) =>
+    account.id !== transferSource?.accountId &&
+    (!fixActivityId || holdings.data.some((holding) => holding.accountId === account.id && holding.instrumentId === transferSource?.instrumentId)),
+  );
   const activeInstrumentIds = new Set((instruments.data ?? []).filter((instrument) => !instrument.archivedAt).map((instrument) => instrument.id));
   const dividendHoldings = holdings.data.filter((holding) => {
     if (lock?.holdingId) {
@@ -577,7 +591,7 @@ function RecordChangeFormReady({
       case ChangeCommandKind.ChangeFXConversion:
         return Boolean(request.accountId && request.sold?.trim() && request.bought?.trim() && request.soldCurrency && request.boughtCurrency && request.soldCurrency !== request.boughtCurrency);
       case ChangeCommandKind.ChangePositionTransfer:
-        return Boolean(request.fromHoldingId && request.toHoldingId && request.fromHoldingId !== request.toHoldingId && request.quantity?.trim());
+        return Boolean(transferSource && transferTargetOptions.some((account) => account.id === transferTargetAccountId) && request.quantity?.trim());
       case ChangeCommandKind.ChangePositionAdjustment:
         return Boolean(request.holdingId && request.quantity?.trim());
       case ChangeCommandKind.ChangeTrade:
@@ -601,6 +615,11 @@ function RecordChangeFormReady({
       kind === ChangeCommandKind.ChangeCashTransfer && Boolean(request.sentCurrency) && request.sentCurrency === request.receivedCurrency;
     return {
       ...request,
+      ...(kind === ChangeCommandKind.ChangePositionTransfer
+        ? fixActivityId
+          ? { toAccountId: "", toHoldingId: transferTargetHoldingId }
+          : { toAccountId: transferTargetAccountId, toHoldingId: "" }
+        : {}),
       received: sameCurrencyTransfer ? request.sent : request.received,
       receivedCurrency: sameCurrencyTransfer ? request.sentCurrency : request.receivedCurrency,
       feeCurrency: request.feeCurrency || request.soldCurrency || request.grossCurrency || request.sentCurrency,
@@ -611,26 +630,37 @@ function RecordChangeFormReady({
     };
   };
 
+  const commandKey = JSON.stringify(buildRequest());
+  const currentReview = reviewed?.key === commandKey ? reviewed : null;
+  const previewResult = currentReview?.resulting ?? null;
+
   const runPreview = () => {
     if (!canPreview) {
       return;
     }
-    const command = buildRequest();
+    const command = Object.freeze(buildRequest());
+    const key = JSON.stringify(command);
+    const sequence = ++previewSequence.current;
+    const accept = (result: { resulting: EndpointViewDTO[] | null }) => {
+      if (sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting } : null);
+    };
     if (fixActivityId) {
-      previewFix.mutate({ activityId: fixActivityId, replacement: command }, { onSuccess: (result) => setPreviewResult(result.resulting) });
+      previewFix.mutate({ activityId: fixActivityId, replacement: command }, { onSuccess: accept });
       return;
     }
-    preview.mutate(command, { onSuccess: (result) => setPreviewResult(result.resulting) });
+    preview.mutate(command, { onSuccess: accept });
   };
 
   const runConfirm = () => {
-    const command = buildRequest();
+    if (!currentReview || record.isPending || fix.isPending) return;
+    // Confirm the immutable command that produced the visible preview.
+    const command = currentReview.command;
     if (fixActivityId) {
       fix.mutate(
         { activityId: fixActivityId, replacement: command },
         {
           onSuccess: () => {
-            setPreviewResult(null);
+            clearPreview();
             onRecorded();
           },
         },
@@ -639,7 +669,7 @@ function RecordChangeFormReady({
     }
     record.mutate(command, {
       onSuccess: () => {
-        setPreviewResult(null);
+        clearPreview();
         setRequest(emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, defaultCurrency));
         onRecorded();
       },
@@ -781,7 +811,8 @@ function RecordChangeFormReady({
   };
 
   return (
-    <div className="flex flex-col gap-4" role="form" aria-label={t("history.formLabel")}>
+    <div role="form" aria-label={t("history.formLabel")}>
+      <fieldset className="flex min-w-0 flex-col gap-4" disabled={confirmPending}>
       {!lock?.hideKind && (
         <ChoiceGrid
           label={t("history.changeType")}
@@ -801,7 +832,7 @@ function RecordChangeFormReady({
             };
             resetAutomaticTracking(locked);
             setRequest(locked);
-            setPreviewResult(null);
+            clearPreview();
           }}
         />
       )}
@@ -943,7 +974,7 @@ function RecordChangeFormReady({
       {kind === ChangeCommandKind.ChangePositionTransfer && (
         <>
           <OptionSelect id="change-from-holding" label={t("history.fromHolding")} value={request.fromHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(fromHoldingId) => patch({ fromHoldingId })} />
-          <OptionSelect id="change-to-holding" label={t("history.toHolding")} value={request.toHoldingId ?? ""} emptyLabel={t("history.selectEmpty")} options={holdingOptions} onChange={(toHoldingId) => patch({ toHoldingId })} />
+          <AccountSelect id="change-to-account" label={t("history.toAccount")} value={transferTargetAccountId} accounts={transferTargetOptions} onChange={(toAccountId) => patch({ toAccountId, toHoldingId: "" })} />
           <div className="flex flex-col gap-1.5"><Label htmlFor="change-quantity">{t("history.quantity")} {metalUnitLabel(selectedInstrument?.quantityUnit, t)}</Label><Input id="change-quantity" inputMode="decimal" value={request.quantity ?? ""} onChange={(event) => patch({ quantity: event.target.value })} /></div>
         </>
       )}
@@ -1079,6 +1110,7 @@ function RecordChangeFormReady({
       <div className="flex gap-2">
         {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : t("common.confirm")}</Button>}
       </div>
+      </fieldset>
     </div>
   );
 }

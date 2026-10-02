@@ -67,6 +67,7 @@ type AccountRepository interface {
 type PortfolioRepository interface {
 	ReadSnapshot(context.Context, domain.AccountFilter) (domain.ReadSnapshot, error)
 	ReadPortfolioSnapshot(context.Context, domain.AccountFilter) (domain.PortfolioSnapshot, error)
+	ReadGainSnapshot(context.Context) (domain.GainSnapshot, error)
 	CreateInstrument(context.Context, domain.Instrument) error
 	CreateInstrumentWithObservation(context.Context, domain.Instrument, domain.InstrumentPreferenceObservation) error
 	UpdateInstrument(context.Context, domain.Instrument) error
