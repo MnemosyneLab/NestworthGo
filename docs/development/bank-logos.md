@@ -106,3 +106,21 @@ Chromium component review checks all 608 images for successful decoding and
 keyboard override/reset, plus light/dark screenshots. This is frontend browser
 verification with synthetic state, not native macOS/Wails acceptance. No real
 ledger, provider credentials or R2 account is used.
+
+## Regional identity and search corrections
+
+The final catalog has 305 choices covering 610 valid bank IDs. Postal Savings
+also matches 邮储/郵儲 and its traditional full name. The pinned upstream calls
+`sc/sc-rect` “枣庄银行” despite showing Standard Chartered's old mark; its
+presentation now uses the verified 2021 symbol and the independent descriptive
+ID `bank-logo:standard-chartered`, retaining both old sc IDs as aliases. The
+incorrect bank name is not retained as a search alias. StanChart and 渣打 match.
+
+`bank-logo:bochk` is a separate Bank of China (Hong Kong) identity; it never
+aliases the mainland BOC ID. Its round emblem matches the official 2026 BOCHK
+header and reuses the existing MIT-sourced path. The Standard Chartered asset
+comes from Commons' logo-only extraction of the official SVG, with PD-textlogo
+and trademark notices recorded separately from icongo MIT in NOTICE.md.
+See `regional-sources.json` for exact references, hashes and processing, and
+`regionalBankLogos.json` for identity/alias overrides. No new bank is inferred
+from an account name or ticker.

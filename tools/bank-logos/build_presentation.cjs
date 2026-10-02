@@ -9,7 +9,13 @@ const { chromium } = require('playwright');
 const root = path.resolve(__dirname, '../..');
 (async () => {
   const catalog = JSON.parse(fs.readFileSync(path.join(root, 'frontend/src/lib/bankLogos.json')));
+  const regional = JSON.parse(fs.readFileSync(path.join(root, 'frontend/src/lib/regionalBankLogos.json')));
+  catalog.push(...regional);
+  const extraAliases = JSON.parse(fs.readFileSync(path.join(__dirname, 'search-aliases.json')));
   const reviewed = JSON.parse(fs.readFileSync(path.join(__dirname, 'presentation.json')));
+  const replacedKeys = new Set(regional.flatMap(logo => logo.legacyKeys));
+  for (let i = reviewed.length - 1; i >= 0; i--) if (replacedKeys.has(reviewed[i].key)) reviewed.splice(i, 1);
+  reviewed.push(...regional.map(({key, legacyKeys, kind}) => ({key, legacyKeys, kind})));
   const byKey = new Map(catalog.map(logo => [logo.key, logo]));
   const covered = reviewed.flatMap(entry => [entry.key, ...entry.legacyKeys]);
   if (covered.length !== catalog.length || new Set(covered).size !== catalog.length || covered.some(key => !byKey.has(key))) throw Error('Every stable ID must have exactly one presentation');
@@ -39,8 +45,9 @@ const root = path.resolve(__dirname, '../..');
         return [x-pad,y-pad,w+pad*2,h+pad*2].map(n => Number(n.toFixed(4))).join(' ');
       }, raw);
       fs.writeFileSync(path.join(output, logo.file), raw.replace(/viewBox="[^"]+"/, `viewBox="${viewBox}"`));
-      const aliases = [...new Set([entry.key, ...entry.legacyKeys].flatMap(key => {const item=byKey.get(key);return [item.name,...item.aliases]}))];
-      const name = logo.file.startsWith('other-') ? logo.name.replace(/logo_?$/, '').replace(/^!/, '') : logo.aliases[1];
+      const aliases = [...new Set(regional.includes(logo) ? logo.aliases : [entry.key, ...entry.legacyKeys].flatMap(key => {const item=byKey.get(key);return [item.name,...item.aliases]}))];
+      aliases.push(...(extraAliases[entry.key] ?? []));
+      const name = regional.includes(logo) ? logo.name : logo.file.startsWith('other-') ? logo.name.replace(/logo_?$/, '').replace(/^!/, '') : logo.aliases[1];
       display.push({...entry, name, aliases, file: `display/${logo.file}`});
     }
     fs.writeFileSync(path.join(root, 'frontend/src/lib/bankLogoPresentation.json'), JSON.stringify(display,null,2)+'\n');

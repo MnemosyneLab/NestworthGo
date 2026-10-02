@@ -2491,7 +2491,13 @@
       "psbc-rect",
       "中国邮政储蓄银行",
       "中国邮政储蓄银行 (psbc)",
-      "psbc"
+      "psbc",
+      "邮储",
+      "郵儲",
+      "邮储银行",
+      "郵儲銀行",
+      "中國郵政儲蓄銀行",
+      "Postal Savings Bank of China"
     ],
     "file": "display/psbc-rect.svg"
   },
@@ -2622,22 +2628,6 @@
       "rbcroyalbank"
     ],
     "file": "display/rbcroyalbank-rect.svg"
-  },
-  {
-    "key": "bank-logo:sc-rect",
-    "legacyKeys": [
-      "bank-logo:sc"
-    ],
-    "kind": "symbol",
-    "name": "枣庄银行",
-    "aliases": [
-      "枣庄银行 (sc-rect)",
-      "sc-rect",
-      "枣庄银行",
-      "枣庄银行 (sc)",
-      "sc"
-    ],
-    "file": "display/sc-rect.svg"
   },
   {
     "key": "bank-logo:scnhh-rect",
@@ -4586,5 +4576,41 @@
       "鹤壁银行"
     ],
     "file": "display/other-5bb869758e5a31cd.svg"
+  },
+  {
+    "key": "bank-logo:standard-chartered",
+    "legacyKeys": [
+      "bank-logo:sc-rect",
+      "bank-logo:sc"
+    ],
+    "kind": "symbol",
+    "name": "渣打银行（Standard Chartered）",
+    "aliases": [
+      "渣打",
+      "渣打銀行",
+      "Standard Chartered",
+      "StanChart",
+      "sc",
+      "sc-rect"
+    ],
+    "file": "display/standard-chartered.svg"
+  },
+  {
+    "key": "bank-logo:bochk",
+    "legacyKeys": [],
+    "kind": "symbol",
+    "name": "中银香港（BOCHK）",
+    "aliases": [
+      "中银香港",
+      "中銀香港",
+      "中国银行香港",
+      "中國銀行香港",
+      "中国银行（香港）",
+      "中國銀行（香港）",
+      "BOCHK",
+      "Bank of China Hong Kong",
+      "Bank of China (Hong Kong)"
+    ],
+    "file": "display/boc-rect.svg"
   }
 ]

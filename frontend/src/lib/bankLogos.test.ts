@@ -4,10 +4,10 @@ import { resolveAccountIcon } from "./accountIcons";
 
 describe("reviewed bank presentations", () => {
   it("covers every stable ID once without removing original catalog entries", () => {
-    expect(BANK_LOGOS).toHaveLength(608);
-    expect(BANK_LOGO_CHOICES).toHaveLength(304);
+    expect(BANK_LOGOS).toHaveLength(610);
+    expect(BANK_LOGO_CHOICES).toHaveLength(305);
     const keys = BANK_LOGO_CHOICES.flatMap(logo => [logo.key, ...logo.legacyKeys]);
-    expect(new Set(keys).size).toBe(608);
+    expect(new Set(keys).size).toBe(610);
     for (const logo of BANK_LOGOS) {
       expect(bankLogo(logo.key)).toBe(logo);
       expect(bankLogoPresentation(logo.key)?.file).toMatch(/^display\/[a-z0-9-]+\.svg$/);
