@@ -31,8 +31,10 @@ Nestworth provides a local household balance sheet with:
 Core browsing and editing work locally without registration. The app does not
 place brokerage orders. Multi-device synchronization, direct bank/brokerage
 integrations and automatic market-data refresh remain outside this release.
-Continuous backup is off by default; live R2 and native Mac acceptance remain
-pending for v0.3.6.
+Continuous backup and whole-stream history cleanup are off by default. Optional
+30/90-day cleanup protects the current stream and two verified sealed survivors;
+it does not bound storage for a long-running stream. Live R2 and latest Mac GUI
+acceptance are user-reported as passed; fresh release packaging remains pending.
 
 ## Run locally
 
@@ -67,7 +69,7 @@ The default outputs are `dist/macos/Nestworth.app`,
 `dist/macos/Nestworth-0.3.6-arm64.zip`, `dist/macos/SHA256SUMS`,
 `dist/skills/nestworth-skill.tar.gz`, and its `.sha256` file. The app is
 ad-hoc signed for local launch. Developer ID signing, notarization, artifact
-retention, native acceptance, and manual accessibility review remain separate
+retention, packaged-artifact acceptance, and manual accessibility review remain separate
 distribution gates.
 
 ## Technology

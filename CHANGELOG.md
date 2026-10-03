@@ -12,6 +12,9 @@ All notable changes to Nestworth are recorded here.
 - Explicit cloud recovery through schema-15 validation, preview, confirmation,
   safety copies and the existing atomic installation/startup journal. Backup
   remains paused after restore; re-enabling creates a fresh stream.
+- Opt-in 30/90-day whole-stream retention with read-only previews, verified
+  survivors, ownership protection and conditional deletion; cleanup is off by default.
+- Bundled bank logos, inherited account icons, and generic/crypto icon coverage.
 - Shared secret fields for provider keys and R2 credentials: fixed masks,
   replacement, explicit removal and visibility for newly typed input only.
 
@@ -24,13 +27,29 @@ All notable changes to Nestworth are recorded here.
   `backup_config.db`. Existing provider and AI/MCP settings remain in the
   business database and are included in backup.
 
+### Fixed
+
+- Financial form validation and gain consistency, history-start default times,
+  recovery pagination, and current-month empty-state explanations.
+- Balance-account reservation recovery, account editing during pending saves,
+  edit-dialog dismissal, and annual-interest paid-through date visibility/focus.
+- Retention now recognizes the pinned Litestream S3 LTX layout.
+
+### Performance
+
+- Reduced cold in-memory analysis computation and allocations, indexed latest
+  account-value reads, and reused market-history inputs within each repair plan.
+  Measurements are scoped benchmarks, not whole-app or Mac startup speed claims;
+  see the [release contract](docs/releases/v0.3.6.md).
+
 ### Boundaries
 
 - Backup runs only while the app runs, on one machine. There is no multi-device
   synchronization, cloud writer election or daemon. Each start creates a fresh
   isolated stream; disabling never deletes remote history.
-- Live R2 and native Mac acceptance remain pending. Published v0.3.5 tags and
-  assets are unchanged. See the [release contract](docs/releases/v0.3.6.md) and
+- Live R2 backup/recovery/retention and latest native Mac GUI acceptance are
+  user-reported as passed. Fresh Mac release artifacts remain pending. Published
+  v0.3.5 tags and assets are unchanged. See the [release contract](docs/releases/v0.3.6.md) and
   [backup implementation notes](docs/development/continuous-backup.md).
 
 ## [0.3.5] — 2026-09-30

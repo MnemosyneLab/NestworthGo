@@ -1,9 +1,9 @@
 # Continuous backup and explicit recovery
 
-This feature is being implemented for unreleased v0.3.6 / build 7. It backs up
+This feature is implemented in unreleased v0.3.6 / build 7. It backs up
 one running machine; it is not cloud synchronization or a cross-machine writer
-election. It is off by default and has no daemon after app exit. No live R2
-credentials, household upload, or native Mac acceptance has been used here.
+election. It is off by default and has no daemon after app exit. Automated checks use synthetic data. Live R2 and native Mac acceptance are
+user-reported in the [release contract](../releases/v0.3.6.md).
 
 The backend embeds `github.com/benbjohnson/litestream` at v0.5.17 behind
 `internal/infrastructure/continuousbackup`. The SQLite driver rises from
@@ -189,8 +189,8 @@ documents conditional HEAD, but does not explicitly document DELETE conditional
 headers. Isolated live acceptance must establish their behavior; this code does
 not claim to provide remote writer fencing. No other app, lifecycle rule or
 external writer should modify locally owned stream prefixes during cleanup.
-The control ledger must not be cloned to a second active writer. Live R2
-behavior and deletion permissions were not tested with real credentials.
+The control ledger must not be cloned to a second active writer. Live R2 deletion acceptance is user-reported as passed, including stale ETag
+rejection; this is not remote writer fencing (see the release contract).
 
 Background work starts on a timer one minute after manager startup, outside the
 startup critical path. It checks eligibility hourly, with at most one attempt
@@ -234,5 +234,5 @@ successful backup confirms upload.
 A real R2 test requires explicit user credentials and an isolated safe data
 source. Native Mac acceptance must cover enable/disable, network interruption,
 restart, target replacement, backup status, cloud recovery previews, cancellation,
-confirmation, safety-copy retention and re-enable after restore. These are later
-gates; local file-store tests and CI cannot establish live R2 or native UI behavior.
+confirmation, safety-copy retention and re-enable after restore. The release contract records user-reported acceptance; local file-store tests
+and CI cannot independently establish live R2 or native UI behavior.
