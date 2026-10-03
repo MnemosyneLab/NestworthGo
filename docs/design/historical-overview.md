@@ -150,16 +150,25 @@ Native desktop visual checks must use a separately authorized synthetic profile.
 Automated DOM interaction tests are not visual acceptance. The first isolated
 native pass at `24b7fb7` confirmed the main financial/interaction paths but
 found an English narrow-window summary splitting the final decimal digit.
-The card-width layout and unbroken amount tokens address that defect;
-their native result remains pending. Horizontal access/fixed names and exact
-200% zoom also remain pending. Use an isolated synthetic profile and capture
-screenshots during the following checks before marking native UI acceptance
-complete:
+The isolated retest at `f14f42c` passed amount layout, continuous horizontal
+access and the fixed-name fallback. At nominal 200% native zoom (Actual Size
+then 20 effective Zoom In actions, without a visible percentage readback),
+opening a detail left its panel and Close beyond the visible right edge.
+Sheets now follow VisualViewport size and offsets while preserving zoom,
+scrolling and the dialog's focus/dismissal behavior. This shared positioning
+change still needs native verification, including a normal-width sheet outside
+Historical Overview. Previous native passes apply only to their tested commits.
+Use an isolated synthetic profile and capture screenshots during the following
+checks before marking native UI acceptance complete:
 
 - At wide desktop, a narrow window (about 375 px content width), and 200% zoom,
   compare two dates with long account/instrument names, large amounts and
   English/Chinese labels. Check horizontal scrolling, sticky names, clipping,
   summary wrapping and sheet scrolling/close-button reachability.
+- At native zoom, open detail before any corrective horizontal pan: the panel
+  and Close must be visible immediately. Pan and resize while open, dismiss
+  with Escape and Close, and confirm focus returns to the trigger. Restore
+  Actual Size, check a regular account sheet, then quit the QA app normally.
 - Tab from the date through shortcuts and comparison controls; open an account
   and cash/holding detail with Enter, close with Escape, and verify focus
   returns to its row. Exit and re-enter from both Overview and navigation.

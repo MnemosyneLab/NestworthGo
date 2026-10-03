@@ -26,6 +26,35 @@ const sizeClasses: Record<Size, string> = {
   xl: "max-w-3xl",
 };
 
+// Native WebView magnification can shrink and pan the visual viewport without
+// resizing the layout viewport. Anchor sheets to the visible bounds so their
+// right edge (including Close) doesn't end up outside the magnified window.
+// Keep the user's scale: these are CSS-pixel bounds, not an inverse zoom.
+function SheetViewport({ children }: { children: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement>(null);
+  React.useLayoutEffect(() => {
+    const element = ref.current;
+    const viewport = element?.ownerDocument.defaultView?.visualViewport;
+    if (!element || !viewport) return;
+    const update = () => {
+      element.style.left = `${viewport.offsetLeft}px`;
+      element.style.top = `${viewport.offsetTop}px`;
+      element.style.right = "auto";
+      element.style.bottom = "auto";
+      element.style.width = `${viewport.width}px`;
+      element.style.height = `${viewport.height}px`;
+    };
+    update();
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+    };
+  }, []);
+  return <div ref={ref} className="pointer-events-none fixed inset-0 z-50 overflow-hidden">{children}</div>;
+}
+
 function SheetContent({
   className,
   children,
@@ -39,21 +68,23 @@ function SheetContent({
   return (
     <BaseDialog.Portal>
       <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-foreground/35 backdrop-blur-[2px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
-      <BaseDialog.Popup
-        className={cn(
-          "fixed z-50 flex scroll-pb-24 scroll-pt-24 flex-col gap-4 overflow-y-auto overscroll-contain border-border bg-card p-6 shadow-lg outline-none transition-transform duration-200 ease-out",
-          sideClasses[side],
-          sizeClasses[size],
-          className,
-        )}
-        {...props}
-      >
-        {children}
-        <BaseDialog.Close disabled={closeDisabled} className="absolute right-4 top-4 z-20 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
-          <X className="size-4" />
-          <span className="sr-only">{t("common.close")}</span>
-        </BaseDialog.Close>
-      </BaseDialog.Popup>
+      <SheetViewport>
+        <BaseDialog.Popup
+          className={cn(
+            "pointer-events-auto absolute z-50 flex scroll-pb-24 scroll-pt-24 flex-col gap-4 overflow-y-auto overscroll-contain border-border bg-card p-6 shadow-lg outline-none transition-transform duration-200 ease-out",
+            sideClasses[side],
+            sizeClasses[size],
+            className,
+          )}
+          {...props}
+        >
+          {children}
+          <BaseDialog.Close disabled={closeDisabled} className="absolute right-4 top-4 z-20 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+            <X className="size-4" />
+            <span className="sr-only">{t("common.close")}</span>
+          </BaseDialog.Close>
+        </BaseDialog.Popup>
+      </SheetViewport>
     </BaseDialog.Portal>
   );
 }
