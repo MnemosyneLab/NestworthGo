@@ -31,8 +31,9 @@ function SheetContent({
   children,
   side = "right",
   size = "md",
+  closeDisabled = false,
   ...props
-}: React.ComponentProps<typeof BaseDialog.Popup> & { side?: Side; size?: Size }) {
+}: React.ComponentProps<typeof BaseDialog.Popup> & { side?: Side; size?: Size; closeDisabled?: boolean }) {
   const { t } = useTranslation();
 
   return (
@@ -48,7 +49,7 @@ function SheetContent({
         {...props}
       >
         {children}
-        <BaseDialog.Close className="absolute right-4 top-4 z-20 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+        <BaseDialog.Close disabled={closeDisabled} className="absolute right-4 top-4 z-20 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
           <X className="size-4" />
           <span className="sr-only">{t("common.close")}</span>
         </BaseDialog.Close>

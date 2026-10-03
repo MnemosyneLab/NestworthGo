@@ -245,7 +245,8 @@ export function AccountForm({
   };
 
   return (
-    <form id={formId} onSubmit={handleSubmit(submit)} className="flex flex-col gap-4" aria-label={t("accounts.formLabel")}>
+    <form id={formId} onSubmit={handleSubmit(submit)} aria-label={t("accounts.formLabel")}>
+      <fieldset disabled={isSubmitting} className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="account-name">{t("accounts.name")}</Label>
         <Input id="account-name" {...register("name")} />
@@ -391,6 +392,7 @@ export function AccountForm({
       {!hideSubmit && (
         <Button type="submit" disabled={isSubmitting || ownerIds.length === 0}>{submitLabel}</Button>
       )}
+      </fieldset>
     </form>
   );
 }

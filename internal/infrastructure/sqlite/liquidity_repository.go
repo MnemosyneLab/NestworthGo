@@ -310,9 +310,11 @@ func scanLiquidityReservation(row scanner) (domain.LiquidityReservation, error) 
 	if err != nil {
 		return domain.LiquidityReservation{}, err
 	}
-	source := domain.LiquiditySourceRef{Kind: parsedKind, AccountID: parsedAccount, Currency: &parsedCurrency}
-	if parsedKind == domain.SourceHolding {
-		source.Currency = nil
+	// The stored currency belongs to the reservation amount. Only cash
+	// sources use a currency as part of their identity.
+	source := domain.LiquiditySourceRef{Kind: parsedKind, AccountID: parsedAccount}
+	if parsedKind == domain.SourceAccountCash {
+		source.Currency = &parsedCurrency
 	}
 	if holdingID.Valid {
 		parsed, err := domain.ParseHoldingID(holdingID.String)

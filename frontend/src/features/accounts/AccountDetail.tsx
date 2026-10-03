@@ -1,6 +1,6 @@
 import { AnalyzeMenu } from "@/features/insights/AnalyzeMenu";
 import { metalUnitLabel } from "@/lib/preciousMetals";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -213,7 +213,10 @@ export function AccountDetail({
   const asOf = valuationUpdatedAt && valuationUpdatedAt > 0 ? t("accounts.asOf", { time: formatTimestamp(valuationUpdatedAt, settings.data?.timezone, i18n.language) }) : undefined;
   const institutionLabel = record.account.institutionId ? record.institutionName || t("accounts.unassignedInstitution") : t("accounts.unassignedInstitution");
 
+  const settingsSavePending = useRef(false);
   const saveSettings = async (request: CreateAccountRequest, extras: AccountFormExtras) => {
+    if (settingsSavePending.current) return;
+    settingsSavePending.current = true;
     setSettingsError(undefined);
     try {
       await updateAccount.mutateAsync({ id: record.account.id, request: toUpdateAccountRequest(request) });
@@ -222,6 +225,8 @@ export function AccountDetail({
       setAction(null);
     } catch (error) {
       setSettingsError(displayError(error, t("accounts.saveError")));
+    } finally {
+      settingsSavePending.current = false;
     }
   };
 
@@ -240,7 +245,7 @@ export function AccountDetail({
             <Button type="button" variant="outline" size="sm" onClick={onBack}>
               <ArrowLeft className="size-4" aria-hidden="true" /> {t("accounts.backToList")}
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={() => setAction("settings")}>
+            <Button type="button" variant="outline" size="sm" onClick={() => { setSettingsError(undefined); setAction("settings"); }}>
               {t("accounts.settings")}
             </Button>
           </>
@@ -520,11 +525,12 @@ export function AccountDetail({
       <Sheet
         open={action === "settings"}
         onOpenChange={(open) => {
+          if (settingsSavePending.current) return;
           if (!open) setAction(null);
           if (open) setSettingsError(undefined);
         }}
       >
-        <SheetContent size="lg">
+        <SheetContent size="lg" closeDisabled={updateAccount.isPending}>
           <SheetHeader className="shrink-0">
             <SheetTitle>{t("accounts.settings")}</SheetTitle>
           </SheetHeader>
@@ -546,7 +552,7 @@ export function AccountDetail({
             )}
             <div className="mt-6 border-t border-border pt-4">
               <AlertDialog>
-                <AlertDialogTrigger className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
+                <AlertDialogTrigger disabled={updateAccount.isPending} className={cn(buttonVariants({ variant: "outline", size: "sm" }))}>
                   {archived ? t("accounts.restore") : t("accounts.archive")}
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -557,6 +563,7 @@ export function AccountDetail({
                   <AlertDialogFooter>
                     <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
                     <AlertDialogAction
+                      disabled={updateAccount.isPending}
                       onClick={() =>
                         archiveAccount.mutate(
                           { id: record.account.id, archived: !archived },
@@ -578,7 +585,7 @@ export function AccountDetail({
             </div>
           </div>
           <SheetFooter className="shrink-0 border-t border-border">
-            <Button type="button" variant="outline" onClick={() => setAction(null)}>{t("common.cancel")}</Button>
+            <Button type="button" variant="outline" disabled={updateAccount.isPending} onClick={() => setAction(null)}>{t("common.cancel")}</Button>
             {!archived && <Button type="submit" form="account-settings-form" disabled={updateAccount.isPending || !settingsCanSubmit}>{updateAccount.isPending ? t("common.pending") : t("common.save")}</Button>}
           </SheetFooter>
         </SheetContent>

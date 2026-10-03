@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, within, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -1158,6 +1158,52 @@ describe("AccountsPage", () => {
       "acc-1",
       expect.objectContaining({ name: "Renamed" }),
     );
+  });
+
+  it.each(["success", "failure"])("keeps a pending settings %s in its original editing session", async (outcome) => {
+    let resolve!: (value: typeof emptyAccount) => void;
+    let reject!: (error: Error) => void;
+    updateAccount.mockReturnValueOnce(new Promise((yes, no) => { resolve = yes; reject = no; }));
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: /Checking/ }));
+    await user.click(await screen.findByRole("button", { name: "Account settings" }));
+    const form = await screen.findByRole("form", { name: "Account form" });
+    const name = within(form).getByLabelText("Name");
+    await user.clear(name);
+    await user.type(name, "Pending draft");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateAccount).toHaveBeenCalledOnce());
+    expect(name).toBeDisabled();
+    expect(within(form).getByLabelText("Include in net worth")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Archive" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(form).toBeInTheDocument();
+    // A repeated form submission must not enqueue another write.
+    fireEvent.submit(form);
+    expect(updateAccount).toHaveBeenCalledOnce();
+    await act(async () => {
+      if (outcome === "success") resolve(emptyAccount);
+      else reject(new Error("Temporary connection failure"));
+    });
+    if (outcome === "failure") {
+      expect(await screen.findByRole("alert")).toBeInTheDocument();
+      expect(name).toHaveValue("Pending draft");
+      expect(name).toBeEnabled();
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+    }
+    await waitFor(() => expect(screen.queryByRole("form", { name: "Account form" })).not.toBeInTheDocument());
+    await user.click(screen.getByRole("button", { name: "Account settings" }));
+    const reopened = await screen.findByRole("form", { name: "Account form" });
+    await user.clear(within(reopened).getByLabelText("Name"));
+    await user.type(within(reopened).getByLabelText("Name"), "New session");
+    expect(within(reopened).getByLabelText("Name")).toHaveValue("New session");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateAccount).toHaveBeenCalledTimes(2));
+    expect(updateAccount.mock.calls[1][1]).toMatchObject({ name: "New session" });
   });
 
   it("disables Save and does not update when every owner is unchecked", async () => {
