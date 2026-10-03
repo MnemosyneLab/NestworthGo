@@ -6,7 +6,8 @@ native/distribution gates.
 
 ## Current release
 
-- [v0.3.6 release contract](v0.3.6.md) — unreleased continuous backup and explicit recovery.
+- [v0.3.6 release contract](v0.3.6.md) — unreleased backup, recovery, retention and fixes.
+- [v0.3.6 release-note draft](v0.3.6-notes.md) — publication text pending final gates.
 
 ## Published history
 
