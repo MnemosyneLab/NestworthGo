@@ -5,6 +5,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { HistoricalOverviewPage } from "./HistoricalOverviewPage";
 import i18n from "@/i18n";
+import { formatAmount } from "@/lib/money";
 import type { HistoricalOverviewCell, HistoricalOverviewResult, HistoricalOverviewRow } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 
 const { read, origin } = vi.hoisted(() => ({ read: vi.fn(), origin: vi.fn() }));
@@ -31,6 +32,44 @@ beforeEach(() => {
   read.mockImplementation((date: string, compare: string) => Promise.resolve(result(date, compare)));
 });
 afterEach(() => vi.useRealTimers());
+
+it.each(["en", "zh-CN", "zh-TW"].flatMap(locale => ["light", "dark"].map(theme => ({ locale, theme }))))(
+  "keeps full monetary tokens accessible in single and comparison summaries ($locale, $theme)", async ({ locale, theme }) => {
+    await i18n.changeLanguage(locale);
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    read.mockImplementation((date: string, compare: string) => {
+      const data = result(date, compare);
+      data.left.assets = "1011800";
+      if (data.right) data.right.assets = "1061940";
+      if (data.change) data.change.assets = "50140";
+      return Promise.resolve(data);
+    });
+    try {
+      show();
+      await screen.findByRole("button", { name: "Bank" });
+      const checkAmount = (value: string, signed = false) => {
+        const amount = screen.getByTitle(`${value} CNY`);
+        expect(amount.textContent).toBe(`${signed ? "+" : ""}${formatAmount(value, "CNY")}`);
+        // DOM guards against the original break-words/three-fixed-columns
+        // contract. Native retest, not jsdom, establishes pixel-level fit.
+        expect(amount).toHaveClass("whitespace-nowrap");
+        const definition = amount.closest("dd")!;
+        expect(definition).toHaveAttribute("tabindex", "0");
+        expect(definition).toHaveClass("overflow-x-auto");
+        expect(definition).not.toHaveClass("break-words", "truncate");
+        expect(definition.closest("dl")).toHaveClass("grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))]");
+      };
+      checkAmount("1011800");
+      await userEvent.selectOptions(screen.getByLabelText(i18n.t("historicalOverview.compare")), "current");
+      await screen.findByRole("region", { name: i18n.t("historicalOverview.totalChange") });
+      checkAmount("1011800");
+      checkAmount("1061940");
+      checkAmount("50140", true);
+    } finally {
+      document.documentElement.classList.remove("dark");
+    }
+  },
+);
 
 function show() {
   const client = createTestQueryClient();

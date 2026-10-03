@@ -59,8 +59,16 @@ dates; prior rows and sheets are hidden while a new selection loads. The sheet
 supports Escape and returns focus to its opening row. Entering the view
 focuses its date; exiting restores focus to the current Overview entry even
 when the source page was unmounted. Expansion labels reflect expand/collapse
-state. The comparison table has a keyboard-focusable horizontal scroll region
-and a sticky account column for narrow windows. Labels are localized in
+state. Summary metrics choose their column count from card width rather than
+the viewport breakpoint; currency amounts never break inside a number. An
+oversized amount remains fully available in a keyboard-focusable scroll area,
+without truncation or ellipsis.
+
+The comparison table has a keyboard-focusable horizontal scroll region and
+explicit left/right controls when content overflows. Arrow keys scroll the
+region without stealing keys from row buttons. Account names stay fixed while
+the region is at least 360 px wide; smaller regions release the fixed column
+so it cannot cover the monetary columns. Labels are localized in
 English, Simplified Chinese and Traditional Chinese.
 
 ## Financial contract
@@ -137,8 +145,12 @@ Native desktop visual checks must use a separately authorized synthetic profile.
 
 ## Pending native visual acceptance
 
-Automated DOM interaction tests are not visual acceptance. No shared Mac UI
-was used for this follow-up. Use an isolated synthetic profile and capture
+Automated DOM interaction tests are not visual acceptance. The first isolated
+native pass at `24b7fb7` confirmed the main financial/interaction paths but
+found an English narrow-window summary splitting the final decimal digit.
+The card-width layout and unbroken amount tokens address that defect;
+their native result remains pending. Horizontal access/fixed names and exact
+200% zoom also remain pending. Use an isolated synthetic profile and capture
 screenshots during the following checks before marking native UI acceptance
 complete:
 

@@ -6,6 +6,7 @@ import { useHistoryOrigin } from "@/queries/history";
 import { useHistoricalOverview } from "@/queries/historicalOverview";
 import { ymdInTimeZone } from "@/features/insights/calendar";
 import { isClosedDate, previousMonthEnd, shiftCivilDate } from "./dates";
+import { ComparisonScroll } from "./ComparisonScroll";
 import { PageChrome } from "@/components/layout/PageChrome";
 import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageState";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,7 @@ function Amount({ value, currency, signed = false, exact = false }: {
   const { t } = useTranslation();
   if (value == null) return <span>{t("historicalOverview.unknown")}</span>;
   const sign = signed && value !== "0" && !value.startsWith("-") ? "+" : "";
-  return <span className="num" title={`${value} ${currency}`}>
+  return <span className="num whitespace-nowrap" title={`${value} ${currency}`}>
     {sign}{formatAmount(value, exact ? undefined : currency)}{exact ? ` ${currency}` : ""}
   </span>;
 }
@@ -71,16 +72,16 @@ function CellValue({ cell, currency }: { cell?: HistoricalOverviewCell | null; c
 
 function Summary({ state }: { state: HistoricalOverviewState }) {
   const { t } = useTranslation();
-  return <Card>
+  return <Card className="min-w-0">
     <CardHeader>
       <CardTitle>{state.current ? t("historicalOverview.current") : state.date}</CardTitle>
       <p className="text-xs text-muted-foreground">{t(state.current ? "historicalOverview.capturedCurrent" : "historicalOverview.closedSummary")}</p>
     </CardHeader>
     <CardContent className="flex flex-col gap-4">
-      <dl className="grid gap-3 sm:grid-cols-3">
-        {(["assets", "liabilities", "netWorth"] as const).map(key => <div key={key}>
+      <dl className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-3">
+        {(["assets", "liabilities", "netWorth"] as const).map(key => <div key={key} className="min-w-0">
           <dt className="text-xs text-muted-foreground">{t(`overview.${key}`)}</dt>
-          <dd className="mt-1 break-words text-lg font-semibold"><Amount value={state[key]} currency={state.currency} /></dd>
+          <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-1 overflow-x-auto text-lg font-semibold focus-visible:outline-primary"><Amount value={state[key]} currency={state.currency} /></dd>
         </div>)}
       </dl>
       {!state.complete && <p role="status" className="text-sm text-warning-foreground">
@@ -107,13 +108,13 @@ function Summary({ state }: { state: HistoricalOverviewState }) {
 
 function TotalsChange({ change, currency }: { change: HistoricalOverviewTotalsChange; currency: string }) {
   const { t } = useTranslation();
-  return <section aria-label={t("historicalOverview.totalChange")} className="rounded-xl border border-border bg-card p-4">
+  return <section aria-label={t("historicalOverview.totalChange")} className="min-w-0 rounded-xl border border-border bg-card p-4">
     <h2 className="text-sm font-semibold">{t("historicalOverview.totalChange")}</h2>
     <p className="mt-1 text-xs text-muted-foreground">{t("historicalOverview.deltaNote")}</p>
-    <dl className="mt-3 grid gap-3 sm:grid-cols-3">
-      {(["assets", "liabilities", "netWorth"] as const).map(key => <div key={key}>
+    <dl className="mt-3 grid grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] gap-3">
+      {(["assets", "liabilities", "netWorth"] as const).map(key => <div key={key} className="min-w-0">
         <dt className="text-xs text-muted-foreground">{t(`overview.${key}`)}</dt>
-        <dd className="mt-1 break-words font-semibold"><Amount value={change[key]} currency={currency} signed /></dd>
+        <dd tabIndex={0} aria-label={t(`overview.${key}`)} className="mt-1 overflow-x-auto font-semibold focus-visible:outline-primary"><Amount value={change[key]} currency={currency} signed /></dd>
       </div>)}
     </dl>
   </section>;
@@ -275,18 +276,17 @@ export function HistoricalOverviewPage({ initialDate, onExit }: { initialDate?: 
         {accounts.length === 0
           ? <EmptyState title={t(changesOnly && data.right ? "historicalOverview.noChanges" : "historicalOverview.noAccounts")} />
           : <>
-            <p className="text-xs text-muted-foreground md:hidden">{t("historicalOverview.scrollHint")}</p>
-            <div role="region" aria-label={t("historicalOverview.tableRegion")} tabIndex={0} className="min-w-0 overflow-x-auto rounded-xl border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
+            <ComparisonScroll>
               <table className={`w-full text-sm ${data.right ? "min-w-[48rem]" : "min-w-[32rem]"}`}>
                 <caption className="sr-only">{t("historicalOverview.table")}</caption>
                 <thead className="bg-muted/60"><tr>
-                  <th scope="col" className="sticky left-0 z-10 w-52 max-w-52 bg-card p-3 text-left">{t("historicalOverview.account")}</th>
+                  <th scope="col" data-account-column className="sticky left-0 z-10 w-52 max-w-52 bg-card p-3 text-left">{t("historicalOverview.account")}</th>
                   <th scope="col" className="p-3 text-right">{data.left.date}</th>
                   {data.right && <><th scope="col" className="p-3 text-right">{data.right.current ? t("historicalOverview.current") : data.right.date}</th><th scope="col" className="p-3 text-right">{t("historicalOverview.change")}</th></>}
                 </tr></thead>
                 <tbody>{accounts.map(account => <Fragment key={account.key}>
                   <tr className="border-t border-border bg-card">
-                    <th scope="row" className="sticky left-0 z-10 max-w-52 bg-card p-3 text-left">
+                    <th scope="row" data-account-column className="sticky left-0 z-10 max-w-52 bg-card p-3 text-left">
                       <div className="flex items-center gap-2">
                         <Button variant="ghost" size="icon" aria-label={t(expanded.has(account.key) ? "historicalOverview.collapse" : "historicalOverview.expand", { name: account.name })} aria-expanded={expanded.has(account.key)} onClick={() => toggleAccount(account.key)}>
                           {expanded.has(account.key) ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
@@ -299,7 +299,7 @@ export function HistoricalOverviewPage({ initialDate, onExit }: { initialDate?: 
                     {data.right && <><td className="p-3"><CellValue cell={account.right} currency={data.right.currency} /></td><td className="p-3"><RowChanges row={account} currency={data.left.currency} /></td></>}
                   </tr>
                   {expanded.has(account.key) && (data.rows ?? []).filter(row => row.parentKey === account.key && (!changesOnly || !data.right || row.changed)).map(row => <tr key={row.key} className="border-t border-border/60">
-                    <th scope="row" className="sticky left-0 z-10 max-w-52 bg-card py-3 pl-12 pr-3 text-left font-normal">
+                    <th scope="row" data-account-column className="sticky left-0 z-10 max-w-52 bg-card py-3 pl-12 pr-3 text-left font-normal">
                       <Button variant="link" className="h-auto whitespace-normal [overflow-wrap:anywhere] p-0 text-left" onClick={event => openDetail(row.key, event.currentTarget)}>{rowLabel(row, t)}</Button>
                     </th>
                     <td className="p-3"><CellValue cell={row.left} currency={data.left.currency} /></td>
@@ -307,7 +307,7 @@ export function HistoricalOverviewPage({ initialDate, onExit }: { initialDate?: 
                   </tr>)}
                 </Fragment>)}</tbody>
               </table>
-            </div>
+            </ComparisonScroll>
           </>}
         <Sheet open={Boolean(selected)} onOpenChange={open => { if (!open) setSelectedKey(null); }}>
           <SheetContent finalFocus={() => detailTrigger.current?.isConnected ? detailTrigger.current : dateInput.current}>
