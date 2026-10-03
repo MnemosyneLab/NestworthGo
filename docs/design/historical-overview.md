@@ -66,7 +66,9 @@ without truncation or ellipsis.
 
 The comparison table has a keyboard-focusable horizontal scroll region and
 explicit left/right controls when content overflows. Arrow keys scroll the
-region without stealing keys from row buttons. Account names stay fixed while
+region without stealing keys from row buttons. Each step overlaps the previous
+unobscured monetary area, subtracting the measured fixed-column width so no
+content is skipped behind account names. Account names stay fixed while
 the region is at least 360 px wide; smaller regions release the fixed column
 so it cannot cover the monetary columns. Labels are localized in
 English, Simplified Chinese and Traditional Chinese.

@@ -27,7 +27,13 @@ export function ComparisonScroll({ children }: { children: ReactNode }) {
   const scroll = (direction: -1 | 1) => {
     const element = viewport.current;
     if (!element) return;
-    element.scrollLeft = Math.max(0, Math.min(element.scrollWidth - element.clientWidth, element.scrollLeft + direction * element.clientWidth * 0.75));
+    const column = element.querySelector<HTMLElement>("[data-account-column]");
+    const occludedWidth = column && getComputedStyle(column).position === "sticky"
+      ? column.getBoundingClientRect().width : 0;
+    // Overlap the visible monetary area, not the full viewport: fixed names
+    // cover part of each scroll position. Measuring also handles resized text.
+    const step = Math.max(1, (element.clientWidth - occludedWidth) * 0.75);
+    element.scrollLeft = Math.max(0, Math.min(element.scrollWidth - element.clientWidth, element.scrollLeft + direction * step));
     measure();
   };
   return <div className="min-w-0">
