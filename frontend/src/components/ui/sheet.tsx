@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 // changes the popup's position and enter/exit animation.
 const Sheet = BaseDialog.Root;
 const SheetTrigger = BaseDialog.Trigger;
+const SheetCloseDisabledContext = React.createContext(false);
 
 type Side = "right" | "left";
 type Size = "md" | "lg" | "xl";
@@ -63,8 +64,6 @@ function SheetContent({
   closeDisabled = false,
   ...props
 }: React.ComponentProps<typeof BaseDialog.Popup> & { side?: Side; size?: Size; closeDisabled?: boolean }) {
-  const { t } = useTranslation();
-
   return (
     <BaseDialog.Portal>
       <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-foreground/35 backdrop-blur-[2px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
@@ -78,11 +77,9 @@ function SheetContent({
           )}
           {...props}
         >
-          {children}
-          <BaseDialog.Close disabled={closeDisabled} className="absolute right-4 top-4 z-20 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50">
-            <X className="size-4" />
-            <span className="sr-only">{t("common.close")}</span>
-          </BaseDialog.Close>
+          <SheetCloseDisabledContext.Provider value={closeDisabled}>
+            {children}
+          </SheetCloseDisabledContext.Provider>
         </BaseDialog.Popup>
       </SheetViewport>
     </BaseDialog.Portal>
@@ -91,9 +88,20 @@ function SheetContent({
 
 /** Header stays pinned while long sheet bodies scroll underneath. The negative
  * sticky offset cancels the popup's p-6, which sticky positioning otherwise
- * insets by, pushing the header over the first field. */
-function SheetHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("sticky -top-6 z-10 -mx-6 -mt-6 flex flex-col gap-1.5 bg-card px-6 pb-3 pr-12 pt-6", className)} {...props} />;
+ * insets by, pushing the header over the first field. Keep Close in the same
+ * painted, non-shrinking header, in normal flow: a separately positioned child
+ * of the scrolling popup can disappear under native WebView magnification.
+ * Every sheet must include a SheetHeader with its accessible title. */
+function SheetHeader({ className, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  const { t } = useTranslation();
+  const closeDisabled = React.useContext(SheetCloseDisabledContext);
+  return <div className={cn("sticky -top-6 z-10 -mx-6 -mt-6 flex shrink-0 items-start gap-3 bg-card px-6 pb-3 pt-6", className)} {...props}>
+    <div className="flex min-w-0 flex-1 flex-col gap-1.5">{children}</div>
+    <BaseDialog.Close disabled={closeDisabled} className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50">
+      <X className="size-4" />
+      <span>{t("common.close")}</span>
+    </BaseDialog.Close>
+  </div>;
 }
 
 /** Footer actions stay reachable at the bottom of long forms. */

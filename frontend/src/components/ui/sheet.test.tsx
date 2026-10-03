@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "./sheet";
@@ -99,4 +99,51 @@ it("removes both viewport subscriptions when the portal is disposed", async () =
   expect(listeners).toHaveLength(2);
   view.unmount();
   for (const [event, handler] of listeners) expect(remove).toHaveBeenCalledWith(event, handler);
+});
+
+it("keeps the visible close affordance in the non-shrinking sticky title region while content scrolls", async () => {
+  const visible = viewport(360, 240, 80, 20);
+  render(<Example />);
+  const trigger = screen.getByRole("button", { name: "Open details" });
+  await userEvent.click(trigger);
+  const panel = screen.getByRole("dialog");
+  const close = screen.getByRole("button", { name: "Close" });
+  const header = close.parentElement!;
+  expect(within(header).getByRole("heading", { name: "Account details" })).toBeInTheDocument();
+  expect(header).toHaveClass("sticky", "shrink-0", "items-start");
+  expect(close).toHaveClass("inline-flex", "min-h-8", "shrink-0");
+  expect(close).not.toHaveClass("absolute");
+  expect(close.querySelector("svg")).toHaveClass("size-4");
+  expect(within(close).getByText("Close")).not.toHaveClass("sr-only");
+  expect(screen.getAllByRole("button", { name: "Close" })).toHaveLength(1);
+  act(() => {
+    panel.scrollTop = 500;
+    fireEvent.scroll(panel);
+    Object.assign(visible, { width: 300, offsetLeft: 140 });
+    visible.dispatchEvent(new Event("resize"));
+  });
+  // This is a structural regression guard, not a native pixel assertion.
+  expect(close.parentElement).toBe(header);
+  expect(header.parentElement).toBe(panel);
+  expect(close).toBeVisible();
+  await userEvent.click(close);
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() => expect(trigger).toHaveFocus());
+});
+
+it.each(["explicit", "autofocus"])("preserves %s form focus and propagates closeDisabled to the header", async focus => {
+  const form = (disabled: boolean) => <Sheet defaultOpen>
+    <SheetContent closeDisabled={disabled} initialFocus={focus === "explicit" ? () => document.getElementById("account-name") : undefined}>
+      <SheetHeader><SheetTitle>New account</SheetTitle><SheetDescription>Account form</SheetDescription></SheetHeader>
+      <label>Name<input id="account-name" autoFocus={focus === "autofocus"} /></label>
+    </SheetContent>
+  </Sheet>;
+  const view = render(form(false));
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "Name" })).toHaveFocus());
+  view.rerender(form(true));
+  expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+  view.rerender(form(false));
+  expect(screen.getByRole("button", { name: "Close" })).toBeEnabled();
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 });

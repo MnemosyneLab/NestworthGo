@@ -155,9 +155,17 @@ access and the fixed-name fallback. At nominal 200% native zoom (Actual Size
 then 20 effective Zoom In actions, without a visible percentage readback),
 opening a detail left its panel and Close beyond the visible right edge.
 Sheets now follow VisualViewport size and offsets while preserving zoom,
-scrolling and the dialog's focus/dismissal behavior. This shared positioning
-change still needs native verification, including a normal-width sheet outside
-Historical Overview. Previous native passes apply only to their tested commits.
+scrolling and the dialog's focus/dismissal behavior. The `ffb4072` native retest
+confirmed visible panel content and viewport tracking, but the separate
+absolute-positioned Close remained invisible even after scrolling to the top.
+The sticky title region remained visible. Close now belongs to that same
+non-shrinking header in normal flow, with a visible text label and icon, instead
+of the scrolling popup's separate positioned layer. Native evidence does not
+expose the old button's paint bounds;
+the precise WebView clipping/compositing mechanism is still unverified. This
+structural correction needs a new native pass that visibly clicks Close at zoom
+and after body scrolling, alongside keyboard and normal-form regression checks.
+Previous native passes apply only to their tested commits.
 Use an isolated synthetic profile and capture screenshots during the following
 checks before marking native UI acceptance complete:
 
