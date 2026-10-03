@@ -197,14 +197,14 @@ package check.
 
 ## Release artifacts and isolated Mac acceptance
 
-Run the full gate on the exact reviewed source commit before packaging. The
-root release task runs the user-skill checker and installer tests, creates the
+Use the exact reviewed source commit with passing CI before packaging. When
+unchanged source already passed CI and native acceptance is user-reported, do
+not repeat the full test/race suite solely for packaging. Run targeted package
+verification and the archive-payload launch checks below. The root release task runs the user-skill checker and installer tests, creates the
 standalone skill bundle/checksum, then builds the app and arm64 DMG/ZIP on macOS.
 
     git status --short
     git rev-parse HEAD
-    wails3 task check
-    GOCACHE=/tmp/nestworth-go-0.3.6 go test -race ./...
     wails3 task package:release
 
 Default outputs:
@@ -223,36 +223,90 @@ with ditto's resource-fork, extended-attribute and ACL preservation options.
 Neither archive includes a household database, settings file, logs, credentials
 or user profile. Do not place local data under dist.
 
-Run a launch smoke directly from the packaged app with fresh temporary data.
-Direct executable launch passes the environment variables used by the app;
-do not use an existing installation or the default user data path.
+Archive verification alone is not launch acceptance. The package task's
+identity, payload, architecture and signature checks remain required; launch
+and relaunch **each archive's actual payload** afterward. Close any running
+Nestworth process first. Use synthetic test households, leave R2/MCP disabled,
+and never point these checks at existing user data. These are instructions for
+later Mac execution, not a claim that Mac acceptance was run here.
 
+Run the following in one Bash session, stopping on any failed command. Copy the
+read-only DMG payload with `ditto` before detaching, and extract the ZIP with
+`ditto` to preserve metadata. Do not launch `dist/macos/Nestworth.app` in place
+of either archive's payload.
+
+    set -e
     SMOKE_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/nestworth-v0.3.6.XXXXXX")"
-    mkdir -p "$SMOKE_ROOT/dmg"
+    mkdir -p "$SMOKE_ROOT/mount" "$SMOKE_ROOT/dmg" "$SMOKE_ROOT/zip" "$SMOKE_ROOT/dmg-data" "$SMOKE_ROOT/zip-data"
     APP="dist/macos/Nestworth.app"
     DMG="dist/macos/Nestworth-0.3.6-arm64.dmg"
-    hdiutil attach -readonly -nobrowse -mountpoint "$SMOKE_ROOT/dmg" "$DMG"
-    codesign --verify --deep --strict "$SMOKE_ROOT/dmg/Nestworth.app"
-    DMG_APP="$SMOKE_ROOT/dmg/Nestworth.app"
-    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$DMG_APP/Contents/Info.plist")" = "com.nestworth.app"
-    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$DMG_APP/Contents/Info.plist")" = "0.3.6"
-    test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$DMG_APP/Contents/Info.plist")" = "7"
-    test "$(lipo -archs "$DMG_APP/Contents/MacOS/Nestworth")" = "arm64"
-    codesign --verify --deep --strict "$DMG_APP"
-    hdiutil detach "$SMOKE_ROOT/dmg"
-    NESTWORTH_DATABASE_PATH="$SMOKE_ROOT/household.db" \
-    NESTWORTH_SETTINGS_PATH="$SMOKE_ROOT/settings.json" \
-    "$APP/Contents/MacOS/Nestworth"
+    ZIP="dist/macos/Nestworth-0.3.6-arm64.zip"
+    hdiutil attach -readonly -nobrowse -mountpoint "$SMOKE_ROOT/mount" "$DMG"
+    codesign --verify --deep --strict "$SMOKE_ROOT/mount/Nestworth.app"
+    /usr/bin/ditto --rsrc --extattr --acl "$SMOKE_ROOT/mount/Nestworth.app" "$SMOKE_ROOT/dmg/Nestworth.app"
+    hdiutil detach "$SMOKE_ROOT/mount"
+    unzip -tq "$ZIP"
+    /usr/bin/ditto -x -k "$ZIP" "$SMOKE_ROOT/zip"
 
-Quit the app, launch the same executable again with the same temporary
-database/settings paths, and verify the test household persists. Close the app
-before removing only this run's temporary directory:
+Verify both copied/extracted bundles, retaining the payload checks already
+performed by `wails3 task darwin:verify:package`:
+
+    for ARCHIVE_APP in "$SMOKE_ROOT/dmg/Nestworth.app" "$SMOKE_ROOT/zip/Nestworth.app"; do
+      test -d "$ARCHIVE_APP"
+      test ! -L "$ARCHIVE_APP"
+      test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$ARCHIVE_APP/Contents/Info.plist")" = "com.nestworth.app"
+      test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$ARCHIVE_APP/Contents/Info.plist")" = "0.3.6"
+      test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$ARCHIVE_APP/Contents/Info.plist")" = "7"
+      test "$(lipo -archs "$ARCHIVE_APP/Contents/MacOS/Nestworth")" = "arm64"
+      for PAYLOAD in Contents/MacOS/Nestworth Contents/Info.plist Contents/Resources/icon.icns; do
+        test ! -L "$ARCHIVE_APP/$PAYLOAD"
+        cmp -s "$APP/$PAYLOAD" "$ARCHIVE_APP/$PAYLOAD"
+      done
+      if [ -f "$APP/Contents/Resources/Assets.car" ]; then
+        test ! -L "$ARCHIVE_APP/Contents/Resources/Assets.car"
+        cmp -s "$APP/Contents/Resources/Assets.car" "$ARCHIVE_APP/Contents/Resources/Assets.car"
+      else
+        test ! -e "$ARCHIVE_APP/Contents/Resources/Assets.car"
+      fi
+      codesign --verify --deep --strict "$ARCHIVE_APP"
+    done
+
+Direct executable launch passes the environment overrides consumed by
+`defaultDatabasePath` in `cmd/nestworth/main.go` and `settings.DefaultStore` in
+`internal/settings/settings.go`; these are environment variables, not CLI flags.
+Settings also derives diagnostics from the isolated settings location, while
+backup configuration lives beside the isolated database.
+
+Launch the DMG copy, create a synthetic household, then quit normally. Run the
+same command again and verify that household persists; quit before continuing:
+
+    NESTWORTH_DATABASE_PATH="$SMOKE_ROOT/dmg-data/household.db" \
+    NESTWORTH_SETTINGS_PATH="$SMOKE_ROOT/dmg-data/settings.json" \
+    "$SMOKE_ROOT/dmg/Nestworth.app/Contents/MacOS/Nestworth"
+
+    NESTWORTH_DATABASE_PATH="$SMOKE_ROOT/dmg-data/household.db" \
+    NESTWORTH_SETTINGS_PATH="$SMOKE_ROOT/dmg-data/settings.json" \
+    "$SMOKE_ROOT/dmg/Nestworth.app/Contents/MacOS/Nestworth"
+
+Launch the ZIP extraction with its **separate** temporary database/settings.
+Create a different synthetic household, quit, relaunch with the same ZIP paths,
+and verify persistence; quit normally:
+
+    NESTWORTH_DATABASE_PATH="$SMOKE_ROOT/zip-data/household.db" \
+    NESTWORTH_SETTINGS_PATH="$SMOKE_ROOT/zip-data/settings.json" \
+    "$SMOKE_ROOT/zip/Nestworth.app/Contents/MacOS/Nestworth"
+
+    NESTWORTH_DATABASE_PATH="$SMOKE_ROOT/zip-data/household.db" \
+    NESTWORTH_SETTINGS_PATH="$SMOKE_ROOT/zip-data/settings.json" \
+    "$SMOKE_ROOT/zip/Nestworth.app/Contents/MacOS/Nestworth"
+
+Record source SHA, archive checksums and each payload's launch/relaunch result.
+Only after both apps exit, remove this run's temporary directory. If a check
+failed while the DMG was mounted, detach that mount before cleanup:
 
     rm -rf "$SMOKE_ROOT"
 
-The task verifies the ZIP by extracting it to its own temporary directory and
-checking the extracted app's identity, version, build, arm64 architecture, and
-signature. Verify downloadable manifests separately:
+Verify downloadable manifests separately:
 
     (cd dist/macos && shasum -a 256 -c SHA256SUMS)
     (cd dist/skills && shasum -a 256 -c nestworth-skill.tar.gz.sha256)
