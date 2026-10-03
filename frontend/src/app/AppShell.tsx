@@ -20,6 +20,7 @@ import { PageChromeProvider } from "@/components/layout/PageChrome";
 /** Each destination keeps its own hue so the sidebar reads as colorful landmarks, not a gray list. */
 const PAGE_TONE: Record<PageId, Tone> = {
   overview: 8,
+  "historical-overview": 6,
   accounts: 1,
   "available-funds": 2,
   portfolio: 5,

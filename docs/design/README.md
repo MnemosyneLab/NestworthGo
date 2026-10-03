@@ -8,6 +8,7 @@ the startup/onboarding gates are defined by
 
 ## Maintained contracts
 
+- [Historical overview](historical-overview.md) — Independent read-only reconstruction, date comparisons, missing-data semantics and capture boundaries. Desktop visual acceptance is pending.
 - [Account Container Interaction](account-container-interaction.md) — Account creation, detail views, actions, state handling, and accessibility behavior.
 - [History and related-form defaults](history-and-form-defaults-ux.md) — Current history, picker, calculation, quote, timezone, and form-state behavior.
 - [Backup, restore, and JSON export](backup-restore-and-json-export.md) — Implemented local backup, restore, and complete structured data export.
@@ -26,6 +27,7 @@ The desktop shell exposes these top-level destinations:
 - Available funds;
 - Portfolio, with Overview and Holdings tabs;
 - History;
+- Historical overview;
 - Return Analysis;
 - Asset Changes;
 - Directory, containing Members, Institutions, and Groups;

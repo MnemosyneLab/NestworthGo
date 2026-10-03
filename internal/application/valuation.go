@@ -260,9 +260,11 @@ func accountBaseAmount(account domain.AccountValuation) decimal.Decimal {
 }
 
 type valuedAccount struct {
-	model     domain.AccountValuation
-	baseExact decimal.Decimal
-	hasBase   bool
+	// Aligned with model.Components before account-level missing-input deduplication.
+	componentMissing [][]domain.MissingInputView
+	model            domain.AccountValuation
+	baseExact        decimal.Decimal
+	hasBase          bool
 }
 
 func (v *ValuationService) evaluate(snapshot domain.PortfolioSnapshot) ([]valuedAccount, []domain.MissingInputView, error) {
@@ -302,11 +304,13 @@ func (v *ValuationService) evaluate(snapshot domain.PortfolioSnapshot) ([]valued
 
 func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, record domain.AccountRecord, instruments map[domain.InstrumentID]domain.Instrument, holdings []domain.Holding, cash []domain.AccountCashValue) (valuedAccount, error) {
 	model := domain.AccountValuation{Account: record.Account, Ownership: record.Ownership, InstitutionName: record.InstitutionName, GroupName: record.GroupName, Complete: true}
+	var componentMissing [][]domain.MissingInputView
 	baseTotal := decimal.Zero
 	hasBase := false
 	add := func(component domain.ValuationComponent, missing []domain.MissingInputView) {
 		component.StateObservationID = record.StateObservationID
 		model.Components = append(model.Components, component)
+		componentMissing = append(componentMissing, missing)
 		model.MissingInputs = append(model.MissingInputs, missing...)
 		if !component.Available || len(missing) > 0 {
 			model.Complete = false
@@ -376,7 +380,7 @@ func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, recor
 		}
 		model.BaseValue = &view
 	}
-	return valuedAccount{model: model, baseExact: baseTotal, hasBase: hasBase}, nil
+	return valuedAccount{model: model, baseExact: baseTotal, hasBase: hasBase, componentMissing: componentMissing}, nil
 }
 
 func (v *ValuationService) valueHolding(snapshot domain.PortfolioSnapshot, accountID domain.AccountID, holding domain.Holding, instrument domain.Instrument) (domain.ValuationComponent, []domain.MissingInputView, error) {
