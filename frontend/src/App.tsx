@@ -57,14 +57,15 @@ function App() {
   const [liquidityProductId, setLiquidityProductId] = useState<string | undefined>();
   const [liquidityAccountId, setLiquidityAccountId] = useState<string | undefined>();
   const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters }>>([]);
-  const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null } | null>(null);
+  const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string } | null>(null);
   useEffect(() => {
     const position = restorePosition.current;
     restorePosition.current = null;
     const frame = requestAnimationFrame(() => {
       const main = document.getElementById("main-content");
       if (main) main.scrollTop = position?.scroll ?? 0;
-      if (position?.focus?.isConnected) position.focus.focus({ preventScroll: true });
+      const focus = position?.focus?.isConnected ? position.focus : document.getElementById(position?.focusId ?? position?.focus?.id ?? "");
+      focus?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [activePageId, trail.length]);
@@ -227,7 +228,10 @@ function App() {
           <SettingsPage />
         </WorkspaceLazy>
       )}
-      {activePageId === "historical-overview" && <WorkspaceLazy><HistoricalOverviewPage key={historicalDate ?? "default"} initialDate={historicalDate} onExit={() => trail.length > 0 ? back() : handleNavigate("overview")} /></WorkspaceLazy>}
+      {activePageId === "historical-overview" && <WorkspaceLazy><HistoricalOverviewPage key={historicalDate ?? "default"} initialDate={historicalDate} onExit={() => {
+        if (trail.length > 0) back();
+        else { restorePosition.current = { scroll: 0, focus: null, focusId: "open-historical-overview" }; handleNavigate("overview"); }
+      }} /></WorkspaceLazy>}
       {activePageId === "history" && (
         <WorkspaceLazy>
           <HistoryPage navigationFilters={historyFilters} />

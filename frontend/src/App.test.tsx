@@ -470,9 +470,11 @@ it("opens historical overview from Overview, removes current queries and exits b
   await waitFor(() => expect(queryClient.getQueryCache().find({ queryKey: ["overview"] })?.getObserversCount() ?? 0).toBe(0));
   await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.exit") }));
   expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+  await waitFor(() => expect(document.getElementById("open-historical-overview")).toHaveFocus());
   // The independent navigation entry also opens and exits without a trail.
   await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.historicalOverview") }));
   await screen.findByLabelText(i18n.t("historicalOverview.date"));
   await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.exit") }));
   expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+  await waitFor(() => expect(document.getElementById("open-historical-overview")).toHaveFocus());
 });

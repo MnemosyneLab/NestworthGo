@@ -29,11 +29,22 @@ comparison is offered.
 ## Interaction
 
 - Enter through Overview or the independent Insights navigation destination.
-- Pick a closed date, step by day, or return to the last month end.
+- Pick a closed date, step by day, or jump to the last month end, last closed
+  day or history origin. The month-end shortcut is unavailable when that date
+  predates retained history. Clearing either date leaves it visibly invalid and
+  prevents a read; it never silently selects a default or drops comparison.
+  Date-label arithmetic is independent of the browser timezone.
 - Optionally compare with another closed date or a captured current state.
+  Show backend-computed changes in assets, liabilities and net worth, with
+  unknown deltas kept separate from known zero. Positive signs indicate
+  direction, not investment performance. An identical-date comparison is
+  explained explicitly.
 - Expand accounts into balance, cash-currency, and holding rows; inspect debt
   balances, native and base amounts, quantities, source dates and missing inputs
-  in an independent read-only detail sheet.
+  in an independent read-only detail sheet. Holding/cash detail retains its
+  parent account, date, household timezone and capture/cutoff timestamps.
+  Source times are localized to that timezone with the exact UTC instant
+  retained in the time element and tooltip.
 - Filter to changed balances, quantities, inclusion/status or availability.
   A repeated manual confirmation or quote revision with identical values does
   not alone count as a balance change.
@@ -45,7 +56,11 @@ Current workspace pages are unmounted while this view is active, including
 pages previously retained for navigation. Historical detail never mounts a
 current account or holding editor. Pending responses are keyed to the selected
 dates; prior rows and sheets are hidden while a new selection loads. The sheet
-supports Escape, and expansion is keyboard accessible. Labels are localized in
+supports Escape and returns focus to its opening row. Entering the view
+focuses its date; exiting restores focus to the current Overview entry even
+when the source page was unmounted. Expansion labels reflect expand/collapse
+state. The comparison table has a keyboard-focusable horizontal scroll region
+and a sticky account column for narrow windows. Labels are localized in
 English, Simplified Chinese and Traditional Chinese.
 
 ## Financial contract
@@ -67,11 +82,13 @@ facts and show their source date; that is not a fresh market appraisal. For an
 origin balance, the source date is the starting point, not a claimed original
 prehistory appraisal date.
 
-Differences are right minus left. Base differences require complete amounts on
+Differences are right minus left. Household total deltas and row deltas are
+computed in Go. Base differences require complete amounts on
 both sides. Native differences require the same currency and known native
 amounts; they can remain available when FX is missing. No delta treats absence
-as a zero balance. A balance difference is not a return or contribution
-attribution. Fixed-FX comparisons and new return decomposition are outside scope.
+as a zero balance; such rows say “Not comparable.” A balance difference is not
+a return or contribution attribution. Fixed-FX comparisons and new return
+decomposition are outside scope.
 
 Allocation shows included valued assets by current classification and native
 currency, measured in base currency. Debt is separate. Shares use the known
@@ -117,3 +134,28 @@ interaction, loading/error/empty states, navigation exit and localization.
 
 No production migration or data mutation is needed to evaluate this feature.
 Native desktop visual checks must use a separately authorized synthetic profile.
+
+## Pending native visual acceptance
+
+Automated DOM interaction tests are not visual acceptance. No shared Mac UI
+was used for this follow-up. Use an isolated synthetic profile and capture
+screenshots during the following checks before marking native UI acceptance
+complete:
+
+- At wide desktop, a narrow window (about 375 px content width), and 200% zoom,
+  compare two dates with long account/instrument names, large amounts and
+  English/Chinese labels. Check horizontal scrolling, sticky names, clipping,
+  summary wrapping and sheet scrolling/close-button reachability.
+- Tab from the date through shortcuts and comparison controls; open an account
+  and cash/holding detail with Enter, close with Escape, and verify focus
+  returns to its row. Exit and re-enter from both Overview and navigation.
+- Clear either date, choose the same date on both sides, step quickly between
+  dates, and use the origin/last-closed shortcuts. Check that stale rows never
+  appear under a new date, invalid dates show no totals, and changes-only can
+  recover from an empty result.
+- Use manual values, missing prices/FX, an absent earlier account, archived
+  holdings and offsetting movements. Inspect native/base amounts, unknown
+  total changes, source timestamps and parent-account context in detail.
+- Compare captured current state, refresh twice quickly, and verify both sides
+  update together. Exercise a failed read and retry; old totals must not remain
+  visible as a successful fresh read.

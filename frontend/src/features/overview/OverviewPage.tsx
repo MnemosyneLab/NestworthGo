@@ -170,7 +170,7 @@ export function OverviewPage({
   const health = useMarketDataHealth();
   const healthKnown = Boolean(health.data) && !health.isError && !health.isPending;
   const healthIssueCount = health.data?.issueCount ?? 0;
-  const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} actions={navigation && <Button variant="outline" onClick={() => navigation.open({ page: "historical-overview" })}>{t("historicalOverview.title")}</Button>} />;
+  const pageChrome = <PageChrome pageId="overview" title={t("nav.overview")} actions={navigation && <Button id="open-historical-overview" variant="outline" onClick={() => navigation.open({ page: "historical-overview" })}>{t("historicalOverview.title")}</Button>} />;
 
   if (overview.isLoading) {
     return <>{pageChrome}<LoadingState label={t("ui.state.loadingPage")} /></>;

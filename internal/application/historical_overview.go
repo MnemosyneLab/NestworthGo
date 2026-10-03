@@ -13,15 +13,24 @@ import (
 // HistoricalOverviewResult is a presentation read model, not a saved snapshot.
 // Amounts are exact decimal strings. Nil means unknown, never zero.
 type HistoricalOverviewResult struct {
-	Timezone        string                   `json:"timezone"`
-	OriginDate      string                   `json:"originDate"`
-	LastClosedDate  string                   `json:"lastClosedDate"`
-	CapturedAt      string                   `json:"capturedAt"`
-	InputGeneration int                      `json:"inputGeneration"`
-	ResolverPolicy  string                   `json:"resolverPolicy"`
-	Left            HistoricalOverviewState  `json:"left"`
-	Right           *HistoricalOverviewState `json:"right"`
-	Rows            []HistoricalOverviewRow  `json:"rows"`
+	Timezone        string                          `json:"timezone"`
+	OriginDate      string                          `json:"originDate"`
+	LastClosedDate  string                          `json:"lastClosedDate"`
+	CapturedAt      string                          `json:"capturedAt"`
+	InputGeneration int                             `json:"inputGeneration"`
+	ResolverPolicy  string                          `json:"resolverPolicy"`
+	Left            HistoricalOverviewState         `json:"left"`
+	Right           *HistoricalOverviewState        `json:"right"`
+	Change          *HistoricalOverviewTotalsChange `json:"change"`
+	Rows            []HistoricalOverviewRow         `json:"rows"`
+}
+
+// HistoricalOverviewTotalsChange is right minus left, not return attribution.
+// Each amount remains nil when either corresponding total is incomplete.
+type HistoricalOverviewTotalsChange struct {
+	Assets      *string `json:"assets"`
+	Liabilities *string `json:"liabilities"`
+	NetWorth    *string `json:"netWorth"`
 }
 
 type HistoricalOverviewState struct {
@@ -149,6 +158,11 @@ func (s *Service) HistoricalOverview(ctx context.Context, date, compareTo string
 			return HistoricalOverviewResult{}, sideErr
 		}
 		result.Right, rightRows = &right, rows
+		result.Change = &HistoricalOverviewTotalsChange{
+			Assets:      historicalDifference(left.Assets, right.Assets),
+			Liabilities: historicalDifference(left.Liabilities, right.Liabilities),
+			NetWorth:    historicalDifference(left.NetWorth, right.NetWorth),
+		}
 	}
 	result.Rows = alignHistoricalOverview(leftRows, rightRows, result.Right != nil)
 	return result, nil

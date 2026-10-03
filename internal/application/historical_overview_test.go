@@ -91,6 +91,9 @@ func TestHistoricalOverviewReadOnlyLifecycleAndSourceDates(t *testing.T) {
 	}
 	wantOverviewAmount(t, result.Left.NetWorth, "750")
 	wantOverviewAmount(t, result.Right.NetWorth, "1200")
+	wantOverviewAmount(t, result.Change.Assets, "200")
+	wantOverviewAmount(t, result.Change.Liabilities, "-250")
+	wantOverviewAmount(t, result.Change.NetWorth, "450")
 	row := overviewRow(t, result, home.Account.ID.String())
 	if row.Name != "Renamed home" || !row.Left.Manual || row.Left.ValueSourceAt != "2026-08-01T12:00:00Z" || row.Right.ValueSourceAt != "2026-08-02T12:00:00Z" {
 		t.Fatalf("manual metadata/source: %+v / %+v", row.Left, row.Right)
@@ -149,6 +152,10 @@ func TestHistoricalOverviewUnknownFXAndExactPrecision(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if result.Change == nil || result.Change.Assets != nil || result.Change.NetWorth != nil {
+		t.Fatal("missing totals became a known delta")
+	}
+	wantOverviewAmount(t, result.Change.Liabilities, "0")
 	if result.Left.Complete || result.Left.NetWorth != nil {
 		t.Fatal("incomplete household became complete")
 	}
@@ -381,6 +388,9 @@ func TestHistoricalOverviewInternalTransferAndDebtPrincipalAreNeutral(t *testing
 	wantOverviewAmount(t, result.Right.NetWorth, "50")
 	wantOverviewAmount(t, result.Right.Assets, "90")
 	wantOverviewAmount(t, result.Right.Liabilities, "40")
+	wantOverviewAmount(t, result.Change.Assets, "-10")
+	wantOverviewAmount(t, result.Change.Liabilities, "-10")
+	wantOverviewAmount(t, result.Change.NetWorth, "0")
 }
 
 func TestHistoricalOverviewChangesIgnoreNewEvidenceWithSameBalance(t *testing.T) {
