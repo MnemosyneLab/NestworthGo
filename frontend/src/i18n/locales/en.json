@@ -617,7 +617,8 @@
     "marketData": "Market data",
     "members": "Members",
     "overview": "Overview",
-    "settings": "Settings"
+    "settings": "Settings",
+    "historicalOverview": "Historical overview"
   },
   "onboarding": {
     "restoreTitle": "Already have a backup?",
@@ -1167,6 +1168,96 @@
       "within-retention": "Protected: within retention period",
       "expired-sealed": "Eligible: expired sealed stream",
       "resume-deletion": "Eligible: resume interrupted deletion"
+    }
+  },
+  "historicalOverview": {
+    "title": "Historical overview",
+    "exit": "Back to current",
+    "date": "Historical date",
+    "compare": "Compare with",
+    "compareDate": "Comparison date",
+    "previous": "Previous day",
+    "next": "Next day",
+    "lastMonth": "Last month end",
+    "refresh": "Refresh both dates",
+    "readOnly": "Read only",
+    "reconstructed": "Past economic state reconstructed from the facts retained today. This is not what the app knew at the time.",
+    "metadataNote": "Names and classifications use current metadata. Archived rows and excluded accounts do not count toward totals.",
+    "cutoffNote": "Balances use the household day cutoff. Historical prices use market-date daily summaries, not one simultaneous midnight price.",
+    "current": "Current",
+    "capturedCurrent": "Captured current state, not today’s close",
+    "closedSummary": "Closed household day · market-date valuation",
+    "captured": "Read together at {{at}}. Refresh to include new records or quotes.",
+    "loading": "Reconstructing historical overview…",
+    "error": "Historical overview could not be loaded",
+    "errorHint": "No data was changed. Try again or choose another recorded date.",
+    "unknown": "Unknown",
+    "notPresent": "Not yet present in retained history",
+    "incomplete": "Incomplete",
+    "excluded": "Excluded from totals",
+    "manual": "Manual valuation",
+    "stale": "Older observation",
+    "quantityValue": "Quantity {{value}}",
+    "quantityChange": "Quantity change {{value}}",
+    "partialTotals": "Incomplete totals. Known assets: {{assets}}; known liabilities: {{liabilities}}. Unknown amounts are not zero.",
+    "allocation": "Asset allocation",
+    "allocationBasis": "Shares of valued, included assets only. Debt is separate. Incomplete estimates can understate the full allocation.",
+    "byClass": "Asset class (current classification)",
+    "byCurrency": "Original currency",
+    "source": "Source",
+    "effectiveAt": "Observation effective time",
+    "marketDate": "Market date",
+    "balanceSource": "Balance source date (opening point or latest ledger record)",
+    "manualNote": "Last retained manual value carried forward. This is not a new appraisal on the selected day.",
+    "price": "Price evidence",
+    "fx": "Exchange-rate evidence",
+    "original": "Original amount",
+    "exactBase": "Exact base amount",
+    "nativeChange": "Original-currency change",
+    "noClosedDays": "No closed history day yet",
+    "noClosedDaysHint": "Return after the first household day has ended. Current state is available in Overview.",
+    "invalidDate": "Choose a recorded, closed day",
+    "changesOnly": "Only changed rows",
+    "deltaNote": "Right minus left. Balance changes are not investment returns. Scope changes remain labeled.",
+    "noChanges": "No changed rows",
+    "noAccounts": "No accounts recorded for this date",
+    "table": "Historical account and holding comparison",
+    "account": "Accounts and holdings",
+    "change": "Balance change",
+    "expand": "Expand {{name}}",
+    "debt": "Debt",
+    "balance": "Recorded balance",
+    "cashCurrency": "{{currency}} cash",
+    "compareOptions": {
+      "none": "No comparison",
+      "current": "Captured current state",
+      "date": "Another closed day"
+    },
+    "status": {
+      "active": "Active",
+      "zero": "Zero",
+      "cleared": "Cleared holding",
+      "archived": "Archived",
+      "unknown": "Unknown"
+    },
+    "sourceKind": {
+      "manual": "Manual",
+      "provider": "Market provider",
+      "agent": "Agent"
+    },
+    "freshness": {
+      "fresh": "Selected observation",
+      "stale": "Older observation",
+      "manual": "Manual",
+      "delayed": "Delayed",
+      "unavailable": "Unavailable"
+    },
+    "missing": {
+      "instrument_price": "Historical price is missing",
+      "missing_instrument": "Instrument reference is missing",
+      "fx_rate": "Exchange rate is missing",
+      "account_value": "Recorded account value is missing",
+      "history_coverage": "Historical market coverage is unverified"
     }
   }
 }

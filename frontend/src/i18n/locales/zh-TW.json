@@ -617,7 +617,8 @@
     "marketData": "市場資料",
     "members": "成員",
     "overview": "總覽",
-    "settings": "設定"
+    "settings": "設定",
+    "historicalOverview": "歷史全景"
   },
   "onboarding": {
     "restoreTitle": "已有備份？",
@@ -1167,6 +1168,96 @@
       "within-retention": "受保護：仍在保留期限內",
       "expired-sealed": "可清理：已過期的封存備份串流",
       "resume-deletion": "可清理：繼續中斷的刪除"
+    }
+  },
+  "historicalOverview": {
+    "title": "歷史全景",
+    "exit": "返回目前",
+    "date": "歷史日期",
+    "compare": "比較對象",
+    "compareDate": "比較日期",
+    "previous": "前一天",
+    "next": "後一天",
+    "lastMonth": "上月末",
+    "refresh": "重新整理兩端資料",
+    "readOnly": "唯讀",
+    "reconstructed": "根據目前保留的事實重建過去的經濟狀態，不代表當時應用程式已知的資訊。",
+    "metadataNote": "名稱和分類使用目前資料。已封存項目和排除的帳戶不計入總額。",
+    "cutoffNote": "餘額按家庭時區日末截取；歷史價格使用對應市場日期的日彙總，並非同一午夜時刻的價格。",
+    "current": "目前",
+    "capturedCurrent": "本次讀取的目前狀態，並非今日收盤",
+    "closedSummary": "已結束的家庭日期 · 市場日期估值",
+    "captured": "兩端共同讀取於 {{at}}。重新整理後才會納入新紀錄或行情。",
+    "loading": "正在重建歷史全景…",
+    "error": "無法載入歷史全景",
+    "errorHint": "沒有修改資料。請重試或選擇另一個有紀錄的日期。",
+    "unknown": "未知",
+    "notPresent": "保留的歷史中尚未出現",
+    "incomplete": "不完整",
+    "excluded": "不計入總額",
+    "manual": "手動估值",
+    "stale": "沿用較早紀錄",
+    "quantityValue": "數量 {{value}}",
+    "quantityChange": "數量變化 {{value}}",
+    "partialTotals": "總額不完整。已知資產：{{assets}}；已知負債：{{liabilities}}。未知金額不等於零。",
+    "allocation": "資產配置",
+    "allocationBasis": "占已估值且計入統計的資產比例，負債單獨列示。資料不完整時不能代表完整家庭配置。",
+    "byClass": "資產類別（目前分類）",
+    "byCurrency": "原幣幣別",
+    "source": "來源",
+    "effectiveAt": "紀錄生效時間",
+    "marketDate": "市場日期",
+    "balanceSource": "餘額來源日期（起點或最近帳本紀錄）",
+    "manualNote": "沿用此前保留的手動估值，不代表所選日期重新評估。",
+    "price": "價格依據",
+    "fx": "匯率依據",
+    "original": "原幣金額",
+    "exactBase": "本位幣精確金額",
+    "nativeChange": "原幣變化",
+    "noClosedDays": "尚無已結束的歷史日期",
+    "noClosedDaysHint": "家庭時區的第一天結束後即可查看；目前狀態可在概覽中查看。",
+    "invalidDate": "請選擇有紀錄且已結束的日期",
+    "changesOnly": "只看有變化的項目",
+    "deltaNote": "右側減左側。餘額差額不等於投資收益；統計範圍變化會保留標記。",
+    "noChanges": "沒有變化的項目",
+    "noAccounts": "此日期尚無帳戶紀錄",
+    "table": "歷史帳戶和持倉比較",
+    "account": "帳戶與持倉",
+    "change": "餘額變化",
+    "expand": "展開 {{name}}",
+    "debt": "負債",
+    "balance": "紀錄餘額",
+    "cashCurrency": "{{currency}} 現金",
+    "compareOptions": {
+      "none": "不比較",
+      "current": "本次讀取的目前狀態",
+      "date": "另一個已結束日期"
+    },
+    "status": {
+      "active": "有效",
+      "zero": "零餘額",
+      "cleared": "已清倉",
+      "archived": "已封存",
+      "unknown": "未知"
+    },
+    "sourceKind": {
+      "manual": "手動",
+      "provider": "行情服務",
+      "agent": "Agent"
+    },
+    "freshness": {
+      "fresh": "所選紀錄",
+      "stale": "沿用較早紀錄",
+      "manual": "手動",
+      "delayed": "延遲行情",
+      "unavailable": "無法使用"
+    },
+    "missing": {
+      "instrument_price": "缺少歷史價格",
+      "missing_instrument": "缺少投資標的資料",
+      "fx_rate": "缺少匯率",
+      "account_value": "缺少帳戶餘額紀錄",
+      "history_coverage": "歷史行情涵蓋範圍尚未驗證"
     }
   }
 }
