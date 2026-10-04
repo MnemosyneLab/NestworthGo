@@ -54,7 +54,11 @@ function SheetViewport({ children }: { children: React.ReactNode }) {
       viewport.removeEventListener("scroll", update);
     };
   }, []);
-  return <div ref={ref} className="pointer-events-none fixed inset-0 z-50 overflow-hidden">{children}</div>;
+  // This frame must clip without becoming a scroll container. WebKit can
+  // scroll overflow:hidden to focus a child during its slide-in transition,
+  // retaining that offset after the transition and shifting the sheet offscreen.
+  // The popup itself remains scrollable for long content.
+  return <div ref={ref} className="pointer-events-none fixed inset-0 z-50 overflow-clip">{children}</div>;
 }
 
 const SheetContent = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof BaseDialog.Popup> & { side?: Side; size?: Size; closeDisabled?: boolean }>(function SheetContent({

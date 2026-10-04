@@ -163,8 +163,25 @@ non-shrinking header in normal flow, with a visible text label and icon, instead
 of the scrolling popup's separate positioned layer. Native evidence does not
 expose the old button's paint bounds;
 the precise WebView clipping/compositing mechanism is still unverified. This
-structural correction needs a new native pass that visibly clicks Close at zoom
-and after body scrolling, alongside keyboard and normal-form regression checks.
+structural correction passed visible Close clicking in the `8bd60b5` native run,
+but first opening at zoom left the title and body clipped beyond the left edge.
+An isolated instrumented copy of that exact commit reproduced the failure and
+measured its cause: with a 640 CSS-pixel visual viewport at scale 2, focusing the
+entering 448px sheet scrolled its `overflow: hidden` outer frame to 448px. That
+offset persisted after the slide-in translate ended, leaving the panel at
+[-256, 192] rather than [192, 640]. The frame itself stayed at x=0 and the visual
+viewport offset stayed zero. Native panning then triggered a viewport update
+and the frame's scroll offset returned to zero. Ordinary form Close also worked
+when observed after settling; no dismissal fix is inferred from earlier immediate
+snapshots.
+
+The outer frame now uses `overflow: clip`, which cannot become a programmatic
+scroll container; the popup retains `overflow-y: auto` for its content. Viewport
+coordinate handling, slide animation, focus policy and Close behavior are
+unchanged. DOM tests guard this clipping contract at the measured zoomed and
+Actual Size widths, but do not simulate WebKit's geometry or prove native fit.
+A fresh native pass must confirm first opening without corrective panning,
+body scrolling, visible Close, keyboard behavior and normal-form focus.
 Previous native passes apply only to their tested commits.
 The shared sheet's default initial focus skips its header Close action when a
 usable content control exists; Close remains in keyboard tab order. Explicit

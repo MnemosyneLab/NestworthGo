@@ -29,7 +29,7 @@ it.each(["left", "right"] as const)("anchors a %s sheet to the magnified, panned
   await userEvent.click(screen.getByRole("button", { name: "Open details" }));
   const panel = await screen.findByRole("dialog");
   expect(panel.parentElement).toHaveStyle({ left: "180px", top: "24px", width: "640px", height: "360px" });
-  expect(panel.parentElement).toHaveClass("fixed", "overflow-hidden", "pointer-events-none");
+  expect(panel.parentElement).toHaveClass("fixed", "overflow-clip", "pointer-events-none");
   expect(panel).toHaveClass("absolute", `${side}-0`, "h-full", "w-full", "max-w-md", "overflow-y-auto", "pointer-events-auto");
   expect(panel).not.toHaveClass("fixed");
   await waitFor(() => expect(screen.getByRole("button", { name: "Close" })).toHaveFocus());
@@ -179,6 +179,36 @@ it("preserves an explicit opt-out of initial focus", async () => {
   await userEvent.click(trigger);
   await screen.findByRole("dialog");
   expect(trigger).toHaveFocus();
+});
+
+// Native WKWebView trace: at 2x, focusing an entering 448px sheet scrolled
+// its overflow:hidden frame to scrollLeft=448. That persisted after translate
+// returned to zero, leaving the panel at [-256,192] inside a 640px viewport.
+// At Actual Size the same mechanism left a 30px residual offset in a form.
+// jsdom cannot reproduce native layout; guard the non-scroll-container contract
+// at both measured widths, along with usable form focus and body scrolling.
+it.each([640, 1280])("keeps the entering sheet's %ipx frame non-scrollable while focusing its content", async width => {
+  const visible = viewport(width, width === 640 ? 425 : 850);
+  visible.scale = width === 640 ? 2 : 1;
+  render(<Sheet><SheetTrigger>Open measured form</SheetTrigger><SheetContent>
+    <SheetHeader><SheetTitle>Measured form</SheetTitle><SheetDescription>Long form</SheetDescription></SheetHeader>
+    <label>Name<input /></label>
+    <div style={{ height: 1600 }}>Long body</div>
+  </SheetContent></Sheet>);
+  await userEvent.click(screen.getByRole("button", { name: "Open measured form" }));
+  const panel = screen.getByRole("dialog");
+  const frame = panel.parentElement!;
+  expect(frame).toHaveStyle({ left: "0px", width: `${width}px` });
+  // Unlike hidden, clip cannot scroll when a translated descendant is focused.
+  expect(frame).toHaveClass("overflow-clip");
+  expect(frame).not.toHaveClass("overflow-hidden", "overflow-auto", "overflow-scroll");
+  expect(panel).toHaveClass("overflow-y-auto");
+  await waitFor(() => expect(screen.getByRole("textbox", { name: "Name" })).toHaveFocus());
+  act(() => { panel.scrollTop = 500; fireEvent.scroll(panel); });
+  expect(panel.scrollTop).toBe(500);
+  expect(frame).toHaveClass("overflow-clip");
+  await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 });
 
 it("keeps touch opening focused on the popup instead of opening a field keyboard", async () => {
