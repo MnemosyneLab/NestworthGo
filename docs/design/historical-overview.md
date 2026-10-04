@@ -166,6 +166,11 @@ the precise WebView clipping/compositing mechanism is still unverified. This
 structural correction needs a new native pass that visibly clicks Close at zoom
 and after body scrolling, alongside keyboard and normal-form regression checks.
 Previous native passes apply only to their tested commits.
+The shared sheet's default initial focus skips its header Close action when a
+usable content control exists; Close remains in keyboard tab order. Explicit
+focus policies, form autofocus, touch opening and read-only fallback behavior
+are retained. Regressions cover real directory creation, account settings and
+instrument creation without test-supplied focus overrides.
 Use an isolated synthetic profile and capture screenshots during the following
 checks before marking native UI acceptance complete:
 

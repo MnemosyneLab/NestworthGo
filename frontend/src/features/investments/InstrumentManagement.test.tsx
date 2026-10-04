@@ -140,9 +140,11 @@ describe("InstrumentManagement", () => {
     renderManagement();
     await userEvent.click(await screen.findByRole("button", { name: "Add instrument" }));
     const form = await screen.findByRole("form", { name: "Instrument form" });
+    await waitFor(() => expect(within(form).getByLabelText("Name")).toHaveFocus());
+    await userEvent.keyboard("NVIDIA");
+    expect(within(form).getByLabelText("Name")).toHaveValue("NVIDIA");
     expect(within(form).getByLabelText("Currency").tagName).toBe("SELECT");
     await userEvent.selectOptions(within(form).getByLabelText("Quote source"), "manual");
-    await userEvent.type(within(form).getByLabelText("Name"), "NVIDIA");
     await userEvent.click(within(form).getByRole("button", { name: "Add instrument" }));
 
     expect(createInstrument).toHaveBeenCalledWith(

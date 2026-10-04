@@ -147,3 +147,45 @@ it.each(["explicit", "autofocus"])("preserves %s form focus and propagates close
   await userEvent.click(screen.getByRole("button", { name: "Close" }));
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 });
+
+it("defaults to the first usable content control without a caller focus override", async () => {
+  render(<Sheet><SheetTrigger>Open form</SheetTrigger><SheetContent>
+    <SheetHeader><SheetTitle>Form</SheetTitle><SheetDescription>Default focus</SheetDescription></SheetHeader>
+    <div hidden><input aria-label="Hidden ancestor" /></div>
+    <input type="hidden" />
+    <fieldset disabled><input aria-label="Disabled fieldset" /></fieldset>
+    <input tabIndex={-1} aria-label="Not tabbable" />
+    <label>Name<input /></label>
+  </SheetContent></Sheet>);
+  const trigger = screen.getByRole("button", { name: "Open form" });
+  await userEvent.click(trigger);
+  const name = screen.getByRole("textbox", { name: "Name" });
+  await waitFor(() => expect(name).toHaveFocus());
+  await userEvent.keyboard("Draft name");
+  expect(name).toHaveValue("Draft name");
+  await userEvent.tab({ shift: true });
+  expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
+  await userEvent.keyboard("{Enter}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  await waitFor(() => expect(trigger).toHaveFocus());
+});
+
+it("preserves an explicit opt-out of initial focus", async () => {
+  render(<Sheet><SheetTrigger>Open form</SheetTrigger><SheetContent initialFocus={false}>
+    <SheetHeader><SheetTitle>Form</SheetTitle><SheetDescription>No automatic focus</SheetDescription></SheetHeader>
+    <label>Name<input /></label>
+  </SheetContent></Sheet>);
+  const trigger = screen.getByRole("button", { name: "Open form" });
+  await userEvent.click(trigger);
+  await screen.findByRole("dialog");
+  expect(trigger).toHaveFocus();
+});
+
+it("keeps touch opening focused on the popup instead of opening a field keyboard", async () => {
+  render(<Sheet><SheetTrigger>Open form</SheetTrigger><SheetContent>
+    <SheetHeader><SheetTitle>Form</SheetTitle><SheetDescription>Touch focus</SheetDescription></SheetHeader>
+    <label>Name<input /></label>
+  </SheetContent></Sheet>);
+  await userEvent.pointer([{ keys: "[TouchA>]", target: screen.getByRole("button", { name: "Open form" }) }, { keys: "[/TouchA]" }]);
+  await waitFor(() => expect(screen.getByRole("dialog")).toHaveFocus());
+});

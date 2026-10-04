@@ -3,6 +3,7 @@ import { Dialog as BaseDialog } from "@base-ui/react/dialog";
 import { X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { tabbable } from "tabbable";
 
 // Sheet is a side panel built on Base UI's Dialog primitive (Base UI does
 // not ship a lightweight desktop side-panel primitive separate from its
@@ -56,19 +57,36 @@ function SheetViewport({ children }: { children: React.ReactNode }) {
   return <div ref={ref} className="pointer-events-none fixed inset-0 z-50 overflow-hidden">{children}</div>;
 }
 
-function SheetContent({
+const SheetContent = React.forwardRef<HTMLDivElement, React.ComponentPropsWithoutRef<typeof BaseDialog.Popup> & { side?: Side; size?: Size; closeDisabled?: boolean }>(function SheetContent({
   className,
   children,
   side = "right",
   size = "md",
   closeDisabled = false,
+  initialFocus,
   ...props
-}: React.ComponentProps<typeof BaseDialog.Popup> & { side?: Side; size?: Size; closeDisabled?: boolean }) {
+}, forwardedRef) {
+  const popupRef = React.useRef<HTMLDivElement | null>(null);
+  const setPopupRef = React.useCallback((node: HTMLDivElement | null) => {
+    popupRef.current = node;
+    if (typeof forwardedRef === "function") forwardedRef(node);
+    else if (forwardedRef) forwardedRef.current = node;
+  }, [forwardedRef]);
+
   return (
     <BaseDialog.Portal>
       <BaseDialog.Backdrop className="fixed inset-0 z-50 bg-foreground/35 backdrop-blur-[2px] transition-opacity data-[starting-style]:opacity-0 data-[ending-style]:opacity-0" />
       <SheetViewport>
         <BaseDialog.Popup
+          ref={setPopupRef}
+          initialFocus={initialFocus === undefined ? (interaction) => {
+            const popup = popupRef.current;
+            // Keep Base UI's touch behavior and callers' explicit focus policy.
+            // Close moved into the header visually; it must not steal the old
+            // default focus from the first usable field/action in the content.
+            if (!popup || interaction === "touch") return popup;
+            return tabbable(popup).find((element): element is HTMLElement => element instanceof HTMLElement && !element.hasAttribute("data-sheet-close")) ?? true;
+          } : initialFocus}
           className={cn(
             "pointer-events-auto absolute z-50 flex scroll-pb-24 scroll-pt-24 flex-col gap-4 overflow-y-auto overscroll-contain border-border bg-card p-6 shadow-lg outline-none transition-transform duration-200 ease-out",
             sideClasses[side],
@@ -84,7 +102,7 @@ function SheetContent({
       </SheetViewport>
     </BaseDialog.Portal>
   );
-}
+});
 
 /** Header stays pinned while long sheet bodies scroll underneath. The negative
  * sticky offset cancels the popup's p-6, which sticky positioning otherwise
@@ -97,7 +115,7 @@ function SheetHeader({ className, children, ...props }: React.HTMLAttributes<HTM
   const closeDisabled = React.useContext(SheetCloseDisabledContext);
   return <div className={cn("sticky -top-6 z-10 -mx-6 -mt-6 flex shrink-0 items-start gap-3 bg-card px-6 pb-3 pt-6", className)} {...props}>
     <div className="flex min-w-0 flex-1 flex-col gap-1.5">{children}</div>
-    <BaseDialog.Close disabled={closeDisabled} className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50">
+    <BaseDialog.Close data-sheet-close disabled={closeDisabled} className="inline-flex min-h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-2 py-1 text-sm text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 disabled:opacity-50">
       <X className="size-4" />
       <span>{t("common.close")}</span>
     </BaseDialog.Close>

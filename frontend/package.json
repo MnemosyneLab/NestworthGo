@@ -38,6 +38,7 @@
     "react-hook-form": "^7.85.0",
     "react-i18next": "^17.0.11",
     "sonner": "^2.0.8",
+    "tabbable": "6.2.0",
     "tailwind-merge": "^3.6.0",
     "tailwindcss": "^4.3.3",
     "zod": "^4.4.3",

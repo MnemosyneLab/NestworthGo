@@ -3,6 +3,16 @@ import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 import i18n from "@/i18n";
 
+// jsdom has no layout boxes. Supply a minimal box for displayed elements so
+// tabbable can exercise its real visibility/disabled/radio rules in focus tests.
+// This is not geometry or native visual verification.
+function hasDisplayBox(element: HTMLElement | null): boolean {
+  return !element || (getComputedStyle(element).display !== "none" && hasDisplayBox(element.parentElement));
+}
+HTMLElement.prototype.getClientRects = function () {
+  return (hasDisplayBox(this) ? [new DOMRect(0, 0, 1, 1)] : []) as unknown as DOMRectList;
+};
+
 class ResizeObserverStub {
   observe() {}
   unobserve() {}
