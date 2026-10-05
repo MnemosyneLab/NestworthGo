@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
@@ -60,6 +60,29 @@ beforeEach(() => {
 });
 
 describe("DirectoryPage", () => {
+  it.each([
+    ["Members", "Add a member", "Member name"],
+    ["Groups", "Add a group", "Group name"],
+    ["Institutions", "Add an institution", "Institution name"],
+  ])("focuses the default Name field in %s and keeps Close keyboard accessible", async (tab, add, label) => {
+    renderPage();
+    await screen.findByText("Alice");
+    if (tab !== "Members") await userEvent.click(screen.getByRole("tab", { name: tab }));
+    const trigger = screen.getByRole("button", { name: add });
+    trigger.focus();
+    await userEvent.keyboard("{Enter}");
+    const name = await screen.findByLabelText(label);
+    await waitFor(() => expect(name).toHaveFocus());
+    await userEvent.keyboard("Draft name");
+    expect(name).toHaveValue("Draft name");
+    await userEvent.tab({ shift: true });
+    expect(screen.getByRole("button", { name: "Close" })).toHaveFocus();
+    await userEvent.keyboard(" ");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(trigger).toHaveFocus());
+    expect(createMember).not.toHaveBeenCalled();
+    expect(createInstitution).not.toHaveBeenCalled();
+  });
   it("lists existing Members on the default tab", async () => {
     renderPage();
     expect(await screen.findByText("Alice")).toBeInTheDocument();

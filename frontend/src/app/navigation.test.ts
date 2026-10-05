@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { NAV_GROUPS, targetForPage, type NavigationTarget } from "./navigation";
 
 describe("analysis navigation", () => {
-  it("exposes typed Return and Asset Changes destinations as the only Insights items", () => {
+  it("exposes typed Return and Asset Changes destinations alongside Historical overview", () => {
     const insights = NAV_GROUPS.find((group) => group.id === "insights");
-    expect(insights?.items.map((item) => item.id)).toEqual(["return-analysis", "asset-changes"]);
+    expect(insights?.items.map((item) => item.id)).toEqual(["historical-overview", "return-analysis", "asset-changes"]);
     expect(targetForPage("return-analysis")).toEqual({ page: "return-analysis" });
     expect(targetForPage("asset-changes")).toEqual({ page: "asset-changes" });
   });

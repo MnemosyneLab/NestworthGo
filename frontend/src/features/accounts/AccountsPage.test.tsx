@@ -1143,6 +1143,7 @@ describe("AccountsPage", () => {
     await userEvent.click(await screen.findByRole("button", { name: /Checking/ }));
     await userEvent.click(await screen.findByRole("button", { name: "Account settings" }));
     const form = await screen.findByRole("form", { name: "Account form" });
+    await waitFor(() => expect(within(form).getByLabelText("Name")).toHaveFocus());
     expect(within(form).getByLabelText("Currency")).toHaveAttribute("readonly");
     expect(screen.getByRole("button", { name: "Save" })).toHaveAttribute("form", form.id);
     await userEvent.click(within(form).getByRole("button", { name: /Details/i }));

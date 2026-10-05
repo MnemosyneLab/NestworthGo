@@ -1,4 +1,4 @@
-vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]) } }));
+vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), HistoricalOverview: () => Promise.resolve({ capturedAt: "2026-10-03T12:00:00Z", left: { date: "2026-09-30", currency: "USD", complete: true, assets: "0", liabilities: "0", netWorth: "0", byClass: [], byCurrency: [] }, right: null, rows: [] }) } }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -150,7 +150,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/portfoli
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
-    HistoryOrigin: () => Promise.resolve({ id: "origin-1", timezone: "UTC" }),
+    HistoryOrigin: () => Promise.resolve({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" }),
   },
 }));
 
@@ -274,7 +274,8 @@ describe("App shell smoke test", () => {
     );
 
     expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
-    expect(screen.queryByText(i18n.t("ui.state.loadingPage"))).not.toBeInTheDocument();
+    // The trend query can finish after the net-worth summary has rendered.
+    await waitFor(() => expect(screen.queryByText(i18n.t("ui.state.loadingPage"))).not.toBeInTheDocument());
     await waitFor(() => expect(document.documentElement.classList.contains("dark")).toBe(true));
     expect(i18n.language).toBe("zh-CN");
   });
@@ -453,4 +454,28 @@ it("returns from account analysis with the source archive filter and scroll posi
   expect(screen.getByTestId("account-detail")).toBeVisible();
   await userEvent.click(screen.getByRole("button", { name: "Back to accounts" }));
   expect(screen.getByRole("checkbox", { name: "Show archived" })).toBeChecked();
+});
+
+
+it("opens historical overview from Overview, removes current queries and exits back", async () => {
+  await i18n.changeLanguage("en");
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  const nav = screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") });
+  // The Overview entry keeps a navigation trail, but must unmount its reads.
+  const entry = screen.getAllByRole("button", { name: i18n.t("nav.historicalOverview") }).find(button => !nav.contains(button));
+  expect(entry).toBeDefined();
+  await userEvent.click(entry!);
+  await screen.findByLabelText(i18n.t("historicalOverview.date"));
+  expect(screen.queryByTestId("overview-net-worth")).not.toBeInTheDocument();
+  await waitFor(() => expect(queryClient.getQueryCache().find({ queryKey: ["overview"] })?.getObserversCount() ?? 0).toBe(0));
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.exit") }));
+  expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+  await waitFor(() => expect(document.getElementById("open-historical-overview")).toHaveFocus());
+  // The independent navigation entry also opens and exits without a trail.
+  await userEvent.click(within(nav).getByRole("button", { name: i18n.t("nav.historicalOverview") }));
+  await screen.findByLabelText(i18n.t("historicalOverview.date"));
+  await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.exit") }));
+  expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
+  await waitFor(() => expect(document.getElementById("open-historical-overview")).toHaveFocus());
 });

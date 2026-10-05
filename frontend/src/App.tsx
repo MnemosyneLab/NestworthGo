@@ -19,6 +19,7 @@ import type { HealthFocus, AccountListFocus } from "@/app/navigation";
 import { AgentWorkspaceObserver } from "@/queries/agent";
 import { MarketDataSyncWorkspaceObserver } from "@/queries/marketdata";
 
+const HistoricalOverviewPage = lazy(() => import("@/features/historical-overview/HistoricalOverviewPage").then(module => ({ default: module.HistoricalOverviewPage })));
 const PortfolioPage = lazy(() => import("@/features/portfolio/PortfolioPage").then((module) => ({ default: module.PortfolioPage })));
 const DirectoryPage = lazy(() => import("@/features/directory/DirectoryPage").then((module) => ({ default: module.DirectoryPage })));
 const MarketDataPage = lazy(() => import("@/features/marketdata/MarketDataPage").then((module) => ({ default: module.MarketDataPage })));
@@ -52,17 +53,19 @@ function App() {
   const [updateValue, setUpdateValue] = useState(false);
   const [healthFocus, setHealthFocus] = useState<HealthFocus>();
   const [marketFocus, setMarketFocus] = useState<HealthFocus>();
+  const [historicalDate, setHistoricalDate] = useState<string>();
   const [liquidityProductId, setLiquidityProductId] = useState<string | undefined>();
   const [liquidityAccountId, setLiquidityAccountId] = useState<string | undefined>();
   const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters }>>([]);
-  const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null } | null>(null);
+  const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string } | null>(null);
   useEffect(() => {
     const position = restorePosition.current;
     restorePosition.current = null;
     const frame = requestAnimationFrame(() => {
       const main = document.getElementById("main-content");
       if (main) main.scrollTop = position?.scroll ?? 0;
-      if (position?.focus?.isConnected) position.focus.focus({ preventScroll: true });
+      const focus = position?.focus?.isConnected ? position.focus : document.getElementById(position?.focusId ?? position?.focus?.id ?? "");
+      focus?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [activePageId, trail.length]);
@@ -113,6 +116,7 @@ function App() {
     if (!retainSource) setTrail([]);
     const navigation = typeof target === "string" ? targetForPage(target) : target;
     const pageId = navigation.page;
+    if (navigation.page === "historical-overview") setHistoricalDate(navigation.date);
     // Top-level Accounts navigation always returns to the list. Opening a
     // specific account uses openAccount, which sets selectedAccountId first.
     if (pageId === "accounts") {
@@ -160,13 +164,13 @@ function App() {
     setHealthFocus(previous.health); setMarketFocus(previous.market);
     setActivePageId(previous.page); setTrail(trail.slice(0, -1));
   };
-  const retained = (page: PageId) => activePageId === page || trail.some(entry => entry.page === page);
+  const retained = (page: PageId) => activePageId === page || (activePageId !== "historical-overview" && trail.some(entry => entry.page === page));
   return (
     <NavigationContext.Provider value={{ open, openHealth }}>
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data}>
       <MarketDataSyncWorkspaceObserver />
       <AgentWorkspaceObserver />
-      {trail.length > 0 && <Button variant="ghost" className="mb-4" onClick={back}>{t("connections.back", { page: t(`nav.${({ "data-health": "dataHealth", "market-data": "marketData", "return-analysis": "returnAnalysis", "asset-changes": "assetChanges", "available-funds": "availableFunds" } as Record<string, string>)[trail[trail.length - 1].page] ?? trail[trail.length - 1].page}`) })}</Button>}
+      {trail.length > 0 && <Button variant="ghost" className="mb-4" onClick={back}>{t("connections.back", { page: t(`nav.${({ "historical-overview": "historicalOverview", "data-health": "dataHealth", "market-data": "marketData", "return-analysis": "returnAnalysis", "asset-changes": "assetChanges", "available-funds": "availableFunds" } as Record<string, string>)[trail[trail.length - 1].page] ?? trail[trail.length - 1].page}`) })}</Button>}
       {retained("overview") && (
         <div hidden={activePageId !== "overview"}>
         <OverviewPage
@@ -224,6 +228,10 @@ function App() {
           <SettingsPage />
         </WorkspaceLazy>
       )}
+      {activePageId === "historical-overview" && <WorkspaceLazy><HistoricalOverviewPage key={historicalDate ?? "default"} initialDate={historicalDate} onExit={() => {
+        if (trail.length > 0) back();
+        else { restorePosition.current = { scroll: 0, focus: null, focusId: "open-historical-overview" }; handleNavigate("overview"); }
+      }} /></WorkspaceLazy>}
       {activePageId === "history" && (
         <WorkspaceLazy>
           <HistoryPage navigationFilters={historyFilters} />

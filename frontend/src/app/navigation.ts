@@ -3,6 +3,7 @@ import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings
 
 export type PageId =
   | "overview"
+  | "historical-overview"
   | "accounts"
   | "available-funds"
   | "portfolio"
@@ -60,13 +61,14 @@ export interface AccountListFocus {
 }
 
 export type NavigationTarget =
+  | { page: "historical-overview"; date?: string }
   | { page: "return-analysis"; tab?: AnalysisTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "asset-changes"; tab?: AssetChangesTab; cursor?: string; analysis?: AnalysisNavigationContext }
   | { page: "history"; filters?: HistoryNavigationFilters }
   | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean }
   | { page: "market-data" | "data-health"; focus?: HealthFocus }
   | { page: "available-funds"; productId?: string; accountId?: string }
-  | { page: Exclude<PageId, "return-analysis" | "asset-changes" | "history" | "accounts" | "market-data" | "data-health" | "available-funds"> };
+  | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "accounts" | "market-data" | "data-health" | "available-funds"> };
 
 /**
  * NavItem is the top-level navigation model. `translationKey` looks up the
@@ -106,6 +108,7 @@ export const NAV_GROUPS: NavGroup[] = [
     id: "insights",
     translationKey: "navGroups.insights",
     items: [
+      { id: "historical-overview", translationKey: "nav.historicalOverview", icon: History },
       { id: "return-analysis", translationKey: "nav.returnAnalysis", icon: ChartLine },
       { id: "asset-changes", translationKey: "nav.assetChanges", icon: GitCompareArrows },
     ],
