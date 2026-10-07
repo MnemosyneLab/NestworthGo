@@ -8,9 +8,9 @@ remain synchronized.
 The current repository baseline is:
 
 ```text
-Go module:      github.com/wailsapp/wails/v3 v3.0.0-beta.26
-Frontend:       @wailsio/runtime 3.0.0-beta.26
-CLI/fallback:   v3.0.0-beta.26
+Go module:      github.com/wailsapp/wails/v3 v3.0.0-beta.28
+Frontend:       @wailsio/runtime 3.0.0-beta.28
+CLI/fallback:   v3.0.0-beta.28
 ```
 
 For another target, replace the version variables below. Go and CLI versions use
@@ -21,6 +21,30 @@ Official references:
 - [Wails releases](https://github.com/wailsapp/wails/releases)
 - [Wails v3 documentation](https://v3.wails.io/)
 - [Wails bindings documentation](https://v3.wails.io/features/bindings/methods/)
+
+## beta.28 compatibility notes
+
+[beta.27](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.27)
+fixes camera/microphone permission handling on macOS 12+. Applications using
+those permissions still need usage descriptions and, when sandboxed, device
+entitlements. Nestworth does not request media capture permissions.
+
+[beta.28](https://github.com/wailsapp/wails/releases/tag/v3.0.0-beta.28)
+fixes Windows WebView2 recovery/lifetime handling and Linux tray right-click
+behavior. Its [macOS output fix](https://github.com/wailsapp/wails/pull/6225)
+updates generated Darwin tasks to move output out of file-provider folders and
+link the original output path. Updating the module does not update existing
+project Taskfiles.
+
+Nestworth retains its customized transactional bundle staging and package
+verification. These tasks require a real output directory inside the repository
+and reject symlinked output. Do not apply the upstream relocation task blindly:
+its symlink conflicts with this contract. Build this checkout on local,
+non-synchronized storage (outside iCloud Drive, Dropbox, or similar providers),
+and keep `bin` a regular directory. Automatic output relocation remains outside
+this dependency update. Native macOS verification must include repeated package
+builds, dev restart, strict signature verification, and launch/relaunch of each
+DMG/ZIP payload with isolated synthetic data.
 
 ## Upgrade boundary
 
@@ -63,8 +87,8 @@ Set the target versions and writable caches. Restricted environments should not
 rely on the default Go cache directories:
 
 ```bash
-WAILS_GO_VERSION=v3.0.0-beta.26
-WAILS_RUNTIME_VERSION=3.0.0-beta.26
+WAILS_GO_VERSION=v3.0.0-beta.28
+WAILS_RUNTIME_VERSION=3.0.0-beta.28
 GOCACHE=/tmp/nestworth-wails-gocache
 GOMODCACHE=/tmp/nestworth-wails-gomodcache
 export WAILS_GO_VERSION WAILS_RUNTIME_VERSION GOCACHE GOMODCACHE
@@ -100,7 +124,7 @@ PATH="$(go env GOPATH)/bin:$PATH" wails3 version
 The output must be the target version:
 
 ```text
-v3.0.0-beta.26
+v3.0.0-beta.28
 ```
 
 If an old version is still reported, inspect `type -a wails3` and retry with the
@@ -360,5 +384,5 @@ needs migration, record it as a separate compatibility change with tests.
 For a dependency-only change, a suitable Conventional Commit is:
 
 ```text
-chore(deps): upgrade Wails to v3.0.0-beta.26
+chore(deps): upgrade Wails to v3.0.0-beta.28
 ```

@@ -8,6 +8,93 @@ export interface DerivedDataRebuildResult {
     "incompleteDays": number;
 }
 
+export interface HistoricalOverviewAllocation {
+    "key": string;
+    "amount": string;
+    "share": string;
+}
+
+export interface HistoricalOverviewCell {
+    "status": string;
+    "included": boolean;
+    "complete": boolean;
+    "currency": string;
+    "nativeAmount": string | null;
+    "baseAmount": string | null;
+    "quantity": string | null;
+    "assetClass": string;
+    "manual": boolean;
+    "valueSourceAt": string;
+    "valueSourceId": string;
+    "price": HistoricalOverviewEvidence | null;
+    "fx": HistoricalOverviewEvidence | null;
+    "missing": string[] | null;
+}
+
+export interface HistoricalOverviewEvidence {
+    "id": string;
+    "source": string;
+    "effectiveAt": string;
+    "marketDate": string;
+    "freshness": string;
+}
+
+/**
+ * HistoricalOverviewResult is a presentation read model, not a saved snapshot.
+ * Amounts are exact decimal strings. Nil means unknown, never zero.
+ */
+export interface HistoricalOverviewResult {
+    "timezone": string;
+    "originDate": string;
+    "lastClosedDate": string;
+    "capturedAt": string;
+    "inputGeneration": number;
+    "resolverPolicy": string;
+    "left": HistoricalOverviewState;
+    "right": HistoricalOverviewState | null;
+    "change": HistoricalOverviewTotalsChange | null;
+    "rows": HistoricalOverviewRow[] | null;
+}
+
+export interface HistoricalOverviewRow {
+    "key": string;
+    "parentKey": string;
+    "kind": string;
+    "name": string;
+    "role": string;
+    "left": HistoricalOverviewCell | null;
+    "right": HistoricalOverviewCell | null;
+    "baseChange": string | null;
+    "nativeChange": string | null;
+    "quantityChange": string | null;
+    "changed": boolean;
+}
+
+export interface HistoricalOverviewState {
+    "date": string;
+    "cutoffAt": string;
+    "current": boolean;
+    "currency": string;
+    "complete": boolean;
+    "assets": string | null;
+    "liabilities": string | null;
+    "netWorth": string | null;
+    "knownAssets": string;
+    "knownLiabilities": string;
+    "byClass": HistoricalOverviewAllocation[] | null;
+    "byCurrency": HistoricalOverviewAllocation[] | null;
+}
+
+/**
+ * HistoricalOverviewTotalsChange is right minus left, not return attribution.
+ * Each amount remains nil when either corresponding total is incomplete.
+ */
+export interface HistoricalOverviewTotalsChange {
+    "assets": string | null;
+    "liabilities": string | null;
+    "netWorth": string | null;
+}
+
 export interface OpenProductCommand {
     "effectiveLocalDate"?: string;
     "effectiveLocalTime"?: string;

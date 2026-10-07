@@ -3,6 +3,13 @@
 
 export type {
     DerivedDataRebuildResult,
+    HistoricalOverviewAllocation,
+    HistoricalOverviewCell,
+    HistoricalOverviewEvidence,
+    HistoricalOverviewResult,
+    HistoricalOverviewRow,
+    HistoricalOverviewState,
+    HistoricalOverviewTotalsChange,
     OpenProductCommand,
     ProductPolicyInput,
     ProductTermsInput,
