@@ -29,10 +29,11 @@ export function ContinuousBackupSection({ active = true, onInteractionBusyChange
   const [acknowledged, setAcknowledged] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [retentionBusy, setRetentionBusy] = useState(false);
+  const [retentionInteractionBusy, setRetentionInteractionBusy] = useState(false);
   const previewTrigger = useRef<HTMLButtonElement>(null);
   const inspectRequest = useRef(false);
   const restoreRequest = useRef(false);
-  const interactionBusy = inspect.isPending || restore.isPending || open || restarting || retentionBusy;
+  const interactionBusy = inspect.isPending || restore.isPending || open || restarting || retentionInteractionBusy;
   useEffect(() => { onInteractionBusyChange?.(interactionBusy); return () => onInteractionBusyChange?.(false); }, [interactionBusy, onInteractionBusyChange]);
   const externalBusy = save.isPending || test.isPending || backup.isPending || inspect.isPending || restore.isPending || restarting || points.isFetching;
   const busy = externalBusy || retentionBusy;
@@ -81,7 +82,7 @@ export function ContinuousBackupSection({ active = true, onInteractionBusyChange
       {save.isSuccess && <p>{t("cloudBackup.saved")}</p>}
     </div>
     {(save.isError || test.isError || backup.isError || inspect.isError || restore.isError || current.errorSummary) && <p role="alert" className="text-sm text-destructive">{t("cloudBackup.error")}</p>}
-    <HistoryRetentionSection active={active} key={`${current.accountID}/${current.bucket}/${current.backupID}`} scope={`${current.accountID}/${current.bucket}/${current.backupID}`} disabled={externalBusy || dirty || open || !current.credentialsConfigured} onBusyChange={setRetentionBusy} />
+    <HistoryRetentionSection active={active} key={`${current.accountID}/${current.bucket}/${current.backupID}`} scope={`${current.accountID}/${current.bucket}/${current.backupID}`} disabled={externalBusy || dirty || open || !current.credentialsConfigured} onBusyChange={setRetentionBusy} onInteractionBusyChange={setRetentionInteractionBusy} />
     <div className="space-y-3 border-t pt-4">
       <h3 className="font-medium">{t("cloudBackup.recovery")}</h3>
       <p className="text-sm text-muted-foreground">{t("cloudBackup.recoveryHelp")}</p>

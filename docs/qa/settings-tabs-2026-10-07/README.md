@@ -1,6 +1,6 @@
 # Settings tabs cloud verification
 
-Base: `f23a4fb` (main). This is a separate settings redesign branch. PR34 was
+Initial implementation base: `f23a4fb` (main). This is a separate settings redesign branch. PR34 was
 still open at `f94a706` when the base was checked; its version/Wails/bindings
 changes are not included. The earlier design-review screenshots were from
 `0618f42` on PR34, whose `frontend/src` matched this main baseline, not from
@@ -87,3 +87,37 @@ parent-coordinated checks: isolated Mac file picker, native Enter/focus behavior
 local and cloud restoration dialogs on delayed success/error/cancellation,
 low-height scrolling, and sidebar changes with native WebKit. Keep the PR in
 draft for strict review; do not merge, tag, release or use a real ledger/R2.
+
+## Follow-up retention navigation review
+
+After PR34 merged, main `84715934864d9f5e07477ee184db9fbb6bab6204` was merged
+into this branch without rewriting its history. Its Wails beta.28/version
+changes now come from main, rather than from edits to PR34's branch. The
+screenshots above still describe the original implementation and mock data.
+
+Review reproduced a navigation deadlock: a delayed or cached retention status
+with `running: true` locked every inactive tab even when Data was hidden and
+its polling had stopped. Retention now reports two independent states:
+conflicting Data controls stay disabled during background cleanup, while the
+page navigation lock follows only frontend requests and confirmation dialogs.
+Users can return to Data, resume polling and use Stop cleanup. Restore
+inspection/confirmation/restart protection remains unchanged.
+
+If background cleanup starts while a retention confirmation is open, Cancel
+can close it when no frontend request is pending. Focus returns to the
+initiating control when enabled, or the retention heading if background work
+has disabled that control.
+
+Three new integration regressions cover delayed hidden-panel status, cached
+running status on reopening Settings, and confirmation cancellation/focus
+during background cleanup. The first two failed before the fix. The relevant
+settings/retention/continuous-backup/keyboard suite passed 49 tests in 4 files,
+including the existing deferred local and cloud restore safety checks.
+
+Follow-up validation with pinned Wails beta.28: binding verification, gofmt,
+Go tests/vet/build, frontend lint/typecheck/build and `git diff --check` passed
+using the same local server/CGO=0 setup. The aggregate default four-worker
+frontend run passed 746/747 tests; its only failure was the unchanged
+ProductPickers date-selection test exceeding its five-second budget. A full
+two-worker rerun passed all 747 tests in 85 files. Native/race CI is linked
+from PR35; isolated Mac GUI acceptance remains separate.

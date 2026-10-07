@@ -66,8 +66,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/re
   },
 }));
 
-function renderPage() {
-  const queryClient = createTestQueryClient({ retry: false });
+function renderPage(queryClient = createTestQueryClient({ retry: false })) {
   return render(
     <QueryClientProvider client={queryClient}>
       <SettingsPage />
@@ -461,4 +460,66 @@ it("retains cloud recovery selection and unapplied retention days across tabs", 
   expect(screen.getByLabelText("Recovery point")).toHaveValue("synthetic-stream:1");
   expect(screen.getByLabelText("Keep sealed history for")).toHaveValue("90");
   expect(cloud.InspectRestore).not.toHaveBeenCalled();
+});
+
+it("can return to Data when a delayed retention response reports background cleanup while hidden", async () => {
+  const result = deferred<object>();
+  const running = { enabled: true, running: true, days: 30, scannedBytes: 0, eligibleBytes: 0 };
+  cloud.RetentionStatus.mockReturnValueOnce(result.promise).mockResolvedValue(running);
+  renderPage();
+  await screen.findByRole("combobox", { name: "Appearance" });
+  await selectTab("Data");
+  await waitFor(() => expect(cloud.RetentionStatus).toHaveBeenCalledOnce());
+  await selectTab("About");
+  await act(async () => result.resolve(running));
+  await waitFor(() => expect(document.querySelector("#history-retention-days")).toBeDisabled());
+  expect(screen.getByRole("tab", { name: "Data" })).not.toHaveAttribute("aria-disabled", "true");
+  expect(screen.getByRole("tab", { name: "About" })).toHaveAttribute("aria-selected", "true");
+  await selectTab("Data");
+  expect(await screen.findByRole("button", { name: "Stop cleanup" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Preview cleanup" })).toBeDisabled();
+  expect(screen.getByLabelText("Bucket name")).toBeDisabled();
+  await waitFor(() => expect(cloud.RetentionStatus).toHaveBeenCalledTimes(2));
+  await selectTab("About");
+  expect(screen.getByRole("tab", { name: "About" })).toHaveAttribute("aria-selected", "true");
+});
+
+it("can navigate to Data when reopening Settings with cached background cleanup", async () => {
+  const queryClient = createTestQueryClient({ retry: false });
+  const running = { enabled: true, running: true, days: 30, scannedBytes: 0, eligibleBytes: 0 };
+  queryClient.setQueryData(["continuousBackup"], { enabled: false, accountID: "test", bucket: "test-bucket", credentialsConfigured: false, backupID: "owner", state: "disabled" });
+  queryClient.setQueryData(["continuousBackup", "retention", "test/test-bucket/owner"], running);
+  cloud.RetentionStatus.mockResolvedValue(running);
+  renderPage(queryClient);
+  await screen.findByRole("combobox", { name: "Appearance" });
+  await waitFor(() => expect(document.querySelector("#history-retention-days")).toBeDisabled());
+  expect(cloud.RetentionStatus).not.toHaveBeenCalled();
+  expect(screen.getByRole("tab", { name: "Data" })).not.toHaveAttribute("aria-disabled", "true");
+  await selectTab("Data");
+  expect(await screen.findByRole("button", { name: "Stop cleanup" })).toBeEnabled();
+  await waitFor(() => expect(cloud.RetentionStatus).toHaveBeenCalledOnce());
+  await selectTab("About");
+  expect(screen.getByRole("tab", { name: "About" })).toHaveAttribute("aria-selected", "true");
+});
+
+it("locks retention confirmation but can cancel it when background cleanup starts", async () => {
+  const queryClient = createTestQueryClient({ retry: false });
+  cloud.Status.mockResolvedValue({ enabled: true, accountID: "test", bucket: "test-bucket", credentialsConfigured: true, backupID: "owner", state: "idle" });
+  renderPage(queryClient);
+  await screen.findByRole("combobox", { name: "Appearance" });
+  await selectTab("Data");
+  const trigger = await screen.findByLabelText("Enable history cleanup");
+  const aboutTab = screen.getByRole("tab", { name: "About" });
+  const dataTab = screen.getByRole("tab", { name: "Data" });
+  await userEvent.click(trigger);
+  const dialog = await screen.findByRole("alertdialog");
+  expect(aboutTab).toHaveAttribute("aria-disabled", "true");
+  await userEvent.click(aboutTab);
+  expect(dataTab).toHaveAttribute("aria-selected", "true");
+  await act(async () => { queryClient.setQueryData(["continuousBackup", "retention", "test/test-bucket/owner"], { enabled: false, running: true, days: 30, scannedBytes: 0, eligibleBytes: 0 }); });
+  await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  await waitFor(() => expect(document.querySelector("#history-retention-title")).toHaveFocus());
+  expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+  await selectTab("About");
+  expect(screen.getByRole("tab", { name: "About" })).toHaveAttribute("aria-selected", "true");
 });

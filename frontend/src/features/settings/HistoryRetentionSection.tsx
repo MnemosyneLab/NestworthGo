@@ -6,7 +6,7 @@ import { NativeSelect } from "@/components/ui/select";
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useCancelCleanup, useConfigureRetention, useExecuteRetention, usePreviewRetention, useRetentionStatus } from "@/queries/continuousBackup";
 
-export function HistoryRetentionSection({ scope, disabled, onBusyChange, active = true }: { active?: boolean; scope: string; disabled: boolean; onBusyChange: (busy: boolean) => void }) {
+export function HistoryRetentionSection({ scope, disabled, onBusyChange, onInteractionBusyChange, active = true }: { active?: boolean; scope: string; disabled: boolean; onBusyChange: (busy: boolean) => void; onInteractionBusyChange?: (busy: boolean) => void }) {
   const { t } = useTranslation();
   const status = useRetentionStatus(scope, active);
   const configure = useConfigureRetention();
@@ -14,12 +14,18 @@ export function HistoryRetentionSection({ scope, disabled, onBusyChange, active 
   const execute = useExecuteRetention();
   const cancel = useCancelCleanup();
   const dialogTrigger = useRef<HTMLElement | null>(null);
+  const sectionTitle = useRef<HTMLHeadingElement>(null);
   const [selectedDays, setSelectedDays] = useState<number | null>(null);
   const [dialog, setDialog] = useState<"enable" | "execute" | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
-  const busy = configure.isPending || preview.isPending || execute.isPending || Boolean(status.data?.running);
-  const interactionBusy = busy || dialog !== null;
-  useEffect(() => { onBusyChange(interactionBusy); return () => onBusyChange(false); }, [interactionBusy, onBusyChange]);
+  const requestBusy = configure.isPending || preview.isPending || execute.isPending;
+  const busy = requestBusy || Boolean(status.data?.running);
+  const controlsBusy = busy || dialog !== null;
+  // Background cleanup disables conflicting Data actions, but must not lock
+  // navigation: hidden status queries stop polling until the user returns.
+  const interactionBusy = requestBusy || dialog !== null;
+  useEffect(() => { onBusyChange(controlsBusy); return () => onBusyChange(false); }, [controlsBusy, onBusyChange]);
+  useEffect(() => { onInteractionBusyChange?.(interactionBusy); return () => onInteractionBusyChange?.(false); }, [interactionBusy, onInteractionBusyChange]);
   const current = status.data;
   const days = selectedDays ?? current?.days ?? 30;
   const plan = preview.data;
@@ -29,7 +35,7 @@ export function HistoryRetentionSection({ scope, disabled, onBusyChange, active 
   const reset = () => { setDialog(null); setAcknowledged(false); preview.reset(); };
   const ready = current?.enabled && days === current.days && plan?.ready && items.some((item) => item.eligible);
   return <section className="space-y-3 border-t pt-4" aria-labelledby="history-retention-title">
-    <h3 id="history-retention-title" className="font-medium">{t("retention.title")}</h3>
+    <h3 ref={sectionTitle} tabIndex={-1} id="history-retention-title" className="font-medium">{t("retention.title")}</h3>
     <p className="text-sm text-muted-foreground">{t("retention.description")}</p>
     {status.isLoading && <p role="status">{t("ui.state.loadingPage")}</p>}
     {!status.isLoading && !current && <div role="alert"><p>{t("retention.error")}</p><Button variant="outline" onClick={() => void status.refetch()}>{t("common.retryAction")}</Button></div>}
@@ -52,10 +58,10 @@ export function HistoryRetentionSection({ scope, disabled, onBusyChange, active 
         {items.length === 0 ? <p>{t("retention.empty")}</p> : <ul className="max-h-60 space-y-2 overflow-auto" aria-label={t("retention.candidates")}>{items.map((item) => <li key={item.streamID} className="break-all"><span>{item.streamID}</span><br /><span>{item.bytes.toLocaleString()} {t("retention.bytes")} · {t(`retention.reasons.${item.reason}`, { defaultValue: t("retention.reasons.unsealed") })}</span></li>)}</ul>}
       </div>}
     </>}
-    <AlertDialog open={dialog !== null} onOpenChange={(value) => { if (!value && !busy) { setDialog(null); setAcknowledged(false); } }}>
-      <AlertDialogContent finalFocus={dialogTrigger} className="max-h-[calc(100dvh-2rem)] overflow-y-auto"><AlertDialogHeader><AlertDialogTitle>{t(dialog === "execute" ? "retention.clean" : "retention.enable")}</AlertDialogTitle><AlertDialogDescription>{t("retention.warning")}</AlertDialogDescription></AlertDialogHeader>
+    <AlertDialog open={dialog !== null} onOpenChange={(value) => { if (!value && !requestBusy) { setDialog(null); setAcknowledged(false); } }}>
+      <AlertDialogContent finalFocus={() => dialogTrigger.current?.matches(":disabled") ? sectionTitle.current : dialogTrigger.current} className="max-h-[calc(100dvh-2rem)] overflow-y-auto"><AlertDialogHeader><AlertDialogTitle>{t(dialog === "execute" ? "retention.clean" : "retention.enable")}</AlertDialogTitle><AlertDialogDescription>{t("retention.warning")}</AlertDialogDescription></AlertDialogHeader>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={acknowledged} disabled={busy} onChange={(event) => setAcknowledged(event.target.checked)} />{t("retention.acknowledge")}</label>
-        <AlertDialogFooter>{(execute.isPending || current?.running) && <Button variant="outline" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t("retention.stop")}</Button>}<AlertDialogCancel disabled={busy}>{t("common.cancel")}</AlertDialogCancel><Button disabled={!acknowledged || busy || disabled} onClick={() => {
+        <AlertDialogFooter>{(execute.isPending || current?.running) && <Button variant="outline" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t("retention.stop")}</Button>}<AlertDialogCancel disabled={requestBusy}>{t("common.cancel")}</AlertDialogCancel><Button disabled={!acknowledged || busy || disabled} onClick={() => {
           if (!acknowledged || busy || disabled) return;
           if (dialog === "enable") configure.mutate({ enabled: true, days, acknowledged: true }, { onSuccess: reset });
           else if (dialog === "execute" && plan && ready) execute.mutate(plan.token, { onSettled: reset });
