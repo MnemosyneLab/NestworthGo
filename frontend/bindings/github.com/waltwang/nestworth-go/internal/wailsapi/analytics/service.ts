@@ -7,7 +7,19 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
+import * as application$0 from "../../application/models.js";
+
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore: Unused imports
 import * as $models from "./models.js";
+
+/**
+ * HistoricalOverview returns the immutable presentation projection. It does
+ * not materialize daily snapshots or refresh market data.
+ */
+export function HistoricalOverview(date: string, compareTo: string): $CancellablePromise<application$0.HistoricalOverviewResult> {
+    return $Call.ByID(1841438157, date, compareTo);
+}
 
 export function InstrumentHoldings(): $CancellablePromise<$models.InstrumentHoldingsDTO[] | null> {
     return $Call.ByID(4105309295);
