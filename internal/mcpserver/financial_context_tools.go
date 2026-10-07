@@ -328,7 +328,15 @@ func (c *financialContextCache) response(id string, e cachedFinancialContext, g 
 					r.Content.Evidence = r.Content.Evidence[:len(r.Content.Evidence)-1]
 				}
 				if returned == 0 {
-					return r, fail("too_large", fmt.Sprintf("%s row and required summary exceed the MCP wire budget", name))
+					if section != "" {
+						return r, fail("too_large", fmt.Sprintf("%s row and required summary exceed the MCP wire budget", name))
+					}
+					// An initial section may be crowded out by earlier sections.
+					// Fail only if its first row cannot fit with the summary alone;
+					// otherwise pageInfo below supplies an offset-zero continuation.
+					if _, err := c.response(id, e, g, name, start, 1); err != nil {
+						return r, err
+					}
 				}
 				break
 			}
@@ -359,9 +367,10 @@ func (c *financialContextCache) pageInfo(id, section string, g uint64, start, re
 	return info
 }
 
-// The SDK does not expose JSON-RPC IDs to tool handlers. Bound IDs for these
-// two tools at the transport so the measured result plus envelope allowance
-// is a hard final-wire limit, even with adversarial request IDs.
+// The SDK does not expose IDs to tool handlers and may return input-schema
+// errors before those handlers run. Bound IDs and the final JSON response for
+// just these two tools. The server uses stateless JSONResponse mode; retaining
+// at most 64 KiB until ServeHTTP completes also covers SDK validation errors.
 func financialContextEnvelope(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -378,11 +387,60 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 					Name string `json:"name"`
 				} `json:"params"`
 			}
-			if json.Unmarshal(raw, &request) == nil && (request.Params.Name == "get_financial_context" || request.Params.Name == "get_financial_context_page") && len(request.ID) > 512 {
-				http.Error(w, "financial context request ID exceeds wire budget", http.StatusBadRequest)
+			if json.Unmarshal(raw, &request) == nil && (request.Params.Name == "get_financial_context" || request.Params.Name == "get_financial_context_page") {
+				if len(request.ID) > 512 {
+					http.Error(w, "financial context request ID exceeds wire budget", http.StatusBadRequest)
+					return
+				}
+				buffer := &financialContextHTTPResponse{header: w.Header().Clone()}
+				next.ServeHTTP(buffer, r)
+				if buffer.oversized {
+					// Replace the entire result; never truncate JSON or echo the
+					// offending property/value. Keep the original bounded RPC ID.
+					result := &mcp.CallToolResult{}
+					result.SetError(fail("too_large", "financial context response exceeds the MCP wire budget"))
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode(struct {
+						JSONRPC string              `json:"jsonrpc"`
+						ID      json.RawMessage     `json:"id"`
+						Result  *mcp.CallToolResult `json:"result"`
+					}{"2.0", request.ID, result})
+				} else {
+					for key, values := range buffer.header {
+						w.Header()[key] = values
+					}
+					if buffer.status != 0 {
+						w.WriteHeader(buffer.status)
+					}
+					_, _ = w.Write(buffer.body.Bytes())
+				}
 				return
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+type financialContextHTTPResponse struct {
+	header    http.Header
+	status    int
+	body      bytes.Buffer
+	oversized bool
+}
+
+func (w *financialContextHTTPResponse) Header() http.Header { return w.header }
+func (w *financialContextHTTPResponse) WriteHeader(status int) {
+	if w.status == 0 {
+		w.status = status
+	}
+}
+func (w *financialContextHTTPResponse) Write(data []byte) (int, error) {
+	w.WriteHeader(http.StatusOK)
+	if !w.oversized && len(data) <= contextWireLimit-w.body.Len() {
+		return w.body.Write(data)
+	}
+	w.oversized = true
+	w.body.Reset()
+	return len(data), nil
 }

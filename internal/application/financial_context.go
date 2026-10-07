@@ -537,7 +537,7 @@ func contextQuoteEvidence(kind string, old *HistoricalOverviewEvidence, p domain
 }
 func contextObservationKind(v string) string {
 	switch v {
-	case "latest", "close", "nav", "daily_reference":
+	case string(InstrumentObservationManual), string(InstrumentObservationRealtime), string(InstrumentObservationClose), string(InstrumentObservationLegacy), string(FXObservationLatest), string(FXObservationDailyReference), "nav":
 		return v
 	default:
 		return "unavailable"

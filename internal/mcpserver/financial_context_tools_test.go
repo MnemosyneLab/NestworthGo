@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -100,6 +101,126 @@ func TestFinancialContextFinalHTTPWireBound(t *testing.T) {
 		if res.StatusCode != 200 || len(raw) > contextWireLimit {
 			t.Fatalf("wire %d status %d %s", len(raw), res.StatusCode, raw)
 		}
+	}
+}
+
+func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
+	s, _, _ := fixture(t)
+	if _, err := s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := s.Connection()
+	if err != nil {
+		t.Fatal(err)
+	}
+	large := strings.Repeat("x", 70000)
+	for _, tc := range []struct {
+		name string
+		tool string
+		args any
+		id   any
+	}{
+		{"unknown-context-property", "get_financial_context", map[string]any{large: true}, 1},
+		{"unknown-page-property", "get_financial_context_page", map[string]any{"contextId": "id", "section": "positions", "cursor": "cursor", large: true}, 1},
+		{"wrong-context-type", "get_financial_context", map[string]any{"scope": large}, 1},
+		{"wrong-page-type", "get_financial_context_page", map[string]any{"contextId": "id", "section": "positions", "cursor": "cursor", "limit": large}, 1},
+		{"escaped-property-long-id", "get_financial_context", map[string]any{strings.Repeat("\"\\\n", 20000): true}, strings.Repeat("x", 500)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			payload, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": tc.id, "method": "tools/call", "params": map[string]any{"name": tc.tool, "arguments": tc.args}})
+			req, _ := http.NewRequest("POST", cfg.Endpoint, strings.NewReader(string(payload)))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json, text/event-stream")
+			req.Header.Set("Authorization", "Bearer "+cfg.Token)
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+			if res.StatusCode != 200 || len(raw) > contextWireLimit {
+				t.Fatalf("schema error: request=%d response=%d status=%d", len(payload), len(raw), res.StatusCode)
+			}
+			var reply struct {
+				ID     json.RawMessage `json:"id"`
+				Result struct {
+					IsError bool `json:"isError"`
+				} `json:"result"`
+			}
+			wantID, _ := json.Marshal(tc.id)
+			if err := json.Unmarshal(raw, &reply); err != nil || string(reply.ID) != string(wantID) || !reply.Result.IsError {
+				t.Fatalf("expected bounded tool error: %s / %v", raw, err)
+			}
+			if !strings.Contains(string(raw), "too_large") || strings.Contains(string(raw), strings.Repeat("x", 1000)) {
+				t.Fatal("expected fixed error without input echo")
+			}
+			t.Logf("schema error: request=%d response=%d", len(payload), len(raw))
+		})
+	}
+}
+
+func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
+	c := newFinancialContextCache()
+	g := c.activate()
+	value := strings.Repeat("9", 7000)
+	content := application.FinancialContextContent{
+		Summary:   application.FinancialContextSummary{KnownAssets: strings.Repeat("9", 21000)},
+		Positions: []application.FinancialContextPosition{{Ref: "synthetic", Name: strings.Repeat("N", 7000)}},
+		Gaps:      []application.FinancialContextGap{},
+		Evidence:  []application.FinancialContextEvidence{{Ref: "synthetic", Kind: "price", Value: &value}},
+	}
+	now := time.Now()
+	entry := cachedFinancialContext{result: application.FinancialContextResult{CapturedAt: now, ContentHash: "hash", Content: content}, expires: now.Add(contextTTL), size: 1}
+	for _, section := range []string{"positions", "evidence"} {
+		if _, err := c.response("id", entry, g, section, 0, 1); err != nil {
+			t.Fatalf("summary plus %s must fit independently: %v", section, err)
+		}
+	}
+	initial, err := c.response("id", entry, g, "", 0, 1)
+	if err != nil {
+		t.Fatalf("individually fitting sections must defer rather than fail: %v", err)
+	}
+	if initial.PositionsPage.Returned != 1 || initial.EvidencePage.Returned != 0 || !initial.EvidencePage.HasMore || initial.EvidencePage.NextCursor == "" {
+		t.Fatal("expected evidence deferred with continuation", initial.PositionsPage, initial.EvidencePage)
+	}
+	cursor, err := c.decodeCursor(initial.EvidencePage.NextCursor)
+	if err != nil || cursor.Offset != 0 {
+		t.Fatal("deferred cursor must begin at zero", cursor, err)
+	}
+	c.entries["id"] = entry
+	page, err := (&Service{contexts: c}).financialContextPage(t.Context(), g, FinancialContextPageInput{ContextID: "id", Section: "evidence", Cursor: initial.EvidencePage.NextCursor})
+	if err != nil || page.EvidencePage.Returned != 1 || page.EvidencePage.HasMore {
+		t.Fatal("continuation must advance", page.EvidencePage, err)
+	}
+	value = strings.Repeat("9", contextWireLimit)
+	if _, err := c.response("id", entry, g, "", 0, 1); err == nil {
+		t.Fatal("an individually oversized row must fail, not defer")
+	}
+}
+
+func TestFinancialContextEnvelopeOnlyBoundsContextTools(t *testing.T) {
+	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_context"} {
+		t.Run(tool, func(t *testing.T) {
+			body := strings.Repeat("x", contextWireLimit+1)
+			handler := financialContextEnvelope(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("X-Test", "preserved")
+				w.WriteHeader(http.StatusBadRequest)
+				// Cross the budget over several writes, then write again.
+				_, _ = io.WriteString(w, body[:contextWireLimit-1])
+				_, _ = io.WriteString(w, body[contextWireLimit-1:])
+				_, _ = io.WriteString(w, "tail")
+			}))
+			request := httptest.NewRequest(http.MethodPost, "/mcp", strings.NewReader(`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"`+tool+`","arguments":{}}}`))
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if tool == "get_context" {
+				if response.Code != http.StatusBadRequest || response.Body.String() != body+"tail" || response.Header().Get("X-Test") != "preserved" {
+					t.Fatal("other tools' responses changed")
+				}
+			} else if response.Code != http.StatusOK || response.Body.Len() > contextWireLimit || !strings.Contains(response.Body.String(), `"id":7`) || !strings.Contains(response.Body.String(), `"isError":true`) {
+				t.Fatal("expected full replacement of oversized response", response.Code, response.Body.Len())
+			}
+		})
 	}
 }
 func TestFinancialContextCacheExpiryEvictionCursorAndOversize(t *testing.T) {

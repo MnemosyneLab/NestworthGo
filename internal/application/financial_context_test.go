@@ -94,6 +94,64 @@ func TestFinancialContextNoHouseholdAndInvalidScope(t *testing.T) {
 		}
 	}
 }
+
+func TestFinancialContextStoredObservationKinds(t *testing.T) {
+	for _, source := range []string{"manual", "provider", "agent"} {
+		t.Run(source, func(t *testing.T) {
+			s, _, owner, now := overviewFixture(t)
+			a := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "USD", "")
+			i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Synthetic stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: source, ProviderKey: "yahoo_finance", ProviderSymbol: "TEST"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.CreateHolding(t.Context(), HoldingInput{AccountID: a.Account.ID.String(), InstrumentID: i.ID.String(), Quantity: "2"}); err != nil {
+				t.Fatal(err)
+			}
+			wantPrice := string(InstrumentObservationRealtime)
+			switch source {
+			case "manual":
+				wantPrice = string(InstrumentObservationManual)
+				_, err = s.AppendManualInstrumentQuote(t.Context(), i.ID, "3", now.Format(time.RFC3339Nano), false)
+			case "agent":
+				_, err = s.ImportAgentMarketData(t.Context(), uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{{InstrumentID: i.ID.String(), Currency: "USD", Value: "3", Kind: "latest", QuotedAt: now.Format(time.RFC3339Nano), SourceTitle: "Synthetic source", SourceURL: "https://example.invalid/quote"}}})
+			case "provider":
+				price, _ := domain.ParseUnitPrice("3")
+				q, quoteErr := domain.NewInstrumentQuote(i, domain.InstrumentQuoteInput{UnitPrice: price, Currency: domain.CurrencyCode("USD"), SourceKind: domain.QuoteSourceProvider, SourceKey: "yahoo_finance", QuotedAt: *now}, *now)
+				if quoteErr != nil {
+					t.Fatal(quoteErr)
+				}
+				err = s.repository.AppendInstrumentQuote(t.Context(), q)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.AppendManualFXQuote(t.Context(), "USD", "CNY", "7", now.Format(time.RFC3339Nano)); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = s.SetFXPreference(t.Context(), "USD", "CNY", "manual"); err != nil {
+				t.Fatal(err)
+			}
+			r := contextFor(t, s, "current", a.Account.ID)
+			wantOverviewAmount(t, r.Content.Summary.Assets.Value, "42")
+			seen := map[string]bool{}
+			for _, e := range r.Content.Evidence {
+				want := wantPrice
+				if e.Kind == "fx" {
+					want = string(FXObservationManual)
+				} else if e.Kind != "price" {
+					continue
+				}
+				seen[e.Kind] = true
+				if e.Status != "available" || e.ObservationKind != want {
+					t.Errorf("%s evidence: status=%s observationKind=%s want=%s", e.Kind, e.Status, e.ObservationKind, want)
+				}
+			}
+			if !seen["price"] || !seen["fx"] {
+				t.Fatal("missing price or FX evidence", seen)
+			}
+		})
+	}
+}
 func TestFinancialContextScopePrecisionGapsAndHiddenChanges(t *testing.T) {
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Hidden A", "bank_account", "asset", "balance", "USD", "10")

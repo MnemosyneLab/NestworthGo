@@ -48,7 +48,9 @@ The existing MCP `{data: ...}` wrapper contains:
   basis, summary, coverage, dataAsOf, positions, gaps and evidence;
 - `positionsPage`, `gapsPage`, `evidencePage`: total, returned, hasMore and
   nextCursor. The initial response includes up to **one row per section**;
-  follow its cursors for details. Summary and counts are complete immediately.
+  follow its cursors for details. A section crowded out by earlier sections may
+  return zero rows with an offset-zero nextCursor; its standalone continuation
+  must advance. Summary and counts are complete immediately.
 
 Money, quantities, prices and FX rates are exact decimal strings. Nullable
 assets/liabilities/netWorth are complete totals, never partial subtotals. Missing
@@ -74,6 +76,9 @@ date-label and stale counts **for this scope only**. It is mixed-input evidence,
 not a single market-data timestamp or proof of a reconciled ledger. Evidence
 lists price and FX values, orientation (`1 baseCurrency = value quoteCurrency`),
 source kind, observation kind, effective date/time, timestamp basis and freshness.
+Observation kinds preserve the stored vocabulary: `manual`, `realtime`, `close`,
+`latest`, `daily_reference` and `legacy` (also retaining the existing `nav`
+label); unknown kinds are `unavailable`.
 Date-label anchors are labeled rather than claimed as an actual midnight quote.
 Typed metal conversion evidence projects only validated units, currencies,
 prices, rates and times; it never returns raw conversion JSON or provider text.
@@ -156,8 +161,15 @@ Go heap usage. Historical dependency loading remains household-wide, so selectin
 an account does not guarantee that a very large household fits the input budget.
 Such requests fail explicitly rather than calculating from truncated facts.
 
-Oversized package, summary or individual row returns `too_large`. Rows are not
-silently discarded or split; escaping and SDK duplication are included in sizing.
+Oversized package, summary or individual row returns `too_large`. Individual-row
+admission measures that row with the required summary, independently of other
+sections occupying the initial page. Rows are not silently discarded or split;
+escaping and SDK duplication are included in sizing. For these two tools only,
+the stateless JSON HTTP transport also buffers at most 64 KiB of the final body.
+An oversized SDK validation/error response is replaced in full by a fixed
+`too_large` tool error with the same bounded request ID; offending input text is
+not echoed or truncated. This covers errors raised before the business handler.
+Other MCP tools retain their existing response behavior.
 Cache pressure evicts the earliest-expiring result. Cache stores only the final
 permitted projection, never raw input snapshots. No response/amount/name/token
 logging is introduced.
