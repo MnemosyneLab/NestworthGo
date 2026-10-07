@@ -8,7 +8,7 @@ cross-compilation tasks for other platforms.
 
 - Go 1.26 or newer;
 - Node.js with pnpm;
-- Wails CLI `v3.0.0-beta.26` available as `wails3`;
+- Wails CLI `v3.0.0-beta.28` available as `wails3`;
 - macOS and Xcode command-line tools for native `.app` and `.dmg` packaging.
 - Linux additionally needs GCC, pkg-config, and Wails GTK/WebKit headers to
   compile `./cmd/nestworth`:
@@ -122,6 +122,13 @@ The same automated gates run in GitHub Actions on `main` and pull requests
 packaging, signing, and notarization remain manual.
 
 ## Build and package the macOS app
+
+For Wails beta.28, use a checkout on local, non-synchronized storage. Our
+customized Darwin tasks reject symlinked output; the upstream generated
+file-provider relocation task is not applied automatically. See the
+[beta.28 compatibility notes](wails-version-upgrade.md#beta28-compatibility-notes)
+before building in an iCloud Drive, Dropbox, or similar folder.
+
 
 Use the root tasks for the normal arm64 flow:
 
