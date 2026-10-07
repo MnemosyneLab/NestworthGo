@@ -9,6 +9,7 @@ export type FilterableSelectOption = {
 
 export type FilterableSelectProps = {
   id?: string;
+  form?: string;
   value: string;
   options: FilterableSelectOption[];
   onValueChange: (value: string) => void;
@@ -22,6 +23,7 @@ export type FilterableSelectProps = {
 /** A small keyboard-accessible combobox for long closed catalogs such as IANA timezones. */
 export function FilterableSelect({
   id,
+  form,
   value,
   options,
   onValueChange,
@@ -68,6 +70,7 @@ export function FilterableSelect({
     <div ref={rootRef} className="relative">
       <input
         id={id}
+        form={form}
         role="combobox"
         aria-label={ariaLabel}
         aria-controls={listboxId}
