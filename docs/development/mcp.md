@@ -34,6 +34,16 @@ preview/commit, reconciliation and corrections, data health repair, and includes
 their selected permission. Account creation still permits only an empty/zero
 initial amount. Enable ledger permission explicitly to record subsequent funding.
 
+## Read-only financial context
+
+`get_financial_context` captures current state or one closed date with a
+consistent asset/liability summary, exact nullable amounts, local gaps and
+evidence. `get_financial_context_page` reads bounded details from that same
+frozen result. Both use existing read permissions; default aliases minimize
+output but do not isolate household-wide credentials. No model, network refresh,
+snapshot materialization or repair runs. See [the full contract](financial-context.md)
+for history semantics, disclosure, hash, pagination, revocation and budgets.
+
 ## Connect
 
 Open **Settings → AI / MCP**, choose read-only, directory maintenance, or ledger recording, and

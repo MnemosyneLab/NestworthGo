@@ -237,6 +237,16 @@ func run() error {
 	if service != nil {
 		agentServer = mcpserver.New(service, mcpserver.Directory(store.Path, databasePath), func() { emitter.Emit(mcpserver.ChangedEvent, true) }, sqlite.NewConfigurationRepository(database))
 		defer agentServer.Close()
+		recoveryUseCase.SetBeforeRestore(func(ctx context.Context) error {
+			// Keep replication shutdown and fence MCP without draining operations
+			// while Restore owns application write locks.
+			if cloudBackup != nil {
+				if err := cloudBackup.PauseForRestore(ctx); err != nil {
+					return err
+				}
+			}
+			return agentServer.RevokeForRestore(ctx)
+		})
 		registered = append(registered, application.NewService(wailsagent.NewService(agentServer)))
 	}
 	// Runs before MCP/recovery/backup cleanup (defers are LIFO). Fence and

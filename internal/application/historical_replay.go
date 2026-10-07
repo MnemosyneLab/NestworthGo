@@ -41,6 +41,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 	activeInstruments := map[domain.InstrumentID]bool{}
 	activeHoldings := map[domain.HoldingID]bool{}
 	for _, activity := range batch.Activities {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		if activity.EffectiveAt.After(cutoff) {
 			continue
 		}
@@ -95,6 +98,9 @@ func (r HistoricalReplay) Snapshot(ctx context.Context, origin *domain.HistoryOr
 		}
 	}
 	for _, activity := range activities {
+		if err := ctx.Err(); err != nil {
+			return domain.PortfolioSnapshot{}, err
+		}
 		for _, effect := range activity.Effects {
 			if effect.Money != nil && effect.AccountID != nil {
 				if err := applyHistoricalMoney(values, cash, effect); err != nil {

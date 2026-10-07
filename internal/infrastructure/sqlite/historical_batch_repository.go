@@ -20,89 +20,94 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 	if err != nil {
 		return domain.HistoricalSnapshotBatch{}, err
 	}
-	fail := func(cause error) (domain.HistoricalSnapshotBatch, error) {
-		_ = tx.Rollback()
-		return domain.HistoricalSnapshotBatch{}, cause
-	}
-	var origin domain.HistoryOrigin
-	if _, err := scanHistoryOrigin(tx.QueryRowContext(ctx, `SELECT id, household_id, timezone, started_at, created_at FROM history_origins WHERE household_id = ?`, householdID.String()), &origin); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return fail(&domain.Error{Code: domain.ErrHistoryNotStarted, Message: "history origin was not found"})
-		}
-		return fail(err)
-	}
-	if cutoff.IsZero() {
-		return fail(&domain.Error{Code: domain.ErrValidation, Field: "cutoff", Message: "historical batch cutoff is required"})
-	}
-	portfolio, err := readPortfolioSnapshotQuery(ctx, tx, domain.AccountFilter{IncludeArchived: true})
+	defer tx.Rollback()
+	batch, err := loadHistoricalSnapshotBatchQuery(ctx, tx, householdID, cutoff)
 	if err != nil {
-		return fail(err)
-	}
-	originData, err := historyOriginDataQuery(ctx, tx, origin.ID)
-	if err != nil {
-		return fail(err)
-	}
-	zeroBaselines, err := listZeroAccountBaselines(ctx, tx, householdID, origin.StartedAt)
-	if err != nil {
-		return fail(err)
-	}
-	accountObservations, err := listAccountStateObservationsQuery(ctx, tx, householdID)
-	if err != nil {
-		return fail(err)
-	}
-	instrumentStateObservations, err := listInstrumentStateObservationsQuery(ctx, tx, householdID)
-	if err != nil {
-		return fail(err)
-	}
-	holdingStateObservations, err := listHoldingStateObservationsQuery(ctx, tx, householdID)
-	if err != nil {
-		return fail(err)
-	}
-	instrumentPreferences, err := listInstrumentPreferenceObservationsQuery(ctx, tx, householdID)
-	if err != nil {
-		return fail(err)
-	}
-	instrumentProviderBindings, err := listInstrumentProviderBindingRevisionsQuery(ctx, tx, householdID)
-	if err != nil {
-		return fail(err)
-	}
-	fxPreferences, err := listFXPreferenceObservationsQuery(ctx, tx, householdID)
-	if err != nil {
-		return fail(err)
-	}
-	currentFXPreferences, err := listFXPreferencesQuery(ctx, tx, householdID)
-	if err != nil {
-		return fail(err)
-	}
-	activities, err := listActivitiesUntilQuery(ctx, tx, householdID, cutoff)
-	if err != nil {
-		return fail(err)
-	}
-	instrumentQuotes, err := listAllInstrumentQuotesQuery(ctx, tx, householdID, cutoff)
-	if err != nil {
-		return fail(err)
-	}
-	fxQuotes, err := listAllFXQuotesQuery(ctx, tx, householdID, cutoff)
-	if err != nil {
-		return fail(err)
-	}
-	instrumentCoverage, err := listHistoricalInstrumentHistoryCoverageQuery(ctx, tx, householdID)
-	if err != nil {
-		return fail(err)
-	}
-	fxCoverage, err := listFXHistoryCoverageQuery(ctx, tx, householdID)
-	if err != nil {
-		return fail(err)
-	}
-	var generation int
-	var resolverPolicy sql.NullString
-	if err := tx.QueryRowContext(ctx, `SELECT input_generation, resolver_policy_version FROM history_snapshot_state WHERE household_id = ?`, householdID.String()).Scan(&generation, &resolverPolicy); err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			return fail(err)
-		}
+		return domain.HistoricalSnapshotBatch{}, err
 	}
 	if err := tx.Commit(); err != nil {
 		return domain.HistoricalSnapshotBatch{}, err
+	}
+	return batch, nil
+}
+
+func loadHistoricalSnapshotBatchQuery(ctx context.Context, query queryer, householdID domain.HouseholdID, cutoff time.Time) (domain.HistoricalSnapshotBatch, error) {
+	var origin domain.HistoryOrigin
+	if _, err := scanHistoryOrigin(query.QueryRowContext(ctx, `SELECT id, household_id, timezone, started_at, created_at FROM history_origins WHERE household_id = ?`, householdID.String()), &origin); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return domain.HistoricalSnapshotBatch{}, &domain.Error{Code: domain.ErrHistoryNotStarted, Message: "history origin was not found"}
+		}
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	if cutoff.IsZero() {
+		return domain.HistoricalSnapshotBatch{}, &domain.Error{Code: domain.ErrValidation, Field: "cutoff", Message: "historical batch cutoff is required"}
+	}
+	portfolio, err := readPortfolioSnapshotQuery(ctx, query, domain.AccountFilter{IncludeArchived: true})
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	originData, err := historyOriginDataQuery(ctx, query, origin.ID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	zeroBaselines, err := listZeroAccountBaselines(ctx, query, householdID, origin.StartedAt)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	accountObservations, err := listAccountStateObservationsQuery(ctx, query, householdID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	instrumentStateObservations, err := listInstrumentStateObservationsQuery(ctx, query, householdID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	holdingStateObservations, err := listHoldingStateObservationsQuery(ctx, query, householdID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	instrumentPreferences, err := listInstrumentPreferenceObservationsQuery(ctx, query, householdID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	instrumentProviderBindings, err := listInstrumentProviderBindingRevisionsQuery(ctx, query, householdID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	fxPreferences, err := listFXPreferenceObservationsQuery(ctx, query, householdID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	currentFXPreferences, err := listFXPreferencesQuery(ctx, query, householdID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	activities, err := listActivitiesUntilQuery(ctx, query, householdID, cutoff)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	instrumentQuotes, err := listAllInstrumentQuotesQuery(ctx, query, householdID, cutoff)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	fxQuotes, err := listAllFXQuotesQuery(ctx, query, householdID, cutoff)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	instrumentCoverage, err := listHistoricalInstrumentHistoryCoverageQuery(ctx, query, householdID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	fxCoverage, err := listFXHistoryCoverageQuery(ctx, query, householdID)
+	if err != nil {
+		return domain.HistoricalSnapshotBatch{}, err
+	}
+	var generation int
+	var resolverPolicy sql.NullString
+	if err := query.QueryRowContext(ctx, `SELECT input_generation, resolver_policy_version FROM history_snapshot_state WHERE household_id = ?`, householdID.String()).Scan(&generation, &resolverPolicy); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return domain.HistoricalSnapshotBatch{}, err
+		}
 	}
 	return domain.HistoricalSnapshotBatch{
 		ZeroAccountBaselines:           zeroBaselines,
@@ -128,8 +133,8 @@ func (r *Repository) LoadHistoricalSnapshotBatch(ctx context.Context, householdI
 
 // Only explicit zero baselines can seed post-origin accounts. Nonzero initial
 // funding is already represented by activities; replay projections are not facts.
-func listZeroAccountBaselines(ctx context.Context, tx *sql.Tx, householdID domain.HouseholdID, origin time.Time) ([]domain.AccountValue, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT av.account_id, av.currency, av.effective_at
+func listZeroAccountBaselines(ctx context.Context, query queryer, householdID domain.HouseholdID, origin time.Time) ([]domain.AccountValue, error) {
+	rows, err := query.QueryContext(ctx, `SELECT av.account_id, av.currency, av.effective_at
  FROM account_values av JOIN accounts a ON a.id = av.account_id
  WHERE a.household_id = ? AND a.created_at >= ?
  AND av.projection_kind = 'baseline' AND av.activity_effect_id IS NULL AND av.amount = '0'
