@@ -17,7 +17,7 @@
         PackageDisplayName="Nestworth"
         PublisherName="CN=Nestworth"
         PublisherDisplayName="Nestworth"
-        Version="0.3.6.7"
+        Version="0.3.7.8"
         PackageDescription="A local-first personal finance desktop application">
         <Capabilities>
             <Capability Name="runFullTrust" />

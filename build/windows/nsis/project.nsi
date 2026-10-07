@@ -22,7 +22,7 @@ Unicode true
 ## !define INFO_PROJECTNAME    "nestworth" # Default "nestworth"
 ## !define INFO_COMPANYNAME    "Nestworth" # Default "Nestworth"
 ## !define INFO_PRODUCTNAME    "Nestworth" # Default "Nestworth"
-## INFO_PRODUCTVERSION is generated from build/windows/info.json ("0.3.6").
+## INFO_PRODUCTVERSION is generated from build/windows/info.json ("0.3.7").
 ## !define INFO_COPYRIGHT      "(c) 2026, Nestworth" # Default "(c) 2026, Nestworth"
 ###
 ## !define PRODUCT_EXECUTABLE  "Application.exe"      # Default "${INFO_PROJECTNAME}.exe"
@@ -34,7 +34,7 @@ Unicode true
 ## Include the wails tools
 ####
 !ifndef INFO_APPBUILD
-    !define INFO_APPBUILD "7"
+    !define INFO_APPBUILD "8"
 !endif
 !include "wails_tools.nsh"
 
