@@ -349,3 +349,53 @@ func TestFinancialContextRejectsUnboundedRPCID(t *testing.T) {
 		t.Fatal(res.StatusCode)
 	}
 }
+
+func TestFinancialContextNearLimitMatchesActualMCPWire(t *testing.T) {
+	s, _, _ := fixture(t)
+	if _, err := s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := s.Connection()
+	if err != nil {
+		t.Fatal(err)
+	}
+	content := application.FinancialContextContent{Positions: []application.FinancialContextPosition{}, Gaps: []application.FinancialContextGap{}, Evidence: []application.FinancialContextEvidence{}}
+	for i := 0; i < 200; i++ {
+		content.Positions = append(content.Positions, application.FinancialContextPosition{Ref: "synthetic", Name: strings.Repeat("\"\\", 400)})
+	}
+	entry := cachedFinancialContext{result: application.FinancialContextResult{CapturedAt: time.Now(), ContentHash: "hash", Content: content}, expires: time.Now().Add(contextTTL), size: 1}
+	s.contexts.mu.Lock()
+	s.contexts.entries["wire-id"] = entry
+	s.contexts.bytes++
+	cursor := s.contexts.cursor("wire-id", "positions", s.contextGeneration, 0)
+	s.contexts.mu.Unlock()
+	args := FinancialContextPageInput{ContextID: "wire-id", Section: "positions", Cursor: cursor, Limit: 100}
+	payload, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": strings.Repeat("x", 500), "method": "tools/call", "params": map[string]any{"name": "get_financial_context_page", "arguments": args}})
+	req, _ := http.NewRequest("POST", cfg.Endpoint, strings.NewReader(string(payload)))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := io.ReadAll(res.Body)
+	res.Body.Close()
+	if res.StatusCode != 200 || len(raw) > contextWireLimit || len(raw) < 55000 {
+		t.Fatalf("wire boundary: status=%d bytes=%d", res.StatusCode, len(raw))
+	}
+	var reply struct {
+		Result struct {
+			StructuredContent struct {
+				Data FinancialContextResponse `json:"data"`
+			} `json:"structuredContent"`
+		} `json:"result"`
+	}
+	if err = json.Unmarshal(raw, &reply); err != nil {
+		t.Fatal(err)
+	}
+	page := reply.Result.StructuredContent.Data.PositionsPage
+	if page.Returned <= 0 || page.Returned >= 100 || !page.HasMore || page.NextCursor == cursor {
+		t.Fatal("page did not advance within wire bound", page)
+	}
+}
