@@ -169,6 +169,12 @@ the stateless JSON HTTP transport also buffers at most 64 KiB of the final body.
 An oversized SDK validation/error response is replaced in full by a fixed
 `too_large` tool error with the same bounded request ID; offending input text is
 not echoed or truncated. This covers errors raised before the business handler.
+Each context tool requires one JSON-RPC object per HTTP request. Any JSON-RPC
+batch containing either context tool, including a mixed batch, is rejected in
+full with a fixed HTTP 400 error before SDK dispatch. This applies with an absent
+protocol header and with explicit legacy protocol versions as well; no batch
+element executes and no request ID or offending input is echoed. Batches of
+other tools retain the SDK's existing protocol-dependent behavior.
 Other MCP tools retain their existing response behavior.
 Cache pressure evicts the earliest-expiring result. Cache stores only the final
 permitted projection, never raw input snapshots. No response/amount/name/token

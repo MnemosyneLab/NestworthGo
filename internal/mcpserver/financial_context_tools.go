@@ -367,10 +367,23 @@ func (c *financialContextCache) pageInfo(id, section string, g uint64, start, re
 	return info
 }
 
+type financialContextHTTPCall struct {
+	ID     json.RawMessage `json:"id"`
+	Params struct {
+		Name string `json:"name"`
+	} `json:"params"`
+}
+
+func isFinancialContextTool(name string) bool {
+	return name == "get_financial_context" || name == "get_financial_context_page"
+}
+
 // The SDK does not expose IDs to tool handlers and may return input-schema
 // errors before those handlers run. Bound IDs and the final JSON response for
 // just these two tools. The server uses stateless JSONResponse mode; retaining
 // at most 64 KiB until ServeHTTP completes also covers SDK validation errors.
+// Legacy SDK protocols accept batches, so reject batches containing either
+// context tool before dispatch, independently of the supplied protocol header.
 func financialContextEnvelope(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -381,13 +394,18 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 			}
 			r.Body.Close()
 			r.Body = io.NopCloser(bytes.NewReader(raw))
-			var request struct {
-				ID     json.RawMessage `json:"id"`
-				Params struct {
-					Name string `json:"name"`
-				} `json:"params"`
+			var batch []json.RawMessage
+			if json.Unmarshal(raw, &batch) == nil {
+				for _, element := range batch {
+					var request financialContextHTTPCall
+					if json.Unmarshal(element, &request) == nil && isFinancialContextTool(request.Params.Name) {
+						http.Error(w, "financial context tools require a single JSON-RPC request", http.StatusBadRequest)
+						return
+					}
+				}
 			}
-			if json.Unmarshal(raw, &request) == nil && (request.Params.Name == "get_financial_context" || request.Params.Name == "get_financial_context_page") {
+			var request financialContextHTTPCall
+			if json.Unmarshal(raw, &request) == nil && isFinancialContextTool(request.Params.Name) {
 				if len(request.ID) > 512 {
 					http.Error(w, "financial context request ID exceeds wire budget", http.StatusBadRequest)
 					return

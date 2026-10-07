@@ -159,6 +159,126 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 	}
 }
 
+func TestFinancialContextRejectsLegacyHTTPBatch(t *testing.T) {
+	for _, protocol := range []string{"", "2025-03-26", "2025-06-18"} {
+		for _, tool := range []string{"get_financial_context", "get_financial_context_page"} {
+			for _, variant := range []string{"large-property", "long-id", "mixed-first", "mixed-last"} {
+				t.Run(protocol+"/"+tool+"/"+variant, func(t *testing.T) {
+					s, _, _ := fixture(t)
+					if _, err := s.Enable(ReadOnly); err != nil {
+						t.Fatal(err)
+					}
+					cfg, err := s.Connection()
+					if err != nil {
+						t.Fatal(err)
+					}
+					args := map[string]any{}
+					if tool == "get_financial_context_page" {
+						args = map[string]any{"contextId": "id", "section": "positions", "cursor": "cursor"}
+					}
+					var id any = 1
+					if variant == "large-property" {
+						args[strings.Repeat("x", 70000)] = true
+					}
+					if variant == "long-id" {
+						id = strings.Repeat("x", 70000)
+					}
+					call := map[string]any{"jsonrpc": "2.0", "id": id, "method": "tools/call", "params": map[string]any{"name": tool, "arguments": args}}
+					other := map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": map[string]any{"name": "get_context", "arguments": map[string]any{}}}
+					batch := []any{call}
+					if variant == "mixed-first" {
+						batch = []any{call, other}
+					} else if variant == "mixed-last" {
+						batch = []any{other, call}
+					}
+					payload, _ := json.Marshal(batch)
+					if len(payload) >= 1<<20 {
+						t.Fatal("fixture exceeds existing request admission")
+					}
+					req, _ := http.NewRequest(http.MethodPost, cfg.Endpoint, strings.NewReader(string(payload)))
+					req.Header.Set("Content-Type", "application/json")
+					req.Header.Set("Accept", "application/json, text/event-stream")
+					req.Header.Set("Authorization", "Bearer "+cfg.Token)
+					if protocol != "" {
+						req.Header.Set("MCP-Protocol-Version", protocol)
+					}
+					res, err := http.DefaultClient.Do(req)
+					if err != nil {
+						t.Fatal(err)
+					}
+					raw, _ := io.ReadAll(res.Body)
+					res.Body.Close()
+					if res.StatusCode != http.StatusBadRequest || len(raw) > contextWireLimit || strings.Contains(string(raw), strings.Repeat("x", 1000)) {
+						t.Errorf("batch: request=%d response=%d status=%d; expected bounded rejection", len(payload), len(raw), res.StatusCode)
+					}
+					s.contexts.mu.Lock()
+					cached := len(s.contexts.entries)
+					s.contexts.mu.Unlock()
+					if cached != 0 {
+						t.Error("rejected batch dispatched a context build")
+					}
+					t.Logf("batch: request=%d response=%d status=%d", len(payload), len(raw), res.StatusCode)
+				})
+			}
+		}
+	}
+}
+
+func TestFinancialContextPreservesOtherLegacyHTTPBatch(t *testing.T) {
+	for _, protocol := range []string{"", "2025-03-26"} {
+		t.Run(protocol, func(t *testing.T) {
+			s, _, _ := fixture(t)
+			if _, err := s.Enable(ReadOnly); err != nil {
+				t.Fatal(err)
+			}
+			cfg, err := s.Connection()
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Other tools retain the SDK's old batch and request-ID behavior.
+			id := strings.Repeat("x", 70000)
+			payload, _ := json.Marshal([]any{
+				map[string]any{"jsonrpc": "2.0", "id": id, "method": "tools/call", "params": map[string]any{"name": "get_context", "arguments": map[string]any{}}},
+				map[string]any{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": map[string]any{"name": "get_catalog", "arguments": map[string]any{}}},
+			})
+			req, _ := http.NewRequest(http.MethodPost, cfg.Endpoint, strings.NewReader(string(payload)))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json, text/event-stream")
+			req.Header.Set("Authorization", "Bearer "+cfg.Token)
+			if protocol != "" {
+				req.Header.Set("MCP-Protocol-Version", protocol)
+			}
+			res, err := http.DefaultClient.Do(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, _ := io.ReadAll(res.Body)
+			res.Body.Close()
+			var replies []struct {
+				ID     json.RawMessage `json:"id"`
+				Result struct {
+					IsError bool `json:"isError"`
+				} `json:"result"`
+			}
+			if err := json.Unmarshal(raw, &replies); err != nil || res.StatusCode != http.StatusOK || len(replies) != 2 {
+				t.Fatalf("legacy batch changed: status=%d bytes=%d replies=%d err=%v", res.StatusCode, len(raw), len(replies), err)
+			}
+			found := false
+			for _, reply := range replies {
+				if reply.Result.IsError {
+					t.Fatal("other tool failed")
+				}
+				if string(reply.ID) == `"`+id+`"` {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatal("legacy ID changed")
+			}
+		})
+	}
+}
+
 func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 	c := newFinancialContextCache()
 	g := c.activate()
