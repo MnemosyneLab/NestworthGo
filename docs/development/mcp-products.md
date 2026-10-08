@@ -243,3 +243,17 @@ with cash included, nonzero stock gains, exact weighted capital and linked rate.
 Guarded opening/existing-position undo blocked by active reservations returns
 unresolved_reservation_release with GUI handling; ordinary GUI safety errors
 retain their existing contract.
+
+
+## Current compensation versus historical replacement
+
+Product undo preserves the original events and posts a compensating operation
+at the reviewed instant. It does not replace past events as a historical fix
+would. After settlement then undo, an instrument's time-weighted exposure/capital
+and return rate can differ from a scenario that never settled; the interval out
+of that instrument remains real history. With cash included, household/account
+principal transfers between the product and cash are internal and do not create
+external Dietz capital flows. Isolated interest-then-undo is performance rather
+than capital in every scope. A managed product currently has no historical fix
+path: handle mistaken records using the GUI's supported options; generic fixes
+must not bypass managed-product protection.

@@ -109,6 +109,15 @@ ten minutes. Draft product/activity IDs are provisional. A changed fact,
 restart or restore makes an uncommitted plan stale. Reuse the same operationId
 and input to recover an interruption. Same plan with a new operationId returns
 the original immutable business receipt without a second financial write.
+Undo preserves the original events and adds compensation at the reviewed time;
+it does not historically replace them. Settlement then undo can retain a different
+instrument time-weighted exposure/capital and return rate from never settling.
+With cash included, the household/account principal transfer between product and
+cash is internal and does not create external capital flows. Isolated interest
+undo does not change invested capital. Managed products currently have no
+historical fix path; resolve mistakes within GUI support, never generic fix tools
+that bypass managed protection.
+
 Read get_operation for the outer UUID and list_product_operations for business
 operation UUIDs; get_product separately reads current facts. See
 [recovery.md](recovery.md). Repository skill updates do not install a client.
