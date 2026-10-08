@@ -64,38 +64,40 @@ export function AccountProductsSection({
         {items.length === 0 ? (
           <EmptyState title={t("availableFunds.noProductsTitle")} description={eligible ? t("availableFunds.noProductsDescription") : undefined} />
         ) : (
-          <table className="w-full text-left text-sm">
-            <caption className="sr-only">{t("availableFunds.products")}</caption>
-            <thead>
-              <tr className="border-b border-border text-muted-foreground">
-                <th className="py-2 font-medium">{t("availableFunds.name")}</th>
-                <th className="py-2 font-medium">{t("availableFunds.asset")}</th>
-                <th className="py-2 text-right font-medium">{t("availableFunds.principal")}</th>
-                <th className="py-2 text-right font-medium">{t("availableFunds.currentContractValue")}</th>
-                <th className="py-2 font-medium">{t("availableFunds.maturityOn")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((detail) => {
-                const product = detail.product;
-                return (
-                  <tr key={product.id} className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">
-                    <td className="py-2">
-                      <Button type="button" variant="link" className="h-auto p-0" onClick={() => setProductId(product.id)}>
-                        {product.name}
-                      </Button>
-                      <Badge className="ml-2" variant={product.displayState === "due_unconfirmed" ? "warning" : "secondary"}>{productStateLabel(t, product.displayState)}</Badge>
-                    </td>
-                    <td className="py-2">{displayEnum(t, "availableFunds", product.kind === "term_deposit" ? "termDeposit" : "lockedProduct")}</td>
-                    <td className="num py-2 text-right">{formatAmount(product.principal.amount, product.principal.currency)}</td>
-                    <td className="num py-2 text-right">{moneyText(product.currentValue, t("availableFunds.unknownAmount"))}</td>
-                    <td className="py-2">{product.maturityOn ?? product.policy.unlockOn ?? t("availableFunds.unknownAmount")}</td>
+          <div className="min-w-0 overflow-x-auto">
+            <table className="w-full text-left text-sm [&_th:not(:last-child)]:pr-4 [&_td:not(:last-child)]:pr-4">
+              <caption className="sr-only">{t("availableFunds.products")}</caption>
+              <thead>
+                <tr className="border-b border-border text-muted-foreground">
+                  <th className="whitespace-nowrap py-2 font-medium">{t("availableFunds.name")}</th>
+                  <th className="whitespace-nowrap py-2 font-medium">{t("availableFunds.asset")}</th>
+                  <th className="whitespace-nowrap py-2 text-right font-medium">{t("availableFunds.principal")}</th>
+                  <th className="whitespace-nowrap py-2 text-right font-medium">{t("availableFunds.currentContractValue")}</th>
+                  <th className="whitespace-nowrap py-2 font-medium">{t("availableFunds.maturityOn")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((detail) => {
+                  const product = detail.product;
+                  return (
+                    <tr key={product.id} className="border-b border-border transition-colors last:border-0 hover:bg-muted/40">
+                      <td className="py-2">
+                        <Button type="button" variant="link" className="h-auto p-0" onClick={() => setProductId(product.id)}>
+                          {product.name}
+                        </Button>
+                        <Badge className="ml-2" variant={product.displayState === "due_unconfirmed" ? "warning" : "secondary"}>{productStateLabel(t, product.displayState)}</Badge>
+                      </td>
+                      <td className="py-2">{displayEnum(t, "availableFunds", product.kind === "term_deposit" ? "termDeposit" : "lockedProduct")}</td>
+                      <td className="num whitespace-nowrap py-2 text-right">{formatAmount(product.principal.amount, product.principal.currency)}</td>
+                      <td className="num whitespace-nowrap py-2 text-right">{moneyText(product.currentValue, t("availableFunds.unknownAmount"))}</td>
+                      <td className="whitespace-nowrap py-2">{product.maturityOn ?? product.policy.unlockOn ?? t("availableFunds.unknownAmount")}</td>
 
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
         {openForm && <ProductFormSheet
           accountId={record.account.id}
