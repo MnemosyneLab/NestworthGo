@@ -165,10 +165,10 @@ describe what is known and route to [data-health.md](data-health.md).
 
 When the question concerns a returned account, position or evidence alias, call
 `get_financial_context_item` with its original `(contextId, ref)` pair. This is
-the same captured projection, not a fresh account snapshot. This tool accepts
-only minimal packages; named packages fail explicitly because their refs contain
-raw identities. Do not replace a named package silently or carry its refs into
-a new minimal package. Do not read the
+the same captured projection, not a fresh account snapshot. The item inherits the original
+package disclosure: minimal stays free of names/raw IDs; named preserves only
+the names and IDs already disclosed there. This is not an additional disclosure
+choice and never upgrades minimal to named or recaptures a package. Do not read the
 directory or switch to identity-bearing tools to explain a minimal item.
 
 <!-- example: financial-context-item -->

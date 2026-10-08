@@ -272,7 +272,36 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 				t.Fatal(historicalItem)
 			}
 			named := decodeContext(t, call(t, client, "get_financial_context", map[string]any{"disclosure": "named"}, false))
-			call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: named.ContextID, Ref: named.Content.Scope.AccountRefs[0]}, true)
+			namedItem := decodeItem(t, call(t, client, "get_financial_context_item", skillExample(t, "analysis", "financial-context-item", map[string]string{"contextId": named.ContextID, "ref": named.Content.Scope.AccountRefs[0]}), false))
+			if namedItem.Disclosure != "named" || namedItem.Position.Name != "PRIVATE NAME" || namedItem.Position.Ref != account.Account.ID.String() {
+				t.Fatal(namedItem)
+			}
+			namedContent := skillContextDetails(t, client, named)
+			for _, p := range namedContent.Positions {
+				item := decodeItem(t, call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: named.ContextID, Ref: p.Ref}, false))
+				if item.Disclosure != "named" || item.ContentHash != named.ContentHash || item.Position == nil || !reflect.DeepEqual(*item.Position, p) {
+					t.Fatal("named position differs from captured projection", item, p)
+				}
+				if (p.Kind == "account") != (item.Type == "account") {
+					t.Fatal("UUID shape confused row kind", item)
+				}
+			}
+			for _, e := range namedContent.Evidence {
+				item := decodeItem(t, call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: named.ContextID, Ref: e.Ref}, false))
+				if item.Type != "evidence" || item.EvidenceItem == nil || !reflect.DeepEqual(*item.EvidenceItem, e) {
+					t.Fatal(item)
+				}
+			}
+			call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: capture.ContextID, Ref: account.Account.ID.String()}, true)
+			call(t, client, "get_financial_context_item", map[string]any{"contextId": capture.ContextID, "ref": before.Ref, "disclosure": "named"}, true)
+			if _, err = app.AppendAccountValue(t.Context(), account.Account.ID, "300", ""); err != nil {
+				t.Fatal(err)
+			}
+			frozenNamed := decodeItem(t, call(t, client, "get_financial_context_item", FinancialContextItemInput{ContextID: named.ContextID, Ref: namedItem.Ref}, false))
+			frozenNamed.GeneratedAt = namedItem.GeneratedAt
+			if !reflect.DeepEqual(frozenNamed, namedItem) {
+				t.Fatal("named item recaptured after ordinary write")
+			}
 			raw, _ := json.Marshal(before)
 			for _, secret := range []string{"PRIVATE NAME", "PRIVATE NOTE", "private.invalid", account.Account.ID.String(), "household"} {
 				if strings.Contains(string(raw), secret) {
@@ -350,5 +379,96 @@ func TestFinancialContextItemSourceTextDoesNotLeak(t *testing.T) {
 				t.Fatal("source/identity leaked: " + secret)
 			}
 		}
+	}
+}
+
+func TestFinancialContextItemNamedMembershipAndCursors(t *testing.T) {
+	s, g := itemFixture(t)
+	entry := s.contexts.entries["package-a"]
+	entry.result.Content.Disclosure = "named"
+	refs := map[string]string{}
+	for i, p := range entry.result.Content.Positions {
+		refs[p.Ref] = fmt.Sprintf("%08d-0000-4000-8000-000000000000", i+1)
+	}
+	for i := range entry.result.Content.Positions {
+		p := &entry.result.Content.Positions[i]
+		p.Ref = refs[p.Ref]
+		p.ParentRef = refs[p.ParentRef]
+		p.Name = fmt.Sprintf("Already disclosed name %d", i)
+	}
+	for i := range entry.result.Content.Gaps {
+		gap := &entry.result.Content.Gaps[i]
+		gap.EntityRef = refs[gap.EntityRef]
+		if ref := refs[gap.DependencyRef]; ref != "" {
+			gap.DependencyRef = ref
+		}
+	}
+	s.contexts.entries["package-a"] = entry
+	s.contexts.entries["package-b"] = entry
+	for _, tc := range []struct{ ref, kind string }{{refs["account-1"], "account"}, {refs["position-2"], "position"}, {"evidence-3", "evidence"}} {
+		r := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: tc.ref, Section: "positions", Limit: 1})
+		if r.Type != tc.kind || r.Disclosure != "named" || r.ContentHash != entry.result.ContentHash {
+			t.Fatal(r)
+		}
+		if r.Position != nil {
+			found := false
+			for _, p := range entry.result.Content.Positions {
+				if p.Ref == r.Position.Ref {
+					found = true
+					if !reflect.DeepEqual(*r.Position, p) {
+						t.Fatal("target no longer exact disclosed subset")
+					}
+				}
+			}
+			if !found {
+				t.Fatal("invented target")
+			}
+		}
+		for _, p := range r.Positions {
+			found := false
+			for _, original := range entry.result.Content.Positions {
+				if reflect.DeepEqual(p, original) {
+					found = true
+				}
+			}
+			if !found {
+				t.Fatal("expanded or modified disclosed position", p)
+			}
+		}
+		if tc.kind == "position" {
+			continue
+		}
+		if !r.PositionsPage.HasMore {
+			t.Fatal("fixture must page")
+		}
+		for _, input := range []FinancialContextItemInput{
+			{ContextID: "package-b", Ref: tc.ref, Section: "positions", Cursor: r.PositionsPage.NextCursor},
+			{ContextID: "package-a", Ref: tc.ref, Section: "evidence", Cursor: r.PositionsPage.NextCursor},
+			{ContextID: "package-a", Ref: refs["account-2"], Section: "positions", Cursor: r.PositionsPage.NextCursor},
+		} {
+			if _, err := s.financialContextItem(t.Context(), g, input); err == nil {
+				t.Fatal("accepted mismatched named cursor", input)
+			}
+		}
+	}
+	for _, ref := range []string{"account-1", "position-2", "not-present"} {
+		if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: ref}); err == nil {
+			t.Fatal("inferred membership from ref spelling", ref)
+		}
+	}
+	other := entry
+	other.result.Content.Positions = nil
+	other.result.Content.Evidence = nil
+	s.contexts.entries["package-b"] = other
+	for _, ref := range []string{refs["account-1"], refs["position-2"], "evidence-3"} {
+		if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-b", Ref: ref}); err == nil {
+			t.Fatal("accepted ref absent from this package", ref)
+		}
+	}
+	// An impossible/ambiguous cache member fails rather than choosing by UUID shape.
+	entry.result.Content.Evidence = append(entry.result.Content.Evidence, application.FinancialContextEvidence{Ref: refs["account-1"]})
+	s.contexts.entries["package-a"] = entry
+	if _, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: refs["account-1"]}); err == nil {
+		t.Fatal("accepted ambiguous ref")
 	}
 }

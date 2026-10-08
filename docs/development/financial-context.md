@@ -234,10 +234,11 @@ isolated temporary household; it does not establish those external-client gates.
 
 `get_financial_context_item` reads one `(contextId, ref)` from the cached, already
 disclosed projection. It never calls the application/database, refreshes quotes,
-recalculates totals or creates another context. Only **minimal** packages are
-accepted: named package refs contain raw IDs, so accepting them would contradict
-this tool's no-identity contract. Named packages fail with `validation`; no new
-private ID mapping, token or disclosure upgrade is introduced.
+recalculates totals or creates another context. Both **minimal** and **named**
+packages are accepted. The item inherits the captured disclosure and returns only an already
+disclosed subset: minimal has no names/raw IDs, named retains its existing names
+and row IDs. No new identity fields, private ID mapping, token, disclosure
+upgrade or identity lookup is introduced.
 
 Arguments: required `contextId`, `ref`; optional `section` (`positions`, `gaps`,
 `evidence`), `cursor`, `limit` (default 50, maximum 100). Omitted section returns
@@ -265,8 +266,10 @@ Related evidence is deduplicated by ref and original projection order is kept.
 Nullable amounts, zero, inclusion/exclusion, row-kind status, missing FX, source
 time and provenance are unchanged. Missing FX gaps may name a currency pair,
 not an existing evidence ref; such a dependency is not a valid item target.
-Only existing account/position/evidence members resolve; no names, UUID lookup,
-raw source notes/URLs or unrelated household summary/directory is returned.
+Only existing account/position/evidence members resolve, classified by collection
+membership and row kind rather than alias prefixes or UUID shape. Ambiguous
+refs are rejected. Minimal retains its no-name/no-raw-ID guarantee. Neither mode
+returns source notes/URLs or an unrelated household summary/directory.
 
 Cursors reuse the existing HMAC and authenticate operation, target, section,
 context, generation and offset. Package-page cursors, wrong targets/sections,

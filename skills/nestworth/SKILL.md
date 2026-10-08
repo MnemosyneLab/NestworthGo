@@ -14,8 +14,8 @@ development environment. Answer in the user's language.
 Discover the Nestworth MCP tools available in this client; server names and
 tool prefixes can differ. For a pure minimal financial summary, go directly to
 `get_financial_context` after discovery; use `get_financial_context_item` for
-a specific ref in that same frozen minimal package; no `get_context`, catalog or directory
-read is required. `get_context` discloses household, member, institution and group
+a specific ref in that same frozen package, inheriting its disclosure. No
+`get_context`, catalog or directory read is required for the minimal route. `get_context` discloses household, member, institution and group
 names. Follow [analysis.md](references/analysis.md) for frozen detail pages and
 disclosure choices. A one-date summary does not answer period-return questions.
 

@@ -2,7 +2,6 @@ package mcpserver
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/application"
@@ -73,38 +72,35 @@ func (s *Service) financialContextItem(ctx context.Context, g uint64, in Financi
 
 func (c *financialContextCache) itemResponse(in FinancialContextItemInput, e cachedFinancialContext, g uint64) (FinancialContextItemResponse, error) {
 	full := e.result.Content
-	if full.Disclosure != "minimal" {
-		return FinancialContextItemResponse{}, fail("validation", "item drill-down requires a minimal context; named references contain raw identities")
-	}
 	r := FinancialContextItemResponse{ContextID: in.ContextID, ContentHash: e.result.ContentHash,
 		CapturedAt: e.result.CapturedAt.UTC().Format(time.RFC3339Nano), GeneratedAt: c.now().UTC().Format(time.RFC3339Nano),
 		CacheExpiresAt: e.expires.UTC().Format(time.RFC3339Nano), SchemaVersion: "financial-context-item/1", Disclosure: full.Disclosure,
 		AsOf: full.AsOf, Basis: full.Basis, Ref: in.Ref,
 		Positions: []application.FinancialContextPosition{}, Gaps: []application.FinancialContextGap{}, Evidence: []application.FinancialContextEvidence{}}
-	// Resolve by membership AND row kind, never by prefix alone. No raw-ID lookup.
+	// Identity spelling carries no type information: named component refs may
+	// also be UUIDs. Resolve only against the frozen projection and row kind.
+	matches := 0
 	for _, p := range full.Positions {
 		if p.Ref != in.Ref {
 			continue
 		}
-		if p.Kind == "account" && strings.HasPrefix(p.Ref, "account-") {
+		matches++
+		r.Type = "position"
+		if p.Kind == "account" {
 			r.Type = "account"
 		}
-		if p.Kind != "account" && strings.HasPrefix(p.Ref, "position-") {
-			r.Type = "position"
-		}
-		if r.Type != "" {
-			p.Name = ""
-			r.Position = &p
-		}
+		r.Position = &p
 	}
 	for _, e := range full.Evidence {
-		if e.Ref == in.Ref && strings.HasPrefix(e.Ref, "evidence-") {
-			r.Type = "evidence"
-			r.EvidenceItem = &e
+		if e.Ref != in.Ref {
+			continue
 		}
+		matches++
+		r.Type = "evidence"
+		r.EvidenceItem = &e
 	}
-	if r.Type == "" {
-		return r, fail("validation", "ref is not an account, position or evidence in this context")
+	if matches != 1 {
+		return r, fail("validation", "ref must identify exactly one account, position or evidence in this context")
 	}
 	selected := map[string]bool{}
 	evidenceRefs := map[string]bool{}
@@ -127,7 +123,6 @@ func (c *financialContextCache) itemResponse(in FinancialContextItemInput, e cac
 			}
 		}
 		if include {
-			p.Name = ""
 			positions = append(positions, p)
 			selected[p.Ref] = true
 			if r.Type != "evidence" {
