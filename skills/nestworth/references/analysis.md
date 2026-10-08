@@ -5,7 +5,8 @@ Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
 do not answer last month's income or investment return. Preserve ownership,
 inclusion filters, household base currency and incomplete-value indicators.
 
-For a period request call `analyze_period`. `query.from` / `to` are inclusive
+For investment returns, income/expense or change attribution call `analyze_period`.
+For two-state value differences use the comparison workflow below. `query.from` / `to` are inclusive
 closed local dates in the history-origin timezone; the end must be before today
 in that timezone. Clarify “this month” if it means current valuation versus
 closed-day analysis. Do not substitute UTC dates for the household's dates.
@@ -87,7 +88,16 @@ each `nextCursor` with `get_financial_context_page`, keeping that package's exac
 contextId and the matching section. The initial response has at most one detail
 row per section. **Zero returned rows with a nextCursor is a deferred section,
 not completion**; request its continuation, which must advance. Detail is
-complete only when all three sections have `hasMore: false`.
+complete only when the three independently saved section states each have
+`hasMore: false`, not when one page response happens to show those flags.
+
+Save all three descriptors from the initial response as independent section
+states. After requesting one section, update only that section's saved cursor
+and completion flag. Ignore the other two descriptors in that page response:
+they describe offset-zero starts, not your accumulated progress. Replacing all
+three saved states can restart completed sections and repeat rows indefinitely.
+Append only the requested section's rows; finish when all three saved states
+are complete. This rule also applies to item and comparison pages below.
 
 These are tool arguments, with values taken from the corresponding descriptor:
 
@@ -190,7 +200,9 @@ The initial response has at most one row per related section. Inspect all three
 page descriptors. Supply section to read a related section (even if empty), then
 follow its nextCursor with the same contextId, ref and section. A zero-row initial
 section with hasMore is deferred. Limits default to 50, maximum 100. Whole-package
-page cursors and another item's cursors are not interchangeable.
+page cursors and another item's cursors are not interchangeable. Keep the three
+initial descriptors independently and update only the requested section after
+each page, ignoring the other offset-zero descriptors as described above.
 
 <!-- example: financial-context-item-page -->
 ```json
@@ -213,3 +225,77 @@ omitting cursor to start each section. This can recover the other related data;
 report the failed section as unavailable and the item detail as incomplete.
 Lowering limit cannot fix that oversized row. An oversized required target is
 not section-specific and cannot be bypassed by selecting another section.
+
+
+## Compare two states without doing the arithmetic
+
+For “how much did cash, investments, debt and net worth change between these
+states?”, discover tools and call `compare_financial_context` directly. Do not
+fetch two independent context packages, pair their aliases, or calculate the
+answer yourself. The App aligns real identities before assigning common aliases
+and calculates exact right-minus-left differences. **Net-worth change is not
+investment return, income, or attribution.** Use the separate period tools for
+those questions, respecting disclosure and their snapshot-write behavior.
+
+<!-- example: financial-comparison -->
+```json
+{"leftAsOf":"2026-08-01","rightAsOf":"current","scope":{"kind":"household"},"disclosure":"minimal"}
+```
+
+Left requires a closed local date on/after History Origin; right accepts a closed
+date or current. No history means comparison is unavailable. Current means the
+captured DB state, not a date close or a filter of every economic fact by capture
+time. Historical results reflect currently retained corrections. Both sides use
+current metadata and household reporting currency. Preserve the returned
+investment/category basis; property and other non-investment assets are separate.
+Named disclosure and selecting real account IDs follow the same explicit-choice
+rules above; do not silently disclose directory identities to work around failure.
+
+Read and save all three initial page descriptors independently. Continue each
+matching cursor until complete, updating only the requested section's saved
+state; ignore the other sections' offset-zero descriptors in every page reply.
+Evidence references include the side; keep gaps and `dataAsOf` attached to that
+side. Missing base deltas are null even when a same-currency native delta exists.
+Different currencies, absent cells and unavailable amounts are not zero. Read
+inclusion and lifecycle separately. Always answer total and category changes
+from `change.*`; never sum `positions[].baseChange` to explain `change.netWorth`
+or a category. This remains true even when inclusion/archive status is unchanged:
+a positive liability row delta means more debt and lowers net worth, and an
+account rollup and its component rows represent the same money, not separate
+contributions. `change.cash` and `change.netWorth` include entry/exit from the
+included scope and therefore need not describe balance flows. A row absent on
+one side has a null delta, while its included value still affects `change.*`.
+
+Synthetic USD example: cash rises from 100 to 120, investment value from 50 to
+60, property from 300 to 330, and debt from 30 to 35. Report `change.cash = "20"`,
+`change.investments = "10"`, `change.otherAssets = "30"`,
+`change.liabilities = "5"`, and `change.netWorth = "55"`. The cash account and
+balance child each show `baseChange = "20"`; do not add them. The debt account
+and its child each show `"5"`, which is debt growth, not a gain. If the unchanged
+120 cash account is then excluded, authoritative cash/net-worth changes are
+`"-120"` although its row balance delta is `"0"`. If a new included 7 cash account
+appears only on the right, its null row delta does not remove that 7 from the
+summary change.
+
+<!-- example: financial-comparison-positions-page -->
+```json
+{"comparisonId":"${comparisonId}","section":"positions","cursor":"${cursor}","limit":50}
+```
+
+<!-- example: financial-comparison-gaps-page -->
+```json
+{"comparisonId":"${comparisonId}","section":"gaps","cursor":"${cursor}","limit":50}
+```
+
+<!-- example: financial-comparison-evidence-page -->
+```json
+{"comparisonId":"${comparisonId}","section":"evidence","cursor":"${cursor}","limit":50}
+```
+
+Send one JSON-RPC object per request, never batches. Zero rows plus nextCursor
+means deferred, not finished. Use the same comparisonId, hash and matching
+section cursor throughout; context IDs and cursors cannot be reused here.
+Expiry, eviction or revocation requires a new comparison and restarting every
+section. Discard old pages. The five-minute TTL never renews. A `too_large` input,
+summary or single row may not be fixable by paging; narrowing scope needs actual,
+authorized account IDs and must not silently change the user's question.

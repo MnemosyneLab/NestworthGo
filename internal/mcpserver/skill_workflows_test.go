@@ -414,3 +414,52 @@ func TestSkillFinancialContextRowFXAndTimeMeanings(t *testing.T) {
 		t.Fatal("FX evidence missing")
 	}
 }
+
+func TestSkillFinancialComparisonExamples(t *testing.T) {
+	s, app, changes := fixture(t)
+	comparisonFixture(t, s, app)
+	if _, err := s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	client := connect(t, s)
+	initial := decodeComparison(t, call(t, client, "compare_financial_context", skillExample(t, "analysis", "financial-comparison", nil), false))
+	if initial.Content.ChangeBasis != "right_minus_left; not_return_or_attribution" {
+		t.Fatal(initial.Content.ChangeBasis)
+	}
+	for _, section := range []string{"positions", "gaps", "evidence"} {
+		info := initial.PositionsPage
+		if section == "gaps" {
+			info = initial.GapsPage
+		}
+		if section == "evidence" {
+			info = initial.EvidencePage
+		}
+		if !info.HasMore {
+			t.Fatal("fixture must exercise every comparison page example", section)
+		}
+		count, total := info.Returned, info.Total
+		for info.HasMore {
+			page := decodeComparison(t, call(t, client, "get_financial_comparison_page", skillExample(t, "analysis", "financial-comparison-"+section+"-page", map[string]string{"comparisonId": initial.ComparisonID, "cursor": info.NextCursor}), false))
+			if page.ContentHash != initial.ContentHash {
+				t.Fatal("mixed package")
+			}
+			info = page.PositionsPage
+			if section == "gaps" {
+				info = page.GapsPage
+			}
+			if section == "evidence" {
+				info = page.EvidencePage
+			}
+			if info.Returned == 0 {
+				t.Fatal("page did not advance")
+			}
+			count += info.Returned
+		}
+		if count != total {
+			t.Fatal(count, total)
+		}
+	}
+	if changes.Load() != 0 {
+		t.Fatal("write event")
+	}
+}

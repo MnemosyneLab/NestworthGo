@@ -120,6 +120,10 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 		args any
 		id   any
 	}{
+		{"unknown-comparison-property", "compare_financial_context", map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current", large: true}, 1},
+		{"unknown-comparison-page-property", "get_financial_comparison_page", map[string]any{"comparisonId": "id", "section": "positions", "cursor": "cursor", large: true}, 1},
+		{"wrong-comparison-type", "compare_financial_context", map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current", "scope": large}, 1},
+		{"wrong-comparison-page-type", "get_financial_comparison_page", map[string]any{"comparisonId": "id", "section": "positions", "cursor": "cursor", "limit": large}, 1},
 		{"unknown-item-property", "get_financial_context_item", map[string]any{"contextId": "id", "ref": "account-1", large: true}, 1},
 		{"wrong-item-type", "get_financial_context_item", map[string]any{"contextId": "id", "ref": "account-1", "limit": large}, 1},
 		{"unknown-context-property", "get_financial_context", map[string]any{large: true}, 1},
@@ -163,7 +167,7 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 
 func TestFinancialContextRejectsLegacyHTTPBatch(t *testing.T) {
 	for _, protocol := range []string{"", "2025-03-26", "2025-06-18"} {
-		for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item"} {
+		for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "get_financial_comparison_page"} {
 			for _, variant := range []string{"large-property", "long-id", "mixed-first", "mixed-last"} {
 				t.Run(protocol+"/"+tool+"/"+variant, func(t *testing.T) {
 					s, _, _ := fixture(t)
@@ -495,6 +499,15 @@ func TestFinancialContextActualRestoreRevokesFrozenResult(t *testing.T) {
 	}
 	g := s.contextGeneration
 	if _, err = s.buildFinancialContext(t.Context(), g, application.FinancialContextRequest{}); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	app.SetClock(func() time.Time { return now })
+	if _, err = app.StartHistory(t.Context(), "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	now = now.AddDate(0, 0, 2)
+	if _, err = s.buildFinancialComparison(t.Context(), g, application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}); err != nil {
 		t.Fatal(err)
 	}
 	copyPath := filepath.Join(dir, "copy.db")

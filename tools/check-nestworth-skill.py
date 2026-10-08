@@ -29,7 +29,7 @@ def check():
                 raise ValueError(f"Broken/nonportable reference in {path.name}: {target}")
             linked.add(resolved)
         for name in re.findall(r'`([a-z_]+)`', text):
-            if re.match(r'(?:get|list|create|update|archive|set|search|preview|commit|scan|start|import)_', name) and name not in tools:
+            if re.match(r'(?:get|list|create|update|archive|set|search|preview|commit|scan|start|import|compare)_', name) and name not in tools:
                 raise ValueError(f"Unavailable tool {name} in {path.name}")
         for block in re.findall(r'```json\n(.*?)\n```', text, re.S):
             json.loads(block)

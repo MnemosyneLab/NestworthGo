@@ -285,3 +285,85 @@ rejection protect this tool, including absent/legacy protocol headers. Ordinary
 writes leave old items frozen. Both current and closed-day packages work; absent
 rows remain absent. Transactions, period comparisons, describe-target identity
 and additional evidence not in the package are outside this slice.
+
+## Two-state comparison
+
+`compare_financial_context` and `get_financial_comparison_page` extend this
+contract with `financial-comparison/1`. Both tools are read-only in every MCP
+mode and share the existing context cache's process budgets and revocation.
+
+```json
+{"leftAsOf":"2026-08-01","rightAsOf":"current","scope":{"kind":"household"},"disclosure":"minimal"}
+```
+
+Both dates are required. Left must be a closed local date; right is a closed
+local date or `current`. The same origin, strict-date and civil-day/DST checks
+apply. History is required even when right is current. Dates can be equal or in
+reverse order: changes are always **right minus left, not return or attribution**.
+Current is the captured database state, including retained subsequent corrections
+and current observations; it does not truncate all economic facts to capture time.
+Historical states use currently retained corrected facts. Household reporting
+currency, classification and names use current metadata on both sides.
+
+The application captures configuration and bounded read inputs once, replays
+both sides with complete transfer effects, then projects the account scope.
+It does not call `BuildFinancialContext` twice. Existing HistoricalOverview
+alignment and decimal difference functions compute row changes. A sorted union
+of real identities defines shared account/component aliases before disclosure.
+Aliases are stable across these two sides only, never across independent packages.
+The same evidence projection supplies each side's scoped coverage, gaps and
+`dataAsOf`. Evidence references have `left:`/`right:` prefixes because freshness
+or replay assertions about an observation can differ between sides.
+
+The response has `comparisonId`, the same capture/hash/cache timestamps, `content`
+and the three page descriptors. Content includes `left`, `right`, `change`,
+`positions`, `gaps`, `evidence` and fixed basis declarations. Each side includes
+the existing summary plus cash, investments and otherAssets. These categories
+sum existing included asset components: `cash` uses the engine's cash bucket;
+`investments` includes non-cash holdings and unclassified-investment balances;
+remaining asset components (such as property) are `otherAssets`. No new pricing,
+FX selection or financial engine is introduced. Each category is null if any of
+its included components is incomplete. Liabilities remain a separate subtotal.
+
+Positions pair left/right cells with base/native/quantity changes and `changed`.
+A null side is absent from replay, not an assumed zero; explicitly selected
+accounts not yet created have `not_created`. Archived, excluded, measured zero
+and unknown values retain the existing row semantics. Row deltas are inspection
+value changes, not inclusion-weighted contributions to the net-worth delta.
+Only complete base values have base deltas. Native deltas require known amounts
+and equal currencies; missing FX can leave a native delta with null base delta.
+Summary deltas require both complete totals. No absent or unknown row is filled
+with zero to manufacture a difference.
+
+```json
+{"comparisonId":"<returned id>","section":"positions","cursor":"<nextCursor>","limit":50}
+```
+
+Paging, semantic hashing, 5-minute TTL, 4 MiB package limit, 8-package/16 MiB shared
+cache, two simultaneous builds and input/deadline limits are unchanged. A package
+contains the permitted comparison projection only. The cache entry type rejects
+cross-context/comparison paging; authenticated cursors also bind result identity,
+section, offset and connection generation. The final 64 KiB HTTP guard and
+single-object-only rule include both comparison tools, schema errors and legacy
+or mixed batches. Ordinary writes preserve frozen results; connection changes
+and restore revoke them. Expiry retains the existing `context_expired` code;
+clients must rebuild the comparison and restart all sections.
+
+
+Client paging state must retain each initial section descriptor independently.
+After a context, item or comparison section request, update only the requested
+section's cursor/completion and append its rows. Other descriptors in that
+response restart at offset zero and must not replace accumulated progress.
+Comparison `change.*` totals/categories are authoritative; position base changes
+are never an additive contribution bridge, even with stable inclusion. Liability
+sign, account/component duplication, absent sides and scope membership changes
+prevent that interpretation. See the executable synthetic example in the user
+skill's analysis reference.
+
+
+The HTTP guard uses the pinned SDK's exact-case, single-JSON-value decoding for
+both array detection and individual envelopes. Trailing JSON values are ignored
+by the SDK; they must not make the guard skip ID, batch or final response limits.
+The guard does not impose an EOF requirement or rewrite the request body. This
+preserves unrelated tools' existing transport behavior, including legacy batches,
+while protecting the first value the SDK will actually dispatch.
