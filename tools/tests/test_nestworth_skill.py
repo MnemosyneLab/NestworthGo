@@ -87,6 +87,10 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(arguments["section"], section)
             self.assertEqual(arguments["contextId"], "${contextId}")
             self.assertEqual(arguments["cursor"], "${cursor}")
+        self.assertEqual(examples["financial-context-item"],
+                         {"contextId": "${contextId}", "ref": "${ref}"})
+        self.assertEqual(examples["financial-context-item-page"]["section"], "${section}")
+        self.assertIn("only minimal packages", analysis.decode())
         config_match = re.search(r"<!-- example: inspector-http-config -->\s*```json\n(.*?)\n```",
                                  connection.decode(), re.S)
         self.assertIsNotNone(config_match)
