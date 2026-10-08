@@ -49,7 +49,13 @@ release contract records scope, evidence, and open acceptance gates.
   This does not establish Mac native GUI acceptance, which remains pending,
   nor fresh package generation and artifact acceptance.
 
-## [0.3.6] — Unreleased (superseded candidate)
+## [0.3.6] — 2026-10-03
+
+Published as [v0.3.6](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.6)
+at `64ba10bcf0e1c7bdac56e54b399c0ba9fb901acc`. The release includes the
+Apple Silicon DMG/ZIP, `SHA256SUMS`, and the standalone skill archive with its
+SHA-256 file. The later v0.3.7 line supersedes it as the current candidate;
+v0.3.6 remains a published historical release.
 
 ### Added
 
@@ -94,9 +100,10 @@ release contract records scope, evidence, and open acceptance gates.
 - Backup runs only while the app runs, on one machine. There is no multi-device
   synchronization, cloud writer election or daemon. Each start creates a fresh
   isolated stream; disabling never deletes remote history.
-- Live R2 backup/recovery/retention and latest native Mac GUI acceptance are
-  user-reported as passed. Fresh Mac release artifacts remain pending. Published
-  v0.3.5 tags and assets are unchanged. See the [release contract](docs/releases/v0.3.6.md) and
+- Live R2 backup/recovery/retention and latest native Mac GUI acceptance were
+  user-reported as passed during preparation. The v0.3.6 Mac artifacts and
+  skill bundle were subsequently published with the release. Published v0.3.5
+  tags and assets are unchanged. See the [release contract](docs/releases/v0.3.6.md) and
   [backup implementation notes](docs/development/continuous-backup.md).
 
 ## [0.3.5] — 2026-09-30
