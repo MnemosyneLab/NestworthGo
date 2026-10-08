@@ -131,6 +131,12 @@ requires the GNU backend for the original tests, so the portable fixture does
 not replace validation of production timeout behavior. The fixture is only
 for synthetic tests, not the apt installation script. Mac packaging still
 requires its own full `wails3 task package:release` acceptance run.
+Synthetic apt commands have a 3-second test budget and 1-second TERM-to-KILL
+grace period, with a 30-second harness bound. This allows Python/process
+startup before testing intentional stalls; normal commands finish immediately.
+A regression injects 350ms of startup delay before recording calls or setting
+signal handlers and checks success, TERM/KILL status, and exact retry counts
+with both backends. These timings do not change production apt budgets.
 
 ## Build and package the macOS app
 

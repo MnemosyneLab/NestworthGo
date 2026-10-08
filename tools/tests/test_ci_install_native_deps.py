@@ -38,7 +38,7 @@ class NativeDependencyTests(unittest.TestCase):
             if cls.gnu_timeout is None:
                 raise AssertionError('Linux CI requires GNU timeout on PATH')
 
-    def run_install(self, scenarios, tee_failure=False):
+    def run_install(self, scenarios, tee_failure=False, startup_delay=0):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             commands = {
@@ -50,8 +50,10 @@ class NativeDependencyTests(unittest.TestCase):
 args=()
 for arg in "$@"; do
   case "$arg" in
-    120s|180s) args+=(0.1s);;
-    10s) args+=(0.1s);;
+    # Allow Python/shell startup before timing out an intentional stall.
+    # Normal commands finish immediately; only hang/kill scenarios wait 3s.
+    120s|180s) args+=(3s);;
+    10s) args+=(1s);;
     *) args+=("$arg");;
   esac
 done
@@ -62,6 +64,7 @@ exec "$MOCK_PYTHON" "$MOCK_PORTABLE_TIMEOUT" "${args[@]}"
 ''',
                 "apt-get": '''#!/usr/bin/env python3
 import json, os, pathlib, sys, time, signal
+time.sleep(float(os.environ['MOCK_STARTUP_DELAY']))
 root = pathlib.Path(os.environ['MOCK_ROOT'])
 args = sys.argv[1:]
 phase = 'update' if 'update' in args else 'download' if '--download-only' in args else 'configure'
@@ -92,10 +95,11 @@ else:
             env = dict(os.environ, PATH=f"{work}:{os.environ['PATH']}",
                        MOCK_ROOT=directory, SCENARIOS=json.dumps(scenarios),
                        MOCK_GNU_TIMEOUT=self.gnu_timeout or '',
+                       MOCK_STARTUP_DELAY=str(startup_delay),
                        MOCK_PYTHON=sys.executable,
                        MOCK_PORTABLE_TIMEOUT=str(PORTABLE_TIMEOUT))
             result = subprocess.run(['bash', str(SCRIPT)], env=env, cwd=ROOT,
-                                    capture_output=True, text=True, timeout=5)
+                                    capture_output=True, text=True, timeout=30)
             calls = [json.loads(line) for line in (work / 'calls').read_text().splitlines()]
             return result, calls
 
@@ -111,6 +115,22 @@ else:
         for call in calls[1:]:
             for package in ('gcc', 'pkg-config', 'libgtk-4-dev', 'libwebkitgtk-6.0-dev', 'libsoup-3.0-dev'):
                 self.assertIn(package, call['args'])
+
+    def test_slow_startup_keeps_calls_signals_and_retry_statuses(self):
+        # Delay before recording the call or installing the SIGTERM handler.
+        # This exceeds the old 0.1s budget and recreates the Mac startup race.
+        result, calls = self.run_install({}, startup_delay=0.35)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual([c['phase'] for c in calls], ['update', 'download', 'configure'])
+        for status, expected in (('hang', 124), ('kill', 137)):
+            with self.subTest(status=status):
+                result, calls = self.run_install(
+                    {'update': [[status, 'delayed synthetic stall'], [0, 'ok']]},
+                    startup_delay=0.35)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual([c['phase'] for c in calls], ['update', 'update', 'download', 'configure'])
+                self.assertIn(f'phase=update attempt=1 exit={expected}', result.stdout)
+                self.assertIn('phase=update attempt=2 exit=0', result.stdout)
 
     def test_transient_update_and_download_retry_then_success(self):
         for phase in ('update', 'download'):
