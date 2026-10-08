@@ -64,7 +64,7 @@ func (s *Service) financialContextItem(ctx context.Context, g uint64, in Financi
 	}
 	c.prune(c.now())
 	entry, ok := c.entries[in.ContextID]
-	if !ok {
+	if !ok || entry.comparison != nil {
 		return empty, fail("context_expired", "context expired or was evicted; request a new context")
 	}
 	return c.itemResponse(in, entry, g)

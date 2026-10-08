@@ -18,6 +18,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
+	sdkjson "github.com/segmentio/encoding/json"
 	"github.com/waltwang/nestworth-go/internal/application"
 )
 
@@ -378,6 +379,32 @@ type financialContextHTTPCall struct {
 	} `json:"params"`
 }
 
+// Match go-sdk/internal/json's exact-case decoder, including repeated exact
+// keys followed by null. A last-value name map would lose the preceding name
+// that the SDK retains for null string fields. Keep params raw until the second
+// decode: the SDK replaces repeated params objects rather than merging them.
+func decodeFinancialContextHTTPCall(raw []byte) (financialContextHTTPCall, error) {
+	var request financialContextHTTPCall
+	if !json.Valid(raw) {
+		return request, errors.New("invalid JSON request")
+	}
+	decode := func(raw []byte, value any) error {
+		decoder := sdkjson.NewDecoder(bytes.NewReader(raw))
+		decoder.DontMatchCaseInsensitiveStructFields()
+		return decoder.Decode(value)
+	}
+	var envelope struct {
+		ID     json.RawMessage `json:"id"`
+		Params json.RawMessage `json:"params"`
+	}
+	if err := decode(raw, &envelope); err != nil {
+		return request, err
+	}
+	request.ID = envelope.ID
+	err := decode(envelope.Params, &request.Params)
+	return request, err
+}
+
 func isFinancialContextTool(name string) bool {
 	return name == "get_financial_context" || name == "get_financial_context_page" || name == "get_financial_context_item" || name == "compare_financial_context" || name == "get_financial_comparison_page"
 }
@@ -401,15 +428,15 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 			var batch []json.RawMessage
 			if json.Unmarshal(raw, &batch) == nil {
 				for _, element := range batch {
-					var request financialContextHTTPCall
-					if json.Unmarshal(element, &request) == nil && isFinancialContextTool(request.Params.Name) {
+					request, err := decodeFinancialContextHTTPCall(element)
+					if err == nil && isFinancialContextTool(request.Params.Name) {
 						http.Error(w, "financial context tools require a single JSON-RPC request", http.StatusBadRequest)
 						return
 					}
 				}
 			}
-			var request financialContextHTTPCall
-			if json.Unmarshal(raw, &request) == nil && isFinancialContextTool(request.Params.Name) {
+			request, err := decodeFinancialContextHTTPCall(raw)
+			if err == nil && isFinancialContextTool(request.Params.Name) {
 				if len(request.ID) > 512 {
 					http.Error(w, "financial context request ID exceeds wire budget", http.StatusBadRequest)
 					return
