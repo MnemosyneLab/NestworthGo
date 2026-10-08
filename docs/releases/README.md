@@ -11,12 +11,12 @@ native/distribution gates. The latest published release remains v0.3.6.
 - [v0.3.7 release-note draft](v0.3.7-notes.md) — publication text pending
   final gates.
 
-The previous v0.3.6 candidate has been superseded by v0.3.7. Its preparation
-record remains available for historical context: [v0.3.6 contract](v0.3.6.md)
-and [notes](v0.3.6-notes.md).
-
 ## Published history
 
+- [v0.3.6 release contract](v0.3.6.md) — published 2026-10-03 with Apple
+  Silicon DMG/ZIP, checksums, and standalone skill assets; preparation-time
+  evidence is retained in the contract. The archived
+  [release-note draft](v0.3.6-notes.md) is not the exact published release body.
 - [v0.3.5 release contract](v0.3.5.md) — published household liquidity and
   MCP/agent workflows; historical preparation evidence retained.
 
