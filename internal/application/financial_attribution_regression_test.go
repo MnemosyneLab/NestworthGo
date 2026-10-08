@@ -401,6 +401,26 @@ func TestFinancialAttributionPrecisionDoesNotHideUnknownDailyGap(t *testing.T) {
 	}
 }
 
+func TestFinancialAttributionPrecisionDoesNotHideCancellingComponentGaps(t *testing.T) {
+	householdID := domain.NewHouseholdID()
+	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
+	b := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
+	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}, {Account: b}}}}
+	for index, exact := range [][2]string{{"100", "100"}, {"100.000001", "99.999999"}} {
+		input.Snapshots = append(input.Snapshots, analysisSnapshot(fmt.Sprintf("2026-08-%02d", index+1), domain.DailyValuationSnapshotItem{AccountID: a.ID, NativeAmount: exact[0], NativeCurrency: "CNY", BaseAmountExact: exact[0], Complete: true}, domain.DailyValuationSnapshotItem{AccountID: b.ID, NativeAmount: exact[1], NativeCurrency: "CNY", BaseAmountExact: exact[1], Complete: true}))
+	}
+	result, err := ComputeAnalysis(input, analysisBaseQuery(domain.ValuationBase))
+	if err != nil {
+		t.Fatal(err)
+	}
+	comparison := FinancialComparisonContent{Left: FinancialComparisonSide{Basis: FinancialContextBasis{BaseCurrency: "CNY"}, Summary: FinancialContextSummary{NetWorth: contextAmount(historicalString("200"), "CNY")}, Coverage: FinancialContextCoverage{ValuationComplete: true}}, Right: FinancialComparisonSide{Summary: FinancialContextSummary{NetWorth: contextAmount(historicalString("200"), "CNY")}, Coverage: FinancialContextCoverage{ValuationComplete: true}}, Change: FinancialComparisonChange{NetWorth: contextAmount(historicalString("0"), "CNY")}}
+	link := &FinancialAttributionLink{Drivers: []FinancialAttributionDriver{}}
+	status, reasons, err := projectFinancialAttribution(link, &comparison, result, input)
+	if err != nil || status != "incompatible" || !reflect.DeepEqual(reasons, []string{"driver_reconciliation_mismatch"}) || link.PrecisionAdjustment.Value != nil || len(link.Drivers) != 0 || link.InvestmentReturn != nil {
+		t.Fatal("unknown component gaps called precision", status, reasons, link, err)
+	}
+}
+
 func TestFinancialAttributionPrecisionRejectsCancellingComponentCorruption(t *testing.T) {
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)

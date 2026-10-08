@@ -23,11 +23,14 @@ func proveAttributionPrecision(input AnalysisInputs, result domain.PeriodAnalysi
 	type boundary struct {
 		exact, projected decimal.Decimal
 		components       map[string]decimal.Decimal
+		exactComponents  map[string]decimal.Decimal
 	}
 	boundaries := make(map[string]boundary, len(input.Snapshots))
+	snapshots := make(map[string]domain.DailyValuationSnapshot, len(input.Snapshots))
 	for _, snapshot := range input.Snapshots {
+		snapshots[snapshot.LocalDate] = snapshot
 		items := snapshotItemsByComponent(snapshot, universe.accounts, universe.instruments)
-		value := boundary{exact: decimal.Zero, projected: decimal.Zero, components: make(map[string]decimal.Decimal, len(items))}
+		value := boundary{exact: decimal.Zero, projected: decimal.Zero, components: make(map[string]decimal.Decimal, len(items)), exactComponents: make(map[string]decimal.Decimal, len(items))}
 		for _, component := range universe.context.Universe.Components {
 			item, present := items[component.Key()]
 			if !present {
@@ -49,6 +52,7 @@ func proveAttributionPrecision(input AnalysisInputs, result domain.PeriodAnalysi
 			value.exact = value.exact.Add(exact)
 			value.projected = value.projected.Add(projected.Amount())
 			value.components[component.Key()] = projected.Amount()
+			value.exactComponents[component.Key()] = exact
 		}
 		boundaries[snapshot.LocalDate] = value
 	}
@@ -67,6 +71,29 @@ func proveAttributionPrecision(input AnalysisInputs, result domain.PeriodAnalysi
 	if !sameAttributionAmount(contextAmount(historicalString(proof.exactDelta.String()), currency), comparison.Change.NetWorth) {
 		return proof, "driver_reconciliation_mismatch", nil
 	}
+	// Household-internal transfers and debt principal are deliberately absent
+	// from public waterfall buckets. Reuse the engine's classifier to recover
+	// only its exact known neutral legs for each component identity check.
+	neutral := make(map[string]decimal.Decimal)
+	for _, activity := range input.Activities {
+		date := activityLocalDate(activity, input.Origin.Timezone)
+		if date < result.Query.From || date > result.Query.To {
+			continue
+		}
+		current := snapshots[date]
+		parsed, _ := time.Parse("2006-01-02", date)
+		previous := snapshots[parsed.AddDate(0, 0, -1).Format("2006-01-02")]
+		effects, err := universe.classifyActivity(activity, current, &previous, input, result.Query)
+		if err != nil {
+			return proof, "", err
+		}
+		for _, effect := range effects {
+			if effect.amountKnown && effect.bucket == nil && effect.neutral {
+				key := date + "|" + effect.component.Key()
+				neutral[key] = neutral[key].Add(effect.amount)
+			}
+		}
+	}
 	exactDrivers := make(map[string]decimal.Decimal)
 	for _, day := range result.Days {
 		date, _ := time.Parse("2006-01-02", day.Date)
@@ -77,8 +104,13 @@ func proveAttributionPrecision(input AnalysisInputs, result domain.PeriodAnalysi
 		}
 		// Reuse the same exact/fallback contract as aggregateAssetWaterfall.
 		buckets, _ := aggregateAssetWaterfall(domain.PeriodAnalysisResult{Days: []domain.ComponentDay{day}})
+		componentTotal := decimal.Zero
 		for _, amount := range buckets {
+			componentTotal = componentTotal.Add(amount)
 			exactDrivers[day.Date] = exactDrivers[day.Date].Add(amount)
+		}
+		if !componentTotal.Add(neutral[day.Date+"|"+day.Component.Key()]).Equal(current.exactComponents[day.Component.Key()].Sub(previous.exactComponents[day.Component.Key()])) {
+			return proof, "driver_reconciliation_mismatch", nil
 		}
 	}
 	for day := start; !day.After(end); day = day.AddDate(0, 0, 1) {

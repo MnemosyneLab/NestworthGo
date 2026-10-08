@@ -465,11 +465,14 @@ rates also remain the existing independent return projection.
 
 Before any precision adjustment is published, the bridge strictly verifies
 exact scoped snapshot boundaries against the exact comparison; projected
-component boundaries against the analysis; and **each day's exact driver plus
-residual buckets against that day's exact scoped valuation change**. No epsilon
+component boundaries against the analysis; **each component/day's exact driver
+plus residual buckets and proven neutral legs against its exact value change**;
+and each day's exact buckets against its exact scoped valuation change. Known
+neutral legs come from the existing engine classifier (internal transfers and
+principal repayment), never a new financial calculation. No epsilon
 or residual tolerance is used for these link checks. A real or unclassified
 exact gap, even one suppressed by the engine's residual tolerance, remains
-driver_reconciliation_mismatch. Opposing daily gaps cannot cancel into a valid
+driver_reconciliation_mismatch. Opposing component or daily gaps cannot cancel into a valid
 precision proof. No analysis engine or financial classification is rewritten.
 
 For compatible measured values, the signed identities are:

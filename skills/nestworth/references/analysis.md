@@ -400,9 +400,10 @@ change.netWorth = explainedDelta + residual + precisionAdjustment
 ```
 
 The server strictly checks exact scoped boundaries, projected component
-boundaries, and each day's exact buckets before declaring an adjustment to be
+boundaries, each component/day's exact buckets plus proven neutral transfer or
+principal legs, and each day's exact buckets before declaring an adjustment to be
 precision. Real exact gaps still stop as driver_reconciliation_mismatch, even
-if small or cancelling across days; no epsilon is used. `precisionAdjustment`
+if small or cancelling across components or days; no epsilon is used. `precisionAdjustment`
 is the difference between the proven exact change and existing projected
 drivers/residual. Its boundary and driver parts may oppose. It is **neither
 profit nor unknown residual** and must not be added to investmentReturn. For
