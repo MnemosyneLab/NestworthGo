@@ -39,16 +39,15 @@ release contract records scope, evidence, and open acceptance gates.
 
 - Skill version is 1.6.0 (`skills/nestworth/VERSION`); it is independently
   versioned from the App. Existing clients must install/update it separately.
-- Exact main head `2cad89eddd0c02de28f68a631fc26a72d6f6fcc3` has passing test and
-  race CI on PR #45. PR #47 (native dependency installation bounds) is still
-  open and is not included in this candidate. See the
+- PR #47 bounds native dependency installation and is included in main at
+  `57be6c18d1d54a98c67fa463f99fea6289fc27e7`; PR-head test/race CI run
+  37807183123 passed all jobs. See the
   [v0.3.7 release contract](docs/releases/v0.3.7.md) for detailed evidence and
   pending acceptance.
-- Synthetic Linux GUI plus raw HTTP smoke and automated checks are distinct
-  from the user's in-progress real Codex/MCP/skill acceptance on Mac mini.
-  That real-client acceptance has not yet passed. No Mac native GUI acceptance
-  is claimed here. Fresh Mac package generation and artifact acceptance remain
-  release gates.
+- The user reports scoped real Codex/MCP/skill acceptance passed on Mac mini
+  against source `2cad89e`; see the release contract's QA record and limits.
+  This does not establish Mac native GUI acceptance, which remains pending,
+  nor fresh package generation and artifact acceptance.
 
 ## [0.3.6] — Unreleased (superseded candidate)
 

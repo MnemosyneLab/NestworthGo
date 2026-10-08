@@ -11,8 +11,9 @@ entry is not an implementation claim.
 Status: Unreleased candidate, build 8. Adds consistent/frozen MCP financial
 context and comparisons, managed-product/liquidity reads, guarded lifecycle,
 terms and valuation writes, and requested-range snapshot coverage repair.
-Real Codex/MCP/skill and Mac native GUI acceptance remain pending, as do fresh
-Mac release artifacts. See the [release contract](../releases/v0.3.7.md).
+Scoped real Codex/MCP/skill acceptance passed on Mac mini against source
+`2cad89e`; native Mac GUI acceptance and fresh Mac release artifacts remain
+pending. See the [release contract](../releases/v0.3.7.md).
 
 ## 0.3.6 — Continuous backup and explicit disaster recovery
 

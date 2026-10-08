@@ -34,9 +34,9 @@ integrations and automatic market-data refresh remain outside this release.
 Continuous backup and whole-stream history cleanup are off by default. Optional
 30/90-day cleanup protects the current stream and two verified sealed survivors;
 it does not bound storage for a long-running stream. Candidate v0.3.7 adds
-financial-context/comparison and managed-product MCP workflows; real Mac
-Codex/MCP/skill acceptance and native GUI acceptance are still pending. Fresh
-release packaging is also pending. See the
+financial-context/comparison and managed-product MCP workflows. Scoped real
+Codex/MCP/skill acceptance passed on Mac mini against source `2cad89e`; native
+Mac GUI acceptance and fresh release packaging remain pending. See the
 [v0.3.7 release contract](docs/releases/v0.3.7.md).
 
 ## Run locally
