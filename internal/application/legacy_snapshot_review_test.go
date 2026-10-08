@@ -72,6 +72,39 @@ func TestLegacySnapshotBoundedInvalidationThenOrdinaryIncome(t *testing.T) {
 	assertAttributionPrecisionIdentity(t, attribution)
 }
 
+func TestLegacySQLBoundedDirtyThenOrdinaryIncome(t *testing.T) {
+	s, db, r, cash, _ := legacyCoverageFixture(t)
+	s.setClock(func() time.Time { return time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC) })
+	if _, err := db.SQL.Exec("UPDATE history_snapshot_state SET dirty_from=?,dirty_to=?", "2026-08-02", "2026-08-05"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ensureClosedDaySnapshots(t.Context(), "2026-08-06", "2026-08-11"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.RecordChange(t.Context(), domain.MoneyAddedInput{HouseholdID: cash.Account.HouseholdID, AccountID: cash.Account.ID, Amount: mustMoney(t, "50", "CNY"), Reason: domain.ReasonIncome, EffectiveAt: time.Date(2026, 8, 3, 13, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatal(err)
+	}
+	for _, early := range []bool{false, true} {
+		if early {
+			if err := s.ensureClosedDaySnapshots(t.Context(), "2026-08-02", "2026-08-11"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		trend, err := s.NetWorthTrend(t.Context(), domain.TrendRange("2026-08-10:2026-08-11"))
+		if err != nil || !trend.Complete || trend.Start.CanonicalAmount() != "290" {
+			t.Fatal("SQL bounded-state financial amount", early, trend, err)
+		}
+	}
+	boundary, err := s.NetWorthTrend(t.Context(), domain.TrendRange("2026-08-05:2026-08-06"))
+	if err != nil || !boundary.Complete || boundary.Change.CanonicalAmount() != "10" {
+		t.Fatal("SQL bounded-state complete delta", boundary, err)
+	}
+	before := r.saves
+	if _, err := s.NetWorthTrend(t.Context(), domain.TrendRange("2026-08-05:2026-08-06")); err != nil || r.saves != before {
+		t.Fatal("repeat rebuilt", r.saves-before, err)
+	}
+}
+
 func TestLegacyMixedGenerationReadersRecoverAfterRestart(t *testing.T) {
 	for _, reader := range []string{"analysis", "net_worth_trend", "portfolio_trend", "attribution"} {
 		for _, restart := range []bool{false, true} {

@@ -116,6 +116,22 @@ regressions, also reproduced on the preview-fixed head `6f91436`:
   `dirtySnapshotRange` and reports only pending invalidation. No application
   consumer uses the completion watermark to prove contiguous coverage.
 
+A separate complete-valuation SQL-marker fixture retains the original Aug 2–5
+state shape and verifies 290 / +10, including repeat reads without extra saves.
+
+The fully asynchronous cancelled-sync path uses StartMarketDataSync, a synthetic
+Tiingo adapter and the real history persister. At Aug 6, CancelSyncJob runs after
+the commit and before snapshot rebuilding: dirty Aug 1–5, generation 1, no
+watermark. At Aug 16, Aug 6–11 snapshots store subtotal 150 at generation 1 but
+are incomplete because later closes are missing. Ordinary income +50 effective
+Aug 3 previously left subtotal 150/gen1 on pinned 6f91436; base c4c1571 returned
+200/gen2 under the same flow. The fix returns 200/gen2 both before and after an
+Aug 1–11 request and retains dirty Aug 12–15. The trend still has null change and
+missing_boundary. This evidence is distinct from the complete-valuation −40
+case; no incomplete amount is presented as a valid trend delta. Data Health
+collapses missing-day work behind missing-input prerequisites instead of
+advertising it as immediately executable.
+
 Cross-chunk publication remains intentionally resumable, not range-atomic.
 A mutation after the first 31 saves leaves 41 rows of mixed generations and
 returns conflict: Aug 2 is still 160 while Sep 10 is already 551. Durable dirty
@@ -141,10 +157,10 @@ Warm samples first materialize all history; cold samples start with no rows.
 
 | Case | Base ns/op | Fixed ns/op | Base B/op | Fixed B/op | Base allocations | Fixed allocations |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Warm bounded trend | 2,970,243 | 663,271 | 739,307 | 57,916 | 25,618 | 1,659 |
-| Cold bounded trend | 26,624,496 | 4,729,366 | 1,702,263 | 165,565 | 51,148 | 4,212 |
+| Warm bounded trend | 2,970,243 | 852,050 | 739,307 | 58,003 | 25,618 | 1,660 |
+| Cold bounded trend | 26,624,496 | 5,027,233 | 1,702,263 | 165,592 | 51,148 | 4,213 |
 
-Warm time fell about 78%; cold time about 82%. Cold reconstruction narrows from
+Warm time fell about 71%; cold time about 81%. Cold reconstruction narrows from
 62 days to 2. This is a synthetic coverage benchmark, not a production latency
 claim. Large ledgers, all-time trend latency, native UI latency, live providers,
 and R2 were not measured. The shared planner adds one state read to attribution

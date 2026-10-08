@@ -200,6 +200,12 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 		issues = append(issues, issue)
 	}
 	rootCause := hasUncollapsedRootCause(issues)
+	for i := range issues {
+		if rootCause && issues[i].Kind == HealthKindSnapshotMissing {
+			issues[i].Executable = false
+			issues[i].Collapsed = true
+		}
+	}
 	state, err := s.repository.DailySnapshotState(ctx, household.ID)
 	if err != nil {
 		return MarketDataHealthReport{}, err
