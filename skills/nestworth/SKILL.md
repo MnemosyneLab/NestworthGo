@@ -13,7 +13,9 @@ development environment. Answer in the user's language.
 
 Discover the Nestworth MCP tools available in this client; server names and
 tool prefixes can differ. For a pure minimal financial summary, go directly to
-`get_financial_context` (one state) or `compare_financial_context` (two states) after discovery; no `get_context`, catalog or directory
+`get_financial_context` (one state) or `compare_financial_context` (two states)
+after discovery. Use `get_financial_context_item` for a ref in a single-state
+frozen package, inheriting its disclosure. No `get_context`, catalog or directory
 read is required. `get_context` discloses household, member, institution and group
 names. Follow [analysis.md](references/analysis.md) for frozen detail pages and
 disclosure choices. A summary or two-state difference does not answer period-return questions.

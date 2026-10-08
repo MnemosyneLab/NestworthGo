@@ -124,6 +124,8 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 		{"unknown-comparison-page-property", "get_financial_comparison_page", map[string]any{"comparisonId": "id", "section": "positions", "cursor": "cursor", large: true}, 1},
 		{"wrong-comparison-type", "compare_financial_context", map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current", "scope": large}, 1},
 		{"wrong-comparison-page-type", "get_financial_comparison_page", map[string]any{"comparisonId": "id", "section": "positions", "cursor": "cursor", "limit": large}, 1},
+		{"unknown-item-property", "get_financial_context_item", map[string]any{"contextId": "id", "ref": "account-1", large: true}, 1},
+		{"wrong-item-type", "get_financial_context_item", map[string]any{"contextId": "id", "ref": "account-1", "limit": large}, 1},
 		{"unknown-context-property", "get_financial_context", map[string]any{large: true}, 1},
 		{"unknown-page-property", "get_financial_context_page", map[string]any{"contextId": "id", "section": "positions", "cursor": "cursor", large: true}, 1},
 		{"wrong-context-type", "get_financial_context", map[string]any{"scope": large}, 1},
@@ -165,7 +167,7 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 
 func TestFinancialContextRejectsLegacyHTTPBatch(t *testing.T) {
 	for _, protocol := range []string{"", "2025-03-26", "2025-06-18"} {
-		for _, tool := range []string{"get_financial_context", "get_financial_context_page", "compare_financial_context", "get_financial_comparison_page"} {
+		for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "get_financial_comparison_page"} {
 			for _, variant := range []string{"large-property", "long-id", "mixed-first", "mixed-last"} {
 				t.Run(protocol+"/"+tool+"/"+variant, func(t *testing.T) {
 					s, _, _ := fixture(t)
@@ -323,7 +325,7 @@ func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 }
 
 func TestFinancialContextEnvelopeOnlyBoundsContextTools(t *testing.T) {
-	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_context"} {
+	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "get_context"} {
 		t.Run(tool, func(t *testing.T) {
 			body := strings.Repeat("x", contextWireLimit+1)
 			handler := financialContextEnvelope(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

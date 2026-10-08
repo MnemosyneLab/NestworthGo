@@ -122,7 +122,7 @@ fix an oversized input, summary or single row. Explain the reported limit rather
 than retrying indefinitely; do not assume paging always solves it. Any fallback
 that adds identities requires the disclosure choice above.
 
-Send each context tool as one JSON-RPC object per HTTP request. Never send either
+Send each context tool as one JSON-RPC object per HTTP request. Never send any context tool
 in a JSON-RPC batch, including a mixed batch: it is rejected in full before any
 element executes, under old and new protocols alike. No repairs or provider
 refreshes happen here; use the separate health workflow only if requested.
@@ -161,6 +161,59 @@ Zero is a measured result; null/unavailable is missing evidence. Report partial
 amounts as partial, preserve native/base distinctions and don't treat asset
 change as investment profit. If missing evidence prevents the requested answer,
 describe what is known and route to [data-health.md](data-health.md).
+
+## Drill into one frozen item
+
+When the question concerns a returned account, position or evidence alias, call
+`get_financial_context_item` with its original `(contextId, ref)` pair. This is
+the same captured projection, not a fresh account snapshot. The item inherits the original
+package disclosure: minimal stays free of names/raw IDs; named preserves only
+the names and IDs already disclosed there. This is not an additional disclosure
+choice and never upgrades minimal to named or recaptures a package. Do not read the
+directory or switch to identity-bearing tools to explain a minimal item.
+
+<!-- example: financial-context-item -->
+```json
+{"contextId":"${contextId}","ref":"${ref}"}
+```
+
+The response carries the original contentHash, capturedAt, cacheExpiresAt, asOf
+and basis. `position` is the selected account/position; `evidenceItem` is selected
+evidence. `positions`, `gaps`, and `evidence` contain only related frozen rows.
+An account's `position` is a rollup and its `positions` are the cash/holding
+components: never sum the rollup again with those children. A position has no
+child rows. Evidence lists only direct referring rows and gaps that name it;
+shared FX does not expand each user's account or other evidence. Evidence in
+account/position results is deduplicated by ref. Preserve excluded/archived,
+not_created, measured zero and missing amounts as returned.
+
+The initial response has at most one row per related section. Inspect all three
+page descriptors. Supply section to read a related section (even if empty), then
+follow its nextCursor with the same contextId, ref and section. A zero-row initial
+section with hasMore is deferred. Limits default to 50, maximum 100. Whole-package
+page cursors and another item's cursors are not interchangeable.
+
+<!-- example: financial-context-item-page -->
+```json
+{"contextId":"${contextId}","ref":"${ref}","section":"${section}","cursor":"${cursor}","limit":50}
+```
+
+Current and closed-day packages work identically. There is no transaction
+history, new identity disclosure, period comparison or recomputation here. If
+the projection lacks an answer, state that boundary; do not invent a history.
+The original five-minute expiry is fixed. Expired/revoked packages require a new
+capture and a newly selected target: never attach an old answer to a same-spelled
+alias in the new package, even if the hash matches. Bare aliases cannot reveal
+which package they originally came from. Keep their contextId throughout.
+The same single-request, wire-budget and too_large rules above apply.
+
+An item `too_large` error for a section row plus the required target names the
+section (`positions`, `gaps` or `evidence`). If the initial item overview fails
+this way, request other sections explicitly with the same contextId and ref,
+omitting cursor to start each section. This can recover the other related data;
+report the failed section as unavailable and the item detail as incomplete.
+Lowering limit cannot fix that oversized row. An oversized required target is
+not section-specific and cannot be bypassed by selecting another section.
 
 
 ## Compare two states without doing the arithmetic
