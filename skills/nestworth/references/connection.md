@@ -51,7 +51,7 @@ rather than changing disclosure or bypassing request validation.
 | --- | --- |
 | `read_only` | Financial context and frozen pages, current valuation, managed products/history and liquidity reads, catalogs, history, analysis, market-data/audit reads, health scans, repair previews/status |
 | `directory_write` | All reads plus account/instrument/member/institution/group maintenance |
-| `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections and starting data repair |
+| `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections, managed lifecycle/terms/value pairs and starting data repair |
 
 Discover the actual tools before choosing a workflow. An absent tool may reflect
 permissions or an older App. Explain the specific needed setting/update; do not
@@ -81,6 +81,8 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview` |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
 | Managed lifecycle facts (ledger_write) | `preview_product_operation` / `commit_product_operation` |
+| Managed terms/policy (ledger_write) | `preview_product_terms` / `commit_product_terms` |
+| Actual locked-product value (ledger_write) | `preview_product_valuation` / `commit_product_valuation` |
 | Single/batch ledger records | `preview_change` / `commit_change`, `preview_batch` / `commit_batch` |
 | Reconciliation/correction | `preview_reconciliation` / `commit_reconciliation`, `preview_correction` / `commit_correction` |
 | History and reports | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_contribution_item`, `get_return_day`, `get_asset_driver_detail` |
@@ -99,3 +101,8 @@ all placeholders; never send them as IDs. Values/dates are illustrative, not
 verified market information. Reads/previews usually take arguments directly;
 mutations take `operationId` and `input`. Use UUIDs from successful receipts,
 not provisional IDs in a preview.
+
+Managed capabilities are managed_product_read, liquidity_read and, only with
+ledger_write, managed_product_lifecycle, managed_product_terms and
+managed_product_valuation. Discover each actual pair; an older App may expose
+only a subset. Skill 1.6.0 does not install/update the connected App or client.

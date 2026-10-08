@@ -29,7 +29,7 @@ func (s *Service) productTools(server *mcp.Server) {
 		}
 		return products.ListProducts(ctx, liquidity.ListProductsRequest{AccountID: in.AccountID, IncludeClosed: in.IncludeClosed})
 	})
-	readTool(server, "get_product", "Read one App-managed product by id from list_products. Same contract, policy, decimal money, active reservations, revisions and GUI action reasons as the App. GUI actions do not grant MCP write permission. due_unconfirmed means maturity needs confirmation: it does not record cash, forecast interest as net worth, or settle the contract. No provider refresh or snapshot writes. For liquidity routes use get_liquidity_overview; use preview_product_operation/commit_product_operation for lifecycle with ledger_write, and the GUI for terms and valuation writes.", func(ctx context.Context, in IDInput) (any, error) {
+	readTool(server, "get_product", "Read one App-managed product by id from list_products. Same contract, policy, decimal money, active reservations, revisions and GUI action reasons as the App. GUI actions do not grant MCP write permission. due_unconfirmed means maturity needs confirmation: it does not record cash, forecast interest as net worth, or settle the contract. No provider refresh or snapshot writes. For liquidity routes use get_liquidity_overview; use preview_product_operation/commit_product_operation for lifecycle with ledger_write, and the dedicated terms/valuation preview/commit pairs with ledger_write.", func(ctx context.Context, in IDInput) (any, error) {
 		return products.Product(ctx, in.ID)
 	})
 	readTool(server, "list_product_operations", "Page a managed product's actual operation history. productId is a committed contract UUID. Default limit 25, maximum 100; pass next as cursor with the same productId. Newest createdAt then id first; pages read live state, not a frozen capture. Returns operation UUIDs, kinds, effective/creation timestamps and reversal links, never private request/result JSON. Read get_activity for ledger effects and get_operation for an MCP execution receipt when available; their IDs are different authorities. No lifecycle or reservation writes.", func(ctx context.Context, in liquidity.ListOperationsRequest) (any, error) {
@@ -61,5 +61,10 @@ func isProductReadTool(name string) bool {
 }
 
 func isProductTool(name string) bool {
-	return isProductReadTool(name) || name == "preview_product_operation" || name == "commit_product_operation"
+	switch name {
+	case "preview_product_operation", "commit_product_operation", "preview_product_terms", "commit_product_terms", "preview_product_valuation", "commit_product_valuation":
+		return true
+	default:
+		return isProductReadTool(name)
+	}
 }

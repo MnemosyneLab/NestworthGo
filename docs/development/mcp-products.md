@@ -1,11 +1,9 @@
 # Managed product MCP alignment
 
-The read extension exposes the GUI's managed-contract, operation-history and
-liquidity reads. Its dependent lifecycle extension adds five guarded record
-operations. Terms and valuation writes remain App workflows pending their
-separate extension. This document states the implemented contracts and the
-remaining acceptance gates. It does not authorize a
-tool, claim client installation, or establish that write alignment is complete.
+The three review units align managed contract reads, lifecycle records, terms
+and locked-product observations with the GUI. They share application validation
+and DTOs and use narrow preview/commit contracts. Repository implementation and
+skill updates do not install a client or authorize writes outside a user's intent.
 
 ## Delivery boundaries
 
@@ -13,7 +11,7 @@ tool, claim client installation, or establish that write alignment is complete.
 | --- | --- | --- |
 | Read parity | Contract list/detail, closed contracts, operation pages, household product/cash liquidity | Implemented in this change |
 | Lifecycle parity | open, record_existing, receive_interest, whole-contract settle, latest safe group undo | Implemented in the dependent lifecycle change |
-| Terms/value parity | Revisioned terms/policy updates and locked-product value observations | Follow-up; narrow previews and atomic stable receipts required |
+| Terms/value parity | Revisioned terms/policy updates and locked-product value observations | Implemented in the dependent terms/value change |
 
 Renewal is excluded until the GUI action is independently established. No unit
 exposes reservation creation, modification or release. No releaseReservationIds
@@ -45,7 +43,7 @@ financial-context captures.
 The server advertises managed_product_read and liquidity_read capabilities.
 Discovery and schemas remain authoritative; GUI permittedActions are not MCP
 permission or proof of an exposed write tool. The portable skill version is
-1.5.0; updating repository files does not install it in a user client.
+1.6.0; updating repository files does not install it in a user client.
 
 History pages retain newest-created-time/UUID ordering. The MCP checks that the
 contract exists before returning history, accepts default/zero limit 25, rejects
@@ -86,8 +84,7 @@ due_unconfirmed changes display/availability, never automatically writes cash.
 
 ## Write interface and permissions
 
-The lifecycle pair is registered by the dependent change. The terms and value
-pairs remain proposed and are not yet exposed:
+All three pairs are registered in ledger_write by their respective review units:
 
 | Preview/commit pair | Accepted command |
 | --- | --- |
@@ -151,23 +148,76 @@ pending/unknown receipts may recover only by that atomic business key. A failed
 receipt must not hide an already committed mutation after a post-commit derived
 refresh failure. Report recorded facts and pending derived work separately.
 
-Lifecycle CommitProductBundle already atomically saves product operations and
-their effects. Terms currently use SaveProductTerms, which atomically updates
-contract/policy revisions but has no business idempotency receipt. Refactor its
-validation into a pure preparation shared by narrow preview and commit, and
-extend persistence to save revision-checked terms/policy plus immutable result
-and payload digest in the same transaction. Do not wrap the current direct
-write in an independently saved MCP receipt and call it recoverable. Decide the
-business receipt storage and export/restore/integrity contract in that review;
-do not invent a product operation kind without updating schema-15 verification.
+Lifecycle CommitProductBundle atomically saves operations and their effects.
+Terms preview and commit share the pure preparation used by UpdateProductTerms.
+CommitProductTermsMutation saves contract/policy CAS revisions and a typed
+immutable ProductTermsMutation receipt in one SQLite transaction. The existing
+app_configuration namespace product.terms-mutation.<householdUUID>.<planUUID>
+is private local business evidence; no new lifecycle operation kind or schema
+migration is introduced. The namespace is validated on live startup and read-only
+backup verification. Full SQLite snapshots preserve it with plans and MCP
+execution receipts; JSON household exports exclude private configuration while
+retaining financial contract/policy facts. JSON export is not a restored MCP
+session. Directory configuration writers cannot call this financial transaction.
 
-AppendProductValuation atomically stores a value_observation operation and quote,
-but replay currently returns live Product detail. Add a pure observation preview
-and guarded append with plan key, revision/state token and original timestamp.
-Recover immutable quote/operation IDs and recorded value from a durable receipt;
-reread current detail separately. Never quote a deposit with projected interest,
-or import a managed quote through generic market-data tools. Later valuation or
-terms changes must continue to block unsafe lifecycle undo.
+Terms preview before/after metadata timestamps are provisional: UpdatedAt,
+ConfirmedAt and root recordedAt reflect actual commit time. Terms have no default
+financial event timestamp; cash, quantity, cost and quote facts remain unchanged.
+New terms metadata and receipts use the authoritative UTC millisecond timestamps
+persisted by SQLite, including when the clock has nanoseconds or a non-UTC offset.
+Closed products accept only name/note with unchanged financial terms and policy.
+Open edits can change forecasts without posting interest or altering reservations.
+Existing GUI rate resolution is unchanged: nonempty annualRatePercent takes
+precedence when both rate representations are supplied; previews display the
+resolved canonical annualRate. Prefer one representation. Blank/null handling
+follows shared GUI validation.
+The terms receipt returns the recorded-time ProductDTO and revision, not the
+complete detail's reservation array. Read get_product for current facts and
+complete reserve evidence. Money, including policy fees/early gross amounts, uses explicit decimal-string/
+currency encoding inside durable receipts. Terms evidence retains the complete
+normalized command with its payload SHA-256 and a canonical SHA-256 binding the
+command, original result, identities and recording time. The transaction rejects
+any receipt whose complete contract/policy differs from the facts being saved.
+Lookup, startup and backup verification reject changed command/result evidence.
+Where a contract or policy still has the receipt's revision, verification also
+compares every persisted field against that live revision. Timestamp comparison
+uses SQLite's UTC millisecond precision; an older sealed receipt's raw offset or
+submillisecond time is projected only for comparison, without rewriting its
+command, immutable result or checksum. All non-time fields remain fully compared.
+At later revisions,
+retain and validate the original sealed result; do not replace it with new facts.
+
+This detects inconsistent/corrupt local evidence and same-revision disagreement;
+it is not an authenticated audit log. A party able to rewrite a plaintext SQLite
+database can rewrite old evidence and recompute its checksums. After later facts
+have overwritten an old revision, there is no independent cryptographic trust
+root proving its past value against such coordinated rewriting. No MCP tool
+allows namespace/fact/checksum writes of that kind. Invalid evidence fails
+closed; inspect actual facts in the GUI rather than reposting to repair a receipt.
+Earlier unreleased draft receipt formats lacking the binding fail verification;
+this change neither migrates nor connects any user ledger.
+
+Locked-product observations share the pure preparation used by
+AppendProductValuation. Preview freezes empty observedAt using App now and saves
+the normalized UTC millisecond command. Explicit timestamps are validated before
+truncating submillisecond precision, so normalization cannot admit a future
+instant. Preview displays and freezes the same instant that SQL will retain.
+Guarded commit atomically saves the quote, existing
+value_observation operation, product link and original receipt through
+CommitProductBundle. quote.CreatedAt and recordedAt retain actual commit time at
+UTC millisecond precision; observedAt remains the reviewed persisted instant.
+Older raw nanosecond receipts retain their exact JSON and command digest; only
+SQL timestamp comparisons use the native persisted precision. Replay returns original amount,
+quote/operation/product IDs and times without querying today's product. Receipt,
+command digest, quote ownership/currency/amount and timestamps are checked on
+startup and read-only backup verification. Legacy GUI observations remain valid.
+
+The preview uses existing portfolio quote authority. A historical observation
+can leave current value unchanged; a missing before value produces unknown
+net-worth delta even if after value is known. This records actual total value,
+never projected deposit interest or NAV units. Later terms and valuation changes
+continue to block unsafe lifecycle undo. Generic managed quote imports stay
+protected. No reservation is created, edited, released or restored by these tools.
 
 After restore, distinguish retained receipts from current facts. Production
 configuration, plans and business data must share the restored SQLite authority.
@@ -208,3 +258,17 @@ with cash included, nonzero stock gains, exact weighted capital and linked rate.
 Guarded opening/existing-position undo blocked by active reservations returns
 unresolved_reservation_release with GUI handling; ordinary GUI safety errors
 retain their existing contract.
+
+
+## Current compensation versus historical replacement
+
+Product undo preserves the original events and posts a compensating operation
+at the reviewed instant. It does not replace past events as a historical fix
+would. After settlement then undo, an instrument's time-weighted exposure/capital
+and return rate can differ from a scenario that never settled; the interval out
+of that instrument remains real history. With cash included, household/account
+principal transfers between the product and cash are internal and do not create
+external Dietz capital flows. Isolated interest-then-undo is performance rather
+than capital in every scope. A managed product currently has no historical fix
+path: handle mistaken records using the GUI's supported options; generic fixes
+must not bypass managed-product protection.

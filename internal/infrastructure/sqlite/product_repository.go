@@ -132,27 +132,35 @@ func (r *Repository) ProductOperationEvidence(ctx context.Context, householdID d
 }
 
 func (r *Repository) SaveProductTerms(ctx context.Context, contract domain.ProductContract, policy domain.LiquidityPolicy, expectedPolicyRevision int) error {
-	return r.database.WithTx(ctx, func(tx *sql.Tx) error {
-		var revision int
-		if err := tx.QueryRowContext(ctx, `SELECT revision FROM product_contracts WHERE id = ? AND household_id = ?`, contract.ID.String(), contract.HouseholdID.String()).Scan(&revision); err != nil {
-			return err
-		}
-		if revision != contract.Revision-1 {
-			return &domain.Error{Code: domain.ErrRevisionConflict, Message: "product revision does not match"}
-		}
-		var policyRevision int
-		err := tx.QueryRowContext(ctx, `SELECT revision FROM liquidity_policies WHERE holding_id = ? AND household_id = ?`, contract.HoldingID.String(), contract.HouseholdID.String()).Scan(&policyRevision)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		if policyRevision != expectedPolicyRevision {
-			return &domain.Error{Code: domain.ErrRevisionConflict, Message: "policy revision does not match"}
-		}
-		if err := upsertProductContractTx(ctx, tx, contract); err != nil {
-			return err
-		}
-		return upsertLiquidityPolicyTx(ctx, tx, policy)
-	})
+	return r.database.WithTx(ctx, func(tx *sql.Tx) error { return saveProductTermsTx(ctx, tx, contract, policy, expectedPolicyRevision) })
+}
+
+func saveProductTermsTx(ctx context.Context, tx *sql.Tx, contract domain.ProductContract, policy domain.LiquidityPolicy, expectedPolicyRevision int) error {
+	var revision int
+	if err := tx.QueryRowContext(ctx, `SELECT revision FROM product_contracts WHERE id = ? AND household_id = ?`, contract.ID.String(), contract.HouseholdID.String()).Scan(&revision); err != nil {
+		return err
+	}
+	if revision != contract.Revision-1 {
+		return &domain.Error{Code: domain.ErrRevisionConflict, Message: "product revision does not match"}
+	}
+	var policyRevision int
+	err := tx.QueryRowContext(ctx, `SELECT revision FROM liquidity_policies WHERE holding_id = ? AND household_id = ?`, contract.HoldingID.String(), contract.HouseholdID.String()).Scan(&policyRevision)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if policyRevision != expectedPolicyRevision {
+		return &domain.Error{Code: domain.ErrRevisionConflict, Message: "policy revision does not match"}
+	}
+	if err := upsertProductContractTx(ctx, tx, contract); err != nil {
+		return err
+	}
+	if err := failProductCommit("terms:contract"); err != nil {
+		return err
+	}
+	if err := upsertLiquidityPolicyTx(ctx, tx, policy); err != nil {
+		return err
+	}
+	return failProductCommit("terms:policy")
 }
 
 func (r *Repository) Product(ctx context.Context, householdID domain.HouseholdID, id domain.ProductContractID) (domain.ProductContract, error) {

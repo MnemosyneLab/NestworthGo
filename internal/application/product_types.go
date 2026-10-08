@@ -178,10 +178,10 @@ type SaveReservationInput struct {
 }
 
 type UpdateProductTermsInput struct {
-	ProductID        domain.ProductContractID
-	ExpectedRevision int
-	Terms            ProductTermsInput
-	Policy           ProductPolicyInput
+	ProductID        domain.ProductContractID `json:"productId"`
+	ExpectedRevision int                      `json:"expectedRevision"`
+	Terms            ProductTermsInput        `json:"terms"`
+	Policy           ProductPolicyInput       `json:"policy"`
 }
 
 type AppendProductValuationInput struct {

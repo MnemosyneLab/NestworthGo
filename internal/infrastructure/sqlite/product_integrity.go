@@ -7,6 +7,9 @@ import (
 
 // Shared by live open and read-only backup verification.
 func verifyProductIntegrity(ctx context.Context, query schemaQuery) error {
+	if err := verifyProductTermsMutations(ctx, query); err != nil {
+		return err
+	}
 	checks := []struct{ sql, message string }{
 		{`SELECT COUNT(*) FROM product_operations WHERE NOT json_valid(result_json) OR NOT json_valid(request_json)`, "product operation evidence is invalid JSON"},
 		{`SELECT COUNT(*) FROM product_contracts c WHERE NOT EXISTS(SELECT 1 FROM liquidity_policies p WHERE p.household_id=c.household_id AND p.source_kind='holding' AND p.account_id=c.account_id AND p.holding_id=c.holding_id)`, "managed product policy is missing"},
@@ -65,6 +68,9 @@ func verifyProductIntegrity(ctx context.Context, query schemaQuery) error {
 		if count != 0 {
 			return storedIntegrity("product", check.message)
 		}
+	}
+	if err := verifyProductValuationReceipts(ctx, query); err != nil {
+		return err
 	}
 	rows, err := query.QueryContext(ctx, `SELECT id FROM households`)
 	if err != nil {

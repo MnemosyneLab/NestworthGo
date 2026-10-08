@@ -505,3 +505,47 @@ func FromProductOperationPreview(value application.ProductOperationPreview) Prod
 func FromProductOperationReceipt(value application.ProductOperationReceipt) ProductOperationReceiptDTO {
 	return fromReceipt(value)
 }
+
+// FromProductDetail exposes the existing GUI projection to dedicated adapters.
+func FromProductDetail(value application.ProductDetail) ProductDetailDTO {
+	return fromProductDetail(value)
+}
+
+type ProductTermsReceiptDTO struct {
+	MutationID string     `json:"mutationId"`
+	Product    ProductDTO `json:"product"`
+	RecordedAt string     `json:"recordedAt"`
+	Replayed   bool       `json:"replayed"`
+}
+
+func FromProductTermsReceipt(value domain.ProductTermsReceipt) ProductTermsReceiptDTO {
+	product := fromProductDetail(application.ProductDetail{Contract: value.Contract, Policy: value.Policy, CurrentValue: value.CurrentValue, DisplayState: value.DisplayState, PredecessorID: value.Contract.RenewedFromID, SuccessorID: value.SuccessorID, PermittedActions: value.PermittedActions}).Product
+	return ProductTermsReceiptDTO{MutationID: value.MutationID.String(), Product: product, RecordedAt: wire.FormatTime(value.RecordedAt), Replayed: value.Replayed}
+}
+
+type ProductValuationPreviewDTO struct {
+	Command            application.ProductValuationCommand `json:"command"`
+	CurrentValueBefore *wire.MoneyView                     `json:"currentValueBefore"`
+	CurrentValueAfter  *wire.MoneyView                     `json:"currentValueAfter"`
+	NetWorthKnown      bool                                `json:"netWorthKnown"`
+	NetWorthDelta      *wire.SignedMoneyView               `json:"netWorthDelta"`
+	ReviewedStateHash  string                              `json:"reviewedStateHash"`
+}
+
+func FromProductValuationPreview(value application.ProductValuationPreview) ProductValuationPreviewDTO {
+	return ProductValuationPreviewDTO{Command: value.Command, CurrentValueBefore: wire.FromMoneyPtr(value.Before), CurrentValueAfter: wire.FromMoneyPtr(value.After), NetWorthKnown: value.NetWorthDelta != nil, NetWorthDelta: wire.FromSignedMoneyPtr(value.NetWorthDelta), ReviewedStateHash: value.ReviewedStateHash}
+}
+
+type ProductValuationReceiptDTO struct {
+	OperationID string         `json:"operationId"`
+	ProductID   string         `json:"productId"`
+	QuoteID     string         `json:"quoteId"`
+	Amount      wire.MoneyView `json:"amount"`
+	ObservedAt  string         `json:"observedAt"`
+	RecordedAt  string         `json:"recordedAt"`
+	Replayed    bool           `json:"replayed"`
+}
+
+func FromProductValuationReceipt(value application.ProductValuationReceipt) ProductValuationReceiptDTO {
+	return ProductValuationReceiptDTO{OperationID: value.OperationID.String(), ProductID: value.ProductID.String(), QuoteID: value.QuoteID.String(), Amount: wire.FromMoney(value.Amount), ObservedAt: wire.FormatTime(value.ObservedAt), RecordedAt: wire.FormatTime(value.RecordedAt), Replayed: value.Replayed}
+}

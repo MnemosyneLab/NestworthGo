@@ -43,7 +43,7 @@ Read only the references needed for this request:
 | Create/edit accounts, ownership, institutions, groups or instruments | [Accounts and instruments](references/accounts-and-instruments.md) |
 | Record owned investments, buys/sells, dividends, position transfers, statement batches | [Positions and trades](references/positions-and-trades.md) |
 | Income, spending, interest, cash transfers, currency exchange, borrowing/repayment | [Cash and debt](references/cash-and-debt.md) |
-| Managed deposits/locked contracts, operation history, product/cash liquidity | [Products and liquidity](references/products.md) |
+| Managed deposits/locked contracts, lifecycle, terms/value edits and liquidity | [Products and liquidity](references/products.md) |
 | Reconcile balances/quantities/costs, fix a historical mistake, undo a record | [Reconciliation and corrections](references/reconciliation-and-corrections.md) |
 | Read/import/correct/withdraw prices, fund NAV or FX | [Market data](references/market-data.md) |
 | Diagnose missing data and track a repair | [Data health](references/data-health.md) |
@@ -69,7 +69,7 @@ Read only the references needed for this request:
   inconsistent with the request before committing. Permission mode alone does
   not authorize unrelated changes.
 - Query balances and analysis before preparing a preview. Single, batch,
-  reconciliation and correction plans have different commit tools. Check the
+  reconciliation, correction and managed product plans have different commit tools. Check the
   normalized command/effects and commit promptly; unrelated writes and even
   analysis snapshot materialization can make a preview stale.
 - Generate one new UUID per intended mutation. Retain the exact ID and input
@@ -91,9 +91,9 @@ Read only the references needed for this request:
 - “补入这只中国基金昨天公布的单位净值，再检查数据健康。”
 - “解释上个月资产为什么上涨，并列出主要收益贡献。”
 
-Use the App for setup, history starting-point changes, backups/restores and
-managed deposit/locked-product terms and valuation writes. Managed lifecycle
-facts use their dedicated preview/commit with ledger_write; contract/history
+Use the App for setup, history starting-point changes, backups/restores, renewal
+and reservation mutations. Managed lifecycle, terms and locked-product value
+facts use their respective dedicated preview/commit with ledger_write; contract/history
 and liquidity reads use [products.md](references/products.md).
 Ordinary NAV-priced fund/wealth-product holdings use
 the documented instrument/holding path only when they are not App-managed
