@@ -10,6 +10,7 @@ import (
 )
 
 func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(t.TempDir() + "/historical-entry.db")
 	if err != nil {
 		t.Fatal(err)
@@ -113,6 +114,7 @@ func TestOnboardingHistoricalStartAndBackdatedAccount(t *testing.T) {
 }
 
 func TestHistoricalStartRejectsInferredPastAssetsAndFuture(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	for _, date := range []string{"2026-09-30", "2026-02-30"} {

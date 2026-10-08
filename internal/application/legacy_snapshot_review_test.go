@@ -12,6 +12,7 @@ import (
 )
 
 func TestLegacySnapshotBoundedInvalidationThenOrdinaryIncome(t *testing.T) {
+	t.Parallel()
 	s, _, r, cash, instrument := legacyCoverageFixture(t)
 	now := time.Date(2026, 8, 6, 12, 0, 0, 0, time.UTC)
 	s.setClock(func() time.Time { return now })
@@ -73,6 +74,7 @@ func TestLegacySnapshotBoundedInvalidationThenOrdinaryIncome(t *testing.T) {
 }
 
 func TestLegacySQLBoundedDirtyThenOrdinaryIncome(t *testing.T) {
+	t.Parallel()
 	s, db, r, cash, _ := legacyCoverageFixture(t)
 	s.setClock(func() time.Time { return time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC) })
 	if _, err := db.SQL.Exec("UPDATE history_snapshot_state SET dirty_from=?,dirty_to=?", "2026-08-02", "2026-08-05"); err != nil {
@@ -106,6 +108,7 @@ func TestLegacySQLBoundedDirtyThenOrdinaryIncome(t *testing.T) {
 }
 
 func TestLegacyMixedGenerationReadersRecoverAfterRestart(t *testing.T) {
+	t.Parallel()
 	for _, reader := range []string{"analysis", "net_worth_trend", "portfolio_trend", "attribution"} {
 		for _, restart := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s_restart=%t", reader, restart), func(t *testing.T) {
@@ -204,6 +207,7 @@ func TestLegacyMixedGenerationReadersRecoverAfterRestart(t *testing.T) {
 }
 
 func TestLegacySparseSnapshotHealthAndRepair(t *testing.T) {
+	t.Parallel()
 	s, db, r, cash, _ := legacyCoverageFixtureDays(t, 62)
 	legacyCoverageRead(t, s, "attribution", "2026-08-10", "2026-08-11")
 	if _, err := s.NetWorthTrend(t.Context(), domain.Trend30Days); err != nil {

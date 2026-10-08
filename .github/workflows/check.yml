@@ -66,8 +66,47 @@ jobs:
       - name: Trailing whitespace
         run: git diff --check
 
-  race:
+  # PR #44 integration race job 113326922058 timed out the application
+  # package at 600.030s. MCP passed that run at 577.280s. Each of those
+  # packages is therefore split into two go test processes, each with its own
+  # default 10m timeout, and up to 4 tests run at once. The other four tests
+  # stay sequential inside whichever part contains them: three write
+  # process-global product fault injection, and TestAnalysisPerformanceBudgets
+  # asserts uncontended wall-clock budgets. Packages in a shard stay at -p 1.
+  # Split packages are listed with `go test -race -list` (same race build as
+  # the run). Test, Example, and Fuzz names are partitioned. A failed list
+  # exits the shard; it is not swallowed by process substitution.
+  race-shard:
+    name: race (${{ matrix.label }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: application
+            part: 0
+            parts: 2
+            label: application 1/2
+          - shard: application
+            part: 1
+            parts: 2
+            label: application 2/2
+          - shard: mcpserver
+            part: 0
+            parts: 2
+            label: mcpserver 1/2
+          - shard: mcpserver
+            part: 1
+            parts: 2
+            label: mcpserver 2/2
+          - shard: infrastructure
+            part: 0
+            parts: 1
+            label: infrastructure
+          - shard: remainder
+            part: 0
+            parts: 1
+            label: remainder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -79,7 +118,67 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
       - name: Go tests with race detector
-        # Application and MCP both exercise large synthetic SQLite histories.
-        # Run packages serially so instrumentation does not make them compete
-        # for the runner; retain every test and the default per-package timeout.
-        run: go test -race -p 1 ./...
+        run: |
+          set -euo pipefail
+          shard="${{ matrix.shard }}"
+          part="${{ matrix.part }}"
+          parts="${{ matrix.parts }}"
+          parallel=()
+          run_args=()
+          case "$shard" in
+            application)
+              pkgs=(./internal/application)
+              parallel=(-parallel 4)
+              ;;
+            mcpserver)
+              pkgs=(./internal/mcpserver)
+              parallel=(-parallel 4)
+              ;;
+            infrastructure)
+              pkgs=(./internal/infrastructure/...)
+              ;;
+            remainder)
+              mapfile -t pkgs < <(go list ./... | grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure($|/))')
+              ;;
+            *)
+              echo "unknown race shard: $shard" >&2
+              exit 1
+              ;;
+          esac
+          if [ "${#pkgs[@]}" -eq 0 ]; then
+            echo "race shard selected no packages" >&2
+            exit 1
+          fi
+          if [ "$parts" != "1" ]; then
+            if [ "${#pkgs[@]}" -ne 1 ]; then
+              echo "split race shard must list exactly one package" >&2
+              exit 1
+            fi
+            # stdout is only the -run regex. A non-zero selector status
+            # (list failure, empty runnable set, or empty part) fails the shard.
+            if ! regex=$(bash tools/race-shard-select.sh "$part" "$parts" "${pkgs[0]}"); then
+              echo "race shard $shard part $part selector failed" >&2
+              exit 1
+            fi
+            if [ -z "$regex" ]; then
+              echo "race shard $shard part $part selector returned an empty regex" >&2
+              exit 1
+            fi
+            run_args=(-run "$regex")
+          fi
+          printf 'shard %s packages:\n' "$shard"
+          printf '  %s\n' "${pkgs[@]}"
+          go test -race -p 1 "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}"
+
+  race:
+    needs: race-shard
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Require every race shard
+        run: |
+          if [ "${{ needs.race-shard.result }}" != "success" ]; then
+            echo "race shards result: ${{ needs.race-shard.result }}"
+            exit 1
+          fi
+          echo "all race shards passed"

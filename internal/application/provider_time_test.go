@@ -8,6 +8,7 @@ import (
 )
 
 func TestNormalizeProviderObservationTimeBoundsAndRoundTrips(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 8, 23, 12, 0, 0, 123456000, time.FixedZone("SGT", 8*60*60))
 	tests := []struct {
 		name    string

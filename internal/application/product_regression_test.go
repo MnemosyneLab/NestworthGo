@@ -32,6 +32,7 @@ func recordRegressionProduct(t *testing.T, s *Service, ctx context.Context, c Pr
 	return r
 }
 func TestProductRegressionUndoRejectsEditedReservation(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, r := openRegressionProduct(t)
 	p, e := s.Product(ctx, r.ProductIDs[0])
 	if e != nil {
@@ -54,6 +55,7 @@ func TestProductRegressionUndoRejectsEditedReservation(t *testing.T) {
 }
 
 func TestProductRegressionNonUSDPolicyRoundTrip(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, _ := openRegressionProduct(t)
 	if _, e := s.AppendAccountCashValue(ctx, a, "2000", "EUR", ""); e != nil {
 		t.Fatal(e)
@@ -70,6 +72,7 @@ func TestProductRegressionNonUSDPolicyRoundTrip(t *testing.T) {
 }
 
 func TestProductRegressionTermsWriteRollbackAndCAS(t *testing.T) {
+	t.Parallel()
 	clock := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
 	db, err := sqlite.Open(filepath.Join(t.TempDir(), "terms.db"))
 	if err != nil {
@@ -154,6 +157,7 @@ func (r reservationRaceRepository) CommitProductBundle(ctx context.Context, bund
 }
 
 func TestProductRegressionReservationCASRollsBackUndo(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, r := openRegressionProduct(t)
 	p, err := s.Product(ctx, r.ProductIDs[0])
 	if err != nil {
@@ -202,6 +206,7 @@ func TestProductRegressionReservationCASRollsBackUndo(t *testing.T) {
 }
 
 func TestProductRegressionPolicyCurrenciesForOrdinarySources(t *testing.T) {
+	t.Parallel()
 	for _, currency := range []string{"EUR", "SGD"} {
 		t.Run(currency, func(t *testing.T) {
 			s, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
@@ -246,6 +251,7 @@ func TestProductRegressionPolicyCurrenciesForOrdinarySources(t *testing.T) {
 }
 
 func TestProductRegressionRenewWithInterestTerms(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{"simple_act_365", "simple_act_360", "manual_maturity_amount"} {
 		t.Run(mode, func(t *testing.T) {
 			s, ctx, a, r := openRegressionProduct(t)
@@ -293,6 +299,7 @@ func TestProductRegressionRenewWithInterestTerms(t *testing.T) {
 }
 
 func TestProductRegressionOrdinaryHoldingPolicyAmountsRetainQuoteCurrency(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, _ := openRegressionProduct(t)
 	instrument, err := s.CreateInstrument(ctx, InstrumentInput{Name: "SGD fund", Type: "etf", QuoteCurrency: "SGD", QuoteSource: "manual"})
 	if err != nil {

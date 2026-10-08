@@ -131,6 +131,7 @@ func newGoldenValuationFixture(t *testing.T, includeES3Quote bool) goldenValuati
 }
 
 func TestValuationServiceMatchesGoldenPortfolioAndPartialSubtotal(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	complete := newGoldenValuationFixture(t, true)
 	portfolio, err := complete.service.Portfolio(ctx, domain.AccountFilter{})
@@ -193,6 +194,7 @@ func TestValuationServiceMatchesGoldenPortfolioAndPartialSubtotal(t *testing.T) 
 }
 
 func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	fixture := newGoldenValuationFixture(t, true)
 	manual, err := fixture.service.Portfolio(ctx, domain.AccountFilter{})
@@ -302,6 +304,7 @@ func TestValuationServiceResolvesSourcesOrientationAndFreshness(t *testing.T) {
 }
 
 func TestHistoricalInstrumentQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
+	t.Parallel()
 	instrumentID := domain.NewInstrumentID()
 	provider := domain.TiingoProviderKey
 	instrument := domain.Instrument{
@@ -331,6 +334,7 @@ func TestHistoricalInstrumentQuoteSelectionRequiresCanonicalProvenance(t *testin
 }
 
 func TestHistoricalInstrumentQualityMatchesYahooCryptoDailyBar(t *testing.T) {
+	t.Parallel()
 	yahoo := domain.InstrumentQuote{
 		PriceBasis: string(PriceBasisYahooClose), SourcePolicyVersion: string(PriceBasisYahooClose),
 		TimestampBasis: string(TimestampBasisPolicyDerived), SourceKey: domain.YahooFinanceProviderKey,
@@ -351,6 +355,7 @@ func TestHistoricalInstrumentQualityMatchesYahooCryptoDailyBar(t *testing.T) {
 }
 
 func TestHistoricalCarryForwardRequiresVerifiedCoverage(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	accountID := domain.NewAccountID()
 	instrumentID := domain.NewInstrumentID()
@@ -408,6 +413,7 @@ func TestHistoricalCarryForwardRequiresVerifiedCoverage(t *testing.T) {
 }
 
 func TestHistoricalMarketDateUsesLateCloseAndRebuildQuality(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	accountID := domain.NewAccountID()
 	instrumentID := domain.NewInstrumentID()
@@ -456,6 +462,7 @@ func TestHistoricalMarketDateUsesLateCloseAndRebuildQuality(t *testing.T) {
 }
 
 func TestHistoricalFXQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	preference := domain.FXPreference{HouseholdID: householdID, CurrencyA: "SGD", CurrencyB: "USD", SourceKind: domain.QuoteSourceProvider}
 	cutoff := time.Date(2026, time.September, 7, 0, 0, 0, 0, time.UTC)
@@ -479,6 +486,7 @@ func TestHistoricalFXQuoteSelectionRequiresCanonicalProvenance(t *testing.T) {
 }
 
 func TestHistoricalFXMarketDateReconcilesPendingReference(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	preference := domain.FXPreference{HouseholdID: householdID, CurrencyA: "SGD", CurrencyB: "USD", SourceKind: domain.QuoteSourceProvider}
 	parseRate := func(value string) domain.FxRate {
@@ -536,6 +544,7 @@ func TestHistoricalFXMarketDateReconcilesPendingReference(t *testing.T) {
 }
 
 func TestSelectFXQuoteUsesTheCurrentProviderSourceKey(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	rate, err := domain.ParseFxRate("6.9")
@@ -567,6 +576,7 @@ func TestSelectFXQuoteUsesTheCurrentProviderSourceKey(t *testing.T) {
 }
 
 func TestSelectFXQuoteUsesDefaultProviderWhenPreferenceMissing(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	rate, err := domain.ParseFxRate("7")
@@ -592,6 +602,7 @@ func TestSelectFXQuoteUsesDefaultProviderWhenPreferenceMissing(t *testing.T) {
 }
 
 func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	database, err := sqlite.Open(t.TempDir() + "/precision.db")
 	if err != nil {
@@ -680,6 +691,7 @@ func TestValuationAggregatesFullPrecisionBeforeMoneyBoundaryAndSkipsArchived(t *
 }
 
 func TestZeroQuantityHoldingIsAvailableWithoutPriceOrFX(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/zero-holding.db")
 	if err != nil {
 		t.Fatal(err)
@@ -760,6 +772,7 @@ func assertMoneyView(t *testing.T, money *domain.MoneyView, amount string, curre
 }
 
 func TestMakeAllocationsSortsByAmountDescending(t *testing.T) {
+	t.Parallel()
 	result, err := makeAllocations(
 		map[string]decimal.Decimal{"etf": decimal.RequireFromString("100"), "stock": decimal.RequireFromString("900")},
 		map[string]string{"etf": "ETF", "stock": "Stock"},
@@ -775,6 +788,7 @@ func TestMakeAllocationsSortsByAmountDescending(t *testing.T) {
 }
 
 func TestSortAccountValuationsOrdersByBaseValueDescending(t *testing.T) {
+	t.Parallel()
 	accounts := []domain.AccountValuation{
 		{Account: domain.Account{Name: "Small"}, BaseValue: &domain.MoneyView{Amount: "100", Currency: "USD"}},
 		{Account: domain.Account{Name: "Large"}, BaseValue: &domain.MoneyView{Amount: "900", Currency: "USD"}},

@@ -106,6 +106,7 @@ func assertHistoryPlanMatchesLegacy(t *testing.T, s *Service) {
 }
 
 func TestHistoryPlanReusesCoverageAndQuotes(t *testing.T) {
+	t.Parallel()
 	s, _ := marketReadFixture(t, 50, 8)
 	repo := s.repository
 	ctx := context.Background()
@@ -124,6 +125,7 @@ func TestHistoryPlanReusesCoverageAndQuotes(t *testing.T) {
 }
 
 func TestHistoryPlanReuseRetainsOverridesAndFreshReads(t *testing.T) {
+	t.Parallel()
 	s, repo, first, second := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
 	ctx := context.Background()
 	// Include observed and negative coverage, then an Agent override on the
@@ -192,6 +194,7 @@ func TestHistoryPlanReuseRetainsOverridesAndFreshReads(t *testing.T) {
 }
 
 func TestHistoryPlanReusePreservesReadErrors(t *testing.T) {
+	t.Parallel()
 	s, _ := marketReadFixture(t, 3, 1)
 	repo := s.repository
 	for _, failure := range []error{context.Canceled, errors.New("coverage unavailable")} {
@@ -248,6 +251,7 @@ func (r *cancelAfterPlanningReadsRepository) ListInstruments(ctx context.Context
 }
 
 func TestHistoryPlanCancellationAfterInitialReads(t *testing.T) {
+	t.Parallel()
 	s, _ := marketReadFixture(t, 3, 1)
 	repo := s.repository
 	for _, force := range []bool{false, true} {

@@ -8,6 +8,7 @@ import (
 )
 
 func TestAnalysisCashContributionsSeparateNativeCurrencies(t *testing.T) {
+	t.Parallel()
 	first, second := domain.NewAccountID(), domain.NewAccountID()
 	instrument := domain.NewInstrumentID()
 	query := analysisBaseQuery(domain.ValuationBase)

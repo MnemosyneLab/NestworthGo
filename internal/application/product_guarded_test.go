@@ -9,6 +9,7 @@ import (
 )
 
 func TestProductGuardedReviewedTimeIsPrivateAndDoesNotMutateCaller(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
 	s, ctx := newProductTestService(t, now)
 	account := seedHoldingsCash(t, s, ctx, "100")

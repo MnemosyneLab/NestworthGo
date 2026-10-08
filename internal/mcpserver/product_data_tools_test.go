@@ -85,6 +85,7 @@ func productEditPlan(t *testing.T, s *Service, id string, change func(map[string
 }
 
 func TestProductHTTPDataPermissionsSchemaAndValidation(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
@@ -163,6 +164,7 @@ func TestProductHTTPDataPermissionsSchemaAndValidation(t *testing.T) {
 }
 
 func TestProductHTTPTermsPreviewCommitReceiptAndReservations(t *testing.T) {
+	t.Parallel()
 	fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	c := ledgerSession(t, fx)
 	id, opened := productDataSeed(t, fx, c, "term_deposit")
@@ -238,6 +240,7 @@ func TestProductHTTPTermsPreviewCommitReceiptAndReservations(t *testing.T) {
 }
 
 func TestProductHTTPValuationFrozenObservationImmutableReceiptAndHistory(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return now })
 	c := ledgerSession(t, fx)
@@ -294,6 +297,7 @@ func TestProductHTTPValuationFrozenObservationImmutableReceiptAndHistory(t *test
 }
 
 func TestProductHTTPDataStaleExpiredHashAndConcurrency(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []string{"terms", "valuation"} {
 		t.Run(kind, func(t *testing.T) {
 			fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
@@ -362,6 +366,7 @@ func TestProductHTTPDataStaleExpiredHashAndConcurrency(t *testing.T) {
 }
 
 func TestProductHTTPDataAtomicFailuresAndUnknownRecovery(t *testing.T) {
+	// Stays sequential: SetProductCommitFailAfter is process-global.
 	for _, kind := range []string{"terms", "valuation"} {
 		t.Run(kind, func(t *testing.T) {
 			clock := func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) }
@@ -449,6 +454,7 @@ func TestProductHTTPDataAtomicFailuresAndUnknownRecovery(t *testing.T) {
 }
 
 func TestProductHTTPDataRestartAndOlderSnapshot(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []string{"terms", "valuation"} {
 		t.Run(kind, func(t *testing.T) {
 			clock := func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) }
@@ -516,6 +522,7 @@ func TestProductHTTPDataRestartAndOlderSnapshot(t *testing.T) {
 }
 
 func TestProductHTTPDataReceiptIntegrity(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []string{"terms", "valuation"} {
 		t.Run(kind, func(t *testing.T) {
 			fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
@@ -561,6 +568,7 @@ func TestProductHTTPDataReceiptIntegrity(t *testing.T) {
 }
 
 func TestProductHTTPDataClosedRules(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	c := ledgerSession(t, fx)
 	id, _ := productDataSeed(t, fx, c, "locked_product")
@@ -595,6 +603,7 @@ func TestProductHTTPDataClosedRules(t *testing.T) {
 }
 
 func TestProductHTTPDataSkillExamples(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	c := ledgerSession(t, fx)
 	deposit, _ := productDataSeed(t, fx, c, "term_deposit")
@@ -607,6 +616,7 @@ func TestProductHTTPDataSkillExamples(t *testing.T) {
 }
 
 func TestProductHTTPValuationUnknownBeforeRemainsUnknown(t *testing.T) {
+	t.Parallel()
 	fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	c := ledgerSession(t, fx)
 	id, _ := productDataSeed(t, fx, c, "locked_product")
@@ -629,6 +639,7 @@ func TestProductHTTPValuationUnknownBeforeRemainsUnknown(t *testing.T) {
 
 // Legal-shaped receipt corruption must fail both before and after later edits.
 func TestProductHTTPTermsLegalReceiptTamperRejected(t *testing.T) {
+	t.Parallel()
 	for _, later := range []bool{false, true} {
 		t.Run(map[bool]string{false: "same_revision", true: "later_revision"}[later], func(t *testing.T) {
 			fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
@@ -668,6 +679,7 @@ func TestProductHTTPTermsLegalReceiptTamperRejected(t *testing.T) {
 }
 
 func TestProductHTTPTermsReceiptFeesRoundTripAndCommandBinding(t *testing.T) {
+	t.Parallel()
 	fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	c := ledgerSession(t, fx)
 	id, _ := productDataSeed(t, fx, c, "locked_product")
@@ -713,6 +725,7 @@ func TestProductHTTPTermsReceiptFeesRoundTripAndCommandBinding(t *testing.T) {
 }
 
 func TestProductHTTPTermsSameRevisionFactsIntegrity(t *testing.T) {
+	t.Parallel()
 	for _, field := range []string{"contract", "policy"} {
 		t.Run(field, func(t *testing.T) {
 			fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
@@ -742,6 +755,7 @@ func TestProductHTTPTermsSameRevisionFactsIntegrity(t *testing.T) {
 }
 
 func TestProductHTTPTermsPolicyMoneyRecoveryMatrix(t *testing.T) {
+	t.Parallel()
 	for _, currency := range []string{"USD", "CNY"} {
 		for _, variant := range []string{"null", "zero", "nonzero", "deposit_fee"} {
 			t.Run(currency+"/"+variant, func(t *testing.T) {
@@ -883,6 +897,7 @@ func TestProductHTTPTermsPolicyMoneyRecoveryMatrix(t *testing.T) {
 }
 
 func TestProductHTTPTermsPercentPrecedenceRemainsExplicit(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	c := ledgerSession(t, fx)
 	id, _ := productDataSeed(t, fx, c, "term_deposit")

@@ -10,6 +10,7 @@ import (
 )
 
 func TestLiquidityReviewUnknownSettlementPreserved(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, r := openRegressionProduct(t)
 	p, e := s.Product(ctx, r.ProductIDs[0])
 	if e != nil {
@@ -27,6 +28,7 @@ func TestLiquidityReviewUnknownSettlementPreserved(t *testing.T) {
 	}
 }
 func TestLiquidityReviewRejectInconsistentLock(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, _ := openRegressionProduct(t)
 	policy := depositPolicy()
 	policy.UnlockOn = strPtr("2027-01-20")
@@ -37,6 +39,7 @@ func TestLiquidityReviewRejectInconsistentLock(t *testing.T) {
 }
 
 func TestLiquidityReviewUndoPreviousAfterUndoInterest(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, r := openRegressionProduct(t)
 	interest := recordRegressionProduct(t, s, ctx, ProductCommand{Kind: domain.ProductOpReceiveInterest, ReceiveInterest: &ReceiveInterestCommand{ProductID: r.ProductIDs[0].String(), Amount: "100"}})
 	s.setClock(func() time.Time { return time.Date(2026, 9, 20, 6, 0, 0, 0, time.UTC) })
@@ -60,6 +63,7 @@ func TestLiquidityReviewUndoPreviousAfterUndoInterest(t *testing.T) {
 	db.Close()
 }
 func TestLiquidityReviewRejectPolicyBeforeEligibility(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, r := openRegressionProduct(t)
 	p, e := s.Product(ctx, r.ProductIDs[0])
 	if e != nil {
@@ -73,6 +77,7 @@ func TestLiquidityReviewRejectPolicyBeforeEligibility(t *testing.T) {
 	}
 }
 func TestLiquidityReviewBackupRequiresProductEvidence(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, _ := openRegressionProduct(t)
 	path := filepath.Join(t.TempDir(), "db")
 	if e := s.SnapshotTo(ctx, path); e != nil {
@@ -95,6 +100,7 @@ func TestLiquidityReviewBackupRequiresProductEvidence(t *testing.T) {
 	}
 }
 func TestLiquidityReviewBackupRequiresProductPolicy(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, _ := openRegressionProduct(t)
 	path := filepath.Join(t.TempDir(), "db")
 	if e := s.SnapshotTo(ctx, path); e != nil {
@@ -118,6 +124,7 @@ func TestLiquidityReviewBackupRequiresProductPolicy(t *testing.T) {
 }
 
 func TestLiquidityReviewUndoDoesNotCrossContractEdit(t *testing.T) {
+	t.Parallel()
 	for _, when := range []string{"before_income", "after_reversal"} {
 		t.Run(when, func(t *testing.T) {
 			s, ctx, _, r := openRegressionProduct(t)
@@ -149,6 +156,7 @@ func TestLiquidityReviewUndoDoesNotCrossContractEdit(t *testing.T) {
 }
 
 func TestLiquidityReviewDepositRejectsMismatchedUnlock(t *testing.T) {
+	t.Parallel()
 	s, ctx, account, _ := openRegressionProduct(t)
 	policy := depositPolicyForMaturity("2026-11-20")
 	_, err := s.PreviewProductOperation(ctx, ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{AccountID: account.String(), Currency: "USD", Principal: "1000", Terms: ProductTermsInput{Kind: "term_deposit", Name: "Invalid date", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"}, Policy: policy}})
@@ -158,6 +166,7 @@ func TestLiquidityReviewDepositRejectsMismatchedUnlock(t *testing.T) {
 }
 
 func TestLiquidityReviewMultipleUndoRestoresOriginalCash(t *testing.T) {
+	t.Parallel()
 	s, ctx, account, opened := openRegressionProduct(t)
 	var incomes []ProductOperationReceipt
 	for i := 0; i < 3; i++ {

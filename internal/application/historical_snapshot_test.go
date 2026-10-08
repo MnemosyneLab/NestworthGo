@@ -11,6 +11,7 @@ import (
 )
 
 func TestExactSubCentComponentsAgreeAcrossLiveSnapshotReloadAndTrends(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "exact-subcent", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	account, err := service.CreateAccount(ctx, AccountInput{
@@ -99,6 +100,7 @@ func TestExactSubCentComponentsAgreeAcrossLiveSnapshotReloadAndTrends(t *testing
 }
 
 func TestLegacySnapshotHashRebuildsAppendOnlyV2Revision(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/legacy-hash.db")
 	if err != nil {
 		t.Fatal(err)
@@ -154,6 +156,7 @@ func TestLegacySnapshotHashRebuildsAppendOnlyV2Revision(t *testing.T) {
 }
 
 func TestNegativeNetWorthSavesReloadsAndTrends(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "negative-net-worth", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	if _, err := service.CreateAccount(ctx, AccountInput{
@@ -215,6 +218,7 @@ func TestNegativeNetWorthSavesReloadsAndTrends(t *testing.T) {
 }
 
 func TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "excluded-snapshot", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	included, err := service.CreateAccount(ctx, AccountInput{
@@ -280,6 +284,7 @@ func TestHistoricalSnapshotOmitsExcludedAssetAndLiabilityAccounts(t *testing.T) 
 }
 
 func TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "high-precision-snapshot", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	account, err := service.CreateAccount(ctx, AccountInput{
@@ -332,6 +337,7 @@ func TestHighPrecisionHoldingValueSurvivesSnapshotReloadAndNetWorthTrend(t *test
 }
 
 func TestHistoricalSnapshotMarksSimpleItemsNotCompositeOrTotals(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "snapshot-classification", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	bank, err := service.CreateAccount(ctx, AccountInput{
@@ -416,6 +422,7 @@ func assertSnapshotClassification(t *testing.T, snapshot domain.DailyValuationSn
 }
 
 func TestBackdatedCashDividendAppearsInHistoricalSnapshots(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "backdated-dividend", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	brokerage, err := service.CreateAccount(ctx, AccountInput{
@@ -474,6 +481,7 @@ func TestBackdatedCashDividendAppearsInHistoricalSnapshots(t *testing.T) {
 }
 
 func TestRebuildAfterResolverPolicyMigrationRestoresUnchangedSnapshotCompleteness(t *testing.T) {
+	t.Parallel()
 	t.Run("complete unchanged result", func(t *testing.T) {
 		path := t.TempDir() + "/migration-complete.db"
 		database, err := sqlite.Open(path)

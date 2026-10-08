@@ -7,6 +7,7 @@ import (
 )
 
 func TestCostOnlyEffectDoesNotBecomeAssetChange(t *testing.T) {
+	t.Parallel()
 	accountID := domain.NewAccountID()
 	holdingID := domain.NewHoldingID()
 	instrumentID := domain.NewInstrumentID()

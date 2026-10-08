@@ -7,6 +7,7 @@ import (
 )
 
 func TestShutdownFencesNewWritesAndWaitsForExistingWriter(t *testing.T) {
+	t.Parallel()
 	service := NewService(nil)
 	entered, release := make(chan struct{}), make(chan struct{})
 	defer func() {
@@ -56,6 +57,7 @@ func TestShutdownFencesNewWritesAndWaitsForExistingWriter(t *testing.T) {
 	}
 }
 func TestShutdownDoesNotDeadlockAfterRestoreKeptExclusiveMutex(t *testing.T) {
+	t.Parallel()
 	service := NewService(nil)
 	if err := service.WithExclusiveKeep(context.Background(), ExclusiveRestore, func(context.Context) (bool, error) { service.LockWrites(); return true, nil }); err != nil {
 		t.Fatal(err)

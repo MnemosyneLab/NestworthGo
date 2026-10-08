@@ -7,6 +7,7 @@ import (
 )
 
 func TestArchiveMemberPreservesActiveOwnerForLiveAccounts(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "member-archive-owners", []string{"Alice", "Bob", "Carol"})
 	alice, bob, carol := bootstrap.Members[0].ID, bootstrap.Members[1].ID, bootstrap.Members[2].ID
 	sole, err := service.CreateAccount(ctx, AccountInput{Name: "Sole", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OwnerIDs: []domain.MemberID{alice}})
@@ -45,6 +46,7 @@ func TestArchiveMemberPreservesActiveOwnerForLiveAccounts(t *testing.T) {
 }
 
 func TestArchiveMemberIgnoresArchivedAccounts(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "member-archive-old-account", []string{"Alice", "Bob"})
 	alice := bootstrap.Members[0].ID
 	account, err := service.CreateAccount(ctx, AccountInput{Name: "Old", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "0", OwnerIDs: []domain.MemberID{alice}})

@@ -12,6 +12,7 @@ import (
 )
 
 func TestFixtureBOpeningReceiptUndoAndIdempotency(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	openID := domain.NewProductOperationID()
@@ -87,6 +88,7 @@ func TestFixtureBOpeningReceiptUndoAndIdempotency(t *testing.T) {
 }
 
 func TestFixtureCRenewalAtomicAndRetry(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	openID := domain.NewProductOperationID()
@@ -140,6 +142,7 @@ func TestFixtureCRenewalAtomicAndRetry(t *testing.T) {
 }
 
 func TestFixtureCRenewalFaultInjectionRollsBack(t *testing.T) {
+	// Stays sequential: SetProductCommitFailAfter is process-global.
 	clock := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
 	database, err := sqlite.Open(filepath.Join(t.TempDir(), "renew-fail.db"))
 	if err != nil {
@@ -194,6 +197,7 @@ func TestFixtureCRenewalFaultInjectionRollsBack(t *testing.T) {
 }
 
 func TestFixtureELockedProductValuationAndLoss(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "20000")
 	openID := domain.NewProductOperationID()
@@ -236,6 +240,7 @@ func TestFixtureELockedProductValuationAndLoss(t *testing.T) {
 }
 
 func TestManagedPositionGuardsRejectGenericEdits(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	openID := domain.NewProductOperationID()
@@ -265,6 +270,7 @@ func TestManagedPositionGuardsRejectGenericEdits(t *testing.T) {
 }
 
 func TestLiquidityOverviewUsesValuationSnapshot(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "10000")
 	overview, err := service.LiquidityOverview(ctx, LiquidityOverviewQuery{})
@@ -286,6 +292,7 @@ func TestLiquidityOverviewUsesValuationSnapshot(t *testing.T) {
 }
 
 func TestUndoOpeningCancelsContract(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
@@ -327,6 +334,7 @@ func TestUndoOpeningCancelsContract(t *testing.T) {
 }
 
 func TestUndoOpeningBlockedByActiveReservation(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
@@ -359,6 +367,7 @@ func TestUndoOpeningBlockedByActiveReservation(t *testing.T) {
 }
 
 func TestUndoRenewalCancelsSuccessor(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
@@ -412,6 +421,7 @@ func TestUndoRenewalCancelsSuccessor(t *testing.T) {
 }
 
 func TestRecordExistingRejectsBackdatedObservation(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	cmd := ProductCommand{Kind: domain.ProductOpRecordExisting, RecordExisting: &RecordExistingProductCommand{
@@ -426,6 +436,7 @@ func TestRecordExistingRejectsBackdatedObservation(t *testing.T) {
 }
 
 func TestInterestPaidThroughCannotBeFuture(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
@@ -451,6 +462,7 @@ func TestInterestPaidThroughCannotBeFuture(t *testing.T) {
 }
 
 func TestHoldingReservationUsesInstrumentCurrency(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	bootstrap, err := service.Bootstrap(ctx)
 	if err != nil {
@@ -492,6 +504,7 @@ func TestHoldingReservationUsesInstrumentCurrency(t *testing.T) {
 }
 
 func TestValuationMutationConflictsWhenAmountChanges(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "20000")
 	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
@@ -517,6 +530,7 @@ func TestValuationMutationConflictsWhenAmountChanges(t *testing.T) {
 }
 
 func TestRecordExistingRequiresAcknowledgementAndCost(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	cmd := ProductCommand{Kind: domain.ProductOpRecordExisting, RecordExisting: &RecordExistingProductCommand{
@@ -548,6 +562,7 @@ func TestRecordExistingRequiresAcknowledgementAndCost(t *testing.T) {
 }
 
 func TestProductRecordingUsesOnePlanningTimeWithAdvancingClock(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []domain.ProductOperationKind{domain.ProductOpOpen, domain.ProductOpRecordExisting} {
 		t.Run(string(kind), func(t *testing.T) {
 			now := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
@@ -646,6 +661,7 @@ func strPtr(value string) *string { return &value }
 func intPtr(value int) *int       { return &value }
 
 func TestFixtureALiquidityOverviewTotals(t *testing.T) {
+	t.Parallel()
 	clock := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
 	service, ctx := newProductTestServiceTZ(t, clock, "Asia/Singapore")
 	bootstrap, err := service.Bootstrap(ctx)
@@ -810,6 +826,7 @@ func moneyOrEmpty(value *domain.Money) string {
 }
 
 func TestJSONExportIncludesLiquidityFacts(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	maturity := "2026-12-20"
@@ -838,6 +855,7 @@ func TestJSONExportIncludesLiquidityFacts(t *testing.T) {
 }
 
 func TestRestrictedAccountCashIsUnknownUntilReviewed(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	bootstrap, err := service.Bootstrap(ctx)
 	if err != nil {
@@ -875,6 +893,7 @@ func TestRestrictedAccountCashIsUnknownUntilReviewed(t *testing.T) {
 }
 
 func TestDueUnconfirmedProductIsNotSpendable(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "10000")
 	maturity := "2026-09-20"
@@ -915,6 +934,7 @@ func TestDueUnconfirmedProductIsNotSpendable(t *testing.T) {
 }
 
 func TestProductInterestAttributedOnceAcrossScopes(t *testing.T) {
+	t.Parallel()
 	clock := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
 	service, ctx := newProductTestService(t, clock)
 	account := seedHoldingsCash(t, service, ctx, "150000")
@@ -989,6 +1009,7 @@ func sumReturnComponent(result domain.PeriodAnalysisResult, component domain.Ret
 }
 
 func TestExclusiveBackupRejectsProductWrites(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	release := holdExclusive(t, service, ExclusiveBackup)
@@ -1014,6 +1035,7 @@ func TestExclusiveBackupRejectsProductWrites(t *testing.T) {
 }
 
 func TestLiquiditySnapshotRoundTripPreservesFacts(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "150000")
 	openCmd := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{
@@ -1056,6 +1078,7 @@ func TestLiquiditySnapshotRoundTripPreservesFacts(t *testing.T) {
 }
 
 func TestAssumedBankCashIsAvailableToday(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "10000")
 	overview, err := service.LiquidityOverview(ctx, LiquidityOverviewQuery{})

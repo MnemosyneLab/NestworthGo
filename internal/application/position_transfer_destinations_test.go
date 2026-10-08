@@ -8,6 +8,7 @@ import (
 )
 
 func TestPositionTransferRequiresExactlyOneDestination(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "position-transfer-destinations", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	fromAccount := createHoldingsAccount(t, service, ctx, owner, "From")

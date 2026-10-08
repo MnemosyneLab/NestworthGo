@@ -10,6 +10,7 @@ import (
 )
 
 func TestProductP2ReservationEditInvalidatesPreview(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, r := openRegressionProduct(t)
 	p, e := s.Product(ctx, r.ProductIDs[0])
 	if e != nil {
@@ -36,6 +37,7 @@ func TestProductP2ReservationEditInvalidatesPreview(t *testing.T) {
 }
 
 func TestProductP2MulticurrencyPreviewUsesProductCurrency(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, _ := openRegressionProduct(t)
 	if _, e := s.AppendAccountCashValue(ctx, a, "777", "EUR", ""); e != nil {
 		t.Fatal(e)
@@ -53,6 +55,7 @@ func TestProductP2MulticurrencyPreviewUsesProductCurrency(t *testing.T) {
 }
 
 func TestProductP2BackupRejectsContractCurrencyMismatch(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, r := openRegressionProduct(t)
 	path := filepath.Join(t.TempDir(), "corrupt.db")
 	if e := s.SnapshotTo(ctx, path); e != nil {
@@ -79,6 +82,7 @@ func TestProductP2BackupRejectsContractCurrencyMismatch(t *testing.T) {
 }
 
 func TestProductP2SettledTermsAreReadOnly(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, r := openRegressionProduct(t)
 	p, e := s.Product(ctx, r.ProductIDs[0])
 	if e != nil {
@@ -96,6 +100,7 @@ func TestProductP2SettledTermsAreReadOnly(t *testing.T) {
 }
 
 func TestProductP2CapRoundTripAndManagedRejection(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, r := openRegressionProduct(t)
 	source := domain.AccountCashSourceRef(a, "USD")
 	revision := 0
@@ -142,6 +147,7 @@ func TestProductP2CapRoundTripAndManagedRejection(t *testing.T) {
 }
 
 func TestProductP2PreviewValuesAndActualTime(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, r := openRegressionProduct(t)
 	c := ProductCommand{Kind: domain.ProductOpOpen, Open: &OpenProductCommand{AccountID: a.String(), Currency: "USD", Principal: "1000", OpeningFee: strPtr("10"), EffectiveLocalDate: "2026-09-20", EffectiveLocalTime: "04:30", Terms: ProductTermsInput{Kind: "term_deposit", Name: "Second", StartOn: "2026-09-20", MaturityOn: strPtr("2026-12-20"), InterestMode: "none"}, Policy: depositPolicy()}}
 	p, err := s.PreviewProductOperation(ctx, c)
@@ -172,6 +178,7 @@ func TestProductP2PreviewValuesAndActualTime(t *testing.T) {
 }
 
 func TestProductP2ClosedMetadataOnly(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, r := openRegressionProduct(t)
 	recordRegressionProduct(t, s, ctx, ProductCommand{Kind: domain.ProductOpSettle, Settle: &SettleProductCommand{ProductID: r.ProductIDs[0].String(), ReturnedPrincipal: strPtr("100000")}})
 	detail, err := s.Product(ctx, r.ProductIDs[0])
@@ -199,6 +206,7 @@ func TestProductP2ClosedMetadataOnly(t *testing.T) {
 }
 
 func TestProductP2BackupLifecycleAndCorruption(t *testing.T) {
+	t.Parallel()
 	s, ctx, a, r := openRegressionProduct(t)
 	product, err := s.Product(ctx, r.ProductIDs[0])
 	if err != nil {
@@ -300,6 +308,7 @@ func TestProductP2BackupLifecycleAndCorruption(t *testing.T) {
 }
 
 func TestProductP2LocalTimeUsesOriginAndRejectsInvalidTime(t *testing.T) {
+	t.Parallel()
 	origin := &domain.HistoryOrigin{Timezone: "America/New_York", StartedAt: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
 	now := time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
 	got, err := resolveProductEffectiveTime("", "2026-09-20", "12:30", origin, now)
@@ -314,6 +323,7 @@ func TestProductP2LocalTimeUsesOriginAndRejectsInvalidTime(t *testing.T) {
 }
 
 func TestProductP2UnknownValuationIsNotZero(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, r := openRegressionProduct(t)
 	detail, err := s.Product(ctx, r.ProductIDs[0])
 	if err != nil {
@@ -338,6 +348,7 @@ func TestProductP2UnknownValuationIsNotZero(t *testing.T) {
 }
 
 func TestProductP2ClosedMetadataAcceptsEquivalentDecimalTerms(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, r := openRegressionProduct(t)
 	p, err := s.Product(ctx, r.ProductIDs[0])
 	if err != nil {

@@ -10,6 +10,7 @@ import (
 )
 
 func TestLegacySnapshotWarmReadsPreserveGuardedPreview(t *testing.T) {
+	t.Parallel()
 	for _, reader := range []string{"net_worth_trend", "portfolio_trend", "analysis"} {
 		t.Run(reader, func(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
@@ -61,6 +62,7 @@ func TestLegacySnapshotWarmReadsPreserveGuardedPreview(t *testing.T) {
 }
 
 func TestLegacySnapshotWritesInvalidateGuardedPreview(t *testing.T) {
+	t.Parallel()
 	for _, reader := range []string{"net_worth_trend", "portfolio_trend", "analysis"} {
 		t.Run(reader, func(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
@@ -108,6 +110,7 @@ func TestLegacySnapshotWritesInvalidateGuardedPreview(t *testing.T) {
 }
 
 func TestLegacySnapshotSameHashWritesInvalidateGuardedPreview(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	cash := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
@@ -145,6 +148,7 @@ func TestLegacySnapshotSameHashWritesInvalidateGuardedPreview(t *testing.T) {
 }
 
 func TestLegacySnapshotPureCoverageReadFencesGuardedWrite(t *testing.T) {
+	t.Parallel()
 	s, _, r, cash, _ := legacyCoverageFixture(t)
 	if err := s.ensureClosedDaySnapshots(t.Context(), "2026-08-01", "2026-08-11"); err != nil {
 		t.Fatal(err)

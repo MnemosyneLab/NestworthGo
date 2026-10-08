@@ -215,6 +215,7 @@ func newRefreshFixtureWithoutFXPreference(t *testing.T) (*sqlite.DB, *Service, *
 }
 
 func TestFXProviderSelectionRoutesRequiredFXOnly(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, _ := newRefreshFixture(t)
 	alias := &refreshAliasProvider{key: "alternate", target: fake}
 	service.SetMarketDataRegistry(NewMarketDataRegistry(fake, alias))
@@ -243,6 +244,7 @@ func TestFXProviderSelectionRoutesRequiredFXOnly(t *testing.T) {
 }
 
 func TestRefreshFXRequestsAndPersistsDirectNonBasePair(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, _ := newRefreshFixture(t)
 	rate, err := domain.ParseFxRate("0.91")
 	if err != nil {
@@ -290,6 +292,7 @@ func resultHouseholdID(t *testing.T, service *Service) domain.HouseholdID {
 }
 
 func TestSetFXProviderRejectsMissingOrFXIncapableProvider(t *testing.T) {
+	t.Parallel()
 	service := NewService(nil, NewMarketDataRegistry(newRefreshFakeProvider()))
 	if err := service.SetFXProvider("missing"); err == nil {
 		t.Fatal("SetFXProvider(missing) error = nil")
@@ -303,6 +306,7 @@ func TestSetFXProviderRejectsMissingOrFXIncapableProvider(t *testing.T) {
 }
 
 func TestRefreshUsesOneRegistrySnapshotDuringRegistrySwap(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	oldRegistry := service.MarketDataRegistry()
 	registry := &blockingMarketDataRegistry{delegate: oldRegistry, entered: make(chan struct{}), release: make(chan struct{})}
@@ -365,6 +369,7 @@ func (*instrumentOnlyProvider) LatestFX(context.Context, FXMarketIdentity) (Late
 }
 
 func TestRefreshDeduplicatesTargetsAndProviderObservations(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	ctx := context.Background()
 	result, err := service.RefreshAll(ctx)
@@ -409,6 +414,7 @@ func TestRefreshDeduplicatesTargetsAndProviderObservations(t *testing.T) {
 }
 
 func TestRefreshAllRunsRequiredFXBeforeExtraProviderPairs(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, _ := newRefreshFixture(t)
 	rate, err := domain.ParseFxRate("0.91")
 	if err != nil {
@@ -437,6 +443,7 @@ func TestRefreshAllRunsRequiredFXBeforeExtraProviderPairs(t *testing.T) {
 }
 
 func TestRefreshSkipsManualTargetsAndStopsAfterRateLimit(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	ctx := context.Background()
 	if err := service.SetInstrumentQuoteSource(ctx, instrument.ID, "manual"); err != nil {
@@ -492,6 +499,7 @@ func TestRefreshSkipsManualTargetsAndStopsAfterRateLimit(t *testing.T) {
 }
 
 func TestRefreshRateLimitStopsOnlyTargetsOwnedByThatProvider(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	other := newRefreshFakeProvider()
 	other.key = "other"
@@ -522,6 +530,7 @@ func TestRefreshRateLimitStopsOnlyTargetsOwnedByThatProvider(t *testing.T) {
 }
 
 func TestRefreshRejectsProviderTimesBeforeWritingQuotes(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
 	for _, testCase := range []struct {
@@ -562,6 +571,7 @@ func mustUnitPrice(t *testing.T, value string) domain.UnitPrice {
 }
 
 func TestRefreshForeignInstrumentIsSkippedWithoutProviderCall(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, _ := newRefreshFixture(t)
 	foreignID := domain.InstrumentID("00000000-0000-7000-8000-000000000000")
 	result, err := service.RefreshInstrument(context.Background(), foreignID)
@@ -575,6 +585,7 @@ func TestRefreshForeignInstrumentIsSkippedWithoutProviderCall(t *testing.T) {
 }
 
 func TestRefreshRequiredFXDoesNotStartInstrumentTargets(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	result, err := service.RefreshRequiredFX(context.Background())
 	if err != nil {
@@ -592,6 +603,7 @@ func TestRefreshRequiredFXDoesNotStartInstrumentTargets(t *testing.T) {
 }
 
 func TestRefreshRequiredFXWithoutPreferenceFetches(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, _ := newRefreshFixtureWithoutFXPreference(t)
 	result, err := service.RefreshRequiredFX(context.Background())
 	if err != nil {
@@ -604,6 +616,7 @@ func TestRefreshRequiredFXWithoutPreferenceFetches(t *testing.T) {
 }
 
 func TestRefreshMissingOrStaleRespectsQuoteCacheTTL(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	ctx := context.Background()
 	now := time.Date(2026, 8, 23, 12, 0, 0, 0, time.UTC)
@@ -673,6 +686,7 @@ func TestRefreshMissingOrStaleRespectsQuoteCacheTTL(t *testing.T) {
 }
 
 func TestRefreshMissingOrStaleUsesRequestFreshnessNotQuoteAge(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	ctx := context.Background()
 	friday := time.Date(2026, 9, 4, 20, 0, 0, 0, time.UTC)

@@ -9,6 +9,7 @@ import (
 )
 
 func TestAnalysisReturnModifiedDietzAndGeometricLinking(t *testing.T) {
+	t.Parallel()
 	dayStart := time.Date(2026, 8, 2, 0, 0, 0, 0, time.UTC)
 	dayEnd := dayStart.AddDate(0, 0, 1)
 	flowMoney, err := domain.ParseSignedMoney("90000", "CNY")
@@ -27,6 +28,7 @@ func TestAnalysisReturnModifiedDietzAndGeometricLinking(t *testing.T) {
 }
 
 func TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital(t *testing.T) {
+	t.Parallel()
 	for _, testCase := range []struct {
 		name       string
 		reason     domain.ActivityReason
@@ -92,6 +94,7 @@ func TestAnalysisReturnCase37InterestRaisesReturnIncomeIsCapital(t *testing.T) {
 }
 
 func TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded(t *testing.T) {
+	t.Parallel()
 	for _, testCase := range []struct {
 		name           string
 		reason         domain.ActivityReason
@@ -145,6 +148,7 @@ func TestAnalysisReturnCases19And20UseWeightedCapitalOnlyWhenCashIncluded(t *tes
 }
 
 func TestAnalysisReturnDSTWeightUsesOriginLocalDayLength(t *testing.T) {
+	t.Parallel()
 	location, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		t.Fatal(err)
@@ -174,6 +178,7 @@ func TestAnalysisReturnDSTWeightUsesOriginLocalDayLength(t *testing.T) {
 }
 
 func TestAnalysisReturnReconciliationIsNotDietzCapital(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	account := analysisAgentAccount("CNY", domain.TrackingHoldings, domain.RoleAsset)
 	account.HouseholdID = householdID
@@ -215,6 +220,7 @@ func TestAnalysisReturnReconciliationIsNotDietzCapital(t *testing.T) {
 }
 
 func TestAnalysisReturnDSTNoonFlowWeightUsesOriginLocalDay(t *testing.T) {
+	t.Parallel()
 	location, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		t.Fatal(err)
@@ -261,6 +267,7 @@ func TestAnalysisReturnDSTNoonFlowWeightUsesOriginLocalDay(t *testing.T) {
 }
 
 func TestAnalysisReturnDividendAndTradeFeeFollowInvestmentAssociation(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	account := analysisAgentAccount("USD", domain.TrackingHoldings, domain.RoleAsset)
 	account.HouseholdID = householdID
@@ -318,6 +325,7 @@ func TestAnalysisReturnDividendAndTradeFeeFollowInvestmentAssociation(t *testing
 }
 
 func TestAnalysisReturnCases04To07And18TradePath(t *testing.T) {
+	t.Parallel()
 	type tradeSpec struct {
 		name       string
 		side       domain.TradeSide
@@ -403,6 +411,7 @@ func TestAnalysisReturnCases04To07And18TradePath(t *testing.T) {
 }
 
 func TestAnalysisReturnCase39RateCoverageSkipsUnavailableDays(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	account := analysisAgentAccount("CNY", domain.TrackingBalance, domain.RoleAsset)
 	account.HouseholdID = householdID
@@ -429,6 +438,7 @@ func TestAnalysisReturnCase39RateCoverageSkipsUnavailableDays(t *testing.T) {
 }
 
 func TestAnalysisReturnPeriodInvestedCapitalUsesFirstDayBeginning(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	account := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
@@ -459,6 +469,7 @@ func TestAnalysisReturnPeriodInvestedCapitalUsesFirstDayBeginning(t *testing.T) 
 }
 
 func TestAnalysisReturnFoldReturnGroupsUsesAdditiveDailyCapital(t *testing.T) {
+	t.Parallel()
 	first := domain.ComponentID{AccountID: domain.NewAccountID(), InstrumentID: func() *domain.InstrumentID { id := domain.NewInstrumentID(); return &id }(), Currency: "USD", AssetClass: string(domain.InstrumentETF)}
 	second := first
 	second.AccountID = domain.NewAccountID()
@@ -480,6 +491,7 @@ func TestAnalysisReturnFoldReturnGroupsUsesAdditiveDailyCapital(t *testing.T) {
 }
 
 func TestAnalysisReturnCase19NoonContributionUsesWeightedDietzCapital(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -520,6 +532,7 @@ func TestAnalysisReturnCase19NoonContributionUsesWeightedDietzCapital(t *testing
 }
 
 func TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -553,6 +566,7 @@ func TestAnalysisReturnCase20SalaryIsIncomeAndCashInclusionControlsDietz(t *test
 }
 
 func TestAnalysisReturnCases11And22TradeFeeIsInvestmentReturn(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "USD"}
 	account := analysisAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
@@ -597,6 +611,7 @@ func TestAnalysisReturnCases11And22TradeFeeIsInvestmentReturn(t *testing.T) {
 }
 
 func TestAnalysisReturnMissingFXOnAssociatedCashDoesNotFailPeriod(t *testing.T) {
+	t.Parallel()
 	for _, testCase := range []struct {
 		name     string
 		activity func(householdID domain.HouseholdID, accountID domain.AccountID, holdingID domain.HoldingID, instrumentID domain.InstrumentID) domain.Activity
@@ -670,6 +685,7 @@ func TestAnalysisReturnMissingFXOnAssociatedCashDoesNotFailPeriod(t *testing.T) 
 }
 
 func TestAnalysisReturnCase12DividendNetCashAndAssociatedTax(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "USD"}
 	account := analysisAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)
@@ -713,6 +729,7 @@ func TestAnalysisReturnCase12DividendNetCashAndAssociatedTax(t *testing.T) {
 }
 
 func TestAnalysisReturnCase28BankMaintenanceFeeIsCapitalNotInvestmentReturn(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "USD"}
 	account := analysisAccount(h, "USD", domain.TrackingBalance, domain.RoleAsset)
@@ -740,6 +757,7 @@ func TestAnalysisReturnCase28BankMaintenanceFeeIsCapitalNotInvestmentReturn(t *t
 }
 
 func TestAnalysisReturnCase30GroupRateUsesOwnDietzDenominator(t *testing.T) {
+	t.Parallel()
 	account := domain.NewAccountID()
 	instrumentID := domain.NewInstrumentID()
 	component := domain.ComponentID{AccountID: account, InstrumentID: &instrumentID, Currency: "USD", AssetClass: string(domain.InstrumentETF)}
@@ -757,6 +775,7 @@ func TestAnalysisReturnCase30GroupRateUsesOwnDietzDenominator(t *testing.T) {
 }
 
 func TestAnalysisReturnCase42FoldMatchesInstrumentScopeEngine(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "USD"}
 	firstAccount := analysisAccount(h, "USD", domain.TrackingHoldings, domain.RoleAsset)

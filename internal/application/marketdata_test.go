@@ -27,6 +27,7 @@ func (p deterministicProvider) LatestFX(context.Context, FXMarketIdentity) (Late
 }
 
 func TestMarketDataRegistryResolvesDeterministicProviders(t *testing.T) {
+	t.Parallel()
 	first := deterministicProvider{key: "first"}
 	second := deterministicProvider{key: "second"}
 	registry := NewMarketDataRegistry(first, second)
@@ -55,6 +56,7 @@ func TestMarketDataRegistryResolvesDeterministicProviders(t *testing.T) {
 }
 
 func TestMarketDataRegistryMissingDefaultIsSafe(t *testing.T) {
+	t.Parallel()
 	registry := NewMarketDataRegistry()
 	_, err := registry.Default()
 	if err == nil {
@@ -67,6 +69,7 @@ func TestMarketDataRegistryMissingDefaultIsSafe(t *testing.T) {
 }
 
 func TestMarketDataRegistrySupportsExplicitDefault(t *testing.T) {
+	t.Parallel()
 	registry := NewMarketDataRegistryWithDefault("second", deterministicProvider{key: "first"}, deterministicProvider{key: "second"})
 	provider, err := registry.Default()
 	if err != nil || provider.Key() != "second" {
@@ -75,6 +78,7 @@ func TestMarketDataRegistrySupportsExplicitDefault(t *testing.T) {
 }
 
 func TestInstrumentProviderKeysExcludesFXOnlyProviders(t *testing.T) {
+	t.Parallel()
 	keys := InstrumentProviderKeys()
 	if len(keys) != 3 || keys[2] != CoinGeckoProviderKey || keys[0] != YahooFinanceProviderKey || keys[1] != TiingoProviderKey {
 		t.Fatalf("InstrumentProviderKeys() = %v, want [%s %s %s]", keys, YahooFinanceProviderKey, TiingoProviderKey, CoinGeckoProviderKey)
@@ -107,6 +111,7 @@ func (p *yahooSearchProvider) SearchInstruments(_ context.Context, query, instru
 }
 
 func TestSearchInstrumentsUsesYahooProvider(t *testing.T) {
+	t.Parallel()
 	yahoo := &yahooSearchProvider{
 		deterministicProvider: deterministicProvider{key: YahooFinanceProviderKey},
 		hits: []InstrumentSearchHit{{
@@ -128,6 +133,7 @@ func TestSearchInstrumentsUsesYahooProvider(t *testing.T) {
 }
 
 func TestSearchInstrumentsRejectsUnsupportedType(t *testing.T) {
+	t.Parallel()
 	yahoo := &yahooSearchProvider{deterministicProvider: deterministicProvider{key: YahooFinanceProviderKey}}
 	service := NewService(nil, NewMarketDataRegistry(yahoo))
 	_, err := service.SearchInstruments(context.Background(), "XAU", "precious_metal")
@@ -141,6 +147,7 @@ func TestSearchInstrumentsRejectsUnsupportedType(t *testing.T) {
 }
 
 func TestSearchInstrumentsRequiresYahooSearchCapability(t *testing.T) {
+	t.Parallel()
 	service := NewService(nil, NewMarketDataRegistry(deterministicProvider{key: YahooFinanceProviderKey}))
 	_, err := service.SearchInstruments(context.Background(), "NVDA", "stock")
 	var domainErr *domain.Error
@@ -150,6 +157,7 @@ func TestSearchInstrumentsRequiresYahooSearchCapability(t *testing.T) {
 }
 
 func TestSearchCryptoUsesCoinGecko(t *testing.T) {
+	t.Parallel()
 	cg := &yahooSearchProvider{deterministicProvider: deterministicProvider{key: CoinGeckoProviderKey}, hits: []InstrumentSearchHit{{ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "bitcoin", Type: "crypto"}}}
 	yahoo := &yahooSearchProvider{deterministicProvider: deterministicProvider{key: YahooFinanceProviderKey}}
 	service := NewService(nil, NewMarketDataRegistry(yahoo, cg))

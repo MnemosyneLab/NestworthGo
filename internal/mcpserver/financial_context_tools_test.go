@@ -30,6 +30,7 @@ func decodeContext(t *testing.T, obj map[string]any) FinancialContextResponse {
 	return r
 }
 func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, changes := fixture(t)
@@ -78,6 +79,7 @@ func TestFinancialContextHTTPFrozenPaginationAndPermissions(t *testing.T) {
 	}
 }
 func TestFinancialContextFinalHTTPWireBound(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	if _, err := s.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
@@ -105,6 +107,7 @@ func TestFinancialContextFinalHTTPWireBound(t *testing.T) {
 }
 
 func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	if _, err := s.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
@@ -166,6 +169,7 @@ func TestFinancialContextSchemaErrorHTTPWireBound(t *testing.T) {
 }
 
 func TestFinancialContextRejectsLegacyHTTPBatch(t *testing.T) {
+	t.Parallel()
 	for _, protocol := range []string{"", "2025-03-26", "2025-06-18"} {
 		for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "get_financial_comparison_page"} {
 			for _, variant := range []string{"large-property", "long-id", "mixed-first", "mixed-last"} {
@@ -231,6 +235,7 @@ func TestFinancialContextRejectsLegacyHTTPBatch(t *testing.T) {
 }
 
 func TestFinancialContextPreservesOtherLegacyHTTPBatch(t *testing.T) {
+	t.Parallel()
 	for _, protocol := range []string{"", "2025-03-26"} {
 		t.Run(protocol, func(t *testing.T) {
 			s, _, _ := fixture(t)
@@ -286,6 +291,7 @@ func TestFinancialContextPreservesOtherLegacyHTTPBatch(t *testing.T) {
 }
 
 func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
+	t.Parallel()
 	c := newFinancialContextCache()
 	g := c.activate()
 	value := strings.Repeat("9", 7000)
@@ -325,6 +331,7 @@ func TestFinancialContextInitialPageDefersOtherSections(t *testing.T) {
 }
 
 func TestFinancialContextEnvelopeOnlyBoundsContextTools(t *testing.T) {
+	t.Parallel()
 	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "get_context"} {
 		t.Run(tool, func(t *testing.T) {
 			body := strings.Repeat("x", contextWireLimit+1)
@@ -350,6 +357,7 @@ func TestFinancialContextEnvelopeOnlyBoundsContextTools(t *testing.T) {
 	}
 }
 func TestFinancialContextCacheExpiryEvictionCursorAndOversize(t *testing.T) {
+	t.Parallel()
 	c := newFinancialContextCache()
 	g := c.activate()
 	now := time.Now()
@@ -412,6 +420,7 @@ func (r *blockingContextRepository) ReadFinancialContextInputs(ctx context.Conte
 	return inputs, err
 }
 func TestFinancialContextRevocationPreventsInflightPublication(t *testing.T) {
+	t.Parallel()
 	for _, action := range []string{"disable", "enable", "close", "restore"} {
 		t.Run(action, func(t *testing.T) {
 			db, err := sqlite.Open(t.TempDir() + "/context.db")
@@ -466,6 +475,7 @@ func TestFinancialContextRevocationPreventsInflightPublication(t *testing.T) {
 	}
 }
 func TestFinancialContextCancelledBuildAdmission(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	g := s.contexts.activate()
 	s.contexts.builds <- struct{}{}
@@ -479,6 +489,7 @@ func TestFinancialContextCancelledBuildAdmission(t *testing.T) {
 	<-s.contexts.builds
 }
 func TestFinancialContextActualRestoreRevokesFrozenResult(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "live.db")
 	db, err := sqlite.Open(path)
@@ -544,6 +555,7 @@ func TestFinancialContextActualRestoreRevokesFrozenResult(t *testing.T) {
 	}
 }
 func TestFinancialContextPositionTransferScopeMatchesFullReplay(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	dest := transferDestinationAccount(t, fx)
 	c := ledgerSession(t, fx)
@@ -583,6 +595,7 @@ func TestFinancialContextPositionTransferScopeMatchesFullReplay(t *testing.T) {
 }
 
 func TestFinancialContextRejectsUnboundedRPCID(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	if _, err := s.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
@@ -607,6 +620,7 @@ func TestFinancialContextRejectsUnboundedRPCID(t *testing.T) {
 }
 
 func TestFinancialContextNearLimitMatchesActualMCPWire(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	if _, err := s.Enable(ReadOnly); err != nil {
 		t.Fatal(err)

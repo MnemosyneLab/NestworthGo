@@ -234,6 +234,7 @@ func waitSyncTerminal(t *testing.T, service *Service) SyncJobSnapshot {
 }
 
 func TestCapHistoryRangesDoesNotExpandScope(t *testing.T) {
+	t.Parallel()
 	ranges := CapHistoryRanges([]DateRange{{Start: "2025-09-06", End: "2026-09-08"}}, 366)
 	if len(ranges) != 2 {
 		t.Fatalf("capped ranges = %d, want 2", len(ranges))
@@ -244,6 +245,7 @@ func TestCapHistoryRangesDoesNotExpandScope(t *testing.T) {
 }
 
 func TestPreviewMarketDataSyncEstimatesRequestsAndPrerequisites(t *testing.T) {
+	t.Parallel()
 	tiingo := &syncFakeProvider{key: TiingoProviderKey}
 	yahoo := &syncFakeProvider{key: YahooFinanceProviderKey}
 	service, _, first, _ := newSyncFixture(t, tiingo, yahoo)
@@ -267,6 +269,7 @@ func TestPreviewMarketDataSyncEstimatesRequestsAndPrerequisites(t *testing.T) {
 }
 
 func TestStartMarketDataSyncAttachesEquivalentAndRejectsDifferentScope(t *testing.T) {
+	t.Parallel()
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var startOnce sync.Once
@@ -309,6 +312,7 @@ func TestStartMarketDataSyncAttachesEquivalentAndRejectsDifferentScope(t *testin
 }
 
 func TestCancelSyncJobRetainsCommittedBatches(t *testing.T) {
+	t.Parallel()
 	startedSecond := make(chan struct{})
 	release := make(chan struct{})
 	var secondOnce sync.Once
@@ -367,6 +371,7 @@ func TestCancelSyncJobRetainsCommittedBatches(t *testing.T) {
 }
 
 func TestSyncJobRateLimitStopsProviderAndRecordsEligibility(t *testing.T) {
+	t.Parallel()
 	tiingo := &syncFakeProvider{key: TiingoProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
 		return MappingOutcome[InstrumentDailyObservation]{}, &domain.Error{Code: domain.ErrProviderRateLimit, Message: "provider rate limit reached"}
 	}}
@@ -411,6 +416,7 @@ func TestSyncJobRateLimitStopsProviderAndRecordsEligibility(t *testing.T) {
 }
 
 func TestSyncJobDoesNotPersistAfterWorkspaceFence(t *testing.T) {
+	t.Parallel()
 	started := make(chan struct{})
 	release := make(chan struct{})
 	var startOnce sync.Once
@@ -448,6 +454,7 @@ func TestSyncJobDoesNotPersistAfterWorkspaceFence(t *testing.T) {
 }
 
 func TestYahooHistoryFailClosedIsPartialNotInvented(t *testing.T) {
+	t.Parallel()
 	tiingo := &syncFakeProvider{key: TiingoProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
 		return mappedTiingoClose("2026-09-04", "185.25"), nil
 	}}
@@ -494,6 +501,7 @@ func TestYahooHistoryFailClosedIsPartialNotInvented(t *testing.T) {
 }
 
 func TestTransientHistoryRetriesThenSucceeds(t *testing.T) {
+	t.Parallel()
 	calls := 0
 	tiingo := &syncFakeProvider{key: TiingoProviderKey, history: func(context.Context, InstrumentMarketIdentity, DateRange, int) (MappingOutcome[InstrumentDailyObservation], error) {
 		calls++
@@ -575,6 +583,7 @@ func (p testHistoryPersist) PersistFXHistory(ctx context.Context, request Commit
 }
 
 func TestSyncReportsIncompleteSnapshotsAfterRebuild(t *testing.T) {
+	t.Parallel()
 	service, repo, _, _ := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
 	if _, err := service.StartMarketDataSync(context.Background(), SyncRequest{Scope: SyncScopeRepairAll}); err != nil {
 		t.Fatal(err)

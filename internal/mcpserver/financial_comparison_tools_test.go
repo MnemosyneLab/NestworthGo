@@ -44,6 +44,7 @@ func comparisonFixture(t *testing.T, s *Service, app *application.Service) domai
 	return first
 }
 func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, changes := fixture(t)
@@ -106,6 +107,7 @@ func TestFinancialComparisonHTTPFrozenPaginationAndPermissions(t *testing.T) {
 	}
 }
 func TestFinancialComparisonCacheBoundsRevocationAndAdmission(t *testing.T) {
+	t.Parallel()
 	c := newFinancialContextCache()
 	g := c.activate()
 	now := time.Now()
@@ -154,6 +156,7 @@ func TestFinancialComparisonCacheBoundsRevocationAndAdmission(t *testing.T) {
 }
 
 func TestFinancialComparisonRevocationPreventsInflightPublication(t *testing.T) {
+	t.Parallel()
 	for _, action := range []string{"disable", "enable", "close", "restore"} {
 		t.Run(action, func(t *testing.T) {
 			db, err := sqlite.Open(t.TempDir() + "/context.db")

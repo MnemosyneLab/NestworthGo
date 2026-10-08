@@ -12,6 +12,7 @@ import (
 // Reproduce entering yesterday's deposit and first buy into an account created
 // today. Later metadata edits must not erase those economic facts.
 func TestBackdatedFirstTradeRebuildAndOpeningAnalysis(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(t.TempDir() + "/backdated.db")
 	if err != nil {
 		t.Fatal(err)
@@ -100,6 +101,7 @@ func TestBackdatedFirstTradeRebuildAndOpeningAnalysis(t *testing.T) {
 }
 
 func TestHealthDoesNotReportRoutineRechecksAsMissing(t *testing.T) {
+	t.Parallel()
 	need := InstrumentRepairNeed{InstrumentID: domain.NewInstrumentID(), ProviderKey: YahooFinanceProviderKey, RouteStatus: domain.InstrumentRouteOK, FetchRanges: []DateRange{{Start: "2026-09-12", End: "2026-09-16"}}}
 	if issue, _ := classifyInstrumentHealth(need, "Fund", nil); issue.Kind != "" {
 		t.Fatalf("routine recheck reported as missing: %+v", issue)
@@ -111,6 +113,7 @@ func TestHealthDoesNotReportRoutineRechecksAsMissing(t *testing.T) {
 }
 
 func TestBackdatedHistoryRouteRequiresEquivalentMappingAndVerifiedClose(t *testing.T) {
+	t.Parallel()
 	id := domain.NewInstrumentID()
 	provider, symbol, market := domain.YahooFinanceProviderKey, "QQQM", "NASDAQ"
 	instrument := domain.Instrument{ID: id, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &provider, ProviderSymbol: &symbol, MarketCode: &market, ProviderBindingRevision: 1}
@@ -149,6 +152,7 @@ func TestBackdatedHistoryRouteRequiresEquivalentMappingAndVerifiedClose(t *testi
 }
 
 func TestAnalysisValuesStartingPointWithoutPersistingPreviousDay(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(t.TempDir() + "/opening.db")
 	if err != nil {
 		t.Fatal(err)
@@ -192,6 +196,7 @@ func TestAnalysisValuesStartingPointWithoutPersistingPreviousDay(t *testing.T) {
 }
 
 func TestReturnGroupsKeepCompleteZeroCapitalDays(t *testing.T) {
+	t.Parallel()
 	accountID := domain.NewAccountID()
 	zero := testReturnMoney(t, "0")
 	amount := testReturnMoney(t, "1")

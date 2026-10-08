@@ -66,6 +66,7 @@ func holdWrite(t *testing.T, service *Service) (release func()) {
 }
 
 func TestWithExclusiveRejectsOverlap(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, _ := newOnboardedService(t, "exclusive", []string{"Alice"})
 	release := holdExclusive(t, service, ExclusiveBackup)
 	if err := service.WithExclusive(ctx, ExclusiveBackup, func(context.Context) error { return nil }); !isBackupRestoreBusy(err) {
@@ -78,6 +79,7 @@ func TestWithExclusiveRejectsOverlap(t *testing.T) {
 }
 
 func TestExclusiveBackupRejectsActivityDirectoryIconAndSettingsWriters(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "exclusive-writers", []string{"Alice"})
 	account, err := service.CreateAccount(ctx, AccountInput{
 		Name: "Cash", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
@@ -112,6 +114,7 @@ func TestExclusiveBackupRejectsActivityDirectoryIconAndSettingsWriters(t *testin
 }
 
 func TestExclusiveRestoreRejectsMutationBeforeDatabaseClose(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, _ := newOnboardedService(t, "exclusive-restore", []string{"Alice"})
 	started := make(chan struct{})
 	closed := make(chan struct{})
@@ -151,6 +154,7 @@ func TestExclusiveRestoreRejectsMutationBeforeDatabaseClose(t *testing.T) {
 }
 
 func TestOrdinaryWritesRemainSerializedUnderRace(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "exclusive-race", []string{"Alice"})
 	var group sync.WaitGroup
 	errs := make(chan error, 8)
@@ -181,6 +185,7 @@ func TestOrdinaryWritesRemainSerializedUnderRace(t *testing.T) {
 }
 
 func TestExclusiveBackupRejectsInFlightRefreshPersist(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(filepath.Join(t.TempDir(), "refresh-exclusive.db"))
 	if err != nil {
 		t.Fatal(err)

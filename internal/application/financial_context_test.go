@@ -29,6 +29,7 @@ func contextFor(t *testing.T, s *Service, date string, ids ...domain.AccountID) 
 	return r
 }
 func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Secret bank", "bank_account", "asset", "balance", "CNY", "100.01")
 	b := overviewAccount(t, s, owner, "Secret broker", "brokerage", "asset", "holdings", "CNY", "")
@@ -77,6 +78,7 @@ func TestFinancialContextCurrentWithoutHistoryAndObservationSources(t *testing.T
 	}
 }
 func TestFinancialContextNoHouseholdAndInvalidScope(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(t.TempDir() + "/empty.db")
 	if err != nil {
 		t.Fatal(err)
@@ -96,6 +98,7 @@ func TestFinancialContextNoHouseholdAndInvalidScope(t *testing.T) {
 }
 
 func TestFinancialContextStoredObservationKinds(t *testing.T) {
+	t.Parallel()
 	for _, source := range []string{"manual", "provider", "agent"} {
 		t.Run(source, func(t *testing.T) {
 			s, _, owner, now := overviewFixture(t)
@@ -153,6 +156,7 @@ func TestFinancialContextStoredObservationKinds(t *testing.T) {
 	}
 }
 func TestFinancialContextScopePrecisionGapsAndHiddenChanges(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Hidden A", "bank_account", "asset", "balance", "USD", "10")
 	b := overviewAccount(t, s, owner, "Hidden B", "property", "asset", "manual_value", "CNY", "1000")
@@ -209,6 +213,7 @@ func TestFinancialContextScopePrecisionGapsAndHiddenChanges(t *testing.T) {
 	}
 }
 func TestFinancialContextFullReplayBeforeAccountProjection(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "B", "bank_account", "asset", "balance", "CNY", "0")
@@ -248,6 +253,7 @@ func TestFinancialContextFullReplayBeforeAccountProjection(t *testing.T) {
 	}
 }
 func TestFinancialContextHashFreshnessThresholdAndWhitelist(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
 	i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Secret stock", Type: "crypto", QuoteCurrency: "CNY", QuoteSource: "agent"})
@@ -304,6 +310,7 @@ func (r *delayedContextRepository) ReadFinancialContextInputs(ctx context.Contex
 	return inputs, err
 }
 func TestFinancialContextConcurrentChangeUsesFrozenInputs(t *testing.T) {
+	t.Parallel()
 	s, _, owner, _ := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
 	repo := &delayedContextRepository{Repository: s.repository, FinancialContextRepository: s.repository.(FinancialContextRepository), captured: make(chan struct{}), release: make(chan struct{})}
@@ -343,6 +350,7 @@ func (r *staticContextRepository) ReadFinancialContextInputs(context.Context, bo
 	return r.inputs, nil
 }
 func TestFinancialContextPendingCoverageAndZeroHolding(t *testing.T) {
+	t.Parallel()
 	s, _, _, _ := overviewFixture(t)
 	accountID, instrumentID, holdingID := domain.NewAccountID(), domain.NewInstrumentID(), domain.NewHoldingID()
 	provider := domain.TiingoProviderKey

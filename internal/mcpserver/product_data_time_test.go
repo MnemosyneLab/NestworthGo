@@ -19,6 +19,7 @@ import (
 // Real clocks and explicit RFC3339Nano observations must round-trip through
 // SQLite's authoritative UTC millisecond timestamps and immutable receipts.
 func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
+	t.Parallel()
 	base := time.Date(2026, 9, 29, 12, 0, 0, 123456789, time.UTC)
 	for _, zone := range []*time.Location{time.UTC, time.FixedZone("UTC+08", 8*60*60)} {
 		for _, kind := range []string{"terms", "valuation_default", "valuation_explicit_utc", "valuation_explicit_offset"} {
@@ -168,6 +169,7 @@ func TestProductHTTPDataTimestampRoundTrip(t *testing.T) {
 // already stored milliseconds. Compatibility must preserve sealed raw evidence,
 // enforce command/receipt binding, and still reject a changed persisted instant.
 func TestProductHTTPDataLegacyTimestampEvidence(t *testing.T) {
+	t.Parallel()
 	for _, tool := range []string{"terms", "valuation"} {
 		t.Run(tool, func(t *testing.T) {
 			zone := time.FixedZone("UTC+08", 8*60*60)
@@ -291,6 +293,7 @@ func TestProductHTTPDataLegacyTimestampEvidence(t *testing.T) {
 }
 
 func TestProductHTTPValuationRejectsFutureSubmillisecond(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 29, 12, 0, 0, 123456789, time.UTC)
 	fx, _, _ := newPersistentProductFixture(t, func() time.Time { return now })
 	c := ledgerSession(t, fx)

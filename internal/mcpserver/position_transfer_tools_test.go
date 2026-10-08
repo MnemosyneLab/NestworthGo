@@ -44,6 +44,7 @@ func importTransferSource(t *testing.T, fx ledgerFixture, c *mcp.ClientSession) 
 }
 
 func TestMCPPositionTransferCreatesDestinationAtomically(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	destination := transferDestinationAccount(t, fx)
 	c := ledgerSession(t, fx)
@@ -106,6 +107,7 @@ func TestMCPPositionTransferCreatesDestinationAtomically(t *testing.T) {
 }
 
 func TestMCPBatchTransferCreatesHoldingForFollowingTrade(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	destination := transferDestinationAccount(t, fx)
 	c := ledgerSession(t, fx)

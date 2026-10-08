@@ -20,6 +20,7 @@ func (r *holdingsSnapshotCounter) ReadGainSnapshot(ctx context.Context) (domain.
 }
 
 func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(t.TempDir() + "/holdings.db")
 	if err != nil {
 		t.Fatal(err)
@@ -131,6 +132,7 @@ func TestInstrumentHoldingsSnapshotNativeFXAndScope(t *testing.T) {
 }
 
 func TestAggregateHoldingAmountsIndependentCompleteness(t *testing.T) {
+	t.Parallel()
 	usd := domain.CurrencyCode("USD")
 	first := domain.InstrumentHoldingMember{HoldingID: "first", Amounts: domain.HoldingAmounts{Quantity: "0.1", TotalCost: &domain.MoneyView{Amount: "20", Currency: usd}, CurrentValue: &domain.MoneyView{Amount: "10", Currency: usd}, UnrealizedGain: &domain.SignedMoneyView{Amount: "-10", Currency: usd}}}
 	second := domain.InstrumentHoldingMember{HoldingID: "second", Amounts: domain.HoldingAmounts{Quantity: "0.2", TotalCost: &domain.MoneyView{Amount: "40", Currency: usd}, CurrentValue: &domain.MoneyView{Amount: "20", Currency: usd}, UnrealizedGain: &domain.SignedMoneyView{Amount: "-20", Currency: usd}}}

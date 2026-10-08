@@ -112,6 +112,7 @@ func marketReadFixture(t testing.TB, count, quotes int) (*Service, *marketReadDr
 // Count actual driver queries, including QueryRowContext and reads inside
 // transactions. Fixture construction and SQL setup are outside measurements.
 func TestMarketDataHealthReadQueries(t *testing.T) {
+	t.Parallel()
 	for _, fixture := range []struct {
 		instruments           int
 		queries, quoteQueries int64

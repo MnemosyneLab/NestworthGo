@@ -10,6 +10,7 @@ import (
 
 // NW-005: partitioning a position across accounts must not change its total.
 func TestInstrumentAggregationRoundsOnlyAfterSummation(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(t.TempDir() + "/synthetic.db")
 	if err != nil {
 		t.Fatal(err)
@@ -59,6 +60,7 @@ func TestInstrumentAggregationRoundsOnlyAfterSummation(t *testing.T) {
 }
 
 func TestGainAggregatesKeepExactCostValueAndUnrealized(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(t.TempDir() + "/precision.db")
 	if err != nil {
 		t.Fatal(err)

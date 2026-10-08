@@ -9,6 +9,7 @@ import (
 )
 
 func TestInstrumentCurrencyImmutablePreservesHistoricalCost(t *testing.T) {
+	t.Parallel()
 	s, ctx, b, tick := newOnboardedService(t, "currency-immutable", []string{"Owner"})
 	a, err := s.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{b.Members[0].ID}})
 	if err != nil {
@@ -72,6 +73,7 @@ func TestInstrumentCurrencyImmutablePreservesHistoricalCost(t *testing.T) {
 }
 
 func TestAccountSettingsSavePreservesRequestedIcon(t *testing.T) {
+	t.Parallel()
 	s, ctx, b, _ := newOnboardedService(t, "account-icon", []string{"Owner"})
 	a, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", OwnerIDs: []domain.MemberID{b.Members[0].ID}, IconKey: "bank"})
 	if err != nil {
@@ -117,6 +119,7 @@ func TestAccountSettingsSavePreservesRequestedIcon(t *testing.T) {
 }
 
 func TestSnapshotHealthAndPreviewOnlyIncludeClosedDays(t *testing.T) {
+	t.Parallel()
 	ptr := func(v string) *string { return &v }
 	plan := HistoryRepairPlan{OriginLocalDate: "2026-09-14", YesterdayLocal: "2026-09-16"}
 	for _, tc := range []struct {

@@ -11,6 +11,7 @@ import (
 )
 
 func TestConcurrentRecordChangesSerializeWithoutLostCurrentState(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/concurrent.db")
 	if err != nil {
 		t.Fatal(err)

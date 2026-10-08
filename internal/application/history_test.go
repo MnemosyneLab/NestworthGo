@@ -10,6 +10,7 @@ import (
 )
 
 func TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/history.db")
 	if err != nil {
 		t.Fatal(err)
@@ -62,6 +63,7 @@ func TestStartHistoryCapturesExistingStateAtomicallyAndRetriesIdempotently(t *te
 }
 
 func TestStartHistoryRequiresConfirmedIANAZone(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/history-timezone.db")
 	if err != nil {
 		t.Fatal(err)

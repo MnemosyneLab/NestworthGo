@@ -66,6 +66,7 @@ func activityCount(t *testing.T, database *sqlite.DB) int {
 }
 
 func TestGuardedFixRejectsStalePreviewAndReplaysAfterRestart(t *testing.T) {
+	t.Parallel()
 	service, database, command, originalID, now := guardedCorrectionFixture(t)
 	ctx := context.Background()
 	amount, _ := domain.ParseMoney("150", "USD")
@@ -115,6 +116,7 @@ func TestGuardedFixRejectsStalePreviewAndReplaysAfterRestart(t *testing.T) {
 }
 
 func TestGuardedUndoUsesCurrentStateAndDurableReplay(t *testing.T) {
+	t.Parallel()
 	service, database, command, originalID, now := guardedCorrectionFixture(t)
 	ctx := context.Background()
 	_, token, err := service.PreviewUndoChangeGuarded(ctx, originalID)
@@ -168,6 +170,7 @@ func TestGuardedUndoUsesCurrentStateAndDurableReplay(t *testing.T) {
 }
 
 func TestGuardedFixRejectsReplacementThatNeedsNewHolding(t *testing.T) {
+	t.Parallel()
 	service, database, _, originalID, _ := guardedCorrectionFixture(t)
 	_, _, err := service.PreviewFixChangeGuardedWith(context.Background(), originalID, func(context.Context) (any, error) {
 		return domain.PositionImportInput{}, nil
@@ -179,6 +182,7 @@ func TestGuardedFixRejectsReplacementThatNeedsNewHolding(t *testing.T) {
 }
 
 func TestGuardedFixRollsBackInverseWhenReplacementInsertFails(t *testing.T) {
+	t.Parallel()
 	service, database, command, originalID, _ := guardedCorrectionFixture(t)
 	ctx := context.Background()
 	amount, _ := domain.ParseMoney("150", "USD")

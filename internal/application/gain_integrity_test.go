@@ -13,6 +13,7 @@ import (
 )
 
 func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
+	t.Parallel()
 	fixture := newGoldenValuationFixture(t, true)
 	ctx := context.Background()
 	if _, err := fixture.service.StartHistory(ctx, "UTC"); err != nil {
@@ -54,6 +55,7 @@ func TestGainReadPathsAreConcurrentAndDoNotWriteFinancialFacts(t *testing.T) {
 }
 
 func TestCurrentFixtureSupportsRepositoryGainReads(t *testing.T) {
+	t.Parallel()
 	database := seedGainCurrentFixture(t)
 	defer database.Close()
 	repository := sqlite.NewRepository(database)

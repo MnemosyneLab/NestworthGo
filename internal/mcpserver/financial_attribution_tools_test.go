@@ -18,6 +18,7 @@ import (
 )
 
 func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, accountID, _ := historyFixture(t)
@@ -130,6 +131,7 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 }
 
 func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
+	t.Parallel()
 	s, app, _ := fixture(t)
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	app.SetClock(func() time.Time { return now })
@@ -226,6 +228,7 @@ func (r *attributionCaptureRepository) ReadFinancialContextInputs(ctx context.Co
 	return input, err
 }
 func TestFinancialAttributionRevocationPreventsPublicationAfterMaintenance(t *testing.T) {
+	t.Parallel()
 	for _, action := range []string{"disable", "enable", "close", "restore"} {
 		t.Run(action, func(t *testing.T) {
 			db, err := sqlite.Open(t.TempDir() + "/synthetic.db")
@@ -280,6 +283,7 @@ func TestFinancialAttributionRevocationPreventsPublicationAfterMaintenance(t *te
 }
 
 func TestFinancialAttributionWireSummaryAndMalformedRequestPrivacy(t *testing.T) {
+	t.Parallel()
 	c := newFinancialContextCache()
 	g := c.activate()
 	result := application.FinancialComparisonResult{Content: application.FinancialComparisonContent{Attribution: &application.FinancialAttributionLink{Basis: strings.Repeat("\\\"", contextWireLimit)}}}

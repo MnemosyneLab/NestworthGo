@@ -10,6 +10,7 @@ import (
 )
 
 func TestRecordChangeWritesActivityEffectsProjectionAndClosedDayDirtyState(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/change.db")
 	if err != nil {
 		t.Fatal(err)
@@ -73,6 +74,7 @@ func TestRecordChangeWritesActivityEffectsProjectionAndClosedDayDirtyState(t *te
 }
 
 func TestRecordChangeRequiresStartingPointAndDoesNotCallProviders(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/change-gate.db")
 	if err != nil {
 		t.Fatal(err)
@@ -102,6 +104,7 @@ func TestRecordChangeRequiresStartingPointAndDoesNotCallProviders(t *testing.T) 
 }
 
 func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/trade.db")
 	if err != nil {
 		t.Fatal(err)
@@ -189,6 +192,7 @@ func TestRecordTradeUpdatesCashAndQuantityAndPersistsTradeDetail(t *testing.T) {
 }
 
 func TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/dividend.db")
 	if err != nil {
 		t.Fatal(err)
@@ -308,6 +312,7 @@ func TestRecordCashDividendPersistsDetailWithoutChangingQuantityOrCostBasis(t *t
 }
 
 func TestRecordFirstBuyCreatesHoldingAndCommitsAtomically(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/first-buy.db")
 	if err != nil {
 		t.Fatal(err)
@@ -373,6 +378,7 @@ func TestRecordFirstBuyCreatesHoldingAndCommitsAtomically(t *testing.T) {
 }
 
 func TestRecordTransfersUseNativeEndpointsAndCommitAtomically(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/transfer.db")
 	if err != nil {
 		t.Fatal(err)
@@ -452,6 +458,7 @@ func TestRecordTransfersUseNativeEndpointsAndCommitAtomically(t *testing.T) {
 }
 
 func TestPositionTransferOverflowPersistsNoRows(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/transfer-overflow.db")
 	if err != nil {
 		t.Fatal(err)
@@ -522,6 +529,7 @@ func TestPositionTransferOverflowPersistsNoRows(t *testing.T) {
 }
 
 func TestUndoAndFixKeepEvidenceAppendOnly(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/correction.db")
 	if err != nil {
 		t.Fatal(err)
@@ -597,6 +605,7 @@ func TestUndoAndFixKeepEvidenceAppendOnly(t *testing.T) {
 // original effect first. PreviewFixChange must return the exact number
 // FixChange will actually commit, and must not write anything.
 func TestPreviewFixChangeMatchesFixChangeWithoutCommitting(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/preview-fix.db")
 	if err != nil {
 		t.Fatal(err)
@@ -654,6 +663,7 @@ func TestPreviewFixChangeMatchesFixChangeWithoutCommitting(t *testing.T) {
 }
 
 func TestAppendEffectiveStateAndPreferenceObservations(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/observations.db")
 	if err != nil {
 		t.Fatal(err)
@@ -709,6 +719,7 @@ func TestAppendEffectiveStateAndPreferenceObservations(t *testing.T) {
 }
 
 func TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/snapshots.db")
 	if err != nil {
 		t.Fatal(err)
@@ -770,6 +781,7 @@ func TestHistoricalSnapshotUsesOriginAndActivitiesAndSkipsUnchangedRevision(t *t
 }
 
 func TestCompositeCashAcceptsForeignCurrencyBeforeAndAfterHistory(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/composite-cash.db")
 	if err != nil {
 		t.Fatal(err)
@@ -855,6 +867,7 @@ func TestCompositeCashAcceptsForeignCurrencyBeforeAndAfterHistory(t *testing.T) 
 }
 
 func TestMixedBankFirstFundBuyDecreasesCashAndShowsHolding(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "cmb-mixed-first-buy", []string{"Owner"})
 	bank, err := service.CreateAccount(ctx, AccountInput{
 		Name: "招商银行综合账户", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "holdings",

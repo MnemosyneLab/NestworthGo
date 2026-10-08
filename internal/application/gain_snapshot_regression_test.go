@@ -26,6 +26,7 @@ func (r *gainInterleavedSnapshot) ReadGainSnapshot(ctx context.Context) (domain.
 	return snapshot, err
 }
 func TestGainReadUsesOneSnapshotAcrossConcurrentSale(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(t.TempDir() + "/synthetic.db")
 	if err != nil {
 		t.Fatal(err)
@@ -111,6 +112,7 @@ func (r *gainSnapshotOnlyRepository) ReadGainSnapshot(context.Context) (domain.G
 }
 
 func TestEveryGainEntryUsesOnlyOneMaterializedSnapshot(t *testing.T) {
+	t.Parallel()
 	f := newGoldenValuationFixture(t, true)
 	ctx := context.Background()
 	if _, err := f.service.StartHistory(ctx, "UTC"); err != nil {
@@ -153,6 +155,7 @@ func TestEveryGainEntryUsesOnlyOneMaterializedSnapshot(t *testing.T) {
 }
 
 func TestGainSnapshotRepresentative500Positions(t *testing.T) {
+	t.Parallel()
 	seedStart := time.Now()
 	path := filepath.Join(t.TempDir(), "gain-snapshot-scale.db")
 	db, err := sqlite.Open(path)

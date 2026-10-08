@@ -8,6 +8,7 @@ import (
 )
 
 func TestInstrumentHistoryStartUsesOwnershipAndCorrections(t *testing.T) {
+	t.Parallel()
 	origin := domain.HistoryOrigin{Timezone: "Asia/Singapore", StartedAt: time.Date(2024, 9, 14, 0, 0, 0, 0, time.UTC)}
 	initial := domain.NewInstrumentID()
 	later := domain.NewInstrumentID()
@@ -38,6 +39,7 @@ func TestInstrumentHistoryStartUsesOwnershipAndCorrections(t *testing.T) {
 }
 
 func TestUnusedInstrumentStartsSevenDaysBeforeCreation(t *testing.T) {
+	t.Parallel()
 	service, _, _, _ := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
 	instrument, err := service.CreateInstrument(context.Background(), InstrumentInput{Name: "Unheld", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "UNHELD", MarketCode: "US"})
 	if err != nil {
@@ -59,6 +61,7 @@ func TestUnusedInstrumentStartsSevenDaysBeforeCreation(t *testing.T) {
 }
 
 func TestCoinGeckoHistoryPlanClipsOnlyUnavailableDates(t *testing.T) {
+	t.Parallel()
 	coverage := domain.InstrumentHistoryCoverage{InstrumentType: "crypto", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "bitcoin", Market: "CRYPTO"}
 	need, err := planInstrumentRepairNeed(coverage, "2024-09-14", "2026-09-17")
 	if err != nil {
@@ -74,6 +77,7 @@ func TestCoinGeckoHistoryPlanClipsOnlyUnavailableDates(t *testing.T) {
 }
 
 func TestCoinGeckoHistoryPersistsWithValuationPolicy(t *testing.T) {
+	t.Parallel()
 	cg := &syncFakeProvider{key: CoinGeckoProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
 		stamp := time.Date(2026, 9, 8, 0, 0, 0, 0, time.UTC)
 		return MappingOutcome[InstrumentDailyObservation]{Status: MappingMapped, Batch: HistoryBatch[InstrumentDailyObservation]{
@@ -134,6 +138,7 @@ func (p *fencedCoinGeckoBatch) LatestInstruments(_ context.Context, identities [
 	return results
 }
 func TestCoinGeckoBatchCannotPersistAcrossWorkspaceFence(t *testing.T) {
+	t.Parallel()
 	p := &fencedCoinGeckoBatch{syncFakeProvider: &syncFakeProvider{key: CoinGeckoProviderKey}}
 	service, repo, _, _ := newSyncFixture(t, p)
 	ctx := context.Background()

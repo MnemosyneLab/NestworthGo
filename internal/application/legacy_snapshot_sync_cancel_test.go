@@ -24,6 +24,7 @@ func (p coverageCancelPersister) PersistInstrumentHistory(ctx context.Context, r
 }
 
 func TestLegacyCancelledSyncThenOrdinaryIncomeRepairsIncompleteTail(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(t.TempDir() + "/cancelled-sync.db")
 	if err != nil {
 		t.Fatal(err)

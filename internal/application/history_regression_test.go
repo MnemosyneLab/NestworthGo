@@ -10,6 +10,7 @@ import (
 )
 
 func TestDebtPaymentAppliesPrincipalAndFeeCumulatively(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{"balance", "holdings"} {
 		t.Run(mode, func(t *testing.T) {
 			database, err := sqlite.Open(t.TempDir() + "/debt.db")
@@ -88,6 +89,7 @@ func TestDebtPaymentAppliesPrincipalAndFeeCumulatively(t *testing.T) {
 }
 
 func TestDebtPaymentRejectsInsufficientCombinedCashWithoutWrites(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/debt-insufficient.db")
 	if err != nil {
 		t.Fatal(err)
@@ -128,6 +130,7 @@ func TestDebtPaymentRejectsInsufficientCombinedCashWithoutWrites(t *testing.T) {
 }
 
 func TestPostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/creation.db")
 	if err != nil {
 		t.Fatal(err)
@@ -189,6 +192,7 @@ func TestPostHistoryCreationRecordsReconciliationActivities(t *testing.T) {
 }
 
 func TestSnapshotCursorPreservesEarlierDirtyDates(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/cursor.db")
 	if err != nil {
 		t.Fatal(err)
@@ -231,6 +235,7 @@ func TestSnapshotCursorPreservesEarlierDirtyDates(t *testing.T) {
 }
 
 func TestArchivedChangeTargetsAreRejectedAtPreviewAndCommit(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/archived-change.db")
 	if err != nil {
 		t.Fatal(err)
@@ -314,6 +319,7 @@ func TestArchivedChangeTargetsAreRejectedAtPreviewAndCommit(t *testing.T) {
 }
 
 func TestNormalMetadataAndBackdatedQuotesAppendEvidenceAndDirtyHistory(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/observed-mutations.db")
 	if err != nil {
 		t.Fatal(err)

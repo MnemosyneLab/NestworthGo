@@ -125,6 +125,7 @@ func skillIndependentPages(t *testing.T, client *mcp.ClientSession, kind, id, re
 }
 
 func TestSkillIndependentSectionStateAcrossAllPagingTools(t *testing.T) {
+	t.Parallel()
 	s, app, _ := fixture(t)
 	comparisonFixture(t, s, app)
 	if _, err := s.Enable(ReadOnly); err != nil {
@@ -153,6 +154,7 @@ func TestSkillIndependentSectionStateAcrossAllPagingTools(t *testing.T) {
 }
 
 func TestSkillComparisonUsesAuthoritativeChangesNotRowSums(t *testing.T) {
+	t.Parallel()
 	s, app, _ := fixture(t)
 	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	app.SetClock(func() time.Time { return now })

@@ -47,6 +47,7 @@ func analysisAgentAmount(day domain.ComponentDay, bucket domain.AttributionBucke
 }
 
 func TestAnalysisDebtDrawIsNetWorthNeutral(t *testing.T) {
+	t.Parallel()
 	hID := domain.NewHouseholdID()
 	h := &domain.Household{ID: hID, BaseCurrency: "CNY"}
 	asset := analysisAgentAccount("CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -74,6 +75,7 @@ func TestAnalysisDebtDrawIsNetWorthNeutral(t *testing.T) {
 }
 
 func TestAnalysisInterestUsesDividendInterestBucket(t *testing.T) {
+	t.Parallel()
 	hID := domain.NewHouseholdID()
 	h := &domain.Household{ID: hID, BaseCurrency: "CNY"}
 	account := analysisAgentAccount("CNY", domain.TrackingBalance, domain.RoleAsset)

@@ -12,6 +12,7 @@ import (
 )
 
 func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/gain.db")
 	if err != nil {
 		t.Fatal(err)
@@ -114,6 +115,7 @@ func TestGainServiceHoldingGainReplaysStartingPointBuySellThroughRepository(t *t
 }
 
 func TestAccountGainIncludesActiveHoldingWithArchivedInstrument(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/gain-archived-instrument.db")
 	if err != nil {
 		t.Fatal(err)
@@ -176,6 +178,7 @@ func TestAccountGainIncludesActiveHoldingWithArchivedInstrument(t *testing.T) {
 }
 
 func TestRealizedGainIncludesSoldThenArchivedHolding(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/gain-archived-holding.db")
 	if err != nil {
 		t.Fatal(err)
@@ -257,6 +260,7 @@ func TestRealizedGainIncludesSoldThenArchivedHolding(t *testing.T) {
 }
 
 func TestHoldingGainIncludesBuyFeeInAverageCost(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/gain-buy-fee.db")
 	if err != nil {
 		t.Fatal(err)
@@ -326,6 +330,7 @@ func TestHoldingGainIncludesBuyFeeInAverageCost(t *testing.T) {
 }
 
 func TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain(t *testing.T) {
+	t.Parallel()
 	fixture := newGoldenValuationFixture(t, true)
 	ctx := context.Background()
 	if _, err := fixture.service.StartHistory(ctx, "UTC"); err != nil {
@@ -347,6 +352,7 @@ func TestGainServiceMissingCurrentQuoteKeepsCostAndRealizedGain(t *testing.T) {
 }
 
 func TestGainServiceTransferUsesSendingCostAtTransferTime(t *testing.T) {
+	t.Parallel()
 	database := seedGainCurrentFixture(t)
 	defer database.Close()
 	repository := sqlite.NewRepository(database)
@@ -386,6 +392,7 @@ func TestGainServiceTransferUsesSendingCostAtTransferTime(t *testing.T) {
 }
 
 func TestGainServiceCurrencyDecompositionUsesAcquisitionAndCurrentFX(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/decomposition.db")
 	if err != nil {
 		t.Fatal(err)
@@ -472,6 +479,7 @@ func seedGainCurrentFixture(t *testing.T) *sqlite.DB {
 }
 
 func TestDividendIncomeAggregatesIndependentlyOfRealizedGain(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/dividend-income.db")
 	if err != nil {
 		t.Fatal(err)
@@ -612,6 +620,7 @@ func TestDividendIncomeAggregatesIndependentlyOfRealizedGain(t *testing.T) {
 }
 
 func TestDividendIncomeMissingFXMarksGroupUnavailable(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/dividend-fx.db")
 	if err != nil {
 		t.Fatal(err)
@@ -714,6 +723,7 @@ func TestDividendIncomeMissingFXMarksGroupUnavailable(t *testing.T) {
 }
 
 func TestFXQuoteWithoutPreferenceAgreesAcrossOverviewGainAndDividend(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/fx-no-preference.db")
 	if err != nil {
 		t.Fatal(err)
@@ -846,6 +856,7 @@ func (r *snapshotCountRepository) ReadGainSnapshot(ctx context.Context) (domain.
 }
 
 func TestAccountGainsReadsOneSnapshotForManyAccounts(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/account-gains-batch.db")
 	if err != nil {
 		t.Fatal(err)

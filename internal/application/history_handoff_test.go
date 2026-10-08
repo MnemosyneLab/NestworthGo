@@ -12,6 +12,7 @@ import (
 )
 
 func TestRebuildHistoricalSnapshotsInvalidStartIsValidationError(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/invalid-snapshot-range.db")
 	if err != nil {
 		t.Fatal(err)
@@ -26,6 +27,7 @@ func TestRebuildHistoricalSnapshotsInvalidStartIsValidationError(t *testing.T) {
 }
 
 func TestPostOriginEntitiesUseCreationBaselinesBeforeLaterEdits(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/creation-baselines.db")
 	if err != nil {
 		t.Fatal(err)
@@ -115,6 +117,7 @@ func TestPostOriginEntitiesUseCreationBaselinesBeforeLaterEdits(t *testing.T) {
 }
 
 func TestRebuildLoadsOneImmutableBatchAndResumesCursor(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/batch-rebuild.db")
 	if err != nil {
 		t.Fatal(err)
@@ -183,6 +186,7 @@ func (r *cancelAfterSnapshotRepository) CompleteDailySnapshotRangeAtGeneration(c
 }
 
 func TestRebuildDirtySnapshotsPreservesRemainingRangeAcrossInterruptedBatch(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/cross-batch-rebuild.db")
 	if err != nil {
 		t.Fatal(err)
@@ -248,6 +252,7 @@ func TestRebuildDirtySnapshotsPreservesRemainingRangeAcrossInterruptedBatch(t *t
 }
 
 func TestActivityPageComposesFiltersAndKeysetCursor(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/activity-page.db")
 	if err != nil {
 		t.Fatal(err)
@@ -322,6 +327,7 @@ func TestActivityPageComposesFiltersAndKeysetCursor(t *testing.T) {
 }
 
 func TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/backdated-quotes.db")
 	if err != nil {
 		t.Fatal(err)
@@ -398,6 +404,7 @@ func TestBackdatedManualQuotesClampHistoryAndKeepFXProvenance(t *testing.T) {
 }
 
 func TestArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/archive-intervals.db")
 	if err != nil {
 		t.Fatal(err)
@@ -514,6 +521,7 @@ func TestArchiveIntervalsRebuildAndRetainActiveHoldings(t *testing.T) {
 }
 
 func TestSnapshotHashIncludesFXPreferenceEvidence(t *testing.T) {
+	t.Parallel()
 	amount, err := domain.ParseMoney("10", "CNY")
 	if err != nil {
 		t.Fatal(err)

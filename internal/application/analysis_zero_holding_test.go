@@ -8,6 +8,7 @@ import (
 )
 
 func TestAnalysisZeroHoldingDaysBeforePurchase(t *testing.T) {
+	t.Parallel()
 	input, account, _, _ := reviewTradeScenario(t)
 	// The manual product and its first quote only exist on the purchase day.
 	input.Activities[0].EffectiveAt = input.Activities[0].EffectiveAt.AddDate(0, 0, 2)
@@ -49,6 +50,7 @@ func TestAnalysisZeroHoldingDaysBeforePurchase(t *testing.T) {
 }
 
 func TestAnalysisZeroHoldingDoesNotHideMissingValuationsOrTrading(t *testing.T) {
+	t.Parallel()
 	for _, scenario := range []string{"missing-opening-value", "incomplete-closing-item", "nonzero-opening", "same-day-trading"} {
 		t.Run(scenario, func(t *testing.T) {
 			input, account, instrument, holdingID := reviewTradeScenario(t)

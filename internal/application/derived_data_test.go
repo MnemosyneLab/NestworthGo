@@ -10,6 +10,7 @@ import (
 )
 
 func TestFullRebuildReplacesCorruptDerivedResultsAndPreservesFacts(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db, err := sqlite.Open(t.TempDir() + "/rebuild.db")
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 )
 
 func TestRecordChangeWithMutationReplaysSamePayloadAndConflictsOnMismatch(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/mutation.db")
 	if err != nil {
 		t.Fatal(err)
@@ -78,6 +79,7 @@ func TestRecordChangeWithMutationReplaysSamePayloadAndConflictsOnMismatch(t *tes
 }
 
 func TestFixChangeWithMutationStoresKeyOnReplacement(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/fix-mutation.db")
 	if err != nil {
 		t.Fatal(err)
@@ -139,6 +141,7 @@ func TestFixChangeWithMutationStoresKeyOnReplacement(t *testing.T) {
 }
 
 func TestParseActivityMutationRejectsInvalidHash(t *testing.T) {
+	t.Parallel()
 	_, err := parseActivityMutation(domain.NewMutationID().String(), "not-a-hash")
 	if err == nil {
 		t.Fatal("expected invalid payload hash to fail")

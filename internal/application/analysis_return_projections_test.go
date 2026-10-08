@@ -11,6 +11,7 @@ import (
 )
 
 func TestReturnCalendarProjectsCompositionCoverageAndIssues(t *testing.T) {
+	t.Parallel()
 	account := domain.NewAccountID()
 	component := domain.ComponentID{AccountID: account, InstrumentID: func() *domain.InstrumentID { id := domain.NewInstrumentID(); return &id }(), Currency: "USD", AssetClass: "equity"}
 	price := domain.ReturnPriceChange
@@ -37,6 +38,7 @@ func TestReturnCalendarProjectsCompositionCoverageAndIssues(t *testing.T) {
 }
 
 func TestReturnCalendarUsesDailyCoverageNotPeriodCoverage(t *testing.T) {
+	t.Parallel()
 	amount := testReturnMoney(t, "5")
 	rate := decimal.NewFromInt(5).Div(decimal.NewFromInt(100))
 	result := domain.PeriodAnalysisResult{
@@ -72,6 +74,7 @@ func TestReturnCalendarUsesDailyCoverageNotPeriodCoverage(t *testing.T) {
 }
 
 func TestReturnCalendarCursorFiltersCellsButKeepsPeriodSummary(t *testing.T) {
+	t.Parallel()
 	amount := testReturnMoney(t, "5")
 	result := domain.PeriodAnalysisResult{
 		Query: testReturnQuery("2026-07-31", "2026-08-01"),
@@ -98,6 +101,7 @@ func TestReturnCalendarCursorFiltersCellsButKeepsPeriodSummary(t *testing.T) {
 }
 
 func TestReturnTrendKeepsDailyRatesAndGeometricPeriodRate(t *testing.T) {
+	t.Parallel()
 	amount1, amount2 := testReturnMoney(t, "10"), testReturnMoney(t, "24")
 	rate1, rate2 := decimal.NewFromInt(1).Div(decimal.NewFromInt(10)), decimal.NewFromInt(2).Div(decimal.NewFromInt(10))
 	result := domain.PeriodAnalysisResult{DailyReturns: []domain.DailyReturn{{Date: "2026-08-01", Amount: &amount1, Rate: &rate1, Status: domain.CompletenessOK}, {Date: "2026-08-02", Amount: &amount2, Rate: &rate2, Status: domain.CompletenessOK}}, ReturnAmount: func() *domain.SignedMoney { money := testReturnMoney(t, "34"); return &money }(), ReturnRate: func() *decimal.Decimal { value := decimal.NewFromFloat(0.32); return &value }(), Coverage: domain.RateCoverage{RatedDays: 2, TotalDays: 2}}
@@ -114,6 +118,7 @@ func TestReturnTrendKeepsDailyRatesAndGeometricPeriodRate(t *testing.T) {
 }
 
 func TestReturnTrendSourcesUseReturnComponents(t *testing.T) {
+	t.Parallel()
 	instrumentID := domain.NewInstrumentID()
 	day := returnProjectionDay(t, instrumentID, "100", "10")
 	dividend := testReturnMoney(t, "2")
@@ -142,6 +147,7 @@ func TestReturnTrendSourcesUseReturnComponents(t *testing.T) {
 }
 
 func TestReturnCalendarDoesNotTurnACompleteNoCapitalDayIntoAnIssue(t *testing.T) {
+	t.Parallel()
 	zero := testReturnMoney(t, "0")
 	result := domain.PeriodAnalysisResult{
 		Query:           testReturnQuery("2026-08-01", "2026-08-01"),
@@ -160,6 +166,7 @@ func TestReturnCalendarDoesNotTurnACompleteNoCapitalDayIntoAnIssue(t *testing.T)
 }
 
 func TestReturnCalendarAmountStatusFollowsKnownDailyAmounts(t *testing.T) {
+	t.Parallel()
 	amount := testReturnMoney(t, "0")
 	result := domain.PeriodAnalysisResult{
 		Query:        testReturnQuery("2026-08-01", "2026-08-02"),
@@ -186,6 +193,7 @@ func TestReturnCalendarAmountStatusFollowsKnownDailyAmounts(t *testing.T) {
 }
 
 func TestReturnTrendDisplayProjectsCumulativeAmount(t *testing.T) {
+	t.Parallel()
 	first, second := testReturnMoney(t, "10"), testReturnMoney(t, "-3")
 	result := domain.PeriodAnalysisResult{
 		DailyReturns: []domain.DailyReturn{{Date: "2026-08-01", Amount: &first, Status: domain.CompletenessOK}, {Date: "2026-08-02", Amount: &second, Status: domain.CompletenessOK}},
@@ -201,6 +209,7 @@ func TestReturnTrendDisplayProjectsCumulativeAmount(t *testing.T) {
 }
 
 func TestContributionTotalReturnUsesFoldAndRateSortFallsBackForDividend(t *testing.T) {
+	t.Parallel()
 	firstID, secondID := domain.NewInstrumentID(), domain.NewInstrumentID()
 	first := returnProjectionDay(t, firstID, "100", "10")
 	second := returnProjectionDay(t, secondID, "200", "-5")
@@ -225,6 +234,7 @@ func TestContributionTotalReturnUsesFoldAndRateSortFallsBackForDividend(t *testi
 }
 
 func TestContributionSortingHandlesUnavailableAmounts(t *testing.T) {
+	t.Parallel()
 	rows := []ContributionRow{{Key: "missing", Label: "missing"}, {Key: "positive", Label: "positive", Amount: signedPointer(decimal.NewFromInt(10), "USD")}}
 	sortContributionRows(rows, ContributionSortAmountDesc, true)
 	if rows[0].Key != "positive" || rows[1].Key != "missing" {
@@ -237,6 +247,7 @@ func TestContributionSortingHandlesUnavailableAmounts(t *testing.T) {
 }
 
 func TestReturnContributorsKeepLargestGainsAndLossesWithoutTruncation(t *testing.T) {
+	t.Parallel()
 	amounts := []string{"259.851", "76.2728", "7.279", "3.9335", "-0.651", "-92.2521", "-328.5725"}
 	byKey := make(map[string]decimal.Decimal, len(amounts))
 	days := make([]domain.ComponentDay, 0, len(amounts))
@@ -266,6 +277,7 @@ func TestReturnContributorsKeepLargestGainsAndLossesWithoutTruncation(t *testing
 }
 
 func TestContributionItemTotalReturnCompositionUsesReturnComponents(t *testing.T) {
+	t.Parallel()
 	instrumentID := domain.NewInstrumentID()
 	holdingA, holdingB := domain.NewHoldingID(), domain.NewHoldingID()
 	first := returnProjectionDay(t, instrumentID, "100", "10")
@@ -313,6 +325,7 @@ func TestContributionItemTotalReturnCompositionUsesReturnComponents(t *testing.T
 }
 
 func TestContributionItemReturnsNotFoundForUnknownGroup(t *testing.T) {
+	t.Parallel()
 	input, query := analysisSizedInputs(1, "2025-12-01", "2025-12-02")
 	repository := &projectionRepository{portfolio: input.Portfolio, snapshots: input.Snapshots}
 	service := &Service{analysis: NewAnalysisService(repository, func() time.Time { return time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC) })}
@@ -324,6 +337,7 @@ func TestContributionItemReturnsNotFoundForUnknownGroup(t *testing.T) {
 }
 
 func TestFoldReturnGroupsLinksRatesInDateOrder(t *testing.T) {
+	t.Parallel()
 	instrumentID := domain.NewInstrumentID()
 	first := returnProjectionDay(t, instrumentID, "100", "10")
 	second := returnProjectionDay(t, instrumentID, "100", "20")
@@ -341,6 +355,7 @@ func TestFoldReturnGroupsLinksRatesInDateOrder(t *testing.T) {
 }
 
 func TestContributionUnrealizedIsUnavailableWithoutCostBasis(t *testing.T) {
+	t.Parallel()
 	availability := unavailableReturn("unrealized range-end cost basis is not available from the analysis result")
 	if availability.Available || availability.Status != domain.CompletenessUnavailable || availability.MissingReason == "" {
 		t.Fatalf("availability = %+v", availability)
@@ -348,6 +363,7 @@ func TestContributionUnrealizedIsUnavailableWithoutCostBasis(t *testing.T) {
 }
 
 func TestContributionIndependentViewsDoNotRequireReturnEngine(t *testing.T) {
+	t.Parallel()
 	query := testReturnQuery("2026-08-01", "2026-08-02")
 	service := &Service{}
 
@@ -369,6 +385,7 @@ func TestContributionIndependentViewsDoNotRequireReturnEngine(t *testing.T) {
 }
 
 func TestReturnProjectionCarriesForcedBaseForCase43(t *testing.T) {
+	t.Parallel()
 	amount := testReturnMoney(t, "7")
 	result := domain.PeriodAnalysisResult{DailyReturns: []domain.DailyReturn{{Date: "2026-08-01", Amount: &amount, Status: domain.CompletenessOK}}, ReturnAmount: &amount, Coverage: domain.RateCoverage{RatedDays: 1, TotalDays: 1}}
 	calendar, err := projectReturnCalendar(result, "base", "")
@@ -381,6 +398,7 @@ func TestReturnProjectionCarriesForcedBaseForCase43(t *testing.T) {
 }
 
 func TestReturnCalendarCase43UsesValuationFallback(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	usd := domain.Account{ID: domain.AccountID("00000000-0000-0000-0000-000000000002"), HouseholdID: householdID, Name: "USD investments", AccountType: domain.TypeBrokerage, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingHoldings, DefaultCurrency: "USD", IncludeInNetWorth: true}
 	cny := domain.Account{ID: domain.AccountID("00000000-0000-0000-0000-000000000001"), HouseholdID: householdID, Name: "CNY", AccountType: domain.TypeBankAccount, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingBalance, DefaultCurrency: "CNY", IncludeInNetWorth: true}
@@ -510,6 +528,7 @@ func BenchmarkAnalysisServiceComputeUpperBound(b *testing.B) {
 }
 
 func TestReturnSummaryOmitsIncompleteEndingInvestment(t *testing.T) {
+	t.Parallel()
 	instrumentID := domain.NewInstrumentID()
 	component := domain.ComponentID{AccountID: domain.NewAccountID(), InstrumentID: &instrumentID, Currency: "USD"}
 	known := domain.ComponentDay{Date: "2026-09-19", Component: component, EndingValue: testReturnMoney(t, "33711.56"), Status: domain.CompletenessOK}

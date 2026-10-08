@@ -12,6 +12,7 @@ import (
 )
 
 func TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/starting-point-cost.db")
 	if err != nil {
 		t.Fatal(err)
@@ -75,6 +76,7 @@ func TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost(t *testing.T
 }
 
 func TestCreateHoldingWithAdvancingClockPersistsOneAdjustment(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		unitCost string
@@ -159,6 +161,7 @@ func TestCreateHoldingWithAdvancingClockPersistsOneAdjustment(t *testing.T) {
 }
 
 func TestCreateHoldingCostOverridePersistsAlreadyExistedAdjustment(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/already-existed-cost.db")
 	if err != nil {
 		t.Fatal(err)

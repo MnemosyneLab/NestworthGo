@@ -73,6 +73,7 @@ func (p *statusProvider) LocalConfigStatus(context.Context) (string, string) {
 }
 
 func TestScanMarketDataHealthPerformsNoProviderNetwork(t *testing.T) {
+	t.Parallel()
 	tiingoInner := &syncFakeProvider{key: TiingoProviderKey}
 	yahooInner := &syncFakeProvider{key: YahooFinanceProviderKey}
 	tiingo := &statusProvider{countingProvider: &countingProvider{inner: tiingoInner}, code: ProviderConfigOK, reason: ""}
@@ -103,6 +104,7 @@ func TestScanMarketDataHealthPerformsNoProviderNetwork(t *testing.T) {
 }
 
 func TestScanMarketDataHealthSeparatesPrerequisitesFromExecutableRepairs(t *testing.T) {
+	t.Parallel()
 	tiingoInner := &syncFakeProvider{key: TiingoProviderKey}
 	yahooInner := &syncFakeProvider{key: YahooFinanceProviderKey}
 	tiingo := &statusProvider{countingProvider: &countingProvider{inner: tiingoInner}, code: ProviderConfigMissingKey, reason: "missing"}
@@ -154,6 +156,7 @@ func TestScanMarketDataHealthSeparatesPrerequisitesFromExecutableRepairs(t *test
 }
 
 func TestScanMarketDataHealthVerifiesRepairClearsExecutableGaps(t *testing.T) {
+	t.Parallel()
 	tiingoInner := &syncFakeProvider{key: TiingoProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
 		out := mappedTiingoClose("2026-09-04", "185.25")
 		out.Batch.VerifiedRanges = []DateRange{rng}
@@ -237,6 +240,7 @@ func hasIssueForInstrument(report MarketDataHealthReport, instrumentID, kind str
 }
 
 func TestClassifyInstrumentHealthYahooIsAutoRepairable(t *testing.T) {
+	t.Parallel()
 	need := InstrumentRepairNeed{
 		InstrumentID:   domain.InstrumentID("00000000-0000-0000-0000-000000000001"),
 		InstrumentType: "stock",
@@ -256,6 +260,7 @@ func TestClassifyInstrumentHealthYahooIsAutoRepairable(t *testing.T) {
 }
 
 func TestClassifyInstrumentHealthReportsUnsupportedTypePrecisely(t *testing.T) {
+	t.Parallel()
 	need := InstrumentRepairNeed{
 		InstrumentID:   domain.InstrumentID("00000000-0000-0000-0000-000000000004"),
 		InstrumentType: "precious_metal",
@@ -276,6 +281,7 @@ func TestClassifyInstrumentHealthReportsUnsupportedTypePrecisely(t *testing.T) {
 }
 
 func TestClassifyInstrumentHealthBindingOpensEditor(t *testing.T) {
+	t.Parallel()
 	need := InstrumentRepairNeed{
 		InstrumentID: domain.InstrumentID("00000000-0000-0000-0000-000000000002"),
 		ProviderKey:  TiingoProviderKey,
@@ -289,6 +295,7 @@ func TestClassifyInstrumentHealthBindingOpensEditor(t *testing.T) {
 }
 
 func TestClassifyInstrumentHealthReportsExhaustedOpeningAnchorForManualEntry(t *testing.T) {
+	t.Parallel()
 	need := InstrumentRepairNeed{
 		InstrumentID:           domain.InstrumentID("00000000-0000-0000-0000-000000000003"),
 		ProviderKey:            TiingoProviderKey,
@@ -304,6 +311,7 @@ func TestClassifyInstrumentHealthReportsExhaustedOpeningAnchorForManualEntry(t *
 }
 
 func TestScanMarketDataHealthReportsTypeAndMarketCoveragePrecisely(t *testing.T) {
+	t.Parallel()
 	tiingoInner := &syncFakeProvider{key: TiingoProviderKey}
 	yahooInner := &syncFakeProvider{key: YahooFinanceProviderKey}
 	tiingo := &statusProvider{countingProvider: &countingProvider{inner: tiingoInner}, code: ProviderConfigOK, reason: ""}
@@ -356,6 +364,7 @@ func TestScanMarketDataHealthReportsTypeAndMarketCoveragePrecisely(t *testing.T)
 }
 
 func TestScanMarketDataHealthVerifiesYahooCryptoRepairClearsGap(t *testing.T) {
+	t.Parallel()
 	tiingoInner := &syncFakeProvider{key: TiingoProviderKey, history: func(_ context.Context, identity InstrumentMarketIdentity, rng DateRange, _ int) (MappingOutcome[InstrumentDailyObservation], error) {
 		out := mappedTiingoClose("2026-09-04", "185.25")
 		out.Batch.VerifiedRanges = []DateRange{rng}
@@ -422,6 +431,7 @@ func addSyncHoldings(t *testing.T, service *Service, instruments ...domain.Instr
 }
 
 func TestAccountValueHealthBeforeHistoryIsActionableAndFreshnessDoesNotExpireMoney(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "account-health", nil)
 	missing, err := service.CreateAccount(ctx, AccountInput{Name: "Unvalued home", InitialAmount: "0", AccountType: "property", TrackingMode: "manual_value", BalanceSheetRole: "asset", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {

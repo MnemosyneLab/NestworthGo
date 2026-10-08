@@ -10,6 +10,7 @@ import (
 )
 
 func TestCostReconciliationPreservesCashQuantityAndChangesLaterGain(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	imported := ledgerPreview(t, c, map[string]any{"kind": "position_import", "accountId": fx.brokerage, "instrumentId": fx.instrument, "quantity": "10", "unitCost": "25", "currency": "USD", "effectiveAt": "2026-09-20T12:00:00Z"})
@@ -66,6 +67,7 @@ func TestCostReconciliationPreservesCashQuantityAndChangesLaterGain(t *testing.T
 }
 
 func TestCostReconciliationCombinedTargetAndCurrencyValidation(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	imported := ledgerPreview(t, c, map[string]any{"kind": "position_import", "accountId": fx.brokerage, "instrumentId": fx.instrument, "quantity": "10", "unitCost": "25", "currency": "USD", "effectiveAt": "2026-09-20T12:00:00Z"})

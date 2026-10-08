@@ -12,6 +12,7 @@ import (
 )
 
 func TestGuardedChangeBatchReplaysHistoricalTimelineAndReceipt(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "batch.db")
 	db, err := sqlite.Open(path)
@@ -93,6 +94,7 @@ func TestGuardedChangeBatchReplaysHistoricalTimelineAndReceipt(t *testing.T) {
 }
 
 func TestGuardedChangeBatchRollsBackAllFacts(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db, err := sqlite.Open(filepath.Join(t.TempDir(), "rollback.db"))
 	if err != nil {
@@ -172,6 +174,7 @@ func TestGuardedChangeBatchRollsBackAllFacts(t *testing.T) {
 }
 
 func TestChangeBatchSameTimeOrderSurvivesFollowingSingleChange(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "same-time.db")
 	db, err := sqlite.Open(path)

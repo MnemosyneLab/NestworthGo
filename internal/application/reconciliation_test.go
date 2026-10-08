@@ -12,6 +12,7 @@ import (
 )
 
 func TestReconciliationBuildsAndCommitsCurrentTargetsWithoutCashTrade(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db, err := sqlite.Open(filepath.Join(t.TempDir(), "reconciliation.db"))
 	if err != nil {
@@ -97,6 +98,7 @@ func TestReconciliationBuildsAndCommitsCurrentTargetsWithoutCashTrade(t *testing
 }
 
 func TestReconciliationRejectsMissingCostAndDuplicateTargets(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db, err := sqlite.Open(filepath.Join(t.TempDir(), "reconciliation-errors.db"))
 	if err != nil {

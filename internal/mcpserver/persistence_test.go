@@ -11,6 +11,7 @@ import (
 )
 
 func TestSQLitePlanDoesNotCollideWithOperationReceipt(t *testing.T) {
+	t.Parallel()
 	db, err := sqlite.Open(filepath.Join(t.TempDir(), "plans.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -51,6 +52,7 @@ func TestSQLitePlanDoesNotCollideWithOperationReceipt(t *testing.T) {
 }
 
 func TestSQLiteMigratesConnectionAndReceipts(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	legacy := filepath.Join(dir, "agent")
 	db, err := sqlite.Open(filepath.Join(dir, "data.db"))

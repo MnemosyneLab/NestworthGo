@@ -20,6 +20,7 @@ func (r dependentCostTimeline) ListActivitiesUntil(context.Context, domain.House
 }
 
 func TestUndoRejectsLaterCostCorrectionForSameHolding(t *testing.T) {
+	t.Parallel()
 	holdingID := domain.NewHoldingID()
 	original := domain.Activity{ID: domain.NewActivityID()}
 	correction := domain.Activity{ID: domain.NewActivityID(), Effects: []domain.ActivityEffect{{Target: domain.EffectTargetHoldingCost, HoldingID: &holdingID}}}
@@ -31,6 +32,7 @@ func TestUndoRejectsLaterCostCorrectionForSameHolding(t *testing.T) {
 }
 
 func TestUndoRejectsLaterHoldingTradesThatWouldLoseTheirCostBasis(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db, err := sqlite.Open(filepath.Join(t.TempDir(), "undo-dependent-cost.db"))
 	if err != nil {

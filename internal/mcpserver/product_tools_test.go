@@ -60,6 +60,7 @@ func productJSONEqual(t *testing.T, actual, expected any) {
 }
 
 func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		t.Run(mode, func(t *testing.T) {
@@ -112,6 +113,7 @@ func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 }
 
 func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	gui := liquidity.NewService(fx.app)
 	// All mutations below are the established GUI path, never an MCP fallback.
@@ -212,6 +214,7 @@ func TestProductHTTPGUIReadLifecycleAndAccounting(t *testing.T) {
 }
 
 func TestProductHTTPReservesUnknownFXAndReadPurity(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	gui := liquidity.NewService(fx.app)
 	if _, err := history.NewService(fx.app).RecordChange(t.Context(), history.ChangeCommandRequest{Kind: history.ChangeMoneyAdded, AccountID: fx.brokerage, Amount: "500", Currency: "USD", Reason: "income", EffectiveAt: "2026-09-29T12:00:00Z"}); err != nil {
@@ -289,6 +292,7 @@ func TestProductHTTPReservesUnknownFXAndReadPurity(t *testing.T) {
 }
 
 func TestProductHTTPStrictInputsAndPrivateErrors(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	if _, err := fx.service.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
@@ -333,6 +337,7 @@ func TestProductHTTPStrictInputsAndPrivateErrors(t *testing.T) {
 // repaired. Real snapshot repairs fence pending ledger previews; warm reads do
 // not. Exercise the combined main coordinator and product tools over HTTP.
 func TestProductHTTPReadsAndLegacySnapshotPreviewCoordination(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	opened := guiProductPost(t, fx, liquidity.ProductCommandRequest{Kind: "record_existing", RecordExisting: &application.RecordExistingProductCommand{
 		AccountID: fx.brokerage, Currency: "USD", Principal: "1000", TotalCostBasis: "1000", CurrentValue: "1000", CashExcludesProduct: true,
@@ -419,6 +424,7 @@ func productHTTP(t *testing.T, service *Service, payload any, protocol string) (
 }
 
 func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	if _, err := fx.service.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
@@ -482,6 +488,7 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 }
 
 func TestProductHTTPLongHistoryDefaultAndMaximumPages(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	gui := liquidity.NewService(fx.app)
 	receipt := guiProductPost(t, fx, liquidity.ProductCommandRequest{Kind: "record_existing", RecordExisting: &application.RecordExistingProductCommand{

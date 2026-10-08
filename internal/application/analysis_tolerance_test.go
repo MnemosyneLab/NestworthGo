@@ -8,6 +8,7 @@ import (
 )
 
 func TestResidualToleranceExactConstantMatchesPreviousCalculation(t *testing.T) {
+	t.Parallel()
 	for _, currency := range []domain.CurrencyCode{"USD", "JPY", "KRW", "XYZ"} {
 		for _, amount := range []string{"0", "100", "-100", "19999999.9999", "20000000", "20000000.0001", "2000000000", "-999999999999.9999"} {
 			beginning := decimal.RequireFromString(amount)

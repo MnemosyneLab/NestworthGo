@@ -46,6 +46,7 @@ func correctionCommit(t *testing.T, c *mcp.ClientSession, operationID, planID st
 }
 
 func TestCorrectionToolsRequireLedgerWrite(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
@@ -67,6 +68,7 @@ func TestCorrectionToolsRequireLedgerWrite(t *testing.T) {
 }
 
 func TestMCPHistoricalFixKeepsDateReplaysLaterBalanceAndRecoversReceipt(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	original := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "100", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"})
@@ -152,6 +154,7 @@ func TestMCPHistoricalFixKeepsDateReplaysLaterBalanceAndRecoversReceipt(t *testi
 }
 
 func TestMCPUndoFreezesPreviewTimeAndPreservesOriginal(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return now })
 	c := ledgerSession(t, fx)
@@ -195,6 +198,7 @@ func TestMCPUndoFreezesPreviewTimeAndPreservesOriginal(t *testing.T) {
 }
 
 func TestMCPCorrectionRejectsInvalidAndStalePlans(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	original := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "100", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"})
@@ -226,6 +230,7 @@ func TestMCPCorrectionRejectsInvalidAndStalePlans(t *testing.T) {
 }
 
 func TestMCPCorrectionRecoversAfterCommittedWriteButFailedSnapshotRebuild(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	database, err := sqlite.Open(filepath.Join(t.TempDir(), "correction.db"))
 	if err != nil {
