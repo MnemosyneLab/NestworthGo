@@ -199,3 +199,12 @@ Run the complete applicable repository gates: Go tests, race, vet, build,
 gofmt, generated binding checks, frontend build/lint/typecheck/tests, skill and
 installer checks, and diffcheck. Verify the remote PR SHA and CI after push.
 Do not merge, publish, connect real financial data or enable R2 as validation.
+
+Lifecycle undo preserves both physical attribution and investment performance:
+reversed product interest is dividend/interest rather than external capital,
+and reversed product fees compensate the original investment fee. The HTTP
+regression compares no-interest versus interest-then-undo households/accounts
+with cash included, nonzero stock gains, exact weighted capital and linked rate.
+Guarded opening/existing-position undo blocked by active reservations returns
+unresolved_reservation_release with GUI handling; ordinary GUI safety errors
+retain their existing contract.

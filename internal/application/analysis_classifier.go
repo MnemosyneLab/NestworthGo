@@ -156,6 +156,13 @@ func (u analysisUniverse) isCarryingValueRemoval(activity domain.Activity, effec
 	return !corporateActionRestatement(component, effects, q0, qc, openQuote.UnitPrice.Decimal(), closeQuote.UnitPrice.Decimal())
 }
 
+func isProductInterestEffect(activity domain.Activity, effect domain.ActivityEffect) bool {
+	if activity.ProductContext == nil {
+		return false
+	}
+	return activity.ProductContext.Purpose == domain.ProductPurposeInterest || activity.ProductContext.Purpose == domain.ProductPurposeReversal && effect.Money != nil && effect.Role == domain.EffectRoleAmount && (effect.Classification == domain.ClassificationIncome || effect.Classification == domain.ClassificationExternalInflow)
+}
+
 func (u analysisUniverse) returnAssociation(activity domain.Activity, effect domain.ActivityEffect, component domain.ComponentID) (*domain.ReturnComponent, *domain.HoldingID, *domain.InstrumentID, bool) {
 	if activity.ProductContext != nil {
 		purpose := activity.ProductContext.Purpose
@@ -163,8 +170,7 @@ func (u analysisUniverse) returnAssociation(activity domain.Activity, effect dom
 		// ledger. Their inverse retains that classification. Restrict this
 		// association to the cash amount, so an existing-position quantity
 		// reversal cannot be mistaken for received interest.
-		reversedInterest := purpose == domain.ProductPurposeReversal && effect.Money != nil && effect.Role == domain.EffectRoleAmount && (effect.Classification == domain.ClassificationIncome || effect.Classification == domain.ClassificationExternalInflow)
-		if purpose == domain.ProductPurposeInterest || reversedInterest {
+		if isProductInterestEffect(activity, effect) {
 			holding := activity.ProductContext.HoldingID
 			instrument := activity.ProductContext.InstrumentID
 			returnComponent := domain.ReturnDividendInterest
@@ -290,9 +296,9 @@ func (u analysisUniverse) potentialDietzCapitalAmount(activity domain.Activity, 
 	if !known || !u.potentialInvestmentComponent(component) {
 		return decimal.Zero, false
 	}
-	if returnComponent, _, _, associated := u.returnAssociation(activity, effect, component); associated && returnComponent != nil && *returnComponent == domain.ReturnInvestmentFee {
-		// An associated commission/tax is investment performance, not new
-		// capital. An unassociated fee remains a negative Dietz flow below.
+	if returnComponent, _, _, associated := u.returnAssociation(activity, effect, component); associated && returnComponent != nil && (*returnComponent == domain.ReturnInvestmentFee || *returnComponent == domain.ReturnDividendInterest) {
+		// Associated interest (including its inverse) and commission/tax are
+		// performance, not new capital. An unassociated fee remains a flow.
 		return decimal.Zero, false
 	}
 	if activity.Kind == domain.ActivityCashDividend || activity.Kind == domain.ActivityValueUpdate {
@@ -343,6 +349,10 @@ func assetBucketFor(activity domain.Activity, effect domain.ActivityEffect, comp
 		return nil
 	}
 	// Semantic reasons take precedence over funding/principal labels.
+	if isProductInterestEffect(activity, effect) {
+		bucket := domain.BucketDividendInterest
+		return &bucket
+	}
 	if activity.Kind == domain.ActivityCashDividend {
 		bucket := domain.BucketDividendInterest
 		return &bucket

@@ -789,7 +789,7 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 			Purpose: domain.ProductPurposeReversal, ProductID: link.ProductID,
 		})
 	}
-	restored, err := s.contractsAfterUndo(ctx, origin.HouseholdID, stored, operationID, now)
+	restored, err := s.contractsAfterUndo(ctx, origin.HouseholdID, stored, operationID, now, reviewedAt != "")
 	if err != nil {
 		return productPlan{}, err
 	}
@@ -832,7 +832,7 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	}, nil
 }
 
-func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.HouseholdID, stored productReceiptEvidence, operationID domain.ProductOperationID, now time.Time) ([]domain.ProductContract, error) {
+func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.HouseholdID, stored productReceiptEvidence, operationID domain.ProductOperationID, now time.Time, guarded bool) ([]domain.ProductContract, error) {
 	beforeByID := map[domain.ProductContractID]domain.ProductContract{}
 	for _, contract := range stored.BeforeContracts {
 		beforeByID[contract.ID] = contract
@@ -867,7 +867,7 @@ func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.Hou
 		if err != nil {
 			return nil, err
 		}
-		if err := s.rejectActiveReservations(ctx, householdID, current); err != nil {
+		if err := s.rejectActiveReservations(ctx, householdID, current, guarded); err != nil {
 			return nil, err
 		}
 		next := current
@@ -885,7 +885,7 @@ func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.Hou
 	return restored, nil
 }
 
-func (s *Service) rejectActiveReservations(ctx context.Context, householdID domain.HouseholdID, contract domain.ProductContract) error {
+func (s *Service) rejectActiveReservations(ctx context.Context, householdID domain.HouseholdID, contract domain.ProductContract, guarded bool) error {
 	reservations, err := s.repository.ListLiquidityReservations(ctx, householdID, false)
 	if err != nil {
 		return err
@@ -893,6 +893,9 @@ func (s *Service) rejectActiveReservations(ctx context.Context, householdID doma
 	sourceKey := domain.HoldingSourceRef(contract.AccountID, contract.HoldingID).Key()
 	for _, reservation := range reservations {
 		if reservation.Source.Key() == sourceKey && reservation.Active() {
+			if guarded {
+				return productReservationGUIError()
+			}
 			return &domain.Error{Code: domain.ErrUnsafeUndo, Field: "reservationId", Message: "release active reservations before undoing the opening"}
 		}
 	}
