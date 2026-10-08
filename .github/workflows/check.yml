@@ -66,8 +66,18 @@ jobs:
       - name: Trailing whitespace
         run: git diff --check
 
-  race:
+  # Application and MCP tests call t.Parallel and are bounded with -parallel 4.
+  # Four tests stay sequential: three share process-global product fault
+  # injection, and TestAnalysisPerformanceBudgets asserts wall-clock budgets.
+  # Shards run on separate runners. Within a shard, packages stay at -p 1 so
+  # they do not compete, and every test still uses the default 10m package timeout.
+  race-shard:
+    name: race (${{ matrix.shard }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [application, mcpserver, infrastructure, remainder]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -79,7 +89,46 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
       - name: Go tests with race detector
-        # Application and MCP both exercise large synthetic SQLite histories.
-        # Run packages serially so instrumentation does not make them compete
-        # for the runner; retain every test and the default per-package timeout.
-        run: go test -race -p 1 ./...
+        run: |
+          set -euo pipefail
+          parallel=()
+          case "${{ matrix.shard }}" in
+            application)
+              pkgs=(./internal/application)
+              parallel=(-parallel 4)
+              ;;
+            mcpserver)
+              pkgs=(./internal/mcpserver)
+              parallel=(-parallel 4)
+              ;;
+            infrastructure)
+              pkgs=(./internal/infrastructure/...)
+              ;;
+            remainder)
+              mapfile -t pkgs < <(go list ./... | grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure($|/))')
+              ;;
+            *)
+              echo "unknown race shard: ${{ matrix.shard }}" >&2
+              exit 1
+              ;;
+          esac
+          if [ "${#pkgs[@]}" -eq 0 ]; then
+            echo "race shard selected no packages" >&2
+            exit 1
+          fi
+          printf 'shard %s packages:\n' "${{ matrix.shard }}"
+          printf '  %s\n' "${pkgs[@]}"
+          go test -race -p 1 "${parallel[@]}" "${pkgs[@]}"
+
+  race:
+    needs: race-shard
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Require every race shard
+        run: |
+          if [ "${{ needs.race-shard.result }}" != "success" ]; then
+            echo "race shards result: ${{ needs.race-shard.result }}"
+            exit 1
+          fi
+          echo "all race shards passed"
