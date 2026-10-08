@@ -219,7 +219,15 @@ func (s *Service) historicalOverviewSide(ctx context.Context, batch *domain.Hist
 			return HistoricalOverviewState{}, nil, err
 		}
 	}
+	return s.historicalOverviewPortfolio(ctx, batch, portfolio, date, cutoff, current, fxProvider, ttl)
+}
+
+// Both views use the same valuation and aggregate rules. The context caller
+// projects accounts only after complete replay; source evidence for current
+// state comes from the actual current observations, never replay baselines.
+func (s *Service) historicalOverviewPortfolio(ctx context.Context, batch *domain.HistoricalSnapshotBatch, portfolio domain.PortfolioSnapshot, date string, cutoff time.Time, current bool, fxProvider string, ttl time.Duration) (HistoricalOverviewState, []HistoricalOverviewRow, error) {
 	valuation := NewValuationService(s.repository, func() time.Time { return cutoff })
+	valuation.readContext = ctx
 	valuation.SetFXProviderKey(func() string { return fxProvider })
 	valuation.SetQuoteCacheTTL(func() time.Duration { return ttl })
 	valuation.SetHistorical(!current)
@@ -257,6 +265,9 @@ func (s *Service) historicalOverviewSide(ctx context.Context, batch *domain.Hist
 	classes, currencies := map[string]decimal.Decimal{}, map[string]decimal.Decimal{}
 	rows := []HistoricalOverviewRow{}
 	for _, valuedAccount := range valued {
+		if err := ctx.Err(); err != nil {
+			return HistoricalOverviewState{}, nil, err
+		}
 		account := valuedAccount.model
 		record := accounts[account.Account.ID]
 		a := record.Account
@@ -289,7 +300,7 @@ func (s *Service) historicalOverviewSide(ctx context.Context, batch *domain.Hist
 				}
 				if holding.Quantity.IsZero() {
 					cell.Status = "zero"
-					if historicalHoldingWasFunded(batch, holding.ID, cutoff) {
+					if batch != nil && historicalHoldingWasFunded(batch, holding.ID, cutoff) {
 						cell.Status = "cleared"
 					}
 				}
@@ -321,7 +332,11 @@ func (s *Service) historicalOverviewSide(ctx context.Context, batch *domain.Hist
 			cell.FX = historicalFXEvidence(component.FXEvidence, portfolio.FXQuotes, cutoff, !current, ttl)
 			cell.Manual = a.TrackingMode == domain.TrackingManualValue || (cell.Price != nil && cell.Price.Source == "manual")
 			if kind == "balance" || kind == "cash" {
-				cell.ValueSourceAt, cell.ValueSourceID = historicalBalanceSource(batch, a.ID, cell.Currency, kind == "cash", cutoff)
+				if current {
+					cell.ValueSourceAt, cell.ValueSourceID = currentBalanceSource(portfolio, a.ID, cell.Currency, kind == "cash")
+				} else {
+					cell.ValueSourceAt, cell.ValueSourceID = historicalBalanceSource(batch, a.ID, cell.Currency, kind == "cash", cutoff)
+				}
 			}
 			rows = append(rows, HistoricalOverviewRow{Key: key, ParentKey: parentKey, Kind: kind, Name: name, Role: string(a.BalanceSheetRole), Left: &cell})
 			if !componentArchived {
@@ -595,4 +610,27 @@ func historicalCellsEqual(left, right *HistoricalOverviewCell) bool {
 	a.ValueSourceAt, a.ValueSourceID, b.ValueSourceAt, b.ValueSourceID = "", "", "", ""
 	a.Price, a.FX, b.Price, b.FX = nil, nil, nil, nil
 	return reflect.DeepEqual(a, b)
+}
+
+func currentBalanceSource(portfolio domain.PortfolioSnapshot, id domain.AccountID, currency string, cash bool) (string, string) {
+	if cash {
+		values := []domain.AccountCashValue{}
+		for _, value := range portfolio.CashValues {
+			if value.AccountID == id {
+				values = append(values, value)
+			}
+		}
+		for _, value := range latestCashValues(values) {
+			if value.AccountID == id && value.Amount.Currency().String() == currency && !value.EffectiveAt.IsZero() && value.ID != "" {
+				return value.EffectiveAt.UTC().Format(time.RFC3339Nano), value.ID.String()
+			}
+		}
+	} else {
+		for _, record := range portfolio.Accounts {
+			if record.Account.ID == id && record.LatestValue != nil && !record.LatestValue.EffectiveAt.IsZero() && record.LatestValue.ID != "" {
+				return record.LatestValue.EffectiveAt.UTC().Format(time.RFC3339Nano), record.LatestValue.ID.String()
+			}
+		}
+	}
+	return "", ""
 }

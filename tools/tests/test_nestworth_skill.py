@@ -3,8 +3,10 @@ import hashlib
 import contextlib
 import importlib.util
 import io
+import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tarfile
@@ -14,6 +16,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 INSTALLER = ROOT / "tools/install-nestworth-skill.sh"
 SOURCE = ROOT / "skills/nestworth"
+SOURCE_VERSION = (SOURCE / "VERSION").read_text().strip()
 spec = importlib.util.spec_from_file_location("skill_package", ROOT / "tools/package-nestworth-skill.py")
 packager = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(packager)
@@ -62,11 +65,40 @@ class InstallerTests(unittest.TestCase):
         archive = self.archive()
         self.run_installer("--source", archive)
         self.assertEqual((self.target / "SKILL.md").read_bytes(), (SOURCE / "SKILL.md").read_bytes())
-        self.assertIn("1.0.0", self.run_installer("--status").stdout)
+        self.assertIn(SOURCE_VERSION, self.run_installer("--status").stdout)
         self.assertIn("already current", self.run_installer("--source", archive).stdout)
         self.assertEqual(self.backups(), [])
         self.assertEqual(other.read_text(), "unrelated content")
         self.assertFalse((self.skills / ".nestworth-install.lock").exists())
+
+    def test_packaged_context_examples_survive_install(self):
+        archive = self.archive()
+        with tarfile.open(archive, "r:gz") as bundle:
+            prefix = "nestworth-skill/skills/nestworth/"
+            self.assertEqual(bundle.extractfile(prefix + "VERSION").read().decode().strip(), SOURCE_VERSION)
+            analysis = bundle.extractfile(prefix + "references/analysis.md").read()
+            connection = bundle.extractfile(prefix + "references/connection.md").read()
+        examples = {name: json.loads(raw) for name, raw in re.findall(
+            r"<!-- example: ([a-z-]+) -->\s*```json\n(.*?)\n```", analysis.decode(), re.S)}
+        self.assertEqual(examples["financial-context"]["disclosure"], "minimal")
+        self.assertEqual(examples["financial-context-named"]["disclosure"], "named")
+        for section in ("positions", "gaps", "evidence"):
+            arguments = examples[f"financial-context-{section}-page"]
+            self.assertEqual(arguments["section"], section)
+            self.assertEqual(arguments["contextId"], "${contextId}")
+            self.assertEqual(arguments["cursor"], "${cursor}")
+        config_match = re.search(r"<!-- example: inspector-http-config -->\s*```json\n(.*?)\n```",
+                                 connection.decode(), re.S)
+        self.assertIsNotNone(config_match)
+        server = json.loads(config_match.group(1))["mcpServers"]["nestworth"]
+        self.assertEqual(server["type"], "http")
+        self.assertEqual(server["url"], "${endpoint}")
+        self.assertEqual(server["headers"]["Authorization"], "Bearer ${token}")
+        self.run_installer("--source", archive)
+        self.assertEqual((self.target / "references/analysis.md").read_bytes(), analysis)
+        self.assertEqual((self.target / "references/connection.md").read_bytes(),
+                         connection)
+        self.assertIn(SOURCE_VERSION, self.run_installer("--status").stdout)
 
     def test_update_backs_up_edits_and_backup_is_outside_discovery(self):
         self.run_installer()
@@ -74,12 +106,12 @@ class InstallerTests(unittest.TestCase):
         (self.target / "my notes.txt").write_text("user notes")
         updated = self.root / "updated"
         shutil.copytree(SOURCE, updated)
-        (updated / "VERSION").write_text("1.1.0\n")
+        (updated / "VERSION").write_text("99.0.0\n")  # Synthetic next version, independent of the shipped version.
         self.run_installer("--source", updated, "--dry-run")
         self.assertEqual((self.target / "SKILL.md").read_text(), "user-modified skill")
         self.assertEqual(self.backups(), [])
         self.run_installer("--source", updated)
-        self.assertEqual((self.target / "VERSION").read_text().strip(), "1.1.0")
+        self.assertEqual((self.target / "VERSION").read_text().strip(), "99.0.0")
         backups = self.backups()
         self.assertEqual(len(backups), 1)
         self.assertFalse(backups[0].is_relative_to(self.skills))
@@ -178,7 +210,7 @@ class InstallerTests(unittest.TestCase):
                 target.write_bytes(bundle.extractfile(member).read())
         script = extracted / "nestworth-skill/install.sh"
         self.run_installer(script=script)
-        self.assertEqual((self.target / "VERSION").read_text().strip(), "1.0.0")
+        self.assertEqual((self.target / "VERSION").read_text().strip(), SOURCE_VERSION)
 
     def test_release_download_selects_tag_and_checks_hash(self):
         archive = self.archive()

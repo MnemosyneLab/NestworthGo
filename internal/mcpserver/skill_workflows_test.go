@@ -7,10 +7,13 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/waltwang/nestworth-go/internal/application"
+	"github.com/waltwang/nestworth-go/internal/domain"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/wailstest"
 )
 
 // Exercise the shipped argument examples themselves, so a contract change
@@ -169,5 +172,245 @@ func TestSkillFundQuoteAnalysisAndHealthExamples(t *testing.T) {
 	call(t, c, "get_data_repair_job", map[string]any{"jobId": job["jobId"]}, false)
 	if _, err := c.ListTools(context.Background(), nil); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Follow each section's own descriptor using the portable examples, never
+// another section's reset cursor or a different package's accumulated rows.
+func skillContextDetails(t *testing.T, c *mcp.ClientSession, initial FinancialContextResponse) application.FinancialContextContent {
+	t.Helper()
+	content := initial.Content
+	for _, section := range []string{"positions", "gaps", "evidence"} {
+		info := map[string]FinancialContextPageInfo{"positions": initial.PositionsPage, "gaps": initial.GapsPage, "evidence": initial.EvidencePage}[section]
+		count := info.Returned
+		for info.HasMore {
+			previous := info.NextCursor
+			page := decodeContext(t, call(t, c, "get_financial_context_page", skillExample(t, "analysis", "financial-context-"+section+"-page", map[string]string{"contextId": initial.ContextID, "cursor": previous}), false))
+			if page.ContextID != initial.ContextID || page.ContentHash != initial.ContentHash || page.CapturedAt != initial.CapturedAt {
+				t.Fatal("mixed financial captures")
+			}
+			info = map[string]FinancialContextPageInfo{"positions": page.PositionsPage, "gaps": page.GapsPage, "evidence": page.EvidencePage}[section]
+			if info.Returned <= 0 || info.NextCursor == previous {
+				t.Fatal("continuation did not advance", section, info)
+			}
+			count += info.Returned
+			content.Positions = append(content.Positions, page.Content.Positions...)
+			content.Gaps = append(content.Gaps, page.Content.Gaps...)
+			content.Evidence = append(content.Evidence, page.Content.Evidence...)
+		}
+		if count != info.Total {
+			t.Fatal("incomplete detail", section, count, info.Total)
+		}
+	}
+	return content
+}
+
+func TestSkillFinancialContextDirectMinimalAndNamedExamples(t *testing.T) {
+	s, app, changes := fixture(t)
+	bootstrap, err := app.Bootstrap(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	secrets := []string{bootstrap.Household.Name, bootstrap.Household.ID.String(), bootstrap.Members[0].Name, bootstrap.Members[0].ID.String()}
+	institution, err := app.CreateInstitution(t.Context(), "Private institution", domain.InstitutionBank)
+	if err != nil {
+		t.Fatal(err)
+	}
+	group, err := app.CreateGroup(t.Context(), "Private group")
+	if err != nil {
+		t.Fatal(err)
+	}
+	secrets = append(secrets, institution.Name, institution.ID.String(), group.Name, group.ID.String())
+	for i := 0; i < 8; i++ {
+		currency := "USD"
+		if i%2 == 1 {
+			currency = "EUR" // No FX: gaps are populated as well as positions/evidence.
+		}
+		a, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Private account", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: currency, InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		secrets = append(secrets, a.Account.ID.String())
+	}
+	secrets = append(secrets, "Private account")
+	if _, err = s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	c := connect(t, s)
+	instructions := c.InitializeResult().Instructions
+	if !strings.Contains(instructions, "call get_financial_context directly without get_context") || !strings.Contains(instructions, "ordinary management") {
+		t.Fatal("initialize instructions must distinguish minimal summary from management")
+	}
+	listed, err := c.ListTools(t.Context(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, tool := range listed.Tools {
+		seen[tool.Name] = true
+	}
+	if !seen["get_financial_context"] || !seen["get_financial_context_page"] {
+		t.Fatal("skill route is not discoverable")
+	}
+	// No get_context/catalog/directory call precedes this shipped minimal example.
+	initial := decodeContext(t, call(t, c, "get_financial_context", skillExample(t, "analysis", "financial-context", nil), false))
+	if initial.Content.Disclosure != "minimal" || initial.Content.Summary.NetWorth.Value != nil {
+		t.Fatal("minimal example lost nullable complete totals", initial.Content.Summary)
+	}
+	if !initial.PositionsPage.HasMore || !initial.GapsPage.HasMore || !initial.EvidencePage.HasMore {
+		t.Fatal("fixture must exercise all three shipped page examples")
+	}
+	content := skillContextDetails(t, c, initial)
+	raw, _ := json.Marshal(content)
+	for _, secret := range secrets {
+		if strings.Contains(string(raw), secret) {
+			t.Fatalf("minimal example disclosed directory identity %s", secret)
+		}
+	}
+	// A minimal alias is not an account UUID. No directory fallback is performed.
+	args := skillExample(t, "analysis", "financial-context", nil)
+	args["scope"] = map[string]any{"kind": "accounts", "accountIds": []string{initial.Content.Scope.AccountRefs[0]}}
+	call(t, c, "get_financial_context", args, true)
+	// The test now explicitly chooses named disclosure, following its separate example.
+	named := decodeContext(t, call(t, c, "get_financial_context", skillExample(t, "analysis", "financial-context-named", nil), false))
+	namedContent := skillContextDetails(t, c, named)
+	namedRaw, _ := json.Marshal(namedContent)
+	if !strings.Contains(string(namedRaw), "Private account") || namedContent.Disclosure != "named" {
+		t.Fatal("named example did not reveal the requested account identities")
+	}
+	// Ordinary management still receives the existing Bootstrap names and IDs.
+	contextRaw, _ := json.Marshal(call(t, c, "get_context", Empty{}, false))
+	for _, secret := range secrets[:8] {
+		if !strings.Contains(string(contextRaw), secret) {
+			t.Fatalf("ordinary get_context unexpectedly changed: %s", secret)
+		}
+	}
+	if changes.Load() != 0 {
+		t.Fatal("read-only skill examples emitted a write event")
+	}
+}
+
+func TestSkillFinancialContextDeferredAndExpiredPageExamples(t *testing.T) {
+	s, app, _ := fixture(t)
+	bootstrap, err := app.Bootstrap(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Synthetic bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "USD", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now()
+	s.contexts.now = func() time.Time { return now }
+	c := connect(t, s)
+	// Synthetic frozen output forces a zero-row section; the actual shipped
+	// evidence-page arguments must successfully consume its offset-zero cursor.
+	value := strings.Repeat("9", 7000)
+	entry := cachedFinancialContext{result: application.FinancialContextResult{CapturedAt: now, ContentHash: "synthetic", Content: application.FinancialContextContent{
+		Disclosure: "minimal", Summary: application.FinancialContextSummary{KnownAssets: strings.Repeat("9", 21000)},
+		Positions: []application.FinancialContextPosition{{Ref: "account-1", NativeAmount: &value}}, Gaps: []application.FinancialContextGap{},
+		Evidence: []application.FinancialContextEvidence{{Ref: "evidence-1", Kind: "price", Value: &value}},
+	}}, expires: now.Add(contextTTL), size: 1}
+	s.contexts.mu.Lock()
+	deferred, err := s.contexts.response("deferred", entry, s.contextGeneration, "", 0, 1)
+	if err == nil {
+		s.contexts.entries["deferred"] = entry
+		s.contexts.bytes += entry.size
+	}
+	s.contexts.mu.Unlock()
+	if err != nil || deferred.EvidencePage.Returned != 0 || deferred.EvidencePage.NextCursor == "" {
+		t.Fatal("fixture must defer evidence", deferred.EvidencePage, err)
+	}
+	page := decodeContext(t, call(t, c, "get_financial_context_page", skillExample(t, "analysis", "financial-context-evidence-page", map[string]string{"contextId": deferred.ContextID, "cursor": deferred.EvidencePage.NextCursor}), false))
+	if page.EvidencePage.Returned != 1 || page.EvidencePage.HasMore {
+		t.Fatal("zero-row section was mistaken for completion")
+	}
+	initial := decodeContext(t, call(t, c, "get_financial_context", skillExample(t, "analysis", "financial-context", nil), false))
+	now = now.Add(contextTTL + time.Second)
+	oldArgs := skillExample(t, "analysis", "financial-context-positions-page", map[string]string{"contextId": initial.ContextID, "cursor": initial.PositionsPage.NextCursor})
+	checkError := func(arguments map[string]any, code string) {
+		t.Helper()
+		res, err := c.CallTool(t.Context(), &mcp.CallToolParams{Name: "get_financial_context_page", Arguments: arguments})
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw, _ := json.Marshal(res.Content)
+		if !res.IsError || !strings.Contains(string(raw), code) {
+			t.Fatal("unexpected page failure", code, string(raw))
+		}
+	}
+	checkError(oldArgs, "context_expired")
+	fresh := decodeContext(t, call(t, c, "get_financial_context", skillExample(t, "analysis", "financial-context", nil), false))
+	if fresh.ContextID == initial.ContextID || fresh.ContentHash != initial.ContentHash {
+		t.Fatal("recapture must have a new ID even for unchanged semantic content")
+	}
+	mixed := skillExample(t, "analysis", "financial-context-positions-page", map[string]string{"contextId": fresh.ContextID, "cursor": initial.PositionsPage.NextCursor})
+	checkError(mixed, "validation")
+	_ = skillContextDetails(t, c, fresh) // Restart all sections; never append to the old page set.
+}
+
+func TestSkillFinancialContextRowFXAndTimeMeanings(t *testing.T) {
+	app := wailstest.NewService(t)
+	now := time.Now().UTC().Truncate(time.Second)
+	app.SetClock(func() time.Time { return now })
+	if err := app.CompleteOnboarding(t.Context(), application.OnboardingInput{HouseholdName: "Synthetic CNY", BaseCurrency: "CNY", MemberNames: []string{"Synthetic owner"}}); err != nil {
+		t.Fatal(err)
+	}
+	bootstrap, err := app.Bootstrap(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = app.CreateAccount(t.Context(), application.AccountInput{Name: "Synthetic HKD balance", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "HKD", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}}); err != nil {
+		t.Fatal(err)
+	}
+	s := New(app, t.TempDir(), nil)
+	t.Cleanup(s.Close)
+	if _, err = s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	c := connect(t, s)
+	read := func() application.FinancialContextContent {
+		t.Helper()
+		initial := decodeContext(t, call(t, c, "get_financial_context", skillExample(t, "analysis", "financial-context", nil), false))
+		return skillContextDetails(t, c, initial)
+	}
+	missing := read()
+	statuses := map[string]string{}
+	for _, p := range missing.Positions {
+		statuses[p.Kind] = p.Status
+		if p.Complete || p.BaseAmount != nil || !strings.Contains(strings.Join(p.Missing, ","), "fx_rate") {
+			t.Fatalf("missing FX must retain incomplete valuation: %+v", p)
+		}
+	}
+	if statuses["account"] != "unknown" || statuses["balance"] != "active" || missing.Summary.NetWorth.Value != nil {
+		t.Fatal("status is row-kind-dependent, not a uniform account lifecycle", statuses, missing.Summary)
+	}
+	// Fixture setup uses the App API; the MCP connection remains read_only.
+	if _, err = app.AppendManualFXQuote(t.Context(), "HKD", "CNY", "0.92", now.Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = app.SetFXPreference(t.Context(), "HKD", "CNY", "manual"); err != nil {
+		t.Fatal(err)
+	}
+	valued := read()
+	if valued.Basis.BaseCurrency != "CNY" || valued.Summary.NetWorth.Value == nil || *valued.Summary.NetWorth.Value != "92" || valued.DataAsOf.UnknownTimeCount != 0 {
+		t.Fatal("synthetic HKD/CNY reporting or unknown-time count changed", valued.Basis, valued.Summary, valued.DataAsOf)
+	}
+	seenFX := false
+	for _, e := range valued.Evidence {
+		if e.Kind != "fx" {
+			continue
+		}
+		seenFX = true
+		if e.BaseCurrency != "HKD" || e.QuoteCurrency != "CNY" || e.Value == nil || *e.Value != "0.92" || e.Status != "available" || e.ObservationKind != "manual" || e.EffectiveAt == nil || *e.EffectiveAt != now.Format(time.RFC3339) || e.TimestampBasis != "unknown" {
+			t.Fatalf("FX direction/time provenance does not match the documented semantics: %+v", e)
+		}
+	}
+	if !seenFX {
+		t.Fatal("FX evidence missing")
 	}
 }

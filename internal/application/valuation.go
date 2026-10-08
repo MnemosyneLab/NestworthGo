@@ -14,6 +14,7 @@ import (
 // values. It consumes persisted observations from one PortfolioSnapshot and
 // never performs network I/O.
 type ValuationService struct {
+	readContext          context.Context
 	repository           Repository
 	now                  func() time.Time
 	fxProviderKey        func() string
@@ -288,6 +289,9 @@ func (v *ValuationService) evaluate(snapshot domain.PortfolioSnapshot) ([]valued
 	valued := make([]valuedAccount, 0, len(snapshot.Accounts))
 	allMissing := make([]domain.MissingInputView, 0)
 	for _, record := range snapshot.Accounts {
+		if err := v.contextErr(); err != nil {
+			return nil, nil, err
+		}
 		if record.Account.ArchivedAt != nil {
 			continue
 		}
@@ -330,6 +334,9 @@ func (v *ValuationService) valueAccount(snapshot domain.PortfolioSnapshot, recor
 			return holdings[i].ID.String() < holdings[j].ID.String()
 		})
 		for _, holding := range holdings {
+			if err := v.contextErr(); err != nil {
+				return valuedAccount{}, err
+			}
 			if holding.ArchivedAt != nil {
 				continue
 			}
@@ -1273,4 +1280,11 @@ func exactBaseAmount(account domain.AccountValuation) (decimal.Decimal, error) {
 		total = total.Add(value)
 	}
 	return total, nil
+}
+
+func (v *ValuationService) contextErr() error {
+	if v.readContext != nil {
+		return v.readContext.Err()
+	}
+	return nil
 }

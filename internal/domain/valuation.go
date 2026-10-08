@@ -158,3 +158,9 @@ type PortfolioSnapshot struct {
 	InstrumentHistoryCoverage []InstrumentHistoryCoverage
 	FXHistoryCoverage         []FXHistoryCoverage
 }
+
+// FinancialContextInputs retains one transaction's inputs, never serialized.
+type FinancialContextInputs struct {
+	Portfolio PortfolioSnapshot
+	History   *HistoricalSnapshotBatch
+}

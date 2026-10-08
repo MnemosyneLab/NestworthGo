@@ -46,11 +46,35 @@ bash nestworth-skill/install.sh --version latest
 ```
 
 Pin a published **App release tag** instead with `--version vX.Y.Z`. This selects
-the GitHub release, not the skill's own `VERSION` (currently `1.0.0`). Each release
+the GitHub release, not the skill's own `VERSION` (currently `1.1.0`). Each release
 must include the two named assets. If the latest App release lacks them, use a
 release that includes them or a local bundle; there is no fallback to unreleased
 main-branch content. This implementation prepares artifacts; publishing a
 release is a separate maintainer action.
+
+### Skill 1.1.0 update notes
+
+This checkout prepares the consistent read-only financial-context workflow:
+minimal summaries go directly from tool discovery to the context tool, without
+pre-disclosing directory names. The skill distinguishes one-date summaries from
+period analysis and documents all three frozen page sections, expiry/restart,
+package-local aliases, bounded-input errors, single-request transport and explicit
+named/fallback disclosure choices. Existing management workflows remain available.
+
+Existing clients do **not** update their installed skill automatically when the
+App or repository changes. Once a release containing these assets is published,
+rerun the trusted installer (or use the prepared local bundle), check `--status`
+for `1.1.0`, and reopen the chat if discovery is stale. The App must also expose
+the new tools; installing the skill alone does not add them. These notes do not
+claim that this checkout has been published.
+
+For Inspector CLI 2.10.0, the shipped connection reference includes a separate
+configuration example with explicit `"type": "http"`; preserve the App's endpoint
+and bearer header. The adaptation follows the Inspector's
+[server configuration format](https://github.com/modelcontextprotocol/inspector/blob/main/docs/mcp-server-configuration.md)
+and does not change the App's copied configuration for other clients. Nullable
+array portability warnings alone do not establish a permissions/tool failure;
+check discovery and actual argument validation.
 
 ## Preview, inspect and update
 
@@ -80,7 +104,9 @@ root. The installer reports both installation and backup paths.
 
 ## Connect and use
 
-1. Finish household setup and choose the history starting point in the App.
+1. Finish household setup. Start history in the App when recording ledger data
+   or requesting historical/period analysis; a current financial context works
+   without a history starting point.
 2. Open **Settings → AI / MCP**, choose read-only, directory maintenance or
    ledger recording, and enable MCP. Copy its exact local connection
    configuration into Codex's MCP settings. Keep the App running.

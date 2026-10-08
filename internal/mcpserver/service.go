@@ -51,17 +51,19 @@ type Connection struct {
 }
 
 type Service struct {
-	mu          sync.Mutex
-	operationMu sync.Mutex
-	app         *application.Service
-	dir         string
-	repository  settings.ConfigurationRepository
-	config      Config
-	server      *http.Server
-	listener    net.Listener
-	endpoint    string
-	lastError   string
-	changed     func()
+	contexts          *financialContextCache
+	contextGeneration uint64
+	mu                sync.Mutex
+	operationMu       sync.Mutex
+	app               *application.Service
+	dir               string
+	repository        settings.ConfigurationRepository
+	config            Config
+	server            *http.Server
+	listener          net.Listener
+	endpoint          string
+	lastError         string
+	changed           func()
 }
 
 // Directory isolates credentials and receipts for each settings/database pair.
@@ -72,7 +74,7 @@ func Directory(settingsPath, databasePath string) string {
 	return filepath.Join(filepath.Dir(settingsPath), "agent", hex.EncodeToString(hash[:8]))
 }
 func New(app *application.Service, directory string, changed func(), repositories ...settings.ConfigurationRepository) *Service {
-	s := &Service{app: app, dir: directory, changed: changed, config: Config{Mode: ReadOnly}}
+	s := &Service{contexts: newFinancialContextCache(), app: app, dir: directory, changed: changed, config: Config{Mode: ReadOnly}}
 	if len(repositories) > 0 {
 		s.repository = repositories[0]
 	}
@@ -121,7 +123,7 @@ func (s *Service) Enable(mode string) (Status, error) {
 	if mode != ReadOnly && mode != DirectoryWrite && mode != LedgerWrite {
 		return s.statusLocked(), fmt.Errorf("invalid agent permission")
 	}
-	if s.server != nil && s.config.Mode == mode {
+	if s.server != nil && s.config.Mode == mode && s.contexts.active(s.contextGeneration) {
 		return s.statusLocked(), nil
 	}
 	s.closeLocked()
@@ -156,9 +158,18 @@ func (s *Service) startLocked() error {
 		return err
 	}
 	endpoint := "http://" + listener.Addr().String() + "/mcp"
+	s.contextGeneration = s.contexts.activate()
+	generation := s.contextGeneration
 	server := s.tools(s.config.Mode)
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return server }, &mcp.StreamableHTTPOptions{Stateless: true, JSONResponse: true})
-	httpServer := &http.Server{Handler: protect(endpoint, s.config.Token, handler), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
+	boundedHandler := financialContextEnvelope(handler)
+	httpServer := &http.Server{Handler: protect(endpoint, s.config.Token, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !s.contexts.active(generation) {
+			http.Error(w, "connection revoked", http.StatusUnauthorized)
+			return
+		}
+		boundedHandler.ServeHTTP(w, r)
+	})), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 60 * time.Second, IdleTimeout: 30 * time.Second, MaxHeaderBytes: 16 << 10}
 	s.server = httpServer
 	s.listener = listener
 	s.endpoint = endpoint
@@ -195,6 +206,7 @@ func (s *Service) Disable() (Status, error) {
 // Close stops the listener without changing the user's persisted preference.
 func (s *Service) Close() { s.mu.Lock(); defer s.mu.Unlock(); s.closeLocked() }
 func (s *Service) closeLocked() {
+	s.contexts.revoke()
 	// Close can race the Serve goroutine before net/http has registered its
 	// listener. Own and close it explicitly to make immediate restarts reliable.
 	if s.listener != nil {
@@ -212,12 +224,12 @@ func (s *Service) closeLocked() {
 }
 func (s *Service) Status() Status { s.mu.Lock(); defer s.mu.Unlock(); return s.statusLocked() }
 func (s *Service) statusLocked() Status {
-	return Status{Running: s.server != nil, Mode: s.config.Mode, Endpoint: s.endpoint, InstanceID: s.config.InstanceID, Error: s.lastError}
+	return Status{Running: s.server != nil && s.contexts.active(s.contextGeneration), Mode: s.config.Mode, Endpoint: s.endpoint, InstanceID: s.config.InstanceID, Error: s.lastError}
 }
 func (s *Service) Connection() (Connection, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.server == nil {
+	if s.server == nil || !s.contexts.active(s.contextGeneration) {
 		return Connection{}, fmt.Errorf("agent server is disabled")
 	}
 	value := map[string]any{"mcpServers": map[string]any{"nestworth": map[string]any{"url": s.endpoint, "headers": map[string]string{"Authorization": "Bearer " + s.config.Token}}}}
