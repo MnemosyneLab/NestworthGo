@@ -24,7 +24,8 @@ type writePermitKey struct{}
 type exclusivePermitKey struct{}
 
 type writePermit struct {
-	ledger bool
+	ledger         bool
+	writeRequested atomic.Bool
 }
 
 // WriteCoordinator is the application-owned write gate.
@@ -160,7 +161,8 @@ func (s *Service) beginWrite(ctx context.Context) (context.Context, func(), erro
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if permitFrom(ctx) != nil {
+	if permit := permitFrom(ctx); permit != nil {
+		permit.writeRequested.Store(true)
 		return ctx, func() {}, nil
 	}
 	if _, ok := exclusiveKindFrom(ctx); ok {
@@ -179,6 +181,7 @@ func (s *Service) beginLedgerWrite(ctx context.Context) (context.Context, func()
 		ctx = context.Background()
 	}
 	if permit := permitFrom(ctx); permit != nil {
+		permit.writeRequested.Store(true)
 		if permit.ledger {
 			return ctx, func() {}, nil
 		}
@@ -203,6 +206,34 @@ func (s *Service) beginLedgerWrite(ctx context.Context) (context.Context, func()
 		s.changeMu.Unlock()
 		s.writes.releaseWrite()
 	}, nil
+}
+
+// withSnapshotMaintenance holds the ordinary serial gate through coverage
+// reads and possible reconstruction. Pure reads release it without changing
+// preview tokens; nested write entry points mark attempts, including partial
+// or failed rebuilds. Existing outer write/exclusive permits keep their rules.
+func (s *Service) withSnapshotMaintenance(ctx context.Context, fn func(context.Context) error) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if permitFrom(ctx) != nil {
+		return fn(ctx)
+	}
+	if _, ok := exclusiveKindFrom(ctx); ok {
+		return fn(ctx)
+	}
+	if err := s.writes.acquireWrite(); err != nil {
+		return err
+	}
+	permit := &writePermit{}
+	defer func() {
+		if permit.writeRequested.Load() {
+			s.writes.releaseWrite()
+		} else {
+			s.writes.releasePreviewRead()
+		}
+	}()
+	return fn(context.WithValue(ctx, writePermitKey{}, permit))
 }
 
 // WithWrite runs fn with an ordinary write permit. Nested calls on the same

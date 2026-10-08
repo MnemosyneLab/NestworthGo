@@ -142,7 +142,7 @@ func (s *Service) runMarketDataSync(ctx context.Context, job *syncJobState, requ
 	state, stateErr := s.repository.DailySnapshotState(ctx, household.ID)
 	dirtyLeft := false
 	if stateErr == nil {
-		_, _, dirtyLeft = closedSnapshotRange(state, plan)
+		_, _, dirtyLeft = dirtySnapshotRange(state, plan)
 	}
 	// Finishing a rebuild is not proof that its valuation inputs were complete.
 	if stateErr != nil {
