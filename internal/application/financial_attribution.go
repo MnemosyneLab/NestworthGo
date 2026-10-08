@@ -331,6 +331,9 @@ func (s *Service) validateAttributionSnapshots(ctx context.Context, inputs Finan
 		if err != nil {
 			return "", "", err
 		}
+		if snapshot.Complete != fresh.Complete {
+			return "", "snapshot_evidence_mismatch", nil
+		}
 		fingerprint := scopedAttributionSnapshotHash(snapshot, selected)
 		if fingerprint != scopedAttributionSnapshotHash(fresh, selected) {
 			return "", "snapshot_evidence_mismatch", nil

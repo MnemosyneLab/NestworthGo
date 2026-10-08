@@ -382,6 +382,7 @@ func TestFinancialAttributionEvidencePolicyAndScopeProof(t *testing.T) {
 				}
 			}
 		}},
+		{"header_completeness", "snapshot_evidence_mismatch", func(snaps []domain.DailyValuationSnapshot) { snaps[0].Complete = !snaps[0].Complete }},
 		{"cutoff", "snapshot_cutoff_mismatch", func(snaps []domain.DailyValuationSnapshot) {
 			snaps[0].CutoffAt = snaps[0].CutoffAt.Add(-time.Millisecond)
 		}},

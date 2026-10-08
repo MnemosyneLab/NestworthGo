@@ -408,7 +408,8 @@ comparison; attribution covers only the resolved eligible net-worth universe.
 After maintenance, a bounded repository capture supplies retained corrected
 facts and current metadata/base currency. Every stored day from A through B is
 checked against fresh replay/valuation of that captured batch: cutoff, currency,
-resolver policy, selected component keys, native/exact base values, completeness,
+resolver policy, snapshot completeness (used by the engine to prove absent-zero
+components), selected component keys, native/exact base values, completeness,
 classification and state/price/FX/preference observation IDs must match. The
 source generation is checked after snapshot loading to fence repository writes
 outside the coordinator. Historical eligibility must agree with the current
