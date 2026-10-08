@@ -89,10 +89,12 @@ func (s *Service) ensureSnapshotCoverage(ctx context.Context, householdID domain
 	// actually covered that prefix. A later request must retain earlier pending
 	// days, even if its own snapshots now reflect the same corrected facts.
 	if state.DirtyFrom != nil && *state.DirtyFrom >= left && *state.DirtyFrom <= right {
-		if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok {
-			return generationRepo.CompleteDailySnapshotRangeAtGeneration(ctx, householdID, right, s.clock(), state.InputGeneration)
-		}
-		return s.repository.CompleteDailySnapshotRange(ctx, householdID, right, s.clock())
+		return s.WithWrite(ctx, func(ctx context.Context) error {
+			if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok {
+				return generationRepo.CompleteDailySnapshotRangeAtGeneration(ctx, householdID, right, s.clock(), state.InputGeneration)
+			}
+			return s.repository.CompleteDailySnapshotRange(ctx, householdID, right, s.clock())
+		})
 	}
 	return nil
 }

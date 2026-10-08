@@ -325,7 +325,7 @@ func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, endDa
 	if startDate == "" || endDate == "" || startDate > endDate {
 		return nil
 	}
-	return s.WithWrite(ctx, func(ctx context.Context) error {
+	return s.withSnapshotMaintenance(ctx, func(ctx context.Context) error {
 		household, err := s.requireHousehold(ctx)
 		if err != nil {
 			return err

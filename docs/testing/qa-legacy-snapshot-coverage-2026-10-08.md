@@ -34,8 +34,11 @@ its current generation. Repeated later requests reuse those rows after checking
 actual presence, current hash/policy, and positive generation provenance from a
 generation-aware repository. Unknown-generation dirty rows still rebuild.
 
-The old helper now holds the existing serial, reentrant write permit throughout
-planning/build/completion. Batch/save generation guards remain in use; a final
+The old helper now holds the existing serial, reentrant coordinator gate
+throughout planning/build/completion. Pure coverage reads release the gate
+without incrementing the write revision; nested write entry points mark the
+permit and invalidate previews even for equal-hash metadata writes or partial
+rebuilds. Existing outer WithWrite/exclusive behavior remains unchanged. Batch/save generation guards remain in use; a final
 state-generation check also rejects a revision during a clean/no-op coverage
 read or between batches. A concurrent client can cause `conflict` rather than
 silently acknowledge stale coverage; the remaining dirty range is resumable.
@@ -66,6 +69,28 @@ legacy analysis and trends (their next midnights resolve). Attribution retains
 the legacy entry points. Existing 31-day, historical, analysis, and attribution
 suites remain part of the verification.
 
+## Guarded-preview regression found in review
+
+Preserved reviewed head: `de522081cad3f9662f85aa162ea90b7afdc29f94` (CI
+37751445891 passed both jobs). The initial coverage refactor acquired WithWrite
+for pure maintenance, and releaseWrite incremented the preview revision even
+when no rows changed. A pinned synthetic cash-only ledger with all closes Aug
+1–11 materialized and clean reproduced this against the exact reviewed head.
+
+| Reader after guarded cash +1 preview | Base c4c1571 database changes / commit | Reviewed de52208 database changes / commit | Fixed result |
+| --- | --- | --- | --- |
+| NetWorthTrend Aug 10–11 | 0 / success | 0 / stale_preview | 0 / success |
+| PortfolioTrend Aug 10–11 | 0 / success | 0 / stale_preview | 0 / success |
+| Uncached direct Analyze Aug 10–11 | 0 / success | 0 / stale_preview | 0 / success |
+
+All commits used a fresh valid mutation UUID, 64 hex-character payload hash,
+and the original token. Additional tests cover real Wails AssetChange and
+ReturnCalendar warm reads; missing-day writes (3 database changes) rejecting
+the old token; equal-hash metadata writes rejecting the old token without
+appending physical revisions; and a coverage-read barrier that fences a queued
+guarded writer, whose original token remains valid when that pure read finishes.
+MCP analyze_period's existing outer WithWrite behavior is unchanged.
+
 ## Performance
 
 `legacy_snapshot_coverage_benchmark_test.go` measures a cash-only, 62-closed-day
@@ -76,10 +101,10 @@ Warm samples first materialize all history; cold samples start with no rows.
 
 | Case | Base ns/op | Fixed ns/op | Base B/op | Fixed B/op | Base allocations | Fixed allocations |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| Warm bounded trend | 2,970,243 | 742,661 | 739,307 | 58,008 | 25,618 | 1,661 |
-| Cold bounded trend | 26,624,496 | 4,729,484 | 1,702,263 | 165,617 | 51,148 | 4,215 |
+| Warm bounded trend | 2,970,243 | 663,271 | 739,307 | 57,916 | 25,618 | 1,659 |
+| Cold bounded trend | 26,624,496 | 4,729,366 | 1,702,263 | 165,565 | 51,148 | 4,212 |
 
-Warm time fell about 75%; cold time about 82%. Cold reconstruction narrows from
+Warm time fell about 78%; cold time about 82%. Cold reconstruction narrows from
 62 days to 2. This is a synthetic coverage benchmark, not a production latency
 claim. Large ledgers, all-time trend latency, native UI latency, live providers,
 and R2 were not measured. The shared planner adds one state read to attribution
