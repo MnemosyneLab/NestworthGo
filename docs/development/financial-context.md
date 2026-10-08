@@ -223,8 +223,9 @@ direct minimal after discovery without directory pre-reads, explicit named
 selection, all three page sections, zero-row deferral, expiry/restart with an
 unchanged semantic hash, and row-kind/FX/time-provenance semantics. Standalone
 bundle tests verify those examples and Inspector-specific HTTP configuration
-survive packaging and installation. This prepares skill version 1.1.0; installed
-clients require an explicit update and no release publication is implied.
+survive packaging and installation. The current skill version is 1.6.0;
+installed clients require an explicit update. The release contract separately
+tracks real external-client acceptance and does not imply publication.
 
 External configured AI-client usability and native UI/package acceptance remain
 manual gates. Automated HTTP integration uses the official MCP SDK against an

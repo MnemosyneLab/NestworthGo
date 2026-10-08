@@ -46,36 +46,30 @@ bash nestworth-skill/install.sh --version latest
 ```
 
 Pin a published **App release tag** instead with `--version vX.Y.Z`. This selects
-the GitHub release, not the skill's own `VERSION` (currently `1.2.0`). Each release
+the GitHub release, not the skill's own `VERSION` (currently `1.6.0`). Each release
 must include the two named assets. If the latest App release lacks them, use a
 release that includes them or a local bundle; there is no fallback to unreleased
 main-branch content. This implementation prepares artifacts; publishing a
 release is a separate maintainer action.
 
-### Skill 1.2.0 update notes
+### Current skill: 1.6.0
 
-Adds direct routing to the read-only two-state comparison tools and executable
-examples for all three frozen detail sections. Changes are App-calculated right
-minus left, not returns; do not pair aliases from independent context packages.
-The same explicit named-disclosure choice and expiry/restart rules apply. Install
-this version alongside an App exposing `compare_financial_context` and
-`get_financial_comparison_page`; older Apps do not gain tools by updating a skill.
-
-### Skill 1.1.0 update notes
-
-This checkout prepares the consistent read-only financial-context workflow:
-minimal summaries go directly from tool discovery to the context tool, without
-pre-disclosing directory names. The skill distinguishes one-date summaries from
-period analysis and documents all three frozen page sections, expiry/restart,
-package-local aliases, bounded-input errors, single-request transport and explicit
-named/fallback disclosure choices. Existing management workflows remain available.
+Skill 1.6.0 documents frozen one-state financial context and detail/item reads,
+two-state comparisons and coherent comparison-to-attribution links, plus
+managed product/liquidity reads and guarded lifecycle, terms and valuation
+workflows. Its MCP examples are synthetic and executable by repository tests;
+that does not prove external Codex discovery, client reasoning or live Mac
+acceptance. The App and skill are separate components. An older App does not
+gain tools by installing a newer skill. The latest published App tag is v0.3.6,
+whose bundled skill is 1.0.0; 1.6.0 is current in this unreleased source only.
+Until a release containing 1.6.0 is published, `--version latest` cannot install
+that newer skill.
 
 Existing clients do **not** update their installed skill automatically when the
-App or repository changes. Once a release containing these assets is published,
+App or repository changes. After a release containing these assets is published,
 rerun the trusted installer (or use the prepared local bundle), check `--status`
-for `1.1.0`, and reopen the chat if discovery is stale. The App must also expose
-the new tools; installing the skill alone does not add them. These notes do not
-claim that this checkout has been published.
+for `1.6.0`, and reopen the chat if discovery is stale. A local checkout's
+package is not a published release asset.
 
 For Inspector CLI 2.10.0, the shipped connection reference includes a separate
 configuration example with explicit `"type": "http"`; preserve the App's endpoint
@@ -138,12 +132,10 @@ reservation and maturity; the skill does not imitate their lifecycle with trades
 Setup, backups/restores, provider credentials and history resets also remain App
 workflows. No brokerage orders are placed through the skill.
 
-Skill 1.1.0 includes frozen context item routing and executable examples. This
-extends the unreleased 1.1.0 preparation; the App version, package content schema
-(`financial-context/1`) and item schema (`financial-context-item/1`) are separate
-contracts. Installed clients require an explicit skill update. A missing item
-tool means the connected App lacks this capability; do not silently fall back to
-identity-bearing reads. No bundle publication is part of this change.
+The App version, package content schema (`financial-context/1`) and item schema
+(`financial-context-item/1`) are separate contracts. Installed clients require
+an explicit skill update. A missing item tool means the connected App lacks this
+capability; do not silently fall back to identity-bearing reads.
 
 ## Maintainer commands
 

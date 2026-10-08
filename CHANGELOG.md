@@ -2,7 +2,60 @@
 
 All notable changes to Nestworth are recorded here.
 
-## [0.3.6] — Unreleased
+## [0.3.7] — Unreleased candidate (build 8)
+
+Release preparation only. Candidate version/build match the current source
+metadata; no v0.3.7 tag, release, or release artifacts exist. The current
+release contract records scope, evidence, and open acceptance gates.
+
+### Added
+
+- MCP financial context packages and frozen detail pages/items, with minimal or
+  explicitly named disclosure choices; two-state comparisons report right minus
+  left and are distinct from returns. A separate coherent comparison-to-
+  attribution workflow links compatible captures.
+- MCP reads for managed deposits, locked products, product operation history,
+  and liquidity routes with actual/forecast evidence, unknowns, fees and
+  reservations preserved.
+- Guarded MCP preview/commit workflows for completed managed-product lifecycle
+  facts, complete revisioned terms/policy edits, and actual locked-product
+  valuation observations. All writes use dedicated ledger-write tools; renewal
+  and reservation changes remain App workflows.
+
+### Fixed and changed
+
+- Legacy analysis and household/portfolio trends now materialize their
+  requested historical snapshot coverage, including earlier sparse ranges,
+  without treating a later completion watermark as proof that every earlier
+  snapshot exists. Repair is bounded, resumable, and rejects concurrent state
+  changes.
+- Prevented millisecond clock drift in holding creation and added spacing and
+  narrow-window scrolling to product table columns.
+- Race CI now shards bounded application and MCP race runs while retaining
+  `-race`, all tests, and Go's default package timeout; selector enumeration
+  failures fail the shard. This is a CI execution change, not a removal of tests.
+
+### Boundaries and validation
+
+- Skill version is 1.6.0 (`skills/nestworth/VERSION`); it is independently
+  versioned from the App. Existing clients must install/update it separately.
+- PR #47 bounds native dependency installation and is included in main at
+  `57be6c18d1d54a98c67fa463f99fea6289fc27e7`; PR-head test/race CI run
+  37807183123 passed all jobs. See the
+  [v0.3.7 release contract](docs/releases/v0.3.7.md) for detailed evidence and
+  pending acceptance.
+- The user reports scoped real Codex/MCP/skill acceptance passed on Mac mini
+  against source `2cad89e`; see the release contract's QA record and limits.
+  This does not establish Mac native GUI acceptance, which remains pending,
+  nor fresh package generation and artifact acceptance.
+
+## [0.3.6] — 2026-10-03
+
+Published as [v0.3.6](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.6)
+at `64ba10bcf0e1c7bdac56e54b399c0ba9fb901acc`. The release includes the
+Apple Silicon DMG/ZIP, `SHA256SUMS`, and the standalone skill archive with its
+SHA-256 file. The later v0.3.7 line supersedes it as the current candidate;
+v0.3.6 remains a published historical release.
 
 ### Added
 
@@ -47,9 +100,10 @@ All notable changes to Nestworth are recorded here.
 - Backup runs only while the app runs, on one machine. There is no multi-device
   synchronization, cloud writer election or daemon. Each start creates a fresh
   isolated stream; disabling never deletes remote history.
-- Live R2 backup/recovery/retention and latest native Mac GUI acceptance are
-  user-reported as passed. Fresh Mac release artifacts remain pending. Published
-  v0.3.5 tags and assets are unchanged. See the [release contract](docs/releases/v0.3.6.md) and
+- Live R2 backup/recovery/retention and latest native Mac GUI acceptance were
+  user-reported as passed during preparation. The v0.3.6 Mac artifacts and
+  skill bundle were subsequently published with the release. Published v0.3.5
+  tags and assets are unchanged. See the [release contract](docs/releases/v0.3.6.md) and
   [backup implementation notes](docs/development/continuous-backup.md).
 
 ## [0.3.5] — 2026-09-30

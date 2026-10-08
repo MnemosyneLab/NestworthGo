@@ -338,5 +338,6 @@ checksums; build and publish from one unchanged source commit. A successful
 task does not establish accessibility, Gatekeeper, live provider, or minimum
 macOS version acceptance.
 
-See the [v0.3.6 release contract](../releases/v0.3.6.md) for the release
-checklist and evidence status.
+See the [current release contract](../releases/v0.3.7.md) for the release
+checklist and evidence status. Historical v0.3.6 closeout evidence remains in
+the [v0.3.6 contract](../releases/v0.3.6.md).

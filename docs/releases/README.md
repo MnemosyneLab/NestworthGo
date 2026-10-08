@@ -1,16 +1,22 @@
 # Release Documents
 
-The current unreleased candidate is v0.3.6 / build 7. The release contract
+The current unreleased candidate is v0.3.7 / build 8. The release contract
 below owns its scope, schema compatibility, release evidence, and outstanding
-native/distribution gates.
+native/distribution gates. The latest published release remains v0.3.6.
 
 ## Current release
 
-- [v0.3.6 release contract](v0.3.6.md) — unreleased backup, recovery, retention and fixes.
-- [v0.3.6 release-note draft](v0.3.6-notes.md) — publication text pending final gates.
+- [v0.3.7 release contract](v0.3.7.md) — candidate scope, evidence, and open
+  acceptance/distribution gates.
+- [v0.3.7 release-note draft](v0.3.7-notes.md) — publication text pending
+  final gates.
 
 ## Published history
 
+- [v0.3.6 release contract](v0.3.6.md) — published 2026-10-03 with Apple
+  Silicon DMG/ZIP, checksums, and standalone skill assets; preparation-time
+  evidence is retained in the contract. The archived
+  [release-note draft](v0.3.6-notes.md) is not the exact published release body.
 - [v0.3.5 release contract](v0.3.5.md) — published household liquidity and
   MCP/agent workflows; historical preparation evidence retained.
 

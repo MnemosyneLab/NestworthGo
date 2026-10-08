@@ -1,9 +1,11 @@
 # Continuous backup and explicit recovery
 
-This feature is implemented in unreleased v0.3.6 / build 7. It backs up
+This feature shipped in v0.3.6 and remains part of v0.3.7 / build 8. It backs up
 one running machine; it is not cloud synchronization or a cross-machine writer
-election. It is off by default and has no daemon after app exit. Automated checks use synthetic data. Live R2 and native Mac acceptance are
-user-reported in the [release contract](../releases/v0.3.6.md).
+election. It is off by default and has no daemon after app exit. Automated
+checks use synthetic data. Historical v0.3.6 R2/Mac acceptance statements
+remain in the [v0.3.6 contract](../releases/v0.3.6.md); current v0.3.7
+acceptance gates are tracked in the [v0.3.7 contract](../releases/v0.3.7.md).
 
 The backend embeds `github.com/benbjohnson/litestream` at v0.5.17 behind
 `internal/infrastructure/continuousbackup`. The SQLite driver rises from
