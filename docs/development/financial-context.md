@@ -348,3 +348,14 @@ single-object-only rule include both comparison tools, schema errors and legacy
 or mixed batches. Ordinary writes preserve frozen results; connection changes
 and restore revoke them. Expiry retains the existing `context_expired` code;
 clients must rebuild the comparison and restart all sections.
+
+
+Client paging state must retain each initial section descriptor independently.
+After a context, item or comparison section request, update only the requested
+section's cursor/completion and append its rows. Other descriptors in that
+response restart at offset zero and must not replace accumulated progress.
+Comparison `change.*` totals/categories are authoritative; position base changes
+are never an additive contribution bridge, even with stable inclusion. Liability
+sign, account/component duplication, absent sides and scope membership changes
+prevent that interpretation. See the executable synthetic example in the user
+skill's analysis reference.

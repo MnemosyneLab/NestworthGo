@@ -90,6 +90,14 @@ row per section. **Zero returned rows with a nextCursor is a deferred section,
 not completion**; request its continuation, which must advance. Detail is
 complete only when all three sections have `hasMore: false`.
 
+Save all three descriptors from the initial response as independent section
+states. After requesting one section, update only that section's saved cursor
+and completion flag. Ignore the other two descriptors in that page response:
+they describe offset-zero starts, not your accumulated progress. Replacing all
+three saved states can restart completed sections and repeat rows indefinitely.
+Append only the requested section's rows; finish when all three saved states
+are complete. This rule also applies to item and comparison pages below.
+
 These are tool arguments, with values taken from the corresponding descriptor:
 
 <!-- example: financial-context-positions-page -->
@@ -191,7 +199,9 @@ The initial response has at most one row per related section. Inspect all three
 page descriptors. Supply section to read a related section (even if empty), then
 follow its nextCursor with the same contextId, ref and section. A zero-row initial
 section with hasMore is deferred. Limits default to 50, maximum 100. Whole-package
-page cursors and another item's cursors are not interchangeable.
+page cursors and another item's cursors are not interchangeable. Keep the three
+initial descriptors independently and update only the requested section after
+each page, ignoring the other offset-zero descriptors as described above.
 
 <!-- example: financial-context-item-page -->
 ```json
@@ -240,12 +250,31 @@ investment/category basis; property and other non-investment assets are separate
 Named disclosure and selecting real account IDs follow the same explicit-choice
 rules above; do not silently disclose directory identities to work around failure.
 
-Read all three page descriptors and continue each matching cursor until complete.
+Read and save all three initial page descriptors independently. Continue each
+matching cursor until complete, updating only the requested section's saved
+state; ignore the other sections' offset-zero descriptors in every page reply.
 Evidence references include the side; keep gaps and `dataAsOf` attached to that
 side. Missing base deltas are null even when a same-currency native delta exists.
 Different currencies, absent cells and unavailable amounts are not zero. Read
-inclusion and lifecycle separately: row differences are not additive net-worth
-contributions when inclusion or archive status changes.
+inclusion and lifecycle separately. Always answer total and category changes
+from `change.*`; never sum `positions[].baseChange` to explain `change.netWorth`
+or a category. This remains true even when inclusion/archive status is unchanged:
+a positive liability row delta means more debt and lowers net worth, and an
+account rollup and its component rows represent the same money, not separate
+contributions. `change.cash` and `change.netWorth` include entry/exit from the
+included scope and therefore need not describe balance flows. A row absent on
+one side has a null delta, while its included value still affects `change.*`.
+
+Synthetic USD example: cash rises from 100 to 120, investment value from 50 to
+60, property from 300 to 330, and debt from 30 to 35. Report `change.cash = "20"`,
+`change.investments = "10"`, `change.otherAssets = "30"`,
+`change.liabilities = "5"`, and `change.netWorth = "55"`. The cash account and
+balance child each show `baseChange = "20"`; do not add them. The debt account
+and its child each show `"5"`, which is debt growth, not a gain. If the unchanged
+120 cash account is then excluded, authoritative cash/net-worth changes are
+`"-120"` although its row balance delta is `"0"`. If a new included 7 cash account
+appears only on the right, its null row delta does not remove that 7 from the
+summary change.
 
 <!-- example: financial-comparison-positions-page -->
 ```json
