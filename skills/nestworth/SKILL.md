@@ -12,13 +12,19 @@ development environment. Answer in the user's language.
 ## Start with the connected App
 
 Discover the Nestworth MCP tools available in this client; server names and
-tool prefixes can differ. Call `get_context` and `get_catalog` to identify the
-instance, household, history timezone/start, permission mode and vocabulary.
-Refresh that context after reconnection or a permission/instance change. Use
-actual tool schemas and availability over examples in this skill. Do not infer
-App compatibility from the MCP protocol/server version alone.
+tool prefixes can differ. For a pure minimal financial summary, go directly to
+`get_financial_context` after discovery; no `get_context`, catalog or directory
+read is required. `get_context` discloses household, member, institution and group
+names. Follow [analysis.md](references/analysis.md) for frozen detail pages and
+disclosure choices. A one-date summary does not answer period-return questions.
 
-If the connection, household setup or history start is missing, follow
+For ordinary management and period analysis, call `get_context` and `get_catalog`
+to identify the instance, household, history timezone/start, permission mode and
+vocabulary. Refresh that context after reconnection or a permission/instance
+change. Use actual tool schemas and availability over examples in this skill.
+Do not infer App compatibility from the MCP protocol/server version alone.
+
+If the connection, household setup or required history start is missing, follow
 [connection.md](references/connection.md). Guide the user through the App;
 installation of this skill does not enable MCP or grant write permission.
 
@@ -35,7 +41,8 @@ Read only the references needed for this request:
 | Reconcile balances/quantities/costs, fix a historical mistake, undo a record | [Reconciliation and corrections](references/reconciliation-and-corrections.md) |
 | Read/import/correct/withdraw prices, fund NAV or FX | [Market data](references/market-data.md) |
 | Diagnose missing data and track a repair | [Data health](references/data-health.md) |
-| Net worth, investment returns, income/expense, asset-change drivers | [Analysis](references/analysis.md) |
+| Consistent one-date financial summary and data gaps, with minimal disclosure | [Financial context](references/analysis.md#financial-context-for-an-external-assistant) |
+| Period investment returns, income/expense, asset-change drivers | [Analysis](references/analysis.md) |
 | Expired previews, unknown outcomes, interrupted operations | [Recovery](references/recovery.md) |
 
 ## Shared operating rules

@@ -59,6 +59,12 @@ known base-currency sums. A measured zero is `"0"`. Each amount has a currency
 and status; components retain native amounts when only base-currency FX is absent.
 No assistant should replace the authoritative values with its own calculation.
 
+Position `status` inherits the engine's row-kind semantics: an account parent can
+be `unknown` for incomplete valuation while its balance child is `active` with
+a known native amount and missing FX. It is not a uniform lifecycle field;
+`unknown` alone does not mean disabled/unusable. Read `kind`, `complete` and
+`missing` together to assess valuation completeness.
+
 Gaps are per-component findings with a mapped entity/dependency reference,
 code, severity, affected metrics and a fixed suggested-action enum. Missing
 price, FX, account value, instrument or historical coverage blocks completeness.
@@ -80,6 +86,13 @@ Observation kinds preserve the stored vocabulary: `manual`, `realtime`, `close`,
 `latest`, `daily_reference` and `legacy` (also retaining the existing `nav`
 label); unknown kinds are `unavailable`.
 Date-label anchors are labeled rather than claimed as an actual midnight quote.
+`basis.baseCurrency` is the household reporting currency, whereas FX evidence
+uses `baseCurrency`/`quoteCurrency` for rate orientation. For synthetic HKD/CNY
+`value = "0.92"`, 1 HKD = 0.92 CNY, with a CNY household reporting basis.
+`unknownTimeCount` counts missing or unusable time values, not missing time
+provenance. An explicitly dated manual FX quote may have an `effectiveAt` and
+`timestampBasis = "unknown"` because its stored timestamp basis is absent; the
+count can still be zero. Never infer provenance merely from a timestamp's presence.
 Typed metal conversion evidence projects only validated units, currencies,
 prices, rates and times; it never returns raw conversion JSON or provider text.
 
@@ -204,6 +217,14 @@ HTTP discovery and final wire size, expiry/eviction/tampering/oversize, build
 cancellation, revocation races and real backup restore. Existing Historical
 Overview tests cover DST, date-line discontinuities, economic corrections,
 market-date coverage and archive/zero-held behavior on the shared engine.
+
+The installed skill's source JSON examples are also exercised through the SDK:
+direct minimal after discovery without directory pre-reads, explicit named
+selection, all three page sections, zero-row deferral, expiry/restart with an
+unchanged semantic hash, and row-kind/FX/time-provenance semantics. Standalone
+bundle tests verify those examples and Inspector-specific HTTP configuration
+survive packaging and installation. This prepares skill version 1.1.0; installed
+clients require an explicit update and no release publication is implied.
 
 External configured AI-client usability and native UI/package acceptance remain
 manual gates. Automated HTTP integration uses the official MCP SDK against an
