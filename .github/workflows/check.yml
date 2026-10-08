@@ -66,18 +66,44 @@ jobs:
       - name: Trailing whitespace
         run: git diff --check
 
-  # Application and MCP tests call t.Parallel and are bounded with -parallel 4.
-  # Four tests stay sequential: three share process-global product fault
-  # injection, and TestAnalysisPerformanceBudgets asserts wall-clock budgets.
-  # Shards run on separate runners. Within a shard, packages stay at -p 1 so
-  # they do not compete, and every test still uses the default 10m package timeout.
+  # PR #44 integration race job 113326922058 timed out the application
+  # package at 600.030s. MCP passed that run at 577.280s. Each of those
+  # packages is therefore split into two go test processes, each with its own
+  # default 10m timeout, and up to 4 tests run at once. The other four tests
+  # stay sequential inside whichever part contains them: three write
+  # process-global product fault injection, and TestAnalysisPerformanceBudgets
+  # asserts uncontended wall-clock budgets. Packages in a shard stay at -p 1.
   race-shard:
-    name: race (${{ matrix.shard }})
+    name: race (${{ matrix.label }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [application, mcpserver, infrastructure, remainder]
+        include:
+          - shard: application
+            part: 0
+            parts: 2
+            label: application 1/2
+          - shard: application
+            part: 1
+            parts: 2
+            label: application 2/2
+          - shard: mcpserver
+            part: 0
+            parts: 2
+            label: mcpserver 1/2
+          - shard: mcpserver
+            part: 1
+            parts: 2
+            label: mcpserver 2/2
+          - shard: infrastructure
+            part: 0
+            parts: 1
+            label: infrastructure
+          - shard: remainder
+            part: 0
+            parts: 1
+            label: remainder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -91,8 +117,12 @@ jobs:
       - name: Go tests with race detector
         run: |
           set -euo pipefail
+          shard="${{ matrix.shard }}"
+          part="${{ matrix.part }}"
+          parts="${{ matrix.parts }}"
           parallel=()
-          case "${{ matrix.shard }}" in
+          run_args=()
+          case "$shard" in
             application)
               pkgs=(./internal/application)
               parallel=(-parallel 4)
@@ -108,7 +138,7 @@ jobs:
               mapfile -t pkgs < <(go list ./... | grep -v -E '^github.com/waltwang/nestworth-go/internal/(application$|mcpserver$|infrastructure($|/))')
               ;;
             *)
-              echo "unknown race shard: ${{ matrix.shard }}" >&2
+              echo "unknown race shard: $shard" >&2
               exit 1
               ;;
           esac
@@ -116,9 +146,33 @@ jobs:
             echo "race shard selected no packages" >&2
             exit 1
           fi
-          printf 'shard %s packages:\n' "${{ matrix.shard }}"
+          if [ "$parts" != "1" ]; then
+            mapfile -t names < <(go test -list . "${pkgs[0]}" | grep '^Test')
+            selected=()
+            for name in "${names[@]}"; do
+              sum=$(printf '%s' "$name" | cksum | awk '{print $1}')
+              if [ $((sum % parts)) -eq "$part" ]; then
+                selected+=("$name")
+              fi
+            done
+            if [ "${#names[@]}" -eq 0 ] || [ "${#selected[@]}" -eq 0 ]; then
+              echo "race shard $shard part $part selected no tests" >&2
+              exit 1
+            fi
+            regex='^('
+            for i in "${!selected[@]}"; do
+              if [ "$i" -gt 0 ]; then
+                regex+='|'
+              fi
+              regex+="${selected[$i]}"
+            done
+            regex+=')$'
+            run_args=(-run "$regex")
+            echo "shard $shard part $((part + 1))/$parts runs ${#selected[@]} of ${#names[@]} tests"
+          fi
+          printf 'shard %s packages:\n' "$shard"
           printf '  %s\n' "${pkgs[@]}"
-          go test -race -p 1 "${parallel[@]}" "${pkgs[@]}"
+          go test -race -p 1 "${parallel[@]}" "${run_args[@]}" "${pkgs[@]}"
 
   race:
     needs: race-shard
