@@ -463,28 +463,46 @@ func (s *Service) UpdateProductTerms(ctx context.Context, input UpdateProductTer
 		return ProductDetail{}, err
 	}
 	defer unlock()
-	household, err := s.requireHousehold(ctx)
+	prepared, err := s.prepareProductTerms(ctx, input, s.clock())
 	if err != nil {
 		return ProductDetail{}, err
+	}
+	if err := s.repository.SaveProductTerms(ctx, prepared.contract, prepared.policy, prepared.expectedPolicyRevision); err != nil {
+		return ProductDetail{}, err
+	}
+	return s.productDetail(ctx, prepared.contract.HouseholdID, prepared.contract)
+}
+
+type preparedProductTerms struct {
+	before                 domain.ProductContract
+	contract               domain.ProductContract
+	policy                 domain.LiquidityPolicy
+	expectedPolicyRevision int
+}
+
+// prepareProductTerms is pure with respect to persisted facts; GUI and stored plans share every validation.
+func (s *Service) prepareProductTerms(ctx context.Context, input UpdateProductTermsInput, now time.Time) (preparedProductTerms, error) {
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return preparedProductTerms{}, err
 	}
 	contract, err := s.repository.Product(ctx, household.ID, input.ProductID)
 	if err != nil {
-		return ProductDetail{}, err
+		return preparedProductTerms{}, err
 	}
 	if contract.Revision != input.ExpectedRevision {
-		return ProductDetail{}, &domain.Error{Code: domain.ErrRevisionConflict, Field: "expectedRevision", Message: "product revision does not match"}
+		return preparedProductTerms{}, &domain.Error{Code: domain.ErrRevisionConflict, Field: "expectedRevision", Message: "product revision does not match"}
 	}
 	before := contract
 	if contract.State != domain.ProductStateOpen && input.Terms.Name == "" {
-		return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Field: "productId", Message: "settled contracts only accept name and note edits"}
+		return preparedProductTerms{}, &domain.Error{Code: domain.ErrConflict, Field: "productId", Message: "settled contracts only accept name and note edits"}
 	}
 	kind, mode, rate, maturityInterest, paidThrough, err := resolveProductTerms(input.Terms, contract.Currency, contract.Principal)
 	if err != nil {
-		return ProductDetail{}, err
+		return preparedProductTerms{}, err
 	}
-	now := s.clock()
 	if kind != contract.Kind || input.Terms.StartOn != contract.StartOn {
-		return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Field: "terms", Message: "product kind and start date are immutable"}
+		return preparedProductTerms{}, &domain.Error{Code: domain.ErrConflict, Field: "terms", Message: "product kind and start date are immutable"}
 	}
 	if input.Terms.Name != "" {
 		contract.Name = input.Terms.Name
@@ -500,15 +518,15 @@ func (s *Service) UpdateProductTerms(ctx context.Context, input UpdateProductTer
 	contract.Revision++
 	contract.UpdatedAt = now
 	if err := contract.Validate(); err != nil {
-		return ProductDetail{}, err
+		return preparedProductTerms{}, err
 	}
 	policy, err := contractPolicyForOpen(household.ID, contract.AccountID, contract.HoldingID, contract.Kind, contract.MaturityOn, input.Policy, contract.Currency, now)
 	if err != nil {
-		return ProductDetail{}, err
+		return preparedProductTerms{}, err
 	}
 	existing, err := s.policyBySource(ctx, household.ID, domain.HoldingSourceRef(contract.AccountID, contract.HoldingID))
 	if err != nil {
-		return ProductDetail{}, err
+		return preparedProductTerms{}, err
 	}
 	if existing != nil {
 		policy.ID = existing.ID
@@ -521,7 +539,7 @@ func (s *Service) UpdateProductTerms(ctx context.Context, input UpdateProductTer
 	}
 	if before.State != domain.ProductStateOpen {
 		if existing == nil {
-			return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Message: "closed product policy is missing"}
+			return preparedProductTerms{}, &domain.Error{Code: domain.ErrConflict, Message: "closed product policy is missing"}
 		}
 		candidate := before
 		candidate.MaturityOn = input.Terms.MaturityOn
@@ -552,24 +570,19 @@ func (s *Service) UpdateProductTerms(ctx context.Context, input UpdateProductTer
 			policy.AccessibleAmountCap = oldPolicy.AccessibleAmountCap
 		}
 		if !reflect.DeepEqual(candidate, before) || !reflect.DeepEqual(policy, oldPolicy) {
-			return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Field: "terms", Message: "closed contracts only accept name and note edits"}
+			return preparedProductTerms{}, &domain.Error{Code: domain.ErrConflict, Field: "terms", Message: "closed contracts only accept name and note edits"}
 		}
 		policy = oldPolicy
 	}
-	if err := s.repository.SaveProductTerms(ctx, contract, policy, expectedPolicyRevision); err != nil {
-		return ProductDetail{}, err
-	}
-	return s.productDetail(ctx, household.ID, contract)
+	return preparedProductTerms{before: before, contract: contract, policy: policy, expectedPolicyRevision: expectedPolicyRevision}, nil
 }
 
 func (s *Service) AppendProductValuation(ctx context.Context, input AppendProductValuationInput) (ProductDetail, error) {
-	command := ProductCommand{Kind: domain.ProductOpValueObservation}
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return ProductDetail{}, err
 	}
 	defer unlock()
-	_ = command
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return ProductDetail{}, err
@@ -587,39 +600,11 @@ func (s *Service) AppendProductValuation(ctx context.Context, input AppendProduc
 		}
 		return s.Product(ctx, input.ProductID)
 	}
-	contract, err := s.repository.Product(ctx, household.ID, input.ProductID)
+	prepared, err := s.prepareProductValuation(ctx, input, s.clock())
 	if err != nil {
 		return ProductDetail{}, err
 	}
-	if contract.Kind != domain.ProductLockedProduct {
-		return ProductDetail{}, &domain.Error{Code: domain.ErrManagedPosition, Field: "productId", Message: "term-deposit quotes cannot include projected interest"}
-	}
-	if contract.State != domain.ProductStateOpen {
-		return ProductDetail{}, &domain.Error{Code: domain.ErrConflict, Field: "productId", Message: "only an open locked product can be revalued"}
-	}
-	origin, err := s.repository.HistoryOrigin(ctx, household.ID)
-	if err != nil {
-		return ProductDetail{}, err
-	}
-	observedAt, err := parseEffectiveAt(input.ObservedAt, origin, s.clock())
-	if err != nil {
-		return ProductDetail{}, err
-	}
-	amount, err := parseRequiredMoney("amount", input.Amount, contract.Currency)
-	if err != nil {
-		return ProductDetail{}, err
-	}
-	if !amount.Amount().IsPositive() {
-		return ProductDetail{}, &domain.Error{Code: domain.ErrValidation, Field: "amount", Message: "must be greater than zero"}
-	}
-	instrument, err := s.repository.Instrument(ctx, household.ID, contract.InstrumentID)
-	if err != nil {
-		return ProductDetail{}, err
-	}
-	quote, err := buildManagedQuote(instrument, amount, observedAt)
-	if err != nil {
-		return ProductDetail{}, err
-	}
+	contract, quote, observedAt := prepared.contract, prepared.quote, prepared.observedAt
 	now := s.clock()
 	operation := domain.ProductOperation{
 		ID: operationID, HouseholdID: household.ID, Kind: domain.ProductOpValueObservation,
@@ -712,4 +697,53 @@ func displayNativeValuation(raw string, currency domain.CurrencyCode) (domain.Mo
 		return domain.Money{}, err
 	}
 	return domain.NewMoney(amount, currency)
+}
+
+type preparedProductValuation struct {
+	contract   domain.ProductContract
+	quote      domain.InstrumentQuote
+	amount     domain.Money
+	observedAt time.Time
+}
+
+func (s *Service) prepareProductValuation(ctx context.Context, input AppendProductValuationInput, now time.Time) (preparedProductValuation, error) {
+	household, err := s.requireHousehold(ctx)
+	if err != nil {
+		return preparedProductValuation{}, err
+	}
+	contract, err := s.repository.Product(ctx, household.ID, input.ProductID)
+	if err != nil {
+		return preparedProductValuation{}, err
+	}
+	if contract.Kind != domain.ProductLockedProduct {
+		return preparedProductValuation{}, &domain.Error{Code: domain.ErrManagedPosition, Field: "productId", Message: "term-deposit quotes cannot include projected interest"}
+	}
+	if contract.State != domain.ProductStateOpen {
+		return preparedProductValuation{}, &domain.Error{Code: domain.ErrConflict, Field: "productId", Message: "only an open locked product can be revalued"}
+	}
+	origin, err := s.repository.HistoryOrigin(ctx, household.ID)
+	if err != nil {
+		return preparedProductValuation{}, err
+	}
+	observedAt, err := parseEffectiveAt(input.ObservedAt, origin, now)
+	if err != nil {
+		return preparedProductValuation{}, err
+	}
+	amount, err := parseRequiredMoney("amount", input.Amount, contract.Currency)
+	if err != nil {
+		return preparedProductValuation{}, err
+	}
+	if !amount.Amount().IsPositive() {
+		return preparedProductValuation{}, &domain.Error{Code: domain.ErrValidation, Field: "amount", Message: "must be greater than zero"}
+	}
+	instrument, err := s.repository.Instrument(ctx, household.ID, contract.InstrumentID)
+	if err != nil {
+		return preparedProductValuation{}, err
+	}
+	quote, err := buildManagedQuote(instrument, amount, observedAt)
+	if err != nil {
+		return preparedProductValuation{}, err
+	}
+	quote.CreatedAt = now
+	return preparedProductValuation{contract: contract, quote: quote, amount: amount, observedAt: observedAt}, nil
 }

@@ -179,6 +179,8 @@ type ProductRepository interface {
 	ProductOperationEvidence(context.Context, domain.HouseholdID, domain.ProductOperationID) (domain.ProductOperationEvidence, error)
 	CommitProductBundle(context.Context, domain.ProductBundle) error
 	SaveProductTerms(context.Context, domain.ProductContract, domain.LiquidityPolicy, int) error
+	LookupProductTermsMutation(context.Context, domain.HouseholdID, domain.ProductOperationID) (*domain.ProductTermsMutation, error)
+	CommitProductTermsMutation(context.Context, domain.ProductContract, domain.LiquidityPolicy, int, domain.ProductTermsMutation) error
 	Product(context.Context, domain.HouseholdID, domain.ProductContractID) (domain.ProductContract, error)
 	ListProducts(context.Context, domain.HouseholdID, *domain.AccountID, bool) ([]domain.ProductContract, error)
 	ListProductOperations(context.Context, domain.HouseholdID, domain.ProductContractID, int, string) ([]domain.ProductOperation, error)

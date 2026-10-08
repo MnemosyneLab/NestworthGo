@@ -1,11 +1,9 @@
 # Managed product MCP alignment
 
-The read extension exposes the GUI's managed-contract, operation-history and
-liquidity reads. Its dependent lifecycle extension adds five guarded record
-operations. Terms and valuation writes remain App workflows pending their
-separate extension. This document states the implemented contracts and the
-remaining acceptance gates. It does not authorize a
-tool, claim client installation, or establish that write alignment is complete.
+The three review units align managed contract reads, lifecycle records, terms
+and locked-product observations with the GUI. They share application validation
+and DTOs and use narrow preview/commit contracts. Repository implementation and
+skill updates do not install a client or authorize writes outside a user's intent.
 
 ## Delivery boundaries
 
@@ -13,7 +11,7 @@ tool, claim client installation, or establish that write alignment is complete.
 | --- | --- | --- |
 | Read parity | Contract list/detail, closed contracts, operation pages, household product/cash liquidity | Implemented in this change |
 | Lifecycle parity | open, record_existing, receive_interest, whole-contract settle, latest safe group undo | Implemented in the dependent lifecycle change |
-| Terms/value parity | Revisioned terms/policy updates and locked-product value observations | Follow-up; narrow previews and atomic stable receipts required |
+| Terms/value parity | Revisioned terms/policy updates and locked-product value observations | Implemented in the dependent terms/value change |
 
 Renewal is excluded until the GUI action is independently established. No unit
 exposes reservation creation, modification or release. No releaseReservationIds
@@ -45,7 +43,7 @@ financial-context captures.
 The server advertises managed_product_read and liquidity_read capabilities.
 Discovery and schemas remain authoritative; GUI permittedActions are not MCP
 permission or proof of an exposed write tool. The portable skill version is
-1.5.0; updating repository files does not install it in a user client.
+1.6.0; updating repository files does not install it in a user client.
 
 History pages retain newest-created-time/UUID ordering. The MCP checks that the
 contract exists before returning history, accepts default/zero limit 25, rejects
@@ -86,8 +84,7 @@ due_unconfirmed changes display/availability, never automatically writes cash.
 
 ## Write interface and permissions
 
-The lifecycle pair is registered by the dependent change. The terms and value
-pairs remain proposed and are not yet exposed:
+All three pairs are registered in ledger_write by their respective review units:
 
 | Preview/commit pair | Accepted command |
 | --- | --- |
@@ -151,23 +148,44 @@ pending/unknown receipts may recover only by that atomic business key. A failed
 receipt must not hide an already committed mutation after a post-commit derived
 refresh failure. Report recorded facts and pending derived work separately.
 
-Lifecycle CommitProductBundle already atomically saves product operations and
-their effects. Terms currently use SaveProductTerms, which atomically updates
-contract/policy revisions but has no business idempotency receipt. Refactor its
-validation into a pure preparation shared by narrow preview and commit, and
-extend persistence to save revision-checked terms/policy plus immutable result
-and payload digest in the same transaction. Do not wrap the current direct
-write in an independently saved MCP receipt and call it recoverable. Decide the
-business receipt storage and export/restore/integrity contract in that review;
-do not invent a product operation kind without updating schema-15 verification.
+Lifecycle CommitProductBundle atomically saves operations and their effects.
+Terms preview and commit share the pure preparation used by UpdateProductTerms.
+CommitProductTermsMutation saves contract/policy CAS revisions and a typed
+immutable ProductTermsMutation receipt in one SQLite transaction. The existing
+app_configuration namespace product.terms-mutation.<householdUUID>.<planUUID>
+is private local business evidence; no new lifecycle operation kind or schema
+migration is introduced. The namespace is validated on live startup and read-only
+backup verification. Full SQLite snapshots preserve it with plans and MCP
+execution receipts; JSON household exports exclude private configuration while
+retaining financial contract/policy facts. JSON export is not a restored MCP
+session. Directory configuration writers cannot call this financial transaction.
 
-AppendProductValuation atomically stores a value_observation operation and quote,
-but replay currently returns live Product detail. Add a pure observation preview
-and guarded append with plan key, revision/state token and original timestamp.
-Recover immutable quote/operation IDs and recorded value from a durable receipt;
-reread current detail separately. Never quote a deposit with projected interest,
-or import a managed quote through generic market-data tools. Later valuation or
-terms changes must continue to block unsafe lifecycle undo.
+Terms preview before/after metadata timestamps are provisional: UpdatedAt,
+ConfirmedAt and root recordedAt reflect actual commit time. Terms have no default
+financial event timestamp; cash, quantity, cost and quote facts remain unchanged.
+Closed products accept only name/note with unchanged financial terms and policy.
+Open edits can change forecasts without posting interest or altering reservations.
+The terms receipt returns the recorded-time ProductDTO and revision, not the
+complete detail's reservation array. Read get_product for current facts and
+complete reserve evidence. Money uses explicit decimal-string/currency encoding
+inside durable receipts, preserving exact values across restart.
+
+Locked-product observations share the pure preparation used by
+AppendProductValuation. Preview freezes empty observedAt using App now and saves
+the normalized UTC command. Guarded commit atomically saves the quote, existing
+value_observation operation, product link and original receipt through
+CommitProductBundle. quote.CreatedAt and recordedAt retain actual commit time;
+observedAt remains the reviewed actual instant. Replay returns original amount,
+quote/operation/product IDs and times without querying today's product. Receipt,
+command digest, quote ownership/currency/amount and timestamps are checked on
+startup and read-only backup verification. Legacy GUI observations remain valid.
+
+The preview uses existing portfolio quote authority. A historical observation
+can leave current value unchanged; a missing before value produces unknown
+net-worth delta even if after value is known. This records actual total value,
+never projected deposit interest or NAV units. Later terms and valuation changes
+continue to block unsafe lifecycle undo. Generic managed quote imports stay
+protected. No reservation is created, edited, released or restored by these tools.
 
 After restore, distinguish retained receipts from current facts. Production
 configuration, plans and business data must share the restored SQLite authority.

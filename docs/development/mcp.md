@@ -71,13 +71,15 @@ Development and release instances must use distinct database paths. No connectio
 
 ## Architecture
 
-Managed product read parity is documented in [mcp-products.md](mcp-products.md).
+Managed product alignment is documented in [mcp-products.md](mcp-products.md).
 All modes expose list_products, get_product, list_product_operations and
-get_liquidity_overview using the GUI DTOs, with gross and after-reservation
-amounts and forecast/unknown evidence preserved. Product lifecycle, terms and
-valuation writes remain App workflows. The linked contract describes separate
-write review units and their required plan/atomic recovery gates; it does not
-claim those tools are available. See the portable
+get_liquidity_overview using GUI DTOs, with gross/after-reservation amounts and
+forecast/unknown evidence preserved. ledger_write adds three typed pairs:
+preview_product_operation/commit_product_operation,
+preview_product_terms/commit_product_terms and
+preview_product_valuation/commit_product_valuation. Each persists its exact
+reviewed command and uses atomic immutable business receipts for recovery.
+Renewal and reservation mutations remain App workflows. See the portable
 [product workflow](../../skills/nestworth/references/products.md).
 
 `cmd/nestworth` owns the MCP service and passes the same `application.Service`

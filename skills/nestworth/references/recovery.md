@@ -8,7 +8,7 @@ balances; after restore they may refer to changes no longer present.
 | Situation | Action |
 | --- | --- |
 | Uncommitted plan expired, App restarted, or state became stale | Read required current data and obtain a fresh preview; use its matching commit tool |
-| Single/batch/reconciliation/correction/product lifecycle commit may already have posted | Retry the exact original operation/input/plan; atomic ledger mutation recovery prevents duplicate posting even after expiry/restart |
+| Single/batch/reconciliation/correction/product lifecycle/terms/value commit may already have posted | Retry the exact original operation/input/plan; atomic ledger mutation recovery prevents duplicate posting even after expiry/restart |
 | A successful receipt exists | Read the affected current state; do not repost merely because today's state differs |
 | Agent quote import was interrupted | Reuse the same operation UUID and exact input; durable import batch identity returns original quote IDs; then inspect derived statuses/current quotes/health |
 | Directory create/update/archive outcome is unknown | Inspect operation receipt and actual definitions before a new operation; directory writes are not automatically replayed |
@@ -20,7 +20,7 @@ Plans expire after ten minutes; some App reads materialize snapshots and stale
 them. Check prerequisite balances/definitions/analysis before preview. Preview
 activity and holding IDs are provisional. The server's stored normalized command
 is the committed command; the commit accepts only `input.planId`, not a revised
-command. Do not mix single, batch, reconciliation, correction and product-operation plan types.
+command. Do not mix single, batch, reconciliation, correction and product-operation, product-terms or product-valuation plan types.
 
 Historical fixes preserve original timestamps and replay later activity. A
 returned resulting balance can describe the historical point; reread current
@@ -37,5 +37,11 @@ Re-query actual contracts, operations, cash and reservation evidence after GUI
 writes or restore; maturity is not receipt. Product lifecycle commits use the
 same plan-key recovery: identical retries or the same plan/new operation UUID
 return original committed product/activity IDs, not a fresh product query.
-Terms/value writes still require the App. Active reservations and undo groups
+Terms/value commits likewise return their original revision/value/IDs/times;
+get_product reads current facts and full reservations. Business receipts, plans
+and outer execution receipts share the SQLite backup authority. A restored older
+ledger cannot recover absent facts from external cached success; a missing fact
+requires fresh intent and preview after inspecting restored data. JSON household
+export excludes private MCP and terms-recovery configuration; it is not a restored
+MCP session. Active reservations and undo groups
 that would restore reservations require GUI handling. See [products.md](products.md).

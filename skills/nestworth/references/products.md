@@ -86,8 +86,8 @@ Discover `preview_product_operation` and `commit_product_operation` only with
 ledger_write. GUI permittedActions describe GUI options; tool discovery and
 permission govern MCP. These tools record facts already completed, never bank
 instructions. Open, record_existing, receive_interest, whole-contract settle
-and the latest safe group undo are supported. Renewal, terms/valuation and
-reservation creation/edit/release still require the App. Generic trades,
+and the latest safe group undo are supported. Separate terms/value pairs below
+complete those edits. Renewal and reservation creation/edit/release still require the App. Generic trades,
 corrections, reconciliation or quote imports cannot substitute for a managed
 operation. Never fill releaseReservationIds or silently release/restore reserves.
 
@@ -149,6 +149,67 @@ are rejected without echoing their contents.
 ```
 
 <!-- example: product-commit -->
+```json
+{"operationId":"${operationId}","input":{"planId":"${planId}"}}
+```
+
+
+## Edit terms and forecast policy
+
+With ledger_write discover preview_product_terms and commit_product_terms.
+Read get_product immediately before editing and use its product.revision as
+expectedRevision. Supply complete terms and policy, including unchanged financial
+fields and explicit nulls for unknowns. Kind and startOn cannot change. For a
+closed product only name/note may change; financial terms and policy must match
+current facts. Original currency is fixed. annualRate is a fraction, or use
+annualRatePercent as specified by the App schema; keep actual/365 versus actual/360
+and interestPaidThroughOn. Changing predicted interest or availability posts no
+cash, income, quantity, cost or quote and never changes reservations.
+
+Review before/after terms, policy and zero netWorthDelta. Preview metadata times
+are provisional; commit recordedAt/UpdatedAt/ConfirmedAt use actual recording
+time. Commit only the planId using the terms commit tool. Its immutable product
+result describes that edit, without the complete active-reservations array;
+read get_product for current facts and all reservations.
+
+This example retains the synthetic deposit's manual maturity amount; real edits
+must copy the user's complete current terms and policy and replace revision 1
+with the current product.revision before applying changes.
+
+<!-- example: product-terms -->
+```json
+{"productId":"${productId}","expectedRevision":1,"terms":{"kind":"term_deposit","name":"Synthetic checked deposit","note":"Checked against statement","startOn":"2026-09-01","maturityOn":"2026-09-30","interestMode":"manual_maturity_amount","annualRate":null,"annualRatePercent":null,"maturityInterest":"50","interestPaidThroughOn":null},"policy":{"accessibleAmountCap":null,"accessKind":"on_date","unlockOn":"2026-09-30","settlementDays":0,"dayBasis":"calendar","receiptOnOverride":null,"normalExitFee":null,"earlyKind":"not_allowed","earlySettlementDays":null,"earlyDayBasis":null,"earlyFee":null,"earlyAmountMode":null,"earlyGrossAmount":null,"note":null}}
+```
+
+<!-- example: product-terms-commit -->
+```json
+{"operationId":"${operationId}","input":{"planId":"${planId}"}}
+```
+
+## Record actual locked-product value
+
+With ledger_write discover preview_product_valuation and commit_product_valuation.
+Only an open locked_product accepts observations. term_deposit current value must
+not include projected interest. Supply actual total value as a positive decimal
+string in contract currency, not NAV units. observedAt is the actual RFC3339
+instant; empty freezes App now at preview. Historical dates/timezone semantics
+follow GUI validation. Quote/receipt creation time is actual commit time.
+
+Review the normalized frozen command and before/after current value. A historical
+quote may leave today's value unchanged; unknown before value means unknown
+netWorthDelta, never zero. No cash, quantity, cost or reservation effect occurs.
+Commit only the planId using the valuation tool. The immutable receipt retains
+original quote/operation/product IDs, amount and times across repeats, later
+observations and restart. Query get_product separately for today's facts.
+Derived analysis can remain dirty after historical observations; recovery does
+not require reposting. The ordinary managed trade/quote-import guards remain.
+
+<!-- example: product-valuation -->
+```json
+{"productId":"${productId}","amount":"1100","observedAt":""}
+```
+
+<!-- example: product-valuation-commit -->
 ```json
 {"operationId":"${operationId}","input":{"planId":"${planId}"}}
 ```
