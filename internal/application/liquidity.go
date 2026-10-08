@@ -482,6 +482,9 @@ type preparedProductTerms struct {
 
 // prepareProductTerms is pure with respect to persisted facts; GUI and stored plans share every validation.
 func (s *Service) prepareProductTerms(ctx context.Context, input UpdateProductTermsInput, now time.Time) (preparedProductTerms, error) {
+	// Match the authoritative SQLite/IPC UTC millisecond representation before
+	// constructing either the preview or the durable terms receipt.
+	now = normalizeNow(now)
 	household, err := s.requireHousehold(ctx)
 	if err != nil {
 		return preparedProductTerms{}, err
@@ -729,6 +732,9 @@ func (s *Service) prepareProductValuation(ctx context.Context, input AppendProdu
 	if err != nil {
 		return preparedProductValuation{}, err
 	}
+	// Validate the supplied instant before truncating: a future instant within
+	// the same millisecond must not become valid through normalization.
+	observedAt = normalizeNow(observedAt)
 	amount, err := parseRequiredMoney("amount", input.Amount, contract.Currency)
 	if err != nil {
 		return preparedProductValuation{}, err
@@ -744,6 +750,6 @@ func (s *Service) prepareProductValuation(ctx context.Context, input AppendProdu
 	if err != nil {
 		return preparedProductValuation{}, err
 	}
-	quote.CreatedAt = now
+	quote.CreatedAt = normalizeNow(now)
 	return preparedProductValuation{contract: contract, quote: quote, amount: amount, observedAt: observedAt}, nil
 }

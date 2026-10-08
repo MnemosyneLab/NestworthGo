@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
@@ -68,8 +69,20 @@ func (r *Repository) CommitProductTermsMutation(ctx context.Context, contract do
 }
 
 // Compare every persisted contract/policy field through the receipt's exact
-// canonical money-aware encoder; avoid field-specific integrity exceptions.
+// money-aware encoder, with timestamps projected to SQLite's UTC millisecond
+// precision. Older sealed receipts may retain nanoseconds or an offset: never
+// rewrite their original evidence or digest, nor discard any non-time field.
 func sameProductTermsFacts(receipt domain.ProductTermsReceipt, contract domain.ProductContract, policy domain.LiquidityPolicy) (bool, error) {
+	normalize := func(c *domain.ProductContract, p *domain.LiquidityPolicy) {
+		c.CreatedAt, c.UpdatedAt = productFactTime(c.CreatedAt), productFactTime(c.UpdatedAt)
+		p.CreatedAt, p.UpdatedAt = productFactTime(p.CreatedAt), productFactTime(p.UpdatedAt)
+		if p.ConfirmedAt != nil {
+			at := productFactTime(*p.ConfirmedAt)
+			p.ConfirmedAt = &at
+		}
+	}
+	normalize(&receipt.Contract, &receipt.Policy)
+	normalize(&contract, &policy)
 	expected := receipt
 	expected.Contract = contract
 	expected.Policy = policy
@@ -79,6 +92,10 @@ func sameProductTermsFacts(receipt domain.ProductTermsReceipt, contract domain.P
 	}
 	b, err := json.Marshal(expected)
 	return bytes.Equal(a, b), err
+}
+
+func productFactTime(value time.Time) time.Time {
+	return value.UTC().Truncate(time.Millisecond)
 }
 
 // Startup and read-only backup validation treat this private namespace as

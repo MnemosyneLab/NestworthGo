@@ -205,7 +205,10 @@ Only an open locked_product accepts observations. term_deposit current value mus
 not include projected interest. Supply actual total value as a positive decimal
 string in contract currency, not NAV units. observedAt is the actual RFC3339
 instant; empty freezes App now at preview. Historical dates/timezone semantics
-follow GUI validation. Quote/receipt creation time is actual commit time.
+follow GUI validation. After validating the supplied instant, preview converts
+it to UTC and truncates submillisecond precision to match SQLite. Review and
+commit that frozen millisecond command. Quote/receipt creation time is actual
+commit time at the same UTC millisecond precision.
 
 Review the normalized frozen command and before/after current value. A historical
 quote may leave today's value unchanged; unknown before value means unknown

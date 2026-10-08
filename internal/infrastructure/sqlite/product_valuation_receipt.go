@@ -70,7 +70,10 @@ func verifyProductValuationReceipts(ctx context.Context, query schemaQuery) erro
 			want time.Time
 		}{{effective, r.ObservedAt}, {created, r.RecordedAt}, {*quoted, r.ObservedAt}, {*quoteCreated, r.RecordedAt}} {
 			v, err := time.Parse(time.RFC3339Nano, pair.raw)
-			if err != nil || !v.Equal(pair.want) {
+			// Preserve original command/receipt bytes for older observations;
+			// SQL facts retain only UTC milliseconds. All other evidence and
+			// the original command-to-receipt instant remain checked above.
+			if err != nil || !v.Equal(productFactTime(pair.want)) {
 				return invalid()
 			}
 		}

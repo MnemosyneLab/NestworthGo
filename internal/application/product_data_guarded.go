@@ -87,7 +87,7 @@ func (s *Service) PreviewProductTermsGuarded(ctx context.Context, input UpdatePr
 		return ProductTermsPreview{}, "", err
 	}
 	defer unlock()
-	now := s.clock()
+	now := normalizeNow(s.clock())
 	prepared, err := s.prepareProductTerms(ctx, input, now)
 	if err != nil {
 		return ProductTermsPreview{}, "", err
@@ -137,7 +137,7 @@ func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdatePro
 	if token != s.writes.previewToken() {
 		return domain.ProductTermsReceipt{}, staleProductData()
 	}
-	now := s.clock()
+	now := normalizeNow(s.clock())
 	prepared, err := s.prepareProductTerms(ctx, input, now)
 	if err != nil {
 		return domain.ProductTermsReceipt{}, err
@@ -261,6 +261,7 @@ func (s *Service) CommitProductValuationGuarded(ctx context.Context, command Pro
 	if stateHash == "" || stateHash != currentHash {
 		return ProductValuationReceipt{}, staleProductData()
 	}
+	now = normalizeNow(now)
 	receipt := ProductValuationReceipt{OperationID: id, ProductID: command.ProductID, QuoteID: prepared.quote.ID, Amount: prepared.amount, ObservedAt: prepared.observedAt, RecordedAt: now}
 	resultJSON, err := json.Marshal(struct {
 		QuoteID string                  `json:"quoteId"`

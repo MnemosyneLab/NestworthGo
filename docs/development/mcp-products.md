@@ -163,6 +163,8 @@ session. Directory configuration writers cannot call this financial transaction.
 Terms preview before/after metadata timestamps are provisional: UpdatedAt,
 ConfirmedAt and root recordedAt reflect actual commit time. Terms have no default
 financial event timestamp; cash, quantity, cost and quote facts remain unchanged.
+New terms metadata and receipts use the authoritative UTC millisecond timestamps
+persisted by SQLite, including when the clock has nanoseconds or a non-UTC offset.
 Closed products accept only name/note with unchanged financial terms and policy.
 Open edits can change forecasts without posting interest or altering reservations.
 Existing GUI rate resolution is unchanged: nonempty annualRatePercent takes
@@ -178,7 +180,11 @@ command, original result, identities and recording time. The transaction rejects
 any receipt whose complete contract/policy differs from the facts being saved.
 Lookup, startup and backup verification reject changed command/result evidence.
 Where a contract or policy still has the receipt's revision, verification also
-compares every persisted field against that live revision. At later revisions,
+compares every persisted field against that live revision. Timestamp comparison
+uses SQLite's UTC millisecond precision; an older sealed receipt's raw offset or
+submillisecond time is projected only for comparison, without rewriting its
+command, immutable result or checksum. All non-time fields remain fully compared.
+At later revisions,
 retain and validate the original sealed result; do not replace it with new facts.
 
 This detects inconsistent/corrupt local evidence and same-revision disagreement;
@@ -193,10 +199,15 @@ this change neither migrates nor connects any user ledger.
 
 Locked-product observations share the pure preparation used by
 AppendProductValuation. Preview freezes empty observedAt using App now and saves
-the normalized UTC command. Guarded commit atomically saves the quote, existing
+the normalized UTC millisecond command. Explicit timestamps are validated before
+truncating submillisecond precision, so normalization cannot admit a future
+instant. Preview displays and freezes the same instant that SQL will retain.
+Guarded commit atomically saves the quote, existing
 value_observation operation, product link and original receipt through
-CommitProductBundle. quote.CreatedAt and recordedAt retain actual commit time;
-observedAt remains the reviewed actual instant. Replay returns original amount,
+CommitProductBundle. quote.CreatedAt and recordedAt retain actual commit time at
+UTC millisecond precision; observedAt remains the reviewed persisted instant.
+Older raw nanosecond receipts retain their exact JSON and command digest; only
+SQL timestamp comparisons use the native persisted precision. Replay returns original amount,
 quote/operation/product IDs and times without querying today's product. Receipt,
 command digest, quote ownership/currency/amount and timestamps are checked on
 startup and read-only backup verification. Legacy GUI observations remain valid.
