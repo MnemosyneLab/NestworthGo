@@ -16,6 +16,7 @@ import { displayError } from "@/lib/display";
 import { toast } from "sonner";
 import type { SettingsDTO as Settings } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/settings/models";
 import { PageChromeProvider } from "@/components/layout/PageChrome";
+import { AppFocusBoundary } from "./AppFocusBoundary";
 
 /** Each destination keeps its own hue so the sidebar reads as colorful landmarks, not a gray list. */
 const PAGE_TONE: Record<PageId, Tone> = {
@@ -127,7 +128,7 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
 
   return (
     <PageChromeProvider activePageId={activePageId} target={pageBarTarget}>
-      <div className="fixed inset-0 flex min-h-0 min-w-0 overflow-hidden bg-background text-foreground">
+      <AppFocusBoundary className="fixed inset-0 flex min-h-0 min-w-0 overflow-hidden bg-background text-foreground">
       <aside
         className={cn(
           "flex shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200 ease-out",
@@ -203,7 +204,7 @@ export function AppShell({ activePageId, onNavigate, settings, children }: AppSh
           <div className="page-stage mx-auto min-w-0 w-full max-w-7xl">{children}</div>
         </main>
       </div>
-      </div>
+      </AppFocusBoundary>
     </PageChromeProvider>
   );
 }

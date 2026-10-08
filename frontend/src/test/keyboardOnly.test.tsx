@@ -23,6 +23,9 @@ import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { AccountsPage } from "@/features/accounts/AccountsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
+import { AppShell } from "@/app/AppShell";
+import { DirectoryPage } from "@/features/directory/DirectoryPage";
+import { Accent, Appearance, Language } from "../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
 
 const completeOnboarding = vi.fn().mockResolvedValue({});
 const listAccounts = vi.fn();
@@ -92,6 +95,9 @@ vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/setti
     Save: (...args: unknown[]) => settingsSave(...args),
     Reset: vi.fn(),
     SupportedCurrencies: () => Promise.resolve(["USD", "SGD", "CNY"]),
+    FXProviders: () => Promise.resolve(["frankfurter"]),
+    CoinGeckoKeyStatus: () => Promise.resolve({ configured: false }),
+    TiingoKeyStatus: () => Promise.resolve({ configured: false }),
   },
 }));
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/catalog", async () => {
@@ -131,9 +137,9 @@ function renderWithQueryClient(element: React.ReactElement) {
 
 const defaultSettings = {
   schema_version: 1,
-  appearance: "system",
-  accent: "indigo",
-  language: "en",
+  appearance: Appearance.AppearanceSystem,
+  accent: Accent.AccentIndigo,
+  language: Language.LanguageEnglish,
   timezone: "system",
   weekStart: "monday",
   dateFormat: "iso",
@@ -145,13 +151,13 @@ const defaultSettings = {
   windowWidth: 1100,
   windowHeight: 720,
   fxProvider: "frankfurter",
-};
+} as const;
 
 beforeEach(() => {
   completeOnboarding.mockClear();
   listAccounts.mockReset();
   createAccount.mockReset();
-  historyOrigin.mockReset();
+  historyOrigin.mockReset().mockResolvedValue(null);
   listActivities.mockReset();
   listActivityPage.mockReset();
   previewChange.mockReset();
@@ -166,6 +172,29 @@ beforeEach(() => {
 });
 
 describe("keyboard-only completion", () => {
+  it.each(["settings", "directory"] as const)("cycles past the final %s action in AppShell without losing keyboard focus", async (page) => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<AppShell activePageId={page} settings={{ ...defaultSettings, schemaVersion: 1, quoteCacheTTL: "12h" }} onNavigate={() => {}}>
+      {page === "settings" ? <SettingsPage /> : <DirectoryPage />}
+    </AppShell>);
+    const last = await screen.findByRole("button", { name: page === "settings" ? "Restore all preference defaults" : "Archive" });
+    const first = screen.getByRole("button", { name: "Toggle sidebar" });
+    if (page === "settings") expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    await user.tab();
+    expect(first).toHaveFocus();
+    for (let step = 0; step < 80 && document.activeElement !== last; step++) {
+      await user.tab();
+      expect(document.activeElement).not.toBe(document.body);
+    }
+    expect(last).toHaveFocus();
+    await user.tab();
+    expect(first).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(last).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it("completes Onboarding using only Tab, typed characters, and Enter", async () => {
     renderWithQueryClient(<OnboardingPage />);
 
@@ -321,32 +350,31 @@ describe("keyboard-only completion", () => {
     settingsLoad.mockResolvedValue(defaultSettings);
     renderWithQueryClient(<SettingsPage />);
 
-    const form = await screen.findByRole("form", { name: "Settings" });
-    for (let i = 0; i < within(screen.getByRole("navigation", { name: "Settings sections" })).getAllByRole("link").length; i++) await userEvent.tab(); // Settings section links
+    await screen.findByRole("form", { name: "Settings" });
+    await userEvent.tab(); // -> selected Appearance tab
+    expect(screen.getByRole("tab", { name: "Appearance" })).toHaveFocus();
+    await userEvent.tab(); // -> visible panel
+    expect(screen.getByRole("tabpanel")).toHaveFocus();
     await userEvent.tab(); // -> Appearance select
-    expect(within(form).getByLabelText("Appearance")).toHaveFocus();
+    expect(screen.getByRole("combobox", { name: "Appearance" })).toHaveFocus();
     // jsdom does not implement a native <select>'s own ArrowDown/typeahead
     // interaction (that behavior lives entirely in each browser's form
     // control implementation, not in the DOM userEvent can drive), so
     // `selectOptions` — Testing Library's interaction-mode-agnostic API
     // for choosing an option once a <select> has focus — stands in for
     // it here, consistent with the Account/Record-change selects above.
-    await userEvent.selectOptions(within(form).getByLabelText("Appearance"), "light");
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Appearance" }), "light");
 
     await userEvent.tab(); // -> Color theme select (left at default)
-    expect(within(form).getByLabelText("Color theme")).toHaveFocus();
+    expect(screen.getByLabelText("Color theme")).toHaveFocus();
 
     await userEvent.tab(); // -> Language select
-    expect(within(form).getByLabelText("Language")).toHaveFocus();
-    await userEvent.selectOptions(within(form).getByLabelText("Language"), "en");
+    expect(screen.getByLabelText("Language")).toHaveFocus();
+    await userEvent.selectOptions(screen.getByLabelText("Language"), "en");
 
     await userEvent.tab(); // -> Timezone combobox (left at default)
     await userEvent.tab(); // -> Household currency (read-only)
-    await userEvent.tab(); // -> FX provider select (left at default)
-    await userEvent.tab(); // -> Quote cache duration select (left at default)
-    await userEvent.tab(); // -> CoinGecko key
-    await userEvent.tab(); // -> Tiingo key
-    // Cross the remaining credentials, data actions, diagnostics, and reset.
+    // Only the active panel and shared page actions participate in Tab order.
     const saveButton = screen.getByRole("button", { name: "Save changes" });
     for (let i = 0; i < 30 && document.activeElement !== saveButton; i++) await userEvent.tab();
     expect(saveButton).toHaveFocus();

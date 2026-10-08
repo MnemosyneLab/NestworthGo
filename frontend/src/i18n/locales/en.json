@@ -900,7 +900,19 @@
       "coinGecko": "CoinGecko",
       "tiingo": "Tiingo",
       "agent": "AI / MCP"
-    }
+    },
+    "tabs": {
+      "general": "Appearance",
+      "market": "Market data",
+      "agent": "AI · MCP",
+      "data": "Data",
+      "diagnostics": "Diagnostics",
+      "about": "About"
+    },
+    "tabsLocked": "Finish or cancel the current operation before switching tabs.",
+    "preferenceActions": "Preference actions",
+    "resetAllPreferences": "Restore all preference defaults",
+    "resetAllDescription": "Restore all saved preferences, including appearance, language, timezone, number and date formats, window size, market preferences, and diagnostics. Unsaved preference drafts across all tabs will be discarded. Household data, provider keys, MCP, and R2 configuration are preserved."
   },
   "snapshot": {
     "historyRebuild": "History rebuild",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,9 +10,9 @@ import { SecretField } from "./SecretField";
 import { useContinuousBackup, useConfigureBackup, useTestBackupConnection, useBackupNow, useCloudRecoveryPoints, useInspectCloudRestore, useConfirmCloudRestore } from "@/queries/continuousBackup";
 import type { Update } from "../../../bindings/github.com/waltwang/nestworth-go/internal/infrastructure/continuousbackup/models";
 
-export function ContinuousBackupSection() {
+export function ContinuousBackupSection({ active = true, onInteractionBusyChange }: { active?: boolean; onInteractionBusyChange?: (busy: boolean) => void }) {
   const { t } = useTranslation();
-  const status = useContinuousBackup();
+  const status = useContinuousBackup(active);
   const save = useConfigureBackup();
   const test = useTestBackupConnection();
   const backup = useBackupNow();
@@ -29,6 +29,12 @@ export function ContinuousBackupSection() {
   const [acknowledged, setAcknowledged] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [retentionBusy, setRetentionBusy] = useState(false);
+  const [retentionInteractionBusy, setRetentionInteractionBusy] = useState(false);
+  const previewTrigger = useRef<HTMLButtonElement>(null);
+  const inspectRequest = useRef(false);
+  const restoreRequest = useRef(false);
+  const interactionBusy = inspect.isPending || restore.isPending || open || restarting || retentionInteractionBusy;
+  useEffect(() => { onInteractionBusyChange?.(interactionBusy); return () => onInteractionBusyChange?.(false); }, [interactionBusy, onInteractionBusyChange]);
   const externalBusy = save.isPending || test.isPending || backup.isPending || inspect.isPending || restore.isPending || restarting || points.isFetching;
   const busy = externalBusy || retentionBusy;
   const current = status.data;
@@ -47,16 +53,16 @@ export function ContinuousBackupSection() {
   const timestamp = (value: string) => value ? new Date(value).toLocaleString() : t("cloudBackup.never");
   const ready = Boolean(preview?.token) && acknowledged && confirmation.trim().toLowerCase() === "restore";
   const restoreState = restore.isPending || restarting ? "installing" : inspect.isPending ? "downloading" : open ? "preview" : inspect.isError || restore.isError ? "error" : "";
-  return <section className="space-y-4" aria-labelledby="cloud-backup-title">
+  return <section className="@container space-y-4" aria-labelledby="cloud-backup-title">
     <div><h2 id="cloud-backup-title" className="text-base font-semibold">{t("cloudBackup.title")}</h2><p className="text-sm text-muted-foreground">{t("cloudBackup.description")}</p></div>
     <p className="text-sm text-muted-foreground">{t("cloudBackup.sensitive")}</p>
     <form aria-label={t("cloudBackup.form")} onSubmit={(event) => { event.preventDefault(); persist(); }} className="space-y-4">
       <label className="flex items-center gap-2"><input type="checkbox" checked={enabled} onChange={(event) => update({ enabled: event.target.checked })} disabled={busy} />{t("cloudBackup.enable")}</label>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 @min-[28rem]:grid-cols-2">
         <div className="space-y-2"><Label htmlFor="backup-account">{t("cloudBackup.account")}</Label><Input id="backup-account" value={accountID} onChange={(event) => update({ accountID: event.target.value })} disabled={busy} autoComplete="off" /></div>
         <div className="space-y-2"><Label htmlFor="backup-bucket">{t("cloudBackup.bucket")}</Label><Input id="backup-bucket" value={bucket} onChange={(event) => update({ bucket: event.target.value })} disabled={busy} autoComplete="off" /></div>
-        <SecretField key={`access-${secretGeneration}`} id="backup-access" label={t("cloudBackup.access")} hasValue={current.credentialsConfigured} value={access} onChange={setAccess} disabled={busy} onRemove={() => persist(true)} removeLabel={t("cloudBackup.removePair")} />
-        <SecretField key={`secret-${secretGeneration}`} id="backup-secret" label={t("cloudBackup.secret")} hasValue={current.credentialsConfigured} value={secret} onChange={setSecret} disabled={busy} />
+        <SecretField key={`access-${secretGeneration}-${active}`} id="backup-access" label={t("cloudBackup.access")} hasValue={current.credentialsConfigured} value={access} onChange={setAccess} disabled={busy} onRemove={() => persist(true)} removeLabel={t("cloudBackup.removePair")} />
+        <SecretField key={`secret-${secretGeneration}-${active}`} id="backup-secret" label={t("cloudBackup.secret")} hasValue={current.credentialsConfigured} value={secret} onChange={setSecret} disabled={busy} />
       </div>
       <p className="text-sm text-muted-foreground">{t("cloudBackup.pairHelp")}</p>
       <div className="flex flex-wrap gap-2">
@@ -67,6 +73,7 @@ export function ContinuousBackupSection() {
       </div>
     </form>
     <div role="status" aria-live="polite" className="space-y-1 text-sm">
+      {backup.isPending && <p>{t("common.pending")} · {t("cloudBackup.now")}</p>}
       <p>{t("cloudBackup.status")}: {t(`cloudBackup.states.${current.state}`, { defaultValue: t("cloudBackup.unavailable") })}</p>
       <p>{t("cloudBackup.lastSuccess")}: {timestamp(current.lastSuccessfulBackup)}</p>
       <p>{t("cloudBackup.lastAttempt")}: {timestamp(current.lastAttempt)}</p>
@@ -75,7 +82,7 @@ export function ContinuousBackupSection() {
       {save.isSuccess && <p>{t("cloudBackup.saved")}</p>}
     </div>
     {(save.isError || test.isError || backup.isError || inspect.isError || restore.isError || current.errorSummary) && <p role="alert" className="text-sm text-destructive">{t("cloudBackup.error")}</p>}
-    <HistoryRetentionSection key={`${current.accountID}/${current.bucket}/${current.backupID}`} scope={`${current.accountID}/${current.bucket}/${current.backupID}`} disabled={externalBusy || dirty || open || !current.credentialsConfigured} onBusyChange={setRetentionBusy} />
+    <HistoryRetentionSection active={active} key={`${current.accountID}/${current.bucket}/${current.backupID}`} scope={`${current.accountID}/${current.bucket}/${current.backupID}`} disabled={externalBusy || dirty || open || !current.credentialsConfigured} onBusyChange={setRetentionBusy} onInteractionBusyChange={setRetentionInteractionBusy} />
     <div className="space-y-3 border-t pt-4">
       <h3 className="font-medium">{t("cloudBackup.recovery")}</h3>
       <p className="text-sm text-muted-foreground">{t("cloudBackup.recoveryHelp")}</p>
@@ -94,11 +101,15 @@ export function ContinuousBackupSection() {
           <option value="">{t("cloudBackup.select")}</option>
           {points.points.map((item) => <option key={`${item.streamID}:${item.txID}`} value={`${item.streamID}:${item.txID}`}>{timestamp(item.capturedAt)} · {item.streamID} · {item.txID}</option>)}
         </NativeSelect>
-        <Button type="button" variant="outline" disabled={busy || !point} onClick={() => { if (point) inspect.mutate(point, { onSuccess: () => { setConfirmation(""); setAcknowledged(false); setOpen(true); } }); }}>{t("cloudBackup.preview")}</Button>
+        <Button ref={previewTrigger} type="button" variant="outline" disabled={busy || !point} onClick={() => {
+          if (!point || busy || inspectRequest.current || !active) return;
+          inspectRequest.current = true; onInteractionBusyChange?.(true);
+          inspect.mutate(point, { onSuccess: () => { setConfirmation(""); setAcknowledged(false); setOpen(true); }, onSettled: () => { inspectRequest.current = false; } });
+        }}>{t("cloudBackup.preview")}</Button>
       </div>}
     </div>
     <AlertDialog open={open || restarting} onOpenChange={(value) => { if (!restore.isPending && !restarting) { setOpen(value); if (!value) { inspect.reset(); setConfirmation(""); setAcknowledged(false); } } }}>
-      <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>{t(restarting ? "settings.data.restoreRestart" : "settings.data.restoreTitle")}</AlertDialogTitle><AlertDialogDescription>{t("cloudBackup.restoreDescription")}</AlertDialogDescription></AlertDialogHeader>
+      <AlertDialogContent finalFocus={previewTrigger} className="max-h-[calc(100dvh-2rem)] overflow-y-auto"><AlertDialogHeader><AlertDialogTitle>{t(restarting ? "settings.data.restoreRestart" : "settings.data.restoreTitle")}</AlertDialogTitle><AlertDialogDescription>{t("cloudBackup.restoreDescription")}</AlertDialogDescription></AlertDialogHeader>
         {preview && !restarting && <div className="space-y-3 text-sm">
           <div><p className="font-medium">{t("settings.data.restoreCurrent")}</p><p>{t("settings.data.restoreHousehold", { name: preview.currentHousehold || "—", currency: preview.currentCurrency || "—" })}</p><p>{t("settings.data.restoreCounts", { accounts: preview.currentAccounts, holdings: preview.currentHoldings, activities: preview.currentActivities })}</p></div>
           <div><p className="font-medium">{t("settings.data.restoreBackup")}</p><p>{t("settings.data.restoreHousehold", { name: preview.backupHousehold || "—", currency: preview.backupCurrency || "—" })}</p><p>{t("settings.data.restoreCounts", { accounts: preview.backupAccounts, holdings: preview.backupHoldings, activities: preview.backupActivities })}</p></div>
@@ -106,7 +117,7 @@ export function ContinuousBackupSection() {
           <label className="flex items-center gap-2"><input type="checkbox" checked={acknowledged} onChange={(event) => setAcknowledged(event.target.checked)} disabled={restore.isPending} />{t("settings.data.restoreAcknowledge")}</label>
           <Label htmlFor="cloud-restore-confirm">{t("settings.data.restoreTypeLabel")}</Label><Input id="cloud-restore-confirm" value={confirmation} onChange={(event) => setConfirmation(event.target.value)} disabled={restore.isPending} autoComplete="off" />
         </div>}
-        <AlertDialogFooter>{!restarting && <><AlertDialogCancel disabled={restore.isPending}>{t("common.cancel")}</AlertDialogCancel><Button type="button" disabled={!ready || restore.isPending} onClick={() => { if (ready && preview && !busy) restore.mutate({ token: preview.token ?? "", confirmation, acknowledged, restoreChrome: false, restoreFormat: false, restoreRouting: false }, { onSuccess: (result) => setRestarting(result.restartRequired) }); }}>{t("settings.data.restoreConfirm")}</Button></>}</AlertDialogFooter>
+        <AlertDialogFooter>{!restarting && <><AlertDialogCancel disabled={restore.isPending}>{t("common.cancel")}</AlertDialogCancel><Button type="button" disabled={!ready || restore.isPending} onClick={() => { if (ready && preview && !busy && !restoreRequest.current) { restoreRequest.current = true; restore.mutate({ token: preview.token ?? "", confirmation, acknowledged, restoreChrome: false, restoreFormat: false, restoreRouting: false }, { onSuccess: (result) => setRestarting(result.restartRequired), onSettled: () => { restoreRequest.current = false; } }); } }}>{t("settings.data.restoreConfirm")}</Button></>}</AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   </section>;

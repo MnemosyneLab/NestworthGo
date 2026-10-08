@@ -6,11 +6,11 @@ import { callService } from "@/lib/wails";
 
 export { AgentService };
 export const agentKey = ["agent"] as const;
-export function useAgentStatus() {
-  return useQuery({ queryKey: [...agentKey, "status"], queryFn: () => callService(() => AgentService.Status()), refetchInterval: 5000, retry: false });
+export function useAgentStatus(active = true) {
+  return useQuery({ queryKey: [...agentKey, "status"], queryFn: () => callService(() => AgentService.Status()), enabled: active, refetchInterval: active ? 5000 : false, retry: false });
 }
-export function useAgentOperations() {
-  return useQuery({ queryKey: [...agentKey, "operations"], queryFn: () => callService(() => AgentService.RecentOperations()), refetchInterval: 5000, retry: false });
+export function useAgentOperations(active = true) {
+  return useQuery({ queryKey: [...agentKey, "operations"], queryFn: () => callService(() => AgentService.RecentOperations()), enabled: active, refetchInterval: active ? 5000 : false, retry: false });
 }
 /** A write from another client must refresh mounted pages and stale hidden data. */
 export function AgentWorkspaceObserver() {

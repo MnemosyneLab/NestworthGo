@@ -900,7 +900,19 @@
       "coinGecko": "CoinGecko",
       "tiingo": "Tiingo",
       "agent": "AI / MCP"
-    }
+    },
+    "tabs": {
+      "general": "外观",
+      "market": "行情",
+      "agent": "AI·MCP",
+      "data": "数据",
+      "diagnostics": "诊断",
+      "about": "关于"
+    },
+    "tabsLocked": "请完成或取消当前操作后再切换页签。",
+    "preferenceActions": "偏好操作",
+    "resetAllPreferences": "恢复全部偏好默认值",
+    "resetAllDescription": "恢复全部已保存偏好，包括外观、语言、时区、数字和日期格式、窗口尺寸、行情偏好与诊断级别。所有页签中尚未保存的偏好草稿将被丢弃。家庭数据、行情密钥、MCP 与 R2 配置将保留。"
   },
   "snapshot": {
     "historyRebuild": "重建历史记录",

@@ -1,0 +1,54 @@
+[
+  {
+    "route": "settings",
+    "width": 1400,
+    "steps": 22,
+    "forwardWrap": true,
+    "reverseWrap": true,
+    "dialogCycleAndCancel": true,
+    "panelFocus": {
+      "focusVisible": true,
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklch(0.982 0.002 265) 0px 0px 0px 2px, oklab(0.52 -0.00697986 -0.199878 / 0.5) 0px 0px 0px 4px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+    },
+    "pageErrors": []
+  },
+  {
+    "route": "directory",
+    "width": 1400,
+    "steps": 20,
+    "forwardWrap": true,
+    "reverseWrap": true,
+    "dialogCycleAndCancel": true,
+    "panelFocus": {
+      "focusVisible": true,
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklch(0.982 0.002 265) 0px 0px 0px 2px, oklab(0.52 -0.00697986 -0.199878 / 0.5) 0px 0px 0px 4px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+    },
+    "pageErrors": []
+  },
+  {
+    "route": "settings",
+    "width": 640,
+    "steps": 22,
+    "forwardWrap": true,
+    "reverseWrap": true,
+    "dialogCycleAndCancel": true,
+    "panelFocus": {
+      "focusVisible": true,
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklch(0.982 0.002 265) 0px 0px 0px 2px, oklab(0.52 -0.00697986 -0.199878 / 0.5) 0px 0px 0px 4px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+    },
+    "pageErrors": []
+  },
+  {
+    "route": "directory",
+    "width": 640,
+    "steps": 20,
+    "forwardWrap": true,
+    "reverseWrap": true,
+    "dialogCycleAndCancel": true,
+    "panelFocus": {
+      "focusVisible": true,
+      "shadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px, rgba(0, 0, 0, 0) 0px 0px 0px 0px, oklch(0.982 0.002 265) 0px 0px 0px 2px, oklab(0.52 -0.00697986 -0.199878 / 0.5) 0px 0px 0px 4px, rgba(0, 0, 0, 0) 0px 0px 0px 0px"
+    },
+    "pageErrors": []
+  }
+]

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,7 @@ import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescript
 import { displayError } from "@/lib/display";
 import { useInspectBackup, useConfirmRestore } from "@/queries/data";
 
-export function RestoreBackupButton({ onboarding = false, disabled = false }: { onboarding?: boolean; disabled?: boolean }) {
+export function RestoreBackupButton({ onboarding = false, disabled = false, onBusyChange }: { onboarding?: boolean; disabled?: boolean; onBusyChange?: (busy: boolean) => void }) {
   const { t } = useTranslation();
   const inspect = useInspectBackup();
   const confirmRestore = useConfirmRestore();
@@ -18,11 +18,18 @@ export function RestoreBackupButton({ onboarding = false, disabled = false }: { 
   const [restoreChrome, setRestoreChrome] = useState(false);
   const [restoreFormat, setRestoreFormat] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const request = useRef(false);
+  const busy = inspect.isPending || confirmRestore.isPending || restoreOpen || restarting;
+  useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
   const preview = inspect.data && !inspect.data.cancelled ? inspect.data : null;
   const restoreReady = acknowledged && confirmation.trim().toLowerCase() === "restore" && Boolean(preview?.token);
 
   const runInspect = () => {
+    if (request.current || busy || disabled) return;
+    request.current = true; onBusyChange?.(true);
     inspect.mutate(undefined, {
+      onSettled: () => { request.current = false; },
       onSuccess: (result) => {
         if (!result.cancelled) {
           setAcknowledged(false);
@@ -35,12 +42,14 @@ export function RestoreBackupButton({ onboarding = false, disabled = false }: { 
   };
 
   const runRestore = () => {
-    if (!preview?.token) {
+    if (!restoreReady || !preview?.token || request.current || confirmRestore.isPending || restarting) {
       return;
     }
+    request.current = true;
     confirmRestore.mutate(
       { token: preview.token, confirmation, acknowledged, restoreChrome, restoreFormat, restoreRouting: false },
       {
+        onSettled: () => { request.current = false; },
         onSuccess: (result) => {
           if (result.restartRequired) {
             setRestarting(true);
@@ -53,9 +62,9 @@ export function RestoreBackupButton({ onboarding = false, disabled = false }: { 
 
   return (
     <>
-    <Button type="button" variant="outline" onClick={runInspect} disabled={disabled || inspect.isPending || confirmRestore.isPending || restarting}>{t("settings.data.restore")}</Button>
-      <AlertDialog open={restoreOpen || restarting} onOpenChange={(open) => { if (!confirmRestore.isPending && !restarting) setRestoreOpen(open); }}>
-        <AlertDialogContent className="max-w-lg">
+    <Button ref={trigger} type="button" variant="outline" onClick={runInspect} disabled={disabled || inspect.isPending || confirmRestore.isPending || restarting}>{t("settings.data.restore")}</Button>
+      <AlertDialog open={restoreOpen || restarting} onOpenChange={(open) => { if (!confirmRestore.isPending && !restarting) { setRestoreOpen(open); if (!open) { inspect.reset(); setAcknowledged(false); setConfirmation(""); } } }}>
+        <AlertDialogContent finalFocus={trigger} className="max-w-lg max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>{restarting ? t("settings.data.restoreRestart") : t(onboarding ? "onboarding.restoreTitle" : "settings.data.restoreTitle")}</AlertDialogTitle>
             <AlertDialogDescription>{t(onboarding ? "onboarding.restoreDescription" : "settings.data.restoreDescription")}</AlertDialogDescription>

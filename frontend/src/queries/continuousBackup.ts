@@ -4,8 +4,8 @@ import type { RecoveryPoint, Update } from "../../bindings/github.com/waltwang/n
 import type { RestoreConfirmRequest } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery/models";
 import { callService } from "@/lib/wails";
 const key = ["continuousBackup"] as const;
-export function useContinuousBackup() {
-  return useQuery({ queryKey: key, queryFn: () => callService(() => Service.Status()), retry: false, refetchInterval: 5000 });
+export function useContinuousBackup(active = true) {
+  return useQuery({ queryKey: key, queryFn: () => callService(() => Service.Status()), retry: false, enabled: active, refetchInterval: active ? 5000 : false });
 }
 export function useConfigureBackup() {
   const client = useQueryClient();
@@ -50,8 +50,8 @@ export function useConfirmCloudRestore() {
   return useMutation({ mutationFn: (input: RestoreConfirmRequest) => callService(() => Service.ConfirmRestore(input)) });
 }
 
-export function useRetentionStatus(scope: string) {
-  return useQuery({ queryKey: [...key, "retention", scope], queryFn: () => callService(() => Service.RetentionStatus()), retry: false, refetchInterval: 5000 });
+export function useRetentionStatus(scope: string, active = true) {
+  return useQuery({ queryKey: [...key, "retention", scope], queryFn: () => callService(() => Service.RetentionStatus()), retry: false, enabled: active, refetchInterval: active ? 5000 : false });
 }
 export function useConfigureRetention() {
   const client = useQueryClient();

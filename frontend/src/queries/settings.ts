@@ -40,7 +40,9 @@ export function useResetSettings() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => callService(() => SettingsService.Reset()),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: settingsQueryKey }),
+    onSuccess: (defaults) => {
+      queryClient.setQueryData(settingsQueryKey, defaults);
+    },
   });
 }
 

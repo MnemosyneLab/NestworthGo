@@ -5,7 +5,7 @@ import { displayError } from "@/lib/display";
 import { useLastBackupStatus, useCreateBackup, useExportJSON, useRebuildDerivedData } from "@/queries/data";
 import { RestoreBackupButton } from "@/features/backup/RestoreBackupButton";
 
-export function DataManagementSection() {
+export function DataManagementSection({ onRestoreBusyChange }: { onRestoreBusyChange?: (busy: boolean) => void }) {
   const { t } = useTranslation();
   const status = useLastBackupStatus();
   const createBackup = useCreateBackup();
@@ -47,8 +47,8 @@ export function DataManagementSection() {
           : t("settings.data.lastBackupNone")}
       </p>
       <div className="flex flex-wrap gap-2">
-        <Button type="button" onClick={runBackup} disabled={createBackup.isPending}>{t("settings.data.backup")}</Button>
-        <RestoreBackupButton />
+        <Button type="button" onClick={runBackup} disabled={createBackup.isPending}>{t(createBackup.isPending ? "common.pending" : "settings.data.backup")}</Button>
+        <RestoreBackupButton onBusyChange={onRestoreBusyChange} />
         <Button type="button" variant="outline" onClick={runExport} disabled={exportJSON.isPending}>{t(exportJSON.isPending ? "settings.data.exporting" : "settings.data.export")}</Button>
       </div>
       <div className="mt-3 flex flex-col gap-3 border-t pt-5">

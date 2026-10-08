@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Copy, History, Plug, Power, ShieldCheck, Terminal } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useQueryClient } from "@tanstack/react-query";
@@ -9,33 +9,39 @@ import { AgentService, agentKey, useAgentOperations, useAgentStatus } from "@/qu
 import { callService } from "@/lib/wails";
 import { displayError } from "@/lib/display";
 
-export function AgentSection() {
+export function AgentSection({ active = true, onBusyChange }: { active?: boolean; onBusyChange?: (busy: boolean) => void }) {
   const { t } = useTranslation();
-  const status = useAgentStatus();
-  const operations = useAgentOperations();
+  const status = useAgentStatus(active);
+  const operations = useAgentOperations(active);
   const client = useQueryClient();
   const [mode, setMode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [connection, setConnection] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const request = useRef(false);
+  useEffect(() => { onBusyChange?.(busy); return () => onBusyChange?.(false); }, [busy, onBusyChange]);
+  // Collapse transient plaintext on panel exit; keep permission and request state.
+  if (!active && connection !== null) { setConnection(null); setCopied(false); }
   const selected = mode ?? status.data?.mode ?? "read_only";
   async function run(action: () => Promise<unknown>) {
+    if (request.current || !active) return;
+    request.current = true; onBusyChange?.(true);
     setBusy(true); setError(null); setConnection(null); setCopied(false);
     try { await action(); await client.invalidateQueries({ queryKey: agentKey }); }
     catch (cause) { setError(displayError(cause, t("settings.saveError"))); }
-    finally { setBusy(false); }
+    finally { request.current = false; setBusy(false); }
   }
   const running = status.data?.running === true;
   const permissionChanged = running && selected !== status.data?.mode;
-  return <section id="settings-agent" aria-labelledby="settings-agent-title" className="scroll-mt-6 space-y-5 border-t border-border pt-6">
+  return <section id="settings-agent" aria-labelledby="settings-agent-title" className="@container space-y-5">
     <header className="space-y-2">
       <h2 id="settings-agent-title" className="text-base font-semibold">{t("agent.title")}</h2>
       <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{t("agent.description")}</p>
     </header>
     {status.isLoading ? <p className="text-sm text-muted-foreground">{t("agent.loading")}</p> : status.isError ? <p role="alert">{displayError(status.error, t("settings.loadError"))}</p> : <>
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 p-5 @min-[32rem]:flex-row @min-[32rem]:items-center @min-[32rem]:justify-between">
           <div className="flex items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Plug className="size-5" aria-hidden="true" /></div>
             <div className="space-y-1">
@@ -47,11 +53,11 @@ export function AgentSection() {
             </div>
           </div>
           {running
-            ? <Button type="button" disabled={busy} onClick={() => void run(async () => { const value = await callService(() => AgentService.Connection()); setConnection(value.json); })}><Terminal className="size-4" aria-hidden="true" />{t("agent.showConnection")}</Button>
-            : <Button type="button" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Enable(selected)))}><Power className="size-4" aria-hidden="true" />{t("agent.enable")}</Button>}
+            ? <Button type="button" className="h-auto min-h-9 max-w-full whitespace-normal" disabled={busy} onClick={() => void run(async () => { const value = await callService(() => AgentService.Connection()); setConnection(value.json); })}><Terminal className="size-4" aria-hidden="true" />{t("agent.showConnection")}</Button>
+            : <Button type="button" className="h-auto min-h-9 max-w-full whitespace-normal" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Enable(selected)))}><Power className="size-4" aria-hidden="true" />{t("agent.enable")}</Button>}
         </div>
         {running && <div className="space-y-3 border-t border-border bg-muted/25 px-5 py-4">
-          <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-5">
+          <div className="flex min-w-0 flex-col gap-1.5 @min-[32rem]:flex-row @min-[32rem]:items-center @min-[32rem]:gap-5">
             <span className="shrink-0 text-xs text-muted-foreground">{t("agent.endpoint")}</span>
             <code className="break-all text-xs leading-5 text-foreground">{status.data?.endpoint}</code>
           </div>
@@ -63,23 +69,23 @@ export function AgentSection() {
       </div>
       {status.data?.error && <p role="alert" className="text-sm text-destructive">{t(`agent.errors.${status.data.error}`, { defaultValue: t("agent.errors.server_stopped") })}</p>}
       <div className="space-y-4 rounded-2xl border border-border bg-card p-5">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 @min-[32rem]:flex-row @min-[32rem]:items-start @min-[32rem]:justify-between">
           <div className="flex items-center gap-2"><ShieldCheck className="size-4 text-muted-foreground" aria-hidden="true" /><Label htmlFor="agent-mode" className="text-sm font-semibold">{t("agent.permission")}</Label></div>
-          <NativeSelect id="agent-mode" className="w-full sm:w-auto sm:min-w-48" value={selected} disabled={busy} aria-describedby="agent-permission-help" onChange={(event) => setMode(event.target.value)}>
+          <NativeSelect id="agent-mode" className="min-w-0 w-full @min-[32rem]:w-auto @min-[32rem]:min-w-48" value={selected} disabled={busy} aria-describedby="agent-permission-help" onChange={(event) => setMode(event.target.value)}>
             <option value="read_only">{t("agent.readOnly")}</option>
             <option value="directory_write">{t("agent.directoryWrite")}</option>
             <option value="ledger_write">{t("agent.ledgerWrite")}</option>
           </NativeSelect>
         </div>
         <p id="agent-permission-help" className="max-w-2xl text-sm leading-6 text-muted-foreground">{t(selected === "ledger_write" ? "agent.ledgerHelp" : selected === "directory_write" ? "agent.writeHelp" : "agent.readHelp")}</p>
-        {permissionChanged && <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+        {permissionChanged && <div className="flex flex-col gap-3 border-t border-border pt-4 @min-[32rem]:flex-row @min-[32rem]:items-center @min-[32rem]:justify-between">
           <p className="text-xs text-muted-foreground">{t("agent.permissionChangeHelp")}</p>
-          <Button type="button" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Enable(selected)))}>{t("agent.apply")}</Button>
+          <Button type="button" className="h-auto min-h-9 max-w-full whitespace-normal" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Enable(selected)))}>{t("agent.apply")}</Button>
         </div>}
       </div>
     </>}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-    {connection && running && <div className="overflow-hidden rounded-2xl border border-border bg-card">
+    {active && connection && running && <div className="overflow-hidden rounded-2xl border border-border bg-card">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
         <h3 className="flex items-center gap-2 text-sm font-semibold"><Terminal className="size-4 text-muted-foreground" aria-hidden="true" />{t("agent.connectionLabel")}</h3>
         <div className="flex items-center gap-1">
@@ -99,9 +105,9 @@ export function AgentSection() {
         <p className="mt-2 break-all text-xs text-muted-foreground">{op.createdAt} · {op.id}</p>
       </li>)}</ul>
     </div>
-    {running && <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+    {running && <div className="flex flex-col gap-3 border-t border-border pt-4 @min-[32rem]:flex-row @min-[32rem]:items-center @min-[32rem]:justify-between">
       <p className="text-xs leading-5 text-muted-foreground">{t("agent.keepOpen")}</p>
-      <Button type="button" variant="ghost" className="self-start text-muted-foreground hover:text-destructive sm:self-auto" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Disable()))}><Power className="size-4" aria-hidden="true" />{t("agent.disable")}</Button>
+      <Button type="button" variant="ghost" className="self-start text-muted-foreground hover:text-destructive @min-[32rem]:self-auto" disabled={busy} onClick={() => void run(() => callService(() => AgentService.Disable()))}><Power className="size-4" aria-hidden="true" />{t("agent.disable")}</Button>
     </div>}
   </section>;
 }
