@@ -109,7 +109,7 @@ func TestLegacyMixedGenerationReadersRecoverAfterRestart(t *testing.T) {
 	for _, reader := range []string{"analysis", "net_worth_trend", "portfolio_trend", "attribution"} {
 		for _, restart := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s_restart=%t", reader, restart), func(t *testing.T) {
-				s, db, r, cash, _ := legacyCoverageFixture(t)
+				s, db, r, cash, _ := legacyCoverageFixtureDays(t, 41)
 				writer := NewService(sqlite.NewRepository(db))
 				writer.setClock(s.clock)
 				revised := false
@@ -204,7 +204,7 @@ func TestLegacyMixedGenerationReadersRecoverAfterRestart(t *testing.T) {
 }
 
 func TestLegacySparseSnapshotHealthAndRepair(t *testing.T) {
-	s, db, r, cash, _ := legacyCoverageFixture(t)
+	s, db, r, cash, _ := legacyCoverageFixtureDays(t, 62)
 	legacyCoverageRead(t, s, "attribution", "2026-08-10", "2026-08-11")
 	if _, err := s.NetWorthTrend(t.Context(), domain.Trend30Days); err != nil {
 		t.Fatal(err)

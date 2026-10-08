@@ -49,6 +49,11 @@ func (r *coverageRepository) CompleteDailySnapshotRangeAtGeneration(ctx context.
 }
 func legacyCoverageFixture(t *testing.T) (*Service, *sqlite.DB, *coverageRepository, domain.AccountRecord, domain.Instrument) {
 	t.Helper()
+	return legacyCoverageFixtureDays(t, 11)
+}
+
+func legacyCoverageFixtureDays(t *testing.T, quoteDays int) (*Service, *sqlite.DB, *coverageRepository, domain.AccountRecord, domain.Instrument) {
+	t.Helper()
 	s, db, owner, now := overviewFixture(t)
 	cash := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
 	broker := overviewAccount(t, s, owner, "Synthetic broker", "brokerage", "asset", "holdings", "CNY", "")
@@ -56,9 +61,24 @@ func legacyCoverageFixture(t *testing.T) (*Service, *sqlite.DB, *coverageReposit
 	if err != nil {
 		t.Fatal(err)
 	}
-	for day := 1; day <= 62; day++ {
+	for day := 1; day <= quoteDays; day++ {
 		date := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC).AddDate(0, 0, day-1).Format("2006-01-02")
-		if _, err := s.AppendManualInstrumentQuote(t.Context(), instrument.ID, fmt.Sprint(day+4), date, false); err != nil {
+		when, err := s.parseManualQuoteTimestamp(t.Context(), date)
+		if err != nil {
+			t.Fatal(err)
+		}
+		price, err := domain.ParseUnitPrice(fmt.Sprint(day + 4))
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Seed pre-history facts with the same constructor and persistence path
+		// as AppendManualInstrumentQuote, avoiding its growing portfolio recapture.
+		// Source-revision tests still invoke the public mutation after StartHistory.
+		quote, err := domain.NewInstrumentQuote(instrument, domain.InstrumentQuoteInput{UnitPrice: price, SourceKind: domain.QuoteSourceManual, QuotedAt: when}, s.clock())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.repository.AppendInstrumentQuote(t.Context(), quote); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -267,7 +287,7 @@ func TestLegacySnapshotCoverageDirtyPrefixAndTail(t *testing.T) {
 func TestLegacySnapshotCoverageChunksAndConcurrentRevision(t *testing.T) {
 	for _, stage := range []string{"none", "coverage", "batch", "between_chunks"} {
 		t.Run(stage, func(t *testing.T) {
-			s, _, r, cash, _ := legacyCoverageFixture(t)
+			s, _, r, cash, _ := legacyCoverageFixtureDays(t, 41)
 			if stage == "coverage" {
 				if err := s.ensureClosedDaySnapshots(t.Context(), "2026-08-01", "2026-09-10"); err != nil {
 					t.Fatal(err)

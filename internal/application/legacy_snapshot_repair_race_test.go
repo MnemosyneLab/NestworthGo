@@ -13,7 +13,7 @@ import (
 func TestLegacyRepairRevisionRestartsFromEarlierDirtyPrefix(t *testing.T) {
 	for _, restart := range []bool{false, true} {
 		t.Run(fmt.Sprint("restart=", restart), func(t *testing.T) {
-			s, db, r, cash, _ := legacyCoverageFixture(t)
+			s, db, r, cash, _ := legacyCoverageFixtureDays(t, 62)
 			if err := s.ensureClosedDaySnapshots(t.Context(), "2026-08-01", "2026-08-01"); err != nil {
 				t.Fatal(err)
 			}

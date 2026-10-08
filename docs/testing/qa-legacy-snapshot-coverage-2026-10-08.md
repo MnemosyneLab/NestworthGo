@@ -188,3 +188,22 @@ those dependencies. Local all-package headless tests/vet and internal-package
 race tests are run serially, with all existing performance-budget tests enabled.
 Final native CI and exact commit are reported on the draft PR and in the handoff,
 without changing CI, skipping tests, or relaxing thresholds.
+
+## Race-suite setup cost
+
+The production-fixed head 4cca1ad passed the complete native `test` job but its
+application race package hit Go's unchanged cumulative 10-minute timeout near
+`TestValuationServiceResolvesSourcesOrientationAndFreshness`. The local serial
+race package also hit that limit. Neither was counted as a pass.
+
+All regression cases and assertions remain. Short-period fixtures now prepare
+11 daily quotes, 41-day readers prepare their 41 quotes, and the 63-day health
+and repair cases retain 62 quotes with the established last-quote carry. These
+pre-history quotes use the same domain constructor, timestamp parser and
+repository publisher as the public append command; fixture preparation avoids
+that command's repeated growing portfolio recapture. Post-history source
+mutations still use the public command. With required-day fixtures, linear quote
+seeding reduced the focused `TestLegacy*` race suite from 145.850 to 94.030 s on
+the same environment. No production behavior, timeout, CI gate, assertion,
+scenario, or race-specific performance-test skip was changed for this optimization.
+Final whole-suite outcomes are recorded on the PR and in the handoff.
