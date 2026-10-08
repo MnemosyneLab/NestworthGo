@@ -2,7 +2,10 @@ package application
 
 import (
 	"context"
+	"errors"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/infrastructure/sqlite"
@@ -69,6 +72,90 @@ func TestStartingPointCostOverridePersistsAndZeroHoldingNeedsNoCost(t *testing.T
 		}
 	}
 	t.Fatal("positive holding Starting Point component was not found")
+}
+
+func TestCreateHoldingWithAdvancingClockPersistsOneAdjustment(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		unitCost string
+		wantCost string
+	}{
+		{name: "cost override", unitCost: "77.25", wantCost: "77.25"},
+		{name: "quote fallback", wantCost: "100"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			database, err := sqlite.Open(t.TempDir() + "/advancing-clock.db")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer database.Close()
+			service := NewService(sqlite.NewRepository(database))
+			now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)
+			service.setClock(func() time.Time { return now })
+			ctx := context.Background()
+			if err := service.CompleteOnboarding(ctx, OnboardingInput{HouseholdName: "Capture", BaseCurrency: "USD", MemberNames: []string{"Owner"}}); err != nil {
+				t.Fatal(err)
+			}
+			bootstrap, err := service.Bootstrap(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+			account, err := service.CreateAccount(ctx, AccountInput{Name: "Brokerage", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "ETF", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := service.AppendManualInstrumentQuote(ctx, instrument.ID, "100", "2026-08-24", false); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := service.StartHistory(ctx, "UTC"); err != nil {
+				t.Fatal(err)
+			}
+			// Cross a millisecond boundary on every clock read during creation.
+			// Two separate reads for Now and EffectiveAt must fail before the fix.
+			var clockReads atomic.Int64
+			service.setClock(func() time.Time {
+				return now.Add(time.Duration(clockReads.Add(1)) * time.Millisecond)
+			})
+			holding, err := service.CreateHolding(ctx, HoldingInput{AccountID: account.Account.ID.String(), InstrumentID: instrument.ID.String(), Quantity: "3", UnitCost: tc.unitCost})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// A genuinely future change still fails without appending any facts.
+			unitCost := mustUnitPrice(t, tc.wantCost)
+			_, err = service.RecordChange(ctx, domain.PositionAdjustmentInput{HouseholdID: bootstrap.Household.ID, HoldingID: holding.ID, Quantity: mustQuantity(t, "1"), Added: true, UnitCost: &unitCost, EffectiveAt: service.clock().Add(time.Hour)})
+			var changeErr *domain.Error
+			if !errors.As(err, &changeErr) || changeErr.Code != domain.ErrInvalidChangeTime || changeErr.Field != "effectiveAt" {
+				t.Fatalf("future change error = %v, want ErrInvalidChangeTime on effectiveAt", err)
+			}
+			holdings, err := service.ListHoldings(ctx, account.Account.ID, false)
+			if err != nil || len(holdings) != 1 || holdings[0].ID != holding.ID || holdings[0].Quantity.Canonical() != "3" {
+				t.Fatalf("persisted holdings = %+v, err=%v", holdings, err)
+			}
+			activities, err := service.ListActivities(ctx, 10)
+			if err != nil || len(activities) != 1 {
+				t.Fatalf("persisted activities = %+v, err=%v", activities, err)
+			}
+			activity := activities[0]
+			if activity.Kind != domain.ActivityPositionTransfer || activity.Reason != domain.ReasonReconciliation || len(activity.Effects) != 1 || activity.Effects[0].HoldingID == nil || *activity.Effects[0].HoldingID != holding.ID || activity.Effects[0].Quantity == nil || activity.Effects[0].Quantity.Canonical() != "3" {
+				t.Fatalf("persisted adjustment = %+v", activity)
+			}
+			if !activity.EffectiveAt.Equal(activity.CreatedAt) {
+				t.Fatalf("activity effective time %s differs from creation time %s", activity.EffectiveAt, activity.CreatedAt)
+			}
+			events, err := service.repository.ListCostBasisEvents(ctx, holding.ID, domain.CostBasisReadFilter{})
+			if err != nil || len(events) != 1 {
+				t.Fatalf("persisted cost events = %+v, err=%v", events, err)
+			}
+			event := events[0]
+			if event.Kind != domain.CostBasisAdjustmentIn || event.ActivityID != activity.ID || event.Quantity.Canonical() != "3" || event.UnitCost == nil || event.UnitCost.Canonical() != tc.wantCost || !event.EffectiveAt.Equal(activity.EffectiveAt) {
+				t.Fatalf("cost event = %+v, want one linked adjustment of 3 units at %s and %s", event, tc.wantCost, activity.EffectiveAt)
+			}
+		})
+	}
 }
 
 func TestCreateHoldingCostOverridePersistsAlreadyExistedAdjustment(t *testing.T) {
