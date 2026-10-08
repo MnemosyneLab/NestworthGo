@@ -426,13 +426,15 @@ analysis universe on every day. Private observation IDs only contribute to a
 scoped deterministic basisHash; raw IDs/names/notes do not enter the minimal link.
 Full input admission and maintenance can still be household-wide, as existing
 historical replay and derived snapshots require complete transfer dependencies.
-The existing dirty-range/source-generation maintenance runs first. Actual daily
-coverage of A..B is then checked independently of LastCompletedClosedOn; any
-missing contiguous ranges are backfilled through the existing generation-aware
-builder in at most 31-day chunks. A later watermark does not prove that earlier
-days exist. Existing days are not needlessly revised, and backfilling does not
-clear unrelated pending dirty dates or lower the watermark. Capture follows
-all maintenance/backfill inside the original coordinator.
+Actual daily coverage of A..B is checked independently of LastCompletedClosedOn.
+Missing days, days in the durable dirty range and obsolete snapshot hashes or
+resolver policies are rebuilt through the existing generation-aware builder in
+at most 31-day chunks. A later watermark does not prove that earlier days exist.
+The existing per-day save consumes only a matching dirty prefix; range completion
+is called only when A..B actually covered the initial dirty prefix. A later
+request therefore cannot clear an earlier unbuilt dirty date. Existing clean
+days are not needlessly revised, and backfilling does not lower the watermark.
+Capture follows all maintenance/backfill inside the original coordinator.
 
 The same verified immutable inputs feed ComputeAnalysis, foldAssetChange and
 projectReturnTrend, without a pre-maintenance memo. The link includes scope,

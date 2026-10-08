@@ -633,7 +633,8 @@ signed precision adjustments: exact change.netWorth equals explainedDelta plus
 residual plus precisionAdjustment. These adjustments are neither returns nor
 unknown residuals; exact per-day bucket gaps still fail strict reconciliation.
 Actual A..B snapshot coverage is backfilled independently of a later completion
-watermark, and unsupported A..B+1 midnights stop before maintenance.
+watermark; later requests retain earlier unbuilt dirty markers. Unsupported
+A..B+1 midnights stop before maintenance.
 Its frozen pages use `get_financial_comparison_page`. See the
 [attribution contract](financial-context.md#coherent-comparison-attribution) and
 [portable workflow](../../skills/nestworth/references/analysis.md#link-a-comparison-to-change-attribution).

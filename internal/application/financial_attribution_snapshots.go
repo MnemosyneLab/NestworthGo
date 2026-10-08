@@ -7,11 +7,12 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-// Keep the existing dirty/source-generation rebuild semantics, but do not
-// mistake its global completion watermark for coverage of a requested range.
+// Plan requested coverage from actual rows and the existing durable dirty range,
+// rather than using its global completion watermark as proof of coverage.
 // This runs inside the same application coordinator as capture/publication.
 func (s *Service) ensureAttributionSnapshots(ctx context.Context, householdID domain.HouseholdID, left, right string) error {
-	if err := s.ensureClosedDaySnapshots(ctx, left, right); err != nil {
+	state, err := s.repository.DailySnapshotState(ctx, householdID)
+	if err != nil {
 		return err
 	}
 	start, _ := time.Parse("2006-01-02", left)
@@ -20,9 +21,9 @@ func (s *Service) ensureAttributionSnapshots(ctx context.Context, householdID do
 	if err != nil {
 		return err
 	}
-	present := make(map[string]bool, len(snapshots))
+	present := make(map[string]domain.DailyValuationSnapshot, len(snapshots))
 	for _, snapshot := range snapshots {
-		present[snapshot.LocalDate] = true
+		present[snapshot.LocalDate] = snapshot
 	}
 	var gapStart time.Time
 	rebuildGap := func(gapEnd time.Time) error {
@@ -43,7 +44,10 @@ func (s *Service) ensureAttributionSnapshots(ctx context.Context, householdID do
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if !present[day.Format("2006-01-02")] {
+		key := day.Format("2006-01-02")
+		snapshot, exists := present[key]
+		dirty := state.DirtyFrom != nil && key >= *state.DirtyFrom && (state.DirtyTo == nil || key <= *state.DirtyTo)
+		if !exists || dirty || snapshotHashNeedsRebuild(snapshot.ContentHash) || snapshot.ResolverPolicyVersion != domain.MarketDataResolverPolicy {
 			if gapStart.IsZero() {
 				gapStart = day
 			}
@@ -54,7 +58,20 @@ func (s *Service) ensureAttributionSnapshots(ctx context.Context, householdID do
 		}
 	}
 	if !gapStart.IsZero() {
-		return rebuildGap(end)
+		if err := rebuildGap(end); err != nil {
+			return err
+		}
+	}
+	// The existing per-day save consumes only a matching dirty prefix and keeps
+	// the watermark monotonic. Its range-completion operation assumes every day
+	// from dirty_from through target was rebuilt: only invoke it when this request
+	// actually covered that prefix. A later request must retain earlier pending
+	// days, even if its own snapshots now reflect the same corrected facts.
+	if state.DirtyFrom != nil && *state.DirtyFrom >= left && *state.DirtyFrom <= right {
+		if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok {
+			return generationRepo.CompleteDailySnapshotRangeAtGeneration(ctx, householdID, right, s.clock(), state.InputGeneration)
+		}
+		return s.repository.CompleteDailySnapshotRange(ctx, householdID, right, s.clock())
 	}
 	return nil
 }

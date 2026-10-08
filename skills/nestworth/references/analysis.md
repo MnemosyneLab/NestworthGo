@@ -350,6 +350,8 @@ while being absent from the left. Union counts describe those endpoints, not
 an extra directory read or permission expansion.
 The server fills actual missing days of A..B even if an existing completion
 watermark is later; requesting a later range first must not strand early days.
+It rebuilds dirty days within the request while retaining pending earlier days;
+a later request cannot mark an unbuilt earlier dirty range complete.
 Midnight preflight includes A itself and every day through B+1. Unsupported
 ambiguous/nonexistent boundaries return historical_boundary_unsupported before
 snapshot maintenance.

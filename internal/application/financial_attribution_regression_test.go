@@ -201,6 +201,75 @@ func TestFinancialAttributionGapBackfillChunks(t *testing.T) {
 	}
 }
 
+func TestFinancialAttributionPreservesEarlierDirtyRange(t *testing.T) {
+	s, _, owner, now := overviewFixture(t)
+	a := overviewAccount(t, s, owner, "Synthetic earlier revision", "bank_account", "asset", "balance", "CNY", "100")
+	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
+	wantAttributionStatus(t, attributionFor(t, s, "2026-08-01", "2026-08-02"), "compatible", "")
+	wantAttributionStatus(t, attributionFor(t, s, "2026-08-10", "2026-08-11"), "compatible", "")
+	if _, err := s.RecordChange(t.Context(), domain.MoneyAddedInput{HouseholdID: a.Account.HouseholdID, AccountID: a.Account.ID, Amount: mustMoney(t, "1", "CNY"), Reason: domain.ReasonIncome, EffectiveAt: time.Date(2026, 8, 2, 13, 0, 0, 0, time.UTC)}); err != nil {
+		t.Fatal(err)
+	}
+	state, err := s.DailySnapshotState(t.Context(), a.Account.HouseholdID)
+	if err != nil || state.DirtyFrom == nil || *state.DirtyFrom != "2026-08-02" {
+		t.Fatal("earlier revision not dirty", state, err)
+	}
+	wantAttributionStatus(t, attributionFor(t, s, "2026-08-10", "2026-08-11"), "compatible", "")
+	state, err = s.DailySnapshotState(t.Context(), a.Account.HouseholdID)
+	encoded, _ := json.Marshal(struct {
+		DirtyFrom, DirtyTo, Watermark *string
+		Generation                    int
+	}{state.DirtyFrom, state.DirtyTo, state.LastCompletedClosedOn, state.InputGeneration})
+	t.Logf("after later request state=%s", encoded)
+	if err != nil || state.DirtyFrom == nil || *state.DirtyFrom != "2026-08-02" {
+		t.Fatal("unbuilt earlier dirty range was cleared", state, err)
+	}
+	early := attributionFor(t, s, "2026-08-01", "2026-08-02")
+	wantAttributionStatus(t, early, "compatible", "")
+	wantOverviewAmount(t, early.Content.Change.NetWorth.Value, "1")
+	state, err = s.DailySnapshotState(t.Context(), a.Account.HouseholdID)
+	if err != nil || state.DirtyFrom == nil || *state.DirtyFrom != "2026-08-03" || state.LastCompletedClosedOn == nil || *state.LastCompletedClosedOn != "2026-08-11" {
+		t.Fatal("dirty prefix/watermark not preserved", state, err)
+	}
+}
+
+func TestFinancialAttributionConsumesOnlyRebuiltBoundedDirtyPrefix(t *testing.T) {
+	s, db, owner, now := overviewFixture(t)
+	a := overviewAccount(t, s, owner, "Synthetic bounded revision", "bank_account", "asset", "balance", "CNY", "100")
+	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	*now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
+	wantAttributionStatus(t, attributionFor(t, s, "2026-08-01", "2026-08-11"), "compatible", "")
+	// Synthetic repository fixture for the bounded dirty marker used by source
+	// repairs. Per-day saves and range completion retain their existing meaning.
+	if _, err := db.SQL.Exec("UPDATE history_snapshot_state SET dirty_from = ?, dirty_to = ? WHERE household_id = ?", "2026-08-02", "2026-08-05", a.Account.HouseholdID.String()); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct{ left, right, remaining string }{
+		{"2026-08-07", "2026-08-08", "2026-08-02"},
+		{"2026-08-04", "2026-08-05", "2026-08-02"},
+		{"2026-08-01", "2026-08-02", "2026-08-03"},
+		{"2026-08-03", "2026-08-06", ""},
+	} {
+		wantAttributionStatus(t, attributionFor(t, s, tc.left, tc.right), "compatible", "")
+		state, err := s.DailySnapshotState(t.Context(), a.Account.HouseholdID)
+		if err != nil || state.LastCompletedClosedOn == nil || *state.LastCompletedClosedOn != "2026-08-11" {
+			t.Fatal("watermark changed", state, err)
+		}
+		if tc.remaining == "" {
+			if state.DirtyFrom != nil || state.DirtyTo != nil {
+				t.Fatal("fully rebuilt bounded dirty range retained", state)
+			}
+		} else if state.DirtyFrom == nil || *state.DirtyFrom != tc.remaining || state.DirtyTo == nil || *state.DirtyTo != "2026-08-05" {
+			t.Fatal("unbuilt bounded dirty range lost", state)
+		}
+	}
+}
+
 func TestFinancialAttributionMidnightPreflightIncludesLeft(t *testing.T) {
 	for _, boundary := range [][2]string{{"2026-03-08", "2026-03-09"}, {"2026-03-07", "2026-03-08"}, {"2026-11-01", "2026-11-02"}, {"2026-10-31", "2026-11-01"}} {
 		t.Run(boundary[0], func(t *testing.T) {
