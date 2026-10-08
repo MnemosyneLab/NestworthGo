@@ -314,7 +314,7 @@ func (s *Service) PreviewMarketDataSync(ctx context.Context, request SyncRequest
 		if err != nil {
 			return SyncPlanPreview{}, err
 		}
-		from, to, ok := closedSnapshotRange(state, plan)
+		from, to, ok := dirtySnapshotRange(state, plan)
 		for _, date := range readySnapshotDates(issues) {
 			if !ok || date < from || date > to {
 				preview.SnapshotWorkEstimate++
@@ -371,18 +371,16 @@ func fxPreferenceMatches(preference domain.FXPreference, request SyncRequest) bo
 	return fxPairKey(preference.CurrencyA, preference.CurrencyB) == fxPairKey(requested, other)
 }
 
-// closedSnapshotRange is the shared work range for health, preview and rebuild.
+// dirtySnapshotRange describes pending invalidation, never actual coverage.
+// Missing/stale rows are inspected separately; the watermark is only a maximum.
 // A dirty cursor on today's open day is not repairable work yet.
-func closedSnapshotRange(state domain.DailySnapshotState, plan HistoryRepairPlan) (string, string, bool) {
+func dirtySnapshotRange(state domain.DailySnapshotState, plan HistoryRepairPlan) (string, string, bool) {
 	from := ""
 	if state.DirtyFrom != nil {
 		from = strings.TrimSpace(*state.DirtyFrom)
 	}
 	if from == "" {
-		if state.LastCompletedClosedOn != nil && strings.TrimSpace(*state.LastCompletedClosedOn) != "" {
-			return "", "", false
-		}
-		from = plan.OriginLocalDate
+		return "", "", false
 	}
 	if from < plan.OriginLocalDate {
 		from = plan.OriginLocalDate
@@ -395,7 +393,7 @@ func closedSnapshotRange(state domain.DailySnapshotState, plan HistoryRepairPlan
 }
 
 func estimateDirtyDays(state domain.DailySnapshotState, plan HistoryRepairPlan) int {
-	from, to, ok := closedSnapshotRange(state, plan)
+	from, to, ok := dirtySnapshotRange(state, plan)
 	if !ok {
 		return 0
 	}
