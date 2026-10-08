@@ -27,9 +27,8 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
       - name: Install native Go build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
+        timeout-minutes: 15
+        run: bash tools/ci-install-native-deps.sh
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install --frozen-lockfile
@@ -114,9 +113,8 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Install native Go build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
+        timeout-minutes: 15
+        run: bash tools/ci-install-native-deps.sh
       - name: Go tests with race detector
         run: |
           set -euo pipefail
