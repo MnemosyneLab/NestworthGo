@@ -207,10 +207,15 @@ func TestProductHTTPTermsPreviewCommitReceiptAndReservations(t *testing.T) {
 	if code := ledgerErrorCode(t, c, "preview_product_operation", ProductOperationInput{Kind: "undo", Undo: &application.UndoProductCommand{OperationID: opened["operationId"].(string)}}); code != "unsafe_undo" {
 		t.Fatal(code)
 	}
-	next := productDataPreviewHTTP(t, c, "preview_product_terms", productTermsInput(id, 2, "term_deposit"))
+	laterInput := productTermsInput(id, 2, "term_deposit")
+	laterInput.Terms.Name = "Later actual terms"
+	laterInput.Terms.MaturityOn = productString("2027-01-05")
+	laterInput.Terms.AnnualRate = productString("0.08")
+	laterInput.Policy = productPolicy("2027-01-05")
+	next := productDataPreviewHTTP(t, c, "preview_product_terms", laterInput)
 	productDataCommitHTTP(t, c, "commit_product_terms", next["planId"].(string), uuid.NewString())
 	replay := productDataCommitHTTP(t, c, "commit_product_terms", plan, uuid.NewString())
-	if replay["replayed"] != true || replay["product"].(map[string]any)["revision"] != float64(2) {
+	if replay["replayed"] != true || replay["product"].(map[string]any)["revision"] != float64(2) || replay["product"].(map[string]any)["maturityOn"] != "2026-12-01" || replay["product"].(map[string]any)["annualRate"] != "0.05" {
 		t.Fatal(replay)
 	}
 	snapshot := filepath.Join(t.TempDir(), "typed.db")
@@ -620,4 +625,118 @@ func TestProductHTTPValuationUnknownBeforeRemainsUnknown(t *testing.T) {
 	}
 	productDataCommitHTTP(t, c, "commit_product_valuation", p["planId"].(string), uuid.NewString())
 	productAssertNetWorth(t, c, "1100")
+}
+
+// Legal-shaped receipt corruption must fail both before and after later edits.
+func TestProductHTTPTermsLegalReceiptTamperRejected(t *testing.T) {
+	for _, later := range []bool{false, true} {
+		t.Run(map[bool]string{false: "same_revision", true: "later_revision"}[later], func(t *testing.T) {
+			fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+			c := ledgerSession(t, fx)
+			id, _ := productDataSeed(t, fx, c, "term_deposit")
+			p := productDataPreviewHTTP(t, c, "preview_product_terms", productTermsInput(id, 1, "term_deposit"))
+			plan := p["planId"].(string)
+			original := productDataCommitHTTP(t, c, "commit_product_terms", plan, uuid.NewString())
+			if later {
+				next := productDataPreviewHTTP(t, c, "preview_product_terms", productTermsInput(id, 2, "term_deposit"))
+				productDataCommitHTTP(t, c, "commit_product_terms", next["planId"].(string), uuid.NewString())
+			}
+			_, err := db.SQL.Exec(`UPDATE app_configuration SET value=json_set(value,'$.receipt.contract.maturityOn','2026-12-02','$.receipt.contract.annualRate','0.07','$.receipt.policy.UnlockOn','2026-12-02') WHERE json_extract(value,'$.id')=? AND key LIKE 'product.terms-mutation.%'`, plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(t.TempDir(), "tampered.db")
+			if err := db.SnapshotTo(t.Context(), path); err != nil {
+				t.Fatal(err)
+			}
+			if checked, err := sqlite.OpenReadOnlyForVerify(path); err == nil {
+				checked.Close()
+				t.Fatal("legal-shaped corrupt receipt accepted by backup verification")
+			}
+			if opened, err := sqlite.Open(path); err == nil {
+				opened.Close()
+				t.Fatal("legal-shaped corrupt receipt accepted at live startup")
+			}
+			if code := productDataCommitCode(t, c, "commit_product_terms", plan); code != string(domain.ErrIntegrity) {
+				t.Fatal("corrupt receipt was recovered", code)
+			}
+			if original["product"].(map[string]any)["maturityOn"] != "2026-12-01" {
+				t.Fatal(original)
+			}
+		})
+	}
+}
+
+func TestProductHTTPTermsReceiptFeesRoundTripAndCommandBinding(t *testing.T) {
+	fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+	c := ledgerSession(t, fx)
+	id, _ := productDataSeed(t, fx, c, "locked_product")
+	in := productTermsInput(id, 1, "locked_product")
+	in.Policy.NormalExitFee = productString("1.25")
+	in.Policy.EarlyKind = "allowed"
+	in.Policy.EarlyFee = productString("2.5")
+	in.Policy.EarlyGrossAmount = productString("980")
+	in.Policy.EarlyAmountMode = productString("fixed_gross")
+	zero := 0
+	in.Policy.EarlySettlementDays = &zero
+	in.Policy.EarlyDayBasis = productString("calendar")
+	p := productDataPreviewHTTP(t, c, "preview_product_terms", in)
+	plan := p["planId"].(string)
+	first := productDataCommitHTTP(t, c, "commit_product_terms", plan, uuid.NewString())
+	valuePlan := productDataPreviewHTTP(t, c, "preview_product_valuation", ProductValuationInput{id, "1100", ""})
+	productDataCommitHTTP(t, c, "commit_product_valuation", valuePlan["planId"].(string), uuid.NewString())
+	replay := productDataCommitHTTP(t, c, "commit_product_terms", plan, uuid.NewString())
+	replay["replayed"] = false
+	productJSONEqual(t, replay, first)
+	policy := replay["product"].(map[string]any)["policy"].(map[string]any)
+	for field, want := range map[string]string{"normalExitFee": "1.25", "earlyFee": "2.5", "earlyGrossAmount": "980"} {
+		m := policy[field].(map[string]any)
+		if m["amount"] != want || m["currency"] != "USD" {
+			t.Fatal(field, m)
+		}
+	}
+	path := filepath.Join(t.TempDir(), "money.db")
+	if err := db.SnapshotTo(t.Context(), path); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := sqlite.OpenReadOnlyForVerify(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opened.Close()
+	if _, err := db.SQL.Exec(`UPDATE app_configuration SET value=json_set(value,'$.command.terms.name','Unreviewed command') WHERE key LIKE 'product.terms-mutation.%'`); err != nil {
+		t.Fatal(err)
+	}
+	if code := productDataCommitCode(t, c, "commit_product_terms", plan); code != string(domain.ErrIntegrity) {
+		t.Fatal(code)
+	}
+}
+
+func TestProductHTTPTermsSameRevisionFactsIntegrity(t *testing.T) {
+	for _, field := range []string{"contract", "policy"} {
+		t.Run(field, func(t *testing.T) {
+			fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+			c := ledgerSession(t, fx)
+			id, _ := productDataSeed(t, fx, c, "locked_product")
+			p := productDataPreviewHTTP(t, c, "preview_product_terms", productTermsInput(id, 1, "locked_product"))
+			productDataCommitHTTP(t, c, "commit_product_terms", p["planId"].(string), uuid.NewString())
+			var err error
+			if field == "contract" {
+				_, err = db.SQL.Exec(`UPDATE product_contracts SET name='Different valid financial row' WHERE id=?`, id)
+			} else {
+				_, err = db.SQL.Exec(`UPDATE liquidity_policies SET note='Different valid policy row' WHERE source_kind='holding'`)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(t.TempDir(), "mismatch.db")
+			if err := db.SnapshotTo(t.Context(), path); err != nil {
+				t.Fatal(err)
+			}
+			if opened, err := sqlite.OpenReadOnlyForVerify(path); err == nil {
+				opened.Close()
+				t.Fatal("same-revision facts disagreed with receipt")
+			}
+		})
+	}
 }

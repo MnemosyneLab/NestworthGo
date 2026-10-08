@@ -1,6 +1,7 @@
 package sqlite
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -29,7 +30,7 @@ func (r *Repository) LookupProductTermsMutation(ctx context.Context, household d
 		return nil, err
 	}
 	if err := m.Validate(); err != nil {
-		return nil, err
+		return nil, asStoredIntegrity("product", err)
 	}
 	if m.HouseholdID != household || m.ID != id {
 		return nil, storedIntegrity("product", "terms receipt identity is inconsistent")
@@ -46,6 +47,11 @@ func (r *Repository) CommitProductTermsMutation(ctx context.Context, contract do
 	if m.HouseholdID != contract.HouseholdID || m.ProductID != contract.ID {
 		return storedIntegrity("product", "terms receipt ownership is inconsistent")
 	}
+	if same, err := sameProductTermsFacts(m.Receipt, contract, policy); err != nil {
+		return err
+	} else if !same {
+		return storedIntegrity("product", "terms receipt does not match committed facts")
+	}
 	raw, err := json.Marshal(m)
 	if err != nil {
 		return err
@@ -59,6 +65,20 @@ func (r *Repository) CommitProductTermsMutation(ctx context.Context, contract do
 		}
 		return failProductCommit("terms:receipt")
 	})
+}
+
+// Compare every persisted contract/policy field through the receipt's exact
+// canonical money-aware encoder; avoid field-specific integrity exceptions.
+func sameProductTermsFacts(receipt domain.ProductTermsReceipt, contract domain.ProductContract, policy domain.LiquidityPolicy) (bool, error) {
+	expected := receipt
+	expected.Contract = contract
+	expected.Policy = policy
+	a, err := json.Marshal(receipt)
+	if err != nil {
+		return false, err
+	}
+	b, err := json.Marshal(expected)
+	return bytes.Equal(a, b), err
 }
 
 // Startup and read-only backup validation treat this private namespace as
@@ -107,11 +127,48 @@ func verifyProductTermsMutations(ctx context.Context, query schemaQuery) error {
 	if err := contracts.Err(); err != nil {
 		return err
 	}
+
+	if err := contracts.Close(); err != nil {
+		return err
+	}
+	households := map[domain.HouseholdID]bool{}
+	for _, m := range mutations {
+		households[m.HouseholdID] = true
+	}
+	policies := map[domain.LiquidityPolicyID]domain.LiquidityPolicy{}
+	for household := range households {
+		list, err := listLiquidityPoliciesQuery(ctx, query, household)
+		if err != nil {
+			return err
+		}
+		for _, p := range list {
+			policies[p.ID] = p
+		}
+	}
 	for _, m := range mutations {
 		c, ok := current[m.ProductID]
 		r := m.Receipt.Contract
 		if !ok || c.Revision < r.Revision || c.HouseholdID != r.HouseholdID || c.AccountID != r.AccountID || c.HoldingID != r.HoldingID || c.InstrumentID != r.InstrumentID || c.Currency != r.Currency || c.Kind != r.Kind || c.StartOn != r.StartOn || c.OpenedOperationID != r.OpenedOperationID || !c.Principal.Amount().Equal(r.Principal.Amount()) {
 			return storedIntegrity("product", "terms receipt does not belong to current facts")
+		}
+
+		policy, ok := policies[m.Receipt.Policy.ID]
+		if !ok || policy.Revision < m.Receipt.Policy.Revision || policy.HouseholdID != m.HouseholdID || policy.Source.Key() != m.Receipt.Policy.Source.Key() {
+			return storedIntegrity("product", "terms receipt policy does not belong to current facts")
+		}
+		// Later revisions cannot be substituted for an older immutable result.
+		// Compare live facts only where that exact revision still exists.
+		expectedContract, expectedPolicy := r, m.Receipt.Policy
+		if c.Revision == r.Revision {
+			expectedContract = c
+		}
+		if policy.Revision == m.Receipt.Policy.Revision {
+			expectedPolicy = policy
+		}
+		if same, err := sameProductTermsFacts(m.Receipt, expectedContract, expectedPolicy); err != nil {
+			return err
+		} else if !same {
+			return storedIntegrity("product", "terms receipt disagrees with the same recorded revision")
 		}
 	}
 	return nil

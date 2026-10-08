@@ -154,7 +154,14 @@ func (s *Service) CommitProductTermsGuarded(ctx context.Context, input UpdatePro
 		return domain.ProductTermsReceipt{}, err
 	}
 	receipt := domain.ProductTermsReceipt{MutationID: id, Contract: prepared.contract, Policy: prepared.policy, CurrentValue: after.CurrentValue, DisplayState: after.DisplayState, RecordedAt: now, PermittedActions: after.PermittedActions, SuccessorID: after.SuccessorID}
-	m := domain.ProductTermsMutation{ID: id, HouseholdID: household.ID, ProductID: input.ProductID, PayloadSHA256: digest, Receipt: receipt, CreatedAt: now}
+	commandJSON, err := json.Marshal(input)
+	if err != nil {
+		return domain.ProductTermsReceipt{}, err
+	}
+	m, err := domain.NewProductTermsMutation(id, household.ID, commandJSON, receipt, now)
+	if err != nil {
+		return domain.ProductTermsReceipt{}, err
+	}
 	if err := s.repository.CommitProductTermsMutation(ctx, prepared.contract, prepared.policy, prepared.expectedPolicyRevision, m); err != nil {
 		return domain.ProductTermsReceipt{}, err
 	}

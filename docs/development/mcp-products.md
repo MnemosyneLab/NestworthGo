@@ -167,8 +167,25 @@ Closed products accept only name/note with unchanged financial terms and policy.
 Open edits can change forecasts without posting interest or altering reservations.
 The terms receipt returns the recorded-time ProductDTO and revision, not the
 complete detail's reservation array. Read get_product for current facts and
-complete reserve evidence. Money uses explicit decimal-string/currency encoding
-inside durable receipts, preserving exact values across restart.
+complete reserve evidence. Money, including policy fees/early gross amounts, uses explicit decimal-string/
+currency encoding inside durable receipts. Terms evidence retains the complete
+normalized command with its payload SHA-256 and a canonical SHA-256 binding the
+command, original result, identities and recording time. The transaction rejects
+any receipt whose complete contract/policy differs from the facts being saved.
+Lookup, startup and backup verification reject changed command/result evidence.
+Where a contract or policy still has the receipt's revision, verification also
+compares every persisted field against that live revision. At later revisions,
+retain and validate the original sealed result; do not replace it with new facts.
+
+This detects inconsistent/corrupt local evidence and same-revision disagreement;
+it is not an authenticated audit log. A party able to rewrite a plaintext SQLite
+database can rewrite old evidence and recompute its checksums. After later facts
+have overwritten an old revision, there is no independent cryptographic trust
+root proving its past value against such coordinated rewriting. No MCP tool
+allows namespace/fact/checksum writes of that kind. Invalid evidence fails
+closed; inspect actual facts in the GUI rather than reposting to repair a receipt.
+Earlier unreleased draft receipt formats lacking the binding fail verification;
+this change neither migrates nor connects any user ledger.
 
 Locked-product observations share the pure preparation used by
 AppendProductValuation. Preview freezes empty observedAt using App now and saves

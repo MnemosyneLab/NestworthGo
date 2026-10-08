@@ -45,3 +45,12 @@ requires fresh intent and preview after inspecting restored data. JSON household
 export excludes private MCP and terms-recovery configuration; it is not a restored
 MCP session. Active reservations and undo groups
 that would restore reservations require GUI handling. See [products.md](products.md).
+
+
+An integrity_failed product receipt is not a failed financial transaction to
+retry under a fresh intent. Inspect current facts and use the GUI to resolve
+local evidence corruption; do not repost to repair metadata. Terms command/result
+checksums and same-revision fact comparisons detect inconsistent local evidence,
+but are not authentication against coordinated rewriting of a SQLite database.
+Later revisions retain the original recorded result rather than substituting
+current terms, policy, quote or value.
