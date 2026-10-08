@@ -19,7 +19,8 @@ diagnose() {
 }
 
 transient_network_failure() {
-  local log=$1
+  local log=$1 fetch_error
+  local transient='Temporary failure resolving|Could not resolve|Could not connect|Connection (failed|timed out|reset)|Could not handshake|Timeout was reached|[45][0-9][0-9] (Too Many Requests|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time)'
   # Unknown E: errors (locks, signatures, missing packages, dpkg, etc.) fail
   # immediately, even when a transport error is also present.
   if grep '^E:' "$log" | grep -Ev '^E: (Failed to fetch |Some index files failed to download|Unable to fetch some archives)' >/dev/null; then
@@ -28,7 +29,14 @@ transient_network_failure() {
   if grep -Eiq 'Certificate verification failed|certificate issuer is unknown|Hash Sum mismatch|unauthenticated packages' "$log"; then
     return 1
   fi
-  grep -Eq 'Temporary failure resolving|Could not resolve|Could not connect|Connection (failed|timed out|reset)|Could not handshake|Timeout was reached|[45][0-9][0-9] (Too Many Requests|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Time)' "$log"
+  # A transient failure for one URL must not hide a permanent/unknown failure
+  # for another. apt update may report acquisition failures as W: lines.
+  while IFS= read -r fetch_error; do
+    if ! [[ "$fetch_error" =~ $transient ]]; then
+      return 1
+    fi
+  done < <(grep -E '^[EW]: Failed to fetch ' "$log")
+  grep -Eq "$transient" "$log"
 }
 
 run_phase() {

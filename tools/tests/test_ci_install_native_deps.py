@@ -119,6 +119,35 @@ else:
                 self.assertEqual(result.returncode, status)
                 self.assertEqual(len(calls), 1)
 
+    def test_mixed_fetch_errors_fail_without_retry(self):
+        for phase in ('update', 'download'):
+            for prefix in ('E:', 'W:'):
+                for transient in ('Temporary failure resolving', '503 Service Unavailable'):
+                    for permanent in ('404 Not Found', 'unknown acquisition error'):
+                        for reverse in (False, True):
+                            with self.subTest(phase=phase, prefix=prefix, transient=transient,
+                                              permanent=permanent, reverse=reverse):
+                                lines = [f'{prefix} Failed to fetch https://example.invalid/a {permanent}',
+                                         f'{prefix} Failed to fetch https://example.invalid/b {transient}']
+                                if reverse:
+                                    lines.reverse()
+                                lines.append('E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?')
+                                result, calls = self.run_install({phase: [[100, '\n'.join(lines)], [0, 'ok']]})
+                                self.assertEqual(result.returncode, 100, result.stdout)
+                                self.assertEqual(sum(c['phase'] == phase for c in calls), 1)
+                                self.assertNotIn('configure', [c['phase'] for c in calls])
+                                self.assertNotIn('::warning::', result.stdout)
+
+    def test_multiple_transient_fetch_errors_retry_then_success(self):
+        output = ('E: Failed to fetch https://example.invalid/a Temporary failure resolving\n'
+                  'E: Failed to fetch https://example.invalid/b 503 Service Unavailable\n'
+                  'E: Unable to fetch some archives, maybe run apt-get update or try with --fix-missing?')
+        for phase in ('update', 'download'):
+            with self.subTest(phase=phase):
+                result, calls = self.run_install({phase: [[100, output], [0, 'ok']]})
+                self.assertEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(sum(c['phase'] == phase for c in calls), 2)
+
     def test_configuration_never_retried_including_timeout_and_network_text(self):
         for status, output in ((100, 'E: Sub-process /usr/bin/dpkg returned an error code (1)'), (100, 'Temporary failure resolving'), ('hang', 'stall')):
             with self.subTest(status=status):
