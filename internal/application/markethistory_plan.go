@@ -555,7 +555,7 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	from, to, ok := closedSnapshotRange(state, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday})
+	from, to, ok := dirtySnapshotRange(state, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday})
 	// Recover ready but incomplete snapshots even if an older build cleared
 	// the dirty cursor. Rebuilding still uses the generation-aware publisher.
 	incompleteIssues, err := s.incompleteSnapshotHealth(ctx, origin, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday}, nil)
@@ -563,15 +563,28 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	appended := 0
+	var readyDates []string
 	for _, date := range readySnapshotDates(incompleteIssues) {
 		if ok && date >= from && date <= to {
 			continue
 		}
-		count, err := s.RebuildHistoricalSnapshots(ctx, date, date)
+		readyDates = append(readyDates, date)
+	}
+	// Repair only observed holes/stale rows, grouping contiguous dates into the
+	// existing 31-day builder batches instead of reconstructing valid history.
+	for _, rng := range CapHistoryRanges(dateRangesFromDates(readyDates), 31) {
+		count, err := s.RebuildHistoricalSnapshots(ctx, string(rng.Start), string(rng.End))
 		appended += count
 		if err != nil {
 			return appended, err
 		}
+	}
+	current, err := s.repository.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		return appended, err
+	}
+	if current.InputGeneration != state.InputGeneration {
+		return appended, &domain.Error{Code: domain.ErrConflict, Field: "inputGeneration", Message: "snapshot input generation changed during rebuild"}
 	}
 	if !ok {
 		return appended, nil

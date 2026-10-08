@@ -205,7 +205,7 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 		return MarketDataHealthReport{}, err
 	}
 	// The existing dirty-range issue already covers ready dates in that range.
-	if from, to, ok := closedSnapshotRange(state, plan); ok {
+	if from, to, ok := dirtySnapshotRange(state, plan); ok {
 		filtered := issues[:0]
 		for _, issue := range issues {
 			if issue.Reason == "snapshot_inputs_ready" && issue.RangeStart >= from && issue.RangeStart <= to {
@@ -230,7 +230,7 @@ func (s *Service) ScanMarketDataHealth(ctx context.Context) (MarketDataHealthRep
 	if !rootCause {
 		report.SnapshotDays = countedSnapshotDays(snapshotIssues)
 		for _, date := range readySnapshotDates(storedIssues) {
-			from, to, ok := closedSnapshotRange(state, plan)
+			from, to, ok := dirtySnapshotRange(state, plan)
 			if !ok || date < from || date > to {
 				report.SnapshotDays++
 			}
@@ -734,7 +734,7 @@ func (s *Service) scanValuationHealth(ctx context.Context, instruments map[strin
 }
 
 func scanSnapshotHealth(state domain.DailySnapshotState, plan HistoryRepairPlan, rootCause bool) []HealthIssue {
-	from, to, ok := closedSnapshotRange(state, plan)
+	from, to, ok := dirtySnapshotRange(state, plan)
 	if !ok {
 		return nil
 	}

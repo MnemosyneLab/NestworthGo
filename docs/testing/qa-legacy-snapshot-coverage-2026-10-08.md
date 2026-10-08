@@ -91,6 +91,46 @@ appending physical revisions; and a coverage-read barrier that fences a queued
 guarded writer, whose original token remains valid when that pure read finishes.
 MCP analyze_period's existing outer WithWrite behavior is unchanged.
 
+## Additional independent-review findings
+
+Review of the initial refactor identified two further reachable correctness
+regressions, also reproduced on the preview-fixed head `6f91436`:
+
+* A real `CommitInstrumentHistory` coverage commit at Aug 6 creates dirty Aug
+  2–5. Materialize Aug 6–11, then record ordinary income +50 effective Aug 3 at
+  Aug 12. Before the propagation fix, Aug 10 stayed 240 (expected 290), including
+  after rebuilding Aug 2–11; Aug 5→6 changed −40 (expected +10). The ordinary
+  mutation increased generation but inherited the earlier dirty upper bound.
+  The same transaction now widens an existing bound to the last closed household
+  day and retains NULL for already-unbounded work. The financial regression now
+  reads 290 / +10 / 290; legacy investment return and attribution identities pass.
+  This reproducer uses the production history-commit entry point, not fabricated
+  SQL markers or a live provider.
+* Attribution Aug 10–11 followed by the Oct 3 thirty-day trend leaves 31 rows and
+  **32** missing closes (Aug 1–9 and Aug 12–Sep 3) out of 63 closed history days.
+  Previously health was healthy with zero issues, repair estimated zero, and
+  repair did nothing. Health/preview now inspect actual rows for holes and old
+  hash/policy, without building them. Repair fills exactly those 32 holes in two
+  bounded builder batches; already-present rows are retained, then health is
+  healthy and repeat repair builds zero days. The state-only helper is renamed
+  `dirtySnapshotRange` and reports only pending invalidation. No application
+  consumer uses the completion watermark to prove contiguous coverage.
+
+Cross-chunk publication remains intentionally resumable, not range-atomic.
+A mutation after the first 31 saves leaves 41 rows of mixed generations and
+returns conflict: Aug 2 is still 160 while Sep 10 is already 551. Durable dirty
+state makes health report outdated work. An eight-case test exercises Analyze,
+net worth trend, portfolio trend and attribution, both retrying on the same
+Service and closing/reopening SQLite. Each reader repairs its required coverage;
+all 41 dates are checked for exact net worth (Aug 2=161, Sep 10=551), completeness
+and affected-date generation. Analysis component totals and investment return
+400, net worth change 401, instrument-only portfolio values 60/450, and attribution
+precision identities are verified. Uncovered pending tails remain durable.
+
+The extra health diagnosis performs a latest-row scan and date-label iteration;
+its large-history cost was not separately benchmarked. Ordinary-mutation bound
+propagation adds no history rebuild to the write itself.
+
 ## Performance
 
 `legacy_snapshot_coverage_benchmark_test.go` measures a cash-only, 62-closed-day

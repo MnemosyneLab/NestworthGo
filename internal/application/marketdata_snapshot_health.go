@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -12,6 +13,9 @@ import (
 // incompleteSnapshotHealth reads both stored results and current local inputs.
 // A completed build cursor says nothing about the completeness of its values.
 func (s *Service) incompleteSnapshotHealth(ctx context.Context, origin *domain.HistoryOrigin, plan HistoryRepairPlan, names map[domain.InstrumentID]domain.Instrument) ([]HealthIssue, error) {
+	if plan.OriginLocalDate > plan.YesterdayLocal {
+		return nil, nil
+	}
 	until, err := time.Parse("2006-01-02", plan.YesterdayLocal)
 	if err != nil {
 		return nil, err
@@ -29,8 +33,19 @@ func (s *Service) incompleteSnapshotHealth(ctx context.Context, origin *domain.H
 		return nil, err
 	}
 	var issues []HealthIssue
+	present := make(map[string]bool, len(snapshots))
+	readyIssue := func(date, kind, code string) HealthIssue {
+		return HealthIssue{ID: code + "-" + date, Kind: kind, Severity: HealthSeverityBlocking, TargetKey: "snapshot", GroupKey: "snapshot", RangeStart: date, RangeEnd: date, RangeCount: 1, Code: code, Reason: "snapshot_inputs_ready", Action: HealthActionRepair, Executable: true}
+	}
 	for _, snapshot := range snapshots {
-		if snapshot.Complete || snapshot.LocalDate < plan.OriginLocalDate {
+		if snapshot.LocalDate < plan.OriginLocalDate {
+			continue
+		}
+		present[snapshot.LocalDate] = true
+		if snapshot.Complete {
+			if snapshotHashNeedsRebuild(snapshot.ContentHash) || snapshot.ResolverPolicyVersion != domain.MarketDataResolverPolicy {
+				issues = append(issues, readyIssue(snapshot.LocalDate, HealthKindSnapshotOutdated, "snapshot_outdated"))
+			}
 			continue
 		}
 		fresh, err := s.valueHistoricalSnapshot(ctx, origin, snapshot.CutoffAt, snapshot.LocalDate)
@@ -74,6 +89,17 @@ func (s *Service) incompleteSnapshotHealth(ctx context.Context, origin *domain.H
 			issues = append(issues, HealthIssue{ID: "snapshot-incomplete-" + snapshot.LocalDate, Kind: HealthKindSnapshotIncomplete, Severity: HealthSeverityWarning, TargetKey: "snapshot", GroupKey: "snapshot", RangeStart: snapshot.LocalDate, RangeEnd: snapshot.LocalDate, RangeCount: 1, Code: "snapshot_incomplete", Reason: "snapshot_incomplete", Action: HealthActionNone})
 		}
 	}
+	// A high watermark can coexist with an earlier hole or an uncovered tail.
+	// Enumerate labels only: diagnosis does not build or replay missing days.
+	dates, err := domain.InclusiveMarketDates(plan.OriginLocalDate, plan.YesterdayLocal)
+	if err != nil {
+		return nil, err
+	}
+	for _, date := range dates {
+		if !present[date] {
+			issues = append(issues, readyIssue(date, HealthKindSnapshotMissing, "snapshot_missing"))
+		}
+	}
 	return issues, nil
 }
 
@@ -86,5 +112,6 @@ func readySnapshotDates(issues []HealthIssue) []string {
 			dates = append(dates, issue.RangeStart)
 		}
 	}
+	sort.Strings(dates)
 	return dates
 }

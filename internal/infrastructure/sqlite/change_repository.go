@@ -341,7 +341,11 @@ func markHistoryDirtyAndAdvanceGenerationTx(ctx context.Context, tx *sql.Tx, hou
 	if effectiveLocalDate >= asOf.In(location).Format("2006-01-02") {
 		return false, nil
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN ? ELSE dirty_from END, input_generation = input_generation + 1, resolver_policy_version = CASE WHEN resolver_policy_version IS NULL OR resolver_policy_version = '' THEN ? ELSE resolver_policy_version END, updated_at = ? WHERE household_id = ?`, effectiveLocalDate, effectiveLocalDate, domain.MarketDataResolverPolicy, formatTimestamp(asOf), householdID.String())
+	// A later ordinary change can extend beyond a prior bounded correction or
+	// market-history invalidation. Preserve unbounded work, but widen an existing
+	// bound through the last closed household day in this same transaction.
+	yesterday := asOf.In(location).AddDate(0, 0, -1).Format("2006-01-02")
+	result, err := tx.ExecContext(ctx, `UPDATE history_snapshot_state SET dirty_from = CASE WHEN dirty_from IS NULL OR dirty_from > ? THEN ? ELSE dirty_from END, dirty_to = CASE WHEN dirty_to IS NOT NULL AND dirty_to < ? THEN ? ELSE dirty_to END, input_generation = input_generation + 1, resolver_policy_version = CASE WHEN resolver_policy_version IS NULL OR resolver_policy_version = '' THEN ? ELSE resolver_policy_version END, updated_at = ? WHERE household_id = ?`, effectiveLocalDate, effectiveLocalDate, yesterday, yesterday, domain.MarketDataResolverPolicy, formatTimestamp(asOf), householdID.String())
 	if err != nil {
 		return false, err
 	}
