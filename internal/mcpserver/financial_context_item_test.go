@@ -60,6 +60,7 @@ func decodeItem(t *testing.T, obj map[string]any) FinancialContextItemResponse {
 	return r
 }
 func TestFinancialContextItemRelations(t *testing.T) {
+	t.Parallel()
 	s, g := itemFixture(t)
 	account := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "positions"})
 	if account.Type != "account" || account.Position.Ref != "account-1" || len(account.Positions) != 3 || account.PositionsPage.Total != 3 {
@@ -103,6 +104,7 @@ func TestFinancialContextItemRelations(t *testing.T) {
 	}
 }
 func TestFinancialContextItemValidationExpiryAndIsolation(t *testing.T) {
+	t.Parallel()
 	s, g := itemFixture(t)
 	initial := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1"})
 	cursor := initial.PositionsPage.NextCursor
@@ -140,6 +142,7 @@ func TestFinancialContextItemValidationExpiryAndIsolation(t *testing.T) {
 	}
 }
 func TestFinancialContextItemBudgetAndPagination(t *testing.T) {
+	t.Parallel()
 	s, g := itemFixture(t)
 	entry := s.contexts.entries["package-a"]
 	for i := 5; i < 110; i++ {
@@ -186,6 +189,7 @@ func TestFinancialContextItemBudgetAndPagination(t *testing.T) {
 	}
 }
 func TestFinancialContextItemConcurrentRevocation(t *testing.T) {
+	t.Parallel()
 	s, g := itemFixture(t)
 	var wg sync.WaitGroup
 	for i := 0; i < 20; i++ {
@@ -205,6 +209,7 @@ func TestFinancialContextItemConcurrentRevocation(t *testing.T) {
 	}
 }
 func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app, changes := fixture(t)
@@ -316,6 +321,7 @@ func TestFinancialContextItemHTTPFrozenAndSkill(t *testing.T) {
 }
 
 func TestFinancialContextItemSkillPagination(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	if _, err := s.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
@@ -351,6 +357,7 @@ func TestFinancialContextItemSkillPagination(t *testing.T) {
 }
 
 func TestFinancialContextItemSourceTextDoesNotLeak(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	if _, err := fx.app.CreateHolding(t.Context(), application.HoldingInput{AccountID: fx.brokerage, InstrumentID: fx.instrument, Quantity: "2", UnitCost: "5"}); err != nil {
 		t.Fatal(err)
@@ -383,6 +390,7 @@ func TestFinancialContextItemSourceTextDoesNotLeak(t *testing.T) {
 }
 
 func TestFinancialContextItemNamedMembershipAndCursors(t *testing.T) {
+	t.Parallel()
 	s, g := itemFixture(t)
 	entry := s.contexts.entries["package-a"]
 	entry.result.Content.Disclosure = "named"
@@ -474,6 +482,7 @@ func TestFinancialContextItemNamedMembershipAndCursors(t *testing.T) {
 }
 
 func TestFinancialContextItemOversizedSectionDiagnostic(t *testing.T) {
+	t.Parallel()
 	for _, oversizedSection := range []string{"positions", "gaps", "evidence"} {
 		t.Run(oversizedSection, func(t *testing.T) {
 			s, g := itemFixture(t)

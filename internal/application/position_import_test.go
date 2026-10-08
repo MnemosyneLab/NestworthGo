@@ -8,6 +8,7 @@ import (
 )
 
 func TestBackdatedPositionImportPreviewsAndCommitsWithoutCash(t *testing.T) {
+	t.Parallel()
 	ctx, service, repository, database, bootstrap, setNow := historicalInsertionFixture(t)
 	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
@@ -81,6 +82,7 @@ func TestBackdatedPositionImportPreviewsAndCommitsWithoutCash(t *testing.T) {
 }
 
 func TestPositionImportRequiresKnownCostAndMatchingCurrency(t *testing.T) {
+	t.Parallel()
 	ctx, service, _, _, bootstrap, setNow := historicalInsertionFixture(t)
 	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {

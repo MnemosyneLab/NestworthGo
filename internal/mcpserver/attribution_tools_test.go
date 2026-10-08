@@ -71,6 +71,7 @@ func addDividendAttribution(t *testing.T, app *application.Service, suffix, divi
 }
 
 func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
+	t.Parallel()
 	s, app, _, _ := historyFixture(t)
 	t.Cleanup(s.Close)
 	brokerageID := addDividendAttribution(t, app, "A", "5")

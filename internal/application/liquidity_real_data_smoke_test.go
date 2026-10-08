@@ -21,6 +21,7 @@ import (
 //
 // NESTWORTH_QA_DATABASE=/path/to/backup.db go test ./internal/application -run TestRealDataLiquiditySmoke -count=1 -v
 func TestRealDataLiquiditySmoke(t *testing.T) {
+	t.Parallel()
 	backupPath := os.Getenv("NESTWORTH_QA_DATABASE")
 	if backupPath == "" {
 		t.Skip("set NESTWORTH_QA_DATABASE to an existing standalone backup")

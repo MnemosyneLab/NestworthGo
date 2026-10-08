@@ -7,6 +7,7 @@ import (
 )
 
 func TestEquityWeekendDoesNotCreateHistoryWork(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	for _, market := range []string{"US", "SG"} {
 		t.Run(market, func(t *testing.T) {
@@ -47,6 +48,7 @@ func TestEquityWeekendDoesNotCreateHistoryWork(t *testing.T) {
 }
 
 func TestCryptoWeekendStillRequiresHistory(t *testing.T) {
+	t.Parallel()
 	coverage := domain.InstrumentHistoryCoverage{InstrumentType: "crypto", Market: "CRYPTO", ProviderKey: CoinGeckoProviderKey, ProviderSymbol: "bitcoin"}
 	need := InstrumentRepairNeed{FetchRange: DateRange{Start: "2026-09-12", End: "2026-09-13"}}
 	planned, err := applyHistorySyncPolicy(need, coverage, "2026-09-17", time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC), false)
@@ -59,6 +61,7 @@ func TestCryptoWeekendStillRequiresHistory(t *testing.T) {
 }
 
 func TestLaterCloseSuppressesInteriorHolidayRepair(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 18, 12, 0, 0, 0, time.UTC)
 	coverage := domain.InstrumentHistoryCoverage{InstrumentType: "etf", Market: "SG", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "ES3.SI", CloseMarketDates: []string{"2026-09-11", "2026-09-14", "2026-09-16", "2026-09-17"}, CloseFetchedAt: map[string]time.Time{}}
 	for _, date := range coverage.CloseMarketDates {
@@ -103,6 +106,7 @@ func TestLaterCloseSuppressesInteriorHolidayRepair(t *testing.T) {
 }
 
 func TestHistoricalValuationAcceptsInferredHolidayWithoutFuturePrice(t *testing.T) {
+	t.Parallel()
 	provider := YahooFinanceProviderKey
 	instrument := domain.Instrument{ID: domain.NewInstrumentID(), ProviderKey: &provider, ProviderBindingRevision: 1}
 	quote := domain.InstrumentQuote{InstrumentID: instrument.ID, EffectiveDate: "2026-09-14", SourcePolicyVersion: "policy"}
@@ -117,6 +121,7 @@ func TestHistoricalValuationAcceptsInferredHolidayWithoutFuturePrice(t *testing.
 }
 
 func TestMetalWeekendCarryAndRepairAgree(t *testing.T) {
+	t.Parallel()
 	for _, symbol := range []string{"GC=F", "SI=F"} {
 		t.Run(symbol, func(t *testing.T) {
 			provider := YahooFinanceProviderKey

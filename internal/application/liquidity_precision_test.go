@@ -7,6 +7,7 @@ import (
 )
 
 func TestLiquidityOverviewAcceptsHighPrecisionHoldingValuations(t *testing.T) {
+	t.Parallel()
 	service, ctx := newProductTestService(t, time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC))
 	account := seedHoldingsCash(t, service, ctx, "100")
 	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "Precision holding", Type: "stock", QuoteCurrency: "USD", QuoteSource: "manual"})

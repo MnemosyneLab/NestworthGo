@@ -9,6 +9,7 @@ import (
 )
 
 func TestProductInterestReceiptCannotMovePaidThroughBackwards(t *testing.T) {
+	t.Parallel()
 	s, ctx, account, opened := openRegressionProduct(t)
 	detail, err := s.Product(ctx, opened.ProductIDs[0])
 	if err != nil {
@@ -51,6 +52,7 @@ func TestProductInterestReceiptCannotMovePaidThroughBackwards(t *testing.T) {
 }
 
 func TestProductLongHistoryKeepsPaginationAndFinancialTimeChecks(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 20, 4, 0, 0, 0, time.UTC)
 	s, ctx := newProductTestService(t, now)
 	account := seedHoldingsCash(t, s, ctx, "20000")

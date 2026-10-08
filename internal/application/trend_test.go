@@ -9,6 +9,7 @@ import (
 )
 
 func TestTrendChartsIncludeTodayWhenHistoryStartsToday(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-today", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	setClock(time.Date(2026, 8, 15, 12, 0, 0, 0, time.UTC))
@@ -59,6 +60,7 @@ func TestTrendChartsIncludeTodayWhenHistoryStartsToday(t *testing.T) {
 }
 
 func TestNetWorthTrendDoesNotPlotIncompleteSnapshotAsZero(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-incomplete-gap", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	if _, err := service.CreateAccount(ctx, AccountInput{
@@ -128,6 +130,7 @@ func TestNetWorthTrendDoesNotPlotIncompleteSnapshotAsZero(t *testing.T) {
 }
 
 func TestNetWorthTrendRebuildsHistoryLongerThan31DaysFromLastCompleted(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-long-history", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	setClock(time.Date(2026, 6, 20, 12, 0, 0, 0, time.UTC))
@@ -173,6 +176,7 @@ func TestNetWorthTrendRebuildsHistoryLongerThan31DaysFromLastCompleted(t *testin
 }
 
 func TestNetWorthSummaryRequiresActualPeriodBoundaries(t *testing.T) {
+	t.Parallel()
 	currency, _ := domain.ParseCurrency("USD")
 	start, _ := domain.NewSignedMoney(decimal.NewFromInt(100), currency)
 	end, _ := domain.NewSignedMoney(decimal.NewFromInt(150), currency)
@@ -204,6 +208,7 @@ func TestNetWorthSummaryRequiresActualPeriodBoundaries(t *testing.T) {
 }
 
 func TestExplicitTrendWindowExcludesCurrentAndLaterDays(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-explicit", []string{"Owner"})
 	setClock(time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC))
 	if _, err := service.CreateAccount(ctx, AccountInput{

@@ -5,6 +5,7 @@ import (
 )
 
 func TestBootstrapDoesNotRecreateDefaultDirectory(t *testing.T) {
+	t.Parallel()
 	service, ctx, first, _ := newOnboardedService(t, "bootstrap-readonly", []string{"Alice"})
 	if len(first.Institutions) == 0 || len(first.Groups) == 0 {
 		t.Fatal("onboarding should create default directory entries")

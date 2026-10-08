@@ -62,6 +62,7 @@ func skillCommit(t *testing.T, c *mcp.ClientSession, name, planID string) map[st
 }
 
 func TestSkillAccountTradeImportAndReconciliationExamples(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	call(t, c, "get_context", map[string]any{}, false)
@@ -107,6 +108,7 @@ func TestSkillAccountTradeImportAndReconciliationExamples(t *testing.T) {
 }
 
 func TestSkillCashDebtAndBatchExamples(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	values := map[string]string{"accountId": fx.checking, "effectiveAt": "2026-09-29T12:00:00Z", "debtAccountId": fx.debt}
@@ -130,6 +132,7 @@ func TestSkillCashDebtAndBatchExamples(t *testing.T) {
 }
 
 func TestSkillFundQuoteAnalysisAndHealthExamples(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	// Any accidental provider dependency must fail locally rather than use a network.
 	fx.app.SetMarketDataRegistry(application.NewMarketDataRegistry())
@@ -206,6 +209,7 @@ func skillContextDetails(t *testing.T, c *mcp.ClientSession, initial FinancialCo
 }
 
 func TestSkillFinancialContextDirectMinimalAndNamedExamples(t *testing.T) {
+	t.Parallel()
 	s, app, changes := fixture(t)
 	bootstrap, err := app.Bootstrap(t.Context())
 	if err != nil {
@@ -291,6 +295,7 @@ func TestSkillFinancialContextDirectMinimalAndNamedExamples(t *testing.T) {
 }
 
 func TestSkillFinancialContextDeferredAndExpiredPageExamples(t *testing.T) {
+	t.Parallel()
 	s, app, _ := fixture(t)
 	bootstrap, err := app.Bootstrap(t.Context())
 	if err != nil {
@@ -354,6 +359,7 @@ func TestSkillFinancialContextDeferredAndExpiredPageExamples(t *testing.T) {
 }
 
 func TestSkillFinancialContextRowFXAndTimeMeanings(t *testing.T) {
+	t.Parallel()
 	app := wailstest.NewService(t)
 	now := time.Now().UTC().Truncate(time.Second)
 	app.SetClock(func() time.Time { return now })
@@ -416,6 +422,7 @@ func TestSkillFinancialContextRowFXAndTimeMeanings(t *testing.T) {
 }
 
 func TestSkillFinancialComparisonExamples(t *testing.T) {
+	t.Parallel()
 	s, app, changes := fixture(t)
 	comparisonFixture(t, s, app)
 	if _, err := s.Enable(ReadOnly); err != nil {

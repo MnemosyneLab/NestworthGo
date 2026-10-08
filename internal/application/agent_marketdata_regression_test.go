@@ -10,6 +10,7 @@ import (
 )
 
 func TestAgentFXRetractionRestoresConvertedMetalRevision(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, setClock := newOnboardedService(t, "agent-metal-fx-rollback", nil)
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	setClock(now)
@@ -88,6 +89,7 @@ func TestAgentFXRetractionRestoresConvertedMetalRevision(t *testing.T) {
 }
 
 func TestAgentMixedQuotesAgreeAcrossCurrentAndPortfolio(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, setClock := newOnboardedService(t, "agent-selection-consistency", nil)
 	setClock(time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC))
 	i, err := s.CreateInstrument(ctx, InstrumentInput{Name: "Stock", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "ABC", MarketCode: "US"})
@@ -124,6 +126,7 @@ func TestAgentMixedQuotesAgreeAcrossCurrentAndPortfolio(t *testing.T) {
 }
 
 func TestAgentDailySeriesFiltersEffectiveDateAcrossTimezones(t *testing.T) {
+	t.Parallel()
 	for _, timezone := range []string{"Asia/Singapore", "America/New_York"} {
 		t.Run(timezone, func(t *testing.T) {
 			s, i, _ := newAgentMarketDataFixture(t)
@@ -175,6 +178,7 @@ func TestAgentDailySeriesFiltersEffectiveDateAcrossTimezones(t *testing.T) {
 }
 
 func TestAgentLastFXRetractionMakesConvertedMetalUnavailable(t *testing.T) {
+	t.Parallel()
 	s, ctx, _, setClock := newOnboardedService(t, "last-metal-fx", nil)
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	setClock(now)
@@ -229,6 +233,7 @@ func TestAgentLastFXRetractionMakesConvertedMetalUnavailable(t *testing.T) {
 }
 
 func TestAgentMixedFXAgreeAcrossCurrentAndPortfolio(t *testing.T) {
+	t.Parallel()
 	s, ctx, bootstrap, setClock := newOnboardedService(t, "agent-fx-selection", nil)
 	setClock(time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC))
 	_, err := s.SetFXPreference(ctx, "USD", "CNY", "provider")

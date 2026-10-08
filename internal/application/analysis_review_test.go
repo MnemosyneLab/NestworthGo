@@ -34,6 +34,7 @@ func reviewSnapshot(householdID domain.HouseholdID, date string, items ...domain
 }
 
 func TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	usdCash := domain.Account{ID: domain.NewAccountID(), HouseholdID: householdID, Name: "USD cash", AccountType: domain.TypeBankAccount, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingBalance, DefaultCurrency: "USD", IncludeInNetWorth: true}
 	cnyCash := domain.Account{ID: domain.NewAccountID(), HouseholdID: householdID, Name: "CNY cash", AccountType: domain.TypeBankAccount, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingBalance, DefaultCurrency: "CNY", IncludeInNetWorth: true}
@@ -87,6 +88,7 @@ func TestReviewF01ReturnFallbackDoesNotPolluteAssetUniverseCache(t *testing.T) {
 }
 
 func TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	account := analysisAccount(householdID, "USD", domain.TrackingBalance, domain.RoleAsset)
 	household := &domain.Household{ID: householdID, BaseCurrency: "USD"}
@@ -161,6 +163,7 @@ func TestReviewF02UnknownAmountsStayNilAndKnownZeroIsKept(t *testing.T) {
 }
 
 func TestReviewF03InKindTransferIsDietzCapitalAtScopeBoundary(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	source := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -213,6 +216,7 @@ func TestReviewF03InKindTransferIsDietzCapitalAtScopeBoundary(t *testing.T) {
 }
 
 func TestReviewF03SplitAndReconciliationAreNotDietzCapital(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -240,6 +244,7 @@ func TestReviewF03SplitAndReconciliationAreNotDietzCapital(t *testing.T) {
 }
 
 func TestReviewF07OffsettingResidualKeepsIssueCountWithoutZeroBar(t *testing.T) {
+	t.Parallel()
 	first := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	second := domain.AccountID("00000000-0000-0000-0000-000000000002")
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
@@ -257,6 +262,7 @@ func TestReviewF07OffsettingResidualKeepsIssueCountWithoutZeroBar(t *testing.T) 
 }
 
 func TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding(t *testing.T) {
+	t.Parallel()
 	accountID := domain.NewAccountID()
 	beginning := analysisSignedTestMoney(t, "100")
 	ending := analysisSignedTestMoney(t, "100.0001")
@@ -283,6 +289,7 @@ func TestReviewD5AssetChangeAggregatesExactAttributionBeforeRounding(t *testing.
 }
 
 func TestReviewD5WaterfallAllocatesMultiBucketRoundingRemainder(t *testing.T) {
+	t.Parallel()
 	accountID := domain.NewAccountID()
 	day := domain.ComponentDay{
 		Date:           "2026-08-01",
@@ -326,6 +333,7 @@ func TestReviewD5WaterfallAllocatesMultiBucketRoundingRemainder(t *testing.T) {
 }
 
 func TestReviewD5WaterfallKeepsGenuineExactMismatchVisible(t *testing.T) {
+	t.Parallel()
 	accountID := domain.NewAccountID()
 	day := domain.ComponentDay{
 		Date:           "2026-08-01",
@@ -346,6 +354,7 @@ func TestReviewD5WaterfallKeepsGenuineExactMismatchVisible(t *testing.T) {
 }
 
 func TestReviewD5AssetDriverDetailAggregatesExactAttributionBeforeRounding(t *testing.T) {
+	t.Parallel()
 	firstAccount, secondAccount := domain.NewAccountID(), domain.NewAccountID()
 	day := func(date string, accountID domain.AccountID) domain.ComponentDay {
 		return domain.ComponentDay{
@@ -370,6 +379,7 @@ func TestReviewD5AssetDriverDetailAggregatesExactAttributionBeforeRounding(t *te
 }
 
 func TestReviewD5CategoryRowsAggregateExactBeforeRounding(t *testing.T) {
+	t.Parallel()
 	accountID := domain.NewAccountID()
 	day := func(date string) domain.ComponentDay {
 		return domain.ComponentDay{
@@ -394,6 +404,7 @@ func TestReviewD5CategoryRowsAggregateExactBeforeRounding(t *testing.T) {
 }
 
 func TestReviewD5AssetTrendAggregatesExactPeriodAmountBeforeRounding(t *testing.T) {
+	t.Parallel()
 	accountID := domain.NewAccountID()
 	day := func(date string) domain.ComponentDay {
 		return domain.ComponentDay{
@@ -423,6 +434,7 @@ func TestReviewD5AssetTrendAggregatesExactPeriodAmountBeforeRounding(t *testing.
 }
 
 func TestReviewF11ContributionHistoryHintUsesWholeGroup(t *testing.T) {
+	t.Parallel()
 	firstAccount, secondAccount := domain.NewAccountID(), domain.NewAccountID()
 	dividendTen := testReturnMoney(t, "10")
 	dividendTwenty := testReturnMoney(t, "20")
@@ -521,6 +533,7 @@ func TestReviewF11ContributionHistoryHintUsesWholeGroup(t *testing.T) {
 }
 
 func TestReviewF11RealizedContributionHistoryHintKeepsOnlyExplicitDimensions(t *testing.T) {
+	t.Parallel()
 	accountID, instrumentID := domain.NewAccountID(), domain.NewInstrumentID()
 	query := testReturnQuery("2026-08-01", "2026-08-31")
 

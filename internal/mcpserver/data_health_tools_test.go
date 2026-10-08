@@ -54,6 +54,7 @@ func decodeDataHealthDTO[T any](t *testing.T, value any) T {
 }
 
 func TestDataHealthToolsAvailableAcrossModes(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, app := dataHealthFixture(t, true)
@@ -121,6 +122,7 @@ func TestDataHealthToolsAvailableAcrossModes(t *testing.T) {
 }
 
 func TestDataRepairDurableRetryAndExactJobStatus(t *testing.T) {
+	t.Parallel()
 	s, app := dataHealthFixture(t, false)
 	ctx := context.Background()
 	bootstrap, err := app.Bootstrap(ctx)

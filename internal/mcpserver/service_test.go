@@ -80,6 +80,7 @@ func mutate(t *testing.T, c *mcp.ClientSession, name string, input any) map[stri
 	return call(t, c, name, map[string]any{"operationId": uuid.NewString(), "input": input}, false)["data"].(map[string]any)["result"].(map[string]any)
 }
 func TestHTTPDiscoveryAndReadOnly(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	if _, err := s.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
@@ -109,6 +110,7 @@ func TestHTTPDiscoveryAndReadOnly(t *testing.T) {
 	}
 }
 func TestDirectoryWritesAndDurableRetries(t *testing.T) {
+	t.Parallel()
 	s, app, changes := fixture(t)
 	if _, err := s.Enable(DirectoryWrite); err != nil {
 		t.Fatal(err)
@@ -153,6 +155,7 @@ func TestDirectoryWritesAndDurableRetries(t *testing.T) {
 	}
 }
 func TestAccountInstrumentAndDirectoryLifecycle(t *testing.T) {
+	t.Parallel()
 	s, app, _ := fixture(t)
 	if _, err := s.Enable(DirectoryWrite); err != nil {
 		t.Fatal(err)
@@ -182,6 +185,7 @@ func TestAccountInstrumentAndDirectoryLifecycle(t *testing.T) {
 	call(t, c, "list_instruments", ListInput{IncludeArchived: true, Query: "example"}, false)
 }
 func TestUnknownOutcomeNeverReexecutes(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	id := uuid.NewString()
 	path, _ := s.operationPath(id)
@@ -202,6 +206,7 @@ func TestUnknownOutcomeNeverReexecutes(t *testing.T) {
 	}
 }
 func TestConcurrentRetryExecutesOnce(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	id := uuid.NewString()
 	var calls atomic.Int32
@@ -220,6 +225,7 @@ func TestConcurrentRetryExecutesOnce(t *testing.T) {
 	}
 }
 func TestHTTPBoundary(t *testing.T) {
+	t.Parallel()
 	endpoint := "http://127.0.0.1:12345/mcp"
 	handler := protect(endpoint, "secret", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := io.ReadAll(r.Body)
@@ -253,6 +259,7 @@ func TestHTTPBoundary(t *testing.T) {
 	}
 }
 func TestPermissionChangeRevokesTokenAndDisablePersists(t *testing.T) {
+	t.Parallel()
 	s, app, _ := fixture(t)
 	if _, err := s.Enable(DirectoryWrite); err != nil {
 		t.Fatal(err)
@@ -292,6 +299,7 @@ func TestPermissionChangeRevokesTokenAndDisablePersists(t *testing.T) {
 }
 
 func TestDirectoryIsolation(t *testing.T) {
+	t.Parallel()
 	a := Directory("/tmp/home/a.json", "/tmp/home/main.db")
 	if a == Directory("/tmp/home/b.json", "/tmp/home/main.db") {
 		t.Fatal("settings files share credentials")
@@ -301,6 +309,7 @@ func TestDirectoryIsolation(t *testing.T) {
 	}
 }
 func TestImmediateEnableDisableReleasesListener(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	for range 10 {
 		if _, err := s.Enable(ReadOnly); err != nil {

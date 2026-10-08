@@ -39,6 +39,7 @@ func assertAttributionPrecisionIdentity(t *testing.T, r FinancialComparisonResul
 }
 
 func TestFinancialAttributionScopeDescribesAccountEnteringPeriod(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Private existing", "bank_account", "asset", "balance", "CNY", "40")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
@@ -73,6 +74,7 @@ func TestFinancialAttributionScopeDescribesAccountEnteringPeriod(t *testing.T) {
 }
 
 func TestFinancialAttributionRequestedRangeOrderAndRevision(t *testing.T) {
+	t.Parallel()
 	for _, order := range []string{"late_then_early", "early_then_late"} {
 		t.Run(order, func(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
@@ -187,6 +189,7 @@ func TestFinancialAttributionRequestedRangeOrderAndRevision(t *testing.T) {
 }
 
 func TestFinancialAttributionGapBackfillChunks(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic cash", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
@@ -202,6 +205,7 @@ func TestFinancialAttributionGapBackfillChunks(t *testing.T) {
 }
 
 func TestFinancialAttributionPreservesEarlierDirtyRange(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic earlier revision", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
@@ -237,6 +241,7 @@ func TestFinancialAttributionPreservesEarlierDirtyRange(t *testing.T) {
 }
 
 func TestFinancialAttributionConsumesOnlyRebuiltBoundedDirtyPrefix(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Synthetic bounded revision", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
@@ -271,6 +276,7 @@ func TestFinancialAttributionConsumesOnlyRebuiltBoundedDirtyPrefix(t *testing.T)
 }
 
 func TestFinancialAttributionMidnightPreflightIncludesLeft(t *testing.T) {
+	t.Parallel()
 	for _, boundary := range [][2]string{{"2026-03-08", "2026-03-09"}, {"2026-03-07", "2026-03-08"}, {"2026-11-01", "2026-11-02"}, {"2026-10-31", "2026-11-01"}} {
 		t.Run(boundary[0], func(t *testing.T) {
 			s, db, owner, now := overviewFixture(t)
@@ -295,6 +301,7 @@ func TestFinancialAttributionMidnightPreflightIncludesLeft(t *testing.T) {
 }
 
 func TestFinancialAttributionPrecisionSixDecimalFX(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ name, leftFX, rightFX, role, adjustment string }{
 		{"static", "7.123456", "7.123456", "asset", "0"},
 		{"changed", "7.123456", "7.234567", "asset", "0.000011"},
@@ -340,6 +347,7 @@ func TestFinancialAttributionPrecisionSixDecimalFX(t *testing.T) {
 }
 
 func TestFinancialAttributionPrecisionComponentTiesAndMultiDay(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ name, role1, role2, amount2, begin, end, exactBegin, exactEnd, boundaryAdjustment, driverAdjustment string }{
 		{"positive", "asset", "asset", "1", "2", "2.0004", "2.0001", "2.0003", "-0.0002", "0.0002"},
 		{"negative", "liability", "liability", "1", "-2", "-2.0004", "-2.0001", "-2.0003", "0.0002", "-0.0002"},
@@ -381,6 +389,7 @@ func TestFinancialAttributionPrecisionComponentTiesAndMultiDay(t *testing.T) {
 }
 
 func TestFinancialAttributionPrecisionDoesNotHideUnknownDailyGap(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: a}}}}
@@ -402,6 +411,7 @@ func TestFinancialAttributionPrecisionDoesNotHideUnknownDailyGap(t *testing.T) {
 }
 
 func TestFinancialAttributionPrecisionDoesNotHideCancellingComponentGaps(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	b := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -422,6 +432,7 @@ func TestFinancialAttributionPrecisionDoesNotHideCancellingComponentGaps(t *test
 }
 
 func TestFinancialAttributionPrecisionRejectsCancellingComponentCorruption(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	a := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	b := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)

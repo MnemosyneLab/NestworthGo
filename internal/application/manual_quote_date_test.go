@@ -6,6 +6,7 @@ import (
 )
 
 func TestManualQuoteDatesUseHistoryTimezone(t *testing.T) {
+	t.Parallel()
 	for _, zone := range []string{"Pacific/Kiritimati", "America/Los_Angeles", "Asia/Singapore"} {
 		t.Run(zone, func(t *testing.T) {
 			service, ctx, _, _ := newOnboardedService(t, "manual-date", nil)

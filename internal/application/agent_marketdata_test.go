@@ -29,6 +29,7 @@ func agentNAV(instrument domain.Instrument, value, date string) AgentMarketDataI
 }
 
 func TestAgentMarketDataDateBoundaryAndAtomicValidation(t *testing.T) {
+	t.Parallel()
 	service, instrument, _ := newAgentMarketDataFixture(t)
 	ctx := t.Context()
 	nav := agentNAV(instrument, "1.0197", "2026-09-28")
@@ -79,6 +80,7 @@ func TestAgentMarketDataDateBoundaryAndAtomicValidation(t *testing.T) {
 }
 
 func TestAgentMarketDataZeroPriceRemainsAnAvailableObservation(t *testing.T) {
+	t.Parallel()
 	service, instrument, _ := newAgentMarketDataFixture(t)
 	ctx := t.Context()
 	if _, err := service.ImportAgentMarketData(ctx, uuid.NewString(), AgentMarketDataInput{Items: []AgentMarketDataItem{
@@ -93,6 +95,7 @@ func TestAgentMarketDataZeroPriceRemainsAnAvailableObservation(t *testing.T) {
 }
 
 func TestAgentMarketDataCorrectionRetractionAndSourceOnlyHistory(t *testing.T) {
+	t.Parallel()
 	service, instrument, setClock := newAgentMarketDataFixture(t)
 	ctx := t.Context()
 	first := agentNAV(instrument, "1.0197", "2026-09-28")
@@ -140,6 +143,7 @@ func TestAgentMarketDataCorrectionRetractionAndSourceOnlyHistory(t *testing.T) {
 }
 
 func TestAgentMarketDataReplaySurvivesInstrumentArchive(t *testing.T) {
+	t.Parallel()
 	service, instrument, _ := newAgentMarketDataFixture(t)
 	ctx := t.Context()
 	input := AgentMarketDataInput{Items: []AgentMarketDataItem{agentNAV(instrument, "1.0197", "2026-09-28")}}

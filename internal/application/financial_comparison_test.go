@@ -26,6 +26,7 @@ func comparisonFor(t *testing.T, s *Service, left, right string, ids ...domain.A
 	return r
 }
 func TestFinancialComparisonTransfersLifecycleScopeHashAndReadOnly(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Secret A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "Secret B", "bank_account", "asset", "balance", "CNY", "0")
@@ -114,6 +115,7 @@ func TestFinancialComparisonTransfersLifecycleScopeHashAndReadOnly(t *testing.T)
 	}
 }
 func TestFinancialComparisonMissingFXNativeDeltaAndDates(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "FX", "bank_account", "asset", "balance", "USD", "10")
 	if _, err := s.BuildFinancialComparison(t.Context(), FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"}); !hasDomainCode(err, domain.ErrHistoryNotStarted) {
@@ -159,6 +161,7 @@ func TestFinancialComparisonMissingFXNativeDeltaAndDates(t *testing.T) {
 	}
 }
 func TestFinancialComparisonSingleCaptureWithConcurrentWrite(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
@@ -191,6 +194,7 @@ func TestFinancialComparisonSingleCaptureWithConcurrentWrite(t *testing.T) {
 }
 
 func TestFinancialComparisonPositionTransferAndMissingPrice(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "From", "brokerage", "asset", "holdings", "CNY", "")
 	b := overviewAccount(t, s, owner, "To", "brokerage", "asset", "holdings", "CNY", "")
@@ -249,6 +253,7 @@ func TestFinancialComparisonPositionTransferAndMissingPrice(t *testing.T) {
 	}
 }
 func TestFinancialComparisonRetainedCorrectionAndNamedDisclosure(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Chosen name", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
@@ -292,6 +297,7 @@ func TestFinancialComparisonRetainedCorrectionAndNamedDisclosure(t *testing.T) {
 }
 
 func TestFinancialComparisonExclusionIsNotAValueDelta(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {

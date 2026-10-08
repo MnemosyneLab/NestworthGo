@@ -58,6 +58,7 @@ func createHoldingsAccount(t *testing.T, service *Service, ctx context.Context, 
 }
 
 func TestHoldingsByAccountsGroupsHoldingsByAccount(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, setClock := newRefactorTestService(t, "holdings-by-accounts")
 	setClock(time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC))
 	bootstrap, err := service.Bootstrap(ctx)
@@ -109,6 +110,7 @@ func TestHoldingsByAccountsGroupsHoldingsByAccount(t *testing.T) {
 // non-zero delta no matter the commit order, so every concurrent append must
 // succeed and serialize.
 func TestConcurrentAppendAccountCashValueSerializes(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, setClock := newRefactorTestService(t, "concurrent-cash")
 	base := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
 	setClock(base)

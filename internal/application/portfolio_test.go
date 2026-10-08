@@ -10,6 +10,7 @@ import (
 )
 
 func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/portfolio.db")
 	if err != nil {
 		t.Fatal(err)
@@ -121,6 +122,7 @@ func TestManualPortfolioUseCasesAreOfflineAndAtomicAtTheRepositoryBoundary(t *te
 }
 
 func TestHoldingQuantityUpdatesCannotBypassHistory(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "holding-history-boundary", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	setClock(time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC))
@@ -159,6 +161,7 @@ func TestHoldingQuantityUpdatesCannotBypassHistory(t *testing.T) {
 }
 
 func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/provider-binding.db")
 	if err != nil {
 		t.Fatal(err)
@@ -193,6 +196,7 @@ func TestProviderBindingCanBeSelectedWithoutNetwork(t *testing.T) {
 }
 
 func TestInstrumentReplacementClearsOptionalFieldsAndPartialUpdatesPreserveThem(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/instrument-edit.db")
 	if err != nil {
 		t.Fatal(err)

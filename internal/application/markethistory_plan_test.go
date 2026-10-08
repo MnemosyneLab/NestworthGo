@@ -8,6 +8,7 @@ import (
 )
 
 func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
+	t.Parallel()
 	before, err := planInstrumentRepairNeed(domain.InstrumentHistoryCoverage{
 		ProviderKey:    TiingoProviderKey,
 		ProviderSymbol: "AAPL",
@@ -67,6 +68,7 @@ func TestPlanInstrumentRepairNeedUsesLookbackAndOpeningAnchor(t *testing.T) {
 }
 
 func TestInstrumentHistoryTasksPreserveQuoteCurrencyAndMarket(t *testing.T) {
+	t.Parallel()
 	service := &Service{historyRequestMaxDays: 366}
 	need := InstrumentRepairNeed{
 		InstrumentID:            domain.NewInstrumentID(),
@@ -96,6 +98,7 @@ func TestInstrumentHistoryTasksPreserveQuoteCurrencyAndMarket(t *testing.T) {
 }
 
 func TestPlanInstrumentRepairNeedWidensOpeningAnchorSearchAndStops(t *testing.T) {
+	t.Parallel()
 	coverage := domain.InstrumentHistoryCoverage{
 		ProviderKey:    TiingoProviderKey,
 		ProviderSymbol: "AAPL",
@@ -125,6 +128,7 @@ func TestPlanInstrumentRepairNeedWidensOpeningAnchorSearchAndStops(t *testing.T)
 }
 
 func TestPlanInstrumentHistorySyncForceRecheckAndRouting(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 10, 0, 5, 0, 0, time.UTC)
 	covered, err := planInstrumentRepairNeed(domain.InstrumentHistoryCoverage{
 		ProviderKey:        TiingoProviderKey,

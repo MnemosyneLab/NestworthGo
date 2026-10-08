@@ -8,6 +8,7 @@ import (
 )
 
 func TestPricedPositionAdjustmentAttributesSubsequentPriceMovement(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, initial, final, openPrice, cost, closePrice, adjustment, price string
 		added                                                                bool

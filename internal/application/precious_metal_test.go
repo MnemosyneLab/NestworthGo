@@ -9,6 +9,7 @@ import (
 )
 
 func TestMetalTemplatePreviewRefreshAndMissingFX(t *testing.T) {
+	t.Parallel()
 	_, s, fake, _, _ := newRefreshFixture(t)
 	ctx := context.Background()
 	s.SetMarketDataRegistry(NewMarketDataRegistry(fake, &refreshAliasProvider{key: YahooFinanceProviderKey, target: fake}))
@@ -64,6 +65,7 @@ func TestMetalTemplatePreviewRefreshAndMissingFX(t *testing.T) {
 }
 
 func TestMetalCurrencyVariantsAndRequiredFX(t *testing.T) {
+	t.Parallel()
 	_, s, _, _, _ := newRefreshFixture(t)
 	ctx := context.Background()
 	for _, unit := range []string{"g", "troy_oz"} {
@@ -87,6 +89,7 @@ func TestMetalCurrencyVariantsAndRequiredFX(t *testing.T) {
 }
 
 func TestMetalHistoryNeverUsesFutureFX(t *testing.T) {
+	t.Parallel()
 	_, s, _, _, _ := newRefreshFixture(t)
 	ctx := context.Background()
 	if _, err := s.SetFXPreference(ctx, "USD", "CNY", "manual"); err != nil {

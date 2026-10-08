@@ -9,6 +9,7 @@ import (
 )
 
 func TestReconciliationRemovalUsesCarryingValue(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name, removed, closingPrice, closingQuantity, adjustment, price string
 		missingQuote                                                    bool
@@ -68,6 +69,7 @@ func TestReconciliationRemovalUsesCarryingValue(t *testing.T) {
 }
 
 func TestAnalysisAccountBeforeCreationIsNotMissing(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name     string
 		created  time.Time

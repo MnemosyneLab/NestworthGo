@@ -9,6 +9,7 @@ import (
 )
 
 func TestCostCorrectionPreservesAcquisitionFXThroughTransfer(t *testing.T) {
+	t.Parallel()
 	acquired := time.Date(2026, 9, 1, 12, 0, 0, 0, time.UTC)
 	corrected := acquired.Add(24 * time.Hour)
 	transferred := corrected.Add(24 * time.Hour)

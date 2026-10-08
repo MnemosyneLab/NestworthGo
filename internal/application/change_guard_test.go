@@ -13,6 +13,7 @@ import (
 )
 
 func TestGuardedHistoricalChangeRejectsStalePreviewAndReplaysAfterRestart(t *testing.T) {
+	t.Parallel()
 	path := filepath.Join(t.TempDir(), "guarded-change.db")
 	database, err := sqlite.Open(path)
 	if err != nil {
@@ -120,6 +121,7 @@ func hasDomainCode(err error, code domain.ErrorCode) bool {
 }
 
 func TestGuardedBackdatedFirstBuyPreviewsWithoutPersistingHolding(t *testing.T) {
+	t.Parallel()
 	ctx, service, _, _, bootstrap, setNow := historicalInsertionFixture(t)
 	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
@@ -174,6 +176,7 @@ func TestGuardedBackdatedFirstBuyPreviewsWithoutPersistingHolding(t *testing.T) 
 }
 
 func TestConcurrentGuardedCommitsAllowOneMutationAndReplayItsID(t *testing.T) {
+	t.Parallel()
 	ctx, service, repo, _, bootstrap, setNow := historicalInsertionFixture(t)
 	account, err := service.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {

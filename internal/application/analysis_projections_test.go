@@ -12,6 +12,7 @@ import (
 )
 
 func TestAssetChangeProjectionReconcilesSummaryAndWaterfall(t *testing.T) {
+	t.Parallel()
 	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
 	result := domain.PeriodAnalysisResult{Query: query, Status: domain.CompletenessOK, Days: []domain.ComponentDay{
@@ -38,6 +39,7 @@ func TestAssetChangeProjectionReconcilesSummaryAndWaterfall(t *testing.T) {
 }
 
 func TestAssetDriverDetailResidualKeepsComponentAndDay(t *testing.T) {
+	t.Parallel()
 	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	holdingID := domain.HoldingID("00000000-0000-0000-0000-000000000011")
 	instrumentID := domain.InstrumentID("00000000-0000-0000-0000-000000000021")
@@ -61,6 +63,7 @@ func TestAssetDriverDetailResidualKeepsComponentAndDay(t *testing.T) {
 }
 
 func TestAssetChangeGroupsKeepResidualAsItsOwnOtherRow(t *testing.T) {
+	t.Parallel()
 	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-01", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
 	day := analysisTestDay(t, "2026-08-01", accountID, "100", map[domain.AttributionBucket]string{domain.BucketResidual: "5"})
@@ -71,6 +74,7 @@ func TestAssetChangeGroupsKeepResidualAsItsOwnOtherRow(t *testing.T) {
 }
 
 func TestAssetChangeGroupsSeparateCashFlowsFromMarketAndInvestment(t *testing.T) {
+	t.Parallel()
 	values := map[domain.AttributionBucket]string{
 		domain.BucketExternalFlow:       "1",
 		domain.BucketIncome:             "2",
@@ -112,6 +116,7 @@ func TestAssetChangeGroupsSeparateCashFlowsFromMarketAndInvestment(t *testing.T)
 }
 
 func TestAssetChangeAvailabilityUsesAssetDaysForCashOnlyAccount(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	account := domain.Account{ID: domain.NewAccountID(), HouseholdID: householdID, Name: "Cash", AccountType: domain.TypeBankAccount, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingBalance, DefaultCurrency: "USD", IncludeInNetWorth: true}
 	origin := &domain.HistoryOrigin{HouseholdID: householdID, Timezone: "UTC", StartedAt: time.Date(2026, 7, 31, 8, 0, 0, 0, time.UTC)}
@@ -145,6 +150,7 @@ func TestAssetChangeAvailabilityUsesAssetDaysForCashOnlyAccount(t *testing.T) {
 }
 
 func TestAssetChangeAvailabilityIgnoresInvestmentReturnCoverage(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	account := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
 	instrumentID, holdingID := domain.NewInstrumentID(), domain.NewHoldingID()
@@ -201,6 +207,7 @@ func TestAssetChangeAvailabilityIgnoresInvestmentReturnCoverage(t *testing.T) {
 }
 
 func TestAssetChangeProjectionUsesRecordedEndingValueForInternalTransfers(t *testing.T) {
+	t.Parallel()
 	first := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	second := domain.AccountID("00000000-0000-0000-0000-000000000002")
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-01", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
@@ -221,6 +228,7 @@ func TestAssetChangeProjectionUsesRecordedEndingValueForInternalTransfers(t *tes
 }
 
 func TestAssetTrendUsesPeriodEndForLevelsAndSumsFlows(t *testing.T) {
+	t.Parallel()
 	firstAccountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	secondAccountID := domain.AccountID("00000000-0000-0000-0000-000000000002")
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
@@ -254,6 +262,7 @@ func TestAssetTrendUsesPeriodEndForLevelsAndSumsFlows(t *testing.T) {
 }
 
 func TestAssetTrendReturnRateGeometricallyLinksDailyRates(t *testing.T) {
+	t.Parallel()
 	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-02", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
 	rateOne, _ := decimal.NewFromString("0.10")
@@ -287,6 +296,7 @@ func TestAssetTrendReturnRateGeometricallyLinksDailyRates(t *testing.T) {
 }
 
 func TestAssetTrendReturnRateOmitsMinorityCoverage(t *testing.T) {
+	t.Parallel()
 	query := domain.AnalysisQuery{Scope: domain.AnalysisScope{Kind: domain.ScopeHousehold}, From: "2026-08-01", To: "2026-08-03", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment}
 	rate := decimal.NewFromInt(1).Div(decimal.NewFromInt(10))
 	result := domain.PeriodAnalysisResult{
@@ -308,6 +318,7 @@ func TestAssetTrendReturnRateOmitsMinorityCoverage(t *testing.T) {
 }
 
 func TestAnalysisMemoIsCanonicalAndBounded(t *testing.T) {
+	t.Parallel()
 	repository := &emptyAnalysisRepository{}
 	service := NewAnalysisService(repository, func() time.Time { return time.Date(2026, 8, 5, 12, 0, 0, 0, time.UTC) })
 	query := analysisMemoTestQuery("2026-08-01", "2026-08-02")
@@ -342,6 +353,7 @@ func TestAnalysisMemoIsCanonicalAndBounded(t *testing.T) {
 }
 
 func TestAnalysisQueryHashCanonicalizesAssetClass(t *testing.T) {
+	t.Parallel()
 	upper := analysisMemoTestQuery("2026-08-01", "2026-08-02")
 	upper.Filters.AssetClass = " Cash "
 	lower := upper
@@ -352,6 +364,7 @@ func TestAnalysisQueryHashCanonicalizesAssetClass(t *testing.T) {
 }
 
 func TestDividendCategoriesUseAssociatedReturnEffects(t *testing.T) {
+	t.Parallel()
 	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	holdingID := domain.HoldingID("00000000-0000-0000-0000-000000000011")
 	instrumentID := domain.InstrumentID("00000000-0000-0000-0000-000000000021")
@@ -409,6 +422,7 @@ func TestDividendCategoriesUseAssociatedReturnEffects(t *testing.T) {
 }
 
 func TestCategoriesRanksRowsBySignedAmount(t *testing.T) {
+	t.Parallel()
 	smallAccount := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	largeAccount := domain.AccountID("00000000-0000-0000-0000-000000000002")
 	spending := domain.BucketSpending
@@ -439,6 +453,7 @@ func TestCategoriesRanksRowsBySignedAmount(t *testing.T) {
 }
 
 func TestAssetChangeForcesBaseForMultiCurrencyNativeQuery(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	usdAccount := domain.Account{ID: domain.NewAccountID(), HouseholdID: householdID, Name: "USD bank", AccountType: domain.TypeBankAccount, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingBalance, DefaultCurrency: "USD", IncludeInNetWorth: true}
 	cnyAccount := domain.Account{ID: domain.NewAccountID(), HouseholdID: householdID, Name: "CNY bank", AccountType: domain.TypeBankAccount, BalanceSheetRole: domain.RoleAsset, TrackingMode: domain.TrackingBalance, DefaultCurrency: "CNY", IncludeInNetWorth: true}
@@ -494,6 +509,7 @@ func TestAssetChangeForcesBaseForMultiCurrencyNativeQuery(t *testing.T) {
 }
 
 func TestAnalysisCase44MemoInvalidatesAfterActivityAndSnapshotBuild(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/analysis-memo.db")
 	if err != nil {
 		t.Fatal(err)
@@ -577,6 +593,7 @@ func TestAnalysisCase44MemoInvalidatesAfterActivityAndSnapshotBuild(t *testing.T
 }
 
 func TestAnalysisCase44SnapshotRebuildChangesWindowResult(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/analysis-snapshot-rebuild.db")
 	if err != nil {
 		t.Fatal(err)
@@ -636,6 +653,7 @@ func TestAnalysisCase44SnapshotRebuildChangesWindowResult(t *testing.T) {
 // cold path is skipped under the race detector because that instrumentation
 // changes wall-clock cost by more than the budget.
 func TestAnalysisPerformanceBudgets(t *testing.T) {
+	// Stays sequential: subtests assert uncontended wall-clock budgets.
 	t.Run("warm-memo", func(t *testing.T) {
 		input, query := analysisSizedInputs(50, "2025-12-01", "2025-12-31")
 		repository := &projectionRepository{portfolio: input.Portfolio, snapshots: input.Snapshots}
@@ -840,6 +858,7 @@ func (r *emptyAnalysisRepository) ListFXQuotes(context.Context, domain.Household
 }
 
 func TestAssetChangeRateUsesBoundariesAndIncludesCashFlows(t *testing.T) {
+	t.Parallel()
 	accountID := domain.AccountID("00000000-0000-0000-0000-000000000001")
 	for _, tc := range []struct {
 		name, beginning, change, want, reason string
@@ -882,6 +901,7 @@ func TestAssetChangeRateUsesBoundariesAndIncludesCashFlows(t *testing.T) {
 }
 
 func TestAssetLevelChangeSeparatesAssetsAndLiabilitiesAndRejectsMissingBoundary(t *testing.T) {
+	t.Parallel()
 	asset := analysisTestDay(t, "2026-08-01", domain.AccountID("a"), "100", map[domain.AttributionBucket]string{domain.BucketPriceChange: "10"})
 	liability := analysisTestDay(t, "2026-08-01", domain.AccountID("b"), "-40", map[domain.AttributionBucket]string{domain.BucketLiabilityImpact: "10"})
 	result := domain.PeriodAnalysisResult{Query: domain.AnalysisQuery{From: "2026-08-01", To: "2026-08-01"}, Days: []domain.ComponentDay{asset, liability}}
@@ -904,6 +924,7 @@ func TestAssetLevelChangeSeparatesAssetsAndLiabilitiesAndRejectsMissingBoundary(
 }
 
 func TestIncompleteBoundaryDoesNotBecomePartialNetWorth(t *testing.T) {
+	t.Parallel()
 	query := domain.AnalysisQuery{From: "2026-09-18", To: "2026-09-19"}
 	known := analysisTestDay(t, query.To, domain.NewAccountID(), "33711.56", nil)
 	known.EndingValue = analysisSignedTestMoney(t, "33711.56")

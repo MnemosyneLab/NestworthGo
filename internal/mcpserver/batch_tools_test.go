@@ -71,6 +71,7 @@ func batchCash(t *testing.T, c *mcp.ClientSession, accountID string) string {
 }
 
 func TestBatchFundingBuySellAndReplay(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	plan := batchPreview(t, c,
@@ -113,6 +114,7 @@ func TestBatchFundingBuySellAndReplay(t *testing.T) {
 }
 
 func TestBatchRejectsInvalidEntryWithoutPosting(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	valid := map[string]any{"kind": "money_added", "accountId": fx.brokerage, "amount": "100", "currency": "USD", "reason": "contribution", "effectiveAt": "2026-09-20T12:00:00Z"}
@@ -132,6 +134,7 @@ func TestBatchRejectsInvalidEntryWithoutPosting(t *testing.T) {
 }
 
 func TestBatchRejectsStaleExpiredAndWrongCommitTool(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	command := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "50", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}
@@ -171,6 +174,7 @@ func TestBatchRejectsStaleExpiredAndWrongCommitTool(t *testing.T) {
 }
 
 func TestBatchInputBoundsChronologyAndKind(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	base := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}
@@ -203,6 +207,7 @@ func TestBatchInputBoundsChronologyAndKind(t *testing.T) {
 }
 
 func TestBatchOmittedTimeIsFrozenForEveryCommand(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Now().UTC().Add(time.Minute) })
 	c := ledgerSession(t, fx)
 	plan := batchPreview(t, c,
@@ -222,6 +227,7 @@ func TestBatchOmittedTimeIsFrozenForEveryCommand(t *testing.T) {
 }
 
 func TestPositionImportPreviewCommitAndDuplicate(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	request := map[string]any{"kind": "position_import", "accountId": fx.brokerage, "instrumentId": fx.instrument, "quantity": "8", "unitCost": "12.5", "currency": "USD", "effectiveAt": "2026-09-20T12:00:00Z"}
@@ -260,6 +266,7 @@ func TestPositionImportPreviewCommitAndDuplicate(t *testing.T) {
 }
 
 func TestBatchImportThenSellUsesImportedHolding(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	plan := batchPreview(t, c,
@@ -288,6 +295,7 @@ func TestBatchImportThenSellUsesImportedHolding(t *testing.T) {
 }
 
 func TestBatchPendingReceiptRecoversWithoutReposting(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	plan := batchPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "40", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"})
@@ -332,6 +340,7 @@ func TestBatchPendingReceiptRecoversWithoutReposting(t *testing.T) {
 }
 
 func TestBatchToolsRequireLedgerWrite(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	for _, mode := range []string{ReadOnly, DirectoryWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {

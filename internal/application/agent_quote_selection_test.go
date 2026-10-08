@@ -8,6 +8,7 @@ import (
 )
 
 func TestAgentCurrentQuoteOverlayUsesObservationTime(t *testing.T) {
+	t.Parallel()
 	id := domain.NewInstrumentID()
 	price := func(value string) domain.UnitPrice {
 		parsed, err := domain.ParseUnitPrice(value)
@@ -38,6 +39,7 @@ func TestAgentCurrentQuoteOverlayUsesObservationTime(t *testing.T) {
 }
 
 func TestAgentCurrentDailyCloseWinsSameDateButNewerRealtimeWins(t *testing.T) {
+	t.Parallel()
 	id := domain.NewInstrumentID()
 	price := func(value string) domain.UnitPrice {
 		parsed, err := domain.ParseUnitPrice(value)
@@ -64,6 +66,7 @@ func TestAgentCurrentDailyCloseWinsSameDateButNewerRealtimeWins(t *testing.T) {
 }
 
 func TestAgentDailyQuoteWinsExactDateAndCarriedNAVIsIncomplete(t *testing.T) {
+	t.Parallel()
 	id := domain.NewInstrumentID()
 	providerKey := domain.TiingoProviderKey
 	instrument := domain.Instrument{ID: id, Type: domain.InstrumentMutualFund, QuoteCurrency: "USD", QuoteSource: domain.QuoteSourceProvider, ProviderKey: &providerKey, ProviderBindingRevision: 2}
@@ -93,6 +96,7 @@ func TestAgentDailyQuoteWinsExactDateAndCarriedNAVIsIncomplete(t *testing.T) {
 }
 
 func TestAgentHistoricalFXExactAndCarryCoverage(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	pref := domain.FXPreference{HouseholdID: householdID, CurrencyA: "USD", CurrencyB: "SGD", SourceKind: domain.QuoteSourceProvider}
 	rate := func(value string) domain.FxRate {
@@ -116,6 +120,7 @@ func TestAgentHistoricalFXExactAndCarryCoverage(t *testing.T) {
 }
 
 func TestAgentDatesRemoveOrdinaryHistoryRequests(t *testing.T) {
+	t.Parallel()
 	ranges := []DateRange{{Start: "2026-09-18", End: "2026-09-22"}}
 	remaining, err := excludeExactDates(ranges, map[string]struct{}{"2026-09-19": {}, "2026-09-21": {}})
 	if err != nil {
@@ -127,6 +132,7 @@ func TestAgentDatesRemoveOrdinaryHistoryRequests(t *testing.T) {
 }
 
 func TestChartDailyAgentWinsProviderForSameEffectiveDate(t *testing.T) {
+	t.Parallel()
 	day := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
 	provider := domain.QuoteSeriesPoint{ID: "provider", SourceKind: domain.QuoteSourceProvider, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-20", QuotedAt: day.Add(20 * time.Hour), Value: "11"}
 	agent := domain.QuoteSeriesPoint{ID: "agent", SourceKind: domain.QuoteSourceAgent, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-20", QuotedAt: day.Add(10 * time.Hour), Value: "10"}
@@ -139,6 +145,7 @@ func TestChartDailyAgentWinsProviderForSameEffectiveDate(t *testing.T) {
 }
 
 func TestHistoricalAnchorUsesAgentDailyDateAndIgnoresAgentLatest(t *testing.T) {
+	t.Parallel()
 	id := domain.NewInstrumentID()
 	day := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
 	daily := domain.InstrumentQuote{InstrumentID: id, SourceKind: domain.QuoteSourceAgent, ObservationKind: string(InstrumentObservationClose), EffectiveDate: "2026-09-19", QuotedAt: day, SourcePolicyVersion: "agent_supplied_v1", PriceBasis: "agent_unit_nav_v1", TimestampBasis: "date_label"}
@@ -153,6 +160,7 @@ func TestHistoricalAnchorUsesAgentDailyDateAndIgnoresAgentLatest(t *testing.T) {
 }
 
 func TestAgentStockClosedDaysCarryCompleteButMissingTradingDayDoesNot(t *testing.T) {
+	t.Parallel()
 	id := domain.NewInstrumentID()
 	market := "US"
 	price, err := domain.ParseUnitPrice("100")
@@ -180,6 +188,7 @@ func TestAgentStockClosedDaysCarryCompleteButMissingTradingDayDoesNot(t *testing
 }
 
 func TestAgentMixedDailyAndRealtimeSelectionIsOrderIndependent(t *testing.T) {
+	t.Parallel()
 	day := time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
 	id := domain.NewInstrumentID()
 	householdID := domain.NewHouseholdID()

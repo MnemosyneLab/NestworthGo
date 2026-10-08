@@ -10,6 +10,7 @@ import (
 )
 
 func TestPostOriginZeroBalanceSurvivesHistoricalReplay(t *testing.T) {
+	t.Parallel()
 	for _, initial := range []string{"0", "50", ""} {
 		t.Run("initial="+initial, func(t *testing.T) {
 			db, err := sqlite.Open(t.TempDir() + "/zero.db")

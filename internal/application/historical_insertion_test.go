@@ -36,6 +36,7 @@ func historicalInsertionTime(day int) time.Time {
 }
 
 func TestBackdatedSellUsesQuantityAtItsDateThenChecksLaterSales(t *testing.T) {
+	t.Parallel()
 	ctx, s, repo, db, boot, setNow := historicalInsertionFixture(t)
 	account, err := s.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, IncludeInPortfolio: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 	if err != nil {
@@ -98,6 +99,7 @@ func TestBackdatedSellUsesQuantityAtItsDateThenChecksLaterSales(t *testing.T) {
 }
 
 func TestBackdatedEntryPreservesLaterAbsoluteValue(t *testing.T) {
+	t.Parallel()
 	ctx, s, repo, _, boot, setNow := historicalInsertionFixture(t)
 	account, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1000", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 	if err != nil {
@@ -133,6 +135,7 @@ func TestBackdatedEntryPreservesLaterAbsoluteValue(t *testing.T) {
 }
 
 func TestBackdatedExpenseUsesEarlierBalanceAndKeepsLaterObservation(t *testing.T) {
+	t.Parallel()
 	ctx, s, repo, _, boot, setNow := historicalInsertionFixture(t)
 	account, err := s.CreateAccount(ctx, AccountInput{Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "100", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{boot.Members[0].ID}})
 	if err != nil {

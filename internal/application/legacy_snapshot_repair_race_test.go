@@ -11,6 +11,7 @@ import (
 )
 
 func TestLegacyRepairRevisionRestartsFromEarlierDirtyPrefix(t *testing.T) {
+	t.Parallel()
 	for _, restart := range []bool{false, true} {
 		t.Run(fmt.Sprint("restart=", restart), func(t *testing.T) {
 			s, db, r, cash, _ := legacyCoverageFixtureDays(t, 62)

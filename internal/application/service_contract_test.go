@@ -11,6 +11,7 @@ import (
 )
 
 func TestAccountFiltersLatestValueAndIcons(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(filepath.Join(t.TempDir(), "nestworth.db"))
 	if err != nil {
 		t.Fatalf("open database: %v", err)

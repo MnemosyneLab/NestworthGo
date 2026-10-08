@@ -24,6 +24,7 @@ func (r *historySnapshotBarrierRepository) ReadPortfolioSnapshot(ctx context.Con
 }
 
 func TestStartHistoryAndCreateInstrumentSerializeHistoryBoundary(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/history-boundary.db")
 	if err != nil {
 		t.Fatal(err)
@@ -83,6 +84,7 @@ func TestStartHistoryAndCreateInstrumentSerializeHistoryBoundary(t *testing.T) {
 }
 
 func TestConcurrentObservationWritersSerializeUnderHistoryLock(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(t.TempDir() + "/observation-writers.db")
 	if err != nil {
 		t.Fatal(err)

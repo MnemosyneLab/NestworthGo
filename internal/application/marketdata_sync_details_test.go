@@ -9,6 +9,7 @@ import (
 )
 
 func TestRepairPreviewAndExecutionSkipRecentLatest(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	provider := &syncFakeProvider{key: YahooFinanceProviderKey, now: time.Date(2026, 9, 9, 16, 0, 0, 0, time.UTC)}
 	service, _, _, instrument := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, provider)
@@ -44,6 +45,7 @@ func TestRepairPreviewAndExecutionSkipRecentLatest(t *testing.T) {
 }
 
 func TestLatestRecheckPersistsAcrossRestartWithoutChangingObservation(t *testing.T) {
+	t.Parallel()
 	_, service, fake, _, instrument := newRefreshFixture(t)
 	ctx := context.Background()
 	now := service.clock()
@@ -72,6 +74,7 @@ func TestLatestRecheckPersistsAcrossRestartWithoutChangingObservation(t *testing
 }
 
 func TestHistoryKeepsSevenDayLeadEvenWithOpeningAnchor(t *testing.T) {
+	t.Parallel()
 	need, err := planInstrumentRepairNeed(domain.InstrumentHistoryCoverage{ProviderKey: YahooFinanceProviderKey, ProviderSymbol: "QQQM", Market: "US", CloseMarketDates: []string{"2026-09-17"}}, "2026-09-18", "2026-09-17")
 	if err != nil {
 		t.Fatal(err)
@@ -82,6 +85,7 @@ func TestHistoryKeepsSevenDayLeadEvenWithOpeningAnchor(t *testing.T) {
 }
 
 func TestOldSyncFailureIsNotCurrentHealthIssue(t *testing.T) {
+	t.Parallel()
 	service, _, _, instrument := newSyncFixture(t, &syncFakeProvider{key: TiingoProviderKey}, &syncFakeProvider{key: YahooFinanceProviderKey})
 	service.currentSyncID = "old"
 	service.syncJobs["old"] = &syncJobState{snapshot: SyncJobSnapshot{Outcome: SyncOutcomePartial, Blockers: []SyncBlocker{{TargetKey: instrumentTargetKey(instrument.ID), Code: string(domain.ErrProviderAuthentication)}}}}
@@ -97,6 +101,7 @@ func TestOldSyncFailureIsNotCurrentHealthIssue(t *testing.T) {
 }
 
 func TestRefreshPublishesNamedRunningAndCompletedItems(t *testing.T) {
+	t.Parallel()
 	_, service, _, _, instrument := newRefreshFixture(t)
 	var events []SyncItemProgress
 	ctx := WithRefreshProgress(context.Background(), func(item SyncItemProgress) { events = append(events, item) })

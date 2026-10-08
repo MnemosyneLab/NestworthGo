@@ -12,6 +12,7 @@ import (
 )
 
 func TestProductHTTPInterestAndSettlementUndoPreserveDietzAndAttribution(t *testing.T) {
+	t.Parallel()
 	type result struct{ amount, rate, capital string }
 	run := func(treated string) map[string]result {
 		now := time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)
@@ -130,6 +131,7 @@ func TestProductHTTPInterestAndSettlementUndoPreserveDietzAndAttribution(t *test
 }
 
 func TestProductHTTPExistingUndoWithActiveReservationRequiresGUI(t *testing.T) {
+	t.Parallel()
 	for _, kind := range []string{"open", "record_existing"} {
 		t.Run(kind, func(t *testing.T) {
 			fx := newLedgerFixture(t)

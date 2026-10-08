@@ -12,6 +12,7 @@ import (
 )
 
 func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "nestworth", []string{"Alice", "Bob"})
 	setClock(time.Date(2026, time.August, 21, 12, 0, 0, 0, time.UTC))
 	if bootstrap.Household == nil || len(bootstrap.Members) != 2 {
@@ -56,6 +57,7 @@ func TestHouseholdAccountAndOverviewFlow(t *testing.T) {
 }
 
 func TestOverviewHeadlinesUseOneSnapshotForLabelsAndRecentActivity(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "overview-headlines", []string{"Owner"})
 	setClock(time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC))
 	owner := bootstrap.Members[0].ID
@@ -151,6 +153,7 @@ func (r *directoryCountingRepository) ListGroups(ctx context.Context, includeArc
 }
 
 func TestIdentityOnlyMutationsDoNotLoadBootstrapDirectories(t *testing.T) {
+	t.Parallel()
 	database, err := sqlite.Open(filepath.Join(t.TempDir(), "nestworth.db"))
 	if err != nil {
 		t.Fatalf("open database: %v", err)
@@ -184,6 +187,7 @@ func TestIdentityOnlyMutationsDoNotLoadBootstrapDirectories(t *testing.T) {
 }
 
 func TestUpdateAccountAllowsCompatibleTypeChangeWithoutActivity(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "type-edit", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	account, err := service.CreateAccount(ctx, AccountInput{
@@ -225,6 +229,7 @@ func TestUpdateAccountAllowsCompatibleTypeChangeWithoutActivity(t *testing.T) {
 }
 
 func TestUpdateAccountRejectsIncompatibleTypeAndImmutableRole(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "type-reject", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	account, err := service.CreateAccount(ctx, AccountInput{
@@ -247,6 +252,7 @@ func TestUpdateAccountRejectsIncompatibleTypeAndImmutableRole(t *testing.T) {
 }
 
 func TestOverviewClassifiesCompositeAndSimpleBuckets(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "overview-buckets", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	if _, err := service.CreateAccount(ctx, AccountInput{
@@ -324,6 +330,7 @@ func TestOverviewClassifiesCompositeAndSimpleBuckets(t *testing.T) {
 }
 
 func TestOverviewByAccountTypeKeepsMixedBankAccountWhole(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "overview-by-account-type", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	bank, err := service.CreateAccount(ctx, AccountInput{
@@ -384,6 +391,7 @@ func TestOverviewByAccountTypeKeepsMixedBankAccountWhole(t *testing.T) {
 }
 
 func TestCreateAccountRejectsEmptyOwnership(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, _ := newOnboardedService(t, "empty-owners", []string{"Alice", "Bob"})
 	_, err := service.CreateAccount(ctx, AccountInput{
 		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
@@ -399,6 +407,7 @@ func TestCreateAccountRejectsEmptyOwnership(t *testing.T) {
 }
 
 func TestUpdateAccountRejectsExplicitEmptyOwnership(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "empty-owner-update", []string{"Alice"})
 	account, err := service.CreateAccount(ctx, AccountInput{
 		Name: "Bank", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",
@@ -419,6 +428,7 @@ func TestUpdateAccountRejectsExplicitEmptyOwnership(t *testing.T) {
 }
 
 func TestUpdateAccountOmittingOwnershipPreservesCustomSplit(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "preserve-split", []string{"Alice", "Bob"})
 	account, err := service.CreateAccount(ctx, AccountInput{
 		Name: "Joint", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance",

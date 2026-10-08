@@ -37,6 +37,7 @@ func reconciliationCommit(t *testing.T, c *mcp.ClientSession, operationID, planI
 }
 
 func TestReconciliationToolsRequireLedgerPermission(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
@@ -61,6 +62,7 @@ func TestReconciliationToolsRequireLedgerPermission(t *testing.T) {
 }
 
 func TestReconciliationPreviewCommitAndReplay(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	imported := ledgerPreview(t, c, map[string]any{
@@ -153,6 +155,7 @@ func assertReconciliationCost(t *testing.T, fx ledgerFixture, holdingID, quantit
 }
 
 func TestReconciliationReducesCashAndQuantityWithoutNewCost(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	seed := batchPreview(t, c,
@@ -179,6 +182,7 @@ func TestReconciliationReducesCashAndQuantityWithoutNewCost(t *testing.T) {
 }
 
 func TestReconciliationRejectsInvalidTargetsAndAtomicFailure(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	valid := map[string]any{"accountId": fx.checking, "targetBalance": "50", "currency": "USD"}
@@ -209,6 +213,7 @@ func TestReconciliationRejectsInvalidTargetsAndAtomicFailure(t *testing.T) {
 }
 
 func TestReconciliationRejectsArchivedHolding(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	ctx := context.Background()
 	holding, err := fx.app.CreateHolding(ctx, application.HoldingInput{
@@ -232,6 +237,7 @@ func TestReconciliationRejectsArchivedHolding(t *testing.T) {
 }
 
 func TestReconciliationRejectsManagedHolding(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	ctx := context.Background()
 	maturity, calendar, zero := "2026-12-20", "calendar", 0
@@ -266,6 +272,7 @@ func TestReconciliationRejectsManagedHolding(t *testing.T) {
 }
 
 func TestReconciliationRejectsStaleExpiredAndWrongPlanType(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	target := map[string]any{"accountId": fx.checking, "targetBalance": "50", "currency": "USD"}

@@ -48,6 +48,7 @@ func attributionDriver(link *FinancialAttributionLink, key string) *string {
 }
 
 func TestFinancialAttributionIncomeTransfersRepaymentAndScope(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Private salary", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "Private destination", "bank_account", "asset", "balance", "CNY", "0")
@@ -133,6 +134,7 @@ func TestFinancialAttributionIncomeTransfersRepaymentAndScope(t *testing.T) {
 }
 
 func TestFinancialAttributionMissingFXInclusionAndUnsupported(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "USD", "100")
 	b := overviewAccount(t, s, owner, "B", "bank_account", "asset", "balance", "CNY", "0")
@@ -175,6 +177,7 @@ func TestFinancialAttributionMissingFXInclusionAndUnsupported(t *testing.T) {
 }
 
 func TestFinancialAttributionPriceFXAndMissingPrice(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
 	i, err := s.CreateInstrument(t.Context(), InstrumentInput{Name: "Private fund", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
@@ -221,6 +224,7 @@ func TestFinancialAttributionPriceFXAndMissingPrice(t *testing.T) {
 }
 
 func TestFinancialAttributionDSTCivilDayInterval(t *testing.T) {
+	t.Parallel()
 	for _, pair := range []struct {
 		left, right string
 		hours       time.Duration
@@ -248,6 +252,7 @@ func TestFinancialAttributionDSTCivilDayInterval(t *testing.T) {
 // Hold the immutable capture while an app writer attempts to revise the ledger.
 // Snapshot maintenance and both projections must finish before that writer.
 func TestFinancialAttributionSerializesConcurrentRevision(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
@@ -306,6 +311,7 @@ func (r *blockingAttributionRepository) ReadFinancialContextInputs(ctx context.C
 }
 
 func TestFinancialAttributionResidualIsPreserved(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	account := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
 	input := AnalysisInputs{Origin: analysisOrigin(t, householdID, "UTC"), Portfolio: domain.PortfolioSnapshot{Household: &domain.Household{ID: householdID, BaseCurrency: "CNY"}, Accounts: []domain.AccountRecord{{Account: account}}}, Snapshots: []domain.DailyValuationSnapshot{analysisSnapshot("2026-08-01", analysisItem(t, account.ID, "CNY", "100", "100", nil, nil, "", "")), analysisSnapshot("2026-08-02", analysisItem(t, account.ID, "CNY", "150", "150", nil, nil, "", ""))}}
@@ -326,6 +332,7 @@ func TestFinancialAttributionResidualIsPreserved(t *testing.T) {
 	}
 }
 func TestFinancialAttributionUnsupportedHistoricalMidnight(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	*now = time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)
 	overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
@@ -342,6 +349,7 @@ func TestFinancialAttributionUnsupportedHistoricalMidnight(t *testing.T) {
 }
 
 func TestFinancialAttributionEvidencePolicyAndScopeProof(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "A", "bank_account", "asset", "balance", "CNY", "100")
 	b := overviewAccount(t, s, owner, "B", "bank_account", "asset", "balance", "CNY", "100")
@@ -404,6 +412,7 @@ func TestFinancialAttributionEvidencePolicyAndScopeProof(t *testing.T) {
 }
 
 func TestFinancialAttributionConcurrentExternalRevisionIsRejected(t *testing.T) {
+	t.Parallel()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
@@ -438,6 +447,7 @@ func TestFinancialAttributionConcurrentExternalRevisionIsRejected(t *testing.T) 
 	}
 }
 func TestFinancialAttributionInteriorInclusionAndCloseBoundaries(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
 	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {

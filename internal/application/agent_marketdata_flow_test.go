@@ -11,6 +11,7 @@ import (
 )
 
 func TestAgentLatestSuppressesRoutineProviderRefresh(t *testing.T) {
+	t.Parallel()
 	tiingo := &countingProvider{inner: &syncFakeProvider{key: TiingoProviderKey}}
 	service, _, instrument, _ := newSyncFixture(t, tiingo, &syncFakeProvider{key: YahooFinanceProviderKey})
 	ctx := context.Background()
@@ -49,6 +50,7 @@ func TestAgentLatestSuppressesRoutineProviderRefresh(t *testing.T) {
 }
 
 func TestAgentDailyDatesSkipProviderSyncAndWithdrawalsReopenDates(t *testing.T) {
+	t.Parallel()
 	var mu sync.Mutex
 	var requested []DateRange
 	tiingo := &syncFakeProvider{key: TiingoProviderKey}
@@ -162,6 +164,7 @@ func TestAgentDailyDatesSkipProviderSyncAndWithdrawalsReopenDates(t *testing.T) 
 }
 
 func TestCompleteAgentFXWithNoProviderKeyHasNoProviderBlocker(t *testing.T) {
+	t.Parallel()
 	service, _, _, setClock := newOnboardedService(t, "agent-fx-no-provider", []string{"Owner"})
 	setClock(time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC))
 	ctx := context.Background()
@@ -187,6 +190,7 @@ func TestCompleteAgentFXWithNoProviderKeyHasNoProviderBlocker(t *testing.T) {
 }
 
 func TestAgentFXSuppliesMetalConversionWithoutFXProviderCall(t *testing.T) {
+	t.Parallel()
 	fxProvider := &countingProvider{inner: &syncFakeProvider{key: FrankfurterProviderKey}}
 	metalProvider := &syncFakeProvider{key: YahooFinanceProviderKey}
 	service, _, instrument, _ := newSyncFixture(t, metalProvider, fxProvider)

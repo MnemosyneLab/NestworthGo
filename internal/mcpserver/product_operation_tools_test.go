@@ -58,6 +58,7 @@ func productCommitCode(t *testing.T, c *mcp.ClientSession, planID string) string
 }
 
 func TestProductHTTPLifecyclePermissionsSchema(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
@@ -111,6 +112,7 @@ func TestProductHTTPLifecyclePermissionsSchema(t *testing.T) {
 }
 
 func TestProductHTTPLifecycleFrozenTimesAndAccounting(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return now })
 	c := ledgerSession(t, fx)
@@ -200,6 +202,7 @@ func TestProductHTTPLifecycleFrozenTimesAndAccounting(t *testing.T) {
 }
 
 func TestProductHTTPPlanSafetyAndReservations(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	plan := productPlanHTTP(t, c, productExistingInput(fx.brokerage))
@@ -281,6 +284,7 @@ func newPersistentProductFixture(t *testing.T, clock func() time.Time) (ledgerFi
 }
 
 func TestProductHTTPRestartUnknownAndRestore(t *testing.T) {
+	t.Parallel()
 	clock := func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) }
 	fx, db, repo := newPersistentProductFixture(t, clock)
 	c := ledgerSession(t, fx)
@@ -334,6 +338,7 @@ func TestProductHTTPRestartUnknownAndRestore(t *testing.T) {
 }
 
 func TestProductHTTPConcurrentCommitAndAtomicFailure(t *testing.T) {
+	// Stays sequential: SetProductCommitFailAfter is process-global.
 	fx, db, _ := newPersistentProductFixture(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
 	c := ledgerSession(t, fx)
 	plan := productPlanHTTP(t, c, productExistingInput(fx.brokerage))
@@ -411,6 +416,7 @@ func (r *failProductSuccessReceipt) SaveConfiguration(key string, value []byte) 
 }
 
 func TestProductHTTPPostCommitReceiptFailureAndOlderSnapshot(t *testing.T) {
+	t.Parallel()
 	clock := func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) }
 	fx, _, _ := newPersistentProductFixture(t, clock)
 	c := ledgerSession(t, fx)
@@ -468,6 +474,7 @@ func TestProductHTTPPostCommitReceiptFailureAndOlderSnapshot(t *testing.T) {
 }
 
 func TestProductHTTPLocalLifecycleTimesRemainFrozen(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
 	fx := newLedgerFixtureWithClock(t, func() time.Time { return now })
 	c := ledgerSession(t, fx)
@@ -513,6 +520,7 @@ func TestProductHTTPLocalLifecycleTimesRemainFrozen(t *testing.T) {
 }
 
 func TestProductHTTPLifecycleWithLegacySnapshotCoordination(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	seed := productPlanHTTP(t, c, productExistingInput(fx.brokerage))

@@ -8,6 +8,7 @@ import (
 )
 
 func TestInstrumentQuoteSeriesClipsRangeAndKeepsDeterministicPoints(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, setClock := newOnboardedService(t, "quote-series-range", []string{"Owner"})
 	setClock(time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC))
 	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "QQQ", Type: "etf", QuoteCurrency: "USD", QuoteSource: "manual"})
@@ -68,6 +69,7 @@ func TestInstrumentQuoteSeriesClipsRangeAndKeepsDeterministicPoints(t *testing.T
 }
 
 func TestInstrumentQuoteSeriesSourceFilterAndEmptyRange(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, setClock := newOnboardedService(t, "quote-series-source", []string{"Owner"})
 	setClock(time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC))
 	instrument, err := service.CreateInstrument(ctx, InstrumentInput{Name: "AAPL", Type: "stock", QuoteCurrency: "USD", QuoteSource: "provider", ProviderKey: "yahoo_finance", ProviderSymbol: "AAPL"})
@@ -117,6 +119,7 @@ func TestInstrumentQuoteSeriesSourceFilterAndEmptyRange(t *testing.T) {
 }
 
 func TestFXQuoteSeriesInvertsStoredOrientation(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, setClock := newOnboardedService(t, "fx-series", []string{"Owner"})
 	setClock(time.Date(2026, 8, 31, 12, 0, 0, 0, time.UTC))
 	if _, err := service.AppendManualFXQuote(ctx, "USD", "CNY", "7", "2026-08-20T00:00:00.000Z"); err != nil {
@@ -150,6 +153,7 @@ func TestFXQuoteSeriesInvertsStoredOrientation(t *testing.T) {
 }
 
 func TestFXQuoteSeriesRejectsSameCurrency(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, _ := newOnboardedService(t, "fx-series-same", []string{"Owner"})
 	_, err := service.FXQuoteSeries(ctx, domain.CurrencyCode("USD"), domain.CurrencyCode("USD"), domain.Trend30Days, domain.QuoteSourceFilterAll)
 	if err == nil {
@@ -158,6 +162,7 @@ func TestFXQuoteSeriesRejectsSameCurrency(t *testing.T) {
 }
 
 func TestPortfolioTrendSumsInstrumentItemsAndExcludesCash(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "portfolio-trend", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
 	if _, err := service.CreateAccount(ctx, AccountInput{
@@ -230,6 +235,7 @@ func quoteSeriesUnitPrice(t *testing.T, value string) domain.UnitPrice {
 }
 
 func TestExplicitQuoteRangeUsesLocalDayBounds(t *testing.T) {
+	t.Parallel()
 	location, _ := time.LoadLocation("Asia/Singapore")
 	query := quoteHistoryQuery(domain.TrendRange("2026-09-21:2026-09-27"), domain.QuoteSourceFilter("all"), time.Now(), location, "", "")
 	if query.From == nil || query.To == nil || query.From.UTC().Format(time.RFC3339Nano) != "2026-09-20T16:00:00Z" || query.To.UTC().Format(time.RFC3339Nano) != "2026-09-27T15:59:59.999999999Z" {

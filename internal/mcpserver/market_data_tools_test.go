@@ -11,6 +11,7 @@ import (
 )
 
 func TestAgentMarketDataPermissions(t *testing.T) {
+	t.Parallel()
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		t.Run(mode, func(t *testing.T) {
 			s, _, _ := fixture(t)
@@ -40,6 +41,7 @@ func TestAgentMarketDataPermissions(t *testing.T) {
 }
 
 func TestAgentMarketDataImportCorrectWithdrawAndRetry(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	ctx := context.Background()
@@ -110,6 +112,7 @@ func TestAgentMarketDataImportCorrectWithdrawAndRetry(t *testing.T) {
 }
 
 func TestAgentMarketDataBatchValidationIsAtomic(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	valid := map[string]any{"instrumentId": fx.instrument, "currency": "USD", "value": "2", "kind": "latest", "quotedAt": "2026-09-29T11:00:00Z", "sourceTitle": "Issuer"}

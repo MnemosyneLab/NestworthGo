@@ -122,6 +122,7 @@ func reviewPortfolio(household *domain.Household, accounts ...domain.Account) do
 }
 
 func TestAnalysisReviewCase03ScopeIntersection(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	from := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -148,6 +149,7 @@ func TestAnalysisReviewCase03ScopeIntersection(t *testing.T) {
 }
 
 func TestAnalysisReviewCase08SameDayOpenClose(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -181,6 +183,7 @@ func TestAnalysisReviewCase08SameDayOpenClose(t *testing.T) {
 }
 
 func TestAnalysisReviewCase10FXConversion(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -211,6 +214,7 @@ func TestAnalysisReviewCase10FXConversion(t *testing.T) {
 }
 
 func TestAnalysisReviewCases09And26ForeignHoldingFX(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -252,6 +256,7 @@ func TestAnalysisReviewCases09And26ForeignHoldingFX(t *testing.T) {
 }
 
 func TestAnalysisReviewCase32TrackingBalanceCashFormula(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "USD", domain.TrackingBalance, domain.RoleAsset)
@@ -296,6 +301,7 @@ func TestAnalysisReviewCase32TrackingBalanceCashFormula(t *testing.T) {
 }
 
 func TestAnalysisReviewDepositInterestIsWritable(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -345,6 +351,7 @@ func reviewTradeScenario(t *testing.T) (AnalysisInputs, domain.Account, domain.I
 }
 
 func TestAnalysisReviewCases13And14ScopeSemantics(t *testing.T) {
+	t.Parallel()
 	input, account, instrument, holdingID := reviewTradeScenario(t)
 	instrumentQuery := analysisBaseQuery(domain.ValuationBase)
 	instrumentQuery.Scope = domain.AnalysisScope{Kind: domain.ScopeInstrument, ID: instrument.ID.String()}
@@ -373,6 +380,7 @@ func TestAnalysisReviewCases13And14ScopeSemantics(t *testing.T) {
 }
 
 func TestAnalysisReviewCases16And17RealDebtPaymentPath(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	debt := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleLiability)
@@ -435,6 +443,7 @@ func TestAnalysisReviewCases16And17RealDebtPaymentPath(t *testing.T) {
 }
 
 func TestAnalysisReviewCase17bCapitalisedInterest(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	debt := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleLiability)
@@ -455,6 +464,7 @@ func TestAnalysisReviewCase17bCapitalisedInterest(t *testing.T) {
 }
 
 func TestAnalysisReviewCase24FractionalQuantity(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -502,6 +512,7 @@ func openQuoteForTest(universe analysisUniverse, item domain.DailyValuationSnaps
 }
 
 func TestAnalysisReviewCase25ValueUpdateAndResidual(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -522,6 +533,7 @@ func TestAnalysisReviewCase25ValueUpdateAndResidual(t *testing.T) {
 }
 
 func TestAnalysisReviewCases28And29RealMoneyOutPath(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	for _, tc := range []struct {
@@ -554,6 +566,7 @@ func TestAnalysisReviewCases28And29RealMoneyOutPath(t *testing.T) {
 }
 
 func TestAnalysisReviewCase31IdentityAcrossScopes(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	asset := analysisAccount(h, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -595,6 +608,7 @@ func TestAnalysisReviewCase31IdentityAcrossScopes(t *testing.T) {
 }
 
 func TestAnalysisReviewCase40OriginTimezoneBoundaries(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		date      string
 		effective time.Time
@@ -636,6 +650,7 @@ func TestAnalysisReviewCase40OriginTimezoneBoundaries(t *testing.T) {
 }
 
 func TestAnalysisReviewCase41CurrencyAwareTolerance(t *testing.T) {
+	t.Parallel()
 	if got := residualTolerance("JPY", decimal.Zero); !got.Equal(decimal.NewFromInt(2)) {
 		t.Fatalf("JPY tolerance=%s, want 2", got)
 	}
@@ -671,6 +686,7 @@ func analysisCurrencyResidualResult(t *testing.T, currency domain.CurrencyCode, 
 }
 
 func TestAnalysisReviewServiceLoadsClosedSnapshots(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "analysis-service-closed-snapshots", []string{"Owner"})
 	account, err := service.CreateAccount(ctx, AccountInput{
 		Name:               "Bank",
@@ -742,6 +758,7 @@ func reviewFXQuote(t *testing.T, householdID domain.HouseholdID, native, rate st
 }
 
 func TestAnalysisClosedPositionWithoutCloseQuoteIsPartial(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -762,6 +779,7 @@ func TestAnalysisClosedPositionWithoutCloseQuoteIsPartial(t *testing.T) {
 }
 
 func TestAnalysisUnknownAccountSnapshotItemIsPartial(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -782,6 +800,7 @@ func TestAnalysisUnknownAccountSnapshotItemIsPartial(t *testing.T) {
 }
 
 func TestAnalysisSnapshotWindowExcludesOutOfRangeComponents(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	cny := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -800,6 +819,7 @@ func TestAnalysisSnapshotWindowExcludesOutOfRangeComponents(t *testing.T) {
 }
 
 func TestSumReturnComponentsPropagatesOverflow(t *testing.T) {
+	t.Parallel()
 	half, err := domain.NewSignedMoney(decimal.RequireFromString("600000000000"), "USD")
 	if err != nil {
 		t.Fatal(err)
@@ -814,6 +834,7 @@ func TestSumReturnComponentsPropagatesOverflow(t *testing.T) {
 }
 
 func TestAnalysisFXConversionExecutionSpreadReconciles(t *testing.T) {
+	t.Parallel()
 	h := domain.NewHouseholdID()
 	household := &domain.Household{ID: h, BaseCurrency: "CNY"}
 	account := analysisAccount(h, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -849,6 +870,7 @@ func TestAnalysisFXConversionExecutionSpreadReconciles(t *testing.T) {
 // A flat market rate must leave only execution spread; subsequent FX movement
 // belongs to holding-period FX, and both still reconcile to the account value.
 func TestAnalysisCNYConversionSeparatesSpreadFromHoldingFX(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ name, bought, closeRate, ending, spread, holding string }{
 		{"flat market", "1481.48", "6.7", "9925.916", "-74.084", "0"},
 		{"market moves", "1481.48", "6.8", "10074.064", "-74.084", "148.148"},

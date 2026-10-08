@@ -32,6 +32,7 @@ func decodeExport(t *testing.T, service *Service) ExportDocument {
 }
 
 func TestJSONExportIncludesArchivedHistoryAndTransferCosts(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "export-transfers", []string{"Owner"})
 	account, err := service.CreateAccount(ctx, AccountInput{Name: "Source", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "USD", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
@@ -109,6 +110,7 @@ func TestJSONExportIncludesArchivedHistoryAndTransferCosts(t *testing.T) {
 }
 
 func TestJSONExportPreservesMissingValuesAndDecimalStrings(t *testing.T) {
+	t.Parallel()
 	service, ctx, bootstrap, _ := newOnboardedService(t, "export", []string{"Owner"})
 	account, err := service.CreateAccount(ctx, AccountInput{Name: "Broker", AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", OwnerIDs: []domain.MemberID{bootstrap.Members[0].ID}})
 	if err != nil {
@@ -158,6 +160,7 @@ func TestJSONExportPreservesMissingValuesAndDecimalStrings(t *testing.T) {
 }
 
 func TestJSONExportStableEmptyCollectionsAndNoWrites(t *testing.T) {
+	t.Parallel()
 	service, ctx, _, _ := newOnboardedService(t, "export-empty", []string{"Owner"})
 	before, err := service.CurrentDatabasePreview(ctx)
 	if err != nil {

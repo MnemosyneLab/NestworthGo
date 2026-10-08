@@ -170,6 +170,7 @@ func ledgerCash(t *testing.T, c *mcp.ClientSession, accountID string) string {
 }
 
 func TestLedgerToolsRequireOptIn(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	for _, mode := range []string{ReadOnly, DirectoryWrite, LedgerWrite} {
 		if _, err := fx.service.Enable(mode); err != nil {
@@ -211,6 +212,7 @@ func TestLedgerToolsRequireOptIn(t *testing.T) {
 }
 
 func TestLedgerCashIncomeExpenseAndIdempotentCommit(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	add := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "100", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"})
@@ -252,6 +254,7 @@ func TestLedgerCashIncomeExpenseAndIdempotentCommit(t *testing.T) {
 }
 
 func TestLedgerTradeFirstBuyAndSell(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	deposit := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.brokerage, "amount": "1000", "currency": "USD", "reason": "contribution", "effectiveAt": "2026-09-29T12:00:00Z"})
@@ -281,6 +284,7 @@ func TestLedgerTradeFirstBuyAndSell(t *testing.T) {
 }
 
 func TestLedgerTransferFXAndDebtBalances(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	post := func(request map[string]any) map[string]any {
@@ -318,6 +322,7 @@ func TestLedgerTransferFXAndDebtBalances(t *testing.T) {
 }
 
 func TestLedgerPlanRejectsStaleAndExpiredCommit(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	request := map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "50", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"}
@@ -358,6 +363,7 @@ func TestLedgerPlanRejectsStaleAndExpiredCommit(t *testing.T) {
 }
 
 func TestLedgerUnknownReceiptRecoversAfterExpiryAndRestart(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	plan := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "40", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-20T12:00:00Z"})
@@ -408,6 +414,7 @@ func TestLedgerUnknownReceiptRecoversAfterExpiryAndRestart(t *testing.T) {
 }
 
 func TestLedgerHistoricalReplayAndUnionValidation(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	for _, request := range []map[string]any{
@@ -434,6 +441,7 @@ func TestLedgerHistoricalReplayAndUnionValidation(t *testing.T) {
 }
 
 func TestLedgerHistoricalFirstBuyReplaysLaterCashAndHolding(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixture(t)
 	c := ledgerSession(t, fx)
 	funding := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.brokerage, "amount": "1000", "currency": "USD", "reason": "contribution", "effectiveAt": "2026-09-20T12:00:00Z"})
@@ -453,6 +461,7 @@ func TestLedgerHistoricalFirstBuyReplaysLaterCashAndHolding(t *testing.T) {
 }
 
 func TestLedgerOmittedTimeIsFrozenAtPreview(t *testing.T) {
+	t.Parallel()
 	fx := newLedgerFixtureWithClock(t, time.Now)
 	c := ledgerSession(t, fx)
 	before := time.Now().Add(-time.Second)

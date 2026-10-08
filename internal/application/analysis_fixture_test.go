@@ -69,6 +69,7 @@ func analysisBaseQuery(valuation domain.Valuation) domain.AnalysisQuery {
 }
 
 func TestAnalysisReviewCases01And02And17bIdentity(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	from := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -122,6 +123,7 @@ func TestAnalysisReviewCases01And02And17bIdentity(t *testing.T) {
 }
 
 func TestAnalysisReviewCases09And26And32FXPaths(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -169,6 +171,7 @@ func TestAnalysisReviewCases09And26And32FXPaths(t *testing.T) {
 }
 
 func TestAnalysisReviewCases23And27And34And36Boundaries(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -223,6 +226,7 @@ func TestAnalysisReviewCases23And27And34And36Boundaries(t *testing.T) {
 }
 
 func TestAnalysisReviewCase36UnexplainedQuantityChange(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -248,6 +252,7 @@ func TestAnalysisReviewCase36UnexplainedQuantityChange(t *testing.T) {
 }
 
 func TestAnalysisReviewCase35InKindTransferHasNoPriceAndIsScopeRelative(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	source := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -293,6 +298,7 @@ func TestAnalysisReviewCase35InKindTransferHasNoPriceAndIsScopeRelative(t *testi
 }
 
 func TestAnalysisReviewCases33And36QuantityErrorKeepsFormulaDriversAndShowsResidual(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -328,6 +334,7 @@ func TestAnalysisReviewCases33And36QuantityErrorKeepsFormulaDriversAndShowsResid
 }
 
 func TestAnalysisReviewCase17CashInterestIsSignedSpending(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)
@@ -348,6 +355,7 @@ func TestAnalysisReviewCase17CashInterestIsSignedSpending(t *testing.T) {
 }
 
 func TestAnalysisReviewCase04SameDayBuyUsesTradePath(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingHoldings, domain.RoleAsset)
@@ -383,6 +391,7 @@ func TestAnalysisReviewCase04SameDayBuyUsesTradePath(t *testing.T) {
 }
 
 func TestAnalysisReviewCase38GiftIsIncomeNotExternalFlow(t *testing.T) {
+	t.Parallel()
 	householdID := domain.NewHouseholdID()
 	household := &domain.Household{ID: householdID, BaseCurrency: "CNY"}
 	account := analysisAccount(householdID, "CNY", domain.TrackingBalance, domain.RoleAsset)

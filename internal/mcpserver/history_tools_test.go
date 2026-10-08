@@ -93,6 +93,7 @@ func jsonObject(t *testing.T, value any) map[string]any {
 }
 
 func TestHistoryToolsPageFilterAndDetail(t *testing.T) {
+	t.Parallel()
 	s, _, accountID, ids := historyFixture(t)
 	c := connectHistoryTools(t, s)
 	listed, err := c.ListTools(context.Background(), nil)
@@ -139,6 +140,7 @@ func TestHistoryToolsPageFilterAndDetail(t *testing.T) {
 }
 
 func TestAnalyzePeriodReturnsExistingDTOsAndCoverage(t *testing.T) {
+	t.Parallel()
 	s, app, _, _ := historyFixture(t)
 	c := connectHistoryTools(t, s)
 	query := analysis.AnalysisQueryRequest{From: "2025-03-02", To: "2025-03-03", IncludeCash: true}

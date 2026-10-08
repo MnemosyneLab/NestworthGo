@@ -58,6 +58,7 @@ func wantOverviewAmount(t *testing.T, value *string, want string) {
 }
 
 func TestHistoricalOverviewReadOnlyLifecycleAndSourceDates(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s, db, owner, now := overviewFixture(t)
 	home := overviewAccount(t, s, owner, "Home", "property", "asset", "manual_value", "CNY", "1000")
@@ -125,6 +126,7 @@ func TestHistoricalOverviewReadOnlyLifecycleAndSourceDates(t *testing.T) {
 }
 
 func TestHistoricalOverviewUnknownFXAndExactPrecision(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s, db, owner, now := overviewFixture(t)
 	foreign := overviewAccount(t, s, owner, "USD", "bank_account", "asset", "balance", "USD", "10")
@@ -177,6 +179,7 @@ func TestHistoricalOverviewUnknownFXAndExactPrecision(t *testing.T) {
 }
 
 func TestHistoricalOverviewCorrectionsUseEconomicTime(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
@@ -208,6 +211,7 @@ func TestHistoricalOverviewCorrectionsUseEconomicTime(t *testing.T) {
 }
 
 func TestHistoricalOverviewDateValidationAndDST(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s, _, _, now := overviewFixture(t)
 	if _, err := s.HistoricalOverview(ctx, "2026-08-01", ""); err == nil {
@@ -255,6 +259,7 @@ func (r *overviewBatchRepository) LoadHistoricalSnapshotBatch(ctx context.Contex
 }
 
 func TestHistoricalOverviewCurrentIsCapturedWithHistoricalInputs(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "10")
@@ -289,6 +294,7 @@ func TestHistoricalOverviewCurrentIsCapturedWithHistoricalInputs(t *testing.T) {
 }
 
 func TestHistoricalOverviewPriceGapsBackfillClearingAndArchive(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s, db, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Broker", "brokerage", "asset", "holdings", "CNY", "")
@@ -364,6 +370,7 @@ func TestHistoricalOverviewPriceGapsBackfillClearingAndArchive(t *testing.T) {
 }
 
 func TestHistoricalOverviewInternalTransferAndDebtPrincipalAreNeutral(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Bank A", "bank_account", "asset", "balance", "CNY", "100")
@@ -394,6 +401,7 @@ func TestHistoricalOverviewInternalTransferAndDebtPrincipalAreNeutral(t *testing
 }
 
 func TestHistoricalOverviewChangesIgnoreNewEvidenceWithSameBalance(t *testing.T) {
+	t.Parallel()
 	a := HistoricalOverviewCell{Status: "active", Included: true, Complete: true, NativeAmount: historicalString("1"), BaseAmount: historicalString("1"), ValueSourceID: "old", ValueSourceAt: "yesterday", Price: &HistoricalOverviewEvidence{ID: "old"}}
 	b := a
 	b.ValueSourceID = "new"
@@ -409,6 +417,7 @@ func TestHistoricalOverviewChangesIgnoreNewEvidenceWithSameBalance(t *testing.T)
 }
 
 func TestHistoricalOverviewSameDayComparisonSharesOneUnmodifiedBatch(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	overviewAccount(t, s, owner, "Balance", "bank_account", "asset", "balance", "CNY", "10")
@@ -436,6 +445,7 @@ func TestHistoricalOverviewSameDayComparisonSharesOneUnmodifiedBatch(t *testing.
 }
 
 func TestHistoricalOverviewMarketDateCloseAndCoverage(t *testing.T) {
+	t.Parallel()
 	// Singapore's household day ends before the US market close. The existing
 	// daily-summary policy still prices its market-date label, not one instant.
 	ctx := context.Background()
@@ -494,6 +504,7 @@ func TestHistoricalOverviewMarketDateCloseAndCoverage(t *testing.T) {
 }
 
 func TestHistoricalOverviewCivilDayBoundaries(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ zone, date, cutoff string }{
 		{"America/Santiago", "2026-09-05", "2026-09-06T03:59:59.999Z"},
 		{"America/Santiago", "2026-09-06", "2026-09-07T02:59:59.999Z"},
@@ -529,6 +540,7 @@ func TestHistoricalOverviewCivilDayBoundaries(t *testing.T) {
 }
 
 func TestHistoricalOverviewMidnightDSTIncludesBothEconomicDays(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	s, _, owner, now := overviewFixture(t)
 	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
@@ -573,6 +585,7 @@ func TestHistoricalOverviewMidnightDSTIncludesBothEconomicDays(t *testing.T) {
 }
 
 func TestHistoricalOverviewMissingFXStaysWithItsComponent(t *testing.T) {
+	t.Parallel()
 	for _, exposure := range []string{"archived-only", "included-holding", "included-cash"} {
 		t.Run(exposure, func(t *testing.T) {
 			s, _, _, now := overviewFixture(t)
@@ -650,6 +663,7 @@ func TestHistoricalOverviewMissingFXStaysWithItsComponent(t *testing.T) {
 }
 
 func TestHistoricalOverviewYearBoundaryProgress(t *testing.T) {
+	t.Parallel()
 	for _, zone := range []string{"America/New_York", "America/Santiago", "Europe/London", "UTC"} {
 		for _, date := range []string{"2026-12-31", "2040-12-30", "2040-12-31", "2041-01-01"} {
 			t.Run(zone+"/"+date, func(t *testing.T) {

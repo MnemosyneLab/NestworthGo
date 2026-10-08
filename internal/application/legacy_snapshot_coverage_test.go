@@ -162,6 +162,7 @@ func legacyCoverageRead(t *testing.T, s *Service, reader, from, to string) {
 	}
 }
 func TestLegacySnapshotCoverageOrder(t *testing.T) {
+	t.Parallel()
 	for _, first := range []string{"attribution", "analysis"} {
 		for _, reader := range []string{"analysis", "net_worth_trend", "portfolio_trend"} {
 			for _, lateFirst := range []bool{true, false} {
@@ -197,6 +198,7 @@ func TestLegacySnapshotCoverageOrder(t *testing.T) {
 	}
 }
 func TestLegacySnapshotCoverageRepairsOnlyRequiredDays(t *testing.T) {
+	t.Parallel()
 	s, db, r, cash, _ := legacyCoverageFixture(t)
 	id := cash.Account.HouseholdID
 	if _, err := s.RebuildHistoricalSnapshots(t.Context(), "2026-08-05", "2026-08-05"); err != nil {
@@ -236,6 +238,7 @@ func TestLegacySnapshotCoverageRepairsOnlyRequiredDays(t *testing.T) {
 	}
 }
 func TestLegacySnapshotCoverageDirtyPrefixAndTail(t *testing.T) {
+	t.Parallel()
 	for _, reader := range []string{"analysis", "net_worth_trend", "portfolio_trend"} {
 		t.Run(reader, func(t *testing.T) {
 			s, _, r, cash, instrument := legacyCoverageFixture(t)
@@ -285,6 +288,7 @@ func TestLegacySnapshotCoverageDirtyPrefixAndTail(t *testing.T) {
 	}
 }
 func TestLegacySnapshotCoverageChunksAndConcurrentRevision(t *testing.T) {
+	t.Parallel()
 	for _, stage := range []string{"none", "coverage", "batch", "between_chunks"} {
 		t.Run(stage, func(t *testing.T) {
 			s, _, r, cash, _ := legacyCoverageFixtureDays(t, 41)
@@ -348,6 +352,7 @@ func TestLegacySnapshotCoverageChunksAndConcurrentRevision(t *testing.T) {
 }
 
 func TestLegacySnapshotCoverageBoundedDirtyRange(t *testing.T) {
+	t.Parallel()
 	s, db, r, cash, _ := legacyCoverageFixture(t)
 	if err := s.ensureClosedDaySnapshots(t.Context(), "2026-08-01", "2026-08-11"); err != nil {
 		t.Fatal(err)
@@ -383,6 +388,7 @@ func TestLegacySnapshotCoverageBoundedDirtyRange(t *testing.T) {
 }
 
 func TestLegacySnapshotCoverageRetainsMidnightContract(t *testing.T) {
+	t.Parallel()
 	s, _, owner, now := overviewFixture(t)
 	*now = time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 	cash := overviewAccount(t, s, owner, "Synthetic Havana cash", "bank_account", "asset", "balance", "CNY", "100")
@@ -416,6 +422,7 @@ func TestLegacySnapshotCoverageRetainsMidnightContract(t *testing.T) {
 }
 
 func TestLegacySnapshotCoverageSourcePreferenceRevision(t *testing.T) {
+	t.Parallel()
 	s, _, r, cash, instrument := legacyCoverageFixture(t)
 	if err := s.ensureClosedDaySnapshots(t.Context(), "2026-08-01", "2026-08-11"); err != nil {
 		t.Fatal(err)

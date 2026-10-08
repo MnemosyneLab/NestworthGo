@@ -9,6 +9,7 @@ import (
 )
 
 func TestIncompleteMetalSnapshotHealthLifecycle(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 18, 4, 0, 0, 0, time.UTC)
 	s, ctx := newProductTestServiceTZ(t, now, "Asia/Singapore")
 	s.setClock(func() time.Time { return now })
@@ -147,6 +148,7 @@ func TestIncompleteMetalSnapshotHealthLifecycle(t *testing.T) {
 }
 
 func TestIncompleteCashSnapshotHealthIdentifiesEachCurrency(t *testing.T) {
+	t.Parallel()
 	now := time.Date(2026, 9, 18, 4, 0, 0, 0, time.UTC)
 	service, ctx := newProductTestServiceTZ(t, now, "Asia/Singapore")
 	service.setClock(func() time.Time { return now })

@@ -14,6 +14,7 @@ import (
 // Exercise the real SDK HTTP parser, not a mock handler: encoding/json's
 // case-insensitive struct matching must not choose a different tool than SDK.
 func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
+	t.Parallel()
 	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page"} {
 		for _, order := range []string{"upper-first", "upper-last"} {
 			for _, variant := range []string{"normal", "long-id", "null-name-long-id", "schema-error", "batch-default", "batch-legacy", "batch-modern"} {
@@ -133,6 +134,7 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 }
 
 func TestFinancialContextHTTPShadowKeysAndDuplicateSemantics(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	if _, err := s.Enable(ReadOnly); err != nil {
 		t.Fatal(err)
@@ -193,6 +195,7 @@ func TestFinancialContextHTTPShadowKeysAndDuplicateSemantics(t *testing.T) {
 }
 
 func TestFinancialContextHTTPParamsShadowBatch(t *testing.T) {
+	t.Parallel()
 	s, _, _ := fixture(t)
 	if _, err := s.Enable(ReadOnly); err != nil {
 		t.Fatal(err)

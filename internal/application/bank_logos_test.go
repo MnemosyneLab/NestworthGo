@@ -9,6 +9,7 @@ import (
 )
 
 func TestBankIconsSurviveEditsExportAndSnapshotReopen(t *testing.T) {
+	t.Parallel()
 	s, ctx, b, _ := newOnboardedService(t, "bank-icons", []string{"Owner"})
 	institution, err := s.CreateInstitution(ctx, "Test bank", domain.InstitutionBank)
 	if err != nil {

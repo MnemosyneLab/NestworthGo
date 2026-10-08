@@ -10,6 +10,7 @@ import (
 )
 
 func TestHistoricalCorrectionReplaysSoldPositionAndAllSnapshots(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db, err := sqlite.Open(t.TempDir() + "/correction.db")
 	if err != nil {
@@ -171,6 +172,7 @@ func TestHistoricalCorrectionReplaysSoldPositionAndAllSnapshots(t *testing.T) {
 }
 
 func TestCorrectionPreservesLaterAbsoluteBalanceObservation(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 	db, err := sqlite.Open(t.TempDir() + "/balances.db")
 	if err != nil {
