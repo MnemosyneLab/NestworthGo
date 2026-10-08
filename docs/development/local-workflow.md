@@ -121,6 +121,23 @@ The same automated gates run in GitHub Actions on `main` and pull requests
 (`.github/workflows/check.yml`), with race detection as a separate job. Native
 packaging, signing, and notarization remain manual.
 
+The release task also runs `python3 -m unittest discover -s tools/tests -v`
+through `skill:check`. Native-dependency helper tests discover GNU `timeout`
+or Homebrew `gtimeout` on `PATH`; macOS does not require installing coreutils.
+When neither GNU tool is available, a Python POSIX timeout fixture exercises
+the same retry, failure, exit-code, and real TERM/KILL assertions. Every host
+also replays those tests with GNU discovery disabled. Linux GitHub Actions
+requires the GNU backend for the original tests, so the portable fixture does
+not replace validation of production timeout behavior. The fixture is only
+for synthetic tests, not the apt installation script. Mac packaging still
+requires its own full `wails3 task package:release` acceptance run.
+Synthetic apt commands have a 3-second test budget and 1-second TERM-to-KILL
+grace period, with a 30-second harness bound. This allows Python/process
+startup before testing intentional stalls; normal commands finish immediately.
+A regression injects 350ms of startup delay before recording calls or setting
+signal handlers and checks success, TERM/KILL status, and exact retry counts
+with both backends. These timings do not change production apt budgets.
+
 ## Build and package the macOS app
 
 For Wails beta.28, use a checkout on local, non-synchronized storage. Our
