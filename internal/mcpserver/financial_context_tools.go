@@ -413,10 +413,10 @@ func isFinancialContextTool(name string) bool {
 
 // The SDK does not expose IDs to tool handlers and may return input-schema
 // errors before those handlers run. Bound IDs and the final JSON response for
-// these context and comparison tools. The server uses stateless JSONResponse mode; retaining
+// these context, comparison and product tools. The server uses stateless JSONResponse mode; retaining
 // at most 64 KiB until ServeHTTP completes also covers SDK validation errors.
 // Legacy SDK protocols accept batches, so reject batches containing any
-// context/comparison tool before dispatch, independently of the supplied protocol header.
+// bounded tool before dispatch, independently of the supplied protocol header.
 func financialContextEnvelope(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -431,16 +431,16 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 			if decodeFinancialContextJSON(raw, &batch) == nil {
 				for _, element := range batch {
 					request, err := decodeFinancialContextHTTPCall(element)
-					if err == nil && isFinancialContextTool(request.Params.Name) {
-						http.Error(w, "financial context tools require a single JSON-RPC request", http.StatusBadRequest)
+					if err == nil && (isFinancialContextTool(request.Params.Name) || isProductTool(request.Params.Name)) {
+						http.Error(w, "bounded MCP tools require a single JSON-RPC request", http.StatusBadRequest)
 						return
 					}
 				}
 			}
 			request, err := decodeFinancialContextHTTPCall(raw)
-			if err == nil && isFinancialContextTool(request.Params.Name) {
+			if err == nil && (isFinancialContextTool(request.Params.Name) || isProductTool(request.Params.Name)) {
 				if len(request.ID) > 512 {
-					http.Error(w, "financial context request ID exceeds wire budget", http.StatusBadRequest)
+					http.Error(w, "MCP request ID exceeds wire budget", http.StatusBadRequest)
 					return
 				}
 				buffer := &financialContextHTTPResponse{header: w.Header().Clone()}
@@ -448,11 +448,18 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 				if !buffer.oversized && request.Params.Name == "compare_financial_attribution" {
 					scrubAttributionSchemaError(buffer, request.ID)
 				}
+				if !buffer.oversized && isProductTool(request.Params.Name) {
+					scrubSchemaError(buffer, request.ID, "invalid product request; inspect the tool schema")
+				}
 				if buffer.oversized {
 					// Replace the entire result; never truncate JSON or echo the
 					// offending property/value. Keep the original bounded RPC ID.
 					result := &mcp.CallToolResult{}
-					result.SetError(fail("too_large", "financial context response exceeds the MCP wire budget"))
+					message := "financial context response exceeds the MCP wire budget"
+					if isProductTool(request.Params.Name) {
+						message = "product response exceeds the MCP wire budget; narrow the account filter or use the GUI"
+					}
+					result.SetError(fail("too_large", message))
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusOK)
 					_ = json.NewEncoder(w).Encode(struct {
@@ -499,10 +506,14 @@ func (w *financialContextHTTPResponse) Write(data []byte) (int, error) {
 	return len(data), nil
 }
 
-// The SDK's schema diagnostics include rejected values and property names.
-// The attribution boundary must not echo a sensitive request in those errors.
-// Application errors already use a fixed WireError; preserve their safe codes.
 func scrubAttributionSchemaError(buffer *financialContextHTTPResponse, id json.RawMessage) {
+	scrubSchemaError(buffer, id, "invalid attribution request; inspect the tool schema")
+}
+
+// The SDK's schema diagnostics include rejected values and property names.
+// Attribution and product errors must not echo a sensitive request. Application
+// errors already use a fixed WireError; preserve their safe codes.
+func scrubSchemaError(buffer *financialContextHTTPResponse, id json.RawMessage, message string) {
 	var reply struct {
 		Result *mcp.CallToolResult `json:"result"`
 		Error  json.RawMessage     `json:"error"`
@@ -522,7 +533,7 @@ func scrubAttributionSchemaError(buffer *financialContextHTTPResponse, id json.R
 		}
 	}
 	result := &mcp.CallToolResult{}
-	result.SetError(fail("validation", "invalid attribution request; inspect the tool schema"))
+	result.SetError(fail("validation", message))
 	buffer.body.Reset()
 	buffer.header.Set("Content-Type", "application/json")
 	buffer.status = http.StatusOK

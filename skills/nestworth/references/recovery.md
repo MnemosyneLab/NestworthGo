@@ -31,3 +31,8 @@ do not repost the financial record to repair derived data.
 After backup restore, an intentionally reapplied missing change is a new intent
 with a new UUID, after checking the restored facts. Backups/restores themselves
 are App workflows, not MCP tools.
+
+Managed product/history and liquidity reads do not create plans or receipts.
+Re-query actual contracts, operations, cash and reservation evidence after GUI
+writes or restore; maturity is not receipt. Product writes still require the
+App. See [products.md](products.md).
