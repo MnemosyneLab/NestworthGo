@@ -740,3 +740,161 @@ func TestProductHTTPTermsSameRevisionFactsIntegrity(t *testing.T) {
 		})
 	}
 }
+
+func TestProductHTTPTermsPolicyMoneyRecoveryMatrix(t *testing.T) {
+	for _, currency := range []string{"USD", "CNY"} {
+		for _, variant := range []string{"null", "zero", "nonzero", "deposit_fee"} {
+			t.Run(currency+"/"+variant, func(t *testing.T) {
+				clock := func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) }
+				fx, db, repo := newPersistentProductFixture(t, clock)
+				c := ledgerSession(t, fx)
+				kind := "locked_product"
+				if variant == "deposit_fee" {
+					kind = "term_deposit"
+				}
+				seed := productExistingInput(fx.brokerage)
+				seed.RecordExisting.Currency = currency
+				seed.RecordExisting.Terms.Kind = kind
+				if kind == "locked_product" {
+					seed.RecordExisting.Terms.InterestMode = "none"
+					seed.RecordExisting.Terms.MaturityInterest = nil
+				}
+				opened := productPlanHTTP(t, c, seed)
+				posted := productCommitHTTP(t, c, opened["planId"].(string), uuid.NewString())
+				id := posted["productIds"].([]any)[0].(string)
+				in := productTermsInput(id, 1, kind)
+				want := map[string]*string{"normalExitFee": nil, "earlyFee": nil, "earlyGrossAmount": nil, "accessibleAmountCap": nil}
+				if variant != "null" {
+					normal, early, gross := "10.50", "2.75", "980.25"
+					if variant == "zero" {
+						normal, early, gross = "0", "0", "0"
+					}
+					in.Policy.NormalExitFee = productString(normal)
+					want["normalExitFee"] = productString(map[bool]string{true: "0", false: "10.5"}[variant == "zero"])
+					if variant != "deposit_fee" {
+						in.Policy.EarlyKind = "allowed"
+						in.Policy.EarlyFee = productString(early)
+						in.Policy.EarlyGrossAmount = productString(gross)
+						in.Policy.EarlyAmountMode = productString("fixed_gross")
+						zero := 0
+						in.Policy.EarlySettlementDays = &zero
+						in.Policy.EarlyDayBasis = productString("calendar")
+						want["earlyFee"] = productString(early)
+						want["earlyGrossAmount"] = productString(gross)
+					}
+				}
+				p := productDataPreviewHTTP(t, c, "preview_product_terms", in)
+				plan := p["planId"].(string)
+				op := uuid.NewString()
+				// Force an unknown outer response after the actual atomic terms commit.
+				fx.service.repository = &failProductSuccessReceipt{ConfigurationRepository: fx.service.repository, fail: true}
+				if code := ledgerErrorCode(t, c, "commit_product_terms", map[string]any{"operationId": op, "input": map[string]any{"planId": plan}}); code != "operation_outcome_unknown" {
+					t.Fatal(code)
+				}
+				expected := p["after"]
+				recovered := productDataCommitHTTP(t, c, "commit_product_terms", plan, op)
+				productJSONEqual(t, recovered["product"], expected)
+				if recovered["replayed"] != true {
+					t.Fatal(recovered)
+				}
+				same := productDataCommitHTTP(t, c, "commit_product_terms", plan, op)
+				productJSONEqual(t, same, recovered)
+				next := productDataCommitHTTP(t, c, "commit_product_terms", plan, uuid.NewString())
+				productJSONEqual(t, next, recovered)
+				fx.service.Close()
+				app := application.NewService(repo)
+				appports.Wire(app)
+				appports.AttachSQLiteHistory(app, repo)
+				app.SetClock(clock)
+				server := New(app, t.TempDir(), nil, sqlite.NewConfigurationRepository(db))
+				t.Cleanup(server.Close)
+				if err := server.Resume(); err != nil {
+					t.Fatal(err)
+				}
+				c = connect(t, server)
+				restarted := productDataCommitHTTP(t, c, "commit_product_terms", plan, uuid.NewString())
+				productJSONEqual(t, restarted, recovered)
+				policy := restarted["product"].(map[string]any)["policy"].(map[string]any)
+				for field, amount := range want {
+					if amount == nil {
+						if policy[field] != nil {
+							t.Fatal(field, policy[field])
+						}
+						continue
+					}
+					m := policy[field].(map[string]any)
+					if m["amount"] != *amount || m["currency"] != currency {
+						t.Fatal(field, m)
+					}
+				}
+				current, err := app.Product(t.Context(), domain.ProductContractID(id))
+				if err != nil {
+					t.Fatal(err)
+				}
+				productJSONEqual(t, restarted["product"], liquidity.FromProductDetail(current).Product)
+				if current.Contract.Revision != 2 || current.Policy.Revision != 2 {
+					t.Fatal("duplicate SQL terms write")
+				}
+				var count int
+				if err := db.SQL.QueryRow(`SELECT COUNT(*) FROM app_configuration WHERE key LIKE 'product.terms-mutation.%'`).Scan(&count); err != nil || count != 1 {
+					t.Fatal(count, err)
+				}
+				path := filepath.Join(t.TempDir(), "policy-money.db")
+				if err := db.SnapshotTo(t.Context(), path); err != nil {
+					t.Fatal(err)
+				}
+				checked, err := sqlite.OpenReadOnlyForVerify(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				checked.Close()
+				if variant == "nonzero" {
+					// Holding sources have no source currency; the contract currency is authoritative.
+					m, err := repo.LookupProductTermsMutation(t.Context(), current.Contract.HouseholdID, domain.ProductOperationID(plan))
+					if err != nil {
+						t.Fatal(err)
+					}
+					wrong, err := domain.ParseMoney("2.75", domain.CurrencyCode("EUR"))
+					if err != nil {
+						t.Fatal(err)
+					}
+					m.Receipt.Policy.EarlyFee = &wrong
+					if _, err := domain.NewProductTermsMutation(m.ID, m.HouseholdID, m.CommandJSON, m.Receipt, m.CreatedAt); err == nil {
+						t.Fatal("wrong-currency holding policy receipt accepted")
+					}
+					if _, err := db.SQL.Exec(`UPDATE app_configuration SET value=json_set(value,'$.receipt.policy.NormalExitFee',json('{}')) WHERE key LIKE 'product.terms-mutation.%'`); err != nil {
+						t.Fatal(err)
+					}
+					if code := productDataCommitCode(t, c, "commit_product_terms", plan); code == "" {
+						t.Fatal("empty object became a fake zero fee")
+					}
+					broken := filepath.Join(t.TempDir(), "empty-money.db")
+					if err := db.SnapshotTo(t.Context(), broken); err != nil {
+						t.Fatal(err)
+					}
+					if checked, err := sqlite.OpenReadOnlyForVerify(broken); err == nil {
+						checked.Close()
+						t.Fatal("empty receipt money accepted by backup")
+					}
+				}
+			})
+		}
+	}
+}
+
+func TestProductHTTPTermsPercentPrecedenceRemainsExplicit(t *testing.T) {
+	fx := newLedgerFixtureWithClock(t, func() time.Time { return time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC) })
+	c := ledgerSession(t, fx)
+	id, _ := productDataSeed(t, fx, c, "term_deposit")
+	in := productTermsInput(id, 1, "term_deposit")
+	in.Terms.AnnualRate = productString("0.08")
+	in.Terms.AnnualRatePercent = productString("2.5")
+	p := productDataPreviewHTTP(t, c, "preview_product_terms", in)
+	if p["after"].(map[string]any)["annualRate"] != "0.025" {
+		t.Fatal(p)
+	}
+	r := productDataCommitHTTP(t, c, "commit_product_terms", p["planId"].(string), uuid.NewString())
+	if r["product"].(map[string]any)["annualRate"] != "0.025" {
+		t.Fatal(r)
+	}
+}

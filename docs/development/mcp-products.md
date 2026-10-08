@@ -165,6 +165,10 @@ ConfirmedAt and root recordedAt reflect actual commit time. Terms have no defaul
 financial event timestamp; cash, quantity, cost and quote facts remain unchanged.
 Closed products accept only name/note with unchanged financial terms and policy.
 Open edits can change forecasts without posting interest or altering reservations.
+Existing GUI rate resolution is unchanged: nonempty annualRatePercent takes
+precedence when both rate representations are supplied; previews display the
+resolved canonical annualRate. Prefer one representation. Blank/null handling
+follows shared GUI validation.
 The terms receipt returns the recorded-time ProductDTO and revision, not the
 complete detail's reservation array. Read get_product for current facts and
 complete reserve evidence. Money, including policy fees/early gross amounts, uses explicit decimal-string/

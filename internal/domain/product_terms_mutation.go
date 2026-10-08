@@ -72,6 +72,11 @@ func (m ProductTermsMutation) Validate() error {
 		return err
 	}
 	r := m.Receipt
+	for _, money := range []*Money{r.Policy.AccessibleAmountCap, r.Policy.NormalExitFee, r.Policy.EarlyFee, r.Policy.EarlyGrossAmount} {
+		if money != nil && money.Currency() != r.Contract.Currency {
+			return &Error{Code: ErrValidation, Message: "product policy receipt amount must use the product currency"}
+		}
+	}
 	if r.MutationID != m.ID || r.Contract.ID != m.ProductID || r.Contract.HouseholdID != m.HouseholdID || r.Policy.HouseholdID != m.HouseholdID || r.Policy.Source.Key() != HoldingSourceRef(r.Contract.AccountID, r.Contract.HoldingID).Key() || !r.RecordedAt.Equal(m.CreatedAt) || !r.Contract.UpdatedAt.Equal(m.CreatedAt) || r.CurrentValue != nil && r.CurrentValue.Currency() != r.Contract.Currency {
 		return &Error{Code: ErrValidation, Message: "product terms receipt identity is inconsistent"}
 	}

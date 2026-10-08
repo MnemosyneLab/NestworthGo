@@ -172,7 +172,10 @@ fields and explicit nulls for unknowns. Kind and startOn cannot change. For a
 closed product only name/note may change; financial terms and policy must match
 current facts. Original currency is fixed. annualRate is a fraction, or use
 annualRatePercent as specified by the App schema; keep actual/365 versus actual/360
-and interestPaidThroughOn. Changing predicted interest or availability posts no
+and interestPaidThroughOn. Supply one rate representation. If both are present,
+a nonempty annualRatePercent takes precedence under the existing GUI rule;
+review the canonical annualRate shown in before/after before committing.
+Changing predicted interest or availability posts no
 cash, income, quantity, cost or quote and never changes reservations.
 
 Review before/after terms, policy and zero netWorthDelta. Preview metadata times
