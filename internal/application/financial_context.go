@@ -147,6 +147,30 @@ type FinancialContextResult struct {
 }
 
 func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContextRequest) (FinancialContextResult, error) {
+	in, ids, err := normalizeFinancialContextRequest(in)
+	if err != nil {
+		return FinancialContextResult{}, err
+	}
+	inputs, now, fxProvider, ttl, err := s.captureFinancialContext(ctx, in.AsOf != "current", ids)
+	if err != nil {
+		return FinancialContextResult{}, err
+	}
+	side, err := s.prepareFinancialContextSide(ctx, in, ids, inputs, now, fxProvider, ttl)
+	if err != nil {
+		return FinancialContextResult{}, err
+	}
+	content, err := projectFinancialContext(ctx, in, side, ttl, financialContextRefs(side.rows, in.Disclosure))
+	if err != nil {
+		return FinancialContextResult{}, err
+	}
+	encoded, err := json.Marshal(content)
+	if err != nil {
+		return FinancialContextResult{}, err
+	}
+	digest := sha256.Sum256(encoded)
+	return FinancialContextResult{CapturedAt: now, ContentHash: "sha256:" + hex.EncodeToString(digest[:]), Content: content}, nil
+}
+func normalizeFinancialContextRequest(in FinancialContextRequest) (FinancialContextRequest, []domain.AccountID, error) {
 	if in.AsOf == "" {
 		in.AsOf = "current"
 	}
@@ -154,23 +178,23 @@ func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContext
 		in.Disclosure = "minimal"
 	}
 	if in.Disclosure != "minimal" && in.Disclosure != "named" {
-		return FinancialContextResult{}, contextValidation("disclosure must be minimal or named")
+		return in, nil, contextValidation("disclosure must be minimal or named")
 	}
 	if in.Scope.Kind == "" {
 		in.Scope.Kind = "household"
 	}
 	if in.Scope.Kind != "household" && in.Scope.Kind != "accounts" {
-		return FinancialContextResult{}, contextValidation("scope kind must be household or accounts")
+		return in, nil, contextValidation("scope kind must be household or accounts")
 	}
 	if (in.Scope.Kind == "household" && len(in.Scope.AccountIDs) > 0) || (in.Scope.Kind == "accounts" && (len(in.Scope.AccountIDs) == 0 || len(in.Scope.AccountIDs) > 100)) {
-		return FinancialContextResult{}, contextValidation("accounts scope requires 1 to 100 account IDs; household scope takes none")
+		return in, nil, contextValidation("accounts scope requires 1 to 100 account IDs; household scope takes none")
 	}
 	ids := []domain.AccountID{}
 	seen := map[domain.AccountID]bool{}
 	for _, value := range in.Scope.AccountIDs {
 		id, err := domain.ParseAccountID(value)
 		if err != nil {
-			return FinancialContextResult{}, err
+			return in, nil, err
 		}
 		if !seen[id] {
 			ids = append(ids, id)
@@ -178,16 +202,18 @@ func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContext
 		}
 	}
 	sort.Slice(ids, func(i, j int) bool { return ids[i].String() < ids[j].String() })
-	historical := in.AsOf != "current"
-	if historical {
+	if in.AsOf != "current" {
 		d, err := time.Parse("2006-01-02", in.AsOf)
 		if err != nil || d.Format("2006-01-02") != in.AsOf {
-			return FinancialContextResult{}, contextValidation("asOf must be current or a YYYY-MM-DD closed date")
+			return in, nil, contextValidation("asOf must be current or a YYYY-MM-DD closed date")
 		}
 	}
+	return in, ids, nil
+}
+func (s *Service) captureFinancialContext(ctx context.Context, historical bool, ids []domain.AccountID) (FinancialContextInputs, time.Time, string, time.Duration, error) {
 	repository, ok := s.repository.(FinancialContextRepository)
 	if !ok {
-		return FinancialContextResult{}, &domain.Error{Code: domain.ErrUnavailable, Message: "financial context read is unavailable"}
+		return FinancialContextInputs{}, time.Time{}, "", 0, &domain.Error{Code: domain.ErrUnavailable, Message: "financial context read is unavailable"}
 	}
 	// One configuration capture, independent of per-row getters. No provider I/O.
 	s.stateMu.RLock()
@@ -204,8 +230,25 @@ func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContext
 	}
 	inputs, err := repository.ReadFinancialContextInputs(ctx, historical, ids, now)
 	if err != nil {
-		return FinancialContextResult{}, err
+		return FinancialContextInputs{}, time.Time{}, "", 0, err
 	}
+	return inputs, now, fxProvider, ttl, nil
+}
+
+type financialContextSide struct {
+	portfolio domain.PortfolioSnapshot
+	state     HistoricalOverviewState
+	rows      []HistoricalOverviewRow
+	asOf      FinancialContextAsOf
+}
+
+func (s *Service) prepareFinancialContextSide(ctx context.Context, in FinancialContextRequest, ids []domain.AccountID, inputs FinancialContextInputs, now time.Time, fxProvider string, ttl time.Duration) (financialContextSide, error) {
+	historical := in.AsOf != "current"
+	selected := map[domain.AccountID]bool{}
+	for _, id := range ids {
+		selected[id] = true
+	}
+	var err error
 	portfolio := inputs.Portfolio
 	asOf := FinancialContextAsOf{Mode: "current"}
 	cutoff := now
@@ -217,19 +260,19 @@ func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContext
 		origin := inputs.History.Origin
 		location, loadErr := time.LoadLocation(origin.Timezone)
 		if loadErr != nil {
-			return FinancialContextResult{}, loadErr
+			return financialContextSide{}, loadErr
 		}
 		day, _ := time.Parse("2006-01-02", in.AsOf)
 		if in.AsOf < origin.StartedAt.In(location).Format("2006-01-02") || in.AsOf >= now.In(location).Format("2006-01-02") {
-			return FinancialContextResult{}, contextValidation("select a closed day on or after the history origin")
+			return financialContextSide{}, contextValidation("select a closed day on or after the history origin")
 		}
 		cutoff, err = historicalOverviewDayCutoff(day, location)
 		if err != nil {
-			return FinancialContextResult{}, err
+			return financialContextSide{}, err
 		}
 		portfolio, err = (HistoricalReplay{repository: s.repository, batch: inputs.History}).Snapshot(ctx, &origin, cutoff)
 		if err != nil {
-			return FinancialContextResult{}, err
+			return financialContextSide{}, err
 		}
 		asOf.Mode, asOf.LocalDate, asOf.CutoffAt = "closed_day", in.AsOf, cutoff.UTC().Format(time.RFC3339Nano)
 	}
@@ -237,7 +280,7 @@ func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContext
 	if in.Scope.Kind == "accounts" {
 		records := []domain.AccountRecord{}
 		for _, a := range portfolio.Accounts {
-			if seen[a.Account.ID] {
+			if selected[a.Account.ID] {
 				records = append(records, a)
 			}
 		}
@@ -245,16 +288,7 @@ func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContext
 	}
 	state, rows, err := s.historicalOverviewPortfolio(ctx, inputs.History, portfolio, in.AsOf, cutoff, !historical, fxProvider, ttl)
 	if err != nil {
-		return FinancialContextResult{}, err
-	}
-	content := FinancialContextContent{SchemaVersion: "financial-context/1", CalculationVersion: "valuation-context/1", ResolverPolicy: domain.MarketDataResolverPolicy, Disclosure: in.Disclosure, AsOf: asOf,
-		Scope:    FinancialContextScope{Kind: in.Scope.Kind, AccountRefs: []string{}, InclusionRule: "includeInNetWorth && active; active components only"},
-		Basis:    FinancialContextBasis{BaseCurrency: state.Currency, Valuation: "existing_deterministic_engine", HistoryEvidence: "current_database_state", MetadataBasis: "current", QuoteTTLSeconds: int64(ttl / time.Second)},
-		Summary:  FinancialContextSummary{Assets: contextAmount(state.Assets, state.Currency), Liabilities: contextAmount(state.Liabilities, state.Currency), NetWorth: contextAmount(state.NetWorth, state.Currency), KnownAssets: state.KnownAssets, KnownLiabilities: state.KnownLiabilities},
-		Coverage: FinancialContextCoverage{ValuationComplete: state.Complete, SnapshotHealth: "not_assessed", NotAssessed: []string{"persistent_snapshots", "full_history_health", "provider_configuration", "real_world_ledger_completeness", "period_returns"}},
-		DataAsOf: FinancialContextDataAsOf{Basis: "mixed_scope_local_observations"}, Positions: []FinancialContextPosition{}, Gaps: []FinancialContextGap{}, Evidence: []FinancialContextEvidence{}}
-	if historical {
-		content.Basis.HistoryEvidence = "currently_retained_corrected_facts"
+		return financialContextSide{}, err
 	}
 	// Include requested, not-yet-created historical accounts explicitly.
 	if in.Scope.Kind == "accounts" {
@@ -272,33 +306,52 @@ func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContext
 		}
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].Key < rows[j].Key })
+	return financialContextSide{portfolio, state, rows, asOf}, nil
+}
+func financialContextRefs(rows []HistoricalOverviewRow, disclosure string) map[string]string {
 	refs := map[string]string{}
+	accounts, components := 0, 0
+	for _, row := range rows {
+		if _, ok := refs[row.Key]; ok {
+			continue
+		}
+		ref := row.Key
+		if row.Kind == "account" {
+			accounts++
+			if disclosure == "minimal" {
+				ref = fmt.Sprintf("account-%d", accounts)
+			}
+		} else {
+			components++
+			if disclosure == "minimal" {
+				ref = fmt.Sprintf("position-%d", components)
+			}
+		}
+		refs[row.Key] = ref
+	}
+	return refs
+}
+func projectFinancialContext(ctx context.Context, in FinancialContextRequest, side financialContextSide, ttl time.Duration, refs map[string]string) (FinancialContextContent, error) {
+	portfolio, state, rows, asOf := side.portfolio, side.state, side.rows, side.asOf
+	content := FinancialContextContent{SchemaVersion: "financial-context/1", CalculationVersion: "valuation-context/1", ResolverPolicy: domain.MarketDataResolverPolicy, Disclosure: in.Disclosure, AsOf: asOf,
+		Scope:    FinancialContextScope{Kind: in.Scope.Kind, AccountRefs: []string{}, InclusionRule: "includeInNetWorth && active; active components only"},
+		Basis:    FinancialContextBasis{BaseCurrency: state.Currency, Valuation: "existing_deterministic_engine", HistoryEvidence: "current_database_state", MetadataBasis: "current", QuoteTTLSeconds: int64(ttl / time.Second)},
+		Summary:  FinancialContextSummary{Assets: contextAmount(state.Assets, state.Currency), Liabilities: contextAmount(state.Liabilities, state.Currency), NetWorth: contextAmount(state.NetWorth, state.Currency), KnownAssets: state.KnownAssets, KnownLiabilities: state.KnownLiabilities},
+		Coverage: FinancialContextCoverage{ValuationComplete: state.Complete, SnapshotHealth: "not_assessed", NotAssessed: []string{"persistent_snapshots", "full_history_health", "provider_configuration", "real_world_ledger_completeness", "period_returns"}},
+		DataAsOf: FinancialContextDataAsOf{Basis: "mixed_scope_local_observations"}, Positions: []FinancialContextPosition{}, Gaps: []FinancialContextGap{}, Evidence: []FinancialContextEvidence{}}
+	if in.AsOf != "current" {
+		content.Basis.HistoryEvidence = "currently_retained_corrected_facts"
+	}
 	for _, row := range rows {
 		if row.Kind == "account" {
-			ref := row.Key
-			if in.Disclosure == "minimal" {
-				ref = fmt.Sprintf("account-%d", len(content.Scope.AccountRefs)+1)
-			}
-			refs[row.Key] = ref
-			content.Scope.AccountRefs = append(content.Scope.AccountRefs, ref)
-		}
-	}
-	componentNumber := 0
-	for _, row := range rows {
-		if row.Kind != "account" {
-			componentNumber++
-			ref := row.Key
-			if in.Disclosure == "minimal" {
-				ref = fmt.Sprintf("position-%d", componentNumber)
-			}
-			refs[row.Key] = ref
+			content.Scope.AccountRefs = append(content.Scope.AccountRefs, refs[row.Key])
 		}
 	}
 	evidenceByKey := map[string]FinancialContextEvidence{}
 	rowEvidence := map[string][]string{}
 	for _, row := range rows {
 		if err := ctx.Err(); err != nil {
-			return FinancialContextResult{}, err
+			return FinancialContextContent{}, err
 		}
 		cell := row.Left
 		if row.Kind == "account" {
@@ -426,13 +479,9 @@ func (s *Service) BuildFinancialContext(ctx context.Context, in FinancialContext
 			}
 		}
 	}
-	encoded, err := json.Marshal(content)
-	if err != nil {
-		return FinancialContextResult{}, err
-	}
-	digest := sha256.Sum256(encoded)
-	return FinancialContextResult{CapturedAt: now, ContentHash: "sha256:" + hex.EncodeToString(digest[:]), Content: content}, nil
+	return content, nil
 }
+
 func contextValidation(message string) error {
 	return &domain.Error{Code: domain.ErrValidation, Message: message}
 }

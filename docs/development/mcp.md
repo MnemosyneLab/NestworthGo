@@ -604,3 +604,11 @@ writable Open then adds the table while preserving existing household facts.
 
 Native UI and a configured external agent using the new batch/import tools were
 not exercised. No live ledger was modified.
+
+
+Two-state read-only comparisons use `compare_financial_context` and
+`get_financial_comparison_page`. They capture both states together and compute
+right-minus-left changes with shared identity aliases. These are not returns or
+attribution. See the [comparison contract](financial-context.md#two-state-comparison)
+for scopes, category definitions, disclosure, nullable differences and shared
+cache/transport budgets.

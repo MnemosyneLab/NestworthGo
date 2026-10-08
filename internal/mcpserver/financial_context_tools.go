@@ -38,9 +38,10 @@ type financialContextCache struct {
 	now        func() time.Time
 }
 type cachedFinancialContext struct {
-	result  application.FinancialContextResult
-	expires time.Time
-	size    int
+	comparison *application.FinancialComparisonResult
+	result     application.FinancialContextResult
+	expires    time.Time
+	size       int
 }
 type FinancialContextPageInput struct {
 	ContextID string `json:"contextId"`
@@ -187,7 +188,7 @@ func (s *Service) financialContextPage(ctx context.Context, g uint64, in Financi
 	}
 	c.prune(c.now())
 	entry, ok := c.entries[in.ContextID]
-	if !ok {
+	if !ok || entry.comparison != nil {
 		return FinancialContextResponse{}, fail("context_expired", "context expired or was evicted; request a new context")
 	}
 	cursor, err := c.decodeCursor(in.Cursor)
@@ -249,7 +250,7 @@ func (c *financialContextCache) decodeCursor(value string) (financialContextCurs
 // Match the SDK's final structured + JSON text CallToolResult, including the
 // data wrapper, JSON escaping and JSON-RPC envelope allowance. Measuring the
 // domain DTO alone undercounts the wire by more than a factor of two.
-func financialContextWireSize(value FinancialContextResponse) (int, error) {
+func financialContextWireSize(value any) (int, error) {
 	wrapped := Response{Data: value}
 	text, err := json.Marshal(wrapped)
 	if err != nil {
@@ -375,15 +376,15 @@ type financialContextHTTPCall struct {
 }
 
 func isFinancialContextTool(name string) bool {
-	return name == "get_financial_context" || name == "get_financial_context_page"
+	return name == "get_financial_context" || name == "get_financial_context_page" || name == "compare_financial_context" || name == "get_financial_comparison_page"
 }
 
 // The SDK does not expose IDs to tool handlers and may return input-schema
 // errors before those handlers run. Bound IDs and the final JSON response for
-// just these two tools. The server uses stateless JSONResponse mode; retaining
+// these context and comparison tools. The server uses stateless JSONResponse mode; retaining
 // at most 64 KiB until ServeHTTP completes also covers SDK validation errors.
 // Legacy SDK protocols accept batches, so reject batches containing either
-// context tool before dispatch, independently of the supplied protocol header.
+// context/comparison tool before dispatch, independently of the supplied protocol header.
 func financialContextEnvelope(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {

@@ -5,7 +5,8 @@ Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
 do not answer last month's income or investment return. Preserve ownership,
 inclusion filters, household base currency and incomplete-value indicators.
 
-For a period request call `analyze_period`. `query.from` / `to` are inclusive
+For investment returns, income/expense or change attribution call `analyze_period`.
+For two-state value differences use the comparison workflow below. `query.from` / `to` are inclusive
 closed local dates in the history-origin timezone; the end must be before today
 in that timezone. Clarify “this month” if it means current valuation versus
 closed-day analysis. Do not substitute UTC dates for the household's dates.
@@ -160,3 +161,58 @@ Zero is a measured result; null/unavailable is missing evidence. Report partial
 amounts as partial, preserve native/base distinctions and don't treat asset
 change as investment profit. If missing evidence prevents the requested answer,
 describe what is known and route to [data-health.md](data-health.md).
+
+
+## Compare two states without doing the arithmetic
+
+For “how much did cash, investments, debt and net worth change between these
+states?”, discover tools and call `compare_financial_context` directly. Do not
+fetch two independent context packages, pair their aliases, or calculate the
+answer yourself. The App aligns real identities before assigning common aliases
+and calculates exact right-minus-left differences. **Net-worth change is not
+investment return, income, or attribution.** Use the separate period tools for
+those questions, respecting disclosure and their snapshot-write behavior.
+
+<!-- example: financial-comparison -->
+```json
+{"leftAsOf":"2026-08-01","rightAsOf":"current","scope":{"kind":"household"},"disclosure":"minimal"}
+```
+
+Left requires a closed local date on/after History Origin; right accepts a closed
+date or current. No history means comparison is unavailable. Current means the
+captured DB state, not a date close or a filter of every economic fact by capture
+time. Historical results reflect currently retained corrections. Both sides use
+current metadata and household reporting currency. Preserve the returned
+investment/category basis; property and other non-investment assets are separate.
+Named disclosure and selecting real account IDs follow the same explicit-choice
+rules above; do not silently disclose directory identities to work around failure.
+
+Read all three page descriptors and continue each matching cursor until complete.
+Evidence references include the side; keep gaps and `dataAsOf` attached to that
+side. Missing base deltas are null even when a same-currency native delta exists.
+Different currencies, absent cells and unavailable amounts are not zero. Read
+inclusion and lifecycle separately: row differences are not additive net-worth
+contributions when inclusion or archive status changes.
+
+<!-- example: financial-comparison-positions-page -->
+```json
+{"comparisonId":"${comparisonId}","section":"positions","cursor":"${cursor}","limit":50}
+```
+
+<!-- example: financial-comparison-gaps-page -->
+```json
+{"comparisonId":"${comparisonId}","section":"gaps","cursor":"${cursor}","limit":50}
+```
+
+<!-- example: financial-comparison-evidence-page -->
+```json
+{"comparisonId":"${comparisonId}","section":"evidence","cursor":"${cursor}","limit":50}
+```
+
+Send one JSON-RPC object per request, never batches. Zero rows plus nextCursor
+means deferred, not finished. Use the same comparisonId, hash and matching
+section cursor throughout; context IDs and cursors cannot be reused here.
+Expiry, eviction or revocation requires a new comparison and restarting every
+section. Discard old pages. The five-minute TTL never renews. A `too_large` input,
+summary or single row may not be fixable by paging; narrowing scope needs actual,
+authorized account IDs and must not silently change the user's question.

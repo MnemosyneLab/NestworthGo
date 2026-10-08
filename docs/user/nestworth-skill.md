@@ -46,11 +46,20 @@ bash nestworth-skill/install.sh --version latest
 ```
 
 Pin a published **App release tag** instead with `--version vX.Y.Z`. This selects
-the GitHub release, not the skill's own `VERSION` (currently `1.1.0`). Each release
+the GitHub release, not the skill's own `VERSION` (currently `1.2.0`). Each release
 must include the two named assets. If the latest App release lacks them, use a
 release that includes them or a local bundle; there is no fallback to unreleased
 main-branch content. This implementation prepares artifacts; publishing a
 release is a separate maintainer action.
+
+### Skill 1.2.0 update notes
+
+Adds direct routing to the read-only two-state comparison tools and executable
+examples for all three frozen detail sections. Changes are App-calculated right
+minus left, not returns; do not pair aliases from independent context packages.
+The same explicit named-disclosure choice and expiry/restart rules apply. Install
+this version alongside an App exposing `compare_financial_context` and
+`get_financial_comparison_page`; older Apps do not gain tools by updating a skill.
 
 ### Skill 1.1.0 update notes
 
