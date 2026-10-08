@@ -71,6 +71,15 @@ Development and release instances must use distinct database paths. No connectio
 
 ## Architecture
 
+Managed product read parity is documented in [mcp-products.md](mcp-products.md).
+All modes expose list_products, get_product, list_product_operations and
+get_liquidity_overview using the GUI DTOs, with gross and after-reservation
+amounts and forecast/unknown evidence preserved. Product lifecycle, terms and
+valuation writes remain App workflows. The linked contract describes separate
+write review units and their required plan/atomic recovery gates; it does not
+claim those tools are available. See the portable
+[product workflow](../../skills/nestworth/references/products.md).
+
 `cmd/nestworth` owns the MCP service and passes the same `application.Service`
 instance used by the desktop bindings. `internal/mcpserver` registers an explicit
 allowlist of typed tools using the official Go SDK. It reuses the runtime-free

@@ -49,7 +49,7 @@ rather than changing disclosure or bypassing request validation.
 
 | Mode | Available operations |
 | --- | --- |
-| `read_only` | Financial context and frozen pages, current valuation, catalogs, history, analysis, market-data/audit reads, health scans, repair previews/status |
+| `read_only` | Financial context and frozen pages, current valuation, managed products/history and liquidity reads, catalogs, history, analysis, market-data/audit reads, health scans, repair previews/status |
 | `directory_write` | All reads plus account/instrument/member/institution/group maintenance |
 | `ledger_write` | All above plus ledger previews/commits, quote imports/source selection, reconciliation, corrections and starting data repair |
 
@@ -78,6 +78,7 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; corresponding institution/group tools; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
+| Managed contracts/history and liquidity (reads only) | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview` |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
 | Single/batch ledger records | `preview_change` / `commit_change`, `preview_batch` / `commit_batch` |
 | Reconciliation/correction | `preview_reconciliation` / `commit_reconciliation`, `preview_correction` / `commit_correction` |
