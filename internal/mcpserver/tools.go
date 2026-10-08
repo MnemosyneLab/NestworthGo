@@ -95,8 +95,17 @@ type Response struct {
 }
 
 func readTool[I any](server *mcp.Server, name, description string, fn func(context.Context, I) (any, error)) {
-	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: name, Description: description, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in I) (*mcp.CallToolResult, Response, error) {
+	localTool(server, name, description, true, fn)
+}
+
+// Analysis only mutates local derived snapshots, and remains available in all
+// existing modes. It is not a strictly no-write read or a ledger mutation.
+func analysisTool[I any](server *mcp.Server, name, description string, fn func(context.Context, I) (any, error)) {
+	localTool(server, name, description+" May materialize derived snapshots and invalidate ledger previews; no financial facts or provider data are written. Available in existing read_only mode; no extra token permission.", false, fn)
+}
+func localTool[I any](server *mcp.Server, name, description string, readOnly bool, fn func(context.Context, I) (any, error)) {
+	closed, destructive := false, false
+	mcp.AddTool(server, &mcp.Tool{Name: name, Description: description, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: readOnly, DestructiveHint: &destructive, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in I) (*mcp.CallToolResult, Response, error) {
 		value, err := fn(ctx, in)
 		if err != nil {
 			return nil, Response{}, safeError(err)

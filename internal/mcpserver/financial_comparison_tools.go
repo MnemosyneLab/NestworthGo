@@ -29,14 +29,34 @@ type FinancialComparisonResponse struct {
 }
 
 func (s *Service) financialComparisonTools(server *mcp.Server, generation uint64) {
+	analysisTool(server, "compare_financial_attribution", "Freshly recapture a comparison and closed-period attribution together after derived snapshot maintenance. Same date/scope/disclosure inputs as compare_financial_context; does not accept or certify an older comparisonId. Closed A/B maps to A's next local date through B, with server-resolved cutoffs. Only household or one actual account UUID; account sets return unsupported_account_set. Current right endpoint returns unavailable without a period return. Minimal needs no get_context or directory reads; named requires identity disclosure intent. Check attribution.status and mismatchReasons before explaining: compatible links separate net-worth drivers from investment returns; incompatible must stop; unavailable preserves missing evidence. Source evidence, inclusion and all daily boundaries are verified, not just numeric equality. Read all frozen sections with get_financial_comparison_page; keep independent cursor state. Single JSON-RPC object only, never batches.", func(ctx context.Context, in application.FinancialComparisonRequest) (any, error) {
+		return s.buildFinancialAttribution(ctx, generation, in)
+	})
+
 	readTool(server, "compare_financial_context", "Deterministically compare two states from one strictly read-only capture. leftAsOf is a closed YYYY-MM-DD date; rightAsOf is a closed date or current database state. Minimal disclosure by default; named requires explicit intent about identity disclosure. Changes are right minus left, never investment returns or attribution. Internal identities are aligned before shared aliases; never pair aliases from independent contexts. Missing differences are null, not zero. Retained corrected facts and current metadata/base currency apply. No history means unavailable. Send a single JSON-RPC object, never a batch. Read all positions, gaps and evidence pages; this does not repair, import or refresh anything.", func(ctx context.Context, in application.FinancialComparisonRequest) (any, error) {
 		return s.buildFinancialComparison(ctx, generation, in)
 	})
-	readTool(server, "get_financial_comparison_page", "Read a frozen comparison section (positions, gaps, evidence), using its comparisonId and exact matching nextCursor. Default limit 50, maximum 100. Zero returned rows with a nextCursor are deferred. Never mix contexts, comparisons, sides, sections or cursors. Expired, evicted or revoked packages require restarting every section; pages do not extend TTL. A too_large summary or row cannot be repaired with smaller pages. Changes are not returns. Send a single JSON-RPC object, never a batch.", func(ctx context.Context, in FinancialComparisonPageInput) (any, error) {
+	readTool(server, "get_financial_comparison_page", "Read a frozen comparison section (positions, gaps, evidence), using its comparisonId and exact matching nextCursor. Default limit 50, maximum 100. Zero returned rows with a nextCursor are deferred. Never mix contexts, comparisons, sides, sections or cursors. Expired, evicted or revoked packages require restarting every section; pages do not extend TTL. A too_large summary or row cannot be repaired with smaller pages. Changes are not returns; an attached attribution link is frozen in the same hash and summary and never recomputed by pages. Send a single JSON-RPC object, never a batch.", func(ctx context.Context, in FinancialComparisonPageInput) (any, error) {
 		return s.financialComparisonPage(ctx, generation, in)
 	})
 }
+func (s *Service) buildFinancialAttribution(ctx context.Context, g uint64, in application.FinancialComparisonRequest) (response FinancialComparisonResponse, err error) {
+	if !s.contexts.active(g) {
+		return response, fail("context_revoked", "connection generation was revoked")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	err = s.app.WithWrite(ctx, func(ctx context.Context) error {
+		var buildErr error
+		response, buildErr = s.captureFinancialComparison(ctx, g, in, true)
+		return buildErr
+	})
+	return
+}
 func (s *Service) buildFinancialComparison(ctx context.Context, g uint64, in application.FinancialComparisonRequest) (FinancialComparisonResponse, error) {
+	return s.captureFinancialComparison(ctx, g, in, false)
+}
+func (s *Service) captureFinancialComparison(ctx context.Context, g uint64, in application.FinancialComparisonRequest, attribution bool) (FinancialComparisonResponse, error) {
 	c := s.contexts
 	if !c.active(g) {
 		return FinancialComparisonResponse{}, fail("context_revoked", "connection generation was revoked")
@@ -52,7 +72,13 @@ func (s *Service) buildFinancialComparison(ctx context.Context, g uint64, in app
 	if !c.active(g) {
 		return FinancialComparisonResponse{}, fail("context_revoked", "connection generation was revoked")
 	}
-	result, err := s.app.BuildFinancialComparison(ctx, in)
+	var result application.FinancialComparisonResult
+	var err error
+	if attribution {
+		result, err = s.app.BuildFinancialAttribution(ctx, in)
+	} else {
+		result, err = s.app.BuildFinancialComparison(ctx, in)
+	}
 	if err != nil {
 		return FinancialComparisonResponse{}, err
 	}

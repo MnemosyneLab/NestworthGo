@@ -11,7 +11,7 @@ import (
 // Probe the actual HTTP transport's treatment of a second JSON value. A guard
 // parse failure must not allow a financial call to bypass its wire/batch bounds.
 func TestFinancialContextHTTPTrailingJSONValue(t *testing.T) {
-	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "get_financial_comparison_page"} {
+	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page"} {
 		for _, variant := range []string{"long-id", "schema-error", "batch", "batch-long-id", "batch-schema-error"} {
 			protocols := []string{""}
 			if strings.HasPrefix(variant, "batch") {
@@ -35,7 +35,7 @@ func TestFinancialContextHTTPTrailingJSONValue(t *testing.T) {
 						}
 						args := map[string]any{}
 						switch tool {
-						case "compare_financial_context":
+						case "compare_financial_context", "compare_financial_attribution":
 							args = map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current"}
 						case "get_financial_context_page":
 							args = map[string]any{"contextId": "missing", "section": "positions", "cursor": "missing"}
@@ -99,7 +99,7 @@ func TestFinancialContextHTTPTrailingJSONValue(t *testing.T) {
 }
 
 func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
-	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "get_financial_comparison_page", "get_context"} {
+	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page", "get_context"} {
 		t.Run(tool, func(t *testing.T) {
 			s, app, _ := fixture(t)
 			comparisonFixture(t, s, app)
@@ -115,7 +115,7 @@ func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 			for _, suffix := range []string{"", " {}", ` {"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_financial_context","arguments":{}}}`} {
 				args := map[string]any{}
 				switch tool {
-				case "compare_financial_context":
+				case "compare_financial_context", "compare_financial_attribution":
 					args = map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current"}
 				case "get_financial_context_page":
 					args = map[string]any{"contextId": "missing", "section": "positions", "cursor": "missing"}
@@ -159,7 +159,7 @@ func TestFinancialContextHTTPTrailingJSONPreservesSDKBehavior(t *testing.T) {
 				after := len(s.contexts.entries)
 				s.contexts.mu.Unlock()
 				builds := 0
-				if tool == "get_financial_context" || tool == "compare_financial_context" {
+				if tool == "get_financial_context" || tool == "compare_financial_context" || tool == "compare_financial_attribution" {
 					builds = 1
 				}
 				if after-before != builds {

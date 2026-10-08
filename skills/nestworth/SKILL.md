@@ -14,7 +14,10 @@ development environment. Answer in the user's language.
 Discover the Nestworth MCP tools available in this client; server names and
 tool prefixes can differ. For a pure minimal financial summary, go directly to
 `get_financial_context` (one state) or `compare_financial_context` (two states)
-after discovery. Use `get_financial_context_item` for a ref in a single-state
+after discovery. For why a two-state change happened or whether it was profit,
+use `compare_financial_attribution` for a fresh coherent capture with a compatibility
+link; follow [analysis.md](references/analysis.md#link-a-comparison-to-change-attribution).
+Use `get_financial_context_item` for a ref in a single-state
 frozen package, inheriting its disclosure. No `get_context`, catalog or directory
 read is required. `get_context` discloses household, member, institution and group
 names. Follow [analysis.md](references/analysis.md) for frozen detail pages and
@@ -44,6 +47,7 @@ Read only the references needed for this request:
 | Read/import/correct/withdraw prices, fund NAV or FX | [Market data](references/market-data.md) |
 | Diagnose missing data and track a repair | [Data health](references/data-health.md) |
 | Consistent one-date financial summary and data gaps, with minimal disclosure | [Financial context](references/analysis.md#financial-context-for-an-external-assistant) |
+| Two-state change versus profit, with compatibility checks | [Attribution link](references/analysis.md#link-a-comparison-to-change-attribution) |
 | Period investment returns, income/expense, asset-change drivers | [Analysis](references/analysis.md) |
 | Expired previews, unknown outcomes, interrupted operations | [Recovery](references/recovery.md) |
 

@@ -62,7 +62,10 @@ is sufficient. Do not require `get_context`: it returns household, member,
 institution and group names. Ordinary management still starts with `get_context`
 and `get_catalog`. If the context tools are missing, explain the needed App
 update; an identity-bearing fallback requires an explicit disclosure choice,
-not a silent directory read. Skill updates do not update the App or MCP connection.
+not a silent directory read. Skill updates do not update the App or MCP connection. Analysis tools, including
+`compare_financial_attribution`, can maintain derived snapshots under the existing
+read_only mode and advertise non-read-only, non-destructive annotations. They
+do not grant new ledger permissions or certify old frozen comparison packages.
 
 ## Tool groups
 
@@ -70,6 +73,7 @@ not a silent directory read. Skill updates do not update the App or MCP connecti
 | --- | --- |
 | Context and recovery | `get_context`, `get_catalog`, `get_operation` |
 | Consistent financial summary and gaps | `get_financial_context`, `get_financial_context_page`, `get_financial_context_item` |
+| Coherent comparison and attribution link | `compare_financial_attribution`, `get_financial_comparison_page` |
 | Two-state differences, not returns | `compare_financial_context`, `get_financial_comparison_page` |
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; corresponding institution/group tools; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |

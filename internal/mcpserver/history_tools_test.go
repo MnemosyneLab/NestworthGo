@@ -103,8 +103,8 @@ func TestHistoryToolsPageFilterAndDetail(t *testing.T) {
 		t.Fatalf("history tool count = %d", len(listed.Tools))
 	}
 	for _, tool := range listed.Tools {
-		if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
-			t.Fatalf("%s is not marked read-only", tool.Name)
+		if tool.Annotations == nil || tool.Annotations.ReadOnlyHint != (tool.Name == "list_activities" || tool.Name == "get_activity") {
+			t.Fatalf("%s has incorrect snapshot-write annotation", tool.Name)
 		}
 	}
 	first := call(t, c, "list_activities", map[string]any{"limit": 1, "accountId": accountID}, false)["data"].(map[string]any)

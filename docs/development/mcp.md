@@ -615,3 +615,21 @@ right-minus-left changes with shared identity aliases. These are not returns or
 attribution. See the [comparison contract](financial-context.md#two-state-comparison)
 for scopes, category definitions, disclosure, nullable differences and shared
 cache/transport budgets.
+
+For “why did these two states change; was that profit?”, use
+`compare_financial_attribution` for a new coherent comparison after derived
+snapshot maintenance. It supplies compatible/incompatible/unavailable status,
+normalized A+1..B local period, scoped evidence digest, existing net-worth
+waterfall and separate investment-return summary. Stop on compatibility failure;
+never append live analysis to an old frozen comparisonId. Household and a single
+account are supported; account sets and current-right returns are unavailable.
+Its frozen pages use `get_financial_comparison_page`. See the
+[attribution contract](financial-context.md#coherent-comparison-attribution) and
+[portable workflow](../../skills/nestworth/references/analysis.md#link-a-comparison-to-change-attribution).
+
+Analysis can write derived snapshots without changing financial facts. Accordingly
+`analyze_period`, `list_contributions`, `get_contribution_item`, `get_return_day`,
+`get_asset_driver_detail` and `compare_financial_attribution` publish
+readOnlyHint=false/destructiveHint=false; all remain in existing permission modes.
+`compare_financial_context` and frozen page tools retain strictly read-only hints.
+Updating these repository skill files does not install them into a client.

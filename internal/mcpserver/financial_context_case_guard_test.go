@@ -14,7 +14,7 @@ import (
 // Exercise the real SDK HTTP parser, not a mock handler: encoding/json's
 // case-insensitive struct matching must not choose a different tool than SDK.
 func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
-	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "get_financial_comparison_page"} {
+	for _, tool := range []string{"get_financial_context", "get_financial_context_page", "get_financial_context_item", "compare_financial_context", "compare_financial_attribution", "get_financial_comparison_page"} {
 		for _, order := range []string{"upper-first", "upper-last"} {
 			for _, variant := range []string{"normal", "long-id", "null-name-long-id", "schema-error", "batch-default", "batch-legacy", "batch-modern"} {
 				t.Run(tool+"/"+order+"/"+variant, func(t *testing.T) {
@@ -41,7 +41,7 @@ func TestFinancialContextHTTPExactNameGuard(t *testing.T) {
 							t.Fatal(err)
 						}
 						args = map[string]any{"contextId": initial.ContextID, "ref": initial.Content.Scope.AccountRefs[0]}
-					case "compare_financial_context":
+					case "compare_financial_context", "compare_financial_attribution":
 						args = map[string]any{"leftAsOf": "2026-08-01", "rightAsOf": "current"}
 					case "get_financial_comparison_page":
 						initial, err := s.buildFinancialComparison(t.Context(), s.contextGeneration, application.FinancialComparisonRequest{LeftAsOf: "2026-08-01", RightAsOf: "current"})

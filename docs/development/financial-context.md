@@ -367,3 +367,91 @@ by the SDK; they must not make the guard skip ID, batch or final response limits
 The guard does not impose an EOF requirement or rewrite the request body. This
 preserves unrelated tools' existing transport behavior, including legacy batches,
 while protecting the first value the SDK will actually dispatch.
+
+## Coherent comparison attribution
+
+`compare_financial_attribution` accepts the same date/scope/disclosure request
+as `compare_financial_context`, and returns a **new** `FinancialComparisonResponse`
+with `content.attribution` (`financial-attribution/1`). It never accepts or
+modifies an old comparisonId. The existing comparison tool remains strictly
+no-write and leaves this optional field absent. No App AI integration or second
+financial engine is introduced. No MCP permission mode or token scope changes.
+
+The application coordinator spans validation, existing derived snapshot
+maintenance, post-maintenance immutable facts/configuration capture, evidence
+validation, analysis and MCP cache publication. Nested application operations
+reuse that permit. Restore's exclusive gate cannot interleave; the cache's
+connection generation is checked again at publication, so disable, permission
+rotation, close and restore cannot republish a revoked in-flight build. Analysis
+reads may append daily snapshot revisions/complete their range and conservatively
+invalidate ledger previews. They are not PR36's strictly no-write path. MCP
+annotations for this tool, analyze_period and all four attribution drilldown
+tools use readOnlyHint=false, destructiveHint=false, openWorldHint=false.
+
+Two closed local dates A < B normalize to inclusive A+1 through B, using civil
+label arithmetic, not 24-hour durations. A's close is exclusive, B's close is
+inclusive. Existing civil-close resolution supplies comparison boundaries.
+Normal DST yields 23/25-hour intervals. The current analysis/materialization
+engine still requires unambiguous local midnights: unsupported historical
+transitions produce historical_boundary_unsupported without materialization.
+Same-day/reversed ranges are validation errors. Current B gives unavailable
+with right_endpoint_not_closed and no period/returns. Dates before History
+Origin or unclosed labels fail existing validation.
+
+The first slice supports household or a single actual account UUID (comparison
+scope kind accounts). Multiple distinct accounts yield unavailable with
+unsupported_account_set; no per-account rate aggregation. Minimal scopes remain
+alias based; named keeps the existing explicit disclosure boundary. No Bootstrap
+or directory fallback is required. Excluded positions remain visible in the
+comparison; attribution covers only the resolved eligible net-worth universe.
+
+After maintenance, a bounded repository capture supplies retained corrected
+facts and current metadata/base currency. Every stored day from A through B is
+checked against fresh replay/valuation of that captured batch: cutoff, currency,
+resolver policy, selected component keys, native/exact base values, completeness,
+classification and state/price/FX/preference observation IDs must match. The
+source generation is checked after snapshot loading to fence repository writes
+outside the coordinator. Historical eligibility must agree with the current
+analysis universe on every day. Private observation IDs only contribute to a
+scoped deterministic basisHash; raw IDs/names/notes do not enter the minimal link.
+Full input admission and maintenance can still be household-wide, as existing
+historical replay and derived snapshots require complete transfer dependencies.
+
+The same verified immutable inputs feed ComputeAnalysis, foldAssetChange and
+projectReturnTrend, without a pre-maintenance memo. The link includes scope,
+normalized period, basis, compatible/incompatible/unavailable status,
+mismatchReasons, asset availability/status/missingReason/residualIssueCount,
+beginning/ending values, explainedDelta excluding residual, residual, bounded
+existing waterfall drivers and investment return summary/sources. Return cash
+inclusion is false; the engine's linked rate is preserved, never summed from
+account rates. Nullable return amounts/rates and ratedDays/totalDays survive.
+Known amounts use complete/partial status; nil amounts are incomplete.
+
+Compatibility means proof of a shared calculation basis, not complete causal
+classification or profit. A residual can make assetStatus partial while the
+basis remains compatible. Once evidence is proved, endpoint equality and
+explainedDelta + residual == change.netWorth are additional guards. Missing
+intermediate valuation/snapshot boundaries, absent single-account endpoints or
+an empty eligible analysis universe return unavailable, retaining measured partial
+projections while explainedDelta/residual remain null. Income/contributions,
+internal transfers, debt principal and adjustments must not be called investment
+profit. Price/FX/dividend/fee sources come from existing attribution calculations.
+
+Incompatible evidence/policy/cutoffs/inclusion/source revisions suppress joined
+drivers and returns and explain the mismatch. Endpoint or reconciliation failure
+also suppresses joined drivers/returns. A client must stop, not substitute a live
+analysis. Existing contribution/driver detail tools still compute a fresh report,
+can disclose identities, and are explicitly **not** frozen drilldown for this
+comparison. Broader frozen attribution detail is outside this slice.
+
+Attribution is part of the comparison content hash and required page summary.
+Existing bounded cache, fixed five-minute TTL, revocation, section-independent
+HMAC cursors, 4 MiB package and 64 KiB complete wire budget apply. Pages never
+recompute or extend TTL. Expiry/eviction/revocation requires a fresh attribution
+capture and restart of every section, with all old pages discarded. The new
+name participates in the exact-case, single-Decode envelope guard, including
+legacy mixed-batch rejection and trailing JSON behavior.
+
+SDK schema validation diagnostics for the new tool are replaced by a fixed
+validation error so rejected property names/values are not echoed; bounded
+application WireError codes are preserved.

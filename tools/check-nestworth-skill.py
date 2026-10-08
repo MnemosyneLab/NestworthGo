@@ -18,7 +18,7 @@ def check():
     if "$nestworth" not in yaml or "allow_implicit_invocation: true" not in yaml:
         raise ValueError("Missing invocation metadata")
     sources = "\n".join(p.read_text() for p in (ROOT / "internal/mcpserver").glob("*.go") if not p.name.endswith("_test.go"))
-    tools = set(re.findall(r'(?:readTool|writeTool|readAttributionTool)\([^\n]*?"([a-z_]+)"', sources))
+    tools = set(re.findall(r'(?:readTool|writeTool|readAttributionTool|analysisTool)\([^\n]*?"([a-z_]+)"', sources))
     tools.update(re.findall(r'Name:\s*"([a-z_]+)"', sources))
     examples, linked = set(), set()
     for path in [SKILL / "SKILL.md", *sorted((SKILL / "references").glob("*.md"))]:
