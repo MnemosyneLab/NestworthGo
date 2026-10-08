@@ -78,8 +78,9 @@ do not grant new ledger permissions or certify old frozen comparison packages.
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; corresponding institution/group tools; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
-| Managed contracts/history and liquidity (reads only) | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview` |
+| Managed contracts/history and liquidity | `list_products`, `get_product`, `list_product_operations`, `get_liquidity_overview` |
 | Instrument search | `search_market_instruments` (query is sent to the configured provider) |
+| Managed lifecycle facts (ledger_write) | `preview_product_operation` / `commit_product_operation` |
 | Single/batch ledger records | `preview_change` / `commit_change`, `preview_batch` / `commit_batch` |
 | Reconciliation/correction | `preview_reconciliation` / `commit_reconciliation`, `preview_correction` / `commit_correction` |
 | History and reports | `list_activities`, `get_activity`, `analyze_period`, `list_contributions`, `get_contribution_item`, `get_return_day`, `get_asset_driver_detail` |

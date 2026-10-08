@@ -740,10 +740,15 @@ func upsertEndpointView(views []EndpointView, candidate EndpointView) []Endpoint
 }
 
 func InverseChange(state ChangeState, original Activity, effects []ActivityEffect) (ChangePreview, error) {
+	return InverseChangeAt(state, original, effects, state.Now)
+}
+
+// InverseChangeAt retains the actual creation clock while binding a reviewed reversal instant.
+func InverseChangeAt(state ChangeState, original Activity, effects []ActivityEffect, effectiveAt time.Time) (ChangePreview, error) {
 	if original.Kind == ActivityCostAdjustment {
 		return ChangePreview{}, &Error{Code: ErrCannotFixChange, Message: "reconcile total cost again to correct a cost adjustment"}
 	}
-	activity, err := state.newActivity(original.HouseholdID, ActivityReversal, ReasonOther, state.Now, nil)
+	activity, err := state.newActivity(original.HouseholdID, ActivityReversal, ReasonOther, effectiveAt, nil)
 	if err != nil {
 		return ChangePreview{}, err
 	}

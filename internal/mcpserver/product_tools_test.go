@@ -26,7 +26,7 @@ func productPolicy(maturity string) application.ProductPolicyInput {
 }
 
 // Seed only synthetic facts through the same GUI adapter used by the frontend.
-// This PR exposes reads, so its HTTP tests must not claim MCP write coverage.
+// These read-parity tests use GUI writes; dedicated lifecycle HTTP tests are separate.
 func guiProductPost(t *testing.T, fx ledgerFixture, command liquidity.ProductCommandRequest) liquidity.ProductOperationReceiptDTO {
 	t.Helper()
 	gui := liquidity.NewService(fx.app)
@@ -76,7 +76,7 @@ func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 				if strings.Contains(tool.Name, "reservation") || strings.Contains(tool.Name, "product") && !isProductTool(tool.Name) {
 					t.Fatalf("unexpected product/reservation write: %s", tool.Name)
 				}
-				if isProductTool(tool.Name) {
+				if isProductReadTool(tool.Name) {
 					found[tool.Name] = true
 					if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint || tool.Annotations.OpenWorldHint == nil || *tool.Annotations.OpenWorldHint {
 						t.Fatalf("incorrect read annotations: %+v", tool)
@@ -101,7 +101,7 @@ func TestProductHTTPReadDiscoveryPermissionsAndSchemas(t *testing.T) {
 			}
 			call(t, client, "list_products", map[string]any{}, false)
 			call(t, client, "get_liquidity_overview", map[string]any{}, false)
-			for _, name := range []string{"preview_product_operation", "commit_product_operation", "update_product_terms", "append_product_valuation", "save_reservation", "release_reservation"} {
+			for _, name := range []string{"update_product_terms", "append_product_valuation", "save_reservation", "release_reservation"} {
 				_, err := client.CallTool(t.Context(), &mcp.CallToolParams{Name: name, Arguments: map[string]any{}})
 				if err == nil || !strings.Contains(err.Error(), "unknown tool") {
 					t.Fatalf("write unexpectedly exposed in %s: %s: %v", mode, name, err)

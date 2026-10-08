@@ -1,9 +1,10 @@
 # Managed product MCP alignment
 
-The first extension exposes the GUI's managed-contract, operation-history and
-liquidity reads. Lifecycle, terms and valuation writes remain App workflows.
-This document separates the implemented read contract from the required design
-and acceptance gates for subsequent write extensions. It does not authorize a
+The read extension exposes the GUI's managed-contract, operation-history and
+liquidity reads. Its dependent lifecycle extension adds five guarded record
+operations. Terms and valuation writes remain App workflows pending their
+separate extension. This document states the implemented contracts and the
+remaining acceptance gates. It does not authorize a
 tool, claim client installation, or establish that write alignment is complete.
 
 ## Delivery boundaries
@@ -11,7 +12,7 @@ tool, claim client installation, or establish that write alignment is complete.
 | Review unit | Scope | Status |
 | --- | --- | --- |
 | Read parity | Contract list/detail, closed contracts, operation pages, household product/cash liquidity | Implemented in this change |
-| Lifecycle parity | open, record_existing, receive_interest, whole-contract settle, latest safe group undo | Follow-up; guarded plans and frozen-time application support required |
+| Lifecycle parity | open, record_existing, receive_interest, whole-contract settle, latest safe group undo | Implemented in the dependent lifecycle change |
 | Terms/value parity | Revisioned terms/policy updates and locked-product value observations | Follow-up; narrow previews and atomic stable receipts required |
 
 Renewal is excluded until the GUI action is independently established. No unit
@@ -44,7 +45,7 @@ financial-context captures.
 The server advertises managed_product_read and liquidity_read capabilities.
 Discovery and schemas remain authoritative; GUI permittedActions are not MCP
 permission or proof of an exposed write tool. The portable skill version is
-1.4.0; updating repository files does not install it in a user client.
+1.5.0; updating repository files does not install it in a user client.
 
 History pages retain newest-created-time/UUID ordering. The MCP checks that the
 contract exists before returning history, accepts default/zero limit 25, rejects
@@ -83,10 +84,10 @@ instants and paid-through dates. Forecast interest and early/normal receipt
 routes are separate from current quote value, actual cash and actual returns.
 due_unconfirmed changes display/availability, never automatically writes cash.
 
-## Required write interface and permissions (not yet exposed)
+## Write interface and permissions
 
-The following names describe the proposed minimal boundary; no such tools are
-registered by the read extension:
+The lifecycle pair is registered by the dependent change. The terms and value
+pairs remain proposed and are not yet exposed:
 
 | Preview/commit pair | Accepted command |
 | --- | --- |
@@ -108,9 +109,9 @@ error with an explicit GUI-resolution message; never release reservations.
 Undo must reject groups with reservation restoration/release effects as well
 as unrelated later activity, unsafe replay or later contract/policy changes.
 
-## Required preview, commit and recovery contract
+## Preview, commit and recovery contract
 
-Persist a versioned, type-bound plan containing its UUID, household/instance,
+Persist a type-bound plan in the instance/database authority containing its UUID,
 exact validated normalized command, resolved timestamps, current revisions,
 reviewed dependency state hash, application preview token and fixed expiry.
 Use a product-compatible chronological UUID for lifecycle business identity.
@@ -124,13 +125,14 @@ timezone and the same application clock as validation; do not use the MCP host
 clock for financial validation. Commit must post precisely that reviewed time
 and effect, not silently change a default to its later now.
 
-The existing lifecycle application needs explicit support for this contract:
-record_existing currently validates an explicit timestamp equal to execution
-now, and undo currently uses execution now. A saved MCP command alone therefore
-does not freeze these effects. Add narrow guarded application entry points that
-bind the reviewed effective instant while retaining time, historical replay and
-latest-safe-group validation. Do not change descriptive startOn into a historical
-acquisition or weaken recording-time validation by accepting arbitrary backdates.
+The guarded application entry points bind a server-owned reviewedAt, included
+in the hashed command. They freeze defaults and resolve local time while under
+the preview coordinator; ordinary GUI entry points reject that private field.
+record_existing has no caller-supplied effectiveAt in the MCP schema and undo
+accepts only the target operationId. Both keep the reviewed effective instant
+while retaining actual activity creation time, historical replay and latest
+safe group validation. Descriptive startOn is not a historical acquisition.
+The existing GUI request/validation contract remains compatible.
 
 Keep both the existing reviewed product state hash and a conservative
 coordinator token that invalidates on writes, restart and exclusive restore.
@@ -173,7 +175,7 @@ Never reuse external/legacy cached success to infer that a restored ledger still
 contains a mutation. Reapplication of a missing fact is a new intentional action
 after inspecting restored data; uncommitted old plans must not silently execute.
 
-## Write acceptance gates for follow-up reviews
+## Write acceptance gates
 
 Require real Streamable HTTP, synthetic SQLite and executable skill examples
 for each preview/commit pair. Verify complete schema discovery and permission

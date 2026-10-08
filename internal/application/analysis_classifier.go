@@ -159,10 +159,21 @@ func (u analysisUniverse) isCarryingValueRemoval(activity domain.Activity, effec
 func (u analysisUniverse) returnAssociation(activity domain.Activity, effect domain.ActivityEffect, component domain.ComponentID) (*domain.ReturnComponent, *domain.HoldingID, *domain.InstrumentID, bool) {
 	if activity.ProductContext != nil {
 		purpose := activity.ProductContext.Purpose
-		if purpose == domain.ProductPurposeInterest || (purpose == domain.ProductPurposeReversal && effect.Classification == domain.ClassificationIncome) {
+		// Product interest cash records use external_inflow in the physical
+		// ledger. Their inverse retains that classification. Restrict this
+		// association to the cash amount, so an existing-position quantity
+		// reversal cannot be mistaken for received interest.
+		reversedInterest := purpose == domain.ProductPurposeReversal && effect.Money != nil && effect.Role == domain.EffectRoleAmount && (effect.Classification == domain.ClassificationIncome || effect.Classification == domain.ClassificationExternalInflow)
+		if purpose == domain.ProductPurposeInterest || reversedInterest {
 			holding := activity.ProductContext.HoldingID
 			instrument := activity.ProductContext.InstrumentID
 			returnComponent := domain.ReturnDividendInterest
+			return &returnComponent, &holding, &instrument, true
+		}
+		if purpose == domain.ProductPurposeReversal && effect.Role == domain.EffectRoleFee && effect.Classification == domain.ClassificationFee {
+			holding := activity.ProductContext.HoldingID
+			instrument := activity.ProductContext.InstrumentID
+			returnComponent := domain.ReturnInvestmentFee
 			return &returnComponent, &holding, &instrument, true
 		}
 	}

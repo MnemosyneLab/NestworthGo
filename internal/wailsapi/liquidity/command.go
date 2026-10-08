@@ -188,3 +188,8 @@ type RecordProductOperationRequest struct {
 	MutationID        string                `json:"mutationId"`
 	ReviewedStateHash string                `json:"reviewedStateHash"`
 }
+
+// ToApplication shares GUI tagged-union validation with dedicated adapters.
+func (r ProductCommandRequest) ToApplication() (application.ProductCommand, error) {
+	return r.toApplication()
+}
