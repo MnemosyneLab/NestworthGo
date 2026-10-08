@@ -329,6 +329,63 @@ func TestProductHTTPStrictInputsAndPrivateErrors(t *testing.T) {
 	}
 }
 
+// Product reads stay pure when legacy daily coverage is missing or already
+// repaired. Real snapshot repairs fence pending ledger previews; warm reads do
+// not. Exercise the combined main coordinator and product tools over HTTP.
+func TestProductHTTPReadsAndLegacySnapshotPreviewCoordination(t *testing.T) {
+	fx := newLedgerFixture(t)
+	opened := guiProductPost(t, fx, liquidity.ProductCommandRequest{Kind: "record_existing", RecordExisting: &application.RecordExistingProductCommand{
+		AccountID: fx.brokerage, Currency: "USD", Principal: "1000", TotalCostBasis: "1000", CurrentValue: "1000", CashExcludesProduct: true,
+		Terms: application.ProductTermsInput{Kind: "term_deposit", Name: "Synthetic coverage deposit", StartOn: "2026-09-01", MaturityOn: productString("2026-09-30"), InterestMode: "none"}, Policy: productPolicy("2026-09-30"),
+	}})
+	client := ledgerSession(t, fx)
+	bootstrap, err := fx.app.Bootstrap(t.Context())
+	if err != nil || bootstrap.Household == nil {
+		t.Fatal(bootstrap, err)
+	}
+	state := func() domain.DailySnapshotState {
+		t.Helper()
+		value, err := fx.app.DailySnapshotState(t.Context(), bootstrap.Household.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+	preview := func() map[string]any {
+		t.Helper()
+		return ledgerPreview(t, client, map[string]any{"kind": "money_added", "accountId": fx.checking, "amount": "1", "currency": "USD", "reason": "income", "effectiveAt": "2026-09-29T12:00:00Z"})
+	}
+	readProducts := func() {
+		t.Helper()
+		before := state()
+		call(t, client, "list_products", map[string]any{}, false)
+		call(t, client, "get_product", map[string]any{"id": opened.ProductIDs[0]}, false)
+		call(t, client, "list_product_operations", map[string]any{"productId": opened.ProductIDs[0]}, false)
+		call(t, client, "get_liquidity_overview", map[string]any{}, false)
+		productJSONEqual(t, state(), before)
+	}
+	cold := preview()
+	readProducts()
+	ledgerCommit(t, client, uuid.NewString(), cold["planId"].(string))
+	productJSONEqual(t, batchCash(t, client, fx.checking), "1")
+	beforeRepair := preview()
+	if _, err := fx.app.NetWorthTrend(t.Context(), domain.TrendRange("2026-09-27:2026-09-28")); err != nil {
+		t.Fatal(err)
+	}
+	if code := ledgerErrorCode(t, client, "commit_change", map[string]any{"operationId": uuid.NewString(), "input": map[string]any{"planId": beforeRepair["planId"]}}); code != "stale_preview" {
+		t.Fatal("actual legacy snapshot repair did not fence the pending preview:", code)
+	}
+	warm := preview()
+	beforeWarm := state()
+	if _, err := fx.app.NetWorthTrend(t.Context(), domain.TrendRange("2026-09-27:2026-09-28")); err != nil {
+		t.Fatal(err)
+	}
+	productJSONEqual(t, state(), beforeWarm)
+	readProducts()
+	ledgerCommit(t, client, uuid.NewString(), warm["planId"].(string))
+	productJSONEqual(t, batchCash(t, client, fx.checking), "2")
+}
+
 func productHTTP(t *testing.T, service *Service, payload any, protocol string) (int, []byte) {
 	t.Helper()
 	cfg, err := service.Connection()
