@@ -28,7 +28,11 @@ ledger transactions, and broader frontend/MCP parity are separate follow-ups.
 | 3 | Period income/expense, asset changes, investment returns, contribution, historical detail and quality | Implemented, including contribution grouping, pagination and detail tools |
 | 4 | Target-state balance/quantity/cost reconciliation, pure cost correction, safe undo/fix | Implemented, including distinct cost correction events |
 
-Permissions are explicit and household-wide. `read_only` registers only queries;
+Permissions are explicit and household-wide. `read_only` registers queries and
+analysis tools. Analysis can maintain local derived snapshots and invalidate
+ledger previews; it has non-read-only MCP annotations but cannot write financial
+facts or provider data. Strict no-write context/comparison/page reads remain
+distinct from this analysis path.
 `directory_write` adds directory mutations; `ledger_write` adds daily ledger
 preview/commit, reconciliation and corrections, data health repair, and includes directory maintenance. Existing installations retain
 their selected permission. Account creation still permits only an empty/zero

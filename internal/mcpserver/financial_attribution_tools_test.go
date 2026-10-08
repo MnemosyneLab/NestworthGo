@@ -27,6 +27,12 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 				t.Fatal(err)
 			}
 			client := connect(t, s)
+			instructions := client.InitializeResult().Instructions
+			for _, phrase := range []string{"call compare_financial_attribution directly without get_context", "A+1 through B", "new coherent comparisonId", "may maintain derived snapshots and invalidate ledger previews", "even in read_only mode"} {
+				if !strings.Contains(instructions, phrase) {
+					t.Fatal("missing attribution route/side-effect instruction", phrase)
+				}
+			}
 			listed, err := client.ListTools(t.Context(), nil)
 			if err != nil {
 				t.Fatal(err)

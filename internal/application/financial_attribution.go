@@ -26,6 +26,9 @@ type FinancialAttributionLink struct {
 	BasisHash           string                        `json:"basisHash,omitempty"`
 	Period              *FinancialAttributionPeriod   `json:"period"`
 	Scope               FinancialContextScope         `json:"scope"`
+	ScopeBasis          string                        `json:"scopeBasis"`
+	LeftScope           FinancialContextScope         `json:"leftScope"`
+	RightScope          FinancialContextScope         `json:"rightScope"`
 	BeginningValue      FinancialContextAmount        `json:"beginningValue"`
 	EndingValue         FinancialContextAmount        `json:"endingValue"`
 	AnalysisDelta       FinancialContextAmount        `json:"analysisDelta"`
@@ -131,7 +134,8 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 	link := &FinancialAttributionLink{
 		SchemaVersion: "financial-attribution/1", Status: "unavailable", AssetStatus: "unavailable", MismatchReasons: []string{},
 		Basis: "fresh_recapture_after_derived_snapshot_maintenance; currently_retained_corrected_facts; current_metadata; historical_inclusion_must_match_current_analysis_universe; base_valuation; analysis_money_4_place_half_even; explainedDelta_excludes_residual; precision_adjustment_is_not_return_or_residual; net_worth_change_is_not_investment_return",
-		Scope: c.Left.Scope, BeginningValue: contextAmount(nil, currency), EndingValue: contextAmount(nil, currency), AnalysisDelta: contextAmount(nil, currency), ExplainedDelta: contextAmount(nil, currency), Residual: contextAmount(nil, currency), PrecisionAdjustment: contextAmount(nil, currency), Drivers: []FinancialAttributionDriver{},
+		Scope: financialAttributionScope(*c), ScopeBasis: "endpoint_account_union; included_when_either_endpoint_included; shared_comparison_refs; endpoint_scopes_preserved", LeftScope: c.Left.Scope, RightScope: c.Right.Scope,
+		BeginningValue: contextAmount(nil, currency), EndingValue: contextAmount(nil, currency), AnalysisDelta: contextAmount(nil, currency), ExplainedDelta: contextAmount(nil, currency), Residual: contextAmount(nil, currency), PrecisionAdjustment: contextAmount(nil, currency), Drivers: []FinancialAttributionDriver{},
 		Precision: FinancialAttributionPrecision{AmountScale: assetProjectionPrecision, Rounding: "half_even", BoundaryBasis: "signed_component_daily_boundary_rounded_then_summed", DriverBasis: "exact_component_day_buckets_aggregated_by_period_driver_then_existing_waterfall_rounding_and_reconciliation", BoundaryAdjustment: contextAmount(nil, currency), DriverAdjustment: contextAmount(nil, currency)},
 	}
 	c.Attribution = link
@@ -201,6 +205,29 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 		return FinancialComparisonResult{}, err
 	}
 	return finish(status, reasons...)
+}
+
+// Project only already disclosed endpoint scopes/positions. No identity lookup
+// or directory read is needed to describe an account entering the period.
+func financialAttributionScope(c FinancialComparisonContent) FinancialContextScope {
+	scope := FinancialContextScope{Kind: c.Left.Scope.Kind, InclusionRule: c.Left.Scope.InclusionRule, AccountRefs: []string{}}
+	seen := map[string]bool{}
+	for _, side := range []FinancialContextScope{c.Left.Scope, c.Right.Scope} {
+		for _, ref := range side.AccountRefs {
+			if !seen[ref] {
+				seen[ref] = true
+				scope.AccountRefs = append(scope.AccountRefs, ref)
+			}
+		}
+	}
+	sort.Strings(scope.AccountRefs)
+	scope.AccountCount = len(scope.AccountRefs)
+	for _, position := range c.Positions {
+		if position.Kind == "account" && seen[position.Ref] && ((position.Left != nil && position.Left.Included) || (position.Right != nil && position.Right.Included)) {
+			scope.IncludedAccountCount++
+		}
+	}
+	return scope
 }
 
 func projectFinancialAttribution(link *FinancialAttributionLink, c *FinancialComparisonContent, result domain.PeriodAnalysisResult, input AnalysisInputs) (string, []string, error) {

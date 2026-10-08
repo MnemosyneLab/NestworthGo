@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,6 +36,40 @@ func assertAttributionPrecisionIdentity(t *testing.T, r FinancialComparisonResul
 	if link.Precision.AmountScale != 4 || link.Precision.Rounding != "half_even" {
 		t.Fatal("missing precision contract", link.Precision)
 	}
+}
+
+func TestFinancialAttributionScopeDescribesAccountEnteringPeriod(t *testing.T) {
+	s, _, owner, now := overviewFixture(t)
+	a := overviewAccount(t, s, owner, "Private existing", "bank_account", "asset", "balance", "CNY", "40")
+	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	*now = now.AddDate(0, 0, 1)
+	b := overviewAccount(t, s, owner, "Private entering", "bank_account", "asset", "balance", "CNY", "15")
+	*now = now.AddDate(0, 0, 1)
+	r := attributionFor(t, s, "2026-08-01", "2026-08-02")
+	wantAttributionStatus(t, r, "compatible", "")
+	link := r.Content.Attribution
+	wantOverviewAmount(t, r.Content.Left.Summary.NetWorth.Value, "40")
+	wantOverviewAmount(t, r.Content.Right.Summary.NetWorth.Value, "55")
+	wantOverviewAmount(t, attributionDriver(link, "external_flow"), "15")
+	if link.LeftScope.AccountCount != 1 || link.LeftScope.IncludedAccountCount != 1 || link.RightScope.AccountCount != 2 || link.RightScope.IncludedAccountCount != 2 || link.Scope.AccountCount != 2 || link.Scope.IncludedAccountCount != 2 || len(link.Scope.AccountRefs) != 2 || !strings.Contains(link.ScopeBasis, "endpoint_account_union") {
+		t.Fatal("misleading attribution scope", link)
+	}
+	assertAttributionPrecisionIdentity(t, r)
+	raw, _ := json.Marshal(r.Content)
+	for _, secret := range []string{"Private", a.Account.ID.String(), b.Account.ID.String()} {
+		if strings.Contains(string(raw), secret) {
+			t.Fatal("scope description leaked identity", secret)
+		}
+	}
+	scoped := attributionFor(t, s, "2026-08-01", "2026-08-02", a.Account.ID)
+	wantAttributionStatus(t, scoped, "compatible", "")
+	if scoped.Content.Attribution.Scope.AccountCount != 1 || scoped.Content.Attribution.LeftScope.AccountCount != 1 || scoped.Content.Attribution.RightScope.AccountCount != 1 {
+		t.Fatal("scope widened", scoped)
+	}
+	wantOverviewAmount(t, scoped.Content.Change.NetWorth.Value, "0")
+	t.Logf("household 40->55: leftScope=%+v rightScope=%+v union=%+v", link.LeftScope, link.RightScope, link.Scope)
 }
 
 func TestFinancialAttributionRequestedRangeOrderAndRevision(t *testing.T) {

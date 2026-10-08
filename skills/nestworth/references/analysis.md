@@ -5,8 +5,14 @@ Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
 do not answer last month's income or investment return. Preserve ownership,
 inclusion filters, household base currency and incomplete-value indicators.
 
-For investment returns, income/expense or change attribution call `analyze_period`.
-For two-state value differences use the comparison workflow below. `query.from` / `to` are inclusive
+For investment returns, income/expense or an inclusive period report, call
+`analyze_period`. For two-state value differences use `compare_financial_context`;
+for “why did two closed-date states change; was that profit?”, use
+`compare_financial_attribution` directly after discovery as described below.
+Neither minimal comparison route needs get_context/catalog/directory reads.
+Attribution may maintain derived snapshots and invalidate previews, including
+in read_only mode; the plain comparison is strictly no-write.
+`query.from` / `to` are inclusive
 closed local dates in the history-origin timezone; the end must be before today
 in that timezone. Clarify “this month” if it means current valuation versus
 closed-day analysis. Do not substitute UTC dates for the household's dates.
@@ -336,6 +342,12 @@ accounts return `unavailable` / `unsupported_account_set`; do not aggregate
 account return rates. A current right endpoint returns
 `unavailable` / `right_endpoint_not_closed`, with no fabricated period return.
 Named disclosure follows the explicit identity-disclosure rule above.
+The link preserves `leftScope` and `rightScope`. Its `scope` is their shared-ref
+endpoint account union; `scopeBasis` declares that `includedAccountCount`
+counts accounts included on either endpoint. Read both endpoint scopes: an
+account created during the period can enter the right scope and attribution
+while being absent from the left. Union counts describe those endpoints, not
+an extra directory read or permission expansion.
 The server fills actual missing days of A..B even if an existing completion
 watermark is later; requesting a later range first must not strand early days.
 Midnight preflight includes A itself and every day through B+1. Unsupported

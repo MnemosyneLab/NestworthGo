@@ -405,6 +405,14 @@ unsupported_account_set; no per-account rate aggregation. Minimal scopes remain
 alias based; named keeps the existing explicit disclosure boundary. No Bootstrap
 or directory fallback is required. Excluded positions remain visible in the
 comparison; attribution covers only the resolved eligible net-worth universe.
+The link preserves leftScope and rightScope separately. Its scope is the union
+of their already disclosed shared account refs, with IncludedAccountCount
+counting accounts included on either endpoint; scopeBasis declares that rule.
+These are endpoint scope descriptions, not a directory or an additional scope
+lookup. A household account created during the period can therefore have counts
+1 on the left, 2 on the right and 2 in the union without being mislabeled as a
+one-account analysis. Historical daily eligibility still undergoes the same
+compatibility checks; unsupported inclusion changes are not explained as profit.
 
 After maintenance, a bounded repository capture supplies retained corrected
 facts and current metadata/base currency. Every stored day from A through B is

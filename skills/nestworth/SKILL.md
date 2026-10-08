@@ -23,7 +23,7 @@ read is required. `get_context` discloses household, member, institution and gro
 names. Follow [analysis.md](references/analysis.md) for frozen detail pages and
 disclosure choices. A summary or two-state difference does not answer period-return questions.
 
-For ordinary management and period analysis, call `get_context` and `get_catalog`
+For ordinary management and identity-bearing period analysis, call `get_context` and `get_catalog`
 to identify the instance, household, history timezone/start, permission mode and
 vocabulary. Refresh that context after reconnection or a permission/instance
 change. Use actual tool schemas and availability over examples in this skill.
