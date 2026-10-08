@@ -2,22 +2,50 @@
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "tools/ci-install-native-deps.sh"
+PORTABLE_TIMEOUT = ROOT / "tools/tests/fixtures/portable_timeout.py"
+
+
+def find_gnu_timeout(search_path=None):
+    """Discover GNU timeout (including Homebrew gtimeout), never a fixed path."""
+    for name in ('timeout', 'gtimeout'):
+        command = shutil.which(name, path=search_path)
+        if command:
+            try:
+                result = subprocess.run([command, '--version'], capture_output=True,
+                                        text=True, timeout=2)
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+            if result.returncode == 0 and 'GNU coreutils' in result.stdout:
+                return command
+    return None
 
 
 class NativeDependencyTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.gnu_timeout = find_gnu_timeout()
+        # The Ubuntu CI gate must exercise actual GNU signals, not fall back.
+        if sys.platform.startswith('linux') and os.environ.get('GITHUB_ACTIONS') == 'true':
+            if cls.gnu_timeout is None:
+                raise AssertionError('Linux CI requires GNU timeout on PATH')
+
     def run_install(self, scenarios, tee_failure=False):
         with tempfile.TemporaryDirectory() as directory:
             work = Path(directory)
             commands = {
                 "sudo": '#!/bin/bash\n[[ $1 == -n ]] || exit 91\nshift\nexec "$@"\n',
                 "sleep": '#!/bin/bash\nexit 0\n',
-                # Use real GNU timeout/signals, with short synthetic budgets.
+                # Inject discovered GNU timeout, or the POSIX test fixture on
+                # hosts without coreutils. Both send real TERM/KILL signals.
                 "timeout": '''#!/bin/bash
 args=()
 for arg in "$@"; do
@@ -27,7 +55,10 @@ for arg in "$@"; do
     *) args+=("$arg");;
   esac
 done
-exec /usr/bin/timeout "${args[@]}"
+if [[ -n $MOCK_GNU_TIMEOUT ]]; then
+  exec "$MOCK_GNU_TIMEOUT" "${args[@]}"
+fi
+exec "$MOCK_PYTHON" "$MOCK_PORTABLE_TIMEOUT" "${args[@]}"
 ''',
                 "apt-get": '''#!/usr/bin/env python3
 import json, os, pathlib, sys, time, signal
@@ -59,7 +90,10 @@ else:
                 path.write_text(content)
                 path.chmod(0o755)
             env = dict(os.environ, PATH=f"{work}:{os.environ['PATH']}",
-                       MOCK_ROOT=directory, SCENARIOS=json.dumps(scenarios))
+                       MOCK_ROOT=directory, SCENARIOS=json.dumps(scenarios),
+                       MOCK_GNU_TIMEOUT=self.gnu_timeout or '',
+                       MOCK_PYTHON=sys.executable,
+                       MOCK_PORTABLE_TIMEOUT=str(PORTABLE_TIMEOUT))
             result = subprocess.run(['bash', str(SCRIPT)], env=env, cwd=ROOT,
                                     capture_output=True, text=True, timeout=5)
             calls = [json.loads(line) for line in (work / 'calls').read_text().splitlines()]
@@ -160,6 +194,46 @@ else:
             result, calls = self.run_install({'update': [[status, 'synthetic']]}, tee_failure=True)
             self.assertEqual(result.returncode, status or 23)
             self.assertEqual(len(calls), 1)
+
+
+class PortableNativeDependencyTests(NativeDependencyTests):
+    """Replay every policy assertion with no GNU executable discoverable."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.gnu_timeout = find_gnu_timeout(search_path='')
+        if cls.gnu_timeout is not None:
+            raise AssertionError('Empty search PATH must not find system timeout')
+
+
+class TimeoutDiscoveryTests(unittest.TestCase):
+    def test_linux_ci_cannot_silently_replace_gnu_with_fixture(self):
+        class MissingGnuTests(NativeDependencyTests):
+            pass
+
+        with mock.patch.object(sys, 'platform', 'linux'), \
+                mock.patch.dict(os.environ, GITHUB_ACTIONS='true'), \
+                mock.patch(f'{__name__}.find_gnu_timeout', return_value=None):
+            with self.assertRaisesRegex(AssertionError, 'Linux CI requires GNU timeout'):
+                MissingGnuTests.setUpClass()
+
+    def test_discovers_gnu_timeout_outside_system_directory(self):
+        with tempfile.TemporaryDirectory(prefix='timeout tools ') as directory:
+            command = Path(directory) / 'timeout'
+            command.write_text('#!/bin/sh\necho "timeout (GNU coreutils) fixture"\n')
+            command.chmod(0o755)
+            self.assertEqual(find_gnu_timeout(search_path=directory), str(command))
+
+    def test_rejects_non_gnu_timeout_and_discovers_gtimeout(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name, version in (('timeout', 'non-GNU tool'),
+                                  ('gtimeout', 'timeout (GNU coreutils) fixture')):
+                command = Path(directory) / name
+                command.write_text(f'#!/bin/sh\necho "{version}"\n')
+                command.chmod(0o755)
+            self.assertEqual(find_gnu_timeout(search_path=directory), str(Path(directory) / 'gtimeout'))
+            (Path(directory) / 'gtimeout').unlink()
+            self.assertIsNone(find_gnu_timeout(search_path=directory))
 
 
 if __name__ == '__main__':
