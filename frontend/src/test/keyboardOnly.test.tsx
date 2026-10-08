@@ -23,6 +23,9 @@ import { OnboardingPage } from "@/features/onboarding/OnboardingPage";
 import { AccountsPage } from "@/features/accounts/AccountsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { HistoryPage } from "@/features/history/HistoryPage";
+import { AppShell } from "@/app/AppShell";
+import { DirectoryPage } from "@/features/directory/DirectoryPage";
+import { Accent, Appearance, Language } from "../../bindings/github.com/waltwang/nestworth-go/internal/settings/models";
 
 const completeOnboarding = vi.fn().mockResolvedValue({});
 const listAccounts = vi.fn();
@@ -134,9 +137,9 @@ function renderWithQueryClient(element: React.ReactElement) {
 
 const defaultSettings = {
   schema_version: 1,
-  appearance: "system",
-  accent: "indigo",
-  language: "en",
+  appearance: Appearance.AppearanceSystem,
+  accent: Accent.AccentIndigo,
+  language: Language.LanguageEnglish,
   timezone: "system",
   weekStart: "monday",
   dateFormat: "iso",
@@ -148,7 +151,7 @@ const defaultSettings = {
   windowWidth: 1100,
   windowHeight: 720,
   fxProvider: "frankfurter",
-};
+} as const;
 
 beforeEach(() => {
   completeOnboarding.mockClear();
@@ -169,6 +172,29 @@ beforeEach(() => {
 });
 
 describe("keyboard-only completion", () => {
+  it.each(["settings", "directory"] as const)("cycles past the final %s action in AppShell without losing keyboard focus", async (page) => {
+    const user = userEvent.setup();
+    renderWithQueryClient(<AppShell activePageId={page} settings={{ ...defaultSettings, schemaVersion: 1, quoteCacheTTL: "12h" }} onNavigate={() => {}}>
+      {page === "settings" ? <SettingsPage /> : <DirectoryPage />}
+    </AppShell>);
+    const last = await screen.findByRole("button", { name: page === "settings" ? "Restore all preference defaults" : "Archive" });
+    const first = screen.getByRole("button", { name: "Toggle sidebar" });
+    if (page === "settings") expect(screen.getByRole("button", { name: "Save changes" })).toBeDisabled();
+    await user.tab();
+    expect(first).toHaveFocus();
+    for (let step = 0; step < 80 && document.activeElement !== last; step++) {
+      await user.tab();
+      expect(document.activeElement).not.toBe(document.body);
+    }
+    expect(last).toHaveFocus();
+    await user.tab();
+    expect(first).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(last).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(document.activeElement).not.toBe(document.body);
+  });
+
   it("completes Onboarding using only Tab, typed characters, and Enter", async () => {
     renderWithQueryClient(<OnboardingPage />);
 

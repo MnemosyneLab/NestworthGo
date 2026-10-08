@@ -1,0 +1,14 @@
+[
+  {
+    "bounded": false,
+    "tag": "BODY",
+    "label": null,
+    "documentHasFocus": false
+  },
+  {
+    "bounded": true,
+    "tag": "BUTTON",
+    "label": "Toggle sidebar",
+    "documentHasFocus": true
+  }
+]

@@ -26,7 +26,7 @@ function TabsTrigger({ className, ...props }: React.ComponentProps<typeof BaseTa
 }
 
 function TabsContent({ className, ...props }: React.ComponentProps<typeof BaseTabs.Panel>) {
-  return <BaseTabs.Panel className={cn("mt-3 focus-visible:outline-none", className)} {...props} />;
+  return <BaseTabs.Panel className={cn("mt-3 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background", className)} {...props} />;
 }
 
 export { Tabs, TabsList, TabsTrigger, TabsContent };
