@@ -88,7 +88,8 @@ each `nextCursor` with `get_financial_context_page`, keeping that package's exac
 contextId and the matching section. The initial response has at most one detail
 row per section. **Zero returned rows with a nextCursor is a deferred section,
 not completion**; request its continuation, which must advance. Detail is
-complete only when all three sections have `hasMore: false`.
+complete only when the three independently saved section states each have
+`hasMore: false`, not when one page response happens to show those flags.
 
 Save all three descriptors from the initial response as independent section
 states. After requesting one section, update only that section's saved cursor

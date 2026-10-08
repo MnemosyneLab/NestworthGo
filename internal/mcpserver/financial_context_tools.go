@@ -379,29 +379,31 @@ type financialContextHTTPCall struct {
 	} `json:"params"`
 }
 
+// Decode exactly one JSON value, as the pinned SDK does. Requiring EOF here
+// would skip the guard for trailing data that the SDK ignores. Use the same
+// decoder for batch detection and individual envelopes; keep the original HTTP
+// body untouched so unrelated tool/protocol behavior stays SDK-owned.
+func decodeFinancialContextJSON(raw []byte, value any) error {
+	decoder := sdkjson.NewDecoder(bytes.NewReader(raw))
+	decoder.DontMatchCaseInsensitiveStructFields()
+	return decoder.Decode(value)
+}
+
 // Match go-sdk/internal/json's exact-case decoder, including repeated exact
 // keys followed by null. A last-value name map would lose the preceding name
 // that the SDK retains for null string fields. Keep params raw until the second
 // decode: the SDK replaces repeated params objects rather than merging them.
 func decodeFinancialContextHTTPCall(raw []byte) (financialContextHTTPCall, error) {
 	var request financialContextHTTPCall
-	if !json.Valid(raw) {
-		return request, errors.New("invalid JSON request")
-	}
-	decode := func(raw []byte, value any) error {
-		decoder := sdkjson.NewDecoder(bytes.NewReader(raw))
-		decoder.DontMatchCaseInsensitiveStructFields()
-		return decoder.Decode(value)
-	}
 	var envelope struct {
 		ID     json.RawMessage `json:"id"`
 		Params json.RawMessage `json:"params"`
 	}
-	if err := decode(raw, &envelope); err != nil {
+	if err := decodeFinancialContextJSON(raw, &envelope); err != nil {
 		return request, err
 	}
 	request.ID = envelope.ID
-	err := decode(envelope.Params, &request.Params)
+	err := decodeFinancialContextJSON(envelope.Params, &request.Params)
 	return request, err
 }
 
@@ -426,7 +428,7 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 			r.Body.Close()
 			r.Body = io.NopCloser(bytes.NewReader(raw))
 			var batch []json.RawMessage
-			if json.Unmarshal(raw, &batch) == nil {
+			if decodeFinancialContextJSON(raw, &batch) == nil {
 				for _, element := range batch {
 					request, err := decodeFinancialContextHTTPCall(element)
 					if err == nil && isFinancialContextTool(request.Params.Name) {

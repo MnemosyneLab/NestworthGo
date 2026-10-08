@@ -359,3 +359,11 @@ are never an additive contribution bridge, even with stable inclusion. Liability
 sign, account/component duplication, absent sides and scope membership changes
 prevent that interpretation. See the executable synthetic example in the user
 skill's analysis reference.
+
+
+The HTTP guard uses the pinned SDK's exact-case, single-JSON-value decoding for
+both array detection and individual envelopes. Trailing JSON values are ignored
+by the SDK; they must not make the guard skip ID, batch or final response limits.
+The guard does not impose an EOF requirement or rewrite the request body. This
+preserves unrelated tools' existing transport behavior, including legacy batches,
+while protecting the first value the SDK will actually dispatch.
