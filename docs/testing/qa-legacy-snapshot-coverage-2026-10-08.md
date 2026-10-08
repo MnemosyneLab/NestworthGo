@@ -143,6 +143,19 @@ and affected-date generation. Analysis component totals and investment return
 400, net worth change 401, instrument-only portfolio values 60/450, and attribution
 precision identities are verified. Uncovered pending tails remain durable.
 
+A separate repair-loop race was confirmed on 0cc2e68. Materialize Aug 1, record
+cash +1 effective Aug 2, then inject another ordinary +1 effective Aug 3 after
+the second batch is loaded. The old retry loop rebuilt only that later chunk
+at generation 2 and incorrectly completed the earlier dirty prefix: Aug 3
+remained 171/gen1 (expected 172/gen2), dirty was NULL, and health was healthy.
+Repair now fences every chunk against the invocation's initial generation and
+returns conflict on revision instead of retrying a fixed later chunk. The
+unrepaired Aug 3 prefix remains durable and health reports outdated work. Both
+same-Service retry and SQLite close/reopen repair all 63 amounts and affected
+generations; the only remaining unbounded dirty cursor is Oct 3's open day.
+Existing interrupted-batch recovery remains verified. No range-atomic rewrite
+or schema/API expansion was added.
+
 The extra health diagnosis performs a latest-row scan and date-label iteration;
 its large-history cost was not separately benchmarked. Ordinary-mutation bound
 propagation adds no history rebuild to the write itself.
