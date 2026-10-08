@@ -367,3 +367,163 @@ by the SDK; they must not make the guard skip ID, batch or final response limits
 The guard does not impose an EOF requirement or rewrite the request body. This
 preserves unrelated tools' existing transport behavior, including legacy batches,
 while protecting the first value the SDK will actually dispatch.
+
+## Coherent comparison attribution
+
+`compare_financial_attribution` accepts the same date/scope/disclosure request
+as `compare_financial_context`, and returns a **new** `FinancialComparisonResponse`
+with `content.attribution` (`financial-attribution/1`). It never accepts or
+modifies an old comparisonId. The existing comparison tool remains strictly
+no-write and leaves this optional field absent. No App AI integration or second
+financial engine is introduced. No MCP permission mode or token scope changes.
+
+The application coordinator spans validation, existing derived snapshot
+maintenance, post-maintenance immutable facts/configuration capture, evidence
+validation, analysis and MCP cache publication. Nested application operations
+reuse that permit. Restore's exclusive gate cannot interleave; the cache's
+connection generation is checked again at publication, so disable, permission
+rotation, close and restore cannot republish a revoked in-flight build. Analysis
+reads may append daily snapshot revisions/complete their range and conservatively
+invalidate ledger previews. They are not PR36's strictly no-write path. MCP
+annotations for this tool, analyze_period and all four attribution drilldown
+tools use readOnlyHint=false, destructiveHint=false, openWorldHint=false.
+
+Two closed local dates A < B normalize to inclusive A+1 through B, using civil
+label arithmetic, not 24-hour durations. A's close is exclusive, B's close is
+inclusive. Existing civil-close resolution supplies comparison boundaries.
+Normal DST yields 23/25-hour intervals. The current analysis/materialization
+engine still requires unambiguous local midnights, including A itself for its
+predecessor snapshot. Preflight checks A through B+1: unsupported historical
+transitions produce historical_boundary_unsupported without materialization.
+Same-day/reversed ranges are validation errors. Current B gives unavailable
+with right_endpoint_not_closed and no period/returns. Dates before History
+Origin or unclosed labels fail existing validation.
+
+The first slice supports household or a single actual account UUID (comparison
+scope kind accounts). Multiple distinct accounts yield unavailable with
+unsupported_account_set; no per-account rate aggregation. Minimal scopes remain
+alias based; named keeps the existing explicit disclosure boundary. No Bootstrap
+or directory fallback is required. Excluded positions remain visible in the
+comparison; attribution covers only the resolved eligible net-worth universe.
+The link preserves leftScope and rightScope separately. Its scope is the union
+of their already disclosed shared account refs, with IncludedAccountCount
+counting accounts included on either endpoint; scopeBasis declares that rule.
+These are endpoint scope descriptions, not a directory or an additional scope
+lookup. A household account created during the period can therefore have counts
+1 on the left, 2 on the right and 2 in the union without being mislabeled as a
+one-account analysis. Historical daily eligibility still undergoes the same
+compatibility checks; unsupported inclusion changes are not explained as profit.
+
+After maintenance, a bounded repository capture supplies retained corrected
+facts and current metadata/base currency. Every stored day from A through B is
+checked against fresh replay/valuation of that captured batch: cutoff, currency,
+resolver policy, snapshot completeness (used by the engine to prove absent-zero
+components), selected component keys, native/exact base values, completeness,
+classification and state/price/FX/preference observation IDs must match. The
+source generation is checked after snapshot loading to fence repository writes
+outside the coordinator. Historical eligibility must agree with the current
+analysis universe on every day. Private observation IDs only contribute to a
+scoped deterministic basisHash; raw IDs/names/notes do not enter the minimal link.
+Full input admission and maintenance can still be household-wide, as existing
+historical replay and derived snapshots require complete transfer dependencies.
+Actual daily coverage of A..B is checked independently of LastCompletedClosedOn.
+Missing days, days in the durable dirty range and obsolete snapshot hashes or
+resolver policies are rebuilt through the existing generation-aware builder in
+at most 31-day chunks. A later watermark does not prove that earlier days exist.
+The existing per-day save consumes only a matching dirty prefix; range completion
+is called only when A..B actually covered the initial dirty prefix. A later
+request therefore cannot clear an earlier unbuilt dirty date. Existing clean
+days are not needlessly revised, and backfilling does not lower the watermark.
+Capture follows all maintenance/backfill inside the original coordinator.
+
+The same verified immutable inputs feed ComputeAnalysis, foldAssetChange and
+projectReturnTrend, without a pre-maintenance memo. The link includes scope,
+normalized period, basis, compatible/incompatible/unavailable status,
+mismatchReasons, asset availability/status/missingReason/residualIssueCount,
+beginning/ending values, analysisDelta, explainedDelta excluding residual,
+residual, precisionAdjustment and precision metadata, bounded
+existing waterfall drivers and investment return summary/sources. Return cash
+inclusion is false; the engine's linked rate is preserved, never summed from
+account rates. Nullable return amounts/rates and ratedDays/totalDays survive.
+Known amounts use complete/partial status; nil amounts are incomplete.
+
+### Exact comparison and analysis monetary precision
+
+Comparison summaries and change.netWorth keep their existing exact decimal
+valuation contract. The analysis engine has a different public monetary view:
+signed component boundaries are half-even rounded to four decimal places on
+each day, then summed for the period's beginning/ending values. Do not round
+the household total instead: component ties, including liabilities, can differ.
+analysisDelta is endingValue minus beginningValue in that analysis view.
+
+The existing engine retains AssetBucketExact per component/day. Its existing
+fold aggregates those exact values by period driver, rounds drivers half-even
+to four places, and applies its existing deterministic waterfall reconciliation
+only when the exact bucket total rounded to four places equals the analysis
+summary change. That projection is reused unchanged; return amounts and linked
+rates also remain the existing independent return projection.
+
+Before any precision adjustment is published, the bridge strictly verifies
+exact scoped snapshot boundaries against the exact comparison; projected
+component boundaries against the analysis; **each component/day's exact driver
+plus residual buckets and proven neutral legs against its exact value change**;
+and each day's exact buckets against its exact scoped valuation change. Known
+neutral legs come from the existing engine classifier (internal transfers and
+principal repayment), never a new financial calculation. No epsilon
+or residual tolerance is used for these link checks. A real or unclassified
+exact gap, even one suppressed by the engine's residual tolerance, remains
+driver_reconciliation_mismatch. Opposing component or daily gaps cannot cancel into a valid
+precision proof. No analysis engine or financial classification is rewritten.
+
+For compatible measured values, the signed identities are:
+
+```text
+analysisDelta = endingValue - beginningValue
+analysisDelta = explainedDelta + residual + precision.driverAdjustment
+change.netWorth = analysisDelta + precision.boundaryAdjustment
+precisionAdjustment = precision.boundaryAdjustment + precision.driverAdjustment
+change.netWorth = explainedDelta + residual + precisionAdjustment
+```
+
+precision.boundaryAdjustment is exact valuation delta minus the analysis
+boundary delta; precision.driverAdjustment is that analysis delta minus the
+existing projected waterfall total. The two can oppose even when their sum is
+zero. precisionAdjustment is the signed difference between the proven exact
+bucket delta and its existing driver projection. These adjustment fields keep
+exact decimals, and can exceed the four-place amountScale that applies to
+analysis boundaries/drivers. They are monetary precision differences, neither
+investment profit nor unknown residual, and never change return amounts/rates.
+For example USD 1 with FX 7.123456 -> 7.234567 has exact change 0.111111,
+analysisDelta/explainedDelta 0.1111, residual 0 and precisionAdjustment 0.000011.
+The same FX at both endpoints has zero change/adjustment while each analysis
+boundary is 7.1235. Missing or incompatible evidence leaves all reconciliation
+and adjustment fields null; it never guesses a zero adjustment.
+
+Compatibility means proof of a shared calculation basis, not complete causal
+classification or profit. A residual can make assetStatus partial while the
+basis remains compatible. Once evidence is proved, the exact and projected
+endpoint checks and precision identities above are additional guards. Missing
+intermediate valuation/snapshot boundaries, absent single-account endpoints or
+an empty eligible analysis universe return unavailable, retaining measured partial
+projections while explainedDelta/residual/analysisDelta/adjustments remain null. Income/contributions,
+internal transfers, debt principal and adjustments must not be called investment
+profit. Price/FX/dividend/fee sources come from existing attribution calculations.
+
+Incompatible evidence/policy/cutoffs/inclusion/source revisions suppress joined
+drivers and returns and explain the mismatch. Endpoint or reconciliation failure
+also suppresses joined drivers/returns. A client must stop, not substitute a live
+analysis. Existing contribution/driver detail tools still compute a fresh report,
+can disclose identities, and are explicitly **not** frozen drilldown for this
+comparison. Broader frozen attribution detail is outside this slice.
+
+Attribution is part of the comparison content hash and required page summary.
+Existing bounded cache, fixed five-minute TTL, revocation, section-independent
+HMAC cursors, 4 MiB package and 64 KiB complete wire budget apply. Pages never
+recompute or extend TTL. Expiry/eviction/revocation requires a fresh attribution
+capture and restart of every section, with all old pages discarded. The new
+name participates in the exact-case, single-Decode envelope guard, including
+legacy mixed-batch rejection and trailing JSON behavior.
+
+SDK schema validation diagnostics for the new tool are replaced by a fixed
+validation error so rejected property names/values are not echoed; bounded
+application WireError codes are preserved.

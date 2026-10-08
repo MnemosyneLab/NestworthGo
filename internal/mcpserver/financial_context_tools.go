@@ -408,7 +408,7 @@ func decodeFinancialContextHTTPCall(raw []byte) (financialContextHTTPCall, error
 }
 
 func isFinancialContextTool(name string) bool {
-	return name == "get_financial_context" || name == "get_financial_context_page" || name == "get_financial_context_item" || name == "compare_financial_context" || name == "get_financial_comparison_page"
+	return name == "get_financial_context" || name == "get_financial_context_page" || name == "get_financial_context_item" || name == "compare_financial_context" || name == "compare_financial_attribution" || name == "get_financial_comparison_page"
 }
 
 // The SDK does not expose IDs to tool handlers and may return input-schema
@@ -445,6 +445,9 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 				}
 				buffer := &financialContextHTTPResponse{header: w.Header().Clone()}
 				next.ServeHTTP(buffer, r)
+				if !buffer.oversized && request.Params.Name == "compare_financial_attribution" {
+					scrubAttributionSchemaError(buffer, request.ID)
+				}
 				if buffer.oversized {
 					// Replace the entire result; never truncate JSON or echo the
 					// offending property/value. Keep the original bounded RPC ID.
@@ -494,4 +497,38 @@ func (w *financialContextHTTPResponse) Write(data []byte) (int, error) {
 	w.oversized = true
 	w.body.Reset()
 	return len(data), nil
+}
+
+// The SDK's schema diagnostics include rejected values and property names.
+// The attribution boundary must not echo a sensitive request in those errors.
+// Application errors already use a fixed WireError; preserve their safe codes.
+func scrubAttributionSchemaError(buffer *financialContextHTTPResponse, id json.RawMessage) {
+	var reply struct {
+		Result *mcp.CallToolResult `json:"result"`
+		Error  json.RawMessage     `json:"error"`
+	}
+	if json.Unmarshal(buffer.body.Bytes(), &reply) != nil {
+		return
+	}
+	if len(reply.Error) == 0 && (reply.Result == nil || !reply.Result.IsError) {
+		return
+	}
+	if len(reply.Error) == 0 && reply.Result != nil && len(reply.Result.Content) == 1 {
+		if content, ok := reply.Result.Content[0].(*mcp.TextContent); ok {
+			var safe struct{ Code, Message string }
+			if json.Unmarshal([]byte(content.Text), &safe) == nil && safe.Code != "" && safe.Message != "" {
+				return
+			}
+		}
+	}
+	result := &mcp.CallToolResult{}
+	result.SetError(fail("validation", "invalid attribution request; inspect the tool schema"))
+	buffer.body.Reset()
+	buffer.header.Set("Content-Type", "application/json")
+	buffer.status = http.StatusOK
+	_ = json.NewEncoder(&buffer.body).Encode(struct {
+		JSONRPC string              `json:"jsonrpc"`
+		ID      json.RawMessage     `json:"id"`
+		Result  *mcp.CallToolResult `json:"result"`
+	}{"2.0", id, result})
 }

@@ -72,8 +72,8 @@ func readAttributionTool[I any](server *mcp.Server, name, description string, en
 			}
 		}
 	}
-	closed := false
-	mcp.AddTool(server, &mcp.Tool{Name: name, Description: description, InputSchema: schema, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: true, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in I) (*mcp.CallToolResult, Response, error) {
+	closed, destructive := false, false
+	mcp.AddTool(server, &mcp.Tool{Name: name, Description: description + " May materialize derived snapshots and invalidate ledger previews; no financial facts or provider data are written. Available in existing read_only mode.", InputSchema: schema, Annotations: &mcp.ToolAnnotations{ReadOnlyHint: false, DestructiveHint: &destructive, OpenWorldHint: &closed}}, func(ctx context.Context, _ *mcp.CallToolRequest, in I) (*mcp.CallToolResult, Response, error) {
 		value, err := fn(ctx, in)
 		if err != nil {
 			return nil, Response{}, safeError(err)

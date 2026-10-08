@@ -28,7 +28,11 @@ ledger transactions, and broader frontend/MCP parity are separate follow-ups.
 | 3 | Period income/expense, asset changes, investment returns, contribution, historical detail and quality | Implemented, including contribution grouping, pagination and detail tools |
 | 4 | Target-state balance/quantity/cost reconciliation, pure cost correction, safe undo/fix | Implemented, including distinct cost correction events |
 
-Permissions are explicit and household-wide. `read_only` registers only queries;
+Permissions are explicit and household-wide. `read_only` registers queries and
+analysis tools. Analysis can maintain local derived snapshots and invalidate
+ledger previews; it has non-read-only MCP annotations but cannot write financial
+facts or provider data. Strict no-write context/comparison/page reads remain
+distinct from this analysis path.
 `directory_write` adds directory mutations; `ledger_write` adds daily ledger
 preview/commit, reconciliation and corrections, data health repair, and includes directory maintenance. Existing installations retain
 their selected permission. Account creation still permits only an empty/zero
@@ -615,3 +619,29 @@ right-minus-left changes with shared identity aliases. These are not returns or
 attribution. See the [comparison contract](financial-context.md#two-state-comparison)
 for scopes, category definitions, disclosure, nullable differences and shared
 cache/transport budgets.
+
+For “why did these two states change; was that profit?”, use
+`compare_financial_attribution` for a new coherent comparison after derived
+snapshot maintenance. It supplies compatible/incompatible/unavailable status,
+normalized A+1..B local period, scoped evidence digest, existing net-worth
+waterfall and separate investment-return summary. Stop on compatibility failure;
+never append live analysis to an old frozen comparisonId. Household and a single
+account are supported; account sets and current-right returns are unavailable.
+The comparison retains exact valuation decimals. The link declares the existing
+four-place half-even component/period-driver projection and separately discloses
+signed precision adjustments: exact change.netWorth equals explainedDelta plus
+residual plus precisionAdjustment. These adjustments are neither returns nor
+unknown residuals; exact per-day bucket gaps still fail strict reconciliation.
+Actual A..B snapshot coverage is backfilled independently of a later completion
+watermark; later requests retain earlier unbuilt dirty markers. Unsupported
+A..B+1 midnights stop before maintenance.
+Its frozen pages use `get_financial_comparison_page`. See the
+[attribution contract](financial-context.md#coherent-comparison-attribution) and
+[portable workflow](../../skills/nestworth/references/analysis.md#link-a-comparison-to-change-attribution).
+
+Analysis can write derived snapshots without changing financial facts. Accordingly
+`analyze_period`, `list_contributions`, `get_contribution_item`, `get_return_day`,
+`get_asset_driver_detail` and `compare_financial_attribution` publish
+readOnlyHint=false/destructiveHint=false; all remain in existing permission modes.
+`compare_financial_context` and frozen page tools retain strictly read-only hints.
+Updating these repository skill files does not install them into a client.

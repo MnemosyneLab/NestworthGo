@@ -88,8 +88,8 @@ func TestAttributionToolsHTTPParityAndValidation(t *testing.T) {
 		for _, tool := range listed.Tools {
 			if tool.Name == name {
 				found = true
-				if tool.Annotations == nil || !tool.Annotations.ReadOnlyHint {
-					t.Fatalf("%s is not read-only", name)
+				if tool.Annotations == nil || tool.Annotations.ReadOnlyHint || tool.Annotations.DestructiveHint == nil || *tool.Annotations.DestructiveHint {
+					t.Fatalf("%s must disclose non-destructive derived writes", name)
 				}
 				if name == "list_contributions" {
 					schema := jsonObject(t, tool.InputSchema)

@@ -90,7 +90,7 @@ func (s *Service) historyTools(server *mcp.Server) {
 	readTool(server, "get_activity", "Read one recorded activity by UUID, including its effects, trade or dividend details, and correction links. IDs come from list_activities.", func(ctx context.Context, in IDInput) (any, error) {
 		return historyService.Activity(ctx, in.ID)
 	})
-	readTool(server, "analyze_period", "Analyze income, expenses, asset changes and investment returns for an inclusive YYYY-MM-DD range in the immutable History Origin timezone. The range must end before the current local day; missing prices/FX can leave closed-day results partial or unavailable. Preserve each DTO's available, status, missingReason, nullable amounts/rates and ratedDays/totalDays; missing values are not zero. This reads local records and does not place brokerage orders.", func(ctx context.Context, in AnalyzePeriodInput) (any, error) {
+	analysisTool(server, "analyze_period", "Analyze income, expenses, asset changes and investment returns for an inclusive YYYY-MM-DD range in the immutable History Origin timezone. The range must end before the current local day; missing prices/FX can leave closed-day results partial or unavailable. Preserve each DTO's available, status, missingReason, nullable amounts/rates and ratedDays/totalDays; missing values are not zero. This reads local records and does not place brokerage orders.", func(ctx context.Context, in AnalyzePeriodInput) (any, error) {
 		var result PeriodAnalysisDTO
 		query := in.Query.request()
 		// Keep all four projections on one application revision. Nested snapshot

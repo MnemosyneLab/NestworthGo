@@ -70,6 +70,7 @@ type FinancialComparisonContent struct {
 	Positions          []FinancialComparisonPosition `json:"positions"`
 	Gaps               []FinancialComparisonGap      `json:"gaps"`
 	Evidence           []FinancialComparisonEvidence `json:"evidence"`
+	Attribution        *FinancialAttributionLink     `json:"attribution,omitempty"`
 }
 type FinancialComparisonResult struct {
 	CapturedAt  time.Time
@@ -96,6 +97,11 @@ func (s *Service) BuildFinancialComparison(ctx context.Context, in FinancialComp
 	if err != nil {
 		return empty, err
 	}
+	return s.buildFinancialComparison(ctx, leftRequest, rightRequest, ids, inputs, now, provider, ttl)
+}
+
+func (s *Service) buildFinancialComparison(ctx context.Context, leftRequest, rightRequest FinancialContextRequest, ids []domain.AccountID, inputs FinancialContextInputs, now time.Time, provider string, ttl time.Duration) (FinancialComparisonResult, error) {
+	var empty FinancialComparisonResult
 	left, err := s.prepareFinancialContextSide(ctx, leftRequest, ids, inputs, now, provider, ttl)
 	if err != nil {
 		return empty, err
@@ -148,13 +154,18 @@ func (s *Service) BuildFinancialComparison(ctx context.Context, in FinancialComp
 			content.Evidence = append(content.Evidence, FinancialComparisonEvidence{pair.name, evidence})
 		}
 	}
+	return hashFinancialComparison(now, content)
+}
+
+func hashFinancialComparison(now time.Time, content FinancialComparisonContent) (FinancialComparisonResult, error) {
 	encoded, err := json.Marshal(content)
 	if err != nil {
-		return empty, err
+		return FinancialComparisonResult{}, err
 	}
 	digest := sha256.Sum256(encoded)
 	return FinancialComparisonResult{CapturedAt: now, ContentHash: "sha256:" + hex.EncodeToString(digest[:]), Content: content}, nil
 }
+
 func prefixComparisonEvidence(c *FinancialContextContent, prefix string) {
 	refs := map[string]string{}
 	for i := range c.Evidence {

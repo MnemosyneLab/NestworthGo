@@ -79,4 +79,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc pkg-config libgtk-4-dev libwebkitgtk-6.0-dev libsoup-3.0-dev
       - name: Go tests with race detector
-        run: go test -race ./...
+        # Application and MCP both exercise large synthetic SQLite histories.
+        # Run packages serially so instrumentation does not make them compete
+        # for the runner; retain every test and the default per-package timeout.
+        run: go test -race -p 1 ./...

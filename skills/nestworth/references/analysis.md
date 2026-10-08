@@ -5,8 +5,14 @@ Use `get_overview`, `get_account_valuations`, or `get_account_snapshot` for
 do not answer last month's income or investment return. Preserve ownership,
 inclusion filters, household base currency and incomplete-value indicators.
 
-For investment returns, income/expense or change attribution call `analyze_period`.
-For two-state value differences use the comparison workflow below. `query.from` / `to` are inclusive
+For investment returns, income/expense or an inclusive period report, call
+`analyze_period`. For two-state value differences use `compare_financial_context`;
+for “why did two closed-date states change; was that profit?”, use
+`compare_financial_attribution` directly after discovery as described below.
+Neither minimal comparison route needs get_context/catalog/directory reads.
+Attribution may maintain derived snapshots and invalidate previews, including
+in read_only mode; the plain comparison is strictly no-write.
+`query.from` / `to` are inclusive
 closed local dates in the history-origin timezone; the end must be before today
 in that timezone. Clarify “this month” if it means current valuation versus
 closed-day analysis. Do not substitute UTC dates for the household's dates.
@@ -299,3 +305,143 @@ Expiry, eviction or revocation requires a new comparison and restarting every
 section. Discard old pages. The five-minute TTL never renews. A `too_large` input,
 summary or single row may not be fixable by paging; narrowing scope needs actual,
 authorized account IDs and must not silently change the user's question.
+
+## Link a comparison to change attribution
+
+For “why did these two values change; was that profit?”, discover and call
+`compare_financial_attribution` directly. Minimal needs no `get_context`, catalog,
+Bootstrap or directory read. This is a **new coherent capture**, with a new
+`comparisonId`, after derived snapshot maintenance. It does not attach live
+analysis to, validate or modify an old frozen comparison. Reuse the selected
+dates, scope and disclosure, then discard the old page set and interpret the
+new package. Never supply an old `comparisonId` to this tool.
+
+<!-- example: financial-attribution -->
+```json
+{"leftAsOf":"${leftDate}","rightAsOf":"${rightDate}","scope":{"kind":"household"},"disclosure":"minimal"}
+```
+
+A and B must be closed history-local dates, A < B. The server normalizes the
+inclusive analysis period to **A's next local date through B**, with A's close
+exclusive and B's close inclusive. A/B is not an inclusive analysis range:
+including A again double counts that day's changes. Use the returned timezone,
+`period.from`, `period.to`, `startExclusive` and `endInclusive`; DST days need
+not last 24 hours. Same-day and reverse requests fail validation. Dates before
+history, today and future closed-date labels are invalid.
+
+The first version supports household or one real account UUID:
+
+<!-- example: financial-attribution-account -->
+```json
+{"leftAsOf":"${leftDate}","rightAsOf":"${rightDate}","scope":{"kind":"accounts","accountIds":["${accountId}"]},"disclosure":"minimal"}
+```
+
+Use a supplied UUID or an already authorized identity lookup. Package aliases
+are not UUIDs; never discover extra identities silently. Multiple distinct
+accounts return `unavailable` / `unsupported_account_set`; do not aggregate
+account return rates. A current right endpoint returns
+`unavailable` / `right_endpoint_not_closed`, with no fabricated period return.
+Named disclosure follows the explicit identity-disclosure rule above.
+The link preserves `leftScope` and `rightScope`. Its `scope` is their shared-ref
+endpoint account union; `scopeBasis` declares that `includedAccountCount`
+counts accounts included on either endpoint. Read both endpoint scopes: an
+account created during the period can enter the right scope and attribution
+while being absent from the left. Union counts describe those endpoints, not
+an extra directory read or permission expansion.
+The server fills actual missing days of A..B even if an existing completion
+watermark is later; requesting a later range first must not strand early days.
+It rebuilds dirty days within the request while retaining pending earlier days;
+a later request cannot mark an unbuilt earlier dirty range complete.
+Midnight preflight includes A itself and every day through B+1. Unsupported
+ambiguous/nonexistent boundaries return historical_boundary_unsupported before
+snapshot maintenance.
+
+Check `content.attribution.status` before an explanation:
+
+- `compatible`: every daily snapshot's scoped evidence and cutoff matches fresh
+  replay on the captured facts/configuration, and the historical inclusion
+  agrees with the current analysis universe. Endpoint checks and the waterfall
+  reconciliation are additional guards, not numeric proof of compatibility.
+  Explain drivers, preserving `assetStatus`, `available`, `missingReason`,
+  `residualIssueCount` and all amount/return coverage fields. Compatible can
+  still have partial classification and a nonzero residual.
+- `incompatible`: stop the joined explanation. Report `mismatchReasons`, such
+  as `inclusion_mismatch`, `snapshot_evidence_mismatch`,
+  `snapshot_cutoff_mismatch`, `resolver_policy_mismatch`,
+  `source_revision_changed`, `analysis_endpoint_mismatch`,
+  `driver_reconciliation_mismatch` or `historical_boundary_unsupported`.
+  Do not describe these as zero profit or join a separately fetched live report.
+  An unusual ambiguous/nonexistent midnight can be supported by the comparison
+  but unsupported by the current analysis engine. A repair is a separate,
+  user-authorized workflow, never an automatic fallback.
+- `unavailable`: explain the missing evidence or unsupported scope/endpoint.
+  `missing_valuation_evidence`, `missing_snapshot_boundary`, `missing_boundary`
+  or `missing_driver_evidence` must not become zero. `account_endpoint_absent`
+  and `empty_analysis_universe` preserve the lack of a usable account boundary
+  or eligible analysis universe. Keep partial measured
+  values labeled partial and nullable values unknown.
+
+`beginningValue` and `endingValue` are the existing analysis engine's base-money
+projection: half-even round each signed component boundary to four places on
+each day, then sum. Comparison values retain exact decimals. Never round the
+whole household instead of its components. Exact component/day driver buckets
+are aggregated by period driver, then the existing deterministic four-place
+waterfall projection is reused. `explainedDelta` sums those projected drivers
+except residual. Read `precision.amountScale`, `rounding`, `boundaryBasis` and
+`driverBasis`; preserve all signed adjustments, including values beyond four
+places. For compatible measured values:
+
+```text
+analysisDelta = endingValue - beginningValue
+analysisDelta = explainedDelta + residual + precision.driverAdjustment
+change.netWorth = analysisDelta + precision.boundaryAdjustment
+precisionAdjustment = precision.boundaryAdjustment + precision.driverAdjustment
+change.netWorth = explainedDelta + residual + precisionAdjustment
+```
+
+The server strictly checks exact scoped boundaries, projected component
+boundaries, each component/day's exact buckets plus proven neutral transfer or
+principal legs, and each day's exact buckets before declaring an adjustment to be
+precision. Real exact gaps still stop as driver_reconciliation_mismatch, even
+if small or cancelling across components or days; no epsilon is used. `precisionAdjustment`
+is the difference between the proven exact change and existing projected
+drivers/residual. Its boundary and driver parts may oppose. It is **neither
+profit nor unknown residual** and must not be added to investmentReturn. For
+USD 1 with FX 7.123456 -> 7.234567: exact change 0.111111 = projected drivers
+0.1111 + residual 0 + precision adjustment 0.000011. An unchanged six-place
+valuation can have rounded boundaries but zero delta/adjustment. Missing or
+incompatible reconciliation fields remain null; never invent zero adjustments.
+
+Residual is unexplained change, never assumed market profit. Opposing residuals
+can cancel; keep `residualIssueCount`. `investmentReturn` is the independent
+investment universe, with cash excluded in this version. Preserve its `amount`,
+nullable `rate`, `available`, `status`, `missingReason`, `ratedDays`, `totalDays`
+and source breakdown. Income, contributions, adjustments, transfers and
+repayment principal are not investment profit. Household internal transfer and
+repayment principal do not create wealth; single-account external flows can
+change that account's value. Missing price or FX remains unknown.
+
+The link is a bounded summary of existing asset drivers and investment return
+sources. For instrument/account/activity drilldown, existing `list_contributions`,
+`get_contribution_item` and `get_asset_driver_detail` remain available. Those
+perform a new live analysis and can reveal identities: require the corresponding
+disclosure intent, use the normalized period and actual scope ID, and describe
+them as separate captures. **They are not frozen detail pages or proof for this
+comparisonId.** Do not quietly substitute them after a compatibility failure.
+
+Read positions/gaps/evidence with `get_financial_comparison_page`, saving the
+three section states independently as described above. The link, content hash,
+capture and fixed five-minute TTL remain unchanged on every page. On expiry,
+eviction or revocation, recapture with `compare_financial_attribution`, discard
+all old pages and restart every section with new cursors. Never mix old/new IDs,
+even if hashes coincide. Single JSON-RPC objects only; mixed batches are rejected.
+The 64 KiB wire and package budgets also cover the link; oversized mandatory
+summaries/rows cannot be fixed with smaller pages.
+
+This analysis tool may materialize **derived** snapshots and invalidate a ledger
+preview. Its MCP annotation therefore is non-read-only and non-destructive,
+while it stays available in the existing `read_only` permission mode. It writes
+no financial facts, refreshes no providers and adds no token permissions. Run it
+before ledger previews. `compare_financial_context` remains the strictly no-write
+choice for differences alone. A repository skill update does not install or
+update the user's App, client skill or MCP connection.
