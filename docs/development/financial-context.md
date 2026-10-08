@@ -177,13 +177,13 @@ Such requests fail explicitly rather than calculating from truncated facts.
 Oversized package, summary or individual row returns `too_large`. Individual-row
 admission measures that row with the required summary, independently of other
 sections occupying the initial page. Rows are not silently discarded or split;
-escaping and SDK duplication are included in sizing. For these two tools only,
+escaping and SDK duplication are included in sizing. For these context tools only,
 the stateless JSON HTTP transport also buffers at most 64 KiB of the final body.
 An oversized SDK validation/error response is replaced in full by a fixed
 `too_large` tool error with the same bounded request ID; offending input text is
 not echoed or truncated. This covers errors raised before the business handler.
 Each context tool requires one JSON-RPC object per HTTP request. Any JSON-RPC
-batch containing either context tool, including a mixed batch, is rejected in
+batch containing any context tool, including a mixed batch, is rejected in
 full with a fixed HTTP 400 error before SDK dispatch. This applies with an absent
 protocol header and with explicit legacy protocol versions as well; no batch
 element executes and no request ID or offending input is echoed. Batches of
@@ -229,3 +229,59 @@ clients require an explicit update and no release publication is implied.
 External configured AI-client usability and native UI/package acceptance remain
 manual gates. Automated HTTP integration uses the official MCP SDK against an
 isolated temporary household; it does not establish those external-client gates.
+
+## Frozen item drill-down
+
+`get_financial_context_item` reads one `(contextId, ref)` from the cached, already
+disclosed projection. It never calls the application/database, refreshes quotes,
+recalculates totals or creates another context. Both **minimal** and **named**
+packages are accepted. The item inherits the captured disclosure and returns only an already
+disclosed subset: minimal has no names/raw IDs, named retains its existing names
+and row IDs. No new identity fields, private ID mapping, token, disclosure
+upgrade or identity lookup is introduced.
+
+Arguments: required `contextId`, `ref`; optional `section` (`positions`, `gaps`,
+`evidence`), `cursor`, `limit` (default 50, maximum 100). Omitted section returns
+at most one row from each related section. An explicit section without cursor
+starts at zero, including for empty sections. Continuations require both their
+section and matching cursor. All three page descriptors retain total/returned/
+hasMore/nextCursor semantics; crowded initial sections can defer zero rows, but
+a standalone nonempty continuation must advance or return `too_large`.
+
+The response's `schemaVersion` is `financial-context-item/1`. It retains the
+original `contentHash`, `capturedAt`, `cacheExpiresAt`, `asOf`, `basis`, and
+`disclosure`; `generatedAt` reflects this read. The hash still covers the entire
+original package, not a newly hashed subset. `ref` and `type` identify the target:
+
+- Account: `position` is the account rollup; `positions` contains direct non-account
+  children only. Never add the rollup amount to those children. Gaps are limited
+  to the target/children and evidence to their referenced dependencies.
+- Position: `position` is the exact component, with its own gaps and evidence;
+  `positions` is empty. No parent, siblings or sibling evidence are expanded.
+- Evidence: `evidenceItem` is the selected observation, `positions` contains only
+  its direct users, and gaps must directly name this evidence as dependency.
+  `evidence` is empty; other observations and users' siblings are not expanded.
+
+Related evidence is deduplicated by ref and original projection order is kept.
+Nullable amounts, zero, inclusion/exclusion, row-kind status, missing FX, source
+time and provenance are unchanged. Missing FX gaps may name a currency pair,
+not an existing evidence ref; such a dependency is not a valid item target.
+Only existing account/position/evidence members resolve, classified by collection
+membership and row kind rather than alias prefixes or UUID shape. Ambiguous
+refs are rejected. Minimal retains its no-name/no-raw-ID guarantee. Neither mode
+returns source notes/URLs or an unrelated household summary/directory.
+
+Cursors reuse the existing HMAC and authenticate operation, target, section,
+context, generation and offset. Package-page cursors, wrong targets/sections,
+wrong generations, tampering and past-end continuations fail `validation`.
+A bare alias cannot encode its origin: identical spellings in two packages are
+independent references. Clients must retain the original contextId/ref pair and
+must not attach old answers to aliases from a new capture, even with an equal
+hash. Expired/evicted contexts fail `context_expired`, revoked generations fail
+`context_revoked`; neither path rebuilds or extends the fixed five-minute TTL.
+
+The same cache lock, final SDK wire sizing (64 KiB), HTTP error buffer and batch
+rejection protect this tool, including absent/legacy protocol headers. Ordinary
+writes leave old items frozen. Both current and closed-day packages work; absent
+rows remain absent. Transactions, period comparisons, describe-target identity
+and additional evidence not in the package are outside this slice.

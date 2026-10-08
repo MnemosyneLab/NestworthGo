@@ -129,6 +129,13 @@ reservation and maturity; the skill does not imitate their lifecycle with trades
 Setup, backups/restores, provider credentials and history resets also remain App
 workflows. No brokerage orders are placed through the skill.
 
+Skill 1.1.0 includes frozen context item routing and executable examples. This
+extends the unreleased 1.1.0 preparation; the App version, package content schema
+(`financial-context/1`) and item schema (`financial-context-item/1`) are separate
+contracts. Installed clients require an explicit skill update. A missing item
+tool means the connected App lacks this capability; do not silently fall back to
+identity-bearing reads. No bundle publication is part of this change.
+
 ## Maintainer commands
 
 From a checkout, an end user can install/update directly without packaging:

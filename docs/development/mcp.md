@@ -39,7 +39,10 @@ initial amount. Enable ledger permission explicitly to record subsequent funding
 `get_financial_context` captures current state or one closed date with a
 consistent asset/liability summary, exact nullable amounts, local gaps and
 evidence. `get_financial_context_page` reads bounded details from that same
-frozen result. Both use existing read permissions; default aliases minimize
+frozen result. `get_financial_context_item` selects related account, position or
+evidence rows from a frozen package at its already selected disclosure without
+rereading SQLite. All three
+use existing read permissions; default aliases minimize
 output but do not isolate household-wide credentials. No model, network refresh,
 snapshot materialization or repair runs. See [the full contract](financial-context.md)
 for history semantics, disclosure, hash, pagination, revocation and budgets.

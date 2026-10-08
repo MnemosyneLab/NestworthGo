@@ -69,7 +69,7 @@ not a silent directory read. Skill updates do not update the App or MCP connecti
 | Area | Tools |
 | --- | --- |
 | Context and recovery | `get_context`, `get_catalog`, `get_operation` |
-| Consistent financial summary and gaps | `get_financial_context`, `get_financial_context_page` |
+| Consistent financial summary and gaps | `get_financial_context`, `get_financial_context_page`, `get_financial_context_item` |
 | Definitions | `list_members`, `list_institutions`, `list_groups`, `list_accounts`, `list_instruments`, `list_holdings` |
 | Definition maintenance | `create_member`, `update_member`, `archive_member`, `set_member_icon`; corresponding institution/group tools; `create_account`, `update_account`, `archive_account`; `create_instrument`, `update_instrument`, `archive_instrument` |
 | Current state | `get_overview`, `get_account_valuations`, `get_account_snapshot` |
