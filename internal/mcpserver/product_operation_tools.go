@@ -103,10 +103,11 @@ func (s *Service) previewProductOperation(ctx context.Context, in ProductOperati
 	if err != nil {
 		return nil, productWriteError(err)
 	}
-	if err := json.Unmarshal([]byte(preview.NormalizedJSON), &command); err != nil {
+	var normalized application.ProductCommand
+	if err := json.Unmarshal([]byte(preview.NormalizedJSON), &normalized); err != nil {
 		return nil, err
 	}
-	plan := productOperationPlan{Type: "product_operation", ID: domain.NewProductOperationID().String(), Command: command, ReviewedStateHash: preview.ReviewedStateHash, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
+	plan := productOperationPlan{Type: "product_operation", ID: domain.NewProductOperationID().String(), Command: normalized, ReviewedStateHash: preview.ReviewedStateHash, Version: version, ExpiresAt: time.Now().UTC().Add(planLifetime)}
 	if err := s.writePrivate(filepath.Join(s.dir, "plans", plan.ID+".json"), plan); err != nil {
 		return nil, err
 	}

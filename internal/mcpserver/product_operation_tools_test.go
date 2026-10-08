@@ -466,3 +466,48 @@ func TestProductHTTPPostCommitReceiptFailureAndOlderSnapshot(t *testing.T) {
 		t.Fatal("older restore reused external success or plan")
 	}
 }
+
+func TestProductHTTPLocalLifecycleTimesRemainFrozen(t *testing.T) {
+	now := time.Date(2026, 9, 29, 12, 0, 0, 0, time.UTC)
+	fx := newLedgerFixtureWithClock(t, func() time.Time { return now })
+	c := ledgerSession(t, fx)
+	fund := ledgerPreview(t, c, map[string]any{"kind": "money_added", "accountId": fx.brokerage, "amount": "1500", "currency": "USD", "reason": "contribution", "effectiveAt": "2026-09-28T12:00:00Z"})
+	ledgerCommit(t, c, uuid.NewString(), fund["planId"].(string))
+	var productID string
+	for i, kind := range []string{"open", "receive_interest", "settle"} {
+		localTime := []string{"11:30", "11:31", "11:32"}[i]
+		var input ProductOperationInput
+		switch kind {
+		case "open":
+			input = ProductOperationInput{Kind: kind, Open: &application.OpenProductCommand{AccountID: fx.brokerage, Currency: "USD", Principal: "1000", EffectiveLocalDate: "2026-09-29", EffectiveLocalTime: localTime, Terms: productExistingInput("").RecordExisting.Terms, Policy: productPolicy("2026-09-30")}}
+		case "receive_interest":
+			input = ProductOperationInput{Kind: kind, ReceiveInterest: &application.ReceiveInterestCommand{ProductID: productID, Amount: "10", RemainingInterest: productString("40"), EffectiveLocalDate: "2026-09-29", EffectiveLocalTime: localTime}}
+		case "settle":
+			input = ProductOperationInput{Kind: kind, Settle: &SettleProductInput{ProductID: productID, ReturnedPrincipal: productString("1000"), Interest: productString("40"), EffectiveLocalDate: "2026-09-29", EffectiveLocalTime: localTime}}
+		}
+		p := productPlanHTTP(t, c, input)
+		at := p["preview"].(map[string]any)["effectiveAt"]
+		want := "2026-09-29T" + localTime + ":00.000Z"
+		if at != want {
+			t.Fatal(kind, at, want)
+		}
+		now = now.Add(time.Minute)
+		r := productCommitHTTP(t, c, p["planId"].(string), uuid.NewString())
+		productID = r["productIds"].([]any)[0].(string)
+		for _, activityID := range r["activityIds"].([]any) {
+			a := call(t, c, "get_activity", IDInput{ID: activityID.(string)}, false)["data"].(map[string]any)
+			if a["effectiveAt"] != want || a["createdAt"] != now.Format("2006-01-02T15:04:05.000Z") {
+				t.Fatal(kind, a)
+			}
+		}
+		// Same reviewed plan with a new outer ID recovers its original receipt.
+		replay := productCommitHTTP(t, c, p["planId"].(string), uuid.NewString())
+		if replay["replayed"] != true || replay["operationId"] != r["operationId"] {
+			t.Fatal(kind, replay)
+		}
+	}
+	if batchCash(t, c, fx.brokerage) != "1550" || ledgerActivityCount(t, fx.app) != 5 {
+		t.Fatal("local-time lifecycle accounting mismatch")
+	}
+	productAssertNetWorth(t, c, "1550")
+}

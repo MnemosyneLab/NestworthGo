@@ -11,9 +11,9 @@ import (
 	"github.com/waltwang/nestworth-go/internal/wailsapi/quote"
 )
 
-func TestProductHTTPInterestUndoPreservesCashIncludedDietzRate(t *testing.T) {
+func TestProductHTTPInterestAndSettlementUndoPreserveDietzAndAttribution(t *testing.T) {
 	type result struct{ amount, rate, capital string }
-	run := func(treated bool) map[string]result {
+	run := func(treated string) map[string]result {
 		now := time.Date(2026, 9, 20, 11, 0, 0, 0, time.UTC)
 		fx := newLedgerFixtureWithClock(t, func() time.Time { return now })
 		c := ledgerSession(t, fx)
@@ -28,9 +28,13 @@ func TestProductHTTPInterestUndoPreservesCashIncludedDietzRate(t *testing.T) {
 		}
 		buy := ledgerPreview(t, c, map[string]any{"kind": "trade", "side": "buy", "settlementAccountId": fx.brokerage, "instrumentId": fx.instrument, "quantity": "5", "gross": "500", "grossCurrency": "USD", "effectiveAt": "2026-09-20T10:01:00Z"})
 		ledgerCommit(t, c, uuid.NewString(), buy["planId"].(string))
-		if treated {
+		if treated != "" {
 			now = time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC)
-			i := productPlanHTTP(t, c, ProductOperationInput{Kind: "receive_interest", ReceiveInterest: &application.ReceiveInterestCommand{ProductID: opened["productIds"].([]any)[0].(string), Amount: "100"}})
+			input := ProductOperationInput{Kind: "receive_interest", ReceiveInterest: &application.ReceiveInterestCommand{ProductID: opened["productIds"].([]any)[0].(string), Amount: "100"}}
+			if treated == "settle" {
+				input = ProductOperationInput{Kind: "settle", Settle: &SettleProductInput{ProductID: opened["productIds"].([]any)[0].(string), ReturnedPrincipal: productString("1000"), Interest: productString("100"), Fee: productString("5")}}
+			}
+			i := productPlanHTTP(t, c, input)
 			received := productCommitHTTP(t, c, i["planId"].(string), uuid.NewString())
 			now = time.Date(2026, 9, 21, 18, 0, 0, 0, time.UTC)
 			u := productPlanHTTP(t, c, ProductOperationInput{Kind: "undo", Undo: &application.UndoProductCommand{OperationID: received["operationId"].(string)}})
@@ -56,18 +60,21 @@ func TestProductHTTPInterestUndoPreservesCashIncludedDietzRate(t *testing.T) {
 				t.Fatal(analysis)
 			}
 			for _, day := range analysis.Days {
+				if residual, ok := day.AssetBuckets[domain.BucketResidual]; ok && !residual.IsZero() {
+					t.Fatalf("%s residual=%s", treated, residual.CanonicalAmount())
+				}
 				if day.Component.Cash {
 					if flow, ok := day.AssetBuckets[domain.BucketExternalFlow]; ok && !flow.IsZero() {
 						t.Fatal("interest inverse labeled as external asset flow", flow)
 					}
 				}
 				if len(day.DietzCapitalFlows) != 0 || !day.DietzFlow.IsZero() {
-					t.Fatalf("treated=%v scope=%s: interest undo became capital: %+v", treated, scope.Kind, day.DietzCapitalFlows)
+					t.Fatalf("treated=%s scope=%s: interest undo became capital: %+v", treated, scope.Kind, day.DietzCapitalFlows)
 				}
 			}
 			actual := result{analysis.ReturnAmount.CanonicalAmount(), analysis.ReturnRate.String(), analysis.DailyReturns[0].InvestedCapital.CanonicalAmount()}
 			if actual != (result{"50", "0.025", "2000"}) {
-				t.Fatalf("treated=%v scope=%s got=%+v", treated, scope.Kind, actual)
+				t.Fatalf("treated=%s scope=%s got=%+v", treated, scope.Kind, actual)
 			}
 			http := call(t, c, "analyze_period", map[string]any{"query": map[string]any{"from": "2026-09-21", "to": "2026-09-21", "scopeKind": string(scope.Kind), "scopeId": scope.ID, "valuation": "base", "basis": "investment", "includeCash": true}}, false)["data"].(map[string]any)["investmentReturns"].(map[string]any)
 			if http["amount"].(map[string]any)["amount"] != actual.amount || http["rate"] != actual.rate {
@@ -75,10 +82,51 @@ func TestProductHTTPInterestUndoPreservesCashIncludedDietzRate(t *testing.T) {
 			}
 			results[string(scope.Kind)] = actual
 		}
+
+		detail, err := fx.app.Product(t.Context(), domain.ProductContractID(opened["productIds"].([]any)[0].(string)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, scope := range []domain.AnalysisScope{{Kind: domain.ScopeInstrument, ID: fx.instrument}, {Kind: domain.ScopeInstrument, ID: detail.Contract.InstrumentID.String()}} {
+			for _, includeCash := range []bool{false, true} {
+				q := domain.AnalysisQuery{Scope: scope, From: "2026-09-21", To: "2026-09-21", Valuation: domain.ValuationBase, Basis: domain.ReturnBasisInvestment, IncludeCash: includeCash}
+				a, err := fx.app.Analyze(t.Context(), q)
+				if err != nil {
+					t.Fatal(err)
+				}
+				wantAmount, wantRate, wantCapital := "50", "0.1", "500"
+				if scope.ID == detail.Contract.InstrumentID.String() {
+					wantAmount, wantRate, wantCapital = "0", "0", "1000"
+					if treated == "settle" {
+						wantCapital = "750"
+					}
+				}
+				if a.ReturnAmount == nil || a.ReturnRate == nil || len(a.DailyReturns) != 1 || a.DailyReturns[0].InvestedCapital == nil {
+					t.Fatalf("%s instrument %s incomplete", treated, scope.ID)
+				}
+				if a.ReturnAmount.CanonicalAmount() != wantAmount || a.ReturnRate.String() != wantRate || a.DailyReturns[0].InvestedCapital.CanonicalAmount() != wantCapital {
+					t.Fatalf("%s instrument cash=%v amount=%s rate=%s capital=%s", treated, includeCash, a.ReturnAmount.CanonicalAmount(), a.ReturnRate.String(), a.DailyReturns[0].InvestedCapital.CanonicalAmount())
+				}
+				for _, d := range a.Days {
+					for _, b := range []domain.AttributionBucket{domain.BucketResidual, domain.BucketDividendInterest, domain.BucketFee, domain.BucketExternalFlow} {
+						if v, ok := d.AssetBuckets[b]; ok && !v.IsZero() {
+							t.Fatalf("%s instrument bucket=%s amount=%s", treated, b, v.CanonicalAmount())
+						}
+					}
+					for _, r := range []domain.ReturnComponent{domain.ReturnDividendInterest, domain.ReturnInvestmentFee} {
+						if v, ok := d.ReturnComponents[r]; ok && !v.IsZero() {
+							t.Fatalf("%s instrument return=%s amount=%s", treated, r, v.CanonicalAmount())
+						}
+					}
+				}
+			}
+		}
 		return results
 	}
-	baseline, treated := run(false), run(true)
-	productJSONEqual(t, treated, baseline)
+	baseline := run("")
+	for _, kind := range []string{"receive_interest", "settle"} {
+		productJSONEqual(t, run(kind), baseline)
+	}
 }
 
 func TestProductHTTPExistingUndoWithActiveReservationRequiresGUI(t *testing.T) {

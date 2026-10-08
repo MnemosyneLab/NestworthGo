@@ -30,6 +30,7 @@ type classifiedAnalysisEffect struct {
 // and Return Analysis. It keeps physical AssetBucket, economic
 // ReturnComponent, and non-return DietzCapitalFlow assignments separate.
 func (u analysisUniverse) classifyActivity(activity domain.Activity, daySnapshot domain.DailyValuationSnapshot, previousSnapshot *domain.DailyValuationSnapshot, input AnalysisInputs, query domain.AnalysisQuery) ([]classifiedAnalysisEffect, error) {
+	activity = u.productReversalTrade(activity)
 	endItems := snapshotItemsByComponent(daySnapshot, u.accounts, u.instruments)
 	startItems := make(map[string]domain.DailyValuationSnapshotItem)
 	if previousSnapshot != nil {
@@ -156,6 +157,53 @@ func (u analysisUniverse) isCarryingValueRemoval(activity domain.Activity, effec
 	return !corporateActionRestatement(component, effects, q0, qc, openQuote.UnitPrice.Decimal(), closeQuote.UnitPrice.Decimal())
 }
 
+// Product reversal activities deliberately retain their reversal kind and have
+// no persisted trade detail. Their exact unit quantity/principal effects carry
+// enough evidence to walk the original trade backwards in the analysis bridge.
+// This is an analysis projection only; no financial fact or cost is rewritten.
+func (u analysisUniverse) productReversalTrade(activity domain.Activity) domain.Activity {
+	p := activity.ProductContext
+	if p == nil || p.Purpose != domain.ProductPurposeReversal || activity.TradeDetail != nil {
+		return activity
+	}
+	holding, ok := u.holdings[p.HoldingID]
+	if !ok || holding.InstrumentID != p.InstrumentID {
+		return activity
+	}
+	var quantity, principal *domain.ActivityEffect
+	for i := range activity.Effects {
+		e := &activity.Effects[i]
+		if e.Classification != domain.ClassificationTradePrincipal {
+			continue
+		}
+		if e.Target == domain.EffectTargetHoldingQuantity && e.HoldingID != nil && *e.HoldingID == p.HoldingID && e.InstrumentID != nil && *e.InstrumentID == p.InstrumentID && e.Quantity != nil {
+			if quantity != nil {
+				return activity
+			}
+			quantity = e
+		}
+		if e.Target == domain.EffectTargetAccountCash && e.Role == domain.EffectRolePrincipal && e.AccountID != nil && *e.AccountID == holding.AccountID && e.Money != nil {
+			if principal != nil {
+				return activity
+			}
+			principal = e
+		}
+	}
+	if quantity == nil || principal == nil || quantity.Direction == principal.Direction || !quantity.Quantity.Decimal().Equal(decimal.NewFromInt(1)) {
+		return activity
+	}
+	price, err := domain.NewUnitPrice(principal.Money.Amount())
+	if err != nil {
+		return activity
+	}
+	side := domain.TradeBuy
+	if quantity.Direction == domain.EffectRemoved {
+		side = domain.TradeSell
+	}
+	activity.TradeDetail = &domain.TradeDetail{Side: side, InstrumentID: p.InstrumentID, HoldingID: p.HoldingID, Quantity: *quantity.Quantity, Gross: *principal.Money, UnitPrice: price}
+	return activity
+}
+
 func isProductInterestEffect(activity domain.Activity, effect domain.ActivityEffect) bool {
 	if activity.ProductContext == nil {
 		return false
@@ -278,7 +326,7 @@ func (u analysisUniverse) dietzCapitalAmount(activity domain.Activity, effect do
 	if !known || !u.investmentComponentInUniverse(component) {
 		return decimal.Zero, false
 	}
-	if activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell || activity.Kind == domain.ActivityCashTransfer || activity.Kind == domain.ActivityFXConversion || activity.Kind == domain.ActivityDebtDraw || activity.Kind == domain.ActivityDebtPayment || activity.Kind == domain.ActivityPositionTransfer {
+	if activity.Kind == domain.ActivityBuy || activity.Kind == domain.ActivitySell || activity.ProductContext != nil && activity.ProductContext.Purpose == domain.ProductPurposeReversal && activity.TradeDetail != nil || activity.Kind == domain.ActivityCashTransfer || activity.Kind == domain.ActivityFXConversion || activity.Kind == domain.ActivityDebtDraw || activity.Kind == domain.ActivityDebtPayment || activity.Kind == domain.ActivityPositionTransfer {
 		if endpointsInInvestmentUniverse(endpoints, u) {
 			return decimal.Zero, false
 		}
