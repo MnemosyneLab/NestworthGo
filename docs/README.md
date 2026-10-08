@@ -28,7 +28,9 @@ or visual prototype bundles.
 | Development | [Local MCP](development/mcp.md) | Loopback transport, permission modes, implemented query and write tools, and safety boundaries |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
-| Release | [v0.3.6 Contract](releases/v0.3.6.md) | Scope, acceptance, and release gates for v0.3.6 |
+| Release | [v0.3.7 Contract](releases/v0.3.7.md) | Current candidate scope, evidence, and release gates |
+| Release | [v0.3.7 Release Notes](releases/v0.3.7-notes.md) | Publication draft; pending release gates |
+| Release | [v0.3.6 Contract](releases/v0.3.6.md) | Historical scope, acceptance, and release gates for v0.3.6 |
 | QA | [QA Archive](qa/README.md) | Selected historical verification reports; current release gates remain in the release contract |
 
 ## Source of truth

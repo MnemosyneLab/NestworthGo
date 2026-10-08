@@ -2,7 +2,55 @@
 
 All notable changes to Nestworth are recorded here.
 
-## [0.3.6] — Unreleased
+## [0.3.7] — Unreleased candidate (build 8)
+
+Release preparation only. Candidate version/build match the current source
+metadata; no v0.3.7 tag, release, or release artifacts exist. The current
+release contract records scope, evidence, and open acceptance gates.
+
+### Added
+
+- MCP financial context packages and frozen detail pages/items, with minimal or
+  explicitly named disclosure choices; two-state comparisons report right minus
+  left and are distinct from returns. A separate coherent comparison-to-
+  attribution workflow links compatible captures.
+- MCP reads for managed deposits, locked products, product operation history,
+  and liquidity routes with actual/forecast evidence, unknowns, fees and
+  reservations preserved.
+- Guarded MCP preview/commit workflows for completed managed-product lifecycle
+  facts, complete revisioned terms/policy edits, and actual locked-product
+  valuation observations. All writes use dedicated ledger-write tools; renewal
+  and reservation changes remain App workflows.
+
+### Fixed and changed
+
+- Legacy analysis and household/portfolio trends now materialize their
+  requested historical snapshot coverage, including earlier sparse ranges,
+  without treating a later completion watermark as proof that every earlier
+  snapshot exists. Repair is bounded, resumable, and rejects concurrent state
+  changes.
+- Prevented millisecond clock drift in holding creation and added spacing and
+  narrow-window scrolling to product table columns.
+- Race CI now shards bounded application and MCP race runs while retaining
+  `-race`, all tests, and Go's default package timeout; selector enumeration
+  failures fail the shard. This is a CI execution change, not a removal of tests.
+
+### Boundaries and validation
+
+- Skill version is 1.6.0 (`skills/nestworth/VERSION`); it is independently
+  versioned from the App. Existing clients must install/update it separately.
+- Exact main head `2cad89eddd0c02de28f68a631fc26a72d6f6fcc3` has passing test and
+  race CI on PR #45. PR #47 (native dependency installation bounds) is still
+  open and is not included in this candidate. See the
+  [v0.3.7 release contract](docs/releases/v0.3.7.md) for detailed evidence and
+  pending acceptance.
+- Synthetic Linux GUI plus raw HTTP smoke and automated checks are distinct
+  from the user's in-progress real Codex/MCP/skill acceptance on Mac mini.
+  That real-client acceptance has not yet passed. No Mac native GUI acceptance
+  is claimed here. Fresh Mac package generation and artifact acceptance remain
+  release gates.
+
+## [0.3.6] — Unreleased (superseded candidate)
 
 ### Added
 

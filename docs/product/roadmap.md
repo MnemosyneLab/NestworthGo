@@ -6,14 +6,22 @@ The current application and tests define what exists. This roadmap records the
 order in which user value and operational safety should improve; a roadmap
 entry is not an implementation claim.
 
+## 0.3.7 — Financial context and managed-product MCP
+
+Status: Unreleased candidate, build 8. Adds consistent/frozen MCP financial
+context and comparisons, managed-product/liquidity reads, guarded lifecycle,
+terms and valuation writes, and requested-range snapshot coverage repair.
+Real Codex/MCP/skill and Mac native GUI acceptance remain pending, as do fresh
+Mac release artifacts. See the [release contract](../releases/v0.3.7.md).
+
 ## 0.3.6 — Continuous backup and explicit disaster recovery
 
-Status: Unreleased, build 7. App-running SQLite backup to R2 is off by default.
+Status: Published on 2026-10-03 (build 7). App-running SQLite backup to R2 is off by default.
 Configuration/status are local and separate from the schema-15 business DB.
 Recovery stages and verifies a candidate before explicit installation, retaining
 an original safety copy and startup rollback. Each start/re-enable uses an
 isolated stream. Shared secret inputs expose fixed masks and new input only.
-Live R2 and native Mac acceptance remain pending; see the
+The release's historical scope, validation and closeout record is in the
 [release contract](../releases/v0.3.6.md).
 
 ## 0.3.5 — Household liquidity and agent workflows

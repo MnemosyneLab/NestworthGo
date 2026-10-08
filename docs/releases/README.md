@@ -1,13 +1,19 @@
 # Release Documents
 
-The current unreleased candidate is v0.3.6 / build 7. The release contract
+The current unreleased candidate is v0.3.7 / build 8. The release contract
 below owns its scope, schema compatibility, release evidence, and outstanding
-native/distribution gates.
+native/distribution gates. The latest published release remains v0.3.6.
 
 ## Current release
 
-- [v0.3.6 release contract](v0.3.6.md) — unreleased backup, recovery, retention and fixes.
-- [v0.3.6 release-note draft](v0.3.6-notes.md) — publication text pending final gates.
+- [v0.3.7 release contract](v0.3.7.md) — candidate scope, evidence, and open
+  acceptance/distribution gates.
+- [v0.3.7 release-note draft](v0.3.7-notes.md) — publication text pending
+  final gates.
+
+The previous v0.3.6 candidate has been superseded by v0.3.7. Its preparation
+record remains available for historical context: [v0.3.6 contract](v0.3.6.md)
+and [notes](v0.3.6-notes.md).
 
 ## Published history
 
