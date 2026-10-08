@@ -369,7 +369,7 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 	for _, name := range []string{"list_products", "get_product", "list_product_operations", "get_liquidity_overview"} {
 		payload := map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{strings.Repeat("private", 12000): true}}}
 		status, raw := productHTTP(t, fx.service, payload, "")
-		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "privateprivate") || !strings.Contains(string(raw), "too_large") {
+		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "privateprivate") || !strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "use the GUI to view the complete result") || strings.Contains(string(raw), "account filter") {
 			t.Fatalf("unbounded schema error: %d %d %s", status, len(raw), raw)
 		}
 		payload["id"] = strings.Repeat("private", 100)
@@ -400,7 +400,7 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 		args any
 	}{{"list_products", map[string]any{}}, {"get_liquidity_overview", map[string]any{}}} {
 		status, raw := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": tc.name, "arguments": tc.args}}, "")
-		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "stored-private-note") || !strings.Contains(string(raw), "too_large") {
+		if status != http.StatusOK || len(raw) > contextWireLimit || strings.Contains(string(raw), "stored-private-note") || !strings.Contains(string(raw), "too_large") || !strings.Contains(string(raw), "use the GUI to view the complete result") || strings.Contains(string(raw), "account filter") {
 			t.Fatalf("oversize product was not rejected privately: %d %d", status, len(raw))
 		}
 	}
@@ -419,7 +419,7 @@ func TestProductHTTPBudgetAndBatchGuard(t *testing.T) {
 		}
 	}
 	status, raw := productHTTP(t, fx.service, map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": "get_product", "arguments": map[string]any{"id": productID}}}, "")
-	if status != http.StatusOK || len(raw) > contextWireLimit || !strings.Contains(string(raw), "too_large") || strings.Contains(string(raw), "stored-private-reserve") {
+	if status != http.StatusOK || len(raw) > contextWireLimit || !strings.Contains(string(raw), "too_large") || strings.Contains(string(raw), "stored-private-reserve") || !strings.Contains(string(raw), "use the GUI to view the complete result") || strings.Contains(string(raw), "account filter") {
 		t.Fatalf("oversized detail leaked/truncated reservations: %d %d", status, len(raw))
 	}
 }

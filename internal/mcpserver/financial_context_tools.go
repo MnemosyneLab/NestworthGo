@@ -457,7 +457,7 @@ func financialContextEnvelope(next http.Handler) http.Handler {
 					result := &mcp.CallToolResult{}
 					message := "financial context response exceeds the MCP wire budget"
 					if isProductTool(request.Params.Name) {
-						message = "product response exceeds the MCP wire budget; narrow the account filter or use the GUI"
+						message = "product response exceeds the MCP wire budget; use the GUI to view the complete result"
 					}
 					result.SetError(fail("too_large", message))
 					w.Header().Set("Content-Type", "application/json")
