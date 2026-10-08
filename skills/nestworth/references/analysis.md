@@ -205,3 +205,11 @@ capture and a newly selected target: never attach an old answer to a same-spelle
 alias in the new package, even if the hash matches. Bare aliases cannot reveal
 which package they originally came from. Keep their contextId throughout.
 The same single-request, wire-budget and too_large rules above apply.
+
+An item `too_large` error for a section row plus the required target names the
+section (`positions`, `gaps` or `evidence`). If the initial item overview fails
+this way, request other sections explicitly with the same contextId and ref,
+omitting cursor to start each section. This can recover the other related data;
+report the failed section as unavailable and the item detail as incomplete.
+Lowering limit cannot fix that oversized row. An oversized required target is
+not section-specific and cannot be bypassed by selecting another section.

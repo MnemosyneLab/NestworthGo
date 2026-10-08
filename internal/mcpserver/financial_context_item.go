@@ -215,7 +215,8 @@ func itemPage[T any](c *financialContextCache, in FinancialContextItemInput, ent
 			*output = (*output)[:len(*output)-1]
 			if len(*output) == 0 {
 				if in.Section != "" {
-					return fail("too_large", "item row and required target exceed the MCP wire budget")
+					// section is one of the validated positions/gaps/evidence dispatch values.
+					return fail("too_large", "item "+section+" row and required target exceed the MCP wire budget")
 				}
 				// A crowded initial section may defer, but its standalone first page must fit.
 				trial := in

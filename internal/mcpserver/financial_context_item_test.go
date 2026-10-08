@@ -472,3 +472,44 @@ func TestFinancialContextItemNamedMembershipAndCursors(t *testing.T) {
 		t.Fatal("accepted ambiguous ref")
 	}
 }
+
+func TestFinancialContextItemOversizedSectionDiagnostic(t *testing.T) {
+	for _, oversizedSection := range []string{"positions", "gaps", "evidence"} {
+		t.Run(oversizedSection, func(t *testing.T) {
+			s, g := itemFixture(t)
+			entry := s.contexts.entries["package-a"]
+			oversized := strings.Repeat("9", contextWireLimit)
+			switch oversizedSection {
+			case "positions":
+				entry.result.Content.Positions[1].NativeAmount = &oversized
+			case "gaps":
+				entry.result.Content.Gaps[0].AffectedMetrics = []string{oversized}
+			case "evidence":
+				entry.result.Content.Evidence[0].Value = &oversized
+			}
+			s.contexts.entries["package-a"] = entry
+			for _, section := range []string{"", oversizedSection} {
+				_, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: section, Limit: 1})
+				want := fail("too_large", "item "+oversizedSection+" row and required target exceed the MCP wire budget")
+				if !reflect.DeepEqual(err, want) {
+					t.Fatalf("section %q: got %v, want %v", section, err, want)
+				}
+			}
+			// An overview failure does not prevent reading other sections of this same package.
+			for _, section := range []string{"positions", "gaps", "evidence"} {
+				if section == oversizedSection {
+					continue
+				}
+				r := readItem(t, s, g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: section, Limit: 1})
+				if r.ContentHash != entry.result.ContentHash {
+					t.Fatal("recovery changed package")
+				}
+			}
+		})
+	}
+	s, g := itemFixture(t)
+	_, err := s.financialContextItem(t.Context(), g, FinancialContextItemInput{ContextID: "package-a", Ref: "account-1", Section: "PRIVATE INPUT"})
+	if !reflect.DeepEqual(err, fail("validation", "unknown section")) {
+		t.Fatalf("unvalidated section was echoed: %v", err)
+	}
+}

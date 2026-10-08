@@ -92,6 +92,7 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(examples["financial-context-item-page"]["section"], "${section}")
         self.assertIn("package disclosure: minimal stays free of names/raw IDs", analysis.decode())
         self.assertIn("`get_financial_context_item`", connection.decode())
+        self.assertIn("omitting cursor to start each section", analysis.decode())
         config_match = re.search(r"<!-- example: inspector-http-config -->\s*```json\n(.*?)\n```",
                                  connection.decode(), re.S)
         self.assertIsNotNone(config_match)
