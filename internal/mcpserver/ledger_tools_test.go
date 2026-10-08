@@ -32,8 +32,13 @@ func newLedgerFixture(t *testing.T) ledgerFixture {
 
 func newLedgerFixtureWithClock(t *testing.T, clock func() time.Time) ledgerFixture {
 	t.Helper()
-	ctx := context.Background()
 	app := wailstest.NewService(t)
+	return newLedgerFixtureWithApp(t, app, clock)
+}
+
+func newLedgerFixtureWithApp(t *testing.T, app *application.Service, clock func() time.Time) ledgerFixture {
+	t.Helper()
+	ctx := context.Background()
 	app.SetClock(clock)
 	if err := app.CompleteOnboarding(ctx, application.OnboardingInput{
 		HouseholdName: "MCP ledger", BaseCurrency: "USD", MemberNames: []string{"Alice"},

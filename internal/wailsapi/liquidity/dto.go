@@ -495,3 +495,13 @@ func nextProductAction(value application.ProductDetail) string {
 	}
 	return value.PermittedActions[0]
 }
+
+// FromProductOperationPreview reuses the GUI result contract without a bound mutation.
+func FromProductOperationPreview(value application.ProductOperationPreview) ProductOperationPreviewDTO {
+	return fromPreview(value)
+}
+
+// FromProductOperationReceipt converts immutable business evidence.
+func FromProductOperationReceipt(value application.ProductOperationReceipt) ProductOperationReceiptDTO {
+	return fromReceipt(value)
+}

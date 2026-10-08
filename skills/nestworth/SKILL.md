@@ -92,8 +92,9 @@ Read only the references needed for this request:
 - “解释上个月资产为什么上涨，并列出主要收益贡献。”
 
 Use the App for setup, history starting-point changes, backups/restores and
-managed deposit/locked-product lifecycle, terms and valuation writes. Managed
-contract/history and liquidity reads use [products.md](references/products.md).
+managed deposit/locked-product terms and valuation writes. Managed lifecycle
+facts use their dedicated preview/commit with ledger_write; contract/history
+and liquidity reads use [products.md](references/products.md).
 Ordinary NAV-priced fund/wealth-product holdings use
 the documented instrument/holding path only when they are not App-managed
 products. Do not substitute general trades for a managed product operation.

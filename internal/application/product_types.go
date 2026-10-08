@@ -95,6 +95,8 @@ type UndoProductCommand struct {
 }
 
 type ProductCommand struct {
+	// ReviewedAt is server-owned, accepted only by guarded stored-plan entry points.
+	ReviewedAt      string                        `json:"reviewedAt,omitempty"`
 	Kind            domain.ProductOperationKind   `json:"kind"`
 	Open            *OpenProductCommand           `json:"open,omitempty"`
 	RecordExisting  *RecordExistingProductCommand `json:"recordExisting,omitempty"`

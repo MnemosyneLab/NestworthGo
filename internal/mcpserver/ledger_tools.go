@@ -38,6 +38,7 @@ type CommitChangeInput struct {
 }
 
 func (s *Service) ledgerTools(server *mcp.Server) {
+	s.productOperationTools(server)
 	s.batchTools(server)
 	s.correctionTools(server)
 	s.reconciliationTools(server)

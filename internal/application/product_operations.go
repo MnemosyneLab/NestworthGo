@@ -36,21 +36,34 @@ type productPlan struct {
 }
 
 func (s *Service) PreviewProductOperation(ctx context.Context, command ProductCommand) (ProductOperationPreview, error) {
+	if command.ReviewedAt != "" {
+		return ProductOperationPreview{}, productReviewedTimeError()
+	}
+	return s.previewProductOperation(ctx, command, false)
+}
+
+func (s *Service) previewProductOperation(ctx context.Context, command ProductCommand, guarded bool) (ProductOperationPreview, error) {
 	// Hold the ledger coordinator while collecting the plan and its dependencies.
 	// This read-only operation must not hash newer reservation facts than it shows.
 	if permit := permitFrom(ctx); permit == nil || !permit.ledger {
 		s.changeMu.Lock()
 		defer s.changeMu.Unlock()
 	}
-	normalized, payloadSHA, err := normalizeProductCommand(command)
-	if err != nil {
-		return ProductOperationPreview{}, err
-	}
 	origin, snapshot, err := s.loadChangeContext(ctx)
 	if err != nil {
 		return ProductOperationPreview{}, err
 	}
 	state, err := s.changeStateFrom(origin, snapshot)
+	if err != nil {
+		return ProductOperationPreview{}, err
+	}
+	if guarded {
+		command, err = freezeProductCommand(command, origin, state.Now)
+		if err != nil {
+			return ProductOperationPreview{}, err
+		}
+	}
+	normalized, payloadSHA, err := normalizeProductCommand(command)
 	if err != nil {
 		return ProductOperationPreview{}, err
 	}
@@ -63,6 +76,9 @@ func (s *Service) PreviewProductOperation(ctx context.Context, command ProductCo
 	plan, err := s.buildProductPlan(ctx, origin, snapshot, state, command, domain.NewProductOperationID(), state.Now)
 	if err != nil {
 		return ProductOperationPreview{}, err
+	}
+	if guarded && len(plan.reservationLinks) != 0 {
+		return ProductOperationPreview{}, productReservationGUIError()
 	}
 	reviewed, err := s.reviewedStateHash(ctx, snapshot, command, payloadSHA, localDate, plan)
 	if err != nil {
@@ -99,6 +115,13 @@ func (s *Service) PreviewProductOperation(ctx context.Context, command ProductCo
 }
 
 func (s *Service) RecordProductOperation(ctx context.Context, command ProductCommand, mutationID, reviewedStateHash string) (ProductOperationReceipt, error) {
+	if command.ReviewedAt != "" {
+		return ProductOperationReceipt{}, productReviewedTimeError()
+	}
+	return s.recordProductOperation(ctx, command, mutationID, reviewedStateHash, nil)
+}
+
+func (s *Service) recordProductOperation(ctx context.Context, command ProductCommand, mutationID, reviewedStateHash string, expectedToken *string) (ProductOperationReceipt, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return ProductOperationReceipt{}, err
@@ -131,6 +154,9 @@ func (s *Service) RecordProductOperation(ctx context.Context, command ProductCom
 		receipt.Replayed = true
 		return receipt, nil
 	}
+	if expectedToken != nil && *expectedToken != s.writes.previewToken() {
+		return ProductOperationReceipt{}, &domain.Error{Code: domain.ErrStalePreview, Message: "preview expired or facts changed; request a new preview"}
+	}
 	origin, snapshot, err := s.loadChangeContext(ctx)
 	if err != nil {
 		return ProductOperationReceipt{}, err
@@ -146,6 +172,9 @@ func (s *Service) RecordProductOperation(ctx context.Context, command ProductCom
 	plan, err := s.buildProductPlan(ctx, origin, snapshot, state, command, operationID, state.Now)
 	if err != nil {
 		return ProductOperationReceipt{}, err
+	}
+	if expectedToken != nil && len(plan.reservationLinks) != 0 {
+		return ProductOperationReceipt{}, productReservationGUIError()
 	}
 	currentHash, err := s.reviewedStateHash(ctx, snapshot, command, payloadSHA, localDate, plan)
 	if err != nil {
@@ -213,7 +242,7 @@ func (s *Service) buildProductPlan(ctx context.Context, origin *domain.HistoryOr
 		if command.RecordExisting == nil {
 			return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "recordExisting", Message: "record-existing payload is required"}
 		}
-		return s.planRecordExisting(ctx, origin, snapshot, state, *command.RecordExisting, operationID, now)
+		return s.planRecordExisting(ctx, origin, snapshot, state, *command.RecordExisting, operationID, now, command.ReviewedAt)
 	case domain.ProductOpReceiveInterest:
 		if command.ReceiveInterest == nil {
 			return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "receiveInterest", Message: "interest payload is required"}
@@ -233,7 +262,7 @@ func (s *Service) buildProductPlan(ctx context.Context, origin *domain.HistoryOr
 		if command.Undo == nil {
 			return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "undo", Message: "undo payload is required"}
 		}
-		return s.planUndo(ctx, origin, snapshot, state, *command.Undo, operationID, now)
+		return s.planUndo(ctx, origin, snapshot, state, *command.Undo, operationID, now, command.ReviewedAt)
 	default:
 		return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "kind", Message: "is not a supported product operation"}
 	}
@@ -340,7 +369,7 @@ func (s *Service) planOpen(ctx context.Context, origin *domain.HistoryOrigin, sn
 	return plan, nil
 }
 
-func (s *Service) planRecordExisting(ctx context.Context, origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot, state domain.ChangeState, input RecordExistingProductCommand, operationID domain.ProductOperationID, now time.Time) (productPlan, error) {
+func (s *Service) planRecordExisting(ctx context.Context, origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot, state domain.ChangeState, input RecordExistingProductCommand, operationID domain.ProductOperationID, now time.Time, reviewedAt string) (productPlan, error) {
 	if !input.CashExcludesProduct {
 		return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "cashExcludesProduct", Message: "acknowledge that the cash balance excludes this product"}
 	}
@@ -379,7 +408,7 @@ func (s *Service) planRecordExisting(ctx context.Context, origin *domain.History
 		if parseErr != nil {
 			return productPlan{}, parseErr
 		}
-		if !parsed.Equal(now.UTC()) {
+		if !parsed.Equal(now.UTC()) && (reviewedAt == "" || input.EffectiveAt != reviewedAt) {
 			return productPlan{}, &domain.Error{Code: domain.ErrValidation, Field: "effectiveAt", Message: "recording an existing product uses the recording time; the contract start date is descriptive only"}
 		}
 		effectiveAt = parsed
@@ -685,7 +714,15 @@ func (s *Service) planRenew(ctx context.Context, origin *domain.HistoryOrigin, s
 	return plan, nil
 }
 
-func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot, state domain.ChangeState, input UndoProductCommand, operationID domain.ProductOperationID, now time.Time) (productPlan, error) {
+func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, snapshot domain.PortfolioSnapshot, state domain.ChangeState, input UndoProductCommand, operationID domain.ProductOperationID, now time.Time, reviewedAt string) (productPlan, error) {
+	effectiveAt := now
+	if reviewedAt != "" {
+		var err error
+		effectiveAt, err = parseEffectiveAt(reviewedAt, origin, now)
+		if err != nil {
+			return productPlan{}, err
+		}
+	}
 	targetID, err := domain.ParseProductOperationID(input.OperationID)
 	if err != nil {
 		return productPlan{}, err
@@ -738,7 +775,7 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 				return productPlan{}, err
 			}
 		}
-		inverse, err := domain.InverseChange(working, activity, effects)
+		inverse, err := domain.InverseChangeAt(working, activity, effects, effectiveAt)
 		if err != nil {
 			return productPlan{}, err
 		}
@@ -752,7 +789,7 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 			Purpose: domain.ProductPurposeReversal, ProductID: link.ProductID,
 		})
 	}
-	restored, err := s.contractsAfterUndo(ctx, origin.HouseholdID, stored, operationID, now)
+	restored, err := s.contractsAfterUndo(ctx, origin.HouseholdID, stored, operationID, now, reviewedAt != "")
 	if err != nil {
 		return productPlan{}, err
 	}
@@ -791,11 +828,11 @@ func (s *Service) planUndo(ctx context.Context, origin *domain.HistoryOrigin, sn
 	return productPlan{
 		state: working, previews: previews, contracts: restored, productLinks: productLinks, activityLinks: activityLinks,
 		reservationLinks: reservationLinks, productIDs: uniqueProductIDs(evidence.Products),
-		beforeContracts: currentContracts, afterContracts: restored, effectiveAt: now, reverses: &targetID,
+		beforeContracts: currentContracts, afterContracts: restored, effectiveAt: effectiveAt, reverses: &targetID,
 	}, nil
 }
 
-func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.HouseholdID, stored productReceiptEvidence, operationID domain.ProductOperationID, now time.Time) ([]domain.ProductContract, error) {
+func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.HouseholdID, stored productReceiptEvidence, operationID domain.ProductOperationID, now time.Time, guarded bool) ([]domain.ProductContract, error) {
 	beforeByID := map[domain.ProductContractID]domain.ProductContract{}
 	for _, contract := range stored.BeforeContracts {
 		beforeByID[contract.ID] = contract
@@ -830,7 +867,7 @@ func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.Hou
 		if err != nil {
 			return nil, err
 		}
-		if err := s.rejectActiveReservations(ctx, householdID, current); err != nil {
+		if err := s.rejectActiveReservations(ctx, householdID, current, guarded); err != nil {
 			return nil, err
 		}
 		next := current
@@ -848,7 +885,7 @@ func (s *Service) contractsAfterUndo(ctx context.Context, householdID domain.Hou
 	return restored, nil
 }
 
-func (s *Service) rejectActiveReservations(ctx context.Context, householdID domain.HouseholdID, contract domain.ProductContract) error {
+func (s *Service) rejectActiveReservations(ctx context.Context, householdID domain.HouseholdID, contract domain.ProductContract, guarded bool) error {
 	reservations, err := s.repository.ListLiquidityReservations(ctx, householdID, false)
 	if err != nil {
 		return err
@@ -856,6 +893,9 @@ func (s *Service) rejectActiveReservations(ctx context.Context, householdID doma
 	sourceKey := domain.HoldingSourceRef(contract.AccountID, contract.HoldingID).Key()
 	for _, reservation := range reservations {
 		if reservation.Source.Key() == sourceKey && reservation.Active() {
+			if guarded {
+				return productReservationGUIError()
+			}
 			return &domain.Error{Code: domain.ErrUnsafeUndo, Field: "reservationId", Message: "release active reservations before undoing the opening"}
 		}
 	}

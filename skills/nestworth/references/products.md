@@ -82,21 +82,73 @@ source rows to their bucket totals.
 
 ## Writes and recovery
 
-Product lifecycle, terms and locked-product valuation writes still require the
-App. GUI `permittedActions` and `disabledReasons` describe the GUI, not MCP
-tools or permissions. Explain that boundary before guiding the user to the
-product detail screen. The MCP does not currently offer product preview/commit,
-renewal or reservation creation/edit/release. Do not simulate these with generic
-trades, reconciliation, corrections, cash interest or quote imports. Never
-silently release reservations or construct releaseReservationIds.
+Discover `preview_product_operation` and `commit_product_operation` only with
+ledger_write. GUI permittedActions describe GUI options; tool discovery and
+permission govern MCP. These tools record facts already completed, never bank
+instructions. Open, record_existing, receive_interest, whole-contract settle
+and the latest safe group undo are supported. Renewal, terms/valuation and
+reservation creation/edit/release still require the App. Generic trades,
+corrections, reconciliation or quote imports cannot substitute for a managed
+operation. Never fill releaseReservationIds or silently release/restore reserves.
 
-These four reads do not prepare plans or create execution receipts. Re-query
-after a GUI write, reconnect or restore and inspect actual facts. Do not infer
-success from a maturity date, GUI action label or an old receipt. Follow
-[recovery.md](recovery.md) for other supported MCP writes.
+Use exactly one matching payload. Money is original-currency decimal strings.
+For existing products, original totalCostBasis and currentValue are explicit;
+cashExcludesProduct=true confirms account cash already excludes this product.
+Do not double-count the deposit in cash. Recording time is frozen by the server;
+startOn describes the contract and does not backdate the holding acquisition.
+For open/interest/settle, empty effectiveAt freezes App now; alternatively supply
+an actual RFC3339 instant OR effectiveLocalDate/effectiveLocalTime in the history
+timezone. Undo time is server-frozen. Settle closes the entire contract, even if
+returned principal differs; it never means partial redemption. Forecast locks
+do not prevent recording an actual early receipt. Active reserves or undo that
+would restore reserves return unresolved_reservation_release: use the GUI.
+
+Review the stored normalized command, cash/value/net-worth effects, actual and
+forecast interest, dates and warnings. Submit only the matching planId within
+ten minutes. Draft product/activity IDs are provisional. A changed fact,
+restart or restore makes an uncommitted plan stale. Reuse the same operationId
+and input to recover an interruption. Same plan with a new operationId returns
+the original immutable business receipt without a second financial write.
+Read get_operation for the outer UUID and list_product_operations for business
+operation UUIDs; get_product separately reads current facts. See
+[recovery.md](recovery.md). Repository skill updates do not install a client.
+
+The following synthetic examples use USD, principal 1000 and manual maturity
+interest 50. Replace dates, currency, complete terms/policy and amounts with the
+user's actual contract; do not infer rates, costs, cash confirmation or fees.
 
 Responses are capped at 64 KiB including the MCP envelope; send one JSON-RPC
 object per call. A `too_large` list may be narrowed by account. An oversized
 single product or household overview requires the GUI; do not omit evidence or
 reservations and present an incomplete result as complete. Invalid fields/types
 are rejected without echoing their contents.
+
+<!-- example: product-open -->
+```json
+{"kind":"open","open":{"accountId":"${accountId}","currency":"USD","principal":"1000","openingFee":null,"effectiveAt":"","terms":{"kind":"term_deposit","name":"Synthetic deposit","note":null,"startOn":"2026-09-01","maturityOn":"2026-09-30","interestMode":"manual_maturity_amount","annualRate":null,"annualRatePercent":null,"maturityInterest":"50","interestPaidThroughOn":null},"policy":{"accessibleAmountCap":null,"accessKind":"on_date","unlockOn":"2026-09-30","settlementDays":0,"dayBasis":"calendar","receiptOnOverride":null,"normalExitFee":null,"earlyKind":"not_allowed","earlySettlementDays":null,"earlyDayBasis":null,"earlyFee":null,"earlyAmountMode":null,"earlyGrossAmount":null,"note":null}}}
+```
+
+<!-- example: product-existing -->
+```json
+{"kind":"record_existing","recordExisting":{"accountId":"${accountId}","currency":"USD","principal":"1000","totalCostBasis":"950","currentValue":"1000","cashExcludesProduct":true,"terms":{"kind":"term_deposit","name":"Synthetic deposit","note":null,"startOn":"2026-09-01","maturityOn":"2026-09-30","interestMode":"manual_maturity_amount","annualRate":null,"annualRatePercent":null,"maturityInterest":"50","interestPaidThroughOn":null},"policy":{"accessibleAmountCap":null,"accessKind":"on_date","unlockOn":"2026-09-30","settlementDays":0,"dayBasis":"calendar","receiptOnOverride":null,"normalExitFee":null,"earlyKind":"not_allowed","earlySettlementDays":null,"earlyDayBasis":null,"earlyFee":null,"earlyAmountMode":null,"earlyGrossAmount":null,"note":null}}}
+```
+
+<!-- example: product-interest -->
+```json
+{"kind":"receive_interest","receiveInterest":{"productId":"${productId}","amount":"10","effectiveAt":"","interestPaidThroughOn":null,"remainingInterest":"40"}}
+```
+
+<!-- example: product-settle -->
+```json
+{"kind":"settle","settle":{"productId":"${productId}","returnedPrincipal":"1000","interest":"40","grossProceeds":null,"fee":"2","effectiveAt":""}}
+```
+
+<!-- example: product-undo -->
+```json
+{"kind":"undo","undo":{"operationId":"${productOperationId}"}}
+```
+
+<!-- example: product-commit -->
+```json
+{"operationId":"${operationId}","input":{"planId":"${planId}"}}
+```

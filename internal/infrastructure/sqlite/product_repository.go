@@ -336,15 +336,24 @@ func (r *Repository) CommitProductBundle(ctx context.Context, bundle domain.Prod
 				return err
 			}
 		}
+		if err := failProductCommit("instruments"); err != nil {
+			return err
+		}
 		for _, observation := range bundle.InstrumentObservations {
 			if err := appendInstrumentPreferenceObservationTx(ctx, tx, observation); err != nil {
 				return err
 			}
 		}
+		if err := failProductCommit("observations"); err != nil {
+			return err
+		}
 		for _, holding := range bundle.Holdings {
 			if err := insertHolding(ctx, tx, holding); err != nil {
 				return err
 			}
+		}
+		if err := failProductCommit("holdings"); err != nil {
+			return err
 		}
 		for _, quote := range bundle.Quotes {
 			if err := appendInstrumentQuoteTx(ctx, tx, quote); err != nil {
@@ -353,6 +362,9 @@ func (r *Repository) CommitProductBundle(ctx context.Context, bundle domain.Prod
 			if err := markQuoteHistoryDirtyTx(ctx, tx, quote.InstrumentID, quote.QuotedAt, quote.CreatedAt); err != nil {
 				return err
 			}
+		}
+		if err := failProductCommit("quotes"); err != nil {
+			return err
 		}
 		for index, commit := range bundle.Activities {
 			if err := commitActivityTx(ctx, tx, commit, bundle.AsOf); err != nil {
@@ -375,10 +387,16 @@ func (r *Repository) CommitProductBundle(ctx context.Context, bundle domain.Prod
 				return err
 			}
 		}
+		if err := failProductCommit("contracts"); err != nil {
+			return err
+		}
 		for _, policy := range bundle.Policies {
 			if err := upsertLiquidityPolicyTx(ctx, tx, policy); err != nil {
 				return err
 			}
+		}
+		if err := failProductCommit("policies"); err != nil {
+			return err
 		}
 		for _, link := range bundle.ProductLinks {
 			if _, err := tx.ExecContext(ctx, `INSERT INTO product_operation_products(operation_id, product_id, role) VALUES(?, ?, ?)`, link.OperationID.String(), link.ProductID.String(), string(link.Role)); err != nil {
@@ -389,6 +407,9 @@ func (r *Repository) CommitProductBundle(ctx context.Context, bundle domain.Prod
 			if _, err := tx.ExecContext(ctx, `INSERT INTO product_operation_activities(operation_id, activity_id, sequence, purpose, product_id) VALUES(?, ?, ?, ?, ?)`, link.OperationID.String(), link.ActivityID.String(), link.Sequence, string(link.Purpose), link.ProductID.String()); err != nil {
 				return err
 			}
+		}
+		if err := failProductCommit("links"); err != nil {
+			return err
 		}
 		for _, link := range bundle.ReservationLinks {
 			if _, err := tx.ExecContext(ctx, `INSERT INTO product_operation_reservations(operation_id, reservation_id, previous_released_at, resulting_released_at, resulting_revision) VALUES(?, ?, ?, ?, ?)`, link.OperationID.String(), link.ReservationID.String(), nullableTime(link.PreviousReleasedAt), nullableTime(link.ResultingReleasedAt), link.ResultingRevision); err != nil {
