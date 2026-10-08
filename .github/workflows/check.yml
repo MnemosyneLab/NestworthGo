@@ -73,6 +73,9 @@ jobs:
   # stay sequential inside whichever part contains them: three write
   # process-global product fault injection, and TestAnalysisPerformanceBudgets
   # asserts uncontended wall-clock budgets. Packages in a shard stay at -p 1.
+  # Split packages are listed with `go test -race -list` (same race build as
+  # the run). Test, Example, and Fuzz names are partitioned. A failed list
+  # exits the shard; it is not swallowed by process substitution.
   race-shard:
     name: race (${{ matrix.label }})
     runs-on: ubuntu-latest
@@ -147,28 +150,21 @@ jobs:
             exit 1
           fi
           if [ "$parts" != "1" ]; then
-            mapfile -t names < <(go test -list . "${pkgs[0]}" | grep '^Test')
-            selected=()
-            for name in "${names[@]}"; do
-              sum=$(printf '%s' "$name" | cksum | awk '{print $1}')
-              if [ $((sum % parts)) -eq "$part" ]; then
-                selected+=("$name")
-              fi
-            done
-            if [ "${#names[@]}" -eq 0 ] || [ "${#selected[@]}" -eq 0 ]; then
-              echo "race shard $shard part $part selected no tests" >&2
+            if [ "${#pkgs[@]}" -ne 1 ]; then
+              echo "split race shard must list exactly one package" >&2
               exit 1
             fi
-            regex='^('
-            for i in "${!selected[@]}"; do
-              if [ "$i" -gt 0 ]; then
-                regex+='|'
-              fi
-              regex+="${selected[$i]}"
-            done
-            regex+=')$'
+            # stdout is only the -run regex. A non-zero selector status
+            # (list failure, empty runnable set, or empty part) fails the shard.
+            if ! regex=$(bash tools/race-shard-select.sh "$part" "$parts" "${pkgs[0]}"); then
+              echo "race shard $shard part $part selector failed" >&2
+              exit 1
+            fi
+            if [ -z "$regex" ]; then
+              echo "race shard $shard part $part selector returned an empty regex" >&2
+              exit 1
+            fi
             run_args=(-run "$regex")
-            echo "shard $shard part $((part + 1))/$parts runs ${#selected[@]} of ${#names[@]} tests"
           fi
           printf 'shard %s packages:\n' "$shard"
           printf '  %s\n' "${pkgs[@]}"
