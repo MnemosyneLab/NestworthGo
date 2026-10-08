@@ -188,9 +188,6 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	if originDate >= window.todayKey {
 		return window, nil
 	}
-	if err := s.ensureClosedDaySnapshots(ctx, originDate, today.AddDate(0, 0, -1).Format("2006-01-02")); err != nil {
-		return nil, err
-	}
 	since, err := trendSince(trendRange, today, origin.StartedAt.In(location))
 	if err != nil {
 		return nil, err
@@ -200,19 +197,25 @@ func (s *Service) closedTrendWindow(ctx context.Context, trendRange domain.Trend
 	if since.Before(originMidnight) {
 		since = originMidnight
 	}
-	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, since, time.Time{})
+	first := since.In(location)
+	first = time.Date(first.Year(), first.Month(), first.Day(), 0, 0, 0, 0, location)
+	last := today.AddDate(0, 0, -1)
+	if custom && customTo < last.Format("2006-01-02") {
+		last, _ = time.ParseInLocation("2006-01-02", customTo, location)
+	}
+	if err := s.ensureClosedDaySnapshots(ctx, first.Format("2006-01-02"), last.Format("2006-01-02")); err != nil {
+		return nil, err
+	}
+	// The repository filters local-date labels, independently of UTC offsets.
+	sinceDate, _ := time.Parse("2006-01-02", first.Format("2006-01-02"))
+	untilDate, _ := time.Parse("2006-01-02", last.Format("2006-01-02"))
+	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, bootstrap.Household.ID, sinceDate, untilDate)
 	if err != nil {
 		return nil, err
 	}
 	byDate := make(map[string]domain.DailyValuationSnapshot, len(snapshots))
 	for _, snapshot := range snapshots {
 		byDate[snapshot.LocalDate] = snapshot
-	}
-	first := since.In(location)
-	first = time.Date(first.Year(), first.Month(), first.Day(), 0, 0, 0, 0, location)
-	last := today.AddDate(0, 0, -1)
-	if custom && customTo < last.Format("2006-01-02") {
-		last, _ = time.ParseInLocation("2006-01-02", customTo, location)
 	}
 	for cursor := first; !cursor.After(last); cursor = cursor.AddDate(0, 0, 1) {
 		key := cursor.Format("2006-01-02")
@@ -316,115 +319,17 @@ func portfolioPointFromSnapshot(snapshot domain.DailyValuationSnapshot, currency
 	}, true, nil
 }
 
-func closedDayRebuildFrom(originDate, yesterday string, state domain.DailySnapshotState) (string, bool, error) {
-	if originDate == "" || yesterday == "" || originDate > yesterday {
-		return "", true, nil
-	}
-	rebuildFrom := originDate
-	dirty := ""
-	if state.DirtyFrom != nil {
-		dirty = *state.DirtyFrom
-	}
-	lastCompleted := ""
-	if state.LastCompletedClosedOn != nil {
-		lastCompleted = *state.LastCompletedClosedOn
-	}
-	// A dirty marker alone does not prove that the days before the requested
-	// rebuild start were ever materialized. On a first analysis after
-	// StartHistory, preserve that start so the requested range has its required
-	// predecessor snapshot. Once a completion watermark exists, the dirty marker
-	// can safely narrow the rebuild.
-	if dirty != "" && lastCompleted != "" && dirty > rebuildFrom {
-		rebuildFrom = dirty
-	}
-	if lastCompleted != "" && lastCompleted >= yesterday && dirty == "" {
-		return "", true, nil
-	}
-	if dirty == "" && lastCompleted != "" {
-		next, err := nextClosedDay(lastCompleted)
-		if err != nil {
-			return "", false, err
-		}
-		if next > rebuildFrom {
-			rebuildFrom = next
-		}
-	}
-	if rebuildFrom > yesterday {
-		return "", true, nil
-	}
-	return rebuildFrom, false, nil
-}
-
-func nextClosedDay(localDate string) (string, error) {
-	parsed, err := time.Parse("2006-01-02", localDate)
-	if err != nil {
-		return "", err
-	}
-	return parsed.AddDate(0, 0, 1).Format("2006-01-02"), nil
-}
-
-func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, yesterday string) error {
-	if startDate == "" || yesterday == "" || startDate > yesterday {
+// ensureClosedDaySnapshots retains the caller's inclusive local-date contract.
+// Analysis supplies its predecessor (or origin); trends supply their chart window.
+func (s *Service) ensureClosedDaySnapshots(ctx context.Context, startDate, endDate string) error {
+	if startDate == "" || endDate == "" || startDate > endDate {
 		return nil
-	}
-	household, err := s.requireHousehold(ctx)
-	if err != nil {
-		return err
-	}
-	state, err := s.repository.DailySnapshotState(ctx, household.ID)
-	if err != nil {
-		return err
-	}
-	snapshots, err := s.repository.ListDailyValuationSnapshots(ctx, household.ID, time.Time{}, time.Time{})
-	if err != nil {
-		return err
-	}
-	for _, snapshot := range snapshots {
-		if snapshotHashNeedsRebuild(snapshot.ContentHash) {
-			origin, originErr := s.HistoryOrigin(ctx)
-			if originErr != nil {
-				return originErr
-			}
-			location, locationErr := time.LoadLocation(origin.Timezone)
-			if locationErr != nil {
-				return locationErr
-			}
-			originCopy := origin.StartedAt.In(location).Format("2006-01-02")
-			startDate = originCopy
-			yesterday = s.clock().In(location).AddDate(0, 0, -1).Format("2006-01-02")
-			state.DirtyFrom = &originCopy
-			break
-		}
-	}
-	rebuildFrom, skip, err := closedDayRebuildFrom(startDate, yesterday, state)
-	if err != nil {
-		return err
-	}
-	if skip {
-		return nil
-	}
-	start, err := time.Parse("2006-01-02", rebuildFrom)
-	if err != nil {
-		return err
-	}
-	end, err := time.Parse("2006-01-02", yesterday)
-	if err != nil {
-		return err
-	}
-	for cursor := start; !cursor.After(end); {
-		chunkEnd := cursor.AddDate(0, 0, 30)
-		if chunkEnd.After(end) {
-			chunkEnd = end
-		}
-		if _, err := s.RebuildHistoricalSnapshots(ctx, cursor.Format("2006-01-02"), chunkEnd.Format("2006-01-02")); err != nil {
-			return err
-		}
-		cursor = chunkEnd.AddDate(0, 0, 1)
 	}
 	return s.WithWrite(ctx, func(ctx context.Context) error {
-		if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok {
-			return generationRepo.CompleteDailySnapshotRangeAtGeneration(ctx, household.ID, yesterday, s.clock(), state.InputGeneration)
+		household, err := s.requireHousehold(ctx)
+		if err != nil {
+			return err
 		}
-		return s.repository.CompleteDailySnapshotRange(ctx, household.ID, yesterday, s.clock())
+		return s.ensureSnapshotCoverage(ctx, household.ID, startDate, endDate)
 	})
 }

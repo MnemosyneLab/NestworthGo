@@ -1,0 +1,91 @@
+# Legacy analysis snapshot coverage — synthetic verification
+
+Base: `c4c157171ebbf47f09f9d4e20d0970caf11b4261` (PR #40), 2026-10-08.
+All ledgers are disposable SQLite fixtures. No live ledger, provider, R2, or
+publication/deployment was used.
+
+## Reproduction before the fix
+
+Start history on Aug 1, UTC, with complete synthetic cash facts, no snapshots,
+`dirty_from=NULL`, and no completion watermark. Advance the clock to Aug 12.
+Run a late request, followed by Aug 1–2 legacy analysis or a custom trend.
+
+| First request | Rows after first request | Subsequent Aug 1–2 analysis | Net worth / portfolio trend |
+| --- | --- | --- | --- |
+| Attribution Aug 10→11 | Aug 10, 11 | `unavailable`, both daily returns null | Both dates `missing`, null amounts; net worth `missing_boundary` |
+| Legacy analysis Aug 10–11 | Aug 9, 10, 11 | `unavailable`, both daily returns null | Same missing dates and null amounts |
+
+All six combinations failed to materialize Aug 1 and 2. Watermark Aug 11
+incorrectly caused the old helper to skip the earlier request. A later dirty
+marker could also skip absent dates before it. The old hash migration expanded
+any stale row into a full origin→yesterday rebuild.
+
+## Change and contracts
+
+Use PR #40's actual-row/dirty-range coverage planner for both old analysis and
+trends. Retain the analysis caller's inclusive period and predecessor (or origin
+opening); trends maintain only their displayed closed dates. Rebuild contiguous
+missing, dirty, old-hash, or old-resolver-policy days in at most 31-day chunks.
+Unrequested stale rows do not expand the request. Existing per-day saves keep
+the watermark monotonic and advance only a matching dirty prefix. Range
+completion is permitted only when the requested range covered that prefix.
+
+The old helper now holds the existing serial, reentrant write permit throughout
+planning/build/completion. Batch/save generation guards remain in use; a final
+state-generation check also rejects a revision during a clean/no-op coverage
+read or between batches. A concurrent client can cause `conflict` rather than
+silently acknowledge stale coverage; the remaining dirty range is resumable.
+No valuation, rounding, replay, schema, or public API contract changed.
+
+## Regression evidence
+
+`legacy_snapshot_coverage_test.go` covers both orders for late attribution/old
+analysis followed by old analysis/net worth trend/portfolio trend; exact sparse
+date sets; repeats with zero extra builder saves (including equal-hash saves);
+partly present intervals and interior holes; in-window old hash/policy and an
+out-of-window old hash; bounded dirty prefix/tail and an unbounded quote-repair
+tail; manual quote correction and effective-dated source preference revisions;
+41 days in two chunks; external source mutation after coverage read, after batch
+read, and between chunks, followed by successful resume.
+
+Financial controls use 100 CNY cash plus ten synthetic fund units with daily
+prices 5, 6, …: Aug 1–2 investment return and closed-date trend/attribution change
+are 10 CNY. Correcting Aug 2 to 7 produces 20 CNY across all three paths and
+retains attribution's precision identities. Aug 10–11 legacy analysis includes
+the predecessor and returns 20 CNY; endpoint trend/attribution change is 10 CNY.
+These are their existing, distinct period contracts.
+
+Havana Nov 1's repeated left midnight remains supported for history-origin-day
+legacy analysis and trends (their next midnights resolve). Attribution retains
+`historical_boundary_unsupported`; its stricter preflight was not copied into
+the legacy entry points. Existing 31-day, historical, analysis, and attribution
+suites remain part of the verification.
+
+## Performance
+
+`legacy_snapshot_coverage_benchmark_test.go` measures a cash-only, 62-closed-day
+ledger and the Aug 1–2 net worth trend. Before/after runs used Go 1.26.0, Linux
+amd64, GOMAXPROCS=5, the same machine, no competing test run, `-benchtime=20x
+-count=3`; medians of three samples are shown. Setup is excluded from timing.
+Warm samples first materialize all history; cold samples start with no rows.
+
+| Case | Base ns/op | Fixed ns/op | Base B/op | Fixed B/op | Base allocations | Fixed allocations |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Warm bounded trend | 2,970,243 | 742,661 | 739,307 | 58,008 | 25,618 | 1,661 |
+| Cold bounded trend | 26,624,496 | 4,729,484 | 1,702,263 | 165,617 | 51,148 | 4,215 |
+
+Warm time fell about 75%; cold time about 82%. Cold reconstruction narrows from
+62 days to 2. This is a synthetic coverage benchmark, not a production latency
+claim. Large ledgers, all-time trend latency, native UI latency, live providers,
+and R2 were not measured. The shared planner adds one state read to attribution
+for the final generation check; attribution latency was not separately measured.
+
+## Validation scope
+
+Local focused regression tests, the application suite, formatting/diff checks,
+user-skill validation, and 20 installer tests pass. Full default local tests hit
+missing GTK/WebKit/libsoup dependencies in `cmd/nestworth`; native CI installs
+those dependencies. Local all-package headless tests/vet and internal-package
+race tests are run serially, with all existing performance-budget tests enabled.
+Final native CI and exact commit are reported on the draft PR and in the handoff,
+without changing CI, skipping tests, or relaxing thresholds.
