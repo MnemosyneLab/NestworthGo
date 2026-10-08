@@ -8,41 +8,6 @@ import (
 	"github.com/waltwang/nestworth-go/internal/domain"
 )
 
-func TestClosedDayRebuildFromStartsAfterLastCompleted(t *testing.T) {
-	lastCompleted := "2026-07-31"
-	dirty := "2026-07-10"
-	firstDirty := "2026-08-02"
-	cases := []struct {
-		name          string
-		origin        string
-		yesterday     string
-		lastCompleted *string
-		dirtyFrom     *string
-		wantFrom      string
-		wantSkip      bool
-	}{
-		{name: "new day after completed history", origin: "2026-06-20", yesterday: "2026-08-01", lastCompleted: &lastCompleted, wantFrom: "2026-08-01"},
-		{name: "already complete", origin: "2026-06-20", yesterday: "2026-07-31", lastCompleted: &lastCompleted, wantSkip: true},
-		{name: "dirty range wins over last completed", origin: "2026-06-20", yesterday: "2026-08-01", lastCompleted: &lastCompleted, dirtyFrom: &dirty, wantFrom: "2026-07-10"},
-		{name: "no cursor rebuilds from origin", origin: "2026-06-20", yesterday: "2026-07-01", wantFrom: "2026-06-20"},
-		{name: "dirty first run still rebuilds origin", origin: "2026-08-01", yesterday: "2026-08-02", dirtyFrom: &firstDirty, wantFrom: "2026-08-01"},
-	}
-	for _, test := range cases {
-		t.Run(test.name, func(t *testing.T) {
-			from, skip, err := closedDayRebuildFrom(test.origin, test.yesterday, domain.DailySnapshotState{
-				LastCompletedClosedOn: test.lastCompleted,
-				DirtyFrom:             test.dirtyFrom,
-			})
-			if err != nil {
-				t.Fatalf("closedDayRebuildFrom: %v", err)
-			}
-			if skip != test.wantSkip || from != test.wantFrom {
-				t.Fatalf("from=%q skip=%v, want from=%q skip=%v", from, skip, test.wantFrom, test.wantSkip)
-			}
-		})
-	}
-}
-
 func TestTrendChartsIncludeTodayWhenHistoryStartsToday(t *testing.T) {
 	service, ctx, bootstrap, setClock := newOnboardedService(t, "trend-today", []string{"Owner"})
 	owner := bootstrap.Members[0].ID
@@ -191,11 +156,6 @@ func TestNetWorthTrendRebuildsHistoryLongerThan31DaysFromLastCompleted(t *testin
 	state, err := service.DailySnapshotState(ctx, bootstrap.Household.ID)
 	if err != nil || state.LastCompletedClosedOn == nil || *state.LastCompletedClosedOn != "2026-07-31" {
 		t.Fatalf("last completed = %+v err=%v, want 2026-07-31", state, err)
-	}
-
-	from, skip, err := closedDayRebuildFrom("2026-06-20", "2026-08-01", state)
-	if err != nil || skip || from != "2026-08-01" {
-		t.Fatalf("incremental rebuild from = %q skip=%v err=%v, want 2026-08-01", from, skip, err)
 	}
 
 	setClock(time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC))

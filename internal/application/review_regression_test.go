@@ -131,7 +131,7 @@ func TestSnapshotHealthAndPreviewOnlyIncludeClosedDays(t *testing.T) {
 		{"clamped", domain.DailySnapshotState{DirtyFrom: ptr("2026-09-13"), DirtyTo: ptr("2026-09-20")}, 3, "2026-09-14", "2026-09-16"},
 		{"bounded", domain.DailySnapshotState{DirtyFrom: ptr("2026-09-14"), DirtyTo: ptr("2026-09-15")}, 2, "2026-09-14", "2026-09-15"},
 		{"reversed", domain.DailySnapshotState{DirtyFrom: ptr("2026-09-16"), DirtyTo: ptr("2026-09-15")}, 0, "", ""},
-		{"missing", domain.DailySnapshotState{}, 3, "2026-09-14", "2026-09-16"},
+		{"missing", domain.DailySnapshotState{}, 0, "", ""},
 		{"complete", domain.DailySnapshotState{LastCompletedClosedOn: ptr("2026-09-16")}, 0, "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

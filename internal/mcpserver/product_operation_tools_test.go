@@ -511,3 +511,76 @@ func TestProductHTTPLocalLifecycleTimesRemainFrozen(t *testing.T) {
 	}
 	productAssertNetWorth(t, c, "1550")
 }
+
+func TestProductHTTPLifecycleWithLegacySnapshotCoordination(t *testing.T) {
+	fx := newLedgerFixture(t)
+	c := ledgerSession(t, fx)
+	seed := productPlanHTTP(t, c, productExistingInput(fx.brokerage))
+	opened := productCommitHTTP(t, c, seed["planId"].(string), uuid.NewString())
+	id := opened["productIds"].([]any)[0].(string)
+	input := ProductOperationInput{Kind: "receive_interest", ReceiveInterest: &application.ReceiveInterestCommand{ProductID: id, Amount: "10", RemainingInterest: productString("40")}}
+	beforeRepair := productPlanHTTP(t, c, input)
+	if _, err := fx.app.NetWorthTrend(t.Context(), domain.TrendRange("2026-09-27:2026-09-28")); err != nil {
+		t.Fatal(err)
+	}
+	if code := productCommitCode(t, c, beforeRepair["planId"].(string)); code != "stale_preview" {
+		t.Fatal("actual snapshot repair retained a managed lifecycle preview:", code)
+	}
+	if batchCash(t, c, fx.brokerage) != "0" || ledgerActivityCount(t, fx.app) != 1 {
+		t.Fatal("stale plan posted interest")
+	}
+	warm := productPlanHTTP(t, c, input)
+	current, err := fx.app.Product(t.Context(), domain.ProductContractID(id))
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeState, err := fx.app.DailySnapshotState(t.Context(), current.Contract.HouseholdID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fx.app.NetWorthTrend(t.Context(), domain.TrendRange("2026-09-27:2026-09-28")); err != nil {
+		t.Fatal(err)
+	}
+	call(t, c, "list_products", map[string]any{}, false)
+	call(t, c, "get_product", map[string]any{"id": id}, false)
+	call(t, c, "list_product_operations", map[string]any{"productId": id}, false)
+	call(t, c, "get_liquidity_overview", map[string]any{}, false)
+	afterState, err := fx.app.DailySnapshotState(t.Context(), current.Contract.HouseholdID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	productJSONEqual(t, afterState, beforeState)
+	// The financial time remains frozen even though actual recording is later.
+	fx.app.SetClock(func() time.Time { return time.Date(2026, 9, 29, 12, 1, 0, 0, time.UTC) })
+	receipt := productCommitHTTP(t, c, warm["planId"].(string), uuid.NewString())
+	frozen, err := time.Parse(time.RFC3339Nano, warm["preview"].(map[string]any)["effectiveAt"].(string))
+	if err != nil {
+		t.Fatal(err)
+	}
+	history, err := fx.app.ListProductOperations(t.Context(), domain.ProductContractID(id), "", 25)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, op := range history.Operations {
+		if op.ID.String() == receipt["operationId"] {
+			found = true
+			if !op.EffectiveAt.Equal(frozen) {
+				t.Fatal("warm reads moved the reviewed financial time:", op.EffectiveAt)
+			}
+		}
+	}
+	if !found || receipt["createdAt"] != "2026-09-29T12:01:00.000Z" || batchCash(t, c, fx.brokerage) != "10" || ledgerActivityCount(t, fx.app) != 2 {
+		t.Fatal("warm reads changed lifecycle recording semantics:", receipt)
+	}
+	productAssertNetWorth(t, c, "1010")
+	// Later actual maintenance invalidates uncommitted plans, but does not
+	// destroy an already-recorded business receipt or repost its cash effect.
+	if _, err := fx.app.NetWorthTrend(t.Context(), domain.TrendRange("2026-09-25:2026-09-26")); err != nil {
+		t.Fatal(err)
+	}
+	replay := productCommitHTTP(t, c, warm["planId"].(string), uuid.NewString())
+	if replay["operationId"] != receipt["operationId"] || replay["createdAt"] != receipt["createdAt"] || replay["replayed"] != true || batchCash(t, c, fx.brokerage) != "10" || ledgerActivityCount(t, fx.app) != 2 {
+		t.Fatal("maintenance lost or duplicated the business receipt:", replay)
+	}
+}
