@@ -336,6 +336,11 @@ accounts return `unavailable` / `unsupported_account_set`; do not aggregate
 account return rates. A current right endpoint returns
 `unavailable` / `right_endpoint_not_closed`, with no fabricated period return.
 Named disclosure follows the explicit identity-disclosure rule above.
+The server fills actual missing days of A..B even if an existing completion
+watermark is later; requesting a later range first must not strand early days.
+Midnight preflight includes A itself and every day through B+1. Unsupported
+ambiguous/nonexistent boundaries return historical_boundary_unsupported before
+snapshot maintenance.
 
 Check `content.attribution.status` before an explanation:
 
@@ -362,9 +367,36 @@ Check `content.attribution.status` before an explanation:
   or eligible analysis universe. Keep partial measured
   values labeled partial and nullable values unknown.
 
-`beginningValue` and `endingValue` are analysis boundaries in the same base
-currency. `explainedDelta` sums the existing net-worth driver projection except
-residual. `explainedDelta + residual` reconciles `change.netWorth` when available.
+`beginningValue` and `endingValue` are the existing analysis engine's base-money
+projection: half-even round each signed component boundary to four places on
+each day, then sum. Comparison values retain exact decimals. Never round the
+whole household instead of its components. Exact component/day driver buckets
+are aggregated by period driver, then the existing deterministic four-place
+waterfall projection is reused. `explainedDelta` sums those projected drivers
+except residual. Read `precision.amountScale`, `rounding`, `boundaryBasis` and
+`driverBasis`; preserve all signed adjustments, including values beyond four
+places. For compatible measured values:
+
+```text
+analysisDelta = endingValue - beginningValue
+analysisDelta = explainedDelta + residual + precision.driverAdjustment
+change.netWorth = analysisDelta + precision.boundaryAdjustment
+precisionAdjustment = precision.boundaryAdjustment + precision.driverAdjustment
+change.netWorth = explainedDelta + residual + precisionAdjustment
+```
+
+The server strictly checks exact scoped boundaries, projected component
+boundaries, and each day's exact buckets before declaring an adjustment to be
+precision. Real exact gaps still stop as driver_reconciliation_mismatch, even
+if small or cancelling across days; no epsilon is used. `precisionAdjustment`
+is the difference between the proven exact change and existing projected
+drivers/residual. Its boundary and driver parts may oppose. It is **neither
+profit nor unknown residual** and must not be added to investmentReturn. For
+USD 1 with FX 7.123456 -> 7.234567: exact change 0.111111 = projected drivers
+0.1111 + residual 0 + precision adjustment 0.000011. An unchanged six-place
+valuation can have rounded boundaries but zero delta/adjustment. Missing or
+incompatible reconciliation fields remain null; never invent zero adjustments.
+
 Residual is unexplained change, never assumed market profit. Opposing residuals
 can cancel; keep `residualIssueCount`. `investmentReturn` is the independent
 investment universe, with cash excluded in this version. Preserve its `amount`,

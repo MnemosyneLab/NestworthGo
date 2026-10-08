@@ -392,7 +392,8 @@ Two closed local dates A < B normalize to inclusive A+1 through B, using civil
 label arithmetic, not 24-hour durations. A's close is exclusive, B's close is
 inclusive. Existing civil-close resolution supplies comparison boundaries.
 Normal DST yields 23/25-hour intervals. The current analysis/materialization
-engine still requires unambiguous local midnights: unsupported historical
+engine still requires unambiguous local midnights, including A itself for its
+predecessor snapshot. Preflight checks A through B+1: unsupported historical
 transitions produce historical_boundary_unsupported without materialization.
 Same-day/reversed ranges are validation errors. Current B gives unavailable
 with right_endpoint_not_closed and no period/returns. Dates before History
@@ -417,24 +418,81 @@ analysis universe on every day. Private observation IDs only contribute to a
 scoped deterministic basisHash; raw IDs/names/notes do not enter the minimal link.
 Full input admission and maintenance can still be household-wide, as existing
 historical replay and derived snapshots require complete transfer dependencies.
+The existing dirty-range/source-generation maintenance runs first. Actual daily
+coverage of A..B is then checked independently of LastCompletedClosedOn; any
+missing contiguous ranges are backfilled through the existing generation-aware
+builder in at most 31-day chunks. A later watermark does not prove that earlier
+days exist. Existing days are not needlessly revised, and backfilling does not
+clear unrelated pending dirty dates or lower the watermark. Capture follows
+all maintenance/backfill inside the original coordinator.
 
 The same verified immutable inputs feed ComputeAnalysis, foldAssetChange and
 projectReturnTrend, without a pre-maintenance memo. The link includes scope,
 normalized period, basis, compatible/incompatible/unavailable status,
 mismatchReasons, asset availability/status/missingReason/residualIssueCount,
-beginning/ending values, explainedDelta excluding residual, residual, bounded
+beginning/ending values, analysisDelta, explainedDelta excluding residual,
+residual, precisionAdjustment and precision metadata, bounded
 existing waterfall drivers and investment return summary/sources. Return cash
 inclusion is false; the engine's linked rate is preserved, never summed from
 account rates. Nullable return amounts/rates and ratedDays/totalDays survive.
 Known amounts use complete/partial status; nil amounts are incomplete.
 
+### Exact comparison and analysis monetary precision
+
+Comparison summaries and change.netWorth keep their existing exact decimal
+valuation contract. The analysis engine has a different public monetary view:
+signed component boundaries are half-even rounded to four decimal places on
+each day, then summed for the period's beginning/ending values. Do not round
+the household total instead: component ties, including liabilities, can differ.
+analysisDelta is endingValue minus beginningValue in that analysis view.
+
+The existing engine retains AssetBucketExact per component/day. Its existing
+fold aggregates those exact values by period driver, rounds drivers half-even
+to four places, and applies its existing deterministic waterfall reconciliation
+only when the exact bucket total rounded to four places equals the analysis
+summary change. That projection is reused unchanged; return amounts and linked
+rates also remain the existing independent return projection.
+
+Before any precision adjustment is published, the bridge strictly verifies
+exact scoped snapshot boundaries against the exact comparison; projected
+component boundaries against the analysis; and **each day's exact driver plus
+residual buckets against that day's exact scoped valuation change**. No epsilon
+or residual tolerance is used for these link checks. A real or unclassified
+exact gap, even one suppressed by the engine's residual tolerance, remains
+driver_reconciliation_mismatch. Opposing daily gaps cannot cancel into a valid
+precision proof. No analysis engine or financial classification is rewritten.
+
+For compatible measured values, the signed identities are:
+
+```text
+analysisDelta = endingValue - beginningValue
+analysisDelta = explainedDelta + residual + precision.driverAdjustment
+change.netWorth = analysisDelta + precision.boundaryAdjustment
+precisionAdjustment = precision.boundaryAdjustment + precision.driverAdjustment
+change.netWorth = explainedDelta + residual + precisionAdjustment
+```
+
+precision.boundaryAdjustment is exact valuation delta minus the analysis
+boundary delta; precision.driverAdjustment is that analysis delta minus the
+existing projected waterfall total. The two can oppose even when their sum is
+zero. precisionAdjustment is the signed difference between the proven exact
+bucket delta and its existing driver projection. These adjustment fields keep
+exact decimals, and can exceed the four-place amountScale that applies to
+analysis boundaries/drivers. They are monetary precision differences, neither
+investment profit nor unknown residual, and never change return amounts/rates.
+For example USD 1 with FX 7.123456 -> 7.234567 has exact change 0.111111,
+analysisDelta/explainedDelta 0.1111, residual 0 and precisionAdjustment 0.000011.
+The same FX at both endpoints has zero change/adjustment while each analysis
+boundary is 7.1235. Missing or incompatible evidence leaves all reconciliation
+and adjustment fields null; it never guesses a zero adjustment.
+
 Compatibility means proof of a shared calculation basis, not complete causal
 classification or profit. A residual can make assetStatus partial while the
-basis remains compatible. Once evidence is proved, endpoint equality and
-explainedDelta + residual == change.netWorth are additional guards. Missing
+basis remains compatible. Once evidence is proved, the exact and projected
+endpoint checks and precision identities above are additional guards. Missing
 intermediate valuation/snapshot boundaries, absent single-account endpoints or
 an empty eligible analysis universe return unavailable, retaining measured partial
-projections while explainedDelta/residual remain null. Income/contributions,
+projections while explainedDelta/residual/analysisDelta/adjustments remain null. Income/contributions,
 internal transfers, debt principal and adjustments must not be called investment
 profit. Price/FX/dividend/fee sources come from existing attribution calculations.
 

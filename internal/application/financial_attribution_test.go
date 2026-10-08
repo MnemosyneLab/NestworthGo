@@ -142,7 +142,7 @@ func TestFinancialAttributionMissingFXInclusionAndUnsupported(t *testing.T) {
 	*now = now.AddDate(0, 0, 2)
 	missing := attributionFor(t, s, "2026-08-01", "2026-08-02", a.Account.ID)
 	wantAttributionStatus(t, missing, "unavailable", "missing_valuation_evidence")
-	if missing.Content.Change.NetWorth.Value != nil || missing.Content.Attribution.ExplainedDelta.Value != nil || missing.Content.Attribution.Residual.Value != nil {
+	if missing.Content.Change.NetWorth.Value != nil || missing.Content.Attribution.ExplainedDelta.Value != nil || missing.Content.Attribution.Residual.Value != nil || missing.Content.Attribution.AnalysisDelta.Value != nil || missing.Content.Attribution.PrecisionAdjustment.Value != nil || missing.Content.Attribution.Precision.BoundaryAdjustment.Value != nil || missing.Content.Attribution.Precision.DriverAdjustment.Value != nil {
 		t.Fatal("missing FX substituted", missing)
 	}
 	current := attributionFor(t, s, "2026-08-01", "current")
@@ -315,7 +315,7 @@ func TestFinancialAttributionResidualIsPreserved(t *testing.T) {
 	}
 	link := &FinancialAttributionLink{Drivers: []FinancialAttributionDriver{}}
 	comparison := FinancialComparisonContent{Left: FinancialComparisonSide{Basis: FinancialContextBasis{BaseCurrency: "CNY"}, Summary: FinancialContextSummary{NetWorth: contextAmount(historicalString("100"), "CNY")}, Coverage: FinancialContextCoverage{ValuationComplete: true}}, Right: FinancialComparisonSide{Summary: FinancialContextSummary{NetWorth: contextAmount(historicalString("150"), "CNY")}, Coverage: FinancialContextCoverage{ValuationComplete: true}}, Change: FinancialComparisonChange{NetWorth: contextAmount(historicalString("50"), "CNY")}}
-	status, _, err := projectFinancialAttribution(link, &comparison, result)
+	status, _, err := projectFinancialAttribution(link, &comparison, result, input)
 	if err != nil || status != "compatible" {
 		t.Fatal(status, err)
 	}

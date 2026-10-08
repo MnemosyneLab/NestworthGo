@@ -623,6 +623,13 @@ normalized A+1..B local period, scoped evidence digest, existing net-worth
 waterfall and separate investment-return summary. Stop on compatibility failure;
 never append live analysis to an old frozen comparisonId. Household and a single
 account are supported; account sets and current-right returns are unavailable.
+The comparison retains exact valuation decimals. The link declares the existing
+four-place half-even component/period-driver projection and separately discloses
+signed precision adjustments: exact change.netWorth equals explainedDelta plus
+residual plus precisionAdjustment. These adjustments are neither returns nor
+unknown residuals; exact per-day bucket gaps still fail strict reconciliation.
+Actual A..B snapshot coverage is backfilled independently of a later completion
+watermark, and unsupported A..B+1 midnights stop before maintenance.
 Its frozen pages use `get_financial_comparison_page`. See the
 [attribution contract](financial-context.md#coherent-comparison-attribution) and
 [portable workflow](../../skills/nestworth/references/analysis.md#link-a-comparison-to-change-attribution).

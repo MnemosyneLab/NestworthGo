@@ -123,6 +123,83 @@ func TestFinancialAttributionHTTPFreshCapturePermissionsAndFrozenPages(t *testin
 	}
 }
 
+func TestFinancialAttributionHTTPPrecisionBackfillAndFrozenPages(t *testing.T) {
+	s, app, _ := fixture(t)
+	now := time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC)
+	app.SetClock(func() time.Time { return now })
+	members, err := app.ListMembers(t.Context(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selected, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Private selected", AccountType: "bank_account", BalanceSheetRole: "asset", TrackingMode: "balance", DefaultCurrency: "CNY", InitialAmount: "1", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := app.CreateAccount(t.Context(), application.AccountInput{Name: "Private unselected", AccountType: "property", BalanceSheetRole: "asset", TrackingMode: "manual_value", DefaultCurrency: "USD", InitialAmount: "99", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{members[0].ID}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, quote := range []struct{ date, fx string }{{"2026-08-01", "7.123456"}, {"2026-08-02", "7.234567"}} {
+		if _, err := app.AppendManualFXQuote(t.Context(), "CNY", "USD", quote.fx, quote.date); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := app.SetFXPreference(t.Context(), "CNY", "USD", "manual"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := app.StartHistory(t.Context(), "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	now = time.Date(2026, 8, 12, 12, 0, 0, 0, time.UTC)
+	if _, err := s.Enable(ReadOnly); err != nil {
+		t.Fatal(err)
+	}
+	client := connect(t, s)
+	args := skillExample(t, "analysis", "financial-attribution-account", map[string]string{"leftDate": "2026-08-10", "rightDate": "2026-08-11", "accountId": selected.Account.ID.String()})
+	later := decodeComparison(t, call(t, client, "compare_financial_attribution", args, false))
+	if later.Content.Attribution.Status != "compatible" {
+		t.Fatal(later)
+	}
+	args["leftAsOf"], args["rightAsOf"] = "2026-08-01", "2026-08-02"
+	old := decodeComparison(t, call(t, client, "compare_financial_context", args, false))
+	initial := decodeComparison(t, call(t, client, "compare_financial_attribution", args, false))
+	link := initial.Content.Attribution
+	if link.Status != "compatible" || link.Precision.AmountScale != 4 || link.Precision.Rounding != "half_even" || *link.AnalysisDelta.Value != "0.1111" || *link.ExplainedDelta.Value != "0.1111" || *link.PrecisionAdjustment.Value != "0.000011" || *initial.Content.Change.NetWorth.Value != "0.111111" || old.Content.Attribution != nil {
+		t.Fatal(initial, old)
+	}
+	if _, err := app.AppendManualFXQuote(t.Context(), "CNY", "USD", "7.345678", "2026-08-02"); err != nil {
+		t.Fatal(err)
+	}
+	revised := decodeComparison(t, call(t, client, "compare_financial_attribution", args, false))
+	if revised.ComparisonID == initial.ComparisonID || revised.ContentHash == initial.ContentHash || *revised.Content.Change.NetWorth.Value != "0.222222" || *revised.Content.Attribution.PrecisionAdjustment.Value != "0.000022" {
+		t.Fatal(revised)
+	}
+	states, _ := skillPageState(t, initial)
+	originalLink, _ := json.Marshal(link)
+	for _, section := range skillSections {
+		info := states[section]
+		for info.HasMore {
+			page := decodeComparison(t, call(t, client, "get_financial_comparison_page", FinancialComparisonPageInput{ComparisonID: initial.ComparisonID, Section: section, Cursor: info.NextCursor, Limit: 1}, false))
+			rawLink, _ := json.Marshal(page.Content.Attribution)
+			if string(rawLink) != string(originalLink) || page.ContentHash != initial.ContentHash || page.CapturedAt != initial.CapturedAt || page.CacheExpiresAt != initial.CacheExpiresAt {
+				t.Fatal("precision summary thawed", page)
+			}
+			raw, _ := json.Marshal(page)
+			for _, secret := range []string{"Private", selected.Account.ID.String(), other.Account.ID.String()} {
+				if strings.Contains(string(raw), secret) {
+					t.Fatal("scope/privacy leak", secret)
+				}
+			}
+			size, err := financialContextWireSize(page)
+			if err != nil || size > contextWireLimit {
+				t.Fatal(size, err)
+			}
+			next, _ := skillPageState(t, page)
+			info = next[section]
+		}
+	}
+}
+
 type attributionCaptureRepository struct {
 	application.Repository
 	port              application.FinancialContextRepository

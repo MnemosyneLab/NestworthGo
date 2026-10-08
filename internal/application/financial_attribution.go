@@ -15,23 +15,34 @@ import (
 // A new comparison is captured after snapshot maintenance. This link never
 // certifies an older comparisonId, or joins a live analysis to a frozen package.
 type FinancialAttributionLink struct {
-	SchemaVersion      string                       `json:"schemaVersion"`
-	Status             string                       `json:"status"`
-	AssetStatus        string                       `json:"assetStatus"`
-	Available          bool                         `json:"available"`
-	MissingReason      string                       `json:"missingReason,omitempty"`
-	ResidualIssueCount int                          `json:"residualIssueCount"`
-	MismatchReasons    []string                     `json:"mismatchReasons"`
-	Basis              string                       `json:"basis"`
-	BasisHash          string                       `json:"basisHash,omitempty"`
-	Period             *FinancialAttributionPeriod  `json:"period"`
-	Scope              FinancialContextScope        `json:"scope"`
-	BeginningValue     FinancialContextAmount       `json:"beginningValue"`
-	EndingValue        FinancialContextAmount       `json:"endingValue"`
-	ExplainedDelta     FinancialContextAmount       `json:"explainedDelta"`
-	Residual           FinancialContextAmount       `json:"residual"`
-	Drivers            []FinancialAttributionDriver `json:"drivers"`
-	InvestmentReturn   *FinancialAttributionReturn  `json:"investmentReturn"`
+	SchemaVersion       string                        `json:"schemaVersion"`
+	Status              string                        `json:"status"`
+	AssetStatus         string                        `json:"assetStatus"`
+	Available           bool                          `json:"available"`
+	MissingReason       string                        `json:"missingReason,omitempty"`
+	ResidualIssueCount  int                           `json:"residualIssueCount"`
+	MismatchReasons     []string                      `json:"mismatchReasons"`
+	Basis               string                        `json:"basis"`
+	BasisHash           string                        `json:"basisHash,omitempty"`
+	Period              *FinancialAttributionPeriod   `json:"period"`
+	Scope               FinancialContextScope         `json:"scope"`
+	BeginningValue      FinancialContextAmount        `json:"beginningValue"`
+	EndingValue         FinancialContextAmount        `json:"endingValue"`
+	AnalysisDelta       FinancialContextAmount        `json:"analysisDelta"`
+	ExplainedDelta      FinancialContextAmount        `json:"explainedDelta"`
+	Residual            FinancialContextAmount        `json:"residual"`
+	PrecisionAdjustment FinancialContextAmount        `json:"precisionAdjustment"`
+	Precision           FinancialAttributionPrecision `json:"precision"`
+	Drivers             []FinancialAttributionDriver  `json:"drivers"`
+	InvestmentReturn    *FinancialAttributionReturn   `json:"investmentReturn"`
+}
+type FinancialAttributionPrecision struct {
+	AmountScale        int                    `json:"amountScale"`
+	Rounding           string                 `json:"rounding"`
+	BoundaryBasis      string                 `json:"boundaryBasis"`
+	DriverBasis        string                 `json:"driverBasis"`
+	BoundaryAdjustment FinancialContextAmount `json:"boundaryAdjustment"`
+	DriverAdjustment   FinancialContextAmount `json:"driverAdjustment"`
 }
 type FinancialAttributionPeriod struct {
 	From           string `json:"from"`
@@ -101,7 +112,7 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 	current := right.AsOf == "current"
 	boundaryUnsupported := !current && !attributionBoundariesSupported(left.AsOf, right.AsOf, inputs.History.Origin.Timezone)
 	if !unsupported && !current && !boundaryUnsupported {
-		if err := s.ensureClosedDaySnapshots(ctx, left.AsOf, right.AsOf); err != nil {
+		if err := s.ensureAttributionSnapshots(ctx, inputs.History.Origin.HouseholdID, left.AsOf, right.AsOf); err != nil {
 			return FinancialComparisonResult{}, err
 		}
 		// Maintenance can invalidate analysis memos. Only now capture the immutable
@@ -119,8 +130,9 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 	currency := c.Left.Basis.BaseCurrency
 	link := &FinancialAttributionLink{
 		SchemaVersion: "financial-attribution/1", Status: "unavailable", AssetStatus: "unavailable", MismatchReasons: []string{},
-		Basis: "fresh_recapture_after_derived_snapshot_maintenance; currently_retained_corrected_facts; current_metadata; historical_inclusion_must_match_current_analysis_universe; base_valuation; explainedDelta_excludes_residual; net_worth_change_is_not_investment_return",
-		Scope: c.Left.Scope, BeginningValue: contextAmount(nil, currency), EndingValue: contextAmount(nil, currency), ExplainedDelta: contextAmount(nil, currency), Residual: contextAmount(nil, currency), Drivers: []FinancialAttributionDriver{},
+		Basis: "fresh_recapture_after_derived_snapshot_maintenance; currently_retained_corrected_facts; current_metadata; historical_inclusion_must_match_current_analysis_universe; base_valuation; analysis_money_4_place_half_even; explainedDelta_excludes_residual; precision_adjustment_is_not_return_or_residual; net_worth_change_is_not_investment_return",
+		Scope: c.Left.Scope, BeginningValue: contextAmount(nil, currency), EndingValue: contextAmount(nil, currency), AnalysisDelta: contextAmount(nil, currency), ExplainedDelta: contextAmount(nil, currency), Residual: contextAmount(nil, currency), PrecisionAdjustment: contextAmount(nil, currency), Drivers: []FinancialAttributionDriver{},
+		Precision: FinancialAttributionPrecision{AmountScale: assetProjectionPrecision, Rounding: "half_even", BoundaryBasis: "signed_component_daily_boundary_rounded_then_summed", DriverBasis: "exact_component_day_buckets_aggregated_by_period_driver_then_existing_waterfall_rounding_and_reconciliation", BoundaryAdjustment: contextAmount(nil, currency), DriverAdjustment: contextAmount(nil, currency)},
 	}
 	c.Attribution = link
 	finish := func(status string, reasons ...string) (FinancialComparisonResult, error) {
@@ -184,14 +196,14 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 	if err != nil {
 		return FinancialComparisonResult{}, err
 	}
-	status, reasons, err := projectFinancialAttribution(link, c, result)
+	status, reasons, err := projectFinancialAttribution(link, c, result, input)
 	if err != nil {
 		return FinancialComparisonResult{}, err
 	}
 	return finish(status, reasons...)
 }
 
-func projectFinancialAttribution(link *FinancialAttributionLink, c *FinancialComparisonContent, result domain.PeriodAnalysisResult) (string, []string, error) {
+func projectFinancialAttribution(link *FinancialAttributionLink, c *FinancialComparisonContent, result domain.PeriodAnalysisResult, input AnalysisInputs) (string, []string, error) {
 	currency := c.Left.Basis.BaseCurrency
 	finish := func(status string, reasons ...string) (string, []string, error) { return status, reasons, nil }
 	asset := foldAssetChange(result, "")
@@ -223,10 +235,17 @@ func projectFinancialAttribution(link *FinancialAttributionLink, c *FinancialCom
 	if !c.Left.Coverage.ValuationComplete || !c.Right.Coverage.ValuationComplete || !asset.Available {
 		return finish("unavailable", "missing_valuation_evidence")
 	}
-	if !sameAttributionAmount(link.BeginningValue, c.Left.Summary.NetWorth) || !sameAttributionAmount(link.EndingValue, c.Right.Summary.NetWorth) {
+	proof, reason, err := proveAttributionPrecision(input, result, c)
+	if err != nil {
+		return "", nil, err
+	}
+	if reason == "" && (!sameAttributionAmount(link.BeginningValue, contextAmount(historicalString(proof.beginning.String()), currency)) || !sameAttributionAmount(link.EndingValue, contextAmount(historicalString(proof.ending.String()), currency))) {
+		reason = "analysis_endpoint_mismatch"
+	}
+	if reason != "" {
 		// The endpoint check is an additional guard after proof of all day inputs.
 		link.Drivers, link.InvestmentReturn = []FinancialAttributionDriver{}, nil
-		return finish("incompatible", "analysis_endpoint_mismatch")
+		return finish("incompatible", reason)
 	}
 	explained, residual := decimal.Zero, decimal.Zero
 	for _, row := range asset.Waterfall {
@@ -239,16 +258,31 @@ func projectFinancialAttribution(link *FinancialAttributionLink, c *FinancialCom
 			explained = explained.Add(row.Amount.Amount())
 		}
 	}
-	link.ExplainedDelta, link.Residual = contextAmount(historicalString(explained.String()), currency), contextAmount(historicalString(residual.String()), currency)
-	if c.Change.NetWorth.Value == nil {
-		return finish("unavailable", "missing_boundary")
+	// Prove the published driver values are the existing engine's deterministic
+	// projection before attributing any difference to monetary precision.
+	exactWaterfall, _ := aggregateAssetWaterfall(result)
+	projectedWaterfall := reconcileAssetWaterfall(exactWaterfall, asset.Summary.Change)
+	projectedTotal := decimal.Zero
+	for _, amount := range projectedWaterfall {
+		projectedTotal = projectedTotal.Add(amount)
 	}
-	delta, _ := decimal.NewFromString(*c.Change.NetWorth.Value)
-	if !explained.Add(residual).Equal(delta) {
-		link.ExplainedDelta, link.Residual = contextAmount(nil, currency), contextAmount(nil, currency)
+	if !explained.Add(residual).Equal(projectedTotal) || asset.Summary.Change == nil || !asset.Summary.Change.Amount().Equal(proof.ending.Sub(proof.beginning)) {
 		link.Drivers, link.InvestmentReturn = []FinancialAttributionDriver{}, nil
 		return finish("incompatible", "driver_reconciliation_mismatch")
 	}
+	analysisDelta := proof.ending.Sub(proof.beginning)
+	boundaryAdjustment := proof.exactDelta.Sub(analysisDelta)
+	driverAdjustment := analysisDelta.Sub(projectedTotal)
+	precisionAdjustment := boundaryAdjustment.Add(driverAdjustment)
+	if !explained.Add(residual).Add(precisionAdjustment).Equal(proof.exactDelta) {
+		link.Drivers, link.InvestmentReturn = []FinancialAttributionDriver{}, nil
+		return finish("incompatible", "driver_reconciliation_mismatch")
+	}
+	link.AnalysisDelta = contextAmount(historicalString(analysisDelta.String()), currency)
+	link.ExplainedDelta, link.Residual = contextAmount(historicalString(explained.String()), currency), contextAmount(historicalString(residual.String()), currency)
+	link.Precision.BoundaryAdjustment = contextAmount(historicalString(boundaryAdjustment.String()), currency)
+	link.Precision.DriverAdjustment = contextAmount(historicalString(driverAdjustment.String()), currency)
+	link.PrecisionAdjustment = contextAmount(historicalString(precisionAdjustment.String()), currency)
 	return finish("compatible")
 }
 
@@ -369,7 +403,7 @@ func scopedAttributionSnapshotHash(snapshot domain.DailyValuationSnapshot, selec
 func attributionBoundariesSupported(left, right, timezone string) bool {
 	start, _ := time.Parse("2006-01-02", left)
 	end, _ := time.Parse("2006-01-02", right)
-	for day := start.AddDate(0, 0, 1); !day.After(end.AddDate(0, 0, 1)); day = day.AddDate(0, 0, 1) {
+	for day := start; !day.After(end.AddDate(0, 0, 1)); day = day.AddDate(0, 0, 1) {
 		if _, err := domain.ResolveLocalDateTime(day.Format("2006-01-02"), "00:00", timezone); err != nil {
 			return false
 		}
