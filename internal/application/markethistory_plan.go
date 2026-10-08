@@ -2,7 +2,6 @@ package application
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/waltwang/nestworth-go/internal/domain"
@@ -555,7 +554,7 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	from, to, ok := closedSnapshotRange(state, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday})
+	from, to, ok := dirtySnapshotRange(state, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday})
 	// Recover ready but incomplete snapshots even if an older build cleared
 	// the dirty cursor. Rebuilding still uses the generation-aware publisher.
 	incompleteIssues, err := s.incompleteSnapshotHealth(ctx, origin, HistoryRepairPlan{OriginLocalDate: originDate, YesterdayLocal: yesterday}, nil)
@@ -563,15 +562,28 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 		return 0, err
 	}
 	appended := 0
+	var readyDates []string
 	for _, date := range readySnapshotDates(incompleteIssues) {
 		if ok && date >= from && date <= to {
 			continue
 		}
-		count, err := s.RebuildHistoricalSnapshots(ctx, date, date)
+		readyDates = append(readyDates, date)
+	}
+	// Repair only observed holes/stale rows, grouping contiguous dates into the
+	// existing 31-day builder batches instead of reconstructing valid history.
+	for _, rng := range CapHistoryRanges(dateRangesFromDates(readyDates), 31) {
+		count, err := s.RebuildHistoricalSnapshots(ctx, string(rng.Start), string(rng.End))
 		appended += count
 		if err != nil {
 			return appended, err
 		}
+	}
+	current, err := s.repository.DailySnapshotState(ctx, household.ID)
+	if err != nil {
+		return appended, err
+	}
+	if current.InputGeneration != state.InputGeneration {
+		return appended, &domain.Error{Code: domain.ErrConflict, Field: "inputGeneration", Message: "snapshot input generation changed during rebuild"}
 	}
 	if !ok {
 		return appended, nil
@@ -588,50 +600,41 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 		if end > to {
 			end = to
 		}
-		var chunkDone bool
-		for attempt := 0; attempt < 3 && !chunkDone; attempt++ {
-			chunkState, stateErr := s.repository.DailySnapshotState(ctx, household.ID)
+		// A revision can move dirty_from into an already finished early chunk.
+		// Do not retry just this later chunk at the new generation: completion
+		// assumes its entire dirty prefix has been rebuilt. Leave that prefix
+		// durable and let the next invocation re-plan from current state.
+		chunkState, stateErr := s.repository.DailySnapshotState(ctx, household.ID)
+		if stateErr != nil {
+			return appended, stateErr
+		}
+		if chunkState.InputGeneration != state.InputGeneration {
+			return appended, &domain.Error{Code: domain.ErrConflict, Field: "inputGeneration", Message: "snapshot input generation changed during rebuild"}
+		}
+		count, rebuildErr := s.RebuildHistoricalSnapshots(ctx, chunkStart, end)
+		if rebuildErr != nil {
+			return appended + count, rebuildErr
+		}
+		if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok {
+			completeErr := s.WithWrite(ctx, func(writeCtx context.Context) error {
+				return generationRepo.CompleteDailySnapshotRangeAtGeneration(writeCtx, household.ID, end, s.clock(), chunkState.InputGeneration)
+			})
+			if completeErr != nil {
+				return appended, completeErr
+			}
+		} else {
+			after, stateErr := s.repository.DailySnapshotState(ctx, household.ID)
 			if stateErr != nil {
 				return appended, stateErr
 			}
-			count, rebuildErr := s.RebuildHistoricalSnapshots(ctx, chunkStart, end)
-			if rebuildErr != nil {
-				if isSnapshotGenerationChanged(rebuildErr) {
-					continue
-				}
-				return appended + count, rebuildErr
+			if after.InputGeneration != chunkState.InputGeneration {
+				return appended, &domain.Error{Code: domain.ErrConflict, Field: "inputGeneration", Message: "snapshot input generation changed during rebuild"}
 			}
-			if generationRepo, ok := s.repository.(GenerationAwareSnapshotRepository); ok {
-				completeErr := s.WithWrite(ctx, func(writeCtx context.Context) error {
-					return generationRepo.CompleteDailySnapshotRangeAtGeneration(writeCtx, household.ID, end, s.clock(), chunkState.InputGeneration)
-				})
-				if isSnapshotGenerationChanged(completeErr) {
-					continue
-				}
-				if completeErr != nil {
-					return appended, completeErr
-				}
-			} else {
-				after, stateErr := s.repository.DailySnapshotState(ctx, household.ID)
-				if stateErr != nil {
-					return appended, stateErr
-				}
-				if after.InputGeneration != chunkState.InputGeneration {
-					continue
-				}
-				if err := s.CompleteDailySnapshotRange(ctx, household.ID, end); err != nil {
-					return appended, err
-				}
+			if err := s.CompleteDailySnapshotRange(ctx, household.ID, end); err != nil {
+				return appended, err
 			}
-			appended += count
-			chunkDone = true
 		}
-		if !chunkDone {
-			// The dirty cursor is intentionally left in place. The next sync can
-			// retry with a stable input generation rather than publishing a
-			// result whose provenance is already stale.
-			return appended, nil
-		}
+		appended += count
 		if end == to {
 			break
 		}
@@ -641,11 +644,6 @@ func (s *Service) RebuildDirtySnapshots(ctx context.Context) (int, error) {
 		}
 	}
 	return appended, nil
-}
-
-func isSnapshotGenerationChanged(err error) bool {
-	var domainErr *domain.Error
-	return err != nil && errors.As(err, &domainErr) && domainErr != nil && domainErr.Field == "inputGeneration"
 }
 
 func nextRebuildDate(value string) (string, error) {

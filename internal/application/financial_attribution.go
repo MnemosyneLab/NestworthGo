@@ -115,7 +115,7 @@ func (s *Service) buildFinancialAttribution(ctx context.Context, in FinancialCom
 	current := right.AsOf == "current"
 	boundaryUnsupported := !current && !attributionBoundariesSupported(left.AsOf, right.AsOf, inputs.History.Origin.Timezone)
 	if !unsupported && !current && !boundaryUnsupported {
-		if err := s.ensureAttributionSnapshots(ctx, inputs.History.Origin.HouseholdID, left.AsOf, right.AsOf); err != nil {
+		if err := s.ensureSnapshotCoverage(ctx, inputs.History.Origin.HouseholdID, left.AsOf, right.AsOf); err != nil {
 			return FinancialComparisonResult{}, err
 		}
 		// Maintenance can invalidate analysis memos. Only now capture the immutable
