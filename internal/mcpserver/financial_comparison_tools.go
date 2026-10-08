@@ -64,7 +64,7 @@ func (s *Service) buildFinancialComparison(ctx context.Context, g uint64, in app
 		return FinancialComparisonResponse{}, err
 	}
 	if len(encoded) > contextPackageLimit {
-		return FinancialComparisonResponse{}, fail("too_large", "context exceeds package budget; select fewer accounts")
+		return FinancialComparisonResponse{}, fail("too_large", "comparison exceeds package budget; select fewer accounts")
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -108,11 +108,11 @@ func (s *Service) financialComparisonPage(ctx context.Context, g uint64, in Fina
 	c.prune(c.now())
 	entry, ok := c.entries[in.ComparisonID]
 	if !ok || entry.comparison == nil {
-		return FinancialComparisonResponse{}, fail("context_expired", "context expired or was evicted; request a new context")
+		return FinancialComparisonResponse{}, fail("context_expired", "comparison expired or was evicted; request a new comparison")
 	}
 	cursor, err := c.decodeCursor(in.Cursor)
 	if err != nil || cursor.ContextID != in.ComparisonID || cursor.Section != in.Section || cursor.Generation != g || cursor.Offset < 0 {
-		return FinancialComparisonResponse{}, fail("validation", "cursor does not match context, section and generation")
+		return FinancialComparisonResponse{}, fail("validation", "cursor does not match comparison, section and generation")
 	}
 	return c.comparisonResponse(in.ComparisonID, entry, g, in.Section, cursor.Offset, in.Limit)
 }
@@ -131,7 +131,7 @@ func (c *financialContextCache) comparisonResponse(id string, e cachedFinancialC
 		return r, err
 	}
 	if size > contextWireLimit {
-		return r, fail("too_large", "context summary exceeds the MCP wire budget")
+		return r, fail("too_large", "comparison summary exceeds the MCP wire budget")
 	}
 	sections := []string{section}
 	if section == "" {
@@ -212,7 +212,7 @@ func (c *financialContextCache) comparisonResponse(id string, e cachedFinancialC
 	if size, err := financialContextWireSize(r); err != nil {
 		return r, err
 	} else if size > contextWireLimit {
-		return r, fail("too_large", "context page exceeds the MCP wire budget")
+		return r, fail("too_large", "comparison page exceeds the MCP wire budget")
 	}
 	return r, nil
 }

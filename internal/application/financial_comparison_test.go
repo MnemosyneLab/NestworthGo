@@ -290,3 +290,34 @@ func TestFinancialComparisonRetainedCorrectionAndNamedDisclosure(t *testing.T) {
 		t.Fatal("named identity absent")
 	}
 }
+
+func TestFinancialComparisonExclusionIsNotAValueDelta(t *testing.T) {
+	s, _, owner, now := overviewFixture(t)
+	a := overviewAccount(t, s, owner, "Cash", "bank_account", "asset", "balance", "CNY", "100")
+	if _, err := s.StartHistory(t.Context(), "UTC"); err != nil {
+		t.Fatal(err)
+	}
+	*now = now.AddDate(0, 0, 1)
+	if _, err := s.UpdateAccount(t.Context(), a.Account.ID, AccountInput{Name: "Cash", IncludeInNetWorthSet: true, IncludeInNetWorth: false}); err != nil {
+		t.Fatal(err)
+	}
+	*now = now.AddDate(0, 0, 1)
+	r := comparisonFor(t, s, "2026-08-01", "2026-08-02", a.Account.ID)
+	wantOverviewAmount(t, r.Content.Change.NetWorth.Value, "-100")
+	for _, p := range r.Content.Positions {
+		if p.Left == nil || p.Right == nil || !p.Left.Included || p.Right.Included || p.Right.ExclusionReason != "not_in_net_worth" {
+			t.Fatal(p)
+		}
+		wantOverviewAmount(t, p.BaseChange, "0")
+		if !p.Changed {
+			t.Fatal("inclusion change not marked")
+		}
+	}
+	same := comparisonFor(t, s, "2026-08-02", "2026-08-02", a.Account.ID)
+	wantOverviewAmount(t, same.Content.Change.NetWorth.Value, "0")
+	for _, p := range same.Content.Positions {
+		if p.Changed {
+			t.Fatal("identical sides changed")
+		}
+	}
+}
