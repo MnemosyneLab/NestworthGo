@@ -226,6 +226,12 @@ func TestLegacySnapshotCoverageDirtyPrefixAndTail(t *testing.T) {
 				t.Fatal(err)
 			}
 			legacyCoverageRead(t, s, reader, "2026-08-10", "2026-08-11")
+			lateSaves := r.saves
+			legacyCoverageRead(t, s, reader, "2026-08-10", "2026-08-11")
+			legacyCoverageRead(t, s, "attribution", "2026-08-10", "2026-08-11")
+			if r.saves != lateSaves {
+				t.Fatal("current-generation later range rebuilt under retained earlier dirty prefix", r.saves, lateSaves)
+			}
 			state, err := s.DailySnapshotState(t.Context(), cash.Account.HouseholdID)
 			if err != nil || state.DirtyFrom == nil || *state.DirtyFrom != "2026-08-02" {
 				t.Fatal("earlier dirty prefix lost", state, err)

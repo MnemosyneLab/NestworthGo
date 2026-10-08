@@ -11,6 +11,7 @@ import (
 // rather than using its global completion watermark as proof of coverage.
 // This runs inside the same application coordinator as capture/publication.
 func (s *Service) ensureSnapshotCoverage(ctx context.Context, householdID domain.HouseholdID, left, right string) error {
+	_, generationAware := s.repository.(GenerationAwareSnapshotRepository)
 	state, err := s.repository.DailySnapshotState(ctx, householdID)
 	if err != nil {
 		return err
@@ -50,6 +51,13 @@ func (s *Service) ensureSnapshotCoverage(ctx context.Context, householdID domain
 		key := day.Format("2006-01-02")
 		snapshot, exists := present[key]
 		dirty := state.DirtyFrom != nil && key >= *state.DirtyFrom && (state.DirtyTo == nil || key <= *state.DirtyTo)
+		// An earlier pending prefix cannot be consumed by this request. Its
+		// coarse dirty range can still include later rows already rebuilt from
+		// this generation. Reuse that evidence on repeat reads; generation zero
+		// and repositories without generation guards retain conservative rebuilds.
+		if dirty && generationAware && state.InputGeneration > 0 && *state.DirtyFrom < left && snapshot.InputGeneration == state.InputGeneration {
+			dirty = false
+		}
 		if !exists || dirty || snapshotHashNeedsRebuild(snapshot.ContentHash) || snapshot.ResolverPolicyVersion != domain.MarketDataResolverPolicy {
 			if gapStart.IsZero() {
 				gapStart = day

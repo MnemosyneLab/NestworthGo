@@ -29,6 +29,10 @@ missing, dirty, old-hash, or old-resolver-policy days in at most 31-day chunks.
 Unrequested stale rows do not expand the request. Existing per-day saves keep
 the watermark monotonic and advance only a matching dirty prefix. Range
 completion is permitted only when the requested range covered that prefix.
+A retained earlier dirty prefix can still span later rows already rebuilt at
+its current generation. Repeated later requests reuse those rows after checking
+actual presence, current hash/policy, and positive generation provenance from a
+generation-aware repository. Unknown-generation dirty rows still rebuild.
 
 The old helper now holds the existing serial, reentrant write permit throughout
 planning/build/completion. Batch/save generation guards remain in use; a final
@@ -42,7 +46,8 @@ No valuation, rounding, replay, schema, or public API contract changed.
 `legacy_snapshot_coverage_test.go` covers both orders for late attribution/old
 analysis followed by old analysis/net worth trend/portfolio trend; exact sparse
 date sets; repeats with zero extra builder saves (including equal-hash saves);
-partly present intervals and interior holes; in-window old hash/policy and an
+repeats under a retained earlier dirty prefix; partly present intervals and
+interior holes; in-window old hash/policy and an
 out-of-window old hash; bounded dirty prefix/tail and an unbounded quote-repair
 tail; manual quote correction and effective-dated source preference revisions;
 41 days in two chunks; external source mutation after coverage read, after batch
