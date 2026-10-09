@@ -1,7 +1,7 @@
 # Nestworth Documentation
 
-This directory is the maintained documentation surface for the current
-development line `0.3.7` (unreleased, build 8). It describes the current Wails v3 application and
+This directory is the maintained documentation surface for the published
+release `0.3.7` (build 8). It describes the current Wails v3 application and
 its product contracts; it does not preserve obsolete implementation branches
 or visual prototype bundles.
 
@@ -28,10 +28,11 @@ or visual prototype bundles.
 | Development | [Local MCP](development/mcp.md) | Loopback transport, permission modes, implemented query and write tools, and safety boundaries |
 | Development | [Wails Version Upgrade](development/wails-version-upgrade.md) | Version synchronization, binding generation, and native/package gates |
 | Release | [Release Index](releases/README.md) | Release contract and closeout evidence |
-| Release | [v0.3.7 Contract](releases/v0.3.7.md) | Current candidate scope, evidence, and release gates |
-| Release | [v0.3.7 Release Notes](releases/v0.3.7-notes.md) | Publication draft; pending release gates |
+| Release | [v0.3.7 Contract](releases/v0.3.7.md) | Published release scope, acceptance evidence, and remaining GUI/distribution boundaries |
+| Release | [v0.3.7 Release Notes](releases/v0.3.7-notes.md) | Published release summary |
 | Release | [v0.3.6 Contract](releases/v0.3.6.md) | Historical scope, acceptance, and release gates for v0.3.6 |
 | QA | [Real MCP and skill acceptance](testing/qa-mcp-skill-acceptance-2026-10-09.md) | Scoped Mac mini client acceptance, source SHA, provenance, and exclusions |
+| QA | [v0.3.7 package acceptance](testing/qa-v0.3.7-release-package-2026-10-09.md) | Published asset digests and scoped synthetic package checks |
 | QA | [QA Archive](qa/README.md) | Selected historical verification reports; current release gates remain in the release contract |
 
 ## Source of truth

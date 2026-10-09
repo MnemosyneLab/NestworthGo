@@ -29,11 +29,12 @@ workspace and was not independently inspected here.
 
 ## Scope limits and environment cleanup
 
-This does not validate other product-write variants, real market/provider
-connections, native GUI flows, or a freshly built release artifact. The
-acceptance used source SHA `2cad89e`, before the PR #47 CI-only dependency
-installation change merged. It is not evidence that a v0.3.7 package was built,
-checksummed, launched, or accepted.
+This client acceptance does not validate other product-write variants, real
+market/provider connections, or native GUI flows. It used source SHA
+`2cad89e`, before the PR #47 CI-only dependency installation change merged. It
+is not evidence that a v0.3.7 package was built, checksummed, launched, or
+accepted; that later package acceptance is recorded separately in
+[`qa-v0.3.7-release-package-2026-10-09.md`](qa-v0.3.7-release-package-2026-10-09.md).
 
 The user reports that the temporary test service was stopped and no real ledger
 or global client configuration was changed. Mac native GUI acceptance remains

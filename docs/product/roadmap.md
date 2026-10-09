@@ -8,12 +8,13 @@ entry is not an implementation claim.
 
 ## 0.3.7 — Financial context and managed-product MCP
 
-Status: Unreleased candidate, build 8. Adds consistent/frozen MCP financial
+Status: Published 2026-10-09 (build 8). Adds consistent/frozen MCP financial
 context and comparisons, managed-product/liquidity reads, guarded lifecycle,
 terms and valuation writes, and requested-range snapshot coverage repair.
 Scoped real Codex/MCP/skill acceptance passed on Mac mini against source
-`2cad89e`; native Mac GUI acceptance and fresh Mac release artifacts remain
-pending. See the [release contract](../releases/v0.3.7.md).
+`2cad89e`; package/onboarding and persistence checks are summarized in the
+[release contract](../releases/v0.3.7.md). Full native GUI regression was
+deferred; macOS 12 runtime behavior was not tested.
 
 ## 0.3.6 — Continuous backup and explicit disaster recovery
 

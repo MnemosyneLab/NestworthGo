@@ -266,7 +266,7 @@ mutation deduplication records, daily valuation caches, and scheduling state.
 User-authored notes and names are preserved verbatim. Backup's existing settings
 policy remains unchanged.
 
-## Continuous backup in unreleased v0.3.6
+## Continuous backup introduced in v0.3.6
 
 Settings also offers opt-in app-running SQLite backup to Cloudflare R2, plus
 explicit stream/recovery-point selection. Cloud recovery downloads a separate
