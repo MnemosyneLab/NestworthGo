@@ -49,8 +49,8 @@ Pin a published **App release tag** instead with `--version vX.Y.Z`. This select
 the GitHub release, not the skill's own `VERSION` (currently `1.6.0`). Each release
 must include the two named assets. If the latest App release lacks them, use a
 release that includes them or a local bundle; there is no fallback to unreleased
-main-branch content. This implementation prepares artifacts; publishing a
-release is a separate maintainer action.
+main-branch content. The published v0.3.7 release includes skill 1.6.0 and both
+required skill assets.
 
 ### Current skill: 1.6.0
 
@@ -60,16 +60,15 @@ managed product/liquidity reads and guarded lifecycle, terms and valuation
 workflows. Its MCP examples are synthetic and executable by repository tests;
 that does not prove external Codex discovery, client reasoning or live Mac
 acceptance. The App and skill are separate components. An older App does not
-gain tools by installing a newer skill. The latest published App tag is v0.3.6,
-whose bundled skill is 1.0.0; 1.6.0 is current in this unreleased source only.
-Until a release containing 1.6.0 is published, `--version latest` cannot install
-that newer skill.
+gain tools by installing a newer skill. The published v0.3.7 release bundles
+skill 1.6.0. Running the installer with `--version latest` or `--version
+v0.3.7` selects that published bundle.
 
 Existing clients do **not** update their installed skill automatically when the
-App or repository changes. After a release containing these assets is published,
-rerun the trusted installer (or use the prepared local bundle), check `--status`
-for `1.6.0`, and reopen the chat if discovery is stale. A local checkout's
-package is not a published release asset.
+App or repository changes. Rerun the trusted installer (or use the published
+v0.3.7 bundle), check `--status` for `1.6.0`, and reopen the chat if discovery
+is stale. A locally built archive is not a published release asset unless it
+is uploaded as part of a release.
 
 For Inspector CLI 2.10.0, the shipped connection reference includes a separate
 configuration example with explicit `"type": "http"`; preserve the App's endpoint

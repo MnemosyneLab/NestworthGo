@@ -2,11 +2,13 @@
 
 All notable changes to Nestworth are recorded here.
 
-## [0.3.7] — Unreleased candidate (build 8)
+## [0.3.7] — 2026-10-09
 
-Release preparation only. Candidate version/build match the current source
-metadata; no v0.3.7 tag, release, or release artifacts exist. The current
-release contract records scope, evidence, and open acceptance gates.
+Published as [v0.3.7](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.7)
+(build 8) at `4d72b3dfaac34b86f24923760663ef0c11c3ec54`. The release includes
+the Apple Silicon DMG/ZIP, `SHA256SUMS`, and the standalone skill 1.6.0 archive
+with its SHA-256 file. See the [release contract](docs/releases/v0.3.7.md) for
+acceptance scope and remaining GUI/platform boundaries.
 
 ### Added
 
@@ -37,25 +39,29 @@ release contract records scope, evidence, and open acceptance gates.
 
 ### Boundaries and validation
 
-- Skill version is 1.6.0 (`skills/nestworth/VERSION`); it is independently
-  versioned from the App. Existing clients must install/update it separately.
+- Skill version is 1.6.0 (`skills/nestworth/VERSION`), included in this release;
+  it remains independently versioned from the App. Existing clients must
+  install/update it separately.
 - PR #47 bounds native dependency installation and is included in main at
   `57be6c18d1d54a98c67fa463f99fea6289fc27e7`; PR-head test/race CI run
   37807183123 passed all jobs. See the
-  [v0.3.7 release contract](docs/releases/v0.3.7.md) for detailed evidence and
-  pending acceptance.
-- The user reports scoped real Codex/MCP/skill acceptance passed on Mac mini
-  against source `2cad89e`; see the release contract's QA record and limits.
-  This does not establish Mac native GUI acceptance, which remains pending,
-  nor fresh package generation and artifact acceptance.
+  [v0.3.7 release contract](docs/releases/v0.3.7.md) for detailed evidence.
+- The delegated Mac acceptance task, reviewed by Saul, records scoped real
+  Codex/MCP/skill acceptance on Mac mini against source `2cad89e`; see the
+  release contract's QA record and limits. The delegated release task, also
+  reviewed by Saul, records package and synthetic onboarding/quit/restart/
+  persistence checks passed, plus exact-release main CI run 37820170222 and
+  remote-download SHA verification. Full Mac GUI regression was deferred by the
+  user; macOS 12 runtime behavior was not tested. The ad-hoc signed build is not
+  Developer ID signed or notarized.
 
 ## [0.3.6] — 2026-10-03
 
 Published as [v0.3.6](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.6)
 at `64ba10bcf0e1c7bdac56e54b399c0ba9fb901acc`. The release includes the
 Apple Silicon DMG/ZIP, `SHA256SUMS`, and the standalone skill archive with its
-SHA-256 file. The later v0.3.7 line supersedes it as the current candidate;
-v0.3.6 remains a published historical release.
+SHA-256 file. v0.3.7 is now the latest published release; v0.3.6 remains a
+published historical release.
 
 ### Added
 

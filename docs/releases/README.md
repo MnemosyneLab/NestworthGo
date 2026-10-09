@@ -1,18 +1,21 @@
 # Release Documents
 
-The current unreleased candidate is v0.3.7 / build 8. The release contract
-below owns its scope, schema compatibility, release evidence, and outstanding
-native/distribution gates. The latest published release remains v0.3.6.
+The latest published release is v0.3.7 / build 8. The release contract below
+records its scope, schema compatibility, release evidence, and remaining native
+GUI/distribution boundaries.
 
-## Current release
+## Latest release
 
-- [v0.3.7 release contract](v0.3.7.md) — candidate scope, evidence, and open
-  acceptance/distribution gates.
-- [v0.3.7 release-note draft](v0.3.7-notes.md) — publication text pending
-  final gates.
+- [v0.3.7 release contract](v0.3.7.md) — published scope, acceptance evidence,
+  and remaining GUI/signing boundaries.
+- [v0.3.7 release notes](v0.3.7-notes.md) — release summary.
 
 ## Published history
 
+- [v0.3.7 release](https://github.com/MnemosyneLab/NestworthGo/releases/tag/v0.3.7)
+  — published 2026-10-09 at `4d72b3d` (build 8), with arm64 DMG/ZIP, checksums,
+  and skill 1.6.0 assets. Preparation and package acceptance evidence is in
+  the [release contract](v0.3.7.md).
 - [v0.3.6 release contract](v0.3.6.md) — published 2026-10-03 with Apple
   Silicon DMG/ZIP, checksums, and standalone skill assets; preparation-time
   evidence is retained in the contract. The archived
