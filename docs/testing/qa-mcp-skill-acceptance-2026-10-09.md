@@ -1,9 +1,9 @@
-# Real MCP and skill acceptance — scoped user report
+# Real MCP and skill acceptance — scoped delegated-task report
 
-**Status:** Passed for the scenarios listed below, as reported by the user.
-This record is based on the user's summary of a Mac mini acceptance report
-retained on that machine; the report itself was not accessible from this cloud
-workspace and was not independently inspected here.
+**Status:** The delegated Mac acceptance task records a pass for the scenarios
+listed below, and Saul reviewed that report. The local report was not accessible
+from this cloud workspace and was not independently inspected in this docs
+task; the result is recorded from the delegated task's reviewed summary.
 
 ## Tested setup
 
@@ -36,6 +36,6 @@ is not evidence that a v0.3.7 package was built, checksummed, launched, or
 accepted; that later package acceptance is recorded separately in
 [`qa-v0.3.7-release-package-2026-10-09.md`](qa-v0.3.7-release-package-2026-10-09.md).
 
-The user reports that the temporary test service was stopped and no real ledger
-or global client configuration was changed. Mac native GUI acceptance remains
-explicitly deferred to the user.
+The delegated task report records that the temporary test service was stopped
+and no real ledger or global client configuration was changed. Mac native GUI
+acceptance remains explicitly deferred to the user.

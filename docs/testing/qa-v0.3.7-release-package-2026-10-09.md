@@ -1,10 +1,9 @@
 # v0.3.7 release package acceptance
 
 **Status:** Published release assets were verified through GitHub's release
-API; limited package acceptance is user-reported. This record combines public
-asset metadata with release-task and local payload-check results reported by the
-user. The local task report was not available in this cloud workspace and was
-not independently inspected here.
+API; limited package acceptance is recorded by the delegated Mac release task
+and reviewed by Saul. The local task report was not available in this cloud
+workspace and was not independently inspected in this docs task.
 
 ## Release identity and assets
 
@@ -21,21 +20,25 @@ not independently inspected here.
 | `nestworth-skill.tar.gz.sha256` | 89 bytes | `46cf7ac587abac7037e6ec168a8d17073078b98963ed437f648ea45a7c4e2b69` |
 | `SHA256SUMS` | 184 bytes | `da0048e5153b188f3d76ee5f1687ed6ee1cd94ded4ac3cbfa6e714a645888f6f` |
 
-The listed digests are GitHub asset digests, not a claim that this cloud task
-downloaded and re-hashed the payloads. The release includes the adjacent skill
-checksum file and DMG/ZIP checksum manifest.
+The listed digests are GitHub asset digests. Separately, the delegated release
+task reports successful remote download and SHA verification; Saul reviewed
+that result. This cloud docs task did not download the assets. The release
+includes the adjacent skill checksum file and DMG/ZIP checksum manifest.
 
 ## Reported package checks
 
-The user reports that the full release packaging task and 51 tool checks passed
-on Go 1.26.8. The extracted app payload from both DMG and ZIP passed synthetic
-onboarding followed by quit, relaunch, and persistence checks. These targeted
-package checks establish those tested flows only; they are not a full GUI
-regression.
+The delegated Mac release task, reviewed by Saul, reports that the full release
+packaging task and 51 tool checks passed on Go 1.26.8. The extracted app payload
+from both DMG and ZIP passed synthetic onboarding followed by quit, relaunch,
+and persistence checks. These targeted package checks establish those tested
+flows only; they are not a full GUI regression. Exact-release main CI run
+[37820170222](https://github.com/MnemosyneLab/NestworthGo/actions/runs/37820170222)
+also passed, as reported by that task. This docs update did not poll or rerun CI.
 
-The user reports that app bundle metadata declares arm64 and a macOS 12
-deployment target. macOS 12 runtime behavior was not tested. The published app
-is ad-hoc signed; it is not Developer ID signed and was not notarized.
+The delegated release task reports that app bundle metadata declares arm64 and
+a macOS 12 deployment target. macOS 12 runtime behavior was not tested. The
+published app is ad-hoc signed; it is not Developer ID signed and was not
+notarized.
 
 ## Separate acceptance and remaining limits
 

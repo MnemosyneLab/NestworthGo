@@ -46,12 +46,14 @@ acceptance scope and remaining GUI/platform boundaries.
   `57be6c18d1d54a98c67fa463f99fea6289fc27e7`; PR-head test/race CI run
   37807183123 passed all jobs. See the
   [v0.3.7 release contract](docs/releases/v0.3.7.md) for detailed evidence.
-- The user reports scoped real Codex/MCP/skill acceptance passed on Mac mini
-  against source `2cad89e`; see the release contract's QA record and limits.
-  Separate v0.3.7 package and synthetic onboarding/quit/restart/persistence
-  checks passed. Full Mac GUI regression was deferred by the user; macOS 12
-  runtime behavior was not tested. The ad-hoc signed build is not Developer ID
-  signed or notarized.
+- The delegated Mac acceptance task, reviewed by Saul, records scoped real
+  Codex/MCP/skill acceptance on Mac mini against source `2cad89e`; see the
+  release contract's QA record and limits. The delegated release task, also
+  reviewed by Saul, records package and synthetic onboarding/quit/restart/
+  persistence checks passed, plus exact-release main CI run 37820170222 and
+  remote-download SHA verification. Full Mac GUI regression was deferred by the
+  user; macOS 12 runtime behavior was not tested. The ad-hoc signed build is not
+  Developer ID signed or notarized.
 
 ## [0.3.6] — 2026-10-03
 
