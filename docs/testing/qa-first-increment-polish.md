@@ -19,10 +19,13 @@ sync, release artifact or user ledger.
   and calls for a fresh preview. A missing process-local plan has the same
   error code with a distinct `planId` field; its outcome may be unknown, so
   the draft offers no same-plan retry and advises checking History before an
-  explicit fresh preview. A reversed source disables preview even after field
-  edits, until another source is selected. Holding-attributed fee/tax is
-  identified by its dividend-detail attribution metadata, even though the
-  cash effect has no holding ID, and has a specific ineligibility explanation
+  explicit fresh preview. A reversed source refused at Preview or Confirm
+  disables preview even after field edits, until another source is selected.
+  A late refusal from an invalidated Preview cannot block the newer draft.
+  Back without edits retains general uncertain-outcome guidance.
+  Holding-attributed fee/tax is identified by its dividend-detail attribution
+  metadata, even though the cash effect has no holding ID, and has a specific
+  ineligibility explanation
   in every locale.
 - Upcoming main totals satisfy `total = attention + scheduled`. Past blocked
   items count as attention, alongside receipts to verify and reservation
@@ -68,7 +71,7 @@ Run from the feature branch in the saved Cloud workspace with the repository's
 server build tag and `CGO_ENABLED=0` where appropriate:
 
 - `go test -p 1 ./...` — passed across all packages.
-- `pnpm run test --maxWorkers=1` — passed, 90 files / 880 tests. An earlier
+- `pnpm run test --maxWorkers=1` — passed, 90 files / 884 tests. An earlier
   complete run exposed one stale navigation fixture (852 passed, one failed);
   the fixture was corrected and the complete rerun passed.
 - `pnpm run lint`, `pnpm run typecheck`, `pnpm run build`, and

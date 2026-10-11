@@ -90,8 +90,13 @@ function repeatConfirmDisposition(error: unknown): RepeatConfirmDisposition {
   // A missing plan cannot reach that lookup; an earlier write may have won.
   if (wire.code === "stale_preview") return wire.field === "previewToken" ? "fresh_preview" : "plan_unavailable";
   if (!DEFINITE_REPEAT_REFUSALS.has(wire.code)) return "uncertain";
-  if (wire.code === "already_undone" || wire.field === "sourceActivityId") return "source_refused";
+  if (repeatSourceRefused(error)) return "source_refused";
   return "fresh_preview";
+}
+
+function repeatSourceRefused(error: unknown): boolean {
+  const wire = (error as { wireError?: WireError } | null)?.wireError;
+  return wire?.code === "already_undone" || wire?.field === "sourceActivityId";
 }
 
 type NamedOption = { id: string; name: string };
@@ -706,7 +711,10 @@ function RecordChangeFormReady({
     }
     if (repeat) {
       repeatConfirm.reset();
-      repeatPreview.mutate({ sourceId: repeatSourceId ?? "", request: command }, { onSuccess: (result) => { if (alive.current && sequence === previewSequence.current) { setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); setRepeatRecovery(null); } } });
+      repeatPreview.mutate({ sourceId: repeatSourceId ?? "", request: command }, {
+        onSuccess: (result) => { if (alive.current && sequence === previewSequence.current) { setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); setRepeatRecovery(null); } },
+        onError: (cause) => { if (alive.current && sequence === previewSequence.current && repeatSourceRefused(cause)) setRepeatRecovery("source_refused"); },
+      });
       return;
     }
     preview.mutate(command, { onSuccess: accept });

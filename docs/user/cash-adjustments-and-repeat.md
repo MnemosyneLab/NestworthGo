@@ -39,11 +39,11 @@ a new operation. If the app was restarted, inspect History before repeating an
 operation with an unknown outcome.
 
 When confirmation is definitively rejected, the retained confirmation is
-cleared: review a fresh preview if the source remains eligible. If the source
-was undone or otherwise refused, close the draft and select another activity.
-Editing that draft does not make the refused source eligible again. A token
-mismatch is a definite rejection; an unavailable plan is not proof that no
-record was written.
+cleared: review a fresh preview if the source remains eligible. If Preview or
+Confirm finds that the source was undone or otherwise refused, close the draft
+and select another activity. Editing that draft does not make the refused
+source eligible again. A token mismatch is a definite rejection; an
+unavailable plan is not proof that no record was written.
 
 History details show the sign of value increases and decreases, including on
 exact decimal values that round to zero in the currency display.

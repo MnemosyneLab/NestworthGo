@@ -1349,6 +1349,61 @@ it.each([
   }
 });
 
+it.each(["already_undone", "validation"])("keeps a Preview-time %s source refusal blocked after edits", async (code) => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  // History still offers Repeat, but the authoritative source check has changed.
+  listActivities.mockResolvedValue([{ id: "cash", repeatEligible: true, kind: "cash_in", reason: "gift", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "1", currency: "USD" } }] }]);
+  previewRepeat.mockRejectedValueOnce(new Error(JSON.stringify({ code, field: "sourceActivityId", message: "source refused" })));
+  renderPage();
+  await userEvent.click(within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await within(form).findByRole("alert");
+  expect(within(form).getByText(/Close this draft and choose another eligible activity/)).toBeInTheDocument();
+  expect(within(form).getByRole("button", { name: "Preview" })).toBeDisabled();
+  await userEvent.type(within(form).getByLabelText("Note"), " again");
+  expect(within(form).getByText(/Close this draft and choose another eligible activity/)).toBeInTheDocument();
+  expect(within(form).getByRole("button", { name: "Preview" })).toBeDisabled();
+  expect(previewRepeat).toHaveBeenCalledTimes(1);
+  expect(confirmRepeat).not.toHaveBeenCalled();
+});
+
+it("ignores a source refusal from a Preview invalidated by an edit", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listActivities.mockResolvedValue([{ id: "cash", repeatEligible: true, kind: "cash_in", reason: "gift", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "1", currency: "USD" } }] }]);
+  let rejectPreview: ((error: Error) => void) | undefined;
+  previewRepeat.mockImplementationOnce(() => new Promise((_, reject) => { rejectPreview = reject; }));
+  renderPage();
+  await userEvent.click(within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await userEvent.type(within(form).getByLabelText("Note"), " changed");
+  await act(async () => { rejectPreview?.(new Error(JSON.stringify({ code: "already_undone", field: "sourceActivityId", message: "late refusal" }))); });
+  expect(within(form).queryByText(/Close this draft and choose another eligible activity/)).not.toBeInTheDocument();
+  await waitFor(() => expect(within(form).getByRole("button", { name: "Preview" })).toBeEnabled());
+});
+
+it("keeps accurate uncertain-outcome guidance after Back without editing", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listActivities.mockResolvedValue([{ id: "cash", repeatEligible: true, kind: "cash_in", reason: "gift", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "1", currency: "USD" } }] }]);
+  renderPage();
+  await userEvent.click(within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  confirmRepeat.mockRejectedValueOnce(new Error("IPC outcome unknown"));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await within(form).findByRole("alert");
+  await userEvent.click(within(form).getByRole("button", { name: "Back to draft" }));
+  expect(within(form).getByText("The earlier confirmation's outcome is uncertain. Check History before creating a fresh preview.")).toBeInTheDocument();
+  expect(within(form).queryByText(/draft has changed/)).not.toBeInTheDocument();
+  expect(within(form).queryByRole("button", { name: "Retry same confirmation" })).not.toBeInTheDocument();
+  expect(previewRepeat).toHaveBeenCalledTimes(1);
+  expect(confirmRepeat).toHaveBeenCalledTimes(1);
+});
+
 it.each(["planId", undefined])("requires a History check when the Repeat plan is unavailable (field %s)", async (field) => {
   historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
   listActivities.mockResolvedValue([{ id: "cash", repeatEligible: true, kind: "cash_in", reason: "gift", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "1", currency: "USD" } }] }]);
