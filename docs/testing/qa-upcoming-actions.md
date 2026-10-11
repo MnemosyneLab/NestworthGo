@@ -155,3 +155,35 @@ check` also passed: 90 frontend files / 784 tests, Go tests/vet/build, generated
 bindings, frontend build/lint/typecheck and whitespace checks. The native desktop
 acceptance boundary above is unchanged. This follow-up changes only the page,
 the two regression-test files and this QA report.
+
+## Follow-up: same-page history, failed navigation and ordinary overrides
+
+Review of `0ad76b9` was reproduced with failing tests: a same-page Data Health
+View gap had no Back entry; an explicit successful Retry left its requested
+product closed; ordinary unlock plus receipt override copied a fixed receipt
+while labelling it as a request-date estimate. The fixes are scoped:
+
+- Same-page history suppression now applies only to Available Funds object
+  navigation. Data Health gap focus can return to its prior broad view.
+- A failed target read remains pending. Explicit Retry processes its successful
+  result; another error does not trigger a loop. Leaving or superseding a
+  request cancels it, and its late result cannot reopen the sheet or be replayed
+  by Back. Tests cover product, policy and reservation targets.
+- Ordinary explicit unlock actions retain today/upcoming/eligible phases, but
+  omit override receipt details from this projection. Available Funds keeps the
+  authoritative fixed override unchanged; no managed receipt_due is created.
+  Past/future receipts, today/future unlocks, and override without unlock are
+  tested.
+
+Focused frontend command (the same server-profile tool environment):
+`CGO_ENABLED=0 pnpm --dir frontend exec vitest run src/App.test.tsx
+src/features/liquidity/AvailableFundsNavigation.test.tsx
+src/features/data-health/DataHealthPage.test.tsx
+src/features/liquidity/AvailableFundsPage.test.tsx` passed: 4 files / 53 tests.
+`go test ./internal/domain -run Upcoming -count=1` and
+`go test -race ./internal/domain -run Upcoming -count=1` passed.
+Full `CGO_ENABLED=0 env -u NESTWORTH_QA_DATABASE wails3 task check` passed:
+Go tests/vet/build, generated bindings, frontend build/lint/typecheck,
+90 frontend files / 790 tests and whitespace checks. Native GUI work was not
+performed or duplicated; its acceptance boundary remains with the separate
+review. No financial operations, schema or MCP tools changed.

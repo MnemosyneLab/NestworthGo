@@ -372,3 +372,53 @@ func TestUpcomingInvalidReservationErrors(t *testing.T) {
 		t.Fatal("invalid reservation silently dropped")
 	}
 }
+
+func TestUpcomingOrdinaryUnlockWithReceiptOverride(t *testing.T) {
+	for _, c := range []struct{ name, unlock, receipt, phase string }{
+		{"past", "2026-10-01", "2026-10-05", "eligible"},
+		{"future_receipt", "2026-10-01", "2026-10-20", "eligible"},
+		{"today_unlock", "2026-10-11", "2026-10-15", "today"},
+		{"future_unlock", "2026-10-15", "2026-10-20", "upcoming"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			q, s := upcomingFixture(t)
+			s.Managed = false
+			s.Contract = nil
+			s.ProductID = nil
+			s.ExplicitPolicy.UnlockOn = datePtr(c.unlock)
+			s.ExplicitPolicy.ReceiptOnOverride = datePtr(c.receipt)
+			overview, err := EvaluateLiquidity(q, []LiquiditySource{s}, nil, identityFX(q.BaseCurrency))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if *overview.Sources[0].NormalRoute.ReceiptOn != c.receipt {
+				t.Fatal("authoritative override changed")
+			}
+			got, err := ProjectUpcomingActions(overview, []LiquiditySource{s}, LiquiditySnapshot{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(got.Items) != 1 || got.Items[0].Phase != c.phase || got.Counts.ReceiptDue != 0 {
+				t.Fatalf("ordinary lifecycle=%+v", got)
+			}
+			item := got.Items[0]
+			if item.EstimatedReceiptOn != nil || item.ReceiptBasis != "unknown" || item.PrimaryTarget.Kind != "source_policy" {
+				t.Fatalf("ordinary override must stay in Available Funds details: %+v", item)
+			}
+		})
+	}
+}
+
+func TestUpcomingOrdinaryOverrideWithoutUnlockHasNoAction(t *testing.T) {
+	q, s := upcomingFixture(t)
+	s.Managed = false
+	s.Contract = nil
+	s.ProductID = nil
+	s.ExplicitPolicy.AccessKind = AccessOnRequest
+	s.ExplicitPolicy.UnlockOn = nil
+	s.ExplicitPolicy.ReceiptOnOverride = datePtr("2026-10-05")
+	got := projectUpcoming(t, q, []LiquiditySource{s}, nil)
+	if len(got.Items) != 0 || got.Counts.ReceiptDue != 0 {
+		t.Fatalf("ordinary override invented action: %+v", got)
+	}
+}

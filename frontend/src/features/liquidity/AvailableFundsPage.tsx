@@ -62,6 +62,8 @@ export function AvailableFundsPage({
   const [navigationMessage, setNavigationMessage] = useState<string>();
   // Back restores older request IDs; every consumed request stays consumed while retained.
   const consumedRequests = useRef(new Set<number>());
+  const navigationTransition = useRef<{ id: number; active: boolean }>();
+  const [navigationRetry, setNavigationRetry] = useState(0);
   const data = overview.data;
   const buckets = data?.buckets ?? [];
   const [selectedHorizon, setSelectedHorizon] = useState<string>();
@@ -76,13 +78,21 @@ export function AvailableFundsPage({
   );
   const eligibleAccounts = (accounts.data ?? []).filter((record) => canHoldProducts(record.account));
   useEffect(() => {
+    const previous = navigationTransition.current;
+    if (previous?.active && (!isActive || previous.id !== navigationRequestId)) {
+      // Leaving or superseding a pending navigation cancels it for subsequent Back.
+      consumedRequests.current.add(previous.id);
+    }
+    navigationTransition.current = { id: navigationRequestId, active: isActive };
+  }, [isActive, navigationRequestId]);
+  useEffect(() => {
     if (!isActive || consumedRequests.current.has(navigationRequestId) || (!focus && !productId && !accountId)) return;
     let cancelled = false;
     void refetchOverview().then(result => {
       if (cancelled) return;
-      consumedRequests.current.add(navigationRequestId);
       setPolicySource(null); setManageReservations(false); setReservationSource(null); setProductFormAccountId(null); setDetailProductId(null); setFocusReservationId(undefined);
       if (result.isError || !result.data) { setNavigationMessage(t("upcomingActions.loadError")); return; }
+      consumedRequests.current.add(navigationRequestId);
       setNavigationMessage(undefined);
       const target = focus ?? (productId ? { kind: "product" as const, productId } : undefined);
       const freshSources = result.data.sources ?? [];
@@ -100,7 +110,12 @@ export function AvailableFundsPage({
       } else if (accountId) setProductFormAccountId(accountId);
     });
     return () => { cancelled = true; };
-  }, [focus, navigationRequestId, isActive, productId, accountId, refetchOverview, t]);
+  }, [focus, navigationRequestId, isActive, productId, accountId, refetchOverview, navigationRetry, t]);
+  const retryOverview = () => {
+    if (isActive && (focus || productId || accountId) && !consumedRequests.current.has(navigationRequestId)) {
+      setNavigationRetry(value => value + 1);
+    } else { void refetchOverview(); }
+  };
   const [previousIsActive, setPreviousIsActive] = useState(isActive);
   // Adjust retained sheet state during the page transition, before displaying it again.
   if (previousIsActive !== isActive) {
@@ -141,7 +156,7 @@ export function AvailableFundsPage({
         <ErrorState
           title={t("availableFunds.loadError")}
           description={t("ui.state.errorDescription")}
-          onRetry={() => overview.refetch()}
+          onRetry={retryOverview}
           retryLabel={t("common.retryAction")}
         />
       </>

@@ -8,8 +8,9 @@ import { AppProviders, queryClient } from "./app/providers";
 import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
 import { useUiStore } from "./stores/ui";
 
-const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth } = vi.hoisted(() => ({
   upcomingRead: vi.fn(),
+  scanHealth: vi.fn(),
   startup: vi.fn().mockResolvedValue({ available: true }),
   settingsLoad: vi.fn(),
   settingsSave: vi.fn(),
@@ -182,7 +183,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", 
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
-    ScanMarketDataHealth: () => Promise.resolve({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] }),
+    ScanMarketDataHealth: () => scanHealth(),
     GetCurrentSyncJob: () => Promise.resolve({ jobId: "" }),
   },
 }));
@@ -227,6 +228,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidit
 
 beforeEach(() => {
   queryClient.clear();
+  scanHealth.mockReset().mockResolvedValue({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] });
   upcomingRead.mockReset().mockResolvedValue(upcomingData([upcomingItem()]));
   startup.mockReset();
   startup.mockResolvedValue({ available: true });
@@ -533,4 +535,21 @@ it("does not reopen A when Back restores its consumed request after opening B", 
   await waitFor(() => expect(queryClient.isFetching()).toBe(0));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "← Back to Overview" })).toBeVisible();
+});
+
+
+it("preserves same-page Data Health gap focus history", async () => {
+  scanHealth.mockResolvedValue({ healthy: false, issueCount: 2, executableCount: 0, prerequisiteCount: 0, snapshotDays: 2, issues: [
+    { id: "gap-a", kind: "snapshot_incomplete", severity: "warning", targetKey: "cash:a", accountId: "bank-a", label: "USD", rangeStart: "2026-09-18", rangeEnd: "2026-09-18", action: "none", executable: false },
+    { id: "gap-b", kind: "snapshot_incomplete", severity: "warning", targetKey: "cash:b", accountId: "bank-b", label: "CNY", rangeStart: "2026-09-19", rangeEnd: "2026-09-19", action: "none", executable: false },
+  ] });
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  await userEvent.click(within(screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") })).getByRole("button", { name: "Data Health" }));
+  const rows = await screen.findAllByTestId("health-issue-snapshot_incomplete");
+  expect(rows).toHaveLength(2);
+  await userEvent.click(within(rows[0]).getByRole("button", { name: "View gap" }));
+  await waitFor(() => expect(screen.getAllByTestId("health-issue-snapshot_incomplete")).toHaveLength(1));
+  await userEvent.click(await screen.findByRole("button", { name: "← Back to Data Health" }));
+  await waitFor(() => expect(screen.getAllByTestId("health-issue-snapshot_incomplete")).toHaveLength(2));
 });

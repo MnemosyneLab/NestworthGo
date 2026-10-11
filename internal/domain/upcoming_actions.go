@@ -431,7 +431,10 @@ func upcomingSchedule(s LiquiditySourceResult, raw LiquiditySource, today, end s
 		item.PolicyRevision = p.Revision
 	}
 	if normal != nil {
-		item.EstimatedReceiptOn = normal.ReceiptOn
+		// Ordinary overrides remain receipt details in Available Funds, not request-date estimates here.
+		if managed || override == nil {
+			item.EstimatedReceiptOn = normal.ReceiptOn
+		}
 		item.Amount = normal.NetNative
 		item.AmountRole = "estimated_net_proceeds"
 		if normal.NetNative != nil {
@@ -441,7 +444,7 @@ func upcomingSchedule(s LiquiditySourceResult, raw LiquiditySource, today, end s
 			item.Assumptions = append(item.Assumptions, string(a))
 		}
 	}
-	if timingKnown {
+	if timingKnown && (managed || override == nil) {
 		switch {
 		case maturity != nil || (managed && override != nil):
 			item.ReceiptBasis = "fixed_schedule"

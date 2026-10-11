@@ -29,6 +29,11 @@ today cannot become an overdue receipt. Past explicit unlocks remain folded
 under eligible items. Fixed recorded receipt overrides remain fixed. Weekday
 settlement skips weekends, not public holidays; T+0 retains the same day.
 
+Ordinary sources keep their explicit unlock/eligibility action. A fixed receipt
+override remains in Available Funds details; it is not presented in this
+projection as an estimate for a request today or on the unlock date, and cannot
+create a managed receipt-verification action.
+
 Money comes from existing liquidity evaluation, as decimal strings and currency.
 Known zero differs from null. Unknown price/fee does not hide a known date.
 Missing base FX preserves a known native shortfall. There is no mixed-currency
@@ -84,6 +89,10 @@ A session request ID is consumed once after a fresh overview read; refetch does
 not reopen a dismissed sheet, while another explicit click on the same target
 can reopen it. Missing sources can still open the global reservation manager;
 a reservation ID focuses the active or released card without editing/releasing.
+Only same-page Available Funds object navigation omits a new trail entry;
+other same-page focus changes preserve Back history. Failed navigation reads
+stay pending for explicit Retry; leaving or superseding the request cancels it,
+and late results cannot reopen its sheet.
 Cross-page navigation hides old sheets and Back restores the prior trigger,
 falling back to the page heading if the trigger disappeared.
 

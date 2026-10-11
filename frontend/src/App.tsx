@@ -151,7 +151,7 @@ function App() {
   };
 
   const open = (target: NavigationTarget) => {
-    if (target.page === activePageId) { handleNavigate(target, true); return; }
+    if (target.page === "available-funds" && target.page === activePageId) { handleNavigate(target, true); return; }
     setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
       focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
