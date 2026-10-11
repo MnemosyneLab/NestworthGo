@@ -10,11 +10,13 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/preview"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 type Service struct {
-	app *application.Service
+	app         *application.Service
+	repeatPlans preview.Store[repeatPlan]
 }
 
 func NewService(app *application.Service) *Service {

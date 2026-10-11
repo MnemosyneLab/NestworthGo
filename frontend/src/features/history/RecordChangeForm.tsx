@@ -16,7 +16,7 @@ import {
   useFXPreferences,
   useSetFXPreference,
 } from "@/queries/investments";
-import { useHistoryMutationAllowed, useHistoryOrigin, usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
+import { usePreviewRepeatChange, useConfirmRepeatChange, useHistoryMutationAllowed, useHistoryOrigin, usePreviewChange, usePreviewFixChange, useRecordChange, useFixChange } from "@/queries/history";
 import { useSettings, useSupportedCurrencies } from "@/queries/settings";
 import { useCatalog } from "@/queries/catalog";
 import { useBootstrap } from "@/queries/household";
@@ -229,6 +229,7 @@ export function RecordChangeForm({
   onRecorded,
   initial,
   fixActivityId,
+  repeat = false,
   lock,
   originalEffectiveAt,
   originOverride,
@@ -236,6 +237,7 @@ export function RecordChangeForm({
   onRecorded: () => void;
   initial?: ChangeCommandRequest;
   fixActivityId?: string;
+  repeat?: boolean;
   lock?: RecordChangeLock;
   originalEffectiveAt?: string;
   originOverride?: HistoryOriginDTO;
@@ -257,6 +259,7 @@ export function RecordChangeForm({
       onRecorded={onRecorded}
       initial={initial}
       fixActivityId={fixActivityId}
+      repeat={repeat}
       lock={lock}
       originalEffectiveAt={originalEffectiveAt}
       originOverride={originOverride}
@@ -269,6 +272,7 @@ function RecordChangeFormReady({
   onRecorded,
   initial,
   fixActivityId,
+  repeat = false,
   lock,
   originalEffectiveAt,
   originOverride,
@@ -277,6 +281,7 @@ function RecordChangeFormReady({
   onRecorded: () => void;
   initial?: ChangeCommandRequest;
   fixActivityId?: string;
+  repeat?: boolean;
   lock?: RecordChangeLock;
   originalEffectiveAt?: string;
   originOverride?: HistoryOriginDTO;
@@ -295,6 +300,9 @@ function RecordChangeFormReady({
   const allAccountIds = (accounts.data ?? []).map((record) => record.account.id);
   const holdings = useAllHoldingsFlat(allAccountIds);
   const preview = usePreviewChange();
+  const repeatPreview = usePreviewRepeatChange();
+  const repeatConfirm = useConfirmRepeatChange();
+  const confirmBusy = useRef(false);
   const previewFix = usePreviewFixChange();
   const record = useRecordChange();
   const fix = useFixChange();
@@ -330,7 +338,7 @@ function RecordChangeFormReady({
         )
       : {},
   );
-  const [reviewed, setReviewed] = useState<{ key: string; command: ChangeCommandRequest; resulting: EndpointViewDTO[] } | null>(null);
+  const [reviewed, setReviewed] = useState<{ key: string; command: ChangeCommandRequest; planId?: string; resulting: EndpointViewDTO[] } | null>(null);
   const previewSequence = useRef(0);
   const clearPreview = () => { previewSequence.current += 1; setReviewed(null); };
 
@@ -343,7 +351,7 @@ function RecordChangeFormReady({
   };
 
   const patch = (next: Partial<ChangeCommandRequest>, automaticFields: string[] = []) => {
-    if (record.isPending || fix.isPending) return;
+    if (record.isPending || fix.isPending || repeatConfirm.isPending) return;
     setRequest((current) => {
       markAutomaticFields(current, automaticFields);
       Object.keys(next).forEach((field) => {
@@ -359,6 +367,8 @@ function RecordChangeFormReady({
       return { ...current, ...next };
     });
     clearPreview();
+    if (repeatPreview.isError) repeatPreview.reset();
+    if (repeatConfirm.isError) repeatConfirm.reset();
     if (preview.isError) preview.reset();
     if (previewFix.isError) previewFix.reset();
     if (record.isError) record.reset();
@@ -622,7 +632,7 @@ function RecordChangeFormReady({
   // Match domain.ParseUnitPrice without rounding or converting through Number.
   const unitCostInvalid = kind === ChangeCommandKind.ChangePositionAdjustment && request.added &&
     Boolean(request.unitCost) && !/^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$/.test(request.unitCost ?? "");
-  const canPreview = hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
+  const canPreview = (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? ""))) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
     const sameCurrencyTransfer =
@@ -662,11 +672,23 @@ function RecordChangeFormReady({
       previewFix.mutate({ activityId: fixActivityId, replacement: command }, { onSuccess: accept });
       return;
     }
+    if (repeat) {
+      repeatConfirm.reset();
+      repeatPreview.mutate(command, { onSuccess: (result) => { if (sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); } });
+      return;
+    }
     preview.mutate(command, { onSuccess: accept });
   };
 
-  const runConfirm = () => {
-    if (!currentReview || record.isPending || fix.isPending) return;
+  const runConfirm = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (repeat && event.detail > 1) return;
+    if (!currentReview || confirmBusy.current || record.isPending || fix.isPending || repeatConfirm.isPending) return;
+    if (repeat) {
+      if (!currentReview.planId) return;
+      confirmBusy.current = true;
+      repeatConfirm.mutate(currentReview.planId, { onSuccess: () => { clearPreview(); onRecorded(); }, onError: (cause) => { if ((cause as Error & { wireError?: { code: string } }).wireError?.code === "stale_preview") clearPreview(); }, onSettled: () => { confirmBusy.current = false; } });
+      return;
+    }
     // Confirm the immutable command that produced the visible preview.
     const command = currentReview.command;
     if (fixActivityId) {
@@ -690,9 +712,9 @@ function RecordChangeFormReady({
     });
   };
 
-  const error = preview.error ?? previewFix.error ?? record.error ?? fix.error;
-  const previewPending = fixActivityId ? previewFix.isPending : preview.isPending;
-  const confirmPending = fixActivityId ? fix.isPending : record.isPending;
+  const error = repeatPreview.error ?? repeatConfirm.error ?? preview.error ?? previewFix.error ?? record.error ?? fix.error;
+  const previewPending = repeat ? repeatPreview.isPending : fixActivityId ? previewFix.isPending : preview.isPending;
+  const confirmPending = repeat ? repeatConfirm.isPending : fixActivityId ? fix.isPending : record.isPending;
   const selectedValueCurrency = accountById.get(request.accountId ?? "")?.account.defaultCurrency ?? displayedCurrentValue?.currency ?? defaultCurrency;
   const selectedCashAccountCurrency = accountById.get(request.cashAccountId ?? "")?.account.defaultCurrency ?? defaultCurrency;
   const fxPairReady = Boolean(request.soldCurrency && request.boughtCurrency && request.soldCurrency !== request.boughtCurrency);
@@ -1089,7 +1111,7 @@ function RecordChangeFormReady({
         </>
       )}
 
-      {showReason && <div className="flex flex-col gap-1.5"><Label htmlFor="change-reason">{t("history.reasonLabel")}</Label><NativeSelect id="change-reason" value={request.reason ?? "other"} onChange={(event) => patch({ reason: event.target.value })}>{reasonOptions.map((reason) => <option key={reason} value={reason}>{t(`history.reason.${reason}`)}</option>)}</NativeSelect></div>}
+      {showReason && <div className="flex flex-col gap-1.5"><Label htmlFor="change-reason">{t("history.reasonLabel")}</Label><NativeSelect id="change-reason" value={request.reason ?? "other"} onChange={(event) => patch({ reason: event.target.value })}>{(repeat ? [request.reason ?? ""] : reasonOptions).map((reason) => <option key={reason} value={reason}>{t(`history.reason.${reason}`)}</option>)}</NativeSelect></div>}
 
       {!fixActivityId ? (
         <>
@@ -1122,12 +1144,14 @@ function RecordChangeFormReady({
       <div className="flex flex-col gap-1.5"><Label htmlFor="change-note">{t("history.note")}</Label><Input id="change-note" value={request.note ?? ""} onChange={(event) => patch({ note: event.target.value || null })} placeholder={t("history.notePlaceholder")} /></div>
 
       {(accounts.isError || instruments.isError || holdings.isError) && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive"><span>{t("history.dependenciesError")}</span><Button type="button" variant="outline" size="sm" onClick={() => void Promise.all([accounts.refetch(), instruments.refetch(), holdings.refetch()])}>{t("common.retryAction")}</Button></div>}
+      {repeat && (!accountOptions.some((account) => account.id === request.accountId) || !currencyOptions.includes(request.currency ?? "")) && <p role="alert" className="text-sm text-destructive">{t("history.repeatUnavailable")}</p>}
       {mutationAllowed.isError && <p role="alert" className="text-sm text-destructive">{t("history.mutationUnavailable")}</p>}
       <FieldError className="text-sm">{error ? displayError(error, t("history.actionError")) : undefined}</FieldError>
 
       {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
 
       <div className="flex gap-2">
+        {repeat && previewResult && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirmPending}>{t("common.backToDraft")}</Button>}
         {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : t("common.confirm")}</Button>}
       </div>
       </fieldset>

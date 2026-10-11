@@ -45,7 +45,10 @@
     "showArchived": "Show archived",
     "trackingMode": "Tracking mode",
     "updateValue": "Update current value",
-    "wholeAccountInclusionWarning": "Portfolio and liquid-assets inclusion applies to all cash and holdings in this account."
+    "wholeAccountInclusionWarning": "Portfolio and liquid-assets inclusion applies to all cash and holdings in this account.",
+    "adjustmentReason": "Reason (optional)",
+    "balanceBefore": "Current balance",
+    "adjustmentDelta": "Adjustment"
   },
   "analytics": {
     "empty": "No closed-day snapshots are available yet.",
@@ -87,7 +90,8 @@
     "save": "Save",
     "saved": "Saved locally",
     "system": "System",
-    "to": "to"
+    "to": "to",
+    "backToDraft": "Back to draft"
   },
   "dashboard": {
     "accountCount": "%d accounts",
@@ -438,7 +442,11 @@
     "timeline": "Timeline",
     "toDate": "To",
     "type": "Change type",
-    "undo": "Undo"
+    "undo": "Undo",
+    "repeatAction": "Repeat as new draft",
+    "repeatDescription": "Start a new income or expense record. Review the account, amount and time, then preview and confirm. Nothing is posted when you open this draft.",
+    "effectiveAt": "Effective time",
+    "repeatUnavailable": "Choose an available account and a supported currency before previewing."
   },
   "icons": {
     "account": "Account",

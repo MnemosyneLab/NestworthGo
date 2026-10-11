@@ -190,3 +190,12 @@ export function emptyChangeRequest(kind: ChangeCommandKind, currency: string): C
       return request;
   }
 }
+
+/** Explicitly ordinary records only; never infer eligibility from effects. */
+export function activityToRepeatDraft(activity: ActivityDTO): ChangeCommandRequest | null {
+  if (activity.productContext || activity.reversesActivityId || activity.correctionGroupId) return null;
+  if (!((activity.kind === "cash_in" && activity.reason === "income") || (activity.kind === "cash_out" && activity.reason === "expense"))) return null;
+  const effect = activity.effects?.[0];
+  if (activity.effects?.length !== 1 || !effect?.accountId || !effect.money || effect.holdingId) return null;
+  return { kind: activity.kind === "cash_in" ? ChangeCommandKind.ChangeMoneyAdded : ChangeCommandKind.ChangeMoneyRemoved, accountId: effect.accountId, amount: effect.money.amount, currency: effect.money.currency, reason: activity.reason, note: activity.note ?? null, added: true };
+}

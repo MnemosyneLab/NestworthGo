@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { useAppendAccountCashValue, useAppendAccountValue } from "@/queries/accounts";
+import { usePreviewCashBalance, useConfirmCashBalance, useAppendAccountValue } from "@/queries/accounts";
 import { useCreateHolding, useCreateInstrument, useCurrentInstrumentQuote, useInstruments } from "@/queries/investments";
 import { useRefreshInstrument } from "@/queries/marketdata";
 import { useSupportedCurrencies } from "@/queries/settings";
@@ -136,7 +136,14 @@ function CashBalanceForm({
 }) {
   const { t } = useTranslation();
   const currencies = useSupportedCurrencies();
-  const appendCash = useAppendAccountCashValue();
+  const preview = usePreviewCashBalance();
+  const confirm = useConfirmCashBalance(record.account.id);
+  const [reviewed, setReviewed] = useState<import("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/holding/models").CashBalancePreviewDTO | null>(null);
+  const [reason, setReason] = useState("");
+  const sequence = useRef(0);
+  const busy = useRef(false);
+  const clearPreview = () => { sequence.current += 1; setReviewed(null); };
+  useEffect(() => () => { sequence.current += 1; }, []);
   const [currency, setCurrency] = useState(record.account.defaultCurrency);
   const [amount, setAmount] = useState("");
   const [error, setError] = useState<string | undefined>();
@@ -144,21 +151,25 @@ function CashBalanceForm({
   const currentCash = (valuation?.components ?? []).find((component) => !component.instrumentId && component.nativeCurrency === currency);
 
   const submit = () => {
-    if (!amount.trim()) {
-      setError(t("error.validation.notEmpty"));
-      return;
-    }
+    if (busy.current || !amount.trim()) return;
+    busy.current = true;
     setError(undefined);
-    appendCash.mutate(
-      { accountId: record.account.id, amount: amount.trim(), currency },
-      {
-        onSuccess: () => {
-          toast.success(t("common.saved"));
-          onDone();
-        },
-        onError: (cause) => setError(displayError(cause, t("accounts.saveError"))),
-      },
-    );
+    const current = ++sequence.current;
+    preview.mutate({ accountId: record.account.id, amount: amount.trim(), currency, reason }, {
+      onSuccess: (result) => { if (current === sequence.current) setReviewed(result); },
+      onError: (cause) => { if (current === sequence.current) setError(displayError(cause, t("accounts.saveError"))); },
+      onSettled: () => { busy.current = false; },
+    });
+  };
+  const commit = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (event.detail > 1) return;
+    if (!reviewed || busy.current) return;
+    busy.current = true;
+    confirm.mutate(reviewed.planId, {
+      onSuccess: () => { toast.success(t("common.saved")); onDone(); },
+      onError: (cause) => { setError(displayError(cause, t("accounts.saveError"))); if ((cause as Error & { wireError?: { code: string } }).wireError?.code === "stale_preview") clearPreview(); },
+      onSettled: () => { busy.current = false; },
+    });
   };
 
   return (
@@ -166,7 +177,7 @@ function CashBalanceForm({
       <p className="text-sm text-muted-foreground">{historyStarted ? t("accounts.cashReconcileHint") : t("accounts.openingCashHint")}</p>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="cash-currency">{t("accounts.cashCurrency")}</Label>
-        <NativeSelect id="cash-currency" value={currency} onChange={(event) => setCurrency(event.target.value)}>
+        <NativeSelect id="cash-currency" value={currency} disabled={confirm.isPending} onChange={(event) => { setCurrency(event.target.value); clearPreview(); }}>
           {options.map((code) => (
             <option key={code} value={code}>
               {code}
@@ -179,16 +190,22 @@ function CashBalanceForm({
       </p>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="cash-amount">{t("accounts.resultingBalance")}</Label>
-        <Input id="cash-amount" inputMode="decimal" value={amount} onChange={(event) => setAmount(event.target.value)} autoFocus />
+        <Input id="cash-amount" inputMode="decimal" value={amount} disabled={confirm.isPending} onChange={(event) => { setAmount(event.target.value); clearPreview(); }} autoFocus />
       </div>
+      {historyStarted && <div className="flex flex-col gap-1.5"><Label htmlFor="cash-reason">{t("accounts.adjustmentReason")}</Label><Input id="cash-reason" value={reason} disabled={confirm.isPending} onChange={(event) => { setReason(event.target.value); clearPreview(); }} /></div>}
+      {reviewed && <div role="status" className="rounded-xl border border-border bg-muted p-3 text-sm">
+        <p>{t("history.previewDescription")}</p>
+        <dl>{([ ["accounts.balanceBefore", formatAmount(reviewed.current, reviewed.currency)], ["accounts.resultingBalance", formatAmount(reviewed.target, reviewed.currency)], ["accounts.adjustmentDelta", `${reviewed.delta.startsWith("-") ? "" : "+"}${formatAmount(reviewed.delta, reviewed.currency)}`], ["history.currency", reviewed.currency], ["history.effectiveAt", reviewed.effectiveAt], ...(reviewed.reason ? [["accounts.adjustmentReason", reviewed.reason]] : []) ]).map(([label, value]) => <div key={label}><dt className="font-medium">{t(label)}</dt><dd>{value}</dd></div>)}</dl>
+      </div>}
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}
-      <Button type="button" onClick={submit} disabled={appendCash.isPending}>
-        {appendCash.isPending ? t("common.pending") : t("common.save")}
-      </Button>
+      <div className="flex gap-2">
+        <Button type="button" onClick={reviewed ? commit : submit} disabled={preview.isPending || confirm.isPending || !amount.trim()}>{preview.isPending || confirm.isPending ? t("common.pending") : reviewed ? t("common.confirm") : t("common.preview")}</Button>
+        {reviewed && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirm.isPending}>{t("common.backToDraft")}</Button>}
+      </div>
     </div>
   );
 }

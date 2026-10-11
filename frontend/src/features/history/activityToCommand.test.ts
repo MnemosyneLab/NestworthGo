@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ChangeCommandKind } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history/models";
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
-import { activityToInitialCommand, emptyChangeRequest } from "@/features/history/activityToCommand";
+import { activityToRepeatDraft, activityToInitialCommand, emptyChangeRequest } from "@/features/history/activityToCommand";
 
 /**
  * ACTIVITY_TO_COMMAND is the inverse of history.ChangeCommandRequest.ToCommand.
@@ -93,5 +93,17 @@ describe("emptyChangeRequest", () => {
     expect(emptyChangeRequest(ChangeCommandKind.ChangeMoneyAdded, "")).not.toEqual(
       expect.objectContaining({ currency: "CNY" }),
     );
+  });
+});
+
+describe("ordinary Repeat allowlist", () => {
+  const ordinary = { id: "old", kind: "cash_in", reason: "income", effectiveAt: "old-time", note: "Salary", effects: [{ id: "old-effect", accountId: "acc", money: { amount: "100", currency: "USD" } }] } as ActivityDTO;
+  it("copies only editable fields and keeps no old identity or effective time", () => {
+    expect(activityToRepeatDraft(ordinary)).toEqual({ kind: "money_added", accountId: "acc", amount: "100", currency: "USD", reason: "income", note: "Salary", added: true });
+    expect(activityToRepeatDraft({ ...ordinary, kind: "cash_out", reason: "expense" })?.kind).toBe("money_removed");
+  });
+  it.each(["cash_dividend", "cash_transfer", "fx_conversion", "position_transfer", "buy", "sell", "value_update", "debt_draw", "debt_payment", "cost_adjustment", "reversal"])("rejects %s", (kind) => { expect(activityToRepeatDraft({ ...ordinary, kind })).toBeNull(); });
+  it("rejects reconciliation, correction, reversal, products and malformed effects", () => {
+    for (const activity of [{ ...ordinary, reason: "reconciliation" }, { ...ordinary, correctionGroupId: "group" }, { ...ordinary, reversesActivityId: "original" }, { ...ordinary, productContext: { productId: "product" } }, { ...ordinary, effects: [] }]) expect(activityToRepeatDraft(activity as ActivityDTO)).toBeNull();
   });
 });

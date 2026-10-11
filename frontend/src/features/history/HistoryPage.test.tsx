@@ -19,6 +19,8 @@ const listActivities = vi.fn();
 const listActivityPage = vi.fn();
 const getActivity = vi.fn();
 const previewChange = vi.fn();
+const previewRepeat = vi.fn();
+const confirmRepeat = vi.fn();
 const previewFixChange = vi.fn();
 const recordChange = vi.fn();
 const undoChange = vi.fn();
@@ -61,6 +63,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/hi
     StartingPointDraft: () => startingPointDraft(),
     Activity: (...args: unknown[]) => getActivity(...args),
     ListActivityPage: (...args: unknown[]) => listActivityPage(...args),
+    PreviewRepeatChange: (...args: unknown[]) => previewRepeat(...args),
+    ConfirmRepeatChange: (...args: unknown[]) => confirmRepeat(...args),
     PreviewChange: (...args: unknown[]) => previewChange(...args),
     PreviewFixChange: (...args: unknown[]) => previewFixChange(...args),
     RecordChange: (...args: unknown[]) => recordChange(...args),
@@ -135,6 +139,8 @@ beforeEach(() => {
   listActivities.mockReset();
   listActivityPage.mockReset();
   getActivity.mockReset();
+  previewRepeat.mockReset(); previewRepeat.mockResolvedValue({ planId: "repeat-plan", resulting: [{ name: "Checking", amount: "200", currency: "USD" }] });
+  confirmRepeat.mockReset(); confirmRepeat.mockResolvedValue({});
   previewChange.mockReset();
   recordChange.mockReset();
   undoChange.mockReset();
@@ -1070,7 +1076,7 @@ it("does not attach an old preview to a closed and reopened form", async () => {
   await act(async () => resolvePreviews[1]({ resulting: [{ name: "NEW SESSION", amount: "1200", currency: "USD" }] }));
   expect(await within(form).findByRole("button", { name: "Confirm" })).toBeEnabled();
   await act(async () => resolvePreviews[0]({ resulting: [{ name: "OLD SESSION", amount: "1100", currency: "USD" }] }));
-  expect(within(form).getByRole("button", { name: "Confirm" })).toBeEnabled();
+  await waitFor(() => expect(within(form).getByRole("button", { name: "Confirm" })).toBeEnabled());
   expect(within(form).getByRole("status")).toHaveTextContent("NEW SESSION");
   expect(within(form).queryByText(/OLD SESSION/)).not.toBeInTheDocument();
 });
@@ -1262,4 +1268,62 @@ it("keeps captured time across kind changes and invalidates a pending preview wh
     await waitFor(() => expect(previewChange).toHaveBeenLastCalledWith(expect.objectContaining({ effectiveAt: "2026-10-02T12:35:55.999Z", effectiveLocalDate: "", effectiveLocalTime: "" })));
     await act(async () => resolvePreviews[2]({ resulting: [] }));
   } finally { vi.useRealTimers(); }
+});
+
+it("Repeat opens a fresh editable draft, invalidates edits/back and confirms the latest plan once", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listActivities.mockResolvedValue([{ id: "old-income", kind: "cash_in", reason: "income", effectiveAt: "2026-01-01T12:00:00Z", effectiveLocalDate: "2026-01-01", note: "Salary", effects: [{ role: "amount", direction: "added", target: "account_value", accountId: "acc-1", money: { amount: "100", currency: "USD" } }] }]);
+  renderPage();
+  const list = await screen.findByTestId("activity-list");
+  const open = async () => { await userEvent.click(within(list).getByRole("button", { name: "Actions" })); await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" })); return screen.findByRole("form", { name: "Record change" }); };
+  let form = await open();
+  expect(within(form).getByLabelText("Amount")).toHaveValue("100");
+  expect(within(form).getByLabelText("Account")).toHaveValue("acc-1");
+  expect(within(form).getByLabelText("Note")).toHaveValue("Salary");
+  expect(confirmRepeat).not.toHaveBeenCalled(); expect(recordChange).not.toHaveBeenCalled();
+  await userEvent.type(within(form).getByLabelText("Amount"), "0");
+  await userEvent.keyboard("{Escape}"); form = await open();
+  expect(within(form).getByLabelText("Amount")).toHaveValue("100");
+  within(form).getByRole("button", { name: "Preview" }).focus();
+  await userEvent.keyboard("{Enter}");
+  await within(form).findByRole("button", { name: "Confirm" });
+  expect(previewRepeat).toHaveBeenCalledWith(expect.objectContaining({ amount: "100", reason: "income", accountId: "acc-1" }));
+  expect(previewRepeat.mock.calls[0][0].effectiveAt).not.toBe("2026-01-01T12:00:00Z");
+  expect(previewRepeat.mock.calls[0][0].effectiveLocalDate).not.toBe("2026-01-01");
+  expect(previewRepeat.mock.calls[0][0].mutationId).toBeUndefined();
+  await userEvent.click(within(form).getByRole("button", { name: "Back to draft" }));
+  expect(within(form).getByLabelText("Amount")).toHaveValue("100");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  confirmRepeat.mockRejectedValueOnce(new Error(JSON.stringify({ code: "stale_preview", message: "fresh preview required" })));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await within(form).findByRole("alert");
+  expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+  confirmRepeat.mockClear();
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await within(form).findByRole("button", { name: "Confirm" });
+  await userEvent.type(within(form).getByLabelText("Amount"), "0");
+  expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+  previewRepeat.mockResolvedValueOnce({ planId: "edited-plan", resulting: [{ name: "Checking", amount: "1100", currency: "USD" }] });
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  const confirm = await within(form).findByRole("button", { name: "Confirm" });
+  confirmRepeat.mockRejectedValueOnce(new Error("IPC outcome unknown"));
+  await userEvent.dblClick(confirm);
+  await waitFor(() => expect(confirmRepeat).toHaveBeenCalledTimes(1));
+  await within(form).findByRole("alert");
+  await waitFor(() => expect(within(form).getByRole("button", { name: "Confirm" })).toBeEnabled());
+  await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(confirmRepeat).toHaveBeenCalledTimes(2));
+  expect(confirmRepeat.mock.calls.map(([id]) => id)).toEqual(["edited-plan", "edited-plan"]);
+  expect(recordChange).not.toHaveBeenCalled(); expect(fixChange).not.toHaveBeenCalled();
+});
+
+it("Repeat cannot preview a missing account", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  listActivities.mockResolvedValue([{ id: "income", kind: "cash_in", reason: "income", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "deleted", money: { amount: "100", currency: "USD" } }] }]);
+  renderPage();
+  await userEvent.click(within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  expect(within(form).getByRole("button", { name: "Preview" })).toBeDisabled();
+  expect(previewRepeat).not.toHaveBeenCalled();
 });

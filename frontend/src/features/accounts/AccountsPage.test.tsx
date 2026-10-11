@@ -20,6 +20,8 @@ const createInstrument = vi.fn();
 const holdingsByAccounts = vi.fn();
 const createHolding = vi.fn();
 const appendCash = vi.fn();
+const previewCash = vi.fn();
+const confirmCash = vi.fn();
 const appendValue = vi.fn();
 const previewChange = vi.fn();
 const recordChange = vi.fn();
@@ -98,6 +100,8 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ho
     HoldingsByAccounts: (...args: unknown[]) => holdingsByAccounts(...args),
     ListAccountCashValues: (...args: unknown[]) => listAccountCashValues(...args),
     CreateHolding: (...args: unknown[]) => createHolding(...args),
+    PreviewCashBalance: (...args: unknown[]) => previewCash(...args),
+    ConfirmCashBalance: (...args: unknown[]) => confirmCash(...args),
     AppendAccountCashValue: (...args: unknown[]) => appendCash(...args),
   },
 }));
@@ -196,6 +200,9 @@ beforeEach(() => {
   createInstrument.mockReset();
   holdingsByAccounts.mockReset();
   createHolding.mockReset();
+  previewCash.mockReset();
+  previewCash.mockImplementation(async (_account, amount, currency, reason) => ({ planId: "cash-plan", current: "800", target: amount, delta: "100", currency, effectiveAt: "2026-10-11T12:00:00Z", reason }));
+  confirmCash.mockReset(); confirmCash.mockResolvedValue({});
   appendCash.mockReset();
   appendValue.mockReset();
   previewChange.mockReset();
@@ -874,8 +881,12 @@ describe("AccountsPage", () => {
     const form = await screen.findByRole("form", { name: "Add cash balance" });
     await userEvent.selectOptions(within(form).getByLabelText("Currency"), "CNY");
     await userEvent.type(within(form).getByLabelText("Resulting balance"), "5000");
-    await userEvent.click(within(form).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(appendCash).toHaveBeenCalledWith("brk-1", "5000", "CNY", ""));
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewCash).toHaveBeenCalledWith("brk-1", "5000", "CNY", null));
+    expect(confirmCash).not.toHaveBeenCalled();
+    expect(appendCash).not.toHaveBeenCalled();
+    await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(confirmCash).toHaveBeenCalledWith("cash-plan"));
     expect(recordChange).not.toHaveBeenCalled();
   });
 
@@ -1035,7 +1046,8 @@ describe("AccountsPage", () => {
       ];
       return record;
     });
-    appendCash.mockImplementation(async (_id: string, amount: string, currency: string) => {
+    confirmCash.mockImplementation(async () => {
+      const [, amount, currency] = previewCash.mock.calls[previewCash.mock.calls.length - 1] as [string, string, string];
       valuations = [
         {
           account: (accounts[0] as { account: unknown }).account,
@@ -1098,8 +1110,11 @@ describe("AccountsPage", () => {
     const cashForm = await screen.findByRole("form", { name: "Add cash balance" });
     await userEvent.selectOptions(within(cashForm).getByLabelText("Currency"), "CNY");
     await userEvent.type(within(cashForm).getByLabelText("Resulting balance"), "10000");
-    await userEvent.click(within(cashForm).getByRole("button", { name: "Save" }));
-    await waitFor(() => expect(appendCash).toHaveBeenCalledWith("cmb-mixed", "10000", "CNY", ""));
+    await userEvent.click(within(cashForm).getByRole("button", { name: "Preview" }));
+    await waitFor(() => expect(previewCash).toHaveBeenCalledWith("cmb-mixed", "10000", "CNY", null));
+    expect(confirmCash).not.toHaveBeenCalled();
+    await userEvent.click(await within(cashForm).findByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(confirmCash).toHaveBeenCalledWith("cash-plan"));
     expect((await screen.findAllByText(/CN¥\s*10,000\.00/)).length).toBeGreaterThan(0);
 
     await userEvent.click(await screen.findByRole("button", { name: "Buy investment" }));
@@ -1479,4 +1494,41 @@ it.each(["search", "result"])("Escape from icon %s closes only the picker and pr
   // Once the picker is closed, Escape keeps the Sheet's normal dismissal behavior.
   await userEvent.keyboard("{Escape}");
   expect(screen.queryByRole("form", { name: "Account form" })).not.toBeInTheDocument();
+});
+
+it("cash review supports back, edits, stale failure and cancel/reopen without writing", async () => {
+  listAccounts.mockResolvedValue([brokerageAccount]);
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
+  let form = await screen.findByRole("form", { name: "Add cash balance" });
+  await userEvent.type(within(form).getByLabelText("Resulting balance"), "900");
+  await userEvent.type(within(form).getByLabelText("Reason (optional)"), "Statement");
+  within(form).getByRole("button", { name: "Preview" }).focus();
+  await userEvent.keyboard("{Enter}");
+  const status = await within(form).findByRole("status");
+  expect(status).toHaveTextContent("Current balance"); expect(status).toHaveTextContent("$800.00");
+  expect(status).toHaveTextContent("$900.00"); expect(status).toHaveTextContent("+$100.00");
+  expect(status).toHaveTextContent("USD"); expect(status).toHaveTextContent("2026-10-11T12:00:00Z"); expect(status).toHaveTextContent("Statement");
+  expect(confirmCash).not.toHaveBeenCalled();
+  await userEvent.click(within(form).getByRole("button", { name: "Back to draft" }));
+  expect(within(form).getByLabelText("Resulting balance")).toHaveValue("900");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await within(form).findByRole("button", { name: "Confirm" });
+  await userEvent.type(within(form).getByLabelText("Resulting balance"), "0");
+  expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  confirmCash.mockRejectedValueOnce(new Error(JSON.stringify({ code: "stale_preview", message: "fresh preview required" })));
+  await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+  await within(form).findByRole("alert");
+  expect(within(form).getByRole("button", { name: "Preview" })).toBeInTheDocument();
+  expect(within(form).getByLabelText("Resulting balance")).toHaveValue("9000");
+  await userEvent.keyboard("{Escape}");
+  await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
+  form = await screen.findByRole("form", { name: "Add cash balance" });
+  expect(within(form).getByLabelText("Resulting balance")).toHaveValue("");
+  expect(within(form).getByLabelText("Reason (optional)")).toHaveValue("");
+  expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+  expect(appendCash).not.toHaveBeenCalled();
 });
