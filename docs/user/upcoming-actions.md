@@ -5,6 +5,8 @@ current 30-day view. It lists the first three attention items; **View all** open
 both bands even when the attention band is empty. A past blocked product belongs
 to attention. The total counts each item once. Eligible items and data checks
 are shown separately, so they do not inflate the two main bands.
+Each band initially shows up to 50 items. **Show 50 more** expands both bands,
+and **Schedules** opens the scheduled items directly.
 
 One product lifecycle appears as one item even if maturity, eligibility and
 estimated receipt have different dates. Maturity is a contract date;

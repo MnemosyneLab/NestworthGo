@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { UpcomingActionsPage } from "./UpcomingActionsPage";
 import { OverviewUpcomingActionsCard } from "./OverviewUpcomingActionsCard";
@@ -40,6 +40,33 @@ describe("upcoming UI", () => {
     expect(screen.getByText("Eligible to request access (1)").closest("details")).not.toHaveAttribute("open");
     await userEvent.click(screen.getByRole("button", { name: "Reservation issues" }));
     expect(screen.queryByText("Deposit 0")).not.toBeInTheDocument();
+  });
+  it("shows scheduled actions while a long attention band is still paged", async () => {
+    query.data = upcomingData([
+      ...Array.from({ length: 51 }, (_, i) => upcomingItem({ id: `attention-${i}`, displayName: `Attention ${i}` })),
+      upcomingItem({ id: "scheduled", group: "scheduled", phase: "upcoming", displayName: "Later deposit" }),
+    ]);
+    mount(<UpcomingActionsPage />);
+    const scheduled = screen.getByRole("region", { name: "Scheduled" });
+    expect(screen.getByText("51 need attention · 1 schedule · 51 receipts to verify · 0 reservation issues")).toBeInTheDocument();
+    expect(within(scheduled).getByText("Later deposit")).toBeInTheDocument();
+    expect(screen.queryByText("Attention 50")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show 50 more" }));
+    expect(screen.getByText("Attention 50")).toBeInTheDocument();
+    expect(within(scheduled).getByText("Later deposit")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Schedules" }));
+    expect(screen.getByText("Later deposit")).toBeInTheDocument();
+    expect(screen.queryByText("Attention 0")).not.toBeInTheDocument();
+  });
+  it("does not offer another page when both bands are fully shown", () => {
+    query.data = upcomingData([
+      ...Array.from({ length: 30 }, (_, i) => upcomingItem({ id: `attention-${i}`, displayName: `Attention ${i}` })),
+      ...Array.from({ length: 30 }, (_, i) => upcomingItem({ id: `scheduled-${i}`, group: "scheduled", phase: "upcoming", displayName: `Schedule ${i}` })),
+    ]);
+    mount(<UpcomingActionsPage />);
+    expect(within(screen.getByRole("region", { name: "Needs attention" })).getByText("Attention 29")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Scheduled" })).getByText("Schedule 29")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show 50 more" })).not.toBeInTheDocument();
   });
   it.each(["en", "zh-CN", "zh-TW"])("shows dates and actionable labels in %s", async language => {
     await i18n.changeLanguage(language); mount(<OverviewUpcomingActionsCard />);

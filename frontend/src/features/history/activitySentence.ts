@@ -148,7 +148,9 @@ function coreSentence(
       const canonical = firstMoney?.money?.amount ?? "";
       const increased = !canonical.startsWith("-");
       const magnitude = canonical.startsWith("-") ? canonical.slice(1) : canonical;
-      const delta = firstMoney?.money?.currency ? formatAuditMoney(magnitude, firstMoney.money.currency) : formatAmount(magnitude);
+      const delta = firstMoney?.money?.currency
+        ? formatAuditMoney(canonical, firstMoney.money.currency).replace(/^-/, "")
+        : formatAmount(magnitude);
       const key = increased ? "history.sentence.updatedValueIncreased" : "history.sentence.updatedValueDecreased";
       return t(key, { delta, account: accountName(firstMoney) });
     }

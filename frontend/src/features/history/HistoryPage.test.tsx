@@ -1329,6 +1329,39 @@ it("returns keyboard focus to Repeat's Actions trigger after Escape", async () =
   await waitFor(() => expect(trigger).toHaveFocus());
 });
 
+it.each(["Escape", "Close", "success"])("returns focus to the Details trigger after Repeat %s", async (exit) => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listActivities.mockResolvedValue([{ id: "cash", repeatEligible: true, kind: "cash_in", reason: "gift", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "1", currency: "USD" } }] }]);
+  renderPage();
+  const trigger = within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Details" });
+  await userEvent.click(trigger);
+  await userEvent.click(await screen.findByRole("button", { name: "Repeat as new draft" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  if (exit === "Escape") await userEvent.keyboard("{Escape}");
+  else if (exit === "Close") await userEvent.click(screen.getByRole("button", { name: "Close" }));
+  else {
+    await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+    await userEvent.click(await within(form).findByRole("button", { name: "Confirm" }));
+    await waitFor(() => expect(confirmRepeat).toHaveBeenCalledOnce());
+  }
+  await waitFor(() => expect(trigger).toHaveFocus());
+});
+
+it("returns focus to the History filter if Repeat's Details trigger disappears", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listActivities.mockResolvedValue([{ id: "cash", repeatEligible: true, kind: "cash_in", reason: "gift", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "1", currency: "USD" } }] }]);
+  const client = createTestQueryClient();
+  render(<QueryClientProvider client={client}><HistoryPage /></QueryClientProvider>);
+  await userEvent.click(within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Details" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Repeat as new draft" }));
+  await screen.findByRole("form", { name: "Record change" });
+  listActivities.mockResolvedValue([]);
+  await act(async () => { await client.invalidateQueries({ queryKey: ["history", "activityPage"] }); });
+  await waitFor(() => expect(screen.queryByTestId("activity-list")).not.toBeInTheDocument());
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(screen.getByLabelText("Kind")).toHaveFocus());
+});
+
 it("Repeat cannot preview a missing account", async () => {
   historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
   listActivities.mockResolvedValue([{ id: "income", repeatEligible: true, kind: "cash_in", reason: "income", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "deleted", money: { amount: "100", currency: "USD" } }] }]);

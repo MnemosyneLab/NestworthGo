@@ -21,6 +21,9 @@ export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean })
     if (filter === "reservations") return item.kind.startsWith("reservation_");
     return item.group === "scheduled";
   });
+  const attentionItems = items.filter(item => item.group === "attention");
+  const scheduledItems = items.filter(item => item.group === "scheduled");
+  const hasMore = filter === "all" ? attentionItems.length > limit || scheduledItems.length > limit : items.length > limit;
   return <div className="space-y-5" aria-busy={query.isFetching}>
     <PageChrome pageId="upcoming-actions" title={t("upcomingActions.title")} actions={<Button variant="outline" disabled={query.isFetching} onClick={() => { void query.refetch(); }}>{t("upcomingActions.refresh")}</Button>} />
     <h2 id="upcoming-actions-heading" tabIndex={-1} className="text-xl font-semibold">{t("upcomingActions.title")}</h2>
@@ -35,11 +38,11 @@ export function UpcomingActionsPage({ isActive = true }: { isActive?: boolean })
         {["all", "receipt", "reservations", "scheduled"].map(value => <Button key={value} variant={filter === value ? "default" : "outline"} aria-pressed={filter === value} onClick={() => { setFilter(value); setLimit(50); }}>{t(`upcomingActions.filters.${value}`)}</Button>)}
       </div>
       {filter === "all" ? <>
-        <section aria-label={t("upcomingActions.attentionTitle")}><h3 className="text-lg font-semibold">{t("upcomingActions.attentionTitle")} · {data.counts.attention}</h3><UpcomingActionList context="upcoming-attention" items={items.filter(item => item.group === "attention").slice(0, limit)} /></section>
-        <section aria-label={t("upcomingActions.scheduledTitle")}><h3 className="text-lg font-semibold">{t("upcomingActions.scheduledTitle")} · {data.counts.scheduled}</h3><UpcomingActionList context="upcoming-scheduled" items={items.filter(item => item.group === "scheduled").slice(0, Math.max(0, limit - items.filter(item => item.group === "attention").length))} /></section>
+        <section aria-label={t("upcomingActions.attentionTitle")}><h3 className="text-lg font-semibold">{t("upcomingActions.attentionTitle")} · {data.counts.attention}</h3><UpcomingActionList context="upcoming-attention" items={attentionItems.slice(0, limit)} /></section>
+        <section aria-label={t("upcomingActions.scheduledTitle")}><h3 className="text-lg font-semibold">{t("upcomingActions.scheduledTitle")} · {data.counts.scheduled}</h3><UpcomingActionList context="upcoming-scheduled" items={scheduledItems.slice(0, limit)} /></section>
       </> : <UpcomingActionList context="upcoming-list" items={items.slice(0, limit)} />}
       {items.length === 0 && <p>{t("upcomingActions.empty")}</p>}
-      {items.length > limit && <Button variant="outline" onClick={() => setLimit(value => value + 50)}>{t("upcomingActions.showMore")}</Button>}
+      {hasMore && <Button variant="outline" onClick={() => setLimit(value => value + 50)}>{t("upcomingActions.showMore")}</Button>}
       <details className="rounded-lg border p-4"><summary className="cursor-pointer">{t("upcomingActions.eligibleTitle", { count: data.counts.eligible })}</summary><UpcomingActionList context="upcoming-eligible" items={(data.items ?? []).filter(item => item.group === "eligible")} /></details>
       <details className="space-y-3 rounded-lg border p-4"><summary className="cursor-pointer">{t("upcomingActions.checksTitle", upcomingCountLabels(t, data.counts))}</summary>
         <ul className="space-y-4">{(data.dataChecks ?? []).map(check => {

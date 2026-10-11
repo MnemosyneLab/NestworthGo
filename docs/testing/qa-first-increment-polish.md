@@ -21,6 +21,8 @@ sync, release artifact or user ledger.
   has one item across maturity, eligibility and receipt dates. Unknown native
   amounts remain unknown, and this view computes no cross-currency total.
   Merged checks retain both terms/rules and reservation navigation targets.
+  Attention and scheduled bands each page independently, so a long attention
+  list does not hide the first scheduled items.
 - Receipt navigation rereads the Overview source and product permission/state,
   then opens a receipt draft only when due and permitted. It does not post.
   A locked product leaves actual gross proceeds blank; only a term deposit
@@ -32,9 +34,10 @@ sync, release artifact or user ledger.
   superseded async navigation cannot open a stale target.
 - History sentences, details and account cash history show the exact recorded
   decimal alongside currency rounding when subminor digits are nonzero. This
-  includes the signed canonical value for negative changes and zero-scale
-  JPY/KRW. Reconcile/Add cash focus
-  returns to the trigger, or the account Back control when the trigger is gone.
+  includes the signed canonical value for negative changes, value decreases,
+  and zero-scale JPY/KRW. Reconcile/Add cash focus returns to the trigger, or
+  the account Back control when the trigger is gone. Repeat launched from
+  Details returns focus there, or to the History filter if its row disappears.
   Repeat drafts ignore late preview responses after editing or closing.
 
 ## Automated and manual boundaries
@@ -55,7 +58,7 @@ Run from the feature branch in the saved Cloud workspace with the repository's
 server build tag and `CGO_ENABLED=0` where appropriate:
 
 - `go test -p 1 ./...` — passed across all packages.
-- `pnpm run test --maxWorkers=1` — passed, 90 files / 859 tests. An earlier
+- `pnpm run test --maxWorkers=1` — passed, 90 files / 866 tests. An earlier
   complete run exposed one stale navigation fixture (852 passed, one failed);
   the fixture was corrected and the complete rerun passed.
 - `pnpm run lint`, `pnpm run typecheck`, `pnpm run build`, and
