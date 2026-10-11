@@ -11,29 +11,38 @@ import (
 )
 
 func (s *Service) LiquidityOverview(ctx context.Context, query LiquidityOverviewQuery) (domain.LiquidityOverview, error) {
+	overview, _, _, err := s.prepareLiquidity(ctx, query, s.clock())
+	return overview, err
+}
+
+// prepareLiquidity captures one repository snapshot and uses request-local valuation
+// configuration. Neither the shared clock nor its provider/TTL callbacks are mutated.
+func (s *Service) prepareLiquidity(ctx context.Context, query LiquidityOverviewQuery, asOf time.Time) (domain.LiquidityOverview, domain.LiquiditySnapshot, []domain.LiquiditySource, error) {
 	snapshot, err := s.repository.ReadLiquiditySnapshot(ctx)
 	if err != nil {
-		return domain.LiquidityOverview{}, err
+		return domain.LiquidityOverview{}, snapshot, nil, err
 	}
 	if snapshot.Portfolio.Household == nil {
-		return domain.LiquidityOverview{}, onboardingRequired()
+		return domain.LiquidityOverview{}, snapshot, nil, onboardingRequired()
 	}
-	timezone := "UTC"
-	origin := snapshot.Portfolio.Origin
-	if origin != nil && strings.TrimSpace(origin.Timezone) != "" {
-		timezone = origin.Timezone
-	}
-	sources, err := s.liquiditySources(snapshot)
+	valuation := *s.valuation
+	valuation.now = func() time.Time { return asOf }
+	valuation.readContext = ctx
+	provider, ttl := valuation.providerKey(), valuation.quoteTTL()
+	valuation.fxProviderKey = func() string { return provider }
+	valuation.quoteCacheTTL = func() time.Duration { return ttl }
+	sources, err := s.liquiditySourcesWithValuation(snapshot, &valuation)
 	if err != nil {
-		return domain.LiquidityOverview{}, err
+		return domain.LiquidityOverview{}, snapshot, nil, err
 	}
 	convert := func(amount domain.Money) (*decimal.Decimal, bool, error) {
-		return s.valuation.ConvertAmount(snapshot.Portfolio, amount)
+		return valuation.ConvertAmount(snapshot.Portfolio, amount)
 	}
-	return domain.EvaluateLiquidity(domain.LiquidityQuery{
-		AsOf: s.clock(), Timezone: timezone, BaseCurrency: snapshot.Portfolio.Household.BaseCurrency,
+	overview, err := domain.EvaluateLiquidity(domain.LiquidityQuery{
+		AsOf: asOf, Timezone: timezoneOrUTC(snapshot.Portfolio.Origin), BaseCurrency: snapshot.Portfolio.Household.BaseCurrency,
 		CustomHorizonOn: query.CustomHorizonOn, IncludeEarlyWithdrawal: query.IncludeEarlyWithdrawal,
 	}, sources, snapshot.Reservations, convert)
+	return overview, snapshot, sources, err
 }
 
 func (v *ValuationService) ConvertAmount(snapshot domain.PortfolioSnapshot, amount domain.Money) (*decimal.Decimal, bool, error) {
@@ -52,7 +61,11 @@ func (v *ValuationService) ConvertAmount(snapshot domain.PortfolioSnapshot, amou
 }
 
 func (s *Service) liquiditySources(snapshot domain.LiquiditySnapshot) ([]domain.LiquiditySource, error) {
-	valued, _, err := s.valuation.ValueAccounts(snapshot.Portfolio)
+	return s.liquiditySourcesWithValuation(snapshot, s.valuation)
+}
+
+func (s *Service) liquiditySourcesWithValuation(snapshot domain.LiquiditySnapshot, valuation *ValuationService) ([]domain.LiquiditySource, error) {
+	valued, _, err := valuation.ValueAccounts(snapshot.Portfolio)
 	if err != nil {
 		return nil, err
 	}

@@ -64,3 +64,8 @@ Architecture documents own domain and persistence contracts; design documents
 own user-visible flows and interaction state. Maintained documentation is
 English. Short-lived reviews, implementation notes, and session artifacts do
 not belong in this index.
+
+## Upcoming actions feature branch
+
+- [Design contract](design/upcoming-actions.md)
+- [Synthetic QA and native acceptance boundary](testing/qa-upcoming-actions.md)

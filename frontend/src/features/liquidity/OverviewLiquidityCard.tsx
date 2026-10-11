@@ -6,10 +6,10 @@ import { useObjectNavigation } from "@/app/NavigationContext";
 import { useLiquidityOverview } from "@/queries/liquidity";
 import { completenessLabel, formatKnownOrUnknown } from "@/features/liquidity/liquidityDisplay";
 
-export function OverviewLiquidityCard() {
+export function OverviewLiquidityCard({ isActive = true }: { isActive?: boolean }) {
   const { t } = useTranslation();
   const navigation = useObjectNavigation();
-  const overview = useLiquidityOverview({ includeEarlyWithdrawal: false });
+  const overview = useLiquidityOverview({ includeEarlyWithdrawal: false }, isActive);
   const unknown = t("availableFunds.unknownAmount");
 
   if (overview.isLoading) {

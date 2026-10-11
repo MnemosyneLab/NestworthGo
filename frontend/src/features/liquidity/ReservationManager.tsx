@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -11,7 +11,8 @@ import type { LiquiditySourceDTO, ReservationDTO, SourceRefDTO } from "../../../
 
 const key = (s: SourceRefDTO) => `${s.kind}:${s.accountId}:${s.holdingId ?? ""}:${s.kind === "account_cash" ? s.currency : ""}`;
 
-export function ReservationManager({ source, sources = [], accountNames = {}, open, onOpenChange }: {
+export function ReservationManager({ source, focusReservationId, sources = [], accountNames = {}, open, onOpenChange }: {
+  focusReservationId?: string;
   sources?: LiquiditySourceDTO[];
   source: LiquiditySourceDTO | null;
   accountNames?: Record<string, string>;
@@ -21,11 +22,31 @@ export function ReservationManager({ source, sources = [], accountNames = {}, op
   const { t } = useTranslation();
   const reservations = useReservations(open);
   const release = useReleaseReservation();
+  const listRoot = useRef<HTMLDivElement>(null);
+  const focused = useRef<string>();
+  useEffect(() => {
+    if (!open) { focused.current = undefined; return; }
+    if (!focusReservationId || reservations.isFetching || !reservations.data || focused.current === focusReservationId) return;
+    const frame = requestAnimationFrame(() => {
+      const card = Array.from(listRoot.current?.querySelectorAll<HTMLElement>("[data-reservation-id]") ?? []).find(element => element.dataset.reservationId === focusReservationId);
+      if (card) {
+        const history = card.closest("details"); if (history) history.open = true;
+        card.scrollIntoView?.({ block: "nearest" }); card.focus({ preventScroll: true });
+        focused.current = focusReservationId;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [open, focusReservationId, reservations.data, reservations.isFetching]);
   const releasing = useRef(false);
   const [editing, setEditing] = useState<ReservationDTO | "new" | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string>();
   const [feedback, setFeedback] = useState<string>();
+  const [previousOpen, setPreviousOpen] = useState(open);
+  if (previousOpen !== open) {
+    setPreviousOpen(open);
+    if (!open) { setEditing(null); setError(undefined); setFeedback(undefined); }
+  }
   const items = (reservations.data ?? []).filter((r) => !source || key(r.sourceRef) === key(source.sourceRef));
   const active = items.filter((r) => !r.releasedAt);
   const released = items.filter((r) => r.releasedAt);
@@ -56,7 +77,7 @@ export function ReservationManager({ source, sources = [], accountNames = {}, op
   function reservationCard(reservation: ReservationDTO) {
     const itemSource = findSource(reservation);
     const account = accountNames[reservation.sourceRef.accountId];
-    return <div key={reservation.id} className="space-y-3 rounded-lg border p-4">
+    return <div key={reservation.id} data-reservation-id={reservation.id} tabIndex={-1} className="space-y-3 rounded-lg border p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="min-w-0 break-words font-medium">{reservation.label}</p>
         <p className="font-mono text-sm tabular-nums">{formatAmount(reservation.amount.amount, reservation.amount.currency)} <span className="text-muted-foreground">{reservation.amount.currency}</span></p>
@@ -71,7 +92,7 @@ export function ReservationManager({ source, sources = [], accountNames = {}, op
 
   return <Sheet open={open} onOpenChange={(next) => {
     if (saving || release.isPending) return;
-    if (!next) { setEditing(null); setError(undefined); setFeedback(undefined); }
+    if (!next) { focused.current = undefined; setEditing(null); setError(undefined); setFeedback(undefined); }
     onOpenChange(next);
   }}><SheetContent className="overflow-y-auto">
     <SheetHeader>
@@ -95,11 +116,13 @@ export function ReservationManager({ source, sources = [], accountNames = {}, op
       {reservations.isError && <div className="space-y-2"><p role="alert" className="text-sm text-destructive">{t("availableFunds.loadError")}</p><Button variant="outline" disabled={reservations.isFetching} onClick={() => { void reservations.refetch(); }}>{t("common.retry")}</Button></div>}
       {!reservations.isLoading && !reservations.isError && active.length === 0 && <p className="rounded-lg border border-dashed p-4 text-sm text-muted-foreground">{t("availableFunds.reservationEmpty")}</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      <div className="space-y-3">{active.map(reservationCard)}</div>
+      <div ref={listRoot} className="space-y-3"><div className="space-y-3">{active.map(reservationCard)}</div>
       {released.length > 0 && <details className="border-t pt-4">
         <summary className="cursor-pointer text-sm text-muted-foreground">{t("availableFunds.reservationHistory", { count: released.length })}</summary>
         <div className="mt-3 space-y-3">{released.map(reservationCard)}</div>
       </details>}
+      {focusReservationId && !reservations.isFetching && reservations.data && !items.some(item => item.id === focusReservationId) && <p role="status">{t("upcomingActions.targetMissing")}</p>}
+      </div>
     </>}
   </SheetContent></Sheet>;
 }

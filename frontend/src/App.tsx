@@ -11,7 +11,7 @@ import { useStartup } from "@/queries/app";
 import { useSettings } from "@/queries/settings";
 import { useUiStore, type Appearance, type Accent } from "@/stores/ui";
 import { setLanguage } from "@/i18n";
-import { targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId } from "@/app/navigation";
+import { targetForPage, type HistoryNavigationFilters, type NavigationTarget, type PageId, type LiquidityFocus } from "@/app/navigation";
 import { useAnalysisStore } from "@/stores/analysis";
 import { Button } from "@/components/ui/button";
 import { NavigationContext } from "@/app/NavigationContext";
@@ -28,6 +28,7 @@ const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then(
 const HistoryPage = lazy(() => import("@/features/history/HistoryPage").then((module) => ({ default: module.HistoryPage })));
 const ReturnAnalysisPage = lazy(() => import("@/features/insights/ReturnAnalysisPage").then((module) => ({ default: module.ReturnAnalysisPage })));
 const AssetChangesPage = lazy(() => import("@/features/insights/AssetChangesPage").then((module) => ({ default: module.AssetChangesPage })));
+const UpcomingActionsPage = lazy(() => import("@/features/upcoming-actions/UpcomingActionsPage").then(module => ({ default: module.UpcomingActionsPage })));
 const AvailableFundsPage = lazy(() => import("@/features/liquidity/AvailableFundsPage").then((module) => ({ default: module.AvailableFundsPage })));
 
 function WorkspaceLazy({ children }: { children: ReactNode }) {
@@ -56,7 +57,10 @@ function App() {
   const [historicalDate, setHistoricalDate] = useState<string>();
   const [liquidityProductId, setLiquidityProductId] = useState<string | undefined>();
   const [liquidityAccountId, setLiquidityAccountId] = useState<string | undefined>();
-  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters }>>([]);
+  const [liquidityFocus, setLiquidityFocus] = useState<LiquidityFocus>();
+  const [liquidityRequestId, setLiquidityRequestId] = useState(0);
+  const nextLiquidityRequestId = useRef(0);
+  const [trail, setTrail] = useState<Array<{ page: PageId; accountId: string | null; filter?: AccountListFocus; health?: HealthFocus; market?: HealthFocus; scroll: number; focus: HTMLElement | null; analysis: ReturnType<typeof useAnalysisStore.getState>; history?: HistoryNavigationFilters; liquidityProduct?: string; liquidityAccount?: string; liquidityFocus?: LiquidityFocus; liquidityRequest?: number }>>([]);
   const restorePosition = useRef<{ scroll: number; focus: HTMLElement | null; focusId?: string } | null>(null);
   useEffect(() => {
     const position = restorePosition.current;
@@ -65,7 +69,8 @@ function App() {
       const main = document.getElementById("main-content");
       if (main) main.scrollTop = position?.scroll ?? 0;
       const focus = position?.focus?.isConnected ? position.focus : document.getElementById(position?.focusId ?? position?.focus?.id ?? "");
-      focus?.focus({ preventScroll: true });
+      const fallback = document.getElementById(activePageId === "upcoming-actions" ? "upcoming-actions-heading" : activePageId === "overview" ? "overview-upcoming-actions-heading" : "main-content");
+      (focus ?? fallback)?.focus({ preventScroll: true });
     });
     return () => cancelAnimationFrame(frame);
   }, [activePageId, trail.length]);
@@ -129,6 +134,8 @@ function App() {
     if (navigation.page === "available-funds") {
       setLiquidityProductId(navigation.productId);
       setLiquidityAccountId(navigation.accountId);
+      setLiquidityFocus(navigation.focus);
+      setLiquidityRequestId(++nextLiquidityRequestId.current);
     }
     if (navigation.page === "history") {
       setHistoryFilters(navigation.filters);
@@ -144,9 +151,10 @@ function App() {
   };
 
   const open = (target: NavigationTarget) => {
+    if (target.page === activePageId) { handleNavigate(target, true); return; }
     setTrail(previous => [...previous, { page: activePageId, accountId: selectedAccountId, filter: accountFilter,
       health: healthFocus, market: marketFocus, scroll: document.getElementById("main-content")?.scrollTop ?? 0,
-      focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters }]);
+      focus: document.activeElement instanceof HTMLElement ? document.activeElement : null, analysis: useAnalysisStore.getState(), history: historyFilters, liquidityProduct: liquidityProductId, liquidityAccount: liquidityAccountId, liquidityFocus, liquidityRequest: liquidityRequestId }]);
     handleNavigate(target, true);
   };
   const openHealth = (focus: HealthFocus) => {
@@ -162,6 +170,7 @@ function App() {
     useAnalysisStore.setState(previous.analysis); setHistoryFilters(previous.history);
     setSelectedAccountId(previous.accountId); setAccountFilter(previous.filter); setUpdateValue(false);
     setHealthFocus(previous.health); setMarketFocus(previous.market);
+    setLiquidityProductId(previous.liquidityProduct); setLiquidityAccountId(previous.liquidityAccount); setLiquidityFocus(previous.liquidityFocus); setLiquidityRequestId(previous.liquidityRequest ?? 0);
     setActivePageId(previous.page); setTrail(trail.slice(0, -1));
   };
   const retained = (page: PageId) => activePageId === page || (activePageId !== "historical-overview" && trail.some(entry => entry.page === page));
@@ -170,10 +179,11 @@ function App() {
     <AppShell activePageId={activePageId} onNavigate={handleNavigate} settings={settings.data}>
       <MarketDataSyncWorkspaceObserver />
       <AgentWorkspaceObserver />
-      {trail.length > 0 && <Button variant="ghost" className="mb-4" onClick={back}>{t("connections.back", { page: t(`nav.${({ "historical-overview": "historicalOverview", "data-health": "dataHealth", "market-data": "marketData", "return-analysis": "returnAnalysis", "asset-changes": "assetChanges", "available-funds": "availableFunds" } as Record<string, string>)[trail[trail.length - 1].page] ?? trail[trail.length - 1].page}`) })}</Button>}
+      {trail.length > 0 && <Button variant="ghost" className="mb-4" onClick={back}>{t("connections.back", { page: t(`nav.${({ "historical-overview": "historicalOverview", "data-health": "dataHealth", "market-data": "marketData", "return-analysis": "returnAnalysis", "asset-changes": "assetChanges", "available-funds": "availableFunds", "upcoming-actions": "upcomingActions" } as Record<string, string>)[trail[trail.length - 1].page] ?? trail[trail.length - 1].page}`) })}</Button>}
       {retained("overview") && (
         <div hidden={activePageId !== "overview"}>
         <OverviewPage
+          isActive={activePageId === "overview"}
           onAddAccount={() => handleNavigate("accounts")}
           onOpenAccounts={() => handleNavigate("accounts")}
           onOpenHistory={() => handleNavigate("history")}
@@ -190,10 +200,11 @@ function App() {
       {retained("available-funds") && (
         <div hidden={activePageId !== "available-funds"}>
         <WorkspaceLazy>
-          <AvailableFundsPage key={`${liquidityProductId ?? ""}:${liquidityAccountId ?? ""}`} productId={liquidityProductId} accountId={liquidityAccountId} />
+          <AvailableFundsPage productId={liquidityProductId} accountId={liquidityAccountId} focus={liquidityFocus} navigationRequestId={liquidityRequestId} isActive={activePageId === "available-funds"} />
         </WorkspaceLazy>
         </div>
       )}
+      {retained("upcoming-actions") && <div hidden={activePageId !== "upcoming-actions"}><WorkspaceLazy><UpcomingActionsPage isActive={activePageId === "upcoming-actions"} /></WorkspaceLazy></div>}
       {retained("portfolio") && (
         <div hidden={activePageId !== "portfolio"}>
         <WorkspaceLazy>

@@ -26,6 +26,7 @@ import { EmptyState, ErrorState, LoadingState } from "@/components/layout/PageSt
 import { activitySentence } from "@/features/history/activitySentence";
 import { CompositionChart } from "@/components/charts/CompositionChart";
 import { DataHealthIndicator } from "@/features/data-health/DataHealthIndicator";
+import { OverviewUpcomingActionsCard } from "@/features/upcoming-actions/OverviewUpcomingActionsCard";
 import { OverviewLiquidityCard } from "@/features/liquidity/OverviewLiquidityCard";
 import { healthIssueLabel } from "@/features/data-health/healthIssueLabel";
 import type { ActivityDTO, BreakdownDTO, MissingInputDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -151,12 +152,14 @@ function formatUpdatedAt(timestamp: number, language: string, timezone?: string)
 }
 
 export function OverviewPage({
+  isActive = true,
   onAddAccount,
   onOpenAccounts,
   onOpenHistory,
   onOpenMarketData,
   onOpenDataHealth,
 }: {
+  isActive?: boolean;
   onAddAccount?: () => void;
   onOpenAccounts?: () => void;
   onOpenHistory?: () => void;
@@ -353,7 +356,8 @@ export function OverviewPage({
           </CardContent>
         </Card>
 
-        <OverviewLiquidityCard />
+        <OverviewLiquidityCard isActive={isActive} />
+        <OverviewUpcomingActionsCard isActive={isActive} />
       </div>
 
       {data.complete && noNextSteps ? (

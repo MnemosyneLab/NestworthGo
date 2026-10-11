@@ -1,3 +1,4 @@
+import { upcomingData, upcomingItem } from "@/test/upcomingActions";
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), HistoricalOverview: () => Promise.resolve({ capturedAt: "2026-10-03T12:00:00Z", left: { date: "2026-09-30", currency: "USD", complete: true, assets: "0", liabilities: "0", netWorth: "0", byClass: [], byCurrency: [] }, right: null, rows: [] }) } }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -202,6 +203,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
+    UpcomingActions: () => Promise.resolve(upcomingData([upcomingItem()])),
     Overview: () => Promise.resolve({
       asOf: "",
       localDate: "2026-09-20",
@@ -478,4 +480,19 @@ it("opens historical overview from Overview, removes current queries and exits b
   await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.exit") }));
   expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
   await waitFor(() => expect(document.getElementById("open-historical-overview")).toHaveFocus());
+});
+
+
+it("retains the upcoming filter and restores its trigger after Back", async () => {
+  render(<AppProviders><App /></AppProviders>);
+  await userEvent.click(await screen.findByRole("button", { name: "View all 1 actions" }));
+  const filter = await screen.findByRole("button", { name: "Reservation issues" });
+  await userEvent.click(filter);
+  await userEvent.click(screen.getByText("Information affecting assessment (0 data issues, 0 notes)"));
+  const health = within(screen.getByText("Information affecting assessment (0 data issues, 0 notes)").closest("details")!).getByRole("button", { name: "Data Health" });
+  await userEvent.click(health);
+  await userEvent.click(await screen.findByRole("button", { name: "← Back to Upcoming actions" }));
+  await waitFor(() => expect(filter).toHaveAttribute("aria-pressed", "true"));
+  await waitFor(() => expect(health).toHaveFocus());
+  expect(screen.queryByRole("button", { name: "Verify receipt" })).not.toBeInTheDocument();
 });

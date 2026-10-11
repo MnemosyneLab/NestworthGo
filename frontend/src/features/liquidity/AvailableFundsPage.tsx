@@ -4,7 +4,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { DatePicker } from "@/components/ui/date-picker";
 import { sourceName } from "./sourceName";
 import { ReservationManager } from "./ReservationManager";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,20 +20,27 @@ import { canHoldProducts } from "@/features/liquidity/productPolicy";
 import {
   bucketForHorizon,
   formatKnownOrUnknown,
-  remindersFor,
   resultForHorizon,
   sourceMatchesFilter,
   sourceStateLabel,
   type SourceFilter,
 } from "@/features/liquidity/liquidityDisplay";
+import { OverviewUpcomingActionsCard } from "@/features/upcoming-actions/OverviewUpcomingActionsCard";
+import type { LiquidityFocus } from "@/app/navigation";
 import type { LiquiditySourceDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 
 export function AvailableFundsPage({
   productId,
   accountId,
+  focus,
+  navigationRequestId = 0,
+  isActive = true,
 }: {
   productId?: string;
   accountId?: string;
+  focus?: LiquidityFocus;
+  navigationRequestId?: number;
+  isActive?: boolean;
 } = {}) {
   const { t } = useTranslation();
   const [includeEarly, setIncludeEarly] = useState(false);
@@ -48,8 +55,12 @@ export function AvailableFundsPage({
   const overview = useLiquidityOverview({
     customHorizonOn: customDate || null,
     includeEarlyWithdrawal: includeEarly,
-  });
+  }, isActive);
+  const { refetch: refetchOverview } = overview;
   const accounts = useAccounts({});
+  const [focusReservationId, setFocusReservationId] = useState<string>();
+  const [navigationMessage, setNavigationMessage] = useState<string>();
+  const consumedRequest = useRef<number | null>(null);
   const data = overview.data;
   const buckets = data?.buckets ?? [];
   const [selectedHorizon, setSelectedHorizon] = useState<string>();
@@ -63,7 +74,41 @@ export function AvailableFundsPage({
     [accounts.data],
   );
   const eligibleAccounts = (accounts.data ?? []).filter((record) => canHoldProducts(record.account));
-  const reminders = data ? remindersFor(data, t) : [];
+  useEffect(() => {
+    if (!isActive || consumedRequest.current === navigationRequestId || (!focus && !productId && !accountId)) return;
+    let cancelled = false;
+    void refetchOverview().then(result => {
+      if (cancelled) return;
+      consumedRequest.current = navigationRequestId;
+      setPolicySource(null); setManageReservations(false); setReservationSource(null); setProductFormAccountId(null); setDetailProductId(null); setFocusReservationId(undefined);
+      if (result.isError || !result.data) { setNavigationMessage(t("upcomingActions.loadError")); return; }
+      setNavigationMessage(undefined);
+      const target = focus ?? (productId ? { kind: "product" as const, productId } : undefined);
+      const freshSources = result.data.sources ?? [];
+      const sameSource = (source: LiquiditySourceDTO, ref: LiquiditySourceDTO["sourceRef"]) => source.sourceRef.kind === ref.kind && source.sourceRef.accountId === ref.accountId && source.sourceRef.holdingId === ref.holdingId && (ref.kind !== "account_cash" || source.sourceRef.currency === ref.currency);
+      if (target?.kind === "product") {
+        setDetailProductId(target.productId);
+        if (!freshSources.some(source => source.productId === target.productId)) setNavigationMessage(t("upcomingActions.stateChanged"));
+      } else if (target?.kind === "policy") {
+        const source = freshSources.find(source => sameSource(source, target.sourceRef));
+        if (source) setPolicySource(source); else setNavigationMessage(t("upcomingActions.targetMissing"));
+      } else if (target?.kind === "reservations") {
+        const source = target.sourceRef ? freshSources.find(source => sameSource(source, target.sourceRef!)) : undefined;
+        setReservationSource(source ?? null); setFocusReservationId(target.reservationId); setManageReservations(true);
+        if (target.sourceRef && !source) setNavigationMessage(t("upcomingActions.stateChanged"));
+      } else if (accountId) setProductFormAccountId(accountId);
+    });
+    return () => { cancelled = true; };
+  }, [focus, navigationRequestId, isActive, productId, accountId, refetchOverview, t]);
+  const [previousIsActive, setPreviousIsActive] = useState(isActive);
+  // Adjust retained sheet state during the page transition, before displaying it again.
+  if (previousIsActive !== isActive) {
+    setPreviousIsActive(isActive);
+    if (!isActive) {
+      setPolicySource(null); setManageReservations(false); setChooseAccount(false);
+      setProductFormAccountId(null); setDetailProductId(null); setFocusReservationId(undefined);
+    }
+  }
   const unknown = t("availableFunds.unknownAmount");
   const allExcluded = sources.length > 0 && sources.every((source) => source.excluded);
   const selectedBucket = data ? bucketForHorizon(data, horizonOn) : undefined;
@@ -119,6 +164,7 @@ export function AvailableFundsPage({
         }
       />
 
+      <OverviewUpcomingActionsCard context="available-funds-upcoming-actions" isActive={isActive} />
       {sources.length === 0 ? (
         <EmptyState title={t("availableFunds.emptyTitle")} description={t("availableFunds.emptyDescription")} />
       ) : (
@@ -151,26 +197,6 @@ export function AvailableFundsPage({
             <p role="status" className="text-sm text-warning-foreground">{t("availableFunds.needsInfoTitle")}</p>
           )}
 
-          {reminders.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>{t("availableFunds.upcoming")}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="flex flex-col gap-2 text-sm">
-                  {reminders.map((reminder) => (
-                    <li key={reminder.id}>
-                      {reminder.productId ? (
-                        <Button type="button" variant="link" className="h-auto p-0" onClick={() => setDetailProductId(reminder.productId ?? null)}>
-                          {reminder.text}
-                        </Button>
-                      ) : reminder.text}
-                    </li>
-                  ))}
-                </ul>
-              </CardContent>
-            </Card>
-          )}
 
           <div className="flex flex-wrap gap-2" role="group" aria-label={t("availableFunds.assets")}>
             {(["all", "available", "locked", "needs_info", "excluded"] as const).map((value) => (
@@ -258,6 +284,7 @@ export function AvailableFundsPage({
         </>
       )}
 
+      {navigationMessage && <p role="status">{navigationMessage}</p>}
       {(data.unresolvedReservations ?? []).length > 0 && (
         <Card>
           <CardHeader>
@@ -279,9 +306,9 @@ export function AvailableFundsPage({
           </div>
       </details>
 
-      <PolicySheet key={policySource?.sourceKey ?? "policy"} source={policySource} open={Boolean(policySource)} onOpenChange={(open) => { if (!open) setPolicySource(null); }} />
-      {manageReservations && <ReservationManager key={reservationSource?.sourceKey ?? "reservation"} source={reservationSource} sources={sources} accountNames={Object.fromEntries(accountNames)} open={manageReservations} onOpenChange={(open) => { setManageReservations(open); if (!open) setReservationSource(null); }} />}
-      <Sheet open={chooseAccount} onOpenChange={setChooseAccount}><SheetContent><SheetHeader><SheetTitle>{t("availableFunds.chooseAccount")}</SheetTitle></SheetHeader>
+      <PolicySheet key={policySource?.sourceKey ?? "policy"} source={policySource} open={isActive && Boolean(policySource)} onOpenChange={(open) => { if (!open) setPolicySource(null); }} />
+      {manageReservations && <ReservationManager key={reservationSource?.sourceKey ?? "reservation"} source={reservationSource} focusReservationId={focusReservationId} sources={sources} accountNames={Object.fromEntries(accountNames)} open={isActive && manageReservations} onOpenChange={(open) => { setManageReservations(open); if (!open) setReservationSource(null); }} />}
+      <Sheet open={isActive && chooseAccount} onOpenChange={setChooseAccount}><SheetContent><SheetHeader><SheetTitle>{t("availableFunds.chooseAccount")}</SheetTitle></SheetHeader>
         {eligibleAccounts.map(({ account }) => <Button key={account.id} variant="outline" onClick={() => { setChooseAccount(false); setProductFormAccountId(account.id); }}>{account.name}</Button>)}
       </SheetContent></Sheet>
       {productFormAccountId && (
@@ -290,11 +317,11 @@ export function AvailableFundsPage({
           accountName={accountNames.get(productFormAccountId)}
           accountId={productFormAccountId}
           currency={(accounts.data ?? []).find((record) => record.account.id === productFormAccountId)?.account.defaultCurrency ?? data.baseCurrency}
-          open={Boolean(productFormAccountId)}
+          open={isActive && Boolean(productFormAccountId)}
           onOpenChange={(open) => { if (!open) setProductFormAccountId(null); }}
         />
       )}
-      <ProductDetailSheet key={detailProductId ?? "product"} productId={detailProductId} open={Boolean(detailProductId)} onOpenChange={(open) => { if (!open) setDetailProductId(null); }} />
+      <ProductDetailSheet key={detailProductId ?? "product"} productId={detailProductId} open={isActive && Boolean(detailProductId)} onOpenChange={(open) => { if (!open) setDetailProductId(null); }} />
     </div>
   );
 }

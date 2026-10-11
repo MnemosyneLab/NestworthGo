@@ -118,6 +118,7 @@ export const queryKeys = {
   },
   liquidity: {
     all: ["liquidity"] as const,
+    upcomingActions: ["liquidity", "upcoming-actions", "v1"] as const,
     overview: (customHorizonOn: string, includeEarlyWithdrawal: boolean) =>
       ["liquidity", "overview", { customHorizonOn, includeEarlyWithdrawal }] as const,
     products: (accountId: string, includeClosed: boolean) =>

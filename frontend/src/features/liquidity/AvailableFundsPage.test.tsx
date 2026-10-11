@@ -1,3 +1,4 @@
+import { upcomingData } from "@/test/upcomingActions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -12,6 +13,7 @@ const listAccounts = vi.fn();
 
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
+    UpcomingActions: () => Promise.resolve(upcomingData()),
     Overview: (...args: unknown[]) => overview(...args),
     ListProducts: (...args: unknown[]) => listProducts(...args),
     Product: vi.fn(),
@@ -215,7 +217,8 @@ describe("AvailableFundsPage", () => {
     expect(row).toBeTruthy();
     expect(within(row!).getAllByText("Due, receipt unconfirmed").length).toBeGreaterThan(0);
     expect(within(row!).queryByText("$0.00")).not.toBeInTheDocument();
-    expect(screen.getByText("Due deposit is due. Receipt is unconfirmed.")).toBeInTheDocument();
+    expect(screen.queryByText("Due deposit is due. Receipt is unconfirmed.")).not.toBeInTheDocument();
+    expect(screen.getByTestId("overview-upcoming-actions-card")).toBeInTheDocument();
   });
 
   it("retries after a load failure", async () => {

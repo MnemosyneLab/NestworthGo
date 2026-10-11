@@ -1,13 +1,18 @@
+import { queryKeys } from "./keys";
+import { upcomingData } from "@/test/upcomingActions";
 import { describe, expect, it, vi } from "vitest";
 import { createElement, type ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { createTestQueryClient } from "@/test/queryClient";
 import { act, renderHook } from "@testing-library/react";
-import { useFixChange, useRecordChange } from "@/queries/history";
+import { useFixChange, useRecordChange, useStartHistory } from "@/queries/history";
 import { Service as HistoryService } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history";
 
 vi.mock("../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/history", () => ({
   Service: {
+    StartHistory: vi.fn(async () => ({})),
+    StartHistoryWithCosts: vi.fn(async () => ({})),
+    StartHistoryOnDate: vi.fn(async () => ({})),
     RecordChange: vi.fn(async () => ({ activity: { id: "a1" }, effects: [], resulting: [] })),
     FixChange: vi.fn(async () => ({ activity: { id: "a2" }, effects: [], resulting: [] })),
   },
@@ -70,4 +75,15 @@ describe("history mutation IDs", () => {
     });
     expect(fixChange.mock.calls[0][1].mutationId).toMatch(uuidPattern);
   });
+});
+
+it.each([
+  { timezone: "Asia/Shanghai" },
+  { timezone: "Asia/Shanghai", costOverrides: {} },
+  { timezone: "Asia/Shanghai", startDate: "2026-10-11" },
+])("invalidates Upcoming Actions for every Start History branch: %o", async request => {
+  const client = createTestQueryClient(); client.setQueryData(queryKeys.liquidity.upcomingActions, upcomingData());
+  const hook = renderHook(useStartHistory, { wrapper: ({ children }: { children: ReactNode }) => createElement(QueryClientProvider, { client }, children) });
+  await act(async () => { await hook.result.current.mutateAsync(request); });
+  expect(client.getQueryState(queryKeys.liquidity.upcomingActions)?.isInvalidated).toBe(true);
 });

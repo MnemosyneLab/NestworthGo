@@ -1,3 +1,4 @@
+import type { SourceRefDTO } from "../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
 import type { LucideIcon } from "lucide-react";
 import { House, Wallet, PieChart, RefreshCw, Users, History, ChartLine, Settings, GitCompareArrows, HeartPulse, Banknote } from "lucide-react";
 
@@ -6,6 +7,7 @@ export type PageId =
   | "historical-overview"
   | "accounts"
   | "available-funds"
+  | "upcoming-actions"
   | "portfolio"
   | "history"
   | "return-analysis"
@@ -60,6 +62,11 @@ export interface AccountListFocus {
   label: string;
 }
 
+export type LiquidityFocus =
+  | { kind: "product"; productId: string }
+  | { kind: "policy"; sourceRef: SourceRefDTO }
+  | { kind: "reservations"; sourceRef?: SourceRefDTO; reservationId?: string };
+
 export type NavigationTarget =
   | { page: "historical-overview"; date?: string }
   | { page: "return-analysis"; tab?: AnalysisTab; cursor?: string; analysis?: AnalysisNavigationContext }
@@ -67,7 +74,7 @@ export type NavigationTarget =
   | { page: "history"; filters?: HistoryNavigationFilters }
   | { page: "accounts"; accountId?: string; filter?: AccountListFocus; updateValue?: boolean }
   | { page: "market-data" | "data-health"; focus?: HealthFocus }
-  | { page: "available-funds"; productId?: string; accountId?: string }
+  | { page: "available-funds"; productId?: string; accountId?: string; focus?: LiquidityFocus }
   | { page: Exclude<PageId, "historical-overview" | "return-analysis" | "asset-changes" | "history" | "accounts" | "market-data" | "data-health" | "available-funds"> };
 
 /**

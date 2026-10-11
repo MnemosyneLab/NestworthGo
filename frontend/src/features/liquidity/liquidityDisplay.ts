@@ -154,36 +154,6 @@ export function cashVersusProceeds(
   return { cash: render(cash), proceeds: render(proceeds) };
 }
 
-export type Reminder = { id: string; productId?: string; text: string };
-
-export function remindersFor(overview: LiquidityOverviewDTO, t: Translator): Reminder[] {
-  const localDate = overview.localDate;
-  const until = addCivilDays(localDate, 7);
-  const reminders: Reminder[] = [];
-  for (const source of overview.sources ?? []) {
-    if (source.dueUnconfirmed) {
-      reminders.push({
-        id: `${source.sourceKey}-due`,
-        productId: source.productId ?? undefined,
-        text: t("availableFunds.reminderDue", { name: source.displayName }),
-      });
-      continue;
-    }
-    const unlockOn = source.policy?.unlockOn;
-    if (!unlockOn || unlockOn < localDate || unlockOn > until) {
-      continue;
-    }
-    reminders.push({
-      id: `${source.sourceKey}-unlock`,
-      productId: source.productId ?? undefined,
-      text: source.productId
-        ? t("availableFunds.reminderMaturity", { name: source.displayName })
-        : t("availableFunds.reminderUnlock", { name: source.displayName }),
-    });
-  }
-  return reminders;
-}
-
 export function moneyText(value: MoneyView | null | undefined, unknown: string): string {
   return formatKnownOrUnknown(value, unknown);
 }

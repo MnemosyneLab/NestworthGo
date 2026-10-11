@@ -28,3 +28,13 @@ describe("available funds navigation", () => {
     expect(targetForPage("available-funds")).toEqual({ page: "available-funds" });
   });
 });
+
+
+it("keeps Upcoming actions outside the sidebar and accepts existing and focused liquidity targets", () => {
+  expect(targetForPage("upcoming-actions")).toEqual({ page: "upcoming-actions" });
+  expect(NAV_GROUPS.flatMap(group => group.items).some(item => item.id === "upcoming-actions")).toBe(false);
+  const legacy: NavigationTarget = { page: "available-funds", productId: "synthetic", accountId: "bank" };
+  const focus: NavigationTarget = { page: "available-funds", focus: { kind: "reservations", reservationId: "released" } };
+  expect(legacy.productId).toBe("synthetic");
+  expect(focus.focus?.kind).toBe("reservations");
+});

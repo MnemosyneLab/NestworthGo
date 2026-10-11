@@ -126,8 +126,10 @@ reenabling MCP rotates credentials; update client configuration accordingly.
 
 The skill covers ordinary stocks/ETFs, crypto, funds, NAV-priced wealth products,
 bonds and gold/silver when their identity and units are explicit. App-managed
-term deposits/locked products require the App for subscription, redemption,
-reservation and maturity; the skill does not imitate their lifecycle with trades.
+term deposits/locked products use dedicated guarded MCP lifecycle tools when
+exposed by the connected App and permission mode; the skill does not imitate
+their lifecycle with ordinary trades. Reservations remain an App workflow.
+Upcoming actions is an App-only read interface, with no new MCP tool.
 Setup, backups/restores, provider credentials and history resets also remain App
 workflows. No brokerage orders are placed through the skill.
 
