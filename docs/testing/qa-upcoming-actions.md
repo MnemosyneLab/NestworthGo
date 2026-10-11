@@ -135,3 +135,23 @@ registration is changed.
 - `internal/domain/upcoming_actions_test.go`
 - `internal/wailsapi/liquidity/upcoming_actions_dto.go`
 - `internal/wailsapi/liquidity/upcoming_actions_test.go`
+
+## Follow-up: restored navigation requests
+
+The App-level A → list → B → Back → Back regression reproduced the review
+finding before the fix: product A's dialog reopened when Back restored its old
+request ID. Available Funds now retains all consumed request IDs for the retained
+page session, rather than only the last one. Restoring a consumed request does
+not refetch or reopen its sheet; a genuinely new ID can still reopen the same
+product. App integration tests verify the exact route and that same-page reopening
+does not duplicate the navigation trail. A page-level test also checks request
+read counts and restoring A after B.
+
+`CGO_ENABLED=0 pnpm --dir frontend exec vitest run src/App.test.tsx
+src/features/liquidity/AvailableFundsNavigation.test.tsx
+src/features/liquidity/AvailableFundsPage.test.tsx` passed: 3 files / 36 tests.
+The full server-profile `CGO_ENABLED=0 env -u NESTWORTH_QA_DATABASE wails3 task
+check` also passed: 90 frontend files / 784 tests, Go tests/vet/build, generated
+bindings, frontend build/lint/typecheck and whitespace checks. The native desktop
+acceptance boundary above is unchanged. This follow-up changes only the page,
+the two regression-test files and this QA report.

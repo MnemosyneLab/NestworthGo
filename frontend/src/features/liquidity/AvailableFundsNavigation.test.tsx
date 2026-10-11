@@ -38,3 +38,22 @@ it("does not invent a policy target when latest sources no longer contain it", a
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("no longer available"));
   expect(screen.queryByText("Policy opened")).not.toBeInTheDocument();
 });
+
+
+it("skips an older consumed request restored after a different product navigation", async () => {
+  const a = { kind: "product" as const, productId: "product-a" };
+  const b = { kind: "product" as const, productId: "product-b" };
+  const view = render(<AvailableFundsPage focus={a} navigationRequestId={11} />);
+  await screen.findByRole("dialog", { name: "product-a" });
+  await userEvent.click(screen.getByRole("button", { name: "Close product" }));
+  view.rerender(<AvailableFundsPage focus={a} navigationRequestId={11} isActive={false} />);
+  view.rerender(<AvailableFundsPage focus={b} navigationRequestId={12} />);
+  await screen.findByRole("dialog", { name: "product-b" });
+  view.rerender(<AvailableFundsPage focus={b} navigationRequestId={12} isActive={false} />);
+  view.rerender(<AvailableFundsPage focus={a} navigationRequestId={11} />);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(mocks.refetch).toHaveBeenCalledTimes(2);
+  view.rerender(<AvailableFundsPage focus={a} navigationRequestId={13} />);
+  await screen.findByRole("dialog", { name: "product-a" });
+  expect(mocks.refetch).toHaveBeenCalledTimes(3);
+});

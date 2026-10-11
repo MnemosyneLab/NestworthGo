@@ -60,7 +60,8 @@ export function AvailableFundsPage({
   const accounts = useAccounts({});
   const [focusReservationId, setFocusReservationId] = useState<string>();
   const [navigationMessage, setNavigationMessage] = useState<string>();
-  const consumedRequest = useRef<number | null>(null);
+  // Back restores older request IDs; every consumed request stays consumed while retained.
+  const consumedRequests = useRef(new Set<number>());
   const data = overview.data;
   const buckets = data?.buckets ?? [];
   const [selectedHorizon, setSelectedHorizon] = useState<string>();
@@ -75,11 +76,11 @@ export function AvailableFundsPage({
   );
   const eligibleAccounts = (accounts.data ?? []).filter((record) => canHoldProducts(record.account));
   useEffect(() => {
-    if (!isActive || consumedRequest.current === navigationRequestId || (!focus && !productId && !accountId)) return;
+    if (!isActive || consumedRequests.current.has(navigationRequestId) || (!focus && !productId && !accountId)) return;
     let cancelled = false;
     void refetchOverview().then(result => {
       if (cancelled) return;
-      consumedRequest.current = navigationRequestId;
+      consumedRequests.current.add(navigationRequestId);
       setPolicySource(null); setManageReservations(false); setReservationSource(null); setProductFormAccountId(null); setDetailProductId(null); setFocusReservationId(undefined);
       if (result.isError || !result.data) { setNavigationMessage(t("upcomingActions.loadError")); return; }
       setNavigationMessage(undefined);
