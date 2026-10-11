@@ -888,6 +888,7 @@ func FromDividendDetail(value *domain.DividendDetail) *DividendDetailDTO {
 
 // ActivityDTO mirrors domain.Activity.
 type ActivityDTO struct {
+	RepeatEligible     bool                       `json:"repeatEligible"`
 	ID                 string                     `json:"id"`
 	HouseholdID        string                     `json:"householdId"`
 	Kind               string                     `json:"kind"`

@@ -11,6 +11,7 @@ or visual prototype bundles.
 | --- | --- | --- |
 | Product | [Product Vision](product/product-vision.md) | Problem, audience, principles, and durable workflows |
 | Product | [Product Roadmap](product/roadmap.md) | Current release outcomes and deferred direction |
+| User | [Cash adjustments and Repeat](user/cash-adjustments-and-repeat.md) | Preview, confirm, edit, and recovery guidance for ordinary cash workflows |
 | User | [Nestworth skill for Codex](user/nestworth-skill.md) | User-level skill installation, updates, MCP connection, and capability boundaries |
 | Design | [Design and UX](design/README.md) | Current screen map, interaction invariants, and maintained design contracts |
 | Architecture | [System Overview](architecture/system-overview.md) | Runtime layers, startup, state ownership, and security boundaries |

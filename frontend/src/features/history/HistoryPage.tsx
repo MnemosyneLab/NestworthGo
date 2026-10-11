@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { IconTile } from "@/components/ui/icon-tile";
 import { activityStyle } from "@/lib/activityStyle";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,7 +37,7 @@ import { useActivity, useActivityPage, useDailySnapshotState, useHistoryOrigin, 
 import { useSettings } from "@/queries/settings";
 import { RecordChangeForm } from "@/features/history/RecordChangeForm";
 import { StartHistoryForm } from "@/features/history/StartHistoryForm";
-import { activityToInitialCommand } from "@/features/history/activityToCommand";
+import { activityToRepeatDraft, activityToInitialCommand } from "@/features/history/activityToCommand";
 import { activitySentence } from "@/features/history/activitySentence";
 import { ActivityDetailSheet } from "@/features/history/ActivityDetailSheet";
 import { ProductDetailSheet } from "@/features/liquidity/ProductSheets";
@@ -58,6 +58,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
   const undoChange = useUndoChange();
   const [open, setOpen] = useState(false);
   const [productTarget, setProductTarget] = useState<string | null>(null);
+  const [repeatTarget, setRepeatTarget] = useState<ActivityDTO | null>(null);
   const [fixTarget, setFixTarget] = useState<ActivityDTO | null>(null);
   const [undoTarget, setUndoTarget] = useState<ActivityDTO | null>(null);
   const [detailTarget, setDetailTarget] = useState<ActivityDTO | null>(null);
@@ -212,6 +213,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
                         { id: "undo", label: t("history.undoAction"), onSelect: () => setUndoTarget(activity) },
                       ]
                     : [];
+                  if (activity.repeatEligible && activityToRepeatDraft(activity)) menuItems.unshift({ id: "repeat", label: t("history.repeatAction"), onSelect: () => setRepeatTarget(activity) });
                   return (
                     <li key={activity.id} className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary/5">
                       <IconTile icon={style.icon} tone={style.tone} />
@@ -282,6 +284,11 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
         </AlertDialogContent>
       </AlertDialog>
 
+      <Sheet open={repeatTarget !== null} onOpenChange={(next) => !next && setRepeatTarget(null)}>
+        <SheetContent size="lg"><SheetHeader><SheetTitle>{t("history.repeatAction")}</SheetTitle><SheetDescription>{t("history.repeatDescription")}</SheetDescription></SheetHeader>
+          {repeatTarget && activityToRepeatDraft(repeatTarget) && <RecordChangeForm key={repeatTarget.id} repeat repeatSourceId={repeatTarget.id} initial={activityToRepeatDraft(repeatTarget)!} lock={{ kind: activityToRepeatDraft(repeatTarget)!.kind, hideKind: true }} onRecorded={() => { toast.success(t("history.recorded")); setRepeatTarget(null); }} />}
+        </SheetContent>
+      </Sheet>
       <Sheet open={fixTarget !== null} onOpenChange={(next) => !next && setFixTarget(null)}>
         <SheetContent size="lg">
           <SheetHeader>

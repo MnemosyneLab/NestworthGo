@@ -10,11 +10,13 @@ import (
 	"github.com/waltwang/nestworth-go/internal/application"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
+	"github.com/waltwang/nestworth-go/internal/wailsapi/preview"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
 )
 
 type Service struct {
-	app *application.Service
+	app         *application.Service
+	repeatPlans preview.Store[repeatPlan]
 }
 
 func NewService(app *application.Service) *Service {
@@ -301,7 +303,15 @@ func (s *Service) ListActivityPage(ctx context.Context, request ActivityQueryReq
 	if err != nil {
 		return wire.ActivityPageDTO{}, apierror.Wrap(err)
 	}
-	return wire.FromActivityPage(page), nil
+	eligible, err := s.app.RepeatEligibleActivities(ctx, page.Activities)
+	if err != nil {
+		return wire.ActivityPageDTO{}, apierror.Wrap(err)
+	}
+	dto := wire.FromActivityPage(page)
+	for i := range dto.Activities {
+		dto.Activities[i].RepeatEligible = eligible[page.Activities[i].ID]
+	}
+	return dto, nil
 }
 
 // DailySnapshotStateDTO mirrors domain.DailySnapshotState.

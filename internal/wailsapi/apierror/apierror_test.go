@@ -91,7 +91,7 @@ func TestWrapPreservesEveryDomainErrorCode(t *testing.T) {
 		domain.ErrProviderUnavailable, domain.ErrProviderAuthentication, domain.ErrProviderRateLimit,
 		domain.ErrUnsupportedProviderSymbol, domain.ErrMalformedProviderResponse, domain.ErrMarketDataResponseTooLarge,
 		domain.ErrHistoryNotStarted, domain.ErrHistoryTimezoneRequired, domain.ErrInvalidChange,
-		domain.ErrInvalidChangeTime, domain.ErrNoChange, domain.ErrInsufficientBalance,
+		domain.ErrInvalidChangeTime, domain.ErrCashBalanceTimeConflict, domain.ErrNoChange, domain.ErrInsufficientBalance,
 		domain.ErrInsufficientQuantity, domain.ErrAlreadyUndone, domain.ErrCannotFixChange,
 		domain.ErrTransferMismatch, domain.ErrInvalidTrade, domain.ErrHistoryUpdateFailed,
 		domain.ErrCostBasisRequired, domain.ErrStalePreview, domain.ErrRevisionConflict,

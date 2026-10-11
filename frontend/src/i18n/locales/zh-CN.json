@@ -45,7 +45,10 @@
     "showArchived": "显示已归档",
     "trackingMode": "跟踪模式",
     "updateValue": "更新当前值",
-    "wholeAccountInclusionWarning": "投资组合与流动资产开关适用于此账户内的全部现金和持仓。"
+    "wholeAccountInclusionWarning": "投资组合与流动资产开关适用于此账户内的全部现金和持仓。",
+    "adjustmentReason": "原因（可选）",
+    "balanceBefore": "当前余额",
+    "adjustmentDelta": "调整差额"
   },
   "analytics": {
     "empty": "暂时没有可用的已收盘日快照。",
@@ -87,7 +90,8 @@
     "save": "保存",
     "saved": "已保存到本地",
     "system": "系统",
-    "to": "至"
+    "to": "至",
+    "backToDraft": "返回草稿"
   },
   "dashboard": {
     "accountCount": "%d 个账户",
@@ -438,7 +442,11 @@
     "timeline": "时间线",
     "toDate": "结束",
     "type": "变更类型",
-    "undo": "撤销"
+    "undo": "撤销",
+    "repeatAction": "重复为新草稿",
+    "repeatDescription": "创建一笔新的收入或支出。检查账户、金额和时间，然后预览并确认。打开草稿不会记账。",
+    "effectiveAt": "生效时间",
+    "repeatUnavailable": "预览前请选择可用的账户和支持的币种。"
   },
   "icons": {
     "account": "账户",

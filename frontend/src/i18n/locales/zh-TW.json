@@ -45,7 +45,10 @@
     "trackingMode": "追蹤模式",
     "updateValue": "更新目前值",
     "accountType": "帳戶類型",
-    "wholeAccountInclusionWarning": "投資組合與流動資產開關適用於此帳戶內的全部現金和持倉。"
+    "wholeAccountInclusionWarning": "投資組合與流動資產開關適用於此帳戶內的全部現金和持倉。",
+    "adjustmentReason": "原因（選填）",
+    "balanceBefore": "目前餘額",
+    "adjustmentDelta": "調整差額"
   },
   "analytics": {
     "empty": "暫時沒有可用的已收盤日快照。",
@@ -87,7 +90,8 @@
     "save": "儲存",
     "saved": "已儲存到本地",
     "system": "系統",
-    "to": "至"
+    "to": "至",
+    "backToDraft": "返回草稿"
   },
   "dashboard": {
     "accountCount": "%d 個帳戶",
@@ -438,7 +442,11 @@
     "timeline": "時間線",
     "toDate": "結束",
     "type": "變更類型",
-    "undo": "撤銷"
+    "undo": "撤銷",
+    "repeatAction": "重複為新草稿",
+    "repeatDescription": "建立一筆新的收入或支出。檢查帳戶、金額和時間，再預覽並確認。開啟草稿不會記帳。",
+    "effectiveAt": "生效時間",
+    "repeatUnavailable": "預覽前請選擇可用的帳戶和支援的幣別。"
   },
   "icons": {
     "account": "帳戶",

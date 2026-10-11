@@ -114,3 +114,11 @@ export function toUpdateAccountRequest(request: CreateAccountRequest): UpdateAcc
     ownership: request.ownership,
   };
 }
+
+export function usePreviewCashBalance() {
+  return useMutation({ mutationFn: ({ accountId, amount, currency, reason }: { accountId: string; amount: string; currency: string; reason: string }) => callService(() => HoldingService.PreviewCashBalance(accountId, amount, currency, reason.trim() || null)) });
+}
+export function useConfirmCashBalance(accountId: string) {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (planId: string) => callService(() => HoldingService.ConfirmCashBalance(planId)), onSuccess: () => invalidateActivityChange(client, [accountId]) });
+}

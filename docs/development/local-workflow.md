@@ -53,7 +53,9 @@ generated, except for a committed `.gitkeep` so `//go:embed all:frontend/dist`
 succeeds on a clean checkout before Vite has produced the production bundle.
 Do not hand-edit or commit other files in these directories. The direct
 frontend `dev`, `build`, `typecheck`, `test`, and `test:watch` scripts
-automatically generate bindings when the expected binding file is missing.
+automatically regenerate bindings on every run. Older tracked binding blobs
+remain an existing artifact-policy exception; do not force-add regenerated
+files. Run `generate:bindings` before `check:bindings`.
 The Wails build tasks regenerate them as part of their normal dependency
 graph.
 

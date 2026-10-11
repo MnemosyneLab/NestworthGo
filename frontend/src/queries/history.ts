@@ -182,3 +182,11 @@ export function useRebuildHistoricalSnapshots() {
     },
   });
 }
+
+export function usePreviewRepeatChange() {
+  return useMutation({ mutationFn: ({ sourceId, request }: { sourceId: string; request: ChangeCommandRequest }) => callService(() => HistoryService.PreviewRepeatChange(sourceId, request)) });
+}
+export function useConfirmRepeatChange() {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: (planId: string) => callService(() => HistoryService.ConfirmRepeatChange(planId)), onSuccess: () => invalidateActivityChange(client) });
+}

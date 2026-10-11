@@ -37,6 +37,7 @@ const (
 	ErrHistoryTimezoneRequired      ErrorCode = "history_timezone_required"
 	ErrInvalidChange                ErrorCode = "invalid_change"
 	ErrInvalidChangeTime            ErrorCode = "invalid_change_time"
+	ErrCashBalanceTimeConflict      ErrorCode = "cash_balance_time_conflict"
 	ErrNoChange                     ErrorCode = "no_change"
 	ErrInsufficientBalance          ErrorCode = "insufficient_balance"
 	ErrInsufficientQuantity         ErrorCode = "insufficient_quantity"

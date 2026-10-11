@@ -166,7 +166,12 @@ Missing quotes remain an actionable incomplete state.
   disables Preview/Save while the canonical new value is unchanged. The helper
   asks for a different value. Cash reconciliation displays the current selected
   currency but leaves the resulting amount empty so the user deliberately enters
-  it.
+  it. Preview reads the authoritative balance and shows current balance, target,
+  signed adjustment, currency and effective time. After History starts, an
+  optional reason is stored as the reconciliation note. Confirm applies the
+  retained command, never a newly calculated delta. Back or editing any field
+  discards the preview; closing and reopening begins an empty form. Before
+  History starts the same review establishes a baseline, without a reason field.
 - Account sheets filter value updates to `balance` and `manual_value` Accounts.
   Holdings Accounts cannot be selected for a Simple value update.
 - Record existing position is separate from Buy. It requires a positive quantity,
@@ -250,6 +255,32 @@ without changing the immutable activity facts.
 Value-update sentences name the resulting value, not just the delta. For
 example, a change from 300 to 320 says “updated to 320” or “increased by 20,
 updated to 320”; it must never say “updated to 20.”
+
+### Repeat an ordinary activity
+
+History's activity menu offers **Repeat as new draft** only for `cash_in` with
+reason `income`, or `cash_out` with reason `expense`. Product-linked, corrected
+and reversed records are excluded. Eligibility comes from the full ledger,
+independently of visible filters or pages, and is rechecked under the preview
+and confirmation gates. The source ID is eligibility metadata only; it is never
+assigned to the new transaction or receipt. Transfers, trades, dividends, interest,
+settlements, reconciliation and other specialized records remain in their own
+flows. This is a one-time draft, not a saved template.
+
+Repeat copies only account, amount, currency, ordinary reason and note. Its
+editable date/time starts now in the History Origin timezone. Activity/effect IDs,
+mutation IDs, correction links and product state are never copied. Account and
+currency availability are checked again during preview. Users may choose a
+current account or currency when the historical selection is unavailable.
+
+Both new flows retain an immutable server plan for confirmation, use the
+application write guard and deduplicate repeated confirmation. Plans expire in
+ten minutes; another application write, restore or restart requires a fresh
+preview. Committed confirmations replay their original receipt before the stale
+check. An uncertain IPC failure retains the same plan for retry; a stale-preview
+error preserves input but returns to Preview. Plans are kept only for the running
+session, with bounded retention; after restart, inspect History before repeating
+an operation whose outcome was unknown.
 
 ## 7. Analytics and state handling
 

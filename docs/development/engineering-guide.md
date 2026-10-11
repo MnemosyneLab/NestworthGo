@@ -34,8 +34,12 @@ wails3 task dev
 
 `frontend/bindings/` is gitignored. After a clean checkout, generate it
 with `wails3 task setup` or `wails3 task generate:bindings`; direct frontend
-`dev`, `build`, `typecheck`, and `test` scripts also generate it when the
-expected binding file is missing.
+`dev`, `build`, `typecheck`, and `test` scripts regenerate it on every run.
+Older generated blobs are still tracked from earlier commits despite the ignore
+rule; they are an existing artifact-policy exception. Do not force-add their
+regenerated replacements. Run `generate:bindings` before `check:bindings`: the
+check compares the regenerated workspace with fresh generator output, not the
+legacy committed blobs.
 
 Run the normal automated checks with a writable cache:
 
