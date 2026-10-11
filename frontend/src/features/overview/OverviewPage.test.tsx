@@ -1,3 +1,4 @@
+import { upcomingData } from "@/test/upcomingActions";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -19,6 +20,7 @@ vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/ma
 }));
 vi.mock("../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
+    UpcomingActions: () => Promise.resolve(upcomingData()),
     Overview: () => Promise.resolve({
       asOf: "",
       localDate: "2026-09-20",

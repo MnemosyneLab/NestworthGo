@@ -28,7 +28,20 @@ export function useLiquidityOverview(request: OverviewRequest, enabled = true) {
     enabled,
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: true,
-    refetchInterval: 60_000,
+    refetchInterval: enabled ? 60_000 : false,
+    refetchIntervalInBackground: false,
+  });
+}
+
+export function useUpcomingActions(isActive = true) {
+  return useQuery({
+    queryKey: queryKeys.liquidity.upcomingActions,
+    queryFn: () => callService(() => LiquidityService.UpcomingActions()),
+    enabled: isActive,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
+    refetchInterval: isActive ? 60_000 : false,
+    refetchIntervalInBackground: false,
   });
 }
 

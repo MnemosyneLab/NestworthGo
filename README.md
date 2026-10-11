@@ -41,6 +41,11 @@ onboarding and quit/restart/persistence checks for the published package. Full
 GUI regression remains deferred. See the
 [v0.3.7 release contract](docs/releases/v0.3.7.md).
 
+The development branch adds [Upcoming actions](docs/design/upcoming-actions.md):
+a read-only Overview summary and full list for today through D+30, persistent
+receipt verification and source-specific reservation issues. Native acceptance
+is pending; this does not change the published v0.3.7 release.
+
 ## Run locally
 
 Requirements: Go 1.26 or newer, Node.js with pnpm, and a desktop platform

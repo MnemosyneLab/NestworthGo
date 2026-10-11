@@ -24,6 +24,7 @@ const PAGE_TONE: Record<PageId, Tone> = {
   "historical-overview": 6,
   accounts: 1,
   "available-funds": 2,
+  "upcoming-actions": 2,
   portfolio: 5,
   history: 6,
   "return-analysis": 7,

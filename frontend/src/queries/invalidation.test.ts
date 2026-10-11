@@ -230,6 +230,7 @@ function seededClient() {
     queryKeys.accounts.list(),
     queryKeys.accounts.valuations(),
     queryKeys.overview.all,
+    queryKeys.liquidity.upcomingActions,
     queryKeys.portfolio.all,
     queryKeys.analytics.accountGains.all,
     queryKeys.analytics.instrumentHoldings,
@@ -336,7 +337,7 @@ describe("mutation-hook invalidation", () => {
     expect(isInvalidated(queryClient, queryKeys.history.origin)).toBe(false);
   });
 
-  it("keeps Start History inside History and identity-only instrument writes off valuation", async () => {
+  it("invalidates liquidity after Start History and keeps identity-only instrument writes off valuation", async () => {
     const historyClient = seededClient();
     const start = renderMutation(historyClient, useStartHistory);
     await act(async () => {
@@ -344,7 +345,8 @@ describe("mutation-hook invalidation", () => {
     });
     expect(isInvalidated(historyClient, queryKeys.history.origin)).toBe(true);
     expect(isInvalidated(historyClient, queryKeys.accounts.list())).toBe(false);
-    expect(isInvalidated(historyClient, queryKeys.overview.all)).toBe(false);
+    expect(isInvalidated(historyClient, queryKeys.overview.all)).toBe(true);
+    expect(isInvalidated(historyClient, queryKeys.liquidity.upcomingActions)).toBe(true);
 
     const instrumentClient = seededClient();
     const create = renderMutation(instrumentClient, useCreateInstrument);

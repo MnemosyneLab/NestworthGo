@@ -1,3 +1,4 @@
+import { upcomingData, upcomingItem } from "@/test/upcomingActions";
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/analytics", () => ({ Service: { InstrumentHoldings: () => Promise.resolve([]), HistoricalOverview: () => Promise.resolve({ capturedAt: "2026-10-03T12:00:00Z", left: { date: "2026-09-30", currency: "USD", complete: true, assets: "0", liabilities: "0", netWorth: "0", byClass: [], byCurrency: [] }, right: null, rows: [] }) } }));
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -7,7 +8,9 @@ import { AppProviders, queryClient } from "./app/providers";
 import i18n, { SUPPORTED_LANGUAGES } from "./i18n";
 import { useUiStore } from "./stores/ui";
 
-const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts } = vi.hoisted(() => ({
+const { startup, settingsLoad, settingsSave, listAccounts, accountValuations, portfolio, holdingsByAccounts, upcomingRead, scanHealth } = vi.hoisted(() => ({
+  upcomingRead: vi.fn(),
+  scanHealth: vi.fn(),
   startup: vi.fn().mockResolvedValue({ available: true }),
   settingsLoad: vi.fn(),
   settingsSave: vi.fn(),
@@ -180,7 +183,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/quote", 
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/marketdata", () => ({
   Service: {
-    ScanMarketDataHealth: () => Promise.resolve({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] }),
+    ScanMarketDataHealth: () => scanHealth(),
     GetCurrentSyncJob: () => Promise.resolve({ jobId: "" }),
   },
 }));
@@ -202,6 +205,7 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/recovery
 
 vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity", () => ({
   Service: {
+    UpcomingActions: () => upcomingRead(),
     Overview: () => Promise.resolve({
       asOf: "",
       localDate: "2026-09-20",
@@ -224,6 +228,8 @@ vi.mock("../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidit
 
 beforeEach(() => {
   queryClient.clear();
+  scanHealth.mockReset().mockResolvedValue({ healthy: true, issueCount: 0, executableCount: 0, prerequisiteCount: 0, snapshotDays: 0, issues: [] });
+  upcomingRead.mockReset().mockResolvedValue(upcomingData([upcomingItem()]));
   startup.mockReset();
   startup.mockResolvedValue({ available: true });
   settingsLoad.mockReset();
@@ -478,4 +484,72 @@ it("opens historical overview from Overview, removes current queries and exits b
   await userEvent.click(screen.getByRole("button", { name: i18n.t("historicalOverview.exit") }));
   expect(await screen.findByTestId("overview-net-worth")).toBeInTheDocument();
   await waitFor(() => expect(document.getElementById("open-historical-overview")).toHaveFocus());
+});
+
+
+it("retains the upcoming filter and restores its trigger after Back", async () => {
+  render(<AppProviders><App /></AppProviders>);
+  await userEvent.click(await screen.findByRole("button", { name: "View all 1 action" }));
+  const filter = await screen.findByRole("button", { name: "Reservation issues" });
+  await userEvent.click(filter);
+  await userEvent.click(screen.getByText("Information affecting assessment (0 data issues, 0 notes)"));
+  const health = within(screen.getByText("Information affecting assessment (0 data issues, 0 notes)").closest("details")!).getByRole("button", { name: "Data Health" });
+  await userEvent.click(health);
+  await userEvent.click(await screen.findByRole("button", { name: "← Back to Upcoming actions" }));
+  await waitFor(() => expect(filter).toHaveAttribute("aria-pressed", "true"));
+  await waitFor(() => expect(health).toHaveFocus());
+  expect(screen.queryByRole("button", { name: "Verify receipt" })).not.toBeInTheDocument();
+});
+
+
+// Keep the actual App trail and liquidity page; stub only the financial detail sheet.
+vi.mock("@/features/liquidity/ProductSheets", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/features/liquidity/ProductSheets")>();
+  return {
+    ...actual,
+    ProductDetailSheet: ({ open, productId, onOpenChange }: { open: boolean; productId: string; onOpenChange: (open: boolean) => void }) => open ? <div role="dialog" aria-label={productId}><button onClick={() => onOpenChange(false)}>Close product</button></div> : null,
+  };
+});
+
+it("does not reopen A when Back restores its consumed request after opening B", async () => {
+  upcomingRead.mockResolvedValue(upcomingData([
+    upcomingItem({ id: "action-a", productId: "product-a", displayName: "Product A", primaryTarget: { kind: "product", productId: "product-a", sourceRef: null, reservationId: null } }),
+    upcomingItem({ id: "action-b", productId: "product-b", displayName: "Product B", primaryTarget: { kind: "product", productId: "product-b", sourceRef: null, reservationId: null } }),
+  ]));
+  render(<AppProviders><App /></AppProviders>);
+  await userEvent.click(await screen.findByRole("button", { name: "Verify receipt · Product A" }));
+  await screen.findByRole("dialog", { name: "product-a" });
+  await userEvent.click(screen.getByRole("button", { name: "Close product" }));
+  await userEvent.click(screen.getByRole("button", { name: "View all 2 actions" }));
+  await userEvent.click(await screen.findByRole("button", { name: "Verify receipt · Product B" }));
+  await screen.findByRole("dialog", { name: "product-b" });
+  // A genuinely new same-page request must still reopen B, without a trail entry.
+  await userEvent.click(screen.getByRole("button", { name: "Close product" }));
+  await userEvent.click(screen.getByRole("button", { name: "Verify receipt · Product B" }));
+  await screen.findByRole("dialog", { name: "product-b" });
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Upcoming actions" }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "← Back to Available funds" }));
+  await waitFor(() => expect(screen.getByTestId("available-funds-page")).toBeVisible());
+  // Flush the fresh overview request that caused the original erroneous reopening.
+  await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "← Back to Overview" })).toBeVisible();
+});
+
+
+it("preserves same-page Data Health gap focus history", async () => {
+  scanHealth.mockResolvedValue({ healthy: false, issueCount: 2, executableCount: 0, prerequisiteCount: 0, snapshotDays: 2, issues: [
+    { id: "gap-a", kind: "snapshot_incomplete", severity: "warning", targetKey: "cash:a", accountId: "bank-a", label: "USD", rangeStart: "2026-09-18", rangeEnd: "2026-09-18", action: "none", executable: false },
+    { id: "gap-b", kind: "snapshot_incomplete", severity: "warning", targetKey: "cash:b", accountId: "bank-b", label: "CNY", rangeStart: "2026-09-19", rangeEnd: "2026-09-19", action: "none", executable: false },
+  ] });
+  render(<AppProviders><App /></AppProviders>);
+  await screen.findByTestId("overview-net-worth");
+  await userEvent.click(within(screen.getByRole("navigation", { name: i18n.t("ui.navigation.main") })).getByRole("button", { name: "Data Health" }));
+  const rows = await screen.findAllByTestId("health-issue-snapshot_incomplete");
+  expect(rows).toHaveLength(2);
+  await userEvent.click(within(rows[0]).getByRole("button", { name: "View gap" }));
+  await waitFor(() => expect(screen.getAllByTestId("health-issue-snapshot_incomplete")).toHaveLength(1));
+  await userEvent.click(await screen.findByRole("button", { name: "← Back to Data Health" }));
+  await waitFor(() => expect(screen.getAllByTestId("health-issue-snapshot_incomplete")).toHaveLength(2));
 });

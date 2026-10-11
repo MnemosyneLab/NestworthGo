@@ -35,3 +35,12 @@ Manual-value accounts with observations older than 180 days receive a warning. T
 - Added coverage: strict financial boundaries, missing/stale manual valuations, full-query replacement, account/instrument scope, navigation return state, archived restore, chart gaps, snapshot chunk retry, cross-page modal dismissal, blocked snapshot dependencies, empty/unsupported repair, period health links, and date-only manual quote semantics across timezones and DST boundaries.
 - Browser: independent temporary QA database, Overview account-type drilldown, account holding → scoped Return Analysis, return to the source account, group archive → show archived → restore, and Calendar day detail → Asset Changes → back (no lingering modal).
 - Native Wails desktop, VoiceOver and live provider repair were not exercised. Browser verification uses the Wails server build and synthetic data, not the user's household database.
+
+## Upcoming actions navigation
+
+[Upcoming actions](upcoming-actions.md) is reached from Overview and Available
+Funds, with no sidebar destination. Session Back preserves its filter, scroll
+and trigger focus. Typed liquidity targets reuse product/policy/reservation
+sheets; an explicit request ID allows close/reopen without refetch reopening.
+Its folded supplementary information links Data Health and does not replace
+the full Data Health scan. Native focus acceptance remains pending.

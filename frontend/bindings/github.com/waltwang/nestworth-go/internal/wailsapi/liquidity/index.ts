@@ -33,5 +33,10 @@ export type {
     SaveReservationRequest,
     SourceRefDTO,
     UnresolvedReservationDTO,
+    UpcomingActionDTO,
+    UpcomingActionsDTO,
+    UpcomingCountsDTO,
+    UpcomingDataCheckDTO,
+    UpcomingTargetDTO,
     UpdateProductTermsRequest
 } from "./models.js";

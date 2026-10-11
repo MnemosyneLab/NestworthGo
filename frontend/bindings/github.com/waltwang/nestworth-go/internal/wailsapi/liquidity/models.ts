@@ -288,6 +288,88 @@ export interface UnresolvedReservationDTO {
     "reason": string;
 }
 
+export interface UpcomingActionDTO {
+    "id": string;
+    "occurrenceKey": string;
+    "kind": string;
+    "phase": string;
+    "group": string;
+    "priority": number;
+    "sortOn": string | null;
+    "accountId": string;
+    "accountName": string | null;
+    "productId": string | null;
+    "productKind": string | null;
+    "sourceKey": string | null;
+    "sourceRef": SourceRefDTO | null;
+    "reservationIds": string[] | null;
+    "reservationLabels": string[] | null;
+    "displayName": string;
+    "anchorKind": string;
+    "anchorOn": string | null;
+    "maturityOn": string | null;
+    "eligibilityOn": string | null;
+    "estimatedReceiptOn": string | null;
+    "receiptBasis": string;
+    "referenceOn": string | null;
+    "amount": wire$0.MoneyView | null;
+    "amountRole": string;
+    "requestedReserve": wire$0.MoneyView | null;
+    "amountStatus": string;
+    "coverageStatus": string;
+    "reasonCodes": string[] | null;
+    "assumptions": string[] | null;
+    "primaryTarget": UpcomingTargetDTO;
+    "daysFromToday": number | null;
+    "policyRevision": number;
+}
+
+export interface UpcomingActionsDTO {
+    "schemaVersion": string;
+    "asOf": string;
+    "localDate": string;
+    "timezone": string;
+    "windowStartOn": string;
+    "windowEndOn": string;
+    "baseCurrency": string;
+    "completeness": string;
+    "counts": UpcomingCountsDTO;
+    "items": UpcomingActionDTO[] | null;
+    "dataChecks": UpcomingDataCheckDTO[] | null;
+    "scopeWarnings": string[] | null;
+}
+
+export interface UpcomingCountsDTO {
+    "total": number;
+    "receiptDue": number;
+    "reservationIssues": number;
+    "scheduled": number;
+    "eligible": number;
+    "dataChecks": number;
+    "scopeNotes": number;
+}
+
+export interface UpcomingDataCheckDTO {
+    "id": string;
+    "sourceKey": string;
+    "category": string;
+    "productId": string | null;
+    "displayName": string;
+    "reasonCodes": string[] | null;
+    "relatedActionId": string | null;
+    "anchorOn": string | null;
+    "coverageStatus": string;
+    "target": UpcomingTargetDTO;
+    "referenceOn": string | null;
+}
+
+export interface UpcomingTargetDTO {
+    "kind": string;
+    "productId": string | null;
+    "sourceRef": SourceRefDTO | null;
+    "reservationId": string | null;
+}
+
 export interface UpdateProductTermsRequest {
     "productId": string;
     "expectedRevision": number;

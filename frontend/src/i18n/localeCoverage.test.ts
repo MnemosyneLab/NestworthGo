@@ -1,3 +1,4 @@
+import { upcomingActionsEn, upcomingActionsZhCN, upcomingActionsZhTW } from "./upcomingActions";
 import { describe, expect, it } from "vitest";
 import en from "./locales/en.json";
 import zhCN from "./locales/zh-CN.json";
@@ -206,3 +207,5 @@ describe("i18next locale coverage", () => {
     }
   });
 });
+
+it("covers Upcoming Actions in every supported locale", () => { assertSameKeySet("upcoming", upcomingActionsEn, { "zh-CN": upcomingActionsZhCN, "zh-TW": upcomingActionsZhTW }); });

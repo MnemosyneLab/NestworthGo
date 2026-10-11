@@ -57,6 +57,10 @@ export function SaveReservation(request: $models.SaveReservationRequest): $Cance
     return $Call.ByID(1286965555, request);
 }
 
+export function UpcomingActions(): $CancellablePromise<$models.UpcomingActionsDTO> {
+    return $Call.ByID(1263833643);
+}
+
 export function UpdateProductTerms(request: $models.UpdateProductTermsRequest): $CancellablePromise<$models.ProductDetailDTO> {
     return $Call.ByID(2912879229, request);
 }

@@ -157,3 +157,19 @@ describe("Reservation management", () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false));
   });
 });
+
+it("expands and focuses a released reservation once without refetch stealing focus", async () => {
+  const released = { ...reservation, releasedAt: "2026-10-11T00:00:00Z" };
+  api.ListReservations.mockResolvedValue([released]);
+  const client = createTestQueryClient();
+  const panel = (open: boolean) => <QueryClientProvider client={client}><ReservationManager source={null} sources={[]} focusReservationId="reserve" open={open} onOpenChange={vi.fn()} /></QueryClientProvider>;
+  const view = render(panel(true));
+  await screen.findByText("Rent");
+  const card = screen.getByText("Rent").closest("[data-reservation-id]")!;
+  await waitFor(() => expect(card).toHaveFocus()); expect(card.closest("details")).toHaveAttribute("open");
+  const close = screen.getByRole("button", { name: "Close" }); close.focus();
+  await act(async () => { await client.invalidateQueries({ queryKey: ["liquidity"] }); });
+  expect(close).toHaveFocus(); expect(api.ReleaseReservation).not.toHaveBeenCalled(); expect(api.SaveReservation).not.toHaveBeenCalled();
+  view.rerender(panel(false)); view.rerender(panel(true));
+  await waitFor(() => expect(screen.getByText("Rent").closest("[data-reservation-id]")).toHaveFocus());
+});

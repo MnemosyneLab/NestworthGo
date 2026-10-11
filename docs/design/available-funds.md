@@ -80,3 +80,10 @@ outside this feature.
   frontend/src/features/liquidity/*test.tsx
 - The broader application persistence and IPC rules are in the
   [Data and Application Contracts](../architecture/data-and-ipc-contracts.md).
+
+## Upcoming actions
+
+The former seven-day reminder display is replaced by the shared read-only
+[Upcoming actions](upcoming-actions.md) summary and full-list entry. Its fixed
+normal-route D+30 reservation comparison does not change this page’s
+Today/7/30/custom or early-route estimates.
