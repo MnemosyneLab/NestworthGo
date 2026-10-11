@@ -187,3 +187,31 @@ Go tests/vet/build, generated bindings, frontend build/lint/typecheck,
 90 frontend files / 790 tests and whitespace checks. Native GUI work was not
 performed or duplicated; its acceptance boundary remains with the separate
 review. No financial operations, schema or MCP tools changed.
+
+## Follow-up: read timestamp and plural presentation
+
+Parent-reported native Linux primary smoke at `03a569f` found raw RFC3339
+nanosecond read timestamps and English singular counts rendered as plurals.
+Upcoming Actions now formats its read instant with the reported household zone
+and current locale, using the app’s medium-date/short-time convention and a
+visible timezone name. Invalid timestamps, invalid civil timestamps, invalid
+zones and absent/system zones show a localized unavailable label; they never
+fall back to the browser clock or zone. The precise DTO asOf is unchanged.
+
+New count copy uses i18next `_one`/`_other` forms for independent receipts,
+reservation issues, schedules, data issues, notes, action totals, reservation
+labels and relative days. Backend counts and their category breakdown are
+unchanged. Archived-reservation focus and total-breakdown review are left to
+the separate reviewer. No financial calculations or unrelated UI changed.
+
+Focused presentation, locale-coverage and App tests passed: 4 files / 62 tests.
+Coverage includes all three locales, nanosecond input, timezone midnight and
+New York DST boundaries, invalid date/zone safety, singular/zero/plural forms,
+and matching timestamp output on both the card and full list. No new native
+GUI acceptance was performed by this task; the Linux smoke report applies to
+the reviewed prior head, and macOS acceptance remains pending.
+
+Full server-profile `CGO_ENABLED=0 env -u NESTWORTH_QA_DATABASE wails3 task
+check` passed after the presentation changes: Go tests/vet/build, generated
+bindings, frontend production build/lint/typecheck, 90 frontend files / 814
+tests, and whitespace checks.

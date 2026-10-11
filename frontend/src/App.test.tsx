@@ -489,7 +489,7 @@ it("opens historical overview from Overview, removes current queries and exits b
 
 it("retains the upcoming filter and restores its trigger after Back", async () => {
   render(<AppProviders><App /></AppProviders>);
-  await userEvent.click(await screen.findByRole("button", { name: "View all 1 actions" }));
+  await userEvent.click(await screen.findByRole("button", { name: "View all 1 action" }));
   const filter = await screen.findByRole("button", { name: "Reservation issues" });
   await userEvent.click(filter);
   await userEvent.click(screen.getByText("Information affecting assessment (0 data issues, 0 notes)"));

@@ -15,7 +15,7 @@ export function UpcomingActionList({ items, context }: { items: UpcomingActionDT
         <div className="min-w-0 flex-1 basis-56 space-y-1 break-words">
           <p className="font-medium">{item.displayName}</p>
           <p className="text-sm">{upcomingTitle(t, item)}</p>
-          {item.sortOn && <p className="text-sm text-muted-foreground">{item.sortOn}{(item.daysFromToday ?? 0) > 0 && <> · {t("upcomingActions.inDays", { days: item.daysFromToday })}</>}</p>}
+          {item.sortOn && <p className="text-sm text-muted-foreground">{item.sortOn}{(item.daysFromToday ?? 0) > 0 && <> · {t("upcomingActions.inDays", { count: item.daysFromToday ?? 0 })}</>}</p>}
           {item.estimatedReceiptOn && <p className="text-sm text-muted-foreground">{t("upcomingActions.receiptEstimate", { date: item.estimatedReceiptOn })} · {t(`upcomingActions.basis.${item.receiptBasis}`, { defaultValue: t("upcomingActions.basis.unknown") })}</p>}
           {item.referenceOn && <p className="text-sm text-muted-foreground">{t("upcomingActions.reference", { date: item.referenceOn })}</p>}
           <p className="text-sm tabular-nums">{t(`upcomingActions.amountRole.${item.amountRole}`, { defaultValue: t("upcomingActions.amountRole.unknown") })}: {formatKnownOrUnknown(item.amount, t("upcomingActions.unknownAmount"))}</p>

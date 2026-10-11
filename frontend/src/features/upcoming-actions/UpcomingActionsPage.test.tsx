@@ -48,3 +48,32 @@ describe("upcoming UI", () => {
     expect(screen.queryByText(/upcomingActions\./)).not.toBeInTheDocument();
   });
 });
+
+
+it.each(["en", "zh-CN", "zh-TW"])("shows the same human household timestamp in card and full page (%s)", async language => {
+  await i18n.changeLanguage(language);
+  query.data = upcomingData([upcomingItem()]);
+  const precise = "2026-10-11T23:30:12.123456789Z";
+  query.data.asOf = precise;
+  const formatted = new Intl.DateTimeFormat(language, { timeZone: query.data.timezone, dateStyle: "medium", timeStyle: "short" }).format(new Date(precise));
+  const expected = i18n.t("upcomingActions.asOf", { asOf: formatted, timezone: query.data.timezone });
+  const view = mount(<OverviewUpcomingActionsCard />);
+  expect(screen.getByText(expected)).toBeInTheDocument();
+  expect(screen.queryByText(precise)).not.toBeInTheDocument();
+  view.rerender(<UpcomingActionsPage />);
+  expect(screen.getByText(expected)).toBeInTheDocument();
+  expect(query.data.asOf).toBe(precise);
+});
+
+it("renders unavailable timestamps and singular counts without changing their values", () => {
+  query.data = upcomingData([upcomingItem()]);
+  query.data.asOf = "invalid-time";
+  const view = mount(<OverviewUpcomingActionsCard />);
+  expect(screen.getByText("Read time unavailable")).toBeInTheDocument();
+  expect(screen.getByText("1 receipt to verify · 0 reservation issues · 0 schedules")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "View all 1 action" })).toBeInTheDocument();
+  view.rerender(<UpcomingActionsPage />);
+  expect(screen.getByText("Read time unavailable")).toBeInTheDocument();
+  expect(screen.getByText("1 receipt to verify · 0 reservation issues · 0 schedules")).toBeInTheDocument();
+  expect(query.data.counts.total).toBe(1);
+});
