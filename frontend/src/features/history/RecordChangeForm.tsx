@@ -230,6 +230,7 @@ export function RecordChangeForm({
   initial,
   fixActivityId,
   repeat = false,
+  repeatSourceId,
   lock,
   originalEffectiveAt,
   originOverride,
@@ -238,6 +239,7 @@ export function RecordChangeForm({
   initial?: ChangeCommandRequest;
   fixActivityId?: string;
   repeat?: boolean;
+  repeatSourceId?: string;
   lock?: RecordChangeLock;
   originalEffectiveAt?: string;
   originOverride?: HistoryOriginDTO;
@@ -260,6 +262,7 @@ export function RecordChangeForm({
       initial={initial}
       fixActivityId={fixActivityId}
       repeat={repeat}
+      repeatSourceId={repeatSourceId}
       lock={lock}
       originalEffectiveAt={originalEffectiveAt}
       originOverride={originOverride}
@@ -273,6 +276,7 @@ function RecordChangeFormReady({
   initial,
   fixActivityId,
   repeat = false,
+  repeatSourceId,
   lock,
   originalEffectiveAt,
   originOverride,
@@ -282,6 +286,7 @@ function RecordChangeFormReady({
   initial?: ChangeCommandRequest;
   fixActivityId?: string;
   repeat?: boolean;
+  repeatSourceId?: string;
   lock?: RecordChangeLock;
   originalEffectiveAt?: string;
   originOverride?: HistoryOriginDTO;
@@ -674,7 +679,7 @@ function RecordChangeFormReady({
     }
     if (repeat) {
       repeatConfirm.reset();
-      repeatPreview.mutate(command, { onSuccess: (result) => { if (sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); } });
+      repeatPreview.mutate({ sourceId: repeatSourceId ?? "", request: command }, { onSuccess: (result) => { if (sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); } });
       return;
     }
     preview.mutate(command, { onSuccess: accept });

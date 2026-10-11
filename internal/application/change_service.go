@@ -144,6 +144,10 @@ func (s *Service) RecordChangeGuarded(ctx context.Context, command any, mutation
 }
 
 func (s *Service) recordChangeWithMutation(ctx context.Context, command any, mutationID, payloadHash, expectedToken string, guarded bool) (domain.ChangePreview, error) {
+	return s.recordChangeWithMutationChecked(ctx, command, mutationID, payloadHash, expectedToken, guarded, nil)
+}
+
+func (s *Service) recordChangeWithMutationChecked(ctx context.Context, command any, mutationID, payloadHash, expectedToken string, guarded bool, check func(context.Context) error) (domain.ChangePreview, error) {
 	ctx, unlock, err := s.beginLedgerWrite(ctx)
 	if err != nil {
 		return domain.ChangePreview{}, err
@@ -167,6 +171,11 @@ func (s *Service) recordChangeWithMutation(ctx context.Context, command any, mut
 		}
 		if s.writes.previewToken() != expectedToken {
 			return domain.ChangePreview{}, &domain.Error{Code: domain.ErrStalePreview, Field: "previewToken", Message: "preview is stale; request a new preview"}
+		}
+	}
+	if check != nil {
+		if err := check(ctx); err != nil {
+			return domain.ChangePreview{}, err
 		}
 	}
 	if err := s.rejectManagedCommand(ctx, command); err != nil {

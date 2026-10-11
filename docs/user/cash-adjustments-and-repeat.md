@@ -12,7 +12,9 @@ choose **Repeat as new draft**. Review or edit its account, amount, currency,
 note and date/time. The new time defaults to now, rather than the original date.
 Then choose **Preview** and **Confirm**. Opening the draft never posts it.
 Only income and expense records are supported; product operations, transfers,
-trades, adjustments, corrections and reversals do not offer Repeat.
+trades, adjustments, corrections, reversals and records already undone do not
+offer Repeat. Source eligibility is checked again when you preview and confirm;
+a reversal after opening the draft prevents a new record.
 
 **Back to draft** preserves your input. Editing any field requires another
 preview. Closing the sheet discards the draft; reopening starts afresh. If a

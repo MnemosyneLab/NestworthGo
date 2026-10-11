@@ -260,7 +260,10 @@ updated to 320”; it must never say “updated to 20.”
 
 History's activity menu offers **Repeat as new draft** only for `cash_in` with
 reason `income`, or `cash_out` with reason `expense`. Product-linked, corrected
-and reversed records are excluded. Transfers, trades, dividends, interest,
+and reversed records are excluded. Eligibility comes from the full ledger,
+independently of visible filters or pages, and is rechecked under the preview
+and confirmation gates. The source ID is eligibility metadata only; it is never
+assigned to the new transaction or receipt. Transfers, trades, dividends, interest,
 settlements, reconciliation and other specialized records remain in their own
 flows. This is a one-time draft, not a saved template.
 

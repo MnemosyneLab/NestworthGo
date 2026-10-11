@@ -184,7 +184,7 @@ export function useRebuildHistoricalSnapshots() {
 }
 
 export function usePreviewRepeatChange() {
-  return useMutation({ mutationFn: (request: ChangeCommandRequest) => callService(() => HistoryService.PreviewRepeatChange(request)) });
+  return useMutation({ mutationFn: ({ sourceId, request }: { sourceId: string; request: ChangeCommandRequest }) => callService(() => HistoryService.PreviewRepeatChange(sourceId, request)) });
 }
 export function useConfirmRepeatChange() {
   const client = useQueryClient();

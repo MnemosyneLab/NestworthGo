@@ -2,15 +2,17 @@ package history
 
 import (
 	"context"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/waltwang/nestworth-go/internal/domain"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/apierror"
 	"github.com/waltwang/nestworth-go/internal/wailsapi/wire"
-	"time"
 )
 
 type repeatPlan struct {
 	command                 any
+	sourceID                domain.ActivityID
 	mutationID, hash, token string
 	expires                 time.Time
 }
@@ -20,8 +22,12 @@ type RepeatPreviewDTO struct {
 }
 
 // Repeat accepts only an ordinary income/expense draft. It does not accept
-// historical identity; users may edit all ordinary fields before preview.
-func (s *Service) PreviewRepeatChange(ctx context.Context, request ChangeCommandRequest) (RepeatPreviewDTO, error) {
+// transaction identity; sourceID is read-only eligibility metadata.
+func (s *Service) PreviewRepeatChange(ctx context.Context, sourceID string, request ChangeCommandRequest) (RepeatPreviewDTO, error) {
+	id, err := domain.ParseActivityID(sourceID)
+	if err != nil {
+		return RepeatPreviewDTO{}, apierror.Wrap(err)
+	}
 	if !((request.Kind == ChangeMoneyAdded && request.Reason == "income") || (request.Kind == ChangeMoneyRemoved && request.Reason == "expense")) {
 		return RepeatPreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrValidation, Message: "only ordinary income and expense can be repeated"})
 	}
@@ -41,7 +47,13 @@ func (s *Service) PreviewRepeatChange(ctx context.Context, request ChangeCommand
 			return nil, err
 		}
 		command, err = clean.ToCommand(householdID, timezone)
-		return command, err
+		if err != nil {
+			return nil, err
+		}
+		if err := s.app.ValidateRepeatSource(ctx, id, command); err != nil {
+			return nil, err
+		}
+		return command, nil
 	})
 	if err != nil {
 		return RepeatPreviewDTO{}, apierror.Wrap(err)
@@ -50,7 +62,7 @@ func (s *Service) PreviewRepeatChange(ctx context.Context, request ChangeCommand
 	if err != nil {
 		return RepeatPreviewDTO{}, apierror.Wrap(err)
 	}
-	plan := repeatPlan{command: command, mutationID: clean.MutationID, hash: hash, token: token, expires: time.Now().Add(10 * time.Minute)}
+	plan := repeatPlan{command: command, sourceID: id, mutationID: clean.MutationID, hash: hash, token: token, expires: time.Now().Add(10 * time.Minute)}
 	return RepeatPreviewDTO{PlanID: s.repeatPlans.Put(plan), Resulting: wire.FromChangePreview(result).Resulting}, nil
 }
 func (s *Service) ConfirmRepeatChange(ctx context.Context, planID string) (wire.ChangePreviewDTO, error) {
@@ -62,7 +74,7 @@ func (s *Service) ConfirmRepeatChange(ctx context.Context, planID string) (wire.
 	if time.Now().After(plan.expires) {
 		token = "expired"
 	}
-	result, err := s.app.RecordChangeGuarded(ctx, plan.command, plan.mutationID, plan.hash, token)
+	result, err := s.app.RecordRepeatChangeGuarded(ctx, plan.sourceID, plan.command, plan.mutationID, plan.hash, token)
 	if err != nil {
 		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
 	}

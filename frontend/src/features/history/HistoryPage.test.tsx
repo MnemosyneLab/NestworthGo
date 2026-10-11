@@ -1272,7 +1272,7 @@ it("keeps captured time across kind changes and invalidates a pending preview wh
 
 it("Repeat opens a fresh editable draft, invalidates edits/back and confirms the latest plan once", async () => {
   historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
-  listActivities.mockResolvedValue([{ id: "old-income", kind: "cash_in", reason: "income", effectiveAt: "2026-01-01T12:00:00Z", effectiveLocalDate: "2026-01-01", note: "Salary", effects: [{ role: "amount", direction: "added", target: "account_value", accountId: "acc-1", money: { amount: "100", currency: "USD" } }] }]);
+  listActivities.mockResolvedValue([{ id: "old-income", repeatEligible: true, kind: "cash_in", reason: "income", effectiveAt: "2026-01-01T12:00:00Z", effectiveLocalDate: "2026-01-01", note: "Salary", effects: [{ role: "amount", direction: "added", target: "account_value", accountId: "acc-1", money: { amount: "100", currency: "USD" } }] }]);
   renderPage();
   const list = await screen.findByTestId("activity-list");
   const open = async () => { await userEvent.click(within(list).getByRole("button", { name: "Actions" })); await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" })); return screen.findByRole("form", { name: "Record change" }); };
@@ -1287,10 +1287,10 @@ it("Repeat opens a fresh editable draft, invalidates edits/back and confirms the
   within(form).getByRole("button", { name: "Preview" }).focus();
   await userEvent.keyboard("{Enter}");
   await within(form).findByRole("button", { name: "Confirm" });
-  expect(previewRepeat).toHaveBeenCalledWith(expect.objectContaining({ amount: "100", reason: "income", accountId: "acc-1" }));
-  expect(previewRepeat.mock.calls[0][0].effectiveAt).not.toBe("2026-01-01T12:00:00Z");
-  expect(previewRepeat.mock.calls[0][0].effectiveLocalDate).not.toBe("2026-01-01");
-  expect(previewRepeat.mock.calls[0][0].mutationId).toBeUndefined();
+  expect(previewRepeat).toHaveBeenCalledWith("old-income", expect.objectContaining({ amount: "100", reason: "income", accountId: "acc-1" }));
+  expect(previewRepeat.mock.calls[0][1].effectiveAt).not.toBe("2026-01-01T12:00:00Z");
+  expect(previewRepeat.mock.calls[0][1].effectiveLocalDate).not.toBe("2026-01-01");
+  expect(previewRepeat.mock.calls[0][1].mutationId).toBeUndefined();
   await userEvent.click(within(form).getByRole("button", { name: "Back to draft" }));
   expect(within(form).getByLabelText("Amount")).toHaveValue("100");
   await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
@@ -1319,11 +1319,37 @@ it("Repeat opens a fresh editable draft, invalidates edits/back and confirms the
 
 it("Repeat cannot preview a missing account", async () => {
   historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "UTC" });
-  listActivities.mockResolvedValue([{ id: "income", kind: "cash_in", reason: "income", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "deleted", money: { amount: "100", currency: "USD" } }] }]);
+  listActivities.mockResolvedValue([{ id: "income", repeatEligible: true, kind: "cash_in", reason: "income", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "deleted", money: { amount: "100", currency: "USD" } }] }]);
   renderPage();
   await userEvent.click(within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Actions" }));
   await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" }));
   const form = await screen.findByRole("form", { name: "Record change" });
   expect(within(form).getByRole("button", { name: "Preview" })).toBeDisabled();
   expect(previewRepeat).not.toHaveBeenCalled();
+});
+
+it.each(["kind filter", "unloaded next page"])("does not offer Repeat when authoritative eligibility excludes a reversal hidden by %s", async (hiddenBy) => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2025-01-01T00:00:00Z" });
+  listActivityPage.mockResolvedValue({ activities: [{ id: "undone-income", repeatEligible: false, kind: "cash_in", reason: "income", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "100", currency: "USD" } }] }], hasMore: hiddenBy === "unloaded next page", next: { id: "cursor", effectiveAt: "2025-12-31T00:00:00Z", createdAt: "2025-12-31T00:00:00Z" } });
+  renderPage(hiddenBy === "kind filter" ? { kinds: ["cash_in"] } : undefined);
+  const list = await screen.findByTestId("activity-list");
+  await userEvent.click(within(list).getByRole("button", { name: "Actions" }));
+  expect(screen.queryByRole("menuitem", { name: "Repeat as new draft" })).not.toBeInTheDocument();
+  expect(previewRepeat).not.toHaveBeenCalled();
+});
+
+it("rejects a source reversed after its editable draft was opened", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2025-01-01T00:00:00Z" });
+  listActivities.mockResolvedValue([{ id: "income", repeatEligible: true, kind: "cash_in", reason: "income", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "100", currency: "USD" } }] }]);
+  renderPage();
+  const list = await screen.findByTestId("activity-list");
+  await userEvent.click(within(list).getByRole("button", { name: "Actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  previewRepeat.mockRejectedValueOnce(new Error(JSON.stringify({ code: "already_undone", field: "sourceActivityId", message: "a reversed source cannot be repeated" })));
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  await waitFor(() => expect(previewRepeat).toHaveBeenCalledWith("income", expect.objectContaining({ reason: "income" })));
+  await within(form).findByRole("alert");
+  expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+  expect(confirmRepeat).not.toHaveBeenCalled();
 });

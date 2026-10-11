@@ -213,7 +213,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
                         { id: "undo", label: t("history.undoAction"), onSelect: () => setUndoTarget(activity) },
                       ]
                     : [];
-                  if (canModify && activityToRepeatDraft(activity)) menuItems.unshift({ id: "repeat", label: t("history.repeatAction"), onSelect: () => setRepeatTarget(activity) });
+                  if (activity.repeatEligible && activityToRepeatDraft(activity)) menuItems.unshift({ id: "repeat", label: t("history.repeatAction"), onSelect: () => setRepeatTarget(activity) });
                   return (
                     <li key={activity.id} className="relative flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3 text-sm transition-colors last:border-0 hover:bg-primary/5">
                       <IconTile icon={style.icon} tone={style.tone} />
@@ -286,7 +286,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
 
       <Sheet open={repeatTarget !== null} onOpenChange={(next) => !next && setRepeatTarget(null)}>
         <SheetContent size="lg"><SheetHeader><SheetTitle>{t("history.repeatAction")}</SheetTitle><SheetDescription>{t("history.repeatDescription")}</SheetDescription></SheetHeader>
-          {repeatTarget && activityToRepeatDraft(repeatTarget) && <RecordChangeForm key={repeatTarget.id} repeat initial={activityToRepeatDraft(repeatTarget)!} lock={{ kind: activityToRepeatDraft(repeatTarget)!.kind, hideKind: true }} onRecorded={() => { toast.success(t("history.recorded")); setRepeatTarget(null); }} />}
+          {repeatTarget && activityToRepeatDraft(repeatTarget) && <RecordChangeForm key={repeatTarget.id} repeat repeatSourceId={repeatTarget.id} initial={activityToRepeatDraft(repeatTarget)!} lock={{ kind: activityToRepeatDraft(repeatTarget)!.kind, hideKind: true }} onRecorded={() => { toast.success(t("history.recorded")); setRepeatTarget(null); }} />}
         </SheetContent>
       </Sheet>
       <Sheet open={fixTarget !== null} onOpenChange={(next) => !next && setFixTarget(null)}>
