@@ -1510,7 +1510,7 @@ it("cash review supports back, edits, stale failure and cancel/reopen without wr
   const status = await within(form).findByRole("status");
   expect(status).toHaveTextContent("Current balance"); expect(status).toHaveTextContent("$800.00");
   expect(status).toHaveTextContent("$900.00"); expect(status).toHaveTextContent("+$100.00");
-  expect(status).toHaveTextContent("USD"); expect(status).toHaveTextContent("2026-10-11T12:00:00Z"); expect(status).toHaveTextContent("Statement");
+  expect(status).toHaveTextContent("USD"); expect(status).toHaveTextContent("12:00:00.000 (UTC)"); expect(status).toHaveTextContent("Statement");
   expect(confirmCash).not.toHaveBeenCalled();
   await userEvent.click(within(form).getByRole("button", { name: "Back to draft" }));
   expect(within(form).getByLabelText("Resulting balance")).toHaveValue("900");
@@ -1531,4 +1531,24 @@ it("cash review supports back, edits, stale failure and cancel/reopen without wr
   expect(within(form).getByLabelText("Reason (optional)")).toHaveValue("");
   expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
   expect(appendCash).not.toHaveBeenCalled();
+});
+
+it("cash review shows origin-local time and exact sub-minor-unit values alongside currency formatting", async () => {
+  listAccounts.mockResolvedValue([brokerageAccount]);
+  historyOrigin.mockResolvedValue({ id: "origin-1", timezone: "Asia/Shanghai" });
+  previewCash.mockResolvedValue({ planId: "precision-plan", current: "10", target: "10.0001", delta: "0.0001", currency: "CNY", effectiveAt: "2026-10-10T16:30:00Z", timezone: "Asia/Shanghai" });
+  renderPage();
+  await userEvent.click(await screen.findByRole("button", { name: /MooMoo/ }));
+  await userEvent.click(await screen.findByRole("button", { name: "Reconcile balance" }));
+  const form = await screen.findByRole("form", { name: "Add cash balance" });
+  await userEvent.type(within(form).getByLabelText("Resulting balance"), "10.0001");
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  const review = await within(form).findByRole("status");
+  expect(review).toHaveTextContent("CN¥10.00");
+  expect(review).toHaveTextContent("10.0001 CNY");
+  expect(review).toHaveTextContent("+CN¥0.00 (+0.0001 CNY)");
+  expect(review).toHaveTextContent("Oct 11, 2026");
+  expect(review).toHaveTextContent("00:30:00.000 (Asia/Shanghai)");
+  expect(review).not.toHaveTextContent("2026-10-10T16:30:00Z");
+  expect(confirmCash).not.toHaveBeenCalled();
 });

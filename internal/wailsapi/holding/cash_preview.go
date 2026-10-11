@@ -13,6 +13,7 @@ type CashBalancePreviewDTO struct {
 	Target      string  `json:"target"`
 	Delta       string  `json:"delta"`
 	Currency    string  `json:"currency"`
+	Timezone    string  `json:"timezone"`
 	EffectiveAt string  `json:"effectiveAt"`
 	Reason      *string `json:"reason,omitempty"`
 }
@@ -26,7 +27,7 @@ func (s *Service) PreviewCashBalance(ctx context.Context, accountID, amount, cur
 	if err != nil {
 		return CashBalancePreviewDTO{}, apierror.Wrap(err)
 	}
-	return CashBalancePreviewDTO{PlanID: s.cashPlans.Put(plan), Current: plan.Current, Target: plan.Target, Delta: plan.Delta, Currency: plan.Currency, EffectiveAt: wire.FormatTime(plan.EffectiveAt), Reason: plan.Reason}, nil
+	return CashBalancePreviewDTO{PlanID: s.cashPlans.Put(plan), Current: plan.Current, Target: plan.Target, Delta: plan.Delta, Currency: plan.Currency, Timezone: plan.Timezone, EffectiveAt: wire.FormatTime(plan.EffectiveAt), Reason: plan.Reason}, nil
 }
 func (s *Service) ConfirmCashBalance(ctx context.Context, planID string) (wire.AccountCashValueDTO, error) {
 	plan, err := s.cashPlans.Get(planID)

@@ -18,6 +18,7 @@ type CashBalancePlan struct {
 	Target      string
 	Delta       string
 	Currency    string
+	Timezone    string
 	EffectiveAt time.Time
 	Reason      *string
 	value       domain.AccountCashValue
@@ -68,6 +69,9 @@ func (s *Service) PreviewCashBalance(ctx context.Context, accountID domain.Accou
 	current, _ := domain.ParseMoney("0", code)
 	for _, cash := range snapshot.CashValues {
 		if cash.AccountID == accountID && cash.Amount.Currency() == code {
+			if err := cashBalanceTimeCheck(cash, value.EffectiveAt, now); err != nil {
+				return nil, err
+			}
 			current = cash.Amount
 		}
 	}
@@ -75,7 +79,7 @@ func (s *Service) PreviewCashBalance(ctx context.Context, accountID domain.Accou
 	if delta.IsZero() {
 		return nil, &domain.Error{Code: domain.ErrNoChange, Message: "the new cash value is unchanged"}
 	}
-	plan := &CashBalancePlan{Current: current.CanonicalAmount(), Target: target.CanonicalAmount(), Delta: delta.String(), Currency: code.String(), EffectiveAt: value.EffectiveAt, Reason: reason, value: value, token: s.writes.previewToken(), mutationID: uuid.NewString(), expiresAt: time.Now().Add(10 * time.Minute)}
+	plan := &CashBalancePlan{Current: current.CanonicalAmount(), Target: target.CanonicalAmount(), Delta: delta.String(), Currency: code.String(), Timezone: "UTC", EffectiveAt: value.EffectiveAt, Reason: reason, value: value, token: s.writes.previewToken(), mutationID: uuid.NewString(), expiresAt: time.Now().Add(10 * time.Minute)}
 	origin, err := s.repository.HistoryOrigin(ctx, household.ID)
 	if err != nil {
 		return nil, err
@@ -84,6 +88,7 @@ func (s *Service) PreviewCashBalance(ctx context.Context, accountID domain.Accou
 		return nil, &domain.Error{Code: domain.ErrValidation, Field: "note", Message: "reasons require History"}
 	}
 	if origin != nil {
+		plan.Timezone = origin.Timezone
 		magnitude, err := domain.NewMoney(delta.Abs(), code)
 		if err != nil {
 			return nil, err
@@ -123,7 +128,9 @@ func (s *Service) ConfirmCashBalance(ctx context.Context, plan *CashBalancePlan)
 		token = "expired"
 	}
 	if plan.command != nil {
-		result, err := s.RecordChangeGuarded(ctx, plan.command, plan.mutationID, plan.payloadHash, token)
+		result, err := s.recordChangeWithMutationChecked(ctx, plan.command, plan.mutationID, plan.payloadHash, token, true, func(ctx context.Context) error {
+			return s.checkCashBalancePlanTime(ctx, plan, plan.value.CreatedAt)
+		})
 		if err != nil {
 			return domain.AccountCashValue{}, err
 		}
@@ -156,9 +163,37 @@ func (s *Service) ConfirmCashBalance(ctx context.Context, plan *CashBalancePlan)
 	// Freeze the reviewed effective time, while retaining the baseline path's
 	// actual confirmation audit time.
 	value.CreatedAt = s.clock().UTC().Truncate(time.Millisecond)
+	if err := s.checkCashBalancePlanTime(ctx, plan, value.CreatedAt); err != nil {
+		return domain.AccountCashValue{}, err
+	}
 	if err := s.repository.AppendAccountCashValue(ctx, value); err != nil {
 		return domain.AccountCashValue{}, err
 	}
 	s.invalidateAnalysis()
 	return value, nil
+}
+
+// cashBalanceTimeCheck ensures a current-balance adjustment will become the
+// winning observation at the reviewed time. Never move financial time to win.
+func cashBalanceTimeCheck(current domain.AccountCashValue, effectiveAt, createdAt time.Time) error {
+	createdAt = createdAt.UTC().Truncate(time.Millisecond)
+	if current.EffectiveAt.After(effectiveAt) || (current.EffectiveAt.Equal(effectiveAt) && current.CreatedAt.After(createdAt)) {
+		return &domain.Error{Code: domain.ErrCashBalanceTimeConflict, Field: "effectiveAt", Message: "a later cash observation would override this adjustment; check the system clock and cash history, then request a new preview"}
+	}
+	return nil
+}
+
+// The caller holds the ledger write gate; persisted receipt replay precedes
+// this check so a completed confirmation remains safe to retry.
+func (s *Service) checkCashBalancePlanTime(ctx context.Context, plan *CashBalancePlan, createdAt time.Time) error {
+	snapshot, _, err := s.portfolioSnapshot(ctx)
+	if err != nil {
+		return err
+	}
+	for _, cash := range snapshot.CashValues {
+		if cash.AccountID == plan.value.AccountID && cash.Amount.Currency() == plan.value.Amount.Currency() {
+			return cashBalanceTimeCheck(cash, plan.value.EffectiveAt, createdAt)
+		}
+	}
+	return nil
 }

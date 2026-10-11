@@ -135,6 +135,55 @@ was emitted. Full API race checks also passed with
 ./internal/wailsapi/preview`: History 47.386s, Holding 8.515s; the generic preview
 package has no standalone tests and is exercised through both API suites.
 
+## Cash ordering and display follow-up
+
+Cash preview rejects a winning observation later than the reviewed effective
+time, or one with the same effective time and a later audit time. Confirmation
+rechecks that ordering under the write gate after receipt replay. It never moves
+financial time forward to make the new observation win. Synthetic tests cover
+a pre-History future observation, a post-History clock rollback after income,
+clock correction, and direct confirmation when an out-of-band later row did not
+change the revision token. The winning balance is checked after successful
+confirmation. Equal-effective observations with later audit times are also
+rejected. The error has actionable translations in all three locales.
+
+The cash review shows origin-local time with the IANA zone (UTC before History),
+while persistence keeps the same instant. Standard ISO-currency formatting is
+retained; exact canonical values are added where currency rounding would hide
+precision, including a nonzero `+0.0001 CNY` adjustment.
+
+Binding policy: 62 legacy generated blobs were already tracked on base main
+despite `.gitignore` and the documented no-commit rule. They are an existing
+artifact-policy exception, not feature source. Supported `typecheck`, `test`,
+`dev` and `build` scripts regenerate bindings on every run, even when those
+blobs exist. `check:bindings` verifies the regenerated workspace, not the stale
+committed artifact snapshot. No generated files are force-added or hand-edited.
+
+The follow-up two-worker frontend run completed with 831/834 tests passing
+(88/90 files). Three existing async deadline failures occurred: App
+`restores peach accent on cold load and settings reload` (overview marker absent),
+App `retains the upcoming filter and restores its trigger after Back` (Upcoming
+button absent), and AccountsPage `creates a bank account through the wizard with
+equal ownership` (default 5-second timeout). The cash display and ordering
+regressions passed. No competing Go job ran during this frontend run. The final one-worker rerun
+passed **834/834 tests across 90 files** in 373.15s with the default timeout,
+including those three cases.
+
+Final cash-patch checks: complete serial Go suite (`CGO_ENABLED=0 go test
+./... -p 1`), vet and server build passed; application completed in 46.610s.
+Focused race command `go test -race -p 1 ./internal/application
+./internal/wailsapi/holding ./internal/wailsapi/history ./internal/wailsapi/apierror
+-run 'TestCash|TestRepeat|TestWrapPreservesEveryDomainErrorCode' -count=1` passed:
+application 7.869s, Holding 4.529s, History 7.409s, API errors 1.091s. Typecheck,
+lint, regenerated binding consistency and production frontend build passed.
+The full 497-target application race results above belong to lifecycle head
+`d6832a1`; they were not repeated after this cash-only follow-up.
+
+For a clean checkout, run the supported `pnpm run typecheck` and `pnpm run test`
+commands, then `pnpm run check:bindings`. The first two regenerate the legacy
+binding workspace before consuming it; a bare consistency check on the old
+committed blobs is not a claim that those blobs match the new Go API.
+
 ## Remaining acceptance
 
 Native Wails IPC and macOS desktop launch were not exercised. Manually verify
