@@ -74,9 +74,9 @@ const KIND_ACTIVITY_STYLE: Partial<Record<ChangeCommandKind, string>> = {
   [ChangeCommandKind.ChangeDebtPayment]: "debt_payment",
 };
 
-type RepeatConfirmDisposition = "source_refused" | "fresh_preview" | "uncertain";
+type RepeatConfirmDisposition = "source_refused" | "fresh_preview" | "plan_unavailable" | "uncertain";
 const DEFINITE_REPEAT_REFUSALS = new Set([
-  "already_undone", "stale_preview", "validation", "not_found", "conflict",
+  "already_undone", "validation", "not_found", "conflict",
   "decimal_overflow", "history_not_started", "history_timezone_required",
   "invalid_change", "invalid_change_time", "cash_balance_time_conflict",
   "no_change", "insufficient_balance", "insufficient_quantity",
@@ -85,7 +85,11 @@ const DEFINITE_REPEAT_REFUSALS = new Set([
 
 function repeatConfirmDisposition(error: unknown): RepeatConfirmDisposition {
   const wire = (error as { wireError?: WireError } | null)?.wireError;
-  if (!wire || !DEFINITE_REPEAT_REFUSALS.has(wire.code)) return "uncertain";
+  if (!wire) return "uncertain";
+  // A token mismatch follows durable-receipt lookup and proves rejection.
+  // A missing plan cannot reach that lookup; an earlier write may have won.
+  if (wire.code === "stale_preview") return wire.field === "previewToken" ? "fresh_preview" : "plan_unavailable";
+  if (!DEFINITE_REPEAT_REFUSALS.has(wire.code)) return "uncertain";
   if (wire.code === "already_undone" || wire.field === "sourceActivityId") return "source_refused";
   return "fresh_preview";
 }
@@ -361,6 +365,7 @@ function RecordChangeFormReady({
       : {},
   );
   const [reviewed, setReviewed] = useState<{ key: string; command: ChangeCommandRequest; planId?: string; resulting: EndpointViewDTO[] } | null>(null);
+  const [repeatRecovery, setRepeatRecovery] = useState<RepeatConfirmDisposition | null>(null);
   const previewSequence = useRef(0);
   const alive = useRef(true);
   useEffect(() => { alive.current = true; return () => { alive.current = false; previewSequence.current += 1; }; }, []);
@@ -656,7 +661,9 @@ function RecordChangeFormReady({
   // Match domain.ParseUnitPrice without rounding or converting through Number.
   const unitCostInvalid = kind === ChangeCommandKind.ChangePositionAdjustment && request.added &&
     Boolean(request.unitCost) && !/^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$/.test(request.unitCost ?? "");
-  const repeatConfirmResult = repeat && repeatConfirm.isError ? repeatConfirmDisposition(repeatConfirm.error) : null;
+  // Source eligibility belongs to this source draft, not the editable form.
+  // Mutation.reset() after a field edit must not turn a refused source back on.
+  const repeatConfirmResult = repeat ? repeatRecovery : null;
   const canPreview = (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
@@ -699,7 +706,7 @@ function RecordChangeFormReady({
     }
     if (repeat) {
       repeatConfirm.reset();
-      repeatPreview.mutate({ sourceId: repeatSourceId ?? "", request: command }, { onSuccess: (result) => { if (alive.current && sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); } });
+      repeatPreview.mutate({ sourceId: repeatSourceId ?? "", request: command }, { onSuccess: (result) => { if (alive.current && sequence === previewSequence.current) { setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); setRepeatRecovery(null); } } });
       return;
     }
     preview.mutate(command, { onSuccess: accept });
@@ -711,7 +718,7 @@ function RecordChangeFormReady({
     if (repeat) {
       if (!currentReview.planId) return;
       confirmBusy.current = true;
-      repeatConfirm.mutate(currentReview.planId, { onSuccess: () => { if (alive.current) { clearPreview(); onRecorded(); } }, onError: (cause) => { if (alive.current && repeatConfirmDisposition(cause) !== "uncertain") clearPreview(); }, onSettled: () => { confirmBusy.current = false; } });
+      repeatConfirm.mutate(currentReview.planId, { onSuccess: () => { if (alive.current) { clearPreview(); onRecorded(); } }, onError: (cause) => { if (alive.current) { const disposition = repeatConfirmDisposition(cause); setRepeatRecovery(disposition); if (disposition !== "uncertain") clearPreview(); } }, onSettled: () => { confirmBusy.current = false; } });
       return;
     }
     // Confirm the immutable command that produced the visible preview.
@@ -1173,7 +1180,7 @@ function RecordChangeFormReady({
       {repeat && !currencyOptions.includes(request.currency ?? "") && <p role="alert" className="text-sm text-destructive">{t("history.repeatCurrencyUnavailable", { currency: request.currency })}</p>}
       {mutationAllowed.isError && <p role="alert" className="text-sm text-destructive">{t("history.mutationUnavailable")}</p>}
       <FieldError className="text-sm">{error ? displayError(error, t("history.actionError")) : undefined}</FieldError>
-      {repeat && repeatConfirm.isError && <p className="text-sm text-muted-foreground">{t(repeatConfirmResult === "source_refused" ? "history.repeatSourceRejectedHelp" : repeatConfirmResult === "fresh_preview" ? "history.repeatFreshPreviewHelp" : currentReview ? "history.repeatRetryHelp" : "history.repeatUncertainEditedHelp")}</p>}
+      {repeat && repeatConfirmResult && <p className="text-sm text-muted-foreground">{t(repeatConfirmResult === "source_refused" ? "history.repeatSourceRejectedHelp" : repeatConfirmResult === "fresh_preview" ? "history.repeatFreshPreviewHelp" : repeatConfirmResult === "plan_unavailable" ? "history.repeatPlanUnavailableHelp" : currentReview ? "history.repeatRetryHelp" : "history.repeatUncertainEditedHelp")}</p>}
 
       {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
 

@@ -29,16 +29,21 @@ and confirmation.
 preview. Closing the sheet discards the draft; reopening starts afresh. If a
 balance or account changes, or a preview expires, review a fresh preview before
 confirming. If a later cash observation would override the reviewed time, check
-the system clock and cash history, then preview again. The app keeps the reviewed
-financial time unchanged. After an uncertain confirmation error, use **Retry same confirmation**
-so it can return its original result without another record. If the plan is
-expired or unavailable after an uncertain confirmation, inspect History before
-creating a fresh preview; its confirmation would be a new operation. If the app was
-restarted, inspect History before repeating an operation with an unknown outcome.
+the system clock and cash history, then preview again. The app keeps the
+reviewed financial time unchanged. After an uncertain confirmation error, use
+**Retry same confirmation** so it can return its original result without
+another record. If the plan is unavailable after an uncertain confirmation,
+the outcome may be unknown:
+inspect History before creating a fresh preview, whose confirmation would be
+a new operation. If the app was restarted, inspect History before repeating an
+operation with an unknown outcome.
 
 When confirmation is definitively rejected, the retained confirmation is
 cleared: review a fresh preview if the source remains eligible. If the source
 was undone or otherwise refused, close the draft and select another activity.
+Editing that draft does not make the refused source eligible again. A token
+mismatch is a definite rejection; an unavailable plan is not proof that no
+record was written.
 
 History details show the sign of value increases and decreases, including on
 exact decimal values that round to zero in the currency display.

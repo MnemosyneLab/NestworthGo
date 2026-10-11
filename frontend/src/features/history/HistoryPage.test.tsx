@@ -1341,6 +1341,37 @@ it.each([
   expect(within(form).getByText(help)).toBeInTheDocument();
   expect(within(form).getByRole("button", { name: "Preview" }).hasAttribute("disabled")).toBe(previewDisabled);
   expect(confirmRepeat).toHaveBeenCalledTimes(1);
+  if (previewDisabled) {
+    await userEvent.type(within(form).getByLabelText("Note"), " again");
+    expect(within(form).getByRole("button", { name: "Preview" })).toBeDisabled();
+    expect(within(form).getByText(help)).toBeInTheDocument();
+    expect(previewRepeat).toHaveBeenCalledTimes(1);
+  }
+});
+
+it.each(["planId", undefined])("requires a History check when the Repeat plan is unavailable (field %s)", async (field) => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listActivities.mockResolvedValue([{ id: "cash", repeatEligible: true, kind: "cash_in", reason: "gift", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "1", currency: "USD" } }] }]);
+  renderPage();
+  await userEvent.click(within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  const confirm = await within(form).findByRole("button", { name: "Confirm" });
+  confirmRepeat.mockRejectedValueOnce(new Error(JSON.stringify({ code: "stale_preview", field, message: "plan unavailable" })));
+  await userEvent.click(confirm);
+  await within(form).findByRole("alert");
+  expect(within(form).getByText(/Check History before creating a fresh preview/)).toBeInTheDocument();
+  expect(within(form).queryByRole("button", { name: "Retry same confirmation" })).not.toBeInTheDocument();
+  expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+  expect(confirmRepeat).toHaveBeenCalledTimes(1);
+  expect(previewRepeat).toHaveBeenCalledTimes(1);
+  if (field === "planId") {
+    for (const language of ["zh-CN", "zh-TW"]) {
+      await act(async () => { await i18n.changeLanguage(language); });
+      expect(within(form).getByText(i18n.t("history.repeatPlanUnavailableHelp"))).toBeInTheDocument();
+    }
+  }
 });
 
 it("returns keyboard focus to Repeat's Actions trigger after Escape", async () => {

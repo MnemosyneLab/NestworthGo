@@ -452,8 +452,9 @@
     "repeatCurrencyUnavailable": "{{currency}} 不可用。預覽前請選擇支援的幣別。",
     "repeatRetryConfirm": "重試同一次確認",
     "repeatRetryHelp": "若結果不確定，請先重試保留的這次確認。新預覽會建立另一筆操作；請先檢查歷史記錄。",
-    "repeatUncertainEditedHelp": "保留確認的結果仍不確定，而草稿已更改。建立新預覽前，請先檢查歷史記錄。",
+    "repeatUncertainEditedHelp": "先前確認的結果仍不確定。建立新預覽前，請先檢查歷史記錄。",
     "repeatFreshPreviewHelp": "本次確認已被拒絕，沒有記帳。若來源仍符合條件，請重新預覽。",
+    "repeatPlanUnavailableHelp": "此確認計畫已不可用，結果可能尚不確定。建立新預覽前請先檢查歷史記錄；再次確認將是一筆新操作。",
     "repeatSourceRejectedHelp": "這筆來源記錄已不能重複。請關閉草稿並選擇另一筆符合條件的記錄。",
     "repeatReason": {
       "reversed": "此記錄已撤銷，不能重複。",

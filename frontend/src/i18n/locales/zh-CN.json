@@ -452,8 +452,9 @@
     "repeatCurrencyUnavailable": "{{currency}} 不可用。预览前请选择支持的币种。",
     "repeatRetryConfirm": "重试同一次确认",
     "repeatRetryHelp": "若结果不确定，请先重试保留的这次确认。新预览会创建另一笔操作；请先检查历史记录。",
-    "repeatUncertainEditedHelp": "保留确认的结果仍不确定，而草稿已更改。创建新预览前，请先检查历史记录。",
+    "repeatUncertainEditedHelp": "先前确认的结果仍不确定。创建新预览前，请先检查历史记录。",
     "repeatFreshPreviewHelp": "本次确认已被拒绝，没有记账。若来源仍符合条件，请重新预览。",
+    "repeatPlanUnavailableHelp": "此确认计划已不可用，结果可能尚不确定。创建新预览前请先检查历史记录；再次确认将是一笔新操作。",
     "repeatSourceRejectedHelp": "这笔来源记录已不能重复。请关闭草稿并选择另一笔符合条件的记录。",
     "repeatReason": {
       "reversed": "此记录已撤销，不能重复。",

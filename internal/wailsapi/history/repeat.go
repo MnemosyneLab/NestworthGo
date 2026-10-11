@@ -83,7 +83,9 @@ func repeatCashReason(reason string, added bool) bool {
 func (s *Service) ConfirmRepeatChange(ctx context.Context, planID string) (wire.ChangePreviewDTO, error) {
 	plan, err := s.repeatPlans.Get(planID)
 	if err != nil {
-		return wire.ChangePreviewDTO{}, apierror.Wrap(err)
+		// Without the process-local plan we cannot look up its durable mutation
+		// receipt. A lost confirmation response may already have recorded it.
+		return wire.ChangePreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrStalePreview, Field: "planId", Message: "confirmation plan unavailable; check History before a new preview"})
 	}
 	token := plan.token
 	if time.Now().After(plan.expires) {

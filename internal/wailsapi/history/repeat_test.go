@@ -76,7 +76,7 @@ func TestRepeatFreshGuardedConfirmation(t *testing.T) {
 	}
 	_, err = fx.service.ConfirmRepeatChange(ctx, stale.PlanID)
 	var wire *apierror.WireError
-	if !errors.As(err, &wire) || wire.Code != "stale_preview" {
+	if !errors.As(err, &wire) || wire.Code != "stale_preview" || wire.Field != "previewToken" {
 		t.Fatalf("stale %v", err)
 	}
 	if _, err := fx.service.PreviewRepeatChange(ctx, source.Activity.ID, request); err == nil {
@@ -94,6 +94,8 @@ func TestRepeatFreshGuardedConfirmation(t *testing.T) {
 	}
 	if _, err := history.NewService(fx.app).ConfirmRepeatChange(ctx, plan.PlanID); err == nil {
 		t.Fatal("unavailable process plan accepted")
+	} else if !errors.As(err, &wire) || wire.Code != "stale_preview" || wire.Field != "planId" {
+		t.Fatalf("unavailable plan = %v, want planId stale_preview", err)
 	}
 }
 
@@ -174,6 +176,10 @@ func TestRepeatReceiptReplaysAfterSourceIsReversed(t *testing.T) {
 	}
 	if _, err := fx.service.UndoChange(ctx, source.Activity.ID); err != nil {
 		t.Fatal(err)
+	}
+	var unavailable *apierror.WireError
+	if _, err := history.NewService(fx.app).ConfirmRepeatChange(ctx, plan.PlanID); !errors.As(err, &unavailable) || unavailable.Code != "stale_preview" || unavailable.Field != "planId" {
+		t.Fatalf("lost plan after committed write = %v", err)
 	}
 	replay, err := fx.service.ConfirmRepeatChange(ctx, plan.PlanID)
 	if err != nil || replay.Activity.ID != committed.Activity.ID || replay.Activity.ID == source.Activity.ID {
