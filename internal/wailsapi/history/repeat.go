@@ -21,15 +21,15 @@ type RepeatPreviewDTO struct {
 	Resulting []wire.EndpointViewDTO `json:"resulting"`
 }
 
-// Repeat accepts only an ordinary income/expense draft. It does not accept
+// Repeat accepts only an ordinary single-account cash draft. It does not accept
 // transaction identity; sourceID is read-only eligibility metadata.
 func (s *Service) PreviewRepeatChange(ctx context.Context, sourceID string, request ChangeCommandRequest) (RepeatPreviewDTO, error) {
 	id, err := domain.ParseActivityID(sourceID)
 	if err != nil {
 		return RepeatPreviewDTO{}, apierror.Wrap(err)
 	}
-	if !((request.Kind == ChangeMoneyAdded && request.Reason == "income") || (request.Kind == ChangeMoneyRemoved && request.Reason == "expense")) {
-		return RepeatPreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrValidation, Message: "only ordinary income and expense can be repeated"})
+	if !((request.Kind == ChangeMoneyAdded && repeatCashReason(request.Reason, true)) || (request.Kind == ChangeMoneyRemoved && repeatCashReason(request.Reason, false))) {
+		return RepeatPreviewDTO{}, apierror.Wrap(&domain.Error{Code: domain.ErrValidation, Field: "reason", Message: "choose an ordinary cash reason"})
 	}
 	// Whitelist fields to exclude identity, lifecycle and unrelated command data.
 	clean := ChangeCommandRequest{Kind: request.Kind, AccountID: request.AccountID, Amount: request.Amount, Currency: request.Currency, Reason: request.Reason, Note: request.Note, EffectiveAt: request.EffectiveAt, EffectiveLocalDate: request.EffectiveLocalDate, EffectiveLocalTime: request.EffectiveLocalTime, MutationID: uuid.NewString()}
@@ -64,6 +64,21 @@ func (s *Service) PreviewRepeatChange(ctx context.Context, sourceID string, requ
 	}
 	plan := repeatPlan{command: command, sourceID: id, mutationID: clean.MutationID, hash: hash, token: token, expires: time.Now().Add(10 * time.Minute)}
 	return RepeatPreviewDTO{PlanID: s.repeatPlans.Put(plan), Resulting: wire.FromChangePreview(result).Resulting}, nil
+}
+
+func repeatCashReason(reason string, added bool) bool {
+	if added {
+		switch reason {
+		case "income", "interest", "contribution", "gift", "other":
+			return true
+		}
+	} else {
+		switch reason {
+		case "expense", "fee", "tax", "interest", "other":
+			return true
+		}
+	}
+	return false
 }
 func (s *Service) ConfirmRepeatChange(ctx context.Context, planID string) (wire.ChangePreviewDTO, error) {
 	plan, err := s.repeatPlans.Get(planID)

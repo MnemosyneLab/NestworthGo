@@ -513,19 +513,19 @@ vi.mock("@/features/liquidity/ProductSheets", async (importOriginal) => {
 
 it("does not reopen A when Back restores its consumed request after opening B", async () => {
   upcomingRead.mockResolvedValue(upcomingData([
-    upcomingItem({ id: "action-a", productId: "product-a", displayName: "Product A", primaryTarget: { kind: "product", productId: "product-a", sourceRef: null, reservationId: null } }),
-    upcomingItem({ id: "action-b", productId: "product-b", displayName: "Product B", primaryTarget: { kind: "product", productId: "product-b", sourceRef: null, reservationId: null } }),
+    upcomingItem({ id: "action-a", productId: "product-a", displayName: "Product A", phase: "blocked", primaryTarget: { kind: "product", productId: "product-a", sourceRef: null, reservationId: null } }),
+    upcomingItem({ id: "action-b", productId: "product-b", displayName: "Product B", phase: "blocked", primaryTarget: { kind: "product", productId: "product-b", sourceRef: null, reservationId: null } }),
   ]));
   render(<AppProviders><App /></AppProviders>);
-  await userEvent.click(await screen.findByRole("button", { name: "Verify receipt · Product A" }));
+  await userEvent.click(await screen.findByRole("button", { name: "View terms · Product A" }));
   await screen.findByRole("dialog", { name: "product-a" });
   await userEvent.click(screen.getByRole("button", { name: "Close product" }));
   await userEvent.click(screen.getByRole("button", { name: "View all 2 actions" }));
-  await userEvent.click(await screen.findByRole("button", { name: "Verify receipt · Product B" }));
+  await userEvent.click(await screen.findByRole("button", { name: "View terms · Product B" }));
   await screen.findByRole("dialog", { name: "product-b" });
   // A genuinely new same-page request must still reopen B, without a trail entry.
   await userEvent.click(screen.getByRole("button", { name: "Close product" }));
-  await userEvent.click(screen.getByRole("button", { name: "Verify receipt · Product B" }));
+  await userEvent.click(screen.getByRole("button", { name: "View terms · Product B" }));
   await screen.findByRole("dialog", { name: "product-b" });
   await userEvent.click(screen.getByRole("button", { name: "← Back to Upcoming actions" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

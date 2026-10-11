@@ -41,3 +41,56 @@ func TestRepeatCommitChecksSourceEvenWithCurrentToken(t *testing.T) {
 		t.Fatalf("unexpected writes %+v %v", activities, err)
 	}
 }
+
+func TestRepeatSourceClosedReasonMatrix(t *testing.T) {
+	account := domain.NewAccountID()
+	holding := domain.NewHoldingID()
+	money, err := domain.ParseMoney("0.0001", "JPY")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		kind   domain.ActivityKind
+		reason domain.ActivityReason
+	}{
+		{domain.ActivityCashIn, domain.ReasonIncome}, {domain.ActivityCashIn, domain.ReasonInterest},
+		{domain.ActivityCashIn, domain.ReasonContribution}, {domain.ActivityCashIn, domain.ReasonGift}, {domain.ActivityCashIn, domain.ReasonOther},
+		{domain.ActivityCashOut, domain.ReasonExpense}, {domain.ActivityCashOut, domain.ReasonFee},
+		{domain.ActivityCashOut, domain.ReasonTax}, {domain.ActivityCashOut, domain.ReasonInterest}, {domain.ActivityCashOut, domain.ReasonOther},
+	} {
+		a := domain.Activity{Kind: test.kind, Reason: test.reason, Effects: []domain.ActivityEffect{{AccountID: &account, Money: &money}}}
+		if !ordinaryRepeatSource(a) {
+			t.Fatalf("ordinary source rejected: %s %s", test.kind, test.reason)
+		}
+		a.Effects[0].HoldingID = &holding
+		if ordinaryRepeatSource(a) || repeatSourceReason(a) != "holding_attribution" {
+			t.Fatalf("holding attribution accepted: %s %s", test.kind, test.reason)
+		}
+	}
+	for _, test := range []struct {
+		kind   domain.ActivityKind
+		reason domain.ActivityReason
+	}{
+		{domain.ActivityCashIn, domain.ReasonReconciliation}, {domain.ActivityCashOut, domain.ReasonReconciliation},
+		{domain.ActivityCashIn, domain.ReasonFee}, {domain.ActivityCashOut, domain.ReasonGift},
+		{domain.ActivityCashDividend, domain.ReasonIncome}, {domain.ActivityCashTransfer, domain.ReasonOther},
+		{domain.ActivityBuy, domain.ReasonOther}, {domain.ActivityDebtPayment, domain.ReasonInterest},
+	} {
+		a := domain.Activity{Kind: test.kind, Reason: test.reason, Effects: []domain.ActivityEffect{{AccountID: &account, Money: &money}}}
+		if ordinaryRepeatSource(a) {
+			t.Fatalf("excluded source accepted: %s %s", test.kind, test.reason)
+		}
+	}
+	ordinary := domain.Activity{Kind: domain.ActivityCashIn, Reason: domain.ReasonIncome, Effects: []domain.ActivityEffect{{AccountID: &account, Money: &money}}}
+	withDividend := ordinary
+	withDividend.DividendDetail = &domain.DividendDetail{}
+	withTrade := ordinary
+	withTrade.TradeDetail = &domain.TradeDetail{}
+	withProduct := ordinary
+	withProduct.ProductContext = &domain.ProductActivityContext{}
+	for _, a := range []domain.Activity{withDividend, withTrade, withProduct} {
+		if ordinaryRepeatSource(a) {
+			t.Fatal("specialized source accepted as ordinary cash")
+		}
+	}
+}

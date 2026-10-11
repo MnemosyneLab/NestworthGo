@@ -11,6 +11,7 @@ describe("upcoming presentation", () => {
   });
   it("maps typed navigation without a financial command", () => {
     expect(upcomingNavigation(upcomingItem().primaryTarget)).toEqual({ page: "available-funds", focus: { kind: "product", productId: "product-1" } });
+    expect(upcomingNavigation(upcomingItem().primaryTarget, "receipt_due")).toEqual({ page: "available-funds", focus: { kind: "receipt", productId: "product-1" } });
     expect(upcomingNavigation({ kind: "reservations", productId: null, sourceRef: null, reservationId: "missing-source" })).toEqual({ page: "available-funds", focus: { kind: "reservations", reservationId: "missing-source" } });
   });
 });
@@ -49,8 +50,8 @@ describe("upcoming read timestamp", () => {
 describe("upcoming plural forms", () => {
   it.each([0, 1, 2])("formats each independent English count for %s", count => {
     const t = i18n.getFixedT("en");
-    const labels = upcomingCountLabels(t, { total: count, receiptDue: count, reservationIssues: count, scheduled: count, eligible: count, dataChecks: count, scopeNotes: count });
-    expect(t("upcomingActions.counts", labels)).toBe(`${count} ${count === 1 ? "receipt" : "receipts"} to verify · ${count} reservation ${count === 1 ? "issue" : "issues"} · ${count} ${count === 1 ? "schedule" : "schedules"}`);
+    const labels = upcomingCountLabels(t, { total: count, attention: count, receiptDue: count, reservationIssues: count, scheduled: count, eligible: count, dataChecks: count, scopeNotes: count });
+    expect(t("upcomingActions.counts", labels)).toBe(`${count} ${count === 1 ? "needs" : "need"} attention · ${count} ${count === 1 ? "schedule" : "schedules"} · ${count} ${count === 1 ? "receipt" : "receipts"} to verify · ${count} reservation ${count === 1 ? "issue" : "issues"}`);
     expect(t("upcomingActions.checksTitle", labels)).toBe(`Information affecting assessment (${count} data ${count === 1 ? "issue" : "issues"}, ${count} ${count === 1 ? "note" : "notes"})`);
     expect(t("upcomingActions.viewAll", { count })).toBe(`View all ${count} ${count === 1 ? "action" : "actions"}`);
     expect(t("upcomingActions.reservations", { count })).toBe(`${count} ${count === 1 ? "reservation" : "reservations"}`);

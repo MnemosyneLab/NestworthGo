@@ -19,8 +19,8 @@ export function OverviewUpcomingActionsCard({ isActive = true, context = "overvi
       {data && <>
         <p className="text-sm text-muted-foreground">{t("upcomingActions.window", { date: data.localDate, timezone: data.timezone })}</p>
         <p className="text-xs text-muted-foreground">{upcomingReadLabel(t, data.asOf, data.timezone, i18n.language)}</p>
-        <p className="text-sm" aria-live="polite">{t("upcomingActions.counts", upcomingCountLabels(t, data.counts))}</p>
-        <UpcomingActionList context={context} items={(data.items ?? []).filter(item => item.group !== "eligible").slice(0, 3)} />
+        <p className="text-sm" aria-live="polite">{t("upcomingActions.overviewCounts", upcomingCountLabels(t, data.counts))}</p>
+        <UpcomingActionList context={context} items={(data.items ?? []).filter(item => item.group === "attention").slice(0, 3)} />
         {data.counts.total === 0 && <p className="text-sm">{t("upcomingActions.empty")}</p>}
         {(data.counts.eligible > 0 || data.counts.dataChecks > 0 || data.counts.scopeNotes > 0) && <p className="text-sm">{t("upcomingActions.supplement", upcomingCountLabels(t, data.counts))}</p>}
         {data.completeness === "partial" && <p className="text-sm text-warning-foreground">{t("upcomingActions.partial")}</p>}

@@ -389,7 +389,7 @@ describe("HistoryPage", () => {
     holdingsByAccounts.mockResolvedValue({
       "acc-1": [{ id: "h1", accountId: "acc-1", instrumentId: "i1", quantity: "3" }],
     });
-    previewChange.mockRejectedValueOnce(new Error(JSON.stringify({ code: "validation", field: "unitPrice", message: "must be a canonical non-negative decimal with up to eight fractional digits" })));
+    previewChange.mockRejectedValueOnce(new Error(JSON.stringify({ code: "validation", field: "unitCost", message: "must be a canonical non-negative decimal with up to eight fractional digits" })));
     previewChange.mockResolvedValue({ activity: {}, effects: [], resulting: [] });
     renderPage();
     await userEvent.click(await screen.findByRole("button", { name: /record change/i }));
@@ -400,7 +400,7 @@ describe("HistoryPage", () => {
     const cost = within(form).getByLabelText(/Unit cost/);
     await userEvent.type(cost, "295");
     await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
-    expect(await within(form).findByRole("alert")).toHaveTextContent("This value is not valid.");
+    expect(await within(form).findByRole("alert")).toHaveTextContent("Unit cost: Check this field and try again.");
     await userEvent.clear(cost);
     await userEvent.type(cost, "295.378");
     expect(within(form).queryByRole("alert")).not.toBeInTheDocument();
@@ -1310,11 +1310,23 @@ it("Repeat opens a fresh editable draft, invalidates edits/back and confirms the
   await userEvent.dblClick(confirm);
   await waitFor(() => expect(confirmRepeat).toHaveBeenCalledTimes(1));
   await within(form).findByRole("alert");
-  await waitFor(() => expect(within(form).getByRole("button", { name: "Confirm" })).toBeEnabled());
-  await userEvent.click(within(form).getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(within(form).getByRole("button", { name: "Retry same confirmation" })).toBeEnabled());
+  await userEvent.click(within(form).getByRole("button", { name: "Retry same confirmation" }));
   await waitFor(() => expect(confirmRepeat).toHaveBeenCalledTimes(2));
   expect(confirmRepeat.mock.calls.map(([id]) => id)).toEqual(["edited-plan", "edited-plan"]);
   expect(recordChange).not.toHaveBeenCalled(); expect(fixChange).not.toHaveBeenCalled();
+});
+
+it("returns keyboard focus to Repeat's Actions trigger after Escape", async () => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listActivities.mockResolvedValue([{ id: "cash", repeatEligible: true, kind: "cash_in", reason: "gift", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "1", currency: "USD" } }] }]);
+  renderPage();
+  const trigger = within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Actions" });
+  await userEvent.click(trigger);
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" }));
+  await screen.findByRole("form", { name: "Record change" });
+  await userEvent.keyboard("{Escape}");
+  await waitFor(() => expect(trigger).toHaveFocus());
 });
 
 it("Repeat cannot preview a missing account", async () => {

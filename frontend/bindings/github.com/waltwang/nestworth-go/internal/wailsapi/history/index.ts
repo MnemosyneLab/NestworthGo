@@ -14,5 +14,6 @@ export type {
     ActivityQueryRequest,
     ChangeCommandRequest,
     DailySnapshotStateDTO,
-    HistoryOriginDTO
+    HistoryOriginDTO,
+    RepeatPreviewDTO
 } from "./models.js";

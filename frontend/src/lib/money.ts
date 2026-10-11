@@ -366,6 +366,14 @@ export function formatAmount(amount: string, currency?: string): string {
   return `${negative ? "-" : ""}${number}`;
 }
 
+/** Keep the ledger's canonical decimal visible when currency rounding hides digits. */
+export function formatAuditMoney(amount: string, currency: string): string {
+  const rounded = formatAmount(amount, currency);
+  const fraction = amount.split(".")[1] ?? "";
+  if (!/[1-9]/.test(fraction.slice(currencyFractionDigits(currency)))) return rounded;
+  return `${rounded} (${amount} ${currency})`;
+}
+
 export function formatPercent(shareBps: number): string {
   return `${(shareBps / 100).toFixed(1)}%`;
 }

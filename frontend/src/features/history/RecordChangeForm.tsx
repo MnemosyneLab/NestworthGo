@@ -345,6 +345,8 @@ function RecordChangeFormReady({
   );
   const [reviewed, setReviewed] = useState<{ key: string; command: ChangeCommandRequest; planId?: string; resulting: EndpointViewDTO[] } | null>(null);
   const previewSequence = useRef(0);
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; previewSequence.current += 1; }; }, []);
   const clearPreview = () => { previewSequence.current += 1; setReviewed(null); };
 
   const markAutomaticFields = (current: ChangeCommandRequest, fields: string[]) => {
@@ -671,7 +673,7 @@ function RecordChangeFormReady({
     const key = JSON.stringify(command);
     const sequence = ++previewSequence.current;
     const accept = (result: { resulting: EndpointViewDTO[] | null }) => {
-      if (sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting } : null);
+      if (alive.current && sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting } : null);
     };
     if (fixActivityId) {
       previewFix.mutate({ activityId: fixActivityId, replacement: command }, { onSuccess: accept });
@@ -679,7 +681,7 @@ function RecordChangeFormReady({
     }
     if (repeat) {
       repeatConfirm.reset();
-      repeatPreview.mutate({ sourceId: repeatSourceId ?? "", request: command }, { onSuccess: (result) => { if (sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); } });
+      repeatPreview.mutate({ sourceId: repeatSourceId ?? "", request: command }, { onSuccess: (result) => { if (alive.current && sequence === previewSequence.current) setReviewed(result.resulting ? { key, command, resulting: result.resulting, planId: result.planId } : null); } });
       return;
     }
     preview.mutate(command, { onSuccess: accept });
@@ -691,7 +693,7 @@ function RecordChangeFormReady({
     if (repeat) {
       if (!currentReview.planId) return;
       confirmBusy.current = true;
-      repeatConfirm.mutate(currentReview.planId, { onSuccess: () => { clearPreview(); onRecorded(); }, onError: (cause) => { if ((cause as Error & { wireError?: { code: string } }).wireError?.code === "stale_preview") clearPreview(); }, onSettled: () => { confirmBusy.current = false; } });
+      repeatConfirm.mutate(currentReview.planId, { onSuccess: () => { if (alive.current) { clearPreview(); onRecorded(); } }, onError: (cause) => { if (alive.current && (cause as Error & { wireError?: { code: string } }).wireError?.code === "stale_preview") clearPreview(); }, onSettled: () => { confirmBusy.current = false; } });
       return;
     }
     // Confirm the immutable command that produced the visible preview.
@@ -1116,7 +1118,7 @@ function RecordChangeFormReady({
         </>
       )}
 
-      {showReason && <div className="flex flex-col gap-1.5"><Label htmlFor="change-reason">{t("history.reasonLabel")}</Label><NativeSelect id="change-reason" value={request.reason ?? "other"} onChange={(event) => patch({ reason: event.target.value })}>{(repeat ? [request.reason ?? ""] : reasonOptions).map((reason) => <option key={reason} value={reason}>{t(`history.reason.${reason}`)}</option>)}</NativeSelect></div>}
+      {showReason && <div className="flex flex-col gap-1.5"><Label htmlFor="change-reason">{t("history.reasonLabel")}</Label><NativeSelect id="change-reason" value={request.reason ?? "other"} onChange={(event) => patch({ reason: event.target.value })}>{(repeat ? reasonOptions.filter(reason => reason !== "reconciliation") : reasonOptions).map((reason) => <option key={reason} value={reason}>{t(`history.reason.${reason}`)}</option>)}</NativeSelect></div>}
 
       {!fixActivityId ? (
         <>
@@ -1149,15 +1151,17 @@ function RecordChangeFormReady({
       <div className="flex flex-col gap-1.5"><Label htmlFor="change-note">{t("history.note")}</Label><Input id="change-note" value={request.note ?? ""} onChange={(event) => patch({ note: event.target.value || null })} placeholder={t("history.notePlaceholder")} /></div>
 
       {(accounts.isError || instruments.isError || holdings.isError) && <div role="alert" className="flex flex-wrap items-center gap-2 text-sm text-destructive"><span>{t("history.dependenciesError")}</span><Button type="button" variant="outline" size="sm" onClick={() => void Promise.all([accounts.refetch(), instruments.refetch(), holdings.refetch()])}>{t("common.retryAction")}</Button></div>}
-      {repeat && (!accountOptions.some((account) => account.id === request.accountId) || !currencyOptions.includes(request.currency ?? "")) && <p role="alert" className="text-sm text-destructive">{t("history.repeatUnavailable")}</p>}
+      {repeat && !accountOptions.some((account) => account.id === request.accountId) && <p role="alert" className="text-sm text-destructive">{t("history.repeatAccountUnavailable")}</p>}
+      {repeat && !currencyOptions.includes(request.currency ?? "") && <p role="alert" className="text-sm text-destructive">{t("history.repeatCurrencyUnavailable", { currency: request.currency })}</p>}
       {mutationAllowed.isError && <p role="alert" className="text-sm text-destructive">{t("history.mutationUnavailable")}</p>}
       <FieldError className="text-sm">{error ? displayError(error, t("history.actionError")) : undefined}</FieldError>
+      {repeat && currentReview && repeatConfirm.isError && <p className="text-sm text-muted-foreground">{t("history.repeatRetryHelp")}</p>}
 
       {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
 
       <div className="flex gap-2">
         {repeat && previewResult && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirmPending}>{t("common.backToDraft")}</Button>}
-        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : t("common.confirm")}</Button>}
+        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : repeat && repeatConfirm.isError ? t("history.repeatRetryConfirm") : t("common.confirm")}</Button>}
       </div>
       </fieldset>
     </div>

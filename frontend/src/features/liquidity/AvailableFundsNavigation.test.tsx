@@ -9,7 +9,7 @@ vi.mock("@/queries/accounts", () => ({ useAccounts: () => ({ data: [] }) }));
 vi.mock("@/queries/liquidity", () => ({ useLiquidityOverview: () => ({ ...mocks.overviewState, refetch: mocks.refetch }), useUpcomingActions: () => ({ data: upcomingData(), refetch: vi.fn() }) }));
 vi.mock("./ProductSheets", () => ({
   PolicySheet: ({ open }: { open: boolean }) => open ? <div>Policy opened</div> : null,
-  ProductDetailSheet: ({ open, productId, onOpenChange }: { open: boolean; productId: string; onOpenChange: (open: boolean) => void }) => open ? <div role="dialog" aria-label={productId}><button onClick={() => onOpenChange(false)}>Close product</button></div> : null,
+  ProductDetailSheet: ({ open, productId, receiptRequestId, onOpenChange }: { open: boolean; productId: string; receiptRequestId?: number; onOpenChange: (open: boolean) => void }) => open ? <div role="dialog" aria-label={productId}>{receiptRequestId !== undefined && <span>Receipt request {receiptRequestId}</span>}<button onClick={() => onOpenChange(false)}>Close product</button></div> : null,
   ProductFormSheet: ({ open }: { open: boolean }) => open ? <div>Product form</div> : null,
   moneyText: () => "unknown",
 }));
@@ -28,6 +28,19 @@ it("consumes each navigation request once and reopens the same product on a new 
   view.rerender(<AvailableFundsPage focus={focus} navigationRequestId={2} isActive={false} />);
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   view.rerender(<AvailableFundsPage focus={focus} navigationRequestId={2} isActive />);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+it("opens receipt only for a product in the fresh overview, once per request", async () => {
+  const focus = { kind: "receipt" as const, productId: "due-product" };
+  mocks.refetch.mockResolvedValue({ data: { ...freshOverview, sources: [{ productId: "due-product" }] }, isError: false });
+  const view = render(<AvailableFundsPage focus={focus} navigationRequestId={7} />);
+  expect(await screen.findByText("Receipt request 7")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Close product" }));
+  view.rerender(<AvailableFundsPage focus={focus} navigationRequestId={7} />);
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  mocks.refetch.mockResolvedValue({ data: freshOverview, isError: false });
+  view.rerender(<AvailableFundsPage focus={focus} navigationRequestId={8} />);
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("state has changed"));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 });
 it("opens global reservations when the source disappears and preserves single-reservation focus", async () => {

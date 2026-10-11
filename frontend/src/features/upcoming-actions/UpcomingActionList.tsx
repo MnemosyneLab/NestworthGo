@@ -10,13 +10,16 @@ export function UpcomingActionList({ items, context }: { items: UpcomingActionDT
   const navigation = useObjectNavigation();
   return <ul className="divide-y divide-border" aria-label={t("upcomingActions.title")}>
     {items.map(item => {
-      const target = supportedUpcomingAction(item) ? upcomingNavigation(item.primaryTarget) : null;
+      const targets = supportedUpcomingAction(item) ? [item.primaryTarget, ...(item.targets ?? [])].filter((target, index, all) => all.findIndex(other => JSON.stringify(other) === JSON.stringify(target)) === index) : [];
       return <li key={item.id} className="flex min-w-0 flex-wrap items-start justify-between gap-3 py-4">
         <div className="min-w-0 flex-1 basis-56 space-y-1 break-words">
           <p className="font-medium">{item.displayName}</p>
           <p className="text-sm">{upcomingTitle(t, item)}</p>
+          {item.maturityOn && <p className="text-sm text-muted-foreground">{t("upcomingActions.maturityDate", { date: item.maturityOn })}</p>}
+          {item.eligibilityOn && <p className="text-sm text-muted-foreground">{t("upcomingActions.eligibilityDate", { date: item.eligibilityOn })}</p>}
           {item.sortOn && <p className="text-sm text-muted-foreground">{item.sortOn}{(item.daysFromToday ?? 0) > 0 && <> · {t("upcomingActions.inDays", { count: item.daysFromToday ?? 0 })}</>}</p>}
           {item.estimatedReceiptOn && <p className="text-sm text-muted-foreground">{t("upcomingActions.receiptEstimate", { date: item.estimatedReceiptOn })} · {t(`upcomingActions.basis.${item.receiptBasis}`, { defaultValue: t("upcomingActions.basis.unknown") })}</p>}
+          {item.phase === "receipt_due" && <p className="text-sm text-muted-foreground">{t("upcomingActions.receiptNotActual")}</p>}
           {item.referenceOn && <p className="text-sm text-muted-foreground">{t("upcomingActions.reference", { date: item.referenceOn })}</p>}
           <p className="text-sm tabular-nums">{t(`upcomingActions.amountRole.${item.amountRole}`, { defaultValue: t("upcomingActions.amountRole.unknown") })}: {formatKnownOrUnknown(item.amount, t("upcomingActions.unknownAmount"))}</p>
           {item.requestedReserve && <p className="text-sm tabular-nums">{t("upcomingActions.requested")}: {formatKnownOrUnknown(item.requestedReserve, t("upcomingActions.unknownAmount"))}</p>}
@@ -24,7 +27,10 @@ export function UpcomingActionList({ items, context }: { items: UpcomingActionDT
           {(item.reasonCodes ?? []).map(reason => <p key={reason} className="text-sm text-warning-foreground">{t(`upcomingActions.reasons.${reason}`, { defaultValue: t("upcomingActions.reasons.unsupported_source") })}</p>)}
           {(item.assumptions ?? []).includes("weekdays_no_holidays") && <p className="text-sm text-muted-foreground">{t("upcomingActions.weekdays")}</p>}
         </div>
-        {target && navigation && <Button id={`${context}-${item.id}`} type="button" variant="outline" size="sm" onClick={() => navigation.open(target)} aria-label={`${upcomingButton(t, item.primaryTarget, item.phase)} · ${item.displayName}`}>{upcomingButton(t, item.primaryTarget, item.phase)}</Button>}
+        {navigation && <div className="flex flex-wrap gap-2">{targets.map((target, index) => {
+          const destination = upcomingNavigation(target, target.kind === "product" ? item.phase : undefined);
+          return destination && <Button key={`${target.kind}-${index}`} id={`${context}-${item.id}-${index}`} type="button" variant="outline" size="sm" onClick={() => navigation.open(destination)} aria-label={`${upcomingButton(t, target, target.kind === "product" ? item.phase : undefined)} · ${item.displayName}`}>{upcomingButton(t, target, target.kind === "product" ? item.phase : undefined)}</Button>;
+        })}</div>}
       </li>;
     })}
   </ul>;

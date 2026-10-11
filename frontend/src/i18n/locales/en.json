@@ -444,9 +444,23 @@
     "type": "Change type",
     "undo": "Undo",
     "repeatAction": "Repeat as new draft",
-    "repeatDescription": "Start a new income or expense record. Review the account, amount and time, then preview and confirm. Nothing is posted when you open this draft.",
+    "repeatSourceActivity": "Source activity",
+    "repeatDescription": "Start a new ordinary cash record. Review the account, currency, amount, reason and time before confirming. Opening a draft does not post it.",
     "effectiveAt": "Effective time",
-    "repeatUnavailable": "Choose an available account and a supported currency before previewing."
+    "repeatUnavailable": "Choose an available account and a supported currency before previewing.",
+    "repeatAccountUnavailable": "The original account is unavailable. Choose an active account before previewing.",
+    "repeatCurrencyUnavailable": "{{currency}} is unavailable. Choose a supported currency before previewing.",
+    "repeatRetryConfirm": "Retry same confirmation",
+    "repeatRetryHelp": "Retry this retained confirmation first if the outcome is uncertain. Creating a fresh preview would be a new operation; check History before doing that.",
+    "repeatReason": {
+      "reversed": "This activity was undone. Repeat is unavailable.",
+      "corrected": "This activity is a correction or reversal. Open its replacement in History instead.",
+      "product": "Product lifecycle activity uses its product detail, not Repeat.",
+      "specialized": "Dividend and trade activity uses its dedicated workflow, not Repeat.",
+      "holding_attribution": "Holding-linked cash attribution cannot be repeated as ordinary cash.",
+      "not_single_account": "Repeat needs one ordinary account cash effect.",
+      "unsupported_reason": "Repeat is available for ordinary single-account income or spending, including interest, fees and tax; use this activity's dedicated workflow otherwise."
+    }
   },
   "icons": {
     "account": "Account",

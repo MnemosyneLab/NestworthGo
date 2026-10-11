@@ -293,6 +293,11 @@ func (r ChangeCommandRequest) ToCommand(householdID domain.HouseholdID, originTi
 		if r.UnitCost != "" {
 			parsed, err := domain.ParseUnitPrice(r.UnitCost)
 			if err != nil {
+				if fieldError, ok := err.(*domain.Error); ok {
+					copy := *fieldError
+					copy.Field = "unitCost"
+					return nil, &copy
+				}
 				return nil, err
 			}
 			unitCost = &parsed

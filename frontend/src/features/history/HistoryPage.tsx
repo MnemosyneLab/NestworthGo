@@ -320,6 +320,7 @@ function Timeline({ navigationFilters }: { navigationFilters?: HistoryNavigation
         originalActivity={originalActivity.data}
         originalActivityLoading={originalActivity.isLoading}
         onClose={() => setDetailTarget(null)}
+        onRepeat={() => { if (detailTarget?.repeatEligible && activityToRepeatDraft(detailTarget)) { setRepeatTarget(detailTarget); setDetailTarget(null); } }}
         t={t}
       />
     </div>

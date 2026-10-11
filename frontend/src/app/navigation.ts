@@ -64,6 +64,7 @@ export interface AccountListFocus {
 
 export type LiquidityFocus =
   | { kind: "product"; productId: string }
+  | { kind: "receipt"; productId: string }
   | { kind: "policy"; sourceRef: SourceRefDTO }
   | { kind: "reservations"; sourceRef?: SourceRefDTO; reservationId?: string };
 

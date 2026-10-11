@@ -15,7 +15,7 @@ import {
   useRecordProductOperation,
   useReleaseReservation
 } from "@/queries/liquidity";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { SettleProductCommand } from "../../../bindings/github.com/waltwang/nestworth-go/internal/application/models";
 import type { ProductCommandRequest } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/liquidity/models";
@@ -28,15 +28,18 @@ import { useReviewedCommand } from "./useReviewedCommand";
 
 export function ProductDetailSheet({
   productId,
+  receiptRequestId,
   open,
   onOpenChange,
 }: {
   productId: string | null;
+  receiptRequestId?: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const { t } = useTranslation();
   const detail = useProduct(productId ?? "", Boolean(productId) && open);
+  const refetchDetail = detail.refetch;
   const history = useHistoryOrigin();
   const [localTime, setLocalTime] = useState<ProductLocalTime>({});
   const operations = useProductOperations(productId ?? "", Boolean(productId) && open);
@@ -53,6 +56,10 @@ export function ProductDetailSheet({
   const [paidThrough, setPaidThrough] = useState("");
   const [remainingInterest, setRemainingInterest] = useState("");
   const [error, setError] = useState<string>();
+  const [receiptMessage, setReceiptMessage] = useState<string>();
+  const [receiptLoadError, setReceiptLoadError] = useState(false);
+  const [receiptRetry, setReceiptRetry] = useState(0);
+  const handledReceiptRequests = useRef(new Set<string>());
   const product = detail.data?.product;
   const today = history.data?.timezone ? localDateTimeInTimeZone(history.data.timezone)?.date : undefined;
   const paidThroughMax = [today, product?.maturityOn].filter((date): date is string => Boolean(date)).sort()[0];
@@ -86,7 +93,7 @@ export function ProductDetailSheet({
     return null;
   }, [action, amount, fee, interest, localTime, paidThrough, product, releaseIds, remainingInterest, undoTarget]);
   const { reviewed, setReviewed } = useReviewedCommand(command);
-  function beginAction(next: typeof action) {
+  const beginAction = useCallback((next: typeof action) => {
     setAction(next);
     setReviewed(null);
     setError(undefined);
@@ -96,7 +103,40 @@ export function ProductDetailSheet({
     setLocalTime({});
     setPaidThrough("");
     setRemainingInterest("");
-  }
+  }, [product, setReviewed]);
+  useEffect(() => {
+    const requestKey = `${receiptRequestId}:${receiptRetry}`;
+    const handled = handledReceiptRequests.current;
+    if (!open || !productId || receiptRequestId === undefined || handled.has(requestKey)) return;
+    let cancelled = false;
+    let finished = false;
+    handled.add(requestKey);
+    void refetchDetail().then(result => {
+      if (cancelled) return;
+      finished = true;
+      if (result.isError) {
+        setReceiptLoadError(true);
+        setReceiptMessage(t("availableFunds.loadError"));
+      } else if (result.data?.product?.displayState === "due_unconfirmed" && result.data.permittedActions?.includes("settle")) {
+        setReceiptLoadError(false);
+        setAction("settle");
+        setReviewed(null);
+        setError(undefined);
+        setAmount(result.data.product.principal.amount);
+        setInterest("0");
+        setFee("0");
+        setLocalTime({});
+        setPaidThrough("");
+        setRemainingInterest("");
+        setReceiptMessage(undefined);
+      } else {
+        setReceiptLoadError(false);
+        setReceiptMessage(t("upcomingActions.stateChanged"));
+      }
+    });
+    return () => { cancelled = true; if (!finished) handled.delete(requestKey); };
+  // The request ID is the one-shot navigation intent; refetch after each new intent.
+  }, [receiptRequestId, receiptRetry, open, productId, refetchDetail, setReviewed, t]);
   if (!productId) {
     return null;
   }
@@ -109,6 +149,8 @@ export function ProductDetailSheet({
         </SheetHeader>
         {detail.isLoading && <p>{t("ui.state.loadingPage")}</p>}
         {detail.isError && <p role="alert">{t("availableFunds.loadError")}</p>}
+        {receiptMessage && <p role="status">{receiptMessage}</p>}
+        {receiptLoadError && <Button type="button" variant="outline" onClick={() => setReceiptRetry(value => value + 1)}>{t("common.retryAction")}</Button>}
         {product && (
           <div className="flex flex-col gap-3 text-sm">
             <div className="rounded-lg border border-border bg-muted/20 p-4">

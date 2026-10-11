@@ -1,8 +1,9 @@
 import { productActivityText } from "./productActivityText";
 import { displayEnum } from "@/lib/display";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, formatAuditMoney } from "@/lib/money";
 import { formatTimestamp } from "@/lib/time";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { activitySentence } from "@/features/history/activitySentence";
 import type { ActivityDTO, ActivityEffectDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
@@ -15,7 +16,7 @@ const SPECIALIZED_KINDS = new Set([
 ]);
 
 function moneyText(amount?: string, currency?: string): string {
-  return amount ? formatAmount(amount, currency) : "";
+  return amount ? (currency ? formatAuditMoney(amount, currency) : formatAmount(amount)) : "";
 }
 
 function effectLine(
@@ -55,7 +56,7 @@ function holdingName(t: Translator, effect: ActivityEffectDTO | undefined, holdi
 }
 
 function ActivityDetailBody({
-  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings, t,
+  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings, onRepeat, t,
 }: {
   activity: ActivityDTO;
   originalActivity?: ActivityDTO;
@@ -64,6 +65,7 @@ function ActivityDetailBody({
   accounts: Map<string, string>;
   instruments: Map<string, string>;
   holdings: Map<string, string>;
+  onRepeat?: () => void;
   t: Translator;
 }) {
   const sentence = activitySentence(t, activity, accounts, instruments, holdings);
@@ -101,7 +103,7 @@ function ActivityDetailBody({
           <p>{t("history.detailInstrument")}: {(detail?.instrumentId ? instruments.get(detail.instrumentId) : undefined) ?? t("history.unknownInstrument")}</p>
           <p>{t("history.detailSide")}: {displayEnum(t, "history", detail?.side ?? activity.kind)}</p>
           {detail?.quantity && <p>{t("history.detailQuantity")}: {formatAmount(detail.quantity)}</p>}
-          {detail?.unitPrice && <p>{t("history.detailUnitPrice")}: {formatAmount(detail.unitPrice, detail.gross?.currency)}</p>}
+          {detail?.unitPrice && <p>{t("history.detailUnitPrice")}: {detail.gross?.currency ? formatAuditMoney(detail.unitPrice, detail.gross.currency) : formatAmount(detail.unitPrice)}</p>}
           {detail?.gross && <p>{t("history.detailGross")}: {moneyText(detail.gross.amount, detail.gross.currency)}</p>}
           {detail?.fee && <p>{t("history.fee")}: {moneyText(detail.fee.amount, detail.fee.currency)}</p>}
         </div>
@@ -186,6 +188,7 @@ function ActivityDetailBody({
         </ul>
       )}
       {activity.note && <p><span className="text-muted-foreground">{t("history.detailNote")}</span><span className="ml-2">{activity.note}</span></p>}
+      {onRepeat && <div>{activity.repeatEligible ? <Button type="button" variant="outline" onClick={onRepeat}>{t("history.repeatAction")}</Button> : <p className="text-sm text-muted-foreground">{t(`history.repeatReason.${activity.repeatIneligibleReason || "unsupported_reason"}`)}</p>}</div>}
       <div className="flex flex-wrap gap-2">
         {activity.reversesActivityId && <Badge variant="secondary">{t("history.reversal")}</Badge>}
         {activity.correctionGroupId && !activity.reversesActivityId && <Badge variant="secondary">{t("history.corrected")}</Badge>}
@@ -195,7 +198,7 @@ function ActivityDetailBody({
 }
 
 export function ActivityDetailSheet({
-  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings = new Map(), onClose, t,
+  activity, originalActivity, originalActivityLoading, timezone, accounts, instruments, holdings = new Map(), onClose, onRepeat, t,
 }: {
   activity: ActivityDTO | null;
   originalActivity?: ActivityDTO;
@@ -205,6 +208,7 @@ export function ActivityDetailSheet({
   instruments: Map<string, string>;
   holdings?: Map<string, string>;
   onClose: () => void;
+  onRepeat?: () => void;
   t: Translator;
 }) {
   return (
@@ -212,7 +216,7 @@ export function ActivityDetailSheet({
       <SheetContent size="lg">
         <SheetHeader><SheetTitle>{t("common.details")}</SheetTitle></SheetHeader>
         <div>
-          {activity && <ActivityDetailBody activity={activity} originalActivity={originalActivity} originalActivityLoading={originalActivityLoading} timezone={timezone} accounts={accounts} instruments={instruments} holdings={holdings} t={t} />}
+          {activity && <ActivityDetailBody activity={activity} originalActivity={originalActivity} originalActivityLoading={originalActivityLoading} timezone={timezone} accounts={accounts} instruments={instruments} holdings={holdings} onRepeat={onRepeat} t={t} />}
         </div>
       </SheetContent>
     </Sheet>

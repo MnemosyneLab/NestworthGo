@@ -14,7 +14,7 @@
 export type ErrorCodeCatalog = Record<string, string>;
 
 export const errorCodesEn: ErrorCodeCatalog = {
-  validation: "This value is not valid.",
+  validation: "Check this field and try again.",
   not_found: "This could not be found.",
   conflict: "This could not be completed because of a conflict.",
   unsupported_database: "This database format is not supported.",
@@ -67,7 +67,7 @@ export const errorCodesEn: ErrorCodeCatalog = {
 };
 
 export const errorCodesZhCN: ErrorCodeCatalog = {
-  validation: "该值无效。",
+  validation: "请检查此字段后重试。",
   not_found: "未找到。",
   conflict: "因存在冲突，操作未能完成。",
   unsupported_database: "不支持此数据库格式。",
@@ -120,7 +120,7 @@ export const errorCodesZhCN: ErrorCodeCatalog = {
 };
 
 export const errorCodesZhTW: ErrorCodeCatalog = {
-  validation: "此數值無效。",
+  validation: "請檢查此欄位後重試。",
   not_found: "找不到。",
   conflict: "因存在衝突，操作未能完成。",
   unsupported_database: "不支援此資料庫格式。",

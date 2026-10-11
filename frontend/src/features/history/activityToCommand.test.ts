@@ -102,8 +102,14 @@ describe("ordinary Repeat allowlist", () => {
     expect(activityToRepeatDraft(ordinary)).toEqual({ kind: "money_added", accountId: "acc", amount: "100", currency: "USD", reason: "income", note: "Salary", added: true });
     expect(activityToRepeatDraft({ ...ordinary, kind: "cash_out", reason: "expense" })?.kind).toBe("money_removed");
   });
+  it.each([
+    ["cash_in", "income"], ["cash_in", "interest"], ["cash_in", "contribution"], ["cash_in", "gift"], ["cash_in", "other"],
+    ["cash_out", "expense"], ["cash_out", "fee"], ["cash_out", "tax"], ["cash_out", "interest"], ["cash_out", "other"],
+  ])("allows ordinary %s / %s without changing its classification", (kind, reason) => {
+    expect(activityToRepeatDraft({ ...ordinary, kind, reason })).toMatchObject({ reason, amount: "100", currency: "USD" });
+  });
   it.each(["cash_dividend", "cash_transfer", "fx_conversion", "position_transfer", "buy", "sell", "value_update", "debt_draw", "debt_payment", "cost_adjustment", "reversal"])("rejects %s", (kind) => { expect(activityToRepeatDraft({ ...ordinary, kind })).toBeNull(); });
   it("rejects reconciliation, correction, reversal, products and malformed effects", () => {
-    for (const activity of [{ ...ordinary, reason: "reconciliation" }, { ...ordinary, correctionGroupId: "group" }, { ...ordinary, reversesActivityId: "original" }, { ...ordinary, productContext: { productId: "product" } }, { ...ordinary, effects: [] }]) expect(activityToRepeatDraft(activity as ActivityDTO)).toBeNull();
+    for (const activity of [{ ...ordinary, reason: "reconciliation" }, { ...ordinary, correctionGroupId: "group" }, { ...ordinary, reversesActivityId: "original" }, { ...ordinary, productContext: { productId: "product" } }, { ...ordinary, dividendDetail: { holdingId: "h" } }, { ...ordinary, tradeDetail: { holdingId: "h" } }, { ...ordinary, effects: [{ accountId: "acc", holdingId: "h", money: { amount: "10", currency: "USD" } }] }, { ...ordinary, effects: [] }]) expect(activityToRepeatDraft(activity as ActivityDTO)).toBeNull();
   });
 });

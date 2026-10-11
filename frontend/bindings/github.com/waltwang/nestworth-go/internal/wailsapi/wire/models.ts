@@ -98,6 +98,8 @@ export interface ActivityCursorDTO {
  * ActivityDTO mirrors domain.Activity.
  */
 export interface ActivityDTO {
+    "repeatEligible": boolean;
+    "repeatIneligibleReason": string;
     "id": string;
     "householdId": string;
     "kind": string;

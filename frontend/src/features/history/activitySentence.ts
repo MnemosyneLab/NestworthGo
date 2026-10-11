@@ -1,6 +1,6 @@
 import { productActivityText } from "./productActivityText";
 import { displayEnum } from "@/lib/display";
-import { formatAmount } from "@/lib/money";
+import { formatAmount, formatAuditMoney } from "@/lib/money";
 import type { ActivityDTO, ActivityEffectDTO, EndpointViewDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
 
 type ActivityWithResulting = ActivityDTO & { resulting?: EndpointViewDTO[] | null };
@@ -10,7 +10,7 @@ function activityResultingAmount(activity: ActivityWithResulting): string {
   if (!endpoint?.amount) {
     return "";
   }
-  return formatAmount(endpoint.amount, endpoint.currency);
+  return endpoint.currency ? formatAuditMoney(endpoint.amount, endpoint.currency) : formatAmount(endpoint.amount);
 }
 
 type Translator = (key: string, options?: Record<string, unknown>) => string;
@@ -19,7 +19,7 @@ function moneyLabel(effect: ActivityEffectDTO | undefined): string {
   if (!effect?.money) {
     return "";
   }
-  return formatAmount(effect.money.amount, effect.money.currency);
+  return formatAuditMoney(effect.money.amount, effect.money.currency);
 }
 
 function byRole(effects: ActivityEffectDTO[], role: string): ActivityEffectDTO | undefined {
@@ -61,7 +61,7 @@ export function activitySentence(
 
 function feeLabel(activity: ActivityDTO, effects: ActivityEffectDTO[]): string {
   if ((activity.kind === "buy" || activity.kind === "sell") && activity.tradeDetail?.fee) {
-    return formatAmount(activity.tradeDetail.fee.amount, activity.tradeDetail.fee.currency);
+    return formatAuditMoney(activity.tradeDetail.fee.amount, activity.tradeDetail.fee.currency);
   }
   if (activity.kind === "fx_conversion" || activity.kind === "debt_payment" || activity.kind === "cash_transfer") {
     return moneyLabel(byRole(effects, "fee"));
@@ -93,7 +93,7 @@ function coreSentence(
     }
     case "cash_dividend": {
       const detail = activity.dividendDetail;
-      const amount = detail?.amount ? formatAmount(detail.amount.amount, detail.amount.currency) : moneyLabel(firstMoney);
+      const amount = detail?.amount ? formatAuditMoney(detail.amount.amount, detail.amount.currency) : moneyLabel(firstMoney);
       if (!amount) {
         return displayEnum(t, "history.kind", activity.kind);
       }
@@ -147,7 +147,8 @@ function coreSentence(
       }
       const canonical = firstMoney?.money?.amount ?? "";
       const increased = !canonical.startsWith("-");
-      const delta = formatAmount(canonical.startsWith("-") ? canonical.slice(1) : canonical, firstMoney?.money?.currency);
+      const magnitude = canonical.startsWith("-") ? canonical.slice(1) : canonical;
+      const delta = firstMoney?.money?.currency ? formatAuditMoney(magnitude, firstMoney.money.currency) : formatAmount(magnitude);
       const key = increased ? "history.sentence.updatedValueIncreased" : "history.sentence.updatedValueDecreased";
       return t(key, { delta, account: accountName(firstMoney) });
     }
@@ -155,7 +156,7 @@ function coreSentence(
     case "sell": {
       const detail = activity.tradeDetail;
       const principal = byRole(effects, "principal");
-      const amount = detail?.gross ? formatAmount(detail.gross.amount, detail.gross.currency) : moneyLabel(principal);
+      const amount = detail?.gross ? formatAuditMoney(detail.gross.amount, detail.gross.currency) : moneyLabel(principal);
       const quantity = detail?.quantity ? formatAmount(detail.quantity) : "";
       const instrument = instrumentName(detail?.instrumentId ?? principal?.instrumentId);
       const account = accountName(principal ?? effects.find((effect) => effect.accountId));

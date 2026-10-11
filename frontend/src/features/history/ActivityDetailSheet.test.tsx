@@ -9,6 +9,14 @@ function t(key: string, options?: Record<string, unknown>) {
 }
 
 describe("ActivityDetailSheet", () => {
+  it("explains an ineligible Repeat source and shows exact cash audit precision", async () => {
+    await i18n.changeLanguage("en");
+    const activity = { id: "old", kind: "cash_out", reason: "tax", repeatEligible: false, repeatIneligibleReason: "reversed", effectiveAt: "2026-01-15T12:00:00Z", effects: [{ accountId: "acc-1", money: { amount: "0.0001", currency: "KRW" } }] } as unknown as ActivityDTO;
+    render(<ActivityDetailSheet activity={activity} timezone="UTC" accounts={new Map([["acc-1", "Checking"]])} instruments={new Map()} onClose={() => undefined} onRepeat={() => undefined} t={t} />);
+    expect(await screen.findByText(/This activity was undone/)).toBeInTheDocument();
+    expect(screen.getAllByText(/0.0001 KRW/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Repeat as new draft" })).not.toBeInTheDocument();
+  });
   it("renders cash dividend account, instrument, and amount", async () => {
     const activity = {
       id: "div-1",

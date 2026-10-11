@@ -1,5 +1,5 @@
 import type { ActivityDTO } from "../../../bindings/github.com/waltwang/nestworth-go/internal/wailsapi/wire/models";
-import { formatAmount } from "@/lib/money";
+import { formatAuditMoney } from "@/lib/money";
 
 type Translator = (key: string, options?: Record<string, unknown>) => string;
 
@@ -23,7 +23,7 @@ export function productActivityText(t: Translator, activity: ActivityDTO, accoun
   const cash = effects.find((effect) => effect.money);
   const accountId = (principal ?? cash ?? effects.find((effect) => effect.accountId))?.accountId;
   const money = context.purpose === "interest" ? cash?.money : activity.tradeDetail?.gross ?? principal?.money;
-  const amount = money ? formatAmount(money.amount, money.currency) : t("availableFunds.unknownAmount");
+  const amount = money ? formatAuditMoney(money.amount, money.currency) : t("availableFunds.unknownAmount");
   const instrument = instruments.get(context.instrumentId) ?? t("history.unknownInstrument");
   const account = (accountId && accounts.get(accountId)) || t("history.unknownAccount");
   return {

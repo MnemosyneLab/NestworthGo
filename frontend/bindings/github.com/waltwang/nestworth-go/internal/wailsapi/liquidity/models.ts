@@ -320,6 +320,7 @@ export interface UpcomingActionDTO {
     "reasonCodes": string[] | null;
     "assumptions": string[] | null;
     "primaryTarget": UpcomingTargetDTO;
+    "targets": UpcomingTargetDTO[] | null;
     "daysFromToday": number | null;
     "policyRevision": number;
 }
@@ -341,6 +342,7 @@ export interface UpcomingActionsDTO {
 
 export interface UpcomingCountsDTO {
     "total": number;
+    "attention": number;
     "receiptDue": number;
     "reservationIssues": number;
     "scheduled": number;
@@ -360,6 +362,7 @@ export interface UpcomingDataCheckDTO {
     "anchorOn": string | null;
     "coverageStatus": string;
     "target": UpcomingTargetDTO;
+    "targets": UpcomingTargetDTO[] | null;
     "referenceOn": string | null;
 }
 

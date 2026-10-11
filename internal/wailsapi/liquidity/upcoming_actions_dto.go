@@ -24,6 +24,7 @@ type UpcomingActionsDTO struct {
 }
 type UpcomingCountsDTO struct {
 	Total             int `json:"total"`
+	Attention         int `json:"attention"`
 	ReceiptDue        int `json:"receiptDue"`
 	ReservationIssues int `json:"reservationIssues"`
 	Scheduled         int `json:"scheduled"`
@@ -38,52 +39,54 @@ type UpcomingTargetDTO struct {
 	ReservationID *string       `json:"reservationId"`
 }
 type UpcomingActionDTO struct {
-	ID                 string            `json:"id"`
-	OccurrenceKey      string            `json:"occurrenceKey"`
-	Kind               string            `json:"kind"`
-	Phase              string            `json:"phase"`
-	Group              string            `json:"group"`
-	Priority           int               `json:"priority"`
-	SortOn             *string           `json:"sortOn"`
-	AccountID          string            `json:"accountId"`
-	AccountName        *string           `json:"accountName"`
-	ProductID          *string           `json:"productId"`
-	ProductKind        *string           `json:"productKind"`
-	SourceKey          *string           `json:"sourceKey"`
-	SourceRef          *SourceRefDTO     `json:"sourceRef"`
-	ReservationIDs     []string          `json:"reservationIds"`
-	ReservationLabels  []string          `json:"reservationLabels"`
-	DisplayName        string            `json:"displayName"`
-	AnchorKind         string            `json:"anchorKind"`
-	AnchorOn           *string           `json:"anchorOn"`
-	MaturityOn         *string           `json:"maturityOn"`
-	EligibilityOn      *string           `json:"eligibilityOn"`
-	EstimatedReceiptOn *string           `json:"estimatedReceiptOn"`
-	ReceiptBasis       string            `json:"receiptBasis"`
-	ReferenceOn        *string           `json:"referenceOn"`
-	Amount             *wire.MoneyView   `json:"amount"`
-	AmountRole         string            `json:"amountRole"`
-	RequestedReserve   *wire.MoneyView   `json:"requestedReserve"`
-	AmountStatus       string            `json:"amountStatus"`
-	CoverageStatus     string            `json:"coverageStatus"`
-	ReasonCodes        []string          `json:"reasonCodes"`
-	Assumptions        []string          `json:"assumptions"`
-	PrimaryTarget      UpcomingTargetDTO `json:"primaryTarget"`
-	DaysFromToday      *int              `json:"daysFromToday"`
-	PolicyRevision     int               `json:"policyRevision"`
+	ID                 string              `json:"id"`
+	OccurrenceKey      string              `json:"occurrenceKey"`
+	Kind               string              `json:"kind"`
+	Phase              string              `json:"phase"`
+	Group              string              `json:"group"`
+	Priority           int                 `json:"priority"`
+	SortOn             *string             `json:"sortOn"`
+	AccountID          string              `json:"accountId"`
+	AccountName        *string             `json:"accountName"`
+	ProductID          *string             `json:"productId"`
+	ProductKind        *string             `json:"productKind"`
+	SourceKey          *string             `json:"sourceKey"`
+	SourceRef          *SourceRefDTO       `json:"sourceRef"`
+	ReservationIDs     []string            `json:"reservationIds"`
+	ReservationLabels  []string            `json:"reservationLabels"`
+	DisplayName        string              `json:"displayName"`
+	AnchorKind         string              `json:"anchorKind"`
+	AnchorOn           *string             `json:"anchorOn"`
+	MaturityOn         *string             `json:"maturityOn"`
+	EligibilityOn      *string             `json:"eligibilityOn"`
+	EstimatedReceiptOn *string             `json:"estimatedReceiptOn"`
+	ReceiptBasis       string              `json:"receiptBasis"`
+	ReferenceOn        *string             `json:"referenceOn"`
+	Amount             *wire.MoneyView     `json:"amount"`
+	AmountRole         string              `json:"amountRole"`
+	RequestedReserve   *wire.MoneyView     `json:"requestedReserve"`
+	AmountStatus       string              `json:"amountStatus"`
+	CoverageStatus     string              `json:"coverageStatus"`
+	ReasonCodes        []string            `json:"reasonCodes"`
+	Assumptions        []string            `json:"assumptions"`
+	PrimaryTarget      UpcomingTargetDTO   `json:"primaryTarget"`
+	Targets            []UpcomingTargetDTO `json:"targets"`
+	DaysFromToday      *int                `json:"daysFromToday"`
+	PolicyRevision     int                 `json:"policyRevision"`
 }
 type UpcomingDataCheckDTO struct {
-	ID              string            `json:"id"`
-	SourceKey       string            `json:"sourceKey"`
-	Category        string            `json:"category"`
-	ProductID       *string           `json:"productId"`
-	DisplayName     string            `json:"displayName"`
-	ReasonCodes     []string          `json:"reasonCodes"`
-	RelatedActionID *string           `json:"relatedActionId"`
-	AnchorOn        *string           `json:"anchorOn"`
-	CoverageStatus  string            `json:"coverageStatus"`
-	Target          UpcomingTargetDTO `json:"target"`
-	ReferenceOn     *string           `json:"referenceOn"`
+	ID              string              `json:"id"`
+	SourceKey       string              `json:"sourceKey"`
+	Category        string              `json:"category"`
+	ProductID       *string             `json:"productId"`
+	DisplayName     string              `json:"displayName"`
+	ReasonCodes     []string            `json:"reasonCodes"`
+	RelatedActionID *string             `json:"relatedActionId"`
+	AnchorOn        *string             `json:"anchorOn"`
+	CoverageStatus  string              `json:"coverageStatus"`
+	Target          UpcomingTargetDTO   `json:"target"`
+	Targets         []UpcomingTargetDTO `json:"targets"`
+	ReferenceOn     *string             `json:"referenceOn"`
 }
 
 func (s *Service) UpcomingActions(ctx context.Context) (UpcomingActionsDTO, error) {
@@ -110,15 +113,22 @@ func fromUpcomingTarget(t domain.UpcomingTarget) UpcomingTargetDTO {
 	return out
 }
 func upcomingArray(v []string) []string { return append([]string{}, v...) }
+func upcomingTargets(v []domain.UpcomingTarget) []UpcomingTargetDTO {
+	out := make([]UpcomingTargetDTO, 0, len(v))
+	for _, target := range v {
+		out = append(out, fromUpcomingTarget(target))
+	}
+	return out
+}
 func fromUpcomingActions(v domain.UpcomingActions) UpcomingActionsDTO {
 	c := v.Counts
 	out := UpcomingActionsDTO{SchemaVersion: "upcoming-actions/1", AsOf: v.AsOf.UTC().Format(time.RFC3339Nano), LocalDate: v.LocalDate, Timezone: v.Timezone, WindowStartOn: v.WindowStartOn, WindowEndOn: v.WindowEndOn, BaseCurrency: v.BaseCurrency.String(), Completeness: string(v.Completeness),
-		Counts: UpcomingCountsDTO{Total: c.Total, ReceiptDue: c.ReceiptDue, ReservationIssues: c.ReservationIssues, Scheduled: c.Scheduled, Eligible: c.Eligible, DataChecks: c.DataChecks, ScopeNotes: c.ScopeNotes}, Items: []UpcomingActionDTO{}, DataChecks: []UpcomingDataCheckDTO{}, ScopeWarnings: upcomingArray(v.ScopeWarnings)}
+		Counts: UpcomingCountsDTO{Total: c.Total, Attention: c.Attention, ReceiptDue: c.ReceiptDue, ReservationIssues: c.ReservationIssues, Scheduled: c.Scheduled, Eligible: c.Eligible, DataChecks: c.DataChecks, ScopeNotes: c.ScopeNotes}, Items: []UpcomingActionDTO{}, DataChecks: []UpcomingDataCheckDTO{}, ScopeWarnings: upcomingArray(v.ScopeWarnings)}
 	for _, a := range v.Items {
 		key := a.SourceKey
 		item := UpcomingActionDTO{ID: a.ID, OccurrenceKey: a.OccurrenceKey, Kind: a.Kind, Phase: a.Phase, Group: a.Group, Priority: a.Priority, SortOn: a.SortOn, AccountID: a.AccountID.String(), AccountName: a.AccountName, SourceKey: &key,
 			ReservationIDs: upcomingArray(a.ReservationIDs), ReservationLabels: upcomingArray(a.ReservationLabels), DisplayName: a.DisplayName, AnchorKind: a.AnchorKind, AnchorOn: a.AnchorOn, MaturityOn: a.MaturityOn, EligibilityOn: a.EligibilityOn, EstimatedReceiptOn: a.EstimatedReceiptOn, ReceiptBasis: a.ReceiptBasis, ReferenceOn: a.ReferenceOn,
-			Amount: wire.FromMoneyPtr(a.Amount), RequestedReserve: wire.FromMoneyPtr(a.RequestedReserve), AmountRole: a.AmountRole, AmountStatus: a.AmountStatus, CoverageStatus: a.CoverageStatus, ReasonCodes: upcomingArray(a.ReasonCodes), Assumptions: upcomingArray(a.Assumptions), PrimaryTarget: fromUpcomingTarget(a.PrimaryTarget), DaysFromToday: a.DaysFromToday, PolicyRevision: a.PolicyRevision}
+			Amount: wire.FromMoneyPtr(a.Amount), RequestedReserve: wire.FromMoneyPtr(a.RequestedReserve), AmountRole: a.AmountRole, AmountStatus: a.AmountStatus, CoverageStatus: a.CoverageStatus, ReasonCodes: upcomingArray(a.ReasonCodes), Assumptions: upcomingArray(a.Assumptions), PrimaryTarget: fromUpcomingTarget(a.PrimaryTarget), Targets: upcomingTargets(a.Targets), DaysFromToday: a.DaysFromToday, PolicyRevision: a.PolicyRevision}
 		if a.SourceRef != nil {
 			ref := fromSourceRef(*a.SourceRef)
 			item.SourceRef = &ref
@@ -134,7 +144,7 @@ func fromUpcomingActions(v domain.UpcomingActions) UpcomingActionsDTO {
 		out.Items = append(out.Items, item)
 	}
 	for _, c := range v.DataChecks {
-		item := UpcomingDataCheckDTO{ID: c.ID, SourceKey: c.SourceKey, Category: c.Category, DisplayName: c.DisplayName, ReasonCodes: upcomingArray(c.ReasonCodes), RelatedActionID: c.RelatedActionID, AnchorOn: c.AnchorOn, CoverageStatus: c.CoverageStatus, ReferenceOn: c.ReferenceOn, Target: fromUpcomingTarget(c.Target)}
+		item := UpcomingDataCheckDTO{ID: c.ID, SourceKey: c.SourceKey, Category: c.Category, DisplayName: c.DisplayName, ReasonCodes: upcomingArray(c.ReasonCodes), RelatedActionID: c.RelatedActionID, AnchorOn: c.AnchorOn, CoverageStatus: c.CoverageStatus, ReferenceOn: c.ReferenceOn, Target: fromUpcomingTarget(c.Target), Targets: upcomingTargets(c.Targets)}
 		if c.ProductID != nil {
 			id := c.ProductID.String()
 			item.ProductID = &id

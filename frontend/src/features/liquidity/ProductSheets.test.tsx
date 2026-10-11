@@ -56,6 +56,25 @@ beforeEach(() => {
 });
 
 describe("product P1 regression flows", () => {
+  it("opens a permitted receipt draft after a fresh read without posting", async () => {
+    show(<ProductDetailSheet productId="product" receiptRequestId={71} open onOpenChange={vi.fn()} />);
+    expect(await screen.findByLabelText("Returned principal")).toHaveValue("100000");
+    expect(api.Product).toHaveBeenCalled();
+    expect(api.PreviewProductOperation).not.toHaveBeenCalled();
+    expect(api.RecordProductOperation).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByLabelText("Returned principal")).not.toBeInTheDocument();
+    expect(api.RecordProductOperation).not.toHaveBeenCalled();
+  });
+
+  it("does not open a receipt draft when the latest product is no longer due", async () => {
+    api.Product.mockResolvedValue({ product: { ...product(), displayState: "settled", state: "settled" }, reservations: [], permittedActions: [], disabledReasons: {} });
+    show(<ProductDetailSheet productId="product" receiptRequestId={72} open onOpenChange={vi.fn()} />);
+    expect(await screen.findByRole("status")).toHaveTextContent("state has changed");
+    expect(screen.queryByLabelText("Returned principal")).not.toBeInTheDocument();
+    expect(api.RecordProductOperation).not.toHaveBeenCalled();
+  });
+
   it("confirms receipt independently without offering renewal", async () => {
     const user = userEvent.setup();
     show(<ProductDetailSheet productId="product" open onOpenChange={vi.fn()} />);
