@@ -23,12 +23,17 @@ sync, release artifact or user ledger.
   Merged checks retain both terms/rules and reservation navigation targets.
 - Receipt navigation rereads the Overview source and product permission/state,
   then opens a receipt draft only when due and permitted. It does not post.
+  A locked product leaves actual gross proceeds blank; only a term deposit
+  proposes its principal as returned principal. Manual actions, edits,
+  cancellation and closing consume a pending receipt intent so a late Product
+  response cannot overwrite or reopen the user's draft.
   Settlement removes the item, undo restores it, and interest receipt alone
   does not settle it. One-shot request IDs prevent replays on Back; canceled or
   superseded async navigation cannot open a stale target.
 - History sentences, details and account cash history show the exact recorded
   decimal alongside currency rounding when subminor digits are nonzero. This
-  includes signed values and zero-scale JPY/KRW. Reconcile/Add cash focus
+  includes the signed canonical value for negative changes and zero-scale
+  JPY/KRW. Reconcile/Add cash focus
   returns to the trigger, or the account Back control when the trigger is gone.
   Repeat drafts ignore late preview responses after editing or closing.
 
@@ -50,7 +55,7 @@ Run from the feature branch in the saved Cloud workspace with the repository's
 server build tag and `CGO_ENABLED=0` where appropriate:
 
 - `go test -p 1 ./...` — passed across all packages.
-- `pnpm run test --maxWorkers=1` — passed, 90 files / 855 tests. An earlier
+- `pnpm run test --maxWorkers=1` — passed, 90 files / 859 tests. An earlier
   complete run exposed one stale navigation fixture (852 passed, one failed);
   the fixture was corrected and the complete rerun passed.
 - `pnpm run lint`, `pnpm run typecheck`, `pnpm run build`, and

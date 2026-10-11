@@ -70,9 +70,8 @@ function cashChangeLabel(value: AccountCashValueDTO): string {
   if (!value.change) {
     return "—";
   }
-  const negative = value.change.amount.startsWith("-");
-  const unsignedAmount = negative ? value.change.amount.slice(1) : value.change.amount;
-  return `${negative ? "−" : "+"}${formatAuditMoney(unsignedAmount, value.change.currency)}`;
+  const formatted = formatAuditMoney(value.change.amount, value.change.currency);
+  return value.change.amount.startsWith("-") ? formatted.replace(/^-/, "−") : `+${formatted}`;
 }
 
 function holdingRows(

@@ -745,7 +745,7 @@ describe("AccountsPage", () => {
     expect(history.textContent).toContain("−SGD");
     expect(history.textContent).toContain("100.0001 SGD");
     expect(history.textContent).toContain("200.0001 SGD");
-    expect(history.textContent).toContain("0.0001 SGD");
+    expect(history.textContent).toMatch(/−SGD\s*0\.00 \(-0\.0001 SGD\)/);
     expect([...history.querySelectorAll("time")].map((element) => element.dateTime)).toEqual([
       "2026-09-15T03:00:00.000Z",
       "2026-09-15T03:05:00.000Z",

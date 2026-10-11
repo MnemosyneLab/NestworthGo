@@ -67,6 +67,67 @@ describe("product P1 regression flows", () => {
     expect(api.RecordProductOperation).not.toHaveBeenCalled();
   });
 
+  it("leaves locked-product actual proceeds blank when receipt navigation opens a draft", async () => {
+    const locked = { ...product("none"), kind: "locked_product" as const, currentValue: null };
+    api.Product.mockResolvedValue({ product: locked, reservations: [], permittedActions: ["settle"], disabledReasons: {} });
+    show(<ProductDetailSheet productId="product" receiptRequestId={73} open onOpenChange={vi.fn()} />);
+    expect(await screen.findByLabelText("Gross proceeds")).toHaveValue("");
+    expect(api.PreviewProductOperation).not.toHaveBeenCalled();
+    expect(api.RecordProductOperation).not.toHaveBeenCalled();
+  });
+
+  it("keeps a manual interest action when a delayed receipt read resolves", async () => {
+    const client = createTestQueryClient();
+    const current = { product: product(), reservations: [], permittedActions: ["settle", "receive_interest"], disabledReasons: {} };
+    client.setQueryData(["liquidity", "product", "product"], current);
+    let resolveRead!: (value: typeof current) => void;
+    api.Product.mockReturnValue(new Promise(resolve => { resolveRead = resolve; }));
+    render(<QueryClientProvider client={client}><ProductDetailSheet productId="product" receiptRequestId={74} open onOpenChange={vi.fn()} /></QueryClientProvider>);
+    await waitFor(() => expect(api.Product).toHaveBeenCalled());
+    const readsBefore = api.Product.mock.calls.length;
+    await userEvent.click(screen.getByRole("button", { name: "Record interest received" }));
+    expect(screen.getByLabelText("Interest received")).toHaveValue("");
+    await act(async () => resolveRead(current));
+    expect(screen.getByLabelText("Interest received")).toHaveValue("");
+    expect(screen.queryByLabelText("Returned principal")).not.toBeInTheDocument();
+    expect(api.Product).toHaveBeenCalledTimes(readsBefore);
+  });
+
+  it("keeps an edited receipt amount when a delayed read resolves", async () => {
+    const client = createTestQueryClient();
+    const current = { product: product(), reservations: [], permittedActions: ["settle"], disabledReasons: {} };
+    client.setQueryData(["liquidity", "product", "product"], current);
+    let resolveRead!: (value: typeof current) => void;
+    api.Product.mockReturnValue(new Promise(resolve => { resolveRead = resolve; }));
+    render(<QueryClientProvider client={client}><ProductDetailSheet productId="product" receiptRequestId={76} open onOpenChange={vi.fn()} /></QueryClientProvider>);
+    await waitFor(() => expect(api.Product).toHaveBeenCalled());
+    const readsBefore = api.Product.mock.calls.length;
+    await userEvent.click(screen.getByRole("button", { name: "Confirm receipt" }));
+    change("Returned principal", "95000");
+    await act(async () => resolveRead(current));
+    expect(screen.getByLabelText("Returned principal")).toHaveValue("95000");
+    expect(api.Product).toHaveBeenCalledTimes(readsBefore);
+  });
+
+  it("does not reopen a canceled or edited draft after a delayed receipt read", async () => {
+    const client = createTestQueryClient();
+    const current = { product: product(), reservations: [], permittedActions: ["settle"], disabledReasons: {} };
+    client.setQueryData(["liquidity", "product", "product"], current);
+    let resolveRead!: (value: typeof current) => void;
+    api.Product.mockReturnValue(new Promise(resolve => { resolveRead = resolve; }));
+    render(<QueryClientProvider client={client}><ProductDetailSheet productId="product" receiptRequestId={75} open onOpenChange={vi.fn()} /></QueryClientProvider>);
+    await waitFor(() => expect(api.Product).toHaveBeenCalled());
+    const readsBefore = api.Product.mock.calls.length;
+    await userEvent.click(screen.getByRole("button", { name: "Confirm receipt" }));
+    change("Returned principal", "95000");
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByLabelText("Returned principal")).not.toBeInTheDocument();
+    await act(async () => resolveRead(current));
+    expect(screen.queryByLabelText("Returned principal")).not.toBeInTheDocument();
+    expect(api.RecordProductOperation).not.toHaveBeenCalled();
+    expect(api.Product).toHaveBeenCalledTimes(readsBefore);
+  });
+
   it("does not open a receipt draft when the latest product is no longer due", async () => {
     api.Product.mockResolvedValue({ product: { ...product(), displayState: "settled", state: "settled" }, reservations: [], permittedActions: [], disabledReasons: {} });
     show(<ProductDetailSheet productId="product" receiptRequestId={72} open onOpenChange={vi.fn()} />);

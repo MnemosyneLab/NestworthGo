@@ -60,6 +60,7 @@ export function ProductDetailSheet({
   const [receiptLoadError, setReceiptLoadError] = useState(false);
   const [receiptRetry, setReceiptRetry] = useState(0);
   const handledReceiptRequests = useRef(new Set<string>());
+  const receiptIntentEpoch = useRef(0);
   const product = detail.data?.product;
   const today = history.data?.timezone ? localDateTimeInTimeZone(history.data.timezone)?.date : undefined;
   const paidThroughMax = [today, product?.maturityOn].filter((date): date is string => Boolean(date)).sort()[0];
@@ -92,57 +93,56 @@ export function ProductDetailSheet({
     }
     return null;
   }, [action, amount, fee, interest, localTime, paidThrough, product, releaseIds, remainingInterest, undoTarget]);
-  const { reviewed, setReviewed } = useReviewedCommand(command);
-  const beginAction = useCallback((next: typeof action) => {
+  const { reviewed, setReviewed, clearReviewed } = useReviewedCommand(command);
+  const initializeDraft = useCallback((next: typeof action, sourceProduct: typeof product) => {
     setAction(next);
-    setReviewed(null);
+    clearReviewed();
     setError(undefined);
-    setAmount(next === "settle" && product?.kind === "term_deposit" ? product.principal.amount : "");
+    setAmount(next === "settle" && sourceProduct?.kind === "term_deposit" ? sourceProduct.principal.amount : "");
     setInterest("0");
     setFee("0");
     setLocalTime({});
     setPaidThrough("");
     setRemainingInterest("");
-  }, [product, setReviewed]);
+  }, [clearReviewed]);
+  const beginAction = useCallback((next: typeof action) => {
+    receiptIntentEpoch.current += 1;
+    setReceiptLoadError(false);
+    setReceiptMessage(undefined);
+    initializeDraft(next, product);
+  }, [initializeDraft, product]);
   useEffect(() => {
     const requestKey = `${receiptRequestId}:${receiptRetry}`;
     const handled = handledReceiptRequests.current;
     if (!open || !productId || receiptRequestId === undefined || handled.has(requestKey)) return;
     let cancelled = false;
     let finished = false;
+    const epoch = receiptIntentEpoch.current;
     handled.add(requestKey);
     void refetchDetail().then(result => {
-      if (cancelled) return;
+      if (cancelled || epoch !== receiptIntentEpoch.current) return;
       finished = true;
       if (result.isError) {
         setReceiptLoadError(true);
         setReceiptMessage(t("availableFunds.loadError"));
       } else if (result.data?.product?.displayState === "due_unconfirmed" && result.data.permittedActions?.includes("settle")) {
         setReceiptLoadError(false);
-        setAction("settle");
-        setReviewed(null);
-        setError(undefined);
-        setAmount(result.data.product.principal.amount);
-        setInterest("0");
-        setFee("0");
-        setLocalTime({});
-        setPaidThrough("");
-        setRemainingInterest("");
+        initializeDraft("settle", result.data.product);
         setReceiptMessage(undefined);
       } else {
         setReceiptLoadError(false);
         setReceiptMessage(t("upcomingActions.stateChanged"));
       }
     });
-    return () => { cancelled = true; if (!finished) handled.delete(requestKey); };
+    return () => { cancelled = true; if (!finished && epoch === receiptIntentEpoch.current) handled.delete(requestKey); };
   // The request ID is the one-shot navigation intent; refetch after each new intent.
-  }, [receiptRequestId, receiptRetry, open, productId, refetchDetail, setReviewed, t]);
+  }, [receiptRequestId, receiptRetry, open, productId, refetchDetail, initializeDraft, t]);
   if (!productId) {
     return null;
   }
   if (editTerms) return <ProductEditSheet productId={productId} open={open} onOpenChange={(next) => { if (!next) setEditTerms(false); }} />;
   return (
-    <Sheet open={open} onOpenChange={(next) => { if (!isSaving) onOpenChange(next); }}>
+    <Sheet open={open} onOpenChange={(next) => { if (!isSaving) { if (!next) receiptIntentEpoch.current += 1; onOpenChange(next); } }}>
       <SheetContent size="lg" onChangeCapture={() => setReviewed(null)}>
         <SheetHeader>
           <SheetTitle>{product?.name ?? t("availableFunds.products")}</SheetTitle>
