@@ -15,6 +15,11 @@ sync, release artifact or user ledger.
   by History filters or pagination still blocks preview and confirmation.
   Completed confirmations replay the same receipt. An uncertain retained
   confirmation has a distinct retry label; a fresh preview is a new operation.
+  Definite stale/validation refusals clear the retained confirmation and call
+  for a fresh preview. A reversed source disables preview until another source
+  is selected. Holding-attributed fee/tax is identified by its dividend-detail
+  attribution metadata, even though the cash effect has no holding ID, and has
+  a specific ineligibility explanation in every locale.
 - Upcoming main totals satisfy `total = attention + scheduled`. Past blocked
   items count as attention, alongside receipts to verify and reservation
   issues. Eligible items and data checks stay separate. One managed lifecycle
@@ -35,9 +40,10 @@ sync, release artifact or user ledger.
 - History sentences, details and account cash history show the exact recorded
   decimal alongside currency rounding when subminor digits are nonzero. This
   includes the signed canonical value for negative changes, value decreases,
-  and zero-scale JPY/KRW. Reconcile/Add cash focus returns to the trigger, or
-  the account Back control when the trigger is gone. Repeat launched from
-  Details returns focus there, or to the History filter if its row disappears.
+  and zero-scale JPY/KRW. Value-update details show direction even when the
+  rounded amount is an exact currency unit. Reconcile/Add cash focus returns
+  to the trigger, or the account Back control when the trigger is gone. Repeat
+  launched from Details returns focus there, or to the History filter if its row disappears.
   Repeat drafts ignore late preview responses after editing or closing.
 
 ## Automated and manual boundaries
@@ -58,7 +64,7 @@ Run from the feature branch in the saved Cloud workspace with the repository's
 server build tag and `CGO_ENABLED=0` where appropriate:
 
 - `go test -p 1 ./...` — passed across all packages.
-- `pnpm run test --maxWorkers=1` — passed, 90 files / 866 tests. An earlier
+- `pnpm run test --maxWorkers=1` — passed, 90 files / 878 tests. An earlier
   complete run exposed one stale navigation fixture (852 passed, one failed);
   the fixture was corrected and the complete rerun passed.
 - `pnpm run lint`, `pnpm run typecheck`, `pnpm run build`, and

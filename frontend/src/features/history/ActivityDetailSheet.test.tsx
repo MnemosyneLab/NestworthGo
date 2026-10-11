@@ -17,6 +17,28 @@ describe("ActivityDetailSheet", () => {
     expect(screen.getAllByText(/0.0001 KRW/).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Repeat as new draft" })).not.toBeInTheDocument();
   });
+  it.each([
+    ["removed", "0.0001", "-$0.00 (-0.0001 USD)"],
+    ["added", "0.0001", "+$0.00 (+0.0001 USD)"],
+    ["removed", "5", "-$5.00"],
+    ["added", "5", "+$5.00"],
+  ])("shows %s value-update delta %s with its direction", async (direction, amount, expected) => {
+    await i18n.changeLanguage("en");
+    const activity = { id: "value", kind: "value_update", effectiveAt: "2026-01-15T12:00:00Z", effects: [{ accountId: "acc-1", direction, money: { amount, currency: "USD" } }] } as unknown as ActivityDTO;
+    render(<ActivityDetailSheet activity={activity} accounts={new Map([["acc-1", "Checking"]])} instruments={new Map()} onClose={() => undefined} t={t} />);
+    expect(screen.getByText((_, node) => node?.tagName === "P" && node.textContent === `Change: ${expected}`)).toBeInTheDocument();
+  });
+  it.each([
+    ["en", "This fee or tax is attributed to a holding. Review the related holding before recording another change; Repeat is unavailable."],
+    ["zh-CN", "这笔费用或税费归属于持仓。记录另一笔变更前请查看相关持仓；此记录不能重复。"],
+    ["zh-TW", "這筆費用或稅費歸屬於持倉。記錄另一筆變更前請查看相關持倉；此記錄不能重複。"],
+  ])("explains a holding-attributed fee in %s", async (language, explanation) => {
+    await i18n.changeLanguage(language);
+    const activity = { id: "fee", kind: "cash_out", reason: "fee", repeatEligible: false, repeatIneligibleReason: "holding_attribution", effectiveAt: "2026-01-15T12:00:00Z", dividendDetail: { holdingId: "holding" }, effects: [{ accountId: "acc-1", money: { amount: "5", currency: "USD" } }] } as unknown as ActivityDTO;
+    render(<ActivityDetailSheet activity={activity} accounts={new Map([["acc-1", "Checking"]])} instruments={new Map()} onClose={() => undefined} onRepeat={() => undefined} t={t} />);
+    expect(screen.getByText(explanation)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: i18n.t("history.repeatAction") })).not.toBeInTheDocument();
+  });
   it("renders cash dividend account, instrument, and amount", async () => {
     const activity = {
       id: "div-1",

@@ -19,9 +19,11 @@ nothing. Interest retains its existing money classification.
 
 Dividend, holding-linked fee/tax, product, transfer, trade, reconciliation,
 correction, reversal and already undone records cannot be repeated as ordinary
-cash. Details explains when Repeat is unavailable. Eligibility is checked from
-the full ledger, even when the reversing activity is outside your current
-History filter or page, and checked again at preview and confirmation.
+cash. Details explains when Repeat is unavailable; a fee or tax attributed to a
+holding has its own explanation rather than being described as a dividend.
+Eligibility is checked from the full ledger, even when the reversing activity
+is outside your current History filter or page, and checked again at preview
+and confirmation.
 
 **Back to draft** preserves your input. Editing any field requires another
 preview. Closing the sheet discards the draft; reopening starts afresh. If a
@@ -33,3 +35,10 @@ so it can return its original result without another record. If the plan is
 expired or unavailable after an uncertain confirmation, inspect History before
 creating a fresh preview; its confirmation would be a new operation. If the app was
 restarted, inspect History before repeating an operation with an unknown outcome.
+
+When confirmation is definitively rejected, the retained confirmation is
+cleared: review a fresh preview if the source remains eligible. If the source
+was undone or otherwise refused, close the draft and select another activity.
+
+History details show the sign of value increases and decreases, including on
+exact decimal values that round to zero in the currency display.

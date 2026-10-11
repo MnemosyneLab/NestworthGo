@@ -112,4 +112,8 @@ describe("ordinary Repeat allowlist", () => {
   it("rejects reconciliation, correction, reversal, products and malformed effects", () => {
     for (const activity of [{ ...ordinary, reason: "reconciliation" }, { ...ordinary, correctionGroupId: "group" }, { ...ordinary, reversesActivityId: "original" }, { ...ordinary, productContext: { productId: "product" } }, { ...ordinary, dividendDetail: { holdingId: "h" } }, { ...ordinary, tradeDetail: { holdingId: "h" } }, { ...ordinary, effects: [{ accountId: "acc", holdingId: "h", money: { amount: "10", currency: "USD" } }] }, { ...ordinary, effects: [] }]) expect(activityToRepeatDraft(activity as ActivityDTO)).toBeNull();
   });
+  it.each(["fee", "tax"])("keeps holding-attributed %s outside ordinary cash Repeat", reason => {
+    const attributed = { ...ordinary, kind: "cash_out", reason, dividendDetail: { holdingId: "holding" } } as ActivityDTO;
+    expect(activityToRepeatDraft(attributed)).toBeNull();
+  });
 });

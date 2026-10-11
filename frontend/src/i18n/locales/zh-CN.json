@@ -452,12 +452,15 @@
     "repeatCurrencyUnavailable": "{{currency}} 不可用。预览前请选择支持的币种。",
     "repeatRetryConfirm": "重试同一次确认",
     "repeatRetryHelp": "若结果不确定，请先重试保留的这次确认。新预览会创建另一笔操作；请先检查历史记录。",
+    "repeatUncertainEditedHelp": "保留确认的结果仍不确定，而草稿已更改。创建新预览前，请先检查历史记录。",
+    "repeatFreshPreviewHelp": "本次确认已被拒绝，没有记账。若来源仍符合条件，请重新预览。",
+    "repeatSourceRejectedHelp": "这笔来源记录已不能重复。请关闭草稿并选择另一笔符合条件的记录。",
     "repeatReason": {
       "reversed": "此记录已撤销，不能重复。",
       "corrected": "此记录是更正或撤销。请在历史记录中查看替代记录。",
       "product": "产品生命周期记录请在产品详情中处理。",
       "specialized": "分红和交易记录请使用相应的专用流程。",
-      "holding_attribution": "关联持仓的现金归属不能作为普通现金记录重复。",
+      "holding_attribution": "这笔费用或税费归属于持仓。记录另一笔变更前请查看相关持仓；此记录不能重复。",
       "not_single_account": "重复需要一笔单账户的普通现金变动。",
       "unsupported_reason": "普通单账户收入或支出（含利息、费用和税费）才可重复；其他记录请使用其专用流程。"
     }

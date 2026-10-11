@@ -32,6 +32,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { formatAmount, isPositiveCanonical, sameCanonicalDecimal } from "@/lib/money";
 import { displayError } from "@/lib/display";
+import type { WireError } from "@/lib/wails";
 import { instrumentDisplayLabel } from "@/lib/instrumentDisplay";
 import { formatExactTimestamp, formatTimestamp, hasSubMinuteTime, localDateTimeInTimeZone, resolvedTimeZone } from "@/lib/time";
 import { emptyChangeRequest } from "@/features/history/activityToCommand";
@@ -72,6 +73,22 @@ const KIND_ACTIVITY_STYLE: Partial<Record<ChangeCommandKind, string>> = {
   [ChangeCommandKind.ChangeDebtDraw]: "debt_draw",
   [ChangeCommandKind.ChangeDebtPayment]: "debt_payment",
 };
+
+type RepeatConfirmDisposition = "source_refused" | "fresh_preview" | "uncertain";
+const DEFINITE_REPEAT_REFUSALS = new Set([
+  "already_undone", "stale_preview", "validation", "not_found", "conflict",
+  "decimal_overflow", "history_not_started", "history_timezone_required",
+  "invalid_change", "invalid_change_time", "cash_balance_time_conflict",
+  "no_change", "insufficient_balance", "insufficient_quantity",
+  "managed_position_conflict",
+]);
+
+function repeatConfirmDisposition(error: unknown): RepeatConfirmDisposition {
+  const wire = (error as { wireError?: WireError } | null)?.wireError;
+  if (!wire || !DEFINITE_REPEAT_REFUSALS.has(wire.code)) return "uncertain";
+  if (wire.code === "already_undone" || wire.field === "sourceActivityId") return "source_refused";
+  return "fresh_preview";
+}
 
 type NamedOption = { id: string; name: string };
 
@@ -639,7 +656,8 @@ function RecordChangeFormReady({
   // Match domain.ParseUnitPrice without rounding or converting through Number.
   const unitCostInvalid = kind === ChangeCommandKind.ChangePositionAdjustment && request.added &&
     Boolean(request.unitCost) && !/^(0|[1-9][0-9]{0,11})(\.[0-9]{1,8})?$/.test(request.unitCost ?? "");
-  const canPreview = (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? ""))) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
+  const repeatConfirmResult = repeat && repeatConfirm.isError ? repeatConfirmDisposition(repeatConfirm.error) : null;
+  const canPreview = (!repeat || (!accounts.isError && !currencies.isLoading && !currencies.isError && accountOptions.some((account) => account.id === request.accountId) && currencyOptions.includes(request.currency ?? "") && repeatConfirmResult !== "source_refused")) && hasRequiredFields && !unitCostInvalid && !timeError && !creatingInstrument && !accounts.isLoading && !instruments.isLoading && !holdings.isLoading && (!origin.isLoading || Boolean(originOverride)) && !mutationAllowed.isLoading && !mutationAllowed.isError;
 
   const buildRequest = (): ChangeCommandRequest => {
     const sameCurrencyTransfer =
@@ -693,7 +711,7 @@ function RecordChangeFormReady({
     if (repeat) {
       if (!currentReview.planId) return;
       confirmBusy.current = true;
-      repeatConfirm.mutate(currentReview.planId, { onSuccess: () => { if (alive.current) { clearPreview(); onRecorded(); } }, onError: (cause) => { if (alive.current && (cause as Error & { wireError?: { code: string } }).wireError?.code === "stale_preview") clearPreview(); }, onSettled: () => { confirmBusy.current = false; } });
+      repeatConfirm.mutate(currentReview.planId, { onSuccess: () => { if (alive.current) { clearPreview(); onRecorded(); } }, onError: (cause) => { if (alive.current && repeatConfirmDisposition(cause) !== "uncertain") clearPreview(); }, onSettled: () => { confirmBusy.current = false; } });
       return;
     }
     // Confirm the immutable command that produced the visible preview.
@@ -1155,13 +1173,13 @@ function RecordChangeFormReady({
       {repeat && !currencyOptions.includes(request.currency ?? "") && <p role="alert" className="text-sm text-destructive">{t("history.repeatCurrencyUnavailable", { currency: request.currency })}</p>}
       {mutationAllowed.isError && <p role="alert" className="text-sm text-destructive">{t("history.mutationUnavailable")}</p>}
       <FieldError className="text-sm">{error ? displayError(error, t("history.actionError")) : undefined}</FieldError>
-      {repeat && currentReview && repeatConfirm.isError && <p className="text-sm text-muted-foreground">{t("history.repeatRetryHelp")}</p>}
+      {repeat && repeatConfirm.isError && <p className="text-sm text-muted-foreground">{t(repeatConfirmResult === "source_refused" ? "history.repeatSourceRejectedHelp" : repeatConfirmResult === "fresh_preview" ? "history.repeatFreshPreviewHelp" : currentReview ? "history.repeatRetryHelp" : "history.repeatUncertainEditedHelp")}</p>}
 
       {previewResult && <div role="status" className="flex flex-col gap-1 rounded-xl border border-border bg-muted p-3 text-sm"><p className="font-semibold">{t("history.previewTitle")}</p><p className="text-muted-foreground">{t("history.previewDescription")}</p>{previewResult.map((endpoint, index) => <p key={index}>{endpoint.name}: {endpoint.amount ? formatAmount(endpoint.amount, endpoint.currency) : formatAmount(endpoint.quantity ?? "0")}</p>)}</div>}
 
       <div className="flex gap-2">
         {repeat && previewResult && <Button type="button" variant="outline" onClick={clearPreview} disabled={confirmPending}>{t("common.backToDraft")}</Button>}
-        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : repeat && repeatConfirm.isError ? t("history.repeatRetryConfirm") : t("common.confirm")}</Button>}
+        {!previewResult ? <Button type="button" onClick={runPreview} disabled={!canPreview || previewPending}>{previewPending ? t("common.pending") : t("common.preview")}</Button> : <Button type="button" onClick={runConfirm} disabled={confirmPending}>{confirmPending ? t("common.pending") : repeat && repeatConfirmResult === "uncertain" ? t("history.repeatRetryConfirm") : t("common.confirm")}</Button>}
       </div>
       </fieldset>
     </div>

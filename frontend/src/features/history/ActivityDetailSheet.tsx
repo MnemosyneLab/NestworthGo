@@ -19,6 +19,17 @@ function moneyText(amount?: string, currency?: string): string {
   return amount ? (currency ? formatAuditMoney(amount, currency) : formatAmount(amount)) : "";
 }
 
+function valueUpdateDelta(effect?: ActivityEffectDTO): string {
+  if (!effect?.money) return "";
+  const { amount, currency } = effect.money;
+  const magnitude = amount.replace(/^[+-]/, "");
+  const sign = effect.direction === "removed" ? "-" : effect.direction === "added" ? "+" : amount.startsWith("-") ? "-" : "+";
+  const rounded = formatAmount(magnitude, currency);
+  return formatAuditMoney(magnitude, currency) === rounded
+    ? `${sign}${rounded}`
+    : `${sign}${rounded} (${sign}${magnitude} ${currency})`;
+}
+
 function effectLine(
   t: Translator,
   effect: ActivityEffectDTO,
@@ -166,7 +177,7 @@ function ActivityDetailBody({
       {activity.kind === "value_update" && (
         <div className="flex flex-col gap-1.5 rounded-2xl bg-muted/50 p-4">
           <p>{t("history.detailAccount")}: {accountName(t, effects[0], accounts)}</p>
-          {effects[0]?.money && <p>{t("history.detailDelta")}: {moneyText(effects[0].money.amount, effects[0].money.currency)}</p>}
+          {effects[0]?.money && <p>{t("history.detailDelta")}: {valueUpdateDelta(effects[0])}</p>}
           {activity.reason && <p>{t("history.reasonLabel")}: {displayEnum(t, "history.reason", activity.reason)}</p>}
         </div>
       )}

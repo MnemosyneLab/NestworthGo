@@ -40,6 +40,10 @@ func repeatSourceReason(a domain.Activity) string {
 		return "corrected"
 	case a.ProductContext != nil:
 		return "product"
+	// Holding-attributed fee/tax is stored in DividendDetail, while the cash
+	// effect itself has no HoldingID. It is not a cash dividend.
+	case a.Kind == domain.ActivityCashOut && (a.Reason == domain.ReasonFee || a.Reason == domain.ReasonTax) && a.DividendDetail != nil && a.TradeDetail == nil:
+		return "holding_attribution"
 	case a.DividendDetail != nil || a.TradeDetail != nil:
 		return "specialized"
 	case !repeatReasonAllowed(a.Kind, a.Reason):

@@ -93,4 +93,14 @@ func TestRepeatSourceClosedReasonMatrix(t *testing.T) {
 			t.Fatal("specialized source accepted as ordinary cash")
 		}
 	}
+	for _, reason := range []domain.ActivityReason{domain.ReasonFee, domain.ReasonTax} {
+		attributed := domain.Activity{Kind: domain.ActivityCashOut, Reason: reason, DividendDetail: &domain.DividendDetail{HoldingID: holding}, Effects: []domain.ActivityEffect{{AccountID: &account, Money: &money}}}
+		if ordinaryRepeatSource(attributed) || repeatSourceReason(attributed) != "holding_attribution" {
+			t.Fatalf("holding-linked %s reason = %q", reason, repeatSourceReason(attributed))
+		}
+	}
+	dividend := domain.Activity{Kind: domain.ActivityCashDividend, Reason: domain.ReasonIncome, DividendDetail: &domain.DividendDetail{HoldingID: holding}, Effects: []domain.ActivityEffect{{AccountID: &account, Money: &money}}}
+	if repeatSourceReason(dividend) != "specialized" {
+		t.Fatalf("cash dividend reason = %q", repeatSourceReason(dividend))
+	}
 }

@@ -1306,15 +1306,41 @@ it("Repeat opens a fresh editable draft, invalidates edits/back and confirms the
   previewRepeat.mockResolvedValueOnce({ planId: "edited-plan", resulting: [{ name: "Checking", amount: "1100", currency: "USD" }] });
   await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
   const confirm = await within(form).findByRole("button", { name: "Confirm" });
+  const previewsBeforeUncertainConfirm = previewRepeat.mock.calls.length;
   confirmRepeat.mockRejectedValueOnce(new Error("IPC outcome unknown"));
   await userEvent.dblClick(confirm);
   await waitFor(() => expect(confirmRepeat).toHaveBeenCalledTimes(1));
   await within(form).findByRole("alert");
+  expect(previewRepeat).toHaveBeenCalledTimes(previewsBeforeUncertainConfirm);
+  expect(within(form).getByText(/Retry this retained confirmation first/)).toBeInTheDocument();
   await waitFor(() => expect(within(form).getByRole("button", { name: "Retry same confirmation" })).toBeEnabled());
   await userEvent.click(within(form).getByRole("button", { name: "Retry same confirmation" }));
   await waitFor(() => expect(confirmRepeat).toHaveBeenCalledTimes(2));
   expect(confirmRepeat.mock.calls.map(([id]) => id)).toEqual(["edited-plan", "edited-plan"]);
   expect(recordChange).not.toHaveBeenCalled(); expect(fixChange).not.toHaveBeenCalled();
+});
+
+it.each([
+  { code: "already_undone", field: "sourceActivityId", previewDisabled: true, help: /Close this draft and choose another eligible activity/ },
+  { code: "validation", field: "amount", previewDisabled: false, help: /Review a fresh preview if the source is still eligible/ },
+  { code: "stale_preview", field: "previewToken", previewDisabled: false, help: /Review a fresh preview if the source is still eligible/ },
+])("does not offer retained confirmation retry after definite $code refusal", async ({ code, field, previewDisabled, help }) => {
+  historyOrigin.mockResolvedValue({ id: "origin", timezone: "UTC", startedAt: "2026-01-01T00:00:00Z" });
+  listActivities.mockResolvedValue([{ id: "cash", repeatEligible: true, kind: "cash_in", reason: "gift", effectiveLocalDate: "2026-01-01", effects: [{ accountId: "acc-1", money: { amount: "1", currency: "USD" } }] }]);
+  renderPage();
+  await userEvent.click(within(await screen.findByTestId("activity-list")).getByRole("button", { name: "Actions" }));
+  await userEvent.click(await screen.findByRole("menuitem", { name: "Repeat as new draft" }));
+  const form = await screen.findByRole("form", { name: "Record change" });
+  await userEvent.click(within(form).getByRole("button", { name: "Preview" }));
+  const confirm = await within(form).findByRole("button", { name: "Confirm" });
+  confirmRepeat.mockRejectedValueOnce(new Error(JSON.stringify({ code, field, message: "definite refusal" })));
+  await userEvent.click(confirm);
+  await within(form).findByRole("alert");
+  expect(within(form).queryByRole("button", { name: "Retry same confirmation" })).not.toBeInTheDocument();
+  expect(within(form).queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+  expect(within(form).getByText(help)).toBeInTheDocument();
+  expect(within(form).getByRole("button", { name: "Preview" }).hasAttribute("disabled")).toBe(previewDisabled);
+  expect(confirmRepeat).toHaveBeenCalledTimes(1);
 });
 
 it("returns keyboard focus to Repeat's Actions trigger after Escape", async () => {
