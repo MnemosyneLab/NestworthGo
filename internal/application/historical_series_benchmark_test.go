@@ -56,6 +56,14 @@ func TestHistoricalSeriesMemoryEvidence(t *testing.T) {
 }
 
 func seriesBenchmarkFixture(t testing.TB, dense bool) (*Service, *sqlite.DB) {
+	backfills, activities := 0, 0
+	if dense {
+		backfills, activities = 1000, 25000
+	}
+	return seriesHistoryScaleFixture(t, 100, backfills, activities)
+}
+
+func seriesHistoryScaleFixture(t testing.TB, accountCount, backfillsPerInstrument, activityCount int) (*Service, *sqlite.DB) {
 	t.Helper()
 	ctx := context.Background()
 	db, err := sqlite.Open(t.TempDir() + "/series.db")
@@ -87,7 +95,7 @@ func seriesBenchmarkFixture(t testing.TB, dense bool) (*Service, *sqlite.DB) {
 	}
 	accounts := []domain.AccountRecord{}
 	costs := map[domain.HoldingID]string{}
-	for n := 0; n < 100; n++ {
+	for n := 0; n < accountCount; n++ {
 		a, err := s.CreateAccount(ctx, AccountInput{Name: fmt.Sprintf("Synthetic broker %03d", n), AccountType: "brokerage", BalanceSheetRole: "asset", TrackingMode: "holdings", DefaultCurrency: "CNY", IncludeInNetWorth: true, OwnerIDs: []domain.MemberID{owner}})
 		if err != nil {
 			t.Fatal(err)
@@ -107,7 +115,7 @@ func seriesBenchmarkFixture(t testing.TB, dense bool) (*Service, *sqlite.DB) {
 	if _, err := s.StartHistoryWithCosts(ctx, "UTC", costs); err != nil {
 		t.Fatal(err)
 	}
-	if dense {
+	if backfillsPerInstrument > 0 || activityCount > 0 {
 		tx, err := db.SQL.BeginTx(ctx, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -119,7 +127,7 @@ func seriesBenchmarkFixture(t testing.TB, dense bool) (*Service, *sqlite.DB) {
 		}
 		defer quote.Close()
 		for _, i := range instruments {
-			for n := 0; n < 1000; n++ {
+			for n := 0; n < backfillsPerInstrument; n++ {
 				at := now.AddDate(0, 0, n+1).Format(time.RFC3339Nano)
 				if _, err := quote.Exec(domain.NewInstrumentQuoteID().String(), i.ID.String(), at, at); err != nil {
 					t.Fatal(err)
@@ -141,7 +149,7 @@ func seriesBenchmarkFixture(t testing.TB, dense bool) (*Service, *sqlite.DB) {
 			t.Fatal(err)
 		}
 		defer value.Close()
-		for n := 0; n < 25000; n++ {
+		for n := 0; n < activityCount; n++ {
 			id, fx := domain.NewActivityID().String(), domain.NewActivityEffectID().String()
 			at := now.AddDate(0, 0, 1+n%2350).Add(time.Duration(n) * time.Microsecond).Format(time.RFC3339Nano)
 			local := at[:10]

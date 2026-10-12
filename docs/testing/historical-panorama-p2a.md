@@ -226,3 +226,57 @@ the four-times-ID parameter diagnosis; its 5,000-activity GUI pass and native
 date/Back/cancellation results do not substitute for rechecking the retained
 25,000-activity profile on the new head. No model substitution or duplicate
 commit was performed while resuming the existing work.
+
+## CI race timeout and standalone snapshot follow-up
+
+The downloaded run archive for CI `38262656778`, job `114856842991`, confirms
+`panic: test timed out after 10m0s`, package duration 600.054 seconds. At timeout
+the dense entry test had run 9m55s and its comparison subtest 3m9s. The runnable
+stack was in modernc SQLite's instrumented sorter while reading all instrument
+quotes; there was no `WARNING: DATA RACE` or assertion failure in that log.
+Atlas independently reproduced this timeout; the non-race case takes about
+27 seconds. A focused `-short` run had not exercised the failing full shard.
+
+Full normal CI still requires the original 100 accounts / 1,000 leaves / 25,000
+activities / 9,000 quote backfills, both successful overview entry APIs, exact
+rows/totals and 31-point series endpoint equality. Race mode instead uses two
+accounts / 20 leaves / 8,300 activities with the same nine instruments: the old
+four-branch hydration still needs 33,200 variables, exceeding the actual SQLite
+limit and reproducing the loader defect. All single/compare success, complete
+row, exact amount/delta, entry equality, query-only and cancellation assertions
+remain. No test is removed and neither CI nor production deadlines are raised.
+Instrumented series reads must either pass all success/equality checks or return
+only the unchanged ten-second computation-deadline error after ten seconds with
+an empty bundle. Other errors, input-budget rejection and partial results fail.
+The full-scale successful series result remains mandatory without instrumentation.
+
+The first representative full 288-test application 2/2 shard passed in 580.147
+seconds with 1,000 race leaves, too close to the ten-minute limit. Account scale
+was then reduced only for race mode, retaining the variable-limit failure case.
+Final representative shard results are recorded in PR #57.
+
+The final full application 2/2 race shard selected the same 288 of 533 names and
+passed in 438.135 seconds using the CI selector and command, without `-short`
+or a timeout increase. Standalone/hydration race regressions passed separately
+in 5.965 seconds. Local Go uses 1.26.2 versus CI 1.26.0; application package
+selection and race command match CI, with no server-tag difference in that run.
+
+Atlas's standalone `ListActivitiesUntil` concern also reproduced: its multiple
+database reads could combine an activity marker and a derived projection from
+different atomic commits. The public standalone method now owns one read-only
+transaction. Existing batch/transaction callers still use the private queryer
+method with their supplied transaction, avoiding nested database acquisition.
+The hydration helper comment now states that the caller supplies its queryer
+and is responsible for a consistent transaction.
+
+`TestStandaloneActivitiesUntilSnapshotAndTiedOrdering` calls the real public
+method on 257 activities while another WAL connection commits new marker and
+projection versions. It verifies one coherent snapshot and creation/ordering-ID
+ties across the 256-record boundary. The regression failed before the fix,
+then passed three repeated normal runs and race validation. No unrelated
+repository interface or schema/provider changes are introduced.
+
+The final full non-race server-tag Go suite passed (application 70.993 seconds;
+SQLite 5.012 seconds), retaining the original full dense success assertions.
+Focused application/SQLite/API vet passed. Frontend and public DTOs are unchanged;
+frontend validation was not repeated for this test/read-transaction follow-up.
